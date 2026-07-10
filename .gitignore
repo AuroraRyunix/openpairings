@@ -1,0 +1,11 @@
+node_modules/
+server/data/
+client/dist/
+*.log
+.env
+
+# machine-specific Claude Code config (absolute paths)
+.claude/
+
+# JaVaFo binary: not ours to redistribute — see README for the download link
+pairings_engine/priv/javafo/*.jar

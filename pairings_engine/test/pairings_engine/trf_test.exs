@@ -1,0 +1,174 @@
+defmodule PairingsEngine.TrfTest do
+  use ExUnit.Case, async: true
+
+  alias PairingsEngine.Trf
+
+  # Column numbers are 1-indexed inclusive, straight from the FIDE spec.
+  defp col(line, start, stop), do: String.slice(line, start - 1, stop - start + 1)
+
+  defp sample do
+    %{
+      tournament: %{
+        name: "Test Open 2026",
+        city: "Ghent",
+        federation: "BEL",
+        start_date: "2026-07-01",
+        end_date: "2026-07-05",
+        type: "swiss",
+        chief_arbiter: "Jorian Burssens",
+        deputy_arbiters: ["Assistant One"],
+        time_control: "90+30",
+        round_dates: ["2026-07-01", "2026-07-02", "2026-07-03"]
+      },
+      players: [
+        %{
+          rank: 1,
+          sex: "m",
+          title: "GM",
+          name: "Carlsen, Magnus",
+          fide_rating: 2823,
+          federation: "NOR",
+          fide_number: 1_503_014,
+          birth_date: "1990-11-30",
+          points: 2.5,
+          games: [
+            %{opponent_rank: 2, colour: "w", result: "1"},
+            %{opponent_rank: 3, colour: "b", result: "="},
+            %{opponent_rank: nil, colour: nil, result: "U"}
+          ]
+        },
+        %{
+          rank: 2,
+          sex: "w",
+          title: "",
+          name: "Vandekerckhove, Ava",
+          fide_rating: 1674,
+          federation: "BEL",
+          fide_number: 207_918,
+          birth_date: "1990-01-01",
+          points: 0.0,
+          games: [
+            %{opponent_rank: 1, colour: "b", result: "0"},
+            %{opponent_rank: 3, colour: "w", result: "0"},
+            %{opponent_rank: 2, colour: nil, result: "Z"}
+          ]
+        }
+      ]
+    }
+  end
+
+  test "header lines use the code + free-text layout" do
+    lines = sample() |> Trf.serialize() |> String.split("\r\n")
+
+    assert Enum.at(lines, 0) == "012 Test Open 2026"
+    assert Enum.at(lines, 1) == "022 Ghent"
+    assert Enum.at(lines, 2) == "032 BEL"
+    assert Enum.at(lines, 3) == "042 2026/07/01"
+    assert Enum.at(lines, 4) == "052 2026/07/05"
+  end
+
+  test "player line matches the exact FIDE TRF16 column positions" do
+    line =
+      sample()
+      |> Trf.serialize()
+      |> String.split("\r\n")
+      |> Enum.find(&(String.starts_with?(&1, "001") and &1 =~ "Carlsen"))
+
+    assert col(line, 1, 3) == "001"
+    assert col(line, 5, 8) |> String.trim() == "1"
+    assert col(line, 10, 10) == "m"
+    assert col(line, 11, 13) |> String.trim() == "GM"
+    assert col(line, 15, 47) |> String.trim() == "Carlsen, Magnus"
+    assert col(line, 49, 52) |> String.trim() == "2823"
+    assert col(line, 54, 56) == "NOR"
+    assert col(line, 58, 68) |> String.trim() == "1503014"
+    assert col(line, 70, 79) == "1990/11/30"
+    assert col(line, 81, 84) == " 2.5"
+    assert col(line, 86, 89) |> String.trim() == "1"
+
+    # Round 1: opponent 2, colour w, result 1 (win)
+    assert col(line, 92, 95) |> String.trim() == "2"
+    assert col(line, 97, 97) == "w"
+    assert col(line, 99, 99) == "1"
+
+    # Round 2: opponent 3, colour b, result = (draw)
+    assert col(line, 102, 105) |> String.trim() == "3"
+    assert col(line, 107, 107) == "b"
+    assert col(line, 109, 109) == "="
+
+    # Round 3: pairing-allocated bye -> opponent 0000, colour '-', result U
+    assert col(line, 112, 115) == "0000"
+    assert col(line, 117, 117) == "-"
+    assert col(line, 119, 119) == "U"
+  end
+
+  test "round-dates (132) line places YY/MM/DD at the round-block columns" do
+    line =
+      sample()
+      |> Trf.serialize()
+      |> String.split("\r\n")
+      |> Enum.find(&String.starts_with?(&1, "132"))
+
+    assert col(line, 92, 99) == "26/07/01"
+    assert col(line, 102, 109) == "26/07/02"
+    assert col(line, 112, 119) == "26/07/03"
+  end
+
+  test "parse/1 is the inverse of serialize/1 for header + player data" do
+    parsed = sample() |> Trf.serialize() |> Trf.parse()
+
+    assert parsed.tournament[:name] == "Test Open 2026"
+    assert parsed.tournament[:city] == "Ghent"
+    assert parsed.tournament[:federation] == "BEL"
+    assert parsed.tournament[:start_date] == "2026-07-01"
+    assert parsed.tournament[:end_date] == "2026-07-05"
+    assert parsed.tournament.deputy_arbiters == ["Assistant One"]
+    assert parsed.tournament[:time_control] == "90+30"
+    assert parsed.tournament[:round_dates] == ["2026-07-01", "2026-07-02", "2026-07-03"]
+
+    assert length(parsed.players) == 2
+    [magnus | _] = parsed.players
+    assert magnus.rank == 1
+    assert magnus.sex == "m"
+    assert magnus.title == "GM"
+    assert magnus.name == "Carlsen, Magnus"
+    assert magnus.fide_rating == 2823
+    assert magnus.federation == "NOR"
+    assert magnus.fide_number == 1_503_014
+    assert magnus.birth_date == "1990-11-30"
+    assert magnus.points == 2.5
+
+    assert magnus.games == [
+             %{opponent_rank: 2, colour: "w", result: "1"},
+             %{opponent_rank: 3, colour: "b", result: "="},
+             %{opponent_rank: nil, colour: nil, result: "U"}
+           ]
+  end
+
+  test "teams are serialized and parsed with correct player-slot columns" do
+    data = sample() |> Map.put(:teams, [%{name: "KGSRL Gent", player_ranks: [1, 2]}])
+    trf = Trf.serialize(data)
+    line = trf |> String.split("\r\n") |> Enum.find(&String.starts_with?(&1, "013"))
+
+    assert col(line, 1, 3) == "013"
+    assert col(line, 5, 36) |> String.trim() == "KGSRL Gent"
+    assert col(line, 37, 40) |> String.trim() == "1"
+    assert col(line, 42, 45) |> String.trim() == "2"
+
+    parsed = Trf.parse(trf)
+    assert parsed.teams == [%{name: "KGSRL Gent", player_ranks: [1, 2]}]
+  end
+
+  test "a name longer than 33 characters is truncated, not overflowed into the rating field" do
+    data = %{
+      tournament: %{name: "T"},
+      players: [%{rank: 1, name: String.duplicate("A", 50), points: 0.0, games: []}]
+    }
+
+    line =
+      data |> Trf.serialize() |> String.split("\r\n") |> Enum.find(&String.starts_with?(&1, "001"))
+
+    assert col(line, 15, 47) == String.duplicate("A", 33)
+    assert col(line, 48, 48) == " "
+  end
+end

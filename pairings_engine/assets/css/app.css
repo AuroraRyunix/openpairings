@@ -1,0 +1,409 @@
+/* See the Tailwind configuration guide for advanced usage
+   https://tailwindcss.com/docs/configuration */
+
+@import "tailwindcss" source(none);
+@import "phoenix-colocated/pairings_engine/colocated.css";
+@source "../css";
+@source "../js";
+@source "../../lib/pairings_engine_web";
+/* Required for Tailwind to automatically pick up changes in colocated CSS files in dev */
+@source "../../_build/dev/phoenix-colocated/pairings_engine/*/";
+
+/* A Tailwind plugin that makes "hero-#{ICON}" classes available.
+   The heroicons installation itself is managed by your mix.exs */
+@plugin "../vendor/heroicons";
+
+/* daisyUI Tailwind Plugin. */
+@plugin "daisyui/packages/bundle/daisyui" {
+  themes: false;
+}
+
+/* daisyUI theme plugin.
+  We ship with two themes, a light one inspired on Phoenix colors and a dark one inspired
+  on Elixir colors. Build your own at: https://daisyui.com/theme-generator/ */
+@plugin "daisyui/packages/bundle/daisyui-theme" {
+  name: "dark";
+  default: false;
+  prefersdark: true;
+  color-scheme: "dark";
+  --color-base-100: oklch(30.33% 0.016 252.42);
+  --color-base-200: oklch(25.26% 0.014 253.1);
+  --color-base-300: oklch(20.15% 0.012 254.09);
+  --color-base-content: oklch(97.807% 0.029 256.847);
+  --color-primary: oklch(58% 0.233 277.117);
+  --color-primary-content: oklch(96% 0.018 272.314);
+  --color-secondary: oklch(58% 0.233 277.117);
+  --color-secondary-content: oklch(96% 0.018 272.314);
+  --color-accent: oklch(60% 0.25 292.717);
+  --color-accent-content: oklch(96% 0.016 293.756);
+  --color-neutral: oklch(37% 0.044 257.287);
+  --color-neutral-content: oklch(98% 0.003 247.858);
+  --color-info: oklch(58% 0.158 241.966);
+  --color-info-content: oklch(97% 0.013 236.62);
+  --color-success: oklch(60% 0.118 184.704);
+  --color-success-content: oklch(98% 0.014 180.72);
+  --color-warning: oklch(66% 0.179 58.318);
+  --color-warning-content: oklch(98% 0.022 95.277);
+  --color-error: oklch(58% 0.253 17.585);
+  --color-error-content: oklch(96% 0.015 12.422);
+  --radius-selector: 0.25rem;
+  --radius-field: 0.25rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.21875rem;
+  --size-field: 0.21875rem;
+  --border: 1.5px;
+  --depth: 1;
+  --noise: 0;
+}
+
+@plugin "daisyui/packages/bundle/daisyui-theme" {
+  name: "light";
+  default: true;
+  prefersdark: false;
+  color-scheme: "light";
+  --color-base-100: oklch(98% 0 0);
+  --color-base-200: oklch(96% 0.001 286.375);
+  --color-base-300: oklch(92% 0.004 286.32);
+  --color-base-content: oklch(21% 0.006 285.885);
+  --color-primary: oklch(70% 0.213 47.604);
+  --color-primary-content: oklch(98% 0.016 73.684);
+  --color-secondary: oklch(55% 0.027 264.364);
+  --color-secondary-content: oklch(98% 0.002 247.839);
+  --color-accent: oklch(0% 0 0);
+  --color-accent-content: oklch(100% 0 0);
+  --color-neutral: oklch(44% 0.017 285.786);
+  --color-neutral-content: oklch(98% 0 0);
+  --color-info: oklch(62% 0.214 259.815);
+  --color-info-content: oklch(97% 0.014 254.604);
+  --color-success: oklch(70% 0.14 182.503);
+  --color-success-content: oklch(98% 0.014 180.72);
+  --color-warning: oklch(66% 0.179 58.318);
+  --color-warning-content: oklch(98% 0.022 95.277);
+  --color-error: oklch(58% 0.253 17.585);
+  --color-error-content: oklch(96% 0.015 12.422);
+  --radius-selector: 0.25rem;
+  --radius-field: 0.25rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.21875rem;
+  --size-field: 0.21875rem;
+  --border: 1.5px;
+  --depth: 1;
+  --noise: 0;
+}
+
+/* Add variants based on LiveView classes */
+@custom-variant phx-click-loading (.phx-click-loading&, .phx-click-loading &);
+@custom-variant phx-submit-loading (.phx-submit-loading&, .phx-submit-loading &);
+@custom-variant phx-change-loading (.phx-change-loading&, .phx-change-loading &);
+
+/* Use the data attribute for dark mode  */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+/* Make LiveView wrapper divs transparent for layout */
+[data-phx-session], [data-phx-teleported-src] { display: contents }
+
+/* This file is for your main application CSS */
+
+/* ============================================================
+   PairingsEngine design system (function over everything)
+   ============================================================ */
+
+:root {
+  --bg: #f7f6f3;
+  --surface: #ffffff;
+  --border: #e3e1db;
+  --text: #24211c;
+  --text-soft: #6f6a60;
+  --accent: #2e5e44;
+  --accent-hover: #24503a;
+  --accent-soft: #e8f0eb;
+  --danger: #a33c2e;
+  --radius: 8px;
+  --shadow: 0 1px 3px rgba(30, 25, 15, 0.07);
+}
+
+/* The app palette is light-only for now: pin the page background so the
+   daisyUI dark theme (which follows the OS) can never show through below
+   the content. */
+html, html[data-theme="dark"] {
+  background: var(--bg);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* ---------- layout ---------- */
+
+.topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  height: 56px;
+}
+
+.topbar .brand {
+  font-size: 17px;
+  font-weight: 650;
+  color: var(--text);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.topbar nav { display: flex; gap: 4px; }
+
+.topbar nav a {
+  color: var(--text-soft);
+  text-decoration: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: 500;
+}
+.topbar nav a:hover { background: var(--bg); color: var(--text); }
+.topbar nav a.active { background: var(--accent-soft); color: var(--accent); }
+
+.topbar-auth {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.topbar-auth .user-email {
+  color: var(--text-soft);
+  padding: 6px 4px;
+  font-size: 13px;
+}
+
+.page { width: 100%; margin: 0 auto; padding: 28px 32px 64px; }
+
+.page h1 { font-size: 24px; font-weight: 650; margin: 0 0 4px; }
+.page h2 { font-size: 18px; font-weight: 650; }
+.page .subtitle { color: var(--text-soft); margin: 0 0 24px; }
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+/* ---------- cards & tables ---------- */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.card h2 { font-size: 16px; font-weight: 650; margin: 0 0 14px; }
+
+.pe-table { width: 100%; border-collapse: collapse; background: var(--surface); }
+
+.pe-table th {
+  text-align: left;
+  font-size: 12.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-soft);
+  font-weight: 600;
+  padding: 10px 12px;
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+}
+
+.pe-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.pe-table tr:last-child td { border-bottom: none; }
+.pe-table tbody tr:hover { background: #fbfaf8; }
+
+.table-card { padding: 0; overflow: hidden; }
+
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ---------- forms & buttons ---------- */
+
+label.field { display: block; margin-bottom: 14px; }
+
+label.field > span {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-soft);
+  margin-bottom: 4px;
+}
+
+.field input, .field select, input.pe-input, select.pe-select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.field input:focus, .field select:focus, input.pe-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0 20px;
+}
+
+button.pe-btn, .pe-btn {
+  font: inherit;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+}
+.pe-btn:hover { background: var(--bg); }
+
+.pe-btn.primary { background: var(--accent); border-color: var(--accent); color: white; }
+.pe-btn.primary:hover { background: var(--accent-hover); }
+
+.pe-btn.danger-link {
+  border: none;
+  background: none;
+  color: var(--danger);
+  padding: 4px 8px;
+  font-weight: 500;
+}
+.pe-btn.danger-link:hover { text-decoration: underline; background: none; }
+
+.pe-btn:disabled, .pe-btn.disabled { opacity: 0.5; cursor: default; pointer-events: none; }
+
+.actions { display: flex; gap: 10px; margin-top: 8px; }
+
+/* ---------- misc ---------- */
+
+.badge {
+  display: inline-block;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 99px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.badge.muted { background: #eeece7; color: var(--text-soft); }
+
+.empty { text-align: center; color: var(--text-soft); padding: 48px 20px; }
+.empty p { margin: 4px 0; }
+
+.error-note { color: var(--danger); font-weight: 500; }
+.ok-note { color: var(--accent); font-weight: 500; }
+.hint { font-size: 13px; color: var(--text-soft); }
+
+/* FIDE search dropdown */
+.search-wrap { position: relative; }
+.search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(30, 25, 15, 0.12);
+  max-height: 320px;
+  overflow-y: auto;
+}
+.search-results button {
+  display: flex;
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  padding: 9px 12px;
+  gap: 10px;
+  align-items: baseline;
+  font-weight: 500;
+}
+.search-results button:hover { background: var(--bg); }
+.search-results button:last-child { border-bottom: none; }
+.search-results .meta { color: var(--text-soft); font-size: 13px; margin-left: auto; white-space: nowrap; }
+
+/* tiebreak list */
+.tb-list { list-style: none; margin: 0; padding: 0; }
+.tb-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 6px;
+  background: var(--surface);
+}
+.tb-list .tb-order { font-weight: 700; color: var(--text-soft); width: 20px; text-align: right; }
+.tb-list .tb-name { font-weight: 600; }
+.tb-list .tb-desc { color: var(--text-soft); font-size: 13px; }
+.tb-list .tb-buttons { margin-left: auto; display: flex; gap: 4px; }
+.tb-list .tb-buttons .pe-btn { padding: 2px 9px; font-size: 13px; }
+
+/* round picker (Pairings) */
+.round-picker { display: flex; gap: 6px; flex-wrap: wrap; }
+.round-picker .pe-btn { min-width: 40px; padding: 7px 0; text-align: center; font-variant-numeric: tabular-nums; }
+.round-picker .pe-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+
+/* split layout: table + right-hand Display panel (SWAR-style) */
+.split { display: flex; gap: 16px; align-items: flex-start; }
+.split-main { flex: 1; min-width: 0; overflow-x: auto; }
+
+.display-panel { width: 170px; flex-shrink: 0; padding: 14px 16px; }
+.display-panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-soft); }
+.display-panel .check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 14px;
+  cursor: pointer;
+}
+.display-panel .check input { width: auto; accent-color: var(--accent); }
+
+/* Dense SWAR-style grid: many toggleable columns, so keep cells from
+   wrapping — the .split-main wrapper already scrolls horizontally. */
+.pe-table td { white-space: nowrap; }
+
+/* progress bar */
+.progress-block { margin: 12px 0; }
+.progress-track { height: 10px; border-radius: 99px; background: var(--border); overflow: hidden; }
+.progress-fill { height: 100%; background: var(--accent); border-radius: 99px; transition: width 0.4s ease; }
+.progress-fill.indeterminate { width: 30%; animation: pe-slide 1.2s ease-in-out infinite; }
+@keyframes pe-slide {
+  0% { margin-left: 0; }
+  50% { margin-left: 70%; }
+  100% { margin-left: 0; }
+}
