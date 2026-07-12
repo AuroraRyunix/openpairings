@@ -1,0 +1,138 @@
+defmodule PairingsEngineWeb.ExportControllerTest do
+  use PairingsEngineWeb.ConnCase
+
+  alias PairingsEngine.{Repo, Trf}
+  alias PairingsEngine.Tournaments.{Tournament, Player, Round, Pairing}
+
+  setup :register_and_log_in_user
+
+  # 3 players, 2 paired rounds — mirrors PairingsEngine.TrfExportTest's fixture.
+  defp fixture(scope) do
+    {:ok, tournament} =
+      PairingsEngine.Tournaments.create_tournament(scope, %{
+        "name" => "Export Ctrl Test",
+        "type" => "swiss",
+        "rounds_count" => "3"
+      })
+
+    alice = Repo.insert!(%Player{tournament_id: tournament.id, name: "Alice", pairing_number: 1})
+    bob = Repo.insert!(%Player{tournament_id: tournament.id, name: "Bob", pairing_number: 2})
+
+    r1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
+    r2 = Repo.insert!(%Round{tournament_id: tournament.id, number: 2, status: "finished"})
+
+    Repo.insert!(%Pairing{round_id: r1.id, board: 1, white_player_id: alice.id, black_player_id: bob.id, result: "1-0"})
+    Repo.insert!(%Pairing{round_id: r2.id, board: 1, white_player_id: bob.id, black_player_id: alice.id, result: "1/2-1/2"})
+
+    {tournament, %{alice: alice, bob: bob}}
+  end
+
+  ## ---------- GET /t/:id/export/trf ----------
+
+  describe "trf/2" do
+    test "downloads a TRF16 text file with all paired rounds by default", %{conn: conn, scope: scope} do
+      {tournament, _} = fixture(scope)
+
+      conn = get(conn, ~p"/t/#{tournament.id}/export/trf")
+
+      assert response_content_type(conn, :text) =~ "text/plain"
+
+      [disposition] = get_resp_header(conn, "content-disposition")
+      assert disposition =~ "attachment"
+      assert disposition =~ "export-ctrl-test.trf"
+
+      body = response(conn, 200)
+      parsed = Trf.parse(body)
+      assert length(parsed.players) == 2
+      alice = Enum.find(parsed.players, &(String.trim(&1.name) == "Alice"))
+      assert length(alice.games) == 2
+    end
+
+    test "?rounds=1 downloads only round 1's column", %{conn: conn, scope: scope} do
+      {tournament, _} = fixture(scope)
+
+      conn = get(conn, ~p"/t/#{tournament.id}/export/trf?rounds=1")
+
+      parsed = conn |> response(200) |> Trf.parse()
+      alice = Enum.find(parsed.players, &(String.trim(&1.name) == "Alice"))
+      assert length(alice.games) == 1
+      assert hd(alice.games).result == "1"
+    end
+
+    test "an invalid rounds param falls back to every round rather than erroring", %{conn: conn, scope: scope} do
+      {tournament, _} = fixture(scope)
+
+      conn = get(conn, ~p"/t/#{tournament.id}/export/trf?rounds=garbage")
+
+      parsed = conn |> response(200) |> Trf.parse()
+      alice = Enum.find(parsed.players, &(String.trim(&1.name) == "Alice"))
+      assert length(alice.games) == 2
+    end
+
+    test "an inconsistent roster surfaces a clean flash + redirect, not a 500", %{conn: conn, scope: scope} do
+      tournament = Repo.insert!(%Tournament{name: "Corrupt Ctrl", type: "swiss", rounds_count: 1, user_id: scope.user.id})
+
+      a = Repo.insert!(%Player{tournament_id: tournament.id, name: "A", pairing_number: 1})
+      x = Repo.insert!(%Player{tournament_id: tournament.id, name: "X", pairing_number: 2})
+      y = Repo.insert!(%Player{tournament_id: tournament.id, name: "Y", pairing_number: 2})
+
+      round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
+      Repo.insert!(%Pairing{round_id: round.id, board: 1, white_player_id: a.id, black_player_id: x.id, result: "1-0"})
+      Repo.insert!(%Pairing{round_id: round.id, board: 2, white_player_id: a.id, black_player_id: y.id, result: "0-1"})
+
+      conn = get(conn, ~p"/t/#{tournament.id}/export/trf")
+
+      assert redirected_to(conn) == ~p"/t/#{tournament.id}/pairings"
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) =~ "Could not export TRF"
+    end
+
+    test "a tournament belonging to another user 404s", %{conn: conn} do
+      other_scope = PairingsEngine.AccountsFixtures.user_scope_fixture()
+      {tournament, _} = fixture(other_scope)
+
+      assert_error_sent 404, fn -> get(conn, ~p"/t/#{tournament.id}/export/trf") end
+    end
+  end
+
+  ## ---------- GET /t/:id/export/json and /export/tournaments.json ----------
+
+  describe "json/2" do
+    test "downloads a JSON backup of a single tournament", %{conn: conn, scope: scope} do
+      {tournament, _} = fixture(scope)
+
+      conn = get(conn, ~p"/t/#{tournament.id}/export/json")
+
+      assert response_content_type(conn, :json) =~ "application/json"
+      [disposition] = get_resp_header(conn, "content-disposition")
+      assert disposition =~ "export-ctrl-test.json"
+
+      body = conn |> response(200) |> Jason.decode!()
+      assert body["format"] == "openpairings-export"
+      assert [t_data] = body["tournaments"]
+      assert t_data["tournament"]["name"] == "Export Ctrl Test"
+    end
+
+    test "a tournament belonging to another user 404s", %{conn: conn} do
+      other_scope = PairingsEngine.AccountsFixtures.user_scope_fixture()
+      {tournament, _} = fixture(other_scope)
+
+      assert_error_sent 404, fn -> get(conn, ~p"/t/#{tournament.id}/export/json") end
+    end
+  end
+
+  describe "all_json/2" do
+    test "downloads a JSON backup of every tournament the current user owns", %{conn: conn, scope: scope} do
+      {t1, _} = fixture(scope)
+
+      other_scope = PairingsEngine.AccountsFixtures.user_scope_fixture()
+      fixture(other_scope)
+
+      conn = get(conn, ~p"/export/tournaments.json")
+
+      assert response_content_type(conn, :json) =~ "application/json"
+      body = conn |> response(200) |> Jason.decode!()
+      names = Enum.map(body["tournaments"], & &1["tournament"]["name"])
+      assert names == [t1.name]
+    end
+  end
+end

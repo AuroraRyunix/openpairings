@@ -171,4 +171,110 @@ defmodule PairingsEngine.TrfTest do
     assert col(line, 15, 47) == String.duplicate("A", 33)
     assert col(line, 48, 48) == " "
   end
+
+  ## ---------- result validation ----------
+
+  # Two players paired against each other for round 1, with the given TRF
+  # result codes on each side.
+  defp two_player_round(result_a, result_b) do
+    %{
+      tournament: %{name: "T"},
+      players: [
+        %{
+          rank: 1,
+          name: "A",
+          points: 0.0,
+          games: [%{opponent_rank: 2, colour: "w", result: result_a}]
+        },
+        %{
+          rank: 2,
+          name: "B",
+          points: 0.0,
+          games: [%{opponent_rank: 1, colour: "b", result: result_b}]
+        }
+      ]
+    }
+  end
+
+  defp set_char(line, col, char) do
+    {a, rest} = String.split_at(line, col - 1)
+    <<_::binary-size(1), b::binary>> = rest
+    a <> char <> b
+  end
+
+  test "serialize/1 raises when both players claim a win" do
+    assert_raise Trf.ValidationError, ~r/illegal result combination/, fn ->
+      two_player_round("1", "1") |> Trf.serialize()
+    end
+  end
+
+  test "serialize/1 raises when both players are marked forfeit-win" do
+    assert_raise Trf.ValidationError, ~r/illegal result combination/, fn ->
+      two_player_round("+", "+") |> Trf.serialize()
+    end
+  end
+
+  test "serialize/1 raises when a played result is paired with a mismatched score (win vs draw)" do
+    assert_raise Trf.ValidationError, ~r/illegal result combination/, fn ->
+      two_player_round("1", "=") |> Trf.serialize()
+    end
+  end
+
+  test "serialize/1 raises on a result code that isn't in the TRF16 spec" do
+    assert_raise Trf.ValidationError, ~r/unrecognized TRF result code/, fn ->
+      two_player_round("X", "0") |> Trf.serialize()
+    end
+  end
+
+  test "serialize/1 accepts a played 0-0 (both players score a loss, code '0' for both)" do
+    trf = two_player_round("0", "0") |> Trf.serialize()
+    assert trf =~ "001"
+  end
+
+  test "serialize/1 accepts a double forfeit ('-' for both sides)" do
+    trf = two_player_round("-", "-") |> Trf.serialize()
+    assert trf =~ "001"
+  end
+
+  test "serialize/1 accepts a single forfeit ('+' vs '-')" do
+    trf = two_player_round("+", "-") |> Trf.serialize()
+    assert trf =~ "001"
+  end
+
+  test "serialize/1 does not flag a dangling/unresolvable opponent reference as illegal" do
+    # Round 1's opponent (rank 2) doesn't exist in this single-player roster —
+    # that's a caller concern (e.g. a partial player card), not a result
+    # validation error.
+    data = %{
+      tournament: %{name: "T"},
+      players: [
+        %{rank: 1, name: "A", points: 0.0, games: [%{opponent_rank: 2, colour: "w", result: "1"}]}
+      ]
+    }
+
+    assert Trf.serialize(data) =~ "001"
+  end
+
+  test "parse/1 also raises on an illegal result combination" do
+    text = two_player_round("1", "0") |> Trf.serialize()
+    lines = String.split(text, "\r\n")
+    p2 = Enum.find(lines, &(String.starts_with?(&1, "001") and &1 =~ "B"))
+
+    # Round 1's result column is 99 (base 92 + 7) — see round_cols/1. Flip
+    # player B's loss into a second win, making the round illegal.
+    bad_p2 = set_char(p2, 99, "1")
+    bad_text = lines |> Enum.map(&if &1 == p2, do: bad_p2, else: &1) |> Enum.join("\r\n")
+
+    assert_raise Trf.ValidationError, ~r/illegal result combination/, fn ->
+      Trf.parse(bad_text)
+    end
+  end
+
+  test "parse/1 succeeds on a legal round-trip" do
+    text = two_player_round("+", "-") |> Trf.serialize()
+    parsed = Trf.parse(text)
+    [a, b] = parsed.players
+    assert a.games == [%{opponent_rank: 2, colour: "w", result: "+"}]
+    assert b.games == [%{opponent_rank: 1, colour: "b", result: "-"}]
+  end
 end

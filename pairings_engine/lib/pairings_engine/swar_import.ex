@@ -434,12 +434,30 @@ defmodule PairingsEngine.SwarImport do
   def import_file(path, scope \\ nil) do
     with {:ok, binary} <- File.read(path),
          {:ok, data} <- parse(binary) do
-      Repo.transaction(fn ->
-        case do_import(data, scope) do
-          {:ok, tournament} -> tournament
-          {:error, reason} -> Repo.rollback(reason)
-        end
-      end)
+      # Individual writes inside the transaction (players, rounds…) don't
+      # broadcast — the transaction may still roll back, and even on
+      # success a subscriber could otherwise query the database before the
+      # writes are committed. Broadcast once, for real, after commit.
+      result =
+        Tournaments.with_broadcast_suppressed(fn ->
+          Repo.transaction(fn ->
+            case do_import(data, scope) do
+              {:ok, tournament} -> tournament
+              {:error, reason} -> Repo.rollback(reason)
+            end
+          end)
+        end)
+
+      case result do
+        {:ok, tournament} ->
+          Tournaments.broadcast_tournament_change(tournament.id, :tournament)
+          Tournaments.broadcast_user_tournaments(tournament.user_id)
+
+        _ ->
+          :ok
+      end
+
+      result
     else
       {:error, reason} -> {:error, reason}
     end
@@ -447,9 +465,22 @@ defmodule PairingsEngine.SwarImport do
 
   defp do_import(data, scope) do
     with {:ok, tournament} <- create_tournament(data, scope) do
-      players_by_ni = create_players(tournament, data.players)
+      players_by_ni = create_players(tournament, data.players, data.categories)
       create_rounds(tournament, data.players, players_by_ni)
-      {:ok, tournament}
+      {:ok, mark_status(tournament)}
+    end
+  end
+
+  # A .swar file only exists once at least one round has been paired, so an
+  # imported tournament is never really at the "setup" stage — leave it
+  # there only for the (empty) edge case of a file with no round data at
+  # all; otherwise mark it "running" like any tournament with paired rounds.
+  defp mark_status(tournament) do
+    if Tournaments.list_rounds(tournament.id) == [] do
+      tournament
+    else
+      {:ok, updated} = Tournaments.update_tournament(tournament, %{status: "running"})
+      updated
     end
   end
 
@@ -471,7 +502,12 @@ defmodule PairingsEngine.SwarImport do
       deputy_arbiter: t.arbiter2,
       rounds_count: max(t.nb_rounds, 1),
       tiebreaks: map_tiebreaks(data.tiebreaks),
-      bye_value: map_bye_value(t.bye_value)
+      bye_value: map_bye_value(t.bye_value),
+      standard: map_standard(t.tournoi_std),
+      rate_of_play: t.cadence_other,
+      organizer_club_number: t.club_or_logo,
+      round_dates: Enum.map(data.dates, &normalize_date/1),
+      categories: map_categories(data.categories)
     }
 
     %Tournament{user_id: scope && scope.user.id}
@@ -500,6 +536,52 @@ defmodule PairingsEngine.SwarImport do
     |> Enum.reject(&is_nil/1)
   end
 
+  # TournoiStd: 0=Standard, 1=Rapid, 2=Blitz (manual §5.13/4.2 field 87).
+  defp map_standard(0), do: "standard"
+  defp map_standard(1), do: "rapid"
+  defp map_standard(2), do: "blitz"
+  defp map_standard(_), do: "standard"
+
+  # [CATEGORIES]: Categorie type 0 (NO_CATEGO, manual §5.18) means the
+  # tournament defines no categories at all — value1/value2 are all blank
+  # padding in that case. Otherwise collect the non-blank names/boundaries
+  # from both value sets (order preserved, de-duplicated).
+  defp map_categories(%{type: 0}), do: []
+
+  defp map_categories(%{value1: v1, value2: v2}) do
+    (v1 ++ v2) |> Enum.reject(&(&1 == "")) |> Enum.uniq()
+  end
+
+  # Per-player CatIndex resolves into the [CATEGORIES] value1 list. Per the
+  # manual's "Known Quirks" §10.2, a CatIndex < 100 is stored already
+  # multiplied by 100 (so category 1 is stored as 100) — divide back down to
+  # get a 0-based slot index. CatIndex 0 means "no category".
+  defp category_name(0, _categories), do: ""
+
+  defp category_name(cat_index, categories) do
+    categories.value1
+    |> Enum.at(div(cat_index, 100), "")
+    |> to_string()
+  end
+
+  # Paye: 0=Not paid, 1=Paid, 2=Free (manual §5.20).
+  defp map_paid(0), do: "nopaid"
+  defp map_paid(1), do: "paid"
+  defp map_paid(2), do: "gratis"
+  defp map_paid(_), do: "paid"
+
+  # Affilie: 0=Not affiliated, 1=Affiliated, 2=G-License (manual §5.21). A
+  # guest license still counts as some affiliation for our boolean field.
+  defp map_affiliated(0), do: false
+  defp map_affiliated(_), do: true
+
+  # Absent: 1=Forfeit, 2=Absent, 4=Present (manual §5.19).
+  defp map_absent(2), do: true
+  defp map_absent(_), do: false
+
+  defp map_forfeit(1), do: true
+  defp map_forfeit(_), do: false
+
   # SWAR dates arrive as "dd/mm/yyyy" (or, rarely, "yyyy/mm/dd" for very old
   # files) with no guaranteed zero-padding; convert to ISO "yyyy-mm-dd". The
   # manual documents auto-detecting the order by checking whether the first
@@ -524,7 +606,7 @@ defmodule PairingsEngine.SwarImport do
 
   ## ---------- Players ----------
 
-  defp create_players(tournament, swar_players) do
+  defp create_players(tournament, swar_players, categories) do
     for p <- swar_players, into: %{} do
       attrs = %{
         name: p.name,
@@ -537,7 +619,16 @@ defmodule PairingsEngine.SwarImport do
         federation: p.country,
         birth_year: birth_year(p.birth),
         club: p.club,
-        pairing_number: p.ni
+        pairing_number: p.ni,
+        paid: map_paid(p.paye),
+        affiliated: map_affiliated(p.affilie),
+        absent: map_absent(p.absent),
+        forfeit: map_forfeit(p.absent),
+        special_table: p.handy_table != 0,
+        absent_rounds: p.absent_rondes,
+        extra_points: p.extra_pts / 4.0,
+        category: category_name(p.cat_index, categories),
+        club_number: zero_to_nil(p.club_nr)
       }
 
       {:ok, player} = Tournaments.create_player(tournament.id, attrs)
@@ -761,9 +852,9 @@ defmodule PairingsEngine.SwarImport do
   defp combine_results(:loss, :win), do: "0-1"
   defp combine_results(:draw, :draw), do: "1/2-1/2"
   defp combine_results(:draw_ff, :draw_ff), do: "1/2-1/2"
-  defp combine_results(:win_ff, :loss_ff), do: "+--"
-  defp combine_results(:loss_ff, :win_ff), do: "--+"
-  defp combine_results(:zero_zeroff, :zero_zeroff), do: "0-0"
+  defp combine_results(:win_ff, :loss_ff), do: "1-0FF"
+  defp combine_results(:loss_ff, :win_ff), do: "0-1FF"
+  defp combine_results(:zero_zeroff, :zero_zeroff), do: "0-0FF"
   defp combine_results(:zero_zero, :zero_zero), do: "0-0"
   defp combine_results(:draw_zero, :zero_draw), do: ""
   defp combine_results(:zero_draw, :draw_zero), do: ""

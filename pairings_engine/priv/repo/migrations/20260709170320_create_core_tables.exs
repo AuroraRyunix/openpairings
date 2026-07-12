@@ -85,7 +85,8 @@ defmodule PairingsEngine.Repo.Migrations.CreateCoreTables do
       add :board, :integer, null: false
       add :white_player_id, references(:players, on_delete: :nilify_all)
       add :black_player_id, references(:players, on_delete: :nilify_all)
-      # "" | 1-0 | 1/2-1/2 | 0-1 | +-- | --+ | 0-0 | bye
+      # "" | 1-0 | 1/2-1/2 | 0-1 | 1-0FF | 0-1FF | 0-0FF | 0-0 | bye
+      # (+-- | --+ kept accepted for historical/SWAR-imported data)
       add :result, :string, null: false, default: ""
       add :match_id, references(:matches, on_delete: :delete_all)
     end

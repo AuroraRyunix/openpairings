@@ -18,10 +18,25 @@ defmodule PairingsEngine.Standings do
   alias PairingsEngine.Tournaments.{Pairing, Round}
 
   @doc """
-  Returns standings entries sorted by points, then the tournament's configured
-  tiebreaks: `[%{player: p, points: float, rank: n, tiebreaks: %{"BH" => v, ...}}]`
+  Returns standings entries sorted by `total` (game points plus the player's
+  administrative `extra_points`, per SWAR "P.Tot" semantics), then the
+  tournament's configured tiebreaks:
+  `[%{player: p, points: float, extra_points: float, total: float, rank: n, tiebreaks: %{"BH" => v, ...}}]`
+
+  `points` is game points only — FIDE tiebreaks (Buchholz, Sonneborn-Berger,
+  etc.) keep using opponents' game points, unaffected by administrative bonus
+  points. `total` is what determines the ranking.
+
+  Accepts `through_round: n` to compute standings using only rounds `<= n`
+  (and byes recorded for those rounds) — i.e. "standings as they stood right
+  after round n". This is exactly the same code path ordinary standings use
+  once a tournament is mid-way through (they simply never see rounds beyond
+  the latest paired one), so a past round number produces the same honest
+  figures the tournament actually showed at the time. Omit the option (or
+  pass a round `>=` the latest paired round) for the current/overall
+  standings.
   """
-  def standings(tournament), do: build_standings(tournament, tournament.tiebreaks)
+  def standings(tournament, opts \\ []), do: build_standings(tournament, tournament.tiebreaks, opts)
 
   @doc """
   Same as `standings/1`, but the `:tiebreaks` map on every entry is guaranteed
@@ -32,17 +47,25 @@ defmodule PairingsEngine.Standings do
   """
   def grid_standings(tournament) do
     codes = Enum.uniq(tournament.tiebreaks ++ ~w(BH BHC1 SB PS DE))
-    build_standings(tournament, codes)
+    build_standings(tournament, codes, [])
   end
 
-  defp build_standings(tournament, tiebreak_codes) do
+  defp build_standings(tournament, tiebreak_codes, opts) do
     players = Tournaments.list_players(tournament.id)
-    games_by_player = games_by_player(tournament, players)
+    games_by_player = games_by_player(tournament, players, opts)
 
     entries =
       Enum.map(players, fn player ->
         games = Map.get(games_by_player, player.id, [])
-        %{player: player, games: games, points: total_points(games)}
+        points = total_points(games)
+        extra_points = (player.extra_points || 0.0) |> round_f(1)
+        %{
+          player: player,
+          games: games,
+          points: points,
+          extra_points: extra_points,
+          total: round_f(points + extra_points, 1)
+        }
       end)
 
     entries = compute_tiebreaks(entries, tournament, tiebreak_codes)
@@ -51,7 +74,7 @@ defmodule PairingsEngine.Standings do
     |> Enum.sort_by(fn e ->
       tb_values = Enum.map(tournament.tiebreaks, &Map.get(e.tiebreaks, &1, 0.0))
       # ARO-style tiebreaks sort descending like the rest (higher = better).
-      [-e.points | Enum.map(tb_values, &(-&1))]
+      [-e.total | Enum.map(tb_values, &(-&1))]
     end)
     |> Enum.with_index(1)
     |> Enum.map(fn {e, rank} -> Map.put(e, :rank, rank) end)
@@ -67,16 +90,24 @@ defmodule PairingsEngine.Standings do
   # One record per player per paired round:
   # %{round: n, opponent_id: id | nil, colour: :w | :b | nil, points: float,
   #   played: boolean (over the board), voluntary: boolean (for unplayed)}
-  defp games_by_player(tournament, players) do
-    rounds =
-      Repo.all(
-        from r in Round,
-          where: r.tournament_id == ^tournament.id,
-          order_by: r.number,
-          preload: [pairings: []]
-      )
+  #
+  # `opts[:through_round]`, when set, limits rounds (and byes) to `<= n` —
+  # this is how round-scoped ("as of round n") standings are computed.
+  defp games_by_player(tournament, players, opts) do
+    through_round = Keyword.get(opts, :through_round)
 
-    byes = byes_by_player_round(tournament.id)
+    rounds_query =
+      from r in Round, where: r.tournament_id == ^tournament.id, order_by: r.number, preload: [pairings: []]
+
+    rounds_query =
+      case through_round do
+        nil -> rounds_query
+        n -> from r in rounds_query, where: r.number <= ^n
+      end
+
+    rounds = Repo.all(rounds_query)
+
+    byes = byes_by_player_round(tournament.id, through_round)
     player_ids = MapSet.new(players, & &1.id)
 
     for round <- rounds,
@@ -89,11 +120,19 @@ defmodule PairingsEngine.Standings do
     |> add_bye_records(byes, tournament)
   end
 
-  defp byes_by_player_round(tournament_id) do
-    Repo.all(from b in "byes",
-      where: b.tournament_id == ^tournament_id,
-      select: %{player_id: b.player_id, round: b.round, type: b.type}
-    )
+  defp byes_by_player_round(tournament_id, through_round) do
+    query =
+      from b in "byes",
+        where: b.tournament_id == ^tournament_id,
+        select: %{player_id: b.player_id, round: b.round, type: b.type}
+
+    query =
+      case through_round do
+        nil -> query
+        n -> from b in query, where: b.round <= ^n
+      end
+
+    Repo.all(query)
   end
 
   defp add_bye_records(games_by_player, byes, tournament) do
@@ -126,14 +165,24 @@ defmodule PairingsEngine.Standings do
     w = pairing.white_player_id
     b = pairing.black_player_id
 
+    # `played` marks a game contested over the board (FIDE Art. 16 unplayed
+    # rules apply otherwise). A forfeit — win or loss, single or double — is
+    # always unplayed for BOTH sides, even for the side awarded the point.
+    # Plain "0-0" is a played game where both players lose (e.g. both
+    # defaulted after making moves); "0-0FF" is the double-forfeit, unplayed.
+    # "+--"/"--+" are the legacy forfeit notation kept for
+    # historical/SWAR-imported data.
     {wp, bp, played, forfeit} =
       case pairing.result do
         "1-0" -> {t.points_win, t.points_loss, true, false}
         "1/2-1/2" -> {t.points_draw, t.points_draw, true, false}
         "0-1" -> {t.points_loss, t.points_win, true, false}
+        "1-0FF" -> {t.points_win, t.points_loss, false, true}
+        "0-1FF" -> {t.points_loss, t.points_win, false, true}
+        "0-0FF" -> {t.points_loss, t.points_loss, false, true}
+        "0-0" -> {t.points_loss, t.points_loss, true, false}
         "+--" -> {t.points_win, t.points_loss, false, true}
         "--+" -> {t.points_loss, t.points_win, false, true}
-        "0-0" -> {t.points_loss, t.points_loss, false, true}
         "bye" -> {t.bye_value, 0.0, false, false}
         _ -> {0.0, 0.0, false, false}
       end

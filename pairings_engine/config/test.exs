@@ -11,7 +11,14 @@ config :pbkdf2_elixir, :rounds, 1
 config :pairings_engine, PairingsEngine.Repo,
   database: Path.expand("../pairings_engine_test.db", __DIR__),
   pool_size: 5,
-  pool: Ecto.Adapters.SQL.Sandbox
+  pool: Ecto.Adapters.SQL.Sandbox,
+  # SQLite only allows one writer at a time; several async test modules
+  # (each on its own sandboxed connection) can legitimately contend for a
+  # write lock under ExUnit's default parallelism. The 2000ms adapter
+  # default was occasionally too short for that, surfacing as a flaky
+  # `Exqlite.Error: Database busy` — give contending writers more time to
+  # queue instead of erroring out.
+  busy_timeout: 15_000
 
 # We don't run a server during test. If one is required,
 # you can enable the server option below.

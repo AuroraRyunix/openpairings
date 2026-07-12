@@ -1,4 +1,4 @@
-# OpenPairings (PairingsEngine)
+# OpenPairings
 
 Web-based chess tournament manager: FIDE Swiss pairings (JaVaFo), FIDE-compliant
 tiebreaks (C.07), result entry, live standings, printing, TRF16 export, SWAR

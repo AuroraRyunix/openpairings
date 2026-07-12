@@ -1,11 +1,24 @@
 defmodule PairingsEngine.SwarImportTest do
   use PairingsEngine.DataCase, async: true
 
-  alias PairingsEngine.{SwarImport, Tournaments}
+  alias PairingsEngine.{SwarImport, Tournaments, Repo}
   alias PairingsEngine.Tournaments.Round
+  alias PairingsEngine.Accounts.{Scope, User}
 
   @c_reeks "test/fixtures/c-reeks.swar"
   @problemski "test/fixtures/problemski.swar"
+
+  # Lightweight stand-in for `PairingsEngine.AccountsFixtures.user_scope_fixture/0`
+  # — see the comment on the equivalent helper in tournaments_test.exs.
+  defp user_scope do
+    user =
+      Repo.insert!(%User{
+        email: "user#{System.unique_integer([:positive])}@example.com",
+        confirmed_at: DateTime.truncate(DateTime.utc_now(), :second)
+      })
+
+    Scope.for_user(user)
+  end
 
   ## ---------- parse/1 ----------
 
@@ -70,6 +83,61 @@ defmodule PairingsEngine.SwarImportTest do
     assert points_for(tournament, deloof) == 9.0
   end
 
+  test "import_file/1 maps SWAR player-administration fields (payment, affiliation, extra points, category, club number)" do
+    {:ok, tournament} = SwarImport.import_file(@c_reeks)
+    players = Tournaments.list_players(tournament.id)
+
+    abramenko = Enum.find(players, &(&1.name == "Abramenko, Aleksei"))
+    assert abramenko.paid == "paid"
+    assert abramenko.extra_points == 0.5
+    assert abramenko.affiliated == true
+    assert abramenko.national_id == "21740"
+    assert abramenko.fide_id == 268968
+    assert abramenko.birth_year == 2011
+    assert abramenko.fide_rating == 1661
+    assert abramenko.club == "KGSRL Gent"
+    assert abramenko.club_number == 401
+
+    van_de_kelder = Enum.find(players, &(&1.name == "Van De Kelder, Yves"))
+    assert van_de_kelder.extra_points == 1.5
+
+    # Bouche and Cobert are both flagged not-affiliated ("N") in the SWAR UI.
+    bouche = Enum.find(players, &(&1.name == "Bouche, Jeroen"))
+    assert bouche.affiliated == false
+
+    cobert = Enum.find(players, &(&1.name == "Cobert, Quinten"))
+    assert cobert.affiliated == false
+    # Cobert's Absent field is 2 (ABS_ABSENT) rather than 4 (ABS_PRESENT).
+    assert cobert.absent == true
+    assert cobert.forfeit == false
+
+    # Every other sampled player is present (Absent == 4) and not forfeited.
+    deloof = Enum.find(players, &(&1.name == "Deloof, Koen"))
+    assert deloof.absent == false
+    assert deloof.forfeit == false
+    assert deloof.paid == "paid"
+
+    assert tournament.round_dates == [
+             "2025-10-04",
+             "2025-11-08",
+             "2025-11-29",
+             "2025-12-13",
+             "2025-12-20",
+             "2026-01-31",
+             "2026-02-21",
+             "2026-03-21",
+             "2026-04-25",
+             "2026-05-09",
+             "2026-05-06"
+           ]
+
+    assert length(tournament.round_dates) == 11
+    # c-reeks.swar has no custom categories defined (Categorie type NO_CATEGO).
+    assert tournament.categories == []
+    assert tournament.standard == "standard"
+    assert tournament.organizer_club_number == "401"
+  end
+
   test "import_file/1 does not create duplicate pairings for the same game" do
     {:ok, tournament} = SwarImport.import_file(@c_reeks)
     players = Tournaments.list_players(tournament.id)
@@ -96,10 +164,41 @@ defmodule PairingsEngine.SwarImportTest do
     end)
   end
 
+  ## ---------- PubSub broadcasts ----------
+
+  test "import_file/2 broadcasts once on the owning user's tournament-list topic, after the import commits" do
+    scope = user_scope()
+    Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.user_tournaments_topic(scope.user.id))
+
+    assert {:ok, tournament} = SwarImport.import_file(@c_reeks, scope)
+
+    user_id = scope.user.id
+    assert_receive {:tournaments_changed, ^user_id}
+
+    # The tournament is queryable by the time the broadcast lands — proof
+    # the broadcast fired after commit, not from inside the still-open
+    # transaction (see PairingsEngine.Tournaments.with_broadcast_suppressed/1).
+    assert Tournaments.get_user_tournament(scope, tournament.id)
+  end
+
+  test "import_file/1 (no scope) does not broadcast on any user's tournament-list topic" do
+    # An unowned import has no user to notify — this also exercises the
+    # nil-safe branch of broadcast_user_tournaments/1.
+    assert {:ok, _tournament} = SwarImport.import_file(@c_reeks)
+  end
+
   test "import_file/1 parses and imports problemski.swar without error" do
     assert {:ok, tournament} = SwarImport.import_file(@problemski)
     players = Tournaments.list_players(tournament.id)
     assert length(players) == 10
+  end
+
+  test "import_file/1 marks the tournament as running, not stuck on setup, since rounds were imported" do
+    assert {:ok, tournament} = SwarImport.import_file(@c_reeks)
+    assert tournament.status == "running"
+
+    # Persisted, not just returned in-memory.
+    assert Tournaments.get_tournament!(tournament.id).status == "running"
   end
 
   ## ---------- helpers ----------

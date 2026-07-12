@@ -1,4 +1,22 @@
 defmodule PairingsEngineWeb.PrintController do
+  @moduledoc """
+  Print-friendly, print()-on-load HTML documents for a tournament. See
+  `docs/printing.md` for the full reference (every document, its route, the
+  `round` query param, and which pages link to which document).
+
+  Quick summary:
+
+    * `GET /t/:id/print/players`   — roster, no round scoping.
+    * `GET /t/:id/print/cards`     — one card per player, full round-by-round
+      history (never limited to a single round).
+    * `GET /t/:id/print/pairings?round=n` — board pairings for round `n`.
+      Defaults to round 1; 404s if that round hasn't been paired.
+    * `GET /t/:id/print/standings?round=n` — standings as they stood right
+      after round `n` (computed honestly via `PairingsEngine.Standings`,
+      passing only rounds `<= n`). Omit `round` for current/overall
+      standings. 404s if round `n` hasn't been paired yet.
+  """
+
   use PairingsEngineWeb, :controller
 
   alias PairingsEngine.Tournaments
@@ -24,7 +42,7 @@ defmodule PairingsEngineWeb.PrintController do
   """
 
   def player_list(conn, %{"id" => id}) do
-    tournament = Tournaments.get_user_tournament!(conn.assigns.current_scope, id)
+    tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
     players = Tournaments.list_players(tournament.id)
 
     rows =
@@ -44,7 +62,7 @@ defmodule PairingsEngineWeb.PrintController do
   end
 
   def player_cards(conn, %{"id" => id}) do
-    tournament = Tournaments.get_user_tournament!(conn.assigns.current_scope, id)
+    tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
     players = Tournaments.list_players(tournament.id)
 
     round_rows =
@@ -76,8 +94,8 @@ defmodule PairingsEngineWeb.PrintController do
   end
 
   def pairing_list(conn, %{"id" => id} = params) do
-    tournament = Tournaments.get_user_tournament!(conn.assigns.current_scope, id)
-    number = String.to_integer(params["round"] || "1")
+    tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
+    number = parse_round(params["round"]) || 1
     round = Tournaments.get_round(tournament.id, number)
 
     if round == nil do
@@ -102,32 +120,50 @@ defmodule PairingsEngineWeb.PrintController do
     end
   end
 
-  def standings(conn, %{"id" => id}) do
-    tournament = Tournaments.get_user_tournament!(conn.assigns.current_scope, id)
-    entries = PairingsEngine.Standings.standings(tournament)
-    rounds = PairingsEngine.Standings.rounds_paired(tournament.id)
+  def standings(conn, %{"id" => id} = params) do
+    tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
+    rounds_paired = PairingsEngine.Standings.rounds_paired(tournament.id)
+    requested_round = parse_round(params["round"])
 
-    tb_headers =
-      Enum.map_join(tournament.tiebreaks, "", &"<th class=\"num\">#{esc(&1)}</th>")
+    cond do
+      requested_round != nil and Tournaments.get_round(tournament.id, requested_round) == nil ->
+        send_resp(conn, 404, "Round #{requested_round} has not been paired yet")
 
-    rows =
-      Enum.map_join(entries, "", fn e ->
-        tb_cells =
-          Enum.map_join(tournament.tiebreaks, "", fn code ->
-            "<td class=\"num\">#{Map.get(e.tiebreaks, code, 0.0)}</td>"
+      true ->
+        entries =
+          case requested_round do
+            nil -> PairingsEngine.Standings.standings(tournament)
+            n -> PairingsEngine.Standings.standings(tournament, through_round: n)
+          end
+
+        label = requested_round || rounds_paired
+
+        tb_headers =
+          Enum.map_join(tournament.tiebreaks, "", &"<th class=\"num\">#{esc(&1)}</th>")
+
+        rows =
+          Enum.map_join(entries, "", fn e ->
+            tb_cells =
+              Enum.map_join(tournament.tiebreaks, "", fn code ->
+                "<td class=\"num\">#{Map.get(e.tiebreaks, code, 0.0)}</td>"
+              end)
+
+            "<tr><td class=\"num\">#{e.rank}</td><td><strong>#{esc(e.player.name)}</strong></td>" <>
+              "<td class=\"num\">#{blank_zero(player_rating(e.player))}</td>" <>
+              "<td class=\"num\"><strong>#{e.points}</strong></td>#{tb_cells}</tr>"
           end)
 
-        "<tr><td class=\"num\">#{e.rank}</td><td><strong>#{esc(e.player.name)}</strong></td>" <>
-          "<td class=\"num\">#{blank_zero(player_rating(e.player))}</td>" <>
-          "<td class=\"num\"><strong>#{e.points}</strong></td>#{tb_cells}</tr>"
-      end)
+        body =
+          "<table><thead><tr><th class=\"num\">Rank</th><th>Name</th><th class=\"num\">Elo</th>" <>
+            "<th class=\"num\">Pts</th>#{tb_headers}</tr></thead><tbody>#{rows}</tbody></table>"
 
-    body =
-      "<table><thead><tr><th class=\"num\">Rank</th><th>Name</th><th class=\"num\">Elo</th>" <>
-        "<th class=\"num\">Pts</th>#{tb_headers}</tr></thead><tbody>#{rows}</tbody></table>"
-
-    print_page(conn, tournament.name, "Standings after round #{rounds}", body)
+        print_page(conn, tournament.name, "Standings after round #{label}", body)
+    end
   end
+
+  defp parse_round(nil), do: nil
+  defp parse_round(""), do: nil
+  defp parse_round(value), do: String.to_integer(value)
 
   defp player_rating(player), do: PairingsEngine.Tournaments.Player.rating(player)
 

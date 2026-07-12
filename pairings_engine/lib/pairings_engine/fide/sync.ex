@@ -15,6 +15,19 @@ defmodule PairingsEngine.Fide.Sync do
   @list_url "https://ratings.fide.com/download/players_list.zip"
   @topic "fide_sync"
 
+  # Req timeouts: connect_options.timeout bounds the initial TCP/TLS handshake,
+  # receive_timeout bounds how long we'll wait between chunks once streaming
+  # (i.e. it's an inactivity window, not a total-transfer deadline).
+  @connect_timeout_ms :timer.seconds(30)
+  @receive_timeout_ms :timer.minutes(2)
+  @max_download_attempts 3
+
+  # Backstop for the whole sync (download + unpack + import combined): if no
+  # progress update arrives for this long, something is stuck (hung socket,
+  # wedged connection pool, etc.) and we fail the sync rather than leave the
+  # UI on "Contacting FIDE…" forever. Reset on every progress broadcast.
+  @watchdog_timeout_ms :timer.minutes(3)
+
   # Header labels in file order — "ID Number" is one column despite the space.
   @header_labels [
     "ID Number", "Name", "Fed", "Sex", "Tit", "WTit", "OTit", "FOA",
@@ -38,7 +51,8 @@ defmodule PairingsEngine.Fide.Sync do
   @numeric ~w(fide_id standard_rating rapid_rating blitz_rating birth_year)a
 
   defstruct status: :idle, progress: "", error: nil,
-            loaded_bytes: 0, total_bytes: 0, imported_rows: 0, total_rows: 0
+            loaded_bytes: 0, total_bytes: 0, imported_rows: 0, total_rows: 0,
+            task_pid: nil, task_ref: nil, watchdog_timer: nil
 
   ## API
 
@@ -46,9 +60,12 @@ defmodule PairingsEngine.Fide.Sync do
 
   def start_sync, do: GenServer.cast(__MODULE__, :start_sync)
 
+  def cancel_sync, do: GenServer.cast(__MODULE__, :cancel_sync)
+
   def status do
     GenServer.call(__MODULE__, :status)
     |> Map.from_struct()
+    |> Map.drop([:task_pid, :task_ref, :watchdog_timer])
     |> Map.put(:player_count, Fide.player_count())
     |> Map.put(:last_sync, Fide.last_sync())
   end
@@ -70,12 +87,90 @@ defmodule PairingsEngine.Fide.Sync do
 
   def handle_cast(:start_sync, _state) do
     server = self()
-    Task.start(fn -> run_sync(server) end)
-    {:noreply, broadcast(%__MODULE__{status: :downloading, progress: "Contacting FIDE…"})}
+    {pid, ref} = spawn_monitor(fn -> run_sync(server) end)
+
+    state = %__MODULE__{
+      status: :downloading,
+      progress: "Contacting FIDE…",
+      task_pid: pid,
+      task_ref: ref,
+      watchdog_timer: schedule_watchdog()
+    }
+
+    {:noreply, broadcast(state)}
   end
 
   @impl true
-  def handle_info({:sync_update, new_state}, _state), do: {:noreply, broadcast(new_state)}
+  def handle_cast(:cancel_sync, %{status: s, task_pid: pid, watchdog_timer: timer})
+      when s in [:downloading, :importing] do
+    cancel_watchdog(timer)
+    if pid, do: Process.exit(pid, :kill)
+    {:noreply, broadcast(%__MODULE__{status: :idle})}
+  end
+
+  def handle_cast(:cancel_sync, state), do: {:noreply, state}
+
+  # Progress/terminal updates from the running task. The task's locally-built
+  # state structs don't know about task_pid/task_ref/watchdog_timer (those are
+  # this GenServer's bookkeeping), so we carry them forward across busy
+  # updates and clear them once the sync reaches a terminal state.
+  @impl true
+  def handle_info({:sync_update, new_state}, state) do
+    cancel_watchdog(state.watchdog_timer)
+
+    if new_state.status in [:done, :error] do
+      {:noreply, broadcast(%{new_state | task_pid: nil, task_ref: nil, watchdog_timer: nil})}
+    else
+      merged = %{new_state |
+        task_pid: state.task_pid,
+        task_ref: state.task_ref,
+        watchdog_timer: schedule_watchdog()
+      }
+
+      {:noreply, broadcast(merged)}
+    end
+  end
+
+  # Safety net for exits that bypass run_sync's `rescue` (e.g. the task being
+  # killed, or an exit signal from the HTTP client) — without this, a crashed
+  # task would leave the GenServer stuck in :downloading/:importing forever
+  # and the "Update" button would never re-enable.
+  def handle_info({:DOWN, ref, :process, _pid, reason}, %{task_ref: ref} = state)
+      when reason != :normal do
+    cancel_watchdog(state.watchdog_timer)
+    Logger.error("FIDE sync task crashed: #{inspect(reason)}")
+
+    new_state = %__MODULE__{
+      status: :error,
+      error: "Sync crashed unexpectedly (#{inspect(reason)}). Please try again."
+    }
+
+    {:noreply, broadcast(new_state)}
+  end
+
+  def handle_info({:DOWN, _ref, :process, _pid, _reason}, state), do: {:noreply, state}
+
+  # No progress broadcast for @watchdog_timeout_ms straight through downloading
+  # or importing: something is stuck. Kill the task and fail cleanly so the
+  # UI recovers instead of hanging on "Contacting FIDE…" indefinitely.
+  def handle_info(:watchdog_timeout, %{status: s} = state) when s in [:downloading, :importing] do
+    Logger.error("FIDE sync watchdog fired: no progress for #{@watchdog_timeout_ms}ms")
+    if state.task_pid, do: Process.exit(state.task_pid, :kill)
+
+    new_state = %__MODULE__{
+      status: :error,
+      error: "Sync stalled with no progress — the FIDE server may be slow or unreachable. Please try again."
+    }
+
+    {:noreply, broadcast(new_state)}
+  end
+
+  def handle_info(:watchdog_timeout, state), do: {:noreply, state}
+
+  defp schedule_watchdog, do: Process.send_after(self(), :watchdog_timeout, @watchdog_timeout_ms)
+
+  defp cancel_watchdog(nil), do: :ok
+  defp cancel_watchdog(timer), do: Process.cancel_timer(timer)
 
   defp broadcast(state) do
     Phoenix.PubSub.broadcast(PairingsEngine.PubSub, @topic, {:fide_sync, state})
@@ -108,18 +203,29 @@ defmodule PairingsEngine.Fide.Sync do
       update(server, %__MODULE__{status: :error, error: Exception.message(e)})
   end
 
+  defp format_error(%Req.TransportError{} = reason),
+    do: "Download failed — #{describe_error(reason)}. Please try again."
+
   defp format_error(reason) when is_binary(reason), do: reason
   defp format_error(reason), do: inspect(reason)
 
-  defp download(server, state) do
-    # The into: fun runs in this task's process, so chunks and the byte count
-    # are accumulated in the process dictionary. Progress is broadcast at most
-    # once per megabyte to avoid flooding the LiveView.
-    Process.put(:sync_chunks, [])
-    Process.put(:sync_loaded, 0)
-    Process.put(:sync_last_report, 0)
+  defp describe_error(%Req.TransportError{reason: :timeout}), do: "connection timed out"
+  defp describe_error(%Req.TransportError{reason: :closed}), do: "connection closed unexpectedly"
+  defp describe_error(%Req.TransportError{reason: reason}), do: "network error (#{inspect(reason)})"
 
-    into = fn {:data, data}, {req, resp} ->
+  defp retryable_error?(%Req.TransportError{}), do: true
+  defp retryable_error?(_), do: false
+
+  defp download(server, state) do
+    into = build_into(server, state)
+    do_download(server, state, into, 1)
+  end
+
+  # The into: fun runs in this task's process, so chunks and the byte count
+  # are accumulated in the process dictionary. Progress is broadcast at most
+  # once per megabyte to avoid flooding the LiveView.
+  defp build_into(server, state) do
+    fn {:data, data}, {req, resp} ->
       total = resp_content_length(resp)
       Process.put(:sync_chunks, [data | Process.get(:sync_chunks)])
       loaded = Process.get(:sync_loaded) + byte_size(data)
@@ -140,18 +246,47 @@ defmodule PairingsEngine.Fide.Sync do
 
       {:cont, {req, resp}}
     end
+  end
 
-    case Req.get(@list_url, into: into) do
+  defp do_download(server, state, into, attempt) do
+    Process.put(:sync_chunks, [])
+    Process.put(:sync_loaded, 0)
+    Process.put(:sync_last_report, 0)
+
+    req_opts = [
+      into: into,
+      connect_options: [timeout: @connect_timeout_ms],
+      # Inactivity window: streaming resets Finch's clock on every chunk, so
+      # this bounds the gap between chunks, not the whole 41 MB transfer.
+      receive_timeout: @receive_timeout_ms,
+      retry: false
+    ]
+
+    case Req.get(@list_url, req_opts) do
       {:ok, %{status: 200}} ->
         zip = Process.get(:sync_chunks) |> Enum.reverse() |> IO.iodata_to_binary()
         loaded = byte_size(zip)
         {:ok, zip, %{state | loaded_bytes: loaded, total_bytes: loaded}}
 
       {:ok, %{status: status}} ->
-        {:error, "FIDE server answered #{status}"}
+        {:error, "FIDE server answered with HTTP status #{status}"}
 
       {:error, reason} ->
-        {:error, reason}
+        if attempt < @max_download_attempts and retryable_error?(reason) do
+          wait_ms = attempt * 3_000
+
+          update(server, %{state |
+            status: :downloading,
+            progress:
+              "Download interrupted (#{describe_error(reason)}) — retrying " <>
+                "(attempt #{attempt + 1}/#{@max_download_attempts})…"
+          })
+
+          Process.sleep(wait_ms)
+          do_download(server, state, into, attempt + 1)
+        else
+          {:error, reason}
+        end
     end
   end
 

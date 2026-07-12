@@ -4,7 +4,7 @@ defmodule PairingsEngineWeb.UserAuth do
   import Plug.Conn
   import Phoenix.Controller
 
-  alias PairingsEngine.Accounts
+  alias PairingsEngine.{Accounts, Tournaments}
   alias PairingsEngine.Accounts.Scope
 
   # Make the remember me cookie valid for 14 days. This should match
@@ -34,6 +34,10 @@ defmodule PairingsEngineWeb.UserAuth do
   """
   def log_in_user(conn, user, params \\ %{}) do
     user_return_to = get_session(conn, :user_return_to)
+
+    # Resolve any tournaments shared with this email before an invite had a
+    # matching account — see `PairingsEngine.Tournaments.link_pending_collaborators/1`.
+    Tournaments.link_pending_collaborators(user)
 
     conn
     |> create_or_extend_session(user, params)

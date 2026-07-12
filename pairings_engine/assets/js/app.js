@@ -38,11 +38,35 @@ const ColumnPrefs = {
   },
 }
 
+// Double-click a player row to edit it, right-click for the Players Card.
+// One listener on the table (event delegation) rather than one per row.
+const PlayerGrid = {
+  mounted() {
+    // Double-clicking must not text-select the player name; e.detail > 1
+    // means this mousedown is part of a double/triple click. Plain drags
+    // still select text normally.
+    this.el.addEventListener("mousedown", (e) => {
+      if (e.detail > 1) e.preventDefault()
+    })
+    this.el.addEventListener("dblclick", (e) => {
+      const tr = e.target.closest("tr[data-player-id]")
+      if (!tr) return
+      this.pushEvent("edit_player", {id: tr.dataset.playerId})
+    })
+    this.el.addEventListener("contextmenu", (e) => {
+      const tr = e.target.closest("tr[data-player-id]")
+      if (!tr) return
+      e.preventDefault()
+      this.pushEvent("show_card", {id: tr.dataset.playerId})
+    })
+  },
+}
+
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks, ColumnPrefs},
+  hooks: {...colocatedHooks, ColumnPrefs, PlayerGrid},
 })
 
 // Show progress bar on live navigation and form submits

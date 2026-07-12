@@ -7,6 +7,85 @@ import Config
 # any compile-time configuration in here, as it won't be applied.
 # The block below contains prod specific runtime configuration.
 
+# Load .env file for local development and testing.
+# This is safe to call in all environments; it only loads if the file exists
+# and does not overwrite variables already set in the actual process environment
+# (e.g. systemd Environment= lines on a production server).
+env_file = Path.join(File.cwd!(), ".env")
+if File.exists?(env_file) do
+  env_file
+  |> File.stream!()
+  |> Stream.map(&String.trim/1)
+  |> Stream.reject(&(String.length(&1) == 0 or String.starts_with?(&1, "#")))
+  |> Enum.each(fn line ->
+    case String.split(line, "=", parts: 2) do
+      [key, value] ->
+        # Only set if not already in the actual process environment
+        unless System.get_env(key) do
+          System.put_env(key, value)
+        end
+      _ ->
+        :ok
+    end
+  end)
+end
+
+# Configure outgoing email.
+#
+# SMTP credentials (Gmail) come from the .env loader above or from the real
+# process environment (systemd `Environment=` lines on the server). When both
+# are present we use real Gmail SMTP. In :prod email is MANDATORY — magic-link
+# login depends on it and there is no local mailbox in production — so we refuse
+# to boot without it rather than fail confusingly at the first login attempt.
+# In :dev/:test without credentials we leave the adapter from dev.exs/test.exs
+# (local mailbox / test adapter) untouched.
+smtp_username = System.get_env("SMTP_USERNAME")
+smtp_password = System.get_env("SMTP_PASSWORD")
+
+smtp_configured? =
+  is_binary(smtp_username) and String.trim(smtp_username) != "" and
+    is_binary(smtp_password) and String.trim(smtp_password) != ""
+
+cond do
+  smtp_configured? and config_env() != :test ->
+    config :pairings_engine, PairingsEngine.Mailer,
+      adapter: Swoosh.Adapters.SMTP,
+      relay: "smtp.gmail.com",
+      port: 587,
+      username: smtp_username,
+      password: smtp_password,
+      tls: :always,
+      auth: :always,
+      ssl: false,
+      retries: 2,
+      tls_options: [
+        verify: :verify_peer,
+        cacerts: :public_key.cacerts_get(),
+        depth: 3,
+        server_name_indication: ~c"smtp.gmail.com"
+      ]
+
+    # The SMTP adapter (gen_smtp) needs no HTTP API client.
+    config :swoosh, :api_client, false
+
+  config_env() == :prod and System.get_env("PHX_SERVER") ->
+    # Only the running web server (systemd sets PHX_SERVER=true) enforces this;
+    # build tasks like `mix ecto.migrate` don't send mail, so they needn't carry
+    # the SMTP password on their command line.
+    raise """
+    SMTP_USERNAME and SMTP_PASSWORD must be set in production.
+
+    OpenPairings sends magic-link login emails and has no local mailbox in
+    production, so it will not start without a working mail sender. Provide the
+    credentials as systemd `Environment=` lines (the deploy script does this for
+    you) or in a `.env` file next to the app.
+    """
+
+  true ->
+    # dev/test without SMTP credentials: keep the mailbox/test adapter as-is.
+    :ok
+end
+
 # ## Using releases
 #
 # If you use `mix release`, you need to explicitly enable the server

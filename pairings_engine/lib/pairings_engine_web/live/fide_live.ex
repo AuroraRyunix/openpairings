@@ -23,6 +23,12 @@ defmodule PairingsEngineWeb.FideLive do
     {:noreply, assign(socket, status: Sync.status())}
   end
 
+  @impl true
+  def handle_event("cancel", _params, socket) do
+    Sync.cancel_sync()
+    {:noreply, assign(socket, status: Sync.status())}
+  end
+
   defp busy?(%{status: s}), do: s in [:downloading, :importing]
 
   defp percent(%{status: :downloading, loaded_bytes: loaded, total_bytes: total}) when total > 0 do
@@ -82,6 +88,9 @@ defmodule PairingsEngineWeb.FideLive do
               @status.player_count > 0 -> "Update from FIDE"
               true -> "Download rating list"
             end}
+          </button>
+          <button :if={busy?(@status)} class="pe-btn" phx-click="cancel">
+            Cancel
           </button>
         </div>
       </div>

@@ -6,6 +6,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
   @rating_types ~w(fide national none)
   @accelerations ~w(none baku)
   @statuses ~w(setup running finished)
+  @standards ~w(standard rapid blitz)
 
   schema "tournaments" do
     field :name, :string
@@ -29,6 +30,42 @@ defmodule PairingsEngine.Tournaments.Tournament do
     field :acceleration, :string, default: "none"
     field :status, :string, default: "setup"
 
+    # standard | rapid | blitz (SWAR TournoiStd)
+    field :standard, :string, default: "standard"
+    field :rate_of_play, :string, default: ""
+    field :organizer_club_number, :string, default: ""
+    # ISO dates, index = round-1
+    field :round_dates, {:array, :string}, default: []
+    # tournament-defined category names (SWAR CATEGORIES)
+    field :categories, {:array, :string}, default: []
+
+    # FIDE "Code of event" (FA1/IA1 B6, IT4 S4 "FIDE Event code")
+    field :event_code, :string, default: ""
+    # FIDE "ID of Tournament" (IT3 B2) — the report's own numeric ID
+    field :fide_tournament_id, :string, default: ""
+
+    # Officials / pairing-system / FIDE-report metadata that doesn't
+    # warrant its own column each — recognised string keys (all optional,
+    # blank/missing means "not set"):
+    #
+    #   organizer_id, organizer_email            — IT3 B8/B10
+    #   chief_arbiter_fide_id, chief_arbiter_email — IT3 B59/B61, FA1/IA1 B18
+    #   deputyN_name, deputyN_fide_id, deputyN_email (N in 1..4) — IT3 B62-B69
+    #   pairing_mode                             — "computerized" | "manual" (IT3 B19/B21)
+    #   pairing_program                          — IT3 B22
+    #   swiss_variant                            — "Dutch" | "Lim" | "Dubov" | "Burstein" (IT3 B17)
+    #   person_responsible_pairings              — IT3 B20
+    #   remark1..remark4                         — IT3 B23-B26 (free text)
+    #   it4_event_type                           — IT4 S6 "Event type"
+    #   pairings_web_link                        — IT4 Y4 "Link to pairings web"
+    field :officials, :map, default: %{}
+
+    # Unguessable token for the public (no-login) read-only pages — see
+    # docs/public-pages.md. Deliberately not the numeric `id`, which is
+    # sequential and easy to enumerate. Always set (never nil) — see
+    # `put_public_slug/1` below, applied by every creation path.
+    field :public_slug, :string
+
     belongs_to :user, PairingsEngine.Accounts.User
     has_many :players, PairingsEngine.Tournaments.Player
     has_many :teams, PairingsEngine.Tournaments.Team
@@ -43,7 +80,9 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :name, :type, :venue, :city, :federation, :start_date, :end_date,
       :organizer, :chief_arbiter, :deputy_arbiter, :time_control,
       :rounds_count, :rating_type, :points_win, :points_draw, :points_loss,
-      :bye_value, :tiebreaks, :acceleration, :status
+      :bye_value, :tiebreaks, :acceleration, :status,
+      :standard, :rate_of_play, :organizer_club_number, :round_dates, :categories,
+      :event_code, :fide_tournament_id, :officials
     ])
     |> validate_required([:name, :type, :rounds_count])
     |> validate_length(:name, min: 1, max: 200)
@@ -51,7 +90,24 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_inclusion(:rating_type, @rating_types)
     |> validate_inclusion(:acceleration, @accelerations)
     |> validate_inclusion(:status, @statuses)
+    |> validate_inclusion(:standard, @standards)
     |> validate_number(:rounds_count, greater_than: 0, less_than_or_equal_to: 30)
+    |> put_public_slug()
+  end
+
+  # Every tournament must always have a `public_slug` — this is the single
+  # choke point all creation paths go through (the UI's "New tournament"
+  # form, the SWAR importer, and the JSON tournament importer all call
+  # `changeset/2`), so none of them need to generate one themselves. Only
+  # fills it in when missing, so updating an existing tournament never
+  # rotates its public link.
+  defp put_public_slug(changeset) do
+    if get_field(changeset, :public_slug) do
+      changeset
+    else
+      slug = :crypto.strong_rand_bytes(9) |> Base.url_encode64(padding: false)
+      put_change(changeset, :public_slug, slug)
+    end
   end
 
   def types, do: @types

@@ -6,10 +6,13 @@ defmodule PairingsEngine.Accounts.UserNotifier do
 
   # Delivers the email using the application mailer.
   defp deliver(recipient, subject, body) do
+    # Use the SMTP_USERNAME if available, otherwise use the placeholder address.
+    from_address = System.get_env("SMTP_USERNAME") || "contact@example.com"
+
     email =
       new()
       |> to(recipient)
-      |> from({"PairingsEngine", "contact@example.com"})
+      |> from({"OpenPairings", from_address})
       |> subject(subject)
       |> text_body(body)
 
@@ -77,6 +80,33 @@ defmodule PairingsEngine.Accounts.UserNotifier do
     #{url}
 
     If you didn't create an account with us, please ignore this.
+
+    ==============================
+    """)
+  end
+
+  @doc """
+  Delivers a tournament collaborator invitation to `email`. Sent from
+  `PairingsEngine.Tournaments.add_collaborator/3` when a tournament's owner
+  invites someone; `url` points at `/invites/:token` (see
+  `PairingsEngineWeb.InviteLive`), which requires login (the invitee's
+  magic-link flow creates their account if they don't have one yet) and lets
+  them accept or decline.
+  """
+  def deliver_invitation(email, owner_email, tournament_name, url) do
+    deliver(email, "You've been invited to #{tournament_name}", """
+
+    ==============================
+
+    Hi,
+
+    #{owner_email} invited you to work on the tournament "#{tournament_name}" on OpenPairings.
+
+    Open the link below to accept (or decline) the invitation:
+
+    #{url}
+
+    If you weren't expecting this, you can safely ignore this email.
 
     ==============================
     """)

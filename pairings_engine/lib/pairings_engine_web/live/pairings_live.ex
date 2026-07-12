@@ -9,15 +9,20 @@ defmodule PairingsEngineWeb.PairingsLive do
     {"1-0", "1-0"},
     {"1/2-1/2", "½-½"},
     {"0-1", "0-1"},
-    {"+--", "+/- (Black forfeits)"},
-    {"--+", "-/+ (White forfeits)"},
-    {"0-0", "0-0 (double forfeit)"}
+    {"1-0FF", "1-0 FF (White wins by forfeit)"},
+    {"0-1FF", "0-1 FF (Black wins by forfeit)"},
+    {"0-0FF", "0-0 FF (double forfeit)"},
+    {"0-0", "0-0 (both lose, game played)"}
   ]
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
-    tournament = Tournaments.get_user_tournament!(socket.assigns.current_scope, id)
+    tournament = Tournaments.get_authorized_tournament!(socket.assigns.current_scope, id)
     paired = Engine.paired_rounds_count(tournament.id)
+
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
+    end
 
     {:ok,
      socket
@@ -28,6 +33,24 @@ defmodule PairingsEngineWeb.PairingsLive do
        error: nil
      )
      |> refresh()}
+  end
+
+  # Results are entered inline (each select saves immediately on change, no
+  # draft state to protect), so a broadcast can just reload everything —
+  # including the tournament itself, since rounds_count/status can change
+  # from the Settings page.
+  @impl true
+  def handle_info({:tournament_changed, _tournament_id, _hint}, socket) do
+    case Tournaments.get_authorized_tournament(socket.assigns.current_scope, socket.assigns.tournament.id) do
+      nil ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "This tournament was deleted.")
+         |> push_navigate(to: ~p"/")}
+
+      tournament ->
+        {:noreply, socket |> assign(tournament: tournament) |> refresh()}
+    end
   end
 
   defp refresh(socket) do
@@ -97,6 +120,40 @@ defmodule PairingsEngineWeb.PairingsLive do
           <h1>{@tournament.name}</h1>
           <p class="subtitle" style="margin: 0">Pairings &amp; results</p>
         </div>
+        <div class="actions" style="margin: 0">
+          <a class="pe-btn" href={~p"/t/#{@tournament.id}/live"} target="_blank">
+            Open live view
+          </a>
+          <a
+            class="pe-btn"
+            href={~p"/p/#{@tournament.public_slug}/pairings"}
+            target="_blank"
+            title="No login needed — share this link"
+          >
+            Public pairings link
+          </a>
+          <a class="pe-btn" href={~p"/t/#{@tournament.id}/export/trf"} target="_blank">
+            Export TRF (all rounds)
+          </a>
+          <form
+            id="trf-rounds-export-form"
+            method="get"
+            action={~p"/t/#{@tournament.id}/export/trf"}
+            target="_blank"
+            style="display: flex; gap: 6px; align-items: center; margin: 0"
+          >
+            <input
+              type="text"
+              name="rounds"
+              placeholder="e.g. 1-5 or 1,3,5"
+              class="pe-select"
+              style="width: 150px"
+            />
+            <button type="submit" class="pe-btn" title="Export only the rounds listed here">
+              Export rounds…
+            </button>
+          </form>
+        </div>
       </div>
 
       <div class="round-picker">
@@ -140,6 +197,14 @@ defmodule PairingsEngineWeb.PairingsLive do
             target="_blank"
           >
             Print pairings
+          </a>
+          <a
+            :if={@round != nil}
+            class="pe-btn"
+            href={~p"/t/#{@tournament.id}/print/standings?round=#{@round_number}"}
+            target="_blank"
+          >
+            Print standings
           </a>
           <button
             :if={@round != nil && @round_number == @paired_rounds}
@@ -186,7 +251,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                 <%= if pairing.result == "bye" do %>
                   <span class="badge">bye ({@tournament.bye_value} pt)</span>
                 <% else %>
-                  <form phx-change="result">
+                  <form phx-change="result" id={"result-form-#{pairing.id}"}>
                     <input type="hidden" name="pairing-id" value={pairing.id} />
                     <select name="result" class="pe-select">
                       <option

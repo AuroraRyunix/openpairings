@@ -29,12 +29,24 @@ defmodule PairingsEngineWeb.Router do
       live "/t/:id/standings", StandingsLive
       live "/t/:id/print", PrintLive
       live "/t/:id/settings", SettingsLive
+      live "/t/:id/live", LiveRoundLive
+      live "/t/:id/norms", NormsLive
+      live "/invites/:token", InviteLive
     end
 
     get "/t/:id/print/players", PrintController, :player_list
     get "/t/:id/print/cards", PrintController, :player_cards
     get "/t/:id/print/pairings", PrintController, :pairing_list
     get "/t/:id/print/standings", PrintController, :standings
+
+    get "/t/:id/norms/it3", NormsController, :it3
+    get "/t/:id/norms/fa1", NormsController, :fa1
+    get "/t/:id/norms/ia1", NormsController, :ia1
+    get "/t/:id/norms/it4", NormsController, :it4
+
+    get "/t/:id/export/trf", ExportController, :trf
+    get "/t/:id/export/json", ExportController, :json
+    get "/export/tournaments.json", ExportController, :all_json
   end
 
   # Other scopes may use custom stacks.
@@ -85,5 +97,18 @@ defmodule PairingsEngineWeb.Router do
 
     post "/users/log-in", UserSessionController, :create
     delete "/users/log-out", UserSessionController, :delete
+  end
+
+  ## Public (no login required) read-only tournament pages — see docs/public-pages.md.
+  # Reachable via a tournament's unguessable `public_slug`, not its numeric
+  # id. No `:require_authenticated_user` — deliberately public.
+  scope "/", PairingsEngineWeb do
+    pipe_through [:browser]
+
+    live_session :public_tournament_pages,
+      on_mount: [{PairingsEngineWeb.UserAuth, :mount_current_scope}] do
+      live "/p/:slug/pairings", PublicPairingsLive
+      live "/p/:slug/standings", PublicStandingsLive
+    end
   end
 end

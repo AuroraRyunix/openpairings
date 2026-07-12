@@ -19,25 +19,34 @@ defmodule PairingsEngine.Pairing do
 
   @doc "Pairs the next round. Returns {:ok, round} or {:error, reason}."
   def pair_next_round(%Tournament{} = tournament) do
-    players = active_players(tournament.id)
     paired = paired_rounds_count(tournament.id)
     next_number = paired + 1
+    active = active_players(tournament.id)
+    eligible = eligible_players(tournament.id, next_number)
 
-    cond do
-      next_number > tournament.rounds_count ->
-        {:error, "All #{tournament.rounds_count} rounds have already been paired"}
+    result =
+      cond do
+        next_number > tournament.rounds_count ->
+          {:error, "All #{tournament.rounds_count} rounds have already been paired"}
 
-      length(players) < 2 ->
-        {:error, "At least two active players are needed"}
+        length(eligible) < 2 ->
+          {:error, "At least two active players are needed"}
 
-      not round_complete?(tournament.id, paired) ->
-        {:error, "Round #{paired} still has missing results"}
+        not round_complete?(tournament.id, paired) ->
+          {:error, "Round #{paired} still has missing results"}
 
-      true ->
-        tournament
-        |> ensure_pairing_numbers(players)
-        |> do_pair(next_number)
+        true ->
+          tournament
+          |> ensure_pairing_numbers(active)
+          |> do_pair(next_number)
+      end
+
+    case result do
+      {:ok, _round} -> Tournaments.broadcast_tournament_change(tournament.id, :rounds)
+      _ -> :ok
     end
+
+    result
   end
 
   @doc "Deletes a paired round (only the latest one, to keep history sane)."
@@ -47,6 +56,7 @@ defmodule PairingsEngine.Pairing do
         from r in Round, where: r.tournament_id == ^tournament_id and r.number == ^number
       )
 
+      Tournaments.broadcast_tournament_change(tournament_id, :rounds)
       :ok
     else
       {:error, "Only the latest round can be unpaired"}
@@ -91,7 +101,9 @@ defmodule PairingsEngine.Pairing do
   ## ---------- the pairing run ----------
 
   defp do_pair(tournament, next_number) do
-    players = active_players(tournament.id)
+    active = active_players(tournament.id)
+    {players, round_absentees} = Enum.split_with(active, &(not absent_for_round?(&1, next_number)))
+
     trf = javafo_input(tournament, players)
 
     dir = Path.join(System.tmp_dir!(), "pairingsengine")
@@ -99,6 +111,11 @@ defmodule PairingsEngine.Pairing do
     input = Path.join(dir, "t#{tournament.id}_r#{next_number}.trf")
     output = Path.join(dir, "t#{tournament.id}_r#{next_number}_pairs.txt")
     File.write!(input, trf)
+
+    # Players requesting an absence for this specific round get a
+    # "requested-zero" bye row instead of being sent to JaVaFo, so the
+    # pairing engine never considers them for this round.
+    insert_round_absentee_byes(tournament, next_number, round_absentees)
 
     case System.cmd("java", ["-jar", javafo_jar(), input, "-p", output],
            stderr_to_stdout: true
@@ -112,6 +129,18 @@ defmodule PairingsEngine.Pairing do
       {out, code} ->
         {:error, "JaVaFo failed (exit #{code}): #{String.slice(out, 0, 300)}"}
     end
+  end
+
+  defp insert_round_absentee_byes(_tournament, _round_number, []), do: :ok
+
+  defp insert_round_absentee_byes(tournament, round_number, round_absentees) do
+    rows =
+      Enum.map(round_absentees, fn p ->
+        %{tournament_id: tournament.id, player_id: p.id, round: round_number, type: "requested-zero"}
+      end)
+
+    Repo.insert_all("byes", rows)
+    :ok
   end
 
   # JaVaFo pairing output: first line = number of pairs, then "white black"
@@ -161,28 +190,7 @@ defmodule PairingsEngine.Pairing do
   @doc "Builds the TRF text JaVaFo takes as input (TRF16 + XXR extension)."
   def javafo_input(tournament, players \\ nil) do
     players = players || active_players(tournament.id)
-    by_id = Map.new(players, &{&1.id, &1})
-    games = games_per_player(tournament, by_id)
-
-    trf_players =
-      players
-      |> Enum.sort_by(& &1.pairing_number)
-      |> Enum.map(fn p ->
-        player_games = Map.get(games, p.id, [])
-
-        %{
-          rank: p.pairing_number,
-          sex: p.sex,
-          title: p.title,
-          name: p.name,
-          fide_rating: Player.rating(p),
-          federation: p.federation,
-          fide_number: p.fide_id,
-          birth_date: p.birth_year && "#{p.birth_year}/00/00",
-          points: player_points(player_games, tournament),
-          games: Enum.map(player_games, &Map.take(&1, [:opponent_rank, :colour, :result]))
-        }
-      end)
+    trf_players = trf_player_rows(tournament, players)
 
     trf =
       Trf.serialize(%{
@@ -200,11 +208,100 @@ defmodule PairingsEngine.Pairing do
     trf <> "XXR #{tournament.rounds_count}\r\n"
   end
 
+  @doc """
+  Builds the `PairingsEngine.Trf.serialize/1`-shaped player list (rank,
+  identity fields, points, full-history games) for `players`, covering every
+  paired round of `tournament` with no filtering. Shared by `javafo_input/2`
+  (active players only, feeding the pairing engine) and
+  `PairingsEngine.TrfExport` (the full roster, for the user-facing TRF
+  download, which additionally trims each player's `:games` down to a
+  chosen round subset — see that module).
+
+  Players without a `pairing_number` yet (never included in a paired round)
+  are dropped: TRF16 requires every player row to carry a numeric starting
+  rank, and a player who was never actually paired has nothing meaningful
+  to report anyway.
+  """
+  def trf_player_rows(tournament, players) do
+    players = Enum.filter(players, &(&1.pairing_number != nil))
+    by_id = Map.new(players, &{&1.id, &1})
+    games = games_per_player(tournament, by_id)
+
+    players
+    |> Enum.sort_by(& &1.pairing_number)
+    |> Enum.map(fn p ->
+      player_games = Map.get(games, p.id, [])
+
+      %{
+        rank: p.pairing_number,
+        sex: p.sex,
+        title: p.title,
+        name: p.name,
+        fide_rating: Player.rating(p),
+        federation: p.federation,
+        fide_number: p.fide_id,
+        birth_date: p.birth_year && "#{p.birth_year}/00/00",
+        points: player_points(player_games, tournament),
+        games: Enum.map(player_games, &Map.take(&1, [:opponent_rank, :colour, :result]))
+      }
+    end)
+  end
+
+  @doc "Sums `games`' TRF result codes into game points, per `tournament`'s point values."
+  def player_points(games, t) do
+    games
+    |> Enum.map(fn g ->
+      case g.result do
+        "1" -> t.points_win
+        "+" -> t.points_win
+        "=" -> t.points_draw
+        "H" -> t.points_draw
+        "F" -> t.points_win
+        "U" -> t.bye_value
+        _ -> t.points_loss
+      end
+    end)
+    |> Enum.sum()
+  end
+
+  # A player is a candidate for pairing at all only while active and neither
+  # permanently absent nor forfeited (SWAR Absent/Forfeit checkboxes).
   defp active_players(tournament_id) do
     Repo.all(
       from p in Player,
-        where: p.tournament_id == ^tournament_id and p.status == "active"
+        where:
+          p.tournament_id == ^tournament_id and p.status == "active" and
+            p.absent == false and p.forfeit == false
     )
+  end
+
+  @doc """
+  Players eligible to be paired for `round_number`: active, not permanently
+  absent/forfeited (see `active_players/1`), and not requesting an absence
+  for this specific round via `absent_rounds` (SWAR "Absent at the rounds
+  x,y,z"). Pure with respect to round-specific filtering — safe to unit-test
+  without invoking JaVaFo.
+  """
+  def eligible_players(tournament_id, round_number) do
+    tournament_id
+    |> active_players()
+    |> Enum.reject(&absent_for_round?(&1, round_number))
+  end
+
+  @doc "True if `player`'s `absent_rounds` list includes `round_number`."
+  def absent_for_round?(%Player{} = player, round_number) do
+    round_number in parse_absent_rounds(player.absent_rounds)
+  end
+
+  defp parse_absent_rounds(nil), do: []
+  defp parse_absent_rounds(""), do: []
+
+  defp parse_absent_rounds(rounds) when is_binary(rounds) do
+    rounds
+    |> String.split(",", trim: true)
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.map(&String.to_integer/1)
   end
 
   # Games in TRF terms for every paired round: opponent pairing number,
@@ -257,6 +354,12 @@ defmodule PairingsEngine.Pairing do
     opponent_id = if white?, do: pairing.black_player_id, else: pairing.white_player_id
     opponent = opponent_id && Map.get(by_id, opponent_id)
 
+    # Played games use TRF codes 1/0/= ; forfeits use + (win) / - (loss),
+    # per FIDE Art. 16 both sides of a forfeit count as unplayed. A played
+    # "0-0" (both players lose, e.g. both defaulted after making moves) is
+    # code '0' for BOTH sides — distinct from a "0-0FF" double forfeit,
+    # which is '-' for both. "+--"/"--+" are the legacy forfeit notation,
+    # kept for historical/SWAR-imported data (see PairingsEngine.Tournaments.Pairing).
     result =
       case {pairing.result, white?} do
         {"bye", _} -> "U"
@@ -265,11 +368,16 @@ defmodule PairingsEngine.Pairing do
         {"0-1", true} -> "0"
         {"0-1", false} -> "1"
         {"1/2-1/2", _} -> "="
+        {"1-0FF", true} -> "+"
+        {"1-0FF", false} -> "-"
+        {"0-1FF", true} -> "-"
+        {"0-1FF", false} -> "+"
+        {"0-0FF", _} -> "-"
+        {"0-0", _} -> "0"
         {"+--", true} -> "+"
         {"+--", false} -> "-"
         {"--+", true} -> "-"
         {"--+", false} -> "+"
-        {"0-0", _} -> "-"
         {"", _} -> nil
         _ -> nil
       end
@@ -292,20 +400,4 @@ defmodule PairingsEngine.Pairing do
   defp bye_code("absent"), do: "Z"
   defp bye_code("pairing-allocated"), do: "U"
   defp bye_code(_), do: "Z"
-
-  defp player_points(games, t) do
-    games
-    |> Enum.map(fn g ->
-      case g.result do
-        "1" -> t.points_win
-        "+" -> t.points_win
-        "=" -> t.points_draw
-        "H" -> t.points_draw
-        "F" -> t.points_win
-        "U" -> t.bye_value
-        _ -> t.points_loss
-      end
-    end)
-    |> Enum.sum()
-  end
 end

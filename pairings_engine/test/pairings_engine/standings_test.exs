@@ -1,7 +1,7 @@
 defmodule PairingsEngine.StandingsTest do
   use PairingsEngine.DataCase, async: true
 
-  alias PairingsEngine.{Repo, Standings}
+  alias PairingsEngine.{Repo, Standings, Tournaments}
   alias PairingsEngine.Tournaments.{Tournament, Player, Round, Pairing}
 
   # Fixture: 4 players, 2 rounds, all games played, standard scoring.
@@ -105,6 +105,45 @@ defmodule PairingsEngine.StandingsTest do
     assert ed.tiebreaks["BH"] > 0.0
   end
 
+  test "extra_points defaults to 0 and total equals points, leaving ranking unchanged" do
+    {tournament, %{a: a, b: b}} = fixture()
+
+    entries = Standings.standings(tournament)
+    ea = Enum.find(entries, &(&1.player.id == a.id))
+    eb = Enum.find(entries, &(&1.player.id == b.id))
+
+    assert ea.extra_points == 0.0
+    assert ea.total == ea.points
+    assert eb.extra_points == 0.0
+    assert eb.total == eb.points
+
+    # Same order as the plain points-based ranking (A still ahead of B).
+    assert [%{player: %{name: "A"}}, %{player: %{name: "B"}} | _] = entries
+  end
+
+  test "a player's extra_points can outrank a same-points player without affecting FIDE tiebreaks" do
+    {tournament, %{b: b, c: c, d: d}} = fixture()
+
+    # After round 2: B=1.0, C=0.5, D=0.5. Give D a 1.0 administrative bonus so
+    # its total (1.5) outranks even B (1.0), despite fewer game points.
+    {:ok, d} = Tournaments.update_player(d, %{extra_points: 1.0})
+
+    entries = Standings.standings(tournament)
+    ed = Enum.find(entries, &(&1.player.id == d.id))
+    eb = Enum.find(entries, &(&1.player.id == b.id))
+    ec = Enum.find(entries, &(&1.player.id == c.id))
+
+    assert ed.points == 0.5
+    assert ed.extra_points == 1.0
+    assert ed.total == 1.5
+    assert ed.rank < eb.rank
+
+    # Buchholz-style tiebreaks still use opponents' GAME points, not totals:
+    # D's own extra_points bonus doesn't change B's or C's tiebreak inputs.
+    assert eb.tiebreaks["BH"] == 2.5
+    assert ec.tiebreaks["SB"] == 0.25
+  end
+
   test "grid_standings/1 always includes BH, BHC1, SB, PS and DE, with ranks matching standings/1" do
     # This tournament only configures WIN as a tiebreak, so standings/1 would
     # not compute BH/SB/PS/DE at all — the player grid needs them regardless.
@@ -133,5 +172,103 @@ defmodule PairingsEngine.StandingsTest do
     gb = Enum.find(grid, &(&1.player.id == b.id))
     assert ga.rank == plain_ranks[a.id]
     assert gb.rank == plain_ranks[b.id]
+  end
+
+  describe "played \"0-0\" vs a \"0-0FF\" double forfeit (FIDE Art. 16)" do
+    # E and F meet twice: round 1 is a played "0-0" (e.g. both players
+    # ejected from the venue after making moves — the game WAS contested,
+    # both lose), round 2 is a "0-0FF" double forfeit (neither played at
+    # all). Both are worth 0 points for both players either way, but only
+    # the played round should count as "played" for tiebreak purposes.
+    defp forfeit_fixture do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "FF Test",
+          type: "swiss",
+          rounds_count: 2,
+          tiebreaks: ~w(BH SB BPG WON ARO)
+        })
+
+      [e, f] =
+        for {name, rating} <- [{"E", 2000}, {"F", 1500}] do
+          Repo.insert!(%Player{tournament_id: tournament.id, name: name, fide_rating: rating})
+        end
+
+      r1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
+      r2 = Repo.insert!(%Round{tournament_id: tournament.id, number: 2, status: "finished"})
+
+      Repo.insert!(%Pairing{
+        round_id: r1.id,
+        board: 1,
+        white_player_id: e.id,
+        black_player_id: f.id,
+        result: "0-0"
+      })
+
+      Repo.insert!(%Pairing{
+        round_id: r2.id,
+        board: 1,
+        white_player_id: e.id,
+        black_player_id: f.id,
+        result: "0-0FF"
+      })
+
+      {tournament, %{e: e, f: f}}
+    end
+
+    test "both results are worth 0 points for both players" do
+      {tournament, %{e: e, f: f}} = forfeit_fixture()
+
+      entries = Standings.standings(tournament)
+      ee = Enum.find(entries, &(&1.player.id == e.id))
+      ef = Enum.find(entries, &(&1.player.id == f.id))
+
+      assert ee.points == 0.0
+      assert ef.points == 0.0
+    end
+
+    test "only the played \"0-0\" round is marked played: true" do
+      {tournament, %{e: e}} = forfeit_fixture()
+
+      entries = Standings.standings(tournament)
+      ee = Enum.find(entries, &(&1.player.id == e.id))
+      by_round = Map.new(ee.games, &{&1.round, &1})
+
+      assert by_round[1].played == true
+      assert by_round[2].played == false
+    end
+
+    test "BPG (games played with black) counts the played 0-0 but not the 0-0FF" do
+      {tournament, %{f: f}} = forfeit_fixture()
+
+      entries = Standings.standings(tournament)
+      ef = Enum.find(entries, &(&1.player.id == f.id))
+
+      # F was black in both rounds, but only round 1 (played "0-0") counts.
+      assert ef.tiebreaks["BPG"] == 1.0
+    end
+
+    test "ARO only averages opponents actually played over the board" do
+      {tournament, %{e: e, f: f}} = forfeit_fixture()
+
+      entries = Standings.standings(tournament)
+      ee = Enum.find(entries, &(&1.player.id == e.id))
+      ef = Enum.find(entries, &(&1.player.id == f.id))
+
+      # Only round 1 (played) counts toward ARO for either side.
+      assert ee.tiebreaks["ARO"] == 1500.0
+      assert ef.tiebreaks["ARO"] == 2000.0
+    end
+
+    test "WON (games won over the board) is unaffected since both results are losses for both sides" do
+      {tournament, %{e: e, f: f}} = forfeit_fixture()
+
+      entries = Standings.standings(tournament)
+      ee = Enum.find(entries, &(&1.player.id == e.id))
+      ef = Enum.find(entries, &(&1.player.id == f.id))
+
+      assert ee.tiebreaks["WON"] == 0.0
+      assert ef.tiebreaks["WON"] == 0.0
+    end
   end
 end

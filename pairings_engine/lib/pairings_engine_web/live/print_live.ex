@@ -5,7 +5,7 @@ defmodule PairingsEngineWeb.PrintLive do
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
-    tournament = Tournaments.get_user_tournament!(socket.assigns.current_scope, id)
+    tournament = Tournaments.get_authorized_tournament!(socket.assigns.current_scope, id)
 
     {:ok,
      assign(socket, tournament: tournament, page_title: "#{tournament.name} · Print")}

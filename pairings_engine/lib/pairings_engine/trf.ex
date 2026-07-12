@@ -1,3 +1,13 @@
+defmodule PairingsEngine.Trf.ValidationError do
+  @moduledoc """
+  Raised by `PairingsEngine.Trf` when a player's round-by-round game data
+  contains an illegal FIDE result: an unrecognized result code, or a result
+  that is inconsistent with the opponent's own recorded result for the same
+  round (e.g. both sides claim a win, or both sides are marked forfeit-win).
+  """
+  defexception [:message]
+end
+
 defmodule PairingsEngine.Trf do
   @moduledoc """
   FIDE TRF16 (Tournament Report File) serializer and parser, per the official
@@ -5,7 +15,16 @@ defmodule PairingsEngine.Trf do
 
   All column positions are 1-indexed and inclusive, exactly as printed in the
   spec. Used for JaVaFo input, FIDE rating export, and TRF import.
+
+  Both `serialize/1` and `parse/1` validate every player's per-round result
+  codes before returning, raising `PairingsEngine.Trf.ValidationError` on an
+  unrecognized code or an illegal combination between two opponents (see
+  `validate_games!/1`). Validation only cross-checks a pairing when both
+  sides are present in the given player set and mutually reference each
+  other for that round — a lone/dangling reference is not itself an error.
   """
+
+  alias PairingsEngine.Trf.ValidationError
 
   @player_cols %{
     code: {1, 3},
@@ -60,6 +79,27 @@ defmodule PairingsEngine.Trf do
 
   def result_codes, do: @result_codes
 
+  # TRF16 result codes for an actually-contested game (win/draw/loss/forfeit)
+  # vs. an unpaired round (byes of every kind). A forfeit is legally
+  # "unplayed" per FIDE Art. 16, but it still occupies a pairing slot (an
+  # opponent), unlike a bye — so the two groups get different validation.
+  @playing_codes ~w(1 = 0 + -)
+  @bye_codes ~w(H F U Z)
+
+  # Legal opponent-result for each of this player's playing codes. A win
+  # ("1") only pairs with a loss ("0"); a played "0-0" (both players lose,
+  # e.g. both defaulted after making moves) is two losses, so "0" also
+  # legally pairs with "0". A double forfeit is "-"/"-"; a single forfeit is
+  # "+"/"-". Anything else (both win, both forfeit-win, a win against a
+  # draw, etc.) is impossible and rejected.
+  @legal_result_pairs %{
+    "1" => ["0"],
+    "0" => ["1", "0"],
+    "=" => ["="],
+    "+" => ["-"],
+    "-" => ["+", "-"]
+  }
+
   # Round blocks repeat every 10 columns starting at column 92 (round 1):
   # opponent id at base..base+3, colour at base+5, result at base+7.
   defp round_cols(round) do
@@ -92,6 +132,7 @@ defmodule PairingsEngine.Trf do
       })
   """
   def serialize(%{tournament: t, players: players} = data) do
+    validate_games!(players)
     teams = Map.get(data, :teams, [])
 
     header_lines(t, players, teams)
@@ -224,6 +265,66 @@ defmodule PairingsEngine.Trf do
     end
   end
 
+  ## ---------- Result validation ----------
+
+  # Validates every player's per-round result code, raising ValidationError
+  # naming the player and round on the first illegal one found. Games with
+  # no result yet (nil/"") are skipped. A code is checked two ways:
+  #   1. It must be a recognized TRF16 result code at all.
+  #   2. If it's a "playing" code (win/draw/loss/forfeit) and the opponent
+  #      for that round is resolvable in `players` *and* mutually references
+  #      this player back, the two codes must be a legal pair (see
+  #      `@legal_result_pairs`). An unresolvable/dangling opponent reference
+  #      is not itself flagged — the caller may be validating a partial
+  #      roster (e.g. a single player's card).
+  defp validate_games!(players) do
+    by_rank = Map.new(players, &{&1[:rank], &1})
+
+    for player <- players,
+        {game, round} <- Enum.with_index(player[:games] || [], 1) do
+      validate_game!(player, round, game, by_rank)
+    end
+
+    :ok
+  end
+
+  defp validate_game!(_player, _round, %{result: result}, _by_rank) when result in [nil, ""],
+    do: :ok
+
+  defp validate_game!(player, round, %{result: result} = game, by_rank) do
+    cond do
+      result not in (@playing_codes ++ @bye_codes) ->
+        raise ValidationError,
+          message:
+            "#{player_label(player)}, round #{round}: unrecognized TRF result code #{inspect(result)}"
+
+      result in @playing_codes ->
+        validate_playing_pair!(player, round, game, by_rank, result)
+
+      true ->
+        :ok
+    end
+  end
+
+  defp validate_playing_pair!(player, round, game, by_rank, result) do
+    with opp_rank when not is_nil(opp_rank) <- game[:opponent_rank],
+         opponent when not is_nil(opponent) <- Map.get(by_rank, opp_rank),
+         opp_game when not is_nil(opp_game) <- Enum.at(opponent[:games] || [], round - 1),
+         true <- opp_game[:opponent_rank] == player[:rank],
+         opp_result when opp_result not in [nil, ""] <- opp_game[:result] do
+      unless opp_result in Map.get(@legal_result_pairs, result, []) do
+        raise ValidationError,
+          message:
+            "#{player_label(player)} vs #{player_label(opponent)}, round #{round}: " <>
+              "illegal result combination '#{result}' / '#{opp_result}'"
+      end
+    else
+      _ -> :ok
+    end
+  end
+
+  defp player_label(p), do: to_string(p[:name] || p[:rank])
+
   ## ---------- Parsing ----------
 
   @doc "Inverse of serialize/1: returns %{tournament: ..., players: ..., teams: ...}."
@@ -233,14 +334,18 @@ defmodule PairingsEngine.Trf do
       |> String.split(~r/\r?\n/)
       |> Enum.reject(&(String.trim(&1) == ""))
 
-    Enum.reduce(lines, %{tournament: %{deputy_arbiters: []}, players: [], teams: []}, fn line, acc ->
-      case String.slice(line, 0, 3) do
-        "001" -> update_in(acc.players, &(&1 ++ [parse_player_line(line)]))
-        "013" -> update_in(acc.teams, &(&1 ++ [parse_team_line(line)]))
-        "132" -> put_in(acc.tournament[:round_dates], parse_round_dates(line))
-        code -> parse_header_line(acc, code, line)
-      end
-    end)
+    result =
+      Enum.reduce(lines, %{tournament: %{deputy_arbiters: []}, players: [], teams: []}, fn line, acc ->
+        case String.slice(line, 0, 3) do
+          "001" -> update_in(acc.players, &(&1 ++ [parse_player_line(line)]))
+          "013" -> update_in(acc.teams, &(&1 ++ [parse_team_line(line)]))
+          "132" -> put_in(acc.tournament[:round_dates], parse_round_dates(line))
+          code -> parse_header_line(acc, code, line)
+        end
+      end)
+
+    validate_games!(result.players)
+    result
   end
 
   defp read(line, {start_col, end_col}) do

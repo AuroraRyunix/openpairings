@@ -129,6 +129,27 @@ html, html[data-theme="dark"] {
   background: var(--bg);
 }
 
+/* The pin above only covers html/body's own background — it does nothing
+   for daisyUI *component* colors (--color-base-100/200/300/content), which
+   still flip to the dark theme's values whenever the OS/browser prefers
+   dark mode or the theme toggle sets data-theme="dark" on <html> (see
+   root.html.heex). core_components' <.input>/<.select>/<.textarea> (used
+   on every auth page: log in, register, magic-link confirm, settings) rely
+   on daisyUI's `.input`/`.select` classes for their background but do NOT
+   set their own text color — that's inherited from `body`, which we pin to
+   the dark `--text` color a few lines below regardless of theme. Result: in
+   dark mode the input background goes dark while the text stays dark too,
+   i.e. unreadable dark-on-dark ("black on black"). Force the daisyUI color
+   variables to the light theme's values unconditionally so every daisyUI
+   component matches the rest of the app's light-only look. */
+:root, [data-theme="dark"] {
+  color-scheme: light;
+  --color-base-100: oklch(98% 0 0);
+  --color-base-200: oklch(96% 0.001 286.375);
+  --color-base-300: oklch(92% 0.004 286.32);
+  --color-base-content: oklch(21% 0.006 285.885);
+}
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -257,10 +278,24 @@ label.field > span {
   color: var(--text);
 }
 
-.field input:focus, .field select:focus, input.pe-input:focus {
+.field input:focus, .field select:focus, input.pe-input:focus, .input:focus, .select:focus, .textarea:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* daisyUI form elements: input, select, textarea.
+   These are used by core_components' <.input> component (email, password, text, number,
+   textarea types) and <.select> component on auth pages and settings. Style them to match
+   the design system with visible borders and proper focus states. */
+.input, .select, .textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+  background: var(--surface);
+  color: var(--text);
 }
 
 .form-grid {
@@ -294,6 +329,9 @@ button.pe-btn, .pe-btn {
   font-weight: 500;
 }
 .pe-btn.danger-link:hover { text-decoration: underline; background: none; }
+
+.pe-btn.danger { background: var(--danger); border-color: var(--danger); color: white; }
+.pe-btn.danger:hover { background: #8a3126; border-color: #8a3126; }
 
 .pe-btn:disabled, .pe-btn.disabled { opacity: 0.5; cursor: default; pointer-events: none; }
 
@@ -397,6 +435,45 @@ button.pe-btn, .pe-btn {
    wrapping — the .split-main wrapper already scrolls horizontally. */
 .pe-table td { white-space: nowrap; }
 
+/* SWAR-style dialogs: Player registration (double-click) and Players Card
+   (right-click). Plain overlay + card — no daisyUI modal classes. */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 18, 12, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+
+.modal-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  padding: 24px;
+  max-width: 720px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-card h2 { margin-top: 0; }
+.modal-card .actions { margin-top: 18px; }
+
+.radio-row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.radio-row label { display: flex; align-items: center; gap: 6px; font-weight: 500; cursor: pointer; }
+.radio-row input { width: auto; accent-color: var(--accent); }
+
+.checkbox-row { display: flex; gap: 20px; flex-wrap: wrap; margin: 10px 0; }
+.checkbox-row label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 500; }
+.checkbox-row input[type="checkbox"] { width: auto; accent-color: var(--accent); }
+
+.card-table-wrap { overflow-x: auto; }
+.card-header-line { color: var(--text-soft); margin: -6px 0 16px; }
+.card-total-row td { font-weight: 700; border-top: 2px solid var(--border); }
+
 /* progress bar */
 .progress-block { margin: 12px 0; }
 .progress-track { height: 10px; border-radius: 99px; background: var(--border); overflow: hidden; }
@@ -406,4 +483,154 @@ button.pe-btn, .pe-btn {
   0% { margin-left: 0; }
   50% { margin-left: 70%; }
   100% { margin-left: 0; }
+}
+
+/* SWAR file picker: an obvious bordered drop-zone. The real <input
+   type="file"> (from live_file_input) is stretched to cover the whole box
+   and made invisible, so clicking or dragging anywhere on the box works;
+   :hover doubles as the dragover highlight since browsers apply :hover to
+   the element under the cursor during a native drag too. */
+.dropzone {
+  position: relative;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  padding: 28px 16px;
+  text-align: center;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.dropzone:hover, .dropzone:focus-within {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.dropzone.has-file {
+  border-style: solid;
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.dropzone-label {
+  font-weight: 600;
+  color: var(--text);
+  pointer-events: none;
+}
+.dropzone-label .hint {
+  display: block;
+  font-weight: 400;
+  color: var(--text-soft);
+  font-size: 13px;
+  margin-top: 2px;
+}
+.dropzone-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.dropzone-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* ============================================================
+   Mobile / tablet responsive overrides
+   ============================================================
+   Everything below is scoped inside @media (max-width: ...) so
+   desktop rendering above this point stays byte-for-byte
+   unchanged. See docs/mobile.md for the breakpoints and the
+   "only the table scrolls, never the page" rule that guides
+   these rules, plus guidance for keeping future components
+   responsive.
+   ============================================================ */
+
+@media (max-width: 768px) {
+  /* ---- safety net: the page itself must never scroll sideways,
+     only individual wide elements (tables) may ---- */
+  html, body { overflow-x: hidden; }
+
+  /* ---- top bar: brand + auth stay on one row, the tab strip
+     drops to its own row and scrolls horizontally instead of
+     clipping or wrapping into a wall of tabs ---- */
+  .topbar {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 8px 14px;
+    row-gap: 6px;
+  }
+
+  .topbar .brand { order: 1; }
+  .topbar-auth { order: 2; margin-left: auto; }
+
+  .topbar nav a {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+
+  .topbar > nav:not(.topbar-auth) {
+    order: 3;
+    flex-basis: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 2px;
+  }
+
+  .topbar > nav:not(.topbar-auth) a {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  /* ---- page shell ---- */
+  .page { padding: 18px 14px 48px; }
+
+  /* ---- page headers / action rows wrap instead of overflowing ---- */
+  .page-header { flex-wrap: wrap; }
+  .actions { flex-wrap: wrap; }
+
+  /* ---- wide tables (players grid, pairings, standings, player
+     cards, print index, tournaments list, norms lists...): the
+     .table-card / .card-table-wrap wrapper scrolls horizontally,
+     the page around it never does ---- */
+  .table-card {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ---- players page: grid + Display panel stack instead of
+     sitting side by side ---- */
+  .split {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .display-panel { width: 100%; }
+
+  /* ---- modals: near-full-width instead of a fixed desktop size ---- */
+  .modal-overlay { padding: 12px; }
+  .modal-card { padding: 18px; }
+
+  /* ---- TRF "Export rounds…" input has a fixed 150px width on
+     desktop; let it fill the row instead of overflowing ---- */
+  #trf-rounds-export-form { flex-wrap: wrap; }
+  #trf-rounds-export-form input[name="rounds"] { width: 100% !important; }
+}
+
+@media (max-width: 480px) {
+  /* trim the email address from the top bar to leave room for the
+     Settings / Log out links next to the brand */
+  .topbar-auth .user-email { display: none; }
+
+  .modal-card {
+    width: 95vw;
+    max-height: 90vh;
+    padding: 14px;
+  }
+  .modal-overlay { padding: 8px; }
+
+  .card { padding: 16px; }
 }

@@ -39,7 +39,7 @@ defmodule PairingsEngineWeb.Layouts do
   def app(assigns) do
     ~H"""
     <header class="topbar">
-      <.link navigate={~p"/"} class="brand">♞ PairingsEngine</.link>
+      <.link navigate={~p"/"} class="brand">♞ OpenPairings</.link>
       <nav>
         <.link navigate={~p"/"} class={tab_class(@active == "tournaments")}>Tournaments</.link>
         <%= if @tournament do %>
@@ -57,6 +57,9 @@ defmodule PairingsEngineWeb.Layouts do
           </.link>
           <.link navigate={~p"/t/#{@tournament.id}/print"} class={tab_class(@active == "print")}>
             Print
+          </.link>
+          <.link navigate={~p"/t/#{@tournament.id}/norms"} class={tab_class(@active == "norms")}>
+            Norms
           </.link>
           <.link navigate={~p"/t/#{@tournament.id}/settings"} class={tab_class(@active == "settings")}>
             Settings

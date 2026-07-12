@@ -6,15 +6,42 @@ defmodule PairingsEngineWeb.StandingsLive do
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
-    tournament = Tournaments.get_user_tournament!(socket.assigns.current_scope, id)
+    tournament = Tournaments.get_authorized_tournament!(socket.assigns.current_scope, id)
+
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
+    end
 
     {:ok,
-     assign(socket,
-       tournament: tournament,
-       page_title: "#{tournament.name} · Standings",
-       entries: Standings.standings(tournament),
-       rounds_paired: Standings.rounds_paired(tournament.id)
-     )}
+     socket
+     |> assign(tournament: tournament, page_title: "#{tournament.name} · Standings")
+     |> reload_standings()}
+  end
+
+  # Nothing here is user-editable — standings are read-only — so any
+  # broadcast can just refresh everything, including the tournament (its
+  # tiebreak configuration drives which columns are shown).
+  @impl true
+  def handle_info({:tournament_changed, _tournament_id, _hint}, socket) do
+    case Tournaments.get_authorized_tournament(socket.assigns.current_scope, socket.assigns.tournament.id) do
+      nil ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "This tournament was deleted.")
+         |> push_navigate(to: ~p"/")}
+
+      tournament ->
+        {:noreply, socket |> assign(tournament: tournament) |> reload_standings()}
+    end
+  end
+
+  defp reload_standings(socket) do
+    tournament = socket.assigns.tournament
+
+    assign(socket,
+      entries: Standings.standings(tournament),
+      rounds_paired: Standings.rounds_paired(tournament.id)
+    )
   end
 
   defp format_tb(value) when is_float(value) do
@@ -33,6 +60,19 @@ defmodule PairingsEngineWeb.StandingsLive do
           <p class="subtitle" style="margin: 0">
             Standings{if @rounds_paired > 0, do: " after round #{@rounds_paired}"}
           </p>
+        </div>
+        <div class="actions" style="margin: 0">
+          <a
+            class="pe-btn"
+            href={~p"/p/#{@tournament.public_slug}/standings"}
+            target="_blank"
+            title="No login needed — share this link"
+          >
+            Public standings link
+          </a>
+          <a class="pe-btn" href={~p"/t/#{@tournament.id}/print/standings"} target="_blank">
+            Print
+          </a>
         </div>
       </div>
 

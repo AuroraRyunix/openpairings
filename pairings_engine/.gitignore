@@ -28,8 +28,12 @@ pairings_engine-*.tar
 # Ignore assets that are produced by build tools.
 /priv/static/assets/
 
-# Ignore digested assets cache.
+# Ignore digested assets cache and phx.digest output (from prod builds).
 /priv/static/cache_manifest.json
+/priv/static/**/*.gz
+/priv/static/favicon-*.ico
+/priv/static/robots-*.txt
+/priv/static/images/logo-*.svg
 
 # In case you use Node.js/npm, you want to ignore these.
 npm-debug.log
