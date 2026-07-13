@@ -16,24 +16,35 @@ permissions:
 
 jobs:
   build:
-
     name: Build and test
     runs-on: ubuntu-latest
 
+    # 1. This tells all 'run' steps in this job to execute inside the subdirectory
+    defaults:
+      run:
+        working-directory: ./pairings_engine
+
     steps:
     - uses: actions/checkout@v4
+
     - name: Set up Elixir
       uses: erlef/setup-beam@v1
       with:
         elixir-version: '1.20' # [Required] Define the Elixir version
-        otp-version: '29.0'      # [Required] Define the Erlang/OTP version
-    - name: Restore dependencies cache
+        otp-version: '29.0'    # [Required] Define the Erlang/OTP version
+
+    # 2. Cache steps ignore 'working-directory', so paths must explicitly include the subfolder
+    - name: Restore dependencies and build cache
       uses: actions/cache@v4
       with:
-        path: deps
-        key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
+        path: |
+          pairings_engine/deps
+          pairings_engine/_build
+        key: ${{ runner.os }}-mix-${{ hashFiles('pairings_engine/mix.lock') }}
         restore-keys: ${{ runner.os }}-mix-
+
     - name: Install dependencies
       run: mix deps.get
+
     - name: Run tests
       run: mix test
