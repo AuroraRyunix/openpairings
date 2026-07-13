@@ -108,6 +108,53 @@ defmodule PairingsEngine.Norms.FormsTest do
       assert fills["B16"] == "Team"
     end
 
+    test "B13 prefers the structured rate_of_play over the free-text time_control" do
+      t = tournament(%{rate_of_play: "90min/40moves+30min/end+30sec/move from move 1"})
+      fills = Forms.it3_fills(t, [])["Invulformulier"]
+
+      assert fills["B13"] == "90min/40moves+30min/end+30sec/move from move 1"
+    end
+
+    test "B13 falls back to time_control when rate_of_play is blank" do
+      t = tournament(%{rate_of_play: ""})
+      fills = Forms.it3_fills(t, [])["Invulformulier"]
+
+      assert fills["B13"] == "90 min + 30 sec/move"
+    end
+
+    test "B12 derives the rounds-per-day schedule from round_dates, chunked by consecutive equal dates" do
+      t =
+        tournament(%{
+          round_dates: [
+            "2026-07-10",
+            "2026-07-11",
+            "2026-07-12",
+            "2026-07-12",
+            "2026-07-13",
+            "2026-07-13",
+            "2026-07-14"
+          ]
+        })
+
+      fills = Forms.it3_fills(t, [])["Invulformulier"]
+
+      assert fills["B12"] == "1-1-2-2-1"
+    end
+
+    test "B12 ignores blank round dates and is nil (left untouched) when there are none set" do
+      t = tournament(%{round_dates: ["", "", ""]})
+      fills = Forms.it3_fills(t, [])["Invulformulier"]
+
+      assert fills["B12"] == nil
+    end
+
+    test "B12 treats a rescheduled date landing later in the round order as its own chunk" do
+      t = tournament(%{round_dates: ["2026-07-10", "2026-07-10", "2026-07-11", "2026-07-10"]})
+      fills = Forms.it3_fills(t, [])["Invulformulier"]
+
+      assert fills["B12"] == "2-1-1"
+    end
+
     test "computes rated/GM/IM/FM/unrated/WGM/WIM/WFM counts by federation" do
       players = [
         player(%{title: "GM", federation: "BEL", fide_rating: 2500}),

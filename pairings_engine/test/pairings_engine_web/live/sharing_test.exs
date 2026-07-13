@@ -89,6 +89,22 @@ defmodule PairingsEngineWeb.SharingTest do
       |> form("#result-form-#{pairing.id}", %{"pairing-id" => pairing.id, "result" => "1-0"})
       |> render_change()
 
+      # update_pairing_result/2 broadcasts on the tournament topic and this
+      # `lv` is subscribed to its own tournament (see PairingsLive's mount) —
+      # render_change/1 only waits for the *direct* reply to the "result"
+      # event, not for that self-broadcast's handle_info reload, which lands
+      # in the mailbox microseconds later and runs a second, independent
+      # Repo query. Without draining it here, the test ends (and the test
+      # process supervisor kills `lv`, via ExUnit.fetch_test_supervisor/0)
+      # while that query may still be in flight, which can abort it mid-way
+      # on the shared sandbox connection (this file's tests share one
+      # connection — see the moduledoc comment) and briefly wedge SQLite's
+      # single writer lock for later tests. render/1 is a synchronous call
+      # into `lv`, so — since Erlang delivers messages in mailbox order — it
+      # can't return until that already-queued self-broadcast reload has
+      # been handled first.
+      render(lv)
+
       assert Tournaments.get_round(tournament.id, 1).pairings
              |> Enum.find(&(&1.id == pairing.id))
              |> Map.get(:result) == "1-0"
@@ -247,6 +263,12 @@ defmodule PairingsEngineWeb.SharingTest do
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings")
 
       lv |> element(~s(button[phx-value-id="#{invite.id}"])) |> render_click()
+
+      # Same self-broadcast race as the "enter a pairing result" test above
+      # — remove_collaborator/3 broadcasts on the tournament topic that this
+      # `lv` (Settings) is itself subscribed to. Drain it before the test
+      # (and `lv`'s teardown) proceeds.
+      render(lv)
 
       assert Tournaments.list_collaborators(tournament) == []
     end

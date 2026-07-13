@@ -23,6 +23,9 @@ defmodule PairingsEngineWeb.TournamentsLive do
     "3 min + 2 sec/move"
   ]
 
+  @pairing_system_options for ps <- Tournament.pairing_systems(), do: {ps, Tournament.pairing_system_label(ps)}
+  @rr_cycles_options for c <- Tournament.rr_cycles_values(), do: {c, Tournament.rr_cycles_label(c)}
+
   @impl true
   def mount(_params, _session, socket) do
     if connected?(socket) do
@@ -41,7 +44,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
        importing_backup: false,
        error: nil,
        delete_target: nil,
-       delete_confirm_text: ""
+       delete_confirm_text: "",
+       new_pairing_system: "swiss",
+       new_team?: false,
+       swar_pending: nil
      )
      # ".swar" has no registered MIME type, so the browser-side accept filter
      # can't be used; the binary parser rejects anything that isn't SWAR anyway.
@@ -96,7 +102,19 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
   @impl true
   def handle_event("new", _params, socket) do
-    {:noreply, assign(socket, creating: true, importing: false)}
+    {:noreply, assign(socket, creating: true, importing: false, new_pairing_system: "swiss", new_team?: false)}
+  end
+
+  # Tracks the "Pairing system" select's (and the "Team tournament"
+  # checkbox's) live value so the "Cycles" field can be shown only for
+  # round_robin, without a full form round-trip — see `derive_type/2` for
+  # where these two combine into the single `type` value actually stored.
+  def handle_event("pairing_system_picked", %{"tournament" => params}, socket) do
+    {:noreply,
+     assign(socket,
+       new_pairing_system: params["pairing_system"],
+       new_team?: params["team"] == "true"
+     )}
   end
 
   def handle_event("import", _params, socket) do
@@ -108,10 +126,27 @@ defmodule PairingsEngineWeb.TournamentsLive do
   end
 
   def handle_event("cancel", _params, socket) do
-    {:noreply, assign(socket, creating: false, importing: false, importing_backup: false, error: nil)}
+    {:noreply,
+     assign(socket,
+       creating: false,
+       importing: false,
+       importing_backup: false,
+       error: nil,
+       new_pairing_system: "swiss",
+       new_team?: false,
+       swar_pending: nil
+     )}
   end
 
+  # The "Tournament format" select is gone from the creation modal — `type`
+  # (the FIDE-report classification: swiss | roundrobin | team-swiss |
+  # team-roundrobin) is *always* derived here from the single "Pairing
+  # system" choice plus the "Team tournament" checkbox, never taken from
+  # the client, so the two can never disagree (see docs/pairing-systems.md
+  # and the "New tournament" form below).
   def handle_event("create", %{"tournament" => params}, socket) do
+    params = Map.put(params, "type", derive_type(params["pairing_system"], params["team"]))
+
     case Tournaments.create_tournament(socket.assigns.current_scope, params) do
       {:ok, tournament} ->
         {:noreply, push_navigate(socket, to: ~p"/t/#{tournament.id}/players")}
@@ -125,16 +160,17 @@ defmodule PairingsEngineWeb.TournamentsLive do
   def handle_event("validate_swar", _params, socket), do: {:noreply, socket}
 
   def handle_event("import_swar", _params, socket) do
-    scope = socket.assigns.current_scope
-
     results =
       consume_uploaded_entries(socket, :swar, fn %{path: path}, _entry ->
-        {:ok, SwarImport.import_file(path, scope)}
+        {:ok, SwarImport.prepare_import(path)}
       end)
 
     case results do
-      [{:ok, tournament}] ->
-        {:noreply, push_navigate(socket, to: ~p"/t/#{tournament.id}/standings")}
+      [{:ok, %{unresolved: []} = prepared}] ->
+        commit_swar(socket, prepared, %{})
+
+      [{:ok, %{unresolved: unresolved} = prepared}] when unresolved != [] ->
+        {:noreply, assign(socket, swar_pending: prepared, importing: false, error: nil)}
 
       [{:error, reason}] ->
         {:noreply, assign(socket, error: "Could not read this SWAR file: #{inspect(reason)}")}
@@ -142,6 +178,41 @@ defmodule PairingsEngineWeb.TournamentsLive do
       [] ->
         {:noreply, assign(socket, error: "Choose a .swar file first")}
     end
+  end
+
+  ## ---------- SWAR FIDE-match confirm step (players with no FIDE id) ----------
+  #
+  # Only reached when `prepare_import/1` came back with `unresolved != []`
+  # (see `import_swar` above) — every player SWAR itself already had a FIDE
+  # id for, and every player who matched exactly one local FIDE database
+  # entry on name+federation+birth-year, is already settled at that point
+  # and never shown here.
+
+  # Each unresolved player renders a radio group named
+  # `resolution[<ni>]` — either a candidate's FIDE id, or "skip" (the
+  # default) to import them with no `fide_id` at all, same as if no local
+  # FIDE database match had ever been attempted.
+  def handle_event("resolve_swar", %{"resolution" => resolution_params}, socket) do
+    resolutions =
+      Map.new(resolution_params, fn {ni_str, value} ->
+        fide_id =
+          case Integer.parse(value) do
+            {id, ""} -> id
+            _ -> nil
+          end
+
+        {String.to_integer(ni_str), fide_id}
+      end)
+
+    commit_swar(socket, socket.assigns.swar_pending, resolutions)
+  end
+
+  def handle_event("resolve_swar", _params, socket) do
+    commit_swar(socket, socket.assigns.swar_pending, %{})
+  end
+
+  def handle_event("cancel_swar_resolve", _params, socket) do
+    {:noreply, assign(socket, swar_pending: nil, importing: true, error: nil)}
   end
 
   ## ---------- JSON backup import (full-fidelity, single or all tournaments) ----------
@@ -205,6 +276,26 @@ defmodule PairingsEngineWeb.TournamentsLive do
     end
   end
 
+  defp commit_swar(socket, prepared, resolutions) do
+    scope = socket.assigns.current_scope
+
+    case SwarImport.commit_import(prepared, resolutions, scope) do
+      {:ok, tournament} ->
+        {:noreply,
+         socket
+         |> assign(swar_pending: nil)
+         |> push_navigate(to: ~p"/t/#{tournament.id}/standings")}
+
+      {:error, reason} ->
+        {:noreply,
+         assign(socket,
+           swar_pending: nil,
+           importing: true,
+           error: "Could not import this SWAR file: #{inspect(reason)}"
+         )}
+    end
+  end
+
   defp decode_and_import(path, scope) do
     with {:ok, content} <- File.read(path),
          {:ok, data} <- Jason.decode(content) do
@@ -219,8 +310,24 @@ defmodule PairingsEngineWeb.TournamentsLive do
     Enum.map_join(changeset.errors, ", ", fn {field, {msg, _}} -> "#{field} #{msg}" end)
   end
 
+  # The "Tournament format" select is gone from the creation modal — `type`
+  # (the FIDE-report classification: swiss | roundrobin | team-swiss |
+  # team-roundrobin) is *always* derived from the single "Pairing system"
+  # choice plus the "Team tournament" checkbox, never taken from the
+  # client, so the two can never disagree (see docs/pairing-systems.md and
+  # the "create" event handler above).
+  defp derive_type("round_robin", "true"), do: "team-roundrobin"
+  defp derive_type("round_robin", _team?), do: "roundrobin"
+  # keizer is Swiss-classified for FIDE reporting purposes — there's no
+  # separate "type" for it (see `PairingsEngine.Tournaments.Tournament`'s
+  # `pairing_system` field docs).
+  defp derive_type(_swiss_or_keizer, "true"), do: "team-swiss"
+  defp derive_type(_swiss_or_keizer, _team?), do: "swiss"
+
   defp standard_options, do: @standard_options
   defp rate_of_play_options, do: @rate_of_play_options
+  defp pairing_system_options, do: @pairing_system_options
+  defp rr_cycles_options, do: @rr_cycles_options
 
   @impl true
   def render(assigns) do
@@ -274,7 +381,13 @@ defmodule PairingsEngineWeb.TournamentsLive do
         </div>
       </div>
 
-      <form :if={@creating} class="card" phx-submit="create">
+      <form
+        :if={@creating}
+        id="new-tournament-form"
+        class="card"
+        phx-submit="create"
+        phx-change="pairing_system_picked"
+      >
         <h2>New tournament</h2>
         <div class="form-grid">
           <label class="field">
@@ -283,11 +396,25 @@ defmodule PairingsEngineWeb.TournamentsLive do
           </label>
           <label class="field">
             <span>Pairing system</span>
-            <select name="tournament[type]">
-              <option :for={type <- Tournament.types()} value={type}>
-                {Tournament.type_label(type)}
+            <select name="tournament[pairing_system]">
+              <option
+                :for={{val, label} <- pairing_system_options()}
+                value={val}
+                selected={val == @new_pairing_system}
+              >
+                {label}
               </option>
             </select>
+          </label>
+          <label :if={@new_pairing_system == "round_robin"} class="field">
+            <span>Cycles</span>
+            <select name="tournament[rr_cycles]">
+              <option :for={{val, label} <- rr_cycles_options()} value={val}>{label}</option>
+            </select>
+          </label>
+          <label class="field" style="display: flex; flex-direction: row; align-items: center; gap: .5rem; margin-top: 1.6rem">
+            <input type="checkbox" name="tournament[team]" value="true" checked={@new_team?} style="width: auto" />
+            <span>Team tournament</span>
           </label>
           <label class="field">
             <span>Rounds</span>
@@ -329,7 +456,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         </div>
       </form>
 
-      <form :if={@importing} class="card" phx-submit="import_swar" phx-change="validate_swar">
+      <form :if={@importing} id="swar-import-form" class="card" phx-submit="import_swar" phx-change="validate_swar">
         <h2>Import a SWAR tournament</h2>
         <p class="hint" style="margin-top: 0">
           Pick a <code>.swar</code> file — the tournament, its players, rounds and results
@@ -353,6 +480,47 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <div class="actions">
           <button type="submit" class="pe-btn primary">Import</button>
           <button type="button" class="pe-btn" phx-click="cancel">Cancel</button>
+        </div>
+      </form>
+
+      <form :if={@swar_pending} id="swar-resolve-form" class="card" phx-submit="resolve_swar">
+        <h2>Resolve FIDE ids</h2>
+        <p class="hint" style="margin-top: 0">
+          SWAR has no FIDE id on file for {length(@swar_pending.unresolved)}
+          player{if length(@swar_pending.unresolved) != 1, do: "s"}. Pick a match below if one of
+          these is the right person, or import them without a FIDE id — nothing is saved until
+          you confirm.
+        </p>
+        <div :for={entry <- @swar_pending.unresolved} class="card" style="background: var(--pe-bg-alt, #f7f7f7)">
+          <h3 style="margin-top: 0">
+            {entry.name}
+            <span class="hint">
+              — {if entry.federation == "", do: "no federation", else: entry.federation},
+              born {entry.birth_year || "unknown"}
+            </span>
+          </h3>
+          <div style="display: flex; flex-direction: column; gap: .4rem">
+            <label
+              :for={c <- entry.candidates}
+              style="display: flex; gap: .5rem; align-items: baseline; font-weight: 400"
+            >
+              <input type="radio" name={"resolution[#{entry.ni}]"} value={c.fide_id} />
+              <span>
+                <strong>{c.name}</strong>
+                — FIDE {c.fide_id} — {if c.federation == "", do: "?", else: c.federation},
+                born {c.birth_year || "unknown"}{if c.title != "", do: ", #{c.title}"}{if c.standard_rating,
+                  do: ", #{c.standard_rating}"}
+              </span>
+            </label>
+            <label style="display: flex; gap: .5rem; align-items: baseline; font-weight: 400">
+              <input type="radio" name={"resolution[#{entry.ni}]"} value="skip" checked /> Import without a FIDE id
+            </label>
+          </div>
+        </div>
+        <p :if={@error} class="error-note">{@error}</p>
+        <div class="actions">
+          <button type="submit" class="pe-btn primary">Confirm and import</button>
+          <button type="button" class="pe-btn" phx-click="cancel_swar_resolve">Back</button>
         </div>
       </form>
 
@@ -392,7 +560,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
         </div>
       </form>
 
-      <div :if={@tournaments == [] && !@creating && !@importing && !@importing_backup} class="card empty">
+      <div
+        :if={@tournaments == [] && !@creating && !@importing && !@importing_backup && !@swar_pending}
+        class="card empty"
+      >
         <p><strong>No tournaments yet.</strong></p>
         <p>Create your first tournament, or import one from SWAR or a backup.</p>
       </div>

@@ -60,6 +60,19 @@ defmodule PairingsEngine.Norms.Forms do
   federation. `players` is the tournament's full player list (from
   `PairingsEngine.Tournaments.list_players/1`).
 
+  `B12` ("Schedule (number of rounds/day)") is derived from
+  `tournament.round_dates` (ISO date strings, index = round-1, blanks
+  allowed) as a `-`-joined count of rounds per day, e.g. dates spanning 5
+  distinct days with two double-round days becomes `"1-1-2-2-1"` — each
+  chunk is a run of *consecutive* rounds sharing a date, in round order (not
+  sorted), so a rescheduled date out of sequence still reads as its own
+  chunk. Left nil (untouched) when every round date is blank.
+
+  `B13` ("Rate(s) of play") prefers `tournament.rate_of_play` (the
+  structured `standard`-scoped select on the Settings page) and falls back
+  to the older free-text `tournament.time_control` field for tournaments
+  that predate it.
+
   Never targets the formula cells `B30,B34,B38,B42,B46,B50,B54,B58` (each
   `=total-host` on the template) or the unused orphan `B70`.
   """
@@ -81,7 +94,8 @@ defmodule PairingsEngine.Norms.Forms do
           "B9" => blank(tournament.organizer),
           "B10" => blank(Map.get(o, "organizer_email")),
           "B11" => tournament.rounds_count,
-          "B13" => blank(tournament.time_control),
+          "B12" => schedule_label(tournament.round_dates),
+          "B13" => blank(tournament.rate_of_play) || blank(tournament.time_control),
           "B14" => standard_label(tournament.standard),
           "B15" => system_family_label(tournament.type),
           "B16" => individual_or_team_label(tournament.type),
@@ -140,6 +154,16 @@ defmodule PairingsEngine.Norms.Forms do
       wim: category_counts(by_title(players, ["WIM"]), host_federation),
       wfm: category_counts(by_title(players, ["WFM"]), host_federation)
     }
+  end
+
+  # See the `it3_fills/2` doc for the exact shape — grouped by *consecutive*
+  # equal dates (in round order), not by sorted date, since the schedule is
+  # meant to describe the tournament's actual day-by-day rhythm.
+  defp schedule_label(round_dates) do
+    case round_dates |> List.wrap() |> Enum.reject(&blank?/1) do
+      [] -> nil
+      dates -> dates |> Enum.chunk_by(& &1) |> Enum.map_join("-", &length/1)
+    end
   end
 
   defp by_title(players, titles), do: Enum.filter(players, &(&1.title in titles))

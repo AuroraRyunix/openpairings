@@ -10,7 +10,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
 
   use PairingsEngineWeb, :live_view
 
-  alias PairingsEngine.{Tournaments, Standings, Tiebreaks}
+  alias PairingsEngine.{Tournaments, Standings, Tiebreaks, Keizer}
   alias PairingsEngine.Pairing, as: Engine
 
   @result_labels %{
@@ -53,14 +53,19 @@ defmodule PairingsEngineWeb.LiveRoundLive do
     end
   end
 
+  # Keizer tournaments show their own ladder (rank/value/Keizer points)
+  # instead of the FIDE-tiebreak table — see PairingsEngine.Keizer.standings/1
+  # and docs/pairing-systems.md, same as StandingsLive/PublicStandingsLive.
   defp reload(socket) do
     tournament = socket.assigns.tournament
     paired = Engine.paired_rounds_count(tournament.id)
+    keizer? = tournament.pairing_system == "keizer"
 
     assign(socket,
       round_number: paired,
       round: paired > 0 && Tournaments.get_round(tournament.id, paired),
-      entries: Standings.standings(tournament)
+      keizer?: keizer?,
+      entries: if(keizer?, do: Keizer.standings(tournament), else: Standings.standings(tournament))
     )
   end
 
@@ -140,7 +145,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
         <p><strong>No players registered yet.</strong></p>
       </div>
 
-      <div :if={@entries != []} class="card table-card">
+      <div :if={@entries != [] and !@keizer?} class="card table-card">
         <table class="pe-table">
           <thead>
             <tr>
@@ -170,6 +175,39 @@ defmodule PairingsEngineWeb.LiveRoundLive do
               <td :for={code <- @tournament.tiebreaks} class="num">
                 {format_tb(Map.get(entry.tiebreaks, code, 0.0))}
               </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div :if={@entries != [] and @keizer?} class="card table-card">
+        <table class="pe-table">
+          <thead>
+            <tr>
+              <th class="num">Rank</th>
+              <th>Name</th>
+              <th class="num">Elo</th>
+              <th class="num">Value</th>
+              <th class="num">Keizer pts</th>
+              <th class="num">Score</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr :for={entry <- @entries}>
+              <td class="num">{entry.rank}</td>
+              <td>
+                <strong>
+                  {if entry.player.title != "", do: "#{entry.player.title} "}{entry.player.name}
+                </strong>
+              </td>
+              <td class="num">
+                {if PairingsEngine.Tournaments.Player.rating(entry.player) > 0,
+                  do: PairingsEngine.Tournaments.Player.rating(entry.player),
+                  else: "—"}
+              </td>
+              <td class="num">{entry.value}</td>
+              <td class="num"><strong>{entry.points}</strong></td>
+              <td class="num">{entry.raw_points}</td>
             </tr>
           </tbody>
         </table>

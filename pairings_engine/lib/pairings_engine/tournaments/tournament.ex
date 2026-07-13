@@ -7,6 +7,10 @@ defmodule PairingsEngine.Tournaments.Tournament do
   @accelerations ~w(none baku)
   @statuses ~w(setup running finished)
   @standards ~w(standard rapid blitz)
+  # Which pairing engine PairingsEngine.Pairing.pair_next_round/1 dispatches
+  # to — independent of `type` above (FIDE report classification).
+  @pairing_systems ~w(swiss round_robin keizer)
+  @rr_cycles_values [1, 2]
 
   schema "tournaments" do
     field :name, :string
@@ -66,6 +70,16 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # `put_public_slug/1` below, applied by every creation path.
     field :public_slug, :string
 
+    # Pairing engine dispatch (see PairingsEngine.Pairing.pair_next_round/1):
+    # "swiss" | "round_robin" | "keizer". Locked in the UI once the
+    # tournament has paired its first round (see SettingsLive).
+    field :pairing_system, :string, default: "swiss"
+    # Round-robin only: 1 = single cycle, 2 = double.
+    field :rr_cycles, :integer, default: 1
+    # Keizer only: nil means "automatic" (2 x player count), computed by
+    # PairingsEngine.Keizer.
+    field :keizer_top_value, :integer
+
     belongs_to :user, PairingsEngine.Accounts.User
     has_many :players, PairingsEngine.Tournaments.Player
     has_many :teams, PairingsEngine.Tournaments.Team
@@ -82,7 +96,8 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :rounds_count, :rating_type, :points_win, :points_draw, :points_loss,
       :bye_value, :tiebreaks, :acceleration, :status,
       :standard, :rate_of_play, :organizer_club_number, :round_dates, :categories,
-      :event_code, :fide_tournament_id, :officials
+      :event_code, :fide_tournament_id, :officials,
+      :pairing_system, :rr_cycles, :keizer_top_value
     ])
     |> validate_required([:name, :type, :rounds_count])
     |> validate_length(:name, min: 1, max: 200)
@@ -91,8 +106,21 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_inclusion(:acceleration, @accelerations)
     |> validate_inclusion(:status, @statuses)
     |> validate_inclusion(:standard, @standards)
+    |> validate_inclusion(:pairing_system, @pairing_systems)
+    |> validate_inclusion(:rr_cycles, @rr_cycles_values)
     |> validate_number(:rounds_count, greater_than: 0, less_than_or_equal_to: 30)
+    |> validate_keizer_top_value()
     |> put_public_slug()
+  end
+
+  # `keizer_top_value` is nullable (nil means "automatic") — only validate
+  # it when an organiser has actually set it, so clearing the field back to
+  # blank/automatic never fails validation.
+  defp validate_keizer_top_value(changeset) do
+    case get_field(changeset, :keizer_top_value) do
+      nil -> changeset
+      _ -> validate_number(changeset, :keizer_top_value, greater_than: 0)
+    end
   end
 
   # Every tournament must always have a `public_slug` — this is the single
@@ -117,4 +145,16 @@ defmodule PairingsEngine.Tournaments.Tournament do
   def type_label("team-swiss"), do: "Swiss (teams)"
   def type_label("team-roundrobin"), do: "Round robin (teams)"
   def type_label(other), do: other
+
+  def pairing_systems, do: @pairing_systems
+  def rr_cycles_values, do: @rr_cycles_values
+
+  def pairing_system_label("swiss"), do: "Swiss — FIDE Dutch (JaVaFo)"
+  def pairing_system_label("round_robin"), do: "Round robin (Berger)"
+  def pairing_system_label("keizer"), do: "Keizer"
+  def pairing_system_label(other), do: other
+
+  def rr_cycles_label(1), do: "Single"
+  def rr_cycles_label(2), do: "Double"
+  def rr_cycles_label(other), do: to_string(other)
 end

@@ -1,7 +1,7 @@
 defmodule PairingsEngineWeb.StandingsLive do
   use PairingsEngineWeb, :live_view
 
-  alias PairingsEngine.{Tournaments, Tiebreaks, Standings}
+  alias PairingsEngine.{Tournaments, Tiebreaks, Standings, Keizer}
   alias PairingsEngine.Tournaments.Player
 
   @impl true
@@ -35,11 +35,17 @@ defmodule PairingsEngineWeb.StandingsLive do
     end
   end
 
+  # Keizer tournaments show their own ladder (rank/value/Keizer points)
+  # instead of the FIDE-tiebreak table — see PairingsEngine.Keizer.standings/1
+  # and docs/pairing-systems.md. Everything else on this page (PubSub
+  # refresh, the print/public links) is unaffected either way.
   defp reload_standings(socket) do
     tournament = socket.assigns.tournament
+    keizer? = tournament.pairing_system == "keizer"
 
     assign(socket,
-      entries: Standings.standings(tournament),
+      keizer?: keizer?,
+      entries: if(keizer?, do: Keizer.standings(tournament), else: Standings.standings(tournament)),
       rounds_paired: Standings.rounds_paired(tournament.id)
     )
   end
@@ -80,7 +86,7 @@ defmodule PairingsEngineWeb.StandingsLive do
         <p><strong>No players registered yet.</strong></p>
       </div>
 
-      <div :if={@entries != []} class="card table-card">
+      <div :if={@entries != [] and !@keizer?} class="card table-card">
         <table class="pe-table">
           <thead>
             <tr>
@@ -113,9 +119,45 @@ defmodule PairingsEngineWeb.StandingsLive do
         </table>
       </div>
 
-      <p :if={@rounds_paired == 0} class="hint">
+      <p :if={@rounds_paired == 0 and !@keizer?} class="hint">
         Tiebreak columns fill in as results are entered, following the FIDE Tie-Break
         Regulations in the order set under Settings.
+      </p>
+
+      <div :if={@entries != [] and @keizer?} class="card table-card">
+        <table class="pe-table">
+          <thead>
+            <tr>
+              <th class="num">Rank</th>
+              <th>Name</th>
+              <th class="num">Elo</th>
+              <th class="num">Value</th>
+              <th class="num">Keizer pts</th>
+              <th class="num">Score</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr :for={entry <- @entries}>
+              <td class="num">{entry.rank}</td>
+              <td>
+                <strong>
+                  {if entry.player.title != "", do: "#{entry.player.title} "}{entry.player.name}
+                </strong>
+              </td>
+              <td class="num">
+                {if Player.rating(entry.player) > 0, do: Player.rating(entry.player), else: "—"}
+              </td>
+              <td class="num">{entry.value}</td>
+              <td class="num"><strong>{entry.points}</strong></td>
+              <td class="num">{entry.raw_points}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p :if={@keizer?} class="hint">
+        Keizer points, not FIDE tiebreaks — the whole ladder is recalculated from
+        results, byes and absences every time (see docs/pairing-systems.md).
       </p>
     </Layouts.app>
     """

@@ -98,4 +98,93 @@ defmodule PairingsEngineWeb.InviteLiveTest do
       assert html =~ "Invitation not found"
     end
   end
+
+  describe "logged-out visitor is carried back to /invites/:token after auth (return_to)" do
+    # `/invites/:token` sits in the `:require_authenticated_tournaments`
+    # live_session, whose scope is `pipe_through [:browser,
+    # :require_authenticated_user]` (see router.ex) — so an unauthenticated
+    # hit is caught by the *plug* (`UserAuth.require_authenticated_user/2`)
+    # before the LiveView ever mounts, and that plug's
+    # `maybe_store_return_to/1` stashes the current path in the session as
+    # `user_return_to`. `UserAuth.log_in_user/3` reads it back out after
+    # login. These tests drive that whole chain end to end (unlike
+    # `user_auth_test.exs`, which only asserts the session gets the value —
+    # not that a real magic-link login/registration actually lands there).
+    test "an account that already exists: unauth visit -> log-in -> magic link -> back on the invite page", %{
+      scope: owner_scope
+    } do
+      tournament = fixture(owner_scope)
+      invitee = lightweight_user()
+      {:ok, invite} = Tournaments.add_collaborator(owner_scope, tournament, invitee.email)
+
+      anon_conn = Phoenix.ConnTest.build_conn()
+
+      conn = get(anon_conn, ~p"/invites/#{invite.invite_token}")
+      assert redirected_to(conn) == ~p"/users/log-in"
+      assert Plug.Conn.get_session(conn, :user_return_to) == ~p"/invites/#{invite.invite_token}"
+
+      test_pid = self()
+
+      {:ok, _} =
+        Accounts.deliver_login_instructions(invitee, fn t ->
+          send(test_pid, {:magic_token, t})
+          "http://example.com/users/log-in/#{t}"
+        end)
+
+      token = receive(do: ({:magic_token, t} -> t))
+
+      conn = conn |> recycle() |> get(~p"/users/log-in/#{token}")
+      {:ok, lv, _html} = live(conn)
+
+      final_conn =
+        lv
+        |> form("#login_form", user: %{token: token})
+        |> submit_form(conn)
+
+      assert redirected_to(final_conn) == ~p"/invites/#{invite.invite_token}"
+    end
+
+    test "a brand-new invitee (no account yet): unauth visit -> register -> magic link -> back on the invite page", %{
+      scope: owner_scope
+    } do
+      tournament = fixture(owner_scope)
+      email = "brand-new-invitee-#{System.unique_integer([:positive])}@example.com"
+      {:ok, invite} = Tournaments.add_collaborator(owner_scope, tournament, email)
+
+      anon_conn = Phoenix.ConnTest.build_conn()
+
+      conn = get(anon_conn, ~p"/invites/#{invite.invite_token}")
+      assert redirected_to(conn) == ~p"/users/log-in"
+
+      register_conn = conn |> recycle() |> get(~p"/users/register")
+      {:ok, register_lv, _html} = live(register_conn)
+
+      register_lv
+      |> form("#registration_form", user: %{email: email})
+      |> render_submit()
+
+      user = Accounts.get_user_by_email(email)
+      assert user
+
+      test_pid = self()
+
+      {:ok, _} =
+        Accounts.deliver_login_instructions(user, fn t ->
+          send(test_pid, {:magic_token, t})
+          "http://example.com/users/log-in/#{t}"
+        end)
+
+      token = receive(do: ({:magic_token, t} -> t))
+
+      confirm_conn = register_conn |> recycle() |> get(~p"/users/log-in/#{token}")
+      {:ok, confirm_lv, _html} = live(confirm_conn)
+
+      final_conn =
+        confirm_lv
+        |> form("#confirmation_form", user: %{token: token})
+        |> submit_form(confirm_conn)
+
+      assert redirected_to(final_conn) == ~p"/invites/#{invite.invite_token}"
+    end
+  end
 end

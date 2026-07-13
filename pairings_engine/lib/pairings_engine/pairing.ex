@@ -10,6 +10,7 @@ defmodule PairingsEngine.Pairing do
   """
 
   import Ecto.Query
+  require Logger
   alias PairingsEngine.{Repo, Trf, Tournaments}
   alias PairingsEngine.Tournaments.{Player, Round, Pairing, Tournament}
 
@@ -17,7 +18,26 @@ defmodule PairingsEngine.Pairing do
     Path.join(:code.priv_dir(:pairings_engine), "javafo/javafo.jar")
   end
 
-  @doc "Pairs the next round. Returns {:ok, round} or {:error, reason}."
+  @doc """
+  Pairs the next round. Dispatches on `tournament.pairing_system`:
+
+    * `"swiss"` (default) — the JaVaFo/Dutch path below, unchanged.
+    * `"round_robin"` — delegates to `PairingsEngine.RoundRobin.pair_next_round/1`.
+    * `"keizer"` — delegates to `PairingsEngine.Keizer.pair_next_round/1`.
+
+  Returns `{:ok, round}` or `{:error, reason}`. This is the single public
+  entry point the UI calls (see `PairingsEngineWeb.PairingsLive`'s "pair"
+  event) — it never crashes on an unimplemented pairing system, it just
+  returns a plain-string error the caller already renders as-is.
+  """
+  def pair_next_round(%Tournament{pairing_system: "round_robin"} = tournament) do
+    dispatch_stub(tournament, PairingsEngine.RoundRobin)
+  end
+
+  def pair_next_round(%Tournament{pairing_system: "keizer"} = tournament) do
+    dispatch_stub(tournament, PairingsEngine.Keizer)
+  end
+
   def pair_next_round(%Tournament{} = tournament) do
     paired = paired_rounds_count(tournament.id)
     next_number = paired + 1
@@ -42,11 +62,44 @@ defmodule PairingsEngine.Pairing do
       end
 
     case result do
-      {:ok, _round} -> Tournaments.broadcast_tournament_change(tournament.id, :rounds)
-      _ -> :ok
+      {:ok, _round} ->
+        Tournaments.broadcast_tournament_change(tournament.id, :rounds)
+        Tournaments.refresh_status!(tournament.id)
+
+      _ ->
+        :ok
     end
 
     result
+  end
+
+  # Calls `module.pair_next_round(tournament)` (module dispatched at runtime
+  # so the compiler doesn't over-narrow the result type to today's single
+  # `{:error, :not_implemented}` stub return value — once RoundRobin/Keizer
+  # are actually implemented this same function keeps working unchanged)
+  # and turns a not-implemented stub result into a friendly, user-facing
+  # string. PairingsLive's "pair" handler just does `to_string(reason)` on
+  # any non-changeset error, so a plain string here is what ends up on
+  # screen — no atom formatting, no crash.
+  #
+  # On success, refreshes the tournament's derived status the same way the
+  # Swiss path below does — RoundRobin/Keizer pair a round and broadcast
+  # `:rounds` themselves, but neither calls `Tournaments.refresh_status!/1`,
+  # so without this a round-robin/Keizer tournament would stay stuck on
+  # "setup" after its first round is paired. Centralized here (rather than
+  # in each engine module) so it's a single call site for both.
+  defp dispatch_stub(tournament, module) do
+    case module.pair_next_round(tournament) do
+      {:error, :not_implemented} ->
+        {:error, "This pairing system is not available yet"}
+
+      {:ok, _round} = result ->
+        Tournaments.refresh_status!(tournament.id)
+        result
+
+      other ->
+        other
+    end
   end
 
   @doc "Deletes a paired round (only the latest one, to keep history sane)."
@@ -57,6 +110,7 @@ defmodule PairingsEngine.Pairing do
       )
 
       Tournaments.broadcast_tournament_change(tournament_id, :rounds)
+      Tournaments.refresh_status!(tournament_id)
       :ok
     else
       {:error, "Only the latest round can be unpaired"}
@@ -127,7 +181,11 @@ defmodule PairingsEngine.Pairing do
         |> create_round(tournament, players, next_number)
 
       {out, code} ->
-        {:error, "JaVaFo failed (exit #{code}): #{String.slice(out, 0, 300)}"}
+        Logger.error(
+          "JaVaFo failed for tournament #{tournament.id} round #{next_number} (exit #{code}):\n#{out}"
+        )
+
+        {:error, "JaVaFo failed (exit #{code}):\n#{out}"}
     end
   end
 
@@ -187,7 +245,7 @@ defmodule PairingsEngine.Pairing do
 
   ## ---------- JaVaFo TRF input ----------
 
-  @doc "Builds the TRF text JaVaFo takes as input (TRF16 + XXR extension)."
+  @doc "Builds the TRF text JaVaFo takes as input (TRF16 + XXR/XXP extensions)."
   def javafo_input(tournament, players \\ nil) do
     players = players || active_players(tournament.id)
     trf_players = trf_player_rows(tournament, players)
@@ -205,7 +263,31 @@ defmodule PairingsEngine.Pairing do
       })
 
     # XXR: total number of rounds — required by JaVaFo to plan the pairing.
-    trf <> "XXR #{tournament.rounds_count}\r\n"
+    trf = trf <> "XXR #{tournament.rounds_count}\r\n"
+
+    # XXP: one line per forbidden pairing (see
+    # PairingsEngine.Tournaments.list_forbidden_pairings/1 and
+    # docs/forbidden-pairings.md) — JaVaFo's TRF extension for "these
+    # starting ranks must never be paired against each other".
+    trf <> forbidden_pairs_lines(tournament.id, players)
+  end
+
+  @doc """
+  Builds one `"XXP a b\\r\\n"` TRF extension line per forbidden pairing of
+  `tournament_id`, translating each pair's player ids to their starting rank
+  (`pairing_number`) among `players` for this pairing run. A pair is
+  skipped silently if either player isn't in `players` at all, or hasn't
+  been assigned a `pairing_number` yet — JaVaFo only needs to hear about
+  players it's actually being asked to pair.
+  """
+  def forbidden_pairs_lines(tournament_id, players) do
+    rank_by_player_id = Map.new(players, &{&1.id, &1.pairing_number})
+
+    tournament_id
+    |> Tournaments.list_forbidden_pairings()
+    |> Enum.map(fn fp -> {rank_by_player_id[fp.player_a_id], rank_by_player_id[fp.player_b_id]} end)
+    |> Enum.reject(fn {a, b} -> is_nil(a) or is_nil(b) end)
+    |> Enum.map_join(fn {a, b} -> "XXP #{a} #{b}\r\n" end)
   end
 
   @doc """
@@ -237,15 +319,24 @@ defmodule PairingsEngine.Pairing do
         sex: p.sex,
         title: p.title,
         name: p.name,
-        fide_rating: Player.rating(p),
+        # TRF16 is a FIDE report — always the FIDE rating, never a fallback
+        # to the national rating (SWAR itself emits 0 for an unrated
+        # player rather than substituting the national figure).
+        fide_rating: p.fide_rating,
         federation: p.federation,
         fide_number: p.fide_id,
-        birth_date: p.birth_year && "#{p.birth_year}/00/00",
+        birth_date: player_birth_date(p),
         points: player_points(player_games, tournament),
         games: Enum.map(player_games, &Map.take(&1, [:opponent_rank, :colour, :result]))
       }
     end)
   end
+
+  # Full date of birth (YYYY/MM/DD, via Trf's slash_date) when known,
+  # otherwise the year-only fallback ("YYYY/00/00"), otherwise blank.
+  defp player_birth_date(%{birth_date: %Date{} = date}), do: Date.to_iso8601(date)
+  defp player_birth_date(%{birth_year: year}) when is_integer(year), do: "#{year}/00/00"
+  defp player_birth_date(_), do: nil
 
   @doc "Sums `games`' TRF result codes into game points, per `tournament`'s point values."
   def player_points(games, t) do
@@ -381,6 +472,7 @@ defmodule PairingsEngine.Pairing do
         {"", _} -> nil
         _ -> nil
       end
+      |> bye_safe_result(opponent_id)
 
     %{
       opponent_rank: opponent && opponent.pairing_number,
@@ -393,6 +485,31 @@ defmodule PairingsEngine.Pairing do
       result: result,
       points_kind: "game"
     }
+  end
+
+  # JaVaFo/TRF16 rule: opponent 0000 may only ever carry a bye/unplayed code
+  # (F/H/Z/U) — never a played-game code (1/=/0/+/-). Reported bug: a
+  # SWAR-imported round could carry a played-game result on a game with no
+  # real opponent (e.g. a bye's score recorded as if it were an ordinary
+  # game), producing an illegal "0000 - 1" / "0000 - =" row that crashes
+  # JaVaFo with "B.A.B.E: Unexpected format of player line". This is the
+  # single choke point both `javafo_input/2` and `PairingsEngine.TrfExport`
+  # go through (via `trf_player_rows/2`), so normalizing here fixes both.
+  #
+  # A playing code with no opponent is reinterpreted by the point value it
+  # represents: a win or forfeit-win is a full-point bye (F), a draw is a
+  # half-point bye (H), a loss or forfeit-loss is a zero-point bye (Z).
+  # Already-legal codes (bye codes, or any code when a real opponent exists)
+  # and a missing result (nil) pass through unchanged.
+  defp bye_safe_result(result, opponent_id) when not is_nil(opponent_id), do: result
+
+  defp bye_safe_result(result, nil) do
+    case result do
+      code when code in ["1", "+"] -> "F"
+      "=" -> "H"
+      code when code in ["0", "-"] -> "Z"
+      other -> other
+    end
   end
 
   defp bye_code("requested-half"), do: "H"

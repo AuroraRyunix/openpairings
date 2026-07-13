@@ -4,7 +4,7 @@ defmodule PairingsEngine.TrfExportTest do
   # (same reason fide/sync_test and the import/export tests are serial).
   use PairingsEngine.DataCase, async: false
 
-  alias PairingsEngine.{Repo, Trf, TrfExport}
+  alias PairingsEngine.{Repo, Trf, TrfExport, Tournaments}
   alias PairingsEngine.Tournaments.{Tournament, Player, Round, Pairing}
 
   ## ---------- parse_rounds/2 ----------
@@ -149,6 +149,101 @@ defmodule PairingsEngine.TrfExportTest do
     parsed = Trf.parse(text)
 
     assert parsed.tournament.round_dates == ["2026-01-02"]
+  end
+
+  ## ---------- header completeness (072/082/102/112/122) ----------
+
+  test "072 (number of rated players) counts only players with a fide_rating > 0" do
+    {tournament, %{carol: carol}} = fixture()
+    # Make Carol unrated in the FIDE sense but give her a national rating —
+    # that national figure must NOT count towards 072.
+    Tournaments.update_player(carol, %{fide_rating: 0, national_rating: 1500})
+
+    assert {:ok, text} = TrfExport.export(tournament)
+    assert text =~ "072 2"
+  end
+
+  test "082 (number of teams) is always emitted as 0 for an individual tournament" do
+    {tournament, _} = fixture()
+
+    assert {:ok, text} = TrfExport.export(tournament)
+    assert text =~ "082 0"
+  end
+
+  test "102 (chief arbiter) combines the officials FIDE id with the chief_arbiter name" do
+    {tournament, _} = fixture()
+
+    {:ok, tournament} =
+      Tournaments.update_tournament(tournament, %{
+        "chief_arbiter" => "Boutchon, Gaston",
+        "officials" => %{"chief_arbiter_fide_id" => "208418"}
+      })
+
+    assert {:ok, text} = TrfExport.export(tournament)
+    assert text =~ "102 208418 Boutchon, Gaston"
+  end
+
+  test "102 is skipped entirely when the chief arbiter is unknown" do
+    {tournament, _} = fixture()
+
+    assert {:ok, text} = TrfExport.export(tournament)
+    refute text =~ "\r\n102 "
+  end
+
+  test "112 (deputy arbiters) emits one line per deputyN_name found in officials" do
+    {tournament, _} = fixture()
+
+    {:ok, tournament} =
+      Tournaments.update_tournament(tournament, %{
+        "officials" => %{
+          "deputy1_name" => "Assistant One",
+          "deputy1_fide_id" => "111",
+          "deputy2_name" => "Assistant Two"
+        }
+      })
+
+    assert {:ok, text} = TrfExport.export(tournament)
+    assert text =~ "112 111 Assistant One"
+    assert text =~ "112 Assistant Two"
+  end
+
+  test "122 (rate of play) is emitted from tournament.rate_of_play, and skipped when blank" do
+    {tournament, _} = fixture()
+
+    assert {:ok, text} = TrfExport.export(tournament)
+    refute text =~ "\r\n122 "
+
+    {:ok, tournament} = Tournaments.update_tournament(tournament, %{"rate_of_play" => "90+30"})
+    assert {:ok, text} = TrfExport.export(tournament)
+    assert text =~ "122 90+30"
+  end
+
+  ## ---------- player-line rating & birthdate ----------
+
+  test "fide_rating on the player line is the FIDE rating, never a fallback to national rating" do
+    {tournament, %{carol: carol}} = fixture()
+    Tournaments.update_player(carol, %{fide_rating: 0, national_rating: 1500})
+
+    assert {:ok, text} = TrfExport.export(tournament)
+    parsed = Trf.parse(text)
+
+    carol_row = Enum.find(parsed.players, &(&1.name |> String.trim() == "Carol"))
+    assert carol_row.fide_rating == 0
+  end
+
+  test "birth_date on the player line prefers the full birth_date over the year-only fallback" do
+    {tournament, %{alice: alice, bob: bob}} = fixture()
+    Tournaments.update_player(alice, %{birth_date: ~D[1990-11-30]})
+    Tournaments.update_player(bob, %{birth_year: 1985})
+
+    assert {:ok, text} = TrfExport.export(tournament)
+    parsed = Trf.parse(text)
+
+    alice_row = Enum.find(parsed.players, &(&1.name |> String.trim() == "Alice"))
+    bob_row = Enum.find(parsed.players, &(&1.name |> String.trim() == "Bob"))
+
+    assert alice_row.birth_date == "1990-11-30"
+    assert bob_row.birth_date == "1985-00-00"
   end
 
   test "a player who was never paired (no pairing_number) is excluded entirely" do

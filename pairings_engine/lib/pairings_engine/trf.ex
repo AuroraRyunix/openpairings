@@ -150,7 +150,9 @@ defmodule PairingsEngine.Trf do
       header(:end_date, slash_date(t[:end_date])),
       header(:number_of_players, length(players)),
       t[:number_of_rated_players] && header(:number_of_rated_players, t[:number_of_rated_players]),
-      teams != [] && header(:number_of_teams, length(teams)),
+      # Always emitted (082), even 0 for an individual tournament — matches
+      # SWAR, which emits "082 0" rather than omitting the line.
+      header(:number_of_teams, length(teams)),
       header(:type, t[:type] && Map.get(@type_labels, t[:type], t[:type])),
       header(:chief_arbiter, t[:chief_arbiter])
     ]
@@ -166,12 +168,20 @@ defmodule PairingsEngine.Trf do
   defp round_dates_line([]), do: nil
 
   defp round_dates_line(dates) do
-    dates
-    |> Enum.with_index(1)
-    |> Enum.reduce(place([], {1, 3}, "132"), fn {date, i}, acc ->
-      place(acc, round_date_cols(i), short_slash_date(date))
-    end)
-    |> render()
+    # Only emit the line at all if at least one round actually has a date —
+    # a list of all-nil/blank entries (e.g. a round-subset export where none
+    # of the selected rounds have a date set) means "no round dates", same
+    # as an empty list.
+    if Enum.all?(dates, &(&1 in [nil, ""])) do
+      nil
+    else
+      dates
+      |> Enum.with_index(1)
+      |> Enum.reduce(place([], {1, 3}, "132"), fn {date, i}, acc ->
+        place(acc, round_date_cols(i), short_slash_date(date))
+      end)
+      |> render()
+    end
   end
 
   defp player_line(p) do
@@ -297,6 +307,12 @@ defmodule PairingsEngine.Trf do
         raise ValidationError,
           message:
             "#{player_label(player)}, round #{round}: unrecognized TRF result code #{inspect(result)}"
+
+      result in @playing_codes and is_nil(game[:opponent_rank]) ->
+        raise ValidationError,
+          message:
+            "#{player_label(player)}, round #{round}: opponent 0000 cannot carry played-game result " <>
+              "#{inspect(result)} — opponentless games must use a bye code (F/H/Z/U)"
 
       result in @playing_codes ->
         validate_playing_pair!(player, round, game, by_rank, result)

@@ -45,6 +45,33 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
     assert render(lv) =~ "1-0"
   end
 
+  test "a keizer tournament shows the ladder table (Value/Keizer pts/Score), not the FIDE tiebreak table", %{
+    conn: conn,
+    scope: scope
+  } do
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{
+        "name" => "Keizer Live T",
+        "type" => "swiss",
+        "pairing_system" => "keizer",
+        "rounds_count" => "3"
+      })
+
+    {:ok, _a} = Tournaments.create_player(tournament.id, %{"name" => "Alice", "fide_rating" => "2000"})
+    {:ok, _b} = Tournaments.create_player(tournament.id, %{"name" => "Bob", "fide_rating" => "1900"})
+
+    assert {:ok, _round} = Pairing.pair_next_round(tournament)
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/live")
+
+    assert html =~ "Alice"
+    assert html =~ "Bob"
+    assert html =~ ">Value<"
+    assert html =~ ">Keizer pts<"
+    assert html =~ ">Score<"
+    refute html =~ ">Pts<"
+  end
+
   test "redirects to the tournament list if the tournament is deleted while the page is open", %{
     conn: conn,
     scope: scope
