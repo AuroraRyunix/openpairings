@@ -102,6 +102,31 @@ defmodule PairingsEngine.TrfTest do
     assert col(line, 119, 119) == "U"
   end
 
+  test "082 (number of teams) is always emitted, even 0 for an individual tournament" do
+    lines = sample() |> Trf.serialize() |> String.split("\r\n")
+    assert Enum.any?(lines, &(&1 == "082 0"))
+  end
+
+  test "082 reflects the real team count when teams are present" do
+    data = sample() |> Map.put(:teams, [%{name: "A", player_ranks: [1]}, %{name: "B", player_ranks: [2]}])
+    lines = Trf.serialize(data) |> String.split("\r\n")
+    assert Enum.any?(lines, &(&1 == "082 2"))
+  end
+
+  test "132 (round dates) is omitted when every round in the list is blank/nil" do
+    data = put_in(sample(), [:tournament, :round_dates], [nil, "", nil])
+    lines = Trf.serialize(data) |> String.split("\r\n")
+    refute Enum.any?(lines, &String.starts_with?(&1, "132"))
+  end
+
+  test "132 (round dates) is still emitted, with blanks for missing rounds, when at least one date is set" do
+    data = put_in(sample(), [:tournament, :round_dates], [nil, "2026-07-02", nil])
+    line = Trf.serialize(data) |> String.split("\r\n") |> Enum.find(&String.starts_with?(&1, "132"))
+
+    assert col(line, 92, 99) == "        "
+    assert col(line, 102, 109) == "26/07/02"
+  end
+
   test "round-dates (132) line places YY/MM/DD at the round-block columns" do
     line =
       sample()
@@ -267,6 +292,32 @@ defmodule PairingsEngine.TrfTest do
 
     assert_raise Trf.ValidationError, ~r/illegal result combination/, fn ->
       Trf.parse(bad_text)
+    end
+  end
+
+  test "serialize/1 raises when opponent 0000 carries a played-game result code" do
+    data = %{
+      tournament: %{name: "T"},
+      players: [
+        %{rank: 1, name: "A", points: 1.0, games: [%{opponent_rank: nil, colour: nil, result: "1"}]}
+      ]
+    }
+
+    assert_raise Trf.ValidationError, ~r/opponent 0000 cannot carry played-game result/, fn ->
+      Trf.serialize(data)
+    end
+  end
+
+  test "serialize/1 accepts a legitimate bye code (F/H/Z/U) with no opponent" do
+    for code <- ["F", "H", "Z", "U"] do
+      data = %{
+        tournament: %{name: "T"},
+        players: [
+          %{rank: 1, name: "A", points: 1.0, games: [%{opponent_rank: nil, colour: nil, result: code}]}
+        ]
+      }
+
+      assert Trf.serialize(data) =~ "001"
     end
   end
 

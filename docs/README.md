@@ -1,13 +1,25 @@
 # OpenPairings documentation
 
 OpenPairings is a chess tournament manager (Elixir/Phoenix + LiveView + SQLite):
-Swiss pairing via JaVaFo, FIDE-compliant tiebreaks (C.07), TRF16, FIDE rating
-sync, SWAR import, per-tournament sharing, and FIDE norm/report forms.
+Swiss pairing via JaVaFo, round robin (Berger), the Keizer system,
+FIDE-compliant tiebreaks (C.07), TRF16, FIDE rating sync, SWAR import,
+per-tournament sharing, and FIDE norm/report forms.
 
 ## Feature guides
 
+- [Pairing systems](pairing-systems.md) — Swiss (FIDE Dutch via JaVaFo),
+  round robin (Berger tables, single/double), and the Keizer system (ladder
+  values, retroactive recalculation, Keizer-point standings); the per-tournament
+  selector locks after the first pairing.
+- [Forbidden pairings](forbidden-pairings.md) — pairs of players that must
+  never meet: managed in Settings, enforced in Swiss (JaVaFo `XXP`) and Keizer;
+  round robin ignores them by design.
+- [SWAR import](swar-import.md) — .swar parsing, national vs FIDE id mapping,
+  FIDE-database matching for players without a FIDE id (with a resolve step
+  during import), full birth dates, federation normalization to FIDE codes.
 - [Printing](printing.md) — print documents (player list, cards, pairings,
-  standings), the `?round=N` query param, and per-page/per-round print buttons.
+  standings, per-round result cards, cross table), the `?round=N` query param,
+  and per-page/per-round print buttons.
 - [Norms & FIDE forms](norms.md) — generating IT3 (per tournament) and FA1 / IA1
   (arbiter norms) / IT4 (player title norms) by filling the official FIDE Excel
   templates in place; the Officials data captured in Settings.

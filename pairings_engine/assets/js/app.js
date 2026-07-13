@@ -62,11 +62,32 @@ const PlayerGrid = {
   },
 }
 
+// Ctrl+I opens the "Add player" modal on the Players page. Mounted on the
+// page header (always present, unlike the player table/grid which only
+// renders once there's at least one player) so the shortcut works even on
+// an empty roster.
+const AddPlayerShortcut = {
+  mounted() {
+    this.handler = (e) => {
+      const key = e.key && e.key.toLowerCase()
+      if (!(e.ctrlKey || e.metaKey) || e.altKey || key !== "i") return
+      // Don't hijack Ctrl+I while a modal (edit/card/etc.) is already open.
+      if (document.querySelector(".modal-overlay")) return
+      e.preventDefault()
+      this.pushEvent("add", {})
+    }
+    window.addEventListener("keydown", this.handler)
+  },
+  destroyed() {
+    window.removeEventListener("keydown", this.handler)
+  },
+}
+
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks, ColumnPrefs, PlayerGrid},
+  hooks: {...colocatedHooks, ColumnPrefs, PlayerGrid, AddPlayerShortcut},
 })
 
 // Show progress bar on live navigation and form submits

@@ -17,7 +17,8 @@ defmodule PairingsEngineWeb.PlayersLive do
     {"fide_rating", "Elo FIDE", true},
     {"national_rating", "Elo Nat", true},
     {"club", "Club", false},
-    {"status", "Status", false}
+    {"status", "Status", false},
+    {"fixed_board", "Table", true}
   ]
 
   # SWAR-style computed columns, sourced from Standings.grid_standings/1.
@@ -308,7 +309,7 @@ defmodule PairingsEngineWeb.PlayersLive do
       "affiliated" => p.affiliated,
       "absent" => p.absent,
       "forfeit" => p.forfeit,
-      "special_table" => p.special_table,
+      "fixed_board" => blank_or(p.fixed_board),
       "absent_rounds" => p.absent_rounds,
       "extra_points" => p.extra_points
     }
@@ -328,7 +329,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp cell(entry, "status"), do: entry.player.status
 
   defp cell(entry, key) when key in ~w(title sex birth_year federation national_id fide_id
-                                        fide_rating national_rating club) do
+                                        fide_rating national_rating club fixed_board) do
     case Map.get(entry.player, String.to_existing_atom(key)) do
       value when value in [nil, "", 0] -> "—"
       value -> value
@@ -400,7 +401,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope} tournament={@tournament} active="players">
-      <div class="page-header">
+      <div class="page-header" id="players-page-header" phx-hook="AddPlayerShortcut">
         <div>
           <h1>{@tournament.name}</h1>
           <p class="subtitle" style="margin: 0">
@@ -414,7 +415,14 @@ defmodule PairingsEngineWeb.PlayersLive do
           <a class="pe-btn" href={~p"/t/#{@tournament.id}/print/cards"} target="_blank">
             Print player cards
           </a>
-          <button :if={!@adding} class="pe-btn primary" phx-click="add">Add player</button>
+          <button
+            :if={!@adding}
+            class="pe-btn primary"
+            phx-click="add"
+            title="Add player (Ctrl+I)"
+          >
+            Add player <span style="opacity: 0.7; font-size: 11px; margin-left: 4px">Ctrl+I</span>
+          </button>
         </div>
       </div>
 
@@ -597,8 +605,8 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   defp player_edit_modal(assigns) do
     ~H"""
-    <div class="modal-overlay" phx-click="close_edit" phx-window-keydown="close_edit" phx-key="escape">
-      <form class="modal-card" phx-submit="save_player" onclick="event.stopPropagation()">
+    <div class="modal-overlay" phx-window-keydown="close_edit" phx-key="escape">
+      <form class="modal-card" phx-submit="save_player" phx-click-away="close_edit">
         <h2>Player registration</h2>
 
         <div class="form-grid">
@@ -670,6 +678,13 @@ defmodule PairingsEngineWeb.PlayersLive do
               <option :for={c <- @tournament.categories} value={c} selected={@form["category"] == c}>
                 {c}
               </option>
+              <option
+                :if={@form["category"] not in [nil, ""] and @form["category"] not in @tournament.categories}
+                value={@form["category"]}
+                selected
+              >
+                {@form["category"]} (not in list)
+              </option>
             </select>
             <input :if={@tournament.categories == []} name="player[category]" value={@form["category"]} />
           </label>
@@ -694,15 +709,22 @@ defmodule PairingsEngineWeb.PlayersLive do
               <input type="checkbox" name="player[forfeit]" value="true" checked={@form["forfeit"] in [true, "true"]} />
               Forfeit
             </label>
-            <label>
-              <input type="hidden" name="player[special_table]" value="false" />
-              <input type="checkbox" name="player[special_table]" value="true" checked={@form["special_table"] in [true, "true"]} />
-              Special Table
-            </label>
           </div>
 
+          <label class="field">
+            <span>Fixed table</span>
+            <input
+              type="number"
+              min="1"
+              name="player[fixed_board]"
+              value={@form["fixed_board"]}
+              placeholder="none"
+              title="Displays/prints this player's games at this table number, regardless of normal board order"
+            />
+          </label>
+
           <label class="field" style="grid-column: 1 / -1">
-            <span>Absent at the rounds (e.g. 3,5)</span>
+            <span>Absent at the rounds (e.g. 3,5 or 2-4)</span>
             <input name="player[absent_rounds]" value={@form["absent_rounds"]} />
           </label>
 
@@ -735,8 +757,8 @@ defmodule PairingsEngineWeb.PlayersLive do
     assigns = assign(assigns, rows: rows, totals: PlayerCard.totals(rows, assigns.entry))
 
     ~H"""
-    <div class="modal-overlay" phx-click="close_card" phx-window-keydown="close_card" phx-key="escape">
-      <div class="modal-card" onclick="event.stopPropagation()" style="max-width: 900px">
+    <div class="modal-overlay" phx-window-keydown="close_card" phx-key="escape">
+      <div class="modal-card" phx-click-away="close_card" style="max-width: 900px">
         <h2>Players Card</h2>
         <p class="card-header-line">{PlayerCard.header(@entry)}</p>
 

@@ -15,9 +15,12 @@ defmodule PairingsEngine.SwarImport do
   [RONDE] round data).
   """
 
+  import Ecto.Query
+
   alias PairingsEngine.Repo
   alias PairingsEngine.Tournaments
   alias PairingsEngine.Tournaments.{Tournament, Round, Pairing}
+  alias PairingsEngine.Fide.FidePlayer
 
   ## ---------- Windows-1252 decoding ----------
 
@@ -426,7 +429,13 @@ defmodule PairingsEngine.SwarImport do
 
   @doc """
   Reads a `.swar` file from `path`, parses it, and creates the tournament
-  (with its players, rounds and pairings) inside a single transaction.
+  (with its players, rounds and pairings) inside a single transaction — the
+  original one-step API, kept for any non-interactive caller (tests, a
+  future CLI/API import, ...) that has no way to ask a human to resolve a
+  missing FIDE id. Players SWAR has no `mat_fide` for are matched against
+  the local FIDE database same as `prepare_import/1` (see there); anyone
+  left ambiguous or unmatched is simply imported without a `fide_id`,
+  exactly like before this module could match FIDE ids at all.
   Pass a `%PairingsEngine.Accounts.Scope{}` as `scope` to make the logged-in
   user the owner; `nil` creates it unowned (visible to nobody in the web UI).
   Returns `{:ok, %Tournament{}}` or `{:error, reason}`.
@@ -434,32 +443,93 @@ defmodule PairingsEngine.SwarImport do
   def import_file(path, scope \\ nil) do
     with {:ok, binary} <- File.read(path),
          {:ok, data} <- parse(binary) do
-      # Individual writes inside the transaction (players, rounds…) don't
-      # broadcast — the transaction may still roll back, and even on
-      # success a subscriber could otherwise query the database before the
-      # writes are committed. Broadcast once, for real, after commit.
-      result =
-        Tournaments.with_broadcast_suppressed(fn ->
-          Repo.transaction(fn ->
-            case do_import(data, scope) do
-              {:ok, tournament} -> tournament
-              {:error, reason} -> Repo.rollback(reason)
-            end
-          end)
-        end)
-
-      case result do
-        {:ok, tournament} ->
-          Tournaments.broadcast_tournament_change(tournament.id, :tournament)
-          Tournaments.broadcast_user_tournaments(tournament.user_id)
-
-        _ ->
-          :ok
-      end
-
-      result
+      players = Enum.map(data.players, &best_effort_fide_match/1)
+      run_import(%{data | players: players}, scope)
     else
       {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  Reads and parses `path` (no database writes) and, for every player SWAR
+  has no `mat_fide` id for, tries to match them against the local FIDE
+  database on exact name (case-insensitive) + federation + birth year (see
+  `docs/swar-import.md`). A single exact match is adopted straight away
+  (into the returned `data`, same as `import_file/2`'s best-effort
+  matching); everyone left ambiguous or with no match at all is collected
+  into `unresolved` instead, for the caller to show the user a "resolve
+  FIDE matches" step before committing with `commit_import/3`.
+
+  Returns `{:ok, %{data: parsed_data, unresolved: [%{ni:, name:, federation:,
+  birth_year:, candidates: [...]}]}}` or `{:error, reason}`. `unresolved ==
+  []` means every player is already settled — the caller can go straight to
+  `commit_import(prepared, %{}, scope)` without showing anything.
+  """
+  def prepare_import(path) do
+    with {:ok, binary} <- File.read(path),
+         {:ok, data} <- parse(binary) do
+      {players, unresolved} =
+        Enum.map_reduce(data.players, [], fn p, unresolved ->
+          case resolve_fide_match(p) do
+            {:matched, resolved} -> {resolved, unresolved}
+            {:unresolved, candidates} -> {p, [unresolved_entry(p, candidates) | unresolved]}
+            :not_applicable -> {p, unresolved}
+          end
+        end)
+
+      {:ok, %{data: %{data | players: players}, unresolved: Enum.reverse(unresolved)}}
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  Commits a tournament from `prepared` (as returned by `prepare_import/1`),
+  applying the caller's chosen resolution for each of `prepared.unresolved`
+  first. `resolutions` maps a player's `ni` (the SWAR internal number used
+  as the key throughout `unresolved`) to either a FIDE id (integer) to
+  adopt, or anything else (`nil`, `"skip"`, or simply an absent key) to
+  import that player without a `fide_id` — same outcome as if no match had
+  ever been attempted. Runs the same single-transaction,
+  broadcast-after-commit import as `import_file/2`.
+  Returns `{:ok, %Tournament{}}` or `{:error, reason}`.
+  """
+  def commit_import(%{data: data}, resolutions, scope \\ nil) when is_map(resolutions) do
+    players = Enum.map(data.players, &apply_resolution(&1, resolutions))
+    run_import(%{data | players: players}, scope)
+  end
+
+  # Individual writes inside the transaction (players, rounds…) don't
+  # broadcast — the transaction may still roll back, and even on success a
+  # subscriber could otherwise query the database before the writes are
+  # committed. Broadcast once, for real, after commit.
+  #
+  # Status is derived the same way, and for the same reason: `refresh_status!/1`
+  # runs *after* the transaction commits (so it sees the imported rounds/
+  # results as they actually landed) and outside `with_broadcast_suppressed`
+  # (so its own broadcast, if the status actually changed, isn't swallowed).
+  # A fully-scored import (every paired round has every result) lands on
+  # "finished"; a partial one lands on "running" — see
+  # `PairingsEngine.Tournaments.refresh_status!/1`.
+  defp run_import(data, scope) do
+    result =
+      Tournaments.with_broadcast_suppressed(fn ->
+        Repo.transaction(fn ->
+          case do_import(data, scope) do
+            {:ok, tournament} -> tournament
+            {:error, reason} -> Repo.rollback(reason)
+          end
+        end)
+      end)
+
+    case result do
+      {:ok, tournament} ->
+        Tournaments.broadcast_tournament_change(tournament.id, :tournament)
+        Tournaments.broadcast_user_tournaments(tournament.user_id)
+        {:ok, Tournaments.refresh_status!(tournament.id)}
+
+      _ ->
+        result
     end
   end
 
@@ -467,22 +537,99 @@ defmodule PairingsEngine.SwarImport do
     with {:ok, tournament} <- create_tournament(data, scope) do
       players_by_ni = create_players(tournament, data.players, data.categories)
       create_rounds(tournament, data.players, players_by_ni)
-      {:ok, mark_status(tournament)}
+      {:ok, tournament}
     end
   end
 
-  # A .swar file only exists once at least one round has been paired, so an
-  # imported tournament is never really at the "setup" stage — leave it
-  # there only for the (empty) edge case of a file with no round data at
-  # all; otherwise mark it "running" like any tournament with paired rounds.
-  defp mark_status(tournament) do
-    if Tournaments.list_rounds(tournament.id) == [] do
-      tournament
-    else
-      {:ok, updated} = Tournaments.update_tournament(tournament, %{status: "running"})
-      updated
+  ## ---------- FIDE id matching for players SWAR left blank ----------
+
+  # `import_file/2`'s non-interactive best-effort path: adopt an
+  # unambiguous match, otherwise leave the player exactly as SWAR had it
+  # (no `fide_id`) — there's nobody to ask.
+  defp best_effort_fide_match(p) do
+    case resolve_fide_match(p) do
+      {:matched, resolved} -> resolved
+      _ -> p
     end
   end
+
+  # `mat_fide == 0` means SWAR itself has no FIDE id on file for this
+  # player — the only case worth searching the local FIDE database for.
+  # A player SWAR already gave a FIDE id to is never looked up or
+  # second-guessed here, however different their `mat_fide` might be from
+  # what the FIDE database currently has on file.
+  defp resolve_fide_match(%{mat_fide: 0} = p) do
+    candidates = fide_candidates(p)
+    exact = Enum.filter(candidates, &(&1.birth_year == birth_year(p.birth) and not is_nil(&1.birth_year)))
+
+    case exact do
+      [one] -> {:matched, Map.put(p, :fide_match, one) |> Map.put(:mat_fide, one.fide_id)}
+      _ -> {:unresolved, candidates}
+    end
+  end
+
+  defp resolve_fide_match(_p), do: :not_applicable
+
+  # Same name (case-insensitive, "Last, First" as both SWAR and the local
+  # FIDE database already store it) + same federation, *any* birth year —
+  # this is both the pool `resolve_fide_match/1` narrows down to an exact
+  # birth-year match, and the candidate list shown to the user when it
+  # can't (so "right person, wrong/missing year on one side" still shows up
+  # as a one-click choice instead of falling through to "no match").
+  defp fide_candidates(p) do
+    name = normalize_name_for_match(p.name)
+    federation = normalize_federation(p.country)
+
+    from(f in FidePlayer, where: f.federation == ^federation)
+    |> Repo.all()
+    |> Enum.filter(&(normalize_name_for_match(&1.name) == name))
+  end
+
+  defp normalize_name_for_match(name) do
+    name |> to_string() |> String.trim() |> String.downcase() |> String.replace(~r/\s+/, " ")
+  end
+
+  defp unresolved_entry(p, candidates) do
+    %{
+      ni: p.ni,
+      name: p.name,
+      federation: normalize_federation(p.country),
+      birth_year: birth_year(p.birth),
+      candidates:
+        Enum.map(candidates, fn c ->
+          %{
+            fide_id: c.fide_id,
+            name: c.name,
+            federation: c.federation,
+            birth_year: c.birth_year,
+            title: c.title,
+            standard_rating: c.standard_rating
+          }
+        end)
+    }
+  end
+
+  # Applies the caller's chosen resolution (from `commit_import/3`) for a
+  # player that came back from `prepare_import/1` still unresolved. Only
+  # ever consulted for players SWAR had no `mat_fide` for in the first
+  # place (see `resolve_fide_match/1`) — a player that already had one, or
+  # that `prepare_import/1` already auto-matched, was never added to
+  # `unresolved`, so there's nothing in `resolutions` to look up for them
+  # and this is a no-op.
+  defp apply_resolution(%{mat_fide: 0} = p, resolutions) do
+    case Map.get(resolutions, p.ni) do
+      fide_id when is_integer(fide_id) and fide_id > 0 ->
+        case Repo.get(FidePlayer, fide_id) do
+          nil -> p
+          fp -> p |> Map.put(:fide_match, fp) |> Map.put(:mat_fide, fp.fide_id)
+        end
+
+      _ ->
+        p
+    end
+  end
+
+  defp apply_resolution(p, _resolutions), do: p
 
   ## ---------- Tournament ----------
 
@@ -518,8 +665,35 @@ defmodule PairingsEngine.SwarImport do
   @tournament_types %{0 => "swiss", 1 => "swiss", 2 => "swiss", 3 => "swiss", 4 => "roundrobin", 5 => "roundrobin", 6 => "roundrobin", 7 => "swiss", 8 => "swiss"}
   defp map_tournament_type(type), do: Map.get(@tournament_types, type, "swiss")
 
+  # SWAR's [TOURNOI] `federation` field is *which Belgian federation entity*
+  # organizes the tournament, not a FIDE country code: FRBE/KBSB are the
+  # (French/Dutch-named) national federation itself, FEFB/VSF/SVDB are its
+  # Walloon/Flemish regional leagues, and code 6 is "direct FIDE" homologation
+  # with no specific sub-federation. All of these are Belgium as far as FIDE
+  # reporting is concerned — `normalize_federation/1` collapses them to the
+  # single FIDE country code "BEL" that TRF export and the tournament's own
+  # `federation` field are supposed to carry (see docs/swar-import.md).
   @federations %{0 => "", 1 => "FRBE", 2 => "KBSB", 3 => "FEFB", 4 => "VSF", 5 => "SVDB", 6 => "FIDE"}
-  defp map_federation(code), do: Map.get(@federations, code, "")
+  defp map_federation(code), do: Map.get(@federations, code, "") |> normalize_federation()
+
+  # Regional/organizational markers that all mean "Belgium" for FIDE-reporting
+  # purposes — never a genuine ISO/FIDE country code in their own right, so
+  # they must never end up in `tournament.federation` / `player.federation`
+  # (TRF export reads those fields directly — see docs/import-export.md).
+  # "FIDE" (SWAR federation code 6, "direct FIDE homologation, no specific
+  # sub-federation") is included too — this importer only ever sees
+  # KBSB/FRBE-organized tournaments, so it's still Belgium, just not
+  # attributed to one of the named regional leagues. Any other value (a
+  # real FIDE federation code, or "" for "none selected") passes through
+  # unchanged.
+  @belgian_federation_markers ~w(FRBE KBSB FEFB VSF SVDB FIDE)
+
+  defp normalize_federation(code) when is_binary(code) do
+    upcased = code |> String.trim() |> String.upcase()
+    if upcased in @belgian_federation_markers, do: "BEL", else: upcased
+  end
+
+  defp normalize_federation(other), do: other
 
   # ByeValue: 0 = full point, 1 = half point, 2 = zero points (manual §5.16).
   defp map_bye_value(0), do: 1.0
@@ -609,15 +783,20 @@ defmodule PairingsEngine.SwarImport do
   defp create_players(tournament, swar_players, categories) do
     for p <- swar_players, into: %{} do
       attrs = %{
+        # SWAR's own spelling is canonical — a FIDE database match (see
+        # `resolve_fide_match/1` below) only ever contributes `fide_id`,
+        # `title` and (conditionally) `fide_rating`; it must never touch
+        # `name`, which always comes straight from the SWAR record.
         name: p.name,
         sex: map_sex(p.sex),
-        title: map_title(p.title),
+        title: fide_title_or(p),
         fide_id: zero_to_nil(p.mat_fide),
-        fide_rating: p.elo_fide,
+        fide_rating: fide_rating_or(p),
         national_id: zero_to_blank(p.mat_nat),
         national_rating: p.elo,
-        federation: p.country,
+        federation: normalize_federation(p.country),
         birth_year: birth_year(p.birth),
+        birth_date: birth_date(p.birth),
         club: p.club,
         pairing_number: p.ni,
         paid: map_paid(p.paye),
@@ -670,6 +849,45 @@ defmodule PairingsEngine.SwarImport do
   end
 
   defp birth_year(_), do: nil
+
+  # Full date of birth ("YYYYMMDD", same placeholder/sentinel rules as
+  # `birth_year/1` above, which stays in sync since both read the same raw
+  # `p.birth` string). A partial date (e.g. year known, month/day zeroed
+  # out) fails `Date.new/3` and falls back to `nil` — `birth_year` alone
+  # still carries what SWAR actually knew in that case.
+  defp birth_date(birth) when is_binary(birth) and byte_size(birth) == 8 do
+    with {year, ""} <- Integer.parse(String.slice(birth, 0, 4)),
+         {month, ""} <- Integer.parse(String.slice(birth, 4, 2)),
+         {day, ""} <- Integer.parse(String.slice(birth, 6, 2)),
+         true <- year > 1900,
+         {:ok, date} <- Date.new(year, month, day) do
+      date
+    else
+      _ -> nil
+    end
+  end
+
+  defp birth_date(_), do: nil
+
+  # `title`/`fide_rating` prefer a resolved FIDE-database match (see
+  # `resolve_fide_match/1`) over SWAR's own (often blank/stale) `Title`/
+  # `EloFide` fields — but only when SWAR didn't already have its own FIDE
+  # id (`p.fide_match` is only ever set for players SWAR had no `mat_fide`
+  # for in the first place; see `annotate_fide_match/1`). `name` is
+  # deliberately never touched here — see the comment on `create_players/3`.
+  defp fide_title_or(%{fide_match: %FidePlayer{title: t}}) when is_binary(t) and t != "",
+    do: t
+
+  defp fide_title_or(p), do: map_title(p.title)
+
+  # Only fills in a rating the player doesn't already have — SWAR's own
+  # `EloFide` (when nonzero) always wins over the FIDE database's current
+  # rating, which may well have moved since the tournament was played.
+  defp fide_rating_or(%{fide_match: %FidePlayer{standard_rating: r}, elo_fide: 0})
+       when is_integer(r),
+       do: r
+
+  defp fide_rating_or(p), do: p.elo_fide
 
   ## ---------- Rounds & pairings ----------
 

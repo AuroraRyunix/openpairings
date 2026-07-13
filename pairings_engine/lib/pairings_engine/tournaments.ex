@@ -11,7 +11,7 @@ defmodule PairingsEngine.Tournaments do
   alias PairingsEngine.Tiebreaks
   alias PairingsEngine.Accounts
   alias PairingsEngine.Accounts.{Scope, User}
-  alias PairingsEngine.Tournaments.{Tournament, Player, Team, Round, Pairing, Collaborator}
+  alias PairingsEngine.Tournaments.{Tournament, Player, Team, Round, Pairing, Collaborator, ForbiddenPairing}
 
   ## ---------- Live updates (PubSub) ----------
   #
@@ -532,6 +532,103 @@ defmodule PairingsEngine.Tournaments do
     Repo.all(from t in Team, where: t.tournament_id == ^tournament_id, order_by: t.name)
   end
 
+  ## Forbidden pairings (arbiter-configured "never pair these two" — see
+  ## docs/forbidden-pairings.md). A tournament-configuration write like
+  ## `update_tournament/2` above: any authorized user (owner or accepted
+  ## collaborator, per `get_authorized_tournament!/2`) may manage these, not
+  ## just the owner — there's no separate ownership check here, same as the
+  ## general Settings form.
+
+  @doc """
+  Lists `tournament`'s forbidden pairings, most recently added first, with
+  both players preloaded as `:player_a` / `:player_b` so the UI can render
+  "Name A — Name B" without a second query per row.
+  """
+  def list_forbidden_pairings(tournament_id) do
+    Repo.all(
+      from f in ForbiddenPairing,
+        where: f.tournament_id == ^tournament_id,
+        order_by: [desc: f.id],
+        preload: [:player_a, :player_b]
+    )
+  end
+
+  @doc """
+  Forbids `player_a_id` and `player_b_id` from ever being paired against
+  each other in `tournament`. Returns `{:error, reason}` without writing
+  anything for any of these:
+
+    * `:same_player` — `player_a_id == player_b_id`
+    * `:invalid_player` — either id doesn't belong to `tournament`
+    * `:already_forbidden` — the pair is already forbidden, in either order
+      (`{a, b}` and `{b, a}` are the same pair)
+
+  Otherwise inserts the row and broadcasts `:settings` on the tournament's
+  topic (same hint `update_tournament/2` uses — both are tournament
+  configuration, so the Settings page reload path is identical).
+  """
+  def add_forbidden_pairing(%Tournament{} = tournament, player_a_id, player_b_id) do
+    cond do
+      player_a_id == player_b_id ->
+        {:error, :same_player}
+
+      not both_players_belong_to_tournament?(tournament.id, player_a_id, player_b_id) ->
+        {:error, :invalid_player}
+
+      pair_already_forbidden?(tournament.id, player_a_id, player_b_id) ->
+        {:error, :already_forbidden}
+
+      true ->
+        %ForbiddenPairing{}
+        |> ForbiddenPairing.changeset(%{
+          tournament_id: tournament.id,
+          player_a_id: player_a_id,
+          player_b_id: player_b_id
+        })
+        |> Repo.insert()
+        |> tap_ok(fn inserted -> broadcast_tournament_change(inserted.tournament_id, :settings) end)
+    end
+  end
+
+  defp both_players_belong_to_tournament?(tournament_id, player_a_id, player_b_id) do
+    ids = Enum.uniq([player_a_id, player_b_id])
+
+    count =
+      Repo.aggregate(
+        from(p in Player, where: p.tournament_id == ^tournament_id and p.id in ^ids),
+        :count
+      )
+
+    count == length(ids)
+  end
+
+  defp pair_already_forbidden?(tournament_id, player_a_id, player_b_id) do
+    Repo.exists?(
+      from f in ForbiddenPairing,
+        where:
+          f.tournament_id == ^tournament_id and
+            ((f.player_a_id == ^player_a_id and f.player_b_id == ^player_b_id) or
+               (f.player_a_id == ^player_b_id and f.player_b_id == ^player_a_id))
+    )
+  end
+
+  @doc """
+  Removes forbidden pairing `id` from `tournament`. Returns
+  `{:error, :not_found}` if `id` doesn't identify a forbidden pairing row
+  belonging to `tournament` (so a stale/forged id from another tournament's
+  page can't reach across).
+  """
+  def remove_forbidden_pairing(%Tournament{} = tournament, id) do
+    case Repo.get_by(ForbiddenPairing, id: id, tournament_id: tournament.id) do
+      nil ->
+        {:error, :not_found}
+
+      forbidden_pairing ->
+        Repo.delete(forbidden_pairing)
+        |> tap_ok(fn deleted -> broadcast_tournament_change(deleted.tournament_id, :settings) end)
+    end
+  end
+
   ## Rounds & pairings (round lifecycle is filled in by the pairing engine)
 
   def get_round(tournament_id, number) do
@@ -551,11 +648,85 @@ defmodule PairingsEngine.Tournaments do
     |> Pairing.changeset(%{result: result})
     |> Repo.update()
     |> tap_ok(fn updated ->
-      broadcast_tournament_change(round_tournament_id(updated.round_id), :results)
+      tournament_id = round_tournament_id(updated.round_id)
+      broadcast_tournament_change(tournament_id, :results)
+      refresh_status!(tournament_id)
     end)
   end
 
   defp round_tournament_id(round_id) do
     Repo.one(from r in Round, where: r.id == ^round_id, select: r.tournament_id)
+  end
+
+  ## ---------- Tournament/round status ----------
+  #
+  # `status` ("setup" | "running" | "finished") is derived, not hand-set —
+  # see `refresh_status!/1` below. A round itself is considered "finished"
+  # when every one of its pairings carries a result (a "bye" pairing's
+  # result is the literal string "bye", already non-blank, so pairing-
+  # allocated byes never block a round from counting as finished).
+
+  @doc """
+  Derives `tournament`'s status from its actual pairing/scoring state and
+  persists it if it changed, returning the (possibly updated) tournament
+  unchanged otherwise. Accepts either a `%Tournament{}` or a tournament id.
+
+    * `"finished"` — `rounds_count` rounds have been paired, and every
+      pairing in every paired round has a recorded result.
+    * `"running"`  — at least one round has been paired, but the tournament
+      isn't finished yet per the rule above.
+    * `"setup"`    — no round has been paired yet.
+
+  Tolerant and self-contained by design: safe to call after any write that
+  might affect completeness (a result entered, a round paired or unpaired,
+  a bulk import) without the caller needing to know the current status or
+  pass any extra context. Returns `nil` if the tournament (or its id) no
+  longer exists — e.g. deleted concurrently — rather than raising.
+
+  Broadcasts `{:tournament_changed, tournament_id, :tournament}` (the same
+  hint `delete_tournament/1` uses) only when the status actually changes, so
+  callers that already broadcast their own hint for the same write (e.g.
+  `:results`, `:rounds`) don't spam a second identical message on a no-op.
+  """
+  def refresh_status!(%Tournament{} = tournament) do
+    status = derive_status(tournament)
+
+    if status != tournament.status do
+      {:ok, updated} =
+        tournament
+        |> Tournament.changeset(%{status: status})
+        |> Repo.update()
+
+      broadcast_tournament_change(updated.id, :tournament)
+      updated
+    else
+      tournament
+    end
+  end
+
+  def refresh_status!(tournament_id) do
+    case Repo.get(Tournament, tournament_id) do
+      nil -> nil
+      tournament -> refresh_status!(tournament)
+    end
+  end
+
+  defp derive_status(%Tournament{} = tournament) do
+    paired = Repo.aggregate(from(r in Round, where: r.tournament_id == ^tournament.id), :count)
+
+    cond do
+      paired == 0 -> "setup"
+      paired >= tournament.rounds_count and all_rounds_scored?(tournament.id) -> "finished"
+      true -> "running"
+    end
+  end
+
+  defp all_rounds_scored?(tournament_id) do
+    not Repo.exists?(
+      from p in Pairing,
+        join: r in Round,
+        on: p.round_id == r.id,
+        where: r.tournament_id == ^tournament_id and p.result == ""
+    )
   end
 end

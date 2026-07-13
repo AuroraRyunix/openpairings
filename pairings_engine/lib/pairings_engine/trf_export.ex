@@ -105,13 +105,54 @@ defmodule PairingsEngine.TrfExport do
         federation: tournament.federation,
         start_date: tournament.start_date,
         end_date: tournament.end_date,
+        number_of_rated_players: Enum.count(trf_players, &((&1.fide_rating || 0) > 0)),
         type: tournament.type,
-        chief_arbiter: tournament.chief_arbiter,
+        chief_arbiter: chief_arbiter_line(tournament),
+        deputy_arbiters: deputy_arbiter_lines(tournament),
+        time_control: blank_to_nil(tournament.rate_of_play),
         round_dates: filter_round_dates(tournament.round_dates, rounds)
       },
       players: trf_players
     })
   end
+
+  # 102: chief arbiter, as "<FIDE id> <name>" when the id is known (e.g.
+  # "102 208418 Boutchon, Gaston"), else just the name. Skipped entirely
+  # (nil) when the chief arbiter isn't known at all — `Trf.serialize/1`
+  # already drops a nil/blank header line.
+  defp chief_arbiter_line(tournament) do
+    name = tournament.chief_arbiter || ""
+    fide_id = officials(tournament)["chief_arbiter_fide_id"]
+
+    cond do
+      name == "" -> nil
+      present?(fide_id) -> "#{fide_id} #{name}"
+      true -> name
+    end
+  end
+
+  # 112: one line per deputy arbiter found among the officials map's
+  # `deputyN_name` / `deputyN_fide_id` keys (N in 1..4 — see
+  # `PairingsEngine.Tournaments.Tournament`'s `officials` field docs),
+  # same "<FIDE id> <name>" formatting as the chief arbiter. A deputy slot
+  # with no name set is skipped.
+  defp deputy_arbiter_lines(tournament) do
+    officials = officials(tournament)
+
+    for n <- 1..4,
+        name = officials["deputy#{n}_name"],
+        present?(name) do
+      fide_id = officials["deputy#{n}_fide_id"]
+      if present?(fide_id), do: "#{fide_id} #{name}", else: name
+    end
+  end
+
+  defp officials(tournament), do: tournament.officials || %{}
+
+  defp present?(v), do: v not in [nil, ""]
+
+  defp blank_to_nil(v) when v in [nil, ""], do: nil
+  defp blank_to_nil(v), do: v
 
   defp filter_player_games(player, rounds, tournament) do
     empty = %{opponent_rank: nil, colour: nil, result: nil}

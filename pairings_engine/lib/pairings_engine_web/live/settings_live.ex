@@ -1,7 +1,7 @@
 defmodule PairingsEngineWeb.SettingsLive do
   use PairingsEngineWeb, :live_view
 
-  alias PairingsEngine.{Tournaments, Tiebreaks}
+  alias PairingsEngine.{Tournaments, Tiebreaks, Pairing}
   alias PairingsEngine.Tournaments.Tournament
 
   @general_fields [
@@ -25,17 +25,86 @@ defmodule PairingsEngineWeb.SettingsLive do
     {"blitz", "Blitz"}
   ]
 
-  # SWAR "Cadence" presets from the Tournament tab, plus free text.
-  @rate_of_play_options [
-    "",
-    "105 min/40 moves + 15 min. QPF",
-    "90 min/40 moves + 30 min + 30 sec/move",
-    "90 min + 30 sec/move",
-    "60 min QPF",
-    "25 min + 10 sec/move",
-    "15 min + 5 sec/move",
-    "5 min + 3 sec/move",
-    "3 min + 2 sec/move"
+  # Rate-of-play presets, one list per `standard` value — exact option sets
+  # (including order) as specified for OpenPairings; changing "Type" swaps
+  # which of these three lists the "Rate of play" select offers (see
+  # `standard_change` below).
+  @rate_of_play_standard [
+    "100min/end+30sec/move from move 1",
+    "100min/40moves+50min/20moves+15min/end+30sec/move from move 1",
+    "105min/40moves+15min/end",
+    "120min/40moves+15min/end+30sec/move from move 40",
+    "120min/40moves+30min/end",
+    "120min/10moves+30min/end+30sec/move from move 40",
+    "120min/end",
+    "120min/end+10sec/move from move 40",
+    "120min/end+30sec/move from move 1",
+    "120min/end+30sec/move from move 40",
+    "150min/end",
+    "30min/end+30sec/move from move 1",
+    "40min/end+30sec/move from move 1",
+    "60min/end",
+    "60min/end+30sec/move from move 1",
+    "65min/end",
+    "75min/end+30sec/move from move 1",
+    "90min/40moves+15min/end+30sec/move from move 1",
+    "90min/end+10sec/move from move 1",
+    "90min/end+30sec DELAY /move from move 1",
+    "90min/end",
+    "90min/end+30sec/move from move 1",
+    "90min/40moves+30min/end+30sec/move from move 1"
+  ]
+
+  @rate_of_play_rapid [
+    "10min/end+10sec/move from move 1",
+    "10min/end+15sec/move from move 1",
+    "10min/end+2sec/move from move 1",
+    "10min/end+5sec DELAY /move from move 1",
+    "10min/end+5sec/move from move 1",
+    "11min/end",
+    "12min/end",
+    "12min/end+10sec/move from move 1",
+    "12min/end+3sec/move from move 1",
+    "12min/end+5sec/move from move 1",
+    "13min/end+3sec/move from move 1",
+    "13min/end+5sec/move from move 1",
+    "15min/end",
+    "15min/end+10sec/move from move 1",
+    "15min/end+15sec/move from move 1",
+    "15min/end+5sec/move from move 1",
+    "20min/end",
+    "20min/end+10sec/move from move 1",
+    "20min/end+15sec/move from move 1",
+    "20min/end+5sec/move from move 1",
+    "25min/end+10sec/move from move 1",
+    "25min/end+15sec/move from move 1",
+    "25min/end+5sec/move from move 1",
+    "25min/end",
+    "30min/end",
+    "30min/end+10sec/move from move 1",
+    "30min/end+20sec/move from move 1",
+    "40min/end+10sec/move from move 1",
+    "45min/end",
+    "59min/end",
+    "8min/end+4sec/move from move 1"
+  ]
+
+  @rate_of_play_blitz [
+    "10min/end",
+    "3min/end+2sec/move from move 1",
+    "3min/end+3sec/move from move 1",
+    "4min/end+2sec/move from move 1",
+    "4min/end+3sec/move from move 1",
+    "5min/end",
+    "5min/end+2sec/move from move 1",
+    "5min/end+3sec DELAY /move from move 1",
+    "5min/end+3sec/move from move 1",
+    "6min/end+2sec/move from move 1",
+    "6min/end+3sec/move from move 1",
+    "7min/end+2sec/move from move 1",
+    "7min/end+3sec/move from move 1",
+    "8min/end+2sec/move from move 1",
+    "8min/end+3sec/move from move 1"
   ]
 
   # Officials & FIDE report fields not on the Tournament schema directly —
@@ -56,6 +125,9 @@ defmodule PairingsEngineWeb.SettingsLive do
   ]
 
   @swiss_variants ["", "Dutch", "Lim", "Dubov", "Burstein"]
+
+  @pairing_system_options for ps <- Tournament.pairing_systems(), do: {ps, Tournament.pairing_system_label(ps)}
+  @rr_cycles_options for c <- Tournament.rr_cycles_values(), do: {c, Tournament.rr_cycles_label(c)}
 
   # SWAR §5.22 Tie-break Presets (TB_PERSONEL). The manual only names the
   # enum members (TB_FIDE_RR, TB_DIS_SW, TB_REG_SW, TB_OLD_SW) without
@@ -102,14 +174,43 @@ defmodule PairingsEngineWeb.SettingsLive do
        page_title: "#{tournament.name} · Settings",
        tiebreaks: tournament.tiebreaks,
        round_dates: pad_dates(tournament.round_dates, tournament.rounds_count),
+       standard: tournament.standard,
+       rate_of_play: tournament.rate_of_play,
        note: nil,
        error: nil,
        dirty: false,
        stale: false,
        collaborator_error: nil,
-       collaborator_note: nil
+       collaborator_note: nil,
+       forbidden_pairing_error: nil,
+       category_error: nil
      )
-     |> assign_collaborators()}
+     |> assign_collaborators()
+     |> assign_pairing_locks()
+     |> assign_forbidden_pairings()}
+  end
+
+  # `pairing_system` locks once the tournament has paired its first round —
+  # switching engines mid-tournament would leave earlier rounds paired by a
+  # different (possibly incompatible) system. `rr_cycles` locks separately,
+  # once the number of already-paired rounds reaches what the *current*
+  # cycles setting implies a round robin needs (players - 1, doubled for
+  # cycles: 2) — past that point the schedule the current setting implies
+  # has already played out, so changing cycles further has no sane target
+  # to grow into. Best-effort definition: PairingsEngine.RoundRobin doesn't
+  # exist yet, so there's no canonical schedule length to check against.
+  defp assign_pairing_locks(socket) do
+    tournament = socket.assigns.tournament
+    paired = Pairing.paired_rounds_count(tournament.id)
+    players = Tournaments.count_players(tournament.id)
+    rr_base = max(players - 1, 1)
+    rr_implied_limit = rr_base * tournament.rr_cycles
+
+    assign(socket,
+      paired_rounds: paired,
+      pairing_system_locked?: paired > 0,
+      rr_cycles_locked?: paired >= rr_implied_limit
+    )
   end
 
   defp assign_collaborators(socket) do
@@ -120,6 +221,19 @@ defmodule PairingsEngineWeb.SettingsLive do
     end
   end
 
+  # Forbidden pairings: like the rest of the Settings form, this is
+  # available to any authorized user (owner or accepted collaborator), not
+  # just the owner — see PairingsEngine.Tournaments' "Forbidden pairings"
+  # section.
+  defp assign_forbidden_pairings(socket) do
+    tournament = socket.assigns.tournament
+
+    assign(socket,
+      forbidden_pairings: Tournaments.list_forbidden_pairings(tournament.id),
+      forbidden_pairing_players: Tournaments.list_players(tournament.id) |> Enum.sort_by(& &1.name)
+    )
+  end
+
   # Another user (or tab) changed this tournament. If the local form is
   # untouched, it's safe to reload everything from the database. If the
   # user has started editing (typed a field, reordered tiebreaks, etc.),
@@ -127,9 +241,36 @@ defmodule PairingsEngineWeb.SettingsLive do
   # and just flag the page as stale — their next "Save" will overwrite
   # whatever changed elsewhere, which is the expected last-write-wins
   # behaviour for a settings form.
+  # While the form is dirty (see the `settings_dirty_tracker` hook above), a
+  # broadcast on this tournament's topic could just be the echo of our own
+  # write — e.g. `add_forbidden_pairing`/`remove_forbidden_pairing` and the
+  # Categories card below call their own `Tournaments` functions directly
+  # (not through the big "save" form) and broadcast `:settings` like every
+  # other write does, but they don't touch the `tournaments` row itself (or,
+  # for Categories, they already re-assigned `@tournament` to the exact
+  # struct the write returned before this message was even processed). Only
+  # flag the page `stale` when the freshly-loaded row actually *differs*
+  # from what's already assigned — i.e. someone else's write raced ours —
+  # rather than on every single broadcast while dirty, which used to
+  # (wrongly) show the "updated elsewhere" banner right under the page
+  # header after every forbidden-pairing add, visually reading as the page
+  # jumping to the top. Comparing full structs rather than `updated_at`
+  # deliberately sidesteps that column's second-level precision (two
+  # genuinely different writes landing in the same second would otherwise
+  # look identical by timestamp alone).
   @impl true
   def handle_info({:tournament_changed, _tournament_id, _hint}, %{assigns: %{dirty: true}} = socket) do
-    {:noreply, assign(socket, stale: true)}
+    case Tournaments.get_authorized_tournament(socket.assigns.current_scope, socket.assigns.tournament.id) do
+      nil ->
+        {:noreply, assign(socket, stale: true)}
+
+      tournament ->
+        if tournament == socket.assigns.tournament do
+          {:noreply, socket}
+        else
+          {:noreply, assign(socket, stale: true)}
+        end
+    end
   end
 
   def handle_info({:tournament_changed, _tournament_id, _hint}, socket) do
@@ -147,9 +288,13 @@ defmodule PairingsEngineWeb.SettingsLive do
            tournament: tournament,
            tiebreaks: tournament.tiebreaks,
            round_dates: pad_dates(tournament.round_dates, tournament.rounds_count),
+           standard: tournament.standard,
+           rate_of_play: tournament.rate_of_play,
            stale: false
          )
-         |> assign_collaborators()}
+         |> assign_collaborators()
+         |> assign_pairing_locks()
+         |> assign_forbidden_pairings()}
     end
   end
 
@@ -211,24 +356,67 @@ defmodule PairingsEngineWeb.SettingsLive do
      assign(socket, round_dates: List.duplicate("", socket.assigns.tournament.rounds_count))}
   end
 
+  # Bonus convenience per spec: round 1 = start date, then +1 day for every
+  # following round (as opposed to `rd_calc` above, which spaces rounds a
+  # week apart for weekend tournaments).
+  def handle_event("rd_fill_sequential", _params, socket) do
+    tournament = socket.assigns.tournament
+
+    with start when start not in [nil, ""] <- tournament.start_date,
+         {:ok, date} <- Date.from_iso8601(start) do
+      dates =
+        for i <- 0..(tournament.rounds_count - 1) do
+          date |> Date.add(i) |> Date.to_iso8601()
+        end
+
+      {:noreply, assign(socket, round_dates: dates, error: nil)}
+    else
+      {:error, _} ->
+        {:noreply, assign(socket, error: "Start date must be a valid date before filling round dates.")}
+
+      _ ->
+        {:noreply, assign(socket, error: "Set a start date (in General) before filling round dates.")}
+    end
+  end
+
+  # `standard` and `rate_of_play` are tracked as their own assigns (rather
+  # than read straight off `@tournament`, like the rest of the big form)
+  # because the "Rate of play" select's option list depends on which
+  # "Type" is currently picked — switching type needs to update that list
+  # (and clear/keep the current selection) before the form is ever
+  # submitted, which plain HTML can't do on its own.
+  def handle_event("standard_change", %{"tournament" => %{"standard" => new_standard}}, socket) do
+    list = rate_of_play_list(new_standard)
+    current = socket.assigns.rate_of_play
+
+    new_rate = if current in list, do: current, else: ""
+
+    {:noreply, assign(socket, standard: new_standard, rate_of_play: new_rate)}
+  end
+
   def handle_event("save", %{"tournament" => params}, socket) do
     params =
       params
       |> Map.put("tiebreaks", socket.assigns.tiebreaks)
       |> apply_rate_of_play_override()
       |> normalize_round_dates()
+      |> strip_locked_pairing_fields(socket.assigns)
 
     case Tournaments.update_tournament(socket.assigns.tournament, params) do
       {:ok, tournament} ->
         {:noreply,
-         assign(socket,
+         socket
+         |> assign(
            tournament: tournament,
            round_dates: pad_dates(tournament.round_dates, tournament.rounds_count),
+           standard: tournament.standard,
+           rate_of_play: tournament.rate_of_play,
            note: "Saved.",
            error: nil,
            dirty: false,
            stale: false
-         )}
+         )
+         |> assign_pairing_locks()}
 
       {:error, changeset} ->
         {:noreply, assign(socket, error: error_text(changeset), note: nil)}
@@ -276,6 +464,94 @@ defmodule PairingsEngineWeb.SettingsLive do
     end
   end
 
+  ## ---------- Forbidden pairings — any authorized user (owner or collaborator) ----------
+
+  def handle_event("add_forbidden_pairing", %{"player_a_id" => a, "player_b_id" => b}, socket) do
+    with {a_id, ""} <- Integer.parse(a),
+         {b_id, ""} <- Integer.parse(b) do
+      case Tournaments.add_forbidden_pairing(socket.assigns.tournament, a_id, b_id) do
+        {:ok, _forbidden_pairing} ->
+          {:noreply,
+           socket
+           |> assign(forbidden_pairing_error: nil)
+           |> assign_forbidden_pairings()}
+
+        {:error, :same_player} ->
+          {:noreply, assign(socket, forbidden_pairing_error: "Choose two different players")}
+
+        {:error, :invalid_player} ->
+          {:noreply, assign(socket, forbidden_pairing_error: "Choose two players from this tournament")}
+
+        {:error, :already_forbidden} ->
+          {:noreply, assign(socket, forbidden_pairing_error: "That pair is already forbidden")}
+
+        {:error, _reason} ->
+          {:noreply, assign(socket, forbidden_pairing_error: "Could not add that forbidden pairing")}
+      end
+    else
+      _ -> {:noreply, assign(socket, forbidden_pairing_error: "Choose two players")}
+    end
+  end
+
+  def handle_event("remove_forbidden_pairing", %{"id" => id}, socket) do
+    case Tournaments.remove_forbidden_pairing(socket.assigns.tournament, id) do
+      {:ok, _forbidden_pairing} -> {:noreply, assign_forbidden_pairings(socket)}
+      {:error, _reason} -> {:noreply, socket}
+    end
+  end
+
+  ## ---------- Categories (SWAR CATEGORIES) — any authorized user ----------
+  #
+  # Unlike tiebreaks/round-dates (which stay local until "Save settings" is
+  # clicked), Add/Remove here persist immediately through
+  # `Tournaments.update_tournament/2` — the exact same write (and PubSub
+  # broadcast) the big form's "Save" button uses — so there's no separate
+  # "save path" to keep in sync for a plain list-of-names.
+
+  def handle_event("add_category", %{"name" => name}, socket) do
+    trimmed = String.trim(name)
+    categories = socket.assigns.tournament.categories || []
+
+    cond do
+      trimmed == "" ->
+        {:noreply, assign(socket, category_error: "Enter a category name")}
+
+      trimmed in categories ->
+        {:noreply, assign(socket, category_error: "That category already exists")}
+
+      true ->
+        case Tournaments.update_tournament(socket.assigns.tournament, %{"categories" => categories ++ [trimmed]}) do
+          {:ok, tournament} ->
+            {:noreply, assign(socket, tournament: tournament, category_error: nil)}
+
+          {:error, changeset} ->
+            {:noreply, assign(socket, category_error: error_text(changeset))}
+        end
+    end
+  end
+
+  def handle_event("remove_category", %{"name" => name}, socket) do
+    categories = List.delete(socket.assigns.tournament.categories || [], name)
+
+    case Tournaments.update_tournament(socket.assigns.tournament, %{"categories" => categories}) do
+      {:ok, tournament} -> {:noreply, assign(socket, tournament: tournament, category_error: nil)}
+      {:error, _changeset} -> {:noreply, socket}
+    end
+  end
+
+  # Server-side enforcement of the locks assign_pairing_locks/1 computes —
+  # the <select>/<input> are also HTML `disabled` in the template, but a
+  # disabled field just never gets submitted; a crafted/replayed request
+  # could still include the key, so drop it here regardless.
+  defp strip_locked_pairing_fields(params, assigns) do
+    params
+    |> maybe_drop_locked("pairing_system", assigns.pairing_system_locked?)
+    |> maybe_drop_locked("rr_cycles", assigns.rr_cycles_locked?)
+  end
+
+  defp maybe_drop_locked(params, _key, false), do: params
+  defp maybe_drop_locked(params, key, true), do: Map.delete(params, key)
+
   defp swap(list, index, delta) do
     target = index + delta
 
@@ -294,11 +570,12 @@ defmodule PairingsEngineWeb.SettingsLive do
 
   defp general_fields, do: @general_fields
   defp standard_options, do: @standard_options
-  defp rate_of_play_options, do: @rate_of_play_options
   defp tb_presets, do: @tb_presets
   defp officials_fields, do: @officials_fields
   defp deputy_fields, do: @deputy_fields
   defp swiss_variants, do: @swiss_variants
+  defp pairing_system_options, do: @pairing_system_options
+  defp rr_cycles_options, do: @rr_cycles_options
 
   defp o_get(tournament, key), do: Map.get(tournament.officials || %{}, key, "")
 
@@ -316,6 +593,35 @@ defmodule PairingsEngineWeb.SettingsLive do
     dates = dates || []
     dates = Enum.take(dates, count)
     dates ++ List.duplicate("", max(count - length(dates), 0))
+  end
+
+  defp rate_of_play_list("rapid"), do: @rate_of_play_rapid
+  defp rate_of_play_list("blitz"), do: @rate_of_play_blitz
+  defp rate_of_play_list(_standard), do: @rate_of_play_standard
+
+  # Blank option first, then the active list for `standard`. If the
+  # tournament's currently-stored rate of play isn't on that list (e.g. a
+  # free-text value pulled in from a SWAR import), it's prepended as its
+  # own extra option so it isn't silently dropped from the select.
+  defp rate_of_play_select_options(standard, current) do
+    list = rate_of_play_list(standard)
+
+    if current not in [nil, ""] and current not in list do
+      [current, ""] ++ list
+    else
+      [""] ++ list
+    end
+  end
+
+  @weekday_names {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
+
+  defp weekday_label(date) when date in [nil, ""], do: nil
+
+  defp weekday_label(date) do
+    case Date.from_iso8601(date) do
+      {:ok, parsed} -> elem(@weekday_names, Date.day_of_week(parsed) - 1)
+      {:error, _} -> nil
+    end
   end
 
   defp apply_rate_of_play_override(params) do
@@ -368,7 +674,7 @@ defmodule PairingsEngineWeb.SettingsLive do
           <h2>Format</h2>
           <div class="form-grid">
             <label class="field">
-              <span>Pairing system</span>
+              <span>Tournament format</span>
               <select name="tournament[type]">
                 <option
                   :for={type <- Tournament.types()}
@@ -387,6 +693,41 @@ defmodule PairingsEngineWeb.SettingsLive do
                 value={@tournament.rounds_count}
                 min="1"
                 max="30"
+              />
+            </label>
+            <label class="field">
+              <span>Pairing system</span>
+              <select name="tournament[pairing_system]" disabled={@pairing_system_locked?}>
+                <option
+                  :for={{val, label} <- pairing_system_options()}
+                  value={val}
+                  selected={@tournament.pairing_system == val}
+                >
+                  {label}
+                </option>
+              </select>
+              <span :if={@pairing_system_locked?} class="hint">locked after first pairing</span>
+            </label>
+            <label class="field">
+              <span>Cycles</span>
+              <select name="tournament[rr_cycles]" disabled={@rr_cycles_locked?}>
+                <option
+                  :for={{val, label} <- rr_cycles_options()}
+                  value={val}
+                  selected={@tournament.rr_cycles == val}
+                >
+                  {label}
+                </option>
+              </select>
+              <span :if={@rr_cycles_locked?} class="hint">locked after first pairing</span>
+            </label>
+            <label class="field">
+              <span>Keizer top value (blank = automatic)</span>
+              <input
+                type="number"
+                name="tournament[keizer_top_value]"
+                value={@tournament.keizer_top_value}
+                min="1"
               />
             </label>
             <label class="field">
@@ -410,30 +751,23 @@ defmodule PairingsEngineWeb.SettingsLive do
                 </option>
               </select>
             </label>
-            <div class="field">
-              <span>Standard</span>
-              <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center">
-                <label :for={{val, label} <- standard_options()} style="display: flex; gap: .35rem; align-items: center; font-weight: 400">
-                  <input type="radio" name="tournament[standard]" value={val} checked={@tournament.standard == val} /> {label}
-                </label>
-              </div>
-            </div>
+            <label class="field">
+              <span>Type</span>
+              <select name="tournament[standard]" phx-change="standard_change">
+                <option :for={{val, label} <- standard_options()} value={val} selected={@standard == val}>
+                  {label}
+                </option>
+              </select>
+            </label>
             <label class="field">
               <span>Rate of play</span>
               <select name="tournament[rate_of_play]">
                 <option
-                  :for={opt <- rate_of_play_options()}
+                  :for={opt <- rate_of_play_select_options(@standard, @rate_of_play)}
                   value={opt}
-                  selected={@tournament.rate_of_play == opt}
+                  selected={opt == @rate_of_play}
                 >
                   {if opt == "", do: "— none —", else: opt}
-                </option>
-                <option
-                  :if={@tournament.rate_of_play not in rate_of_play_options()}
-                  value={@tournament.rate_of_play}
-                  selected
-                >
-                  {@tournament.rate_of_play}
                 </option>
               </select>
             </label>
@@ -576,17 +910,24 @@ defmodule PairingsEngineWeb.SettingsLive do
         <div class="card">
           <h2>Round dates</h2>
           <p class="hint" style="margin-top: 0">
-            One date per round (SWAR Dates tab).
+            One date per round (SWAR Dates tab). Leave blank if unknown; two or more rounds can
+            share the same date (e.g. a Saturday double round).
           </p>
           <div class="form-grid">
             <label :for={{date, i} <- Enum.with_index(@round_dates)} class="field">
-              <span>Round {i + 1}</span>
+              <span>
+                Round {i + 1}
+                <span :if={weekday_label(date)} class="hint">({weekday_label(date)})</span>
+              </span>
               <input type="date" name="tournament[round_dates][]" value={date} />
             </label>
           </div>
           <div class="actions" style="flex-wrap: wrap">
+            <button type="button" class="pe-btn" phx-click="rd_fill_sequential">
+              Fill sequentially from start date
+            </button>
             <button type="button" class="pe-btn" phx-click="rd_calc">
-              Calculate from start date
+              Calculate weekly from start date
             </button>
             <button type="button" class="pe-btn" phx-click="rd_clear">Clear all</button>
           </div>
@@ -732,6 +1073,117 @@ defmodule PairingsEngineWeb.SettingsLive do
 
         <p :if={@collaborators == []} class="hint" style="margin-bottom: 0">
           Nobody else has access to this tournament yet.
+        </p>
+      </div>
+
+      <div class="card">
+        <h2>Forbidden pairings</h2>
+        <p class="hint" style="margin-top: 0">
+          Two players who must never be paired against each other. Applies to Swiss pairing
+          (a JaVaFo "XXP" rule) and to Keizer; a round robin's fixed schedule ignores this by design.
+        </p>
+        <form id="add-forbidden-pairing-form" phx-submit="add_forbidden_pairing">
+          <div class="form-grid">
+            <label class="field">
+              <span>Player A</span>
+              <select name="player_a_id" class="pe-select">
+                <option
+                  :for={p <- @forbidden_pairing_players}
+                  value={p.id}
+                >
+                  {p.name}
+                </option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Player B</span>
+              <select name="player_b_id" class="pe-select">
+                <option
+                  :for={p <- @forbidden_pairing_players}
+                  value={p.id}
+                >
+                  {p.name}
+                </option>
+              </select>
+            </label>
+          </div>
+          <p :if={@forbidden_pairing_error} class="error-note">{@forbidden_pairing_error}</p>
+          <div class="actions">
+            <button type="submit" class="pe-btn primary" disabled={length(@forbidden_pairing_players) < 2}>
+              Add
+            </button>
+          </div>
+        </form>
+
+        <div :if={@forbidden_pairings != []} class="card-table-wrap" style="margin-top: 16px">
+          <table class="pe-table">
+            <thead>
+              <tr>
+                <th>Pair</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr :for={fp <- @forbidden_pairings}>
+                <td>{fp.player_a.name} — {fp.player_b.name}</td>
+                <td style="text-align: right">
+                  <button class="pe-btn danger-link" phx-click="remove_forbidden_pairing" phx-value-id={fp.id}>
+                    Remove
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p :if={@forbidden_pairings == []} class="hint" style="margin-bottom: 0">
+          No forbidden pairings yet.
+        </p>
+      </div>
+
+      <div class="card">
+        <h2>Categories</h2>
+        <p class="hint" style="margin-top: 0">
+          Tournament-defined groups (SWAR CATEGORIES) — e.g. age or rating brackets — that players
+          can be assigned to on the <.link navigate={~p"/t/#{@tournament.id}/players"}>Players</.link>
+          page.
+        </p>
+        <form id="add-category-form" phx-submit="add_category">
+          <div class="form-grid">
+            <label class="field">
+              <span>New category name</span>
+              <input type="text" name="name" value="" placeholder="e.g. U18" />
+            </label>
+          </div>
+          <p :if={@category_error} class="error-note">{@category_error}</p>
+          <div class="actions">
+            <button type="submit" class="pe-btn primary">Add</button>
+          </div>
+        </form>
+
+        <div :if={@tournament.categories != []} class="card-table-wrap" style="margin-top: 16px">
+          <table class="pe-table">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr :for={c <- @tournament.categories}>
+                <td>{c}</td>
+                <td style="text-align: right">
+                  <button class="pe-btn danger-link" phx-click="remove_category" phx-value-name={c}>
+                    Remove
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p :if={@tournament.categories == []} class="hint" style="margin-bottom: 0">
+          No categories yet.
         </p>
       </div>
 

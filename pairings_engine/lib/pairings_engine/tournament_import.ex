@@ -56,6 +56,13 @@ defmodule PairingsEngine.TournamentImport do
     end
   end
 
+  # Same after-commit, outside-suppression pattern as `PairingsEngine.SwarImport`:
+  # imported rounds/results already carry whatever status the export
+  # snapshotted, but the round-trip should stand on its own — re-derive
+  # each tournament's status from what actually landed in the database
+  # (after the transaction commits, so the query sees the imported data;
+  # outside `with_broadcast_suppressed`, so a real status change still
+  # broadcasts) rather than trust the imported `status` field.
   defp do_import(tournaments, scope) do
     result =
       Tournaments.with_broadcast_suppressed(fn ->
@@ -66,7 +73,8 @@ defmodule PairingsEngine.TournamentImport do
       {:ok, imported} ->
         Enum.each(imported, &Tournaments.broadcast_tournament_change(&1.id, :tournament))
         Tournaments.broadcast_user_tournaments(scope.user.id)
-        {:ok, imported}
+        refreshed = Enum.map(imported, &Tournaments.refresh_status!(&1.id))
+        {:ok, refreshed}
 
       {:error, reason} ->
         {:error, reason}

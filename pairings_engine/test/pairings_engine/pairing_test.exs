@@ -187,6 +187,139 @@ defmodule PairingsEngine.PairingTest do
     end)
   end
 
+  ## ---------- opponentless games normalize to bye codes (JaVaFo crash fix) ----------
+
+  # User-reported crash: JaVaFo exits 1 on "B.A.B.E: Unexpected format of
+  # player line" for rows like "... 0000 - 1 ... 0000 - = ..." — opponent
+  # 0000 illegally carrying a played-game result code. This reproduces the
+  # underlying data shape (an opponentless Pairing row whose `result` is a
+  # playing code rather than the "bye" sentinel — e.g. a won/half bye
+  # recorded as if it were an ordinary scored game) and asserts the shared
+  # row builder rewrites it to a legal bye code before it ever reaches
+  # JaVaFo or the user-facing TRF export.
+  test "trf_player_rows/2 normalizes an opponentless game's playing-code result into a bye code" do
+    tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
+    player = insert_player(tournament, "Dgebuadze, Alexandre", fide_rating: 2400, pairing_number: 1)
+    opponent = insert_player(tournament, "Opponent", fide_rating: 2000, pairing_number: 2)
+
+    r1 = Repo.insert!(%PairingsEngine.Tournaments.Round{tournament_id: tournament.id, number: 1, status: "finished"})
+    r2 = Repo.insert!(%PairingsEngine.Tournaments.Round{tournament_id: tournament.id, number: 2, status: "finished"})
+    r3 = Repo.insert!(%PairingsEngine.Tournaments.Round{tournament_id: tournament.id, number: 3, status: "finished"})
+
+    # Round 1: an ordinary game against a real opponent — unaffected.
+    Repo.insert!(%PairingsEngine.Tournaments.Pairing{
+      round_id: r1.id,
+      board: 1,
+      white_player_id: player.id,
+      black_player_id: opponent.id,
+      result: "1-0"
+    })
+
+    # Round 2: a "won bye" recorded with no opponent but a playing-code
+    # result ("1-0") instead of the "bye" sentinel — reproduces "0000 - 1".
+    Repo.insert!(%PairingsEngine.Tournaments.Pairing{
+      round_id: r2.id,
+      board: 2,
+      white_player_id: player.id,
+      black_player_id: nil,
+      result: "1-0"
+    })
+
+    # Round 3: a "half bye" recorded the same anomalous way — reproduces
+    # "0000 - =".
+    Repo.insert!(%PairingsEngine.Tournaments.Pairing{
+      round_id: r3.id,
+      board: 2,
+      white_player_id: player.id,
+      black_player_id: nil,
+      result: "1/2-1/2"
+    })
+
+    rows = Pairing.trf_player_rows(tournament, [player, opponent])
+    row = Enum.find(rows, &(&1.name == "Dgebuadze, Alexandre"))
+
+    assert Enum.map(row.games, & &1.result) == ["1", "F", "H"]
+    assert Enum.map(row.games, & &1.opponent_rank) == [2, nil, nil]
+
+    # The fix applies to both the JaVaFo input path and the TRF export,
+    # since both go through this same shared builder — confirm the
+    # generated TRF text never contains the illegal combination.
+    trf = Pairing.javafo_input(tournament, [player, opponent])
+    refute trf =~ "0000 - 1"
+    refute trf =~ "0000 - ="
+  end
+
+  ## ---------- forbidden pairings -> JaVaFo XXP extension ----------
+
+  test "forbidden_pairs_lines/2 emits one XXP line per pair, using this run's pairing_number as the id" do
+    tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
+    alice = insert_player(tournament, "Alice", pairing_number: 1)
+    bob = insert_player(tournament, "Bob", pairing_number: 2)
+    carol = insert_player(tournament, "Carol", pairing_number: 3)
+
+    {:ok, _} = Tournaments.add_forbidden_pairing(tournament, alice.id, bob.id)
+    {:ok, _} = Tournaments.add_forbidden_pairing(tournament, alice.id, carol.id)
+
+    lines = Pairing.forbidden_pairs_lines(tournament.id, [alice, bob, carol])
+
+    # list_forbidden_pairings/1 orders most-recently-added first, so assert
+    # on line membership rather than an exact concatenation order.
+    line_set = lines |> String.split("\r\n", trim: true) |> MapSet.new()
+    assert line_set == MapSet.new(["XXP 1 2", "XXP 1 3"])
+  end
+
+  test "forbidden_pairs_lines/2 silently skips a pair when a player has no starting rank in this run" do
+    tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
+    alice = insert_player(tournament, "Alice", pairing_number: 1)
+    bob = insert_player(tournament, "Bob", [])
+
+    {:ok, _} = Tournaments.add_forbidden_pairing(tournament, alice.id, bob.id)
+
+    # Bob isn't in the `players` list passed in (e.g. not eligible this
+    # round) — the pair is dropped rather than emitting a malformed line.
+    assert Pairing.forbidden_pairs_lines(tournament.id, [alice]) == ""
+  end
+
+  test "forbidden_pairs_lines/2 returns an empty string when there are no forbidden pairings" do
+    tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
+    alice = insert_player(tournament, "Alice", pairing_number: 1)
+
+    assert Pairing.forbidden_pairs_lines(tournament.id, [alice]) == ""
+  end
+
+  test "javafo_input/2 includes the XXP line(s) alongside the XXR line" do
+    tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 5})
+    alice = insert_player(tournament, "Alice", pairing_number: 1)
+    bob = insert_player(tournament, "Bob", pairing_number: 2)
+
+    {:ok, _} = Tournaments.add_forbidden_pairing(tournament, alice.id, bob.id)
+
+    trf = Pairing.javafo_input(tournament, [alice, bob])
+
+    assert trf =~ "XXR 5\r\n"
+    assert trf =~ "XXP 1 2\r\n"
+  end
+
+  ## ---------- forbidden pairings actually respected by JaVaFo ----------
+
+  test "pair_next_round/1 never pairs a forbidden pair together" do
+    tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 1})
+
+    alice = insert_player(tournament, "Alice", fide_rating: 2000)
+    bob = insert_player(tournament, "Bob", fide_rating: 1900)
+    insert_player(tournament, "Carol", fide_rating: 1800)
+    insert_player(tournament, "Dave", fide_rating: 1700)
+
+    {:ok, _} = Tournaments.add_forbidden_pairing(tournament, alice.id, bob.id)
+
+    assert {:ok, round} = Pairing.pair_next_round(tournament)
+    round = Repo.preload(round, :pairings)
+
+    refute Enum.any?(round.pairings, fn p ->
+             MapSet.new([p.white_player_id, p.black_player_id]) == MapSet.new([alice.id, bob.id])
+           end)
+  end
+
   ## ---------- helpers ----------
 
   defp insert_player(tournament, name, attrs) do

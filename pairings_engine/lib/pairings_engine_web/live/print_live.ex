@@ -24,9 +24,12 @@ defmodule PairingsEngineWeb.PrintLive do
         href: if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/pairings?round=#{latest}")},
       %{name: "Standings", desc: "Current ranking with points and tiebreaks.",
         href: if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/standings")},
+      %{name: "Result cards (latest round)", desc: "One slip per board to record the result over the board.",
+        href: if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/results?round=#{latest}")},
       %{name: "Alphabetical pairing list", desc: "\"Where do I sit\" list, sorted by player name.", href: nil},
       %{name: "Score sheets", desc: "Pre-filled per board: names, ratings, move columns, signatures.", href: nil},
-      %{name: "Cross table", desc: "Full results grid of the tournament.", href: nil}
+      %{name: "Cross table", desc: "Full results grid of the tournament.",
+        href: ~p"/t/#{tournament.id}/print/crosstable"}
     ]
   end
 

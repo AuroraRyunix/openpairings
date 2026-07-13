@@ -103,6 +103,13 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   defp results, do: @results
 
+  # Long JaVaFo failures come through as multi-line output — show a short
+  # first-line preview as the collapsed summary, never a truncated message
+  # (the full text is always available by expanding the block).
+  defp error_summary(text) do
+    text |> String.split("\n", parts: 2) |> hd()
+  end
+
   defp player_label(nil), do: ""
 
   defp player_label(player) do
@@ -206,6 +213,14 @@ defmodule PairingsEngineWeb.PairingsLive do
           >
             Print standings
           </a>
+          <a
+            :if={@round != nil}
+            class="pe-btn"
+            href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}"}
+            target="_blank"
+          >
+            Print result cards
+          </a>
           <button
             :if={@round != nil && @round_number == @paired_rounds}
             class="pe-btn danger-link"
@@ -217,7 +232,16 @@ defmodule PairingsEngineWeb.PairingsLive do
         </div>
       </div>
 
-      <p :if={@error} class="error-note">{@error}</p>
+      <div :if={@error} class="error-note" style="display: block">
+        <details open={String.length(@error) <= 160}>
+          <summary style="cursor: pointer">{error_summary(@error)}</summary>
+          <pre style="max-height: 320px; overflow: auto; white-space: pre-wrap; word-break: break-word; margin: 6px 0 0">{@error}</pre>
+        </details>
+      </div>
+
+      <p class="hint" style="margin: 8px 0">
+        Tip: click a result box and type 1 / 2 / 3 to enter results rapidly (white win / draw / black win) — focus jumps to the next board automatically.
+      </p>
 
       <div class="card table-card">
         <table class="pe-table">
@@ -253,7 +277,13 @@ defmodule PairingsEngineWeb.PairingsLive do
                 <% else %>
                   <form phx-change="result" id={"result-form-#{pairing.id}"}>
                     <input type="hidden" name="pairing-id" value={pairing.id} />
-                    <select name="result" class="pe-select">
+                    <select
+                      name="result"
+                      class="pe-select"
+                      id={"result-select-#{pairing.id}"}
+                      phx-hook=".BlindResultEntry"
+                      data-board-select
+                    >
                       <option
                         :for={{value, label} <- results()}
                         value={value}
@@ -270,6 +300,53 @@ defmodule PairingsEngineWeb.PairingsLive do
           </tbody>
         </table>
       </div>
+
+      <script :type={Phoenix.LiveView.ColocatedHook} name=".BlindResultEntry">
+        // SWAR-style "blind" result entry: with a board's result <select>
+        // focused, typing 1 / 2 / 3 sets that board's result (white win /
+        // draw / black win) and moves focus to the next board's result
+        // select, so a sequence like "131312" fills in six boards in a row
+        // without touching the mouse.
+        const KEY_TO_VALUE = {"1": "1-0", "2": "1/2-1/2", "3": "0-1"};
+
+        export default {
+          mounted() {
+            this.onKeydown = (e) => {
+              const value = KEY_TO_VALUE[e.key];
+              if (!value) return; // let every other key behave natively
+
+              const hasOption = Array.from(this.el.options).some((o) => o.value === value);
+              if (!hasOption) return;
+
+              // Stop the browser's native "jump to option starting with
+              // this character" select behavior — we're fully driving the
+              // value ourselves.
+              e.preventDefault();
+
+              this.el.value = value;
+              // LiveView's phx-change listens for a real "change" event
+              // bubbling up from the form.
+              this.el.dispatchEvent(new Event("change", {bubbles: true}));
+
+              this.focusNextBoard();
+            };
+
+            this.el.addEventListener("keydown", this.onKeydown);
+          },
+
+          focusNextBoard() {
+            const selects = Array.from(document.querySelectorAll("select[data-board-select]"));
+            const index = selects.indexOf(this.el);
+            if (index >= 0 && index < selects.length - 1) {
+              selects[index + 1].focus();
+            }
+          },
+
+          destroyed() {
+            this.el.removeEventListener("keydown", this.onKeydown);
+          }
+        }
+      </script>
     </Layouts.app>
     """
   end

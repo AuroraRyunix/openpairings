@@ -115,6 +115,95 @@ defmodule PairingsEngine.TournamentsTest do
     end
   end
 
+  describe "refresh_status!/1" do
+    test "a tournament with no paired rounds stays \"setup\"" do
+      tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 2, status: "setup"})
+
+      assert Tournaments.refresh_status!(tournament).status == "setup"
+    end
+
+    test "at least one paired round, not fully scored/paired -> \"running\"" do
+      tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 2, status: "setup"})
+      white = Repo.insert!(%Player{tournament_id: tournament.id, name: "White"})
+      black = Repo.insert!(%Player{tournament_id: tournament.id, name: "Black"})
+      round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+
+      Repo.insert!(%Pairing{
+        round_id: round.id,
+        board: 1,
+        white_player_id: white.id,
+        black_player_id: black.id,
+        result: ""
+      })
+
+      updated = Tournaments.refresh_status!(tournament)
+      assert updated.status == "running"
+    end
+
+    test "rounds_count rounds paired and every pairing scored -> \"finished\"" do
+      tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 1, status: "setup"})
+      white = Repo.insert!(%Player{tournament_id: tournament.id, name: "White"})
+      black = Repo.insert!(%Player{tournament_id: tournament.id, name: "Black"})
+      round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+
+      Repo.insert!(%Pairing{
+        round_id: round.id,
+        board: 1,
+        white_player_id: white.id,
+        black_player_id: black.id,
+        result: "1-0"
+      })
+
+      updated = Tournaments.refresh_status!(tournament)
+      assert updated.status == "finished"
+    end
+
+    # A "bye" pairing's result is the literal string "bye" — already
+    # non-blank — so a round made up entirely of a pairing-allocated bye
+    # still counts as fully scored.
+    test "a pairing-allocated bye (result \"bye\") counts as scored, not missing" do
+      tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 1, status: "setup"})
+      white = Repo.insert!(%Player{tournament_id: tournament.id, name: "White"})
+      round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+
+      Repo.insert!(%Pairing{round_id: round.id, board: 1, white_player_id: white.id, black_player_id: nil, result: "bye"})
+
+      updated = Tournaments.refresh_status!(tournament)
+      assert updated.status == "finished"
+    end
+
+    test "accepts a tournament id as well as a struct, and is a no-op (no error) for a deleted id" do
+      tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 2, status: "setup"})
+
+      assert Tournaments.refresh_status!(tournament.id).status == "setup"
+      assert Tournaments.refresh_status!(-1) == nil
+    end
+
+    test "only broadcasts :tournament when the status actually changes" do
+      tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 2, status: "setup"})
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
+
+      Tournaments.refresh_status!(tournament)
+      tid = tournament.id
+      refute_receive {:tournament_changed, ^tid, :tournament}
+
+      white = Repo.insert!(%Player{tournament_id: tournament.id, name: "White"})
+      black = Repo.insert!(%Player{tournament_id: tournament.id, name: "Black"})
+      round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+
+      Repo.insert!(%Pairing{
+        round_id: round.id,
+        board: 1,
+        white_player_id: white.id,
+        black_player_id: black.id,
+        result: ""
+      })
+
+      Tournaments.refresh_status!(tournament)
+      assert_receive {:tournament_changed, ^tid, :tournament}
+    end
+  end
+
   describe "PubSub broadcasts" do
     setup do
       %{scope: user_scope()}
@@ -490,6 +579,74 @@ defmodule PairingsEngine.TournamentsTest do
 
       # Now even the correct person can't accept a revoked invite.
       assert {:error, :not_found} = Tournaments.accept_invitation(invitee, invite.invite_token)
+    end
+  end
+
+  describe "forbidden pairings (arbiter-configured 'never pair these two')" do
+    setup do
+      tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
+      a = Repo.insert!(%Player{tournament_id: tournament.id, name: "Alice"})
+      b = Repo.insert!(%Player{tournament_id: tournament.id, name: "Bob"})
+      %{tournament: tournament, a: a, b: b}
+    end
+
+    test "add_forbidden_pairing/3 creates a row, and list_forbidden_pairings/1 preloads both players",
+         %{tournament: t, a: a, b: b} do
+      assert {:ok, fp} = Tournaments.add_forbidden_pairing(t, a.id, b.id)
+      assert fp.tournament_id == t.id
+      assert fp.player_a_id == a.id
+      assert fp.player_b_id == b.id
+
+      assert [listed] = Tournaments.list_forbidden_pairings(t.id)
+      assert listed.id == fp.id
+      assert listed.player_a.name == "Alice"
+      assert listed.player_b.name == "Bob"
+    end
+
+    test "add_forbidden_pairing/3 rejects the same player twice", %{tournament: t, a: a} do
+      assert {:error, :same_player} = Tournaments.add_forbidden_pairing(t, a.id, a.id)
+      assert Tournaments.list_forbidden_pairings(t.id) == []
+    end
+
+    test "add_forbidden_pairing/3 rejects a player who doesn't belong to this tournament", %{tournament: t, a: a} do
+      other = Repo.insert!(%Tournament{name: "Other", type: "swiss", rounds_count: 3})
+      stranger = Repo.insert!(%Player{tournament_id: other.id, name: "Stranger"})
+
+      assert {:error, :invalid_player} = Tournaments.add_forbidden_pairing(t, a.id, stranger.id)
+      assert {:error, :invalid_player} = Tournaments.add_forbidden_pairing(t, stranger.id, a.id)
+      assert Tournaments.list_forbidden_pairings(t.id) == []
+    end
+
+    test "add_forbidden_pairing/3 rejects a duplicate pair regardless of order", %{tournament: t, a: a, b: b} do
+      assert {:ok, _} = Tournaments.add_forbidden_pairing(t, a.id, b.id)
+      assert {:error, :already_forbidden} = Tournaments.add_forbidden_pairing(t, a.id, b.id)
+      assert {:error, :already_forbidden} = Tournaments.add_forbidden_pairing(t, b.id, a.id)
+      assert length(Tournaments.list_forbidden_pairings(t.id)) == 1
+    end
+
+    test "remove_forbidden_pairing/2 removes the row, and 404s (not_found) for another tournament's id",
+         %{tournament: t, a: a, b: b} do
+      {:ok, fp} = Tournaments.add_forbidden_pairing(t, a.id, b.id)
+      other = Repo.insert!(%Tournament{name: "Other", type: "swiss", rounds_count: 3})
+
+      assert {:error, :not_found} = Tournaments.remove_forbidden_pairing(other, fp.id)
+      assert Tournaments.list_forbidden_pairings(t.id) != []
+
+      assert {:ok, removed} = Tournaments.remove_forbidden_pairing(t, fp.id)
+      assert removed.id == fp.id
+      assert Tournaments.list_forbidden_pairings(t.id) == []
+    end
+
+    test "add_forbidden_pairing/3 and remove_forbidden_pairing/2 broadcast :settings on the tournament topic",
+         %{tournament: t, a: a, b: b} do
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(t.id))
+      tid = t.id
+
+      assert {:ok, fp} = Tournaments.add_forbidden_pairing(t, a.id, b.id)
+      assert_receive {:tournament_changed, ^tid, :settings}
+
+      assert {:ok, _} = Tournaments.remove_forbidden_pairing(t, fp.id)
+      assert_receive {:tournament_changed, ^tid, :settings}
     end
   end
 end

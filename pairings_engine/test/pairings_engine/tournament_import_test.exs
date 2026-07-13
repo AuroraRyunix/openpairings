@@ -158,6 +158,40 @@ defmodule PairingsEngine.TournamentImportTest do
     assert imported_team.tournament_id == imported.id
   end
 
+  test "round-trip re-derives status instead of trusting whatever the export snapshotted" do
+    owner = user_scope()
+    importer = user_scope()
+    original = fixture(owner)
+
+    # The fixture's 2 rounds are both fully scored (every pairing has a
+    # result), but `original` was inserted directly via Repo.insert! rather
+    # than through the normal write paths that call
+    # `Tournaments.refresh_status!/1` — its own `status` column is still
+    # the schema default, deliberately mismatched with reality, so this
+    # proves the import re-derives status (see
+    # `PairingsEngine.TournamentImport.do_import/2`) instead of carrying
+    # over whatever `status` value the export happened to include.
+    assert original.status == "setup"
+
+    envelope = TournamentExport.export_tournament(original)
+    assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
+
+    assert imported.status == "finished"
+    assert Tournaments.get_tournament!(imported.id).status == "finished"
+  end
+
+  test "round-trip on a partially-paired tournament re-derives status as running, not finished" do
+    owner = user_scope()
+    importer = user_scope()
+    original = fixture(owner)
+    {:ok, original} = Tournaments.update_tournament(original, %{"rounds_count" => 3})
+
+    envelope = TournamentExport.export_tournament(original)
+    assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
+
+    assert imported.status == "running"
+  end
+
   test "importing into the same account that exported it still creates a brand-new tournament" do
     scope = user_scope()
     original = fixture(scope)

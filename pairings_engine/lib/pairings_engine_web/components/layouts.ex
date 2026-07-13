@@ -39,7 +39,10 @@ defmodule PairingsEngineWeb.Layouts do
   def app(assigns) do
     ~H"""
     <header class="topbar">
-      <.link navigate={~p"/"} class="brand">♞ OpenPairings</.link>
+      <.link navigate={~p"/"} class="brand">
+        <span class="brand-mark">♞</span>
+        <span class="brand-name">Open<strong>Pairings</strong></span>
+      </.link>
       <nav>
         <.link navigate={~p"/"} class={tab_class(@active == "tournaments")}>Tournaments</.link>
         <%= if @tournament do %>
@@ -65,7 +68,13 @@ defmodule PairingsEngineWeb.Layouts do
             Settings
           </.link>
         <% end %>
-        <.link navigate={~p"/fide"} class={tab_class(@active == "fide")}>FIDE database</.link>
+        <.link
+          :if={!@tournament}
+          navigate={~p"/fide"}
+          class={tab_class(@active == "fide")}
+        >
+          FIDE database
+        </.link>
       </nav>
       <nav class="topbar-auth">
         <%= if @current_scope do %>

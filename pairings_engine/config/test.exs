@@ -18,7 +18,14 @@ config :pairings_engine, PairingsEngine.Repo,
   # default was occasionally too short for that, surfacing as a flaky
   # `Exqlite.Error: Database busy` — give contending writers more time to
   # queue instead of erroring out.
-  busy_timeout: 15_000
+  busy_timeout: 15_000,
+  # In the default rollback-journal mode a mere READER blocks every writer,
+  # and the SQL Sandbox keeps a transaction open per checked-out connection
+  # for the whole test — so one long-lived sandbox read transaction starves
+  # unrelated writes past even the generous busy_timeout above. WAL mode
+  # lets readers and the single writer coexist, which removes that whole
+  # contention class.
+  journal_mode: :wal
 
 # We don't run a server during test. If one is required,
 # you can enable the server option below.

@@ -182,6 +182,31 @@ body {
   gap: 8px;
 }
 
+.topbar .brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 27px;
+  height: 27px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+  color: #fff;
+  font-size: 17px;
+  line-height: 1;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.topbar .brand-name {
+  font-weight: 450;
+  color: var(--text-soft);
+  letter-spacing: 0.01em;
+}
+
+.topbar .brand-name strong {
+  font-weight: 750;
+  color: var(--text);
+}
+
 .topbar nav { display: flex; gap: 4px; }
 
 .topbar nav a {
