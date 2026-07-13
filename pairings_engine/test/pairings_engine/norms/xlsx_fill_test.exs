@@ -28,6 +28,49 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
     Map.new(entries, fn {name, bin} -> {List.to_string(name), bin} end)
   end
 
+  # Strict well-formedness check for a single XML part, independent of the
+  # `Regex`-based surgery this module does to produce it. `:xmerl_scan` (part
+  # of the Erlang/OTP standard library — no new dep) is a real, validating
+  # XML parser, unlike the module's own regexes: it rejects invalid UTF-8,
+  # XML-illegal control characters, and any other well-formedness violation
+  # that a lenient reader (openpyxl, some quick-preview panes) would happily
+  # skip past but Excel's own strict parser does not — that gap is exactly
+  # what produced the "we found a problem with some content" repair prompt
+  # this module now guards against.
+  defp assert_well_formed_xml!(name, binary) do
+    assert String.valid?(binary), "#{name}: not valid UTF-8"
+
+    # `:xmerl_scan` decodes UTF-8 itself (per the `encoding="UTF-8"` XML
+    # prolog every part here has) when given the *raw bytes* as a charlist
+    # (`:erlang.binary_to_list/1`, one list element per byte). Feeding it
+    # `String.to_charlist/1`'s *already-decoded* Unicode codepoints instead
+    # double-decodes multi-byte characters and misfires as a bogus
+    # `bad_character` error on perfectly legal text (e.g. the FIDE
+    # template's own "…" in `sharedStrings.xml`) — this must stay raw bytes.
+    charlist = :erlang.binary_to_list(binary)
+
+    case :xmerl_scan.string(charlist, quiet: true) do
+      {_parsed, _rest} -> :ok
+      other -> flunk("#{name}: xmerl_scan did not return a parsed document, got: #{inspect(other)}")
+    end
+  rescue
+    e -> flunk("#{name}: not well-formed XML (#{Exception.message(e)})")
+  catch
+    :exit, reason -> flunk("#{name}: xmerl_scan exited: #{inspect(reason)}")
+  end
+
+  # Every XML/rels part of a filled workbook must be strictly well-formed,
+  # not just the parts this module directly edited — `:zip.create/3` never
+  # touches untouched members, but this is the guard that would catch it if
+  # it ever did.
+  defp assert_all_parts_well_formed!(members) do
+    Enum.each(members, fn {name, bin} ->
+      if String.ends_with?(name, ".xml") or String.ends_with?(name, ".rels") do
+        assert_well_formed_xml!(name, bin)
+      end
+    end)
+  end
+
   # ---------------------------------------------------------------------
   # IT3
   # ---------------------------------------------------------------------
@@ -255,6 +298,108 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
 
     test "unknown sheet name returns an error" do
       assert {:error, {:unknown_sheet, "Nope"}} = XlsxFill.fill(@it3, %{"Nope" => %{"B3" => "x"}})
+    end
+  end
+
+  # ---------------------------------------------------------------------
+  # hostile data / xlsx corruption regression
+  # ---------------------------------------------------------------------
+
+  describe "hostile string data never corrupts the generated xlsx" do
+    test "XML metacharacters (& < > \" ') are escaped and every part stays well-formed" do
+      hostile = ~s(O'Brien & <Sons> "Chess" Club)
+
+      assert {:ok, binary} = XlsxFill.fill(@it3, %{"Invulformulier" => %{"B3" => hostile}})
+
+      members = unzip_map(binary)
+      sheet_xml = Map.fetch!(members, "xl/worksheets/sheet2.xml")
+
+      assert sheet_xml =~
+               ~r/<c r="B3"[^>]*t="inlineStr"><is><t xml:space="preserve">O&apos;Brien &amp; &lt;Sons&gt; &quot;Chess&quot; Club<\/t><\/is><\/c>/
+
+      assert_all_parts_well_formed!(members)
+    end
+
+    test "non-ASCII text round-trips untouched and every part stays well-formed" do
+      hostile = "Gaëtan Boûtchön — Müller"
+
+      assert {:ok, binary} = XlsxFill.fill(@it3, %{"Invulformulier" => %{"B3" => hostile}})
+
+      members = unzip_map(binary)
+      sheet_xml = Map.fetch!(members, "xl/worksheets/sheet2.xml")
+
+      assert sheet_xml =~
+               ~r/<c r="B3"[^>]*t="inlineStr"><is><t xml:space="preserve">Gaëtan Boûtchön — Müller<\/t><\/is><\/c>/
+
+      assert_all_parts_well_formed!(members)
+    end
+
+    # Reproduces the reported bug: a TRF file (or any other upstream text
+    # source) whose bytes are Windows-1252/Latin-1 rather than UTF-8 — read
+    # raw (`File.read!/1`, no transcoding) by `PairingsEngine.TrfImport`'s
+    # caller — carries byte sequences that are simply illegal UTF-8. SQLite
+    # doesn't validate encoding on TEXT columns, so a name like this can
+    # reach `XlsxFill.fill/2` completely unchanged from what was uploaded.
+    # Before the fix, these raw invalid bytes landed byte-for-byte inside
+    # the `<t>` element, producing a sheet XML that fails to even decode as
+    # UTF-8 (let alone parse) — exactly the "we found a problem with some
+    # content" Excel repair prompt from the bug report.
+    test "invalid UTF-8 byte sequences (mis-encoded TRF import data) are sanitized, not corrupted through" do
+      invalid_utf8_name = <<"Bo", 0xFC, "tchon, Ga", 0xEB, "tan">>
+      refute String.valid?(invalid_utf8_name)
+
+      assert {:ok, binary} =
+               XlsxFill.fill(@it3, %{"Invulformulier" => %{"B3" => invalid_utf8_name}})
+
+      members = unzip_map(binary)
+      sheet_xml = Map.fetch!(members, "xl/worksheets/sheet2.xml")
+
+      assert String.valid?(sheet_xml)
+      refute sheet_xml =~ <<0xFC>>
+      refute sheet_xml =~ <<0xEB>>
+      # the illegal bytes are replaced with the Unicode replacement
+      # character, not silently dropped (which would merge unrelated text).
+      assert sheet_xml =~ "Bo�tchon, Ga�tan"
+
+      assert_all_parts_well_formed!(members)
+    end
+
+    test "XML-illegal C0 control characters are sanitized even though they're valid UTF-8" do
+      # \x0B (vertical tab) is legal UTF-8 but outright forbidden by XML
+      # 1.0's Char production below \x20 (only tab/LF/CR are legal there) —
+      # escaping it as `&#xB;` is just as illegal as the raw byte, so it
+      # must be replaced, not merely escaped.
+      hostile = "Weird\x0BName\x00Here"
+
+      assert {:ok, binary} = XlsxFill.fill(@it3, %{"Invulformulier" => %{"B3" => hostile}})
+
+      members = unzip_map(binary)
+      sheet_xml = Map.fetch!(members, "xl/worksheets/sheet2.xml")
+
+      refute sheet_xml =~ <<0x0B>>
+      refute sheet_xml =~ <<0x00>>
+
+      assert_all_parts_well_formed!(members)
+    end
+
+    test "hostile data across every fillable cell in an IT3 still produces a fully well-formed workbook" do
+      hostile = ~s(O'Brien & <Sons> "Café" — Boûtchön) <> <<0xFC>>
+
+      fills = %{
+        "Invulformulier" => %{
+          "B1" => hostile,
+          "B3" => hostile,
+          "B9" => hostile,
+          "B60" => hostile,
+          "B63" => hostile,
+          "B23" => hostile
+        }
+      }
+
+      assert {:ok, binary} = XlsxFill.fill(@it3, fills)
+
+      members = unzip_map(binary)
+      assert_all_parts_well_formed!(members)
     end
   end
 end

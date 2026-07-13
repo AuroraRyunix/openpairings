@@ -124,6 +124,11 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
   ## ---------- SWAR import: FIDE-match confirm step (task 2) ----------
 
   describe "SWAR import: confirm step for players SWAR has no FIDE id for" do
+    # Every test here uploads test/fixtures/problemski.swar — a gitignored
+    # personal-data fixture (see .gitignore); excluded automatically by
+    # test_helper.exs when it isn't present.
+    @describetag :swar_fixture
+
     test "a file where every player is already settled imports immediately, no modal shown", %{conn: conn} do
       # c-reeks.swar has two players with no mat_fide (Vanmassenhove,
       # Cobert) — patch a copy where those two are simply removed isn't

@@ -352,7 +352,7 @@ defmodule PairingsEngine.Norms.XlsxFill do
   end
 
   defp string_cell(ref, s_attr, str) do
-    "<c r=\"#{ref}\"#{s_attr} t=\"inlineStr\"><is><t xml:space=\"preserve\">#{escape_xml(str)}</t></is></c>"
+    "<c r=\"#{ref}\"#{s_attr} t=\"inlineStr\"><is><t xml:space=\"preserve\">#{escape_xml(sanitize_for_xml(str))}</t></is></c>"
   end
 
   defp format_number(num) when is_integer(num), do: Integer.to_string(num)
@@ -373,6 +373,72 @@ defmodule PairingsEngine.Norms.XlsxFill do
     |> String.replace("\"", "&quot;")
     |> String.replace("'", "&apos;")
   end
+
+  # Every string that ends up in a cell here ultimately traces back to
+  # user-entered or externally-imported data (tournament/player names,
+  # arbiter names, free-text remarks, and — since `PairingsEngine.TrfImport`
+  # started back-mapping TRF16 "102"/"112" arbiter lines into
+  # `tournament.officials` — names lifted straight out of an uploaded TRF
+  # file). `escape_xml/1` only escapes the five reserved XML markup
+  # characters; it assumes its input is *already* well-formed text, which
+  # two classes of real-world input violate and which Excel's (strict)
+  # parser rejects outright — producing exactly the "repair this file"
+  # prompt, even though the zip and every other part of the workbook are
+  # untouched and fine:
+  #
+  #   1. Invalid UTF-8 byte sequences. `TrfImport`'s caller reads an
+  #      uploaded TRF file with `File.read!/1` — raw bytes, no charset
+  #      detection or transcoding. A TRF file saved by arbiter software in
+  #      Windows-1252/Latin-1 (common for names with accents, e.g. a
+  #      "Boûtchön"-style name) then carries bytes like `0xFC` that are
+  #      simply illegal as UTF-8 (XML's *only* legal encoding here, per the
+  #      `encoding="UTF-8"` declaration every FIDE template ships with).
+  #      SQLite's TEXT storage doesn't validate encoding on write, so the
+  #      bad bytes round-trip silently through the database and land
+  #      byte-for-byte in the generated sheet XML.
+  #   2. XML-illegal C0 control characters (stray NUL/vertical-tab/etc from
+  #      a bad paste or a different upstream bug) — legal as UTF-8, but
+  #      outright forbidden by the `Char` production in the XML 1.0 spec
+  #      (only tab/LF/CR are allowed below U+0020) regardless of escaping;
+  #      `&#x0B;` is just as illegal as a literal 0x0B byte.
+  #
+  # `sanitize_for_xml/1` runs before `escape_xml/1` so both classes are
+  # neutralized (replaced with U+FFFD, the standard Unicode replacement
+  # character) before the reserved-character escaping happens, guaranteeing
+  # every generated `<t>` is valid UTF-8 and legal XML content no matter
+  # what the upstream data looked like.
+  defp sanitize_for_xml(str) do
+    str
+    |> sanitize_utf8()
+    |> strip_illegal_xml_chars()
+  end
+
+  @replacement_char <<0xFFFD::utf8>>
+
+  defp sanitize_utf8(binary) do
+    if String.valid?(binary) do
+      binary
+    else
+      fix_utf8(binary, [])
+    end
+  end
+
+  defp fix_utf8(<<>>, acc), do: acc |> Enum.reverse() |> IO.iodata_to_binary()
+
+  defp fix_utf8(<<codepoint::utf8, rest::binary>>, acc) do
+    fix_utf8(rest, [<<codepoint::utf8>> | acc])
+  end
+
+  defp fix_utf8(<<_byte, rest::binary>>, acc) do
+    fix_utf8(rest, [@replacement_char | acc])
+  end
+
+  # XML 1.0's `Char` production only allows #x9 (tab), #xA (LF) and #xD (CR)
+  # below #x20 — every other C0 control character is illegal even as a
+  # numeric character reference, so these must be replaced, not escaped.
+  @illegal_xml_char_re ~r/[\x00-\x08\x0B\x0C\x0E-\x1F]/
+
+  defp strip_illegal_xml_chars(str), do: Regex.replace(@illegal_xml_char_re, str, @replacement_char)
 
   # ---------------------------------------------------------------------
   # Excel 1900-date-system serial numbers

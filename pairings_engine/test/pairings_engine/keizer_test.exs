@@ -456,6 +456,34 @@ defmodule PairingsEngine.KeizerTest do
       assert MapSet.new(entries, & &1.player.id) == player_ids
     end
 
+    test "the first pairing freezes pairing_number (highest rating first, frozen thereafter)",
+         %{tournament: tournament, a: a, b: b, c: c, d: d} do
+      refute a.pairing_number
+      refute b.pairing_number
+      refute c.pairing_number
+      refute d.pairing_number
+
+      assert {:ok, _round1} = Pairing.pair_next_round(tournament)
+
+      reloaded = fn p -> Repo.get!(Player, p.id) end
+
+      # Alice(2000) > Bob(1900) > Carol(1800) > Dave(1700) — same
+      # highest-rating-first numbering the Swiss path uses.
+      assert reloaded.(a).pairing_number == 1
+      assert reloaded.(b).pairing_number == 2
+      assert reloaded.(c).pairing_number == 3
+      assert reloaded.(d).pairing_number == 4
+
+      # Pairing round 2 doesn't renumber anyone — the numbers stay frozen.
+      Enum.each(Repo.preload(Tournaments.get_round(tournament.id, 1), :pairings).pairings, fn pairing ->
+        {:ok, _} = Tournaments.update_pairing_result(pairing, "1-0")
+      end)
+
+      assert {:ok, _round2} = Pairing.pair_next_round(tournament)
+      assert reloaded.(a).pairing_number == 1
+      assert reloaded.(d).pairing_number == 4
+    end
+
     test "a round-specific absence excludes the player from pairing and records a requested-zero bye",
          %{tournament: tournament, d: d} do
       {:ok, d} = Tournaments.update_player(d, %{absent_rounds: "1"})

@@ -19,6 +19,9 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
     assert html =~ "no rounds paired yet"
   end
 
+  # A default (swiss) tournament — pairs via JaVaFo, unlike the keizer test
+  # below which dispatches to PairingsEngine.Keizer instead.
+  @tag :javafo
   test "shows the latest round's pairings and current standings, and updates live when a result is entered elsewhere",
        %{conn: conn, scope: scope} do
     {:ok, tournament} = Tournaments.create_tournament(scope, %{"name" => "Live T", "type" => "swiss"})

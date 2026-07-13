@@ -15,7 +15,7 @@ sockets).
 | Pairing list | `GET /t/:id/print/pairings?round=n` | Yes | Board-by-board pairings for round `n`. `round` defaults to `1` if omitted. 404s with "Round n has not been paired yet" if round `n` has no pairings. |
 | Standings | `GET /t/:id/print/standings?round=n` | Yes (optional) | See "Round-scoped standings" below. Omit `round` for the current/overall standings. 404s the same way as the pairing list if round `n` hasn't been paired. |
 | Result cards | `GET /t/:id/print/results?round=n` | Yes | One card per board of round `n` (byes skipped). `round` defaults to the **latest paired round** if omitted (unlike the pairing list, which defaults to round 1). 404s the same way as the pairing list if round `n` hasn't been paired. |
-| Cross table | `GET /t/:id/print/crosstable` | No (always current) | Full Swiss cross table: one row per player in current standings order, one column per played round. |
+| Cross table | `GET /t/:id/print/crosstable` | No (always current) | Swiss/Keizer: full round-by-round cross table, one row per player in current standings order, one column per played round. Round robin: the classic players×players grid instead — see "Cross table" below. |
 
 ## The `round` query parameter
 
@@ -61,20 +61,31 @@ to record). Each card has:
   players to circle by hand.
 - A smaller "other: ............" line underneath for forfeits and other
   results that don't fit the three standard options.
-- Signature lines for White and Black.
+- Compact inline signature boxes for White and Black, on the same row as the
+  player names.
 
-Layout is A4 portrait, three cards stacked per page with a dashed border
-(cut line) around each card and a forced page break after every third card
-(`@page { size: A4 portrait }` plus `nth-child(3n)` — see `@result_cards_css`
-in the controller). This is a page-specific `<style>` block layered on top of
-the shared `@print_css`, not a change to the shared styles.
+Layout is A4 portrait, eight compact cards (~32mm each) stacked per page with
+a dashed border (cut line) around each card and a forced page break after
+every eighth card (`@page { size: A4 portrait }` plus `nth-child(8n)` — see
+`@result_cards_css` in the controller). This is a page-specific `<style>`
+block layered on top of the shared `@print_css`, not a change to the shared
+styles.
 
 ## Cross table
 
-`GET /t/:id/print/crosstable` prints the standard Swiss cross table: one row
-per player, ordered by current standings rank (`PairingsEngine.Standings.standings/1`,
-same entries and the same `points`/tiebreak columns the standings print page
-uses), then one column per round that has been paired.
+`GET /t/:id/print/crosstable` renders one of two documents, chosen by
+`tournament.pairing_system` (`PrintController.crosstable/2` is the
+dispatcher; `swiss_crosstable/2` and `round_robin_crosstable/2` are the two
+renderers):
+
+### Swiss and Keizer: the round-by-round cross table
+
+One row per player, ordered by current standings rank
+(`PairingsEngine.Standings.standings/1`, same entries and the same
+`points`/tiebreak columns the standings print page uses — Keizer tournaments
+now carry a `pairing_number` too, frozen at their first pairing exactly the
+way Swiss does, see `docs/pairing-systems.md`), then one column per round
+that has been paired.
 
 Each round cell uses a compact notation — `<opponent's pairing number><colour><result>`:
 
@@ -91,10 +102,51 @@ The opponent identifier is the opponent's **pairing number** (their fixed
 starting number, not their current/round-varying standings rank), matching
 how FIDE-style cross tables normally cross-reference opponents.
 
+### Round robin: the classic players×players grid
+
+For a tournament with `pairing_system == "round_robin"`, the cross table is
+instead the traditional round-robin grid: both rows and columns are the
+tournament's players, in the same order (ascending by their frozen
+`pairing_number` — see `docs/pairing-systems.md` for how round robin freezes
+that number at its first pairing), and column headers show that same
+pairing number.
+
+Cell (row player A, column player B) shows A's result **against B**,
+computed from A's own game record (`PairingsEngine.Standings` entry) for
+that opponent:
+
+- `"1"` / `"½"` / `"0"` — a played win/draw/loss.
+- `"+"` / `"-"` — a forfeit win/loss (no game played).
+- blank — no result recorded yet for that pairing.
+- For a **double** round robin (`tournament.rr_cycles == 2`), both cycles'
+  results are shown space-separated, first cycle first (e.g. `"1 ½"`) —
+  this falls out of sorting A's games against B by round number ascending,
+  since cycle 1's rounds are always numbered lower than cycle 2's.
+
+The diagonal (a player against themself) is hatched out via a CSS
+`repeating-linear-gradient` (`.rr-diag`) rather than left blank, so it reads
+unambiguously as "not a cell" on a printed page.
+
+Only players who actually have a `pairing_number` appear as a row/column —
+round robin freezes that set once, at the first pairing, and never grows it
+(see `docs/pairing-systems.md`), so a player who joined after the freeze has
+no schedule to show here. An odd player count's structural bye (against the
+phantom player) likewise never appears as a column — there's no real
+opponent to cross-reference — but its zero points are still folded into
+that row's **Pts** total, since that total comes from
+`PairingsEngine.Standings`, which already includes the bye in the player's
+overall score.
+
+The two right-hand columns are **Pts** (game points, same figure the Swiss
+cross table's Pts column shows) and **Rank** (current standings rank).
+
+### Shared print layout
+
 Landscape print CSS (`@page { size: A4 landscape }`) is applied the same way
 result cards apply portrait — a page-specific `<style>` block, since the
 shared `@print_css` has no orientation hint of its own. On screen the table
-just scrolls horizontally if it's wide (`overflow-x: auto`).
+just scrolls horizontally if it's wide (`overflow-x: auto`). Both variants
+reuse this same landscape layout.
 
 ## Round-scoped standings: how it's computed
 

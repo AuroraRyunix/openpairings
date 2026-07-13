@@ -274,6 +274,28 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       html = html_response(conn, 200)
       refute html =~ ~s(class="result-card")
     end
+
+    test "a board involving a player with a fixed_board override is annotated", %{conn: conn, scope: scope} do
+      {tournament, %{a: a}} = fixture(scope)
+      a |> Ecto.Changeset.change(fixed_board: 5) |> Repo.update!()
+
+      conn = get(conn, ~p"/t/#{tournament.id}/print/results?round=1")
+
+      html = html_response(conn, 200)
+      assert html =~ "(table 5)"
+    end
+
+    # Eight compact cards per A4 page (down from three tall ones) — see
+    # `@result_cards_css`: `.result-card:nth-child(8n)` forces the page
+    # break every 8th card instead of every 3rd.
+    test "cards are laid out eight to a page", %{conn: conn, scope: scope} do
+      {tournament, _players} = fixture(scope)
+
+      conn = get(conn, ~p"/t/#{tournament.id}/print/results?round=1")
+
+      html = html_response(conn, 200)
+      assert html =~ "nth-child(8n)"
+    end
   end
 
   describe "crosstable/2" do
@@ -301,6 +323,177 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       # A (pairing_number 1) beat B (pairing_number 2) as white in round 1 —
       # B's row shows a loss ("0") against opponent #1 as black.
       assert html =~ "1b0"
+    end
+  end
+
+  describe "crosstable/2 — round robin players×players grid" do
+    # Round-robin tournament, `cycles` cycles, 4 rated players (Alice=2000,
+    # Bob=1900, Carol=1800, Dave=1700 -> frozen pairing numbers 1..4). Round
+    # 1 is the FIDE Berger table's {1,4} (Alice white vs Dave) and {2,3}
+    # (Bob white vs Carol) — see PairingsEngine.RoundRobinTest, which
+    # verifies this exact table against the published FIDE N=4 annex.
+    defp round_robin_fixture(scope, cycles) do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "RR Print Test",
+          "type" => "swiss",
+          "pairing_system" => "round_robin",
+          "rr_cycles" => to_string(cycles),
+          "rounds_count" => "12"
+        })
+
+      players =
+        for {name, rating} <- [{"Alice", 2000}, {"Bob", 1900}, {"Carol", 1800}, {"Dave", 1700}], into: %{} do
+          {:ok, p} = Tournaments.create_player(tournament.id, %{"name" => name, "fide_rating" => to_string(rating)})
+          {name, p}
+        end
+
+      {tournament, players}
+    end
+
+    # Pairs the next round and enters `results` — a `%{{white_name,
+    # black_name} => result}` map matched against the round's actual
+    # pairings by player id (order-independent lookup, since which pair
+    # lands on which board isn't asserted here).
+    defp pair_and_score(tournament, players_by_name, results) do
+      {:ok, round} = PairingsEngine.Pairing.pair_next_round(tournament)
+      round = Repo.preload(round, :pairings)
+      by_id = Map.new(players_by_name, fn {name, p} -> {p.id, name} end)
+
+      Enum.each(round.pairings, fn pairing ->
+        white_name = Map.fetch!(by_id, pairing.white_player_id)
+        black_name = Map.fetch!(by_id, pairing.black_player_id)
+
+        case Map.get(results, {white_name, black_name}) do
+          nil -> :ok
+          result -> {:ok, _} = Tournaments.update_pairing_result(pairing, result)
+        end
+      end)
+
+      round
+    end
+
+    test "single round robin: grid headers are pairing numbers, cells show each side's result", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, players} = round_robin_fixture(scope, 1)
+
+      pair_and_score(tournament, players, %{
+        {"Alice", "Dave"} => "1-0",
+        {"Bob", "Carol"} => "1/2-1/2"
+      })
+
+      html = get(conn, ~p"/t/#{tournament.id}/print/crosstable") |> html_response(200)
+
+      assert html =~ "Cross table"
+      assert html =~ ~s(class="crosstable rr-crosstable")
+
+      # Column headers are the four players' pairing numbers, 1..4.
+      for n <- 1..4, do: assert(html =~ "<th class=\"num\">#{n}</th>")
+
+      # Diagonal is hatched out, once per player (the CSS block itself also
+      # mentions "rr-diag" once in its selector, so match the cell's actual
+      # class attribute rather than the bare substring).
+      assert (html |> String.split(~s(class="num rr-diag")) |> length()) - 1 == 4
+
+      # Alice (row) beat Dave (col) as White -> "1" in Alice's row under
+      # Dave's column; from Dave's row the same game reads as a loss ("0").
+      assert html =~ ~r/Alice<\/strong><\/td>.*?<td class="num">1<\/td>/s
+      assert html =~ ~r/Dave<\/strong><\/td>.*?<td class="num">0<\/td>/s
+
+      # Bob vs Carol drew -> "½" appears from both sides.
+      assert html =~ "½"
+    end
+
+    test "double round robin shows both cycles' results space-separated, first cycle first", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, players} = round_robin_fixture(scope, 2)
+
+      # Round 1 (cycle 1): Alice white beats Dave.
+      pair_and_score(tournament, players, %{{"Alice", "Dave"} => "1-0", {"Bob", "Carol"} => "1-0"})
+      # Round 2.
+      pair_and_score(tournament, players, %{{"Dave", "Carol"} => "1-0", {"Alice", "Bob"} => "1-0"})
+      # Round 3.
+      pair_and_score(tournament, players, %{{"Bob", "Dave"} => "1-0", {"Carol", "Alice"} => "1-0"})
+      # Round 4 (cycle 2, colours reversed vs round 1): Dave white vs Alice
+      # black — Alice wins again, this time as Black.
+      pair_and_score(tournament, players, %{{"Dave", "Alice"} => "0-1", {"Carol", "Bob"} => "0-1"})
+
+      html = get(conn, ~p"/t/#{tournament.id}/print/crosstable") |> html_response(200)
+
+      # Alice beat Dave in both cycle 1 (as White) and cycle 2 (as Black) ->
+      # her cell against Dave shows both results, cycle 1 first.
+      assert html =~ ~r/Alice<\/strong><\/td>.*?<td class="num">1 1<\/td>/s
+      # Dave lost both -> "0 0" from his row.
+      assert html =~ ~r/Dave<\/strong><\/td>.*?<td class="num">0 0<\/td>/s
+    end
+
+    test "a forfeit shows +/- rather than a played result", %{conn: conn, scope: scope} do
+      {tournament, players} = round_robin_fixture(scope, 1)
+
+      pair_and_score(tournament, players, %{{"Alice", "Dave"} => "1-0FF", {"Bob", "Carol"} => "1-0"})
+
+      html = get(conn, ~p"/t/#{tournament.id}/print/crosstable") |> html_response(200)
+
+      assert html =~ ~r/Alice<\/strong><\/td>.*?<td class="num">\+<\/td>/s
+      assert html =~ ~r/Dave<\/strong><\/td>.*?<td class="num">-<\/td>/s
+    end
+
+    test "an odd player count's structural bye isn't a column, but its points still count", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "RR Odd Print Test",
+          "type" => "swiss",
+          "pairing_system" => "round_robin",
+          "rr_cycles" => "1",
+          "rounds_count" => "12"
+        })
+
+      players =
+        for {name, rating} <- [
+              {"Alice", 2000},
+              {"Bob", 1900},
+              {"Carol", 1800},
+              {"Dave", 1700},
+              {"Eve", 1600}
+            ],
+            into: %{} do
+          {:ok, p} = Tournaments.create_player(tournament.id, %{"name" => name, "fide_rating" => to_string(rating)})
+          {name, p}
+        end
+
+      # Alice (highest rated, pairing number 1) sits out round 1's
+      # structural bye (see PairingsEngine.RoundRobinTest) — no result to
+      # enter for her.
+      {:ok, round} = PairingsEngine.Pairing.pair_next_round(tournament)
+      round = Repo.preload(round, :pairings)
+      assert length(round.pairings) == 2
+
+      by_id = Map.new(players, fn {name, p} -> {p.id, name} end)
+      results = %{{"Bob", "Carol"} => "1-0", {"Dave", "Eve"} => "1-0"}
+
+      Enum.each(round.pairings, fn pairing ->
+        key = {Map.fetch!(by_id, pairing.white_player_id), Map.fetch!(by_id, pairing.black_player_id)}
+        if result = results[key], do: Tournaments.update_pairing_result(pairing, result)
+      end)
+
+      html = get(conn, ~p"/t/#{tournament.id}/print/crosstable") |> html_response(200)
+
+      # Only 5 real players get a column — no 6th column for the phantom
+      # player that the odd-count bye mechanism uses internally.
+      assert html =~ "<th class=\"num\">5</th>"
+      refute html =~ "<th class=\"num\">6</th>"
+
+      # Alice played no game this round (she had the bye), so her total is
+      # exactly the bye's point value (0.0, "requested-zero") — the bye
+      # doesn't show as a column, but it's still folded into her Pts total.
+      assert html =~ ~r/Alice<\/strong><\/td>.*?<strong>0\.0<\/strong>/s
     end
   end
 

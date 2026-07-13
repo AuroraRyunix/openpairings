@@ -5,6 +5,13 @@ defmodule PairingsEngine.SwarImportTest do
   # "Database busy" under the async pool (SQLite has a single writer).
   use PairingsEngine.DataCase, async: false
 
+  # Every test in this module reads test/fixtures/c-reeks.swar and/or
+  # problemski.swar — real personal data, deliberately gitignored (see
+  # .gitignore) rather than committed. Excluded automatically by
+  # test_helper.exs when those files aren't present (a fresh checkout,
+  # CI) — see the comment there.
+  @moduletag :swar_fixture
+
   alias PairingsEngine.{SwarImport, Tournaments, Repo}
   alias PairingsEngine.Tournaments.Round
   alias PairingsEngine.Accounts.{Scope, User}
@@ -307,6 +314,24 @@ defmodule PairingsEngine.SwarImportTest do
     waegeman = Enum.find(players, &(&1.name == "Waegeman, Willem"))
     assert waegeman.birth_date == ~D[1982-04-02]
     assert waegeman.birth_date.year == waegeman.birth_year
+  end
+
+  # Direct unit coverage of the normalization helper itself (no fixture
+  # needed) — every marker `SwarImport.import_file/2`'s `map_federation/1`
+  # can hand it, plus the pass-through cases. `PairingsEngine.TrfExport`
+  # reuses this same function defensively at export time (see
+  # trf_export_test.exs) for a tournament whose `federation` was stored raw
+  # before this normalization existed.
+  test "normalize_federation/1 collapses every Belgian regional/organizational marker to BEL" do
+    for marker <- ~w(FRBE KBSB FEFB VSF SVDB FIDE frbe vsf) do
+      assert SwarImport.normalize_federation(marker) == "BEL"
+    end
+  end
+
+  test "normalize_federation/1 leaves a real FIDE federation code, blank, or nil untouched" do
+    assert SwarImport.normalize_federation("FRA") == "FRA"
+    assert SwarImport.normalize_federation("") == ""
+    assert SwarImport.normalize_federation(nil) == nil
   end
 
   ## ---------- FIDE id matching for players SWAR has no mat_fide for ----------

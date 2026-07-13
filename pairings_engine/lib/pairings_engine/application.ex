@@ -15,6 +15,7 @@ defmodule PairingsEngine.Application do
       {DNSCluster, query: Application.get_env(:pairings_engine, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: PairingsEngine.PubSub},
       PairingsEngine.Fide.Sync,
+      PairingsEngine.Kbsb.Sync,
       # Start to serve requests, typically the last entry
       PairingsEngineWeb.Endpoint
     ]

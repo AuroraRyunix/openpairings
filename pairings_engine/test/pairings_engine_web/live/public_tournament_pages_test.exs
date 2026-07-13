@@ -52,6 +52,8 @@ defmodule PairingsEngineWeb.PublicTournamentPagesTest do
     end
   end
 
+  # fixture/0 is a default (swiss) tournament — pairs via JaVaFo.
+  @tag :javafo
   test "shows the latest round's pairings and updates live when a result is entered elsewhere", %{conn: conn} do
     tournament = fixture()
 
@@ -81,6 +83,7 @@ defmodule PairingsEngineWeb.PublicTournamentPagesTest do
     refute white == nil
   end
 
+  @tag :javafo
   test "public standings page updates live when a result is entered elsewhere", %{conn: conn} do
     tournament = fixture()
 

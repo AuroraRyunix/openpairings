@@ -688,12 +688,22 @@ defmodule PairingsEngine.SwarImport do
   # unchanged.
   @belgian_federation_markers ~w(FRBE KBSB FEFB VSF SVDB FIDE)
 
-  defp normalize_federation(code) when is_binary(code) do
+  @doc """
+  Collapses a Belgian regional/organizational federation marker (any of
+  `#{inspect(@belgian_federation_markers)}`) to the single FIDE country
+  code "BEL"; any other value (a real FIDE federation code, or "" for
+  "none selected") passes through unchanged. Public so
+  `PairingsEngine.TrfExport` can apply the same normalization defensively
+  at export time, for a tournament whose `federation` field was already
+  stored raw in the database (e.g. imported before this normalization
+  existed on the SWAR-import side) — see `docs/swar-import.md`.
+  """
+  def normalize_federation(code) when is_binary(code) do
     upcased = code |> String.trim() |> String.upcase()
     if upcased in @belgian_federation_markers, do: "BEL", else: upcased
   end
 
-  defp normalize_federation(other), do: other
+  def normalize_federation(other), do: other
 
   # ByeValue: 0 = full point, 1 = half point, 2 = zero points (manual §5.16).
   defp map_bye_value(0), do: 1.0

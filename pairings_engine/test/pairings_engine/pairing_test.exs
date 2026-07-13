@@ -47,6 +47,7 @@ defmodule PairingsEngine.PairingTest do
 
   ## ---------- full pairing run (invokes JaVaFo) ----------
 
+  @tag :javafo
   test "pair_next_round/1 excludes a player absent for this round and gives them a requested-zero bye" do
     tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
 
@@ -86,6 +87,7 @@ defmodule PairingsEngine.PairingTest do
 
   ## ---------- PubSub broadcasts ----------
 
+  @tag :javafo
   test "pair_next_round/1 broadcasts :rounds on the tournament topic" do
     tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
     insert_player(tournament, "Alice", fide_rating: 2000)
@@ -110,6 +112,7 @@ defmodule PairingsEngine.PairingTest do
     refute_receive {:tournament_changed, _, :rounds}
   end
 
+  @tag :javafo
   test "delete_round/2 broadcasts :rounds on the tournament topic" do
     tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
     insert_player(tournament, "Alice", fide_rating: 2000)
@@ -302,6 +305,7 @@ defmodule PairingsEngine.PairingTest do
 
   ## ---------- forbidden pairings actually respected by JaVaFo ----------
 
+  @tag :javafo
   test "pair_next_round/1 never pairs a forbidden pair together" do
     tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 1})
 

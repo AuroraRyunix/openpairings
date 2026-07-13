@@ -183,17 +183,10 @@ body {
 }
 
 .topbar .brand-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 27px;
+  display: block;
+  width: 36px;
   height: 27px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
-  color: #fff;
-  font-size: 17px;
-  line-height: 1;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  flex-shrink: 0;
 }
 
 .topbar .brand-name {
@@ -416,6 +409,15 @@ button.pe-btn, .pe-btn {
 .search-results button:hover { background: var(--bg); }
 .search-results button:last-child { border-bottom: none; }
 .search-results .meta { color: var(--text-soft); font-size: 13px; margin-left: auto; white-space: nowrap; }
+.search-results .kbsb-result-row {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  padding: 9px 12px;
+  gap: 10px;
+  align-items: baseline;
+  font-weight: 500;
+}
+.search-results .kbsb-result-row:last-child { border-bottom: none; }
 
 /* tiebreak list */
 .tb-list { list-style: none; margin: 0; padding: 0; }

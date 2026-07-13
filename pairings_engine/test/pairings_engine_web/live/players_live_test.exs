@@ -2,8 +2,11 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
   use PairingsEngineWeb.ConnCase
 
   import Phoenix.LiveViewTest
+  import Ecto.Query
 
-  alias PairingsEngine.Tournaments
+  alias PairingsEngine.{Repo, Tournaments}
+  alias PairingsEngine.Fide.FidePlayer
+  alias PairingsEngine.Kbsb.KbsbPlayer
 
   setup :register_and_log_in_user
 
@@ -11,7 +14,8 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
     conn: conn,
     scope: scope
   } do
-    {:ok, tournament} = Tournaments.create_tournament(scope, %{"name" => "Players Print Test", "type" => "swiss"})
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{"name" => "Players Print Test", "type" => "swiss"})
 
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/players")
 
@@ -23,18 +27,21 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
   end
 
   test "the FIDE database tab is hidden once inside a tournament", %{conn: conn, scope: scope} do
-    {:ok, tournament} = Tournaments.create_tournament(scope, %{"name" => "No FIDE Tab Here", "type" => "swiss"})
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{"name" => "No FIDE Tab Here", "type" => "swiss"})
 
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/players")
 
     refute html =~ ~s(href="/fide")
   end
 
-  test "Ctrl+I hint and hook are wired on the page header, so the shortcut works even with zero players", %{
-    conn: conn,
-    scope: scope
-  } do
-    {:ok, tournament} = Tournaments.create_tournament(scope, %{"name" => "Empty Roster", "type" => "swiss"})
+  test "Ctrl+I hint and hook are wired on the page header, so the shortcut works even with zero players",
+       %{
+         conn: conn,
+         scope: scope
+       } do
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{"name" => "Empty Roster", "type" => "swiss"})
 
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/players")
 
@@ -44,7 +51,9 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
 
   describe "player registration modal (double-click to edit)" do
     setup %{scope: scope} do
-      {:ok, tournament} = Tournaments.create_tournament(scope, %{"name" => "Modal Test", "type" => "swiss"})
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Modal Test", "type" => "swiss"})
+
       {:ok, player} = Tournaments.create_player(tournament.id, %{"name" => "Alice"})
       %{tournament: tournament, player: player}
     end
@@ -66,7 +75,11 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       assert html =~ ~s(phx-click-away="close_edit")
     end
 
-    test "Cancel closes the modal via close_edit", %{conn: conn, tournament: tournament, player: player} do
+    test "Cancel closes the modal via close_edit", %{
+      conn: conn,
+      tournament: tournament,
+      player: player
+    } do
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
 
       render_click(lv, "edit_player", %{"id" => to_string(player.id)})
@@ -140,10 +153,11 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       assert updated.absent_rounds == "1,2,3,4"
     end
 
-    test "a category not in the tournament's category list is preserved as a selectable option", %{
-      conn: conn,
-      scope: scope
-    } do
+    test "a category not in the tournament's category list is preserved as a selectable option",
+         %{
+           conn: conn,
+           scope: scope
+         } do
       {:ok, tournament} =
         Tournaments.create_tournament(scope, %{
           "name" => "Cat Test",
@@ -151,7 +165,8 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
           "categories" => ["U18", "U20"]
         })
 
-      {:ok, player} = Tournaments.create_player(tournament.id, %{"name" => "Bob", "category" => "Legacy"})
+      {:ok, player} =
+        Tournaments.create_player(tournament.id, %{"name" => "Bob", "category" => "Legacy"})
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
 
@@ -164,12 +179,18 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
 
   describe "players card modal (right-click)" do
     setup %{scope: scope} do
-      {:ok, tournament} = Tournaments.create_tournament(scope, %{"name" => "Card Modal Test", "type" => "swiss"})
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Card Modal Test", "type" => "swiss"})
+
       {:ok, player} = Tournaments.create_player(tournament.id, %{"name" => "Carol"})
       %{tournament: tournament, player: player}
     end
 
-    test "does not rely on onclick stopPropagation either", %{conn: conn, tournament: tournament, player: player} do
+    test "does not rely on onclick stopPropagation either", %{
+      conn: conn,
+      tournament: tournament,
+      player: player
+    } do
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
 
       html = render_click(lv, "show_card", %{"id" => to_string(player.id)})
@@ -178,7 +199,11 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       assert html =~ ~s(phx-click-away="close_card")
     end
 
-    test "Exit closes the card via close_card", %{conn: conn, tournament: tournament, player: player} do
+    test "Exit closes the card via close_card", %{
+      conn: conn,
+      tournament: tournament,
+      player: player
+    } do
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
 
       render_click(lv, "show_card", %{"id" => to_string(player.id)})
@@ -186,6 +211,175 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
 
       refute html =~ "<h2>Players Card</h2>"
       refute html =~ ~s(phx-click-away="close_card")
+    end
+  end
+
+  describe "KBSB autofill (add-player form)" do
+    setup %{scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "KBSB Add Test", "type" => "swiss"})
+
+      Repo.insert!(%KbsbPlayer{
+        national_id: "12345",
+        last_name: "Peeters",
+        first_name: "Jan",
+        national_rating: 1850,
+        fide_id: nil,
+        club_number: 42,
+        club_name: "KSK Antwerpen",
+        federation: "VSF",
+        birth_year: 1990
+      })
+
+      %{tournament: tournament}
+    end
+
+    test "entering a known national id fills national rating and other blank fields", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "add", %{})
+      html = render_change(lv, "lookup_kbsb_add", %{"player" => %{"national_id" => "12345"}})
+
+      assert html =~ ~s(value="1850")
+      assert html =~ ~s(value="VSF")
+      assert html =~ ~s(value="1990")
+      assert html =~ ~s(value="KSK Antwerpen")
+      assert html =~ "Peeters, Jan"
+    end
+
+    test "an unknown national id leaves the form untouched", %{conn: conn, tournament: tournament} do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "add", %{})
+      html = render_change(lv, "lookup_kbsb_add", %{"player" => %{"national_id" => "no-such-id"}})
+
+      refute html =~ "Peeters"
+    end
+
+    test "picking a FIDE search result also fills in the matching KBSB row by FIDE id", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      Repo.insert!(%FidePlayer{
+        fide_id: 555_555,
+        name: "Peeters, Jan",
+        federation: "BEL",
+        birth_year: 1990,
+        title: "",
+        standard_rating: 1900
+      })
+
+      Repo.update_all(
+        from(k in KbsbPlayer, where: k.national_id == "12345"),
+        set: [fide_id: 555_555]
+      )
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "add", %{})
+      render_change(lv, "search", %{"q" => "555555"})
+      html = render_click(lv, "pick", %{"fide-id" => "555555"})
+
+      # FIDE fields...
+      assert html =~ ~s(value="555555")
+      assert html =~ ~s(value="1900")
+      # ...and the cross-referenced KBSB fields.
+      assert html =~ ~s(value="12345")
+      assert html =~ ~s(value="1850")
+      assert html =~ ~s(value="KSK Antwerpen")
+    end
+  end
+
+  describe "KBSB autofill (edit modal)" do
+    setup %{scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "KBSB Edit Test", "type" => "swiss"})
+
+      {:ok, player} =
+        Tournaments.create_player(tournament.id, %{"name" => "Alice", "national_id" => "12345"})
+
+      Repo.insert!(%KbsbPlayer{
+        national_id: "12345",
+        last_name: "Peeters",
+        first_name: "Jan",
+        national_rating: 1850,
+        fide_id: 555_555,
+        club_number: 42,
+        club_name: "KSK Antwerpen",
+        federation: "VSF",
+        birth_year: 1990
+      })
+
+      %{tournament: tournament, player: player}
+    end
+
+    test "the KBSB refresh button fills national rating, club, federation, birth year and fide id",
+         %{
+           conn: conn,
+           tournament: tournament,
+           player: player
+         } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "edit_player", %{"id" => to_string(player.id)})
+      html = lv |> element("button", "KBSB") |> render_click()
+
+      assert html =~ ~s(value="1850")
+      assert html =~ ~s(value="VSF")
+      assert html =~ ~s(value="KSK Antwerpen")
+      assert html =~ ~s(value="1990")
+      assert html =~ ~s(value="555555")
+    end
+
+    test "does not clobber an existing FIDE id already on the form", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, other} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "Bob",
+          "national_id" => "12345",
+          "fide_id" => "9",
+          "fide_rating" => "1000"
+        })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "edit_player", %{"id" => to_string(other.id)})
+      html = lv |> element("button", "KBSB") |> render_click()
+
+      # The pre-existing FIDE id (9) wins — KBSB only fills FIDE id when blank.
+      assert html =~ ~s(value="9")
+      refute html =~ ~s(value="555555")
+    end
+
+    test "shows an error when the National ID field is blank", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, blank} = Tournaments.create_player(tournament.id, %{"name" => "NoId"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "edit_player", %{"id" => to_string(blank.id)})
+      html = lv |> element("button", "KBSB") |> render_click()
+
+      assert html =~ "Enter a National ID first"
+    end
+
+    test "shows an error when no KBSB row matches", %{conn: conn, tournament: tournament} do
+      {:ok, unknown} =
+        Tournaments.create_player(tournament.id, %{"name" => "Ghost", "national_id" => "no-match"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "edit_player", %{"id" => to_string(unknown.id)})
+      html = lv |> element("button", "KBSB") |> render_click()
+
+      assert html =~ "No matching KBSB player found"
     end
   end
 end

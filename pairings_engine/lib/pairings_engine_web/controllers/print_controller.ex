@@ -18,8 +18,12 @@ defmodule PairingsEngineWeb.PrintController do
     * `GET /t/:id/print/results?round=n` — one result slip per board of
       round `n` (byes skipped). `round` defaults to the latest paired round;
       404s if round `n` hasn't been paired.
-    * `GET /t/:id/print/crosstable` — full Swiss cross table: one row per
-      player (current standings order), one column per played round.
+    * `GET /t/:id/print/crosstable` — for Swiss and Keizer tournaments, the
+      full Swiss cross table: one row per player (current standings order),
+      one column per played round. For round-robin tournaments, instead the
+      classic players×players grid: rows/columns ordered by pairing number,
+      cell (A, B) is A's result against B (both cycles' results for a
+      double round robin), diagonal hatched out.
   """
 
   use PairingsEngineWeb, :controller
@@ -46,24 +50,31 @@ defmodule PairingsEngineWeb.PrintController do
   @media print { .player-card { break-inside: avoid; } }
   """
 
+  # Card height (30mm) + margin-bottom (2mm) = 32mm per card. Eight of those
+  # stack to 256mm, comfortably inside the 277mm an A4 portrait page has left
+  # after 10mm top/bottom margins (leaving headroom for the page-1 title/
+  # subtitle that `print_page/5` always renders above the cards). One
+  # compact row per board: header line, then a single players+signatures
+  # line, then the circle-one result line — see `result_card/3`.
   @result_cards_css """
   @page { size: A4 portrait; margin: 10mm; }
-  .result-card { border: 1px dashed #000; box-sizing: border-box; height: 90mm; padding: 10px 16px;
-                 margin-bottom: 0; display: flex; flex-direction: column; page-break-inside: avoid; }
-  .result-card:nth-child(3n) { page-break-after: always; }
-  .result-card .rc-head { display: flex; justify-content: space-between; font-size: 12px; color: #444; }
+  .result-card { border: 1px dashed #000; box-sizing: border-box; height: 30mm; padding: 2mm 4mm;
+                 margin-bottom: 2mm; display: flex; flex-direction: column; justify-content: space-between;
+                 page-break-inside: avoid; }
+  .result-card:nth-child(8n) { page-break-after: always; margin-bottom: 0; }
+  .result-card .rc-head { display: flex; justify-content: space-between; font-size: 8.5px; color: #555; }
   .result-card .rc-head strong { color: #111; }
-  .result-card .rc-players { display: flex; align-items: center; justify-content: space-between;
-                              margin: 10px 0 18px; }
-  .result-card .rc-player { font-size: 15px; max-width: 42%; }
-  .result-card .rc-player .rc-sub { display: block; color: #555; font-size: 11.5px; margin-top: 2px; }
-  .result-card .rc-vs { color: #999; font-size: 12px; padding: 0 8px; }
-  .result-card .rc-result-row { display: flex; justify-content: center; gap: 56px;
-                                 font-size: 26px; font-weight: bold; margin: 6px 0 14px; }
-  .result-card .rc-other-row { text-align: center; font-size: 12px; color: #555; margin-bottom: auto; }
-  .result-card .rc-sign-row { display: flex; justify-content: space-between; margin-top: 10px; }
-  .result-card .rc-sign-row .sig { border-top: 1px solid #000; width: 44%; padding-top: 4px;
-                                    text-align: center; font-size: 11px; color: #444; }
+  .result-card .rc-players { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .result-card .rc-player { font-size: 11px; display: flex; align-items: baseline; gap: 5px; flex: 1 1 46%;
+                             min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .result-card .rc-player.rc-black { flex-direction: row-reverse; justify-content: flex-end; }
+  .result-card .rc-who { font-size: 7.5px; color: #777; text-transform: uppercase; letter-spacing: 0.04em; }
+  .result-card .rc-sub { color: #666; font-size: 8.5px; font-weight: normal; }
+  .result-card .rc-sig { font-size: 8px; color: #666; display: inline-flex; align-items: baseline; gap: 3px; }
+  .result-card .rc-sig i { font-style: normal; display: inline-block; width: 16mm; border-bottom: 1px solid #000; }
+  .result-card .rc-result-row { display: flex; align-items: baseline; justify-content: center; gap: 26px;
+                                 font-size: 18px; font-weight: bold; }
+  .result-card .rc-result-row .rc-other { margin-left: auto; font-size: 8px; font-weight: normal; color: #666; }
   @media print { .result-card { break-inside: avoid; } }
   """
 
@@ -72,6 +83,16 @@ defmodule PairingsEngineWeb.PrintController do
   .crosstable-wrap { overflow-x: auto; }
   table.crosstable { font-size: 11px; white-space: nowrap; }
   table.crosstable th, table.crosstable td { padding: 4px 6px; }
+  """
+
+  # Same page/table rules as @crosstable_css, plus the diagonal "self" cell
+  # of a round-robin players×players grid — hatched via a CSS gradient (no
+  # image asset needed) rather than solid black, so it still reads as "not a
+  # result" rather than looking like a printing error.
+  @rr_crosstable_css @crosstable_css <> """
+  table.crosstable td.rr-diag {
+    background-image: repeating-linear-gradient(45deg, #000 0, #000 2px, transparent 2px, transparent 6px);
+  }
   """
 
   def player_list(conn, %{"id" => id}) do
@@ -318,8 +339,23 @@ defmodule PairingsEngineWeb.PrintController do
     end
   end
 
+  @doc """
+  `GET /t/:id/print/crosstable` — dispatches on `tournament.pairing_system`:
+  round robin gets the classic players×players grid (`round_robin_crosstable/2`),
+  everything else (Swiss, Keizer) keeps the existing round-by-round Swiss
+  cross table (`swiss_crosstable/2`) unchanged.
+  """
   def crosstable(conn, %{"id" => id}) do
     tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
+
+    if tournament.pairing_system == "round_robin" do
+      round_robin_crosstable(conn, tournament)
+    else
+      swiss_crosstable(conn, tournament)
+    end
+  end
+
+  defp swiss_crosstable(conn, tournament) do
     rounds_paired = PairingsEngine.Standings.rounds_paired(tournament.id)
     entries = PairingsEngine.Standings.standings(tournament)
     by_id = Map.new(entries, &{&1.player.id, &1})
@@ -356,24 +392,93 @@ defmodule PairingsEngineWeb.PrintController do
     print_page(conn, tournament.name, "Cross table", body, @crosstable_css)
   end
 
+  # Classic round-robin players×players grid: rows and columns are the same
+  # players, ordered by (frozen) pairing_number — column headers are pairing
+  # numbers, not opponent names, the same cross-referencing convention the
+  # Swiss cross table's cells use. Only players who actually have a
+  # pairing_number are included as rows/columns — round robin freezes that
+  # set at its first pairing (see `PairingsEngine.RoundRobin`) and never
+  # grows it, so anyone without one was never scheduled at all and has
+  # nothing to show here. A double round robin's structural odd-player-count
+  # bye never appears as a column (there's no real opponent to cross-
+  # reference), but its zero points are already folded into the player's
+  # "Pts" total via `PairingsEngine.Standings`.
+  defp round_robin_crosstable(conn, tournament) do
+    entries = PairingsEngine.Standings.standings(tournament)
+
+    players =
+      entries
+      |> Enum.filter(&(&1.player.pairing_number != nil))
+      |> Enum.sort_by(& &1.player.pairing_number)
+
+    col_headers = Enum.map_join(players, "", &"<th class=\"num\">#{&1.player.pairing_number}</th>")
+
+    rows =
+      Enum.map_join(players, "", fn row_entry ->
+        cells = Enum.map_join(players, "", &rr_crosstable_cell(row_entry, &1, tournament))
+
+        "<tr><td class=\"num\">#{row_entry.player.pairing_number}</td>" <>
+          "<td><strong>#{esc(row_entry.player.name)}</strong></td>#{cells}" <>
+          "<td class=\"num\"><strong>#{row_entry.points}</strong></td>" <>
+          "<td class=\"num\">#{row_entry.rank}</td></tr>"
+      end)
+
+    body =
+      "<div class=\"crosstable-wrap\"><table class=\"crosstable rr-crosstable\"><thead><tr><th class=\"num\">#</th>" <>
+        "<th>Name</th>#{col_headers}<th class=\"num\">Pts</th><th class=\"num\">Rank</th></tr></thead>" <>
+        "<tbody>#{rows}</tbody></table></div>"
+
+    print_page(conn, tournament.name, "Cross table", body, @rr_crosstable_css)
+  end
+
+  # `row_entry`'s result(s) against `col_entry`, from `row_entry`'s own game
+  # list (already filtered to that opponent) sorted by round ascending — for
+  # a double round robin (rr_cycles == 2) this naturally puts the first
+  # cycle's result before the second's, since cycle 1's rounds are always
+  # numbered lower. A pairing with no result yet simply isn't in `.games`
+  # (see `PairingsEngine.Standings.pairing_records/3`), so the cell is blank
+  # rather than guessing.
+  defp rr_crosstable_cell(row_entry, col_entry, _tournament)
+       when row_entry.player.id == col_entry.player.id,
+       do: "<td class=\"num rr-diag\"></td>"
+
+  defp rr_crosstable_cell(row_entry, col_entry, tournament) do
+    symbols =
+      row_entry.games
+      |> Enum.filter(&(&1.opponent_id == col_entry.player.id))
+      |> Enum.sort_by(& &1.round)
+      |> Enum.map_join(" ", &rr_result_symbol(&1, tournament))
+
+    "<td class=\"num\">#{symbols}</td>"
+  end
+
+  # Played games use the ordinary 1 / ½ / 0 result symbol; a forfeit (no
+  # game played) uses the win/loss-shaped +/- symbol instead — reusing
+  # `crosstable_result_symbol/2` and `crosstable_forfeit_symbol/2` below,
+  # the same distinction the Swiss cross table's cells already draw.
+  defp rr_result_symbol(game, tournament) do
+    if game.played,
+      do: crosstable_result_symbol(game, tournament),
+      else: crosstable_forfeit_symbol(game, tournament)
+  end
+
   defp result_card(pairing, tournament, round_number) do
     white = pairing.white_player
     black = pairing.black_player
 
     "<div class=\"result-card\">" <>
       "<div class=\"rc-head\"><strong>#{esc(tournament.name)}</strong>" <>
-      "<span>Round #{round_number} &middot; Board #{pairing.board}</span></div>" <>
+      "<span>Round #{round_number} &middot; Board #{pairing.board}#{fixed_board_note(pairing)}</span></div>" <>
       "<div class=\"rc-players\">" <>
-      "<div class=\"rc-player\">White: <strong>#{esc(result_card_name(white))}</strong>" <>
-      "<span class=\"rc-sub\">#{result_card_sub(white)}</span></div>" <>
-      "<div class=\"rc-vs\">vs</div>" <>
-      "<div class=\"rc-player\">Black: <strong>#{esc(result_card_name(black))}</strong>" <>
-      "<span class=\"rc-sub\">#{result_card_sub(black)}</span></div>" <>
+      "<div class=\"rc-player\"><span class=\"rc-who\">White</span> <strong>#{esc(result_card_name(white))}</strong>" <>
+      "<span class=\"rc-sub\">#{result_card_sub(white)}</span>" <>
+      "<span class=\"rc-sig\">Sign <i></i></span></div>" <>
+      "<div class=\"rc-player rc-black\"><span class=\"rc-sig\">Sign <i></i></span>" <>
+      "<span class=\"rc-sub\">#{result_card_sub(black)}</span> <strong>#{esc(result_card_name(black))}</strong>" <>
+      "<span class=\"rc-who\">Black</span></div>" <>
       "</div>" <>
       "<div class=\"rc-result-row\"><span>1 &ndash; 0</span><span>&frac12; &ndash; &frac12;</span>" <>
-      "<span>0 &ndash; 1</span></div>" <>
-      "<div class=\"rc-other-row\">other: ............</div>" <>
-      "<div class=\"rc-sign-row\"><div class=\"sig\">White</div><div class=\"sig\">Black</div></div>" <>
+      "<span>0 &ndash; 1</span><span class=\"rc-other\">other: ............</span></div>" <>
       "</div>"
   end
 

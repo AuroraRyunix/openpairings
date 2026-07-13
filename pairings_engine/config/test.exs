@@ -9,7 +9,8 @@ config :pbkdf2_elixir, :rounds, 1
 # to provide built-in test partitioning in CI environment.
 # Run `mix help test` for more information.
 config :pairings_engine, PairingsEngine.Repo,
-  database: Path.expand("../pairings_engine_test.db", __DIR__),
+  database:
+    Path.expand("../pairings_engine_test#{System.get_env("MIX_TEST_PARTITION")}.db", __DIR__),
   pool_size: 5,
   pool: Ecto.Adapters.SQL.Sandbox,
   # SQLite only allows one writer at a time; several async test modules

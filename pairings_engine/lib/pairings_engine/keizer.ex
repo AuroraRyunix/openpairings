@@ -42,7 +42,16 @@ defmodule PairingsEngine.Keizer do
      beat in round 1 who later climbs the list keeps increasing what that
      round-1 win is worth.
 
-  5. **Pairing** the next round takes the recalculated order (round 1: the
+  5. **Pairing numbers.** The first time a Keizer tournament pairs a round,
+     `pairing_number` is frozen over the tournament's active players exactly
+     the way the Swiss path does (`PairingsEngine.Pairing.ensure_pairing_numbers/2`,
+     reused rather than duplicated) — highest rating first, name ascending as
+     the tie-break, then never reassigned. A newcomer who joins later gets a
+     number the next time this runs, same as Swiss. Nothing about the ladder
+     itself uses this number — it exists purely so the crosstable print and
+     the player grid have a stable "Nr" to show.
+
+  6. **Pairing** the next round takes the recalculated order (round 1: the
      initial rating order — scoring is a no-op with no rounds played, so
      this falls out of the fixed point for free), drops anyone not eligible
      this round (same eligibility Swiss pairing uses — see
@@ -64,7 +73,7 @@ defmodule PairingsEngine.Keizer do
      and any FIDE-facing view of a Keizer tournament still show something
      sensible for that round.
 
-  6. **Colours**: the player with fewer games as White so far gets White;
+  7. **Colours**: the player with fewer games as White so far gets White;
      tied, the lower-ranked player (further down the list) gets White.
      Colour is never a reason to reject a pairing.
 
@@ -108,6 +117,14 @@ defmodule PairingsEngine.Keizer do
   end
 
   defp do_pair(tournament, next_number, eligible, paired_count) do
+    # Freeze pairing_number exactly the way Swiss does (see
+    # PairingsEngine.Pairing.ensure_pairing_numbers/2) — over the tournament's
+    # active players (not just this round's eligible ones), so a player
+    # excused for round 1 alone still gets a number. Without this, a Keizer
+    # tournament's players never carry a pairing_number at all: the crosstable
+    # print and the player grid's "Nr" column would show "?" forever.
+    Engine.ensure_pairing_numbers(tournament, Engine.active_players(tournament.id))
+
     ladder_pool = ladder_players(tournament.id)
     {games, byes} = rounds_data(tournament.id, paired_count)
 

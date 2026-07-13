@@ -16,5 +16,40 @@
 # `async: true` tags stay meaningful for correctness (manual, per-test
 # sandbox connections instead of the shared-mode below) even though they no
 # longer buy parallelism.
-ExUnit.start(max_cases: 1)
+
+# Some tests depend on artifacts this repo doesn't (and, for the .swar
+# files, shouldn't) commit to git: two personal-data SWAR fixtures used
+# heavily by swar_import_test.exs (test/fixtures/*.swar — gitignored, see
+# .gitignore) and the JaVaFo pairing engine jar (priv/javafo/javafo.jar — a
+# third-party binary not ours to redistribute, see docs/README.md for the
+# download link). Locally both are present and the full suite runs.
+# Anywhere else (a fresh checkout, CI) the dependent tests are excluded
+# instead of failing outright — everything else still runs and still
+# catches regressions. Tests are tagged `@moduletag :swar_fixture` /
+# `@tag :javafo` at the call sites that actually need the missing file.
+swar_fixtures_present? =
+  File.exists?("test/fixtures/c-reeks.swar") and File.exists?("test/fixtures/problemski.swar")
+
+javafo_present? = File.exists?(PairingsEngine.Pairing.javafo_jar())
+
+exclude_tags =
+  Enum.reduce(
+    [
+      {swar_fixtures_present?, :swar_fixture,
+       "Skipping SWAR-fixture tests: test/fixtures/c-reeks.swar not present"},
+      {javafo_present?, :javafo,
+       "Skipping JaVaFo-dependent tests: #{PairingsEngine.Pairing.javafo_jar()} not present"}
+    ],
+    [],
+    fn
+      {true, _tag, _message}, acc ->
+        acc
+
+      {false, tag, message}, acc ->
+        IO.puts(message)
+        [tag | acc]
+    end
+  )
+
+ExUnit.start(max_cases: 1, exclude: exclude_tags)
 Ecto.Adapters.SQL.Sandbox.mode(PairingsEngine.Repo, :manual)
