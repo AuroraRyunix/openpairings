@@ -2,8 +2,8 @@
 
 OpenPairings is a chess tournament manager (Elixir/Phoenix + LiveView + SQLite):
 Swiss pairing via JaVaFo, round robin (Berger), the Keizer system,
-FIDE-compliant tiebreaks (C.07), TRF16, FIDE rating sync, SWAR import,
-per-tournament sharing, and FIDE norm/report forms.
+FIDE-compliant tiebreaks (C.07), TRF16 export/import, FIDE + KBSB rating lists,
+SWAR import, per-tournament sharing, and FIDE norm/report forms.
 
 ## Feature guides
 
@@ -18,8 +18,15 @@ per-tournament sharing, and FIDE norm/report forms.
   FIDE-database matching for players without a FIDE id (with a resolve step
   during import), full birth dates, federation normalization to FIDE codes.
 - [Printing](printing.md) — print documents (player list, cards, pairings,
-  standings, per-round result cards, cross table), the `?round=N` query param,
+  standings, per-round result cards, cross table — Swiss-style plus a
+  players×players grid for round robin), the `?round=N` query param,
   and per-page/per-round print buttons.
+- [TRF import](trf-import.md) — one-step `.trf` upload creating a complete new
+  tournament (players, rounds, results, byes, officials, round dates); points
+  are recomputed and cross-checked against the file's own points column.
+- [KBSB rating list](kbsb-sync.md) — Belgian national ratings via file-upload
+  import (no stable public bulk download exists) on the Rating lists page,
+  with national-id / FIDE-id autofill in the player form.
 - [Norms & FIDE forms](norms.md) — generating IT3 (per tournament) and FA1 / IA1
   (arbiter norms) / IT4 (player title norms) by filling the official FIDE Excel
   templates in place; the Officials data captured in Settings.
@@ -55,7 +62,8 @@ per-tournament sharing, and FIDE norm/report forms.
 - `lib/pairings_engine/` — domain: `pairing.ex` (JaVaFo), `standings.ex` (C.07
   tiebreaks, supports `through_round:`), `trf.ex` (TRF16 + result validation),
   `trf_export.ex` / `tournament_export.ex` / `tournament_import.ex` (exports),
-  `fide/sync.ex` (rating-list sync), `swar_import.ex` (.swar importer),
+  `fide/sync.ex` (rating-list sync), `kbsb/` (Belgian rating-list import),
+  `swar_import.ex` (.swar importer), `trf_import.ex` (TRF importer),
   `norms/` (Excel form fill engine + form mappers), `player_card.ex`,
   `tournaments/collaborator.ex` (sharing).
 - `lib/pairings_engine_web/live/` — LiveView pages (one per top-bar tab), all

@@ -134,8 +134,19 @@ defmodule PairingsEngine.Pairing do
 
   ## ---------- pairing numbers ----------
 
-  # Assigned once (highest rating first, FIDE C.04.2.B), then frozen.
-  defp ensure_pairing_numbers(tournament, players) do
+  @doc """
+  Assigns `pairing_number` to every player in `players` that doesn't have
+  one yet — highest rating first, name ascending as the tie-break (FIDE
+  C.04.2.B), continuing from the current max existing number — then leaves
+  them frozen forever (never reassigned once set). Returns `tournament`
+  unchanged, so it composes in a pipe the same way the Swiss path above
+  uses it.
+
+  Exposed (not private) so `PairingsEngine.Keizer` can freeze pairing
+  numbers at its own first pairing exactly the same way, rather than
+  duplicating this logic — see that module's `do_pair/4`.
+  """
+  def ensure_pairing_numbers(tournament, players) do
     if Enum.any?(players, &is_nil(&1.pairing_number)) do
       max_existing =
         players |> Enum.map(&(&1.pairing_number || 0)) |> Enum.max(fn -> 0 end)
@@ -355,9 +366,17 @@ defmodule PairingsEngine.Pairing do
     |> Enum.sum()
   end
 
-  # A player is a candidate for pairing at all only while active and neither
-  # permanently absent nor forfeited (SWAR Absent/Forfeit checkboxes).
-  defp active_players(tournament_id) do
+  @doc """
+  Players who are candidates for pairing at all: active status, neither
+  permanently absent nor forfeited (SWAR Absent/Forfeit checkboxes). This is
+  the full pool `ensure_pairing_numbers/2` freezes numbers over — round-
+  specific absences (`eligible_players/2`'s extra filter) don't shrink it,
+  so a player sitting out one round still gets/keeps a pairing number.
+
+  Exposed so `PairingsEngine.Keizer` can freeze pairing numbers over the
+  same player set Swiss does.
+  """
+  def active_players(tournament_id) do
     Repo.all(
       from p in Player,
         where:

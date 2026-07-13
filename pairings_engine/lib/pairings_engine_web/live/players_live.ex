@@ -1,8 +1,9 @@
 defmodule PairingsEngineWeb.PlayersLive do
   use PairingsEngineWeb, :live_view
 
-  alias PairingsEngine.{Tournaments, Fide, Standings, PlayerStats, PlayerCard}
+  alias PairingsEngine.{Tournaments, Fide, Kbsb, Standings, PlayerStats, PlayerCard}
   alias PairingsEngine.Tournaments.Player
+  alias PairingsEngine.Kbsb.KbsbPlayer
 
   @titles ~w(GM IM FM CM WGM WIM WFM WCM)
 
@@ -79,7 +80,10 @@ defmodule PairingsEngineWeb.PlayersLive do
   # we don't clobber whatever the user is mid-typing there.
   @impl true
   def handle_info({:tournament_changed, _tournament_id, _hint}, socket) do
-    case Tournaments.get_authorized_tournament(socket.assigns.current_scope, socket.assigns.tournament.id) do
+    case Tournaments.get_authorized_tournament(
+           socket.assigns.current_scope,
+           socket.assigns.tournament.id
+         ) do
       nil ->
         {:noreply,
          socket
@@ -143,7 +147,8 @@ defmodule PairingsEngineWeb.PlayersLive do
   def handle_event("add", _params, socket), do: {:noreply, assign(socket, adding: true)}
 
   def handle_event("done", _params, socket) do
-    {:noreply, assign(socket, adding: false, error: nil, form_values: %{}, query: "", results: [])}
+    {:noreply,
+     assign(socket, adding: false, error: nil, form_values: %{}, query: "", results: [])}
   end
 
   # Sent by the ColumnPrefs JS hook after reading localStorage.
@@ -175,22 +180,52 @@ defmodule PairingsEngineWeb.PlayersLive do
         {:noreply, socket}
 
       fp ->
+        base = %{
+          "name" => fp.name,
+          "title" => fp.title,
+          "fide_id" => fp.fide_id,
+          "fide_rating" => fp.standard_rating,
+          "federation" => fp.federation,
+          "birth_year" => fp.birth_year,
+          "sex" => fp.sex
+        }
+
         {:noreply,
          assign(socket,
            query: "",
            results: [],
-           form_values: %{
-             "name" => fp.name,
-             "title" => fp.title,
-             "fide_id" => fp.fide_id,
-             "fide_rating" => fp.standard_rating,
-             "federation" => fp.federation,
-             "birth_year" => fp.birth_year,
-             "sex" => fp.sex
-           }
+           form_values: merge_kbsb_by_fide_id(base, fp.fide_id)
          )}
     end
   end
+
+  # Mirrors the FIDE add-form's "pick" autofill, but triggered by typing/
+  # leaving the National ID field instead of picking from a search list —
+  # KBSB has no fuzzy name search wired into the add form, only exact
+  # national-id lookups.
+  def handle_event("lookup_kbsb_add", %{"player" => %{"national_id" => national_id}}, socket) do
+    case Kbsb.find_by_national_id(national_id) do
+      nil ->
+        {:noreply, socket}
+
+      kp ->
+        merged =
+          socket.assigns.form_values
+          |> Map.merge(%{
+            "national_id" => kp.national_id,
+            "national_rating" => kp.national_rating,
+            "federation" => kp.federation,
+            "club" => kp.club_name,
+            "birth_year" => kp.birth_year
+          })
+          |> put_if_blank("name", KbsbPlayer.full_name(kp))
+          |> put_if_blank("fide_id", kp.fide_id)
+
+        {:noreply, assign(socket, form_values: merged)}
+    end
+  end
+
+  def handle_event("lookup_kbsb_add", _params, socket), do: {:noreply, socket}
 
   def handle_event("save", %{"player" => params}, socket) do
     case Tournaments.create_player(socket.assigns.tournament.id, params) do
@@ -214,7 +249,9 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   def handle_event("edit_player", %{"id" => id}, socket) do
     player = Tournaments.get_player!(id)
-    {:noreply, assign(socket, editing_player: player, edit_form: player_to_form(player), edit_error: nil)}
+
+    {:noreply,
+     assign(socket, editing_player: player, edit_form: player_to_form(player), edit_error: nil)}
   end
 
   def handle_event("close_edit", _params, socket) do
@@ -251,6 +288,37 @@ defmodule PairingsEngineWeb.PlayersLive do
     end
   end
 
+  # KBSB counterpart of refresh_edit_fide/2: looked up by National ID only
+  # (KBSB has no FIDE-style name search), refills national rating/club/
+  # federation/birth year, and the FIDE id too if the form doesn't already
+  # have one — the FIDE list stays the source of truth for that field.
+  def handle_event("refresh_edit_kbsb", _params, socket) do
+    form = socket.assigns.edit_form
+    national_id = form |> Map.get("national_id", "") |> to_string() |> String.trim()
+
+    cond do
+      national_id == "" ->
+        {:noreply, assign(socket, edit_error: "Enter a National ID first")}
+
+      kp = Kbsb.find_by_national_id(national_id) ->
+        merged =
+          form
+          |> Map.merge(%{
+            "national_rating" => kp.national_rating,
+            "federation" => kp.federation,
+            "club" => kp.club_name,
+            "club_number" => kp.club_number,
+            "birth_year" => kp.birth_year
+          })
+          |> put_if_blank("fide_id", kp.fide_id)
+
+        {:noreply, assign(socket, edit_form: merged, edit_error: nil)}
+
+      true ->
+        {:noreply, assign(socket, edit_error: "No matching KBSB player found")}
+    end
+  end
+
   def handle_event("save_player", %{"player" => params}, socket) do
     case Tournaments.update_player(socket.assigns.editing_player, params) do
       {:ok, _player} ->
@@ -275,11 +343,19 @@ defmodule PairingsEngineWeb.PlayersLive do
   end
 
   def handle_event("card_prev", _params, socket) do
-    {:noreply, assign(socket, card_player_id: adjacent_player_id(socket.assigns.players, socket.assigns.card_player_id, -1))}
+    {:noreply,
+     assign(socket,
+       card_player_id:
+         adjacent_player_id(socket.assigns.players, socket.assigns.card_player_id, -1)
+     )}
   end
 
   def handle_event("card_next", _params, socket) do
-    {:noreply, assign(socket, card_player_id: adjacent_player_id(socket.assigns.players, socket.assigns.card_player_id, 1))}
+    {:noreply,
+     assign(socket,
+       card_player_id:
+         adjacent_player_id(socket.assigns.players, socket.assigns.card_player_id, 1)
+     )}
   end
 
   defp adjacent_player_id(players, current_id, delta) do
@@ -318,6 +394,32 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp blank_or(nil), do: ""
   defp blank_or(value), do: value
 
+  # Picking a FIDE result also enriches the form with the matching KBSB row
+  # (if any), the same way a national-id-driven autofill would — the two
+  # lists are cross-referenced by FIDE id.
+  defp merge_kbsb_by_fide_id(form_values, fide_id) do
+    case Kbsb.find_by_fide_id(fide_id) do
+      nil ->
+        form_values
+
+      kp ->
+        Map.merge(form_values, %{
+          "national_id" => kp.national_id,
+          "national_rating" => kp.national_rating,
+          "club" => kp.club_name
+        })
+    end
+  end
+
+  defp put_if_blank(map, _key, nil), do: map
+
+  defp put_if_blank(map, key, value) do
+    case Map.get(map, key) do
+      v when v in [nil, ""] -> Map.put(map, key, value)
+      _ -> map
+    end
+  end
+
   defp players_by_id(players), do: Map.new(players, &{&1.player.id, &1})
 
   defp error_text(changeset) do
@@ -340,19 +442,23 @@ defmodule PairingsEngineWeb.PlayersLive do
   # build_grid/2. "diren" (Direct Encounter) shows "—" instead of a bare 0,
   # since 0 there means "not applicable" rather than an actual value.
   defp cell(entry, "nr"), do: format_num(entry.grid["nr"])
+
   defp cell(entry, "cat") do
     case entry.grid["cat"] do
       "" -> "—"
       value -> value
     end
   end
+
   defp cell(entry, "perf"), do: format_num(entry.grid["perf"])
+
   defp cell(entry, "diren") do
     case entry.grid["diren"] do
       value when value in [nil, 0, 0.0] -> "—"
       value -> format_num(value)
     end
   end
+
   defp cell(entry, key) when key in ~w(cl games pts buch bc1 sb prog) do
     format_num(entry.grid[key])
   end
@@ -400,21 +506,30 @@ defmodule PairingsEngineWeb.PlayersLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} tournament={@tournament} active="players">
+    <Layouts.app
+      flash={@flash}
+      current_scope={@current_scope}
+      tournament={@tournament}
+      active="players"
+    >
       <div class="page-header" id="players-page-header" phx-hook="AddPlayerShortcut">
         <div>
           <h1>{@tournament.name}</h1>
+
           <p class="subtitle" style="margin: 0">
             {length(@players)} player{if length(@players) != 1, do: "s"} registered
           </p>
         </div>
+
         <div class="actions" style="margin: 0">
           <a class="pe-btn" href={~p"/t/#{@tournament.id}/print/players"} target="_blank">
             Print player list
           </a>
+
           <a class="pe-btn" href={~p"/t/#{@tournament.id}/print/cards"} target="_blank">
             Print player cards
           </a>
+
           <button
             :if={!@adding}
             class="pe-btn primary"
@@ -433,6 +548,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           <span style="display:block;font-size:13px;font-weight:600;color:var(--text-soft);margin-bottom:4px">
             Search the FIDE database (name or FIDE ID)
           </span>
+
           <input
             type="text"
             name="q"
@@ -457,6 +573,7 @@ defmodule PairingsEngineWeb.PlayersLive do
             </button>
           </div>
         </div>
+
         <p class="hint">…or fill the details in by hand below.</p>
 
         <div class="form-grid">
@@ -464,10 +581,12 @@ defmodule PairingsEngineWeb.PlayersLive do
             <span>Full name *</span>
             <input name="player[name]" value={@form_values["name"]} placeholder="Lastname, Firstname" />
           </label>
+
           <label class="field">
             <span>Title</span>
             <select name="player[title]">
               <option value="">—</option>
+
               <option
                 :for={t <- ~w(GM IM FM CM WGM WIM WFM WCM)}
                 value={t}
@@ -477,37 +596,54 @@ defmodule PairingsEngineWeb.PlayersLive do
               </option>
             </select>
           </label>
+
           <label class="field">
-            <span>FIDE ID</span>
-            <input name="player[fide_id]" value={@form_values["fide_id"]} />
+            <span>FIDE ID</span> <input name="player[fide_id]" value={@form_values["fide_id"]} />
           </label>
+
           <label class="field">
             <span>FIDE rating</span>
             <input type="number" name="player[fide_rating]" value={@form_values["fide_rating"]} />
           </label>
+
           <label class="field">
             <span>National ID</span>
-            <input name="player[national_id]" value={@form_values["national_id"]} />
+            <input
+              name="player[national_id]"
+              value={@form_values["national_id"]}
+              phx-change="lookup_kbsb_add"
+              phx-debounce="250"
+              autocomplete="off"
+            />
           </label>
+
           <label class="field">
             <span>National rating</span>
-            <input type="number" name="player[national_rating]" value={@form_values["national_rating"]} />
+            <input
+              type="number"
+              name="player[national_rating]"
+              value={@form_values["national_rating"]}
+            />
           </label>
+
           <label class="field">
             <span>Federation</span>
             <input name="player[federation]" value={@form_values["federation"]} placeholder="BEL" />
           </label>
+
           <label class="field">
             <span>Birth year</span>
             <input type="number" name="player[birth_year]" value={@form_values["birth_year"]} />
           </label>
+
           <label class="field">
-            <span>Club</span>
-            <input name="player[club]" value={@form_values["club"]} />
+            <span>Club</span> <input name="player[club]" value={@form_values["club"]} />
           </label>
           <input type="hidden" name="player[sex]" value={@form_values["sex"]} />
         </div>
+
         <p :if={@error} class="error-note">{@error}</p>
+
         <div class="actions">
           <button type="submit" class="pe-btn primary">Add player</button>
           <button type="button" class="pe-btn" phx-click="done">Done</button>
@@ -516,6 +652,7 @@ defmodule PairingsEngineWeb.PlayersLive do
 
       <div :if={@players == []} class="card empty">
         <p><strong>No players registered yet.</strong></p>
+
         <p>Add players by searching the FIDE database, or enter them by hand.</p>
       </div>
 
@@ -524,11 +661,14 @@ defmodule PairingsEngineWeb.PlayersLive do
           <p class="hint" style="padding: 12px 16px 0">
             Double-click a row to edit the player, right-click for the Players Card.
           </p>
+
           <table class="pe-table" id="players-table" phx-hook="PlayerGrid">
             <thead>
               <tr>
                 <th class="num">#</th>
+
                 <th>Name</th>
+
                 <th
                   :for={{key, label, num} <- all_columns()}
                   :if={key in @visible}
@@ -536,13 +676,17 @@ defmodule PairingsEngineWeb.PlayersLive do
                 >
                   {label}
                 </th>
+
                 <th></th>
               </tr>
             </thead>
+
             <tbody>
               <tr :for={{p, i} <- Enum.with_index(@players, 1)} data-player-id={p.player.id}>
                 <td class="num">{i}</td>
+
                 <td><strong>{p.player.name}</strong></td>
+
                 <td
                   :for={{key, _label, num} <- all_columns()}
                   :if={key in @visible}
@@ -550,6 +694,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                 >
                   {cell(p, key)}
                 </td>
+
                 <td style="text-align: right">
                   <button
                     class="pe-btn danger-link"
@@ -564,16 +709,17 @@ defmodule PairingsEngineWeb.PlayersLive do
             </tbody>
           </table>
         </div>
+
         <aside class="card display-panel">
           <h2>Display</h2>
+
           <label :for={{key, label, _num} <- all_columns()} class="check">
             <input
               type="checkbox"
               checked={key in @visible}
               phx-click="toggle_column"
               phx-value-key={key}
-            />
-            {label}
+            /> {label}
           </label>
         </aside>
       </div>
@@ -585,7 +731,6 @@ defmodule PairingsEngineWeb.PlayersLive do
         tournament={@tournament}
         titles={@titles}
       />
-
       <.player_card_modal
         :if={@card_player_id}
         entry={Map.get(players_by_id(@players), @card_player_id)}
@@ -611,15 +756,30 @@ defmodule PairingsEngineWeb.PlayersLive do
 
         <div class="form-grid">
           <label class="field" style="grid-column: 1 / -1">
-            <span>Name</span>
-            <input name="player[name]" value={@form["name"]} />
+            <span>Name</span> <input name="player[name]" value={@form["name"]} />
           </label>
 
           <label class="field">
             <span>Id Number</span>
             <div style="display:flex; gap:8px">
               <input name="player[national_id]" value={@form["national_id"]} />
-              <button type="button" class="pe-btn" phx-click="refresh_edit_fide">Refresh</button>
+              <button
+                type="button"
+                class="pe-btn"
+                phx-click="refresh_edit_fide"
+                title="Look up by FIDE id / name"
+              >
+                Refresh
+              </button>
+
+              <button
+                type="button"
+                class="pe-btn"
+                phx-click="refresh_edit_kbsb"
+                title="Look up by National ID in the KBSB database"
+              >
+                KBSB
+              </button>
             </div>
           </label>
 
@@ -631,15 +791,17 @@ defmodule PairingsEngineWeb.PlayersLive do
           <div class="field">
             <span>Sex</span>
             <div class="radio-row">
-              <label><input type="radio" name="player[sex]" value="m" checked={@form["sex"] == "m"} /> M</label>
-              <label><input type="radio" name="player[sex]" value="w" checked={@form["sex"] == "w"} /> F</label>
+              <label><input type="radio" name="player[sex]" value="m" checked={@form["sex"] == "m"} />
+              M</label>
+              <label><input type="radio" name="player[sex]" value="w" checked={@form["sex"] == "w"} />
+              F</label>
             </div>
           </div>
 
           <label class="field">
-            <span>Club</span>
-            <input name="player[club]" value={@form["club"]} />
+            <span>Club</span> <input name="player[club]" value={@form["club"]} />
           </label>
+
           <label class="field">
             <span>Club nr</span>
             <input type="number" name="player[club_number]" value={@form["club_number"]} />
@@ -649,6 +811,7 @@ defmodule PairingsEngineWeb.PlayersLive do
             <span>Country</span>
             <input name="player[federation]" value={@form["federation"]} placeholder="BEL" />
           </label>
+
           <label class="field">
             <span>N-Elo</span>
             <input type="number" name="player[national_rating]" value={@form["national_rating"]} />
@@ -658,12 +821,13 @@ defmodule PairingsEngineWeb.PlayersLive do
             <span>Title</span>
             <select name="player[title]">
               <option value="">—</option>
+
               <option :for={t <- @titles} value={t} selected={@form["title"] == t}>{t}</option>
             </select>
           </label>
+
           <label class="field">
-            <span>FIDE Id</span>
-            <input name="player[fide_id]" value={@form["fide_id"]} />
+            <span>FIDE Id</span> <input name="player[fide_id]" value={@form["fide_id"]} />
           </label>
 
           <label class="field">
@@ -675,39 +839,73 @@ defmodule PairingsEngineWeb.PlayersLive do
             <span>Category</span>
             <select :if={@tournament.categories != []} name="player[category]">
               <option value="" selected={@form["category"] in [nil, ""]}>---</option>
+
               <option :for={c <- @tournament.categories} value={c} selected={@form["category"] == c}>
                 {c}
               </option>
+
               <option
-                :if={@form["category"] not in [nil, ""] and @form["category"] not in @tournament.categories}
+                :if={
+                  @form["category"] not in [nil, ""] and
+                    @form["category"] not in @tournament.categories
+                }
                 value={@form["category"]}
                 selected
               >
                 {@form["category"]} (not in list)
               </option>
             </select>
-            <input :if={@tournament.categories == []} name="player[category]" value={@form["category"]} />
+
+            <input
+              :if={@tournament.categories == []}
+              name="player[category]"
+              value={@form["category"]}
+            />
           </label>
 
           <div class="field" style="grid-column: 1 / -1">
             <span>Registration</span>
             <div class="radio-row">
-              <label><input type="radio" name="player[paid]" value="nopaid" checked={@form["paid"] == "nopaid"} /> No Paid</label>
-              <label><input type="radio" name="player[paid]" value="paid" checked={@form["paid"] == "paid"} /> Paid</label>
-              <label><input type="radio" name="player[paid]" value="gratis" checked={@form["paid"] == "gratis"} /> Gratis</label>
+              <label><input
+                type="radio"
+                name="player[paid]"
+                value="nopaid"
+                checked={@form["paid"] == "nopaid"}
+              /> No Paid</label>
+              <label><input
+                type="radio"
+                name="player[paid]"
+                value="paid"
+                checked={@form["paid"] == "paid"}
+              /> Paid</label>
+              <label><input
+                type="radio"
+                name="player[paid]"
+                value="gratis"
+                checked={@form["paid"] == "gratis"}
+              /> Gratis</label>
             </div>
           </div>
 
           <div class="checkbox-row" style="grid-column: 1 / -1">
             <label>
               <input type="hidden" name="player[absent]" value="false" />
-              <input type="checkbox" name="player[absent]" value="true" checked={@form["absent"] in [true, "true"]} />
-              Absent
+              <input
+                type="checkbox"
+                name="player[absent]"
+                value="true"
+                checked={@form["absent"] in [true, "true"]}
+              /> Absent
             </label>
+
             <label>
               <input type="hidden" name="player[forfeit]" value="false" />
-              <input type="checkbox" name="player[forfeit]" value="true" checked={@form["forfeit"] in [true, "true"]} />
-              Forfeit
+              <input
+                type="checkbox"
+                name="player[forfeit]"
+                value="true"
+                checked={@form["forfeit"] in [true, "true"]}
+              /> Forfeit
             </label>
           </div>
 
@@ -735,6 +933,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         </div>
 
         <p :if={@error} class="error-note">{@error}</p>
+
         <div class="actions">
           <button type="submit" class="pe-btn primary">Save</button>
           <button type="button" class="pe-btn" phx-click="close_edit">Cancel</button>
@@ -760,6 +959,7 @@ defmodule PairingsEngineWeb.PlayersLive do
     <div class="modal-overlay" phx-window-keydown="close_card" phx-key="escape">
       <div class="modal-card" phx-click-away="close_card" style="max-width: 900px">
         <h2>Players Card</h2>
+
         <p class="card-header-line">{PlayerCard.header(@entry)}</p>
 
         <div class="card-table-wrap">
@@ -767,34 +967,57 @@ defmodule PairingsEngineWeb.PlayersLive do
             <thead>
               <tr>
                 <th class="num">N°</th>
+
                 <th class="num">Rnk</th>
+
                 <th>Nat</th>
+
                 <th>Tit</th>
+
                 <th>Opponent</th>
+
                 <th class="num">N-Elo</th>
+
                 <th class="num">Pts</th>
+
                 <th class="num">Res</th>
+
                 <th class="num">Cl</th>
+
                 <th class="num">Flt</th>
               </tr>
             </thead>
+
             <tbody>
               <tr :for={row <- @rows}>
                 <td class="num">{row.round}</td>
+
                 <td class="num">{row.opponent_pairing_number || "-"}</td>
+
                 <td>{row.opponent_federation || "-"}</td>
+
                 <td>{blank_dash(row.opponent_title)}</td>
+
                 <td>{row.opponent_name || "-"}</td>
+
                 <td class="num">{row.opponent_elo || "-"}</td>
+
                 <td class="num">{format_num(row.opponent_total)}</td>
+
                 <td class="num">{row.result}</td>
+
                 <td class="num">{row.colour}</td>
+
                 <td class="num">{row.float}</td>
               </tr>
+
               <tr class="card-total-row">
                 <td colspan="6">Total</td>
+
                 <td class="num">{format_num(@totals.opponent_total)}</td>
+
                 <td class="num">{format_num(@totals.own_total)}</td>
+
                 <td colspan="2"></td>
               </tr>
             </tbody>

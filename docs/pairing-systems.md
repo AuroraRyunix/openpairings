@@ -70,6 +70,12 @@ everyone else's opponents for that round. The arbiter records a forfeit
 result for their games instead, the same way any other forfeit is
 entered.
 
+**Cross table print.** `GET /t/:id/print/crosstable` renders the classic
+players×players round-robin grid (rows/columns ordered by `pairing_number`,
+one cell per opponent, both cycles shown for a double round robin) instead
+of the round-by-round Swiss cross table Swiss/Keizer tournaments get — see
+`docs/printing.md`.
+
 ## Keizer — available
 
 A Dutch/Belgian club-league style system (as used by PairTwo and similar
@@ -105,6 +111,16 @@ paired against others close to them on that list. See
   rescored with the *current* values on every pass, an opponent you beat
   early on who later climbs the list keeps increasing what that early win
   is worth — nothing is ever "locked in".
+
+* **Pairing numbers.** Exactly like Swiss (and reusing that same code —
+  `PairingsEngine.Pairing.ensure_pairing_numbers/2`), a Keizer tournament
+  freezes `pairing_number` over its active players the first time it pairs a
+  round — highest rating first, name ascending as the tie-break — and never
+  reassigns one once set; a newcomer gets a number the next time a round is
+  paired. Nothing about the Keizer ladder itself depends on this number —
+  it's purely what the crosstable print and the player grid's "Nr" column
+  show. (Before this, Keizer tournaments never assigned pairing numbers at
+  all, so those views showed "?" for every Keizer player.)
 
 * **Pairing** the next round takes that recalculated order, drops anyone
   not eligible this round (same eligibility Swiss pairing uses — an

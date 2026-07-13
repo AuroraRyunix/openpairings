@@ -4,7 +4,7 @@ defmodule PairingsEngine.TrfExportTest do
   # (same reason fide/sync_test and the import/export tests are serial).
   use PairingsEngine.DataCase, async: false
 
-  alias PairingsEngine.{Repo, Trf, TrfExport, Tournaments}
+  alias PairingsEngine.{Repo, SwarImport, Trf, TrfExport, Tournaments}
   alias PairingsEngine.Tournaments.{Tournament, Player, Round, Pairing}
 
   ## ---------- parse_rounds/2 ----------
@@ -218,6 +218,32 @@ defmodule PairingsEngine.TrfExportTest do
     assert text =~ "122 90+30"
   end
 
+  ## ---------- 032 federation normalization ----------
+
+  # SwarImport.create_tournament/2 already normalizes a Belgian regional
+  # league marker (VSF/FEFB/FRBE/"FIDE"/...) to "BEL" on import — but a
+  # tournament imported before that normalization existed may still have
+  # the raw marker sitting in `tournament.federation` in the database.
+  # `TrfExport` applies the same normalization defensively at export time
+  # (reusing `SwarImport.normalize_federation/1`) so that tournament
+  # exports "032 BEL" without needing a re-import.
+  test "032 (federation) normalizes a raw Belgian league marker stored on the tournament, without re-importing" do
+    {tournament, _} = fixture()
+    {:ok, tournament} = Tournaments.update_tournament(tournament, %{"federation" => "VSF"})
+
+    assert {:ok, text} = TrfExport.export(tournament)
+    assert text =~ "032 BEL"
+    refute text =~ "032 VSF"
+  end
+
+  test "032 (federation) passes through a real FIDE federation code unchanged" do
+    {tournament, _} = fixture()
+    {:ok, tournament} = Tournaments.update_tournament(tournament, %{"federation" => "FRA"})
+
+    assert {:ok, text} = TrfExport.export(tournament)
+    assert text =~ "032 FRA"
+  end
+
   ## ---------- player-line rating & birthdate ----------
 
   test "fide_rating on the player line is the FIDE rating, never a fallback to national rating" do
@@ -244,6 +270,28 @@ defmodule PairingsEngine.TrfExportTest do
 
     assert alice_row.birth_date == "1990-11-30"
     assert bob_row.birth_date == "1985-00-00"
+  end
+
+  # End-to-end regression check for a real user-reported gap: an OLD export
+  # of a SWAR-imported tournament lacked 072/082/102/112/122 entirely and
+  # had year-only birth dates (e.g. "1975/00/00") even for players SWAR
+  # knew a full birth date for. Both were supposedly fixed already (see the
+  # synthetic-fixture tests above) — this exercises the exact real-world
+  # path (SwarImport -> TrfExport) rather than a hand-built fixture, using
+  # c-reeks.swar, which has both rated and unrated players and at least one
+  # player with a known full birth date (Deloof, Koen, 1973-04-30).
+  @tag :swar_fixture
+  test "a SWAR-imported tournament's TRF export has the full 072/082/102/112/122 header and full birth dates" do
+    {:ok, tournament} = SwarImport.import_file("test/fixtures/c-reeks.swar")
+
+    assert {:ok, text} = TrfExport.export(tournament)
+
+    assert text =~ ~r/^072 \d+/m
+    assert text =~ "082 0"
+
+    parsed = Trf.parse(text)
+    deloof = Enum.find(parsed.players, &(&1.name |> String.trim() == "Deloof, Koen"))
+    assert deloof.birth_date == "1973-04-30"
   end
 
   test "a player who was never paired (no pairing_number) is excluded entirely" do
