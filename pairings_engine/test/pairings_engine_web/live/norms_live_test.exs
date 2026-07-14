@@ -52,6 +52,15 @@ defmodule PairingsEngineWeb.NormsLiveTest do
     refute html =~ "No players have a claimed title yet"
     assert html =~ "IM norm"
 
+    # "save_norm" broadcasts :players on the tournament topic and this `lv`
+    # is subscribed to its own tournament (see NormsLive's mount) —
+    # render_submit/1 only waits for the direct reply to the "save_norm"
+    # event, not for that self-broadcast's handle_info reload, which lands
+    # in the mailbox microseconds later and runs its own Repo query. Drain
+    # it with a synchronous render/1 before the test (and this `lv`'s
+    # teardown) proceeds (see the same fix in sharing_test.exs).
+    render(lv)
+
     updated = Tournaments.get_player!(player.id)
     assert updated.norm_data["title_claimed"] == "IM"
   end

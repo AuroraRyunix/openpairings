@@ -83,6 +83,18 @@ defmodule PairingsEngineWeb.SettingsLiveTest do
       |> form("form[phx-submit=save]", %{"tournament" => %{"rate_of_play" => "59min/end"}})
       |> render_submit()
 
+      # "save" broadcasts :settings on the tournament topic and this `lv` is
+      # subscribed to its own tournament (see SettingsLive's mount) —
+      # render_submit/1 only waits for the direct reply to the "save" event,
+      # not for that self-broadcast's handle_info reload, which lands in the
+      # mailbox microseconds later and runs its own Repo query. Draining it
+      # with a synchronous render/1 before the test (and this `lv`'s
+      # teardown) proceeds avoids racing that query against the test process
+      # supervisor killing `lv` mid-query — which, on SQLite's single-writer
+      # file, can wedge the shared sandbox connection for later tests with a
+      # spurious `Database busy` (see the same fix in sharing_test.exs).
+      render(lv)
+
       assert Tournaments.get_authorized_tournament!(scope, tournament.id).rate_of_play == "59min/end"
     end
 
@@ -118,6 +130,11 @@ defmodule PairingsEngineWeb.SettingsLiveTest do
 
       lv |> form("form[phx-submit=save]", %{}) |> render_submit()
 
+      # Same self-broadcast race as the "switching Type keeps the current
+      # rate of play" test above — drain it before the test (and `lv`'s
+      # teardown) proceeds.
+      render(lv)
+
       tournament = Tournaments.get_authorized_tournament!(scope, tournament.id)
       assert tournament.round_dates == ["2026-07-13", "2026-07-14", "2026-07-15"]
     end
@@ -141,6 +158,13 @@ defmodule PairingsEngineWeb.SettingsLiveTest do
       assert Tournaments.get_authorized_tournament!(scope, tournament.id).categories == ["U18"]
 
       lv |> element(~s(button[phx-value-name="U18"]), "Remove") |> render_click()
+
+      # Same self-broadcast race as the "switching Type keeps the current
+      # rate of play" test above — "remove_category" also saves through
+      # Tournaments.update_tournament/2, which broadcasts :settings. Drain
+      # it before the test (and `lv`'s teardown) proceeds.
+      render(lv)
+
       assert Tournaments.get_authorized_tournament!(scope, tournament.id).categories == []
     end
   end
