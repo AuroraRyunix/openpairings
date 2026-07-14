@@ -21,7 +21,7 @@ To send emails to actual inboxes (on a live server or during testing), configure
 
 ### Set environment variables
 
-Create a `.env` file in the `pairings_engine/` directory with two lines:
+Create a `.env` file in the repository root with two lines:
 
 ```
 SMTP_USERNAME=your-gmail-address@gmail.com
