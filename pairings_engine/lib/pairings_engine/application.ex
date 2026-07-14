@@ -16,6 +16,7 @@ defmodule PairingsEngine.Application do
       {Phoenix.PubSub, name: PairingsEngine.PubSub},
       PairingsEngine.Fide.Sync,
       PairingsEngine.Kbsb.Sync,
+      PairingsEngine.Tools.Session,
       # Start to serve requests, typically the last entry
       PairingsEngineWeb.Endpoint
     ]

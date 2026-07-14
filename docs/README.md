@@ -27,9 +27,13 @@ SWAR import, per-tournament sharing, and FIDE norm/report forms.
 - [KBSB rating list](kbsb-sync.md) — Belgian national ratings via file-upload
   import (no stable public bulk download exists) on the Rating lists page,
   with national-id / FIDE-id autofill in the player form.
+- [Arbiter tools](tools.md) — public no-login `/tools/norms` page: upload
+  SWAR/TRF files, download IT3/FA1/IA1 forms; festival combining with a
+  master tournament; sessions live 60 minutes in memory only, nothing stored.
 - [Norms & FIDE forms](norms.md) — generating IT3 (per tournament) and FA1 / IA1
   (arbiter norms) / IT4 (player title norms) by filling the official FIDE Excel
-  templates in place; the Officials data captured in Settings.
+  templates in place; the Officials data captured in Settings; combined
+  "festival" reports across several tournaments (categories of one event).
 - [Import / export](import-export.md) — user-facing TRF export with round
   selection (`?rounds=1-5,7`), and full-fidelity JSON backup/restore of a single
   tournament or all of them (imports become new tournaments owned by you).

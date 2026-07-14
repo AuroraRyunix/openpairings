@@ -90,6 +90,14 @@ defmodule PairingsEngineWeb.UserLive.Login do
             Log in only this time
           </.button>
         </.form>
+
+        <p class="hint" style="text-align: center; margin-top: 8px">
+          Just need a norm report? Try the free
+          <.link navigate={~p"/tools/norms"} class="font-semibold text-brand hover:underline">
+            arbiter tools
+          </.link>
+          — no account needed.
+        </p>
       </div>
     </Layouts.app>
     """

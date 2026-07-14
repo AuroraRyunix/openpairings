@@ -457,6 +457,70 @@ defmodule PairingsEngine.SwarImportTest do
     end
   end
 
+  ## ---------- build_structs/1 (pure, no Repo) ----------
+
+  test "build_structs/1 builds the same tournament/player field values import_file/1 persists, without touching the database" do
+    tournament_count_before = Repo.aggregate(PairingsEngine.Tournaments.Tournament, :count)
+    player_count_before = Repo.aggregate(PairingsEngine.Tournaments.Player, :count)
+
+    assert {:ok, {tournament, players}} = SwarImport.build_structs(File.read!(@c_reeks))
+
+    assert tournament_count_before == Repo.aggregate(PairingsEngine.Tournaments.Tournament, :count)
+    assert player_count_before == Repo.aggregate(PairingsEngine.Tournaments.Player, :count)
+
+    assert tournament.id == nil
+    assert tournament.name =~ "C-reeks"
+    assert tournament.rounds_count == 11
+    assert tournament.federation == "BEL"
+    assert tournament.round_dates == [
+             "2025-10-04",
+             "2025-11-08",
+             "2025-11-29",
+             "2025-12-13",
+             "2025-12-20",
+             "2026-01-31",
+             "2026-02-21",
+             "2026-03-21",
+             "2026-04-25",
+             "2026-05-09",
+             "2026-05-06"
+           ]
+
+    assert length(players) == 27
+
+    deloof = Enum.find(players, &(&1.name == "Deloof, Koen"))
+    assert deloof.id == nil
+    assert deloof.national_id == "39934"
+    # No FIDE-database resolve step runs for the pure builder — Deloof
+    # already has a `mat_fide` in the raw file, so this is unaffected either
+    # way, but it confirms the field still maps straight through.
+    assert deloof.fide_id == 210234
+    assert deloof.national_rating == 1810
+    assert deloof.fide_rating == 1779
+    assert deloof.birth_year == 1973
+  end
+
+  test "build_structs/1 never resolves a blank FIDE id against the local FIDE database (unlike import_file/1)" do
+    tmp_dir = System.tmp_dir!()
+    path = c_reeks_with_deloof_fide_id_blanked!(tmp_dir)
+
+    assert {:ok, {_tournament, players}} = SwarImport.build_structs(File.read!(path))
+
+    deloof = Enum.find(players, &(&1.name == "Deloof, Koen"))
+    # SWAR itself has no FIDE id for this (patched) player; the pure builder
+    # never queries the FIDE database, so it simply stays empty — contrast
+    # with import_file/1's best-effort match (see the FIDE-matching describe
+    # block above).
+    assert deloof.fide_id == nil
+    assert deloof.fide_rating == 0
+
+    File.rm(path)
+  end
+
+  test "build_structs/1 returns a parse error unchanged for garbage input" do
+    assert {:error, _reason} = SwarImport.build_structs(<<0, 1, 2, 3>>)
+  end
+
   ## ---------- helpers ----------
 
   # Sums a player's points the same way Standings does: pairing results plus

@@ -19,7 +19,7 @@ defmodule PairingsEngine.SwarImport do
 
   alias PairingsEngine.Repo
   alias PairingsEngine.Tournaments
-  alias PairingsEngine.Tournaments.{Tournament, Round, Pairing}
+  alias PairingsEngine.Tournaments.{Tournament, Player, Round, Pairing}
   alias PairingsEngine.Fide.FidePlayer
 
   ## ---------- Windows-1252 decoding ----------
@@ -499,6 +499,64 @@ defmodule PairingsEngine.SwarImport do
     run_import(%{data | players: players}, scope)
   end
 
+  @doc """
+  Parses `binary` (a raw `.swar` file's bytes — same shape `parse/1` and
+  `import_file/2` take) and builds unpersisted `%Tournament{}`/`%Player{}`
+  structs, reusing the exact same header/player field mapping (federation
+  normalization, birth dates, ratings, ...) `import_file/2` writes to the
+  database with — but with NO `Repo` calls whatsoever: nothing is written,
+  and no FIDE-database resolve step runs (that needs the DB — see
+  `prepare_import/1`), so a player SWAR itself has no `mat_fide` id for
+  simply comes back with `fide_id: nil`, exactly as if resolution had found
+  no match. Also skips round/pairing/bye building, same reasoning as
+  `PairingsEngine.TrfImport.build_structs/1`.
+
+  Returns `{:ok, {tournament, players}}` or `{:error, reason}`; never
+  raises.
+  """
+  def build_structs(binary) when is_binary(binary) do
+    with {:ok, data} <- parse(binary) do
+      build_structs_from_data(data)
+    end
+  end
+
+  defp build_structs_from_data(data) do
+    with {:ok, tournament} <- build_tournament_struct(data),
+         {:ok, players} <- build_player_structs(data.players, data.categories) do
+      {:ok, {tournament, players}}
+    end
+  end
+
+  defp build_tournament_struct(data) do
+    %Tournament{}
+    |> Tournament.changeset(tournament_attrs(data))
+    |> case do
+      %{valid?: true} = changeset -> {:ok, Ecto.Changeset.apply_changes(changeset)}
+      changeset -> {:error, changeset_error_text(changeset)}
+    end
+  end
+
+  defp build_player_structs(swar_players, categories) do
+    swar_players
+    |> Enum.reduce_while({:ok, []}, fn p, {:ok, acc} ->
+      case %Player{} |> Player.changeset(player_attrs(p, categories)) do
+        %{valid?: true} = changeset ->
+          {:cont, {:ok, [Ecto.Changeset.apply_changes(changeset) | acc]}}
+
+        changeset ->
+          {:halt, {:error, changeset_error_text(changeset)}}
+      end
+    end)
+    |> case do
+      {:ok, acc} -> {:ok, Enum.reverse(acc)}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp changeset_error_text(changeset) do
+    Enum.map_join(changeset.errors, "; ", fn {field, {msg, _}} -> "#{field} #{msg}" end)
+  end
+
   # Individual writes inside the transaction (players, rounds…) don't
   # broadcast — the transaction may still roll back, and even on success a
   # subscriber could otherwise query the database before the writes are
@@ -634,9 +692,18 @@ defmodule PairingsEngine.SwarImport do
   ## ---------- Tournament ----------
 
   defp create_tournament(data, scope) do
+    %Tournament{user_id: scope && scope.user.id}
+    |> Tournament.changeset(tournament_attrs(data))
+    |> Repo.insert()
+  end
+
+  # Shared by `create_tournament/2` (persisting) and `build_tournament_struct/1`
+  # (pure, no Repo) — the one place SWAR's [TOURNOI]/[DATES]/[TIE_BREAK]/
+  # [CATEGORIES] header fields map onto `Tournament.changeset/2` attrs.
+  defp tournament_attrs(data) do
     t = data.tournament
 
-    attrs = %{
+    %{
       name: t.name,
       type: map_tournament_type(t.type),
       venue: t.city,
@@ -656,10 +723,6 @@ defmodule PairingsEngine.SwarImport do
       round_dates: Enum.map(data.dates, &normalize_date/1),
       categories: map_categories(data.categories)
     }
-
-    %Tournament{user_id: scope && scope.user.id}
-    |> Tournament.changeset(attrs)
-    |> Repo.insert()
   end
 
   @tournament_types %{0 => "swiss", 1 => "swiss", 2 => "swiss", 3 => "swiss", 4 => "roundrobin", 5 => "roundrobin", 6 => "roundrobin", 7 => "swiss", 8 => "swiss"}
@@ -792,37 +855,42 @@ defmodule PairingsEngine.SwarImport do
 
   defp create_players(tournament, swar_players, categories) do
     for p <- swar_players, into: %{} do
-      attrs = %{
-        # SWAR's own spelling is canonical — a FIDE database match (see
-        # `resolve_fide_match/1` below) only ever contributes `fide_id`,
-        # `title` and (conditionally) `fide_rating`; it must never touch
-        # `name`, which always comes straight from the SWAR record.
-        name: p.name,
-        sex: map_sex(p.sex),
-        title: fide_title_or(p),
-        fide_id: zero_to_nil(p.mat_fide),
-        fide_rating: fide_rating_or(p),
-        national_id: zero_to_blank(p.mat_nat),
-        national_rating: p.elo,
-        federation: normalize_federation(p.country),
-        birth_year: birth_year(p.birth),
-        birth_date: birth_date(p.birth),
-        club: p.club,
-        pairing_number: p.ni,
-        paid: map_paid(p.paye),
-        affiliated: map_affiliated(p.affilie),
-        absent: map_absent(p.absent),
-        forfeit: map_forfeit(p.absent),
-        special_table: p.handy_table != 0,
-        absent_rounds: p.absent_rondes,
-        extra_points: p.extra_pts / 4.0,
-        category: category_name(p.cat_index, categories),
-        club_number: zero_to_nil(p.club_nr)
-      }
-
-      {:ok, player} = Tournaments.create_player(tournament.id, attrs)
+      {:ok, player} = Tournaments.create_player(tournament.id, player_attrs(p, categories))
       {p.ni, player}
     end
+  end
+
+  # Shared by `create_players/3` (persisting) and `build_player_structs/2`
+  # (pure, no Repo) — the one place a parsed SWAR [JOUEURS] record maps onto
+  # `Player.changeset/2` attrs.
+  defp player_attrs(p, categories) do
+    %{
+      # SWAR's own spelling is canonical — a FIDE database match (see
+      # `resolve_fide_match/1` below) only ever contributes `fide_id`,
+      # `title` and (conditionally) `fide_rating`; it must never touch
+      # `name`, which always comes straight from the SWAR record.
+      name: p.name,
+      sex: map_sex(p.sex),
+      title: fide_title_or(p),
+      fide_id: zero_to_nil(p.mat_fide),
+      fide_rating: fide_rating_or(p),
+      national_id: zero_to_blank(p.mat_nat),
+      national_rating: p.elo,
+      federation: normalize_federation(p.country),
+      birth_year: birth_year(p.birth),
+      birth_date: birth_date(p.birth),
+      club: p.club,
+      pairing_number: p.ni,
+      paid: map_paid(p.paye),
+      affiliated: map_affiliated(p.affilie),
+      absent: map_absent(p.absent),
+      forfeit: map_forfeit(p.absent),
+      special_table: p.handy_table != 0,
+      absent_rounds: p.absent_rondes,
+      extra_points: p.extra_pts / 4.0,
+      category: category_name(p.cat_index, categories),
+      club_number: zero_to_nil(p.club_nr)
+    }
   end
 
   defp map_sex(1), do: "m"

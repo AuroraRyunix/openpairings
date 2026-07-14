@@ -52,7 +52,91 @@ defmodule PairingsEngineWeb.NormsLiveTest do
     refute html =~ "No players have a claimed title yet"
     assert html =~ "IM norm"
 
+    # "save_norm" broadcasts :players on the tournament topic and this `lv`
+    # is subscribed to its own tournament (see NormsLive's mount) —
+    # render_submit/1 only waits for the direct reply to the "save_norm"
+    # event, not for that self-broadcast's handle_info reload, which lands
+    # in the mailbox microseconds later and runs its own Repo query. Drain
+    # it with a synchronous render/1 before the test (and this `lv`'s
+    # teardown) proceeds (see the same fix in sharing_test.exs).
+    render(lv)
+
     updated = Tournaments.get_player!(player.id)
     assert updated.norm_data["title_claimed"] == "IM"
+  end
+
+  describe "Combined report (festival) card" do
+    test "shows a hint instead of checkboxes when the user has no other tournaments", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, tournament} = Tournaments.create_tournament(scope, %{"name" => "Norms LV", "type" => "swiss"})
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/norms")
+
+      assert html =~ "Combined report (festival)"
+      assert html =~ "You have no other tournaments to combine this one with."
+    end
+
+    test "lists the user's other tournaments as checkboxes, and only shows the combined downloads once one is picked",
+         %{conn: conn, scope: scope} do
+      {:ok, tournament} = Tournaments.create_tournament(scope, %{"name" => "Norms LV", "type" => "swiss"})
+      {:ok, other} = Tournaments.create_tournament(scope, %{"name" => "Youth Group", "type" => "swiss"})
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/norms")
+
+      assert html =~ "Youth Group"
+      assert html =~ "Select at least one tournament above to enable the combined downloads."
+      refute html =~ "Download combined IT3"
+
+      html =
+        lv
+        |> element(~s(input[phx-value-id="#{other.id}"]))
+        |> render_click()
+
+      assert html =~ "Download combined IT3"
+      assert html =~ ~s(href="/t/#{tournament.id}/norms/it3?combine=#{tournament.id}%2C#{other.id}&amp;master=#{tournament.id}")
+      assert html =~ ~s(action="/t/#{tournament.id}/norms/fa1")
+      # Master picker defaults to the current tournament, always part of the set.
+      assert html =~ ~s(value="#{tournament.id}" selected)
+    end
+
+    test "picking a different master tournament updates the combined IT3 link's master= param", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, tournament} = Tournaments.create_tournament(scope, %{"name" => "Norms LV", "type" => "swiss"})
+      {:ok, other} = Tournaments.create_tournament(scope, %{"name" => "Youth Group", "type" => "swiss"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/norms")
+
+      lv |> element(~s(input[phx-value-id="#{other.id}"])) |> render_click()
+
+      html =
+        lv
+        |> form("form[phx-change=set_combine_master]", %{"master" => to_string(other.id)})
+        |> render_change()
+
+      assert html =~
+               ~s(href="/t/#{tournament.id}/norms/it3?combine=#{tournament.id}%2C#{other.id}&amp;master=#{other.id}")
+    end
+
+    test "deselecting the current master falls back to the tournament itself", %{conn: conn, scope: scope} do
+      {:ok, tournament} = Tournaments.create_tournament(scope, %{"name" => "Norms LV", "type" => "swiss"})
+      {:ok, other} = Tournaments.create_tournament(scope, %{"name" => "Youth Group", "type" => "swiss"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/norms")
+
+      lv |> element(~s(input[phx-value-id="#{other.id}"])) |> render_click()
+      lv |> form("form[phx-change=set_combine_master]", %{"master" => to_string(other.id)}) |> render_change()
+
+      # Deselect `other` again — it was the master, so the master resets to
+      # the current tournament, and the combined section disappears (no
+      # tournaments selected).
+      html = lv |> element(~s(input[phx-value-id="#{other.id}"])) |> render_click()
+
+      refute html =~ "Download combined IT3"
+      assert html =~ "Select at least one tournament above to enable the combined downloads."
+    end
   end
 end

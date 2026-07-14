@@ -16,6 +16,14 @@ defmodule PairingsEngineWeb.NormsLive do
       title-norm judgment (`norm_data` on `PairingsEngine.Tournaments.Player`)
       — only players with a non-blank claimed title are included when IT4 is
       generated.
+    * "Combined report (festival)" lets a Belgian-federation arbiter running
+      several category groups as one festival (each its own `Tournament`
+      row) pick other tournaments to merge into one IT3/FA1/IA1, plus a
+      "master" tournament supplying the shared header/schedule fields (see
+      `PairingsEngine.Norms.Combine`). This card only *builds the link* —
+      the selection lives in `@combine_selected`/`@combine_master` and is
+      passed to `PairingsEngineWeb.NormsController` as `combine`/`master`
+      query params; nothing here is saved.
   """
 
   use PairingsEngineWeb, :live_view
@@ -41,9 +49,24 @@ defmodule PairingsEngineWeb.NormsLive do
        editing_norm_player: nil,
        norm_form: %{},
        norm_error: nil,
-       norm_titles: @norm_titles
+       norm_titles: @norm_titles,
+       other_tournaments: other_tournaments(socket.assigns.current_scope, tournament.id),
+       combine_selected: MapSet.new(),
+       combine_master: to_string(tournament.id)
      )
      |> assign_players()}
+  end
+
+  # Every *other* tournament the current user can access (owner or accepted
+  # collaborator — same scoping `Tournaments.list_tournaments/1` already
+  # gives the tournament list page), for the "Combined report (festival)"
+  # card's checkbox picker. The current tournament itself is excluded here
+  # since it's always implicitly part of the combined set (see
+  # `combine_ids/3`).
+  defp other_tournaments(scope, tournament_id) do
+    scope
+    |> Tournaments.list_tournaments()
+    |> Enum.reject(fn {t, _player_count, _owner?} -> t.id == tournament_id end)
   end
 
   @impl true
@@ -87,6 +110,33 @@ defmodule PairingsEngineWeb.NormsLive do
     end
   end
 
+  ## ---------- Combined report (festival) picker ----------
+
+  def handle_event("toggle_combine_tournament", %{"id" => id}, socket) do
+    selected = socket.assigns.combine_selected
+
+    {selected, master} =
+      if MapSet.member?(selected, id) do
+        deselected = MapSet.delete(selected, id)
+        # Deselecting the current master falls back to the tournament
+        # itself, which is always part of the combined set.
+        master =
+          if socket.assigns.combine_master == id,
+            do: to_string(socket.assigns.tournament.id),
+            else: socket.assigns.combine_master
+
+        {deselected, master}
+      else
+        {MapSet.put(selected, id), socket.assigns.combine_master}
+      end
+
+    {:noreply, assign(socket, combine_selected: selected, combine_master: master)}
+  end
+
+  def handle_event("set_combine_master", %{"master" => id}, socket) do
+    {:noreply, assign(socket, :combine_master, id)}
+  end
+
   defp norm_form(%Player{norm_data: data}) do
     d = data || %{}
 
@@ -116,6 +166,39 @@ defmodule PairingsEngineWeb.NormsLive do
   defp blank?(_), do: false
 
   defp claimed_title(player), do: Map.get(player.norm_data || %{}, "title_claimed", "")
+
+  ## ---------- Combined report (festival) helpers (render-only; the two
+  ## handle_event clauses that drive @combine_selected/@combine_master live
+  ## up by save_norm, grouped with the rest of handle_event/3) ----------
+
+  # `[current tournament id | selected companion ids]`, always leading with
+  # the current tournament — the order used both for the master picker's
+  # options and for the `combine=` query param, since `NormsController`
+  # resolves `master` to an index into this same order.
+  defp combine_ids(tournament, other_tournaments, combine_selected) do
+    companions =
+      other_tournaments
+      |> Enum.map(fn {t, _count, _owner?} -> to_string(t.id) end)
+      |> Enum.filter(&MapSet.member?(combine_selected, &1))
+
+    [to_string(tournament.id) | companions]
+  end
+
+  # `{id, name}` pairs for the master picker: the current tournament plus
+  # whichever companions are currently checked (a tournament can only be
+  # picked as master once it's part of the combined set).
+  defp combine_master_options(tournament, other_tournaments, combine_selected) do
+    companions =
+      other_tournaments
+      |> Enum.filter(fn {t, _count, _owner?} -> MapSet.member?(combine_selected, to_string(t.id)) end)
+      |> Enum.map(fn {t, _count, _owner?} -> {to_string(t.id), t.name} end)
+
+    [{to_string(tournament.id), tournament.name} | companions]
+  end
+
+  defp combine_href(base_path, ids, master) do
+    base_path <> "?" <> URI.encode_query(%{"combine" => Enum.join(ids, ","), "master" => master})
+  end
 
   @impl true
   def render(assigns) do
@@ -179,6 +262,118 @@ defmodule PairingsEngineWeb.NormsLive do
             </button>
           </div>
         </form>
+      </div>
+
+      <div class="card">
+        <h2>Combined report (festival)</h2>
+        <p class="hint" style="margin-top: 0">
+          Running several category groups as separate tournaments? Pick the others below to
+          generate one combined IT3/FA1/IA1 for the whole festival — the master tournament
+          supplies the shared header/schedule fields, and gives the combined report its name.
+        </p>
+
+        <p :if={@other_tournaments == []} class="hint">
+          You have no other tournaments to combine this one with.
+        </p>
+
+        <div :if={@other_tournaments != []}>
+          <div style="display: flex; flex-direction: column; gap: .4rem; margin-bottom: 1rem">
+            <label
+              :for={{t, _count, _owner?} <- @other_tournaments}
+              style="display: flex; gap: .5rem; align-items: center; font-weight: 400"
+            >
+              <input
+                type="checkbox"
+                checked={MapSet.member?(@combine_selected, to_string(t.id))}
+                phx-click="toggle_combine_tournament"
+                phx-value-id={t.id}
+                style="width: auto"
+              /> <span>{t.name}</span>
+            </label>
+          </div>
+
+          <p :if={MapSet.size(@combine_selected) == 0} class="hint">
+            Select at least one tournament above to enable the combined downloads.
+          </p>
+
+          <div :if={MapSet.size(@combine_selected) > 0}>
+            <form id="combine-master-form" phx-change="set_combine_master">
+              <label class="field" style="max-width: 360px">
+                <span>Master tournament (header/schedule/name)</span>
+                <select name="master">
+                  <option
+                    :for={
+                      {id, name} <-
+                        combine_master_options(@tournament, @other_tournaments, @combine_selected)
+                    }
+                    value={id}
+                    selected={id == @combine_master}
+                  >
+                    {name}
+                  </option>
+                </select>
+              </label>
+            </form>
+
+            <div class="actions">
+              <a
+                class="pe-btn primary"
+                href={
+                  combine_href(
+                    ~p"/t/#{@tournament.id}/norms/it3",
+                    combine_ids(@tournament, @other_tournaments, @combine_selected),
+                    @combine_master
+                  )
+                }
+              >
+                Download combined IT3
+              </a>
+            </div>
+
+            <form method="get" action={~p"/t/#{@tournament.id}/norms/fa1"}>
+              <input
+                type="hidden"
+                name="combine"
+                value={Enum.join(combine_ids(@tournament, @other_tournaments, @combine_selected), ",")}
+              />
+              <input type="hidden" name="master" value={@combine_master} />
+              <div class="form-grid">
+                <label class="field">
+                  <span>Last name</span>
+                  <input name="candidate[last_name]" />
+                </label>
+                <label class="field">
+                  <span>First name</span>
+                  <input name="candidate[first_name]" />
+                </label>
+                <label class="field">
+                  <span>FIDE ID</span>
+                  <input name="candidate[fide_id]" />
+                </label>
+                <label class="field">
+                  <span>Federation</span>
+                  <input name="candidate[federation]" placeholder="BEL" />
+                </label>
+              </div>
+              <div class="actions">
+                <button
+                  type="submit"
+                  formaction={~p"/t/#{@tournament.id}/norms/fa1"}
+                  class="pe-btn primary"
+                >
+                  Download combined FA1 (FIDE Arbiter)
+                </button>
+                <button
+                  type="submit"
+                  formaction={~p"/t/#{@tournament.id}/norms/ia1"}
+                  class="pe-btn primary"
+                >
+                  Download combined IA1 (International Arbiter)
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       </div>
 
       <div class="card">
