@@ -99,7 +99,7 @@ defmodule PairingsEngine.Norms.Forms do
           "B14" => standard_label(tournament.standard),
           "B15" => system_family_label(tournament.type),
           "B16" => individual_or_team_label(tournament.type),
-          "B17" => blank(Map.get(o, "swiss_variant")),
+          "B17" => swiss_variant_label(tournament, o),
           "B18" => acceleration_label(tournament.acceleration),
           "B19" => manual_mark(o),
           "B20" => blank(Map.get(o, "person_responsible_pairings")),
@@ -343,6 +343,20 @@ defmodule PairingsEngine.Norms.Forms do
     |> case do
       [] -> nil
       parts -> Enum.join(parts, ", ")
+    end
+  end
+
+  # The Settings page no longer offers a "Swiss variant" select (arbiters
+  # always run the Dutch system for Swiss pairings, and there's no UI-level
+  # variant to pick for other pairing systems) — so a blank
+  # `officials["swiss_variant"]` (the common case going forward, though an
+  # older tournament could still have one saved from before) now defaults
+  # to "Dutch" for `pairing_system == "swiss"` tournaments, and stays blank
+  # otherwise.
+  defp swiss_variant_label(tournament, o) do
+    case blank(Map.get(o, "swiss_variant")) do
+      nil -> if tournament.pairing_system == "swiss", do: "Dutch", else: nil
+      variant -> variant
     end
   end
 

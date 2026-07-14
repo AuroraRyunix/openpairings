@@ -52,6 +52,7 @@ defmodule PairingsEngine.Norms.XlsxFill do
          {:ok, entries} <- apply_sheet_fills(entries, sheet_paths, fills),
          {:ok, entries} <- apply_force_recalc(entries, workbook_xml),
          {:ok, entries} <- strip_stale_formula_caches(entries),
+         {:ok, entries} <- drop_calc_chain(entries),
          {:ok, binary} <- rezip(entries) do
       {:ok, binary}
     end
@@ -536,6 +537,56 @@ defmodule PairingsEngine.Norms.XlsxFill do
   end
 
   defp strip_cached_type_attr(attrs), do: String.replace(attrs, ~r/\s+t="[^"]*"/, "")
+
+  # ---------------------------------------------------------------------
+  # calcChain.xml removal
+  # ---------------------------------------------------------------------
+
+  # `xl/calcChain.xml` records, for every formula cell, the dependency
+  # order Excel last calculated it in — a cache of the *evaluation plan*,
+  # not just a value cache. `strip_stale_formula_caches/1` above already
+  # invalidates every formula's cached `<v>` (and `apply_force_recalc/2`
+  # requests a full recalc on open), which means the calc chain's recorded
+  # order no longer corresponds to anything Excel can trust: it was built
+  # against the *unfilled* template's cell contents, not the ones this
+  # module just wrote into the `Invulformulier` input sheet that
+  # `Certificaat`'s formulas read from. Leaving a stale calc chain in place
+  # is exactly the kind of "some content" Excel's strict OOXML loader
+  # rejects at open time and offers to "repair" — dropping the part
+  # entirely (plus its `[Content_Types].xml` override and its
+  # `xl/_rels/workbook.xml.rels` relationship, since a dangling reference
+  # to a part that no longer exists is its own corruption) is the
+  # Microsoft-documented remedy: Excel unconditionally rebuilds
+  # `calcChain.xml` from scratch on save/open when the part is simply
+  # absent, so nothing is lost by removing it.
+  defp drop_calc_chain(entries) do
+    if List.keymember?(entries, "xl/calcChain.xml", 0) do
+      entries =
+        entries
+        |> List.keydelete("xl/calcChain.xml", 0)
+        |> update_entry("[Content_Types].xml", &remove_calc_chain_content_type/1)
+        |> update_entry("xl/_rels/workbook.xml.rels", &remove_calc_chain_relationship/1)
+
+      {:ok, entries}
+    else
+      {:ok, entries}
+    end
+  end
+
+  defp update_entry(entries, name, fun) do
+    case List.keyfind(entries, name, 0) do
+      {^name, bin} -> put_entry(entries, name, fun.(bin))
+      nil -> entries
+    end
+  end
+
+  @calc_chain_content_type_re ~r/<Override\b[^>]*PartName="\/xl\/calcChain\.xml"[^>]*\/>/
+
+  defp remove_calc_chain_content_type(xml), do: Regex.replace(@calc_chain_content_type_re, xml, "")
+
+  @calc_chain_relationship_re ~r/<Relationship\b[^>]*Target="calcChain\.xml"[^>]*\/>/
+
+  defp remove_calc_chain_relationship(xml), do: Regex.replace(@calc_chain_relationship_re, xml, "")
 
   # col_to_num/1 : "A" -> 1, "Z" -> 26, "AA" -> 27, ...
   defp col_to_num(col_letters) do

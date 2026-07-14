@@ -1,8 +1,9 @@
 defmodule PairingsEngineWeb.PlayersLive do
   use PairingsEngineWeb, :live_view
 
-  alias PairingsEngine.{Tournaments, Fide, Kbsb, Standings, PlayerStats, PlayerCard}
+  alias PairingsEngine.{Tournaments, Fide, Kbsb, Standings, PlayerStats, PlayerCard, RatingRefresh}
   alias PairingsEngine.Tournaments.Player
+  alias PairingsEngine.Tournaments.Tournament
   alias PairingsEngine.Kbsb.KbsbPlayer
 
   @titles ~w(GM IM FM CM WGM WIM WFM WCM)
@@ -30,6 +31,8 @@ defmodule PairingsEngineWeb.PlayersLive do
     {"games", "Ga", true},
     {"pts", "Pts", true},
     {"perf", "Perf", true},
+    {"we", "We", true},
+    {"wmwe", "W-We", true},
     {"buch", "Buch", true},
     {"bc1", "B C1", true},
     {"sb", "S.B.", true},
@@ -69,7 +72,9 @@ defmodule PairingsEngineWeb.PlayersLive do
        edit_form: %{},
        edit_error: nil,
        card_player_id: nil,
-       titles: @titles
+       titles: @titles,
+       rating_refresh: nil,
+       setup_complete: Tournament.setup_complete?(tournament)
      )
      |> assign_players()}
   end
@@ -91,7 +96,10 @@ defmodule PairingsEngineWeb.PlayersLive do
          |> push_navigate(to: ~p"/")}
 
       tournament ->
-        {:noreply, socket |> assign(tournament: tournament) |> assign_players()}
+        {:noreply,
+         socket
+         |> assign(tournament: tournament, setup_complete: Tournament.setup_complete?(tournament))
+         |> assign_players()}
     end
   end
 
@@ -125,6 +133,23 @@ defmodule PairingsEngineWeb.PlayersLive do
       wins = Enum.count(played_games, &(&1.points >= tournament.points_win))
       losses = Enum.count(played_games, &(&1.points <= tournament.points_loss))
 
+      # FIDE expected score (We / W−We, Table 8.1.2): only games against a
+      # rated opponent count, per Article 8.3 — mirrors `opponent_ratings`
+      # above but drops unrated (rating <= 0) opponents, since the table has
+      # no defined probability against "no rating".
+      rated_games =
+        Enum.filter(played_games, fn g ->
+          case Map.get(players_by_id, g.opponent_id) do
+            nil -> false
+            opp -> Player.rating(opp) > 0
+          end
+        end)
+
+      own_rating = Player.rating(entry.player)
+      rated_opponent_ratings = Enum.map(rated_games, &Player.rating(Map.get(players_by_id, &1.opponent_id)))
+      we = PlayerStats.we(own_rating, rated_opponent_ratings)
+      w_counted = rated_games |> Enum.map(& &1.points) |> Enum.sum()
+
       grid = %{
         "cl" => entry.rank,
         "nr" => entry.player.pairing_number,
@@ -132,6 +157,8 @@ defmodule PairingsEngineWeb.PlayersLive do
         "games" => length(played_games),
         "pts" => entry.points,
         "perf" => PlayerStats.performance(opponent_ratings, wins, losses),
+        "we" => we,
+        "wmwe" => PlayerStats.w_minus_we(w_counted, we),
         "buch" => Map.get(entry.tiebreaks, "BH"),
         "bc1" => Map.get(entry.tiebreaks, "BHC1"),
         "sb" => Map.get(entry.tiebreaks, "SB"),
@@ -144,7 +171,18 @@ defmodule PairingsEngineWeb.PlayersLive do
   end
 
   @impl true
-  def handle_event("add", _params, socket), do: {:noreply, assign(socket, adding: true)}
+  def handle_event("add", _params, socket) do
+    if Tournament.setup_complete?(socket.assigns.tournament) do
+      {:noreply, assign(socket, adding: true)}
+    else
+      {:noreply,
+       put_flash(
+         socket,
+         :error,
+         "Finish the tournament setup — fill in the name, start date and number of rounds in Settings before adding players."
+       )}
+    end
+  end
 
   def handle_event("done", _params, socket) do
     {:noreply,
@@ -228,21 +266,44 @@ defmodule PairingsEngineWeb.PlayersLive do
   def handle_event("lookup_kbsb_add", _params, socket), do: {:noreply, socket}
 
   def handle_event("save", %{"player" => params}, socket) do
-    case Tournaments.create_player(socket.assigns.tournament.id, params) do
-      {:ok, _player} ->
-        {:noreply, socket |> assign(error: nil, form_values: %{}) |> assign_players()}
-
-      {:error, :duplicate_fide_id} ->
-        {:noreply, assign(socket, error: "A player with this FIDE ID is already registered")}
-
-      {:error, changeset} ->
-        {:noreply, assign(socket, error: error_text(changeset), form_values: params)}
+    if not Tournament.setup_complete?(socket.assigns.tournament) do
+      {:noreply,
+       put_flash(
+         socket,
+         :error,
+         "Finish the tournament setup — fill in the name, start date and number of rounds in Settings before adding players."
+       )}
+    else
+      do_save(socket, params)
     end
   end
 
   def handle_event("delete", %{"id" => id}, socket) do
     id |> Tournaments.get_player!() |> Tournaments.delete_player()
     {:noreply, assign_players(socket)}
+  end
+
+  ## ---------- Bulk rating refresh (FIDE/KBSB) ----------
+
+  def handle_event("open_rating_refresh", _params, socket) do
+    summary = RatingRefresh.dry_run(socket.assigns.tournament)
+    {:noreply, assign(socket, rating_refresh: summary)}
+  end
+
+  def handle_event("close_rating_refresh", _params, socket) do
+    {:noreply, assign(socket, rating_refresh: nil)}
+  end
+
+  def handle_event("apply_rating_refresh", _params, socket) do
+    proposals = (socket.assigns.rating_refresh || %{proposals: []}).proposals
+
+    case RatingRefresh.apply(socket.assigns.tournament, proposals) do
+      {:ok, _players} ->
+        {:noreply, socket |> assign(rating_refresh: nil) |> assign_players()}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Could not apply the rating refresh")}
+    end
   end
 
   ## ---------- Player registration dialog (double-click a row) ----------
@@ -358,6 +419,19 @@ defmodule PairingsEngineWeb.PlayersLive do
      )}
   end
 
+  defp do_save(socket, params) do
+    case Tournaments.create_player(socket.assigns.tournament.id, params) do
+      {:ok, _player} ->
+        {:noreply, socket |> assign(error: nil, form_values: %{}) |> assign_players()}
+
+      {:error, :duplicate_fide_id} ->
+        {:noreply, assign(socket, error: "A player with this FIDE ID is already registered")}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, error: error_text(changeset), form_values: params)}
+    end
+  end
+
   defp adjacent_player_id(players, current_id, delta) do
     ids = Enum.map(players, & &1.player.id)
 
@@ -452,6 +526,9 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   defp cell(entry, "perf"), do: format_num(entry.grid["perf"])
 
+  defp cell(entry, "we"), do: format_score(entry.grid["we"])
+  defp cell(entry, "wmwe"), do: format_signed(entry.grid["wmwe"])
+
   defp cell(entry, "diren") do
     case entry.grid["diren"] do
       value when value in [nil, 0, 0.0] -> "—"
@@ -503,6 +580,20 @@ defmodule PairingsEngineWeb.PlayersLive do
     end
   end
 
+  # We always shows two fixed decimals (SWAR/FIDE convention), unlike the
+  # other numeric columns which trim trailing zeros.
+  defp format_score(nil), do: "—"
+  defp format_score(n), do: :erlang.float_to_binary(n / 1, decimals: 2)
+
+  # W-We is signed: an explicit "+" for zero/positive, the built-in "-" for
+  # negative values.
+  defp format_signed(nil), do: "—"
+
+  defp format_signed(n) do
+    sign = if n >= 0, do: "+", else: ""
+    sign <> :erlang.float_to_binary(n / 1, decimals: 2)
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -530,15 +621,30 @@ defmodule PairingsEngineWeb.PlayersLive do
             Print player cards
           </a>
 
+          <button type="button" class="pe-btn" phx-click="open_rating_refresh">
+            Refresh ratings
+          </button>
+
           <button
             :if={!@adding}
             class="pe-btn primary"
             phx-click="add"
-            title="Add player (Ctrl+I)"
+            disabled={!@setup_complete}
+            title={
+              if @setup_complete,
+                do: "Add player (Ctrl+I)",
+                else: "Finish the tournament setup in Settings before adding players"
+            }
           >
             Add player <span style="opacity: 0.7; font-size: 11px; margin-left: 4px">Ctrl+I</span>
           </button>
         </div>
+      </div>
+
+      <div :if={!@setup_complete} class="card error-note" style="display: block; margin: 12px 0">
+        Finish the tournament setup — fill in the name, start date and number of rounds in
+        <.link navigate={~p"/t/#{@tournament.id}/settings"}>Settings</.link>
+        before adding players.
       </div>
 
       <form :if={@adding} class="card" phx-submit="save">
@@ -645,7 +751,17 @@ defmodule PairingsEngineWeb.PlayersLive do
         <p :if={@error} class="error-note">{@error}</p>
 
         <div class="actions">
-          <button type="submit" class="pe-btn primary">Add player</button>
+          <button
+            type="submit"
+            class="pe-btn primary"
+            disabled={!@setup_complete}
+            title={
+              if !@setup_complete,
+                do: "Finish the tournament setup in Settings before adding players"
+            }
+          >
+            Add player
+          </button>
           <button type="button" class="pe-btn" phx-click="done">Done</button>
         </div>
       </form>
@@ -737,9 +853,76 @@ defmodule PairingsEngineWeb.PlayersLive do
         by_id={players_by_id(@players)}
         tournament={@tournament}
       />
+      <.rating_refresh_modal :if={@rating_refresh} summary={@rating_refresh} />
     </Layouts.app>
     """
   end
+
+  ## ---------- Bulk rating refresh modal ----------
+
+  attr :summary, :map, required: true
+
+  defp rating_refresh_modal(assigns) do
+    ~H"""
+    <div class="modal-overlay" phx-window-keydown="close_rating_refresh" phx-key="escape">
+      <div class="modal-card" phx-click-away="close_rating_refresh" style="max-width: 700px">
+        <h2>Refresh ratings</h2>
+
+        <p class="hint">
+          Compares every registered player against the locally-synced FIDE and KBSB
+          rating lists (by FIDE id / National id). Nothing is written until you Apply.
+        </p>
+
+        <div :if={@summary.proposals == []} class="card empty">
+          <p><strong>Everything up to date.</strong></p>
+        </div>
+
+        <div :if={@summary.proposals != []} class="card-table-wrap">
+          <table class="pe-table">
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th>Field</th>
+                <th class="num">Old</th>
+                <th class="num">New</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr :for={p <- @summary.proposals}>
+                <td>{p.player.name}</td>
+                <td>{field_label(p.field)}</td>
+                <td class="num">{blank_dash(p.old)}</td>
+                <td class="num"><strong>{p.new}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="hint">
+          {@summary.checked} player{if @summary.checked != 1, do: "s"} checked,
+          {@summary.changed} change{if @summary.changed != 1, do: "s"},
+          {@summary.unmatched} without id match.
+        </p>
+
+        <div class="actions">
+          <button
+            :if={@summary.proposals != []}
+            type="button"
+            class="pe-btn primary"
+            phx-click="apply_rating_refresh"
+          >
+            Apply
+          </button>
+          <button type="button" class="pe-btn" phx-click="close_rating_refresh">Cancel</button>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  defp field_label(:fide_rating), do: "FIDE rating"
+  defp field_label(:national_rating), do: "National rating"
+  defp field_label(:title), do: "Title"
 
   ## ---------- Player registration dialog (double-click) ----------
 

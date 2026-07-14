@@ -13,14 +13,17 @@ SWAR import, per-tournament sharing, and FIDE norm/report forms.
   selector locks after the first pairing.
 - [Forbidden pairings](forbidden-pairings.md) — pairs of players that must
   never meet: managed in Settings, enforced in Swiss (JaVaFo `XXP`) and Keizer;
-  round robin ignores them by design.
+  round robin ignores them by design. Includes club/federation exclusion rules
+  (never pair clubmates / same-federation players, for all or only listed
+  clubs/federations).
 - [SWAR import](swar-import.md) — .swar parsing, national vs FIDE id mapping,
   FIDE-database matching for players without a FIDE id (with a resolve step
   during import), full birth dates, federation normalization to FIDE codes.
 - [Printing](printing.md) — print documents (player list, cards, pairings,
   standings, per-round result cards, cross table — Swiss-style plus a
   players×players grid for round robin), the `?round=N` query param,
-  and per-page/per-round print buttons.
+  per-page/per-round print buttons, and the result-card `?limit=N` test print
+  and `?order=stack` stack-cutting imposition.
 - [TRF import](trf-import.md) — one-step `.trf` upload creating a complete new
   tournament (players, rounds, results, byes, officials, round dates); points
   are recomputed and cross-checked against the file's own points column.
@@ -37,6 +40,19 @@ SWAR import, per-tournament sharing, and FIDE norm/report forms.
 - [Import / export](import-export.md) — user-facing TRF export with round
   selection (`?rounds=1-5,7`), and full-fidelity JSON backup/restore of a single
   tournament or all of them (imports become new tournaments owned by you).
+- [Results import (CSV)](results-import.md) — bulk-enter a round's results from
+  a "board;result" CSV on the Pairings page; all-or-nothing with per-line
+  errors, boards not mentioned keep their result.
+- [PGN export](pgn-export.md) — metadata-only PGN (Seven Tag Roster, no moves)
+  per round or for the whole tournament, from the Pairings page or
+  `/t/:id/export/pgn?round=N`.
+- [Extra points](extra-points.md) — administrative bonus points (SWAR XtPts):
+  Elo-band auto-assign in Settings and a strictly opt-in, per-tournament
+  toggle to count them in standings ranking; pairing is never affected.
+- [Rating refresh](rating-refresh.md) — bulk re-lookup of every player against
+  the locally-synced FIDE and KBSB lists with a dry-run diff preview before
+  anything is written; the Standings and Players pages also show FIDE expected
+  score (We) and W−We columns.
 - [Team sharing](teams.md) — invite people to a tournament by email; they accept
   via a magic link before getting access, then can edit/pair/enter results.
   Owner-only: delete and collaborator management. Data model:

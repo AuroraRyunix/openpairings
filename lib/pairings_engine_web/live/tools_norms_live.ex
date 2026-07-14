@@ -32,8 +32,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   @max_file_size 5_000_000
 
   @overlay_fields ~w(chief_arbiter_name chief_arbiter_fide_id organizer event_code
-                      deputy1_name deputy1_fide_id deputy2_name deputy2_fide_id
-                      deputy3_name deputy3_fide_id deputy4_name deputy4_fide_id)
+                      deputy1_name deputy1_fide_id deputy2_name deputy2_fide_id)
   @candidate_fields ~w(last_name first_name fide_id federation)
 
   @impl true
@@ -82,18 +81,30 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
     files = socket.assigns.files ++ new_rows
 
-    {:noreply, socket |> assign(files: files) |> sync_session()}
+    {:noreply,
+     socket
+     |> assign(files: files)
+     |> prefill_from_master()
+     |> sync_session()}
   end
 
   def handle_event("remove_file", %{"id" => id}, socket) do
     files = Enum.reject(socket.assigns.files, &(&1.id == id))
     master_index = clamp_master_index(socket.assigns.master_index, successful(files))
 
-    {:noreply, socket |> assign(files: files, master_index: master_index) |> sync_session()}
+    {:noreply,
+     socket
+     |> assign(files: files, master_index: master_index)
+     |> prefill_from_master()
+     |> sync_session()}
   end
 
   def handle_event("set_master", %{"index" => index}, socket) do
-    {:noreply, socket |> assign(master_index: String.to_integer(index)) |> sync_session()}
+    {:noreply,
+     socket
+     |> assign(master_index: String.to_integer(index))
+     |> prefill_from_master()
+     |> sync_session()}
   end
 
   def handle_event("update_fields", params, socket) do
@@ -123,6 +134,145 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
   defp clamp_master_index(_index, []), do: 0
   defp clamp_master_index(index, files), do: index |> max(0) |> min(length(files) - 1)
+
+  ## ---------- officials prefill (from the master file) ----------
+
+  # Fills the officials overlay fields from the master file's own parsed
+  # tournament — but only fields the arbiter's overlay currently has blank,
+  # so a value they already typed (or already changed back to something
+  # else) is never clobbered. Safe to call after every files/master_index
+  # change; re-running it is a no-op for any field that's already filled.
+  defp prefill_from_master(socket) do
+    case successful(socket.assigns.files) |> Enum.at(socket.assigns.master_index) do
+      nil ->
+        socket
+
+      %{tournament: tournament} ->
+        event_code = collapse_event_codes(event_codes(socket.assigns.files))
+
+        overlay =
+          socket.assigns.overlay
+          |> maybe_prefill("chief_arbiter_name", tournament.chief_arbiter)
+          |> maybe_prefill("organizer", tournament.organizer)
+          |> maybe_prefill("deputy1_name", tournament.deputy_arbiter)
+          |> maybe_prefill("event_code", event_code)
+
+        assign(socket, overlay: overlay)
+    end
+  end
+
+  defp maybe_prefill(overlay, key, value) do
+    value = value |> to_string() |> String.trim()
+    current = Map.get(overlay, key, "") |> to_string() |> String.trim()
+
+    if current == "" and value != "" do
+      Map.put(overlay, key, value)
+    else
+      overlay
+    end
+  end
+
+  ## ---------- FIDE event code collection ----------
+
+  @doc false
+  # Every successful file's own event code(s) — checked on both
+  # `tournament.event_code` and a same-named `"event_code"` key under
+  # `tournament.officials`, in case a future import path only populates one
+  # of the two. Blank/missing values are dropped, order/duplicates aside.
+  def event_codes(files) do
+    files
+    |> successful()
+    |> Enum.flat_map(fn %{tournament: tournament} ->
+      [tournament.event_code, Map.get(tournament.officials || %{}, "event_code")]
+    end)
+    |> Enum.map(&to_string/1)
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.uniq()
+  end
+
+  @doc """
+  Collapses a list of FIDE event-code strings into one editable string:
+  consecutive integer runs become `"start-end"` ranges, everything else is
+  comma-joined as-is. `[10001, 10002, 10003] -> "10001-10003"`,
+  `[10001, 10003, 10004] -> "10001, 10003-10004"`.
+  """
+  def collapse_event_codes(codes) when is_list(codes) do
+    codes = codes |> Enum.map(&String.trim/1) |> Enum.reject(&(&1 == "")) |> Enum.uniq()
+    {int_strings, other_codes} = Enum.split_with(codes, &integer_string?/1)
+
+    ranges =
+      int_strings
+      |> Enum.map(&String.to_integer/1)
+      |> Enum.sort()
+      |> collapse_consecutive_ints()
+
+    (ranges ++ other_codes) |> Enum.join(", ")
+  end
+
+  defp integer_string?(s), do: Regex.match?(~r/^\d+$/, s)
+
+  defp collapse_consecutive_ints(sorted_ints) do
+    sorted_ints
+    |> Enum.chunk_while(
+      [],
+      fn n, run ->
+        case run do
+          [last | _] when n == last + 1 -> {:cont, [n | run]}
+          [] -> {:cont, [n]}
+          _ -> {:cont, Enum.reverse(run), [n]}
+        end
+      end,
+      fn
+        [] -> {:cont, []}
+        run -> {:cont, Enum.reverse(run), []}
+      end
+    )
+    |> Enum.map(&format_run/1)
+  end
+
+  defp format_run([n]), do: Integer.to_string(n)
+  defp format_run(run), do: "#{List.first(run)}-#{List.last(run)}"
+
+  ## ---------- uploaded-files totals ----------
+
+  defp present?(v), do: v not in [nil, ""]
+
+  defp titled_players(players), do: Enum.count(players, &present?(&1.title))
+
+  defp federations(players) do
+    players |> Enum.map(& &1.federation) |> Enum.filter(&present?/1) |> Enum.uniq()
+  end
+
+  @doc false
+  def total_players(files), do: files |> successful() |> Enum.map(&length(&1.players)) |> Enum.sum()
+
+  @doc false
+  def total_titled_players(files) do
+    files |> successful() |> Enum.map(&titled_players(&1.players)) |> Enum.sum()
+  end
+
+  @doc false
+  def total_federations(files) do
+    files |> successful() |> Enum.flat_map(&federations(&1.players)) |> Enum.uniq() |> length()
+  end
+
+  @doc """
+  Federations that appear in two or more of the uploaded (successful)
+  files — the "duplicate feds" signal an arbiter watches for before
+  combining files into a Festival. Sorted for stable display.
+  """
+  def shared_federations(files) do
+    files
+    |> successful()
+    |> Enum.map(&(federations(&1.players) |> MapSet.new()))
+    |> Enum.reduce(%{}, fn feds, counts ->
+      Enum.reduce(feds, counts, fn fed, acc -> Map.update(acc, fed, 1, &(&1 + 1)) end)
+    end)
+    |> Enum.filter(fn {_fed, count} -> count >= 2 end)
+    |> Enum.map(&elem(&1, 0))
+    |> Enum.sort()
+  end
 
   ## ---------- session sync ----------
 
@@ -236,8 +386,10 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
               <th :if={successful(@files) |> length() >= 2}>Master</th>
               <th>File</th>
               <th>Tournament</th>
-              <th class="num">Players</th>
-              <th class="num">Rounds</th>
+              <th class="num" style="text-align: right">Players</th>
+              <th class="num" style="text-align: right">Rounds</th>
+              <th class="num" style="text-align: right">Titled</th>
+              <th class="num" style="text-align: right">Feds</th>
               <th></th>
             </tr>
           </thead>
@@ -256,6 +408,8 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
               <td>{row.tournament.name}</td>
               <td class="num">{length(row.players)}</td>
               <td class="num">{rounds_label(row.tournament)}</td>
+              <td class="num">{titled_players(row.players)}</td>
+              <td class="num">{length(federations(row.players))}</td>
               <td style="text-align: right">
                 <button class="pe-btn danger-link" phx-click="remove_file" phx-value-id={row.id}>
                   Remove
@@ -265,7 +419,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
             <tr :for={row <- failed(@files)}>
               <td :if={successful(@files) |> length() >= 2}></td>
               <td>{row.filename}</td>
-              <td colspan="3" class="error-note">{row.error}</td>
+              <td colspan="5" class="error-note">{row.error}</td>
               <td style="text-align: right">
                 <button class="pe-btn danger-link" phx-click="remove_file" phx-value-id={row.id}>
                   Remove
@@ -274,6 +428,18 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
             </tr>
           </tbody>
         </table>
+
+        <p class="hint" style="padding: 12px 16px 0; margin: 0">
+          Totals across {length(successful(@files))} uploaded file(s):
+          {total_players(@files)} player(s), {total_titled_players(@files)} titled,
+          {total_federations(@files)} distinct federation(s).
+        </p>
+        <p :if={shared_federations(@files) != []} class="hint" style="padding: 4px 16px 16px; margin: 0">
+          Federations shared across files: {Enum.join(shared_federations(@files), ", ")}.
+        </p>
+        <p :if={shared_federations(@files) == []} class="hint" style="padding: 4px 16px 16px; margin: 0">
+          No federation appears in more than one uploaded file.
+        </p>
 
         <p :if={successful(@files) |> length() >= 2} class="hint" style="padding: 0 16px 16px">
           These {successful(@files) |> length()} files combine into one "Festival" report — the
@@ -297,7 +463,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
           </div>
 
           <h3 style="margin-bottom: 4px">Deputy arbiters</h3>
-          <div :for={n <- 1..4} class="form-grid">
+          <div :for={n <- 1..2} class="form-grid">
             <.overlay_input prefix="overlay" field={"deputy#{n}_name"} label={"Deputy #{n} — name"} values={@overlay} />
             <.overlay_input prefix="overlay" field={"deputy#{n}_fide_id"} label={"Deputy #{n} — FIDE ID"} values={@overlay} />
           </div>
@@ -320,11 +486,6 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
           <a class="pe-btn primary" href={~p"/tools/download/#{@token}/ia1"}>Download IA1 (International Arbiter)</a>
         </div>
       </div>
-
-      <footer class="hint" style="text-align: center; margin: 32px 0 8px">
-        <.link navigate={~p"/"}>OpenPairings</.link>
-        — the full free tournament manager these forms come from.
-      </footer>
     </Layouts.app>
     """
   end

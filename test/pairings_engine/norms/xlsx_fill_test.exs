@@ -102,7 +102,7 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
                XlsxFill.fill(@it3, %{"Invulformulier" => %{"B30" => 999}})
     end
 
-    test "untouched zip members are byte-identical to the template" do
+    test "untouched zip members are byte-identical to the template, except calcChain removal" do
       template_members = unzip_template_map(@it3)
 
       {:ok, binary} =
@@ -115,17 +115,45 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
       # (B30 etc.) both get their stale cached `<v>` stripped so every
       # reader is forced to recompute rather than trust a cache baked in
       # when the template was last saved unfilled; workbook.xml gains
-      # fullCalcOnLoad.
+      # fullCalcOnLoad. xl/calcChain.xml is dropped entirely (see
+      # `drop_calc_chain/1`), which also touches its `[Content_Types].xml`
+      # override and its `xl/_rels/workbook.xml.rels` relationship.
       changed =
-        MapSet.new(["xl/worksheets/sheet1.xml", "xl/worksheets/sheet2.xml", "xl/workbook.xml"])
+        MapSet.new([
+          "xl/worksheets/sheet1.xml",
+          "xl/worksheets/sheet2.xml",
+          "xl/workbook.xml",
+          "[Content_Types].xml",
+          "xl/_rels/workbook.xml.rels"
+        ])
 
-      assert map_size(template_members) == map_size(filled_members)
+      # calcChain.xml itself is removed, not merely changed.
+      assert map_size(template_members) == map_size(filled_members) + 1
+      refute Map.has_key?(filled_members, "xl/calcChain.xml")
 
       Enum.each(template_members, fn {name, bin} ->
-        if not MapSet.member?(changed, name) do
-          assert bin == Map.fetch!(filled_members, name), "expected #{name} to be byte-identical"
+        cond do
+          name == "xl/calcChain.xml" -> :ok
+          MapSet.member?(changed, name) -> :ok
+          true -> assert bin == Map.fetch!(filled_members, name), "expected #{name} to be byte-identical"
         end
       end)
+    end
+
+    test "drops calcChain.xml and its Content_Types/rels references so no dangling part remains" do
+      template_members = unzip_template_map(@it3)
+      assert Map.has_key?(template_members, "xl/calcChain.xml")
+      assert template_members["[Content_Types].xml"] =~ "calcChain"
+      assert template_members["xl/_rels/workbook.xml.rels"] =~ "calcChain"
+
+      {:ok, binary} = XlsxFill.fill(@it3, %{"Invulformulier" => %{"B3" => "Test Open 2026"}})
+      members = unzip_map(binary)
+
+      refute Map.has_key?(members, "xl/calcChain.xml")
+      refute Map.fetch!(members, "[Content_Types].xml") =~ "calcChain"
+      refute Map.fetch!(members, "xl/_rels/workbook.xml.rels") =~ "calcChain"
+
+      assert_all_parts_well_formed!(members)
     end
 
     test "sets fullCalcOnLoad on workbook.xml while preserving the existing calcId" do
@@ -399,6 +427,114 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
       assert {:ok, binary} = XlsxFill.fill(@it3, fills)
 
       members = unzip_map(binary)
+      assert_all_parts_well_formed!(members)
+    end
+  end
+
+  # ---------------------------------------------------------------------
+  # cell ordering invariant (Excel repair-prompt regression)
+  # ---------------------------------------------------------------------
+
+  # Excel's own (strict) OOXML loader requires the `<c>` children of a
+  # `<row>` to appear in ascending column order — a `<c r="C5">` written
+  # after a `<c r="B5">` but before-in-source-order a `<c r="A5">` is
+  # exactly the class of "problem with some content" that triggers the
+  # repair prompt even though every part is otherwise well-formed XML
+  # (lenient readers like openpyxl/xmerl don't enforce this ordering, so
+  # `assert_all_parts_well_formed!/1` alone can't catch it). This exercises
+  # `insert_cell_into_row/3` and `insert_new_row/4` across every row IT3's
+  # `it3_fills/2`-shaped payload touches, both cells that replace an
+  # existing (possibly empty/self-closing) `<c>` and cells inserted into
+  # rows the template ships with none.
+  describe "cell ordering invariant" do
+    defp cell_refs_in_document_order(sheet_xml) do
+      Regex.scan(~r/<c r="([A-Z]+)(\d+)"/, sheet_xml)
+      |> Enum.map(fn [_, col, row] -> {String.to_integer(row), col} end)
+    end
+
+    defp col_to_num(col) do
+      col
+      |> String.to_charlist()
+      |> Enum.reduce(0, fn char, acc -> acc * 26 + (char - ?A + 1) end)
+    end
+
+    defp assert_ascending_column_order_per_row!(sheet_name, sheet_xml) do
+      sheet_xml
+      |> cell_refs_in_document_order()
+      |> Enum.chunk_by(fn {row, _col} -> row end)
+      |> Enum.each(fn cells_in_row ->
+        cols = Enum.map(cells_in_row, fn {_row, col} -> col_to_num(col) end)
+
+        assert cols == Enum.sort(cols),
+               "#{sheet_name}: row #{elem(hd(cells_in_row), 0)} has out-of-order cells: " <>
+                 inspect(Enum.map(cells_in_row, fn {row, col} -> "#{col}#{row}" end))
+      end)
+    end
+
+    test "every row of a fully-filled IT3 keeps ascending column order, with no dangling calcChain" do
+      tournament =
+        struct(PairingsEngine.Tournaments.Tournament, %{
+          name: "Test Open 2026",
+          type: "team-swiss",
+          federation: "BEL",
+          venue: "Chess Hall",
+          city: "Brussels",
+          start_date: "2026-07-10",
+          end_date: "2026-07-18",
+          organizer: "Jane Organizer",
+          chief_arbiter: "John Arbiter",
+          time_control: "90 min + 30 sec/move",
+          rounds_count: 9,
+          standard: "standard",
+          acceleration: "baku",
+          event_code: "BEL2026001",
+          fide_tournament_id: "12345",
+          round_dates: ["2026-07-10", "2026-07-11", "2026-07-11", "2026-07-12"],
+          officials: %{
+            "organizer_id" => "999001",
+            "organizer_email" => "organizer@example.com",
+            "chief_arbiter_fide_id" => "888001",
+            "chief_arbiter_email" => "arbiter@example.com",
+            "deputy1_name" => "Deputy One",
+            "deputy1_fide_id" => "777001",
+            "deputy2_name" => "Deputy Two",
+            "deputy2_fide_id" => "777002",
+            "deputy3_name" => "Deputy Three",
+            "deputy3_fide_id" => "777003",
+            "deputy4_name" => "Deputy Four",
+            "deputy4_fide_id" => "777004",
+            "swiss_variant" => "Dutch",
+            "pairing_mode" => "computerized",
+            "pairing_program" => "OpenPairings",
+            "remark1" => "First remark",
+            "remark2" => "Second remark",
+            "remark3" => "Third remark",
+            "remark4" => "Fourth remark"
+          }
+        })
+
+      players =
+        for i <- 1..12 do
+          struct(PairingsEngine.Tournaments.Player, %{
+            name: "Player #{i}",
+            federation: if(rem(i, 3) == 0, do: "NED", else: "BEL"),
+            fide_rating: 1500 + i * 10,
+            title: Enum.at(["GM", "IM", "FM", nil], rem(i, 4))
+          })
+        end
+
+      fills = PairingsEngine.Norms.Forms.it3_fills(tournament, players)
+
+      assert {:ok, binary} = XlsxFill.fill(@it3, fills)
+      members = unzip_map(binary)
+
+      assert_ascending_column_order_per_row!("sheet1.xml (Certificaat)", Map.fetch!(members, "xl/worksheets/sheet1.xml"))
+      assert_ascending_column_order_per_row!("sheet2.xml (Invulformulier)", Map.fetch!(members, "xl/worksheets/sheet2.xml"))
+
+      refute Map.has_key?(members, "xl/calcChain.xml")
+      refute Map.fetch!(members, "[Content_Types].xml") =~ "calcChain"
+      refute Map.fetch!(members, "xl/_rels/workbook.xml.rels") =~ "calcChain"
+
       assert_all_parts_well_formed!(members)
     end
   end

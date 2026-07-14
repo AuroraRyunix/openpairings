@@ -21,7 +21,7 @@ defmodule PairingsEngine.Tools.Overlay do
   optional) onto `tournament`, returning the merged `%Tournament{}`.
 
   Recognised keys: `"chief_arbiter_name"` / `"chief_arbiter_fide_id"`,
-  `"deputyN_name"` / `"deputyN_fide_id"` for `N` in `1..4`, `"organizer"`,
+  `"deputyN_name"` / `"deputyN_fide_id"` for `N` in `1..2`, `"organizer"`,
   `"event_code"`. Unrecognised keys are ignored.
   """
   def apply(%Tournament{} = tournament, overlay) when is_map(overlay) do
@@ -40,7 +40,7 @@ defmodule PairingsEngine.Tools.Overlay do
   end
 
   defp merge_deputies(officials, overlay) do
-    Enum.reduce(1..4, officials, fn n, acc ->
+    Enum.reduce(1..2, officials, fn n, acc ->
       acc
       |> maybe_put_officials("deputy#{n}_name", get(overlay, "deputy#{n}_name"))
       |> maybe_put_officials("deputy#{n}_fide_id", get(overlay, "deputy#{n}_fide_id"))

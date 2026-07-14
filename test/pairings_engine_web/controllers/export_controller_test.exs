@@ -94,6 +94,54 @@ defmodule PairingsEngineWeb.ExportControllerTest do
     end
   end
 
+  ## ---------- GET /t/:id/export/pgn ----------
+
+  describe "pgn/2" do
+    test "downloads a PGN text file with every round by default", %{conn: conn, scope: scope} do
+      {tournament, _} = fixture(scope)
+
+      conn = get(conn, ~p"/t/#{tournament.id}/export/pgn")
+
+      [content_type] = get_resp_header(conn, "content-type")
+      assert content_type =~ "application/x-chess-pgn"
+      [disposition] = get_resp_header(conn, "content-disposition")
+      assert disposition =~ "attachment"
+      assert disposition =~ "export-ctrl-test.pgn"
+
+      body = response(conn, 200)
+      assert body =~ ~s([Round "1"])
+      assert body =~ ~s([Round "2"])
+      assert body =~ ~s([White "Alice"])
+    end
+
+    test "?round=1 downloads only round 1's game", %{conn: conn, scope: scope} do
+      {tournament, _} = fixture(scope)
+
+      conn = get(conn, ~p"/t/#{tournament.id}/export/pgn?round=1")
+
+      body = response(conn, 200)
+      assert body =~ ~s([Round "1"])
+      refute body =~ ~s([Round "2"])
+    end
+
+    test "an invalid round param falls back to every round rather than erroring", %{conn: conn, scope: scope} do
+      {tournament, _} = fixture(scope)
+
+      conn = get(conn, ~p"/t/#{tournament.id}/export/pgn?round=garbage")
+
+      body = response(conn, 200)
+      assert body =~ ~s([Round "1"])
+      assert body =~ ~s([Round "2"])
+    end
+
+    test "a tournament belonging to another user 404s", %{conn: conn} do
+      other_scope = PairingsEngine.AccountsFixtures.user_scope_fixture()
+      {tournament, _} = fixture(other_scope)
+
+      assert_error_sent 404, fn -> get(conn, ~p"/t/#{tournament.id}/export/pgn") end
+    end
+  end
+
   ## ---------- GET /t/:id/export/json and /export/tournaments.json ----------
 
   describe "json/2" do

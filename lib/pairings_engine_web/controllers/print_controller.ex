@@ -17,7 +17,9 @@ defmodule PairingsEngineWeb.PrintController do
       standings. 404s if round `n` hasn't been paired yet.
     * `GET /t/:id/print/results?round=n` — one result slip per board of
       round `n` (byes skipped). `round` defaults to the latest paired round;
-      404s if round `n` hasn't been paired.
+      404s if round `n` hasn't been paired. Also accepts `?limit=L` (test
+      print — only the first `L` cards) and `?order=stack` (stack-cut
+      imposition — see `stack_cut_cards/3`), independently or combined.
     * `GET /t/:id/print/crosstable` — for Swiss and Keizer tournaments, the
       full Swiss cross table: one row per player (current standings order),
       one column per played round. For round-robin tournaments, instead the
@@ -76,6 +78,7 @@ defmodule PairingsEngineWeb.PrintController do
                                  font-size: 18px; font-weight: bold; }
   .result-card .rc-result-row .rc-other { margin-left: auto; font-size: 8px; font-weight: normal; color: #666; }
   @media print { .result-card { break-inside: avoid; } }
+  .result-card.rc-blank { border-style: none; }
   """
 
   @crosstable_css """
@@ -324,10 +327,19 @@ defmodule PairingsEngineWeb.PrintController do
     if round == nil do
       send_resp(conn, 404, "Round #{number} has not been paired yet")
     else
+      pairings = Enum.reject(round.pairings, &(&1.black_player_id == nil))
+
+      pairings =
+        case parse_limit(params["limit"]) do
+          nil -> pairings
+          limit -> Enum.take(pairings, limit)
+        end
+
       cards =
-        round.pairings
-        |> Enum.reject(&(&1.black_player_id == nil))
-        |> Enum.map_join("", &result_card(&1, tournament, number))
+        case params["order"] do
+          "stack" -> stack_cut_cards(pairings, tournament, number)
+          _ -> Enum.map_join(pairings, "", &result_card(&1, tournament, number))
+        end
 
       print_page(
         conn,
@@ -338,6 +350,57 @@ defmodule PairingsEngineWeb.PrintController do
       )
     end
   end
+
+  # Guillotine-cut ("stack-cut") imposition for `?order=stack`. The arbiter
+  # prints every page, stacks the whole printout, then makes 8 straight
+  # guillotine cuts — one between each pair of adjacent card rows — turning
+  # the stack into 8 piles, one per card *slot* (1st-from-top card of every
+  # page in pile 1, 2nd-from-top of every page in pile 2, and so on). Piles
+  # are then collated top-to-bottom: pile 1 first, then pile 2, etc.
+  #
+  # With the default board-order layout, pile 1 would hold boards 1, 9, 17,
+  # ... (every 8th board) — useless. Instead, with `P` total pages, we place
+  # board index `s*P + p` (0-based) into slot `s` (0-based, top to bottom) of
+  # page `p` (0-based), so that collating the piles afterwards recovers plain
+  # board order 1, 2, 3, ... Slots run out of real cards past `n` — a `P`-th
+  # of the way into the *last* slot(s) — those render as blank placeholder
+  # cards (`.rc-blank`, borderless) purely to keep every page's card count
+  # (and thus the cut geometry) at a fixed 8, not to be printed on.
+  #
+  # Worked example — 20 cards, 8 per page -> P = ceil(20/8) = 3 pages:
+  #
+  #   slot 0: boards  0, 1, 2      (indices 0*3+0, 0*3+1, 0*3+2)
+  #   slot 1: boards  3, 4, 5
+  #   slot 2: boards  6, 7, 8
+  #   slot 3: boards  9,10,11
+  #   slot 4: boards 12,13,14
+  #   slot 5: boards 15,16,17
+  #   slot 6: boards 18,19,blank   (index 20 is out of range — n == 20)
+  #   slot 7: blank,blank,blank
+  #
+  # Every pile is full (3 cards) except slot 6 (2 real + 1 blank) and slot 7
+  # (all blank) — i.e. only the *last* pile(s) are short, exactly as
+  # required. `?order=stack` combines with `?limit`: limiting trims the
+  # board-ordered list first, and this imposition runs over whatever's left.
+  defp stack_cut_cards([], _tournament, _round_number), do: ""
+
+  defp stack_cut_cards(pairings, tournament, round_number) do
+    n = length(pairings)
+    pages = div(n + 7, 8)
+    ordered = List.to_tuple(pairings)
+
+    for p <- 0..(pages - 1), s <- 0..7, into: "" do
+      idx = s * pages + p
+
+      if idx < n do
+        result_card(elem(ordered, idx), tournament, round_number)
+      else
+        blank_result_card()
+      end
+    end
+  end
+
+  defp blank_result_card, do: "<div class=\"result-card rc-blank\"></div>"
 
   @doc """
   `GET /t/:id/print/crosstable` — dispatches on `tournament.pairing_system`:
@@ -553,6 +616,21 @@ defmodule PairingsEngineWeb.PrintController do
   defp parse_round(nil), do: nil
   defp parse_round(""), do: nil
   defp parse_round(value), do: String.to_integer(value)
+
+  # `?limit=L` for the result-cards test print: a positive integer keeps only
+  # the first `L` cards (board order). Anything else — missing, blank,
+  # non-numeric, zero, negative — is treated as "no limit" (full print)
+  # rather than raising or 400ing, since a bad query param here is far more
+  # likely to be a typo than an attack worth rejecting loudly.
+  defp parse_limit(nil), do: nil
+  defp parse_limit(""), do: nil
+
+  defp parse_limit(value) do
+    case Integer.parse(value) do
+      {n, ""} when n > 0 -> n
+      _ -> nil
+    end
+  end
 
   defp player_rating(player), do: PairingsEngine.Tournaments.Player.rating(player)
 

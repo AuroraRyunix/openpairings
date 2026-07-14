@@ -121,6 +121,113 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
     end
   end
 
+  ## ---------- Delete / recycle bin ----------
+
+  describe "delete confirmation modal and recycle bin" do
+    test "the Delete button enables as soon as the confirm field reads exactly \"DELETE\"", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/")
+      lv |> element("button", "New tournament") |> render_click()
+
+      lv
+      |> form("#new-tournament-form", tournament: %{name: "To Delete Owned", pairing_system: "swiss", rounds_count: "7"})
+      |> render_submit()
+
+      {:ok, lv, _html} = live(conn, ~p"/")
+      owned = last_tournament_named("To Delete Owned")
+
+      lv |> element("button[phx-value-id='#{owned.id}']", "Delete") |> render_click()
+      assert has_element?(lv, "h2", "Delete tournament")
+
+      delete_button = element(lv, "button", "Delete tournament")
+      assert has_element?(lv, "button[disabled]", "Delete tournament")
+
+      lv
+      |> element("form[phx-change='delete_confirm_input']")
+      |> render_change(%{"confirm" => "DELETE"})
+
+      refute has_element?(lv, "button[disabled]", "Delete tournament")
+      delete_button |> render_click()
+
+      # delete_confirmed soft-deletes the tournament, which broadcasts on
+      # both the tournament's own topic and the owner's user-tournaments
+      # topic — this `lv` (the tournaments index) is subscribed to the
+      # latter, so drain the self-broadcast before teardown (same pattern
+      # as SettingsLiveTest/PlayersLiveTest).
+      render(lv)
+    end
+
+    test "delete_confirmed moves the tournament to the recycle bin (soft delete), and Restore brings it back", %{
+      conn: conn
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/")
+      lv |> element("button", "New tournament") |> render_click()
+
+      lv
+      |> form("#new-tournament-form", tournament: %{name: "Binnable", pairing_system: "swiss", rounds_count: "7"})
+      |> render_submit()
+
+      {:ok, lv, _html} = live(conn, ~p"/")
+      tournament = last_tournament_named("Binnable")
+
+      lv |> element("button[phx-value-id='#{tournament.id}']", "Delete") |> render_click()
+
+      lv
+      |> element("form[phx-change='delete_confirm_input']")
+      |> render_change(%{"confirm" => "DELETE"})
+
+      lv |> element("button", "Delete tournament") |> render_click()
+
+      # No longer in the main tournaments list...
+      refute has_element?(lv, "a", "Binnable")
+      # ...but present in the recycle bin panel.
+      assert has_element?(lv, "h2", "Recycle bin")
+      assert has_element?(lv, "*", "Binnable")
+
+      binned = Repo.reload!(tournament)
+      assert binned.deleted_at != nil
+
+      lv |> element("button[phx-value-id='#{tournament.id}']", "Restore") |> render_click(%{})
+      render(lv)
+
+      restored = Repo.reload!(tournament)
+      assert restored.deleted_at == nil
+      assert has_element?(lv, "a", "Binnable")
+    end
+
+    test "Delete permanently purges the tournament for good", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/")
+      lv |> element("button", "New tournament") |> render_click()
+
+      lv
+      |> form("#new-tournament-form", tournament: %{name: "Purgeable", pairing_system: "swiss", rounds_count: "7"})
+      |> render_submit()
+
+      {:ok, lv, _html} = live(conn, ~p"/")
+      tournament = last_tournament_named("Purgeable")
+
+      lv |> element("button[phx-value-id='#{tournament.id}']", "Delete") |> render_click()
+
+      lv
+      |> element("form[phx-change='delete_confirm_input']")
+      |> render_change(%{"confirm" => "DELETE"})
+
+      lv |> element("button", "Delete tournament") |> render_click()
+
+      lv |> element("button[phx-value-id='#{tournament.id}']", "Delete permanently") |> render_click()
+      assert has_element?(lv, "h2", "Delete permanently")
+
+      lv
+      |> element("form[phx-change='purge_confirm_input']")
+      |> render_change(%{"confirm" => "DELETE"})
+
+      lv |> element("button[phx-click='purge_confirmed']", "Delete permanently") |> render_click()
+      render(lv)
+
+      refute Repo.get(Tournament, tournament.id)
+      refute has_element?(lv, "*", "Purgeable")
+    end
+  end
+
   ## ---------- SWAR import: FIDE-match confirm step (task 2) ----------
 
   describe "SWAR import: confirm step for players SWAR has no FIDE id for" do

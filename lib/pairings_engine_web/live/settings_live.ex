@@ -1,21 +1,22 @@
 defmodule PairingsEngineWeb.SettingsLive do
   use PairingsEngineWeb, :live_view
 
-  alias PairingsEngine.{Tournaments, Tiebreaks, Pairing}
+  alias PairingsEngine.{Tournaments, Tiebreaks, Pairing, Exclusions, Fide}
   alias PairingsEngine.Tournaments.Tournament
 
+  # 4th tuple element marks a field as mandatory setup data (see
+  # `Tournament.required_setup_fields/0`) — its label renders bold with a
+  # red "*" (see `general_field_label/2`). `rounds_count` is also required
+  # but lives on the Format card, so it's marked bold there directly.
   @general_fields [
-    {"name", "Tournament name", "text"},
-    {"venue", "Venue", "text"},
-    {"city", "City", "text"},
-    {"federation", "Federation", "text"},
-    {"start_date", "Start date", "date"},
-    {"end_date", "End date", "date"},
-    {"organizer", "Organizer", "text"},
-    {"organizer_club_number", "Organizer club nr / logo", "text"},
-    {"chief_arbiter", "Chief arbiter", "text"},
-    {"deputy_arbiter", "Deputy arbiter(s)", "text"},
-    {"time_control", "Time control", "text"}
+    {"name", "Tournament name", "text", true},
+    {"venue", "Venue", "text", false},
+    {"city", "City", "text", false},
+    {"federation", "Federation", "text", false},
+    {"start_date", "Start date", "date", true},
+    {"end_date", "End date", "date", false},
+    {"organizer", "Organizer", "text", false},
+    {"organizer_club_number", "Organizer club nr / logo", "text", false}
   ]
 
   # SWAR TournoiStd (§5.13): Standard / Rapid / Blitz.
@@ -113,18 +114,13 @@ defmodule PairingsEngineWeb.SettingsLive do
   @officials_fields [
     {"organizer_id", "Organizer FIDE ID", "text"},
     {"organizer_email", "Organizer e-mail", "text"},
-    {"chief_arbiter_fide_id", "Chief arbiter FIDE ID", "text"},
     {"chief_arbiter_email", "Chief arbiter e-mail", "text"}
   ]
 
   @deputy_fields [
     {1, "1st deputy arbiter"},
-    {2, "2nd deputy arbiter"},
-    {3, "3rd deputy arbiter"},
-    {4, "4th deputy arbiter"}
+    {2, "2nd deputy arbiter"}
   ]
-
-  @swiss_variants ["", "Dutch", "Lim", "Dubov", "Burstein"]
 
   @pairing_system_options for ps <- Tournament.pairing_systems(), do: {ps, Tournament.pairing_system_label(ps)}
   @rr_cycles_options for c <- Tournament.rr_cycles_values(), do: {c, Tournament.rr_cycles_label(c)}
@@ -183,7 +179,14 @@ defmodule PairingsEngineWeb.SettingsLive do
        collaborator_error: nil,
        collaborator_note: nil,
        forbidden_pairing_error: nil,
-       category_error: nil
+       club_exclusion_mode: tournament.club_exclusion,
+       fed_exclusion_mode: tournament.fed_exclusion,
+       exclusion_error: nil,
+       # Active FIDE-autocomplete dropdown for the Officials arbiter fields
+       # (chief arbiter, person responsible for pairings, each deputy) —
+       # `nil` when no field is focused/searching, else
+       # `%{role: "chief_arbiter" | "person_responsible_pairings" | "deputy1" | "deputy2", results: [...]}`.
+       arbiter_search: nil
      )
      |> assign_collaborators()
      |> assign_pairing_locks()
@@ -227,10 +230,18 @@ defmodule PairingsEngineWeb.SettingsLive do
   # section.
   defp assign_forbidden_pairings(socket) do
     tournament = socket.assigns.tournament
+    players = Tournaments.list_players(tournament.id) |> Enum.sort_by(& &1.name)
 
     assign(socket,
       forbidden_pairings: Tournaments.list_forbidden_pairings(tournament.id),
-      forbidden_pairing_players: Tournaments.list_players(tournament.id) |> Enum.sort_by(& &1.name)
+      forbidden_pairing_players: players,
+      # Hint shown on the exclusion-rules form — how many pairs the
+      # currently-saved club/federation rules would exclude right now.
+      # Purely informational (recomputed live at pairing time by
+      # PairingsEngine.Exclusions, not stored) — uses every player on the
+      # roster rather than just this round's eligible ones, since there's no
+      # "round" context on the Settings page.
+      excluded_pair_count: Exclusions.excluded_pairs(tournament, players) |> MapSet.size()
     )
   end
 
@@ -290,6 +301,8 @@ defmodule PairingsEngineWeb.SettingsLive do
            round_dates: pad_dates(tournament.round_dates, tournament.rounds_count),
            standard: tournament.standard,
            rate_of_play: tournament.rate_of_play,
+           club_exclusion_mode: tournament.club_exclusion,
+           fed_exclusion_mode: tournament.fed_exclusion,
            stale: false
          )
          |> assign_collaborators()
@@ -402,7 +415,20 @@ defmodule PairingsEngineWeb.SettingsLive do
       |> normalize_round_dates()
       |> strip_locked_pairing_fields(socket.assigns)
 
-    case Tournaments.update_tournament(socket.assigns.tournament, params) do
+    # Base the changeset on a *freshly loaded* row rather than
+    # `socket.assigns.tournament` directly: an arbiter-autocomplete pick
+    # (see `apply_arbiter_pick/3` above) optimistically writes the picked
+    # name/FIDE id straight onto `@tournament` for instant UI feedback,
+    # without touching the database. If the submitted params still carry
+    # that same value (the common case — the user picked, then hit "Save"
+    # without changing anything else), diffing against the already-mutated
+    # in-memory struct would see no change on that field and Ecto would
+    # silently skip writing it, leaving the database out of sync with what
+    # the form just showed as saved. Reloading here keeps the changeset's
+    # diff honest against what's actually persisted.
+    base = Tournaments.get_tournament!(socket.assigns.tournament.id)
+
+    case Tournaments.update_tournament(base, params) do
       {:ok, tournament} ->
         {:noreply,
          socket
@@ -420,6 +446,45 @@ defmodule PairingsEngineWeb.SettingsLive do
 
       {:error, changeset} ->
         {:noreply, assign(socket, error: error_text(changeset), note: nil)}
+    end
+  end
+
+  ## ---------- Officials arbiter FIDE-autocomplete (chief/pairings/deputies) ----------
+  #
+  # Mirrors PlayersLive's "search"/"pick" flow (see that module's add-player
+  # form), but generalised over a `role` so the same handlers serve the
+  # chief arbiter, "person responsible for pairings", and both deputy name
+  # fields. A pick only updates the in-memory `@tournament` (name + FIDE id
+  # under `officials`); like every other field on this page, it's only
+  # persisted once "Save settings" is submitted. Free typing (never
+  # picking a result) is fine too — the field is a plain text input.
+
+  def handle_event("arbiter_search", %{"role" => role} = params, socket) do
+    query = arbiter_query(role, params)
+
+    results =
+      if String.length(String.trim(to_string(query))) >= 2 do
+        Fide.search(query)
+      else
+        []
+      end
+
+    {:noreply, assign(socket, arbiter_search: %{role: role, results: results})}
+  end
+
+  def handle_event("arbiter_pick", %{"role" => role, "fide-id" => fide_id}, socket) do
+    results = (socket.assigns.arbiter_search || %{results: []}).results
+
+    case Enum.find(results, &(&1.fide_id == String.to_integer(fide_id))) do
+      nil ->
+        {:noreply, socket}
+
+      fp ->
+        {:noreply,
+         assign(socket,
+           tournament: apply_arbiter_pick(socket.assigns.tournament, role, fp),
+           arbiter_search: nil
+         )}
     end
   end
 
@@ -500,42 +565,41 @@ defmodule PairingsEngineWeb.SettingsLive do
     end
   end
 
-  ## ---------- Categories (SWAR CATEGORIES) — any authorized user ----------
+  ## ---------- Club/federation exclusions (PairingsEngine.Exclusions) — any authorized user ----------
   #
-  # Unlike tiebreaks/round-dates (which stay local until "Save settings" is
-  # clicked), Add/Remove here persist immediately through
-  # `Tournaments.update_tournament/2` — the exact same write (and PubSub
-  # broadcast) the big form's "Save" button uses — so there's no separate
-  # "save path" to keep in sync for a plain list-of-names.
+  # Like Categories below, this persists immediately through
+  # `Tournaments.update_tournament/2` rather than the big form's "Save"
+  # button — there's no reason to bundle an unrelated save into one click.
+  # `club_exclusion_mode`/`fed_exclusion_mode` are local-only assigns (never
+  # written to the tournament directly) that just control whether the
+  # "listed" text input is shown; the real values are read straight out of
+  # the submitted form on "save_exclusions", same as every other field here.
 
-  def handle_event("add_category", %{"name" => name}, socket) do
-    trimmed = String.trim(name)
-    categories = socket.assigns.tournament.categories || []
-
-    cond do
-      trimmed == "" ->
-        {:noreply, assign(socket, category_error: "Enter a category name")}
-
-      trimmed in categories ->
-        {:noreply, assign(socket, category_error: "That category already exists")}
-
-      true ->
-        case Tournaments.update_tournament(socket.assigns.tournament, %{"categories" => categories ++ [trimmed]}) do
-          {:ok, tournament} ->
-            {:noreply, assign(socket, tournament: tournament, category_error: nil)}
-
-          {:error, changeset} ->
-            {:noreply, assign(socket, category_error: error_text(changeset))}
-        end
-    end
+  def handle_event("club_exclusion_mode_change", %{"tournament" => %{"club_exclusion" => mode}}, socket) do
+    {:noreply, assign(socket, club_exclusion_mode: mode)}
   end
 
-  def handle_event("remove_category", %{"name" => name}, socket) do
-    categories = List.delete(socket.assigns.tournament.categories || [], name)
+  def handle_event("fed_exclusion_mode_change", %{"tournament" => %{"fed_exclusion" => mode}}, socket) do
+    {:noreply, assign(socket, fed_exclusion_mode: mode)}
+  end
 
-    case Tournaments.update_tournament(socket.assigns.tournament, %{"categories" => categories}) do
-      {:ok, tournament} -> {:noreply, assign(socket, tournament: tournament, category_error: nil)}
-      {:error, _changeset} -> {:noreply, socket}
+  def handle_event("save_exclusions", %{"tournament" => params}, socket) do
+    params = Map.take(params, ["club_exclusion", "club_exclusion_list", "fed_exclusion", "fed_exclusion_list"])
+
+    case Tournaments.update_tournament(socket.assigns.tournament, params) do
+      {:ok, tournament} ->
+        {:noreply,
+         socket
+         |> assign(
+           tournament: tournament,
+           club_exclusion_mode: tournament.club_exclusion,
+           fed_exclusion_mode: tournament.fed_exclusion,
+           exclusion_error: nil
+         )
+         |> assign_forbidden_pairings()}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, exclusion_error: error_text(changeset))}
     end
   end
 
@@ -573,11 +637,51 @@ defmodule PairingsEngineWeb.SettingsLive do
   defp tb_presets, do: @tb_presets
   defp officials_fields, do: @officials_fields
   defp deputy_fields, do: @deputy_fields
-  defp swiss_variants, do: @swiss_variants
   defp pairing_system_options, do: @pairing_system_options
   defp rr_cycles_options, do: @rr_cycles_options
 
   defp o_get(tournament, key), do: Map.get(tournament.officials || %{}, key, "")
+
+  # Results for the arbiter-autocomplete dropdown currently focused on
+  # `role`, or `[]` if no field is focused/searching, or another field is.
+  defp arbiter_results(%{role: role, results: results}, role), do: results
+  defp arbiter_results(_search, _role), do: []
+
+  defp arbiter_query("chief_arbiter", %{"tournament" => t}), do: Map.get(t, "chief_arbiter", "")
+
+  defp arbiter_query("person_responsible_pairings", %{"tournament" => %{"officials" => o}}),
+    do: Map.get(o, "person_responsible_pairings", "")
+
+  defp arbiter_query("deputy" <> _ = role, %{"tournament" => %{"officials" => o}}),
+    do: Map.get(o, "#{role}_name", "")
+
+  defp arbiter_query(_role, _params), do: ""
+
+  defp apply_arbiter_pick(tournament, "chief_arbiter", fp) do
+    %{tournament | chief_arbiter: fp.name, officials: put_official(tournament, "chief_arbiter_fide_id", fp.fide_id)}
+  end
+
+  defp apply_arbiter_pick(tournament, "person_responsible_pairings", fp) do
+    officials =
+      tournament
+      |> put_official("person_responsible_pairings", fp.name)
+      |> Map.put("person_responsible_pairings_fide_id", fp.fide_id)
+
+    %{tournament | officials: officials}
+  end
+
+  defp apply_arbiter_pick(tournament, "deputy" <> _ = role, fp) do
+    officials =
+      tournament
+      |> put_official("#{role}_name", fp.name)
+      |> Map.put("#{role}_fide_id", fp.fide_id)
+
+    %{tournament | officials: officials}
+  end
+
+  defp apply_arbiter_pick(tournament, _role, _fp), do: tournament
+
+  defp put_official(tournament, key, value), do: Map.put(tournament.officials || %{}, key, value)
 
   defp available_tiebreaks(selected) do
     Enum.reject(Tiebreaks.catalogue(), &(&1.code in selected))
@@ -663,8 +767,11 @@ defmodule PairingsEngineWeb.SettingsLive do
         <div class="card">
           <h2>General</h2>
           <div class="form-grid">
-            <label :for={{field, label, type} <- general_fields()} class="field">
-              <span>{label}</span>
+            <label :for={{field, label, type, required} <- general_fields()} class="field">
+              <span :if={required} style="font-weight: 700">
+                {label} <span style="color: var(--danger)">*</span>
+              </span>
+              <span :if={!required}>{label}</span>
               <input type={type} name={"tournament[#{field}]"} value={Map.get(@tournament, String.to_existing_atom(field))} />
             </label>
           </div>
@@ -686,7 +793,9 @@ defmodule PairingsEngineWeb.SettingsLive do
               </select>
             </label>
             <label class="field">
-              <span>Number of rounds</span>
+              <span style="font-weight: 700">
+                Number of rounds <span style="color: var(--danger)">*</span>
+              </span>
               <input
                 type="number"
                 name="tournament[rounds_count]"
@@ -737,9 +846,6 @@ defmodule PairingsEngineWeb.SettingsLive do
                 <option value="national" selected={@tournament.rating_type == "national"}>
                   National rating
                 </option>
-                <option value="none" selected={@tournament.rating_type == "none"}>
-                  No rating (random order)
-                </option>
               </select>
             </label>
             <label class="field">
@@ -783,7 +889,8 @@ defmodule PairingsEngineWeb.SettingsLive do
           <p class="hint" style="margin-top: 0">
             Feeds the IT3 / FA1 / IA1 / IT4 FIDE report forms on the
             <.link navigate={~p"/t/#{@tournament.id}/norms"}>Norms</.link>
-            tab. Organizer name, chief arbiter name, and time control are set in General above.
+            tab. Organizer name is set in General above; pairing mode is always computerized and
+            the pairing program is always OpenPairings.
           </p>
           <div class="form-grid">
             <label class="field">
@@ -798,44 +905,83 @@ defmodule PairingsEngineWeb.SettingsLive do
               <span>{label}</span>
               <input type={type} name={"tournament[officials][#{key}]"} value={o_get(@tournament, key)} />
             </label>
-            <label class="field">
-              <span>Person responsible for pairings</span>
+            <div class="field search-wrap">
+              <span style="display:block;font-size:13px;font-weight:600;color:var(--text-soft);margin-bottom:4px">
+                Chief arbiter
+              </span>
               <input
+                type="text"
+                name="tournament[chief_arbiter]"
+                value={@tournament.chief_arbiter}
+                phx-change="arbiter_search"
+                phx-value-role="chief_arbiter"
+                phx-debounce="250"
+                autocomplete="off"
+              />
+              <!-- No visible input for chief_arbiter_fide_id any more (a FIDE
+                   pick sets it, see arbiter_pick/3) — carried through the
+                   big form's submit via this hidden field so it survives
+                   the officials map's full-replace cast on Save; without it
+                   a save right after a pick (with no other officials edit)
+                   would silently drop the id the user just picked. -->
+              <input
+                type="hidden"
+                name="tournament[officials][chief_arbiter_fide_id]"
+                value={o_get(@tournament, "chief_arbiter_fide_id")}
+              />
+              <span :if={o_get(@tournament, "chief_arbiter_fide_id") != ""} class="hint">
+                FIDE ID: {o_get(@tournament, "chief_arbiter_fide_id")}
+              </span>
+              <div
+                :if={arbiter_results(@arbiter_search, "chief_arbiter") != []}
+                class="search-results"
+              >
+                <button
+                  :for={fp <- arbiter_results(@arbiter_search, "chief_arbiter")}
+                  type="button"
+                  phx-click="arbiter_pick"
+                  phx-value-role="chief_arbiter"
+                  phx-value-fide-id={fp.fide_id}
+                >
+                  <span>{if fp.title != "", do: "#{fp.title} "}{fp.name}</span>
+                  <span class="meta">{fp.federation}</span>
+                </button>
+              </div>
+            </div>
+            <div class="field search-wrap">
+              <span style="display:block;font-size:13px;font-weight:600;color:var(--text-soft);margin-bottom:4px">
+                Person responsible for pairings
+              </span>
+              <input
+                type="text"
                 name="tournament[officials][person_responsible_pairings]"
                 value={o_get(@tournament, "person_responsible_pairings")}
+                phx-change="arbiter_search"
+                phx-value-role="person_responsible_pairings"
+                phx-debounce="250"
+                autocomplete="off"
               />
-            </label>
-            <label class="field">
-              <span>Pairing mode</span>
-              <select name="tournament[officials][pairing_mode]">
-                <option value="computerized" selected={o_get(@tournament, "pairing_mode") != "manual"}>
-                  Computerized
-                </option>
-                <option value="manual" selected={o_get(@tournament, "pairing_mode") == "manual"}>
-                  Manual
-                </option>
-              </select>
-            </label>
-            <label class="field">
-              <span>Pairing program</span>
               <input
-                name="tournament[officials][pairing_program]"
-                value={o_get(@tournament, "pairing_program")}
-                placeholder="OpenPairings"
+                type="hidden"
+                name="tournament[officials][person_responsible_pairings_fide_id]"
+                value={o_get(@tournament, "person_responsible_pairings_fide_id")}
               />
-            </label>
-            <label class="field">
-              <span>Swiss variant</span>
-              <select name="tournament[officials][swiss_variant]">
-                <option
-                  :for={v <- swiss_variants()}
-                  value={v}
-                  selected={o_get(@tournament, "swiss_variant") == v}
+              <div
+                :if={arbiter_results(@arbiter_search, "person_responsible_pairings") != []}
+                class="search-results"
+              >
+                <button
+                  :for={fp <- arbiter_results(@arbiter_search, "person_responsible_pairings")}
+                  type="button"
+                  phx-click="arbiter_pick"
+                  phx-value-role="person_responsible_pairings"
+                  phx-value-fide-id={fp.fide_id}
                 >
-                  {if v == "", do: "— none —", else: v}
-                </option>
-              </select>
-            </label>
+                  <span>{if fp.title != "", do: "#{fp.title} "}{fp.name}</span>
+                  <span class="meta">{fp.federation}</span>
+                </button>
+              </div>
+            </div>
             <label class="field">
               <span>IT4 event type</span>
               <input name="tournament[officials][it4_event_type]" value={o_get(@tournament, "it4_event_type")} />
@@ -852,20 +998,43 @@ defmodule PairingsEngineWeb.SettingsLive do
           <h3 style="margin: 18px 0 8px; font-size: 14px">Deputy arbiters</h3>
           <div class="form-grid">
             <div :for={{n, label} <- deputy_fields()} style="display: contents">
-              <label class="field">
-                <span>{label} — name</span>
+              <div class="field search-wrap">
+                <span style="display:block;font-size:13px;font-weight:600;color:var(--text-soft);margin-bottom:4px">
+                  {label} — name
+                </span>
                 <input
+                  type="text"
                   name={"tournament[officials][deputy#{n}_name]"}
                   value={o_get(@tournament, "deputy#{n}_name")}
+                  phx-change="arbiter_search"
+                  phx-value-role={"deputy#{n}"}
+                  phx-debounce="250"
+                  autocomplete="off"
                 />
-              </label>
-              <label class="field">
-                <span>{label} — FIDE ID</span>
                 <input
+                  type="hidden"
                   name={"tournament[officials][deputy#{n}_fide_id]"}
                   value={o_get(@tournament, "deputy#{n}_fide_id")}
                 />
-              </label>
+                <span :if={o_get(@tournament, "deputy#{n}_fide_id") != ""} class="hint">
+                  FIDE ID: {o_get(@tournament, "deputy#{n}_fide_id")}
+                </span>
+                <div
+                  :if={arbiter_results(@arbiter_search, "deputy#{n}") != []}
+                  class="search-results"
+                >
+                  <button
+                    :for={fp <- arbiter_results(@arbiter_search, "deputy#{n}")}
+                    type="button"
+                    phx-click="arbiter_pick"
+                    phx-value-role={"deputy#{n}"}
+                    phx-value-fide-id={fp.fide_id}
+                  >
+                    <span>{if fp.title != "", do: "#{fp.title} "}{fp.name}</span>
+                    <span class="meta">{fp.federation}</span>
+                  </button>
+                </div>
+              </div>
               <label class="field">
                 <span>{label} — e-mail</span>
                 <input
@@ -908,13 +1077,31 @@ defmodule PairingsEngineWeb.SettingsLive do
         </div>
 
         <div class="card">
+          <h2>Categories</h2>
+          <label class="field" style="display: flex; flex-direction: row; align-items: center; gap: .5rem">
+            <input type="hidden" name="tournament[categories_enabled]" value="false" />
+            <input
+              type="checkbox"
+              name="tournament[categories_enabled]"
+              value="true"
+              checked={@tournament.categories_enabled}
+            />
+            <span>Enable the Categories tab (category groups + extra points)</span>
+          </label>
+        </div>
+
+        <div class="card">
           <h2>Round dates</h2>
           <p class="hint" style="margin-top: 0">
             One date per round (SWAR Dates tab). Leave blank if unknown; two or more rounds can
             share the same date (e.g. a Saturday double round).
           </p>
           <div class="form-grid">
-            <label :for={{date, i} <- Enum.with_index(@round_dates)} class="field">
+            <label
+              :for={{date, i} <- Enum.with_index(@round_dates)}
+              class="field"
+              style="display: flex; flex-direction: column; justify-content: flex-end"
+            >
               <span>
                 Round {i + 1}
                 <span :if={weekday_label(date)} class="hint">({weekday_label(date)})</span>
@@ -948,7 +1135,7 @@ defmodule PairingsEngineWeb.SettingsLive do
                   phx-click="tb_preset"
                   phx-value-key="personel"
                   checked={tb_preset_match(@tiebreaks) == "personel"}
-                /> Personel
+                /> Custom
               </label>
               <label :for={{key, label, _methods} <- tb_presets()} style="display: flex; gap: .35rem; align-items: center; font-weight: 400">
                 <input
@@ -1139,52 +1326,58 @@ defmodule PairingsEngineWeb.SettingsLive do
         <p :if={@forbidden_pairings == []} class="hint" style="margin-bottom: 0">
           No forbidden pairings yet.
         </p>
-      </div>
 
-      <div class="card">
-        <h2>Categories</h2>
+        <h3 style="margin-top: 24px">Club / federation exclusions</h3>
         <p class="hint" style="margin-top: 0">
-          Tournament-defined groups (SWAR CATEGORIES) — e.g. age or rating brackets — that players
-          can be assigned to on the <.link navigate={~p"/t/#{@tournament.id}/players"}>Players</.link>
-          page.
+          Automatically forbid pairing any two players who share a club or federation, instead of
+          listing every pair by hand. Applies to Swiss (JaVaFo "XXP" rules, same as above) and to
+          Keizer; a round robin's fixed schedule ignores this by design.
         </p>
-        <form id="add-category-form" phx-submit="add_category">
+        <form id="exclusion-rules-form" phx-submit="save_exclusions">
           <div class="form-grid">
             <label class="field">
-              <span>New category name</span>
-              <input type="text" name="name" value="" placeholder="e.g. U18" />
+              <span>Clubs</span>
+              <select name="tournament[club_exclusion]" class="pe-select" phx-change="club_exclusion_mode_change">
+                <option :for={m <- Tournament.exclusion_modes()} value={m} selected={m == @club_exclusion_mode}>
+                  {Tournament.exclusion_mode_label(m)}
+                </option>
+              </select>
+            </label>
+            <label :if={@club_exclusion_mode == "listed"} class="field">
+              <span>Clubs (comma-separated)</span>
+              <input
+                type="text"
+                name="tournament[club_exclusion_list]"
+                value={@tournament.club_exclusion_list}
+                placeholder="e.g. Chess Club A, Chess Club B"
+              />
+            </label>
+            <label class="field">
+              <span>Federations</span>
+              <select name="tournament[fed_exclusion]" class="pe-select" phx-change="fed_exclusion_mode_change">
+                <option :for={m <- Tournament.exclusion_modes()} value={m} selected={m == @fed_exclusion_mode}>
+                  {Tournament.exclusion_mode_label(m)}
+                </option>
+              </select>
+            </label>
+            <label :if={@fed_exclusion_mode == "listed"} class="field">
+              <span>Federations (comma-separated)</span>
+              <input
+                type="text"
+                name="tournament[fed_exclusion_list]"
+                value={@tournament.fed_exclusion_list}
+                placeholder="e.g. BEL, NED"
+              />
             </label>
           </div>
-          <p :if={@category_error} class="error-note">{@category_error}</p>
+          <p class="hint" style="margin-bottom: 0">
+            {@excluded_pair_count} pair(s) currently excluded by these rules.
+          </p>
+          <p :if={@exclusion_error} class="error-note">{@exclusion_error}</p>
           <div class="actions">
-            <button type="submit" class="pe-btn primary">Add</button>
+            <button type="submit" class="pe-btn primary">Save exclusion rules</button>
           </div>
         </form>
-
-        <div :if={@tournament.categories != []} class="card-table-wrap" style="margin-top: 16px">
-          <table class="pe-table">
-            <thead>
-              <tr>
-                <th>Category</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr :for={c <- @tournament.categories}>
-                <td>{c}</td>
-                <td style="text-align: right">
-                  <button class="pe-btn danger-link" phx-click="remove_category" phx-value-name={c}>
-                    Remove
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <p :if={@tournament.categories == []} class="hint" style="margin-bottom: 0">
-          No categories yet.
-        </p>
       </div>
 
       <div class="card">

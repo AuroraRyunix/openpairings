@@ -12,6 +12,12 @@ defmodule PairingsEngineWeb.UserLive.LoginTest do
       assert html =~ "Sign up"
       assert html =~ "Log in with email"
     end
+
+    test "shows the running app version", %{conn: conn} do
+      {:ok, _lv, html} = live(conn, ~p"/users/log-in")
+
+      assert html =~ "v#{PairingsEngineWeb.Layouts.app_version()}"
+    end
   end
 
   describe "user login - magic link" do

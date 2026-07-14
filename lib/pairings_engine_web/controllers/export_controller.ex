@@ -15,7 +15,7 @@ defmodule PairingsEngineWeb.ExportController do
 
   use PairingsEngineWeb, :controller
 
-  alias PairingsEngine.{TournamentExport, Tournaments, TrfExport}
+  alias PairingsEngine.{PgnExport, TournamentExport, Tournaments, TrfExport}
 
   @doc "GET /t/:id/export/trf?rounds=1-5 — TRF16 text download, all or selected rounds."
   def trf(conn, %{"id" => id} = params) do
@@ -32,6 +32,28 @@ defmodule PairingsEngineWeb.ExportController do
         conn
         |> put_flash(:error, "Could not export TRF: #{message}")
         |> redirect(to: ~p"/t/#{tournament.id}/pairings")
+    end
+  end
+
+  @doc "GET /t/:id/export/pgn?round=N — metadata-only PGN text download, one round or all rounds."
+  def pgn(conn, %{"id" => id} = params) do
+    tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
+    round_number = parse_round_param(params["round"])
+    text = PgnExport.export(tournament, round_number)
+
+    conn
+    |> put_resp_content_type("application/x-chess-pgn")
+    |> put_resp_header("content-disposition", "attachment; filename=\"#{filename(tournament, "pgn")}\"")
+    |> send_resp(200, text)
+  end
+
+  defp parse_round_param(nil), do: nil
+  defp parse_round_param(""), do: nil
+
+  defp parse_round_param(s) when is_binary(s) do
+    case Integer.parse(s) do
+      {n, ""} -> n
+      _ -> nil
     end
   end
 

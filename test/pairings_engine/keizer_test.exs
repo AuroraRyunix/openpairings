@@ -517,4 +517,34 @@ defmodule PairingsEngine.KeizerTest do
       assert {:error, _reason} = Pairing.pair_next_round(tournament)
     end
   end
+
+  describe "club/federation exclusions (PairingsEngine.Exclusions) respected by Keizer" do
+    test "clubmates are never paired together under an \"all\" club exclusion rule" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "Keizer Club Night",
+          type: "swiss",
+          pairing_system: "keizer",
+          rounds_count: 1,
+          club_exclusion: "all"
+        })
+
+      # Alice/Bob are ranked 1st/2nd (highest ratings) and share a club —
+      # without the exclusion rule they'd be paired together round 1.
+      a = insert_player(tournament, "Alice", fide_rating: 2000, club: "Chess Club")
+      b = insert_player(tournament, "Bob", fide_rating: 1900, club: "Chess Club")
+      c = insert_player(tournament, "Carol", fide_rating: 1800)
+      d = insert_player(tournament, "Dave", fide_rating: 1700)
+
+      assert {:ok, round} = Pairing.pair_next_round(tournament)
+      round = Repo.preload(round, :pairings)
+
+      refute Enum.any?(round.pairings, fn p ->
+               MapSet.new([p.white_player_id, p.black_player_id]) == MapSet.new([a.id, b.id])
+             end)
+
+      paired_ids = round.pairings |> Enum.flat_map(&[&1.white_player_id, &1.black_player_id]) |> Enum.reject(&is_nil/1)
+      assert MapSet.new(paired_ids) == MapSet.new([a.id, b.id, c.id, d.id])
+    end
+  end
 end

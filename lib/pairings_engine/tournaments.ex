@@ -98,7 +98,9 @@ defmodule PairingsEngine.Tournaments do
     Repo.all(
       from t in Tournament,
         left_join: p in assoc(t, :players),
-        where: t.user_id == ^user.id or t.id in subquery(collaborator_tournament_ids(user)),
+        where:
+          is_nil(t.deleted_at) and
+            (t.user_id == ^user.id or t.id in subquery(collaborator_tournament_ids(user))),
         group_by: t.id,
         select: {t, count(p.id), t.user_id == ^user.id},
         order_by: [desc: t.inserted_at]
@@ -108,7 +110,14 @@ defmodule PairingsEngine.Tournaments do
   @doc "True if `scope.user` is the tournament's owner (as opposed to a collaborator)."
   def owner?(%Tournament{} = tournament, %Scope{} = scope), do: tournament.user_id == scope.user.id
 
-  def get_tournament!(id), do: Repo.get!(Tournament, id)
+  @doc """
+  Gets a tournament by id, excluding soft-deleted (recycle-binned) ones —
+  see `soft_delete_tournament/1`. Raises `Ecto.NoResultsError` if the
+  tournament doesn't exist or is currently in the recycle bin.
+  """
+  def get_tournament!(id) do
+    Repo.one!(from t in Tournament, where: t.id == ^id and is_nil(t.deleted_at))
+  end
 
   @doc """
   Gets a tournament by its `public_slug` — the unguessable token behind the
@@ -120,7 +129,9 @@ defmodule PairingsEngine.Tournaments do
   the tournament; the slug itself (a random 12-byte token, not the
   sequential numeric `id`) is what keeps it from being enumerable.
   """
-  def get_tournament_by_public_slug(slug), do: Repo.get_by(Tournament, public_slug: slug)
+  def get_tournament_by_public_slug(slug) do
+    Repo.one(from t in Tournament, where: t.public_slug == ^slug and is_nil(t.deleted_at))
+  end
 
   @doc """
   Gets a tournament owned by the scope's user.
@@ -129,7 +140,9 @@ defmodule PairingsEngine.Tournaments do
   owned by the scope's user (so URL guessing can't leak other users' data).
   """
   def get_user_tournament!(%Scope{} = scope, id) do
-    Repo.get_by!(Tournament, id: id, user_id: scope.user.id)
+    Repo.one!(
+      from t in Tournament, where: t.id == ^id and t.user_id == ^scope.user.id and is_nil(t.deleted_at)
+    )
   end
 
   @doc """
@@ -138,7 +151,21 @@ defmodule PairingsEngine.Tournaments do
   may have been deleted (by another tab/user) in the meantime.
   """
   def get_user_tournament(%Scope{} = scope, id) do
-    Repo.get_by(Tournament, id: id, user_id: scope.user.id)
+    Repo.one(
+      from t in Tournament, where: t.id == ^id and t.user_id == ^scope.user.id and is_nil(t.deleted_at)
+    )
+  end
+
+  @doc """
+  Gets tournament `id`, owned by the scope's user, **including** ones
+  currently in the recycle bin (`deleted_at` set) — the counterpart to
+  `get_user_tournament!/2` for the Recycle bin panel's Restore/Delete
+  permanently actions, which need to load the very row `list_tournaments/1`
+  now hides. Raises `Ecto.NoResultsError` if the tournament doesn't exist or
+  isn't owned by the scope's user.
+  """
+  def get_owned_tournament_including_deleted!(%Scope{} = scope, id) do
+    Repo.get_by!(Tournament, id: id, user_id: scope.user.id)
   end
 
   @doc """
@@ -174,7 +201,9 @@ defmodule PairingsEngine.Tournaments do
     user = scope.user
 
     from t in Tournament,
-      where: t.id == ^id and (t.user_id == ^user.id or t.id in subquery(collaborator_tournament_ids(user)))
+      where:
+        t.id == ^id and is_nil(t.deleted_at) and
+          (t.user_id == ^user.id or t.id in subquery(collaborator_tournament_ids(user)))
   end
 
   # Only *accepted* collaborator rows grant access — a pending invite (added
@@ -459,6 +488,95 @@ defmodule PairingsEngine.Tournaments do
     end)
   end
 
+  ## ---------- Recycle bin (soft delete, 3-month retention) ----------
+  #
+  # Deleting a tournament from the Tournaments page no longer hard-deletes
+  # it outright — it sets `deleted_at`, which every normal listing/fetch
+  # path above (`list_tournaments/1`, `get_tournament!/1`,
+  # `get_tournament_by_public_slug/1`, `get_user_tournament!/2`,
+  # `get_user_tournament/2`, `get_authorized_tournament!/2`,
+  # `get_authorized_tournament/2`) now excludes, so a binned tournament's
+  # own pages, public pages and exports all 404/disappear exactly as if it
+  # had been hard-deleted. The row (and everything cascade-linked to it)
+  # only actually goes away via `purge_tournament/1`, either picked by the
+  # owner from the bin or swept up automatically by
+  # `purge_expired_tournaments/0` once it's more than 90 days old.
+
+  @recycle_bin_retention_days 90
+
+  @doc """
+  Moves `tournament` to the recycle bin — sets `deleted_at` to now (truncated
+  to the second) instead of deleting the row. From this point on every
+  normal fetch/listing path treats it as gone; `restore_tournament/1` undoes
+  this, `purge_tournament/1` finishes the job for real. Broadcasts on the
+  owner's tournament-list topic, same as `delete_tournament/1` did, so the
+  Tournaments page refreshes live.
+  """
+  def soft_delete_tournament(%Tournament{} = tournament) do
+    tournament
+    |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.truncate(:second))
+    |> Repo.update()
+    |> tap_ok(fn updated ->
+      broadcast_tournament_change(updated.id, :tournament)
+      broadcast_user_tournaments(updated.user_id)
+    end)
+  end
+
+  @doc """
+  Restores `tournament` out of the recycle bin — clears `deleted_at`, so it
+  reappears everywhere `soft_delete_tournament/1` made it disappear from.
+  Broadcasts the same as `soft_delete_tournament/1`.
+  """
+  def restore_tournament(%Tournament{} = tournament) do
+    tournament
+    |> Ecto.Changeset.change(deleted_at: nil)
+    |> Repo.update()
+    |> tap_ok(fn updated ->
+      broadcast_tournament_change(updated.id, :tournament)
+      broadcast_user_tournaments(updated.user_id)
+    end)
+  end
+
+  @doc """
+  The real, irreversible hard delete — cascades exactly like
+  `delete_tournament/1` (which this now backs), used both for the owner's
+  "Delete permanently" action from the recycle bin and by
+  `purge_expired_tournaments/0`'s automatic sweep.
+  """
+  def purge_tournament(%Tournament{} = tournament), do: delete_tournament(tournament)
+
+  @doc """
+  Lists the scope's user's own recycle-binned tournaments (`deleted_at` set),
+  most recently deleted first — collaborator-shared tournaments never show
+  up here, since only the owner can delete (and therefore restore/purge)
+  one. Used by the "Recycle bin" panel on the Tournaments page.
+  """
+  def list_deleted_tournaments(%Scope{} = scope) do
+    Repo.all(
+      from t in Tournament,
+        where: t.user_id == ^scope.user.id and not is_nil(t.deleted_at),
+        order_by: [desc: t.deleted_at]
+    )
+  end
+
+  @doc """
+  Hard-deletes every tournament that's been in the recycle bin for more than
+  #{@recycle_bin_retention_days} days. Meant to be called lazily (see
+  `TournamentsLive`'s mount/handle_params) rather than on a schedule — cheap
+  enough to run on every page load, and self-correcting if a deploy misses a
+  few days. Returns the number of tournaments purged.
+  """
+  def purge_expired_tournaments do
+    cutoff = DateTime.utc_now() |> DateTime.add(-@recycle_bin_retention_days, :day)
+
+    expired =
+      Repo.all(from t in Tournament, where: not is_nil(t.deleted_at) and t.deleted_at < ^cutoff)
+
+    Enum.each(expired, &purge_tournament/1)
+
+    length(expired)
+  end
+
   def change_tournament(%Tournament{} = tournament, attrs \\ %{}) do
     Tournament.changeset(tournament, attrs)
   end
@@ -524,7 +642,78 @@ defmodule PairingsEngine.Tournaments do
     |> tap_ok(fn deleted -> broadcast_tournament_change(deleted.tournament_id, :players) end)
   end
 
+  @doc """
+  Applies `updates` (a list of `{%Player{}, attrs}` pairs) in a single
+  transaction and fires exactly one `tournament_changed` broadcast on
+  success — used by `PairingsEngine.RatingRefresh.apply/2` so a bulk rating
+  refresh doesn't flood open LiveViews with one broadcast per player.
+  Rolls back (returning `{:error, changeset}`) if any single update fails
+  validation.
+  """
+  def bulk_update_players(tournament_id, updates) do
+    result =
+      Repo.transaction(fn ->
+        Enum.map(updates, fn {player, attrs} ->
+          case player |> Player.changeset(attrs) |> Repo.update() do
+            {:ok, updated} -> updated
+            {:error, changeset} -> Repo.rollback(changeset)
+          end
+        end)
+      end)
+
+    case result do
+      {:ok, _players} = ok ->
+        broadcast_tournament_change(tournament_id, :players)
+        ok
+
+      error ->
+        error
+    end
+  end
+
   def change_player(%Player{} = player, attrs \\ %{}), do: Player.changeset(player, attrs)
+
+  @doc """
+  Applies `tournament.extra_points_bands` (SWAR parity #12 Elo-band
+  auto-assign — see `PairingsEngine.Tournaments.Tournament.band_extra_points/2`
+  and `docs/extra-points.md`) to every player in the tournament, **overwriting**
+  each player's `extra_points` — a player matching no band is set back to
+  `0.0`, not left alone, so re-running after a rating change (or a bands
+  edit) always reflects the current rule rather than layering on top of a
+  stale prior run. A single transaction, one `tournament_changed` broadcast
+  (via `bulk_update_players/2`), same pattern as `PairingsEngine.RatingRefresh.apply/2`.
+
+  Returns `{:ok, %{matched: n, total: m}}` — `matched` counts players whose
+  rating fell under at least one band (bonus > 0.0), `total` every player in
+  the tournament — for the "Set extra points for N of M players" summary on
+  the Settings page. Returns `{:error, :invalid_bands}` if
+  `extra_points_bands` doesn't parse (shouldn't happen for a value that went
+  through `Tournament.changeset/2`, but this function doesn't assume that).
+  """
+  @spec apply_extra_points_bands(Tournament.t()) ::
+          {:ok, %{matched: non_neg_integer(), total: non_neg_integer()}} | {:error, term()}
+  def apply_extra_points_bands(%Tournament{} = tournament) do
+    case Tournament.parse_extra_points_bands(tournament.extra_points_bands) do
+      {:ok, bands} ->
+        players = list_players(tournament.id)
+
+        updates =
+          Enum.map(players, fn player ->
+            extra = Tournament.band_extra_points(bands, Player.rating(player))
+            {player, %{extra_points: extra}}
+          end)
+
+        matched = Enum.count(updates, fn {_player, attrs} -> attrs.extra_points > 0.0 end)
+
+        case bulk_update_players(tournament.id, updates) do
+          {:ok, _updated} -> {:ok, %{matched: matched, total: length(players)}}
+          error -> error
+        end
+
+      :error ->
+        {:error, :invalid_bands}
+    end
+  end
 
   ## Teams
 

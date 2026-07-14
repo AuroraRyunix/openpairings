@@ -1,7 +1,7 @@
 defmodule PairingsEngineWeb.StandingsLive do
   use PairingsEngineWeb, :live_view
 
-  alias PairingsEngine.{Tournaments, Tiebreaks, Standings, Keizer}
+  alias PairingsEngine.{Tournaments, Tiebreaks, Standings, Keizer, PlayerStats}
   alias PairingsEngine.Tournaments.Player
 
   @impl true
@@ -43,11 +43,47 @@ defmodule PairingsEngineWeb.StandingsLive do
     tournament = socket.assigns.tournament
     keizer? = tournament.pairing_system == "keizer"
 
+    entries =
+      if keizer? do
+        Keizer.standings(tournament)
+      else
+        tournament |> Standings.standings() |> with_expected_score()
+      end
+
     assign(socket,
       keizer?: keizer?,
-      entries: if(keizer?, do: Keizer.standings(tournament), else: Standings.standings(tournament)),
+      entries: entries,
       rounds_paired: Standings.rounds_paired(tournament.id)
     )
+  end
+
+  # Attaches `:we` / `:wmwe` (FIDE expected score / W−We, Table 8.1.2) to
+  # every entry — same computation as the Players page grid
+  # (`PairingsEngineWeb.PlayersLive.build_grid/2`): only played games
+  # against a rated opponent count, own rating unrated or zero counted
+  # games renders blank. Not offered for Keizer standings — Keizer scoring
+  # isn't rating-based, so an "expected score" has no meaning there.
+  defp with_expected_score(entries) do
+    players_by_id = Map.new(entries, &{&1.player.id, &1.player})
+
+    Enum.map(entries, fn entry ->
+      played_games = Enum.filter(entry.games, & &1.played)
+
+      rated_games =
+        Enum.filter(played_games, fn g ->
+          case Map.get(players_by_id, g.opponent_id) do
+            nil -> false
+            opp -> Player.rating(opp) > 0
+          end
+        end)
+
+      own_rating = Player.rating(entry.player)
+      opponent_ratings = Enum.map(rated_games, &Player.rating(Map.get(players_by_id, &1.opponent_id)))
+      we = PlayerStats.we(own_rating, opponent_ratings)
+      w_counted = rated_games |> Enum.map(& &1.points) |> Enum.sum()
+
+      Map.merge(entry, %{we: we, wmwe: PlayerStats.w_minus_we(w_counted, we)})
+    end)
   end
 
   defp format_tb(value) when is_float(value) do
@@ -55,6 +91,16 @@ defmodule PairingsEngineWeb.StandingsLive do
   end
 
   defp format_tb(value), do: value
+
+  defp format_we(nil), do: "—"
+  defp format_we(n), do: :erlang.float_to_binary(n / 1, decimals: 2)
+
+  defp format_wmwe(nil), do: "—"
+
+  defp format_wmwe(n) do
+    sign = if n >= 0, do: "+", else: ""
+    sign <> :erlang.float_to_binary(n / 1, decimals: 2)
+  end
 
   @impl true
   def render(assigns) do
@@ -94,6 +140,14 @@ defmodule PairingsEngineWeb.StandingsLive do
               <th>Name</th>
               <th class="num">Elo</th>
               <th class="num">Pts</th>
+              <th :if={@tournament.count_extra_points} class="num" title="Administrative bonus points (SWAR XtPts)">
+                XtPts
+              </th>
+              <th :if={@tournament.count_extra_points} class="num" title="Points + extra points — this is what ranking sorts by">
+                Total
+              </th>
+              <th class="num" title="FIDE expected score (Table 8.1.2)">We</th>
+              <th class="num" title="Actual score minus expected score">W-We</th>
               <th :for={code <- @tournament.tiebreaks} class="num" title={tb_name(code)}>
                 {code}
               </th>
@@ -111,6 +165,10 @@ defmodule PairingsEngineWeb.StandingsLive do
                 {if Player.rating(entry.player) > 0, do: Player.rating(entry.player), else: "—"}
               </td>
               <td class="num"><strong>{entry.points}</strong></td>
+              <td :if={@tournament.count_extra_points} class="num">{entry.extra_points}</td>
+              <td :if={@tournament.count_extra_points} class="num"><strong>{entry.total}</strong></td>
+              <td class="num">{format_we(entry.we)}</td>
+              <td class="num">{format_wmwe(entry.wmwe)}</td>
               <td :for={code <- @tournament.tiebreaks} class="num">
                 {format_tb(Map.get(entry.tiebreaks, code, 0.0))}
               </td>

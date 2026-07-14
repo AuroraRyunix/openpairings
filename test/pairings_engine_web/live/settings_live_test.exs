@@ -9,7 +9,8 @@ defmodule PairingsEngineWeb.SettingsLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias PairingsEngine.Tournaments
+  alias PairingsEngine.{Repo, Tournaments}
+  alias PairingsEngine.Fide.FidePlayer
 
   setup :register_and_log_in_user
 
@@ -140,32 +141,38 @@ defmodule PairingsEngineWeb.SettingsLiveTest do
     end
   end
 
-  describe "Categories" do
-    test "adds a category, rejects a blank or duplicate name, and removes one", %{conn: conn, scope: scope} do
+  describe "Categories toggle" do
+    test "the Categories card is a single checkbox saved via the big settings form", %{
+      conn: conn,
+      scope: scope
+    } do
       tournament = create_tournament(scope)
+      refute tournament.categories_enabled
 
-      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings")
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
 
-      html = lv |> form("#add-category-form", %{"name" => "U18"}) |> render_submit()
-      assert html =~ "U18"
-      assert Tournaments.get_authorized_tournament!(scope, tournament.id).categories == ["U18"]
+      # The old standalone Categories/Extra points cards are gone — only the
+      # enable checkbox (and its label) remains from that area.
+      refute html =~ "New category name"
+      refute html =~ "id=\"add-category-form\""
+      refute html =~ "id=\"extra-points-form\""
+      assert html =~ "Enable the Categories tab"
 
-      html = lv |> form("#add-category-form", %{"name" => "  "}) |> render_submit()
-      assert html =~ "Enter a category name"
+      lv
+      |> form("form[phx-submit=save]", %{"tournament" => %{"categories_enabled" => "true"}})
+      |> render_submit()
 
-      html = lv |> form("#add-category-form", %{"name" => "U18"}) |> render_submit()
-      assert html =~ "already exists"
-      assert Tournaments.get_authorized_tournament!(scope, tournament.id).categories == ["U18"]
-
-      lv |> element(~s(button[phx-value-name="U18"]), "Remove") |> render_click()
-
-      # Same self-broadcast race as the "switching Type keeps the current
-      # rate of play" test above — "remove_category" also saves through
-      # Tournaments.update_tournament/2, which broadcasts :settings. Drain
-      # it before the test (and `lv`'s teardown) proceeds.
       render(lv)
 
-      assert Tournaments.get_authorized_tournament!(scope, tournament.id).categories == []
+      assert Tournaments.get_authorized_tournament!(scope, tournament.id).categories_enabled
+
+      lv
+      |> form("form[phx-submit=save]", %{"tournament" => %{"categories_enabled" => "false"}})
+      |> render_submit()
+
+      render(lv)
+
+      refute Tournaments.get_authorized_tournament!(scope, tournament.id).categories_enabled
     end
   end
 
@@ -233,6 +240,213 @@ defmodule PairingsEngineWeb.SettingsLiveTest do
 
       html = render(lv)
       assert html =~ "updated elsewhere"
+    end
+  end
+
+  describe "Club/federation exclusions" do
+    test "saving an \"all\" club rule persists it and updates the excluded-pair hint", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      {:ok, _a} = Tournaments.create_player(tournament.id, %{"name" => "Alice", "club" => "Chess Club"})
+      {:ok, _b} = Tournaments.create_player(tournament.id, %{"name" => "Bob", "club" => "Chess Club"})
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
+      assert html =~ "0 pair(s) currently excluded"
+
+      html =
+        lv
+        |> form("#exclusion-rules-form", %{"tournament" => %{"club_exclusion" => "all"}})
+        |> render_submit()
+
+      assert html =~ "1 pair(s) currently excluded"
+      assert Tournaments.get_authorized_tournament!(scope, tournament.id).club_exclusion == "all"
+
+      # Same self-broadcast race noted throughout this file — "save_exclusions"
+      # saves through Tournaments.update_tournament/2, which broadcasts
+      # :settings. Drain it before the test (and `lv`'s teardown) proceeds.
+      render(lv)
+    end
+
+    test "the \"listed\" club/federation text inputs only render once their mode is selected", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
+
+      refute html =~ "Clubs (comma-separated)"
+
+      html =
+        lv
+        |> element("select[name='tournament[club_exclusion]']")
+        |> render_change(%{"tournament" => %{"club_exclusion" => "listed"}})
+
+      assert html =~ "Clubs (comma-separated)"
+    end
+
+    test "a \"listed\" federation rule with a normalized list excludes only the matching pair", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, _a} = Tournaments.create_player(tournament.id, %{"name" => "Alice", "federation" => "BEL"})
+      {:ok, _b} = Tournaments.create_player(tournament.id, %{"name" => "Bob", "federation" => "BEL"})
+      {:ok, _c} = Tournaments.create_player(tournament.id, %{"name" => "Carol", "federation" => "NED"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings")
+
+      # The list text input only renders once the mode select's own
+      # phx-change flips `fed_exclusion_mode` to "listed" — mirror what a
+      # real browser does before the form/2 helper can find that field.
+      lv
+      |> element("select[name='tournament[fed_exclusion]']")
+      |> render_change(%{"tournament" => %{"fed_exclusion" => "listed"}})
+
+      html =
+        lv
+        |> form("#exclusion-rules-form", %{
+          "tournament" => %{"fed_exclusion" => "listed", "fed_exclusion_list" => " bel , FRA"}
+        })
+        |> render_submit()
+
+      assert html =~ "1 pair(s) currently excluded"
+
+      tournament = Tournaments.get_authorized_tournament!(scope, tournament.id)
+      assert tournament.fed_exclusion == "listed"
+      # Normalized on save: trimmed and comma-joined, case preserved as typed.
+      assert tournament.fed_exclusion_list == "bel, FRA"
+
+      render(lv)
+    end
+  end
+
+  describe "General/Format field cleanup" do
+    test "Deputy arbiter(s) and Time control no longer render, and Chief arbiter moved out of General (into Officials, once each)",
+         %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
+
+      refute html =~ ~s(name="tournament[deputy_arbiter]")
+      refute html =~ ~s(name="tournament[time_control]")
+      # Chief arbiter still exists (moved to the Officials card with a FIDE
+      # autocomplete), just not duplicated as a plain General text field.
+      assert (html |> String.split(~s(name="tournament[chief_arbiter]")) |> length()) == 2
+    end
+
+    test "the mandatory General/Format labels render bold with a red asterisk", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
+
+      assert html =~ "Tournament name"
+      assert html =~ "Start date"
+      assert html =~ "Number of rounds"
+      assert html =~ "var(--danger)"
+    end
+
+    test "\"Pair by\" no longer offers the \"No rating (random order)\" option", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
+
+      refute html =~ "No rating (random order)"
+      assert html =~ "FIDE rating"
+      assert html =~ "National rating"
+    end
+  end
+
+  describe "Officials card cleanup" do
+    test "removes the standalone Chief arbiter FIDE ID, Pairing mode, Pairing program and Swiss variant inputs", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
+
+      refute html =~ "Chief arbiter FIDE ID"
+      refute html =~ ~s(name="tournament[officials][pairing_mode]")
+      refute html =~ ~s(name="tournament[officials][pairing_program]")
+      refute html =~ ~s(name="tournament[officials][swiss_variant]")
+      # Only two deputy slots remain (down from four).
+      assert html =~ "1st deputy arbiter"
+      assert html =~ "2nd deputy arbiter"
+      refute html =~ "3rd deputy arbiter"
+      refute html =~ "4th deputy arbiter"
+      # The FIDE id is only carried as a hidden field (filled by the
+      # autocomplete pick) — no editable text box for it any more.
+      refute html =~ ~s(type="text" name="tournament[officials][deputy1_fide_id]")
+      assert html =~ ~s(type="hidden" name="tournament[officials][deputy1_fide_id]")
+    end
+
+    test "typing a chief arbiter query shows FIDE matches, and picking one fills name + FIDE id", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+
+      fide_player =
+        Repo.insert!(%FidePlayer{fide_id: 1_503_014, name: "Carlsen, Magnus", federation: "NOR", title: "GM"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings")
+
+      html =
+        render_change(lv, "arbiter_search", %{
+          "role" => "chief_arbiter",
+          "tournament" => %{"chief_arbiter" => "Carlsen"}
+        })
+
+      assert html =~ "Carlsen, Magnus"
+
+      html =
+        render_click(lv, "arbiter_pick", %{
+          "role" => "chief_arbiter",
+          "fide-id" => to_string(fide_player.fide_id)
+        })
+
+      assert html =~ ~s(value="Carlsen, Magnus")
+      assert html =~ "FIDE ID: 1503014"
+      # The FIDE id the user just picked is carried by a hidden field (no
+      # visible/editable input for it) so a plain "Save settings" click,
+      # with nothing retyped, still persists it.
+      assert html =~ ~s(name="tournament[officials][chief_arbiter_fide_id]" value="1503014")
+
+      render_submit(lv, "save", %{
+        "tournament" => %{
+          "chief_arbiter" => "Carlsen, Magnus",
+          "officials" => %{"chief_arbiter_fide_id" => "1503014"}
+        }
+      })
+
+      render(lv)
+
+      saved = Tournaments.get_authorized_tournament!(scope, tournament.id)
+      assert saved.chief_arbiter == "Carlsen, Magnus"
+      # Form-submitted params always arrive as strings, and `:officials` is
+      # a plain (untyped) map field — no casting happens on its values, so
+      # the FIDE id lands as the string exactly as the hidden field sent it.
+      assert saved.officials["chief_arbiter_fide_id"] == "1503014"
+    end
+  end
+
+  describe "Tiebreaks preset labelling" do
+    test "the custom preset radio is labelled \"Custom\" (internal key stays \"personel\")", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
+
+      refute html =~ "Personel"
+      assert html =~ "Custom"
+      assert html =~ ~s(phx-value-key="personel")
+    end
+  end
+
+  describe "Categories/Extra points cards removed from Settings" do
+    test "neither the old Categories nor Extra points cards render any more", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
+
+      refute html =~ "Elo bands (rating:bonus, comma-separated)"
+      refute html =~ "Apply bands to players"
+      refute html =~ "Tournament-defined groups (SWAR CATEGORIES)"
     end
   end
 end

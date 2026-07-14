@@ -18,14 +18,18 @@ defmodule PairingsEngine.Standings do
   alias PairingsEngine.Tournaments.{Pairing, Round}
 
   @doc """
-  Returns standings entries sorted by `total` (game points plus the player's
-  administrative `extra_points`, per SWAR "P.Tot" semantics), then the
-  tournament's configured tiebreaks:
+  Returns standings entries with the tournament's configured tiebreaks:
   `[%{player: p, points: float, extra_points: float, total: float, rank: n, tiebreaks: %{"BH" => v, ...}}]`
 
-  `points` is game points only — FIDE tiebreaks (Buchholz, Sonneborn-Berger,
-  etc.) keep using opponents' game points, unaffected by administrative bonus
-  points. `total` is what determines the ranking.
+  `points` is game points only; `extra_points` is the player's administrative
+  bonus (SWAR "XtPts"); `total` is `points + extra_points`. Ranking sorts by
+  `total` — which equals `points` unless the tournament opted in via
+  `tournament.count_extra_points` (SWAR parity #12, default off; see
+  `docs/extra-points.md`) — then the tournament's configured tiebreaks.
+  FIDE tiebreaks (Buchholz, Sonneborn-Berger, etc.) always keep using
+  opponents' game `points`, never `total`, regardless of the toggle —
+  administrative bonus points never leak into another player's tiebreak
+  inputs.
 
   Accepts `through_round: n` to compute standings using only rounds `<= n`
   (and byes recorded for those rounds) — i.e. "standings as they stood right
@@ -73,8 +77,12 @@ defmodule PairingsEngine.Standings do
     entries
     |> Enum.sort_by(fn e ->
       tb_values = Enum.map(tournament.tiebreaks, &Map.get(e.tiebreaks, &1, 0.0))
+      # Ranking sorts by `total` (points + extra_points) only when the
+      # tournament opted in to counting extra points; otherwise it's plain
+      # game `points` — see the moduledoc/doc above and docs/extra-points.md.
       # ARO-style tiebreaks sort descending like the rest (higher = better).
-      [-e.total | Enum.map(tb_values, &(-&1))]
+      rank_score = if tournament.count_extra_points, do: e.total, else: e.points
+      [-rank_score | Enum.map(tb_values, &(-&1))]
     end)
     |> Enum.with_index(1)
     |> Enum.map(fn {e, rank} -> Map.put(e, :rank, rank) end)
