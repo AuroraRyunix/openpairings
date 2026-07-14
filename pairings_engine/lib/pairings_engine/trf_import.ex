@@ -27,7 +27,7 @@ defmodule PairingsEngine.TrfImport do
   """
 
   alias PairingsEngine.{Repo, SwarImport, Tournaments, Trf}
-  alias PairingsEngine.Tournaments.{Tournament, Round, Pairing}
+  alias PairingsEngine.Tournaments.{Tournament, Player, Round, Pairing}
   alias PairingsEngine.Pairing, as: PairingCtx
   alias PairingsEngine.Trf.ValidationError
 
@@ -46,8 +46,76 @@ defmodule PairingsEngine.TrfImport do
   user-facing string.
   """
   def import_text(content, scope \\ nil) when is_binary(content) do
+    case build_structs_with_data(content) do
+      {:ok, {_tournament, _players, data}} -> run_import(data, scope)
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  Parses `content` (a TRF16 file's raw text, same as `import_text/2`) and
+  builds unpersisted `%Tournament{}`/`%Player{}` structs — same decoding
+  (CP1252/BOM fallback), parsing and header/player field mapping
+  `import_text/2` itself uses internally, but with NO `Repo` calls: nothing
+  is written to the database, and the returned structs have no `id` (never
+  needed — `PairingsEngine.Norms.Forms` only ever reads scalar fields off a
+  tournament/player, never `id`).
+
+  Unlike `import_text/2`, this never builds rounds/pairings/byes — TRF's
+  round data has no representation independent of a persisted tournament's
+  players and round rows, and no caller of this pure builder (norm-report
+  generation from an uploaded file) needs it. Returns `{:ok, {tournament,
+  players}}` or `{:error, reason}` (see `error_message/1`); never raises.
+  """
+  def build_structs(content) when is_binary(content) do
+    case build_structs_with_data(content) do
+      {:ok, {tournament, players, _data}} -> {:ok, {tournament, players}}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  # Shared by `import_text/2` and `build_structs/1`: decode + parse + build
+  # the same unpersisted structs either caller needs, while also handing
+  # back the raw parsed `data` (with each player's per-round games) that
+  # only `import_text/2`'s round-building step still needs.
+  defp build_structs_with_data(content) do
     case content |> decode_content() |> parse_trf() do
-      {:ok, data} -> run_import(data, scope)
+      {:ok, data} ->
+        with {:ok, tournament} <- build_tournament_struct(data),
+             {:ok, players} <- build_player_structs(data.players) do
+          {:ok, {tournament, players, data}}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp build_tournament_struct(data) do
+    %Tournament{}
+    |> Tournament.changeset(tournament_attrs(data))
+    |> case do
+      %{valid?: true} = changeset -> {:ok, Ecto.Changeset.apply_changes(changeset)}
+      changeset -> {:error, "Could not import: " <> changeset_error_text(changeset)}
+    end
+  end
+
+  defp build_player_structs(trf_players) do
+    trf_players
+    |> Enum.reduce_while({:ok, []}, fn p, {:ok, acc} ->
+      case %Player{} |> Player.changeset(player_attrs(p)) do
+        %{valid?: true} = changeset ->
+          {:cont, {:ok, [Ecto.Changeset.apply_changes(changeset) | acc]}}
+
+        changeset ->
+          {:halt,
+           {:error,
+            "Could not import player #{String.trim(p.name || "")}: " <>
+              changeset_error_text(changeset)}}
+      end
+    end)
+    |> case do
+      {:ok, acc} -> {:ok, Enum.reverse(acc)}
       {:error, reason} -> {:error, reason}
     end
   end
@@ -166,10 +234,23 @@ defmodule PairingsEngine.TrfImport do
   ## ---------- tournament ----------
 
   defp create_tournament(data, scope) do
+    %Tournament{user_id: scope && scope.user.id}
+    |> Tournament.changeset(tournament_attrs(data))
+    |> Repo.insert()
+    |> case do
+      {:ok, tournament} -> {:ok, tournament}
+      {:error, changeset} -> {:error, "Could not import: " <> changeset_error_text(changeset)}
+    end
+  end
+
+  # Shared by `create_tournament/2` (persisting) and `build_tournament_struct/1`
+  # (pure, no Repo) — the one place TRF's header fields map onto
+  # `Tournament.changeset/2` attrs.
+  defp tournament_attrs(data) do
     t = data.tournament
     {chief_arbiter, chief_fide_id} = parse_arbiter_line(t[:chief_arbiter])
 
-    attrs = %{
+    %{
       name: blank_to_default(t[:name], "Imported tournament"),
       type: infer_type(t[:type]),
       pairing_system: "swiss",
@@ -184,14 +265,6 @@ defmodule PairingsEngine.TrfImport do
       round_dates: t[:round_dates] || [],
       officials: deputy_officials(t[:deputy_arbiters] || [], chief_fide_id)
     }
-
-    %Tournament{user_id: scope && scope.user.id}
-    |> Tournament.changeset(attrs)
-    |> Repo.insert()
-    |> case do
-      {:ok, tournament} -> {:ok, tournament}
-      {:error, changeset} -> {:error, "Could not import: " <> changeset_error_text(changeset)}
-    end
   end
 
   defp rounds_from_data(players) do

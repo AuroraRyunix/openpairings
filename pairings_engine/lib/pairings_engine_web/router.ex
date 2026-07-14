@@ -113,4 +113,22 @@ defmodule PairingsEngineWeb.Router do
       live "/p/:slug/standings", PublicStandingsLive
     end
   end
+
+  ## Public (no login required) arbiter tools — see docs/tools.md. Upload a
+  # SWAR/TRF file, no account needed, and download the IT3/FA1/IA1 FIDE
+  # report forms straight from it. Nothing here ever touches the database —
+  # parsed files live only in `PairingsEngine.Tools.Session`'s in-memory
+  # store, looked up by the `:token` in the download route below.
+  scope "/", PairingsEngineWeb do
+    pipe_through [:browser]
+
+    get "/tools", ToolsController, :index
+
+    live_session :tools,
+      on_mount: [{PairingsEngineWeb.UserAuth, :mount_current_scope}] do
+      live "/tools/norms", ToolsNormsLive
+    end
+
+    get "/tools/download/:token/:form", ToolsController, :download
+  end
 end

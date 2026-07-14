@@ -100,6 +100,13 @@ defmodule PairingsEngineWeb.Layouts do
         >
           Rating lists
         </.link>
+        <.link
+          :if={!@tournament}
+          navigate={~p"/tools/norms"}
+          class={tab_class(@active == "tools")}
+        >
+          Tools
+        </.link>
       </nav>
       <nav class="topbar-auth">
         <%= if @current_scope do %>

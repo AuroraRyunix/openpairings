@@ -502,4 +502,46 @@ defmodule PairingsEngine.TrfImportTest do
     # Nothing was written — not even a rolled-back tournament row lingering.
     refute Repo.exists?(Ecto.Query.from(t in Tournament, where: t.name == "Duplicate Ranks"))
   end
+
+  ## ---------- build_structs/1 (pure, no Repo) ----------
+
+  test "build_structs/1 builds the same field values import_text/2 persists, without touching the database" do
+    {tournament, _} = seeded_tournament()
+    assert {:ok, text} = TrfExport.export(tournament)
+
+    tournament_count_before = Repo.aggregate(Tournament, :count)
+    player_count_before = Repo.aggregate(Player, :count)
+
+    assert {:ok, {built_tournament, built_players}} = TrfImport.build_structs(text)
+
+    assert tournament_count_before == Repo.aggregate(Tournament, :count)
+    assert player_count_before == Repo.aggregate(Player, :count)
+
+    assert built_tournament.id == nil
+    assert built_tournament.name == "TRF Import Round-trip"
+    assert built_tournament.federation == "BEL"
+    assert built_tournament.city == "Ghent"
+    assert built_tournament.round_dates == ["2026-01-01", "2026-01-02"]
+
+    assert length(built_players) == 3
+    alice = Enum.find(built_players, &(&1.name == "Alice"))
+    assert alice.id == nil
+    assert alice.fide_id == 111
+    assert alice.fide_rating == 2000
+    assert alice.pairing_number == 1
+  end
+
+  test "build_structs/1 returns the same friendly error as import_text/2 for unparseable content" do
+    assert {:error, reason} =
+             TrfImport.build_structs("this is not a TRF file\r\njust some text\r\n")
+
+    assert TrfImport.error_message(reason) =~ "Could not read this TRF file"
+  end
+
+  test "build_structs/1 decodes CP1252-encoded content the same way import_text/2 does" do
+    trf = trf_with_cp1252_name("Gaetan", <<"Ga", 0xEB, "tan">>)
+
+    assert {:ok, {_tournament, players}} = TrfImport.build_structs(trf)
+    assert [%{name: "Gaëtan"}] = players
+  end
 end

@@ -112,6 +112,64 @@ shows a blank/stale `Certificaat` in Excel specifically, it's almost always
 because the file opened in **Protected View** (downloaded-from-the-internet
 flag) — click "Enable Editing" and it recalculates immediately.
 
+## Combined reports (festivals)
+
+A Belgian-federation arbiter often runs several category groups (Open,
+Youth, Women, ...) as one festival, but OpenPairings itself only ever
+manages each group as its own separate `Tournament` — different rounds,
+different players, sometimes different dates. The Norms page's "Combined
+report (festival)" card generates one IT3/FA1/IA1 covering the whole
+festival without merging the underlying tournaments in the database.
+
+- **`PairingsEngine.Norms.Combine`** — the pure merge: given
+  `[{tournament, players}, ...]` plus a 0-based `master_index`, it returns
+  one virtual, unpersisted `{tournament, players}` pair. Every header/
+  schedule field (name, dates, `round_dates`, `rounds_count`, rate of play,
+  venue, officials, ...) comes from the designated **master** tournament
+  verbatim, except `name`, which becomes `"<master name> Festival"` (FIDE's
+  own term for a multi-category event). Players are simply concatenated —
+  `PairingsEngine.Norms.Forms` already derives every rated/titled/
+  federation count purely from the player list it's handed, so nothing
+  else needs recomputing. The same player entered in two of the selected
+  tournaments is rejected as `{:error, {:duplicate_players, names}}`
+  (identity: `fide_id`, else `national_id`, else name + birth year) — see
+  its moduledoc for the full identity rule.
+
+- **`PairingsEngineWeb.NormsLive`** — the "Combined report (festival)" card
+  (below the single-tournament FA1/IA1 card) lists every *other* tournament
+  the current user can access (same owner-or-accepted-collaborator scoping
+  as the tournament list, via `Tournaments.list_tournaments/1`) as
+  checkboxes. The current tournament is always implicitly part of the
+  combined set and can't be unchecked. Once at least one other tournament
+  is picked, a master picker (defaulting to the current tournament)
+  appears alongside combined IT3/FA1/IA1 download controls. Nothing here
+  touches the database — the picker only builds query-string links/hidden
+  form fields for `PairingsEngineWeb.NormsController`.
+
+- **`PairingsEngineWeb.NormsController`** — `it3/2`, `fa1/2` and `ia1/2`
+  accept two optional query params:
+
+  - `combine` — a comma-separated list of tournament ids to merge, in
+    order (e.g. `?combine=12,7,9`).
+  - `master` — which of those ids supplies the header/schedule fields;
+    resolved to an index into `combine`'s order for `Combine.combine/2`.
+
+  Every id in `combine` is authorized individually through
+  `Tournaments.get_authorized_tournament!/2`, exactly like the route's own
+  `:id` — a forged id anywhere in `combine` 404s the same way the single-
+  tournament path always has. When `combine` is absent or blank, behavior
+  is byte-for-byte unchanged from before this feature existed. A
+  `{:duplicate_players, _}` error redirects back to the Norms tab
+  (`/t/:id/norms`) with `Combine.error_message/1` as an `:error` flash,
+  instead of a 500. The download filename is derived from the virtual
+  tournament's `"... Festival"` name, through the same
+  `Forms.download_filename/2` slugification as any other download — no
+  separate code path needed there.
+
+  FA1/IA1's arbiter-candidate params (`candidate[last_name]` etc.) work
+  identically in combined mode — they're independent of which/how many
+  tournaments are being merged.
+
 ## Adding or adjusting a form mapping
 
 If FIDE revises a template (new cell layout, new fields), the change is
