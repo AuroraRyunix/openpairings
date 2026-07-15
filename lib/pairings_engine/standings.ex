@@ -217,6 +217,12 @@ defmodule PairingsEngine.Standings do
         case bye.type do
           "requested-half" -> tournament.points_draw
           "pairing-allocated" -> tournament.bye_value
+          # SWAR 3-2-1 "presence points" (SW321_Pre) — distinct from an
+          # ordinary configured loss even though SWAR's own bitmask files
+          # LOST_BYE as a "loss". `presence_value` is nil for every
+          # tournament that isn't a 3-2-1 SWAR import, so this falls back to
+          # plain points_loss unchanged for everyone else.
+          "requested-zero" -> tournament.presence_value || tournament.points_loss
           _ -> tournament.points_loss
         end
 

@@ -12,7 +12,7 @@ defmodule PairingsEngine.SwarImportTest do
   # CI) — see the comment there.
   @moduletag :swar_fixture
 
-  alias PairingsEngine.{SwarImport, Tournaments, Repo}
+  alias PairingsEngine.{SwarImport, Tournaments, Repo, Standings}
   alias PairingsEngine.Tournaments.Round
   alias PairingsEngine.Accounts.{Scope, User}
   alias PairingsEngine.Fide.FidePlayer
@@ -245,22 +245,48 @@ defmodule PairingsEngine.SwarImportTest do
   # configured value, which is the KBSB-reported bug this fixes). "3-2-1" is
   # SWAR's feature name, not a claim that the values are literally 3/2/1 —
   # each club sets its own win/draw/loss scale, and this fixture's club
-  # happens to use 2/1/0. What differs from a standard import is
-  # `SW321_Bye` (raw 4 → 1.0): an unpaired "LOST_BYE" round scores a full
-  # point here, not the 0.0 the file's separate, unrelated `ByeValue` field
-  # (raw 2) would otherwise produce via `map_bye_value/1`. This is the
-  # exact regression this test guards: before `tournament_attrs/1` mapped
-  # `SW321_*` at all, byes in a 3-2-1 import silently scored 0.0 instead of
-  # the configured value.
+  # happens to use 2/1/0. `SW321_Bye` (raw 4 → 1.0) and `SW321_Pre` (raw
+  # 4 → 1.0) are also configured here, and this file's `SW321_PreBye` is
+  # nonzero (raw 1) — per the manual (§5.16, "Add presence points for bye
+  # games") that means `bye_value` is `SW321_Bye + SW321_Pre` = 2.0, not
+  # `SW321_Bye` alone. This test previously asserted `bye_value == 1.0`
+  # (SW321_Bye only) — that assertion was itself the SW321_PreBye gap this
+  # session's fix closes, caught by the behavioral check below: "Descheemaeker,
+  # Tom" has two LOST_BYE rounds and two ordinary losses, and his real SWAR
+  # total (`points_raw / 4`, from his own file record) only reconciles once
+  # LOST_BYE rounds score at `presence_value` (not `points_loss`).
   @test3_321 "test/fixtures/test3-321.swar"
 
-  test "import_file/1 maps SWAR's 3-2-1 scoring fields (SW321_Win/Nul/Los/Bye) onto the tournament" do
+  test "import_file/1 maps SWAR's 3-2-1 scoring fields (SW321_Win/Nul/Los/Bye/Pre/PreBye) onto the tournament" do
     assert {:ok, tournament} = SwarImport.import_file(@test3_321)
 
     assert tournament.points_win == 2.0
     assert tournament.points_draw == 1.0
     assert tournament.points_loss == 0.0
-    assert tournament.bye_value == 1.0
+    assert tournament.presence_value == 1.0
+    # SW321_Bye (1.0) + SW321_Pre (1.0) — SW321_PreBye is nonzero in this file.
+    assert tournament.bye_value == 2.0
+  end
+
+  test "import_file/1 scores a real player's LOST_BYE rounds at presence_value, reproducing SWAR's own raw point total" do
+    {:ok, data} = SwarImport.parse(File.read!(@test3_321))
+    tom = Enum.find(data.players, &(&1.name == "Descheemaeker, Tom"))
+    # Non-circular check: this player's own raw `Points` field (SWAR's
+    # stored total, ÷4 like every other SW321_* field) is the ground truth
+    # here — independent of whatever our scoring_attrs/1 currently does.
+    assert tom.points == 8
+
+    assert {:ok, tournament} = SwarImport.import_file(@test3_321)
+    [player] = Enum.filter(Tournaments.list_players(tournament.id), &(&1.name == "Descheemaeker, Tom"))
+    entry = Enum.find(Standings.standings(tournament), &(&1.player.id == player.id))
+
+    # tom.points (8, raw) / 4 == 2.0 == wins*Win + draws*Nul + losses*Los +
+    # lost_byes*Pre, all raw, / 4 — this player has 0 wins, 0 draws, 2
+    # ordinary losses (Los raw 0, contributing nothing either way) and 2
+    # LOST_BYE rounds (Pre raw 4 each): (2*0 + 2*4) / 4 = 2.0. Before this
+    # session's fix, LOST_BYE scored at points_loss (0.0), which would have
+    # produced 0.0 here instead — the exact regression this guards.
+    assert entry.points == 2.0
   end
 
   test "import_file/1 leaves scoring at schema defaults for a standard (non-3-2-1) tournament" do

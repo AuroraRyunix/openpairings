@@ -33,6 +33,13 @@ defmodule PairingsEngine.Tournaments.Tournament do
     field :points_draw, :float, default: 0.5
     field :points_loss, :float, default: 0.0
     field :bye_value, :float, default: 1.0
+    # SWAR "3-2-1" custom-scoring `SW321_Pre` ("presence points") — the
+    # points paid for an unpaired-but-present round, a distinct concept from
+    # an ordinary configured `points_loss`. nil (the default for every
+    # tournament not imported from a SWAR 3-2-1 file) means "unused": such
+    # rounds keep scoring at `points_loss` exactly as before this field
+    # existed. Only PairingsEngine.SwarImport writes a non-nil value.
+    field :presence_value, :float
     field :tiebreaks, {:array, :string}, default: []
     field :acceleration, :string, default: "none"
     field :status, :string, default: "setup"
@@ -151,7 +158,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :name, :type, :venue, :city, :federation, :start_date, :end_date,
       :organizer, :chief_arbiter, :deputy_arbiter, :time_control,
       :rounds_count, :rating_type, :points_win, :points_draw, :points_loss,
-      :bye_value, :tiebreaks, :acceleration, :status,
+      :bye_value, :presence_value, :tiebreaks, :acceleration, :status,
       :standard, :rate_of_play, :organizer_club_number, :round_dates, :categories,
       :event_code, :fide_tournament_id, :officials,
       :pairing_system, :rr_cycles, :keizer_top_value,

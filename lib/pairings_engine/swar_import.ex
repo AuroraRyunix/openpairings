@@ -752,24 +752,38 @@ defmodule PairingsEngine.SwarImport do
   # the real 3-2-1 fixture — every unpaired "LOST_BYE" round for every
   # affected player is scored as `SW321_Pre` raw points (÷4), not
   # `SW321_Bye` (no `WIN_BYE`/`DRAW_BYE` round occurs anywhere in the
-  # fixture, so `SW321_Bye`'s actual role is unconfirmed by this file). Our
-  # `Tournament`/`byes` schema has no field for "presence points distinct
-  # from bye_value", so this mechanic is NOT modeled — a pairing-allocated
-  # bye in a 3-2-1 tournament will still import at `bye_value` points, which
-  # may undercount relative to what SWAR itself displays whenever
-  # `SW321_PreBye` (field 85) is set. This is a separate, real scoring gap;
-  # fixing it needs a schema decision, not just a divisor change, so it is
-  # deliberately left as a follow-up rather than guessed at here.
+  # fixture, so `SW321_Bye`'s actual role is unconfirmed by this file).
+  # `Tournament.presence_value` now models this: SWAR's own result-code
+  # bitmask (manual §5.2, `RESULTATS_LOST`) files `LOST_BYE` under its
+  # generic "loss" category, but 3-2-1 mode pays it at `SW321_Pre`
+  # specifically, not at `SW321_Los`/`points_loss` — confirmed non-circularly
+  # against the real fixture (see above). `SW321_PreBye` (field 85, manual
+  # §5.16, present only in file version >= v6.03) is documented verbatim as
+  # "Add presence points for bye games" — i.e. a pairing-allocated bye
+  # (`WIN_BYE`) is paid `SW321_Bye + SW321_Pre` when it is set/nonzero, so
+  # `bye_value_with_prebye/1` below folds it in. This gap is now fixed.
   defp scoring_attrs(%{type: 3} = t) do
     %{
       points_win: t.sw321_win / 4,
       points_draw: t.sw321_nul / 4,
       points_loss: t.sw321_los / 4,
-      bye_value: t.sw321_bye / 4
+      bye_value: bye_value_with_prebye(t),
+      presence_value: t.sw321_pre / 4
     }
   end
 
   defp scoring_attrs(t), do: %{bye_value: map_bye_value(t.bye_value)}
+
+  # `SW321_PreBye` (manual §5.16, field 85 — only present in file version >=
+  # "v6.03", nil in older files) is documented as "Add presence points for
+  # bye games": when set and nonzero, a pairing-allocated bye is worth
+  # `SW321_Bye + SW321_Pre`, not `SW321_Bye` alone. Older files (nil) or a
+  # zero value leave `bye_value` unchanged.
+  defp bye_value_with_prebye(%{sw321_prebye: prebye} = t) when is_number(prebye) and prebye != 0 do
+    t.sw321_bye / 4 + t.sw321_pre / 4
+  end
+
+  defp bye_value_with_prebye(t), do: t.sw321_bye / 4
 
   @tournament_types %{0 => "swiss", 1 => "swiss", 2 => "swiss", 3 => "swiss", 4 => "roundrobin", 5 => "roundrobin", 6 => "roundrobin", 7 => "swiss", 8 => "swiss"}
   defp map_tournament_type(type), do: Map.get(@tournament_types, type, "swiss")
