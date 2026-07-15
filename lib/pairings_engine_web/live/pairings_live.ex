@@ -582,6 +582,26 @@ defmodule PairingsEngineWeb.PairingsLive do
 
         export default {
           mounted() {
+            // A native <select> opens its dropdown on the same click that
+            // focuses it — and while that native popup is open, the browser
+            // intercepts number keys for its own "jump to option" behavior
+            // before our keydown listener below ever sees them (confirmed:
+            // typing did nothing until a second click closed the popup,
+            // leaving the element focused-but-closed). Clicking to open a
+            // fresh select is the arbiter's actual entry point for the "1/2/3"
+            // workflow, so it must land focused-and-CLOSED in one click.
+            // Only intercept the click that's ABOUT to focus this element —
+            // if it's already focused, let a second click open the dropdown
+            // normally (still needed to pick a code with no 1/2/3 shortcut,
+            // e.g. a forfeit result).
+            this.onMousedown = (e) => {
+              if (document.activeElement !== this.el) {
+                e.preventDefault();
+                this.el.focus();
+              }
+            };
+            this.el.addEventListener("mousedown", this.onMousedown);
+
             this.onKeydown = (e) => {
               const value = CODE_TO_VALUE[e.code] || KEY_TO_VALUE[e.key];
               if (!value) return; // let every other key behave natively
@@ -619,6 +639,7 @@ defmodule PairingsEngineWeb.PairingsLive do
 
           destroyed() {
             this.el.removeEventListener("keydown", this.onKeydown);
+            this.el.removeEventListener("mousedown", this.onMousedown);
           }
         }
       </script>
