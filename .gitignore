@@ -55,3 +55,6 @@ npm-debug.log
 
 # JaVaFo binary: not ours to redistribute — see README for the download link
 /priv/javafo/*.jar
+
+# graphify skill output (not part of the app)
+graphify-out/

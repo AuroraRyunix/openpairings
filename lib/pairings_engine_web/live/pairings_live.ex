@@ -1,8 +1,9 @@
 defmodule PairingsEngineWeb.PairingsLive do
   use PairingsEngineWeb, :live_view
 
-  alias PairingsEngine.Tournaments
+  alias PairingsEngine.{ResultsImport, Tournaments}
   alias PairingsEngine.Pairing, as: Engine
+  alias PairingsEngine.Tournaments.Tournament
 
   @results [
     {"", "…"},
@@ -30,8 +31,11 @@ defmodule PairingsEngineWeb.PairingsLive do
        tournament: tournament,
        page_title: "#{tournament.name} · Pairings",
        round_number: max(paired, 1),
-       error: nil
+       error: nil,
+       importing_results: false,
+       import_errors: nil
      )
+     |> allow_upload(:results_csv, accept: :any, max_entries: 1, max_file_size: 2_000_000)
      |> refresh()}
   end
 
@@ -56,12 +60,14 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp refresh(socket) do
     %{tournament: t, round_number: n} = socket.assigns
     paired = Engine.paired_rounds_count(t.id)
+    setup_complete = Tournament.setup_complete?(t)
 
     assign(socket,
       round: Tournaments.get_round(t.id, n),
       paired_rounds: paired,
       next_pairable: paired + 1,
-      can_pair: paired < t.rounds_count and Engine.round_complete?(t.id, paired)
+      setup_complete: setup_complete,
+      can_pair: setup_complete and paired < t.rounds_count and Engine.round_complete?(t.id, paired)
     )
   end
 
@@ -71,15 +77,15 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   def handle_event("pair", _params, socket) do
-    case Engine.pair_next_round(socket.assigns.tournament) do
-      {:ok, round} ->
-        {:noreply, socket |> assign(round_number: round.number, error: nil) |> refresh()}
-
-      {:error, %Ecto.Changeset{}} ->
-        {:noreply, assign(socket, error: "Could not save the round")}
-
-      {:error, reason} ->
-        {:noreply, assign(socket, error: to_string(reason))}
+    if not Tournament.setup_complete?(socket.assigns.tournament) do
+      {:noreply,
+       put_flash(
+         socket,
+         :error,
+         "Finish the tournament setup — fill in the name, start date and number of rounds in Settings before pairing."
+       )}
+    else
+      do_pair(socket)
     end
   end
 
@@ -101,6 +107,54 @@ defmodule PairingsEngineWeb.PairingsLive do
     {:noreply, refresh(socket)}
   end
 
+  ## ---------- CSV results import ----------
+
+  def handle_event("toggle_import_results", _params, socket) do
+    {:noreply, assign(socket, importing_results: not socket.assigns.importing_results, import_errors: nil)}
+  end
+
+  # The file input's phx-change target; nothing to do until submit.
+  def handle_event("validate_results_csv", _params, socket), do: {:noreply, socket}
+
+  def handle_event("import_results_csv", _params, socket) do
+    %{tournament: tournament, round_number: round_number} = socket.assigns
+
+    uploaded =
+      consume_uploaded_entries(socket, :results_csv, fn %{path: path}, _entry ->
+        {:ok, File.read!(path)}
+      end)
+
+    case uploaded do
+      [csv_text] ->
+        with {:ok, rows} <- ResultsImport.parse_text(csv_text),
+             {:ok, count} <- ResultsImport.apply_import(tournament, round_number, rows) do
+          {:noreply,
+           socket
+           |> put_flash(:info, "Imported #{count} result#{if count != 1, do: "s"}.")
+           |> assign(import_errors: nil, importing_results: false, error: nil)
+           |> refresh()}
+        else
+          {:error, errors} -> {:noreply, assign(socket, import_errors: errors)}
+        end
+
+      [] ->
+        {:noreply, assign(socket, import_errors: ["Choose a CSV file first"])}
+    end
+  end
+
+  defp do_pair(socket) do
+    case Engine.pair_next_round(socket.assigns.tournament) do
+      {:ok, round} ->
+        {:noreply, socket |> assign(round_number: round.number, error: nil) |> refresh()}
+
+      {:error, %Ecto.Changeset{}} ->
+        {:noreply, assign(socket, error: "Could not save the round")}
+
+      {:error, reason} ->
+        {:noreply, assign(socket, error: to_string(reason))}
+    end
+  end
+
   defp results, do: @results
 
   # Long JaVaFo failures come through as multi-line output — show a short
@@ -108,6 +162,27 @@ defmodule PairingsEngineWeb.PairingsLive do
   # (the full text is always available by expanding the block).
   defp error_summary(text) do
     text |> String.split("\n", parts: 2) |> hd()
+  end
+
+  # Display-only annotation for a board that involves a player with a
+  # `fixed_board` override (SWAR "special table" — e.g. a wheelchair-access
+  # table) — mirrors `PairingsEngineWeb.PrintController`'s "(table N)" note
+  # on the printed pairing sheet (see docs/printing.md), so the same
+  # information is visible on the Pairings page itself, not just on paper.
+  # Real board renumbering happens nowhere; this purely flags it for the
+  # arbiter.
+  defp fixed_board_note(pairing) do
+    boards =
+      [pairing.white_player, pairing.black_player]
+      |> Enum.reject(&is_nil/1)
+      |> Enum.map(& &1.fixed_board)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.uniq()
+
+    case boards do
+      [] -> ""
+      boards -> " (table #{Enum.join(boards, ", ")})"
+    end
   end
 
   defp player_label(nil), do: ""
@@ -163,6 +238,12 @@ defmodule PairingsEngineWeb.PairingsLive do
         </div>
       </div>
 
+      <div :if={!@setup_complete} class="card error-note" style="display: block; margin: 12px 0">
+        Finish the tournament setup — fill in the name, start date and number of rounds in
+        <.link navigate={~p"/t/#{@tournament.id}/settings"}>Settings</.link>
+        before pairing.
+      </div>
+
       <div class="round-picker">
         <button
           :for={n <- 1..@tournament.rounds_count}
@@ -193,7 +274,13 @@ defmodule PairingsEngineWeb.PairingsLive do
             class="pe-btn primary"
             phx-click="pair"
             disabled={!@can_pair}
-            title={if !@can_pair, do: "Previous round still has missing results"}
+            title={
+              cond do
+                !@setup_complete -> "Finish the tournament setup in Settings before pairing"
+                !@can_pair -> "Previous round still has missing results"
+                true -> nil
+              end
+            }
           >
             Pair round {@round_number} (JaVaFo)
           </button>
@@ -221,6 +308,40 @@ defmodule PairingsEngineWeb.PairingsLive do
           >
             Print result cards
           </a>
+          <a
+            :if={@round != nil}
+            class="pe-btn"
+            href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}&limit=3"}
+            target="_blank"
+            title="Print just the first 3 result cards, to check printer alignment before printing the full stack"
+          >
+            Test print (3)
+          </a>
+          <a
+            :if={@round != nil}
+            class="pe-btn"
+            href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}&order=stack"}
+            target="_blank"
+            title="Reorders cards so guillotine-cutting the printed stack into 8 piles and collating them recovers board order"
+          >
+            Print result cards (stack-cut order)
+          </a>
+          <a
+            :if={@round != nil}
+            class="pe-btn"
+            href={~p"/t/#{@tournament.id}/export/pgn?round=#{@round_number}"}
+            target="_blank"
+            title="Metadata-only PGN — no moves are recorded in OpenPairings"
+          >
+            Export PGN
+          </a>
+          <button
+            :if={@round != nil}
+            class="pe-btn"
+            phx-click="toggle_import_results"
+          >
+            Import results (CSV)
+          </button>
           <button
             :if={@round != nil && @round_number == @paired_rounds}
             class="pe-btn danger-link"
@@ -239,8 +360,55 @@ defmodule PairingsEngineWeb.PairingsLive do
         </details>
       </div>
 
+      <form
+        :if={@importing_results}
+        id="results-csv-import-form"
+        class="card"
+        phx-submit="import_results_csv"
+        phx-change="validate_results_csv"
+        style="margin: 8px 0"
+      >
+        <h3 style="margin-top: 0">Import results (CSV) — round {@round_number}</h3>
+        <p class="hint" style="margin-top: 0">
+          One line per board: <code>board,result</code> (or <code>;</code>-separated).
+          Results: <code>1-0</code>, <code>0-1</code>, <code>1/2-1/2</code> (or <code>=</code>),
+          <code>0-0</code> (both lose, played), <code>1-0FF</code>/<code>0-1FF</code> (forfeit win),
+          <code>0-0FF</code> (double forfeit). Boards left out keep their current result.
+        </p>
+
+        <div
+          class={["dropzone", @uploads.results_csv.entries != [] && "has-file"]}
+          phx-drop-target={@uploads.results_csv.ref}
+        >
+          <.live_file_input upload={@uploads.results_csv} class="dropzone-input" />
+          <div class="dropzone-label">
+            <%= if @uploads.results_csv.entries == [] do %>
+              <strong>Choose a .csv file</strong> <span class="hint">or drag and drop it here</span>
+            <% else %>
+              <span :for={entry <- @uploads.results_csv.entries} class="dropzone-file">
+                {entry.client_name}
+              </span>
+            <% end %>
+          </div>
+        </div>
+
+        <p :for={err <- upload_errors(@uploads.results_csv)} class="error-note">{inspect(err)}</p>
+
+        <div :if={@import_errors} class="error-note" style="display: block">
+          <strong>Nothing was saved — fix these and try again:</strong>
+          <ul style="margin: 6px 0 0">
+            <li :for={err <- @import_errors}>{err}</li>
+          </ul>
+        </div>
+
+        <div class="actions">
+          <button type="submit" class="pe-btn primary">Import</button>
+          <button type="button" class="pe-btn" phx-click="toggle_import_results">Cancel</button>
+        </div>
+      </form>
+
       <p class="hint" style="margin: 8px 0">
-        Tip: click a result box and type 1 / 2 / 3 to enter results rapidly (white win / draw / black win) — focus jumps to the next board automatically.
+        Tip: click a result box and press 1 / 2 / 3 (top row or numpad, any keyboard layout) to enter results rapidly (white win / draw / black win) — focus jumps to the next board automatically.
       </p>
 
       <div class="card table-card">
@@ -269,7 +437,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               </td>
             </tr>
             <tr :for={pairing <- (@round && @round.pairings) || []}>
-              <td class="num">{pairing.board}</td>
+              <td class="num">{pairing.board}{fixed_board_note(pairing)}</td>
               <td><strong>{player_label(pairing.white_player)}</strong></td>
               <td style="text-align: center">
                 <%= if pairing.result == "bye" do %>
@@ -307,12 +475,20 @@ defmodule PairingsEngineWeb.PairingsLive do
         // draw / black win) and moves focus to the next board's result
         // select, so a sequence like "131312" fills in six boards in a row
         // without touching the mouse.
+        // Mapped by PHYSICAL key (e.code) so the top-row/numpad 1/2/3 keys
+        // work on any keyboard layout (e.g. AZERTY, where the top row
+        // produces & é " without Shift). e.key is kept as a fallback.
+        const CODE_TO_VALUE = {
+          "Digit1": "1-0", "Numpad1": "1-0",
+          "Digit2": "1/2-1/2", "Numpad2": "1/2-1/2",
+          "Digit3": "0-1", "Numpad3": "0-1"
+        };
         const KEY_TO_VALUE = {"1": "1-0", "2": "1/2-1/2", "3": "0-1"};
 
         export default {
           mounted() {
             this.onKeydown = (e) => {
-              const value = KEY_TO_VALUE[e.key];
+              const value = CODE_TO_VALUE[e.code] || KEY_TO_VALUE[e.key];
               if (!value) return; // let every other key behave natively
 
               const hasOption = Array.from(this.el.options).some((o) => o.value === value);
@@ -327,6 +503,10 @@ defmodule PairingsEngineWeb.PairingsLive do
               // LiveView's phx-change listens for a real "change" event
               // bubbling up from the form.
               this.el.dispatchEvent(new Event("change", {bubbles: true}));
+
+              // Close any open native dropdown before moving focus, or it
+              // stays visibly open over the next board's select.
+              this.el.blur();
 
               this.focusNextBoard();
             };

@@ -11,7 +11,7 @@ defmodule PairingsEngine.Pairing do
 
   import Ecto.Query
   require Logger
-  alias PairingsEngine.{Repo, Trf, Tournaments}
+  alias PairingsEngine.{Repo, Trf, Tournaments, Exclusions}
   alias PairingsEngine.Tournaments.{Player, Round, Pairing, Tournament}
 
   def javafo_jar do
@@ -279,8 +279,10 @@ defmodule PairingsEngine.Pairing do
     # XXP: one line per forbidden pairing (see
     # PairingsEngine.Tournaments.list_forbidden_pairings/1 and
     # docs/forbidden-pairings.md) — JaVaFo's TRF extension for "these
-    # starting ranks must never be paired against each other".
-    trf <> forbidden_pairs_lines(tournament.id, players)
+    # starting ranks must never be paired against each other". Club/federation
+    # exclusion rules (PairingsEngine.Exclusions) add further XXP lines the
+    # same way, deduplicated against the explicit ones above.
+    trf <> forbidden_pairs_lines(tournament.id, players) <> exclusion_pairs_lines(tournament, players)
   end
 
   @doc """
@@ -300,6 +302,38 @@ defmodule PairingsEngine.Pairing do
     |> Enum.reject(fn {a, b} -> is_nil(a) or is_nil(b) end)
     |> Enum.map_join(fn {a, b} -> "XXP #{a} #{b}\r\n" end)
   end
+
+  @doc """
+  Builds one `"XXP a b\\r\\n"` TRF extension line per pair excluded by
+  `tournament`'s club/federation exclusion rules (see
+  `PairingsEngine.Exclusions.excluded_pairs/2`), translated to starting
+  ranks the same way `forbidden_pairs_lines/2` does. A pair already covered
+  by an explicit forbidden pairing is skipped — JaVaFo doesn't need to hear
+  the same rule twice — as is any pair where a player isn't in `players` or
+  hasn't been assigned a `pairing_number` yet.
+  """
+  def exclusion_pairs_lines(tournament, players) do
+    rank_by_player_id = Map.new(players, &{&1.id, &1.pairing_number})
+
+    explicit_rank_pairs =
+      tournament.id
+      |> Tournaments.list_forbidden_pairings()
+      |> Enum.map(fn fp -> {rank_by_player_id[fp.player_a_id], rank_by_player_id[fp.player_b_id]} end)
+      |> Enum.reject(fn {a, b} -> is_nil(a) or is_nil(b) end)
+      |> MapSet.new(&normalize_rank_pair/1)
+
+    tournament
+    |> Exclusions.excluded_pairs(players)
+    |> Enum.map(fn {a, b} -> {rank_by_player_id[a.id], rank_by_player_id[b.id]} end)
+    |> Enum.reject(fn {a, b} -> is_nil(a) or is_nil(b) end)
+    |> Enum.map(&normalize_rank_pair/1)
+    |> Enum.uniq()
+    |> Enum.reject(&MapSet.member?(explicit_rank_pairs, &1))
+    |> Enum.map_join(fn {a, b} -> "XXP #{a} #{b}\r\n" end)
+  end
+
+  defp normalize_rank_pair({a, b}) when a <= b, do: {a, b}
+  defp normalize_rank_pair({a, b}), do: {b, a}
 
   @doc """
   Builds the `PairingsEngine.Trf.serialize/1`-shaped player list (rank,

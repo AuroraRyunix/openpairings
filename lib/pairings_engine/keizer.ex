@@ -86,7 +86,7 @@ defmodule PairingsEngine.Keizer do
 
   import Ecto.Query
 
-  alias PairingsEngine.{Repo, Tournaments}
+  alias PairingsEngine.{Repo, Tournaments, Exclusions}
   alias PairingsEngine.Pairing, as: Engine
   alias PairingsEngine.Tournaments.{Player, Round, Pairing, Tournament}
 
@@ -134,7 +134,7 @@ defmodule PairingsEngine.Keizer do
     ranked_eligible = Enum.filter(order, &MapSet.member?(eligible_ids, &1.id))
 
     history = build_history(games)
-    forbidden = read_forbidden(tournament.id)
+    forbidden = read_forbidden(tournament, ladder_pool)
 
     case match_round(ranked_eligible, history, forbidden) do
       {:error, reason} ->
@@ -281,10 +281,24 @@ defmodule PairingsEngine.Keizer do
     {games, byes}
   end
 
-  defp read_forbidden(tournament_id) do
-    tournament_id
-    |> Tournaments.list_forbidden_pairings()
-    |> MapSet.new(&pair_key(&1.player_a_id, &1.player_b_id))
+  # Unions explicit forbidden pairings with club/federation exclusion rules
+  # (PairingsEngine.Exclusions — see docs/forbidden-pairings.md), both keyed
+  # by `pair_key/2` (player ids) since that's the id space `match_round/3`
+  # and friends already work in. `players` only needs to cover this round's
+  # ladder pool — Exclusions.excluded_pairs/2 only ever produces pairs drawn
+  # from whatever list it's given.
+  defp read_forbidden(tournament, players) do
+    explicit =
+      tournament.id
+      |> Tournaments.list_forbidden_pairings()
+      |> MapSet.new(&pair_key(&1.player_a_id, &1.player_b_id))
+
+    exclusions =
+      tournament
+      |> Exclusions.excluded_pairs(players)
+      |> MapSet.new(fn {a, b} -> pair_key(a.id, b.id) end)
+
+    MapSet.union(explicit, exclusions)
   end
 
   defp create_round(tournament, coloured_pairs, bye_player, next_number) do

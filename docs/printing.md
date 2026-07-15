@@ -14,7 +14,7 @@ sockets).
 | Player cards | `GET /t/:id/print/cards` | No | One card per player with **every** round of the tournament listed (rows 1..`rounds_count`), never limited to a single round — cards are meant to be filled in over the board, round by round, not reprinted per round. |
 | Pairing list | `GET /t/:id/print/pairings?round=n` | Yes | Board-by-board pairings for round `n`. `round` defaults to `1` if omitted. 404s with "Round n has not been paired yet" if round `n` has no pairings. |
 | Standings | `GET /t/:id/print/standings?round=n` | Yes (optional) | See "Round-scoped standings" below. Omit `round` for the current/overall standings. 404s the same way as the pairing list if round `n` hasn't been paired. |
-| Result cards | `GET /t/:id/print/results?round=n` | Yes | One card per board of round `n` (byes skipped). `round` defaults to the **latest paired round** if omitted (unlike the pairing list, which defaults to round 1). 404s the same way as the pairing list if round `n` hasn't been paired. |
+| Result cards | `GET /t/:id/print/results?round=n` | Yes | One card per board of round `n` (byes skipped). `round` defaults to the **latest paired round** if omitted (unlike the pairing list, which defaults to round 1). 404s the same way as the pairing list if round `n` hasn't been paired. Also accepts `?limit=L` (test print) and `?order=stack` (stack-cut imposition) — see "Result cards" below. |
 | Cross table | `GET /t/:id/print/crosstable` | No (always current) | Swiss/Keizer: full round-by-round cross table, one row per player in current standings order, one column per played round. Round robin: the classic players×players grid instead — see "Cross table" below. |
 
 ## The `round` query parameter
@@ -70,6 +70,61 @@ every eighth card (`@page { size: A4 portrait }` plus `nth-child(8n)` — see
 `@result_cards_css` in the controller). This is a page-specific `<style>`
 block layered on top of the shared `@print_css`, not a change to the shared
 styles.
+
+### `?limit=L` — test print
+
+`GET /t/:id/print/results?round=n&limit=L` renders only the first `L` cards
+(in whatever order the request would otherwise use — board order by
+default, or the stack-cut order below if `?order=stack` is also given).
+This lets an arbiter print a single test page to check printer alignment
+before committing to a full stack of result-card pages. `L` must be a
+positive integer; anything else (missing, blank, zero, negative,
+non-numeric) is treated as "no limit" and the full print is rendered — a
+bad `limit` value never errors or 404s. The Pairings page's "Test print (3)"
+button links here with `limit=3`.
+
+### `?order=stack` — stack-cut imposition
+
+`GET /t/:id/print/results?round=n&order=stack` reorders the cards for
+**stack-cut printing**: print every page, stack the whole printout, then
+make 8 straight guillotine cuts (one between each pair of card rows) to
+turn the stack into 8 piles — one pile per card *slot* (all the
+top-of-page cards form pile 1, all the second-from-top cards form pile 2,
+and so on). Collate the piles top-to-bottom, pile 1 first.
+
+With the **default** ordering (no `?order`), pile 1 would end up holding
+boards 1, 9, 17, ... (every 8th board) — not useful. With `?order=stack`,
+`PrintController.stack_cut_cards/3` instead places board index `s*P + p`
+(0-based into the board-ordered list) into slot `s` (0-based, top to
+bottom on the page) of page `p` (0-based), where `P` is the total page
+count. Collating the piles afterwards then recovers plain board order 1,
+2, 3, .... Slots that run out of real cards — always in the *last* pile(s),
+since earlier piles fill first — render as blank, borderless placeholder
+cards (`.rc-blank`) purely to keep every page's card count fixed at 8 (and
+so the cut geometry intact); they carry no content and aren't meant to be
+printed on or given to anyone.
+
+Worked example — 20 cards, 8 per page → `P = ceil(20/8) = 3` pages:
+
+```
+slot 0: boards  1, 2, 3
+slot 1: boards  4, 5, 6
+slot 2: boards  7, 8, 9
+slot 3: boards 10,11,12
+slot 4: boards 13,14,15
+slot 5: boards 16,17,18
+slot 6: boards 19,20,blank
+slot 7: blank,blank,blank
+```
+
+(1-based board numbers shown for readability; the code itself works in
+0-based indices — see the comment above `stack_cut_cards/3`.) Every pile is
+full except the last two, exactly as required for the cut to make sense.
+
+`?order=stack` combines naturally with `?limit`: `limit` is applied first
+(trimming the board-ordered list), and the stack-cut imposition then runs
+over whatever's left. The Pairings page's "Print result cards (stack-cut
+order)" button links here with `order=stack`.
 
 ## Cross table
 
@@ -205,7 +260,7 @@ If `tournament.categories` is non-empty, `PrintController.standings/2`:
 
 | Page | Buttons | Behaviour |
 |---|---|---|
-| Pairings (`/t/:id/pairings`) | "Print pairings", "Print standings", "Print result cards" | All three open in a new tab, scoped to whichever round is currently selected in the round picker (`?round=<selected round>`). Only shown once that round has been paired. |
+| Pairings (`/t/:id/pairings`) | "Print pairings", "Print standings", "Print result cards", "Test print (3)", "Print result cards (stack-cut order)" | All open in a new tab, scoped to whichever round is currently selected in the round picker (`?round=<selected round>`). Only shown once that round has been paired. The last two are the result cards document with `limit=3` and `order=stack` respectively — see "Result cards" below. |
 | Standings (`/t/:id/standings`) | "Print" | Opens the overall standings document (no `round` param) in a new tab — this page has no round picker, so it always reflects the current/latest state. |
 | Players (`/t/:id/players`) | "Print player list", "Print player cards" | Roster-wide, no round scoping — open `/print/players` and `/print/cards` in a new tab. |
 | Print hub (`/t/:id/print`) | "Print…" per document | Links pairings and result cards to the latest paired round, standings to the overall figures, and the cross table to the always-current picture (available even with zero rounds paired — it just has no round columns yet). |

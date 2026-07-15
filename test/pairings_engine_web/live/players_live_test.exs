@@ -217,7 +217,11 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
   describe "KBSB autofill (add-player form)" do
     setup %{scope: scope} do
       {:ok, tournament} =
-        Tournaments.create_tournament(scope, %{"name" => "KBSB Add Test", "type" => "swiss"})
+        Tournaments.create_tournament(scope, %{
+          "name" => "KBSB Add Test",
+          "type" => "swiss",
+          "start_date" => "2026-07-15"
+        })
 
       Repo.insert!(%KbsbPlayer{
         national_id: "12345",
@@ -380,6 +384,139 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       html = lv |> element("button", "KBSB") |> render_click()
 
       assert html =~ "No matching KBSB player found"
+    end
+  end
+
+  describe "bulk rating refresh (Refresh ratings button)" do
+    setup %{scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Refresh Test", "type" => "swiss"})
+
+      %{tournament: tournament}
+    end
+
+    test "no players registered shows the empty-diff message", %{conn: conn, tournament: tournament} do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      html = lv |> element("button", "Refresh ratings") |> render_click()
+
+      assert html =~ "Everything up to date"
+      assert html =~ "0 players checked"
+    end
+
+    test "shows the diff table and applies changes on Apply", %{conn: conn, tournament: tournament} do
+      {:ok, player} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "Alice",
+          "fide_id" => "555555",
+          "fide_rating" => "1900"
+        })
+
+      Repo.insert!(%FidePlayer{
+        fide_id: 555_555,
+        name: "Alice",
+        federation: "BEL",
+        title: "IM",
+        standard_rating: 2100
+      })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      html = lv |> element("button", "Refresh ratings") |> render_click()
+
+      assert html =~ "FIDE rating"
+      assert html =~ "1900"
+      assert html =~ "2100"
+      assert html =~ "Title"
+      assert html =~ "1 player checked"
+      assert html =~ "1 change"
+
+      lv |> element("button", "Apply") |> render_click()
+      # This click both writes (via RatingRefresh.apply/2) and broadcasts —
+      # synchronize before asserting so the reload always lands before we look.
+      html = render(lv)
+
+      refute html =~ "phx-click-away=\"close_rating_refresh\""
+
+      updated = Tournaments.get_player!(player.id)
+      assert updated.fide_rating == 2100
+      assert updated.title == "IM"
+    end
+
+    test "Cancel closes the modal without writing anything", %{conn: conn, tournament: tournament} do
+      {:ok, player} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "Bob",
+          "fide_id" => "42",
+          "fide_rating" => "1500"
+        })
+
+      Repo.insert!(%FidePlayer{fide_id: 42, name: "Bob", standard_rating: 1800})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      lv |> element("button", "Refresh ratings") |> render_click()
+      html = lv |> element("button", "Cancel") |> render_click()
+
+      refute html =~ "phx-click-away=\"close_rating_refresh\""
+      assert Tournaments.get_player!(player.id).fide_rating == 1500
+    end
+  end
+
+  describe "setup-completion gate" do
+    test "adding a player is blocked, with a banner, when the tournament is missing a start date",
+         %{conn: conn, scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "No Start Date", "type" => "swiss"})
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      assert html =~ "Finish the tournament setup"
+      assert html =~ ~s(href="/t/#{tournament.id}/settings")
+
+      button = lv |> element("button", "Add player")
+      assert render(button) =~ "disabled"
+
+      html = render_click(lv, "add", %{})
+      assert html =~ "Finish the tournament setup"
+      refute html =~ ~s(name="player[name]")
+
+      html = render_click(lv, "save", %{"player" => %{"name" => "Sneaky"}})
+      assert html =~ "Finish the tournament setup"
+      assert Tournaments.list_players(tournament.id) == []
+    end
+
+    test "adding a player is allowed once the tournament setup is complete", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "Complete Setup",
+          "type" => "swiss",
+          "start_date" => "2026-07-15"
+        })
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      refute html =~ "Finish the tournament setup"
+
+      button = lv |> element("button", "Add player")
+      refute render(button) =~ "disabled"
+
+      html = render_click(lv, "add", %{})
+      assert html =~ ~s(name="player[name]")
+
+      html = lv |> form("form", %{"player" => %{"name" => "New Player"}}) |> render_submit()
+
+      assert html =~ "New Player"
+
+      # create_player broadcasts :players on the tournament's topic, which
+      # this `lv` is subscribed to — drain the self-broadcast before
+      # teardown (same race as the other PlayersLive save tests above).
+      render(lv)
+
+      assert Enum.any?(Tournaments.list_players(tournament.id), &(&1.name == "New Player"))
     end
   end
 end

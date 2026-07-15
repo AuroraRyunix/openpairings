@@ -29,6 +29,7 @@ defmodule PairingsEngineWeb.Router do
       live "/t/:id/standings", StandingsLive
       live "/t/:id/print", PrintLive
       live "/t/:id/settings", SettingsLive
+      live "/t/:id/categories", CategoriesLive
       live "/t/:id/live", LiveRoundLive
       live "/t/:id/norms", NormsLive
       live "/invites/:token", InviteLive
@@ -47,6 +48,7 @@ defmodule PairingsEngineWeb.Router do
     get "/t/:id/norms/it4", NormsController, :it4
 
     get "/t/:id/export/trf", ExportController, :trf
+    get "/t/:id/export/pgn", ExportController, :pgn
     get "/t/:id/export/json", ExportController, :json
     get "/export/tournaments.json", ExportController, :all_json
   end

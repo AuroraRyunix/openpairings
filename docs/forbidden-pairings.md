@@ -93,23 +93,88 @@ asked to pair this round, and a rank-less id on an `XXP` line would be
 meaningless (or could even collide with another player's rank by
 coincidence).
 
-### Keizer — respected once implemented
+### Keizer — implemented
 
-`PairingsEngine.Keizer.pair_next_round/1` is still a stub today (see
-`docs/pairing-systems.md`, returns `{:error, :not_implemented}`), but it's
-intended to read `Tournaments.list_forbidden_pairings/1` the same way and
-exclude forbidden opponents when matching players on the running Keizer
-list, once its actual pairing logic lands.
+`PairingsEngine.Keizer.pair_next_round/1` reads
+`Tournaments.list_forbidden_pairings/1` (via its private `read_forbidden/2`)
+into a `MapSet` keyed by `pair_key/2` (the pair of player ids, ordered
+`{min, max}`) and excludes forbidden opponents when matching players
+top-down on the running Keizer list — see `PairingsEngine.Keizer`'s
+module doc, "6. Pairing". Club/federation exclusion rules (below) are
+unioned into that same `MapSet`, so both kinds of rule are enforced by the
+identical matcher.
 
 ### Round robin (Berger) — ignored by design
 
-`PairingsEngine.RoundRobin` does **not** consult forbidden pairings. A round
-robin's schedule (every player meets every other player once, or twice for
-`rr_cycles: 2`) is fixed by definition — there's no pairing *decision* left
-to influence, and skipping a scheduled round-robin game would leave a hole
-in the schedule rather than substituting a different opponent. If an
-organiser needs to guarantee two players never meet, round robin isn't the
-right pairing system for that field.
+`PairingsEngine.RoundRobin` does **not** consult forbidden pairings or
+club/federation exclusion rules. A round robin's schedule (every player
+meets every other player once, or twice for `rr_cycles: 2`) is fixed by
+definition — there's no pairing *decision* left to influence, and skipping
+a scheduled round-robin game would leave a hole in the schedule rather than
+substituting a different opponent. If an organiser needs to guarantee two
+players never meet, round robin isn't the right pairing system for that
+field. The Settings page's exclusion-rules card says as much.
+
+## Club / federation exclusions (`PairingsEngine.Exclusions`)
+
+Explicit forbidden pairings (above) name two specific players. For the
+common case — "nobody from Club X should play a clubmate", or "no two
+players from the same federation" — naming every pair by hand doesn't
+scale. Each tournament instead carries two independent rules, one for club
+and one for federation, stored directly on `tournaments`:
+
+```
+tournaments
+  club_exclusion       "none" | "all" | "listed"  (default "none")
+  club_exclusion_list  comma-separated club names, only used by "listed"
+  fed_exclusion         "none" | "all" | "listed"  (default "none")
+  fed_exclusion_list    comma-separated federation names, only used by "listed"
+```
+
+Rule semantics, identical on both axes:
+
+* `"none"` — no exclusions from this axis.
+* `"all"` — every pair of players sharing the same non-blank club/federation
+  is excluded.
+* `"listed"` — only pairs sharing a club/federation whose name (trimmed,
+  case-insensitive) appears in the axis's list.
+
+A player with a blank club/federation is never excluded on that axis under
+any rule. Club and federation rules are independent and their results are
+unioned — a pair excluded by both counts once. The two `_list` fields are
+normalized on save (`PairingsEngine.Tournaments.Tournament`'s changeset):
+each comma-separated entry is trimmed and blanks are dropped.
+
+`PairingsEngine.Exclusions.excluded_pairs/2` is the single pure function
+that turns a tournament's rules plus a list of players into the actual set
+of excluded pairs — as `{player, player}` tuples of the full
+`PairingsEngine.Tournaments.Player` struct (not ids or ranks), canonically
+ordered `a.id <= b.id`, so each call site maps to whatever id space it
+needs:
+
+* `PairingsEngine.Pairing.exclusion_pairs_lines/2` maps each pair to
+  starting ranks and emits `"XXP a b\r\n"` lines, the same way
+  `forbidden_pairs_lines/2` does for explicit forbidden pairings — called
+  right after it in `javafo_input/2`, and deduplicated against it (a pair
+  already covered by an explicit forbidden pairing isn't emitted twice).
+* `PairingsEngine.Keizer`'s `read_forbidden/2` maps each pair to player ids
+  and unions it into the same `MapSet` explicit forbidden pairings feed.
+
+Like explicit forbidden pairings, round robin does not consult these rules
+at all (see above).
+
+### The UI (Settings page)
+
+The "Forbidden pairings" card also has a "Club / federation exclusions"
+section: a `<select>` per axis (None / All shared clubs-federations / Only
+listed), each showing its matching comma-separated text input only when set
+to "Only listed", plus a live hint ("N pair(s) currently excluded by these
+rules") computed via `Exclusions.excluded_pairs/2` against the tournament's
+full roster. Saving persists through
+`PairingsEngine.Tournaments.update_tournament/2` immediately, the same
+write (and `:settings` broadcast) every other small card on this page
+uses — there's no separate "save path" to keep in sync with the big form's
+"Save" button.
 
 ## Interaction with the JSON backup
 

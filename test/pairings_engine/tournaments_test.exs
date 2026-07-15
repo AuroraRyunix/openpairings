@@ -59,6 +59,73 @@ defmodule PairingsEngine.TournamentsTest do
     end
   end
 
+  describe "recycle bin (soft delete, 3-month retention)" do
+    test "soft_delete_tournament/1 sets deleted_at and removes it from list_tournaments/1" do
+      owner = user_scope()
+      {:ok, tournament} = Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+
+      assert {:ok, deleted} = Tournaments.soft_delete_tournament(tournament)
+      assert %DateTime{} = deleted.deleted_at
+
+      refute Enum.any?(Tournaments.list_tournaments(owner), fn {t, _count, _owner?} -> t.id == tournament.id end)
+    end
+
+    test "a binned tournament is not viewable through the normal fetch paths, but shows up in list_deleted_tournaments/1" do
+      owner = user_scope()
+      {:ok, tournament} = Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+      {:ok, _} = Tournaments.soft_delete_tournament(tournament)
+
+      assert_raise Ecto.NoResultsError, fn -> Tournaments.get_user_tournament!(owner, tournament.id) end
+      assert Tournaments.get_user_tournament(owner, tournament.id) == nil
+      assert_raise Ecto.NoResultsError, fn -> Tournaments.get_authorized_tournament!(owner, tournament.id) end
+      assert Tournaments.get_authorized_tournament(owner, tournament.id) == nil
+      assert_raise Ecto.NoResultsError, fn -> Tournaments.get_tournament!(tournament.id) end
+
+      assert [binned] = Tournaments.list_deleted_tournaments(owner)
+      assert binned.id == tournament.id
+    end
+
+    test "restore_tournament/1 clears deleted_at and brings it back into list_tournaments/1" do
+      owner = user_scope()
+      {:ok, tournament} = Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+      {:ok, binned} = Tournaments.soft_delete_tournament(tournament)
+
+      assert {:ok, restored} = Tournaments.restore_tournament(binned)
+      assert restored.deleted_at == nil
+
+      assert Enum.any?(Tournaments.list_tournaments(owner), fn {t, _count, _owner?} -> t.id == tournament.id end)
+      assert Tournaments.list_deleted_tournaments(owner) == []
+    end
+
+    test "purge_tournament/1 hard-deletes the row" do
+      owner = user_scope()
+      {:ok, tournament} = Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+      {:ok, binned} = Tournaments.soft_delete_tournament(tournament)
+
+      assert {:ok, _} = Tournaments.purge_tournament(binned)
+      refute Repo.get(Tournament, tournament.id)
+    end
+
+    test "purge_expired_tournaments/0 purges rows binned over 90 days ago but keeps recent ones" do
+      owner = user_scope()
+      {:ok, old} = Tournaments.create_tournament(owner, %{"name" => "Old", "type" => "swiss"})
+      {:ok, recent} = Tournaments.create_tournament(owner, %{"name" => "Recent", "type" => "swiss"})
+
+      old
+      |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.add(-100, :day) |> DateTime.truncate(:second))
+      |> Repo.update!()
+
+      recent
+      |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.add(-10, :day) |> DateTime.truncate(:second))
+      |> Repo.update!()
+
+      assert Tournaments.purge_expired_tournaments() == 1
+
+      refute Repo.get(Tournament, old.id)
+      assert Repo.get(Tournament, recent.id)
+    end
+  end
+
   describe "update_pairing_result/2" do
     setup do
       tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 1})
@@ -647,6 +714,142 @@ defmodule PairingsEngine.TournamentsTest do
 
       assert {:ok, _} = Tournaments.remove_forbidden_pairing(t, fp.id)
       assert_receive {:tournament_changed, ^tid, :settings}
+    end
+  end
+
+  describe "extra points (SWAR parity #12 XtPts) — Tournament.changeset/2 normalization" do
+    test "count_extra_points defaults false and extra_points_bands defaults blank" do
+      tournament = Repo.insert!(%Tournament{name: "Defaults", type: "swiss", rounds_count: 3})
+      assert tournament.count_extra_points == false
+      assert tournament.extra_points_bands == ""
+    end
+
+    test "extra_points_bands is normalized: trimmed, sorted ascending, integer bonuses without a decimal" do
+      tournament = Repo.insert!(%Tournament{name: "Norm", type: "swiss", rounds_count: 3})
+
+      {:ok, updated} =
+        Tournaments.update_tournament(tournament, %{"extra_points_bands" => " 1600:0.5 , 1400:1 "})
+
+      assert updated.extra_points_bands == "1400:1, 1600:0.5"
+    end
+
+    test "rejects a malformed extra_points_bands string with a changeset error" do
+      tournament = Repo.insert!(%Tournament{name: "Bad", type: "swiss", rounds_count: 3})
+
+      assert {:error, changeset} =
+               Tournaments.update_tournament(tournament, %{"extra_points_bands" => "not-a-band"})
+
+      assert %{extra_points_bands: [_msg]} = errors_on(changeset)
+    end
+
+    test "rejects a negative threshold or negative bonus" do
+      tournament = Repo.insert!(%Tournament{name: "Negative", type: "swiss", rounds_count: 3})
+
+      assert {:error, _} = Tournaments.update_tournament(tournament, %{"extra_points_bands" => "-100:1"})
+      assert {:error, _} = Tournaments.update_tournament(tournament, %{"extra_points_bands" => "1400:-1"})
+    end
+
+    test "blank extra_points_bands is valid" do
+      tournament = Repo.insert!(%Tournament{name: "Blank", type: "swiss", rounds_count: 3})
+      assert {:ok, updated} = Tournaments.update_tournament(tournament, %{"extra_points_bands" => "  "})
+      assert updated.extra_points_bands == ""
+    end
+
+    test "count_extra_points can be toggled on" do
+      tournament = Repo.insert!(%Tournament{name: "Toggle", type: "swiss", rounds_count: 3})
+      assert {:ok, updated} = Tournaments.update_tournament(tournament, %{"count_extra_points" => true})
+      assert updated.count_extra_points == true
+    end
+  end
+
+  describe "Tournament.parse_extra_points_bands/1 and band_extra_points/2" do
+    test "parses a well-formed bands string into sorted-by-input {threshold, bonus} pairs" do
+      assert {:ok, [{1600, 0.5}, {1400, 1.0}]} = Tournament.parse_extra_points_bands("1600:0.5, 1400:1")
+    end
+
+    test "blank/nil input parses to an empty list" do
+      assert {:ok, []} = Tournament.parse_extra_points_bands("")
+      assert {:ok, []} = Tournament.parse_extra_points_bands("   ")
+      assert {:ok, []} = Tournament.parse_extra_points_bands(nil)
+    end
+
+    test "rejects malformed tokens" do
+      assert :error = Tournament.parse_extra_points_bands("1400")
+      assert :error = Tournament.parse_extra_points_bands("abc:1")
+      assert :error = Tournament.parse_extra_points_bands("1400:abc")
+      assert :error = Tournament.parse_extra_points_bands("1400:1:2")
+    end
+
+    test "a rated player matches the lowest band whose threshold they're below" do
+      bands = [{1400, 1.0}, {1600, 0.5}]
+
+      # Below both thresholds -> lowest band wins (bigger bonus).
+      assert Tournament.band_extra_points(bands, 1300) == 1.0
+      # At the boundary: rating == threshold does NOT count as "below" it.
+      assert Tournament.band_extra_points(bands, 1400) == 0.5
+      # Below only the higher threshold.
+      assert Tournament.band_extra_points(bands, 1550) == 0.5
+      # At/above every threshold -> no match.
+      assert Tournament.band_extra_points(bands, 1600) == 0.0
+      assert Tournament.band_extra_points(bands, 2000) == 0.0
+    end
+
+    test "an unrated player (rating 0) only matches an explicit 0:bonus band" do
+      assert Tournament.band_extra_points([{1400, 1.0}], 0) == 0.0
+      assert Tournament.band_extra_points([{0, 0.75}, {1400, 1.0}], 0) == 0.75
+    end
+
+    test "no bands configured -> everyone gets 0.0" do
+      assert Tournament.band_extra_points([], 1200) == 0.0
+      assert Tournament.band_extra_points([], 0) == 0.0
+    end
+  end
+
+  describe "apply_extra_points_bands/1" do
+    setup do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "Bands Apply",
+          type: "swiss",
+          rounds_count: 3,
+          extra_points_bands: "1400:1, 1600:0.5"
+        })
+
+      low = Repo.insert!(%Player{tournament_id: tournament.id, name: "Low", fide_rating: 1300})
+      mid = Repo.insert!(%Player{tournament_id: tournament.id, name: "Mid", fide_rating: 1550})
+      high = Repo.insert!(%Player{tournament_id: tournament.id, name: "High", fide_rating: 2000, extra_points: 2.0})
+      unrated = Repo.insert!(%Player{tournament_id: tournament.id, name: "Unrated"})
+
+      %{tournament: tournament, low: low, mid: mid, high: high, unrated: unrated}
+    end
+
+    test "sets each player's extra_points from the bands, overwriting existing values, matched counts only bonus > 0",
+         %{tournament: tournament, low: low, mid: mid, high: high, unrated: unrated} do
+      assert {:ok, %{matched: 2, total: 4}} = Tournaments.apply_extra_points_bands(tournament)
+
+      assert Repo.reload!(low).extra_points == 1.0
+      assert Repo.reload!(mid).extra_points == 0.5
+      # High was previously 2.0 but matches no band -> overwritten to 0.0, not left alone.
+      assert Repo.reload!(high).extra_points == 0.0
+      # Unrated matches nothing since no "0:bonus" band is configured.
+      assert Repo.reload!(unrated).extra_points == 0.0
+    end
+
+    test "fires exactly one tournament_changed broadcast", %{tournament: tournament} do
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
+      tid = tournament.id
+
+      assert {:ok, _} = Tournaments.apply_extra_points_bands(tournament)
+      assert_receive {:tournament_changed, ^tid, :players}
+      refute_receive {:tournament_changed, ^tid, :players}
+    end
+
+    test "with no bands configured, applying sets everyone to 0.0" do
+      tournament = Repo.insert!(%Tournament{name: "No Bands", type: "swiss", rounds_count: 3})
+      p = Repo.insert!(%Player{tournament_id: tournament.id, name: "P", fide_rating: 1000, extra_points: 3.0})
+
+      assert {:ok, %{matched: 0, total: 1}} = Tournaments.apply_extra_points_bands(tournament)
+      assert Repo.reload!(p).extra_points == 0.0
     end
   end
 end

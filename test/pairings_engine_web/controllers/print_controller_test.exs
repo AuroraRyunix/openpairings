@@ -296,6 +296,138 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       html = html_response(conn, 200)
       assert html =~ "nth-child(8n)"
     end
+
+    test "?limit=1 renders exactly one card (test print)", %{conn: conn, scope: scope} do
+      {tournament, _players} = fixture(scope)
+
+      # Round 1 has two boards (A-B, C-D) -> without a limit both appear.
+      full = get(conn, ~p"/t/#{tournament.id}/print/results?round=1") |> html_response(200)
+      assert (full |> String.split(~s(class="result-card")) |> length()) - 1 == 2
+
+      conn = get(conn, ~p"/t/#{tournament.id}/print/results?round=1&limit=1")
+
+      html = html_response(conn, 200)
+      assert (html |> String.split(~s(class="result-card")) |> length()) - 1 == 1
+      # The first board (A vs B, board order) is the one kept.
+      assert html =~ "A"
+      assert html =~ "B"
+      refute html =~ "C"
+      refute html =~ "D"
+    end
+
+    test "a junk ?limit value is ignored and the full print is rendered", %{conn: conn, scope: scope} do
+      {tournament, _players} = fixture(scope)
+
+      full = get(conn, ~p"/t/#{tournament.id}/print/results?round=1") |> html_response(200)
+
+      for junk <- ["0", "-1", "abc", "1.5", ""] do
+        html = get(conn, ~p"/t/#{tournament.id}/print/results?round=1&limit=#{junk}") |> html_response(200)
+        assert html == full
+      end
+    end
+
+    test "?order=stack imposes stack-cut order across three pages", %{conn: conn, scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Stack Cut Test", "type" => "swiss", "rounds_count" => "1"})
+
+      # 40 players -> 20 boards -> 20 cards, board order 1..40 (by
+      # pairing_number / insertion order).
+      players =
+        for n <- 1..40 do
+          Repo.insert!(%Player{tournament_id: tournament.id, name: "P#{n}", pairing_number: n})
+        end
+
+      round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+
+      players
+      |> Enum.chunk_every(2)
+      |> Enum.with_index(1)
+      |> Enum.each(fn {[w, b], board} ->
+        Repo.insert!(%Pairing{round_id: round.id, board: board, white_player_id: w.id, black_player_id: b.id})
+      end)
+
+      html = get(conn, ~p"/t/#{tournament.id}/print/results?round=1&order=stack") |> html_response(200)
+
+      # 20 real cards + enough .rc-blank placeholders to fill out 3 pages of
+      # 8 (24 slots total) -> 4 blanks. See the worked example in
+      # docs/printing.md / the `stack_cut_cards/3` comment: slot 6 has one
+      # blank (board 21 doesn't exist, 0-based index 20), slot 7 is entirely
+      # blank (3 blanks). Blanks are matched on the literal placeholder div
+      # (not the bare "rc-blank" substring, which also appears once in the
+      # page's `<style>` block via the `.result-card.rc-blank` CSS rule).
+      assert (html |> String.split(~s(class="result-card">)) |> length()) - 1 == 20
+      assert (html |> String.split(~s(<div class="result-card rc-blank"></div>)) |> length()) - 1 == 4
+
+      # Extract player names in the order their cards actually render, then
+      # keep only the ones belonging to a White-slot rc-player span (each
+      # card mentions its White player first) — simplest robust check is to
+      # just walk the "P<n>" tokens in document order and assert against the
+      # expected slot -> board mapping directly.
+      names_in_order =
+        Regex.scan(~r/>P(\d+)</, html) |> Enum.map(fn [_, n] -> String.to_integer(n) end)
+
+      # pages = ceil(20/8) = 3. Board on page p (0-based), slot s (0-based)
+      # is board index s*pages + p (0-based); board index i is players
+      # P(2i+1) (white) vs P(2i+2) (black). Walk slots/pages in render order
+      # (page-major, slot-minor) and predict each card's White name.
+      pages = 3
+
+      expected_whites =
+        for p <- 0..(pages - 1), s <- 0..7 do
+          idx = s * pages + p
+          if idx < 20, do: 2 * idx + 1, else: nil
+        end
+        |> Enum.reject(&is_nil/1)
+
+      # 20 boards total (40 players / 2), so 20 White names expected, first
+      # occurrence of each "P<n>" per card is the White player.
+      actual_whites =
+        Regex.scan(~r/rc-who">White<\/span> <strong>P(\d+)/, html)
+        |> Enum.map(fn [_, n] -> String.to_integer(n) end)
+
+      assert actual_whites == expected_whites
+      assert names_in_order != []
+    end
+
+    test "?order=stack combines with ?limit (limit applied first, then imposition)", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Stack Limit Test", "type" => "swiss", "rounds_count" => "1"})
+
+      players =
+        for n <- 1..12 do
+          Repo.insert!(%Player{tournament_id: tournament.id, name: "P#{n}", pairing_number: n})
+        end
+
+      round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+
+      players
+      |> Enum.chunk_every(2)
+      |> Enum.with_index(1)
+      |> Enum.each(fn {[w, b], board} ->
+        Repo.insert!(%Pairing{round_id: round.id, board: board, white_player_id: w.id, black_player_id: b.id})
+      end)
+
+      # 6 boards exist; limit=4 keeps boards 1-4 (players P1..P8) before the
+      # stack-cut imposition runs. pages = ceil(4/8) = 1, so slots 0..3 hold
+      # boards 0..3 and slots 4..7 are blank — i.e. plain board order with 4
+      # blanks appended (a single page never needs reordering).
+      html =
+        get(conn, ~p"/t/#{tournament.id}/print/results?round=1&limit=4&order=stack") |> html_response(200)
+
+      assert (html |> String.split(~s(class="result-card">)) |> length()) - 1 == 4
+      assert (html |> String.split(~s(<div class="result-card rc-blank"></div>)) |> length()) - 1 == 4
+      refute html =~ "P9"
+      refute html =~ "P11"
+
+      actual_whites =
+        Regex.scan(~r/rc-who">White<\/span> <strong>P(\d+)/, html)
+        |> Enum.map(fn [_, n] -> String.to_integer(n) end)
+
+      assert actual_whites == [1, 3, 5, 7]
+    end
   end
 
   describe "crosstable/2" do

@@ -37,6 +37,11 @@ defmodule PairingsEngineWeb.TournamentsLive do
       )
     end
 
+    # Lazy sweep: purge any recycle-bin tournament past its 3-month
+    # retention on every page load, rather than on a schedule — see
+    # `Tournaments.purge_expired_tournaments/0`.
+    Tournaments.purge_expired_tournaments()
+
     {:ok,
      socket
      |> assign(
@@ -48,6 +53,8 @@ defmodule PairingsEngineWeb.TournamentsLive do
        error: nil,
        delete_target: nil,
        delete_confirm_text: "",
+       purge_target: nil,
+       purge_confirm_text: "",
        new_pairing_system: "swiss",
        new_team?: false,
        swar_pending: nil
@@ -59,6 +66,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
      |> allow_upload(:trf, accept: :any, max_entries: 1, max_file_size: 5_000_000)
      |> allow_upload(:backup, accept: ~w(.json), max_entries: 1, max_file_size: 25_000_000)
      |> assign_tournaments()
+     |> assign_deleted_tournaments()
      |> assign_pending_invitations()}
   end
 
@@ -72,11 +80,20 @@ defmodule PairingsEngineWeb.TournamentsLive do
   # "Pending invitations" section stay live without a separate subscription.
   @impl true
   def handle_info({:tournaments_changed, _user_id}, socket) do
-    {:noreply, socket |> assign_tournaments() |> assign_pending_invitations()}
+    {:noreply,
+     socket |> assign_tournaments() |> assign_deleted_tournaments() |> assign_pending_invitations()}
   end
 
   defp assign_tournaments(socket) do
     assign(socket, :tournaments, Tournaments.list_tournaments(socket.assigns.current_scope))
+  end
+
+  defp assign_deleted_tournaments(socket) do
+    assign(
+      socket,
+      :deleted_tournaments,
+      Tournaments.list_deleted_tournaments(socket.assigns.current_scope)
+    )
   end
 
   defp assign_pending_invitations(socket) do
@@ -332,12 +349,57 @@ defmodule PairingsEngineWeb.TournamentsLive do
   def handle_event("delete_confirmed", _params, socket) do
     case socket.assigns do
       %{delete_target: %Tournament{} = tournament, delete_confirm_text: "DELETE"} ->
-        {:ok, _} = Tournaments.delete_tournament(tournament)
+        {:ok, _} = Tournaments.soft_delete_tournament(tournament)
 
         {:noreply,
          socket
          |> assign(delete_target: nil, delete_confirm_text: "")
-         |> assign_tournaments()}
+         |> assign_tournaments()
+         |> assign_deleted_tournaments()}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  ## ---------- Recycle bin (restore / permanently delete) ----------
+
+  def handle_event("restore_tournament", %{"id" => id}, socket) do
+    tournament =
+      Tournaments.get_owned_tournament_including_deleted!(socket.assigns.current_scope, id)
+
+    {:ok, _} = Tournaments.restore_tournament(tournament)
+
+    {:noreply,
+     socket
+     |> assign_tournaments()
+     |> assign_deleted_tournaments()}
+  end
+
+  def handle_event("purge_start", %{"id" => id}, socket) do
+    tournament =
+      Tournaments.get_owned_tournament_including_deleted!(socket.assigns.current_scope, id)
+
+    {:noreply, assign(socket, purge_target: tournament, purge_confirm_text: "")}
+  end
+
+  def handle_event("purge_cancel", _params, socket) do
+    {:noreply, assign(socket, purge_target: nil, purge_confirm_text: "")}
+  end
+
+  def handle_event("purge_confirm_input", %{"confirm" => value}, socket) do
+    {:noreply, assign(socket, purge_confirm_text: value)}
+  end
+
+  def handle_event("purge_confirmed", _params, socket) do
+    case socket.assigns do
+      %{purge_target: %Tournament{} = tournament, purge_confirm_text: "DELETE"} ->
+        {:ok, _} = Tournaments.purge_tournament(tournament)
+
+        {:noreply,
+         socket
+         |> assign(purge_target: nil, purge_confirm_text: "")
+         |> assign_deleted_tournaments()}
 
       _ ->
         {:noreply, socket}
@@ -836,11 +898,58 @@ defmodule PairingsEngineWeb.TournamentsLive do
           </tbody>
         </table>
       </div>
-      
+
+      <div :if={@deleted_tournaments != []} class="card">
+        <h2>Recycle bin</h2>
+
+        <p class="hint" style="margin-top: 0">
+          Deleted tournaments stay here for 3 months, after which they are purged automatically.
+          Restore one to bring it back, or delete it permanently right away.
+        </p>
+
+        <div class="card-table-wrap">
+          <table class="pe-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+
+                <th>Deleted</th>
+
+                <th></th>
+              </tr>
+            </thead>
+
+            <tbody>
+              <tr :for={t <- @deleted_tournaments}>
+                <td><strong>{t.name}</strong></td>
+
+                <td>{t.deleted_at}</td>
+
+                <td style="text-align: right">
+                  <button class="pe-btn" phx-click="restore_tournament" phx-value-id={t.id}>
+                    Restore
+                  </button>
+
+                  <button class="pe-btn danger-link" phx-click="purge_start" phx-value-id={t.id}>
+                    Delete permanently
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <.delete_tournament_modal
         :if={@delete_target}
         tournament={@delete_target}
         confirm_text={@delete_confirm_text}
+      />
+
+      <.purge_tournament_modal
+        :if={@purge_target}
+        tournament={@purge_target}
+        confirm_text={@purge_confirm_text}
       />
     </Layouts.app>
     """
@@ -861,21 +970,19 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <h2>Delete tournament</h2>
         
         <p>
-          This permanently deletes <strong>{@tournament.name}</strong>
-          and all of its players, rounds and results. This cannot be undone.
+          This moves <strong>{@tournament.name}</strong>
+          to the Recycle bin — it disappears from your tournament list and its pages, but you can
+          restore it (or delete it permanently) for the next 3 months, after which it is purged
+          automatically.
         </p>
-        
-        <label class="field">
-          <span>Type DELETE to confirm</span>
-          <input
-            name="confirm"
-            value={@confirm_text}
-            phx-change="delete_confirm_input"
-            autocomplete="off"
-            phx-mounted={JS.focus()}
-          />
-        </label>
-        
+
+        <form id="delete-confirm-form" phx-change="delete_confirm_input">
+          <label class="field">
+            <span>Type DELETE to confirm</span>
+            <input name="confirm" value={@confirm_text} autocomplete="off" phx-mounted={JS.focus()} />
+          </label>
+        </form>
+
         <div class="actions">
           <button
             type="button"
@@ -886,6 +993,48 @@ defmodule PairingsEngineWeb.TournamentsLive do
             Delete tournament
           </button>
            <button type="button" class="pe-btn" phx-click="delete_cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  attr :tournament, Tournament, required: true
+  attr :confirm_text, :string, required: true
+
+  defp purge_tournament_modal(assigns) do
+    ~H"""
+    <div
+      class="modal-overlay"
+      phx-click="purge_cancel"
+      phx-window-keydown="purge_cancel"
+      phx-key="escape"
+    >
+      <div class="modal-card" onclick="event.stopPropagation()" style="max-width: 440px">
+        <h2>Delete permanently</h2>
+
+        <p>
+          This permanently deletes <strong>{@tournament.name}</strong>
+          and all of its players, rounds and results. This cannot be undone.
+        </p>
+
+        <form id="purge-confirm-form" phx-change="purge_confirm_input">
+          <label class="field">
+            <span>Type DELETE to confirm</span>
+            <input name="confirm" value={@confirm_text} autocomplete="off" phx-mounted={JS.focus()} />
+          </label>
+        </form>
+
+        <div class="actions">
+          <button
+            type="button"
+            class="pe-btn danger"
+            phx-click="purge_confirmed"
+            disabled={@confirm_text != "DELETE"}
+          >
+            Delete permanently
+          </button>
+           <button type="button" class="pe-btn" phx-click="purge_cancel">Cancel</button>
         </div>
       </div>
     </div>

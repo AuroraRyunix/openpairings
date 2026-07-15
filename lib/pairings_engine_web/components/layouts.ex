@@ -92,6 +92,13 @@ defmodule PairingsEngineWeb.Layouts do
           <.link navigate={~p"/t/#{@tournament.id}/settings"} class={tab_class(@active == "settings")}>
             Settings
           </.link>
+          <.link
+            :if={@tournament.categories_enabled}
+            navigate={~p"/t/#{@tournament.id}/categories"}
+            class={tab_class(@active == "categories")}
+          >
+            Categories
+          </.link>
         <% end %>
         <.link
           :if={!@tournament}
@@ -117,6 +124,7 @@ defmodule PairingsEngineWeb.Layouts do
           <.link navigate={~p"/users/log-in"}>Log in</.link>
           <.link navigate={~p"/users/register"}>Register</.link>
         <% end %>
+        <span class="app-version">v{app_version()}</span>
       </nav>
     </header>
 
@@ -130,6 +138,18 @@ defmodule PairingsEngineWeb.Layouts do
 
   defp tab_class(true), do: "active"
   defp tab_class(false), do: nil
+
+  @doc """
+  Returns the running application's version string (from mix.exs `version:`),
+  e.g. "0.9.0". Works in dev and in `MIX_ENV=prod mix phx.server` alike.
+  """
+  def app_version do
+    case Application.spec(:pairings_engine, :vsn) do
+      vsn when is_list(vsn) -> List.to_string(vsn)
+      vsn when is_binary(vsn) -> vsn
+      _ -> "0.0.0"
+    end
+  end
 
   @doc """
   Shows the flash group with standard titles and content.

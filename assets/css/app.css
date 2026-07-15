@@ -225,6 +225,14 @@ body {
   font-size: 13px;
 }
 
+.app-version {
+  color: var(--text-soft);
+  font-size: 11px;
+  padding: 6px 0 6px 8px;
+  opacity: 0.65;
+  white-space: nowrap;
+}
+
 .page { width: 100%; margin: 0 auto; padding: 28px 32px 64px; }
 
 .page h1 { font-size: 24px; font-weight: 650; margin: 0 0 4px; }
@@ -651,6 +659,7 @@ button.pe-btn, .pe-btn {
   /* trim the email address from the top bar to leave room for the
      Settings / Log out links next to the brand */
   .topbar-auth .user-email { display: none; }
+  .app-version { display: none; }
 
   .modal-card {
     width: 95vw;

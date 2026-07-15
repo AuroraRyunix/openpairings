@@ -316,4 +316,182 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     assert {:error, errors} = render_upload(input, "file1.trf")
     assert Enum.any?(errors, fn [_ref, reason] -> reason == :too_many_files end)
   end
+
+  ## ---------- deputies trimmed to 2 ----------
+
+  test "only two deputy arbiter slots are offered, not four", %{conn: conn} do
+    {:ok, lv, _html} = live(conn, ~p"/tools/norms")
+    html = upload_files(lv, [{"alpha.trf", trf_text("Alpha Open", [{"Alice", 111}, {"Bob", 222}])}])
+
+    assert html =~ "Deputy 1 — name"
+    assert html =~ "Deputy 2 — name"
+    refute html =~ "Deputy 3 — name"
+    refute html =~ "Deputy 4 — name"
+  end
+
+  ## ---------- junk footer removed ----------
+
+  test "the promotional footer is gone", %{conn: conn} do
+    {:ok, _lv, html} = live(conn, ~p"/tools/norms")
+    refute html =~ "the full free tournament manager these forms come from"
+  end
+
+  ## ---------- officials prefilled from the master file ----------
+
+  test "uploading a file prefills the chief arbiter from it, without clobbering manual edits", %{conn: conn} do
+    {:ok, lv, _html} = live(conn, ~p"/tools/norms")
+
+    trf =
+      Trf.serialize(%{
+        tournament: %{
+          name: "Alpha Open",
+          city: "Ghent",
+          federation: "BEL",
+          start_date: "2026-01-01",
+          end_date: "2026-01-02",
+          type: "swiss",
+          chief_arbiter: "Bossuyt, Wim"
+        },
+        players: [
+          %{rank: 1, name: "Alice", fide_rating: 1900, fide_number: 111, federation: "BEL", points: 0.0, games: []}
+        ]
+      })
+
+    html = upload_files(lv, [{"alpha.trf", trf}])
+
+    assert html =~ "Bossuyt, Wim"
+
+    # Manually overwrite the chief arbiter, then upload a second file whose
+    # own chief arbiter differs — the manual edit must survive.
+    lv
+    |> form("#tools-fields-form", %{"overlay" => %{"chief_arbiter_name" => "Someone Else"}})
+    |> render_change()
+
+    trf2 =
+      Trf.serialize(%{
+        tournament: %{
+          name: "Beta Open",
+          city: "Ghent",
+          federation: "BEL",
+          start_date: "2026-01-01",
+          end_date: "2026-01-02",
+          type: "swiss",
+          chief_arbiter: "Different Arbiter"
+        },
+        players: [
+          %{rank: 1, name: "Carol", fide_rating: 1900, fide_number: 333, federation: "BEL", points: 0.0, games: []}
+        ]
+      })
+
+    html2 = upload_files(lv, [{"beta.trf", trf2}])
+
+    assert html2 =~ "Someone Else"
+    refute html2 =~ "Different Arbiter"
+  end
+
+  ## ---------- uploaded-files totals ----------
+
+  test "the uploaded-files table shows per-file titled/federation counts and totals", %{conn: conn} do
+    {:ok, lv, _html} = live(conn, ~p"/tools/norms")
+
+    trf =
+      Trf.serialize(%{
+        tournament: %{
+          name: "Alpha Open",
+          city: "Ghent",
+          federation: "BEL",
+          start_date: "2026-01-01",
+          end_date: "2026-01-02",
+          type: "swiss"
+        },
+        players: [
+          %{rank: 1, name: "Alice", title: "IM", fide_rating: 1900, fide_number: 111, federation: "BEL", points: 0.0, games: []},
+          %{rank: 2, name: "Bob", fide_rating: 1800, fide_number: 222, federation: "NED", points: 0.0, games: []}
+        ]
+      })
+
+    html = upload_files(lv, [{"alpha.trf", trf}])
+
+    assert html =~ "Titled"
+    assert html =~ "Feds"
+    assert html =~ "2 player(s), 1 titled"
+    assert html =~ "2 distinct federation(s)"
+    assert html =~ "No federation appears in more than one uploaded file."
+  end
+
+  test "federations shared across files are surfaced as a hint", %{conn: conn} do
+    {:ok, lv, _html} = live(conn, ~p"/tools/norms")
+
+    upload_files(lv, [
+      {"alpha.trf", trf_text("Alpha Open", [{"Alice", 111}, {"Bob", 222}])},
+      {"beta.trf", trf_text("Beta Open", [{"Carol", 333}, {"Dave", 444}])}
+    ])
+
+    html = render(lv)
+    assert html =~ "Federations shared across files: BEL."
+  end
+
+  ## ---------- pure helpers ----------
+
+  describe "collapse_event_codes/1" do
+    alias PairingsEngineWeb.ToolsNormsLive
+
+    test "a single code is returned as-is" do
+      assert ToolsNormsLive.collapse_event_codes(["10001"]) == "10001"
+    end
+
+    test "consecutive codes collapse into one range" do
+      assert ToolsNormsLive.collapse_event_codes(["10001", "10002", "10003"]) == "10001-10003"
+    end
+
+    test "a gap splits into a bare code and a range" do
+      assert ToolsNormsLive.collapse_event_codes(["10001", "10003", "10004"]) == "10001, 10003-10004"
+    end
+
+    test "unordered/duplicate input is sorted and de-duplicated first" do
+      assert ToolsNormsLive.collapse_event_codes(["10003", "10001", "10002", "10001"]) == "10001-10003"
+    end
+
+    test "blanks are dropped and an empty list yields an empty string" do
+      assert ToolsNormsLive.collapse_event_codes(["", "10001", " "]) == "10001"
+      assert ToolsNormsLive.collapse_event_codes([]) == ""
+    end
+  end
+
+  describe "uploaded-files totals helpers" do
+    alias PairingsEngineWeb.ToolsNormsLive
+
+    defp file_row(players) do
+      %{error: nil, tournament: %Tournament{}, players: players}
+    end
+
+    defp player(attrs), do: struct(PairingsEngine.Tournaments.Player, attrs)
+
+    test "total_players/1, total_titled_players/1 and total_federations/1 sum across successful files" do
+      files = [
+        file_row([player(title: "IM", federation: "BEL"), player(federation: "NED")]),
+        file_row([player(title: "", federation: "BEL"), player(title: "WFM", federation: "FRA")]),
+        %{error: "bad file", tournament: nil, players: nil}
+      ]
+
+      assert ToolsNormsLive.total_players(files) == 4
+      assert ToolsNormsLive.total_titled_players(files) == 2
+      assert ToolsNormsLive.total_federations(files) == 3
+    end
+
+    test "shared_federations/1 lists federations appearing in 2+ files" do
+      files = [
+        file_row([player(federation: "BEL"), player(federation: "NED")]),
+        file_row([player(federation: "BEL"), player(federation: "FRA")]),
+        file_row([player(federation: "NED")])
+      ]
+
+      assert ToolsNormsLive.shared_federations(files) == ["BEL", "NED"]
+    end
+
+    test "shared_federations/1 is empty for a single file" do
+      files = [file_row([player(federation: "BEL")])]
+      assert ToolsNormsLive.shared_federations(files) == []
+    end
+  end
 end

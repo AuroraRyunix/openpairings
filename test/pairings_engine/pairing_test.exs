@@ -303,6 +303,80 @@ defmodule PairingsEngine.PairingTest do
     assert trf =~ "XXP 1 2\r\n"
   end
 
+  ## ---------- club/federation exclusions -> JaVaFo XXP extension ----------
+
+  test "exclusion_pairs_lines/2 emits one XXP line per pair excluded by an \"all\" club rule" do
+    tournament =
+      Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3, club_exclusion: "all"})
+
+    alice = insert_player(tournament, "Alice", pairing_number: 1, club: "Chess Club")
+    bob = insert_player(tournament, "Bob", pairing_number: 2, club: "Chess Club")
+    carol = insert_player(tournament, "Carol", pairing_number: 3, club: "Other Club")
+
+    lines = Pairing.exclusion_pairs_lines(tournament, [alice, bob, carol])
+
+    assert lines == "XXP 1 2\r\n"
+  end
+
+  test "exclusion_pairs_lines/2 respects a \"listed\" federation rule" do
+    tournament =
+      Repo.insert!(%Tournament{
+        name: "T",
+        type: "swiss",
+        rounds_count: 3,
+        fed_exclusion: "listed",
+        fed_exclusion_list: "BEL"
+      })
+
+    alice = insert_player(tournament, "Alice", pairing_number: 1, federation: "BEL")
+    bob = insert_player(tournament, "Bob", pairing_number: 2, federation: "BEL")
+    carol = insert_player(tournament, "Carol", pairing_number: 3, federation: "NED")
+    dave = insert_player(tournament, "Dave", pairing_number: 4, federation: "NED")
+
+    lines = Pairing.exclusion_pairs_lines(tournament, [alice, bob, carol, dave])
+
+    assert lines == "XXP 1 2\r\n"
+  end
+
+  test "exclusion_pairs_lines/2 dedupes a pair already covered by an explicit forbidden pairing" do
+    tournament =
+      Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3, club_exclusion: "all"})
+
+    alice = insert_player(tournament, "Alice", pairing_number: 1, club: "Chess Club")
+    bob = insert_player(tournament, "Bob", pairing_number: 2, club: "Chess Club")
+
+    {:ok, _} = Tournaments.add_forbidden_pairing(tournament, alice.id, bob.id)
+
+    # forbidden_pairs_lines/2 already emits "XXP 1 2\r\n" for the explicit
+    # pairing above — exclusion_pairs_lines/2 must not emit it a second time.
+    assert Pairing.exclusion_pairs_lines(tournament, [alice, bob]) == ""
+  end
+
+  test "exclusion_pairs_lines/2 returns an empty string when both rules are \"none\"" do
+    tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
+    alice = insert_player(tournament, "Alice", pairing_number: 1, club: "Chess Club")
+    bob = insert_player(tournament, "Bob", pairing_number: 2, club: "Chess Club")
+
+    assert Pairing.exclusion_pairs_lines(tournament, [alice, bob]) == ""
+  end
+
+  test "javafo_input/2 includes exclusion XXP lines alongside explicit forbidden-pairing lines" do
+    tournament =
+      Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 5, club_exclusion: "all"})
+
+    alice = insert_player(tournament, "Alice", pairing_number: 1, club: "Chess Club")
+    bob = insert_player(tournament, "Bob", pairing_number: 2, club: "Chess Club")
+    carol = insert_player(tournament, "Carol", pairing_number: 3)
+    dave = insert_player(tournament, "Dave", pairing_number: 4)
+
+    {:ok, _} = Tournaments.add_forbidden_pairing(tournament, carol.id, dave.id)
+
+    trf = Pairing.javafo_input(tournament, [alice, bob, carol, dave])
+
+    assert trf =~ "XXP 1 2\r\n"
+    assert trf =~ "XXP 3 4\r\n"
+  end
+
   ## ---------- forbidden pairings actually respected by JaVaFo ----------
 
   @tag :javafo

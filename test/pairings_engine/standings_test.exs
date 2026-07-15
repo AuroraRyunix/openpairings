@@ -121,8 +121,28 @@ defmodule PairingsEngine.StandingsTest do
     assert [%{player: %{name: "A"}}, %{player: %{name: "B"}} | _] = entries
   end
 
-  test "a player's extra_points can outrank a same-points player without affecting FIDE tiebreaks" do
+  test "extra_points don't affect ranking while count_extra_points is off (the default)" do
+    {tournament, %{b: b, d: d}} = fixture()
+
+    # After round 2: B=1.0, C=0.5, D=0.5. Even with a 1.0 administrative
+    # bonus that would outrank B on total, the tournament hasn't opted in
+    # (SWAR parity #12's explicit earlier decision), so D still ranks by
+    # plain game points and stays behind B.
+    {:ok, d} = Tournaments.update_player(d, %{extra_points: 1.0})
+    refute tournament.count_extra_points
+
+    entries = Standings.standings(tournament)
+    ed = Enum.find(entries, &(&1.player.id == d.id))
+    eb = Enum.find(entries, &(&1.player.id == b.id))
+
+    assert ed.total == 1.5
+    assert ed.rank > eb.rank
+  end
+
+  test "a player's extra_points can outrank a same-points player once count_extra_points is on, without affecting FIDE tiebreaks" do
     {tournament, %{b: b, c: c, d: d}} = fixture()
+
+    {:ok, tournament} = Tournaments.update_tournament(tournament, %{count_extra_points: true})
 
     # After round 2: B=1.0, C=0.5, D=0.5. Give D a 1.0 administrative bonus so
     # its total (1.5) outranks even B (1.0), despite fewer game points.
