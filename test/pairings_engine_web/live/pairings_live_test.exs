@@ -186,6 +186,36 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
   end
 
   test "pairing is allowed once the tournament setup is complete", %{conn: conn, scope: scope} do
+    tournament = complete_setup_tournament(scope)
+
+    {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+    refute html =~ "Finish the tournament setup"
+
+    button = lv |> element("button", "Pair round")
+    refute render(button) =~ "disabled"
+  end
+
+  # Only this half of the setup-gate coverage actually runs the pairing, which
+  # shells out to javafo.jar — the gate assertions above stay untagged so they
+  # keep running where the (gitignored) jar isn't present, e.g. CI.
+  @tag :javafo
+  test "pairing with a complete setup creates the round", %{conn: conn, scope: scope} do
+    tournament = complete_setup_tournament(scope)
+
+    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+    render_click(lv, "pair", %{})
+
+    # do_pair writes the round/pairings and broadcasts on the tournament's
+    # topic, which this `lv` is subscribed to — drain the self-broadcast
+    # before teardown (same race as the CSV import test above).
+    render(lv)
+
+    assert Tournaments.get_round(tournament.id, 1)
+  end
+
+  defp complete_setup_tournament(scope) do
     {:ok, tournament} =
       Tournaments.create_tournament(scope, %{
         "name" => "Complete Setup",
@@ -197,20 +227,6 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     Repo.insert!(%Player{tournament_id: tournament.id, name: "A"})
     Repo.insert!(%Player{tournament_id: tournament.id, name: "B"})
 
-    {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
-
-    refute html =~ "Finish the tournament setup"
-
-    button = lv |> element("button", "Pair round")
-    refute render(button) =~ "disabled"
-
-    render_click(lv, "pair", %{})
-
-    # do_pair writes the round/pairings and broadcasts on the tournament's
-    # topic, which this `lv` is subscribed to — drain the self-broadcast
-    # before teardown (same race as the CSV import test above).
-    render(lv)
-
-    assert Tournaments.get_round(tournament.id, 1)
+    tournament
   end
 end
