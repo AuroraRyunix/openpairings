@@ -313,7 +313,7 @@ defmodule PairingsEngine.RoundRobin do
           board: board,
           white_player_id: white.id,
           black_player_id: black.id,
-          result: ""
+          result: forfeit_result(white, black)
         })
       end)
 
@@ -348,5 +348,27 @@ defmodule PairingsEngine.RoundRobin do
 
       round
     end)
+  end
+
+  # A player who is currently `absent` or `forfeit` (both fields bypass
+  # `ensure_frozen/1`'s filter identically for tournaments continued from a
+  # SWAR import, where `pairing_number` is set directly at player creation —
+  # see `PairingsEngine.SwarImport`) still gets paired every round by design
+  # (see moduledoc: the Berger schedule can't be recomputed mid-tournament),
+  # but should never be left with a blank result for the arbiter to notice
+  # manually. Automate exactly what the moduledoc already documents: record
+  # the forfeit result at insert time instead. `absent` and `forfeit` are
+  # treated as equivalent OR-conditions — either one alone is enough to mark
+  # a side as forfeiting, and having both set changes nothing.
+  defp forfeit_result(%Player{} = white, %Player{} = black) do
+    white_out? = white.absent || white.forfeit
+    black_out? = black.absent || black.forfeit
+
+    cond do
+      white_out? and black_out? -> "0-0FF"
+      white_out? -> "0-1FF"
+      black_out? -> "1-0FF"
+      true -> ""
+    end
   end
 end

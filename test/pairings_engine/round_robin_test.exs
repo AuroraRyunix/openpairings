@@ -466,6 +466,159 @@ defmodule PairingsEngine.RoundRobinTest do
     end
   end
 
+  ## ---------- absent/forfeit players auto-record a forfeit result ----------
+  ##
+  ## Round-robin's Berger schedule is frozen player-count math (see
+  ## moduledoc: "Freezing pairing numbers") — an absent/forfeit player still
+  ## gets paired every round by design, but shouldn't be left with a blank
+  ## result for the arbiter to notice manually across dozens of players.
+  ## This matters most for a tournament continued from a SWAR import, where
+  ## `pairing_number` (and `absent`/`forfeit`) are set directly at player
+  ## creation, bypassing `ensure_frozen/1`'s one-time freeze entirely — these
+  ## tests simulate that shape directly via `pairing_number` in the attrs
+  ## rather than going through the SWAR binary parser.
+
+  describe "pair_next_round/1 — absent/forfeit players auto-record a forfeit result" do
+    # `ensure_frozen/1` explicitly EXCLUDES currently-absent/forfeit players
+    # from the initial freeze itself (`p.absent == false and p.forfeit ==
+    # false` in its query) — so a player marked absent/forfeit *before* ever
+    # being frozen wouldn't get a `pairing_number` at all via that path, and
+    # these tests would be exercising "excluded from the schedule" rather
+    # than the real bug. Every test below therefore sets `pairing_number`
+    # directly at player creation (all four players at once, so
+    # `already_frozen?` is true from the first insert and `ensure_frozen/1`
+    # never runs) — this is exactly the SWAR-import shape the real bug lives
+    # in: pairing numbers pre-set, absent/forfeit pre-set, freeze bypassed.
+
+    test "an absent black player's pairing is auto-recorded as a white-forfeit-win" do
+      tournament = round_robin_tournament(rr_cycles: 1)
+
+      a = insert_player(tournament, "Alice", fide_rating: 2000, pairing_number: 1)
+      insert_player(tournament, "Bob", fide_rating: 1900, pairing_number: 2)
+      c = insert_player(tournament, "Carol", fide_rating: 1800, pairing_number: 3)
+      d = insert_player(tournament, "Dave", fide_rating: 1700, pairing_number: 4, absent: true)
+
+      # Round 1 is Berger {1,4} (Alice white vs Dave) and {2,3} (Bob white
+      # vs Carol). Dave is absent, so the Alice/Dave pairing must come back
+      # "1-0FF".
+      assert {:ok, round} = Pairing.pair_next_round(tournament)
+      round = Repo.preload(round, :pairings)
+
+      alice_dave =
+        Enum.find(round.pairings, &(&1.white_player_id == a.id and &1.black_player_id == d.id))
+
+      bob_carol =
+        Enum.find(round.pairings, &(&1.white_player_id != a.id or &1.black_player_id != d.id))
+
+      assert alice_dave.result == "1-0FF"
+      refute is_nil(bob_carol)
+      assert bob_carol.result == ""
+      assert bob_carol.white_player_id in [c.id] or bob_carol.black_player_id in [c.id]
+    end
+
+    test "an absent white player's pairing is auto-recorded as a black-forfeit-win" do
+      tournament = round_robin_tournament(rr_cycles: 1)
+
+      a = insert_player(tournament, "Alice", fide_rating: 2000, pairing_number: 1, absent: true)
+      insert_player(tournament, "Bob", fide_rating: 1900, pairing_number: 2)
+      insert_player(tournament, "Carol", fide_rating: 1800, pairing_number: 3)
+      d = insert_player(tournament, "Dave", fide_rating: 1700, pairing_number: 4)
+
+      # Round 1: {1,4} Alice(white)/Dave, {2,3} Bob(white)/Carol. Alice
+      # (white) is absent -> black (Dave) wins by forfeit.
+      assert {:ok, round} = Pairing.pair_next_round(tournament)
+      round = Repo.preload(round, :pairings)
+
+      alice_dave =
+        Enum.find(round.pairings, &(&1.white_player_id == a.id and &1.black_player_id == d.id))
+
+      other = Enum.find(round.pairings, &(&1.id != alice_dave.id))
+
+      assert alice_dave.result == "0-1FF"
+      refute is_nil(other)
+      assert other.result == ""
+    end
+
+    test "a forfeit (not just absent) player's pairing is auto-recorded the same way" do
+      tournament = round_robin_tournament(rr_cycles: 1)
+
+      a = insert_player(tournament, "Alice", fide_rating: 2000, pairing_number: 1)
+      insert_player(tournament, "Bob", fide_rating: 1900, pairing_number: 2)
+      insert_player(tournament, "Carol", fide_rating: 1800, pairing_number: 3)
+      d = insert_player(tournament, "Dave", fide_rating: 1700, pairing_number: 4, forfeit: true)
+
+      assert {:ok, round} = Pairing.pair_next_round(tournament)
+      round = Repo.preload(round, :pairings)
+
+      alice_dave =
+        Enum.find(round.pairings, &(&1.white_player_id == a.id and &1.black_player_id == d.id))
+
+      assert alice_dave.result == "1-0FF"
+    end
+
+    test "two absent players paired against each other are recorded as a double forfeit" do
+      tournament = round_robin_tournament(rr_cycles: 1)
+
+      a = insert_player(tournament, "Alice", fide_rating: 2000, pairing_number: 1, absent: true)
+      insert_player(tournament, "Bob", fide_rating: 1900, pairing_number: 2)
+      insert_player(tournament, "Carol", fide_rating: 1800, pairing_number: 3)
+      d = insert_player(tournament, "Dave", fide_rating: 1700, pairing_number: 4, absent: true)
+
+      # Round 1's {1,4} pairing is Alice/Dave -> both absent -> "0-0FF".
+      assert {:ok, round} = Pairing.pair_next_round(tournament)
+      round = Repo.preload(round, :pairings)
+
+      alice_dave =
+        Enum.find(round.pairings, &(&1.white_player_id == a.id and &1.black_player_id == d.id))
+
+      assert alice_dave.result == "0-0FF"
+    end
+
+    test "an absent/forfeit player's forced pairing still feeds standings via the existing forfeit-result handling" do
+      tournament = round_robin_tournament(rr_cycles: 1)
+
+      insert_player(tournament, "Alice", fide_rating: 2000, pairing_number: 1)
+      insert_player(tournament, "Bob", fide_rating: 1900, pairing_number: 2)
+      insert_player(tournament, "Carol", fide_rating: 1800, pairing_number: 3)
+      insert_player(tournament, "Dave", fide_rating: 1700, pairing_number: 4, absent: true)
+
+      assert {:ok, _round} = Pairing.pair_next_round(tournament)
+
+      entries = Standings.standings(tournament)
+      assert length(entries) == 4
+      # Alice (white vs the absent Dave) already has her forfeit-win point
+      # without anyone calling Tournaments.update_pairing_result/2.
+      assert Enum.any?(entries, &(&1.points == 1.0))
+    end
+
+    test "simulating the SWAR-import shape: pairing_number pre-set at creation, absent pre-set from import" do
+      tournament = round_robin_tournament(rr_cycles: 1)
+
+      # SWAR-imported players get pairing_number set directly at creation
+      # (bypassing ensure_frozen/1's freeze, since already_frozen? is true
+      # once any pairing_number exists) instead of via the frozen-by-rating
+      # path the other tests above exercise.
+      a = insert_player(tournament, "Alice", fide_rating: 2000, pairing_number: 1)
+      insert_player(tournament, "Bob", fide_rating: 1900, pairing_number: 2)
+      insert_player(tournament, "Carol", fide_rating: 1800, pairing_number: 3)
+
+      d =
+        insert_player(tournament, "Dave",
+          fide_rating: 1700,
+          pairing_number: 4,
+          absent: true
+        )
+
+      assert {:ok, round} = Pairing.pair_next_round(tournament)
+      round = Repo.preload(round, :pairings)
+
+      alice_dave =
+        Enum.find(round.pairings, &(&1.white_player_id == a.id and &1.black_player_id == d.id))
+
+      assert alice_dave.result == "1-0FF"
+    end
+  end
+
   ## ---------- helpers ----------
 
   defp round_robin_tournament(attrs) do
