@@ -10,7 +10,10 @@ defmodule PairingsEngineWeb.PrintController do
     * `GET /t/:id/print/cards`     — one card per player, full round-by-round
       history (never limited to a single round).
     * `GET /t/:id/print/pairings?round=n` — board pairings for round `n`.
-      Defaults to round 1; 404s if that round hasn't been paired.
+      Defaults to round 1; 404s if that round hasn't been paired. Also
+      accepts `?absentees=1` to append a below-the-table "Absentees"
+      section listing byes-table rows (requested half/zero-point byes,
+      plain absences) — off by default.
     * `GET /t/:id/print/standings?round=n` — standings as they stood right
       after round `n` (computed honestly via `PairingsEngine.Standings`,
       passing only rounds `<= n`). Omit `round` for current/overall
@@ -329,11 +332,56 @@ defmodule PairingsEngineWeb.PrintController do
       body =
         "<table><thead><tr><th class=\"num\">Board</th><th>White</th><th class=\"num\">Elo</th>" <>
           "<th style=\"text-align:center\">Result</th><th>Black</th><th class=\"num\">Elo</th></tr></thead>" <>
-          "<tbody>#{rows}</tbody></table>"
+          "<tbody>#{rows}</tbody></table>" <>
+          absentees_section(tournament, number, params["absentees"])
 
       print_page(conn, tournament.name, "Pairings — round #{number}", body)
     end
   end
+
+  # `?absentees=1` — off by default per the arbiter's explicit request
+  # ("the absents can be below, don't print them per default, add a
+  # toggle somewhere"): a byes-table row (`"requested-half"`/
+  # `"requested-zero"`/`"absent"` — SWAR-imported or a live round-specific
+  # absence) is DIFFERENT from a pairing-allocated bye (a real `Pairing`
+  # row with `black_player_id: nil, result: "bye"`, already rendered as an
+  # ordinary board row above, unaffected by this toggle). Positioned BELOW
+  # the main pairing table, never interleaved — mirrors the section
+  # PairingsLive/LiveRoundLive/PublicPairingsLive already render (see
+  # `Tournaments.list_byes_for_round/2` and `Standings.bye_points/2`, the
+  # shared query/scoring pattern reused here).
+  defp absentees_section(_tournament, _number, absentees) when absentees not in ["1", "true"],
+    do: ""
+
+  defp absentees_section(tournament, number, _absentees) do
+    byes = Tournaments.list_byes_for_round(tournament.id, number)
+
+    case byes do
+      [] ->
+        ""
+
+      byes ->
+        rows =
+          Enum.map_join(byes, "", fn bye ->
+            points = PairingsEngine.Standings.bye_points(bye.type, tournament)
+
+            "<tr><td>#{esc(bye.player.name)}</td>" <>
+              "<td style=\"text-align:center\">#{esc(bye_type_label(bye.type))} (#{points} pt)</td></tr>"
+          end)
+
+        "<h2 style=\"margin-top:24px\">Absentees</h2>" <>
+          "<table><thead><tr><th>Player</th><th style=\"text-align:center\">Bye</th></tr></thead>" <>
+          "<tbody>#{rows}</tbody></table>"
+    end
+  end
+
+  # Same labels PairingsEngineWeb.PairingsLive uses for a byes-table row's
+  # `type` — distinct from the "bye" badge shown for a pairing-allocated
+  # bye (a real Pairing row), since these never appear in round.pairings.
+  defp bye_type_label("requested-half"), do: "requested half-point bye"
+  defp bye_type_label("requested-zero"), do: "requested zero-point bye"
+  defp bye_type_label("absent"), do: "absent"
+  defp bye_type_label(other), do: other
 
   def standings(conn, %{"id" => id} = params) do
     tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)

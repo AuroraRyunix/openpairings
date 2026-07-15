@@ -40,6 +40,22 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # rounds keep scoring at `points_loss` exactly as before this field
     # existed. Only PairingsEngine.SwarImport writes a non-nil value.
     field :presence_value, :float
+    # SWAR `AbsValue` (manual §4.2 field 92: "Absent value: 0 or 5,
+    # representing 0.0 or 0.5 points") — the points paid for a player simply
+    # marked ABSENT for a round (our `byes`-table `type: "absent"` row, from
+    # SWAR's per-player `Absent` status / the per-round `TABLE_ABSENT`
+    # special value). Three genuinely different SWAR concepts, easy to
+    # conflate: `bye_value` is what a *pairing-allocated* bye (a real
+    # opponent-less `Pairing` row) is worth; `presence_value` is the 3-2-1
+    # "presence points" paid for an unpaired-but-present round
+    # (`SW321_Pre`, only meaningful when `TOURNOI_TYPE == 3`); `abs_value`
+    # here is what a plain absence is worth, and — unlike `presence_value`
+    # — it is a GENERAL [TOURNOI] header field that applies to every SWAR
+    # import regardless of tournament type. nil (the default for every
+    # tournament that isn't a SWAR import) means "not set": such rounds
+    # keep scoring at `points_loss` exactly as before this field existed.
+    # Only PairingsEngine.SwarImport writes a non-nil value.
+    field :abs_value, :float
     field :tiebreaks, {:array, :string}, default: []
     field :acceleration, :string, default: "none"
     field :status, :string, default: "setup"
@@ -198,7 +214,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :name, :type, :venue, :city, :federation, :start_date, :end_date,
       :organizer, :chief_arbiter, :deputy_arbiter, :time_control,
       :rounds_count, :rating_type, :points_win, :points_draw, :points_loss,
-      :bye_value, :presence_value, :tiebreaks, :acceleration, :status,
+      :bye_value, :presence_value, :abs_value, :tiebreaks, :acceleration, :status,
       :standard, :rate_of_play, :organizer_club_number, :round_dates, :categories,
       :event_code, :fide_tournament_id, :officials,
       :pairing_system, :rr_cycles, :rr_match_format, :keizer_top_value,

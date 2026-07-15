@@ -720,7 +720,16 @@ defmodule PairingsEngine.SwarImport do
       rate_of_play: t.cadence_other,
       organizer_club_number: t.club_or_logo,
       round_dates: Enum.map(data.dates, &normalize_date/1),
-      categories: map_categories(data.categories)
+      categories: map_categories(data.categories),
+      # `AbsValue` (manual §4.2 field 92, general [TOURNOI] header, fields
+      # 91/96 group alongside `ByeValue`/`FF_Value`) — the points paid for a
+      # plain absence (`byes` row `type: "absent"`). Unlike `presence_value`
+      # (SW321_Pre, only mapped inside `scoring_attrs/1`'s `type == 3`
+      # clause), this applies to EVERY SWAR import regardless of tournament
+      # type, so it's mapped here unconditionally rather than in
+      # `scoring_attrs/1`. Raw `abs_value` is a `UChar`: 0 or 5, representing
+      # 0.0 or 0.5 points.
+      abs_value: if(t.abs_value == 5, do: 0.5, else: 0.0)
     }
     |> Map.merge(scoring_attrs(t))
   end

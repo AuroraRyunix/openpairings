@@ -158,6 +158,49 @@ defmodule PairingsEngineWeb.PrintControllerTest do
 
       refute html_response(conn, 200) =~ "(table"
     end
+
+    test "byes/absentees are off by default, shown below the table with ?absentees=1", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, %{c: c}} = fixture(scope)
+
+      Repo.insert_all("byes", [
+        %{tournament_id: tournament.id, player_id: c.id, round: 1, type: "absent"}
+      ])
+
+      conn_default = get(conn, ~p"/t/#{tournament.id}/print/pairings?round=1")
+      html_default = html_response(conn_default, 200)
+      refute html_default =~ "Absentees"
+
+      conn_on = get(conn, ~p"/t/#{tournament.id}/print/pairings?round=1&absentees=1")
+      html_on = html_response(conn_on, 200)
+      assert html_on =~ "Absentees"
+      # "absent" falls back to points_loss (0.0) since this tournament has
+      # no abs_value set (not a SWAR import).
+      assert html_on =~ ~r/C.*?absent.*?\(0\.0 pt\)/s
+    end
+
+    test "a pairing-allocated bye keeps showing as a normal board row regardless of ?absentees", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, _players} = fixture(scope)
+      round1 = Tournaments.get_round(tournament.id, 1)
+
+      e = Repo.insert!(%Player{tournament_id: tournament.id, name: "E", pairing_number: 5})
+
+      Repo.insert!(%Pairing{
+        round_id: round1.id,
+        board: 3,
+        white_player_id: e.id,
+        black_player_id: nil,
+        result: "bye"
+      })
+
+      html = html_response(get(conn, ~p"/t/#{tournament.id}/print/pairings?round=1"), 200)
+      assert html =~ "— bye —"
+    end
   end
 
   describe "standings/2" do

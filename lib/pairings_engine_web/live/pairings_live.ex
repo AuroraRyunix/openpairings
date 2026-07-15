@@ -338,6 +338,16 @@ defmodule PairingsEngineWeb.PairingsLive do
           <a
             :if={@round != nil}
             class="pe-btn"
+            href={~p"/t/#{@tournament.id}/print/pairings?round=#{@round_number}&absentees=1"}
+            target="_blank"
+            title="Same pairing sheet, with a below-the-table section listing requested byes and absences"
+          >
+            Print pairings (with absentees)
+          </a>
+
+          <a
+            :if={@round != nil}
+            class="pe-btn"
             href={~p"/t/#{@tournament.id}/print/standings?round=#{@round_number}"}
             target="_blank"
           >

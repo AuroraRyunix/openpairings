@@ -229,6 +229,12 @@ defmodule PairingsEngine.Standings do
       # tournament that isn't a 3-2-1 SWAR import, so this falls back to
       # plain points_loss unchanged for everyone else.
       "requested-zero" -> tournament.presence_value || tournament.points_loss
+      # SWAR `AbsValue` (manual §4.2 field 92) — the points paid for a plain
+      # absence, distinct from `presence_value`'s 3-2-1-specific "presence
+      # points". `abs_value` is nil for every tournament that isn't a SWAR
+      # import, so this falls back to plain points_loss unchanged for
+      # everyone else — same reasoning as `presence_value` above.
+      "absent" -> tournament.abs_value || tournament.points_loss
       _ -> tournament.points_loss
     end
   end

@@ -13,7 +13,7 @@ sockets).
 | Player list | `GET /t/:id/print/players` | No | Full roster: title, name, FIDE/national rating, federation, club. |
 | Player cards | `GET /t/:id/print/cards` | No | One card per player with **every** round of the tournament listed (rows 1..`rounds_count`), never limited to a single round — cards are meant to be filled in over the board, round by round, not reprinted per round. |
 | Place cards | `GET /t/:id/print/placecards?round=n` | Yes (optional, board number only) | One tent card ("chevalet") per player, meant to stand on the table. See "Place cards" below for the fold and field toggles. |
-| Pairing list | `GET /t/:id/print/pairings?round=n` | Yes | Board-by-board pairings for round `n`. `round` defaults to `1` if omitted. 404s with "Round n has not been paired yet" if round `n` has no pairings. |
+| Pairing list | `GET /t/:id/print/pairings?round=n` | Yes | Board-by-board pairings for round `n`. `round` defaults to `1` if omitted. 404s with "Round n has not been paired yet" if round `n` has no pairings. Also accepts `?absentees=1` — see "Absentees on the pairing list" below. |
 | Standings | `GET /t/:id/print/standings?round=n` | Yes (optional) | See "Round-scoped standings" below. Omit `round` for the current/overall standings. 404s the same way as the pairing list if round `n` hasn't been paired. |
 | Result cards | `GET /t/:id/print/results?round=n` | Yes | One card per board of round `n` (byes skipped). `round` defaults to the **latest paired round** if omitted (unlike the pairing list, which defaults to round 1). 404s the same way as the pairing list if round `n` hasn't been paired. Also accepts `?limit=L` (test print) and `?order=stack` (stack-cut imposition) — see "Result cards" below. |
 | Cross table | `GET /t/:id/print/crosstable` | No (always current) | Swiss/Keizer: full round-by-round cross table, one row per player in current standings order, one column per played round. Round robin: the classic players×players grid instead — see "Cross table" below. |
@@ -49,6 +49,30 @@ e.g. `5 (table 5)` — when either player on that board has a `fixed_board`
 set; if White and Black each have a different fixed board (rare), both
 numbers are shown, e.g. `(table 5, 7)`. Boards with no fixed-board player
 are unannotated, exactly as before.
+
+## Absentees on the pairing list
+
+`GET /t/:id/print/pairings?round=n&absentees=1` appends an "Absentees"
+section **below** the main board-by-board table (never interleaved with it)
+listing every `"byes"`-table row for round `n` — requested half-point byes,
+requested zero-point byes, and plain absences (SWAR-imported or entered
+live for this round). This is distinct from a **pairing-allocated** bye
+(the tournament's automatic bye for an odd player count), which is a real
+`Pairing` row with `black_player_id: nil, result: "bye"` and always appears
+as an ordinary board row in the main table above, unaffected by this
+toggle.
+
+Off by default — per an explicit arbiter request, absentees don't belong on
+the pairing sheet handed to players unless asked for. `?absentees=1` turns
+the section on; omitting the param, or any other value, leaves it off. Each
+row shows the player's name, a label (`requested half-point bye`,
+`requested zero-point bye`, `absent`), and the point value it's worth under
+the tournament's configured scoring (`PairingsEngine.Standings.bye_points/2`
+— the same rule `PairingsEngineWeb.PairingsLive` uses for its own
+"Absentees"-shaped section on the Pairings page, see there for the byes vs.
+pairing-allocated-bye distinction in more depth). The Pairings page's "Print
+pairings" link stays absentee-off by default; a second "Print pairings
+(with absentees)" link opens the same document with `?absentees=1`.
 
 ## Result cards
 
@@ -373,7 +397,7 @@ If `tournament.categories` is non-empty, `PrintController.standings/2`:
 
 | Page | Buttons | Behaviour |
 |---|---|---|
-| Pairings (`/t/:id/pairings`) | "Print pairings", "Print standings", "Print result cards", "Test print (3)", "Print result cards (stack-cut order)" | All open in a new tab, scoped to whichever round is currently selected in the round picker (`?round=<selected round>`). Only shown once that round has been paired. The last two are the result cards document with `limit=3` and `order=stack` respectively — see "Result cards" below. |
+| Pairings (`/t/:id/pairings`) | "Print pairings", "Print pairings (with absentees)", "Print standings", "Print result cards", "Test print (3)", "Print result cards (stack-cut order)" | All open in a new tab, scoped to whichever round is currently selected in the round picker (`?round=<selected round>`). Only shown once that round has been paired. "Print pairings (with absentees)" is the same document with `?absentees=1` — see "Absentees on the pairing list" above. The last two are the result cards document with `limit=3` and `order=stack` respectively — see "Result cards" below. |
 | Standings (`/t/:id/standings`) | "Print" | Opens the overall standings document (no `round` param) in a new tab — this page has no round picker, so it always reflects the current/latest state. |
 | Players (`/t/:id/players`) | "Print player list", "Print player cards", "Print place cards" | Roster-wide, no round scoping — open `/print/players`, `/print/cards` and `/print/placecards` in a new tab. Place cards pick up the latest paired round's board numbers automatically (see "Place cards" above); no round picker needed here either. |
 | Print hub (`/t/:id/print`) | "Print…" per document | Links pairings and result cards to the latest paired round, standings to the overall figures, and the cross table to the always-current picture (available even with zero rounds paired — it just has no round columns yet). |

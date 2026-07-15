@@ -414,7 +414,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         {:noreply,
          socket
          |> assign(swar_pending: nil)
-         |> push_navigate(to: ~p"/t/#{tournament.id}/standings")}
+         |> push_navigate(to: ~p"/t/#{tournament.id}/players")}
 
       {:error, reason} ->
         {:noreply,
