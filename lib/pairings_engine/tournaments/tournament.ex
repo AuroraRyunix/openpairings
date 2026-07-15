@@ -115,6 +115,21 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # first round, same as `pairing_system`/`rr_match_format`.
     field :swiss_match_format, :boolean, default: false
 
+    # Native per-category Swiss pairing (SWAR-parity #24) — when true, each
+    # category in `categories` (plus a catch-all "Uncategorized" pool for
+    # blank/unlisted `player.category`) is paired completely independently:
+    # its own JaVaFo run and its own pairing-allocated byes, merged into ONE
+    # combined Round with board numbers running continuously across
+    # categories in `categories` order (see PairingsEngine.Pairing's
+    # per-category pairing logic). Requires `categories_enabled` and is not
+    # yet supported together with Baku acceleration — both enforced below.
+    # Only meaningful when `pairing_system == "swiss"` — inert (never read)
+    # otherwise, same tolerance as `acceleration`/`swiss_match_format` (no
+    # changeset error for setting it on a non-swiss tournament). Locked in
+    # the UI once the tournament has paired its first round, same as
+    # `swiss_match_format`.
+    field :pair_by_category, :boolean, default: false
+
     # Club/federation pairing exclusions (SWAR parity #7-10) — arbiters
     # often must avoid pairing clubmates / same-federation players
     # together. "none" | "all" | "listed" — "listed" restricts the rule to
@@ -187,7 +202,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :standard, :rate_of_play, :organizer_club_number, :round_dates, :categories,
       :event_code, :fide_tournament_id, :officials,
       :pairing_system, :rr_cycles, :rr_match_format, :keizer_top_value,
-      :swiss_match_format,
+      :swiss_match_format, :pair_by_category,
       :club_exclusion, :club_exclusion_list, :fed_exclusion, :fed_exclusion_list,
       :count_extra_points, :extra_points_bands, :categories_enabled,
       :manual_ranking
@@ -207,6 +222,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_keizer_top_value()
     |> validate_rr_match_format()
     |> validate_swiss_match_format()
+    |> validate_pair_by_category()
     |> normalize_exclusion_list(:club_exclusion_list)
     |> normalize_exclusion_list(:fed_exclusion_list)
     |> normalize_extra_points_bands()
@@ -272,6 +288,45 @@ defmodule PairingsEngine.Tournaments.Tournament do
         changeset,
         :swiss_match_format,
         "match format requires an even number of rounds (each match is 2 rounds)"
+      )
+    else
+      changeset
+    end
+  end
+
+  # `pair_by_category` (SWAR-parity #24) needs category management actually
+  # turned on (pairing per-category with no category data makes no sense),
+  # and is deliberately not yet supported together with Baku acceleration —
+  # rejected outright rather than guessed at, same precedent as
+  # `validate_rr_match_format`/`validate_swiss_match_format` above.
+  defp validate_pair_by_category(changeset) do
+    if get_field(changeset, :pair_by_category) == true do
+      changeset
+      |> validate_pair_by_category_requires_categories()
+      |> validate_pair_by_category_excludes_baku()
+    else
+      changeset
+    end
+  end
+
+  defp validate_pair_by_category_requires_categories(changeset) do
+    if get_field(changeset, :categories_enabled) == true do
+      changeset
+    else
+      add_error(
+        changeset,
+        :pair_by_category,
+        "pairing by category requires categories to be enabled first"
+      )
+    end
+  end
+
+  defp validate_pair_by_category_excludes_baku(changeset) do
+    if get_field(changeset, :acceleration) == "baku" do
+      add_error(
+        changeset,
+        :pair_by_category,
+        "pairing by category is not yet supported together with Baku acceleration"
       )
     else
       changeset

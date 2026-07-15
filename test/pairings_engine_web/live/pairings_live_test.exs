@@ -75,6 +75,67 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     assert html =~ "Export PGN"
   end
 
+  test "renders a round's pairings sorted by board number regardless of insertion order", %{
+    conn: conn,
+    scope: scope
+  } do
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{"name" => "Board Order Test", "type" => "swiss", "rounds_count" => "1"})
+
+    [a, b, c, d, e, f] =
+      for name <- ["Boardonealice", "Boardonebob", "Boardtwocarol", "Boardtwodave", "Boardthreeeve", "Boardthreefred"] do
+        Repo.insert!(%Player{tournament_id: tournament.id, name: name})
+      end
+
+    round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+
+    # Inserted deliberately out of board order (3, 1, 2) — the round's
+    # `pairings` association preloads in whatever order the DB returns
+    # them, not board order, so this reproduces the bug: without a sort at
+    # render time the table would read "Board 3, Board 1, Board 2".
+    Repo.insert!(%Pairing{round_id: round.id, board: 3, white_player_id: e.id, black_player_id: f.id, result: ""})
+    Repo.insert!(%Pairing{round_id: round.id, board: 1, white_player_id: a.id, black_player_id: b.id, result: ""})
+    Repo.insert!(%Pairing{round_id: round.id, board: 2, white_player_id: c.id, black_player_id: d.id, result: ""})
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+    # Distinct, unlikely-to-collide-elsewhere names for boards 1/2/3's white
+    # players — their positions in the rendered HTML must be ascending.
+    positions =
+      for name <- ["Boardonealice", "Boardtwocarol", "Boardthreeeve"],
+        do: :binary.match(html, name) |> elem(0)
+
+    assert positions == Enum.sort(positions), "expected boards 1, 2, 3 top to bottom"
+  end
+
+  test "shows byes-table rows (SWAR-imported/round-specific absentee byes) alongside the round's pairings", %{
+    conn: conn,
+    scope: scope
+  } do
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{"name" => "Byes Display Test", "type" => "swiss", "rounds_count" => "1"})
+
+    [a, b, absentee] =
+      for name <- ["A", "B", "Absentee"] do
+        Repo.insert!(%Player{tournament_id: tournament.id, name: name})
+      end
+
+    round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+    Repo.insert!(%Pairing{round_id: round.id, board: 1, white_player_id: a.id, black_player_id: b.id, result: ""})
+
+    # A byes-table row (SWAR-imported or round-specific absentee bye) is
+    # NOT a Pairing row and previously never showed up anywhere in the UI —
+    # the bug this display fixes.
+    Repo.insert_all("byes", [
+      %{tournament_id: tournament.id, player_id: absentee.id, round: 1, type: "requested-zero"}
+    ])
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+    assert html =~ "Absentee"
+    assert html =~ "requested zero-point bye"
+  end
+
   test "shows a fixed-board annotation next to the board number", %{conn: conn, scope: scope} do
     tournament = fixture(scope)
     player_a = Repo.get_by!(Player, tournament_id: tournament.id, name: "A")

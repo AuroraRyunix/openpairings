@@ -1129,6 +1129,30 @@ defmodule PairingsEngine.Tournaments do
     )
   end
 
+  @doc """
+  Byes-table rows (`"requested-half"` / `"requested-zero"` / `"absent"` —
+  see `PairingsEngine.Standings.add_bye_records/3` for the exact scoring
+  rule per type) for `tournament_id` in round `number`, each with its
+  `%Player{}` preloaded as `:player`.
+
+  These are DIFFERENT from a pairing-allocated bye (a real `Pairing` row
+  with `black_player_id: nil, result: "bye"`, already visible via
+  `get_round/2`'s `round.pairings`) — a byes-table row never appears in
+  `round.pairings`, so callers that only render `round.pairings` (as
+  PairingsLive/LiveRoundLive/PublicPairingsLive all did before this
+  function existed) silently drop every SWAR-imported or round-specific
+  absentee bye from the pairings list.
+  """
+  def list_byes_for_round(tournament_id, number) do
+    from(b in "byes",
+      join: p in Player,
+      on: p.id == b.player_id,
+      where: b.tournament_id == ^tournament_id and b.round == ^number,
+      select: %{player_id: b.player_id, round: b.round, type: b.type, player: p}
+    )
+    |> Repo.all()
+  end
+
   def list_rounds(tournament_id) do
     Repo.all(from r in Round, where: r.tournament_id == ^tournament_id, order_by: r.number)
   end

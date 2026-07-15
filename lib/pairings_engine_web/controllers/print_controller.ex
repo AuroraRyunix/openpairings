@@ -315,7 +315,9 @@ defmodule PairingsEngineWeb.PrintController do
       send_resp(conn, 404, "Round #{number} has not been paired yet")
     else
       rows =
-        Enum.map_join(round.pairings, "", fn p ->
+        round.pairings
+        |> Enum.sort_by(& &1.board)
+        |> Enum.map_join("", fn p ->
           "<tr><td class=\"num\">#{p.board}#{fixed_board_note(p)}</td>" <>
             "<td><strong>#{esc(p.white_player && p.white_player.name)}</strong></td>" <>
             "<td class=\"num\">#{p.white_player && blank_zero(player_rating(p.white_player))}</td>" <>

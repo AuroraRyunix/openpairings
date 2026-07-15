@@ -960,13 +960,8 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
   defp delete_tournament_modal(assigns) do
     ~H"""
-    <div
-      class="modal-overlay"
-      phx-click="delete_cancel"
-      phx-window-keydown="delete_cancel"
-      phx-key="escape"
-    >
-      <div class="modal-card" onclick="event.stopPropagation()" style="max-width: 440px">
+    <div class="modal-overlay" phx-window-keydown="delete_cancel" phx-key="escape">
+      <div class="modal-card" phx-click-away="delete_cancel" style="max-width: 440px">
         <h2>Delete tournament</h2>
         
         <p>
@@ -1004,13 +999,8 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
   defp purge_tournament_modal(assigns) do
     ~H"""
-    <div
-      class="modal-overlay"
-      phx-click="purge_cancel"
-      phx-window-keydown="purge_cancel"
-      phx-key="escape"
-    >
-      <div class="modal-card" onclick="event.stopPropagation()" style="max-width: 440px">
+    <div class="modal-overlay" phx-window-keydown="purge_cancel" phx-key="escape">
+      <div class="modal-card" phx-click-away="purge_cancel" style="max-width: 440px">
         <h2>Delete permanently</h2>
 
         <p>

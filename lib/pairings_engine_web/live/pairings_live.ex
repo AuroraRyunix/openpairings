@@ -67,6 +67,7 @@ defmodule PairingsEngineWeb.PairingsLive do
 
     assign(socket,
       round: Tournaments.get_round(t.id, n),
+      round_byes: Tournaments.list_byes_for_round(t.id, n),
       paired_rounds: paired,
       next_pairable: paired + 1,
       setup_complete: setup_complete,
@@ -198,6 +199,19 @@ defmodule PairingsEngineWeb.PairingsLive do
     "#{if player.title != "", do: "#{player.title} "}#{player.name}" <>
       if(rating > 0, do: " (#{rating})", else: "")
   end
+
+  # A round's pairings preload in whatever order the DB/JaVaFo output them,
+  # not board order — sort ascending by board so the table reads "Board 1,
+  # Board 2, ..." top to bottom like a real pairing sheet.
+  defp board_sorted(pairings), do: Enum.sort_by(pairings, & &1.board)
+
+  # Label for a byes-table row's `type` — distinct from the "bye" badge
+  # shown for a pairing-allocated bye (a real Pairing row), since these
+  # never appear in round.pairings (see Tournaments.list_byes_for_round/2).
+  defp bye_type_label("requested-half"), do: "requested half-point bye"
+  defp bye_type_label("requested-zero"), do: "requested zero-point bye"
+  defp bye_type_label("absent"), do: "absent"
+  defp bye_type_label(other), do: other
 
   @impl true
   def render(assigns) do
@@ -481,7 +495,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               </td>
             </tr>
 
-            <tr :for={pairing <- (@round && @round.pairings) || []}>
+            <tr :for={pairing <- board_sorted((@round && @round.pairings) || [])}>
               <td class="num">{pairing.board}{fixed_board_note(pairing)}</td>
 
               <td><strong>{player_label(pairing.white_player)}</strong></td>
@@ -512,6 +526,29 @@ defmodule PairingsEngineWeb.PairingsLive do
               </td>
 
               <td>{player_label(pairing.black_player)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div :if={@round_byes != []} class="card table-card" style="margin-top: 16px">
+        <table class="pe-table">
+          <thead>
+            <tr>
+              <th>Player</th>
+              <th style="text-align: center; width: 220px">Bye</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr :for={bye <- @round_byes}>
+              <td>{player_label(bye.player)}</td>
+
+              <td style="text-align: center">
+                <span class="badge">
+                  {bye_type_label(bye.type)} ({PairingsEngine.Standings.bye_points(bye.type, @tournament)} pt)
+                </span>
+              </td>
             </tr>
           </tbody>
         </table>

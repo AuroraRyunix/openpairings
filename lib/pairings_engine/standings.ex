@@ -211,20 +211,31 @@ defmodule PairingsEngine.Standings do
     Repo.all(query)
   end
 
+  @doc """
+  Points a bye of `type` (a `"byes"`-table row's `type`: `"requested-half"`,
+  `"requested-zero"`, `"absent"`, or (for completeness) `"pairing-allocated"`)
+  is worth under `tournament`'s configured scoring. The single source of
+  truth for this mapping — reused by `add_bye_records/3` here and by any
+  display code (e.g. `PairingsEngineWeb.PairingsLive`) that needs to show a
+  byes-table row's point value without duplicating the rule.
+  """
+  def bye_points(type, tournament) do
+    case type do
+      "requested-half" -> tournament.points_draw
+      "pairing-allocated" -> tournament.bye_value
+      # SWAR 3-2-1 "presence points" (SW321_Pre) — distinct from an
+      # ordinary configured loss even though SWAR's own bitmask files
+      # LOST_BYE as a "loss". `presence_value` is nil for every
+      # tournament that isn't a 3-2-1 SWAR import, so this falls back to
+      # plain points_loss unchanged for everyone else.
+      "requested-zero" -> tournament.presence_value || tournament.points_loss
+      _ -> tournament.points_loss
+    end
+  end
+
   defp add_bye_records(games_by_player, byes, tournament) do
     Enum.reduce(byes, games_by_player, fn bye, acc ->
-      points =
-        case bye.type do
-          "requested-half" -> tournament.points_draw
-          "pairing-allocated" -> tournament.bye_value
-          # SWAR 3-2-1 "presence points" (SW321_Pre) — distinct from an
-          # ordinary configured loss even though SWAR's own bitmask files
-          # LOST_BYE as a "loss". `presence_value` is nil for every
-          # tournament that isn't a 3-2-1 SWAR import, so this falls back to
-          # plain points_loss unchanged for everyone else.
-          "requested-zero" -> tournament.presence_value || tournament.points_loss
-          _ -> tournament.points_loss
-        end
+      points = bye_points(bye.type, tournament)
 
       record = %{
         round: bye.round,

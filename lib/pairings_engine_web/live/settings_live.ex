@@ -235,7 +235,12 @@ defmodule PairingsEngineWeb.SettingsLive do
       rr_match_format_locked?: paired > 0,
       # Same "can't flip mid-tournament" reasoning as `rr_match_format_locked?`
       # above, for Swiss's own match-format flag.
-      swiss_match_format_locked?: paired > 0
+      swiss_match_format_locked?: paired > 0,
+      # Same "can't flip mid-tournament" reasoning again, for native
+      # per-category Swiss pairing (SWAR-parity #24) — flipping it after
+      # round 1 would leave already-paired rounds mixing categories freely
+      # while later rounds suddenly split them apart (or vice versa).
+      pair_by_category_locked?: paired > 0
     )
   end
 
@@ -752,6 +757,7 @@ defmodule PairingsEngineWeb.SettingsLive do
     |> maybe_drop_locked("rr_cycles", assigns.rr_cycles_locked?)
     |> maybe_drop_locked("rr_match_format", assigns.rr_match_format_locked?)
     |> maybe_drop_locked("swiss_match_format", assigns.swiss_match_format_locked?)
+    |> maybe_drop_locked("pair_by_category", assigns.pair_by_category_locked?)
   end
 
   defp maybe_drop_locked(params, _key, false), do: params
@@ -1058,6 +1064,28 @@ defmodule PairingsEngineWeb.SettingsLive do
             </label>
             <p class="hint" style="margin-top: -8px">
               Swiss only — requires an even number of rounds (each match is 2 rounds)
+            </p>
+
+            <label
+              class="field"
+              style="display: flex; flex-direction: row; align-items: center; gap: .5rem"
+            >
+              <input type="hidden" name="tournament[pair_by_category]" value="false" />
+              <input
+                type="checkbox"
+                name="tournament[pair_by_category]"
+                value="true"
+                checked={@tournament.pair_by_category}
+                disabled={@pair_by_category_locked? or not @tournament.categories_enabled}
+              />
+              <span>Pair each category independently</span>
+              <span :if={@pair_by_category_locked?} class="hint">locked after first pairing</span>
+              <span :if={not @tournament.categories_enabled and not @pair_by_category_locked?} class="hint">
+                enable categories first
+              </span>
+            </label>
+            <p class="hint" style="margin-top: -8px">
+              Swiss only — each category gets its own independent pairings and byes within one combined round
             </p>
 
             <label class="field">

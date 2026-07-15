@@ -85,6 +85,98 @@ defmodule PairingsEngine.PairingTest do
     assert byes == [%{round: 1, type: "requested-zero"}]
   end
 
+  ## ---------- a player's prior bye must not be lost when pairing later rounds ----------
+  #
+  # User-reported concern: "byes don't end up in the pairings history/list.
+  # if i pair a new round, i can maybe even get a duplicate bye this way!"
+  # Investigation traced the *visibility* half (bye rows never rendered on
+  # PairingsLive/LiveRoundLive/PublicPairingsLive — fixed alongside this
+  # test) but found `games_per_player/2` already joins the "byes" table
+  # independently of `Tournaments.get_round/2` when building each round's
+  # TRF history for JaVaFo, so the "duplicate bye" half was suspected to be
+  # a false alarm caused only by the missing UI, not a real backend gap.
+  # This test proves that trace rather than trusting it: a player whose
+  # round-1 absence is recorded in the "byes" table (simulating a
+  # SWAR-imported round-specific absentee, same mechanism already covered
+  # above) must (a) still show up correctly in the TRF history fed to
+  # JaVaFo for round 2, and (b) not be JaVaFo's pick for a fresh
+  # pairing-allocated bye in round 2 ahead of players who have never sat
+  # out, when an odd active-player count forces someone to receive one.
+  @tag :javafo
+  test "pair_next_round/1 preserves a prior round's bye in history and JaVaFo avoids re-assigning a bye to that player" do
+    tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 4})
+
+    _alice = insert_player(tournament, "Alice", fide_rating: 2000)
+    _bob = insert_player(tournament, "Bob", fide_rating: 1900)
+    _carol = insert_player(tournament, "Carol", fide_rating: 1800)
+    _eve = insert_player(tournament, "Eve", fide_rating: 1700)
+    # Absent for round 1 only — eligible_players/2 excludes Dave from round
+    # 1's pairing and Pairing.pair_next_round/1 records a "requested-zero"
+    # byes-table row for them (same mechanism as the excludes-absentee test
+    # above), simulating a SWAR-imported round-specific absence. Deliberately
+    # the LOWEST-rated player, so their pairing_number lands last (5) among
+    # the five — round 1's eligible four then keep a contiguous 1..4 range
+    # of starting ranks in the TRF sent to JaVaFo. (A gap in the middle of
+    # the starting-rank range — e.g. the absentee rated between Carol and
+    # Eve — hits a separate, pre-existing JaVaFo/TRF starting-rank
+    # contiguity issue unrelated to what this test is checking.)
+    dave = insert_player(tournament, "Dave", fide_rating: 1600, absent_rounds: "1")
+
+    # Round 1: {Alice, Bob, Carol, Eve} — even, so two real games, no
+    # pairing-allocated bye. Dave sits out via absent_rounds.
+    assert {:ok, round1} = Pairing.pair_next_round(tournament)
+    assert round1.number == 1
+
+    # Round 2 can't be paired until round 1's results are all in (the
+    # scoring the pairing engine relies on wouldn't be final otherwise) —
+    # fill in arbitrary decisive results for round 1's two real games.
+    round1 = Repo.preload(round1, :pairings)
+    Enum.each(round1.pairings, fn pairing ->
+      if pairing.result == "" do
+        {:ok, _} = Tournaments.update_pairing_result(pairing, "1-0")
+      end
+    end)
+
+    dave_byes =
+      Repo.all(
+        from b in "byes",
+          where: b.tournament_id == ^tournament.id and b.player_id == ^dave.id,
+          select: %{round: b.round, type: b.type}
+      )
+
+    assert dave_byes == [%{round: 1, type: "requested-zero"}]
+
+    # (a) The round-1 absence must survive into the TRF history built for
+    # round 2 — inspect the actual TRF export rather than trusting the
+    # trace. Dave's round-1 slot must carry TRF code "Z" (requested-zero /
+    # absent bye), not be silently blank/dropped.
+    dave = Repo.reload(dave)
+    trf = Pairing.javafo_input(tournament)
+    dave_line = Enum.find(String.split(trf, "\r\n"), &(String.starts_with?(&1, "001") and &1 =~ "Dave"))
+    refute is_nil(dave_line)
+
+    round1_result_col = 92 + (1 - 1) * 10 + 7
+    assert String.at(dave_line, round1_result_col - 1) == "Z"
+
+    # (b) Round 2: all five players are eligible again (odd count), so one
+    # of them gets a fresh pairing-allocated bye. Standard FIDE Dutch-system
+    # logic prefers giving a bye to a player who hasn't already had one,
+    # all else being equal — assert JaVaFo picked someone other than Dave,
+    # proving the round-1 absence wasn't lost/ignored when pairing round 2
+    # (which is exactly what would let the same player collect a second,
+    # "duplicate" bye).
+    assert {:ok, round2} = Pairing.pair_next_round(tournament)
+    round2 = Repo.preload(round2, [pairings: [:white_player, :black_player]])
+    assert round2.number == 2
+
+    bye_pairing = Enum.find(round2.pairings, &(&1.result == "bye"))
+    assert bye_pairing, "expected round 2 (5 active players) to include a pairing-allocated bye"
+
+    bye_player_id = bye_pairing.white_player_id
+    refute bye_player_id == dave.id,
+           "JaVaFo re-assigned round 2's bye to Dave, who already sat out round 1 — the prior absence appears to have been lost"
+  end
+
   ## ---------- byes must invalidate a hand-set manual standings order ----------
   #
   # SWAR parity #23 (manual standings) fix 3: byes award points too (see
@@ -808,6 +900,247 @@ defmodule PairingsEngine.PairingTest do
              %{round: 1, type: "requested-zero"},
              %{round: 2, type: "requested-zero"}
            ]
+  end
+
+  ## ---------- native per-category Swiss pairing (SWAR-parity #24) ----------
+
+  @tag :javafo
+  test "pair_by_category: true never pairs across categories, boards run continuously per category in tournament.categories order" do
+    tournament =
+      Repo.insert!(%Tournament{
+        name: "Cat",
+        type: "swiss",
+        rounds_count: 3,
+        categories: ["A", "B"],
+        categories_enabled: true,
+        pair_by_category: true
+      })
+
+    a_players =
+      for {name, rating} <- [{"A1", 2000}, {"A2", 1900}, {"A3", 1800}, {"A4", 1700}] do
+        insert_player(tournament, name, fide_rating: rating, category: "A")
+      end
+
+    b_players =
+      for {name, rating} <- [{"B1", 1600}, {"B2", 1500}, {"B3", 1400}, {"B4", 1300}] do
+        insert_player(tournament, name, fide_rating: rating, category: "B")
+      end
+
+    assert {:ok, round} = Pairing.pair_next_round(tournament)
+    round = Repo.preload(round, :pairings)
+
+    # 4 players per category, no byes: 2 boards per category, 4 total.
+    assert length(round.pairings) == 4
+
+    a_ids = MapSet.new(a_players, & &1.id)
+    b_ids = MapSet.new(b_players, & &1.id)
+
+    Enum.each(round.pairings, fn p ->
+      white_in_a = MapSet.member?(a_ids, p.white_player_id)
+      black_in_a = MapSet.member?(a_ids, p.black_player_id)
+      white_in_b = MapSet.member?(b_ids, p.white_player_id)
+      black_in_b = MapSet.member?(b_ids, p.black_player_id)
+
+      assert (white_in_a and black_in_a) or (white_in_b and black_in_b),
+             "pairing #{inspect(p)} crosses categories"
+    end)
+
+    boards_a =
+      round.pairings
+      |> Enum.filter(&MapSet.member?(a_ids, &1.white_player_id))
+      |> Enum.map(& &1.board)
+      |> Enum.sort()
+
+    boards_b =
+      round.pairings
+      |> Enum.filter(&MapSet.member?(b_ids, &1.white_player_id))
+      |> Enum.map(& &1.board)
+      |> Enum.sort()
+
+    # tournament.categories == ["A", "B"] — A's boards come first.
+    assert boards_a == [1, 2]
+    assert boards_b == [3, 4]
+  end
+
+  @tag :javafo
+  test "pair_by_category: an odd-sized category gets its own pairing-allocated bye, not borrowed from another category" do
+    tournament =
+      Repo.insert!(%Tournament{
+        name: "Cat Odd",
+        type: "swiss",
+        rounds_count: 3,
+        categories: ["A", "B"],
+        categories_enabled: true,
+        pair_by_category: true
+      })
+
+    a_players =
+      for {name, rating} <- [{"A1", 2000}, {"A2", 1900}, {"A3", 1800}] do
+        insert_player(tournament, name, fide_rating: rating, category: "A")
+      end
+
+    b_players =
+      for {name, rating} <- [{"B1", 1600}, {"B2", 1500}, {"B3", 1400}, {"B4", 1300}] do
+        insert_player(tournament, name, fide_rating: rating, category: "B")
+      end
+
+    assert {:ok, round} = Pairing.pair_next_round(tournament)
+    round = Repo.preload(round, :pairings)
+
+    a_ids = MapSet.new(a_players, & &1.id)
+    b_ids = MapSet.new(b_players, & &1.id)
+
+    a_pairings = Enum.filter(round.pairings, &MapSet.member?(a_ids, &1.white_player_id))
+    b_pairings = Enum.filter(round.pairings, &MapSet.member?(b_ids, &1.white_player_id))
+
+    assert Enum.any?(a_pairings, &(&1.result == "bye"))
+    refute Enum.any?(b_pairings, &(&1.result == "bye"))
+  end
+
+  @tag :javafo
+  test "pair_by_category: a single-player category gets an automatic bye" do
+    tournament =
+      Repo.insert!(%Tournament{
+        name: "Cat Single",
+        type: "swiss",
+        rounds_count: 3,
+        categories: ["A", "B"],
+        categories_enabled: true,
+        pair_by_category: true
+      })
+
+    solo = insert_player(tournament, "Solo", fide_rating: 2000, category: "A")
+
+    for {name, rating} <- [{"B1", 1600}, {"B2", 1500}, {"B3", 1400}, {"B4", 1300}] do
+      insert_player(tournament, name, fide_rating: rating, category: "B")
+    end
+
+    assert {:ok, round} = Pairing.pair_next_round(tournament)
+    round = Repo.preload(round, :pairings)
+
+    solo_pairing = Enum.find(round.pairings, &(&1.white_player_id == solo.id))
+    assert solo_pairing
+    assert solo_pairing.result == "bye"
+    assert is_nil(solo_pairing.black_player_id)
+  end
+
+  @tag :javafo
+  test "pair_by_category: blank/unlisted category players form their own Uncategorized pool" do
+    tournament =
+      Repo.insert!(%Tournament{
+        name: "Cat Uncat",
+        type: "swiss",
+        rounds_count: 3,
+        categories: ["A"],
+        categories_enabled: true,
+        pair_by_category: true
+      })
+
+    a_players =
+      for {name, rating} <- [{"A1", 2000}, {"A2", 1900}] do
+        insert_player(tournament, name, fide_rating: rating, category: "A")
+      end
+
+    uncat_players =
+      for {name, rating} <- [{"U1", 1600}, {"U2", 1500}] do
+        insert_player(tournament, name, fide_rating: rating, category: "")
+      end
+
+    assert {:ok, round} = Pairing.pair_next_round(tournament)
+    round = Repo.preload(round, :pairings)
+
+    a_ids = MapSet.new(a_players, & &1.id)
+    uncat_ids = MapSet.new(uncat_players, & &1.id)
+
+    Enum.each(round.pairings, fn p ->
+      white_in_a = MapSet.member?(a_ids, p.white_player_id)
+      black_in_a = MapSet.member?(a_ids, p.black_player_id)
+      white_in_uncat = MapSet.member?(uncat_ids, p.white_player_id)
+      black_in_uncat = MapSet.member?(uncat_ids, p.black_player_id)
+
+      assert (white_in_a and black_in_a) or (white_in_uncat and black_in_uncat),
+             "pairing #{inspect(p)} mixed A with Uncategorized"
+    end)
+  end
+
+  @tag :javafo
+  test "pair_by_category: a forbidden pairing within a category is honored; across categories is a harmless no-op" do
+    tournament =
+      Repo.insert!(%Tournament{
+        name: "Cat Forbidden",
+        type: "swiss",
+        rounds_count: 3,
+        categories: ["A", "B"],
+        categories_enabled: true,
+        pair_by_category: true
+      })
+
+    a1 = insert_player(tournament, "A1", fide_rating: 2000, category: "A")
+    a2 = insert_player(tournament, "A2", fide_rating: 1900, category: "A")
+    _a3 = insert_player(tournament, "A3", fide_rating: 1800, category: "A")
+    _a4 = insert_player(tournament, "A4", fide_rating: 1700, category: "A")
+    b1 = insert_player(tournament, "B1", fide_rating: 1600, category: "B")
+    _b2 = insert_player(tournament, "B2", fide_rating: 1500, category: "B")
+
+    {:ok, _} = Tournaments.add_forbidden_pairing(tournament, a1.id, a2.id)
+    # Cross-category forbidden pairing — these two could never meet anyway,
+    # so this must be a harmless no-op, not an error.
+    {:ok, _} = Tournaments.add_forbidden_pairing(tournament, a1.id, b1.id)
+
+    assert {:ok, round} = Pairing.pair_next_round(Repo.reload!(tournament))
+    round = Repo.preload(round, :pairings)
+
+    pairs = Enum.map(round.pairings, &{&1.white_player_id, &1.black_player_id})
+
+    refute {a1.id, a2.id} in pairs
+    refute {a2.id, a1.id} in pairs
+  end
+
+  @tag :javafo
+  test "pair_by_category: each category's own history avoids rematches within that category across rounds" do
+    tournament =
+      Repo.insert!(%Tournament{
+        name: "Cat Multi",
+        type: "swiss",
+        rounds_count: 3,
+        categories: ["A", "B"],
+        categories_enabled: true,
+        pair_by_category: true
+      })
+
+    for {name, rating} <- [{"A1", 2000}, {"A2", 1900}, {"A3", 1800}, {"A4", 1700}] do
+      insert_player(tournament, name, fide_rating: rating, category: "A")
+    end
+
+    for {name, rating} <- [{"B1", 1600}, {"B2", 1500}, {"B3", 1400}, {"B4", 1300}] do
+      insert_player(tournament, name, fide_rating: rating, category: "B")
+    end
+
+    tournament = Repo.reload!(tournament)
+    assert {:ok, round1} = Pairing.pair_next_round(tournament)
+    round1 = Repo.preload(round1, :pairings)
+
+    round1_pairs =
+      round1.pairings
+      |> Enum.reject(&(&1.result == "bye"))
+      |> Enum.map(&{&1.white_player_id, &1.black_player_id})
+      |> MapSet.new()
+
+    Enum.each(round1.pairings, fn p ->
+      if p.result != "bye", do: Tournaments.update_pairing_result(p, "1-0")
+    end)
+
+    assert {:ok, round2} = Pairing.pair_next_round(Repo.reload!(tournament))
+    round2 = Repo.preload(round2, :pairings)
+
+    Enum.each(round2.pairings, fn p ->
+      if p.result != "bye" do
+        pair = {p.white_player_id, p.black_player_id}
+        reverse_pair = {p.black_player_id, p.white_player_id}
+        refute MapSet.member?(round1_pairs, pair)
+        refute MapSet.member?(round1_pairs, reverse_pair)
+      end
+    end)
   end
 
   ## ---------- helpers ----------

@@ -196,6 +196,21 @@ defmodule PairingsEngine.Pairing do
     {players, round_absentees} =
       Enum.split_with(active, &(not absent_for_round?(&1, next_number)))
 
+    # Players requesting an absence for this specific round get a
+    # "requested-zero" bye row instead of being sent to JaVaFo, so the
+    # pairing engine never considers them for this round. Computed once over
+    # the whole active/round_absentees split, before any category
+    # partitioning happens below — unaffected by `pair_by_category`.
+    insert_round_absentee_byes(tournament, next_number, round_absentees)
+
+    if tournament.pair_by_category do
+      do_pair_by_category(tournament, players, next_number)
+    else
+      do_pair_single(tournament, players, next_number, round_absentees)
+    end
+  end
+
+  defp do_pair_single(tournament, players, next_number, round_absentees) do
     trf = javafo_input(tournament, players)
 
     dir = Path.join(System.tmp_dir!(), "pairingsengine")
@@ -203,11 +218,6 @@ defmodule PairingsEngine.Pairing do
     input = Path.join(dir, "t#{tournament.id}_r#{next_number}.trf")
     output = Path.join(dir, "t#{tournament.id}_r#{next_number}_pairs.txt")
     File.write!(input, trf)
-
-    # Players requesting an absence for this specific round get a
-    # "requested-zero" bye row instead of being sent to JaVaFo, so the
-    # pairing engine never considers them for this round.
-    insert_round_absentee_byes(tournament, next_number, round_absentees)
 
     case System.cmd("java", ["-jar", javafo_jar(), input, "-p", output], stderr_to_stdout: true) do
       {_out, 0} ->
@@ -223,6 +233,273 @@ defmodule PairingsEngine.Pairing do
 
         {:error, "JaVaFo failed (exit #{code}):\n#{out}"}
     end
+  end
+
+  ## ---------- native per-category Swiss pairing (SWAR-parity #24) ----------
+
+  # Partitions `players` by `player.category`, in `tournament.categories`
+  # list order, plus a trailing "Uncategorized" pool for players whose
+  # category is blank or doesn't match any listed category — a deliberate
+  # product decision to still pair these players together as their own
+  # pool, rather than excluding them from pairing entirely. Runs every
+  # category's independent JaVaFo call (or synthesizes a 1-player group's
+  # automatic bye) FIRST, entirely before any DB round/pairing row exists —
+  # deliberately mirroring `do_pair_single/4`'s own ordering (build TRF /
+  # run JaVaFo, only touch the DB once every pairing decision is known).
+  # This isn't just style parity: `games_per_player/2` (used while building
+  # each category's TRF input) queries "every paired Round of this
+  # tournament" with no round-number filter, so if the `next_number` Round
+  # row already existed (even pairing-less) while a later category's TRF
+  # was being built, every player would pick up a phantom "Z" (zero-point
+  # bye) game for the round STILL BEING PAIRED — corrupting the TRF's game
+  # history and (confirmed by hitting it) crashing JaVaFo. Only once every
+  # category's pairing decision is known does `insert_category_round/3`
+  # open ONE transaction and write the Round + every category's pairings,
+  # in category-list order, boards numbered continuously — the single
+  # combined pairing sheet that's the whole point of doing this natively.
+  defp do_pair_by_category(tournament, players, next_number) do
+    groups = category_groups(tournament, players)
+
+    case compute_category_pairs(tournament, groups, next_number) do
+      {:ok, group_results} -> insert_category_round(tournament, group_results, next_number)
+      {:error, _reason} = error -> error
+    end
+  end
+
+  # Runs (or synthesizes) each category group's pairing decision in turn,
+  # stopping at the first failure — no DB writes happen here at all (see
+  # `do_pair_by_category/3`'s doc for why). A `{:error, reason}` from any
+  # category short-circuits the whole round: `do_pair_by_category/3` never
+  # reaches `insert_category_round/3`, so nothing is written for ANY
+  # category — the round-level "all or nothing" guarantee, established here
+  # rather than via `Repo.rollback/1` since no transaction is open yet at
+  # this point.
+  defp compute_category_pairs(tournament, groups, next_number) do
+    result =
+      groups
+      |> Enum.with_index()
+      |> Enum.reduce_while({:ok, []}, fn {{category_name, group_players}, index}, {:ok, acc} ->
+        case compute_category_group(tournament, category_name, index, group_players, next_number) do
+          {:ok, group_result} -> {:cont, {:ok, [group_result | acc]}}
+          {:error, _reason} = error -> {:halt, error}
+        end
+      end)
+
+    case result do
+      {:ok, acc} -> {:ok, Enum.reverse(acc)}
+      error -> error
+    end
+  end
+
+  # A 1-player group can't go through JaVaFo at all — it's given a
+  # pairing-allocated bye directly once `insert_category_round/3` writes it.
+  defp compute_category_group(_tournament, category_name, _index, [player], _next_number) do
+    {:ok, {category_name, :bye, player}}
+  end
+
+  defp compute_category_group(tournament, category_name, index, group_players, next_number) do
+    sorted = Enum.sort_by(group_players, & &1.pairing_number)
+    local_rank_by_player_id = sorted |> Enum.with_index(1) |> Map.new(fn {p, i} -> {p.id, i} end)
+    by_id = Map.new(group_players, &{&1.id, &1})
+
+    player_by_local_rank =
+      Map.new(local_rank_by_player_id, fn {id, rank} -> {rank, Map.fetch!(by_id, id)} end)
+
+    trf = build_category_trf(tournament, group_players, local_rank_by_player_id)
+
+    dir = Path.join(System.tmp_dir!(), "pairingsengine")
+    File.mkdir_p!(dir)
+    slug = category_file_slug(category_name, index)
+    input = Path.join(dir, "t#{tournament.id}_r#{next_number}_cat_#{slug}.trf")
+    output = Path.join(dir, "t#{tournament.id}_r#{next_number}_cat_#{slug}_pairs.txt")
+    File.write!(input, trf)
+
+    case System.cmd("java", ["-jar", javafo_jar(), input, "-p", output], stderr_to_stdout: true) do
+      {_out, 0} ->
+        pairs = output |> File.read!() |> parse_pairs()
+        {:ok, {category_name, :javafo, pairs, player_by_local_rank}}
+
+      {out, code} ->
+        Logger.error(
+          "JaVaFo failed for tournament #{tournament.id} round #{next_number} category #{category_name} (exit #{code}):\n#{out}"
+        )
+
+        {:error, "JaVaFo failed for category \"#{category_name}\" (exit #{code}):\n#{out}"}
+    end
+  end
+
+  # Writes the Round and every category's pairings in ONE transaction, board
+  # numbers running continuously across `group_results` (already in
+  # `tournament.categories` list order — see `category_groups/2`). Only
+  # reached once every category's pairing decision succeeded (see
+  # `do_pair_by_category/3`), so this itself can no longer fail on a
+  # category's JaVaFo call — the `Repo.transaction/1` wrapper here exists
+  # for ordinary DB-write atomicity (Round + N Pairings as one unit), not to
+  # guard against a JaVaFo failure (that's already been ruled out).
+  defp insert_category_round(tournament, group_results, next_number) do
+    Repo.transaction(fn ->
+      round =
+        Repo.insert!(%Round{
+          tournament_id: tournament.id,
+          number: next_number,
+          status: "playing"
+        })
+
+      {_final_board, any_bye?} =
+        Enum.reduce(group_results, {1, false}, fn group_result, {board_offset, any_bye?} ->
+          case group_result do
+            {_category_name, :bye, player} ->
+              Repo.insert!(%Pairing{
+                round_id: round.id,
+                board: board_offset,
+                white_player_id: player.id,
+                black_player_id: nil,
+                result: "bye"
+              })
+
+              {board_offset + 1, true}
+
+            {_category_name, :javafo, pairs, player_by_local_rank} ->
+              {:ok, boards_used, bye?} =
+                insert_category_pairings(round, pairs, player_by_local_rank, board_offset)
+
+              {board_offset + boards_used, any_bye? or bye?}
+          end
+        end)
+
+      # A pairing-allocated bye (from any category's JaVaFo output, or a
+      # 1-player group's automatic bye) awards points immediately without
+      # ever going through Tournaments.update_pairing_result/2 — same
+      # point-changing-write gap as elsewhere in this module. See
+      # docs/manual-standings.md (Fix 3).
+      if any_bye?, do: Tournaments.invalidate_manual_ranking(tournament.id)
+
+      round
+    end)
+  end
+
+  defp category_groups(tournament, players) do
+    named_categories = tournament.categories || []
+    named_set = MapSet.new(named_categories)
+
+    named_groups =
+      Enum.map(named_categories, fn cat_name ->
+        {cat_name, Enum.filter(players, &(&1.category == cat_name))}
+      end)
+
+    # Blank/unlisted category players still get paired — as their own
+    # "Uncategorized" pool, deliberately not excluded from pairing.
+    uncategorized =
+      Enum.filter(players, fn p ->
+        p.category in [nil, ""] or not MapSet.member?(named_set, p.category)
+      end)
+
+    (named_groups ++ [{"Uncategorized", uncategorized}])
+    |> Enum.reject(fn {_name, group} -> group == [] end)
+  end
+
+  # A category-safe filename: category names are free text, so they're
+  # slugified (and index-prefixed, to avoid collisions between categories
+  # that slugify identically) before landing in a temp file path — each
+  # category's TRF input/output pair gets a distinct filename so parallel
+  # or sequential category runs within one round never collide.
+  defp category_file_slug(category_name, index) do
+    slug =
+      category_name
+      |> to_string()
+      |> String.replace(~r/[^A-Za-z0-9_-]+/, "_")
+
+    slug = if slug in ["", "_"], do: "cat", else: slug
+    "#{index}_#{slug}"
+  end
+
+  # Builds one category's self-contained TRF input: `trf_player_rows/2`
+  # (already scoped to just `group_players`, so cross-category games can't
+  # leak in — see games_per_player/2's `by_id` scoping) post-processed to
+  # replace every global `pairing_number` (row rank, and each game's
+  # opponent rank) with this category's own local 1..M numbering. XXP
+  # (forbidden pairings / exclusions) lines are translated the same way —
+  # `forbidden_pairs_lines/3`/`exclusion_pairs_lines/3`'s optional
+  # `rank_by_player_id` override drops any pair naming a player outside
+  # this category automatically, since both sides must resolve to a local
+  # rank to be emitted at all.
+  defp build_category_trf(tournament, group_players, local_rank_by_player_id) do
+    trf_rows =
+      tournament
+      |> trf_player_rows(group_players)
+      |> remap_trf_rows_to_local_ranks(local_rank_by_player_id)
+
+    trf =
+      Trf.serialize(%{
+        tournament: %{
+          name: tournament.name,
+          city: tournament.city,
+          federation: tournament.federation,
+          type: tournament.type,
+          chief_arbiter: tournament.chief_arbiter
+        },
+        players: trf_rows
+      })
+
+    trf = trf <> "XXR #{tournament.rounds_count}\r\n"
+
+    trf =
+      trf <> acceleration_lines(tournament, group_players, paired_rounds_count(tournament.id) + 1)
+
+    trf <>
+      forbidden_pairs_lines(tournament.id, group_players, local_rank_by_player_id) <>
+      exclusion_pairs_lines(tournament, group_players, local_rank_by_player_id)
+  end
+
+  # Remaps `trf_player_rows/2`'s output (global `pairing_number`-based ranks)
+  # to a category's local 1..M numbering: each row's own `rank`, and each of
+  # its games' `opponent_rank` (looked up via the `opponent_id` `trf_game/3`
+  # now carries alongside it — see that function). An opponent not present
+  # in `local_rank_by_player_id` (a game against a player outside this
+  # category — not expected once categories have always been separate
+  # pairing pools, but harmless if it ever happens) resolves to `nil`,
+  # exactly like a bye/missing opponent already does upstream.
+  defp remap_trf_rows_to_local_ranks(rows, local_rank_by_player_id) do
+    Enum.map(rows, fn row ->
+      local_rank = Map.fetch!(local_rank_by_player_id, row.id)
+
+      remapped_games =
+        Enum.map(row.games, fn game ->
+          local_opponent_rank =
+            game[:opponent_id] && Map.get(local_rank_by_player_id, game.opponent_id)
+
+          Map.put(game, :opponent_rank, local_opponent_rank)
+        end)
+
+      %{row | rank: local_rank, games: remapped_games}
+    end)
+  end
+
+  # Translates one category's parsed JaVaFo output (local starting ranks)
+  # back to real players via `player_by_local_rank`, inserting each pairing
+  # at a board number continuing from `board_offset` — the mechanism that
+  # merges every category's pairs into one continuously-numbered board
+  # sequence within the shared Round. Mirrors `create_round/5`'s row shape
+  # exactly (including the `b == 0` pairing-allocated bye shape).
+  defp insert_category_pairings(round, pairs, player_by_local_rank, board_offset) do
+    bye? = Enum.any?(pairs, fn {_w, b} -> b == 0 end)
+
+    pairs
+    |> Enum.with_index(board_offset)
+    |> Enum.each(fn {{w, b}, board} ->
+      white = Map.fetch!(player_by_local_rank, w)
+      black = if b == 0, do: nil, else: Map.fetch!(player_by_local_rank, b)
+
+      Repo.insert!(%Pairing{
+        round_id: round.id,
+        board: board,
+        white_player_id: white.id,
+        black_player_id: black && black.id,
+        result: if(b == 0, do: "bye", else: "")
+      })
+    end)
+
+    {:ok, length(pairs), bye?}
   end
 
   defp insert_round_absentee_byes(_tournament, _round_number, []), do: :ok
@@ -411,9 +688,16 @@ defmodule PairingsEngine.Pairing do
   skipped silently if either player isn't in `players` at all, or hasn't
   been assigned a `pairing_number` yet — JaVaFo only needs to hear about
   players it's actually being asked to pair.
+
+  `rank_by_player_id` defaults to `players`' own global `pairing_number`
+  (every existing caller's behaviour, unaffected). Per-category Swiss
+  pairing (`do_pair_by_category/3`) passes a category's local 1..M rank map
+  instead — a pair naming a player outside the category (which can't
+  resolve to a local rank) is dropped by the same nil-rejection below, with
+  zero extra logic: they could never be paired against each other anyway.
   """
-  def forbidden_pairs_lines(tournament_id, players) do
-    rank_by_player_id = Map.new(players, &{&1.id, &1.pairing_number})
+  def forbidden_pairs_lines(tournament_id, players, rank_by_player_id \\ nil) do
+    rank_by_player_id = rank_by_player_id || Map.new(players, &{&1.id, &1.pairing_number})
 
     tournament_id
     |> Tournaments.list_forbidden_pairings()
@@ -428,13 +712,14 @@ defmodule PairingsEngine.Pairing do
   Builds one `"XXP a b\\r\\n"` TRF extension line per pair excluded by
   `tournament`'s club/federation exclusion rules (see
   `PairingsEngine.Exclusions.excluded_pairs/2`), translated to starting
-  ranks the same way `forbidden_pairs_lines/2` does. A pair already covered
-  by an explicit forbidden pairing is skipped — JaVaFo doesn't need to hear
-  the same rule twice — as is any pair where a player isn't in `players` or
-  hasn't been assigned a `pairing_number` yet.
+  ranks the same way `forbidden_pairs_lines/3` does (see that function's doc
+  for the optional `rank_by_player_id` override, used by per-category Swiss
+  pairing). A pair already covered by an explicit forbidden pairing is
+  skipped — JaVaFo doesn't need to hear the same rule twice — as is any pair
+  where a player isn't in `players` or hasn't been assigned a rank yet.
   """
-  def exclusion_pairs_lines(tournament, players) do
-    rank_by_player_id = Map.new(players, &{&1.id, &1.pairing_number})
+  def exclusion_pairs_lines(tournament, players, rank_by_player_id \\ nil) do
+    rank_by_player_id = rank_by_player_id || Map.new(players, &{&1.id, &1.pairing_number})
 
     explicit_rank_pairs =
       tournament.id
@@ -584,6 +869,14 @@ defmodule PairingsEngine.Pairing do
   are dropped: TRF16 requires every player row to carry a numeric starting
   rank, and a player who was never actually paired has nothing meaningful
   to report anyway.
+
+  Each row also carries an `:id` (the player's id) and each game an
+  `:opponent_id` alongside the usual `:opponent_rank` — extra keys
+  `PairingsEngine.Trf.serialize/1` and `PairingsEngine.TrfExport` both
+  ignore (they only read the specific keys they need), but that
+  per-category Swiss pairing's `remap_trf_rows_to_local_ranks/2` uses to
+  translate global `pairing_number`-based ranks to a category's own local
+  numbering — see `build_category_trf/3`.
   """
   def trf_player_rows(tournament, players) do
     players = Enum.filter(players, &(&1.pairing_number != nil))
@@ -596,6 +889,7 @@ defmodule PairingsEngine.Pairing do
       player_games = Map.get(games, p.id, [])
 
       %{
+        id: p.id,
         rank: p.pairing_number,
         sex: p.sex,
         title: p.title,
@@ -608,7 +902,7 @@ defmodule PairingsEngine.Pairing do
         fide_number: p.fide_id,
         birth_date: player_birth_date(p),
         points: player_points(player_games, tournament),
-        games: Enum.map(player_games, &Map.take(&1, [:opponent_rank, :colour, :result]))
+        games: player_games
       }
     end)
   end
@@ -719,13 +1013,14 @@ defmodule PairingsEngine.Pairing do
             bye_type = bye_map[{player_id, round.number}] ->
               %{
                 opponent_rank: nil,
+                opponent_id: nil,
                 colour: nil,
                 result: bye_code(bye_type),
                 points_kind: bye_type
               }
 
             true ->
-              %{opponent_rank: nil, colour: nil, result: "Z", points_kind: "zero"}
+              %{opponent_rank: nil, opponent_id: nil, colour: nil, result: "Z", points_kind: "zero"}
           end
         end)
 
@@ -770,6 +1065,13 @@ defmodule PairingsEngine.Pairing do
 
     %{
       opponent_rank: opponent && opponent.pairing_number,
+      # The opponent's raw id, regardless of whether `opponent` resolved
+      # within this call's `by_id` scope — carried alongside `opponent_rank`
+      # so per-category Swiss pairing's `remap_trf_rows_to_local_ranks/2` can
+      # translate it to a category's own local rank numbering (see
+      # `build_category_trf/3`). `PairingsEngine.Trf.serialize/1` and
+      # `PairingsEngine.TrfExport` both ignore this extra key.
+      opponent_id: opponent_id,
       colour:
         cond do
           pairing.result == "bye" or opponent == nil -> nil
