@@ -46,7 +46,7 @@ defmodule PairingsEngine.Pairing do
 
     result =
       cond do
-        next_number > tournament.rounds_count ->
+        next_number > max_pairable_round(tournament) ->
           {:error, "All #{tournament.rounds_count} rounds have already been paired"}
 
         length(eligible) < 2 ->
@@ -72,6 +72,21 @@ defmodule PairingsEngine.Pairing do
 
     result
   end
+
+  # `swiss_match_format` inserts BOTH legs of a match (rounds `next_number`
+  # and `next_number + 1`) in one `do_pair/2` call — see that function —
+  # so the pairing boundary must leave room for both legs of the *next*
+  # match, not just the next single round: with 2 rounds left, pairing
+  # must still be allowed (it fills the final match); with 1 round left,
+  # it must not (there's no room for a second leg). Hence `rounds_count -
+  # 1` rather than `rounds_count`. As a consequence, `paired_rounds_count/1`
+  # always lands on an even number after a successful match-format pairing
+  # (each call adds exactly 2 rounds), so `next_number = paired + 1` is
+  # always odd the next time `pair_next_round/1` runs — every match-format
+  # pairing run always starts a fresh match at its first leg, never lands
+  # mid-match.
+  defp max_pairable_round(%Tournament{swiss_match_format: true, rounds_count: n}), do: n - 1
+  defp max_pairable_round(%Tournament{rounds_count: n}), do: n
 
   # Calls `module.pair_next_round(tournament)` (module dispatched at runtime
   # so the compiler doesn't over-narrow the result type to today's single
@@ -165,6 +180,16 @@ defmodule PairingsEngine.Pairing do
 
   ## ---------- the pairing run ----------
 
+  # Runs JaVaFo once for `next_number` and inserts its result as a `Round`.
+  # When `tournament.swiss_match_format` is set, this is leg 1 of a match:
+  # `create_round/5` also inserts leg 2 (`next_number + 1`) in the same
+  # transaction, an exact colour-reversed mirror of leg 1 — no second
+  # JaVaFo call, no new TRF file (see `create_mirrored_leg/4`). Round-
+  # specific absentees for `next_number` (`round_absentees` below) are
+  # threaded through so leg 2 can mirror their "requested-zero" bye rows
+  # too, rather than independently re-evaluating `absent_for_round?/2` for
+  # `next_number + 1` — a deliberate scope limitation, see
+  # `create_mirrored_leg/4`.
   defp do_pair(tournament, next_number) do
     active = active_players(tournament.id)
 
@@ -189,7 +214,7 @@ defmodule PairingsEngine.Pairing do
         output
         |> File.read!()
         |> parse_pairs()
-        |> create_round(tournament, players, next_number)
+        |> create_round(tournament, players, next_number, round_absentees)
 
       {out, code} ->
         Logger.error(
@@ -236,7 +261,7 @@ defmodule PairingsEngine.Pairing do
     end)
   end
 
-  defp create_round(pairs, tournament, players, next_number) do
+  defp create_round(pairs, tournament, players, next_number, round_absentees) do
     by_number = Map.new(players, &{&1.pairing_number, &1})
     pairing_allocated_bye? = Enum.any?(pairs, fn {_w, b} -> b == 0 end)
 
@@ -248,20 +273,21 @@ defmodule PairingsEngine.Pairing do
           status: "playing"
         })
 
-      pairs
-      |> Enum.with_index(1)
-      |> Enum.each(fn {{w, b}, board} ->
-        white = Map.fetch!(by_number, w)
-        black = if b == 0, do: nil, else: Map.fetch!(by_number, b)
+      leg1_pairings =
+        pairs
+        |> Enum.with_index(1)
+        |> Enum.map(fn {{w, b}, board} ->
+          white = Map.fetch!(by_number, w)
+          black = if b == 0, do: nil, else: Map.fetch!(by_number, b)
 
-        Repo.insert!(%Pairing{
-          round_id: round.id,
-          board: board,
-          white_player_id: white.id,
-          black_player_id: black && black.id,
-          result: if(b == 0, do: "bye", else: "")
-        })
-      end)
+          Repo.insert!(%Pairing{
+            round_id: round.id,
+            board: board,
+            white_player_id: white.id,
+            black_player_id: black && black.id,
+            result: if(b == 0, do: "bye", else: "")
+          })
+        end)
 
       # A pairing-allocated bye's pairing row is created with its result
       # ("bye") already set, awarding points immediately without ever going
@@ -270,8 +296,75 @@ defmodule PairingsEngine.Pairing do
       # docs/manual-standings.md (Fix 3).
       if pairing_allocated_bye?, do: Tournaments.invalidate_manual_ranking(tournament.id)
 
-      round
+      if tournament.swiss_match_format do
+        create_mirrored_leg(tournament, leg1_pairings, round_absentees, next_number + 1)
+      else
+        round
+      end
     end)
+  end
+
+  # `swiss_match_format`'s second leg: same match, same boards, colours
+  # reversed — an exact mirror of leg 1's freshly-inserted pairings, built
+  # from Elixir data (no second JaVaFo call, no new TRF file). See the
+  # field's doc comment on PairingsEngine.Tournaments.Tournament and the
+  # module doc above `do_pair/2`.
+  #
+  # No extra `Tournaments.invalidate_manual_ranking/1` call is needed here:
+  # every bye-type row leg 2 introduces (pairing-allocated or
+  # requested-zero) is a mirror of a leg-1 event that already triggered its
+  # own invalidation call above (pairing-allocated) or in
+  # `insert_round_absentee_byes/3` (requested-zero, called by `do_pair/2`
+  # before this transaction even starts) — `manual_ranking_stale` is a
+  # single boolean flag, not per-round, so re-firing it for the mirrored
+  # row would be a harmless but redundant broadcast-adjacent write.
+  defp create_mirrored_leg(tournament, leg1_pairings, round_absentees, leg2_number) do
+    leg2 =
+      Repo.insert!(%Round{
+        tournament_id: tournament.id,
+        number: leg2_number,
+        status: "playing"
+      })
+
+    Enum.each(leg1_pairings, fn p ->
+      {white_id, black_id} =
+        if p.black_player_id do
+          # Ordinary pairing — same board, colours swapped.
+          {p.black_player_id, p.white_player_id}
+        else
+          # Pairing-allocated bye — no colour to swap, same player earns
+          # `bye_value` again for this leg (deliberate: a match-format bye
+          # is two bye-legs, not one).
+          {p.white_player_id, nil}
+        end
+
+      Repo.insert!(%Pairing{
+        round_id: leg2.id,
+        board: p.board,
+        white_player_id: white_id,
+        black_player_id: black_id,
+        result: if(black_id, do: "", else: "bye")
+      })
+    end)
+
+    # Round-specific absentees sit out both legs identically — see the
+    # module doc above `do_pair/2` for the deliberate scope limitation
+    # (leg 2's absentee set is leg 1's, not independently re-evaluated).
+    unless round_absentees == [] do
+      rows =
+        Enum.map(round_absentees, fn player ->
+          %{
+            tournament_id: tournament.id,
+            player_id: player.id,
+            round: leg2_number,
+            type: "requested-zero"
+          }
+        end)
+
+      Repo.insert_all("byes", rows)
+    end
+
+    leg2
   end
 
   ## ---------- JaVaFo TRF input ----------

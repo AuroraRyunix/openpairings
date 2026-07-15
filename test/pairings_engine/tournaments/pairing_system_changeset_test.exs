@@ -206,6 +206,58 @@ defmodule PairingsEngine.Tournaments.PairingSystemChangesetTest do
     end
   end
 
+  describe "Tournament.changeset/2 - swiss_match_format field" do
+    test "has default value false" do
+      changeset = Tournament.changeset(%Tournament{}, %{"name" => "Test", "type" => "swiss"})
+      assert changeset.valid?
+      assert get_field(changeset, :swiss_match_format) == false
+    end
+
+    test "rejects swiss_match_format=true with an odd rounds_count" do
+      changeset =
+        Tournament.changeset(%Tournament{}, %{
+          "name" => "Test",
+          "type" => "swiss",
+          "rounds_count" => 5,
+          "swiss_match_format" => true
+        })
+
+      refute changeset.valid?
+
+      assert %{
+               swiss_match_format: [
+                 "match format requires an even number of rounds (each match is 2 rounds)"
+               ]
+             } = errors_on(changeset)
+    end
+
+    test "accepts swiss_match_format=true with an even rounds_count" do
+      changeset =
+        Tournament.changeset(%Tournament{}, %{
+          "name" => "Test",
+          "type" => "swiss",
+          "rounds_count" => 4,
+          "swiss_match_format" => true
+        })
+
+      assert changeset.valid?
+      assert get_field(changeset, :swiss_match_format) == true
+      assert get_field(changeset, :rounds_count) == 4
+    end
+
+    test "an odd rounds_count remains valid when swiss_match_format is false" do
+      changeset =
+        Tournament.changeset(%Tournament{}, %{
+          "name" => "Test",
+          "type" => "swiss",
+          "rounds_count" => 5,
+          "swiss_match_format" => false
+        })
+
+      assert changeset.valid?
+    end
+  end
+
   describe "Tournament.changeset/2 - keizer_top_value field" do
     test "has default value nil" do
       changeset = Tournament.changeset(%Tournament{}, %{"name" => "Test", "type" => "swiss"})

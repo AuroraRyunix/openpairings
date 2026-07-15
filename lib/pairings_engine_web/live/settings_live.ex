@@ -232,7 +232,10 @@ defmodule PairingsEngineWeb.SettingsLive do
       # match format after round 1 has been paired would leave the already-
       # paired rounds in one shape and everything after in another, exactly
       # the problem `pairing_system_locked?` exists to prevent.
-      rr_match_format_locked?: paired > 0
+      rr_match_format_locked?: paired > 0,
+      # Same "can't flip mid-tournament" reasoning as `rr_match_format_locked?`
+      # above, for Swiss's own match-format flag.
+      swiss_match_format_locked?: paired > 0
     )
   end
 
@@ -748,6 +751,7 @@ defmodule PairingsEngineWeb.SettingsLive do
     |> maybe_drop_locked("pairing_system", assigns.pairing_system_locked?)
     |> maybe_drop_locked("rr_cycles", assigns.rr_cycles_locked?)
     |> maybe_drop_locked("rr_match_format", assigns.rr_match_format_locked?)
+    |> maybe_drop_locked("swiss_match_format", assigns.swiss_match_format_locked?)
   end
 
   defp maybe_drop_locked(params, _key, false), do: params
@@ -1036,6 +1040,25 @@ defmodule PairingsEngineWeb.SettingsLive do
               </select>
               <span class="hint">Swiss only — round robin and Keizer ignore this setting</span>
             </label>
+
+            <label
+              class="field"
+              style="display: flex; flex-direction: row; align-items: center; gap: .5rem"
+            >
+              <input type="hidden" name="tournament[swiss_match_format]" value="false" />
+              <input
+                type="checkbox"
+                name="tournament[swiss_match_format]"
+                value="true"
+                checked={@tournament.swiss_match_format}
+                disabled={@swiss_match_format_locked?}
+              />
+              <span>Match format (immediate 2-game rematch, reversed colours)</span>
+              <span :if={@swiss_match_format_locked?} class="hint">locked after first pairing</span>
+            </label>
+            <p class="hint" style="margin-top: -8px">
+              Swiss only — requires an even number of rounds (each match is 2 rounds)
+            </p>
 
             <label class="field">
               <span>Type</span>

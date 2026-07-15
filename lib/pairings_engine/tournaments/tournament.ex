@@ -100,6 +100,20 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # Keizer only: nil means "automatic" (2 x player count), computed by
     # PairingsEngine.Keizer.
     field :keizer_top_value, :integer
+    # Swiss only: "match format" — the sibling feature to `rr_match_format`
+    # above, same immediate-two-game-rematch-with-reversed-colours concept,
+    # but for Swiss the first leg is a real JaVaFo decision (who plays
+    # whom), not a fixed schedule; the second leg is then an exact
+    # colour-reversed mirror of the first, inserted alongside it by
+    # PairingsEngine.Pairing.do_pair/2 in the same transaction, with no
+    # second JaVaFo call. Like `acceleration`, this is only meaningful when
+    # `pairing_system == "swiss"` — inert (never read) otherwise, same
+    # tolerance as that field (no changeset error for setting it on a
+    # non-swiss tournament; see PairingsEngine.Pairing.acceleration_lines/3
+    # for the precedent of gating via pattern match rather than a
+    # validation). Locked in the UI once the tournament has paired its
+    # first round, same as `pairing_system`/`rr_match_format`.
+    field :swiss_match_format, :boolean, default: false
 
     # Club/federation pairing exclusions (SWAR parity #7-10) — arbiters
     # often must avoid pairing clubmates / same-federation players
@@ -173,6 +187,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :standard, :rate_of_play, :organizer_club_number, :round_dates, :categories,
       :event_code, :fide_tournament_id, :officials,
       :pairing_system, :rr_cycles, :rr_match_format, :keizer_top_value,
+      :swiss_match_format,
       :club_exclusion, :club_exclusion_list, :fed_exclusion, :fed_exclusion_list,
       :count_extra_points, :extra_points_bands, :categories_enabled,
       :manual_ranking
@@ -191,6 +206,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_number(:rounds_count, greater_than: 0, less_than_or_equal_to: 30)
     |> validate_keizer_top_value()
     |> validate_rr_match_format()
+    |> validate_swiss_match_format()
     |> normalize_exclusion_list(:club_exclusion_list)
     |> normalize_exclusion_list(:fed_exclusion_list)
     |> normalize_extra_points_bands()
@@ -237,6 +253,25 @@ defmodule PairingsEngine.Tournaments.Tournament do
         changeset,
         :rr_match_format,
         "match format is not yet supported together with double round robin (rr_cycles=2)"
+      )
+    else
+      changeset
+    end
+  end
+
+  # `swiss_match_format` needs its second leg to fit inside `rounds_count`:
+  # unlike round robin (whose match-format total round count is derived,
+  # via `match_total_rounds/1`, from the schedule itself), Swiss's
+  # `rounds_count` is a directly user-set total, so an odd total would
+  # leave no room for the last match's second leg. Reject outright rather
+  # than silently rounding/truncating.
+  defp validate_swiss_match_format(changeset) do
+    if get_field(changeset, :swiss_match_format) == true and
+         rem(get_field(changeset, :rounds_count) || 0, 2) != 0 do
+      add_error(
+        changeset,
+        :swiss_match_format,
+        "match format requires an even number of rounds (each match is 2 rounds)"
       )
     else
       changeset

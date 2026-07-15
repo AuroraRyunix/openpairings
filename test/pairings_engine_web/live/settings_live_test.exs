@@ -619,4 +619,61 @@ defmodule PairingsEngineWeb.SettingsLiveTest do
       refute Repo.reload!(tournament).rr_match_format
     end
   end
+
+  describe "swiss_match_format — locked once round 1 (match 1) has been paired" do
+    defp pair_swiss_match_1(tournament) do
+      Tournaments.create_player(tournament.id, %{name: "Alice", fide_rating: 2000})
+      Tournaments.create_player(tournament.id, %{name: "Bob", fide_rating: 1900})
+      Tournaments.create_player(tournament.id, %{name: "Carol", fide_rating: 1800})
+      Tournaments.create_player(tournament.id, %{name: "Dave", fide_rating: 1700})
+      {:ok, _round} = PairingsEngine.Pairing.pair_next_round(Tournaments.get_tournament!(tournament.id))
+    end
+
+    @tag :javafo
+    test "the checkbox is enabled before any round is paired, disabled after match 1", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament =
+        create_tournament(scope, %{
+          "pairing_system" => "swiss",
+          "rounds_count" => "4",
+          "swiss_match_format" => "true"
+        })
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
+      refute html =~ ~r/name="tournament\[swiss_match_format\][^>]*disabled/
+
+      pair_swiss_match_1(tournament)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
+      assert html =~ ~r/name="tournament\[swiss_match_format\][^>]*disabled/
+      assert html =~ "locked after first pairing"
+      _ = lv
+    end
+
+    @tag :javafo
+    test "a submitted change to swiss_match_format is dropped server-side once locked", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament =
+        create_tournament(scope, %{
+          "pairing_system" => "swiss",
+          "rounds_count" => "4",
+          "swiss_match_format" => "true"
+        })
+
+      pair_swiss_match_1(tournament)
+
+      {:ok, lv, _html} =
+        live(conn, ~p"/t/#{tournament.id}/settings")
+
+      render_submit(lv, "save", %{
+        "tournament" => %{"name" => tournament.name, "swiss_match_format" => "false"}
+      })
+
+      assert Repo.reload!(tournament).swiss_match_format
+    end
+  end
 end

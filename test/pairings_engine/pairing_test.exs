@@ -635,6 +635,181 @@ defmodule PairingsEngine.PairingTest do
     assert {1, 3} in accel_pairs or {3, 1} in accel_pairs
   end
 
+  ## ---------- swiss_match_format ----------
+
+  @tag :javafo
+  test "pair_next_round/1 pairs match 1 (rounds 1-2) as two separate Round rows, leg 2 mirroring leg 1's pairs with colours swapped" do
+    tournament =
+      Repo.insert!(%Tournament{
+        name: "Match",
+        type: "swiss",
+        rounds_count: 4,
+        swiss_match_format: true
+      })
+
+    for {name, rating} <- [{"Alice", 2000}, {"Bob", 1900}, {"Carol", 1800}, {"Dave", 1700},
+                            {"Eve", 1600}, {"Frank", 1500}] do
+      insert_player(tournament, name, fide_rating: rating)
+    end
+
+    assert {:ok, round2} = Pairing.pair_next_round(tournament)
+    assert round2.number == 2
+
+    round1 = Tournaments.get_round(tournament.id, 1) |> Repo.preload(:pairings)
+    round2 = Repo.preload(round2, :pairings)
+
+    assert length(round1.pairings) == 3
+    assert length(round2.pairings) == 3
+
+    # Each round has exactly one Pairing per player (never two in one Round).
+    for round <- [round1, round2] do
+      player_ids =
+        round.pairings
+        |> Enum.flat_map(&[&1.white_player_id, &1.black_player_id])
+        |> Enum.reject(&is_nil/1)
+
+      assert length(player_ids) == length(Enum.uniq(player_ids))
+    end
+
+    by_board1 = Map.new(round1.pairings, &{&1.board, &1})
+    by_board2 = Map.new(round2.pairings, &{&1.board, &1})
+
+    assert Map.keys(by_board1) |> Enum.sort() == Map.keys(by_board2) |> Enum.sort()
+
+    Enum.each(by_board1, fn {board, p1} ->
+      p2 = Map.fetch!(by_board2, board)
+
+      if p1.result == "bye" do
+        assert p2.result == "bye"
+        assert p2.white_player_id == p1.white_player_id
+        assert is_nil(p2.black_player_id)
+      else
+        assert p1.result == ""
+        assert p2.result == ""
+        assert p2.white_player_id == p1.black_player_id
+        assert p2.black_player_id == p1.white_player_id
+      end
+    end)
+  end
+
+  @tag :javafo
+  test "pair_next_round/1 rejects pairing a partial match once all rounds are already paired" do
+    tournament =
+      Repo.insert!(%Tournament{
+        name: "Match",
+        type: "swiss",
+        rounds_count: 4,
+        swiss_match_format: true
+      })
+
+    for {name, rating} <- [{"Alice", 2000}, {"Bob", 1900}, {"Carol", 1800}, {"Dave", 1700}] do
+      insert_player(tournament, name, fide_rating: rating)
+    end
+
+    tournament = Repo.reload!(tournament)
+    assert {:ok, _round2} = Pairing.pair_next_round(tournament)
+
+    # Enter results for both legs of match 1 so match 2 can be paired.
+    for number <- [1, 2] do
+      round = Tournaments.get_round(tournament.id, number) |> Repo.preload(:pairings)
+
+      Enum.each(round.pairings, fn p ->
+        if p.result == "" do
+          Tournaments.update_pairing_result(p, "1-0")
+        end
+      end)
+    end
+
+    assert {:ok, round4} = Pairing.pair_next_round(tournament)
+    assert round4.number == 4
+
+    assert {:error, "All 4 rounds have already been paired"} =
+             Pairing.pair_next_round(tournament)
+  end
+
+  @tag :javafo
+  test "pair_next_round/1's mirrored history round-trips through javafo_input/2: match 2 avoids pairs that already met" do
+    tournament =
+      Repo.insert!(%Tournament{
+        name: "Match",
+        type: "swiss",
+        rounds_count: 4,
+        swiss_match_format: true
+      })
+
+    for {name, rating} <- [{"Alice", 2000}, {"Bob", 1900}, {"Carol", 1800}, {"Dave", 1700}] do
+      insert_player(tournament, name, fide_rating: rating)
+    end
+
+    tournament = Repo.reload!(tournament)
+    assert {:ok, _round2} = Pairing.pair_next_round(tournament)
+
+    round1 = Tournaments.get_round(tournament.id, 1) |> Repo.preload(:pairings)
+    round1_pairs = round1.pairings |> Enum.map(&{&1.white_player_id, &1.black_player_id}) |> MapSet.new()
+
+    for number <- [1, 2] do
+      round = Tournaments.get_round(tournament.id, number) |> Repo.preload(:pairings)
+      Enum.each(round.pairings, &Tournaments.update_pairing_result(&1, "1-0"))
+    end
+
+    assert {:ok, round4} = Pairing.pair_next_round(tournament)
+    round3 = Tournaments.get_round(tournament.id, 3) |> Repo.preload(:pairings)
+    round4 = Repo.preload(round4, :pairings)
+
+    for round <- [round3, round4] do
+      Enum.each(round.pairings, fn p ->
+        pair = {p.white_player_id, p.black_player_id}
+        reverse_pair = {p.black_player_id, p.white_player_id}
+        refute MapSet.member?(round1_pairs, pair)
+        refute MapSet.member?(round1_pairs, reverse_pair)
+      end)
+    end
+  end
+
+  @tag :javafo
+  test "a pairing-allocated bye and a round-specific absentee both mirror into leg 2 (same player, same type, both legs)" do
+    tournament =
+      Repo.insert!(%Tournament{
+        name: "Match",
+        type: "swiss",
+        rounds_count: 4,
+        swiss_match_format: true,
+        bye_value: 1.0
+      })
+
+    insert_player(tournament, "Alice", fide_rating: 2000)
+    insert_player(tournament, "Bob", fide_rating: 1900)
+    insert_player(tournament, "Carol", fide_rating: 1800)
+    absentee = insert_player(tournament, "Dave", fide_rating: 1700, absent_rounds: "1")
+
+    tournament = Repo.reload!(tournament)
+    assert {:ok, round2} = Pairing.pair_next_round(tournament)
+    round2 = Repo.preload(round2, :pairings)
+
+    # The odd-sized eligible pool (Alice, Bob, Carol) produces a
+    # pairing-allocated bye, mirrored into round 2 for the same player.
+    round1 = Tournaments.get_round(tournament.id, 1) |> Repo.preload(:pairings)
+    bye1 = Enum.find(round1.pairings, &(&1.result == "bye"))
+    bye2 = Enum.find(round2.pairings, &(&1.result == "bye"))
+
+    assert bye1
+    assert bye2
+    assert bye1.white_player_id == bye2.white_player_id
+
+    byes =
+      Repo.all(
+        from b in "byes",
+          where: b.tournament_id == ^tournament.id and b.player_id == ^absentee.id,
+          select: %{round: b.round, type: b.type}
+      )
+      |> Enum.sort_by(& &1.round)
+
+    assert byes == [
+             %{round: 1, type: "requested-zero"},
+             %{round: 2, type: "requested-zero"}
+           ]
+  end
+
   ## ---------- helpers ----------
 
   defp round_pairs_by_rank(round) do
