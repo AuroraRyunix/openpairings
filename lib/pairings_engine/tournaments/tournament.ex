@@ -86,6 +86,17 @@ defmodule PairingsEngine.Tournaments.Tournament do
     field :pairing_system, :string, default: "swiss"
     # Round-robin only: 1 = single cycle, 2 = double.
     field :rr_cycles, :integer, default: 1
+    # Round-robin only: "match format" — round N and round N+1 are the SAME
+    # pairing with colours reversed, played back-to-back as an immediate
+    # two-game match (PairingsEngine.RoundRobin.match_schedule/2). This is a
+    # different shape from `rr_cycles == 2` ("double round robin"), which
+    # repeats a pairing a full cycle apart (season-style home/away) rather
+    # than immediately. Currently mutually exclusive with `rr_cycles == 2`
+    # (see the changeset validation below) — composing the two (an immediate
+    # rematch *and* a season-style repeat) is a documented future extension,
+    # not supported by this field yet. Locked in the UI once the tournament
+    # has paired its first round, same as `pairing_system`/`rr_cycles`.
+    field :rr_match_format, :boolean, default: false
     # Keizer only: nil means "automatic" (2 x player count), computed by
     # PairingsEngine.Keizer.
     field :keizer_top_value, :integer
@@ -161,7 +172,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :bye_value, :presence_value, :tiebreaks, :acceleration, :status,
       :standard, :rate_of_play, :organizer_club_number, :round_dates, :categories,
       :event_code, :fide_tournament_id, :officials,
-      :pairing_system, :rr_cycles, :keizer_top_value,
+      :pairing_system, :rr_cycles, :rr_match_format, :keizer_top_value,
       :club_exclusion, :club_exclusion_list, :fed_exclusion, :fed_exclusion_list,
       :count_extra_points, :extra_points_bands, :categories_enabled,
       :manual_ranking
@@ -179,6 +190,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_inclusion(:fed_exclusion, @exclusion_modes)
     |> validate_number(:rounds_count, greater_than: 0, less_than_or_equal_to: 30)
     |> validate_keizer_top_value()
+    |> validate_rr_match_format()
     |> normalize_exclusion_list(:club_exclusion_list)
     |> normalize_exclusion_list(:fed_exclusion_list)
     |> normalize_extra_points_bands()
@@ -208,6 +220,26 @@ defmodule PairingsEngine.Tournaments.Tournament do
     case get_field(changeset, :keizer_top_value) do
       nil -> changeset
       _ -> validate_number(changeset, :keizer_top_value, greater_than: 0)
+    end
+  end
+
+  # `rr_match_format` (immediate two-game rematch) and `rr_cycles == 2`
+  # (season-style repeat a full cycle apart) are two different shapes of
+  # "play everyone twice" that this codebase does not yet know how to
+  # compose into a single schedule (see the field's doc comment above) — an
+  # arbiter turning both on at once would silently get whichever one
+  # `PairingsEngine.RoundRobin.do_pair/2` happens to check first, not the
+  # combination they asked for, so this is rejected outright rather than
+  # guessed at.
+  defp validate_rr_match_format(changeset) do
+    if get_field(changeset, :rr_match_format) == true and get_field(changeset, :rr_cycles) == 2 do
+      add_error(
+        changeset,
+        :rr_match_format,
+        "match format is not yet supported together with double round robin (rr_cycles=2)"
+      )
+    else
+      changeset
     end
   end
 
@@ -385,3 +417,4 @@ defmodule PairingsEngine.Tournaments.Tournament do
   def rr_cycles_label(2), do: "Double"
   def rr_cycles_label(other), do: to_string(other)
 end
+

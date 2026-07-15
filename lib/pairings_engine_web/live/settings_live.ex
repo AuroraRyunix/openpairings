@@ -225,7 +225,14 @@ defmodule PairingsEngineWeb.SettingsLive do
     assign(socket,
       paired_rounds: paired,
       pairing_system_locked?: paired > 0,
-      rr_cycles_locked?: paired >= rr_implied_limit
+      rr_cycles_locked?: paired >= rr_implied_limit,
+      # `rr_match_format` gets the same "can't flip mid-tournament" lock as
+      # `pairing_system` itself (not the "schedule implied by the current
+      # setting is exhausted" logic `rr_cycles_locked?` uses) — flipping
+      # match format after round 1 has been paired would leave the already-
+      # paired rounds in one shape and everything after in another, exactly
+      # the problem `pairing_system_locked?` exists to prevent.
+      rr_match_format_locked?: paired > 0
     )
   end
 
@@ -740,6 +747,7 @@ defmodule PairingsEngineWeb.SettingsLive do
     params
     |> maybe_drop_locked("pairing_system", assigns.pairing_system_locked?)
     |> maybe_drop_locked("rr_cycles", assigns.rr_cycles_locked?)
+    |> maybe_drop_locked("rr_match_format", assigns.rr_match_format_locked?)
   end
 
   defp maybe_drop_locked(params, _key, false), do: params
@@ -978,6 +986,22 @@ defmodule PairingsEngineWeb.SettingsLive do
                 </option>
               </select>
               <span :if={@rr_cycles_locked?} class="hint">locked after first pairing</span>
+            </label>
+
+            <label
+              class="field"
+              style="display: flex; flex-direction: row; align-items: center; gap: .5rem"
+            >
+              <input type="hidden" name="tournament[rr_match_format]" value="false" />
+              <input
+                type="checkbox"
+                name="tournament[rr_match_format]"
+                value="true"
+                checked={@tournament.rr_match_format}
+                disabled={@rr_match_format_locked?}
+              />
+              <span>Match format (immediate 2-game rematch, reversed colours)</span>
+              <span :if={@rr_match_format_locked?} class="hint">locked after first pairing</span>
             </label>
 
             <label class="field">

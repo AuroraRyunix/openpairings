@@ -153,6 +153,59 @@ defmodule PairingsEngine.Tournaments.PairingSystemChangesetTest do
     end
   end
 
+  describe "Tournament.changeset/2 - rr_match_format field" do
+    test "has default value false" do
+      changeset = Tournament.changeset(%Tournament{}, %{"name" => "Test", "type" => "swiss"})
+      assert changeset.valid?
+      assert get_field(changeset, :rr_match_format) == false
+    end
+
+    test "accepts true with rr_cycles=1 (the default)" do
+      changeset =
+        Tournament.changeset(%Tournament{}, %{
+          "name" => "Test",
+          "type" => "swiss",
+          "pairing_system" => "round_robin",
+          "rr_match_format" => true
+        })
+
+      assert changeset.valid?
+      assert get_field(changeset, :rr_match_format) == true
+      assert get_field(changeset, :rr_cycles) == 1
+    end
+
+    test "rejects rr_match_format=true together with rr_cycles=2" do
+      changeset =
+        Tournament.changeset(%Tournament{}, %{
+          "name" => "Test",
+          "type" => "swiss",
+          "pairing_system" => "round_robin",
+          "rr_match_format" => true,
+          "rr_cycles" => 2
+        })
+
+      refute changeset.valid?
+
+      assert %{
+               rr_match_format: [
+                 "match format is not yet supported together with double round robin (rr_cycles=2)"
+               ]
+             } = errors_on(changeset)
+    end
+
+    test "rr_cycles=2 alone (rr_match_format false) remains valid" do
+      changeset =
+        Tournament.changeset(%Tournament{}, %{
+          "name" => "Test",
+          "type" => "swiss",
+          "pairing_system" => "round_robin",
+          "rr_cycles" => 2
+        })
+
+      assert changeset.valid?
+    end
+  end
+
   describe "Tournament.changeset/2 - keizer_top_value field" do
     test "has default value nil" do
       changeset = Tournament.changeset(%Tournament{}, %{"name" => "Test", "type" => "swiss"})

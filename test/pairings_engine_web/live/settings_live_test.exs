@@ -571,4 +571,52 @@ defmodule PairingsEngineWeb.SettingsLiveTest do
       refute Repo.reload!(tournament).logo_data
     end
   end
+
+  describe "rr_match_format — locked once round 1 has been paired" do
+    defp pair_round_robin_round_1(tournament) do
+      Tournaments.create_player(tournament.id, %{name: "Alice", fide_rating: 2000})
+      Tournaments.create_player(tournament.id, %{name: "Bob", fide_rating: 1900})
+      Tournaments.create_player(tournament.id, %{name: "Carol", fide_rating: 1800})
+      Tournaments.create_player(tournament.id, %{name: "Dave", fide_rating: 1700})
+      {:ok, _round} = PairingsEngine.Pairing.pair_next_round(Tournaments.get_tournament!(tournament.id))
+    end
+
+    test "the checkbox is enabled before any round is paired, disabled after round 1", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope, %{"pairing_system" => "round_robin"})
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
+      refute html =~ ~r/name="tournament\[rr_match_format\][^>]*disabled/
+
+      pair_round_robin_round_1(tournament)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
+      assert html =~ ~r/name="tournament\[rr_match_format\][^>]*disabled/
+      assert html =~ "locked after first pairing"
+      _ = lv
+    end
+
+    test "a submitted change to rr_match_format is dropped server-side once locked", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope, %{"pairing_system" => "round_robin"})
+      pair_round_robin_round_1(tournament)
+
+      {:ok, lv, _html} =
+        live(conn, ~p"/t/#{tournament.id}/settings")
+
+      # The rendered checkbox is HTML `disabled` (proven by the previous
+      # test), so a real browser could never submit a changed value for it —
+      # but a crafted/replayed request could still include the key, hence
+      # `render_submit/3` (bypassing form-element validation, unlike
+      # `form/3` + `render_submit/1`) to simulate exactly that and prove
+      # `strip_locked_pairing_fields/2` drops it server-side regardless.
+      render_submit(lv, "save", %{"tournament" => %{"name" => tournament.name, "rr_match_format" => "true"}})
+
+      refute Repo.reload!(tournament).rr_match_format
+    end
+  end
 end

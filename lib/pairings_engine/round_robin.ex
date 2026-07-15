@@ -129,6 +129,62 @@ defmodule PairingsEngine.RoundRobin do
     (effective_n - 1) * cycles
   end
 
+  @doc """
+  "Match format" schedule: like `schedule/3` but every single-cycle pairing
+  is played twice, back-to-back, colours reversed, instead of once —
+  `tournaments.rr_match_format`, a different shape from `rr_cycles == 2`
+  (see the moduledoc and the field's own doc comment on
+  `PairingsEngine.Tournaments.Tournament`).
+
+  `physical_round` is the round number as actually paired/displayed (1, 2,
+  3, 4, ... — nothing here renumbers rounds). Physical rounds `2k-1` and
+  `2k` are match `k`'s two legs: `match_number = div(physical_round + 1, 2)`
+  maps both `2k-1` and `2k` to `k`, and `schedule(player_count, 1, k)` gives
+  that match's pairing exactly once (a single-cycle Berger table, since a
+  "match" here is one cycle's worth of pairing repeated, not two cycles).
+  The odd physical round is leg 1, played exactly as the single-cycle
+  schedule says; the even physical round is leg 2, the same pairing with
+  colours swapped (`mirror_leg/1`).
+
+  A structural bye (odd player count) mirrors unchanged rather than
+  swapping anything — the player sitting out match `k` sits out both of its
+  legs identically, so leg 2's bye row is the same player, same
+  `"requested-zero"` type, just recorded against the next round number by
+  the caller (`do_pair/2` inserts one row per physical round, same as
+  `schedule/3`).
+  """
+  @spec match_schedule(pos_integer(), pos_integer()) ::
+          {:ok, [{:pairing, pos_integer(), pos_integer()} | {:bye, pos_integer()}]}
+          | {:error, String.t()}
+  def match_schedule(player_count, physical_round) when physical_round >= 1 do
+    match_number = div(physical_round + 1, 2)
+
+    case schedule(player_count, 1, match_number) do
+      {:ok, matches} ->
+        leg2? = rem(physical_round, 2) == 0
+        {:ok, if(leg2?, do: Enum.map(matches, &mirror_leg/1), else: matches)}
+
+      error ->
+        error
+    end
+  end
+
+  defp mirror_leg({:pairing, w, b}), do: {:pairing, b, w}
+  defp mirror_leg({:bye, _} = bye), do: bye
+
+  @doc """
+  Total number of physical rounds the match-format schedule needs for
+  `player_count` players — exactly double `total_rounds(player_count, 1)`,
+  since every single-cycle pairing becomes two physical rounds (its two
+  legs). Match format is always a single Berger cycle underneath (see
+  `match_schedule/2`), so unlike `total_rounds/2` there's no `cycles`
+  parameter here.
+  """
+  @spec match_total_rounds(pos_integer()) :: pos_integer()
+  def match_total_rounds(player_count) do
+    total_rounds(player_count, 1) * 2
+  end
+
   ## ---------- pure schedule construction ----------
 
   # See the moduledoc for the derivation of both the pairing and the
@@ -211,7 +267,14 @@ defmodule PairingsEngine.RoundRobin do
   ## ---------- the pairing run ----------
 
   defp do_pair(tournament, frozen, next_number) do
-    case schedule(length(frozen), tournament.rr_cycles, next_number) do
+    result =
+      if tournament.rr_match_format do
+        match_schedule(length(frozen), next_number)
+      else
+        schedule(length(frozen), tournament.rr_cycles, next_number)
+      end
+
+    case result do
       {:error, reason} ->
         {:error, reason}
 
