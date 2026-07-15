@@ -210,8 +210,39 @@ defmodule PairingsEngine.Pairing do
     end
   end
 
+  # `players` here is `next_number`'s round-specific ELIGIBLE subset of
+  # `active_players/1` (see `do_pair/2`'s `Enum.split_with/2`), not the whole
+  # frozen `pairing_number` pool — `active_players/1` covers permanent
+  # absentees/forfeits/inactive status, but a player sitting out only THIS
+  # round (`absent_rounds`) still holds their global `pairing_number` and
+  # still appears in `active_players/1`, just not here.
+  #
+  # If that round-specific absentee's rating places them anywhere but the
+  # very bottom of the field, `players`' global `pairing_number`s have a GAP
+  # in the middle of their range (e.g. ranks {1,2,3,5}, rank 4 missing).
+  # Sending JaVaFo a TRF whose starting ranks aren't contiguous 1..N crashes
+  # it with a bare NullPointerException — confirmed against the real jar
+  # (see `test/pairings_engine/swar_import_test.exs`'s "pairing a new round
+  # after import doesn't crash when a historical opponent is now excluded").
+  #
+  # The fix mirrors `compute_category_group/5`'s already-working approach
+  # for the exact same class of bug in the per-category path: build a LOCAL
+  # contiguous 1..M rank map over just `players` (sorted by global
+  # `pairing_number`, so relative seeding order is preserved), feed JaVaFo
+  # only that clean numbering (via `javafo_input/3`'s `rank_by_player_id`
+  # override, which flows into player rows/games, XXP, and XXA lines alike),
+  # then translate JaVaFo's output pairs (local ranks) back to real players
+  # via the inverse map in `create_round/5`. Board numbering (JaVaFo's output
+  # *order*, not its rank values) is completely unaffected by this.
   defp do_pair_single(tournament, players, next_number, round_absentees) do
-    trf = javafo_input(tournament, players)
+    sorted = Enum.sort_by(players, & &1.pairing_number)
+    local_rank_by_player_id = sorted |> Enum.with_index(1) |> Map.new(fn {p, i} -> {p.id, i} end)
+    by_id = Map.new(players, &{&1.id, &1})
+
+    player_by_local_rank =
+      Map.new(local_rank_by_player_id, fn {id, rank} -> {rank, Map.fetch!(by_id, id)} end)
+
+    trf = javafo_input(tournament, players, local_rank_by_player_id)
 
     dir = Path.join(System.tmp_dir!(), "pairingsengine")
     File.mkdir_p!(dir)
@@ -224,7 +255,7 @@ defmodule PairingsEngine.Pairing do
         output
         |> File.read!()
         |> parse_pairs()
-        |> create_round(tournament, players, next_number, round_absentees)
+        |> create_round(tournament, player_by_local_rank, next_number, round_absentees)
 
       {out, code} ->
         Logger.error(
@@ -414,9 +445,11 @@ defmodule PairingsEngine.Pairing do
   end
 
   # Builds one category's self-contained TRF input: `trf_player_rows/2`
-  # (already scoped to just `group_players`, so cross-category games can't
-  # leak in — see games_per_player/2's `by_id` scoping) post-processed to
-  # replace every global `pairing_number` (row rank, and each game's
+  # (rows scoped to just `group_players` — though `games_per_player/2`
+  # resolves each game's opponent *identity* from the full tournament
+  # roster, not just this category, since a past opponent may since have
+  # left the category/roster's active set; see that function) post-processed
+  # to replace every global `pairing_number` (row rank, and each game's
   # opponent rank) with this category's own local 1..M numbering. XXP
   # (forbidden pairings / exclusions) lines are translated the same way —
   # `forbidden_pairs_lines/3`/`exclusion_pairs_lines/3`'s optional
@@ -444,7 +477,13 @@ defmodule PairingsEngine.Pairing do
     trf = trf <> "XXR #{tournament.rounds_count}\r\n"
 
     trf =
-      trf <> acceleration_lines(tournament, group_players, paired_rounds_count(tournament.id) + 1)
+      trf <>
+        acceleration_lines(
+          tournament,
+          group_players,
+          paired_rounds_count(tournament.id) + 1,
+          local_rank_by_player_id
+        )
 
     trf <>
       forbidden_pairs_lines(tournament.id, group_players, local_rank_by_player_id) <>
@@ -452,13 +491,25 @@ defmodule PairingsEngine.Pairing do
   end
 
   # Remaps `trf_player_rows/2`'s output (global `pairing_number`-based ranks)
-  # to a category's local 1..M numbering: each row's own `rank`, and each of
-  # its games' `opponent_rank` (looked up via the `opponent_id` `trf_game/3`
-  # now carries alongside it — see that function). An opponent not present
-  # in `local_rank_by_player_id` (a game against a player outside this
-  # category — not expected once categories have always been separate
-  # pairing pools, but harmless if it ever happens) resolves to `nil`,
-  # exactly like a bye/missing opponent already does upstream.
+  # to a local 1..M numbering (a category's own pool, or — since this fix —
+  # a single-pool pairing run's round-specific eligible subset, see
+  # `do_pair_single/4`): each row's own `rank`, and each of its games'
+  # `opponent_rank` (looked up via the `opponent_id` `trf_game/3` now carries
+  # alongside it — see that function).
+  #
+  # An opponent not present in `local_rank_by_player_id` at all — a game
+  # against a player outside this run's local pool (category or, for
+  # `do_pair_single/4`, a player excluded from THIS round only, e.g. a
+  # different round's `absent_rounds` entry, or someone who's since gone
+  # permanently absent/forfeited) — resolves `opponent_rank` to `nil`, same
+  # as a genuinely opponentless game already does upstream. But unlike a
+  # genuinely opponentless game, `game.result` here can still be a real
+  # PLAYED-game code (the game against that historical opponent really was
+  # played and scored) — pairing a nil rank with a played-game code is
+  # exactly the illegal "0000 - 1"-style TRF row `bye_safe_result/2` exists
+  # to prevent (see `trf_game/3`), so the same reinterpretation is reapplied
+  # here for this second way a played game can end up with no resolvable
+  # rank for its opponent.
   defp remap_trf_rows_to_local_ranks(rows, local_rank_by_player_id) do
     Enum.map(rows, fn row ->
       local_rank = Map.fetch!(local_rank_by_player_id, row.id)
@@ -468,7 +519,16 @@ defmodule PairingsEngine.Pairing do
           local_opponent_rank =
             game[:opponent_id] && Map.get(local_rank_by_player_id, game.opponent_id)
 
-          Map.put(game, :opponent_rank, local_opponent_rank)
+          result =
+            if game[:opponent_id] != nil and is_nil(local_opponent_rank) do
+              bye_safe_result(game.result, nil)
+            else
+              game.result
+            end
+
+          game
+          |> Map.put(:opponent_rank, local_opponent_rank)
+          |> Map.put(:result, result)
         end)
 
       %{row | rank: local_rank, games: remapped_games}
@@ -538,8 +598,12 @@ defmodule PairingsEngine.Pairing do
     end)
   end
 
-  defp create_round(pairs, tournament, players, next_number, round_absentees) do
-    by_number = Map.new(players, &{&1.pairing_number, &1})
+  # `player_by_local_rank` is `do_pair_single/4`'s local 1..M rank map
+  # (inverse of `local_rank_by_player_id`), NOT global `pairing_number` — see
+  # that function's doc comment for why. JaVaFo's output pairs are starting
+  # ranks in whatever numbering it was given, so the lookup here must use
+  # the exact same map that was fed into `javafo_input/3`.
+  defp create_round(pairs, tournament, player_by_local_rank, next_number, round_absentees) do
     pairing_allocated_bye? = Enum.any?(pairs, fn {_w, b} -> b == 0 end)
 
     Repo.transaction(fn ->
@@ -554,8 +618,8 @@ defmodule PairingsEngine.Pairing do
         pairs
         |> Enum.with_index(1)
         |> Enum.map(fn {{w, b}, board} ->
-          white = Map.fetch!(by_number, w)
-          black = if b == 0, do: nil, else: Map.fetch!(by_number, b)
+          white = Map.fetch!(player_by_local_rank, w)
+          black = if b == 0, do: nil, else: Map.fetch!(player_by_local_rank, b)
 
           Repo.insert!(%Pairing{
             round_id: round.id,
@@ -646,10 +710,31 @@ defmodule PairingsEngine.Pairing do
 
   ## ---------- JaVaFo TRF input ----------
 
-  @doc "Builds the TRF text JaVaFo takes as input (TRF16 + XXR/XXA/XXP extensions)."
-  def javafo_input(tournament, players \\ nil) do
+  @doc """
+  Builds the TRF text JaVaFo takes as input (TRF16 + XXR/XXA/XXP extensions).
+
+  `rank_by_player_id` is an optional override, same idea as
+  `forbidden_pairs_lines/3`/`exclusion_pairs_lines/3`'s own override: when
+  `nil` (every existing caller's behaviour, unaffected), player rows/games
+  keep using each player's raw global `pairing_number` exactly as before.
+  `do_pair_single/4` passes a local contiguous 1..M rank map instead (built
+  over just this round's eligible players), so a round-specific gap in the
+  middle of the global `pairing_number` range — an absent player excluded
+  from THIS round only, not from the tournament's frozen numbering — never
+  reaches JaVaFo as a gap in the TRF's starting-rank sequence, which is
+  confirmed to crash it with a bare NullPointerException. See the
+  `do_pair_single/4` doc comment for the full story.
+  """
+  def javafo_input(tournament, players \\ nil, rank_by_player_id \\ nil) do
     players = players || active_players(tournament.id)
     trf_players = trf_player_rows(tournament, players)
+
+    trf_players =
+      if rank_by_player_id do
+        remap_trf_rows_to_local_ranks(trf_players, rank_by_player_id)
+      else
+        trf_players
+      end
 
     trf =
       Trf.serialize(%{
@@ -666,10 +751,17 @@ defmodule PairingsEngine.Pairing do
     # XXR: total number of rounds — required by JaVaFo to plan the pairing.
     trf = trf <> "XXR #{tournament.rounds_count}\r\n"
 
-    # XXA: Baku acceleration virtual points (see acceleration_lines/3) — must
+    # XXA: Baku acceleration virtual points (see acceleration_lines/4) — must
     # come before the pairing-engine invocation cares about standings, same
     # section as XXR.
-    trf = trf <> acceleration_lines(tournament, players, paired_rounds_count(tournament.id) + 1)
+    trf =
+      trf <>
+        acceleration_lines(
+          tournament,
+          players,
+          paired_rounds_count(tournament.id) + 1,
+          rank_by_player_id
+        )
 
     # XXP: one line per forbidden pairing (see
     # PairingsEngine.Tournaments.list_forbidden_pairings/1 and
@@ -678,7 +770,8 @@ defmodule PairingsEngine.Pairing do
     # exclusion rules (PairingsEngine.Exclusions) add further XXP lines the
     # same way, deduplicated against the explicit ones above.
     trf <>
-      forbidden_pairs_lines(tournament.id, players) <> exclusion_pairs_lines(tournament, players)
+      forbidden_pairs_lines(tournament.id, players, rank_by_player_id) <>
+      exclusion_pairs_lines(tournament, players, rank_by_player_id)
   end
 
   @doc """
@@ -797,12 +890,13 @@ defmodule PairingsEngine.Pairing do
   are assigned one virtual point in the first three rounds, and half
   virtual point in the next two rounds."*
   """
-  def acceleration_lines(tournament, players, current_round)
+  def acceleration_lines(tournament, players, current_round, rank_by_player_id \\ nil)
 
   def acceleration_lines(
         %Tournament{acceleration: "baku", pairing_system: "swiss"} = tournament,
         players,
-        current_round
+        current_round,
+        rank_by_player_id
       )
       when is_integer(current_round) and current_round > 0 do
     ranked =
@@ -810,6 +904,11 @@ defmodule PairingsEngine.Pairing do
       |> Enum.filter(&(&1.pairing_number != nil))
       |> Enum.sort_by(& &1.pairing_number)
 
+    # Group-A membership is a tournament-wide FIDE concept computed from
+    # GLOBAL starting rank (frozen for the tournament) — deliberately
+    # unaffected by `rank_by_player_id`, which only changes how a Group-A
+    # player's rank is *labelled* in the emitted XXA line below (see next
+    # comment), not who's in Group A to begin with.
     group_a_size = 2 * ceil_div(length(ranked), 4)
     group_a_ranks = ranked |> Enum.take(group_a_size) |> MapSet.new(& &1.pairing_number)
 
@@ -818,15 +917,32 @@ defmodule PairingsEngine.Pairing do
 
     ranked
     |> Enum.filter(&MapSet.member?(group_a_ranks, &1.pairing_number))
-    |> Enum.map_join(fn player ->
+    |> Enum.map(fn player ->
+      # `rank_by_player_id` given (do_pair_single/4's local rank map, or a
+      # category's) means the XXP/player rows in this same run are keyed by
+      # local rank, not global pairing_number — the XXA line's rank column
+      # must match that same numbering, or it silently references a rank
+      # that doesn't exist in this run's TRF16 player list. A Group-A player
+      # not in `rank_by_player_id` at all (excluded from THIS run's pool —
+      # e.g. a round-specific absentee) has nothing to place a line at, so
+      # they're dropped rather than emitted with a stale/wrong rank.
+      emitted_rank =
+        if rank_by_player_id,
+          do: Map.get(rank_by_player_id, player.id),
+          else: player.pairing_number
+
+      {emitted_rank, player}
+    end)
+    |> Enum.reject(fn {rank, _player} -> is_nil(rank) end)
+    |> Enum.map_join(fn {rank, _player} ->
       points =
         Enum.map(1..current_round, &virtual_points(&1, accelerated_rounds, first_stage_rounds))
 
-      xxa_line(player.pairing_number, points)
+      xxa_line(rank, points)
     end)
   end
 
-  def acceleration_lines(_tournament, _players, _current_round), do: ""
+  def acceleration_lines(_tournament, _players, _current_round, _rank_by_player_id), do: ""
 
   defp virtual_points(round, accelerated_rounds, _first_stage_rounds)
        when round > accelerated_rounds,
@@ -980,7 +1096,19 @@ defmodule PairingsEngine.Pairing do
 
   # Games in TRF terms for every paired round: opponent pairing number,
   # colour, TRF result code. Rounds without a record become Z (zero-point bye).
+  #
+  # `by_id` scopes WHICH players' rows we build (the current round's target
+  # set — e.g. `active_players/1`'s result, or a category's local group for
+  # the per-category path) and must stay narrow. Historical opponent
+  # identity is a different concern: a player paired in an earlier round may
+  # since have gone absent/forfeited and dropped out of `by_id`, but the
+  # game they played is still real and needs its opponent's true rank, not
+  # a blank one. `full_roster_by_id/1` (every player who ever received a
+  # pairing_number) is used for that lookup instead, so `trf_game/3` can
+  # resolve any past opponent regardless of their current eligibility.
   defp games_per_player(tournament, by_id) do
+    full_roster = full_roster_by_id(tournament.id)
+
     rounds =
       Repo.all(
         from r in Round,
@@ -1008,7 +1136,7 @@ defmodule PairingsEngine.Pairing do
 
           cond do
             pairing != nil ->
-              trf_game(pairing, player_id, by_id)
+              trf_game(pairing, player_id, full_roster)
 
             bye_type = bye_map[{player_id, round.number}] ->
               %{
@@ -1028,11 +1156,31 @@ defmodule PairingsEngine.Pairing do
     end
   end
 
-  defp trf_game(pairing, player_id, by_id) do
+  # Every player of `tournament_id` who ever received a pairing_number —
+  # the widest set a HISTORICAL opponent could possibly be, since a player
+  # never actually paired has nothing meaningful to report anyway (mirrors
+  # `trf_player_rows/2`'s own tolerance rule). Deliberately wider than the
+  # `active_players/1`/category-local sets used to decide who gets rows
+  # built or who gets paired THIS round — see `games_per_player/2`.
+  defp full_roster_by_id(tournament_id) do
+    Repo.all(
+      from p in Player,
+        where: p.tournament_id == ^tournament_id and not is_nil(p.pairing_number)
+    )
+    |> Map.new(&{&1.id, &1})
+  end
+
+  defp trf_game(pairing, player_id, full_roster) do
     white? = pairing.white_player_id == player_id
 
     opponent_id = if white?, do: pairing.black_player_id, else: pairing.white_player_id
-    opponent = opponent_id && Map.get(by_id, opponent_id)
+    # Looked up against the FULL tournament roster (every player who ever
+    # got a pairing_number), not just whoever is eligible for the round
+    # currently being paired — a past opponent may since have gone
+    # absent/forfeited and dropped out of that narrower set, but the game
+    # they played is still real and its rank must still resolve. See
+    # `games_per_player/2`.
+    opponent = opponent_id && Map.get(full_roster, opponent_id)
 
     # Played games use TRF codes 1/0/= ; forfeits use + (win) / - (loss),
     # per FIDE Art. 16 both sides of a forfeit count as unplayed. A played
@@ -1065,8 +1213,7 @@ defmodule PairingsEngine.Pairing do
 
     %{
       opponent_rank: opponent && opponent.pairing_number,
-      # The opponent's raw id, regardless of whether `opponent` resolved
-      # within this call's `by_id` scope — carried alongside `opponent_rank`
+      # The opponent's raw id, carried alongside `opponent_rank`
       # so per-category Swiss pairing's `remap_trf_rows_to_local_ranks/2` can
       # translate it to a category's own local rank numbering (see
       # `build_category_trf/3`). `PairingsEngine.Trf.serialize/1` and
@@ -1074,7 +1221,7 @@ defmodule PairingsEngine.Pairing do
       opponent_id: opponent_id,
       colour:
         cond do
-          pairing.result == "bye" or opponent == nil -> nil
+          pairing.result == "bye" or opponent_id == nil -> nil
           white? -> "w"
           true -> "b"
         end,

@@ -85,6 +85,61 @@ defmodule PairingsEngine.PairingTest do
     assert byes == [%{round: 1, type: "requested-zero"}]
   end
 
+  # Root-caused bug: `do_pair_single/4` used to feed JaVaFo the players'
+  # raw GLOBAL `pairing_number` as TRF starting ranks. Pairing numbers are
+  # frozen once, highest rating first, over the WHOLE active pool (see
+  # `ensure_pairing_numbers/2`); when a round-specific absentee
+  # (`absent_rounds`) is excluded from just this round's eligible set, and
+  # that absentee's rating places them in the MIDDLE of the field rather
+  # than at either end, the eligible set's starting ranks have a GAP in the
+  # middle of the 1..N range (e.g. {1,2,4,5}, rank 3 missing) — this really
+  # does crash the real javafo.jar with a bare NullPointerException. The
+  # existing "excludes a player absent for this round" test above doesn't
+  # catch this because its absentee is the LOWEST-rated player (a gap at
+  # the very end of the range only, which apparently doesn't crash JaVaFo —
+  # only a middle gap does).
+  @tag :javafo
+  test "pair_next_round/1 doesn't crash when a round-specific absentee leaves a gap in the middle of the starting-rank range" do
+    tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
+
+    p1 = insert_player(tournament, "Alice", fide_rating: 2000)
+    p2 = insert_player(tournament, "Bob", fide_rating: 1900)
+
+    # Rated exactly between Bob and Dave, so after `ensure_pairing_numbers/2`
+    # freezes ranks highest-rating-first, Carol lands 3rd of 5 — round 1's
+    # eligible set {Alice, Bob, Dave, Eve} then has starting ranks {1,2,4,5},
+    # a gap in the MIDDLE of the range, not at either end.
+    absentee = insert_player(tournament, "Carol", fide_rating: 1800, absent_rounds: "1")
+
+    p4 = insert_player(tournament, "Dave", fide_rating: 1700)
+    p5 = insert_player(tournament, "Eve", fide_rating: 1600)
+
+    assert {:ok, round} = Pairing.pair_next_round(tournament)
+    round = Repo.preload(round, :pairings)
+
+    assert round.number == 1
+
+    pairing_player_ids =
+      round.pairings
+      |> Enum.flat_map(&[&1.white_player_id, &1.black_player_id])
+      |> Enum.reject(&is_nil/1)
+
+    refute absentee.id in pairing_player_ids
+    assert p1.id in pairing_player_ids
+    assert p2.id in pairing_player_ids
+    assert p4.id in pairing_player_ids
+    assert p5.id in pairing_player_ids
+
+    byes =
+      Repo.all(
+        from b in "byes",
+          where: b.tournament_id == ^tournament.id and b.player_id == ^absentee.id,
+          select: %{round: b.round, type: b.type}
+      )
+
+    assert byes == [%{round: 1, type: "requested-zero"}]
+  end
+
   ## ---------- a player's prior bye must not be lost when pairing later rounds ----------
   #
   # User-reported concern: "byes don't end up in the pairings history/list.
@@ -417,6 +472,66 @@ defmodule PairingsEngine.PairingTest do
     trf = Pairing.javafo_input(tournament, [player, opponent])
     refute trf =~ "0000 - 1"
     refute trf =~ "0000 - ="
+  end
+
+  # User-reported crash (real SWAR 3-2-1 import, see swar_import_test.exs):
+  # pairing a new round after import raised `Trf.ValidationError` —
+  # "opponent 0000 cannot carry played-game result ... opponentless games
+  # must use a bye code" — for a player whose round-1 REAL opponent had
+  # since been marked `absent: true` and dropped out of `active_players/1`.
+  # `games_per_player/2` was resolving that historical opponent's identity
+  # against the same narrow player set used to decide who's eligible to be
+  # paired THIS round, so a genuinely non-nil `opponent_id` produced a nil
+  # `opponent_rank` — a played-game result with no way to name its
+  # opponent, the illegal TRF combination. This is a synthetic
+  # reproduction, independent of the gitignored real fixture: A beats B in
+  # round 1, B then goes absent, and A's round-1 TRF line must still show
+  # B's real starting rank, not "0000".
+  test "javafo_input/2 resolves a historical opponent's rank even after they've gone absent" do
+    tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
+
+    a = insert_player(tournament, "Alice", fide_rating: 2000, pairing_number: 1)
+    b = insert_player(tournament, "Bob", fide_rating: 1900, pairing_number: 2)
+
+    r1 =
+      Repo.insert!(%PairingsEngine.Tournaments.Round{
+        tournament_id: tournament.id,
+        number: 1,
+        status: "finished"
+      })
+
+    Repo.insert!(%PairingsEngine.Tournaments.Pairing{
+      round_id: r1.id,
+      board: 1,
+      white_player_id: a.id,
+      black_player_id: b.id,
+      result: "1-0"
+    })
+
+    {:ok, b} = Tournaments.update_player(b, %{absent: true})
+    refute b.id in (Pairing.active_players(tournament.id) |> Enum.map(& &1.id))
+
+    # `trf_player_rows/2` directly: Alice's round-1 game must still resolve
+    # Bob's real opponent_id/rank, not nil, even though Bob is no longer in
+    # the player set being built (`active_players/1`'s result).
+    [row] = Pairing.trf_player_rows(tournament, Pairing.active_players(tournament.id))
+    [game] = row.games
+    assert game.result == "1"
+    assert game.opponent_id == b.id
+    assert game.opponent_rank == 2
+
+    # And the full TRF text used to previously crash JaVaFo never contains
+    # the illegal "0000 - 1" combination for Alice's round-1 game — her
+    # opponent id block (columns 92-95, round 1 — see Trf's round_cols/1)
+    # must carry Bob's real starting rank (2), not the "0000" placeholder.
+    trf = Pairing.javafo_input(tournament)
+    refute trf =~ "0000 - 1"
+
+    lines = String.split(trf, "\r\n")
+    alice_line = Enum.find(lines, &(String.starts_with?(&1, "001") and &1 =~ "Alice"))
+    assert String.slice(alice_line, 91, 4) |> String.trim() == "2"
+    assert String.at(alice_line, 96) == "w"
+    assert String.at(alice_line, 98) == "1"
   end
 
   ## ---------- forbidden pairings -> JaVaFo XXP extension ----------

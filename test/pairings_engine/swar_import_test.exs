@@ -302,6 +302,55 @@ defmodule PairingsEngine.SwarImportTest do
     assert tournament.bye_value == 1.0
   end
 
+  # User-reported crash: test3-321.swar is a real club championship with 42
+  # players, 19 of them correctly marked `absent: true` per SWAR's own
+  # "Absent" checkbox (excluded from every round upcoming or not yet
+  # paired — confirmed by the tournament's arbiter). Pairing round 9 (past
+  # the 8 imported rounds) crashed entirely with
+  # `PairingsEngine.Trf.ValidationError`: "Aelvoet, Karel, round 2: opponent
+  # 0000 cannot carry played-game result "1" — opponentless games must use
+  # a bye code". Root cause: "Aelvoet, Karel" really did play a round-2
+  # game against "De Winter, Gerrit", one of the 19 now-absent players —
+  # `games_per_player/2` was resolving that historical opponent's identity
+  # against the current round's narrow *active* player set (correctly used
+  # to decide who's eligible to be paired THIS round) instead of the full
+  # tournament roster, so a genuine non-nil `opponent_id` produced a nil
+  # `opponent_rank` — a played-game result with no legal way to name its
+  # opponent. Fixed by resolving historical opponent identity against every
+  # player who ever received a pairing_number, regardless of current
+  # eligibility (see `full_roster_by_id/1`).
+  @tag :javafo
+  test "pairing a new round after import doesn't crash when a historical opponent is now excluded" do
+    assert {:ok, tournament} = SwarImport.import_file(@test3_321)
+    assert {:ok, tournament} = Tournaments.update_tournament(tournament, %{rounds_count: 9})
+
+    assert {:ok, round} = PairingsEngine.Pairing.pair_next_round(tournament)
+    assert round.number == 9
+
+    # Also prove the fix, not just "doesn't crash": Aelvoet, Karel's round-2
+    # line in the round-9 TRF input must correctly show his real opponent's
+    # (De Winter, Gerrit's) starting rank alongside the real played-game
+    # result code, not the "0000" placeholder.
+    karel = Enum.find(Tournaments.list_players(tournament.id), &(&1.name == "Aelvoet, Karel"))
+
+    gerrit =
+      Enum.find(Tournaments.list_players(tournament.id), &(&1.name == "De Winter, Gerrit"))
+
+    assert gerrit.absent == true
+
+    active = PairingsEngine.Pairing.active_players(tournament.id)
+    refute gerrit.id in Enum.map(active, & &1.id)
+
+    [karel_row] =
+      PairingsEngine.Pairing.trf_player_rows(tournament, active)
+      |> Enum.filter(&(&1.id == karel.id))
+
+    round2_game = Enum.at(karel_row.games, 1)
+    assert round2_game.opponent_id == gerrit.id
+    assert round2_game.opponent_rank == gerrit.pairing_number
+    assert round2_game.result in ["1", "0"]
+  end
+
   test "import_file/1 marks the tournament as running, not stuck on setup, since rounds were imported" do
     # c-reeks.swar's 11 rounds are all paired but not, as it turns out,
     # fully scored — 4 of its 297 games carry a blank result (2 from the
