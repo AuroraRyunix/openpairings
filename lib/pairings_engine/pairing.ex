@@ -291,7 +291,15 @@ defmodule PairingsEngine.Pairing do
   defp do_pair_by_category(tournament, players, next_number) do
     groups = category_groups(tournament, players)
 
-    case compute_category_pairs(tournament, groups, next_number) do
+    # Tournament-wide history (every round/pairing, every bye, the full
+    # roster) is identical for every category — computed once here and
+    # threaded through, rather than each category's TRF build re-running
+    # the same three queries (see `games_per_player/2`'s doc). Safe to
+    # compute now: no DB round row exists yet at this point (see this
+    # function's own moduledoc above for why that ordering matters).
+    shared_history = build_shared_history(tournament.id)
+
+    case compute_category_pairs(tournament, groups, next_number, shared_history) do
       {:ok, group_results} -> insert_category_round(tournament, group_results, next_number)
       {:error, _reason} = error -> error
     end
@@ -305,12 +313,19 @@ defmodule PairingsEngine.Pairing do
   # category — the round-level "all or nothing" guarantee, established here
   # rather than via `Repo.rollback/1` since no transaction is open yet at
   # this point.
-  defp compute_category_pairs(tournament, groups, next_number) do
+  defp compute_category_pairs(tournament, groups, next_number, shared_history) do
     result =
       groups
       |> Enum.with_index()
       |> Enum.reduce_while({:ok, []}, fn {{category_name, group_players}, index}, {:ok, acc} ->
-        case compute_category_group(tournament, category_name, index, group_players, next_number) do
+        case compute_category_group(
+               tournament,
+               category_name,
+               index,
+               group_players,
+               next_number,
+               shared_history
+             ) do
           {:ok, group_result} -> {:cont, {:ok, [group_result | acc]}}
           {:error, _reason} = error -> {:halt, error}
         end
@@ -324,11 +339,25 @@ defmodule PairingsEngine.Pairing do
 
   # A 1-player group can't go through JaVaFo at all — it's given a
   # pairing-allocated bye directly once `insert_category_round/3` writes it.
-  defp compute_category_group(_tournament, category_name, _index, [player], _next_number) do
+  defp compute_category_group(
+         _tournament,
+         category_name,
+         _index,
+         [player],
+         _next_number,
+         _shared_history
+       ) do
     {:ok, {category_name, :bye, player}}
   end
 
-  defp compute_category_group(tournament, category_name, index, group_players, next_number) do
+  defp compute_category_group(
+         tournament,
+         category_name,
+         index,
+         group_players,
+         next_number,
+         shared_history
+       ) do
     sorted = Enum.sort_by(group_players, & &1.pairing_number)
     local_rank_by_player_id = sorted |> Enum.with_index(1) |> Map.new(fn {p, i} -> {p.id, i} end)
     by_id = Map.new(group_players, &{&1.id, &1})
@@ -336,7 +365,8 @@ defmodule PairingsEngine.Pairing do
     player_by_local_rank =
       Map.new(local_rank_by_player_id, fn {id, rank} -> {rank, Map.fetch!(by_id, id)} end)
 
-    trf = build_category_trf(tournament, group_players, local_rank_by_player_id)
+    trf =
+      build_category_trf(tournament, group_players, local_rank_by_player_id, shared_history)
 
     dir = Path.join(System.tmp_dir!(), "pairingsengine")
     File.mkdir_p!(dir)
@@ -444,7 +474,7 @@ defmodule PairingsEngine.Pairing do
     "#{index}_#{slug}"
   end
 
-  # Builds one category's self-contained TRF input: `trf_player_rows/2`
+  # Builds one category's self-contained TRF input: `trf_player_rows/3`
   # (rows scoped to just `group_players` — though `games_per_player/2`
   # resolves each game's opponent *identity* from the full tournament
   # roster, not just this category, since a past opponent may since have
@@ -455,11 +485,12 @@ defmodule PairingsEngine.Pairing do
   # `forbidden_pairs_lines/3`/`exclusion_pairs_lines/3`'s optional
   # `rank_by_player_id` override drops any pair naming a player outside
   # this category automatically, since both sides must resolve to a local
-  # rank to be emitted at all.
-  defp build_category_trf(tournament, group_players, local_rank_by_player_id) do
+  # rank to be emitted at all. `shared_history` (see `build_shared_history/1`)
+  # is computed once by `do_pair_by_category/3` and passed straight through.
+  defp build_category_trf(tournament, group_players, local_rank_by_player_id, shared_history) do
     trf_rows =
       tournament
-      |> trf_player_rows(group_players)
+      |> trf_player_rows(group_players, shared_history)
       |> remap_trf_rows_to_local_ranks(local_rank_by_player_id)
 
     trf =
@@ -993,11 +1024,18 @@ defmodule PairingsEngine.Pairing do
   per-category Swiss pairing's `remap_trf_rows_to_local_ranks/2` uses to
   translate global `pairing_number`-based ranks to a category's own local
   numbering — see `build_category_trf/3`.
+
+  `shared_history`, when given, is a precomputed `build_shared_history/1`
+  result — passed by `do_pair_by_category/3` so every category's call
+  reuses the same tournament-wide query results instead of each one
+  re-fetching identical data (see `games_per_player/2`). `nil` (every
+  other caller) means "compute it fresh" — the original, unchanged
+  behaviour.
   """
-  def trf_player_rows(tournament, players) do
+  def trf_player_rows(tournament, players, shared_history \\ nil) do
     players = Enum.filter(players, &(&1.pairing_number != nil))
     by_id = Map.new(players, &{&1.id, &1})
-    games = games_per_player(tournament, by_id)
+    games = games_per_player(tournament, by_id, shared_history)
 
     players
     |> Enum.sort_by(& &1.pairing_number)
@@ -1103,28 +1141,23 @@ defmodule PairingsEngine.Pairing do
   # identity is a different concern: a player paired in an earlier round may
   # since have gone absent/forfeited and dropped out of `by_id`, but the
   # game they played is still real and needs its opponent's true rank, not
-  # a blank one. `full_roster_by_id/1` (every player who ever received a
-  # pairing_number) is used for that lookup instead, so `trf_game/3` can
-  # resolve any past opponent regardless of their current eligibility.
-  defp games_per_player(tournament, by_id) do
-    full_roster = full_roster_by_id(tournament.id)
-
-    rounds =
-      Repo.all(
-        from r in Round,
-          where: r.tournament_id == ^tournament.id,
-          order_by: r.number,
-          preload: [pairings: []]
-      )
-
-    byes =
-      Repo.all(
-        from b in "byes",
-          where: b.tournament_id == ^tournament.id,
-          select: %{player_id: b.player_id, round: b.round, type: b.type}
-      )
-
-    bye_map = Map.new(byes, &{{&1.player_id, &1.round}, &1.type})
+  # a blank one. `build_shared_history/1`'s `full_roster` (every player who
+  # ever received a pairing_number) is used for that lookup instead, so
+  # `trf_game/3` can resolve any past opponent regardless of their current
+  # eligibility.
+  #
+  # `shared_history`, when given, is a precomputed
+  # `%{rounds:, bye_map:, full_roster:}` (see `build_shared_history/1`) —
+  # reused as-is instead of re-querying. This is tournament-wide data that
+  # doesn't depend on `by_id` at all, so per-category Swiss pairing
+  # (`do_pair_by_category/3`) computes it ONCE and threads it through every
+  # category's `trf_player_rows/3` call, rather than re-running the same
+  # three queries once per category (confirmed identical data every time —
+  # `by_id` only scopes which players' rows get BUILT from it, not what the
+  # queries themselves return).
+  defp games_per_player(tournament, by_id, shared_history) do
+    %{rounds: rounds, bye_map: bye_map, full_roster: full_roster} =
+      shared_history || build_shared_history(tournament.id)
 
     for {player_id, _player} <- by_id, into: %{} do
       games =
@@ -1156,18 +1189,48 @@ defmodule PairingsEngine.Pairing do
     end
   end
 
-  # Every player of `tournament_id` who ever received a pairing_number —
-  # the widest set a HISTORICAL opponent could possibly be, since a player
-  # never actually paired has nothing meaningful to report anyway (mirrors
-  # `trf_player_rows/2`'s own tolerance rule). Deliberately wider than the
-  # `active_players/1`/category-local sets used to decide who gets rows
-  # built or who gets paired THIS round — see `games_per_player/2`.
-  defp full_roster_by_id(tournament_id) do
-    Repo.all(
-      from p in Player,
-        where: p.tournament_id == ^tournament_id and not is_nil(p.pairing_number)
-    )
-    |> Map.new(&{&1.id, &1})
+  # The three tournament-wide queries `games_per_player/2` needs, bundled
+  # so they can be run ONCE and reused across multiple calls (see that
+  # function's doc) — none of this depends on which players a particular
+  # call is building rows for.
+  #
+  #   * `rounds` — every paired Round with its pairings preloaded.
+  #   * `bye_map` — every `"byes"`-table row for the tournament, keyed by
+  #     `{player_id, round}`.
+  #   * `full_roster` — every player who ever received a `pairing_number`,
+  #     the widest set a HISTORICAL opponent could possibly be (a player
+  #     never actually paired has nothing meaningful to report anyway,
+  #     mirroring `trf_player_rows/2`'s own tolerance rule) — deliberately
+  #     wider than the `active_players/1`/category-local sets used to
+  #     decide who gets rows built or who gets paired THIS round.
+  defp build_shared_history(tournament_id) do
+    rounds =
+      Repo.all(
+        from r in Round,
+          where: r.tournament_id == ^tournament_id,
+          order_by: r.number,
+          preload: [pairings: []]
+      )
+
+    byes =
+      Repo.all(
+        from b in "byes",
+          where: b.tournament_id == ^tournament_id,
+          select: %{player_id: b.player_id, round: b.round, type: b.type}
+      )
+
+    full_roster =
+      Repo.all(
+        from p in Player,
+          where: p.tournament_id == ^tournament_id and not is_nil(p.pairing_number)
+      )
+      |> Map.new(&{&1.id, &1})
+
+    %{
+      rounds: rounds,
+      bye_map: Map.new(byes, &{{&1.player_id, &1.round}, &1.type}),
+      full_roster: full_roster
+    }
   end
 
   defp trf_game(pairing, player_id, full_roster) do

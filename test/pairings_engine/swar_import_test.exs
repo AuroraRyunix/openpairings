@@ -318,7 +318,7 @@ defmodule PairingsEngine.SwarImportTest do
   # `opponent_rank` — a played-game result with no legal way to name its
   # opponent. Fixed by resolving historical opponent identity against every
   # player who ever received a pairing_number, regardless of current
-  # eligibility (see `full_roster_by_id/1`).
+  # eligibility (see `PairingsEngine.Pairing.build_shared_history/1`).
   @tag :javafo
   test "pairing a new round after import doesn't crash when a historical opponent is now excluded" do
     assert {:ok, tournament} = SwarImport.import_file(@test3_321)
