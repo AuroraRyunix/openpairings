@@ -167,7 +167,9 @@ defmodule PairingsEngine.Pairing do
 
   defp do_pair(tournament, next_number) do
     active = active_players(tournament.id)
-    {players, round_absentees} = Enum.split_with(active, &(not absent_for_round?(&1, next_number)))
+
+    {players, round_absentees} =
+      Enum.split_with(active, &(not absent_for_round?(&1, next_number)))
 
     trf = javafo_input(tournament, players)
 
@@ -182,9 +184,7 @@ defmodule PairingsEngine.Pairing do
     # pairing engine never considers them for this round.
     insert_round_absentee_byes(tournament, next_number, round_absentees)
 
-    case System.cmd("java", ["-jar", javafo_jar(), input, "-p", output],
-           stderr_to_stdout: true
-         ) do
+    case System.cmd("java", ["-jar", javafo_jar(), input, "-p", output], stderr_to_stdout: true) do
       {_out, 0} ->
         output
         |> File.read!()
@@ -205,10 +205,22 @@ defmodule PairingsEngine.Pairing do
   defp insert_round_absentee_byes(tournament, round_number, round_absentees) do
     rows =
       Enum.map(round_absentees, fn p ->
-        %{tournament_id: tournament.id, player_id: p.id, round: round_number, type: "requested-zero"}
+        %{
+          tournament_id: tournament.id,
+          player_id: p.id,
+          round: round_number,
+          type: "requested-zero"
+        }
       end)
 
     Repo.insert_all("byes", rows)
+
+    # A "requested-zero" bye immediately awards points (see
+    # PairingsEngine.Standings) without ever going through
+    # Tournaments.update_pairing_result/2 — a hand-set manual standings
+    # order must be marked stale here too, same as any other point-changing
+    # write. See docs/manual-standings.md (Fix 3).
+    Tournaments.invalidate_manual_ranking(tournament.id)
     :ok
   end
 
@@ -226,6 +238,7 @@ defmodule PairingsEngine.Pairing do
 
   defp create_round(pairs, tournament, players, next_number) do
     by_number = Map.new(players, &{&1.pairing_number, &1})
+    pairing_allocated_bye? = Enum.any?(pairs, fn {_w, b} -> b == 0 end)
 
     Repo.transaction(fn ->
       round =
@@ -250,13 +263,20 @@ defmodule PairingsEngine.Pairing do
         })
       end)
 
+      # A pairing-allocated bye's pairing row is created with its result
+      # ("bye") already set, awarding points immediately without ever going
+      # through Tournaments.update_pairing_result/2 — the same
+      # point-changing-write gap as insert_round_absentee_byes/3 above. See
+      # docs/manual-standings.md (Fix 3).
+      if pairing_allocated_bye?, do: Tournaments.invalidate_manual_ranking(tournament.id)
+
       round
     end)
   end
 
   ## ---------- JaVaFo TRF input ----------
 
-  @doc "Builds the TRF text JaVaFo takes as input (TRF16 + XXR/XXP extensions)."
+  @doc "Builds the TRF text JaVaFo takes as input (TRF16 + XXR/XXA/XXP extensions)."
   def javafo_input(tournament, players \\ nil) do
     players = players || active_players(tournament.id)
     trf_players = trf_player_rows(tournament, players)
@@ -276,13 +296,19 @@ defmodule PairingsEngine.Pairing do
     # XXR: total number of rounds — required by JaVaFo to plan the pairing.
     trf = trf <> "XXR #{tournament.rounds_count}\r\n"
 
+    # XXA: Baku acceleration virtual points (see acceleration_lines/3) — must
+    # come before the pairing-engine invocation cares about standings, same
+    # section as XXR.
+    trf = trf <> acceleration_lines(tournament, players, paired_rounds_count(tournament.id) + 1)
+
     # XXP: one line per forbidden pairing (see
     # PairingsEngine.Tournaments.list_forbidden_pairings/1 and
     # docs/forbidden-pairings.md) — JaVaFo's TRF extension for "these
     # starting ranks must never be paired against each other". Club/federation
     # exclusion rules (PairingsEngine.Exclusions) add further XXP lines the
     # same way, deduplicated against the explicit ones above.
-    trf <> forbidden_pairs_lines(tournament.id, players) <> exclusion_pairs_lines(tournament, players)
+    trf <>
+      forbidden_pairs_lines(tournament.id, players) <> exclusion_pairs_lines(tournament, players)
   end
 
   @doc """
@@ -298,7 +324,9 @@ defmodule PairingsEngine.Pairing do
 
     tournament_id
     |> Tournaments.list_forbidden_pairings()
-    |> Enum.map(fn fp -> {rank_by_player_id[fp.player_a_id], rank_by_player_id[fp.player_b_id]} end)
+    |> Enum.map(fn fp ->
+      {rank_by_player_id[fp.player_a_id], rank_by_player_id[fp.player_b_id]}
+    end)
     |> Enum.reject(fn {a, b} -> is_nil(a) or is_nil(b) end)
     |> Enum.map_join(fn {a, b} -> "XXP #{a} #{b}\r\n" end)
   end
@@ -318,7 +346,9 @@ defmodule PairingsEngine.Pairing do
     explicit_rank_pairs =
       tournament.id
       |> Tournaments.list_forbidden_pairings()
-      |> Enum.map(fn fp -> {rank_by_player_id[fp.player_a_id], rank_by_player_id[fp.player_b_id]} end)
+      |> Enum.map(fn fp ->
+        {rank_by_player_id[fp.player_a_id], rank_by_player_id[fp.player_b_id]}
+      end)
       |> Enum.reject(fn {a, b} -> is_nil(a) or is_nil(b) end)
       |> MapSet.new(&normalize_rank_pair/1)
 
@@ -334,6 +364,119 @@ defmodule PairingsEngine.Pairing do
 
   defp normalize_rank_pair({a, b}) when a <= b, do: {a, b}
   defp normalize_rank_pair({a, b}), do: {b, a}
+
+  @doc """
+  Builds one fixed-column `"XXA"` TRF extension line per Group-A player, per
+  FIDE C.04.5.1 Baku Acceleration — JaVaFo's own "acceleration" TRF
+  extension. Returns `""` unless `tournament.acceleration == "baku"` *and*
+  `tournament.pairing_system == "swiss"`: round robin's fixed Berger
+  schedule ignores acceleration entirely, and Keizer never goes through
+  JaVaFo at all.
+
+  ## Verified mechanism (do not re-guess this — see below)
+
+  Per the JaVaFo 2.2 Advanced User Manual
+  (rrweb.org/javafo/aum/JaVaFo2_AUM.htm): JaVaFo does **not** compute Baku
+  acceleration on its own from a single flag. Its own words: *"JaVaFo can be
+  informed of the fictitious points that are assigned to each player, using
+  the extension code XXA"* and *"It is mandatory to keep the full record of
+  the fictitious points assigned round by round, because this record is
+  used to determine the floaters history of each player"*. So **we**
+  compute every Group-A player's virtual points for every round played so
+  far ourselves, straight from the FIDE C.04.5.1 text, and hand JaVaFo the
+  full history — one column per round.
+
+  The manual's format spec: `"XXA NNNN pp.p pp.p ..."`, where `XXA` starts
+  at column 1, `NNNN` (the player's starting rank) starts at column 5, and
+  each `pp.p` starts at column `10 + 5*(r-1)` (`r` = round). This is a
+  **fixed-column** format, unlike this file's other free-form `XXR`/`XXP`
+  extension lines — confirmed by direct experiment against the real
+  `javafo.jar`: a free-form space-separated `"XXA 1 1.0 1.0\\r\\n"` line
+  crashes JaVaFo with a bare `NullPointerException`
+  (`B.A.B.D.J`/`B.A.B.I.K`/...), while the fixed-column form below runs
+  clean. The same experiment (8 players, round 2, Group A = ranks 1-4 given
+  a flat +1.0/+1.0 virtual-point history) also confirmed the values are not
+  silently ignored: JaVaFo's round-2 pairing genuinely changed shape between
+  the unaccelerated and accelerated runs, matching the FIDE description
+  (Group-A players effectively face each other/tougher opposition sooner)
+  — see `PairingsEngine.PairingTest` for the same assertion as an
+  automated, `:javafo`-tagged end-to-end test.
+
+  ## FIDE C.04.5.1 Baku Acceleration, as implemented here
+
+  Group A (the group that receives virtual points) is the top half of the
+  field by starting rank (`pairing_number`), rounded up to the nearest even
+  number of players — FIDE's `2 * ceil(n/4)` — computed once from the
+  *whole* roster passed in (not just this round's active subset), since
+  starting rank is frozen for the tournament. Group B never receives
+  points.
+
+  "Accelerated rounds" are the first `ceil(rounds_count/2)` rounds. Within
+  those, Group A gets 1.0 virtual point per round for the first half
+  (rounded up) of the accelerated span, then 0.5 for the remainder, then 0
+  forever after — this is the FIDE worked example verbatim: *"In a
+  nine-round tournament, the accelerated rounds are five. The players in GA
+  are assigned one virtual point in the first three rounds, and half
+  virtual point in the next two rounds."*
+  """
+  def acceleration_lines(tournament, players, current_round)
+
+  def acceleration_lines(
+        %Tournament{acceleration: "baku", pairing_system: "swiss"} = tournament,
+        players,
+        current_round
+      )
+      when is_integer(current_round) and current_round > 0 do
+    ranked =
+      players
+      |> Enum.filter(&(&1.pairing_number != nil))
+      |> Enum.sort_by(& &1.pairing_number)
+
+    group_a_size = 2 * ceil_div(length(ranked), 4)
+    group_a_ranks = ranked |> Enum.take(group_a_size) |> MapSet.new(& &1.pairing_number)
+
+    accelerated_rounds = ceil_div(tournament.rounds_count, 2)
+    first_stage_rounds = ceil_div(accelerated_rounds, 2)
+
+    ranked
+    |> Enum.filter(&MapSet.member?(group_a_ranks, &1.pairing_number))
+    |> Enum.map_join(fn player ->
+      points =
+        Enum.map(1..current_round, &virtual_points(&1, accelerated_rounds, first_stage_rounds))
+
+      xxa_line(player.pairing_number, points)
+    end)
+  end
+
+  def acceleration_lines(_tournament, _players, _current_round), do: ""
+
+  defp virtual_points(round, accelerated_rounds, _first_stage_rounds)
+       when round > accelerated_rounds,
+       do: 0.0
+
+  defp virtual_points(round, _accelerated_rounds, first_stage_rounds)
+       when round <= first_stage_rounds,
+       do: 1.0
+
+  defp virtual_points(_round, _accelerated_rounds, _first_stage_rounds), do: 0.5
+
+  # Fixed-column TRF extension line: "XXA" (cols 1-3), rank right-aligned in
+  # cols 5-9, then one right-aligned pp.p per round in 5-column slots from
+  # col 10 on — exactly the JaVaFo AUM's column spec. Free-form
+  # space-separated XXA crashes JaVaFo (verified), unlike this file's other
+  # XXR/XXP extension lines.
+  defp xxa_line(rank, points) do
+    id_field = String.pad_leading(to_string(rank), 5)
+
+    points_fields =
+      Enum.map_join(points, fn p ->
+        String.pad_leading(:erlang.float_to_binary(p / 1, decimals: 1), 5)
+      end)
+
+    "XXA " <> id_field <> points_fields <> "\r\n"
+  end
+
+  defp ceil_div(a, b), do: div(a + b - 1, b)
 
   @doc """
   Builds the `PairingsEngine.Trf.serialize/1`-shaped player list (rank,
@@ -481,7 +624,12 @@ defmodule PairingsEngine.Pairing do
               trf_game(pairing, player_id, by_id)
 
             bye_type = bye_map[{player_id, round.number}] ->
-              %{opponent_rank: nil, colour: nil, result: bye_code(bye_type), points_kind: bye_type}
+              %{
+                opponent_rank: nil,
+                colour: nil,
+                result: bye_code(bye_type),
+                points_kind: bye_type
+              }
 
             true ->
               %{opponent_rank: nil, colour: nil, result: "Z", points_kind: "zero"}

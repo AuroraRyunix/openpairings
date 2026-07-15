@@ -12,6 +12,7 @@ sockets).
 |---|---|---|---|
 | Player list | `GET /t/:id/print/players` | No | Full roster: title, name, FIDE/national rating, federation, club. |
 | Player cards | `GET /t/:id/print/cards` | No | One card per player with **every** round of the tournament listed (rows 1..`rounds_count`), never limited to a single round — cards are meant to be filled in over the board, round by round, not reprinted per round. |
+| Place cards | `GET /t/:id/print/placecards?round=n` | Yes (optional, board number only) | One tent card ("chevalet") per player, meant to stand on the table. See "Place cards" below for the fold and field toggles. |
 | Pairing list | `GET /t/:id/print/pairings?round=n` | Yes | Board-by-board pairings for round `n`. `round` defaults to `1` if omitted. 404s with "Round n has not been paired yet" if round `n` has no pairings. |
 | Standings | `GET /t/:id/print/standings?round=n` | Yes (optional) | See "Round-scoped standings" below. Omit `round` for the current/overall standings. 404s the same way as the pairing list if round `n` hasn't been paired. |
 | Result cards | `GET /t/:id/print/results?round=n` | Yes | One card per board of round `n` (byes skipped). `round` defaults to the **latest paired round** if omitted (unlike the pairing list, which defaults to round 1). 404s the same way as the pairing list if round `n` hasn't been paired. Also accepts `?limit=L` (test print) and `?order=stack` (stack-cut imposition) — see "Result cards" below. |
@@ -125,6 +126,118 @@ full except the last two, exactly as required for the cut to make sense.
 (trimming the board-ordered list), and the stack-cut imposition then runs
 over whatever's left. The Pairings page's "Print result cards (stack-cut
 order)" button links here with `order=stack`.
+
+## Place cards (chevalets)
+
+`GET /t/:id/print/placecards` (SWAR parity #14-16) prints one **tent
+card** per player — a card meant to be folded once and stood on the table
+so it reads correctly from either side of the board. Linked from the
+Players page ("Print place cards"), the same page that already links
+"Print player list" and "Print player cards".
+
+### Fold geometry
+
+Each player gets a **whole A4 page**, split by a horizontal fold line at
+the vertical center (148.5mm from the top — half of A4's 297mm height).
+The top half (`.place-card-half`) prints the player's details upright,
+exactly as laid out. The bottom half prints the *same* details again, but
+with `transform: rotate(180deg)` (`.place-card-flip`) — a mirror-through-
+the-center copy, not a second, independent layout.
+
+To fold it: crease along that middle line and fold the two halves so the
+printed face ends up on the **outside** of both resulting flaps — the same
+direction any free-standing tent/A-frame card folds (never fold the ink
+onto itself). Standing the card up this way puts the crease at the top
+(the ridge), with the two flaps splaying down and outward, one facing each
+side of the board.
+
+Why the bottom half needs the extra 180° rotation, worked through:
+
+- The **top** flap keeps its on-page orientation as it swings toward the
+  reader facing it (say, White's side) — no help needed, it already reads
+  upright to them.
+- The **bottom** flap was printed further down that same upright page, but
+  after folding it ends up facing the *opposite* direction (Black's side)
+  — and getting there means it rotated through 180° around the fold axis
+  on the way. Printing it **pre-rotated 180° on the flat page** exactly
+  cancels that in-flight rotation, so by the time the card is standing, it
+  reads upright to the reader on that side too.
+
+Skipping the CSS rotation (or rotating the wrong half) produces a card
+that only reads right-side up from one side of the board and upside-down
+from the other — exactly the failure mode this geometry exists to avoid.
+A light dashed rule plus a small "fold here" label (`.place-card-fold`,
+absolutely positioned at `top: 148.5mm`, zero height so it doesn't disturb
+the two 148.5mm halves summing to a full 297mm page) marks the crease on
+the printed sheet.
+
+### Field toggles
+
+Query params (each accepts `0`/`false`/`no` to turn a field off; anything
+else, including simply omitting the param, uses the default):
+
+| Param | Shows | Default |
+|---|---|---|
+| *(name)* | Player name | always on, not a toggle |
+| `?title=` | FIDE/national title | on |
+| `?rating=` | Rating (FIDE, falling back to national) | on |
+| `?federation=` | Federation | off |
+| `?club=` | Club | off |
+| `?board=` | Current board number | on (when available — see below) |
+
+Federation and club default off purely because a tent card is small —
+both are one query param away (`?federation=1&club=1`).
+
+### `?round=n` — board number
+
+Place cards aren't round-scoped the way pairings/results are (no 404 for
+an unpaired round) — the Players page they're linked from has no round
+picker. `?round=n` only controls which round's board assignment feeds the
+`?board=` field: it defaults to the latest paired round
+(`PairingsEngine.Standings.rounds_paired/1`). If the tournament has no
+paired round at all (or an explicitly requested `?round=n` hasn't been
+paired), the board line is simply omitted for every card — never a 404.
+
+### Logo
+
+If the tournament has a print logo set (see "Logo" below), it's printed at
+the top of both halves of every card, using the same `data:` URI as any
+other print document with a logo slot. With no logo set, that space is
+simply blank — nothing else changes.
+
+## Logo
+
+Settings → "Logo" lets an arbiter upload a per-tournament print logo,
+stored as a DB blob (`tournaments.logo_data` + `logo_content_type` —
+carried by JSON backups and deploys, no filesystem/upload-dir question).
+Written only by `PairingsEngine.Tournaments.set_logo/2` and `clear_logo/1`
+— deliberately not part of the big settings-form changeset, so an ordinary
+settings save can never clobber it (same reasoning as `deleted_at`).
+
+**Only raster images are accepted — PNG, JPEG, GIF, WebP. SVG is
+deliberately rejected**, always, no matter how it's labelled: an SVG is an
+XML document that can carry scripts, and this blob gets rendered straight
+back into pages the app serves, so raster-only removes that whole class of
+problem. Validation checks the file's actual signature (magic bytes), not
+its filename extension or the browser-supplied content-type — both are
+attacker-controlled and never trusted:
+
+- PNG — the 8-byte signature `\x89 P N G \r \n \x1a \n`
+- JPEG — the `\xFF \xD8 \xFF` SOI marker
+- GIF — `GIF87a` or `GIF89a`
+- WebP — a RIFF container carrying a `WEBP` fourcc (`RIFF????WEBP`)
+
+Anything that doesn't match one of those (including a well-formed SVG, a
+renamed `.png` that's actually something else, or anything over 2MB) is
+rejected with a flash message — the bytes are never stored. On success,
+`logo_content_type` is set to the *verified* MIME type, not whatever the
+browser claimed.
+
+`PairingsEngine.Tournaments.logo_data_uri/1` builds the `data:` URI
+(`data:<content-type>;base64,<...>`) used to embed the logo directly in a
+print page — there is no separate route that serves the blob. This keeps
+the logo inside the already-authorized print page rather than opening a
+new public endpoint.
 
 ## Cross table
 
@@ -262,7 +375,7 @@ If `tournament.categories` is non-empty, `PrintController.standings/2`:
 |---|---|---|
 | Pairings (`/t/:id/pairings`) | "Print pairings", "Print standings", "Print result cards", "Test print (3)", "Print result cards (stack-cut order)" | All open in a new tab, scoped to whichever round is currently selected in the round picker (`?round=<selected round>`). Only shown once that round has been paired. The last two are the result cards document with `limit=3` and `order=stack` respectively — see "Result cards" below. |
 | Standings (`/t/:id/standings`) | "Print" | Opens the overall standings document (no `round` param) in a new tab — this page has no round picker, so it always reflects the current/latest state. |
-| Players (`/t/:id/players`) | "Print player list", "Print player cards" | Roster-wide, no round scoping — open `/print/players` and `/print/cards` in a new tab. |
+| Players (`/t/:id/players`) | "Print player list", "Print player cards", "Print place cards" | Roster-wide, no round scoping — open `/print/players`, `/print/cards` and `/print/placecards` in a new tab. Place cards pick up the latest paired round's board numbers automatically (see "Place cards" above); no round picker needed here either. |
 | Print hub (`/t/:id/print`) | "Print…" per document | Links pairings and result cards to the latest paired round, standings to the overall figures, and the cross table to the always-current picture (available even with zero rounds paired — it just has no round columns yet). |
 
 All of these are real `<a target="_blank">` links (not JS-driven), so

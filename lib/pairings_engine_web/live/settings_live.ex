@@ -122,8 +122,10 @@ defmodule PairingsEngineWeb.SettingsLive do
     {2, "2nd deputy arbiter"}
   ]
 
-  @pairing_system_options for ps <- Tournament.pairing_systems(), do: {ps, Tournament.pairing_system_label(ps)}
-  @rr_cycles_options for c <- Tournament.rr_cycles_values(), do: {c, Tournament.rr_cycles_label(c)}
+  @pairing_system_options for ps <- Tournament.pairing_systems(),
+                              do: {ps, Tournament.pairing_system_label(ps)}
+  @rr_cycles_options for c <- Tournament.rr_cycles_values(),
+                         do: {c, Tournament.rr_cycles_label(c)}
 
   # SWAR §5.22 Tie-break Presets (TB_PERSONEL). The manual only names the
   # enum members (TB_FIDE_RR, TB_DIS_SW, TB_REG_SW, TB_OLD_SW) without
@@ -147,17 +149,17 @@ defmodule PairingsEngineWeb.SettingsLive do
       Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
     end
 
+    # Unlike the other tournament views, this whole page IS one big
+    # always-open form with no explicit "editing" flag — so we can't just
+    # blindly reassign `@tournament` on every broadcast: since form
+    # fields render their default `value` straight from `@tournament`,
+    # doing so could reset text the user is mid-typing. This hook flips
+    # `dirty` true the moment *any* event fires (typing, reordering
+    # tiebreaks, calculating round dates, ...); the tournament_changed
+    # handler below only reloads while the socket isn't dirty. A
+    # successful "save" clears it again, since local edits were just
+    # committed.
     socket =
-      # Unlike the other tournament views, this whole page IS one big
-      # always-open form with no explicit "editing" flag — so we can't just
-      # blindly reassign `@tournament` on every broadcast: since form
-      # fields render their default `value` straight from `@tournament`,
-      # doing so could reset text the user is mid-typing. This hook flips
-      # `dirty` true the moment *any* event fires (typing, reordering
-      # tiebreaks, calculating round dates, ...); the tournament_changed
-      # handler below only reloads while the socket isn't dirty. A
-      # successful "save" clears it again, since local edits were just
-      # committed.
       attach_hook(socket, :settings_dirty_tracker, :handle_event, fn _event, _params, socket ->
         {:cont, assign(socket, dirty: true)}
       end)
@@ -190,7 +192,18 @@ defmodule PairingsEngineWeb.SettingsLive do
      )
      |> assign_collaborators()
      |> assign_pairing_locks()
-     |> assign_forbidden_pairings()}
+     |> assign_forbidden_pairings()
+     # SWAR parity #14-16 (place cards): the print logo. Accept-list here is
+     # only a browser-side hint (a UI nicety, easily spoofed) — the real
+     # gate is Tournaments.set_logo/2's magic-byte sniff on "upload_logo"
+     # below, which is what actually decides whether the bytes get stored.
+     # SVG is deliberately absent from both: it's never accepted (see
+     # Tournaments.detect_image_type/1).
+     |> allow_upload(:logo,
+       accept: ~w(.png .jpg .jpeg .gif .webp),
+       max_entries: 1,
+       max_file_size: 2_000_000
+     )}
   end
 
   # `pairing_system` locks once the tournament has paired its first round —
@@ -270,8 +283,14 @@ defmodule PairingsEngineWeb.SettingsLive do
   # genuinely different writes landing in the same second would otherwise
   # look identical by timestamp alone).
   @impl true
-  def handle_info({:tournament_changed, _tournament_id, _hint}, %{assigns: %{dirty: true}} = socket) do
-    case Tournaments.get_authorized_tournament(socket.assigns.current_scope, socket.assigns.tournament.id) do
+  def handle_info(
+        {:tournament_changed, _tournament_id, _hint},
+        %{assigns: %{dirty: true}} = socket
+      ) do
+    case Tournaments.get_authorized_tournament(
+           socket.assigns.current_scope,
+           socket.assigns.tournament.id
+         ) do
       nil ->
         {:noreply, assign(socket, stale: true)}
 
@@ -285,7 +304,10 @@ defmodule PairingsEngineWeb.SettingsLive do
   end
 
   def handle_info({:tournament_changed, _tournament_id, _hint}, socket) do
-    case Tournaments.get_authorized_tournament(socket.assigns.current_scope, socket.assigns.tournament.id) do
+    case Tournaments.get_authorized_tournament(
+           socket.assigns.current_scope,
+           socket.assigns.tournament.id
+         ) do
       nil ->
         {:noreply,
          socket
@@ -313,11 +335,19 @@ defmodule PairingsEngineWeb.SettingsLive do
 
   @impl true
   def handle_event("tb_up", %{"index" => index}, socket) do
-    {:noreply, assign(socket, tiebreaks: swap(socket.assigns.tiebreaks, String.to_integer(index), -1), note: nil)}
+    {:noreply,
+     assign(socket,
+       tiebreaks: swap(socket.assigns.tiebreaks, String.to_integer(index), -1),
+       note: nil
+     )}
   end
 
   def handle_event("tb_down", %{"index" => index}, socket) do
-    {:noreply, assign(socket, tiebreaks: swap(socket.assigns.tiebreaks, String.to_integer(index), 1), note: nil)}
+    {:noreply,
+     assign(socket,
+       tiebreaks: swap(socket.assigns.tiebreaks, String.to_integer(index), 1),
+       note: nil
+     )}
   end
 
   def handle_event("tb_remove", %{"code" => code}, socket) do
@@ -357,10 +387,12 @@ defmodule PairingsEngineWeb.SettingsLive do
       {:noreply, assign(socket, round_dates: dates, error: nil)}
     else
       {:error, _} ->
-        {:noreply, assign(socket, error: "Start date must be a valid date before calculating round dates.")}
+        {:noreply,
+         assign(socket, error: "Start date must be a valid date before calculating round dates.")}
 
       _ ->
-        {:noreply, assign(socket, error: "Set a start date (in General) before calculating round dates.")}
+        {:noreply,
+         assign(socket, error: "Set a start date (in General) before calculating round dates.")}
     end
   end
 
@@ -385,10 +417,12 @@ defmodule PairingsEngineWeb.SettingsLive do
       {:noreply, assign(socket, round_dates: dates, error: nil)}
     else
       {:error, _} ->
-        {:noreply, assign(socket, error: "Start date must be a valid date before filling round dates.")}
+        {:noreply,
+         assign(socket, error: "Start date must be a valid date before filling round dates.")}
 
       _ ->
-        {:noreply, assign(socket, error: "Set a start date (in General) before filling round dates.")}
+        {:noreply,
+         assign(socket, error: "Set a start date (in General) before filling round dates.")}
     end
   end
 
@@ -491,7 +525,11 @@ defmodule PairingsEngineWeb.SettingsLive do
   ## ---------- Share / Team (collaborators) — owner-only ----------
 
   def handle_event("add_collaborator", %{"email" => email}, socket) do
-    case Tournaments.add_collaborator(socket.assigns.current_scope, socket.assigns.tournament, email) do
+    case Tournaments.add_collaborator(
+           socket.assigns.current_scope,
+           socket.assigns.tournament,
+           email
+         ) do
       {:ok, collaborator} ->
         note =
           if collaborator.mail_status == :failed do
@@ -505,25 +543,42 @@ defmodule PairingsEngineWeb.SettingsLive do
          |> assign_collaborators()}
 
       {:error, :blank_email} ->
-        {:noreply, assign(socket, collaborator_error: "Enter an email address", collaborator_note: nil)}
+        {:noreply,
+         assign(socket, collaborator_error: "Enter an email address", collaborator_note: nil)}
 
       {:error, :cannot_add_owner} ->
-        {:noreply, assign(socket, collaborator_error: "You already own this tournament", collaborator_note: nil)}
+        {:noreply,
+         assign(socket,
+           collaborator_error: "You already own this tournament",
+           collaborator_note: nil
+         )}
 
       {:error, :already_added} ->
-        {:noreply, assign(socket, collaborator_error: "That email already has access", collaborator_note: nil)}
+        {:noreply,
+         assign(socket,
+           collaborator_error: "That email already has access",
+           collaborator_note: nil
+         )}
 
       {:error, :not_owner} ->
         {:noreply,
-         assign(socket, collaborator_error: "Only the owner can manage collaborators", collaborator_note: nil)}
+         assign(socket,
+           collaborator_error: "Only the owner can manage collaborators",
+           collaborator_note: nil
+         )}
 
       {:error, changeset} ->
-        {:noreply, assign(socket, collaborator_error: error_text(changeset), collaborator_note: nil)}
+        {:noreply,
+         assign(socket, collaborator_error: error_text(changeset), collaborator_note: nil)}
     end
   end
 
   def handle_event("remove_collaborator", %{"id" => id}, socket) do
-    case Tournaments.remove_collaborator(socket.assigns.current_scope, socket.assigns.tournament, id) do
+    case Tournaments.remove_collaborator(
+           socket.assigns.current_scope,
+           socket.assigns.tournament,
+           id
+         ) do
       {:ok, _collaborator} -> {:noreply, assign_collaborators(socket)}
       {:error, _reason} -> {:noreply, socket}
     end
@@ -545,13 +600,15 @@ defmodule PairingsEngineWeb.SettingsLive do
           {:noreply, assign(socket, forbidden_pairing_error: "Choose two different players")}
 
         {:error, :invalid_player} ->
-          {:noreply, assign(socket, forbidden_pairing_error: "Choose two players from this tournament")}
+          {:noreply,
+           assign(socket, forbidden_pairing_error: "Choose two players from this tournament")}
 
         {:error, :already_forbidden} ->
           {:noreply, assign(socket, forbidden_pairing_error: "That pair is already forbidden")}
 
         {:error, _reason} ->
-          {:noreply, assign(socket, forbidden_pairing_error: "Could not add that forbidden pairing")}
+          {:noreply,
+           assign(socket, forbidden_pairing_error: "Could not add that forbidden pairing")}
       end
     else
       _ -> {:noreply, assign(socket, forbidden_pairing_error: "Choose two players")}
@@ -575,16 +632,30 @@ defmodule PairingsEngineWeb.SettingsLive do
   # "listed" text input is shown; the real values are read straight out of
   # the submitted form on "save_exclusions", same as every other field here.
 
-  def handle_event("club_exclusion_mode_change", %{"tournament" => %{"club_exclusion" => mode}}, socket) do
+  def handle_event(
+        "club_exclusion_mode_change",
+        %{"tournament" => %{"club_exclusion" => mode}},
+        socket
+      ) do
     {:noreply, assign(socket, club_exclusion_mode: mode)}
   end
 
-  def handle_event("fed_exclusion_mode_change", %{"tournament" => %{"fed_exclusion" => mode}}, socket) do
+  def handle_event(
+        "fed_exclusion_mode_change",
+        %{"tournament" => %{"fed_exclusion" => mode}},
+        socket
+      ) do
     {:noreply, assign(socket, fed_exclusion_mode: mode)}
   end
 
   def handle_event("save_exclusions", %{"tournament" => params}, socket) do
-    params = Map.take(params, ["club_exclusion", "club_exclusion_list", "fed_exclusion", "fed_exclusion_list"])
+    params =
+      Map.take(params, [
+        "club_exclusion",
+        "club_exclusion_list",
+        "fed_exclusion",
+        "fed_exclusion_list"
+      ])
 
     case Tournaments.update_tournament(socket.assigns.tournament, params) do
       {:ok, tournament} ->
@@ -600,6 +671,64 @@ defmodule PairingsEngineWeb.SettingsLive do
 
       {:error, changeset} ->
         {:noreply, assign(socket, exclusion_error: error_text(changeset))}
+    end
+  end
+
+  ## ---------- Print logo (SWAR parity #14-16) — any authorized user ----------
+  #
+  # `logo_data`/`logo_content_type` are deliberately not part of the big
+  # settings form or its changeset (see Tournament.changeset/2's comment) —
+  # this uploads and persists immediately, same pattern as Categories/
+  # exclusions above, through Tournaments.set_logo/2 and clear_logo/1.
+
+  # The file input's phx-change target; nothing to validate until submit —
+  # same no-op pattern every other upload on this codebase uses (see
+  # TournamentsLive's "validate_backup"/"validate_trf").
+  def handle_event("validate_logo", _params, socket), do: {:noreply, socket}
+
+  def handle_event("upload_logo", _params, socket) do
+    results =
+      consume_uploaded_entries(socket, :logo, fn %{path: path}, _entry ->
+        {:ok, File.read!(path)}
+      end)
+
+    case results do
+      [binary] ->
+        case Tournaments.set_logo(socket.assigns.tournament, binary) do
+          {:ok, tournament} ->
+            {:noreply,
+             socket
+             |> assign(tournament: tournament)
+             |> put_flash(:info, "Logo uploaded.")}
+
+          {:error, :invalid_image} ->
+            {:noreply,
+             put_flash(
+               socket,
+               :error,
+               "That file isn't a supported image. Only PNG, JPEG, GIF or WebP are accepted " <>
+                 "(SVG is not supported) — the file's actual content is checked, not just its name."
+             )}
+
+          {:error, changeset} ->
+            {:noreply, put_flash(socket, :error, error_text(changeset))}
+        end
+
+      [] ->
+        {:noreply, put_flash(socket, :error, "Choose an image file first")}
+    end
+  end
+
+  def handle_event("clear_logo", _params, socket) do
+    case Tournaments.clear_logo(socket.assigns.tournament) do
+      {:ok, tournament} ->
+        {:noreply,
+         socket
+         |> assign(tournament: tournament)
+         |> put_flash(:info, "Logo removed.")}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Could not remove the logo")}
     end
   end
 
@@ -658,7 +787,11 @@ defmodule PairingsEngineWeb.SettingsLive do
   defp arbiter_query(_role, _params), do: ""
 
   defp apply_arbiter_pick(tournament, "chief_arbiter", fp) do
-    %{tournament | chief_arbiter: fp.name, officials: put_official(tournament, "chief_arbiter_fide_id", fp.fide_id)}
+    %{
+      tournament
+      | chief_arbiter: fp.name,
+        officials: put_official(tournament, "chief_arbiter_fide_id", fp.fide_id)
+    }
   end
 
   defp apply_arbiter_pick(tournament, "person_responsible_pairings", fp) do
@@ -749,10 +882,16 @@ defmodule PairingsEngineWeb.SettingsLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} tournament={@tournament} active="settings">
+    <Layouts.app
+      flash={@flash}
+      current_scope={@current_scope}
+      tournament={@tournament}
+      active="settings"
+    >
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
+
           <p class="subtitle" style="margin: 0">Settings</p>
         </div>
         <span class={["badge", @tournament.status == "setup" && "muted"]}>{@tournament.status}</span>
@@ -766,19 +905,25 @@ defmodule PairingsEngineWeb.SettingsLive do
       <form phx-submit="save">
         <div class="card">
           <h2>General</h2>
+
           <div class="form-grid">
             <label :for={{field, label, type, required} <- general_fields()} class="field">
               <span :if={required} style="font-weight: 700">
                 {label} <span style="color: var(--danger)">*</span>
               </span>
               <span :if={!required}>{label}</span>
-              <input type={type} name={"tournament[#{field}]"} value={Map.get(@tournament, String.to_existing_atom(field))} />
+              <input
+                type={type}
+                name={"tournament[#{field}]"}
+                value={Map.get(@tournament, String.to_existing_atom(field))}
+              />
             </label>
           </div>
         </div>
 
         <div class="card">
           <h2>Format</h2>
+
           <div class="form-grid">
             <label class="field">
               <span>Tournament format</span>
@@ -792,10 +937,12 @@ defmodule PairingsEngineWeb.SettingsLive do
                 </option>
               </select>
             </label>
+
             <label class="field">
               <span style="font-weight: 700">
                 Number of rounds <span style="color: var(--danger)">*</span>
               </span>
+
               <input
                 type="number"
                 name="tournament[rounds_count]"
@@ -804,6 +951,7 @@ defmodule PairingsEngineWeb.SettingsLive do
                 max="30"
               />
             </label>
+
             <label class="field">
               <span>Pairing system</span>
               <select name="tournament[pairing_system]" disabled={@pairing_system_locked?}>
@@ -817,6 +965,7 @@ defmodule PairingsEngineWeb.SettingsLive do
               </select>
               <span :if={@pairing_system_locked?} class="hint">locked after first pairing</span>
             </label>
+
             <label class="field">
               <span>Cycles</span>
               <select name="tournament[rr_cycles]" disabled={@rr_cycles_locked?}>
@@ -830,6 +979,7 @@ defmodule PairingsEngineWeb.SettingsLive do
               </select>
               <span :if={@rr_cycles_locked?} class="hint">locked after first pairing</span>
             </label>
+
             <label class="field">
               <span>Keizer top value (blank = automatic)</span>
               <input
@@ -839,32 +989,43 @@ defmodule PairingsEngineWeb.SettingsLive do
                 min="1"
               />
             </label>
+
             <label class="field">
               <span>Pair by</span>
               <select name="tournament[rating_type]">
                 <option value="fide" selected={@tournament.rating_type == "fide"}>FIDE rating</option>
+
                 <option value="national" selected={@tournament.rating_type == "national"}>
                   National rating
                 </option>
               </select>
             </label>
+
             <label class="field">
               <span>Acceleration</span>
               <select name="tournament[acceleration]">
                 <option value="none" selected={@tournament.acceleration == "none"}>None</option>
+
                 <option value="baku" selected={@tournament.acceleration == "baku"}>
                   Baku acceleration (FIDE C.04.5)
                 </option>
               </select>
+              <span class="hint">Swiss only — round robin and Keizer ignore this setting</span>
             </label>
+
             <label class="field">
               <span>Type</span>
               <select name="tournament[standard]" phx-change="standard_change">
-                <option :for={{val, label} <- standard_options()} value={val} selected={@standard == val}>
+                <option
+                  :for={{val, label} <- standard_options()}
+                  value={val}
+                  selected={@standard == val}
+                >
                   {label}
                 </option>
               </select>
             </label>
+
             <label class="field">
               <span>Rate of play</span>
               <select name="tournament[rate_of_play]">
@@ -877,38 +1038,54 @@ defmodule PairingsEngineWeb.SettingsLive do
                 </option>
               </select>
             </label>
+
             <label class="field">
               <span>Other rate of play (overrides the select above)</span>
-              <input type="text" name="tournament[rate_of_play_other]" value="" placeholder="e.g. 40 min + 10 sec/move" />
+              <input
+                type="text"
+                name="tournament[rate_of_play_other]"
+                value=""
+                placeholder="e.g. 40 min + 10 sec/move"
+              />
             </label>
           </div>
         </div>
 
         <div class="card">
           <h2>Officials &amp; FIDE report data</h2>
+
           <p class="hint" style="margin-top: 0">
             Feeds the IT3 / FA1 / IA1 / IT4 FIDE report forms on the
             <.link navigate={~p"/t/#{@tournament.id}/norms"}>Norms</.link>
             tab. Organizer name is set in General above; pairing mode is always computerized and
             the pairing program is always OpenPairings.
           </p>
+
           <div class="form-grid">
             <label class="field">
               <span>FIDE tournament ID</span>
               <input name="tournament[fide_tournament_id]" value={@tournament.fide_tournament_id} />
             </label>
+
             <label class="field">
               <span>FIDE event code</span>
               <input name="tournament[event_code]" value={@tournament.event_code} />
             </label>
+
             <label :for={{key, label, type} <- officials_fields()} class="field">
               <span>{label}</span>
-              <input type={type} name={"tournament[officials][#{key}]"} value={o_get(@tournament, key)} />
+              <input
+                type={type}
+                name={"tournament[officials][#{key}]"}
+                value={o_get(@tournament, key)}
+              />
             </label>
+
             <div class="field search-wrap">
               <span style="display:block;font-size:13px;font-weight:600;color:var(--text-soft);margin-bottom:4px">
                 Chief arbiter
               </span>
+
               <input
                 type="text"
                 name="tournament[chief_arbiter]"
@@ -932,6 +1109,7 @@ defmodule PairingsEngineWeb.SettingsLive do
               <span :if={o_get(@tournament, "chief_arbiter_fide_id") != ""} class="hint">
                 FIDE ID: {o_get(@tournament, "chief_arbiter_fide_id")}
               </span>
+
               <div
                 :if={arbiter_results(@arbiter_search, "chief_arbiter") != []}
                 class="search-results"
@@ -948,10 +1126,12 @@ defmodule PairingsEngineWeb.SettingsLive do
                 </button>
               </div>
             </div>
+
             <div class="field search-wrap">
               <span style="display:block;font-size:13px;font-weight:600;color:var(--text-soft);margin-bottom:4px">
                 Person responsible for pairings
               </span>
+
               <input
                 type="text"
                 name="tournament[officials][person_responsible_pairings]"
@@ -982,10 +1162,15 @@ defmodule PairingsEngineWeb.SettingsLive do
                 </button>
               </div>
             </div>
+
             <label class="field">
               <span>IT4 event type</span>
-              <input name="tournament[officials][it4_event_type]" value={o_get(@tournament, "it4_event_type")} />
+              <input
+                name="tournament[officials][it4_event_type]"
+                value={o_get(@tournament, "it4_event_type")}
+              />
             </label>
+
             <label class="field" style="grid-column: 1 / -1">
               <span>Link to pairings web (IT4)</span>
               <input
@@ -996,12 +1181,14 @@ defmodule PairingsEngineWeb.SettingsLive do
           </div>
 
           <h3 style="margin: 18px 0 8px; font-size: 14px">Deputy arbiters</h3>
+
           <div class="form-grid">
             <div :for={{n, label} <- deputy_fields()} style="display: contents">
               <div class="field search-wrap">
                 <span style="display:block;font-size:13px;font-weight:600;color:var(--text-soft);margin-bottom:4px">
                   {label} — name
                 </span>
+
                 <input
                   type="text"
                   name={"tournament[officials][deputy#{n}_name]"}
@@ -1019,6 +1206,7 @@ defmodule PairingsEngineWeb.SettingsLive do
                 <span :if={o_get(@tournament, "deputy#{n}_fide_id") != ""} class="hint">
                   FIDE ID: {o_get(@tournament, "deputy#{n}_fide_id")}
                 </span>
+
                 <div
                   :if={arbiter_results(@arbiter_search, "deputy#{n}") != []}
                   class="search-results"
@@ -1035,6 +1223,7 @@ defmodule PairingsEngineWeb.SettingsLive do
                   </button>
                 </div>
               </div>
+
               <label class="field">
                 <span>{label} — e-mail</span>
                 <input
@@ -1046,56 +1235,89 @@ defmodule PairingsEngineWeb.SettingsLive do
           </div>
 
           <h3 style="margin: 18px 0 8px; font-size: 14px">Special remarks (IT3)</h3>
+
           <div class="form-grid">
             <label :for={n <- 1..4} class="field">
               <span>Remark {n}</span>
-              <input name={"tournament[officials][remark#{n}]"} value={o_get(@tournament, "remark#{n}")} />
+              <input
+                name={"tournament[officials][remark#{n}]"}
+                value={o_get(@tournament, "remark#{n}")}
+              />
             </label>
           </div>
         </div>
 
         <div class="card">
           <h2>Scoring</h2>
+
           <div class="form-grid">
             <label class="field">
               <span>Points for a win</span>
-              <input type="number" step="0.5" name="tournament[points_win]" value={@tournament.points_win} />
+              <input
+                type="number"
+                step="0.5"
+                name="tournament[points_win]"
+                value={@tournament.points_win}
+              />
             </label>
+
             <label class="field">
               <span>Points for a draw</span>
-              <input type="number" step="0.5" name="tournament[points_draw]" value={@tournament.points_draw} />
+              <input
+                type="number"
+                step="0.5"
+                name="tournament[points_draw]"
+                value={@tournament.points_draw}
+              />
             </label>
+
             <label class="field">
               <span>Points for a loss</span>
-              <input type="number" step="0.5" name="tournament[points_loss]" value={@tournament.points_loss} />
+              <input
+                type="number"
+                step="0.5"
+                name="tournament[points_loss]"
+                value={@tournament.points_loss}
+              />
             </label>
+
             <label class="field">
               <span>Pairing-allocated bye worth</span>
-              <input type="number" step="0.5" name="tournament[bye_value]" value={@tournament.bye_value} />
+              <input
+                type="number"
+                step="0.5"
+                name="tournament[bye_value]"
+                value={@tournament.bye_value}
+              />
             </label>
           </div>
         </div>
 
         <div class="card">
           <h2>Categories</h2>
-          <label class="field" style="display: flex; flex-direction: row; align-items: center; gap: .5rem">
+
+          <label
+            class="field"
+            style="display: flex; flex-direction: row; align-items: center; gap: .5rem"
+          >
             <input type="hidden" name="tournament[categories_enabled]" value="false" />
             <input
               type="checkbox"
               name="tournament[categories_enabled]"
               value="true"
               checked={@tournament.categories_enabled}
-            />
-            <span>Enable the Categories tab (category groups + extra points)</span>
+            /> <span>Enable the Categories tab (category groups + extra points)</span>
           </label>
         </div>
 
         <div class="card">
           <h2>Round dates</h2>
+
           <p class="hint" style="margin-top: 0">
             One date per round (SWAR Dates tab). Leave blank if unknown; two or more rounds can
             share the same date (e.g. a Saturday double round).
           </p>
+
           <div class="form-grid">
             <label
               :for={{date, i} <- Enum.with_index(@round_dates)}
@@ -1109,10 +1331,12 @@ defmodule PairingsEngineWeb.SettingsLive do
               <input type="date" name="tournament[round_dates][]" value={date} />
             </label>
           </div>
+
           <div class="actions" style="flex-wrap: wrap">
             <button type="button" class="pe-btn" phx-click="rd_fill_sequential">
               Fill sequentially from start date
             </button>
+
             <button type="button" class="pe-btn" phx-click="rd_calc">
               Calculate weekly from start date
             </button>
@@ -1122,9 +1346,11 @@ defmodule PairingsEngineWeb.SettingsLive do
 
         <div class="card">
           <h2>Tiebreaks</h2>
+
           <p class="hint" style="margin-top: 0">
             Applied in order, following the FIDE Tie-Break Regulations. Higher in the list = decided first.
           </p>
+
           <div class="field" style="margin-bottom: 1rem">
             <span>Preset</span>
             <div style="display: flex; flex-wrap: wrap; gap: 1rem">
@@ -1137,7 +1363,11 @@ defmodule PairingsEngineWeb.SettingsLive do
                   checked={tb_preset_match(@tiebreaks) == "personel"}
                 /> Custom
               </label>
-              <label :for={{key, label, _methods} <- tb_presets()} style="display: flex; gap: .35rem; align-items: center; font-weight: 400">
+
+              <label
+                :for={{key, label, _methods} <- tb_presets()}
+                style="display: flex; gap: .35rem; align-items: center; font-weight: 400"
+              >
                 <input
                   type="radio"
                   name="tb_preset_display"
@@ -1148,13 +1378,16 @@ defmodule PairingsEngineWeb.SettingsLive do
               </label>
             </div>
           </div>
+
           <ol class="tb-list">
             <li :for={{code, i} <- Enum.with_index(@tiebreaks)}>
               <span class="tb-order">{i + 1}.</span>
               <div>
                 <div class="tb-name">{tb_name(code)}</div>
+
                 <div class="tb-desc">{tb_desc(code)}</div>
               </div>
+
               <div class="tb-buttons">
                 <button
                   type="button"
@@ -1166,6 +1399,7 @@ defmodule PairingsEngineWeb.SettingsLive do
                 >
                   ↑
                 </button>
+
                 <button
                   type="button"
                   class="pe-btn"
@@ -1176,6 +1410,7 @@ defmodule PairingsEngineWeb.SettingsLive do
                 >
                   ↓
                 </button>
+
                 <button
                   type="button"
                   class="pe-btn"
@@ -1188,6 +1423,7 @@ defmodule PairingsEngineWeb.SettingsLive do
               </div>
             </li>
           </ol>
+
           <p :if={@tiebreaks == []} class="hint">
             No tiebreaks selected — tied players will share a rank.
           </p>
@@ -1195,6 +1431,7 @@ defmodule PairingsEngineWeb.SettingsLive do
           <div class="actions" style="flex-wrap: wrap">
             <select phx-change="tb_add" name="code" style="width: auto" class="pe-select">
               <option value="">Add a tiebreak…</option>
+
               <option :for={tb <- available_tiebreaks(@tiebreaks)} value={tb.code}>{tb.name}</option>
             </select>
             <button type="button" class="pe-btn" phx-click="tb_reset">Reset to FIDE default</button>
@@ -1210,6 +1447,7 @@ defmodule PairingsEngineWeb.SettingsLive do
 
       <div :if={@owner?} class="card">
         <h2>Share / Team</h2>
+
         <p class="hint" style="margin-top: 0">
           Invite other people to this tournament by email — they can open, edit, pair, enter
           results, print and export it, exactly like you, except they can't manage collaborators or
@@ -1217,6 +1455,7 @@ defmodule PairingsEngineWeb.SettingsLive do
           invitation while signed in with their own email
           (<.link navigate={~p"/users/log-in"}>magic link</.link>) — no shared password needed.
         </p>
+
         <form id="add-collaborator-form" phx-submit="add_collaborator">
           <div class="form-grid">
             <label class="field">
@@ -1224,8 +1463,11 @@ defmodule PairingsEngineWeb.SettingsLive do
               <input type="email" name="email" placeholder="teammate@example.com" />
             </label>
           </div>
+
           <p :if={@collaborator_error} class="error-note">{@collaborator_error}</p>
+
           <p :if={@collaborator_note} class="hint">{@collaborator_note}</p>
+
           <div class="actions">
             <button type="submit" class="pe-btn primary">Add collaborator</button>
           </div>
@@ -1236,20 +1478,29 @@ defmodule PairingsEngineWeb.SettingsLive do
             <thead>
               <tr>
                 <th>Email</th>
+
                 <th>Status</th>
+
                 <th></th>
               </tr>
             </thead>
+
             <tbody>
               <tr :for={c <- @collaborators}>
                 <td>{c.email}</td>
+
                 <td>
                   <span class={["badge", c.status != "accepted" && "muted"]}>
                     {if c.status == "accepted", do: "active", else: "invited (waiting for accept)"}
                   </span>
                 </td>
+
                 <td style="text-align: right">
-                  <button class="pe-btn danger-link" phx-click="remove_collaborator" phx-value-id={c.id}>
+                  <button
+                    class="pe-btn danger-link"
+                    phx-click="remove_collaborator"
+                    phx-value-id={c.id}
+                  >
                     Remove
                   </button>
                 </td>
@@ -1265,10 +1516,12 @@ defmodule PairingsEngineWeb.SettingsLive do
 
       <div class="card">
         <h2>Forbidden pairings</h2>
+
         <p class="hint" style="margin-top: 0">
           Two players who must never be paired against each other. Applies to Swiss pairing
           (a JaVaFo "XXP" rule) and to Keizer; a round robin's fixed schedule ignores this by design.
         </p>
+
         <form id="add-forbidden-pairing-form" phx-submit="add_forbidden_pairing">
           <div class="form-grid">
             <label class="field">
@@ -1282,6 +1535,7 @@ defmodule PairingsEngineWeb.SettingsLive do
                 </option>
               </select>
             </label>
+
             <label class="field">
               <span>Player B</span>
               <select name="player_b_id" class="pe-select">
@@ -1294,9 +1548,15 @@ defmodule PairingsEngineWeb.SettingsLive do
               </select>
             </label>
           </div>
+
           <p :if={@forbidden_pairing_error} class="error-note">{@forbidden_pairing_error}</p>
+
           <div class="actions">
-            <button type="submit" class="pe-btn primary" disabled={length(@forbidden_pairing_players) < 2}>
+            <button
+              type="submit"
+              class="pe-btn primary"
+              disabled={length(@forbidden_pairing_players) < 2}
+            >
               Add
             </button>
           </div>
@@ -1307,14 +1567,21 @@ defmodule PairingsEngineWeb.SettingsLive do
             <thead>
               <tr>
                 <th>Pair</th>
+
                 <th></th>
               </tr>
             </thead>
+
             <tbody>
               <tr :for={fp <- @forbidden_pairings}>
                 <td>{fp.player_a.name} — {fp.player_b.name}</td>
+
                 <td style="text-align: right">
-                  <button class="pe-btn danger-link" phx-click="remove_forbidden_pairing" phx-value-id={fp.id}>
+                  <button
+                    class="pe-btn danger-link"
+                    phx-click="remove_forbidden_pairing"
+                    phx-value-id={fp.id}
+                  >
                     Remove
                   </button>
                 </td>
@@ -1328,21 +1595,32 @@ defmodule PairingsEngineWeb.SettingsLive do
         </p>
 
         <h3 style="margin-top: 24px">Club / federation exclusions</h3>
+
         <p class="hint" style="margin-top: 0">
           Automatically forbid pairing any two players who share a club or federation, instead of
           listing every pair by hand. Applies to Swiss (JaVaFo "XXP" rules, same as above) and to
           Keizer; a round robin's fixed schedule ignores this by design.
         </p>
+
         <form id="exclusion-rules-form" phx-submit="save_exclusions">
           <div class="form-grid">
             <label class="field">
               <span>Clubs</span>
-              <select name="tournament[club_exclusion]" class="pe-select" phx-change="club_exclusion_mode_change">
-                <option :for={m <- Tournament.exclusion_modes()} value={m} selected={m == @club_exclusion_mode}>
+              <select
+                name="tournament[club_exclusion]"
+                class="pe-select"
+                phx-change="club_exclusion_mode_change"
+              >
+                <option
+                  :for={m <- Tournament.exclusion_modes()}
+                  value={m}
+                  selected={m == @club_exclusion_mode}
+                >
                   {Tournament.exclusion_mode_label(m)}
                 </option>
               </select>
             </label>
+
             <label :if={@club_exclusion_mode == "listed"} class="field">
               <span>Clubs (comma-separated)</span>
               <input
@@ -1352,14 +1630,24 @@ defmodule PairingsEngineWeb.SettingsLive do
                 placeholder="e.g. Chess Club A, Chess Club B"
               />
             </label>
+
             <label class="field">
               <span>Federations</span>
-              <select name="tournament[fed_exclusion]" class="pe-select" phx-change="fed_exclusion_mode_change">
-                <option :for={m <- Tournament.exclusion_modes()} value={m} selected={m == @fed_exclusion_mode}>
+              <select
+                name="tournament[fed_exclusion]"
+                class="pe-select"
+                phx-change="fed_exclusion_mode_change"
+              >
+                <option
+                  :for={m <- Tournament.exclusion_modes()}
+                  value={m}
+                  selected={m == @fed_exclusion_mode}
+                >
                   {Tournament.exclusion_mode_label(m)}
                 </option>
               </select>
             </label>
+
             <label :if={@fed_exclusion_mode == "listed"} class="field">
               <span>Federations (comma-separated)</span>
               <input
@@ -1370,10 +1658,13 @@ defmodule PairingsEngineWeb.SettingsLive do
               />
             </label>
           </div>
+
           <p class="hint" style="margin-bottom: 0">
             {@excluded_pair_count} pair(s) currently excluded by these rules.
           </p>
+
           <p :if={@exclusion_error} class="error-note">{@exclusion_error}</p>
+
           <div class="actions">
             <button type="submit" class="pe-btn primary">Save exclusion rules</button>
           </div>
@@ -1381,14 +1672,66 @@ defmodule PairingsEngineWeb.SettingsLive do
       </div>
 
       <div class="card">
+        <h2>Logo</h2>
+
+        <p class="hint" style="margin-top: 0">
+          Shown on printed documents (place cards, and any other print page that has a logo slot —
+          see <.link navigate={~p"/t/#{@tournament.id}/print"}>Print</.link>). Only raster images
+          (PNG, JPEG, GIF, WebP) are accepted — SVG is rejected, since it can carry scripts and this
+          image is embedded straight back into pages the app serves. Capped at 2&nbsp;MB.
+        </p>
+
+        <div :if={@tournament.logo_data} class="field" style="margin-bottom: 1rem">
+          <span>Current logo</span>
+          <img
+            src={Tournaments.logo_data_uri(@tournament)}
+            alt="Tournament logo"
+            style="max-height: 80px; max-width: 240px; display: block; margin-top: 6px"
+          />
+          <div class="actions" style="margin-top: 8px">
+            <button type="button" class="pe-btn danger-link" phx-click="clear_logo">
+              Remove logo
+            </button>
+          </div>
+        </div>
+
+        <form id="logo-upload-form" phx-submit="upload_logo" phx-change="validate_logo">
+          <div class={["dropzone", @uploads.logo.entries != [] && "has-file"]}>
+            <.live_file_input upload={@uploads.logo} class="dropzone-input" />
+            <div class="dropzone-label">
+              <%= if @uploads.logo.entries == [] do %>
+                <strong>Choose a PNG, JPEG, GIF or WebP image</strong>
+                <span class="hint">or drag and drop it here</span>
+              <% else %>
+                <span :for={entry <- @uploads.logo.entries} class="dropzone-file">
+                  {entry.client_name}
+                </span>
+              <% end %>
+            </div>
+          </div>
+
+          <p :for={err <- upload_errors(@uploads.logo)} class="error-note">{inspect(err)}</p>
+
+          <div class="actions">
+            <button type="submit" class="pe-btn primary" disabled={@uploads.logo.entries == []}>
+              Upload logo
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
         <h2>Export / backup</h2>
+
         <p class="hint" style="margin-top: 0">
           A full JSON backup of this tournament — settings, officials, every player (including norm
           data), rounds, pairings/results, byes and forbidden pairings. Re-importing it (from the
           <.link navigate={~p"/"}>Tournaments</.link>
           page) always creates a brand-new tournament, never overwrites this one. For a FIDE-report-shaped
-          TRF16 file instead, see <.link navigate={~p"/t/#{@tournament.id}/pairings"}>Pairings</.link>.
+          TRF16 file instead, see <.link navigate={~p"/t/#{@tournament.id}/pairings"}>Pairings</.link>{if @tournament.manual_ranking,
+            do: " — note its rank column is the computed order, not manual ranking's hand-set one"}.
         </p>
+
         <div class="actions">
           <a class="pe-btn" href={~p"/t/#{@tournament.id}/export/json"} target="_blank">
             Export full backup (JSON)

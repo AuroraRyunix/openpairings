@@ -60,7 +60,9 @@ defmodule PairingsEngine.RoundRobinTest do
 
     test "each player meets every other player exactly once per cycle (N=6)" do
       all_pairs =
-        for round <- 1..5, {:ok, matches} = RoundRobin.schedule(6, 1, round), {:pairing, w, b} <- matches do
+        for round <- 1..5,
+            {:ok, matches} = RoundRobin.schedule(6, 1, round),
+            {:pairing, w, b} <- matches do
           Enum.sort([w, b]) |> List.to_tuple()
         end
 
@@ -70,7 +72,9 @@ defmodule PairingsEngine.RoundRobinTest do
 
     test "odd N gives every real player exactly one zero-point-shaped bye per cycle (N=5)" do
       byes =
-        for round <- 1..5, {:ok, matches} = RoundRobin.schedule(5, 1, round), {:bye, n} <- matches do
+        for round <- 1..5,
+            {:ok, matches} = RoundRobin.schedule(5, 1, round),
+            {:bye, n} <- matches do
           n
         end
 
@@ -203,6 +207,50 @@ defmodule PairingsEngine.RoundRobinTest do
       refute a.id in pairing_player_ids
     end
 
+    ## ---------- byes must invalidate a hand-set manual standings order ----------
+    #
+    # SWAR parity #23 (manual standings) fix 3: a "requested-zero" bye
+    # awards points immediately (see PairingsEngine.Standings) without ever
+    # going through Tournaments.update_pairing_result/2, so every bye-write
+    # site needs its own Tournaments.invalidate_manual_ranking/1 call — see
+    # PairingsEngine.Pairing.insert_round_absentee_byes/3 for the Swiss/
+    # JaVaFo-path equivalent and docs/manual-standings.md.
+
+    test "an odd-player-count structural bye marks a hand-set manual order stale" do
+      tournament = round_robin_tournament(rr_cycles: 1)
+
+      insert_player(tournament, "Alice", fide_rating: 2000)
+      insert_player(tournament, "Bob", fide_rating: 1900)
+      insert_player(tournament, "Carol", fide_rating: 1800)
+      insert_player(tournament, "Dave", fide_rating: 1700)
+      insert_player(tournament, "Eve", fide_rating: 1600)
+
+      {:ok, tournament} = Tournaments.enable_manual_ranking(tournament)
+      refute Repo.reload!(tournament).manual_ranking_stale
+
+      # 5 players (odd) -> round 1 gives Alice (#1) the structural bye
+      # (see the equivalent dispatcher test above).
+      assert {:ok, _round} = Pairing.pair_next_round(tournament)
+
+      assert Repo.reload!(tournament).manual_ranking_stale
+    end
+
+    test "a round with no byes at all (even player count) does not touch a fresh manual order" do
+      tournament = round_robin_tournament(rr_cycles: 1)
+
+      insert_player(tournament, "Alice", fide_rating: 2000)
+      insert_player(tournament, "Bob", fide_rating: 1900)
+      insert_player(tournament, "Carol", fide_rating: 1800)
+      insert_player(tournament, "Dave", fide_rating: 1700)
+
+      {:ok, tournament} = Tournaments.enable_manual_ranking(tournament)
+      refute Repo.reload!(tournament).manual_ranking_stale
+
+      assert {:ok, _round} = Pairing.pair_next_round(tournament)
+
+      refute Repo.reload!(tournament).manual_ranking_stale
+    end
+
     test "double cycle plays 2*(N-1) rounds and errors once the schedule is exhausted" do
       tournament = round_robin_tournament(rr_cycles: 2)
 
@@ -231,7 +279,8 @@ defmodule PairingsEngine.RoundRobinTest do
       tournament = round_robin_tournament(rr_cycles: 1)
       insert_player(tournament, "Alice", fide_rating: 2000)
 
-      assert Pairing.pair_next_round(tournament) == {:error, "At least two active players are needed"}
+      assert Pairing.pair_next_round(tournament) ==
+               {:error, "At least two active players are needed"}
     end
 
     test "players added after the freeze are excluded from every later round" do
@@ -284,7 +333,12 @@ defmodule PairingsEngine.RoundRobinTest do
       :ok = PairingsEngine.Pairing.delete_round(t1.id, 2)
       {:ok, round2_b} = Pairing.pair_next_round(t1)
 
-      pairs_b = round2_b |> Repo.preload(:pairings) |> Map.fetch!(:pairings) |> Enum.map(&{&1.white_player_id, &1.black_player_id}) |> Enum.sort()
+      pairs_b =
+        round2_b
+        |> Repo.preload(:pairings)
+        |> Map.fetch!(:pairings)
+        |> Enum.map(&{&1.white_player_id, &1.black_player_id})
+        |> Enum.sort()
 
       assert pairs_a == pairs_b
     end

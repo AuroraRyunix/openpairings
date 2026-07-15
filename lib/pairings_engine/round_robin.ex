@@ -259,10 +259,29 @@ defmodule PairingsEngine.RoundRobin do
         |> Enum.filter(&match?({:bye, _}, &1))
         |> Enum.map(fn {:bye, num} ->
           player = Map.fetch!(by_number, num)
-          %{tournament_id: tournament.id, player_id: player.id, round: next_number, type: "requested-zero"}
+
+          %{
+            tournament_id: tournament.id,
+            player_id: player.id,
+            round: next_number,
+            type: "requested-zero"
+          }
         end)
 
-      if bye_rows != [], do: Repo.insert_all("byes", bye_rows)
+      if bye_rows != [] do
+        Repo.insert_all("byes", bye_rows)
+
+        # A "requested-zero" bye immediately awards points (see
+        # PairingsEngine.Standings) without ever going through
+        # Tournaments.update_pairing_result/2 — a hand-set manual standings
+        # order must be marked stale here too, same as any other
+        # point-changing write. See docs/manual-standings.md (Fix 3) and
+        # PairingsEngine.Pairing.insert_round_absentee_byes/3 for the same
+        # pattern on the Swiss/JaVaFo path. Must run before the caller's
+        # broadcast_tournament_change so no PubSub subscriber can reload and
+        # observe a stale-but-unmarked manual order.
+        Tournaments.invalidate_manual_ranking(tournament.id)
+      end
 
       round
     end)

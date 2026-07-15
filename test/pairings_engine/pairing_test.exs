@@ -85,6 +85,61 @@ defmodule PairingsEngine.PairingTest do
     assert byes == [%{round: 1, type: "requested-zero"}]
   end
 
+  ## ---------- byes must invalidate a hand-set manual standings order ----------
+  #
+  # SWAR parity #23 (manual standings) fix 3: byes award points too (see
+  # PairingsEngine.Standings) but are written entirely inside this module,
+  # never through Tournaments.update_pairing_result/2 — so they need their
+  # own PairingsEngine.Tournaments.invalidate_manual_ranking/1 call sites.
+  # See docs/manual-standings.md.
+
+  @tag :javafo
+  test "a round-specific absentee's requested-zero bye marks a hand-set manual order stale" do
+    tournament =
+      Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3, manual_ranking: true})
+
+    insert_player(tournament, "Alice", fide_rating: 2000)
+    insert_player(tournament, "Bob", fide_rating: 1900)
+    insert_player(tournament, "Carol", fide_rating: 1800)
+    insert_player(tournament, "Dave", fide_rating: 1700, absent_rounds: "1")
+
+    {:ok, tournament} = Tournaments.reseed_manual_ranking(tournament)
+    refute Repo.reload!(tournament).manual_ranking_stale
+
+    assert {:ok, _round} = Pairing.pair_next_round(tournament)
+
+    assert Repo.reload!(tournament).manual_ranking_stale
+  end
+
+  @tag :javafo
+  test "a pairing-allocated bye (odd number of eligible players) marks a hand-set manual order stale" do
+    tournament =
+      Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3, manual_ranking: true})
+
+    insert_player(tournament, "Alice", fide_rating: 2000)
+    insert_player(tournament, "Bob", fide_rating: 1900)
+    insert_player(tournament, "Carol", fide_rating: 1800)
+
+    {:ok, tournament} = Tournaments.reseed_manual_ranking(tournament)
+    refute Repo.reload!(tournament).manual_ranking_stale
+
+    assert {:ok, round} = Pairing.pair_next_round(tournament)
+    round = Repo.preload(round, :pairings)
+    assert Enum.any?(round.pairings, &(&1.result == "bye"))
+
+    assert Repo.reload!(tournament).manual_ranking_stale
+  end
+
+  test "pairing a round with no byes at all does not touch a fresh manual order (manual_ranking off, sanity)" do
+    tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
+    insert_player(tournament, "Alice", fide_rating: 2000)
+
+    # manual_ranking is off here, so pairing (even a failing one, as this
+    # will be with a single player) must not touch manual_ranking_stale.
+    assert {:error, _reason} = Pairing.pair_next_round(tournament)
+    refute Repo.reload!(tournament).manual_ranking_stale
+  end
+
   ## ---------- PubSub broadcasts ----------
 
   @tag :javafo
@@ -202,12 +257,32 @@ defmodule PairingsEngine.PairingTest do
   # JaVaFo or the user-facing TRF export.
   test "trf_player_rows/2 normalizes an opponentless game's playing-code result into a bye code" do
     tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
-    player = insert_player(tournament, "Dgebuadze, Alexandre", fide_rating: 2400, pairing_number: 1)
+
+    player =
+      insert_player(tournament, "Dgebuadze, Alexandre", fide_rating: 2400, pairing_number: 1)
+
     opponent = insert_player(tournament, "Opponent", fide_rating: 2000, pairing_number: 2)
 
-    r1 = Repo.insert!(%PairingsEngine.Tournaments.Round{tournament_id: tournament.id, number: 1, status: "finished"})
-    r2 = Repo.insert!(%PairingsEngine.Tournaments.Round{tournament_id: tournament.id, number: 2, status: "finished"})
-    r3 = Repo.insert!(%PairingsEngine.Tournaments.Round{tournament_id: tournament.id, number: 3, status: "finished"})
+    r1 =
+      Repo.insert!(%PairingsEngine.Tournaments.Round{
+        tournament_id: tournament.id,
+        number: 1,
+        status: "finished"
+      })
+
+    r2 =
+      Repo.insert!(%PairingsEngine.Tournaments.Round{
+        tournament_id: tournament.id,
+        number: 2,
+        status: "finished"
+      })
+
+    r3 =
+      Repo.insert!(%PairingsEngine.Tournaments.Round{
+        tournament_id: tournament.id,
+        number: 3,
+        status: "finished"
+      })
 
     # Round 1: an ordinary game against a real opponent — unaffected.
     Repo.insert!(%PairingsEngine.Tournaments.Pairing{
@@ -398,7 +473,180 @@ defmodule PairingsEngine.PairingTest do
            end)
   end
 
+  ## ---------- Baku acceleration (XXA) — pure line building ----------
+
+  test "acceleration_lines/3 matches FIDE C.04.5.1's own nine-round worked example" do
+    tournament =
+      Repo.insert!(%Tournament{
+        name: "T",
+        type: "swiss",
+        pairing_system: "swiss",
+        rounds_count: 9,
+        acceleration: "baku"
+      })
+
+    players = for n <- 1..8, do: %{pairing_number: n}
+
+    # "In a nine-round tournament, the accelerated rounds are five. The
+    # players in GA are assigned one virtual point in the first three
+    # rounds, and half virtual point in the next two rounds." (FIDE
+    # C.04.5.1). Group A = top half rounded up to an even count = 2*ceil(8/4)
+    # = 4 players (ranks 1-4); Group B (ranks 5-8) never appears at all.
+    assert Pairing.acceleration_lines(tournament, players, 4) ==
+             "XXA     1  1.0  1.0  1.0  0.5\r\n" <>
+               "XXA     2  1.0  1.0  1.0  0.5\r\n" <>
+               "XXA     3  1.0  1.0  1.0  0.5\r\n" <>
+               "XXA     4  1.0  1.0  1.0  0.5\r\n"
+
+    # Round 1 alone: still 1.0 for Group A, one column only.
+    assert Pairing.acceleration_lines(tournament, players, 1) ==
+             "XXA     1  1.0\r\nXXA     2  1.0\r\nXXA     3  1.0\r\nXXA     4  1.0\r\n"
+
+    # Round 6 is past the 5 accelerated rounds: the trailing column is 0.0,
+    # but the historical columns are still reported in full (JaVaFo's own
+    # words: needed for "floaters history").
+    assert Pairing.acceleration_lines(tournament, players, 6) ==
+             "XXA     1  1.0  1.0  1.0  0.5  0.5  0.0\r\n" <>
+               "XXA     2  1.0  1.0  1.0  0.5  0.5  0.0\r\n" <>
+               "XXA     3  1.0  1.0  1.0  0.5  0.5  0.0\r\n" <>
+               "XXA     4  1.0  1.0  1.0  0.5  0.5  0.0\r\n"
+  end
+
+  test "acceleration_lines/3 is a no-op unless acceleration is baku and pairing_system is swiss" do
+    players = for n <- 1..8, do: %{pairing_number: n}
+
+    off = %Tournament{pairing_system: "swiss", rounds_count: 9, acceleration: "none"}
+    assert Pairing.acceleration_lines(off, players, 1) == ""
+
+    round_robin =
+      %Tournament{pairing_system: "round_robin", rounds_count: 9, acceleration: "baku"}
+
+    assert Pairing.acceleration_lines(round_robin, players, 1) == ""
+
+    keizer = %Tournament{pairing_system: "keizer", rounds_count: 9, acceleration: "baku"}
+    assert Pairing.acceleration_lines(keizer, players, 1) == ""
+  end
+
+  test "javafo_input/2 includes fixed-column XXA lines alongside XXR when acceleration is baku" do
+    tournament =
+      Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 9, acceleration: "baku"})
+
+    alice = insert_player(tournament, "Alice", pairing_number: 1)
+    bob = insert_player(tournament, "Bob", pairing_number: 2)
+    carol = insert_player(tournament, "Carol", pairing_number: 3)
+    dave = insert_player(tournament, "Dave", pairing_number: 4)
+
+    trf = Pairing.javafo_input(tournament, [alice, bob, carol, dave])
+
+    assert trf =~ "XXR 9\r\n"
+    assert trf =~ "XXA     1  1.0\r\n"
+    assert trf =~ "XXA     2  1.0\r\n"
+  end
+
+  test "javafo_input/2 omits XXA entirely when acceleration is none" do
+    tournament =
+      Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 9, acceleration: "none"})
+
+    alice = insert_player(tournament, "Alice", pairing_number: 1)
+    bob = insert_player(tournament, "Bob", pairing_number: 2)
+
+    trf = Pairing.javafo_input(tournament, [alice, bob])
+    refute trf =~ "XXA"
+  end
+
+  ## ---------- Baku acceleration actually changes JaVaFo's pairings ----------
+
+  # End-to-end proof that JaVaFo honours the XXA directive rather than
+  # silently ignoring it: two tournaments, identical 8 players and an
+  # identical (already-played) round 1, differing only in
+  # `acceleration`. Group A (starting ranks 1-4) is given +1.0 virtual
+  # points for round 1 in the accelerated tournament, which changes their
+  # effective round-2 standings score group from the real ranks-1-4 winners
+  # (1, 3, 6, 8) to (1, 2, 3, 4) — so round 2 must pair 1 against 3 (the only
+  # two Group-A players left once the group is a clean foursome), which
+  # never happens without acceleration. Verified once by hand directly
+  # against `javafo.jar` (see `PairingsEngine.Pairing.acceleration_lines/3`
+  # doc) before being written up as this automated assertion.
+  @tag :javafo
+  test "pair_next_round/1 pairs round 2 differently when Baku acceleration is on vs off" do
+    control =
+      Repo.insert!(%Tournament{
+        name: "Control",
+        type: "swiss",
+        rounds_count: 9,
+        acceleration: "none"
+      })
+
+    accel =
+      Repo.insert!(%Tournament{
+        name: "Accel",
+        type: "swiss",
+        rounds_count: 9,
+        acceleration: "baku"
+      })
+
+    for tournament <- [control, accel] do
+      p1 = insert_player(tournament, "P1", fide_rating: 2400, pairing_number: 1)
+      p2 = insert_player(tournament, "P2", fide_rating: 2300, pairing_number: 2)
+      p3 = insert_player(tournament, "P3", fide_rating: 2200, pairing_number: 3)
+      p4 = insert_player(tournament, "P4", fide_rating: 2100, pairing_number: 4)
+      p5 = insert_player(tournament, "P5", fide_rating: 2000, pairing_number: 5)
+      p6 = insert_player(tournament, "P6", fide_rating: 1900, pairing_number: 6)
+      p7 = insert_player(tournament, "P7", fide_rating: 1800, pairing_number: 7)
+      p8 = insert_player(tournament, "P8", fide_rating: 1700, pairing_number: 8)
+
+      round1 =
+        Repo.insert!(%PairingsEngine.Tournaments.Round{
+          tournament_id: tournament.id,
+          number: 1,
+          status: "finished"
+        })
+
+      # 1 beats 5, 6 beats 2, 3 beats 7, 8 beats 4 — real scores after round
+      # 1: {1, 3, 6, 8} = 1.0, {2, 4, 5, 7} = 0.0.
+      for {white, black} <- [{p1, p5}, {p6, p2}, {p3, p7}, {p8, p4}] do
+        Repo.insert!(%PairingsEngine.Tournaments.Pairing{
+          round_id: round1.id,
+          board: 1,
+          white_player_id: white.id,
+          black_player_id: black.id,
+          result: "1-0"
+        })
+      end
+    end
+
+    assert {:ok, control_r2} = Pairing.pair_next_round(control)
+    assert {:ok, accel_r2} = Pairing.pair_next_round(accel)
+
+    control_pairs = round_pairs_by_rank(control_r2)
+    accel_pairs = round_pairs_by_rank(accel_r2)
+
+    refute control_pairs == accel_pairs
+
+    # Without acceleration, the real score-1.0 group is {1, 3, 6, 8} — ranks
+    # 1 and 3 never meet in round 2 (they're both undefeated but slotted
+    # against 6/8 respectively).
+    refute {1, 3} in control_pairs or {3, 1} in control_pairs
+
+    # With acceleration, ranks 1-4 (Group A) each get +1.0 virtual points for
+    # round 1, so the effective score-2.0 group entering round 2 is exactly
+    # {1, 3} (real winners 1 and 3, boosted) — leaving JaVaFo no choice but
+    # to pair them together.
+    assert {1, 3} in accel_pairs or {3, 1} in accel_pairs
+  end
+
   ## ---------- helpers ----------
+
+  defp round_pairs_by_rank(round) do
+    round
+    |> Repo.preload(pairings: [:white_player, :black_player])
+    |> Map.fetch!(:pairings)
+    |> Enum.map(fn p ->
+      white_rank = p.white_player && p.white_player.pairing_number
+      black_rank = p.black_player && p.black_player.pairing_number
+      {white_rank, black_rank}
+    end)
+  end
 
   defp insert_player(tournament, name, attrs) do
     defaults = %{tournament_id: tournament.id, name: name}

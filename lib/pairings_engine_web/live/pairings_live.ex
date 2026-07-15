@@ -45,7 +45,10 @@ defmodule PairingsEngineWeb.PairingsLive do
   # from the Settings page.
   @impl true
   def handle_info({:tournament_changed, _tournament_id, _hint}, socket) do
-    case Tournaments.get_authorized_tournament(socket.assigns.current_scope, socket.assigns.tournament.id) do
+    case Tournaments.get_authorized_tournament(
+           socket.assigns.current_scope,
+           socket.assigns.tournament.id
+         ) do
       nil ->
         {:noreply,
          socket
@@ -67,7 +70,8 @@ defmodule PairingsEngineWeb.PairingsLive do
       paired_rounds: paired,
       next_pairable: paired + 1,
       setup_complete: setup_complete,
-      can_pair: setup_complete and paired < t.rounds_count and Engine.round_complete?(t.id, paired)
+      can_pair:
+        setup_complete and paired < t.rounds_count and Engine.round_complete?(t.id, paired)
     )
   end
 
@@ -110,7 +114,8 @@ defmodule PairingsEngineWeb.PairingsLive do
   ## ---------- CSV results import ----------
 
   def handle_event("toggle_import_results", _params, socket) do
-    {:noreply, assign(socket, importing_results: not socket.assigns.importing_results, import_errors: nil)}
+    {:noreply,
+     assign(socket, importing_results: not socket.assigns.importing_results, import_errors: nil)}
   end
 
   # The file input's phx-change target; nothing to do until submit.
@@ -189,6 +194,7 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   defp player_label(player) do
     rating = PairingsEngine.Tournaments.Player.rating(player)
+
     "#{if player.title != "", do: "#{player.title} "}#{player.name}" <>
       if(rating > 0, do: " (#{rating})", else: "")
   end
@@ -196,16 +202,24 @@ defmodule PairingsEngineWeb.PairingsLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} tournament={@tournament} active="pairings">
+    <Layouts.app
+      flash={@flash}
+      current_scope={@current_scope}
+      tournament={@tournament}
+      active="pairings"
+    >
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
+
           <p class="subtitle" style="margin: 0">Pairings &amp; results</p>
         </div>
+
         <div class="actions" style="margin: 0">
           <a class="pe-btn" href={~p"/t/#{@tournament.id}/live"} target="_blank">
             Open live view
           </a>
+
           <a
             class="pe-btn"
             href={~p"/p/#{@tournament.public_slug}/pairings"}
@@ -214,9 +228,11 @@ defmodule PairingsEngineWeb.PairingsLive do
           >
             Public pairings link
           </a>
+
           <a class="pe-btn" href={~p"/t/#{@tournament.id}/export/trf"} target="_blank">
             Export TRF (all rounds)
           </a>
+
           <form
             id="trf-rounds-export-form"
             method="get"
@@ -238,6 +254,15 @@ defmodule PairingsEngineWeb.PairingsLive do
         </div>
       </div>
 
+      <p
+        :if={@tournament.manual_ranking}
+        class="hint"
+        style="margin-top: -8px; margin-bottom: 12px"
+      >
+        Manual ranking is on for this tournament, but the TRF export's rank column reflects the
+        computed/starting-rank order, not the arbiter's hand-set display order.
+      </p>
+
       <div :if={!@setup_complete} class="card error-note" style="display: block; margin: 12px 0">
         Finish the tournament setup — fill in the name, start date and number of rounds in
         <.link navigate={~p"/t/#{@tournament.id}/settings"}>Settings</.link>
@@ -258,6 +283,7 @@ defmodule PairingsEngineWeb.PairingsLive do
       <div class="page-header" style="margin-top: 16px">
         <div>
           <h2 style="margin: 0">Round {@round_number}</h2>
+
           <p class="subtitle" style="margin: 0">
             <span class={["badge", @round == nil && "muted"]}>
               {cond do
@@ -268,6 +294,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             </span>
           </p>
         </div>
+
         <div class="actions" style="margin: 0">
           <button
             :if={@round == nil && @round_number == @next_pairable}
@@ -284,6 +311,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           >
             Pair round {@round_number} (JaVaFo)
           </button>
+
           <a
             :if={@round != nil}
             class="pe-btn"
@@ -292,6 +320,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           >
             Print pairings
           </a>
+
           <a
             :if={@round != nil}
             class="pe-btn"
@@ -300,6 +329,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           >
             Print standings
           </a>
+
           <a
             :if={@round != nil}
             class="pe-btn"
@@ -308,6 +338,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           >
             Print result cards
           </a>
+
           <a
             :if={@round != nil}
             class="pe-btn"
@@ -317,6 +348,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           >
             Test print (3)
           </a>
+
           <a
             :if={@round != nil}
             class="pe-btn"
@@ -326,6 +358,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           >
             Print result cards (stack-cut order)
           </a>
+
           <a
             :if={@round != nil}
             class="pe-btn"
@@ -335,6 +368,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           >
             Export PGN
           </a>
+
           <button
             :if={@round != nil}
             class="pe-btn"
@@ -342,6 +376,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           >
             Import results (CSV)
           </button>
+
           <button
             :if={@round != nil && @round_number == @paired_rounds}
             class="pe-btn danger-link"
@@ -369,11 +404,15 @@ defmodule PairingsEngineWeb.PairingsLive do
         style="margin: 8px 0"
       >
         <h3 style="margin-top: 0">Import results (CSV) — round {@round_number}</h3>
+
         <p class="hint" style="margin-top: 0">
-          One line per board: <code>board,result</code> (or <code>;</code>-separated).
-          Results: <code>1-0</code>, <code>0-1</code>, <code>1/2-1/2</code> (or <code>=</code>),
-          <code>0-0</code> (both lose, played), <code>1-0FF</code>/<code>0-1FF</code> (forfeit win),
-          <code>0-0FF</code> (double forfeit). Boards left out keep their current result.
+          One line per board: <code>board,result</code>
+          (or <code>;</code>-separated).
+          Results: <code>1-0</code>, <code>0-1</code>, <code>1/2-1/2</code>
+          (or <code>=</code>), <code>0-0</code>
+          (both lose, played), <code>1-0FF</code>/<code>0-1FF</code>
+          (forfeit win), <code>0-0FF</code>
+          (double forfeit). Boards left out keep their current result.
         </p>
 
         <div
@@ -416,16 +455,21 @@ defmodule PairingsEngineWeb.PairingsLive do
           <thead>
             <tr>
               <th class="num">Board</th>
+
               <th>White</th>
+
               <th style="text-align: center; width: 220px">Result</th>
+
               <th>Black</th>
             </tr>
           </thead>
+
           <tbody>
             <tr :if={@round == nil}>
               <td colspan="4">
                 <div class="empty">
                   <p><strong>This round has not been paired yet.</strong></p>
+
                   <p class="hint">
                     <%= if @round_number == @next_pairable do %>
                       Press "Pair round {@round_number}" to run the FIDE Dutch pairing (JaVaFo).
@@ -436,9 +480,12 @@ defmodule PairingsEngineWeb.PairingsLive do
                 </div>
               </td>
             </tr>
+
             <tr :for={pairing <- (@round && @round.pairings) || []}>
               <td class="num">{pairing.board}{fixed_board_note(pairing)}</td>
+
               <td><strong>{player_label(pairing.white_player)}</strong></td>
+
               <td style="text-align: center">
                 <%= if pairing.result == "bye" do %>
                   <span class="badge">bye ({@tournament.bye_value} pt)</span>
@@ -463,6 +510,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                   </form>
                 <% end %>
               </td>
+
               <td>{player_label(pairing.black_player)}</td>
             </tr>
           </tbody>

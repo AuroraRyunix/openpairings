@@ -234,6 +234,48 @@ defmodule PairingsEngine.SwarImportTest do
     assert length(players) == 10
   end
 
+  ## ---------- 3-2-1 scoring (SWAR type SWISS_321 == 3) ----------
+
+  # test/fixtures/test3-321.swar is a real club-championship file saved
+  # with SWAR's "3-2-1" tournament type turned on (`[TOURNOI].Type == 3`).
+  # This particular club's `SW321_Win/Nul/Los` are configured to a 2.0/1.0/0.0
+  # scale (raw ints 8/4/0, ÷4 — see the long comment on `scoring_attrs/1`
+  # for why ÷4, not ÷8, is correct: the format manual states the SW321_*
+  # fields are stored ×4, and ÷8 was verified to silently halve every
+  # configured value, which is the KBSB-reported bug this fixes). "3-2-1" is
+  # SWAR's feature name, not a claim that the values are literally 3/2/1 —
+  # each club sets its own win/draw/loss scale, and this fixture's club
+  # happens to use 2/1/0. What differs from a standard import is
+  # `SW321_Bye` (raw 4 → 1.0): an unpaired "LOST_BYE" round scores a full
+  # point here, not the 0.0 the file's separate, unrelated `ByeValue` field
+  # (raw 2) would otherwise produce via `map_bye_value/1`. This is the
+  # exact regression this test guards: before `tournament_attrs/1` mapped
+  # `SW321_*` at all, byes in a 3-2-1 import silently scored 0.0 instead of
+  # the configured value.
+  @test3_321 "test/fixtures/test3-321.swar"
+
+  test "import_file/1 maps SWAR's 3-2-1 scoring fields (SW321_Win/Nul/Los/Bye) onto the tournament" do
+    assert {:ok, tournament} = SwarImport.import_file(@test3_321)
+
+    assert tournament.points_win == 2.0
+    assert tournament.points_draw == 1.0
+    assert tournament.points_loss == 0.0
+    assert tournament.bye_value == 1.0
+  end
+
+  test "import_file/1 leaves scoring at schema defaults for a standard (non-3-2-1) tournament" do
+    # problemski.swar's raw SW321_Win/Nul/Los/Bye ints (8/4/0/8) happen to
+    # be present and would *also* divide out to 2.0/1.0/0.0/2.0 — but its
+    # `[TOURNOI].Type` is 0 (plain Swiss), not 3, so the mapping must not
+    # fire at all; this only proves the type==3 guard, not the division.
+    assert {:ok, tournament} = SwarImport.import_file(@problemski)
+
+    assert tournament.points_win == 1.0
+    assert tournament.points_draw == 0.5
+    assert tournament.points_loss == 0.0
+    assert tournament.bye_value == 1.0
+  end
+
   test "import_file/1 marks the tournament as running, not stuck on setup, since rounds were imported" do
     # c-reeks.swar's 11 rounds are all paired but not, as it turns out,
     # fully scored — 4 of its 297 games carry a blank result (2 from the

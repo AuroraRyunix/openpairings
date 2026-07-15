@@ -15,7 +15,9 @@ defmodule PairingsEngineWeb.PublicStandingsLive do
 
   @impl true
   def mount(%{"slug" => slug}, _session, socket) do
-    tournament = Tournaments.get_tournament_by_public_slug(slug) || raise Ecto.NoResultsError, queryable: Tournaments.Tournament
+    tournament =
+      Tournaments.get_tournament_by_public_slug(slug) ||
+        raise Ecto.NoResultsError, queryable: Tournaments.Tournament
 
     if connected?(socket) do
       Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
@@ -23,7 +25,12 @@ defmodule PairingsEngineWeb.PublicStandingsLive do
 
     {:ok,
      socket
-     |> assign(tournament: tournament, slug: slug, page_title: "#{tournament.name} · Standings", gone: false)
+     |> assign(
+       tournament: tournament,
+       slug: slug,
+       page_title: "#{tournament.name} · Standings",
+       gone: false
+     )
      |> reload_standings()}
   end
 
@@ -39,14 +46,32 @@ defmodule PairingsEngineWeb.PublicStandingsLive do
   # instead of the FIDE-tiebreak table — see PairingsEngine.Keizer.standings/1
   # and docs/pairing-systems.md, and StandingsLive (the authenticated
   # equivalent of this page), which does the same.
+  #
+  # Manual ranking (SWAR parity #23) mirrors StandingsLive: applied only on
+  # the non-Keizer branch (see docs/manual-standings.md for why Keizer
+  # doesn't offer it), read-only here — no reorder controls, just the same
+  # banner, since a silent override is exactly as misleading on the public
+  # page as anywhere else (arguably more so — this is the page anyone with
+  # the link sees, unauthenticated).
   defp reload_standings(socket) do
     tournament = socket.assigns.tournament
     keizer? = tournament.pairing_system == "keizer"
 
+    entries =
+      if keizer? do
+        Keizer.standings(tournament)
+      else
+        tournament |> Standings.standings() |> Standings.apply_manual_ranking(tournament)
+      end
+
     assign(socket,
       keizer?: keizer?,
-      entries: if(keizer?, do: Keizer.standings(tournament), else: Standings.standings(tournament)),
-      rounds_paired: Standings.rounds_paired(tournament.id)
+      entries: entries,
+      rounds_paired: Standings.rounds_paired(tournament.id),
+      manual_stale?:
+        !keizer? and tournament.manual_ranking and Standings.manual_ranking_stale?(tournament),
+      manual_incomplete?:
+        !keizer? and tournament.manual_ranking and Standings.manual_ranking_incomplete?(entries)
     )
   end
 
@@ -70,10 +95,29 @@ defmodule PairingsEngineWeb.PublicStandingsLive do
         <div class="page-header">
           <div>
             <h1>{@tournament.name}</h1>
+
             <p class="subtitle" style="margin: 0">
               Standings{if @rounds_paired > 0, do: " after round #{@rounds_paired}"}
             </p>
           </div>
+        </div>
+
+        <div
+          :if={@tournament.manual_ranking and !@keizer?}
+          class="manual-ranking-banner"
+          style="margin-bottom: 8px; padding: 8px 12px; border: 2px solid var(--color-warning, #b45309); border-radius: 6px;"
+        >
+          <strong>Manual ranking is ON.</strong>
+          The rank column below reflects the arbiter's
+          hand-set order, not the computed tiebreak order.
+          <span :if={@manual_incomplete?}>
+            A player was added after this was turned on and hasn't been placed yet.
+          </span>
+
+          <span :if={@manual_stale?}>
+            <strong>A result changed since this order was last set — it may no longer match the
+            real standings.</strong>
+          </span>
         </div>
 
         <div :if={@entries == []} class="card empty">
@@ -85,26 +129,35 @@ defmodule PairingsEngineWeb.PublicStandingsLive do
             <thead>
               <tr>
                 <th class="num">Rank</th>
+
                 <th>Name</th>
+
                 <th class="num">Elo</th>
+
                 <th class="num">Pts</th>
+
                 <th :for={code <- @tournament.tiebreaks} class="num" title={tb_name(code)}>
                   {code}
                 </th>
               </tr>
             </thead>
+
             <tbody>
               <tr :for={entry <- @entries}>
                 <td class="num">{entry.rank}</td>
+
                 <td>
                   <strong>
                     {if entry.player.title != "", do: "#{entry.player.title} "}{entry.player.name}
                   </strong>
                 </td>
+
                 <td class="num">
                   {if Player.rating(entry.player) > 0, do: Player.rating(entry.player), else: "—"}
                 </td>
+
                 <td class="num"><strong>{entry.points}</strong></td>
+
                 <td :for={code <- @tournament.tiebreaks} class="num">
                   {format_tb(Map.get(entry.tiebreaks, code, 0.0))}
                 </td>
@@ -118,26 +171,37 @@ defmodule PairingsEngineWeb.PublicStandingsLive do
             <thead>
               <tr>
                 <th class="num">Rank</th>
+
                 <th>Name</th>
+
                 <th class="num">Elo</th>
+
                 <th class="num">Value</th>
+
                 <th class="num">Keizer pts</th>
+
                 <th class="num">Score</th>
               </tr>
             </thead>
+
             <tbody>
               <tr :for={entry <- @entries}>
                 <td class="num">{entry.rank}</td>
+
                 <td>
                   <strong>
                     {if entry.player.title != "", do: "#{entry.player.title} "}{entry.player.name}
                   </strong>
                 </td>
+
                 <td class="num">
                   {if Player.rating(entry.player) > 0, do: Player.rating(entry.player), else: "—"}
                 </td>
+
                 <td class="num">{entry.value}</td>
+
                 <td class="num"><strong>{entry.points}</strong></td>
+
                 <td class="num">{entry.raw_points}</td>
               </tr>
             </tbody>

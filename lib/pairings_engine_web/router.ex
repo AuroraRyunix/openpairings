@@ -37,6 +37,7 @@ defmodule PairingsEngineWeb.Router do
 
     get "/t/:id/print/players", PrintController, :player_list
     get "/t/:id/print/cards", PrintController, :player_cards
+    get "/t/:id/print/placecards", PrintController, :place_cards
     get "/t/:id/print/pairings", PrintController, :pairing_list
     get "/t/:id/print/standings", PrintController, :standings
     get "/t/:id/print/results", PrintController, :result_cards

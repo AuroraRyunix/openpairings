@@ -35,10 +35,37 @@ defmodule PairingsEngine.StandingsTest do
     r1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
     r2 = Repo.insert!(%Round{tournament_id: tournament.id, number: 2, status: "finished"})
 
-    Repo.insert!(%Pairing{round_id: r1.id, board: 1, white_player_id: a.id, black_player_id: b.id, result: "1-0"})
-    Repo.insert!(%Pairing{round_id: r1.id, board: 2, white_player_id: c.id, black_player_id: d.id, result: "1/2-1/2"})
-    Repo.insert!(%Pairing{round_id: r2.id, board: 1, white_player_id: c.id, black_player_id: a.id, result: "0-1"})
-    Repo.insert!(%Pairing{round_id: r2.id, board: 2, white_player_id: b.id, black_player_id: d.id, result: "1-0"})
+    Repo.insert!(%Pairing{
+      round_id: r1.id,
+      board: 1,
+      white_player_id: a.id,
+      black_player_id: b.id,
+      result: "1-0"
+    })
+
+    Repo.insert!(%Pairing{
+      round_id: r1.id,
+      board: 2,
+      white_player_id: c.id,
+      black_player_id: d.id,
+      result: "1/2-1/2"
+    })
+
+    Repo.insert!(%Pairing{
+      round_id: r2.id,
+      board: 1,
+      white_player_id: c.id,
+      black_player_id: a.id,
+      result: "0-1"
+    })
+
+    Repo.insert!(%Pairing{
+      round_id: r2.id,
+      board: 2,
+      white_player_id: b.id,
+      black_player_id: d.id,
+      result: "1-0"
+    })
 
     {tournament, %{a: a, b: b, c: c, d: d}}
   end
@@ -289,6 +316,86 @@ defmodule PairingsEngine.StandingsTest do
 
       assert ee.tiebreaks["WON"] == 0.0
       assert ef.tiebreaks["WON"] == 0.0
+    end
+  end
+
+  ## ---------- manual standings override (SWAR parity #23) ----------
+
+  describe "apply_manual_ranking/2" do
+    test "off (default): entries and rank are returned byte-identical" do
+      {tournament, _} = fixture()
+
+      entries = Standings.standings(tournament)
+      assert Standings.apply_manual_ranking(entries, tournament) == entries
+    end
+
+    test "on: reorders entries by manual_rank and reassigns :rank, leaving points/tiebreaks untouched" do
+      {tournament, %{a: a, b: b, c: c, d: d}} = fixture()
+      tournament = %{tournament | manual_ranking: true}
+
+      # Computed order is A, B, then C/D — hand-flip it so D leads.
+      Repo.update_all(from(p in Player, where: p.id == ^d.id), set: [manual_rank: 1])
+      Repo.update_all(from(p in Player, where: p.id == ^c.id), set: [manual_rank: 2])
+      Repo.update_all(from(p in Player, where: p.id == ^a.id), set: [manual_rank: 3])
+      Repo.update_all(from(p in Player, where: p.id == ^b.id), set: [manual_rank: 4])
+
+      computed = Standings.standings(tournament)
+      ea_computed = Enum.find(computed, &(&1.player.id == a.id))
+
+      reordered = Standings.apply_manual_ranking(Standings.standings(tournament), tournament)
+
+      assert [
+               %{player: %{name: "D"}, rank: 1},
+               %{player: %{name: "C"}, rank: 2},
+               %{player: %{name: "A"}, rank: 3},
+               %{
+                 player: %{name: "B"},
+                 rank: 4
+               }
+             ] = reordered
+
+      ea_reordered = Enum.find(reordered, &(&1.player.id == a.id))
+      # points/tiebreaks are untouched by the reorder — only :rank differs.
+      assert ea_reordered.points == ea_computed.points
+      assert ea_reordered.tiebreaks == ea_computed.tiebreaks
+      assert ea_reordered.total == ea_computed.total
+    end
+
+    test "on: a player with no manual_rank yet sorts after every ranked player" do
+      {tournament, %{a: a, b: b, c: c, d: d}} = fixture()
+      tournament = %{tournament | manual_ranking: true}
+
+      Repo.update_all(from(p in Player, where: p.id == ^a.id), set: [manual_rank: 1])
+      Repo.update_all(from(p in Player, where: p.id == ^b.id), set: [manual_rank: 2])
+      Repo.update_all(from(p in Player, where: p.id == ^c.id), set: [manual_rank: 3])
+      # D never seeded (manual_rank stays nil) — simulates a player added after enabling.
+
+      reordered = Standings.apply_manual_ranking(Standings.standings(tournament), tournament)
+      assert List.last(reordered).player.id == d.id
+    end
+  end
+
+  describe "manual_ranking_stale?/1 and manual_ranking_incomplete?/1" do
+    test "stale? reads tournaments.manual_ranking_stale directly" do
+      {tournament, _} = fixture()
+
+      refute Standings.manual_ranking_stale?(tournament)
+      assert Standings.manual_ranking_stale?(%{tournament | manual_ranking_stale: true})
+    end
+
+    test "incomplete? is true iff at least one player has no manual_rank" do
+      {tournament, %{a: a, b: b, c: c, d: d}} = fixture()
+
+      Repo.update_all(from(p in Player, where: p.id == ^a.id), set: [manual_rank: 1])
+      Repo.update_all(from(p in Player, where: p.id == ^b.id), set: [manual_rank: 2])
+      Repo.update_all(from(p in Player, where: p.id == ^c.id), set: [manual_rank: 3])
+      Repo.update_all(from(p in Player, where: p.id == ^d.id), set: [manual_rank: 4])
+      complete = Standings.standings(tournament)
+      refute Standings.manual_ranking_incomplete?(complete)
+
+      Repo.update_all(from(p in Player, where: p.id == ^d.id), set: [manual_rank: nil])
+      incomplete = Standings.standings(tournament)
+      assert Standings.manual_ranking_incomplete?(incomplete)
     end
   end
 end

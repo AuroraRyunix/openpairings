@@ -716,14 +716,60 @@ defmodule PairingsEngine.SwarImport do
       deputy_arbiter: t.arbiter2,
       rounds_count: max(t.nb_rounds, 1),
       tiebreaks: map_tiebreaks(data.tiebreaks),
-      bye_value: map_bye_value(t.bye_value),
       standard: map_standard(t.tournoi_std),
       rate_of_play: t.cadence_other,
       organizer_club_number: t.club_or_logo,
       round_dates: Enum.map(data.dates, &normalize_date/1),
       categories: map_categories(data.categories)
     }
+    |> Map.merge(scoring_attrs(t))
   end
+
+  # `TOURNOI_TYPE.SWISS_321 == 3` (manual §5.1) is the flag for "this
+  # tournament's [TOURNOI] header carries custom win/draw/loss/bye point
+  # values" — SWAR's "3-2-1" scoring feature, which despite the name is a
+  # club-configurable point scale (win/draw/loss are independently settable
+  # ints), not literally fixed at 3/2/1. `SW321_Win/Nul/Los/Bye` are stored
+  # ×4 — this is what the format manual states explicitly for this field
+  # group (twice: in the field table and in "Known Quirks"), mirroring how
+  # the ordinary per-player `Points` field is ×2. A PREVIOUS version of this
+  # function used ÷8, which silently HALVED every configured point value
+  # relative to what the club actually set up (e.g. a real win worth 2.0
+  # points imported as 1.0) — this is the bug reported by KBSB: "players
+  # don't get the full 3-2-1 points from played games". The ÷8 divisor had
+  # been "verified" by checking that dividing the file's raw per-player
+  # `points` total by 8 reproduced `wins*1.0 + draws*0.5 + 0*losses`
+  # (SW321_Los happened to be 0 in the fixture) — but that check is
+  # circular: SW321_Los being 0 makes losses contribute nothing to the
+  # total regardless of the divisor chosen, so *any* divisor "passes" that
+  # check while only the ratio (2:1:0 here) is actually being tested, never
+  # the absolute scale. See docs/swar-import.md for the non-circular
+  # re-derivation (the manual's explicit ×4 annotation, cross-checked
+  # against multiple real players' totals via an independently-discovered
+  # formula involving `SW321_Pre`).
+  #
+  # `SW321_Pre` ("presence points", manual §4.6 field 84) DOES appear in
+  # the real 3-2-1 fixture — every unpaired "LOST_BYE" round for every
+  # affected player is scored as `SW321_Pre` raw points (÷4), not
+  # `SW321_Bye` (no `WIN_BYE`/`DRAW_BYE` round occurs anywhere in the
+  # fixture, so `SW321_Bye`'s actual role is unconfirmed by this file). Our
+  # `Tournament`/`byes` schema has no field for "presence points distinct
+  # from bye_value", so this mechanic is NOT modeled — a pairing-allocated
+  # bye in a 3-2-1 tournament will still import at `bye_value` points, which
+  # may undercount relative to what SWAR itself displays whenever
+  # `SW321_PreBye` (field 85) is set. This is a separate, real scoring gap;
+  # fixing it needs a schema decision, not just a divisor change, so it is
+  # deliberately left as a follow-up rather than guessed at here.
+  defp scoring_attrs(%{type: 3} = t) do
+    %{
+      points_win: t.sw321_win / 4,
+      points_draw: t.sw321_nul / 4,
+      points_loss: t.sw321_los / 4,
+      bye_value: t.sw321_bye / 4
+    }
+  end
+
+  defp scoring_attrs(t), do: %{bye_value: map_bye_value(t.bye_value)}
 
   @tournament_types %{0 => "swiss", 1 => "swiss", 2 => "swiss", 3 => "swiss", 4 => "roundrobin", 5 => "roundrobin", 6 => "roundrobin", 7 => "swiss", 8 => "swiss"}
   defp map_tournament_type(type), do: Map.get(@tournament_types, type, "swiss")

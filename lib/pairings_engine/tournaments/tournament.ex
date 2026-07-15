@@ -120,6 +120,23 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # NOT cast by changeset/2 so ordinary saves can't touch it.
     field :deleted_at, :utc_datetime
 
+    # Manual standings override (SWAR parity #23) — when true, the arbiter's
+    # hand-set `players.manual_rank` order replaces the computed tiebreak
+    # order. Every surface showing a rank must display an override banner:
+    # a silent override is indistinguishable from a tiebreak bug.
+    field :manual_ranking, :boolean, default: false
+
+    # Set when a result changes after the hand-set order was seeded: the order
+    # is still displayed, but every banner must report it as no longer matching
+    # the current results. Managed by the Tournaments manual-ranking functions.
+    field :manual_ranking_stale, :boolean, default: false
+
+    # Per-tournament print logo (SWAR parity #14-16), stored as a DB blob so
+    # backups/deploys carry it. Written only by Tournaments.set_logo/2 and
+    # clear_logo/1 — NOT cast by changeset/2, same reasoning as deleted_at.
+    field :logo_data, :binary
+    field :logo_content_type, :string
+
     belongs_to :user, PairingsEngine.Accounts.User
     has_many :players, PairingsEngine.Tournaments.Player
     has_many :teams, PairingsEngine.Tournaments.Team
@@ -139,7 +156,8 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :event_code, :fide_tournament_id, :officials,
       :pairing_system, :rr_cycles, :keizer_top_value,
       :club_exclusion, :club_exclusion_list, :fed_exclusion, :fed_exclusion_list,
-      :count_extra_points, :extra_points_bands, :categories_enabled
+      :count_extra_points, :extra_points_bands, :categories_enabled,
+      :manual_ranking
     ])
     |> validate_required([:name, :type, :rounds_count])
     |> validate_length(:name, min: 1, max: 200)

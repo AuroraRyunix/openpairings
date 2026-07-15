@@ -40,7 +40,8 @@ defmodule PairingsEngine.Standings do
   pass a round `>=` the latest paired round) for the current/overall
   standings.
   """
-  def standings(tournament, opts \\ []), do: build_standings(tournament, tournament.tiebreaks, opts)
+  def standings(tournament, opts \\ []),
+    do: build_standings(tournament, tournament.tiebreaks, opts)
 
   @doc """
   Same as `standings/1`, but the `:tiebreaks` map on every entry is guaranteed
@@ -63,6 +64,7 @@ defmodule PairingsEngine.Standings do
         games = Map.get(games_by_player, player.id, [])
         points = total_points(games)
         extra_points = (player.extra_points || 0.0) |> round_f(1)
+
         %{
           player: player,
           games: games,
@@ -93,6 +95,69 @@ defmodule PairingsEngine.Standings do
     Repo.aggregate(from(r in Round, where: r.tournament_id == ^tournament_id), :count)
   end
 
+  ## ---------- manual standings override (SWAR parity #23) ----------
+  #
+  # See docs/manual-standings.md for the full design write-up. Short
+  # version: `tournament.manual_ranking` lets the arbiter hand-order the
+  # displayed standings via `players.manual_rank`, managed exclusively by
+  # `PairingsEngine.Tournaments.enable_manual_ranking/1`,
+  # `reseed_manual_ranking/1` and `move_manual_rank/3`. This never touches
+  # points or tiebreaks — `apply_manual_ranking/2` only ever rewrites
+  # `:rank` on entries `standings/2` (or `grid_standings/1`) already
+  # computed, purely for display. Not offered for Keizer tournaments — see
+  # the doc — so callers never apply this to `PairingsEngine.Keizer.standings/1`
+  # output.
+
+  @doc """
+  Reorders already-computed `entries` (from `standings/2` or
+  `grid_standings/1`) by `tournament.manual_ranking`, reassigning `:rank`
+  to match — display only, every other field (`:points`, `:tiebreaks`,
+  `:total`, ...) is untouched. A no-op, returning `entries` unchanged, when
+  `tournament.manual_ranking` is false.
+
+  Ordering: players with a `manual_rank` (always a plain positive `1..N`
+  value — never sign-encoded, see `manual_ranking_stale?/1` for where
+  staleness actually lives) sort by it ascending; a player with no
+  `manual_rank` yet (added after the mode was switched on, before anyone
+  re-seeded — see `manual_ranking_incomplete?/1`) sorts after every ranked
+  player, in their own computed-tiebreak order.
+  """
+  def apply_manual_ranking(entries, tournament) do
+    if tournament.manual_ranking do
+      entries
+      |> Enum.sort_by(fn e -> {manual_sort_key(e.player.manual_rank), e.rank} end)
+      |> Enum.with_index(1)
+      |> Enum.map(fn {e, rank} -> Map.put(e, :rank, rank) end)
+    else
+      entries
+    end
+  end
+
+  defp manual_sort_key(nil), do: {1, 0}
+  defp manual_sort_key(rank) when is_integer(rank), do: {0, rank}
+
+  @doc """
+  True if `tournament`'s manual order is stale — a pairing result or bye
+  was entered/changed since it was last (re)seeded/confirmed, invalidating
+  the hand-set order without discarding it. Reads the persisted
+  `tournaments.manual_ranking_stale` column directly — see
+  `PairingsEngine.Tournaments.invalidate_manual_ranking/1` for how it's
+  set, and `reseed_manual_ranking/1` / `move_manual_rank/3` for how it's
+  cleared.
+  """
+  def manual_ranking_stale?(%PairingsEngine.Tournaments.Tournament{} = tournament),
+    do: tournament.manual_ranking_stale
+
+  @doc """
+  True if `entries` contains a player never placed in the manual order —
+  added to the tournament after `manual_ranking` was switched on, before
+  anyone re-seeded. Distinct from `manual_ranking_stale?/1` (a *result*
+  invalidating the order) — this is the roster having grown underneath it.
+  """
+  def manual_ranking_incomplete?(entries) do
+    Enum.any?(entries, &is_nil(&1.player.manual_rank))
+  end
+
   ## ---------- game extraction ----------
 
   # One record per player per paired round:
@@ -105,7 +170,10 @@ defmodule PairingsEngine.Standings do
     through_round = Keyword.get(opts, :through_round)
 
     rounds_query =
-      from r in Round, where: r.tournament_id == ^tournament.id, order_by: r.number, preload: [pairings: []]
+      from r in Round,
+        where: r.tournament_id == ^tournament.id,
+        order_by: r.number,
+        preload: [pairings: []]
 
     rounds_query =
       case through_round do
@@ -249,7 +317,8 @@ defmodule PairingsEngine.Standings do
 
   # Article 8.1: sum of the (adjusted) scores of the opponents; own unplayed
   # rounds contribute a capped dummy score (Article 16.4).
-  defp tiebreak("BH", entry, by_id, t), do: buchholz_contributions(entry, by_id, t) |> Enum.sum() |> round_f(2)
+  defp tiebreak("BH", entry, by_id, t),
+    do: buchholz_contributions(entry, by_id, t) |> Enum.sum() |> round_f(2)
 
   # Article 14.1.1: cut the least significant value(s).
   defp tiebreak("BHC1", entry, by_id, t), do: cut(buchholz_contributions(entry, by_id, t), 1, 0)
