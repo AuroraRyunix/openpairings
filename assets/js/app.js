@@ -83,6 +83,30 @@ const AddPlayerShortcut = {
   },
 }
 
+// Pairing-rationale bracket map: clicking a dot directly on the graph
+// toggles its pin (ring + popover stay open until clicked again); clicking
+// a board card's colour disc always pins that dot and scrolls it into
+// view. One delegated listener on document — not the scroll container,
+// which LiveView can replace on round navigation — so no re-binding needed.
+document.addEventListener("click", (e) => {
+  const wrap = e.target.closest(".pe-board-wrap")
+  if (wrap) {
+    document.querySelectorAll(".pe-board-wrap.is-pinned").forEach((el) => {
+      if (el !== wrap) el.classList.remove("is-pinned")
+    })
+    wrap.classList.toggle("is-pinned")
+    return
+  }
+
+  const disc = e.target.closest("[data-dot-target]")
+  if (!disc) return
+  const target = document.getElementById(disc.dataset.dotTarget)
+  if (!target) return
+  document.querySelectorAll(".pe-board-wrap.is-pinned").forEach((el) => el.classList.remove("is-pinned"))
+  target.classList.add("is-pinned")
+  target.scrollIntoView({behavior: "smooth", block: "nearest", inline: "center"})
+})
+
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,

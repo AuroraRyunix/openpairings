@@ -812,6 +812,10 @@ button.pe-btn, .pe-btn {
   margin: 4px 0 2px;
   padding-bottom: 4px;
   position: relative;
+  /* a board card's disc click pins its dot via JS (assets/js/app.js) and
+     calls scrollIntoView — glide instead of snapping when that scrolls
+     this container horizontally */
+  scroll-behavior: smooth;
 }
 .pe-bracket-svg { display: block; }
 .pe-bracket-svg text { font-family: 'Segoe UI', system-ui, sans-serif; }
@@ -856,10 +860,24 @@ button.pe-btn, .pe-btn {
 .pe-head-flags { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
 
 .pe-side { display: flex; gap: 11px; align-items: flex-start; }
+/* A button, not a plain span — clicking it pins open (and scrolls to)
+   this player's own circle on the score-bracket map above. Reset native
+   button chrome first; .pe-disc-w/.pe-disc-b (applied via the same class
+   list, so later in the cascade) still win on background/border. */
 .pe-disc {
+  border: none; background: transparent; padding: 0; font: inherit;
+  -webkit-appearance: none; appearance: none;
   flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%; margin-top: 2px;
   display: inline-flex; align-items: center; justify-content: center;
   font-size: 12px; font-weight: 700;
+  text-decoration: none; cursor: pointer;
+  box-shadow: 0 0 0 0 rgba(46, 94, 68, 0);
+  transition: box-shadow 0.12s, transform 0.12s;
+}
+.pe-disc:hover, .pe-disc:focus-visible {
+  box-shadow: 0 0 0 3px rgba(46, 94, 68, 0.18);
+  transform: scale(1.08);
+  outline: none;
 }
 .pe-disc-w { background: var(--surface); border: 2px solid var(--accent); }
 .pe-disc-b { background: var(--accent); }
@@ -931,13 +949,14 @@ button.pe-btn, .pe-btn {
 }
 
 /* ---- bracket-map: sticky score gutter + per-board hover popovers ----
-   Pure CSS, no JS. The gutter is a sticky flex child, so the score-band
-   labels stay readable while the (often wider-than-viewport) chart scrolls
-   beneath them. Each BOARD gets one absolutely-positioned hover wrap over
-   its dot pair; the highlight rings are placed by the --wy/--by CSS vars
-   the template sets per wrap, and the popover's opening direction comes
-   from server-computed pe-pop-* classes — the scroll container clips on
-   BOTH axes (overflow-x: auto forces overflow-y to auto too), so an
+   Mostly CSS, plus one delegated click listener in assets/js/app.js for
+   pinning. The gutter is a sticky flex child, so the score-band labels stay
+   readable while the (often wider-than-viewport) chart scrolls beneath
+   them. Each BOARD gets one absolutely-positioned hover wrap over its dot
+   pair; the highlight rings are placed by the --wy/--by CSS vars the
+   template sets per wrap, and the popover's opening direction comes from
+   server-computed pe-pop-* classes — the scroll container clips on BOTH
+   axes (overflow-x: auto forces overflow-y to auto too), so an
    always-below popover would clip at the bottom band. `bracket_layout/1`'s
    viewBox is 1:1 with CSS pixels, so SVG and overlay share coordinates. */
 .pe-band-gutter {
@@ -982,10 +1001,15 @@ button.pe-btn, .pe-btn {
 }
 .pe-board-wrap:hover,
 .pe-board-wrap:focus-within,
-.pe-board-wrap:focus { z-index: 30; }
+.pe-board-wrap:focus,
+.pe-board-wrap.is-pinned { z-index: 30; }
 
 /* highlight ring — always dead-centre in the wrap, since the wrap is
-   always sized/positioned around exactly one dot. */
+   always sized/positioned around exactly one dot. `.is-pinned` is what
+   lights this up (and pins the popover open, see below); it's added by the
+   delegated click listener in assets/js/app.js, either when this wrap's
+   dot is clicked directly on the graph (toggles) or when a board card's
+   colour disc is clicked (always pins, and scrolls this into view). */
 .pe-board-wrap::before {
   content: "";
   position: absolute;
@@ -999,7 +1023,8 @@ button.pe-btn, .pe-btn {
 }
 .pe-board-wrap:hover::before,
 .pe-board-wrap:focus::before,
-.pe-board-wrap:focus-within::before { opacity: 1; }
+.pe-board-wrap:focus-within::before,
+.pe-board-wrap.is-pinned::before { opacity: 1; }
 
 .pe-dot-popover {
   display: none;
@@ -1024,7 +1049,8 @@ button.pe-btn, .pe-btn {
 .pe-pop-edge-right .pe-dot-popover { left: auto; right: -13px; transform: none; }
 .pe-board-wrap:hover .pe-dot-popover,
 .pe-board-wrap:focus-within .pe-dot-popover,
-.pe-board-wrap:focus .pe-dot-popover {
+.pe-board-wrap:focus .pe-dot-popover,
+.pe-board-wrap.is-pinned .pe-dot-popover {
   display: block;
 }
 

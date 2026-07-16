@@ -288,6 +288,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
       top: d.y - @bracket_reach,
       pop_v: pop_v,
       pop_h: pop_h,
+      id: dot_id(d.board, d.colour),
       aria: dot_aria(d)
     })
   end
@@ -298,6 +299,18 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   defp dot_aria(%{colour: colour, side: side, board: board}),
     do: "Board #{board}, #{colour_word(colour)}: #{side.player.name}"
 
+  # Stable per-dot element id, shared by the map's own hover wrap (as its
+  # `id`) and each board card's colour disc (as its `data-dot-target`) — a
+  # delegated click listener in assets/js/app.js matches the two, toggles a
+  # `.is-pinned` class on the wrap, and scrolls it into view, pinning its
+  # ring/popover open until a different dot is pinned. See app.css for the
+  # `.is-pinned` styling.
+  defp dot_id(board, colour), do: "pe-dot-#{board}-#{colour_key(colour)}"
+
+  defp colour_key(:w), do: "w"
+  defp colour_key(:b), do: "b"
+  defp colour_key(:bye), do: "bye"
+
   # One player's side of a pairing card: colour disc, name, score/seed, the
   # FIDE due-colour verdict, any float direction, and (Keizer) a ladder bar.
   attr :side, :map, required: true
@@ -306,12 +319,21 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   attr :ladder_max, :any, default: nil
 
   defp pairing_side(assigns) do
-    assigns = assign(assigns, :dir, float_dir(assigns.board, assigns.side))
+    assigns =
+      assigns
+      |> assign(:dir, float_dir(assigns.board, assigns.side))
+      |> assign(:dot_id, dot_id(assigns.board.board, if(assigns.board.is_bye, do: :bye, else: assigns.colour)))
 
     ~H"""
     <div class={["pe-side", @colour == :w && "pe-side-w", @colour == :b && "pe-side-b"]}>
-      <span class={["pe-disc", @colour == :w && "pe-disc-w", @colour == :b && "pe-disc-b"]} aria-hidden="true">
-      </span>
+      <button
+        type="button"
+        data-dot-target={@dot_id}
+        class={["pe-disc", @colour == :w && "pe-disc-w", @colour == :b && "pe-disc-b"]}
+        title={"Show #{@side.player.name} on the chart above"}
+        aria-label={"Show #{@side.player.name} on the chart above"}
+      >
+      </button>
       <div class="pe-side-body">
         <div class="pe-name">{player_label(@side.player)}</div>
         <div class="pe-meta">
@@ -572,6 +594,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             <div class="pe-board-overlay">
               <div
                 :for={w <- @bracket.wraps}
+                id={w.id}
                 class={["pe-board-wrap", w.pop_v, w.pop_h]}
                 tabindex="0"
                 aria-label={w.aria}
