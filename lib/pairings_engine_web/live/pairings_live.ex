@@ -1,7 +1,7 @@
 defmodule PairingsEngineWeb.PairingsLive do
   use PairingsEngineWeb, :live_view
 
-  alias PairingsEngine.{ResultsImport, Tournaments}
+  alias PairingsEngine.{Audit, PairingRationale, ResultsImport, Tournaments}
   alias PairingsEngine.Pairing, as: Engine
   alias PairingsEngine.Tournaments.Tournament
 
@@ -45,7 +45,10 @@ defmodule PairingsEngineWeb.PairingsLive do
   # from the Settings page.
   @impl true
   def handle_info({:tournament_changed, _tournament_id, _hint}, socket) do
-    case Tournaments.get_authorized_tournament(socket.assigns.current_scope, socket.assigns.tournament.id) do
+    case Tournaments.get_authorized_tournament(
+           socket.assigns.current_scope,
+           socket.assigns.tournament.id
+         ) do
       nil ->
         {:noreply,
          socket
@@ -64,10 +67,12 @@ defmodule PairingsEngineWeb.PairingsLive do
 
     assign(socket,
       round: Tournaments.get_round(t.id, n),
+      round_byes: Tournaments.list_byes_for_round(t.id, n),
       paired_rounds: paired,
       next_pairable: paired + 1,
       setup_complete: setup_complete,
-      can_pair: setup_complete and paired < t.rounds_count and Engine.round_complete?(t.id, paired)
+      can_pair:
+        setup_complete and paired < t.rounds_count and Engine.round_complete?(t.id, paired)
     )
   end
 
@@ -90,18 +95,53 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   def handle_event("unpair", _params, socket) do
-    case Engine.delete_round(socket.assigns.tournament.id, socket.assigns.round_number) do
-      :ok -> {:noreply, socket |> assign(error: nil) |> refresh()}
-      {:error, reason} -> {:noreply, assign(socket, error: reason)}
+    %{tournament: t, round_number: round_number} = socket.assigns
+
+    case Engine.delete_round(t.id, round_number) do
+      :ok ->
+        Audit.log(t.id, socket.assigns.current_scope, "pairing.round_deleted", %{
+          round: round_number
+        })
+
+        {:noreply, socket |> assign(error: nil) |> refresh()}
+
+      {:error, reason} ->
+        {:noreply, assign(socket, error: reason)}
     end
   end
 
   def handle_event("result", %{"pairing-id" => id, "result" => result}, socket) do
+    %{tournament: t, round_number: round_number} = socket.assigns
+
     socket.assigns.round.pairings
     |> Enum.find(&(&1.id == String.to_integer(id)))
     |> case do
-      nil -> :ok
-      pairing -> Tournaments.update_pairing_result(pairing, result)
+      nil ->
+        :ok
+
+      pairing ->
+        previous = pairing.result
+
+        case Tournaments.update_pairing_result(pairing, result) do
+          {:ok, _} ->
+            action =
+              if previous in [nil, ""],
+                do: "pairing.result_entered",
+                else: "pairing.result_changed"
+
+            Audit.log(t.id, socket.assigns.current_scope, action, %{
+              pairing_id: pairing.id,
+              round: round_number,
+              board: pairing.board,
+              white: player_name(pairing.white_player),
+              black: player_name(pairing.black_player),
+              from: previous,
+              to: result
+            })
+
+          _ ->
+            :ok
+        end
     end
 
     {:noreply, refresh(socket)}
@@ -110,7 +150,8 @@ defmodule PairingsEngineWeb.PairingsLive do
   ## ---------- CSV results import ----------
 
   def handle_event("toggle_import_results", _params, socket) do
-    {:noreply, assign(socket, importing_results: not socket.assigns.importing_results, import_errors: nil)}
+    {:noreply,
+     assign(socket, importing_results: not socket.assigns.importing_results, import_errors: nil)}
   end
 
   # The file input's phx-change target; nothing to do until submit.
@@ -128,6 +169,11 @@ defmodule PairingsEngineWeb.PairingsLive do
       [csv_text] ->
         with {:ok, rows} <- ResultsImport.parse_text(csv_text),
              {:ok, count} <- ResultsImport.apply_import(tournament, round_number, rows) do
+          Audit.log(tournament.id, socket.assigns.current_scope, "pairing.results_imported", %{
+            round: round_number,
+            results_set: count
+          })
+
           {:noreply,
            socket
            |> put_flash(:info, "Imported #{count} result#{if count != 1, do: "s"}.")
@@ -145,6 +191,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp do_pair(socket) do
     case Engine.pair_next_round(socket.assigns.tournament) do
       {:ok, round} ->
+        log_round_paired(socket, round.number)
         {:noreply, socket |> assign(round_number: round.number, error: nil) |> refresh()}
 
       {:error, %Ecto.Changeset{}} ->
@@ -153,6 +200,23 @@ defmodule PairingsEngineWeb.PairingsLive do
       {:error, reason} ->
         {:noreply, assign(socket, error: to_string(reason))}
     end
+  end
+
+  # Logs the rich "pairing.round_paired" audit entry, reusing the exact same
+  # PairingRationale analysis the "Explain this round" page renders live — so
+  # the durable audit record and the visual page describe the same decision.
+  # `swiss_match_format` pairs two rounds in one action; we log the primary
+  # (leg-1) round number, whose rationale covers the decision that was made.
+  defp log_round_paired(socket, round_number) do
+    t = socket.assigns.tournament
+    rationale = PairingRationale.for_round(t, round_number)
+
+    Audit.log(
+      t.id,
+      socket.assigns.current_scope,
+      "pairing.round_paired",
+      PairingRationale.audit_payload(rationale)
+    )
   end
 
   defp results, do: @results
@@ -185,38 +249,57 @@ defmodule PairingsEngineWeb.PairingsLive do
     end
   end
 
+  # Bare display name for an audit-log payload (nil = a bye's empty side).
+  defp player_name(nil), do: nil
+  defp player_name(player), do: player.name
+
   defp player_label(nil), do: ""
 
   defp player_label(player) do
     rating = PairingsEngine.Tournaments.Player.rating(player)
+
     "#{if player.title != "", do: "#{player.title} "}#{player.name}" <>
       if(rating > 0, do: " (#{rating})", else: "")
   end
 
+  # A round's pairings preload in whatever order the DB/JaVaFo output them,
+  # not board order — sort ascending by board so the table reads "Board 1,
+  # Board 2, ..." top to bottom like a real pairing sheet.
+  defp board_sorted(pairings), do: Enum.sort_by(pairings, & &1.board)
+
+  # Label for a byes-table row's `type` — distinct from the "bye" badge
+  # shown for a pairing-allocated bye (a real Pairing row), since these
+  # never appear in round.pairings (see Tournaments.list_byes_for_round/2).
+  defp bye_type_label("requested-half"), do: "requested half-point bye"
+  defp bye_type_label("requested-zero"), do: "requested zero-point bye"
+  defp bye_type_label("absent"), do: "absent"
+  defp bye_type_label(other), do: other
+
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} tournament={@tournament} active="pairings">
+    <Layouts.app
+      flash={@flash}
+      current_scope={@current_scope}
+      tournament={@tournament}
+      active="pairings"
+    >
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
+
           <p class="subtitle" style="margin: 0">Pairings &amp; results</p>
         </div>
+
         <div class="actions" style="margin: 0">
           <a class="pe-btn" href={~p"/t/#{@tournament.id}/live"} target="_blank">
             Open live view
           </a>
-          <a
-            class="pe-btn"
-            href={~p"/p/#{@tournament.public_slug}/pairings"}
-            target="_blank"
-            title="No login needed — share this link"
-          >
-            Public pairings link
-          </a>
+
           <a class="pe-btn" href={~p"/t/#{@tournament.id}/export/trf"} target="_blank">
             Export TRF (all rounds)
           </a>
+
           <form
             id="trf-rounds-export-form"
             method="get"
@@ -238,6 +321,15 @@ defmodule PairingsEngineWeb.PairingsLive do
         </div>
       </div>
 
+      <p
+        :if={@tournament.manual_ranking}
+        class="hint"
+        style="margin-top: -8px; margin-bottom: 12px"
+      >
+        Manual ranking is on for this tournament, but the TRF export's rank column reflects the
+        computed/starting-rank order, not the arbiter's hand-set display order.
+      </p>
+
       <div :if={!@setup_complete} class="card error-note" style="display: block; margin: 12px 0">
         Finish the tournament setup — fill in the name, start date and number of rounds in
         <.link navigate={~p"/t/#{@tournament.id}/settings"}>Settings</.link>
@@ -258,6 +350,7 @@ defmodule PairingsEngineWeb.PairingsLive do
       <div class="page-header" style="margin-top: 16px">
         <div>
           <h2 style="margin: 0">Round {@round_number}</h2>
+
           <p class="subtitle" style="margin: 0">
             <span class={["badge", @round == nil && "muted"]}>
               {cond do
@@ -268,6 +361,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             </span>
           </p>
         </div>
+
         <div class="actions" style="margin: 0">
           <button
             :if={@round == nil && @round_number == @next_pairable}
@@ -284,14 +378,28 @@ defmodule PairingsEngineWeb.PairingsLive do
           >
             Pair round {@round_number} (JaVaFo)
           </button>
-          <a
-            :if={@round != nil}
-            class="pe-btn"
-            href={~p"/t/#{@tournament.id}/print/pairings?round=#{@round_number}"}
-            target="_blank"
-          >
-            Print pairings
-          </a>
+
+          <div :if={@round != nil} class="print-menu-wrap" phx-hook=".PrintMenu" id={"print-pairings-menu-#{@round_number}"}>
+            <a
+              class="pe-btn"
+              href={~p"/t/#{@tournament.id}/print/pairings?round=#{@round_number}"}
+              target="_blank"
+              title="Right-click for more print options"
+            >
+              Print pairings <span class="print-menu-affordance">⋯</span>
+            </a>
+
+            <div class="print-menu-items" hidden>
+              <a
+                href={~p"/t/#{@tournament.id}/print/pairings?round=#{@round_number}&absentees=1"}
+                target="_blank"
+                title="Same pairing sheet, with a below-the-table section listing requested byes and absences"
+              >
+                With absentees section
+              </a>
+            </div>
+          </div>
+
           <a
             :if={@round != nil}
             class="pe-btn"
@@ -300,32 +408,36 @@ defmodule PairingsEngineWeb.PairingsLive do
           >
             Print standings
           </a>
-          <a
-            :if={@round != nil}
-            class="pe-btn"
-            href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}"}
-            target="_blank"
-          >
-            Print result cards
-          </a>
-          <a
-            :if={@round != nil}
-            class="pe-btn"
-            href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}&limit=3"}
-            target="_blank"
-            title="Print just the first 3 result cards, to check printer alignment before printing the full stack"
-          >
-            Test print (3)
-          </a>
-          <a
-            :if={@round != nil}
-            class="pe-btn"
-            href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}&order=stack"}
-            target="_blank"
-            title="Reorders cards so guillotine-cutting the printed stack into 8 piles and collating them recovers board order"
-          >
-            Print result cards (stack-cut order)
-          </a>
+
+          <div :if={@round != nil} class="print-menu-wrap" phx-hook=".PrintMenu" id={"print-results-menu-#{@round_number}"}>
+            <a
+              class="pe-btn"
+              href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}"}
+              target="_blank"
+              title="Right-click for more print options"
+            >
+              Print result cards <span class="print-menu-affordance">⋯</span>
+            </a>
+
+            <div class="print-menu-items" hidden>
+              <a
+                href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}&limit=3"}
+                target="_blank"
+                title="Print just the first 3 result cards, to check printer alignment before printing the full stack"
+              >
+                Test print (first 3 cards)
+              </a>
+
+              <a
+                href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}&order=stack"}
+                target="_blank"
+                title="Reorders cards so guillotine-cutting the printed stack into 8 piles and collating them recovers board order"
+              >
+                Stack-cut order
+              </a>
+            </div>
+          </div>
+
           <a
             :if={@round != nil}
             class="pe-btn"
@@ -335,6 +447,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           >
             Export PGN
           </a>
+
           <button
             :if={@round != nil}
             class="pe-btn"
@@ -342,6 +455,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           >
             Import results (CSV)
           </button>
+
           <button
             :if={@round != nil && @round_number == @paired_rounds}
             class="pe-btn danger-link"
@@ -369,11 +483,15 @@ defmodule PairingsEngineWeb.PairingsLive do
         style="margin: 8px 0"
       >
         <h3 style="margin-top: 0">Import results (CSV) — round {@round_number}</h3>
+
         <p class="hint" style="margin-top: 0">
-          One line per board: <code>board,result</code> (or <code>;</code>-separated).
-          Results: <code>1-0</code>, <code>0-1</code>, <code>1/2-1/2</code> (or <code>=</code>),
-          <code>0-0</code> (both lose, played), <code>1-0FF</code>/<code>0-1FF</code> (forfeit win),
-          <code>0-0FF</code> (double forfeit). Boards left out keep their current result.
+          One line per board: <code>board,result</code>
+          (or <code>;</code>-separated).
+          Results: <code>1-0</code>, <code>0-1</code>, <code>1/2-1/2</code>
+          (or <code>=</code>), <code>0-0</code>
+          (both lose, played), <code>1-0FF</code>/<code>0-1FF</code>
+          (forfeit win), <code>0-0FF</code>
+          (double forfeit). Boards left out keep their current result.
         </p>
 
         <div
@@ -416,16 +534,21 @@ defmodule PairingsEngineWeb.PairingsLive do
           <thead>
             <tr>
               <th class="num">Board</th>
+
               <th>White</th>
+
               <th style="text-align: center; width: 220px">Result</th>
+
               <th>Black</th>
             </tr>
           </thead>
+
           <tbody>
             <tr :if={@round == nil}>
               <td colspan="4">
                 <div class="empty">
                   <p><strong>This round has not been paired yet.</strong></p>
+
                   <p class="hint">
                     <%= if @round_number == @next_pairable do %>
                       Press "Pair round {@round_number}" to run the FIDE Dutch pairing (JaVaFo).
@@ -436,9 +559,12 @@ defmodule PairingsEngineWeb.PairingsLive do
                 </div>
               </td>
             </tr>
-            <tr :for={pairing <- (@round && @round.pairings) || []}>
+
+            <tr :for={pairing <- board_sorted((@round && @round.pairings) || [])}>
               <td class="num">{pairing.board}{fixed_board_note(pairing)}</td>
+
               <td><strong>{player_label(pairing.white_player)}</strong></td>
+
               <td style="text-align: center">
                 <%= if pairing.result == "bye" do %>
                   <span class="badge">bye ({@tournament.bye_value} pt)</span>
@@ -463,7 +589,31 @@ defmodule PairingsEngineWeb.PairingsLive do
                   </form>
                 <% end %>
               </td>
+
               <td>{player_label(pairing.black_player)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div :if={@round_byes != []} class="card table-card" style="margin-top: 16px">
+        <table class="pe-table">
+          <thead>
+            <tr>
+              <th>Player</th>
+              <th style="text-align: center; width: 220px">Bye</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr :for={bye <- @round_byes}>
+              <td>{player_label(bye.player)}</td>
+
+              <td style="text-align: center">
+                <span class="badge">
+                  {bye_type_label(bye.type)} ({PairingsEngine.Standings.bye_points(bye.type, @tournament)} pt)
+                </span>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -487,6 +637,26 @@ defmodule PairingsEngineWeb.PairingsLive do
 
         export default {
           mounted() {
+            // A native <select> opens its dropdown on the same click that
+            // focuses it — and while that native popup is open, the browser
+            // intercepts number keys for its own "jump to option" behavior
+            // before our keydown listener below ever sees them (confirmed:
+            // typing did nothing until a second click closed the popup,
+            // leaving the element focused-but-closed). Clicking to open a
+            // fresh select is the arbiter's actual entry point for the "1/2/3"
+            // workflow, so it must land focused-and-CLOSED in one click.
+            // Only intercept the click that's ABOUT to focus this element —
+            // if it's already focused, let a second click open the dropdown
+            // normally (still needed to pick a code with no 1/2/3 shortcut,
+            // e.g. a forfeit result).
+            this.onMousedown = (e) => {
+              if (document.activeElement !== this.el) {
+                e.preventDefault();
+                this.el.focus();
+              }
+            };
+            this.el.addEventListener("mousedown", this.onMousedown);
+
             this.onKeydown = (e) => {
               const value = CODE_TO_VALUE[e.code] || KEY_TO_VALUE[e.key];
               if (!value) return; // let every other key behave natively
@@ -518,12 +688,88 @@ defmodule PairingsEngineWeb.PairingsLive do
             const selects = Array.from(document.querySelectorAll("select[data-board-select]"));
             const index = selects.indexOf(this.el);
             if (index >= 0 && index < selects.length - 1) {
-              selects[index + 1].focus();
+              const next = selects[index + 1];
+
+              // Focusing normally makes the browser jump-scroll the next
+              // select into view only once it's fully out of the viewport —
+              // the screen sits still for several entries, then lurches
+              // several rows at once. `preventScroll` stops that native
+              // jump so we can drive a smooth, one-row-at-a-time scroll
+              // ourselves below instead.
+              next.focus({ preventScroll: true });
+
+              const row = next.closest("tr") || next;
+              row.scrollIntoView({ behavior: "smooth", block: "center" });
             }
           },
 
           destroyed() {
             this.el.removeEventListener("keydown", this.onKeydown);
+            this.el.removeEventListener("mousedown", this.onMousedown);
+          }
+        }
+      </script>
+
+      <script :type={Phoenix.LiveView.ColocatedHook} name=".PrintMenu">
+        // Consolidates a print button's variants behind a right-click
+        // context menu instead of a row of separate buttons: left-click on
+        // the anchor still opens the plain/default print in a new tab
+        // (native <a target="_blank"> behavior, untouched); right-click
+        // suppresses the browser's context menu and shows this small popup
+        // built from the hidden ".print-menu-items" sibling's own <a> tags,
+        // so each menu item is a real link with its own href/target/title —
+        // no data-JSON to keep in sync with the markup.
+        export default {
+          mounted() {
+            this.menu = this.el.querySelector(".print-menu-items");
+            this.popup = null;
+
+            this.onContextMenu = (e) => {
+              e.preventDefault();
+              this.openAt(e.clientX, e.clientY);
+            };
+            this.el.addEventListener("contextmenu", this.onContextMenu);
+
+            this.onDocMousedown = (e) => {
+              if (this.popup && !this.popup.contains(e.target)) this.close();
+            };
+            this.onDocKeydown = (e) => {
+              if (e.key === "Escape") this.close();
+            };
+            document.addEventListener("mousedown", this.onDocMousedown);
+            document.addEventListener("keydown", this.onDocKeydown);
+          },
+
+          openAt(x, y) {
+            this.close();
+
+            const popup = document.createElement("div");
+            popup.className = "print-menu-popup";
+            popup.style.left = `${x}px`;
+            popup.style.top = `${y}px`;
+
+            Array.from(this.menu.querySelectorAll("a")).forEach((link) => {
+              const item = link.cloneNode(true);
+              item.addEventListener("click", () => this.close());
+              popup.appendChild(item);
+            });
+
+            document.body.appendChild(popup);
+            this.popup = popup;
+          },
+
+          close() {
+            if (this.popup) {
+              this.popup.remove();
+              this.popup = null;
+            }
+          },
+
+          destroyed() {
+            this.close();
+            this.el.removeEventListener("contextmenu", this.onContextMenu);
+            document.removeEventListener("mousedown", this.onDocMousedown);
+            document.removeEventListener("keydown", this.onDocKeydown);
           }
         }
       </script>

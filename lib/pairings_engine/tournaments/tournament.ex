@@ -33,6 +33,29 @@ defmodule PairingsEngine.Tournaments.Tournament do
     field :points_draw, :float, default: 0.5
     field :points_loss, :float, default: 0.0
     field :bye_value, :float, default: 1.0
+    # SWAR "3-2-1" custom-scoring `SW321_Pre` ("presence points") — the
+    # points paid for an unpaired-but-present round, a distinct concept from
+    # an ordinary configured `points_loss`. nil (the default for every
+    # tournament not imported from a SWAR 3-2-1 file) means "unused": such
+    # rounds keep scoring at `points_loss` exactly as before this field
+    # existed. Only PairingsEngine.SwarImport writes a non-nil value.
+    field :presence_value, :float
+    # SWAR `AbsValue` (manual §4.2 field 92: "Absent value: 0 or 5,
+    # representing 0.0 or 0.5 points") — the points paid for a player simply
+    # marked ABSENT for a round (our `byes`-table `type: "absent"` row, from
+    # SWAR's per-player `Absent` status / the per-round `TABLE_ABSENT`
+    # special value). Three genuinely different SWAR concepts, easy to
+    # conflate: `bye_value` is what a *pairing-allocated* bye (a real
+    # opponent-less `Pairing` row) is worth; `presence_value` is the 3-2-1
+    # "presence points" paid for an unpaired-but-present round
+    # (`SW321_Pre`, only meaningful when `TOURNOI_TYPE == 3`); `abs_value`
+    # here is what a plain absence is worth, and — unlike `presence_value`
+    # — it is a GENERAL [TOURNOI] header field that applies to every SWAR
+    # import regardless of tournament type. nil (the default for every
+    # tournament that isn't a SWAR import) means "not set": such rounds
+    # keep scoring at `points_loss` exactly as before this field existed.
+    # Only PairingsEngine.SwarImport writes a non-nil value.
+    field :abs_value, :float
     field :tiebreaks, {:array, :string}, default: []
     field :acceleration, :string, default: "none"
     field :status, :string, default: "setup"
@@ -79,9 +102,49 @@ defmodule PairingsEngine.Tournaments.Tournament do
     field :pairing_system, :string, default: "swiss"
     # Round-robin only: 1 = single cycle, 2 = double.
     field :rr_cycles, :integer, default: 1
+    # Round-robin only: "match format" — round N and round N+1 are the SAME
+    # pairing with colours reversed, played back-to-back as an immediate
+    # two-game match (PairingsEngine.RoundRobin.match_schedule/2). This is a
+    # different shape from `rr_cycles == 2` ("double round robin"), which
+    # repeats a pairing a full cycle apart (season-style home/away) rather
+    # than immediately. Currently mutually exclusive with `rr_cycles == 2`
+    # (see the changeset validation below) — composing the two (an immediate
+    # rematch *and* a season-style repeat) is a documented future extension,
+    # not supported by this field yet. Locked in the UI once the tournament
+    # has paired its first round, same as `pairing_system`/`rr_cycles`.
+    field :rr_match_format, :boolean, default: false
     # Keizer only: nil means "automatic" (2 x player count), computed by
     # PairingsEngine.Keizer.
     field :keizer_top_value, :integer
+    # Swiss only: "match format" — the sibling feature to `rr_match_format`
+    # above, same immediate-two-game-rematch-with-reversed-colours concept,
+    # but for Swiss the first leg is a real JaVaFo decision (who plays
+    # whom), not a fixed schedule; the second leg is then an exact
+    # colour-reversed mirror of the first, inserted alongside it by
+    # PairingsEngine.Pairing.do_pair/2 in the same transaction, with no
+    # second JaVaFo call. Like `acceleration`, this is only meaningful when
+    # `pairing_system == "swiss"` — inert (never read) otherwise, same
+    # tolerance as that field (no changeset error for setting it on a
+    # non-swiss tournament; see PairingsEngine.Pairing.acceleration_lines/3
+    # for the precedent of gating via pattern match rather than a
+    # validation). Locked in the UI once the tournament has paired its
+    # first round, same as `pairing_system`/`rr_match_format`.
+    field :swiss_match_format, :boolean, default: false
+
+    # Native per-category Swiss pairing (SWAR-parity #24) — when true, each
+    # category in `categories` (plus a catch-all "Uncategorized" pool for
+    # blank/unlisted `player.category`) is paired completely independently:
+    # its own JaVaFo run and its own pairing-allocated byes, merged into ONE
+    # combined Round with board numbers running continuously across
+    # categories in `categories` order (see PairingsEngine.Pairing's
+    # per-category pairing logic). Requires `categories_enabled` and is not
+    # yet supported together with Baku acceleration — both enforced below.
+    # Only meaningful when `pairing_system == "swiss"` — inert (never read)
+    # otherwise, same tolerance as `acceleration`/`swiss_match_format` (no
+    # changeset error for setting it on a non-swiss tournament). Locked in
+    # the UI once the tournament has paired its first round, same as
+    # `swiss_match_format`.
+    field :pair_by_category, :boolean, default: false
 
     # Club/federation pairing exclusions (SWAR parity #7-10) — arbiters
     # often must avoid pairing clubmates / same-federation players
@@ -120,6 +183,23 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # NOT cast by changeset/2 so ordinary saves can't touch it.
     field :deleted_at, :utc_datetime
 
+    # Manual standings override (SWAR parity #23) — when true, the arbiter's
+    # hand-set `players.manual_rank` order replaces the computed tiebreak
+    # order. Every surface showing a rank must display an override banner:
+    # a silent override is indistinguishable from a tiebreak bug.
+    field :manual_ranking, :boolean, default: false
+
+    # Set when a result changes after the hand-set order was seeded: the order
+    # is still displayed, but every banner must report it as no longer matching
+    # the current results. Managed by the Tournaments manual-ranking functions.
+    field :manual_ranking_stale, :boolean, default: false
+
+    # Per-tournament print logo (SWAR parity #14-16), stored as a DB blob so
+    # backups/deploys carry it. Written only by Tournaments.set_logo/2 and
+    # clear_logo/1 — NOT cast by changeset/2, same reasoning as deleted_at.
+    field :logo_data, :binary
+    field :logo_content_type, :string
+
     belongs_to :user, PairingsEngine.Accounts.User
     has_many :players, PairingsEngine.Tournaments.Player
     has_many :teams, PairingsEngine.Tournaments.Team
@@ -134,12 +214,14 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :name, :type, :venue, :city, :federation, :start_date, :end_date,
       :organizer, :chief_arbiter, :deputy_arbiter, :time_control,
       :rounds_count, :rating_type, :points_win, :points_draw, :points_loss,
-      :bye_value, :tiebreaks, :acceleration, :status,
+      :bye_value, :presence_value, :abs_value, :tiebreaks, :acceleration, :status,
       :standard, :rate_of_play, :organizer_club_number, :round_dates, :categories,
       :event_code, :fide_tournament_id, :officials,
-      :pairing_system, :rr_cycles, :keizer_top_value,
+      :pairing_system, :rr_cycles, :rr_match_format, :keizer_top_value,
+      :swiss_match_format, :pair_by_category,
       :club_exclusion, :club_exclusion_list, :fed_exclusion, :fed_exclusion_list,
-      :count_extra_points, :extra_points_bands, :categories_enabled
+      :count_extra_points, :extra_points_bands, :categories_enabled,
+      :manual_ranking
     ])
     |> validate_required([:name, :type, :rounds_count])
     |> validate_length(:name, min: 1, max: 200)
@@ -154,6 +236,9 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_inclusion(:fed_exclusion, @exclusion_modes)
     |> validate_number(:rounds_count, greater_than: 0, less_than_or_equal_to: 30)
     |> validate_keizer_top_value()
+    |> validate_rr_match_format()
+    |> validate_swiss_match_format()
+    |> validate_pair_by_category()
     |> normalize_exclusion_list(:club_exclusion_list)
     |> normalize_exclusion_list(:fed_exclusion_list)
     |> normalize_extra_points_bands()
@@ -183,6 +268,84 @@ defmodule PairingsEngine.Tournaments.Tournament do
     case get_field(changeset, :keizer_top_value) do
       nil -> changeset
       _ -> validate_number(changeset, :keizer_top_value, greater_than: 0)
+    end
+  end
+
+  # `rr_match_format` (immediate two-game rematch) and `rr_cycles == 2`
+  # (season-style repeat a full cycle apart) are two different shapes of
+  # "play everyone twice" that this codebase does not yet know how to
+  # compose into a single schedule (see the field's doc comment above) — an
+  # arbiter turning both on at once would silently get whichever one
+  # `PairingsEngine.RoundRobin.do_pair/2` happens to check first, not the
+  # combination they asked for, so this is rejected outright rather than
+  # guessed at.
+  defp validate_rr_match_format(changeset) do
+    if get_field(changeset, :rr_match_format) == true and get_field(changeset, :rr_cycles) == 2 do
+      add_error(
+        changeset,
+        :rr_match_format,
+        "match format is not yet supported together with double round robin (rr_cycles=2)"
+      )
+    else
+      changeset
+    end
+  end
+
+  # `swiss_match_format` needs its second leg to fit inside `rounds_count`:
+  # unlike round robin (whose match-format total round count is derived,
+  # via `match_total_rounds/1`, from the schedule itself), Swiss's
+  # `rounds_count` is a directly user-set total, so an odd total would
+  # leave no room for the last match's second leg. Reject outright rather
+  # than silently rounding/truncating.
+  defp validate_swiss_match_format(changeset) do
+    if get_field(changeset, :swiss_match_format) == true and
+         rem(get_field(changeset, :rounds_count) || 0, 2) != 0 do
+      add_error(
+        changeset,
+        :swiss_match_format,
+        "match format requires an even number of rounds (each match is 2 rounds)"
+      )
+    else
+      changeset
+    end
+  end
+
+  # `pair_by_category` (SWAR-parity #24) needs category management actually
+  # turned on (pairing per-category with no category data makes no sense),
+  # and is deliberately not yet supported together with Baku acceleration —
+  # rejected outright rather than guessed at, same precedent as
+  # `validate_rr_match_format`/`validate_swiss_match_format` above.
+  defp validate_pair_by_category(changeset) do
+    if get_field(changeset, :pair_by_category) == true do
+      changeset
+      |> validate_pair_by_category_requires_categories()
+      |> validate_pair_by_category_excludes_baku()
+    else
+      changeset
+    end
+  end
+
+  defp validate_pair_by_category_requires_categories(changeset) do
+    if get_field(changeset, :categories_enabled) == true do
+      changeset
+    else
+      add_error(
+        changeset,
+        :pair_by_category,
+        "pairing by category requires categories to be enabled first"
+      )
+    end
+  end
+
+  defp validate_pair_by_category_excludes_baku(changeset) do
+    if get_field(changeset, :acceleration) == "baku" do
+      add_error(
+        changeset,
+        :pair_by_category,
+        "pairing by category is not yet supported together with Baku acceleration"
+      )
+    else
+      changeset
     end
   end
 
@@ -360,3 +523,4 @@ defmodule PairingsEngine.Tournaments.Tournament do
   def rr_cycles_label(2), do: "Double"
   def rr_cycles_label(other), do: to_string(other)
 end
+

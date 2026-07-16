@@ -9,9 +9,19 @@ defmodule PairingsEngine.Tournaments do
   import Ecto.Query
   alias PairingsEngine.Repo
   alias PairingsEngine.Tiebreaks
+  alias PairingsEngine.Standings
   alias PairingsEngine.Accounts
   alias PairingsEngine.Accounts.{Scope, User}
-  alias PairingsEngine.Tournaments.{Tournament, Player, Team, Round, Pairing, Collaborator, ForbiddenPairing}
+
+  alias PairingsEngine.Tournaments.{
+    Tournament,
+    Player,
+    Team,
+    Round,
+    Pairing,
+    Collaborator,
+    ForbiddenPairing
+  }
 
   ## ---------- Live updates (PubSub) ----------
   #
@@ -108,7 +118,8 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc "True if `scope.user` is the tournament's owner (as opposed to a collaborator)."
-  def owner?(%Tournament{} = tournament, %Scope{} = scope), do: tournament.user_id == scope.user.id
+  def owner?(%Tournament{} = tournament, %Scope{} = scope),
+    do: tournament.user_id == scope.user.id
 
   @doc """
   Gets a tournament by id, excluding soft-deleted (recycle-binned) ones —
@@ -141,7 +152,8 @@ defmodule PairingsEngine.Tournaments do
   """
   def get_user_tournament!(%Scope{} = scope, id) do
     Repo.one!(
-      from t in Tournament, where: t.id == ^id and t.user_id == ^scope.user.id and is_nil(t.deleted_at)
+      from t in Tournament,
+        where: t.id == ^id and t.user_id == ^scope.user.id and is_nil(t.deleted_at)
     )
   end
 
@@ -152,7 +164,8 @@ defmodule PairingsEngine.Tournaments do
   """
   def get_user_tournament(%Scope{} = scope, id) do
     Repo.one(
-      from t in Tournament, where: t.id == ^id and t.user_id == ^scope.user.id and is_nil(t.deleted_at)
+      from t in Tournament,
+        where: t.id == ^id and t.user_id == ^scope.user.id and is_nil(t.deleted_at)
     )
   end
 
@@ -261,20 +274,31 @@ defmodule PairingsEngine.Tournaments do
       email == owner_email ->
         {:error, :cannot_add_owner}
 
-      Repo.exists?(from c in Collaborator, where: c.tournament_id == ^tournament.id and c.email == ^email) ->
+      Repo.exists?(
+        from c in Collaborator, where: c.tournament_id == ^tournament.id and c.email == ^email
+      ) ->
         {:error, :already_added}
 
       true ->
         user = Accounts.get_user_by_email(email)
 
         %Collaborator{tournament_id: tournament.id, user_id: user && user.id}
-        |> Collaborator.changeset(%{email: email, status: "pending", invite_token: generate_invite_token()})
+        |> Collaborator.changeset(%{
+          email: email,
+          status: "pending",
+          invite_token: generate_invite_token()
+        })
         |> Repo.insert()
         |> case do
           {:ok, collaborator} ->
             broadcast_tournament_change(tournament.id, :collaborators)
             if collaborator.user_id, do: broadcast_user_tournaments(collaborator.user_id)
-            {:ok, %{collaborator | mail_status: deliver_invitation_email(scope.user, tournament, collaborator)}}
+
+            {:ok,
+             %{
+               collaborator
+               | mail_status: deliver_invitation_email(scope.user, tournament, collaborator)
+             }}
 
           error ->
             error
@@ -300,7 +324,8 @@ defmodule PairingsEngine.Tournaments do
 
   defp invite_url(token), do: PairingsEngineWeb.Endpoint.url() <> "/invites/" <> token
 
-  defp generate_invite_token, do: :crypto.strong_rand_bytes(16) |> Base.url_encode64(padding: false)
+  defp generate_invite_token,
+    do: :crypto.strong_rand_bytes(16) |> Base.url_encode64(padding: false)
 
   @doc """
   Removes a collaborator from `tournament` — whether still pending or
@@ -488,6 +513,100 @@ defmodule PairingsEngine.Tournaments do
     end)
   end
 
+  ## ---------- Logo (SWAR parity #14-16 — place cards) ----------
+  #
+  # Per-tournament print logo, stored as a DB blob (`tournaments.logo_data`
+  # + `logo_content_type`) so backups/deploys carry it — no filesystem or
+  # upload-dir question. Both fields are deliberately NOT cast by
+  # `Tournament.changeset/2` (see that schema's comment), so an ordinary
+  # settings-form save can never clobber the blob; these two functions are
+  # the only writers.
+
+  # A print logo has no business being larger than this — it's stored in
+  # the DB and shipped in every JSON backup.
+  @max_logo_bytes 2_000_000
+
+  @doc """
+  Sets `tournament`'s print logo (embedded as a base64 `data:` URI by
+  `PairingsEngineWeb.PrintController` — see `docs/printing.md`) after
+  verifying `binary` is actually one of the accepted raster image types, by
+  its real file signature (magic bytes) — never by a filename extension or
+  the browser-supplied content-type, both of which are attacker-controlled.
+  SVG is deliberately never accepted, no matter how it's labelled: it's an
+  XML document that can carry scripts, and this blob is rendered straight
+  back into pages we serve, so raster-only removes that whole class of
+  problem. See `detect_image_type/1` for the exact signatures checked and
+  the size cap.
+
+  Returns `{:error, :invalid_image}` (never touching the row) for anything
+  that fails validation — the caller (`SettingsLive`) turns that into a
+  friendly flash rather than ever storing unvalidated bytes.
+  """
+  @spec set_logo(Tournament.t(), binary()) ::
+          {:ok, Tournament.t()} | {:error, :invalid_image} | {:error, Ecto.Changeset.t()}
+  def set_logo(%Tournament{} = tournament, binary) when is_binary(binary) do
+    case detect_image_type(binary) do
+      {:ok, content_type} ->
+        tournament
+        |> Ecto.Changeset.change(logo_data: binary, logo_content_type: content_type)
+        |> Repo.update()
+        |> tap_ok(fn updated -> broadcast_tournament_change(updated.id, :settings) end)
+
+      :error ->
+        {:error, :invalid_image}
+    end
+  end
+
+  @doc "Removes `tournament`'s print logo. Broadcasts `:settings`, same as `set_logo/2`."
+  @spec clear_logo(Tournament.t()) :: {:ok, Tournament.t()} | {:error, Ecto.Changeset.t()}
+  def clear_logo(%Tournament{} = tournament) do
+    tournament
+    |> Ecto.Changeset.change(logo_data: nil, logo_content_type: nil)
+    |> Repo.update()
+    |> tap_ok(fn updated -> broadcast_tournament_change(updated.id, :settings) end)
+  end
+
+  @doc """
+  Sniffs `binary`'s real file-format signature and returns
+  `{:ok, verified_content_type}` for one of the accepted raster types, or
+  `:error` for anything else — including a well-formed SVG (never accepted,
+  see `set_logo/2`) or anything over #{@max_logo_bytes} bytes.
+
+  Signatures checked (first matching bytes win, order doesn't matter — the
+  four are mutually exclusive):
+
+    * PNG  — the 8-byte PNG signature `\\x89 P N G \\r \\n \\x1a \\n`
+    * JPEG — the `\\xFF \\xD8 \\xFF` SOI marker
+    * GIF  — `GIF87a` or `GIF89a`
+    * WebP — a RIFF container carrying a `WEBP` fourcc (`RIFF????WEBP`)
+  """
+  @spec detect_image_type(binary()) :: {:ok, String.t()} | :error
+  def detect_image_type(binary) when is_binary(binary) do
+    if byte_size(binary) > @max_logo_bytes do
+      :error
+    else
+      case binary do
+        <<0x89, "PNG", 0x0D, 0x0A, 0x1A, 0x0A, _rest::binary>> -> {:ok, "image/png"}
+        <<0xFF, 0xD8, 0xFF, _rest::binary>> -> {:ok, "image/jpeg"}
+        <<"GIF87a", _rest::binary>> -> {:ok, "image/gif"}
+        <<"GIF89a", _rest::binary>> -> {:ok, "image/gif"}
+        <<"RIFF", _size::binary-size(4), "WEBP", _rest::binary>> -> {:ok, "image/webp"}
+        _ -> :error
+      end
+    end
+  end
+
+  def detect_image_type(_binary), do: :error
+
+  @doc "The `data:` URI for `tournament`'s print logo, or `nil` if none is set."
+  @spec logo_data_uri(Tournament.t()) :: String.t() | nil
+  def logo_data_uri(%Tournament{logo_data: nil}), do: nil
+  def logo_data_uri(%Tournament{logo_content_type: nil}), do: nil
+
+  def logo_data_uri(%Tournament{logo_data: data, logo_content_type: content_type}) do
+    "data:#{content_type};base64,#{Base.encode64(data)}"
+  end
+
   ## ---------- Recycle bin (soft delete, 3-month retention) ----------
   #
   # Deleting a tournament from the Tournaments page no longer hard-deletes
@@ -598,7 +717,13 @@ defmodule PairingsEngine.Tournaments do
       from p in Player,
         where: p.tournament_id == ^tournament_id,
         order_by: [
-          desc: fragment("CASE WHEN ? > 0 THEN ? ELSE ? END", p.fide_rating, p.fide_rating, p.national_rating),
+          desc:
+            fragment(
+              "CASE WHEN ? > 0 THEN ? ELSE ? END",
+              p.fide_rating,
+              p.fide_rating,
+              p.national_rating
+            ),
           asc: p.name
         ]
     )
@@ -715,6 +840,180 @@ defmodule PairingsEngine.Tournaments do
     end
   end
 
+  ## ---------- Manual standings override (SWAR parity #23) ----------
+  #
+  # See docs/manual-standings.md for the full write-up: seeding, the
+  # staleness mechanism, and why Keizer tournaments don't offer this. Short
+  # version: `tournament.manual_ranking` lets the arbiter hand-order the
+  # standings display via `players.manual_rank` — always a plain positive
+  # `1..N` value (or `nil` for a never-placed player), never sign-encoded.
+  # Staleness lives on `tournaments.manual_ranking_stale` (one row, set by
+  # `invalidate_manual_ranking/1` below and read back by
+  # `PairingsEngine.Standings.manual_ranking_stale?/1`). This never touches
+  # points/tiebreaks, only which `:rank` gets displayed
+  # (`PairingsEngine.Standings.apply_manual_ranking/2`). Nothing here
+  # special-cases Keizer — the only caller of these functions
+  # (`StandingsLive`) simply never shows the controls when
+  # `pairing_system == "keizer"`.
+
+  @doc """
+  Turns manual ranking on for `tournament` and seeds every player's
+  `manual_rank` from the current computed standings order (SWAR parity #23
+  requirement: seed from the real standings, not an empty/arbitrary list).
+  Safe to call even when manual ranking is already on — always reseeds
+  fresh, same effect as `reseed_manual_ranking/1` (kept as a separate name
+  because the call site reads better either way: "turn it on" vs. "fix it
+  up").
+  """
+  def enable_manual_ranking(%Tournament{} = tournament) do
+    with {:ok, tournament} <- set_manual_ranking_flag(tournament, true) do
+      reseed_manual_ranking(tournament)
+    end
+  end
+
+  @doc """
+  Turns manual ranking off. Leaves every player's `manual_rank` value in
+  place (harmless while off — nothing reads it) so switching back on later
+  starts from a familiar state before `enable_manual_ranking/1` reseeds it
+  fresh, rather than needing to be rebuilt from scratch.
+  """
+  def disable_manual_ranking(%Tournament{} = tournament),
+    do: set_manual_ranking_flag(tournament, false)
+
+  defp set_manual_ranking_flag(tournament, value) do
+    tournament
+    |> Ecto.Changeset.change(manual_ranking: value)
+    |> Repo.update()
+    |> tap_ok(fn updated -> broadcast_tournament_change(updated.id, :settings) end)
+  end
+
+  @doc """
+  Re-seeds `tournament`'s manual order from the current computed standings
+  (`PairingsEngine.Standings.standings/1`) — every player's `manual_rank`
+  is set to their current tiebreak rank (a plain positive `1..N` value),
+  and `tournaments.manual_ranking_stale` is cleared. This is both how
+  `enable_manual_ranking/1` seeds the first time and the arbiter's explicit
+  "re-seed from current order" action once the banner reports the hand-set
+  order is stale (SWAR parity #23 requirement 5) or incomplete (a player
+  joined after the mode was switched on and was never placed).
+  """
+  def reseed_manual_ranking(%Tournament{} = tournament) do
+    tournament
+    |> Standings.standings()
+    |> Enum.each(fn e ->
+      Repo.update_all(from(p in Player, where: p.id == ^e.player.id), set: [manual_rank: e.rank])
+    end)
+
+    Repo.update_all(from(t in Tournament, where: t.id == ^tournament.id),
+      set: [manual_ranking_stale: false]
+    )
+
+    broadcast_tournament_change(tournament.id, :players)
+    {:ok, %{tournament | manual_ranking_stale: false}}
+  end
+
+  @doc """
+  Moves `player` one position up or down (`direction :up | :down`) in
+  `tournament`'s manual order. Returns `{:error, :edge}` at the top of
+  "up" or the bottom of "down", `{:error, :not_found}` if `player` has no
+  current position at all (shouldn't happen once seeded, but the roster
+  can move while manual ranking is off).
+
+  An explicit reorder also confirms the whole list is fresh — even from a
+  stale (or partially-unseeded) state, moving a player renumbers every
+  player 1..N from the *current* display order and clears
+  `tournaments.manual_ranking_stale`. The arbiter looking at the list and
+  acting on it is exactly the confirmation the stale flag exists to prompt
+  for; see docs/manual-standings.md.
+  """
+  def move_manual_rank(%Tournament{} = tournament, %Player{} = player, direction)
+      when direction in [:up, :down] do
+    ordered = manual_rank_ordered_players(tournament.id)
+    idx = Enum.find_index(ordered, &(&1.id == player.id))
+
+    swap_idx = if idx, do: if(direction == :up, do: idx - 1, else: idx + 1)
+
+    cond do
+      idx == nil ->
+        {:error, :not_found}
+
+      swap_idx < 0 or swap_idx >= length(ordered) ->
+        {:error, :edge}
+
+      true ->
+        reordered =
+          ordered |> List.delete_at(idx) |> List.insert_at(swap_idx, Enum.at(ordered, idx))
+
+        write_manual_ranks(tournament.id, reordered)
+        broadcast_tournament_change(tournament.id, :players)
+        {:ok, tournament}
+    end
+  end
+
+  # Current manual order, nulls (never-seeded players) last — the same
+  # "rank, nil-last" ordering `PairingsEngine.Standings.apply_manual_ranking/2`
+  # displays, computed here directly off `manual_rank` since we need the
+  # actual `%Player{}` structs to write back, not just display entries.
+  # `manual_rank` is always a plain positive `1..N` value (or `nil`) — no
+  # sign smuggling, see the moduledoc above.
+  defp manual_rank_ordered_players(tournament_id) do
+    tournament_id
+    |> list_players()
+    |> Enum.sort_by(fn p -> if p.manual_rank, do: {0, p.manual_rank}, else: {1, p.name} end)
+  end
+
+  defp write_manual_ranks(tournament_id, ordered_players) do
+    Repo.transaction(fn ->
+      ordered_players
+      |> Enum.with_index(1)
+      |> Enum.each(fn {p, rank} ->
+        Repo.update_all(from(pl in Player, where: pl.id == ^p.id), set: [manual_rank: rank])
+      end)
+
+      Repo.update_all(from(t in Tournament, where: t.id == ^tournament_id),
+        set: [manual_ranking_stale: false]
+      )
+    end)
+  end
+
+  @doc """
+  SWAR parity #23 requirement 5: a result (or bye — see
+  `PairingsEngine.Pairing`) changing invalidates a previously hand-set
+  manual order without discarding it. Sets `tournaments.manual_ranking_stale`
+  to `true` in a single one-row update — the hand-set `players.manual_rank`
+  values are left completely untouched, so the order itself survives
+  intact; only the "is this still trustworthy" flag changes. This is
+  exactly the bit `PairingsEngine.Standings.manual_ranking_stale?/1` reads.
+  Idempotent — setting an already-true flag is a no-op write, just like
+  the sign-flip approach it replaced was WHERE-clause idempotent.
+  See docs/manual-standings.md.
+
+  Gated on `manual_ranking` so a tournament that never uses this feature
+  (or has switched it off) never pays for the extra write on every
+  result/bye write, and so a since-disabled tournament's flag doesn't get
+  needlessly marked stale — irrelevant anyway since
+  `enable_manual_ranking/1` always reseeds fresh (and clears staleness).
+
+  Public (not just called from this module's own `update_pairing_result/2`)
+  because `PairingsEngine.Pairing` — the pairing engine, which is where
+  byes are written — needs the same hook. Both call sites are required to
+  invalidate **before** broadcasting `:tournament_changed` on the
+  tournament's topic: a subscriber (StandingsLive, PublicStandingsLive,
+  ...) reacts to that broadcast by immediately re-reading the DB, so
+  committing this write first means every reload the broadcast triggers
+  already observes the stale flag — never a race where a subscriber
+  renders one look-fresh frame before the flag lands.
+  """
+  def invalidate_manual_ranking(tournament_id) do
+    if Repo.exists?(from t in Tournament, where: t.id == ^tournament_id and t.manual_ranking) do
+      Repo.update_all(from(t in Tournament, where: t.id == ^tournament_id),
+        set: [manual_ranking_stale: true]
+      )
+    end
+
+    :ok
+  end
+
   ## Teams
 
   def list_teams(tournament_id) do
@@ -775,7 +1074,9 @@ defmodule PairingsEngine.Tournaments do
           player_b_id: player_b_id
         })
         |> Repo.insert()
-        |> tap_ok(fn inserted -> broadcast_tournament_change(inserted.tournament_id, :settings) end)
+        |> tap_ok(fn inserted ->
+          broadcast_tournament_change(inserted.tournament_id, :settings)
+        end)
     end
   end
 
@@ -828,6 +1129,30 @@ defmodule PairingsEngine.Tournaments do
     )
   end
 
+  @doc """
+  Byes-table rows (`"requested-half"` / `"requested-zero"` / `"absent"` —
+  see `PairingsEngine.Standings.add_bye_records/3` for the exact scoring
+  rule per type) for `tournament_id` in round `number`, each with its
+  `%Player{}` preloaded as `:player`.
+
+  These are DIFFERENT from a pairing-allocated bye (a real `Pairing` row
+  with `black_player_id: nil, result: "bye"`, already visible via
+  `get_round/2`'s `round.pairings`) — a byes-table row never appears in
+  `round.pairings`, so callers that only render `round.pairings` (as
+  PairingsLive/LiveRoundLive/PublicPairingsLive all did before this
+  function existed) silently drop every SWAR-imported or round-specific
+  absentee bye from the pairings list.
+  """
+  def list_byes_for_round(tournament_id, number) do
+    from(b in "byes",
+      join: p in Player,
+      on: p.id == b.player_id,
+      where: b.tournament_id == ^tournament_id and b.round == ^number,
+      select: %{player_id: b.player_id, round: b.round, type: b.type, player: p}
+    )
+    |> Repo.all()
+  end
+
   def list_rounds(tournament_id) do
     Repo.all(from r in Round, where: r.tournament_id == ^tournament_id, order_by: r.number)
   end
@@ -838,6 +1163,16 @@ defmodule PairingsEngine.Tournaments do
     |> Repo.update()
     |> tap_ok(fn updated ->
       tournament_id = round_tournament_id(updated.round_id)
+      # Invalidate *before* broadcasting: a subscriber (StandingsLive,
+      # PublicStandingsLive, ...) reacts to `broadcast_tournament_change/2`
+      # by immediately re-reading the DB. If the `manual_ranking_stale`
+      # write happened after the broadcast, a subscriber's reload could
+      # race it and render the old (fresh-looking) manual order for one
+      # frame, with nothing left to trigger a second re-render once the
+      # flag actually commits — exactly the "silently serving stale as
+      # fresh" failure this feature exists to prevent. Committing the flag
+      # first means every reload triggered by this write already sees it.
+      invalidate_manual_ranking(tournament_id)
       broadcast_tournament_change(tournament_id, :results)
       refresh_status!(tournament_id)
     end)

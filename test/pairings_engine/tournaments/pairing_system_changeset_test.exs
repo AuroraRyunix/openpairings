@@ -153,6 +153,170 @@ defmodule PairingsEngine.Tournaments.PairingSystemChangesetTest do
     end
   end
 
+  describe "Tournament.changeset/2 - rr_match_format field" do
+    test "has default value false" do
+      changeset = Tournament.changeset(%Tournament{}, %{"name" => "Test", "type" => "swiss"})
+      assert changeset.valid?
+      assert get_field(changeset, :rr_match_format) == false
+    end
+
+    test "accepts true with rr_cycles=1 (the default)" do
+      changeset =
+        Tournament.changeset(%Tournament{}, %{
+          "name" => "Test",
+          "type" => "swiss",
+          "pairing_system" => "round_robin",
+          "rr_match_format" => true
+        })
+
+      assert changeset.valid?
+      assert get_field(changeset, :rr_match_format) == true
+      assert get_field(changeset, :rr_cycles) == 1
+    end
+
+    test "rejects rr_match_format=true together with rr_cycles=2" do
+      changeset =
+        Tournament.changeset(%Tournament{}, %{
+          "name" => "Test",
+          "type" => "swiss",
+          "pairing_system" => "round_robin",
+          "rr_match_format" => true,
+          "rr_cycles" => 2
+        })
+
+      refute changeset.valid?
+
+      assert %{
+               rr_match_format: [
+                 "match format is not yet supported together with double round robin (rr_cycles=2)"
+               ]
+             } = errors_on(changeset)
+    end
+
+    test "rr_cycles=2 alone (rr_match_format false) remains valid" do
+      changeset =
+        Tournament.changeset(%Tournament{}, %{
+          "name" => "Test",
+          "type" => "swiss",
+          "pairing_system" => "round_robin",
+          "rr_cycles" => 2
+        })
+
+      assert changeset.valid?
+    end
+  end
+
+  describe "Tournament.changeset/2 - swiss_match_format field" do
+    test "has default value false" do
+      changeset = Tournament.changeset(%Tournament{}, %{"name" => "Test", "type" => "swiss"})
+      assert changeset.valid?
+      assert get_field(changeset, :swiss_match_format) == false
+    end
+
+    test "rejects swiss_match_format=true with an odd rounds_count" do
+      changeset =
+        Tournament.changeset(%Tournament{}, %{
+          "name" => "Test",
+          "type" => "swiss",
+          "rounds_count" => 5,
+          "swiss_match_format" => true
+        })
+
+      refute changeset.valid?
+
+      assert %{
+               swiss_match_format: [
+                 "match format requires an even number of rounds (each match is 2 rounds)"
+               ]
+             } = errors_on(changeset)
+    end
+
+    test "accepts swiss_match_format=true with an even rounds_count" do
+      changeset =
+        Tournament.changeset(%Tournament{}, %{
+          "name" => "Test",
+          "type" => "swiss",
+          "rounds_count" => 4,
+          "swiss_match_format" => true
+        })
+
+      assert changeset.valid?
+      assert get_field(changeset, :swiss_match_format) == true
+      assert get_field(changeset, :rounds_count) == 4
+    end
+
+    test "an odd rounds_count remains valid when swiss_match_format is false" do
+      changeset =
+        Tournament.changeset(%Tournament{}, %{
+          "name" => "Test",
+          "type" => "swiss",
+          "rounds_count" => 5,
+          "swiss_match_format" => false
+        })
+
+      assert changeset.valid?
+    end
+  end
+
+  describe "Tournament.changeset/2 - pair_by_category field (SWAR-parity #24)" do
+    test "has default value false" do
+      changeset = Tournament.changeset(%Tournament{}, %{"name" => "Test", "type" => "swiss"})
+      assert changeset.valid?
+      assert get_field(changeset, :pair_by_category) == false
+    end
+
+    test "rejects pair_by_category=true with categories_enabled=false" do
+      changeset =
+        Tournament.changeset(%Tournament{}, %{
+          "name" => "Test",
+          "type" => "swiss",
+          "categories_enabled" => false,
+          "pair_by_category" => true
+        })
+
+      refute changeset.valid?
+
+      assert %{
+               pair_by_category: [
+                 "pairing by category requires categories to be enabled first"
+               ]
+             } = errors_on(changeset)
+    end
+
+    test "rejects pair_by_category=true with acceleration=baku" do
+      changeset =
+        Tournament.changeset(%Tournament{}, %{
+          "name" => "Test",
+          "type" => "swiss",
+          "categories_enabled" => true,
+          "acceleration" => "baku",
+          "pair_by_category" => true
+        })
+
+      refute changeset.valid?
+
+      assert %{
+               pair_by_category: [
+                 "pairing by category is not yet supported together with Baku acceleration"
+               ]
+             } = errors_on(changeset)
+    end
+
+    test "accepts pair_by_category=true with categories_enabled=true and acceleration=none" do
+      changeset =
+        Tournament.changeset(%Tournament{}, %{
+          "name" => "Test",
+          "type" => "swiss",
+          "categories_enabled" => true,
+          "acceleration" => "none",
+          "pair_by_category" => true
+        })
+
+      assert changeset.valid?
+      assert get_field(changeset, :pair_by_category) == true
+    end
+  end
+
   describe "Tournament.changeset/2 - keizer_top_value field" do
     test "has default value nil" do
       changeset = Tournament.changeset(%Tournament{}, %{"name" => "Test", "type" => "swiss"})

@@ -10,7 +10,10 @@ defmodule PairingsEngineWeb.PrintController do
     * `GET /t/:id/print/cards`     — one card per player, full round-by-round
       history (never limited to a single round).
     * `GET /t/:id/print/pairings?round=n` — board pairings for round `n`.
-      Defaults to round 1; 404s if that round hasn't been paired.
+      Defaults to round 1; 404s if that round hasn't been paired. Also
+      accepts `?absentees=1` to append a below-the-table "Absentees"
+      section listing byes-table rows (requested half/zero-point byes,
+      plain absences) — off by default.
     * `GET /t/:id/print/standings?round=n` — standings as they stood right
       after round `n` (computed honestly via `PairingsEngine.Standings`,
       passing only rounds `<= n`). Omit `round` for current/overall
@@ -92,11 +95,144 @@ defmodule PairingsEngineWeb.PrintController do
   # of a round-robin players×players grid — hatched via a CSS gradient (no
   # image asset needed) rather than solid black, so it still reads as "not a
   # result" rather than looking like a printing error.
-  @rr_crosstable_css @crosstable_css <> """
-  table.crosstable td.rr-diag {
-    background-image: repeating-linear-gradient(45deg, #000 0, #000 2px, transparent 2px, transparent 6px);
-  }
+  @rr_crosstable_css @crosstable_css <>
+                       """
+                       table.crosstable td.rr-diag {
+                         background-image: repeating-linear-gradient(45deg, #000 0, #000 2px, transparent 2px, transparent 6px);
+                       }
+                       """
+
+  # Place cards ("chevalets") — see docs/printing.md "Place cards" for the
+  # full fold geometry writeup. Short version: each player gets a whole A4
+  # page split into two 148.5mm-tall halves by a horizontal fold line at
+  # the vertical center (`.place-card-fold`, an absolutely-positioned
+  # dashed rule at `top: 148.5mm` — it doesn't consume height, so the two
+  # `.place-card-half` panels stack to exactly 297mm). The top half prints
+  # the player's details upright, unrotated; the bottom half prints the
+  # *same* details again but with `transform: rotate(180deg)`
+  # (`.place-card-flip`).
+  #
+  # Folding: crease along that middle line and fold the two halves so the
+  # printed face ends up on the OUTSIDE of both resulting flaps (i.e. fold
+  # the blank reverse together, print side out) — the same direction a
+  # free-standing tent/A-frame card always folds, never folding the ink
+  # onto itself. Standing the card up this way puts the crease at the top
+  # (the ridge) with the two flaps splaying down and outward, one facing
+  # each side of the board.
+  #
+  # Why the bottom half needs the extra 180° rotation: the top flap keeps
+  # its on-page orientation as it swings toward the reader facing it, so it
+  # reads upright with no help needed. The bottom flap, on the other hand,
+  # was printed further down the *same upright* page, but after the fold it
+  # ends up facing the *opposite* direction (the far side of the board) —
+  # and reaching that far side means it rotated through 180° around the
+  # fold axis on the way there. Printing it pre-rotated 180° on the flat
+  # page exactly cancels that in-flight rotation, so by the time it's
+  # standing it reads upright to the reader on that far side too. Skipping
+  # the CSS rotation (or rotating the wrong half) produces a card that's
+  # only readable from one side — the "reads upside-down after folding"
+  # failure mode this comment exists to prevent.
+  @place_cards_css """
+  @page { size: A4 portrait; margin: 0; }
+  .place-card-page { position: relative; width: 210mm; height: 297mm;
+                      page-break-after: always; overflow: hidden; }
+  .place-card-page:last-child { page-break-after: auto; }
+  .place-card-half { box-sizing: border-box; height: 148.5mm; width: 210mm; padding: 14mm 10mm;
+                      display: flex; flex-direction: column; align-items: center;
+                      justify-content: center; text-align: center; }
+  .place-card-flip { transform: rotate(180deg); }
+  .place-card-fold { position: absolute; left: 0; right: 0; top: 148.5mm; height: 0;
+                      border-top: 1px dashed #999; }
+  .place-card-fold::after { content: "fold here"; position: absolute; left: 50%; top: -7px;
+                             transform: translateX(-50%); background: #fff; padding: 0 6px;
+                             font-size: 8px; letter-spacing: .08em; text-transform: uppercase;
+                             color: #999; }
+  .place-card-logo { max-height: 22mm; max-width: 70mm; margin-bottom: 8mm; }
+  .place-card-name { font-size: 30px; font-weight: 700; margin: 0 0 4px; }
+  .place-card-title-line { font-size: 15px; color: #444; margin: 0 0 8px; }
+  .place-card-meta { font-size: 14px; color: #333; margin: 2px 0 0; }
+  .place-card-board { font-size: 20px; font-weight: 700; margin-top: 10mm; border: 2px solid #000;
+                       padding: 4px 16px; display: inline-block; }
   """
+
+  defp place_card_board_map(tournament, round_param) do
+    rounds_paired = PairingsEngine.Standings.rounds_paired(tournament.id)
+    number = parse_round(round_param) || rounds_paired
+
+    case number > 0 && Tournaments.get_round(tournament.id, number) do
+      false -> %{}
+      nil -> %{}
+      round -> board_map(round.pairings)
+    end
+  end
+
+  defp board_map(pairings) do
+    Enum.reduce(pairings, %{}, fn p, acc ->
+      acc
+      |> put_board(p.white_player_id, p.board)
+      |> put_board(p.black_player_id, p.board)
+    end)
+  end
+
+  defp put_board(map, nil, _board), do: map
+  defp put_board(map, player_id, board), do: Map.put(map, player_id, board)
+
+  # Sensible defaults: name is always shown (not a toggle); title, rating
+  # and board are the fields an arbiter almost always wants on a seating
+  # card, so they default on. Federation/club default off purely for space
+  # — a tent card is small — but are one query param away.
+  defp place_card_fields(params) do
+    %{
+      title: flag(params["title"], true),
+      rating: flag(params["rating"], true),
+      federation: flag(params["federation"], false),
+      club: flag(params["club"], false),
+      board: flag(params["board"], true)
+    }
+  end
+
+  defp flag(nil, default), do: default
+  defp flag(value, _default), do: value not in ["0", "false", "no"]
+
+  defp place_card_logo_html(tournament) do
+    case Tournaments.logo_data_uri(tournament) do
+      nil -> ""
+      uri -> "<img class=\"place-card-logo\" src=\"#{uri}\" alt=\"\" />"
+    end
+  end
+
+  defp place_card_page(player, board_map, fields, logo_html) do
+    "<div class=\"place-card-page\">" <>
+      "<div class=\"place-card-half\">#{place_card_panel(player, board_map, fields, logo_html)}</div>" <>
+      "<div class=\"place-card-fold\"></div>" <>
+      "<div class=\"place-card-half place-card-flip\">#{place_card_panel(player, board_map, fields, logo_html)}</div>" <>
+      "</div>"
+  end
+
+  defp place_card_panel(player, board_map, fields, logo_html) do
+    title_html =
+      if fields.title and player.title != "",
+        do: "<p class=\"place-card-title-line\">#{esc(player.title)}</p>",
+        else: ""
+
+    meta =
+      [
+        if(fields.rating and player_rating(player) > 0, do: "#{player_rating(player)}"),
+        if(fields.federation and player.federation != "", do: esc(player.federation)),
+        if(fields.club and player.club != "", do: esc(player.club))
+      ]
+      |> Enum.reject(&is_nil/1)
+      |> Enum.join(" &middot; ")
+
+    board = fields.board && Map.get(board_map, player.id)
+    board_html = if board, do: "<div class=\"place-card-board\">Board #{board}</div>", else: ""
+
+    logo_html <>
+      "<h2 class=\"place-card-name\">#{esc(player.name)}</h2>" <>
+      title_html <>
+      "<p class=\"place-card-meta\">#{meta}</p>" <>
+      board_html
+  end
 
   def player_list(conn, %{"id" => id}) do
     tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
@@ -150,6 +286,29 @@ defmodule PairingsEngineWeb.PrintController do
     print_page(conn, tournament.name, "Player cards", cards)
   end
 
+  @doc """
+  `GET /t/:id/print/placecards` — one tent card ("chevalet") per player, for
+  standing on the table at their seat. See `docs/printing.md` "Place cards"
+  for the fold geometry and field-toggle query params
+  (`?title=`/`?rating=`/`?federation=`/`?club=`/`?board=`, each `0`/`1`;
+  name is always shown). Not round-scoped by a 404 the way pairings/results
+  are — `?round=n` (default: latest paired round) only controls whether a
+  board number is available to show; with no paired round at all, cards
+  simply render without one.
+  """
+  def place_cards(conn, %{"id" => id} = params) do
+    tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
+    players = Tournaments.list_players(tournament.id)
+    board_map = place_card_board_map(tournament, params["round"])
+    fields = place_card_fields(params)
+    logo_html = place_card_logo_html(tournament)
+
+    cards =
+      Enum.map_join(players, "", &place_card_page(&1, board_map, fields, logo_html))
+
+    print_page(conn, tournament.name, "Place cards", cards, @place_cards_css)
+  end
+
   def pairing_list(conn, %{"id" => id} = params) do
     tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
     number = parse_round(params["round"]) || 1
@@ -159,7 +318,9 @@ defmodule PairingsEngineWeb.PrintController do
       send_resp(conn, 404, "Round #{number} has not been paired yet")
     else
       rows =
-        Enum.map_join(round.pairings, "", fn p ->
+        round.pairings
+        |> Enum.sort_by(& &1.board)
+        |> Enum.map_join("", fn p ->
           "<tr><td class=\"num\">#{p.board}#{fixed_board_note(p)}</td>" <>
             "<td><strong>#{esc(p.white_player && p.white_player.name)}</strong></td>" <>
             "<td class=\"num\">#{p.white_player && blank_zero(player_rating(p.white_player))}</td>" <>
@@ -171,11 +332,56 @@ defmodule PairingsEngineWeb.PrintController do
       body =
         "<table><thead><tr><th class=\"num\">Board</th><th>White</th><th class=\"num\">Elo</th>" <>
           "<th style=\"text-align:center\">Result</th><th>Black</th><th class=\"num\">Elo</th></tr></thead>" <>
-          "<tbody>#{rows}</tbody></table>"
+          "<tbody>#{rows}</tbody></table>" <>
+          absentees_section(tournament, number, params["absentees"])
 
       print_page(conn, tournament.name, "Pairings — round #{number}", body)
     end
   end
+
+  # `?absentees=1` — off by default per the arbiter's explicit request
+  # ("the absents can be below, don't print them per default, add a
+  # toggle somewhere"): a byes-table row (`"requested-half"`/
+  # `"requested-zero"`/`"absent"` — SWAR-imported or a live round-specific
+  # absence) is DIFFERENT from a pairing-allocated bye (a real `Pairing`
+  # row with `black_player_id: nil, result: "bye"`, already rendered as an
+  # ordinary board row above, unaffected by this toggle). Positioned BELOW
+  # the main pairing table, never interleaved — mirrors the section
+  # PairingsLive/LiveRoundLive/PublicPairingsLive already render (see
+  # `Tournaments.list_byes_for_round/2` and `Standings.bye_points/2`, the
+  # shared query/scoring pattern reused here).
+  defp absentees_section(_tournament, _number, absentees) when absentees not in ["1", "true"],
+    do: ""
+
+  defp absentees_section(tournament, number, _absentees) do
+    byes = Tournaments.list_byes_for_round(tournament.id, number)
+
+    case byes do
+      [] ->
+        ""
+
+      byes ->
+        rows =
+          Enum.map_join(byes, "", fn bye ->
+            points = PairingsEngine.Standings.bye_points(bye.type, tournament)
+
+            "<tr><td>#{esc(bye.player.name)}</td>" <>
+              "<td style=\"text-align:center\">#{esc(bye_type_label(bye.type))} (#{points} pt)</td></tr>"
+          end)
+
+        "<h2 style=\"margin-top:24px\">Absentees</h2>" <>
+          "<table><thead><tr><th>Player</th><th style=\"text-align:center\">Bye</th></tr></thead>" <>
+          "<tbody>#{rows}</tbody></table>"
+    end
+  end
+
+  # Same labels PairingsEngineWeb.PairingsLive uses for a byes-table row's
+  # `type` — distinct from the "bye" badge shown for a pairing-allocated
+  # bye (a real Pairing row), since these never appear in round.pairings.
+  defp bye_type_label("requested-half"), do: "requested half-point bye"
+  defp bye_type_label("requested-zero"), do: "requested zero-point bye"
+  defp bye_type_label("absent"), do: "absent"
+  defp bye_type_label(other), do: other
 
   def standings(conn, %{"id" => id} = params) do
     tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
@@ -196,15 +402,59 @@ defmodule PairingsEngineWeb.PrintController do
             {false, n} -> PairingsEngine.Standings.standings(tournament, through_round: n)
           end
 
+        # Manual ranking (SWAR parity #23) only ever applies to the current
+        # standings (`requested_round == nil`) — a `?round=n` print is a
+        # snapshot of standings *as they honestly stood right after round
+        # n* (see the moduledoc), and today's hand-set arbiter order has no
+        # meaning applied retroactively to a past round's numbers. Not
+        # offered for Keizer either — see docs/manual-standings.md.
+        entries =
+          if not keizer? and requested_round == nil do
+            PairingsEngine.Standings.apply_manual_ranking(entries, tournament)
+          else
+            entries
+          end
+
         label = requested_round || rounds_paired
+
+        manual_banner =
+          if not keizer? and requested_round == nil and tournament.manual_ranking do
+            manual_ranking_banner(tournament, entries)
+          else
+            ""
+          end
 
         print_page(
           conn,
           tournament.name,
           "Standings after round #{label}",
-          standings_body(entries, tournament, keizer?)
+          manual_banner <> standings_body(entries, tournament, keizer?)
         )
     end
+  end
+
+  # Loud, printed banner for the manual-ranking override (SWAR parity #23
+  # requirement 3) — a silent override on a document an arbiter might post
+  # on the wall or hand to a federation is exactly the "indistinguishable
+  # from a tiebreak bug" scenario the feature exists to avoid.
+  defp manual_ranking_banner(tournament, entries) do
+    stale? = PairingsEngine.Standings.manual_ranking_stale?(tournament)
+    incomplete? = PairingsEngine.Standings.manual_ranking_incomplete?(entries)
+
+    stale_note =
+      if stale?,
+        do:
+          " <strong>A result changed since this order was last set — it may no longer match the real standings.</strong>",
+        else: ""
+
+    incomplete_note =
+      if incomplete?,
+        do: " A player was added after this was turned on and has not been placed yet.",
+        else: ""
+
+    "<div style=\"border: 2px solid #000; padding: 8px 12px; margin-bottom: 14px; font-size: 12.5px;\">" <>
+      "<strong>MANUAL RANKING IS ON.</strong> The rank column below is the arbiter's hand-set order, " <>
+      "not the computed tiebreak order.#{incomplete_note}#{stale_note}</div>"
   end
 
   # Tournaments without categories render exactly as before (byte-identical):
@@ -474,7 +724,8 @@ defmodule PairingsEngineWeb.PrintController do
       |> Enum.filter(&(&1.player.pairing_number != nil))
       |> Enum.sort_by(& &1.player.pairing_number)
 
-    col_headers = Enum.map_join(players, "", &"<th class=\"num\">#{&1.player.pairing_number}</th>")
+    col_headers =
+      Enum.map_join(players, "", &"<th class=\"num\">#{&1.player.pairing_number}</th>")
 
     rows =
       Enum.map_join(players, "", fn row_entry ->
@@ -546,7 +797,9 @@ defmodule PairingsEngineWeb.PrintController do
   end
 
   defp result_card_name(nil), do: ""
-  defp result_card_name(player), do: "#{if player.title != "", do: "#{player.title} "}#{player.name}"
+
+  defp result_card_name(player),
+    do: "#{if player.title != "", do: "#{player.title} "}#{player.name}"
 
   defp result_card_sub(nil), do: ""
 

@@ -5,6 +5,9 @@ Swiss pairing via JaVaFo, round robin (Berger), the Keizer system,
 FIDE-compliant tiebreaks (C.07), TRF16 export/import, FIDE + KBSB rating lists,
 SWAR import, per-tournament sharing, and FIDE norm/report forms.
 
+**Start here: [Features & roadmap](features.md)** — a one-page overview of
+everything the app does and what is planned next.
+
 ## Feature guides
 
 - [Pairing systems](pairing-systems.md) — Swiss (FIDE Dutch via JaVaFo),
@@ -18,12 +21,23 @@ SWAR import, per-tournament sharing, and FIDE norm/report forms.
   clubs/federations).
 - [SWAR import](swar-import.md) — .swar parsing, national vs FIDE id mapping,
   FIDE-database matching for players without a FIDE id (with a resolve step
-  during import), full birth dates, federation normalization to FIDE codes.
+  during import), full birth dates, federation normalization to FIDE codes,
+  and SWAR's "3-2-1" configurable scoring (a `TOURNOI_TYPE == 3` file carries
+  its own win/draw/loss/bye point values, stored ×8).
+- [Acceleration](acceleration.md) — Baku accelerated Swiss (FIDE C.04.5): we
+  compute each Group-A player's virtual points per round ourselves and hand
+  JaVaFo the full history via fixed-column `XXA` lines, because JaVaFo does
+  not derive acceleration from a flag on its own.
+- [Manual standings](manual-standings.md) — the arbiter's hand-set standings
+  order: an explicit, per-tournament override mode with a banner on every
+  surface that shows a rank, and a staleness flag raised the moment a result
+  or bye changes. Display-only — never affects points, tiebreaks, or the TRF.
 - [Printing](printing.md) — print documents (player list, cards, pairings,
-  standings, per-round result cards, cross table — Swiss-style plus a
-  players×players grid for round robin), the `?round=N` query param,
-  per-page/per-round print buttons, and the result-card `?limit=N` test print
-  and `?order=stack` stack-cutting imposition.
+  standings, per-round result cards, place cards/chevalets, cross table —
+  Swiss-style plus a players×players grid for round robin), the `?round=N`
+  query param, per-page/per-round print buttons, the result-card `?limit=N`
+  test print and `?order=stack` stack-cutting imposition, and the
+  per-tournament logo (uploaded in Settings, stored as a DB blob).
 - [TRF import](trf-import.md) — one-step `.trf` upload creating a complete new
   tournament (players, rounds, results, byes, officials, round dates); points
   are recomputed and cross-checked against the file's own points column.

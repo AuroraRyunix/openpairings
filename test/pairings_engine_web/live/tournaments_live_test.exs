@@ -277,6 +277,10 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
       {:error, {:live_redirect, %{to: to}}} =
         lv |> form("#swar-resolve-form", %{}) |> render_submit()
 
+      # A successful SWAR import lands on the Players page (to review/
+      # resolve players), not Standings — see `commit_swar/3`.
+      assert to =~ ~r{/players$}
+
       tournament_id = to |> String.split("/") |> Enum.at(2) |> String.to_integer()
       players = Tournaments.list_players(tournament_id)
       ashrafi = Enum.find(players, &(&1.name == "Ashrafi, Sulaiman Ahmad"))

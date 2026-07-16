@@ -10,7 +10,7 @@ defmodule PairingsEngineWeb.PublicPairingsLive do
 
   use PairingsEngineWeb, :live_view
 
-  alias PairingsEngine.Tournaments
+  alias PairingsEngine.{Tournaments, Standings}
   alias PairingsEngine.Pairing, as: Engine
 
   @result_labels %{
@@ -51,7 +51,8 @@ defmodule PairingsEngineWeb.PublicPairingsLive do
 
     assign(socket,
       round_number: paired,
-      round: paired > 0 && Tournaments.get_round(tournament.id, paired)
+      round: paired > 0 && Tournaments.get_round(tournament.id, paired),
+      round_byes: if(paired > 0, do: Tournaments.list_byes_for_round(tournament.id, paired), else: [])
     )
   end
 
@@ -65,6 +66,19 @@ defmodule PairingsEngineWeb.PublicPairingsLive do
   end
 
   defp result_label(result), do: Map.get(@result_labels, result, result)
+
+  # A round's pairings preload in whatever order the DB/JaVaFo output them,
+  # not board order — sort ascending by board so the table reads "Board 1,
+  # Board 2, ..." top to bottom like a real pairing sheet.
+  defp board_sorted(pairings), do: Enum.sort_by(pairings, & &1.board)
+
+  # Label for a byes-table row's `type` — distinct from the "bye" badge
+  # shown for a pairing-allocated bye (a real Pairing row), since these
+  # never appear in round.pairings (see Tournaments.list_byes_for_round/2).
+  defp bye_type_label("requested-half"), do: "requested half-point bye"
+  defp bye_type_label("requested-zero"), do: "requested zero-point bye"
+  defp bye_type_label("absent"), do: "absent"
+  defp bye_type_label(other), do: other
 
   @impl true
   def render(assigns) do
@@ -103,7 +117,7 @@ defmodule PairingsEngineWeb.PublicPairingsLive do
               </tr>
             </thead>
             <tbody>
-              <tr :for={pairing <- @round.pairings}>
+              <tr :for={pairing <- board_sorted(@round.pairings)}>
                 <td class="num">{pairing.board}</td>
                 <td><strong>{player_label(pairing.white_player)}</strong></td>
                 <td style="text-align: center">
@@ -117,6 +131,29 @@ defmodule PairingsEngineWeb.PublicPairingsLive do
                   <% end %>
                 </td>
                 <td>{player_label(pairing.black_player)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div :if={@round_byes != []} class="card table-card" style="margin-top: 16px">
+          <table class="pe-table">
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th style="text-align: center; width: 220px">Bye</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              <tr :for={bye <- @round_byes}>
+                <td>{player_label(bye.player)}</td>
+
+                <td style="text-align: center">
+                  <span class="badge">
+                    {bye_type_label(bye.type)} ({Standings.bye_points(bye.type, @tournament)} pt)
+                  </span>
+                </td>
               </tr>
             </tbody>
           </table>

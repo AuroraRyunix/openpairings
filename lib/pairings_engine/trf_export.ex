@@ -36,6 +36,19 @@ defmodule PairingsEngine.TrfExport do
     e in ValidationError -> {:error, e}
   end
 
+  # SWAR parity #23 (manual standings override) is deliberately NOT
+  # surfaced in this file — see docs/manual-standings.md for the full
+  # reasoning. In short: the FIDE "086-089 Rank" column and the "005-008
+  # Starting rank" column both carry `pairing_number` in this codebase (see
+  # `Pairing.trf_player_rows/2`), and every game's opponent cross-reference
+  # is baked against that same value — rewriting it per player to the
+  # standings rank would desync those references and fail
+  # `Trf.serialize/1`'s own cross-check, so this doesn't touch it. There is
+  # therefore no hidden override to disclose in this file at all: the TRF's
+  # rank column was never affected by manual ranking in the first place.
+  # The UI (the page offering this download) carries the caveat instead —
+  # see `PairingsEngineWeb.PairingsLive`.
+
   @doc """
   Parses a `rounds` query-param string into a sorted, deduped list of round
   numbers clamped to `1..max_round`.
@@ -62,7 +75,9 @@ defmodule PairingsEngine.TrfExport do
     if rounds == [], do: all_rounds(max_round), else: rounds
   end
 
-  defp all_rounds(max_round) when is_integer(max_round) and max_round > 0, do: Enum.to_list(1..max_round)
+  defp all_rounds(max_round) when is_integer(max_round) and max_round > 0,
+    do: Enum.to_list(1..max_round)
+
   defp all_rounds(_), do: []
 
   defp parse_token(token, max_round) do

@@ -23,7 +23,8 @@ Download it from https://www.rrweb.org/javafo/ and save it as
 
 ## Documentation
 
-Feature guides live in [`docs/`](docs/README.md).
+The full [feature list & roadmap](docs/features.md) is one page; per-feature
+guides live in [`docs/`](docs/README.md).
 
 ## History
 

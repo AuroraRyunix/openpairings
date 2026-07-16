@@ -53,31 +53,44 @@ defmodule PairingsEngine.TournamentsTest do
       refute Repo.get(Round, round.id)
       refute Repo.get(Pairing, pairing.id)
 
-      assert Repo.all(
-               from b in "byes", where: b.tournament_id == ^tournament.id, select: b.id
-             ) == []
+      assert Repo.all(from b in "byes", where: b.tournament_id == ^tournament.id, select: b.id) ==
+               []
     end
   end
 
   describe "recycle bin (soft delete, 3-month retention)" do
     test "soft_delete_tournament/1 sets deleted_at and removes it from list_tournaments/1" do
       owner = user_scope()
-      {:ok, tournament} = Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+
+      {:ok, tournament} =
+        Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
 
       assert {:ok, deleted} = Tournaments.soft_delete_tournament(tournament)
       assert %DateTime{} = deleted.deleted_at
 
-      refute Enum.any?(Tournaments.list_tournaments(owner), fn {t, _count, _owner?} -> t.id == tournament.id end)
+      refute Enum.any?(Tournaments.list_tournaments(owner), fn {t, _count, _owner?} ->
+               t.id == tournament.id
+             end)
     end
 
     test "a binned tournament is not viewable through the normal fetch paths, but shows up in list_deleted_tournaments/1" do
       owner = user_scope()
-      {:ok, tournament} = Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+
+      {:ok, tournament} =
+        Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+
       {:ok, _} = Tournaments.soft_delete_tournament(tournament)
 
-      assert_raise Ecto.NoResultsError, fn -> Tournaments.get_user_tournament!(owner, tournament.id) end
+      assert_raise Ecto.NoResultsError, fn ->
+        Tournaments.get_user_tournament!(owner, tournament.id)
+      end
+
       assert Tournaments.get_user_tournament(owner, tournament.id) == nil
-      assert_raise Ecto.NoResultsError, fn -> Tournaments.get_authorized_tournament!(owner, tournament.id) end
+
+      assert_raise Ecto.NoResultsError, fn ->
+        Tournaments.get_authorized_tournament!(owner, tournament.id)
+      end
+
       assert Tournaments.get_authorized_tournament(owner, tournament.id) == nil
       assert_raise Ecto.NoResultsError, fn -> Tournaments.get_tournament!(tournament.id) end
 
@@ -87,19 +100,28 @@ defmodule PairingsEngine.TournamentsTest do
 
     test "restore_tournament/1 clears deleted_at and brings it back into list_tournaments/1" do
       owner = user_scope()
-      {:ok, tournament} = Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+
+      {:ok, tournament} =
+        Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+
       {:ok, binned} = Tournaments.soft_delete_tournament(tournament)
 
       assert {:ok, restored} = Tournaments.restore_tournament(binned)
       assert restored.deleted_at == nil
 
-      assert Enum.any?(Tournaments.list_tournaments(owner), fn {t, _count, _owner?} -> t.id == tournament.id end)
+      assert Enum.any?(Tournaments.list_tournaments(owner), fn {t, _count, _owner?} ->
+               t.id == tournament.id
+             end)
+
       assert Tournaments.list_deleted_tournaments(owner) == []
     end
 
     test "purge_tournament/1 hard-deletes the row" do
       owner = user_scope()
-      {:ok, tournament} = Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+
+      {:ok, tournament} =
+        Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+
       {:ok, binned} = Tournaments.soft_delete_tournament(tournament)
 
       assert {:ok, _} = Tournaments.purge_tournament(binned)
@@ -109,14 +131,20 @@ defmodule PairingsEngine.TournamentsTest do
     test "purge_expired_tournaments/0 purges rows binned over 90 days ago but keeps recent ones" do
       owner = user_scope()
       {:ok, old} = Tournaments.create_tournament(owner, %{"name" => "Old", "type" => "swiss"})
-      {:ok, recent} = Tournaments.create_tournament(owner, %{"name" => "Recent", "type" => "swiss"})
+
+      {:ok, recent} =
+        Tournaments.create_tournament(owner, %{"name" => "Recent", "type" => "swiss"})
 
       old
-      |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.add(-100, :day) |> DateTime.truncate(:second))
+      |> Ecto.Changeset.change(
+        deleted_at: DateTime.utc_now() |> DateTime.add(-100, :day) |> DateTime.truncate(:second)
+      )
       |> Repo.update!()
 
       recent
-      |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.add(-10, :day) |> DateTime.truncate(:second))
+      |> Ecto.Changeset.change(
+        deleted_at: DateTime.utc_now() |> DateTime.add(-10, :day) |> DateTime.truncate(:second)
+      )
       |> Repo.update!()
 
       assert Tournaments.purge_expired_tournaments() == 1
@@ -184,13 +212,16 @@ defmodule PairingsEngine.TournamentsTest do
 
   describe "refresh_status!/1" do
     test "a tournament with no paired rounds stays \"setup\"" do
-      tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 2, status: "setup"})
+      tournament =
+        Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 2, status: "setup"})
 
       assert Tournaments.refresh_status!(tournament).status == "setup"
     end
 
     test "at least one paired round, not fully scored/paired -> \"running\"" do
-      tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 2, status: "setup"})
+      tournament =
+        Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 2, status: "setup"})
+
       white = Repo.insert!(%Player{tournament_id: tournament.id, name: "White"})
       black = Repo.insert!(%Player{tournament_id: tournament.id, name: "Black"})
       round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
@@ -208,7 +239,9 @@ defmodule PairingsEngine.TournamentsTest do
     end
 
     test "rounds_count rounds paired and every pairing scored -> \"finished\"" do
-      tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 1, status: "setup"})
+      tournament =
+        Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 1, status: "setup"})
+
       white = Repo.insert!(%Player{tournament_id: tournament.id, name: "White"})
       black = Repo.insert!(%Player{tournament_id: tournament.id, name: "Black"})
       round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
@@ -229,25 +262,36 @@ defmodule PairingsEngine.TournamentsTest do
     # non-blank — so a round made up entirely of a pairing-allocated bye
     # still counts as fully scored.
     test "a pairing-allocated bye (result \"bye\") counts as scored, not missing" do
-      tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 1, status: "setup"})
+      tournament =
+        Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 1, status: "setup"})
+
       white = Repo.insert!(%Player{tournament_id: tournament.id, name: "White"})
       round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
 
-      Repo.insert!(%Pairing{round_id: round.id, board: 1, white_player_id: white.id, black_player_id: nil, result: "bye"})
+      Repo.insert!(%Pairing{
+        round_id: round.id,
+        board: 1,
+        white_player_id: white.id,
+        black_player_id: nil,
+        result: "bye"
+      })
 
       updated = Tournaments.refresh_status!(tournament)
       assert updated.status == "finished"
     end
 
     test "accepts a tournament id as well as a struct, and is a no-op (no error) for a deleted id" do
-      tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 2, status: "setup"})
+      tournament =
+        Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 2, status: "setup"})
 
       assert Tournaments.refresh_status!(tournament.id).status == "setup"
       assert Tournaments.refresh_status!(-1) == nil
     end
 
     test "only broadcasts :tournament when the status actually changes" do
-      tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 2, status: "setup"})
+      tournament =
+        Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 2, status: "setup"})
+
       Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
 
       Tournaments.refresh_status!(tournament)
@@ -276,22 +320,34 @@ defmodule PairingsEngine.TournamentsTest do
       %{scope: user_scope()}
     end
 
-    test "create_tournament/2 broadcasts on the owning user's tournament-list topic", %{scope: scope} do
-      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.user_tournaments_topic(scope.user.id))
+    test "create_tournament/2 broadcasts on the owning user's tournament-list topic", %{
+      scope: scope
+    } do
+      Phoenix.PubSub.subscribe(
+        PairingsEngine.PubSub,
+        Tournaments.user_tournaments_topic(scope.user.id)
+      )
 
-      assert {:ok, _tournament} = Tournaments.create_tournament(scope, %{"name" => "T", "type" => "swiss"})
+      assert {:ok, _tournament} =
+               Tournaments.create_tournament(scope, %{"name" => "T", "type" => "swiss"})
 
       user_id = scope.user.id
       assert_receive {:tournaments_changed, ^user_id}
     end
 
-    test "update_tournament/2 broadcasts :settings on the tournament topic and on the user's list", %{
-      scope: scope
-    } do
-      {:ok, tournament} = Tournaments.create_tournament(scope, %{"name" => "T", "type" => "swiss"})
+    test "update_tournament/2 broadcasts :settings on the tournament topic and on the user's list",
+         %{
+           scope: scope
+         } do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "T", "type" => "swiss"})
 
       Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
-      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.user_tournaments_topic(scope.user.id))
+
+      Phoenix.PubSub.subscribe(
+        PairingsEngine.PubSub,
+        Tournaments.user_tournaments_topic(scope.user.id)
+      )
 
       assert {:ok, _updated} = Tournaments.update_tournament(tournament, %{"name" => "T2"})
 
@@ -302,18 +358,27 @@ defmodule PairingsEngine.TournamentsTest do
     end
 
     test "update_tournament/2 does not broadcast on an invalid changeset", %{scope: scope} do
-      {:ok, tournament} = Tournaments.create_tournament(scope, %{"name" => "T", "type" => "swiss"})
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "T", "type" => "swiss"})
+
       Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
 
       assert {:error, _changeset} = Tournaments.update_tournament(tournament, %{"name" => ""})
       refute_receive {:tournament_changed, _, _}
     end
 
-    test "delete_tournament/1 broadcasts on both the tournament topic and the user's list", %{scope: scope} do
-      {:ok, tournament} = Tournaments.create_tournament(scope, %{"name" => "T", "type" => "swiss"})
+    test "delete_tournament/1 broadcasts on both the tournament topic and the user's list", %{
+      scope: scope
+    } do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "T", "type" => "swiss"})
 
       Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
-      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.user_tournaments_topic(scope.user.id))
+
+      Phoenix.PubSub.subscribe(
+        PairingsEngine.PubSub,
+        Tournaments.user_tournaments_topic(scope.user.id)
+      )
 
       assert {:ok, _} = Tournaments.delete_tournament(tournament)
 
@@ -323,8 +388,12 @@ defmodule PairingsEngine.TournamentsTest do
       assert_receive {:tournaments_changed, ^user_id}
     end
 
-    test "create_player/2, update_player/2 and delete_player/1 each broadcast :players", %{scope: scope} do
-      {:ok, tournament} = Tournaments.create_tournament(scope, %{"name" => "T", "type" => "swiss"})
+    test "create_player/2, update_player/2 and delete_player/1 each broadcast :players", %{
+      scope: scope
+    } do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "T", "type" => "swiss"})
+
       Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
       tid = tournament.id
 
@@ -341,8 +410,11 @@ defmodule PairingsEngine.TournamentsTest do
     test "create_player/2 does not broadcast on a duplicate FIDE id or an invalid changeset", %{
       scope: scope
     } do
-      {:ok, tournament} = Tournaments.create_tournament(scope, %{"name" => "T", "type" => "swiss"})
-      {:ok, _} = Tournaments.create_player(tournament.id, %{"name" => "Alice", "fide_id" => "123"})
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "T", "type" => "swiss"})
+
+      {:ok, _} =
+        Tournaments.create_player(tournament.id, %{"name" => "Alice", "fide_id" => "123"})
 
       Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
 
@@ -354,8 +426,12 @@ defmodule PairingsEngine.TournamentsTest do
       refute_receive {:tournament_changed, _, _}
     end
 
-    test "update_pairing_result/2 broadcasts :results on the pairing's tournament topic", %{scope: scope} do
-      {:ok, tournament} = Tournaments.create_tournament(scope, %{"name" => "T", "type" => "swiss"})
+    test "update_pairing_result/2 broadcasts :results on the pairing's tournament topic", %{
+      scope: scope
+    } do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "T", "type" => "swiss"})
+
       {:ok, white} = Tournaments.create_player(tournament.id, %{"name" => "White"})
       {:ok, black} = Tournaments.create_player(tournament.id, %{"name" => "Black"})
 
@@ -379,7 +455,9 @@ defmodule PairingsEngine.TournamentsTest do
     end
 
     test "with_broadcast_suppressed/1 prevents nested writes from broadcasting", %{scope: scope} do
-      {:ok, tournament} = Tournaments.create_tournament(scope, %{"name" => "T", "type" => "swiss"})
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "T", "type" => "swiss"})
+
       Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
 
       Tournaments.with_broadcast_suppressed(fn ->
@@ -402,7 +480,9 @@ defmodule PairingsEngine.TournamentsTest do
     test "add_collaborator/3 creates a pending invite, links user_id as a courtesy when the email belongs to an existing user, and emails an invitation" do
       owner = user_scope()
       collaborator_scope = user_scope()
-      {:ok, tournament} = Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+
+      {:ok, tournament} =
+        Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
 
       assert {:ok, collaborator} =
                Tournaments.add_collaborator(owner, tournament, collaborator_scope.user.email)
@@ -421,7 +501,9 @@ defmodule PairingsEngine.TournamentsTest do
 
     test "add_collaborator/3 leaves user_id nil (pending) when no user has that email yet" do
       owner = user_scope()
-      {:ok, tournament} = Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+
+      {:ok, tournament} =
+        Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
 
       assert {:ok, collaborator} =
                Tournaments.add_collaborator(owner, tournament, "Not-Yet-Registered@Example.com")
@@ -433,32 +515,45 @@ defmodule PairingsEngine.TournamentsTest do
 
     test "add_collaborator/3 rejects the owner's own email" do
       owner = user_scope()
-      {:ok, tournament} = Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
 
-      assert {:error, :cannot_add_owner} = Tournaments.add_collaborator(owner, tournament, owner.user.email)
+      {:ok, tournament} =
+        Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+
+      assert {:error, :cannot_add_owner} =
+               Tournaments.add_collaborator(owner, tournament, owner.user.email)
     end
 
     test "add_collaborator/3 rejects a blank email and a duplicate email gracefully" do
       owner = user_scope()
-      {:ok, tournament} = Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+
+      {:ok, tournament} =
+        Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
 
       assert {:error, :blank_email} = Tournaments.add_collaborator(owner, tournament, "  ")
       assert {:ok, _} = Tournaments.add_collaborator(owner, tournament, "friend@example.com")
-      assert {:error, :already_added} = Tournaments.add_collaborator(owner, tournament, "Friend@Example.com")
+
+      assert {:error, :already_added} =
+               Tournaments.add_collaborator(owner, tournament, "Friend@Example.com")
     end
 
     test "add_collaborator/3 is owner-only" do
       owner = user_scope()
       not_owner = user_scope()
-      {:ok, tournament} = Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
 
-      assert {:error, :not_owner} = Tournaments.add_collaborator(not_owner, tournament, "someone@example.com")
+      {:ok, tournament} =
+        Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+
+      assert {:error, :not_owner} =
+               Tournaments.add_collaborator(not_owner, tournament, "someone@example.com")
     end
 
     test "remove_collaborator/3 removes a collaborator (pending or accepted) and is owner-only" do
       owner = user_scope()
       not_owner = user_scope()
-      {:ok, tournament} = Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+
+      {:ok, tournament} =
+        Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+
       {:ok, collaborator} = Tournaments.add_collaborator(owner, tournament, "friend@example.com")
 
       assert {:error, :not_owner} =
@@ -474,7 +569,9 @@ defmodule PairingsEngine.TournamentsTest do
       pending_email = "pending-#{System.unique_integer([:positive])}@example.com"
       stranger = user_scope()
 
-      {:ok, tournament} = Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+      {:ok, tournament} =
+        Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+
       {:ok, _} = Tournaments.add_collaborator(owner, tournament, invited.user.email)
       {:ok, _} = Tournaments.add_collaborator(owner, tournament, pending_email)
 
@@ -497,7 +594,10 @@ defmodule PairingsEngine.TournamentsTest do
     test "get_user_tournament!/2 stays owner-only — an (even accepted) collaborator does not satisfy it" do
       owner = user_scope()
       collaborator = user_scope()
-      {:ok, tournament} = Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+
+      {:ok, tournament} =
+        Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+
       {:ok, invite} = Tournaments.add_collaborator(owner, tournament, collaborator.user.email)
       assert {:ok, _} = Tournaments.accept_invitation(collaborator, invite.invite_token)
 
@@ -512,10 +612,15 @@ defmodule PairingsEngine.TournamentsTest do
       owner = user_scope()
       collaborator = user_scope()
       {:ok, owned} = Tournaments.create_tournament(owner, %{"name" => "Owned", "type" => "swiss"})
-      {:ok, shared} = Tournaments.create_tournament(owner, %{"name" => "Shared", "type" => "swiss"})
+
+      {:ok, shared} =
+        Tournaments.create_tournament(owner, %{"name" => "Shared", "type" => "swiss"})
+
       {:ok, invite} = Tournaments.add_collaborator(owner, shared, collaborator.user.email)
 
-      refute Enum.any?(Tournaments.list_tournaments(collaborator), fn {t, _count, _owner?} -> t.id == shared.id end)
+      refute Enum.any?(Tournaments.list_tournaments(collaborator), fn {t, _count, _owner?} ->
+               t.id == shared.id
+             end)
 
       assert {:ok, _} = Tournaments.accept_invitation(collaborator, invite.invite_token)
 
@@ -526,14 +631,19 @@ defmodule PairingsEngine.TournamentsTest do
       refute Enum.any?(ids_and_ownership, fn {id, _} -> id == owned.id end)
 
       owner_results = Tournaments.list_tournaments(owner)
-      owner_ids_and_ownership = Enum.map(owner_results, fn {t, _count, owner?} -> {t.id, owner?} end)
+
+      owner_ids_and_ownership =
+        Enum.map(owner_results, fn {t, _count, owner?} -> {t.id, owner?} end)
+
       assert {owned.id, true} in owner_ids_and_ownership
       assert {shared.id, true} in owner_ids_and_ownership
     end
 
     test "link_pending_collaborators/1 links pending rows by email, idempotently, but still does not grant access on its own" do
       owner = user_scope()
-      {:ok, tournament} = Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+
+      {:ok, tournament} =
+        Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
 
       # Add the collaborator by email *before* any account with that email
       # exists — this is the "pending invite" case add_collaborator/3 itself
@@ -561,7 +671,9 @@ defmodule PairingsEngine.TournamentsTest do
 
       # Linking backfills user_id for tidiness/lookup purposes only — it does
       # NOT grant access. The invite is still pending.
-      refute Enum.any?(Tournaments.list_tournaments(new_scope), fn {t, _count, _owner?} -> t.id == tournament.id end)
+      refute Enum.any?(Tournaments.list_tournaments(new_scope), fn {t, _count, _owner?} ->
+               t.id == tournament.id
+             end)
 
       # Idempotent — calling again does nothing further.
       assert :ok = Tournaments.link_pending_collaborators(new_user)
@@ -573,10 +685,15 @@ defmodule PairingsEngine.TournamentsTest do
       owner = user_scope()
       invitee = user_scope()
       stranger = user_scope()
-      {:ok, tournament} = Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+
+      {:ok, tournament} =
+        Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+
       {:ok, invite} = Tournaments.add_collaborator(owner, tournament, invitee.user.email)
 
-      assert {:error, :email_mismatch} = Tournaments.accept_invitation(stranger, invite.invite_token)
+      assert {:error, :email_mismatch} =
+               Tournaments.accept_invitation(stranger, invite.invite_token)
+
       assert Tournaments.get_authorized_tournament(stranger, tournament.id) == nil
 
       assert {:ok, accepted} = Tournaments.accept_invitation(invitee, invite.invite_token)
@@ -594,7 +711,10 @@ defmodule PairingsEngine.TournamentsTest do
     test "accept_invitation/2 also works by collaborator id" do
       owner = user_scope()
       invitee = user_scope()
-      {:ok, tournament} = Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+
+      {:ok, tournament} =
+        Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+
       {:ok, invite} = Tournaments.add_collaborator(owner, tournament, invitee.user.email)
 
       assert {:ok, accepted} = Tournaments.accept_invitation(invitee, invite.id)
@@ -605,10 +725,15 @@ defmodule PairingsEngine.TournamentsTest do
       owner = user_scope()
       invitee = user_scope()
       stranger = user_scope()
-      {:ok, tournament} = Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+
+      {:ok, tournament} =
+        Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+
       {:ok, invite} = Tournaments.add_collaborator(owner, tournament, invitee.user.email)
 
-      assert {:error, :email_mismatch} = Tournaments.decline_invitation(stranger, invite.invite_token)
+      assert {:error, :email_mismatch} =
+               Tournaments.decline_invitation(stranger, invite.invite_token)
+
       assert Tournaments.list_collaborators(tournament) != []
 
       assert {:ok, _} = Tournaments.decline_invitation(invitee, invite.invite_token)
@@ -620,11 +745,17 @@ defmodule PairingsEngine.TournamentsTest do
     test "list_pending_invitations/1 returns invites matched by user_id or by email, not accepted ones" do
       owner = user_scope()
       invitee = user_scope()
-      {:ok, tournament} = Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
-      {:ok, other_tournament} = Tournaments.create_tournament(owner, %{"name" => "T2", "type" => "swiss"})
+
+      {:ok, tournament} =
+        Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+
+      {:ok, other_tournament} =
+        Tournaments.create_tournament(owner, %{"name" => "T2", "type" => "swiss"})
 
       {:ok, _} = Tournaments.add_collaborator(owner, tournament, invitee.user.email)
-      {:ok, other_invite} = Tournaments.add_collaborator(owner, other_tournament, invitee.user.email)
+
+      {:ok, other_invite} =
+        Tournaments.add_collaborator(owner, other_tournament, invitee.user.email)
 
       assert [_, _] = Tournaments.list_pending_invitations(invitee)
 
@@ -638,7 +769,10 @@ defmodule PairingsEngine.TournamentsTest do
     test "the owner can revoke a still-pending invite" do
       owner = user_scope()
       invitee = user_scope()
-      {:ok, tournament} = Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+
+      {:ok, tournament} =
+        Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
+
       {:ok, invite} = Tournaments.add_collaborator(owner, tournament, invitee.user.email)
 
       assert {:ok, _} = Tournaments.remove_collaborator(owner, tournament, invite.id)
@@ -675,7 +809,10 @@ defmodule PairingsEngine.TournamentsTest do
       assert Tournaments.list_forbidden_pairings(t.id) == []
     end
 
-    test "add_forbidden_pairing/3 rejects a player who doesn't belong to this tournament", %{tournament: t, a: a} do
+    test "add_forbidden_pairing/3 rejects a player who doesn't belong to this tournament", %{
+      tournament: t,
+      a: a
+    } do
       other = Repo.insert!(%Tournament{name: "Other", type: "swiss", rounds_count: 3})
       stranger = Repo.insert!(%Player{tournament_id: other.id, name: "Stranger"})
 
@@ -684,7 +821,11 @@ defmodule PairingsEngine.TournamentsTest do
       assert Tournaments.list_forbidden_pairings(t.id) == []
     end
 
-    test "add_forbidden_pairing/3 rejects a duplicate pair regardless of order", %{tournament: t, a: a, b: b} do
+    test "add_forbidden_pairing/3 rejects a duplicate pair regardless of order", %{
+      tournament: t,
+      a: a,
+      b: b
+    } do
       assert {:ok, _} = Tournaments.add_forbidden_pairing(t, a.id, b.id)
       assert {:error, :already_forbidden} = Tournaments.add_forbidden_pairing(t, a.id, b.id)
       assert {:error, :already_forbidden} = Tournaments.add_forbidden_pairing(t, b.id, a.id)
@@ -745,26 +886,36 @@ defmodule PairingsEngine.TournamentsTest do
     test "rejects a negative threshold or negative bonus" do
       tournament = Repo.insert!(%Tournament{name: "Negative", type: "swiss", rounds_count: 3})
 
-      assert {:error, _} = Tournaments.update_tournament(tournament, %{"extra_points_bands" => "-100:1"})
-      assert {:error, _} = Tournaments.update_tournament(tournament, %{"extra_points_bands" => "1400:-1"})
+      assert {:error, _} =
+               Tournaments.update_tournament(tournament, %{"extra_points_bands" => "-100:1"})
+
+      assert {:error, _} =
+               Tournaments.update_tournament(tournament, %{"extra_points_bands" => "1400:-1"})
     end
 
     test "blank extra_points_bands is valid" do
       tournament = Repo.insert!(%Tournament{name: "Blank", type: "swiss", rounds_count: 3})
-      assert {:ok, updated} = Tournaments.update_tournament(tournament, %{"extra_points_bands" => "  "})
+
+      assert {:ok, updated} =
+               Tournaments.update_tournament(tournament, %{"extra_points_bands" => "  "})
+
       assert updated.extra_points_bands == ""
     end
 
     test "count_extra_points can be toggled on" do
       tournament = Repo.insert!(%Tournament{name: "Toggle", type: "swiss", rounds_count: 3})
-      assert {:ok, updated} = Tournaments.update_tournament(tournament, %{"count_extra_points" => true})
+
+      assert {:ok, updated} =
+               Tournaments.update_tournament(tournament, %{"count_extra_points" => true})
+
       assert updated.count_extra_points == true
     end
   end
 
   describe "Tournament.parse_extra_points_bands/1 and band_extra_points/2" do
     test "parses a well-formed bands string into sorted-by-input {threshold, bonus} pairs" do
-      assert {:ok, [{1600, 0.5}, {1400, 1.0}]} = Tournament.parse_extra_points_bands("1600:0.5, 1400:1")
+      assert {:ok, [{1600, 0.5}, {1400, 1.0}]} =
+               Tournament.parse_extra_points_bands("1600:0.5, 1400:1")
     end
 
     test "blank/nil input parses to an empty list" do
@@ -817,7 +968,15 @@ defmodule PairingsEngine.TournamentsTest do
 
       low = Repo.insert!(%Player{tournament_id: tournament.id, name: "Low", fide_rating: 1300})
       mid = Repo.insert!(%Player{tournament_id: tournament.id, name: "Mid", fide_rating: 1550})
-      high = Repo.insert!(%Player{tournament_id: tournament.id, name: "High", fide_rating: 2000, extra_points: 2.0})
+
+      high =
+        Repo.insert!(%Player{
+          tournament_id: tournament.id,
+          name: "High",
+          fide_rating: 2000,
+          extra_points: 2.0
+        })
+
       unrated = Repo.insert!(%Player{tournament_id: tournament.id, name: "Unrated"})
 
       %{tournament: tournament, low: low, mid: mid, high: high, unrated: unrated}
@@ -846,10 +1005,352 @@ defmodule PairingsEngine.TournamentsTest do
 
     test "with no bands configured, applying sets everyone to 0.0" do
       tournament = Repo.insert!(%Tournament{name: "No Bands", type: "swiss", rounds_count: 3})
-      p = Repo.insert!(%Player{tournament_id: tournament.id, name: "P", fide_rating: 1000, extra_points: 3.0})
+
+      p =
+        Repo.insert!(%Player{
+          tournament_id: tournament.id,
+          name: "P",
+          fide_rating: 1000,
+          extra_points: 3.0
+        })
 
       assert {:ok, %{matched: 0, total: 1}} = Tournaments.apply_extra_points_bands(tournament)
       assert Repo.reload!(p).extra_points == 0.0
+    end
+  end
+
+  ## ---------- Manual standings override (SWAR parity #23) ----------
+
+  describe "enable_manual_ranking/1" do
+    # Full round robin over 3 rounds so every player ends on a distinct
+    # score, and the computed order is unambiguously A(3) > B(2) > C(1) > D(0):
+    #   R1: A beats D, B beats C
+    #   R2: A beats C, B beats D
+    #   R3: A beats B, C beats D
+    defp manual_ranking_fixture do
+      tournament =
+        Repo.insert!(%Tournament{name: "Manual Ranking Test", type: "swiss", rounds_count: 3})
+
+      [a, b, c, d] =
+        for {name, rating} <- [{"A", 2000}, {"B", 1800}, {"C", 1700}, {"D", 1600}] do
+          Repo.insert!(%Player{tournament_id: tournament.id, name: name, fide_rating: rating})
+        end
+
+      r1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
+      r2 = Repo.insert!(%Round{tournament_id: tournament.id, number: 2, status: "finished"})
+      r3 = Repo.insert!(%Round{tournament_id: tournament.id, number: 3, status: "finished"})
+
+      pairing1 =
+        Repo.insert!(%Pairing{
+          round_id: r1.id,
+          board: 1,
+          white_player_id: a.id,
+          black_player_id: d.id,
+          result: "1-0"
+        })
+
+      Repo.insert!(%Pairing{
+        round_id: r1.id,
+        board: 2,
+        white_player_id: b.id,
+        black_player_id: c.id,
+        result: "1-0"
+      })
+
+      Repo.insert!(%Pairing{
+        round_id: r2.id,
+        board: 1,
+        white_player_id: a.id,
+        black_player_id: c.id,
+        result: "1-0"
+      })
+
+      Repo.insert!(%Pairing{
+        round_id: r2.id,
+        board: 2,
+        white_player_id: b.id,
+        black_player_id: d.id,
+        result: "1-0"
+      })
+
+      Repo.insert!(%Pairing{
+        round_id: r3.id,
+        board: 1,
+        white_player_id: a.id,
+        black_player_id: b.id,
+        result: "1-0"
+      })
+
+      Repo.insert!(%Pairing{
+        round_id: r3.id,
+        board: 2,
+        white_player_id: c.id,
+        black_player_id: d.id,
+        result: "1-0"
+      })
+
+      %{tournament: tournament, a: a, b: b, c: c, d: d, pairing1: pairing1}
+    end
+
+    test "sets the flag and seeds every player's manual_rank from the computed standings order" do
+      %{tournament: tournament, a: a, b: b} = manual_ranking_fixture()
+
+      assert {:ok, updated} = Tournaments.enable_manual_ranking(tournament)
+      assert updated.manual_ranking
+
+      assert Repo.reload!(a).manual_rank == 1
+      assert Repo.reload!(b).manual_rank == 2
+      # C and D are tied on points; both still get a distinct, positive seed.
+      ranks = for p <- [a, b], do: Repo.reload!(p).manual_rank
+      assert Enum.all?(ranks, &(&1 > 0))
+    end
+
+    test "is idempotent — calling it again re-seeds fresh from the current order" do
+      %{tournament: tournament, a: a} = manual_ranking_fixture()
+
+      {:ok, tournament} = Tournaments.enable_manual_ranking(tournament)
+      Tournaments.move_manual_rank(tournament, Repo.reload!(a), :down)
+      refute Repo.reload!(a).manual_rank == 1
+
+      {:ok, _} = Tournaments.enable_manual_ranking(tournament)
+      assert Repo.reload!(a).manual_rank == 1
+    end
+  end
+
+  describe "disable_manual_ranking/1" do
+    test "clears the flag but leaves manual_rank values in place" do
+      %{tournament: tournament, a: a} = manual_ranking_fixture()
+      {:ok, tournament} = Tournaments.enable_manual_ranking(tournament)
+
+      assert {:ok, updated} = Tournaments.disable_manual_ranking(tournament)
+      refute updated.manual_ranking
+      assert Repo.reload!(a).manual_rank == 1
+    end
+  end
+
+  describe "reseed_manual_ranking/1" do
+    test "re-seeds fresh (positive) values from the current computed order, clearing staleness" do
+      %{tournament: tournament, pairing1: pairing1, a: a} = manual_ranking_fixture()
+      {:ok, tournament} = Tournaments.enable_manual_ranking(tournament)
+
+      # A result changes -> stale.
+      Tournaments.update_pairing_result(pairing1, "0-1")
+      assert Repo.reload!(tournament).manual_ranking_stale
+
+      assert {:ok, reseeded} = Tournaments.reseed_manual_ranking(tournament)
+      refute reseeded.manual_ranking_stale
+      refute Repo.reload!(tournament).manual_ranking_stale
+      assert Repo.reload!(a).manual_rank > 0
+    end
+  end
+
+  describe "move_manual_rank/3" do
+    test "swaps a player with its neighbour and renumbers the whole list 1..N" do
+      %{tournament: tournament, a: a, b: b} = manual_ranking_fixture()
+      {:ok, tournament} = Tournaments.enable_manual_ranking(tournament)
+
+      assert Repo.reload!(a).manual_rank == 1
+      assert Repo.reload!(b).manual_rank == 2
+
+      assert {:ok, _} = Tournaments.move_manual_rank(tournament, Repo.reload!(b), :up)
+
+      assert Repo.reload!(a).manual_rank == 2
+      assert Repo.reload!(b).manual_rank == 1
+    end
+
+    test "moving confirms freshness — clears staleness for the whole tournament, not just the two rows touched" do
+      %{tournament: tournament, pairing1: pairing1, a: a, b: b, c: c, d: d} =
+        manual_ranking_fixture()
+
+      {:ok, tournament} = Tournaments.enable_manual_ranking(tournament)
+
+      Tournaments.update_pairing_result(pairing1, "0-1")
+      assert Repo.reload!(tournament).manual_ranking_stale
+
+      assert {:ok, _} = Tournaments.move_manual_rank(tournament, Repo.reload!(b), :up)
+
+      refute Repo.reload!(tournament).manual_ranking_stale
+      for p <- [a, b, c, d], do: assert(Repo.reload!(p).manual_rank > 0)
+    end
+
+    test "returns {:error, :edge} at the top of the list moving up, and the bottom moving down" do
+      %{tournament: tournament, a: a, d: d} = manual_ranking_fixture()
+      {:ok, tournament} = Tournaments.enable_manual_ranking(tournament)
+
+      assert {:error, :edge} = Tournaments.move_manual_rank(tournament, Repo.reload!(a), :up)
+      assert {:error, :edge} = Tournaments.move_manual_rank(tournament, Repo.reload!(d), :down)
+    end
+  end
+
+  describe "invalidate_manual_ranking (via update_pairing_result/2)" do
+    test "a result change marks the tournament's manual order stale, leaving manual_rank values untouched" do
+      %{tournament: tournament, pairing1: pairing1, a: a, b: b} = manual_ranking_fixture()
+      {:ok, tournament} = Tournaments.enable_manual_ranking(tournament)
+      refute tournament.manual_ranking_stale
+
+      before_a = Repo.reload!(a).manual_rank
+      before_b = Repo.reload!(b).manual_rank
+
+      assert {:ok, _} = Tournaments.update_pairing_result(pairing1, "0-1")
+
+      assert Repo.reload!(tournament).manual_ranking_stale
+      assert Repo.reload!(a).manual_rank == before_a
+      assert Repo.reload!(b).manual_rank == before_b
+    end
+
+    test "a second result change while already stale is a no-op (stays stale, one row either way)" do
+      %{tournament: tournament, pairing1: pairing1} = manual_ranking_fixture()
+      {:ok, tournament} = Tournaments.enable_manual_ranking(tournament)
+
+      Tournaments.update_pairing_result(pairing1, "0-1")
+      assert Repo.reload!(tournament).manual_ranking_stale
+
+      Tournaments.update_pairing_result(pairing1, "1/2-1/2")
+      assert Repo.reload!(tournament).manual_ranking_stale
+    end
+
+    test "does nothing when manual_ranking is off" do
+      %{tournament: tournament, pairing1: pairing1, a: a} = manual_ranking_fixture()
+      {:ok, tournament} = Tournaments.enable_manual_ranking(tournament)
+      {:ok, tournament} = Tournaments.disable_manual_ranking(tournament)
+      refute tournament.manual_ranking
+      rank_before = Repo.reload!(a).manual_rank
+
+      Tournaments.update_pairing_result(pairing1, "0-1")
+
+      refute Repo.reload!(tournament).manual_ranking_stale
+      assert Repo.reload!(a).manual_rank == rank_before
+    end
+
+    test "invalidation commits before the :results broadcast — a subscriber's immediate reload already sees the stale flag" do
+      %{tournament: tournament, pairing1: pairing1} = manual_ranking_fixture()
+      {:ok, tournament} = Tournaments.enable_manual_ranking(tournament)
+
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
+
+      assert {:ok, _} = Tournaments.update_pairing_result(pairing1, "0-1")
+
+      tid = tournament.id
+      assert_receive {:tournament_changed, ^tid, :results}
+      # By the time the broadcast is observable, the write has already
+      # committed — no separate confirmation step needed after the message.
+      assert Repo.reload!(tournament).manual_ranking_stale
+    end
+  end
+
+  ## ---------- Logo (SWAR parity #14-16) ----------
+
+  describe "set_logo/2, clear_logo/1 and detect_image_type/1" do
+    # 1x1 transparent PNG — real signature bytes, not a fake/truncated stub.
+    @tiny_png Base.decode64!(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+              )
+    # Minimal valid JPEG (SOI + EOI markers, nothing between).
+    @tiny_jpeg <<0xFF, 0xD8, 0xFF, 0xD9>>
+    # Minimal valid GIF89a header.
+    @tiny_gif "GIF89a" <> <<0, 0, 0, 0, 0, 0>>
+    # Minimal RIFF/WEBP container shape (fourcc + WEBP, no real payload —
+    # only the signature bytes matter for detect_image_type/1).
+    @tiny_webp "RIFF" <> <<0, 0, 0, 0>> <> "WEBP"
+    # A well-formed SVG — deliberately never accepted, even though it's a
+    # perfectly valid image format elsewhere: it's an XML document that can
+    # carry a <script>, and this blob is rendered straight back into pages
+    # the app serves. No signature match should ever let this through.
+    @tiny_svg "<svg xmlns=\"http://www.w3.org/2000/svg\"><script>alert(1)</script></svg>"
+
+    defp logo_tournament do
+      Repo.insert!(%Tournament{name: "Logo Test", type: "swiss", rounds_count: 3})
+    end
+
+    test "accepts a valid PNG and stores the verified content-type" do
+      tournament = logo_tournament()
+
+      assert {:ok, updated} = Tournaments.set_logo(tournament, @tiny_png)
+      assert updated.logo_data == @tiny_png
+      assert updated.logo_content_type == "image/png"
+      assert Repo.reload!(tournament).logo_content_type == "image/png"
+    end
+
+    test "accepts a valid JPEG, GIF and WebP" do
+      tournament = logo_tournament()
+
+      assert {:ok, updated} = Tournaments.set_logo(tournament, @tiny_jpeg)
+      assert updated.logo_content_type == "image/jpeg"
+
+      assert {:ok, updated} = Tournaments.set_logo(tournament, @tiny_gif)
+      assert updated.logo_content_type == "image/gif"
+
+      assert {:ok, updated} = Tournaments.set_logo(tournament, @tiny_webp)
+      assert updated.logo_content_type == "image/webp"
+    end
+
+    test "rejects an SVG outright, no matter how it's labelled" do
+      tournament = logo_tournament()
+
+      assert Tournaments.set_logo(tournament, @tiny_svg) == {:error, :invalid_image}
+      # Never stored — the row is untouched.
+      refute Repo.reload!(tournament).logo_data
+      refute Repo.reload!(tournament).logo_content_type
+    end
+
+    test "rejects a file whose bytes don't match any accepted image signature" do
+      tournament = logo_tournament()
+
+      # A renamed-but-not-actually-an-image file — plain text, no magic
+      # bytes at all. Validation checks the real content, not a claimed
+      # filename/extension/content-type, so this is rejected exactly like
+      # the SVG case, not accepted because someone might call it "logo.png".
+      assert Tournaments.set_logo(tournament, "just some text, not an image") ==
+               {:error, :invalid_image}
+
+      refute Repo.reload!(tournament).logo_data
+    end
+
+    test "rejects a file over the size cap even with a valid PNG signature" do
+      tournament = logo_tournament()
+      oversized = <<0x89, "PNG", 0x0D, 0x0A, 0x1A, 0x0A>> <> :binary.copy(<<0>>, 2_000_001)
+
+      assert Tournaments.set_logo(tournament, oversized) == {:error, :invalid_image}
+    end
+
+    test "clear_logo/1 removes a previously set logo" do
+      tournament = logo_tournament()
+      {:ok, tournament} = Tournaments.set_logo(tournament, @tiny_png)
+      assert tournament.logo_data
+
+      assert {:ok, cleared} = Tournaments.clear_logo(tournament)
+      refute cleared.logo_data
+      refute cleared.logo_content_type
+      refute Repo.reload!(tournament).logo_data
+    end
+
+    test "set_logo/2 broadcasts :settings, same as any other tournament write" do
+      tournament = logo_tournament()
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
+
+      assert {:ok, _} = Tournaments.set_logo(tournament, @tiny_png)
+
+      tid = tournament.id
+      assert_receive {:tournament_changed, ^tid, :settings}
+    end
+
+    test "logo_data_uri/1 builds a base64 data: URI, or nil with no logo set" do
+      tournament = logo_tournament()
+      refute Tournaments.logo_data_uri(tournament)
+
+      {:ok, tournament} = Tournaments.set_logo(tournament, @tiny_png)
+      uri = Tournaments.logo_data_uri(tournament)
+      assert uri == "data:image/png;base64,#{Base.encode64(@tiny_png)}"
+    end
+
+    test "ordinary update_tournament/2 never touches the logo fields" do
+      tournament = logo_tournament()
+      {:ok, tournament} = Tournaments.set_logo(tournament, @tiny_png)
+
+      assert {:ok, updated} = Tournaments.update_tournament(tournament, %{"name" => "Renamed"})
+      assert updated.name == "Renamed"
+      assert updated.logo_data == @tiny_png
+      assert updated.logo_content_type == "image/png"
     end
   end
 end

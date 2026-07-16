@@ -60,17 +60,64 @@ defmodule PairingsEngine.TrfExportTest do
         round_dates: ["2026-01-01", "2026-01-02", "2026-01-03"]
       })
 
-    alice = Repo.insert!(%Player{tournament_id: tournament.id, name: "Alice", fide_rating: 2000, pairing_number: 1})
-    bob = Repo.insert!(%Player{tournament_id: tournament.id, name: "Bob", fide_rating: 1900, pairing_number: 2})
-    carol = Repo.insert!(%Player{tournament_id: tournament.id, name: "Carol", fide_rating: 1800, pairing_number: 3})
+    alice =
+      Repo.insert!(%Player{
+        tournament_id: tournament.id,
+        name: "Alice",
+        fide_rating: 2000,
+        pairing_number: 1
+      })
+
+    bob =
+      Repo.insert!(%Player{
+        tournament_id: tournament.id,
+        name: "Bob",
+        fide_rating: 1900,
+        pairing_number: 2
+      })
+
+    carol =
+      Repo.insert!(%Player{
+        tournament_id: tournament.id,
+        name: "Carol",
+        fide_rating: 1800,
+        pairing_number: 3
+      })
 
     r1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
     r2 = Repo.insert!(%Round{tournament_id: tournament.id, number: 2, status: "finished"})
 
-    Repo.insert!(%Pairing{round_id: r1.id, board: 1, white_player_id: alice.id, black_player_id: bob.id, result: "1-0"})
-    Repo.insert!(%Pairing{round_id: r1.id, board: 2, white_player_id: carol.id, black_player_id: nil, result: "bye"})
-    Repo.insert!(%Pairing{round_id: r2.id, board: 1, white_player_id: bob.id, black_player_id: carol.id, result: "1/2-1/2"})
-    Repo.insert!(%Pairing{round_id: r2.id, board: 2, white_player_id: alice.id, black_player_id: nil, result: "bye"})
+    Repo.insert!(%Pairing{
+      round_id: r1.id,
+      board: 1,
+      white_player_id: alice.id,
+      black_player_id: bob.id,
+      result: "1-0"
+    })
+
+    Repo.insert!(%Pairing{
+      round_id: r1.id,
+      board: 2,
+      white_player_id: carol.id,
+      black_player_id: nil,
+      result: "bye"
+    })
+
+    Repo.insert!(%Pairing{
+      round_id: r2.id,
+      board: 1,
+      white_player_id: bob.id,
+      black_player_id: carol.id,
+      result: "1/2-1/2"
+    })
+
+    Repo.insert!(%Pairing{
+      round_id: r2.id,
+      board: 2,
+      white_player_id: alice.id,
+      black_player_id: nil,
+      result: "bye"
+    })
 
     {tournament, %{alice: alice, bob: bob, carol: carol}}
   end
@@ -328,15 +375,66 @@ defmodule PairingsEngine.TrfExportTest do
     round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
     # A's own round-1 game resolves to this row (first match for A): A beats
     # X as white, "1" vs opponent_rank 2.
-    Repo.insert!(%Pairing{round_id: round.id, board: 1, white_player_id: a.id, black_player_id: x.id, result: "1-0"})
+    Repo.insert!(%Pairing{
+      round_id: round.id,
+      board: 1,
+      white_player_id: a.id,
+      black_player_id: x.id,
+      result: "1-0"
+    })
+
     # A second row also pairs A against Y in the same round, with Y (black)
     # winning — Y's own resolved game genuinely points back at A's rank
     # (opponent_rank 1, result "1"). Because X and Y share pairing_number 2,
     # `by_rank[2]` resolves to Y, so A's claimed "1" against rank 2 gets
     # mutually matched against Y's own "1" — a "1"/"1" pair, illegal.
-    Repo.insert!(%Pairing{round_id: round.id, board: 2, white_player_id: a.id, black_player_id: y.id, result: "0-1"})
+    Repo.insert!(%Pairing{
+      round_id: round.id,
+      board: 2,
+      white_player_id: a.id,
+      black_player_id: y.id,
+      result: "0-1"
+    })
 
     assert {:error, %Trf.ValidationError{message: message}} = TrfExport.export(tournament)
     assert message =~ "illegal result combination"
+  end
+
+  ## ---------- manual ranking (SWAR parity #23) ----------
+
+  describe "manual ranking is not surfaced in the TRF export" do
+    test "the exported text is byte-identical whether manual ranking is on or off" do
+      {tournament, %{alice: alice}} = fixture()
+
+      assert {:ok, off_text} = TrfExport.export(tournament)
+
+      {:ok, on_tournament} = Tournaments.enable_manual_ranking(tournament)
+      assert {:ok, on_text} = TrfExport.export(on_tournament)
+
+      assert off_text == on_text
+      refute on_text =~ "990"
+      refute on_text =~ "MANUAL RANKING"
+
+      # Rank/starting-rank columns stay pairing_number-based regardless —
+      # see docs/manual-standings.md for why manual ranking never touches
+      # the TRF rank column at all.
+      parsed = Trf.parse(on_text)
+      alice_row = Enum.find(parsed.players, &(&1.name |> String.trim() == "Alice"))
+      assert alice_row.rank == alice.pairing_number
+      assert alice_row.points == 2.0
+    end
+
+    test "still true once the manual order goes stale (a result changed after seeding)" do
+      {tournament, %{alice: alice, bob: bob}} = fixture()
+      {:ok, tournament} = Tournaments.enable_manual_ranking(tournament)
+
+      pairing = Repo.get_by!(Pairing, white_player_id: alice.id, black_player_id: bob.id)
+      Tournaments.update_pairing_result(pairing, "0-1")
+
+      assert {:ok, text} = TrfExport.export(Repo.reload!(tournament))
+      refute text =~ "990"
+      refute text =~ "MANUAL RANKING"
+      refute text =~ "STALE"
+    end
   end
 end

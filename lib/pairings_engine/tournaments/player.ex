@@ -60,6 +60,12 @@ defmodule PairingsEngine.Tournaments.Player do
     # displayed/printed at this table number. nil = normal board numbering.
     field :fixed_board, :integer
 
+    # Arbiter-assigned standings position, honoured only while the tournament
+    # has `manual_ranking` on (SWAR parity #23). nil = never hand-placed.
+    # Managed by the Tournaments reorder functions — NOT cast by changeset/2,
+    # so an ordinary player edit can never silently reposition the field.
+    field :manual_rank, :integer
+
     belongs_to :tournament, PairingsEngine.Tournaments.Tournament
     belongs_to :team, PairingsEngine.Tournaments.Team
 

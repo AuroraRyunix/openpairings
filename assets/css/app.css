@@ -212,6 +212,50 @@ body {
 .topbar nav a:hover { background: var(--bg); color: var(--text); }
 .topbar nav a.active { background: var(--accent-soft); color: var(--accent); }
 
+/* "Advanced" tab — a no-JS <details>/<summary> dropdown living in the same
+   tab row, styled to look like the other tab links until opened. */
+.topbar-menu { position: relative; }
+
+.topbar-menu > summary {
+  list-style: none;
+  cursor: pointer;
+  color: var(--text-soft);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: 500;
+}
+.topbar-menu > summary::-webkit-details-marker { display: none; }
+.topbar-menu > summary::after { content: " \25BE"; font-size: 11px; }
+.topbar-menu > summary:hover { background: var(--bg); color: var(--text); }
+.topbar-menu > summary.active { background: var(--accent-soft); color: var(--accent); }
+
+.topbar-menu-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 50;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+}
+
+.topbar-menu-item {
+  padding: 8px 12px;
+  border-radius: 6px;
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.topbar-menu-item:hover { background: var(--bg); color: var(--text); }
+
 .topbar-auth {
   margin-left: auto;
   display: flex;
@@ -277,6 +321,9 @@ body {
 .pe-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
 .pe-table tr:last-child td { border-bottom: none; }
 .pe-table tbody tr:hover { background: #fbfaf8; }
+
+.pe-table th.sortable { cursor: pointer; user-select: none; }
+.pe-table th.sortable:hover { color: var(--text); }
 
 .table-card { padding: 0; overflow: hidden; }
 
@@ -427,6 +474,34 @@ button.pe-btn, .pe-btn {
 }
 .search-results .kbsb-result-row:last-child { border-bottom: none; }
 
+/* print button right-click menu */
+.print-menu-wrap { display: inline-block; }
+.print-menu-affordance { color: var(--text-soft); margin-left: 2px; }
+
+.print-menu-popup {
+  position: fixed;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(30, 25, 15, 0.12);
+  padding: 4px;
+}
+.print-menu-popup a {
+  display: block;
+  padding: 8px 12px;
+  border-radius: 4px;
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.print-menu-popup a:hover { background: var(--bg); }
+
 /* tiebreak list */
 .tb-list { list-style: none; margin: 0; padding: 0; }
 .tb-list li {
@@ -449,6 +524,15 @@ button.pe-btn, .pe-btn {
 .round-picker { display: flex; gap: 6px; flex-wrap: wrap; }
 .round-picker .pe-btn { min-width: 40px; padding: 7px 0; text-align: center; font-variant-numeric: tabular-nums; }
 .round-picker .pe-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+
+/* word-label buttons (category filters, sub-nav tabs) reuse the
+   .round-picker row layout but must not be squeezed to the 40px
+   number-sized boxes above — give them real horizontal padding. */
+.round-picker .pe-btn.filter-picker {
+  min-width: auto;
+  padding: 7px 14px;
+  font-variant-numeric: normal;
+}
 
 /* split layout: table + right-hand Display panel (SWAR-style) */
 .split { display: flex; gap: 16px; align-items: flex-start; }
@@ -619,6 +703,19 @@ button.pe-btn, .pe-btn {
     white-space: nowrap;
   }
 
+  /* the tab strip scrolls horizontally on mobile, which clips an
+     absolutely-positioned dropdown panel — anchor it to the viewport
+     instead so it always renders in full. */
+  .topbar-menu-panel {
+    position: fixed;
+    top: auto;
+    left: 12px;
+    right: 12px;
+    margin-top: 4px;
+    min-width: 0;
+    width: auto;
+  }
+
   /* ---- page shell ---- */
   .page { padding: 18px 14px 48px; }
 
@@ -669,4 +766,132 @@ button.pe-btn, .pe-btn {
   .modal-overlay { padding: 8px; }
 
   .card { padding: 16px; }
+}
+
+/* ============================================================
+   "Explain this round" — visual pairing rationale
+   (PairingsEngineWeb.PairingExplainLive). Appended block; does
+   not touch any rule above. Warm tone = a down-float (higher
+   score paired down), cool tone = an up-float (lower score
+   paired up), accent green = a within-bracket pairing.
+   ============================================================ */
+
+/* ---- summary stat strip ---- */
+.pe-summary { display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: baseline; }
+.pe-stat { display: inline-flex; align-items: baseline; gap: 6px; color: var(--text-soft); font-size: 13px; }
+.pe-stat-n { font-size: 20px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+.pe-stat.is-warm .pe-stat-n { color: #a76a25; }
+.pe-stat.is-danger .pe-stat-n { color: var(--danger); }
+
+/* ---- bracket map (SVG) ---- */
+.pe-bracket-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 4px 0 2px;
+  padding-bottom: 4px;
+}
+.pe-bracket-svg { display: block; }
+.pe-bracket-svg text { font-family: 'Segoe UI', system-ui, sans-serif; }
+
+.pe-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; font-size: 12.5px; color: var(--text-soft); }
+.pe-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.pe-legend-disc { width: 13px; height: 13px; border-radius: 50%; display: inline-block; }
+.pe-legend-disc.pe-disc-w { background: var(--surface); border: 2px solid var(--accent); }
+.pe-legend-disc.pe-disc-b { background: var(--accent); }
+.pe-legend-line { width: 20px; height: 0; border-top: 3px solid #9db8a8; display: inline-block; }
+.pe-legend-line.is-float { border-top-style: dashed; border-top-color: #b5762f; }
+.pe-legend-tri { font-size: 12px; line-height: 1; }
+.pe-legend-tri.down { color: #b5762f; }
+.pe-legend-tri.up { color: #3a6ea5; }
+
+/* ---- board-by-board pairing cards ---- */
+.pe-pair-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+  margin: 4px 0 8px;
+}
+.pe-pair-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pe-pair-card.is-float { border-left: 4px solid #d8a763; }
+.pe-pair-card.is-rematch { border-left: 4px solid var(--danger); }
+.pe-bye-card { border-left: 4px solid var(--accent); background: var(--accent-soft); }
+
+.pe-pair-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pe-board-no {
+  font-size: 12px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase;
+  color: var(--text-soft);
+}
+.pe-head-flags { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+
+.pe-side { display: flex; gap: 11px; align-items: flex-start; }
+.pe-disc {
+  flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%; margin-top: 2px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700;
+}
+.pe-disc-w { background: var(--surface); border: 2px solid var(--accent); }
+.pe-disc-b { background: var(--accent); }
+.pe-disc-bye { background: var(--surface); border: 2px solid var(--accent); color: var(--accent); }
+.pe-side-body { min-width: 0; flex: 1; }
+.pe-name { font-weight: 650; line-height: 1.3; }
+.pe-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; }
+.pe-score {
+  font-weight: 700; font-variant-numeric: tabular-nums;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 5px;
+  padding: 0 7px; font-size: 13px;
+}
+.pe-seed { font-size: 12.5px; color: var(--text-soft); font-variant-numeric: tabular-nums; }
+.pe-side-colour { font-size: 12.5px; color: var(--text-soft); font-weight: 600; }
+
+.pe-vs {
+  text-align: center; font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--text-soft);
+  position: relative;
+}
+.pe-vs::before, .pe-vs::after {
+  content: ""; position: absolute; top: 50%; width: calc(50% - 22px); height: 1px; background: var(--border);
+}
+.pe-vs::before { left: 0; }
+.pe-vs::after { right: 0; }
+
+.pe-due { margin-top: 6px; }
+
+/* small inline tags */
+.pe-tag {
+  display: inline-block; font-size: 11.5px; font-weight: 600;
+  padding: 1px 8px; border-radius: 99px; white-space: nowrap;
+}
+.pe-tag-ok { background: var(--accent-soft); color: var(--accent); }
+.pe-tag-muted { background: #eeece7; color: var(--text-soft); }
+.pe-tag-warn { background: #f7ead6; color: #a76a25; }
+.pe-tag-danger { background: var(--danger); color: #fff; }
+.pe-tag-float { background: #f4e7d1; color: #a76a25; }
+.pe-tag-bye { background: var(--accent); color: #fff; }
+.pe-tag-down { background: #f4e0c8; color: #955a1c; }
+.pe-tag-up { background: #dde8f4; color: #2f5c8c; }
+
+.pe-pair-foot { margin: 2px 0 0; font-size: 13px; color: var(--text-soft); }
+
+/* ---- Keizer ladder bar ---- */
+.pe-ladder {
+  position: relative; margin-top: 7px; height: 16px; border-radius: 4px;
+  background: var(--bg); border: 1px solid var(--border); overflow: hidden;
+}
+.pe-ladder-fill { position: absolute; inset: 0 auto 0 0; background: var(--accent-soft); border-right: 2px solid var(--accent); }
+.pe-ladder-num {
+  position: relative; z-index: 1; font-size: 11px; font-weight: 600; color: var(--text);
+  line-height: 16px; padding-left: 6px;
+}
+
+@media (max-width: 768px) {
+  .pe-pair-grid { grid-template-columns: 1fr; }
 }

@@ -716,14 +716,83 @@ defmodule PairingsEngine.SwarImport do
       deputy_arbiter: t.arbiter2,
       rounds_count: max(t.nb_rounds, 1),
       tiebreaks: map_tiebreaks(data.tiebreaks),
-      bye_value: map_bye_value(t.bye_value),
       standard: map_standard(t.tournoi_std),
       rate_of_play: t.cadence_other,
       organizer_club_number: t.club_or_logo,
       round_dates: Enum.map(data.dates, &normalize_date/1),
-      categories: map_categories(data.categories)
+      categories: map_categories(data.categories),
+      # `AbsValue` (manual §4.2 field 92, general [TOURNOI] header, fields
+      # 91/96 group alongside `ByeValue`/`FF_Value`) — the points paid for a
+      # plain absence (`byes` row `type: "absent"`). Unlike `presence_value`
+      # (SW321_Pre, only mapped inside `scoring_attrs/1`'s `type == 3`
+      # clause), this applies to EVERY SWAR import regardless of tournament
+      # type, so it's mapped here unconditionally rather than in
+      # `scoring_attrs/1`. Raw `abs_value` is a `UChar`: 0 or 5, representing
+      # 0.0 or 0.5 points.
+      abs_value: if(t.abs_value == 5, do: 0.5, else: 0.0)
+    }
+    |> Map.merge(scoring_attrs(t))
+  end
+
+  # `TOURNOI_TYPE.SWISS_321 == 3` (manual §5.1) is the flag for "this
+  # tournament's [TOURNOI] header carries custom win/draw/loss/bye point
+  # values" — SWAR's "3-2-1" scoring feature, which despite the name is a
+  # club-configurable point scale (win/draw/loss are independently settable
+  # ints), not literally fixed at 3/2/1. `SW321_Win/Nul/Los/Bye` are stored
+  # ×4 — this is what the format manual states explicitly for this field
+  # group (twice: in the field table and in "Known Quirks"), mirroring how
+  # the ordinary per-player `Points` field is ×2. A PREVIOUS version of this
+  # function used ÷8, which silently HALVED every configured point value
+  # relative to what the club actually set up (e.g. a real win worth 2.0
+  # points imported as 1.0) — this is the bug reported by KBSB: "players
+  # don't get the full 3-2-1 points from played games". The ÷8 divisor had
+  # been "verified" by checking that dividing the file's raw per-player
+  # `points` total by 8 reproduced `wins*1.0 + draws*0.5 + 0*losses`
+  # (SW321_Los happened to be 0 in the fixture) — but that check is
+  # circular: SW321_Los being 0 makes losses contribute nothing to the
+  # total regardless of the divisor chosen, so *any* divisor "passes" that
+  # check while only the ratio (2:1:0 here) is actually being tested, never
+  # the absolute scale. See docs/swar-import.md for the non-circular
+  # re-derivation (the manual's explicit ×4 annotation, cross-checked
+  # against multiple real players' totals via an independently-discovered
+  # formula involving `SW321_Pre`).
+  #
+  # `SW321_Pre` ("presence points", manual §4.6 field 84) DOES appear in
+  # the real 3-2-1 fixture — every unpaired "LOST_BYE" round for every
+  # affected player is scored as `SW321_Pre` raw points (÷4), not
+  # `SW321_Bye` (no `WIN_BYE`/`DRAW_BYE` round occurs anywhere in the
+  # fixture, so `SW321_Bye`'s actual role is unconfirmed by this file).
+  # `Tournament.presence_value` now models this: SWAR's own result-code
+  # bitmask (manual §5.2, `RESULTATS_LOST`) files `LOST_BYE` under its
+  # generic "loss" category, but 3-2-1 mode pays it at `SW321_Pre`
+  # specifically, not at `SW321_Los`/`points_loss` — confirmed non-circularly
+  # against the real fixture (see above). `SW321_PreBye` (field 85, manual
+  # §5.16, present only in file version >= v6.03) is documented verbatim as
+  # "Add presence points for bye games" — i.e. a pairing-allocated bye
+  # (`WIN_BYE`) is paid `SW321_Bye + SW321_Pre` when it is set/nonzero, so
+  # `bye_value_with_prebye/1` below folds it in. This gap is now fixed.
+  defp scoring_attrs(%{type: 3} = t) do
+    %{
+      points_win: t.sw321_win / 4,
+      points_draw: t.sw321_nul / 4,
+      points_loss: t.sw321_los / 4,
+      bye_value: bye_value_with_prebye(t),
+      presence_value: t.sw321_pre / 4
     }
   end
+
+  defp scoring_attrs(t), do: %{bye_value: map_bye_value(t.bye_value)}
+
+  # `SW321_PreBye` (manual §5.16, field 85 — only present in file version >=
+  # "v6.03", nil in older files) is documented as "Add presence points for
+  # bye games": when set and nonzero, a pairing-allocated bye is worth
+  # `SW321_Bye + SW321_Pre`, not `SW321_Bye` alone. Older files (nil) or a
+  # zero value leave `bye_value` unchanged.
+  defp bye_value_with_prebye(%{sw321_prebye: prebye} = t) when is_number(prebye) and prebye != 0 do
+    t.sw321_bye / 4 + t.sw321_pre / 4
+  end
+
+  defp bye_value_with_prebye(t), do: t.sw321_bye / 4
 
   @tournament_types %{0 => "swiss", 1 => "swiss", 2 => "swiss", 3 => "swiss", 4 => "roundrobin", 5 => "roundrobin", 6 => "roundrobin", 7 => "swiss", 8 => "swiss"}
   defp map_tournament_type(type), do: Map.get(@tournament_types, type, "swiss")

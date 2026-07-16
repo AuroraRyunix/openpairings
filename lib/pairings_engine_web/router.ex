@@ -26,7 +26,10 @@ defmodule PairingsEngineWeb.Router do
       live "/fide", FideLive
       live "/t/:id/players", PlayersLive
       live "/t/:id/pairings", PairingsLive
+      live "/t/:id/pairings/:round/explain", PairingExplainLive
       live "/t/:id/standings", StandingsLive
+      live "/t/:id/audit", AuditLive, :index
+      live "/t/:id/audit/explain", AuditLive, :explain
       live "/t/:id/print", PrintLive
       live "/t/:id/settings", SettingsLive
       live "/t/:id/categories", CategoriesLive
@@ -37,6 +40,7 @@ defmodule PairingsEngineWeb.Router do
 
     get "/t/:id/print/players", PrintController, :player_list
     get "/t/:id/print/cards", PrintController, :player_cards
+    get "/t/:id/print/placecards", PrintController, :place_cards
     get "/t/:id/print/pairings", PrintController, :pairing_list
     get "/t/:id/print/standings", PrintController, :standings
     get "/t/:id/print/results", PrintController, :result_cards

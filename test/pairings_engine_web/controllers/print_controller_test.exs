@@ -13,10 +13,19 @@ defmodule PairingsEngineWeb.PrintControllerTest do
   # After R2: A=2, B=1,  C=0.5, D=0.5
   defp fixture(scope) do
     {:ok, tournament} =
-      Tournaments.create_tournament(scope, %{"name" => "Print Test", "type" => "swiss", "rounds_count" => "3"})
+      Tournaments.create_tournament(scope, %{
+        "name" => "Print Test",
+        "type" => "swiss",
+        "rounds_count" => "3"
+      })
 
     [a, b, c, d] =
-      for {name, rating, number} <- [{"A", 2000, 1}, {"B", 1800, 2}, {"C", 1700, 3}, {"D", 1600, 4}] do
+      for {name, rating, number} <- [
+            {"A", 2000, 1},
+            {"B", 1800, 2},
+            {"C", 1700, 3},
+            {"D", 1600, 4}
+          ] do
         Repo.insert!(%Player{
           tournament_id: tournament.id,
           name: name,
@@ -28,10 +37,37 @@ defmodule PairingsEngineWeb.PrintControllerTest do
     r1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
     r2 = Repo.insert!(%Round{tournament_id: tournament.id, number: 2, status: "finished"})
 
-    Repo.insert!(%Pairing{round_id: r1.id, board: 1, white_player_id: a.id, black_player_id: b.id, result: "1-0"})
-    Repo.insert!(%Pairing{round_id: r1.id, board: 2, white_player_id: c.id, black_player_id: d.id, result: "1/2-1/2"})
-    Repo.insert!(%Pairing{round_id: r2.id, board: 1, white_player_id: c.id, black_player_id: a.id, result: "0-1"})
-    Repo.insert!(%Pairing{round_id: r2.id, board: 2, white_player_id: b.id, black_player_id: d.id, result: "1-0"})
+    Repo.insert!(%Pairing{
+      round_id: r1.id,
+      board: 1,
+      white_player_id: a.id,
+      black_player_id: b.id,
+      result: "1-0"
+    })
+
+    Repo.insert!(%Pairing{
+      round_id: r1.id,
+      board: 2,
+      white_player_id: c.id,
+      black_player_id: d.id,
+      result: "1/2-1/2"
+    })
+
+    Repo.insert!(%Pairing{
+      round_id: r2.id,
+      board: 1,
+      white_player_id: c.id,
+      black_player_id: a.id,
+      result: "0-1"
+    })
+
+    Repo.insert!(%Pairing{
+      round_id: r2.id,
+      board: 2,
+      white_player_id: b.id,
+      black_player_id: d.id,
+      result: "1-0"
+    })
 
     {tournament, %{a: a, b: b, c: c, d: d}}
   end
@@ -50,7 +86,11 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       })
 
     for {name, rating} <- [{"A", 2000}, {"B", 1900}, {"C", 1800}, {"D", 1700}] do
-      {:ok, _} = Tournaments.create_player(tournament.id, %{"name" => name, "fide_rating" => to_string(rating)})
+      {:ok, _} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => name,
+          "fide_rating" => to_string(rating)
+        })
     end
 
     {:ok, _round} = PairingsEngine.Pairing.pair_next_round(tournament)
@@ -98,7 +138,10 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       assert conn.status == 404
     end
 
-    test "a board involving a player with a fixed_board override is annotated", %{conn: conn, scope: scope} do
+    test "a board involving a player with a fixed_board override is annotated", %{
+      conn: conn,
+      scope: scope
+    } do
       {tournament, %{a: a}} = fixture(scope)
       a |> Ecto.Changeset.change(fixed_board: 5) |> Repo.update!()
 
@@ -114,6 +157,49 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       conn = get(conn, ~p"/t/#{tournament.id}/print/pairings?round=2")
 
       refute html_response(conn, 200) =~ "(table"
+    end
+
+    test "byes/absentees are off by default, shown below the table with ?absentees=1", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, %{c: c}} = fixture(scope)
+
+      Repo.insert_all("byes", [
+        %{tournament_id: tournament.id, player_id: c.id, round: 1, type: "absent"}
+      ])
+
+      conn_default = get(conn, ~p"/t/#{tournament.id}/print/pairings?round=1")
+      html_default = html_response(conn_default, 200)
+      refute html_default =~ "Absentees"
+
+      conn_on = get(conn, ~p"/t/#{tournament.id}/print/pairings?round=1&absentees=1")
+      html_on = html_response(conn_on, 200)
+      assert html_on =~ "Absentees"
+      # "absent" falls back to points_loss (0.0) since this tournament has
+      # no abs_value set (not a SWAR import).
+      assert html_on =~ ~r/C.*?absent.*?\(0\.0 pt\)/s
+    end
+
+    test "a pairing-allocated bye keeps showing as a normal board row regardless of ?absentees", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, _players} = fixture(scope)
+      round1 = Tournaments.get_round(tournament.id, 1)
+
+      e = Repo.insert!(%Player{tournament_id: tournament.id, name: "E", pairing_number: 5})
+
+      Repo.insert!(%Pairing{
+        round_id: round1.id,
+        board: 3,
+        white_player_id: e.id,
+        black_player_id: nil,
+        result: "bye"
+      })
+
+      html = html_response(get(conn, ~p"/t/#{tournament.id}/print/pairings?round=1"), 200)
+      assert html =~ "— bye —"
     end
   end
 
@@ -162,10 +248,11 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       assert conn.status == 404
     end
 
-    test "a tournament with no categories renders byte-identical to before (no Category column/tables)", %{
-      conn: conn,
-      scope: scope
-    } do
+    test "a tournament with no categories renders byte-identical to before (no Category column/tables)",
+         %{
+           conn: conn,
+           scope: scope
+         } do
       {tournament, _players} = fixture(scope)
 
       html = get(conn, ~p"/t/#{tournament.id}/print/standings") |> html_response(200)
@@ -180,7 +267,9 @@ defmodule PairingsEngineWeb.PrintControllerTest do
     } do
       {tournament, %{a: a, b: b, c: c, d: d}} = fixture(scope)
 
-      {:ok, tournament} = Tournaments.update_tournament(tournament, %{"categories" => ["Open", "Women"]})
+      {:ok, tournament} =
+        Tournaments.update_tournament(tournament, %{"categories" => ["Open", "Women"]})
+
       a |> Ecto.Changeset.change(category: "Open") |> Repo.update!()
       b |> Ecto.Changeset.change(category: "Women") |> Repo.update!()
       c |> Ecto.Changeset.change(category: "Open") |> Repo.update!()
@@ -203,10 +292,11 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       refute women_and_after =~ ">D<"
     end
 
-    test "a keizer tournament prints the ladder table (Value/Keizer pts/Score), not FIDE points/tiebreak columns", %{
-      conn: conn,
-      scope: scope
-    } do
+    test "a keizer tournament prints the ladder table (Value/Keizer pts/Score), not FIDE points/tiebreak columns",
+         %{
+           conn: conn,
+           scope: scope
+         } do
       tournament = keizer_fixture(scope)
 
       html = get(conn, ~p"/t/#{tournament.id}/print/standings") |> html_response(200)
@@ -223,8 +313,79 @@ defmodule PairingsEngineWeb.PrintControllerTest do
     end
   end
 
+  describe "standings/2 — manual ranking (SWAR parity #23)" do
+    test "off: no banner, order is the computed tiebreak order", %{conn: conn, scope: scope} do
+      {tournament, _players} = fixture(scope)
+
+      html = get(conn, ~p"/t/#{tournament.id}/print/standings") |> html_response(200)
+
+      refute html =~ "MANUAL RANKING IS ON"
+    end
+
+    test "on: shows the banner on the current standings print and reorders the table", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, %{b: b}} = fixture(scope)
+      {:ok, tournament} = Tournaments.enable_manual_ranking(tournament)
+
+      # Hand-flip the top two so B leads even though A has more points.
+      Tournaments.move_manual_rank(tournament, Repo.reload!(b), :up)
+
+      html = get(conn, ~p"/t/#{tournament.id}/print/standings") |> html_response(200)
+
+      assert html =~ "MANUAL RANKING IS ON"
+      assert html =~ ~r/B.*A/s
+    end
+
+    test "on but round-scoped (?round=n): the historical print is unaffected — no banner, computed order",
+         %{
+           conn: conn,
+           scope: scope
+         } do
+      {tournament, _players} = fixture(scope)
+      {:ok, tournament} = Tournaments.enable_manual_ranking(tournament)
+
+      html = get(conn, ~p"/t/#{tournament.id}/print/standings?round=1") |> html_response(200)
+
+      refute html =~ "MANUAL RANKING IS ON"
+    end
+
+    test "stale: shows the stale note once a result changes after seeding", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, %{a: a, b: b}} = fixture(scope)
+      {:ok, tournament} = Tournaments.enable_manual_ranking(tournament)
+
+      pairing = Repo.get_by!(Pairing, white_player_id: a.id, black_player_id: b.id)
+
+      Tournaments.update_pairing_result(pairing, "0-1")
+
+      html = get(conn, ~p"/t/#{tournament.id}/print/standings") |> html_response(200)
+
+      assert html =~ "MANUAL RANKING IS ON"
+      assert html =~ "no longer match the real standings"
+    end
+
+    test "keizer tournaments never show the banner even if manual_ranking is set", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = keizer_fixture(scope)
+      {:ok, tournament} = Tournaments.update_tournament(tournament, %{"manual_ranking" => "true"})
+
+      html = get(conn, ~p"/t/#{tournament.id}/print/standings") |> html_response(200)
+
+      refute html =~ "MANUAL RANKING IS ON"
+    end
+  end
+
   describe "result_cards/2" do
-    test "?round=1 renders one card per board of round 1, skipping byes", %{conn: conn, scope: scope} do
+    test "?round=1 renders one card per board of round 1, skipping byes", %{
+      conn: conn,
+      scope: scope
+    } do
       {tournament, _players} = fixture(scope)
 
       conn = get(conn, ~p"/t/#{tournament.id}/print/results?round=1")
@@ -267,7 +428,14 @@ defmodule PairingsEngineWeb.PrintControllerTest do
     test "a bye board is skipped", %{conn: conn, scope: scope} do
       {tournament, %{a: a}} = fixture(scope)
       r3 = Repo.insert!(%Round{tournament_id: tournament.id, number: 3, status: "playing"})
-      Repo.insert!(%Pairing{round_id: r3.id, board: 1, white_player_id: a.id, black_player_id: nil, result: "bye"})
+
+      Repo.insert!(%Pairing{
+        round_id: r3.id,
+        board: 1,
+        white_player_id: a.id,
+        black_player_id: nil,
+        result: "bye"
+      })
 
       conn = get(conn, ~p"/t/#{tournament.id}/print/results?round=3")
 
@@ -275,7 +443,10 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       refute html =~ ~s(class="result-card")
     end
 
-    test "a board involving a player with a fixed_board override is annotated", %{conn: conn, scope: scope} do
+    test "a board involving a player with a fixed_board override is annotated", %{
+      conn: conn,
+      scope: scope
+    } do
       {tournament, %{a: a}} = fixture(scope)
       a |> Ecto.Changeset.change(fixed_board: 5) |> Repo.update!()
 
@@ -315,20 +486,30 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       refute html =~ "D"
     end
 
-    test "a junk ?limit value is ignored and the full print is rendered", %{conn: conn, scope: scope} do
+    test "a junk ?limit value is ignored and the full print is rendered", %{
+      conn: conn,
+      scope: scope
+    } do
       {tournament, _players} = fixture(scope)
 
       full = get(conn, ~p"/t/#{tournament.id}/print/results?round=1") |> html_response(200)
 
       for junk <- ["0", "-1", "abc", "1.5", ""] do
-        html = get(conn, ~p"/t/#{tournament.id}/print/results?round=1&limit=#{junk}") |> html_response(200)
+        html =
+          get(conn, ~p"/t/#{tournament.id}/print/results?round=1&limit=#{junk}")
+          |> html_response(200)
+
         assert html == full
       end
     end
 
     test "?order=stack imposes stack-cut order across three pages", %{conn: conn, scope: scope} do
       {:ok, tournament} =
-        Tournaments.create_tournament(scope, %{"name" => "Stack Cut Test", "type" => "swiss", "rounds_count" => "1"})
+        Tournaments.create_tournament(scope, %{
+          "name" => "Stack Cut Test",
+          "type" => "swiss",
+          "rounds_count" => "1"
+        })
 
       # 40 players -> 20 boards -> 20 cards, board order 1..40 (by
       # pairing_number / insertion order).
@@ -343,10 +524,16 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       |> Enum.chunk_every(2)
       |> Enum.with_index(1)
       |> Enum.each(fn {[w, b], board} ->
-        Repo.insert!(%Pairing{round_id: round.id, board: board, white_player_id: w.id, black_player_id: b.id})
+        Repo.insert!(%Pairing{
+          round_id: round.id,
+          board: board,
+          white_player_id: w.id,
+          black_player_id: b.id
+        })
       end)
 
-      html = get(conn, ~p"/t/#{tournament.id}/print/results?round=1&order=stack") |> html_response(200)
+      html =
+        get(conn, ~p"/t/#{tournament.id}/print/results?round=1&order=stack") |> html_response(200)
 
       # 20 real cards + enough .rc-blank placeholders to fill out 3 pages of
       # 8 (24 slots total) -> 4 blanks. See the worked example in
@@ -356,7 +543,9 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       # (not the bare "rc-blank" substring, which also appears once in the
       # page's `<style>` block via the `.result-card.rc-blank` CSS rule).
       assert (html |> String.split(~s(class="result-card">)) |> length()) - 1 == 20
-      assert (html |> String.split(~s(<div class="result-card rc-blank"></div>)) |> length()) - 1 == 4
+
+      assert (html |> String.split(~s(<div class="result-card rc-blank"></div>)) |> length()) - 1 ==
+               4
 
       # Extract player names in the order their cards actually render, then
       # keep only the ones belonging to a White-slot rc-player span (each
@@ -394,7 +583,11 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       scope: scope
     } do
       {:ok, tournament} =
-        Tournaments.create_tournament(scope, %{"name" => "Stack Limit Test", "type" => "swiss", "rounds_count" => "1"})
+        Tournaments.create_tournament(scope, %{
+          "name" => "Stack Limit Test",
+          "type" => "swiss",
+          "rounds_count" => "1"
+        })
 
       players =
         for n <- 1..12 do
@@ -407,7 +600,12 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       |> Enum.chunk_every(2)
       |> Enum.with_index(1)
       |> Enum.each(fn {[w, b], board} ->
-        Repo.insert!(%Pairing{round_id: round.id, board: board, white_player_id: w.id, black_player_id: b.id})
+        Repo.insert!(%Pairing{
+          round_id: round.id,
+          board: board,
+          white_player_id: w.id,
+          black_player_id: b.id
+        })
       end)
 
       # 6 boards exist; limit=4 keeps boards 1-4 (players P1..P8) before the
@@ -415,10 +613,14 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       # boards 0..3 and slots 4..7 are blank — i.e. plain board order with 4
       # blanks appended (a single page never needs reordering).
       html =
-        get(conn, ~p"/t/#{tournament.id}/print/results?round=1&limit=4&order=stack") |> html_response(200)
+        get(conn, ~p"/t/#{tournament.id}/print/results?round=1&limit=4&order=stack")
+        |> html_response(200)
 
       assert (html |> String.split(~s(class="result-card">)) |> length()) - 1 == 4
-      assert (html |> String.split(~s(<div class="result-card rc-blank"></div>)) |> length()) - 1 == 4
+
+      assert (html |> String.split(~s(<div class="result-card rc-blank"></div>)) |> length()) - 1 ==
+               4
+
       refute html =~ "P9"
       refute html =~ "P11"
 
@@ -475,8 +677,14 @@ defmodule PairingsEngineWeb.PrintControllerTest do
         })
 
       players =
-        for {name, rating} <- [{"Alice", 2000}, {"Bob", 1900}, {"Carol", 1800}, {"Dave", 1700}], into: %{} do
-          {:ok, p} = Tournaments.create_player(tournament.id, %{"name" => name, "fide_rating" => to_string(rating)})
+        for {name, rating} <- [{"Alice", 2000}, {"Bob", 1900}, {"Carol", 1800}, {"Dave", 1700}],
+            into: %{} do
+          {:ok, p} =
+            Tournaments.create_player(tournament.id, %{
+              "name" => name,
+              "fide_rating" => to_string(rating)
+            })
+
           {name, p}
         end
 
@@ -546,10 +754,13 @@ defmodule PairingsEngineWeb.PrintControllerTest do
 
       # Round 1 (cycle 1): Alice white beats Dave.
       pair_and_score(tournament, players, %{{"Alice", "Dave"} => "1-0", {"Bob", "Carol"} => "1-0"})
+
       # Round 2.
       pair_and_score(tournament, players, %{{"Dave", "Carol"} => "1-0", {"Alice", "Bob"} => "1-0"})
+
       # Round 3.
       pair_and_score(tournament, players, %{{"Bob", "Dave"} => "1-0", {"Carol", "Alice"} => "1-0"})
+
       # Round 4 (cycle 2, colours reversed vs round 1): Dave white vs Alice
       # black — Alice wins again, this time as Black.
       pair_and_score(tournament, players, %{{"Dave", "Alice"} => "0-1", {"Carol", "Bob"} => "0-1"})
@@ -566,7 +777,10 @@ defmodule PairingsEngineWeb.PrintControllerTest do
     test "a forfeit shows +/- rather than a played result", %{conn: conn, scope: scope} do
       {tournament, players} = round_robin_fixture(scope, 1)
 
-      pair_and_score(tournament, players, %{{"Alice", "Dave"} => "1-0FF", {"Bob", "Carol"} => "1-0"})
+      pair_and_score(tournament, players, %{
+        {"Alice", "Dave"} => "1-0FF",
+        {"Bob", "Carol"} => "1-0"
+      })
 
       html = get(conn, ~p"/t/#{tournament.id}/print/crosstable") |> html_response(200)
 
@@ -596,7 +810,12 @@ defmodule PairingsEngineWeb.PrintControllerTest do
               {"Eve", 1600}
             ],
             into: %{} do
-          {:ok, p} = Tournaments.create_player(tournament.id, %{"name" => name, "fide_rating" => to_string(rating)})
+          {:ok, p} =
+            Tournaments.create_player(tournament.id, %{
+              "name" => name,
+              "fide_rating" => to_string(rating)
+            })
+
           {name, p}
         end
 
@@ -611,7 +830,9 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       results = %{{"Bob", "Carol"} => "1-0", {"Dave", "Eve"} => "1-0"}
 
       Enum.each(round.pairings, fn pairing ->
-        key = {Map.fetch!(by_id, pairing.white_player_id), Map.fetch!(by_id, pairing.black_player_id)}
+        key =
+          {Map.fetch!(by_id, pairing.white_player_id), Map.fetch!(by_id, pairing.black_player_id)}
+
         if result = results[key], do: Tournaments.update_pairing_result(pairing, result)
       end)
 
@@ -639,7 +860,10 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       assert html =~ "Registered players (4)"
     end
 
-    test "player_cards renders one card per player with the full round list", %{conn: conn, scope: scope} do
+    test "player_cards renders one card per player with the full round list", %{
+      conn: conn,
+      scope: scope
+    } do
       {tournament, _players} = fixture(scope)
 
       conn = get(conn, ~p"/t/#{tournament.id}/print/cards")
@@ -648,6 +872,124 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       assert html =~ "Player cards"
       # rounds_count is 3 on the fixture tournament, so each card lists 3 rows.
       assert html =~ ~r/class="num">3<\/td>/
+    end
+  end
+
+  ## ---------- place_cards/2 (SWAR parity #14-16) ----------
+
+  # 1x1 transparent PNG (valid PNG signature: \x89 P N G \r \n \x1a \n).
+  @tiny_png Base.decode64!(
+              "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+            )
+
+  describe "place_cards/2" do
+    test "renders one page per player, with board numbers from the latest paired round", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, _players} = fixture(scope)
+
+      conn = get(conn, ~p"/t/#{tournament.id}/print/placecards")
+
+      html = html_response(conn, 200)
+      assert html =~ "Place cards"
+      # 4 players -> 4 "place-card-page" pages, each with an unrotated and a
+      # rotated (folded) copy of the same details.
+      assert length(Regex.scan(~r/<div class="place-card-page">/, html)) == 4
+      assert html =~ "place-card-flip"
+      # Fixture's round 2 (the latest paired round): board 1 is C vs A,
+      # board 2 is B vs D — every player should show a board number.
+      assert html =~ "Board 1"
+      assert html =~ "Board 2"
+    end
+
+    test "?round=1 uses round 1's board numbers instead of the latest round", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, _players} = fixture(scope)
+
+      conn = get(conn, ~p"/t/#{tournament.id}/print/placecards?round=1")
+
+      html = html_response(conn, 200)
+      assert html =~ "Board 1"
+      assert html =~ "Board 2"
+    end
+
+    test "with no paired round at all, cards render without a board number (never 404s)", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "No rounds yet",
+          "type" => "swiss",
+          "rounds_count" => "3"
+        })
+
+      {:ok, _player} =
+        Tournaments.create_player(tournament.id, %{name: "Solo", fide_rating: 1500})
+
+      conn = get(conn, ~p"/t/#{tournament.id}/print/placecards")
+
+      html = html_response(conn, 200)
+      assert html =~ "Solo"
+      refute html =~ "<div class=\"place-card-board\">"
+    end
+
+    test "with no logo set, the logo slot is simply blank", %{conn: conn, scope: scope} do
+      {tournament, _players} = fixture(scope)
+
+      conn = get(conn, ~p"/t/#{tournament.id}/print/placecards")
+
+      refute html_response(conn, 200) =~ "<img class=\"place-card-logo\""
+    end
+
+    test "with a logo set, it's embedded as a base64 data: URI on every card", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, _players} = fixture(scope)
+      {:ok, tournament} = Tournaments.set_logo(tournament, @tiny_png)
+
+      conn = get(conn, ~p"/t/#{tournament.id}/print/placecards")
+
+      html = html_response(conn, 200)
+      assert html =~ "<img class=\"place-card-logo\""
+      assert html =~ "data:image/png;base64,"
+    end
+
+    test "field toggles: title/rating/federation/club/board can each be switched on or off", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, %{a: a}} = fixture(scope)
+
+      {:ok, a} =
+        Tournaments.update_player(a, %{title: "GM", federation: "BEL", club: "Chess Club A"})
+
+      # Defaults: title + rating + board on, federation + club off.
+      default_html = get(conn, ~p"/t/#{tournament.id}/print/placecards") |> html_response(200)
+      assert default_html =~ "GM"
+      assert default_html =~ "2000"
+      refute default_html =~ "BEL"
+      refute default_html =~ "Chess Club A"
+
+      # Turn title/rating/board off, federation/club on.
+      toggled_html =
+        get(
+          conn,
+          ~p"/t/#{tournament.id}/print/placecards?title=0&rating=0&board=0&federation=1&club=1"
+        )
+        |> html_response(200)
+
+      refute toggled_html =~ "GM"
+      refute toggled_html =~ "<div class=\"place-card-board\">"
+      assert toggled_html =~ "BEL"
+      assert toggled_html =~ "Chess Club A"
+
+      # Name is always shown, toggle or not.
+      assert toggled_html =~ a.name
     end
   end
 end

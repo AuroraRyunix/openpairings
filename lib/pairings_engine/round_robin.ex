@@ -129,6 +129,62 @@ defmodule PairingsEngine.RoundRobin do
     (effective_n - 1) * cycles
   end
 
+  @doc """
+  "Match format" schedule: like `schedule/3` but every single-cycle pairing
+  is played twice, back-to-back, colours reversed, instead of once —
+  `tournaments.rr_match_format`, a different shape from `rr_cycles == 2`
+  (see the moduledoc and the field's own doc comment on
+  `PairingsEngine.Tournaments.Tournament`).
+
+  `physical_round` is the round number as actually paired/displayed (1, 2,
+  3, 4, ... — nothing here renumbers rounds). Physical rounds `2k-1` and
+  `2k` are match `k`'s two legs: `match_number = div(physical_round + 1, 2)`
+  maps both `2k-1` and `2k` to `k`, and `schedule(player_count, 1, k)` gives
+  that match's pairing exactly once (a single-cycle Berger table, since a
+  "match" here is one cycle's worth of pairing repeated, not two cycles).
+  The odd physical round is leg 1, played exactly as the single-cycle
+  schedule says; the even physical round is leg 2, the same pairing with
+  colours swapped (`mirror_leg/1`).
+
+  A structural bye (odd player count) mirrors unchanged rather than
+  swapping anything — the player sitting out match `k` sits out both of its
+  legs identically, so leg 2's bye row is the same player, same
+  `"requested-zero"` type, just recorded against the next round number by
+  the caller (`do_pair/2` inserts one row per physical round, same as
+  `schedule/3`).
+  """
+  @spec match_schedule(pos_integer(), pos_integer()) ::
+          {:ok, [{:pairing, pos_integer(), pos_integer()} | {:bye, pos_integer()}]}
+          | {:error, String.t()}
+  def match_schedule(player_count, physical_round) when physical_round >= 1 do
+    match_number = div(physical_round + 1, 2)
+
+    case schedule(player_count, 1, match_number) do
+      {:ok, matches} ->
+        leg2? = rem(physical_round, 2) == 0
+        {:ok, if(leg2?, do: Enum.map(matches, &mirror_leg/1), else: matches)}
+
+      error ->
+        error
+    end
+  end
+
+  defp mirror_leg({:pairing, w, b}), do: {:pairing, b, w}
+  defp mirror_leg({:bye, _} = bye), do: bye
+
+  @doc """
+  Total number of physical rounds the match-format schedule needs for
+  `player_count` players — exactly double `total_rounds(player_count, 1)`,
+  since every single-cycle pairing becomes two physical rounds (its two
+  legs). Match format is always a single Berger cycle underneath (see
+  `match_schedule/2`), so unlike `total_rounds/2` there's no `cycles`
+  parameter here.
+  """
+  @spec match_total_rounds(pos_integer()) :: pos_integer()
+  def match_total_rounds(player_count) do
+    total_rounds(player_count, 1) * 2
+  end
+
   ## ---------- pure schedule construction ----------
 
   # See the moduledoc for the derivation of both the pairing and the
@@ -211,7 +267,14 @@ defmodule PairingsEngine.RoundRobin do
   ## ---------- the pairing run ----------
 
   defp do_pair(tournament, frozen, next_number) do
-    case schedule(length(frozen), tournament.rr_cycles, next_number) do
+    result =
+      if tournament.rr_match_format do
+        match_schedule(length(frozen), next_number)
+      else
+        schedule(length(frozen), tournament.rr_cycles, next_number)
+      end
+
+    case result do
       {:error, reason} ->
         {:error, reason}
 
@@ -250,7 +313,7 @@ defmodule PairingsEngine.RoundRobin do
           board: board,
           white_player_id: white.id,
           black_player_id: black.id,
-          result: ""
+          result: forfeit_result(white, black)
         })
       end)
 
@@ -259,12 +322,53 @@ defmodule PairingsEngine.RoundRobin do
         |> Enum.filter(&match?({:bye, _}, &1))
         |> Enum.map(fn {:bye, num} ->
           player = Map.fetch!(by_number, num)
-          %{tournament_id: tournament.id, player_id: player.id, round: next_number, type: "requested-zero"}
+
+          %{
+            tournament_id: tournament.id,
+            player_id: player.id,
+            round: next_number,
+            type: "requested-zero"
+          }
         end)
 
-      if bye_rows != [], do: Repo.insert_all("byes", bye_rows)
+      if bye_rows != [] do
+        Repo.insert_all("byes", bye_rows)
+
+        # A "requested-zero" bye immediately awards points (see
+        # PairingsEngine.Standings) without ever going through
+        # Tournaments.update_pairing_result/2 — a hand-set manual standings
+        # order must be marked stale here too, same as any other
+        # point-changing write. See docs/manual-standings.md (Fix 3) and
+        # PairingsEngine.Pairing.insert_round_absentee_byes/3 for the same
+        # pattern on the Swiss/JaVaFo path. Must run before the caller's
+        # broadcast_tournament_change so no PubSub subscriber can reload and
+        # observe a stale-but-unmarked manual order.
+        Tournaments.invalidate_manual_ranking(tournament.id)
+      end
 
       round
     end)
+  end
+
+  # A player who is currently `absent` or `forfeit` (both fields bypass
+  # `ensure_frozen/1`'s filter identically for tournaments continued from a
+  # SWAR import, where `pairing_number` is set directly at player creation —
+  # see `PairingsEngine.SwarImport`) still gets paired every round by design
+  # (see moduledoc: the Berger schedule can't be recomputed mid-tournament),
+  # but should never be left with a blank result for the arbiter to notice
+  # manually. Automate exactly what the moduledoc already documents: record
+  # the forfeit result at insert time instead. `absent` and `forfeit` are
+  # treated as equivalent OR-conditions — either one alone is enough to mark
+  # a side as forfeiting, and having both set changes nothing.
+  defp forfeit_result(%Player{} = white, %Player{} = black) do
+    white_out? = white.absent || white.forfeit
+    black_out? = black.absent || black.forfeit
+
+    cond do
+      white_out? and black_out? -> "0-0FF"
+      white_out? -> "0-1FF"
+      black_out? -> "1-0FF"
+      true -> ""
+    end
   end
 end

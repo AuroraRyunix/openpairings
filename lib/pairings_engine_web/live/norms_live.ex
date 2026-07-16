@@ -457,8 +457,8 @@ defmodule PairingsEngineWeb.NormsLive do
 
   defp norm_edit_modal(assigns) do
     ~H"""
-    <div class="modal-overlay" phx-click="close_norm" phx-window-keydown="close_norm" phx-key="escape">
-      <form class="modal-card" phx-submit="save_norm" onclick="event.stopPropagation()">
+    <div class="modal-overlay" phx-window-keydown="close_norm" phx-key="escape">
+      <form class="modal-card" phx-submit="save_norm" phx-click-away="close_norm">
         <h2>Title-norm judgment — {@player.name}</h2>
 
         <div class="form-grid">

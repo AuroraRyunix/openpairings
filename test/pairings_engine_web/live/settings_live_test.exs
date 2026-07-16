@@ -18,14 +18,20 @@ defmodule PairingsEngineWeb.SettingsLiveTest do
     {:ok, tournament} =
       Tournaments.create_tournament(
         scope,
-        Map.merge(%{"name" => "Settings LV Test", "type" => "swiss", "rounds_count" => "5"}, attrs)
+        Map.merge(
+          %{"name" => "Settings LV Test", "type" => "swiss", "rounds_count" => "5"},
+          attrs
+        )
       )
 
     tournament
   end
 
   describe "Rate of play — dependent on Type (standard)" do
-    test "the active rate-of-play list matches the tournament's standard on load", %{conn: conn, scope: scope} do
+    test "the active rate-of-play list matches the tournament's standard on load", %{
+      conn: conn,
+      scope: scope
+    } do
       tournament = create_tournament(scope, %{"standard" => "blitz"})
 
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
@@ -53,14 +59,16 @@ defmodule PairingsEngineWeb.SettingsLiveTest do
       refute html =~ "150min/end"
     end
 
-    test "switching Type keeps the current rate of play if it's on the new list, else clears it", %{
-      conn: conn,
-      scope: scope
-    } do
+    test "switching Type keeps the current rate of play if it's on the new list, else clears it",
+         %{
+           conn: conn,
+           scope: scope
+         } do
       # "10min/end" appears on both the rapid... (no, only blitz/rapid share
       # nothing verbatim) — use a value unique to rapid vs one unique to
       # blitz to prove both branches.
-      tournament = create_tournament(scope, %{"standard" => "rapid", "rate_of_play" => "45min/end"})
+      tournament =
+        create_tournament(scope, %{"standard" => "rapid", "rate_of_play" => "45min/end"})
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings")
 
@@ -96,12 +104,17 @@ defmodule PairingsEngineWeb.SettingsLiveTest do
       # spurious `Database busy` (see the same fix in sharing_test.exs).
       render(lv)
 
-      assert Tournaments.get_authorized_tournament!(scope, tournament.id).rate_of_play == "59min/end"
+      assert Tournaments.get_authorized_tournament!(scope, tournament.id).rate_of_play ==
+               "59min/end"
     end
 
     test "a stored rate_of_play not on any preset list (e.g. from SWAR import) is offered as an extra option instead of silently dropped",
          %{conn: conn, scope: scope} do
-      tournament = create_tournament(scope, %{"standard" => "standard", "rate_of_play" => "40min/40moves+finish (SWAR import)"})
+      tournament =
+        create_tournament(scope, %{
+          "standard" => "standard",
+          "rate_of_play" => "40min/40moves+finish (SWAR import)"
+        })
 
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
 
@@ -110,7 +123,10 @@ defmodule PairingsEngineWeb.SettingsLiveTest do
   end
 
   describe "Round dates" do
-    test "shows the weekday for a filled-in round date and the round labels", %{conn: conn, scope: scope} do
+    test "shows the weekday for a filled-in round date and the round labels", %{
+      conn: conn,
+      scope: scope
+    } do
       tournament =
         create_tournament(scope, %{"rounds_count" => "2", "round_dates" => ["2026-07-13", ""]})
 
@@ -122,8 +138,12 @@ defmodule PairingsEngineWeb.SettingsLiveTest do
       assert html =~ "Round 2"
     end
 
-    test "'Fill sequentially from start date' sets round N = start date + (N-1) days", %{conn: conn, scope: scope} do
-      tournament = create_tournament(scope, %{"rounds_count" => "3", "start_date" => "2026-07-13"})
+    test "'Fill sequentially from start date' sets round N = start date + (N-1) days", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament =
+        create_tournament(scope, %{"rounds_count" => "3", "start_date" => "2026-07-13"})
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings")
 
@@ -186,7 +206,10 @@ defmodule PairingsEngineWeb.SettingsLiveTest do
     # right under the header, which read as the page jumping to the top.
     # It's a false positive: nothing actually changed out from under this
     # session, this session caused it.
-    test "adding a forbidden pairing does not show the stale/'updated elsewhere' banner", %{conn: conn, scope: scope} do
+    test "adding a forbidden pairing does not show the stale/'updated elsewhere' banner", %{
+      conn: conn,
+      scope: scope
+    } do
       tournament = create_tournament(scope)
       {:ok, a} = Tournaments.create_player(tournament.id, %{"name" => "Alice"})
       {:ok, b} = Tournaments.create_player(tournament.id, %{"name" => "Bob"})
@@ -195,7 +218,10 @@ defmodule PairingsEngineWeb.SettingsLiveTest do
 
       html =
         lv
-        |> form("#add-forbidden-pairing-form", %{"player_a_id" => to_string(a.id), "player_b_id" => to_string(b.id)})
+        |> form("#add-forbidden-pairing-form", %{
+          "player_a_id" => to_string(a.id),
+          "player_b_id" => to_string(b.id)
+        })
         |> render_submit()
 
       refute html =~ "updated elsewhere"
@@ -208,7 +234,10 @@ defmodule PairingsEngineWeb.SettingsLiveTest do
       assert html =~ "Bob"
     end
 
-    test "removing a forbidden pairing does not show the stale banner either", %{conn: conn, scope: scope} do
+    test "removing a forbidden pairing does not show the stale banner either", %{
+      conn: conn,
+      scope: scope
+    } do
       tournament = create_tournament(scope)
       {:ok, a} = Tournaments.create_player(tournament.id, %{"name" => "Alice"})
       {:ok, b} = Tournaments.create_player(tournament.id, %{"name" => "Bob"})
@@ -222,10 +251,11 @@ defmodule PairingsEngineWeb.SettingsLiveTest do
       refute html =~ "updated elsewhere"
     end
 
-    test "a genuine concurrent change from another session while dirty still shows the stale banner", %{
-      conn: conn,
-      scope: scope
-    } do
+    test "a genuine concurrent change from another session while dirty still shows the stale banner",
+         %{
+           conn: conn,
+           scope: scope
+         } do
       tournament = create_tournament(scope)
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings")
@@ -244,10 +274,17 @@ defmodule PairingsEngineWeb.SettingsLiveTest do
   end
 
   describe "Club/federation exclusions" do
-    test "saving an \"all\" club rule persists it and updates the excluded-pair hint", %{conn: conn, scope: scope} do
+    test "saving an \"all\" club rule persists it and updates the excluded-pair hint", %{
+      conn: conn,
+      scope: scope
+    } do
       tournament = create_tournament(scope)
-      {:ok, _a} = Tournaments.create_player(tournament.id, %{"name" => "Alice", "club" => "Chess Club"})
-      {:ok, _b} = Tournaments.create_player(tournament.id, %{"name" => "Bob", "club" => "Chess Club"})
+
+      {:ok, _a} =
+        Tournaments.create_player(tournament.id, %{"name" => "Alice", "club" => "Chess Club"})
+
+      {:ok, _b} =
+        Tournaments.create_player(tournament.id, %{"name" => "Bob", "club" => "Chess Club"})
 
       {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
       assert html =~ "0 pair(s) currently excluded"
@@ -288,9 +325,15 @@ defmodule PairingsEngineWeb.SettingsLiveTest do
       scope: scope
     } do
       tournament = create_tournament(scope)
-      {:ok, _a} = Tournaments.create_player(tournament.id, %{"name" => "Alice", "federation" => "BEL"})
-      {:ok, _b} = Tournaments.create_player(tournament.id, %{"name" => "Bob", "federation" => "BEL"})
-      {:ok, _c} = Tournaments.create_player(tournament.id, %{"name" => "Carol", "federation" => "NED"})
+
+      {:ok, _a} =
+        Tournaments.create_player(tournament.id, %{"name" => "Alice", "federation" => "BEL"})
+
+      {:ok, _b} =
+        Tournaments.create_player(tournament.id, %{"name" => "Bob", "federation" => "BEL"})
+
+      {:ok, _c} =
+        Tournaments.create_player(tournament.id, %{"name" => "Carol", "federation" => "NED"})
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings")
 
@@ -329,10 +372,13 @@ defmodule PairingsEngineWeb.SettingsLiveTest do
       refute html =~ ~s(name="tournament[time_control]")
       # Chief arbiter still exists (moved to the Officials card with a FIDE
       # autocomplete), just not duplicated as a plain General text field.
-      assert (html |> String.split(~s(name="tournament[chief_arbiter]")) |> length()) == 2
+      assert html |> String.split(~s(name="tournament[chief_arbiter]")) |> length() == 2
     end
 
-    test "the mandatory General/Format labels render bold with a red asterisk", %{conn: conn, scope: scope} do
+    test "the mandatory General/Format labels render bold with a red asterisk", %{
+      conn: conn,
+      scope: scope
+    } do
       tournament = create_tournament(scope)
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
 
@@ -342,7 +388,10 @@ defmodule PairingsEngineWeb.SettingsLiveTest do
       assert html =~ "var(--danger)"
     end
 
-    test "\"Pair by\" no longer offers the \"No rating (random order)\" option", %{conn: conn, scope: scope} do
+    test "\"Pair by\" no longer offers the \"No rating (random order)\" option", %{
+      conn: conn,
+      scope: scope
+    } do
       tournament = create_tournament(scope)
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
 
@@ -353,10 +402,11 @@ defmodule PairingsEngineWeb.SettingsLiveTest do
   end
 
   describe "Officials card cleanup" do
-    test "removes the standalone Chief arbiter FIDE ID, Pairing mode, Pairing program and Swiss variant inputs", %{
-      conn: conn,
-      scope: scope
-    } do
+    test "removes the standalone Chief arbiter FIDE ID, Pairing mode, Pairing program and Swiss variant inputs",
+         %{
+           conn: conn,
+           scope: scope
+         } do
       tournament = create_tournament(scope)
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
 
@@ -375,14 +425,20 @@ defmodule PairingsEngineWeb.SettingsLiveTest do
       assert html =~ ~s(type="hidden" name="tournament[officials][deputy1_fide_id]")
     end
 
-    test "typing a chief arbiter query shows FIDE matches, and picking one fills name + FIDE id", %{
-      conn: conn,
-      scope: scope
-    } do
+    test "typing a chief arbiter query shows FIDE matches, and picking one fills name + FIDE id",
+         %{
+           conn: conn,
+           scope: scope
+         } do
       tournament = create_tournament(scope)
 
       fide_player =
-        Repo.insert!(%FidePlayer{fide_id: 1_503_014, name: "Carlsen, Magnus", federation: "NOR", title: "GM"})
+        Repo.insert!(%FidePlayer{
+          fide_id: 1_503_014,
+          name: "Carlsen, Magnus",
+          federation: "NOR",
+          title: "GM"
+        })
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings")
 
@@ -440,13 +496,254 @@ defmodule PairingsEngineWeb.SettingsLiveTest do
   end
 
   describe "Categories/Extra points cards removed from Settings" do
-    test "neither the old Categories nor Extra points cards render any more", %{conn: conn, scope: scope} do
+    test "neither the old Categories nor Extra points cards render any more", %{
+      conn: conn,
+      scope: scope
+    } do
       tournament = create_tournament(scope)
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
 
       refute html =~ "Elo bands (rating:bonus, comma-separated)"
       refute html =~ "Apply bands to players"
       refute html =~ "Tournament-defined groups (SWAR CATEGORIES)"
+    end
+  end
+
+  describe "Logo (SWAR parity #14-16)" do
+    # 1x1 transparent PNG — real signature bytes.
+    @tiny_png Base.decode64!(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+              )
+    @tiny_svg "<svg xmlns=\"http://www.w3.org/2000/svg\"><script>alert(1)</script></svg>"
+
+    test "uploading a valid PNG sets the logo and shows a preview", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings")
+
+      logo =
+        file_input(lv, "#logo-upload-form", :logo, [
+          %{name: "logo.png", content: @tiny_png, type: "image/png"}
+        ])
+
+      render_upload(logo, "logo.png")
+      html = lv |> form("#logo-upload-form", %{}) |> render_submit()
+
+      assert html =~ "Logo uploaded."
+      assert html =~ "Current logo"
+      assert html =~ "data:image/png;base64,"
+      assert Repo.reload!(tournament).logo_content_type == "image/png"
+    end
+
+    test "uploading an SVG is rejected with a friendly flash, nothing stored", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings")
+
+      logo =
+        file_input(lv, "#logo-upload-form", :logo, [
+          # Browser-supplied content-type claims image/svg+xml and the
+          # filename claims .png — neither is trusted; only the actual
+          # bytes (an SVG's `<svg ...>` opening tag, no raster signature)
+          # decide, and they're rejected regardless of what's claimed.
+          %{name: "logo.png", content: @tiny_svg, type: "image/svg+xml"}
+        ])
+
+      render_upload(logo, "logo.png")
+      html = lv |> form("#logo-upload-form", %{}) |> render_submit()
+
+      assert html =~ "a supported image"
+      refute Repo.reload!(tournament).logo_data
+    end
+
+    test "removing a set logo clears it", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      {:ok, tournament} = Tournaments.set_logo(tournament, @tiny_png)
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
+      assert html =~ "Current logo"
+
+      html = lv |> element("button", "Remove logo") |> render_click()
+
+      assert html =~ "Logo removed."
+      refute html =~ "Current logo"
+      refute Repo.reload!(tournament).logo_data
+    end
+  end
+
+  describe "rr_match_format — locked once round 1 has been paired" do
+    defp pair_round_robin_round_1(tournament) do
+      Tournaments.create_player(tournament.id, %{name: "Alice", fide_rating: 2000})
+      Tournaments.create_player(tournament.id, %{name: "Bob", fide_rating: 1900})
+      Tournaments.create_player(tournament.id, %{name: "Carol", fide_rating: 1800})
+      Tournaments.create_player(tournament.id, %{name: "Dave", fide_rating: 1700})
+      {:ok, _round} = PairingsEngine.Pairing.pair_next_round(Tournaments.get_tournament!(tournament.id))
+    end
+
+    test "the checkbox is enabled before any round is paired, disabled after round 1", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope, %{"pairing_system" => "round_robin"})
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
+      refute html =~ ~r/name="tournament\[rr_match_format\][^>]*disabled/
+
+      pair_round_robin_round_1(tournament)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
+      assert html =~ ~r/name="tournament\[rr_match_format\][^>]*disabled/
+      assert html =~ "locked after first pairing"
+      _ = lv
+    end
+
+    test "a submitted change to rr_match_format is dropped server-side once locked", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope, %{"pairing_system" => "round_robin"})
+      pair_round_robin_round_1(tournament)
+
+      {:ok, lv, _html} =
+        live(conn, ~p"/t/#{tournament.id}/settings")
+
+      # The rendered checkbox is HTML `disabled` (proven by the previous
+      # test), so a real browser could never submit a changed value for it —
+      # but a crafted/replayed request could still include the key, hence
+      # `render_submit/3` (bypassing form-element validation, unlike
+      # `form/3` + `render_submit/1`) to simulate exactly that and prove
+      # `strip_locked_pairing_fields/2` drops it server-side regardless.
+      render_submit(lv, "save", %{"tournament" => %{"name" => tournament.name, "rr_match_format" => "true"}})
+
+      refute Repo.reload!(tournament).rr_match_format
+    end
+  end
+
+  describe "swiss_match_format — locked once round 1 (match 1) has been paired" do
+    defp pair_swiss_match_1(tournament) do
+      Tournaments.create_player(tournament.id, %{name: "Alice", fide_rating: 2000})
+      Tournaments.create_player(tournament.id, %{name: "Bob", fide_rating: 1900})
+      Tournaments.create_player(tournament.id, %{name: "Carol", fide_rating: 1800})
+      Tournaments.create_player(tournament.id, %{name: "Dave", fide_rating: 1700})
+      {:ok, _round} = PairingsEngine.Pairing.pair_next_round(Tournaments.get_tournament!(tournament.id))
+    end
+
+    @tag :javafo
+    test "the checkbox is enabled before any round is paired, disabled after match 1", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament =
+        create_tournament(scope, %{
+          "pairing_system" => "swiss",
+          "rounds_count" => "4",
+          "swiss_match_format" => "true"
+        })
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
+      refute html =~ ~r/name="tournament\[swiss_match_format\][^>]*disabled/
+
+      pair_swiss_match_1(tournament)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
+      assert html =~ ~r/name="tournament\[swiss_match_format\][^>]*disabled/
+      assert html =~ "locked after first pairing"
+      _ = lv
+    end
+
+    @tag :javafo
+    test "a submitted change to swiss_match_format is dropped server-side once locked", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament =
+        create_tournament(scope, %{
+          "pairing_system" => "swiss",
+          "rounds_count" => "4",
+          "swiss_match_format" => "true"
+        })
+
+      pair_swiss_match_1(tournament)
+
+      {:ok, lv, _html} =
+        live(conn, ~p"/t/#{tournament.id}/settings")
+
+      render_submit(lv, "save", %{
+        "tournament" => %{"name" => tournament.name, "swiss_match_format" => "false"}
+      })
+
+      assert Repo.reload!(tournament).swiss_match_format
+    end
+  end
+
+  describe "pair_by_category — locked once round 1 has been paired" do
+    defp pair_swiss_round_1(tournament) do
+      Tournaments.create_player(tournament.id, %{name: "Alice", fide_rating: 2000})
+      Tournaments.create_player(tournament.id, %{name: "Bob", fide_rating: 1900})
+      Tournaments.create_player(tournament.id, %{name: "Carol", fide_rating: 1800})
+      Tournaments.create_player(tournament.id, %{name: "Dave", fide_rating: 1700})
+      {:ok, _round} = PairingsEngine.Pairing.pair_next_round(Tournaments.get_tournament!(tournament.id))
+    end
+
+    @tag :javafo
+    test "the checkbox is enabled before any round is paired, disabled after round 1", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament =
+        create_tournament(scope, %{
+          "pairing_system" => "swiss",
+          "categories_enabled" => "true",
+          "categories" => ["A", "B"],
+          "pair_by_category" => "true"
+        })
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
+      refute html =~ ~r/name="tournament\[pair_by_category\][^>]*disabled/
+
+      pair_swiss_round_1(tournament)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
+      assert html =~ ~r/name="tournament\[pair_by_category\][^>]*disabled/
+      assert html =~ "locked after first pairing"
+      _ = lv
+    end
+
+    @tag :javafo
+    test "a submitted change to pair_by_category is dropped server-side once locked", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament =
+        create_tournament(scope, %{
+          "pairing_system" => "swiss",
+          "categories_enabled" => "true",
+          "categories" => ["A", "B"],
+          "pair_by_category" => "true"
+        })
+
+      pair_swiss_round_1(tournament)
+
+      {:ok, lv, _html} =
+        live(conn, ~p"/t/#{tournament.id}/settings")
+
+      render_submit(lv, "save", %{
+        "tournament" => %{"name" => tournament.name, "pair_by_category" => "false"}
+      })
+
+      assert Repo.reload!(tournament).pair_by_category
+    end
+
+    test "the checkbox is disabled with a hint when categories are not enabled", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope, %{"pairing_system" => "swiss"})
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
+      assert html =~ ~r/name="tournament\[pair_by_category\][^>]*disabled/
+      assert html =~ "enable categories first"
     end
   end
 end

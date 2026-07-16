@@ -12,7 +12,7 @@ defmodule PairingsEngine.SwarImportTest do
   # CI) — see the comment there.
   @moduletag :swar_fixture
 
-  alias PairingsEngine.{SwarImport, Tournaments, Repo}
+  alias PairingsEngine.{SwarImport, Tournaments, Repo, Standings}
   alias PairingsEngine.Tournaments.Round
   alias PairingsEngine.Accounts.{Scope, User}
   alias PairingsEngine.Fide.FidePlayer
@@ -232,6 +232,123 @@ defmodule PairingsEngine.SwarImportTest do
     assert {:ok, tournament} = SwarImport.import_file(@problemski)
     players = Tournaments.list_players(tournament.id)
     assert length(players) == 10
+  end
+
+  ## ---------- 3-2-1 scoring (SWAR type SWISS_321 == 3) ----------
+
+  # test/fixtures/test3-321.swar is a real club-championship file saved
+  # with SWAR's "3-2-1" tournament type turned on (`[TOURNOI].Type == 3`).
+  # This particular club's `SW321_Win/Nul/Los` are configured to a 2.0/1.0/0.0
+  # scale (raw ints 8/4/0, ÷4 — see the long comment on `scoring_attrs/1`
+  # for why ÷4, not ÷8, is correct: the format manual states the SW321_*
+  # fields are stored ×4, and ÷8 was verified to silently halve every
+  # configured value, which is the KBSB-reported bug this fixes). "3-2-1" is
+  # SWAR's feature name, not a claim that the values are literally 3/2/1 —
+  # each club sets its own win/draw/loss scale, and this fixture's club
+  # happens to use 2/1/0. `SW321_Bye` (raw 4 → 1.0) and `SW321_Pre` (raw
+  # 4 → 1.0) are also configured here, and this file's `SW321_PreBye` is
+  # nonzero (raw 1) — per the manual (§5.16, "Add presence points for bye
+  # games") that means `bye_value` is `SW321_Bye + SW321_Pre` = 2.0, not
+  # `SW321_Bye` alone. This test previously asserted `bye_value == 1.0`
+  # (SW321_Bye only) — that assertion was itself the SW321_PreBye gap this
+  # session's fix closes, caught by the behavioral check below: "Descheemaeker,
+  # Tom" has two LOST_BYE rounds and two ordinary losses, and his real SWAR
+  # total (`points_raw / 4`, from his own file record) only reconciles once
+  # LOST_BYE rounds score at `presence_value` (not `points_loss`).
+  @test3_321 "test/fixtures/test3-321.swar"
+
+  test "import_file/1 maps SWAR's 3-2-1 scoring fields (SW321_Win/Nul/Los/Bye/Pre/PreBye) onto the tournament" do
+    assert {:ok, tournament} = SwarImport.import_file(@test3_321)
+
+    assert tournament.points_win == 2.0
+    assert tournament.points_draw == 1.0
+    assert tournament.points_loss == 0.0
+    assert tournament.presence_value == 1.0
+    # SW321_Bye (1.0) + SW321_Pre (1.0) — SW321_PreBye is nonzero in this file.
+    assert tournament.bye_value == 2.0
+  end
+
+  test "import_file/1 scores a real player's LOST_BYE rounds at presence_value, reproducing SWAR's own raw point total" do
+    {:ok, data} = SwarImport.parse(File.read!(@test3_321))
+    tom = Enum.find(data.players, &(&1.name == "Descheemaeker, Tom"))
+    # Non-circular check: this player's own raw `Points` field (SWAR's
+    # stored total, ÷4 like every other SW321_* field) is the ground truth
+    # here — independent of whatever our scoring_attrs/1 currently does.
+    assert tom.points == 8
+
+    assert {:ok, tournament} = SwarImport.import_file(@test3_321)
+    [player] = Enum.filter(Tournaments.list_players(tournament.id), &(&1.name == "Descheemaeker, Tom"))
+    entry = Enum.find(Standings.standings(tournament), &(&1.player.id == player.id))
+
+    # tom.points (8, raw) / 4 == 2.0 == wins*Win + draws*Nul + losses*Los +
+    # lost_byes*Pre, all raw, / 4 — this player has 0 wins, 0 draws, 2
+    # ordinary losses (Los raw 0, contributing nothing either way) and 2
+    # LOST_BYE rounds (Pre raw 4 each): (2*0 + 2*4) / 4 = 2.0. Before this
+    # session's fix, LOST_BYE scored at points_loss (0.0), which would have
+    # produced 0.0 here instead — the exact regression this guards.
+    assert entry.points == 2.0
+  end
+
+  test "import_file/1 leaves scoring at schema defaults for a standard (non-3-2-1) tournament" do
+    # problemski.swar's raw SW321_Win/Nul/Los/Bye ints (8/4/0/8) happen to
+    # be present and would *also* divide out to 2.0/1.0/0.0/2.0 — but its
+    # `[TOURNOI].Type` is 0 (plain Swiss), not 3, so the mapping must not
+    # fire at all; this only proves the type==3 guard, not the division.
+    assert {:ok, tournament} = SwarImport.import_file(@problemski)
+
+    assert tournament.points_win == 1.0
+    assert tournament.points_draw == 0.5
+    assert tournament.points_loss == 0.0
+    assert tournament.bye_value == 1.0
+  end
+
+  # User-reported crash: test3-321.swar is a real club championship with 42
+  # players, 19 of them correctly marked `absent: true` per SWAR's own
+  # "Absent" checkbox (excluded from every round upcoming or not yet
+  # paired — confirmed by the tournament's arbiter). Pairing round 9 (past
+  # the 8 imported rounds) crashed entirely with
+  # `PairingsEngine.Trf.ValidationError`: "Aelvoet, Karel, round 2: opponent
+  # 0000 cannot carry played-game result "1" — opponentless games must use
+  # a bye code". Root cause: "Aelvoet, Karel" really did play a round-2
+  # game against "De Winter, Gerrit", one of the 19 now-absent players —
+  # `games_per_player/2` was resolving that historical opponent's identity
+  # against the current round's narrow *active* player set (correctly used
+  # to decide who's eligible to be paired THIS round) instead of the full
+  # tournament roster, so a genuine non-nil `opponent_id` produced a nil
+  # `opponent_rank` — a played-game result with no legal way to name its
+  # opponent. Fixed by resolving historical opponent identity against every
+  # player who ever received a pairing_number, regardless of current
+  # eligibility (see `PairingsEngine.Pairing.build_shared_history/1`).
+  @tag :javafo
+  test "pairing a new round after import doesn't crash when a historical opponent is now excluded" do
+    assert {:ok, tournament} = SwarImport.import_file(@test3_321)
+    assert {:ok, tournament} = Tournaments.update_tournament(tournament, %{rounds_count: 9})
+
+    assert {:ok, round} = PairingsEngine.Pairing.pair_next_round(tournament)
+    assert round.number == 9
+
+    # Also prove the fix, not just "doesn't crash": Aelvoet, Karel's round-2
+    # line in the round-9 TRF input must correctly show his real opponent's
+    # (De Winter, Gerrit's) starting rank alongside the real played-game
+    # result code, not the "0000" placeholder.
+    karel = Enum.find(Tournaments.list_players(tournament.id), &(&1.name == "Aelvoet, Karel"))
+
+    gerrit =
+      Enum.find(Tournaments.list_players(tournament.id), &(&1.name == "De Winter, Gerrit"))
+
+    assert gerrit.absent == true
+
+    active = PairingsEngine.Pairing.active_players(tournament.id)
+    refute gerrit.id in Enum.map(active, & &1.id)
+
+    [karel_row] =
+      PairingsEngine.Pairing.trf_player_rows(tournament, active)
+      |> Enum.filter(&(&1.id == karel.id))
+
+    round2_game = Enum.at(karel_row.games, 1)
+    assert round2_game.opponent_id == gerrit.id
+    assert round2_game.opponent_rank == gerrit.pairing_number
+    assert round2_game.result in ["1", "0"]
   end
 
   test "import_file/1 marks the tournament as running, not stuck on setup, since rounds were imported" do

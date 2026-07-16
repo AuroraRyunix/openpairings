@@ -1,0 +1,72 @@
+defmodule PairingsEngineWeb.PublicStandingsLiveTest do
+  use PairingsEngineWeb.ConnCase
+
+  import Phoenix.LiveViewTest
+
+  alias PairingsEngine.{Repo, Tournaments}
+  alias PairingsEngine.Tournaments.{Player, Round, Pairing}
+
+  # No login — the public page needs no `register_and_log_in_user` setup.
+  defp two_player_tournament do
+    {:ok, tournament} =
+      Tournaments.create_tournament(%{"name" => "Public Manual Ranking Test", "type" => "swiss"})
+
+    a = Repo.insert!(%Player{tournament_id: tournament.id, name: "Alice", fide_rating: 2000})
+    b = Repo.insert!(%Player{tournament_id: tournament.id, name: "Bob", fide_rating: 1900})
+
+    round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
+
+    pairing =
+      Repo.insert!(%Pairing{
+        round_id: round.id,
+        board: 1,
+        white_player_id: a.id,
+        black_player_id: b.id,
+        result: "1-0"
+      })
+
+    {tournament, a, b, pairing}
+  end
+
+  test "shows the tournament's standings without login", %{conn: conn} do
+    {tournament, _a, _b, _pairing} = two_player_tournament()
+
+    {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/standings")
+
+    assert html =~ "Alice"
+    assert html =~ "Bob"
+  end
+
+  describe "Manual ranking (SWAR parity #23)" do
+    test "no banner while manual_ranking is off", %{conn: conn} do
+      {tournament, _a, _b, _pairing} = two_player_tournament()
+
+      {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/standings")
+
+      refute html =~ "Manual ranking is ON"
+    end
+
+    test "shows the banner (read-only, no controls) once manual ranking is on", %{conn: conn} do
+      {tournament, _a, _b, _pairing} = two_player_tournament()
+      {:ok, tournament} = Tournaments.enable_manual_ranking(tournament)
+
+      {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/standings")
+
+      assert html =~ "Manual ranking is ON"
+      refute html =~ "phx-click=\"manual_move\""
+      refute html =~ "Re-seed from current order"
+    end
+
+    test "shows the stale note once a result changes after seeding", %{conn: conn} do
+      {tournament, _a, _b, pairing} = two_player_tournament()
+      {:ok, tournament} = Tournaments.enable_manual_ranking(tournament)
+
+      {:ok, lv, _html} = live(conn, ~p"/p/#{tournament.public_slug}/standings")
+
+      Tournaments.update_pairing_result(pairing, "0-1")
+      html = render(lv)
+
+      assert html =~ "may no longer match"
+    end
+  end
+end
