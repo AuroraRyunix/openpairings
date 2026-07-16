@@ -89,9 +89,17 @@ defmodule PairingsEngineWeb.Layouts do
           <.link navigate={~p"/t/#{@tournament.id}/norms"} class={tab_class(@active == "norms")}>
             Norms
           </.link>
-          <.link navigate={~p"/t/#{@tournament.id}/audit"} class={tab_class(@active == "audit")}>
-            Audit
-          </.link>
+          <details class="topbar-menu">
+            <summary class={tab_class(@active == "audit")}>Advanced</summary>
+            <div class="topbar-menu-panel">
+              <.link navigate={~p"/t/#{@tournament.id}/audit"} class="topbar-menu-item">
+                Audit trail
+              </.link>
+              <.link navigate={~p"/t/#{@tournament.id}/audit/explain"} class="topbar-menu-item">
+                Explain a round
+              </.link>
+            </div>
+          </details>
           <.link navigate={~p"/t/#{@tournament.id}/settings"} class={tab_class(@active == "settings")}>
             Settings
           </.link>

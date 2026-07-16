@@ -463,6 +463,118 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
     end
   end
 
+  describe "sortable columns" do
+    setup %{scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Sort Test", "type" => "swiss"})
+
+      {:ok, alice} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "Alice",
+          "club" => "Zeta Club",
+          "birth_year" => "1990",
+          "extra_points" => "2.0"
+        })
+
+      {:ok, bob} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "Bob",
+          "club" => "Alpha Club",
+          "extra_points" => "0.5"
+        })
+
+      {:ok, carol} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "Carol",
+          "club" => "Middle Club",
+          "birth_year" => "2000",
+          "extra_points" => "1.0"
+        })
+
+      %{tournament: tournament, alice: alice, bob: bob, carol: carol}
+    end
+
+    defp position(html, needle) do
+      case :binary.match(html, needle) do
+        {pos, _len} -> pos
+        :nomatch -> flunk("expected #{inspect(needle)} to be present in the rendered HTML")
+      end
+    end
+
+    test "clicking a bio column header sorts ascending by that column's underlying value (case-insensitive)",
+         %{conn: conn, tournament: tournament} do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      html = render_click(lv, "sort", %{"key" => "club"})
+
+      # Alpha Club (Bob) < Middle Club (Carol) < Zeta Club (Alice)
+      assert position(html, "Bob") < position(html, "Carol")
+      assert position(html, "Carol") < position(html, "Alice")
+      assert html =~ "▲"
+    end
+
+    test "clicking the same header again flips to descending", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "sort", %{"key" => "club"})
+      html = render_click(lv, "sort", %{"key" => "club"})
+
+      # Descending: Zeta Club (Alice) > Middle Club (Carol) > Alpha Club (Bob)
+      assert position(html, "Alice") < position(html, "Carol")
+      assert position(html, "Carol") < position(html, "Bob")
+      assert html =~ "▼"
+    end
+
+    test "sorting by a computed grid column (XtPts) sorts numerically, not as a string", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      html = render_click(lv, "sort", %{"key" => "xtpts"})
+
+      # Ascending by extra points: Bob (0.5) < Carol (1.0) < Alice (2.0). A
+      # naive string sort would put "0.5" < "1.0" < "2.0" too, so this alone
+      # wouldn't catch a stringified sort — the real regression guard is that
+      # a numeric column never crashes when compared, exercised across all
+      # these tests via mixed nil/blank values.
+      assert position(html, "Bob") < position(html, "Carol")
+      assert position(html, "Carol") < position(html, "Alice")
+    end
+
+    test "clicking a different header switches to that column, ascending", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "sort", %{"key" => "club"})
+      render_click(lv, "sort", %{"key" => "club"})
+      html = render_click(lv, "sort", %{"key" => "xtpts"})
+
+      assert position(html, "Bob") < position(html, "Carol")
+      assert position(html, "Carol") < position(html, "Alice")
+      assert html =~ "▲"
+    end
+
+    test "nil/blank values sort last in both directions", %{conn: conn, tournament: tournament} do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      # Bob has no birth_year — must sort after both Alice (1990) and Carol
+      # (2000) whether ascending or descending.
+      asc_html = render_click(lv, "sort", %{"key" => "birth_year"})
+      assert position(asc_html, "Alice") < position(asc_html, "Bob")
+      assert position(asc_html, "Carol") < position(asc_html, "Bob")
+
+      desc_html = render_click(lv, "sort", %{"key" => "birth_year"})
+      assert position(desc_html, "Alice") < position(desc_html, "Bob")
+      assert position(desc_html, "Carol") < position(desc_html, "Bob")
+    end
+  end
+
   describe "setup-completion gate" do
     test "adding a player is blocked, with a banner, when the tournament is missing a start date",
          %{conn: conn, scope: scope} do

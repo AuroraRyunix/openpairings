@@ -56,14 +56,48 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     refute html =~ ~s(print/standings?round=3)
   end
 
-  test "shows a public pairings link pointing at the tournament's public slug", %{conn: conn, scope: scope} do
+  test "does not show a public pairings link (removed from the pairings page header)", %{
+    conn: conn,
+    scope: scope
+  } do
     tournament = fixture(scope)
 
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 
-    assert tournament.public_slug
-    assert html =~ ~s(href="/p/#{tournament.public_slug}/pairings")
-    assert html =~ "Public pairings link"
+    refute html =~ "Public pairings link"
+    refute html =~ ~s(href="/p/#{tournament.public_slug}/pairings")
+  end
+
+  test "does not show a separate 'Explain this round' link (relocated to the audit page)", %{
+    conn: conn,
+    scope: scope
+  } do
+    tournament = fixture(scope)
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+    refute html =~ "Explain this round"
+  end
+
+  test "print pairings/results buttons stay single, with the extra variants tucked into a hidden right-click menu",
+       %{conn: conn, scope: scope} do
+    tournament = fixture(scope)
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+    # Round 2 is selected by default (see the earlier print-links test).
+    refute html =~ "Print pairings (with absentees)"
+    refute html =~ "Test print (3)"
+    refute html =~ "Print result cards (stack-cut order)"
+
+    assert html =~ "Print pairings"
+    assert html =~ "Print result cards"
+    assert html =~ ~s(href="/t/#{tournament.id}/print/pairings?round=2&amp;absentees=1")
+    assert html =~ "With absentees section"
+    assert html =~ ~s(href="/t/#{tournament.id}/print/results?round=2&amp;limit=3")
+    assert html =~ "Test print (first 3 cards)"
+    assert html =~ ~s(href="/t/#{tournament.id}/print/results?round=2&amp;order=stack")
+    assert html =~ "Stack-cut order"
   end
 
   test "shows a PGN export link for the currently selected round", %{conn: conn, scope: scope} do

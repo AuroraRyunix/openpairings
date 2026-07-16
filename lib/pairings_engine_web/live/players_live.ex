@@ -18,41 +18,48 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   @titles ~w(GM IM FM CM WGM WIM WFM WCM)
 
-  # Bio columns of the player grid; which ones show is up to the user (Display panel).
+  # Bio columns of the player grid; which ones show is up to the user (Display
+  # panel). Fourth element is the header tooltip shown via `title=`.
   @bio_columns [
-    {"title", "Title", false},
-    {"sex", "Sex", false},
-    {"birth_year", "Birth", true},
-    {"federation", "Country", false},
-    {"national_id", "Id Nat", true},
-    {"fide_id", "Id FIDE", true},
-    {"fide_rating", "Elo FIDE", true},
-    {"national_rating", "Elo Nat", true},
-    {"club", "Club", false},
-    {"status", "Status", false},
-    {"fixed_board", "Table", true}
+    {"title", "Title", false, "Chess title (GM, IM, FM, WGM, etc.)"},
+    {"sex", "Sex", false, "Player's sex (M/F)"},
+    {"birth_year", "Birth", true, "Year of birth"},
+    {"federation", "Country", false, "Federation / country code (e.g. BEL)"},
+    {"national_id", "Id Nat", true, "National federation ID number"},
+    {"fide_id", "Id FIDE", true, "FIDE ID number"},
+    {"fide_rating", "Elo FIDE", true, "FIDE (international) rating"},
+    {"national_rating", "Elo Nat", true, "National federation rating"},
+    {"club", "Club", false, "Chess club"},
+    {"status", "Status", false, "Player status (active, withdrawn, etc.)"},
+    {"fixed_board", "Table", true,
+     "Fixed table number — this player's games always print/display at this board, regardless of normal board order"}
   ]
 
   # SWAR-style computed columns, sourced from Standings.grid_standings/1.
+  # Fourth element is the header tooltip shown via `title=`.
   @grid_columns [
-    {"cl", "Cl", true},
-    {"nr", "Nr", true},
-    {"cat", "Cat", false},
-    {"games", "Ga", true},
-    {"pts", "Pts", true},
-    {"perf", "Perf", true},
-    {"we", "We", true},
-    {"wmwe", "W-We", true},
-    {"buch", "Buch", true},
-    {"bc1", "B C1", true},
-    {"sb", "S.B.", true},
-    {"prog", "Prog.", true},
-    {"diren", "DirEn", true},
-    {"aff", "Aff.", false},
-    {"pr", "Pr.", false},
-    {"paid", "Paid", false},
-    {"xtpts", "XtPts", true},
-    {"ptot", "P.Tot.", true}
+    {"cl", "Cl", true, "Current standings rank (classement)"},
+    {"nr", "Nr", true, "Pairing number (starting number)"},
+    {"cat", "Cat", false, "Age category (e.g. -18, SEN, S50, S65)"},
+    {"games", "Ga", true, "Games played"},
+    {"pts", "Pts", true, "Points (game score, excluding extra points)"},
+    {"perf", "Perf", true,
+     "Performance rating: average opponent rating adjusted for wins/losses"},
+    {"we", "We", true, "Expected score from rating (FIDE table)"},
+    {"wmwe", "W-We", true, "Actual score minus expected score (W - We)"},
+    {"buch", "Buch", true, "Buchholz tiebreak (sum of opponents' scores)"},
+    {"bc1", "B C1", true,
+     "Buchholz cut-1 tiebreak (Buchholz with the lowest-scoring opponent dropped)"},
+    {"sb", "S.B.", true, "Sonneborn-Berger tiebreak"},
+    {"prog", "Prog.", true, "Progressive/cumulative score (running total after each round)"},
+    {"diren", "DirEn", true,
+     "Direct encounter tiebreak: points scored against opponents tied on the same score (only decisive once the whole tied group has played each other)"},
+    {"aff", "Aff.", false, "Federation affiliation (blank = affiliated, N = not affiliated)"},
+    {"pr", "Pr.", false, "Presence flag (A = absent, F = forfeit)"},
+    {"paid", "Paid", false, "Registration fee status (P = paid, N = not paid, G = gratis)"},
+    {"xtpts", "XtPts", true,
+     "Extra points (administrative bonus points added by the organizer)"},
+    {"ptot", "P.Tot.", true, "Total points including extra points"}
   ]
 
   @all_columns @bio_columns ++ @grid_columns
@@ -84,6 +91,8 @@ defmodule PairingsEngineWeb.PlayersLive do
        card_player_id: nil,
        titles: @titles,
        rating_refresh: nil,
+       sort_col: nil,
+       sort_dir: nil,
        setup_complete: Tournament.setup_complete?(tournament)
      )
      |> assign_players()}
@@ -120,10 +129,103 @@ defmodule PairingsEngineWeb.PlayersLive do
       tournament
       |> Standings.grid_standings()
       |> build_grid(tournament)
-      |> Enum.sort_by(fn e -> {-Player.rating(e.player), e.player.name} end)
+      |> sort_entries(socket.assigns[:sort_col], socket.assigns[:sort_dir])
 
     assign(socket, :players, entries)
   end
+
+  # No column chosen (or the current one was toggled back off) — default
+  # order: descending rating then name, same as before sortable columns
+  # existed.
+  defp sort_entries(entries, nil, _dir) do
+    Enum.sort_by(entries, fn e -> {-Player.rating(e.player), e.player.name} end)
+  end
+
+  defp sort_entries(entries, col, dir) do
+    entries
+    |> Enum.map(&{&1, sort_value(&1, col)})
+    |> Enum.sort(fn {_e1, v1}, {_e2, v2} -> sort_lte?(v1, v2, dir) end)
+    |> Enum.map(&elem(&1, 0))
+  end
+
+  # `sort_value/2` returns `{blank?, comparable_value}` — blanks (nil/"—"
+  # equivalents, matching what `cell/2` itself treats as blank for that
+  # column) always sort last, in either direction. `comparable_value` is the
+  # same underlying value the cell displays (never its rendered string),
+  # normalized to a case-insensitive string for text columns so comparisons
+  # never crash on mixed types.
+  defp sort_lte?({1, _}, {1, _}, _dir), do: true
+  defp sort_lte?({1, _}, {0, _}, _dir), do: false
+  defp sort_lte?({0, _}, {1, _}, _dir), do: true
+  defp sort_lte?({0, v1}, {0, v2}, :asc), do: v1 <= v2
+  defp sort_lte?({0, v1}, {0, v2}, :desc), do: v1 >= v2
+
+  defp sort_value(entry, "name"), do: text_sort_value(entry.player.name)
+
+  defp sort_value(entry, key) when key in ~w(title sex federation club status) do
+    entry.player |> Map.get(String.to_existing_atom(key)) |> text_sort_value()
+  end
+
+  defp sort_value(entry, "national_id"), do: text_sort_value(entry.player.national_id)
+
+  defp sort_value(entry, key)
+       when key in ~w(fide_id fide_rating national_rating birth_year fixed_board) do
+    case Map.get(entry.player, String.to_existing_atom(key)) do
+      value when value in [nil, "", 0] -> {1, nil}
+      value -> {0, value}
+    end
+  end
+
+  defp sort_value(entry, "cl"), do: numeric_sort_value(entry.rank)
+  defp sort_value(entry, "nr"), do: numeric_sort_value(entry.grid["nr"])
+  defp sort_value(entry, "cat"), do: text_sort_value(entry.grid["cat"])
+  defp sort_value(entry, "games"), do: numeric_sort_value(entry.grid["games"])
+  defp sort_value(entry, "pts"), do: numeric_sort_value(entry.grid["pts"])
+  defp sort_value(entry, "perf"), do: numeric_sort_value(entry.grid["perf"])
+  defp sort_value(entry, "we"), do: numeric_sort_value(entry.grid["we"])
+  defp sort_value(entry, "wmwe"), do: numeric_sort_value(entry.grid["wmwe"])
+  defp sort_value(entry, "buch"), do: numeric_sort_value(entry.grid["buch"])
+  defp sort_value(entry, "bc1"), do: numeric_sort_value(entry.grid["bc1"])
+  defp sort_value(entry, "sb"), do: numeric_sort_value(entry.grid["sb"])
+  defp sort_value(entry, "prog"), do: numeric_sort_value(entry.grid["prog"])
+
+  defp sort_value(entry, "diren") do
+    case entry.grid["diren"] do
+      value when value in [nil, 0, 0.0] -> {1, nil}
+      value -> {0, value}
+    end
+  end
+
+  defp sort_value(entry, "aff") do
+    case entry.player.affiliated do
+      nil -> {1, nil}
+      value -> {0, value}
+    end
+  end
+
+  defp sort_value(entry, "pr") do
+    cond do
+      entry.player.absent -> {0, "A"}
+      entry.player.forfeit -> {0, "F"}
+      true -> {1, nil}
+    end
+  end
+
+  defp sort_value(entry, "paid") do
+    case entry.player.paid do
+      value when value in ["paid", "nopaid", "gratis"] -> {0, value}
+      _ -> {1, nil}
+    end
+  end
+
+  defp sort_value(entry, "xtpts"), do: numeric_sort_value(entry.extra_points)
+  defp sort_value(entry, "ptot"), do: numeric_sort_value(entry.total)
+
+  defp text_sort_value(value) when value in [nil, ""], do: {1, nil}
+  defp text_sort_value(value), do: {0, value |> to_string() |> String.downcase()}
+
+  defp numeric_sort_value(nil), do: {1, nil}
+  defp numeric_sort_value(value), do: {0, value}
 
   # Attaches a `:grid` map of the SWAR-style computed columns to each
   # standings entry, keyed by the column key used in @grid_columns.
@@ -219,6 +321,20 @@ defmodule PairingsEngineWeb.PlayersLive do
      socket
      |> assign(visible: visible)
      |> push_event("store_columns", %{columns: visible})}
+  end
+
+  # Clicking a header sorts by that column, ascending first; clicking the
+  # same header again flips direction; clicking a different header resets to
+  # ascending on the new column.
+  def handle_event("sort", %{"key" => key}, socket) do
+    dir =
+      case {socket.assigns.sort_col, socket.assigns.sort_dir} do
+        {^key, :asc} -> :desc
+        {^key, :desc} -> :asc
+        _ -> :asc
+      end
+
+    {:noreply, socket |> assign(sort_col: key, sort_dir: dir) |> assign_players()}
   end
 
   def handle_event("search", %{"q" => q}, socket) do
@@ -568,6 +684,11 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   defp all_columns, do: @all_columns
 
+  # Small ▲/▼ suffix shown in a header when it's the active sort column.
+  defp sort_indicator(col, :asc, col), do: " ▲"
+  defp sort_indicator(col, :desc, col), do: " ▼"
+  defp sort_indicator(_col, _dir, _key), do: ""
+
   defp cell(entry, "status"), do: entry.player.status
 
   defp cell(entry, key) when key in ~w(title sex birth_year federation national_id fide_id
@@ -851,30 +972,42 @@ defmodule PairingsEngineWeb.PlayersLive do
           <table class="pe-table" id="players-table" phx-hook="PlayerGrid">
             <thead>
               <tr>
-                <th class="num">#</th>
-                
-                <th>Name</th>
-                
                 <th
-                  :for={{key, label, num} <- all_columns()}
-                  :if={key in @visible}
-                  class={num && "num"}
+                  class={["num", "sortable"]}
+                  phx-click="sort"
+                  phx-value-key="name"
+                  title="Row number — click to sort by name"
                 >
-                  {label}
+                  #{sort_indicator(@sort_col, @sort_dir, "name")}
                 </th>
-                
+
+                <th class="sortable" phx-click="sort" phx-value-key="name" title="Player's full name">
+                  Name{sort_indicator(@sort_col, @sort_dir, "name")}
+                </th>
+
+                <th
+                  :for={{key, label, num, desc} <- all_columns()}
+                  :if={key in @visible}
+                  class={[num && "num", "sortable"]}
+                  phx-click="sort"
+                  phx-value-key={key}
+                  title={desc}
+                >
+                  {label}{sort_indicator(@sort_col, @sort_dir, key)}
+                </th>
+
                 <th></th>
               </tr>
             </thead>
-            
+
             <tbody>
               <tr :for={{p, i} <- Enum.with_index(@players, 1)} data-player-id={p.player.id}>
                 <td class="num">{i}</td>
-                
+
                 <td><strong>{p.player.name}</strong></td>
-                
+
                 <td
-                  :for={{key, _label, num} <- all_columns()}
+                  :for={{key, _label, num, _desc} <- all_columns()}
                   :if={key in @visible}
                   class={num && "num"}
                 >
@@ -899,7 +1032,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         <aside class="card display-panel">
           <h2>Display</h2>
           
-          <label :for={{key, label, _num} <- all_columns()} class="check">
+          <label :for={{key, label, _num, _desc} <- all_columns()} class="check">
             <input
               type="checkbox"
               checked={key in @visible}

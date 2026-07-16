@@ -11,6 +11,7 @@ defmodule PairingsEngineWeb.AuditLive do
   use PairingsEngineWeb, :live_view
 
   alias PairingsEngine.{Audit, Tournaments}
+  alias PairingsEngine.Pairing, as: Engine
 
   @per_page 50
 
@@ -45,16 +46,25 @@ defmodule PairingsEngineWeb.AuditLive do
   def mount(%{"id" => id}, _session, socket) do
     tournament = Tournaments.get_authorized_tournament!(socket.assigns.current_scope, id)
 
-    {:ok,
-     socket
-     |> assign(
-       tournament: tournament,
-       page_title: "#{tournament.name} · Audit trail",
-       category: "all",
-       page: 0
-     )
-     |> load_entries()}
+    socket =
+      assign(socket,
+        tournament: tournament,
+        page_title: page_title(socket.assigns.live_action, tournament),
+        category: "all",
+        page: 0
+      )
+
+    socket =
+      case socket.assigns.live_action do
+        :explain -> assign(socket, paired_rounds: Engine.paired_rounds_count(tournament.id))
+        _ -> load_entries(socket)
+      end
+
+    {:ok, socket}
   end
+
+  defp page_title(:explain, tournament), do: "#{tournament.name} · Explain a round"
+  defp page_title(_, tournament), do: "#{tournament.name} · Audit trail"
 
   @impl true
   def handle_event("filter", %{"category" => category}, socket) do
@@ -245,6 +255,66 @@ defmodule PairingsEngineWeb.AuditLive do
   defp format_time(%DateTime{} = dt), do: Calendar.strftime(dt, "%Y-%m-%d %H:%M")
   defp format_time(other), do: to_string(other)
 
+  @doc """
+  Sub-nav shown at the top of both the audit-trail page and the
+  explain-a-round picker/page, so the user can hop between the two without
+  going back through the "Advanced" top-bar menu. `active` is `:index` or
+  `:explain`.
+  """
+  attr :tournament, :map, required: true
+  attr :active, :atom, required: true
+
+  def subnav(assigns) do
+    ~H"""
+    <div class="round-picker" style="margin-bottom: 12px">
+      <.link
+        navigate={~p"/t/#{@tournament.id}/audit"}
+        class={["pe-btn", "filter-picker", @active == :index && "active"]}
+      >
+        Audit log
+      </.link>
+      <.link
+        navigate={~p"/t/#{@tournament.id}/audit/explain"}
+        class={["pe-btn", "filter-picker", @active == :explain && "active"]}
+      >
+        Explain a round
+      </.link>
+    </div>
+    """
+  end
+
+  @impl true
+  def render(%{live_action: :explain} = assigns) do
+    ~H"""
+    <Layouts.app flash={@flash} current_scope={@current_scope} tournament={@tournament} active="audit">
+      <div class="page-header">
+        <div>
+          <h1>{@tournament.name}</h1>
+          <p class="subtitle" style="margin: 0">
+            Explain a round — pick a paired round to see its pairing rationale
+          </p>
+        </div>
+      </div>
+
+      <.subnav tournament={@tournament} active={:explain} />
+
+      <div :if={@paired_rounds == 0} class="card error-note" style="display: block; margin: 12px 0">
+        No rounds have been paired yet, so there is nothing to explain.
+      </div>
+
+      <div :if={@paired_rounds > 0} class="round-picker">
+        <.link
+          :for={n <- 1..@paired_rounds}
+          navigate={~p"/t/#{@tournament.id}/pairings/#{n}/explain"}
+          class="pe-btn"
+        >
+          {n}
+        </.link>
+      </div>
+    </Layouts.app>
+    """
+  end
+
   @impl true
   def render(assigns) do
     assigns = assign(assigns, per_page: @per_page)
@@ -258,10 +328,12 @@ defmodule PairingsEngineWeb.AuditLive do
         </div>
       </div>
 
+      <.subnav tournament={@tournament} active={:index} />
+
       <div class="round-picker" style="flex-wrap: wrap">
         <button
           :for={{key, label, _codes} <- categories()}
-          class={["pe-btn", key == @category && "active"]}
+          class={["pe-btn", "filter-picker", key == @category && "active"]}
           phx-click="filter"
           phx-value-category={key}
         >

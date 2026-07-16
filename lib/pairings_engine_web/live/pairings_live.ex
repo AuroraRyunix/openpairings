@@ -296,15 +296,6 @@ defmodule PairingsEngineWeb.PairingsLive do
             Open live view
           </a>
 
-          <a
-            class="pe-btn"
-            href={~p"/p/#{@tournament.public_slug}/pairings"}
-            target="_blank"
-            title="No login needed — share this link"
-          >
-            Public pairings link
-          </a>
-
           <a class="pe-btn" href={~p"/t/#{@tournament.id}/export/trf"} target="_blank">
             Export TRF (all rounds)
           </a>
@@ -388,33 +379,26 @@ defmodule PairingsEngineWeb.PairingsLive do
             Pair round {@round_number} (JaVaFo)
           </button>
 
-          <.link
-            :if={@round != nil}
-            class="pe-btn"
-            navigate={~p"/t/#{@tournament.id}/pairings/#{@round_number}/explain"}
-            title="Show why each pairing, float and bye came out this way"
-          >
-            Explain this round
-          </.link>
+          <div :if={@round != nil} class="print-menu-wrap" phx-hook=".PrintMenu" id={"print-pairings-menu-#{@round_number}"}>
+            <a
+              class="pe-btn"
+              href={~p"/t/#{@tournament.id}/print/pairings?round=#{@round_number}"}
+              target="_blank"
+              title="Right-click for more print options"
+            >
+              Print pairings <span class="print-menu-affordance">⋯</span>
+            </a>
 
-          <a
-            :if={@round != nil}
-            class="pe-btn"
-            href={~p"/t/#{@tournament.id}/print/pairings?round=#{@round_number}"}
-            target="_blank"
-          >
-            Print pairings
-          </a>
-
-          <a
-            :if={@round != nil}
-            class="pe-btn"
-            href={~p"/t/#{@tournament.id}/print/pairings?round=#{@round_number}&absentees=1"}
-            target="_blank"
-            title="Same pairing sheet, with a below-the-table section listing requested byes and absences"
-          >
-            Print pairings (with absentees)
-          </a>
+            <div class="print-menu-items" hidden>
+              <a
+                href={~p"/t/#{@tournament.id}/print/pairings?round=#{@round_number}&absentees=1"}
+                target="_blank"
+                title="Same pairing sheet, with a below-the-table section listing requested byes and absences"
+              >
+                With absentees section
+              </a>
+            </div>
+          </div>
 
           <a
             :if={@round != nil}
@@ -425,34 +409,34 @@ defmodule PairingsEngineWeb.PairingsLive do
             Print standings
           </a>
 
-          <a
-            :if={@round != nil}
-            class="pe-btn"
-            href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}"}
-            target="_blank"
-          >
-            Print result cards
-          </a>
+          <div :if={@round != nil} class="print-menu-wrap" phx-hook=".PrintMenu" id={"print-results-menu-#{@round_number}"}>
+            <a
+              class="pe-btn"
+              href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}"}
+              target="_blank"
+              title="Right-click for more print options"
+            >
+              Print result cards <span class="print-menu-affordance">⋯</span>
+            </a>
 
-          <a
-            :if={@round != nil}
-            class="pe-btn"
-            href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}&limit=3"}
-            target="_blank"
-            title="Print just the first 3 result cards, to check printer alignment before printing the full stack"
-          >
-            Test print (3)
-          </a>
+            <div class="print-menu-items" hidden>
+              <a
+                href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}&limit=3"}
+                target="_blank"
+                title="Print just the first 3 result cards, to check printer alignment before printing the full stack"
+              >
+                Test print (first 3 cards)
+              </a>
 
-          <a
-            :if={@round != nil}
-            class="pe-btn"
-            href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}&order=stack"}
-            target="_blank"
-            title="Reorders cards so guillotine-cutting the printed stack into 8 piles and collating them recovers board order"
-          >
-            Print result cards (stack-cut order)
-          </a>
+              <a
+                href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}&order=stack"}
+                target="_blank"
+                title="Reorders cards so guillotine-cutting the printed stack into 8 piles and collating them recovers board order"
+              >
+                Stack-cut order
+              </a>
+            </div>
+          </div>
 
           <a
             :if={@round != nil}
@@ -704,13 +688,88 @@ defmodule PairingsEngineWeb.PairingsLive do
             const selects = Array.from(document.querySelectorAll("select[data-board-select]"));
             const index = selects.indexOf(this.el);
             if (index >= 0 && index < selects.length - 1) {
-              selects[index + 1].focus();
+              const next = selects[index + 1];
+
+              // Focusing normally makes the browser jump-scroll the next
+              // select into view only once it's fully out of the viewport —
+              // the screen sits still for several entries, then lurches
+              // several rows at once. `preventScroll` stops that native
+              // jump so we can drive a smooth, one-row-at-a-time scroll
+              // ourselves below instead.
+              next.focus({ preventScroll: true });
+
+              const row = next.closest("tr") || next;
+              row.scrollIntoView({ behavior: "smooth", block: "center" });
             }
           },
 
           destroyed() {
             this.el.removeEventListener("keydown", this.onKeydown);
             this.el.removeEventListener("mousedown", this.onMousedown);
+          }
+        }
+      </script>
+
+      <script :type={Phoenix.LiveView.ColocatedHook} name=".PrintMenu">
+        // Consolidates a print button's variants behind a right-click
+        // context menu instead of a row of separate buttons: left-click on
+        // the anchor still opens the plain/default print in a new tab
+        // (native <a target="_blank"> behavior, untouched); right-click
+        // suppresses the browser's context menu and shows this small popup
+        // built from the hidden ".print-menu-items" sibling's own <a> tags,
+        // so each menu item is a real link with its own href/target/title —
+        // no data-JSON to keep in sync with the markup.
+        export default {
+          mounted() {
+            this.menu = this.el.querySelector(".print-menu-items");
+            this.popup = null;
+
+            this.onContextMenu = (e) => {
+              e.preventDefault();
+              this.openAt(e.clientX, e.clientY);
+            };
+            this.el.addEventListener("contextmenu", this.onContextMenu);
+
+            this.onDocMousedown = (e) => {
+              if (this.popup && !this.popup.contains(e.target)) this.close();
+            };
+            this.onDocKeydown = (e) => {
+              if (e.key === "Escape") this.close();
+            };
+            document.addEventListener("mousedown", this.onDocMousedown);
+            document.addEventListener("keydown", this.onDocKeydown);
+          },
+
+          openAt(x, y) {
+            this.close();
+
+            const popup = document.createElement("div");
+            popup.className = "print-menu-popup";
+            popup.style.left = `${x}px`;
+            popup.style.top = `${y}px`;
+
+            Array.from(this.menu.querySelectorAll("a")).forEach((link) => {
+              const item = link.cloneNode(true);
+              item.addEventListener("click", () => this.close());
+              popup.appendChild(item);
+            });
+
+            document.body.appendChild(popup);
+            this.popup = popup;
+          },
+
+          close() {
+            if (this.popup) {
+              this.popup.remove();
+              this.popup = null;
+            }
+          },
+
+          destroyed() {
+            this.close();
+            this.el.removeEventListener("contextmenu", this.onContextMenu);
+            document.removeEventListener("mousedown", this.onDocMousedown);
+            document.removeEventListener("keydown", this.onDocKeydown);
           }
         }
       </script>
