@@ -18,51 +18,72 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   @titles ~w(GM IM FM CM WGM WIM WFM WCM)
 
-  # Bio columns of the player grid; which ones show is up to the user (Display
-  # panel). Fourth element is the header tooltip shown via `title=`.
-  @bio_columns [
-    {"title", "Title", false, "Chess title (GM, IM, FM, WGM, etc.)"},
-    {"sex", "Sex", false, "Player's sex (M/F)"},
+  # Player grid columns, in SWAR-parity display order. Which ones show is up
+  # to the user (Display panel); toggling is by `key`, order is fixed by this
+  # list (except the tiebreak columns — see `tiebreak_columns/1` below, which
+  # splices `@tiebreak_columns` into this sequence according to the
+  # tournament's own configured tiebreak order). Fourth element of every
+  # 4-tuple is the header tooltip shown via `title=`.
+  @columns_before_tiebreaks [
+    {"cl", "Cl", true, "Current standings rank (classement)"},
+    {"aff", "Aff.", false, "Federation affiliation (blank = affiliated, N = not affiliated)"},
+    {"pr", "Pr.", false, "Presence flag (A = absent, F = forfeit)"},
+    {"paid", "Paid", false, "Registration fee status (P = paid, N = not paid, G = gratis)"},
+    {"nr", "Nr", true, "Pairing number (starting number), frozen once the first round is paired"},
+    {"rnk", "Rnk", true,
+     "Live rating-based seed: the pairing-number position this player would get if starting numbers were assigned fresh right now (highest rating first, ties by name) — recomputed on every view, so it can drift from the frozen Nr after a rating correction or a late addition"},
+    {"cat", "Cat", false, "Age category (e.g. -18, SEN, S50, S65)"},
     {"birth_year", "Birth", true, "Year of birth"},
+    {"sex", "Sex", false, "Player's sex (M/F)"},
     {"federation", "Country", false, "Federation / country code (e.g. BEL)"},
     {"national_id", "Id Nat", true, "National federation ID number"},
     {"fide_id", "Id FIDE", true, "FIDE ID number"},
-    {"fide_rating", "Elo FIDE", true, "FIDE (international) rating"},
     {"national_rating", "Elo Nat", true, "National federation rating"},
+    {"fide_rating", "Elo FIDE", true, "FIDE (international) rating"},
+    {"elo_used", "Elo used", true,
+     "The rating actually used for pairing/performance/tiebreak calculations — FIDE rating if the player has one, otherwise the national rating"},
+    {"title", "Title", false, "Chess title (GM, IM, FM, WGM, etc.)"},
     {"club", "Club", false, "Chess club"},
-    {"status", "Status", false, "Player status (active, withdrawn, etc.)"},
-    {"fixed_board", "Table", true,
-     "Fixed table number — this player's games always print/display at this board, regardless of normal board order"}
-  ]
-
-  # SWAR-style computed columns, sourced from Standings.grid_standings/1.
-  # Fourth element is the header tooltip shown via `title=`.
-  @grid_columns [
-    {"cl", "Cl", true, "Current standings rank (classement)"},
-    {"nr", "Nr", true, "Pairing number (starting number)"},
-    {"cat", "Cat", false, "Age category (e.g. -18, SEN, S50, S65)"},
     {"games", "Ga", true, "Games played"},
     {"pts", "Pts", true, "Points (game score, excluding extra points)"},
+    {"status", "Status", false, "Player status (active, withdrawn, etc.)"},
+    {"fixed_board", "Table", true,
+     "Fixed table number — this player's games always print/display at this board, regardless of normal board order"},
     {"perf", "Perf", true,
      "Performance rating: average opponent rating adjusted for wins/losses"},
     {"we", "We", true, "Expected score from rating (FIDE table)"},
-    {"wmwe", "W-We", true, "Actual score minus expected score (W - We)"},
+    {"wmwe", "W-We", true, "Actual score minus expected score (W - We)"}
+  ]
+
+  # Tiebreak columns — order among themselves is tournament-dependent (see
+  # `tiebreak_columns/1`), this is just the fallback order for any tiebreak
+  # NOT in the tournament's configured `tiebreaks` list.
+  @tiebreak_columns [
     {"buch", "Buch", true, "Buchholz tiebreak (sum of opponents' scores)"},
     {"bc1", "B C1", true,
      "Buchholz cut-1 tiebreak (Buchholz with the lowest-scoring opponent dropped)"},
     {"sb", "S.B.", true, "Sonneborn-Berger tiebreak"},
     {"prog", "Prog.", true, "Progressive/cumulative score (running total after each round)"},
     {"diren", "DirEn", true,
-     "Direct encounter tiebreak: points scored against opponents tied on the same score (only decisive once the whole tied group has played each other)"},
-    {"aff", "Aff.", false, "Federation affiliation (blank = affiliated, N = not affiliated)"},
-    {"pr", "Pr.", false, "Presence flag (A = absent, F = forfeit)"},
-    {"paid", "Paid", false, "Registration fee status (P = paid, N = not paid, G = gratis)"},
+     "Direct encounter tiebreak: points scored against opponents tied on the same score (only decisive once the whole tied group has played each other)"}
+  ]
+
+  # Maps `tournament.tiebreaks` codes (as used by Standings) to the grid keys
+  # above — only the tiebreaks the grid actually displays as columns.
+  @tiebreak_code_to_key %{
+    "BH" => "buch",
+    "BHC1" => "bc1",
+    "SB" => "sb",
+    "PS" => "prog",
+    "DE" => "diren"
+  }
+
+  @columns_after_tiebreaks [
     {"xtpts", "XtPts", true,
      "Extra points (administrative bonus points added by the organizer)"},
     {"ptot", "P.Tot.", true, "Total points including extra points"}
   ]
 
-  @all_columns @bio_columns ++ @grid_columns
   @default_visible ~w(title birth_year federation fide_id fide_rating national_rating club) ++
                      ~w(cl games pts xtpts ptot)
 
@@ -135,10 +156,17 @@ defmodule PairingsEngineWeb.PlayersLive do
   end
 
   # No column chosen (or the current one was toggled back off) — default
-  # order: descending rating then name, same as before sortable columns
-  # existed.
+  # order: the real tournament ranking. `entry.rank` (set by
+  # `Standings.grid_standings/1`, via `build_standings/3`) already sorts by
+  # points/total descending, then the tournament's own configured
+  # `tiebreaks` in order, and — because `Tournaments.list_players/1` (the
+  # source list `build_standings/3` folds over) itself orders by rating
+  # descending then name ascending, and `Enum.sort_by/2` is stable — any
+  # remaining tie naturally falls back to rating descending, then name
+  # ascending. That's exactly "points, then configured tiebreaks, then
+  # rating" with no need to re-derive it here.
   defp sort_entries(entries, nil, _dir) do
-    Enum.sort_by(entries, fn e -> {-Player.rating(e.player), e.player.name} end)
+    Enum.sort_by(entries, & &1.rank)
   end
 
   defp sort_entries(entries, col, dir) do
@@ -178,6 +206,14 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   defp sort_value(entry, "cl"), do: numeric_sort_value(entry.rank)
   defp sort_value(entry, "nr"), do: numeric_sort_value(entry.grid["nr"])
+  defp sort_value(entry, "rnk"), do: numeric_sort_value(entry.grid["rnk"])
+
+  defp sort_value(entry, "elo_used") do
+    case entry.grid["elo_used"] do
+      value when value in [nil, 0] -> {1, nil}
+      value -> {0, value}
+    end
+  end
   defp sort_value(entry, "cat"), do: text_sort_value(entry.grid["cat"])
   defp sort_value(entry, "games"), do: numeric_sort_value(entry.grid["games"])
   defp sort_value(entry, "pts"), do: numeric_sort_value(entry.grid["pts"])
@@ -228,10 +264,24 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp numeric_sort_value(value), do: {0, value}
 
   # Attaches a `:grid` map of the SWAR-style computed columns to each
-  # standings entry, keyed by the column key used in @grid_columns.
+  # standings entry, keyed by the column key used in the column lists above
+  # (`@columns_before_tiebreaks` / `@tiebreak_columns` / `@columns_after_tiebreaks`).
   defp build_grid(entries, tournament) do
     players_by_id = Map.new(entries, &{&1.player.id, &1.player})
     current_year = Date.utc_today().year
+
+    # "Rnk" — a live (unfrozen) re-derivation of the same rule
+    # `Pairing.ensure_pairing_numbers/2` uses to freeze `Nr`: highest rating
+    # first, ties broken by name. Recomputed over the currently registered
+    # player list on every render, so it can drift from the frozen `nr` grid
+    # value above once ratings are corrected or players are added out of
+    # order after numbers were frozen.
+    live_seed_rank_by_id =
+      players_by_id
+      |> Map.values()
+      |> Enum.sort_by(&{-Player.rating(&1), &1.name})
+      |> Enum.with_index(1)
+      |> Map.new(fn {player, idx} -> {player.id, idx} end)
 
     Enum.map(entries, fn entry ->
       played_games = Enum.filter(entry.games, & &1.played)
@@ -268,6 +318,8 @@ defmodule PairingsEngineWeb.PlayersLive do
       grid = %{
         "cl" => entry.rank,
         "nr" => entry.player.pairing_number,
+        "rnk" => Map.get(live_seed_rank_by_id, entry.player.id),
+        "elo_used" => Player.rating(entry.player),
         "cat" => PlayerStats.category(entry.player.birth_year, current_year),
         "games" => length(played_games),
         "pts" => entry.points,
@@ -682,7 +734,28 @@ defmodule PairingsEngineWeb.PlayersLive do
     Enum.map_join(changeset.errors, ", ", fn {field, {msg, _}} -> "#{field} #{msg}" end)
   end
 
-  defp all_columns, do: @all_columns
+  # Full column list for `tournament`: the fixed sequence with the tiebreak
+  # columns spliced in at the tournament's own configured order — any
+  # tiebreak the tournament doesn't have configured (or a tournament with no
+  # tiebreaks configured, i.e. `tiebreaks == []`) falls back to appearing
+  # after the configured ones, in `@tiebreak_columns`'s fixed order.
+  defp all_columns(tournament) do
+    @columns_before_tiebreaks ++ tiebreak_columns(tournament) ++ @columns_after_tiebreaks
+  end
+
+  defp tiebreak_columns(tournament) do
+    configured_keys =
+      tournament.tiebreaks
+      |> Enum.map(&Map.get(@tiebreak_code_to_key, &1))
+      |> Enum.reject(&is_nil/1)
+
+    by_key = Map.new(@tiebreak_columns, &{elem(&1, 0), &1})
+
+    ordered = configured_keys |> Enum.map(&Map.get(by_key, &1)) |> Enum.reject(&is_nil/1)
+    leftover = Enum.reject(@tiebreak_columns, fn {key, _, _, _} -> key in configured_keys end)
+
+    ordered ++ leftover
+  end
 
   # Small ▲/▼ suffix shown in a header when it's the active sort column.
   defp sort_indicator(col, :asc, col), do: " ▲"
@@ -703,6 +776,14 @@ defmodule PairingsEngineWeb.PlayersLive do
   # build_grid/2. "diren" (Direct Encounter) shows "—" instead of a bare 0,
   # since 0 there means "not applicable" rather than an actual value.
   defp cell(entry, "nr"), do: format_num(entry.grid["nr"])
+  defp cell(entry, "rnk"), do: format_num(entry.grid["rnk"])
+
+  defp cell(entry, "elo_used") do
+    case entry.grid["elo_used"] do
+      value when value in [nil, 0] -> "—"
+      value -> value
+    end
+  end
 
   defp cell(entry, "cat") do
     case entry.grid["cat"] do
@@ -812,7 +893,12 @@ defmodule PairingsEngineWeb.PlayersLive do
             Print place cards
           </a>
           
-          <button type="button" class="pe-btn" phx-click="open_rating_refresh">
+          <button
+            type="button"
+            class="pe-btn"
+            phx-click="open_rating_refresh"
+            title="Compare every registered player against the locally-synced FIDE/KBSB databases and preview rating/title updates before applying them"
+          >
             Refresh ratings
           </button>
           
@@ -975,10 +1061,10 @@ defmodule PairingsEngineWeb.PlayersLive do
                 <th
                   class={["num", "sortable"]}
                   phx-click="sort"
-                  phx-value-key="name"
-                  title="Row number — click to sort by name"
+                  phx-value-key="cl"
+                  title="Live tournament rank — click to sort by current standings rank (same as Cl)"
                 >
-                  #{sort_indicator(@sort_col, @sort_dir, "name")}
+                  N1{sort_indicator(@sort_col, @sort_dir, "cl")}
                 </th>
 
                 <th class="sortable" phx-click="sort" phx-value-key="name" title="Player's full name">
@@ -986,7 +1072,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                 </th>
 
                 <th
-                  :for={{key, label, num, desc} <- all_columns()}
+                  :for={{key, label, num, desc} <- all_columns(@tournament)}
                   :if={key in @visible}
                   class={[num && "num", "sortable"]}
                   phx-click="sort"
@@ -1007,7 +1093,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                 <td><strong>{p.player.name}</strong></td>
 
                 <td
-                  :for={{key, _label, num, _desc} <- all_columns()}
+                  :for={{key, _label, num, _desc} <- all_columns(@tournament)}
                   :if={key in @visible}
                   class={num && "num"}
                 >
@@ -1032,7 +1118,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         <aside class="card display-panel">
           <h2>Display</h2>
           
-          <label :for={{key, label, _num, _desc} <- all_columns()} class="check">
+          <label :for={{key, label, _num, _desc} <- all_columns(@tournament)} class="check">
             <input
               type="checkbox"
               checked={key in @visible}
@@ -1160,18 +1246,18 @@ defmodule PairingsEngineWeb.PlayersLive do
                 type="button"
                 class="pe-btn"
                 phx-click="refresh_edit_fide"
-                title="Look up by FIDE id / name"
+                title="Look up this player in the local FIDE rating database (by FIDE ID if set, otherwise by name) and fill in their title, FIDE rating, federation and birth year"
               >
-                Refresh
+                FIDE lookup
               </button>
-              
+
               <button
                 type="button"
                 class="pe-btn"
                 phx-click="refresh_edit_kbsb"
-                title="Look up by National ID in the KBSB database"
+                title="Look up this player in the local KBSB (Belgian) rating database by National ID and fill in their national rating, club, federation, birth year and FIDE ID"
               >
-                KBSB
+                KBSB lookup
               </button>
             </div>
           </label>

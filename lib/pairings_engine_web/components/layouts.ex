@@ -5,6 +5,9 @@ defmodule PairingsEngineWeb.Layouts do
   """
   use PairingsEngineWeb, :html
 
+  alias PairingsEngine.Fide
+  alias PairingsEngine.Kbsb
+
   # Embed all files in layouts/* within this module.
   # The default root.html.heex file contains the HTML
   # skeleton of your application, namely HTML headers
@@ -128,6 +131,9 @@ defmodule PairingsEngineWeb.Layouts do
       </nav>
       <nav class="topbar-auth">
         <%= if @current_scope do %>
+          <span class="sync-freshness" title="Local FIDE / KBSB rating-list sync status">
+            FIDE: {sync_label(Fide.last_sync())} · KBSB: {sync_label(Kbsb.last_sync())}
+          </span>
           <span class="user-email">{@current_scope.user.email}</span>
           <.link navigate={~p"/users/settings"}>Settings</.link>
           <.link href={~p"/users/log-out"} method="delete">Log out</.link>
@@ -149,6 +155,35 @@ defmodule PairingsEngineWeb.Layouts do
 
   defp tab_class(true), do: "active"
   defp tab_class(false), do: nil
+
+  @doc false
+  # Compact "how stale is this rating list" label for the top-bar freshness
+  # strip, e.g. "3 days ago" / "just now" / "never synced". `last_sync/0`
+  # returns the raw `datetime('now')` string stored in the `meta` table
+  # (UTC, "YYYY-MM-DD HH:MM:SS", no "T") or nil if the list has never synced.
+  def sync_label(nil), do: "never synced"
+
+  def sync_label(timestamp) when is_binary(timestamp) do
+    case NaiveDateTime.from_iso8601(String.replace(timestamp, " ", "T", global: false)) do
+      {:ok, synced_at} -> relative_time(synced_at)
+      {:error, _} -> timestamp
+    end
+  end
+
+  defp relative_time(%NaiveDateTime{} = synced_at) do
+    diff = NaiveDateTime.diff(NaiveDateTime.utc_now(), synced_at, :second)
+
+    cond do
+      diff < 60 -> "just now"
+      diff < 3600 -> pluralize(div(diff, 60), "minute") <> " ago"
+      diff < 86_400 -> pluralize(div(diff, 3600), "hour") <> " ago"
+      diff < 2_592_000 -> pluralize(div(diff, 86_400), "day") <> " ago"
+      true -> "over a month ago"
+    end
+  end
+
+  defp pluralize(1, unit), do: "1 #{unit}"
+  defp pluralize(n, unit), do: "#{n} #{unit}s"
 
   @doc """
   Returns the running application's version string (from mix.exs `version:`),

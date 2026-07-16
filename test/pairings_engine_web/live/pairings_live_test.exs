@@ -324,4 +324,168 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
 
     tournament
   end
+
+  ## ---------- concurrent-arbiter "updated by another arbiter" notice ----------
+
+  test "a broadcast that actually changes the viewed round shows the remote-arbiter notice", %{
+    conn: conn,
+    scope: scope
+  } do
+    tournament = fixture(scope)
+    {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+    # Round 2 is selected by default; nothing shown yet.
+    refute html =~ "updated by another arbiter"
+
+    # Simulate another arbiter/tab changing round 2's result directly in the
+    # DB (bypassing this LiveView entirely) and broadcasting the change —
+    # exactly what `Tournaments.update_pairing_result/2` would do from a
+    # different process.
+    round2 = Tournaments.get_round(tournament.id, 2) |> Repo.preload(:pairings)
+    pairing = hd(round2.pairings)
+    Repo.update!(Ecto.Changeset.change(pairing, result: "0-1"))
+    Tournaments.broadcast_tournament_change(tournament.id, :results)
+
+    html = render(lv)
+    assert html =~ "Round 2 was just updated by another arbiter"
+    assert html =~ "Dismiss"
+  end
+
+  test "a broadcast echoing this LiveView's own action does not show the notice", %{
+    conn: conn,
+    scope: scope
+  } do
+    tournament = import_fixture(scope)
+    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+    round = Tournaments.get_round(tournament.id, 1) |> Repo.preload(:pairings)
+    pairing = hd(round.pairings)
+
+    # Entering a result ourselves updates the DB, refreshes `@round`
+    # synchronously inside the same `handle_event`, and also broadcasts
+    # `:results` right back to this same subscribed process — that self-echo
+    # must not trigger the "another arbiter" notice.
+    html =
+      render_click(lv, "result", %{"pairing-id" => to_string(pairing.id), "result" => "1-0"})
+
+    refute html =~ "updated by another arbiter"
+
+    # Drain the self-broadcast before asserting again.
+    html = render(lv)
+    refute html =~ "updated by another arbiter"
+  end
+
+  test "the remote-arbiter notice is dismissible and clears on the next click", %{
+    conn: conn,
+    scope: scope
+  } do
+    tournament = fixture(scope)
+    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+    round2 = Tournaments.get_round(tournament.id, 2) |> Repo.preload(:pairings)
+    pairing = hd(round2.pairings)
+    Repo.update!(Ecto.Changeset.change(pairing, result: "0-1"))
+    Tournaments.broadcast_tournament_change(tournament.id, :results)
+
+    html = render(lv)
+    assert html =~ "updated by another arbiter"
+
+    html = lv |> element("button", "Dismiss") |> render_click()
+    refute html =~ "updated by another arbiter"
+  end
+
+  test "the remote-arbiter notice also clears on any other click (e.g. switching rounds)", %{
+    conn: conn,
+    scope: scope
+  } do
+    tournament = fixture(scope)
+    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+    round2 = Tournaments.get_round(tournament.id, 2) |> Repo.preload(:pairings)
+    pairing = hd(round2.pairings)
+    Repo.update!(Ecto.Changeset.change(pairing, result: "0-1"))
+    Tournaments.broadcast_tournament_change(tournament.id, :results)
+
+    html = render(lv)
+    assert html =~ "updated by another arbiter"
+
+    html = lv |> element("button[phx-value-number='1']") |> render_click()
+    refute html =~ "updated by another arbiter"
+  end
+
+  ## ---------- match-format round labels ----------
+
+  test "round-picker labels are plain numbers when no match format is set", %{
+    conn: conn,
+    scope: scope
+  } do
+    tournament = fixture(scope)
+    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+    assert html =~ ~s(phx-value-number="1")
+    assert html =~ "Round 2"
+    refute html =~ "M1·"
+    refute html =~ "Match "
+  end
+
+  test "round-picker labels show match/game numbers when rr_match_format is set", %{
+    conn: conn,
+    scope: scope
+  } do
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{
+        "name" => "RR Match Format",
+        "type" => "swiss",
+        "pairing_system" => "round_robin",
+        "rounds_count" => "4",
+        "rr_match_format" => "true"
+      })
+
+    [a, b] =
+      for name <- ["A", "B"] do
+        Repo.insert!(%Player{tournament_id: tournament.id, name: name})
+      end
+
+    r1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
+    r2 = Repo.insert!(%Round{tournament_id: tournament.id, number: 2, status: "finished"})
+    Repo.insert!(%Pairing{round_id: r1.id, board: 1, white_player_id: a.id, black_player_id: b.id, result: "1-0"})
+    Repo.insert!(%Pairing{round_id: r2.id, board: 1, white_player_id: b.id, black_player_id: a.id, result: "0-1"})
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+    assert html =~ "M1·1"
+    assert html =~ "M1·2"
+    assert html =~ "M2·1"
+    assert html =~ "M2·2"
+    assert html =~ "Match 1, game 2"
+  end
+
+  test "round-picker labels show match/game numbers when swiss_match_format is set", %{
+    conn: conn,
+    scope: scope
+  } do
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{
+        "name" => "Swiss Match Format",
+        "type" => "swiss",
+        "rounds_count" => "4",
+        "swiss_match_format" => "true"
+      })
+
+    [a, b] =
+      for name <- ["A", "B"] do
+        Repo.insert!(%Player{tournament_id: tournament.id, name: name})
+      end
+
+    r1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
+    Repo.insert!(%Pairing{round_id: r1.id, board: 1, white_player_id: a.id, black_player_id: b.id, result: "1-0"})
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+    assert html =~ "M1·1"
+    assert html =~ "M1·2"
+    assert html =~ "M2·1"
+    assert html =~ "M2·2"
+    assert html =~ "Match 1, game 1"
+  end
 end
