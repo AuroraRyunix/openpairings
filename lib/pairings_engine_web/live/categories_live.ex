@@ -1,7 +1,7 @@
 defmodule PairingsEngineWeb.CategoriesLive do
   use PairingsEngineWeb, :live_view
 
-  alias PairingsEngine.Tournaments
+  alias PairingsEngine.{Audit, Tournaments}
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -52,6 +52,10 @@ defmodule PairingsEngineWeb.CategoriesLive do
       true ->
         case Tournaments.update_tournament(socket.assigns.tournament, %{"categories" => categories ++ [trimmed]}) do
           {:ok, tournament} ->
+            Audit.log(tournament.id, socket.assigns.current_scope, "category.created", %{
+              name: trimmed
+            })
+
             {:noreply, assign(socket, tournament: tournament, category_error: nil)}
 
           {:error, changeset} ->
@@ -64,8 +68,12 @@ defmodule PairingsEngineWeb.CategoriesLive do
     categories = List.delete(socket.assigns.tournament.categories || [], name)
 
     case Tournaments.update_tournament(socket.assigns.tournament, %{"categories" => categories}) do
-      {:ok, tournament} -> {:noreply, assign(socket, tournament: tournament, category_error: nil)}
-      {:error, _changeset} -> {:noreply, socket}
+      {:ok, tournament} ->
+        Audit.log(tournament.id, socket.assigns.current_scope, "category.removed", %{name: name})
+        {:noreply, assign(socket, tournament: tournament, category_error: nil)}
+
+      {:error, _changeset} ->
+        {:noreply, socket}
     end
   end
 
@@ -74,8 +82,25 @@ defmodule PairingsEngineWeb.CategoriesLive do
   def handle_event("save_extra_points", %{"tournament" => params}, socket) do
     params = Map.take(params, ["count_extra_points", "extra_points_bands"])
 
-    case Tournaments.update_tournament(socket.assigns.tournament, params) do
+    base = socket.assigns.tournament
+
+    case Tournaments.update_tournament(base, params) do
       {:ok, tournament} ->
+        if base.count_extra_points != tournament.count_extra_points or
+             base.extra_points_bands != tournament.extra_points_bands do
+          Audit.log(
+            tournament.id,
+            socket.assigns.current_scope,
+            "tournament.settings_updated",
+            %{
+              changed_fields:
+                %{}
+                |> maybe_change("count_extra_points", base.count_extra_points, tournament.count_extra_points)
+                |> maybe_change("extra_points_bands", base.extra_points_bands, tournament.extra_points_bands)
+            }
+          )
+        end
+
         {:noreply, assign(socket, tournament: tournament, extra_points_error: nil, extra_points_note: nil)}
 
       {:error, changeset} ->
@@ -86,6 +111,13 @@ defmodule PairingsEngineWeb.CategoriesLive do
   def handle_event("apply_extra_points_bands", _params, socket) do
     case Tournaments.apply_extra_points_bands(socket.assigns.tournament) do
       {:ok, %{matched: matched, total: total}} ->
+        Audit.log(
+          socket.assigns.tournament.id,
+          socket.assigns.current_scope,
+          "standings.extra_points_applied",
+          %{matched: matched, total: total}
+        )
+
         {:noreply,
          assign(socket,
            extra_points_note: "Set extra points for #{matched} of #{total} players.",
@@ -103,6 +135,9 @@ defmodule PairingsEngineWeb.CategoriesLive do
         {:noreply, assign(socket, extra_points_error: error_text(changeset), extra_points_note: nil)}
     end
   end
+
+  defp maybe_change(map, _key, same, same), do: map
+  defp maybe_change(map, key, before, after_value), do: Map.put(map, key, [before, after_value])
 
   defp error_text(changeset) do
     Enum.map_join(changeset.errors, ", ", fn {field, {msg, _}} -> "#{field} #{msg}" end)

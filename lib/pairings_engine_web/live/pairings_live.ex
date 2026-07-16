@@ -1,7 +1,7 @@
 defmodule PairingsEngineWeb.PairingsLive do
   use PairingsEngineWeb, :live_view
 
-  alias PairingsEngine.{ResultsImport, Tournaments}
+  alias PairingsEngine.{Audit, PairingRationale, ResultsImport, Tournaments}
   alias PairingsEngine.Pairing, as: Engine
   alias PairingsEngine.Tournaments.Tournament
 
@@ -95,18 +95,53 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   def handle_event("unpair", _params, socket) do
-    case Engine.delete_round(socket.assigns.tournament.id, socket.assigns.round_number) do
-      :ok -> {:noreply, socket |> assign(error: nil) |> refresh()}
-      {:error, reason} -> {:noreply, assign(socket, error: reason)}
+    %{tournament: t, round_number: round_number} = socket.assigns
+
+    case Engine.delete_round(t.id, round_number) do
+      :ok ->
+        Audit.log(t.id, socket.assigns.current_scope, "pairing.round_deleted", %{
+          round: round_number
+        })
+
+        {:noreply, socket |> assign(error: nil) |> refresh()}
+
+      {:error, reason} ->
+        {:noreply, assign(socket, error: reason)}
     end
   end
 
   def handle_event("result", %{"pairing-id" => id, "result" => result}, socket) do
+    %{tournament: t, round_number: round_number} = socket.assigns
+
     socket.assigns.round.pairings
     |> Enum.find(&(&1.id == String.to_integer(id)))
     |> case do
-      nil -> :ok
-      pairing -> Tournaments.update_pairing_result(pairing, result)
+      nil ->
+        :ok
+
+      pairing ->
+        previous = pairing.result
+
+        case Tournaments.update_pairing_result(pairing, result) do
+          {:ok, _} ->
+            action =
+              if previous in [nil, ""],
+                do: "pairing.result_entered",
+                else: "pairing.result_changed"
+
+            Audit.log(t.id, socket.assigns.current_scope, action, %{
+              pairing_id: pairing.id,
+              round: round_number,
+              board: pairing.board,
+              white: player_name(pairing.white_player),
+              black: player_name(pairing.black_player),
+              from: previous,
+              to: result
+            })
+
+          _ ->
+            :ok
+        end
     end
 
     {:noreply, refresh(socket)}
@@ -134,6 +169,11 @@ defmodule PairingsEngineWeb.PairingsLive do
       [csv_text] ->
         with {:ok, rows} <- ResultsImport.parse_text(csv_text),
              {:ok, count} <- ResultsImport.apply_import(tournament, round_number, rows) do
+          Audit.log(tournament.id, socket.assigns.current_scope, "pairing.results_imported", %{
+            round: round_number,
+            results_set: count
+          })
+
           {:noreply,
            socket
            |> put_flash(:info, "Imported #{count} result#{if count != 1, do: "s"}.")
@@ -151,6 +191,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp do_pair(socket) do
     case Engine.pair_next_round(socket.assigns.tournament) do
       {:ok, round} ->
+        log_round_paired(socket, round.number)
         {:noreply, socket |> assign(round_number: round.number, error: nil) |> refresh()}
 
       {:error, %Ecto.Changeset{}} ->
@@ -159,6 +200,23 @@ defmodule PairingsEngineWeb.PairingsLive do
       {:error, reason} ->
         {:noreply, assign(socket, error: to_string(reason))}
     end
+  end
+
+  # Logs the rich "pairing.round_paired" audit entry, reusing the exact same
+  # PairingRationale analysis the "Explain this round" page renders live — so
+  # the durable audit record and the visual page describe the same decision.
+  # `swiss_match_format` pairs two rounds in one action; we log the primary
+  # (leg-1) round number, whose rationale covers the decision that was made.
+  defp log_round_paired(socket, round_number) do
+    t = socket.assigns.tournament
+    rationale = PairingRationale.for_round(t, round_number)
+
+    Audit.log(
+      t.id,
+      socket.assigns.current_scope,
+      "pairing.round_paired",
+      PairingRationale.audit_payload(rationale)
+    )
   end
 
   defp results, do: @results
@@ -190,6 +248,10 @@ defmodule PairingsEngineWeb.PairingsLive do
       boards -> " (table #{Enum.join(boards, ", ")})"
     end
   end
+
+  # Bare display name for an audit-log payload (nil = a bye's empty side).
+  defp player_name(nil), do: nil
+  defp player_name(player), do: player.name
 
   defp player_label(nil), do: ""
 
@@ -325,6 +387,15 @@ defmodule PairingsEngineWeb.PairingsLive do
           >
             Pair round {@round_number} (JaVaFo)
           </button>
+
+          <.link
+            :if={@round != nil}
+            class="pe-btn"
+            navigate={~p"/t/#{@tournament.id}/pairings/#{@round_number}/explain"}
+            title="Show why each pairing, float and bye came out this way"
+          >
+            Explain this round
+          </.link>
 
           <a
             :if={@round != nil}

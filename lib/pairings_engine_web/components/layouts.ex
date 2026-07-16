@@ -89,6 +89,9 @@ defmodule PairingsEngineWeb.Layouts do
           <.link navigate={~p"/t/#{@tournament.id}/norms"} class={tab_class(@active == "norms")}>
             Norms
           </.link>
+          <.link navigate={~p"/t/#{@tournament.id}/audit"} class={tab_class(@active == "audit")}>
+            Audit
+          </.link>
           <.link navigate={~p"/t/#{@tournament.id}/settings"} class={tab_class(@active == "settings")}>
             Settings
           </.link>

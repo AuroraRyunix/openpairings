@@ -26,7 +26,9 @@ defmodule PairingsEngineWeb.Router do
       live "/fide", FideLive
       live "/t/:id/players", PlayersLive
       live "/t/:id/pairings", PairingsLive
+      live "/t/:id/pairings/:round/explain", PairingExplainLive
       live "/t/:id/standings", StandingsLive
+      live "/t/:id/audit", AuditLive
       live "/t/:id/print", PrintLive
       live "/t/:id/settings", SettingsLive
       live "/t/:id/categories", CategoriesLive

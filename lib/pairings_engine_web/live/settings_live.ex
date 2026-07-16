@@ -1,8 +1,14 @@
 defmodule PairingsEngineWeb.SettingsLive do
   use PairingsEngineWeb, :live_view
 
-  alias PairingsEngine.{Tournaments, Tiebreaks, Pairing, Exclusions, Fide}
+  alias PairingsEngine.{Audit, Tournaments, Tiebreaks, Pairing, Exclusions, Fide}
   alias PairingsEngine.Tournaments.Tournament
+
+  # Tournament fields excluded from the settings audit diff — derived,
+  # internal or noisy (binary logo blob, PubSub-recomputed status/flags,
+  # timestamps, ownership). Everything else is diffed field-by-field.
+  @settings_diff_ignore ~w(id status public_slug deleted_at manual_ranking_stale
+    logo_data logo_content_type inserted_at updated_at user_id)a
 
   # 4th tuple element marks a field as mandatory setup data (see
   # `Tournament.required_setup_fields/0`) — its label renders bold with a
@@ -479,6 +485,8 @@ defmodule PairingsEngineWeb.SettingsLive do
 
     case Tournaments.update_tournament(base, params) do
       {:ok, tournament} ->
+        log_settings_change(socket, base, tournament)
+
         {:noreply,
          socket
          |> assign(
@@ -546,6 +554,13 @@ defmodule PairingsEngineWeb.SettingsLive do
            email
          ) do
       {:ok, collaborator} ->
+        Audit.log(
+          socket.assigns.tournament.id,
+          socket.assigns.current_scope,
+          "collaborator.invited",
+          %{email: collaborator.email}
+        )
+
         note =
           if collaborator.mail_status == :failed do
             "Invite saved, but the email could not be sent — share this link manually: " <>
@@ -594,8 +609,18 @@ defmodule PairingsEngineWeb.SettingsLive do
            socket.assigns.tournament,
            id
          ) do
-      {:ok, _collaborator} -> {:noreply, assign_collaborators(socket)}
-      {:error, _reason} -> {:noreply, socket}
+      {:ok, collaborator} ->
+        Audit.log(
+          socket.assigns.tournament.id,
+          socket.assigns.current_scope,
+          "collaborator.removed",
+          %{email: collaborator.email}
+        )
+
+        {:noreply, assign_collaborators(socket)}
+
+      {:error, _reason} ->
+        {:noreply, socket}
     end
   end
 
@@ -605,7 +630,14 @@ defmodule PairingsEngineWeb.SettingsLive do
     with {a_id, ""} <- Integer.parse(a),
          {b_id, ""} <- Integer.parse(b) do
       case Tournaments.add_forbidden_pairing(socket.assigns.tournament, a_id, b_id) do
-        {:ok, _forbidden_pairing} ->
+        {:ok, forbidden_pairing} ->
+          Audit.log(
+            socket.assigns.tournament.id,
+            socket.assigns.current_scope,
+            "forbidden_pairing.added",
+            %{player_a_id: forbidden_pairing.player_a_id, player_b_id: forbidden_pairing.player_b_id}
+          )
+
           {:noreply,
            socket
            |> assign(forbidden_pairing_error: nil)
@@ -632,8 +664,18 @@ defmodule PairingsEngineWeb.SettingsLive do
 
   def handle_event("remove_forbidden_pairing", %{"id" => id}, socket) do
     case Tournaments.remove_forbidden_pairing(socket.assigns.tournament, id) do
-      {:ok, _forbidden_pairing} -> {:noreply, assign_forbidden_pairings(socket)}
-      {:error, _reason} -> {:noreply, socket}
+      {:ok, forbidden_pairing} ->
+        Audit.log(
+          socket.assigns.tournament.id,
+          socket.assigns.current_scope,
+          "forbidden_pairing.removed",
+          %{player_a_id: forbidden_pairing.player_a_id, player_b_id: forbidden_pairing.player_b_id}
+        )
+
+        {:noreply, assign_forbidden_pairings(socket)}
+
+      {:error, _reason} ->
+        {:noreply, socket}
     end
   end
 
@@ -672,8 +714,12 @@ defmodule PairingsEngineWeb.SettingsLive do
         "fed_exclusion_list"
       ])
 
-    case Tournaments.update_tournament(socket.assigns.tournament, params) do
+    base = socket.assigns.tournament
+
+    case Tournaments.update_tournament(base, params) do
       {:ok, tournament} ->
+        log_settings_change(socket, base, tournament)
+
         {:noreply,
          socket
          |> assign(
@@ -711,6 +757,11 @@ defmodule PairingsEngineWeb.SettingsLive do
       [binary] ->
         case Tournaments.set_logo(socket.assigns.tournament, binary) do
           {:ok, tournament} ->
+            Audit.log(tournament.id, socket.assigns.current_scope, "logo.uploaded", %{
+              content_type: tournament.logo_content_type,
+              bytes: byte_size(binary)
+            })
+
             {:noreply,
              socket
              |> assign(tournament: tournament)
@@ -737,6 +788,8 @@ defmodule PairingsEngineWeb.SettingsLive do
   def handle_event("clear_logo", _params, socket) do
     case Tournaments.clear_logo(socket.assigns.tournament) do
       {:ok, tournament} ->
+        Audit.log(tournament.id, socket.assigns.current_scope, "logo.cleared", %{})
+
         {:noreply,
          socket
          |> assign(tournament: tournament)
@@ -744,6 +797,32 @@ defmodule PairingsEngineWeb.SettingsLive do
 
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Could not remove the logo")}
+    end
+  end
+
+  # Records a "tournament.settings_updated" audit row with the before/after
+  # diff of only the fields that actually changed — a no-op when nothing
+  # tracked changed (e.g. a "Save" that touched only ignored/derived fields).
+  defp log_settings_change(socket, before, after_tournament) do
+    changed = tournament_diff(before, after_tournament)
+
+    if changed != %{} do
+      Audit.log(
+        after_tournament.id,
+        socket.assigns.current_scope,
+        "tournament.settings_updated",
+        %{changed_fields: changed}
+      )
+    end
+  end
+
+  defp tournament_diff(before, after_tournament) do
+    fields = Tournament.__schema__(:fields) -- @settings_diff_ignore
+
+    for field <- fields,
+        Map.get(before, field) != Map.get(after_tournament, field),
+        into: %{} do
+      {to_string(field), [Map.get(before, field), Map.get(after_tournament, field)]}
     end
   end
 

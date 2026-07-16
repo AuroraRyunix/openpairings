@@ -2,6 +2,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   use PairingsEngineWeb, :live_view
 
   alias PairingsEngine.{
+    Audit,
     Tournaments,
     Fide,
     Kbsb,
@@ -291,7 +292,19 @@ defmodule PairingsEngineWeb.PlayersLive do
   end
 
   def handle_event("delete", %{"id" => id}, socket) do
-    id |> Tournaments.get_player!() |> Tournaments.delete_player()
+    player = Tournaments.get_player!(id)
+
+    case Tournaments.delete_player(player) do
+      {:ok, _} ->
+        Audit.log(socket.assigns.tournament.id, socket.assigns.current_scope, "player.deleted", %{
+          player_id: player.id,
+          player_name: player.name
+        })
+
+      _ ->
+        :ok
+    end
+
     {:noreply, assign_players(socket)}
   end
 
@@ -310,7 +323,14 @@ defmodule PairingsEngineWeb.PlayersLive do
     proposals = (socket.assigns.rating_refresh || %{proposals: []}).proposals
 
     case RatingRefresh.apply(socket.assigns.tournament, proposals) do
-      {:ok, _players} ->
+      {:ok, players} ->
+        Audit.log(
+          socket.assigns.tournament.id,
+          socket.assigns.current_scope,
+          "player.ratings_refreshed",
+          %{players_updated: length(players)}
+        )
+
         {:noreply, socket |> assign(rating_refresh: nil) |> assign_players()}
 
       {:error, _changeset} ->
@@ -393,8 +413,21 @@ defmodule PairingsEngineWeb.PlayersLive do
   end
 
   def handle_event("save_player", %{"player" => params}, socket) do
-    case Tournaments.update_player(socket.assigns.editing_player, params) do
-      {:ok, _player} ->
+    before = socket.assigns.editing_player
+
+    case Tournaments.update_player(before, params) do
+      {:ok, player} ->
+        changed = player_diff(before, player)
+
+        if changed != %{} do
+          Audit.log(
+            socket.assigns.tournament.id,
+            socket.assigns.current_scope,
+            "player.updated",
+            %{player_id: player.id, player_name: player.name, changed_fields: changed}
+          )
+        end
+
         {:noreply,
          socket
          |> assign(editing_player: nil, edit_form: %{}, edit_error: nil)
@@ -431,9 +464,30 @@ defmodule PairingsEngineWeb.PlayersLive do
      )}
   end
 
+  # Tracked player fields whose before/after change is worth recording in the
+  # audit trail — returns a `%{"field" => [before, after]}` map of only the
+  # fields that actually changed (empty map when nothing tracked changed).
+  @audited_player_fields ~w(name title sex fide_id fide_rating national_rating
+    federation club club_number birth_year category status absent forfeit
+    absent_rounds fixed_board start_round extra_points manual_rank)a
+
+  defp player_diff(before, after_player) do
+    for field <- @audited_player_fields,
+        Map.get(before, field) != Map.get(after_player, field),
+        into: %{} do
+      {to_string(field), [Map.get(before, field), Map.get(after_player, field)]}
+    end
+  end
+
   defp do_save(socket, params) do
     case Tournaments.create_player(socket.assigns.tournament.id, params) do
-      {:ok, _player} ->
+      {:ok, player} ->
+        Audit.log(socket.assigns.tournament.id, socket.assigns.current_scope, "player.created", %{
+          player_id: player.id,
+          player_name: player.name,
+          rating: Player.rating(player)
+        })
+
         {:noreply, socket |> assign(error: nil, form_values: %{}) |> assign_players()}
 
       {:error, :duplicate_fide_id} ->

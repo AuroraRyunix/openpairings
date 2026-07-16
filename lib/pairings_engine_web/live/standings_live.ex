@@ -1,7 +1,7 @@
 defmodule PairingsEngineWeb.StandingsLive do
   use PairingsEngineWeb, :live_view
 
-  alias PairingsEngine.{Tournaments, Tiebreaks, Standings, Keizer, PlayerStats}
+  alias PairingsEngine.{Audit, Tournaments, Tiebreaks, Standings, Keizer, PlayerStats}
   alias PairingsEngine.Tournaments.Player
 
   @impl true
@@ -47,18 +47,21 @@ defmodule PairingsEngineWeb.StandingsLive do
   @impl true
   def handle_event("enable_manual_ranking", _params, socket) do
     {:ok, tournament} = Tournaments.enable_manual_ranking(socket.assigns.tournament)
+    Audit.log(tournament.id, socket.assigns.current_scope, "standings.manual_ranking_enabled", %{})
     {:noreply, socket |> assign(tournament: tournament) |> reload_standings()}
   end
 
   @impl true
   def handle_event("disable_manual_ranking", _params, socket) do
     {:ok, tournament} = Tournaments.disable_manual_ranking(socket.assigns.tournament)
+    Audit.log(tournament.id, socket.assigns.current_scope, "standings.manual_ranking_disabled", %{})
     {:noreply, socket |> assign(tournament: tournament) |> reload_standings()}
   end
 
   @impl true
   def handle_event("reseed_manual_ranking", _params, socket) do
     {:ok, tournament} = Tournaments.reseed_manual_ranking(socket.assigns.tournament)
+    Audit.log(tournament.id, socket.assigns.current_scope, "standings.manual_reseeded", %{})
     {:noreply, socket |> assign(tournament: tournament) |> reload_standings()}
   end
 
@@ -71,8 +74,17 @@ defmodule PairingsEngineWeb.StandingsLive do
 
     socket =
       case Tournaments.move_manual_rank(tournament, player, direction) do
-        {:ok, _} -> assign(socket, tournament: %{tournament | manual_ranking_stale: false})
-        {:error, _} -> socket
+        {:ok, _} ->
+          Audit.log(tournament.id, socket.assigns.current_scope, "standings.manual_reorder", %{
+            player_id: player.id,
+            player_name: player.name,
+            direction: to_string(direction)
+          })
+
+          assign(socket, tournament: %{tournament | manual_ranking_stale: false})
+
+        {:error, _} ->
+          socket
       end
 
     {:noreply, reload_standings(socket)}

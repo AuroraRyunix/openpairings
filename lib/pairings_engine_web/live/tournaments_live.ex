@@ -1,7 +1,7 @@
 defmodule PairingsEngineWeb.TournamentsLive do
   use PairingsEngineWeb, :live_view
 
-  alias PairingsEngine.{Tournaments, SwarImport, TournamentImport, TrfImport}
+  alias PairingsEngine.{Audit, Tournaments, SwarImport, TournamentImport, TrfImport}
   alias PairingsEngine.Tournaments.Tournament
 
   # Kept in sync with SettingsLive's own copies (SWAR TournoiStd / Cadence).
@@ -109,6 +109,13 @@ defmodule PairingsEngineWeb.TournamentsLive do
   def handle_event("accept_invite", %{"token" => token}, socket) do
     case Tournaments.accept_invitation(socket.assigns.current_scope, token) do
       {:ok, collaborator} ->
+        Audit.log(
+          collaborator.tournament_id,
+          socket.assigns.current_scope,
+          "collaborator.accepted",
+          %{email: collaborator.email}
+        )
+
         {:noreply,
          socket
          |> put_flash(:info, "Invitation accepted.")
@@ -121,8 +128,18 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
   def handle_event("decline_invite", %{"token" => token}, socket) do
     case Tournaments.decline_invitation(socket.assigns.current_scope, token) do
-      {:ok, _collaborator} -> {:noreply, assign_pending_invitations(socket)}
-      {:error, _reason} -> {:noreply, assign_pending_invitations(socket)}
+      {:ok, collaborator} ->
+        Audit.log(
+          collaborator.tournament_id,
+          socket.assigns.current_scope,
+          "collaborator.declined",
+          %{email: collaborator.email}
+        )
+
+        {:noreply, assign_pending_invitations(socket)}
+
+      {:error, _reason} ->
+        {:noreply, assign_pending_invitations(socket)}
     end
   end
 
@@ -205,6 +222,11 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
     case Tournaments.create_tournament(socket.assigns.current_scope, params) do
       {:ok, tournament} ->
+        Audit.log(tournament.id, socket.assigns.current_scope, "tournament.created", %{
+          name: tournament.name,
+          pairing_system: tournament.pairing_system
+        })
+
         {:noreply, push_navigate(socket, to: ~p"/t/#{tournament.id}/players")}
 
       {:error, changeset} ->
@@ -286,6 +308,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
     case results do
       [{:ok, tournament, warnings}] ->
+        Audit.log(tournament.id, socket.assigns.current_scope, "import.trf", %{
+          name: tournament.name
+        })
+
         {:noreply,
          socket
          |> maybe_flash_trf_warnings(warnings)
@@ -316,6 +342,12 @@ defmodule PairingsEngineWeb.TournamentsLive do
     case results do
       [{:ok, imported}] ->
         count = length(imported)
+
+        Enum.each(imported, fn tournament ->
+          Audit.log(tournament.id, socket.assigns.current_scope, "import.json", %{
+            name: tournament.name
+          })
+        end)
 
         {:noreply,
          socket
@@ -351,6 +383,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
       %{delete_target: %Tournament{} = tournament, delete_confirm_text: "DELETE"} ->
         {:ok, _} = Tournaments.soft_delete_tournament(tournament)
 
+        Audit.log(tournament.id, socket.assigns.current_scope, "tournament.deleted", %{
+          name: tournament.name
+        })
+
         {:noreply,
          socket
          |> assign(delete_target: nil, delete_confirm_text: "")
@@ -369,6 +405,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
       Tournaments.get_owned_tournament_including_deleted!(socket.assigns.current_scope, id)
 
     {:ok, _} = Tournaments.restore_tournament(tournament)
+
+    Audit.log(tournament.id, socket.assigns.current_scope, "tournament.restored", %{
+      name: tournament.name
+    })
 
     {:noreply,
      socket
@@ -411,6 +451,8 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
     case SwarImport.commit_import(prepared, resolutions, scope) do
       {:ok, tournament} ->
+        Audit.log(tournament.id, scope, "import.swar", %{name: tournament.name})
+
         {:noreply,
          socket
          |> assign(swar_pending: nil)
