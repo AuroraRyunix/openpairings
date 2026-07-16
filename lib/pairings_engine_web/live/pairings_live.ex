@@ -1,6 +1,8 @@
 defmodule PairingsEngineWeb.PairingsLive do
   use PairingsEngineWeb, :live_view
 
+  import PairingsEngineWeb.SettingsSupport, only: [setup_field_path: 2]
+
   alias PairingsEngine.{Audit, PairingRationale, ResultsImport, Tournaments}
   alias PairingsEngine.Pairing, as: Engine
   alias PairingsEngine.Tournaments.Tournament
@@ -101,7 +103,8 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp refresh(socket) do
     %{tournament: t, round_number: n} = socket.assigns
     paired = Engine.paired_rounds_count(t.id)
-    setup_complete = Tournament.setup_complete?(t)
+    missing_setup = Tournament.missing_setup_fields(t)
+    setup_complete = missing_setup == []
 
     assign(socket,
       round: Tournaments.get_round(t.id, n),
@@ -109,6 +112,7 @@ defmodule PairingsEngineWeb.PairingsLive do
       paired_rounds: paired,
       next_pairable: paired + 1,
       setup_complete: setup_complete,
+      missing_setup: missing_setup,
       can_pair:
         setup_complete and paired < t.rounds_count and Engine.round_complete?(t.id, paired)
     )
@@ -129,7 +133,8 @@ defmodule PairingsEngineWeb.PairingsLive do
        put_flash(
          socket,
          :error,
-         "Finish the tournament setup — fill in the name, start date and number of rounds in Settings before pairing."
+         "Finish the tournament setup before pairing — missing: " <>
+           missing_setup_summary(socket.assigns.missing_setup)
        )}
     else
       do_pair(socket)
@@ -262,6 +267,14 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   defp results, do: @results
+
+  # Plain-text summary of `Tournament.missing_setup_fields/1`'s messages, for
+  # the flash/tooltip shown when pairing is blocked — the on-page banner (see
+  # render/1) additionally links each item to the Settings (sub-)page it
+  # lives on.
+  defp missing_setup_summary(missing) do
+    Enum.map_join(missing, "; ", fn {_field, message} -> message end)
+  end
 
   # Long JaVaFo failures come through as multi-line output — show a short
   # first-line preview as the collapsed summary, never a truncated message
@@ -405,9 +418,12 @@ defmodule PairingsEngineWeb.PairingsLive do
       </p>
 
       <div :if={!@setup_complete} class="card error-note" style="display: block; margin: 12px 0">
-        Finish the tournament setup — fill in the name, start date and number of rounds in
-        <.link navigate={~p"/t/#{@tournament.id}/settings"}>Settings</.link>
-        before pairing.
+        Finish the tournament setup before pairing — still missing:
+        <ul style="margin: 6px 0 0; padding-left: 20px">
+          <li :for={{field, message} <- @missing_setup}>
+            <.link navigate={setup_field_path(@tournament, field)}>{message}</.link>
+          </li>
+        </ul>
       </div>
 
       <div class="round-picker">
@@ -451,9 +467,15 @@ defmodule PairingsEngineWeb.PairingsLive do
             disabled={!@can_pair}
             title={
               cond do
-                !@setup_complete -> "Finish the tournament setup in Settings before pairing"
-                !@can_pair -> "Previous round still has missing results"
-                true -> nil
+                !@setup_complete ->
+                  "Finish the tournament setup first — missing: " <>
+                    missing_setup_summary(@missing_setup)
+
+                !@can_pair ->
+                  "Previous round still has missing results"
+
+                true ->
+                  nil
               end
             }
           >

@@ -992,4 +992,178 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       assert toggled_html =~ a.name
     end
   end
+
+  ## ---------- "Tournament info" header block ----------
+
+  # A tournament with every info-block field set (federation, dates, chief
+  # arbiter, rate of play) but NOT FIDE-homologated, plus the same 4-player/
+  # 2-round data `fixture/1` sets up (board pairings, results) so every print
+  # doc under test has something to render besides the header.
+  defp info_fixture(scope, overrides \\ %{}) do
+    attrs =
+      Map.merge(
+        %{
+          "name" => "Info Block Open",
+          "type" => "swiss",
+          "rounds_count" => "3",
+          "federation" => "BEL",
+          "start_date" => "2026-08-01",
+          "end_date" => "2026-08-03",
+          "chief_arbiter" => "Jane Arbiter",
+          "rate_of_play" => "90 min + 30 sec/move",
+          "fide_homologated" => false,
+          "fide_tournament_id" => ""
+        },
+        overrides
+      )
+
+    {:ok, tournament} = Tournaments.create_tournament(scope, attrs)
+
+    [a, b] =
+      for {name, rating, number} <- [{"A", 2000, 1}, {"B", 1800, 2}] do
+        Repo.insert!(%Player{
+          tournament_id: tournament.id,
+          name: name,
+          fide_rating: rating,
+          pairing_number: number
+        })
+      end
+
+    r1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
+
+    Repo.insert!(%Pairing{
+      round_id: r1.id,
+      board: 1,
+      white_player_id: a.id,
+      black_player_id: b.id,
+      result: "1-0"
+    })
+
+    tournament
+  end
+
+  describe "tournament info block" do
+    test "pairing_list shows federation/dates/chief arbiter/rate of play", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = info_fixture(scope)
+
+      html = get(conn, ~p"/t/#{tournament.id}/print/pairings?round=1") |> html_response(200)
+
+      assert html =~ "tourney-info"
+      assert html =~ "Federation: BEL"
+      assert html =~ "Dates: 2026-08-01 &ndash; 2026-08-03" or html =~ "2026-08-01"
+      assert html =~ "Chief arbiter: Jane Arbiter"
+      assert html =~ "Rate of play: 90 min + 30 sec/move"
+    end
+
+    test "standings shows the info block", %{conn: conn, scope: scope} do
+      tournament = info_fixture(scope)
+
+      html = get(conn, ~p"/t/#{tournament.id}/print/standings?round=1") |> html_response(200)
+
+      assert html =~ "tourney-info"
+      assert html =~ "Federation: BEL"
+      assert html =~ "Chief arbiter: Jane Arbiter"
+    end
+
+    test "player_list and player_cards show the info block", %{conn: conn, scope: scope} do
+      tournament = info_fixture(scope)
+
+      list_html = get(conn, ~p"/t/#{tournament.id}/print/players") |> html_response(200)
+      cards_html = get(conn, ~p"/t/#{tournament.id}/print/cards") |> html_response(200)
+
+      assert list_html =~ "tourney-info"
+      assert list_html =~ "Rate of play: 90 min + 30 sec/move"
+      assert cards_html =~ "tourney-info"
+      assert cards_html =~ "Chief arbiter: Jane Arbiter"
+    end
+
+    test "crosstable (swiss) shows the info block", %{conn: conn, scope: scope} do
+      tournament = info_fixture(scope)
+
+      html = get(conn, ~p"/t/#{tournament.id}/print/crosstable") |> html_response(200)
+
+      assert html =~ "tourney-info"
+      assert html =~ "Federation: BEL"
+    end
+
+    test "crosstable (round robin) shows the info block", %{conn: conn, scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "RR Info",
+          "type" => "roundrobin",
+          "pairing_system" => "round_robin",
+          "rounds_count" => "3",
+          "federation" => "NED",
+          "chief_arbiter" => "John Arbiter"
+        })
+
+      Repo.insert!(%Player{
+        tournament_id: tournament.id,
+        name: "A",
+        fide_rating: 2000,
+        pairing_number: 1
+      })
+
+      html = get(conn, ~p"/t/#{tournament.id}/print/crosstable") |> html_response(200)
+
+      assert html =~ "tourney-info"
+      assert html =~ "Federation: NED"
+      assert html =~ "Chief arbiter: John Arbiter"
+    end
+
+    test "place_cards shows the info block", %{conn: conn, scope: scope} do
+      tournament = info_fixture(scope)
+
+      html = get(conn, ~p"/t/#{tournament.id}/print/placecards") |> html_response(200)
+
+      assert html =~ "tourney-info"
+      assert html =~ "Federation: BEL"
+    end
+
+    test "result_cards shows the info block", %{conn: conn, scope: scope} do
+      tournament = info_fixture(scope)
+
+      html = get(conn, ~p"/t/#{tournament.id}/print/results?round=1") |> html_response(200)
+
+      assert html =~ "tourney-info"
+      assert html =~ "Chief arbiter: Jane Arbiter"
+    end
+
+    test "blank fields are simply omitted, not shown empty", %{conn: conn, scope: scope} do
+      {tournament, _players} = fixture(scope)
+
+      html = get(conn, ~p"/t/#{tournament.id}/print/players") |> html_response(200)
+
+      refute html =~ "Federation:"
+      refute html =~ "Chief arbiter:"
+      refute html =~ "Rate of play:"
+      refute html =~ "FIDE ID:"
+    end
+
+    test "FIDE ID is shown only when the tournament is FIDE-homologated", %{
+      conn: conn,
+      scope: scope
+    } do
+      not_homologated = info_fixture(scope, %{"fide_tournament_id" => "BEL2026001"})
+
+      html =
+        get(conn, ~p"/t/#{not_homologated.id}/print/players") |> html_response(200)
+
+      refute html =~ "FIDE ID:"
+
+      homologated =
+        info_fixture(scope, %{
+          "name" => "Homologated Open",
+          "fide_homologated" => true,
+          "fide_tournament_id" => "BEL2026002"
+        })
+
+      html2 = get(conn, ~p"/t/#{homologated.id}/print/players") |> html_response(200)
+
+      assert html2 =~ "FIDE ID: BEL2026002"
+    end
+  end
 end

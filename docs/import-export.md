@@ -19,9 +19,19 @@ it.
 ## FIDE TRF16 export
 
 `GET /t/:id/export/trf` downloads a `.trf` text file (`text/plain`,
-`Content-Disposition: attachment`, filename `<tournament-slug>.trf`) for the
-tournament, owner-scoped the same way every other tournament route is
+`Content-Disposition: attachment`, filename
+`<X>_<fideid>_<tournament-slug>_<rounds>.trf`) for the tournament,
+owner-scoped the same way every other tournament route is
 (`Tournaments.get_user_tournament!/2` — a tournament id you don't own 404s).
+
+  * `<X>` is `B`/`R`/`S` for `tournament.standard` (blitz/rapid/standard).
+  * `<fideid>` is whichever FIDE tournament ID applies to the exported round
+    range — a configured `fide_id_ranges` entry if one fully covers it, else
+    the tournament-wide `fide_tournament_id`, omitted entirely if neither
+    resolves (see `PairingsEngine.TrfExport.applicable_fide_id/2` and the
+    FIDE settings page).
+  * `<rounds>` is a compact descriptor of the exported round span, e.g.
+    `r1-5`, `r1-3+8` for a non-contiguous selection.
 
 Only players who have actually been included in a paired round (i.e. have a
 `pairing_number`) are included — a player added after the fact who was

@@ -912,6 +912,99 @@ defmodule PairingsEngine.TournamentsTest do
     end
   end
 
+  describe "fide_id_ranges / fide_homologated — Tournament.changeset/2 normalization" do
+    test "fide_homologated defaults false and fide_id_ranges defaults empty" do
+      tournament =
+        Repo.insert!(%Tournament{name: "FIDE Defaults", type: "swiss", rounds_count: 3})
+
+      assert tournament.fide_homologated == false
+      assert tournament.fide_id_ranges == []
+    end
+
+    test "accepts a well-formed range and canonicalizes round numbers to integers, sorted by from_round" do
+      tournament = Repo.insert!(%Tournament{name: "FIDE Ranges", type: "swiss", rounds_count: 9})
+
+      assert {:ok, updated} =
+               Tournaments.update_tournament(tournament, %{
+                 "fide_id_ranges" => [
+                   %{"fide_tournament_id" => "222", "from_round" => "4", "to_round" => "9"},
+                   %{"fide_tournament_id" => "111", "from_round" => "1", "to_round" => "3"}
+                 ]
+               })
+
+      assert updated.fide_id_ranges == [
+               %{"fide_tournament_id" => "111", "from_round" => 1, "to_round" => 3},
+               %{"fide_tournament_id" => "222", "from_round" => 4, "to_round" => 9}
+             ]
+    end
+
+    test "rejects overlapping ranges" do
+      tournament = Repo.insert!(%Tournament{name: "FIDE Overlap", type: "swiss", rounds_count: 9})
+
+      assert {:error, changeset} =
+               Tournaments.update_tournament(tournament, %{
+                 "fide_id_ranges" => [
+                   %{"fide_tournament_id" => "111", "from_round" => "1", "to_round" => "5"},
+                   %{"fide_tournament_id" => "222", "from_round" => "4", "to_round" => "9"}
+                 ]
+               })
+
+      assert %{fide_id_ranges: [msg]} = errors_on(changeset)
+      assert msg =~ "overlap"
+    end
+
+    test "rejects a range where from_round > to_round" do
+      tournament =
+        Repo.insert!(%Tournament{name: "FIDE Backwards", type: "swiss", rounds_count: 9})
+
+      assert {:error, changeset} =
+               Tournaments.update_tournament(tournament, %{
+                 "fide_id_ranges" => [
+                   %{"fide_tournament_id" => "111", "from_round" => "5", "to_round" => "1"}
+                 ]
+               })
+
+      assert %{fide_id_ranges: [_msg]} = errors_on(changeset)
+    end
+
+    test "rejects a range missing a FIDE tournament ID" do
+      tournament =
+        Repo.insert!(%Tournament{name: "FIDE Blank Id", type: "swiss", rounds_count: 9})
+
+      assert {:error, changeset} =
+               Tournaments.update_tournament(tournament, %{
+                 "fide_id_ranges" => [
+                   %{"fide_tournament_id" => "", "from_round" => "1", "to_round" => "3"}
+                 ]
+               })
+
+      assert %{fide_id_ranges: [_msg]} = errors_on(changeset)
+    end
+
+    test "an empty list clears any previously configured ranges" do
+      tournament = Repo.insert!(%Tournament{name: "FIDE Clear", type: "swiss", rounds_count: 9})
+
+      {:ok, tournament} =
+        Tournaments.update_tournament(tournament, %{
+          "fide_id_ranges" => [
+            %{"fide_tournament_id" => "111", "from_round" => "1", "to_round" => "3"}
+          ]
+        })
+
+      assert {:ok, cleared} = Tournaments.update_tournament(tournament, %{"fide_id_ranges" => []})
+      assert cleared.fide_id_ranges == []
+    end
+
+    test "fide_homologated can be toggled on" do
+      tournament = Repo.insert!(%Tournament{name: "FIDE Toggle", type: "swiss", rounds_count: 3})
+
+      assert {:ok, updated} =
+               Tournaments.update_tournament(tournament, %{"fide_homologated" => true})
+
+      assert updated.fide_homologated == true
+    end
+  end
+
   describe "Tournament.parse_extra_points_bands/1 and band_extra_points/2" do
     test "parses a well-formed bands string into sorted-by-input {threshold, bonus} pairs" do
       assert {:ok, [{1600, 0.5}, {1400, 1.0}]} =

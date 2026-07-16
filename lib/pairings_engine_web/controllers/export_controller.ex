@@ -17,15 +17,30 @@ defmodule PairingsEngineWeb.ExportController do
 
   alias PairingsEngine.{PgnExport, TournamentExport, Tournaments, TrfExport}
 
-  @doc "GET /t/:id/export/trf?rounds=1-5 — TRF16 text download, all or selected rounds."
+  @doc """
+  GET /t/:id/export/trf?rounds=1-5 — TRF16 text download, all or selected
+  rounds. Filename convention: `<X>_<fideid>_<slug>_<rounds>.trf`, where
+  `<X>` is B/R/S for `tournament.standard` (blitz/rapid/standard), `<fideid>`
+  is whichever FIDE tournament ID `TrfExport.applicable_fide_id/2` resolves
+  for the exported round range (segment omitted when none applies), `<slug>`
+  is the same sanitized tournament-name slug every other export filename
+  uses (see `filename/2`), and `<rounds>` is a compact descriptor of the
+  exported round span (e.g. `r1-5`, `r1-3+8`, or `all`). See
+  `trf_filename/2`.
+  """
   def trf(conn, %{"id" => id} = params) do
     tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
 
     case TrfExport.export(tournament, params["rounds"]) do
       {:ok, text} ->
+        meta = TrfExport.export_meta(tournament, params["rounds"])
+
         conn
         |> put_resp_content_type("text/plain")
-        |> put_resp_header("content-disposition", "attachment; filename=\"#{filename(tournament, "trf")}\"")
+        |> put_resp_header(
+          "content-disposition",
+          "attachment; filename=\"#{trf_filename(tournament, meta)}\""
+        )
         |> send_resp(200, text)
 
       {:error, %PairingsEngine.Trf.ValidationError{message: message}} ->
@@ -43,7 +58,10 @@ defmodule PairingsEngineWeb.ExportController do
 
     conn
     |> put_resp_content_type("application/x-chess-pgn")
-    |> put_resp_header("content-disposition", "attachment; filename=\"#{filename(tournament, "pgn")}\"")
+    |> put_resp_header(
+      "content-disposition",
+      "attachment; filename=\"#{filename(tournament, "pgn")}\""
+    )
     |> send_resp(200, text)
   end
 
@@ -68,7 +86,12 @@ defmodule PairingsEngineWeb.ExportController do
   @doc "GET /export/tournaments.json — full-fidelity JSON backup of every tournament the current user owns."
   def all_json(conn, _params) do
     envelope = TournamentExport.export_all(conn.assigns.current_scope)
-    send_json_download(conn, envelope, "openpairings-export-#{Date.to_iso8601(Date.utc_today())}.json")
+
+    send_json_download(
+      conn,
+      envelope,
+      "openpairings-export-#{Date.to_iso8601(Date.utc_today())}.json"
+    )
   end
 
   defp send_json_download(conn, envelope, filename) do
@@ -79,12 +102,65 @@ defmodule PairingsEngineWeb.ExportController do
   end
 
   defp filename(tournament, ext) do
-    slug =
-      tournament.name
-      |> String.downcase()
-      |> String.replace(~r/[^a-z0-9]+/, "-")
-      |> String.trim("-")
+    "#{tournament_slug(tournament)}.#{ext}"
+  end
 
-    "#{slug}.#{ext}"
+  defp tournament_slug(tournament) do
+    tournament.name
+    |> String.downcase()
+    |> String.replace(~r/[^a-z0-9]+/, "-")
+    |> String.trim("-")
+  end
+
+  # `<X>_<fideid>_<slug>_<rounds>.trf` — see the `trf/2` moduledoc above.
+  # `.trf` (not the ".txt" a user might informally expect) matches this
+  # project's established TRF export extension — every other TRF surface
+  # (this controller's previous filename, `docs/import-export.md`) already
+  # uses `.trf`, so this keeps that consistent rather than introducing a
+  # second convention.
+  defp trf_filename(tournament, %{rounds: rounds, fide_id: fide_id}) do
+    segments =
+      [
+        standard_prefix(tournament.standard),
+        fide_id,
+        tournament_slug(tournament),
+        round_span_descriptor(rounds)
+      ]
+      |> Enum.reject(&(&1 in [nil, ""]))
+
+    Enum.join(segments, "_") <> ".trf"
+  end
+
+  defp standard_prefix("blitz"), do: "B"
+  defp standard_prefix("rapid"), do: "R"
+  defp standard_prefix("standard"), do: "S"
+  defp standard_prefix(_other), do: "S"
+
+  # Compact filename-safe descriptor of `rounds` (a sorted, deduped list of
+  # round numbers as returned by `TrfExport.parse_rounds/2`): contiguous runs
+  # collapse to `rN-M`, single rounds stay `rN`, multiple runs join with `+`
+  # (e.g. `[1,2,3,5]` -> `"r1-3+5"`). Empty (no paired rounds at all) yields
+  # `"all"` rather than an empty segment, so the filename never ends up with
+  # a stray double underscore.
+  defp round_span_descriptor([]), do: "all"
+
+  defp round_span_descriptor(rounds) do
+    rounds
+    |> Enum.sort()
+    |> Enum.chunk_while(
+      [],
+      fn round, chunk ->
+        case chunk do
+          [prev | _] when round == prev + 1 -> {:cont, [round | chunk]}
+          [] -> {:cont, [round]}
+          _ -> {:cont, Enum.reverse(chunk), [round]}
+        end
+      end,
+      fn chunk -> {:cont, Enum.reverse(chunk), []} end
+    )
+    |> Enum.map_join("+", fn
+      [single] -> "r#{single}"
+      run -> "r#{List.first(run)}-#{List.last(run)}"
+    end)
   end
 end

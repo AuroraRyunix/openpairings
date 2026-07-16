@@ -220,7 +220,13 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
         Tournaments.create_tournament(scope, %{
           "name" => "KBSB Add Test",
           "type" => "swiss",
-          "start_date" => "2026-07-15"
+          "start_date" => "2026-07-15",
+          "rounds_count" => "9",
+          "round_dates" => List.duplicate("2026-07-15", 9),
+          "tiebreaks" => ["BH", "SB"],
+          "chief_arbiter" => "Jane Arbiter",
+          "federation" => "BEL",
+          "rate_of_play" => "90 min + 30 sec/move"
         })
 
       Repo.insert!(%KbsbPlayer{
@@ -835,7 +841,13 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
         Tournaments.create_tournament(scope, %{
           "name" => "Complete Setup",
           "type" => "swiss",
-          "start_date" => "2026-07-15"
+          "start_date" => "2026-07-15",
+          "rounds_count" => "3",
+          "round_dates" => ["2026-07-15", "2026-07-16", "2026-07-17"],
+          "tiebreaks" => ["BH", "SB"],
+          "chief_arbiter" => "Jane Arbiter",
+          "federation" => "BEL",
+          "rate_of_play" => "90 min + 30 sec/move"
         })
 
       {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/players")

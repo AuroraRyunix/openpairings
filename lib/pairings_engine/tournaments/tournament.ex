@@ -71,8 +71,41 @@ defmodule PairingsEngine.Tournaments.Tournament do
 
     # FIDE "Code of event" (FA1/IA1 B6, IT4 S4 "FIDE Event code")
     field :event_code, :string, default: ""
-    # FIDE "ID of Tournament" (IT3 B2) — the report's own numeric ID
+    # FIDE "ID of Tournament" (IT3 B2) — the report's own numeric ID.
+    #
+    # DECISION (see `fide_id_ranges` below for the full per-round model):
+    # this plain field remains the tournament-WIDE **fallback/default** ID.
+    # It is what `PairingsEngine.TrfExport.applicable_fide_id/2` returns when
+    # no single configured `fide_id_ranges` entry fully covers the exported
+    # round range (no ranges configured at all, the range spans/partially
+    # overlaps more than one entry, or matches none) — never fully
+    # superseded by the per-round mechanism. Blank means "no ID at all" for
+    # that fallback case (the TRF filename's FIDE-ID segment is then simply
+    # omitted, e.g. a non-homologated tournament).
     field :fide_tournament_id, :string, default: ""
+    # "This tournament is FIDE-rated/reportable" — an informational tickbox
+    # surfaced on the FIDE settings page. Not itself read by TrfExport (the
+    # export logic only cares whether an ID resolves, per
+    # `applicable_fide_id/2`), but kept here as the single place an arbiter
+    # marks a tournament homologated for FIDE rating purposes.
+    field :fide_homologated, :boolean, default: false
+    # SWAR's per-round FIDE-ID-range model ("FIDE id 89495 applies to
+    # rounds 1-3, this other id applies to rounds 4-9, ...") — for splitting
+    # one club's FIDE report across differently-rated sections/legs of the
+    # same tournament. An ordered list of
+    # `%{"fide_tournament_id" => string, "from_round" => integer, "to_round" => integer}`
+    # maps (a plain `{:array, :map}`, like `officials` is a plain `:map` —
+    # this project doesn't otherwise use Ecto embedded schemas for map-shaped
+    # config data, so this follows that existing precedent rather than
+    # introducing one). Validated by `normalize_fide_id_ranges/1` below:
+    # every entry needs a non-blank `fide_tournament_id` and
+    # `from_round <= to_round`, and entries may never overlap each other.
+    # Canonicalized (sorted by `from_round`, round numbers coerced to
+    # integers) on every write, same pattern as `extra_points_bands`.
+    # Consulted by `PairingsEngine.TrfExport.applicable_fide_id/2` — see
+    # `fide_tournament_id` above for the fallback behaviour when no entry
+    # here unambiguously covers the exported round range.
+    field :fide_id_ranges, {:array, :map}, default: []
 
     # Officials / pairing-system / FIDE-report metadata that doesn't
     # warrant its own column each — recognised string keys (all optional,
@@ -211,16 +244,51 @@ defmodule PairingsEngine.Tournaments.Tournament do
   def changeset(tournament, attrs) do
     tournament
     |> cast(attrs, [
-      :name, :type, :venue, :city, :federation, :start_date, :end_date,
-      :organizer, :chief_arbiter, :deputy_arbiter, :time_control,
-      :rounds_count, :rating_type, :points_win, :points_draw, :points_loss,
-      :bye_value, :presence_value, :abs_value, :tiebreaks, :acceleration, :status,
-      :standard, :rate_of_play, :organizer_club_number, :round_dates, :categories,
-      :event_code, :fide_tournament_id, :officials,
-      :pairing_system, :rr_cycles, :rr_match_format, :keizer_top_value,
-      :swiss_match_format, :pair_by_category,
-      :club_exclusion, :club_exclusion_list, :fed_exclusion, :fed_exclusion_list,
-      :count_extra_points, :extra_points_bands, :categories_enabled,
+      :name,
+      :type,
+      :venue,
+      :city,
+      :federation,
+      :start_date,
+      :end_date,
+      :organizer,
+      :chief_arbiter,
+      :deputy_arbiter,
+      :time_control,
+      :rounds_count,
+      :rating_type,
+      :points_win,
+      :points_draw,
+      :points_loss,
+      :bye_value,
+      :presence_value,
+      :abs_value,
+      :tiebreaks,
+      :acceleration,
+      :status,
+      :standard,
+      :rate_of_play,
+      :organizer_club_number,
+      :round_dates,
+      :categories,
+      :event_code,
+      :fide_tournament_id,
+      :fide_homologated,
+      :fide_id_ranges,
+      :officials,
+      :pairing_system,
+      :rr_cycles,
+      :rr_match_format,
+      :keizer_top_value,
+      :swiss_match_format,
+      :pair_by_category,
+      :club_exclusion,
+      :club_exclusion_list,
+      :fed_exclusion,
+      :fed_exclusion_list,
+      :count_extra_points,
+      :extra_points_bands,
+      :categories_enabled,
       :manual_ranking
     ])
     |> validate_required([:name, :type, :rounds_count])
@@ -242,6 +310,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> normalize_exclusion_list(:club_exclusion_list)
     |> normalize_exclusion_list(:fed_exclusion_list)
     |> normalize_extra_points_bands()
+    |> normalize_fide_id_ranges()
     |> put_public_slug()
   end
 
@@ -367,7 +436,9 @@ defmodule PairingsEngine.Tournaments.Tournament do
             canonical =
               bands
               |> Enum.sort_by(fn {threshold, _bonus} -> threshold end)
-              |> Enum.map_join(", ", fn {threshold, bonus} -> "#{threshold}:#{format_bonus(bonus)}" end)
+              |> Enum.map_join(", ", fn {threshold, bonus} ->
+                "#{threshold}:#{format_bonus(bonus)}"
+              end)
 
             put_change(changeset, :extra_points_bands, canonical)
 
@@ -385,6 +456,106 @@ defmodule PairingsEngine.Tournaments.Tournament do
     if bonus == Float.round(bonus, 0), do: trunc(bonus), else: bonus
   end
 
+  # Re-parses, validates and re-canonicalizes `fide_id_ranges` on every
+  # write, same pattern as `normalize_extra_points_bands/1` above. Each
+  # incoming entry (a map with either string or atom keys — a direct
+  # `Tournaments.update_tournament/2` caller and a LiveView form submission
+  # shape it slightly differently) needs a non-blank `fide_tournament_id`
+  # and an integer-parseable `from_round <= to_round`; the canonical stored
+  # shape always has string keys, integer round numbers, and is sorted by
+  # `from_round`. Entries may never overlap each other (an unambiguous
+  # per-round ID is the whole point of this field — see
+  # `PairingsEngine.TrfExport.applicable_fide_id/2`, the consumer).
+  defp normalize_fide_id_ranges(changeset) do
+    case get_change(changeset, :fide_id_ranges) do
+      nil ->
+        changeset
+
+      ranges when is_list(ranges) ->
+        case parse_fide_id_ranges(ranges) do
+          {:ok, parsed} ->
+            case find_overlapping_fide_id_ranges(parsed) do
+              nil ->
+                canonical =
+                  parsed
+                  |> Enum.sort_by(& &1.from_round)
+                  |> Enum.map(fn r ->
+                    %{
+                      "fide_tournament_id" => r.fide_tournament_id,
+                      "from_round" => r.from_round,
+                      "to_round" => r.to_round
+                    }
+                  end)
+
+                put_change(changeset, :fide_id_ranges, canonical)
+
+              {a, b} ->
+                add_error(
+                  changeset,
+                  :fide_id_ranges,
+                  "round ranges #{a.from_round}-#{a.to_round} and #{b.from_round}-#{b.to_round} overlap"
+                )
+            end
+
+          :error ->
+            add_error(
+              changeset,
+              :fide_id_ranges,
+              "each range needs a FIDE tournament ID and from_round <= to_round (both >= 1)"
+            )
+        end
+
+      _not_a_list ->
+        add_error(changeset, :fide_id_ranges, "must be a list of ranges")
+    end
+  end
+
+  defp parse_fide_id_ranges(ranges) do
+    Enum.reduce_while(ranges, {:ok, []}, fn entry, {:ok, acc} ->
+      with true <- is_map(entry),
+           normalized <- Map.new(entry, fn {k, v} -> {to_string(k), v} end),
+           fide_id <- normalized |> Map.get("fide_tournament_id") |> to_string() |> String.trim(),
+           true <- fide_id != "",
+           {:ok, from_r} <- parse_fide_id_range_round(Map.get(normalized, "from_round")),
+           {:ok, to_r} <- parse_fide_id_range_round(Map.get(normalized, "to_round")),
+           true <- from_r <= to_r do
+        {:cont, {:ok, [%{fide_tournament_id: fide_id, from_round: from_r, to_round: to_r} | acc]}}
+      else
+        _ -> {:halt, :error}
+      end
+    end)
+    |> case do
+      {:ok, acc} -> {:ok, Enum.reverse(acc)}
+      :error -> :error
+    end
+  end
+
+  defp parse_fide_id_range_round(v) when is_integer(v) and v >= 1, do: {:ok, v}
+
+  defp parse_fide_id_range_round(v) when is_binary(v) do
+    case Integer.parse(String.trim(v)) do
+      {n, ""} when n >= 1 -> {:ok, n}
+      _ -> :error
+    end
+  end
+
+  defp parse_fide_id_range_round(_), do: :error
+
+  # First overlapping pair found (by round-span intersection), if any —
+  # O(n^2) but `fide_id_ranges` is always a handful of entries per
+  # tournament, never a performance concern.
+  defp find_overlapping_fide_id_ranges(ranges) do
+    indexed = Enum.with_index(ranges)
+
+    Enum.find_value(indexed, fn {a, i} ->
+      Enum.find_value(indexed, fn {b, j} ->
+        if j > i and a.from_round <= b.to_round and b.from_round <= a.to_round do
+          {a, b}
+        end
+      end)
+    end)
+  end
+
   @doc """
   Parses `extra_points_bands`'s stored/typed shape — a comma-separated list
   of `"threshold:bonus"` pairs, e.g. `"1400:1, 1600:0.5"` — into
@@ -392,7 +563,8 @@ defmodule PairingsEngine.Tournaments.Tournament do
   for anything that doesn't match (wrong shape, negative numbers, ...).
   Blank/whitespace-only input parses to `{:ok, []}`.
   """
-  @spec parse_extra_points_bands(String.t() | nil) :: {:ok, [{non_neg_integer(), float()}]} | :error
+  @spec parse_extra_points_bands(String.t() | nil) ::
+          {:ok, [{non_neg_integer(), float()}]} | :error
   def parse_extra_points_bands(nil), do: {:ok, []}
 
   def parse_extra_points_bands(value) when is_binary(value) do
@@ -478,19 +650,119 @@ defmodule PairingsEngine.Tournaments.Tournament do
   end
 
   @doc """
-  The fields an arbiter must fill before a tournament is workable — a name,
-  a start date and a round count. Until all three are present, players
-  can't be added and pairing can't start (see the guards in PlayersLive /
-  PairingsLive), and their labels are shown bold in Settings.
+  The fields an arbiter must fill before a tournament is workable. Until all
+  of them are present, players can't be added and pairing can't start (see
+  the guards in PlayersLive / PairingsLive), and their labels are shown bold
+  in Settings.
+
+  Kept as a flat list of field-name atoms for anything that just wants to
+  know *which fields* matter (e.g. bolding a label) — for the actual
+  present/absent logic (some of these aren't simple non-blank checks: round
+  dates need one entry per round, the FIDE ID is only required when the
+  tournament is FIDE-homologated), see `missing_setup_fields/1`.
   """
-  def required_setup_fields, do: [:name, :start_date, :rounds_count]
+  def required_setup_fields do
+    [
+      :name,
+      :start_date,
+      :rounds_count,
+      :round_dates,
+      :tiebreaks,
+      :chief_arbiter,
+      :federation,
+      :rate_of_play,
+      :fide_tournament_id
+    ]
+  end
 
   @doc """
-  Whether `tournament` has all `required_setup_fields/0` filled in.
+  The specific setup requirements `tournament` doesn't satisfy yet, as a
+  list of `{field, message}` pairs (plain-English `message`, suitable for
+  showing directly to an arbiter) — empty once setup is complete. Each
+  `field` is one of `required_setup_fields/0`'s atoms, so a caller that
+  knows which Settings page hosts each field (Settings is split across
+  several pages) can link straight to it — see PlayersLive/PairingsLive.
   """
-  def setup_complete?(%__MODULE__{} = t) do
-    present?(t.name) and present?(t.start_date) and
-      is_integer(t.rounds_count) and t.rounds_count >= 1
+  def missing_setup_fields(%__MODULE__{} = t) do
+    checks = [
+      {:name, "Tournament name", present?(t.name)},
+      {:start_date, "Start date", present?(t.start_date)},
+      {:rounds_count, "Number of rounds", is_integer(t.rounds_count) and t.rounds_count >= 1},
+      {:round_dates, "Round dates (one per round)", round_dates_complete?(t)},
+      {:tiebreaks, "Tie-break selection", t.tiebreaks != []},
+      {:chief_arbiter, "Chief arbiter", present?(t.chief_arbiter)},
+      {:federation, "Federation", present?(t.federation)},
+      {:rate_of_play, "Rate of play", present?(t.rate_of_play)},
+      {:fide_tournament_id, "FIDE tournament ID (required for a FIDE-homologated event)",
+       fide_id_ok?(t)}
+    ]
+
+    for {field, message, ok?} <- checks, not ok?, do: {field, message}
+  end
+
+  @doc """
+  Whether `tournament` has every `missing_setup_fields/1` requirement met.
+  """
+  def setup_complete?(%__MODULE__{} = t), do: missing_setup_fields(t) == []
+
+  # Round dates are considered "filled in" the same way SettingsDatesLive
+  # defines it: one non-blank date per round — the stored list is padded/
+  # truncated to `rounds_count` on every Dates-page save, so a complete
+  # tournament's `round_dates` is exactly `rounds_count` long with no blanks.
+  defp round_dates_complete?(t) do
+    count = t.rounds_count
+    dates = t.round_dates || []
+
+    is_integer(count) and count >= 1 and
+      length(dates) == count and
+      Enum.all?(dates, &present?/1)
+  end
+
+  # The FIDE tournament ID is only mandatory once the tournament is flagged
+  # as FIDE-homologated (`fide_homologated`, set on the FIDE settings page).
+  # Read via `Map.get/3` with a `false` default rather than `t.fide_homologated`
+  # directly — this was written while `fide_homologated` was being added to
+  # the schema by a separate change; `Map.get/3` degrades gracefully (never
+  # required) if that field is ever absent, and behaves like ordinary field
+  # access now that it's present.
+  #
+  # A tournament that splits its FIDE ID entirely via `fide_id_ranges` (no
+  # tournament-wide fallback `fide_tournament_id` set) still satisfies this
+  # check as long as those ranges cover every round 1..rounds_count — see
+  # `fide_id_ranges_cover_all_rounds?/1`.
+  defp fide_id_ok?(t) do
+    if Map.get(t, :fide_homologated, false) == true do
+      present?(t.fide_tournament_id) or fide_id_ranges_cover_all_rounds?(t)
+    else
+      true
+    end
+  end
+
+  # Whether every round 1..rounds_count is covered by some `fide_id_ranges`
+  # entry (see that field's schema doc for the shape). Tolerant of the field
+  # being absent/nil (same graceful-degradation reasoning as `fide_id_ok?/1`
+  # above) via `Map.get/3`.
+  defp fide_id_ranges_cover_all_rounds?(t) do
+    count = t.rounds_count
+    ranges = Map.get(t, :fide_id_ranges, []) || []
+
+    if is_integer(count) and count >= 1 do
+      covered =
+        Enum.reduce(ranges, MapSet.new(), fn range, acc ->
+          from_r = Map.get(range, "from_round")
+          to_r = Map.get(range, "to_round")
+
+          if is_integer(from_r) and is_integer(to_r) do
+            MapSet.union(acc, MapSet.new(from_r..to_r))
+          else
+            acc
+          end
+        end)
+
+      Enum.all?(1..count, &MapSet.member?(covered, &1))
+    else
+      false
+    end
   end
 
   defp present?(nil), do: false
@@ -523,4 +795,3 @@ defmodule PairingsEngine.Tournaments.Tournament do
   def rr_cycles_label(2), do: "Double"
   def rr_cycles_label(other), do: to_string(other)
 end
-

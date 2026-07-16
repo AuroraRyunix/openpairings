@@ -2,10 +2,12 @@ defmodule PairingsEngineWeb.SettingsFideLive do
   @moduledoc """
   The "FIDE" settings page (`/t/:id/settings/fide`) — the tournament's
   FIDE-report identifiers (the "ID of Tournament" and "Code of event" used on
-  the IT3 / FA1 / IA1 / IT4 forms). A deliberately minimal skeleton for now:
-  a future wave adds the per-round FIDE-ID-range feature here. The officials
-  and arbiter details that feed those same report forms live on the Norms
-  tab.
+  the IT3 / FA1 / IA1 / IT4 forms), the `fide_homologated` tickbox, and the
+  per-round FIDE-ID-range editor (SWAR's "this FIDE tournament ID applies to
+  rounds X-Y" model — see `PairingsEngine.Tournaments.Tournament`'s
+  `fide_id_ranges` schema doc and `PairingsEngine.TrfExport.applicable_fide_id/2`,
+  the consumer at export time). The officials and arbiter details that feed
+  those same report forms live on the Norms tab.
   """
   use PairingsEngineWeb, :live_view
 
@@ -27,6 +29,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
      |> assign(
        tournament: tournament,
        page_title: "#{tournament.name} · Settings",
+       rows: tournament.fide_id_ranges || [],
        note: nil,
        error: nil,
        dirty: false,
@@ -51,13 +54,40 @@ defmodule PairingsEngineWeb.SettingsFideLive do
          |> push_navigate(to: ~p"/")}
 
       tournament ->
-        {:noreply, assign(socket, tournament: tournament, stale: false)}
+        {:noreply,
+         assign(socket,
+           tournament: tournament,
+           rows: tournament.fide_id_ranges || [],
+           stale: false
+         )}
     end
   end
 
+  # Keeps `rows` (the in-progress range editor state) in sync with every
+  # keystroke, so "Add row"/"Remove row" — which only touch `rows` directly,
+  # not the raw form params — never clobber edits the arbiter already typed
+  # into other rows. Nothing is persisted here; only "save" writes to the DB.
   @impl true
+  def handle_event("validate", %{"tournament" => params}, socket) do
+    {:noreply, assign(socket, rows: parse_rows_param(params["fide_id_ranges"]))}
+  end
+
+  def handle_event("add_range", _params, socket) do
+    row = %{"fide_tournament_id" => "", "from_round" => "", "to_round" => ""}
+    {:noreply, assign(socket, rows: socket.assigns.rows ++ [row])}
+  end
+
+  def handle_event("remove_range", %{"index" => index}, socket) do
+    index = String.to_integer(index)
+    {:noreply, assign(socket, rows: List.delete_at(socket.assigns.rows, index))}
+  end
+
   def handle_event("save", %{"tournament" => params}, socket) do
-    params = Map.take(params, ["fide_tournament_id", "event_code"])
+    params =
+      params
+      |> Map.take(["fide_tournament_id", "event_code", "fide_homologated", "fide_id_ranges"])
+      |> Map.update("fide_id_ranges", [], &parse_rows_param/1)
+
     base = Tournaments.get_tournament!(socket.assigns.tournament.id)
 
     case Tournaments.update_tournament(base, params) do
@@ -67,6 +97,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
         {:noreply,
          assign(socket,
            tournament: tournament,
+           rows: tournament.fide_id_ranges || [],
            note: "Saved.",
            error: nil,
            dirty: false,
@@ -78,10 +109,30 @@ defmodule PairingsEngineWeb.SettingsFideLive do
     end
   end
 
+  # The "fide_id_ranges" form param arrives as a map indexed by string
+  # position ("0", "1", ...) rather than a list — standard HTML nested-form
+  # shape for `tournament[fide_id_ranges][0][fide_tournament_id]` etc. Sorts
+  # numerically back into row order. `nil` (no rows at all, e.g. every row
+  # removed) yields an empty list.
+  defp parse_rows_param(nil), do: []
+
+  defp parse_rows_param(map) when is_map(map) do
+    map
+    |> Enum.sort_by(fn {k, _v} -> String.to_integer(k) end)
+    |> Enum.map(fn {_k, v} -> v end)
+  end
+
+  defp parse_rows_param(_), do: []
+
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} tournament={@tournament} active="settings">
+    <Layouts.app
+      flash={@flash}
+      current_scope={@current_scope}
+      tournament={@tournament}
+      active="settings"
+    >
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
@@ -94,7 +145,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
 
       <.stale_banner stale={@stale} />
 
-      <form phx-submit="save">
+      <form id="fide-settings-form" phx-submit="save" phx-change="validate">
         <div class="card">
           <h2>FIDE report identifiers</h2>
 
@@ -106,8 +157,23 @@ defmodule PairingsEngineWeb.SettingsFideLive do
           </p>
 
           <div class="form-grid">
+            <label
+              class="field"
+              style="display: flex; flex-direction: row; align-items: center; gap: .5rem"
+            >
+              <input type="hidden" name="tournament[fide_homologated]" value="false" />
+              <input
+                type="checkbox"
+                name="tournament[fide_homologated]"
+                value="true"
+                checked={@tournament.fide_homologated}
+              /> <span>This tournament is FIDE-homologated (rated/reportable)</span>
+            </label>
+          </div>
+
+          <div class="form-grid">
             <label class="field">
-              <span>FIDE tournament ID</span>
+              <span>FIDE tournament ID (tournament-wide default)</span>
               <input name="tournament[fide_tournament_id]" value={@tournament.fide_tournament_id} />
             </label>
 
@@ -118,9 +184,80 @@ defmodule PairingsEngineWeb.SettingsFideLive do
           </div>
 
           <p class="hint" style="margin-bottom: 0">
-            Per-round FIDE-ID ranges (for splitting one event's report across rated sections) are
-            coming in a later update — this page will grow to hold them.
+            The FIDE tournament ID above is used whenever no per-round range below unambiguously
+            covers the exported rounds (no ranges configured, the export spans more than one range,
+            or matches none) — see the ranges below for splitting one event's report across
+            differently-rated sections.
           </p>
+        </div>
+
+        <div class="card">
+          <h2>Per-round FIDE-ID ranges</h2>
+          <p class="hint" style="margin-top: 0">
+            For splitting one event's FIDE report across rated sections — e.g. FIDE ID 89495 for
+            rounds 1-3, a different ID for rounds 4-9. When exporting a TRF whose selected rounds
+            fall entirely inside one range below, that range's ID is used instead of the
+            tournament-wide default above. Ranges may not overlap.
+          </p>
+
+          <div :if={@rows != []} class="card-table-wrap">
+            <table class="pe-table">
+              <thead>
+                <tr>
+                  <th>FIDE tournament ID</th>
+                  <th>From round</th>
+                  <th>To round</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr :for={{row, i} <- Enum.with_index(@rows)}>
+                  <td>
+                    <input
+                      name={"tournament[fide_id_ranges][#{i}][fide_tournament_id]"}
+                      value={row["fide_tournament_id"]}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      min="1"
+                      style="width: 6rem"
+                      name={"tournament[fide_id_ranges][#{i}][from_round]"}
+                      value={row["from_round"]}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      min="1"
+                      style="width: 6rem"
+                      name={"tournament[fide_id_ranges][#{i}][to_round]"}
+                      value={row["to_round"]}
+                    />
+                  </td>
+                  <td style="text-align: right">
+                    <button
+                      type="button"
+                      class="pe-btn danger-link"
+                      phx-click="remove_range"
+                      phx-value-index={i}
+                    >
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p :if={@rows == []} class="hint">
+            No per-round ranges configured — every export uses the tournament-wide default ID above.
+          </p>
+
+          <div class="actions">
+            <button type="button" class="pe-btn" phx-click="add_range">Add range</button>
+          </div>
         </div>
 
         <div class="actions">

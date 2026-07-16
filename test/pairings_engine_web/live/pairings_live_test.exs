@@ -316,7 +316,12 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
         "name" => "Complete Setup",
         "type" => "swiss",
         "start_date" => "2026-07-15",
-        "rounds_count" => "2"
+        "rounds_count" => "2",
+        "round_dates" => ["2026-07-15", "2026-07-16"],
+        "tiebreaks" => ["BH", "SB"],
+        "chief_arbiter" => "Jane Arbiter",
+        "federation" => "BEL",
+        "rate_of_play" => "90 min + 30 sec/move"
       })
 
     Repo.insert!(%Player{tournament_id: tournament.id, name: "A"})

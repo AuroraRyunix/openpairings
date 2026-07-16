@@ -341,6 +341,89 @@ defmodule PairingsEngine.TrfExportTest do
     assert deloof.birth_date == "1973-04-30"
   end
 
+  ## ---------- applicable_fide_id/2 & export_meta/2 (per-round FIDE ID ranges) ----------
+
+  describe "applicable_fide_id/2" do
+    test "falls back to the tournament-wide fide_tournament_id when no ranges are configured" do
+      {tournament, _} = fixture()
+
+      {:ok, tournament} =
+        Tournaments.update_tournament(tournament, %{"fide_tournament_id" => "999"})
+
+      assert TrfExport.applicable_fide_id(tournament, [1, 2]) == "999"
+    end
+
+    test "uses the single range's ID when it fully covers the exported rounds" do
+      {tournament, _} = fixture()
+
+      {:ok, tournament} =
+        Tournaments.update_tournament(tournament, %{
+          "fide_tournament_id" => "999",
+          "fide_id_ranges" => [
+            %{"fide_tournament_id" => "111", "from_round" => "1", "to_round" => "2"}
+          ]
+        })
+
+      assert TrfExport.applicable_fide_id(tournament, [1, 2]) == "111"
+      # A sub-range still inside the single configured range also resolves to it.
+      assert TrfExport.applicable_fide_id(tournament, [1]) == "111"
+    end
+
+    test "falls back to the tournament-wide ID when the exported rounds span two ranges" do
+      {tournament, _} = fixture()
+
+      {:ok, tournament} =
+        Tournaments.update_tournament(tournament, %{
+          "fide_tournament_id" => "999",
+          "fide_id_ranges" => [
+            %{"fide_tournament_id" => "111", "from_round" => "1", "to_round" => "1"},
+            %{"fide_tournament_id" => "222", "from_round" => "2", "to_round" => "2"}
+          ]
+        })
+
+      assert TrfExport.applicable_fide_id(tournament, [1, 2]) == "999"
+    end
+
+    test "falls back to the tournament-wide ID when the exported rounds only partially overlap a range" do
+      {tournament, _} = fixture()
+
+      {:ok, tournament} =
+        Tournaments.update_tournament(tournament, %{
+          "fide_tournament_id" => "999",
+          "fide_id_ranges" => [
+            %{"fide_tournament_id" => "111", "from_round" => "1", "to_round" => "1"}
+          ]
+        })
+
+      assert TrfExport.applicable_fide_id(tournament, [1, 2]) == "999"
+    end
+
+    test "returns nil when neither a range nor a tournament-wide ID applies" do
+      {tournament, _} = fixture()
+      assert TrfExport.applicable_fide_id(tournament, [1, 2]) == nil
+    end
+  end
+
+  describe "export_meta/2" do
+    test "reports the resolved rounds and matching per-round FIDE ID" do
+      {tournament, _} = fixture()
+
+      {:ok, tournament} =
+        Tournaments.update_tournament(tournament, %{
+          "fide_id_ranges" => [
+            %{"fide_tournament_id" => "111", "from_round" => "1", "to_round" => "1"}
+          ]
+        })
+
+      assert TrfExport.export_meta(tournament, "1") == %{rounds: [1], fide_id: "111"}
+    end
+
+    test "defaults to every paired round when rounds_spec is nil" do
+      {tournament, _} = fixture()
+      assert %{rounds: [1, 2]} = TrfExport.export_meta(tournament)
+    end
+  end
+
   test "a player who was never paired (no pairing_number) is excluded entirely" do
     {tournament, _} = fixture()
     Repo.insert!(%Player{tournament_id: tournament.id, name: "Never Paired", pairing_number: nil})

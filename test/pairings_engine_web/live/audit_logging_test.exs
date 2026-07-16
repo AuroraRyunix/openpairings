@@ -18,7 +18,17 @@ defmodule PairingsEngineWeb.AuditLoggingTest do
       Tournaments.create_tournament(
         scope,
         Map.merge(
-          %{"name" => "T", "type" => "swiss", "start_date" => "2026-07-01", "rounds_count" => "5"},
+          %{
+            "name" => "T",
+            "type" => "swiss",
+            "start_date" => "2026-07-01",
+            "rounds_count" => "5",
+            "round_dates" => List.duplicate("2026-07-01", 5),
+            "tiebreaks" => ["BH", "SB"],
+            "chief_arbiter" => "Jane Arbiter",
+            "federation" => "BEL",
+            "rate_of_play" => "90 min + 30 sec/move"
+          },
           attrs
         )
       )

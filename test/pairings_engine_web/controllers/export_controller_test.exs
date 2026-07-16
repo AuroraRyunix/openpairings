@@ -21,8 +21,21 @@ defmodule PairingsEngineWeb.ExportControllerTest do
     r1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
     r2 = Repo.insert!(%Round{tournament_id: tournament.id, number: 2, status: "finished"})
 
-    Repo.insert!(%Pairing{round_id: r1.id, board: 1, white_player_id: alice.id, black_player_id: bob.id, result: "1-0"})
-    Repo.insert!(%Pairing{round_id: r2.id, board: 1, white_player_id: bob.id, black_player_id: alice.id, result: "1/2-1/2"})
+    Repo.insert!(%Pairing{
+      round_id: r1.id,
+      board: 1,
+      white_player_id: alice.id,
+      black_player_id: bob.id,
+      result: "1-0"
+    })
+
+    Repo.insert!(%Pairing{
+      round_id: r2.id,
+      board: 1,
+      white_player_id: bob.id,
+      black_player_id: alice.id,
+      result: "1/2-1/2"
+    })
 
     {tournament, %{alice: alice, bob: bob}}
   end
@@ -30,7 +43,10 @@ defmodule PairingsEngineWeb.ExportControllerTest do
   ## ---------- GET /t/:id/export/trf ----------
 
   describe "trf/2" do
-    test "downloads a TRF16 text file with all paired rounds by default", %{conn: conn, scope: scope} do
+    test "downloads a TRF16 text file with all paired rounds by default", %{
+      conn: conn,
+      scope: scope
+    } do
       {tournament, _} = fixture(scope)
 
       conn = get(conn, ~p"/t/#{tournament.id}/export/trf")
@@ -39,7 +55,7 @@ defmodule PairingsEngineWeb.ExportControllerTest do
 
       [disposition] = get_resp_header(conn, "content-disposition")
       assert disposition =~ "attachment"
-      assert disposition =~ "export-ctrl-test.trf"
+      assert disposition =~ "S_export-ctrl-test_r1-2.trf"
 
       body = response(conn, 200)
       parsed = Trf.parse(body)
@@ -59,7 +75,10 @@ defmodule PairingsEngineWeb.ExportControllerTest do
       assert hd(alice.games).result == "1"
     end
 
-    test "an invalid rounds param falls back to every round rather than erroring", %{conn: conn, scope: scope} do
+    test "an invalid rounds param falls back to every round rather than erroring", %{
+      conn: conn,
+      scope: scope
+    } do
       {tournament, _} = fixture(scope)
 
       conn = get(conn, ~p"/t/#{tournament.id}/export/trf?rounds=garbage")
@@ -69,16 +88,39 @@ defmodule PairingsEngineWeb.ExportControllerTest do
       assert length(alice.games) == 2
     end
 
-    test "an inconsistent roster surfaces a clean flash + redirect, not a 500", %{conn: conn, scope: scope} do
-      tournament = Repo.insert!(%Tournament{name: "Corrupt Ctrl", type: "swiss", rounds_count: 1, user_id: scope.user.id})
+    test "an inconsistent roster surfaces a clean flash + redirect, not a 500", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "Corrupt Ctrl",
+          type: "swiss",
+          rounds_count: 1,
+          user_id: scope.user.id
+        })
 
       a = Repo.insert!(%Player{tournament_id: tournament.id, name: "A", pairing_number: 1})
       x = Repo.insert!(%Player{tournament_id: tournament.id, name: "X", pairing_number: 2})
       y = Repo.insert!(%Player{tournament_id: tournament.id, name: "Y", pairing_number: 2})
 
       round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
-      Repo.insert!(%Pairing{round_id: round.id, board: 1, white_player_id: a.id, black_player_id: x.id, result: "1-0"})
-      Repo.insert!(%Pairing{round_id: round.id, board: 2, white_player_id: a.id, black_player_id: y.id, result: "0-1"})
+
+      Repo.insert!(%Pairing{
+        round_id: round.id,
+        board: 1,
+        white_player_id: a.id,
+        black_player_id: x.id,
+        result: "1-0"
+      })
+
+      Repo.insert!(%Pairing{
+        round_id: round.id,
+        board: 2,
+        white_player_id: a.id,
+        black_player_id: y.id,
+        result: "0-1"
+      })
 
       conn = get(conn, ~p"/t/#{tournament.id}/export/trf")
 
@@ -91,6 +133,56 @@ defmodule PairingsEngineWeb.ExportControllerTest do
       {tournament, _} = fixture(other_scope)
 
       assert_error_sent 404, fn -> get(conn, ~p"/t/#{tournament.id}/export/trf") end
+    end
+
+    ## ---------- filename convention: <X>_<fideid>_<slug>_<rounds>.trf ----------
+
+    test "filename defaults to the S (standard) prefix, no FIDE ID segment, and covers all paired rounds",
+         %{
+           conn: conn,
+           scope: scope
+         } do
+      {tournament, _} = fixture(scope)
+
+      conn = get(conn, ~p"/t/#{tournament.id}/export/trf")
+
+      [disposition] = get_resp_header(conn, "content-disposition")
+      assert disposition =~ "S_export-ctrl-test_r1-2.trf"
+    end
+
+    test "filename uses the B/R prefix for blitz/rapid tournaments", %{conn: conn, scope: scope} do
+      {tournament, _} = fixture(scope)
+
+      {:ok, tournament} =
+        PairingsEngine.Tournaments.update_tournament(tournament, %{"standard" => "blitz"})
+
+      conn = get(conn, ~p"/t/#{tournament.id}/export/trf")
+      [disposition] = get_resp_header(conn, "content-disposition")
+      assert disposition =~ "B_export-ctrl-test_r1-2.trf"
+
+      {:ok, tournament} =
+        PairingsEngine.Tournaments.update_tournament(tournament, %{"standard" => "rapid"})
+
+      conn = get(conn, ~p"/t/#{tournament.id}/export/trf")
+      [disposition] = get_resp_header(conn, "content-disposition")
+      assert disposition =~ "R_export-ctrl-test_r1-2.trf"
+    end
+
+    test "filename includes the resolved FIDE ID and narrows the rounds descriptor with ?rounds=",
+         %{
+           conn: conn,
+           scope: scope
+         } do
+      {tournament, _} = fixture(scope)
+
+      {:ok, tournament} =
+        PairingsEngine.Tournaments.update_tournament(tournament, %{
+          "fide_tournament_id" => "12345"
+        })
+
+      conn = get(conn, ~p"/t/#{tournament.id}/export/trf?rounds=1")
+      [disposition] = get_resp_header(conn, "content-disposition")
+      assert disposition =~ "S_12345_export-ctrl-test_r1.trf"
     end
   end
 
@@ -124,7 +216,10 @@ defmodule PairingsEngineWeb.ExportControllerTest do
       refute body =~ ~s([Round "2"])
     end
 
-    test "an invalid round param falls back to every round rather than erroring", %{conn: conn, scope: scope} do
+    test "an invalid round param falls back to every round rather than erroring", %{
+      conn: conn,
+      scope: scope
+    } do
       {tournament, _} = fixture(scope)
 
       conn = get(conn, ~p"/t/#{tournament.id}/export/pgn?round=garbage")
@@ -169,7 +264,10 @@ defmodule PairingsEngineWeb.ExportControllerTest do
   end
 
   describe "all_json/2" do
-    test "downloads a JSON backup of every tournament the current user owns", %{conn: conn, scope: scope} do
+    test "downloads a JSON backup of every tournament the current user owns", %{
+      conn: conn,
+      scope: scope
+    } do
       {t1, _} = fixture(scope)
 
       other_scope = PairingsEngine.AccountsFixtures.user_scope_fixture()

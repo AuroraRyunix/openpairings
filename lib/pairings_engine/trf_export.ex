@@ -102,6 +102,58 @@ defmodule PairingsEngine.TrfExport do
     end
   end
 
+  @doc """
+  Resolves the export metadata needed to build the download filename (see
+  `PairingsEngineWeb.ExportController`): the concrete list of rounds that
+  `export/2` will produce for the same `rounds_spec` (after clamping/
+  defaulting per `parse_rounds/2`), and the FIDE tournament ID that applies
+  to that round range per `applicable_fide_id/2`. Kept separate from
+  `export/2` itself so the controller can compute the filename without
+  parsing the TRF text back out just to find out which rounds/ID it used.
+  """
+  def export_meta(tournament, rounds_spec \\ nil) do
+    paired = Pairing.paired_rounds_count(tournament.id)
+    rounds = if is_list(rounds_spec), do: rounds_spec, else: parse_rounds(rounds_spec, paired)
+
+    %{rounds: rounds, fide_id: applicable_fide_id(tournament, rounds)}
+  end
+
+  @doc """
+  The FIDE tournament ID that applies to `rounds` (a list of round numbers,
+  e.g. from `parse_rounds/2`) — SWAR's "this FIDE ID applies to rounds X-Y"
+  model (`tournament.fide_id_ranges`, see
+  `PairingsEngine.Tournaments.Tournament`'s schema doc).
+
+  Resolution:
+
+    * If exactly one configured range fully covers `rounds` (its
+      `from_round..to_round` spans at least `min(rounds)..max(rounds)`),
+      that range's ID is used — this is the common case (a report cleanly
+      split by round).
+    * Otherwise — no ranges configured, the round span crosses more than
+      one range's boundary, only partially overlaps one, or matches none —
+      falls back to the tournament-wide `tournament.fide_tournament_id`.
+      This never raises: an unresolvable/blank case simply yields `nil`,
+      which the filename builder renders as an omitted segment (e.g. a
+      tournament that isn't FIDE-homologated at all).
+
+  Returns `nil` rather than `""` for "no ID applies", regardless of which
+  field it came from.
+  """
+  def applicable_fide_id(tournament, rounds) do
+    with [_ | _] <- rounds,
+         min_r = Enum.min(rounds),
+         max_r = Enum.max(rounds),
+         [range] <-
+           Enum.filter(tournament.fide_id_ranges || [], fn r ->
+             r["from_round"] <= min_r and r["to_round"] >= max_r
+           end) do
+      blank_to_nil(range["fide_tournament_id"])
+    else
+      _ -> blank_to_nil(tournament.fide_tournament_id)
+    end
+  end
+
   defp build(tournament, rounds_spec) do
     paired = Pairing.paired_rounds_count(tournament.id)
     rounds = if is_list(rounds_spec), do: rounds_spec, else: parse_rounds(rounds_spec, paired)

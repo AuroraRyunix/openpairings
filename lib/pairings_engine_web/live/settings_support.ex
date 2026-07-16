@@ -176,4 +176,26 @@ defmodule PairingsEngineWeb.SettingsSupport do
   def error_text(changeset) do
     Enum.map_join(changeset.errors, ", ", fn {field, {msg, _}} -> "#{field} #{msg}" end)
   end
+
+  @doc """
+  Which page hosts a given `Tournament.missing_setup_fields/1` field — used
+  by PlayersLive/PairingsLive to link each specific missing item straight to
+  the Settings (sub-)page it lives on, now that Settings is split across
+  several pages rather than being one.
+  """
+  def setup_field_path(tournament, field) when field in [:round_dates],
+    do: ~p"/t/#{tournament.id}/settings/dates"
+
+  def setup_field_path(tournament, field) when field in [:chief_arbiter],
+    do: ~p"/t/#{tournament.id}/norms"
+
+  def setup_field_path(tournament, field) when field in [:rate_of_play],
+    do: ~p"/t/#{tournament.id}/settings/options"
+
+  def setup_field_path(tournament, field) when field in [:fide_tournament_id],
+    do: ~p"/t/#{tournament.id}/settings/fide"
+
+  # name, start_date, rounds_count, tiebreaks, federation all live on the
+  # main Tournament settings page.
+  def setup_field_path(tournament, _field), do: ~p"/t/#{tournament.id}/settings"
 end

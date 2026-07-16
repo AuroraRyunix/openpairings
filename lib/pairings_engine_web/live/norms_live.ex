@@ -393,8 +393,8 @@ defmodule PairingsEngineWeb.NormsLive do
             </label>
 
             <div class="field search-wrap">
-              <span style="display:block;font-size:13px;font-weight:600;color:var(--text-soft);margin-bottom:4px">
-                Chief arbiter
+              <span style="display:block;font-size:13px;font-weight:700;color:var(--text-soft);margin-bottom:4px">
+                Chief arbiter <span style="color: var(--danger)">*</span>
               </span>
 
               <input

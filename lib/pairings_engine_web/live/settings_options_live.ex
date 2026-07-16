@@ -595,7 +595,9 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             </label>
 
             <label class="field">
-              <span>Rate of play</span>
+              <span style="font-weight: 700">
+                Rate of play <span style="color: var(--danger)">*</span>
+              </span>
               <select name="tournament[rate_of_play]">
                 <option
                   :for={opt <- rate_of_play_select_options(@standard, @rate_of_play)}

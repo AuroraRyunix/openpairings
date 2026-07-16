@@ -42,6 +42,9 @@ defmodule PairingsEngineWeb.PrintController do
   body { font-family: 'Segoe UI', system-ui, sans-serif; color: #111; margin: 24px; }
   h1 { font-size: 20px; margin: 0 0 2px; }
   .sub { color: #555; margin: 0 0 18px; font-size: 13px; }
+  .tourney-info { color: #333; margin: 0 0 16px; font-size: 12px; border-bottom: 1px solid #ccc;
+                  padding-bottom: 8px; }
+  .tourney-info span:not(:last-child)::after { content: "\\00b7"; margin: 0 8px; color: #999; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th { text-align: left; border-bottom: 2px solid #000; padding: 5px 8px; font-size: 11px;
        text-transform: uppercase; letter-spacing: 0.04em; }
@@ -248,7 +251,8 @@ defmodule PairingsEngineWeb.PrintController do
       end)
 
     body =
-      "<table><thead><tr><th class=\"num\">#</th><th>Title</th><th>Name</th><th class=\"num\">FIDE</th>" <>
+      tournament_info_html(tournament) <>
+        "<table><thead><tr><th class=\"num\">#</th><th>Title</th><th>Name</th><th class=\"num\">FIDE</th>" <>
         "<th class=\"num\">Nat.</th><th>Fed</th><th>Club</th></tr></thead><tbody>#{rows}</tbody></table>"
 
     print_page(conn, tournament.name, "Registered players (#{length(players)})", body)
@@ -283,7 +287,7 @@ defmodule PairingsEngineWeb.PrintController do
           "<th>Result</th><th>Score</th></tr></thead><tbody>#{round_rows}</tbody></table></div>"
       end)
 
-    print_page(conn, tournament.name, "Player cards", cards)
+    print_page(conn, tournament.name, "Player cards", tournament_info_html(tournament) <> cards)
   end
 
   @doc """
@@ -306,7 +310,13 @@ defmodule PairingsEngineWeb.PrintController do
     cards =
       Enum.map_join(players, "", &place_card_page(&1, board_map, fields, logo_html))
 
-    print_page(conn, tournament.name, "Place cards", cards, @place_cards_css)
+    print_page(
+      conn,
+      tournament.name,
+      "Place cards",
+      tournament_info_html(tournament) <> cards,
+      @place_cards_css
+    )
   end
 
   def pairing_list(conn, %{"id" => id} = params) do
@@ -330,7 +340,8 @@ defmodule PairingsEngineWeb.PrintController do
         end)
 
       body =
-        "<table><thead><tr><th class=\"num\">Board</th><th>White</th><th class=\"num\">Elo</th>" <>
+        tournament_info_html(tournament) <>
+          "<table><thead><tr><th class=\"num\">Board</th><th>White</th><th class=\"num\">Elo</th>" <>
           "<th style=\"text-align:center\">Result</th><th>Black</th><th class=\"num\">Elo</th></tr></thead>" <>
           "<tbody>#{rows}</tbody></table>" <>
           absentees_section(tournament, number, params["absentees"])
@@ -428,7 +439,8 @@ defmodule PairingsEngineWeb.PrintController do
           conn,
           tournament.name,
           "Standings after round #{label}",
-          manual_banner <> standings_body(entries, tournament, keizer?)
+          tournament_info_html(tournament) <>
+            manual_banner <> standings_body(entries, tournament, keizer?)
         )
     end
   end
@@ -595,7 +607,7 @@ defmodule PairingsEngineWeb.PrintController do
         conn,
         tournament.name,
         "Result cards — round #{number}",
-        cards,
+        tournament_info_html(tournament) <> cards,
         @result_cards_css
       )
     end
@@ -698,7 +710,8 @@ defmodule PairingsEngineWeb.PrintController do
       end)
 
     body =
-      "<div class=\"crosstable-wrap\"><table class=\"crosstable\"><thead><tr><th class=\"num\">Rank</th>" <>
+      tournament_info_html(tournament) <>
+        "<div class=\"crosstable-wrap\"><table class=\"crosstable\"><thead><tr><th class=\"num\">Rank</th>" <>
         "<th>Name</th><th class=\"num\">Elo</th>#{round_headers}<th class=\"num\">Pts</th>#{tb_headers}" <>
         "</tr></thead><tbody>#{rows}</tbody></table></div>"
 
@@ -738,7 +751,8 @@ defmodule PairingsEngineWeb.PrintController do
       end)
 
     body =
-      "<div class=\"crosstable-wrap\"><table class=\"crosstable rr-crosstable\"><thead><tr><th class=\"num\">#</th>" <>
+      tournament_info_html(tournament) <>
+        "<div class=\"crosstable-wrap\"><table class=\"crosstable rr-crosstable\"><thead><tr><th class=\"num\">#</th>" <>
         "<th>Name</th>#{col_headers}<th class=\"num\">Pts</th><th class=\"num\">Rank</th></tr></thead>" <>
         "<tbody>#{rows}</tbody></table></div>"
 
@@ -907,6 +921,45 @@ defmodule PairingsEngineWeb.PrintController do
 
   defp esc(nil), do: ""
   defp esc(text), do: text |> html_escape() |> safe_to_string()
+
+  # Compact tournament-identity block shown near the top of every print
+  # document, right below the `<h1>` name / subtitle `print_page/5` already
+  # renders: federation, dates, chief arbiter, rate of play, and the FIDE
+  # tournament ID (only shown once the tournament is flagged
+  # FIDE-homologated — an unset/inapplicable ID is simply omitted, same as
+  # every other blank field here). Reject-and-join so a tournament missing
+  # some of this (very possible pre-Settings-completion) just shows less,
+  # never an empty label or a stray separator.
+  defp tournament_info_html(tournament) do
+    items =
+      [
+        if(tournament.federation != "", do: "Federation: #{esc(tournament.federation)}"),
+        tournament_dates_item(tournament),
+        if(tournament.chief_arbiter != "", do: "Chief arbiter: #{esc(tournament.chief_arbiter)}"),
+        if(tournament.rate_of_play != "", do: "Rate of play: #{esc(tournament.rate_of_play)}"),
+        if(tournament.fide_homologated and tournament.fide_tournament_id != "",
+          do: "FIDE ID: #{esc(tournament.fide_tournament_id)}")
+      ]
+      |> Enum.reject(&is_nil/1)
+
+    case items do
+      [] -> ""
+      items -> "<p class=\"tourney-info\">#{Enum.map_join(items, "", &"<span>#{&1}</span>")}</p>"
+    end
+  end
+
+  defp tournament_dates_item(%{start_date: start_date, end_date: end_date}) do
+    cond do
+      start_date not in [nil, ""] and end_date not in [nil, ""] and end_date != start_date ->
+        "Dates: #{esc(start_date)} – #{esc(end_date)}"
+
+      start_date not in [nil, ""] ->
+        "Dates: #{esc(start_date)}"
+
+      true ->
+        nil
+    end
+  end
 
   defp blank_zero(0), do: ""
   defp blank_zero(n), do: to_string(n)

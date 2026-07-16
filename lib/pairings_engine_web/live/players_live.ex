@@ -1,6 +1,8 @@
 defmodule PairingsEngineWeb.PlayersLive do
   use PairingsEngineWeb, :live_view
 
+  import PairingsEngineWeb.SettingsSupport, only: [setup_field_path: 2]
+
   alias PairingsEngine.{
     Audit,
     Tournaments,
@@ -114,7 +116,8 @@ defmodule PairingsEngineWeb.PlayersLive do
        rating_refresh: nil,
        sort_col: nil,
        sort_dir: nil,
-       setup_complete: Tournament.setup_complete?(tournament)
+       setup_complete: Tournament.setup_complete?(tournament),
+       missing_setup: Tournament.missing_setup_fields(tournament)
      )
      |> assign_players()}
   end
@@ -138,7 +141,11 @@ defmodule PairingsEngineWeb.PlayersLive do
       tournament ->
         {:noreply,
          socket
-         |> assign(tournament: tournament, setup_complete: Tournament.setup_complete?(tournament))
+         |> assign(
+           tournament: tournament,
+           setup_complete: Tournament.setup_complete?(tournament),
+           missing_setup: Tournament.missing_setup_fields(tournament)
+         )
          |> assign_players()}
     end
   end
@@ -346,7 +353,8 @@ defmodule PairingsEngineWeb.PlayersLive do
        put_flash(
          socket,
          :error,
-         "Finish the tournament setup — fill in the name, start date and number of rounds in Settings before adding players."
+         "Finish the tournament setup before adding players — missing: " <>
+           missing_setup_summary(socket.assigns.missing_setup)
        )}
     end
   end
@@ -452,7 +460,8 @@ defmodule PairingsEngineWeb.PlayersLive do
        put_flash(
          socket,
          :error,
-         "Finish the tournament setup — fill in the name, start date and number of rounds in Settings before adding players."
+         "Finish the tournament setup before adding players — missing: " <>
+           missing_setup_summary(socket.assigns.missing_setup)
        )}
     else
       do_save(socket, params)
@@ -734,6 +743,14 @@ defmodule PairingsEngineWeb.PlayersLive do
     Enum.map_join(changeset.errors, ", ", fn {field, {msg, _}} -> "#{field} #{msg}" end)
   end
 
+  # Plain-text summary of `Tournament.missing_setup_fields/1`'s messages, for
+  # the flash shown when "Add player" is blocked — the on-page banner (see
+  # render/1) additionally links each item to the Settings (sub-)page it
+  # lives on.
+  defp missing_setup_summary(missing) do
+    Enum.map_join(missing, "; ", fn {_field, message} -> message end)
+  end
+
   # Full column list for `tournament`: the fixed sequence with the tiebreak
   # columns spliced in at the tournament's own configured order — any
   # tiebreak the tournament doesn't have configured (or a tournament with no
@@ -910,7 +927,7 @@ defmodule PairingsEngineWeb.PlayersLive do
             title={
               if @setup_complete,
                 do: "Add player (Ctrl+I)",
-                else: "Finish the tournament setup in Settings before adding players"
+                else: "Finish the tournament setup first — missing: " <> missing_setup_summary(@missing_setup)
             }
           >
             Add player <span style="opacity: 0.7; font-size: 11px; margin-left: 4px">Ctrl+I</span>
@@ -919,11 +936,14 @@ defmodule PairingsEngineWeb.PlayersLive do
       </div>
       
       <div :if={!@setup_complete} class="card error-note" style="display: block; margin: 12px 0">
-        Finish the tournament setup — fill in the name, start date and number of rounds in
-        <.link navigate={~p"/t/#{@tournament.id}/settings"}>Settings</.link>
-        before adding players.
+        Finish the tournament setup before adding players — still missing:
+        <ul style="margin: 6px 0 0; padding-left: 20px">
+          <li :for={{field, message} <- @missing_setup}>
+            <.link navigate={setup_field_path(@tournament, field)}>{message}</.link>
+          </li>
+        </ul>
       </div>
-      
+
       <form :if={@adding} class="card" phx-submit="save">
         <h2>Add player</h2>
         
@@ -1034,7 +1054,7 @@ defmodule PairingsEngineWeb.PlayersLive do
             disabled={!@setup_complete}
             title={
               if !@setup_complete,
-                do: "Finish the tournament setup in Settings before adding players"
+                do: "Finish the tournament setup first — missing: " <> missing_setup_summary(@missing_setup)
             }
           >
             Add player
