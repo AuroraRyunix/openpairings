@@ -87,6 +87,11 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     assert html =~ "Pre-round score brackets"
     assert html =~ "pe-bracket-svg"
     assert html =~ "pe-bye-card"
+    # The bye recipient also appears IN the map: a dashed lone dot in their
+    # own score band, with its own single-dot hover wrap.
+    assert html =~ "— bye, score"
+    assert html =~ "is-bye-wrap"
+    assert html =~ ~r/aria-label="Board \d+: bye for /
     # The odd field forces a cross-bracket float, shown with direction badges.
     assert html =~ "pe-tag-float"
     assert html =~ "paired down"
@@ -215,9 +220,9 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     assert html =~ "already had a bye"
   end
 
-  ## ---------- Task A: rich hover popovers on the bracket-map dots ----------
+  ## ---------- Task A: rich hover popovers on the bracket map ----------
 
-  test "renders one hover popover per player-dot with the same rich detail as its board card", %{
+  test "renders one hover popover per BOARD with both players' detail, plus the sticky gutter", %{
     conn: conn,
     scope: scope
   } do
@@ -236,20 +241,33 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
 
     {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
 
-    # Pure-CSS hover-reveal scaffold: an overlay of dot-wraps, each wrapping
-    # a hidden popover shown via CSS (no JS anywhere on this page).
-    assert html =~ "pe-dot-overlay"
-    assert html =~ "pe-dot-wrap"
+    # Pure-CSS hover-reveal scaffold: one wrap per BOARD (not per dot), each
+    # holding a hidden combined popover shown via CSS (no JS on this page).
+    assert html =~ "pe-board-overlay"
     assert html =~ "pe-dot-popover"
 
-    # The popover carries the same per-player facts as the board card below
-    # it: name, board/seed, colour, colour-due verdict, rematch check.
-    assert html =~ "Alice"
-    assert html =~ "no prior meeting"
-    assert html =~ "no colour history yet"
-    assert html =~ ~r/seed #\d/
+    # 4 players round robin → exactly 2 boards → exactly 2 hover wraps.
+    assert length(String.split(html, "pe-board-wrap")) - 1 == 2
 
-    # The native SVG title is still present as a fallback.
+    # Each wrap is focusable (touch/keyboard) and names its pairing.
+    assert html =~ ~r/aria-label="Board \d+: \w+ vs \w+"/
+
+    # Ring positions travel as CSS vars for the ::before/::after highlights.
+    assert html =~ "--wy:"
+    assert html =~ "--by:"
+
+    # The combined popover carries both players plus the board-level facts;
+    # the due-colour verdict is a compact tag whose title spells it out.
+    assert html =~ "Alice"
+    assert html =~ "within bracket"
+    assert html =~ "no colour history yet"
+
+    # The score-band labels moved into the sticky gutter.
+    assert html =~ "pe-band-gutter"
+    assert html =~ "pe-band-score"
+
+    # Board-number axis under each column, and the native SVG title fallback.
+    assert html =~ "pe-bracket-canvas"
     assert html =~ "<title>"
   end
 

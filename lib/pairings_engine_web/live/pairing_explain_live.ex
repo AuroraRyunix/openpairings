@@ -106,39 +106,58 @@ defmodule PairingsEngineWeb.PairingExplainLive do
 
   defp ladder_pct(_value, _max), do: 0
 
-  # Geometry for the score-bracket map SVG. One horizontal band per pre-round
-  # score bracket (highest at top), and one connector per playing board between
-  # its two players' bracket bands — so a floater's line visibly slopes across
-  # bands. Returns nil when there is nothing to draw.
+  # Geometry for the score-bracket map. One horizontal band per pre-round
+  # score bracket (highest at top; labels live in a sticky HTML gutter so
+  # they stay visible while the chart scrolls), one connector per playing
+  # board between its two players' bracket bands — a floater's line visibly
+  # slopes across bands — plus the bye recipient(s) as lone dashed dots in
+  # their own band. Each BOARD (not each dot) also gets an HTML hover wrap:
+  # geometry for the wrap box, ring positions (as CSS vars), and
+  # server-computed popover flip classes, so the pure-CSS popover opens
+  # toward whichever side of the chart has room instead of getting clipped
+  # by the scroll container (which clips vertically too — `overflow-x:
+  # auto` forces `overflow-y` to auto as well). Returns nil when there is
+  # nothing to draw.
+  @bracket_top 34
+  @bracket_row_gap 56
+  @bracket_col_gap 52
+  @bracket_dx 15
+  @bracket_pad_left 24
+  # Wrap box extends this far beyond each dot centre (dot r=9 + ring halo).
+  @bracket_reach 13
+  # Vertical room a popover needs to open without clipping (est. max popover
+  # height plus its 8px gap) — drives both the above/below flip and the
+  # canvas min-height that guarantees a below-opening popover has room.
+  # Kept tight: it is also exactly how much blank space a short (few-band)
+  # chart shows under the map, since the canvas min-height reserves it.
+  @bracket_pop_room 164
+
   defp bracket_layout(nil), do: nil
   defp bracket_layout(%{score_groups: []}), do: nil
 
   defp bracket_layout(%{boards: boards, score_groups: groups}) do
-    top = 34
-    row_gap = 56
-    left = 132
-    col_gap = 52
-    dx = 15
-
     y_of =
       groups
       |> Enum.with_index()
-      |> Map.new(fn {g, i} -> {g.score, top + i * row_gap} end)
+      |> Map.new(fn {g, i} -> {g.score, @bracket_top + i * @bracket_row_gap} end)
 
     bands =
       groups
       |> Enum.with_index()
       |> Enum.map(fn {g, i} ->
-        %{score: g.score, count: g.count, odd: g.odd, y: top + i * row_gap, idx: i}
+        %{score: g.score, count: g.count, odd: g.odd, y: @bracket_top + i * @bracket_row_gap, idx: i}
       end)
 
-    playing = Enum.reject(boards, & &1.is_bye)
+    {playing, byes} = Enum.split_with(boards, &(not &1.is_bye))
+    columns = playing ++ byes
+    width = @bracket_pad_left + length(columns) * @bracket_col_gap + 16
+    height = @bracket_top + max(length(groups) - 1, 0) * @bracket_row_gap + 44
 
     links =
       playing
       |> Enum.with_index()
       |> Enum.map(fn {b, i} ->
-        x = left + i * col_gap + div(col_gap, 2)
+        x = column_x(i)
 
         %{
           board: b.board,
@@ -146,60 +165,170 @@ defmodule PairingsEngineWeb.PairingExplainLive do
           rematch: b.rematch,
           rematch_anomaly: b.rematch_anomaly,
           white: %{
-            x: x - dx,
+            x: x - @bracket_dx,
             y: Map.fetch!(y_of, b.white.score),
             name: b.white.player.name,
             score: b.white.score,
-            dir: float_dir(b, b.white),
-            pairing_number: b.white.pairing_number,
-            colour_due: b.white.colour_due,
-            colour_ok: b.white.colour_ok,
-            had_prior_bye: b.white.had_prior_bye
+            dir: float_dir(b, b.white)
           },
           black: %{
-            x: x + dx,
+            x: x + @bracket_dx,
             y: Map.fetch!(y_of, b.black.score),
             name: b.black.player.name,
             score: b.black.score,
-            dir: float_dir(b, b.black),
-            pairing_number: b.black.pairing_number,
-            colour_due: b.black.colour_due,
-            colour_ok: b.black.colour_ok,
-            had_prior_bye: b.black.had_prior_bye
+            dir: float_dir(b, b.black)
           }
         }
       end)
 
-    # One flattened entry per player-dot (white and black split out of each
-    # link) — the shape the hover-popover template iterates over. Pure
-    # reshaping of the same `links` data above; no new facts.
-    dots =
-      Enum.flat_map(links, fn l ->
-        [
-          Map.merge(l.white, %{
-            colour: :w,
-            board: l.board,
-            rematch: l.rematch,
-            rematch_anomaly: l.rematch_anomaly
-          }),
-          Map.merge(l.black, %{
-            colour: :b,
-            board: l.board,
-            rematch: l.rematch,
-            rematch_anomaly: l.rematch_anomaly
-          })
-        ]
+    bye_dots =
+      byes
+      |> Enum.with_index(length(playing))
+      |> Enum.map(fn {b, i} ->
+        %{
+          x: column_x(i),
+          y: Map.fetch!(y_of, b.white.score),
+          name: b.white.player.name,
+          score: b.white.score
+        }
+      end)
+
+    wraps =
+      columns
+      |> Enum.with_index()
+      |> Enum.map(fn {b, i} -> board_wrap(b, column_x(i), y_of, width, height) end)
+
+    # A popover that opens downward must fit inside the scroll container's
+    # vertical clip; grow the canvas just enough for the deepest one.
+    min_height =
+      wraps
+      |> Enum.filter(&(&1.pop_v == "pe-pop-below"))
+      |> Enum.map(&(&1.top + &1.h + @bracket_pop_room))
+      |> Enum.max(fn -> 0 end)
+      |> max(height)
+
+    axis =
+      columns
+      |> Enum.with_index()
+      |> Enum.map(fn {b, i} ->
+        %{x: column_x(i), label: if(b.is_bye, do: "bye", else: to_string(b.board))}
       end)
 
     %{
       bands: bands,
       links: links,
-      dots: dots,
-      width: left + length(playing) * col_gap + 40,
-      height: top + max(length(groups) - 1, 0) * row_gap + 44,
-      band_width: left + length(playing) * col_gap + 40,
-      left: left
+      bye_dots: bye_dots,
+      wraps: wraps,
+      axis: axis,
+      width: width,
+      height: height,
+      min_height: min_height,
+      has_bye: byes != [],
+      has_rematch_anomaly: Enum.any?(playing, & &1.rematch_anomaly)
     }
+  end
+
+  defp column_x(i), do: @bracket_pad_left + i * @bracket_col_gap + div(@bracket_col_gap, 2)
+
+  # The HTML hover wrap for one board: a box covering the board's dot(s),
+  # ring-centre offsets as relative coordinates for the CSS-var-driven
+  # highlight rings, and flip classes choosing which way the popover opens.
+  defp board_wrap(%{is_bye: true} = b, x, y_of, width, height) do
+    y = Map.fetch!(y_of, b.white.score)
+
+    %{
+      left: x - @bracket_reach,
+      top: y - @bracket_reach,
+      w: 2 * @bracket_reach,
+      h: 2 * @bracket_reach,
+      wy: @bracket_reach,
+      by: nil,
+      bye: true,
+      b: b,
+      aria: "Board #{b.board}: bye for #{b.white.player.name}"
+    }
+    |> put_pop_classes(x, width, height)
+  end
+
+  defp board_wrap(b, x, y_of, width, height) do
+    wy = Map.fetch!(y_of, b.white.score)
+    by = Map.fetch!(y_of, b.black.score)
+    top = min(wy, by) - @bracket_reach
+
+    %{
+      left: x - @bracket_dx - @bracket_reach,
+      top: top,
+      w: 2 * (@bracket_dx + @bracket_reach),
+      h: abs(wy - by) + 2 * @bracket_reach,
+      wy: wy - top,
+      by: by - top,
+      bye: false,
+      b: b,
+      aria: "Board #{b.board}: #{b.white.player.name} vs #{b.black.player.name}"
+    }
+    |> put_pop_classes(x, width, height)
+  end
+
+  defp put_pop_classes(wrap, x, width, height) do
+    room_above = wrap.top
+    room_below = height - (wrap.top + wrap.h)
+
+    pop_v =
+      if room_above >= @bracket_pop_room and room_above >= room_below,
+        do: "pe-pop-above",
+        else: "pe-pop-below"
+
+    pop_h =
+      cond do
+        x < 150 -> "pe-pop-edge-left"
+        x > width - 150 -> "pe-pop-edge-right"
+        true -> nil
+      end
+
+    Map.merge(wrap, %{pop_v: pop_v, pop_h: pop_h})
+  end
+
+  # One compact player row inside a bracket-map popover: colour disc, name,
+  # score, seed, float arrow, due-colour verdict and prior-bye flag — the
+  # same facts as the full pairing card below the map, condensed to a line.
+  attr :side, :map, required: true
+  attr :colour, :atom, required: true
+  attr :board, :map, required: true
+
+  defp pop_side(assigns) do
+    assigns = assign(assigns, :dir, float_dir(assigns.board, assigns.side))
+
+    ~H"""
+    <div class="pe-pop-side">
+      <span class={["pe-disc", "pe-disc-mini", @colour == :w && "pe-disc-w", @colour == :b && "pe-disc-b"]}>
+      </span>
+      <span class="pe-pop-name">{@side.player.name}</span>
+      <span class="pe-score">{score_str(@side.score)}</span>
+      <span class="pe-seed">#{@side.pairing_number}</span>
+      <span :if={@dir == :down} class="pe-tag pe-tag-down" title="paired down">▼</span>
+      <span :if={@dir == :up} class="pe-tag pe-tag-up" title="paired up">▲</span>
+      <span :if={@side.colour_due == nil} class="pe-tag pe-tag-muted" title="no colour history yet">
+        –
+      </span>
+      <span
+        :if={@side.colour_due != nil and @side.colour_ok}
+        class="pe-tag pe-tag-ok"
+        title={"matches due colour (#{colour_word(@side.colour_due)})"}
+      >
+        ✓ due
+      </span>
+      <span
+        :if={@side.colour_due != nil and not @side.colour_ok}
+        class="pe-tag pe-tag-warn"
+        title={"against due colour (#{colour_word(@side.colour_due)})"}
+      >
+        ✗ due
+      </span>
+      <span :if={@side.had_prior_bye} class="pe-tag pe-tag-warn" title="already had a bye earlier">
+        bye⚠
+      </span>
+    </div>
+    """
   end
 
   # One player's side of a pairing card: colour disc, name, score/seed, the
@@ -355,123 +484,161 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         <p class="hint" style="margin-top: 0">
           Players grouped by their standing going into this round (highest at the top). Each line
           is one board; a connector that slopes across bands is a floater — an odd bracket can't
-          pair entirely within itself, so it floats a player to the neighbouring bracket.
+          pair entirely within itself, so it floats a player to the neighbouring bracket. Hover
+          (or tap) a pairing for its full detail.
         </p>
 
         <div :if={@bracket} class="pe-bracket-scroll">
-          <svg
-            class="pe-bracket-svg"
-            width={@bracket.width}
-            height={@bracket.height}
-            viewBox={"0 0 #{@bracket.width} #{@bracket.height}"}
-            role="img"
-            aria-label="Score-bracket map of this round's pairings"
-          >
-            <g>
-              <rect
-                :for={band <- @bracket.bands}
-                x="0"
-                y={band.y - 22}
-                width={@bracket.band_width}
-                height="44"
-                rx="6"
-                fill={if rem(band.idx, 2) == 0, do: "#faf9f6", else: "#f1efe9"}
-              />
-            </g>
-            <g>
-              <text
-                :for={band <- @bracket.bands}
-                x="12"
-                y={band.y + 5}
-                font-size="13"
-                fill="#6f6a60"
-              >
-                <tspan font-weight="700" fill="#24211c">{score_str(band.score)}</tspan>
-                · {band.count}p<tspan :if={band.odd} fill="#a76a25"> · odd</tspan>
-              </text>
-            </g>
-            <g>
-              <line
-                :for={l <- @bracket.links}
-                x1={l.white.x}
-                y1={l.white.y}
-                x2={l.black.x}
-                y2={l.black.y}
-                stroke={if l.floater, do: "#b5762f", else: "#9db8a8"}
-                stroke-width="2.5"
-                stroke-dasharray={if l.floater, do: "5 3", else: "0"}
-                stroke-linecap="round"
-              />
-            </g>
-            <g :for={l <- @bracket.links}>
-              <circle cx={l.white.x} cy={l.white.y} r="9" fill="#ffffff" stroke="#2e5e44" stroke-width="2">
-                <title>{l.white.name} — White, score {score_str(l.white.score)}</title>
-              </circle>
-              <circle cx={l.black.x} cy={l.black.y} r="9" fill="#2e5e44">
-                <title>{l.black.name} — Black, score {score_str(l.black.score)}</title>
-              </circle>
-              <text
-                :if={l.white.dir}
-                x={l.white.x}
-                y={l.white.y - 13}
-                font-size="12"
-                font-weight="700"
-                text-anchor="middle"
-                fill={float_colour(l.white.dir)}
-              >{if l.white.dir == :down, do: "▼", else: "▲"}</text>
-              <text
-                :if={l.black.dir}
-                x={l.black.x}
-                y={l.black.y - 13}
-                font-size="12"
-                font-weight="700"
-                text-anchor="middle"
-                fill={float_colour(l.black.dir)}
-              >{if l.black.dir == :down, do: "▼", else: "▲"}</text>
-            </g>
-          </svg>
-
-          <div class="pe-dot-overlay" aria-hidden="false">
+          <div class="pe-band-gutter" style={"height: #{@bracket.height}px"} aria-hidden="true">
             <div
-              :for={d <- @bracket.dots}
-              class="pe-dot-wrap"
-              tabindex="0"
-              style={"left: #{d.x - 9}px; top: #{d.y - 9}px;"}
+              :for={band <- @bracket.bands}
+              class={["pe-band-row", rem(band.idx, 2) == 1 && "is-alt"]}
+              style={"top: #{band.y - 22}px"}
             >
-              <div class="pe-dot-popover" role="tooltip">
-                <div class="pe-dot-pop-name">{d.name}</div>
-                <div class="pe-dot-pop-row">
-                  <span class="pe-tag pe-tag-muted">Board {d.board}</span>
-                  <span class="pe-side-colour">{colour_word(d.colour)}</span>
-                  <span class="pe-seed">seed #{d.pairing_number}</span>
-                </div>
-                <div class="pe-dot-pop-row">
-                  <span :if={d.dir == :down} class="pe-tag pe-tag-down">▼ paired down</span>
-                  <span :if={d.dir == :up} class="pe-tag pe-tag-up">▲ paired up</span>
-                  <span :if={is_nil(d.dir)} class="pe-tag pe-tag-muted">within bracket</span>
-                </div>
-                <div class="pe-dot-pop-row">
-                  <span :if={d.colour_due == nil} class="pe-tag pe-tag-muted">
-                    no colour history yet
-                  </span>
-                  <span :if={d.colour_due != nil and d.colour_ok} class="pe-tag pe-tag-ok">
-                    ✓ matches due colour ({colour_word(d.colour_due)})
-                  </span>
-                  <span :if={d.colour_due != nil and not d.colour_ok} class="pe-tag pe-tag-warn">
-                    ✗ against due colour ({colour_word(d.colour_due)})
-                  </span>
-                </div>
-                <div class="pe-dot-pop-row">
-                  <span
-                    :if={d.rematch}
-                    class={["pe-tag", d.rematch_anomaly && "pe-tag-danger", !d.rematch_anomaly && "pe-tag-muted"]}
-                  >
-                    {if d.rematch_anomaly, do: "REMATCH", else: "rematch (match format)"}
-                  </span>
-                  <span :if={not d.rematch} class="pe-tag pe-tag-ok">no prior meeting ✓</span>
-                </div>
-                <div :if={d.had_prior_bye} class="pe-dot-pop-row">
-                  <span class="pe-tag pe-tag-warn">already had a bye</span>
+              <span class="pe-band-score">{score_str(band.score)}</span>
+              <span class="pe-band-meta">
+                {band.count}p<span :if={band.odd} class="pe-band-odd"> · odd</span>
+              </span>
+            </div>
+          </div>
+
+          <div
+            class="pe-bracket-canvas"
+            style={"width: #{@bracket.width}px; min-height: #{@bracket.min_height}px"}
+          >
+            <svg
+              class="pe-bracket-svg"
+              width={@bracket.width}
+              height={@bracket.height}
+              viewBox={"0 0 #{@bracket.width} #{@bracket.height}"}
+              role="img"
+              aria-label="Score-bracket map of this round's pairings"
+            >
+              <g>
+                <rect
+                  :for={band <- @bracket.bands}
+                  x="0"
+                  y={band.y - 22}
+                  width={@bracket.width}
+                  height="44"
+                  fill={if rem(band.idx, 2) == 0, do: "#faf9f6", else: "#f1efe9"}
+                />
+              </g>
+              <g>
+                <text
+                  :for={a <- @bracket.axis}
+                  x={a.x}
+                  y={@bracket.height - 7}
+                  font-size="10"
+                  text-anchor="middle"
+                  fill="#a09a8e"
+                >{a.label}</text>
+              </g>
+              <g>
+                <line
+                  :for={l <- @bracket.links}
+                  x1={l.white.x}
+                  y1={l.white.y}
+                  x2={l.black.x}
+                  y2={l.black.y}
+                  stroke={
+                    cond do
+                      l.rematch_anomaly -> "#a33c2e"
+                      l.floater -> "#b5762f"
+                      true -> "#9db8a8"
+                    end
+                  }
+                  stroke-width={if l.rematch_anomaly, do: "3.5", else: "2.5"}
+                  stroke-dasharray={if l.floater and not l.rematch_anomaly, do: "5 3", else: "0"}
+                  stroke-linecap="round"
+                />
+              </g>
+              <g :for={l <- @bracket.links}>
+                <circle cx={l.white.x} cy={l.white.y} r="9" fill="#ffffff" stroke="#2e5e44" stroke-width="2">
+                  <title>{l.white.name} — White, score {score_str(l.white.score)}</title>
+                </circle>
+                <circle cx={l.black.x} cy={l.black.y} r="9" fill="#2e5e44">
+                  <title>{l.black.name} — Black, score {score_str(l.black.score)}</title>
+                </circle>
+                <text
+                  :if={l.white.dir}
+                  x={l.white.x}
+                  y={l.white.y - 13}
+                  font-size="12"
+                  font-weight="700"
+                  text-anchor="middle"
+                  fill={float_colour(l.white.dir)}
+                >{if l.white.dir == :down, do: "▼", else: "▲"}</text>
+                <text
+                  :if={l.black.dir}
+                  x={l.black.x}
+                  y={l.black.y - 13}
+                  font-size="12"
+                  font-weight="700"
+                  text-anchor="middle"
+                  fill={float_colour(l.black.dir)}
+                >{if l.black.dir == :down, do: "▼", else: "▲"}</text>
+              </g>
+              <g :for={d <- @bracket.bye_dots}>
+                <circle
+                  cx={d.x}
+                  cy={d.y}
+                  r="9"
+                  fill="#ffffff"
+                  stroke="#2e5e44"
+                  stroke-width="2"
+                  stroke-dasharray="3 2.4"
+                >
+                  <title>{d.name} — bye, score {score_str(d.score)}</title>
+                </circle>
+                <text
+                  x={d.x}
+                  y={d.y + 3.5}
+                  font-size="9.5"
+                  font-weight="700"
+                  text-anchor="middle"
+                  fill="#2e5e44"
+                >B</text>
+              </g>
+            </svg>
+
+            <div class="pe-board-overlay">
+              <div
+                :for={w <- @bracket.wraps}
+                class={["pe-board-wrap", w.bye && "is-bye-wrap", w.pop_v, w.pop_h]}
+                tabindex="0"
+                aria-label={w.aria}
+                style={
+                  "left: #{w.left}px; top: #{w.top}px; width: #{w.w}px; height: #{w.h}px; " <>
+                    "--wy: #{w.wy}px;" <> if(w.by, do: " --by: #{w.by}px;", else: "")
+                }
+              >
+                <div class="pe-dot-popover" role="tooltip">
+                  <div class="pe-pop-head">
+                    <span class="pe-board-no">Board {w.b.board}</span>
+                    <span :if={w.bye} class="pe-tag pe-tag-bye">bye</span>
+                    <span :if={not w.bye and w.b.floater} class="pe-tag pe-tag-float">floater</span>
+                    <span :if={not w.bye and not w.b.floater} class="pe-tag pe-tag-muted">
+                      within bracket
+                    </span>
+                    <span
+                      :if={not w.bye and w.b.rematch}
+                      class={[
+                        "pe-tag",
+                        w.b.rematch_anomaly && "pe-tag-danger",
+                        !w.b.rematch_anomaly && "pe-tag-muted"
+                      ]}
+                    >
+                      {if w.b.rematch_anomaly, do: "REMATCH", else: "rematch (match format)"}
+                    </span>
+                  </div>
+
+                  <.pop_side side={w.b.white} colour={:w} board={w.b} />
+                  <.pop_side :if={not w.bye} side={w.b.black} colour={:b} board={w.b} />
+
+                  <div :if={w.bye and w.b[:bye_detail]} class="pe-pop-foot">
+                    Lowest-ranked eligible player without a previous bye.
+                  </div>
                 </div>
               </div>
             </div>
@@ -481,8 +648,14 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         <div class="pe-legend">
           <span class="pe-legend-item"><span class="pe-legend-disc pe-disc-w"></span> White</span>
           <span class="pe-legend-item"><span class="pe-legend-disc pe-disc-b"></span> Black</span>
+          <span :if={@bracket && @bracket.has_bye} class="pe-legend-item">
+            <span class="pe-legend-disc pe-disc-byedot"></span> bye
+          </span>
           <span class="pe-legend-item"><span class="pe-legend-line"></span> within bracket</span>
           <span class="pe-legend-item"><span class="pe-legend-line is-float"></span> floater</span>
+          <span :if={@bracket && @bracket.has_rematch_anomaly} class="pe-legend-item">
+            <span class="pe-legend-line is-anomaly"></span> rematch (anomaly)
+          </span>
           <span class="pe-legend-item"><span class="pe-legend-tri down">▼</span> paired down</span>
           <span class="pe-legend-item"><span class="pe-legend-tri up">▲</span> paired up</span>
         </div>
