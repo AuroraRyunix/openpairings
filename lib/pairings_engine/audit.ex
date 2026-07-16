@@ -24,6 +24,7 @@ defmodule PairingsEngine.Audit do
   """
 
   import Ecto.Query
+  require Logger
   alias PairingsEngine.Repo
   alias PairingsEngine.Accounts.Scope
   alias PairingsEngine.Audit.AuditLog
@@ -55,14 +56,27 @@ defmodule PairingsEngine.Audit do
       do: do_log(tournament_id, user_id, action, details)
 
   defp do_log(tournament_id, user_id, action, details) do
-    %AuditLog{}
-    |> AuditLog.changeset(%{
-      tournament_id: tournament_id,
-      user_id: user_id,
-      action: to_string(action),
-      details: normalize_details(details)
-    })
-    |> Repo.insert()
+    result =
+      %AuditLog{}
+      |> AuditLog.changeset(%{
+        tournament_id: tournament_id,
+        user_id: user_id,
+        action: to_string(action),
+        details: normalize_details(details)
+      })
+      |> Repo.insert()
+
+    case result do
+      {:ok, _} = ok ->
+        ok
+
+      {:error, changeset} = error ->
+        Logger.error(
+          "Audit.log failed for tournament #{tournament_id} action #{action}: #{inspect(changeset.errors)}"
+        )
+
+        error
+    end
   end
 
   # `details` maps are persisted to a JSON column, so any tuples (e.g. a
