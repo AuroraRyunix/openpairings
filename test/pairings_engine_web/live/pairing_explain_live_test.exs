@@ -214,4 +214,162 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     assert html =~ "pe-warning"
     assert html =~ "already had a bye"
   end
+
+  ## ---------- Task A: rich hover popovers on the bracket-map dots ----------
+
+  test "renders one hover popover per player-dot with the same rich detail as its board card", %{
+    conn: conn,
+    scope: scope
+  } do
+    {:ok, t} =
+      Tournaments.create_tournament(scope, %{
+        "name" => "RR",
+        "type" => "roundrobin",
+        "pairing_system" => "round_robin"
+      })
+
+    for name <- ~w(Alice Bob Carol Dave) do
+      {:ok, _} = Tournaments.create_player(t.id, %{"name" => name})
+    end
+
+    assert {:ok, _round} = Pairing.pair_next_round(t)
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
+
+    # Pure-CSS hover-reveal scaffold: an overlay of dot-wraps, each wrapping
+    # a hidden popover shown via CSS (no JS anywhere on this page).
+    assert html =~ "pe-dot-overlay"
+    assert html =~ "pe-dot-wrap"
+    assert html =~ "pe-dot-popover"
+
+    # The popover carries the same per-player facts as the board card below
+    # it: name, board/seed, colour, colour-due verdict, rematch check.
+    assert html =~ "Alice"
+    assert html =~ "no prior meeting"
+    assert html =~ "no colour history yet"
+    assert html =~ ~r/seed #\d/
+
+    # The native SVG title is still present as a fallback.
+    assert html =~ "<title>"
+  end
+
+  ## ---------- Task B: anomaly checks ----------
+
+  test "flags a genuine rematch outside match format with a red warning, and explains the framing",
+       %{conn: conn, scope: scope} do
+    {:ok, t} = Tournaments.create_tournament(scope, %{"name" => "Swiss", "type" => "swiss"})
+
+    {:ok, alice} = Tournaments.create_player(t.id, %{"name" => "Alice"})
+    {:ok, bob} = Tournaments.create_player(t.id, %{"name" => "Bob"})
+
+    round1 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 1, status: "playing"})
+
+    Repo.insert!(%PairingSchema{
+      round_id: round1.id,
+      board: 1,
+      white_player_id: alice.id,
+      black_player_id: bob.id,
+      result: "1-0"
+    })
+
+    round2 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 2, status: "playing"})
+
+    Repo.insert!(%PairingSchema{
+      round_id: round2.id,
+      board: 1,
+      white_player_id: bob.id,
+      black_player_id: alice.id,
+      result: ""
+    })
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/2/explain")
+
+    assert html =~ "pe-warning"
+    assert html =~ "already met in an earlier round"
+    # The page's honest, not-proof-of-error framing is present.
+    assert html =~ "Anomaly check"
+    assert html =~ "not proof of"
+  end
+
+  test "does not flag a rematch as an anomaly when swiss_match_format is enabled", %{
+    conn: conn,
+    scope: scope
+  } do
+    {:ok, t} =
+      Tournaments.create_tournament(scope, %{
+        "name" => "Swiss MF",
+        "type" => "swiss",
+        "rounds_count" => "4",
+        "swiss_match_format" => "true"
+      })
+
+    {:ok, alice} = Tournaments.create_player(t.id, %{"name" => "Alice"})
+    {:ok, bob} = Tournaments.create_player(t.id, %{"name" => "Bob"})
+
+    round1 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 1, status: "playing"})
+
+    Repo.insert!(%PairingSchema{
+      round_id: round1.id,
+      board: 1,
+      white_player_id: alice.id,
+      black_player_id: bob.id,
+      result: "1-0"
+    })
+
+    round2 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 2, status: "playing"})
+
+    Repo.insert!(%PairingSchema{
+      round_id: round2.id,
+      board: 1,
+      white_player_id: bob.id,
+      black_player_id: alice.id,
+      result: ""
+    })
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/2/explain")
+
+    # The neutral REMATCH tag still shows (unchanged meaning)...
+    assert html =~ "REMATCH"
+    # ...but the anomaly warning language must not appear for this board.
+    refute html =~ "already met in an earlier round"
+  end
+
+  @tag :javafo
+  test "flags a starting-rank gap left by a mid-field round-specific absentee", %{
+    conn: conn,
+    scope: scope
+  } do
+    {:ok, t} =
+      Tournaments.create_tournament(scope, %{
+        "name" => "T",
+        "type" => "swiss",
+        "start_date" => "2026-07-01"
+      })
+
+    for {name, rating} <- [{"Alice", 2000}, {"Bob", 1900}] do
+      {:ok, _} = Tournaments.create_player(t.id, %{"name" => name, "fide_rating" => "#{rating}"})
+    end
+
+    # Rated between Bob and Dave — after pairing numbers freeze (highest
+    # rating first), Carol lands 3rd of 5, so sitting her out round 1 only
+    # leaves a gap in the MIDDLE of the starting-rank range.
+    {:ok, _carol} =
+      Tournaments.create_player(t.id, %{
+        "name" => "Carol",
+        "fide_rating" => "1800",
+        "absent_rounds" => "1"
+      })
+
+    for {name, rating} <- [{"Dave", 1700}, {"Eve", 1600}] do
+      {:ok, _} = Tournaments.create_player(t.id, %{"name" => name, "fide_rating" => "#{rating}"})
+    end
+
+    assert {:ok, _round} = Pairing.pair_next_round(t)
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
+
+    assert html =~ "pe-warning"
+    assert html =~ "gap in the pairing-number sequence"
+    assert html =~ "Carol"
+  end
 end

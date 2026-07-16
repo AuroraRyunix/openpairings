@@ -31,7 +31,11 @@ defmodule PairingsEngineWeb.Router do
       live "/t/:id/audit", AuditLive, :index
       live "/t/:id/audit/explain", AuditLive, :explain
       live "/t/:id/print", PrintLive
-      live "/t/:id/settings", SettingsLive
+      live "/t/:id/settings", SettingsTournamentLive
+      live "/t/:id/settings/options", SettingsOptionsLive
+      live "/t/:id/settings/dates", SettingsDatesLive
+      live "/t/:id/settings/extra-points", ExtraPointsLive
+      live "/t/:id/settings/fide", SettingsFideLive
       live "/t/:id/categories", CategoriesLive
       live "/t/:id/live", LiveRoundLive
       live "/t/:id/norms", NormsLive

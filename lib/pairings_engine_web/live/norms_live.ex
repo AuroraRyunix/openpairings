@@ -28,10 +28,27 @@ defmodule PairingsEngineWeb.NormsLive do
 
   use PairingsEngineWeb, :live_view
 
-  alias PairingsEngine.Tournaments
+  import PairingsEngineWeb.SettingsSupport
+
+  alias PairingsEngine.{Fide, Tournaments}
   alias PairingsEngine.Tournaments.Player
 
   @norm_titles ~w(GM IM FM CM WGM WIM WFM WCM)
+
+  # Officials & FIDE report fields not on the Tournament schema directly —
+  # nested under tournament[officials][KEY] and stored in the :officials map
+  # (see PairingsEngine.Tournaments.Tournament for the recognised keys).
+  # Relocated here from the old SettingsLive Officials card.
+  @officials_fields [
+    {"organizer_id", "Organizer FIDE ID", "text"},
+    {"organizer_email", "Organizer e-mail", "text"},
+    {"chief_arbiter_email", "Chief arbiter e-mail", "text"}
+  ]
+
+  @deputy_fields [
+    {1, "1st deputy arbiter"},
+    {2, "2nd deputy arbiter"}
+  ]
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -52,7 +69,16 @@ defmodule PairingsEngineWeb.NormsLive do
        norm_titles: @norm_titles,
        other_tournaments: other_tournaments(socket.assigns.current_scope, tournament.id),
        combine_selected: MapSet.new(),
-       combine_master: to_string(tournament.id)
+       combine_master: to_string(tournament.id),
+       # Officials editing (relocated from SettingsLive). `dirty` guards the
+       # always-open officials form against a PubSub reload clobbering
+       # in-progress typing — same last-write-wins tracking the old Settings
+       # page used. `arbiter_search` drives the FIDE-autocomplete dropdown.
+       officials_note: nil,
+       officials_error: nil,
+       dirty: false,
+       stale: false,
+       arbiter_search: nil
      )
      |> assign_players()}
   end
@@ -69,7 +95,15 @@ defmodule PairingsEngineWeb.NormsLive do
     |> Enum.reject(fn {t, _player_count, _owner?} -> t.id == tournament_id end)
   end
 
+  # While the officials form is dirty (the user is mid-edit), don't reload
+  # `@tournament` — that would reset text being typed. Only flag `stale` when
+  # a freshly-loaded row actually differs (see SettingsSupport). This mirrors
+  # the old SettingsLive behaviour that guarded the Officials form.
   @impl true
+  def handle_info({:tournament_changed, _tournament_id, _hint}, %{assigns: %{dirty: true}} = socket) do
+    handle_stale_check(socket)
+  end
+
   def handle_info({:tournament_changed, _tournament_id, _hint}, socket) do
     case Tournaments.get_authorized_tournament(socket.assigns.current_scope, socket.assigns.tournament.id) do
       nil ->
@@ -79,7 +113,7 @@ defmodule PairingsEngineWeb.NormsLive do
          |> push_navigate(to: ~p"/")}
 
       tournament ->
-        {:noreply, socket |> assign(tournament: tournament) |> assign_players()}
+        {:noreply, socket |> assign(tournament: tournament, stale: false) |> assign_players()}
     end
   end
 
@@ -137,6 +171,75 @@ defmodule PairingsEngineWeb.NormsLive do
     {:noreply, assign(socket, :combine_master, id)}
   end
 
+  ## ---------- Officials & FIDE report data (relocated from SettingsLive) ----------
+  #
+  # The officials/arbiter details feeding the IT3/FA1/IA1/IT4 report forms.
+  # An always-open form, saved on its own submit; `officials_change` marks the
+  # page dirty so a concurrent broadcast doesn't clobber mid-edit typing (the
+  # arbiter-autocomplete fields mark dirty via `arbiter_search` instead).
+
+  def handle_event("officials_change", _params, socket) do
+    {:noreply, assign(socket, dirty: true)}
+  end
+
+  def handle_event("save_officials", %{"tournament" => params}, socket) do
+    params = Map.take(params, ["chief_arbiter", "officials"])
+    base = Tournaments.get_tournament!(socket.assigns.tournament.id)
+
+    case Tournaments.update_tournament(base, params) do
+      {:ok, tournament} ->
+        log_settings_change(socket, base, tournament)
+
+        {:noreply,
+         assign(socket,
+           tournament: tournament,
+           officials_note: "Saved.",
+           officials_error: nil,
+           dirty: false,
+           stale: false
+         )}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, officials_error: error_text(changeset), officials_note: nil)}
+    end
+  end
+
+  ## ---------- Officials arbiter FIDE-autocomplete (chief/pairings/deputies) ----------
+  #
+  # Mirrors PlayersLive's "search"/"pick" flow, generalised over a `role`. A
+  # pick only updates the in-memory `@tournament` (name + FIDE id under
+  # `officials`); it's persisted once "Save officials" is submitted.
+
+  def handle_event("arbiter_search", %{"role" => role} = params, socket) do
+    query = arbiter_query(role, params)
+
+    results =
+      if String.length(String.trim(to_string(query))) >= 2 do
+        Fide.search(query)
+      else
+        []
+      end
+
+    {:noreply, assign(socket, arbiter_search: %{role: role, results: results}, dirty: true)}
+  end
+
+  def handle_event("arbiter_pick", %{"role" => role, "fide-id" => fide_id}, socket) do
+    results = (socket.assigns.arbiter_search || %{results: []}).results
+
+    case Enum.find(results, &(&1.fide_id == String.to_integer(fide_id))) do
+      nil ->
+        {:noreply, socket}
+
+      fp ->
+        {:noreply,
+         assign(socket,
+           tournament: apply_arbiter_pick(socket.assigns.tournament, role, fp),
+           arbiter_search: nil,
+           dirty: true
+         )}
+    end
+  end
+
   defp norm_form(%Player{norm_data: data}) do
     d = data || %{}
 
@@ -153,9 +256,57 @@ defmodule PairingsEngineWeb.NormsLive do
     }
   end
 
-  defp error_text(changeset) do
-    Enum.map_join(changeset.errors, ", ", fn {field, {msg, _}} -> "#{field} #{msg}" end)
+  ## ---------- Officials render/pick helpers ----------
+
+  defp officials_fields, do: @officials_fields
+  defp deputy_fields, do: @deputy_fields
+
+  defp o_get(tournament, key), do: Map.get(tournament.officials || %{}, key, "")
+
+  # Results for the arbiter-autocomplete dropdown currently focused on `role`,
+  # or `[]` if no field is focused/searching, or another field is.
+  defp arbiter_results(%{role: role, results: results}, role), do: results
+  defp arbiter_results(_search, _role), do: []
+
+  defp arbiter_query("chief_arbiter", %{"tournament" => t}), do: Map.get(t, "chief_arbiter", "")
+
+  defp arbiter_query("person_responsible_pairings", %{"tournament" => %{"officials" => o}}),
+    do: Map.get(o, "person_responsible_pairings", "")
+
+  defp arbiter_query("deputy" <> _ = role, %{"tournament" => %{"officials" => o}}),
+    do: Map.get(o, "#{role}_name", "")
+
+  defp arbiter_query(_role, _params), do: ""
+
+  defp apply_arbiter_pick(tournament, "chief_arbiter", fp) do
+    %{
+      tournament
+      | chief_arbiter: fp.name,
+        officials: put_official(tournament, "chief_arbiter_fide_id", fp.fide_id)
+    }
   end
+
+  defp apply_arbiter_pick(tournament, "person_responsible_pairings", fp) do
+    officials =
+      tournament
+      |> put_official("person_responsible_pairings", fp.name)
+      |> Map.put("person_responsible_pairings_fide_id", fp.fide_id)
+
+    %{tournament | officials: officials}
+  end
+
+  defp apply_arbiter_pick(tournament, "deputy" <> _ = role, fp) do
+    officials =
+      tournament
+      |> put_official("#{role}_name", fp.name)
+      |> Map.put("#{role}_fide_id", fp.fide_id)
+
+    %{tournament | officials: officials}
+  end
+
+  defp apply_arbiter_pick(tournament, _role, _fp), do: tournament
+
+  defp put_official(tournament, key, value), do: Map.put(tournament.officials || %{}, key, value)
 
   defp it4_candidates(players) do
     Enum.filter(players, fn p -> not blank?(Map.get(p.norm_data || %{}, "title_claimed")) end)
@@ -212,10 +363,183 @@ defmodule PairingsEngineWeb.NormsLive do
       </div>
 
       <p class="hint">
-        Fill in the officials, arbiters and pairing-system details on the
-        <.link navigate={~p"/t/#{@tournament.id}/settings"}>Settings</.link>
-        page first — every report below is generated straight from that data plus the player list.
+        Every report below is generated from the officials/arbiter details in the card just below,
+        the FIDE identifiers on the
+        <.link navigate={~p"/t/#{@tournament.id}/settings/fide"}>FIDE settings</.link>
+        page, and the player list.
       </p>
+
+      <div class="card">
+        <h2>Officials &amp; FIDE report data</h2>
+
+        <p class="hint" style="margin-top: 0">
+          Feeds the IT3 / FA1 / IA1 / IT4 FIDE report forms below. Organizer name is set on the
+          <.link navigate={~p"/t/#{@tournament.id}/settings"}>Tournament settings</.link>
+          page; the tournament's FIDE ID / event code on the
+          <.link navigate={~p"/t/#{@tournament.id}/settings/fide"}>FIDE settings</.link>
+          page. Pairing mode is always computerized and the pairing program is always OpenPairings.
+        </p>
+
+        <p :if={@stale} class="error-note">
+          This tournament was updated elsewhere while you were editing. Saving officials will
+          overwrite that change with what's on this page — reload first if you want to see it instead.
+        </p>
+
+        <form id="officials-form" phx-submit="save_officials" phx-change="officials_change">
+          <div class="form-grid">
+            <label :for={{key, label, type} <- officials_fields()} class="field">
+              <span>{label}</span>
+              <input type={type} name={"tournament[officials][#{key}]"} value={o_get(@tournament, key)} />
+            </label>
+
+            <div class="field search-wrap">
+              <span style="display:block;font-size:13px;font-weight:600;color:var(--text-soft);margin-bottom:4px">
+                Chief arbiter
+              </span>
+
+              <input
+                type="text"
+                name="tournament[chief_arbiter]"
+                value={@tournament.chief_arbiter}
+                phx-change="arbiter_search"
+                phx-value-role="chief_arbiter"
+                phx-debounce="250"
+                autocomplete="off"
+              />
+              <input
+                type="hidden"
+                name="tournament[officials][chief_arbiter_fide_id]"
+                value={o_get(@tournament, "chief_arbiter_fide_id")}
+              />
+              <span :if={o_get(@tournament, "chief_arbiter_fide_id") != ""} class="hint">
+                FIDE ID: {o_get(@tournament, "chief_arbiter_fide_id")}
+              </span>
+
+              <div :if={arbiter_results(@arbiter_search, "chief_arbiter") != []} class="search-results">
+                <button
+                  :for={fp <- arbiter_results(@arbiter_search, "chief_arbiter")}
+                  type="button"
+                  phx-click="arbiter_pick"
+                  phx-value-role="chief_arbiter"
+                  phx-value-fide-id={fp.fide_id}
+                >
+                  <span>{if fp.title != "", do: "#{fp.title} "}{fp.name}</span>
+                  <span class="meta">{fp.federation}</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="field search-wrap">
+              <span style="display:block;font-size:13px;font-weight:600;color:var(--text-soft);margin-bottom:4px">
+                Person responsible for pairings
+              </span>
+
+              <input
+                type="text"
+                name="tournament[officials][person_responsible_pairings]"
+                value={o_get(@tournament, "person_responsible_pairings")}
+                phx-change="arbiter_search"
+                phx-value-role="person_responsible_pairings"
+                phx-debounce="250"
+                autocomplete="off"
+              />
+              <input
+                type="hidden"
+                name="tournament[officials][person_responsible_pairings_fide_id]"
+                value={o_get(@tournament, "person_responsible_pairings_fide_id")}
+              />
+              <div
+                :if={arbiter_results(@arbiter_search, "person_responsible_pairings") != []}
+                class="search-results"
+              >
+                <button
+                  :for={fp <- arbiter_results(@arbiter_search, "person_responsible_pairings")}
+                  type="button"
+                  phx-click="arbiter_pick"
+                  phx-value-role="person_responsible_pairings"
+                  phx-value-fide-id={fp.fide_id}
+                >
+                  <span>{if fp.title != "", do: "#{fp.title} "}{fp.name}</span>
+                  <span class="meta">{fp.federation}</span>
+                </button>
+              </div>
+            </div>
+
+            <label class="field">
+              <span>IT4 event type</span>
+              <input name="tournament[officials][it4_event_type]" value={o_get(@tournament, "it4_event_type")} />
+            </label>
+
+            <label class="field" style="grid-column: 1 / -1">
+              <span>Link to pairings web (IT4)</span>
+              <input name="tournament[officials][pairings_web_link]" value={o_get(@tournament, "pairings_web_link")} />
+            </label>
+          </div>
+
+          <h3 style="margin: 18px 0 8px; font-size: 14px">Deputy arbiters</h3>
+
+          <div class="form-grid">
+            <div :for={{n, label} <- deputy_fields()} style="display: contents">
+              <div class="field search-wrap">
+                <span style="display:block;font-size:13px;font-weight:600;color:var(--text-soft);margin-bottom:4px">
+                  {label} — name
+                </span>
+
+                <input
+                  type="text"
+                  name={"tournament[officials][deputy#{n}_name]"}
+                  value={o_get(@tournament, "deputy#{n}_name")}
+                  phx-change="arbiter_search"
+                  phx-value-role={"deputy#{n}"}
+                  phx-debounce="250"
+                  autocomplete="off"
+                />
+                <input
+                  type="hidden"
+                  name={"tournament[officials][deputy#{n}_fide_id]"}
+                  value={o_get(@tournament, "deputy#{n}_fide_id")}
+                />
+                <span :if={o_get(@tournament, "deputy#{n}_fide_id") != ""} class="hint">
+                  FIDE ID: {o_get(@tournament, "deputy#{n}_fide_id")}
+                </span>
+
+                <div :if={arbiter_results(@arbiter_search, "deputy#{n}") != []} class="search-results">
+                  <button
+                    :for={fp <- arbiter_results(@arbiter_search, "deputy#{n}")}
+                    type="button"
+                    phx-click="arbiter_pick"
+                    phx-value-role={"deputy#{n}"}
+                    phx-value-fide-id={fp.fide_id}
+                  >
+                    <span>{if fp.title != "", do: "#{fp.title} "}{fp.name}</span>
+                    <span class="meta">{fp.federation}</span>
+                  </button>
+                </div>
+              </div>
+
+              <label class="field">
+                <span>{label} — e-mail</span>
+                <input name={"tournament[officials][deputy#{n}_email]"} value={o_get(@tournament, "deputy#{n}_email")} />
+              </label>
+            </div>
+          </div>
+
+          <h3 style="margin: 18px 0 8px; font-size: 14px">Special remarks (IT3)</h3>
+
+          <div class="form-grid">
+            <label :for={n <- 1..4} class="field">
+              <span>Remark {n}</span>
+              <input name={"tournament[officials][remark#{n}]"} value={o_get(@tournament, "remark#{n}")} />
+            </label>
+          </div>
+
+          <div class="actions">
+            <button type="submit" class="pe-btn primary">Save officials</button>
+            <span :if={@officials_note} class="ok-note" style="align-self: center">{@officials_note}</span>
+            <span :if={@officials_error} class="error-note" style="align-self: center">{@officials_error}</span>
+          </div>
+        </form>
+      </div>
 
       <div class="card">
         <h2>IT3 — Tournament Report Form</h2>

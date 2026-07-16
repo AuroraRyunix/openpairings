@@ -31,7 +31,7 @@ defmodule PairingsEngine.PairingRationale do
   """
 
   import Ecto.Query
-  alias PairingsEngine.{Repo, Standings, Keizer, Tournaments}
+  alias PairingsEngine.{Repo, Standings, Keizer, Tournaments, Pairing}
   alias PairingsEngine.Tournaments.{Round, Player}
 
   @doc """
@@ -70,17 +70,25 @@ defmodule PairingsEngine.PairingRationale do
     ladder = ladder_values(tournament, prior)
     colour_hist = colour_history(tournament.id, prior)
     played_before = prior_opponents(tournament.id, prior)
-    prior_bye_players = players_with_prior_bye(tournament.id, prior)
+    {prior_bye_players, prior_pairing_bye_players} = players_with_prior_bye(tournament.id, prior)
 
     pairings = Enum.sort_by(round.pairings, & &1.board)
 
     boards =
       pairings
       |> Enum.map(fn p ->
-        board_context(p, tournament, score_by_player, ladder, colour_hist, played_before)
+        board_context(
+          p,
+          tournament,
+          score_by_player,
+          ladder,
+          colour_hist,
+          played_before,
+          prior_bye_players
+        )
       end)
       |> Enum.map(fn b ->
-        if b.is_bye, do: annotate_bye(b, prior_bye_players), else: b
+        if b.is_bye, do: annotate_bye(b, prior_bye_players, prior_pairing_bye_players), else: b
       end)
 
     score_groups = score_groups(boards)
@@ -100,6 +108,7 @@ defmodule PairingsEngine.PairingRationale do
       byes: %{allocated: allocated_bye, requested: requested_byes},
       score_groups: score_groups,
       berger: berger_info(tournament, round_number),
+      pairing_gap: pairing_gap(tournament, round_number),
       summary: %{
         boards: Enum.count(boards, &(not &1.is_bye)),
         byes: Enum.count(boards, & &1.is_bye),
@@ -111,13 +120,21 @@ defmodule PairingsEngine.PairingRationale do
 
   ## ---------- per-board analysis ----------
 
-  defp board_context(pairing, tournament, scores, ladder, colour_hist, played_before) do
+  defp board_context(
+         pairing,
+         tournament,
+         scores,
+         ladder,
+         colour_hist,
+         played_before,
+         prior_bye_players
+       ) do
     white = pairing.white_player
     black = pairing.black_player
     is_bye = pairing.black_player_id == nil or pairing.result == "bye"
 
-    white_side = side(white, :w, scores, ladder, colour_hist)
-    black_side = if is_bye, do: nil, else: side(black, :b, scores, ladder, colour_hist)
+    white_side = side(white, :w, scores, ladder, colour_hist, prior_bye_players)
+    black_side = if is_bye, do: nil, else: side(black, :b, scores, ladder, colour_hist, prior_bye_players)
 
     floater =
       not is_bye && white_side && black_side &&
@@ -127,6 +144,16 @@ defmodule PairingsEngine.PairingRationale do
       not is_bye && black &&
         MapSet.member?(played_before, pair_key(white.id, black.id))
 
+    # A rematch is an anomaly worth flagging UNLESS this tournament's own
+    # settings intentionally create back-to-back rematches (round-robin or
+    # Swiss "match format" — an immediate second leg against the same
+    # opponent is the expected, designed behaviour there, not a data
+    # problem). `rematch` itself keeps its original meaning (any prior
+    # meeting at all) since it also feeds the audit log and the neutral
+    # "REMATCH" board tag; this is a separate, additive fact.
+    match_format_expected? = !!(tournament.rr_match_format || tournament.swiss_match_format)
+    rematch_anomaly = !!rematch && not match_format_expected?
+
     %{
       board: pairing.board,
       category: category_for(tournament, white),
@@ -135,14 +162,15 @@ defmodule PairingsEngine.PairingRationale do
       float_up: floater && lower_scored_id(white_side, black_side),
       float_down: floater && higher_scored_id(white_side, black_side),
       rematch: !!rematch,
+      rematch_anomaly: rematch_anomaly,
       white: white_side,
       black: black_side
     }
   end
 
-  defp side(nil, _colour, _scores, _ladder, _hist), do: nil
+  defp side(nil, _colour, _scores, _ladder, _hist, _prior_bye_players), do: nil
 
-  defp side(player, colour, scores, ladder, colour_hist) do
+  defp side(player, colour, scores, ladder, colour_hist, prior_bye_players) do
     %{score: score, standings_rank: rank} =
       Map.get(scores, player.id, %{score: 0.0, standings_rank: nil})
 
@@ -156,7 +184,8 @@ defmodule PairingsEngine.PairingRationale do
       ladder_value: Map.get(ladder, player.id),
       colour: colour,
       colour_due: due,
-      colour_ok: colour_matches_due?(colour, due)
+      colour_ok: colour_matches_due?(colour, due),
+      had_prior_bye: MapSet.member?(prior_bye_players, player.id)
     }
   end
 
@@ -265,7 +294,17 @@ defmodule PairingsEngine.PairingRationale do
     |> MapSet.new(fn {w, b} -> pair_key(w, b) end)
   end
 
-  defp players_with_prior_bye(_tournament_id, through) when through < 1, do: MapSet.new()
+  # Returns `{combined, pairing_allocated_only}` — `combined` is every player
+  # who's had ANY bye before (a real pairing-allocated one, JaVaFo
+  # WIN_BYE/DRAW_BYE, OR a requested/absence bye recorded in the "byes"
+  # table), which is what the existing "already had a bye" note has always
+  # meant and continues to mean. `pairing_allocated_only` is the strict
+  # subset from actual bye pairings alone — used to flag the narrower,
+  # rarer anomaly of a player receiving more than one *engine-assigned* bye,
+  # which FIDE Dutch pairing normally avoids whenever an alternative exists
+  # (unlike a requested/absence bye, which can legitimately repeat).
+  defp players_with_prior_bye(_tournament_id, through) when through < 1,
+    do: {MapSet.new(), MapSet.new()}
 
   defp players_with_prior_bye(tournament_id, through) do
     from_pairings =
@@ -285,15 +324,16 @@ defmodule PairingsEngine.PairingRationale do
           select: b.player_id
       )
 
-    MapSet.new(from_pairings ++ from_byes)
+    {MapSet.new(from_pairings ++ from_byes), MapSet.new(from_pairings)}
   end
 
-  defp annotate_bye(bye_board, prior_bye_players) do
+  defp annotate_bye(bye_board, prior_bye_players, prior_pairing_bye_players) do
     player = bye_board.white.player
 
     Map.put(bye_board, :bye_detail, %{
       player: player,
       had_prior_bye: MapSet.member?(prior_bye_players, player.id),
+      had_prior_pairing_bye: MapSet.member?(prior_pairing_bye_players, player.id),
       convention:
         "The pairing-allocated bye goes to the lowest-ranked eligible player " <>
           "who has not already received one (standard Dutch-system convention)."
@@ -361,6 +401,49 @@ defmodule PairingsEngine.PairingRationale do
           p.tournament_id == ^tournament_id and p.status == "active" and
             p.absent == false and p.forfeit == false and not is_nil(p.pairing_number)
     )
+  end
+
+  ## ---------- starting-rank / pairing-number gap ----------
+
+  # A round-specific absentee (excluded from just this round via
+  # `absent_rounds`, not permanently inactive/forfeited) still holds their
+  # global, tournament-wide `pairing_number` — see
+  # `PairingsEngine.Pairing.eligible_players/2` and `active_players/1`'s doc
+  # comments. If that absentee's pairing number sits anywhere but the very
+  # bottom of the field, this round's actually-eligible players have a GAP
+  # in the middle of their starting-rank sequence — exactly the condition
+  # `PairingsEngine.Pairing.do_pair_single/4` already works around
+  # internally (a local contiguous 1..M rank remap) because sending it
+  # straight to JaVaFo crashes the real jar. Surfaced here as an
+  # informational note (the engine already handles it correctly), not an
+  # error — `nil` when there is no gap.
+  defp pairing_gap(tournament, round_number) do
+    eligible_numbers =
+      tournament.id
+      |> Pairing.eligible_players(round_number)
+      |> Enum.map(& &1.pairing_number)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.sort()
+
+    case gaps_in(eligible_numbers) do
+      [] ->
+        nil
+
+      missing_numbers ->
+        missing_players =
+          tournament.id
+          |> Pairing.active_players()
+          |> Enum.filter(&(&1.pairing_number in missing_numbers))
+          |> Enum.sort_by(& &1.pairing_number)
+
+        %{missing_numbers: missing_numbers, players: missing_players}
+    end
+  end
+
+  defp gaps_in(sorted_numbers) do
+    sorted_numbers
+    |> Enum.chunk_every(2, 1, :discard)
+    |> Enum.flat_map(fn [a, b] -> if b - a > 1, do: Enum.to_list((a + 1)..(b - 1)), else: [] end)
   end
 
   ## ---------- serialization for the audit log ----------

@@ -143,26 +143,58 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         %{
           board: b.board,
           floater: b.floater,
+          rematch: b.rematch,
+          rematch_anomaly: b.rematch_anomaly,
           white: %{
             x: x - dx,
             y: Map.fetch!(y_of, b.white.score),
             name: b.white.player.name,
             score: b.white.score,
-            dir: float_dir(b, b.white)
+            dir: float_dir(b, b.white),
+            pairing_number: b.white.pairing_number,
+            colour_due: b.white.colour_due,
+            colour_ok: b.white.colour_ok,
+            had_prior_bye: b.white.had_prior_bye
           },
           black: %{
             x: x + dx,
             y: Map.fetch!(y_of, b.black.score),
             name: b.black.player.name,
             score: b.black.score,
-            dir: float_dir(b, b.black)
+            dir: float_dir(b, b.black),
+            pairing_number: b.black.pairing_number,
+            colour_due: b.black.colour_due,
+            colour_ok: b.black.colour_ok,
+            had_prior_bye: b.black.had_prior_bye
           }
         }
+      end)
+
+    # One flattened entry per player-dot (white and black split out of each
+    # link) — the shape the hover-popover template iterates over. Pure
+    # reshaping of the same `links` data above; no new facts.
+    dots =
+      Enum.flat_map(links, fn l ->
+        [
+          Map.merge(l.white, %{
+            colour: :w,
+            board: l.board,
+            rematch: l.rematch,
+            rematch_anomaly: l.rematch_anomaly
+          }),
+          Map.merge(l.black, %{
+            colour: :b,
+            board: l.board,
+            rematch: l.rematch,
+            rematch_anomaly: l.rematch_anomaly
+          })
+        ]
       end)
 
     %{
       bands: bands,
       links: links,
+      dots: dots,
       width: left + length(playing) * col_gap + 40,
       height: top + max(length(groups) - 1, 0) * row_gap + 44,
       band_width: left + length(playing) * col_gap + 40,
@@ -285,7 +317,9 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         This is a live analysis of the current data (pre-round standings, colour history and
         pairing output), not a stored replay. JaVaFo's internal tie-break reasoning can't be
         extracted, so for Swiss this shows the input state that constrained the decision and the
-        observable shape of its output (brackets, floaters, byes).
+        observable shape of its output (brackets, floaters, byes). Items marked
+        <strong>Anomaly check</strong> below are automated data-consistency checks, not proof of
+        an actual arbiting error — they flag patterns worth a second look, nothing more.
       </p>
 
       <div class="card pe-summary" style="margin: 8px 0">
@@ -396,6 +430,52 @@ defmodule PairingsEngineWeb.PairingExplainLive do
               >{if l.black.dir == :down, do: "▼", else: "▲"}</text>
             </g>
           </svg>
+
+          <div class="pe-dot-overlay" aria-hidden="false">
+            <div
+              :for={d <- @bracket.dots}
+              class="pe-dot-wrap"
+              tabindex="0"
+              style={"left: #{d.x - 9}px; top: #{d.y - 9}px;"}
+            >
+              <div class="pe-dot-popover" role="tooltip">
+                <div class="pe-dot-pop-name">{d.name}</div>
+                <div class="pe-dot-pop-row">
+                  <span class="pe-tag pe-tag-muted">Board {d.board}</span>
+                  <span class="pe-side-colour">{colour_word(d.colour)}</span>
+                  <span class="pe-seed">seed #{d.pairing_number}</span>
+                </div>
+                <div class="pe-dot-pop-row">
+                  <span :if={d.dir == :down} class="pe-tag pe-tag-down">▼ paired down</span>
+                  <span :if={d.dir == :up} class="pe-tag pe-tag-up">▲ paired up</span>
+                  <span :if={is_nil(d.dir)} class="pe-tag pe-tag-muted">within bracket</span>
+                </div>
+                <div class="pe-dot-pop-row">
+                  <span :if={d.colour_due == nil} class="pe-tag pe-tag-muted">
+                    no colour history yet
+                  </span>
+                  <span :if={d.colour_due != nil and d.colour_ok} class="pe-tag pe-tag-ok">
+                    ✓ matches due colour ({colour_word(d.colour_due)})
+                  </span>
+                  <span :if={d.colour_due != nil and not d.colour_ok} class="pe-tag pe-tag-warn">
+                    ✗ against due colour ({colour_word(d.colour_due)})
+                  </span>
+                </div>
+                <div class="pe-dot-pop-row">
+                  <span
+                    :if={d.rematch}
+                    class={["pe-tag", d.rematch_anomaly && "pe-tag-danger", !d.rematch_anomaly && "pe-tag-muted"]}
+                  >
+                    {if d.rematch_anomaly, do: "REMATCH", else: "rematch (match format)"}
+                  </span>
+                  <span :if={not d.rematch} class="pe-tag pe-tag-ok">no prior meeting ✓</span>
+                </div>
+                <div :if={d.had_prior_bye} class="pe-dot-pop-row">
+                  <span class="pe-tag pe-tag-warn">already had a bye</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="pe-legend">
@@ -446,6 +526,12 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             ladder_max={@ladder_max}
           />
           <p :if={not b.is_bye and float_note(b)} class="pe-pair-foot">{float_note(b)}</p>
+          <p :if={not b.is_bye and b.rematch_anomaly} class="pe-warning">
+            <strong>Anomaly check:</strong>
+            these two players already met in an earlier round of this tournament, and neither
+            round-robin nor Swiss "match format" is enabled here to explain a deliberate
+            back-to-back rematch — worth double-checking the game history for a data issue.
+          </p>
 
           <p :if={b.is_bye and b[:bye_detail]} class="pe-pair-foot">
             {b.bye_detail.convention}
@@ -456,7 +542,27 @@ defmodule PairingsEngineWeb.PairingExplainLive do
           >
             <strong>Note:</strong> this player already had a bye earlier.
           </p>
+          <p
+            :if={b.is_bye and b[:bye_detail] != nil and b.bye_detail.had_prior_pairing_bye}
+            class="pe-warning"
+          >
+            <strong>Anomaly check:</strong>
+            this player has now received more than one pairing-allocated (engine-assigned) bye —
+            FIDE Dutch pairing normally avoids repeating that for the same player whenever an
+            alternative exists.
+          </p>
         </div>
+      </div>
+
+      <div :if={@rationale.pairing_gap} class="card pe-warning" style="margin: 8px 0">
+        <strong>Anomaly check:</strong>
+        this round's eligible field has a gap in the pairing-number sequence — likely an absent
+        player whose seed sits in the middle of the field rather than at the bottom{if @rationale.pairing_gap.players != [] do
+          " (" <>
+            Enum.map_join(@rationale.pairing_gap.players, ", ", fn p ->
+              "##{p.pairing_number} #{p.name}"
+            end) <> ")"
+        end}.
       </div>
 
       <div :if={@rationale.byes.requested != []} class="card table-card" style="margin-top: 16px">

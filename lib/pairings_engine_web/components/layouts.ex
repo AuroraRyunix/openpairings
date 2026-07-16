@@ -103,16 +103,29 @@ defmodule PairingsEngineWeb.Layouts do
               </.link>
             </div>
           </details>
-          <.link navigate={~p"/t/#{@tournament.id}/settings"} class={tab_class(@active == "settings")}>
-            Settings
-          </.link>
-          <.link
-            :if={@tournament.categories_enabled}
-            navigate={~p"/t/#{@tournament.id}/categories"}
-            class={tab_class(@active == "categories")}
-          >
-            Categories
-          </.link>
+          <details class="topbar-menu">
+            <summary class={tab_class(@active in ["settings", "categories"])}>Settings</summary>
+            <div class="topbar-menu-panel">
+              <.link navigate={~p"/t/#{@tournament.id}/settings"} class="topbar-menu-item">
+                Tournament
+              </.link>
+              <.link navigate={~p"/t/#{@tournament.id}/settings/options"} class="topbar-menu-item">
+                Options
+              </.link>
+              <.link navigate={~p"/t/#{@tournament.id}/settings/dates"} class="topbar-menu-item">
+                Dates
+              </.link>
+              <.link navigate={~p"/t/#{@tournament.id}/categories"} class="topbar-menu-item">
+                Categories
+              </.link>
+              <.link navigate={~p"/t/#{@tournament.id}/settings/extra-points"} class="topbar-menu-item">
+                Extra points
+              </.link>
+              <.link navigate={~p"/t/#{@tournament.id}/settings/fide"} class="topbar-menu-item">
+                FIDE
+              </.link>
+            </div>
+          </details>
         <% end %>
         <.link
           :if={!@tournament}
