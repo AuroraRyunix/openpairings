@@ -934,10 +934,6 @@ button.pe-btn, .pe-btn {
    viewBox is 1:1 with CSS pixels (the <svg> has no separate CSS width), so
    the same x/y used for the circles positions the overlay directly. */
 .pe-bracket-scroll { position: relative; }
-.pe-bracket-scroll:has(.pe-dot-wrap:hover),
-.pe-bracket-scroll:has(.pe-dot-wrap:focus-within) {
-  overflow: visible;
-}
 .pe-dot-overlay {
   position: absolute;
   inset: 0;
