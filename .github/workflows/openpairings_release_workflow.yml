@@ -115,7 +115,7 @@ jobs:
 
       # Upload the compiled binary as a workflow artifact
       - name: Upload Artifact
-        uses: actions/artifacts@v4
+        uses: actions/upload-artifact@v4
         with:
           name: openpairings-${{ matrix.os }}-${{ matrix.arch }}
           path: ${{ matrix.exec_name }}
