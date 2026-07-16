@@ -5,6 +5,9 @@ Swiss pairing via JaVaFo, round robin (Berger), the Keizer system,
 FIDE-compliant tiebreaks (C.07), TRF16 export/import, FIDE + KBSB rating lists,
 SWAR import, per-tournament sharing, and FIDE norm/report forms.
 
+**Start here: [Features & roadmap](features.md)** — a one-page overview of
+everything the app does and what is planned next.
+
 ## Feature guides
 
 - [Pairing systems](pairing-systems.md) — Swiss (FIDE Dutch via JaVaFo),
