@@ -292,6 +292,7 @@ defmodule PairingsEngine.PairingRationaleTest do
       end
     end
 
+    @tag :javafo
     test "no gap is reported for a normal, fully-eligible field" do
       t = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
 
