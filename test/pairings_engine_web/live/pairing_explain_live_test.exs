@@ -4,11 +4,67 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
   import Phoenix.LiveViewTest
   import PairingsEngine.AccountsFixtures
 
-  alias PairingsEngine.{Pairing, Repo, Tournaments}
+  alias PairingsEngine.{Pairing, PairingRationale, Repo, Tournaments}
   alias PairingsEngine.Tournaments.Round, as: RoundSchema
   alias PairingsEngine.Tournaments.Pairing, as: PairingSchema
 
   setup :register_and_log_in_user
+
+  # Hand-builds a 5-player, 3-round Swiss (no JaVaFo) exercising every trail
+  # case: a player absent an early round, byes, decisive/drawn results, and a
+  # still-pending final round. Returns the tournament plus its players. Carol
+  # is absent in round 1 (no pairing), then present rounds 2-3; round 3 is
+  # left unplayed (the round being explained).
+  defp three_round_swiss(scope) do
+    {:ok, t} = Tournaments.create_tournament(scope, %{"name" => "Trail", "type" => "swiss"})
+
+    players =
+      Map.new(~w(Alice Bob Carol Dave Erin), fn name ->
+        {:ok, p} = Tournaments.create_player(t.id, %{"name" => name})
+        {name, p}
+      end)
+
+    %{"Alice" => a, "Bob" => b, "Carol" => c, "Dave" => d, "Erin" => e} = players
+
+    # Round 1 — Carol absent (no pairing); Alice/Dave win.
+    r1 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 1, status: "playing"})
+    board(r1, 1, a, b, "1-0")
+    board(r1, 2, d, e, "1-0")
+
+    # Round 2 — Carol back and wins as Black; Bob/Dave draw; Erin gets the bye.
+    r2 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 2, status: "playing"})
+    board(r2, 1, a, c, "0-1")
+    board(r2, 2, b, d, "1/2-1/2")
+    bye_board(r2, 3, e)
+
+    # Round 3 — the round being explained: two unplayed boards + Bob's bye.
+    r3 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 3, status: "playing"})
+    board(r3, 1, a, d, "")
+    board(r3, 2, c, e, "")
+    bye_board(r3, 3, b)
+
+    {Tournaments.get_tournament!(t.id), players}
+  end
+
+  defp board(round, board, white, black, result) do
+    Repo.insert!(%PairingSchema{
+      round_id: round.id,
+      board: board,
+      white_player_id: white.id,
+      black_player_id: black.id,
+      result: result
+    })
+  end
+
+  defp bye_board(round, board, player) do
+    Repo.insert!(%PairingSchema{
+      round_id: round.id,
+      board: board,
+      white_player_id: player.id,
+      black_player_id: nil,
+      result: "bye"
+    })
+  end
 
   test "shows a not-paired-yet message for an unpaired round", %{conn: conn, scope: scope} do
     {:ok, t} = Tournaments.create_tournament(scope, %{"name" => "T", "type" => "swiss"})
@@ -512,5 +568,112 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     assert html =~ "pe-legend-line is-rematch"
     refute html =~ ~s(data-filter="anomaly")
     assert html =~ "rematch (match format)"
+  end
+
+  ## ---------- Task A: cross-round trail in the pinned popover ----------
+
+  test "player_trails/2 gives per-round colour/result/opponent + honest running scores", %{
+    scope: scope
+  } do
+    {t, %{"Carol" => carol, "Alice" => alice}} = three_round_swiss(scope)
+
+    trails = PairingRationale.player_trails(t, 3)
+
+    # Keyed by player id; every player has one entry per round through 3.
+    carol_trail = trails[carol.id]
+    assert [r1, r2, r3] = carol_trail
+
+    # Round 1: Carol wasn't paired → an honest "absent" row, not skipped.
+    assert r1.round == 1
+    assert r1.colour == "absent"
+    assert r1.outcome == :absent
+    assert r1.score == 0.0
+
+    # Round 2: Carol won as Black against Alice; running score reflects it.
+    assert r2.round == 2
+    assert r2.colour == "B"
+    assert r2.outcome == :win
+    assert r2.opponent_name == "Alice"
+    assert r2.score == 1.0
+
+    # Round 3 is the round being explained and is unplayed → pending marker.
+    assert r3.round == 3
+    assert r3.current
+    assert r3.outcome == :pending
+
+    # Alice: win then loss then pending, so her running score stays at 1.0.
+    assert Enum.map(trails[alice.id], & &1.score) == [1.0, 1.0, 1.0]
+
+    # Round 1 has no history worth a trail.
+    assert PairingRationale.player_trails(t, 1) == %{}
+  end
+
+  test "a round-2 explain page renders each dot's trail (history + running scores), hidden until pinned",
+       %{conn: conn, scope: scope} do
+    {t, _players} = three_round_swiss(scope)
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/2/explain")
+
+    # The trail scaffold is present in the popovers (revealed only when the
+    # dot is pinned — pure CSS, no server roundtrip).
+    assert html =~ "pe-trail"
+    assert html =~ "Tournament so far"
+    # Sparkline of the running score across rounds.
+    assert html =~ "pe-trail-spark"
+    # Round-1 history carried into the round-2 popovers, with running scores.
+    assert html =~ "pe-trail-rounds"
+    assert html =~ "pe-trail-sc"
+  end
+
+  test "the trail shows bye and absent rounds honestly, and marks the current round pending", %{
+    conn: conn,
+    scope: scope
+  } do
+    {t, _players} = three_round_swiss(scope)
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/3/explain")
+
+    # Carol was absent round 1; Erin/Bob had byes — all shown, not skipped.
+    assert html =~ "pe-trail-absent"
+    assert html =~ "pe-trail-bye"
+    # The current (unplayed) round is flagged rather than shown as a result.
+    assert html =~ "this round"
+  end
+
+  test "round 1 shows no trail chrome (no history)", %{conn: conn, scope: scope} do
+    {:ok, t} =
+      Tournaments.create_tournament(scope, %{
+        "name" => "RR",
+        "type" => "roundrobin",
+        "pairing_system" => "round_robin"
+      })
+
+    for name <- ~w(Alice Bob Carol Dave) do
+      {:ok, _} = Tournaments.create_player(t.id, %{"name" => name})
+    end
+
+    assert {:ok, _round} = Pairing.pair_next_round(t)
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
+
+    refute html =~ "Tournament so far"
+    refute html =~ "pe-trail-rounds"
+  end
+
+  ## ---------- Task B: overview minimap ----------
+
+  test "renders the overview minimap SVG and its scroll-sync hook", %{conn: conn, scope: scope} do
+    {t, _players} = three_round_swiss(scope)
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/3/explain")
+
+    # A second, simplified SVG under the strip, driven by the colocated hook.
+    assert html =~ "pe-minimap-wrap"
+    assert html =~ "pe-minimap-svg"
+    assert html =~ "pe-minimap-viewport"
+    # The colocated hook name is compiled to its module-qualified form.
+    assert html =~ ~r/phx-hook="[^"]*BracketMinimap"/
+    # It scales the shared layout for free (unique to the minimap SVG).
+    assert html =~ "preserveAspectRatio"
   end
 end

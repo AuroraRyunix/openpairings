@@ -31,7 +31,7 @@ defmodule PairingsEngine.PairingRationale do
   """
 
   import Ecto.Query
-  alias PairingsEngine.{Repo, Standings, Keizer, Tournaments, Pairing}
+  alias PairingsEngine.{Repo, Standings, Keizer, Tournaments, Pairing, PlayerCard}
   alias PairingsEngine.Tournaments.{Round, Player}
 
   @doc """
@@ -116,6 +116,184 @@ defmodule PairingsEngine.PairingRationale do
         rematches: Enum.count(boards, & &1.rematch)
       }
     }
+  end
+
+  ## ---------- cross-round player trails ----------
+
+  @doc """
+  Per-player tournament trail up to and including `through_round`, for the
+  cross-round strip + score sparkline shown in a **pinned** dot popover on the
+  bracket map (`PairingsEngineWeb.PairingExplainLive`). Returns
+  `%{player_id => [round_entry]}`, each `round_entry` a map:
+
+      %{round:, current:, colour: "W" | "B" | "bye" | "absent",
+        result:, outcome:, opponent_name:, opponent_seed:, score:}
+
+  Design choices, so callers don't re-derive facts:
+
+    * Running `score` after each round comes from `pre_round_scores/2` — the
+      SAME per-system honest standings the bracket bands use (Keizer routes to
+      the ladder, everything else to `Standings`). A naive cumulative sum of
+      per-game points would be WRONG for Keizer, so we never do that.
+    * `colour` / `result` / `opponent` reuse `Standings`' existing per-game
+      records plus `PlayerCard.result_label/2` rather than re-parsing result
+      strings. `outcome` is a coarse atom (`:win | :draw | :loss |
+      :forfeit_win | :forfeit_loss | :bye | :pending | :absent`) for styling,
+      derived from the game map's own fields, not from the label text.
+    * The current round is always the last entry. `Standings` emits no game
+      record for a still-unplayed pairing, so the current round's colour /
+      opponent are read straight from its pairings and marked `:pending`
+      (`result: ""`) until a result is entered.
+    * Rounds a player wasn't paired in (absent, or not yet entered) show an
+      honest `"absent"` row rather than being skipped.
+
+  Returns `%{}` for round 1 or earlier — a first round has no history worth a
+  trail, so the view renders no extra chrome for it.
+  """
+  def player_trails(_tournament, through_round) when through_round < 2, do: %{}
+
+  def player_trails(tournament, through_round) do
+    scores_by_round =
+      Map.new(0..through_round, fn r -> {r, pre_round_scores(tournament, r)} end)
+
+    entries = Standings.standings(tournament, through_round: through_round)
+    by_id = Map.new(entries, fn e -> {e.player.id, e} end)
+    current_sides = current_round_sides(tournament, through_round)
+
+    Map.new(entries, fn e ->
+      games_by_round = Map.new(e.games, fn g -> {g.round, g} end)
+
+      rounds =
+        Enum.map(1..through_round, fn r ->
+          trail_round(
+            r,
+            through_round,
+            e.player.id,
+            Map.get(games_by_round, r),
+            Map.get(current_sides, e.player.id),
+            by_id,
+            tournament,
+            Map.get(scores_by_round, r)
+          )
+        end)
+
+      {e.player.id, rounds}
+    end)
+  end
+
+  # Colour/opponent for each player in the current round, read from its
+  # pairings so an unplayed (result == "") current round still knows who is
+  # playing whom and with which colour — Standings emits no game record until
+  # a result exists.
+  defp current_round_sides(tournament, round_number) do
+    case Tournaments.get_round(tournament.id, round_number) do
+      nil ->
+        %{}
+
+      round ->
+        Enum.reduce(round.pairings, %{}, fn p, acc ->
+          is_bye = p.black_player_id == nil or p.result == "bye"
+
+          acc =
+            if p.white_player_id do
+              Map.put(acc, p.white_player_id, %{
+                colour: "W",
+                opponent_id: if(is_bye, do: nil, else: p.black_player_id),
+                bye: is_bye
+              })
+            else
+              acc
+            end
+
+          if p.black_player_id && not is_bye do
+            Map.put(acc, p.black_player_id, %{
+              colour: "B",
+              opponent_id: p.white_player_id,
+              bye: false
+            })
+          else
+            acc
+          end
+        end)
+    end
+  end
+
+  # No recorded game this round.
+  defp trail_round(r, current, player_id, nil, current_side, by_id, _tournament, scores) do
+    score = running_score(scores, player_id)
+
+    if r == current and current_side do
+      opp = current_side.opponent_id && Map.get(by_id, current_side.opponent_id)
+
+      %{
+        round: r,
+        current: true,
+        colour: if(current_side.bye, do: "bye", else: current_side.colour),
+        result: "",
+        outcome: :pending,
+        opponent_name: opp && opp.player.name,
+        opponent_seed: opp && opp.player.pairing_number,
+        score: score
+      }
+    else
+      %{
+        round: r,
+        current: r == current,
+        colour: "absent",
+        result: "",
+        outcome: :absent,
+        opponent_name: nil,
+        opponent_seed: nil,
+        score: score
+      }
+    end
+  end
+
+  # A recorded game (played, forfeit, or bye).
+  defp trail_round(r, current, player_id, game, _current_side, by_id, tournament, scores) do
+    opp = game.opponent_id && Map.get(by_id, game.opponent_id)
+
+    colour =
+      cond do
+        is_nil(game.opponent_id) -> "bye"
+        game.colour == :w -> "W"
+        game.colour == :b -> "B"
+        true -> "-"
+      end
+
+    %{
+      round: r,
+      current: r == current,
+      colour: colour,
+      result: PlayerCard.result_label(game, tournament),
+      outcome: trail_outcome(game, tournament),
+      opponent_name: opp && opp.player.name,
+      opponent_seed: opp && opp.player.pairing_number,
+      score: running_score(scores, player_id)
+    }
+  end
+
+  # Coarse outcome atom for styling, from the game map's own fields (mirrors
+  # PlayerCard.result_label/2's branching without re-reading its text output).
+  defp trail_outcome(%{opponent_id: nil}, _tournament), do: :bye
+
+  defp trail_outcome(%{played: false} = game, tournament) do
+    if game.points >= tournament.points_win, do: :forfeit_win, else: :forfeit_loss
+  end
+
+  defp trail_outcome(%{points: points}, tournament) do
+    cond do
+      points >= tournament.points_win -> :win
+      points <= tournament.points_loss -> :loss
+      true -> :draw
+    end
+  end
+
+  defp running_score(scores, player_id) do
+    case Map.get(scores, player_id) do
+      %{score: s} -> s
+      _ -> 0.0
+    end
   end
 
   ## ---------- per-board analysis ----------
