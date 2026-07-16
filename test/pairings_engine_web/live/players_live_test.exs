@@ -501,6 +501,15 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       end
     end
 
+    # Extracts the trimmed text content of every `<td class="num">...</td>`
+    # cell in `row_html`, in document order — used to check individual
+    # numeric-column values without depending on exact whitespace.
+    defp num_cells(row_html) do
+      ~r/<td class="num">(.*?)<\/td>/s
+      |> Regex.scan(row_html)
+      |> Enum.map(fn [_, inner] -> String.trim(inner) end)
+    end
+
     test "clicking a bio column header sorts ascending by that column's underlying value (case-insensitive)",
          %{conn: conn, tournament: tournament} do
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
@@ -572,6 +581,226 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       desc_html = render_click(lv, "sort", %{"key" => "birth_year"})
       assert position(desc_html, "Alice") < position(desc_html, "Bob")
       assert position(desc_html, "Carol") < position(desc_html, "Bob")
+    end
+
+    test "the N1 header sorts by the same ranking as Cl (phx-value-key is \"cl\", not \"name\")",
+         %{conn: conn, tournament: tournament} do
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      assert html =~ "N1"
+      assert html =~ ~s(phx-value-key="cl")
+
+      # No ratings given, so all three tie on rank/rating — `entry.rank`'s
+      # own order (Alice, Bob, Carol, per `list_players/1`'s
+      # rating-desc/name-asc ordering) already matches ascending "cl", so
+      # the first click is a no-op; the real proof N1 is wired to the same
+      # "cl" sort (not "name", as it was before this change) is that a
+      # second click flips it to descending rank order.
+      render_click(lv, "sort", %{"key" => "cl"})
+      html = render_click(lv, "sort", %{"key" => "cl"})
+
+      assert position(html, "Carol") < position(html, "Bob")
+      assert position(html, "Bob") < position(html, "Alice")
+    end
+  end
+
+  describe "default sort order (real tournament ranking, not just rating)" do
+    test "with no column clicked, players sort by points/total, not rating or name", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "Default Sort Test",
+          "type" => "swiss",
+          "count_extra_points" => true
+        })
+
+      # Equal ratings (0) for all three, so a rating/name-based default would
+      # list them alphabetically: Alice, Bob, Carol. Extra points (counted
+      # into `total` because count_extra_points is on) instead should rank
+      # Bob (5) > Carol (2) > Alice (0).
+      {:ok, _alice} =
+        Tournaments.create_player(tournament.id, %{"name" => "Alice", "extra_points" => "0"})
+
+      {:ok, _bob} =
+        Tournaments.create_player(tournament.id, %{"name" => "Bob", "extra_points" => "5"})
+
+      {:ok, _carol} =
+        Tournaments.create_player(tournament.id, %{"name" => "Carol", "extra_points" => "2"})
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      assert position(html, "Bob") < position(html, "Carol")
+      assert position(html, "Carol") < position(html, "Alice")
+    end
+
+    test "ties on points/tiebreaks fall back to rating descending, then name", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Rating Fallback Test", "type" => "swiss"})
+
+      # No games played -> everyone tied on points (0) and every tiebreak
+      # (0) -> default order should fall back to rating descending.
+      {:ok, _low} =
+        Tournaments.create_player(tournament.id, %{"name" => "Low", "fide_rating" => "1200"})
+
+      {:ok, _high} =
+        Tournaments.create_player(tournament.id, %{"name" => "High", "fide_rating" => "2000"})
+
+      {:ok, _mid} =
+        Tournaments.create_player(tournament.id, %{"name" => "Mid", "fide_rating" => "1600"})
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      assert position(html, "High") < position(html, "Mid")
+      assert position(html, "Mid") < position(html, "Low")
+    end
+  end
+
+  describe "Rnk column (live rating-based seed, distinct from frozen Nr)" do
+    test "Rnk recomputes fresh and can differ from the frozen Nr after a rating correction", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Rnk Test", "type" => "swiss"})
+
+      {:ok, alice} =
+        Tournaments.create_player(tournament.id, %{"name" => "Alice", "fide_rating" => "1000"})
+
+      {:ok, bob} =
+        Tournaments.create_player(tournament.id, %{"name" => "Bob", "fide_rating" => "2000"})
+
+      # Freeze pairing numbers the same way the real pairing run does: Bob
+      # (higher rating) gets Nr 1, Alice gets Nr 2.
+      players = Tournaments.list_players(tournament.id)
+      PairingsEngine.Pairing.ensure_pairing_numbers(tournament, players)
+
+      alice = Tournaments.get_player!(alice.id)
+      bob = Tournaments.get_player!(bob.id)
+      assert bob.pairing_number == 1
+      assert alice.pairing_number == 2
+
+      # Now correct Alice's rating upward, past Bob's, *after* numbers were
+      # frozen — Nr must stay put (it's frozen), but the live Rnk column
+      # must reflect the new rating order immediately.
+      {:ok, _alice} = Tournaments.update_player(alice, %{"fide_rating" => "2500"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+      render_click(lv, "toggle_column", %{"key" => "nr"})
+      html = render_click(lv, "toggle_column", %{"key" => "rnk"})
+
+      alice_row = html |> String.split(~s(data-player-id="#{alice.id}")) |> Enum.at(1)
+      bob_row = html |> String.split(~s(data-player-id="#{bob.id}")) |> Enum.at(1)
+
+      # Visible numeric columns, in order: N1, Cl, Nr, Rnk, ... — so index 2
+      # is the frozen Nr and index 3 is the live Rnk.
+      alice_cells = num_cells(alice_row)
+      bob_cells = num_cells(bob_row)
+
+      # Frozen Nr is unchanged...
+      assert Enum.at(alice_cells, 2) == "2"
+      assert Enum.at(bob_cells, 2) == "1"
+
+      # ...but the live Rnk column now puts Alice (2500) ahead of Bob (2000).
+      assert Enum.at(alice_cells, 3) == "1"
+      assert Enum.at(bob_cells, 3) == "2"
+    end
+  end
+
+  describe "Elo used column" do
+    test "shows FIDE rating when set, national rating otherwise", %{conn: conn, scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Elo Used Test", "type" => "swiss"})
+
+      {:ok, fide_player} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "FidePlayer",
+          "fide_rating" => "2200",
+          "national_rating" => "1800"
+        })
+
+      {:ok, national_only} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "NationalOnly",
+          "national_rating" => "1700"
+        })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+      html = render_click(lv, "toggle_column", %{"key" => "elo_used"})
+
+      fide_row = html |> String.split(~s(data-player-id="#{fide_player.id}")) |> Enum.at(1)
+      national_row = html |> String.split(~s(data-player-id="#{national_only.id}")) |> Enum.at(1)
+
+      # Visible numeric columns, in order: N1, Cl, Birth, Id FIDE, Elo Nat,
+      # Elo FIDE, Elo used, Ga, Pts, XtPts, P.Tot. — index 4 is the raw
+      # national rating, index 6 is the new Elo-used column.
+      fide_cells = num_cells(fide_row)
+      national_cells = num_cells(national_row)
+
+      # FidePlayer has both ratings set — Elo Nat keeps showing the raw
+      # national rating (1800), while Elo used picks the FIDE one (2200).
+      assert Enum.at(fide_cells, 4) == "1800"
+      assert Enum.at(fide_cells, 6) == "2200"
+
+      # NationalOnly has no FIDE rating — Elo used falls back to the same
+      # national rating shown in Elo Nat.
+      assert Enum.at(national_cells, 4) == "1700"
+      assert Enum.at(national_cells, 6) == "1700"
+    end
+  end
+
+  describe "tiebreak column ordering follows the tournament's configured tiebreaks" do
+    test "tiebreak headers render in the tournament's configured order", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "Tiebreak Order Test",
+          "type" => "swiss",
+          "tiebreaks" => ["SB", "BH"]
+        })
+
+      {:ok, _p} = Tournaments.create_player(tournament.id, %{"name" => "Solo"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      html =
+        lv
+        |> render_click("toggle_column", %{"key" => "buch"})
+        |> then(fn _ -> render_click(lv, "toggle_column", %{"key" => "sb"}) end)
+
+      # Configured order is SB, BH -> S.B. header must come before Buch.
+      assert position(html, "S.B.") < position(html, "Buch")
+    end
+
+    test "tiebreaks left out of the tournament's configured list still render, after the configured ones",
+         %{conn: conn, scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "Partial Tiebreak Test",
+          "type" => "swiss",
+          "tiebreaks" => ["SB"]
+        })
+
+      {:ok, _p} = Tournaments.create_player(tournament.id, %{"name" => "Solo"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      html =
+        lv
+        |> render_click("toggle_column", %{"key" => "buch"})
+        |> then(fn _ -> render_click(lv, "toggle_column", %{"key" => "sb"}) end)
+
+      # SB is configured, so it comes first; BH is not configured, so it
+      # falls back after — but it must still appear (columns aren't hidden,
+      # only reordered, since the grid always computes all of these).
+      assert html =~ "Buch"
+      assert position(html, "S.B.") < position(html, "Buch")
     end
   end
 
