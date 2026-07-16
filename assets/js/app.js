@@ -83,18 +83,53 @@ const AddPlayerShortcut = {
   },
 }
 
+// Legend items and score-band gutter labels on the bracket map are both
+// `[data-filter]` buttons sharing one `data-active-filter` state on the
+// nearest .pe-bracket-map — one facet active at a time, click the active
+// one again to clear. Matching against each SVG element's `data-facets`
+// (set by dot_facets/1 / link_facets/1 in pairing_explain_live.ex) happens
+// here in JS rather than via static per-facet CSS, since the set of
+// possible "band-N" values is unbounded and only known at render time —
+// see the comment above .pe-filterable/.pe-dim in assets/css/app.css.
+function applyBracketFilter(map, filter) {
+  const active = map.dataset.activeFilter === filter ? "" : filter
+  map.dataset.activeFilter = active
+
+  map.querySelectorAll("[data-filter]").forEach((btn) => {
+    btn.classList.toggle("is-active-filter", active !== "" && btn.dataset.filter === active)
+  })
+
+  map.querySelectorAll(".pe-filterable").forEach((el) => {
+    const facets = (el.dataset.facets || "").split(" ")
+    el.classList.toggle("pe-dim", active !== "" && !facets.includes(active))
+  })
+}
+
 // Pairing-rationale bracket map: clicking a dot directly on the graph
 // toggles its pin (ring + popover stay open until clicked again); clicking
 // a board card's colour disc always pins that dot and scrolls it into
-// view. One delegated listener on document — not the scroll container,
-// which LiveView can replace on round navigation — so no re-binding needed.
+// view; clicking a legend item or band label highlights just that facet.
+// One delegated listener on document — not the scroll container, which
+// LiveView can replace on round navigation — so no re-binding needed (and
+// round navigation naturally resets any active filter along with it).
 document.addEventListener("click", (e) => {
+  // A click inside an open popover (e.g. selecting the player's name)
+  // must not bubble into the wrap-toggle branch below and close it.
+  if (e.target.closest(".pe-dot-popover")) return
+
   const wrap = e.target.closest(".pe-board-wrap")
   if (wrap) {
     document.querySelectorAll(".pe-board-wrap.is-pinned").forEach((el) => {
       if (el !== wrap) el.classList.remove("is-pinned")
     })
     wrap.classList.toggle("is-pinned")
+    return
+  }
+
+  const filterBtn = e.target.closest("[data-filter]")
+  if (filterBtn) {
+    const map = filterBtn.closest(".pe-bracket-map")
+    if (map) applyBracketFilter(map, filterBtn.dataset.filter)
     return
   }
 

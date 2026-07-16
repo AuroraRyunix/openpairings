@@ -143,6 +143,14 @@ defmodule PairingsEngineWeb.PairingExplainLive do
       |> Enum.with_index()
       |> Map.new(fn {g, i} -> {g.score, @bracket_top + i * @bracket_row_gap} end)
 
+    # Score-band index per score, threaded onto every dot so the legend/gutter
+    # click-filter (see dot_facets/1) can highlight "everyone in this band"
+    # without a new query — counts already come from score_groups below.
+    band_idx_of =
+      groups
+      |> Enum.with_index()
+      |> Map.new(fn {g, i} -> {g.score, i} end)
+
     bands =
       groups
       |> Enum.with_index()
@@ -183,20 +191,13 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         }
       end)
 
-    bye_dots =
-      byes
-      |> Enum.with_index(length(playing))
-      |> Enum.map(fn {b, i} ->
-        %{
-          x: column_x(i),
-          y: Map.fetch!(y_of, b.white.score),
-          name: b.white.player.name,
-          score: b.white.score
-        }
-      end)
-
     # One hover wrap per DOT — two per playing board (white, black), one per
     # bye — each centred on that dot alone, carrying just that player's facts.
+    # These same per-dot maps (via dot_wrap/2, which just adds wrap geometry
+    # on top) also drive every SVG dot circle/halo/triangle below — one
+    # source of truth for "what facets does this dot belong to" instead of
+    # re-deriving colour/floater/rematch facts separately for the overlay
+    # and the SVG.
     dots =
       playing
       |> Enum.with_index()
@@ -204,17 +205,41 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         x = column_x(i)
 
         [
-          dot(b, b.white, :w, x - @bracket_dx, Map.fetch!(y_of, b.white.score)),
-          dot(b, b.black, :b, x + @bracket_dx, Map.fetch!(y_of, b.black.score))
+          dot(
+            b,
+            b.white,
+            :w,
+            x - @bracket_dx,
+            Map.fetch!(y_of, b.white.score),
+            Map.fetch!(band_idx_of, b.white.score)
+          ),
+          dot(
+            b,
+            b.black,
+            :b,
+            x + @bracket_dx,
+            Map.fetch!(y_of, b.black.score),
+            Map.fetch!(band_idx_of, b.black.score)
+          )
         ]
       end)
 
     bye_dot_entries =
       byes
       |> Enum.with_index(length(playing))
-      |> Enum.map(fn {b, i} -> dot(b, b.white, :bye, column_x(i), Map.fetch!(y_of, b.white.score)) end)
+      |> Enum.map(fn {b, i} ->
+        dot(
+          b,
+          b.white,
+          :bye,
+          column_x(i),
+          Map.fetch!(y_of, b.white.score),
+          Map.fetch!(band_idx_of, b.white.score)
+        )
+      end)
 
-    wraps = Enum.map(dots ++ bye_dot_entries, &dot_wrap(&1, width, height))
+    all_dots = dots ++ bye_dot_entries
+    wraps = Enum.map(all_dots, &dot_wrap(&1, width, height))
 
     # A popover that opens downward must fit inside the scroll container's
     # vertical clip; grow the canvas just enough for the deepest one.
@@ -235,14 +260,15 @@ defmodule PairingsEngineWeb.PairingExplainLive do
     %{
       bands: bands,
       links: links,
-      bye_dots: bye_dots,
       wraps: wraps,
       axis: axis,
       width: width,
       height: height,
       min_height: min_height,
       has_bye: byes != [],
-      has_rematch_anomaly: Enum.any?(playing, & &1.rematch_anomaly)
+      has_rematch_anomaly: Enum.any?(playing, & &1.rematch_anomaly),
+      has_match_rematch: Enum.any?(playing, &(&1.rematch and not &1.rematch_anomaly)),
+      has_against_due: Enum.any?(all_dots, & &1.against_due)
     }
   end
 
@@ -251,20 +277,88 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   # One dot's full popover content: which board, this player's side, and
   # (for a real pairing, not a bye) the shared board-level facts — floater
   # direction and rematch status apply to the specific side that floated /
-  # to both sides of the same game respectively.
-  defp dot(board, side, colour, x, y) do
-    %{
+  # to both sides of the same game respectively. Also carries every fact the
+  # legend/gutter click-filter (task 1/2) and the colour-against-due halo
+  # (task 3) need, all rolled into a single `facets` string (see
+  # dot_facets/1) so the SVG and the CSS filter share one source of truth.
+  defp dot(board, side, colour, x, y, band_idx) do
+    floater = colour != :bye and board.floater
+    rematch = if(colour == :bye, do: false, else: board.rematch)
+    rematch_anomaly = if(colour == :bye, do: false, else: board.rematch_anomaly)
+    # Deliberate rematches (round-robin / Swiss "match format") vs. flagged
+    # anomalies are mutually exclusive by construction (rematch_anomaly is
+    # only set when NOT match-format-expected — see PairingRationale).
+    match_rematch = rematch and not rematch_anomaly
+    # The only colour-history signal PairingRationale exposes is the boolean
+    # colour_ok verdict (no numeric imbalance) — see pairing_rationale.ex's
+    # `side/6` / `colour_matches_due?/2` — so this halo is binary, not scaled.
+    against_due = side.colour_due != nil and not side.colour_ok
+
+    base = %{
       board: board.board,
       side: side,
       colour: colour,
       x: x,
       y: y,
       dir: if(colour == :bye, do: nil, else: float_dir(board, side)),
-      rematch: if(colour == :bye, do: false, else: board.rematch),
-      rematch_anomaly: if(colour == :bye, do: false, else: board.rematch_anomaly),
+      rematch: rematch,
+      rematch_anomaly: rematch_anomaly,
+      floater: floater,
+      match_rematch: match_rematch,
+      against_due: against_due,
+      band_idx: band_idx,
       bye_detail: Map.get(board, :bye_detail)
     }
+
+    Map.put(base, :facets, dot_facets(base))
   end
+
+  # Space-separated facet tokens for one dot — consumed both as the
+  # `data-facets` attribute JS reads to decide what to dim (see the
+  # delegated listener in assets/js/app.js) and, indirectly, as the set of
+  # `data-filter` values the legend/gutter buttons can target. Keep this in
+  # sync with link_facets/1 and the `data-filter` values in the template.
+  defp dot_facets(d) do
+    [
+      colour_key(d.colour),
+      (d.colour != :bye and not d.floater) && "within",
+      d.floater && "float",
+      d.rematch_anomaly && "anomaly",
+      d.match_rematch && "rematch",
+      d.dir == :down && "down",
+      d.dir == :up && "up",
+      d.against_due && "against-due",
+      "band-#{d.band_idx}"
+    ]
+    |> Enum.filter(& &1)
+    |> Enum.join(" ")
+  end
+
+  # Same idea as dot_facets/1 but for a board's connecting `<line>` — no
+  # colour/direction/band facets (a link spans two dots that may disagree on
+  # those), just its link-type classification.
+  defp link_facets(l) do
+    [
+      not l.floater && "within",
+      l.floater && "float",
+      l.rematch_anomaly && "anomaly",
+      (l.rematch and not l.rematch_anomaly) && "rematch"
+    ]
+    |> Enum.filter(& &1)
+    |> Enum.join(" ")
+  end
+
+  # <title>/popover-adjacent one-liner for a dot, including the
+  # against-due-colour note when applicable (task 3).
+  defp dot_title(%{colour: :bye} = w),
+    do: "#{w.side.player.name} — bye, score #{score_str(w.side.score)}#{due_title_suffix(w)}"
+
+  defp dot_title(w),
+    do:
+      "#{w.side.player.name} — #{colour_word(w.colour)}, score #{score_str(w.side.score)}#{due_title_suffix(w)}"
+
+  defp due_title_suffix(%{against_due: true}), do: " — against due colour"
+  defp due_title_suffix(_), do: ""
 
   # The HTML hover wrap for one dot: a small box centred on it (ring drawn
   # by CSS, always dead-centre since the box is sized 2*reach square around
@@ -293,11 +387,14 @@ defmodule PairingsEngineWeb.PairingExplainLive do
     })
   end
 
-  defp dot_aria(%{colour: :bye, side: side, board: board}),
-    do: "Board #{board}, bye: #{side.player.name}"
+  defp dot_aria(%{colour: :bye, side: side, board: board} = d),
+    do: "Board #{board}, bye: #{side.player.name}" <> due_aria_suffix(d)
 
-  defp dot_aria(%{colour: colour, side: side, board: board}),
-    do: "Board #{board}, #{colour_word(colour)}: #{side.player.name}"
+  defp dot_aria(%{colour: colour, side: side, board: board} = d),
+    do: "Board #{board}, #{colour_word(colour)}: #{side.player.name}" <> due_aria_suffix(d)
+
+  defp due_aria_suffix(%{against_due: true}), do: ", against due colour"
+  defp due_aria_suffix(_), do: ""
 
   # Stable per-dot element id, shared by the map's own hover wrap (as its
   # `id`) and each board card's colour disc (as its `data-dot-target`) — a
@@ -468,27 +565,41 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         </p>
       </div>
 
-      <div :if={@rationale.score_groups != []} class="card" style="margin: 8px 0">
+      <div
+        :if={@rationale.score_groups != []}
+        class="card pe-bracket-map"
+        data-active-filter=""
+        style="margin: 8px 0"
+      >
         <h3 style="margin-top: 0">Pre-round score brackets</h3>
         <p class="hint" style="margin-top: 0">
           Players grouped by their standing going into this round (highest at the top). Each line
           is one board; a connector that slopes across bands is a floater — an odd bracket can't
           pair entirely within itself, so it floats a player to the neighbouring bracket. Hover
-          (or tap) a pairing for its full detail.
+          (or tap) a pairing for its full detail. Click a legend item or a score-band label to
+          highlight just that slice of the map.
         </p>
 
         <div :if={@bracket} class="pe-bracket-scroll">
-          <div class="pe-band-gutter" style={"height: #{@bracket.height}px"} aria-hidden="true">
-            <div
+          <%!-- No aria-hidden here even though the gutter used to carry it:
+                the band rows are now real, focusable filter buttons, and
+                focusable content inside an aria-hidden subtree is an a11y
+                violation (tabbable but invisible to assistive tech). --%>
+          <div class="pe-band-gutter" style={"height: #{@bracket.height}px"}>
+            <button
               :for={band <- @bracket.bands}
+              type="button"
               class={["pe-band-row", rem(band.idx, 2) == 1 && "is-alt"]}
               style={"top: #{band.y - 22}px"}
+              data-filter={"band-#{band.idx}"}
+              title="Click to highlight only this score band"
+              aria-label={"Highlight only the #{score_str(band.score)}-point score band (#{band.count} players)"}
             >
               <span class="pe-band-score">{score_str(band.score)}</span>
               <span class="pe-band-meta">
                 {band.count}p<span :if={band.odd} class="pe-band-odd"> · odd</span>
               </span>
-            </div>
+            </button>
           </div>
 
           <div
@@ -530,64 +641,88 @@ defmodule PairingsEngineWeb.PairingExplainLive do
                   y1={l.white.y}
                   x2={l.black.x}
                   y2={l.black.y}
+                  class="pe-link pe-filterable"
+                  data-facets={link_facets(l)}
                   stroke={
                     cond do
                       l.rematch_anomaly -> "#a33c2e"
                       l.floater -> "#b5762f"
+                      l.rematch -> "#5f7d68"
                       true -> "#9db8a8"
                     end
                   }
                   stroke-width={if l.rematch_anomaly, do: "3.5", else: "2.5"}
-                  stroke-dasharray={if l.floater and not l.rematch_anomaly, do: "5 3", else: "0"}
+                  stroke-dasharray={
+                    cond do
+                      l.floater and not l.rematch_anomaly -> "5 3"
+                      l.rematch and not l.rematch_anomaly -> "1.5 2.5"
+                      true -> "0"
+                    end
+                  }
                   stroke-linecap="round"
                 />
               </g>
-              <g :for={l <- @bracket.links}>
-                <circle cx={l.white.x} cy={l.white.y} r="9" fill="#ffffff" stroke="#2e5e44" stroke-width="2">
-                  <title>{l.white.name} — White, score {score_str(l.white.score)}</title>
-                </circle>
-                <circle cx={l.black.x} cy={l.black.y} r="9" fill="#2e5e44">
-                  <title>{l.black.name} — Black, score {score_str(l.black.score)}</title>
-                </circle>
-                <text
-                  :if={l.white.dir}
-                  x={l.white.x}
-                  y={l.white.y - 13}
-                  font-size="12"
-                  font-weight="700"
-                  text-anchor="middle"
-                  fill={float_colour(l.white.dir)}
-                >{if l.white.dir == :down, do: "▼", else: "▲"}</text>
-                <text
-                  :if={l.black.dir}
-                  x={l.black.x}
-                  y={l.black.y - 13}
-                  font-size="12"
-                  font-weight="700"
-                  text-anchor="middle"
-                  fill={float_colour(l.black.dir)}
-                >{if l.black.dir == :down, do: "▼", else: "▲"}</text>
-              </g>
-              <g :for={d <- @bracket.bye_dots}>
+              <g :for={w <- @bracket.wraps}>
                 <circle
-                  cx={d.x}
-                  cy={d.y}
+                  :if={w.colour != :bye}
+                  cx={w.x}
+                  cy={w.y}
+                  r="9"
+                  fill={if w.colour == :w, do: "#ffffff", else: "#2e5e44"}
+                  stroke="#2e5e44"
+                  stroke-width="2"
+                  class="pe-dot pe-filterable"
+                  data-facets={w.facets}
+                ><title>{dot_title(w)}</title></circle>
+                <circle
+                  :if={w.colour == :bye}
+                  cx={w.x}
+                  cy={w.y}
                   r="9"
                   fill="#ffffff"
                   stroke="#2e5e44"
                   stroke-width="2"
                   stroke-dasharray="3 2.4"
-                >
-                  <title>{d.name} — bye, score {score_str(d.score)}</title>
-                </circle>
+                  class="pe-dot pe-filterable"
+                  data-facets={w.facets}
+                ><title>{dot_title(w)}</title></circle>
                 <text
-                  x={d.x}
-                  y={d.y + 3.5}
+                  :if={w.colour == :bye}
+                  x={w.x}
+                  y={w.y + 3.5}
                   font-size="9.5"
                   font-weight="700"
                   text-anchor="middle"
                   fill="#2e5e44"
+                  class="pe-filterable"
+                  data-facets={w.facets}
                 >B</text>
+                <%!-- Colour-against-due halo (task 3): a second, unfilled ring —
+                      never drawn for players whose due colour was satisfied, so
+                      it only ever adds a warning, never noise. --%>
+                <circle
+                  :if={w.against_due}
+                  cx={w.x}
+                  cy={w.y}
+                  r="13"
+                  fill="none"
+                  stroke="#a76a25"
+                  stroke-width="1.75"
+                  stroke-dasharray="2 2"
+                  class="pe-dot pe-dot-halo pe-filterable"
+                  data-facets={w.facets}
+                ><title>against due colour ({colour_word(w.side.colour_due)})</title></circle>
+                <text
+                  :if={w.dir}
+                  x={w.x}
+                  y={w.y - 13}
+                  font-size="12"
+                  font-weight="700"
+                  text-anchor="middle"
+                  fill={float_colour(w.dir)}
+                  class="pe-tri pe-filterable"
+                  data-facets={w.facets}
+                >{if w.dir == :down, do: "▼", else: "▲"}</text>
               </g>
             </svg>
 
@@ -648,18 +783,60 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         </div>
 
         <div class="pe-legend">
-          <span class="pe-legend-item"><span class="pe-legend-disc pe-disc-w"></span> White</span>
-          <span class="pe-legend-item"><span class="pe-legend-disc pe-disc-b"></span> Black</span>
-          <span :if={@bracket && @bracket.has_bye} class="pe-legend-item">
+          <button type="button" class="pe-legend-item" data-filter="w" title="Click to highlight only these">
+            <span class="pe-legend-disc pe-disc-w"></span> White
+          </button>
+          <button type="button" class="pe-legend-item" data-filter="b" title="Click to highlight only these">
+            <span class="pe-legend-disc pe-disc-b"></span> Black
+          </button>
+          <button
+            :if={@bracket && @bracket.has_bye}
+            type="button"
+            class="pe-legend-item"
+            data-filter="bye"
+            title="Click to highlight only these"
+          >
             <span class="pe-legend-disc pe-disc-byedot"></span> bye
-          </span>
-          <span class="pe-legend-item"><span class="pe-legend-line"></span> within bracket</span>
-          <span class="pe-legend-item"><span class="pe-legend-line is-float"></span> floater</span>
-          <span :if={@bracket && @bracket.has_rematch_anomaly} class="pe-legend-item">
+          </button>
+          <button type="button" class="pe-legend-item" data-filter="within" title="Click to highlight only these">
+            <span class="pe-legend-line"></span> within bracket
+          </button>
+          <button type="button" class="pe-legend-item" data-filter="float" title="Click to highlight only these">
+            <span class="pe-legend-line is-float"></span> floater
+          </button>
+          <button
+            :if={@bracket && @bracket.has_rematch_anomaly}
+            type="button"
+            class="pe-legend-item"
+            data-filter="anomaly"
+            title="Click to highlight only these"
+          >
             <span class="pe-legend-line is-anomaly"></span> rematch (anomaly)
-          </span>
-          <span class="pe-legend-item"><span class="pe-legend-tri down">▼</span> paired down</span>
-          <span class="pe-legend-item"><span class="pe-legend-tri up">▲</span> paired up</span>
+          </button>
+          <button
+            :if={@bracket && @bracket.has_match_rematch}
+            type="button"
+            class="pe-legend-item"
+            data-filter="rematch"
+            title="Click to highlight only these"
+          >
+            <span class="pe-legend-line is-rematch"></span> rematch (match format)
+          </button>
+          <button type="button" class="pe-legend-item" data-filter="down" title="Click to highlight only these">
+            <span class="pe-legend-tri down">▼</span> paired down
+          </button>
+          <button type="button" class="pe-legend-item" data-filter="up" title="Click to highlight only these">
+            <span class="pe-legend-tri up">▲</span> paired up
+          </button>
+          <button
+            :if={@bracket && @bracket.has_against_due}
+            type="button"
+            class="pe-legend-item"
+            data-filter="against-due"
+            title="Click to highlight only these"
+          >
+            <span class="pe-legend-halo"></span> colour against due
+          </button>
         </div>
       </div>
 

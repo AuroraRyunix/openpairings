@@ -821,15 +821,60 @@ button.pe-btn, .pe-btn {
 .pe-bracket-svg text { font-family: 'Segoe UI', system-ui, sans-serif; }
 
 .pe-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; font-size: 12.5px; color: var(--text-soft); }
-.pe-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+/* Legend items are real buttons (task 1: legend-as-filter) — reset native
+   chrome first, same pattern as .pe-disc above, so the swatch + label
+   layout is unaffected by being a <button> instead of a <span>. */
+.pe-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  padding: 2px 8px;
+  margin: 0;
+  border-radius: 99px;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.pe-legend-item:hover,
+.pe-legend-item:focus-visible {
+  background: var(--accent-soft);
+  outline: none;
+}
+/* Active-filter affordance, toggled by the delegated listener in
+   assets/js/app.js — shared by legend items AND .pe-band-row (task 2),
+   since both are `[data-filter]` buttons targeting the same
+   `data-active-filter` state on the nearest .pe-bracket-map. */
+.pe-legend-item.is-active-filter {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+}
 .pe-legend-disc { width: 13px; height: 13px; border-radius: 50%; display: inline-block; }
 .pe-legend-disc.pe-disc-w { background: var(--surface); border: 2px solid var(--accent); }
 .pe-legend-disc.pe-disc-b { background: var(--accent); }
 .pe-legend-line { width: 20px; height: 0; border-top: 3px solid #9db8a8; display: inline-block; }
 .pe-legend-line.is-float { border-top-style: dashed; border-top-color: #b5762f; }
+/* Deliberate match-format rematch (task 4) — a neutral, non-alarming
+   dotted line, distinct from both the plain "within bracket" line and the
+   danger-red anomaly dashes below. */
+.pe-legend-line.is-rematch { border-top-style: dotted; border-top-color: #5f7d68; border-top-width: 3px; }
 .pe-legend-tri { font-size: 12px; line-height: 1; }
 .pe-legend-tri.down { color: #b5762f; }
 .pe-legend-tri.up { color: #3a6ea5; }
+/* Colour-against-due halo swatch (task 3) — mirrors the SVG halo ring's
+   warn colour/dash pattern (see .pe-tag-warn and the `pe-dot-halo` circle
+   in pairing_explain_live.ex). */
+.pe-legend-halo {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  display: inline-block;
+  border: 1.75px dashed #a76a25;
+  box-sizing: border-box;
+}
 
 /* ---- board-by-board pairing cards ---- */
 .pe-pair-grid {
@@ -950,15 +995,17 @@ button.pe-btn, .pe-btn {
 
 /* ---- bracket-map: sticky score gutter + per-board hover popovers ----
    Mostly CSS, plus one delegated click listener in assets/js/app.js for
-   pinning. The gutter is a sticky flex child, so the score-band labels stay
-   readable while the (often wider-than-viewport) chart scrolls beneath
-   them. Each BOARD gets one absolutely-positioned hover wrap over its dot
-   pair; the highlight rings are placed by the --wy/--by CSS vars the
-   template sets per wrap, and the popover's opening direction comes from
-   server-computed pe-pop-* classes — the scroll container clips on BOTH
-   axes (overflow-x: auto forces overflow-y to auto too), so an
-   always-below popover would clip at the bottom band. `bracket_layout/1`'s
-   viewBox is 1:1 with CSS pixels, so SVG and overlay share coordinates. */
+   pinning and legend/gutter click-filtering. The gutter is a sticky flex
+   child, so the score-band labels stay readable while the (often
+   wider-than-viewport) chart scrolls beneath them. Each DOT (one per
+   player, one for a bye recipient — not one per board) gets its own
+   absolutely-positioned hover wrap, `left`/`top` set inline by the
+   template so the ring (::before below) is always dead-centre on that one
+   dot; the popover's opening direction comes from server-computed
+   pe-pop-* classes — the scroll container clips on BOTH axes (overflow-x:
+   auto forces overflow-y to auto too), so an always-below popover would
+   clip at the bottom band. `bracket_layout/1`'s viewBox is 1:1 with CSS
+   pixels, so SVG and overlay share coordinates. */
 .pe-band-gutter {
   position: sticky;
   left: 0;
@@ -968,18 +1015,31 @@ button.pe-btn, .pe-btn {
   background: var(--surface);
   border-right: 1px solid var(--border);
 }
+/* A button, not a plain div (task 2: clicking a band highlights it) — reset
+   native chrome, keep the same absolute-positioned row layout. */
 .pe-band-row {
   position: absolute;
   left: 0;
   right: 0;
+  width: 100%;
   height: 44px;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-items: flex-start;
   padding: 0 10px;
   background: #faf9f6;
+  border: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s;
 }
 .pe-band-row.is-alt { background: #f1efe9; }
+.pe-band-row:hover,
+.pe-band-row:focus-visible { background: var(--accent-soft); outline: none; }
+.pe-band-row.is-active-filter { background: var(--accent-soft); }
 .pe-band-score { font-weight: 700; font-size: 13.5px; color: #24211c; line-height: 1.15; }
 .pe-band-meta { font-size: 11.5px; color: var(--text-soft); line-height: 1.15; }
 .pe-band-odd { color: #a76a25; font-weight: 600; }
@@ -1068,3 +1128,20 @@ button.pe-btn, .pe-btn {
 
 .pe-legend-disc.pe-disc-byedot { background: var(--surface); border: 2px dashed var(--accent); }
 .pe-legend-line.is-anomaly { border-top-color: #a33c2e; }
+
+/* ---- bracket-map: legend/gutter click-to-filter (tasks 1 & 2) ----
+   Every filterable SVG element (dot circles + halos, connecting lines,
+   float-direction triangles) carries a `data-facets` attribute — a
+   space-separated list of tokens like "w within band-2" — set by
+   dot_facets/1 / link_facets/1 in pairing_explain_live.ex. Clicking a
+   legend item or a .pe-band-row (both are `[data-filter]` buttons) is
+   handled by the delegated listener in assets/js/app.js, which compares
+   the clicked facet against each element's data-facets and toggles this
+   single .pe-dim class — plain JS matching rather than static per-facet
+   CSS rules, because the score-band count (and therefore the set of
+   possible "band-N" facet values) is unbounded and only known at render
+   time. Popovers/hover/pin are untouched: only SVG elements dim, never the
+   .pe-board-wrap hover targets, so hovering/pinning a dimmed dot still
+   works exactly as before. */
+.pe-filterable { transition: opacity 0.15s; }
+.pe-dim { opacity: 0.16; }

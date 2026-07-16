@@ -384,4 +384,133 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     assert html =~ "gap in the pairing-number sequence"
     assert html =~ "Carol"
   end
+
+  ## ---------- Task 1/2/3/4: legend-as-filter, band counts, colour-due halo, rematch shading ----------
+
+  test "legend items are data-filter buttons and the band gutter shows counts", %{
+    conn: conn,
+    scope: scope
+  } do
+    {:ok, t} =
+      Tournaments.create_tournament(scope, %{
+        "name" => "RR",
+        "type" => "roundrobin",
+        "pairing_system" => "round_robin"
+      })
+
+    for name <- ~w(Alice Bob Carol Dave) do
+      {:ok, _} = Tournaments.create_player(t.id, %{"name" => name})
+    end
+
+    assert {:ok, _round} = Pairing.pair_next_round(t)
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
+
+    # Legend items are real, clickable filter buttons (task 1).
+    assert html =~ ~s(data-filter="w")
+    assert html =~ ~s(data-filter="b")
+    assert html =~ ~s(data-filter="within")
+    assert html =~ ~s(data-filter="float")
+    assert html =~ ~s(data-filter="down")
+    assert html =~ ~s(data-filter="up")
+    assert html =~ "pe-bracket-map"
+    assert html =~ ~s(data-active-filter="")
+
+    # The score-band gutter row is itself a clickable filter button, and
+    # already showed the per-band player count before this task ("4p" for
+    # everyone on 0 — one band, four players).
+    assert html =~ ~s(data-filter="band-0")
+    assert html =~ "4p"
+
+    # Every SVG dot/link carries data-facets for the client-side filter to
+    # match against.
+    assert html =~ "data-facets="
+    assert html =~ "pe-filterable"
+  end
+
+  test "a colour-against-due dot gets a halo ring, its own legend item, and an aria mention", %{
+    conn: conn,
+    scope: scope
+  } do
+    {:ok, t} = Tournaments.create_tournament(scope, %{"name" => "Swiss", "type" => "swiss"})
+
+    {:ok, alice} = Tournaments.create_player(t.id, %{"name" => "Alice"})
+    {:ok, bob} = Tournaments.create_player(t.id, %{"name" => "Bob"})
+
+    # Both hand-built (no real pairing engine involved) so the same colours
+    # repeat back-to-back: after round 1, Alice is due Black and Bob is due
+    # White, but round 2 gives them the SAME colours again — the one
+    # scenario colour_matches_due?/2 flags as a violation for both sides.
+    round1 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 1, status: "playing"})
+
+    Repo.insert!(%PairingSchema{
+      round_id: round1.id,
+      board: 1,
+      white_player_id: alice.id,
+      black_player_id: bob.id,
+      result: "1-0"
+    })
+
+    round2 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 2, status: "playing"})
+
+    Repo.insert!(%PairingSchema{
+      round_id: round2.id,
+      board: 1,
+      white_player_id: alice.id,
+      black_player_id: bob.id,
+      result: ""
+    })
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/2/explain")
+
+    assert html =~ "pe-dot-halo"
+    assert html =~ ~s(data-filter="against-due")
+    assert html =~ "colour against due"
+    assert html =~ ~r/aria-label="Board \d+, (White|Black): \w+, against due colour"/
+  end
+
+  test "deliberate match-format rematches get their own legend item and neutral link style", %{
+    conn: conn,
+    scope: scope
+  } do
+    {:ok, t} =
+      Tournaments.create_tournament(scope, %{
+        "name" => "Swiss MF",
+        "type" => "swiss",
+        "rounds_count" => "4",
+        "swiss_match_format" => "true"
+      })
+
+    {:ok, alice} = Tournaments.create_player(t.id, %{"name" => "Alice"})
+    {:ok, bob} = Tournaments.create_player(t.id, %{"name" => "Bob"})
+
+    round1 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 1, status: "playing"})
+
+    Repo.insert!(%PairingSchema{
+      round_id: round1.id,
+      board: 1,
+      white_player_id: alice.id,
+      black_player_id: bob.id,
+      result: "1-0"
+    })
+
+    round2 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 2, status: "playing"})
+
+    Repo.insert!(%PairingSchema{
+      round_id: round2.id,
+      board: 1,
+      white_player_id: bob.id,
+      black_player_id: alice.id,
+      result: ""
+    })
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/2/explain")
+
+    # A deliberate (non-anomaly) rematch gets its own legend/filter facet,
+    # distinct from the danger-red anomaly one.
+    assert html =~ ~s(data-filter="rematch")
+    assert html =~ "pe-legend-line is-rematch"
+    refute html =~ ~s(data-filter="anomaly")
+    assert html =~ "rematch (match format)"
+  end
 end
