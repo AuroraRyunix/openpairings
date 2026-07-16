@@ -90,8 +90,7 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     # The bye recipient also appears IN the map: a dashed lone dot in their
     # own score band, with its own single-dot hover wrap.
     assert html =~ "— bye, score"
-    assert html =~ "is-bye-wrap"
-    assert html =~ ~r/aria-label="Board \d+: bye for /
+    assert html =~ ~r/aria-label="Board \d+, bye: /
     # The odd field forces a cross-bracket float, shown with direction badges.
     assert html =~ "pe-tag-float"
     assert html =~ "paired down"
@@ -222,10 +221,8 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
 
   ## ---------- Task A: rich hover popovers on the bracket map ----------
 
-  test "renders one hover popover per BOARD with both players' detail, plus the sticky gutter", %{
-    conn: conn,
-    scope: scope
-  } do
+  test "renders one hover popover per DOT with just that player's detail, plus the sticky gutter",
+       %{conn: conn, scope: scope} do
     {:ok, t} =
       Tournaments.create_tournament(scope, %{
         "name" => "RR",
@@ -241,25 +238,22 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
 
     {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
 
-    # Pure-CSS hover-reveal scaffold: one wrap per BOARD (not per dot), each
-    # holding a hidden combined popover shown via CSS (no JS on this page).
+    # Pure-CSS hover-reveal scaffold: one wrap per DOT (not per board), each
+    # holding a hidden single-player popover shown via CSS (no JS anywhere
+    # on this page) — hovering a specific circle shows only that player.
     assert html =~ "pe-board-overlay"
     assert html =~ "pe-dot-popover"
 
-    # 4 players round robin → exactly 2 boards → exactly 2 hover wraps.
-    assert length(String.split(html, "pe-board-wrap")) - 1 == 2
+    # 4 players round robin → 2 boards → exactly 4 hover wraps (one per
+    # player, not one per board).
+    assert length(String.split(html, "pe-board-wrap")) - 1 == 4
 
-    # Each wrap is focusable (touch/keyboard) and names its pairing.
-    assert html =~ ~r/aria-label="Board \d+: \w+ vs \w+"/
+    # Each wrap is focusable (touch/keyboard) and names exactly one player.
+    assert html =~ ~r/aria-label="Board \d+, (White|Black): \w+"/
 
-    # Ring positions travel as CSS vars for the ::before/::after highlights.
-    assert html =~ "--wy:"
-    assert html =~ "--by:"
-
-    # The combined popover carries both players plus the board-level facts;
-    # the due-colour verdict is a compact tag whose title spells it out.
+    # Popover content is per-player, not a combined pair: each dot's own
+    # name/colour/score/seed/due-colour verdict, not both sides at once.
     assert html =~ "Alice"
-    assert html =~ "within bracket"
     assert html =~ "no colour history yet"
 
     # The score-band labels moved into the sticky gutter.

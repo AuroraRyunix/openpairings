@@ -111,11 +111,15 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   # they stay visible while the chart scrolls), one connector per playing
   # board between its two players' bracket bands — a floater's line visibly
   # slopes across bands — plus the bye recipient(s) as lone dashed dots in
-  # their own band. Each BOARD (not each dot) also gets an HTML hover wrap:
-  # geometry for the wrap box, ring positions (as CSS vars), and
-  # server-computed popover flip classes, so the pure-CSS popover opens
-  # toward whichever side of the chart has room instead of getting clipped
-  # by the scroll container (which clips vertically too — `overflow-x:
+  # their own band.
+  #
+  # Every DOT (one per player, one for a bye recipient) gets its own HTML
+  # hover wrap centred exactly on it, showing only that player's detail —
+  # hovering a specific circle shows that circle's player, not also
+  # whoever they're paired against elsewhere on the chart. Each wrap
+  # carries a server-computed popover flip direction so the pure-CSS
+  # popover opens toward whichever side of the chart has room, instead of
+  # clipping (the scroll container clips vertically too — `overflow-x:
   # auto` forces `overflow-y` to auto as well). Returns nil when there is
   # nothing to draw.
   @bracket_top 34
@@ -128,9 +132,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   # Vertical room a popover needs to open without clipping (est. max popover
   # height plus its 8px gap) — drives both the above/below flip and the
   # canvas min-height that guarantees a below-opening popover has room.
-  # Kept tight: it is also exactly how much blank space a short (few-band)
-  # chart shows under the map, since the canvas min-height reserves it.
-  @bracket_pop_room 164
+  @bracket_pop_room 140
 
   defp bracket_layout(nil), do: nil
   defp bracket_layout(%{score_groups: []}), do: nil
@@ -193,17 +195,33 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         }
       end)
 
-    wraps =
-      columns
+    # One hover wrap per DOT — two per playing board (white, black), one per
+    # bye — each centred on that dot alone, carrying just that player's facts.
+    dots =
+      playing
       |> Enum.with_index()
-      |> Enum.map(fn {b, i} -> board_wrap(b, column_x(i), y_of, width, height) end)
+      |> Enum.flat_map(fn {b, i} ->
+        x = column_x(i)
+
+        [
+          dot(b, b.white, :w, x - @bracket_dx, Map.fetch!(y_of, b.white.score)),
+          dot(b, b.black, :b, x + @bracket_dx, Map.fetch!(y_of, b.black.score))
+        ]
+      end)
+
+    bye_dot_entries =
+      byes
+      |> Enum.with_index(length(playing))
+      |> Enum.map(fn {b, i} -> dot(b, b.white, :bye, column_x(i), Map.fetch!(y_of, b.white.score)) end)
+
+    wraps = Enum.map(dots ++ bye_dot_entries, &dot_wrap(&1, width, height))
 
     # A popover that opens downward must fit inside the scroll container's
     # vertical clip; grow the canvas just enough for the deepest one.
     min_height =
       wraps
       |> Enum.filter(&(&1.pop_v == "pe-pop-below"))
-      |> Enum.map(&(&1.top + &1.h + @bracket_pop_room))
+      |> Enum.map(&(&1.y + @bracket_reach + @bracket_pop_room))
       |> Enum.max(fn -> 0 end)
       |> max(height)
 
@@ -230,106 +248,55 @@ defmodule PairingsEngineWeb.PairingExplainLive do
 
   defp column_x(i), do: @bracket_pad_left + i * @bracket_col_gap + div(@bracket_col_gap, 2)
 
-  # The HTML hover wrap for one board: a box covering the board's dot(s),
-  # ring-centre offsets as relative coordinates for the CSS-var-driven
-  # highlight rings, and flip classes choosing which way the popover opens.
-  defp board_wrap(%{is_bye: true} = b, x, y_of, width, height) do
-    y = Map.fetch!(y_of, b.white.score)
-
+  # One dot's full popover content: which board, this player's side, and
+  # (for a real pairing, not a bye) the shared board-level facts — floater
+  # direction and rematch status apply to the specific side that floated /
+  # to both sides of the same game respectively.
+  defp dot(board, side, colour, x, y) do
     %{
-      left: x - @bracket_reach,
-      top: y - @bracket_reach,
-      w: 2 * @bracket_reach,
-      h: 2 * @bracket_reach,
-      wy: @bracket_reach,
-      by: nil,
-      bye: true,
-      b: b,
-      aria: "Board #{b.board}: bye for #{b.white.player.name}"
+      board: board.board,
+      side: side,
+      colour: colour,
+      x: x,
+      y: y,
+      dir: if(colour == :bye, do: nil, else: float_dir(board, side)),
+      rematch: if(colour == :bye, do: false, else: board.rematch),
+      rematch_anomaly: if(colour == :bye, do: false, else: board.rematch_anomaly),
+      bye_detail: Map.get(board, :bye_detail)
     }
-    |> put_pop_classes(x, width, height)
   end
 
-  defp board_wrap(b, x, y_of, width, height) do
-    wy = Map.fetch!(y_of, b.white.score)
-    by = Map.fetch!(y_of, b.black.score)
-    top = min(wy, by) - @bracket_reach
-
-    %{
-      left: x - @bracket_dx - @bracket_reach,
-      top: top,
-      w: 2 * (@bracket_dx + @bracket_reach),
-      h: abs(wy - by) + 2 * @bracket_reach,
-      wy: wy - top,
-      by: by - top,
-      bye: false,
-      b: b,
-      aria: "Board #{b.board}: #{b.white.player.name} vs #{b.black.player.name}"
-    }
-    |> put_pop_classes(x, width, height)
-  end
-
-  defp put_pop_classes(wrap, x, width, height) do
-    room_above = wrap.top
-    room_below = height - (wrap.top + wrap.h)
-
+  # The HTML hover wrap for one dot: a small box centred on it (ring drawn
+  # by CSS, always dead-centre since the box is sized 2*reach square around
+  # the dot), plus flip classes choosing which way the popover opens.
+  defp dot_wrap(d, width, height) do
     pop_v =
-      if room_above >= @bracket_pop_room and room_above >= room_below,
-        do: "pe-pop-above",
-        else: "pe-pop-below"
+      if d.y - @bracket_reach >= @bracket_pop_room and
+           d.y - @bracket_reach >= height - (d.y + @bracket_reach),
+         do: "pe-pop-above",
+         else: "pe-pop-below"
 
     pop_h =
       cond do
-        x < 150 -> "pe-pop-edge-left"
-        x > width - 150 -> "pe-pop-edge-right"
+        d.x < 150 -> "pe-pop-edge-left"
+        d.x > width - 150 -> "pe-pop-edge-right"
         true -> nil
       end
 
-    Map.merge(wrap, %{pop_v: pop_v, pop_h: pop_h})
+    Map.merge(d, %{
+      left: d.x - @bracket_reach,
+      top: d.y - @bracket_reach,
+      pop_v: pop_v,
+      pop_h: pop_h,
+      aria: dot_aria(d)
+    })
   end
 
-  # One compact player row inside a bracket-map popover: colour disc, name,
-  # score, seed, float arrow, due-colour verdict and prior-bye flag — the
-  # same facts as the full pairing card below the map, condensed to a line.
-  attr :side, :map, required: true
-  attr :colour, :atom, required: true
-  attr :board, :map, required: true
+  defp dot_aria(%{colour: :bye, side: side, board: board}),
+    do: "Board #{board}, bye: #{side.player.name}"
 
-  defp pop_side(assigns) do
-    assigns = assign(assigns, :dir, float_dir(assigns.board, assigns.side))
-
-    ~H"""
-    <div class="pe-pop-side">
-      <span class={["pe-disc", "pe-disc-mini", @colour == :w && "pe-disc-w", @colour == :b && "pe-disc-b"]}>
-      </span>
-      <span class="pe-pop-name">{@side.player.name}</span>
-      <span class="pe-score">{score_str(@side.score)}</span>
-      <span class="pe-seed">#{@side.pairing_number}</span>
-      <span :if={@dir == :down} class="pe-tag pe-tag-down" title="paired down">▼</span>
-      <span :if={@dir == :up} class="pe-tag pe-tag-up" title="paired up">▲</span>
-      <span :if={@side.colour_due == nil} class="pe-tag pe-tag-muted" title="no colour history yet">
-        –
-      </span>
-      <span
-        :if={@side.colour_due != nil and @side.colour_ok}
-        class="pe-tag pe-tag-ok"
-        title={"matches due colour (#{colour_word(@side.colour_due)})"}
-      >
-        ✓ due
-      </span>
-      <span
-        :if={@side.colour_due != nil and not @side.colour_ok}
-        class="pe-tag pe-tag-warn"
-        title={"against due colour (#{colour_word(@side.colour_due)})"}
-      >
-        ✗ due
-      </span>
-      <span :if={@side.had_prior_bye} class="pe-tag pe-tag-warn" title="already had a bye earlier">
-        bye⚠
-      </span>
-    </div>
-    """
-  end
+  defp dot_aria(%{colour: colour, side: side, board: board}),
+    do: "Board #{board}, #{colour_word(colour)}: #{side.player.name}"
 
   # One player's side of a pairing card: colour disc, name, score/seed, the
   # FIDE due-colour verdict, any float direction, and (Keizer) a ladder bar.
@@ -605,39 +572,51 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             <div class="pe-board-overlay">
               <div
                 :for={w <- @bracket.wraps}
-                class={["pe-board-wrap", w.bye && "is-bye-wrap", w.pop_v, w.pop_h]}
+                class={["pe-board-wrap", w.pop_v, w.pop_h]}
                 tabindex="0"
                 aria-label={w.aria}
-                style={
-                  "left: #{w.left}px; top: #{w.top}px; width: #{w.w}px; height: #{w.h}px; " <>
-                    "--wy: #{w.wy}px;" <> if(w.by, do: " --by: #{w.by}px;", else: "")
-                }
+                style={"left: #{w.left}px; top: #{w.top}px"}
               >
                 <div class="pe-dot-popover" role="tooltip">
-                  <div class="pe-pop-head">
-                    <span class="pe-board-no">Board {w.b.board}</span>
-                    <span :if={w.bye} class="pe-tag pe-tag-bye">bye</span>
-                    <span :if={not w.bye and w.b.floater} class="pe-tag pe-tag-float">floater</span>
-                    <span :if={not w.bye and not w.b.floater} class="pe-tag pe-tag-muted">
-                      within bracket
+                  <div class="pe-pop-name">{w.side.player.name}</div>
+
+                  <div class="pe-pop-tags">
+                    <span class="pe-tag pe-tag-muted">Board {w.board}</span>
+                    <span :if={w.colour == :bye} class="pe-tag pe-tag-bye">bye</span>
+                    <span :if={w.colour != :bye} class="pe-side-colour">{colour_word(w.colour)}</span>
+                    <span class="pe-score">{score_str(w.side.score)}</span>
+                    <span class="pe-seed">seed #{w.side.pairing_number}</span>
+                  </div>
+
+                  <div class="pe-pop-tags">
+                    <span :if={w.dir == :down} class="pe-tag pe-tag-down">▼ paired down</span>
+                    <span :if={w.dir == :up} class="pe-tag pe-tag-up">▲ paired up</span>
+                    <span :if={w.side.colour_due == nil} class="pe-tag pe-tag-muted">
+                      no colour history yet
+                    </span>
+                    <span :if={w.side.colour_due != nil and w.side.colour_ok} class="pe-tag pe-tag-ok">
+                      ✓ due {colour_word(w.side.colour_due)}
                     </span>
                     <span
-                      :if={not w.bye and w.b.rematch}
-                      class={[
-                        "pe-tag",
-                        w.b.rematch_anomaly && "pe-tag-danger",
-                        !w.b.rematch_anomaly && "pe-tag-muted"
-                      ]}
+                      :if={w.side.colour_due != nil and not w.side.colour_ok}
+                      class="pe-tag pe-tag-warn"
                     >
-                      {if w.b.rematch_anomaly, do: "REMATCH", else: "rematch (match format)"}
+                      ✗ due {colour_word(w.side.colour_due)}
                     </span>
                   </div>
 
-                  <.pop_side side={w.b.white} colour={:w} board={w.b} />
-                  <.pop_side :if={not w.bye} side={w.b.black} colour={:b} board={w.b} />
+                  <div :if={w.rematch or w.side.had_prior_bye} class="pe-pop-tags">
+                    <span
+                      :if={w.rematch}
+                      class={["pe-tag", w.rematch_anomaly && "pe-tag-danger", !w.rematch_anomaly && "pe-tag-muted"]}
+                    >
+                      {if w.rematch_anomaly, do: "REMATCH", else: "rematch (match format)"}
+                    </span>
+                    <span :if={w.side.had_prior_bye} class="pe-tag pe-tag-warn">already had a bye</span>
+                  </div>
 
-                  <div :if={w.bye and w.b[:bye_detail]} class="pe-pop-foot">
-                    Lowest-ranked eligible player without a previous bye.
+                  <div :if={w.colour == :bye and w.bye_detail} class="pe-pop-foot">
+                    {w.bye_detail.convention}
                   </div>
                 </div>
               </div>
