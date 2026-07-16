@@ -165,9 +165,19 @@ defmodule PairingsEngineWeb.SettingsLive do
     # handler below only reloads while the socket isn't dirty. A
     # successful "save" clears it again, since local edits were just
     # committed.
+    # `locked_hint` (see `handle_event("locked_hint", ...)` below) is
+    # deliberately excluded from marking the form dirty — clicking a disabled
+    # control's overlay to see *why* it's locked isn't an edit — but any
+    # other event (typing, saving, reordering tiebreaks, ...) both marks the
+    # form dirty as before and clears whatever transient locked-hint message
+    # might be showing, so it doesn't linger once the user has moved on.
     socket =
-      attach_hook(socket, :settings_dirty_tracker, :handle_event, fn _event, _params, socket ->
-        {:cont, assign(socket, dirty: true)}
+      attach_hook(socket, :settings_dirty_tracker, :handle_event, fn
+        "locked_hint", _params, socket ->
+          {:cont, socket}
+
+        _event, _params, socket ->
+          {:cont, assign(socket, dirty: true, locked_hint: nil)}
       end)
 
     {:ok,
@@ -184,6 +194,14 @@ defmodule PairingsEngineWeb.SettingsLive do
        error: nil,
        dirty: false,
        stale: false,
+       # Which locked pairing-shape control (if any) the user just tried to
+       # interact with — see the "locked after first pairing" controls on
+       # the Format card. `nil` means no transient hint is showing; one of
+       # `:pairing_system`, `:rr_cycles`, `:rr_match_format`,
+       # `:swiss_match_format`, `:pair_by_category` shows that field's
+       # message until the next event (see the hook above) or a 3s timer
+       # (see `handle_info({:clear_locked_hint, ...})` below) clears it.
+       locked_hint: nil,
        collaborator_error: nil,
        collaborator_note: nil,
        forbidden_pairing_error: nil,
@@ -352,6 +370,30 @@ defmodule PairingsEngineWeb.SettingsLive do
          |> assign_pairing_locks()
          |> assign_forbidden_pairings()}
     end
+  end
+
+  # Self-clearing timer for the "locked" hint set by the `handle_event`
+  # below — only clears if it's still showing the same field's message
+  # (avoids clobbering a newer hint if the user clicked a different locked
+  # control in the meantime).
+  def handle_info({:clear_locked_hint, field}, socket) do
+    if socket.assigns.locked_hint == field do
+      {:noreply, assign(socket, locked_hint: nil)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  # A locked pairing-shape control was clicked (via its overlay — see
+  # `locked_overlay/1` below). Shows that field's "why is this locked"
+  # message for 3s, or until the user does something else (cleared by the
+  # `settings_dirty_tracker` hook in `mount/3` above, or overwritten by
+  # clicking a different locked control).
+  @impl true
+  def handle_event("locked_hint", %{"field" => field}, socket) do
+    field = String.to_existing_atom(field)
+    Process.send_after(self(), {:clear_locked_hint, field}, 3000)
+    {:noreply, assign(socket, locked_hint: field)}
   end
 
   @impl true
@@ -866,6 +908,44 @@ defmodule PairingsEngineWeb.SettingsLive do
   defp pairing_system_options, do: @pairing_system_options
   defp rr_cycles_options, do: @rr_cycles_options
 
+  # Shared by all 5 "locked after first pairing" controls (pairing system,
+  # RR cycles, RR/Swiss match format, pair-by-category): a transparent div
+  # laid over the disabled `<select>`/checkbox it's paired with (see
+  # `.locked-overlay` in app.css) so a click on what looks like a disabled
+  # control still reaches something clickable — a genuinely `disabled`
+  # element doesn't fire click events in the browser, so the overlay (not
+  # disabled itself) is what actually catches the attempt and reports it via
+  # the "locked_hint" event above. Renders nothing once unlocked. The
+  # `disabled` attribute on the underlying control stays as the real
+  # guard against interaction (and `strip_locked_pairing_fields/2` above is
+  # the server-side guard against a submitted value anyway), so this overlay
+  # is purely there to explain *why*, not to add another lock.
+  attr :field, :atom, required: true
+  attr :locked?, :boolean, required: true
+
+  defp locked_overlay(assigns) do
+    ~H"""
+    <div :if={@locked?} class="locked-overlay" phx-click="locked_hint" phx-value-field={@field}>
+    </div>
+    """
+  end
+
+  # The transient "why is this locked" message for one field — shown only
+  # right after `locked_overlay/1` above reports a click attempt on that
+  # specific field, self-clearing after 3s (see `handle_info/2` for
+  # `:clear_locked_hint`) or immediately on any other page interaction (see
+  # the `settings_dirty_tracker` hook in `mount/3`).
+  attr :field, :atom, required: true
+  attr :locked_hint, :atom, default: nil
+
+  defp locked_hint_message(assigns) do
+    ~H"""
+    <span :if={@locked_hint == @field} class="hint locked-hint-msg">
+      Locked — cannot be changed after round 1 has been paired.
+    </span>
+    """
+  end
+
   defp o_get(tournament, key), do: Map.get(tournament.officials || %{}, key, "")
 
   # Results for the arbiter-autocomplete dropdown currently focused on
@@ -1051,30 +1131,36 @@ defmodule PairingsEngineWeb.SettingsLive do
 
             <label class="field">
               <span>Pairing system</span>
-              <select name="tournament[pairing_system]" disabled={@pairing_system_locked?}>
-                <option
-                  :for={{val, label} <- pairing_system_options()}
-                  value={val}
-                  selected={@tournament.pairing_system == val}
-                >
-                  {label}
-                </option>
-              </select>
-              <span :if={@pairing_system_locked?} class="hint">locked after first pairing</span>
+              <div class="locked-wrap">
+                <select name="tournament[pairing_system]" disabled={@pairing_system_locked?}>
+                  <option
+                    :for={{val, label} <- pairing_system_options()}
+                    value={val}
+                    selected={@tournament.pairing_system == val}
+                  >
+                    {label}
+                  </option>
+                </select>
+                <.locked_overlay field={:pairing_system} locked?={@pairing_system_locked?} />
+              </div>
+              <.locked_hint_message field={:pairing_system} locked_hint={@locked_hint} />
             </label>
 
             <label class="field">
               <span>Cycles</span>
-              <select name="tournament[rr_cycles]" disabled={@rr_cycles_locked?}>
-                <option
-                  :for={{val, label} <- rr_cycles_options()}
-                  value={val}
-                  selected={@tournament.rr_cycles == val}
-                >
-                  {label}
-                </option>
-              </select>
-              <span :if={@rr_cycles_locked?} class="hint">locked after first pairing</span>
+              <div class="locked-wrap">
+                <select name="tournament[rr_cycles]" disabled={@rr_cycles_locked?}>
+                  <option
+                    :for={{val, label} <- rr_cycles_options()}
+                    value={val}
+                    selected={@tournament.rr_cycles == val}
+                  >
+                    {label}
+                  </option>
+                </select>
+                <.locked_overlay field={:rr_cycles} locked?={@rr_cycles_locked?} />
+              </div>
+              <.locked_hint_message field={:rr_cycles} locked_hint={@locked_hint} />
             </label>
 
             <label
@@ -1082,15 +1168,18 @@ defmodule PairingsEngineWeb.SettingsLive do
               style="display: flex; flex-direction: row; align-items: center; gap: .5rem"
             >
               <input type="hidden" name="tournament[rr_match_format]" value="false" />
-              <input
-                type="checkbox"
-                name="tournament[rr_match_format]"
-                value="true"
-                checked={@tournament.rr_match_format}
-                disabled={@rr_match_format_locked?}
-              />
+              <span class="locked-wrap locked-wrap-inline">
+                <input
+                  type="checkbox"
+                  name="tournament[rr_match_format]"
+                  value="true"
+                  checked={@tournament.rr_match_format}
+                  disabled={@rr_match_format_locked?}
+                />
+                <.locked_overlay field={:rr_match_format} locked?={@rr_match_format_locked?} />
+              </span>
               <span>Match format (immediate 2-game rematch, reversed colours)</span>
-              <span :if={@rr_match_format_locked?} class="hint">locked after first pairing</span>
+              <.locked_hint_message field={:rr_match_format} locked_hint={@locked_hint} />
             </label>
 
             <label class="field">
@@ -1131,15 +1220,18 @@ defmodule PairingsEngineWeb.SettingsLive do
               style="display: flex; flex-direction: row; align-items: center; gap: .5rem"
             >
               <input type="hidden" name="tournament[swiss_match_format]" value="false" />
-              <input
-                type="checkbox"
-                name="tournament[swiss_match_format]"
-                value="true"
-                checked={@tournament.swiss_match_format}
-                disabled={@swiss_match_format_locked?}
-              />
+              <span class="locked-wrap locked-wrap-inline">
+                <input
+                  type="checkbox"
+                  name="tournament[swiss_match_format]"
+                  value="true"
+                  checked={@tournament.swiss_match_format}
+                  disabled={@swiss_match_format_locked?}
+                />
+                <.locked_overlay field={:swiss_match_format} locked?={@swiss_match_format_locked?} />
+              </span>
               <span>Match format (immediate 2-game rematch, reversed colours)</span>
-              <span :if={@swiss_match_format_locked?} class="hint">locked after first pairing</span>
+              <.locked_hint_message field={:swiss_match_format} locked_hint={@locked_hint} />
             </label>
             <p class="hint" style="margin-top: -8px">
               Swiss only — requires an even number of rounds (each match is 2 rounds)
@@ -1150,15 +1242,18 @@ defmodule PairingsEngineWeb.SettingsLive do
               style="display: flex; flex-direction: row; align-items: center; gap: .5rem"
             >
               <input type="hidden" name="tournament[pair_by_category]" value="false" />
-              <input
-                type="checkbox"
-                name="tournament[pair_by_category]"
-                value="true"
-                checked={@tournament.pair_by_category}
-                disabled={@pair_by_category_locked? or not @tournament.categories_enabled}
-              />
+              <span class="locked-wrap locked-wrap-inline">
+                <input
+                  type="checkbox"
+                  name="tournament[pair_by_category]"
+                  value="true"
+                  checked={@tournament.pair_by_category}
+                  disabled={@pair_by_category_locked? or not @tournament.categories_enabled}
+                />
+                <.locked_overlay field={:pair_by_category} locked?={@pair_by_category_locked?} />
+              </span>
               <span>Pair each category independently</span>
-              <span :if={@pair_by_category_locked?} class="hint">locked after first pairing</span>
+              <.locked_hint_message field={:pair_by_category} locked_hint={@locked_hint} />
               <span :if={not @tournament.categories_enabled and not @pair_by_category_locked?} class="hint">
                 enable categories first
               </span>

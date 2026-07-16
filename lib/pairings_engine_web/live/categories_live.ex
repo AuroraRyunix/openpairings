@@ -254,6 +254,11 @@ defmodule PairingsEngineWeb.CategoriesLive do
               </button>
             </div>
           </form>
+          <p class="hint" style="margin-bottom: 0">
+            OpenPairings only supports extra points as an Elo-band bonus added to a player's
+            standing, as configured above. SWAR's other use of extra points — "speed up pairings"
+            (accelerating/seeding early-round pairings based on extra points) — is not supported.
+          </p>
         </div>
       </div>
     </Layouts.app>

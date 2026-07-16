@@ -441,6 +441,14 @@ button.pe-btn, .pe-btn {
 .ok-note { color: var(--accent); font-weight: 500; }
 .hint { font-size: 13px; color: var(--text-soft); }
 
+/* Locked pairing-shape controls (Settings > Format) — the overlay sits on
+   top of a disabled <select>/checkbox so a click attempt is still caught
+   and reported (a genuinely disabled element doesn't fire click events). */
+.locked-wrap { position: relative; }
+.locked-wrap-inline { display: inline-block; vertical-align: middle; }
+.locked-overlay { position: absolute; inset: 0; cursor: not-allowed; }
+.locked-hint-msg { display: block; margin-top: 2px; }
+
 /* FIDE search dropdown */
 .search-wrap { position: relative; }
 .search-results {
@@ -892,6 +900,17 @@ button.pe-btn, .pe-btn {
 .pe-tag-up { background: #dde8f4; color: #2f5c8c; }
 
 .pe-pair-foot { margin: 2px 0 0; font-size: 13px; color: var(--text-soft); }
+
+.pe-warning {
+  margin: 6px 0 0;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--danger);
+  background: rgba(163, 60, 46, 0.1);
+  border-left: 3px solid var(--danger);
+  border-radius: 4px;
+}
 
 /* ---- Keizer ladder bar ---- */
 .pe-ladder {

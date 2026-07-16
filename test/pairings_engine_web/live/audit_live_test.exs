@@ -74,10 +74,10 @@ defmodule PairingsEngineWeb.AuditLiveTest do
 
     {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/audit")
     assert lv |> element("a.filter-picker", "Audit log") |> render() =~ "active"
-    refute lv |> element("a.filter-picker", "Explain a round") |> render() =~ "active"
+    refute lv |> element("a.filter-picker", "Pairing rationale") |> render() =~ "active"
 
     {:ok, lv2, _html2} = live(conn, ~p"/t/#{t.id}/audit/explain")
-    assert lv2 |> element("a.filter-picker", "Explain a round") |> render() =~ "active"
+    assert lv2 |> element("a.filter-picker", "Pairing rationale") |> render() =~ "active"
     refute lv2 |> element("a.filter-picker", "Audit log") |> render() =~ "active"
   end
 

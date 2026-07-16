@@ -36,7 +36,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
        bracket: bracket_layout(rationale),
        ladder_max: ladder_max(rationale),
        paired_rounds: paired_rounds,
-       page_title: "#{tournament.name} · Round #{round_number} explained"
+       page_title: "#{tournament.name} · Pairing rationale — Round #{round_number}"
      )}
   end
 
@@ -239,7 +239,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
-          <p class="subtitle" style="margin: 0">Round {@round_number} — explanation</p>
+          <p class="subtitle" style="margin: 0">Pairing rationale for round {@round_number}</p>
         </div>
       </div>
 
@@ -266,7 +266,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         <div>
           <h1>{@tournament.name}</h1>
           <p class="subtitle" style="margin: 0">
-            Why round {@round_number} was paired this way — {system_label(@rationale.pairing_system)}
+            Pairing rationale for round {@round_number} — {system_label(@rationale.pairing_system)}
           </p>
         </div>
         <div class="actions" style="margin: 0">
@@ -449,9 +449,12 @@ defmodule PairingsEngineWeb.PairingExplainLive do
 
           <p :if={b.is_bye and b[:bye_detail]} class="pe-pair-foot">
             {b.bye_detail.convention}
-            <span :if={b.bye_detail.had_prior_bye}>
-              <br /><strong>Note:</strong> this player already had a bye earlier.
-            </span>
+          </p>
+          <p
+            :if={b.is_bye and b[:bye_detail] != nil and b.bye_detail.had_prior_bye}
+            class="pe-warning"
+          >
+            <strong>Note:</strong> this player already had a bye earlier.
           </p>
         </div>
       </div>

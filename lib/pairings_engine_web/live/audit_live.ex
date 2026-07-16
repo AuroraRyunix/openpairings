@@ -63,7 +63,7 @@ defmodule PairingsEngineWeb.AuditLive do
     {:ok, socket}
   end
 
-  defp page_title(:explain, tournament), do: "#{tournament.name} · Explain a round"
+  defp page_title(:explain, tournament), do: "#{tournament.name} · Pairing rationale"
   defp page_title(_, tournament), do: "#{tournament.name} · Audit trail"
 
   @impl true
@@ -277,7 +277,7 @@ defmodule PairingsEngineWeb.AuditLive do
         navigate={~p"/t/#{@tournament.id}/audit/explain"}
         class={["pe-btn", "filter-picker", @active == :explain && "active"]}
       >
-        Explain a round
+        Pairing rationale
       </.link>
     </div>
     """
@@ -291,7 +291,7 @@ defmodule PairingsEngineWeb.AuditLive do
         <div>
           <h1>{@tournament.name}</h1>
           <p class="subtitle" style="margin: 0">
-            Explain a round — pick a paired round to see its pairing rationale
+            Pick a paired round to see its pairing rationale
           </p>
         </div>
       </div>

@@ -80,6 +80,17 @@ defmodule PairingsEngineWeb.CategoriesLiveTest do
   end
 
   describe "Extra points (SWAR parity #12 XtPts)" do
+    test "discloses that the SWAR \"speed up pairings\" use of extra points is not supported", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope, %{"categories_enabled" => true})
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/categories")
+
+      assert html =~ "speed up pairings"
+      assert html =~ "is not supported"
+    end
+
     test "toggling \"count extra points\" and saving the bands persists both", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope, %{"categories_enabled" => true})
       {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/categories")

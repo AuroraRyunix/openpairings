@@ -99,7 +99,7 @@ defmodule PairingsEngineWeb.Layouts do
                 Audit trail
               </.link>
               <.link navigate={~p"/t/#{@tournament.id}/audit/explain"} class="topbar-menu-item">
-                Explain a round
+                Pairing rationale
               </.link>
             </div>
           </details>

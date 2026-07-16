@@ -587,15 +587,23 @@ defmodule PairingsEngineWeb.SettingsLiveTest do
     } do
       tournament = create_tournament(scope, %{"pairing_system" => "round_robin"})
 
-      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
       refute html =~ ~r/name="tournament\[rr_match_format\][^>]*disabled/
 
       pair_round_robin_round_1(tournament)
 
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
       assert html =~ ~r/name="tournament\[rr_match_format\][^>]*disabled/
-      assert html =~ "locked after first pairing"
-      _ = lv
+      refute html =~ "locked after first pairing"
+      refute html =~ "Locked — cannot be changed"
+
+      html = render_click(lv, "locked_hint", %{"field" => "rr_match_format"})
+      assert html =~ "Locked — cannot be changed after round 1 has been paired."
+
+      # Clears on the next unrelated interaction (see the
+      # `settings_dirty_tracker` hook in `mount/3`).
+      html = render_click(lv, "tb_reset", %{})
+      refute html =~ "Locked — cannot be changed"
     end
 
     test "a submitted change to rr_match_format is dropped server-side once locked", %{
@@ -641,15 +649,21 @@ defmodule PairingsEngineWeb.SettingsLiveTest do
           "swiss_match_format" => "true"
         })
 
-      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
       refute html =~ ~r/name="tournament\[swiss_match_format\][^>]*disabled/
 
       pair_swiss_match_1(tournament)
 
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
       assert html =~ ~r/name="tournament\[swiss_match_format\][^>]*disabled/
-      assert html =~ "locked after first pairing"
-      _ = lv
+      refute html =~ "locked after first pairing"
+      refute html =~ "Locked — cannot be changed"
+
+      html = render_click(lv, "locked_hint", %{"field" => "swiss_match_format"})
+      assert html =~ "Locked — cannot be changed after round 1 has been paired."
+
+      html = render_click(lv, "tb_reset", %{})
+      refute html =~ "Locked — cannot be changed"
     end
 
     @tag :javafo
@@ -699,15 +713,21 @@ defmodule PairingsEngineWeb.SettingsLiveTest do
           "pair_by_category" => "true"
         })
 
-      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
       refute html =~ ~r/name="tournament\[pair_by_category\][^>]*disabled/
 
       pair_swiss_round_1(tournament)
 
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
       assert html =~ ~r/name="tournament\[pair_by_category\][^>]*disabled/
-      assert html =~ "locked after first pairing"
-      _ = lv
+      refute html =~ "locked after first pairing"
+      refute html =~ "Locked — cannot be changed"
+
+      html = render_click(lv, "locked_hint", %{"field" => "pair_by_category"})
+      assert html =~ "Locked — cannot be changed after round 1 has been paired."
+
+      html = render_click(lv, "tb_reset", %{})
+      refute html =~ "Locked — cannot be changed"
     end
 
     @tag :javafo
