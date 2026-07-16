@@ -25,6 +25,16 @@ defmodule PairingsEngineWeb.PairingsLive do
       Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
     end
 
+    # Clears the "another arbiter" notice (see `handle_info` below) the
+    # moment the user interacts with the page again — a self-clearing timer
+    # alone would leave it sitting through an in-progress click, and there's
+    # no harm clearing it eagerly since every mutating event already
+    # refreshes the round data itself.
+    socket =
+      attach_hook(socket, :remote_notice_clear_on_click, :handle_event, fn _event, _params, socket ->
+        {:cont, assign(socket, remote_notice: false)}
+      end)
+
     {:ok,
      socket
      |> assign(
@@ -33,7 +43,8 @@ defmodule PairingsEngineWeb.PairingsLive do
        round_number: max(paired, 1),
        error: nil,
        importing_results: false,
-       import_errors: nil
+       import_errors: nil,
+       remote_notice: false
      )
      |> allow_upload(:results_csv, accept: :any, max_entries: 1, max_file_size: 2_000_000)
      |> refresh()}
@@ -43,6 +54,18 @@ defmodule PairingsEngineWeb.PairingsLive do
   # draft state to protect), so a broadcast can just reload everything —
   # including the tournament itself, since rounds_count/status can change
   # from the Settings page.
+  #
+  # This LiveView is subscribed to its own tournament's topic, so every
+  # mutation it causes itself (pair/unpair/result/import) broadcasts right
+  # back to this same process — but by the time that echo arrives, the
+  # triggering `handle_event` has already called `refresh/1` synchronously,
+  # so `@round` already reflects the new state. Comparing the *freshly
+  # reloaded* round against what's already assigned tells the two cases
+  # apart without any separate "was this my own action" bookkeeping: if
+  # nothing changed, it was our own echo (or an unrelated broadcast, e.g. a
+  # Settings-page edit that doesn't touch this round); if it differs, some
+  # other process actually changed what's on screen, and only then is the
+  # "updated by another arbiter" notice worth showing.
   @impl true
   def handle_info({:tournament_changed, _tournament_id, _hint}, socket) do
     case Tournaments.get_authorized_tournament(
@@ -56,8 +79,23 @@ defmodule PairingsEngineWeb.PairingsLive do
          |> push_navigate(to: ~p"/")}
 
       tournament ->
-        {:noreply, socket |> assign(tournament: tournament) |> refresh()}
+        old_round = socket.assigns.round
+        socket = socket |> assign(tournament: tournament) |> refresh()
+
+        socket =
+          if socket.assigns.round != old_round do
+            Process.send_after(self(), :clear_remote_notice, 4000)
+            assign(socket, remote_notice: true)
+          else
+            socket
+          end
+
+        {:noreply, socket}
     end
+  end
+
+  def handle_info(:clear_remote_notice, socket) do
+    {:noreply, assign(socket, remote_notice: false)}
   end
 
   defp refresh(socket) do
@@ -77,6 +115,10 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   @impl true
+  def handle_event("dismiss_remote_notice", _params, socket) do
+    {:noreply, assign(socket, remote_notice: false)}
+  end
+
   def handle_event("select_round", %{"number" => number}, socket) do
     {:noreply, socket |> assign(round_number: String.to_integer(number), error: nil) |> refresh()}
   end
@@ -275,6 +317,38 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp bye_type_label("absent"), do: "absent"
   defp bye_type_label(other), do: other
 
+  # Cosmetic-only: under `rr_match_format`/`swiss_match_format`, round
+  # 2k-1/2k are legs 1/2 of the same "match" (Pairing.max_pairable_round/1,
+  # RoundRobin.do_pair/3 — leg 2 is always a colour-reversed mirror of leg
+  # 1, never a separate JaVaFo decision). `rounds_count` keeps meaning
+  # "total physical rounds" everywhere else; this only changes what the
+  # round-picker buttons and the "Round N" heading display.
+  defp match_format?(%Tournament{rr_match_format: true}), do: true
+  defp match_format?(%Tournament{swiss_match_format: true}), do: true
+  defp match_format?(_), do: false
+
+  defp round_label(n, tournament) do
+    if match_format?(tournament) do
+      "M#{match_number(n)}·#{leg_number(n)}"
+    else
+      to_string(n)
+    end
+  end
+
+  # Same match/leg breakdown as `round_label/2`, but spelled out for the
+  # "Round ..." heading below the picker, where the compact button label
+  # would read ambiguously ("Round M1·1").
+  defp round_heading(n, tournament) do
+    if match_format?(tournament) do
+      "Match #{match_number(n)}, game #{leg_number(n)}"
+    else
+      "Round #{n}"
+    end
+  end
+
+  defp match_number(n), do: div(n - 1, 2) + 1
+  defp leg_number(n), do: if(rem(n, 2) == 1, do: 1, else: 2)
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -339,17 +413,24 @@ defmodule PairingsEngineWeb.PairingsLive do
       <div class="round-picker">
         <button
           :for={n <- 1..@tournament.rounds_count}
-          class={["pe-btn", n == @round_number && "active"]}
+          class={["pe-btn", match_format?(@tournament) && "filter-picker", n == @round_number && "active"]}
           phx-click="select_round"
           phx-value-number={n}
         >
-          {n}
+          {round_label(n, @tournament)}
+        </button>
+      </div>
+
+      <div :if={@remote_notice} class="card" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 12px 0; padding: 8px 12px; border-left: 3px solid var(--accent)">
+        <span>Round {@round_number} was just updated by another arbiter — refreshed.</span>
+        <button type="button" class="pe-btn" style="padding: 2px 8px" phx-click="dismiss_remote_notice">
+          Dismiss
         </button>
       </div>
 
       <div class="page-header" style="margin-top: 16px">
         <div>
-          <h2 style="margin: 0">Round {@round_number}</h2>
+          <h2 style="margin: 0">{round_heading(@round_number, @tournament)}</h2>
 
           <p class="subtitle" style="margin: 0">
             <span class={["badge", @round == nil && "muted"]}>

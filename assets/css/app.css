@@ -277,6 +277,15 @@ body {
   white-space: nowrap;
 }
 
+.sync-freshness {
+  color: var(--text-soft);
+  font-size: 11px;
+  padding: 6px 8px;
+  border-right: 1px solid var(--border);
+  opacity: 0.8;
+  white-space: nowrap;
+}
+
 .page { width: 100%; margin: 0 auto; padding: 28px 32px 64px; }
 
 .page h1 { font-size: 24px; font-weight: 650; margin: 0 0 4px; }
@@ -683,6 +692,9 @@ button.pe-btn, .pe-btn {
 
   .topbar .brand { order: 1; }
   .topbar-auth { order: 2; margin-left: auto; }
+
+  /* no room for the sync-freshness strip once the tab row wraps below */
+  .sync-freshness { display: none; }
 
   .topbar nav a {
     min-height: 44px;
