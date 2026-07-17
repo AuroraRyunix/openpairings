@@ -910,15 +910,17 @@ defmodule PairingsEngine.Tournaments do
   joined after the mode was switched on and was never placed).
   """
   def reseed_manual_ranking(%Tournament{} = tournament) do
-    tournament
-    |> Standings.standings()
-    |> Enum.each(fn e ->
-      Repo.update_all(from(p in Player, where: p.id == ^e.player.id), set: [manual_rank: e.rank])
-    end)
+    Repo.transaction(fn ->
+      tournament
+      |> Standings.standings()
+      |> Enum.each(fn e ->
+        Repo.update_all(from(p in Player, where: p.id == ^e.player.id), set: [manual_rank: e.rank])
+      end)
 
-    Repo.update_all(from(t in Tournament, where: t.id == ^tournament.id),
-      set: [manual_ranking_stale: false]
-    )
+      Repo.update_all(from(t in Tournament, where: t.id == ^tournament.id),
+        set: [manual_ranking_stale: false]
+      )
+    end)
 
     broadcast_tournament_change(tournament.id, :players)
     {:ok, %{tournament | manual_ranking_stale: false}}

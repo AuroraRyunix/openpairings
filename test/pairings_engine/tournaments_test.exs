@@ -2,7 +2,7 @@ defmodule PairingsEngine.TournamentsTest do
   use PairingsEngine.DataCase, async: true
 
   alias PairingsEngine.{Repo, Tournaments}
-  alias PairingsEngine.Tournaments.{Tournament, Player, Round, Pairing}
+  alias PairingsEngine.Tournaments.{Tournament, Player, Round, Pairing, ForbiddenPairing}
   alias PairingsEngine.Accounts.{Scope, User}
 
   # A lightweight stand-in for `PairingsEngine.AccountsFixtures.user_scope_fixture/0`
@@ -474,6 +474,36 @@ defmodule PairingsEngine.TournamentsTest do
     end
   end
 
+  describe "fide_id uniqueness within a tournament (players_tournament_id_fide_id_index)" do
+    test "update_player/2 rejects editing a player's fide_id to collide with another player in the same tournament" do
+      tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
+
+      {:ok, _alice} =
+        Tournaments.create_player(tournament.id, %{"name" => "Alice", "fide_id" => "111"})
+
+      {:ok, bob} = Tournaments.create_player(tournament.id, %{"name" => "Bob", "fide_id" => "222"})
+
+      assert {:error, changeset} = Tournaments.update_player(bob, %{"fide_id" => "111"})
+      assert %{fide_id: [_msg]} = errors_on(changeset)
+      assert Repo.reload!(bob).fide_id == 222
+    end
+
+    test "the same fide_id is allowed across different tournaments" do
+      t1 = Repo.insert!(%Tournament{name: "T1", type: "swiss", rounds_count: 3})
+      t2 = Repo.insert!(%Tournament{name: "T2", type: "swiss", rounds_count: 3})
+
+      assert {:ok, _} = Tournaments.create_player(t1.id, %{"name" => "Alice", "fide_id" => "333"})
+      assert {:ok, _} = Tournaments.create_player(t2.id, %{"name" => "Alice2", "fide_id" => "333"})
+    end
+
+    test "players with no fide_id are never constrained against each other (partial index)" do
+      tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
+
+      assert {:ok, _} = Tournaments.create_player(tournament.id, %{"name" => "Alice"})
+      assert {:ok, _} = Tournaments.create_player(tournament.id, %{"name" => "Bob"})
+    end
+  end
+
   describe "collaborators (tournament sharing by email — invite, must be accepted)" do
     import Swoosh.TestAssertions
 
@@ -830,6 +860,22 @@ defmodule PairingsEngine.TournamentsTest do
       assert {:error, :already_forbidden} = Tournaments.add_forbidden_pairing(t, a.id, b.id)
       assert {:error, :already_forbidden} = Tournaments.add_forbidden_pairing(t, b.id, a.id)
       assert length(Tournaments.list_forbidden_pairings(t.id)) == 1
+    end
+
+    test "storage is normalized so player_a_id is always the smaller id, regardless of call order",
+         %{tournament: t, a: a, b: b} do
+      # Force b to have the larger id by inserting a fresh pair, since fixture
+      # insertion order already makes a.id < b.id — assert that up front so
+      # this test actually exercises the swap either way it's called.
+      assert a.id < b.id
+
+      assert {:ok, fp} = Tournaments.add_forbidden_pairing(t, b.id, a.id)
+      assert fp.player_a_id == a.id
+      assert fp.player_b_id == b.id
+
+      stored = Repo.get_by(ForbiddenPairing, tournament_id: t.id, player_a_id: a.id, player_b_id: b.id)
+      assert stored
+      assert stored.player_a_id < stored.player_b_id
     end
 
     test "remove_forbidden_pairing/2 removes the row, and 404s (not_found) for another tournament's id",
