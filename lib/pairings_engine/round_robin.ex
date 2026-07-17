@@ -74,21 +74,33 @@ defmodule PairingsEngine.RoundRobin do
   alias PairingsEngine.{Repo, Tournaments}
   alias PairingsEngine.Tournaments.{Player, Round, Pairing, Tournament}
 
-  @doc "Pairs the next round using a Berger round-robin schedule."
+  @doc """
+  Pairs the next round using a Berger round-robin schedule.
+
+  Unlike Swiss, a round-robin round's pairings never depend on prior
+  results (the whole schedule is fixed at freeze time — see moduledoc), so
+  there's no need to gate pairing round N+1 on round N being fully scored
+  the way the Swiss/JaVaFo path does. It is still clamped to the
+  tournament's declared `rounds_count`, though: if that's set lower than
+  the schedule needs, the event simply ends early rather than pairing past
+  its declared end.
+  """
   @spec pair_next_round(Tournament.t()) :: {:ok, Round.t()} | {:error, term()}
   def pair_next_round(%Tournament{} = tournament) do
     ensure_frozen(tournament.id)
     frozen = frozen_players(tournament.id)
     paired = PairingsEngine.Pairing.paired_rounds_count(tournament.id)
+    next_number = paired + 1
 
-    # Unlike Swiss, a round-robin round's pairings never depend on prior
-    # results (the whole schedule is fixed at freeze time — see moduledoc),
-    # so there's no need to gate pairing round N+1 on round N being fully
-    # scored the way the Swiss/JaVaFo path does.
-    if length(frozen) < 2 do
-      {:error, "At least two active players are needed"}
-    else
-      do_pair(tournament, frozen, paired + 1)
+    cond do
+      next_number > tournament.rounds_count ->
+        {:error, "All #{tournament.rounds_count} rounds have already been paired"}
+
+      length(frozen) < 2 ->
+        {:error, "At least two active players are needed"}
+
+      true ->
+        do_pair(tournament, frozen, next_number)
     end
   end
 

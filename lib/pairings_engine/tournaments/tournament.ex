@@ -381,14 +381,16 @@ defmodule PairingsEngine.Tournaments.Tournament do
 
   # `pair_by_category` (SWAR-parity #24) needs category management actually
   # turned on (pairing per-category with no category data makes no sense),
-  # and is deliberately not yet supported together with Baku acceleration —
-  # rejected outright rather than guessed at, same precedent as
-  # `validate_rr_match_format`/`validate_swiss_match_format` above.
+  # and is deliberately not yet supported together with Baku acceleration or
+  # `swiss_match_format` — rejected outright rather than guessed at, same
+  # precedent as `validate_rr_match_format`/`validate_swiss_match_format`
+  # above.
   defp validate_pair_by_category(changeset) do
     if get_field(changeset, :pair_by_category) == true do
       changeset
       |> validate_pair_by_category_requires_categories()
       |> validate_pair_by_category_excludes_baku()
+      |> validate_pair_by_category_excludes_match_format()
     else
       changeset
     end
@@ -412,6 +414,18 @@ defmodule PairingsEngine.Tournaments.Tournament do
         changeset,
         :pair_by_category,
         "pairing by category is not yet supported together with Baku acceleration"
+      )
+    else
+      changeset
+    end
+  end
+
+  defp validate_pair_by_category_excludes_match_format(changeset) do
+    if get_field(changeset, :swiss_match_format) == true do
+      add_error(
+        changeset,
+        :pair_by_category,
+        "pairing by category is not yet supported together with match format"
       )
     else
       changeset

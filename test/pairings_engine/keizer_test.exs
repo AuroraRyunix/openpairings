@@ -506,6 +506,43 @@ defmodule PairingsEngine.KeizerTest do
       assert Enum.any?(entries, &(&1.player.id == d.id))
     end
 
+    test "a late entrant with start_round is excluded from pairing until it's reached, then included",
+         %{tournament: tournament} do
+      late = insert_player(tournament, "Eve", fide_rating: 1600, start_round: 2)
+
+      assert {:ok, round1} = Pairing.pair_next_round(tournament)
+      round1 = Repo.preload(round1, :pairings)
+
+      paired_ids_r1 =
+        round1.pairings |> Enum.flat_map(&[&1.white_player_id, &1.black_player_id]) |> Enum.reject(&is_nil/1)
+
+      refute late.id in paired_ids_r1
+
+      # No "byes" row for the late entrant either — score_round/5's
+      # :not_joined branch needs none (unlike an excused absence).
+      byes_r1 =
+        Repo.all(
+          from b in "byes",
+            where: b.tournament_id == ^tournament.id and b.player_id == ^late.id,
+            select: b.type
+        )
+
+      assert byes_r1 == []
+
+      Enum.each(round1.pairings, fn pairing -> {:ok, _} = Tournaments.update_pairing_result(pairing, "1-0") end)
+
+      assert {:ok, round2} = Pairing.pair_next_round(tournament)
+      round2 = Repo.preload(round2, :pairings)
+
+      paired_ids_r2 =
+        round2.pairings |> Enum.flat_map(&[&1.white_player_id, &1.black_player_id]) |> Enum.reject(&is_nil/1)
+
+      assert late.id in paired_ids_r2
+
+      entries = Keizer.standings(tournament)
+      assert Enum.any?(entries, &(&1.player.id == late.id))
+    end
+
     test "pair_next_round/1 rejects pairing once all rounds are used up", %{tournament: tournament} do
       {:ok, r1} = Pairing.pair_next_round(tournament)
       Enum.each(Repo.preload(r1, :pairings).pairings, &Tournaments.update_pairing_result(&1, "1-0"))

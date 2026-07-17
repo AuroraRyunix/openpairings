@@ -1263,21 +1263,29 @@ defmodule PairingsEngine.Pairing do
 
   @doc """
   Players eligible to be paired for `round_number`: active, not permanently
-  absent/forfeited (see `active_players/1`), and not requesting an absence
-  for this specific round via `absent_rounds` (SWAR "Absent at the rounds
-  x,y,z"). Pure with respect to round-specific filtering — safe to unit-test
-  without invoking JaVaFo.
+  absent/forfeited (see `active_players/1`), not requesting an absence for
+  this specific round via `absent_rounds` (SWAR "Absent at the rounds
+  x,y,z"), and not a late entrant whose `start_round` hasn't been reached
+  yet (Keizer). Pure with respect to round-specific filtering — safe to
+  unit-test without invoking JaVaFo.
   """
   def eligible_players(tournament_id, round_number) do
     tournament_id
     |> active_players()
     |> Enum.reject(&absent_for_round?(&1, round_number))
+    |> Enum.reject(&not_yet_started?(&1, round_number))
   end
 
   @doc "True if `player`'s `absent_rounds` list includes `round_number`."
   def absent_for_round?(%Player{} = player, round_number) do
     round_number in parse_absent_rounds(player.absent_rounds)
   end
+
+  @doc "True if `player.start_round` is set and later than `round_number` — a late entrant not yet eligible to be paired."
+  def not_yet_started?(%Player{start_round: nil}, _round_number), do: false
+
+  def not_yet_started?(%Player{start_round: start}, round_number),
+    do: round_number < start
 
   defp parse_absent_rounds(nil), do: []
   defp parse_absent_rounds(""), do: []

@@ -34,6 +34,29 @@ defmodule PairingsEngine.PairingTest do
     refute player.id in (Pairing.eligible_players(tournament.id, 5) |> Enum.map(& &1.id))
   end
 
+  test "eligible_players/2 excludes a late entrant until their start_round is reached" do
+    tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 5})
+    latecomer = insert_player(tournament, "Latecomer", start_round: 3)
+
+    refute latecomer.id in (Pairing.eligible_players(tournament.id, 1) |> Enum.map(& &1.id))
+    refute latecomer.id in (Pairing.eligible_players(tournament.id, 2) |> Enum.map(& &1.id))
+    assert latecomer.id in (Pairing.eligible_players(tournament.id, 3) |> Enum.map(& &1.id))
+    assert latecomer.id in (Pairing.eligible_players(tournament.id, 4) |> Enum.map(& &1.id))
+  end
+
+  test "not_yet_started?/2 is a pure check against start_round" do
+    tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 5})
+    player = insert_player(tournament, "P", start_round: 3)
+
+    assert Pairing.not_yet_started?(player, 1)
+    assert Pairing.not_yet_started?(player, 2)
+    refute Pairing.not_yet_started?(player, 3)
+    refute Pairing.not_yet_started?(player, 4)
+
+    from_round_one = insert_player(tournament, "Q", start_round: 1)
+    refute Pairing.not_yet_started?(from_round_one, 1)
+  end
+
   test "absent_for_round?/2 is a pure check against the comma-separated absent_rounds list" do
     tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 5})
     player = insert_player(tournament, "P", absent_rounds: "1")
@@ -876,6 +899,84 @@ defmodule PairingsEngine.PairingTest do
     # {1, 3} (real winners 1 and 3, boosted) — leaving JaVaFo no choice but
     # to pair them together.
     assert {1, 3} in accel_pairs or {3, 1} in accel_pairs
+  end
+
+  # Regression for audit finding #8: Group-A membership must be a
+  # tournament-wide concept fixed at freeze time (FIDE C.04.5.1), not
+  # something that shifts round-to-round based on who happens to be
+  # eligible THIS round. `acceleration_lines/4`'s `ranked`/Group-A
+  # computation now always receives the full frozen roster
+  # (`do_pair_single/4` passes `full_roster`, not the round's eligible
+  # subset, all the way through `javafo_input/4`) — this was fixed as a
+  # side effect of a separate colour-history fix. Proven here by pairing
+  # round 2 with a non-trivial-rank Group-A player (#3) excused for round 2
+  # only (`absent_rounds`) and asserting the round-2 TRF's XXA starting
+  # ranks are byte-identical to round 1's — if Group A were still being
+  # recomputed from the round's eligible subset, excluding rank 3 would
+  # shift the remaining Group-A ranks to {1, 2, 4, 5}.
+  @tag :javafo
+  test "Baku Group-A membership is computed from the full roster, unaffected by a round-2-only absence" do
+    tournament =
+      Repo.insert!(%Tournament{
+        name: "Baku Roster Scoping",
+        type: "swiss",
+        rounds_count: 9,
+        acceleration: "baku"
+      })
+
+    players =
+      for {name, rating, n} <- [
+            {"P1", 2400, 1},
+            {"P2", 2300, 2},
+            {"P3", 2200, 3},
+            {"P4", 2100, 4},
+            {"P5", 2000, 5},
+            {"P6", 1900, 6},
+            {"P7", 1800, 7},
+            {"P8", 1700, 8}
+          ] do
+        insert_player(tournament, name, fide_rating: rating, pairing_number: n)
+      end
+
+    [_p1, _p2, p3 | _] = players
+
+    assert {:ok, round1} = Pairing.pair_next_round(tournament)
+    round1 = Repo.preload(round1, :pairings)
+
+    round1_xxa_ranks = trf_xxa_ranks(tournament, 1)
+    # Group A = 2*ceil(8/4) = 4 players: starting ranks 1-4.
+    assert round1_xxa_ranks == [1, 2, 3, 4]
+
+    Enum.each(round1.pairings, fn pairing -> {:ok, _} = Tournaments.update_pairing_result(pairing, "1-0") end)
+
+    # P3 (starting rank 3, inside Group A) is excused for round 2 only —
+    # excluded from round 2's pairing pool, but must not shrink or shift
+    # Group A membership.
+    {:ok, _} = Tournaments.update_player(p3, %{absent_rounds: "2"})
+
+    assert {:ok, _round2} = Pairing.pair_next_round(tournament)
+
+    round2_xxa_ranks = trf_xxa_ranks(tournament, 2)
+    assert round2_xxa_ranks == round1_xxa_ranks
+  end
+
+  # Reads back the `t#{tournament.id}_r#{round_number}.trf` file
+  # `do_pair_single/4` writes to disk for JaVaFo, and extracts every `XXA`
+  # line's starting-rank column (the fixed-column format documented on
+  # `Pairing.acceleration_lines/4`).
+  defp trf_xxa_ranks(tournament, round_number) do
+    path =
+      Path.join(
+        System.tmp_dir!(),
+        "pairingsengine"
+      )
+      |> Path.join("t#{tournament.id}_r#{round_number}.trf")
+
+    path
+    |> File.read!()
+    |> then(&Regex.scan(~r/^XXA\s+(\d+)/m, &1))
+    |> Enum.map(fn [_, rank] -> String.to_integer(rank) end)
+    |> Enum.sort()
   end
 
   ## ---------- swiss_match_format ----------

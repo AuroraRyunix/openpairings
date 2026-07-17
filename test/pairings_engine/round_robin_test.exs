@@ -435,6 +435,30 @@ defmodule PairingsEngine.RoundRobinTest do
                {:error, "All rounds have been paired (round-robin schedule complete)"}
     end
 
+    test "rounds_count set lower than the Berger schedule needs clamps pairing and ends the event early" do
+      # 6 players, single cycle -> total_rounds(6, 1) == 5, but the arbiter
+      # declared rounds_count: 3, so the event must end after round 3
+      # rather than pairing the schedule's remaining rounds 4 and 5.
+      tournament = round_robin_tournament(rr_cycles: 1, rounds_count: 3)
+
+      insert_player(tournament, "Alice", fide_rating: 2000)
+      insert_player(tournament, "Bob", fide_rating: 1900)
+      insert_player(tournament, "Carol", fide_rating: 1800)
+      insert_player(tournament, "Dave", fide_rating: 1700)
+      insert_player(tournament, "Eve", fide_rating: 1600)
+      insert_player(tournament, "Frank", fide_rating: 1500)
+
+      for expected_round <- 1..3 do
+        assert {:ok, round} = Pairing.pair_next_round(tournament)
+        assert round.number == expected_round
+      end
+
+      assert Pairing.pair_next_round(tournament) ==
+               {:error, "All 3 rounds have already been paired"}
+
+      assert Tournaments.list_rounds(tournament.id) |> length() == 3
+    end
+
     test "not enough schedulable players returns the same error the Swiss path uses" do
       tournament = round_robin_tournament(rr_cycles: 1)
       insert_player(tournament, "Alice", fide_rating: 2000)
@@ -663,7 +687,7 @@ defmodule PairingsEngine.RoundRobinTest do
     Repo.insert!(%Tournament{
       name: "RR Test",
       type: "swiss",
-      rounds_count: 9,
+      rounds_count: Keyword.get(attrs, :rounds_count, 9),
       pairing_system: "round_robin",
       rr_cycles: Keyword.fetch!(attrs, :rr_cycles),
       rr_match_format: Keyword.get(attrs, :rr_match_format, false)
