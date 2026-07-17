@@ -816,7 +816,13 @@ button.pe-btn, .pe-btn {
      calls scrollIntoView — glide instead of snapping when that scrolls
      this container horizontally */
   scroll-behavior: smooth;
+  /* The minimap below is the intended scroll-position affordance; the
+     native bar duplicated it and added its own layout gap. Wheel/drag/
+     keyboard scrolling all keep working — only the visible track/thumb
+     chrome is suppressed. */
+  scrollbar-width: none;
 }
+.pe-bracket-scroll::-webkit-scrollbar { display: none; }
 .pe-bracket-svg { display: block; }
 .pe-bracket-svg text { font-family: 'Segoe UI', system-ui, sans-serif; }
 
@@ -861,9 +867,21 @@ button.pe-btn, .pe-btn {
    dotted line, distinct from both the plain "within bracket" line and the
    danger-red anomaly dashes below. */
 .pe-legend-line.is-rematch { border-top-style: dotted; border-top-color: #5f7d68; border-top-width: 3px; }
-.pe-legend-tri { font-size: 12px; line-height: 1; }
-.pe-legend-tri.down { color: #b5762f; }
-.pe-legend-tri.up { color: #3a6ea5; }
+/* Solid-colour badge chip, not bare colored text (task 2) — mirrors the
+   filled `pe-tri-badge` circle drawn behind the same glyph on the chart. */
+.pe-legend-tri {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  font-size: 10px;
+  line-height: 1;
+  color: #ffffff;
+}
+.pe-legend-tri.down { background: #b5762f; }
+.pe-legend-tri.up { background: #3a6ea5; }
 /* Colour-against-due halo swatch (task 3) — mirrors the SVG halo ring's
    warn colour/dash pattern (see .pe-tag-warn and the `pe-dot-halo` circle
    in pairing_explain_live.ex). */
@@ -1135,14 +1153,15 @@ button.pe-btn, .pe-btn {
    space-separated list of tokens like "w within band-2" — set by
    dot_facets/1 / link_facets/1 in pairing_explain_live.ex. Clicking a
    legend item or a .pe-band-row (both are `[data-filter]` buttons) is
-   handled by the delegated listener in assets/js/app.js, which compares
-   the clicked facet against each element's data-facets and toggles this
-   single .pe-dim class — plain JS matching rather than static per-facet
-   CSS rules, because the score-band count (and therefore the set of
-   possible "band-N" facet values) is unbounded and only known at render
-   time. Popovers/hover/pin are untouched: only SVG elements dim, never the
-   .pe-board-wrap hover targets, so hovering/pinning a dimmed dot still
-   works exactly as before. */
+   handled by the delegated listener in assets/js/app.js, which toggles
+   that button's facet in a multi-select SET (`data-active-filter`, a
+   space-separated string) and dims (.pe-dim) any element whose own facets
+   don't intersect ANY active facet (OR semantics) — plain JS matching
+   rather than static per-facet CSS rules, because the score-band count
+   (and therefore the set of possible "band-N" facet values) is unbounded
+   and only known at render time. Popovers/hover/pin are untouched: only
+   SVG elements dim, never the .pe-board-wrap hover targets, so
+   hovering/pinning a dimmed dot still works exactly as before. */
 .pe-filterable { transition: opacity 0.15s; }
 .pe-dim { opacity: 0.16; }
 
@@ -1154,21 +1173,42 @@ button.pe-btn, .pe-btn {
    and the round strip is capped with its own scroll, so a long tournament's
    trail stays a fixed, bounded height (see @bracket_pin_pop_room, which the
    canvas clearance math reserves for it). */
-.pe-board-wrap.is-pinned .pe-dot-popover { width: 250px; }
+.pe-board-wrap.is-pinned .pe-dot-popover { width: 300px; }
 .pe-trail { display: none; margin-top: 8px; border-top: 1px solid var(--border); padding-top: 6px; }
 .pe-board-wrap.is-pinned .pe-trail { display: block; }
 .pe-trail-title {
   font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
   color: var(--text-soft); margin-bottom: 4px;
 }
+/* Fairness summary row (task 4d) — smaller variant of .pe-stat/.pe-stat-n
+   (see the page's summary strip above) for the popover's tighter width. */
+.pe-trail-stats { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 6px; }
+.pe-stat-sm { font-size: 10.5px; gap: 4px; }
+.pe-stat-sm .pe-stat-n { font-size: 12px; }
 .pe-trail-spark { display: block; width: 100%; height: auto; margin-bottom: 6px; }
 .pe-trail-rounds {
   display: flex; flex-direction: column; gap: 2px;
-  max-height: 96px; overflow-y: auto;
+  /* Fit ~12 rounds without scrolling. Per-row height = max(line-height
+     11px*1.4≈15.4px, the 16px colour disc) + 1px+1px padding = 18px; the
+     .pe-trail-res column is now wide enough (see .pe-trail-row below) that
+     "this round" never wraps to a second line, so 18px holds for every row.
+     12 rows * 18px + 11 gaps * 2px = 238px; round up to 240px. Longer
+     round-robins still fall back on overflow-y below. */
+  max-height: 240px; overflow-y: auto;
 }
+/* Column widths at the pinned popover's 300px width (padding 10px each
+   side = 20px, 4 gaps * 5px = 20px, leaving 260px of content):
+     round   20px  — only ever "R" + 1-2 digits (e.g. "R12"), trimmed down
+                      from the old 24px (was more than that ever needs)
+     colour  16px  — the disc badge, fixed, can't shrink
+     result  70px  — must fit the widest label, "this round" (11 chars,
+                      bold 11px sans ≈ 60-64px), plus a small safety margin
+     score   auto  — ~4 tabular-nums chars + 4px padding, ≈ 30px
+     opponent 1fr  — gets what's left: 260 - 20 - 16 - 70 - ~30 ≈ 124px
+                      (was ≈ 100px at the old 250px width) */
 .pe-trail-row {
   display: grid;
-  grid-template-columns: 24px 16px 40px 1fr auto;
+  grid-template-columns: 20px 16px 70px 1fr auto;
   align-items: center; gap: 5px;
   font-size: 11px; line-height: 1.4;
   padding: 1px 2px; border-radius: 4px;
@@ -1185,8 +1225,11 @@ button.pe-btn, .pe-btn {
 .pe-trail-col.is-b { background: var(--accent); color: #fff; }
 .pe-trail-col.is-bye { background: var(--surface); border: 1.5px dashed var(--accent); color: var(--accent); }
 .pe-trail-col.is-absent { background: #eeece7; color: var(--text-soft); }
-/* Result cell colour mirrors the app's existing W/D/L tag language. */
-.pe-trail-res { font-weight: 700; }
+/* Result cell colour mirrors the app's existing W/D/L tag language.
+   nowrap/ellipsis is a defensive backstop for the 240px .pe-trail-rounds
+   max-height math (see above), which assumes every row stays single-line —
+   the 70px column width already fits "this round", the longest label. */
+.pe-trail-res { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pe-trail-win .pe-trail-res { color: var(--accent); }
 .pe-trail-draw .pe-trail-res { color: var(--text-soft); }
 .pe-trail-loss .pe-trail-res { color: var(--danger); }

@@ -579,9 +579,9 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
 
     trails = PairingRationale.player_trails(t, 3)
 
-    # Keyed by player id; every player has one entry per round through 3.
+    # Keyed by player id; every player has a per-round list plus a summary.
     carol_trail = trails[carol.id]
-    assert [r1, r2, r3] = carol_trail
+    assert [r1, r2, r3] = carol_trail.rounds
 
     # Round 1: Carol wasn't paired → an honest "absent" row, not skipped.
     assert r1.round == 1
@@ -602,10 +602,101 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     assert r3.outcome == :pending
 
     # Alice: win then loss then pending, so her running score stays at 1.0.
-    assert Enum.map(trails[alice.id], & &1.score) == [1.0, 1.0, 1.0]
+    assert Enum.map(trails[alice.id].rounds, & &1.score) == [1.0, 1.0, 1.0]
 
     # Round 1 has no history worth a trail.
     assert PairingRationale.player_trails(t, 1) == %{}
+  end
+
+  ## ---------- "Pairing fairness" summary ----------
+
+  test "player_trails/2 summarises colour balance, float direction and byes", %{scope: scope} do
+    {t, %{"Alice" => alice, "Carol" => carol, "Bob" => bob, "Erin" => erin}} =
+      three_round_swiss(scope)
+
+    trails = PairingRationale.player_trails(t, 3)
+
+    # Alice played White twice (R1 beat Bob, R2 lost to Carol); her R3 game is
+    # still unplayed and so counts nowhere. Entering R2 on 1.0 against Carol's
+    # 0.0, she was paired DOWN once.
+    assert trails[alice.id].summary.colour == %{w: 2, b: 0}
+    assert trails[alice.id].summary.floats == %{up: 0, down: 1}
+    assert trails[alice.id].summary.byes == 0
+
+    # Carol is the mirror image of that R2 pairing: one Black game, paired UP.
+    assert trails[carol.id].summary.colour == %{w: 0, b: 1}
+    assert trails[carol.id].summary.floats == %{up: 1, down: 0}
+
+    # A bye is resolved at creation, so it counts as a bye but never as a
+    # colour or a float (Bob: R1 Black, R2 White, R3 bye).
+    assert trails[bob.id].summary.colour == %{w: 1, b: 1}
+    assert trails[bob.id].summary.byes == 1
+    assert trails[erin.id].summary.byes == 1
+
+    # Unrated opponents give no honest average rather than a fake 0.
+    assert trails[alice.id].summary.avg_opponent_rating == nil
+  end
+
+  test "the fairness summary counts only resolved games, never the pending current round", %{
+    scope: scope
+  } do
+    {t, %{"Alice" => alice}} = three_round_swiss(scope)
+
+    # Alice's R3 pairing (White vs Dave) exists but has no result. Every stat
+    # must share one denominator — her two resolved games — so the pending
+    # round can't sneak into the float counts while colour/rating ignore it.
+    summary = PairingRationale.player_trails(t, 3)[alice.id].summary
+
+    assert summary.colour.w + summary.colour.b == 2
+    assert summary.floats.up + summary.floats.down <= 2
+    # Entering R2 ahead of Carol is Alice's only float; R1 was an all-square
+    # first round and R3 is unplayed.
+    assert summary.floats == %{up: 0, down: 1}
+  end
+
+  test "player_trails/2 averages real opponents' ratings", %{scope: scope} do
+    {:ok, t} = Tournaments.create_tournament(scope, %{"name" => "Rated", "type" => "swiss"})
+
+    {:ok, a} = Tournaments.create_player(t.id, %{"name" => "Alice", "fide_rating" => 2000})
+    {:ok, b} = Tournaments.create_player(t.id, %{"name" => "Bob", "fide_rating" => 1800})
+    {:ok, c} = Tournaments.create_player(t.id, %{"name" => "Carol", "fide_rating" => 1600})
+    {:ok, d} = Tournaments.create_player(t.id, %{"name" => "Dave"})
+
+    r1 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 1, status: "playing"})
+    board(r1, 1, a, b, "1-0")
+    board(r1, 2, c, d, "1-0")
+
+    r2 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 2, status: "playing"})
+    board(r2, 1, a, c, "")
+    board(r2, 2, b, d, "")
+
+    trails = PairingRationale.player_trails(Tournaments.get_tournament!(t.id), 2)
+
+    # Alice's only resolved game was against Bob (1800) — her pending R2
+    # opponent Carol must not drag the average.
+    assert trails[a.id].summary.avg_opponent_rating == 1800
+
+    # Carol's only resolved opponent, Dave, is unrated and is skipped rather
+    # than averaged in as a zero.
+    assert trails[c.id].summary.avg_opponent_rating == nil
+  end
+
+  test "the fairness summary renders in the popover, hiding byes when there are none", %{
+    conn: conn,
+    scope: scope
+  } do
+    {t, _players} = three_round_swiss(scope)
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/3/explain")
+
+    assert html =~ "pe-trail-stats"
+    assert html =~ "avg opp"
+    # Bob has a round-3 bye, so the bye stat appears on this page at least once.
+    assert html =~ ~r/1<\/span>\s*bye/
+
+    # Round 2 has no bye recipient among its own dots' trails-so-far except
+    # Erin's; a player with zero byes gets no empty bye chrome.
+    refute html =~ "0</span> bye"
   end
 
   test "a round-2 explain page renders each dot's trail (history + running scores), hidden until pinned",
@@ -617,7 +708,7 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     # The trail scaffold is present in the popovers (revealed only when the
     # dot is pinned — pure CSS, no server roundtrip).
     assert html =~ "pe-trail"
-    assert html =~ "Tournament so far"
+    assert html =~ "Pairing fairness"
     # Sparkline of the running score across rounds.
     assert html =~ "pe-trail-spark"
     # Round-1 history carried into the round-2 popovers, with running scores.
@@ -673,7 +764,91 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     assert html =~ "pe-minimap-viewport"
     # The colocated hook name is compiled to its module-qualified form.
     assert html =~ ~r/phx-hook="[^"]*BracketMinimap"/
-    # It scales the shared layout for free (unique to the minimap SVG).
-    assert html =~ "preserveAspectRatio"
+    # Stretched, not letterboxed: "meet" left white gutters either side and
+    # broke the hook's linear x -> scrollLeft seek math.
+    assert html =~ ~s(preserveAspectRatio="none")
+  end
+
+  ## ---------- polish: multi-select filters, badges, tooltips ----------
+
+  test "the filter state is a multi-select set, not a single facet", %{conn: conn, scope: scope} do
+    {t, _players} = three_round_swiss(scope)
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/3/explain")
+
+    # The container carries a set-valued attribute the JS toggles facets in
+    # and out of; it starts empty (= nothing filtered, everything lit).
+    assert html =~ ~s(data-active-filter="")
+    assert html =~ "pe-bracket-map"
+  end
+
+  test "paired up/down markers get a filled badge, not bare coloured text", %{
+    conn: conn,
+    scope: scope
+  } do
+    {t, _players} = three_round_swiss(scope)
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/3/explain")
+
+    # Round 3 pairs Alice (1.0) against Dave (1.5), so a float badge exists.
+    assert html =~ "pe-tri-badge"
+    # The glyph itself is knocked out white on that chip.
+    assert html =~ ~r/class="pe-tri pe-filterable"/
+  end
+
+  test "the colour-against-due halo and legend explain themselves in plain terms", %{
+    conn: conn,
+    scope: scope
+  } do
+    {t, _players} = three_round_swiss(scope)
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/3/explain")
+
+    # Alice had White in rounds 1 and 2, so Black is due in round 3; she gets
+    # White again, which is exactly what the halo is for. The halo's own title
+    # now names both colours instead of the old bare "against due colour".
+    assert html =~ ~r/Received \w+; colour history says \w+ was due\./
+    assert html =~ "Player&#39;s own colour history says they were due"
+  end
+
+  test "a bye recipient never gets a colour-against-due halo", %{conn: conn, scope: scope} do
+    {:ok, t} = Tournaments.create_tournament(scope, %{"name" => "Bye halo", "type" => "swiss"})
+
+    {:ok, a} = Tournaments.create_player(t.id, %{"name" => "Alice"})
+    {:ok, b} = Tournaments.create_player(t.id, %{"name" => "Bob"})
+    {:ok, c} = Tournaments.create_player(t.id, %{"name" => "Carol"})
+
+    # Alice plays White twice, so Black is due in round 3 — but she takes the
+    # bye there. A bye recipient's side is modelled as the board's White side,
+    # so an unguarded colour check would call that "White against a due Black"
+    # and halo a round she never played a game in.
+    r1 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 1, status: "playing"})
+    board(r1, 1, a, b, "1-0")
+    bye_board(r1, 2, c)
+
+    r2 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 2, status: "playing"})
+    board(r2, 1, a, c, "1-0")
+    bye_board(r2, 2, b)
+
+    r3 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 3, status: "playing"})
+    board(r3, 1, b, c, "")
+    bye_board(r3, 2, a)
+
+    t = Tournaments.get_tournament!(t.id)
+    rationale = PairingRationale.for_round(t, 3)
+    bye = Enum.find(rationale.boards, & &1.is_bye)
+
+    # The underlying side really does carry the misleading verdict, so this
+    # test would pass vacuously if the guard were removed and this changed.
+    assert bye.white.player.id == a.id
+    assert bye.white.colour_due == :b
+    refute bye.white.colour_ok
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/3/explain")
+
+    # The bye dot is drawn and labelled, but carries no against-due note.
+    assert html =~ "bye: Alice"
+    refute html =~ "bye: Alice, against due colour"
+    refute html =~ "Received White; colour history says Black was due"
   end
 end

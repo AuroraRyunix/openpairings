@@ -124,17 +124,31 @@ defmodule PairingsEngine.PairingRationale do
   Per-player tournament trail up to and including `through_round`, for the
   cross-round strip + score sparkline shown in a **pinned** dot popover on the
   bracket map (`PairingsEngineWeb.PairingExplainLive`). Returns
-  `%{player_id => [round_entry]}`, each `round_entry` a map:
+  `%{player_id => %{rounds: [round_entry], summary: summary}}`.
+
+  Each `round_entry` is a map:
 
       %{round:, current:, colour: "W" | "B" | "bye" | "absent",
         result:, outcome:, opponent_name:, opponent_seed:, score:}
+
+  `summary` is a "how has this player's tournament gone so far" digest, all
+  through `through_round`:
+
+      %{colour: %{w: count, b: count},       # real (non-bye) games played
+        floats: %{up: count, down: count},   # rounds paired up vs down
+        avg_opponent_rating: integer | nil,   # mean rating of real opponents
+        byes: count}
 
   Design choices, so callers don't re-derive facts:
 
     * Running `score` after each round comes from `pre_round_scores/2` — the
       SAME per-system honest standings the bracket bands use (Keizer routes to
       the ladder, everything else to `Standings`). A naive cumulative sum of
-      per-game points would be WRONG for Keizer, so we never do that.
+      per-game points would be WRONG for Keizer, so we never do that. The
+      float direction in `summary` reuses the SAME per-round entering scores
+      (`scores_by_round[r - 1]`), and calls a round "down" for the
+      HIGHER-scored player exactly like `board_context/7`'s `float_down` (the
+      higher-scored id) — a player paired down met a lower-scored opponent.
     * `colour` / `result` / `opponent` reuse `Standings`' existing per-game
       records plus `PlayerCard.result_label/2` rather than re-parsing result
       strings. `outcome` is a coarse atom (`:win | :draw | :loss |
@@ -143,9 +157,14 @@ defmodule PairingsEngine.PairingRationale do
     * The current round is always the last entry. `Standings` emits no game
       record for a still-unplayed pairing, so the current round's colour /
       opponent are read straight from its pairings and marked `:pending`
-      (`result: ""`) until a result is entered.
+      (`result: ""`) until a result is entered. A pending round therefore
+      never counts toward `summary.colour`/`floats`/`avg_opponent_rating`
+      either — those are "games played", and a bye is always resolved
+      immediately (its result is set at creation), so `Standings` already
+      has a game record for it even in the current round.
     * Rounds a player wasn't paired in (absent, or not yet entered) show an
-      honest `"absent"` row rather than being skipped.
+      honest `"absent"` row rather than being skipped, and contribute nothing
+      to the summary counts.
 
   Returns `%{}` for round 1 or earlier — a first round has no history worth a
   trail, so the view renders no extra chrome for it.
@@ -177,8 +196,53 @@ defmodule PairingsEngine.PairingRationale do
           )
         end)
 
-      {e.player.id, rounds}
+      summary = trail_summary(e, by_id, scores_by_round, through_round)
+
+      {e.player.id, %{rounds: rounds, summary: summary}}
     end)
+  end
+
+  # "Pairing fairness" digest for one player through `through_round` — see
+  # the `summary` shape documented on player_trails/2.
+  defp trail_summary(e, by_id, scores_by_round, through_round) do
+    real_games = Enum.filter(e.games, &(not is_nil(&1.opponent_id) and &1.round <= through_round))
+
+    ratings =
+      real_games
+      |> Enum.map(fn g -> Map.get(by_id, g.opponent_id) end)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.map(&Player.rating(&1.player))
+      |> Enum.reject(&(&1 <= 0))
+
+    # Every stat here counts the same thing — games with a real opponent and
+    # a recorded result — so all four share one denominator. Deriving floats
+    # from `real_games` (rather than walking 1..through_round and consulting
+    # the pending round's pairings) is what keeps that true: a still-unplayed
+    # current round has no `Standings` record, so it drops out of the float
+    # counts exactly as it already drops out of colour/avg_opponent_rating.
+    # Its float direction is not lost to the reader — the pinned dot's own
+    # ▲/▼ badge and the "this round" strip row both still show it.
+    {up, down} =
+      Enum.reduce(real_games, {0, 0}, fn g, {up, down} ->
+        entering = Map.get(scores_by_round, g.round - 1)
+        own = running_score(entering, e.player.id)
+        theirs = running_score(entering, g.opponent_id)
+
+        cond do
+          # Higher entering score paired down (mirrors board_context/7's
+          # float_down: higher_scored_id/2), lower entering score up.
+          own > theirs -> {up, down + 1}
+          own < theirs -> {up + 1, down}
+          true -> {up, down}
+        end
+      end)
+
+    %{
+      colour: %{w: Enum.count(real_games, &(&1.colour == :w)), b: Enum.count(real_games, &(&1.colour == :b))},
+      floats: %{up: up, down: down},
+      avg_opponent_rating: if(ratings == [], do: nil, else: round(Enum.sum(ratings) / length(ratings))),
+      byes: Enum.count(e.games, &(is_nil(&1.opponent_id) and &1.round <= through_round))
+    }
   end
 
   # Colour/opponent for each player in the current round, read from its

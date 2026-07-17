@@ -84,24 +84,33 @@ const AddPlayerShortcut = {
 }
 
 // Legend items and score-band gutter labels on the bracket map are both
-// `[data-filter]` buttons sharing one `data-active-filter` state on the
-// nearest .pe-bracket-map — one facet active at a time, click the active
-// one again to clear. Matching against each SVG element's `data-facets`
-// (set by dot_facets/1 / link_facets/1 in pairing_explain_live.ex) happens
-// here in JS rather than via static per-facet CSS, since the set of
-// possible "band-N" values is unbounded and only known at render time —
-// see the comment above .pe-filterable/.pe-dim in assets/css/app.css.
+// `[data-filter]` buttons sharing one `data-active-filter` state (a
+// space-separated SET of facets) on the nearest .pe-bracket-map —
+// multi-select: clicking a button toggles its own facet in the set (any
+// number can be active at once), and an element dims only when the active
+// set is non-empty AND none of its own facets intersect it (OR across
+// active facets, so e.g. "down" + "against-due" both active keeps anything
+// matching EITHER one lit). Zero active facets shows everything at full
+// opacity, same as no filter. Matching against each SVG element's
+// `data-facets` (set by dot_facets/1 / link_facets/1 in
+// pairing_explain_live.ex) happens here in JS rather than via static
+// per-facet CSS, since the set of possible "band-N" values is unbounded and
+// only known at render time — see the comment above .pe-filterable/.pe-dim
+// in assets/css/app.css.
 function applyBracketFilter(map, filter) {
-  const active = map.dataset.activeFilter === filter ? "" : filter
-  map.dataset.activeFilter = active
+  const active = new Set((map.dataset.activeFilter || "").split(" ").filter(Boolean))
+  if (active.has(filter)) active.delete(filter)
+  else active.add(filter)
+  map.dataset.activeFilter = Array.from(active).join(" ")
 
   map.querySelectorAll("[data-filter]").forEach((btn) => {
-    btn.classList.toggle("is-active-filter", active !== "" && btn.dataset.filter === active)
+    btn.classList.toggle("is-active-filter", active.has(btn.dataset.filter))
   })
 
   map.querySelectorAll(".pe-filterable").forEach((el) => {
     const facets = (el.dataset.facets || "").split(" ")
-    el.classList.toggle("pe-dim", active !== "" && !facets.includes(active))
+    const dim = active.size > 0 && !facets.some((f) => active.has(f))
+    el.classList.toggle("pe-dim", dim)
   })
 }
 

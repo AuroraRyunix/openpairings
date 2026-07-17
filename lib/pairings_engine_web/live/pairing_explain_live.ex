@@ -148,7 +148,13 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   # (round > 1) — otherwise a pinned popover on a near-top/near-bottom dot
   # would clip out of the scroll container.
   @bracket_pop_room 140
-  @bracket_pin_pop_room 310
+  # 310 (the old reservation) + 144 for .pe-trail-rounds' max-height growing
+  # 96px -> 240px, + ~38px for the fairness stats row added above the
+  # sparkline (up to two wrapped 16px lines plus its 6px margin) — that row
+  # is new chrome the old 310 never covered. Rounded up to 500: over-
+  # reserving only pads the canvas min-height a little, while under-
+  # reserving clips a pinned popover out of the scroll container.
+  @bracket_pin_pop_room 500
 
   defp bracket_layout(nil), do: nil
   defp bracket_layout(%{score_groups: []}), do: nil
@@ -310,7 +316,13 @@ defmodule PairingsEngineWeb.PairingExplainLive do
     # The only colour-history signal PairingRationale exposes is the boolean
     # colour_ok verdict (no numeric imbalance) — see pairing_rationale.ex's
     # `side/6` / `colour_matches_due?/2` — so this halo is binary, not scaled.
-    against_due = side.colour_due != nil and not side.colour_ok
+    # Byes are excluded like floater/rematch above, and for the same kind of
+    # reason: a bye recipient's side is built as the board's WHITE side (see
+    # PairingRationale's `board_context/7`), so `colour_ok` compares a
+    # fictitious White against their real due colour. Without this guard a
+    # player due Black would get a halo claiming they "received White" on a
+    # round they didn't play a game at all.
+    against_due = colour != :bye and side.colour_due != nil and not side.colour_ok
 
     base = %{
       board: board.board,
@@ -388,10 +400,17 @@ defmodule PairingsEngineWeb.PairingExplainLive do
          do: "pe-pop-above",
          else: "pe-pop-below"
 
+    # Threshold must be at least half the WIDEST popover that can appear on
+    # a pinned dot (the pinned popover is 300px wide, centred on the dot via
+    # `left: 50%; transform: translateX(-50%)`) plus a safety margin, or a
+    # centred popover near the canvas edge overflows past x=0/width even
+    # while "not flipped". Half of 300 is 150 — preserve the same ~25px
+    # buffer the old 150 threshold had over the old 250px popover's
+    # half-width of 125: 150 + 25 = 175.
     pop_h =
       cond do
-        d.x < 150 -> "pe-pop-edge-left"
-        d.x > width - 150 -> "pe-pop-edge-right"
+        d.x < 175 -> "pe-pop-edge-left"
+        d.x > width - 175 -> "pe-pop-edge-right"
         true -> nil
       end
 
@@ -541,7 +560,20 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         stroke-dasharray="2 2"
         class="pe-dot pe-dot-halo pe-filterable"
         data-facets={w.facets}
-      ><title>against due colour ({colour_word(w.side.colour_due)})</title></circle>
+      ><title>Received {colour_word(w.colour)}; colour history says {colour_word(w.side.colour_due)} was due.</title></circle>
+      <%!-- Paired-up/-down badge (task 2): a filled, rounded chip behind the
+            glyph rather than bare colored text — the glyph alone at this
+            size read as faint, low-contrast noise. Circle + text share one
+            `facets`/class pairing so the legend filter dims them together. --%>
+      <circle
+        :if={@interactive and w.dir}
+        cx={w.x}
+        cy={w.y - 16}
+        r="7"
+        fill={float_colour(w.dir)}
+        class="pe-tri-badge pe-filterable"
+        data-facets={w.facets}
+      />
       <text
         :if={@interactive and w.dir}
         x={w.x}
@@ -549,7 +581,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         font-size="12"
         font-weight="700"
         text-anchor="middle"
-        fill={float_colour(w.dir)}
+        fill="#ffffff"
         class="pe-tri pe-filterable"
         data-facets={w.facets}
       >{if w.dir == :down, do: "▼", else: "▲"}</text>
@@ -564,13 +596,33 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   ## PairingRationale.player_trails/2 — pinning never hits the server.
 
   attr :trail, :list, required: true
+  attr :summary, :map, default: nil
 
   defp trail_popover(assigns) do
     assigns = assign(assigns, :spark, sparkline(assigns.trail))
 
     ~H"""
     <div class="pe-trail">
-      <div class="pe-trail-title">Tournament so far</div>
+      <div class="pe-trail-title">Pairing fairness</div>
+      <%!-- Summary digest (task 4d) — reuses the page's existing compact-stat
+            visual language (.pe-stat/.pe-stat-n, see the page's summary strip
+            above) rather than inventing new chrome, just a smaller variant
+            for the popover's tighter width. Byes only renders when > 0 (no
+            empty chrome for a player who's never had one). --%>
+      <div :if={@summary} class="pe-trail-stats">
+        <span class="pe-stat pe-stat-sm" title="Colour balance (real games)">
+          <span class="pe-stat-n">{@summary.colour.w}W · {@summary.colour.b}B</span>
+        </span>
+        <span class="pe-stat pe-stat-sm" title="Rounds paired up vs paired down">
+          <span class="pe-stat-n">{@summary.floats.up}▲ · {@summary.floats.down}▼</span>
+        </span>
+        <span class="pe-stat pe-stat-sm" title="Average rating of real opponents faced">
+          <span class="pe-stat-n">{@summary.avg_opponent_rating || "—"}</span> avg opp
+        </span>
+        <span :if={@summary.byes > 0} class="pe-stat pe-stat-sm" title="Byes so far">
+          <span class="pe-stat-n">{@summary.byes}</span> bye{if @summary.byes > 1, do: "s"}
+        </span>
+      </div>
       <svg
         :if={@spark}
         class="pe-trail-spark"
@@ -600,7 +652,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
           <span class="pe-trail-rd">R{e.round}</span>
           <span class={["pe-trail-col", trail_col_class(e.colour)]}>{trail_col_label(e.colour)}</span>
           <span class="pe-trail-res">{trail_res_label(e)}</span>
-          <span class="pe-trail-opp">{trail_opp_label(e)}</span>
+          <span class="pe-trail-opp" title={e.opponent_name}>{trail_opp_label(e)}</span>
           <span class="pe-trail-sc">{score_str(e.score)}</span>
         </div>
       </div>
@@ -934,7 +986,8 @@ defmodule PairingsEngineWeb.PairingExplainLive do
 
                   <.trail_popover
                     :if={@round_number > 1 and @trails[w.side.player.id]}
-                    trail={@trails[w.side.player.id]}
+                    trail={@trails[w.side.player.id][:rounds]}
+                    summary={@trails[w.side.player.id][:summary]}
                   />
                 </div>
               </div>
@@ -955,12 +1008,16 @@ defmodule PairingsEngineWeb.PairingExplainLive do
                 leaves the minimap full (it's a whole-round overview, by
                 design). The viewport rect + scroll sync is driven by the
                 colocated BracketMinimap hook below; the hook also hides this
-                whole element when the chart doesn't overflow horizontally. --%>
+                whole element when the chart doesn't overflow horizontally.
+                `preserveAspectRatio="none"` stretches the SVG to fill the
+                strip's own width (letterboxing with "meet" wasted the sides
+                and, worse, meant clicked/dragged x didn't map linearly onto
+                strip.scrollWidth, throwing off the hook's seek/sync math). --%>
           <svg
             class="pe-minimap-svg"
             width="100%"
             viewBox={"0 0 #{@bracket.width} #{@bracket.height}"}
-            preserveAspectRatio="xMidYMid meet"
+            preserveAspectRatio="none"
             role="img"
             aria-label="Overview of the score-bracket map"
           >
@@ -1097,7 +1154,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             type="button"
             class="pe-legend-item"
             data-filter="against-due"
-            title="Click to highlight only these"
+            title="Player's own colour history says they were due White (or Black) next, but this pairing gave them the other colour — click to highlight."
           >
             <span class="pe-legend-halo"></span> colour against due
           </button>
