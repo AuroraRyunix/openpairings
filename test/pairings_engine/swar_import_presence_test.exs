@@ -212,7 +212,7 @@ defmodule PairingsEngine.SwarImportPresenceTest do
       ]
     }
 
-    assert {:ok, tournament} = import_synthetic!(opts)
+    assert {:ok, tournament, _warnings} = import_synthetic!(opts)
 
     assert tournament.points_win == 2.0
     assert tournament.points_draw == 1.0
@@ -241,7 +241,7 @@ defmodule PairingsEngine.SwarImportPresenceTest do
       ]
     }
 
-    assert {:ok, tournament} = import_synthetic!(opts)
+    assert {:ok, tournament, _warnings} = import_synthetic!(opts)
 
     # 8/4 (SW321_Bye) + 4/4 (SW321_Pre) = 3.0
     assert tournament.bye_value == 3.0
@@ -265,7 +265,7 @@ defmodule PairingsEngine.SwarImportPresenceTest do
       ]
     }
 
-    assert {:ok, tournament} = import_synthetic!(opts)
+    assert {:ok, tournament, _warnings} = import_synthetic!(opts)
 
     # 8/4 (SW321_Bye) only — no fold, since SW321_PreBye doesn't exist yet.
     assert tournament.bye_value == 2.0
@@ -284,7 +284,7 @@ defmodule PairingsEngine.SwarImportPresenceTest do
       ]
     }
 
-    assert {:ok, tournament} = import_synthetic!(opts)
+    assert {:ok, tournament, _warnings} = import_synthetic!(opts)
 
     assert tournament.presence_value == nil
     assert tournament.points_loss == 0.0

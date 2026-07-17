@@ -450,11 +450,12 @@ defmodule PairingsEngineWeb.TournamentsLive do
     scope = socket.assigns.current_scope
 
     case SwarImport.commit_import(prepared, resolutions, scope) do
-      {:ok, tournament} ->
+      {:ok, tournament, warnings} ->
         Audit.log(tournament.id, scope, "import.swar", %{name: tournament.name})
 
         {:noreply,
          socket
+         |> maybe_flash_swar_warnings(warnings)
          |> assign(swar_pending: nil)
          |> push_navigate(to: ~p"/t/#{tournament.id}/players")}
 
@@ -480,6 +481,21 @@ defmodule PairingsEngineWeb.TournamentsLive do
       "Imported, but the TRF file's own points column didn't match the recomputed total for " <>
         Enum.map_join(warnings, ", ", fn w ->
           "#{w.player_name} (file: #{format_points(w.trf_points)}, recomputed: #{format_points(w.computed_points)})"
+        end)
+    )
+  end
+
+  defp maybe_flash_swar_warnings(socket, []), do: socket
+
+  defp maybe_flash_swar_warnings(socket, warnings) do
+    # Same reasoning as maybe_flash_trf_warnings/2 — :info, not :error, since
+    # this is a notice about a discarded arbiter correction, not a failure.
+    put_flash(
+      socket,
+      :info,
+      "Imported, but the SWAR file's points_adjusted didn't match the recomputed total for " <>
+        Enum.map_join(warnings, ", ", fn w ->
+          "#{w.player_name} (file: #{format_points(w.swar_adjusted_points)}, recomputed: #{format_points(w.computed_points)})"
         end)
     )
   end

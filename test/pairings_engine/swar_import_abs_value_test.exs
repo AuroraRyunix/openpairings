@@ -202,7 +202,7 @@ defmodule PairingsEngine.SwarImportAbsValueTest do
       players: [%{ni: 1, name: "Player, One", rounds: [absent_round(1)]}]
     }
 
-    assert {:ok, tournament} = import_synthetic!(opts)
+    assert {:ok, tournament, _warnings} = import_synthetic!(opts)
     assert tournament.abs_value == 0.5
   end
 
@@ -213,7 +213,7 @@ defmodule PairingsEngine.SwarImportAbsValueTest do
       players: [%{ni: 1, name: "Player, One", rounds: [absent_round(1)]}]
     }
 
-    assert {:ok, tournament} = import_synthetic!(opts)
+    assert {:ok, tournament, _warnings} = import_synthetic!(opts)
     assert tournament.abs_value == 0.0
   end
 
@@ -228,7 +228,7 @@ defmodule PairingsEngine.SwarImportAbsValueTest do
       players: [%{ni: 1, name: "Player, One", rounds: [absent_round(1)]}]
     }
 
-    assert {:ok, tournament} = import_synthetic!(opts)
+    assert {:ok, tournament, _warnings} = import_synthetic!(opts)
     assert tournament.abs_value == 0.5
     assert tournament.presence_value == nil
 
@@ -245,7 +245,7 @@ defmodule PairingsEngine.SwarImportAbsValueTest do
       players: [%{ni: 1, name: "Player, One", rounds: [absent_round(1)]}]
     }
 
-    assert {:ok, tournament} = import_synthetic!(opts)
+    assert {:ok, tournament, _warnings} = import_synthetic!(opts)
     assert tournament.abs_value == 0.5
     # Confirms abs_value is mapped even though this is a 3-2-1 import whose
     # scoring_attrs/1 clause never touches it.

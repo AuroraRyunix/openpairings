@@ -18,7 +18,7 @@ defmodule PairingsEngine.SwarImport do
   import Ecto.Query
 
   alias PairingsEngine.Repo
-  alias PairingsEngine.Tournaments
+  alias PairingsEngine.{Tournaments, Standings}
   alias PairingsEngine.Tournaments.{Tournament, Player, Round, Pairing}
   alias PairingsEngine.Fide.FidePlayer
 
@@ -438,7 +438,11 @@ defmodule PairingsEngine.SwarImport do
   exactly like before this module could match FIDE ids at all.
   Pass a `%PairingsEngine.Accounts.Scope{}` as `scope` to make the logged-in
   user the owner; `nil` creates it unowned (visible to nobody in the web UI).
-  Returns `{:ok, %Tournament{}}` or `{:error, reason}`.
+  Returns `{:ok, %Tournament{}, warnings}` or `{:error, reason}` — `warnings`
+  is a (possibly empty) list from `points_adjusted_warnings/3`: SWAR's own
+  arbiter-entered `points_adjusted` correction (file version >= v6.49) can't
+  be reconstructed from replayed pairings/byes the way ordinary standings
+  always are, so an import that silently drops it is flagged here instead.
   """
   def import_file(path, scope \\ nil) do
     with {:ok, binary} <- File.read(path),
@@ -492,7 +496,8 @@ defmodule PairingsEngine.SwarImport do
   import that player without a `fide_id` — same outcome as if no match had
   ever been attempted. Runs the same single-transaction,
   broadcast-after-commit import as `import_file/2`.
-  Returns `{:ok, %Tournament{}}` or `{:error, reason}`.
+  Returns `{:ok, %Tournament{}, warnings}` or `{:error, reason}` — see
+  `import_file/2` for what `warnings` carries.
   """
   def commit_import(%{data: data}, resolutions, scope \\ nil) when is_map(resolutions) do
     players = Enum.map(data.players, &apply_resolution(&1, resolutions))
@@ -574,20 +579,20 @@ defmodule PairingsEngine.SwarImport do
       Tournaments.with_broadcast_suppressed(fn ->
         Repo.transaction(fn ->
           case do_import(data, scope) do
-            {:ok, tournament} -> tournament
+            {:ok, tournament, warnings} -> {tournament, warnings}
             {:error, reason} -> Repo.rollback(reason)
           end
         end)
       end)
 
     case result do
-      {:ok, tournament} ->
+      {:ok, {tournament, warnings}} ->
         Tournaments.broadcast_tournament_change(tournament.id, :tournament)
         Tournaments.broadcast_user_tournaments(tournament.user_id)
-        {:ok, Tournaments.refresh_status!(tournament.id)}
+        {:ok, Tournaments.refresh_status!(tournament.id), warnings}
 
-      _ ->
-        result
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -595,7 +600,45 @@ defmodule PairingsEngine.SwarImport do
     with {:ok, tournament} <- create_tournament(data, scope) do
       players_by_ni = create_players(tournament, data.players, data.categories)
       create_rounds(tournament, data.players, players_by_ni)
-      {:ok, tournament}
+      warnings = points_adjusted_warnings(tournament, data, players_by_ni)
+      {:ok, tournament, warnings}
+    end
+  end
+
+  # SWAR's own arbiter-entered correction (appeals, deductions — file version
+  # >= v6.49's points_adjusted field) can't be reconstructed by replaying
+  # pairings/byes the way our own standings always are, so it's silently
+  # discarded on import unless we say something. Mirrors
+  # TrfImport.points_warnings/3's declared-vs-recomputed cross-check.
+  #
+  # Gated on the file actually carrying points_adjusted at all (version >=
+  # v6.49) — older files hardcode it to 0 regardless of a player's real
+  # score (see parse_player/2), so comparing that against real computed
+  # points would produce a false-positive warning for nearly every player.
+  # `version_gte?/2` is a plain private function (not a `defguard`), so this
+  # is a single-clause function with an `if` rather than two pattern-matched
+  # clauses guarded on it.
+  defp points_adjusted_warnings(tournament, data, players_by_ni) do
+    if version_gte?(data.version, "v6.49") do
+      computed_by_id =
+        tournament
+        |> Standings.standings()
+        |> Map.new(fn e -> {e.player.id, e.points} end)
+
+      data.players
+      |> Enum.map(fn p ->
+        with player when not is_nil(player) <- players_by_ni[p.ni],
+             computed when not is_nil(computed) <- computed_by_id[player.id] do
+          adjusted = p.points_adjusted / 4.0
+
+          if abs(adjusted - computed) > 0.01 do
+            %{player_name: player.name, swar_adjusted_points: adjusted, computed_points: computed}
+          end
+        end
+      end)
+      |> Enum.reject(&is_nil/1)
+    else
+      []
     end
   end
 

@@ -329,7 +329,7 @@ defmodule PairingsEngine.TrfExportTest do
   # player with a known full birth date (Deloof, Koen, 1973-04-30).
   @tag :swar_fixture
   test "a SWAR-imported tournament's TRF export has the full 072/082/102/112/122 header and full birth dates" do
-    {:ok, tournament} = SwarImport.import_file("test/fixtures/c-reeks.swar")
+    {:ok, tournament, _warnings} = SwarImport.import_file("test/fixtures/c-reeks.swar")
 
     assert {:ok, text} = TrfExport.export(tournament)
 

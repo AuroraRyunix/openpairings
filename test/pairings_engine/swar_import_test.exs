@@ -19,6 +19,7 @@ defmodule PairingsEngine.SwarImportTest do
 
   @c_reeks "test/fixtures/c-reeks.swar"
   @problemski "test/fixtures/problemski.swar"
+  @test3_321 "test/fixtures/test3-321.swar"
 
   # Lightweight stand-in for `PairingsEngine.AccountsFixtures.user_scope_fixture/0`
   # — see the comment on the equivalent helper in tournaments_test.exs.
@@ -95,7 +96,7 @@ defmodule PairingsEngine.SwarImportTest do
   ## ---------- import_file/1 ----------
 
   test "import_file/1 creates the tournament, players and pairings for c-reeks.swar" do
-    assert {:ok, tournament} = SwarImport.import_file(@c_reeks)
+    assert {:ok, tournament, _warnings} = SwarImport.import_file(@c_reeks)
 
     assert tournament.name =~ "C-reeks"
     assert tournament.rounds_count == 11
@@ -125,7 +126,7 @@ defmodule PairingsEngine.SwarImportTest do
   end
 
   test "import_file/1 maps SWAR player-administration fields (payment, affiliation, extra points, category, club number)" do
-    {:ok, tournament} = SwarImport.import_file(@c_reeks)
+    {:ok, tournament, _warnings} = SwarImport.import_file(@c_reeks)
     players = Tournaments.list_players(tournament.id)
 
     abramenko = Enum.find(players, &(&1.name == "Abramenko, Aleksei"))
@@ -180,7 +181,7 @@ defmodule PairingsEngine.SwarImportTest do
   end
 
   test "import_file/1 does not create duplicate pairings for the same game" do
-    {:ok, tournament} = SwarImport.import_file(@c_reeks)
+    {:ok, tournament, _warnings} = SwarImport.import_file(@c_reeks)
     players = Tournaments.list_players(tournament.id)
     max_pairings = ceil(length(players) / 2)
 
@@ -211,7 +212,7 @@ defmodule PairingsEngine.SwarImportTest do
     scope = user_scope()
     Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.user_tournaments_topic(scope.user.id))
 
-    assert {:ok, tournament} = SwarImport.import_file(@c_reeks, scope)
+    assert {:ok, tournament, _warnings} = SwarImport.import_file(@c_reeks, scope)
 
     user_id = scope.user.id
     assert_receive {:tournaments_changed, ^user_id}
@@ -225,13 +226,51 @@ defmodule PairingsEngine.SwarImportTest do
   test "import_file/1 (no scope) does not broadcast on any user's tournament-list topic" do
     # An unowned import has no user to notify — this also exercises the
     # nil-safe branch of broadcast_user_tournaments/1.
-    assert {:ok, _tournament} = SwarImport.import_file(@c_reeks)
+    assert {:ok, _tournament, _warnings} = SwarImport.import_file(@c_reeks)
   end
 
   test "import_file/1 parses and imports problemski.swar without error" do
-    assert {:ok, tournament} = SwarImport.import_file(@problemski)
+    assert {:ok, tournament, _warnings} = SwarImport.import_file(@problemski)
     players = Tournaments.list_players(tournament.id)
     assert length(players) == 10
+  end
+
+  ## ---------- points_adjusted cross-check (arbiter corrections) ----------
+
+  # test/fixtures/test3-321.swar (file version v6.78, well above the v6.49
+  # points_adjusted floor) is a real club championship where several
+  # players' `PointsAdjusted` field (an arbiter-entered correction — appeals,
+  # deductions) genuinely disagrees with their raw `Points` field, e.g.
+  # "Slodicka, Anton" (points=8 -> 2.0, points_adjusted=20 -> 5.0) and
+  # "Lopez, Alfonso" (points=0 -> 0.0, points_adjusted=14 -> 3.5) — both
+  # verified directly against the real fixture (not just trusted from notes)
+  # before writing this assertion. Our own standings are always recomputed
+  # from replayed pairings/byes (matching the *raw*, not adjusted, points),
+  # so unless we cross-check and warn, the arbiter's correction is silently
+  # lost on import.
+  @tag :swar_fixture
+  test "import_file/1 warns when the real fixture's points_adjusted disagrees with the recomputed total" do
+    {:ok, tournament, warnings} = SwarImport.import_file(@test3_321)
+
+    assert tournament.id
+
+    slodicka = Enum.find(warnings, &(&1.player_name == "Slodicka, Anton"))
+    assert slodicka
+    assert_in_delta slodicka.swar_adjusted_points, 5.0, 0.01
+    assert_in_delta slodicka.computed_points, 2.0, 0.01
+
+    lopez = Enum.find(warnings, &(&1.player_name == "Lopez, Alfonso"))
+    assert lopez
+    assert_in_delta lopez.swar_adjusted_points, 3.5, 0.01
+    assert_in_delta lopez.computed_points, 0.0, 0.01
+  end
+
+  # problemski.swar's players all have points_adjusted == points (verified
+  # directly against the fixture) — no arbiter correction was ever entered,
+  # so this must not regress into warning on every ordinary import.
+  test "import_file/1 does not warn when points_adjusted matches the recomputed total" do
+    assert {:ok, _tournament, warnings} = SwarImport.import_file(@problemski)
+    assert warnings == []
   end
 
   ## ---------- 3-2-1 scoring (SWAR type SWISS_321 == 3) ----------
@@ -255,10 +294,9 @@ defmodule PairingsEngine.SwarImportTest do
   # Tom" has two LOST_BYE rounds and two ordinary losses, and his real SWAR
   # total (`points_raw / 4`, from his own file record) only reconciles once
   # LOST_BYE rounds score at `presence_value` (not `points_loss`).
-  @test3_321 "test/fixtures/test3-321.swar"
 
   test "import_file/1 maps SWAR's 3-2-1 scoring fields (SW321_Win/Nul/Los/Bye/Pre/PreBye) onto the tournament" do
-    assert {:ok, tournament} = SwarImport.import_file(@test3_321)
+    assert {:ok, tournament, _warnings} = SwarImport.import_file(@test3_321)
 
     assert tournament.points_win == 2.0
     assert tournament.points_draw == 1.0
@@ -276,7 +314,7 @@ defmodule PairingsEngine.SwarImportTest do
     # here — independent of whatever our scoring_attrs/1 currently does.
     assert tom.points == 8
 
-    assert {:ok, tournament} = SwarImport.import_file(@test3_321)
+    assert {:ok, tournament, _warnings} = SwarImport.import_file(@test3_321)
     [player] = Enum.filter(Tournaments.list_players(tournament.id), &(&1.name == "Descheemaeker, Tom"))
     entry = Enum.find(Standings.standings(tournament), &(&1.player.id == player.id))
 
@@ -294,7 +332,7 @@ defmodule PairingsEngine.SwarImportTest do
     # be present and would *also* divide out to 2.0/1.0/0.0/2.0 — but its
     # `[TOURNOI].Type` is 0 (plain Swiss), not 3, so the mapping must not
     # fire at all; this only proves the type==3 guard, not the division.
-    assert {:ok, tournament} = SwarImport.import_file(@problemski)
+    assert {:ok, tournament, _warnings} = SwarImport.import_file(@problemski)
 
     assert tournament.points_win == 1.0
     assert tournament.points_draw == 0.5
@@ -321,7 +359,7 @@ defmodule PairingsEngine.SwarImportTest do
   # eligibility (see `PairingsEngine.Pairing.build_shared_history/1`).
   @tag :javafo
   test "pairing a new round after import doesn't crash when a historical opponent is now excluded" do
-    assert {:ok, tournament} = SwarImport.import_file(@test3_321)
+    assert {:ok, tournament, _warnings} = SwarImport.import_file(@test3_321)
     assert {:ok, tournament} = Tournaments.update_tournament(tournament, %{rounds_count: 9})
 
     assert {:ok, round} = PairingsEngine.Pairing.pair_next_round(tournament)
@@ -359,7 +397,7 @@ defmodule PairingsEngine.SwarImportTest do
     # honestly-derived status (see the "commits a fully-scored import as
     # finished" test below) is "running", same as this test asserted before
     # status became derived rather than hardcoded.
-    assert {:ok, tournament} = SwarImport.import_file(@c_reeks)
+    assert {:ok, tournament, _warnings} = SwarImport.import_file(@c_reeks)
     assert tournament.status == "running"
 
     # Persisted, not just returned in-memory.
@@ -401,7 +439,7 @@ defmodule PairingsEngine.SwarImportTest do
       end)
 
     data = %{prepared.data | players: players}
-    assert {:ok, tournament} = SwarImport.commit_import(%{data: data}, %{})
+    assert {:ok, tournament, _warnings} = SwarImport.commit_import(%{data: data}, %{})
 
     assert tournament.status == "finished"
     assert Tournaments.get_tournament!(tournament.id).status == "finished"
@@ -410,7 +448,7 @@ defmodule PairingsEngine.SwarImportTest do
   ## ---------- Federation normalization + full birth dates ----------
 
   test "import_file/1 normalizes the SWAR federation entity to the FIDE country code, not the raw league marker" do
-    {:ok, tournament} = SwarImport.import_file(@c_reeks)
+    {:ok, tournament, _warnings} = SwarImport.import_file(@c_reeks)
 
     # c-reeks.swar's [TOURNOI] `federation` field is code 6 ("direct FIDE
     # homologation") — still Belgium, not the literal string "FIDE".
@@ -421,7 +459,7 @@ defmodule PairingsEngine.SwarImportTest do
   end
 
   test "import_file/1 stores the full birth date, kept in sync with birth_year" do
-    {:ok, tournament} = SwarImport.import_file(@c_reeks)
+    {:ok, tournament, _warnings} = SwarImport.import_file(@c_reeks)
     players = Tournaments.list_players(tournament.id)
 
     deloof = Enum.find(players, &(&1.name == "Deloof, Koen"))
@@ -464,7 +502,7 @@ defmodule PairingsEngine.SwarImportTest do
     end
 
     test "import_file/1 (no confirm step available) leaves an unmatchable player without a fide_id, same as before FIDE matching existed" do
-      {:ok, tournament} = SwarImport.import_file(@problemski)
+      {:ok, tournament, _warnings} = SwarImport.import_file(@problemski)
       players = Tournaments.list_players(tournament.id)
 
       ashrafi = Enum.find(players, &(&1.name == "Ashrafi, Sulaiman Ahmad"))
@@ -493,7 +531,7 @@ defmodule PairingsEngine.SwarImportTest do
       # isn't one of them.
       refute Enum.any?(unresolved, &(&1.name == "Deloof, Koen"))
 
-      {:ok, tournament} = SwarImport.commit_import(%{data: data}, %{})
+      {:ok, tournament, _warnings} = SwarImport.commit_import(%{data: data}, %{})
       players = Tournaments.list_players(tournament.id)
       deloof = Enum.find(players, &(&1.name == "Deloof, Koen"))
 
@@ -525,7 +563,7 @@ defmodule PairingsEngine.SwarImportTest do
 
       path = c_reeks_with_deloof_fide_id_blanked!(tmp_dir)
 
-      {:ok, tournament} = SwarImport.import_file(path)
+      {:ok, tournament, _warnings} = SwarImport.import_file(path)
       deloof = Enum.find(Tournaments.list_players(tournament.id), &(&1.name == "Deloof, Koen"))
       assert deloof.fide_id == 210_234
     end
@@ -546,7 +584,7 @@ defmodule PairingsEngine.SwarImportTest do
       assert [%{fide_id: 999_999, birth_year: 1960}] = candidates
 
       # And the non-interactive path leaves it unmatched too — nobody to ask.
-      {:ok, tournament} = SwarImport.import_file(path)
+      {:ok, tournament, _warnings} = SwarImport.import_file(path)
       deloof = Enum.find(Tournaments.list_players(tournament.id), &(&1.name == "Deloof, Koen"))
       assert deloof.fide_id == nil
 
@@ -554,7 +592,7 @@ defmodule PairingsEngine.SwarImportTest do
       # `data` with the user's explicit choice.
       %{ni: deloof_ni} = Enum.find(unresolved, &(&1.name == "Deloof, Koen"))
 
-      {:ok, chosen} = SwarImport.commit_import(%{data: data}, %{deloof_ni => 999_999})
+      {:ok, chosen, _warnings} = SwarImport.commit_import(%{data: data}, %{deloof_ni => 999_999})
       chosen_deloof = Enum.find(Tournaments.list_players(chosen.id), &(&1.name == "Deloof, Koen"))
       assert chosen_deloof.fide_id == 999_999
     end
@@ -567,7 +605,7 @@ defmodule PairingsEngine.SwarImportTest do
       {:ok, %{data: data, unresolved: unresolved}} = SwarImport.prepare_import(path)
       assert %{ni: ni} = Enum.find(unresolved, &(&1.name == "Deloof, Koen"))
 
-      {:ok, tournament} = SwarImport.commit_import(%{data: data}, %{ni => nil})
+      {:ok, tournament, _warnings} = SwarImport.commit_import(%{data: data}, %{ni => nil})
       deloof = Enum.find(Tournaments.list_players(tournament.id), &(&1.name == "Deloof, Koen"))
       assert deloof.fide_id == nil
       assert deloof.name == "Deloof, Koen"
