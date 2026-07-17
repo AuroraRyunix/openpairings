@@ -447,7 +447,8 @@ defmodule PairingsEngine.SwarImport do
   def import_file(path, scope \\ nil) do
     with {:ok, binary} <- File.read(path),
          {:ok, data} <- parse(binary) do
-      players = Enum.map(data.players, &best_effort_fide_match/1)
+      cache = build_fide_candidates_cache(data.players)
+      players = Enum.map(data.players, &best_effort_fide_match(&1, cache))
       run_import(%{data | players: players}, scope)
     else
       {:error, reason} -> {:error, reason}
@@ -472,9 +473,11 @@ defmodule PairingsEngine.SwarImport do
   def prepare_import(path) do
     with {:ok, binary} <- File.read(path),
          {:ok, data} <- parse(binary) do
+      cache = build_fide_candidates_cache(data.players)
+
       {players, unresolved} =
         Enum.map_reduce(data.players, [], fn p, unresolved ->
-          case resolve_fide_match(p) do
+          case resolve_fide_match(p, cache) do
             {:matched, resolved} -> {resolved, unresolved}
             {:unresolved, candidates} -> {p, [unresolved_entry(p, candidates) | unresolved]}
             :not_applicable -> {p, unresolved}
@@ -647,11 +650,27 @@ defmodule PairingsEngine.SwarImport do
   # `import_file/2`'s non-interactive best-effort path: adopt an
   # unambiguous match, otherwise leave the player exactly as SWAR had it
   # (no `fide_id`) — there's nobody to ask.
-  defp best_effort_fide_match(p) do
-    case resolve_fide_match(p) do
+  defp best_effort_fide_match(p, cache) do
+    case resolve_fide_match(p, cache) do
       {:matched, resolved} -> resolved
       _ -> p
     end
+  end
+
+  # One query per DISTINCT federation among players SWAR left with no FIDE
+  # id (`mat_fide == 0`), instead of one query per such PLAYER —
+  # `fide_candidates/2` below reads from this instead of re-querying for a
+  # federation an earlier player in the same file already covered.
+  defp build_fide_candidates_cache(players) do
+    federations =
+      players
+      |> Enum.filter(&(&1.mat_fide == 0))
+      |> Enum.map(&normalize_federation(&1.country))
+      |> Enum.uniq()
+
+    Map.new(federations, fn federation ->
+      {federation, Repo.all(from(f in FidePlayer, where: f.federation == ^federation))}
+    end)
   end
 
   # `mat_fide == 0` means SWAR itself has no FIDE id on file for this
@@ -659,8 +678,8 @@ defmodule PairingsEngine.SwarImport do
   # A player SWAR already gave a FIDE id to is never looked up or
   # second-guessed here, however different their `mat_fide` might be from
   # what the FIDE database currently has on file.
-  defp resolve_fide_match(%{mat_fide: 0} = p) do
-    candidates = fide_candidates(p)
+  defp resolve_fide_match(%{mat_fide: 0} = p, cache) do
+    candidates = fide_candidates(p, cache)
     exact = Enum.filter(candidates, &(&1.birth_year == birth_year(p.birth) and not is_nil(&1.birth_year)))
 
     case exact do
@@ -669,7 +688,7 @@ defmodule PairingsEngine.SwarImport do
     end
   end
 
-  defp resolve_fide_match(_p), do: :not_applicable
+  defp resolve_fide_match(_p, _cache), do: :not_applicable
 
   # Same name (case-insensitive, "Last, First" as both SWAR and the local
   # FIDE database already store it) + same federation, *any* birth year —
@@ -677,12 +696,12 @@ defmodule PairingsEngine.SwarImport do
   # birth-year match, and the candidate list shown to the user when it
   # can't (so "right person, wrong/missing year on one side" still shows up
   # as a one-click choice instead of falling through to "no match").
-  defp fide_candidates(p) do
+  defp fide_candidates(p, cache) do
     name = normalize_name_for_match(p.name)
     federation = normalize_federation(p.country)
 
-    from(f in FidePlayer, where: f.federation == ^federation)
-    |> Repo.all()
+    cache
+    |> Map.get(federation, [])
     |> Enum.filter(&(normalize_name_for_match(&1.name) == name))
   end
 
