@@ -355,8 +355,12 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     assert html =~ "pe-warning"
     assert html =~ "already met in an earlier round"
     # The page's honest, not-proof-of-error framing is present.
-    assert html =~ "Anomaly check"
+    assert html =~ "Worth a look"
     assert html =~ "not proof of"
+    refute html =~ "Anomaly check"
+
+    # It also shows up in the top-of-page summary panel, linking to the board.
+    assert html =~ "pe-board-1"
   end
 
   test "does not flag a rematch as an anomaly when swiss_match_format is enabled", %{
@@ -402,43 +406,60 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     refute html =~ "already met in an earlier round"
   end
 
-  @tag :javafo
-  test "flags a starting-rank gap left by a mid-field round-specific absentee", %{
-    conn: conn,
-    scope: scope
-  } do
+  test "the top-of-page summary panel is absent for a clean round", %{conn: conn, scope: scope} do
     {:ok, t} =
       Tournaments.create_tournament(scope, %{
-        "name" => "T",
-        "type" => "swiss",
-        "start_date" => "2026-07-01"
+        "name" => "RR",
+        "type" => "roundrobin",
+        "pairing_system" => "round_robin"
       })
 
-    for {name, rating} <- [{"Alice", 2000}, {"Bob", 1900}] do
-      {:ok, _} = Tournaments.create_player(t.id, %{"name" => name, "fide_rating" => "#{rating}"})
-    end
-
-    # Rated between Bob and Dave — after pairing numbers freeze (highest
-    # rating first), Carol lands 3rd of 5, so sitting her out round 1 only
-    # leaves a gap in the MIDDLE of the starting-rank range.
-    {:ok, _carol} =
-      Tournaments.create_player(t.id, %{
-        "name" => "Carol",
-        "fide_rating" => "1800",
-        "absent_rounds" => "1"
-      })
-
-    for {name, rating} <- [{"Dave", 1700}, {"Eve", 1600}] do
-      {:ok, _} = Tournaments.create_player(t.id, %{"name" => name, "fide_rating" => "#{rating}"})
+    for name <- ~w(Alice Bob Carol Dave) do
+      {:ok, _} = Tournaments.create_player(t.id, %{"name" => name})
     end
 
     assert {:ok, _round} = Pairing.pair_next_round(t)
 
     {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
 
-    assert html =~ "pe-warning"
-    assert html =~ "gap in the pairing-number sequence"
-    assert html =~ "Carol"
+    # The intro hint still names "Worth a look" once (explaining what the
+    # label means), but the summary panel itself — a per-item anchor link to
+    # a flagged board — must not render when the round is clean.
+    refute html =~ ~s(href="#pe-board-)
+    refute html =~ "gap in the pairing-number sequence"
+  end
+
+  test "the top-of-page summary panel flags a repeat pairing-allocated bye, linking to its board",
+       %{conn: conn, scope: scope} do
+    {:ok, t} = Tournaments.create_tournament(scope, %{"name" => "Swiss", "type" => "swiss"})
+    {:ok, alice} = Tournaments.create_player(t.id, %{"name" => "Alice"})
+
+    round1 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 1, status: "playing"})
+
+    Repo.insert!(%PairingSchema{
+      round_id: round1.id,
+      board: 1,
+      white_player_id: alice.id,
+      black_player_id: nil,
+      result: "bye"
+    })
+
+    round2 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 2, status: "playing"})
+
+    Repo.insert!(%PairingSchema{
+      round_id: round2.id,
+      board: 1,
+      white_player_id: alice.id,
+      black_player_id: nil,
+      result: "bye"
+    })
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/2/explain")
+
+    assert html =~ "Worth a look"
+    assert html =~ "has now had two engine-assigned byes"
+    assert html =~ ~s(href="#pe-board-1")
+    assert html =~ "pe-board-1"
   end
 
   ## ---------- Task 1/2/3/4: legend-as-filter, band counts, colour-due halo, rematch shading ----------

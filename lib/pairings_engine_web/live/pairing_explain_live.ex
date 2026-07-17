@@ -43,8 +43,55 @@ defmodule PairingsEngineWeb.PairingExplainLive do
        trails: trails,
        ladder_max: ladder_max(rationale),
        paired_rounds: paired_rounds,
+       anomalies: anomaly_index(rationale),
        page_title: "#{tournament.name} · Pairing rationale — Round #{round_number}"
      )}
+  end
+
+  # Top-of-page index of the genuine per-board anomalies — rematch outside
+  # match format, a repeat pairing-allocated (engine-assigned) bye, and the
+  # softer "already had a bye" note — flattened once here so the summary
+  # panel and its per-item anchor links share one source of truth with the
+  # inline per-board copy still rendered on each card. `had_prior_pairing_bye`
+  # implies `had_prior_bye` (it's the stricter subset — see
+  # `PairingRationale.players_with_prior_bye/2`), so a board only ever
+  # contributes one entry, not two. Empty for a clean round or an unpaired
+  # one, which suppresses the panel entirely (see its `:if` in the template).
+  defp anomaly_index(nil), do: []
+
+  defp anomaly_index(%{boards: boards}) do
+    Enum.flat_map(boards, fn b ->
+      cond do
+        not b.is_bye and b.rematch_anomaly ->
+          [
+            %{
+              board: b.board,
+              text:
+                "Board #{b.board} — #{b.white.player.name} and #{b.black.player.name} " <>
+                  "already met in an earlier round"
+            }
+          ]
+
+        b.is_bye and b[:bye_detail] && b.bye_detail.had_prior_pairing_bye ->
+          [
+            %{
+              board: b.board,
+              text: "Board #{b.board} — #{b.bye_detail.player.name} has now had two engine-assigned byes"
+            }
+          ]
+
+        b.is_bye and b[:bye_detail] && b.bye_detail.had_prior_bye ->
+          [
+            %{
+              board: b.board,
+              text: "Board #{b.board} — #{b.bye_detail.player.name} already had a bye earlier"
+            }
+          ]
+
+        true ->
+          []
+      end
+    end)
   end
 
   ## ---------- display helpers ----------
@@ -837,9 +884,16 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         pairing output), not a stored replay. JaVaFo's internal tie-break reasoning can't be
         extracted, so for Swiss this shows the input state that constrained the decision and the
         observable shape of its output (brackets, floaters, byes). Items marked
-        <strong>Anomaly check</strong> below are automated data-consistency checks, not proof of
+        <strong>Worth a look</strong> below are automated data-consistency checks, not proof of
         an actual arbiting error — they flag patterns worth a second look, nothing more.
       </p>
+
+      <div :if={@anomalies != []} class="card" style="margin: 8px 0">
+        <h3 style="margin-top: 0">Worth a look</h3>
+        <p :for={item <- @anomalies} class="pe-warning" style="margin-top: 6px">
+          <.link href={"#pe-board-#{item.board}"}>{item.text}</.link>
+        </p>
+      </div>
 
       <div class="card pe-summary" style="margin: 8px 0">
         <span class="pe-stat">
@@ -1165,6 +1219,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
       <div class="pe-pair-grid">
         <div
           :for={b <- @rationale.boards}
+          id={"pe-board-#{b.board}"}
           class={[
             "pe-pair-card",
             b.is_bye && "pe-bye-card",
@@ -1200,7 +1255,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
           />
           <p :if={not b.is_bye and float_note(b)} class="pe-pair-foot">{float_note(b)}</p>
           <p :if={not b.is_bye and b.rematch_anomaly} class="pe-warning">
-            <strong>Anomaly check:</strong>
+            <strong>Worth a look:</strong>
             these two players already met in an earlier round of this tournament, and neither
             round-robin nor Swiss "match format" is enabled here to explain a deliberate
             back-to-back rematch — worth double-checking the game history for a data issue.
@@ -1219,23 +1274,12 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             :if={b.is_bye and b[:bye_detail] != nil and b.bye_detail.had_prior_pairing_bye}
             class="pe-warning"
           >
-            <strong>Anomaly check:</strong>
+            <strong>Worth a look:</strong>
             this player has now received more than one pairing-allocated (engine-assigned) bye —
             FIDE Dutch pairing normally avoids repeating that for the same player whenever an
             alternative exists.
           </p>
         </div>
-      </div>
-
-      <div :if={@rationale.pairing_gap} class="card pe-warning" style="margin: 8px 0">
-        <strong>Anomaly check:</strong>
-        this round's eligible field has a gap in the pairing-number sequence — likely an absent
-        player whose seed sits in the middle of the field rather than at the bottom{if @rationale.pairing_gap.players != [] do
-          " (" <>
-            Enum.map_join(@rationale.pairing_gap.players, ", ", fn p ->
-              "##{p.pairing_number} #{p.name}"
-            end) <> ")"
-        end}.
       </div>
 
       <div :if={@rationale.byes.requested != []} class="card table-card" style="margin-top: 16px">

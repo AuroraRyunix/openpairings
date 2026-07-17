@@ -31,7 +31,7 @@ defmodule PairingsEngine.PairingRationale do
   """
 
   import Ecto.Query
-  alias PairingsEngine.{Repo, Standings, Keizer, Tournaments, Pairing, PlayerCard}
+  alias PairingsEngine.{Repo, Standings, Keizer, Tournaments, PlayerCard}
   alias PairingsEngine.Tournaments.{Round, Player}
 
   @doc """
@@ -108,7 +108,6 @@ defmodule PairingsEngine.PairingRationale do
       byes: %{allocated: allocated_bye, requested: requested_byes},
       score_groups: score_groups,
       berger: berger_info(tournament, round_number),
-      pairing_gap: pairing_gap(tournament, round_number),
       summary: %{
         boards: Enum.count(boards, &(not &1.is_bye)),
         byes: Enum.count(boards, & &1.is_bye),
@@ -643,49 +642,6 @@ defmodule PairingsEngine.PairingRationale do
           p.tournament_id == ^tournament_id and p.status == "active" and
             p.absent == false and p.forfeit == false and not is_nil(p.pairing_number)
     )
-  end
-
-  ## ---------- starting-rank / pairing-number gap ----------
-
-  # A round-specific absentee (excluded from just this round via
-  # `absent_rounds`, not permanently inactive/forfeited) still holds their
-  # global, tournament-wide `pairing_number` — see
-  # `PairingsEngine.Pairing.eligible_players/2` and `active_players/1`'s doc
-  # comments. If that absentee's pairing number sits anywhere but the very
-  # bottom of the field, this round's actually-eligible players have a GAP
-  # in the middle of their starting-rank sequence — exactly the condition
-  # `PairingsEngine.Pairing.do_pair_single/4` already works around
-  # internally (a local contiguous 1..M rank remap) because sending it
-  # straight to JaVaFo crashes the real jar. Surfaced here as an
-  # informational note (the engine already handles it correctly), not an
-  # error — `nil` when there is no gap.
-  defp pairing_gap(tournament, round_number) do
-    eligible_numbers =
-      tournament.id
-      |> Pairing.eligible_players(round_number)
-      |> Enum.map(& &1.pairing_number)
-      |> Enum.reject(&is_nil/1)
-      |> Enum.sort()
-
-    case gaps_in(eligible_numbers) do
-      [] ->
-        nil
-
-      missing_numbers ->
-        missing_players =
-          tournament.id
-          |> Pairing.active_players()
-          |> Enum.filter(&(&1.pairing_number in missing_numbers))
-          |> Enum.sort_by(& &1.pairing_number)
-
-        %{missing_numbers: missing_numbers, players: missing_players}
-    end
-  end
-
-  defp gaps_in(sorted_numbers) do
-    sorted_numbers
-    |> Enum.chunk_every(2, 1, :discard)
-    |> Enum.flat_map(fn [a, b] -> if b - a > 1, do: Enum.to_list((a + 1)..(b - 1)), else: [] end)
   end
 
   ## ---------- serialization for the audit log ----------
