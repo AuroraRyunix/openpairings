@@ -52,6 +52,7 @@ defmodule PairingsEngine.TournamentImportTest do
         fide_rating: 2000,
         pairing_number: 1,
         team_id: team.id,
+        birth_date: ~D[1990-05-12],
         extra_points: 0.5,
         category: "U20",
         norm_data: %{"title_claimed" => "IM", "remarks" => "strong event"}
@@ -152,6 +153,7 @@ defmodule PairingsEngine.TournamentImportTest do
     imported_alice = Enum.find(Tournaments.list_players(imported.id), &(&1.name == "Alice"))
     assert imported_alice.norm_data == %{"title_claimed" => "IM", "remarks" => "strong event"}
     assert imported_alice.extra_points == 0.5
+    assert imported_alice.birth_date == ~D[1990-05-12]
     assert imported_alice.team_id != nil
     imported_team = Repo.get!(Team, imported_alice.team_id)
     assert imported_team.name == "Team A"

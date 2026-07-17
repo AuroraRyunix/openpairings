@@ -42,7 +42,7 @@ defmodule PairingsEngine.TournamentExport do
 
   @player_fields ~w(
     name sex title fide_id fide_rating national_id national_rating
-    federation birth_year club status start_round board_order
+    federation birth_year birth_date club status start_round board_order
     pairing_number paid affiliated absent forfeit special_table
     absent_rounds extra_points category club_number norm_data team_id
   )a

@@ -5,7 +5,12 @@ config :pairings_engine, PairingsEngine.Repo,
   database: Path.expand("../pairings_engine_dev.db", __DIR__),
   pool_size: 5,
   stacktrace: true,
-  show_sensitive_data_on_connection_error: true
+  show_sensitive_data_on_connection_error: true,
+  # See config/test.exs for why: rollback-journal mode lets one reader starve
+  # every writer, and the adapter's 2000ms default busy_timeout is too short
+  # for a multi-arbiter app with concurrent readers/writers.
+  busy_timeout: 15_000,
+  journal_mode: :wal
 
 # For development, we disable any cache and enable
 # debugging and code reloading.
