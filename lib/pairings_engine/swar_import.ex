@@ -18,7 +18,7 @@ defmodule PairingsEngine.SwarImport do
   import Ecto.Query
 
   alias PairingsEngine.Repo
-  alias PairingsEngine.Tournaments
+  alias PairingsEngine.{Tournaments, Standings}
   alias PairingsEngine.Tournaments.{Tournament, Player, Round, Pairing}
   alias PairingsEngine.Fide.FidePlayer
 
@@ -438,12 +438,17 @@ defmodule PairingsEngine.SwarImport do
   exactly like before this module could match FIDE ids at all.
   Pass a `%PairingsEngine.Accounts.Scope{}` as `scope` to make the logged-in
   user the owner; `nil` creates it unowned (visible to nobody in the web UI).
-  Returns `{:ok, %Tournament{}}` or `{:error, reason}`.
+  Returns `{:ok, %Tournament{}, warnings}` or `{:error, reason}` — `warnings`
+  is a (possibly empty) list from `points_adjusted_warnings/3`: SWAR's own
+  arbiter-entered `points_adjusted` correction (file version >= v6.49) can't
+  be reconstructed from replayed pairings/byes the way ordinary standings
+  always are, so an import that silently drops it is flagged here instead.
   """
   def import_file(path, scope \\ nil) do
     with {:ok, binary} <- File.read(path),
          {:ok, data} <- parse(binary) do
-      players = Enum.map(data.players, &best_effort_fide_match/1)
+      cache = build_fide_candidates_cache(data.players)
+      players = Enum.map(data.players, &best_effort_fide_match(&1, cache))
       run_import(%{data | players: players}, scope)
     else
       {:error, reason} -> {:error, reason}
@@ -468,9 +473,11 @@ defmodule PairingsEngine.SwarImport do
   def prepare_import(path) do
     with {:ok, binary} <- File.read(path),
          {:ok, data} <- parse(binary) do
+      cache = build_fide_candidates_cache(data.players)
+
       {players, unresolved} =
         Enum.map_reduce(data.players, [], fn p, unresolved ->
-          case resolve_fide_match(p) do
+          case resolve_fide_match(p, cache) do
             {:matched, resolved} -> {resolved, unresolved}
             {:unresolved, candidates} -> {p, [unresolved_entry(p, candidates) | unresolved]}
             :not_applicable -> {p, unresolved}
@@ -492,7 +499,8 @@ defmodule PairingsEngine.SwarImport do
   import that player without a `fide_id` — same outcome as if no match had
   ever been attempted. Runs the same single-transaction,
   broadcast-after-commit import as `import_file/2`.
-  Returns `{:ok, %Tournament{}}` or `{:error, reason}`.
+  Returns `{:ok, %Tournament{}, warnings}` or `{:error, reason}` — see
+  `import_file/2` for what `warnings` carries.
   """
   def commit_import(%{data: data}, resolutions, scope \\ nil) when is_map(resolutions) do
     players = Enum.map(data.players, &apply_resolution(&1, resolutions))
@@ -574,20 +582,20 @@ defmodule PairingsEngine.SwarImport do
       Tournaments.with_broadcast_suppressed(fn ->
         Repo.transaction(fn ->
           case do_import(data, scope) do
-            {:ok, tournament} -> tournament
+            {:ok, tournament, warnings} -> {tournament, warnings}
             {:error, reason} -> Repo.rollback(reason)
           end
         end)
       end)
 
     case result do
-      {:ok, tournament} ->
+      {:ok, {tournament, warnings}} ->
         Tournaments.broadcast_tournament_change(tournament.id, :tournament)
         Tournaments.broadcast_user_tournaments(tournament.user_id)
-        {:ok, Tournaments.refresh_status!(tournament.id)}
+        {:ok, Tournaments.refresh_status!(tournament.id), warnings}
 
-      _ ->
-        result
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -595,7 +603,45 @@ defmodule PairingsEngine.SwarImport do
     with {:ok, tournament} <- create_tournament(data, scope) do
       players_by_ni = create_players(tournament, data.players, data.categories)
       create_rounds(tournament, data.players, players_by_ni)
-      {:ok, tournament}
+      warnings = points_adjusted_warnings(tournament, data, players_by_ni)
+      {:ok, tournament, warnings}
+    end
+  end
+
+  # SWAR's own arbiter-entered correction (appeals, deductions — file version
+  # >= v6.49's points_adjusted field) can't be reconstructed by replaying
+  # pairings/byes the way our own standings always are, so it's silently
+  # discarded on import unless we say something. Mirrors
+  # TrfImport.points_warnings/3's declared-vs-recomputed cross-check.
+  #
+  # Gated on the file actually carrying points_adjusted at all (version >=
+  # v6.49) — older files hardcode it to 0 regardless of a player's real
+  # score (see parse_player/2), so comparing that against real computed
+  # points would produce a false-positive warning for nearly every player.
+  # `version_gte?/2` is a plain private function (not a `defguard`), so this
+  # is a single-clause function with an `if` rather than two pattern-matched
+  # clauses guarded on it.
+  defp points_adjusted_warnings(tournament, data, players_by_ni) do
+    if version_gte?(data.version, "v6.49") do
+      computed_by_id =
+        tournament
+        |> Standings.standings()
+        |> Map.new(fn e -> {e.player.id, e.points} end)
+
+      data.players
+      |> Enum.map(fn p ->
+        with player when not is_nil(player) <- players_by_ni[p.ni],
+             computed when not is_nil(computed) <- computed_by_id[player.id] do
+          adjusted = p.points_adjusted / 4.0
+
+          if abs(adjusted - computed) > 0.01 do
+            %{player_name: player.name, swar_adjusted_points: adjusted, computed_points: computed}
+          end
+        end
+      end)
+      |> Enum.reject(&is_nil/1)
+    else
+      []
     end
   end
 
@@ -604,11 +650,27 @@ defmodule PairingsEngine.SwarImport do
   # `import_file/2`'s non-interactive best-effort path: adopt an
   # unambiguous match, otherwise leave the player exactly as SWAR had it
   # (no `fide_id`) — there's nobody to ask.
-  defp best_effort_fide_match(p) do
-    case resolve_fide_match(p) do
+  defp best_effort_fide_match(p, cache) do
+    case resolve_fide_match(p, cache) do
       {:matched, resolved} -> resolved
       _ -> p
     end
+  end
+
+  # One query per DISTINCT federation among players SWAR left with no FIDE
+  # id (`mat_fide == 0`), instead of one query per such PLAYER —
+  # `fide_candidates/2` below reads from this instead of re-querying for a
+  # federation an earlier player in the same file already covered.
+  defp build_fide_candidates_cache(players) do
+    federations =
+      players
+      |> Enum.filter(&(&1.mat_fide == 0))
+      |> Enum.map(&normalize_federation(&1.country))
+      |> Enum.uniq()
+
+    Map.new(federations, fn federation ->
+      {federation, Repo.all(from(f in FidePlayer, where: f.federation == ^federation))}
+    end)
   end
 
   # `mat_fide == 0` means SWAR itself has no FIDE id on file for this
@@ -616,8 +678,8 @@ defmodule PairingsEngine.SwarImport do
   # A player SWAR already gave a FIDE id to is never looked up or
   # second-guessed here, however different their `mat_fide` might be from
   # what the FIDE database currently has on file.
-  defp resolve_fide_match(%{mat_fide: 0} = p) do
-    candidates = fide_candidates(p)
+  defp resolve_fide_match(%{mat_fide: 0} = p, cache) do
+    candidates = fide_candidates(p, cache)
     exact = Enum.filter(candidates, &(&1.birth_year == birth_year(p.birth) and not is_nil(&1.birth_year)))
 
     case exact do
@@ -626,7 +688,7 @@ defmodule PairingsEngine.SwarImport do
     end
   end
 
-  defp resolve_fide_match(_p), do: :not_applicable
+  defp resolve_fide_match(_p, _cache), do: :not_applicable
 
   # Same name (case-insensitive, "Last, First" as both SWAR and the local
   # FIDE database already store it) + same federation, *any* birth year —
@@ -634,12 +696,12 @@ defmodule PairingsEngine.SwarImport do
   # birth-year match, and the candidate list shown to the user when it
   # can't (so "right person, wrong/missing year on one side" still shows up
   # as a one-click choice instead of falling through to "no match").
-  defp fide_candidates(p) do
+  defp fide_candidates(p, cache) do
     name = normalize_name_for_match(p.name)
     federation = normalize_federation(p.country)
 
-    from(f in FidePlayer, where: f.federation == ^federation)
-    |> Repo.all()
+    cache
+    |> Map.get(federation, [])
     |> Enum.filter(&(normalize_name_for_match(&1.name) == name))
   end
 

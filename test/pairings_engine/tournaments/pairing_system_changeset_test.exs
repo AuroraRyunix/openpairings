@@ -315,6 +315,54 @@ defmodule PairingsEngine.Tournaments.PairingSystemChangesetTest do
       assert changeset.valid?
       assert get_field(changeset, :pair_by_category) == true
     end
+
+    test "rejects pair_by_category=true with swiss_match_format=true" do
+      changeset =
+        Tournament.changeset(%Tournament{}, %{
+          "name" => "Test",
+          "type" => "swiss",
+          "categories_enabled" => true,
+          "rounds_count" => 6,
+          "swiss_match_format" => true,
+          "pair_by_category" => true
+        })
+
+      refute changeset.valid?
+
+      assert %{
+               pair_by_category: [
+                 "pairing by category is not yet supported together with match format"
+               ]
+             } = errors_on(changeset)
+    end
+
+    test "accepts pair_by_category=true with swiss_match_format=false" do
+      changeset =
+        Tournament.changeset(%Tournament{}, %{
+          "name" => "Test",
+          "type" => "swiss",
+          "categories_enabled" => true,
+          "swiss_match_format" => false,
+          "pair_by_category" => true
+        })
+
+      assert changeset.valid?
+      assert get_field(changeset, :pair_by_category) == true
+    end
+
+    test "accepts swiss_match_format=true with pair_by_category=false" do
+      changeset =
+        Tournament.changeset(%Tournament{}, %{
+          "name" => "Test",
+          "type" => "swiss",
+          "rounds_count" => 6,
+          "swiss_match_format" => true,
+          "pair_by_category" => false
+        })
+
+      assert changeset.valid?
+      assert get_field(changeset, :swiss_match_format) == true
+    end
   end
 
   describe "Tournament.changeset/2 - keizer_top_value field" do

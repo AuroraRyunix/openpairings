@@ -469,7 +469,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   end
 
   def handle_event("delete", %{"id" => id}, socket) do
-    player = Tournaments.get_player!(id)
+    player = Tournaments.get_player!(socket.assigns.tournament.id, id)
 
     case Tournaments.delete_player(player) do
       {:ok, _} ->
@@ -518,7 +518,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   ## ---------- Player registration dialog (double-click a row) ----------
 
   def handle_event("edit_player", %{"id" => id}, socket) do
-    player = Tournaments.get_player!(id)
+    player = Tournaments.get_player!(socket.assigns.tournament.id, id)
 
     {:noreply,
      assign(socket, editing_player: player, edit_form: player_to_form(player), edit_error: nil)}

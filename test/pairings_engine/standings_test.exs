@@ -319,6 +319,100 @@ defmodule PairingsEngine.StandingsTest do
     end
   end
 
+  describe "regression: withdrawn opponent's missing trailing rounds and DE grouping key" do
+    # X's only real record is the round-1 loss to A; X gets no pairing/bye
+    # row for rounds 2-4 (simulating a withdrawn/forfeited player, since
+    # `active_players/1` stops generating any record for such a player).
+    # B and C keep playing each other every round purely to drive
+    # `rounds_played_count(by_id)` up to 4 — not a realistic Swiss schedule,
+    # just a unit-level tiebreak fixture.
+    test "BH counts a withdrawn opponent's missing trailing rounds as draws (Article 16.3)" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "Withdrawn Opponent Test",
+          type: "swiss",
+          rounds_count: 4,
+          tiebreaks: ~w(BH),
+          points_win: 1.0,
+          points_draw: 0.5,
+          points_loss: 0.0
+        })
+
+      [a, x, b, c] =
+        for name <- ["A", "X", "B", "C"] do
+          Repo.insert!(%Player{tournament_id: tournament.id, name: name})
+        end
+
+      rounds =
+        for n <- 1..4,
+            do: Repo.insert!(%Round{tournament_id: tournament.id, number: n, status: "finished"})
+
+      [r1, r2, r3, r4] = rounds
+
+      Repo.insert!(%Pairing{
+        round_id: r1.id,
+        board: 1,
+        white_player_id: a.id,
+        black_player_id: x.id,
+        result: "1-0"
+      })
+
+      for r <- [r1, r2, r3, r4] do
+        Repo.insert!(%Pairing{
+          round_id: r.id,
+          board: 2,
+          white_player_id: b.id,
+          black_player_id: c.id,
+          result: "1/2-1/2"
+        })
+      end
+
+      entries = Standings.standings(tournament)
+      ea = Enum.find(entries, &(&1.player.id == a.id))
+
+      # X: real round-1 loss (0.0) + missing rounds 2-4 (3 × 0.5 draw-value)
+      # = 1.5. Without the fix this would be 0.0 (rounds 2-4 silently
+      # contribute nothing since X has no game record for them at all).
+      assert ea.tiebreaks["BH"] == 1.5
+    end
+
+    test "DE groups players tied on the ranking key (total), not raw points, when count_extra_points is on" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "DE Ranking Key Test",
+          type: "swiss",
+          rounds_count: 1,
+          tiebreaks: ~w(DE),
+          count_extra_points: true
+        })
+
+      p = Repo.insert!(%Player{tournament_id: tournament.id, name: "P", extra_points: 0.5})
+      q = Repo.insert!(%Player{tournament_id: tournament.id, name: "Q", extra_points: 1.5})
+
+      r1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
+
+      Repo.insert!(%Pairing{
+        round_id: r1.id,
+        board: 1,
+        white_player_id: p.id,
+        black_player_id: q.id,
+        result: "1-0"
+      })
+
+      entries = Standings.standings(tournament)
+      ep = Enum.find(entries, &(&1.player.id == p.id))
+      eq = Enum.find(entries, &(&1.player.id == q.id))
+
+      # P.points = 1.0, P.total = 1.5; Q.points = 0.0, Q.total = 1.5 — tied on
+      # `total` (the actual ranking key here) but not on raw `points`. Without
+      # the fix (grouping by raw points) they'd land in singleton groups and
+      # both get DE == 0.0 despite being genuinely tied and having played
+      # each other.
+      assert ep.tiebreaks["DE"] == 1.0
+      assert eq.tiebreaks["DE"] == 0.0
+    end
+  end
+
   ## ---------- manual standings override (SWAR parity #23) ----------
 
   describe "apply_manual_ranking/2" do

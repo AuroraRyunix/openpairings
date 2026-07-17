@@ -117,11 +117,37 @@ defmodule PairingsEngine.Pairing do
     end
   end
 
-  @doc "Deletes a paired round (only the latest one, to keep history sane)."
+  @doc """
+  Deletes a paired round (only the latest one, to keep history sane).
+
+  Under `tournament.swiss_match_format`, a single `do_pair/2` call inserts
+  BOTH legs of a match (rounds N and N+1 — see `create_mirrored_leg/4` and
+  the comment above `max_pairable_round/1`, which documents that
+  `paired_rounds_count/1` always lands on an even number after a
+  match-format pairing run). Deleting only one leg would break that
+  invariant — orphaning leg 1, or stranding the tournament with a
+  `next_number` `max_pairable_round/1` can never reach again — so both legs
+  of the match are deleted together here.
+
+  Also deletes the round's `byes` rows: the `byes` table has no `round_id`
+  foreign key (see the migration), so a plain `Round` delete would otherwise
+  leave orphaned bye rows behind that collide (`UNIQUE(player_id, round)`)
+  the next time this round number is paired.
+  """
   def delete_round(tournament_id, number) do
     if number == paired_rounds_count(tournament_id) do
+      match_format? =
+        Repo.one(from t in Tournament, where: t.id == ^tournament_id, select: t.swiss_match_format)
+
+      numbers = if match_format? and number > 1, do: [number - 1, number], else: [number]
+
       Repo.delete_all(
-        from r in Round, where: r.tournament_id == ^tournament_id and r.number == ^number
+        from r in Round, where: r.tournament_id == ^tournament_id and r.number in ^numbers
+      )
+
+      Repo.delete_all(
+        from b in "byes",
+          where: b.tournament_id == ^tournament_id and b.round in ^numbers
       )
 
       Tournaments.broadcast_tournament_change(tournament_id, :rounds)
@@ -201,10 +227,15 @@ defmodule PairingsEngine.Pairing do
     # pairing engine never considers them for this round. Computed once over
     # the whole active/round_absentees split, before any category
     # partitioning happens below — unaffected by `pair_by_category`.
-    insert_round_absentee_byes(tournament, next_number, round_absentees)
-
+    #
+    # The actual `insert_round_absentee_byes/3` call happens later, inside
+    # `create_round/5`'s or `insert_category_round/3`'s `Repo.transaction`
+    # (after JaVaFo has already succeeded) rather than here — see those
+    # functions. Running it here, before JaVaFo is even invoked, would
+    # permanently commit these bye rows even if JaVaFo then failed, bricking
+    # the round on retry (UNIQUE(player_id, round) violation).
     if tournament.pair_by_category do
-      do_pair_by_category(tournament, players, next_number)
+      do_pair_by_category(tournament, players, next_number, round_absentees)
     else
       do_pair_single(tournament, players, next_number, round_absentees)
     end
@@ -217,32 +248,47 @@ defmodule PairingsEngine.Pairing do
   # round (`absent_rounds`) still holds their global `pairing_number` and
   # still appears in `active_players/1`, just not here.
   #
-  # If that round-specific absentee's rating places them anywhere but the
-  # very bottom of the field, `players`' global `pairing_number`s have a GAP
-  # in the middle of their range (e.g. ranks {1,2,3,5}, rank 4 missing).
-  # Sending JaVaFo a TRF whose starting ranks aren't contiguous 1..N crashes
-  # it with a bare NullPointerException — confirmed against the real jar
-  # (see `test/pairings_engine/swar_import_test.exs`'s "pairing a new round
-  # after import doesn't crash when a historical opponent is now excluded").
+  # We still need a LOCAL contiguous 1..M rank map: sending JaVaFo a TRF
+  # whose starting ranks aren't contiguous 1..N crashes it with a bare
+  # NullPointerException — confirmed against the real jar (see
+  # `test/pairings_engine/swar_import_test.exs`'s "pairing a new round after
+  # import doesn't crash when a historical opponent is now excluded").
   #
-  # The fix mirrors `compute_category_group/5`'s already-working approach
-  # for the exact same class of bug in the per-category path: build a LOCAL
-  # contiguous 1..M rank map over just `players` (sorted by global
-  # `pairing_number`, so relative seeding order is preserved), feed JaVaFo
-  # only that clean numbering (via `javafo_input/3`'s `rank_by_player_id`
-  # override, which flows into player rows/games, XXP, and XXA lines alike),
-  # then translate JaVaFo's output pairs (local ranks) back to real players
+  # Crucially, that local map is now built over the FULL frozen roster
+  # (`full_roster_players/1` — every player who ever held a `pairing_number`,
+  # regardless of current active/absent/forfeit/withdrawn status), NOT just
+  # `players`. If it were scoped to `players`, any historical opponent now
+  # outside that subset — a withdrawn/forfeited player, a round-specific
+  # absentee — would miss the rank map, and
+  # `remap_trf_rows_to_local_ranks/2` would rewrite that genuinely-played
+  # game into a synthetic bye code, silently destroying its colour history
+  # and letting JaVaFo violate FIDE colour alternation. Scoping the map to
+  # the full roster guarantees every possible historical opponent resolves
+  # to a real rank with a real TRF row.
+  #
+  # A row is sent for every full-roster player (a rank column with no
+  # matching row is meaningless to JaVaFo). Players who aren't actually
+  # candidates for THIS round — everyone not in `players` — are still marked
+  # with an explicit `0000 - Z` line via `javafo_input/4`'s `eligible_ids`
+  # (`mark_ineligible_for_round/2`), the verified-safe JaVaFo-native way to
+  # keep a player's real history while excluding them from pairing this run.
+  #
+  # JaVaFo's output pairs (local ranks) are translated back to real players
   # via the inverse map in `create_round/5`. Board numbering (JaVaFo's output
   # *order*, not its rank values) is completely unaffected by this.
   defp do_pair_single(tournament, players, next_number, round_absentees) do
-    sorted = Enum.sort_by(players, & &1.pairing_number)
-    local_rank_by_player_id = sorted |> Enum.with_index(1) |> Map.new(fn {p, i} -> {p.id, i} end)
-    by_id = Map.new(players, &{&1.id, &1})
+    full_roster = full_roster_players(tournament.id)
+    eligible_ids = MapSet.new(players, & &1.id)
+
+    local_rank_by_player_id =
+      full_roster |> Enum.with_index(1) |> Map.new(fn {p, i} -> {p.id, i} end)
+
+    by_id = Map.new(full_roster, &{&1.id, &1})
 
     player_by_local_rank =
       Map.new(local_rank_by_player_id, fn {id, rank} -> {rank, Map.fetch!(by_id, id)} end)
 
-    trf = javafo_input(tournament, players, local_rank_by_player_id)
+    trf = javafo_input(tournament, full_roster, local_rank_by_player_id, eligible_ids)
 
     dir = Path.join(System.tmp_dir!(), "pairingsengine")
     File.mkdir_p!(dir)
@@ -288,7 +334,7 @@ defmodule PairingsEngine.Pairing do
   # open ONE transaction and write the Round + every category's pairings,
   # in category-list order, boards numbered continuously — the single
   # combined pairing sheet that's the whole point of doing this natively.
-  defp do_pair_by_category(tournament, players, next_number) do
+  defp do_pair_by_category(tournament, players, next_number, round_absentees) do
     groups = category_groups(tournament, players)
 
     # Tournament-wide history (every round/pairing, every bye, the full
@@ -299,9 +345,32 @@ defmodule PairingsEngine.Pairing do
     # function's own moduledoc above for why that ordering matters).
     shared_history = build_shared_history(tournament.id)
 
-    case compute_category_pairs(tournament, groups, next_number, shared_history) do
-      {:ok, group_results} -> insert_category_round(tournament, group_results, next_number)
-      {:error, _reason} = error -> error
+    # The local contiguous rank map (and the row set that goes with it) now
+    # spans the FULL frozen roster, exactly as in `do_pair_single/4` — every
+    # category's TRF carries every player, so a category-A player's historical
+    # opponent in category B (or now ineligible) always resolves to a real
+    # rank with a real row, instead of being bye-rewritten and losing its
+    # colour history. `shared_history.full_roster` is already `%{id =>
+    # player}`, so reuse it rather than re-querying.
+    full_roster =
+      shared_history.full_roster |> Map.values() |> Enum.sort_by(& &1.pairing_number)
+
+    local_rank_by_player_id =
+      full_roster |> Enum.with_index(1) |> Map.new(fn {p, i} -> {p.id, i} end)
+
+    case compute_category_pairs(
+           tournament,
+           groups,
+           next_number,
+           shared_history,
+           full_roster,
+           local_rank_by_player_id
+         ) do
+      {:ok, group_results} ->
+        insert_category_round(tournament, group_results, next_number, round_absentees)
+
+      {:error, _reason} = error ->
+        error
     end
   end
 
@@ -313,7 +382,14 @@ defmodule PairingsEngine.Pairing do
   # category — the round-level "all or nothing" guarantee, established here
   # rather than via `Repo.rollback/1` since no transaction is open yet at
   # this point.
-  defp compute_category_pairs(tournament, groups, next_number, shared_history) do
+  defp compute_category_pairs(
+         tournament,
+         groups,
+         next_number,
+         shared_history,
+         full_roster,
+         local_rank_by_player_id
+       ) do
     result =
       groups
       |> Enum.with_index()
@@ -324,7 +400,9 @@ defmodule PairingsEngine.Pairing do
                index,
                group_players,
                next_number,
-               shared_history
+               shared_history,
+               full_roster,
+               local_rank_by_player_id
              ) do
           {:ok, group_result} -> {:cont, {:ok, [group_result | acc]}}
           {:error, _reason} = error -> {:halt, error}
@@ -345,7 +423,9 @@ defmodule PairingsEngine.Pairing do
          _index,
          [player],
          _next_number,
-         _shared_history
+         _shared_history,
+         _full_roster,
+         _local_rank_by_player_id
        ) do
     {:ok, {category_name, :bye, player}}
   end
@@ -356,17 +436,24 @@ defmodule PairingsEngine.Pairing do
          index,
          group_players,
          next_number,
-         shared_history
+         shared_history,
+         full_roster,
+         local_rank_by_player_id
        ) do
-    sorted = Enum.sort_by(group_players, & &1.pairing_number)
-    local_rank_by_player_id = sorted |> Enum.with_index(1) |> Map.new(fn {p, i} -> {p.id, i} end)
-    by_id = Map.new(group_players, &{&1.id, &1})
+    eligible_ids = MapSet.new(group_players, & &1.id)
+    by_id = Map.new(full_roster, &{&1.id, &1})
 
     player_by_local_rank =
       Map.new(local_rank_by_player_id, fn {id, rank} -> {rank, Map.fetch!(by_id, id)} end)
 
     trf =
-      build_category_trf(tournament, group_players, local_rank_by_player_id, shared_history)
+      build_category_trf(
+        tournament,
+        full_roster,
+        eligible_ids,
+        local_rank_by_player_id,
+        shared_history
+      )
 
     dir = Path.join(System.tmp_dir!(), "pairingsengine")
     File.mkdir_p!(dir)
@@ -397,7 +484,7 @@ defmodule PairingsEngine.Pairing do
   # category's JaVaFo call — the `Repo.transaction/1` wrapper here exists
   # for ordinary DB-write atomicity (Round + N Pairings as one unit), not to
   # guard against a JaVaFo failure (that's already been ruled out).
-  defp insert_category_round(tournament, group_results, next_number) do
+  defp insert_category_round(tournament, group_results, next_number, round_absentees) do
     Repo.transaction(fn ->
       round =
         Repo.insert!(%Round{
@@ -405,6 +492,8 @@ defmodule PairingsEngine.Pairing do
           number: next_number,
           status: "playing"
         })
+
+      insert_round_absentee_byes(tournament, next_number, round_absentees)
 
       {_final_board, any_bye?} =
         Enum.reduce(group_results, {1, false}, fn group_result, {board_offset, any_bye?} ->
@@ -474,23 +563,37 @@ defmodule PairingsEngine.Pairing do
     "#{index}_#{slug}"
   end
 
-  # Builds one category's self-contained TRF input: `trf_player_rows/3`
-  # (rows scoped to just `group_players` — though `games_per_player/2`
-  # resolves each game's opponent *identity* from the full tournament
-  # roster, not just this category, since a past opponent may since have
-  # left the category/roster's active set; see that function) post-processed
-  # to replace every global `pairing_number` (row rank, and each game's
-  # opponent rank) with this category's own local 1..M numbering. XXP
-  # (forbidden pairings / exclusions) lines are translated the same way —
-  # `forbidden_pairs_lines/3`/`exclusion_pairs_lines/3`'s optional
-  # `rank_by_player_id` override drops any pair naming a player outside
-  # this category automatically, since both sides must resolve to a local
-  # rank to be emitted at all. `shared_history` (see `build_shared_history/1`)
-  # is computed once by `do_pair_by_category/3` and passed straight through.
-  defp build_category_trf(tournament, group_players, local_rank_by_player_id, shared_history) do
+  # Builds one category's TRF input. Unlike the earlier design, this is NOT
+  # scoped to just the category's players: every category's TRF now carries
+  # the FULL frozen roster (`full_roster` — every category, every historical
+  # opponent), remapped to one shared local 1..M numbering, with only THIS
+  # category's players (`eligible_ids`) left un-marked as pairing candidates.
+  # Everyone else — other categories, now-ineligible players — gets an
+  # explicit `0000 - Z` line via `mark_ineligible_for_round/2` so JaVaFo
+  # keeps their real history (needed so a past opponent's colour/result
+  # resolves via `remap_trf_rows_to_local_ranks/2` instead of being
+  # bye-rewritten) while still not pairing them this run. Same reasoning as
+  # `do_pair_single/4`'s doc comment.
+  #
+  # `forbidden_pairs_lines/3`/`exclusion_pairs_lines/3`/`acceleration_lines/4`
+  # now also see the full roster rather than just this category — intentional
+  # and harmless: a forbidden/exclusion line naming a player who's
+  # ineligible-this-round is inert to JaVaFo, and this incidentally widens
+  # `acceleration_lines`' roster scope too (a direction a separate Baku
+  # acceleration audit finding wants; not verified here). `shared_history`
+  # (see `build_shared_history/1`) is computed once by
+  # `do_pair_by_category/4` and passed straight through.
+  defp build_category_trf(
+         tournament,
+         full_roster,
+         eligible_ids,
+         local_rank_by_player_id,
+         shared_history
+       ) do
     trf_rows =
       tournament
-      |> trf_player_rows(group_players, shared_history)
+      |> trf_player_rows(full_roster, shared_history)
+      |> mark_ineligible_for_round(eligible_ids)
       |> remap_trf_rows_to_local_ranks(local_rank_by_player_id)
 
     trf =
@@ -511,14 +614,35 @@ defmodule PairingsEngine.Pairing do
       trf <>
         acceleration_lines(
           tournament,
-          group_players,
+          full_roster,
           paired_rounds_count(tournament.id) + 1,
           local_rank_by_player_id
         )
 
     trf <>
-      forbidden_pairs_lines(tournament.id, group_players, local_rank_by_player_id) <>
-      exclusion_pairs_lines(tournament, group_players, local_rank_by_player_id)
+      forbidden_pairs_lines(tournament.id, full_roster, local_rank_by_player_id) <>
+      exclusion_pairs_lines(tournament, full_roster, local_rank_by_player_id)
+  end
+
+  # JaVaFo/TRF16 convention: a player row that already carries a result for
+  # the round about to be paired is treated as already decided for that
+  # round and excluded from pairing this run. Used so a round-specific
+  # absentee or a permanently withdrawn/forfeited player can still be SENT a
+  # row (needed so their past opponents' colour/result history resolves
+  # correctly via `remap_trf_rows_to_local_ranks/2` below) while JaVaFo still
+  # leaves them unpaired this round. `rows`' games lists never include the
+  # round about to be paired in the first place (`games_per_player/3` only
+  # ever iterates already-paired rounds), so appending one more entry always
+  # lands in exactly that round's TRF column.
+  defp mark_ineligible_for_round(rows, eligible_ids) do
+    Enum.map(rows, fn row ->
+      if MapSet.member?(eligible_ids, row.id) do
+        row
+      else
+        zero_bye = %{opponent_rank: nil, opponent_id: nil, colour: nil, result: "Z", points_kind: "zero"}
+        %{row | games: row.games ++ [zero_bye]}
+      end
+    end)
   end
 
   # Remaps `trf_player_rows/2`'s output (global `pairing_number`-based ranks)
@@ -606,7 +730,7 @@ defmodule PairingsEngine.Pairing do
         }
       end)
 
-    Repo.insert_all("byes", rows)
+    Repo.insert_all("byes", rows, on_conflict: :nothing)
 
     # A "requested-zero" bye immediately awards points (see
     # PairingsEngine.Standings) without ever going through
@@ -660,6 +784,8 @@ defmodule PairingsEngine.Pairing do
             result: if(b == 0, do: "bye", else: "")
           })
         end)
+
+      insert_round_absentee_byes(tournament, next_number, round_absentees)
 
       # A pairing-allocated bye's pairing row is created with its result
       # ("bye") already set, awarding points immediately without ever going
@@ -733,7 +859,7 @@ defmodule PairingsEngine.Pairing do
           }
         end)
 
-      Repo.insert_all("byes", rows)
+      Repo.insert_all("byes", rows, on_conflict: :nothing)
     end
 
     leg2
@@ -749,16 +875,34 @@ defmodule PairingsEngine.Pairing do
   `nil` (every existing caller's behaviour, unaffected), player rows/games
   keep using each player's raw global `pairing_number` exactly as before.
   `do_pair_single/4` passes a local contiguous 1..M rank map instead (built
-  over just this round's eligible players), so a round-specific gap in the
-  middle of the global `pairing_number` range — an absent player excluded
-  from THIS round only, not from the tournament's frozen numbering — never
-  reaches JaVaFo as a gap in the TRF's starting-rank sequence, which is
-  confirmed to crash it with a bare NullPointerException. See the
-  `do_pair_single/4` doc comment for the full story.
+  over the full frozen roster), so a gap in the middle of the global
+  `pairing_number` range — an absent player excluded from THIS round only,
+  not from the tournament's frozen numbering — never reaches JaVaFo as a gap
+  in the TRF's starting-rank sequence, which is confirmed to crash it with a
+  bare NullPointerException. See the `do_pair_single/4` doc comment for the
+  full story.
+
+  `eligible_ids`, when given, is a `MapSet` of the player ids that are
+  actual pairing candidates for the round about to be paired. Every other
+  player in `players` gets a `0000 - Z` line appended via
+  `mark_ineligible_for_round/2` instead — the JaVaFo-native way to keep a
+  player's real history in the file while excluding them from pairing this
+  run. The pairing path (`do_pair_single/4`/`build_category_trf/5`) uses this
+  to send JaVaFo the full roster while still only offering the actually-
+  eligible players as candidates. `nil` (every existing caller, including
+  tests and `PairingsEngine.TrfExport`-adjacent callers) skips this step
+  entirely, so behaviour is byte-identical when omitted.
   """
-  def javafo_input(tournament, players \\ nil, rank_by_player_id \\ nil) do
+  def javafo_input(tournament, players \\ nil, rank_by_player_id \\ nil, eligible_ids \\ nil) do
     players = players || active_players(tournament.id)
     trf_players = trf_player_rows(tournament, players)
+
+    trf_players =
+      if eligible_ids do
+        mark_ineligible_for_round(trf_players, eligible_ids)
+      else
+        trf_players
+      end
 
     trf_players =
       if rank_by_player_id do
@@ -1023,7 +1167,7 @@ defmodule PairingsEngine.Pairing do
   ignore (they only read the specific keys they need), but that
   per-category Swiss pairing's `remap_trf_rows_to_local_ranks/2` uses to
   translate global `pairing_number`-based ranks to a category's own local
-  numbering — see `build_category_trf/3`.
+  numbering — see `build_category_trf/5`.
 
   `shared_history`, when given, is a precomputed `build_shared_history/1`
   result — passed by `do_pair_by_category/3` so every category's call
@@ -1084,6 +1228,20 @@ defmodule PairingsEngine.Pairing do
     |> Enum.sum()
   end
 
+  # Every player who ever received a pairing_number, regardless of current
+  # active/absent/forfeit/withdrawn status — the full frozen roster. Used to
+  # scope the local rank map fed to JaVaFo (see `do_pair_single/4` and
+  # `build_category_trf/5`): every possible historical opponent must resolve
+  # to a real rank with a real row in the TRF, or `remap_trf_rows_to_local_ranks/2`
+  # silently destroys that game's colour history — see that function's doc.
+  defp full_roster_players(tournament_id) do
+    Repo.all(
+      from p in Player,
+        where: p.tournament_id == ^tournament_id and not is_nil(p.pairing_number),
+        order_by: p.pairing_number
+    )
+  end
+
   @doc """
   Players who are candidates for pairing at all: active status, neither
   permanently absent nor forfeited (SWAR Absent/Forfeit checkboxes). This is
@@ -1105,21 +1263,29 @@ defmodule PairingsEngine.Pairing do
 
   @doc """
   Players eligible to be paired for `round_number`: active, not permanently
-  absent/forfeited (see `active_players/1`), and not requesting an absence
-  for this specific round via `absent_rounds` (SWAR "Absent at the rounds
-  x,y,z"). Pure with respect to round-specific filtering — safe to unit-test
-  without invoking JaVaFo.
+  absent/forfeited (see `active_players/1`), not requesting an absence for
+  this specific round via `absent_rounds` (SWAR "Absent at the rounds
+  x,y,z"), and not a late entrant whose `start_round` hasn't been reached
+  yet (Keizer). Pure with respect to round-specific filtering — safe to
+  unit-test without invoking JaVaFo.
   """
   def eligible_players(tournament_id, round_number) do
     tournament_id
     |> active_players()
     |> Enum.reject(&absent_for_round?(&1, round_number))
+    |> Enum.reject(&not_yet_started?(&1, round_number))
   end
 
   @doc "True if `player`'s `absent_rounds` list includes `round_number`."
   def absent_for_round?(%Player{} = player, round_number) do
     round_number in parse_absent_rounds(player.absent_rounds)
   end
+
+  @doc "True if `player.start_round` is set and later than `round_number` — a late entrant not yet eligible to be paired."
+  def not_yet_started?(%Player{start_round: nil}, _round_number), do: false
+
+  def not_yet_started?(%Player{start_round: start}, round_number),
+    do: round_number < start
 
   defp parse_absent_rounds(nil), do: []
   defp parse_absent_rounds(""), do: []
@@ -1279,7 +1445,7 @@ defmodule PairingsEngine.Pairing do
       # The opponent's raw id, carried alongside `opponent_rank`
       # so per-category Swiss pairing's `remap_trf_rows_to_local_ranks/2` can
       # translate it to a category's own local rank numbering (see
-      # `build_category_trf/3`). `PairingsEngine.Trf.serialize/1` and
+      # `build_category_trf/5`). `PairingsEngine.Trf.serialize/1` and
       # `PairingsEngine.TrfExport` both ignore this extra key.
       opponent_id: opponent_id,
       colour:

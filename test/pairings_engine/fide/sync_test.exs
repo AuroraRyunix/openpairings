@@ -7,6 +7,8 @@ defmodule PairingsEngine.Fide.SyncTest do
   use ExUnit.Case, async: false
 
   alias PairingsEngine.Fide.Sync
+  alias PairingsEngine.Fide.FidePlayer
+  alias PairingsEngine.Repo
 
   setup do
     reset_state()
@@ -125,6 +127,97 @@ defmodule PairingsEngine.Fide.SyncTest do
 
       refute_receive {:fide_sync, _}, 100
       assert raw_state().progress == "Downloading rating list… 3.0 of 41.0 MB"
+    end
+  end
+
+  # Exercises `Sync.import_list/3` directly with synthetic already-unpacked
+  # FIDE-list text (the real thing `unpack/3` would hand it after a real
+  # HTTP download + zip extraction, which isn't practical to drive from a
+  # test) — this is the actual transaction/count-guard code path a corrupt
+  # or truncated download would hit, not just a re-assertion of the design.
+  # `import_list/3` is `def` (not `defp`), `@doc false`, purely to make this
+  # callable from here.
+  describe "import_list/3 (corrupt/truncated-download guard)" do
+    # These tests write real rows to fide_players and need a real DB
+    # connection (unlike the rest of this file, which only exercises the
+    # GenServer's in-memory state via :sys) — check out the sandbox exactly
+    # like PairingsEngine.DataCase does, but only for this describe block.
+    setup do
+      pid = Ecto.Adapters.SQL.Sandbox.start_owner!(Repo, shared: false)
+      on_exit(fn -> Ecto.Adapters.SQL.Sandbox.stop_owner(pid) end)
+      :ok
+    end
+
+    # Mirrors Sync's own private @header_labels — the header line just needs
+    # each label to appear, in order, for column_offsets/1 to succeed; exact
+    # column widths don't matter as long as the header and every data row
+    # use the same ones (see fide_row/1).
+    @header_labels [
+      "ID Number", "Name", "Fed", "Sex", "Tit", "WTit", "OTit", "FOA",
+      "SRtng", "SGm", "SK", "RRtng", "RGm", "Rk", "BRtng", "BGm", "BK",
+      "B-day", "Flag"
+    ]
+    @col_width 12
+
+    defp fide_header, do: Enum.map_join(@header_labels, "", &String.pad_trailing(&1, @col_width))
+
+    # `values` is keyed by header label text (e.g. "ID Number", "Name") —
+    # any column not given a value comes out blank, which is exactly what
+    # produces an unusable (nil fide_id) row for the zero-valid-rows tests.
+    defp fide_row(values \\ %{}) do
+      Enum.map_join(@header_labels, "", fn label ->
+        values |> Map.get(label, "") |> to_string() |> String.pad_trailing(@col_width)
+      end)
+    end
+
+    defp fide_text(rows), do: Enum.join([fide_header() | rows], "\r\n")
+
+    test "a well-formed header with zero valid data rows fails instead of wiping the cache" do
+      Repo.insert_all(FidePlayer, [
+        %{fide_id: 1, name: "Existing, One", federation: "BEL"},
+        %{fide_id: 2, name: "Existing, Two", federation: "BEL"}
+      ])
+
+      # 5 blank data rows: well-formed header, but every row is missing an
+      # ID Number/Name, so all 5 are filtered out as unusable.
+      text = fide_text(List.duplicate(fide_row(), 5))
+
+      assert {:error, reason} = Sync.import_list(self(), text, %Sync{})
+      assert reason =~ "zero usable"
+
+      # The existing cache is untouched — proof the rollback (not just the
+      # return value) actually protected the data.
+      assert Repo.aggregate(FidePlayer, :count) == 2
+      assert Repo.get(FidePlayer, 1).name == "Existing, One"
+    end
+
+    test "a big drop from the existing cache (fewer than half survive) also rolls back" do
+      Repo.insert_all(FidePlayer, for(n <- 1..10, do: %{fide_id: n, name: "Existing, #{n}", federation: "BEL"}))
+
+      row = fide_row(%{"ID Number" => "999999", "Name" => "OnlyOne, Player", "Fed" => "BEL"})
+      text = fide_text([row])
+
+      assert {:error, reason} = Sync.import_list(self(), text, %Sync{})
+      assert reason =~ "far fewer"
+
+      assert Repo.aggregate(FidePlayer, :count) == 10
+    end
+
+    test "a normal, healthy import still succeeds and replaces the cache" do
+      rows =
+        for n <- 1..5 do
+          fide_row(%{
+            "ID Number" => to_string(1_000_000 + n),
+            "Name" => "Player, #{n}",
+            "Fed" => "BEL"
+          })
+        end
+
+      text = fide_text(rows)
+
+      assert {:ok, %Sync{imported_rows: 5}} = Sync.import_list(self(), text, %Sync{})
+      assert Repo.aggregate(FidePlayer, :count) == 5
+      assert Repo.get(FidePlayer, 1_000_001).name == "Player, 1"
     end
   end
 end

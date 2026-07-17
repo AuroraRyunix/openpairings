@@ -174,7 +174,7 @@ defmodule PairingsEngine.Keizer do
         %{tournament_id: tournament.id, player_id: p.id, round: round_number, type: type}
       end)
 
-    if rows != [], do: Repo.insert_all("byes", rows)
+    if rows != [], do: Repo.insert_all("byes", rows, on_conflict: :nothing)
     :ok
   end
 

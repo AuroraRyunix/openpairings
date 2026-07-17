@@ -55,6 +55,11 @@ defmodule PairingsEngine.Standings do
     build_standings(tournament, codes, [])
   end
 
+  # Ranking key shared by `build_standings/3` and `add_direct_encounter/2` so
+  # they can never drift apart: `total` (points + extra_points) when the
+  # tournament opted in to counting extra points, otherwise plain `points`.
+  defp rank_score(e, tournament), do: if(tournament.count_extra_points, do: e.total, else: e.points)
+
   defp build_standings(tournament, tiebreak_codes, opts) do
     players = Tournaments.list_players(tournament.id)
     games_by_player = games_by_player(tournament, players, opts)
@@ -83,7 +88,7 @@ defmodule PairingsEngine.Standings do
       # tournament opted in to counting extra points; otherwise it's plain
       # game `points` — see the moduledoc/doc above and docs/extra-points.md.
       # ARO-style tiebreaks sort descending like the rest (higher = better).
-      rank_score = if tournament.count_extra_points, do: e.total, else: e.points
+      rank_score = rank_score(e, tournament)
       [-rank_score | Enum.map(tb_values, &(-&1))]
     end)
     |> Enum.with_index(1)
@@ -332,7 +337,7 @@ defmodule PairingsEngine.Standings do
       end)
 
     if "DE" in tiebreak_codes do
-      add_direct_encounter(entries)
+      add_direct_encounter(entries, tournament)
     else
       entries
     end
@@ -354,7 +359,7 @@ defmodule PairingsEngine.Standings do
     |> Enum.map(fn g ->
       case opponent(g, by_id) do
         nil -> dummy_score(entry, g, t) * g.points
-        opp -> adjusted_score(opp, t) * g.points
+        opp -> adjusted_score(opp, by_id, t) * g.points
       end
     end)
     |> Enum.sum()
@@ -426,15 +431,20 @@ defmodule PairingsEngine.Standings do
     Enum.map(entry.games, fn g ->
       case opponent(g, by_id) do
         nil -> dummy_score(entry, g, t)
-        opp -> adjusted_score(opp, t)
+        opp -> adjusted_score(opp, by_id, t)
       end
     end)
   end
 
   # Article 16.3: for tiebreak purposes an opponent's trailing voluntarily
   # unplayed rounds count as draws; other rounds count as the points awarded.
-  defp adjusted_score(opp_entry, t) do
+  # A withdrawn/forfeited opponent's missing trailing rounds (no game record
+  # at all, because `active_players/1` stops generating any record for them)
+  # are treated the same as a real "not played and voluntary" record — that's
+  # the fix; everything else here is unchanged.
+  defp adjusted_score(opp_entry, by_id, t) do
     games = Enum.sort_by(opp_entry.games, & &1.round)
+    total_known_rounds = rounds_played_count(by_id)
 
     trailing_voluntary =
       games
@@ -444,7 +454,14 @@ defmodule PairingsEngine.Standings do
 
     {head, tail} = Enum.split(games, length(games) - trailing_voluntary)
 
-    Enum.sum(Enum.map(head, & &1.points)) + length(tail) * t.points_draw
+    last_round = games |> List.last() |> case do
+      nil -> 0
+      g -> g.round
+    end
+
+    missing_tail = max(total_known_rounds - last_round, 0)
+
+    Enum.sum(Enum.map(head, & &1.points)) + (length(tail) + missing_tail) * t.points_draw
   end
 
   # Article 16.4: an unplayed round contributes the score of a dummy opponent —
@@ -490,9 +507,9 @@ defmodule PairingsEngine.Standings do
   # Article 6: direct encounter within groups tied on points. Only decisive
   # when every pair in the tied group has met (Swiss partial ties otherwise
   # stay tied here and fall through to the next tiebreak).
-  defp add_direct_encounter(entries) do
+  defp add_direct_encounter(entries, tournament) do
     entries
-    |> Enum.group_by(& &1.points)
+    |> Enum.group_by(&rank_score(&1, tournament))
     |> Enum.flat_map(fn {_points, group} ->
       ids = MapSet.new(group, & &1.player.id)
 

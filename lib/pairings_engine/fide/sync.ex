@@ -318,7 +318,12 @@ defmodule PairingsEngine.Fide.Sync do
     end
   end
 
-  defp import_list(server, text, state) do
+  # `@doc false` and `def` (not `defp`) purely so tests can drive this
+  # transaction/count-guard logic directly with synthetic FIDE-list text,
+  # without going through the real HTTP download+unpack — see
+  # PairingsEngine.Fide.SyncTest. Not part of the module's intended public API.
+  @doc false
+  def import_list(server, text, state) do
     # :binary.split, not String.split: the text is Latin-1, not valid UTF-8.
     [header | lines] = :binary.split(text, ["\r\n", "\n"], [:global])
     offsets = column_offsets(header)
@@ -331,34 +336,66 @@ defmodule PairingsEngine.Fide.Sync do
       |> Stream.map(&parse_line(&1, offsets))
       |> Stream.reject(&(is_nil(&1.fide_id) or &1.name in [nil, ""]))
 
+    # Snapshot the cache size *before* the transaction touches anything, so
+    # a corrupt/truncated download that still parses a valid header but
+    # yields few/no usable data rows can be detected and rolled back rather
+    # than silently wiping the whole local cache — see the guard below.
+    current_count = Repo.aggregate(FidePlayer, :count)
+
     Repo.transaction(
       fn ->
         # Full replace: the monthly list is authoritative (players do get removed).
         Repo.query!("DELETE FROM fide_players")
 
-        rows
-        |> Stream.chunk_every(2000)
-        |> Stream.with_index(1)
-        |> Enum.each(fn {chunk, i} ->
-          Repo.insert_all(FidePlayer, chunk,
-            on_conflict: :replace_all,
-            conflict_target: :fide_id
-          )
+        imported =
+          rows
+          |> Stream.chunk_every(2000)
+          |> Stream.with_index(1)
+          |> Enum.reduce(0, fn {chunk, i}, acc ->
+            Repo.insert_all(FidePlayer, chunk,
+              on_conflict: :replace_all,
+              conflict_target: :fide_id
+            )
 
-          imported = i * 2000
+            # Real running total (not an i * 2000 approximation, which
+            # overcounts on a partial final chunk) — also what the
+            # zero-row/big-drop guard below checks.
+            imported = acc + length(chunk)
 
-          if rem(i, 25) == 0 do
-            update(server, %{state |
-              imported_rows: imported,
-              progress: "Importing players… #{format_int(imported)} of ~#{format_int(total)}"
-            })
-          end
-        end)
+            if rem(i, 25) == 0 do
+              update(server, %{state |
+                imported_rows: imported,
+                progress: "Importing players… #{format_int(imported)} of ~#{format_int(total)}"
+              })
+            end
+
+            imported
+          end)
+
+        cond do
+          imported == 0 ->
+            Repo.rollback(
+              "FIDE import produced zero usable player rows — the downloaded file may be " <>
+                "corrupt or truncated. The existing #{format_int(current_count)}-player " <>
+                "cache was left untouched."
+            )
+
+          current_count > 0 and imported < div(current_count, 2) ->
+            Repo.rollback(
+              "FIDE import only produced #{format_int(imported)} usable player rows, far " <>
+                "fewer than the existing #{format_int(current_count)}-player cache — the " <>
+                "downloaded file may be corrupt or truncated. The existing cache was left " <>
+                "untouched."
+            )
+
+          true ->
+            imported
+        end
       end,
       timeout: :infinity
     )
     |> case do
-      {:ok, _} -> {:ok, %{state | imported_rows: total}}
+      {:ok, imported} -> {:ok, %{state | imported_rows: imported}}
       {:error, reason} -> {:error, reason}
     end
   end

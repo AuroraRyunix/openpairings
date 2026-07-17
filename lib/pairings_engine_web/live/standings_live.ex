@@ -67,10 +67,9 @@ defmodule PairingsEngineWeb.StandingsLive do
 
   @impl true
   def handle_event("manual_move", %{"player_id" => player_id, "direction" => direction}, socket) do
-    player = Tournaments.get_player!(player_id)
-    direction = String.to_existing_atom(direction)
-
     tournament = socket.assigns.tournament
+    player = Tournaments.get_player!(tournament.id, player_id)
+    direction = String.to_existing_atom(direction)
 
     socket =
       case Tournaments.move_manual_rank(tournament, player, direction) do

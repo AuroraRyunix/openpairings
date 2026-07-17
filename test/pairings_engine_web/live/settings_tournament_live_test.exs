@@ -41,7 +41,10 @@ defmodule PairingsEngineWeb.SettingsTournamentLiveTest do
       assert html =~ "Tournament name"
       assert html =~ "Start date"
       assert html =~ "Number of rounds"
-      assert html =~ "var(--danger)"
+      # The bold label + red asterisk are now `.set-label.req` / `.set-req`
+      # (styled in app.css) rather than inline styles.
+      assert html =~ ~s(class="set-label req")
+      assert html =~ ~s(class="set-req")
     end
   end
 

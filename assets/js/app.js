@@ -83,6 +83,74 @@ const AddPlayerShortcut = {
   },
 }
 
+// Legend items and score-band gutter labels on the bracket map are both
+// `[data-filter]` buttons sharing one `data-active-filter` state (a
+// space-separated SET of facets) on the nearest .pe-bracket-map —
+// multi-select: clicking a button toggles its own facet in the set (any
+// number can be active at once), and an element dims only when the active
+// set is non-empty AND none of its own facets intersect it (OR across
+// active facets, so e.g. "down" + "against-due" both active keeps anything
+// matching EITHER one lit). Zero active facets shows everything at full
+// opacity, same as no filter. Matching against each SVG element's
+// `data-facets` (set by dot_facets/1 / link_facets/1 in
+// pairing_explain_live.ex) happens here in JS rather than via static
+// per-facet CSS, since the set of possible "band-N" values is unbounded and
+// only known at render time — see the comment above .pe-filterable/.pe-dim
+// in assets/css/app.css.
+function applyBracketFilter(map, filter) {
+  const active = new Set((map.dataset.activeFilter || "").split(" ").filter(Boolean))
+  if (active.has(filter)) active.delete(filter)
+  else active.add(filter)
+  map.dataset.activeFilter = Array.from(active).join(" ")
+
+  map.querySelectorAll("[data-filter]").forEach((btn) => {
+    btn.classList.toggle("is-active-filter", active.has(btn.dataset.filter))
+  })
+
+  map.querySelectorAll(".pe-filterable").forEach((el) => {
+    const facets = (el.dataset.facets || "").split(" ")
+    const dim = active.size > 0 && !facets.some((f) => active.has(f))
+    el.classList.toggle("pe-dim", dim)
+  })
+}
+
+// Pairing-rationale bracket map: clicking a dot directly on the graph
+// toggles its pin (ring + popover stay open until clicked again); clicking
+// a board card's colour disc always pins that dot and scrolls it into
+// view; clicking a legend item or band label highlights just that facet.
+// One delegated listener on document — not the scroll container, which
+// LiveView can replace on round navigation — so no re-binding needed (and
+// round navigation naturally resets any active filter along with it).
+document.addEventListener("click", (e) => {
+  // A click inside an open popover (e.g. selecting the player's name)
+  // must not bubble into the wrap-toggle branch below and close it.
+  if (e.target.closest(".pe-dot-popover")) return
+
+  const wrap = e.target.closest(".pe-board-wrap")
+  if (wrap) {
+    document.querySelectorAll(".pe-board-wrap.is-pinned").forEach((el) => {
+      if (el !== wrap) el.classList.remove("is-pinned")
+    })
+    wrap.classList.toggle("is-pinned")
+    return
+  }
+
+  const filterBtn = e.target.closest("[data-filter]")
+  if (filterBtn) {
+    const map = filterBtn.closest(".pe-bracket-map")
+    if (map) applyBracketFilter(map, filterBtn.dataset.filter)
+    return
+  }
+
+  const disc = e.target.closest("[data-dot-target]")
+  if (!disc) return
+  const target = document.getElementById(disc.dataset.dotTarget)
+  if (!target) return
+  document.querySelectorAll(".pe-board-wrap.is-pinned").forEach((el) => el.classList.remove("is-pinned"))
+  target.classList.add("is-pinned")
+  target.scrollIntoView({behavior: "smooth", block: "nearest", inline: "center"})
+})
+
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,

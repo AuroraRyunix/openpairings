@@ -197,9 +197,7 @@ defmodule PairingsEngine.Tournaments.Player do
   end
 
   defp unique_fide_id_in_tournament(changeset) do
-    # Enforced at the context level (needs tournament scope); placeholder for
-    # schema-level validations that don't require a query.
-    changeset
+    unique_constraint(changeset, :fide_id, name: :players_tournament_id_fide_id_index)
   end
 
   @doc "Rating used for sorting/pairing display: FIDE first, national as fallback."

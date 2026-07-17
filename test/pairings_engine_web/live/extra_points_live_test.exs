@@ -78,8 +78,8 @@ defmodule PairingsEngineWeb.ExtraPointsLiveTest do
       |> render_click()
 
     assert html =~ "Set extra points for 1 of 2 players."
-    assert Tournaments.get_player!(low.id).extra_points == 1.0
-    assert Tournaments.get_player!(high.id).extra_points == 0.0
+    assert Tournaments.get_player!(low.tournament_id, low.id).extra_points == 1.0
+    assert Tournaments.get_player!(high.tournament_id, high.id).extra_points == 0.0
 
     render(lv)
   end

@@ -344,21 +344,20 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
         <div class="card">
           <h2>General</h2>
 
-          <div class="form-grid">
-            <label :for={{field, label, type, required} <- general_fields()} class="field">
-              <span :if={required} style="font-weight: 700">
-                {label} <span style="color: var(--danger)">*</span>
-              </span>
-              <span :if={!required}>{label}</span>
+          <.setting_group>
+            <.setting_field
+              :for={{field, label, type, required} <- general_fields()}
+              label={label}
+              required={required}
+            >
               <input
                 type={type}
                 name={"tournament[#{field}]"}
                 value={Map.get(@tournament, String.to_existing_atom(field))}
               />
-            </label>
+            </.setting_field>
 
-            <label class="field">
-              <span>Tournament format</span>
+            <.setting_field label="Tournament format">
               <select name="tournament[type]">
                 <option
                   :for={type <- Tournament.types()}
@@ -368,12 +367,9 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                   {Tournament.type_label(type)}
                 </option>
               </select>
-            </label>
+            </.setting_field>
 
-            <label class="field">
-              <span style="font-weight: 700">
-                Number of rounds <span style="color: var(--danger)">*</span>
-              </span>
+            <.setting_field label="Number of rounds" required>
               <input
                 type="number"
                 name="tournament[rounds_count]"
@@ -381,8 +377,8 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                 min="1"
                 max="30"
               />
-            </label>
-          </div>
+            </.setting_field>
+          </.setting_group>
         </div>
 
         <div class="card">
@@ -392,10 +388,12 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
             Applied in order, following the FIDE Tie-Break Regulations. Higher in the list = decided first.
           </p>
 
-          <div class="field" style="margin-bottom: 1rem">
-            <span>Preset</span>
-            <div style="display: flex; flex-wrap: wrap; gap: 1rem">
-              <label style="display: flex; gap: .35rem; align-items: center; font-weight: 400">
+          <%!-- A div, not <.setting_field>: that renders a <label>, which would
+                make the "Preset" text toggle whichever radio it wrapped. --%>
+          <div class="set-field solo">
+            <span class="set-label">Preset</span>
+            <div class="radio-row">
+              <label>
                 <input
                   type="radio"
                   name="tb_preset_display"
@@ -405,10 +403,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                 /> Custom
               </label>
 
-              <label
-                :for={{key, label, _methods} <- tb_presets()}
-                style="display: flex; gap: .35rem; align-items: center; font-weight: 400"
-              >
+              <label :for={{key, label, _methods} <- tb_presets()}>
                 <input
                   type="radio"
                   name="tb_preset_display"
@@ -496,12 +491,11 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
         </p>
 
         <form id="add-collaborator-form" phx-submit="add_collaborator">
-          <div class="form-grid">
-            <label class="field">
-              <span>Email address</span>
+          <.setting_group>
+            <.setting_field label="Email address">
               <input type="email" name="email" placeholder="teammate@example.com" />
-            </label>
-          </div>
+            </.setting_field>
+          </.setting_group>
 
           <p :if={@collaborator_error} class="error-note">{@collaborator_error}</p>
           <p :if={@collaborator_note} class="hint">{@collaborator_note}</p>
@@ -553,8 +547,8 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
           image is embedded straight back into pages the app serves. Capped at 2&nbsp;MB.
         </p>
 
-        <div :if={@tournament.logo_data} class="field" style="margin-bottom: 1rem">
-          <span>Current logo</span>
+        <div :if={@tournament.logo_data} class="set-field solo">
+          <span class="set-label">Current logo</span>
           <img
             src={Tournaments.logo_data_uri(@tournament)}
             alt="Tournament logo"

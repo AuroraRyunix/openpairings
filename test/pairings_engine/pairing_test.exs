@@ -34,6 +34,29 @@ defmodule PairingsEngine.PairingTest do
     refute player.id in (Pairing.eligible_players(tournament.id, 5) |> Enum.map(& &1.id))
   end
 
+  test "eligible_players/2 excludes a late entrant until their start_round is reached" do
+    tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 5})
+    latecomer = insert_player(tournament, "Latecomer", start_round: 3)
+
+    refute latecomer.id in (Pairing.eligible_players(tournament.id, 1) |> Enum.map(& &1.id))
+    refute latecomer.id in (Pairing.eligible_players(tournament.id, 2) |> Enum.map(& &1.id))
+    assert latecomer.id in (Pairing.eligible_players(tournament.id, 3) |> Enum.map(& &1.id))
+    assert latecomer.id in (Pairing.eligible_players(tournament.id, 4) |> Enum.map(& &1.id))
+  end
+
+  test "not_yet_started?/2 is a pure check against start_round" do
+    tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 5})
+    player = insert_player(tournament, "P", start_round: 3)
+
+    assert Pairing.not_yet_started?(player, 1)
+    assert Pairing.not_yet_started?(player, 2)
+    refute Pairing.not_yet_started?(player, 3)
+    refute Pairing.not_yet_started?(player, 4)
+
+    from_round_one = insert_player(tournament, "Q", start_round: 1)
+    refute Pairing.not_yet_started?(from_round_one, 1)
+  end
+
   test "absent_for_round?/2 is a pure check against the comma-separated absent_rounds list" do
     tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 5})
     player = insert_player(tournament, "P", absent_rounds: "1")
@@ -328,6 +351,42 @@ defmodule PairingsEngine.PairingTest do
 
     tid = tournament.id
     assert_receive {:tournament_changed, ^tid, :rounds}
+  end
+
+  ## ---------- delete_round/2 must not orphan a round's byes table row ----------
+  #
+  # The "byes" table has no round_id foreign key, so a plain `Round` delete
+  # alone leaves a round-specific absentee's "requested-zero" bye row
+  # behind. Re-pairing the same round number then hits
+  # `insert_all("byes", ...)`'s `UNIQUE(player_id, round)` index — which
+  # used to raise, permanently bricking the round.
+  @tag :javafo
+  test "delete_round/2 clears a round-specific absentee's byes row so re-pairing doesn't crash" do
+    tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
+
+    insert_player(tournament, "Alice", fide_rating: 2000)
+    insert_player(tournament, "Bob", fide_rating: 1900)
+    insert_player(tournament, "Carol", fide_rating: 1800)
+    dave = insert_player(tournament, "Dave", fide_rating: 1700, absent_rounds: "1")
+
+    assert {:ok, _round} = Pairing.pair_next_round(tournament)
+    assert :ok = Pairing.delete_round(tournament.id, 1)
+
+    # Re-pairing round 1 must succeed rather than raising a uniqueness
+    # violation on the orphaned "byes" row from the first pairing run.
+    assert {:ok, round} = Pairing.pair_next_round(tournament)
+    assert round.number == 1
+
+    byes =
+      Repo.all(
+        from b in "byes",
+          where: b.tournament_id == ^tournament.id and b.player_id == ^dave.id,
+          select: %{round: b.round, type: b.type}
+      )
+
+    # Exactly one row for {Dave, round: 1} — no duplicate from the deleted
+    # round's leftover row.
+    assert byes == [%{round: 1, type: "requested-zero"}]
   end
 
   ## ---------- TRF result-code mapping ----------
@@ -842,6 +901,84 @@ defmodule PairingsEngine.PairingTest do
     assert {1, 3} in accel_pairs or {3, 1} in accel_pairs
   end
 
+  # Regression for audit finding #8: Group-A membership must be a
+  # tournament-wide concept fixed at freeze time (FIDE C.04.5.1), not
+  # something that shifts round-to-round based on who happens to be
+  # eligible THIS round. `acceleration_lines/4`'s `ranked`/Group-A
+  # computation now always receives the full frozen roster
+  # (`do_pair_single/4` passes `full_roster`, not the round's eligible
+  # subset, all the way through `javafo_input/4`) — this was fixed as a
+  # side effect of a separate colour-history fix. Proven here by pairing
+  # round 2 with a non-trivial-rank Group-A player (#3) excused for round 2
+  # only (`absent_rounds`) and asserting the round-2 TRF's XXA starting
+  # ranks are byte-identical to round 1's — if Group A were still being
+  # recomputed from the round's eligible subset, excluding rank 3 would
+  # shift the remaining Group-A ranks to {1, 2, 4, 5}.
+  @tag :javafo
+  test "Baku Group-A membership is computed from the full roster, unaffected by a round-2-only absence" do
+    tournament =
+      Repo.insert!(%Tournament{
+        name: "Baku Roster Scoping",
+        type: "swiss",
+        rounds_count: 9,
+        acceleration: "baku"
+      })
+
+    players =
+      for {name, rating, n} <- [
+            {"P1", 2400, 1},
+            {"P2", 2300, 2},
+            {"P3", 2200, 3},
+            {"P4", 2100, 4},
+            {"P5", 2000, 5},
+            {"P6", 1900, 6},
+            {"P7", 1800, 7},
+            {"P8", 1700, 8}
+          ] do
+        insert_player(tournament, name, fide_rating: rating, pairing_number: n)
+      end
+
+    [_p1, _p2, p3 | _] = players
+
+    assert {:ok, round1} = Pairing.pair_next_round(tournament)
+    round1 = Repo.preload(round1, :pairings)
+
+    round1_xxa_ranks = trf_xxa_ranks(tournament, 1)
+    # Group A = 2*ceil(8/4) = 4 players: starting ranks 1-4.
+    assert round1_xxa_ranks == [1, 2, 3, 4]
+
+    Enum.each(round1.pairings, fn pairing -> {:ok, _} = Tournaments.update_pairing_result(pairing, "1-0") end)
+
+    # P3 (starting rank 3, inside Group A) is excused for round 2 only —
+    # excluded from round 2's pairing pool, but must not shrink or shift
+    # Group A membership.
+    {:ok, _} = Tournaments.update_player(p3, %{absent_rounds: "2"})
+
+    assert {:ok, _round2} = Pairing.pair_next_round(tournament)
+
+    round2_xxa_ranks = trf_xxa_ranks(tournament, 2)
+    assert round2_xxa_ranks == round1_xxa_ranks
+  end
+
+  # Reads back the `t#{tournament.id}_r#{round_number}.trf` file
+  # `do_pair_single/4` writes to disk for JaVaFo, and extracts every `XXA`
+  # line's starting-rank column (the fixed-column format documented on
+  # `Pairing.acceleration_lines/4`).
+  defp trf_xxa_ranks(tournament, round_number) do
+    path =
+      Path.join(
+        System.tmp_dir!(),
+        "pairingsengine"
+      )
+      |> Path.join("t#{tournament.id}_r#{round_number}.trf")
+
+    path
+    |> File.read!()
+    |> then(&Regex.scan(~r/^XXA\s+(\d+)/m, &1))
+    |> Enum.map(fn [_, rank] -> String.to_integer(rank) end)
+    |> Enum.sort()
+  end
+
   ## ---------- swiss_match_format ----------
 
   @tag :javafo
@@ -1015,6 +1152,92 @@ defmodule PairingsEngine.PairingTest do
              %{round: 1, type: "requested-zero"},
              %{round: 2, type: "requested-zero"}
            ]
+  end
+
+  ## ---------- delete_round/2 under swiss_match_format deletes both legs ----------
+  #
+  # A single do_pair/2 call under swiss_match_format inserts BOTH legs of a
+  # match (rounds N and N+1 — see create_mirrored_leg/4 and the comment
+  # above max_pairable_round/1, which documents that paired_rounds_count/1
+  # always lands on an even number after a match-format pairing run).
+  # delete_round/2 used to delete exactly one round regardless of match
+  # format, breaking that invariant.
+
+  @tag :javafo
+  test "delete_round/2 under swiss_match_format deletes both legs of the match, not just the requested round" do
+    tournament =
+      Repo.insert!(%Tournament{
+        name: "Match",
+        type: "swiss",
+        rounds_count: 4,
+        swiss_match_format: true
+      })
+
+    for {name, rating} <- [{"Alice", 2000}, {"Bob", 1900}, {"Carol", 1800}, {"Dave", 1700},
+                            {"Eve", 1600}, {"Frank", 1500}] do
+      insert_player(tournament, name, fide_rating: rating)
+    end
+
+    assert {:ok, _round2} = Pairing.pair_next_round(tournament)
+    assert Pairing.paired_rounds_count(tournament.id) == 2
+
+    assert :ok = Pairing.delete_round(tournament.id, 2)
+
+    # Both legs (round 1 AND round 2) must be gone, not just round 2 —
+    # otherwise round 1 would be orphaned (never rematched).
+    assert Pairing.paired_rounds_count(tournament.id) == 0
+    refute Tournaments.get_round(tournament.id, 1)
+    refute Tournaments.get_round(tournament.id, 2)
+  end
+
+  @tag :javafo
+  test "delete_round/2 on the last leg of the last match doesn't strand the tournament — pairing resumes cleanly" do
+    tournament =
+      Repo.insert!(%Tournament{
+        name: "Match",
+        type: "swiss",
+        rounds_count: 4,
+        swiss_match_format: true
+      })
+
+    for {name, rating} <- [{"Alice", 2000}, {"Bob", 1900}, {"Carol", 1800}, {"Dave", 1700}] do
+      insert_player(tournament, name, fide_rating: rating)
+    end
+
+    tournament = Repo.reload!(tournament)
+    assert {:ok, _round2} = Pairing.pair_next_round(tournament)
+
+    # Enter results for both legs of match 1 so match 2 (rounds 3-4) can be
+    # paired.
+    for number <- [1, 2] do
+      round = Tournaments.get_round(tournament.id, number) |> Repo.preload(:pairings)
+
+      Enum.each(round.pairings, fn p ->
+        if p.result == "", do: Tournaments.update_pairing_result(p, "1-0")
+      end)
+    end
+
+    assert {:ok, round4} = Pairing.pair_next_round(tournament)
+    assert round4.number == 4
+    assert Pairing.paired_rounds_count(tournament.id) == 4
+
+    # Deleting round 4 (the requested "latest round") must also delete
+    # round 3 — leaving round 3 behind would strand the tournament:
+    # next_number would become 4, but max_pairable_round is rounds_count - 1
+    # == 3, so pairing would be permanently blocked with a misleading
+    # "all rounds paired" error, and the UI has no way to delete round 3
+    # directly (delete_round/2 only permits deleting the latest round).
+    assert :ok = Pairing.delete_round(tournament.id, 4)
+    assert Pairing.paired_rounds_count(tournament.id) == 2
+    refute Tournaments.get_round(tournament.id, 3)
+    refute Tournaments.get_round(tournament.id, 4)
+
+    # Pairing must succeed again, creating rounds 3 and 4 fresh — not error
+    # out and not treat round 3 as a leftover mismatched leg.
+    assert {:ok, fresh_round4} = Pairing.pair_next_round(Repo.reload!(tournament))
+    assert fresh_round4.number == 4
+    assert Tournaments.get_round(tournament.id, 3)
+    assert Pairing.paired_rounds_count(tournament.id) == 4
   end
 
   ## ---------- native per-category Swiss pairing (SWAR-parity #24) ----------
@@ -1258,7 +1481,156 @@ defmodule PairingsEngine.PairingTest do
     end)
   end
 
+  ## ---------- colour-history preservation when a historical opponent leaves ----------
+
+  # Root-caused bug (single-pool path): `do_pair_single/4` used to build its
+  # local contiguous rank map over only THIS round's eligible players. A
+  # player who has since gone permanently absent/forfeited/withdrawn is
+  # excluded from `active_players/1` entirely, so a still-active player's
+  # real, decisive past game against them fell outside the map and got
+  # rewritten by `remap_trf_rows_to_local_ranks/2` into a synthetic bye
+  # ("0000", win -> "F") in the TRF sent to JaVaFo — silently destroying
+  # that game's played result, which can make JaVaFo repeat a colour and
+  # break FIDE alternation. The fix scopes the local map (and the TRF row
+  # set) to the full frozen roster and marks non-candidates with an explicit
+  # "0000 - Z" line instead, so real history survives. This asserts directly
+  # on the round-4 TRF: the anchor's round-1 game against the withdrawn
+  # player must still carry that opponent's real starting rank and the real
+  # played result "1", not a "0000"/"F" bye-rewrite. FAILS on the pre-fix
+  # code (opponent "0000", result "F").
+  @tag :javafo
+  test "pair_next_round/1 keeps a withdrawn opponent's real played result/colour in the next round's TRF" do
+    tournament =
+      Repo.insert!(%Tournament{name: "Withdraw Colour", type: "swiss", rounds_count: 4})
+
+    for {name, rating} <- [
+          {"P1", 2000},
+          {"P2", 1900},
+          {"P3", 1800},
+          {"P4", 1700},
+          {"P5", 1600},
+          {"P6", 1500}
+        ] do
+      insert_player(tournament, name, fide_rating: rating)
+    end
+
+    tournament = Repo.reload!(tournament)
+
+    assert {:ok, round1} = Pairing.pair_next_round(tournament)
+    round1 = Repo.preload(round1, :pairings)
+
+    # Anchor = the white side of a real decisive game in round 1; the black
+    # side is the opponent who will later withdraw.
+    game1 = Enum.find(round1.pairings, &(&1.black_player_id != nil))
+    anchor_id = game1.white_player_id
+    opponent_id = game1.black_player_id
+
+    enter_all_wins(round1)
+    assert {:ok, round2} = Pairing.pair_next_round(Repo.reload!(tournament))
+    enter_all_wins(Repo.preload(round2, :pairings))
+    assert {:ok, round3} = Pairing.pair_next_round(Repo.reload!(tournament))
+    enter_all_wins(Repo.preload(round3, :pairings))
+
+    # Opponent withdraws after round 3 (permanently excluded from pairing).
+    opponent = Repo.get!(PairingsEngine.Tournaments.Player, opponent_id)
+    {:ok, opponent} = Tournaments.update_player(opponent, %{absent: true})
+    refute opponent.id in (Pairing.active_players(tournament.id) |> Enum.map(& &1.id))
+
+    assert {:ok, _round4} = Pairing.pair_next_round(Repo.reload!(tournament))
+
+    anchor = Repo.get!(PairingsEngine.Tournaments.Player, anchor_id)
+    anchor_line = anchor_trf_line(read_round_trf(tournament.id, 4), anchor.name)
+
+    # Round-1 game columns (opponent rank cols 92-95, colour col 97, result
+    # col 99 — 0-indexed 91/96/98): the anchor's real win over the now-
+    # withdrawn opponent must survive intact.
+    assert String.slice(anchor_line, 91, 4) |> String.trim() == to_string(opponent.pairing_number)
+    assert String.at(anchor_line, 96) == "w"
+    assert String.at(anchor_line, 98) == "1"
+  end
+
+  # Same class of bug in the per-category path (`build_category_trf/5`):
+  # historically it scoped the category-local rank map to just that
+  # category's current players, so a past opponent who is no longer in the
+  # category (here: moved to a different category between rounds) fell out of
+  # the map and got the same colour-destroying bye-rewrite. The fix sends
+  # every category the FULL roster (all categories) with a shared local
+  # numbering, so any historical opponent resolves. Asserts on category A's
+  # round-2 TRF that the anchor's round-1 game against the moved player still
+  # carries the real starting rank and result "1", not "0000"/"F".
+  @tag :javafo
+  test "pair_by_category: a historical opponent now in a different category keeps their real played result in the TRF" do
+    tournament =
+      Repo.insert!(%Tournament{
+        name: "Cat Colour",
+        type: "swiss",
+        rounds_count: 3,
+        categories: ["A", "B"],
+        categories_enabled: true,
+        pair_by_category: true
+      })
+
+    for {name, rating} <- [{"A1", 2000}, {"A2", 1900}, {"A3", 1800}, {"A4", 1700}] do
+      insert_player(tournament, name, fide_rating: rating, category: "A")
+    end
+
+    for {name, rating} <- [{"B1", 1600}, {"B2", 1500}] do
+      insert_player(tournament, name, fide_rating: rating, category: "B")
+    end
+
+    tournament = Repo.reload!(tournament)
+    assert {:ok, round1} = Pairing.pair_next_round(tournament)
+    round1 = Repo.preload(round1, pairings: [:white_player, :black_player])
+
+    # A real decisive round-1 game between two category-A players.
+    game1 =
+      Enum.find(round1.pairings, fn p ->
+        p.black_player_id != nil and p.white_player.category == "A" and
+          p.black_player.category == "A"
+      end)
+
+    anchor = game1.white_player
+    opponent = game1.black_player
+
+    enter_all_wins(round1)
+
+    # The opponent moves to category B before round 2 — now a historical
+    # opponent OUTSIDE category A's own group when A's round-2 TRF is built.
+    {:ok, opponent} = Tournaments.update_player(opponent, %{category: "B"})
+
+    assert {:ok, _round2} = Pairing.pair_next_round(Repo.reload!(tournament))
+
+    # Category A is index 0 in `tournament.categories`, slug "0_A".
+    trf = read_round_trf(tournament.id, 2, "_cat_0_A")
+    anchor_line = anchor_trf_line(trf, anchor.name)
+
+    assert String.slice(anchor_line, 91, 4) |> String.trim() == to_string(opponent.pairing_number)
+    assert String.at(anchor_line, 96) == "w"
+    assert String.at(anchor_line, 98) == "1"
+  end
+
   ## ---------- helpers ----------
+
+  defp enter_all_wins(round) do
+    Enum.each(round.pairings, fn p ->
+      if p.result != "bye", do: Tournaments.update_pairing_result(p, "1-0")
+    end)
+  end
+
+  defp read_round_trf(tournament_id, round_number, suffix \\ "") do
+    Path.join([
+      System.tmp_dir!(),
+      "pairingsengine",
+      "t#{tournament_id}_r#{round_number}#{suffix}.trf"
+    ])
+    |> File.read!()
+  end
+
+  defp anchor_trf_line(trf, name) do
+    trf
+    |> String.split("\r\n")
+    |> Enum.find(&(String.starts_with?(&1, "001") and &1 =~ name))
+  end
 
   defp round_pairs_by_rank(round) do
     round

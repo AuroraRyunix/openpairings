@@ -61,7 +61,7 @@ defmodule PairingsEngineWeb.NormsLiveTest do
     # teardown) proceeds (see the same fix in sharing_test.exs).
     render(lv)
 
-    updated = Tournaments.get_player!(player.id)
+    updated = Tournaments.get_player!(player.tournament_id, player.id)
     assert updated.norm_data["title_claimed"] == "IM"
   end
 

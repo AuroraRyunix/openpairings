@@ -733,7 +733,19 @@ defmodule PairingsEngine.Tournaments do
     Repo.aggregate(from(p in Player, where: p.tournament_id == ^tournament_id), :count)
   end
 
-  def get_player!(id), do: Repo.get!(Player, id)
+  @doc """
+  Fetches a player by id, but only within `tournament_id`.
+
+  Deliberately takes the tournament rather than offering a bare `get_player!(id)`:
+  a player id reaches us in an event payload, long after
+  `get_authorized_tournament!/2` gated the mount, so it is attacker-controlled
+  and authorising the tournament proves nothing about the row. Raises
+  `Ecto.NoResultsError` for a player in some other arbiter's tournament, exactly
+  as it does for one that doesn't exist — a caller cannot tell the difference,
+  and cannot act on the row either way.
+  """
+  def get_player!(tournament_id, id),
+    do: Repo.get_by!(Player, id: id, tournament_id: tournament_id)
 
   def create_player(tournament_id, attrs) do
     fide_id = attrs["fide_id"] || attrs[:fide_id]
@@ -898,15 +910,17 @@ defmodule PairingsEngine.Tournaments do
   joined after the mode was switched on and was never placed).
   """
   def reseed_manual_ranking(%Tournament{} = tournament) do
-    tournament
-    |> Standings.standings()
-    |> Enum.each(fn e ->
-      Repo.update_all(from(p in Player, where: p.id == ^e.player.id), set: [manual_rank: e.rank])
-    end)
+    Repo.transaction(fn ->
+      tournament
+      |> Standings.standings()
+      |> Enum.each(fn e ->
+        Repo.update_all(from(p in Player, where: p.id == ^e.player.id), set: [manual_rank: e.rank])
+      end)
 
-    Repo.update_all(from(t in Tournament, where: t.id == ^tournament.id),
-      set: [manual_ranking_stale: false]
-    )
+      Repo.update_all(from(t in Tournament, where: t.id == ^tournament.id),
+        set: [manual_ranking_stale: false]
+      )
+    end)
 
     broadcast_tournament_change(tournament.id, :players)
     {:ok, %{tournament | manual_ranking_stale: false}}

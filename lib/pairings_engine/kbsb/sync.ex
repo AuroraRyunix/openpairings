@@ -190,9 +190,35 @@ defmodule PairingsEngine.Kbsb.Sync do
   defp format_error(reason) when is_binary(reason), do: reason
   defp format_error(reason), do: inspect(reason)
 
-  defp import_rows(server, rows, state) do
+  # `@doc false` and `def` (not `defp`) purely so tests can drive this
+  # count-guard/transaction logic directly with synthetic already-parsed
+  # rows, without going through `Parser.parse/1` — see
+  # PairingsEngine.Kbsb.SyncTest. Not part of the module's intended public
+  # API.
+  @doc false
+  def import_rows(server, rows, state) do
     total = length(rows)
+    current_count = Repo.aggregate(KbsbPlayer, :count)
 
+    cond do
+      total == 0 ->
+        {:error,
+         "KBSB import produced zero usable player rows — the uploaded file may be corrupt " <>
+           "or in an unexpected format. The existing #{current_count}-player cache was left " <>
+           "untouched."}
+
+      current_count > 0 and total < div(current_count, 2) ->
+        {:error,
+         "KBSB import only produced #{total} usable player rows, far fewer than the " <>
+           "existing #{current_count}-player cache — the uploaded file may be corrupt or " <>
+           "truncated. The existing cache was left untouched."}
+
+      true ->
+        do_import_rows(server, rows, total, state)
+    end
+  end
+
+  defp do_import_rows(server, rows, total, state) do
     state =
       update(server, %{state | total_rows: total, progress: "Importing players… 0 of #{total}"})
 

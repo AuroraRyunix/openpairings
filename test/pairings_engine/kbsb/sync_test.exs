@@ -8,6 +8,8 @@ defmodule PairingsEngine.Kbsb.SyncTest do
   use ExUnit.Case, async: false
 
   alias PairingsEngine.Kbsb.Sync
+  alias PairingsEngine.Kbsb.KbsbPlayer
+  alias PairingsEngine.Repo
 
   setup do
     reset_state()
@@ -124,6 +126,69 @@ defmodule PairingsEngine.Kbsb.SyncTest do
 
       refute_receive {:kbsb_sync, _}, 100
       assert raw_state().progress == "Importing players… 500 of 2000"
+    end
+  end
+
+  # Exercises `Sync.import_rows/3` directly with synthetic already-parsed
+  # rows (the shape `Kbsb.Parser.parse/1` hands it) — the actual
+  # count-guard code path a corrupt/truncated upload would hit, not just a
+  # re-assertion of the design. `import_rows/3` is `def` (not `defp`),
+  # `@doc false`, purely to make this callable from here.
+  describe "import_rows/3 (corrupt/truncated-upload guard)" do
+    # These tests write real rows to kbsb_players and need a real DB
+    # connection (unlike the rest of this file, which only exercises the
+    # GenServer's in-memory state via :sys) — check out the sandbox exactly
+    # like PairingsEngine.DataCase does, but only for this describe block.
+    setup do
+      pid = Ecto.Adapters.SQL.Sandbox.start_owner!(Repo, shared: false)
+      on_exit(fn -> Ecto.Adapters.SQL.Sandbox.stop_owner(pid) end)
+      :ok
+    end
+
+    defp kbsb_row(national_id, last_name) do
+      %{
+        national_id: national_id,
+        last_name: last_name,
+        first_name: "",
+        national_rating: nil,
+        fide_id: nil,
+        club_number: nil,
+        club_name: "",
+        federation: "",
+        birth_year: nil
+      }
+    end
+
+    test "zero rows fails outright, before ever touching the database" do
+      Repo.insert_all(KbsbPlayer, [
+        kbsb_row("1", "Existing One"),
+        kbsb_row("2", "Existing Two")
+      ])
+
+      assert {:error, reason} = Sync.import_rows(self(), [], %Sync{})
+      assert reason =~ "zero usable"
+
+      # Untouched — the guard fires before the delete+insert transaction
+      # even starts, so there's nothing to roll back.
+      assert Repo.aggregate(KbsbPlayer, :count) == 2
+      assert Repo.get(KbsbPlayer, "1").last_name == "Existing One"
+    end
+
+    test "a big drop from the existing cache (fewer than half survive) also fails without touching the database" do
+      Repo.insert_all(KbsbPlayer, for(n <- 1..10, do: kbsb_row(to_string(n), "Existing #{n}")))
+
+      assert {:error, reason} = Sync.import_rows(self(), [kbsb_row("999", "OnlyOne")], %Sync{})
+      assert reason =~ "far fewer"
+
+      assert Repo.aggregate(KbsbPlayer, :count) == 10
+    end
+
+    test "a normal, healthy import still succeeds and replaces the cache" do
+      rows = for n <- 1..5, do: kbsb_row(to_string(n), "Player #{n}")
+
+      assert {:ok, %Sync{imported_rows: 5}} = Sync.import_rows(self(), rows, %Sync{})
+      assert Repo.aggregate(KbsbPlayer, :count) == 5
+      assert Repo.get(KbsbPlayer, "1").last_name == "Player 1"
     end
   end
 end

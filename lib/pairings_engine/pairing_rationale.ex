@@ -31,7 +31,7 @@ defmodule PairingsEngine.PairingRationale do
   """
 
   import Ecto.Query
-  alias PairingsEngine.{Repo, Standings, Keizer, Tournaments, Pairing}
+  alias PairingsEngine.{Repo, Standings, Keizer, Tournaments, PlayerCard}
   alias PairingsEngine.Tournaments.{Round, Player}
 
   @doc """
@@ -108,7 +108,6 @@ defmodule PairingsEngine.PairingRationale do
       byes: %{allocated: allocated_bye, requested: requested_byes},
       score_groups: score_groups,
       berger: berger_info(tournament, round_number),
-      pairing_gap: pairing_gap(tournament, round_number),
       summary: %{
         boards: Enum.count(boards, &(not &1.is_bye)),
         byes: Enum.count(boards, & &1.is_bye),
@@ -116,6 +115,248 @@ defmodule PairingsEngine.PairingRationale do
         rematches: Enum.count(boards, & &1.rematch)
       }
     }
+  end
+
+  ## ---------- cross-round player trails ----------
+
+  @doc """
+  Per-player tournament trail up to and including `through_round`, for the
+  cross-round strip + score sparkline shown in a **pinned** dot popover on the
+  bracket map (`PairingsEngineWeb.PairingExplainLive`). Returns
+  `%{player_id => %{rounds: [round_entry], summary: summary}}`.
+
+  Each `round_entry` is a map:
+
+      %{round:, current:, colour: "W" | "B" | "bye" | "absent",
+        result:, outcome:, opponent_name:, opponent_seed:, score:}
+
+  `summary` is a "how has this player's tournament gone so far" digest, all
+  through `through_round`:
+
+      %{colour: %{w: count, b: count},       # real (non-bye) games played
+        floats: %{up: count, down: count},   # rounds paired up vs down
+        avg_opponent_rating: integer | nil,   # mean rating of real opponents
+        byes: count}
+
+  Design choices, so callers don't re-derive facts:
+
+    * Running `score` after each round comes from `pre_round_scores/2` — the
+      SAME per-system honest standings the bracket bands use (Keizer routes to
+      the ladder, everything else to `Standings`). A naive cumulative sum of
+      per-game points would be WRONG for Keizer, so we never do that. The
+      float direction in `summary` reuses the SAME per-round entering scores
+      (`scores_by_round[r - 1]`), and calls a round "down" for the
+      HIGHER-scored player exactly like `board_context/7`'s `float_down` (the
+      higher-scored id) — a player paired down met a lower-scored opponent.
+    * `colour` / `result` / `opponent` reuse `Standings`' existing per-game
+      records plus `PlayerCard.result_label/2` rather than re-parsing result
+      strings. `outcome` is a coarse atom (`:win | :draw | :loss |
+      :forfeit_win | :forfeit_loss | :bye | :pending | :absent`) for styling,
+      derived from the game map's own fields, not from the label text.
+    * The current round is always the last entry. `Standings` emits no game
+      record for a still-unplayed pairing, so the current round's colour /
+      opponent are read straight from its pairings and marked `:pending`
+      (`result: ""`) until a result is entered. A pending round therefore
+      never counts toward `summary.colour`/`floats`/`avg_opponent_rating`
+      either — those are "games played", and a bye is always resolved
+      immediately (its result is set at creation), so `Standings` already
+      has a game record for it even in the current round.
+    * Rounds a player wasn't paired in (absent, or not yet entered) show an
+      honest `"absent"` row rather than being skipped, and contribute nothing
+      to the summary counts.
+
+  Returns `%{}` for round 1 or earlier — a first round has no history worth a
+  trail, so the view renders no extra chrome for it.
+  """
+  def player_trails(_tournament, through_round) when through_round < 2, do: %{}
+
+  def player_trails(tournament, through_round) do
+    scores_by_round =
+      Map.new(0..through_round, fn r -> {r, pre_round_scores(tournament, r)} end)
+
+    entries = Standings.standings(tournament, through_round: through_round)
+    by_id = Map.new(entries, fn e -> {e.player.id, e} end)
+    current_sides = current_round_sides(tournament, through_round)
+
+    Map.new(entries, fn e ->
+      games_by_round = Map.new(e.games, fn g -> {g.round, g} end)
+
+      rounds =
+        Enum.map(1..through_round, fn r ->
+          trail_round(
+            r,
+            through_round,
+            e.player.id,
+            Map.get(games_by_round, r),
+            Map.get(current_sides, e.player.id),
+            by_id,
+            tournament,
+            Map.get(scores_by_round, r)
+          )
+        end)
+
+      summary = trail_summary(e, by_id, scores_by_round, through_round)
+
+      {e.player.id, %{rounds: rounds, summary: summary}}
+    end)
+  end
+
+  # "Pairing fairness" digest for one player through `through_round` — see
+  # the `summary` shape documented on player_trails/2.
+  defp trail_summary(e, by_id, scores_by_round, through_round) do
+    real_games = Enum.filter(e.games, &(not is_nil(&1.opponent_id) and &1.round <= through_round))
+
+    ratings =
+      real_games
+      |> Enum.map(fn g -> Map.get(by_id, g.opponent_id) end)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.map(&Player.rating(&1.player))
+      |> Enum.reject(&(&1 <= 0))
+
+    # Every stat here counts the same thing — games with a real opponent and
+    # a recorded result — so all four share one denominator. Deriving floats
+    # from `real_games` (rather than walking 1..through_round and consulting
+    # the pending round's pairings) is what keeps that true: a still-unplayed
+    # current round has no `Standings` record, so it drops out of the float
+    # counts exactly as it already drops out of colour/avg_opponent_rating.
+    # Its float direction is not lost to the reader — the pinned dot's own
+    # ▲/▼ badge and the "this round" strip row both still show it.
+    {up, down} =
+      Enum.reduce(real_games, {0, 0}, fn g, {up, down} ->
+        entering = Map.get(scores_by_round, g.round - 1)
+        own = running_score(entering, e.player.id)
+        theirs = running_score(entering, g.opponent_id)
+
+        cond do
+          # Higher entering score paired down (mirrors board_context/7's
+          # float_down: higher_scored_id/2), lower entering score up.
+          own > theirs -> {up, down + 1}
+          own < theirs -> {up + 1, down}
+          true -> {up, down}
+        end
+      end)
+
+    %{
+      colour: %{w: Enum.count(real_games, &(&1.colour == :w)), b: Enum.count(real_games, &(&1.colour == :b))},
+      floats: %{up: up, down: down},
+      avg_opponent_rating: if(ratings == [], do: nil, else: round(Enum.sum(ratings) / length(ratings))),
+      byes: Enum.count(e.games, &(is_nil(&1.opponent_id) and &1.round <= through_round))
+    }
+  end
+
+  # Colour/opponent for each player in the current round, read from its
+  # pairings so an unplayed (result == "") current round still knows who is
+  # playing whom and with which colour — Standings emits no game record until
+  # a result exists.
+  defp current_round_sides(tournament, round_number) do
+    case Tournaments.get_round(tournament.id, round_number) do
+      nil ->
+        %{}
+
+      round ->
+        Enum.reduce(round.pairings, %{}, fn p, acc ->
+          is_bye = p.black_player_id == nil or p.result == "bye"
+
+          acc =
+            if p.white_player_id do
+              Map.put(acc, p.white_player_id, %{
+                colour: "W",
+                opponent_id: if(is_bye, do: nil, else: p.black_player_id),
+                bye: is_bye
+              })
+            else
+              acc
+            end
+
+          if p.black_player_id && not is_bye do
+            Map.put(acc, p.black_player_id, %{
+              colour: "B",
+              opponent_id: p.white_player_id,
+              bye: false
+            })
+          else
+            acc
+          end
+        end)
+    end
+  end
+
+  # No recorded game this round.
+  defp trail_round(r, current, player_id, nil, current_side, by_id, _tournament, scores) do
+    score = running_score(scores, player_id)
+
+    if r == current and current_side do
+      opp = current_side.opponent_id && Map.get(by_id, current_side.opponent_id)
+
+      %{
+        round: r,
+        current: true,
+        colour: if(current_side.bye, do: "bye", else: current_side.colour),
+        result: "",
+        outcome: :pending,
+        opponent_name: opp && opp.player.name,
+        opponent_seed: opp && opp.player.pairing_number,
+        score: score
+      }
+    else
+      %{
+        round: r,
+        current: r == current,
+        colour: "absent",
+        result: "",
+        outcome: :absent,
+        opponent_name: nil,
+        opponent_seed: nil,
+        score: score
+      }
+    end
+  end
+
+  # A recorded game (played, forfeit, or bye).
+  defp trail_round(r, current, player_id, game, _current_side, by_id, tournament, scores) do
+    opp = game.opponent_id && Map.get(by_id, game.opponent_id)
+
+    colour =
+      cond do
+        is_nil(game.opponent_id) -> "bye"
+        game.colour == :w -> "W"
+        game.colour == :b -> "B"
+        true -> "-"
+      end
+
+    %{
+      round: r,
+      current: r == current,
+      colour: colour,
+      result: PlayerCard.result_label(game, tournament),
+      outcome: trail_outcome(game, tournament),
+      opponent_name: opp && opp.player.name,
+      opponent_seed: opp && opp.player.pairing_number,
+      score: running_score(scores, player_id)
+    }
+  end
+
+  # Coarse outcome atom for styling, from the game map's own fields (mirrors
+  # PlayerCard.result_label/2's branching without re-reading its text output).
+  defp trail_outcome(%{opponent_id: nil}, _tournament), do: :bye
+
+  defp trail_outcome(%{played: false} = game, tournament) do
+    if game.points >= tournament.points_win, do: :forfeit_win, else: :forfeit_loss
+  end
+
+  defp trail_outcome(%{points: points}, tournament) do
+    cond do
+      points >= tournament.points_win -> :win
+      points <= tournament.points_loss -> :loss
+      true -> :draw
+    end
+  end
+
+  defp running_score(scores, player_id) do
+    case Map.get(scores, player_id) do
+      %{score: s} -> s
+      _ -> 0.0
+    end
   end
 
   ## ---------- per-board analysis ----------
@@ -401,49 +642,6 @@ defmodule PairingsEngine.PairingRationale do
           p.tournament_id == ^tournament_id and p.status == "active" and
             p.absent == false and p.forfeit == false and not is_nil(p.pairing_number)
     )
-  end
-
-  ## ---------- starting-rank / pairing-number gap ----------
-
-  # A round-specific absentee (excluded from just this round via
-  # `absent_rounds`, not permanently inactive/forfeited) still holds their
-  # global, tournament-wide `pairing_number` — see
-  # `PairingsEngine.Pairing.eligible_players/2` and `active_players/1`'s doc
-  # comments. If that absentee's pairing number sits anywhere but the very
-  # bottom of the field, this round's actually-eligible players have a GAP
-  # in the middle of their starting-rank sequence — exactly the condition
-  # `PairingsEngine.Pairing.do_pair_single/4` already works around
-  # internally (a local contiguous 1..M rank remap) because sending it
-  # straight to JaVaFo crashes the real jar. Surfaced here as an
-  # informational note (the engine already handles it correctly), not an
-  # error — `nil` when there is no gap.
-  defp pairing_gap(tournament, round_number) do
-    eligible_numbers =
-      tournament.id
-      |> Pairing.eligible_players(round_number)
-      |> Enum.map(& &1.pairing_number)
-      |> Enum.reject(&is_nil/1)
-      |> Enum.sort()
-
-    case gaps_in(eligible_numbers) do
-      [] ->
-        nil
-
-      missing_numbers ->
-        missing_players =
-          tournament.id
-          |> Pairing.active_players()
-          |> Enum.filter(&(&1.pairing_number in missing_numbers))
-          |> Enum.sort_by(& &1.pairing_number)
-
-        %{missing_numbers: missing_numbers, players: missing_players}
-    end
-  end
-
-  defp gaps_in(sorted_numbers) do
-    sorted_numbers
-    |> Enum.chunk_every(2, 1, :discard)
-    |> Enum.flat_map(fn [a, b] -> if b - a > 1, do: Enum.to_list((a + 1)..(b - 1)), else: [] end)
   end
 
   ## ---------- serialization for the audit log ----------

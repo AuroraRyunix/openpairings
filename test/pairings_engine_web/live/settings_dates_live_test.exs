@@ -32,6 +32,15 @@ defmodule PairingsEngineWeb.SettingsDatesLiveTest do
     assert html =~ "Round 2"
   end
 
+  test "renders exactly one list row per round", %{conn: conn, scope: scope} do
+    tournament = create_tournament(scope, %{"rounds_count" => "7"})
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/dates")
+
+    assert html |> String.split(~s(class="set-row")) |> length() == 8
+    assert html |> String.split(~s(name="tournament[round_dates][]")) |> length() == 8
+  end
+
   test "'Fill sequentially from start date' sets round N = start date + (N-1) days", %{
     conn: conn,
     scope: scope

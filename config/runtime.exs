@@ -129,7 +129,12 @@ if config_env() == :prod do
 
   config :pairings_engine, PairingsEngine.Repo,
     database: database_path,
-    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "5")
+    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "5"),
+    # See config/test.exs for why: rollback-journal mode lets one reader
+    # starve every writer, and the adapter's 2000ms default busy_timeout is
+    # too short for a multi-arbiter app with concurrent readers/writers.
+    busy_timeout: 15_000,
+    journal_mode: :wal
 
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you

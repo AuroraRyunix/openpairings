@@ -350,7 +350,7 @@ label.field > span {
   margin-bottom: 4px;
 }
 
-.field input, .field select, input.pe-input, select.pe-select {
+.field input, .field select, .set-field input, .set-field select, .set-row input, input.pe-input, select.pe-select {
   width: 100%;
   padding: 8px 10px;
   border: 1px solid var(--border);
@@ -360,7 +360,7 @@ label.field > span {
   color: var(--text);
 }
 
-.field input:focus, .field select:focus, input.pe-input:focus, .input:focus, .select:focus, .textarea:focus {
+.field input:focus, .field select:focus, .set-field input:focus, .set-field select:focus, .set-row input:focus, input.pe-input:focus, .input:focus, .select:focus, .textarea:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
@@ -385,6 +385,82 @@ label.field > span {
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 0 20px;
 }
+
+/* ---------- settings forms ----------
+
+   Scoped to the Settings pages (see SettingsSupport's <.setting_group> /
+   <.setting_field> / <.setting_toggle>). Deliberately separate from
+   `.form-grid` / `label.field`, which Players, Norms and Tournaments also
+   use — those keep their auto-fill grid; settings does not.
+
+   One column, not a grid: `.form-grid`'s auto-fill packed 4-5 settings per
+   row at 1080p and reflowed them on resize, so related settings landed
+   wherever they fit. Settings are read top-to-bottom, and one column is the
+   only layout where a stacked field (label above control) and a toggle row
+   (checkbox beside label) coexist without deforming one to match the other —
+   which is what the per-call-site inline flex patches used to paper over.
+   Controls cap at a readable width instead of stretching the whole card. */
+.set-group { display: flex; flex-direction: column; gap: 16px; }
+
+.set-field { display: block; }
+
+/* A setting standing on its own in a card rather than in a `.set-group`,
+   which would otherwise supply the spacing via its gap. */
+.set-field.solo { margin-bottom: 16px; }
+
+.set-field > .set-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-soft);
+  margin-bottom: 4px;
+}
+
+.set-field > .set-label.req { font-weight: 700; }
+.set-req { color: var(--danger); }
+
+.set-field input, .set-field select { max-width: 26rem; }
+.set-field > .hint { display: block; margin-top: 4px; }
+
+/* Toggle row: full-width, own row, whole row is the click target. */
+.set-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+/* The checkbox is wrapped (locked-overlay anchor), so the wrapper — not the
+   box — is the flex item that must not shrink. */
+.set-toggle > .locked-wrap { flex: none; line-height: 1; }
+
+.set-toggle input[type="checkbox"] {
+  width: auto;
+  margin: 3px 0 0;
+  accent-color: var(--accent);
+}
+
+.set-toggle-text { font-size: 14px; color: var(--text); }
+.set-toggle-text .hint { display: block; font-weight: 400; margin-top: 2px; }
+
+/* Dates: one row per round, read top-to-bottom. No inner scroller — a long
+   tournament is meant to make a long list. */
+.set-rows { display: flex; flex-direction: column; }
+
+.set-row {
+  display: grid;
+  grid-template-columns: 10rem minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.set-row:last-child { border-bottom: 0; }
+.set-row-label { font-size: 13px; font-weight: 600; color: var(--text-soft); }
+.set-row-label .hint { font-weight: 400; }
+.set-row input { max-width: 14rem; }
 
 button.pe-btn, .pe-btn {
   font: inherit;
@@ -805,24 +881,94 @@ button.pe-btn, .pe-btn {
 
 /* ---- bracket map (SVG) ---- */
 .pe-bracket-scroll {
+  display: flex;
+  align-items: flex-start;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   margin: 4px 0 2px;
   padding-bottom: 4px;
+  position: relative;
+  /* a board card's disc click pins its dot via JS (assets/js/app.js) and
+     calls scrollIntoView — glide instead of snapping when that scrolls
+     this container horizontally */
+  scroll-behavior: smooth;
+  /* The minimap below is the intended scroll-position affordance; the
+     native bar duplicated it and added its own layout gap. Wheel/drag/
+     keyboard scrolling all keep working — only the visible track/thumb
+     chrome is suppressed. */
+  scrollbar-width: none;
 }
+.pe-bracket-scroll::-webkit-scrollbar { display: none; }
 .pe-bracket-svg { display: block; }
 .pe-bracket-svg text { font-family: 'Segoe UI', system-ui, sans-serif; }
 
 .pe-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; font-size: 12.5px; color: var(--text-soft); }
-.pe-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+/* Legend items are real buttons (task 1: legend-as-filter) — reset native
+   chrome first, same pattern as .pe-disc above, so the swatch + label
+   layout is unaffected by being a <button> instead of a <span>. */
+.pe-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  padding: 2px 8px;
+  margin: 0;
+  border-radius: 99px;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.pe-legend-item:hover,
+.pe-legend-item:focus-visible {
+  background: var(--accent-soft);
+  outline: none;
+}
+/* Active-filter affordance, toggled by the delegated listener in
+   assets/js/app.js — shared by legend items AND .pe-band-row (task 2),
+   since both are `[data-filter]` buttons targeting the same
+   `data-active-filter` state on the nearest .pe-bracket-map. */
+.pe-legend-item.is-active-filter {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+}
 .pe-legend-disc { width: 13px; height: 13px; border-radius: 50%; display: inline-block; }
 .pe-legend-disc.pe-disc-w { background: var(--surface); border: 2px solid var(--accent); }
 .pe-legend-disc.pe-disc-b { background: var(--accent); }
 .pe-legend-line { width: 20px; height: 0; border-top: 3px solid #9db8a8; display: inline-block; }
 .pe-legend-line.is-float { border-top-style: dashed; border-top-color: #b5762f; }
-.pe-legend-tri { font-size: 12px; line-height: 1; }
-.pe-legend-tri.down { color: #b5762f; }
-.pe-legend-tri.up { color: #3a6ea5; }
+/* Deliberate match-format rematch (task 4) — a neutral, non-alarming
+   dotted line, distinct from both the plain "within bracket" line and the
+   danger-red anomaly dashes below. */
+.pe-legend-line.is-rematch { border-top-style: dotted; border-top-color: #5f7d68; border-top-width: 3px; }
+/* Solid-colour badge chip, not bare colored text (task 2) — mirrors the
+   filled `pe-tri-badge` circle drawn behind the same glyph on the chart. */
+.pe-legend-tri {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  font-size: 10px;
+  line-height: 1;
+  color: #ffffff;
+}
+.pe-legend-tri.down { background: #b5762f; }
+.pe-legend-tri.up { background: #3a6ea5; }
+/* Colour-against-due halo swatch (task 3) — mirrors the SVG halo ring's
+   warn colour/dash pattern (see .pe-tag-warn and the `pe-dot-halo` circle
+   in pairing_explain_live.ex). */
+.pe-legend-halo {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  display: inline-block;
+  border: 1.75px dashed #a76a25;
+  box-sizing: border-box;
+}
 
 /* ---- board-by-board pairing cards ---- */
 .pe-pair-grid {
@@ -853,10 +999,24 @@ button.pe-btn, .pe-btn {
 .pe-head-flags { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
 
 .pe-side { display: flex; gap: 11px; align-items: flex-start; }
+/* A button, not a plain span — clicking it pins open (and scrolls to)
+   this player's own circle on the score-bracket map above. Reset native
+   button chrome first; .pe-disc-w/.pe-disc-b (applied via the same class
+   list, so later in the cascade) still win on background/border. */
 .pe-disc {
+  border: none; background: transparent; padding: 0; font: inherit;
+  -webkit-appearance: none; appearance: none;
   flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%; margin-top: 2px;
   display: inline-flex; align-items: center; justify-content: center;
   font-size: 12px; font-weight: 700;
+  text-decoration: none; cursor: pointer;
+  box-shadow: 0 0 0 0 rgba(46, 94, 68, 0);
+  transition: box-shadow 0.12s, transform 0.12s;
+}
+.pe-disc:hover, .pe-disc:focus-visible {
+  box-shadow: 0 0 0 3px rgba(46, 94, 68, 0.18);
+  transform: scale(1.08);
+  outline: none;
 }
 .pe-disc-w { background: var(--surface); border: 2px solid var(--accent); }
 .pe-disc-b { background: var(--accent); }
@@ -927,37 +1087,107 @@ button.pe-btn, .pe-btn {
   .pe-pair-grid { grid-template-columns: 1fr; }
 }
 
-/* ---- bracket-dot hover popovers (pure CSS, no JS) ----
-   The visual dot stays an SVG <circle> (with its native <title> kept as a
-   fallback); a transparent same-position HTML overlay sits on top so a real
-   HTML <div> can host the rich, wrapping popover text. `bracket_layout/1`'s
-   viewBox is 1:1 with CSS pixels (the <svg> has no separate CSS width), so
-   the same x/y used for the circles positions the overlay directly. */
-.pe-bracket-scroll { position: relative; }
-.pe-bracket-scroll:has(.pe-dot-wrap:hover),
-.pe-bracket-scroll:has(.pe-dot-wrap:focus-within) {
-  overflow: visible;
+/* ---- bracket-map: sticky score gutter + per-board hover popovers ----
+   Mostly CSS, plus one delegated click listener in assets/js/app.js for
+   pinning and legend/gutter click-filtering. The gutter is a sticky flex
+   child, so the score-band labels stay readable while the (often
+   wider-than-viewport) chart scrolls beneath them. Each DOT (one per
+   player, one for a bye recipient — not one per board) gets its own
+   absolutely-positioned hover wrap, `left`/`top` set inline by the
+   template so the ring (::before below) is always dead-centre on that one
+   dot; the popover's opening direction comes from server-computed
+   pe-pop-* classes — the scroll container clips on BOTH axes (overflow-x:
+   auto forces overflow-y to auto too), so an always-below popover would
+   clip at the bottom band. `bracket_layout/1`'s viewBox is 1:1 with CSS
+   pixels, so SVG and overlay share coordinates. */
+.pe-band-gutter {
+  position: sticky;
+  left: 0;
+  z-index: 6;
+  flex: 0 0 auto;
+  width: 108px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
 }
-.pe-dot-overlay {
+/* A button, not a plain div (task 2: clicking a band highlights it) — reset
+   native chrome, keep the same absolute-positioned row layout. */
+.pe-band-row {
   position: absolute;
-  inset: 0;
-  pointer-events: none;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 44px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 0 10px;
+  background: #faf9f6;
+  border: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s;
 }
-.pe-dot-wrap {
+.pe-band-row.is-alt { background: #f1efe9; }
+.pe-band-row:hover,
+.pe-band-row:focus-visible { background: var(--accent-soft); outline: none; }
+.pe-band-row.is-active-filter { background: var(--accent-soft); }
+.pe-band-score { font-weight: 700; font-size: 13.5px; color: #24211c; line-height: 1.15; }
+.pe-band-meta { font-size: 11.5px; color: var(--text-soft); line-height: 1.15; }
+.pe-band-odd { color: #a76a25; font-weight: 600; }
+
+.pe-bracket-canvas { position: relative; flex: 0 0 auto; }
+
+.pe-board-overlay { position: absolute; inset: 0; pointer-events: none; }
+/* One hover wrap per DOT (one per player, one for a bye), a fixed square
+   centred exactly on it (`left`/`top` set inline, size fixed here) — so
+   hovering a specific circle shows only that circle's player, never the
+   opponent elsewhere on the chart. */
+.pe-board-wrap {
   position: absolute;
-  width: 18px;
-  height: 18px;
+  width: 26px;
+  height: 26px;
   pointer-events: auto;
   outline: none;
+  border-radius: 50%;
 }
+.pe-board-wrap:hover,
+.pe-board-wrap:focus-within,
+.pe-board-wrap:focus,
+.pe-board-wrap.is-pinned { z-index: 30; }
+
+/* highlight ring — always dead-centre in the wrap, since the wrap is
+   always sized/positioned around exactly one dot. `.is-pinned` is what
+   lights this up (and pins the popover open, see below); it's added by the
+   delegated click listener in assets/js/app.js, either when this wrap's
+   dot is clicked directly on the graph (toggles) or when a board card's
+   colour disc is clicked (always pins, and scrolls this into view). */
+.pe-board-wrap::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(46, 94, 68, 0.75);
+  box-shadow: 0 0 0 4px rgba(46, 94, 68, 0.12);
+  opacity: 0;
+  transition: opacity 0.12s;
+  pointer-events: none;
+}
+.pe-board-wrap:hover::before,
+.pe-board-wrap:focus::before,
+.pe-board-wrap:focus-within::before,
+.pe-board-wrap.is-pinned::before { opacity: 1; }
+
 .pe-dot-popover {
   display: none;
   position: absolute;
+  top: calc(100% + 8px);
   left: 50%;
-  top: 22px;
   transform: translateX(-50%);
   z-index: 20;
-  width: 230px;
+  width: 218px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -966,17 +1196,153 @@ button.pe-btn, .pe-btn {
   font-size: 12.5px;
   color: var(--text);
   text-align: left;
+  cursor: default;
 }
-.pe-dot-wrap:hover .pe-dot-popover,
-.pe-dot-wrap:focus-within .pe-dot-popover,
-.pe-dot-wrap:focus .pe-dot-popover {
+.pe-pop-above .pe-dot-popover { top: auto; bottom: calc(100% + 8px); }
+.pe-pop-edge-left .pe-dot-popover { left: -13px; transform: none; }
+.pe-pop-edge-right .pe-dot-popover { left: auto; right: -13px; transform: none; }
+.pe-board-wrap:hover .pe-dot-popover,
+.pe-board-wrap:focus-within .pe-dot-popover,
+.pe-board-wrap:focus .pe-dot-popover,
+.pe-board-wrap.is-pinned .pe-dot-popover {
   display: block;
 }
-.pe-dot-pop-name { font-weight: 700; margin-bottom: 2px; }
-.pe-dot-pop-row {
+
+/* Name gets its own full-width row (never truncated); everything else
+   flows in wrapped tag rows below it instead of one crowded line. */
+.pe-pop-name { font-weight: 650; white-space: normal; word-break: break-word; margin-bottom: 4px; }
+.pe-pop-tags {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 5px;
-  margin-top: 3px;
+  margin-top: 4px;
+}
+.pe-pop-foot { margin-top: 6px; font-size: 11.5px; color: var(--text-soft); white-space: normal; }
+
+.pe-legend-disc.pe-disc-byedot { background: var(--surface); border: 2px dashed var(--accent); }
+.pe-legend-line.is-anomaly { border-top-color: #a33c2e; }
+
+/* ---- bracket-map: legend/gutter click-to-filter (tasks 1 & 2) ----
+   Every filterable SVG element (dot circles + halos, connecting lines,
+   float-direction triangles) carries a `data-facets` attribute — a
+   space-separated list of tokens like "w within band-2" — set by
+   dot_facets/1 / link_facets/1 in pairing_explain_live.ex. Clicking a
+   legend item or a .pe-band-row (both are `[data-filter]` buttons) is
+   handled by the delegated listener in assets/js/app.js, which toggles
+   that button's facet in a multi-select SET (`data-active-filter`, a
+   space-separated string) and dims (.pe-dim) any element whose own facets
+   don't intersect ANY active facet (OR semantics) — plain JS matching
+   rather than static per-facet CSS rules, because the score-band count
+   (and therefore the set of possible "band-N" facet values) is unbounded
+   and only known at render time. Popovers/hover/pin are untouched: only
+   SVG elements dim, never the .pe-board-wrap hover targets, so
+   hovering/pinning a dimmed dot still works exactly as before. */
+.pe-filterable { transition: opacity 0.15s; }
+.pe-dim { opacity: 0.16; }
+
+/* ---- bracket-map: pinned-popover cross-round trail (task A) ----
+   The trail (per-round strip + score sparkline) is precomputed server-side
+   and rendered hidden into every dot's popover; it's revealed ONLY when that
+   dot is pinned, so hover scanning stays light and the popover doesn't
+   balloon during casual scanning. The pinned popover is widened moderately
+   and the round strip is capped with its own scroll, so a long tournament's
+   trail stays a fixed, bounded height (see @bracket_pin_pop_room, which the
+   canvas clearance math reserves for it). */
+.pe-board-wrap.is-pinned .pe-dot-popover { width: 300px; }
+.pe-trail { display: none; margin-top: 8px; border-top: 1px solid var(--border); padding-top: 6px; }
+.pe-board-wrap.is-pinned .pe-trail { display: block; }
+.pe-trail-title {
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--text-soft); margin-bottom: 4px;
+}
+/* Fairness summary row (task 4d) — smaller variant of .pe-stat/.pe-stat-n
+   (see the page's summary strip above) for the popover's tighter width. */
+.pe-trail-stats { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 6px; }
+.pe-stat-sm { font-size: 10.5px; gap: 4px; }
+.pe-stat-sm .pe-stat-n { font-size: 12px; }
+.pe-trail-spark { display: block; width: 100%; height: auto; margin-bottom: 6px; }
+.pe-trail-rounds {
+  display: flex; flex-direction: column; gap: 2px;
+  /* Fit ~12 rounds without scrolling. Per-row height = max(line-height
+     11px*1.4≈15.4px, the 16px colour disc) + 1px+1px padding = 18px; the
+     .pe-trail-res column is now wide enough (see .pe-trail-row below) that
+     "this round" never wraps to a second line, so 18px holds for every row.
+     12 rows * 18px + 11 gaps * 2px = 238px; round up to 240px. Longer
+     round-robins still fall back on overflow-y below. */
+  max-height: 240px; overflow-y: auto;
+}
+/* Column widths at the pinned popover's 300px width (padding 10px each
+   side = 20px, 4 gaps * 5px = 20px, leaving 260px of content):
+     round   20px  — only ever "R" + 1-2 digits (e.g. "R12"), trimmed down
+                      from the old 24px (was more than that ever needs)
+     colour  16px  — the disc badge, fixed, can't shrink
+     result  70px  — must fit the widest label, "this round" (11 chars,
+                      bold 11px sans ≈ 60-64px), plus a small safety margin
+     score   auto  — ~4 tabular-nums chars + 4px padding, ≈ 30px
+     opponent 1fr  — gets what's left: 260 - 20 - 16 - 70 - ~30 ≈ 124px
+                      (was ≈ 100px at the old 250px width) */
+.pe-trail-row {
+  display: grid;
+  grid-template-columns: 20px 16px 70px 1fr auto;
+  align-items: center; gap: 5px;
+  font-size: 11px; line-height: 1.4;
+  padding: 1px 2px; border-radius: 4px;
+}
+/* Faintly tint the current round's row so "this round" reads as the latest. */
+.pe-trail-row.pe-trail-pending { background: var(--accent-soft); }
+.pe-trail-rd { color: var(--text-soft); font-variant-numeric: tabular-nums; }
+.pe-trail-col {
+  width: 16px; height: 16px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 9.5px; font-weight: 700;
+}
+.pe-trail-col.is-w { background: var(--surface); border: 1.5px solid var(--accent); color: var(--accent); }
+.pe-trail-col.is-b { background: var(--accent); color: #fff; }
+.pe-trail-col.is-bye { background: var(--surface); border: 1.5px dashed var(--accent); color: var(--accent); }
+.pe-trail-col.is-absent { background: #eeece7; color: var(--text-soft); }
+/* Result cell colour mirrors the app's existing W/D/L tag language.
+   nowrap/ellipsis is a defensive backstop for the 240px .pe-trail-rounds
+   max-height math (see above), which assumes every row stays single-line —
+   the 70px column width already fits "this round", the longest label. */
+.pe-trail-res { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pe-trail-win .pe-trail-res { color: var(--accent); }
+.pe-trail-draw .pe-trail-res { color: var(--text-soft); }
+.pe-trail-loss .pe-trail-res { color: var(--danger); }
+.pe-trail-forfeit_win .pe-trail-res,
+.pe-trail-forfeit_loss .pe-trail-res { color: #a76a25; }
+.pe-trail-bye .pe-trail-res { color: var(--text-soft); font-weight: 600; }
+.pe-trail-pending .pe-trail-res,
+.pe-trail-absent .pe-trail-res { color: var(--text-soft); font-weight: 600; }
+.pe-trail-opp { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.pe-trail-sc {
+  font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--text); padding-left: 4px;
+}
+
+/* ---- bracket-map: overview minimap (task B) ----
+   A scaled-down copy of the same chart under the scroll strip, with a
+   viewport rect showing the visible x-window. Driven entirely by the
+   BracketMinimap colocated hook (position + show/hide); it starts hidden so
+   there's no flash on rounds that don't overflow. */
+.pe-minimap-wrap {
+  display: none;
+  position: relative;
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--surface);
+  cursor: pointer;
+}
+.pe-minimap-svg { display: block; width: 100%; height: 48px; }
+.pe-minimap-viewport {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(46, 94, 68, 0.14);
+  border: 1.5px solid rgba(46, 94, 68, 0.55);
+  border-radius: 3px;
+  box-sizing: border-box;
+  pointer-events: none;
 }

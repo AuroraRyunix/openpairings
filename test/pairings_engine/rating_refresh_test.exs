@@ -142,7 +142,7 @@ defmodule PairingsEngine.RatingRefreshTest do
       # groups them into a single update.
       assert {:ok, [_]} = RatingRefresh.apply(tournament, proposals)
 
-      updated = Tournaments.get_player!(player.id)
+      updated = Tournaments.get_player!(player.tournament_id, player.id)
       assert updated.fide_rating == 1900
       assert updated.title == "WIM"
       assert updated.national_rating == 1720

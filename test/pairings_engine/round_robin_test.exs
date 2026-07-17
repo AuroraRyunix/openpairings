@@ -329,6 +329,44 @@ defmodule PairingsEngine.RoundRobinTest do
       refute a.id in pairing_player_ids
     end
 
+    ## ---------- delete_round/2 must not orphan a round's byes table row ----------
+    #
+    # The "byes" table has no round_id foreign key (see the migration), so a
+    # plain `Round` delete alone leaves the row behind. Re-pairing the same
+    # round number then hits `insert_all("byes", ...)`'s
+    # `UNIQUE(player_id, round)` index — which used to raise, permanently
+    # bricking the round. `delete_round/2` must delete the round's `byes`
+    # rows too.
+    test "delete_round/2 clears the round's byes row so re-pairing an odd-player-count round doesn't crash" do
+      tournament = round_robin_tournament(rr_cycles: 1)
+
+      a = insert_player(tournament, "Alice", fide_rating: 2000)
+      insert_player(tournament, "Bob", fide_rating: 1900)
+      insert_player(tournament, "Carol", fide_rating: 1800)
+      insert_player(tournament, "Dave", fide_rating: 1700)
+      insert_player(tournament, "Eve", fide_rating: 1600)
+
+      assert {:ok, _round} = Pairing.pair_next_round(tournament)
+      assert :ok = Pairing.delete_round(tournament.id, 1)
+
+      # Re-pairing round 1 must succeed rather than raising a uniqueness
+      # violation on the orphaned "byes" row from the first pairing run.
+      assert {:ok, round} = Pairing.pair_next_round(tournament)
+      round = Repo.preload(round, :pairings)
+      assert round.number == 1
+
+      byes =
+        Repo.all(
+          from bye in "byes",
+            where: bye.tournament_id == ^tournament.id,
+            select: %{player_id: bye.player_id, round: bye.round, type: bye.type}
+        )
+
+      # Exactly one row for {Alice, round: 1} — no duplicate from the
+      # deleted round's leftover row.
+      assert byes == [%{player_id: a.id, round: 1, type: "requested-zero"}]
+    end
+
     ## ---------- byes must invalidate a hand-set manual standings order ----------
     #
     # SWAR parity #23 (manual standings) fix 3: a "requested-zero" bye
@@ -395,6 +433,30 @@ defmodule PairingsEngine.RoundRobinTest do
 
       assert Pairing.pair_next_round(tournament) ==
                {:error, "All rounds have been paired (round-robin schedule complete)"}
+    end
+
+    test "rounds_count set lower than the Berger schedule needs clamps pairing and ends the event early" do
+      # 6 players, single cycle -> total_rounds(6, 1) == 5, but the arbiter
+      # declared rounds_count: 3, so the event must end after round 3
+      # rather than pairing the schedule's remaining rounds 4 and 5.
+      tournament = round_robin_tournament(rr_cycles: 1, rounds_count: 3)
+
+      insert_player(tournament, "Alice", fide_rating: 2000)
+      insert_player(tournament, "Bob", fide_rating: 1900)
+      insert_player(tournament, "Carol", fide_rating: 1800)
+      insert_player(tournament, "Dave", fide_rating: 1700)
+      insert_player(tournament, "Eve", fide_rating: 1600)
+      insert_player(tournament, "Frank", fide_rating: 1500)
+
+      for expected_round <- 1..3 do
+        assert {:ok, round} = Pairing.pair_next_round(tournament)
+        assert round.number == expected_round
+      end
+
+      assert Pairing.pair_next_round(tournament) ==
+               {:error, "All 3 rounds have already been paired"}
+
+      assert Tournaments.list_rounds(tournament.id) |> length() == 3
     end
 
     test "not enough schedulable players returns the same error the Swiss path uses" do
@@ -625,7 +687,7 @@ defmodule PairingsEngine.RoundRobinTest do
     Repo.insert!(%Tournament{
       name: "RR Test",
       type: "swiss",
-      rounds_count: 9,
+      rounds_count: Keyword.get(attrs, :rounds_count, 9),
       pairing_system: "round_robin",
       rr_cycles: Keyword.fetch!(attrs, :rr_cycles),
       rr_match_format: Keyword.get(attrs, :rr_match_format, false)

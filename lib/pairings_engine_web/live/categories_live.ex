@@ -107,12 +107,9 @@ defmodule PairingsEngineWeb.CategoriesLive do
             page.
           </p>
           <form id="add-category-form" phx-submit="add_category">
-            <div class="form-grid">
-              <label class="field">
-                <span>New category name</span>
-                <input type="text" name="name" value="" placeholder="e.g. U18" />
-              </label>
-            </div>
+            <.setting_field label="New category name" class="solo">
+              <input type="text" name="name" value="" placeholder="e.g. U18" />
+            </.setting_field>
             <p :if={@category_error} class="error-note">{@category_error}</p>
             <div class="actions">
               <button type="submit" class="pe-btn primary">Add</button>
