@@ -332,7 +332,7 @@ defmodule PairingsEngine.RoundRobin do
         end)
 
       if bye_rows != [] do
-        Repo.insert_all("byes", bye_rows)
+        Repo.insert_all("byes", bye_rows, on_conflict: :nothing)
 
         # A "requested-zero" bye immediately awards points (see
         # PairingsEngine.Standings) without ever going through

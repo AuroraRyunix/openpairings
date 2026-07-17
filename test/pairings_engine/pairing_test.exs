@@ -330,6 +330,42 @@ defmodule PairingsEngine.PairingTest do
     assert_receive {:tournament_changed, ^tid, :rounds}
   end
 
+  ## ---------- delete_round/2 must not orphan a round's byes table row ----------
+  #
+  # The "byes" table has no round_id foreign key, so a plain `Round` delete
+  # alone leaves a round-specific absentee's "requested-zero" bye row
+  # behind. Re-pairing the same round number then hits
+  # `insert_all("byes", ...)`'s `UNIQUE(player_id, round)` index — which
+  # used to raise, permanently bricking the round.
+  @tag :javafo
+  test "delete_round/2 clears a round-specific absentee's byes row so re-pairing doesn't crash" do
+    tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
+
+    insert_player(tournament, "Alice", fide_rating: 2000)
+    insert_player(tournament, "Bob", fide_rating: 1900)
+    insert_player(tournament, "Carol", fide_rating: 1800)
+    dave = insert_player(tournament, "Dave", fide_rating: 1700, absent_rounds: "1")
+
+    assert {:ok, _round} = Pairing.pair_next_round(tournament)
+    assert :ok = Pairing.delete_round(tournament.id, 1)
+
+    # Re-pairing round 1 must succeed rather than raising a uniqueness
+    # violation on the orphaned "byes" row from the first pairing run.
+    assert {:ok, round} = Pairing.pair_next_round(tournament)
+    assert round.number == 1
+
+    byes =
+      Repo.all(
+        from b in "byes",
+          where: b.tournament_id == ^tournament.id and b.player_id == ^dave.id,
+          select: %{round: b.round, type: b.type}
+      )
+
+    # Exactly one row for {Dave, round: 1} — no duplicate from the deleted
+    # round's leftover row.
+    assert byes == [%{round: 1, type: "requested-zero"}]
+  end
+
   ## ---------- TRF result-code mapping ----------
 
   test "javafo_input/2 maps every internal result string to the correct TRF16 codes" do
@@ -1015,6 +1051,92 @@ defmodule PairingsEngine.PairingTest do
              %{round: 1, type: "requested-zero"},
              %{round: 2, type: "requested-zero"}
            ]
+  end
+
+  ## ---------- delete_round/2 under swiss_match_format deletes both legs ----------
+  #
+  # A single do_pair/2 call under swiss_match_format inserts BOTH legs of a
+  # match (rounds N and N+1 — see create_mirrored_leg/4 and the comment
+  # above max_pairable_round/1, which documents that paired_rounds_count/1
+  # always lands on an even number after a match-format pairing run).
+  # delete_round/2 used to delete exactly one round regardless of match
+  # format, breaking that invariant.
+
+  @tag :javafo
+  test "delete_round/2 under swiss_match_format deletes both legs of the match, not just the requested round" do
+    tournament =
+      Repo.insert!(%Tournament{
+        name: "Match",
+        type: "swiss",
+        rounds_count: 4,
+        swiss_match_format: true
+      })
+
+    for {name, rating} <- [{"Alice", 2000}, {"Bob", 1900}, {"Carol", 1800}, {"Dave", 1700},
+                            {"Eve", 1600}, {"Frank", 1500}] do
+      insert_player(tournament, name, fide_rating: rating)
+    end
+
+    assert {:ok, _round2} = Pairing.pair_next_round(tournament)
+    assert Pairing.paired_rounds_count(tournament.id) == 2
+
+    assert :ok = Pairing.delete_round(tournament.id, 2)
+
+    # Both legs (round 1 AND round 2) must be gone, not just round 2 —
+    # otherwise round 1 would be orphaned (never rematched).
+    assert Pairing.paired_rounds_count(tournament.id) == 0
+    refute Tournaments.get_round(tournament.id, 1)
+    refute Tournaments.get_round(tournament.id, 2)
+  end
+
+  @tag :javafo
+  test "delete_round/2 on the last leg of the last match doesn't strand the tournament — pairing resumes cleanly" do
+    tournament =
+      Repo.insert!(%Tournament{
+        name: "Match",
+        type: "swiss",
+        rounds_count: 4,
+        swiss_match_format: true
+      })
+
+    for {name, rating} <- [{"Alice", 2000}, {"Bob", 1900}, {"Carol", 1800}, {"Dave", 1700}] do
+      insert_player(tournament, name, fide_rating: rating)
+    end
+
+    tournament = Repo.reload!(tournament)
+    assert {:ok, _round2} = Pairing.pair_next_round(tournament)
+
+    # Enter results for both legs of match 1 so match 2 (rounds 3-4) can be
+    # paired.
+    for number <- [1, 2] do
+      round = Tournaments.get_round(tournament.id, number) |> Repo.preload(:pairings)
+
+      Enum.each(round.pairings, fn p ->
+        if p.result == "", do: Tournaments.update_pairing_result(p, "1-0")
+      end)
+    end
+
+    assert {:ok, round4} = Pairing.pair_next_round(tournament)
+    assert round4.number == 4
+    assert Pairing.paired_rounds_count(tournament.id) == 4
+
+    # Deleting round 4 (the requested "latest round") must also delete
+    # round 3 — leaving round 3 behind would strand the tournament:
+    # next_number would become 4, but max_pairable_round is rounds_count - 1
+    # == 3, so pairing would be permanently blocked with a misleading
+    # "all rounds paired" error, and the UI has no way to delete round 3
+    # directly (delete_round/2 only permits deleting the latest round).
+    assert :ok = Pairing.delete_round(tournament.id, 4)
+    assert Pairing.paired_rounds_count(tournament.id) == 2
+    refute Tournaments.get_round(tournament.id, 3)
+    refute Tournaments.get_round(tournament.id, 4)
+
+    # Pairing must succeed again, creating rounds 3 and 4 fresh — not error
+    # out and not treat round 3 as a leftover mismatched leg.
+    assert {:ok, fresh_round4} = Pairing.pair_next_round(Repo.reload!(tournament))
+    assert fresh_round4.number == 4
+    assert Tournaments.get_round(tournament.id, 3)
+    assert Pairing.paired_rounds_count(tournament.id) == 4
   end
 
   ## ---------- native per-category Swiss pairing (SWAR-parity #24) ----------

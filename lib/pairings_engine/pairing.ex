@@ -117,11 +117,37 @@ defmodule PairingsEngine.Pairing do
     end
   end
 
-  @doc "Deletes a paired round (only the latest one, to keep history sane)."
+  @doc """
+  Deletes a paired round (only the latest one, to keep history sane).
+
+  Under `tournament.swiss_match_format`, a single `do_pair/2` call inserts
+  BOTH legs of a match (rounds N and N+1 — see `create_mirrored_leg/4` and
+  the comment above `max_pairable_round/1`, which documents that
+  `paired_rounds_count/1` always lands on an even number after a
+  match-format pairing run). Deleting only one leg would break that
+  invariant — orphaning leg 1, or stranding the tournament with a
+  `next_number` `max_pairable_round/1` can never reach again — so both legs
+  of the match are deleted together here.
+
+  Also deletes the round's `byes` rows: the `byes` table has no `round_id`
+  foreign key (see the migration), so a plain `Round` delete would otherwise
+  leave orphaned bye rows behind that collide (`UNIQUE(player_id, round)`)
+  the next time this round number is paired.
+  """
   def delete_round(tournament_id, number) do
     if number == paired_rounds_count(tournament_id) do
+      match_format? =
+        Repo.one(from t in Tournament, where: t.id == ^tournament_id, select: t.swiss_match_format)
+
+      numbers = if match_format? and number > 1, do: [number - 1, number], else: [number]
+
       Repo.delete_all(
-        from r in Round, where: r.tournament_id == ^tournament_id and r.number == ^number
+        from r in Round, where: r.tournament_id == ^tournament_id and r.number in ^numbers
+      )
+
+      Repo.delete_all(
+        from b in "byes",
+          where: b.tournament_id == ^tournament_id and b.round in ^numbers
       )
 
       Tournaments.broadcast_tournament_change(tournament_id, :rounds)
@@ -201,10 +227,15 @@ defmodule PairingsEngine.Pairing do
     # pairing engine never considers them for this round. Computed once over
     # the whole active/round_absentees split, before any category
     # partitioning happens below — unaffected by `pair_by_category`.
-    insert_round_absentee_byes(tournament, next_number, round_absentees)
-
+    #
+    # The actual `insert_round_absentee_byes/3` call happens later, inside
+    # `create_round/5`'s or `insert_category_round/3`'s `Repo.transaction`
+    # (after JaVaFo has already succeeded) rather than here — see those
+    # functions. Running it here, before JaVaFo is even invoked, would
+    # permanently commit these bye rows even if JaVaFo then failed, bricking
+    # the round on retry (UNIQUE(player_id, round) violation).
     if tournament.pair_by_category do
-      do_pair_by_category(tournament, players, next_number)
+      do_pair_by_category(tournament, players, next_number, round_absentees)
     else
       do_pair_single(tournament, players, next_number, round_absentees)
     end
@@ -288,7 +319,7 @@ defmodule PairingsEngine.Pairing do
   # open ONE transaction and write the Round + every category's pairings,
   # in category-list order, boards numbered continuously — the single
   # combined pairing sheet that's the whole point of doing this natively.
-  defp do_pair_by_category(tournament, players, next_number) do
+  defp do_pair_by_category(tournament, players, next_number, round_absentees) do
     groups = category_groups(tournament, players)
 
     # Tournament-wide history (every round/pairing, every bye, the full
@@ -300,8 +331,11 @@ defmodule PairingsEngine.Pairing do
     shared_history = build_shared_history(tournament.id)
 
     case compute_category_pairs(tournament, groups, next_number, shared_history) do
-      {:ok, group_results} -> insert_category_round(tournament, group_results, next_number)
-      {:error, _reason} = error -> error
+      {:ok, group_results} ->
+        insert_category_round(tournament, group_results, next_number, round_absentees)
+
+      {:error, _reason} = error ->
+        error
     end
   end
 
@@ -397,7 +431,7 @@ defmodule PairingsEngine.Pairing do
   # category's JaVaFo call — the `Repo.transaction/1` wrapper here exists
   # for ordinary DB-write atomicity (Round + N Pairings as one unit), not to
   # guard against a JaVaFo failure (that's already been ruled out).
-  defp insert_category_round(tournament, group_results, next_number) do
+  defp insert_category_round(tournament, group_results, next_number, round_absentees) do
     Repo.transaction(fn ->
       round =
         Repo.insert!(%Round{
@@ -405,6 +439,8 @@ defmodule PairingsEngine.Pairing do
           number: next_number,
           status: "playing"
         })
+
+      insert_round_absentee_byes(tournament, next_number, round_absentees)
 
       {_final_board, any_bye?} =
         Enum.reduce(group_results, {1, false}, fn group_result, {board_offset, any_bye?} ->
@@ -606,7 +642,7 @@ defmodule PairingsEngine.Pairing do
         }
       end)
 
-    Repo.insert_all("byes", rows)
+    Repo.insert_all("byes", rows, on_conflict: :nothing)
 
     # A "requested-zero" bye immediately awards points (see
     # PairingsEngine.Standings) without ever going through
@@ -660,6 +696,8 @@ defmodule PairingsEngine.Pairing do
             result: if(b == 0, do: "bye", else: "")
           })
         end)
+
+      insert_round_absentee_byes(tournament, next_number, round_absentees)
 
       # A pairing-allocated bye's pairing row is created with its result
       # ("bye") already set, awarding points immediately without ever going
@@ -733,7 +771,7 @@ defmodule PairingsEngine.Pairing do
           }
         end)
 
-      Repo.insert_all("byes", rows)
+      Repo.insert_all("byes", rows, on_conflict: :nothing)
     end
 
     leg2
