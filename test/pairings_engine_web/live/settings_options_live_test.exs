@@ -18,6 +18,37 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
     tournament
   end
 
+  describe "Categories toggle (folded into the Options card)" do
+    test "still renders and saves from the main settings form", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      refute tournament.categories_enabled
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+      assert html =~ "Enable the Categories tab"
+
+      lv
+      |> form("form[phx-submit=save]", %{"tournament" => %{"categories_enabled" => "true"}})
+      |> render_submit()
+
+      assert Tournaments.get_authorized_tournament!(scope, tournament.id).categories_enabled
+    end
+
+    test "an unchecked toggle still saves false (hidden companion input)", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope, %{"categories_enabled" => "true"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+
+      lv
+      |> form("form[phx-submit=save]", %{"tournament" => %{"categories_enabled" => "false"}})
+      |> render_submit()
+
+      refute Tournaments.get_authorized_tournament!(scope, tournament.id).categories_enabled
+    end
+  end
+
   describe "Rate of play — dependent on Type (standard)" do
     test "the active rate-of-play list matches the tournament's standard on load", %{
       conn: conn,

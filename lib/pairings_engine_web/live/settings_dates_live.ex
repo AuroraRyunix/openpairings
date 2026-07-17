@@ -182,13 +182,9 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
             share the same date (e.g. a Saturday double round).
           </p>
 
-          <div class="form-grid">
-            <label
-              :for={{date, i} <- Enum.with_index(@round_dates)}
-              class="field"
-              style="display: flex; flex-direction: column; justify-content: flex-end"
-            >
-              <span>
+          <div class="set-rows">
+            <label :for={{date, i} <- Enum.with_index(@round_dates)} class="set-row">
+              <span class="set-row-label">
                 Round {i + 1}
                 <span :if={weekday_label(date)} class="hint">({weekday_label(date)})</span>
               </span>

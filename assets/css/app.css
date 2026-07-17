@@ -350,7 +350,7 @@ label.field > span {
   margin-bottom: 4px;
 }
 
-.field input, .field select, input.pe-input, select.pe-select {
+.field input, .field select, .set-field input, .set-field select, .set-row input, input.pe-input, select.pe-select {
   width: 100%;
   padding: 8px 10px;
   border: 1px solid var(--border);
@@ -360,7 +360,7 @@ label.field > span {
   color: var(--text);
 }
 
-.field input:focus, .field select:focus, input.pe-input:focus, .input:focus, .select:focus, .textarea:focus {
+.field input:focus, .field select:focus, .set-field input:focus, .set-field select:focus, .set-row input:focus, input.pe-input:focus, .input:focus, .select:focus, .textarea:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
@@ -385,6 +385,82 @@ label.field > span {
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 0 20px;
 }
+
+/* ---------- settings forms ----------
+
+   Scoped to the Settings pages (see SettingsSupport's <.setting_group> /
+   <.setting_field> / <.setting_toggle>). Deliberately separate from
+   `.form-grid` / `label.field`, which Players, Norms and Tournaments also
+   use — those keep their auto-fill grid; settings does not.
+
+   One column, not a grid: `.form-grid`'s auto-fill packed 4-5 settings per
+   row at 1080p and reflowed them on resize, so related settings landed
+   wherever they fit. Settings are read top-to-bottom, and one column is the
+   only layout where a stacked field (label above control) and a toggle row
+   (checkbox beside label) coexist without deforming one to match the other —
+   which is what the per-call-site inline flex patches used to paper over.
+   Controls cap at a readable width instead of stretching the whole card. */
+.set-group { display: flex; flex-direction: column; gap: 16px; }
+
+.set-field { display: block; }
+
+/* A setting standing on its own in a card rather than in a `.set-group`,
+   which would otherwise supply the spacing via its gap. */
+.set-field.solo { margin-bottom: 16px; }
+
+.set-field > .set-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-soft);
+  margin-bottom: 4px;
+}
+
+.set-field > .set-label.req { font-weight: 700; }
+.set-req { color: var(--danger); }
+
+.set-field input, .set-field select { max-width: 26rem; }
+.set-field > .hint { display: block; margin-top: 4px; }
+
+/* Toggle row: full-width, own row, whole row is the click target. */
+.set-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+/* The checkbox is wrapped (locked-overlay anchor), so the wrapper — not the
+   box — is the flex item that must not shrink. */
+.set-toggle > .locked-wrap { flex: none; line-height: 1; }
+
+.set-toggle input[type="checkbox"] {
+  width: auto;
+  margin: 3px 0 0;
+  accent-color: var(--accent);
+}
+
+.set-toggle-text { font-size: 14px; color: var(--text); }
+.set-toggle-text .hint { display: block; font-weight: 400; margin-top: 2px; }
+
+/* Dates: one row per round, read top-to-bottom. No inner scroller — a long
+   tournament is meant to make a long list. */
+.set-rows { display: flex; flex-direction: column; }
+
+.set-row {
+  display: grid;
+  grid-template-columns: 10rem minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.set-row:last-child { border-bottom: 0; }
+.set-row-label { font-size: 13px; font-weight: 600; color: var(--text-soft); }
+.set-row-label .hint { font-weight: 400; }
+.set-row input { max-width: 14rem; }
 
 button.pe-btn, .pe-btn {
   font: inherit;

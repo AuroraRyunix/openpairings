@@ -128,32 +128,25 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
           to edit a single player's value, or auto-assign everyone from Elo bands below.
         </p>
         <form id="extra-points-form" phx-submit="save_extra_points">
-          <div class="form-grid">
-            <label class="field" style="display: flex; flex-direction: row; align-items: center; gap: .5rem">
-              <input type="hidden" name="tournament[count_extra_points]" value="false" />
-              <input
-                type="checkbox"
-                name="tournament[count_extra_points]"
-                value="true"
-                checked={@tournament.count_extra_points}
-              />
-              <span>Count extra points in standings</span>
-            </label>
-            <label class="field">
-              <span>Elo bands (rating:bonus, comma-separated)</span>
+          <.setting_group>
+            <.setting_toggle
+              name="tournament[count_extra_points]"
+              label="Count extra points in standings"
+              checked={@tournament.count_extra_points}
+            />
+
+            <.setting_field
+              label="Elo bands (rating:bonus, comma-separated)"
+              hint={~s|A player matches the lowest band whose threshold their rating is below (e.g. "1400:1, 1600:0.5" gives 1.0 below 1400, 0.5 from 1400 up to 1599, nothing from 1600 up). Unrated players only match an explicit "0:bonus" band.|}
+            >
               <input
                 type="text"
                 name="tournament[extra_points_bands]"
                 value={@tournament.extra_points_bands}
                 placeholder="e.g. 1400:1, 1600:0.5"
               />
-              <span class="hint">
-                A player matches the lowest band whose threshold their rating is below (e.g.
-                "1400:1, 1600:0.5" gives 1.0 below 1400, 0.5 from 1400 up to 1599, nothing from
-                1600 up). Unrated players only match an explicit "0:bonus" band.
-              </span>
-            </label>
-          </div>
+            </.setting_field>
+          </.setting_group>
           <p :if={@extra_points_error} class="error-note">{@extra_points_error}</p>
           <p :if={@extra_points_note} class="ok-note">{@extra_points_note}</p>
           <div class="actions">

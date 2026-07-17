@@ -156,32 +156,21 @@ defmodule PairingsEngineWeb.SettingsFideLive do
             Norms tab too.
           </p>
 
-          <div class="form-grid">
-            <label
-              class="field"
-              style="display: flex; flex-direction: row; align-items: center; gap: .5rem"
-            >
-              <input type="hidden" name="tournament[fide_homologated]" value="false" />
-              <input
-                type="checkbox"
-                name="tournament[fide_homologated]"
-                value="true"
-                checked={@tournament.fide_homologated}
-              /> <span>This tournament is FIDE-homologated (rated/reportable)</span>
-            </label>
-          </div>
+          <.setting_group>
+            <.setting_toggle
+              name="tournament[fide_homologated]"
+              label="This tournament is FIDE-homologated (rated/reportable)"
+              checked={@tournament.fide_homologated}
+            />
 
-          <div class="form-grid">
-            <label class="field">
-              <span>FIDE tournament ID (tournament-wide default)</span>
+            <.setting_field label="FIDE tournament ID (tournament-wide default)">
               <input name="tournament[fide_tournament_id]" value={@tournament.fide_tournament_id} />
-            </label>
+            </.setting_field>
 
-            <label class="field">
-              <span>FIDE event code</span>
+            <.setting_field label="FIDE event code">
               <input name="tournament[event_code]" value={@tournament.event_code} />
-            </label>
-          </div>
+            </.setting_field>
+          </.setting_group>
 
           <p class="hint" style="margin-bottom: 0">
             The FIDE tournament ID above is used whenever no per-round range below unambiguously

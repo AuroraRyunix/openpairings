@@ -19,6 +19,10 @@ defmodule PairingsEngineWeb.SettingsSupport do
     * `log_settings_change/3` / `tournament_diff/2` — the before/after audit
       diff written on every settings save.
     * `error_text/1` — changeset error formatting.
+    * the settings layout primitives — `setting_group/1`, `setting_field/1`,
+      `setting_toggle/1` — plus the `locked_overlay/1` / `locked_hint_message/1`
+      pair they build on. See the `.set-*` block in `app.css` for the layout
+      model and why settings doesn't share `.form-grid` with the other pages.
   """
   use PairingsEngineWeb, :html
 
@@ -82,6 +86,108 @@ defmodule PairingsEngineWeb.SettingsSupport do
         FIDE
       </.link>
     </div>
+    """
+  end
+
+  @doc """
+  A vertical run of settings — the only layout wrapper the Settings pages use.
+  Holds `<.setting_field>`s and `<.setting_toggle>`s in DOM order, one per row.
+  """
+  attr :class, :any, default: nil
+  slot :inner_block, required: true
+
+  def setting_group(assigns) do
+    ~H"""
+    <div class={["set-group", @class]}>{render_slot(@inner_block)}</div>
+    """
+  end
+
+  @doc """
+  A stacked setting: label above the control. The control itself is the slot,
+  so a caller can pass a bare `<input>`, a `<select>`, or a `<select>` inside
+  a `.locked-wrap` — plus any trailing `<.locked_hint_message>`.
+
+  `required` renders the bold label + red asterisk used for
+  `Tournament.required_setup_fields/0` members.
+  """
+  attr :label, :string, required: true
+  attr :required, :boolean, default: false
+  attr :hint, :string, default: nil
+  attr :class, :any, default: nil
+  attr :rest, :global
+  slot :inner_block, required: true
+
+  def setting_field(assigns) do
+    ~H"""
+    <label class={["set-field", @class]} {@rest}>
+      <span class={["set-label", @required && "req"]}>
+        {@label}<span :if={@required} class="set-req"> *</span>
+      </span>
+      {render_slot(@inner_block)}
+      <span :if={@hint} class="hint">{@hint}</span>
+    </label>
+    """
+  end
+
+  @doc """
+  A checkbox setting: control beside its label, on its own full-width row.
+
+  Always emits the hidden `value="false"` companion input Phoenix needs to
+  see an unchecked box in the params. Pass `field` (plus `locked?` /
+  `locked_hint`) to get the locked overlay + hint around the checkbox; the
+  slot takes any extra trailing hint markup.
+  """
+  attr :name, :string, required: true
+  attr :label, :string, required: true
+  attr :checked, :boolean, default: false
+  attr :disabled, :boolean, default: false
+  attr :hint, :string, default: nil
+  attr :field, :atom, default: nil
+  attr :locked?, :boolean, default: false
+  attr :locked_hint, :atom, default: nil
+  slot :inner_block
+
+  def setting_toggle(assigns) do
+    ~H"""
+    <label class="set-toggle">
+      <input type="hidden" name={@name} value="false" />
+      <span class="locked-wrap locked-wrap-inline">
+        <input type="checkbox" name={@name} value="true" checked={@checked} disabled={@disabled} />
+        <.locked_overlay :if={@field} field={@field} locked?={@locked?} />
+      </span>
+      <span class="set-toggle-text">
+        {@label}
+        <span :if={@hint} class="hint">{@hint}</span>
+        <.locked_hint_message :if={@field} field={@field} locked_hint={@locked_hint} />
+        {render_slot(@inner_block)}
+      </span>
+    </label>
+    """
+  end
+
+  @doc """
+  Shared by the "locked after first pairing" controls: a transparent div laid
+  over the disabled control so a click still reaches something clickable and
+  reports it via the "locked_hint" event. Renders nothing once unlocked.
+  """
+  attr :field, :atom, required: true
+  attr :locked?, :boolean, required: true
+
+  def locked_overlay(assigns) do
+    ~H"""
+    <div :if={@locked?} class="locked-overlay" phx-click="locked_hint" phx-value-field={@field}></div>
+    """
+  end
+
+  @doc "The transient 'why is this locked' message, shown for the clicked field only."
+  attr :field, :atom, required: true
+  attr :locked_hint, :atom, default: nil
+
+  def locked_hint_message(assigns) do
+    ~H"""
+    <span :if={@locked_hint == @field} class="hint locked-hint-msg">
+      Locked — cannot be changed after round 1 has been paired.
+    </span>
     """
   end
 
