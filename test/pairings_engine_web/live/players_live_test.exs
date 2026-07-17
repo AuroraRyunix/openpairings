@@ -127,7 +127,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       # spurious `Database busy` (see the same fix in sharing_test.exs).
       render(lv)
 
-      updated = Tournaments.get_player!(player.id)
+      updated = Tournaments.get_player!(player.tournament_id, player.id)
       assert updated.fixed_board == 7
       assert updated.special_table == true
     end
@@ -149,7 +149,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       # above — drain it before the test (and `lv`'s teardown) proceeds.
       render(lv)
 
-      updated = Tournaments.get_player!(player.id)
+      updated = Tournaments.get_player!(player.tournament_id, player.id)
       assert updated.absent_rounds == "1,2,3,4"
     end
 
@@ -444,7 +444,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
 
       refute html =~ "phx-click-away=\"close_rating_refresh\""
 
-      updated = Tournaments.get_player!(player.id)
+      updated = Tournaments.get_player!(player.tournament_id, player.id)
       assert updated.fide_rating == 2100
       assert updated.title == "IM"
     end
@@ -465,7 +465,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       html = lv |> element("button", "Cancel") |> render_click()
 
       refute html =~ "phx-click-away=\"close_rating_refresh\""
-      assert Tournaments.get_player!(player.id).fide_rating == 1500
+      assert Tournaments.get_player!(player.tournament_id, player.id).fide_rating == 1500
     end
   end
 
@@ -685,8 +685,8 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       players = Tournaments.list_players(tournament.id)
       PairingsEngine.Pairing.ensure_pairing_numbers(tournament, players)
 
-      alice = Tournaments.get_player!(alice.id)
-      bob = Tournaments.get_player!(bob.id)
+      alice = Tournaments.get_player!(alice.tournament_id, alice.id)
+      bob = Tournaments.get_player!(bob.tournament_id, bob.id)
       assert bob.pairing_number == 1
       assert alice.pairing_number == 2
 

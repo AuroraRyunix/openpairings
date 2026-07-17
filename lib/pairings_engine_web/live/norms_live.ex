@@ -123,7 +123,7 @@ defmodule PairingsEngineWeb.NormsLive do
 
   @impl true
   def handle_event("edit_norm", %{"id" => id}, socket) do
-    player = Tournaments.get_player!(id)
+    player = Tournaments.get_player!(socket.assigns.tournament.id, id)
     {:noreply, assign(socket, editing_norm_player: player, norm_form: norm_form(player), norm_error: nil)}
   end
 
