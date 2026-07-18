@@ -118,7 +118,9 @@ defmodule PairingsEngineWeb.NormsLive do
   end
 
   defp assign_players(socket) do
-    assign(socket, :players, Tournaments.list_players(socket.assigns.tournament.id))
+    socket
+    |> assign(:players, Tournaments.list_players(socket.assigns.tournament.id))
+    |> assign(:norm_judgments, PairingsEngine.Norms.TitleNorms.evaluate(socket.assigns.tournament))
   end
 
   @impl true
@@ -317,6 +319,39 @@ defmodule PairingsEngineWeb.NormsLive do
   defp blank?(_), do: false
 
   defp claimed_title(player), do: Map.get(player.norm_data || %{}, "title_claimed", "")
+
+  ## ---------- automatic B.01 norm judgment display ----------
+
+  # One-line verdict for the players table: the best achieved norm, or the
+  # closest miss (fewest failing checks among the evaluated titles), or a
+  # plain "no games yet". Full per-check breakdown goes in the cell's
+  # `title` tooltip via norm_judgment_details/1.
+  defp norm_judgment_label(nil), do: "—"
+  defp norm_judgment_label(%{games: 0}), do: "— no counted games"
+
+  defp norm_judgment_label(%{best: %{title: title, performance: perf}}),
+    do: "#{title} norm ✓ (Rp #{perf})"
+
+  defp norm_judgment_label(%{verdicts: verdicts}) do
+    nearest = Enum.min_by(verdicts, fn v -> Enum.count(v.checks, &(not &1.ok?)) end)
+    failing = Enum.count(nearest.checks, &(not &1.ok?))
+    "no norm — best #{nearest.title}: #{failing} requirement#{if failing == 1, do: "", else: "s"} short"
+  end
+
+  defp norm_judgment_details(nil), do: nil
+
+  defp norm_judgment_details(%{verdicts: verdicts}) do
+    Enum.map_join(verdicts, "\n\n", fn v ->
+      head = "#{v.title} norm: #{if v.achieved?, do: "ACHIEVED", else: "not achieved"}"
+
+      lines =
+        Enum.map_join(v.checks, "\n", fn c ->
+          "#{if c.ok?, do: "✓", else: "✗"} #{c.detail}"
+        end)
+
+      head <> "\n" <> lines
+    end)
+  end
 
   ## ---------- Combined report (festival) helpers (render-only; the two
   ## handle_event clauses that drive @combine_selected/@combine_master live
@@ -745,14 +780,19 @@ defmodule PairingsEngineWeb.NormsLive do
       <div class="card table-card">
         <h2 style="padding: 16px 16px 0">Players — title-norm judgment</h2>
         <p class="hint" style="padding: 0 16px">
-          Set the claimed title, norm text, medal/%, event group, federation counts and remarks for
-          any player being reported on IT4.
+          The "computed" column judges each player's games against the FIDE Title Regulations
+          (B.01: game count, score %, titled opponents, federation mix, opponent-rating average,
+          performance) automatically — hover it for the requirement-by-requirement breakdown.
+          The claimed title and the IT4-only fields (norm text, medal/%, event group, federation
+          counts, remarks) stay yours to set: exemptions and special event types are the
+          arbiter's call, not the computer's.
         </p>
         <table class="pe-table">
           <thead>
             <tr>
               <th>Name</th>
               <th>Federation</th>
+              <th>Computed (B.01)</th>
               <th>Claimed title</th>
               <th></th>
             </tr>
@@ -761,6 +801,9 @@ defmodule PairingsEngineWeb.NormsLive do
             <tr :for={p <- @players}>
               <td>{p.name}</td>
               <td>{p.federation}</td>
+              <td title={norm_judgment_details(@norm_judgments[p.id])}>
+                {norm_judgment_label(@norm_judgments[p.id])}
+              </td>
               <td>{if claimed_title(p) == "", do: "—", else: claimed_title(p)}</td>
               <td style="text-align: right">
                 <button class="pe-btn" phx-click="edit_norm" phx-value-id={p.id}>Edit norm data</button>

@@ -19,6 +19,11 @@ defmodule PairingsEngineWeb.NormsLiveTest do
     assert html =~ ~s(href="/t/#{tournament.id}/norms/it4")
     assert html =~ "Doe, Jane"
     assert html =~ "No players have a claimed title yet"
+
+    # The automatic B.01 judgment column renders for every player — with no
+    # games played yet, the verdict is the honest "no counted games".
+    assert html =~ "Computed (B.01)"
+    assert html =~ "no counted games"
   end
 
   test "editing a player's norm data persists it and it then shows up as an IT4 candidate", %{
