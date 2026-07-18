@@ -287,13 +287,20 @@ defmodule PairingsEngine.SwarImportTest do
   # happens to use 2/1/0. `SW321_Bye` (raw 4 → 1.0) and `SW321_Pre` (raw
   # 4 → 1.0) are also configured here, and this file's `SW321_PreBye` is
   # nonzero (raw 1) — per the manual (§5.16, "Add presence points for bye
-  # games") that means `bye_value` is `SW321_Bye + SW321_Pre` = 2.0, not
-  # `SW321_Bye` alone. This test previously asserted `bye_value == 1.0`
-  # (SW321_Bye only) — that assertion was itself the SW321_PreBye gap this
-  # session's fix closes, caught by the behavioral check below: "Descheemaeker,
-  # Tom" has two LOST_BYE rounds and two ordinary losses, and his real SWAR
-  # total (`points_raw / 4`, from his own file record) only reconciles once
-  # LOST_BYE rounds score at `presence_value` (not `points_loss`).
+  # games") that means a pairing-allocated bye pays `SW321_Bye + SW321_Pre`,
+  # modelled as `presence_on_allocated_bye: true` (consulted by
+  # `Standings.bye_points/2`) while `bye_value` stays at plain `SW321_Bye`.
+  # An earlier fix folded the sum into `bye_value` (2.0) instead — right
+  # totals, but it redefined `bye_value` away from the club's configured
+  # SW321_Bye. Note this fixture contains NO pairing-allocated bye at all
+  # (no WIN_BYE result, no TABLE_BYE table value, verified by scanning every
+  # [RONDE] entry), so the flag's scoring arithmetic can't be exercised
+  # against a real player's stored total here — that's covered by the
+  # synthetic-binary tests in swar_import_presence_test.exs. The behavioral
+  # check that CAN run on this file: "Descheemaeker, Tom" has two LOST_BYE
+  # rounds and two ordinary losses, and his real SWAR total (`points_raw /
+  # 4`, from his own file record) only reconciles once LOST_BYE rounds score
+  # at `presence_value` (not `points_loss`).
 
   test "import_file/1 maps SWAR's 3-2-1 scoring fields (SW321_Win/Nul/Los/Bye/Pre/PreBye) onto the tournament" do
     assert {:ok, tournament, _warnings} = SwarImport.import_file(@test3_321)
@@ -302,8 +309,11 @@ defmodule PairingsEngine.SwarImportTest do
     assert tournament.points_draw == 1.0
     assert tournament.points_loss == 0.0
     assert tournament.presence_value == 1.0
-    # SW321_Bye (1.0) + SW321_Pre (1.0) — SW321_PreBye is nonzero in this file.
-    assert tournament.bye_value == 2.0
+    # Plain SW321_Bye (raw 4 → 1.0) — the SW321_PreBye add-on is the flag
+    # below, not folded in here.
+    assert tournament.bye_value == 1.0
+    # SW321_PreBye is raw 1 in this file.
+    assert tournament.presence_on_allocated_bye == true
   end
 
   test "import_file/1 scores a real player's LOST_BYE rounds at presence_value, reproducing SWAR's own raw point total" do
@@ -338,6 +348,7 @@ defmodule PairingsEngine.SwarImportTest do
     assert tournament.points_draw == 0.5
     assert tournament.points_loss == 0.0
     assert tournament.bye_value == 1.0
+    assert tournament.presence_on_allocated_bye == false
   end
 
   # User-reported crash: test3-321.swar is a real club championship with 42

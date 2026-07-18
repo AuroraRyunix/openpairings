@@ -298,10 +298,17 @@ defmodule PairingsEngine.Pairing do
 
     case System.cmd("java", ["-jar", javafo_jar(), input, "-p", output], stderr_to_stdout: true) do
       {_out, 0} ->
-        output
-        |> File.read!()
-        |> parse_pairs()
-        |> create_round(tournament, player_by_local_rank, next_number, round_absentees)
+        case output |> File.read!() |> parse_pairs() do
+          {:ok, pairs} ->
+            create_round(pairs, tournament, player_by_local_rank, next_number, round_absentees)
+
+          {:error, message} ->
+            Logger.error(
+              "JaVaFo produced no pairings output for tournament #{tournament.id} round #{next_number} (exit 0, empty output file)"
+            )
+
+            {:error, message}
+        end
 
       {out, code} ->
         Logger.error(
@@ -464,8 +471,17 @@ defmodule PairingsEngine.Pairing do
 
     case System.cmd("java", ["-jar", javafo_jar(), input, "-p", output], stderr_to_stdout: true) do
       {_out, 0} ->
-        pairs = output |> File.read!() |> parse_pairs()
-        {:ok, {category_name, :javafo, pairs, player_by_local_rank}}
+        case output |> File.read!() |> parse_pairs() do
+          {:ok, pairs} ->
+            {:ok, {category_name, :javafo, pairs, player_by_local_rank}}
+
+          {:error, message} ->
+            Logger.error(
+              "JaVaFo produced no pairings output for tournament #{tournament.id} round #{next_number} category #{category_name} (exit 0, empty output file)"
+            )
+
+            {:error, "#{message} (category \"#{category_name}\")"}
+        end
 
       {out, code} ->
         Logger.error(
@@ -742,11 +758,31 @@ defmodule PairingsEngine.Pairing do
   end
 
   # JaVaFo pairing output: first line = number of pairs, then "white black"
-  # per line as TRF starting ranks; 0 = pairing-allocated bye.
-  defp parse_pairs(text) do
-    [_count | lines] =
-      text |> String.split(~r/\r?\n/) |> Enum.reject(&(String.trim(&1) == ""))
+  # per line as TRF starting ranks; 0 = pairing-allocated bye. Returns
+  # `{:ok, pairs}`, or `{:error, message}` when the output file is entirely
+  # empty — JaVaFo has been observed to exit 0 having written nothing, and
+  # the old bare `[_count | lines] = ...` match crashed the whole
+  # `pair_next_round/1` call with an opaque MatchError instead of the same
+  # tidy `{:error, ...}` shape the nonzero-exit path already returns. A
+  # present-but-"0" count line with no pair lines still parses as
+  # `{:ok, []}`, exactly as before.
+  #
+  # `@doc false` and `def` (not `defp`) purely so tests can drive this
+  # parsing edge case directly — same precedent as
+  # `PairingsEngine.Fide.Sync`/`PairingsEngine.Kbsb.Sync`.
+  @doc false
+  def parse_pairs(text) do
+    case text |> String.split(~r/\r?\n/) |> Enum.reject(&(String.trim(&1) == "")) do
+      [] ->
+        {:error,
+         "JaVaFo produced no pairings output (it exited successfully but wrote an empty pairings file)"}
 
+      [_count | lines] ->
+        {:ok, parse_pair_lines(lines)}
+    end
+  end
+
+  defp parse_pair_lines(lines) do
     Enum.map(lines, fn line ->
       [w, b] = line |> String.split() |> Enum.map(&String.to_integer/1)
       {w, b}

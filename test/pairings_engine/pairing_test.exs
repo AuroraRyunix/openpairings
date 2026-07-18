@@ -1632,6 +1632,34 @@ defmodule PairingsEngine.PairingTest do
     |> Enum.find(&(String.starts_with?(&1, "001") and &1 =~ name))
   end
 
+  ## ---------- JaVaFo output parsing ----------
+
+  describe "parse_pairs/1" do
+    # `parse_pairs/1` is `@doc false`-public purely for these tests (same
+    # precedent as PairingsEngine.Fide.Sync) — JaVaFo has been observed to
+    # exit 0 having written an EMPTY output file, and the old bare
+    # `[_count | lines] =` match crashed pair_next_round/1 with an opaque
+    # MatchError instead of a tidy {:error, ...}.
+
+    test "parses the count line plus one \"white black\" pair per line" do
+      assert Pairing.parse_pairs("2\r\n1 2\r\n3 0\r\n") == {:ok, [{1, 2}, {3, 0}]}
+    end
+
+    test "a lone \"0\" count line (no pairs) parses to an empty pair list" do
+      assert Pairing.parse_pairs("0\n") == {:ok, []}
+    end
+
+    test "completely empty output returns {:error, ...} instead of raising MatchError" do
+      assert {:error, message} = Pairing.parse_pairs("")
+      assert message =~ "JaVaFo produced no pairings output"
+    end
+
+    test "whitespace-only output returns {:error, ...} too" do
+      assert {:error, message} = Pairing.parse_pairs("\r\n \n\n")
+      assert message =~ "JaVaFo produced no pairings output"
+    end
+  end
+
   defp round_pairs_by_rank(round) do
     round
     |> Repo.preload(pairings: [:white_player, :black_player])

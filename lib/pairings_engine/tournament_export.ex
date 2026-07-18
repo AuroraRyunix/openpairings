@@ -33,7 +33,8 @@ defmodule PairingsEngine.TournamentExport do
   @tournament_fields ~w(
     name type venue city federation start_date end_date organizer
     chief_arbiter deputy_arbiter time_control rounds_count rating_type
-    points_win points_draw points_loss bye_value tiebreaks acceleration
+    points_win points_draw points_loss bye_value presence_value abs_value
+    presence_on_allocated_bye tiebreaks acceleration
     status standard rate_of_play organizer_club_number round_dates
     categories event_code fide_tournament_id officials
   )a

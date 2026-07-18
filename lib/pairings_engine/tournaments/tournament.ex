@@ -56,6 +56,17 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # keep scoring at `points_loss` exactly as before this field existed.
     # Only PairingsEngine.SwarImport writes a non-nil value.
     field :abs_value, :float
+    # SWAR `SW321_PreBye` (manual §5.16, "Add presence points for bye
+    # games") — when true, a pairing-allocated bye pays `presence_value` ON
+    # TOP of `bye_value` (SWAR pays SW321_Bye + SW321_Pre for a WIN_BYE
+    # round when this club option is on). Kept as a flag rather than folded
+    # into `bye_value` at import so `bye_value` keeps meaning exactly the
+    # club's configured SW321_Bye. Consulted only by
+    # `PairingsEngine.Standings.bye_points/2`'s "pairing-allocated" branch;
+    # false (the default for every tournament that isn't a SWAR 3-2-1
+    # import) leaves scoring byte-identical to before this field existed.
+    # Only PairingsEngine.SwarImport sets it true (type == 3 files only).
+    field :presence_on_allocated_bye, :boolean, default: false
     field :tiebreaks, {:array, :string}, default: []
     field :acceleration, :string, default: "none"
     field :status, :string, default: "setup"
@@ -263,6 +274,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :bye_value,
       :presence_value,
       :abs_value,
+      :presence_on_allocated_bye,
       :tiebreaks,
       :acceleration,
       :status,

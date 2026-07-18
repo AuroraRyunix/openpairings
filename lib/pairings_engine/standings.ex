@@ -227,7 +227,15 @@ defmodule PairingsEngine.Standings do
   def bye_points(type, tournament) do
     case type do
       "requested-half" -> tournament.points_draw
-      "pairing-allocated" -> tournament.bye_value
+      # SWAR 3-2-1's `SW321_PreBye` club option ("Add presence points for
+      # bye games", manual §5.16) — when `presence_on_allocated_bye` is set,
+      # a pairing-allocated bye pays `presence_value` ON TOP of `bye_value`
+      # (SWAR pays SW321_Bye + SW321_Pre), not `bye_value` alone. The flag
+      # defaults false and `presence_value` is nil outside SWAR 3-2-1
+      # imports, so everyone else keeps scoring `bye_value` exactly as
+      # before. This is also the scoring rule for a real `Pairing` row with
+      # `result: "bye"` — `pairing_records/3` below routes through here.
+      "pairing-allocated" -> tournament.bye_value + allocated_bye_presence_bonus(tournament)
       # SWAR 3-2-1 "presence points" (SW321_Pre) — distinct from an
       # ordinary configured loss even though SWAR's own bitmask files
       # LOST_BYE as a "loss". `presence_value` is nil for every
@@ -244,6 +252,19 @@ defmodule PairingsEngine.Standings do
     end
   end
 
+  # The `presence_on_allocated_bye` add-on for a pairing-allocated bye —
+  # see `bye_points/2` above. Nil-safe on both fields: `presence_value` can
+  # be nil (every non-3-2-1 tournament) and the flag can be nil/false on any
+  # struct/map that predates the field.
+  defp allocated_bye_presence_bonus(tournament) do
+    if Map.get(tournament, :presence_on_allocated_bye) == true and
+         is_number(tournament.presence_value) do
+      tournament.presence_value
+    else
+      0.0
+    end
+  end
+
   defp add_bye_records(games_by_player, byes, tournament) do
     Enum.reduce(byes, games_by_player, fn bye, acc ->
       points = bye_points(bye.type, tournament)
@@ -255,7 +276,14 @@ defmodule PairingsEngine.Standings do
         colour: nil,
         points: points,
         played: false,
-        voluntary: bye.type in ["requested-half", "requested-zero", "absent"]
+        voluntary: bye.type in ["requested-half", "requested-zero", "absent"],
+        # The `byes`-table row's own type ("requested-half" /
+        # "requested-zero" / "absent") — carried through so display code
+        # (PairingsEngine.PlayerCard.result_label/2) can label the bye by
+        # KIND instead of guessing it back from the point value, which lies
+        # under custom scoring (e.g. a presence-valued zero bye worth
+        # exactly points_draw).
+        bye_type: bye.type
       }
 
       Map.update(acc, bye.player_id, [record], &(&1 ++ [record]))
@@ -287,7 +315,10 @@ defmodule PairingsEngine.Standings do
         "0-0" -> {t.points_loss, t.points_loss, true, false}
         "+--" -> {t.points_win, t.points_loss, false, true}
         "--+" -> {t.points_loss, t.points_win, false, true}
-        "bye" -> {t.bye_value, 0.0, false, false}
+        # A pairing-allocated bye scores via bye_points/2 — the single
+        # source of truth, including the `presence_on_allocated_bye`
+        # (SW321_PreBye) add-on. See that function's doc.
+        "bye" -> {bye_points("pairing-allocated", t), 0.0, false, false}
         _ -> {0.0, 0.0, false, false}
       end
 
@@ -298,7 +329,11 @@ defmodule PairingsEngine.Standings do
       colour: :w,
       points: wp,
       played: played,
-      voluntary: not played and not forfeit
+      voluntary: not played and not forfeit,
+      # Same key `add_bye_records/3` carries for `byes`-table rows — lets
+      # PlayerCard label the row as a pairing-allocated bye by KIND rather
+      # than by point-value heuristics. nil for a real game.
+      bye_type: if(pairing.result == "bye", do: "pairing-allocated", else: nil)
     }
 
     if b == nil or pairing.result == "bye" do
@@ -313,7 +348,8 @@ defmodule PairingsEngine.Standings do
           colour: :b,
           points: bp,
           played: played,
-          voluntary: false
+          voluntary: false,
+          bye_type: nil
         }
       ]
     end

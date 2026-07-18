@@ -132,6 +132,91 @@ defmodule PairingsEngine.StandingsTest do
     assert ed.tiebreaks["BH"] > 0.0
   end
 
+  # bye_points/2 is pure — a bare %Tournament{} struct is enough, no DB.
+  # (Module level, not inside the describe below: ExUnit forbids defining
+  # functions inside a describe block.)
+  defp scoring_tournament(overrides) do
+    struct!(
+      %Tournament{
+        points_win: 2.0,
+        points_draw: 1.0,
+        points_loss: 0.0,
+        bye_value: 2.0,
+        presence_value: 1.0
+      },
+      overrides
+    )
+  end
+
+  describe "bye_points/2 and the presence_on_allocated_bye (SW321_PreBye) flag" do
+    test "pairing-allocated pays bye_value alone when the flag is off (default)" do
+      t = scoring_tournament(presence_on_allocated_bye: false)
+      assert Standings.bye_points("pairing-allocated", t) == 2.0
+    end
+
+    test "pairing-allocated pays bye_value + presence_value when the flag is on" do
+      t = scoring_tournament(presence_on_allocated_bye: true)
+      assert Standings.bye_points("pairing-allocated", t) == 3.0
+    end
+
+    test "flag on with a nil presence_value is nil-safe and pays bye_value alone" do
+      # Shouldn't occur from the importer (only 3-2-1 imports set the flag,
+      # and those always set presence_value), but bye_points/2 must never
+      # crash on the combination.
+      t = scoring_tournament(presence_on_allocated_bye: true, presence_value: nil)
+      assert Standings.bye_points("pairing-allocated", t) == 2.0
+    end
+
+    test "the flag never leaks into the other bye types" do
+      t = scoring_tournament(presence_on_allocated_bye: true)
+      assert Standings.bye_points("requested-half", t) == 1.0
+      assert Standings.bye_points("requested-zero", t) == 1.0
+      assert Standings.bye_points("absent", t) == 0.0
+    end
+
+    test "a real result: \"bye\" Pairing row scores bye_value + presence_value in standings when the flag is on" do
+      # The pairing-allocated bye's actual scoring path is
+      # pairing_records/3's "bye" branch (a real Pairing row with no black
+      # player), which must route through the same bye_points/2 rule — this
+      # is the standings-side half of the SW321_PreBye model.
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "PreBye Test",
+          type: "swiss",
+          rounds_count: 1,
+          points_win: 2.0,
+          points_draw: 1.0,
+          points_loss: 0.0,
+          bye_value: 2.0,
+          presence_value: 1.0,
+          presence_on_allocated_bye: true,
+          tiebreaks: ~w(BH)
+        })
+
+      player =
+        Repo.insert!(%Player{
+          tournament_id: tournament.id,
+          name: "Bye Recipient",
+          pairing_number: 1
+        })
+
+      r1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
+
+      Repo.insert!(%Pairing{
+        round_id: r1.id,
+        board: 1,
+        white_player_id: player.id,
+        black_player_id: nil,
+        result: "bye"
+      })
+
+      [entry] = Standings.standings(tournament)
+      assert entry.player.id == player.id
+      # SW321_Bye (2.0) + SW321_Pre (1.0) — presence points on top.
+      assert entry.points == 3.0
+    end
+  end
+
   test "extra_points defaults to 0 and total equals points, leaving ranking unchanged" do
     {tournament, %{a: a, b: b}} = fixture()
 

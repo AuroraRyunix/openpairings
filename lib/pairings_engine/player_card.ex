@@ -67,12 +67,32 @@ defmodule PairingsEngine.PlayerCard do
     * `"1FF"` / `"0FF"` — a forfeit win/loss (opponent existed, game unplayed)
     * `"1 bye"` / `"½ bye"` / `"0 bye"` — a bye (no opponent)
     * `""` — round not played and none of the above (e.g. still to be paired)
+
+  A bye row is labelled by its KIND, via the `:bye_type` key
+  `PairingsEngine.Standings` carries on every bye record (the `byes`-table
+  row's own type, or `"pairing-allocated"` for a real `Pairing` row with
+  `result: "bye"`):
+
+    * `"requested-half"` → `"½ bye"`, `"requested-zero"`/`"absent"` →
+      `"0 bye"` — always, regardless of the points actually awarded. Under
+      custom scoring the awarded value can coincide with a different kind's
+      usual value (e.g. SWAR 3-2-1 presence points paying a requested-zero
+      bye exactly `points_draw`), and inferring the label back from the
+      points then lies about what the row IS. The points themselves still
+      show truthfully in the card's totals.
+    * `"pairing-allocated"` (and, defensively, a record with no `:bye_type`
+      at all) → the point-value heuristic below: `"½ bye"`/`"0 bye"` when
+      the awarded points equal `points_draw`/`points_loss`, `"1 bye"`
+      otherwise. For a pairing-allocated bye that heuristic is the right
+      shape — the number tracks what the bye actually pays (e.g. `"½ bye"`
+      for a club paying half-point pairing byes).
   """
-  def result_label(%{opponent_id: nil, points: points}, tournament) do
-    cond do
-      points == tournament.points_draw -> "½ bye"
-      points == tournament.points_loss -> "0 bye"
-      true -> "1 bye"
+  def result_label(%{opponent_id: nil} = game, tournament) do
+    case Map.get(game, :bye_type) do
+      "requested-half" -> "½ bye"
+      "requested-zero" -> "0 bye"
+      "absent" -> "0 bye"
+      _pairing_allocated_or_unknown -> points_bye_label(game.points, tournament)
     end
   end
 
@@ -89,6 +109,14 @@ defmodule PairingsEngine.PlayerCard do
   end
 
   def result_label(_game, _tournament), do: ""
+
+  defp points_bye_label(points, tournament) do
+    cond do
+      points == tournament.points_draw -> "½ bye"
+      points == tournament.points_loss -> "0 bye"
+      true -> "1 bye"
+    end
+  end
 
   @doc "The colour a game record was played with, as SWAR's single-letter code."
   def colour_label(%{colour: :w}), do: "W"

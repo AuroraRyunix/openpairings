@@ -37,6 +37,9 @@ defmodule PairingsEngine.TournamentImportTest do
         points_win: 1.0,
         points_draw: 0.5,
         bye_value: 1.0,
+        presence_value: 0.75,
+        abs_value: 0.25,
+        presence_on_allocated_bye: true,
         round_dates: ["2026-03-01", "2026-03-08"],
         categories: ["U20"],
         officials: %{"pairing_mode" => "computerized"},
@@ -143,6 +146,12 @@ defmodule PairingsEngine.TournamentImportTest do
     assert imported.round_dates == original.round_dates
     assert imported.categories == original.categories
     assert imported.officials == original.officials
+
+    # SWAR-scoring fields (3-2-1 presence/absence values + the PreBye flag)
+    # must survive a backup/restore — same fidelity class as birth_date.
+    assert imported.presence_value == 0.75
+    assert imported.abs_value == 0.25
+    assert imported.presence_on_allocated_bye == true
 
     assert standings_signature(imported) == standings_signature(original)
     assert pairing_signatures(imported.id) == pairing_signatures(original.id)
