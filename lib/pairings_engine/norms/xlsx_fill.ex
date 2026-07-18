@@ -528,7 +528,22 @@ defmodule PairingsEngine.Norms.XlsxFill do
   # self-closing shared-formula-follower form `<f t="shared" si="1"/>` —
   # optionally followed by a cached `<v>...</v>` / self-closing `<v/>`, which
   # is what gets dropped.
-  @formula_cell_re ~r/<c\b([^>]*)>(<f\b[^>]*\/>|<f\b[^>]*>[\s\S]*?<\/f>)(?:<v\b[^>]*>[\s\S]*?<\/v>|<v\s*\/>)?<\/c>/
+  #
+  # ORDER AND LOOKBEHINDS ARE LOAD-BEARING. The FIDE templates cache many
+  # formulas as an EMPTY self-closing `<v/>`. An earlier version of the
+  # `<v>` branch tried the open-tag form first with a bare `[^>]*>`, which
+  # happily eats the `/` of `<v/>` and reads it as an OPENING tag — the
+  # lazy `[\s\S]*?<\/v>` then scanned FORWARD ACROSS NEIGHBOURING CELLS to
+  # the next real `</v>` anywhere later in the row, and the replacement
+  # silently swallowed every cell in between. One minimal fill deleted
+  # 99-186 cells from every template's Certificaat/display sheet (the side
+  # the arbiter actually reads/prints) — user-reported as norms "not
+  # generating Excel properly". Self-closing forms are now matched FIRST,
+  # and the open-tag forms' `>` carries a `(?<!\/)` lookbehind so they can
+  # never consume a self-closing tag's slash. Same hardening on `<f>` for
+  # symmetry. Regression-locked by the cell-preservation invariant test in
+  # xlsx_fill_test.exs.
+  @formula_cell_re ~r/<c\b([^>]*)>(<f\b[^>]*\/>|<f\b[^>]*(?<!\/)>[\s\S]*?<\/f>)(?:<v\b[^>]*\/>|<v\b[^>]*(?<!\/)>[\s\S]*?<\/v>)?<\/c>/
 
   defp strip_formula_caches_in_xml(xml) do
     Regex.replace(@formula_cell_re, xml, fn _whole, attrs, f_part ->
