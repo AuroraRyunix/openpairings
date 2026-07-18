@@ -898,6 +898,15 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   display: flex;
   align-items: flex-start;
   overflow-x: auto;
+  /* overflow-x: auto alone makes this a scroll container on BOTH axes, so
+     any transient vertical overflow (an open popover reaching past the
+     canvas bottom) let the mouse wheel scroll the GRAPH up and down
+     instead of the page — user-reported as really irritating. The canvas
+     min-height reserves (hover inline, pinned via :has — see
+     .pe-bracket-canvas) already guarantee popovers fit inside the canvas,
+     so the strip never legitimately scrolls vertically: lock the axis.
+     (hidden, not clip: clip may not combine with the other axis's auto.) */
+  overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   margin: 4px 0 2px;
   padding-bottom: 4px;
