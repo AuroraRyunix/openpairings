@@ -203,6 +203,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
                 <tr :for={{row, i} <- Enum.with_index(@rows)}>
                   <td>
                     <input
+                      class="pe-input"
                       name={"tournament[fide_id_ranges][#{i}][fide_tournament_id]"}
                       value={row["fide_tournament_id"]}
                     />
@@ -211,6 +212,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
                     <input
                       type="number"
                       min="1"
+                      class="pe-input"
                       style="width: 6rem"
                       name={"tournament[fide_id_ranges][#{i}][from_round]"}
                       value={row["from_round"]}
@@ -220,6 +222,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
                     <input
                       type="number"
                       min="1"
+                      class="pe-input"
                       style="width: 6rem"
                       name={"tournament[fide_id_ranges][#{i}][to_round]"}
                       value={row["to_round"]}

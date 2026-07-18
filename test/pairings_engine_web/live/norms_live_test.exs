@@ -86,6 +86,11 @@ defmodule PairingsEngineWeb.NormsLiveTest do
       {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/norms")
 
       assert html =~ "Youth Group"
+      # The current tournament is always part of the combined set — it must
+      # appear in its own festival's list (checked + disabled), not be
+      # silently omitted (user-reported as "doesn't list its own tournament").
+      assert html =~ "this tournament, always included"
+      assert html =~ "Norms LV"
       assert html =~ "Select at least one tournament above to enable the combined downloads."
       refute html =~ "Download combined IT3"
 

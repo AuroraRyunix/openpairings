@@ -602,10 +602,17 @@ defmodule PairingsEngineWeb.NormsLive do
 
         <div :if={@other_tournaments != []}>
           <div style="display: flex; flex-direction: column; gap: .4rem; margin-bottom: 1rem">
-            <label
-              :for={{t, _count, _owner?} <- @other_tournaments}
-              style="display: flex; gap: .5rem; align-items: center; font-weight: 400"
-            >
+            <%!-- The current tournament is ALWAYS part of the combined set
+                  (combine_ids/3 leads with it) — it used to be silently
+                  omitted from this list, which read as "my own tournament
+                  is missing from its own festival" (user-reported). Shown
+                  checked + disabled so the list matches what actually gets
+                  combined. --%>
+            <label class="opt-row">
+              <input type="checkbox" checked disabled style="width: auto" />
+              <span>{@tournament.name} <span class="hint">— this tournament, always included</span></span>
+            </label>
+            <label :for={{t, _count, _owner?} <- @other_tournaments} class="opt-row">
               <input
                 type="checkbox"
                 checked={MapSet.member?(@combine_selected, to_string(t.id))}

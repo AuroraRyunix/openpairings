@@ -803,7 +803,7 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     assert html =~ "pe-bracket-map"
   end
 
-  test "paired up/down markers get a filled badge, not bare coloured text", %{
+  test "paired up/down markers are bare coloured triangles, not circle chips", %{
     conn: conn,
     scope: scope
   } do
@@ -811,9 +811,11 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
 
     {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/3/explain")
 
-    # Round 3 pairs Alice (1.0) against Dave (1.5), so a float badge exists.
-    assert html =~ "pe-tri-badge"
-    # The glyph itself is knocked out white on that chip.
+    # Round 3 pairs Alice (1.0) against Dave (1.5), so a float marker exists.
+    # An interim design wrapped the glyph in a filled `pe-tri-badge` circle;
+    # the user asked for the original plain triangles back, so the chip must
+    # stay gone and the glyph itself carries the float colour.
+    refute html =~ "pe-tri-badge"
     assert html =~ ~r/class="pe-tri pe-filterable"/
   end
 

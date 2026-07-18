@@ -643,10 +643,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             </select>
           </label>
           
-          <label
-            class="field"
-            style="display: flex; flex-direction: row; align-items: center; gap: .5rem; margin-top: 1.6rem"
-          >
+          <label class="field field-check" style="margin-top: 1.6rem">
             <input
               type="checkbox"
               name="tournament[team]"
@@ -676,10 +673,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
           <div class="field">
             <span>Standard</span>
             <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center">
-              <label
-                :for={{val, label} <- standard_options()}
-                style="display: flex; gap: .35rem; align-items: center; font-weight: 400"
-              >
+              <label :for={{val, label} <- standard_options()} class="opt-row">
                 <input
                   type="radio"
                   name="tournament[standard]"
@@ -773,10 +767,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
           </h3>
           
           <div style="display: flex; flex-direction: column; gap: .4rem">
-            <label
-              :for={c <- entry.candidates}
-              style="display: flex; gap: .5rem; align-items: baseline; font-weight: 400"
-            >
+            <label :for={c <- entry.candidates} class="opt-row opt-baseline">
               <input type="radio" name={"resolution[#{entry.ni}]"} value={c.fide_id} />
               <span>
                 <strong>{c.name}</strong>
@@ -786,7 +777,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
               </span>
             </label>
             
-            <label style="display: flex; gap: .5rem; align-items: baseline; font-weight: 400">
+            <label class="opt-row opt-baseline">
               <input type="radio" name={"resolution[#{entry.ni}]"} value="skip" checked />
               Import without a FIDE id
             </label>

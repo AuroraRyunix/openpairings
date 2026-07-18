@@ -312,14 +312,25 @@ defmodule PairingsEngineWeb.PairingExplainLive do
     wraps = Enum.map(all_dots, &dot_wrap(&1, width, height, pop_room))
 
     # A popover that opens downward must fit inside the scroll container's
-    # vertical clip; grow the canvas just enough for the deepest one (using
-    # the pinned popover's room when a trail can appear, see pop_room above).
-    min_height =
+    # vertical clip. Reserving the PINNED popover's full room (500px with a
+    # trail) permanently padded a huge dead band between the graph and the
+    # minimap scroll strip on every round — user-reported. So the canvas
+    # only ever reserves the short HOVER popover's room up front
+    # (`min_height`), and the tall pinned reservation (`pinned_min_height`)
+    # is applied by CSS only while a dot is actually pinned — see
+    # `.pe-bracket-canvas:has(.pe-board-wrap.is-pinned)` in app.css, fed by
+    # the `--pe-pinned-min` custom property set on the canvas below. The
+    # above/below flip (dot_wrap's pop_v) still uses the pinned room, so a
+    # pinned popover always has its reserved side; only the EMPTY padding
+    # is deferred until it's needed.
+    deepest_below =
       wraps
       |> Enum.filter(&(&1.pop_v == "pe-pop-below"))
-      |> Enum.map(&(&1.y + @bracket_reach + pop_room))
+      |> Enum.map(& &1.y)
       |> Enum.max(fn -> 0 end)
-      |> max(height)
+
+    min_height = max(deepest_below + @bracket_reach + @bracket_pop_room, height)
+    pinned_min_height = max(deepest_below + @bracket_reach + pop_room, height)
 
     axis =
       columns
@@ -336,6 +347,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
       width: width,
       height: height,
       min_height: min_height,
+      pinned_min_height: pinned_min_height,
       has_bye: byes != [],
       has_rematch_anomaly: Enum.any?(playing, & &1.rematch_anomaly),
       has_match_rematch: Enum.any?(playing, &(&1.rematch and not &1.rematch_anomaly)),
@@ -608,19 +620,9 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         class="pe-dot pe-dot-halo pe-filterable"
         data-facets={w.facets}
       ><title>Received {colour_word(w.colour)}; colour history says {colour_word(w.side.colour_due)} was due.</title></circle>
-      <%!-- Paired-up/-down badge (task 2): a filled, rounded chip behind the
-            glyph rather than bare colored text — the glyph alone at this
-            size read as faint, low-contrast noise. Circle + text share one
-            `facets`/class pairing so the legend filter dims them together. --%>
-      <circle
-        :if={@interactive and w.dir}
-        cx={w.x}
-        cy={w.y - 16}
-        r="7"
-        fill={float_colour(w.dir)}
-        class="pe-tri-badge pe-filterable"
-        data-facets={w.facets}
-      />
+      <%!-- Paired-up/-down marker: a bare coloured triangle glyph — an
+            interim design wrapped it in a filled circle chip, and the user
+            explicitly asked for the plain triangles back. --%>
       <text
         :if={@interactive and w.dir}
         x={w.x}
@@ -628,7 +630,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         font-size="12"
         font-weight="700"
         text-anchor="middle"
-        fill="#ffffff"
+        fill={float_colour(w.dir)}
         class="pe-tri pe-filterable"
         data-facets={w.facets}
       >{if w.dir == :down, do: "▼", else: "▲"}</text>
@@ -962,7 +964,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
 
           <div
             class="pe-bracket-canvas"
-            style={"width: #{@bracket.width}px; min-height: #{@bracket.min_height}px"}
+            style={"width: #{@bracket.width}px; min-height: #{@bracket.min_height}px; --pe-pinned-min: #{@bracket.pinned_min_height}px"}
           >
             <svg
               class="pe-bracket-svg"
@@ -1283,7 +1285,12 @@ defmodule PairingsEngineWeb.PairingExplainLive do
       </div>
 
       <div :if={@rationale.byes.requested != []} class="card table-card" style="margin-top: 16px">
-        <h3 style="margin: 0 0 8px">Requested / absence byes this round</h3>
+        <%!-- .table-card zeroes the card's own padding (tables run
+              edge-to-edge), so a heading inside one must carry its own —
+              same pattern as the norms page's table-card headings. Without
+              it this title sat flush against the card edge, visibly
+              misaligned with the padded table cells below. --%>
+        <h3 style="margin: 0; padding: 16px 16px 8px">Requested / absence byes this round</h3>
         <table class="pe-table">
           <thead>
             <tr><th>Player</th><th>Type</th></tr>
