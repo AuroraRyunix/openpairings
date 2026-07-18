@@ -332,6 +332,20 @@ defmodule PairingsEngineWeb.PairingExplainLive do
     min_height = max(deepest_below + @bracket_reach + @bracket_pop_room, height)
     pinned_min_height = max(deepest_below + @bracket_reach + pop_room, height)
 
+    # One head-to-head entry per PLAYING board (both wraps present; byes have
+    # no opponent) — drives the hidden `.pe-duo` panels under the chart,
+    # opened by clicking a pinned player's exact opponent (see app.js).
+    duos =
+      wraps
+      |> Enum.filter(&(&1.colour in [:w, :b]))
+      |> Enum.group_by(& &1.board)
+      |> Enum.flat_map(fn {board, pair} ->
+        w = Enum.find(pair, &(&1.colour == :w))
+        b = Enum.find(pair, &(&1.colour == :b))
+        if w && b, do: [%{board: board, w: w, b: b}], else: []
+      end)
+      |> Enum.sort_by(& &1.board)
+
     axis =
       columns
       |> Enum.with_index()
@@ -348,6 +362,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
       height: height,
       min_height: min_height,
       pinned_min_height: pinned_min_height,
+      duos: duos,
       has_bye: byes != [],
       has_rematch_anomaly: Enum.any?(playing, & &1.rematch_anomaly),
       has_match_rematch: Enum.any?(playing, &(&1.rematch and not &1.rematch_anomaly)),
@@ -479,8 +494,26 @@ defmodule PairingsEngineWeb.PairingExplainLive do
       pop_v: pop_v,
       pop_h: pop_h,
       id: dot_id(d.board, d.colour),
+      # This round's opponent's wrap id (nil for a bye) — rendered as
+      # `data-opponent` so the delegated click listener in assets/js/app.js
+      # can detect "the pinned player's exact opponent was clicked" and open
+      # the board's head-to-head duo panel instead of re-pinning.
+      opponent_dot_id: opponent_dot_id(d),
       aria: dot_aria(d)
     })
+  end
+
+  defp opponent_dot_id(%{colour: :w, board: board}), do: dot_id(board, :b)
+  defp opponent_dot_id(%{colour: :b, board: board}), do: dot_id(board, :w)
+  defp opponent_dot_id(_bye), do: nil
+
+  # Display rating for a duo panel's side — FIDE first, national fallback
+  # (Player.rating/1), nil when unrated so the tag is dropped entirely.
+  defp duo_rating(wrap) do
+    case PairingsEngine.Tournaments.Player.rating(wrap.side.player) do
+      r when is_integer(r) and r > 0 -> r
+      _ -> nil
+    end
   end
 
   defp dot_aria(%{colour: :bye, side: side, board: board} = d),
@@ -996,6 +1029,8 @@ defmodule PairingsEngineWeb.PairingExplainLive do
                 class={["pe-board-wrap", w.pop_v, w.pop_h]}
                 tabindex="0"
                 aria-label={w.aria}
+                data-opponent={w.opponent_dot_id}
+                data-board={w.board}
                 style={"left: #{w.left}px; top: #{w.top}px"}
               >
                 <div class="pe-dot-popover" role="tooltip">
@@ -1082,6 +1117,73 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             <.bracket_dots wraps={@bracket.wraps} interactive={false} />
           </svg>
           <div class="pe-minimap-viewport"></div>
+        </div>
+
+        <%!-- Head-to-head duo panels (one hidden panel per playing board):
+              pin a player, then click their EXACT opponent's dot to open the
+              board's panel here under the chart; clicking either of the two
+              dots (or the × button) closes it again. Pure server-rendered
+              markup toggled by the delegated click listener in
+              assets/js/app.js — no round-trip, same philosophy as pinning. --%>
+        <div
+          :for={duo <- (@bracket && @bracket.duos) || []}
+          id={"pe-duo-#{duo.board}"}
+          class="pe-duo"
+          data-dots={"#{duo.w.id} #{duo.b.id}"}
+        >
+          <div class="pe-duo-head">
+            <span class="pe-tag pe-tag-muted">Board {duo.board}</span>
+            <strong>{duo.w.side.player.name}</strong>
+            <span class="pe-duo-vs">vs</span>
+            <strong>{duo.b.side.player.name}</strong>
+            <button type="button" class="pe-duo-close" aria-label="Close head-to-head">✕</button>
+          </div>
+
+          <div class="pe-duo-grid">
+            <div :for={{w, colour_label} <- [{duo.w, "White"}, {duo.b, "Black"}]} class="pe-duo-side">
+              <div class="pe-pop-name">{w.side.player.name}</div>
+              <div class="pe-pop-tags">
+                <span class="pe-side-colour">{colour_label}</span>
+                <span class="pe-score">{score_str(w.side.score)}</span>
+                <span class="pe-seed">seed #{w.side.pairing_number}</span>
+                <span :if={duo_rating(w) != nil} class="pe-tag pe-tag-muted">
+                  {duo_rating(w)}
+                </span>
+              </div>
+              <div class="pe-pop-tags">
+                <span :if={w.dir == :down} class="pe-tag pe-tag-down">▼ paired down</span>
+                <span :if={w.dir == :up} class="pe-tag pe-tag-up">▲ paired up</span>
+                <span :if={w.side.colour_due == nil} class="pe-tag pe-tag-muted">
+                  no colour history yet
+                </span>
+                <span :if={w.side.colour_due != nil and w.side.colour_ok} class="pe-tag pe-tag-ok">
+                  ✓ due {colour_word(w.side.colour_due)}
+                </span>
+                <span :if={w.side.colour_due != nil and not w.side.colour_ok} class="pe-tag pe-tag-warn">
+                  ✗ due {colour_word(w.side.colour_due)}
+                </span>
+                <span :if={w.side.had_prior_bye} class="pe-tag pe-tag-warn">already had a bye</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="pe-pop-tags pe-duo-shared">
+            <span class="pe-tag pe-tag-muted">
+              score gap {score_str(abs(duo.w.side.score - duo.b.side.score))}
+            </span>
+            <span :if={duo_rating(duo.w) && duo_rating(duo.b)} class="pe-tag pe-tag-muted">
+              rating gap {abs(duo_rating(duo.w) - duo_rating(duo.b))}
+            </span>
+            <span
+              :if={duo.w.rematch}
+              class={["pe-tag", duo.w.rematch_anomaly && "pe-tag-danger", !duo.w.rematch_anomaly && "pe-tag-muted"]}
+            >
+              {if duo.w.rematch_anomaly, do: "REMATCH — they already played each other", else: "rematch (match format)"}
+            </span>
+            <span :if={!duo.w.rematch} class="pe-tag pe-tag-ok">
+              first meeting this tournament
+            </span>
+          </div>
         </div>
 
         <script :type={Phoenix.LiveView.ColocatedHook} name=".BracketMinimap">

@@ -1254,6 +1254,42 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .pe-filterable { transition: opacity 0.15s; }
 .pe-dim { opacity: 0.16; }
 
+/* ---- bracket-map: head-to-head duo panel ----
+   One hidden panel per playing board, under the chart (normal flow — never
+   clipped by the scroll strip). Opened by the delegated listener in
+   assets/js/app.js when a pinned player's exact opponent is clicked;
+   closed by clicking either of the two dots or the ✕. Both dots keep
+   their highlight ring via .is-duo while the panel is open. */
+.pe-duo {
+  display: none;
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  padding: 12px 14px;
+}
+.pe-duo.is-open { display: block; }
+.pe-duo-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.pe-duo-vs { color: var(--text-soft); font-size: 12.5px; }
+.pe-duo-close {
+  margin-left: auto;
+  border: none;
+  background: none;
+  color: var(--text-soft);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+.pe-duo-close:hover { background: var(--accent-soft); color: var(--text); }
+.pe-duo-grid { display: flex; gap: 24px; flex-wrap: wrap; }
+.pe-duo-side { flex: 1; min-width: 220px; }
+.pe-duo-shared { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+.pe-board-wrap.is-duo { z-index: 30; }
+.pe-board-wrap.is-duo::before { opacity: 1; }
+
 /* ---- bracket-map: pinned-popover cross-round trail (task A) ----
    The trail (per-round strip + score sparkline) is precomputed server-side
    and rendered hidden into every dot's popover; it's revealed ONLY when that

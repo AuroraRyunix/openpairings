@@ -702,6 +702,31 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     assert trails[c.id].summary.avg_opponent_rating == nil
   end
 
+  test "head-to-head duo panels render hidden for every playing board, with opponent wiring on the dots",
+       %{conn: conn, scope: scope} do
+    {t, _players} = three_round_swiss(scope)
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/3/explain")
+
+    # Each playing dot carries its opponent's wrap id so the delegated JS
+    # listener can detect "pinned player's exact opponent clicked" — a bye
+    # dot must carry none.
+    assert html =~ ~s(id="pe-dot-1-w")
+    assert html =~ ~r/id="pe-dot-1-w"[^>]*data-opponent="pe-dot-1-b"/
+    assert html =~ ~r/id="pe-dot-1-b"[^>]*data-opponent="pe-dot-1-w"/
+    refute html =~ ~r/id="pe-dot-\d+-bye"[^>]*data-opponent="pe-dot/
+
+    # One hidden duo panel per playing board, keyed to both dots, carrying
+    # the head-to-head facts (names in the header, score gap, first-meeting
+    # tag). Hidden by default (.pe-duo, revealed by JS adding .is-open).
+    assert html =~ ~s(id="pe-duo-1")
+    assert html =~ ~r/id="pe-duo-1"[^>]*data-dots="pe-dot-1-w pe-dot-1-b"/
+    assert html =~ "pe-duo-head"
+    assert html =~ "score gap"
+    assert html =~ "first meeting this tournament"
+    assert html =~ "pe-duo-close"
+  end
+
   test "the fairness summary renders in the popover, hiding byes when there are none", %{
     conn: conn,
     scope: scope
