@@ -34,7 +34,9 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
       lv |> element("button", "New tournament") |> render_click()
 
       lv
-      |> form("#new-tournament-form", tournament: %{name: "Swiss T", pairing_system: "swiss", rounds_count: "7"})
+      |> form("#new-tournament-form",
+        tournament: %{name: "Swiss T", pairing_system: "swiss", rounds_count: "7"}
+      )
       |> render_submit()
 
       tournament = last_tournament_named("Swiss T")
@@ -42,12 +44,16 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
       assert tournament.type == "swiss"
     end
 
-    test "keizer + no team -> type swiss (keizer is Swiss-classified for FIDE reporting)", %{conn: conn} do
+    test "keizer + no team -> type swiss (keizer is Swiss-classified for FIDE reporting)", %{
+      conn: conn
+    } do
       {:ok, lv, _html} = live(conn, ~p"/")
       lv |> element("button", "New tournament") |> render_click()
 
       lv
-      |> form("#new-tournament-form", tournament: %{name: "Keizer T", pairing_system: "keizer", rounds_count: "7"})
+      |> form("#new-tournament-form",
+        tournament: %{name: "Keizer T", pairing_system: "keizer", rounds_count: "7"}
+      )
       |> render_submit()
 
       tournament = last_tournament_named("Keizer T")
@@ -60,7 +66,9 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
       lv |> element("button", "New tournament") |> render_click()
 
       lv
-      |> form("#new-tournament-form", tournament: %{name: "RR T", pairing_system: "round_robin", rounds_count: "7"})
+      |> form("#new-tournament-form",
+        tournament: %{name: "RR T", pairing_system: "round_robin", rounds_count: "7"}
+      )
       |> render_submit()
 
       tournament = last_tournament_named("RR T")
@@ -74,7 +82,12 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
 
       lv
       |> form("#new-tournament-form",
-        tournament: %{name: "Team RR T", pairing_system: "round_robin", team: "true", rounds_count: "7"}
+        tournament: %{
+          name: "Team RR T",
+          pairing_system: "round_robin",
+          team: "true",
+          rounds_count: "7"
+        }
       )
       |> render_submit()
 
@@ -87,14 +100,23 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
       lv |> element("button", "New tournament") |> render_click()
 
       lv
-      |> form("#new-tournament-form", tournament: %{name: "Team Swiss T", pairing_system: "swiss", team: "true", rounds_count: "7"})
+      |> form("#new-tournament-form",
+        tournament: %{
+          name: "Team Swiss T",
+          pairing_system: "swiss",
+          team: "true",
+          rounds_count: "7"
+        }
+      )
       |> render_submit()
 
       tournament = last_tournament_named("Team Swiss T")
       assert tournament.type == "team-swiss"
     end
 
-    test "a client-forged `tournament[type]` is ignored — the server always derives it", %{conn: conn} do
+    test "a client-forged `tournament[type]` is ignored — the server always derives it", %{
+      conn: conn
+    } do
       {:ok, lv, _html} = live(conn, ~p"/")
       lv |> element("button", "New tournament") |> render_click()
 
@@ -124,12 +146,16 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
   ## ---------- Delete / recycle bin ----------
 
   describe "delete confirmation modal and recycle bin" do
-    test "the Delete button enables as soon as the confirm field reads exactly \"DELETE\"", %{conn: conn} do
+    test "the Delete button enables as soon as the confirm field reads exactly \"DELETE\"", %{
+      conn: conn
+    } do
       {:ok, lv, _html} = live(conn, ~p"/")
       lv |> element("button", "New tournament") |> render_click()
 
       lv
-      |> form("#new-tournament-form", tournament: %{name: "To Delete Owned", pairing_system: "swiss", rounds_count: "7"})
+      |> form("#new-tournament-form",
+        tournament: %{name: "To Delete Owned", pairing_system: "swiss", rounds_count: "7"}
+      )
       |> render_submit()
 
       {:ok, lv, _html} = live(conn, ~p"/")
@@ -156,14 +182,17 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
       render(lv)
     end
 
-    test "delete_confirmed moves the tournament to the recycle bin (soft delete), and Restore brings it back", %{
-      conn: conn
-    } do
+    test "delete_confirmed moves the tournament to the recycle bin (soft delete), and Restore brings it back",
+         %{
+           conn: conn
+         } do
       {:ok, lv, _html} = live(conn, ~p"/")
       lv |> element("button", "New tournament") |> render_click()
 
       lv
-      |> form("#new-tournament-form", tournament: %{name: "Binnable", pairing_system: "swiss", rounds_count: "7"})
+      |> form("#new-tournament-form",
+        tournament: %{name: "Binnable", pairing_system: "swiss", rounds_count: "7"}
+      )
       |> render_submit()
 
       {:ok, lv, _html} = live(conn, ~p"/")
@@ -199,7 +228,9 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
       lv |> element("button", "New tournament") |> render_click()
 
       lv
-      |> form("#new-tournament-form", tournament: %{name: "Purgeable", pairing_system: "swiss", rounds_count: "7"})
+      |> form("#new-tournament-form",
+        tournament: %{name: "Purgeable", pairing_system: "swiss", rounds_count: "7"}
+      )
       |> render_submit()
 
       {:ok, lv, _html} = live(conn, ~p"/")
@@ -213,7 +244,10 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
 
       lv |> element("button", "Delete tournament") |> render_click()
 
-      lv |> element("button[phx-value-id='#{tournament.id}']", "Delete permanently") |> render_click()
+      lv
+      |> element("button[phx-value-id='#{tournament.id}']", "Delete permanently")
+      |> render_click()
+
       assert has_element?(lv, "h2", "Delete permanently")
 
       lv
@@ -236,7 +270,9 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
     # test_helper.exs when it isn't present.
     @describetag :swar_fixture
 
-    test "a file where every player is already settled imports immediately, no modal shown", %{conn: conn} do
+    test "a file where every player is already settled imports immediately, no modal shown", %{
+      conn: conn
+    } do
       # c-reeks.swar has two players with no mat_fide (Vanmassenhove,
       # Cobert) — patch a copy where those two are simply removed isn't
       # practical here, so instead this asserts the *modal path* directly;
@@ -246,9 +282,14 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
       {:ok, lv, _html} = live(conn, ~p"/")
       lv |> element("button", "Import SWAR file") |> render_click()
 
-      swar = file_input(lv, "form", :swar, [
-        %{name: "problemski.swar", content: File.read!(@problemski), type: "application/octet-stream"}
-      ])
+      swar =
+        file_input(lv, "form", :swar, [
+          %{
+            name: "problemski.swar",
+            content: File.read!(@problemski),
+            type: "application/octet-stream"
+          }
+        ])
 
       render_upload(swar, "problemski.swar")
       lv |> form("#swar-import-form", %{}) |> render_submit()
@@ -259,15 +300,21 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
       assert has_element?(lv, "*", "Ashrafi, Sulaiman Ahmad")
     end
 
-    test "no local FIDE match: choosing 'import without a FIDE id' completes the import with fide_id nil", %{
-      conn: conn
-    } do
+    test "no local FIDE match: choosing 'import without a FIDE id' completes the import with fide_id nil",
+         %{
+           conn: conn
+         } do
       {:ok, lv, _html} = live(conn, ~p"/")
       lv |> element("button", "Import SWAR file") |> render_click()
 
-      swar = file_input(lv, "form", :swar, [
-        %{name: "problemski.swar", content: File.read!(@problemski), type: "application/octet-stream"}
-      ])
+      swar =
+        file_input(lv, "form", :swar, [
+          %{
+            name: "problemski.swar",
+            content: File.read!(@problemski),
+            type: "application/octet-stream"
+          }
+        ])
 
       render_upload(swar, "problemski.swar")
       lv |> form("#swar-import-form", %{}) |> render_submit()
@@ -287,7 +334,9 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
       assert ashrafi.fide_id == nil
     end
 
-    test "picking a suggested FIDE candidate adopts its id, without touching SWAR's own name", %{conn: conn} do
+    test "picking a suggested FIDE candidate adopts its id, without touching SWAR's own name", %{
+      conn: conn
+    } do
       Repo.insert!(%FidePlayer{
         fide_id: 555_555,
         name: "Ashrafi, Sulaiman Ahmad",
@@ -300,9 +349,14 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
       {:ok, lv, _html} = live(conn, ~p"/")
       lv |> element("button", "Import SWAR file") |> render_click()
 
-      swar = file_input(lv, "form", :swar, [
-        %{name: "problemski.swar", content: File.read!(@problemski), type: "application/octet-stream"}
-      ])
+      swar =
+        file_input(lv, "form", :swar, [
+          %{
+            name: "problemski.swar",
+            content: File.read!(@problemski),
+            type: "application/octet-stream"
+          }
+        ])
 
       render_upload(swar, "problemski.swar")
       lv |> form("#swar-import-form", %{}) |> render_submit()
@@ -322,7 +376,13 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
         |> render_submit()
 
       tournament_id = to |> String.split("/") |> Enum.at(2) |> String.to_integer()
-      ashrafi = Enum.find(Tournaments.list_players(tournament_id), &(&1.name == "Ashrafi, Sulaiman Ahmad"))
+
+      ashrafi =
+        Enum.find(
+          Tournaments.list_players(tournament_id),
+          &(&1.name == "Ashrafi, Sulaiman Ahmad")
+        )
+
       assert ashrafi.fide_id == 555_555
       assert ashrafi.name == "Ashrafi, Sulaiman Ahmad"
     end
@@ -331,9 +391,14 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
       {:ok, lv, _html} = live(conn, ~p"/")
       lv |> element("button", "Import SWAR file") |> render_click()
 
-      swar = file_input(lv, "form", :swar, [
-        %{name: "problemski.swar", content: File.read!(@problemski), type: "application/octet-stream"}
-      ])
+      swar =
+        file_input(lv, "form", :swar, [
+          %{
+            name: "problemski.swar",
+            content: File.read!(@problemski),
+            type: "application/octet-stream"
+          }
+        ])
 
       render_upload(swar, "problemski.swar")
       lv |> form("#swar-import-form", %{}) |> render_submit()

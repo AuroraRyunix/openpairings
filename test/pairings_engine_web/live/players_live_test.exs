@@ -401,7 +401,10 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       %{tournament: tournament}
     end
 
-    test "no players registered shows the empty-diff message", %{conn: conn, tournament: tournament} do
+    test "no players registered shows the empty-diff message", %{
+      conn: conn,
+      tournament: tournament
+    } do
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
 
       html = lv |> element("button", "Refresh ratings") |> render_click()
@@ -410,7 +413,10 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       assert html =~ "0 players checked"
     end
 
-    test "shows the diff table and applies changes on Apply", %{conn: conn, tournament: tournament} do
+    test "shows the diff table and applies changes on Apply", %{
+      conn: conn,
+      tournament: tournament
+    } do
       {:ok, player} =
         Tournaments.create_player(tournament.id, %{
           "name" => "Alice",
@@ -646,7 +652,10 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       scope: scope
     } do
       {:ok, tournament} =
-        Tournaments.create_tournament(scope, %{"name" => "Rating Fallback Test", "type" => "swiss"})
+        Tournaments.create_tournament(scope, %{
+          "name" => "Rating Fallback Test",
+          "type" => "swiss"
+        })
 
       # No games played -> everyone tied on points (0) and every tiebreak
       # (0) -> default order should fall back to rating descending.

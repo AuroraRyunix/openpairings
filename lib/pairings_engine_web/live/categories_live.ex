@@ -23,7 +23,10 @@ defmodule PairingsEngineWeb.CategoriesLive do
 
   @impl true
   def handle_info({:tournament_changed, _tournament_id, _hint}, socket) do
-    case Tournaments.get_authorized_tournament(socket.assigns.current_scope, socket.assigns.tournament.id) do
+    case Tournaments.get_authorized_tournament(
+           socket.assigns.current_scope,
+           socket.assigns.tournament.id
+         ) do
       nil ->
         {:noreply,
          socket
@@ -50,7 +53,9 @@ defmodule PairingsEngineWeb.CategoriesLive do
         {:noreply, assign(socket, category_error: "That category already exists")}
 
       true ->
-        case Tournaments.update_tournament(socket.assigns.tournament, %{"categories" => categories ++ [trimmed]}) do
+        case Tournaments.update_tournament(socket.assigns.tournament, %{
+               "categories" => categories ++ [trimmed]
+             }) do
           {:ok, tournament} ->
             Audit.log(tournament.id, socket.assigns.current_scope, "category.created", %{
               name: trimmed
@@ -80,7 +85,12 @@ defmodule PairingsEngineWeb.CategoriesLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} tournament={@tournament} active="categories">
+    <Layouts.app
+      flash={@flash}
+      current_scope={@current_scope}
+      tournament={@tournament}
+      active="categories"
+    >
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
@@ -103,7 +113,8 @@ defmodule PairingsEngineWeb.CategoriesLive do
           <h2>Categories</h2>
           <p class="hint" style="margin-top: 0">
             Tournament-defined groups (SWAR CATEGORIES) — e.g. age or rating brackets — that players
-            can be assigned to on the <.link navigate={~p"/t/#{@tournament.id}/players"}>Players</.link>
+            can be assigned to on the
+            <.link navigate={~p"/t/#{@tournament.id}/players"}>Players</.link>
             page.
           </p>
           <form id="add-category-form" phx-submit="add_category">

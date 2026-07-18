@@ -151,7 +151,13 @@ defmodule PairingsEngine.Norms.CombineTest do
 
       assert {:ok, {virtual, players}} = Combine.combine([{a, a_players}, {b, b_players}], 0)
 
-      candidate = %{"last_name" => "X", "first_name" => "Y", "fide_id" => "1", "federation" => "BEL"}
+      candidate = %{
+        "last_name" => "X",
+        "first_name" => "Y",
+        "fide_id" => "1",
+        "federation" => "BEL"
+      }
+
       fills = Forms.fa1_fills(virtual, players, candidate)["Invulformulier"]
 
       # B15 = distinct federations represented among the players.
@@ -192,7 +198,10 @@ defmodule PairingsEngine.Norms.CombineTest do
       a = tournament(%{id: 1})
       b = tournament(%{id: 2})
 
-      a_players = [player(%{name: "  doe, JANE  ", fide_id: nil, national_id: "", birth_year: 1990})]
+      a_players = [
+        player(%{name: "  doe, JANE  ", fide_id: nil, national_id: "", birth_year: 1990})
+      ]
+
       b_players = [player(%{name: "Doe, Jane", fide_id: nil, national_id: "", birth_year: 1990})]
 
       assert {:error, {:duplicate_players, [name]}} =

@@ -111,7 +111,11 @@ defmodule PairingsEngine.Norms.TitleNormsTest do
     |> Enum.with_index(1)
     |> Enum.each(fn {{opp, result}, round_number} ->
       round =
-        Repo.insert!(%Round{tournament_id: tournament.id, number: round_number, status: "finished"})
+        Repo.insert!(%Round{
+          tournament_id: tournament.id,
+          number: round_number,
+          status: "finished"
+        })
 
       Repo.insert!(%Pairing{
         round_id: round.id,
@@ -190,17 +194,52 @@ defmodule PairingsEngine.Norms.TitleNormsTest do
         points_loss: 0.0
       })
 
-    a = Repo.insert!(%Player{tournament_id: tournament.id, name: "A", federation: "BEL", fide_rating: 2200, pairing_number: 1})
-    b = Repo.insert!(%Player{tournament_id: tournament.id, name: "B", federation: "FRA", fide_rating: 2300, pairing_number: 2})
+    a =
+      Repo.insert!(%Player{
+        tournament_id: tournament.id,
+        name: "A",
+        federation: "BEL",
+        fide_rating: 2200,
+        pairing_number: 1
+      })
+
+    b =
+      Repo.insert!(%Player{
+        tournament_id: tournament.id,
+        name: "B",
+        federation: "FRA",
+        fide_rating: 2300,
+        pairing_number: 2
+      })
 
     r1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
     r2 = Repo.insert!(%Round{tournament_id: tournament.id, number: 2, status: "finished"})
     r3 = Repo.insert!(%Round{tournament_id: tournament.id, number: 3, status: "finished"})
 
     # One real game, one forfeit win, one pairing-allocated bye.
-    Repo.insert!(%Pairing{round_id: r1.id, board: 1, white_player_id: a.id, black_player_id: b.id, result: "1-0"})
-    Repo.insert!(%Pairing{round_id: r2.id, board: 1, white_player_id: a.id, black_player_id: b.id, result: "1-0FF"})
-    Repo.insert!(%Pairing{round_id: r3.id, board: 1, white_player_id: a.id, black_player_id: nil, result: "bye"})
+    Repo.insert!(%Pairing{
+      round_id: r1.id,
+      board: 1,
+      white_player_id: a.id,
+      black_player_id: b.id,
+      result: "1-0"
+    })
+
+    Repo.insert!(%Pairing{
+      round_id: r2.id,
+      board: 1,
+      white_player_id: a.id,
+      black_player_id: b.id,
+      result: "1-0FF"
+    })
+
+    Repo.insert!(%Pairing{
+      round_id: r3.id,
+      board: 1,
+      white_player_id: a.id,
+      black_player_id: nil,
+      result: "bye"
+    })
 
     result = TitleNorms.evaluate(tournament) |> Map.fetch!(a.id)
 
@@ -226,14 +265,52 @@ defmodule PairingsEngine.Norms.TitleNormsTest do
         points_loss: 0.0
       })
 
-    a = Repo.insert!(%Player{tournament_id: tournament.id, name: "A", sex: "w", federation: "BEL", fide_rating: 2000, pairing_number: 1})
-    low1 = Repo.insert!(%Player{tournament_id: tournament.id, name: "U", federation: "FRA", fide_rating: 0, pairing_number: 2})
-    low2 = Repo.insert!(%Player{tournament_id: tournament.id, name: "L", federation: "NED", fide_rating: 1800, pairing_number: 3})
+    a =
+      Repo.insert!(%Player{
+        tournament_id: tournament.id,
+        name: "A",
+        sex: "w",
+        federation: "BEL",
+        fide_rating: 2000,
+        pairing_number: 1
+      })
+
+    low1 =
+      Repo.insert!(%Player{
+        tournament_id: tournament.id,
+        name: "U",
+        federation: "FRA",
+        fide_rating: 0,
+        pairing_number: 2
+      })
+
+    low2 =
+      Repo.insert!(%Player{
+        tournament_id: tournament.id,
+        name: "L",
+        federation: "NED",
+        fide_rating: 1800,
+        pairing_number: 3
+      })
 
     r1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
     r2 = Repo.insert!(%Round{tournament_id: tournament.id, number: 2, status: "finished"})
-    Repo.insert!(%Pairing{round_id: r1.id, board: 1, white_player_id: a.id, black_player_id: low1.id, result: "1-0"})
-    Repo.insert!(%Pairing{round_id: r2.id, board: 1, white_player_id: a.id, black_player_id: low2.id, result: "1-0"})
+
+    Repo.insert!(%Pairing{
+      round_id: r1.id,
+      board: 1,
+      white_player_id: a.id,
+      black_player_id: low1.id,
+      result: "1-0"
+    })
+
+    Repo.insert!(%Pairing{
+      round_id: r2.id,
+      board: 1,
+      white_player_id: a.id,
+      black_player_id: low2.id,
+      result: "1-0"
+    })
 
     result = TitleNorms.evaluate(tournament) |> Map.fetch!(a.id)
     wim = Enum.find(result.verdicts, &(&1.title == "WIM"))
@@ -256,11 +333,33 @@ defmodule PairingsEngine.Norms.TitleNormsTest do
         points_loss: 0.0
       })
 
-    a = Repo.insert!(%Player{tournament_id: tournament.id, name: "A", federation: "BEL", fide_rating: 2000, pairing_number: 1})
-    b = Repo.insert!(%Player{tournament_id: tournament.id, name: "B", federation: "FRA", fide_rating: 2000, pairing_number: 2})
+    a =
+      Repo.insert!(%Player{
+        tournament_id: tournament.id,
+        name: "A",
+        federation: "BEL",
+        fide_rating: 2000,
+        pairing_number: 1
+      })
+
+    b =
+      Repo.insert!(%Player{
+        tournament_id: tournament.id,
+        name: "B",
+        federation: "FRA",
+        fide_rating: 2000,
+        pairing_number: 2
+      })
 
     r1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
-    Repo.insert!(%Pairing{round_id: r1.id, board: 1, white_player_id: a.id, black_player_id: b.id, result: "1-0"})
+
+    Repo.insert!(%Pairing{
+      round_id: r1.id,
+      board: 1,
+      white_player_id: a.id,
+      black_player_id: b.id,
+      result: "1-0"
+    })
 
     result = TitleNorms.evaluate(tournament) |> Map.fetch!(a.id)
     im = Enum.find(result.verdicts, &(&1.title == "IM"))

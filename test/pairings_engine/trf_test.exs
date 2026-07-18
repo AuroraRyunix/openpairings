@@ -108,7 +108,10 @@ defmodule PairingsEngine.TrfTest do
   end
 
   test "082 reflects the real team count when teams are present" do
-    data = sample() |> Map.put(:teams, [%{name: "A", player_ranks: [1]}, %{name: "B", player_ranks: [2]}])
+    data =
+      sample()
+      |> Map.put(:teams, [%{name: "A", player_ranks: [1]}, %{name: "B", player_ranks: [2]}])
+
     lines = Trf.serialize(data) |> String.split("\r\n")
     assert Enum.any?(lines, &(&1 == "082 2"))
   end
@@ -121,7 +124,9 @@ defmodule PairingsEngine.TrfTest do
 
   test "132 (round dates) is still emitted, with blanks for missing rounds, when at least one date is set" do
     data = put_in(sample(), [:tournament, :round_dates], [nil, "2026-07-02", nil])
-    line = Trf.serialize(data) |> String.split("\r\n") |> Enum.find(&String.starts_with?(&1, "132"))
+
+    line =
+      Trf.serialize(data) |> String.split("\r\n") |> Enum.find(&String.starts_with?(&1, "132"))
 
     assert col(line, 92, 99) == "        "
     assert col(line, 102, 109) == "26/07/02"
@@ -191,7 +196,10 @@ defmodule PairingsEngine.TrfTest do
     }
 
     line =
-      data |> Trf.serialize() |> String.split("\r\n") |> Enum.find(&String.starts_with?(&1, "001"))
+      data
+      |> Trf.serialize()
+      |> String.split("\r\n")
+      |> Enum.find(&String.starts_with?(&1, "001"))
 
     assert col(line, 15, 47) == String.duplicate("A", 33)
     assert col(line, 48, 48) == " "
@@ -299,7 +307,12 @@ defmodule PairingsEngine.TrfTest do
     data = %{
       tournament: %{name: "T"},
       players: [
-        %{rank: 1, name: "A", points: 1.0, games: [%{opponent_rank: nil, colour: nil, result: "1"}]}
+        %{
+          rank: 1,
+          name: "A",
+          points: 1.0,
+          games: [%{opponent_rank: nil, colour: nil, result: "1"}]
+        }
       ]
     }
 
@@ -313,7 +326,12 @@ defmodule PairingsEngine.TrfTest do
       data = %{
         tournament: %{name: "T"},
         players: [
-          %{rank: 1, name: "A", points: 1.0, games: [%{opponent_rank: nil, colour: nil, result: code}]}
+          %{
+            rank: 1,
+            name: "A",
+            points: 1.0,
+            games: [%{opponent_rank: nil, colour: nil, result: code}]
+          }
         ]
       }
 

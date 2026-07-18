@@ -21,16 +21,21 @@ defmodule PairingsEngineWeb.InviteLiveTest do
 
   defp fixture(scope) do
     {:ok, tournament} =
-      Tournaments.create_tournament(scope, %{"name" => "Invite Tournament", "type" => "swiss", "rounds_count" => "3"})
+      Tournaments.create_tournament(scope, %{
+        "name" => "Invite Tournament",
+        "type" => "swiss",
+        "rounds_count" => "3"
+      })
 
     tournament
   end
 
   describe "/invites/:token" do
-    test "renders the invitation and accepting grants access and redirects to the players page", %{
-      scope: owner_scope,
-      user: owner
-    } do
+    test "renders the invitation and accepting grants access and redirects to the players page",
+         %{
+           scope: owner_scope,
+           user: owner
+         } do
       tournament = fixture(owner_scope)
       invitee = lightweight_user()
       {:ok, invite} = Tournaments.add_collaborator(owner_scope, tournament, invitee.email)
@@ -47,7 +52,10 @@ defmodule PairingsEngineWeb.InviteLiveTest do
       assert to == ~p"/t/#{tournament.id}/players"
 
       invitee_scope = Accounts.Scope.for_user(invitee)
-      assert %{status: "accepted", invite_token: nil} = hd(Tournaments.list_collaborators(tournament))
+
+      assert %{status: "accepted", invite_token: nil} =
+               hd(Tournaments.list_collaborators(tournament))
+
       assert Tournaments.get_authorized_tournament(invitee_scope, tournament.id) != nil
     end
 
@@ -66,9 +74,10 @@ defmodule PairingsEngineWeb.InviteLiveTest do
       assert Tournaments.list_collaborators(tournament) == []
     end
 
-    test "a logged-in user whose email doesn't match the invite sees a mismatch message and gains no access", %{
-      scope: owner_scope
-    } do
+    test "a logged-in user whose email doesn't match the invite sees a mismatch message and gains no access",
+         %{
+           scope: owner_scope
+         } do
       tournament = fixture(owner_scope)
       invitee = lightweight_user()
       stranger = lightweight_user()
@@ -83,7 +92,11 @@ defmodule PairingsEngineWeb.InviteLiveTest do
       refute has_element?(lv, "button", "Accept")
 
       # Even a forged event can't accept it for the wrong account.
-      assert Tournaments.get_authorized_tournament(Accounts.Scope.for_user(stranger), tournament.id) == nil
+      assert Tournaments.get_authorized_tournament(
+               Accounts.Scope.for_user(stranger),
+               tournament.id
+             ) == nil
+
       assert %{status: "pending"} = hd(Tournaments.list_collaborators(tournament))
     end
 
@@ -110,9 +123,10 @@ defmodule PairingsEngineWeb.InviteLiveTest do
     # login. These tests drive that whole chain end to end (unlike
     # `user_auth_test.exs`, which only asserts the session gets the value —
     # not that a real magic-link login/registration actually lands there).
-    test "an account that already exists: unauth visit -> log-in -> magic link -> back on the invite page", %{
-      scope: owner_scope
-    } do
+    test "an account that already exists: unauth visit -> log-in -> magic link -> back on the invite page",
+         %{
+           scope: owner_scope
+         } do
       tournament = fixture(owner_scope)
       invitee = lightweight_user()
       {:ok, invite} = Tournaments.add_collaborator(owner_scope, tournament, invitee.email)
@@ -144,9 +158,10 @@ defmodule PairingsEngineWeb.InviteLiveTest do
       assert redirected_to(final_conn) == ~p"/invites/#{invite.invite_token}"
     end
 
-    test "a brand-new invitee (no account yet): unauth visit -> register -> magic link -> back on the invite page", %{
-      scope: owner_scope
-    } do
+    test "a brand-new invitee (no account yet): unauth visit -> register -> magic link -> back on the invite page",
+         %{
+           scope: owner_scope
+         } do
       tournament = fixture(owner_scope)
       email = "brand-new-invitee-#{System.unique_integer([:positive])}@example.com"
       {:ok, invite} = Tournaments.add_collaborator(owner_scope, tournament, email)

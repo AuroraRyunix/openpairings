@@ -137,7 +137,9 @@ defmodule PairingsEngine.Pairing do
   def delete_round(tournament_id, number) do
     if number == paired_rounds_count(tournament_id) do
       match_format? =
-        Repo.one(from t in Tournament, where: t.id == ^tournament_id, select: t.swiss_match_format)
+        Repo.one(
+          from t in Tournament, where: t.id == ^tournament_id, select: t.swiss_match_format
+        )
 
       numbers = if match_format? and number > 1, do: [number - 1, number], else: [number]
 
@@ -655,7 +657,14 @@ defmodule PairingsEngine.Pairing do
       if MapSet.member?(eligible_ids, row.id) do
         row
       else
-        zero_bye = %{opponent_rank: nil, opponent_id: nil, colour: nil, result: "Z", points_kind: "zero"}
+        zero_bye = %{
+          opponent_rank: nil,
+          opponent_id: nil,
+          colour: nil,
+          result: "Z",
+          points_kind: "zero"
+        }
+
         %{row | games: row.games ++ [zero_bye]}
       end
     end)
@@ -1383,7 +1392,13 @@ defmodule PairingsEngine.Pairing do
               }
 
             true ->
-              %{opponent_rank: nil, opponent_id: nil, colour: nil, result: "Z", points_kind: "zero"}
+              %{
+                opponent_rank: nil,
+                opponent_id: nil,
+                colour: nil,
+                result: "Z",
+                points_kind: "zero"
+              }
           end
         end)
 

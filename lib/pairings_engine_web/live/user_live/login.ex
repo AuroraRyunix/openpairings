@@ -137,6 +137,7 @@ defmodule PairingsEngineWeb.UserLive.Login do
   end
 
   defp local_mail_adapter? do
-    Application.get_env(:pairings_engine, PairingsEngine.Mailer)[:adapter] == Swoosh.Adapters.Local
+    Application.get_env(:pairings_engine, PairingsEngine.Mailer)[:adapter] ==
+      Swoosh.Adapters.Local
   end
 end

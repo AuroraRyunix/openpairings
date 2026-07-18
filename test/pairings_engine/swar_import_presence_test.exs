@@ -40,6 +40,7 @@ defmodule PairingsEngine.SwarImportPresenceTest do
 
     header = w_str(version) <> w_str("guid") <> w_str("mac")
 
+    # legacy ByeValue field — deliberately not the one under test here
     tournoi =
       w_str("TOURNOI") <>
         w_str("Test Tournament") <>
@@ -82,7 +83,6 @@ defmodule PairingsEngine.SwarImportPresenceTest do
         w_i32(0) <>
         w_i32(0) <>
         w_i32(0) <>
-        # legacy ByeValue field — deliberately not the one under test here
         w_i32(0) <>
         w_u8(0) <>
         w_u8(0) <>

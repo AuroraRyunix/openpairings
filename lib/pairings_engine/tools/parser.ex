@@ -42,8 +42,11 @@ defmodule PairingsEngine.Tools.Parser do
 
   defp via_swar(content) do
     case SwarImport.build_structs(content) do
-      {:ok, result} -> {:ok, result}
-      {:error, reason} -> {:error, "Could not read this as a SWAR file: " <> swar_error_message(reason)}
+      {:ok, result} ->
+        {:ok, result}
+
+      {:error, reason} ->
+        {:error, "Could not read this as a SWAR file: " <> swar_error_message(reason)}
     end
   end
 
@@ -70,7 +73,8 @@ defmodule PairingsEngine.Tools.Parser do
 
           {:error, trf_reason} ->
             {:error,
-             "Could not read this file as either SWAR or TRF: " <> TrfImport.error_message(trf_reason)}
+             "Could not read this file as either SWAR or TRF: " <>
+               TrfImport.error_message(trf_reason)}
         end
     end
   end

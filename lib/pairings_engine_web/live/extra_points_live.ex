@@ -61,13 +61,22 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
             %{
               changed_fields:
                 %{}
-                |> maybe_change("count_extra_points", base.count_extra_points, tournament.count_extra_points)
-                |> maybe_change("extra_points_bands", base.extra_points_bands, tournament.extra_points_bands)
+                |> maybe_change(
+                  "count_extra_points",
+                  base.count_extra_points,
+                  tournament.count_extra_points
+                )
+                |> maybe_change(
+                  "extra_points_bands",
+                  base.extra_points_bands,
+                  tournament.extra_points_bands
+                )
             }
           )
         end
 
-        {:noreply, assign(socket, tournament: tournament, extra_points_error: nil, extra_points_note: nil)}
+        {:noreply,
+         assign(socket, tournament: tournament, extra_points_error: nil, extra_points_note: nil)}
 
       {:error, changeset} ->
         {:noreply, assign(socket, extra_points_error: error_text(changeset))}
@@ -93,12 +102,14 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
       {:error, :invalid_bands} ->
         {:noreply,
          assign(socket,
-           extra_points_error: "Fix the Elo bands field before applying it (e.g. \"1400:1, 1600:0.5\").",
+           extra_points_error:
+             "Fix the Elo bands field before applying it (e.g. \"1400:1, 1600:0.5\").",
            extra_points_note: nil
          )}
 
       {:error, changeset} ->
-        {:noreply, assign(socket, extra_points_error: error_text(changeset), extra_points_note: nil)}
+        {:noreply,
+         assign(socket, extra_points_error: error_text(changeset), extra_points_note: nil)}
     end
   end
 
@@ -108,7 +119,12 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} tournament={@tournament} active="settings">
+    <Layouts.app
+      flash={@flash}
+      current_scope={@current_scope}
+      tournament={@tournament}
+      active="settings"
+    >
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
@@ -137,7 +153,9 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
 
             <.setting_field
               label="Elo bands (rating:bonus, comma-separated)"
-              hint={~s|A player matches the lowest band whose threshold their rating is below (e.g. "1400:1, 1600:0.5" gives 1.0 below 1400, 0.5 from 1400 up to 1599, nothing from 1600 up). Unrated players only match an explicit "0:bonus" band.|}
+              hint={
+                ~s|A player matches the lowest band whose threshold their rating is below (e.g. "1400:1, 1600:0.5" gives 1.0 below 1400, 0.5 from 1400 up to 1599, nothing from 1600 up). Unrated players only match an explicit "0:bonus" band.|
+              }
             >
               <input
                 type="text"

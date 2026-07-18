@@ -70,7 +70,9 @@ defmodule PairingsEngine.ResultsImportTest do
     end
 
     test "results are case-insensitive" do
-      assert ResultsImport.parse_text("1,ff\n") == {:error, ["line 1: unrecognized result \"ff\""]}
+      assert ResultsImport.parse_text("1,ff\n") ==
+               {:error, ["line 1: unrecognized result \"ff\""]}
+
       assert ResultsImport.parse_text("1,x\n") == {:ok, [{1, "0-0"}]}
     end
 
@@ -112,7 +114,11 @@ defmodule PairingsEngine.ResultsImportTest do
   # 4 players, board 1 (a vs b) and board 2 (c vs d), round 1.
   defp fixture(scope) do
     {:ok, tournament} =
-      Tournaments.create_tournament(scope, %{"name" => "Results Import Test", "type" => "swiss", "rounds_count" => "3"})
+      Tournaments.create_tournament(scope, %{
+        "name" => "Results Import Test",
+        "type" => "swiss",
+        "rounds_count" => "3"
+      })
 
     [a, b, c, d] =
       for name <- ["A", "B", "C", "D"] do
@@ -121,9 +127,32 @@ defmodule PairingsEngine.ResultsImportTest do
 
     round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
 
-    p1 = Repo.insert!(%Pairing{round_id: round.id, board: 1, white_player_id: a.id, black_player_id: b.id, result: ""})
-    p2 = Repo.insert!(%Pairing{round_id: round.id, board: 2, white_player_id: c.id, black_player_id: d.id, result: ""})
-    bye = Repo.insert!(%Pairing{round_id: round.id, board: 3, white_player_id: a.id, black_player_id: nil, result: "bye"})
+    p1 =
+      Repo.insert!(%Pairing{
+        round_id: round.id,
+        board: 1,
+        white_player_id: a.id,
+        black_player_id: b.id,
+        result: ""
+      })
+
+    p2 =
+      Repo.insert!(%Pairing{
+        round_id: round.id,
+        board: 2,
+        white_player_id: c.id,
+        black_player_id: d.id,
+        result: ""
+      })
+
+    bye =
+      Repo.insert!(%Pairing{
+        round_id: round.id,
+        board: 3,
+        white_player_id: a.id,
+        black_player_id: nil,
+        result: "bye"
+      })
 
     {tournament, %{p1: p1, p2: p2, bye: bye}}
   end
@@ -154,7 +183,9 @@ defmodule PairingsEngine.ResultsImportTest do
       scope = user_scope_fixture()
       {tournament, %{p1: p1, p2: p2}} = fixture(scope)
 
-      assert {:error, errors} = ResultsImport.apply_import(tournament, 1, [{1, "1-0"}, {99, "0-1"}])
+      assert {:error, errors} =
+               ResultsImport.apply_import(tournament, 1, [{1, "1-0"}, {99, "0-1"}])
+
       assert Enum.any?(errors, &(&1 =~ "board 99"))
 
       assert Repo.reload!(p1).result == ""
@@ -165,7 +196,9 @@ defmodule PairingsEngine.ResultsImportTest do
       scope = user_scope_fixture()
       {tournament, %{p1: p1}} = fixture(scope)
 
-      assert {:error, errors} = ResultsImport.apply_import(tournament, 1, [{1, "1-0"}, {3, "0-1"}])
+      assert {:error, errors} =
+               ResultsImport.apply_import(tournament, 1, [{1, "1-0"}, {3, "0-1"}])
+
       assert Enum.any?(errors, &(&1 =~ "board 3"))
       assert Enum.any?(errors, &(&1 =~ "bye"))
 

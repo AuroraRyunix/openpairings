@@ -80,7 +80,9 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
 
       _ ->
         {:noreply,
-         assign(socket, error: "Set a start date (on the Tournament page) before calculating round dates.")}
+         assign(socket,
+           error: "Set a start date (on the Tournament page) before calculating round dates."
+         )}
     end
   end
 
@@ -108,7 +110,9 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
 
       _ ->
         {:noreply,
-         assign(socket, error: "Set a start date (on the Tournament page) before filling round dates.")}
+         assign(socket,
+           error: "Set a start date (on the Tournament page) before filling round dates."
+         )}
     end
   end
 
@@ -160,7 +164,12 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} tournament={@tournament} active="settings">
+    <Layouts.app
+      flash={@flash}
+      current_scope={@current_scope}
+      tournament={@tournament}
+      active="settings"
+    >
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>

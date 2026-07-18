@@ -136,7 +136,9 @@ defmodule PairingsEngine.Norms.Forms do
   # -> B27 total, B28 feds, B29 host); the 4th cell of each block is always
   # the template's own `=total-host` formula and must stay untouched.
   defp counts_fills(base_ref, %{total: total, feds: feds, host: host}) do
-    {col, row} = {String.first(base_ref), base_ref |> String.slice(1..-1//1) |> String.to_integer()}
+    {col, row} =
+      {String.first(base_ref), base_ref |> String.slice(1..-1//1) |> String.to_integer()}
+
     %{"#{col}#{row}" => total, "#{col}#{row + 1}" => feds, "#{col}#{row + 2}" => host}
   end
 
@@ -171,7 +173,8 @@ defmodule PairingsEngine.Norms.Forms do
   defp category_counts(list, host_federation) do
     %{
       total: length(list),
-      feds: list |> Enum.map(& &1.federation) |> Enum.reject(&blank?/1) |> Enum.uniq() |> length(),
+      feds:
+        list |> Enum.map(& &1.federation) |> Enum.reject(&blank?/1) |> Enum.uniq() |> length(),
       host: Enum.count(list, &(&1.federation == host_federation and not blank?(host_federation)))
     }
   end
@@ -193,10 +196,12 @@ defmodule PairingsEngine.Norms.Forms do
   authenticating official's block (`B23`, `B24`, `B26`) are intentionally
   never written — they're filled in by hand after export.
   """
-  def fa1_fills(tournament, players, candidate), do: arbiter_norm_fills(tournament, players, candidate)
+  def fa1_fills(tournament, players, candidate),
+    do: arbiter_norm_fills(tournament, players, candidate)
 
   @doc "Same cell layout as `fa1_fills/3` — see there for details."
-  def ia1_fills(tournament, players, candidate), do: arbiter_norm_fills(tournament, players, candidate)
+  def ia1_fills(tournament, players, candidate),
+    do: arbiter_norm_fills(tournament, players, candidate)
 
   defp arbiter_norm_fills(tournament, players, candidate) do
     %{

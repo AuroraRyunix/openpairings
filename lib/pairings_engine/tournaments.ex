@@ -914,7 +914,9 @@ defmodule PairingsEngine.Tournaments do
       tournament
       |> Standings.standings()
       |> Enum.each(fn e ->
-        Repo.update_all(from(p in Player, where: p.id == ^e.player.id), set: [manual_rank: e.rank])
+        Repo.update_all(from(p in Player, where: p.id == ^e.player.id),
+          set: [manual_rank: e.rank]
+        )
       end)
 
       Repo.update_all(from(t in Tournament, where: t.id == ^tournament.id),

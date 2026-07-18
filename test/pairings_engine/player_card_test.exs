@@ -7,9 +7,14 @@ defmodule PairingsEngine.PlayerCardTest do
 
   describe "result_label/2" do
     test "actual results over the board" do
-      assert PlayerCard.result_label(%{opponent_id: 2, played: true, points: 1.0}, @tournament) == "1"
-      assert PlayerCard.result_label(%{opponent_id: 2, played: true, points: 0.5}, @tournament) == "½"
-      assert PlayerCard.result_label(%{opponent_id: 2, played: true, points: 0.0}, @tournament) == "0"
+      assert PlayerCard.result_label(%{opponent_id: 2, played: true, points: 1.0}, @tournament) ==
+               "1"
+
+      assert PlayerCard.result_label(%{opponent_id: 2, played: true, points: 0.5}, @tournament) ==
+               "½"
+
+      assert PlayerCard.result_label(%{opponent_id: 2, played: true, points: 0.0}, @tournament) ==
+               "0"
     end
 
     test "forfeits (opponent existed, game unplayed, not voluntary)" do
@@ -109,7 +114,9 @@ defmodule PairingsEngine.PlayerCardTest do
         %{round: 2, opponent_id: nil, colour: nil, points: 0.5, played: false, voluntary: true}
       ]
 
-      bob_games = [%{round: 1, opponent_id: 1, colour: :b, points: 0.0, played: true, voluntary: false}]
+      bob_games = [
+        %{round: 1, opponent_id: 1, colour: :b, points: 0.0, played: true, voluntary: false}
+      ]
 
       alice = %{
         player: %{

@@ -58,7 +58,8 @@ defmodule PairingsEngine.Standings do
   # Ranking key shared by `build_standings/3` and `add_direct_encounter/2` so
   # they can never drift apart: `total` (points + extra_points) when the
   # tournament opted in to counting extra points, otherwise plain `points`.
-  defp rank_score(e, tournament), do: if(tournament.count_extra_points, do: e.total, else: e.points)
+  defp rank_score(e, tournament),
+    do: if(tournament.count_extra_points, do: e.total, else: e.points)
 
   defp build_standings(tournament, tiebreak_codes, opts) do
     players = Tournaments.list_players(tournament.id)
@@ -490,10 +491,13 @@ defmodule PairingsEngine.Standings do
 
     {head, tail} = Enum.split(games, length(games) - trailing_voluntary)
 
-    last_round = games |> List.last() |> case do
-      nil -> 0
-      g -> g.round
-    end
+    last_round =
+      games
+      |> List.last()
+      |> case do
+        nil -> 0
+        g -> g.round
+      end
 
     missing_tail = max(total_known_rounds - last_round, 0)
 

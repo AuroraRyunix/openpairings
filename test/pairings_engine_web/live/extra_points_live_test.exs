@@ -12,7 +12,10 @@ defmodule PairingsEngineWeb.ExtraPointsLiveTest do
     {:ok, tournament} =
       Tournaments.create_tournament(
         scope,
-        Map.merge(%{"name" => "Extra Points LV Test", "type" => "swiss", "rounds_count" => "5"}, attrs)
+        Map.merge(
+          %{"name" => "Extra Points LV Test", "type" => "swiss", "rounds_count" => "5"},
+          attrs
+        )
       )
 
     tournament

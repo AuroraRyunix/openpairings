@@ -31,7 +31,10 @@ defmodule PairingsEngineWeb.AuditLiveTest do
     t = make_tournament(scope)
 
     Audit.log(t.id, scope, "player.created", %{player_name: "Alice"})
-    Audit.log(t.id, scope, "tournament.settings_updated", %{changed_fields: %{"name" => ["A", "B"]}})
+
+    Audit.log(t.id, scope, "tournament.settings_updated", %{
+      changed_fields: %{"name" => ["A", "B"]}
+    })
 
     {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/audit")
 

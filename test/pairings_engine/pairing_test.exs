@@ -209,6 +209,7 @@ defmodule PairingsEngine.PairingTest do
     # scoring the pairing engine relies on wouldn't be final otherwise) —
     # fill in arbitrary decisive results for round 1's two real games.
     round1 = Repo.preload(round1, :pairings)
+
     Enum.each(round1.pairings, fn pairing ->
       if pairing.result == "" do
         {:ok, _} = Tournaments.update_pairing_result(pairing, "1-0")
@@ -230,7 +231,10 @@ defmodule PairingsEngine.PairingTest do
     # absent bye), not be silently blank/dropped.
     dave = Repo.reload(dave)
     trf = Pairing.javafo_input(tournament)
-    dave_line = Enum.find(String.split(trf, "\r\n"), &(String.starts_with?(&1, "001") and &1 =~ "Dave"))
+
+    dave_line =
+      Enum.find(String.split(trf, "\r\n"), &(String.starts_with?(&1, "001") and &1 =~ "Dave"))
+
     refute is_nil(dave_line)
 
     round1_result_col = 92 + (1 - 1) * 10 + 7
@@ -244,13 +248,14 @@ defmodule PairingsEngine.PairingTest do
     # (which is exactly what would let the same player collect a second,
     # "duplicate" bye).
     assert {:ok, round2} = Pairing.pair_next_round(tournament)
-    round2 = Repo.preload(round2, [pairings: [:white_player, :black_player]])
+    round2 = Repo.preload(round2, pairings: [:white_player, :black_player])
     assert round2.number == 2
 
     bye_pairing = Enum.find(round2.pairings, &(&1.result == "bye"))
     assert bye_pairing, "expected round 2 (5 active players) to include a pairing-allocated bye"
 
     bye_player_id = bye_pairing.white_player_id
+
     refute bye_player_id == dave.id,
            "JaVaFo re-assigned round 2's bye to Dave, who already sat out round 1 — the prior absence appears to have been lost"
   end
@@ -947,7 +952,9 @@ defmodule PairingsEngine.PairingTest do
     # Group A = 2*ceil(8/4) = 4 players: starting ranks 1-4.
     assert round1_xxa_ranks == [1, 2, 3, 4]
 
-    Enum.each(round1.pairings, fn pairing -> {:ok, _} = Tournaments.update_pairing_result(pairing, "1-0") end)
+    Enum.each(round1.pairings, fn pairing ->
+      {:ok, _} = Tournaments.update_pairing_result(pairing, "1-0")
+    end)
 
     # P3 (starting rank 3, inside Group A) is excused for round 2 only —
     # excluded from round 2's pairing pool, but must not shrink or shift
@@ -991,8 +998,14 @@ defmodule PairingsEngine.PairingTest do
         swiss_match_format: true
       })
 
-    for {name, rating} <- [{"Alice", 2000}, {"Bob", 1900}, {"Carol", 1800}, {"Dave", 1700},
-                            {"Eve", 1600}, {"Frank", 1500}] do
+    for {name, rating} <- [
+          {"Alice", 2000},
+          {"Bob", 1900},
+          {"Carol", 1800},
+          {"Dave", 1700},
+          {"Eve", 1600},
+          {"Frank", 1500}
+        ] do
       insert_player(tournament, name, fide_rating: rating)
     end
 
@@ -1089,7 +1102,9 @@ defmodule PairingsEngine.PairingTest do
     assert {:ok, _round2} = Pairing.pair_next_round(tournament)
 
     round1 = Tournaments.get_round(tournament.id, 1) |> Repo.preload(:pairings)
-    round1_pairs = round1.pairings |> Enum.map(&{&1.white_player_id, &1.black_player_id}) |> MapSet.new()
+
+    round1_pairs =
+      round1.pairings |> Enum.map(&{&1.white_player_id, &1.black_player_id}) |> MapSet.new()
 
     for number <- [1, 2] do
       round = Tournaments.get_round(tournament.id, number) |> Repo.preload(:pairings)
@@ -1173,8 +1188,14 @@ defmodule PairingsEngine.PairingTest do
         swiss_match_format: true
       })
 
-    for {name, rating} <- [{"Alice", 2000}, {"Bob", 1900}, {"Carol", 1800}, {"Dave", 1700},
-                            {"Eve", 1600}, {"Frank", 1500}] do
+    for {name, rating} <- [
+          {"Alice", 2000},
+          {"Bob", 1900},
+          {"Carol", 1800},
+          {"Dave", 1700},
+          {"Eve", 1600},
+          {"Frank", 1500}
+        ] do
       insert_player(tournament, name, fide_rating: rating)
     end
 

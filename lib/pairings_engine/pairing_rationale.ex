@@ -237,9 +237,13 @@ defmodule PairingsEngine.PairingRationale do
       end)
 
     %{
-      colour: %{w: Enum.count(real_games, &(&1.colour == :w)), b: Enum.count(real_games, &(&1.colour == :b))},
+      colour: %{
+        w: Enum.count(real_games, &(&1.colour == :w)),
+        b: Enum.count(real_games, &(&1.colour == :b))
+      },
       floats: %{up: up, down: down},
-      avg_opponent_rating: if(ratings == [], do: nil, else: round(Enum.sum(ratings) / length(ratings))),
+      avg_opponent_rating:
+        if(ratings == [], do: nil, else: round(Enum.sum(ratings) / length(ratings))),
       byes: Enum.count(e.games, &(is_nil(&1.opponent_id) and &1.round <= through_round))
     }
   end
@@ -375,7 +379,9 @@ defmodule PairingsEngine.PairingRationale do
     is_bye = pairing.black_player_id == nil or pairing.result == "bye"
 
     white_side = side(white, :w, scores, ladder, colour_hist, prior_bye_players)
-    black_side = if is_bye, do: nil, else: side(black, :b, scores, ladder, colour_hist, prior_bye_players)
+
+    black_side =
+      if is_bye, do: nil, else: side(black, :b, scores, ladder, colour_hist, prior_bye_players)
 
     floater =
       not is_bye && white_side && black_side &&
@@ -430,7 +436,9 @@ defmodule PairingsEngine.PairingRationale do
     }
   end
 
-  defp category_for(%{pair_by_category: true}, %Player{category: c}) when c not in [nil, ""], do: c
+  defp category_for(%{pair_by_category: true}, %Player{category: c}) when c not in [nil, ""],
+    do: c
+
   defp category_for(%{pair_by_category: true}, _player), do: "Uncategorized"
   defp category_for(_tournament, _player), do: nil
 
@@ -553,8 +561,7 @@ defmodule PairingsEngine.PairingRationale do
         from p in "pairings",
           join: r in Round,
           on: p.round_id == r.id,
-          where:
-            r.tournament_id == ^tournament_id and r.number <= ^through and p.result == "bye",
+          where: r.tournament_id == ^tournament_id and r.number <= ^through and p.result == "bye",
           select: p.white_player_id
       )
 

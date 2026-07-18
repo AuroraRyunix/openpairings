@@ -193,8 +193,7 @@ defmodule PairingsEngine.TrfImport do
 
       _ ->
         {:error,
-         {:parse_failed,
-          "duplicate starting rank(s) in \"001\" lines: #{Enum.join(dupes, ", ")}"}}
+         {:parse_failed, "duplicate starting rank(s) in \"001\" lines: #{Enum.join(dupes, ", ")}"}}
     end
   end
 

@@ -251,7 +251,8 @@ defmodule PairingsEngine.Norms.FormsTest do
     end
 
     test "ia1_fills/3 has the identical cell layout" do
-      assert Forms.fa1_fills(tournament(), [], @candidate) == Forms.ia1_fills(tournament(), [], @candidate)
+      assert Forms.fa1_fills(tournament(), [], @candidate) ==
+               Forms.ia1_fills(tournament(), [], @candidate)
     end
 
     test "leaves B5/B21 nil when the tournament has no federation, preserving template defaults" do
@@ -287,10 +288,16 @@ defmodule PairingsEngine.Norms.FormsTest do
   # ---------------------------------------------------------------------
 
   describe "it4_fills/2" do
-    defp entry(player, points \\ 6.0), do: %{player: player, points: points, total: points, rank: 1}
+    defp entry(player, points \\ 6.0),
+      do: %{player: player, points: points, total: points, rank: 1}
 
     test "maps the header block from the tournament and officials" do
-      t = tournament(%{officials: Map.put(tournament().officials, "pairings_web_link", "https://example.com/t/1")})
+      t =
+        tournament(%{
+          officials:
+            Map.put(tournament().officials, "pairings_web_link", "https://example.com/t/1")
+        })
+
       fills = Forms.it4_fills(t, [])["IT 4"]
 
       assert fills["A4"] == "BEL"
@@ -304,7 +311,12 @@ defmodule PairingsEngine.Norms.FormsTest do
     end
 
     test "only includes players with a non-blank claimed title, starting at row 11" do
-      candidate = player(%{name: "Norm Candidate", norm_data: %{"title_claimed" => "IM", "norm_description" => "IM norm"}})
+      candidate =
+        player(%{
+          name: "Norm Candidate",
+          norm_data: %{"title_claimed" => "IM", "norm_description" => "IM norm"}
+        })
+
       bystander = player(%{name: "Not A Candidate"})
 
       fills = Forms.it4_fills(tournament(), [entry(bystander), entry(candidate, 7.0)])["IT 4"]

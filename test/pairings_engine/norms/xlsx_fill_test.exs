@@ -14,7 +14,9 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
   # ---------------------------------------------------------------------
 
   defp unzip_map(binary) do
-    tmp = Path.join(System.tmp_dir!(), "xlsx_fill_test_#{System.unique_integer([:positive])}.xlsx")
+    tmp =
+      Path.join(System.tmp_dir!(), "xlsx_fill_test_#{System.unique_integer([:positive])}.xlsx")
+
     File.write!(tmp, binary)
 
     {:ok, entries} = :zip.unzip(String.to_charlist(tmp), [:memory])
@@ -50,8 +52,11 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
     charlist = :erlang.binary_to_list(binary)
 
     case :xmerl_scan.string(charlist, quiet: true) do
-      {_parsed, _rest} -> :ok
-      other -> flunk("#{name}: xmerl_scan did not return a parsed document, got: #{inspect(other)}")
+      {_parsed, _rest} ->
+        :ok
+
+      other ->
+        flunk("#{name}: xmerl_scan did not return a parsed document, got: #{inspect(other)}")
     end
   rescue
     e -> flunk("#{name}: not well-formed XML (#{Exception.message(e)})")
@@ -133,9 +138,15 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
 
       Enum.each(template_members, fn {name, bin} ->
         cond do
-          name == "xl/calcChain.xml" -> :ok
-          MapSet.member?(changed, name) -> :ok
-          true -> assert bin == Map.fetch!(filled_members, name), "expected #{name} to be byte-identical"
+          name == "xl/calcChain.xml" ->
+            :ok
+
+          MapSet.member?(changed, name) ->
+            :ok
+
+          true ->
+            assert bin == Map.fetch!(filled_members, name),
+                   "expected #{name} to be byte-identical"
         end
       end)
     end
@@ -254,6 +265,7 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
 
       assert sheet_xml =~
                ~r/<c r="B1"[^>]*t="inlineStr"><is><t xml:space="preserve">Doe<\/t><\/is><\/c>/
+
       assert sheet_xml =~ ~r/<c r="B3"[^>]*><v>123456<\/v><\/c>/
     end
   end
@@ -280,8 +292,10 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
 
       assert sheet_xml =~
                ~r/<c r="A4"[^>]*t="inlineStr"><is><t xml:space="preserve">BEL<\/t><\/is><\/c>/
+
       assert sheet_xml =~
                ~r/<c r="C11" s="87" t="inlineStr"><is><t xml:space="preserve">Player One<\/t><\/is><\/c>/
+
       assert sheet_xml =~ ~r/<c r="N11" s="86"><v>2450<\/v><\/c>/
 
       # sibling cells in row 11 (e.g. D11, O11) must be untouched
@@ -598,8 +612,15 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
       assert {:ok, binary} = XlsxFill.fill(@it3, fills)
       members = unzip_map(binary)
 
-      assert_ascending_column_order_per_row!("sheet1.xml (Certificaat)", Map.fetch!(members, "xl/worksheets/sheet1.xml"))
-      assert_ascending_column_order_per_row!("sheet2.xml (Invulformulier)", Map.fetch!(members, "xl/worksheets/sheet2.xml"))
+      assert_ascending_column_order_per_row!(
+        "sheet1.xml (Certificaat)",
+        Map.fetch!(members, "xl/worksheets/sheet1.xml")
+      )
+
+      assert_ascending_column_order_per_row!(
+        "sheet2.xml (Invulformulier)",
+        Map.fetch!(members, "xl/worksheets/sheet2.xml")
+      )
 
       refute Map.has_key?(members, "xl/calcChain.xml")
       refute Map.fetch!(members, "[Content_Types].xml") =~ "calcChain"

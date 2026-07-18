@@ -12,6 +12,7 @@ import Config
 # and does not overwrite variables already set in the actual process environment
 # (e.g. systemd Environment= lines on a production server).
 env_file = Path.join(File.cwd!(), ".env")
+
 if File.exists?(env_file) do
   env_file
   |> File.stream!()
@@ -24,6 +25,7 @@ if File.exists?(env_file) do
         unless System.get_env(key) do
           System.put_env(key, value)
         end
+
       _ ->
         :ok
     end

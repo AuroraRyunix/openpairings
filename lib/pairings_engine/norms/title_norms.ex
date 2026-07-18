@@ -66,8 +66,18 @@ defmodule PairingsEngine.Norms.TitleNorms do
   @requirements %{
     "GM" => %{min_avg: 2380, min_perf: 2600, floor: 2200, counts_as_titled_or_higher: ~w(GM)},
     "IM" => %{min_avg: 2230, min_perf: 2450, floor: 2050, counts_as_titled_or_higher: ~w(IM GM)},
-    "WGM" => %{min_avg: 2180, min_perf: 2400, floor: 2000, counts_as_titled_or_higher: ~w(WGM IM GM)},
-    "WIM" => %{min_avg: 2030, min_perf: 2250, floor: 1850, counts_as_titled_or_higher: ~w(WIM WGM IM GM)}
+    "WGM" => %{
+      min_avg: 2180,
+      min_perf: 2400,
+      floor: 2000,
+      counts_as_titled_or_higher: ~w(WGM IM GM)
+    },
+    "WIM" => %{
+      min_avg: 2030,
+      min_perf: 2250,
+      floor: 1850,
+      counts_as_titled_or_higher: ~w(WIM WGM IM GM)
+    }
   }
 
   # B.01 art. 1.4.6.4.
@@ -77,24 +87,107 @@ defmodule PairingsEngine.Norms.TitleNorms do
   # transcribed verbatim from the handbook (verified complete + perfectly
   # antisymmetric: dp(p) == -dp(100 - p), which the test suite asserts).
   @dp_by_percent %{
-    100 => 800, 99 => 677, 98 => 589, 97 => 538, 96 => 501, 95 => 470,
-    94 => 444, 93 => 422, 92 => 401, 91 => 383, 90 => 366, 89 => 351,
-    88 => 336, 87 => 322, 86 => 309, 85 => 296, 84 => 284, 83 => 273,
-    82 => 262, 81 => 251, 80 => 240, 79 => 230, 78 => 220, 77 => 211,
-    76 => 202, 75 => 193, 74 => 184, 73 => 175, 72 => 166, 71 => 158,
-    70 => 149, 69 => 141, 68 => 133, 67 => 125, 66 => 117, 65 => 110,
-    64 => 102, 63 => 95, 62 => 87, 61 => 80, 60 => 72, 59 => 65,
-    58 => 57, 57 => 50, 56 => 43, 55 => 36, 54 => 29, 53 => 21,
-    52 => 14, 51 => 7, 50 => 0, 49 => -7, 48 => -14, 47 => -21,
-    46 => -29, 45 => -36, 44 => -43, 43 => -50, 42 => -57, 41 => -65,
-    40 => -72, 39 => -80, 38 => -87, 37 => -95, 36 => -102, 35 => -110,
-    34 => -117, 33 => -125, 32 => -133, 31 => -141, 30 => -149,
-    29 => -158, 28 => -166, 27 => -175, 26 => -184, 25 => -193,
-    24 => -202, 23 => -211, 22 => -220, 21 => -230, 20 => -240,
-    19 => -251, 18 => -262, 17 => -273, 16 => -284, 15 => -296,
-    14 => -309, 13 => -322, 12 => -336, 11 => -351, 10 => -366,
-    9 => -383, 8 => -401, 7 => -422, 6 => -444, 5 => -470, 4 => -501,
-    3 => -538, 2 => -589, 1 => -677, 0 => -800
+    100 => 800,
+    99 => 677,
+    98 => 589,
+    97 => 538,
+    96 => 501,
+    95 => 470,
+    94 => 444,
+    93 => 422,
+    92 => 401,
+    91 => 383,
+    90 => 366,
+    89 => 351,
+    88 => 336,
+    87 => 322,
+    86 => 309,
+    85 => 296,
+    84 => 284,
+    83 => 273,
+    82 => 262,
+    81 => 251,
+    80 => 240,
+    79 => 230,
+    78 => 220,
+    77 => 211,
+    76 => 202,
+    75 => 193,
+    74 => 184,
+    73 => 175,
+    72 => 166,
+    71 => 158,
+    70 => 149,
+    69 => 141,
+    68 => 133,
+    67 => 125,
+    66 => 117,
+    65 => 110,
+    64 => 102,
+    63 => 95,
+    62 => 87,
+    61 => 80,
+    60 => 72,
+    59 => 65,
+    58 => 57,
+    57 => 50,
+    56 => 43,
+    55 => 36,
+    54 => 29,
+    53 => 21,
+    52 => 14,
+    51 => 7,
+    50 => 0,
+    49 => -7,
+    48 => -14,
+    47 => -21,
+    46 => -29,
+    45 => -36,
+    44 => -43,
+    43 => -50,
+    42 => -57,
+    41 => -65,
+    40 => -72,
+    39 => -80,
+    38 => -87,
+    37 => -95,
+    36 => -102,
+    35 => -110,
+    34 => -117,
+    33 => -125,
+    32 => -133,
+    31 => -141,
+    30 => -149,
+    29 => -158,
+    28 => -166,
+    27 => -175,
+    26 => -184,
+    25 => -193,
+    24 => -202,
+    23 => -211,
+    22 => -220,
+    21 => -230,
+    20 => -240,
+    19 => -251,
+    18 => -262,
+    17 => -273,
+    16 => -284,
+    15 => -296,
+    14 => -309,
+    13 => -322,
+    12 => -336,
+    11 => -351,
+    10 => -366,
+    9 => -383,
+    8 => -401,
+    7 => -422,
+    6 => -444,
+    5 => -470,
+    4 => -501,
+    3 => -538,
+    2 => -589,
+    1 => -677,
+    0 => -800
   }
 
   @doc false
@@ -116,7 +209,9 @@ defmodule PairingsEngine.Norms.TitleNorms do
 
     Map.new(entries, fn entry ->
       games = counted_games(entry, by_id)
-      verdicts = Enum.map(titles_for(entry.player), &evaluate_norm(&1, entry.player, games, tournament))
+
+      verdicts =
+        Enum.map(titles_for(entry.player), &evaluate_norm(&1, entry.player, games, tournament))
 
       best = Enum.find(verdicts, & &1.achieved?)
 
@@ -184,12 +279,26 @@ defmodule PairingsEngine.Norms.TitleNorms do
     opp_feds = Enum.map(opponents, &normalize_fed(&1.federation))
     foreign_feds = opp_feds |> Enum.reject(&(&1 in [nil, own_fed])) |> Enum.uniq() |> length()
     own_fed_count = Enum.count(opp_feds, &(&1 != nil and &1 == own_fed))
-    max_one_fed = opp_feds |> Enum.reject(&is_nil/1) |> Enum.frequencies() |> Map.values() |> Enum.max(fn -> 0 end)
+
+    max_one_fed =
+      opp_feds
+      |> Enum.reject(&is_nil/1)
+      |> Enum.frequencies()
+      |> Map.values()
+      |> Enum.max(fn -> 0 end)
 
     checks =
       [
-        check(:games, n >= 9, "#{n} counted game#{plural(n)} (need 9; forfeits and byes never count)"),
-        check(:score, n > 0 and score_pct >= 35, "score #{fmt_half(score)}/#{n} = #{score_pct}% (need 35%)"),
+        check(
+          :games,
+          n >= 9,
+          "#{n} counted game#{plural(n)} (need 9; forfeits and byes never count)"
+        ),
+        check(
+          :score,
+          n > 0 and score_pct >= 35,
+          "score #{fmt_half(score)}/#{n} = #{score_pct}% (need 35%)"
+        ),
         check(
           :titled_opponents,
           n > 0 and titled * 2 >= n,

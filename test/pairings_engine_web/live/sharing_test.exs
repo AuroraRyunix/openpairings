@@ -22,7 +22,11 @@ defmodule PairingsEngineWeb.SharingTest do
 
   defp fixture(scope) do
     {:ok, tournament} =
-      Tournaments.create_tournament(scope, %{"name" => "Shared Tournament", "type" => "swiss", "rounds_count" => "3"})
+      Tournaments.create_tournament(scope, %{
+        "name" => "Shared Tournament",
+        "type" => "swiss",
+        "rounds_count" => "3"
+      })
 
     white = Repo.insert!(%Player{tournament_id: tournament.id, name: "White"})
     black = Repo.insert!(%Player{tournament_id: tournament.id, name: "Black"})
@@ -110,7 +114,9 @@ defmodule PairingsEngineWeb.SharingTest do
              |> Map.get(:result) == "1-0"
     end
 
-    test "the Share/Team card on Settings is owner-only — a collaborator doesn't see it", %{scope: scope} do
+    test "the Share/Team card on Settings is owner-only — a collaborator doesn't see it", %{
+      scope: scope
+    } do
       %{tournament: tournament} = fixture(scope)
       %{conn: collaborator_conn} = collaborator_conn(tournament, scope)
 
@@ -126,10 +132,15 @@ defmodule PairingsEngineWeb.SharingTest do
       collaborator_scope = Accounts.Scope.for_user(collaborator_user)
 
       assert {:error, :not_owner} =
-               Tournaments.add_collaborator(collaborator_scope, tournament, "someone-else@example.com")
+               Tournaments.add_collaborator(
+                 collaborator_scope,
+                 tournament,
+                 "someone-else@example.com"
+               )
     end
 
-    test "a collaborator cannot delete the tournament — get_user_tournament!/2 stays owner-only", %{scope: scope} do
+    test "a collaborator cannot delete the tournament — get_user_tournament!/2 stays owner-only",
+         %{scope: scope} do
       %{tournament: tournament} = fixture(scope)
       %{user: collaborator_user} = collaborator_conn(tournament, scope)
       collaborator_scope = Accounts.Scope.for_user(collaborator_user)
@@ -146,11 +157,15 @@ defmodule PairingsEngineWeb.SharingTest do
       stranger_conn = Phoenix.ConnTest.build_conn() |> log_in_user(stranger)
 
       for page <- @shared_pages do
-        assert_raise Ecto.NoResultsError, fn -> live(stranger_conn, "/t/#{tournament.id}/#{page}") end
+        assert_raise Ecto.NoResultsError, fn ->
+          live(stranger_conn, "/t/#{tournament.id}/#{page}")
+        end
       end
     end
 
-    test "a pending (not-yet-accepted) invite grants no access at all — every page 404s", %{scope: scope} do
+    test "a pending (not-yet-accepted) invite grants no access at all — every page 404s", %{
+      scope: scope
+    } do
       %{tournament: tournament} = fixture(scope)
 
       invited_user = lightweight_user()
@@ -158,7 +173,9 @@ defmodule PairingsEngineWeb.SharingTest do
       invited_conn = Phoenix.ConnTest.build_conn() |> log_in_user(invited_user)
 
       for page <- @shared_pages do
-        assert_raise Ecto.NoResultsError, fn -> live(invited_conn, "/t/#{tournament.id}/#{page}") end
+        assert_raise Ecto.NoResultsError, fn ->
+          live(invited_conn, "/t/#{tournament.id}/#{page}")
+        end
       end
 
       refute Enum.any?(
@@ -210,7 +227,9 @@ defmodule PairingsEngineWeb.SharingTest do
       # Now they explicitly accept — via the /invites/:token page in real
       # usage (see invite_live_test.exs), via the context here.
       [collaborator] = Tournaments.list_collaborators(tournament)
-      assert {:ok, _accepted} = Tournaments.accept_invitation(new_scope, collaborator.invite_token)
+
+      assert {:ok, _accepted} =
+               Tournaments.accept_invitation(new_scope, collaborator.invite_token)
 
       assert {tournament.id, false} in Enum.map(
                Tournaments.list_tournaments(new_scope),
@@ -226,7 +245,9 @@ defmodule PairingsEngineWeb.SharingTest do
   end
 
   describe "Tournaments list shows a shared badge and hides Delete for shared tournaments" do
-    test "the tournaments list marks a shared tournament and doesn't offer Delete for it", %{scope: scope} do
+    test "the tournaments list marks a shared tournament and doesn't offer Delete for it", %{
+      scope: scope
+    } do
       %{tournament: tournament} = fixture(scope)
       %{conn: collaborator_conn} = collaborator_conn(tournament, scope)
 
@@ -238,10 +259,11 @@ defmodule PairingsEngineWeb.SharingTest do
   end
 
   describe "the Settings Share/Team card shows invited vs active status" do
-    test "a pending invite shows 'invited (waiting for accept)' and an accepted one shows 'active'", %{
-      conn: conn,
-      scope: scope
-    } do
+    test "a pending invite shows 'invited (waiting for accept)' and an accepted one shows 'active'",
+         %{
+           conn: conn,
+           scope: scope
+         } do
       %{tournament: tournament} = fixture(scope)
       invited_user = lightweight_user()
       {:ok, invite} = Tournaments.add_collaborator(scope, tournament, invited_user.email)
@@ -249,14 +271,21 @@ defmodule PairingsEngineWeb.SharingTest do
       {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
       assert html =~ "invited (waiting for accept)"
 
-      assert {:ok, _} = Tournaments.accept_invitation(Accounts.Scope.for_user(invited_user), invite.invite_token)
+      assert {:ok, _} =
+               Tournaments.accept_invitation(
+                 Accounts.Scope.for_user(invited_user),
+                 invite.invite_token
+               )
 
       html = render(lv)
       assert html =~ "active"
       refute html =~ "invited (waiting for accept)"
     end
 
-    test "the owner can remove a still-pending invite from the Share/Team card", %{conn: conn, scope: scope} do
+    test "the owner can remove a still-pending invite from the Share/Team card", %{
+      conn: conn,
+      scope: scope
+    } do
       %{tournament: tournament} = fixture(scope)
       {:ok, invite} = Tournaments.add_collaborator(scope, tournament, "friend@example.com")
 
@@ -275,7 +304,8 @@ defmodule PairingsEngineWeb.SharingTest do
   end
 
   describe "the Tournaments page's Pending invitations section" do
-    test "shows a pending invite with the inviter's email and accepting from there grants access", %{scope: scope} do
+    test "shows a pending invite with the inviter's email and accepting from there grants access",
+         %{scope: scope} do
       %{tournament: tournament} = fixture(scope)
       invited_user = lightweight_user()
       {:ok, invite} = Tournaments.add_collaborator(scope, tournament, invited_user.email)
@@ -289,14 +319,18 @@ defmodule PairingsEngineWeb.SharingTest do
       assert html =~ scope.user.email
 
       {:error, {:live_redirect, %{to: to}}} =
-        lv |> element(~s(button[phx-value-token="#{invite.invite_token}"]), "Accept") |> render_click()
+        lv
+        |> element(~s(button[phx-value-token="#{invite.invite_token}"]), "Accept")
+        |> render_click()
 
       assert to == ~p"/t/#{tournament.id}/players"
 
       assert %{status: "accepted"} = hd(Tournaments.list_collaborators(tournament))
     end
 
-    test "declining from the Tournaments page removes the invite and it no longer shows", %{scope: scope} do
+    test "declining from the Tournaments page removes the invite and it no longer shows", %{
+      scope: scope
+    } do
       %{tournament: tournament} = fixture(scope)
       invited_user = lightweight_user()
       {:ok, invite} = Tournaments.add_collaborator(scope, tournament, invited_user.email)

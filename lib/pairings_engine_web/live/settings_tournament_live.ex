@@ -107,12 +107,18 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
   @impl true
   def handle_event("tb_up", %{"index" => index}, socket) do
     {:noreply,
-     assign(socket, tiebreaks: swap(socket.assigns.tiebreaks, String.to_integer(index), -1), note: nil)}
+     assign(socket,
+       tiebreaks: swap(socket.assigns.tiebreaks, String.to_integer(index), -1),
+       note: nil
+     )}
   end
 
   def handle_event("tb_down", %{"index" => index}, socket) do
     {:noreply,
-     assign(socket, tiebreaks: swap(socket.assigns.tiebreaks, String.to_integer(index), 1), note: nil)}
+     assign(socket,
+       tiebreaks: swap(socket.assigns.tiebreaks, String.to_integer(index), 1),
+       note: nil
+     )}
   end
 
   def handle_event("tb_remove", %{"code" => code}, socket) do
@@ -198,11 +204,17 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
 
       {:error, :cannot_add_owner} ->
         {:noreply,
-         assign(socket, collaborator_error: "You already own this tournament", collaborator_note: nil)}
+         assign(socket,
+           collaborator_error: "You already own this tournament",
+           collaborator_note: nil
+         )}
 
       {:error, :already_added} ->
         {:noreply,
-         assign(socket, collaborator_error: "That email already has access", collaborator_note: nil)}
+         assign(socket,
+           collaborator_error: "That email already has access",
+           collaborator_note: nil
+         )}
 
       {:error, :not_owner} ->
         {:noreply,
@@ -212,7 +224,8 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
          )}
 
       {:error, changeset} ->
-        {:noreply, assign(socket, collaborator_error: error_text(changeset), collaborator_note: nil)}
+        {:noreply,
+         assign(socket, collaborator_error: error_text(changeset), collaborator_note: nil)}
     end
   end
 
@@ -327,7 +340,12 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} tournament={@tournament} active="settings">
+    <Layouts.app
+      flash={@flash}
+      current_scope={@current_scope}
+      tournament={@tournament}
+      active="settings"
+    >
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
@@ -523,7 +541,11 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                   </span>
                 </td>
                 <td style="text-align: right">
-                  <button class="pe-btn danger-link" phx-click="remove_collaborator" phx-value-id={c.id}>
+                  <button
+                    class="pe-btn danger-link"
+                    phx-click="remove_collaborator"
+                    phx-value-id={c.id}
+                  >
                     Remove
                   </button>
                 </td>

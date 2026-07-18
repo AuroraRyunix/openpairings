@@ -30,9 +30,25 @@ defmodule PairingsEngine.Fide.Sync do
 
   # Header labels in file order — "ID Number" is one column despite the space.
   @header_labels [
-    "ID Number", "Name", "Fed", "Sex", "Tit", "WTit", "OTit", "FOA",
-    "SRtng", "SGm", "SK", "RRtng", "RGm", "Rk", "BRtng", "BGm", "BK",
-    "B-day", "Flag"
+    "ID Number",
+    "Name",
+    "Fed",
+    "Sex",
+    "Tit",
+    "WTit",
+    "OTit",
+    "FOA",
+    "SRtng",
+    "SGm",
+    "SK",
+    "RRtng",
+    "RGm",
+    "Rk",
+    "BRtng",
+    "BGm",
+    "BK",
+    "B-day",
+    "Flag"
   ]
 
   @field_labels %{
@@ -50,9 +66,16 @@ defmodule PairingsEngine.Fide.Sync do
 
   @numeric ~w(fide_id standard_rating rapid_rating blitz_rating birth_year)a
 
-  defstruct status: :idle, progress: "", error: nil,
-            loaded_bytes: 0, total_bytes: 0, imported_rows: 0, total_rows: 0,
-            task_pid: nil, task_ref: nil, watchdog_timer: nil
+  defstruct status: :idle,
+            progress: "",
+            error: nil,
+            loaded_bytes: 0,
+            total_bytes: 0,
+            imported_rows: 0,
+            total_rows: 0,
+            task_pid: nil,
+            task_ref: nil,
+            watchdog_timer: nil
 
   ## API
 
@@ -121,10 +144,11 @@ defmodule PairingsEngine.Fide.Sync do
     if new_state.status in [:done, :error] do
       {:noreply, broadcast(%{new_state | task_pid: nil, task_ref: nil, watchdog_timer: nil})}
     else
-      merged = %{new_state |
-        task_pid: state.task_pid,
-        task_ref: state.task_ref,
-        watchdog_timer: schedule_watchdog()
+      merged = %{
+        new_state
+        | task_pid: state.task_pid,
+          task_ref: state.task_ref,
+          watchdog_timer: schedule_watchdog()
       }
 
       {:noreply, broadcast(merged)}
@@ -159,7 +183,8 @@ defmodule PairingsEngine.Fide.Sync do
 
     new_state = %__MODULE__{
       status: :error,
-      error: "Sync stalled with no progress — the FIDE server may be slow or unreachable. Please try again."
+      error:
+        "Sync stalled with no progress — the FIDE server may be slow or unreachable. Please try again."
     }
 
     {:noreply, broadcast(new_state)}
@@ -211,7 +236,9 @@ defmodule PairingsEngine.Fide.Sync do
 
   defp describe_error(%Req.TransportError{reason: :timeout}), do: "connection timed out"
   defp describe_error(%Req.TransportError{reason: :closed}), do: "connection closed unexpectedly"
-  defp describe_error(%Req.TransportError{reason: reason}), do: "network error (#{inspect(reason)})"
+
+  defp describe_error(%Req.TransportError{reason: reason}),
+    do: "network error (#{inspect(reason)})"
 
   defp retryable_error?(%Req.TransportError{}), do: true
   defp retryable_error?(_), do: false
@@ -236,11 +263,12 @@ defmodule PairingsEngine.Fide.Sync do
         mb = Float.round(loaded / 1_048_576, 1)
         total_mb = if total > 0, do: " of #{Float.round(total / 1_048_576, 1)}", else: ""
 
-        update(server, %{state |
-          status: :downloading,
-          loaded_bytes: loaded,
-          total_bytes: total,
-          progress: "Downloading rating list… #{mb}#{total_mb} MB"
+        update(server, %{
+          state
+          | status: :downloading,
+            loaded_bytes: loaded,
+            total_bytes: total,
+            progress: "Downloading rating list… #{mb}#{total_mb} MB"
         })
       end
 
@@ -275,11 +303,12 @@ defmodule PairingsEngine.Fide.Sync do
         if attempt < @max_download_attempts and retryable_error?(reason) do
           wait_ms = attempt * 3_000
 
-          update(server, %{state |
-            status: :downloading,
-            progress:
-              "Download interrupted (#{describe_error(reason)}) — retrying " <>
-                "(attempt #{attempt + 1}/#{@max_download_attempts})…"
+          update(server, %{
+            state
+            | status: :downloading,
+              progress:
+                "Download interrupted (#{describe_error(reason)}) — retrying " <>
+                  "(attempt #{attempt + 1}/#{@max_download_attempts})…"
           })
 
           Process.sleep(wait_ms)
@@ -363,9 +392,10 @@ defmodule PairingsEngine.Fide.Sync do
             imported = acc + length(chunk)
 
             if rem(i, 25) == 0 do
-              update(server, %{state |
-                imported_rows: imported,
-                progress: "Importing players… #{format_int(imported)} of ~#{format_int(total)}"
+              update(server, %{
+                state
+                | imported_rows: imported,
+                  progress: "Importing players… #{format_int(imported)} of ~#{format_int(total)}"
               })
             end
 
@@ -452,5 +482,6 @@ defmodule PairingsEngine.Fide.Sync do
     end
   end
 
-  defp format_int(n), do: n |> Integer.to_string() |> String.replace(~r/\B(?=(\d{3})+(?!\d))/, ".")
+  defp format_int(n),
+    do: n |> Integer.to_string() |> String.replace(~r/\B(?=(\d{3})+(?!\d))/, ".")
 end

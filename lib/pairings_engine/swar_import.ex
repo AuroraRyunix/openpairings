@@ -680,7 +680,12 @@ defmodule PairingsEngine.SwarImport do
   # what the FIDE database currently has on file.
   defp resolve_fide_match(%{mat_fide: 0} = p, cache) do
     candidates = fide_candidates(p, cache)
-    exact = Enum.filter(candidates, &(&1.birth_year == birth_year(p.birth) and not is_nil(&1.birth_year)))
+
+    exact =
+      Enum.filter(
+        candidates,
+        &(&1.birth_year == birth_year(p.birth) and not is_nil(&1.birth_year))
+      )
 
     case exact do
       [one] -> {:matched, Map.put(p, :fide_match, one) |> Map.put(:mat_fide, one.fide_id)}
@@ -861,7 +866,17 @@ defmodule PairingsEngine.SwarImport do
   defp prebye_set?(%{sw321_prebye: prebye}) when is_number(prebye) and prebye != 0, do: true
   defp prebye_set?(_t), do: false
 
-  @tournament_types %{0 => "swiss", 1 => "swiss", 2 => "swiss", 3 => "swiss", 4 => "roundrobin", 5 => "roundrobin", 6 => "roundrobin", 7 => "swiss", 8 => "swiss"}
+  @tournament_types %{
+    0 => "swiss",
+    1 => "swiss",
+    2 => "swiss",
+    3 => "swiss",
+    4 => "roundrobin",
+    5 => "roundrobin",
+    6 => "roundrobin",
+    7 => "swiss",
+    8 => "swiss"
+  }
   defp map_tournament_type(type), do: Map.get(@tournament_types, type, "swiss")
 
   # SWAR's [TOURNOI] `federation` field is *which Belgian federation entity*
@@ -872,7 +887,15 @@ defmodule PairingsEngine.SwarImport do
   # reporting is concerned — `normalize_federation/1` collapses them to the
   # single FIDE country code "BEL" that TRF export and the tournament's own
   # `federation` field are supposed to carry (see docs/swar-import.md).
-  @federations %{0 => "", 1 => "FRBE", 2 => "KBSB", 3 => "FEFB", 4 => "VSF", 5 => "SVDB", 6 => "FIDE"}
+  @federations %{
+    0 => "",
+    1 => "FRBE",
+    2 => "KBSB",
+    3 => "FEFB",
+    4 => "VSF",
+    5 => "SVDB",
+    6 => "FIDE"
+  }
   defp map_federation(code), do: Map.get(@federations, code, "") |> normalize_federation()
 
   # Regional/organizational markers that all mean "Belgium" for FIDE-reporting

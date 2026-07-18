@@ -33,7 +33,9 @@ defmodule PairingsEngineWeb.PairingsLive do
     # no harm clearing it eagerly since every mutating event already
     # refreshes the round data itself.
     socket =
-      attach_hook(socket, :remote_notice_clear_on_click, :handle_event, fn _event, _params, socket ->
+      attach_hook(socket, :remote_notice_clear_on_click, :handle_event, fn _event,
+                                                                           _params,
+                                                                           socket ->
         {:cont, assign(socket, remote_notice: false)}
       end)
 
@@ -429,7 +431,11 @@ defmodule PairingsEngineWeb.PairingsLive do
       <div class="round-picker">
         <button
           :for={n <- 1..@tournament.rounds_count}
-          class={["pe-btn", match_format?(@tournament) && "filter-picker", n == @round_number && "active"]}
+          class={[
+            "pe-btn",
+            match_format?(@tournament) && "filter-picker",
+            n == @round_number && "active"
+          ]}
           phx-click="select_round"
           phx-value-number={n}
         >
@@ -437,9 +443,18 @@ defmodule PairingsEngineWeb.PairingsLive do
         </button>
       </div>
 
-      <div :if={@remote_notice} class="card" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 12px 0; padding: 8px 12px; border-left: 3px solid var(--accent)">
+      <div
+        :if={@remote_notice}
+        class="card"
+        style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 12px 0; padding: 8px 12px; border-left: 3px solid var(--accent)"
+      >
         <span>Round {@round_number} was just updated by another arbiter — refreshed.</span>
-        <button type="button" class="pe-btn" style="padding: 2px 8px" phx-click="dismiss_remote_notice">
+        <button
+          type="button"
+          class="pe-btn"
+          style="padding: 2px 8px"
+          phx-click="dismiss_remote_notice"
+        >
           Dismiss
         </button>
       </div>
@@ -482,7 +497,12 @@ defmodule PairingsEngineWeb.PairingsLive do
             Pair round {@round_number} (JaVaFo)
           </button>
 
-          <div :if={@round != nil} class="print-menu-wrap" phx-hook=".PrintMenu" id={"print-pairings-menu-#{@round_number}"}>
+          <div
+            :if={@round != nil}
+            class="print-menu-wrap"
+            phx-hook=".PrintMenu"
+            id={"print-pairings-menu-#{@round_number}"}
+          >
             <a
               class="pe-btn"
               href={~p"/t/#{@tournament.id}/print/pairings?round=#{@round_number}"}
@@ -512,7 +532,12 @@ defmodule PairingsEngineWeb.PairingsLive do
             Print standings
           </a>
 
-          <div :if={@round != nil} class="print-menu-wrap" phx-hook=".PrintMenu" id={"print-results-menu-#{@round_number}"}>
+          <div
+            :if={@round != nil}
+            class="print-menu-wrap"
+            phx-hook=".PrintMenu"
+            id={"print-results-menu-#{@round_number}"}
+          >
             <a
               class="pe-btn"
               href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}"}
@@ -714,7 +739,10 @@ defmodule PairingsEngineWeb.PairingsLive do
 
               <td style="text-align: center">
                 <span class="badge">
-                  {bye_type_label(bye.type)} ({PairingsEngine.Standings.bye_points(bye.type, @tournament)} pt)
+                  {bye_type_label(bye.type)} ({PairingsEngine.Standings.bye_points(
+                    bye.type,
+                    @tournament
+                  )} pt)
                 </span>
               </td>
             </tr>

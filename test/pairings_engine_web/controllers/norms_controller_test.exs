@@ -50,12 +50,20 @@ defmodule PairingsEngineWeb.NormsControllerTest do
   end
 
   describe "GET /t/:id/norms/fa1 and /ia1" do
-    test "returns the filled FA1 workbook with the candidate's name in the query", %{conn: conn, scope: scope} do
+    test "returns the filled FA1 workbook with the candidate's name in the query", %{
+      conn: conn,
+      scope: scope
+    } do
       tournament = tournament_fixture(scope)
 
       conn =
         get(conn, ~p"/t/#{tournament.id}/norms/fa1", %{
-          "candidate" => %{"last_name" => "Smith", "first_name" => "Alice", "fide_id" => "123", "federation" => "NED"}
+          "candidate" => %{
+            "last_name" => "Smith",
+            "first_name" => "Alice",
+            "fide_id" => "123",
+            "federation" => "NED"
+          }
         })
 
       assert conn.status == 200
@@ -74,7 +82,10 @@ defmodule PairingsEngineWeb.NormsControllerTest do
   end
 
   describe "GET /t/:id/norms/it4" do
-    test "returns the filled IT4 workbook even with no norm candidates", %{conn: conn, scope: scope} do
+    test "returns the filled IT4 workbook even with no norm candidates", %{
+      conn: conn,
+      scope: scope
+    } do
       tournament = tournament_fixture(scope)
 
       conn = get(conn, ~p"/t/#{tournament.id}/norms/it4")
@@ -87,7 +98,12 @@ defmodule PairingsEngineWeb.NormsControllerTest do
 
   describe "combined reports (festival) — combine=/master= query params" do
     defp unzip_map(binary) do
-      tmp = Path.join(System.tmp_dir!(), "norms_controller_test_#{System.unique_integer([:positive])}.xlsx")
+      tmp =
+        Path.join(
+          System.tmp_dir!(),
+          "norms_controller_test_#{System.unique_integer([:positive])}.xlsx"
+        )
+
       File.write!(tmp, binary)
       {:ok, entries} = :zip.unzip(String.to_charlist(tmp), [:memory])
       File.rm(tmp)
@@ -116,14 +132,31 @@ defmodule PairingsEngineWeb.NormsControllerTest do
           "round_dates" => ["2026-09-01", "2026-09-02", "2026-09-02"]
         })
 
-      youth = create_tournament(scope, %{"name" => "Ghent Festival — Youth", "federation" => "BEL"})
+      youth =
+        create_tournament(scope, %{"name" => "Ghent Festival — Youth", "federation" => "BEL"})
 
-      {:ok, _} = Tournaments.create_player(open.id, %{"name" => "Alpha, One", "fide_rating" => "2100", "federation" => "BEL"})
-      {:ok, _} = Tournaments.create_player(open.id, %{"name" => "Bravo, Two", "fide_rating" => "2000", "federation" => "NED"})
-      {:ok, _} = Tournaments.create_player(youth.id, %{"name" => "Charlie, Three", "federation" => "GER"})
+      {:ok, _} =
+        Tournaments.create_player(open.id, %{
+          "name" => "Alpha, One",
+          "fide_rating" => "2100",
+          "federation" => "BEL"
+        })
+
+      {:ok, _} =
+        Tournaments.create_player(open.id, %{
+          "name" => "Bravo, Two",
+          "fide_rating" => "2000",
+          "federation" => "NED"
+        })
+
+      {:ok, _} =
+        Tournaments.create_player(youth.id, %{"name" => "Charlie, Three", "federation" => "GER"})
 
       conn =
-        get(conn, ~p"/t/#{open.id}/norms/it3", %{"combine" => "#{open.id},#{youth.id}", "master" => "#{open.id}"})
+        get(conn, ~p"/t/#{open.id}/norms/it3", %{
+          "combine" => "#{open.id},#{youth.id}",
+          "master" => "#{open.id}"
+        })
 
       assert conn.status == 200
       assert [disposition] = get_resp_header(conn, "content-disposition")
@@ -138,7 +171,8 @@ defmodule PairingsEngineWeb.NormsControllerTest do
 
       # Schedule (B12) comes from the master's (open's) round_dates: two
       # distinct days, the second a double round -> "1-2".
-      assert sheet_xml =~ ~r/<c r="B12"[^>]*t="inlineStr"><is><t xml:space="preserve">1-2<\/t><\/is><\/c>/
+      assert sheet_xml =~
+               ~r/<c r="B12"[^>]*t="inlineStr"><is><t xml:space="preserve">1-2<\/t><\/is><\/c>/
 
       # Rated total across both tournaments: Alpha + Bravo = 2 (B27);
       # distinct federations BEL+NED = 2 (B28); host (BEL) = Alpha only = 1 (B29).
@@ -147,7 +181,10 @@ defmodule PairingsEngineWeb.NormsControllerTest do
       assert sheet_xml =~ ~r/<c r="B29"[^>]*><v>1<\/v><\/c>/
     end
 
-    test "master=<id> not the route id still drives the schedule/name", %{conn: conn, scope: scope} do
+    test "master=<id> not the route id still drives the schedule/name", %{
+      conn: conn,
+      scope: scope
+    } do
       # `open` (the route id) deliberately has no round_dates — if the
       # schedule field came from the route id instead of `master`, B12
       # would be left blank instead of showing youth's own schedule.
@@ -161,7 +198,10 @@ defmodule PairingsEngineWeb.NormsControllerTest do
         })
 
       conn =
-        get(conn, ~p"/t/#{open.id}/norms/it3", %{"combine" => "#{open.id},#{youth.id}", "master" => "#{youth.id}"})
+        get(conn, ~p"/t/#{open.id}/norms/it3", %{
+          "combine" => "#{open.id},#{youth.id}",
+          "master" => "#{youth.id}"
+        })
 
       assert conn.status == 200
       assert [disposition] = get_resp_header(conn, "content-disposition")
@@ -173,42 +213,66 @@ defmodule PairingsEngineWeb.NormsControllerTest do
       assert sheet_xml =~
                ~r/<c r="B3"[^>]*t="inlineStr"><is><t xml:space="preserve">Ghent Festival — Youth Festival<\/t><\/is><\/c>/
 
-      assert sheet_xml =~ ~r/<c r="B12"[^>]*t="inlineStr"><is><t xml:space="preserve">1-1<\/t><\/is><\/c>/
+      assert sheet_xml =~
+               ~r/<c r="B12"[^>]*t="inlineStr"><is><t xml:space="preserve">1-1<\/t><\/is><\/c>/
     end
 
-    test "duplicate player across the combined tournaments flashes a friendly error instead of a 500", %{
-      conn: conn,
-      scope: scope
-    } do
+    test "duplicate player across the combined tournaments flashes a friendly error instead of a 500",
+         %{
+           conn: conn,
+           scope: scope
+         } do
       open = create_tournament(scope, %{"name" => "Ghent Festival — Open", "federation" => "BEL"})
-      youth = create_tournament(scope, %{"name" => "Ghent Festival — Youth", "federation" => "BEL"})
+
+      youth =
+        create_tournament(scope, %{"name" => "Ghent Festival — Youth", "federation" => "BEL"})
 
       {:ok, _} =
-        Tournaments.create_player(open.id, %{"name" => "Dupe, Player", "fide_id" => "999999", "federation" => "BEL"})
+        Tournaments.create_player(open.id, %{
+          "name" => "Dupe, Player",
+          "fide_id" => "999999",
+          "federation" => "BEL"
+        })
 
       {:ok, _} =
-        Tournaments.create_player(youth.id, %{"name" => "Dupe, Player", "fide_id" => "999999", "federation" => "BEL"})
+        Tournaments.create_player(youth.id, %{
+          "name" => "Dupe, Player",
+          "fide_id" => "999999",
+          "federation" => "BEL"
+        })
 
       conn =
-        get(conn, ~p"/t/#{open.id}/norms/it3", %{"combine" => "#{open.id},#{youth.id}", "master" => "#{open.id}"})
+        get(conn, ~p"/t/#{open.id}/norms/it3", %{
+          "combine" => "#{open.id},#{youth.id}",
+          "master" => "#{open.id}"
+        })
 
       assert redirected_to(conn) == ~p"/t/#{open.id}/norms"
       assert Phoenix.Flash.get(conn.assigns.flash, :error) =~ "Dupe, Player"
       assert Phoenix.Flash.get(conn.assigns.flash, :error) =~ "can't share players"
     end
 
-    test "an unauthorized id inside combine= 404s, same as the route id would", %{conn: conn, scope: scope} do
+    test "an unauthorized id inside combine= 404s, same as the route id would", %{
+      conn: conn,
+      scope: scope
+    } do
       open = create_tournament(scope, %{"name" => "Ghent Festival — Open", "federation" => "BEL"})
 
       other_scope = PairingsEngine.AccountsFixtures.user_scope_fixture()
       forbidden = tournament_fixture(other_scope)
 
       assert_error_sent 404, fn ->
-        get(conn, ~p"/t/#{open.id}/norms/it3", %{"combine" => "#{open.id},#{forbidden.id}", "master" => "#{open.id}"})
+        get(conn, ~p"/t/#{open.id}/norms/it3", %{
+          "combine" => "#{open.id},#{forbidden.id}",
+          "master" => "#{open.id}"
+        })
       end
     end
 
-    test "combine= absent or blank behaves exactly like the single-tournament path", %{conn: conn, scope: scope} do
+    test "combine= absent or blank behaves exactly like the single-tournament path", %{
+      conn: conn,
+      scope: scope
+    } do
       tournament = tournament_fixture(scope)
 
       conn_without = get(conn, ~p"/t/#{tournament.id}/norms/it3")

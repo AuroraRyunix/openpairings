@@ -21,8 +21,14 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
   defp trf_text(name, players) do
     games =
       case length(players) do
-        2 -> %{1 => [%{opponent_rank: 2, colour: "w", result: "1"}], 2 => [%{opponent_rank: 1, colour: "b", result: "0"}]}
-        _ -> %{}
+        2 ->
+          %{
+            1 => [%{opponent_rank: 2, colour: "w", result: "1"}],
+            2 => [%{opponent_rank: 1, colour: "b", result: "0"}]
+          }
+
+        _ ->
+          %{}
       end
 
     Trf.serialize(%{
@@ -104,13 +110,15 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
 
   ## ---------- upload -> parse -> download round-trip ----------
 
-  test "uploading a TRF file lists it and IT3 downloads as a filled xlsx — with nothing persisted", %{conn: conn} do
+  test "uploading a TRF file lists it and IT3 downloads as a filled xlsx — with nothing persisted",
+       %{conn: conn} do
     tournaments_before = Repo.aggregate(Tournament, :count)
     players_before = Repo.aggregate(Player, :count)
 
     {:ok, lv, _html} = live(conn, ~p"/tools/norms")
 
-    html = upload_files(lv, [{"alpha.trf", trf_text("Alpha Open", [{"Alice", 111}, {"Bob", 222}])}])
+    html =
+      upload_files(lv, [{"alpha.trf", trf_text("Alpha Open", [{"Alice", 111}, {"Bob", 222}])}])
 
     assert html =~ "Alpha Open"
     # 2 players, 1 round
@@ -136,7 +144,12 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     lv
     |> form("#tools-fields-form", %{
       "overlay" => %{"chief_arbiter_name" => "Bossuyt, Wim", "chief_arbiter_fide_id" => "200500"},
-      "candidate" => %{"last_name" => "Candidate", "first_name" => "Norma", "fide_id" => "300600", "federation" => "BEL"}
+      "candidate" => %{
+        "last_name" => "Candidate",
+        "first_name" => "Norma",
+        "fide_id" => "300600",
+        "federation" => "BEL"
+      }
     })
     |> render_change()
 
@@ -160,7 +173,12 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     assert has_element?(lv, "td", "Beta Open")
 
     html = render(lv)
-    [_, beta_id] = Regex.run(~r{phx-value-id="(\d+)"[^>]*>\s*Remove}s, html |> String.split("beta.trf") |> Enum.at(1))
+
+    [_, beta_id] =
+      Regex.run(
+        ~r{phx-value-id="(\d+)"[^>]*>\s*Remove}s,
+        html |> String.split("beta.trf") |> Enum.at(1)
+      )
 
     lv |> element("button[phx-value-id=\"#{beta_id}\"]", "Remove") |> render_click()
 
@@ -226,7 +244,8 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
 
   ## ---------- hostile / stale input never 500s ----------
 
-  test "a file that parses as neither format lists with a per-file error and blocks nothing else", %{conn: conn} do
+  test "a file that parses as neither format lists with a per-file error and blocks nothing else",
+       %{conn: conn} do
     {:ok, lv, _html} = live(conn, ~p"/tools/norms")
 
     html =
@@ -321,7 +340,9 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
 
   test "only two deputy arbiter slots are offered, not four", %{conn: conn} do
     {:ok, lv, _html} = live(conn, ~p"/tools/norms")
-    html = upload_files(lv, [{"alpha.trf", trf_text("Alpha Open", [{"Alice", 111}, {"Bob", 222}])}])
+
+    html =
+      upload_files(lv, [{"alpha.trf", trf_text("Alpha Open", [{"Alice", 111}, {"Bob", 222}])}])
 
     assert html =~ "Deputy 1 — name"
     assert html =~ "Deputy 2 — name"
@@ -338,7 +359,9 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
 
   ## ---------- officials prefilled from the master file ----------
 
-  test "uploading a file prefills the chief arbiter from it, without clobbering manual edits", %{conn: conn} do
+  test "uploading a file prefills the chief arbiter from it, without clobbering manual edits", %{
+    conn: conn
+  } do
     {:ok, lv, _html} = live(conn, ~p"/tools/norms")
 
     trf =
@@ -353,7 +376,15 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
           chief_arbiter: "Bossuyt, Wim"
         },
         players: [
-          %{rank: 1, name: "Alice", fide_rating: 1900, fide_number: 111, federation: "BEL", points: 0.0, games: []}
+          %{
+            rank: 1,
+            name: "Alice",
+            fide_rating: 1900,
+            fide_number: 111,
+            federation: "BEL",
+            points: 0.0,
+            games: []
+          }
         ]
       })
 
@@ -379,7 +410,15 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
           chief_arbiter: "Different Arbiter"
         },
         players: [
-          %{rank: 1, name: "Carol", fide_rating: 1900, fide_number: 333, federation: "BEL", points: 0.0, games: []}
+          %{
+            rank: 1,
+            name: "Carol",
+            fide_rating: 1900,
+            fide_number: 333,
+            federation: "BEL",
+            points: 0.0,
+            games: []
+          }
         ]
       })
 
@@ -391,7 +430,9 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
 
   ## ---------- uploaded-files totals ----------
 
-  test "the uploaded-files table shows per-file titled/federation counts and totals", %{conn: conn} do
+  test "the uploaded-files table shows per-file titled/federation counts and totals", %{
+    conn: conn
+  } do
     {:ok, lv, _html} = live(conn, ~p"/tools/norms")
 
     trf =
@@ -405,8 +446,25 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
           type: "swiss"
         },
         players: [
-          %{rank: 1, name: "Alice", title: "IM", fide_rating: 1900, fide_number: 111, federation: "BEL", points: 0.0, games: []},
-          %{rank: 2, name: "Bob", fide_rating: 1800, fide_number: 222, federation: "NED", points: 0.0, games: []}
+          %{
+            rank: 1,
+            name: "Alice",
+            title: "IM",
+            fide_rating: 1900,
+            fide_number: 111,
+            federation: "BEL",
+            points: 0.0,
+            games: []
+          },
+          %{
+            rank: 2,
+            name: "Bob",
+            fide_rating: 1800,
+            fide_number: 222,
+            federation: "NED",
+            points: 0.0,
+            games: []
+          }
         ]
       })
 
@@ -445,11 +503,13 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     end
 
     test "a gap splits into a bare code and a range" do
-      assert ToolsNormsLive.collapse_event_codes(["10001", "10003", "10004"]) == "10001, 10003-10004"
+      assert ToolsNormsLive.collapse_event_codes(["10001", "10003", "10004"]) ==
+               "10001, 10003-10004"
     end
 
     test "unordered/duplicate input is sorted and de-duplicated first" do
-      assert ToolsNormsLive.collapse_event_codes(["10003", "10001", "10002", "10001"]) == "10001-10003"
+      assert ToolsNormsLive.collapse_event_codes(["10003", "10001", "10002", "10001"]) ==
+               "10001-10003"
     end
 
     test "blanks are dropped and an empty list yields an empty string" do

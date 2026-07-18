@@ -72,15 +72,16 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             }
           ]
 
-        b.is_bye and b[:bye_detail] && b.bye_detail.had_prior_pairing_bye ->
+        (b.is_bye and b[:bye_detail]) && b.bye_detail.had_prior_pairing_bye ->
           [
             %{
               board: b.board,
-              text: "Board #{b.board} — #{b.bye_detail.player.name} has now had two engine-assigned byes"
+              text:
+                "Board #{b.board} — #{b.bye_detail.player.name} has now had two engine-assigned byes"
             }
           ]
 
-        b.is_bye and b[:bye_detail] && b.bye_detail.had_prior_bye ->
+        (b.is_bye and b[:bye_detail]) && b.bye_detail.had_prior_bye ->
           [
             %{
               board: b.board,
@@ -100,6 +101,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
 
   defp player_label(%Player{} = p) do
     rating = Player.rating(p)
+
     "#{if p.title not in [nil, ""], do: "#{p.title} "}#{p.name}#{if rating > 0, do: " (#{rating})", else: ""}"
   end
 
@@ -131,7 +133,9 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   ## scaling for the visuals; they add no new facts and change no semantics.
 
   # Direction a given side floated, relative to its board's float pair, or nil.
-  defp float_dir(%{floater: true, float_down: down}, %{player: %{id: id}}) when down == id, do: :down
+  defp float_dir(%{floater: true, float_down: down}, %{player: %{id: id}}) when down == id,
+    do: :down
+
   defp float_dir(%{floater: true, float_up: up}, %{player: %{id: id}}) when up == id, do: :up
   defp float_dir(_board, _side), do: nil
 
@@ -208,6 +212,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
 
   defp bracket_layout(%{boards: boards, score_groups: groups, round_number: round_number}) do
     pop_room = if round_number > 1, do: @bracket_pin_pop_room, else: @bracket_pop_room
+
     y_of =
       groups
       |> Enum.with_index()
@@ -225,7 +230,13 @@ defmodule PairingsEngineWeb.PairingExplainLive do
       groups
       |> Enum.with_index()
       |> Enum.map(fn {g, i} ->
-        %{score: g.score, count: g.count, odd: g.odd, y: @bracket_top + i * @bracket_row_gap, idx: i}
+        %{
+          score: g.score,
+          count: g.count,
+          odd: g.odd,
+          y: @bracket_top + i * @bracket_row_gap,
+          idx: i
+        }
       end)
 
     {playing, byes} = Enum.split_with(boards, &(not &1.is_bye))
@@ -614,7 +625,9 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         stroke-width="2"
         class={["pe-dot", @interactive && "pe-filterable"]}
         data-facets={@interactive && w.facets}
-      ><title :if={@interactive}>{dot_title(w)}</title></circle>
+      >
+        <title :if={@interactive}>{dot_title(w)}</title>
+      </circle>
       <circle
         :if={w.colour == :bye}
         cx={w.x}
@@ -626,7 +639,9 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         stroke-dasharray="3 2.4"
         class={["pe-dot", @interactive && "pe-filterable"]}
         data-facets={@interactive && w.facets}
-      ><title :if={@interactive}>{dot_title(w)}</title></circle>
+      >
+        <title :if={@interactive}>{dot_title(w)}</title>
+      </circle>
       <text
         :if={@interactive and w.colour == :bye}
         x={w.x}
@@ -637,7 +652,9 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         fill="#2e5e44"
         class="pe-filterable"
         data-facets={w.facets}
-      >B</text>
+      >
+        B
+      </text>
       <%!-- Colour-against-due halo (task 3): a second, unfilled ring —
             never drawn for players whose due colour was satisfied, so it
             only ever adds a warning, never noise. Interactive chart only. --%>
@@ -652,7 +669,11 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         stroke-dasharray="2 2"
         class="pe-dot pe-dot-halo pe-filterable"
         data-facets={w.facets}
-      ><title>Received {colour_word(w.colour)}; colour history says {colour_word(w.side.colour_due)} was due.</title></circle>
+      >
+        <title>
+          Received {colour_word(w.colour)}; colour history says {colour_word(w.side.colour_due)} was due.
+        </title>
+      </circle>
       <%!-- Paired-up/-down marker: a bare coloured triangle glyph — an
             interim design wrapped it in a filled circle chip, and the user
             explicitly asked for the plain triangles back. --%>
@@ -666,7 +687,9 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         fill={float_colour(w.dir)}
         class="pe-tri pe-filterable"
         data-facets={w.facets}
-      >{if w.dir == :down, do: "▼", else: "▲"}</text>
+      >
+        {if w.dir == :down, do: "▼", else: "▲"}
+      </text>
     </g>
     """
   end
@@ -805,7 +828,10 @@ defmodule PairingsEngineWeb.PairingExplainLive do
     assigns =
       assigns
       |> assign(:dir, float_dir(assigns.board, assigns.side))
-      |> assign(:dot_id, dot_id(assigns.board.board, if(assigns.board.is_bye, do: :bye, else: assigns.colour)))
+      |> assign(
+        :dot_id,
+        dot_id(assigns.board.board, if(assigns.board.is_bye, do: :bye, else: assigns.colour))
+      )
 
     ~H"""
     <div class={["pe-side", @colour == :w && "pe-side-w", @colour == :b && "pe-side-b"]}>
@@ -815,8 +841,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         class={["pe-disc", @colour == :w && "pe-disc-w", @colour == :b && "pe-disc-b"]}
         title={"Show #{@side.player.name} on the chart above"}
         aria-label={"Show #{@side.player.name} on the chart above"}
-      >
-      </button>
+      ></button>
       <div class="pe-side-body">
         <div class="pe-name">{player_label(@side.player)}</div>
         <div class="pe-meta">
@@ -835,7 +860,11 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             ✗ against due colour ({colour_word(@side.colour_due)})
           </span>
         </div>
-        <div :if={@side.ladder_value} class="pe-ladder" title={"Keizer ladder value #{@side.ladder_value}"}>
+        <div
+          :if={@side.ladder_value}
+          class="pe-ladder"
+          title={"Keizer ladder value #{@side.ladder_value}"}
+        >
           <div class="pe-ladder-fill" style={"width: #{ladder_pct(@side.ladder_value, @ladder_max)}%"}>
           </div>
           <span class="pe-ladder-num">ladder {@side.ladder_value}</span>
@@ -853,7 +882,12 @@ defmodule PairingsEngineWeb.PairingExplainLive do
 
   defp round_selector(assigns) do
     ~H"""
-    <div :if={@paired_rounds > 0} id="explain-round-selector" class="round-picker" style="margin-bottom: 12px">
+    <div
+      :if={@paired_rounds > 0}
+      id="explain-round-selector"
+      class="round-picker"
+      style="margin-bottom: 12px"
+    >
       <.link
         :for={n <- 1..@paired_rounds}
         navigate={~p"/t/#{@tournament.id}/pairings/#{n}/explain"}
@@ -919,7 +953,8 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         pairing output), not a stored replay. JaVaFo's internal tie-break reasoning can't be
         extracted, so for Swiss this shows the input state that constrained the decision and the
         observable shape of its output (brackets, floaters, byes). Items marked
-        <strong>Worth a look</strong> below are automated data-consistency checks, not proof of
+        <strong>Worth a look</strong>
+        below are automated data-consistency checks, not proof of
         an actual arbiting error — they flag patterns worth a second look, nothing more.
       </p>
 
@@ -952,8 +987,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
           schedule is fully determined by the number of players — there is no choice to explain.
         </p>
         <p :if={!@rationale.berger.match_format} style="margin: 0">
-          Cycle {@rationale.berger.cycle} of {@rationale.berger.total_cycles}, schedule round
-          {@rationale.berger.cycle_round}. The Berger table fixes every pairing in advance — this
+          Cycle {@rationale.berger.cycle} of {@rationale.berger.total_cycles}, schedule round {@rationale.berger.cycle_round}. The Berger table fixes every pairing in advance — this
           round's boards are the deterministic slot, not a computed choice.
         </p>
       </div>
@@ -1016,7 +1050,9 @@ defmodule PairingsEngineWeb.PairingExplainLive do
                   font-size="10"
                   text-anchor="middle"
                   fill="#a09a8e"
-                >{a.label}</text>
+                >
+                  {a.label}
+                </text>
               </g>
               <.bracket_links links={@bracket.links} />
               <.bracket_dots wraps={@bracket.wraps} />
@@ -1064,7 +1100,11 @@ defmodule PairingsEngineWeb.PairingExplainLive do
                   <div :if={w.rematch or w.side.had_prior_bye} class="pe-pop-tags">
                     <span
                       :if={w.rematch}
-                      class={["pe-tag", w.rematch_anomaly && "pe-tag-danger", !w.rematch_anomaly && "pe-tag-muted"]}
+                      class={[
+                        "pe-tag",
+                        w.rematch_anomaly && "pe-tag-danger",
+                        !w.rematch_anomaly && "pe-tag-muted"
+                      ]}
                     >
                       {if w.rematch_anomaly, do: "REMATCH", else: "rematch (match format)"}
                     </span>
@@ -1159,7 +1199,10 @@ defmodule PairingsEngineWeb.PairingExplainLive do
                 <span :if={w.side.colour_due != nil and w.side.colour_ok} class="pe-tag pe-tag-ok">
                   ✓ due {colour_word(w.side.colour_due)}
                 </span>
-                <span :if={w.side.colour_due != nil and not w.side.colour_ok} class="pe-tag pe-tag-warn">
+                <span
+                  :if={w.side.colour_due != nil and not w.side.colour_ok}
+                  class="pe-tag pe-tag-warn"
+                >
                   ✗ due {colour_word(w.side.colour_due)}
                 </span>
                 <span :if={w.side.had_prior_bye} class="pe-tag pe-tag-warn">already had a bye</span>
@@ -1176,9 +1219,15 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             </span>
             <span
               :if={duo.w.rematch}
-              class={["pe-tag", duo.w.rematch_anomaly && "pe-tag-danger", !duo.w.rematch_anomaly && "pe-tag-muted"]}
+              class={[
+                "pe-tag",
+                duo.w.rematch_anomaly && "pe-tag-danger",
+                !duo.w.rematch_anomaly && "pe-tag-muted"
+              ]}
             >
-              {if duo.w.rematch_anomaly, do: "REMATCH — they already played each other", else: "rematch (match format)"}
+              {if duo.w.rematch_anomaly,
+                do: "REMATCH — they already played each other",
+                else: "rematch (match format)"}
             </span>
             <span :if={!duo.w.rematch} class="pe-tag pe-tag-ok">
               first meeting this tournament
@@ -1262,10 +1311,20 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         </script>
 
         <div class="pe-legend">
-          <button type="button" class="pe-legend-item" data-filter="w" title="Click to highlight only these">
+          <button
+            type="button"
+            class="pe-legend-item"
+            data-filter="w"
+            title="Click to highlight only these"
+          >
             <span class="pe-legend-disc pe-disc-w"></span> White
           </button>
-          <button type="button" class="pe-legend-item" data-filter="b" title="Click to highlight only these">
+          <button
+            type="button"
+            class="pe-legend-item"
+            data-filter="b"
+            title="Click to highlight only these"
+          >
             <span class="pe-legend-disc pe-disc-b"></span> Black
           </button>
           <button
@@ -1277,10 +1336,20 @@ defmodule PairingsEngineWeb.PairingExplainLive do
           >
             <span class="pe-legend-disc pe-disc-byedot"></span> bye
           </button>
-          <button type="button" class="pe-legend-item" data-filter="within" title="Click to highlight only these">
+          <button
+            type="button"
+            class="pe-legend-item"
+            data-filter="within"
+            title="Click to highlight only these"
+          >
             <span class="pe-legend-line"></span> within bracket
           </button>
-          <button type="button" class="pe-legend-item" data-filter="float" title="Click to highlight only these">
+          <button
+            type="button"
+            class="pe-legend-item"
+            data-filter="float"
+            title="Click to highlight only these"
+          >
             <span class="pe-legend-line is-float"></span> floater
           </button>
           <button
@@ -1301,10 +1370,20 @@ defmodule PairingsEngineWeb.PairingExplainLive do
           >
             <span class="pe-legend-line is-rematch"></span> rematch (match format)
           </button>
-          <button type="button" class="pe-legend-item" data-filter="down" title="Click to highlight only these">
+          <button
+            type="button"
+            class="pe-legend-item"
+            data-filter="down"
+            title="Click to highlight only these"
+          >
             <span class="pe-legend-tri down">▼</span> paired down
           </button>
-          <button type="button" class="pe-legend-item" data-filter="up" title="Click to highlight only these">
+          <button
+            type="button"
+            class="pe-legend-item"
+            data-filter="up"
+            title="Click to highlight only these"
+          >
             <span class="pe-legend-tri up">▲</span> paired up
           </button>
           <button
@@ -1395,7 +1474,9 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         <h3 style="margin: 0; padding: 16px 16px 8px">Requested / absence byes this round</h3>
         <table class="pe-table">
           <thead>
-            <tr><th>Player</th><th>Type</th></tr>
+            <tr>
+              <th>Player</th><th>Type</th>
+            </tr>
           </thead>
           <tbody>
             <tr :for={rb <- @rationale.byes.requested}>

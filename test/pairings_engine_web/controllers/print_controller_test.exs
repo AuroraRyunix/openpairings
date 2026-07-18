@@ -181,10 +181,11 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       assert html_on =~ ~r/C.*?absent.*?\(0\.0 pt\)/s
     end
 
-    test "a pairing-allocated bye keeps showing as a normal board row regardless of ?absentees", %{
-      conn: conn,
-      scope: scope
-    } do
+    test "a pairing-allocated bye keeps showing as a normal board row regardless of ?absentees",
+         %{
+           conn: conn,
+           scope: scope
+         } do
       {tournament, _players} = fixture(scope)
       round1 = Tournaments.get_round(tournament.id, 1)
 

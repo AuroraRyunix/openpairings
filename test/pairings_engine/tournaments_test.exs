@@ -481,7 +481,8 @@ defmodule PairingsEngine.TournamentsTest do
       {:ok, _alice} =
         Tournaments.create_player(tournament.id, %{"name" => "Alice", "fide_id" => "111"})
 
-      {:ok, bob} = Tournaments.create_player(tournament.id, %{"name" => "Bob", "fide_id" => "222"})
+      {:ok, bob} =
+        Tournaments.create_player(tournament.id, %{"name" => "Bob", "fide_id" => "222"})
 
       assert {:error, changeset} = Tournaments.update_player(bob, %{"fide_id" => "111"})
       assert %{fide_id: [_msg]} = errors_on(changeset)
@@ -493,7 +494,9 @@ defmodule PairingsEngine.TournamentsTest do
       t2 = Repo.insert!(%Tournament{name: "T2", type: "swiss", rounds_count: 3})
 
       assert {:ok, _} = Tournaments.create_player(t1.id, %{"name" => "Alice", "fide_id" => "333"})
-      assert {:ok, _} = Tournaments.create_player(t2.id, %{"name" => "Alice2", "fide_id" => "333"})
+
+      assert {:ok, _} =
+               Tournaments.create_player(t2.id, %{"name" => "Alice2", "fide_id" => "333"})
     end
 
     test "players with no fide_id are never constrained against each other (partial index)" do
@@ -873,7 +876,9 @@ defmodule PairingsEngine.TournamentsTest do
       assert fp.player_a_id == a.id
       assert fp.player_b_id == b.id
 
-      stored = Repo.get_by(ForbiddenPairing, tournament_id: t.id, player_a_id: a.id, player_b_id: b.id)
+      stored =
+        Repo.get_by(ForbiddenPairing, tournament_id: t.id, player_a_id: a.id, player_b_id: b.id)
+
       assert stored
       assert stored.player_a_id < stored.player_b_id
     end
