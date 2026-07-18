@@ -32,7 +32,8 @@ defmodule PairingsEngineWeb.ToolsController do
 
     with {:ok, session} <- fetch_tools_session(token),
          {:ok, pairs} <- parsed_pairs(session),
-         {:ok, {tournament, players}} <- Combine.combine(pairs, Map.get(session, :master_index, 0)) do
+         {:ok, {tournament, players}} <-
+           Combine.combine(pairs, Map.get(session, :master_index, 0)) do
       tournament = Overlay.apply(tournament, Map.get(session, :overlay, %{}))
       fills = build_fills(kind, tournament, players, Map.get(session, :candidate, %{}))
       render_xlsx(conn, kind, tournament, fills)
@@ -41,7 +42,8 @@ defmodule PairingsEngineWeb.ToolsController do
     end
   end
 
-  def download(conn, %{"form" => _other}), do: error_page(conn, "Unknown report — go back and pick IT3, FA1 or IA1.")
+  def download(conn, %{"form" => _other}),
+    do: error_page(conn, "Unknown report — go back and pick IT3, FA1 or IA1.")
 
   ## ---------- session + combine plumbing ----------
 
@@ -66,9 +68,14 @@ defmodule PairingsEngineWeb.ToolsController do
     end
   end
 
-  defp build_fills(:it3, tournament, players, _candidate), do: Forms.it3_fills(tournament, players)
-  defp build_fills(:fa1, tournament, players, candidate), do: Forms.fa1_fills(tournament, players, candidate)
-  defp build_fills(:ia1, tournament, players, candidate), do: Forms.ia1_fills(tournament, players, candidate)
+  defp build_fills(:it3, tournament, players, _candidate),
+    do: Forms.it3_fills(tournament, players)
+
+  defp build_fills(:fa1, tournament, players, candidate),
+    do: Forms.fa1_fills(tournament, players, candidate)
+
+  defp build_fills(:ia1, tournament, players, candidate),
+    do: Forms.ia1_fills(tournament, players, candidate)
 
   ## ---------- rendering ----------
 
@@ -89,10 +96,12 @@ defmodule PairingsEngineWeb.ToolsController do
   end
 
   defp friendly_error(:session_missing),
-    do: "This session has expired or wasn't found — your files were never saved, so please re-upload them."
+    do:
+      "This session has expired or wasn't found — your files were never saved, so please re-upload them."
 
   defp friendly_error(:no_files),
-    do: "No files have been successfully parsed yet — upload at least one .swar or .trf file first."
+    do:
+      "No files have been successfully parsed yet — upload at least one .swar or .trf file first."
 
   defp friendly_error({:duplicate_players, _} = reason), do: Combine.error_message(reason)
 

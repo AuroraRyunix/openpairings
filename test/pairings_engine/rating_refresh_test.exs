@@ -10,7 +10,10 @@ defmodule PairingsEngine.RatingRefreshTest do
   setup do
     user = AccountsFixtures.user_fixture()
     scope = Scope.for_user(user)
-    {:ok, tournament} = Tournaments.create_tournament(scope, %{"name" => "RR Test", "type" => "swiss"})
+
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{"name" => "RR Test", "type" => "swiss"})
+
     %{tournament: tournament}
   end
 

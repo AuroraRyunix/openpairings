@@ -235,7 +235,9 @@ defmodule PairingsEngine.Trf do
       |> to_string()
       |> String.slice(0, width)
       |> then(fn s ->
-        if opts[:align] == :right, do: String.pad_leading(s, width), else: String.pad_trailing(s, width)
+        if opts[:align] == :right,
+          do: String.pad_leading(s, width),
+          else: String.pad_trailing(s, width)
       end)
 
     [{start_col, text} | placements]
@@ -351,7 +353,8 @@ defmodule PairingsEngine.Trf do
       |> Enum.reject(&(String.trim(&1) == ""))
 
     result =
-      Enum.reduce(lines, %{tournament: %{deputy_arbiters: []}, players: [], teams: []}, fn line, acc ->
+      Enum.reduce(lines, %{tournament: %{deputy_arbiters: []}, players: [], teams: []}, fn line,
+                                                                                           acc ->
         case String.slice(line, 0, 3) do
           "001" -> update_in(acc.players, &(&1 ++ [parse_player_line(line)]))
           "013" -> update_in(acc.teams, &(&1 ++ [parse_team_line(line)]))
@@ -373,13 +376,23 @@ defmodule PairingsEngine.Trf do
     value = line |> String.slice(4..-1//1) |> String.trim()
 
     case field do
-      nil -> acc
-      :round_dates -> acc
-      :deputy_arbiter -> update_in(acc.tournament.deputy_arbiters, &(&1 ++ [value]))
-      f when f in [:start_date, :end_date] -> put_in(acc.tournament[f], String.replace(value, "/", "-"))
+      nil ->
+        acc
+
+      :round_dates ->
+        acc
+
+      :deputy_arbiter ->
+        update_in(acc.tournament.deputy_arbiters, &(&1 ++ [value]))
+
+      f when f in [:start_date, :end_date] ->
+        put_in(acc.tournament[f], String.replace(value, "/", "-"))
+
       f when f in [:number_of_players, :number_of_rated_players, :number_of_teams] ->
         put_in(acc.tournament[f], parse_int(value) || 0)
-      f -> put_in(acc.tournament[f], value)
+
+      f ->
+        put_in(acc.tournament[f], value)
     end
   end
 
@@ -462,6 +475,7 @@ defmodule PairingsEngine.Trf do
   defp iso_date(slash), do: String.replace(slash, "/", "-")
 
   defp parse_int(""), do: nil
+
   defp parse_int(s) do
     case Integer.parse(s) do
       {n, _} -> n
@@ -470,6 +484,7 @@ defmodule PairingsEngine.Trf do
   end
 
   defp parse_float(""), do: nil
+
   defp parse_float(s) do
     case Float.parse(s) do
       {f, _} -> f

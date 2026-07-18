@@ -14,7 +14,9 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
   # ---------------------------------------------------------------------
 
   defp unzip_map(binary) do
-    tmp = Path.join(System.tmp_dir!(), "xlsx_fill_test_#{System.unique_integer([:positive])}.xlsx")
+    tmp =
+      Path.join(System.tmp_dir!(), "xlsx_fill_test_#{System.unique_integer([:positive])}.xlsx")
+
     File.write!(tmp, binary)
 
     {:ok, entries} = :zip.unzip(String.to_charlist(tmp), [:memory])
@@ -50,8 +52,11 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
     charlist = :erlang.binary_to_list(binary)
 
     case :xmerl_scan.string(charlist, quiet: true) do
-      {_parsed, _rest} -> :ok
-      other -> flunk("#{name}: xmerl_scan did not return a parsed document, got: #{inspect(other)}")
+      {_parsed, _rest} ->
+        :ok
+
+      other ->
+        flunk("#{name}: xmerl_scan did not return a parsed document, got: #{inspect(other)}")
     end
   rescue
     e -> flunk("#{name}: not well-formed XML (#{Exception.message(e)})")
@@ -133,9 +138,15 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
 
       Enum.each(template_members, fn {name, bin} ->
         cond do
-          name == "xl/calcChain.xml" -> :ok
-          MapSet.member?(changed, name) -> :ok
-          true -> assert bin == Map.fetch!(filled_members, name), "expected #{name} to be byte-identical"
+          name == "xl/calcChain.xml" ->
+            :ok
+
+          MapSet.member?(changed, name) ->
+            :ok
+
+          true ->
+            assert bin == Map.fetch!(filled_members, name),
+                   "expected #{name} to be byte-identical"
         end
       end)
     end
@@ -254,6 +265,7 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
 
       assert sheet_xml =~
                ~r/<c r="B1"[^>]*t="inlineStr"><is><t xml:space="preserve">Doe<\/t><\/is><\/c>/
+
       assert sheet_xml =~ ~r/<c r="B3"[^>]*><v>123456<\/v><\/c>/
     end
   end
@@ -280,8 +292,10 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
 
       assert sheet_xml =~
                ~r/<c r="A4"[^>]*t="inlineStr"><is><t xml:space="preserve">BEL<\/t><\/is><\/c>/
+
       assert sheet_xml =~
                ~r/<c r="C11" s="87" t="inlineStr"><is><t xml:space="preserve">Player One<\/t><\/is><\/c>/
+
       assert sheet_xml =~ ~r/<c r="N11" s="86"><v>2450<\/v><\/c>/
 
       # sibling cells in row 11 (e.g. D11, O11) must be untouched
@@ -326,6 +340,76 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
 
     test "unknown sheet name returns an error" do
       assert {:error, {:unknown_sheet, "Nope"}} = XlsxFill.fill(@it3, %{"Nope" => %{"B3" => "x"}})
+    end
+  end
+
+  # ---------------------------------------------------------------------
+  # cell-preservation invariant (formula-cache strip must never eat cells)
+  # ---------------------------------------------------------------------
+
+  # Reproduces the reported "norms don't generate Excel properly" bug: the
+  # FIDE templates cache many formulas as an EMPTY self-closing `<v/>`, and
+  # `strip_stale_formula_caches/1`'s old regex read `<v/>` as an OPENING
+  # `<v>` tag (its `[^>]*` ate the slash), then lazily scanned FORWARD
+  # ACROSS NEIGHBOURING CELLS to the next real `</v>` later in the row and
+  # silently swallowed every cell in between — one minimal fill deleted
+  # 99-186 cells from every template's Certificaat/display sheet (the side
+  # the arbiter reads/prints; the Invulformulier fills themselves survived,
+  # which is why the cell-content assertions above never caught it).
+  describe "filling never deletes template cells" do
+    for {kind, path, sheet, ref} <- [
+          {"IT3", :it3_path, "Invulformulier", "B3"},
+          {"FA1", :fa1_path, "Invulformulier", "B1"},
+          {"IA1", :ia1_path, "Invulformulier", "B1"},
+          {"IT4", :it4_path, "IT 4", "A4"}
+        ] do
+      test "#{kind}: every worksheet keeps its full template cell set after a fill" do
+        path =
+          case unquote(path) do
+            :it3_path -> @it3
+            :fa1_path -> @fa1
+            :ia1_path -> @ia1
+            :it4_path -> @it4
+          end
+
+        template_members = unzip_template_map(path)
+        {:ok, binary} = XlsxFill.fill(path, %{unquote(sheet) => %{unquote(ref) => "x"}})
+        filled_members = unzip_map(binary)
+
+        for {name, template_xml} <- template_members,
+            String.match?(name, ~r/^xl\/worksheets\/sheet\d+\.xml$/) do
+          template_refs = cell_ref_set(template_xml)
+          filled_refs = cell_ref_set(Map.fetch!(filled_members, name))
+
+          lost = MapSet.difference(template_refs, filled_refs)
+
+          assert MapSet.size(lost) == 0,
+                 "#{unquote(kind)} #{name}: filling #{unquote(ref)} deleted template cells: " <>
+                   inspect(Enum.sort(lost))
+        end
+      end
+    end
+
+    test "IT4: a full candidate row's remarks (AB column, past the Z-column verdict formula) lands" do
+      # AB11 sits right after the Z11 verdict formula's `<v/>` empty cache —
+      # exactly the span the old regex swallowed (AA11, AB11, AD11 all
+      # vanished, taking the remarks fill with them).
+      assert {:ok, binary} = XlsxFill.fill(@it4, %{"IT 4" => %{"AB11" => "board 2 tie split"}})
+
+      sheet_xml = unzip_map(binary) |> Map.fetch!("xl/worksheets/sheet1.xml")
+
+      assert sheet_xml =~
+               ~r/<c r="AB11"[^>]*t="inlineStr"><is><t xml:space="preserve">board 2 tie split<\/t><\/is><\/c>/
+
+      for ref <- ~w(AA11 AD11 AE11 Z11 AF11) do
+        assert sheet_xml =~ ~s(<c r="#{ref}"), "IT4: template cell #{ref} was deleted"
+      end
+    end
+
+    defp cell_ref_set(sheet_xml) do
+      Regex.scan(~r/<c r="([A-Z]+\d+)"/, sheet_xml)
+      |> Enum.map(&Enum.at(&1, 1))
+      |> MapSet.new()
     end
   end
 
@@ -528,8 +612,15 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
       assert {:ok, binary} = XlsxFill.fill(@it3, fills)
       members = unzip_map(binary)
 
-      assert_ascending_column_order_per_row!("sheet1.xml (Certificaat)", Map.fetch!(members, "xl/worksheets/sheet1.xml"))
-      assert_ascending_column_order_per_row!("sheet2.xml (Invulformulier)", Map.fetch!(members, "xl/worksheets/sheet2.xml"))
+      assert_ascending_column_order_per_row!(
+        "sheet1.xml (Certificaat)",
+        Map.fetch!(members, "xl/worksheets/sheet1.xml")
+      )
+
+      assert_ascending_column_order_per_row!(
+        "sheet2.xml (Invulformulier)",
+        Map.fetch!(members, "xl/worksheets/sheet2.xml")
+      )
 
       refute Map.has_key?(members, "xl/calcChain.xml")
       refute Map.fetch!(members, "[Content_Types].xml") =~ "calcChain"

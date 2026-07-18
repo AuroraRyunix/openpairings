@@ -32,7 +32,8 @@ defmodule PairingsEngine.Tools.Overlay do
 
     %{
       tournament
-      | chief_arbiter: first_present(get(overlay, "chief_arbiter_name"), tournament.chief_arbiter),
+      | chief_arbiter:
+          first_present(get(overlay, "chief_arbiter_name"), tournament.chief_arbiter),
         organizer: first_present(get(overlay, "organizer"), tournament.organizer),
         event_code: first_present(get(overlay, "event_code"), tournament.event_code),
         officials: officials

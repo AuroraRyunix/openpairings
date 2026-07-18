@@ -245,7 +245,8 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   end
 
   @doc false
-  def total_players(files), do: files |> successful() |> Enum.map(&length(&1.players)) |> Enum.sum()
+  def total_players(files),
+    do: files |> successful() |> Enum.map(&length(&1.players)) |> Enum.sum()
 
   @doc false
   def total_titled_players(files) do
@@ -351,11 +352,15 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
           combine into one "Festival" report (see below).
         </p>
 
-        <div class={["dropzone", @uploads.files.entries != [] && "has-file"]} phx-drop-target={@uploads.files.ref}>
+        <div
+          class={["dropzone", @uploads.files.entries != [] && "has-file"]}
+          phx-drop-target={@uploads.files.ref}
+        >
           <.live_file_input upload={@uploads.files} class="dropzone-input" />
           <div class="dropzone-label">
             <%= if @uploads.files.entries == [] do %>
-              <strong>Choose SWAR/TRF files</strong> <span class="hint">or drag and drop them here</span>
+              <strong>Choose SWAR/TRF files</strong>
+              <span class="hint">or drag and drop them here</span>
             <% else %>
               <span :for={entry <- @uploads.files.entries} class="dropzone-file">
                 {entry.client_name}
@@ -364,7 +369,9 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
           </div>
         </div>
 
-        <p :for={err <- upload_errors(@uploads.files)} class="error-note">{upload_error_label(err)}</p>
+        <p :for={err <- upload_errors(@uploads.files)} class="error-note">
+          {upload_error_label(err)}
+        </p>
         <div :for={entry <- @uploads.files.entries}>
           <p :for={err <- upload_errors(@uploads.files, entry)} class="error-note">
             {entry.client_name}: {upload_error_label(err)}
@@ -430,14 +437,22 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
         </table>
 
         <p class="hint" style="padding: 12px 16px 0; margin: 0">
-          Totals across {length(successful(@files))} uploaded file(s):
-          {total_players(@files)} player(s), {total_titled_players(@files)} titled,
-          {total_federations(@files)} distinct federation(s).
+          Totals across {length(successful(@files))} uploaded file(s): {total_players(@files)} player(s), {total_titled_players(
+            @files
+          )} titled, {total_federations(@files)} distinct federation(s).
         </p>
-        <p :if={shared_federations(@files) != []} class="hint" style="padding: 4px 16px 16px; margin: 0">
+        <p
+          :if={shared_federations(@files) != []}
+          class="hint"
+          style="padding: 4px 16px 16px; margin: 0"
+        >
           Federations shared across files: {Enum.join(shared_federations(@files), ", ")}.
         </p>
-        <p :if={shared_federations(@files) == []} class="hint" style="padding: 4px 16px 16px; margin: 0">
+        <p
+          :if={shared_federations(@files) == []}
+          class="hint"
+          style="padding: 4px 16px 16px; margin: 0"
+        >
           No federation appears in more than one uploaded file.
         </p>
 
@@ -456,24 +471,64 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
         <form id="tools-fields-form" phx-change="update_fields">
           <div class="form-grid">
-            <.overlay_input prefix="overlay" field="chief_arbiter_name" label="Chief arbiter — name" values={@overlay} />
-            <.overlay_input prefix="overlay" field="chief_arbiter_fide_id" label="Chief arbiter — FIDE ID" values={@overlay} />
+            <.overlay_input
+              prefix="overlay"
+              field="chief_arbiter_name"
+              label="Chief arbiter — name"
+              values={@overlay}
+            />
+            <.overlay_input
+              prefix="overlay"
+              field="chief_arbiter_fide_id"
+              label="Chief arbiter — FIDE ID"
+              values={@overlay}
+            />
             <.overlay_input prefix="overlay" field="organizer" label="Organizer" values={@overlay} />
-            <.overlay_input prefix="overlay" field="event_code" label="FIDE event code" values={@overlay} />
+            <.overlay_input
+              prefix="overlay"
+              field="event_code"
+              label="FIDE event code"
+              values={@overlay}
+            />
           </div>
 
           <h3 style="margin-bottom: 4px">Deputy arbiters</h3>
           <div :for={n <- 1..2} class="form-grid">
-            <.overlay_input prefix="overlay" field={"deputy#{n}_name"} label={"Deputy #{n} — name"} values={@overlay} />
-            <.overlay_input prefix="overlay" field={"deputy#{n}_fide_id"} label={"Deputy #{n} — FIDE ID"} values={@overlay} />
+            <.overlay_input
+              prefix="overlay"
+              field={"deputy#{n}_name"}
+              label={"Deputy #{n} — name"}
+              values={@overlay}
+            />
+            <.overlay_input
+              prefix="overlay"
+              field={"deputy#{n}_fide_id"}
+              label={"Deputy #{n} — FIDE ID"}
+              values={@overlay}
+            />
           </div>
 
           <h3 style="margin-bottom: 4px">FA1 / IA1 arbiter norm candidate</h3>
           <div class="form-grid">
-            <.overlay_input prefix="candidate" field="last_name" label="Last name" values={@candidate} />
-            <.overlay_input prefix="candidate" field="first_name" label="First name" values={@candidate} />
+            <.overlay_input
+              prefix="candidate"
+              field="last_name"
+              label="Last name"
+              values={@candidate}
+            />
+            <.overlay_input
+              prefix="candidate"
+              field="first_name"
+              label="First name"
+              values={@candidate}
+            />
             <.overlay_input prefix="candidate" field="fide_id" label="FIDE ID" values={@candidate} />
-            <.overlay_input prefix="candidate" field="federation" label="Federation" values={@candidate} />
+            <.overlay_input
+              prefix="candidate"
+              field="federation"
+              label="Federation"
+              values={@candidate}
+            />
           </div>
         </form>
       </div>

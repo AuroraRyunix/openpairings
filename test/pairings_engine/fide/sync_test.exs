@@ -153,9 +153,25 @@ defmodule PairingsEngine.Fide.SyncTest do
     # column widths don't matter as long as the header and every data row
     # use the same ones (see fide_row/1).
     @header_labels [
-      "ID Number", "Name", "Fed", "Sex", "Tit", "WTit", "OTit", "FOA",
-      "SRtng", "SGm", "SK", "RRtng", "RGm", "Rk", "BRtng", "BGm", "BK",
-      "B-day", "Flag"
+      "ID Number",
+      "Name",
+      "Fed",
+      "Sex",
+      "Tit",
+      "WTit",
+      "OTit",
+      "FOA",
+      "SRtng",
+      "SGm",
+      "SK",
+      "RRtng",
+      "RGm",
+      "Rk",
+      "BRtng",
+      "BGm",
+      "BK",
+      "B-day",
+      "Flag"
     ]
     @col_width 12
 
@@ -192,7 +208,10 @@ defmodule PairingsEngine.Fide.SyncTest do
     end
 
     test "a big drop from the existing cache (fewer than half survive) also rolls back" do
-      Repo.insert_all(FidePlayer, for(n <- 1..10, do: %{fide_id: n, name: "Existing, #{n}", federation: "BEL"}))
+      Repo.insert_all(
+        FidePlayer,
+        for(n <- 1..10, do: %{fide_id: n, name: "Existing, #{n}", federation: "BEL"})
+      )
 
       row = fide_row(%{"ID Number" => "999999", "Name" => "OnlyOne, Player", "Fed" => "BEL"})
       text = fide_text([row])

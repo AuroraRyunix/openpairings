@@ -10,7 +10,12 @@ defmodule PairingsEngine.ExclusionsTest do
 
   defp tournament(attrs) do
     struct(
-      %Tournament{club_exclusion: "none", club_exclusion_list: "", fed_exclusion: "none", fed_exclusion_list: ""},
+      %Tournament{
+        club_exclusion: "none",
+        club_exclusion_list: "",
+        fed_exclusion: "none",
+        fed_exclusion_list: ""
+      },
       attrs
     )
   end

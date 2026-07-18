@@ -80,12 +80,12 @@ defmodule PairingsEngine.SwarImportTest do
 
     deloof = Enum.find(data.players, &(&1.name == "Deloof, Koen"))
     assert deloof.mat_nat == 39934
-    assert deloof.mat_fide == 210234
+    assert deloof.mat_fide == 210_234
     assert deloof.elo == 1779 or deloof.elo_fide == 1779
 
     waegeman = Enum.find(data.players, &(&1.name == "Waegeman, Willem"))
     assert waegeman.mat_nat == 19953
-    assert waegeman.mat_fide == 292052
+    assert waegeman.mat_fide == 292_052
     assert String.starts_with?(waegeman.birth, "1982")
 
     cobert = Enum.find(data.players, &(&1.name == "Cobert, Quinten"))
@@ -106,14 +106,14 @@ defmodule PairingsEngine.SwarImportTest do
 
     deloof = Enum.find(players, &(&1.name == "Deloof, Koen"))
     assert deloof.national_id == "39934"
-    assert deloof.fide_id == 210234
+    assert deloof.fide_id == 210_234
     assert deloof.national_rating == 1810
     assert deloof.fide_rating == 1779
     assert deloof.birth_year == 1973
 
     waegeman = Enum.find(players, &(&1.name == "Waegeman, Willem"))
     assert waegeman.national_id == "19953"
-    assert waegeman.fide_id == 292052
+    assert waegeman.fide_id == 292_052
     assert waegeman.birth_year == 1982
 
     cobert = Enum.find(players, &(&1.name == "Cobert, Quinten"))
@@ -134,7 +134,7 @@ defmodule PairingsEngine.SwarImportTest do
     assert abramenko.extra_points == 0.5
     assert abramenko.affiliated == true
     assert abramenko.national_id == "21740"
-    assert abramenko.fide_id == 268968
+    assert abramenko.fide_id == 268_968
     assert abramenko.birth_year == 2011
     assert abramenko.fide_rating == 1661
     assert abramenko.club == "KGSRL Gent"
@@ -210,7 +210,11 @@ defmodule PairingsEngine.SwarImportTest do
 
   test "import_file/2 broadcasts once on the owning user's tournament-list topic, after the import commits" do
     scope = user_scope()
-    Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.user_tournaments_topic(scope.user.id))
+
+    Phoenix.PubSub.subscribe(
+      PairingsEngine.PubSub,
+      Tournaments.user_tournaments_topic(scope.user.id)
+    )
 
     assert {:ok, tournament, _warnings} = SwarImport.import_file(@c_reeks, scope)
 
@@ -287,13 +291,20 @@ defmodule PairingsEngine.SwarImportTest do
   # happens to use 2/1/0. `SW321_Bye` (raw 4 → 1.0) and `SW321_Pre` (raw
   # 4 → 1.0) are also configured here, and this file's `SW321_PreBye` is
   # nonzero (raw 1) — per the manual (§5.16, "Add presence points for bye
-  # games") that means `bye_value` is `SW321_Bye + SW321_Pre` = 2.0, not
-  # `SW321_Bye` alone. This test previously asserted `bye_value == 1.0`
-  # (SW321_Bye only) — that assertion was itself the SW321_PreBye gap this
-  # session's fix closes, caught by the behavioral check below: "Descheemaeker,
-  # Tom" has two LOST_BYE rounds and two ordinary losses, and his real SWAR
-  # total (`points_raw / 4`, from his own file record) only reconciles once
-  # LOST_BYE rounds score at `presence_value` (not `points_loss`).
+  # games") that means a pairing-allocated bye pays `SW321_Bye + SW321_Pre`,
+  # modelled as `presence_on_allocated_bye: true` (consulted by
+  # `Standings.bye_points/2`) while `bye_value` stays at plain `SW321_Bye`.
+  # An earlier fix folded the sum into `bye_value` (2.0) instead — right
+  # totals, but it redefined `bye_value` away from the club's configured
+  # SW321_Bye. Note this fixture contains NO pairing-allocated bye at all
+  # (no WIN_BYE result, no TABLE_BYE table value, verified by scanning every
+  # [RONDE] entry), so the flag's scoring arithmetic can't be exercised
+  # against a real player's stored total here — that's covered by the
+  # synthetic-binary tests in swar_import_presence_test.exs. The behavioral
+  # check that CAN run on this file: "Descheemaeker, Tom" has two LOST_BYE
+  # rounds and two ordinary losses, and his real SWAR total (`points_raw /
+  # 4`, from his own file record) only reconciles once LOST_BYE rounds score
+  # at `presence_value` (not `points_loss`).
 
   test "import_file/1 maps SWAR's 3-2-1 scoring fields (SW321_Win/Nul/Los/Bye/Pre/PreBye) onto the tournament" do
     assert {:ok, tournament, _warnings} = SwarImport.import_file(@test3_321)
@@ -302,8 +313,11 @@ defmodule PairingsEngine.SwarImportTest do
     assert tournament.points_draw == 1.0
     assert tournament.points_loss == 0.0
     assert tournament.presence_value == 1.0
-    # SW321_Bye (1.0) + SW321_Pre (1.0) — SW321_PreBye is nonzero in this file.
-    assert tournament.bye_value == 2.0
+    # Plain SW321_Bye (raw 4 → 1.0) — the SW321_PreBye add-on is the flag
+    # below, not folded in here.
+    assert tournament.bye_value == 1.0
+    # SW321_PreBye is raw 1 in this file.
+    assert tournament.presence_on_allocated_bye == true
   end
 
   test "import_file/1 scores a real player's LOST_BYE rounds at presence_value, reproducing SWAR's own raw point total" do
@@ -315,7 +329,10 @@ defmodule PairingsEngine.SwarImportTest do
     assert tom.points == 8
 
     assert {:ok, tournament, _warnings} = SwarImport.import_file(@test3_321)
-    [player] = Enum.filter(Tournaments.list_players(tournament.id), &(&1.name == "Descheemaeker, Tom"))
+
+    [player] =
+      Enum.filter(Tournaments.list_players(tournament.id), &(&1.name == "Descheemaeker, Tom"))
+
     entry = Enum.find(Standings.standings(tournament), &(&1.player.id == player.id))
 
     # tom.points (8, raw) / 4 == 2.0 == wins*Win + draws*Nul + losses*Los +
@@ -338,6 +355,7 @@ defmodule PairingsEngine.SwarImportTest do
     assert tournament.points_draw == 0.5
     assert tournament.points_loss == 0.0
     assert tournament.bye_value == 1.0
+    assert tournament.presence_on_allocated_bye == false
   end
 
   # User-reported crash: test3-321.swar is a real club championship with 42
@@ -429,7 +447,9 @@ defmodule PairingsEngine.SwarImportTest do
         Enum.reduce(patches, p, fn {ni, round_nr, code}, p ->
           if p.ni == ni do
             rounds =
-              Enum.map(p.rounds, fn r -> if r.round_nr == round_nr, do: %{r | result: code}, else: r end)
+              Enum.map(p.rounds, fn r ->
+                if r.round_nr == round_nr, do: %{r | result: code}, else: r
+              end)
 
             %{p | rounds: rounds}
           else
@@ -549,9 +569,10 @@ defmodule PairingsEngine.SwarImportTest do
       assert deloof.national_id == "39934"
     end
 
-    test "import_file/1's best-effort matching also auto-adopts the same unambiguous match, with no confirm step", %{
-      tmp_dir: tmp_dir
-    } do
+    test "import_file/1's best-effort matching also auto-adopts the same unambiguous match, with no confirm step",
+         %{
+           tmp_dir: tmp_dir
+         } do
       Repo.insert!(%FidePlayer{
         fide_id: 210_234,
         name: "Deloof, Koen",
@@ -572,7 +593,12 @@ defmodule PairingsEngine.SwarImportTest do
          %{tmp_dir: tmp_dir} do
       # Same name and federation, but a *different* birth year — this must
       # not auto-match, even though it's the only same-named candidate.
-      Repo.insert!(%FidePlayer{fide_id: 999_999, name: "Deloof, Koen", federation: "BEL", birth_year: 1960})
+      Repo.insert!(%FidePlayer{
+        fide_id: 999_999,
+        name: "Deloof, Koen",
+        federation: "BEL",
+        birth_year: 1960
+      })
 
       path = c_reeks_with_deloof_fide_id_blanked!(tmp_dir)
 
@@ -597,9 +623,10 @@ defmodule PairingsEngine.SwarImportTest do
       assert chosen_deloof.fide_id == 999_999
     end
 
-    test "commit_import/3 imports without a fide_id when the resolution says skip (or is simply missing)", %{
-      tmp_dir: tmp_dir
-    } do
+    test "commit_import/3 imports without a fide_id when the resolution says skip (or is simply missing)",
+         %{
+           tmp_dir: tmp_dir
+         } do
       path = c_reeks_with_deloof_fide_id_blanked!(tmp_dir)
 
       {:ok, %{data: data, unresolved: unresolved}} = SwarImport.prepare_import(path)
@@ -620,13 +647,16 @@ defmodule PairingsEngine.SwarImportTest do
 
     assert {:ok, {tournament, players}} = SwarImport.build_structs(File.read!(@c_reeks))
 
-    assert tournament_count_before == Repo.aggregate(PairingsEngine.Tournaments.Tournament, :count)
+    assert tournament_count_before ==
+             Repo.aggregate(PairingsEngine.Tournaments.Tournament, :count)
+
     assert player_count_before == Repo.aggregate(PairingsEngine.Tournaments.Player, :count)
 
     assert tournament.id == nil
     assert tournament.name =~ "C-reeks"
     assert tournament.rounds_count == 11
     assert tournament.federation == "BEL"
+
     assert tournament.round_dates == [
              "2025-10-04",
              "2025-11-08",
@@ -649,7 +679,7 @@ defmodule PairingsEngine.SwarImportTest do
     # No FIDE-database resolve step runs for the pure builder — Deloof
     # already has a `mat_fide` in the raw file, so this is unaffected either
     # way, but it confirms the field still maps straight through.
-    assert deloof.fide_id == 210234
+    assert deloof.fide_id == 210_234
     assert deloof.national_rating == 1810
     assert deloof.fide_rating == 1779
     assert deloof.birth_year == 1973

@@ -23,15 +23,12 @@ defmodule PairingsEngineWeb.AuditLive do
     {"all", "All", :all},
     {"players", "Players",
      ~w(player.created player.updated player.deleted player.ratings_refreshed)},
-    {"pairings", "Pairings",
-     ~w(pairing.round_paired pairing.result_entered pairing.result_changed
+    {"pairings", "Pairings", ~w(pairing.round_paired pairing.result_entered pairing.result_changed
         pairing.round_deleted pairing.results_imported)},
-    {"settings", "Settings",
-     ~w(tournament.settings_updated logo.uploaded logo.cleared
+    {"settings", "Settings", ~w(tournament.settings_updated logo.uploaded logo.cleared
         forbidden_pairing.added forbidden_pairing.removed
         category.created category.removed)},
-    {"standings", "Standings",
-     ~w(standings.manual_reorder standings.manual_ranking_enabled
+    {"standings", "Standings", ~w(standings.manual_reorder standings.manual_ranking_enabled
         standings.manual_ranking_disabled standings.manual_reseeded
         standings.extra_points_applied)},
     {"imports", "Imports", ~w(import.swar import.trf import.json)},
@@ -128,7 +125,8 @@ defmodule PairingsEngineWeb.AuditLive do
   def describe("pairing.round_paired", d), do: describe_round_paired(d)
 
   def describe("pairing.result_entered", d),
-    do: "Entered result #{value(d, "to")} on board #{value(d, "board")} (round #{value(d, "round")}): #{board_players(d)}."
+    do:
+      "Entered result #{value(d, "to")} on board #{value(d, "board")} (round #{value(d, "round")}): #{board_players(d)}."
 
   def describe("pairing.result_changed", d),
     do:
@@ -145,8 +143,12 @@ defmodule PairingsEngineWeb.AuditLive do
   def describe("tournament.created", d),
     do: "Created tournament #{name(d, "name")} (#{value(d, "pairing_system")})."
 
-  def describe("tournament.deleted", d), do: "Moved tournament #{name(d, "name")} to the recycle bin."
-  def describe("tournament.restored", d), do: "Restored tournament #{name(d, "name")} from the recycle bin."
+  def describe("tournament.deleted", d),
+    do: "Moved tournament #{name(d, "name")} to the recycle bin."
+
+  def describe("tournament.restored", d),
+    do: "Restored tournament #{name(d, "name")} from the recycle bin."
+
   def describe("tournament.purged", d), do: "Permanently deleted tournament #{name(d, "name")}."
 
   def describe("import.swar", d), do: "Imported tournament #{name(d, "name")} from a SWAR file."
@@ -154,15 +156,22 @@ defmodule PairingsEngineWeb.AuditLive do
   def describe("import.json", d), do: "Imported tournament #{name(d, "name")} from a JSON backup."
 
   def describe("collaborator.invited", d), do: "Invited #{value(d, "email")} as a collaborator."
-  def describe("collaborator.accepted", d), do: "Accepted the collaboration invite (#{value(d, "email")})."
-  def describe("collaborator.declined", d), do: "Declined the collaboration invite (#{value(d, "email")})."
+
+  def describe("collaborator.accepted", d),
+    do: "Accepted the collaboration invite (#{value(d, "email")})."
+
+  def describe("collaborator.declined", d),
+    do: "Declined the collaboration invite (#{value(d, "email")})."
+
   def describe("collaborator.removed", d), do: "Removed collaborator #{value(d, "email")}."
 
   def describe("forbidden_pairing.added", d),
-    do: "Added a forbidden pairing (players ##{value(d, "player_a_id")} and ##{value(d, "player_b_id")})."
+    do:
+      "Added a forbidden pairing (players ##{value(d, "player_a_id")} and ##{value(d, "player_b_id")})."
 
   def describe("forbidden_pairing.removed", d),
-    do: "Removed a forbidden pairing (players ##{value(d, "player_a_id")} and ##{value(d, "player_b_id")})."
+    do:
+      "Removed a forbidden pairing (players ##{value(d, "player_a_id")} and ##{value(d, "player_b_id")})."
 
   def describe("category.created", d), do: "Added category #{name(d, "name")}."
   def describe("category.removed", d), do: "Removed category #{name(d, "name")}."
@@ -175,7 +184,9 @@ defmodule PairingsEngineWeb.AuditLive do
 
   def describe("standings.manual_ranking_enabled", _d), do: "Enabled manual standings ordering."
   def describe("standings.manual_ranking_disabled", _d), do: "Disabled manual standings ordering."
-  def describe("standings.manual_reseeded", _d), do: "Re-seeded the manual standings order from the computed ranking."
+
+  def describe("standings.manual_reseeded", _d),
+    do: "Re-seeded the manual standings order from the computed ranking."
 
   def describe("standings.extra_points_applied", d),
     do: "Applied extra-points bands to #{value(d, "matched")} of #{value(d, "total")} players."
@@ -221,7 +232,9 @@ defmodule PairingsEngineWeb.AuditLive do
     end
   end
 
-  defp format_pair([before, after_value]), do: "#{blank_dash(before)} → #{blank_dash(after_value)}"
+  defp format_pair([before, after_value]),
+    do: "#{blank_dash(before)} → #{blank_dash(after_value)}"
+
   defp format_pair(other), do: inspect(other)
 
   defp board_players(d) do
@@ -357,7 +370,9 @@ defmodule PairingsEngineWeb.AuditLive do
           <tbody>
             <tr :if={@entries == []}>
               <td colspan="3">
-                <div class="empty"><p class="hint">No audit events recorded yet.</p></div>
+                <div class="empty">
+                  <p class="hint">No audit events recorded yet.</p>
+                </div>
               </td>
             </tr>
 

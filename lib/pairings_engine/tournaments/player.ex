@@ -75,12 +75,33 @@ defmodule PairingsEngine.Tournaments.Player do
   def changeset(player, attrs) do
     player
     |> cast(attrs, [
-      :name, :sex, :title, :fide_id, :fide_rating, :national_id,
-      :national_rating, :federation, :birth_year, :club, :status,
-      :start_round, :team_id, :board_order, :pairing_number,
-      :paid, :affiliated, :absent, :forfeit, :special_table,
-      :absent_rounds, :extra_points, :category, :club_number, :norm_data,
-      :birth_date, :fixed_board
+      :name,
+      :sex,
+      :title,
+      :fide_id,
+      :fide_rating,
+      :national_id,
+      :national_rating,
+      :federation,
+      :birth_year,
+      :club,
+      :status,
+      :start_round,
+      :team_id,
+      :board_order,
+      :pairing_number,
+      :paid,
+      :affiliated,
+      :absent,
+      :forfeit,
+      :special_table,
+      :absent_rounds,
+      :extra_points,
+      :category,
+      :club_number,
+      :norm_data,
+      :birth_date,
+      :fixed_board
     ])
     |> validate_required([:name])
     |> validate_length(:name, min: 1, max: 100)

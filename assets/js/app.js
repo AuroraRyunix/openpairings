@@ -114,24 +114,77 @@ function applyBracketFilter(map, filter) {
   })
 }
 
+// Closes any open head-to-head duo panel and clears both dots' rings.
+function closeBracketDuo() {
+  document.querySelectorAll(".pe-duo.is-open").forEach((el) => el.classList.remove("is-open"))
+  document.querySelectorAll(".pe-board-wrap.is-duo").forEach((el) => el.classList.remove("is-duo"))
+}
+
+// The wraps are focusable (tabindex=0 for keyboard users), and the popover
+// CSS shows on :focus as well as :hover/.is-pinned. A mouse click leaves
+// the wrap focused, so after UNPINNING (or closing a duo) the "small"
+// hover-size popover stayed open even after the mouse left — user-reported.
+// Dropping focus after a mouse-driven close keeps hover/keyboard behaviour
+// intact while letting the panel actually disappear on mouse-away.
+function blurBracketWrap(wrap) {
+  if (wrap.contains(document.activeElement)) document.activeElement.blur()
+}
+
 // Pairing-rationale bracket map: clicking a dot directly on the graph
-// toggles its pin (ring + popover stay open until clicked again); clicking
-// a board card's colour disc always pins that dot and scrolls it into
-// view; clicking a legend item or band label highlights just that facet.
-// One delegated listener on document — not the scroll container, which
-// LiveView can replace on round navigation — so no re-binding needed (and
-// round navigation naturally resets any active filter along with it).
+// toggles its pin (ring + popover stay open until clicked again); with a
+// dot pinned, clicking that player's EXACT opponent opens the board's
+// head-to-head duo panel under the chart (clicking either of the two, or
+// the panel's ✕, closes it); clicking a board card's colour disc always
+// pins that dot and scrolls it into view; clicking a legend item or band
+// label highlights just that facet. One delegated listener on document —
+// not the scroll container, which LiveView can replace on round navigation
+// — so no re-binding needed (and round navigation naturally resets any
+// active filter along with it).
 document.addEventListener("click", (e) => {
   // A click inside an open popover (e.g. selecting the player's name)
   // must not bubble into the wrap-toggle branch below and close it.
   if (e.target.closest(".pe-dot-popover")) return
 
+  if (e.target.closest(".pe-duo-close")) {
+    closeBracketDuo()
+    return
+  }
+
   const wrap = e.target.closest(".pe-board-wrap")
   if (wrap) {
+    const openDuo = document.querySelector(".pe-duo.is-open")
+    if (openDuo) {
+      const duoDots = (openDuo.dataset.dots || "").split(" ")
+      closeBracketDuo()
+
+      // Clicking either of the duo's own two dots just dismisses the panel;
+      // any other dot falls through to the normal pin behaviour below.
+      if (duoDots.includes(wrap.id)) {
+        blurBracketWrap(wrap)
+        return
+      }
+    }
+
+    const pinned = document.querySelector(".pe-board-wrap.is-pinned")
+    if (pinned && pinned !== wrap && pinned.dataset.opponent === wrap.id) {
+      // Pinned player + their exact opponent clicked → head-to-head panel.
+      pinned.classList.remove("is-pinned")
+      const duo = document.getElementById(`pe-duo-${wrap.dataset.board}`)
+      if (duo) {
+        duo.classList.add("is-open")
+        wrap.classList.add("is-duo")
+        pinned.classList.add("is-duo")
+        duo.scrollIntoView({behavior: "smooth", block: "nearest"})
+      }
+      blurBracketWrap(wrap)
+      return
+    }
+
     document.querySelectorAll(".pe-board-wrap.is-pinned").forEach((el) => {
       if (el !== wrap) el.classList.remove("is-pinned")
     })
-    wrap.classList.toggle("is-pinned")
+    const nowPinned = wrap.classList.toggle("is-pinned")
+    if (!nowPinned) blurBracketWrap(wrap)
     return
   }
 
@@ -146,6 +199,7 @@ document.addEventListener("click", (e) => {
   if (!disc) return
   const target = document.getElementById(disc.dataset.dotTarget)
   if (!target) return
+  closeBracketDuo()
   document.querySelectorAll(".pe-board-wrap.is-pinned").forEach((el) => el.classList.remove("is-pinned"))
   target.classList.add("is-pinned")
   target.scrollIntoView({behavior: "smooth", block: "nearest", inline: "center"})

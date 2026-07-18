@@ -938,7 +938,8 @@ defmodule PairingsEngineWeb.PrintController do
         if(tournament.chief_arbiter != "", do: "Chief arbiter: #{esc(tournament.chief_arbiter)}"),
         if(tournament.rate_of_play != "", do: "Rate of play: #{esc(tournament.rate_of_play)}"),
         if(tournament.fide_homologated and tournament.fide_tournament_id != "",
-          do: "FIDE ID: #{esc(tournament.fide_tournament_id)}")
+          do: "FIDE ID: #{esc(tournament.fide_tournament_id)}"
+        )
       ]
       |> Enum.reject(&is_nil/1)
 

@@ -71,6 +71,7 @@ defmodule PairingsEngineWeb.UserLive.Registration do
           {:error, reason} ->
             require Logger
             Logger.error("Failed to send login instructions to #{user.email}: #{inspect(reason)}")
+
             {:noreply,
              socket
              |> put_flash(

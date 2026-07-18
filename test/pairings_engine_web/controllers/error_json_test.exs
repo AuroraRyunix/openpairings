@@ -2,7 +2,9 @@ defmodule PairingsEngineWeb.ErrorJSONTest do
   use PairingsEngineWeb.ConnCase, async: true
 
   test "renders 404" do
-    assert PairingsEngineWeb.ErrorJSON.render("404.json", %{}) == %{errors: %{detail: "Not Found"}}
+    assert PairingsEngineWeb.ErrorJSON.render("404.json", %{}) == %{
+             errors: %{detail: "Not Found"}
+           }
   end
 
   test "renders 500" do

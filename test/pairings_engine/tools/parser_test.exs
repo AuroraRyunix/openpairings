@@ -17,10 +17,22 @@ defmodule PairingsEngine.Tools.ParserTest do
         type: "swiss"
       },
       players: [
-        %{rank: 1, name: "Alice", fide_rating: 2000, fide_number: 111, points: 1.0,
-          games: [%{opponent_rank: 2, colour: "w", result: "1"}]},
-        %{rank: 2, name: "Bob", fide_rating: 1900, fide_number: 222, points: 0.0,
-          games: [%{opponent_rank: 1, colour: "b", result: "0"}]}
+        %{
+          rank: 1,
+          name: "Alice",
+          fide_rating: 2000,
+          fide_number: 111,
+          points: 1.0,
+          games: [%{opponent_rank: 2, colour: "w", result: "1"}]
+        },
+        %{
+          rank: 2,
+          name: "Bob",
+          fide_rating: 1900,
+          fide_number: 222,
+          points: 0.0,
+          games: [%{opponent_rank: 1, colour: "b", result: "0"}]
+        }
       ]
     })
   end

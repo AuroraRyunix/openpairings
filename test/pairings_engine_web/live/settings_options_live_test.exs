@@ -78,10 +78,11 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
       refute html =~ "150min/end"
     end
 
-    test "switching Type keeps the current rate of play if it's on the new list, else clears it", %{
-      conn: conn,
-      scope: scope
-    } do
+    test "switching Type keeps the current rate of play if it's on the new list, else clears it",
+         %{
+           conn: conn,
+           scope: scope
+         } do
       tournament =
         create_tournament(scope, %{"standard" => "rapid", "rate_of_play" => "45min/end"})
 
@@ -295,7 +296,9 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
       Tournaments.create_player(tournament.id, %{name: "Bob", fide_rating: 1900})
       Tournaments.create_player(tournament.id, %{name: "Carol", fide_rating: 1800})
       Tournaments.create_player(tournament.id, %{name: "Dave", fide_rating: 1700})
-      {:ok, _round} = PairingsEngine.Pairing.pair_next_round(Tournaments.get_tournament!(tournament.id))
+
+      {:ok, _round} =
+        PairingsEngine.Pairing.pair_next_round(Tournaments.get_tournament!(tournament.id))
     end
 
     test "the checkbox is enabled before any round is paired, disabled after round 1", %{
@@ -344,7 +347,9 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
       Tournaments.create_player(tournament.id, %{name: "Bob", fide_rating: 1900})
       Tournaments.create_player(tournament.id, %{name: "Carol", fide_rating: 1800})
       Tournaments.create_player(tournament.id, %{name: "Dave", fide_rating: 1700})
-      {:ok, _round} = PairingsEngine.Pairing.pair_next_round(Tournaments.get_tournament!(tournament.id))
+
+      {:ok, _round} =
+        PairingsEngine.Pairing.pair_next_round(Tournaments.get_tournament!(tournament.id))
     end
 
     @tag :javafo
@@ -405,7 +410,9 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
       Tournaments.create_player(tournament.id, %{name: "Bob", fide_rating: 1900})
       Tournaments.create_player(tournament.id, %{name: "Carol", fide_rating: 1800})
       Tournaments.create_player(tournament.id, %{name: "Dave", fide_rating: 1700})
-      {:ok, _round} = PairingsEngine.Pairing.pair_next_round(Tournaments.get_tournament!(tournament.id))
+
+      {:ok, _round} =
+        PairingsEngine.Pairing.pair_next_round(Tournaments.get_tournament!(tournament.id))
     end
 
     @tag :javafo

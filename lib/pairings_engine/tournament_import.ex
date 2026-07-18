@@ -199,8 +199,11 @@ defmodule PairingsEngine.TournamentImport do
 
   defp insert!(changeset) do
     case Repo.insert(changeset) do
-      {:ok, record} -> record
-      {:error, changeset} -> Repo.rollback("Could not import: " <> changeset_error_text(changeset))
+      {:ok, record} ->
+        record
+
+      {:error, changeset} ->
+        Repo.rollback("Could not import: " <> changeset_error_text(changeset))
     end
   end
 

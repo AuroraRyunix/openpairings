@@ -100,12 +100,18 @@ defmodule PairingsEngineWeb.NormsLive do
   # a freshly-loaded row actually differs (see SettingsSupport). This mirrors
   # the old SettingsLive behaviour that guarded the Officials form.
   @impl true
-  def handle_info({:tournament_changed, _tournament_id, _hint}, %{assigns: %{dirty: true}} = socket) do
+  def handle_info(
+        {:tournament_changed, _tournament_id, _hint},
+        %{assigns: %{dirty: true}} = socket
+      ) do
     handle_stale_check(socket)
   end
 
   def handle_info({:tournament_changed, _tournament_id, _hint}, socket) do
-    case Tournaments.get_authorized_tournament(socket.assigns.current_scope, socket.assigns.tournament.id) do
+    case Tournaments.get_authorized_tournament(
+           socket.assigns.current_scope,
+           socket.assigns.tournament.id
+         ) do
       nil ->
         {:noreply,
          socket
@@ -118,13 +124,20 @@ defmodule PairingsEngineWeb.NormsLive do
   end
 
   defp assign_players(socket) do
-    assign(socket, :players, Tournaments.list_players(socket.assigns.tournament.id))
+    socket
+    |> assign(:players, Tournaments.list_players(socket.assigns.tournament.id))
+    |> assign(
+      :norm_judgments,
+      PairingsEngine.Norms.TitleNorms.evaluate(socket.assigns.tournament)
+    )
   end
 
   @impl true
   def handle_event("edit_norm", %{"id" => id}, socket) do
     player = Tournaments.get_player!(socket.assigns.tournament.id, id)
-    {:noreply, assign(socket, editing_norm_player: player, norm_form: norm_form(player), norm_error: nil)}
+
+    {:noreply,
+     assign(socket, editing_norm_player: player, norm_form: norm_form(player), norm_error: nil)}
   end
 
   def handle_event("close_norm", _params, socket) do
@@ -318,6 +331,40 @@ defmodule PairingsEngineWeb.NormsLive do
 
   defp claimed_title(player), do: Map.get(player.norm_data || %{}, "title_claimed", "")
 
+  ## ---------- automatic B.01 norm judgment display ----------
+
+  # One-line verdict for the players table: the best achieved norm, or the
+  # closest miss (fewest failing checks among the evaluated titles), or a
+  # plain "no games yet". Full per-check breakdown goes in the cell's
+  # `title` tooltip via norm_judgment_details/1.
+  defp norm_judgment_label(nil), do: "—"
+  defp norm_judgment_label(%{games: 0}), do: "— no counted games"
+
+  defp norm_judgment_label(%{best: %{title: title, performance: perf}}),
+    do: "#{title} norm ✓ (Rp #{perf})"
+
+  defp norm_judgment_label(%{verdicts: verdicts}) do
+    nearest = Enum.min_by(verdicts, fn v -> Enum.count(v.checks, &(not &1.ok?)) end)
+    failing = Enum.count(nearest.checks, &(not &1.ok?))
+
+    "no norm — best #{nearest.title}: #{failing} requirement#{if failing == 1, do: "", else: "s"} short"
+  end
+
+  defp norm_judgment_details(nil), do: nil
+
+  defp norm_judgment_details(%{verdicts: verdicts}) do
+    Enum.map_join(verdicts, "\n\n", fn v ->
+      head = "#{v.title} norm: #{if v.achieved?, do: "ACHIEVED", else: "not achieved"}"
+
+      lines =
+        Enum.map_join(v.checks, "\n", fn c ->
+          "#{if c.ok?, do: "✓", else: "✗"} #{c.detail}"
+        end)
+
+      head <> "\n" <> lines
+    end)
+  end
+
   ## ---------- Combined report (festival) helpers (render-only; the two
   ## handle_event clauses that drive @combine_selected/@combine_master live
   ## up by save_norm, grouped with the rest of handle_event/3) ----------
@@ -341,7 +388,9 @@ defmodule PairingsEngineWeb.NormsLive do
   defp combine_master_options(tournament, other_tournaments, combine_selected) do
     companions =
       other_tournaments
-      |> Enum.filter(fn {t, _count, _owner?} -> MapSet.member?(combine_selected, to_string(t.id)) end)
+      |> Enum.filter(fn {t, _count, _owner?} ->
+        MapSet.member?(combine_selected, to_string(t.id))
+      end)
       |> Enum.map(fn {t, _count, _owner?} -> {to_string(t.id), t.name} end)
 
     [{to_string(tournament.id), tournament.name} | companions]
@@ -389,7 +438,11 @@ defmodule PairingsEngineWeb.NormsLive do
           <div class="form-grid">
             <label :for={{key, label, type} <- officials_fields()} class="field">
               <span>{label}</span>
-              <input type={type} name={"tournament[officials][#{key}]"} value={o_get(@tournament, key)} />
+              <input
+                type={type}
+                name={"tournament[officials][#{key}]"}
+                value={o_get(@tournament, key)}
+              />
             </label>
 
             <div class="field search-wrap">
@@ -415,7 +468,10 @@ defmodule PairingsEngineWeb.NormsLive do
                 FIDE ID: {o_get(@tournament, "chief_arbiter_fide_id")}
               </span>
 
-              <div :if={arbiter_results(@arbiter_search, "chief_arbiter") != []} class="search-results">
+              <div
+                :if={arbiter_results(@arbiter_search, "chief_arbiter") != []}
+                class="search-results"
+              >
                 <button
                   :for={fp <- arbiter_results(@arbiter_search, "chief_arbiter")}
                   type="button"
@@ -467,12 +523,18 @@ defmodule PairingsEngineWeb.NormsLive do
 
             <label class="field">
               <span>IT4 event type</span>
-              <input name="tournament[officials][it4_event_type]" value={o_get(@tournament, "it4_event_type")} />
+              <input
+                name="tournament[officials][it4_event_type]"
+                value={o_get(@tournament, "it4_event_type")}
+              />
             </label>
 
             <label class="field" style="grid-column: 1 / -1">
               <span>Link to pairings web (IT4)</span>
-              <input name="tournament[officials][pairings_web_link]" value={o_get(@tournament, "pairings_web_link")} />
+              <input
+                name="tournament[officials][pairings_web_link]"
+                value={o_get(@tournament, "pairings_web_link")}
+              />
             </label>
           </div>
 
@@ -519,7 +581,10 @@ defmodule PairingsEngineWeb.NormsLive do
 
               <label class="field">
                 <span>{label} — e-mail</span>
-                <input name={"tournament[officials][deputy#{n}_email]"} value={o_get(@tournament, "deputy#{n}_email")} />
+                <input
+                  name={"tournament[officials][deputy#{n}_email]"}
+                  value={o_get(@tournament, "deputy#{n}_email")}
+                />
               </label>
             </div>
           </div>
@@ -529,7 +594,10 @@ defmodule PairingsEngineWeb.NormsLive do
           <div class="form-grid">
             <label :for={n <- 1..4} class="field">
               <span>Remark {n}</span>
-              <input name={"tournament[officials][remark#{n}]"} value={o_get(@tournament, "remark#{n}")} />
+              <input
+                name={"tournament[officials][remark#{n}]"}
+                value={o_get(@tournament, "remark#{n}")}
+              />
             </label>
           </div>
 
@@ -578,10 +646,18 @@ defmodule PairingsEngineWeb.NormsLive do
             </label>
           </div>
           <div class="actions">
-            <button type="submit" formaction={~p"/t/#{@tournament.id}/norms/fa1"} class="pe-btn primary">
+            <button
+              type="submit"
+              formaction={~p"/t/#{@tournament.id}/norms/fa1"}
+              class="pe-btn primary"
+            >
               Download FA1 (FIDE Arbiter)
             </button>
-            <button type="submit" formaction={~p"/t/#{@tournament.id}/norms/ia1"} class="pe-btn primary">
+            <button
+              type="submit"
+              formaction={~p"/t/#{@tournament.id}/norms/ia1"}
+              class="pe-btn primary"
+            >
               Download IA1 (International Arbiter)
             </button>
           </div>
@@ -602,10 +678,17 @@ defmodule PairingsEngineWeb.NormsLive do
 
         <div :if={@other_tournaments != []}>
           <div style="display: flex; flex-direction: column; gap: .4rem; margin-bottom: 1rem">
-            <label
-              :for={{t, _count, _owner?} <- @other_tournaments}
-              style="display: flex; gap: .5rem; align-items: center; font-weight: 400"
-            >
+            <%!-- The current tournament is ALWAYS part of the combined set
+                  (combine_ids/3 leads with it) — it used to be silently
+                  omitted from this list, which read as "my own tournament
+                  is missing from its own festival" (user-reported). Shown
+                  checked + disabled so the list matches what actually gets
+                  combined. --%>
+            <label class="opt-row">
+              <input type="checkbox" checked disabled style="width: auto" />
+              <span>{@tournament.name} <span class="hint">— this tournament, always included</span></span>
+            </label>
+            <label :for={{t, _count, _owner?} <- @other_tournaments} class="opt-row">
               <input
                 type="checkbox"
                 checked={MapSet.member?(@combine_selected, to_string(t.id))}
@@ -658,7 +741,9 @@ defmodule PairingsEngineWeb.NormsLive do
               <input
                 type="hidden"
                 name="combine"
-                value={Enum.join(combine_ids(@tournament, @other_tournaments, @combine_selected), ",")}
+                value={
+                  Enum.join(combine_ids(@tournament, @other_tournaments, @combine_selected), ",")
+                }
               />
               <input type="hidden" name="master" value={@combine_master} />
               <div class="form-grid">
@@ -738,14 +823,19 @@ defmodule PairingsEngineWeb.NormsLive do
       <div class="card table-card">
         <h2 style="padding: 16px 16px 0">Players — title-norm judgment</h2>
         <p class="hint" style="padding: 0 16px">
-          Set the claimed title, norm text, medal/%, event group, federation counts and remarks for
-          any player being reported on IT4.
+          The "computed" column judges each player's games against the FIDE Title Regulations
+          (B.01: game count, score %, titled opponents, federation mix, opponent-rating average,
+          performance) automatically — hover it for the requirement-by-requirement breakdown.
+          The claimed title and the IT4-only fields (norm text, medal/%, event group, federation
+          counts, remarks) stay yours to set: exemptions and special event types are the
+          arbiter's call, not the computer's.
         </p>
         <table class="pe-table">
           <thead>
             <tr>
               <th>Name</th>
               <th>Federation</th>
+              <th>Computed (B.01)</th>
               <th>Claimed title</th>
               <th></th>
             </tr>
@@ -754,6 +844,9 @@ defmodule PairingsEngineWeb.NormsLive do
             <tr :for={p <- @players}>
               <td>{p.name}</td>
               <td>{p.federation}</td>
+              <td title={norm_judgment_details(@norm_judgments[p.id])}>
+                {norm_judgment_label(@norm_judgments[p.id])}
+              </td>
               <td>{if claimed_title(p) == "", do: "—", else: claimed_title(p)}</td>
               <td style="text-align: right">
                 <button class="pe-btn" phx-click="edit_norm" phx-value-id={p.id}>Edit norm data</button>
@@ -808,7 +901,10 @@ defmodule PairingsEngineWeb.NormsLive do
           </label>
           <label class="field">
             <span>Medal / %</span>
-            <input name="player[norm_data][medal_percent]" value={@form["norm_data"]["medal_percent"]} />
+            <input
+              name="player[norm_data][medal_percent]"
+              value={@form["norm_data"]["medal_percent"]}
+            />
           </label>
           <label class="field">
             <span>Event / group (e.g. "U20, Women")</span>

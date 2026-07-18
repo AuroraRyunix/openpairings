@@ -23,7 +23,12 @@ defmodule PairingsEngine.Norms.CombineFormsIntegrationTest do
   # ---------------------------------------------------------------------
 
   defp unzip_map(binary) do
-    tmp = Path.join(System.tmp_dir!(), "combine_forms_test_#{System.unique_integer([:positive])}.xlsx")
+    tmp =
+      Path.join(
+        System.tmp_dir!(),
+        "combine_forms_test_#{System.unique_integer([:positive])}.xlsx"
+      )
+
     File.write!(tmp, binary)
     {:ok, entries} = :zip.unzip(String.to_charlist(tmp), [:memory])
     File.rm(tmp)
@@ -36,8 +41,11 @@ defmodule PairingsEngine.Norms.CombineFormsIntegrationTest do
         charlist = :erlang.binary_to_list(bin)
 
         case :xmerl_scan.string(charlist, quiet: true) do
-          {_parsed, _rest} -> :ok
-          other -> flunk("#{name}: xmerl_scan did not return a parsed document, got: #{inspect(other)}")
+          {_parsed, _rest} ->
+            :ok
+
+          other ->
+            flunk("#{name}: xmerl_scan did not return a parsed document, got: #{inspect(other)}")
         end
       end
     end)
@@ -112,7 +120,9 @@ defmodule PairingsEngine.Norms.CombineFormsIntegrationTest do
       assert_all_parts_well_formed!(members)
 
       sheet_xml = Map.fetch!(members, "xl/worksheets/sheet2.xml")
-      assert sheet_xml =~ ~r/<c r="B3"[^>]*t="inlineStr"><is><t xml:space="preserve">Ghent Chess Festival — Open Festival<\/t><\/is><\/c>/
+
+      assert sheet_xml =~
+               ~r/<c r="B3"[^>]*t="inlineStr"><is><t xml:space="preserve">Ghent Chess Festival — Open Festival<\/t><\/is><\/c>/
     end
   end
 
@@ -193,6 +203,7 @@ defmodule PairingsEngine.Norms.CombineFormsIntegrationTest do
       assert_all_parts_well_formed!(ia1_members)
 
       sheet_xml = Map.fetch!(fa1_members, "xl/worksheets/sheet1.xml")
+
       assert sheet_xml =~
                ~r/<c r="B7"[^>]*t="inlineStr"><is><t xml:space="preserve">Uploaded TRF Open<\/t><\/is><\/c>/
     end

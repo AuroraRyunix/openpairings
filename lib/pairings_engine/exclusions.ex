@@ -49,8 +49,12 @@ defmodule PairingsEngine.Exclusions do
   """
   @spec excluded_pairs(Tournament.t(), [Player.t()]) :: MapSet.t({Player.t(), Player.t()})
   def excluded_pairs(%Tournament{} = tournament, players) do
-    club_pairs = pairs_for(players, tournament.club_exclusion, tournament.club_exclusion_list, & &1.club)
-    fed_pairs = pairs_for(players, tournament.fed_exclusion, tournament.fed_exclusion_list, & &1.federation)
+    club_pairs =
+      pairs_for(players, tournament.club_exclusion, tournament.club_exclusion_list, & &1.club)
+
+    fed_pairs =
+      pairs_for(players, tournament.fed_exclusion, tournament.fed_exclusion_list, & &1.federation)
+
     MapSet.union(club_pairs, fed_pairs)
   end
 
@@ -78,7 +82,9 @@ defmodule PairingsEngine.Exclusions do
   # club, matching the "listed" rule's case-insensitive list compare below.
   defp group_by_value(players, field_fn) do
     players
-    |> Enum.group_by(fn p -> p |> field_fn.() |> to_string() |> String.trim() |> String.downcase() end)
+    |> Enum.group_by(fn p ->
+      p |> field_fn.() |> to_string() |> String.trim() |> String.downcase()
+    end)
     |> Enum.reject(fn {value, _group} -> value == "" end)
   end
 

@@ -1,0 +1,24 @@
+# Normalize all text to LF in the repository AND in working copies for the
+# file types the toolchain cares about: `mix format` writes LF and its
+# --check-formatted flags CRLF files as unformatted, which made the check
+# fail repo-wide for files nobody had touched. Everything the Elixir/Phoenix
+# toolchain reads is LF-safe on Windows (the compiler, esbuild, tailwind).
+* text=auto
+
+*.ex text eol=lf
+*.exs text eol=lf
+*.heex text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Binary — never touch.
+*.xlsx binary
+*.jar binary
+*.db binary
+*.png binary
+*.ico binary
+*.swar binary

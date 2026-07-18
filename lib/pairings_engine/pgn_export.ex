@@ -91,9 +91,12 @@ defmodule PairingsEngine.PgnExport do
   end
 
   defp elo_tags(player, side) do
-    rating = if (player.fide_rating || 0) > 0, do: player.fide_rating, else: player.national_rating
+    rating =
+      if (player.fide_rating || 0) > 0, do: player.fide_rating, else: player.national_rating
 
-    elo_tag = if is_integer(rating) and rating > 0, do: [tag("#{side}Elo", to_string(rating))], else: []
+    elo_tag =
+      if is_integer(rating) and rating > 0, do: [tag("#{side}Elo", to_string(rating))], else: []
+
     fide_tag = if player.fide_id, do: [tag("#{side}FideId", to_string(player.fide_id))], else: []
 
     elo_tag ++ fide_tag

@@ -270,7 +270,10 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             socket.assigns.tournament.id,
             socket.assigns.current_scope,
             "forbidden_pairing.added",
-            %{player_a_id: forbidden_pairing.player_a_id, player_b_id: forbidden_pairing.player_b_id}
+            %{
+              player_a_id: forbidden_pairing.player_a_id,
+              player_b_id: forbidden_pairing.player_b_id
+            }
           )
 
           {:noreply,
@@ -289,7 +292,8 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
           {:noreply, assign(socket, forbidden_pairing_error: "That pair is already forbidden")}
 
         {:error, _reason} ->
-          {:noreply, assign(socket, forbidden_pairing_error: "Could not add that forbidden pairing")}
+          {:noreply,
+           assign(socket, forbidden_pairing_error: "Could not add that forbidden pairing")}
       end
     else
       _ -> {:noreply, assign(socket, forbidden_pairing_error: "Choose two players")}
@@ -303,7 +307,10 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
           socket.assigns.tournament.id,
           socket.assigns.current_scope,
           "forbidden_pairing.removed",
-          %{player_a_id: forbidden_pairing.player_a_id, player_b_id: forbidden_pairing.player_b_id}
+          %{
+            player_a_id: forbidden_pairing.player_a_id,
+            player_b_id: forbidden_pairing.player_b_id
+          }
         )
 
         {:noreply, assign_forbidden_pairings(socket)}
@@ -408,7 +415,12 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} tournament={@tournament} active="settings">
+    <Layouts.app
+      flash={@flash}
+      current_scope={@current_scope}
+      tournament={@tournament}
+      active="settings"
+    >
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
@@ -575,19 +587,39 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
           <.setting_group>
             <.setting_field label="Points for a win">
-              <input type="number" step="0.5" name="tournament[points_win]" value={@tournament.points_win} />
+              <input
+                type="number"
+                step="0.5"
+                name="tournament[points_win]"
+                value={@tournament.points_win}
+              />
             </.setting_field>
 
             <.setting_field label="Points for a draw">
-              <input type="number" step="0.5" name="tournament[points_draw]" value={@tournament.points_draw} />
+              <input
+                type="number"
+                step="0.5"
+                name="tournament[points_draw]"
+                value={@tournament.points_draw}
+              />
             </.setting_field>
 
             <.setting_field label="Points for a loss">
-              <input type="number" step="0.5" name="tournament[points_loss]" value={@tournament.points_loss} />
+              <input
+                type="number"
+                step="0.5"
+                name="tournament[points_loss]"
+                value={@tournament.points_loss}
+              />
             </.setting_field>
 
             <.setting_field label="Pairing-allocated bye worth">
-              <input type="number" step="0.5" name="tournament[bye_value]" value={@tournament.bye_value} />
+              <input
+                type="number"
+                step="0.5"
+                name="tournament[bye_value]"
+                value={@tournament.bye_value}
+              />
             </.setting_field>
           </.setting_group>
         </div>
@@ -625,7 +657,11 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
           <p :if={@forbidden_pairing_error} class="error-note">{@forbidden_pairing_error}</p>
 
           <div class="actions">
-            <button type="submit" class="pe-btn primary" disabled={length(@forbidden_pairing_players) < 2}>
+            <button
+              type="submit"
+              class="pe-btn primary"
+              disabled={length(@forbidden_pairing_players) < 2}
+            >
               Add
             </button>
           </div>
@@ -671,7 +707,11 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
         <form id="exclusion-rules-form" phx-submit="save_exclusions">
           <.setting_group>
             <.setting_field label="Clubs">
-              <select name="tournament[club_exclusion]" class="pe-select" phx-change="club_exclusion_mode_change">
+              <select
+                name="tournament[club_exclusion]"
+                class="pe-select"
+                phx-change="club_exclusion_mode_change"
+              >
                 <option
                   :for={m <- Tournament.exclusion_modes()}
                   value={m}
@@ -692,7 +732,11 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             </.setting_field>
 
             <.setting_field label="Federations">
-              <select name="tournament[fed_exclusion]" class="pe-select" phx-change="fed_exclusion_mode_change">
+              <select
+                name="tournament[fed_exclusion]"
+                class="pe-select"
+                phx-change="fed_exclusion_mode_change"
+              >
                 <option
                   :for={m <- Tournament.exclusion_modes()}
                   value={m}
@@ -703,7 +747,10 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               </select>
             </.setting_field>
 
-            <.setting_field :if={@fed_exclusion_mode == "listed"} label="Federations (comma-separated)">
+            <.setting_field
+              :if={@fed_exclusion_mode == "listed"}
+              label="Federations (comma-separated)"
+            >
               <input
                 type="text"
                 name="tournament[fed_exclusion_list]"

@@ -41,7 +41,10 @@ defmodule PairingsEngineWeb.LiveRoundLive do
   # broadcast just reloads everything.
   @impl true
   def handle_info({:tournament_changed, _tournament_id, _hint}, socket) do
-    case Tournaments.get_authorized_tournament(socket.assigns.current_scope, socket.assigns.tournament.id) do
+    case Tournaments.get_authorized_tournament(
+           socket.assigns.current_scope,
+           socket.assigns.tournament.id
+         ) do
       nil ->
         {:noreply,
          socket
@@ -64,9 +67,11 @@ defmodule PairingsEngineWeb.LiveRoundLive do
     assign(socket,
       round_number: paired,
       round: paired > 0 && Tournaments.get_round(tournament.id, paired),
-      round_byes: if(paired > 0, do: Tournaments.list_byes_for_round(tournament.id, paired), else: []),
+      round_byes:
+        if(paired > 0, do: Tournaments.list_byes_for_round(tournament.id, paired), else: []),
       keizer?: keizer?,
-      entries: if(keizer?, do: Keizer.standings(tournament), else: Standings.standings(tournament))
+      entries:
+        if(keizer?, do: Keizer.standings(tournament), else: Standings.standings(tournament))
     )
   end
 

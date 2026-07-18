@@ -37,6 +37,9 @@ defmodule PairingsEngine.TournamentImportTest do
         points_win: 1.0,
         points_draw: 0.5,
         bye_value: 1.0,
+        presence_value: 0.75,
+        abs_value: 0.25,
+        presence_on_allocated_bye: true,
         round_dates: ["2026-03-01", "2026-03-08"],
         categories: ["U20"],
         officials: %{"pairing_mode" => "computerized"},
@@ -58,23 +61,65 @@ defmodule PairingsEngine.TournamentImportTest do
         norm_data: %{"title_claimed" => "IM", "remarks" => "strong event"}
       })
 
-    b = Repo.insert!(%Player{tournament_id: tournament.id, name: "Bob", fide_rating: 1900, pairing_number: 2})
-    c = Repo.insert!(%Player{tournament_id: tournament.id, name: "Carol", fide_rating: 1800, pairing_number: 3})
+    b =
+      Repo.insert!(%Player{
+        tournament_id: tournament.id,
+        name: "Bob",
+        fide_rating: 1900,
+        pairing_number: 2
+      })
+
+    c =
+      Repo.insert!(%Player{
+        tournament_id: tournament.id,
+        name: "Carol",
+        fide_rating: 1800,
+        pairing_number: 3
+      })
 
     r1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
     r2 = Repo.insert!(%Round{tournament_id: tournament.id, number: 2, status: "finished"})
 
-    Repo.insert!(%Pairing{round_id: r1.id, board: 1, white_player_id: a.id, black_player_id: b.id, result: "1-0"})
-    Repo.insert!(%Pairing{round_id: r1.id, board: 2, white_player_id: c.id, black_player_id: nil, result: "bye"})
-    Repo.insert!(%Pairing{round_id: r2.id, board: 1, white_player_id: b.id, black_player_id: c.id, result: "1/2-1/2"})
-    Repo.insert!(%Pairing{round_id: r2.id, board: 2, white_player_id: a.id, black_player_id: nil, result: "bye"})
+    Repo.insert!(%Pairing{
+      round_id: r1.id,
+      board: 1,
+      white_player_id: a.id,
+      black_player_id: b.id,
+      result: "1-0"
+    })
+
+    Repo.insert!(%Pairing{
+      round_id: r1.id,
+      board: 2,
+      white_player_id: c.id,
+      black_player_id: nil,
+      result: "bye"
+    })
+
+    Repo.insert!(%Pairing{
+      round_id: r2.id,
+      board: 1,
+      white_player_id: b.id,
+      black_player_id: c.id,
+      result: "1/2-1/2"
+    })
+
+    Repo.insert!(%Pairing{
+      round_id: r2.id,
+      board: 2,
+      white_player_id: a.id,
+      black_player_id: nil,
+      result: "bye"
+    })
 
     Repo.insert_all("byes", [
       %{tournament_id: tournament.id, player_id: c.id, round: 1, type: "pairing-allocated"},
       %{tournament_id: tournament.id, player_id: a.id, round: 2, type: "pairing-allocated"}
     ])
 
-    Repo.insert_all("forbidden_pairings", [%{tournament_id: tournament.id, player_a_id: b.id, player_b_id: c.id}])
+    Repo.insert_all("forbidden_pairings", [
+      %{tournament_id: tournament.id, player_a_id: b.id, player_b_id: c.id}
+    ])
 
     tournament
   end
@@ -82,7 +127,9 @@ defmodule PairingsEngine.TournamentImportTest do
   defp standings_signature(tournament) do
     tournament
     |> Standings.standings()
-    |> Enum.map(fn e -> {e.player.name, e.points, e.extra_points, e.total, e.rank, e.tiebreaks} end)
+    |> Enum.map(fn e ->
+      {e.player.name, e.points, e.extra_points, e.total, e.rank, e.tiebreaks}
+    end)
     |> Enum.sort()
   end
 
@@ -93,7 +140,8 @@ defmodule PairingsEngine.TournamentImportTest do
       round = Tournaments.get_round(tournament_id, r.number)
 
       Enum.map(round.pairings, fn p ->
-        {r.number, p.board, p.result, p.white_player && p.white_player.name, p.black_player && p.black_player.name}
+        {r.number, p.board, p.result, p.white_player && p.white_player.name,
+         p.black_player && p.black_player.name}
       end)
     end)
     |> Enum.sort()
@@ -143,6 +191,12 @@ defmodule PairingsEngine.TournamentImportTest do
     assert imported.round_dates == original.round_dates
     assert imported.categories == original.categories
     assert imported.officials == original.officials
+
+    # SWAR-scoring fields (3-2-1 presence/absence values + the PreBye flag)
+    # must survive a backup/restore — same fidelity class as birth_date.
+    assert imported.presence_value == 0.75
+    assert imported.abs_value == 0.25
+    assert imported.presence_on_allocated_bye == true
 
     assert standings_signature(imported) == standings_signature(original)
     assert pairing_signatures(imported.id) == pairing_signatures(original.id)
@@ -203,7 +257,9 @@ defmodule PairingsEngine.TournamentImportTest do
 
     assert imported.id != original.id
     assert imported.user_id == scope.user.id
-    assert length(Tournaments.list_players(imported.id)) == length(Tournaments.list_players(original.id))
+
+    assert length(Tournaments.list_players(imported.id)) ==
+             length(Tournaments.list_players(original.id))
   end
 
   test "every id is fresh — no player/team/round/pairing id is reused from the source" do
@@ -241,7 +297,9 @@ defmodule PairingsEngine.TournamentImportTest do
     refute t2.id in imported_ids
 
     # The importer now owns exactly these 2 tournaments.
-    owned = Tournaments.list_tournaments(importer) |> Enum.map(fn {t, _count, _owner?} -> t.id end)
+    owned =
+      Tournaments.list_tournaments(importer) |> Enum.map(fn {t, _count, _owner?} -> t.id end)
+
     assert Enum.sort(owned) == Enum.sort(imported_ids)
   end
 
@@ -250,7 +308,10 @@ defmodule PairingsEngine.TournamentImportTest do
     importer = user_scope()
     fixture(owner)
 
-    Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.user_tournaments_topic(importer.user.id))
+    Phoenix.PubSub.subscribe(
+      PairingsEngine.PubSub,
+      Tournaments.user_tournaments_topic(importer.user.id)
+    )
 
     envelope = TournamentExport.export_all(owner)
     assert {:ok, _imported} = TournamentImport.import(envelope, importer)

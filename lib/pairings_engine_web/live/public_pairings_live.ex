@@ -25,7 +25,9 @@ defmodule PairingsEngineWeb.PublicPairingsLive do
 
   @impl true
   def mount(%{"slug" => slug}, _session, socket) do
-    tournament = Tournaments.get_tournament_by_public_slug(slug) || raise Ecto.NoResultsError, queryable: Tournaments.Tournament
+    tournament =
+      Tournaments.get_tournament_by_public_slug(slug) ||
+        raise Ecto.NoResultsError, queryable: Tournaments.Tournament
 
     if connected?(socket) do
       Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
@@ -33,7 +35,12 @@ defmodule PairingsEngineWeb.PublicPairingsLive do
 
     {:ok,
      socket
-     |> assign(tournament: tournament, slug: slug, page_title: "#{tournament.name} · Pairings", gone: false)
+     |> assign(
+       tournament: tournament,
+       slug: slug,
+       page_title: "#{tournament.name} · Pairings",
+       gone: false
+     )
      |> reload()}
   end
 
@@ -52,7 +59,8 @@ defmodule PairingsEngineWeb.PublicPairingsLive do
     assign(socket,
       round_number: paired,
       round: paired > 0 && Tournaments.get_round(tournament.id, paired),
-      round_byes: if(paired > 0, do: Tournaments.list_byes_for_round(tournament.id, paired), else: [])
+      round_byes:
+        if(paired > 0, do: Tournaments.list_byes_for_round(tournament.id, paired), else: [])
     )
   end
 

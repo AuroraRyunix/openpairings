@@ -7,9 +7,14 @@ defmodule PairingsEngine.PlayerCardTest do
 
   describe "result_label/2" do
     test "actual results over the board" do
-      assert PlayerCard.result_label(%{opponent_id: 2, played: true, points: 1.0}, @tournament) == "1"
-      assert PlayerCard.result_label(%{opponent_id: 2, played: true, points: 0.5}, @tournament) == "½"
-      assert PlayerCard.result_label(%{opponent_id: 2, played: true, points: 0.0}, @tournament) == "0"
+      assert PlayerCard.result_label(%{opponent_id: 2, played: true, points: 1.0}, @tournament) ==
+               "1"
+
+      assert PlayerCard.result_label(%{opponent_id: 2, played: true, points: 0.5}, @tournament) ==
+               "½"
+
+      assert PlayerCard.result_label(%{opponent_id: 2, played: true, points: 0.0}, @tournament) ==
+               "0"
     end
 
     test "forfeits (opponent existed, game unplayed, not voluntary)" do
@@ -20,10 +25,41 @@ defmodule PairingsEngine.PlayerCardTest do
       assert PlayerCard.result_label(game, @tournament) == "0FF"
     end
 
-    test "byes (no opponent)" do
+    test "byes (no opponent) without a :bye_type fall back to the point-value heuristic" do
       assert PlayerCard.result_label(%{opponent_id: nil, points: 1.0}, @tournament) == "1 bye"
       assert PlayerCard.result_label(%{opponent_id: nil, points: 0.5}, @tournament) == "½ bye"
       assert PlayerCard.result_label(%{opponent_id: nil, points: 0.0}, @tournament) == "0 bye"
+    end
+
+    test "byes carrying a :bye_type are labelled by kind, not by point value" do
+      # SWAR-3-2-1-style custom scoring where the awarded point values
+      # collide across kinds: win 2.0 / draw 1.0 / loss 0.0, presence
+      # points 1.0 (== points_draw!), bye 2.0.
+      t = %{points_win: 2.0, points_draw: 1.0, points_loss: 0.0}
+
+      # A presence-valued requested-ZERO bye awards 1.0 == points_draw; the
+      # old points-only heuristic mislabelled it "½ bye". The kind wins.
+      game = %{opponent_id: nil, points: 1.0, bye_type: "requested-zero"}
+      assert PlayerCard.result_label(game, t) == "0 bye"
+
+      game = %{opponent_id: nil, points: 1.0, bye_type: "requested-half"}
+      assert PlayerCard.result_label(game, t) == "½ bye"
+
+      game = %{opponent_id: nil, points: 0.5, bye_type: "absent"}
+      assert PlayerCard.result_label(game, t) == "0 bye"
+
+      # Pairing-allocated keeps the point-value number (it tracks what the
+      # bye actually pays): a full 3.0 bye (bye_value + presence) is "1 bye",
+      # a half-point pairing bye is "½ bye".
+      game = %{opponent_id: nil, points: 3.0, bye_type: "pairing-allocated"}
+      assert PlayerCard.result_label(game, t) == "1 bye"
+
+      game = %{opponent_id: nil, points: 1.0, bye_type: "pairing-allocated"}
+      assert PlayerCard.result_label(game, t) == "½ bye"
+
+      # Defensive: an explicit nil bye_type behaves like a missing key.
+      game = %{opponent_id: nil, points: 0.0, bye_type: nil}
+      assert PlayerCard.result_label(game, t) == "0 bye"
     end
 
     test "voluntary unplayed round with an opponent renders blank" do
@@ -78,7 +114,9 @@ defmodule PairingsEngine.PlayerCardTest do
         %{round: 2, opponent_id: nil, colour: nil, points: 0.5, played: false, voluntary: true}
       ]
 
-      bob_games = [%{round: 1, opponent_id: 1, colour: :b, points: 0.0, played: true, voluntary: false}]
+      bob_games = [
+        %{round: 1, opponent_id: 1, colour: :b, points: 0.0, played: true, voluntary: false}
+      ]
 
       alice = %{
         player: %{

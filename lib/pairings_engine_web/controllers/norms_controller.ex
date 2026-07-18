@@ -132,7 +132,10 @@ defmodule PairingsEngineWeb.NormsController do
       {:error, reason} ->
         conn
         |> put_resp_content_type("text/plain")
-        |> send_resp(500, "Could not generate #{kind |> Atom.to_string() |> String.upcase()}: #{inspect(reason)}")
+        |> send_resp(
+          500,
+          "Could not generate #{kind |> Atom.to_string() |> String.upcase()}: #{inspect(reason)}"
+        )
     end
   end
 end

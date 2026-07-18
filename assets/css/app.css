@@ -682,6 +682,20 @@ button.pe-btn, .pe-btn {
 .checkbox-row label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 500; }
 .checkbox-row input[type="checkbox"] { width: auto; accent-color: var(--accent); }
 
+/* A `label.field` that wraps a checkbox: row-oriented (control + text on
+   one line) instead of the .field default column. Replaces the per-call-
+   site inline flex styles that used to patch this in tournaments_live /
+   norms_live — NOT part of the settings .set-* system, which those pages
+   deliberately don't use. */
+label.field.field-check { display: flex; flex-direction: row; align-items: center; gap: 0.5rem; }
+
+/* One inline radio/checkbox option per row: control + description on one
+   line (create-tournament "Standard" picker, SWAR resolve-FIDE-id modal).
+   `.opt-baseline` for multi-line descriptions where baseline alignment
+   reads better than centering against the first line. */
+.opt-row { display: flex; gap: 0.5rem; align-items: center; font-weight: 400; }
+.opt-row.opt-baseline { align-items: baseline; }
+
 .card-table-wrap { overflow-x: auto; }
 .card-header-line { color: var(--text-soft); margin: -6px 0 16px; }
 .card-total-row td { font-weight: 700; border-top: 2px solid var(--border); }
@@ -943,21 +957,12 @@ button.pe-btn, .pe-btn {
    dotted line, distinct from both the plain "within bracket" line and the
    danger-red anomaly dashes below. */
 .pe-legend-line.is-rematch { border-top-style: dotted; border-top-color: #5f7d68; border-top-width: 3px; }
-/* Solid-colour badge chip, not bare colored text (task 2) — mirrors the
-   filled `pe-tri-badge` circle drawn behind the same glyph on the chart. */
-.pe-legend-tri {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  font-size: 10px;
-  line-height: 1;
-  color: #ffffff;
-}
-.pe-legend-tri.down { background: #b5762f; }
-.pe-legend-tri.up { background: #3a6ea5; }
+/* Bare coloured triangle glyphs, matching the chart's paired-up/-down
+   markers — an interim design wrapped both in filled circle chips and the
+   user explicitly asked for the plain triangles back. */
+.pe-legend-tri { font-size: 12px; line-height: 1; }
+.pe-legend-tri.down { color: #b5762f; }
+.pe-legend-tri.up { color: #3a6ea5; }
 /* Colour-against-due halo swatch (task 3) — mirrors the SVG halo ring's
    warn colour/dash pattern (see .pe-tag-warn and the `pe-dot-halo` circle
    in pairing_explain_live.ex). */
@@ -1139,6 +1144,14 @@ button.pe-btn, .pe-btn {
 .pe-band-odd { color: #a76a25; font-weight: 600; }
 
 .pe-bracket-canvas { position: relative; flex: 0 0 auto; }
+/* The tall PINNED popover (with the cross-round trail) needs far more room
+   below its dot than the short hover popover. Reserving that room
+   permanently in the server-set min-height padded a huge dead band between
+   the graph and the minimap strip (user-reported) — so the inline
+   min-height only covers hover, and the full pinned reservation
+   (--pe-pinned-min, set inline by pairing_explain_live) kicks in only
+   while a dot is actually pinned. */
+.pe-bracket-canvas:has(.pe-board-wrap.is-pinned) { min-height: var(--pe-pinned-min); }
 
 .pe-board-overlay { position: absolute; inset: 0; pointer-events: none; }
 /* One hover wrap per DOT (one per player, one for a bye), a fixed square
@@ -1240,6 +1253,42 @@ button.pe-btn, .pe-btn {
    hovering/pinning a dimmed dot still works exactly as before. */
 .pe-filterable { transition: opacity 0.15s; }
 .pe-dim { opacity: 0.16; }
+
+/* ---- bracket-map: head-to-head duo panel ----
+   One hidden panel per playing board, under the chart (normal flow — never
+   clipped by the scroll strip). Opened by the delegated listener in
+   assets/js/app.js when a pinned player's exact opponent is clicked;
+   closed by clicking either of the two dots or the ✕. Both dots keep
+   their highlight ring via .is-duo while the panel is open. */
+.pe-duo {
+  display: none;
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  padding: 12px 14px;
+}
+.pe-duo.is-open { display: block; }
+.pe-duo-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.pe-duo-vs { color: var(--text-soft); font-size: 12.5px; }
+.pe-duo-close {
+  margin-left: auto;
+  border: none;
+  background: none;
+  color: var(--text-soft);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+.pe-duo-close:hover { background: var(--accent-soft); color: var(--text); }
+.pe-duo-grid { display: flex; gap: 24px; flex-wrap: wrap; }
+.pe-duo-side { flex: 1; min-width: 220px; }
+.pe-duo-shared { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+.pe-board-wrap.is-duo { z-index: 30; }
+.pe-board-wrap.is-duo::before { opacity: 1; }
 
 /* ---- bracket-map: pinned-popover cross-round trail (task A) ----
    The trail (per-round strip + score sparkline) is precomputed server-side

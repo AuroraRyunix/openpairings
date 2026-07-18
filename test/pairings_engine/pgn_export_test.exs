@@ -13,7 +13,12 @@ defmodule PairingsEngine.PgnExportTest do
       Tournaments.create_tournament(
         scope,
         Map.merge(
-          %{"name" => "PGN Export Test", "type" => "swiss", "rounds_count" => "2", "city" => "Ghent"},
+          %{
+            "name" => "PGN Export Test",
+            "type" => "swiss",
+            "rounds_count" => "2",
+            "city" => "Ghent"
+          },
           attrs
         )
       )
@@ -26,14 +31,42 @@ defmodule PairingsEngine.PgnExportTest do
         fide_id: 12345
       })
 
-    bob = Repo.insert!(%Player{tournament_id: tournament.id, name: "Bob, B.", national_rating: 1800})
+    bob =
+      Repo.insert!(%Player{tournament_id: tournament.id, name: "Bob, B.", national_rating: 1800})
 
-    r1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished", date: "2026-07-14"})
+    r1 =
+      Repo.insert!(%Round{
+        tournament_id: tournament.id,
+        number: 1,
+        status: "finished",
+        date: "2026-07-14"
+      })
+
     r2 = Repo.insert!(%Round{tournament_id: tournament.id, number: 2, status: "playing"})
 
-    Repo.insert!(%Pairing{round_id: r1.id, board: 1, white_player_id: alice.id, black_player_id: bob.id, result: "1-0"})
-    Repo.insert!(%Pairing{round_id: r1.id, board: 2, white_player_id: alice.id, black_player_id: nil, result: "bye"})
-    Repo.insert!(%Pairing{round_id: r2.id, board: 1, white_player_id: bob.id, black_player_id: alice.id, result: ""})
+    Repo.insert!(%Pairing{
+      round_id: r1.id,
+      board: 1,
+      white_player_id: alice.id,
+      black_player_id: bob.id,
+      result: "1-0"
+    })
+
+    Repo.insert!(%Pairing{
+      round_id: r1.id,
+      board: 2,
+      white_player_id: alice.id,
+      black_player_id: nil,
+      result: "bye"
+    })
+
+    Repo.insert!(%Pairing{
+      round_id: r2.id,
+      board: 1,
+      white_player_id: bob.id,
+      black_player_id: alice.id,
+      result: ""
+    })
 
     tournament
   end

@@ -43,7 +43,12 @@ defmodule PairingsEngineWeb.Layouts do
     ~H"""
     <header class="topbar">
       <.link navigate={~p"/"} class="brand">
-        <svg class="brand-mark" viewBox="0 0 64 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <svg
+          class="brand-mark"
+          viewBox="0 0 64 48"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
           <defs>
             <linearGradient id="bm-orb" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stop-color="#3d7458" />
@@ -64,10 +69,32 @@ defmodule PairingsEngineWeb.Layouts do
             stroke-width="3"
             stroke-linejoin="round"
           />
-          <path d="M6,17 Q12,20 15,25" fill="none" stroke="#1c1a15" stroke-width="1.6" stroke-linecap="round" opacity="0.55" />
-          <path d="M58,18 Q52,21 49,26" fill="none" stroke="#1c1a15" stroke-width="1.6" stroke-linecap="round" opacity="0.55" />
+          <path
+            d="M6,17 Q12,20 15,25"
+            fill="none"
+            stroke="#1c1a15"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            opacity="0.55"
+          />
+          <path
+            d="M58,18 Q52,21 49,26"
+            fill="none"
+            stroke="#1c1a15"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            opacity="0.55"
+          />
           <circle cx="32" cy="24" r="14" fill="url(#bm-orb)" stroke="#1c1a15" stroke-width="3" />
-          <ellipse cx="27" cy="18" rx="4" ry="6" fill="#ffffff" opacity="0.5" transform="rotate(-25 27 18)" />
+          <ellipse
+            cx="27"
+            cy="18"
+            rx="4"
+            ry="6"
+            fill="#ffffff"
+            opacity="0.5"
+            transform="rotate(-25 27 18)"
+          />
         </svg>
         <span class="brand-name">Open<strong>Pairings</strong></span>
       </.link>
@@ -118,7 +145,10 @@ defmodule PairingsEngineWeb.Layouts do
               <.link navigate={~p"/t/#{@tournament.id}/categories"} class="topbar-menu-item">
                 Categories
               </.link>
-              <.link navigate={~p"/t/#{@tournament.id}/settings/extra-points"} class="topbar-menu-item">
+              <.link
+                navigate={~p"/t/#{@tournament.id}/settings/extra-points"}
+                class="topbar-menu-item"
+              >
                 Extra points
               </.link>
               <.link navigate={~p"/t/#{@tournament.id}/settings/fide"} class="topbar-menu-item">

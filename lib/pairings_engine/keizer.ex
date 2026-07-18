@@ -128,7 +128,8 @@ defmodule PairingsEngine.Keizer do
     ladder_pool = ladder_players(tournament.id)
     {games, byes} = rounds_data(tournament.id, paired_count)
 
-    %{order: order} = recalculate(ladder_pool, games, byes, tournament.keizer_top_value, paired_count)
+    %{order: order} =
+      recalculate(ladder_pool, games, byes, tournament.keizer_top_value, paired_count)
 
     eligible_ids = MapSet.new(eligible, & &1.id)
     ranked_eligible = Enum.filter(order, &MapSet.member?(eligible_ids, &1.id))
@@ -228,15 +229,52 @@ defmodule PairingsEngine.Keizer do
   defp round_stats(entries, t) do
     Enum.reduce(entries, %{played: 0, wins: 0, draws: 0, losses: 0, raw_points: 0.0}, fn e, acc ->
       case e.class do
-        :win -> %{acc | played: acc.played + 1, wins: acc.wins + 1, raw_points: acc.raw_points + t.points_win}
-        :draw -> %{acc | played: acc.played + 1, draws: acc.draws + 1, raw_points: acc.raw_points + t.points_draw}
-        :loss -> %{acc | played: acc.played + 1, losses: acc.losses + 1, raw_points: acc.raw_points + t.points_loss}
-        :zero -> %{acc | played: acc.played + 1, losses: acc.losses + 1, raw_points: acc.raw_points + t.points_loss}
-        :forfeit_win -> %{acc | wins: acc.wins + 1, raw_points: acc.raw_points + t.points_win}
-        :forfeit_loss -> %{acc | losses: acc.losses + 1, raw_points: acc.raw_points + t.points_loss}
-        :unpaired_bye -> %{acc | raw_points: acc.raw_points + t.bye_value}
-        :excused -> acc
-        :not_joined -> acc
+        :win ->
+          %{
+            acc
+            | played: acc.played + 1,
+              wins: acc.wins + 1,
+              raw_points: acc.raw_points + t.points_win
+          }
+
+        :draw ->
+          %{
+            acc
+            | played: acc.played + 1,
+              draws: acc.draws + 1,
+              raw_points: acc.raw_points + t.points_draw
+          }
+
+        :loss ->
+          %{
+            acc
+            | played: acc.played + 1,
+              losses: acc.losses + 1,
+              raw_points: acc.raw_points + t.points_loss
+          }
+
+        :zero ->
+          %{
+            acc
+            | played: acc.played + 1,
+              losses: acc.losses + 1,
+              raw_points: acc.raw_points + t.points_loss
+          }
+
+        :forfeit_win ->
+          %{acc | wins: acc.wins + 1, raw_points: acc.raw_points + t.points_win}
+
+        :forfeit_loss ->
+          %{acc | losses: acc.losses + 1, raw_points: acc.raw_points + t.points_loss}
+
+        :unpaired_bye ->
+          %{acc | raw_points: acc.raw_points + t.bye_value}
+
+        :excused ->
+          acc
+
+        :not_joined ->
+          acc
       end
     end)
     |> Map.update!(:raw_points, &round_f(&1, 1))
@@ -268,7 +306,12 @@ defmodule PairingsEngine.Keizer do
 
     games =
       for round <- rounds, p <- round.pairings do
-        %{round: round.number, white_id: p.white_player_id, black_id: p.black_player_id, result: p.result}
+        %{
+          round: round.number,
+          white_id: p.white_player_id,
+          black_id: p.black_player_id,
+          result: p.result
+        }
       end
 
     byes =
@@ -303,7 +346,8 @@ defmodule PairingsEngine.Keizer do
 
   defp create_round(tournament, coloured_pairs, bye_player, next_number) do
     Repo.transaction(fn ->
-      round = Repo.insert!(%Round{tournament_id: tournament.id, number: next_number, status: "playing"})
+      round =
+        Repo.insert!(%Round{tournament_id: tournament.id, number: next_number, status: "playing"})
 
       coloured_pairs
       |> Enum.with_index(1)
@@ -426,12 +470,22 @@ defmodule PairingsEngine.Keizer do
       round_number < (player.start_round || 1) ->
         %{round: round_number, class: :not_joined, points: 0.0, opponent_id: nil}
 
-      game = Enum.find(games_by_round[round_number] || [], &(&1.white_id == player.id or &1.black_id == player.id)) ->
+      game =
+          Enum.find(
+            games_by_round[round_number] || [],
+            &(&1.white_id == player.id or &1.black_id == player.id)
+          ) ->
         score_game(player, game, values)
 
       bye = Enum.find(byes_by_round[round_number] || [], &(&1.player_id == player.id)) ->
         {class, fraction} = bye_class_and_fraction(bye.type)
-        %{round: round_number, class: class, points: own(values, player) * fraction, opponent_id: nil}
+
+        %{
+          round: round_number,
+          class: class,
+          points: own(values, player) * fraction,
+          opponent_id: nil
+        }
 
       excused_absence?(player, round_number) ->
         %{round: round_number, class: :excused, points: own(values, player) / 3, opponent_id: nil}
@@ -446,7 +500,12 @@ defmodule PairingsEngine.Keizer do
     opponent_id = if white?, do: game.black_id, else: game.white_id
 
     if game.result == "bye" or opponent_id == nil do
-      %{round: game.round, class: :unpaired_bye, points: own(values, player) / 2, opponent_id: nil}
+      %{
+        round: game.round,
+        class: :unpaired_bye,
+        points: own(values, player) / 2,
+        opponent_id: nil
+      }
     else
       class = classify_result(game.result, white?)
       points = class_points(class, player, opponent_id, values)
@@ -488,7 +547,9 @@ defmodule PairingsEngine.Keizer do
   # "pairing-allocated"/"requested-half" are half-point byes (no game
   # played, unpaired) — same bucket as an odd-count bye.
   # "requested-zero"/"absent" are excused absences — a third.
-  defp bye_class_and_fraction(type) when type in ["pairing-allocated", "requested-half"], do: {:unpaired_bye, 1 / 2}
+  defp bye_class_and_fraction(type) when type in ["pairing-allocated", "requested-half"],
+    do: {:unpaired_bye, 1 / 2}
+
   defp bye_class_and_fraction(_type), do: {:excused, 1 / 3}
 
   defp own(values, player), do: Map.get(values, player.id, 0)

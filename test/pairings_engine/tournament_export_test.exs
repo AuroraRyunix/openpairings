@@ -46,9 +46,17 @@ defmodule PairingsEngine.TournamentExportTest do
 
     round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
 
-    Repo.insert!(%Pairing{round_id: round.id, board: 1, white_player_id: a.id, black_player_id: b.id, result: "1-0"})
+    Repo.insert!(%Pairing{
+      round_id: round.id,
+      board: 1,
+      white_player_id: a.id,
+      black_player_id: b.id,
+      result: "1-0"
+    })
 
-    Repo.insert_all("byes", [%{tournament_id: tournament.id, player_id: a.id, round: 2, type: "requested-half"}])
+    Repo.insert_all("byes", [
+      %{tournament_id: tournament.id, player_id: a.id, round: 2, type: "requested-half"}
+    ])
 
     Repo.insert_all("forbidden_pairings", [
       %{tournament_id: tournament.id, player_a_id: a.id, player_b_id: b.id}

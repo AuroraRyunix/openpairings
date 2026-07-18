@@ -57,13 +57,17 @@ defmodule PairingsEngine.Tournaments.Collaborator do
     |> cast(attrs, [:tournament_id, :user_id, :email, :role, :status, :invite_token])
     |> update_change(:email, &normalize_email/1)
     |> validate_required([:tournament_id, :email])
-    |> validate_format(:email, ~r/^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: "must be a valid email address")
+    |> validate_format(:email, ~r/^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+      message: "must be a valid email address"
+    )
     |> validate_inclusion(:role, @roles)
     |> validate_inclusion(:status, @statuses)
     |> unique_constraint([:tournament_id, :email])
     |> unique_constraint(:invite_token)
   end
 
-  defp normalize_email(email) when is_binary(email), do: email |> String.trim() |> String.downcase()
+  defp normalize_email(email) when is_binary(email),
+    do: email |> String.trim() |> String.downcase()
+
   defp normalize_email(email), do: email
 end

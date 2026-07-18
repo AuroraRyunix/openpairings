@@ -680,7 +680,12 @@ defmodule PairingsEngine.SwarImport do
   # what the FIDE database currently has on file.
   defp resolve_fide_match(%{mat_fide: 0} = p, cache) do
     candidates = fide_candidates(p, cache)
-    exact = Enum.filter(candidates, &(&1.birth_year == birth_year(p.birth) and not is_nil(&1.birth_year)))
+
+    exact =
+      Enum.filter(
+        candidates,
+        &(&1.birth_year == birth_year(p.birth) and not is_nil(&1.birth_year))
+      )
 
     case exact do
       [one] -> {:matched, Map.put(p, :fide_match, one) |> Map.put(:mat_fide, one.fide_id)}
@@ -831,32 +836,47 @@ defmodule PairingsEngine.SwarImport do
   # against the real fixture (see above). `SW321_PreBye` (field 85, manual
   # §5.16, present only in file version >= v6.03) is documented verbatim as
   # "Add presence points for bye games" — i.e. a pairing-allocated bye
-  # (`WIN_BYE`) is paid `SW321_Bye + SW321_Pre` when it is set/nonzero, so
-  # `bye_value_with_prebye/1` below folds it in. This gap is now fixed.
+  # (`WIN_BYE`) is paid `SW321_Bye + SW321_Pre` when it is set/nonzero.
+  # That option maps onto `Tournament.presence_on_allocated_bye` (a boolean
+  # flag consulted by `PairingsEngine.Standings.bye_points/2`, which adds
+  # `presence_value` on top of `bye_value` for a pairing-allocated bye when
+  # set) rather than being folded into `bye_value` here — an earlier version
+  # of this clause did fold it in (`bye_value: SW321_Bye/4 + SW321_Pre/4`),
+  # which produced the right totals but silently redefined `bye_value` away
+  # from the club's configured SW321_Bye, losing the distinction for
+  # display/editing.
   defp scoring_attrs(%{type: 3} = t) do
     %{
       points_win: t.sw321_win / 4,
       points_draw: t.sw321_nul / 4,
       points_loss: t.sw321_los / 4,
-      bye_value: bye_value_with_prebye(t),
-      presence_value: t.sw321_pre / 4
+      bye_value: t.sw321_bye / 4,
+      presence_value: t.sw321_pre / 4,
+      presence_on_allocated_bye: prebye_set?(t)
     }
   end
 
   defp scoring_attrs(t), do: %{bye_value: map_bye_value(t.bye_value)}
 
   # `SW321_PreBye` (manual §5.16, field 85 — only present in file version >=
-  # "v6.03", nil in older files) is documented as "Add presence points for
-  # bye games": when set and nonzero, a pairing-allocated bye is worth
-  # `SW321_Bye + SW321_Pre`, not `SW321_Bye` alone. Older files (nil) or a
-  # zero value leave `bye_value` unchanged.
-  defp bye_value_with_prebye(%{sw321_prebye: prebye} = t) when is_number(prebye) and prebye != 0 do
-    t.sw321_bye / 4 + t.sw321_pre / 4
-  end
+  # "v6.03", nil in older files) reads as a 0/1 int (raw 1 in the real
+  # test3-321.swar fixture). Nonzero means "add presence points for bye
+  # games". Older files (nil) or a zero value leave the flag at its false
+  # default.
+  defp prebye_set?(%{sw321_prebye: prebye}) when is_number(prebye) and prebye != 0, do: true
+  defp prebye_set?(_t), do: false
 
-  defp bye_value_with_prebye(t), do: t.sw321_bye / 4
-
-  @tournament_types %{0 => "swiss", 1 => "swiss", 2 => "swiss", 3 => "swiss", 4 => "roundrobin", 5 => "roundrobin", 6 => "roundrobin", 7 => "swiss", 8 => "swiss"}
+  @tournament_types %{
+    0 => "swiss",
+    1 => "swiss",
+    2 => "swiss",
+    3 => "swiss",
+    4 => "roundrobin",
+    5 => "roundrobin",
+    6 => "roundrobin",
+    7 => "swiss",
+    8 => "swiss"
+  }
   defp map_tournament_type(type), do: Map.get(@tournament_types, type, "swiss")
 
   # SWAR's [TOURNOI] `federation` field is *which Belgian federation entity*
@@ -867,7 +887,15 @@ defmodule PairingsEngine.SwarImport do
   # reporting is concerned — `normalize_federation/1` collapses them to the
   # single FIDE country code "BEL" that TRF export and the tournament's own
   # `federation` field are supposed to carry (see docs/swar-import.md).
-  @federations %{0 => "", 1 => "FRBE", 2 => "KBSB", 3 => "FEFB", 4 => "VSF", 5 => "SVDB", 6 => "FIDE"}
+  @federations %{
+    0 => "",
+    1 => "FRBE",
+    2 => "KBSB",
+    3 => "FEFB",
+    4 => "VSF",
+    5 => "SVDB",
+    6 => "FIDE"
+  }
   defp map_federation(code), do: Map.get(@federations, code, "") |> normalize_federation()
 
   # Regional/organizational markers that all mean "Belgium" for FIDE-reporting

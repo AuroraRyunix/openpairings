@@ -8,7 +8,9 @@ defmodule PairingsEngineWeb.NormsLiveTest do
   setup :register_and_log_in_user
 
   test "renders download links for all four forms and lists players", %{conn: conn, scope: scope} do
-    {:ok, tournament} = Tournaments.create_tournament(scope, %{"name" => "Norms LV", "type" => "swiss"})
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{"name" => "Norms LV", "type" => "swiss"})
+
     {:ok, _player} = Tournaments.create_player(tournament.id, %{"name" => "Doe, Jane"})
 
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/norms")
@@ -19,13 +21,20 @@ defmodule PairingsEngineWeb.NormsLiveTest do
     assert html =~ ~s(href="/t/#{tournament.id}/norms/it4")
     assert html =~ "Doe, Jane"
     assert html =~ "No players have a claimed title yet"
+
+    # The automatic B.01 judgment column renders for every player — with no
+    # games played yet, the verdict is the honest "no counted games".
+    assert html =~ "Computed (B.01)"
+    assert html =~ "no counted games"
   end
 
   test "editing a player's norm data persists it and it then shows up as an IT4 candidate", %{
     conn: conn,
     scope: scope
   } do
-    {:ok, tournament} = Tournaments.create_tournament(scope, %{"name" => "Norms LV", "type" => "swiss"})
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{"name" => "Norms LV", "type" => "swiss"})
+
     {:ok, player} = Tournaments.create_player(tournament.id, %{"name" => "Doe, Jane"})
 
     {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/norms")
@@ -70,7 +79,8 @@ defmodule PairingsEngineWeb.NormsLiveTest do
       conn: conn,
       scope: scope
     } do
-      {:ok, tournament} = Tournaments.create_tournament(scope, %{"name" => "Norms LV", "type" => "swiss"})
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Norms LV", "type" => "swiss"})
 
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/norms")
 
@@ -80,12 +90,20 @@ defmodule PairingsEngineWeb.NormsLiveTest do
 
     test "lists the user's other tournaments as checkboxes, and only shows the combined downloads once one is picked",
          %{conn: conn, scope: scope} do
-      {:ok, tournament} = Tournaments.create_tournament(scope, %{"name" => "Norms LV", "type" => "swiss"})
-      {:ok, other} = Tournaments.create_tournament(scope, %{"name" => "Youth Group", "type" => "swiss"})
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Norms LV", "type" => "swiss"})
+
+      {:ok, other} =
+        Tournaments.create_tournament(scope, %{"name" => "Youth Group", "type" => "swiss"})
 
       {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/norms")
 
       assert html =~ "Youth Group"
+      # The current tournament is always part of the combined set — it must
+      # appear in its own festival's list (checked + disabled), not be
+      # silently omitted (user-reported as "doesn't list its own tournament").
+      assert html =~ "this tournament, always included"
+      assert html =~ "Norms LV"
       assert html =~ "Select at least one tournament above to enable the combined downloads."
       refute html =~ "Download combined IT3"
 
@@ -95,7 +113,10 @@ defmodule PairingsEngineWeb.NormsLiveTest do
         |> render_click()
 
       assert html =~ "Download combined IT3"
-      assert html =~ ~s(href="/t/#{tournament.id}/norms/it3?combine=#{tournament.id}%2C#{other.id}&amp;master=#{tournament.id}")
+
+      assert html =~
+               ~s(href="/t/#{tournament.id}/norms/it3?combine=#{tournament.id}%2C#{other.id}&amp;master=#{tournament.id}")
+
       assert html =~ ~s(action="/t/#{tournament.id}/norms/fa1")
       # Master picker defaults to the current tournament, always part of the set.
       assert html =~ ~s(value="#{tournament.id}" selected)
@@ -105,8 +126,11 @@ defmodule PairingsEngineWeb.NormsLiveTest do
       conn: conn,
       scope: scope
     } do
-      {:ok, tournament} = Tournaments.create_tournament(scope, %{"name" => "Norms LV", "type" => "swiss"})
-      {:ok, other} = Tournaments.create_tournament(scope, %{"name" => "Youth Group", "type" => "swiss"})
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Norms LV", "type" => "swiss"})
+
+      {:ok, other} =
+        Tournaments.create_tournament(scope, %{"name" => "Youth Group", "type" => "swiss"})
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/norms")
 
@@ -121,14 +145,23 @@ defmodule PairingsEngineWeb.NormsLiveTest do
                ~s(href="/t/#{tournament.id}/norms/it3?combine=#{tournament.id}%2C#{other.id}&amp;master=#{other.id}")
     end
 
-    test "deselecting the current master falls back to the tournament itself", %{conn: conn, scope: scope} do
-      {:ok, tournament} = Tournaments.create_tournament(scope, %{"name" => "Norms LV", "type" => "swiss"})
-      {:ok, other} = Tournaments.create_tournament(scope, %{"name" => "Youth Group", "type" => "swiss"})
+    test "deselecting the current master falls back to the tournament itself", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Norms LV", "type" => "swiss"})
+
+      {:ok, other} =
+        Tournaments.create_tournament(scope, %{"name" => "Youth Group", "type" => "swiss"})
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/norms")
 
       lv |> element(~s(input[phx-value-id="#{other.id}"])) |> render_click()
-      lv |> form("form[phx-change=set_combine_master]", %{"master" => to_string(other.id)}) |> render_change()
+
+      lv
+      |> form("form[phx-change=set_combine_master]", %{"master" => to_string(other.id)})
+      |> render_change()
 
       # Deselect `other` again — it was the master, so the master resets to
       # the current tournament, and the combined section disappears (no

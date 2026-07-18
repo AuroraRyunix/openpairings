@@ -34,6 +34,7 @@ defmodule PairingsEngine.SwarImportAbsValueTest do
 
     header = w_str(version) <> w_str("guid") <> w_str("mac")
 
+    # legacy ByeValue field — not under test here
     tournoi =
       w_str("TOURNOI") <>
         w_str("Test Tournament") <>
@@ -76,7 +77,6 @@ defmodule PairingsEngine.SwarImportAbsValueTest do
         w_i32(0) <>
         w_i32(0) <>
         w_i32(0) <>
-        # legacy ByeValue field — not under test here
         w_i32(0) <>
         w_u8(abs_value) <>
         w_u8(0) <>
@@ -177,7 +177,10 @@ defmodule PairingsEngine.SwarImportAbsValueTest do
 
   defp import_synthetic!(opts) do
     binary = build_swar_binary(opts)
-    path = Path.join(System.tmp_dir!(), "synthetic-abs-#{System.unique_integer([:positive])}.swar")
+
+    path =
+      Path.join(System.tmp_dir!(), "synthetic-abs-#{System.unique_integer([:positive])}.swar")
+
     File.write!(path, binary)
 
     try do

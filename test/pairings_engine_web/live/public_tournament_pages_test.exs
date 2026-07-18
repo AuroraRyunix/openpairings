@@ -19,12 +19,17 @@ defmodule PairingsEngineWeb.PublicTournamentPagesTest do
     scope = owner_scope()
 
     {:ok, tournament} =
-      Tournaments.create_tournament(scope, %{"name" => "Open Public Cup", "type" => "swiss", "rounds_count" => "3"})
+      Tournaments.create_tournament(scope, %{
+        "name" => "Open Public Cup",
+        "type" => "swiss",
+        "rounds_count" => "3"
+      })
 
     tournament
   end
 
-  test "logged-out visitor can mount the public pairings page and sees a 'not paired yet' placeholder", %{conn: conn} do
+  test "logged-out visitor can mount the public pairings page and sees a 'not paired yet' placeholder",
+       %{conn: conn} do
     tournament = fixture()
 
     {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/pairings")
@@ -54,14 +59,22 @@ defmodule PairingsEngineWeb.PublicTournamentPagesTest do
 
   # fixture/0 is a default (swiss) tournament — pairs via JaVaFo.
   @tag :javafo
-  test "shows the latest round's pairings and updates live when a result is entered elsewhere", %{conn: conn} do
+  test "shows the latest round's pairings and updates live when a result is entered elsewhere", %{
+    conn: conn
+  } do
     tournament = fixture()
 
     {:ok, white} =
-      Tournaments.create_player(tournament.id, %{"name" => "White Player", "fide_rating" => "2000"})
+      Tournaments.create_player(tournament.id, %{
+        "name" => "White Player",
+        "fide_rating" => "2000"
+      })
 
     {:ok, _black} =
-      Tournaments.create_player(tournament.id, %{"name" => "Black Player", "fide_rating" => "1900"})
+      Tournaments.create_player(tournament.id, %{
+        "name" => "Black Player",
+        "fide_rating" => "1900"
+      })
 
     assert {:ok, _round} = Pairing.pair_next_round(tournament)
 
@@ -88,10 +101,16 @@ defmodule PairingsEngineWeb.PublicTournamentPagesTest do
     tournament = fixture()
 
     {:ok, _white} =
-      Tournaments.create_player(tournament.id, %{"name" => "White Player", "fide_rating" => "2000"})
+      Tournaments.create_player(tournament.id, %{
+        "name" => "White Player",
+        "fide_rating" => "2000"
+      })
 
     {:ok, _black} =
-      Tournaments.create_player(tournament.id, %{"name" => "Black Player", "fide_rating" => "1900"})
+      Tournaments.create_player(tournament.id, %{
+        "name" => "Black Player",
+        "fide_rating" => "1900"
+      })
 
     assert {:ok, _round} = Pairing.pair_next_round(tournament)
 
@@ -107,9 +126,10 @@ defmodule PairingsEngineWeb.PublicTournamentPagesTest do
     assert html =~ "1.0"
   end
 
-  test "shows 'no longer available' instead of crashing when the tournament is deleted while the page is open", %{
-    conn: conn
-  } do
+  test "shows 'no longer available' instead of crashing when the tournament is deleted while the page is open",
+       %{
+         conn: conn
+       } do
     tournament = fixture()
 
     {:ok, lv, _html} = live(conn, ~p"/p/#{tournament.public_slug}/pairings")

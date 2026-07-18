@@ -40,6 +40,7 @@ defmodule PairingsEngine.SwarImportPresenceTest do
 
     header = w_str(version) <> w_str("guid") <> w_str("mac")
 
+    # legacy ByeValue field — deliberately not the one under test here
     tournoi =
       w_str("TOURNOI") <>
         w_str("Test Tournament") <>
@@ -82,7 +83,6 @@ defmodule PairingsEngine.SwarImportPresenceTest do
         w_i32(0) <>
         w_i32(0) <>
         w_i32(0) <>
-        # legacy ByeValue field — deliberately not the one under test here
         w_i32(0) <>
         w_u8(0) <>
         w_u8(0) <>
@@ -229,7 +229,7 @@ defmodule PairingsEngine.SwarImportPresenceTest do
     assert entry.points == 1.0
   end
 
-  test "import_file/1 folds nonzero SW321_PreBye into bye_value (SW321_Bye + SW321_Pre) for a WIN_BYE round" do
+  test "import_file/1 maps nonzero SW321_PreBye onto presence_on_allocated_bye, and a WIN_BYE round scores bye_value + presence_value" do
     opts = %{
       version: "v6.60",
       type: 3,
@@ -243,16 +243,43 @@ defmodule PairingsEngine.SwarImportPresenceTest do
 
     assert {:ok, tournament, _warnings} = import_synthetic!(opts)
 
-    # 8/4 (SW321_Bye) + 4/4 (SW321_Pre) = 3.0
-    assert tournament.bye_value == 3.0
+    # bye_value stays at plain SW321_Bye (8/4 = 2.0) — the PreBye add-on is
+    # the flag, applied by Standings.bye_points/2, not a fold into bye_value.
+    assert tournament.bye_value == 2.0
+    assert tournament.presence_on_allocated_bye == true
 
     [player] = PairingsEngine.Tournaments.list_players(tournament.id)
     entries = Standings.standings(tournament)
     entry = Enum.find(entries, &(&1.player.id == player.id))
+    # 8/4 (SW321_Bye) + 4/4 (SW321_Pre) = 3.0 — SWAR pays presence points ON
+    # TOP of the bye points for a pairing-allocated bye when PreBye is set.
     assert entry.points == 3.0
   end
 
-  test "import_file/1 leaves bye_value at SW321_Bye alone when SW321_PreBye is absent (pre-v6.03 file)" do
+  test "import_file/1 leaves presence_on_allocated_bye false when SW321_PreBye is zero, scoring a WIN_BYE at bye_value alone" do
+    opts = %{
+      version: "v6.60",
+      type: 3,
+      sw321: {8, 4, 0, 8, 4},
+      prebye: 0,
+      players: [
+        %{ni: 1, name: "Player, One", rounds: [%{round_nr: 1, result: @win_bye, advers: 0}]}
+      ]
+    }
+
+    assert {:ok, tournament, _warnings} = import_synthetic!(opts)
+
+    assert tournament.bye_value == 2.0
+    assert tournament.presence_on_allocated_bye == false
+
+    [player] = PairingsEngine.Tournaments.list_players(tournament.id)
+    entries = Standings.standings(tournament)
+    entry = Enum.find(entries, &(&1.player.id == player.id))
+    # SW321_Bye (2.0) only — no presence add-on.
+    assert entry.points == 2.0
+  end
+
+  test "import_file/1 leaves presence_on_allocated_bye false when SW321_PreBye is absent (pre-v6.03 file)" do
     opts = %{
       # < v6.03 — SW321_PreBye isn't even present in the file format at this
       # version, so it parses to `nil` regardless of what a caller might
@@ -267,9 +294,37 @@ defmodule PairingsEngine.SwarImportPresenceTest do
 
     assert {:ok, tournament, _warnings} = import_synthetic!(opts)
 
-    # 8/4 (SW321_Bye) only — no fold, since SW321_PreBye doesn't exist yet.
+    # 8/4 (SW321_Bye) only, and no flag — SW321_PreBye doesn't exist yet at
+    # this file version.
     assert tournament.bye_value == 2.0
     assert tournament.presence_value == 1.0
+    assert tournament.presence_on_allocated_bye == false
+  end
+
+  test "import_file/1 never sets presence_on_allocated_bye for a non-3-2-1 tournament, even with SW321_PreBye bytes present" do
+    opts = %{
+      version: "v6.60",
+      # type != 3 — the whole 3-2-1 mapping (including the PreBye flag) must
+      # not fire at all, same regression guard as the presence_value test
+      # below.
+      type: 0,
+      sw321: {8, 4, 0, 8, 4},
+      prebye: 4,
+      players: [
+        %{ni: 1, name: "Player, One", rounds: [%{round_nr: 1, result: @win_bye, advers: 0}]}
+      ]
+    }
+
+    assert {:ok, tournament, _warnings} = import_synthetic!(opts)
+
+    assert tournament.presence_on_allocated_bye == false
+    assert tournament.presence_value == nil
+
+    [player] = PairingsEngine.Tournaments.list_players(tournament.id)
+    entries = Standings.standings(tournament)
+    entry = Enum.find(entries, &(&1.player.id == player.id))
+    # Scores at the schema-default bye_value (1.0) with no presence add-on.
+    assert entry.points == 1.0
   end
 
   test "import_file/1 leaves presence_value nil and requested-zero byes at plain points_loss for a non-3-2-1 tournament" do

@@ -235,7 +235,8 @@ defmodule PairingsEngine.Norms.XlsxFill do
     end
   end
 
-  defp formula_cell?(cell_text), do: String.contains?(cell_text, "<f>") or String.contains?(cell_text, "<f ")
+  defp formula_cell?(cell_text),
+    do: String.contains?(cell_text, "<f>") or String.contains?(cell_text, "<f ")
 
   defp extract_style(cell_text) do
     case Regex.run(~r/\bs="([^"]*)"/, cell_text) do
@@ -274,7 +275,8 @@ defmodule PairingsEngine.Norms.XlsxFill do
       opening = String.slice(row_match, 0..-3//1)
       opening <> ">" <> new_cell <> "</row>"
     else
-      existing_refs = Regex.scan(~r/<c r="([A-Z]+)[0-9]+"/, row_match) |> Enum.map(&Enum.at(&1, 1))
+      existing_refs =
+        Regex.scan(~r/<c r="([A-Z]+)[0-9]+"/, row_match) |> Enum.map(&Enum.at(&1, 1))
 
       insertion_target =
         Enum.find(existing_refs, fn col -> col_to_num(col) > target_col end)
@@ -289,7 +291,9 @@ defmodule PairingsEngine.Norms.XlsxFill do
           # greater than the target column
           case Regex.run(~r/<c r="#{col}[0-9]+"[^>]*?(?:\/>|>[\s\S]*?<\/c>)/, row_match) do
             [existing_cell_match] ->
-              String.replace(row_match, existing_cell_match, new_cell <> existing_cell_match, global: false)
+              String.replace(row_match, existing_cell_match, new_cell <> existing_cell_match,
+                global: false
+              )
 
             nil ->
               String.replace(row_match, ~r/<\/row>\z/, new_cell <> "</row>")
@@ -439,7 +443,8 @@ defmodule PairingsEngine.Norms.XlsxFill do
   # numeric character reference, so these must be replaced, not escaped.
   @illegal_xml_char_re ~r/[\x00-\x08\x0B\x0C\x0E-\x1F]/
 
-  defp strip_illegal_xml_chars(str), do: Regex.replace(@illegal_xml_char_re, str, @replacement_char)
+  defp strip_illegal_xml_chars(str),
+    do: Regex.replace(@illegal_xml_char_re, str, @replacement_char)
 
   # ---------------------------------------------------------------------
   # Excel 1900-date-system serial numbers
@@ -473,9 +478,10 @@ defmodule PairingsEngine.Norms.XlsxFill do
           workbook_xml
 
         Regex.match?(~r/<calcPr\b[^>]*\/>/, workbook_xml) ->
-          Regex.replace(~r/<calcPr\b([^>]*)\/>/, workbook_xml, "<calcPr\\1 fullCalcOnLoad=\"1\"/>",
-            global: false
-          )
+          Regex.replace(
+            ~r/<calcPr\b([^>]*)\/>/,
+            workbook_xml,
+            "<calcPr\\1 fullCalcOnLoad=\"1\"/>", global: false)
 
         true ->
           String.replace(workbook_xml, ~r/<\/sheets>/, "</sheets><calcPr fullCalcOnLoad=\"1\"/>",
@@ -528,7 +534,22 @@ defmodule PairingsEngine.Norms.XlsxFill do
   # self-closing shared-formula-follower form `<f t="shared" si="1"/>` —
   # optionally followed by a cached `<v>...</v>` / self-closing `<v/>`, which
   # is what gets dropped.
-  @formula_cell_re ~r/<c\b([^>]*)>(<f\b[^>]*\/>|<f\b[^>]*>[\s\S]*?<\/f>)(?:<v\b[^>]*>[\s\S]*?<\/v>|<v\s*\/>)?<\/c>/
+  #
+  # ORDER AND LOOKBEHINDS ARE LOAD-BEARING. The FIDE templates cache many
+  # formulas as an EMPTY self-closing `<v/>`. An earlier version of the
+  # `<v>` branch tried the open-tag form first with a bare `[^>]*>`, which
+  # happily eats the `/` of `<v/>` and reads it as an OPENING tag — the
+  # lazy `[\s\S]*?<\/v>` then scanned FORWARD ACROSS NEIGHBOURING CELLS to
+  # the next real `</v>` anywhere later in the row, and the replacement
+  # silently swallowed every cell in between. One minimal fill deleted
+  # 99-186 cells from every template's Certificaat/display sheet (the side
+  # the arbiter actually reads/prints) — user-reported as norms "not
+  # generating Excel properly". Self-closing forms are now matched FIRST,
+  # and the open-tag forms' `>` carries a `(?<!\/)` lookbehind so they can
+  # never consume a self-closing tag's slash. Same hardening on `<f>` for
+  # symmetry. Regression-locked by the cell-preservation invariant test in
+  # xlsx_fill_test.exs.
+  @formula_cell_re ~r/<c\b([^>]*)>(<f\b[^>]*\/>|<f\b[^>]*(?<!\/)>[\s\S]*?<\/f>)(?:<v\b[^>]*\/>|<v\b[^>]*(?<!\/)>[\s\S]*?<\/v>)?<\/c>/
 
   defp strip_formula_caches_in_xml(xml) do
     Regex.replace(@formula_cell_re, xml, fn _whole, attrs, f_part ->
@@ -582,11 +603,13 @@ defmodule PairingsEngine.Norms.XlsxFill do
 
   @calc_chain_content_type_re ~r/<Override\b[^>]*PartName="\/xl\/calcChain\.xml"[^>]*\/>/
 
-  defp remove_calc_chain_content_type(xml), do: Regex.replace(@calc_chain_content_type_re, xml, "")
+  defp remove_calc_chain_content_type(xml),
+    do: Regex.replace(@calc_chain_content_type_re, xml, "")
 
   @calc_chain_relationship_re ~r/<Relationship\b[^>]*Target="calcChain\.xml"[^>]*\/>/
 
-  defp remove_calc_chain_relationship(xml), do: Regex.replace(@calc_chain_relationship_re, xml, "")
+  defp remove_calc_chain_relationship(xml),
+    do: Regex.replace(@calc_chain_relationship_re, xml, "")
 
   # col_to_num/1 : "A" -> 1, "Z" -> 26, "AA" -> 27, ...
   defp col_to_num(col_letters) do

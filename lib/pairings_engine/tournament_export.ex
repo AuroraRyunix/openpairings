@@ -33,7 +33,8 @@ defmodule PairingsEngine.TournamentExport do
   @tournament_fields ~w(
     name type venue city federation start_date end_date organizer
     chief_arbiter deputy_arbiter time_control rounds_count rating_type
-    points_win points_draw points_loss bye_value tiebreaks acceleration
+    points_win points_draw points_loss bye_value presence_value abs_value
+    presence_on_allocated_bye tiebreaks acceleration
     status standard rate_of_play organizer_club_number round_dates
     categories event_code fide_tournament_id officials
   )a
@@ -54,7 +55,9 @@ defmodule PairingsEngine.TournamentExport do
 
   @doc "Envelope wrapping every tournament `scope`'s user owns or collaborates on."
   def export_all(%Scope{} = scope) do
-    tournaments = scope |> Tournaments.list_tournaments() |> Enum.map(fn {t, _count, _owner?} -> t end)
+    tournaments =
+      scope |> Tournaments.list_tournaments() |> Enum.map(fn {t, _count, _owner?} -> t end)
+
     envelope(tournaments)
   end
 

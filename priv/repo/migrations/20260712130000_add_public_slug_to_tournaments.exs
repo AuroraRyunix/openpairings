@@ -27,7 +27,7 @@ defmodule PairingsEngine.Repo.Migrations.AddPublicSlugToTournaments do
   defp backfill_public_slugs do
     repo = repo()
 
-    ids = repo.all(from t in "tournaments", select: t.id)
+    ids = repo.all(from(t in "tournaments", select: t.id))
 
     Enum.each(ids, fn id ->
       slug = :crypto.strong_rand_bytes(9) |> Base.url_encode64(padding: false)

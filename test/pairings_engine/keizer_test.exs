@@ -12,7 +12,14 @@ defmodule PairingsEngine.KeizerTest do
 
   defp player(id, name, rating, attrs \\ %{}) do
     struct(
-      %Player{id: id, name: name, fide_rating: rating, start_round: 1, absent: false, absent_rounds: ""},
+      %Player{
+        id: id,
+        name: name,
+        fide_rating: rating,
+        start_round: 1,
+        absent: false,
+        absent_rounds: ""
+      },
       attrs
     )
   end
@@ -55,7 +62,13 @@ defmodule PairingsEngine.KeizerTest do
     end
 
     test "the top value decreases by 1 per rank" do
-      order = [player(1, "A", 2000), player(2, "B", 1800), player(3, "C", 1600), player(4, "D", 1400)]
+      order = [
+        player(1, "A", 2000),
+        player(2, "B", 1800),
+        player(3, "C", 1600),
+        player(4, "D", 1400)
+      ]
+
       values = Keizer.assign_values(order, 8)
 
       assert values == %{1 => 8, 2 => 7, 3 => 6, 4 => 5}
@@ -99,7 +112,11 @@ defmodule PairingsEngine.KeizerTest do
       {:ok, a: a, b: b, values: values}
     end
 
-    test "a forfeit win is worth half your own value (no game played, same as a bye)", %{a: a, b: b, values: values} do
+    test "a forfeit win is worth half your own value (no game played, same as a bye)", %{
+      a: a,
+      b: b,
+      values: values
+    } do
       games = %{1 => [%{round: 1, white_id: a.id, black_id: b.id, result: "1-0FF"}]}
       entry = Keizer.score_round(a, 1, games, %{}, values)
       assert entry.class == :forfeit_win
@@ -152,14 +169,19 @@ defmodule PairingsEngine.KeizerTest do
       assert entry.points == 4.0
     end
 
-    test "a 'requested-zero' byes-row is an excused absence: a third of your own value", %{a: a, values: values} do
+    test "a 'requested-zero' byes-row is an excused absence: a third of your own value", %{
+      a: a,
+      values: values
+    } do
       byes = %{1 => [%{round: 1, player_id: a.id, type: "requested-zero"}]}
       entry = Keizer.score_round(a, 1, %{}, byes, values)
       assert entry.class == :excused
       assert_in_delta entry.points, 8 / 3, 1.0e-9
     end
 
-    test "the permanent 'absent' flag is an excused absence even with no byes row", %{values: values} do
+    test "the permanent 'absent' flag is an excused absence even with no byes row", %{
+      values: values
+    } do
       absent = player(1, "A", 2000, %{absent: true})
       entry = Keizer.score_round(absent, 1, %{}, %{}, values)
       assert entry.class == :excused
@@ -204,7 +226,10 @@ defmodule PairingsEngine.KeizerTest do
       # 6, not the 7 B started with — because B fell to 3rd.
       scored_a = Map.fetch!(result.scored, a.id)
       assert scored_a.points == 6.0
-      assert [%{round: 1, class: :win, points: points, opponent_id: opponent_id}] = scored_a.rounds
+
+      assert [%{round: 1, class: :win, points: points, opponent_id: opponent_id}] =
+               scored_a.rounds
+
       assert points == 6.0
       assert opponent_id == b.id
     end
@@ -225,7 +250,9 @@ defmodule PairingsEngine.KeizerTest do
       after_r1 = Keizer.recalculate([a, b, c, d], games, [], nil, 1)
       after_r2 = Keizer.recalculate([a, b, c, d], games, [], nil, 2)
 
-      round1_value_after_r1 = after_r1.scored |> Map.fetch!(a.id) |> Map.fetch!(:rounds) |> hd() |> Map.fetch!(:points)
+      round1_value_after_r1 =
+        after_r1.scored |> Map.fetch!(a.id) |> Map.fetch!(:rounds) |> hd() |> Map.fetch!(:points)
+
       round1_entry_after_r2 = after_r2.scored |> Map.fetch!(a.id) |> Map.fetch!(:rounds) |> hd()
 
       assert round1_value_after_r1 == 6.0
@@ -255,6 +282,7 @@ defmodule PairingsEngine.KeizerTest do
 
       assert Enum.map(r1.order, & &1.id) == Enum.map(r2.order, & &1.id)
       assert r1.values == r2.values
+
       assert Map.new(r1.scored, fn {k, v} -> {k, v.points} end) ==
                Map.new(r2.scored, fn {k, v} -> {k, v.points} end)
     end
@@ -339,7 +367,10 @@ defmodule PairingsEngine.KeizerTest do
 
       assert {:ok, pairs, bye} = Keizer.match_round([a, b, c], %{}, forbidden)
       assert bye.id == b.id or bye.id == c.id
-      refute Enum.any?(pairs, fn {x, y} -> MapSet.new([x.id, y.id]) == MapSet.new([a.id, b.id]) end)
+
+      refute Enum.any?(pairs, fn {x, y} ->
+               MapSet.new([x.id, y.id]) == MapSet.new([a.id, b.id])
+             end)
     end
   end
 
@@ -365,7 +396,9 @@ defmodule PairingsEngine.KeizerTest do
 
   describe "match_round/3 — odd count gives the bye to the bottom-ranked player" do
     test "5 players: the lowest-ranked unpaired player gets the bye" do
-      players = for {n, i} <- Enum.with_index([2000, 1900, 1800, 1700, 1600], 1), do: player(i, "P#{i}", n)
+      players =
+        for {n, i} <- Enum.with_index([2000, 1900, 1800, 1700, 1600], 1),
+            do: player(i, "P#{i}", n)
 
       assert {:ok, pairs, bye} = Keizer.match_round(players, %{}, MapSet.new())
       assert length(pairs) == 2
@@ -407,7 +440,12 @@ defmodule PairingsEngine.KeizerTest do
   describe "end-to-end via Pairing.pair_next_round/1 and Keizer.standings/1" do
     setup do
       tournament =
-        Repo.insert!(%Tournament{name: "Keizer Club Night", type: "swiss", pairing_system: "keizer", rounds_count: 3})
+        Repo.insert!(%Tournament{
+          name: "Keizer Club Night",
+          type: "swiss",
+          pairing_system: "keizer",
+          rounds_count: 3
+        })
 
       a = insert_player(tournament, "Alice", fide_rating: 2000)
       b = insert_player(tournament, "Bob", fide_rating: 1900)
@@ -475,9 +513,12 @@ defmodule PairingsEngine.KeizerTest do
       assert reloaded.(d).pairing_number == 4
 
       # Pairing round 2 doesn't renumber anyone — the numbers stay frozen.
-      Enum.each(Repo.preload(Tournaments.get_round(tournament.id, 1), :pairings).pairings, fn pairing ->
-        {:ok, _} = Tournaments.update_pairing_result(pairing, "1-0")
-      end)
+      Enum.each(
+        Repo.preload(Tournaments.get_round(tournament.id, 1), :pairings).pairings,
+        fn pairing ->
+          {:ok, _} = Tournaments.update_pairing_result(pairing, "1-0")
+        end
+      )
 
       assert {:ok, _round2} = Pairing.pair_next_round(tournament)
       assert reloaded.(a).pairing_number == 1
@@ -492,12 +533,18 @@ defmodule PairingsEngine.KeizerTest do
       round = Repo.preload(round, :pairings)
 
       paired_ids =
-        round.pairings |> Enum.flat_map(&[&1.white_player_id, &1.black_player_id]) |> Enum.reject(&is_nil/1)
+        round.pairings
+        |> Enum.flat_map(&[&1.white_player_id, &1.black_player_id])
+        |> Enum.reject(&is_nil/1)
 
       refute d.id in paired_ids
 
       byes =
-        Repo.all(from b in "byes", where: b.tournament_id == ^tournament.id and b.player_id == ^d.id, select: b.type)
+        Repo.all(
+          from b in "byes",
+            where: b.tournament_id == ^tournament.id and b.player_id == ^d.id,
+            select: b.type
+        )
 
       assert byes == ["requested-zero"]
 
@@ -514,7 +561,9 @@ defmodule PairingsEngine.KeizerTest do
       round1 = Repo.preload(round1, :pairings)
 
       paired_ids_r1 =
-        round1.pairings |> Enum.flat_map(&[&1.white_player_id, &1.black_player_id]) |> Enum.reject(&is_nil/1)
+        round1.pairings
+        |> Enum.flat_map(&[&1.white_player_id, &1.black_player_id])
+        |> Enum.reject(&is_nil/1)
 
       refute late.id in paired_ids_r1
 
@@ -529,13 +578,17 @@ defmodule PairingsEngine.KeizerTest do
 
       assert byes_r1 == []
 
-      Enum.each(round1.pairings, fn pairing -> {:ok, _} = Tournaments.update_pairing_result(pairing, "1-0") end)
+      Enum.each(round1.pairings, fn pairing ->
+        {:ok, _} = Tournaments.update_pairing_result(pairing, "1-0")
+      end)
 
       assert {:ok, round2} = Pairing.pair_next_round(tournament)
       round2 = Repo.preload(round2, :pairings)
 
       paired_ids_r2 =
-        round2.pairings |> Enum.flat_map(&[&1.white_player_id, &1.black_player_id]) |> Enum.reject(&is_nil/1)
+        round2.pairings
+        |> Enum.flat_map(&[&1.white_player_id, &1.black_player_id])
+        |> Enum.reject(&is_nil/1)
 
       assert late.id in paired_ids_r2
 
@@ -543,13 +596,29 @@ defmodule PairingsEngine.KeizerTest do
       assert Enum.any?(entries, &(&1.player.id == late.id))
     end
 
-    test "pair_next_round/1 rejects pairing once all rounds are used up", %{tournament: tournament} do
+    test "pair_next_round/1 rejects pairing once all rounds are used up", %{
+      tournament: tournament
+    } do
       {:ok, r1} = Pairing.pair_next_round(tournament)
-      Enum.each(Repo.preload(r1, :pairings).pairings, &Tournaments.update_pairing_result(&1, "1-0"))
+
+      Enum.each(
+        Repo.preload(r1, :pairings).pairings,
+        &Tournaments.update_pairing_result(&1, "1-0")
+      )
+
       {:ok, r2} = Pairing.pair_next_round(tournament)
-      Enum.each(Repo.preload(r2, :pairings).pairings, &Tournaments.update_pairing_result(&1, "1-0"))
+
+      Enum.each(
+        Repo.preload(r2, :pairings).pairings,
+        &Tournaments.update_pairing_result(&1, "1-0")
+      )
+
       {:ok, r3} = Pairing.pair_next_round(tournament)
-      Enum.each(Repo.preload(r3, :pairings).pairings, &Tournaments.update_pairing_result(&1, "1-0"))
+
+      Enum.each(
+        Repo.preload(r3, :pairings).pairings,
+        &Tournaments.update_pairing_result(&1, "1-0")
+      )
 
       assert {:error, _reason} = Pairing.pair_next_round(tournament)
     end
@@ -580,7 +649,11 @@ defmodule PairingsEngine.KeizerTest do
                MapSet.new([p.white_player_id, p.black_player_id]) == MapSet.new([a.id, b.id])
              end)
 
-      paired_ids = round.pairings |> Enum.flat_map(&[&1.white_player_id, &1.black_player_id]) |> Enum.reject(&is_nil/1)
+      paired_ids =
+        round.pairings
+        |> Enum.flat_map(&[&1.white_player_id, &1.black_player_id])
+        |> Enum.reject(&is_nil/1)
+
       assert MapSet.new(paired_ids) == MapSet.new([a.id, b.id, c.id, d.id])
     end
   end

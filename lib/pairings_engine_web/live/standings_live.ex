@@ -47,14 +47,28 @@ defmodule PairingsEngineWeb.StandingsLive do
   @impl true
   def handle_event("enable_manual_ranking", _params, socket) do
     {:ok, tournament} = Tournaments.enable_manual_ranking(socket.assigns.tournament)
-    Audit.log(tournament.id, socket.assigns.current_scope, "standings.manual_ranking_enabled", %{})
+
+    Audit.log(
+      tournament.id,
+      socket.assigns.current_scope,
+      "standings.manual_ranking_enabled",
+      %{}
+    )
+
     {:noreply, socket |> assign(tournament: tournament) |> reload_standings()}
   end
 
   @impl true
   def handle_event("disable_manual_ranking", _params, socket) do
     {:ok, tournament} = Tournaments.disable_manual_ranking(socket.assigns.tournament)
-    Audit.log(tournament.id, socket.assigns.current_scope, "standings.manual_ranking_disabled", %{})
+
+    Audit.log(
+      tournament.id,
+      socket.assigns.current_scope,
+      "standings.manual_ranking_disabled",
+      %{}
+    )
+
     {:noreply, socket |> assign(tournament: tournament) |> reload_standings()}
   end
 

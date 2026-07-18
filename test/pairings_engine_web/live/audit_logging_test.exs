@@ -38,7 +38,10 @@ defmodule PairingsEngineWeb.AuditLoggingTest do
 
   defp actions(t), do: t.id |> Audit.list_for_tournament() |> Enum.map(& &1.action)
 
-  test "editing a player logs player.updated with a before/after diff", %{conn: conn, scope: scope} do
+  test "editing a player logs player.updated with a before/after diff", %{
+    conn: conn,
+    scope: scope
+  } do
     t = setup_tournament(scope)
     {:ok, player} = Tournaments.create_player(t.id, %{"name" => "Alice", "fide_rating" => "1800"})
 
