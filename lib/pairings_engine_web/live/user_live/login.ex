@@ -87,6 +87,13 @@ defmodule PairingsEngineWeb.UserLive.Login do
                 TRF16, SWAR, PGN & KBSB import / export
               </li>
             </ul>
+
+            <div :if={!@current_scope} class="auth-hero-cta">
+              <span>New to OpenPairings?</span>
+              <.link navigate={~p"/users/register"} class="auth-hero-cta-btn">
+                Create a free account <span aria-hidden="true">→</span>
+              </.link>
+            </div>
           </div>
         </aside>
 
@@ -175,13 +182,6 @@ defmodule PairingsEngineWeb.UserLive.Login do
                 Log in only this time
               </button>
             </.form>
-
-            <div :if={!@current_scope} class="auth-register">
-              <span>New to OpenPairings?</span>
-              <.link navigate={~p"/users/register"} class="pe-btn auth-register-btn">
-                Create a free account
-              </.link>
-            </div>
 
             <p class="auth-tools">
               Just need a norm report? Try the free
