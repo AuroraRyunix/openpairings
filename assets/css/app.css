@@ -1486,6 +1486,10 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   overflow: hidden;
 }
 
+/* Single-column variant (no brand hero) — used by the magic-link
+   confirmation page, which is a short one-action card. */
+.auth-wrap-solo { grid-template-columns: 1fr; }
+
 .auth-hero {
   position: relative;
   display: flex;
