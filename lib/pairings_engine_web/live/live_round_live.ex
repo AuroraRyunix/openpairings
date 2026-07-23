@@ -10,7 +10,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
 
   use PairingsEngineWeb, :live_view
 
-  alias PairingsEngine.{Tournaments, Standings, Tiebreaks, Keizer}
+  alias PairingsEngine.{Tournaments, Standings, Tiebreaks, Keizer, Mobile}
   alias PairingsEngine.Pairing, as: Engine
 
   @result_labels %{
@@ -33,8 +33,44 @@ defmodule PairingsEngineWeb.LiveRoundLive do
 
     {:ok,
      socket
-     |> assign(tournament: tournament, page_title: "#{tournament.name} · Live")
+     |> assign(
+       tournament: tournament,
+       page_title: "#{tournament.name} · Live",
+       new_enrollment: nil
+     )
+     |> assign_enrollments()
      |> reload()}
+  end
+
+  defp assign_enrollments(socket) do
+    assign(socket, :enrollments, Mobile.list_enrollments(socket.assigns.tournament.id))
+  end
+
+  defp enroll_expiry(%DateTime{} = dt), do: Calendar.strftime(dt, "%d %b %H:%M")
+
+  @impl true
+  def handle_event("generate_enrollment", _params, socket) do
+    {:ok, enrollment} = Mobile.create_enrollment(socket.assigns.tournament.id)
+
+    {:noreply,
+     socket
+     |> assign(new_enrollment: enrollment)
+     |> assign_enrollments()}
+  end
+
+  def handle_event("revoke_enrollment", %{"id" => id}, socket) do
+    case Integer.parse(to_string(id)) do
+      {int, _} -> Mobile.revoke(socket.assigns.tournament.id, int)
+      _ -> :ok
+    end
+
+    new_enrollment =
+      if socket.assigns.new_enrollment &&
+           to_string(socket.assigns.new_enrollment.id) == to_string(id),
+         do: nil,
+         else: socket.assigns.new_enrollment
+
+    {:noreply, socket |> assign(new_enrollment: new_enrollment) |> assign_enrollments()}
   end
 
   # Purely a display page — nothing here is user-editable, so every
@@ -123,6 +159,51 @@ defmodule PairingsEngineWeb.LiveRoundLive do
           </p>
         </div>
       </div>
+
+      <details class="card" style="margin-bottom: 20px">
+        <summary style="cursor: pointer; font-weight: 650">
+          📱 Enrol a phone to enter results
+        </summary>
+
+        <p class="hint">
+          Let helpers enter results from their phone — no account needed. Show them the QR code
+          or the 6-digit code. Access is result-entry only, scoped to this tournament, and you can
+          revoke it any time.
+        </p>
+
+        <button class="pe-btn primary" phx-click="generate_enrollment">Generate a code</button>
+
+        <div :if={@new_enrollment} class="enroll-panel" style="margin-top: 16px">
+          <div class="enroll-qr">
+            {Phoenix.HTML.raw(Mobile.qr_svg(url(~p"/m/e/#{@new_enrollment.token}")))}
+          </div>
+          <div>
+            <div class="enroll-code-label">6-digit code</div>
+            <div class="enroll-code">{@new_enrollment.code}</div>
+            <p class="enroll-url">
+              Scan the QR, or open <strong>{url(~p"/m")}</strong> on the phone and enter the code.
+            </p>
+            <p class="hint">Expires {enroll_expiry(@new_enrollment.expires_at)}.</p>
+          </div>
+        </div>
+
+        <div :if={@enrollments != []} style="margin-top: 18px">
+          <h3 style="margin: 0 0 8px; font-size: 14px">Active phones</h3>
+          <table class="pe-table">
+            <tbody>
+              <tr :for={e <- @enrollments}>
+                <td><strong>Code {e.code}</strong></td>
+                <td class="hint">expires {enroll_expiry(e.expires_at)}</td>
+                <td style="text-align: right">
+                  <button class="pe-btn danger-link" phx-click="revoke_enrollment" phx-value-id={e.id}>
+                    Revoke
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
 
       <div :if={@round == nil} class="card empty">
         <p><strong>No round has been paired yet.</strong></p>

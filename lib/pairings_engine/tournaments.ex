@@ -130,6 +130,11 @@ defmodule PairingsEngine.Tournaments do
     Repo.one!(from t in Tournament, where: t.id == ^id and is_nil(t.deleted_at))
   end
 
+  @doc "Like `get_tournament!/1` but returns nil instead of raising when absent/deleted."
+  def get_tournament(id) do
+    Repo.one(from t in Tournament, where: t.id == ^id and is_nil(t.deleted_at))
+  end
+
   @doc """
   Gets a tournament by its `public_slug` — the unguessable token behind the
   public (no-login) read-only pages (see docs/public-pages.md). Returns

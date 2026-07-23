@@ -143,4 +143,21 @@ defmodule PairingsEngineWeb.Router do
 
     get "/tools/download/:token/:form", ToolsController, :download
   end
+
+  ## Mobile no-account result entry — see PairingsEngine.Mobile. An arbiter
+  # generates a QR + numeric code from a tournament; a helper's phone enrolls
+  # here (no account) and gets a result-entry-only session for that tournament.
+  scope "/m", PairingsEngineWeb do
+    pipe_through :browser
+
+    get "/", MobileEnrollController, :new
+    post "/", MobileEnrollController, :submit
+    get "/e/:token", MobileEnrollController, :enroll
+    get "/leave", MobileEnrollController, :leave
+
+    live_session :mobile_results,
+      on_mount: [{PairingsEngineWeb.MobileAuth, :require_enrollment}] do
+      live "/results", MobileResultsLive
+    end
+  end
 end
