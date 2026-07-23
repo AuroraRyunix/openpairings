@@ -469,20 +469,26 @@ defmodule PairingsEngineWeb.PlayersLive do
   end
 
   def handle_event("delete", %{"id" => id}, socket) do
-    player = Tournaments.get_player!(socket.assigns.tournament.id, id)
+    case Tournaments.get_player(socket.assigns.tournament.id, id) do
+      nil ->
+        {:noreply, socket}
 
-    case Tournaments.delete_player(player) do
-      {:ok, _} ->
-        Audit.log(socket.assigns.tournament.id, socket.assigns.current_scope, "player.deleted", %{
-          player_id: player.id,
-          player_name: player.name
-        })
+      player ->
+        case Tournaments.delete_player(player) do
+          {:ok, _} ->
+            Audit.log(
+              socket.assigns.tournament.id,
+              socket.assigns.current_scope,
+              "player.deleted",
+              %{player_id: player.id, player_name: player.name}
+            )
 
-      _ ->
-        :ok
+          _ ->
+            :ok
+        end
+
+        {:noreply, assign_players(socket)}
     end
-
-    {:noreply, assign_players(socket)}
   end
 
   ## ---------- Bulk rating refresh (FIDE/KBSB) ----------
@@ -518,10 +524,18 @@ defmodule PairingsEngineWeb.PlayersLive do
   ## ---------- Player registration dialog (double-click a row) ----------
 
   def handle_event("edit_player", %{"id" => id}, socket) do
-    player = Tournaments.get_player!(socket.assigns.tournament.id, id)
+    case Tournaments.get_player(socket.assigns.tournament.id, id) do
+      nil ->
+        {:noreply, socket}
 
-    {:noreply,
-     assign(socket, editing_player: player, edit_form: player_to_form(player), edit_error: nil)}
+      player ->
+        {:noreply,
+         assign(socket,
+           editing_player: player,
+           edit_form: player_to_form(player),
+           edit_error: nil
+         )}
+    end
   end
 
   def handle_event("close_edit", _params, socket) do

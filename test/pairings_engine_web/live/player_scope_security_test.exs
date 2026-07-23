@@ -38,20 +38,21 @@ defmodule PairingsEngineWeb.PlayerScopeSecurityTest do
     t
   end
 
-  # The scoped lookup raises, which takes the LiveView process down with it —
-  # so these assert on the exit, not on a return value. Crashing an attacker's
-  # socket is the same answer `get_authorized_tournament!/2` already gives at
-  # mount; a legitimate user can never reach it, because the ids they can click
-  # are all inside their own tournament.
+  # The scoped lookup (`Tournaments.get_player/2`) returns nil for a player id
+  # outside the socket's tournament, so these handlers refuse the action by
+  # doing nothing — a graceful no-op, not a crash. A legitimate user never
+  # reaches this path: every id they can click is inside their own tournament.
+  # The assertion each test cares about is the security property — the foreign
+  # row is untouched and its data is never rendered — not the mechanism.
   test "deleting a player from another user's tournament is refused", %{conn: conn, scope: scope} do
     {_victim_t, victim_player} = victim_player()
     mine = attacker_tournament(scope)
 
-    Process.flag(:trap_exit, true)
     {:ok, lv, _html} = live(conn, ~p"/t/#{mine.id}/players")
 
-    # The attacker names a player id they were never authorised for.
-    assert catch_exit(render_hook(lv, "delete", %{"id" => to_string(victim_player.id)}))
+    # The attacker names a player id they were never authorised for — the
+    # handler no-ops rather than crashing the socket.
+    render_hook(lv, "delete", %{"id" => to_string(victim_player.id)})
 
     assert Repo.get(Player, victim_player.id), "victim's player must survive"
   end
@@ -60,30 +61,31 @@ defmodule PairingsEngineWeb.PlayerScopeSecurityTest do
     {_victim_t, victim_player} = victim_player("Secret Name")
     mine = attacker_tournament(scope)
 
-    Process.flag(:trap_exit, true)
     {:ok, lv, _html} = live(conn, ~p"/t/#{mine.id}/players")
 
-    # Not just a write bypass: the dialog would have rendered the foreign
-    # player's name, ratings, federation and national id.
-    assert catch_exit(render_hook(lv, "edit_player", %{"id" => to_string(victim_player.id)}))
+    # Not just a write bypass: the dialog would otherwise have rendered the
+    # foreign player's name, ratings, federation and national id. The no-op
+    # leaves the edit dialog closed, so none of that leaks.
+    html = render_hook(lv, "edit_player", %{"id" => to_string(victim_player.id)})
+
+    refute html =~ "Secret Name"
   end
 
   test "reordering another user's player from standings is refused", %{conn: conn, scope: scope} do
     {_victim_t, victim_player} = victim_player()
     mine = attacker_tournament(scope)
 
-    Process.flag(:trap_exit, true)
     {:ok, lv, _html} = live(conn, ~p"/t/#{mine.id}/standings")
 
-    # move_manual_rank/3 happens to re-scope its own player list, so this one
-    # was never an exploitable write — but that is incidental to how the move
-    # is implemented, not a guard. Scope it at the fetch so it stays refused.
-    assert catch_exit(
-             render_hook(lv, "manual_move", %{
-               "player_id" => to_string(victim_player.id),
-               "direction" => "up"
-             })
-           )
+    # Scoped at the fetch: a foreign player id resolves to nil, so the move is
+    # a no-op and the victim's manual_rank is never written.
+    render_hook(lv, "manual_move", %{
+      "player_id" => to_string(victim_player.id),
+      "direction" => "up"
+    })
+
+    assert Repo.get(Player, victim_player.id).manual_rank == nil,
+           "victim's player must not be reordered"
   end
 
   test "get_player!/2 only finds players inside the given tournament", %{scope: scope} do

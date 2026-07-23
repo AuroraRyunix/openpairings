@@ -39,6 +39,13 @@ defmodule PairingsEngine.Tools.Session do
   @table __MODULE__
   @default_ttl_ms :timer.hours(1)
   @sweep_interval_ms :timer.minutes(5)
+  # Hard ceiling on live entries. This store backs an UNAUTHENTICATED upload
+  # page (`/tools/norms`), so without a cap a flood of parallel uploads could
+  # pin unbounded parsed-tournament data in memory for the full hour-long TTL.
+  # A few hundred concurrent arbiter sessions is already far beyond any real
+  # use; past this, the soonest-to-expire (oldest) entries are evicted to make
+  # room, so a fresh upload always succeeds while total memory stays bounded.
+  @max_entries 500
 
   ## ---------- public API ----------
 
@@ -54,6 +61,7 @@ defmodule PairingsEngine.Tools.Session do
   """
   def put(token, data, ttl_ms \\ @default_ttl_ms) do
     :ets.insert(@table, {token, data, expires_at(ttl_ms)})
+    enforce_cap()
     token
   end
 
@@ -115,6 +123,25 @@ defmodule PairingsEngine.Tools.Session do
   end
 
   defp schedule_sweep, do: Process.send_after(self(), :sweep, @sweep_interval_ms)
+
+  # Keep the table at or below `@max_entries` by evicting the soonest-to-expire
+  # (effectively oldest) rows first. Runs after every `put/3`; a no-op in the
+  # overwhelmingly common case where the table is under the cap. Any process
+  # may call this — the table is `:public` — and concurrent callers only ever
+  # over-delete already-doomed rows, never live-and-under-cap data.
+  defp enforce_cap do
+    over = :ets.info(@table, :size) - @max_entries
+
+    if over > 0 do
+      @table
+      |> :ets.tab2list()
+      |> Enum.sort_by(fn {_token, _data, expires_at} -> expires_at end)
+      |> Enum.take(over)
+      |> Enum.each(fn {token, _data, _expires_at} -> :ets.delete(@table, token) end)
+    end
+
+    :ok
+  end
 
   defp expires_at(ttl_ms), do: System.monotonic_time(:millisecond) + ttl_ms
 end

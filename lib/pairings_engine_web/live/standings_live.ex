@@ -80,11 +80,25 @@ defmodule PairingsEngineWeb.StandingsLive do
   end
 
   @impl true
-  def handle_event("manual_move", %{"player_id" => player_id, "direction" => direction}, socket) do
+  def handle_event("manual_move", %{"player_id" => player_id, "direction" => direction}, socket)
+      when direction in ["up", "down"] do
     tournament = socket.assigns.tournament
-    player = Tournaments.get_player!(tournament.id, player_id)
     direction = String.to_existing_atom(direction)
 
+    # Tolerate a stale/crafted player_id (e.g. a row deleted in another tab)
+    # gracefully instead of crashing the LiveView with Ecto.NoResultsError.
+    case Tournaments.get_player(tournament.id, player_id) do
+      nil ->
+        {:noreply, socket}
+
+      player ->
+        do_manual_move(socket, tournament, player, direction)
+    end
+  end
+
+  def handle_event("manual_move", _params, socket), do: {:noreply, socket}
+
+  defp do_manual_move(socket, tournament, player, direction) do
     socket =
       case Tournaments.move_manual_rank(tournament, player, direction) do
         {:ok, _} ->

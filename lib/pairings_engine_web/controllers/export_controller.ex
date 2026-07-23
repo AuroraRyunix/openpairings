@@ -83,7 +83,7 @@ defmodule PairingsEngineWeb.ExportController do
     send_json_download(conn, envelope, filename(tournament, "json"))
   end
 
-  @doc "GET /export/tournaments.json — full-fidelity JSON backup of every tournament the current user owns."
+  @doc "GET /export/tournaments.json — full-fidelity JSON backup of every tournament the current user can access (owned or collaborated)."
   def all_json(conn, _params) do
     envelope = TournamentExport.export_all(conn.assigns.current_scope)
 
