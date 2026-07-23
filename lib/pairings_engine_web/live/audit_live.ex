@@ -337,7 +337,7 @@ defmodule PairingsEngineWeb.AuditLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
-          <p class="subtitle" style="margin: 0">Audit trail — every change, who made it, and when</p>
+          <p class="subtitle" style="margin: 0">Audit trail - every change, who made it, and when</p>
         </div>
       </div>
 

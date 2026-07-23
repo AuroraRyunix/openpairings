@@ -345,10 +345,10 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     html =
       upload_files(lv, [{"alpha.trf", trf_text("Alpha Open", [{"Alice", 111}, {"Bob", 222}])}])
 
-    assert html =~ "Deputy 1 — name"
-    assert html =~ "Deputy 2 — name"
-    refute html =~ "Deputy 3 — name"
-    refute html =~ "Deputy 4 — name"
+    assert html =~ "Deputy 1 - name"
+    assert html =~ "Deputy 2 - name"
+    refute html =~ "Deputy 3 - name"
+    refute html =~ "Deputy 4 - name"
   end
 
   ## ---------- junk footer removed ----------

@@ -327,7 +327,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
         <div>
           <h1>Arbiter tools</h1>
           <p class="subtitle" style="margin: 0">
-            Upload a SWAR or TRF file, no account needed — download the IT3/FA1/IA1 FIDE report forms.
+            Upload a SWAR or TRF file, no account needed - download the IT3/FA1/IA1 FIDE report forms.
           </p>
         </div>
       </div>
@@ -348,7 +348,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
       >
         <h2>Upload files</h2>
         <p class="hint" style="margin-top: 0">
-          Up to 10 files, 5 MB each — <code>.swar</code> or <code>.trf</code>. Two or more files
+          Up to 10 files, 5 MB each - <code>.swar</code> or <code>.trf</code>. Two or more files
           combine into one "Festival" report (see below).
         </p>
 
@@ -457,7 +457,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
         </p>
 
         <p :if={successful(@files) |> length() >= 2} class="hint" style="padding: 0 16px 16px">
-          These {successful(@files) |> length()} files combine into one "Festival" report — the
+          These {successful(@files) |> length()} files combine into one "Festival" report - the
           master file supplies the name/dates/venue/officials, players from every file are pooled,
           and the same player can't appear in more than one of them.
         </p>
@@ -466,7 +466,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
       <div :if={successful(@files) != []} class="card">
         <h2>Officials &amp; arbiter candidate</h2>
         <p class="hint" style="margin-top: 0">
-          Fill in anything the uploaded file(s) don't already carry — nothing here is saved either.
+          Fill in anything the uploaded file(s) don't already carry - nothing here is saved either.
         </p>
 
         <form id="tools-fields-form" phx-change="update_fields">
@@ -474,13 +474,13 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
             <.overlay_input
               prefix="overlay"
               field="chief_arbiter_name"
-              label="Chief arbiter — name"
+              label="Chief arbiter - name"
               values={@overlay}
             />
             <.overlay_input
               prefix="overlay"
               field="chief_arbiter_fide_id"
-              label="Chief arbiter — FIDE ID"
+              label="Chief arbiter - FIDE ID"
               values={@overlay}
             />
             <.overlay_input prefix="overlay" field="organizer" label="Organizer" values={@overlay} />
@@ -497,13 +497,13 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
             <.overlay_input
               prefix="overlay"
               field={"deputy#{n}_name"}
-              label={"Deputy #{n} — name"}
+              label={"Deputy #{n} - name"}
               values={@overlay}
             />
             <.overlay_input
               prefix="overlay"
               field={"deputy#{n}_fide_id"}
-              label={"Deputy #{n} — FIDE ID"}
+              label={"Deputy #{n} - FIDE ID"}
               values={@overlay}
             />
           </div>

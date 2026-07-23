@@ -349,7 +349,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
-          <p class="subtitle" style="margin: 0">Settings — Tournament</p>
+          <p class="subtitle" style="margin: 0">Settings - Tournament</p>
         </div>
         <span class={["badge", @tournament.status == "setup" && "muted"]}>{@tournament.status}</span>
       </div>
@@ -478,7 +478,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
           </ol>
 
           <p :if={@tiebreaks == []} class="hint">
-            No tiebreaks selected — tied players will share a rank.
+            No tiebreaks selected - tied players will share a rank.
           </p>
 
           <div class="actions" style="flex-wrap: wrap">
@@ -501,11 +501,11 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
         <h2>Share / Team</h2>
 
         <p class="hint" style="margin-top: 0">
-          Invite other people to this tournament by email — they can open, edit, pair, enter
+          Invite other people to this tournament by email - they can open, edit, pair, enter
           results, print and export it, exactly like you, except they can't manage collaborators or
           delete the tournament. They only get access once they explicitly accept the emailed
           invitation while signed in with their own email
-          (<.link navigate={~p"/users/log-in"}>magic link</.link>) — no shared password needed.
+          (<.link navigate={~p"/users/log-in"}>magic link</.link>) - no shared password needed.
         </p>
 
         <form id="add-collaborator-form" phx-submit="add_collaborator">
@@ -563,9 +563,9 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
         <h2>Logo</h2>
 
         <p class="hint" style="margin-top: 0">
-          Shown on printed documents (place cards, and any other print page that has a logo slot —
+          Shown on printed documents (place cards, and any other print page that has a logo slot -
           see <.link navigate={~p"/t/#{@tournament.id}/print"}>Print</.link>). Only raster images
-          (PNG, JPEG, GIF, WebP) are accepted — SVG is rejected, since it can carry scripts and this
+          (PNG, JPEG, GIF, WebP) are accepted - SVG is rejected, since it can carry scripts and this
           image is embedded straight back into pages the app serves. Capped at 2&nbsp;MB.
         </p>
 
@@ -612,12 +612,12 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
         <h2>Export / backup</h2>
 
         <p class="hint" style="margin-top: 0">
-          A full JSON backup of this tournament — settings, officials, every player (including norm
+          A full JSON backup of this tournament - settings, officials, every player (including norm
           data), rounds, pairings/results, byes and forbidden pairings. Re-importing it (from the
           <.link navigate={~p"/"}>Tournaments</.link>
           page) always creates a brand-new tournament, never overwrites this one. For a FIDE-report-shaped
           TRF16 file instead, see <.link navigate={~p"/t/#{@tournament.id}/pairings"}>Pairings</.link>{if @tournament.manual_ranking,
-            do: " — note its rank column is the computed order, not manual ranking's hand-set one"}.
+            do: " - note its rank column is the computed order, not manual ranking's hand-set one"}.
         </p>
 
         <div class="actions">

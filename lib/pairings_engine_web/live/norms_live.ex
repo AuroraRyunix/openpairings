@@ -431,7 +431,7 @@ defmodule PairingsEngineWeb.NormsLive do
 
         <p :if={@stale} class="error-note">
           This tournament was updated elsewhere while you were editing. Saving officials will
-          overwrite that change with what's on this page — reload first if you want to see it instead.
+          overwrite that change with what's on this page - reload first if you want to see it instead.
         </p>
 
         <form id="officials-form" phx-submit="save_officials" phx-change="officials_change">
@@ -544,7 +544,7 @@ defmodule PairingsEngineWeb.NormsLive do
             <div :for={{n, label} <- deputy_fields()} style="display: contents">
               <div class="field search-wrap">
                 <span style="display:block;font-size:13px;font-weight:600;color:var(--text-soft);margin-bottom:4px">
-                  {label} — name
+                  {label} - name
                 </span>
 
                 <input
@@ -580,7 +580,7 @@ defmodule PairingsEngineWeb.NormsLive do
               </div>
 
               <label class="field">
-                <span>{label} — e-mail</span>
+                <span>{label} - e-mail</span>
                 <input
                   name={"tournament[officials][deputy#{n}_email]"}
                   value={o_get(@tournament, "deputy#{n}_email")}
@@ -610,7 +610,7 @@ defmodule PairingsEngineWeb.NormsLive do
       </div>
 
       <div class="card">
-        <h2>IT3 — Tournament Report Form</h2>
+        <h2>IT3 - Tournament Report Form</h2>
         <p class="hint" style="margin-top: 0">
           The whole-tournament report: identity, officials, pairing system, and rated/titled player
           counts by federation. Always available.
@@ -621,10 +621,10 @@ defmodule PairingsEngineWeb.NormsLive do
       </div>
 
       <div class="card">
-        <h2>FA1 / IA1 — Arbiter norm report</h2>
+        <h2>FA1 / IA1 - Arbiter norm report</h2>
         <p class="hint" style="margin-top: 0">
           For an arbiter earning a norm at this tournament. The candidate needn't be a registered
-          player, so fill in their details below — nothing here is saved.
+          player, so fill in their details below - nothing here is saved.
         </p>
         <form method="get" action={~p"/t/#{@tournament.id}/norms/fa1"}>
           <div class="form-grid">
@@ -668,7 +668,7 @@ defmodule PairingsEngineWeb.NormsLive do
         <h2>Combined report (festival)</h2>
         <p class="hint" style="margin-top: 0">
           Running several category groups as separate tournaments? Pick the others below to
-          generate one combined IT3/FA1/IA1 for the whole festival — the master tournament
+          generate one combined IT3/FA1/IA1 for the whole festival - the master tournament
           supplies the shared header/schedule fields, and gives the combined report its name.
         </p>
 
@@ -679,14 +679,14 @@ defmodule PairingsEngineWeb.NormsLive do
         <div :if={@other_tournaments != []}>
           <div style="display: flex; flex-direction: column; gap: .4rem; margin-bottom: 1rem">
             <%!-- The current tournament is ALWAYS part of the combined set
-                  (combine_ids/3 leads with it) — it used to be silently
+                  (combine_ids/3 leads with it) - it used to be silently
                   omitted from this list, which read as "my own tournament
                   is missing from its own festival" (user-reported). Shown
                   checked + disabled so the list matches what actually gets
                   combined. --%>
             <label class="opt-row">
               <input type="checkbox" checked disabled style="width: auto" />
-              <span>{@tournament.name} <span class="hint">— this tournament, always included</span></span>
+              <span>{@tournament.name} <span class="hint">- this tournament, always included</span></span>
             </label>
             <label :for={{t, _count, _owner?} <- @other_tournaments} class="opt-row">
               <input
@@ -786,14 +786,14 @@ defmodule PairingsEngineWeb.NormsLive do
       </div>
 
       <div class="card">
-        <h2>IT4 — Title/Norm report</h2>
+        <h2>IT4 - Title/Norm report</h2>
         <p class="hint" style="margin-top: 0">
-          Lists every player with a claimed title norm (set below). Up to 40 candidates per file —
+          Lists every player with a claimed title norm (set below). Up to 40 candidates per file -
           a tournament with more needs a second IT4 download for the rest.
         </p>
 
         <p :if={it4_candidates(@players) == []} class="hint">
-          No players have a claimed title yet — set one below to include a player.
+          No players have a claimed title yet - set one below to include a player.
         </p>
 
         <div :if={it4_candidates(@players) != []} class="card-table-wrap">
@@ -821,11 +821,11 @@ defmodule PairingsEngineWeb.NormsLive do
       </div>
 
       <div class="card table-card">
-        <h2 style="padding: 16px 16px 0">Players — title-norm judgment</h2>
+        <h2 style="padding: 16px 16px 0">Players - title-norm judgment</h2>
         <p class="hint" style="padding: 0 16px">
           The "computed" column judges each player's games against the FIDE Title Regulations
           (B.01: game count, score %, titled opponents, federation mix, opponent-rating average,
-          performance) automatically — hover it for the requirement-by-requirement breakdown.
+          performance) automatically - hover it for the requirement-by-requirement breakdown.
           The claimed title and the IT4-only fields (norm text, medal/%, event group, federation
           counts, remarks) stay yours to set: exemptions and special event types are the
           arbiter's call, not the computer's.
@@ -847,7 +847,7 @@ defmodule PairingsEngineWeb.NormsLive do
               <td title={norm_judgment_details(@norm_judgments[p.id])}>
                 {norm_judgment_label(@norm_judgments[p.id])}
               </td>
-              <td>{if claimed_title(p) == "", do: "—", else: claimed_title(p)}</td>
+              <td>{if claimed_title(p) == "", do: "-", else: claimed_title(p)}</td>
               <td style="text-align: right">
                 <button class="pe-btn" phx-click="edit_norm" phx-value-id={p.id}>Edit norm data</button>
               </td>
@@ -876,13 +876,13 @@ defmodule PairingsEngineWeb.NormsLive do
     ~H"""
     <div class="modal-overlay" phx-window-keydown="close_norm" phx-key="escape">
       <form class="modal-card" phx-submit="save_norm" phx-click-away="close_norm">
-        <h2>Title-norm judgment — {@player.name}</h2>
+        <h2>Title-norm judgment - {@player.name}</h2>
 
         <div class="form-grid">
           <label class="field">
             <span>Title claimed</span>
             <select name="player[norm_data][title_claimed]">
-              <option value="" selected={@form["norm_data"]["title_claimed"] == ""}>— none —</option>
+              <option value="" selected={@form["norm_data"]["title_claimed"] == ""}>- none -</option>
               <option
                 :for={t <- @norm_titles}
                 value={t}

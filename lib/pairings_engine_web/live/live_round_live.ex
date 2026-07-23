@@ -292,7 +292,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
               <td class="num">
                 {if PairingsEngine.Tournaments.Player.rating(entry.player) > 0,
                   do: PairingsEngine.Tournaments.Player.rating(entry.player),
-                  else: "—"}
+                  else: "-"}
               </td>
               <td class="num"><strong>{entry.points}</strong></td>
               <td :for={code <- @tournament.tiebreaks} class="num">
@@ -326,7 +326,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
               <td class="num">
                 {if PairingsEngine.Tournaments.Player.rating(entry.player) > 0,
                   do: PairingsEngine.Tournaments.Player.rating(entry.player),
-                  else: "—"}
+                  else: "-"}
               </td>
               <td class="num">{entry.value}</td>
               <td class="num"><strong>{entry.points}</strong></td>

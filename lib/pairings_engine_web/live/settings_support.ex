@@ -186,7 +186,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
   def locked_hint_message(assigns) do
     ~H"""
     <span :if={@locked_hint == @field} class="hint locked-hint-msg">
-      Locked — cannot be changed after round 1 has been paired.
+      Locked - cannot be changed after round 1 has been paired.
     </span>
     """
   end
@@ -202,7 +202,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
     ~H"""
     <p :if={@stale} class="error-note">
       This tournament was updated elsewhere while you were editing. Saving will overwrite that
-      change with what's on this page — reload the page first if you want to see it instead.
+      change with what's on this page - reload the page first if you want to see it instead.
     </p>
     """
   end

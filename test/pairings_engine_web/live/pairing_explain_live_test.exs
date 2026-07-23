@@ -145,7 +145,7 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     assert html =~ "pe-bye-card"
     # The bye recipient also appears IN the map: a dashed lone dot in their
     # own score band, with its own single-dot hover wrap.
-    assert html =~ "— bye, score"
+    assert html =~ "- bye, score"
     assert html =~ ~r/aria-label="Board \d+, bye: /
     # The odd field forces a cross-bracket float, shown with direction badges.
     assert html =~ "pe-tag-float"

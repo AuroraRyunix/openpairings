@@ -942,7 +942,7 @@ defmodule PairingsEngineWeb.PlayersLive do
               if @setup_complete,
                 do: "Add player (Ctrl+I)",
                 else:
-                  "Finish the tournament setup first — missing: " <>
+                  "Finish the tournament setup first - missing: " <>
                     missing_setup_summary(@missing_setup)
             }
           >
@@ -952,7 +952,7 @@ defmodule PairingsEngineWeb.PlayersLive do
       </div>
 
       <div :if={!@setup_complete} class="card error-note" style="display: block; margin: 12px 0">
-        Finish the tournament setup before adding players — still missing:
+        Finish the tournament setup before adding players - still missing:
         <ul style="margin: 6px 0 0; padding-left: 20px">
           <li :for={{field, message} <- @missing_setup}>
             <.link navigate={setup_field_path(@tournament, field)}>{message}</.link>
@@ -987,7 +987,7 @@ defmodule PairingsEngineWeb.PlayersLive do
             >
               <span>{if fp.title != "", do: "#{fp.title} "}{fp.name}</span>
               <span class="meta">
-                {fp.federation} · {fp.standard_rating || "unrated"} · {fp.birth_year || "—"}
+                {fp.federation} · {fp.standard_rating || "unrated"} · {fp.birth_year || "-"}
               </span>
             </button>
           </div>
@@ -1004,7 +1004,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           <label class="field">
             <span>Title</span>
             <select name="player[title]">
-              <option value="">—</option>
+              <option value="">-</option>
 
               <option
                 :for={t <- ~w(GM IM FM CM WGM WIM WFM WCM)}
@@ -1071,7 +1071,7 @@ defmodule PairingsEngineWeb.PlayersLive do
             title={
               if !@setup_complete,
                 do:
-                  "Finish the tournament setup first — missing: " <>
+                  "Finish the tournament setup first - missing: " <>
                     missing_setup_summary(@missing_setup)
             }
           >
@@ -1100,7 +1100,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                   class={["num", "sortable"]}
                   phx-click="sort"
                   phx-value-key="cl"
-                  title="Live tournament rank — click to sort by current standings rank (same as Cl)"
+                  title="Live tournament rank - click to sort by current standings rank (same as Cl)"
                 >
                   N1{sort_indicator(@sort_col, @sort_dir, "cl")}
                 </th>
@@ -1325,7 +1325,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           <label class="field">
             <span>Title</span>
             <select name="player[title]">
-              <option value="">—</option>
+              <option value="">-</option>
 
               <option :for={t <- @titles} value={t} selected={@form["title"] == t}>{t}</option>
             </select>

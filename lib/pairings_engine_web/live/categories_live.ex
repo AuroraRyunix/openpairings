@@ -112,7 +112,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
         <div class="card">
           <h2>Categories</h2>
           <p class="hint" style="margin-top: 0">
-            Tournament-defined groups (SWAR CATEGORIES) — e.g. age or rating brackets — that players
+            Tournament-defined groups (SWAR CATEGORIES) - e.g. age or rating brackets - that players
             can be assigned to on the
             <.link navigate={~p"/t/#{@tournament.id}/players"}>Players</.link>
             page.

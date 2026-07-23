@@ -769,7 +769,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
                 value={opt}
                 selected={opt == Map.get(@new_params, "rate_of_play", "")}
               >
-                {if opt == "", do: "— none —", else: opt}
+                {if opt == "", do: "- none -", else: opt}
               </option>
             </select>
           </label>
@@ -793,7 +793,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <h2>Import a SWAR tournament</h2>
 
         <p class="hint" style="margin-top: 0">
-          Pick a <code>.swar</code> file — the tournament, its players, rounds and results
+          Pick a <code>.swar</code> file - the tournament, its players, rounds and results
           are imported and become yours to continue here.
         </p>
 
@@ -830,7 +830,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
           SWAR has no FIDE id on file for {length(@swar_pending.unresolved)} player{if length(
                                                                                          @swar_pending.unresolved
                                                                                        ) != 1, do: "s"}. Pick a match below if one of
-          these is the right person, or import them without a FIDE id — nothing is saved until
+          these is the right person, or import them without a FIDE id - nothing is saved until
           you confirm.
         </p>
 
@@ -842,7 +842,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
           <h3 style="margin-top: 0">
             {entry.name}
             <span class="hint">
-              — {if entry.federation == "", do: "no federation", else: entry.federation},
+              - {if entry.federation == "", do: "no federation", else: entry.federation},
               born {entry.birth_year || "unknown"}
             </span>
           </h3>
@@ -852,7 +852,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
               <input type="radio" name={"resolution[#{entry.ni}]"} value={c.fide_id} />
               <span>
                 <strong>{c.name}</strong>
-                — FIDE {c.fide_id} — {if c.federation == "", do: "?", else: c.federation},
+                - FIDE {c.fide_id} - {if c.federation == "", do: "?", else: c.federation},
                 born {c.birth_year || "unknown"}{if c.title != "", do: ", #{c.title}"}{if c.standard_rating,
                   do: ", #{c.standard_rating}"}
               </span>
@@ -883,7 +883,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <h2>Import a TRF16 tournament</h2>
 
         <p class="hint" style="margin-top: 0">
-          Pick a <code>.trf</code> file — the tournament, its players, rounds and results are
+          Pick a <code>.trf</code> file - the tournament, its players, rounds and results are
           imported and become yours to continue here. If the file's own points column doesn't
           match what we recompute from the imported results, you'll see a notice after import.
         </p>
@@ -927,7 +927,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
           Pick a <code>.json</code>
           file exported from <em>Settings → Export / backup</em>
           or <em>Export all (JSON)</em>
-          — every tournament it contains is imported as a brand-new
+          - every tournament it contains is imported as a brand-new
           tournament owned by you, with all players, rounds and results intact. This never
           overwrites an existing tournament.
         </p>
@@ -1005,7 +1005,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
               <td class="num">{player_count}</td>
 
               <td>
-                {if t.start_date == "", do: "—", else: t.start_date}{if t.end_date != "",
+                {if t.start_date == "", do: "-", else: t.start_date}{if t.end_date != "",
                   do: " → #{t.end_date}"}
               </td>
 
@@ -1096,7 +1096,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
         <p>
           This moves <strong>{@tournament.name}</strong>
-          to the Recycle bin — it disappears from your tournament list and its pages, but you can
+          to the Recycle bin - it disappears from your tournament list and its pages, but you can
           restore it (or delete it permanently) for the next 3 months, after which it is purged
           automatically.
         </p>
