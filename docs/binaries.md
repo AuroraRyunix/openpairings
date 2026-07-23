@@ -11,7 +11,11 @@ Targets built:
 | ------- | ----------------- | ------------------ |
 | macOS   | `macos_x86_64`    | `macos_aarch64`    |
 | Linux   | `linux_x86_64`    | `linux_aarch64`    |
-| Windows | `windows_x86_64`  | `windows_aarch64`  |
+| Windows | `windows_x86_64`  | (see below)        |
+
+There is no Windows/ARM target: Erlang/OTP publishes no Windows/ARM runtime for
+Burrito to bundle. Windows on ARM runs `windows_x86_64` under its built-in
+x86_64 emulation.
 
 ## Building locally
 
@@ -61,7 +65,7 @@ Burrito binaries also accept `maintenance` sub-commands, e.g.
   a JRE on the target and drop `javafo.jar` at `priv/javafo/javafo.jar` inside
   the extracted release, or run non-Swiss systems (round-robin / Keizer).
 
-## CI (all six targets)
+## CI (all five targets)
 
 `.github/workflows/binaries.yml` builds every target on its **native** GitHub
 runner (native NIFs, no cross-compile guesswork) and uploads the executables as

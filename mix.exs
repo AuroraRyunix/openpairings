@@ -31,8 +31,9 @@ defmodule PairingsEngine.MixProject do
             macos_aarch64: [os: :darwin, cpu: :aarch64],
             linux_x86_64: [os: :linux, cpu: :x86_64],
             linux_aarch64: [os: :linux, cpu: :aarch64],
-            windows_x86_64: [os: :windows, cpu: :x86_64],
-            windows_aarch64: [os: :windows, cpu: :aarch64]
+            # No windows_aarch64: Erlang/OTP ships no Windows/ARM runtime to
+            # bundle. Windows on ARM emulates the x86_64 binary.
+            windows_x86_64: [os: :windows, cpu: :x86_64]
           ]
         ]
       ]
