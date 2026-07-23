@@ -157,6 +157,28 @@ defmodule PairingsEngineWeb.SettingsTournamentLiveTest do
       refute Repo.reload!(tournament).logo_data
     end
 
+    test "an image over the 2 MB cap says so instead of failing silently", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings")
+
+      logo =
+        file_input(lv, "#logo-upload-form", :logo, [
+          %{
+            name: "huge.png",
+            content: @tiny_png <> :binary.copy(<<0>>, 2_000_001),
+            type: "image/png"
+          }
+        ])
+
+      assert {:error, [[_ref, :too_large]]} = render_upload(logo, "huge.png")
+
+      assert render(lv) =~ "Image is larger than 2 MB"
+      refute Repo.reload!(tournament).logo_data
+    end
+
     test "removing a set logo clears it", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
       {:ok, tournament} = Tournaments.set_logo(tournament, @tiny_png)
