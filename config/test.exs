@@ -11,17 +11,25 @@ config :pbkdf2_elixir, :rounds, 1
 config :pairings_engine, PairingsEngine.Repo,
   database:
     Path.expand("../pairings_engine_test#{System.get_env("MIX_TEST_PARTITION")}.db", __DIR__),
-  pool_size: 5,
+  # One connection, so the pool cannot contend with itself. SQLite allows a
+  # single writer per database, and the sandbox holds an open transaction on
+  # every checked-out connection for the length of its test, so several
+  # connections plus ExUnit's parallelism meant tests genuinely raced for the
+  # write lock. That surfaced as `Exqlite.Error: Database busy` raised from
+  # an unrelated test's setup — reliably 1-5 tests per full run by the end,
+  # nearly always in the Settings LiveView files, because a LiveView
+  # receiving a late PubSub broadcast at teardown kept its connection busy
+  # into the next test's checkout. Neither of the two settings below fixed
+  # that (the error arrives instantly, long before any timeout could expire);
+  # serialising the pool did, 8 clean full runs against a baseline that
+  # failed every run. Tests still declare `async: true` and DBConnection
+  # queues them on the one connection, which costs the suite nothing
+  # measurable (~6.5s either way).
+  pool_size: 1,
   pool: Ecto.Adapters.SQL.Sandbox,
-  # SQLite only allows one writer at a time; several async test modules
-  # (each on its own sandboxed connection) can legitimately contend for a
-  # write lock under ExUnit's default parallelism. The 2000ms adapter
-  # default was occasionally too short for that, surfacing as a flaky
-  # `Exqlite.Error: Database busy` — give contending writers more time to
-  # queue instead of erroring out. Raised to 30s after CI still occasionally
-  # hit the error when a checked-out connection's client exited mid-write (a
-  # LiveView receiving a late PubSub broadcast during test teardown) and the
-  # next writer briefly saw the lock held.
+  # Kept as a backstop for whatever contention a single connection can still
+  # see (checkin/checkout overlap, the odd non-sandboxed connection): wait for
+  # the lock rather than erroring out at the adapter's 2000ms default.
   busy_timeout: 30_000,
   # In the default rollback-journal mode a mere READER blocks every writer,
   # and the SQL Sandbox keeps a transaction open per checked-out connection

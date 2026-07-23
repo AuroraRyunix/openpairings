@@ -321,6 +321,16 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
     end
   end
 
+  # Per-entry errors (a too-big or wrong-typed file) are what users actually
+  # hit here, and LiveView keeps those on the entry, not on the upload config
+  # — rendering only the config's errors left the picked file looking accepted
+  # while `consume_uploaded_entries` skipped it, so the logo silently never
+  # arrived.
+  defp upload_error_label(:too_large), do: "Image is larger than 2 MB"
+  defp upload_error_label(:too_many_files), do: "One image at a time"
+  defp upload_error_label(:not_accepted), do: "Only PNG, JPEG, GIF and WebP images are accepted"
+  defp upload_error_label(other), do: inspect(other)
+
   defp general_fields, do: @general_fields
   defp tb_presets, do: @tb_presets
 
@@ -598,7 +608,14 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
             </div>
           </div>
 
-          <p :for={err <- upload_errors(@uploads.logo)} class="error-note">{inspect(err)}</p>
+          <p :for={err <- upload_errors(@uploads.logo)} class="error-note">
+            {upload_error_label(err)}
+          </p>
+          <div :for={entry <- @uploads.logo.entries}>
+            <p :for={err <- upload_errors(@uploads.logo, entry)} class="error-note">
+              {entry.client_name}: {upload_error_label(err)}
+            </p>
+          </div>
 
           <div class="actions">
             <button type="submit" class="pe-btn primary" disabled={@uploads.logo.entries == []}>
