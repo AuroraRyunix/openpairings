@@ -1614,7 +1614,9 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .auth-hero {
   position: relative;
   display: flex;
-  align-items: center;
+  /* `safe center`: centre vertically, but align to the top (don't crop the
+     logo/title out of reach) when the content is taller than the card. */
+  align-items: safe center;
   padding: 40px 44px;
   color: #eef4ef;
   background: radial-gradient(130% 150% at 0% 0%, #3f8060 0%, #2e5e44 46%, #1d4030 100%);
@@ -1689,12 +1691,13 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 
 .auth-panel {
   display: flex;
-  align-items: center;
-  justify-content: center;
   padding: 12px 40px;
   overflow-y: auto;
 }
-.auth-card { width: 100%; max-width: 360px; }
+/* `margin: auto` (not align/justify-center) so the card centres when there's
+   room but aligns to the top and stays fully scrollable when it's taller than
+   the panel — flex centering would crop the top/bottom out of reach. */
+.auth-card { width: 100%; max-width: 360px; margin: auto; }
 
 .auth-card-title {
   font-size: 22px;
@@ -1788,6 +1791,22 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   line-height: 1.5;
   color: var(--text-soft);
   text-align: center;
+}
+
+/* Short desktop windows (two-column card is still on): progressively trim the
+   hero so it fits the shorter card instead of overflowing. The form panel
+   scrolls on its own (see `.auth-panel`), so nothing is ever cropped. */
+@media (min-width: 901px) and (max-height: 760px) {
+  .auth-hero { padding: 28px 40px; }
+  .auth-hero-brand { margin-bottom: 20px; }
+  .auth-hero-title { font-size: 26px; margin-bottom: 10px; }
+  .auth-hero-sub { display: none; }
+  .auth-features { gap: 9px; }
+  .auth-hero-cta { margin-top: 20px; }
+}
+@media (min-width: 901px) and (max-height: 640px) {
+  .auth-features { display: none; }
+  .auth-hero-cta { margin-top: 16px; }
 }
 
 @media (max-width: 900px) {
