@@ -9,8 +9,8 @@ defmodule PairingsEngineWeb.UserLive.LoginTest do
       {:ok, _lv, html} = live(conn, ~p"/users/log-in")
 
       assert html =~ "Log in"
-      assert html =~ "Sign up"
-      assert html =~ "Log in with email"
+      assert html =~ "Create an account"
+      assert html =~ "Email me a magic link"
     end
 
     test "shows the running app version", %{conn: conn} do
@@ -93,7 +93,7 @@ defmodule PairingsEngineWeb.UserLive.LoginTest do
 
       {:ok, _login_live, login_html} =
         lv
-        |> element("main a", "Sign up")
+        |> element("main a", "Create an account")
         |> render_click()
         |> follow_redirect(conn, ~p"/users/register")
 
@@ -110,9 +110,9 @@ defmodule PairingsEngineWeb.UserLive.LoginTest do
     test "shows login page with email filled in", %{conn: conn, user: user} do
       {:ok, _lv, html} = live(conn, ~p"/users/log-in")
 
-      assert html =~ "You need to reauthenticate"
+      assert html =~ "Re-authenticate to perform sensitive actions"
       refute html =~ "Register"
-      assert html =~ "Log in with email"
+      assert html =~ "Email me a magic link"
 
       assert html =~
                ~s(<input type="email" name="user[email]" id="login_form_magic_email" value="#{user.email}")

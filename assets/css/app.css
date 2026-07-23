@@ -108,6 +108,18 @@
    PairingsEngine design system (function over everything)
    ============================================================ */
 
+/* ---------- theme tokens ----------
+   The whole design system is driven by these tokens, so a theme is just a
+   different set of values for them. `:root` holds the light theme (the
+   default); `[data-theme="dark"]` overrides them for dark. The inline script
+   in root.html.heex resolves "system" to a concrete light/dark and stamps
+   `data-theme` on <html> BEFORE first paint, so there's no flash and CSS only
+   ever needs to match the two concrete themes below.
+
+   The daisyUI component variables (--color-base-*, used by core_components'
+   <.input>/<.select>/<.textarea> on the auth and settings pages) are themed
+   here too, so those inputs follow the same palette as the rest of the app
+   in both themes — no dark-on-dark. */
 :root {
   --bg: #f7f6f3;
   --surface: #ffffff;
@@ -120,35 +132,46 @@
   --danger: #a33c2e;
   --radius: 8px;
   --shadow: 0 1px 3px rgba(30, 25, 15, 0.07);
-}
 
-/* The app palette is light-only for now: pin the page background so the
-   daisyUI dark theme (which follows the OS) can never show through below
-   the content. */
-html, html[data-theme="dark"] {
-  background: var(--bg);
-}
+  /* soft raised/alt surfaces used across list rows, dropzones, band rows,
+     modal scrims — tokenized so dark mode can override them in one place. */
+  --surface-alt: #faf9f6;
+  --surface-hover: #fbfaf8;
+  --scrim: rgba(20, 18, 12, 0.45);
+  /* legacy alias: some inline styles reference var(--pe-bg-alt, #f7f7f7) */
+  --pe-bg-alt: var(--surface-alt);
 
-/* The pin above only covers html/body's own background — it does nothing
-   for daisyUI *component* colors (--color-base-100/200/300/content), which
-   still flip to the dark theme's values whenever the OS/browser prefers
-   dark mode or the theme toggle sets data-theme="dark" on <html> (see
-   root.html.heex). core_components' <.input>/<.select>/<.textarea> (used
-   on every auth page: log in, register, magic-link confirm, settings) rely
-   on daisyUI's `.input`/`.select` classes for their background but do NOT
-   set their own text color — that's inherited from `body`, which we pin to
-   the dark `--text` color a few lines below regardless of theme. Result: in
-   dark mode the input background goes dark while the text stays dark too,
-   i.e. unreadable dark-on-dark ("black on black"). Force the daisyUI color
-   variables to the light theme's values unconditionally so every daisyUI
-   component matches the rest of the app's light-only look. */
-:root, [data-theme="dark"] {
   color-scheme: light;
   --color-base-100: oklch(98% 0 0);
   --color-base-200: oklch(96% 0.001 286.375);
   --color-base-300: oklch(92% 0.004 286.32);
   --color-base-content: oklch(21% 0.006 285.885);
 }
+
+[data-theme="dark"] {
+  --bg: #0e1210;
+  --surface: #161b18;
+  --border: #29312b;
+  --text: #e9ebe6;
+  --text-soft: #98a29b;
+  --accent: #60bd8c;
+  --accent-hover: #76cb9e;
+  --accent-soft: rgba(96, 189, 140, 0.16);
+  --danger: #e07a63;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+
+  --surface-alt: #1b211d;
+  --surface-hover: #1e251f;
+  --scrim: rgba(0, 0, 0, 0.6);
+
+  color-scheme: dark;
+  --color-base-100: #1b211d;
+  --color-base-200: #212823;
+  --color-base-300: #2c342e;
+  --color-base-content: #e9ebe6;
+}
+
+html { background: var(--bg); }
 
 body {
   margin: 0;
@@ -263,6 +286,43 @@ body {
   gap: 4px;
 }
 
+/* ---------- theme switch (System / Light / Dark) ---------- */
+.theme-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  margin-right: 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+}
+
+.theme-opt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+.theme-opt:hover { color: var(--text); background: var(--surface); }
+
+/* Highlight the active option straight from the <html> attributes the inline
+   theme script maintains — no server round-trip. */
+html[data-theme-source="system"] .theme-opt[data-theme-opt="system"],
+html[data-theme-source="user"][data-theme="light"] .theme-opt[data-theme-opt="light"],
+html[data-theme-source="user"][data-theme="dark"] .theme-opt[data-theme-opt="dark"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
 .topbar-auth .user-email {
   color: var(--text-soft);
   padding: 6px 4px;
@@ -329,7 +389,7 @@ body {
 
 .pe-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
 .pe-table tr:last-child td { border-bottom: none; }
-.pe-table tbody tr:hover { background: #fbfaf8; }
+.pe-table tbody tr:hover { background: var(--surface-hover); }
 
 .pe-table th.sortable { cursor: pointer; user-select: none; }
 .pe-table th.sortable:hover { color: var(--text); }
@@ -508,7 +568,7 @@ button.pe-btn, .pe-btn {
   white-space: nowrap;
 }
 
-.badge.muted { background: #eeece7; color: var(--text-soft); }
+.badge.muted { background: var(--surface-hover); color: var(--text-soft); }
 
 .empty { text-align: center; color: var(--text-soft); padding: 48px 20px; }
 .empty p { margin: 4px 0; }
@@ -652,7 +712,7 @@ button.pe-btn, .pe-btn {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(20, 18, 12, 0.45);
+  background: var(--scrim);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1136,7 +1196,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   justify-content: center;
   align-items: flex-start;
   padding: 0 10px;
-  background: #faf9f6;
+  background: var(--surface-alt);
   border: none;
   font: inherit;
   color: inherit;
@@ -1144,11 +1204,11 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   cursor: pointer;
   transition: background 0.12s;
 }
-.pe-band-row.is-alt { background: #f1efe9; }
+.pe-band-row.is-alt { background: var(--surface-hover); }
 .pe-band-row:hover,
 .pe-band-row:focus-visible { background: var(--accent-soft); outline: none; }
 .pe-band-row.is-active-filter { background: var(--accent-soft); }
-.pe-band-score { font-weight: 700; font-size: 13.5px; color: #24211c; line-height: 1.15; }
+.pe-band-score { font-weight: 700; font-size: 13.5px; color: var(--text); line-height: 1.15; }
 .pe-band-meta { font-size: 11.5px; color: var(--text-soft); line-height: 1.15; }
 .pe-band-odd { color: #a76a25; font-weight: 600; }
 
@@ -1403,4 +1463,173 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   border-radius: 3px;
   box-sizing: border-box;
   pointer-events: none;
+}
+
+/* ============================================================
+   Auth pages (log in / register) — split brand + form panel
+   ============================================================ */
+.auth-wrap {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  max-width: 960px;
+  margin: 24px auto;
+  min-height: 560px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.14);
+  overflow: hidden;
+}
+
+.auth-hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 52px 46px;
+  color: #eef4ef;
+  background: radial-gradient(130% 150% at 0% 0%, #3f8060 0%, #2e5e44 46%, #1d4030 100%);
+  overflow: hidden;
+}
+/* soft decorative light + board grain */
+.auth-hero::before {
+  content: "";
+  position: absolute;
+  inset: -40% -20% auto auto;
+  width: 520px;
+  height: 520px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.16), transparent 62%);
+  pointer-events: none;
+}
+.auth-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(120% 120% at 100% 100%, #000 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.auth-hero-inner { position: relative; z-index: 1; }
+
+.auth-hero-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 34px;
+}
+.auth-hero-mark { width: 46px; height: 35px; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.25)); }
+.auth-hero-name { font-size: 20px; font-weight: 500; letter-spacing: 0.01em; }
+.auth-hero-name strong { font-weight: 800; }
+
+.auth-hero-title {
+  font-size: 30px;
+  line-height: 1.15;
+  font-weight: 750;
+  margin: 0 0 14px;
+  letter-spacing: -0.01em;
+}
+
+.auth-hero-sub {
+  font-size: 15px;
+  line-height: 1.55;
+  color: rgba(238, 244, 239, 0.82);
+  margin: 0 0 30px;
+  max-width: 34ch;
+}
+
+.auth-features {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.auth-features li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: rgba(238, 244, 239, 0.92);
+}
+.auth-features li svg { color: #8fe0b4; flex-shrink: 0; }
+
+.auth-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 44px 40px;
+}
+.auth-card { width: 100%; max-width: 340px; }
+
+.auth-card-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  color: var(--text);
+}
+.auth-card-sub {
+  font-size: 14px;
+  color: var(--text-soft);
+  margin: 0 0 22px;
+}
+
+.auth-link { color: var(--accent); font-weight: 600; text-decoration: none; }
+.auth-link:hover { text-decoration: underline; }
+
+.auth-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 18px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-soft);
+  background: var(--accent-soft);
+  border-radius: 8px;
+}
+
+.auth-form { display: flex; flex-direction: column; gap: 4px; }
+.auth-submit { width: 100%; justify-content: center; margin-top: 10px; }
+.auth-submit-ghost { margin-top: 8px; }
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0;
+  color: var(--text-soft);
+  font-size: 12px;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.auth-tools {
+  margin: 22px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-soft);
+  text-align: center;
+}
+
+@media (max-width: 760px) {
+  .auth-wrap {
+    grid-template-columns: 1fr;
+    max-width: 420px;
+    min-height: 0;
+  }
+  .auth-hero { padding: 34px 32px; }
+  .auth-hero-title { font-size: 24px; }
+  .auth-hero-sub { margin-bottom: 22px; }
+  .auth-features { display: none; }
+  .auth-panel { padding: 32px 28px; }
 }

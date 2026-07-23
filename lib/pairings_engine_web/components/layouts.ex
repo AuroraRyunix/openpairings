@@ -173,6 +173,7 @@ defmodule PairingsEngineWeb.Layouts do
         </.link>
       </nav>
       <nav class="topbar-auth">
+        <.theme_switch />
         <%= if @current_scope do %>
           <span class="sync-freshness" title="Local FIDE / KBSB rating-list sync status">
             FIDE: {sync_label(Fide.last_sync())} · KBSB: {sync_label(Kbsb.last_sync())}
@@ -290,37 +291,48 @@ defmodule PairingsEngineWeb.Layouts do
   end
 
   @doc """
-  Provides dark vs light theme toggle based on themes defined in app.css.
-
-  See <head> in root.html.heex which applies the theme before page load.
+  A compact three-way theme switch (System / Light / Dark) for the top bar,
+  styled with the app's own design tokens so it matches the rest of the UI in
+  both themes. The active option is highlighted purely from CSS, keyed off the
+  `data-theme` / `data-theme-source` attributes the inline script in
+  root.html.heex maintains on `<html>` — so it needs no server state and
+  reflects the choice instantly, even across tabs.
   """
-  def theme_toggle(assigns) do
+  def theme_switch(assigns) do
     ~H"""
-    <div class="card relative flex flex-row items-center border-2 border-base-300 bg-base-300 rounded-full">
-      <div class="absolute w-1/3 h-full rounded-full border-1 border-base-200 bg-base-100 brightness-200 left-0 [[data-theme=light]_&]:left-1/3 [[data-theme=dark]_&]:left-2/3 [[data-theme-source=system]_&]:!left-0 transition-[left]" />
-
+    <div class="theme-switch" role="group" aria-label="Colour theme">
       <button
-        class="flex p-2 cursor-pointer w-1/3"
-        phx-click={JS.dispatch("phx:set-theme")}
+        type="button"
+        class="theme-opt"
+        data-theme-opt="system"
         data-phx-theme="system"
-      >
-        <.icon name="hero-computer-desktop-micro" class="size-4 opacity-75 hover:opacity-100" />
-      </button>
-
-      <button
-        class="flex p-2 cursor-pointer w-1/3"
         phx-click={JS.dispatch("phx:set-theme")}
+        title="System theme"
+        aria-label="System theme"
+      >
+        <.icon name="hero-computer-desktop-micro" class="size-4" />
+      </button>
+      <button
+        type="button"
+        class="theme-opt"
+        data-theme-opt="light"
         data-phx-theme="light"
-      >
-        <.icon name="hero-sun-micro" class="size-4 opacity-75 hover:opacity-100" />
-      </button>
-
-      <button
-        class="flex p-2 cursor-pointer w-1/3"
         phx-click={JS.dispatch("phx:set-theme")}
-        data-phx-theme="dark"
+        title="Light theme"
+        aria-label="Light theme"
       >
-        <.icon name="hero-moon-micro" class="size-4 opacity-75 hover:opacity-100" />
+        <.icon name="hero-sun-micro" class="size-4" />
+      </button>
+      <button
+        type="button"
+        class="theme-opt"
+        data-theme-opt="dark"
+        data-phx-theme="dark"
+        phx-click={JS.dispatch("phx:set-theme")}
+        title="Dark theme"
+        aria-label="Dark theme"
+      >
+        <.icon name="hero-moon-micro" class="size-4" />
       </button>
     </div>
     """
