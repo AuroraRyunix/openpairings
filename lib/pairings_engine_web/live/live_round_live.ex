@@ -166,7 +166,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
         </summary>
 
         <p class="hint">
-          Let helpers enter results from their phone — no account needed. Show them the QR code
+          Let helpers enter results from their phone, no account needed. Show them the QR code
           or the 6-digit code. Access is result-entry only, scoped to this tournament, and you can
           revoke it any time.
         </p>

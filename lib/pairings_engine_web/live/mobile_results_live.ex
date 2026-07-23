@@ -2,7 +2,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
   @moduledoc """
   The no-account mobile result-entry screen. Reached only via an active
   enrollment (see `PairingsEngineWeb.MobileAuth`), scoped to that one
-  tournament. A helper taps a board and picks the result — nothing else is
+  tournament. A helper taps a board and picks the result - nothing else is
   reachable from here.
   """
   use PairingsEngineWeb, :live_view
@@ -40,7 +40,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
   end
 
   # Only pairings belonging to the loaded round (which is loaded from the
-  # enrollment's own tournament) can be set — a crafted pairing id from
+  # enrollment's own tournament) can be set - a crafted pairing id from
   # another tournament simply isn't in the set and is ignored.
   def handle_event("set_result", %{"id" => id, "result" => result}, socket)
       when result in ["1-0", "1/2-1/2", "0-1", ""] do

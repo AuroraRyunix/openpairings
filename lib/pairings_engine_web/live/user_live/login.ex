@@ -61,18 +61,18 @@ defmodule PairingsEngineWeb.UserLive.Login do
             <h1 class="auth-hero-title">Run world-class chess tournaments.</h1>
 
             <p class="auth-hero-sub">
-              FIDE-compliant pairings, tie-breaks and norm reports — from the
+              FIDE-compliant pairings, tie-breaks and norm reports - from the
               first round to the final crosstable, right in your browser.
             </p>
 
             <ul class="auth-features">
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                Invite co-arbiters — run one tournament together, live
+                Invite co-arbiters - run one tournament together, live
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                Swiss (JaVaFo Dutch), round-robin & Keizer — all in one
+                Swiss (JaVaFo Dutch), round-robin & Keizer - all in one
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
@@ -113,7 +113,7 @@ defmodule PairingsEngineWeb.UserLive.Login do
             <div :if={local_mail_adapter?()} class="auth-notice">
               <.icon name="hero-information-circle" class="size-5 shrink-0" />
               <span>
-                Local mail adapter — sent emails appear in <.link
+                Local mail adapter - sent emails appear in <.link
                   href="/dev/mailbox"
                   class="auth-link"
                 >the mailbox</.link>.
@@ -184,12 +184,12 @@ defmodule PairingsEngineWeb.UserLive.Login do
             </.form>
 
             <div class="auth-divider"><span>or</span></div>
-            <%!-- Enterprise single sign-on (ADFS / OIDC). Placeholder for now —
+            <%!-- Enterprise single sign-on (ADFS / OIDC). Placeholder for now -
                   wired up later; the button intentionally does nothing yet. --%>
             <button
               type="button"
               class="pe-btn auth-submit auth-sso"
-              title="Single sign-on (ADFS / OIDC) — coming soon"
+              title="Single sign-on (ADFS / OIDC) - coming soon"
             >
               <.icon name="hero-building-office-2" class="size-4" /> Sign in with SSO
             </button>
