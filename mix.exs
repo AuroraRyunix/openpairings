@@ -10,8 +10,32 @@ defmodule PairingsEngine.MixProject do
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
+      releases: releases(),
       compilers: [:phoenix_live_view] ++ Mix.compilers(),
       listeners: [Phoenix.CodeReloader]
+    ]
+  end
+
+  # Standalone single-file binaries via Burrito — one self-contained
+  # executable per OS/arch (x86_64 + aarch64 for macOS, Linux, Windows).
+  # Build with `MIX_ENV=prod mix release`; output lands in `burrito_out/`.
+  # See docs/binaries.md. Needs Zig + xz on the build machine; cross-target
+  # builds are done per-arch in CI (.github/workflows/binaries.yml).
+  defp releases do
+    [
+      pairings_engine: [
+        steps: [:assemble, &Burrito.wrap/1],
+        burrito: [
+          targets: [
+            macos_x86_64: [os: :darwin, cpu: :x86_64],
+            macos_aarch64: [os: :darwin, cpu: :aarch64],
+            linux_x86_64: [os: :linux, cpu: :x86_64],
+            linux_aarch64: [os: :linux, cpu: :aarch64],
+            windows_x86_64: [os: :windows, cpu: :x86_64],
+            windows_aarch64: [os: :windows, cpu: :aarch64]
+          ]
+        ]
+      ]
     ]
   end
 
@@ -75,7 +99,8 @@ defmodule PairingsEngine.MixProject do
       {:bandit, "~> 1.5"},
       {:req, "~> 0.5"},
       {:swoosh, "~> 1.16"},
-      {:gen_smtp, "~> 1.2"}
+      {:gen_smtp, "~> 1.2"},
+      {:burrito, "~> 1.3"}
     ]
   end
 

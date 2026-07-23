@@ -58,3 +58,6 @@ npm-debug.log
 
 # graphify skill output (not part of the app)
 graphify-out/
+
+# Burrito standalone-binary build output
+/burrito_out/
