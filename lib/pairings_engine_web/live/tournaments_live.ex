@@ -4,6 +4,14 @@ defmodule PairingsEngineWeb.TournamentsLive do
   alias PairingsEngine.{Audit, Tournaments, SwarImport, TournamentImport, TrfImport, RateOfPlay}
   alias PairingsEngine.Tournaments.Tournament
 
+  # Initial values for the "New tournament" form — kept in `new_params` and
+  # bound to each input so a phx-change re-render never wipes them.
+  @new_tournament_defaults %{
+    "pairing_system" => "swiss",
+    "rounds_count" => "9",
+    "standard" => "standard"
+  }
+
   @pairing_system_options for ps <- Tournament.pairing_systems(),
                               do: {ps, Tournament.pairing_system_label(ps)}
   @rr_cycles_options for c <- Tournament.rr_cycles_values(),
@@ -39,6 +47,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
        new_pairing_system: "swiss",
        new_team?: false,
        new_standard: "standard",
+       new_params: @new_tournament_defaults,
        swar_pending: nil
      )
      # ".swar"/".trf" have no registered MIME type, so the browser-side accept
@@ -137,7 +146,8 @@ defmodule PairingsEngineWeb.TournamentsLive do
        importing_trf: false,
        new_pairing_system: "swiss",
        new_team?: false,
-       new_standard: "standard"
+       new_standard: "standard",
+       new_params: @new_tournament_defaults
      )}
   end
 
@@ -147,14 +157,18 @@ defmodule PairingsEngineWeb.TournamentsLive do
   # where these two combine into the single `type` value actually stored.
   # Also tracks the picked "Standard" (Standard/Rapid/Blitz) so the "Rate of
   # play" preset list switches to match — mirroring the Options settings page.
+  # A form-level phx-change sends the WHOLE form's current values on every
+  # keystroke/toggle, so we stash them in `new_params` and bind every input's
+  # value back to it — otherwise each re-render (e.g. toggling "Team
+  # tournament", or the rate-of-play list reacting to the format) would wipe
+  # the uncontrolled text inputs the arbiter had already filled in.
   def handle_event("pairing_system_picked", %{"tournament" => params}, socket) do
-    new_standard = params["standard"] || socket.assigns.new_standard
-
     {:noreply,
      assign(socket,
-       new_pairing_system: params["pairing_system"],
+       new_params: params,
+       new_pairing_system: params["pairing_system"] || "swiss",
        new_team?: params["team"] == "true",
-       new_standard: new_standard
+       new_standard: params["standard"] || "standard"
      )}
   end
 
@@ -199,6 +213,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
        new_pairing_system: "swiss",
        new_team?: false,
        new_standard: "standard",
+       new_params: @new_tournament_defaults,
        swar_pending: nil
      )}
   end
@@ -650,7 +665,12 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <div class="form-grid">
           <label class="field">
             <span>Name</span>
-            <input name="tournament[name]" autofocus placeholder="e.g. Summer Open 2026" />
+            <input
+              name="tournament[name]"
+              value={Map.get(@new_params, "name", "")}
+              autofocus
+              placeholder="e.g. Summer Open 2026"
+            />
           </label>
 
           <label class="field">
@@ -669,7 +689,13 @@ defmodule PairingsEngineWeb.TournamentsLive do
           <label :if={@new_pairing_system == "round_robin"} class="field">
             <span>Cycles</span>
             <select name="tournament[rr_cycles]">
-              <option :for={{val, label} <- rr_cycles_options()} value={val}>{label}</option>
+              <option
+                :for={{val, label} <- rr_cycles_options()}
+                value={val}
+                selected={to_string(val) == Map.get(@new_params, "rr_cycles", "1")}
+              >
+                {label}
+              </option>
             </select>
           </label>
 
@@ -685,19 +711,40 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
           <label class="field">
             <span>Rounds</span>
-            <input type="number" name="tournament[rounds_count]" value="9" min="1" max="30" />
+            <input
+              type="number"
+              name="tournament[rounds_count]"
+              value={Map.get(@new_params, "rounds_count", "9")}
+              min="1"
+              max="30"
+            />
           </label>
 
           <label class="field">
-            <span>Place</span> <input name="tournament[city]" placeholder="e.g. Gent" />
+            <span>Place</span>
+            <input
+              name="tournament[city]"
+              value={Map.get(@new_params, "city", "")}
+              placeholder="e.g. Gent"
+            />
           </label>
 
           <label class="field">
-            <span>Date from</span> <input type="date" name="tournament[start_date]" />
+            <span>Date from</span>
+            <input
+              type="date"
+              name="tournament[start_date]"
+              value={Map.get(@new_params, "start_date", "")}
+            />
           </label>
 
           <label class="field">
-            <span>Date to</span> <input type="date" name="tournament[end_date]" />
+            <span>Date to</span>
+            <input
+              type="date"
+              name="tournament[end_date]"
+              value={Map.get(@new_params, "end_date", "")}
+            />
           </label>
 
           <div class="field">
@@ -717,7 +764,11 @@ defmodule PairingsEngineWeb.TournamentsLive do
           <label class="field">
             <span>Rate of play</span>
             <select name="tournament[rate_of_play]">
-              <option :for={opt <- rate_of_play_options(@new_standard)} value={opt}>
+              <option
+                :for={opt <- rate_of_play_options(@new_standard)}
+                value={opt}
+                selected={opt == Map.get(@new_params, "rate_of_play", "")}
+              >
                 {if opt == "", do: "— none —", else: opt}
               </option>
             </select>
