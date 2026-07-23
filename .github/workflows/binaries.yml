@@ -19,14 +19,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { runner: macos-13, target: macos_x86_64 }
-          - { runner: macos-14, target: macos_aarch64 }
+          # macos-15-intel is the Intel runner (macos-13 was retired); plain
+          # macos-15 is Apple silicon.
+          - { runner: macos-15-intel, target: macos_x86_64 }
+          - { runner: macos-15, target: macos_aarch64 }
           - { runner: ubuntu-latest, target: linux_x86_64 }
           - { runner: ubuntu-24.04-arm, target: linux_aarch64 }
           - { runner: windows-latest, target: windows_x86_64 }
-          # Windows/ARM OTP builds aren't always available to setup-beam yet —
-          # kept best-effort so it never blocks the other five.
-          - { runner: windows-11-arm, target: windows_aarch64 }
+          # No windows_aarch64: Erlang/OTP publishes no Windows/ARM build, so
+          # setup-beam cannot provision the ARM runner. Windows on ARM runs the
+          # x86_64 binary under its built-in emulation.
 
     env:
       MIX_ENV: prod
@@ -45,11 +47,24 @@ jobs:
           # Burrito 1.5 requires exactly this Zig version.
           version: 0.15.2
 
-      # Burrito compresses the payload with xz — present on the Linux/macOS
-      # images, installed here for Windows.
+      # Burrito shells out to `xz` to compress the payload. The Linux and macOS
+      # images ship one; Windows does not, and there is no chocolatey package
+      # for it, so take it from the preinstalled MSYS2. Only xz and its DLLs are
+      # copied out: putting all of C:\msys64\usr\bin on PATH would shadow
+      # Windows tools (find, sort, link) for the build steps below.
       - name: Install xz (Windows)
         if: runner.os == 'Windows'
-        run: choco install xz --no-progress -y
+        shell: pwsh
+        run: |
+          C:\msys64\usr\bin\pacman.exe -S --noconfirm --needed xz
+          $dst = Join-Path $env:RUNNER_TEMP "xz"
+          New-Item -ItemType Directory -Force -Path $dst | Out-Null
+          Copy-Item C:\msys64\usr\bin\xz.exe $dst
+          Copy-Item C:\msys64\usr\bin\msys-2.0.dll $dst
+          Copy-Item C:\msys64\usr\bin\msys-lzma-*.dll $dst
+          $dst | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          # Fail here, not deep inside `mix release`, if a DLL is missing.
+          & (Join-Path $dst "xz.exe") --version
 
       - run: mix deps.get
 
