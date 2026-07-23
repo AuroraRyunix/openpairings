@@ -24,15 +24,39 @@ defmodule PairingsEngine.Kbsb do
         []
 
       true ->
-        like = String.replace(query, ~r/[%_]/, "") <> "%"
+        # Match every token (whitespace/comma separated) against either the
+        # last OR first name, in any order — so "burssens jorian", "jorian
+        # burssens", "burssens, jorian" and just "jorian" all find the player.
+        case search_tokens(query) do
+          [] ->
+            []
 
-        Repo.all(
-          from k in KbsbPlayer,
-            where: like(k.last_name, ^like),
-            order_by: [asc: is_nil(k.national_rating), desc: k.national_rating],
-            limit: 20
-        )
+          tokens ->
+            where =
+              Enum.reduce(tokens, dynamic(true), fn tok, acc ->
+                pattern = "%" <> tok <> "%"
+
+                dynamic(
+                  [k],
+                  ^acc and (like(k.last_name, ^pattern) or like(k.first_name, ^pattern))
+                )
+              end)
+
+            Repo.all(
+              from k in KbsbPlayer,
+                where: ^where,
+                order_by: [asc: is_nil(k.national_rating), desc: k.national_rating],
+                limit: 20
+            )
+        end
     end
+  end
+
+  defp search_tokens(query) do
+    query
+    |> String.split(~r/[,\s]+/, trim: true)
+    |> Enum.map(&String.replace(&1, ~r/[%_]/, ""))
+    |> Enum.reject(&(&1 == ""))
   end
 
   @doc "Exact national-ID lookup, used by the player-registration autofill."
