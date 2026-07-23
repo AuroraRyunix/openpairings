@@ -111,7 +111,7 @@ defmodule PairingsEngineWeb.FideLive do
           <%= if @status.last_sync do %>
             Last updated: <strong>{@status.last_sync}</strong> (UTC).
           <% else %>
-            The database is empty — download the rating list to get started.
+            The database is empty - download the rating list to get started.
           <% end %>
         </p>
 
@@ -154,7 +154,7 @@ defmodule PairingsEngineWeb.FideLive do
           <%= if @kbsb_status.last_sync do %>
             Last updated: <strong>{@kbsb_status.last_sync}</strong> (UTC).
           <% else %>
-            The database is empty — upload a rating-list file to get started.
+            The database is empty - upload a rating-list file to get started.
           <% end %>
         </p>
 

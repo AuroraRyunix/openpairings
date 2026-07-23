@@ -328,7 +328,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
-          <p class="subtitle" style="margin: 0">Settings — Options</p>
+          <p class="subtitle" style="margin: 0">Settings - Options</p>
         </div>
         <span class={["badge", @tournament.status == "setup" && "muted"]}>{@tournament.status}</span>
       </div>
@@ -404,7 +404,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
             <.setting_field
               label="Acceleration"
-              hint="Swiss only — round robin and Keizer ignore this setting"
+              hint="Swiss only - round robin and Keizer ignore this setting"
             >
               <select name="tournament[acceleration]">
                 <option value="none" selected={@tournament.acceleration == "none"}>None</option>
@@ -417,7 +417,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             <.setting_toggle
               name="tournament[swiss_match_format]"
               label="Match format (immediate 2-game rematch, reversed colours)"
-              hint="Swiss only — requires an even number of rounds (each match is 2 rounds)"
+              hint="Swiss only - requires an even number of rounds (each match is 2 rounds)"
               checked={@tournament.swiss_match_format}
               disabled={@swiss_match_format_locked?}
               field={:swiss_match_format}
@@ -436,7 +436,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             <.setting_toggle
               name="tournament[pair_by_category]"
               label="Pair each category independently"
-              hint="Swiss only — each category gets its own independent pairings and byes within one combined round"
+              hint="Swiss only - each category gets its own independent pairings and byes within one combined round"
               checked={@tournament.pair_by_category}
               disabled={@pair_by_category_locked? or not @tournament.categories_enabled}
               field={:pair_by_category}
@@ -470,7 +470,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                   value={opt}
                   selected={opt == @rate_of_play}
                 >
-                  {if opt == "", do: "— none —", else: opt}
+                  {if opt == "", do: "- none -", else: opt}
                 </option>
               </select>
             </.setting_field>
@@ -581,7 +581,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             </thead>
             <tbody>
               <tr :for={fp <- @forbidden_pairings}>
-                <td>{fp.player_a.name} — {fp.player_b.name}</td>
+                <td>{fp.player_a.name} - {fp.player_b.name}</td>
                 <td style="text-align: right">
                   <button
                     class="pe-btn danger-link"

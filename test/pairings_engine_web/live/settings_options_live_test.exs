@@ -314,14 +314,14 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
 
       {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
       assert html =~ ~r/name="tournament\[rr_match_format\][^>]*disabled/
-      refute html =~ "Locked — cannot be changed"
+      refute html =~ "Locked - cannot be changed"
 
       html = render_click(lv, "locked_hint", %{"field" => "rr_match_format"})
-      assert html =~ "Locked — cannot be changed after round 1 has been paired."
+      assert html =~ "Locked - cannot be changed after round 1 has been paired."
 
       # Clears on the next unrelated interaction (dirty tracker hook).
       html = render_change(lv, "standard_change", %{"tournament" => %{"standard" => "standard"}})
-      refute html =~ "Locked — cannot be changed"
+      refute html =~ "Locked - cannot be changed"
     end
 
     test "a submitted change to rr_match_format is dropped server-side once locked", %{
@@ -371,13 +371,13 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
 
       {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
       assert html =~ ~r/name="tournament\[swiss_match_format\][^>]*disabled/
-      refute html =~ "Locked — cannot be changed"
+      refute html =~ "Locked - cannot be changed"
 
       html = render_click(lv, "locked_hint", %{"field" => "swiss_match_format"})
-      assert html =~ "Locked — cannot be changed after round 1 has been paired."
+      assert html =~ "Locked - cannot be changed after round 1 has been paired."
 
       html = render_change(lv, "standard_change", %{"tournament" => %{"standard" => "standard"}})
-      refute html =~ "Locked — cannot be changed"
+      refute html =~ "Locked - cannot be changed"
     end
 
     @tag :javafo
@@ -435,13 +435,13 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
 
       {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
       assert html =~ ~r/name="tournament\[pair_by_category\][^>]*disabled/
-      refute html =~ "Locked — cannot be changed"
+      refute html =~ "Locked - cannot be changed"
 
       html = render_click(lv, "locked_hint", %{"field" => "pair_by_category"})
-      assert html =~ "Locked — cannot be changed after round 1 has been paired."
+      assert html =~ "Locked - cannot be changed after round 1 has been paired."
 
       html = render_change(lv, "standard_change", %{"tournament" => %{"standard" => "standard"}})
-      refute html =~ "Locked — cannot be changed"
+      refute html =~ "Locked - cannot be changed"
     end
 
     @tag :javafo

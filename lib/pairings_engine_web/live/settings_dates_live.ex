@@ -173,7 +173,7 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
-          <p class="subtitle" style="margin: 0">Settings — Dates</p>
+          <p class="subtitle" style="margin: 0">Settings - Dates</p>
         </div>
         <span class={["badge", @tournament.status == "setup" && "muted"]}>{@tournament.status}</span>
       </div>

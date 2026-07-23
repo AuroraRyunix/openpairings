@@ -166,7 +166,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
         </summary>
 
         <p class="hint">
-          Let helpers enter results from their phone — no account needed. Show them the QR code
+          Let helpers enter results from their phone, no account needed. Show them the QR code
           or the 6-digit code. Access is result-entry only, scoped to this tournament, and you can
           revoke it any time.
         </p>
@@ -292,7 +292,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
               <td class="num">
                 {if PairingsEngine.Tournaments.Player.rating(entry.player) > 0,
                   do: PairingsEngine.Tournaments.Player.rating(entry.player),
-                  else: "—"}
+                  else: "-"}
               </td>
               <td class="num"><strong>{entry.points}</strong></td>
               <td :for={code <- @tournament.tiebreaks} class="num">
@@ -326,7 +326,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
               <td class="num">
                 {if PairingsEngine.Tournaments.Player.rating(entry.player) > 0,
                   do: PairingsEngine.Tournaments.Player.rating(entry.player),
-                  else: "—"}
+                  else: "-"}
               </td>
               <td class="num">{entry.value}</td>
               <td class="num"><strong>{entry.points}</strong></td>

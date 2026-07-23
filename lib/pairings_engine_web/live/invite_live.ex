@@ -120,7 +120,7 @@ defmodule PairingsEngineWeb.InviteLive do
               <p class="hint" style="margin-top: 0">
                 <strong>{@owner_email}</strong>
                 invited you to collaborate on <strong>{@tournament.name}</strong>.
-                Accepting gives you full editing access to this tournament — everything the owner
+                Accepting gives you full editing access to this tournament - everything the owner
                 can do, except managing collaborators or deleting it.
               </p>
               <div class="actions">

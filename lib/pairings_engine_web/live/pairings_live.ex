@@ -434,7 +434,7 @@ defmodule PairingsEngineWeb.PairingsLive do
       </p>
 
       <div :if={!@setup_complete} class="card error-note" style="display: block; margin: 12px 0">
-        Finish the tournament setup before pairing — still missing:
+        Finish the tournament setup before pairing - still missing:
         <ul style="margin: 6px 0 0; padding-left: 20px">
           <li :for={{field, message} <- @missing_setup}>
             <.link navigate={setup_field_path(@tournament, field)}>{message}</.link>
@@ -475,7 +475,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         class="card"
         style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 12px 0; padding: 8px 12px; border-left: 3px solid var(--accent)"
       >
-        <span>Round {@round_number} was just updated by another arbiter — refreshed.</span>
+        <span>Round {@round_number} was just updated by another arbiter - refreshed.</span>
         <button
           type="button"
           class="pe-btn"
@@ -510,7 +510,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             title={
               cond do
                 !@setup_complete ->
-                  "Finish the tournament setup first — missing: " <>
+                  "Finish the tournament setup first - missing: " <>
                     missing_setup_summary(@missing_setup)
 
                 !@can_pair ->
@@ -598,7 +598,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             class="pe-btn"
             href={~p"/t/#{@tournament.id}/export/pgn?round=#{@round_number}"}
             target="_blank"
-            title="Metadata-only PGN — no moves are recorded in OpenPairings"
+            title="Metadata-only PGN - no moves are recorded in OpenPairings"
           >
             Export PGN
           </a>
@@ -637,7 +637,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         phx-change="validate_results_csv"
         style="margin: 8px 0"
       >
-        <h3 style="margin-top: 0">Import results (CSV) — round {@round_number}</h3>
+        <h3 style="margin-top: 0">Import results (CSV) - round {@round_number}</h3>
 
         <p class="hint" style="margin-top: 0">
           One line per board: <code>board,result</code>
@@ -668,7 +668,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         <p :for={err <- upload_errors(@uploads.results_csv)} class="error-note">{inspect(err)}</p>
 
         <div :if={@import_errors} class="error-note" style="display: block">
-          <strong>Nothing was saved — fix these and try again:</strong>
+          <strong>Nothing was saved - fix these and try again:</strong>
           <ul style="margin: 6px 0 0">
             <li :for={err <- @import_errors}>{err}</li>
           </ul>
@@ -681,7 +681,7 @@ defmodule PairingsEngineWeb.PairingsLive do
       </form>
 
       <p class="hint" style="margin: 8px 0">
-        Tip: click a result box and press 1 / 2 / 3 (top row or numpad, any keyboard layout) to enter results rapidly (white win / draw / black win) — focus jumps to the next board automatically.
+        Tip: click a result box and press 1 / 2 / 3 (top row or numpad, any keyboard layout) to enter results rapidly (white win / draw / black win) - focus jumps to the next board automatically.
       </p>
 
       <div class="card table-card">
@@ -710,7 +710,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                         @tournament
                       )}.
                     <% else %>
-                      Rounds are paired in order — round {@next_pairable} is next.
+                      Rounds are paired in order - round {@next_pairable} is next.
                     <% end %>
                   </p>
                 </div>
@@ -798,14 +798,14 @@ defmodule PairingsEngineWeb.PairingsLive do
         export default {
           mounted() {
             // A native <select> opens its dropdown on the same click that
-            // focuses it — and while that native popup is open, the browser
+            // focuses it - and while that native popup is open, the browser
             // intercepts number keys for its own "jump to option" behavior
             // before our keydown listener below ever sees them (confirmed:
             // typing did nothing until a second click closed the popup,
             // leaving the element focused-but-closed). Clicking to open a
             // fresh select is the arbiter's actual entry point for the "1/2/3"
             // workflow, so it must land focused-and-CLOSED in one click.
-            // Only intercept the click that's ABOUT to focus this element —
+            // Only intercept the click that's ABOUT to focus this element -
             // if it's already focused, let a second click open the dropdown
             // normally (still needed to pick a code with no 1/2/3 shortcut,
             // e.g. a forfeit result).
@@ -825,7 +825,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               if (!hasOption) return;
 
               // Stop the browser's native "jump to option starting with
-              // this character" select behavior — we're fully driving the
+              // this character" select behavior - we're fully driving the
               // value ourselves.
               e.preventDefault();
 
@@ -851,7 +851,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               const next = selects[index + 1];
 
               // Focusing normally makes the browser jump-scroll the next
-              // select into view only once it's fully out of the viewport —
+              // select into view only once it's fully out of the viewport -
               // the screen sits still for several entries, then lurches
               // several rows at once. `preventScroll` stops that native
               // jump so we can drive a smooth, one-row-at-a-time scroll
@@ -877,7 +877,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         // (native <a target="_blank"> behavior, untouched); right-click
         // suppresses the browser's context menu and shows this small popup
         // built from the hidden ".print-menu-items" sibling's own <a> tags,
-        // so each menu item is a real link with its own href/target/title —
+        // so each menu item is a real link with its own href/target/title -
         // no data-JSON to keep in sync with the markup.
         export default {
           mounted() {

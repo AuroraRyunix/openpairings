@@ -55,14 +55,14 @@ defmodule PairingsEngineWeb.UserLive.Registration do
             <h1 class="auth-hero-title">Create your free account.</h1>
 
             <p class="auth-hero-sub">
-              One account runs every event you organise — set up in seconds, no
+              One account runs every event you organise - set up in seconds, no
               credit card, invite co-arbiters whenever you like.
             </p>
 
             <ul class="auth-features">
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                Swiss (JaVaFo Dutch), round-robin & Keizer — all in one
+                Swiss (JaVaFo Dutch), round-robin & Keizer - all in one
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />

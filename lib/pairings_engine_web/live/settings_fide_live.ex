@@ -136,7 +136,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
-          <p class="subtitle" style="margin: 0">Settings — FIDE</p>
+          <p class="subtitle" style="margin: 0">Settings - FIDE</p>
         </div>
         <span class={["badge", @tournament.status == "setup" && "muted"]}>{@tournament.status}</span>
       </div>
@@ -175,7 +175,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
           <p class="hint" style="margin-bottom: 0">
             The FIDE tournament ID above is used whenever no per-round range below unambiguously
             covers the exported rounds (no ranges configured, the export spans more than one range,
-            or matches none) — see the ranges below for splitting one event's report across
+            or matches none) - see the ranges below for splitting one event's report across
             differently-rated sections.
           </p>
         </div>
@@ -183,7 +183,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
         <div class="card">
           <h2>Per-round FIDE-ID ranges</h2>
           <p class="hint" style="margin-top: 0">
-            For splitting one event's FIDE report across rated sections — e.g. FIDE ID 89495 for
+            For splitting one event's FIDE report across rated sections - e.g. FIDE ID 89495 for
             rounds 1-3, a different ID for rounds 4-9. When exporting a TRF whose selected rounds
             fall entirely inside one range below, that range's ID is used instead of the
             tournament-wide default above. Ranges may not overlap.
@@ -244,7 +244,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
           </div>
 
           <p :if={@rows == []} class="hint">
-            No per-round ranges configured — every export uses the tournament-wide default ID above.
+            No per-round ranges configured - every export uses the tournament-wide default ID above.
           </p>
 
           <div class="actions">

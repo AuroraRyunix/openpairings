@@ -224,7 +224,7 @@ defmodule PairingsEngineWeb.StandingsLive do
             class="pe-btn"
             href={~p"/p/#{@tournament.public_slug}/standings"}
             target="_blank"
-            title="No login needed — share this link"
+            title="No login needed - share this link"
           >
             Public standings link
           </a>
@@ -243,15 +243,15 @@ defmodule PairingsEngineWeb.StandingsLive do
         >
           <strong>Manual ranking is ON.</strong>
           The rank column below reflects the arbiter's
-          hand-set order, not the computed tiebreak order — this also applies on the public
+          hand-set order, not the computed tiebreak order - this also applies on the public
           standings page, printed standings, and the TRF export.
           <span :if={@manual_incomplete?}>
-            A player was added after this was turned on and hasn't been placed yet — new players
+            A player was added after this was turned on and hasn't been placed yet - new players
             sort last until you re-seed.
           </span>
 
           <span :if={@manual_stale?}>
-            <strong>A result changed since this order was last set — it may no longer match the
+            <strong>A result changed since this order was last set - it may no longer match the
             real standings.</strong>
           </span>
         </div>
@@ -307,7 +307,7 @@ defmodule PairingsEngineWeb.StandingsLive do
               <th
                 :if={@tournament.count_extra_points}
                 class="num"
-                title="Points + extra points — this is what ranking sorts by"
+                title="Points + extra points - this is what ranking sorts by"
               >
                 Total
               </th>
@@ -335,7 +335,7 @@ defmodule PairingsEngineWeb.StandingsLive do
               </td>
 
               <td class="num">
-                {if Player.rating(entry.player) > 0, do: Player.rating(entry.player), else: "—"}
+                {if Player.rating(entry.player) > 0, do: Player.rating(entry.player), else: "-"}
               </td>
 
               <td class="num"><strong>{entry.points}</strong></td>
@@ -414,7 +414,7 @@ defmodule PairingsEngineWeb.StandingsLive do
               </td>
 
               <td class="num">
-                {if Player.rating(entry.player) > 0, do: Player.rating(entry.player), else: "—"}
+                {if Player.rating(entry.player) > 0, do: Player.rating(entry.player), else: "-"}
               </td>
 
               <td class="num">{entry.value}</td>
@@ -428,7 +428,7 @@ defmodule PairingsEngineWeb.StandingsLive do
       </div>
 
       <p :if={@keizer?} class="hint">
-        Keizer points, not FIDE tiebreaks — the whole ladder is recalculated from
+        Keizer points, not FIDE tiebreaks - the whole ladder is recalculated from
         results, byes and absences every time (see docs/pairing-systems.md).
       </p>
     </Layouts.app>

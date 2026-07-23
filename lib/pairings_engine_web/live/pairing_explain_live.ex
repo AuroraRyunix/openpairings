@@ -655,7 +655,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
       >
         B
       </text>
-      <%!-- Colour-against-due halo (task 3): a second, unfilled ring —
+      <%!-- Colour-against-due halo (task 3): a second, unfilled ring -
             never drawn for players whose due colour was satisfied, so it
             only ever adds a warning, never noise. Interactive chart only. --%>
       <circle
@@ -674,7 +674,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
           Received {colour_word(w.colour)}; colour history says {colour_word(w.side.colour_due)} was due.
         </title>
       </circle>
-      <%!-- Paired-up/-down marker: a bare coloured triangle glyph — an
+      <%!-- Paired-up/-down marker: a bare coloured triangle glyph - an
             interim design wrapped it in a filled circle chip, and the user
             explicitly asked for the plain triangles back. --%>
       <text
@@ -709,7 +709,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
     ~H"""
     <div class="pe-trail">
       <div class="pe-trail-title">Pairing fairness</div>
-      <%!-- Summary digest (task 4d) — reuses the page's existing compact-stat
+      <%!-- Summary digest (task 4d) - reuses the page's existing compact-stat
             visual language (.pe-stat/.pe-stat-n, see the page's summary strip
             above) rather than inventing new chrome, just a smaller variant
             for the popover's tighter width. Byes only renders when > 0 (no
@@ -722,7 +722,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
           <span class="pe-stat-n">{@summary.floats.up}▲ · {@summary.floats.down}▼</span>
         </span>
         <span class="pe-stat pe-stat-sm" title="Average rating of real opponents faced">
-          <span class="pe-stat-n">{@summary.avg_opponent_rating || "—"}</span> avg opp
+          <span class="pe-stat-n">{@summary.avg_opponent_rating || "-"}</span> avg opp
         </span>
         <span :if={@summary.byes > 0} class="pe-stat pe-stat-sm" title="Byes so far">
           <span class="pe-stat-n">{@summary.byes}</span> bye{if @summary.byes > 1, do: "s"}
@@ -933,7 +933,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         <div>
           <h1>{@tournament.name}</h1>
           <p class="subtitle" style="margin: 0">
-            Pairing rationale for round {@round_number} — {system_label(@rationale.pairing_system)}
+            Pairing rationale for round {@round_number} - {system_label(@rationale.pairing_system)}
           </p>
         </div>
         <div class="actions" style="margin: 0">
@@ -955,7 +955,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         observable shape of its output (brackets, floaters, byes). Items marked
         <strong>Worth a look</strong>
         below are automated data-consistency checks, not proof of
-        an actual arbiting error — they flag patterns worth a second look, nothing more.
+        an actual arbiting error - they flag patterns worth a second look, nothing more.
       </p>
 
       <div :if={@anomalies != []} class="card" style="margin: 8px 0">
@@ -984,10 +984,10 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         <h3 style="margin-top: 0">Berger schedule</h3>
         <p :if={@rationale.berger.match_format} style="margin: 0">
           This is match {@rationale.berger.match_number}, leg {@rationale.berger.leg}. The whole
-          schedule is fully determined by the number of players — there is no choice to explain.
+          schedule is fully determined by the number of players - there is no choice to explain.
         </p>
         <p :if={!@rationale.berger.match_format} style="margin: 0">
-          Cycle {@rationale.berger.cycle} of {@rationale.berger.total_cycles}, schedule round {@rationale.berger.cycle_round}. The Berger table fixes every pairing in advance — this
+          Cycle {@rationale.berger.cycle} of {@rationale.berger.total_cycles}, schedule round {@rationale.berger.cycle_round}. The Berger table fixes every pairing in advance - this
           round's boards are the deterministic slot, not a computed choice.
         </p>
       </div>
@@ -1001,7 +1001,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         <h3 style="margin-top: 0">Pre-round score brackets</h3>
         <p class="hint" style="margin-top: 0">
           Players grouped by their standing going into this round (highest at the top). Each line
-          is one board; a connector that slopes across bands is a floater — an odd bracket can't
+          is one board; a connector that slopes across bands is a floater - an odd bracket can't
           pair entirely within itself, so it floats a player to the neighbouring bracket. Hover
           (or tap) a pairing for its full detail. Click a legend item or a score-band label to
           highlight just that slice of the map.
@@ -1134,7 +1134,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
           aria-hidden="true"
         >
           <%!-- Overview strip (task B): the same bands/links/dots over the
-                same viewBox, scaled down — no halos/triangles/text/overlay,
+                same viewBox, scaled down - no halos/triangles/text/overlay,
                 and not `.pe-filterable`, so an active legend/band filter
                 leaves the minimap full (it's a whole-round overview, by
                 design). The viewport rect + scroll sync is driven by the
@@ -1164,7 +1164,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
               board's panel here under the chart; clicking either of the two
               dots (or the × button) closes it again. Pure server-rendered
               markup toggled by the delegated click listener in
-              assets/js/app.js — no round-trip, same philosophy as pinning. --%>
+              assets/js/app.js - no round-trip, same philosophy as pinning. --%>
         <div
           :for={duo <- (@bracket && @bracket.duos) || []}
           id={"pe-duo-#{duo.board}"}
@@ -1226,7 +1226,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
               ]}
             >
               {if duo.w.rematch_anomaly,
-                do: "REMATCH — they already played each other",
+                do: "REMATCH - they already played each other",
                 else: "rematch (match format)"}
             </span>
             <span :if={!duo.w.rematch} class="pe-tag pe-tag-ok">
@@ -1239,7 +1239,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
           // Overview minimap for the (often wider-than-viewport) bracket
           // scroll strip. The strip's `scroll` event doesn't bubble to
           // document, so the delegated-listener pattern the rest of this page
-          // uses can't see it — this is a real hook bound directly to the
+          // uses can't see it - this is a real hook bound directly to the
           // strip, cleaned up on destroy so round navigation doesn't leave a
           // second listener behind.
           export default {
@@ -1289,7 +1289,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
 
             // Scroll the strip so the clicked/dragged minimap point is centred.
             // A click keeps the strip's CSS smooth glide; during a DRAG each
-            // pointermove must track instantly (`instant` true) — the strip
+            // pointermove must track instantly (`instant` true) - the strip
             // has `scroll-behavior: smooth`, and re-triggering a smooth
             // animation on every move would rubber-band behind the pointer.
             seek(e, instant) {
@@ -1391,7 +1391,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             type="button"
             class="pe-legend-item"
             data-filter="against-due"
-            title="Player's own colour history says they were due White (or Black) next, but this pairing gave them the other colour — click to highlight."
+            title="Player's own colour history says they were due White (or Black) next, but this pairing gave them the other colour - click to highlight."
           >
             <span class="pe-legend-halo"></span> colour against due
           </button>
@@ -1441,7 +1441,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             <strong>Worth a look:</strong>
             these two players already met in an earlier round of this tournament, and neither
             round-robin nor Swiss "match format" is enabled here to explain a deliberate
-            back-to-back rematch — worth double-checking the game history for a data issue.
+            back-to-back rematch - worth double-checking the game history for a data issue.
           </p>
 
           <p :if={b.is_bye and b[:bye_detail]} class="pe-pair-foot">
@@ -1458,7 +1458,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             class="pe-warning"
           >
             <strong>Worth a look:</strong>
-            this player has now received more than one pairing-allocated (engine-assigned) bye —
+            this player has now received more than one pairing-allocated (engine-assigned) bye -
             FIDE Dutch pairing normally avoids repeating that for the same player whenever an
             alternative exists.
           </p>
@@ -1467,7 +1467,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
 
       <div :if={@rationale.byes.requested != []} class="card table-card" style="margin-top: 16px">
         <%!-- .table-card zeroes the card's own padding (tables run
-              edge-to-edge), so a heading inside one must carry its own —
+              edge-to-edge), so a heading inside one must carry its own -
               same pattern as the norms page's table-card headings. Without
               it this title sat flush against the card edge, visibly
               misaligned with the padded table cells below. --%>

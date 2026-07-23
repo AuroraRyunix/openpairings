@@ -2,16 +2,16 @@ defmodule PairingsEngineWeb.MobileResultsLive do
   @moduledoc """
   The no-account mobile result-entry screen. Reached only via an active
   enrollment (see `PairingsEngineWeb.MobileAuth`), scoped to that one
-  tournament. A helper taps a board and picks the result — nothing else is
+  tournament. A helper taps a board and picks the result - nothing else is
   reachable from here.
   """
   use PairingsEngineWeb, :live_view
 
   alias PairingsEngine.Pairing, as: Engine
-  alias PairingsEngine.Tournaments
+  alias PairingsEngine.{Mobile, Tournaments}
   alias PairingsEngine.Tournaments.Pairing
 
-  @results [{"1-0", "1–0"}, {"1/2-1/2", "½–½"}, {"0-1", "0–1"}]
+  @results [{"1-0", "1-0"}, {"1/2-1/2", "½-½"}, {"0-1", "0-1"}]
 
   @impl true
   def mount(_params, _session, socket) do
@@ -40,19 +40,28 @@ defmodule PairingsEngineWeb.MobileResultsLive do
   end
 
   # Only pairings belonging to the loaded round (which is loaded from the
-  # enrollment's own tournament) can be set — a crafted pairing id from
+  # enrollment's own tournament) can be set - a crafted pairing id from
   # another tournament simply isn't in the set and is ignored.
   def handle_event("set_result", %{"id" => id, "result" => result}, socket)
       when result in ["1-0", "1/2-1/2", "0-1", ""] do
-    round = socket.assigns.round
+    # Re-validate the enrollment on every write so a revoked or expired phone
+    # is kicked out immediately, not only on its next page load.
+    if Mobile.get_active(socket.assigns.mobile_enrollment.id) do
+      round = socket.assigns.round
 
-    case round && Enum.find(round.pairings, &(to_string(&1.id) == id)) do
-      %Pairing{} = pairing ->
-        Tournaments.update_pairing_result(pairing, result)
-        {:noreply, load_round(socket, socket.assigns.round_number)}
+      case round && Enum.find(round.pairings, &(to_string(&1.id) == id)) do
+        %Pairing{} = pairing ->
+          Tournaments.update_pairing_result(pairing, result)
+          {:noreply, load_round(socket, socket.assigns.round_number)}
 
-      _ ->
-        {:noreply, socket}
+        _ ->
+          {:noreply, socket}
+      end
+    else
+      {:noreply,
+       socket
+       |> put_flash(:error, "This phone's access was ended by the arbiter.")
+       |> redirect(to: ~p"/m")}
     end
   end
 

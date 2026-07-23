@@ -115,7 +115,7 @@ defmodule PairingsEngineWeb.PublicStandingsLive do
           </span>
 
           <span :if={@manual_stale?}>
-            <strong>A result changed since this order was last set — it may no longer match the
+            <strong>A result changed since this order was last set - it may no longer match the
             real standings.</strong>
           </span>
         </div>
@@ -153,7 +153,7 @@ defmodule PairingsEngineWeb.PublicStandingsLive do
                 </td>
 
                 <td class="num">
-                  {if Player.rating(entry.player) > 0, do: Player.rating(entry.player), else: "—"}
+                  {if Player.rating(entry.player) > 0, do: Player.rating(entry.player), else: "-"}
                 </td>
 
                 <td class="num"><strong>{entry.points}</strong></td>
@@ -195,7 +195,7 @@ defmodule PairingsEngineWeb.PublicStandingsLive do
                 </td>
 
                 <td class="num">
-                  {if Player.rating(entry.player) > 0, do: Player.rating(entry.player), else: "—"}
+                  {if Player.rating(entry.player) > 0, do: Player.rating(entry.player), else: "-"}
                 </td>
 
                 <td class="num">{entry.value}</td>
@@ -209,7 +209,7 @@ defmodule PairingsEngineWeb.PublicStandingsLive do
         </div>
 
         <p :if={@keizer?} class="hint">
-          Keizer points, not FIDE tiebreaks — the whole ladder is recalculated from
+          Keizer points, not FIDE tiebreaks - the whole ladder is recalculated from
           results, byes and absences every time.
         </p>
       </div>
