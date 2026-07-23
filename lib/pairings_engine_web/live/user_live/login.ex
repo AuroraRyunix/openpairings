@@ -84,7 +84,7 @@ defmodule PairingsEngineWeb.UserLive.Login do
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                TRF16, SWAR, PGN & KBSB import / export
+                TRF16, SWAR & PGN import / export
               </li>
             </ul>
 
@@ -182,12 +182,6 @@ defmodule PairingsEngineWeb.UserLive.Login do
                 Log in only this time
               </button>
             </.form>
-
-            <p class="auth-tools">
-              Just need a norm report? Try the free
-              <.link navigate={~p"/tools/norms"} class="auth-link">arbiter tools</.link>
-              — no account needed.
-            </p>
           </div>
         </div>
       </div>

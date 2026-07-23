@@ -182,8 +182,7 @@ defmodule PairingsEngineWeb.Layouts do
           <.link navigate={~p"/users/settings"}>Settings</.link>
           <.link href={~p"/users/log-out"} method="delete">Log out</.link>
         <% else %>
-          <.link navigate={~p"/users/log-in"}>Log in</.link>
-          <.link navigate={~p"/users/register"}>Register</.link>
+          <.link navigate={~p"/users/log-in"} class="topbar-signin">Log in</.link>
         <% end %>
         <span class="app-version">v{app_version()}</span>
       </nav>
