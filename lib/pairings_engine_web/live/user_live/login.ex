@@ -182,6 +182,17 @@ defmodule PairingsEngineWeb.UserLive.Login do
                 Log in only this time
               </button>
             </.form>
+
+            <div class="auth-divider"><span>or</span></div>
+            <%!-- Enterprise single sign-on (ADFS / OIDC). Placeholder for now —
+                  wired up later; the button intentionally does nothing yet. --%>
+            <button
+              type="button"
+              class="pe-btn auth-submit auth-sso"
+              title="Single sign-on (ADFS / OIDC) — coming soon"
+            >
+              <.icon name="hero-building-office-2" class="size-4" /> Sign in with SSO
+            </button>
           </div>
         </div>
       </div>

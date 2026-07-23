@@ -1580,7 +1580,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   display: grid;
   grid-template-columns: 1.1fr 1fr;
   width: min(1080px, 94vw);
-  height: min(680px, calc(100vh - 88px));
+  height: min(720px, calc(100vh - 64px));
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 20px;
@@ -1677,7 +1677,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 3vh 40px;
+  padding: 12px 40px;
   overflow-y: auto;
 }
 .auth-card { width: 100%; max-width: 360px; }
@@ -1691,7 +1691,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .auth-card-sub {
   font-size: 14px;
   color: var(--text-soft);
-  margin: 0 0 18px;
+  margin: 0 0 14px;
 }
 
 .auth-link { color: var(--accent); font-weight: 600; text-decoration: none; }
@@ -1713,12 +1713,24 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .auth-form { display: flex; flex-direction: column; gap: 4px; }
 .auth-submit { width: 100%; justify-content: center; margin-top: 8px; }
 .auth-submit-ghost { margin-top: 8px; }
+.auth-sso {
+  margin-top: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-color: var(--border);
+  color: var(--text);
+  font-weight: 600;
+}
+.auth-sso:hover { border-color: var(--accent); color: var(--accent); }
+.auth-sso svg { flex-shrink: 0; }
 
 .auth-divider {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin: 16px 0;
+  margin: 12px 0;
   color: var(--text-soft);
   font-size: 12px;
 }

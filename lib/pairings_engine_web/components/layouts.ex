@@ -42,7 +42,7 @@ defmodule PairingsEngineWeb.Layouts do
   def app(assigns) do
     ~H"""
     <header class="topbar">
-      <.link navigate={~p"/"} class="brand">
+      <.link navigate={if(@current_scope, do: ~p"/", else: ~p"/users/log-in")} class="brand">
         <svg
           class="brand-mark"
           viewBox="0 0 64 48"
