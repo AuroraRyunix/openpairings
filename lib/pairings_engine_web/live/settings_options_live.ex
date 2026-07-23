@@ -12,93 +12,8 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
   import PairingsEngineWeb.SettingsSupport
 
-  alias PairingsEngine.{Audit, Tournaments, Pairing, Exclusions}
+  alias PairingsEngine.{Audit, Tournaments, Pairing, Exclusions, RateOfPlay}
   alias PairingsEngine.Tournaments.Tournament
-
-  # SWAR TournoiStd (§5.13): Standard / Rapid / Blitz.
-  @standard_options [
-    {"standard", "Standard"},
-    {"rapid", "Rapid"},
-    {"blitz", "Blitz"}
-  ]
-
-  @rate_of_play_standard [
-    "100min/end+30sec/move from move 1",
-    "100min/40moves+50min/20moves+15min/end+30sec/move from move 1",
-    "105min/40moves+15min/end",
-    "120min/40moves+15min/end+30sec/move from move 40",
-    "120min/40moves+30min/end",
-    "120min/10moves+30min/end+30sec/move from move 40",
-    "120min/end",
-    "120min/end+10sec/move from move 40",
-    "120min/end+30sec/move from move 1",
-    "120min/end+30sec/move from move 40",
-    "150min/end",
-    "30min/end+30sec/move from move 1",
-    "40min/end+30sec/move from move 1",
-    "60min/end",
-    "60min/end+30sec/move from move 1",
-    "65min/end",
-    "75min/end+30sec/move from move 1",
-    "90min/40moves+15min/end+30sec/move from move 1",
-    "90min/end+10sec/move from move 1",
-    "90min/end+30sec DELAY /move from move 1",
-    "90min/end",
-    "90min/end+30sec/move from move 1",
-    "90min/40moves+30min/end+30sec/move from move 1"
-  ]
-
-  @rate_of_play_rapid [
-    "10min/end+10sec/move from move 1",
-    "10min/end+15sec/move from move 1",
-    "10min/end+2sec/move from move 1",
-    "10min/end+5sec DELAY /move from move 1",
-    "10min/end+5sec/move from move 1",
-    "11min/end",
-    "12min/end",
-    "12min/end+10sec/move from move 1",
-    "12min/end+3sec/move from move 1",
-    "12min/end+5sec/move from move 1",
-    "13min/end+3sec/move from move 1",
-    "13min/end+5sec/move from move 1",
-    "15min/end",
-    "15min/end+10sec/move from move 1",
-    "15min/end+15sec/move from move 1",
-    "15min/end+5sec/move from move 1",
-    "20min/end",
-    "20min/end+10sec/move from move 1",
-    "20min/end+15sec/move from move 1",
-    "20min/end+5sec/move from move 1",
-    "25min/end+10sec/move from move 1",
-    "25min/end+15sec/move from move 1",
-    "25min/end+5sec/move from move 1",
-    "25min/end",
-    "30min/end",
-    "30min/end+10sec/move from move 1",
-    "30min/end+20sec/move from move 1",
-    "40min/end+10sec/move from move 1",
-    "45min/end",
-    "59min/end",
-    "8min/end+4sec/move from move 1"
-  ]
-
-  @rate_of_play_blitz [
-    "10min/end",
-    "3min/end+2sec/move from move 1",
-    "3min/end+3sec/move from move 1",
-    "4min/end+2sec/move from move 1",
-    "4min/end+3sec/move from move 1",
-    "5min/end",
-    "5min/end+2sec/move from move 1",
-    "5min/end+3sec DELAY /move from move 1",
-    "5min/end+3sec/move from move 1",
-    "6min/end+2sec/move from move 1",
-    "6min/end+3sec/move from move 1",
-    "7min/end+2sec/move from move 1",
-    "7min/end+3sec/move from move 1",
-    "8min/end+2sec/move from move 1",
-    "8min/end+3sec/move from move 1"
-  ]
 
   @pairing_system_options for ps <- Tournament.pairing_systems(),
                               do: {ps, Tournament.pairing_system_label(ps)}
@@ -222,7 +137,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
   # `standard` and `rate_of_play` are tracked as their own assigns because the
   # "Rate of play" select's option list depends on which "Type" is picked.
   def handle_event("standard_change", %{"tournament" => %{"standard" => new_standard}}, socket) do
-    list = rate_of_play_list(new_standard)
+    list = RateOfPlay.list_for(new_standard)
     current = socket.assigns.rate_of_play
     new_rate = if current in list, do: current, else: ""
 
@@ -391,21 +306,10 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     end
   end
 
-  defp rate_of_play_list("rapid"), do: @rate_of_play_rapid
-  defp rate_of_play_list("blitz"), do: @rate_of_play_blitz
-  defp rate_of_play_list(_standard), do: @rate_of_play_standard
+  defp rate_of_play_select_options(standard, current),
+    do: RateOfPlay.select_options(standard, current)
 
-  defp rate_of_play_select_options(standard, current) do
-    list = rate_of_play_list(standard)
-
-    if current not in [nil, ""] and current not in list do
-      [current, ""] ++ list
-    else
-      [""] ++ list
-    end
-  end
-
-  defp standard_options, do: @standard_options
+  defp standard_options, do: RateOfPlay.standard_options()
   defp pairing_system_options, do: @pairing_system_options
   defp rr_cycles_options, do: @rr_cycles_options
 
