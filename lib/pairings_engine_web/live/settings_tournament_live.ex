@@ -22,7 +22,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
     {"name", "Tournament name", "text", true},
     {"venue", "Venue", "text", false},
     {"city", "City", "text", false},
-    {"federation", "Federation", "text", true},
+    {"federation", "Federation", "text", false},
     {"start_date", "Start date", "date", true},
     {"end_date", "End date", "date", false},
     {"organizer", "Organizer", "text", false},

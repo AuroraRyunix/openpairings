@@ -84,38 +84,45 @@ defmodule PairingsEngine.Tournaments.TournamentTest do
       assert {:tiebreaks, _} = find_missing(t, :tiebreaks)
     end
 
-    test "blank chief_arbiter is reported" do
+    test "blank chief_arbiter is recommended, not required (doesn't block pairing)" do
       t = complete_tournament(%{chief_arbiter: ""})
-      refute Tournament.setup_complete?(t)
-      assert {:chief_arbiter, _} = find_missing(t, :chief_arbiter)
+      assert Tournament.setup_complete?(t)
+      assert find_missing(t, :chief_arbiter) == nil
+      assert {:chief_arbiter, _} = find_recommended(t, :chief_arbiter)
     end
 
-    test "blank federation is reported" do
+    test "blank federation is recommended, not required (doesn't block pairing)" do
       t = complete_tournament(%{federation: ""})
-      refute Tournament.setup_complete?(t)
-      assert {:federation, _} = find_missing(t, :federation)
+      assert Tournament.setup_complete?(t)
+      assert find_missing(t, :federation) == nil
+      assert {:federation, _} = find_recommended(t, :federation)
     end
 
-    test "blank rate_of_play is reported" do
+    test "blank rate_of_play is recommended, not required (doesn't block pairing)" do
       t = complete_tournament(%{rate_of_play: ""})
-      refute Tournament.setup_complete?(t)
-      assert {:rate_of_play, _} = find_missing(t, :rate_of_play)
+      assert Tournament.setup_complete?(t)
+      assert find_missing(t, :rate_of_play) == nil
+      assert {:rate_of_play, _} = find_recommended(t, :rate_of_play)
     end
 
-    test "fide_tournament_id is NOT required when the tournament isn't FIDE-homologated" do
+    test "fide_tournament_id is not recommended when the tournament isn't FIDE-homologated" do
       t = complete_tournament(%{fide_homologated: false, fide_tournament_id: ""})
       assert Tournament.setup_complete?(t)
+      assert find_recommended(t, :fide_tournament_id) == nil
     end
 
-    test "fide_tournament_id IS required once the tournament is FIDE-homologated" do
+    test "fide_tournament_id is recommended (not required) once FIDE-homologated" do
       t = complete_tournament(%{fide_homologated: true, fide_tournament_id: ""})
-      refute Tournament.setup_complete?(t)
-      assert {:fide_tournament_id, _} = find_missing(t, :fide_tournament_id)
+      # A missing FIDE ID never blocks pairing — you file the report later.
+      assert Tournament.setup_complete?(t)
+      assert find_missing(t, :fide_tournament_id) == nil
+      assert {:fide_tournament_id, _} = find_recommended(t, :fide_tournament_id)
     end
 
-    test "a FIDE-homologated tournament with an ID set is complete" do
+    test "a FIDE-homologated tournament with an ID set has nothing recommended for FIDE" do
       t = complete_tournament(%{fide_homologated: true, fide_tournament_id: "BEL2026001"})
       assert Tournament.setup_complete?(t)
+      assert find_recommended(t, :fide_tournament_id) == nil
     end
   end
 
@@ -132,12 +139,18 @@ defmodule PairingsEngine.Tournaments.TournamentTest do
       missing = Tournament.missing_setup_fields(t)
       fields = Enum.map(missing, fn {field, _message} -> field end)
 
+      # Structural fields block pairing...
       assert :name in fields
       assert :tiebreaks in fields
-      assert :chief_arbiter in fields
-      assert :federation in fields
+      # ...FIDE-report metadata does not — it's recommended, not required.
+      refute :chief_arbiter in fields
+      refute :federation in fields
       refute :rate_of_play in fields
       refute :round_dates in fields
+
+      recommended = Enum.map(Tournament.missing_recommended_fields(t), &elem(&1, 0))
+      assert :chief_arbiter in recommended
+      assert :federation in recommended
     end
 
     test "every message is a non-blank plain-English string" do
@@ -152,5 +165,9 @@ defmodule PairingsEngine.Tournaments.TournamentTest do
 
   defp find_missing(tournament, field) do
     Enum.find(Tournament.missing_setup_fields(tournament), fn {f, _msg} -> f == field end)
+  end
+
+  defp find_recommended(tournament, field) do
+    Enum.find(Tournament.missing_recommended_fields(tournament), fn {f, _msg} -> f == field end)
   end
 end
