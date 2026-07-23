@@ -1,27 +1,16 @@
 defmodule PairingsEngineWeb.TournamentsLive do
   use PairingsEngineWeb, :live_view
 
-  alias PairingsEngine.{Audit, Tournaments, SwarImport, TournamentImport, TrfImport}
+  alias PairingsEngine.{Audit, Tournaments, SwarImport, TournamentImport, TrfImport, RateOfPlay}
   alias PairingsEngine.Tournaments.Tournament
 
-  # Kept in sync with SettingsLive's own copies (SWAR TournoiStd / Cadence).
-  @standard_options [
-    {"standard", "Standard"},
-    {"rapid", "Rapid"},
-    {"blitz", "Blitz"}
-  ]
-
-  @rate_of_play_options [
-    "",
-    "105 min/40 moves + 15 min. QPF",
-    "90 min/40 moves + 30 min + 30 sec/move",
-    "90 min + 30 sec/move",
-    "60 min QPF",
-    "25 min + 10 sec/move",
-    "15 min + 5 sec/move",
-    "5 min + 3 sec/move",
-    "3 min + 2 sec/move"
-  ]
+  # Initial values for the "New tournament" form — kept in `new_params` and
+  # bound to each input so a phx-change re-render never wipes them.
+  @new_tournament_defaults %{
+    "pairing_system" => "swiss",
+    "rounds_count" => "9",
+    "standard" => "standard"
+  }
 
   @pairing_system_options for ps <- Tournament.pairing_systems(),
                               do: {ps, Tournament.pairing_system_label(ps)}
@@ -57,6 +46,8 @@ defmodule PairingsEngineWeb.TournamentsLive do
        purge_confirm_text: "",
        new_pairing_system: "swiss",
        new_team?: false,
+       new_standard: "standard",
+       new_params: @new_tournament_defaults,
        swar_pending: nil
      )
      # ".swar"/".trf" have no registered MIME type, so the browser-side accept
@@ -154,7 +145,9 @@ defmodule PairingsEngineWeb.TournamentsLive do
        importing: false,
        importing_trf: false,
        new_pairing_system: "swiss",
-       new_team?: false
+       new_team?: false,
+       new_standard: "standard",
+       new_params: @new_tournament_defaults
      )}
   end
 
@@ -162,11 +155,20 @@ defmodule PairingsEngineWeb.TournamentsLive do
   # checkbox's) live value so the "Cycles" field can be shown only for
   # round_robin, without a full form round-trip — see `derive_type/2` for
   # where these two combine into the single `type` value actually stored.
+  # Also tracks the picked "Standard" (Standard/Rapid/Blitz) so the "Rate of
+  # play" preset list switches to match — mirroring the Options settings page.
+  # A form-level phx-change sends the WHOLE form's current values on every
+  # keystroke/toggle, so we stash them in `new_params` and bind every input's
+  # value back to it — otherwise each re-render (e.g. toggling "Team
+  # tournament", or the rate-of-play list reacting to the format) would wipe
+  # the uncontrolled text inputs the arbiter had already filled in.
   def handle_event("pairing_system_picked", %{"tournament" => params}, socket) do
     {:noreply,
      assign(socket,
-       new_pairing_system: params["pairing_system"],
-       new_team?: params["team"] == "true"
+       new_params: params,
+       new_pairing_system: params["pairing_system"] || "swiss",
+       new_team?: params["team"] == "true",
+       new_standard: params["standard"] || "standard"
      )}
   end
 
@@ -210,6 +212,8 @@ defmodule PairingsEngineWeb.TournamentsLive do
        error: nil,
        new_pairing_system: "swiss",
        new_team?: false,
+       new_standard: "standard",
+       new_params: @new_tournament_defaults,
        swar_pending: nil
      )}
   end
@@ -221,7 +225,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
   # the client, so the two can never disagree (see docs/pairing-systems.md
   # and the "New tournament" form below).
   def handle_event("create", %{"tournament" => params}, socket) do
-    params = Map.put(params, "type", derive_type(params["pairing_system"], params["team"]))
+    params =
+      params
+      |> Map.put("type", derive_type(params["pairing_system"], params["team"]))
+      |> seed_round_dates()
 
     case Tournaments.create_tournament(socket.assigns.current_scope, params) do
       {:ok, tournament} ->
@@ -525,6 +532,38 @@ defmodule PairingsEngineWeb.TournamentsLive do
   # choice plus the "Team tournament" checkbox, never taken from the
   # client, so the two can never disagree (see docs/pairing-systems.md and
   # the "create" event handler above).
+  # Seed one round date per round from the start date, so a freshly created
+  # tournament isn't blocked on the "Round dates" required-setup item (which
+  # otherwise sends the arbiter to the Dates page to fill each round by hand
+  # before they can pair). It's only a sensible default — the arbiter refines
+  # the individual round dates on the Dates page — so we never overwrite dates
+  # the caller already supplied, and do nothing when there's no start date or
+  # no valid round count to seed from.
+  defp seed_round_dates(%{"round_dates" => existing} = params) when existing not in [nil, []],
+    do: params
+
+  defp seed_round_dates(params) do
+    start_date = String.trim(params["start_date"] || "")
+    rounds = parse_rounds_count(params["rounds_count"])
+
+    if start_date != "" and rounds > 0 do
+      Map.put(params, "round_dates", List.duplicate(start_date, rounds))
+    else
+      params
+    end
+  end
+
+  defp parse_rounds_count(n) when is_integer(n), do: n
+
+  defp parse_rounds_count(n) when is_binary(n) do
+    case Integer.parse(n) do
+      {int, _} when int > 0 -> int
+      _ -> 0
+    end
+  end
+
+  defp parse_rounds_count(_), do: 0
+
   defp derive_type("round_robin", "true"), do: "team-roundrobin"
   defp derive_type("round_robin", _team?), do: "roundrobin"
   # keizer is Swiss-classified for FIDE reporting purposes — there's no
@@ -533,8 +572,11 @@ defmodule PairingsEngineWeb.TournamentsLive do
   defp derive_type(_swiss_or_keizer, "true"), do: "team-swiss"
   defp derive_type(_swiss_or_keizer, _team?), do: "swiss"
 
-  defp standard_options, do: @standard_options
-  defp rate_of_play_options, do: @rate_of_play_options
+  defp standard_options, do: RateOfPlay.standard_options()
+  # Rate-of-play presets shown on the create form depend on the picked Standard
+  # (Standard / Rapid / Blitz) — the same cadence-appropriate lists the Options
+  # settings page uses, via the shared `PairingsEngine.RateOfPlay` catalogue.
+  defp rate_of_play_options(standard), do: RateOfPlay.select_options(standard, nil)
   defp pairing_system_options, do: @pairing_system_options
   defp rr_cycles_options, do: @rr_cycles_options
 
@@ -623,7 +665,12 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <div class="form-grid">
           <label class="field">
             <span>Name</span>
-            <input name="tournament[name]" autofocus placeholder="e.g. Summer Open 2026" />
+            <input
+              name="tournament[name]"
+              value={Map.get(@new_params, "name", "")}
+              autofocus
+              placeholder="e.g. Summer Open 2026"
+            />
           </label>
 
           <label class="field">
@@ -642,7 +689,13 @@ defmodule PairingsEngineWeb.TournamentsLive do
           <label :if={@new_pairing_system == "round_robin"} class="field">
             <span>Cycles</span>
             <select name="tournament[rr_cycles]">
-              <option :for={{val, label} <- rr_cycles_options()} value={val}>{label}</option>
+              <option
+                :for={{val, label} <- rr_cycles_options()}
+                value={val}
+                selected={to_string(val) == Map.get(@new_params, "rr_cycles", "1")}
+              >
+                {label}
+              </option>
             </select>
           </label>
 
@@ -658,30 +711,51 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
           <label class="field">
             <span>Rounds</span>
-            <input type="number" name="tournament[rounds_count]" value="9" min="1" max="30" />
+            <input
+              type="number"
+              name="tournament[rounds_count]"
+              value={Map.get(@new_params, "rounds_count", "9")}
+              min="1"
+              max="30"
+            />
           </label>
 
           <label class="field">
-            <span>Place</span> <input name="tournament[city]" placeholder="e.g. Gent" />
+            <span>Place</span>
+            <input
+              name="tournament[city]"
+              value={Map.get(@new_params, "city", "")}
+              placeholder="e.g. Gent"
+            />
           </label>
 
           <label class="field">
-            <span>Date from</span> <input type="date" name="tournament[start_date]" />
+            <span>Date from</span>
+            <input
+              type="date"
+              name="tournament[start_date]"
+              value={Map.get(@new_params, "start_date", "")}
+            />
           </label>
 
           <label class="field">
-            <span>Date to</span> <input type="date" name="tournament[end_date]" />
+            <span>Date to</span>
+            <input
+              type="date"
+              name="tournament[end_date]"
+              value={Map.get(@new_params, "end_date", "")}
+            />
           </label>
 
           <div class="field">
-            <span>Standard</span>
+            <span>Format</span>
             <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center">
               <label :for={{val, label} <- standard_options()} class="opt-row">
                 <input
                   type="radio"
                   name="tournament[standard]"
                   value={val}
-                  checked={val == "standard"}
+                  checked={val == @new_standard}
                 /> {label}
               </label>
             </div>
@@ -690,7 +764,11 @@ defmodule PairingsEngineWeb.TournamentsLive do
           <label class="field">
             <span>Rate of play</span>
             <select name="tournament[rate_of_play]">
-              <option :for={opt <- rate_of_play_options()} value={opt}>
+              <option
+                :for={opt <- rate_of_play_options(@new_standard)}
+                value={opt}
+                selected={opt == Map.get(@new_params, "rate_of_play", "")}
+              >
                 {if opt == "", do: "— none —", else: opt}
               </option>
             </select>

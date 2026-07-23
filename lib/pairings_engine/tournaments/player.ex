@@ -223,6 +223,12 @@ defmodule PairingsEngine.Tournaments.Player do
 
   @doc "Rating used for sorting/pairing display: FIDE first, national as fallback."
   def rating(%__MODULE__{fide_rating: f, national_rating: n}) do
+    # Coerce nils to 0 first: a `nil` rating field (a raw/partial insert that
+    # bypassed the schema's `default: 0`) would otherwise make `f > 0` return
+    # `nil` — in Elixir's term ordering `nil > 0` is `true` — and returning
+    # `nil` here crashes every `-Player.rating(p)` sort key downstream.
+    f = f || 0
+    n = n || 0
     if f > 0, do: f, else: n
   end
 end

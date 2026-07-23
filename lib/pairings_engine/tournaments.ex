@@ -130,6 +130,11 @@ defmodule PairingsEngine.Tournaments do
     Repo.one!(from t in Tournament, where: t.id == ^id and is_nil(t.deleted_at))
   end
 
+  @doc "Like `get_tournament!/1` but returns nil instead of raising when absent/deleted."
+  def get_tournament(id) do
+    Repo.one(from t in Tournament, where: t.id == ^id and is_nil(t.deleted_at))
+  end
+
   @doc """
   Gets a tournament by its `public_slug` — the unguessable token behind the
   public (no-login) read-only pages (see docs/public-pages.md). Returns
@@ -746,6 +751,32 @@ defmodule PairingsEngine.Tournaments do
   """
   def get_player!(tournament_id, id),
     do: Repo.get_by!(Player, id: id, tournament_id: tournament_id)
+
+  @doc """
+  Like `get_player!/2` but returns `nil` instead of raising when the player
+  doesn't exist in this tournament — and, unlike the bang version, tolerates
+  a non-integer `id` string (a stale or crafted client value) by treating it
+  as "not found" rather than letting an `Ecto.Query.CastError` crash the
+  caller. Use this in LiveView event handlers, which receive `id` straight
+  from the client.
+  """
+  def get_player(tournament_id, id) do
+    case normalize_id(id) do
+      nil -> nil
+      int_id -> Repo.get_by(Player, id: int_id, tournament_id: tournament_id)
+    end
+  end
+
+  defp normalize_id(id) when is_integer(id), do: id
+
+  defp normalize_id(id) when is_binary(id) do
+    case Integer.parse(id) do
+      {int, ""} -> int
+      _ -> nil
+    end
+  end
+
+  defp normalize_id(_), do: nil
 
   def create_player(tournament_id, attrs) do
     fide_id = attrs["fide_id"] || attrs[:fide_id]

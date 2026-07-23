@@ -42,7 +42,7 @@ defmodule PairingsEngineWeb.Layouts do
   def app(assigns) do
     ~H"""
     <header class="topbar">
-      <.link navigate={~p"/"} class="brand">
+      <.link navigate={if(@current_scope, do: ~p"/", else: ~p"/users/log-in")} class="brand">
         <svg
           class="brand-mark"
           viewBox="0 0 64 48"
@@ -158,7 +158,7 @@ defmodule PairingsEngineWeb.Layouts do
           </details>
         <% end %>
         <.link
-          :if={!@tournament}
+          :if={!@tournament && @current_scope}
           navigate={~p"/fide"}
           class={tab_class(@active == "fide")}
         >
@@ -173,6 +173,8 @@ defmodule PairingsEngineWeb.Layouts do
         </.link>
       </nav>
       <nav class="topbar-auth">
+        <.accent_picker />
+        <.theme_switch />
         <%= if @current_scope do %>
           <span class="sync-freshness" title="Local FIDE / KBSB rating-list sync status">
             FIDE: {sync_label(Fide.last_sync())} · KBSB: {sync_label(Kbsb.last_sync())}
@@ -181,8 +183,7 @@ defmodule PairingsEngineWeb.Layouts do
           <.link navigate={~p"/users/settings"}>Settings</.link>
           <.link href={~p"/users/log-out"} method="delete">Log out</.link>
         <% else %>
-          <.link navigate={~p"/users/log-in"}>Log in</.link>
-          <.link navigate={~p"/users/register"}>Register</.link>
+          <.link navigate={~p"/users/log-in"} class="topbar-signin">Log in</.link>
         <% end %>
         <span class="app-version">v{app_version()}</span>
       </nav>
@@ -289,38 +290,91 @@ defmodule PairingsEngineWeb.Layouts do
     """
   end
 
+  # Accent choices shown in the picker: {key, swatch colour, label}.
+  @accents [
+    {"green", "#2e5e44", "Green"},
+    {"blue", "#2563eb", "Blue"},
+    {"teal", "#0d7d74", "Teal"},
+    {"violet", "#7c3aed", "Violet"},
+    {"amber", "#b45309", "Amber"},
+    {"rose", "#be123c", "Rose"},
+    {"slate", "#475569", "Slate"}
+  ]
+
   @doc """
-  Provides dark vs light theme toggle based on themes defined in app.css.
-
-  See <head> in root.html.heex which applies the theme before page load.
+  Accent-colour picker for the top bar — a palette popover of swatches,
+  independent of the light/dark theme. Applied client-side via `data-accent`
+  on `<html>` (see the inline script in root.html.heex), so it needs no server
+  state and persists across reloads and tabs.
   """
-  def theme_toggle(assigns) do
+  def accent_picker(assigns) do
+    assigns = assign(assigns, :accents, @accents)
+
     ~H"""
-    <div class="card relative flex flex-row items-center border-2 border-base-300 bg-base-300 rounded-full">
-      <div class="absolute w-1/3 h-full rounded-full border-1 border-base-200 bg-base-100 brightness-200 left-0 [[data-theme=light]_&]:left-1/3 [[data-theme=dark]_&]:left-2/3 [[data-theme-source=system]_&]:!left-0 transition-[left]" />
+    <details class="accent-picker">
+      <summary class="accent-picker-trigger" title="Accent colour" aria-label="Accent colour">
+        <span class="accent-picker-current"></span>
+      </summary>
+      <div class="accent-picker-panel">
+        <button
+          :for={{key, color, label} <- @accents}
+          type="button"
+          class="accent-swatch"
+          data-accent-opt={key}
+          data-phx-accent={key}
+          phx-click={JS.dispatch("phx:set-accent")}
+          style={"--swatch: #{color}"}
+          title={label}
+          aria-label={label}
+        ></button>
+      </div>
+    </details>
+    """
+  end
 
+  @doc """
+  A compact three-way theme switch (System / Light / Dark) for the top bar,
+  styled with the app's own design tokens so it matches the rest of the UI in
+  both themes. The active option is highlighted purely from CSS, keyed off the
+  `data-theme` / `data-theme-source` attributes the inline script in
+  root.html.heex maintains on `<html>` — so it needs no server state and
+  reflects the choice instantly, even across tabs.
+  """
+  def theme_switch(assigns) do
+    ~H"""
+    <div class="theme-switch" role="group" aria-label="Colour theme">
       <button
-        class="flex p-2 cursor-pointer w-1/3"
-        phx-click={JS.dispatch("phx:set-theme")}
+        type="button"
+        class="theme-opt"
+        data-theme-opt="system"
         data-phx-theme="system"
-      >
-        <.icon name="hero-computer-desktop-micro" class="size-4 opacity-75 hover:opacity-100" />
-      </button>
-
-      <button
-        class="flex p-2 cursor-pointer w-1/3"
         phx-click={JS.dispatch("phx:set-theme")}
+        title="System theme"
+        aria-label="System theme"
+      >
+        <.icon name="hero-computer-desktop-micro" class="size-4" />
+      </button>
+      <button
+        type="button"
+        class="theme-opt"
+        data-theme-opt="light"
         data-phx-theme="light"
-      >
-        <.icon name="hero-sun-micro" class="size-4 opacity-75 hover:opacity-100" />
-      </button>
-
-      <button
-        class="flex p-2 cursor-pointer w-1/3"
         phx-click={JS.dispatch("phx:set-theme")}
-        data-phx-theme="dark"
+        title="Light theme"
+        aria-label="Light theme"
       >
-        <.icon name="hero-moon-micro" class="size-4 opacity-75 hover:opacity-100" />
+        <.icon name="hero-sun-micro" class="size-4" />
+      </button>
+      <button
+        type="button"
+        class="theme-opt"
+        data-theme-opt="dark"
+        data-phx-theme="dark"
+        phx-click={JS.dispatch("phx:set-theme")}
+        title="Dark theme"
+        aria-label="Dark theme"
+      >
+        <.icon name="hero-moon-micro" class="size-4" />
       </button>
     </div>
     """

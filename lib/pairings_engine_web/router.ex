@@ -46,8 +46,10 @@ defmodule PairingsEngineWeb.Router do
     get "/t/:id/print/cards", PrintController, :player_cards
     get "/t/:id/print/placecards", PrintController, :place_cards
     get "/t/:id/print/pairings", PrintController, :pairing_list
+    get "/t/:id/print/pairings-alpha", PrintController, :pairing_alpha
     get "/t/:id/print/standings", PrintController, :standings
     get "/t/:id/print/results", PrintController, :result_cards
+    get "/t/:id/print/scoresheets", PrintController, :score_sheets
     get "/t/:id/print/crosstable", PrintController, :crosstable
 
     get "/t/:id/norms/it3", NormsController, :it3
@@ -140,5 +142,22 @@ defmodule PairingsEngineWeb.Router do
     end
 
     get "/tools/download/:token/:form", ToolsController, :download
+  end
+
+  ## Mobile no-account result entry — see PairingsEngine.Mobile. An arbiter
+  # generates a QR + numeric code from a tournament; a helper's phone enrolls
+  # here (no account) and gets a result-entry-only session for that tournament.
+  scope "/m", PairingsEngineWeb do
+    pipe_through :browser
+
+    get "/", MobileEnrollController, :new
+    post "/", MobileEnrollController, :submit
+    get "/e/:token", MobileEnrollController, :enroll
+    get "/leave", MobileEnrollController, :leave
+
+    live_session :mobile_results,
+      on_mount: [{PairingsEngineWeb.MobileAuth, :require_enrollment}] do
+      live "/results", MobileResultsLive
+    end
   end
 end

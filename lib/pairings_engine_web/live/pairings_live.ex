@@ -115,6 +115,7 @@ defmodule PairingsEngineWeb.PairingsLive do
       next_pairable: paired + 1,
       setup_complete: setup_complete,
       missing_setup: missing_setup,
+      recommended_missing: Tournament.missing_recommended_fields(t),
       can_pair:
         setup_complete and paired < t.rounds_count and Engine.round_complete?(t.id, paired)
     )
@@ -285,6 +286,19 @@ defmodule PairingsEngineWeb.PairingsLive do
     text |> String.split("\n", parts: 2) |> hd()
   end
 
+  # The pairing engine actually used, for button/notice copy — only Swiss runs
+  # JaVaFo, so the label must not claim it for round-robin (Berger schedule) or
+  # Keizer.
+  defp pairing_engine_label(%{pairing_system: "round_robin"}), do: "Berger"
+  defp pairing_engine_label(%{pairing_system: "keizer"}), do: "Keizer"
+  defp pairing_engine_label(_swiss), do: "JaVaFo"
+
+  defp pairing_engine_description(%{pairing_system: "round_robin"}),
+    do: "round-robin schedule (Berger tables)"
+
+  defp pairing_engine_description(%{pairing_system: "keizer"}), do: "Keizer ladder pairing"
+  defp pairing_engine_description(_swiss), do: "FIDE Dutch pairing (JaVaFo)"
+
   # Display-only annotation for a board that involves a player with a
   # `fixed_board` override (SWAR "special table" — e.g. a wheelchair-access
   # table) — mirrors `PairingsEngineWeb.PrintController`'s "(table N)" note
@@ -428,6 +442,19 @@ defmodule PairingsEngineWeb.PairingsLive do
         </ul>
       </div>
 
+      <div
+        :if={@setup_complete and @recommended_missing != []}
+        class="card"
+        style="display: block; margin: 12px 0; border-left: 3px solid var(--accent)"
+      >
+        You're ready to pair. For a complete FIDE report, you may also want to fill in:
+        <ul style="margin: 6px 0 0; padding-left: 20px">
+          <li :for={{field, message} <- @recommended_missing}>
+            <.link navigate={setup_field_path(@tournament, field)}>{message}</.link>
+          </li>
+        </ul>
+      </div>
+
       <div class="round-picker">
         <button
           :for={n <- 1..@tournament.rounds_count}
@@ -494,7 +521,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               end
             }
           >
-            Pair round {@round_number} (JaVaFo)
+            Pair round {@round_number} ({pairing_engine_label(@tournament)})
           </button>
 
           <div
@@ -679,7 +706,9 @@ defmodule PairingsEngineWeb.PairingsLive do
 
                   <p class="hint">
                     <%= if @round_number == @next_pairable do %>
-                      Press "Pair round {@round_number}" to run the FIDE Dutch pairing (JaVaFo).
+                      Press "Pair round {@round_number}" to generate the {pairing_engine_description(
+                        @tournament
+                      )}.
                     <% else %>
                       Rounds are paired in order — round {@next_pairable} is next.
                     <% end %>

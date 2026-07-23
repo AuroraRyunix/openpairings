@@ -8,35 +8,114 @@ defmodule PairingsEngineWeb.UserLive.Registration do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
-      <div class="mx-auto max-w-sm">
-        <div class="text-center">
-          <.header>
-            Register for an account
-            <:subtitle>
-              Already registered?
-              <.link navigate={~p"/users/log-in"} class="font-semibold text-brand hover:underline">
-                Log in
+      <div class="auth-wrap">
+        <aside class="auth-hero">
+          <div class="auth-hero-inner">
+            <div class="auth-hero-brand">
+              <svg
+                class="auth-hero-mark"
+                viewBox="0 0 64 48"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+              >
+                <defs>
+                  <linearGradient id="reg-orb" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#5fbf8f" />
+                    <stop offset="100%" stop-color="#2e5e44" />
+                  </linearGradient>
+                </defs>
+                <path
+                  d="M22,18 Q10,10 1,14 Q8,22 10,30 Q16,32 22,30 Q26,26 22,18 Z"
+                  fill="#f7f3e8"
+                  stroke="#12150f"
+                  stroke-width="3"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M42,18 Q54,10 63,14 Q56,22 54,30 Q48,32 42,30 Q38,26 42,18 Z"
+                  fill="#f7f3e8"
+                  stroke="#12150f"
+                  stroke-width="3"
+                  stroke-linejoin="round"
+                />
+                <circle cx="32" cy="24" r="14" fill="url(#reg-orb)" stroke="#12150f" stroke-width="3" />
+                <ellipse
+                  cx="27"
+                  cy="18"
+                  rx="4"
+                  ry="6"
+                  fill="#ffffff"
+                  opacity="0.5"
+                  transform="rotate(-25 27 18)"
+                />
+              </svg>
+              <span class="auth-hero-name">Open<strong>Pairings</strong></span>
+            </div>
+
+            <h1 class="auth-hero-title">Create your free account.</h1>
+
+            <p class="auth-hero-sub">
+              One account runs every event you organise — set up in seconds, no
+              credit card, invite co-arbiters whenever you like.
+            </p>
+
+            <ul class="auth-features">
+              <li>
+                <.icon name="hero-check-circle-mini" class="size-5" />
+                Swiss (JaVaFo Dutch), round-robin & Keizer — all in one
+              </li>
+              <li>
+                <.icon name="hero-check-circle-mini" class="size-5" />
+                FIDE C.07 tie-breaks & automatic title-norm judgment
+              </li>
+              <li>
+                <.icon name="hero-check-circle-mini" class="size-5" />
+                Live standings, printing & public share links
+              </li>
+            </ul>
+
+            <div class="auth-hero-cta">
+              <span>Already have an account?</span>
+              <.link navigate={~p"/users/log-in"} class="auth-hero-cta-btn">
+                Log in <span aria-hidden="true">→</span>
               </.link>
-              to your account now.
-            </:subtitle>
-          </.header>
+            </div>
+          </div>
+        </aside>
+
+        <div class="auth-panel">
+          <div class="auth-card">
+            <h2 class="auth-card-title">Create an account</h2>
+            <p class="auth-card-sub">
+              Enter your email and we'll send a magic link to confirm it.
+            </p>
+
+            <.form
+              for={@form}
+              id="registration_form"
+              class="auth-form"
+              phx-submit="save"
+              phx-change="validate"
+            >
+              <.input
+                field={@form[:email]}
+                type="email"
+                label="Email"
+                autocomplete="username"
+                spellcheck="false"
+                required
+                phx-mounted={JS.focus()}
+              />
+              <button
+                type="submit"
+                phx-disable-with="Creating account..."
+                class="pe-btn primary auth-submit"
+              >
+                Create a free account <span aria-hidden="true">→</span>
+              </button>
+            </.form>
+          </div>
         </div>
-
-        <.form for={@form} id="registration_form" phx-submit="save" phx-change="validate">
-          <.input
-            field={@form[:email]}
-            type="email"
-            label="Email"
-            autocomplete="username"
-            spellcheck="false"
-            required
-            phx-mounted={JS.focus()}
-          />
-
-          <.button phx-disable-with="Creating account..." class="btn btn-primary w-full">
-            Create an account
-          </.button>
-        </.form>
       </div>
     </Layouts.app>
     """

@@ -102,9 +102,10 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     assert redirected_to(conn) == ~p"/tools/norms"
   end
 
-  test "the login page links to the arbiter tools", %{conn: conn} do
+  test "the arbiter tools are reachable from the top bar on the login page", %{conn: conn} do
     {:ok, _lv, html} = live(conn, ~p"/users/log-in")
-    assert html =~ "arbiter tools"
+    # The arbiter tools link lives in the top-bar "Tools" tab (no longer a
+    # note on the log-in card).
     assert html =~ "/tools/norms"
   end
 

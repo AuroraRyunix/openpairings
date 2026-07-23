@@ -481,7 +481,9 @@ defmodule PairingsEngine.Norms.XlsxFill do
           Regex.replace(
             ~r/<calcPr\b([^>]*)\/>/,
             workbook_xml,
-            "<calcPr\\1 fullCalcOnLoad=\"1\"/>", global: false)
+            "<calcPr\\1 fullCalcOnLoad=\"1\"/>",
+            global: false
+          )
 
         true ->
           String.replace(workbook_xml, ~r/<\/sheets>/, "</sheets><calcPr fullCalcOnLoad=\"1\"/>",

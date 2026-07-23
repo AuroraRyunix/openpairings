@@ -676,16 +676,22 @@ defmodule PairingsEngine.Tournaments.Tournament do
   end
 
   @doc """
-  The fields an arbiter must fill before a tournament is workable. Until all
-  of them are present, players can't be added and pairing can't start (see
-  the guards in PlayersLive / PairingsLive), and their labels are shown bold
-  in Settings.
+  The fields an arbiter must fill before a tournament can be paired. Until
+  all of them are present, players can't be added and pairing can't start
+  (see the guards in PlayersLive / PairingsLive), and their labels are shown
+  bold in Settings.
+
+  These are only the fields structurally needed to actually run rounds — the
+  tournament's identity, its schedule and how standings are ordered. The
+  FIDE-report metadata (chief arbiter, federation, rate of play, FIDE ID) is
+  **not** here: it's needed to file a FIDE report, not to pair, so it's a
+  soft nudge instead — see `recommended_setup_fields/0` /
+  `missing_recommended_fields/1`, which never block pairing.
 
   Kept as a flat list of field-name atoms for anything that just wants to
   know *which fields* matter (e.g. bolding a label) — for the actual
-  present/absent logic (some of these aren't simple non-blank checks: round
-  dates need one entry per round, the FIDE ID is only required when the
-  tournament is FIDE-homologated), see `missing_setup_fields/1`.
+  present/absent logic (round dates need one entry per round), see
+  `missing_setup_fields/1`.
   """
   def required_setup_fields do
     [
@@ -693,7 +699,19 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :start_date,
       :rounds_count,
       :round_dates,
-      :tiebreaks,
+      :tiebreaks
+    ]
+  end
+
+  @doc """
+  Fields recommended for a complete FIDE report but **not** required to pair —
+  the counterpart to `required_setup_fields/0`. Surfaced as a soft,
+  non-blocking notice (see `missing_recommended_fields/1`) so an arbiter
+  running a casual/club event can pair immediately, while one running a
+  FIDE-rated event is still reminded to fill them in.
+  """
+  def recommended_setup_fields do
+    [
       :chief_arbiter,
       :federation,
       :rate_of_play,
@@ -702,12 +720,12 @@ defmodule PairingsEngine.Tournaments.Tournament do
   end
 
   @doc """
-  The specific setup requirements `tournament` doesn't satisfy yet, as a
-  list of `{field, message}` pairs (plain-English `message`, suitable for
-  showing directly to an arbiter) — empty once setup is complete. Each
-  `field` is one of `required_setup_fields/0`'s atoms, so a caller that
-  knows which Settings page hosts each field (Settings is split across
-  several pages) can link straight to it — see PlayersLive/PairingsLive.
+  The specific pairing-blocking requirements `tournament` doesn't satisfy
+  yet, as a list of `{field, message}` pairs (plain-English `message`,
+  suitable for showing directly to an arbiter) — empty once setup is
+  complete. Each `field` is one of `required_setup_fields/0`'s atoms, so a
+  caller that knows which Settings page hosts each field (Settings is split
+  across several pages) can link straight to it — see PlayersLive/PairingsLive.
   """
   def missing_setup_fields(%__MODULE__{} = t) do
     checks = [
@@ -715,19 +733,33 @@ defmodule PairingsEngine.Tournaments.Tournament do
       {:start_date, "Start date", present?(t.start_date)},
       {:rounds_count, "Number of rounds", is_integer(t.rounds_count) and t.rounds_count >= 1},
       {:round_dates, "Round dates (one per round)", round_dates_complete?(t)},
-      {:tiebreaks, "Tie-break selection", t.tiebreaks != []},
-      {:chief_arbiter, "Chief arbiter", present?(t.chief_arbiter)},
-      {:federation, "Federation", present?(t.federation)},
-      {:rate_of_play, "Rate of play", present?(t.rate_of_play)},
-      {:fide_tournament_id, "FIDE tournament ID (required for a FIDE-homologated event)",
-       fide_id_ok?(t)}
+      {:tiebreaks, "Tie-break selection", t.tiebreaks != []}
     ]
 
     for {field, message, ok?} <- checks, not ok?, do: {field, message}
   end
 
   @doc """
-  Whether `tournament` has every `missing_setup_fields/1` requirement met.
+  The recommended-but-not-required fields `tournament` hasn't filled yet, in
+  the same `{field, message}` shape as `missing_setup_fields/1`. Drives the
+  soft "recommended for FIDE reporting" notice; never blocks pairing. The
+  FIDE tournament ID only appears once the event is flagged FIDE-homologated
+  (same rule as before — see `fide_id_ok?/1`).
+  """
+  def missing_recommended_fields(%__MODULE__{} = t) do
+    checks = [
+      {:chief_arbiter, "Chief arbiter", present?(t.chief_arbiter)},
+      {:federation, "Federation", present?(t.federation)},
+      {:rate_of_play, "Rate of play", present?(t.rate_of_play)},
+      {:fide_tournament_id, "FIDE tournament ID (for a FIDE-homologated event)", fide_id_ok?(t)}
+    ]
+
+    for {field, message, ok?} <- checks, not ok?, do: {field, message}
+  end
+
+  @doc """
+  Whether `tournament` has every `missing_setup_fields/1` (pairing-blocking)
+  requirement met. Does not consider `recommended_setup_fields/0`.
   """
   def setup_complete?(%__MODULE__{} = t), do: missing_setup_fields(t) == []
 

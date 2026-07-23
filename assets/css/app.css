@@ -108,6 +108,18 @@
    PairingsEngine design system (function over everything)
    ============================================================ */
 
+/* ---------- theme tokens ----------
+   The whole design system is driven by these tokens, so a theme is just a
+   different set of values for them. `:root` holds the light theme (the
+   default); `[data-theme="dark"]` overrides them for dark. The inline script
+   in root.html.heex resolves "system" to a concrete light/dark and stamps
+   `data-theme` on <html> BEFORE first paint, so there's no flash and CSS only
+   ever needs to match the two concrete themes below.
+
+   The daisyUI component variables (--color-base-*, used by core_components'
+   <.input>/<.select>/<.textarea> on the auth and settings pages) are themed
+   here too, so those inputs follow the same palette as the rest of the app
+   in both themes — no dark-on-dark. */
 :root {
   --bg: #f7f6f3;
   --surface: #ffffff;
@@ -120,29 +132,15 @@
   --danger: #a33c2e;
   --radius: 8px;
   --shadow: 0 1px 3px rgba(30, 25, 15, 0.07);
-}
 
-/* The app palette is light-only for now: pin the page background so the
-   daisyUI dark theme (which follows the OS) can never show through below
-   the content. */
-html, html[data-theme="dark"] {
-  background: var(--bg);
-}
+  /* soft raised/alt surfaces used across list rows, dropzones, band rows,
+     modal scrims — tokenized so dark mode can override them in one place. */
+  --surface-alt: #faf9f6;
+  --surface-hover: #fbfaf8;
+  --scrim: rgba(20, 18, 12, 0.45);
+  /* legacy alias: some inline styles reference var(--pe-bg-alt, #f7f7f7) */
+  --pe-bg-alt: var(--surface-alt);
 
-/* The pin above only covers html/body's own background — it does nothing
-   for daisyUI *component* colors (--color-base-100/200/300/content), which
-   still flip to the dark theme's values whenever the OS/browser prefers
-   dark mode or the theme toggle sets data-theme="dark" on <html> (see
-   root.html.heex). core_components' <.input>/<.select>/<.textarea> (used
-   on every auth page: log in, register, magic-link confirm, settings) rely
-   on daisyUI's `.input`/`.select` classes for their background but do NOT
-   set their own text color — that's inherited from `body`, which we pin to
-   the dark `--text` color a few lines below regardless of theme. Result: in
-   dark mode the input background goes dark while the text stays dark too,
-   i.e. unreadable dark-on-dark ("black on black"). Force the daisyUI color
-   variables to the light theme's values unconditionally so every daisyUI
-   component matches the rest of the app's light-only look. */
-:root, [data-theme="dark"] {
   color-scheme: light;
   --color-base-100: oklch(98% 0 0);
   --color-base-200: oklch(96% 0.001 286.375);
@@ -150,9 +148,56 @@ html, html[data-theme="dark"] {
   --color-base-content: oklch(21% 0.006 285.885);
 }
 
+[data-theme="dark"] {
+  --bg: #0e1210;
+  --surface: #161b18;
+  --border: #29312b;
+  --text: #e9ebe6;
+  --text-soft: #98a29b;
+  --accent: #60bd8c;
+  --accent-hover: #76cb9e;
+  --accent-soft: rgba(96, 189, 140, 0.16);
+  --danger: #e07a63;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+
+  --surface-alt: #1b211d;
+  --surface-hover: #1e251f;
+  --scrim: rgba(0, 0, 0, 0.6);
+
+  color-scheme: dark;
+  --color-base-100: #1b211d;
+  --color-base-200: #212823;
+  --color-base-300: #2c342e;
+  --color-base-content: #e9ebe6;
+}
+
+/* ---------- accent colour (independent of light/dark) ----------
+   The default (green) lives in the token blocks above. Each alternative sets
+   its own --accent / --accent-hover / --accent-soft, with a brighter variant
+   for dark mode so it stays legible on the dark surface. Selected via
+   `data-accent` on <html> (see the inline script in root.html.heex). */
+[data-accent="blue"] { --accent: #2563eb; --accent-hover: #1d4ed8; --accent-soft: #e7effe; }
+[data-accent="teal"] { --accent: #0d7d74; --accent-hover: #0b665f; --accent-soft: #e2f4f2; }
+[data-accent="violet"] { --accent: #7c3aed; --accent-hover: #6d28d9; --accent-soft: #f0e9fe; }
+[data-accent="amber"] { --accent: #b45309; --accent-hover: #92400e; --accent-soft: #fbeed9; }
+[data-accent="rose"] { --accent: #be123c; --accent-hover: #9f1239; --accent-soft: #fce4ea; }
+[data-accent="slate"] { --accent: #475569; --accent-hover: #334155; --accent-soft: #eaeef3; }
+
+[data-accent="blue"][data-theme="dark"] { --accent: #5b9bff; --accent-hover: #74acff; --accent-soft: rgba(91, 155, 255, 0.16); }
+[data-accent="teal"][data-theme="dark"] { --accent: #2dd4bf; --accent-hover: #4de0cd; --accent-soft: rgba(45, 212, 191, 0.16); }
+[data-accent="violet"][data-theme="dark"] { --accent: #a78bfa; --accent-hover: #b9a4fb; --accent-soft: rgba(167, 139, 250, 0.18); }
+[data-accent="amber"][data-theme="dark"] { --accent: #f59e0b; --accent-hover: #fbb024; --accent-soft: rgba(245, 158, 11, 0.16); }
+[data-accent="rose"][data-theme="dark"] { --accent: #fb7185; --accent-hover: #fc8b9b; --accent-soft: rgba(251, 113, 133, 0.16); }
+[data-accent="slate"][data-theme="dark"] { --accent: #94a3b8; --accent-hover: #aab6c7; --accent-soft: rgba(148, 163, 184, 0.18); }
+
+html { background: var(--bg); }
+
 body {
   margin: 0;
   min-height: 100vh;
+  /* The page itself must never scroll sideways; wide content (tables,
+     bracket maps) scrolls inside its own overflow-x container instead. */
+  overflow-x: hidden;
   background: var(--bg);
   color: var(--text);
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -200,14 +245,15 @@ body {
   color: var(--text);
 }
 
-.topbar nav { display: flex; gap: 4px; }
+.topbar nav { display: flex; align-items: center; gap: 4px; }
 
 .topbar nav a {
   color: var(--text-soft);
   text-decoration: none;
-  padding: 6px 12px;
+  padding: 5px 10px;
   border-radius: 6px;
   font-weight: 500;
+  line-height: 1.2;
 }
 .topbar nav a:hover { background: var(--bg); color: var(--text); }
 .topbar nav a.active { background: var(--accent-soft); color: var(--accent); }
@@ -263,11 +309,121 @@ body {
   gap: 4px;
 }
 
+/* ---------- accent-colour picker ---------- */
+.accent-picker { position: relative; }
+.accent-picker > summary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+.accent-picker > summary::-webkit-details-marker { display: none; }
+.accent-picker-current {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+.accent-picker-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 50;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+.accent-swatch {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background: var(--swatch);
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+.accent-swatch:hover { transform: scale(1.12); }
+html[data-accent="green"] .accent-swatch[data-accent-opt="green"],
+html[data-accent="blue"] .accent-swatch[data-accent-opt="blue"],
+html[data-accent="teal"] .accent-swatch[data-accent-opt="teal"],
+html[data-accent="violet"] .accent-swatch[data-accent-opt="violet"],
+html[data-accent="amber"] .accent-swatch[data-accent-opt="amber"],
+html[data-accent="rose"] .accent-swatch[data-accent-opt="rose"],
+html[data-accent="slate"] .accent-swatch[data-accent-opt="slate"] {
+  border-color: var(--text);
+  box-shadow: 0 0 0 2px var(--surface) inset;
+}
+
+/* ---------- theme switch (System / Light / Dark) ---------- */
+.theme-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  margin-right: 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+}
+
+.theme-opt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+.theme-opt:hover { color: var(--text); background: var(--surface); }
+
+/* Highlight the active option straight from the <html> attributes the inline
+   theme script maintains — no server round-trip. */
+html[data-theme-source="system"] .theme-opt[data-theme-opt="system"],
+html[data-theme-source="user"][data-theme="light"] .theme-opt[data-theme-opt="light"],
+html[data-theme-source="user"][data-theme="dark"] .theme-opt[data-theme-opt="dark"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
 .topbar-auth .user-email {
   color: var(--text-soft);
   padding: 6px 4px;
   font-size: 13px;
 }
+
+/* Single clean sign-in button for logged-out visitors (replaces the two
+   plain "Log in / Register" links). Register lives on the log-in page. */
+.topbar-signin {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+}
+.topbar-signin:hover { background: var(--accent-hover); }
 
 .app-version {
   color: var(--text-soft);
@@ -329,7 +485,7 @@ body {
 
 .pe-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
 .pe-table tr:last-child td { border-bottom: none; }
-.pe-table tbody tr:hover { background: #fbfaf8; }
+.pe-table tbody tr:hover { background: var(--surface-hover); }
 
 .pe-table th.sortable { cursor: pointer; user-select: none; }
 .pe-table th.sortable:hover { color: var(--text); }
@@ -508,7 +664,7 @@ button.pe-btn, .pe-btn {
   white-space: nowrap;
 }
 
-.badge.muted { background: #eeece7; color: var(--text-soft); }
+.badge.muted { background: var(--surface-hover); color: var(--text-soft); }
 
 .empty { text-align: center; color: var(--text-soft); padding: 48px 20px; }
 .empty p { margin: 4px 0; }
@@ -652,7 +808,7 @@ button.pe-btn, .pe-btn {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(20, 18, 12, 0.45);
+  background: var(--scrim);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -673,6 +829,20 @@ button.pe-btn, .pe-btn {
 
 .modal-card h2 { margin-top: 0; }
 .modal-card .actions { margin-top: 18px; }
+
+/* Database auto-fill actions at the top of the player-registration modal —
+   pulled out of the National-ID field so it's no longer an oversized cell. */
+.modal-lookup-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
 
 .radio-row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
 .radio-row label { display: flex; align-items: center; gap: 6px; font-weight: 500; cursor: pointer; }
@@ -1136,7 +1306,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   justify-content: center;
   align-items: flex-start;
   padding: 0 10px;
-  background: #faf9f6;
+  background: var(--surface-alt);
   border: none;
   font: inherit;
   color: inherit;
@@ -1144,11 +1314,11 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   cursor: pointer;
   transition: background 0.12s;
 }
-.pe-band-row.is-alt { background: #f1efe9; }
+.pe-band-row.is-alt { background: var(--surface-hover); }
 .pe-band-row:hover,
 .pe-band-row:focus-visible { background: var(--accent-soft); outline: none; }
 .pe-band-row.is-active-filter { background: var(--accent-soft); }
-.pe-band-score { font-weight: 700; font-size: 13.5px; color: #24211c; line-height: 1.15; }
+.pe-band-score { font-weight: 700; font-size: 13.5px; color: var(--text); line-height: 1.15; }
 .pe-band-meta { font-size: 11.5px; color: var(--text-soft); line-height: 1.15; }
 .pe-band-odd { color: #a76a25; font-weight: 600; }
 
@@ -1404,3 +1574,395 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   box-sizing: border-box;
   pointer-events: none;
 }
+
+/* ============================================================
+   Auth pages (log in / register) — split brand + form panel
+   ============================================================ */
+/* The auth page centres a rounded card in the viewport under the top bar
+   (56px). The page area itself never scrolls (overflow hidden); the card is
+   capped to the viewport so its content fits without a scrollbar. */
+.page:has(.auth-wrap) {
+  padding: 0;
+  height: calc(100vh - 56px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.auth-wrap {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  width: min(1080px, 94vw);
+  height: min(720px, calc(100vh - 64px));
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.16);
+  overflow: hidden;
+}
+
+/* Single-column variant (no brand hero) — used by the magic-link
+   confirmation page, which is a short one-action card. */
+.auth-wrap-solo {
+  grid-template-columns: 1fr;
+  width: min(440px, 94vw);
+  height: auto;
+  max-height: calc(100vh - 88px);
+}
+
+.auth-hero {
+  position: relative;
+  display: flex;
+  /* `safe center`: centre vertically, but align to the top (don't crop the
+     logo/title out of reach) when the content is taller than the card. */
+  align-items: safe center;
+  padding: 40px 44px;
+  color: #eef4ef;
+  background: radial-gradient(130% 150% at 0% 0%, #3f8060 0%, #2e5e44 46%, #1d4030 100%);
+  overflow: hidden;
+}
+/* soft decorative light + board grain */
+.auth-hero::before {
+  content: "";
+  position: absolute;
+  inset: -40% -20% auto auto;
+  width: 520px;
+  height: 520px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.16), transparent 62%);
+  pointer-events: none;
+}
+.auth-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(120% 120% at 100% 100%, #000 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.auth-hero-inner { position: relative; z-index: 1; }
+
+.auth-hero-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 34px;
+}
+.auth-hero-mark { width: 46px; height: 35px; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.25)); }
+.auth-hero-name { font-size: 20px; font-weight: 500; letter-spacing: 0.01em; }
+.auth-hero-name strong { font-weight: 800; }
+
+.auth-hero-title {
+  font-size: 30px;
+  line-height: 1.15;
+  font-weight: 750;
+  margin: 0 0 14px;
+  letter-spacing: -0.01em;
+}
+
+.auth-hero-sub {
+  font-size: 15px;
+  line-height: 1.55;
+  color: rgba(238, 244, 239, 0.82);
+  margin: 0 0 30px;
+  max-width: 34ch;
+}
+
+.auth-features {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.auth-features li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: rgba(238, 244, 239, 0.92);
+}
+.auth-features li svg { color: #8fe0b4; flex-shrink: 0; }
+
+.auth-panel {
+  display: flex;
+  padding: 12px 40px;
+  overflow-y: auto;
+}
+/* `margin: auto` (not align/justify-center) so the card centres when there's
+   room but aligns to the top and stays fully scrollable when it's taller than
+   the panel — flex centering would crop the top/bottom out of reach. */
+.auth-card { width: 100%; max-width: 360px; margin: auto; }
+
+.auth-card-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  color: var(--text);
+}
+.auth-card-sub {
+  font-size: 14px;
+  color: var(--text-soft);
+  margin: 0 0 14px;
+}
+
+.auth-link { color: var(--accent); font-weight: 600; text-decoration: none; }
+.auth-link:hover { text-decoration: underline; }
+
+.auth-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 12px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-soft);
+  background: var(--accent-soft);
+  border-radius: 8px;
+}
+
+.auth-form { display: flex; flex-direction: column; gap: 4px; }
+.auth-submit { width: 100%; justify-content: center; margin-top: 8px; }
+.auth-submit-ghost { margin-top: 8px; }
+.auth-sso {
+  margin-top: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-color: var(--border);
+  color: var(--text);
+  font-weight: 600;
+}
+.auth-sso:hover { border-color: var(--accent); color: var(--accent); }
+.auth-sso svg { flex-shrink: 0; }
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
+  color: var(--text-soft);
+  font-size: 12px;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* Register call-to-action, on the brand hero (a logical, prominent home for
+   it that doesn't lengthen the sign-in column). */
+.auth-hero-cta {
+  margin-top: 30px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  color: rgba(238, 244, 239, 0.85);
+}
+.auth-hero-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: #f4f7f4;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.14s ease;
+}
+.auth-hero-cta-btn:hover { background: rgba(255, 255, 255, 0.24); }
+
+.auth-tools {
+  margin: 18px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-soft);
+  text-align: center;
+}
+
+/* Short desktop windows (two-column card is still on): progressively trim the
+   hero so it fits the shorter card instead of overflowing. The form panel
+   scrolls on its own (see `.auth-panel`), so nothing is ever cropped. */
+@media (min-width: 901px) and (max-height: 760px) {
+  .auth-hero { padding: 28px 40px; }
+  .auth-hero-brand { margin-bottom: 20px; }
+  .auth-hero-title { font-size: 26px; margin-bottom: 10px; }
+  .auth-hero-sub { display: none; }
+  .auth-features { gap: 9px; }
+  .auth-hero-cta { margin-top: 20px; }
+}
+@media (min-width: 901px) and (max-height: 640px) {
+  .auth-features { display: none; }
+  .auth-hero-cta { margin-top: 16px; }
+}
+
+@media (max-width: 900px) {
+  /* Phones/tablets/small laptops: single column, natural page scroll (no
+     fixed-height card — the top bar wraps taller here, so a fixed
+     viewport-height would clip). The two-column card needs more width to
+     look right, so below this the hero shrinks to a compact banner and the
+     form flows beneath it. */
+  .page:has(.auth-wrap) {
+    display: block;
+    height: auto;
+    overflow: visible;
+  }
+  .auth-wrap {
+    grid-template-columns: 1fr;
+    width: 100%;
+    height: auto;
+    min-height: calc(100vh - 56px);
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .auth-hero { padding: 22px 22px 18px; }
+  .auth-hero-brand { margin-bottom: 14px; }
+  .auth-hero-title { font-size: 21px; margin-bottom: 6px; }
+  .auth-hero-sub,
+  .auth-features { display: none; }
+  .auth-hero-cta { margin-top: 14px; }
+  .auth-panel { padding: 22px; overflow: visible; }
+}
+
+/* ============================================================
+   Mobile no-account result entry (/m ... see PairingsEngine.Mobile)
+   ============================================================ */
+.mobile-shell {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 16px 14px 40px;
+  min-height: 100vh;
+}
+.mobile-brand { font-size: 17px; font-weight: 500; color: var(--text-soft); }
+.mobile-brand strong { font-weight: 800; color: var(--text); }
+
+.mobile-card {
+  margin-top: 8vh;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 24px 20px;
+  box-shadow: var(--shadow);
+}
+.mobile-card h1 { font-size: 22px; margin: 12px 0 6px; }
+.mobile-sub { color: var(--text-soft); font-size: 14px; margin: 0 0 18px; line-height: 1.5; }
+.mobile-error {
+  background: rgba(163, 60, 46, 0.12);
+  color: var(--danger);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  margin: 0 0 14px;
+}
+.mobile-form { display: flex; flex-direction: column; gap: 10px; }
+.mobile-label { font-size: 13px; font-weight: 600; color: var(--text-soft); }
+.mobile-code-input {
+  font-size: 30px;
+  letter-spacing: 0.3em;
+  text-align: center;
+  padding: 14px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+}
+.mobile-code-input:focus { outline: none; border-color: var(--accent); }
+.mobile-btn {
+  padding: 15px;
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.mobile-btn:active { background: var(--accent-hover); }
+
+.mobile-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.mobile-tname { font-size: 18px; font-weight: 700; color: var(--text); margin-top: 2px; }
+.mobile-leave {
+  color: var(--text-soft);
+  text-decoration: none;
+  font-size: 14px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.mobile-rounds { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.mobile-round-btn {
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-soft);
+  font-weight: 600;
+  cursor: pointer;
+}
+.mobile-round-btn.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+.mobile-hint { color: var(--text-soft); font-size: 13px; margin: 4px 0 14px; }
+.mobile-empty { color: var(--text-soft); text-align: center; padding: 40px 0; }
+
+.mobile-board {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+}
+.mobile-board-head { display: flex; justify-content: space-between; }
+.mobile-board-no { font-size: 12px; font-weight: 700; color: var(--text-soft); text-transform: uppercase; letter-spacing: 0.05em; }
+.mobile-players {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 6px 0 12px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.mobile-white, .mobile-black { flex: 1; min-width: 0; }
+.mobile-black { text-align: right; }
+.mobile-vs { color: var(--text-soft); font-size: 12px; font-weight: 400; }
+.mobile-results { display: flex; gap: 8px; }
+.mobile-result-btn {
+  flex: 1;
+  padding: 14px 0;
+  font-size: 18px;
+  font-weight: 700;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.mobile-result-btn.chosen { background: var(--accent); color: #fff; border-color: var(--accent); }
+.mobile-result-btn.mobile-clear { flex: 0 0 52px; font-size: 20px; color: var(--text-soft); }
+
+/* Arbiter-side "enrol a phone" panel (desktop tournament view). */
+.enroll-panel { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+.enroll-qr { background: #fff; padding: 10px; border-radius: 10px; border: 1px solid var(--border); }
+.enroll-qr svg { display: block; width: 180px; height: 180px; }
+.enroll-code { font-size: 34px; font-weight: 800; letter-spacing: 0.12em; color: var(--accent); }
+.enroll-code-label { font-size: 12px; color: var(--text-soft); text-transform: uppercase; letter-spacing: 0.05em; }
+.enroll-url { font-size: 12px; color: var(--text-soft); word-break: break-all; }
