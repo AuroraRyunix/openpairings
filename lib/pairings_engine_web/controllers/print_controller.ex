@@ -87,6 +87,28 @@ defmodule PairingsEngineWeb.PrintController do
   .result-card.rc-blank { border-style: none; }
   """
 
+  @score_sheet_css """
+  @page { size: A4 portrait; margin: 10mm; }
+  .score-sheet { page-break-after: always; height: 275mm; box-sizing: border-box;
+                 display: flex; flex-direction: column; }
+  .score-sheet:last-child { page-break-after: auto; }
+  .ss-head { display: flex; justify-content: space-between; align-items: baseline;
+             font-size: 12px; border-bottom: 2px solid #000; padding-bottom: 4px; }
+  .ss-head strong { font-size: 14px; }
+  .ss-players { display: flex; justify-content: space-between; gap: 16px; margin: 8px 0; font-size: 13px; }
+  .ss-player { flex: 1 1 0; min-width: 0; }
+  .ss-who { font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.04em; margin-right: 5px; }
+  .ss-sub { color: #555; font-size: 11px; }
+  .ss-grid { display: flex; gap: 10px; flex: 1; }
+  .ss-moves { flex: 1; border-collapse: collapse; font-size: 11px; }
+  .ss-moves th { font-size: 9px; color: #666; border-bottom: 1px solid #000; text-align: center; padding-bottom: 2px; }
+  .ss-moves td { border-bottom: 1px solid #ccc; height: 5.3mm; }
+  .ss-moves .ss-n { width: 8mm; text-align: right; color: #777; padding-right: 4px; border-right: 1px solid #000; }
+  .ss-footer { margin-top: 8px; display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; }
+  .ss-result { font-weight: bold; }
+  .ss-sig i { display: inline-block; width: 30mm; border-bottom: 1px solid #000; margin-left: 4px; }
+  """
+
   @crosstable_css """
   @page { size: A4 landscape; margin: 12mm; }
   .crosstable-wrap { overflow-x: auto; }
@@ -347,6 +369,70 @@ defmodule PairingsEngineWeb.PrintController do
           absentees_section(tournament, number, params["absentees"])
 
       print_page(conn, tournament.name, "Pairings — round #{number}", body)
+    end
+  end
+
+  @doc """
+  GET /t/:id/print/pairings-alpha?round=N — the "where do I sit" list: every
+  paired player for the round, sorted by name, with their board, colour and
+  opponent. One row per player (both sides of every board), so an arriving
+  player can find themselves alphabetically.
+  """
+  def pairing_alpha(conn, %{"id" => id} = params) do
+    tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
+    number = parse_round(params["round"]) || 1
+    round = Tournaments.get_round(tournament.id, number)
+
+    if round == nil do
+      send_resp(conn, 404, "Round #{number} has not been paired yet")
+    else
+      entries =
+        round.pairings
+        |> Enum.flat_map(fn p ->
+          if p.black_player == nil do
+            [
+              %{
+                name: p.white_player && p.white_player.name,
+                board: p.board,
+                colour: "—",
+                opp: "bye"
+              }
+            ]
+          else
+            [
+              %{
+                name: p.white_player.name,
+                board: p.board,
+                colour: "White",
+                opp: p.black_player.name
+              },
+              %{
+                name: p.black_player.name,
+                board: p.board,
+                colour: "Black",
+                opp: p.white_player.name
+              }
+            ]
+          end
+        end)
+        |> Enum.reject(&(&1.name in [nil, ""]))
+        |> Enum.sort_by(&String.downcase(&1.name))
+
+      rows =
+        Enum.map_join(entries, "", fn e ->
+          "<tr><td><strong>#{esc(e.name)}</strong></td>" <>
+            "<td class=\"num\">#{e.board}</td>" <>
+            "<td style=\"text-align:center\">#{esc(e.colour)}</td>" <>
+            "<td>#{esc(e.opp)}</td></tr>"
+        end)
+
+      body =
+        tournament_info_html(tournament) <>
+          "<table><thead><tr><th>Player</th><th class=\"num\">Board</th>" <>
+          "<th style=\"text-align:center\">Colour</th><th>Opponent</th></tr></thead>" <>
+          "<tbody>#{rows}</tbody></table>"
+
+      print_page(conn, tournament.name, "Alphabetical pairing list — round #{number}", body)
     end
   end
 
@@ -611,6 +697,65 @@ defmodule PairingsEngineWeb.PrintController do
         @result_cards_css
       )
     end
+  end
+
+  @doc """
+  GET /t/:id/print/scoresheets?round=N — one full-page score sheet per board:
+  header, both players (name / rating / federation), an 80-move grid
+  (two 40-move columns of White/Black) and a result + signature footer.
+  """
+  def score_sheets(conn, %{"id" => id} = params) do
+    tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
+    rounds_paired = PairingsEngine.Standings.rounds_paired(tournament.id)
+    number = parse_round(params["round"]) || max(rounds_paired, 1)
+    round = Tournaments.get_round(tournament.id, number)
+
+    if round == nil do
+      send_resp(conn, 404, "Round #{number} has not been paired yet")
+    else
+      sheets =
+        round.pairings
+        |> Enum.reject(&(&1.black_player_id == nil))
+        |> Enum.sort_by(& &1.board)
+        |> Enum.map_join("", &score_sheet(&1, tournament, number))
+
+      print_page(
+        conn,
+        tournament.name,
+        "Score sheets — round #{number}",
+        sheets,
+        @score_sheet_css
+      )
+    end
+  end
+
+  defp score_sheet(pairing, tournament, round_number) do
+    white = pairing.white_player
+    black = pairing.black_player
+
+    "<div class=\"score-sheet\">" <>
+      "<div class=\"ss-head\"><strong>#{esc(tournament.name)}</strong>" <>
+      "<span>Round #{round_number} &middot; Board #{pairing.board}#{fixed_board_note(pairing)}</span></div>" <>
+      "<div class=\"ss-players\">" <>
+      "<div class=\"ss-player\"><span class=\"ss-who\">White</span><strong>#{esc(result_card_name(white))}</strong> " <>
+      "<span class=\"ss-sub\">#{result_card_sub(white)}</span></div>" <>
+      "<div class=\"ss-player\"><span class=\"ss-who\">Black</span><strong>#{esc(result_card_name(black))}</strong> " <>
+      "<span class=\"ss-sub\">#{result_card_sub(black)}</span></div>" <>
+      "</div>" <>
+      "<div class=\"ss-grid\">#{ss_move_column(1, 40)}#{ss_move_column(41, 80)}</div>" <>
+      "<div class=\"ss-footer\"><span class=\"ss-result\">Result: &nbsp; 1&ndash;0 &nbsp;&nbsp; &frac12;&ndash;&frac12; &nbsp;&nbsp; 0&ndash;1</span>" <>
+      "<span class=\"ss-sig\">White <i></i> &nbsp; Black <i></i></span></div>" <>
+      "</div>"
+  end
+
+  defp ss_move_column(from, to) do
+    rows =
+      for n <- from..to, into: "" do
+        "<tr><td class=\"ss-n\">#{n}</td><td></td><td></td></tr>"
+      end
+
+    "<table class=\"ss-moves\"><thead><tr><th></th><th>White</th><th>Black</th></tr></thead>" <>
+      "<tbody>#{rows}</tbody></table>"
   end
 
   # Guillotine-cut ("stack-cut") imposition for `?order=stack`. The arbiter

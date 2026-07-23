@@ -43,12 +43,13 @@ defmodule PairingsEngineWeb.PrintLive do
       %{
         name: "Alphabetical pairing list",
         desc: "\"Where do I sit\" list, sorted by player name.",
-        href: nil
+        href:
+          if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/pairings-alpha?round=#{latest}")
       },
       %{
         name: "Score sheets",
         desc: "Pre-filled per board: names, ratings, move columns, signatures.",
-        href: nil
+        href: if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/scoresheets?round=#{latest}")
       },
       %{
         name: "Cross table",
