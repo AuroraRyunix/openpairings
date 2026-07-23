@@ -61,22 +61,30 @@ defmodule PairingsEngineWeb.UserLive.Login do
             <h1 class="auth-hero-title">Run world-class chess tournaments.</h1>
 
             <p class="auth-hero-sub">
-              FIDE-compliant Swiss pairings, tie-breaks and norm reports — from the
-              first round to the final crosstable, in your browser.
+              FIDE-compliant pairings, tie-breaks and norm reports — from the
+              first round to the final crosstable, right in your browser.
             </p>
 
             <ul class="auth-features">
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                JaVaFo Dutch pairings & FIDE C.07 tie-breaks
+                Invite co-arbiters — run one tournament together, live
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                Live standings, printing & public share pages
+                Swiss (JaVaFo Dutch), round-robin & Keizer — all in one
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                TRF16, SWAR & PGN import / export
+                FIDE C.07 tie-breaks & automatic title-norm judgment
+              </li>
+              <li>
+                <.icon name="hero-check-circle-mini" class="size-5" />
+                Live standings, printing & public share links
+              </li>
+              <li>
+                <.icon name="hero-check-circle-mini" class="size-5" />
+                TRF16, SWAR, PGN & KBSB import / export
               </li>
             </ul>
           </div>
@@ -167,6 +175,13 @@ defmodule PairingsEngineWeb.UserLive.Login do
                 Log in only this time
               </button>
             </.form>
+
+            <div :if={!@current_scope} class="auth-register">
+              <span>New to OpenPairings?</span>
+              <.link navigate={~p"/users/register"} class="pe-btn auth-register-btn">
+                Create a free account
+              </.link>
+            </div>
 
             <p class="auth-tools">
               Just need a norm report? Try the free

@@ -158,7 +158,7 @@ defmodule PairingsEngineWeb.Layouts do
           </details>
         <% end %>
         <.link
-          :if={!@tournament}
+          :if={!@tournament && @current_scope}
           navigate={~p"/fide"}
           class={tab_class(@active == "fide")}
         >

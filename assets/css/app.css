@@ -176,6 +176,9 @@ html { background: var(--bg); }
 body {
   margin: 0;
   min-height: 100vh;
+  /* The page itself must never scroll sideways; wide content (tables,
+     bracket maps) scrolls inside its own overflow-x container instead. */
+  overflow-x: hidden;
   background: var(--bg);
   color: var(--text);
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -228,9 +231,10 @@ body {
 .topbar nav a {
   color: var(--text-soft);
   text-decoration: none;
-  padding: 6px 12px;
+  padding: 5px 10px;
   border-radius: 6px;
   font-weight: 500;
+  line-height: 1.2;
 }
 .topbar nav a:hover { background: var(--bg); color: var(--text); }
 .topbar nav a.active { background: var(--accent-soft); color: var(--accent); }
@@ -1468,16 +1472,17 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 /* ============================================================
    Auth pages (log in / register) — split brand + form panel
    ============================================================ */
+/* The auth page fills the viewport under the top bar (56px) so it never
+   needs the page to scroll. `.page:has(.auth-wrap)` strips the usual page
+   padding for this one full-bleed layout. */
+.page:has(.auth-wrap) { padding: 0; }
+
 .auth-wrap {
   display: grid;
-  grid-template-columns: 1.05fr 1fr;
-  max-width: 960px;
-  margin: 24px auto;
-  min-height: 560px;
+  grid-template-columns: 1.1fr 1fr;
+  width: 100%;
+  min-height: calc(100vh - 56px);
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.14);
   overflow: hidden;
 }
 
@@ -1485,7 +1490,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   position: relative;
   display: flex;
   align-items: center;
-  padding: 52px 46px;
+  padding: 6vh 5vw;
   color: #eef4ef;
   background: radial-gradient(130% 150% at 0% 0%, #3f8060 0%, #2e5e44 46%, #1d4030 100%);
   overflow: hidden;
@@ -1561,9 +1566,10 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 44px 40px;
+  padding: 3vh 40px;
+  overflow-y: auto;
 }
-.auth-card { width: 100%; max-width: 340px; }
+.auth-card { width: 100%; max-width: 360px; }
 
 .auth-card-title {
   font-size: 22px;
@@ -1574,7 +1580,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .auth-card-sub {
   font-size: 14px;
   color: var(--text-soft);
-  margin: 0 0 22px;
+  margin: 0 0 18px;
 }
 
 .auth-link { color: var(--accent); font-weight: 600; text-decoration: none; }
@@ -1584,8 +1590,8 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  padding: 10px 12px;
-  margin-bottom: 18px;
+  padding: 9px 12px;
+  margin-bottom: 14px;
   font-size: 13px;
   line-height: 1.45;
   color: var(--text-soft);
@@ -1594,14 +1600,14 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 }
 
 .auth-form { display: flex; flex-direction: column; gap: 4px; }
-.auth-submit { width: 100%; justify-content: center; margin-top: 10px; }
+.auth-submit { width: 100%; justify-content: center; margin-top: 8px; }
 .auth-submit-ghost { margin-top: 8px; }
 
 .auth-divider {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin: 22px 0;
+  margin: 16px 0;
   color: var(--text-soft);
   font-size: 12px;
 }
@@ -1613,8 +1619,28 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   background: var(--border);
 }
 
+.auth-register {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-soft);
+}
+.auth-register-btn {
+  width: 100%;
+  justify-content: center;
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+.auth-register-btn:hover { background: var(--accent-soft); }
+
 .auth-tools {
-  margin: 22px 0 0;
+  margin: 18px 0 0;
   font-size: 13px;
   line-height: 1.5;
   color: var(--text-soft);
