@@ -173,6 +173,7 @@ defmodule PairingsEngineWeb.Layouts do
         </.link>
       </nav>
       <nav class="topbar-auth">
+        <.accent_picker />
         <.theme_switch />
         <%= if @current_scope do %>
           <span class="sync-freshness" title="Local FIDE / KBSB rating-list sync status">
@@ -286,6 +287,48 @@ defmodule PairingsEngineWeb.Layouts do
         <.icon name="hero-arrow-path" class="ml-1 size-3 motion-safe:animate-spin" />
       </.flash>
     </div>
+    """
+  end
+
+  # Accent choices shown in the picker: {key, swatch colour, label}.
+  @accents [
+    {"green", "#2e5e44", "Green"},
+    {"blue", "#2563eb", "Blue"},
+    {"teal", "#0d7d74", "Teal"},
+    {"violet", "#7c3aed", "Violet"},
+    {"amber", "#b45309", "Amber"},
+    {"rose", "#be123c", "Rose"},
+    {"slate", "#475569", "Slate"}
+  ]
+
+  @doc """
+  Accent-colour picker for the top bar — a palette popover of swatches,
+  independent of the light/dark theme. Applied client-side via `data-accent`
+  on `<html>` (see the inline script in root.html.heex), so it needs no server
+  state and persists across reloads and tabs.
+  """
+  def accent_picker(assigns) do
+    assigns = assign(assigns, :accents, @accents)
+
+    ~H"""
+    <details class="accent-picker">
+      <summary class="accent-picker-trigger" title="Accent colour" aria-label="Accent colour">
+        <span class="accent-picker-current"></span>
+      </summary>
+      <div class="accent-picker-panel">
+        <button
+          :for={{key, color, label} <- @accents}
+          type="button"
+          class="accent-swatch"
+          data-accent-opt={key}
+          data-phx-accent={key}
+          phx-click={JS.dispatch("phx:set-accent")}
+          style={"--swatch: #{color}"}
+          title={label}
+          aria-label={label}
+        ></button>
+      </div>
+    </details>
     """
   end
 

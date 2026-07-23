@@ -39,6 +39,16 @@
             document.documentElement.setAttribute("data-theme", systemTheme());
           }
         });
+
+        // Accent colour — independent of light/dark. Default "green".
+        const setAccent = (accent) => {
+          accent = accent || "green";
+          localStorage.setItem("phx:accent", accent);
+          document.documentElement.setAttribute("data-accent", accent);
+        };
+        setAccent(localStorage.getItem("phx:accent"));
+        window.addEventListener("storage", (e) => e.key === "phx:accent" && setAccent(e.newValue));
+        window.addEventListener("phx:set-accent", (e) => setAccent(e.target.dataset.phxAccent));
       })();
     </script>
   </head>
