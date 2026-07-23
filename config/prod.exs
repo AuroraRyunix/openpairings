@@ -20,6 +20,11 @@ config :pairings_engine, PairingsEngineWeb.Endpoint,
     ]
   ]
 
+# Mark the session cookie https-only in production (read at compile time by
+# the endpoint's @session_options). Safe because prod always runs behind TLS
+# with `force_ssl` above; dev/test stay over http and leave this unset.
+config :pairings_engine, secure_cookies: true
+
 # Do not print debug messages in production
 config :logger, level: :info
 

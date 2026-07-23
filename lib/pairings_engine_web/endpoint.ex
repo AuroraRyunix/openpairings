@@ -4,11 +4,17 @@ defmodule PairingsEngineWeb.Endpoint do
   # The session will be stored in the cookie and signed,
   # this means its contents can be read but not tampered with.
   # Set :encryption_salt if you would also like to encrypt it.
+  # `secure: true` marks the session cookie https-only. It's set in prod (see
+  # config/prod.exs) and left off in dev/test, which run over plain http —
+  # a `secure` cookie would never be sent there, breaking login locally.
+  # Defence in depth on top of the `force_ssl`/HSTS already configured in
+  # config/prod.exs.
   @session_options [
     store: :cookie,
     key: "_pairings_engine_key",
     signing_salt: "Uti9o2Qk",
-    same_site: "Lax"
+    same_site: "Lax",
+    secure: Application.compile_env(:pairings_engine, :secure_cookies, false)
   ]
 
   socket "/live", Phoenix.LiveView.Socket,
