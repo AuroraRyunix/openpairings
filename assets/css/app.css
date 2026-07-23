@@ -830,6 +830,20 @@ button.pe-btn, .pe-btn {
 .modal-card h2 { margin-top: 0; }
 .modal-card .actions { margin-top: 18px; }
 
+/* Database auto-fill actions at the top of the player-registration modal —
+   pulled out of the National-ID field so it's no longer an oversized cell. */
+.modal-lookup-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
 .radio-row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
 .radio-row label { display: flex; align-items: center; gap: 6px; font-weight: 500; cursor: pointer; }
 .radio-row input { width: auto; accent-color: var(--accent); }

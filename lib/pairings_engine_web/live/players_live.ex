@@ -1271,37 +1271,69 @@ defmodule PairingsEngineWeb.PlayersLive do
       <form class="modal-card" phx-submit="save_player" phx-click-away="close_edit">
         <h2>Player registration</h2>
 
+        <div class="modal-lookup-bar">
+          <span class="hint" style="margin:0">Auto-fill from the local rating databases:</span>
+          <button
+            type="button"
+            class="pe-btn"
+            phx-click="refresh_edit_fide"
+            title="Look up this player in the local FIDE rating database (by FIDE ID if set, otherwise by name) and fill in their title, FIDE rating, federation and birth year"
+          >
+            FIDE lookup
+          </button>
+          <button
+            type="button"
+            class="pe-btn"
+            phx-click="refresh_edit_kbsb"
+            title="Look up this player in the local KBSB (Belgian) rating database by National ID and fill in their national rating, club, federation, birth year and FIDE ID"
+          >
+            KBSB lookup
+          </button>
+        </div>
+
         <div class="form-grid">
           <label class="field" style="grid-column: 1 / -1">
             <span>Name</span> <input name="player[name]" value={@form["name"]} />
           </label>
 
+          <%!-- Identity --%>
           <label class="field">
-            <span>Id Number</span>
-            <div style="display:flex; gap:8px">
-              <input name="player[national_id]" value={@form["national_id"]} />
-              <button
-                type="button"
-                class="pe-btn"
-                phx-click="refresh_edit_fide"
-                title="Look up this player in the local FIDE rating database (by FIDE ID if set, otherwise by name) and fill in their title, FIDE rating, federation and birth year"
-              >
-                FIDE lookup
-              </button>
-
-              <button
-                type="button"
-                class="pe-btn"
-                phx-click="refresh_edit_kbsb"
-                title="Look up this player in the local KBSB (Belgian) rating database by National ID and fill in their national rating, club, federation, birth year and FIDE ID"
-              >
-                KBSB lookup
-              </button>
-            </div>
+            <span>National ID</span>
+            <input name="player[national_id]" value={@form["national_id"]} />
           </label>
 
           <label class="field">
-            <span>Birth Year</span>
+            <span>FIDE ID</span> <input name="player[fide_id]" value={@form["fide_id"]} />
+          </label>
+
+          <label class="field">
+            <span>Country</span>
+            <input name="player[federation]" value={@form["federation"]} placeholder="BEL" />
+          </label>
+
+          <%!-- Ratings & title --%>
+          <label class="field">
+            <span>National Elo</span>
+            <input type="number" name="player[national_rating]" value={@form["national_rating"]} />
+          </label>
+
+          <label class="field">
+            <span>FIDE Elo</span>
+            <input type="number" name="player[fide_rating]" value={@form["fide_rating"]} />
+          </label>
+
+          <label class="field">
+            <span>Title</span>
+            <select name="player[title]">
+              <option value="">—</option>
+
+              <option :for={t <- @titles} value={t} selected={@form["title"] == t}>{t}</option>
+            </select>
+          </label>
+
+          <%!-- Personal --%>
+          <label class="field">
+            <span>Birth year</span>
             <input type="number" name="player[birth_year]" value={@form["birth_year"]} />
           </label>
 
@@ -1314,43 +1346,6 @@ defmodule PairingsEngineWeb.PlayersLive do
               F</label>
             </div>
           </div>
-
-          <label class="field">
-            <span>Club</span> <input name="player[club]" value={@form["club"]} />
-          </label>
-
-          <label class="field">
-            <span>Club nr</span>
-            <input type="number" name="player[club_number]" value={@form["club_number"]} />
-          </label>
-
-          <label class="field">
-            <span>Country</span>
-            <input name="player[federation]" value={@form["federation"]} placeholder="BEL" />
-          </label>
-
-          <label class="field">
-            <span>N-Elo</span>
-            <input type="number" name="player[national_rating]" value={@form["national_rating"]} />
-          </label>
-
-          <label class="field">
-            <span>Title</span>
-            <select name="player[title]">
-              <option value="">—</option>
-
-              <option :for={t <- @titles} value={t} selected={@form["title"] == t}>{t}</option>
-            </select>
-          </label>
-
-          <label class="field">
-            <span>FIDE Id</span> <input name="player[fide_id]" value={@form["fide_id"]} />
-          </label>
-
-          <label class="field">
-            <span>Elo FIDE</span>
-            <input type="number" name="player[fide_rating]" value={@form["fide_rating"]} />
-          </label>
 
           <label class="field">
             <span>Category</span>
@@ -1378,6 +1373,39 @@ defmodule PairingsEngineWeb.PlayersLive do
               name="player[category]"
               value={@form["category"]}
             />
+          </label>
+
+          <%!-- Club & board --%>
+          <label class="field">
+            <span>Club</span> <input name="player[club]" value={@form["club"]} />
+          </label>
+
+          <label class="field">
+            <span>Club nr</span>
+            <input type="number" name="player[club_number]" value={@form["club_number"]} />
+          </label>
+
+          <label class="field">
+            <span>Fixed table</span>
+            <input
+              type="number"
+              min="1"
+              name="player[fixed_board]"
+              value={@form["fixed_board"]}
+              placeholder="none"
+              title="Displays/prints this player's games at this table number, regardless of normal board order"
+            />
+          </label>
+
+          <%!-- Scoring admin --%>
+          <label class="field">
+            <span>Extra points</span>
+            <input type="number" step="0.5" name="player[extra_points]" value={@form["extra_points"]} />
+          </label>
+
+          <label class="field" style="grid-column: span 2">
+            <span>Absent at the rounds (e.g. 3,5 or 2-4)</span>
+            <input name="player[absent_rounds]" value={@form["absent_rounds"]} />
           </label>
 
           <div class="field" style="grid-column: 1 / -1">
@@ -1425,28 +1453,6 @@ defmodule PairingsEngineWeb.PlayersLive do
               /> Forfeit
             </label>
           </div>
-
-          <label class="field">
-            <span>Fixed table</span>
-            <input
-              type="number"
-              min="1"
-              name="player[fixed_board]"
-              value={@form["fixed_board"]}
-              placeholder="none"
-              title="Displays/prints this player's games at this table number, regardless of normal board order"
-            />
-          </label>
-
-          <label class="field" style="grid-column: 1 / -1">
-            <span>Absent at the rounds (e.g. 3,5 or 2-4)</span>
-            <input name="player[absent_rounds]" value={@form["absent_rounds"]} />
-          </label>
-
-          <label class="field">
-            <span>Extra Points</span>
-            <input type="number" step="0.5" name="player[extra_points]" value={@form["extra_points"]} />
-          </label>
         </div>
 
         <p :if={@error} class="error-note">{@error}</p>
