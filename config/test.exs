@@ -18,8 +18,11 @@ config :pairings_engine, PairingsEngine.Repo,
   # write lock under ExUnit's default parallelism. The 2000ms adapter
   # default was occasionally too short for that, surfacing as a flaky
   # `Exqlite.Error: Database busy` — give contending writers more time to
-  # queue instead of erroring out.
-  busy_timeout: 15_000,
+  # queue instead of erroring out. Raised to 30s after CI still occasionally
+  # hit the error when a checked-out connection's client exited mid-write (a
+  # LiveView receiving a late PubSub broadcast during test teardown) and the
+  # next writer briefly saw the lock held.
+  busy_timeout: 30_000,
   # In the default rollback-journal mode a mere READER blocks every writer,
   # and the SQL Sandbox keeps a transaction open per checked-out connection
   # for the whole test — so one long-lived sandbox read transaction starves
