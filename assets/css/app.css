@@ -1790,15 +1790,31 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   text-align: center;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 900px) {
+  /* Phones/tablets/small laptops: single column, natural page scroll (no
+     fixed-height card — the top bar wraps taller here, so a fixed
+     viewport-height would clip). The two-column card needs more width to
+     look right, so below this the hero shrinks to a compact banner and the
+     form flows beneath it. */
+  .page:has(.auth-wrap) {
+    display: block;
+    height: auto;
+    overflow: visible;
+  }
   .auth-wrap {
     grid-template-columns: 1fr;
-    max-width: 420px;
-    min-height: 0;
+    width: 100%;
+    height: auto;
+    min-height: calc(100vh - 56px);
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
   }
-  .auth-hero { padding: 34px 32px; }
-  .auth-hero-title { font-size: 24px; }
-  .auth-hero-sub { margin-bottom: 22px; }
+  .auth-hero { padding: 22px 22px 18px; }
+  .auth-hero-brand { margin-bottom: 14px; }
+  .auth-hero-title { font-size: 21px; margin-bottom: 6px; }
+  .auth-hero-sub,
   .auth-features { display: none; }
-  .auth-panel { padding: 32px 28px; }
+  .auth-hero-cta { margin-top: 14px; }
+  .auth-panel { padding: 22px; overflow: visible; }
 }
