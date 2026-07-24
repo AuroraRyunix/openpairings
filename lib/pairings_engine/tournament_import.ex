@@ -143,27 +143,49 @@ defmodule PairingsEngine.TournamentImport do
   # forbidden pairing referencing a player id that isn't in `player_map`
   # (only possible from a hand-edited/corrupt file) is silently dropped
   # rather than failing the whole import.
+  # Valid `byes.type` values (see PairingsEngine.Standings.bye_points/2). An
+  # imported row carrying anything else would score in nonstandard ways, so it
+  # falls back to the neutral half-point bye rather than being trusted.
+  @bye_types ~w(requested-half requested-zero absent pairing-allocated)
+
   defp import_byes!(tournament, byes, player_map) do
     rows =
       byes
       |> Enum.map(fn b ->
-        case Map.get(player_map, Map.get(b, "player_id")) do
-          nil ->
-            nil
-
-          player_id ->
-            %{
-              tournament_id: tournament.id,
-              player_id: player_id,
-              round: Map.get(b, "round"),
-              type: Map.get(b, "type") || "requested-half"
-            }
+        with player_id when not is_nil(player_id) <-
+               Map.get(player_map, Map.get(b, "player_id")),
+             round when is_integer(round) <- coerce_round(Map.get(b, "round")) do
+          %{
+            tournament_id: tournament.id,
+            player_id: player_id,
+            round: round,
+            type: bye_type(Map.get(b, "type"))
+          }
+        else
+          _ -> nil
         end
       end)
       |> Enum.reject(&is_nil/1)
 
+    # These bypass Ecto.Changeset, so the values are checked here: SQLite's
+    # dynamic typing would otherwise store a string `round` or a bogus `type`
+    # straight from a hand-edited backup.
     if rows != [], do: Repo.insert_all("byes", rows)
   end
+
+  defp coerce_round(round) when is_integer(round) and round > 0, do: round
+
+  defp coerce_round(round) when is_binary(round) do
+    case Integer.parse(round) do
+      {n, ""} when n > 0 -> n
+      _ -> nil
+    end
+  end
+
+  defp coerce_round(_), do: nil
+
+  defp bye_type(type) when type in @bye_types, do: type
+  defp bye_type(_), do: "requested-half"
 
   defp import_forbidden_pairings!(tournament, forbidden, player_map) do
     rows =
