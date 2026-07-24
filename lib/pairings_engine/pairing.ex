@@ -18,6 +18,26 @@ defmodule PairingsEngine.Pairing do
     Path.join(:code.priv_dir(:pairings_engine), "javafo/javafo.jar")
   end
 
+  # A private scratch directory for one JaVaFo run, removed again when that
+  # run finishes.
+  #
+  # These files hold the tournament's whole roster, and the previous fixed
+  # path (`$TMPDIR/pairingsengine/t<id>_r<n>.trf`) was entirely predictable:
+  # on a shared host any other local account could read the players out of it,
+  # or pre-create the path as a symlink and have `File.write!/2` follow it and
+  # clobber a file of their choosing under this app's user. A random directory
+  # name can't be guessed ahead of the write, and 0700 keeps its contents to
+  # this user even where $TMPDIR is world-readable.
+  defp workdir! do
+    suffix = :crypto.strong_rand_bytes(12) |> Base.url_encode64(padding: false)
+    dir = Path.join(System.tmp_dir!(), "pairingsengine-#{suffix}")
+
+    File.mkdir_p!(dir)
+    File.chmod!(dir, 0o700)
+
+    dir
+  end
+
   @doc """
   Pairs the next round. Dispatches on `tournament.pairing_system`:
 
@@ -292,32 +312,36 @@ defmodule PairingsEngine.Pairing do
 
     trf = javafo_input(tournament, full_roster, local_rank_by_player_id, eligible_ids)
 
-    dir = Path.join(System.tmp_dir!(), "pairingsengine")
-    File.mkdir_p!(dir)
+    dir = workdir!()
     input = Path.join(dir, "t#{tournament.id}_r#{next_number}.trf")
     output = Path.join(dir, "t#{tournament.id}_r#{next_number}_pairs.txt")
-    File.write!(input, trf)
 
-    case System.cmd("java", ["-jar", javafo_jar(), input, "-p", output], stderr_to_stdout: true) do
-      {_out, 0} ->
-        case output |> File.read!() |> parse_pairs() do
-          {:ok, pairs} ->
-            create_round(pairs, tournament, player_by_local_rank, next_number, round_absentees)
+    try do
+      File.write!(input, trf)
 
-          {:error, message} ->
-            Logger.error(
-              "JaVaFo produced no pairings output for tournament #{tournament.id} round #{next_number} (exit 0, empty output file)"
-            )
+      case System.cmd("java", ["-jar", javafo_jar(), input, "-p", output], stderr_to_stdout: true) do
+        {_out, 0} ->
+          case output |> File.read!() |> parse_pairs() do
+            {:ok, pairs} ->
+              create_round(pairs, tournament, player_by_local_rank, next_number, round_absentees)
 
-            {:error, message}
-        end
+            {:error, message} ->
+              Logger.error(
+                "JaVaFo produced no pairings output for tournament #{tournament.id} round #{next_number} (exit 0, empty output file)"
+              )
 
-      {out, code} ->
-        Logger.error(
-          "JaVaFo failed for tournament #{tournament.id} round #{next_number} (exit #{code}):\n#{out}"
-        )
+              {:error, message}
+          end
 
-        {:error, "JaVaFo failed (exit #{code}):\n#{out}"}
+        {out, code} ->
+          Logger.error(
+            "JaVaFo failed for tournament #{tournament.id} round #{next_number} (exit #{code}):\n#{out}"
+          )
+
+          {:error, "JaVaFo failed (exit #{code}):\n#{out}"}
+      end
+    after
+      File.rm_rf(dir)
     end
   end
 
@@ -464,33 +488,37 @@ defmodule PairingsEngine.Pairing do
         shared_history
       )
 
-    dir = Path.join(System.tmp_dir!(), "pairingsengine")
-    File.mkdir_p!(dir)
+    dir = workdir!()
     slug = category_file_slug(category_name, index)
     input = Path.join(dir, "t#{tournament.id}_r#{next_number}_cat_#{slug}.trf")
     output = Path.join(dir, "t#{tournament.id}_r#{next_number}_cat_#{slug}_pairs.txt")
-    File.write!(input, trf)
 
-    case System.cmd("java", ["-jar", javafo_jar(), input, "-p", output], stderr_to_stdout: true) do
-      {_out, 0} ->
-        case output |> File.read!() |> parse_pairs() do
-          {:ok, pairs} ->
-            {:ok, {category_name, :javafo, pairs, player_by_local_rank}}
+    try do
+      File.write!(input, trf)
 
-          {:error, message} ->
-            Logger.error(
-              "JaVaFo produced no pairings output for tournament #{tournament.id} round #{next_number} category #{category_name} (exit 0, empty output file)"
-            )
+      case System.cmd("java", ["-jar", javafo_jar(), input, "-p", output], stderr_to_stdout: true) do
+        {_out, 0} ->
+          case output |> File.read!() |> parse_pairs() do
+            {:ok, pairs} ->
+              {:ok, {category_name, :javafo, pairs, player_by_local_rank}}
 
-            {:error, "#{message} (category \"#{category_name}\")"}
-        end
+            {:error, message} ->
+              Logger.error(
+                "JaVaFo produced no pairings output for tournament #{tournament.id} round #{next_number} category #{category_name} (exit 0, empty output file)"
+              )
 
-      {out, code} ->
-        Logger.error(
-          "JaVaFo failed for tournament #{tournament.id} round #{next_number} category #{category_name} (exit #{code}):\n#{out}"
-        )
+              {:error, "#{message} (category \"#{category_name}\")"}
+          end
 
-        {:error, "JaVaFo failed for category \"#{category_name}\" (exit #{code}):\n#{out}"}
+        {out, code} ->
+          Logger.error(
+            "JaVaFo failed for tournament #{tournament.id} round #{next_number} category #{category_name} (exit #{code}):\n#{out}"
+          )
+
+          {:error, "JaVaFo failed for category \"#{category_name}\" (exit #{code}):\n#{out}"}
+      end
+    after
+      File.rm_rf(dir)
     end
   end
 
