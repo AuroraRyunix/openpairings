@@ -53,6 +53,78 @@ defmodule PairingsEngineWeb.UserLive.LoginTest do
 
       assert html =~ "If your email is in our system"
     end
+
+    test "stops sending once one address has been asked for too many links", %{conn: conn} do
+      user = user_fixture()
+      %{max: max} = PairingsEngine.RateLimit.config(:login_email)
+
+      # The client bucket is keyed on 127.0.0.1 for every test in this file,
+      # so reset both ends around this one.
+      reset = fn ->
+        PairingsEngine.RateLimit.clear(:login_email, user.email)
+        PairingsEngine.RateLimit.clear(:login_client, "127.0.0.1")
+      end
+
+      reset.()
+      on_exit(reset)
+
+      for _ <- 1..max do
+        {:ok, lv, _html} = live(conn, ~p"/users/log-in")
+
+        form(lv, "#login_form_magic", user: %{email: user.email})
+        |> render_submit()
+        |> follow_redirect(conn, ~p"/users/log-in")
+      end
+
+      {:ok, lv, _html} = live(conn, ~p"/users/log-in")
+
+      {:ok, _lv, html} =
+        form(lv, "#login_form_magic", user: %{email: user.email})
+        |> render_submit()
+        |> follow_redirect(conn, ~p"/users/log-in")
+
+      assert html =~ "That&#39;s a lot of log-in links"
+
+      # The point of the limit: no further mail, so no further tokens.
+      login_tokens =
+        PairingsEngine.Accounts.UserToken
+        |> PairingsEngine.Repo.all()
+        |> Enum.filter(&(&1.user_id == user.id and &1.context == "login"))
+
+      assert length(login_tokens) == max
+    end
+
+    test "the limit is counted per address, not globally", %{conn: conn} do
+      first = user_fixture()
+      second = user_fixture()
+      %{max: max} = PairingsEngine.RateLimit.config(:login_email)
+
+      reset = fn ->
+        PairingsEngine.RateLimit.clear(:login_email, first.email)
+        PairingsEngine.RateLimit.clear(:login_email, second.email)
+        PairingsEngine.RateLimit.clear(:login_client, "127.0.0.1")
+      end
+
+      reset.()
+      on_exit(reset)
+
+      for _ <- 1..max do
+        {:ok, lv, _html} = live(conn, ~p"/users/log-in")
+
+        form(lv, "#login_form_magic", user: %{email: first.email})
+        |> render_submit()
+        |> follow_redirect(conn, ~p"/users/log-in")
+      end
+
+      {:ok, lv, _html} = live(conn, ~p"/users/log-in")
+
+      {:ok, _lv, html} =
+        form(lv, "#login_form_magic", user: %{email: second.email})
+        |> render_submit()
+        |> follow_redirect(conn, ~p"/users/log-in")
+
+      assert html =~ "If your email is in our system"
+    end
   end
 
   describe "user login - password" do

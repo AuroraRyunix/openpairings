@@ -1,8 +1,9 @@
 defmodule PairingsEngineWeb.UserLive.Registration do
   use PairingsEngineWeb, :live_view
 
-  alias PairingsEngine.Accounts
+  alias PairingsEngine.{Accounts, RateLimit}
   alias PairingsEngine.Accounts.User
+  alias PairingsEngineWeb.ClientIp
 
   @impl true
   def render(assigns) do
@@ -130,11 +131,38 @@ defmodule PairingsEngineWeb.UserLive.Registration do
   def mount(_params, _session, socket) do
     changeset = Accounts.change_user_email(%User{}, %{}, validate_unique: false)
 
-    {:ok, assign_form(socket, changeset), temporary_assigns: [form: nil]}
+    # Connect info is only readable while mounting; kept for the send limit in
+    # `handle_event("save", ...)`. Registration will mail ANY address typed
+    # here, so this endpoint needs the same throttle as the log-in form.
+    {:ok,
+     socket
+     |> assign(client_ip: ClientIp.from_socket(socket))
+     |> assign_form(changeset), temporary_assigns: [form: nil]}
   end
 
   @impl true
   def handle_event("save", %{"user" => user_params}, socket) do
+    limits = rate_limits(socket, user_params["email"])
+
+    if Enum.all?(limits, fn {bucket, key} -> RateLimit.allow?(bucket, key) end) do
+      Enum.each(limits, fn {bucket, key} -> RateLimit.record(bucket, key) end)
+      do_register(socket, user_params)
+    else
+      {:noreply,
+       put_flash(
+         socket,
+         :error,
+         "Too many sign-up emails from here just now. Try again in a few minutes."
+       )}
+    end
+  end
+
+  def handle_event("validate", %{"user" => user_params}, socket) do
+    changeset = Accounts.change_user_email(%User{}, user_params, validate_unique: false)
+    {:noreply, assign_form(socket, Map.put(changeset, :action, :validate))}
+  end
+
+  defp do_register(socket, user_params) do
     case Accounts.register_user(user_params) do
       {:ok, user} ->
         case Accounts.deliver_login_instructions(user, &url(~p"/users/log-in/#{&1}")) do
@@ -165,9 +193,16 @@ defmodule PairingsEngineWeb.UserLive.Registration do
     end
   end
 
-  def handle_event("validate", %{"user" => user_params}, socket) do
-    changeset = Accounts.change_user_email(%User{}, user_params, validate_unique: false)
-    {:noreply, assign_form(socket, Map.put(changeset, :action, :validate))}
+  # Shares the `:login_email` bucket with the log-in form on purpose: both
+  # send a magic link, so counting them together is what actually bounds how
+  # much mail one address (or one client) can trigger.
+  defp rate_limits(socket, email) do
+    recipient = email |> to_string() |> String.trim() |> String.downcase()
+
+    case socket.assigns[:client_ip] do
+      nil -> [{:login_email, recipient}]
+      ip -> [{:login_email, recipient}, {:login_client, ip}]
+    end
   end
 
   defp assign_form(socket, %Ecto.Changeset{} = changeset) do
