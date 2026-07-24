@@ -137,8 +137,15 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # Unguessable token for the public (no-login) read-only pages — see
     # docs/public-pages.md. Deliberately not the numeric `id`, which is
     # sequential and easy to enumerate. Always set (never nil) — see
-    # `put_public_slug/1` below, applied by every creation path.
+    # `put_public_slug/1` below, applied by every creation path. Rotated by
+    # Tournaments.rotate_public_slug/1 to kill a leaked link.
     field :public_slug, :string
+
+    # Whether the public pages are actually served. Toggled by
+    # Tournaments.set_public_pages/2; when false, /p/:slug/... 404s even with
+    # the right slug. NOT cast by changeset/2 (same as public_slug) so a normal
+    # settings save can't flip it — the two writers above are the only ones.
+    field :public_pages_enabled, :boolean, default: true
 
     # Pairing engine dispatch (see PairingsEngine.Pairing.pair_next_round/1):
     # "swiss" | "round_robin" | "keizer". Locked in the UI once the
@@ -670,10 +677,12 @@ defmodule PairingsEngine.Tournaments.Tournament do
     if get_field(changeset, :public_slug) do
       changeset
     else
-      slug = :crypto.strong_rand_bytes(9) |> Base.url_encode64(padding: false)
-      put_change(changeset, :public_slug, slug)
+      put_change(changeset, :public_slug, generate_public_slug())
     end
   end
+
+  @doc "A fresh random public-page slug (72 bits, url-safe). Also used by Tournaments.rotate_public_slug/1."
+  def generate_public_slug, do: :crypto.strong_rand_bytes(9) |> Base.url_encode64(padding: false)
 
   @doc """
   The fields an arbiter must fill before a tournament can be paired. Until

@@ -138,4 +138,62 @@ defmodule PairingsEngineWeb.PublicTournamentPagesTest do
 
     assert render(lv) =~ "no longer available"
   end
+
+  describe "disabling and rotating the public link" do
+    test "the correct slug 404s once public pages are turned off", %{conn: conn} do
+      tournament = fixture()
+
+      # Works while enabled...
+      {:ok, _lv, _html} = live(conn, ~p"/p/#{tournament.public_slug}/standings")
+
+      {:ok, tournament} = Tournaments.set_public_pages(tournament, false)
+
+      # ...and the same slug is a 404 once off.
+      assert_raise Ecto.NoResultsError, fn ->
+        live(conn, ~p"/p/#{tournament.public_slug}/standings")
+      end
+
+      assert_raise Ecto.NoResultsError, fn ->
+        live(conn, ~p"/p/#{tournament.public_slug}/pairings")
+      end
+
+      # Turning it back on restores the same link.
+      {:ok, tournament} = Tournaments.set_public_pages(tournament, true)
+      {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/standings")
+      assert html =~ "Open Public Cup"
+    end
+
+    test "rotating the slug kills the old link and mints a working new one", %{conn: conn} do
+      tournament = fixture()
+      old_slug = tournament.public_slug
+
+      {:ok, tournament} = Tournaments.rotate_public_slug(tournament)
+
+      assert tournament.public_slug != old_slug
+
+      assert_raise Ecto.NoResultsError, fn ->
+        live(conn, ~p"/p/#{old_slug}/standings")
+      end
+
+      {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/standings")
+      assert html =~ "Open Public Cup"
+    end
+
+    test "a normal settings save leaves sharing untouched (not cast by changeset)", %{conn: _conn} do
+      tournament = fixture()
+      {:ok, tournament} = Tournaments.set_public_pages(tournament, false)
+      slug = tournament.public_slug
+
+      {:ok, updated} =
+        Tournaments.update_tournament(tournament, %{
+          "public_pages_enabled" => "true",
+          "public_slug" => "attacker-chosen",
+          "venue" => "Some Hall"
+        })
+
+      assert updated.public_pages_enabled == false
+      assert updated.public_slug == slug
+      assert updated.venue == "Some Hall"
+    end
+  end
 end

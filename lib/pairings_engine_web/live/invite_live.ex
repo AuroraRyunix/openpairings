@@ -33,7 +33,10 @@ defmodule PairingsEngineWeb.InviteLive do
   defp load_invitation(socket) do
     scope = socket.assigns.current_scope
 
-    case Tournaments.find_invitation(socket.assigns.token) do
+    # By token only. Resolving a numeric segment as a collaborator id would
+    # make every pending invitation in the system readable by walking
+    # `/invites/1`, `/invites/2`, ... — see `find_invitation_by_token/1`.
+    case Tournaments.find_invitation_by_token(socket.assigns.token) do
       nil ->
         assign(socket, invitation: nil, tournament: nil, owner_email: nil, mismatch?: false)
 
@@ -57,7 +60,15 @@ defmodule PairingsEngineWeb.InviteLive do
 
   defp normalize(email), do: email |> to_string() |> String.trim() |> String.downcase()
 
+  # No loaded invitation means the token matched nothing, so there is nothing
+  # to act on — and in particular the raw URL segment never reaches
+  # `find_invitation/1`'s id branch from here.
   @impl true
+  def handle_event(event, _params, %{assigns: %{invitation: nil}} = socket)
+      when event in ["accept", "decline"] do
+    {:noreply, socket}
+  end
+
   def handle_event("accept", _params, socket) do
     case Tournaments.accept_invitation(socket.assigns.current_scope, socket.assigns.token) do
       {:ok, collaborator} ->

@@ -110,6 +110,27 @@ defmodule PairingsEngineWeb.InviteLiveTest do
 
       assert html =~ "Invitation not found"
     end
+
+    test "a collaborator id in the URL reveals nothing — invitations are found by token only",
+         %{scope: owner_scope, conn: conn} do
+      # `conn` is a *different* logged-in user (the owner) from the invitee.
+      # Row ids are sequential and guessable, so resolving one here would have
+      # let any account walk /invites/1, /invites/2, ... and harvest the email
+      # address of every pending invitee in the system.
+      tournament = fixture(owner_scope)
+      invitee = lightweight_user()
+      {:ok, invite} = Tournaments.add_collaborator(owner_scope, tournament, invitee.email)
+
+      {:ok, lv, html} = live(conn, ~p"/invites/#{invite.id}")
+
+      assert html =~ "Invitation not found"
+      refute html =~ invitee.email
+      refute html =~ tournament.name
+
+      # ...and the buttons that would act on it aren't there to be clicked.
+      assert lv |> element("button", "Accept") |> has_element?() == false
+      assert %{status: "pending"} = hd(Tournaments.list_collaborators(tournament))
+    end
   end
 
   describe "logged-out visitor is carried back to /invites/:token after auth (return_to)" do
