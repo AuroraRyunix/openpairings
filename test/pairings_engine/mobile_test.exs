@@ -13,12 +13,27 @@ defmodule PairingsEngine.MobileTest do
   end
 
   describe "create_enrollment/2" do
-    test "produces a URL token and a 6-digit numeric code" do
+    test "produces a URL token and an 8-digit numeric code" do
       {:ok, e} = Mobile.create_enrollment(tournament().id)
 
       assert byte_size(e.token) >= 20
-      assert e.code =~ ~r/^\d{6}$/
+      assert e.code =~ ~r/^\d{8}$/
       assert DateTime.compare(e.expires_at, DateTime.utc_now()) == :gt
+    end
+
+    test "codes spread across the whole 8-digit range" do
+      # A cheap smoke test that the generator is not stuck in a corner of the
+      # range (a bad rejection-sampling bound, an off-by-a-decade start), and
+      # that repeated calls do not collide.
+      codes =
+        for _ <- 1..40 do
+          {:ok, e} = Mobile.create_enrollment(tournament().id)
+          String.to_integer(e.code)
+        end
+
+      assert Enum.all?(codes, &(&1 >= 10_000_000 and &1 <= 99_999_999))
+      assert length(Enum.uniq(codes)) == 40
+      assert Enum.max(codes) - Enum.min(codes) > 10_000_000
     end
   end
 

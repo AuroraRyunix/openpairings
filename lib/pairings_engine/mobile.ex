@@ -105,15 +105,35 @@ defmodule PairingsEngine.Mobile do
 
   defp gen_token, do: :crypto.strong_rand_bytes(18) |> Base.url_encode64(padding: false)
 
-  # 6-digit code, unique among currently-active enrollments (short-lived and
-  # rate-limited at the entry endpoint, so a 6-digit space is acceptable).
+  # 8-digit code, unique among currently-active enrollments.
+  #
+  # Two properties matter here, and the obvious `Enum.random(100_000..999_999)`
+  # had neither. First, this is a bearer credential, so it comes from the
+  # CSPRNG rather than `:rand`'s observable, seedable state. Second, `code` is
+  # matched by `get_active_by_code/1` across EVERY tournament, so a guess wins
+  # if it hits any live enrollment anywhere: with N active phones the odds per
+  # attempt are N/space, not 1/space. Six digits left that far too small once
+  # a few tournaments run at once; eight costs the arbiter's helper two extra
+  # taps (and nothing at all on the QR path, which is the normal route).
   defp gen_unique_code(attempts \\ 0) do
-    code = 100_000..999_999 |> Enum.random() |> Integer.to_string()
+    code = random_code() |> Integer.to_string()
 
     cond do
       attempts > 20 -> code
       get_active_by_code(code) == nil -> code
       true -> gen_unique_code(attempts + 1)
+    end
+  end
+
+  # Uniform over 10_000_000..99_999_999. Rejection sampling rather than a bare
+  # `rem/2`, which would make the low end of the range fractionally likelier.
+  @code_span 90_000_000
+  @largest_unbiased div(4_294_967_296, @code_span) * @code_span
+
+  defp random_code do
+    case :crypto.strong_rand_bytes(4) |> :binary.decode_unsigned() do
+      n when n < @largest_unbiased -> 10_000_000 + rem(n, @code_span)
+      _ -> random_code()
     end
   end
 end

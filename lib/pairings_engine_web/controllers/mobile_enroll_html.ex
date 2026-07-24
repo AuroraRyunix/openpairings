@@ -25,8 +25,8 @@ defmodule PairingsEngineWeb.MobileEnrollHTML do
             inputmode="numeric"
             autocomplete="one-time-code"
             pattern="[0-9]*"
-            maxlength="6"
-            placeholder="123456"
+            maxlength="8"
+            placeholder="12345678"
             autofocus
             class="mobile-code-input"
           />
