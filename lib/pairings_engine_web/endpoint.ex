@@ -17,9 +17,15 @@ defmodule PairingsEngineWeb.Endpoint do
     secure: Application.compile_env(:pairings_engine, :secure_cookies, false)
   ]
 
+  # `:peer_data` and `:x_headers` are what let a LiveView work out who it is
+  # talking to (`PairingsEngineWeb.ClientIp`), which the log-in page needs to
+  # rate-limit magic-link sends. Without them `get_connect_info/2` returns
+  # nil and every visitor looks alike.
+  @connect_info [:peer_data, :x_headers, session: @session_options]
+
   socket "/live", Phoenix.LiveView.Socket,
-    websocket: [connect_info: [session: @session_options]],
-    longpoll: [connect_info: [session: @session_options]]
+    websocket: [connect_info: @connect_info],
+    longpoll: [connect_info: @connect_info]
 
   # Serve at "/" the static files from "priv/static" directory.
   #

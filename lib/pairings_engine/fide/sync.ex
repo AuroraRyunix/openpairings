@@ -22,6 +22,13 @@ defmodule PairingsEngine.Fide.Sync do
   @receive_timeout_ms :timer.minutes(2)
   @max_download_attempts 3
 
+  # The real list is ~41 MB. This is a generous ceiling that still bounds how
+  # much a redirected, mirrored or misbehaving endpoint can stream into memory
+  # here: once crossed, the download is abandoned mid-stream rather than pulled
+  # to completion. The source is trusted (HTTPS ratings.fide.com), so this is a
+  # backstop, not a filter.
+  @max_download_bytes 250_000_000
+
   # Backstop for the whole sync (download + unpack + import combined): if no
   # progress update arrives for this long, something is stuck (hung socket,
   # wedged connection pool, etc.) and we fail the sync rather than leave the
@@ -258,28 +265,42 @@ defmodule PairingsEngine.Fide.Sync do
       loaded = Process.get(:sync_loaded) + byte_size(data)
       Process.put(:sync_loaded, loaded)
 
-      if loaded - Process.get(:sync_last_report) > 1_048_576 do
-        Process.put(:sync_last_report, loaded)
-        mb = Float.round(loaded / 1_048_576, 1)
-        total_mb = if total > 0, do: " of #{Float.round(total / 1_048_576, 1)}", else: ""
+      cond do
+        loaded > @max_download_bytes ->
+          # Stop pulling; do_download/4 sees the truncated body isn't a valid
+          # zip and reports a normal error.
+          Process.put(:sync_download_aborted, true)
+          {:halt, {req, resp}}
 
-        update(server, %{
-          state
-          | status: :downloading,
-            loaded_bytes: loaded,
-            total_bytes: total,
-            progress: "Downloading rating list… #{mb}#{total_mb} MB"
-        })
+        loaded - Process.get(:sync_last_report) > 1_048_576 ->
+          report_progress(server, state, loaded, total)
+          {:cont, {req, resp}}
+
+        true ->
+          {:cont, {req, resp}}
       end
-
-      {:cont, {req, resp}}
     end
+  end
+
+  defp report_progress(server, state, loaded, total) do
+    Process.put(:sync_last_report, loaded)
+    mb = Float.round(loaded / 1_048_576, 1)
+    total_mb = if total > 0, do: " of #{Float.round(total / 1_048_576, 1)}", else: ""
+
+    update(server, %{
+      state
+      | status: :downloading,
+        loaded_bytes: loaded,
+        total_bytes: total,
+        progress: "Downloading rating list… #{mb}#{total_mb} MB"
+    })
   end
 
   defp do_download(server, state, into, attempt) do
     Process.put(:sync_chunks, [])
     Process.put(:sync_loaded, 0)
     Process.put(:sync_last_report, 0)
+    Process.put(:sync_download_aborted, false)
 
     req_opts = [
       into: into,
@@ -292,9 +313,14 @@ defmodule PairingsEngine.Fide.Sync do
 
     case Req.get(@list_url, req_opts) do
       {:ok, %{status: 200}} ->
-        zip = Process.get(:sync_chunks) |> Enum.reverse() |> IO.iodata_to_binary()
-        loaded = byte_size(zip)
-        {:ok, zip, %{state | loaded_bytes: loaded, total_bytes: loaded}}
+        if Process.get(:sync_download_aborted) do
+          {:error,
+           "Rating list exceeded #{div(@max_download_bytes, 1_000_000)} MB — download stopped."}
+        else
+          zip = Process.get(:sync_chunks) |> Enum.reverse() |> IO.iodata_to_binary()
+          loaded = byte_size(zip)
+          {:ok, zip, %{state | loaded_bytes: loaded, total_bytes: loaded}}
+        end
 
       {:ok, %{status: status}} ->
         {:error, "FIDE server answered with HTTP status #{status}"}

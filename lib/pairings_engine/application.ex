@@ -17,7 +17,7 @@ defmodule PairingsEngine.Application do
       PairingsEngine.Fide.Sync,
       PairingsEngine.Kbsb.Sync,
       PairingsEngine.Tools.Session,
-      PairingsEngine.Mobile.RateLimit,
+      PairingsEngine.RateLimit,
       # Start to serve requests, typically the last entry
       PairingsEngineWeb.Endpoint
     ]

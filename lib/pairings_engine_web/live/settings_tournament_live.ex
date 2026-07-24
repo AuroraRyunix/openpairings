@@ -307,6 +307,40 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
     end
   end
 
+  ## ---------- Public pages (share link) ----------
+
+  def handle_event("toggle_public_pages", _params, socket) do
+    enabled? = !socket.assigns.tournament.public_pages_enabled
+
+    case Tournaments.set_public_pages(socket.assigns.tournament, enabled?) do
+      {:ok, tournament} ->
+        Audit.log(tournament.id, socket.assigns.current_scope, "public_pages.toggled", %{
+          enabled: enabled?
+        })
+
+        note = if enabled?, do: "Public pages are on.", else: "Public pages are off."
+        {:noreply, socket |> assign(tournament: tournament) |> put_flash(:info, note)}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Could not change public-page sharing")}
+    end
+  end
+
+  def handle_event("rotate_public_slug", _params, socket) do
+    case Tournaments.rotate_public_slug(socket.assigns.tournament) do
+      {:ok, tournament} ->
+        Audit.log(tournament.id, socket.assigns.current_scope, "public_pages.link_rotated", %{})
+
+        {:noreply,
+         socket
+         |> assign(tournament: tournament)
+         |> put_flash(:info, "New public link generated — the old one no longer works.")}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Could not generate a new link")}
+    end
+  end
+
   ## ---------- helpers ----------
 
   defp swap(list, index, delta) do
@@ -567,6 +601,55 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
         <p :if={@collaborators == []} class="hint" style="margin-bottom: 0">
           Nobody else has access to this tournament yet.
         </p>
+      </div>
+
+      <div class="card">
+        <h2>Public pages</h2>
+
+        <p class="hint" style="margin-top: 0">
+          Read-only standings and pairings anyone can open with the link below - no login. The
+          link is an unguessable token, but anyone who has it can see player names, ratings and
+          clubs, so treat it like a shared secret. Turn it off to take the public pages down, or
+          generate a new link to revoke one that has leaked.
+        </p>
+
+        <div class="set-field solo">
+          <span class="set-label">Status</span>
+          <div class="actions" style="margin-top: 6px; align-items: center; gap: 10px">
+            <span>{if @tournament.public_pages_enabled, do: "On", else: "Off"}</span>
+            <button type="button" class="pe-btn" phx-click="toggle_public_pages">
+              {if @tournament.public_pages_enabled, do: "Turn off", else: "Turn on"}
+            </button>
+          </div>
+        </div>
+
+        <div :if={@tournament.public_pages_enabled} class="set-field solo" style="margin-top: 10px">
+          <span class="set-label">Share link</span>
+          <div class="actions" style="margin-top: 6px; gap: 10px; flex-wrap: wrap">
+            <a
+              class="pe-btn"
+              href={~p"/p/#{@tournament.public_slug}/standings"}
+              target="_blank"
+            >
+              Open standings
+            </a>
+            <a
+              class="pe-btn"
+              href={~p"/p/#{@tournament.public_slug}/pairings"}
+              target="_blank"
+            >
+              Open pairings
+            </a>
+            <button
+              type="button"
+              class="pe-btn danger-link"
+              phx-click="rotate_public_slug"
+              data-confirm="Generate a new link? The current one will stop working immediately."
+            >
+              Generate new link
+            </button>
+          </div>
+        </div>
       </div>
 
       <div class="card">

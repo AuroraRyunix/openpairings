@@ -59,4 +59,51 @@ defmodule PairingsEngine.Tools.SessionTest do
     assert Session.delete(token) == :ok
     assert Session.get(token) == :error
   end
+
+  describe "memory budget" do
+    # This store backs an unauthenticated upload page, so the cap has to be in
+    # bytes, not just in rows: 500 entries of ten 5 MB uploads each would
+    # otherwise pin gigabytes for an hour. The budget is shrunk here rather
+    # than allocating real hundreds of megabytes, and every token these tests
+    # create is removed again — the ETS table outlives the test.
+    setup do
+      Application.put_env(:pairings_engine, :tools_session_max_bytes, 300_000)
+
+      on_exit(fn ->
+        Application.delete_env(:pairings_engine, :tools_session_max_bytes)
+        :ets.delete_all_objects(Session)
+      end)
+
+      :ok
+    end
+
+    test "a flood of large entries evicts the oldest and keeps total size bounded" do
+      blob = :binary.copy(<<0>>, 100_000)
+
+      tokens =
+        for _ <- 1..6 do
+          token = Session.put(Session.token(), %{blob: blob})
+          # Distinct expiry stamps, so "oldest first" is unambiguous rather
+          # than depending on how ETS happens to order same-millisecond rows.
+          Process.sleep(2)
+          token
+        end
+
+      total = :ets.foldl(fn {_t, _d, _e, bytes}, acc -> acc + bytes end, 0, Session)
+
+      assert total <= 300_000
+
+      # The most recent upload always survives — it is the one whose download
+      # link the person is about to click.
+      assert {:ok, %{blob: _}} = Session.get(List.last(tokens))
+      # ...and the oldest ones are what paid for it.
+      assert Session.get(List.first(tokens)) == :error
+    end
+
+    test "a single entry larger than the whole budget is still readable" do
+      token = Session.put(Session.token(), %{blob: :binary.copy(<<0>>, 900_000)})
+
+      assert {:ok, %{blob: _}} = Session.get(token)
+    end
+  end
 end

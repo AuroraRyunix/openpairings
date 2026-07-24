@@ -12,17 +12,16 @@ defmodule PairingsEngineWeb.MobileEnrollController do
   """
   use PairingsEngineWeb, :controller
 
-  alias PairingsEngine.Mobile
-  alias PairingsEngine.Mobile.RateLimit
-  alias PairingsEngineWeb.MobileAuth
+  alias PairingsEngine.{Mobile, RateLimit}
+  alias PairingsEngineWeb.{ClientIp, MobileAuth}
 
   def new(conn, _params), do: render(conn, :new, error: nil, code: "")
 
   def submit(conn, %{"code" => code}) do
-    ip = ip_string(conn)
+    ip = ClientIp.get(conn)
 
     cond do
-      not RateLimit.allow?(ip) ->
+      not RateLimit.allow?(:mobile_enroll, ip) ->
         conn
         |> put_status(429)
         |> render(:new,
@@ -31,14 +30,14 @@ defmodule PairingsEngineWeb.MobileEnrollController do
         )
 
       enrollment = Mobile.get_active_by_code(code) ->
-        RateLimit.clear(ip)
+        RateLimit.clear(:mobile_enroll, ip)
 
         conn
         |> MobileAuth.put_enrollment(enrollment)
         |> redirect(to: ~p"/m/results")
 
       true ->
-        RateLimit.record_failure(ip)
+        RateLimit.record(:mobile_enroll, ip)
         render(conn, :new, error: "That code is wrong or has expired.", code: code)
     end
   end
@@ -62,6 +61,4 @@ defmodule PairingsEngineWeb.MobileEnrollController do
     |> MobileAuth.clear_enrollment()
     |> redirect(to: ~p"/m")
   end
-
-  defp ip_string(conn), do: conn.remote_ip |> :inet.ntoa() |> to_string()
 end

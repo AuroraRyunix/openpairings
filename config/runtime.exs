@@ -104,6 +104,17 @@ end
 config :pairings_engine, PairingsEngineWeb.Endpoint,
   http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
+# How many reverse proxies sit in front of this app. Rate limiting (the mobile
+# enrollment code and the log-in email) keys on the client address, and behind
+# a proxy every request otherwise arrives from the proxy's own address — one
+# shared bucket for the whole venue. Set this to the number of proxies you
+# actually run (usually 1) so the address is read from the right position in
+# X-Forwarded-For; leaving it 0 means "no proxy", and the header is ignored
+# entirely rather than trusted. See PairingsEngineWeb.ClientIp.
+config :pairings_engine,
+       :trusted_proxy_hops,
+       String.to_integer(System.get_env("TRUSTED_PROXY_HOPS", "0"))
+
 if config_env() == :dev do
   # Reload browser tabs when matching files change.
   config :pairings_engine, PairingsEngineWeb.Endpoint,

@@ -25,20 +25,43 @@ by `PairingsEngine.Tournaments.Tournament.changeset/2` the first time a
 tournament is created, whichever path creates it (the "New tournament" UI
 form, the SWAR importer, or the JSON tournament importer all go through
 this same changeset). Existing tournaments were backfilled with a slug by
-the `AddPublicSlugToTournaments` migration. The slug never changes once
-set — sharing a link doesn't risk it rotating out from under someone.
+the `AddPublicSlugToTournaments` migration. The slug doesn't change on an
+ordinary save (the changeset only fills it when missing), so sharing a link
+doesn't risk it rotating out from under someone — but the owner can rotate
+it deliberately (see below).
 
 `PairingsEngine.Tournaments.get_tournament_by_public_slug/1` is the lookup
 used by both pages. Unlike every other tournament lookup in that module, it
 does **no** scope/ownership check — that's the point, it's the one
 intentionally public entry point. An unknown slug 404s (`Ecto.NoResultsError`).
 
+## Turning it off, and rotating a leaked link
+
+The public pages are on by default, but the owner controls them from the
+tournament's **Settings** page (the "Public pages" card):
+
+- **Turn off** — `PairingsEngine.Tournaments.set_public_pages/2` flips
+  `tournaments.public_pages_enabled`. While off,
+  `get_tournament_by_public_slug/1` returns `nil`, so every `/p/:slug/...`
+  page 404s even with the correct slug. Turning it back on restores the same
+  link.
+- **Generate a new link** — `PairingsEngine.Tournaments.rotate_public_slug/1`
+  replaces `public_slug` with a fresh token, so a link that was shared too
+  widely (or leaked) stops working immediately while the pages stay up on the
+  new URL.
+
+Both fields are deliberately **not** cast by `Tournament.changeset/2` — like
+`public_slug` and `deleted_at`, they can only change through those two
+functions, so an ordinary settings save can neither disable sharing nor
+rotate the link by accident. Both actions are recorded in the tournament's
+audit log (`public_pages.toggled`, `public_pages.link_rotated`).
+
 ## Where to find the links
 
-On the authenticated **Pairings** page, next to "Open live view":
-**"Public pairings link"**. On the authenticated **Standings** page, next
-to **Print**: **"Public standings link"**. Both open in a new tab and carry
-a "No login needed — share this link" tooltip.
+On the authenticated **Standings** page, next to **Print**: **"Public
+standings link"** (shown only while public pages are enabled). The
+tournament's **Settings** page has the full "Public pages" card — the
+on/off switch, both share links, and the "Generate new link" button.
 
 ## Live updates
 

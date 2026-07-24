@@ -46,6 +46,19 @@ defmodule PairingsEngine.Tools.Session do
   # use; past this, the soonest-to-expire (oldest) entries are evicted to make
   # room, so a fresh upload always succeeds while total memory stays bounded.
   @max_entries 500
+  # ...and a ceiling on how much those entries may *weigh*. Counting entries
+  # alone was the wrong unit: one session can hold ten 5 MB uploads (see
+  # `PairingsEngineWeb.ToolsNormsLive`), so 500 of them is gigabytes of parsed
+  # tournament pinned for the full hour by anyone, with no login. Eviction
+  # walks soonest-to-expire first for both limits, and always leaves at least
+  # one entry, so a single oversized upload still works instead of evicting
+  # itself and 404ing its own download link.
+  @max_bytes 100_000_000
+
+  defp max_entries,
+    do: Application.get_env(:pairings_engine, :tools_session_max_entries, @max_entries)
+
+  defp max_bytes, do: Application.get_env(:pairings_engine, :tools_session_max_bytes, @max_bytes)
 
   ## ---------- public API ----------
 
@@ -60,7 +73,7 @@ defmodule PairingsEngine.Tools.Session do
   same way `put/2` on an existing token reads).
   """
   def put(token, data, ttl_ms \\ @default_ttl_ms) do
-    :ets.insert(@table, {token, data, expires_at(ttl_ms)})
+    :ets.insert(@table, {token, data, expires_at(ttl_ms), :erlang.external_size(data)})
     enforce_cap()
     token
   end
@@ -68,7 +81,7 @@ defmodule PairingsEngine.Tools.Session do
   @doc "Fetches the data stored under `token`. `:error` if unknown or expired."
   def get(token) do
     case :ets.lookup(@table, token) do
-      [{^token, data, expires_at}] ->
+      [{^token, data, expires_at, _bytes}] ->
         if System.monotonic_time(:millisecond) < expires_at do
           {:ok, data}
         else
@@ -115,30 +128,57 @@ defmodule PairingsEngine.Tools.Session do
 
   defp sweep do
     now = System.monotonic_time(:millisecond)
-    # {token, data, expires_at} — delete every row already expired. `=<`
-    # (not `<`) so the boundary agrees with `get/1`'s `now < expires_at`
+    # {token, data, expires_at, bytes} — delete every row already expired.
+    # `=<` (not `<`) so the boundary agrees with `get/1`'s `now < expires_at`
     # liveness check: an entry expiring this exact millisecond is expired
     # both ways.
-    :ets.select_delete(@table, [{{:_, :_, :"$1"}, [{:"=<", :"$1", now}], [true]}])
+    :ets.select_delete(@table, [{{:_, :_, :"$1", :_}, [{:"=<", :"$1", now}], [true]}])
   end
 
   defp schedule_sweep, do: Process.send_after(self(), :sweep, @sweep_interval_ms)
 
-  # Keep the table at or below `@max_entries` by evicting the soonest-to-expire
-  # (effectively oldest) rows first. Runs after every `put/3`; a no-op in the
-  # overwhelmingly common case where the table is under the cap. Any process
-  # may call this — the table is `:public` — and concurrent callers only ever
-  # over-delete already-doomed rows, never live-and-under-cap data.
+  # Keep the table at or below `@max_entries` AND `@max_bytes` by evicting the
+  # soonest-to-expire (effectively oldest) rows first. Runs after every
+  # `put/3`; a no-op in the overwhelmingly common case where the table is
+  # under both. Any process may call this — the table is `:public` — and
+  # concurrent callers only ever over-delete already-doomed rows, never
+  # live-and-under-cap data.
   defp enforce_cap do
-    over = :ets.info(@table, :size) - @max_entries
-
-    if over > 0 do
+    if over_limit?() do
       @table
       |> :ets.tab2list()
-      |> Enum.sort_by(fn {_token, _data, expires_at} -> expires_at end)
-      |> Enum.take(over)
-      |> Enum.each(fn {token, _data, _expires_at} -> :ets.delete(@table, token) end)
+      |> Enum.sort_by(fn {_token, _data, expires_at, _bytes} -> expires_at end)
+      |> evict_until_within_limits()
     end
+
+    :ok
+  end
+
+  defp over_limit? do
+    :ets.info(@table, :size) > max_entries() or total_bytes() > max_bytes()
+  end
+
+  defp total_bytes do
+    :ets.foldl(fn {_token, _data, _expires_at, bytes}, acc -> acc + bytes end, 0, @table)
+  end
+
+  # Walks oldest-first, dropping rows until both limits are satisfied. The
+  # last remaining row is never evicted: a single upload larger than the whole
+  # budget should still be usable by the person who just made it, and evicting
+  # it would only break their download link without freeing anything for
+  # anyone else.
+  defp evict_until_within_limits(rows) do
+    total = Enum.reduce(rows, 0, fn {_t, _d, _e, bytes}, acc -> acc + bytes end)
+    {max_entries, max_bytes} = {max_entries(), max_bytes()}
+
+    Enum.reduce(rows, {length(rows), total}, fn {token, _data, _expires, bytes}, {count, sum} ->
+      if count > 1 and (count > max_entries or sum > max_bytes) do
+        :ets.delete(@table, token)
+        {count - 1, sum - bytes}
+      else
+        {count, sum}
+      end
+    end)
 
     :ok
   end

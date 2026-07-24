@@ -221,6 +221,7 @@ defmodule PairingsEngineWeb.StandingsLive do
 
         <div class="actions" style="margin: 0">
           <a
+            :if={@tournament.public_pages_enabled}
             class="pe-btn"
             href={~p"/p/#{@tournament.public_slug}/standings"}
             target="_blank"

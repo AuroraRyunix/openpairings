@@ -107,6 +107,10 @@ defmodule PairingsEngine.PgnExport do
   defp escape(value) do
     value
     |> to_string()
+    # A PGN tag is one line: a newline/CR (or other control char) in a player
+    # name would split the tag or inject a fake one into the exported file.
+    # Flatten controls to spaces first, then escape the two PGN metacharacters.
+    |> String.replace(~r/[\x00-\x1F\x7F]/, " ")
     |> String.replace("\\", "\\\\")
     |> String.replace("\"", "\\\"")
   end

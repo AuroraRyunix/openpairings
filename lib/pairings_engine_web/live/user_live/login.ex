@@ -1,7 +1,8 @@
 defmodule PairingsEngineWeb.UserLive.Login do
   use PairingsEngineWeb, :live_view
 
-  alias PairingsEngine.Accounts
+  alias PairingsEngine.{Accounts, RateLimit}
+  alias PairingsEngineWeb.ClientIp
 
   @impl true
   def render(assigns) do
@@ -208,7 +209,14 @@ defmodule PairingsEngineWeb.UserLive.Login do
 
     form = to_form(%{"email" => email}, as: "user")
 
-    {:ok, assign(socket, form: form, trigger_submit: false)}
+    # Connect info is readable only while mounting, so the address is captured
+    # here for `handle_event("submit_magic", ...)` to rate-limit on.
+    {:ok,
+     assign(socket,
+       form: form,
+       trigger_submit: false,
+       client_ip: ClientIp.from_socket(socket)
+     )}
   end
 
   @impl true
@@ -217,20 +225,52 @@ defmodule PairingsEngineWeb.UserLive.Login do
   end
 
   def handle_event("submit_magic", %{"user" => %{"email" => email}}, socket) do
-    if user = Accounts.get_user_by_email(email) do
-      Accounts.deliver_login_instructions(
-        user,
-        &url(~p"/users/log-in/#{&1}")
-      )
+    # Counted per recipient AND per client: the first stops someone using this
+    # form to bury one person's inbox in log-in links, the second stops one
+    # client walking a list of addresses. Both are counted for every submit,
+    # whether or not the address belongs to an account — a limit that only
+    # applied to real users would answer "does this address exist?".
+    limits = rate_limits(socket, email)
+
+    if Enum.all?(limits, fn {bucket, key} -> RateLimit.allow?(bucket, key) end) do
+      Enum.each(limits, fn {bucket, key} -> RateLimit.record(bucket, key) end)
+
+      if user = Accounts.get_user_by_email(email) do
+        Accounts.deliver_login_instructions(
+          user,
+          &url(~p"/users/log-in/#{&1}")
+        )
+      end
+
+      info =
+        "If your email is in our system, you will receive instructions for logging in shortly."
+
+      {:noreply,
+       socket
+       |> put_flash(:info, info)
+       |> push_navigate(to: ~p"/users/log-in")}
+    else
+      {:noreply,
+       socket
+       |> put_flash(
+         :error,
+         "That's a lot of log-in links. Check your inbox (and spam folder), " <>
+           "then try again in a few minutes."
+       )
+       |> push_navigate(to: ~p"/users/log-in")}
     end
+  end
 
-    info =
-      "If your email is in our system, you will receive instructions for logging in shortly."
+  # The address is normalized so casing/padding can't buy extra sends. A
+  # client address is only available on a connected socket; when there is
+  # none, the recipient key still applies.
+  defp rate_limits(socket, email) do
+    recipient = email |> to_string() |> String.trim() |> String.downcase()
 
-    {:noreply,
-     socket
-     |> put_flash(:info, info)
-     |> push_navigate(to: ~p"/users/log-in")}
+    case socket.assigns[:client_ip] do
+      nil -> [{:login_email, recipient}]
+      ip -> [{:login_email, recipient}, {:login_client, ip}]
+    end
   end
 
   defp local_mail_adapter? do

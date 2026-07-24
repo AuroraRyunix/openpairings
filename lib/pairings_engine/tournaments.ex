@@ -144,9 +144,17 @@ defmodule PairingsEngine.Tournaments do
   this module that's meant to be public. Anyone holding the link can view
   the tournament; the slug itself (a random 12-byte token, not the
   sequential numeric `id`) is what keeps it from being enumerable.
+
+  Honours `public_pages_enabled`: a tournament whose owner has switched its
+  public pages off returns `nil` here (a 404 to the visitor) even with the
+  correct slug, so taking the pages down is immediate and a later rotate or
+  re-enable doesn't resurrect the old link.
   """
   def get_tournament_by_public_slug(slug) do
-    Repo.one(from t in Tournament, where: t.public_slug == ^slug and is_nil(t.deleted_at))
+    Repo.one(
+      from t in Tournament,
+        where: t.public_slug == ^slug and t.public_pages_enabled == true and is_nil(t.deleted_at)
+    )
   end
 
   @doc """
@@ -434,8 +442,15 @@ defmodule PairingsEngine.Tournaments do
   @doc """
   Finds a collaborator row by its `invite_token` (a URL-safe base64 string)
   or, as a fallback, its numeric `id`. Returns `nil` if neither matches.
-  Used by `accept_invitation/2`, `decline_invitation/2` and
-  `PairingsEngineWeb.InviteLive` (the `/invites/:token` page).
+
+  Only ever call this where the caller then proves the row is the current
+  user's — `accept_invitation/2` and `decline_invitation/2` both check the
+  logged-in email against the invitation's, which is what makes the `id`
+  branch safe for the in-app accept/decline buttons (they carry a
+  collaborator id, not a token). Anything that *renders* an invitation must
+  use `find_invitation_by_token/1` instead: an id is guessable, so looking
+  one up from a URL segment let any logged-in user walk `/invites/1`,
+  `/invites/2`, ... and read every pending invitee's email address.
   """
   def find_invitation(token_or_id) do
     case Integer.parse(to_string(token_or_id)) do
@@ -443,6 +458,18 @@ defmodule PairingsEngine.Tournaments do
       _ -> Repo.get_by(Collaborator, invite_token: token_or_id)
     end
   end
+
+  @doc """
+  Finds a collaborator row by its `invite_token` only — never by id, so a
+  guessed URL segment can't reach someone else's invitation. Returns `nil`
+  for a blank token, so an empty segment can't match rows whose token has
+  been cleared (`accept_invitation/2` nils it out).
+  """
+  def find_invitation_by_token(token) when is_binary(token) and token != "" do
+    Repo.get_by(Collaborator, invite_token: token)
+  end
+
+  def find_invitation_by_token(_token), do: nil
 
   @doc """
   Links any pending `tournament_collaborators` rows (invited by email before
@@ -567,6 +594,43 @@ defmodule PairingsEngine.Tournaments do
   def clear_logo(%Tournament{} = tournament) do
     tournament
     |> Ecto.Changeset.change(logo_data: nil, logo_content_type: nil)
+    |> Repo.update()
+    |> tap_ok(fn updated -> broadcast_tournament_change(updated.id, :settings) end)
+  end
+
+  ## ---------- Public pages (enable/disable + slug rotation) ----------
+  #
+  # The public read-only pages (/p/:slug/...) expose player names, ratings,
+  # clubs and federations to anyone with the link. These two functions are the
+  # off switch and the "the link leaked" recovery for that — `public_slug` and
+  # `public_pages_enabled` are both deliberately outside `Tournament.changeset/2`,
+  # so an ordinary settings save can neither disable sharing nor rotate a link
+  # by accident; these are the only writers.
+
+  @doc """
+  Turns `tournament`'s public pages on or off. While off,
+  `get_tournament_by_public_slug/1` returns `nil`, so every `/p/:slug/...`
+  page 404s regardless of the slug. Broadcasts `:settings`.
+  """
+  @spec set_public_pages(Tournament.t(), boolean()) ::
+          {:ok, Tournament.t()} | {:error, Ecto.Changeset.t()}
+  def set_public_pages(%Tournament{} = tournament, enabled?) when is_boolean(enabled?) do
+    tournament
+    |> Ecto.Changeset.change(public_pages_enabled: enabled?)
+    |> Repo.update()
+    |> tap_ok(fn updated -> broadcast_tournament_change(updated.id, :settings) end)
+  end
+
+  @doc """
+  Rotates `tournament`'s `public_slug` to a fresh random token, permanently
+  invalidating any previously shared link while leaving the pages enabled.
+  Broadcasts `:settings`.
+  """
+  @spec rotate_public_slug(Tournament.t()) ::
+          {:ok, Tournament.t()} | {:error, Ecto.Changeset.t()}
+  def rotate_public_slug(%Tournament{} = tournament) do
+    tournament
+    |> Ecto.Changeset.change(public_slug: Tournament.generate_public_slug())
     |> Repo.update()
     |> tap_ok(fn updated -> broadcast_tournament_change(updated.id, :settings) end)
   end

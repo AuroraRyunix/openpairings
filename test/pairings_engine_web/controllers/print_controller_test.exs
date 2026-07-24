@@ -98,6 +98,10 @@ defmodule PairingsEngineWeb.PrintControllerTest do
     tournament
   end
 
+  # Every response carries its own CSP nonce (PairingsEngineWeb.CSP), so two
+  # renderings of the same page are never byte-identical. Compare the content.
+  defp without_nonce(html), do: String.replace(html, ~r/nonce="[^"]*"/, ~s(nonce="_"))
+
   describe "pairing_list/2" do
     test "?round=1 renders round 1's board pairings, not round 2's", %{conn: conn, scope: scope} do
       {tournament, _players} = fixture(scope)
@@ -238,7 +242,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       overall = get(conn, ~p"/t/#{tournament.id}/print/standings") |> html_response(200)
       as_of_2 = get(conn, ~p"/t/#{tournament.id}/print/standings?round=2") |> html_response(200)
 
-      assert overall == as_of_2
+      assert without_nonce(overall) == without_nonce(as_of_2)
     end
 
     test "a round that hasn't been paired yet 404s", %{conn: conn, scope: scope} do
@@ -480,11 +484,13 @@ defmodule PairingsEngineWeb.PrintControllerTest do
 
       html = html_response(conn, 200)
       assert (html |> String.split(~s(class="result-card")) |> length()) - 1 == 1
-      # The first board (A vs B, board order) is the one kept.
-      assert html =~ "A"
-      assert html =~ "B"
-      refute html =~ "C"
-      refute html =~ "D"
+      # The first board (A vs B, board order) is the one kept. Strip the random
+      # CSP nonce first — as base64 it can itself contain a "C"/"D".
+      body = without_nonce(html)
+      assert body =~ "A"
+      assert body =~ "B"
+      refute body =~ "C"
+      refute body =~ "D"
     end
 
     test "a junk ?limit value is ignored and the full print is rendered", %{
@@ -500,7 +506,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
           get(conn, ~p"/t/#{tournament.id}/print/results?round=1&limit=#{junk}")
           |> html_response(200)
 
-        assert html == full
+        assert without_nonce(html) == without_nonce(full)
       end
     end
 

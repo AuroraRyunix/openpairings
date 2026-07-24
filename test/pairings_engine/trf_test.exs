@@ -102,6 +102,26 @@ defmodule PairingsEngine.TrfTest do
     assert col(line, 119, 119) == "U"
   end
 
+  test "a control character in a name can't split or inject a TRF line" do
+    # A player name has no format check beyond length, so it can carry a
+    # newline/CR/tab. TRF is line- and column-oriented and this text is written
+    # to the JaVaFo pairing-input file, so an unstripped newline would break
+    # the row into two — corrupting the parse or injecting a line.
+    data = put_in(sample(), [:players, Access.at(0), :name], "Ev\r\nil\t001 injected")
+
+    lines = Trf.serialize(data) |> String.split("\r\n")
+    player_lines = Enum.filter(lines, &String.starts_with?(&1, "001"))
+
+    # Still exactly one 001 line per player (2 in the sample), none injected.
+    assert length(player_lines) == 2
+
+    carlsen_replacement = Enum.find(player_lines, &(&1 =~ "Ev"))
+    refute carlsen_replacement =~ "\n"
+    refute carlsen_replacement =~ "\t"
+    # The controls became spaces, so the name field stays inside its columns.
+    assert col(carlsen_replacement, 15, 47) |> String.trim() =~ ~r/^Ev  il 001 injected$/
+  end
+
   test "082 (number of teams) is always emitted, even 0 for an individual tournament" do
     lines = sample() |> Trf.serialize() |> String.split("\r\n")
     assert Enum.any?(lines, &(&1 == "082 0"))
