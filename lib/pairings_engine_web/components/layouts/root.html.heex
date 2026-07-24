@@ -13,7 +13,9 @@
     <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
     </script>
-    <script>
+    <%!-- Runs before first paint (a deferred bundle would flash the wrong
+          theme), so it stays inline and carries the response's CSP nonce. --%>
+    <script nonce={PairingsEngineWeb.CSP.nonce()}>
       (() => {
         const systemTheme = () => matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 

@@ -1025,9 +1025,16 @@ defmodule PairingsEngineWeb.PrintController do
     end
   end
 
-  defp parse_round(nil), do: nil
-  defp parse_round(""), do: nil
-  defp parse_round(value), do: String.to_integer(value)
+  # A `?round=` that isn't a positive integer is treated as "no round given"
+  # (the caller falls back to the default), the same forgiving way `parse_limit`
+  # below handles junk — `String.to_integer/1` here turned `?round=abc` into a
+  # 500 instead.
+  defp parse_round(value) do
+    case value && Integer.parse(value) do
+      {n, ""} when n > 0 -> n
+      _ -> nil
+    end
+  end
 
   # `?limit=L` for the result-cards test print: a positive integer keeps only
   # the first `L` cards (board order). Anything else — missing, blank,
@@ -1052,11 +1059,17 @@ defmodule PairingsEngineWeb.PrintController do
   defp display_result(result), do: result
 
   defp print_page(conn, title, subtitle, body, extra_css \\ "") do
+    # These pages are assembled here rather than through the root layout, so
+    # the auto-print trigger needs the response's CSP nonce spelled out (see
+    # PairingsEngineWeb.CSP); without it the browser refuses to run it and the
+    # print dialog never opens.
+    nonce = esc(conn.assigns[:csp_nonce])
+
     html = """
     <!doctype html><html><head><meta charset="utf-8"><title>#{esc(title)}</title>
     <style>#{@print_css}</style><style>#{extra_css}</style></head><body>
     <h1>#{esc(title)}</h1><p class="sub">#{esc(subtitle)}</p>#{body}
-    <script>window.onload = () => window.print();</script></body></html>
+    <script nonce="#{nonce}">window.onload = () => window.print();</script></body></html>
     """
 
     conn

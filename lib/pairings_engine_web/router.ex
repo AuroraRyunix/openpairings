@@ -10,6 +10,8 @@ defmodule PairingsEngineWeb.Router do
     plug :put_root_layout, html: {PairingsEngineWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+    # ...which sets no Content-Security-Policy of its own. See PairingsEngineWeb.CSP.
+    plug PairingsEngineWeb.CSP
     plug :fetch_current_scope_for_user
   end
 
