@@ -233,6 +233,7 @@ defmodule PairingsEngine.Trf do
     text =
       (value || "")
       |> to_string()
+      |> strip_controls()
       |> String.slice(0, width)
       |> then(fn s ->
         if opts[:align] == :right,
@@ -242,6 +243,15 @@ defmodule PairingsEngine.Trf do
 
     [{start_col, text} | placements]
   end
+
+  # TRF is line- and column-oriented: a newline, carriage return or tab inside
+  # a field (a player name has no format check beyond length) would split or
+  # shift the fixed-width row. When that row is written to the JaVaFo input
+  # file, a crafted name could break the parse or inject a line — so control
+  # characters are flattened to spaces before the value is placed. Applies to
+  # the pairing input, the category input and the TRF export alike, since all
+  # three go through serialize/1.
+  defp strip_controls(text), do: String.replace(text, ~r/[\x00-\x1F\x7F]/, " ")
 
   defp render(placements) do
     placements

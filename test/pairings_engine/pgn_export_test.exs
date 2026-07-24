@@ -160,4 +160,23 @@ defmodule PairingsEngine.PgnExportTest do
     tournament = fixture(user_scope_fixture())
     assert PgnExport.export(tournament, 3) == ""
   end
+
+  test "a control character in a name can't inject a PGN tag line" do
+    scope = user_scope_fixture()
+    tournament = fixture(scope)
+
+    # A PGN tag is one line. Names have no format check, so a newline could
+    # split the White tag and inject a forged one below it.
+    hostile = Repo.get_by!(Player, tournament_id: tournament.id, name: "Alice, A.")
+    Repo.update!(Ecto.Changeset.change(hostile, name: "Zoe\"]\n[Result \"0-1\"]\n[X \""))
+
+    text = PgnExport.export(tournament, 1)
+    lines = String.split(text, "\n")
+
+    # No line is a forged Result tag: the real one is [Result "1-0"].
+    refute Enum.any?(lines, &(&1 == ~s([Result "0-1"])))
+    refute Enum.any?(lines, &String.starts_with?(&1, ~s([X )))
+    # The name still appears, flattened onto the one White tag line.
+    assert Enum.any?(lines, &(String.starts_with?(&1, ~s([White ")) and &1 =~ "Zoe"))
+  end
 end
