@@ -5,6 +5,33 @@ defmodule PairingsEngine.PairingTest do
   alias PairingsEngine.{Pairing, Repo, Tournaments}
   alias PairingsEngine.Tournaments.Tournament
 
+  # `Pairing`'s JaVaFo scratch file is written into a per-run randomized
+  # directory and deleted again the moment that run finishes (see
+  # `Pairing.workdir!/0`'s doc — a security hardening against a shared-tmp
+  # symlink/read attack), so tests can no longer read the TRF text back off
+  # disk after `pair_next_round/1` returns. `Pairing` fires a
+  # `[:pairings_engine, :pairing, :trf_built]` telemetry event with the exact
+  # TRF text right before it's ever written to disk, purely for this kind of
+  # test observability. This attaches once per test (handler id scoped to
+  # the test process so `async: true` tests never cross-capture each
+  # other's events) and stashes every event into this process's own
+  # dictionary; `trf_for/3` below reads it back out.
+  setup do
+    handler_id = "trf-capture-#{inspect(self())}-#{System.unique_integer([:positive])}"
+
+    :telemetry.attach(
+      handler_id,
+      [:pairings_engine, :pairing, :trf_built],
+      fn _event, _measurements, meta, _config ->
+        Process.put(:trf_events, [meta | Process.get(:trf_events, [])])
+      end,
+      nil
+    )
+
+    on_exit(fn -> :telemetry.detach(handler_id) end)
+    :ok
+  end
+
   ## ---------- pure eligibility logic ----------
 
   test "eligible_players/2 excludes withdrawn, permanently-absent and forfeited players" do
@@ -972,15 +999,7 @@ defmodule PairingsEngine.PairingTest do
   # line's starting-rank column (the fixed-column format documented on
   # `Pairing.acceleration_lines/4`).
   defp trf_xxa_ranks(tournament, round_number) do
-    path =
-      Path.join(
-        System.tmp_dir!(),
-        "pairingsengine"
-      )
-      |> Path.join("t#{tournament.id}_r#{round_number}.trf")
-
-    path
-    |> File.read!()
+    trf_for(tournament.id, round_number)
     |> then(&Regex.scan(~r/^XXA\s+(\d+)/m, &1))
     |> Enum.map(fn [_, rank] -> String.to_integer(rank) end)
     |> Enum.sort()
@@ -1638,13 +1657,46 @@ defmodule PairingsEngine.PairingTest do
     end)
   end
 
+  # Each pairing run writes its JaVaFo scratch files into its own freshly
+  # randomized `pairingsengine-<random>` directory (see `Pairing.workdir!/0`
+  # — a security hardening so a symlink/predictable-path attack in a shared
+  # temp dir can't clobber/read another user's scratch file), rather than
+  # a single fixed `pairingsengine` subfolder. Glob every such directory and
+  # find the one holding this round's file — safe in tests, where pairing
+  # runs happen sequentially and each round's file is unique by
+  # tournament/round/suffix.
+  # `suffix` mirrors the old scratch-filename suffix (e.g. `"_cat_0_A"` for
+  # a category run) purely to pick the category vs. non-category event —
+  # any non-empty suffix means "the one category event captured for this
+  # round" (these tests only ever pair one category at a time per
+  # assertion, so there's never more than one to disambiguate between).
   defp read_round_trf(tournament_id, round_number, suffix \\ "") do
-    Path.join([
-      System.tmp_dir!(),
-      "pairingsengine",
-      "t#{tournament_id}_r#{round_number}#{suffix}.trf"
-    ])
-    |> File.read!()
+    category_name = if suffix == "", do: nil, else: :any_category
+    trf_for(tournament_id, round_number, category_name)
+  end
+
+  # Reads back the TRF text `Pairing` fired via the `[:pairings_engine,
+  # :pairing, :trf_built]` telemetry event (see this file's top-level
+  # `setup`) for `tournament_id`/`round_number`, optionally narrowed to one
+  # category (`:any_category` matches whichever single category event is
+  # present — fine since these tests only ever pair one category at a time
+  # per assertion).
+  defp trf_for(tournament_id, round_number, category_name \\ nil) do
+    match =
+      Process.get(:trf_events, [])
+      |> Enum.find(fn meta ->
+        meta.tournament_id == tournament_id and meta.round == round_number and
+          (category_name == :any_category or meta.category == category_name)
+      end)
+
+    case match do
+      %{trf: trf} ->
+        trf
+
+      nil ->
+        raise "no trf_built event captured for tournament #{tournament_id} round #{round_number}" <>
+                if(category_name, do: " category #{inspect(category_name)}", else: "")
+    end
   end
 
   defp anchor_trf_line(trf, name) do

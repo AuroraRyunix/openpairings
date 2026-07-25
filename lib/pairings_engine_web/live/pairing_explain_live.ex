@@ -466,11 +466,11 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   # <title>/popover-adjacent one-liner for a dot, including the
   # against-due-colour note when applicable (task 3).
   defp dot_title(%{colour: :bye} = w),
-    do: "#{w.side.player.name} — bye, score #{score_str(w.side.score)}#{due_title_suffix(w)}"
+    do: "#{w.side.player.name} - bye, score #{score_str(w.side.score)}#{due_title_suffix(w)}"
 
   defp dot_title(w),
     do:
-      "#{w.side.player.name} — #{colour_word(w.colour)}, score #{score_str(w.side.score)}#{due_title_suffix(w)}"
+      "#{w.side.player.name} - #{colour_word(w.colour)}, score #{score_str(w.side.score)}#{due_title_suffix(w)}"
 
   defp due_title_suffix(%{against_due: true}), do: " — against due colour"
   defp due_title_suffix(_), do: ""

@@ -38,6 +38,21 @@ defmodule PairingsEngine.Pairing do
     dir
   end
 
+  # Fires with the exact TRF text about to be sent to JaVaFo, before it ever
+  # touches disk — the scratch file itself is deleted right after each run
+  # (see `workdir!/0`'s doc), so this is the only way to observe it
+  # afterward. Exists purely for test observability (see the `:javafo`-tagged
+  # tests in pairing_test.exs that attach a handler to this event to inspect
+  # the generated TRF's colour/rank content) — nothing in the app itself
+  # subscribes to it.
+  defp emit_trf_built(tournament_id, round_number, category_name, trf) do
+    :telemetry.execute(
+      [:pairings_engine, :pairing, :trf_built],
+      %{},
+      %{tournament_id: tournament_id, round: round_number, category: category_name, trf: trf}
+    )
+  end
+
   @doc """
   Pairs the next round. Dispatches on `tournament.pairing_system`:
 
@@ -311,6 +326,7 @@ defmodule PairingsEngine.Pairing do
       Map.new(local_rank_by_player_id, fn {id, rank} -> {rank, Map.fetch!(by_id, id)} end)
 
     trf = javafo_input(tournament, full_roster, local_rank_by_player_id, eligible_ids)
+    emit_trf_built(tournament.id, next_number, nil, trf)
 
     dir = workdir!()
     input = Path.join(dir, "t#{tournament.id}_r#{next_number}.trf")
@@ -487,6 +503,8 @@ defmodule PairingsEngine.Pairing do
         local_rank_by_player_id,
         shared_history
       )
+
+    emit_trf_built(tournament.id, next_number, category_name, trf)
 
     dir = workdir!()
     slug = category_file_slug(category_name, index)
