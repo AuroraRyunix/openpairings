@@ -8,6 +8,18 @@ SWAR import, per-tournament sharing, and FIDE norm/report forms.
 **Start here: [Features & roadmap](features.md)** — a one-page overview of
 everything the app does and what is planned next.
 
+## Project documentation
+
+- [Architecture](architecture.md) — system design, data flow, module
+  boundaries.
+- [Setup guide](setup-guide.md) — environment setup, prerequisites, dev
+  workflow.
+- [Deployment](deployment.md) — how the live instance is actually run.
+- [AGENTS.md](AGENTS.md) — deep technical context for AI coding agents
+  (invariants, non-obvious patterns, gotchas) — read this before making a
+  change to the pairing engine, norms/`.xlsx` filling, or standings.
+- [Standalone binaries](binaries.md) — Burrito single-file executables.
+
 ## Feature guides
 
 - [Pairing systems](pairing-systems.md) — Swiss (FIDE Dutch via JaVaFo),
