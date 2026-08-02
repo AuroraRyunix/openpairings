@@ -113,6 +113,89 @@ defmodule PairingsEngine.PairingRationaleTest do
     end)
   end
 
+  ## ---------- pre-round scores follow the tournament's ranking rule ----------
+
+  # The score brackets this module explains have to be the ones the
+  # tournament actually ranks (and pairs) on. Reading `entry.total` here
+  # instead of `Standings.rank_score/2` put a player's administrative extra
+  # points (SWAR "XtPts") into the rationale even when `count_extra_points`
+  # was off — the default, and what every SWAR import starts as — so the
+  # rationale's numbers disagreed with the standings table by exactly the
+  # extra points, on every board, every round.
+  describe "extra points count in the rationale only when the tournament counts them" do
+    defp tournament_with_extra_points(count_extra_points) do
+      t =
+        Repo.insert!(%Tournament{
+          name: "Swiss",
+          type: "swiss",
+          rounds_count: 5,
+          count_extra_points: count_extra_points
+        })
+
+      players =
+        for {name, rating, extra} <- [
+              {"Alice", 2000, 0.5},
+              {"Bob", 1900, 0.0},
+              {"Carol", 1800, 0.0},
+              {"Dave", 1700, 0.0}
+            ],
+            into: %{} do
+          {:ok, player} =
+            Tournaments.create_player(t.id, %{
+              name: name,
+              fide_rating: rating,
+              extra_points: extra
+            })
+
+          {name, player}
+        end
+
+      assert {:ok, round1} = Pairing.pair_next_round(t)
+      enter_all_results(Repo.preload(round1, :pairings))
+      assert {:ok, _round2} = Pairing.pair_next_round(t)
+
+      {t, players}
+    end
+
+    defp rationale_score(t, round_number, player_id) do
+      PairingRationale.for_round(t, round_number).boards
+      |> Enum.flat_map(fn b -> Enum.filter([b.white, b.black], &(&1 != nil)) end)
+      |> Enum.find(&(&1.player.id == player_id))
+      |> case do
+        nil -> nil
+        side -> side.score
+      end
+    end
+
+    test "extra points are excluded when count_extra_points is off" do
+      {t, players} = tournament_with_extra_points(false)
+      alice = players["Alice"]
+
+      entry =
+        PairingsEngine.Standings.standings(t, through_round: 1)
+        |> Enum.find(&(&1.player.id == alice.id))
+
+      # The fixture is only meaningful while Alice actually carries a bonus
+      # the two readings disagree about.
+      assert entry.extra_points == 0.5
+      assert entry.total == entry.points + 0.5
+
+      assert rationale_score(t, 2, alice.id) == entry.points
+    end
+
+    test "extra points are included when count_extra_points is on" do
+      {t, players} = tournament_with_extra_points(true)
+      alice = players["Alice"]
+
+      entry =
+        PairingsEngine.Standings.standings(t, through_round: 1)
+        |> Enum.find(&(&1.player.id == alice.id))
+
+      assert entry.extra_points == 0.5
+      assert rationale_score(t, 2, alice.id) == entry.total
+    end
+  end
+
   ## ---------- anomaly checks ----------
 
   describe "rematch anomaly flagging" do

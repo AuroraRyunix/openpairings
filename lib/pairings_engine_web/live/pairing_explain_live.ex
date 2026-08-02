@@ -752,15 +752,22 @@ defmodule PairingsEngineWeb.PairingExplainLive do
           fill={if pt.current, do: "#b5762f", else: "#2e5e44"}
         />
       </svg>
+      <%!-- The right-hand column is the running total AFTER each round, so
+            the last row is deliberately one result ahead of the pre-round
+            score on the pairing card behind this popover. Said out loud in a
+            caption because the two numbers sitting a click apart otherwise
+            read as a contradiction — especially on a bye, which already
+            counts here the moment the round is paired. --%>
       <div class="pe-trail-rounds">
         <div :for={e <- @trail} class={["pe-trail-row", "pe-trail-#{e.outcome}"]}>
           <span class="pe-trail-rd">R{e.round}</span>
           <span class={["pe-trail-col", trail_col_class(e.colour)]}>{trail_col_label(e.colour)}</span>
           <span class="pe-trail-res">{trail_res_label(e)}</span>
           <span class="pe-trail-opp" title={e.opponent_name}>{trail_opp_label(e)}</span>
-          <span class="pe-trail-sc">{score_str(e.score)}</span>
+          <span class="pe-trail-sc" title="Score after this round">{score_str(e.score)}</span>
         </div>
       </div>
+      <div class="pe-trail-note">Score column is the total after each round.</div>
     </div>
     """
   end
@@ -845,7 +852,19 @@ defmodule PairingsEngineWeb.PairingExplainLive do
       <div class="pe-side-body">
         <div class="pe-name">{player_label(@side.player)}</div>
         <div class="pe-meta">
-          <span class="pe-score" title="pre-round score">{score_str(@side.score)}</span>
+          <%!-- Spelled out rather than just "pre-round score": this is the
+                score going INTO the round, which is what the pairing was
+                computed from, while the trail popover one click away lists
+                the score AFTER each round. They differ by the current
+                round's result — most visibly for a bye, which scores the
+                moment the round is paired, so a bye recipient's popover is
+                already a point ahead of this number by design. --%>
+          <span
+            class="pe-score"
+            title="Score going into this round — what this pairing was based on"
+          >
+            {score_str(@side.score)}
+          </span>
           <span class="pe-seed" title="starting rank">#{@side.pairing_number}</span>
           <span class="pe-side-colour">{colour_word(@colour)}</span>
           <span :if={@dir == :down} class="pe-tag pe-tag-down">▼ paired down</span>

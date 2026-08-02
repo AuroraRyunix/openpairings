@@ -55,10 +55,20 @@ defmodule PairingsEngine.Standings do
     build_standings(tournament, codes, [])
   end
 
-  # Ranking key shared by `build_standings/3` and `add_direct_encounter/2` so
-  # they can never drift apart: `total` (points + extra_points) when the
-  # tournament opted in to counting extra points, otherwise plain `points`.
-  defp rank_score(e, tournament),
+  @doc """
+  The score `tournament` actually ranks a standings entry on: `total`
+  (points + extra_points) when it opted in to counting extra points,
+  otherwise plain `points`.
+
+  Public because it is the single source of truth for that rule, and
+  anything that shows a player "their score" has to agree with the standings
+  table or it will contradict it on screen — `PairingRationale` reads it for
+  the pre-round scores behind its score brackets. Reading `entry.total`
+  directly is almost always a bug: it silently counts extra points in
+  tournaments that rank without them (the default, and what SWAR imports
+  come in as).
+  """
+  def rank_score(e, tournament),
     do: if(tournament.count_extra_points, do: e.total, else: e.points)
 
   defp build_standings(tournament, tiebreak_codes, opts) do

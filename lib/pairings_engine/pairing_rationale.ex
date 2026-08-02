@@ -596,10 +596,18 @@ defmodule PairingsEngine.PairingRationale do
     |> Map.new(fn e -> {e.player.id, %{score: e.points, standings_rank: e.rank}} end)
   end
 
+  # `Standings.rank_score/2`, not `e.total` — the score brackets explained
+  # here have to be the ones the tournament actually ranks (and pairs) on, so
+  # extra points count only when `count_extra_points` is set. Reading
+  # `e.total` unconditionally made every bracket disagree with the standings
+  # table by a player's extra points whenever that flag was off, which is the
+  # default and what every SWAR import starts as.
   defp pre_round_scores(tournament, through) do
     tournament
     |> Standings.standings(through_round: through)
-    |> Map.new(fn e -> {e.player.id, %{score: e.total, standings_rank: e.rank}} end)
+    |> Map.new(fn e ->
+      {e.player.id, %{score: Standings.rank_score(e, tournament), standings_rank: e.rank}}
+    end)
   end
 
   # Keizer ladder value (going into this round) per player, for the Keizer
