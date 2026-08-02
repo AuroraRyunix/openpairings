@@ -37,6 +37,40 @@ defmodule PairingsEngine.Tools.ParserTest do
     })
   end
 
+  # A `.swar` opens with its version string, length-prefixed — all
+  # `detect_format/2` reads, so the trailing bytes can be anything.
+  defp swar_bytes(version \\ "v7.04"),
+    do: <<byte_size(version)::little-signed-32, version::binary, 0, 1, 2, 3>>
+
+  describe "detect_format/2 — content decides, extension only breaks ties" do
+    test "SWAR content wins over a .trf filename" do
+      assert Parser.detect_format("misnamed.trf", swar_bytes()) == :swar
+      assert Parser.detect_format("misnamed.trf", swar_bytes("v6.78")) == :swar
+    end
+
+    test "TRF content wins over a .swar filename" do
+      assert Parser.detect_format("misnamed.swar", trf_text()) == :trf
+    end
+
+    test "the extension decides only when the bytes say nothing" do
+      assert Parser.detect_format("mystery.swar", "not either format") == :swar
+      assert Parser.detect_format("mystery.trf", "not either format") == :trf
+      assert Parser.detect_format("mystery.bin", "not either format") == :unknown
+    end
+
+    test "text that merely mentions 001 isn't mistaken for TRF" do
+      assert Parser.detect_format("notes.bin", "call 001 for the arbiter") == :unknown
+    end
+  end
+
+  # The whole point of sniffing: a `.swar` handed to the TRF path must not
+  # come back with TRF's "no 001 lines" complaint, which is true and useless.
+  test "a SWAR file named .trf is routed to the SWAR parser" do
+    assert {:error, message} = Parser.parse("misnamed.trf", swar_bytes())
+    assert message =~ "SWAR"
+    refute message =~ "001"
+  end
+
   test "a .trf file goes to the TRF builder" do
     assert {:ok, {%Tournament{} = t, [%Player{}, %Player{}] = players}} =
              Parser.parse("report.trf", trf_text())

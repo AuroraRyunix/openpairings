@@ -42,7 +42,7 @@ defmodule PairingsEngine.SwarImportPresenceTest do
 
     # legacy ByeValue field — deliberately not the one under test here
     tournoi =
-      w_str("TOURNOI") <>
+      w_str("[TOURNOI]") <>
         w_str("Test Tournament") <>
         w_str("") <>
         w_str("") <>
@@ -91,7 +91,7 @@ defmodule PairingsEngine.SwarImportPresenceTest do
         w_i32(0) <>
         w_i32(0)
 
-    dates = w_str("DATES") <> Enum.map_join(1..nb_rounds, "", fn _ -> w_str("") end)
+    dates = w_str("[DATES]") <> Enum.map_join(1..nb_rounds, "", fn _ -> w_str("") end)
     tie_break = w_str("TIE_BREAK") <> Enum.map_join(1..5, "", fn _ -> w_i32(0) end)
     exclusion = w_str("EXCLUSION") <> w_i32(0) <> w_str("")
 
@@ -103,7 +103,7 @@ defmodule PairingsEngine.SwarImportPresenceTest do
       w_str("XTRA_POINTS") <> Enum.map_join(1..4, "", fn _ -> w_i32(0) <> w_i32(0) end)
 
     joueurs =
-      w_str("JOUEURS") <>
+      w_str("[JOUEURS]") <>
         w_i32(length(players)) <>
         Enum.map_join(players, "", &build_player(&1, version))
 
@@ -167,7 +167,7 @@ defmodule PairingsEngine.SwarImportPresenceTest do
       w_i32(0) <>
       w_i16(nb_round) <>
       w_i16(0) <>
-      w_str("RONDE") <>
+      w_str("[RONDE]") <>
       Enum.map_join(rounds, "", &build_round/1)
   end
 

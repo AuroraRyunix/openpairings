@@ -262,6 +262,55 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
     end
   end
 
+  ## ---------- import panels route on content, not on which box was used ----------
+
+  describe "dropping a file into the 'wrong' import panel" do
+    @describetag :swar_fixture
+
+    # Both dropzones accept `:any` (neither format has a browser MIME type),
+    # so a `.swar` in the TRF box is an easy and entirely reasonable mistake.
+    # It used to fail with TRF's "no player records (\"001\" lines) found" —
+    # accurate about the TRF parser, useless to the arbiter holding a
+    # perfectly valid SWAR file. It must import instead.
+    test "a .swar dropped into the TRF panel still imports as SWAR", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/")
+      lv |> element("button", "Import TRF file") |> render_click()
+
+      trf =
+        file_input(lv, "form", :trf, [
+          %{
+            name: "problemski.swar",
+            content: File.read!(@problemski),
+            type: "application/octet-stream"
+          }
+        ])
+
+      render_upload(trf, "problemski.swar")
+      html = lv |> form("#trf-import-form", %{}) |> render_submit()
+
+      refute html =~ "001"
+      refute html =~ "Could not read"
+      # problemski.swar has an unresolved player, so the SWAR journey's
+      # confirm step is what proves it went down the SWAR path, not the TRF one.
+      assert has_element?(lv, "h2", "Resolve FIDE ids")
+    end
+
+    test "a genuinely unreadable file still reports the panel it was given to", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/")
+      lv |> element("button", "Import TRF file") |> render_click()
+
+      trf =
+        file_input(lv, "form", :trf, [
+          %{name: "junk.trf", content: "not a tournament at all", type: "text/plain"}
+        ])
+
+      render_upload(trf, "junk.trf")
+      html = lv |> form("#trf-import-form", %{}) |> render_submit()
+
+      assert html =~ "TRF"
+    end
+  end
+
   ## ---------- SWAR import: FIDE-match confirm step (task 2) ----------
 
   describe "SWAR import: confirm step for players SWAR has no FIDE id for" do

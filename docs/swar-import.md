@@ -7,6 +7,107 @@ intermediate export step) and creates a full tournament — players, rounds,
 pairings, results — from it. Reached from the Tournaments page's "Import
 SWAR file" panel.
 
+## File versions, and what SWAR v7 changed
+
+The format is a sequential binary serialization with no index: every field
+is read in exact order, and a single field of drift turns the rest of the
+file into garbage. Each release that adds or removes a field therefore needs
+a version gate in `swar_import.ex` (`version_gte?/2`, against the version
+string in the file header — `"v6.78"`, `"v7.04"`, …).
+
+**v7 removes three things** relative to v6, which is why v6-era code fails
+on a v7 file with a `{:parse_failed, ...}` on a nonsense string length:
+
+| Section | v6 | v7 |
+|---|---|---|
+| `[TOURNOI]` tail | FIDE-id block (16 × 3 ints) + 4 trailing strings | 12 bytes shorter |
+| `[JOUEURS]` | `Elo` **and** `EloFide` | `Elo` only |
+| `[JOUEURS]` | `NbParties`..`Perf` run includes `Pts_Corr` (v6.49+) | one int shorter |
+
+Two of those carry a caveat worth knowing before trusting a v7 import:
+
+- **Which 12 bytes left `[TOURNOI]`** can't be determined from the v7 file
+  this was reverse engineered against, because that whole region is zeroed
+  in it: "three of the four trailing strings are gone" and "the FIDE-id
+  block is one 3-int entry shorter" are byte-for-byte identical on zeroes.
+  They only diverge once a v7 file turns up with a non-empty FIDE arbiter id
+  or remark. `parse_tournoi_section/2` therefore tries both and keeps
+  whichever leaves the parser looking at the `[DATES]` marker that must
+  follow — so either reading imports correctly, and a file matching neither
+  fails loudly instead of silently shifting every field after it.
+- **Which int left the `NbParties`..`Perf` run** is likewise unprovable from
+  it (the tournament hadn't started, so every int in that run is zero). It's
+  read as `Pts_Corr` being the one dropped, which fails safe: `Pts_Corr` is
+  the only field of that run this importer reads at all, so guessing wrong
+  can't shift anything persisted — at worst it silences the advisory
+  `points_adjusted_warnings/3`. To settle it, re-export a **played** v7
+  tournament and check whether `points`/`perf` land where expected.
+
+`EloFide` is the one v7 change that needed a judgement call rather than a
+gate. Belgium retired its own rating list — the KBSB export's `Elo` column
+is zero for everyone now — so the single Elo a v7 record still carries *is*
+the FIDE rating. Verified against the local FIDE database: across the 126
+players of a 128-player v7 open that resolve by `fide_id`, that Elo tracks
+`standard_rating`, differing only by the month between SWAR's rating list
+and ours. `parse_player/2` mirrors it into `elo_fide` so `fide_rating_or/1`
+keeps working instead of filing every v7 player as unrated.
+
+## Officials: what SWAR carries, and what it doesn't
+
+SWAR stores officials as free text in two `[TOURNOI]` fields, with a grade
+prefix and **multiple people comma-separated in one field**:
+
+```
+Arbiter1 = "IA Luc Cornet"
+Arbiter2 = "IA Sylvin De Vet, NA Marc Van Dyck"
+```
+
+That's the opposite convention to FIDE's "Last, First", so within these fields
+a comma is a *person* boundary, never a name boundary — which is what makes
+splitting on it safe here and nowhere else.
+
+On import (`swar_officials/1`, `strip_arbiter_title/1`):
+
+- the grade (`IA`/`FA`/`NA`/`IO`/`NO`/…, including stacked ones) is stripped —
+  FIDE stores names without them, and they'd otherwise land in an IT3 name cell
+- `Arbiter2` is split into the numbered `deputyN_name` slots the IT3 form
+  (B62-B69) expects; `deputy_arbiter` keeps the original free text verbatim for
+  exports
+- each name is matched against the local FIDE database to fill in
+  `deputyN_fide_id` / `chief_arbiter_fide_id`
+
+Matching compares an **order-independent token set**, because SWAR writes
+"Sylvin De Vet" and FIDE stores "De Vet, Sylvin"; sorting the diacritic-folded
+tokens makes those equal without having to guess which words are the surname.
+As everywhere else in this importer, an ambiguous name is **left blank rather
+than guessed** — BEL has two `Van Dyck, Marc`, so that deputy imports with a
+name and no id, for a human to disambiguate on the Norms page.
+
+**Not in the SWAR file at all:** the organizer's FIDE ID, and any e-mail
+address. SWAR has an organizer *name* (`Organizer`) but no id for them, so
+those fields on the Norms page always start empty and are filled in by hand.
+
+### FIDE event code
+
+`[TOURNOI]`'s FIDE block holds up to 16 homologation entries, each with a
+tournament id — one for a plain event, several for a festival rated in
+sections. Import takes the distinct non-zero ids in file order and joins them
+(`"111, 222"`), since `event_code` is a single free-text field on both our
+schema and the FIDE forms; deleting the one that doesn't apply is recoverable,
+silently keeping only the first is not.
+
+> **Unverified against real data.** Every entry in that block is zeroed in the
+> only v7 file available, so this is covered by synthetic fixtures only. If an
+> imported event code ever looks wrong, this is the first thing to re-check
+> against a genuinely homologated file.
+
+### Reports are gated on complete officials
+
+FIDE identifies every official by FIDE ID and bounces a report missing one, so
+`NormsLive.report_blockers/1` blocks the IT3/FA1/IA1 downloads (red bar, naming
+each missing field) until the chief arbiter and every *named* deputy has one.
+An empty deputy slot is fine — not every event has two.
+
 ## Two ids per player: national vs. FIDE — never crossed
 
 Every SWAR player record carries **two separate identifiers**, read from
@@ -16,7 +117,7 @@ the binary layout:
 | SWAR field | Meaning | Maps to |
 |---|---|---|
 | `MatNat` | the player's national federation number (KBSB/FRBE membership id) — short, typically well under 100,000 | `players.national_id` (stored as text) |
-| `MatFide` | the player's FIDE id — the standard 6-8 digit number used on ratings.fide.com | `players.fide_id` |
+| `MatFide` | the player's FIDE id — the number used on ratings.fide.com. Historically 6-8 digits; **FIDE now issues 9-digit ids too** (e.g. 551061350), so don't treat a long value here as a sign of a misparse | `players.fide_id` |
 
 This mapping has been cross-checked against real ratings.fide.com profiles
 (not just the bundled test fixtures) — e.g. `test/fixtures/c-reeks.swar`'s
@@ -57,6 +158,30 @@ sides already store it) + federation + birth year:
 `name` is never touched by a FIDE match, in either case — SWAR's own
 spelling is always canonical (a FIDE-database name is sometimes a
 different transliteration/spelling of the same person).
+
+### What counts as "the same name", and how wide the search goes
+
+Two deliberate widenings, both of which only ever grow the *candidate list* —
+the auto-adopt rule above is unchanged:
+
+- **Diacritics are folded**, not just case. SWAR carries whatever the arbiter
+  typed while the FIDE list is inconsistent about accents, so a plain downcase
+  made "Müller" and "Muller" two different people — and the player then showed
+  up with *no candidates at all*, which reads as "not in FIDE" rather than
+  "spelled differently". Same folding the `fide_players_fts` index uses
+  (`remove_diacritics 2`), so the index and the comparison agree.
+- **Federation is no longer a hard filter.** Candidates were scoped to the
+  player's own federation, which left a transferred player (or one whose SWAR
+  country simply disagrees with FIDE's) with an empty list and no way to
+  resolve them by hand. When the same-federation search finds nothing, the
+  search widens across all federations via the FTS index. Auto-adopt stays
+  federation-scoped, so a cross-federation hit still has to be picked by a
+  human.
+
+A player genuinely absent from the rating list gets no candidates, and that's
+correct. Worth knowing when judging "but they're in FIDE": the downloaded list
+is **not** just rated players — roughly 70% of its ~1.9M rows have no standard
+rating — so absence really does mean "no FIDE id", not "unrated".
 
 ### The two-step API and the confirm step
 

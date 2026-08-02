@@ -2,6 +2,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
   use PairingsEngineWeb, :live_view
 
   alias PairingsEngine.{Audit, Tournaments, SwarImport, TournamentImport, TrfImport, RateOfPlay}
+  alias PairingsEngine.Tools.Parser
   alias PairingsEngine.Tournaments.Tournament
 
   # Initial values for the "New tournament" form — kept in `new_params` and
@@ -247,26 +248,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
   # The file input's phx-change target; nothing to do until submit.
   def handle_event("validate_swar", _params, socket), do: {:noreply, socket}
 
-  def handle_event("import_swar", _params, socket) do
-    results =
-      consume_uploaded_entries(socket, :swar, fn %{path: path}, _entry ->
-        {:ok, SwarImport.prepare_import(path)}
-      end)
-
-    case results do
-      [{:ok, %{unresolved: []} = prepared}] ->
-        commit_swar(socket, prepared, %{})
-
-      [{:ok, %{unresolved: unresolved} = prepared}] when unresolved != [] ->
-        {:noreply, assign(socket, swar_pending: prepared, importing: false, error: nil)}
-
-      [{:error, reason}] ->
-        {:noreply, assign(socket, error: "Could not read this SWAR file: #{inspect(reason)}")}
-
-      [] ->
-        {:noreply, assign(socket, error: "Choose a .swar file first")}
-    end
-  end
+  def handle_event("import_swar", _params, socket), do: import_tournament_file(socket, :swar)
 
   ## ---------- SWAR FIDE-match confirm step (players with no FIDE id) ----------
   #
@@ -308,33 +290,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
   # The file input's phx-change target; nothing to do until submit.
   def handle_event("validate_trf", _params, socket), do: {:noreply, socket}
 
-  def handle_event("import_trf_file", _params, socket) do
-    scope = socket.assigns.current_scope
-
-    results =
-      consume_uploaded_entries(socket, :trf, fn %{path: path}, _entry ->
-        {:ok, TrfImport.import_text(File.read!(path), scope)}
-      end)
-
-    case results do
-      [{:ok, tournament, warnings}] ->
-        Audit.log(tournament.id, socket.assigns.current_scope, "import.trf", %{
-          name: tournament.name
-        })
-
-        {:noreply,
-         socket
-         |> maybe_flash_trf_warnings(warnings)
-         |> assign(importing_trf: false)
-         |> push_navigate(to: ~p"/t/#{tournament.id}/standings")}
-
-      [{:error, reason}] ->
-        {:noreply, assign(socket, error: TrfImport.error_message(reason))}
-
-      [] ->
-        {:noreply, assign(socket, error: "Choose a .trf file first")}
-    end
-  end
+  def handle_event("import_trf_file", _params, socket), do: import_tournament_file(socket, :trf)
 
   ## ---------- JSON backup import (full-fidelity, single or all tournaments) ----------
 
@@ -453,6 +409,68 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
       _ ->
         {:noreply, socket}
+    end
+  end
+
+  # Shared by both import panels. Neither `.swar` nor `.trf` has a registered
+  # browser MIME type, so both dropzones have to accept `:any` and a file can
+  # always be dropped into the "wrong" one — which panel it came through
+  # therefore says nothing about what it is. Route on the CONTENT
+  # (`Parser.detect_format/2`) and run the importer the file actually needs;
+  # `panel` only breaks the tie when the bytes are inconclusive, so the box
+  # the user chose still decides which error they get for genuine junk.
+  #
+  # A SWAR file routed here from the TRF panel still gets the full SWAR
+  # journey, resolve step included: `swar_pending` renders its own form
+  # independently of both modals, so closing them both is all this has to do.
+  defp import_tournament_file(socket, panel) do
+    scope = socket.assigns.current_scope
+
+    results =
+      consume_uploaded_entries(socket, panel, fn %{path: path}, entry ->
+        content = File.read!(path)
+
+        case Parser.detect_format(entry.client_name, content) do
+          :swar -> {:ok, {:swar, SwarImport.prepare_import(path)}}
+          :trf -> {:ok, {:trf, TrfImport.import_text(content, scope)}}
+          :unknown when panel == :swar -> {:ok, {:swar, SwarImport.prepare_import(path)}}
+          :unknown -> {:ok, {:trf, TrfImport.import_text(content, scope)}}
+        end
+      end)
+
+    case results do
+      [{:swar, {:ok, %{unresolved: []} = prepared}}] ->
+        commit_swar(socket, prepared, %{})
+
+      [{:swar, {:ok, %{unresolved: unresolved} = prepared}}] when unresolved != [] ->
+        {:noreply,
+         assign(socket,
+           swar_pending: prepared,
+           importing: false,
+           importing_trf: false,
+           error: nil
+         )}
+
+      [{:swar, {:error, reason}}] ->
+        {:noreply, assign(socket, error: "Could not read this SWAR file: #{inspect(reason)}")}
+
+      [{:trf, {:ok, tournament, warnings}}] ->
+        Audit.log(tournament.id, scope, "import.trf", %{name: tournament.name})
+
+        {:noreply,
+         socket
+         |> maybe_flash_trf_warnings(warnings)
+         |> assign(importing: false, importing_trf: false)
+         |> push_navigate(to: ~p"/t/#{tournament.id}/standings")}
+
+      [{:trf, {:error, reason}}] ->
+        {:noreply, assign(socket, error: TrfImport.error_message(reason))}
+
+      [] ->
+        {:noreply,
+         assign(socket,
+           error: "Choose a #{if panel == :swar, do: ".swar", else: ".trf"} file first"
+         )}
     end
   end
 

@@ -25,11 +25,52 @@ defmodule PairingsEngine.Tools.Parser do
   `{:error, message}` with a single user-facing string.
   """
   def parse(filename, content) when is_binary(filename) and is_binary(content) do
-    case extension(filename) do
+    case detect_format(filename, content) do
       :swar -> via_swar(content)
       :trf -> via_trf(content)
       :unknown -> via_either(content)
     end
+  end
+
+  @doc """
+  Which importer `content` is for: `:swar`, `:trf`, or `:unknown`.
+
+  Decided by **content first**, with `filename`'s extension as a tiebreak
+  only when the bytes are inconclusive. That order matters wherever a user
+  picks the importer by hand: neither `.swar` nor `.trf` has a registered
+  browser MIME type, so every upload input for them has to accept `:any`,
+  and a file can always land in the "wrong" one. Sniffing means it still
+  imports, instead of failing with a true-but-useless complaint from the
+  importer it was handed to (a `.swar` fed to TRF reports "no 001 lines" —
+  correct, and no help at all).
+  """
+  def detect_format(filename, content) when is_binary(filename) and is_binary(content) do
+    cond do
+      swar_binary?(content) -> :swar
+      trf_text?(content) -> :trf
+      true -> extension(filename)
+    end
+  end
+
+  # A `.swar` opens with its own version string, serialized the way every
+  # string in that format is: a little-endian int32 byte count followed by
+  # that many bytes — `"v7.04"`, `"v6.78"`. Anchored at offset 0 and shaped
+  # tightly enough that text can't collide with it (a leading `"001"` line
+  # would read as a length of 0x31303030).
+  defp swar_binary?(<<len::little-signed-32, rest::binary>>) when len in 3..16 do
+    case rest do
+      <<version::binary-size(^len), _::binary>> -> Regex.match?(~r/^v\d+\.\d+$/, version)
+      _ -> false
+    end
+  end
+
+  defp swar_binary?(_), do: false
+
+  # TRF16 is line-oriented text whose player records are `001` lines — the
+  # same thing `TrfImport` itself keys on. Guarded by `String.valid?/1` so a
+  # binary that happens to contain those bytes can't match.
+  defp trf_text?(content) do
+    String.valid?(content) and Regex.match?(~r/^001[ \t]/m, content)
   end
 
   defp extension(filename) do

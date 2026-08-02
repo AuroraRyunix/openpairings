@@ -89,6 +89,18 @@ defmodule PairingsEngine.SwarImport do
 
   defp version_gte?(version, target), do: version >= target
 
+  # `points_adjusted` (SWAR's arbiter-entered correction) arrived in v6.49
+  # and is gone again in v7, whose [JOUEURS] record is exactly one int
+  # shorter across the `NbParties`..`Perf` run. Every int in that run is zero
+  # in the only v7 file available to reverse engineer against (its tournament
+  # hadn't started), so which one was dropped isn't provable from it —
+  # `points_adjusted` is the choice that fails safe, being the run's only
+  # field this importer reads at all. Guessing it wrong therefore can't shift
+  # anything we persist; at worst it silences an advisory warning (see
+  # `points_adjusted_warnings/3`).
+  defp has_points_adjusted?(version),
+    do: version_gte?(version, "v6.49") and not version_gte?(version, "v7.00")
+
   ## ---------- Public API ----------
 
   @doc """
@@ -100,7 +112,7 @@ defmodule PairingsEngine.SwarImport do
     {guid, rest} = read_str(rest)
     {mac, rest} = read_str(rest)
 
-    {tournoi, rest} = parse_tournoi(rest, version)
+    {tournoi, rest} = parse_tournoi_section(rest, version)
     {dates, rest} = parse_dates(rest, tournoi.nb_rounds)
     {tiebreaks, rest} = parse_tie_break(rest)
     {exclusion, rest} = parse_exclusion(rest)
@@ -129,7 +141,40 @@ defmodule PairingsEngine.SwarImport do
 
   ## ---------- [TOURNOI] ----------
 
-  defp parse_tournoi(bin, version) do
+  # [TOURNOI]'s tail lost 12 bytes somewhere between the FIDE-id block and
+  # `Type` in v7, but *which* fields went can't be read off the only v7 file
+  # available to reverse engineer against: that whole region is zeroed in it,
+  # which makes "three of the four trailing strings are gone" and "the
+  # FIDE-id block is one 3-int entry shorter" byte-for-byte identical. The
+  # two only diverge once a v7 file turns up with a non-empty FIDE arbiter
+  # id or remark, so rather than bet on one now, try the likely layout for
+  # the file's version and fall back on the others, keeping whichever leaves
+  # the parser looking at the [DATES] marker that must follow. A wrong guess
+  # costs a re-parse of ~600 bytes; a wrong *silent* guess would corrupt
+  # every field after it.
+  #
+  # `{FIDE-id entries, trailing strings}`:
+  @tournoi_layouts %{v6: {16, 4}, v7_strings: {16, 1}, v7_fide_ids: {15, 4}}
+
+  defp parse_tournoi_section(bin, version) do
+    order =
+      if version_gte?(version, "v7.00"),
+        do: [:v7_strings, :v7_fide_ids, :v6],
+        else: [:v6, :v7_strings, :v7_fide_ids]
+
+    Enum.find_value(order, fn layout ->
+      try do
+        {tournoi, rest} = parse_tournoi(bin, version, @tournoi_layouts[layout])
+        {"[DATES]", _} = read_str(rest)
+        {tournoi, rest}
+      rescue
+        _ -> nil
+      end
+    end) ||
+      raise "no known [TOURNOI] layout leaves the parser at [DATES] (file version #{version})"
+  end
+
+  defp parse_tournoi(bin, version, {n_fide_ids, n_strings}) do
     {_marker, bin} = read_str(bin)
     {name, bin} = read_str(bin)
     {organizer, bin} = read_str(bin)
@@ -152,7 +197,7 @@ defmodule PairingsEngine.SwarImport do
 
     {fide_ids, bin} =
       if version_gte?(version, "v5.24") do
-        read_n(bin, 16, fn bin ->
+        read_n(bin, n_fide_ids, fn bin ->
           {de, bin} = read_i32(bin)
           {aa, bin} = read_i32(bin)
           {id, bin} = read_i32(bin)
@@ -163,10 +208,14 @@ defmodule PairingsEngine.SwarImport do
         {[], bin}
       end
 
-    {fide_arb1, bin} = read_str(bin)
-    {fide_arb2, bin} = read_str(bin)
-    {_dummy1, bin} = read_str(bin)
-    {fide_remarks, bin} = read_str(bin)
+    {strings, bin} = read_n(bin, n_strings, &read_str/1)
+
+    {fide_arb1, fide_arb2, fide_remarks} =
+      case strings do
+        [arb1, arb2, _dummy1, remarks] -> {arb1, arb2, remarks}
+        [remarks] -> {"", "", remarks}
+      end
+
     {type, bin} = read_i32(bin)
 
     bin =
@@ -324,7 +373,16 @@ defmodule PairingsEngine.SwarImport do
     {mat_fide, bin} = read_i32(bin)
     {affilie, bin} = read_i32(bin)
     {elo, bin} = read_i32(bin)
-    {elo_fide, bin} = read_i32(bin)
+
+    # v7 dropped `EloFide`: Belgium retired its own rating list (the KBSB
+    # export's `Elo` column is zero for everyone now), so the single Elo a v7
+    # record still carries *is* the FIDE rating — checked against the local
+    # FIDE database, where it tracks `standard_rating` and differs only by
+    # the month between SWAR's list and ours. Mirror it so `fide_rating_or/1`
+    # keeps working instead of filing every v7 player as unrated.
+    {elo_fide, bin} =
+      if version_gte?(version, "v7.00"), do: {elo, bin}, else: read_i32(bin)
+
     {title, bin} = read_i32(bin)
     {club_nr, bin} = read_i32(bin)
     {club, bin} = read_str(bin)
@@ -332,7 +390,7 @@ defmodule PairingsEngine.SwarImport do
     {points, bin} = read_i32(bin)
 
     {points_adjusted, bin} =
-      if version_gte?(version, "v6.49") do
+      if has_points_adjusted?(version) do
         read_i32(bin)
       else
         {0, bin}
@@ -614,15 +672,16 @@ defmodule PairingsEngine.SwarImport do
   # discarded on import unless we say something. Mirrors
   # TrfImport.points_warnings/3's declared-vs-recomputed cross-check.
   #
-  # Gated on the file actually carrying points_adjusted at all (version >=
-  # v6.49) — older files hardcode it to 0 regardless of a player's real
-  # score (see parse_player/2), so comparing that against real computed
-  # points would produce a false-positive warning for nearly every player.
+  # Gated on the file actually carrying points_adjusted at all (see
+  # `has_points_adjusted?/1`) — files from outside that window hardcode it to
+  # 0 regardless of a player's real score (see parse_player/2), so comparing
+  # that against real computed points would produce a false-positive warning
+  # for nearly every player.
   # `version_gte?/2` is a plain private function (not a `defguard`), so this
   # is a single-clause function with an `if` rather than two pattern-matched
   # clauses guarded on it.
   defp points_adjusted_warnings(tournament, data, players_by_ni) do
-    if version_gte?(data.version, "v6.49") do
+    if has_points_adjusted?(data.version) do
       computed_by_id =
         tournament
         |> Standings.standings()
@@ -688,8 +747,11 @@ defmodule PairingsEngine.SwarImport do
       )
 
     case exact do
-      [one] -> {:matched, Map.put(p, :fide_match, one) |> Map.put(:mat_fide, one.fide_id)}
-      _ -> {:unresolved, candidates}
+      [one] ->
+        {:matched, Map.put(p, :fide_match, one) |> Map.put(:mat_fide, one.fide_id)}
+
+      _ ->
+        {:unresolved, candidates ++ other_federation_candidates(p, candidates)}
     end
   end
 
@@ -710,8 +772,48 @@ defmodule PairingsEngine.SwarImport do
     |> Enum.filter(&(normalize_name_for_match(&1.name) == name))
   end
 
+  # Diacritics are folded, not just case: SWAR carries whatever the arbiter
+  # typed (CP-1252, so "Müller" round-trips fine) while the FIDE list is
+  # inconsistent about them, and a plain downcase makes "Müller"/"Muller" two
+  # different people — the player then shows up with no candidates at all,
+  # which reads as "not in FIDE" rather than "spelled differently". Same
+  # folding the `fide_players_fts` index already uses (`remove_diacritics 2`),
+  # so `other_federation_candidates/2` and this agree on what "same name"
+  # means.
   defp normalize_name_for_match(name) do
-    name |> to_string() |> String.trim() |> String.downcase() |> String.replace(~r/\s+/, " ")
+    name
+    |> to_string()
+    |> String.trim()
+    |> String.downcase()
+    |> :unicode.characters_to_nfd_binary()
+    |> String.replace(~r/\p{Mn}/u, "")
+    |> String.replace(~r/\s+/, " ")
+  end
+
+  # Same name, ANY federation — for the candidate list only, never for
+  # auto-adopt.
+  #
+  # `fide_candidates/2` scopes to the player's own federation, which is right
+  # for adopting a match unattended but leaves a transferred player (or one
+  # whose SWAR country simply disagrees with FIDE's) with an empty list and no
+  # way to resolve them by hand. Widening only the list keeps the "never
+  # silently guessed" rule intact: a cross-federation hit still has to be
+  # picked by a human.
+  #
+  # Goes through the FTS index rather than scanning ~1.9M rows: it already
+  # tokenises and folds diacritics the same way `normalize_name_for_match/1`
+  # does, so it's a cheap prefilter that the exact comparison below then
+  # confirms.
+  defp other_federation_candidates(p, already_found) do
+    name = normalize_name_for_match(p.name)
+    seen = MapSet.new(already_found, & &1.fide_id)
+
+    name
+    |> String.replace(",", " ")
+    |> String.split(~r/\s+/, trim: true)
+    |> fide_players_matching_tokens()
+    |> Enum.reject(&MapSet.member?(seen, &1.fide_id))
+    |> Enum.filter(&(normalize_name_for_match(&1.name) == name))
   end
 
   defp unresolved_entry(p, candidates) do
@@ -759,9 +861,164 @@ defmodule PairingsEngine.SwarImport do
   ## ---------- Tournament ----------
 
   defp create_tournament(data, scope) do
+    attrs =
+      data
+      |> tournament_attrs()
+      |> resolve_official_fide_ids()
+
     %Tournament{user_id: scope && scope.user.id}
-    |> Tournament.changeset(tournament_attrs(data))
+    |> Tournament.changeset(attrs)
     |> Repo.insert()
+  end
+
+  ## ---------- Arbiters / officials ----------
+
+  # Titles SWAR prefixes an official's name with. Arbiter (IA/FA/NA/…) and
+  # organizer (IO/NO) grades both show up in these fields, and FIDE's own
+  # database stores the name without them, so they have to come off before
+  # anything can be matched — or written into an IT3/FA1 name cell.
+  @official_titles ~w(IA FA NA IO NO FST FI FT DI SI NI)
+
+  @doc false
+  # SWAR writes officials as "TITLE First Last", comma-separating multiple
+  # people in one field ("IA Sylvin De Vet, NA Marc Van Dyck"). That's the
+  # opposite convention to FIDE's "Last, First", so a comma here is a person
+  # boundary, not a name boundary — safe to split on precisely because SWAR
+  # never stores the surname-first form in these fields.
+  def split_officials(text) do
+    text
+    |> to_string()
+    |> String.split(",")
+    |> Enum.map(&strip_arbiter_title/1)
+    |> Enum.reject(&(&1 == ""))
+  end
+
+  @doc false
+  def strip_arbiter_title(name) do
+    name
+    |> to_string()
+    |> String.split(~r/\s+/, trim: true)
+    |> Enum.drop_while(&(String.upcase(String.trim_trailing(&1, ".")) in @official_titles))
+    |> Enum.join(" ")
+  end
+
+  # Deputies parsed out of SWAR's single free-text field into the numbered
+  # `deputyN_name` slots the IT3 form (B62-B69) and the norms page expect.
+  # Names only — FIDE ids need the database, so they're filled in by
+  # `resolve_official_fide_ids/1` on the persisting path.
+  defp swar_officials(t) do
+    t.arbiter2
+    |> split_officials()
+    |> Enum.take(4)
+    |> Enum.with_index(1)
+    |> Map.new(fn {name, n} -> {"deputy#{n}_name", name} end)
+  end
+
+  # SWAR's [TOURNOI] FIDE block holds up to 16 homologation entries, each with
+  # its own tournament id; a plain event has one, a festival rated in several
+  # sections has several. Blank ones are zeroed, so take the distinct non-zero
+  # ids in file order. `event_code` is a single free-text field on both our
+  # schema and the FIDE forms, so multiples are joined rather than dropped —
+  # the arbiter can then delete whichever doesn't apply, which is recoverable,
+  # whereas silently keeping only the first is not.
+  defp swar_event_code(t) do
+    t
+    |> Map.get(:fide_ids, [])
+    |> Enum.map(& &1.id)
+    |> Enum.reject(&(&1 in [0, nil]))
+    |> Enum.uniq()
+    |> Enum.map_join(", ", &to_string/1)
+  end
+
+  # Fills in `chief_arbiter_fide_id` / `deputyN_fide_id` for any official whose
+  # name resolves to exactly one FIDE entry. Only ever runs on the persisting
+  # path — `tournament_attrs/1` is shared with the pure `build_structs/1`
+  # builder, which must not touch the database.
+  defp resolve_official_fide_ids(attrs) do
+    officials = Map.get(attrs, :officials) || %{}
+
+    officials =
+      1..4
+      |> Enum.reduce(officials, fn n, acc ->
+        put_official_fide_id(acc, "deputy#{n}_name", "deputy#{n}_fide_id")
+      end)
+
+    officials =
+      case match_official_fide_id(Map.get(attrs, :chief_arbiter)) do
+        nil -> officials
+        id -> Map.put(officials, "chief_arbiter_fide_id", to_string(id))
+      end
+
+    Map.put(attrs, :officials, officials)
+  end
+
+  defp put_official_fide_id(officials, name_key, id_key) do
+    case match_official_fide_id(Map.get(officials, name_key)) do
+      nil -> officials
+      id -> Map.put(officials, id_key, to_string(id))
+    end
+  end
+
+  # An official's name matched against the FIDE database, or `nil` unless
+  # exactly one entry matches — same "never silently guess" rule the player
+  # matcher follows.
+  #
+  # Compares an order-independent token set, because the two sides disagree on
+  # word order by convention: SWAR has "Sylvin De Vet", FIDE has "De Vet,
+  # Sylvin". Sorting the (diacritic-folded) tokens makes those equal without
+  # having to guess which words are the surname.
+  defp match_official_fide_id(name) do
+    case official_name_key(name) do
+      [] ->
+        nil
+
+      tokens ->
+        tokens
+        |> fide_players_matching_tokens()
+        |> Enum.filter(&(official_name_key(&1.name) == tokens))
+        |> case do
+          [one] -> one.fide_id
+          _ -> nil
+        end
+    end
+  end
+
+  defp official_name_key(name) do
+    name
+    |> normalize_name_for_match()
+    |> String.replace(",", " ")
+    |> String.split(~r/\s+/, trim: true)
+    |> Enum.sort()
+  end
+
+  # FTS prefilter shared by the official matcher and
+  # `other_federation_candidates/2` — the index folds diacritics the same way
+  # `normalize_name_for_match/1` does, so it narrows ~1.9M rows to a handful
+  # that the caller then confirms exactly.
+  defp fide_players_matching_tokens([]), do: []
+
+  defp fide_players_matching_tokens(tokens) do
+    match = Enum.map_join(tokens, " AND ", &"\"#{String.replace(&1, "\"", "")}\"")
+
+    %{rows: rows} =
+      Repo.query!(
+        "SELECT fide_id FROM fide_players_fts WHERE fide_players_fts MATCH ? LIMIT 50",
+        [match]
+      )
+
+    ids =
+      rows
+      |> List.flatten()
+      |> Enum.map(fn
+        id when is_integer(id) -> id
+        id when is_binary(id) -> String.to_integer(id)
+      end)
+
+    if ids == [], do: [], else: Repo.all(from(f in FidePlayer, where: f.fide_id in ^ids))
+  rescue
+    # A checkout without the FTS migration (or a hand-built test DB) must not
+    # take the whole import down over an autofill nicety.
+    _ -> []
   end
 
   # Shared by `create_tournament/2` (persisting) and `build_tournament_struct/1`
@@ -779,8 +1036,12 @@ defmodule PairingsEngine.SwarImport do
       start_date: normalize_date(t.start_date),
       end_date: normalize_date(t.end_date),
       organizer: t.organizer,
-      chief_arbiter: t.arbiter1,
+      chief_arbiter: strip_arbiter_title(t.arbiter1),
+      # Kept raw: this is the free-text field shown as-is on reports/exports,
+      # and the parsed-out individuals live in `officials` below.
       deputy_arbiter: t.arbiter2,
+      event_code: swar_event_code(t),
+      officials: swar_officials(t),
       rounds_count: max(t.nb_rounds, 1),
       tiebreaks: map_tiebreaks(data.tiebreaks),
       standard: map_standard(t.tournoi_std),
