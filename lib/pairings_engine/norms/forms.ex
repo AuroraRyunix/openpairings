@@ -110,16 +110,16 @@ defmodule PairingsEngine.Norms.Forms do
           "B25" => blank(Map.get(o, "remark3")),
           "B26" => blank(Map.get(o, "remark4")),
           "B59" => parse_int(Map.get(o, "chief_arbiter_fide_id")),
-          "B60" => blank(tournament.chief_arbiter),
+          "B60" => blank(fide_display_name(tournament.chief_arbiter)),
           "B61" => blank(Map.get(o, "chief_arbiter_email")),
           "B62" => parse_int(Map.get(o, "deputy1_fide_id")),
-          "B63" => blank(Map.get(o, "deputy1_name")),
+          "B63" => blank(fide_display_name(Map.get(o, "deputy1_name"))),
           "B64" => parse_int(Map.get(o, "deputy2_fide_id")),
-          "B65" => blank(Map.get(o, "deputy2_name")),
+          "B65" => blank(fide_display_name(Map.get(o, "deputy2_name"))),
           "B66" => parse_int(Map.get(o, "deputy3_fide_id")),
-          "B67" => blank(Map.get(o, "deputy3_name")),
+          "B67" => blank(fide_display_name(Map.get(o, "deputy3_name"))),
           "B68" => parse_int(Map.get(o, "deputy4_fide_id")),
-          "B69" => blank(Map.get(o, "deputy4_name"))
+          "B69" => blank(fide_display_name(Map.get(o, "deputy4_name")))
         }
         |> Map.merge(counts_fills("B27", rated.rated))
         |> Map.merge(counts_fills("B31", rated.gm))
@@ -206,7 +206,8 @@ defmodule PairingsEngine.Norms.Forms do
   defp arbiter_norm_fills(tournament, players, candidate) do
     %{
       "Invulformulier" => %{
-        "B1" => blank(cget(candidate, "last_name")),
+        # Surname in capitals, FIDE house style (see `fide_display_name/1`).
+        "B1" => blank(candidate |> cget("last_name") |> to_string() |> String.upcase()),
         "B2" => blank(cget(candidate, "first_name")),
         "B3" => parse_int(cget(candidate, "fide_id")),
         "B4" => blank(cget(candidate, "federation")),
@@ -284,7 +285,7 @@ defmodule PairingsEngine.Norms.Forms do
 
     %{
       "B#{row}" => blank(p.title),
-      "C#{row}" => blank(p.name),
+      "C#{row}" => blank(fide_display_name(p.name)),
       "L#{row}" => blank(p.federation),
       "M#{row}" => p.fide_id,
       "N#{row}" => rating_or_nil(p),
@@ -339,8 +340,47 @@ defmodule PairingsEngine.Norms.Forms do
 
   defp cget(candidate, key), do: Map.get(candidate || %{}, key)
 
+  # FIDE's house style on these forms is the given name in normal case and the
+  # surname in capitals — "Jorian BURSSENS" — which also removes the ambiguity
+  # about which part is the surname for multi-word names ("De Vet", "Van
+  # Dyck"). Our records store "Last, First", so the comma is what tells us
+  # where to split; a name with no comma is left alone rather than guessed at.
+  @doc false
+  def fide_display_name(name) do
+    case String.split(to_string(name), ",", parts: 2) do
+      [last, first] ->
+        [String.trim(first), String.upcase(String.trim(last))]
+        |> Enum.reject(&(&1 == ""))
+        |> Enum.join(" ")
+
+      _ ->
+        String.trim(to_string(name))
+    end
+  end
+
   defp rated?(%{fide_rating: r}), do: (r || 0) > 0
-  defp titled?(%{title: t}), do: not blank?(t)
+
+  @untitled_grades ~w(CM WCM)
+
+  @doc """
+  Whether a player counts as **titled** for FIDE reporting.
+
+  CM and WCM do not: they're awarded by federations, not under the FIDE title
+  regulations these counts refer to, so including them inflates the figure and
+  makes the report disagree with FIDE's own view of the same tournament.
+
+  Public because this is the single source of truth for that rule and more
+  than one screen shows a "titled players" figure — `ToolsNormsLive`'s
+  uploaded-file table had its own `Enum.count(players, &(&1.title != ""))`,
+  which silently disagreed with the generated form the moment CM stopped
+  counting. `PairingsEngine.Norms.TitleNorms` applies the same exclusion to
+  titled-opponent ratios (see its `~w(GM IM WGM WIM FM WFM)` list).
+  """
+  def titled?(%{title: t}) do
+    not blank?(t) and String.upcase(String.trim(to_string(t))) not in @untitled_grades
+  end
+
+  def titled?(_), do: false
 
   defp place(tournament) do
     [tournament.venue, tournament.city]

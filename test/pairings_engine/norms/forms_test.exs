@@ -228,7 +228,9 @@ defmodule PairingsEngine.Norms.FormsTest do
 
       fills = Forms.fa1_fills(tournament(), players, @candidate)["Invulformulier"]
 
-      assert fills["B1"] == "Smith"
+      # Surname in capitals is FIDE house style on these forms; the given name
+      # keeps its own casing (see `Forms.fide_display_name/1`).
+      assert fills["B1"] == "SMITH"
       assert fills["B2"] == "Alice"
       assert fills["B3"] == 1_234_567
       assert fills["B4"] == "NED"
@@ -354,6 +356,69 @@ defmodule PairingsEngine.Norms.FormsTest do
       fills = Forms.it4_fills(tournament(), [entry(candidate)])
 
       assert {:ok, _} = XlsxFill.fill(Forms.template_path(:it4), fills)
+    end
+  end
+
+  describe "fide_display_name/1" do
+    test "renders \"Last, First\" as \"First LAST\"" do
+      assert Forms.fide_display_name("Burssens, Jorian") == "Jorian BURSSENS"
+      # Multi-word surnames are exactly why the comma decides the split
+      # rather than word position.
+      assert Forms.fide_display_name("De Vet, Sylvin") == "Sylvin DE VET"
+      assert Forms.fide_display_name("Van Dyck, Marc") == "Marc VAN DYCK"
+    end
+
+    test "a name with no comma is left alone rather than guessed at" do
+      assert Forms.fide_display_name("Madonna") == "Madonna"
+      assert Forms.fide_display_name("Jorian Burssens") == "Jorian Burssens"
+    end
+
+    test "handles blanks and a trailing comma without raising" do
+      assert Forms.fide_display_name("") == ""
+      assert Forms.fide_display_name("Burssens,") == "BURSSENS"
+      assert Forms.fide_display_name(nil) == ""
+    end
+  end
+
+  describe "titled? — CM/WCM are not FIDE titles" do
+    test "CM and WCM are excluded from the IT3 titled count" do
+      players = [
+        player(%{title: "GM"}),
+        player(%{title: "IM"}),
+        player(%{title: "CM"}),
+        player(%{title: "WCM"}),
+        player(%{title: ""})
+      ]
+
+      fills = Forms.fa1_fills(tournament(), players, @candidate)["Invulformulier"]
+
+      # GM + IM only — CM/WCM are federation-awarded, not FIDE titles for the
+      # purposes of this count.
+      assert fills["B16"] == 2
+    end
+  end
+
+  describe "official names on IT3 follow the same capitalisation" do
+    test "chief arbiter and deputies are rendered First LAST" do
+      t =
+        tournament(%{
+          chief_arbiter: "Cornet, Luc",
+          officials: %{
+            "chief_arbiter_fide_id" => "205494",
+            "deputy1_name" => "De Vet, Sylvin",
+            "deputy1_fide_id" => "214787"
+          }
+        })
+
+      fills = Forms.it3_fills(t, [])["Invulformulier"]
+
+      assert fills["B60"] == "Luc CORNET"
+      assert fills["B63"] == "Sylvin DE VET"
+    end
+
+    test "an official stored without a comma is left as-is, not guessed at" do
+      t = tournament(%{chief_arbiter: "Luc Cornet"})
+      assert Forms.it3_fills(t, [])["Invulformulier"]["B60"] == "Luc Cornet"
     end
   end
 end
