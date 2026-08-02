@@ -72,6 +72,27 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
     assert saved.officials["deputy4_fide_id"] == "400004"
   end
 
+  test "the IT3 counts explainer lists the actual players behind each category, collapsed by default",
+       %{conn: conn, scope: scope} do
+    tournament = create_tournament(scope, %{"federation" => "BEL"})
+
+    {:ok, _} =
+      Tournaments.create_player(tournament.id, %{
+        "name" => "Carlsen, Magnus",
+        "title" => "GM",
+        "fide_rating" => "2830",
+        "federation" => "NOR"
+      })
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/norms")
+
+    assert html =~ "How the IT3 rated / titled / federation counts were calculated"
+    # <details> with no `open` attribute is collapsed by default.
+    refute html =~ "<details class=\"it3-explain\" open"
+    assert html =~ "Carlsen, Magnus"
+    assert html =~ "GM"
+  end
+
   test "'+ Add arbiter' offers a 5th slot beyond the 4 built-in deputies, which saves and downloads",
        %{conn: conn, scope: scope} do
     tournament = create_tournament(scope)

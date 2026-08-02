@@ -245,6 +245,22 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     assert xml =~ "Fourth DEPUTY"
   end
 
+  test "the IT3 counts explainer shows the uploaded players' breakdown, collapsed by default",
+       %{conn: conn} do
+    {:ok, lv, _html} = live(conn, ~p"/tools/norms")
+
+    html =
+      upload_files(lv, [
+        {"alpha.trf",
+         trf_text("Alpha Open", [{"Carlsen, Magnus", 1_503_014}, {"Nakamura, Hikaru", 2_016_192}])}
+      ])
+
+    assert html =~ "How the IT3 rated / titled / federation counts were calculated"
+    refute html =~ "<details class=\"it3-explain\" open"
+    assert html =~ "Carlsen, Magnus"
+    assert html =~ "Nakamura, Hikaru"
+  end
+
   test "the '+ Add arbiter' button offers a 5th slot beyond the 4 built-in deputies, which flows into the download",
        %{conn: conn} do
     Repo.insert!(%PairingsEngine.Fide.FidePlayer{

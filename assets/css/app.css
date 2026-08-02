@@ -2005,3 +2005,44 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .report-blocked strong { color: #b3261e; display: block; margin-bottom: 2px; }
 .report-blocked ul { margin: 6px 0 0; padding-left: 20px; }
 .report-blocked li { margin: 2px 0; }
+
+/* IT3 rated/titled/federation counts explainer (PairingsEngineWeb.Components.It3CountsExplain)
+   — same pe-stat/pe-tag/pe-ladder language as the pairing-rationale screens,
+   collapsed by default via plain <details>/<summary>, no JS. */
+.it3-explain { margin: 8px 0 4px; }
+.it3-explain-summary {
+  cursor: pointer; font-weight: 600; font-size: 13px; color: var(--text);
+  padding: 6px 0; list-style: none;
+}
+.it3-explain-summary::-webkit-details-marker { display: none; }
+.it3-explain-summary::before {
+  content: "▸"; display: inline-block; margin-right: 6px; color: var(--text-soft);
+  transition: transform 0.15s ease;
+}
+.it3-explain[open] > .it3-explain-summary::before { transform: rotate(90deg); }
+.it3-explain-code {
+  font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 1px 4px;
+}
+.it3-explain-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px;
+}
+.it3-explain-card {
+  border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: var(--surface);
+}
+.it3-explain-card > summary {
+  cursor: pointer; list-style: none; display: flex; align-items: baseline; gap: 8px;
+  flex-wrap: wrap;
+}
+.it3-explain-card > summary::-webkit-details-marker { display: none; }
+.it3-explain-card-label { font-weight: 700; font-size: 13px; min-width: 46px; }
+.it3-explain-card-sub { font-size: 11.5px; color: var(--text-soft); margin-left: auto; }
+.it3-explain-bar { margin: 6px 0; }
+.it3-explain-players { list-style: none; margin: 6px 0 0; padding: 0; max-height: 220px; overflow-y: auto; }
+.it3-explain-player {
+  display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 12.5px;
+  border-top: 1px solid var(--border);
+}
+.it3-explain-player:first-child { border-top: none; }
+.it3-explain-player-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.it3-explain-player-rating { font-variant-numeric: tabular-nums; color: var(--text-soft); font-size: 11.5px; }

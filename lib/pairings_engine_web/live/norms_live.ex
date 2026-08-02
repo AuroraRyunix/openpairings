@@ -30,6 +30,7 @@ defmodule PairingsEngineWeb.NormsLive do
 
   import PairingsEngineWeb.SettingsSupport
   import PairingsEngineWeb.Components.ArbiterCombo
+  import PairingsEngineWeb.Components.It3CountsExplain
 
   alias PairingsEngine.{Fide, Tournaments}
   alias PairingsEngine.Tournaments.Player
@@ -864,6 +865,7 @@ defmodule PairingsEngineWeb.NormsLive do
             Download IT3
           </button>
         </div>
+        <.it3_counts_explain players={@players} host_federation={@tournament.federation} />
       </div>
 
       <div class="card">

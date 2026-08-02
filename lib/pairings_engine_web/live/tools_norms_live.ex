@@ -27,9 +27,10 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   use PairingsEngineWeb, :live_view
 
   import PairingsEngineWeb.Components.ArbiterCombo
+  import PairingsEngineWeb.Components.It3CountsExplain
 
   alias PairingsEngine.Fide
-  alias PairingsEngine.Norms.Forms
+  alias PairingsEngine.Norms.{Combine, Forms}
   alias PairingsEngine.Tools.{Parser, Session}
   alias PairingsEngineWeb.Live.ArbiterCombo
 
@@ -346,6 +347,24 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   @doc false
   def total_federations(files) do
     files |> successful() |> Enum.flat_map(&federations(&1.players)) |> Enum.uniq() |> length()
+  end
+
+  # The same pooled player list Combine.combine/2 would hand
+  # PairingsEngineWeb.ToolsController for an actual IT3 download — reused
+  # here (not a naive flat-map across files) so the counts explainer never
+  # disagrees with the report it's explaining, e.g. by double-counting a
+  # player Combine itself dedupes across files. `nil` when there's nothing
+  # to combine yet or the files conflict (same failure modes the download
+  # button already guards against via report_blockers/1).
+  defp combined_for_explain(files, master_index) do
+    pairs = files |> successful() |> Enum.map(&{&1.tournament, &1.players})
+
+    with [_ | _] <- pairs,
+         {:ok, {tournament, players}} <- Combine.combine(pairs, master_index) do
+      {players, tournament.federation}
+    else
+      _ -> nil
+    end
   end
 
   @doc """
@@ -820,6 +839,12 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
             Download IT3 / FA1 / IA1
           </button>
         </div>
+        <% combined = combined_for_explain(@files, @master_index) %>
+        <.it3_counts_explain
+          :if={combined}
+          players={elem(combined, 0)}
+          host_federation={elem(combined, 1)}
+        />
       </div>
     </Layouts.app>
     """

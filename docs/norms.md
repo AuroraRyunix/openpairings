@@ -178,6 +178,27 @@ a hard no-op: `ItThreeExpand.expand/2` returns the template completely
 untouched, so no tournament without extra arbiters is affected by any of
 this.
 
+## Explaining the rated/titled/federation counts
+
+IT3's `B27`-`B58` block (rated/GM/IM/FM/unrated/WGM/WIM/WFM, each as
+total/feds/host) is the one part of the report an arbiter can't sanity-check
+by eye against the player list — "why does this say 14 rated players" was a
+real support question. `PairingsEngine.Norms.CountsBreakdown.breakdown/2`
+groups players exactly the way `Forms.it3_fills/3` counts them (same
+`rated?/1`, same title membership, same CM/WCM exclusion via
+`Forms.titled?/1`) but keeps the actual player list per category instead of
+collapsing straight to a count.
+
+`PairingsEngineWeb.Components.It3CountsExplain`'s `<.it3_counts_explain>`
+renders that as a collapsed-by-default `<details>` panel (plain HTML, no
+LiveView round-trip needed — the player list is already on the page), one
+card per category with the same `.pe-stat`/`.pe-tag`/`.pe-ladder` visual
+language the pairing-rationale screens use. Present on both the signed-in
+Norms page (`@players`, real `Tournament.federation`) and the public Tools
+page (the actual `Combine.combine/2`-pooled player list and the *combined*
+tournament's federation — not a naive flat-map across uploaded files, so it
+can never disagree with what a download would actually contain).
+
 **Saving is refused too, not just downloading.** Every arbiter FIDE reports on
 is registered with FIDE and therefore has an id — an official without one
 doesn't exist — so `save_officials` rejects a named official with no id and
