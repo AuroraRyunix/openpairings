@@ -52,6 +52,11 @@ config :swoosh, :api_client, false
 # In test we don't send emails
 config :pairings_engine, PairingsEngine.Mailer, adapter: Swoosh.Adapters.Test
 
+# Route PairingsEngine.Keycloak's Req calls through a Req.Test stub instead of
+# the real network — see Req.Test's moduledoc for the `plug: {Req.Test, name}`
+# convention. Individual tests set behaviour with Req.Test.stub/2.
+config :pairings_engine, :keycloak_req_plug, PairingsEngine.KeycloakTest
+
 # Print only warnings and errors during test
 config :logger, level: :warning
 

@@ -2,12 +2,20 @@ defmodule PairingsEngine.Accounts.User do
   use Ecto.Schema
   import Ecto.Changeset
 
+  # Accounts on this domain are provisioned exclusively through 02cloud SSO
+  # (see `keycloak_changeset/2` and `PairingsEngine.Accounts.find_or_create_from_keycloak/1`),
+  # never through self-serve registration or an email change. Keep this in
+  # sync with `validate_not_sso_domain/1` below, which is the enforcement
+  # point — this is just the constant it reads.
+  @blocked_registration_domain "zerotwo.cloud"
+
   schema "users" do
     field :email, :string
     field :password, :string, virtual: true, redact: true
     field :hashed_password, :string, redact: true
     field :confirmed_at, :utc_datetime
     field :authenticated_at, :utc_datetime, virtual: true
+    field :keycloak_sub, :string
 
     timestamps(type: :utc_datetime)
   end
@@ -29,6 +37,30 @@ defmodule PairingsEngine.Accounts.User do
     |> validate_email(opts)
   end
 
+  @doc """
+  The changeset used exclusively by `Accounts.find_or_create_from_keycloak/1`
+  to create or couple an account from a verified 02cloud SSO identity.
+
+  Deliberately bypasses `email_changeset/2`'s registration-domain blocklist —
+  SSO is the on-ramp that blocklist exists to redirect people to, so it must
+  never reject the identity it's protecting. Also sets `confirmed_at`
+  immediately: Keycloak (AD federation) already verified this identity, so
+  there's no reason to route an SSO-created account through the magic-link
+  confirmation flow.
+  """
+  def keycloak_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:email, :keycloak_sub])
+    |> validate_required([:email, :keycloak_sub])
+    |> validate_format(:email, ~r/^[^@,;\s]+@[^@,;\s]+$/,
+      message: "must have the @ sign and no spaces"
+    )
+    |> validate_length(:email, max: 160)
+    |> unsafe_validate_unique(:keycloak_sub, PairingsEngine.Repo)
+    |> unique_constraint(:keycloak_sub)
+    |> put_change(:confirmed_at, DateTime.utc_now(:second))
+  end
+
   defp validate_email(changeset, opts) do
     changeset =
       changeset
@@ -37,6 +69,7 @@ defmodule PairingsEngine.Accounts.User do
         message: "must have the @ sign and no spaces"
       )
       |> validate_length(:email, max: 160)
+      |> validate_not_sso_domain()
 
     if Keyword.get(opts, :validate_unique, true) do
       changeset
@@ -46,6 +79,50 @@ defmodule PairingsEngine.Accounts.User do
     else
       changeset
     end
+  end
+
+  @doc """
+  The domain that is reachable **only** through 02cloud SSO.
+  """
+  def sso_domain, do: @blocked_registration_domain
+
+  @doc """
+  Whether `email` belongs to the SSO-only domain.
+
+  This is the single predicate behind the whole policy, and it is deliberately
+  public because the rule has to hold at more than one place: creating an
+  account, changing an account's email, *and* both local login paths. See
+  `PairingsEngineWeb.UserSessionController` and `PairingsEngineWeb.UserLive.Login`.
+  """
+  def sso_domain_email?(email) when is_binary(email) do
+    case String.split(email, "@") do
+      [_local, domain] -> String.downcase(String.trim(domain)) == @blocked_registration_domain
+      _ -> false
+    end
+  end
+
+  def sso_domain_email?(_), do: false
+
+  # `@zerotwo.cloud` accounts must come from SSO (`keycloak_changeset/2`), not
+  # self-serve registration or a settings-page email change — otherwise
+  # someone could register a local password-only account under an address on
+  # that domain without actually controlling it there.
+  #
+  # This blocks *creating/changing to* such an address. Blocking local LOGIN
+  # for them is enforced separately at the two login entry points, because by
+  # then the account legitimately exists (SSO made it) and the changeset is
+  # not involved.
+  defp validate_not_sso_domain(changeset) do
+    validate_change(changeset, :email, fn :email, email ->
+      if sso_domain_email?(email) do
+        [
+          email:
+            "sign in with SSO instead of registering an @#{@blocked_registration_domain} account"
+        ]
+      else
+        []
+      end
+    end)
   end
 
   defp validate_email_changed(changeset) do

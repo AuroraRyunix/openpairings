@@ -27,6 +27,22 @@ defmodule PairingsEngine.Accounts do
   end
 
   @doc """
+  Gets a user by their 02cloud SSO (Keycloak) subject id.
+
+  ## Examples
+
+      iex> get_user_by_keycloak_sub("3fe2b6a0-...")
+      %User{}
+
+      iex> get_user_by_keycloak_sub("unknown")
+      nil
+
+  """
+  def get_user_by_keycloak_sub(sub) when is_binary(sub) do
+    Repo.get_by(User, keycloak_sub: sub)
+  end
+
+  @doc """
   Gets a user by email and password.
 
   ## Examples
@@ -78,6 +94,51 @@ defmodule PairingsEngine.Accounts do
     %User{}
     |> User.email_changeset(attrs)
     |> Repo.insert()
+  end
+
+  ## 02cloud SSO
+
+  @doc """
+  Finds or creates the local account for a verified 02cloud SSO identity —
+  the counterpart to the registration-domain blocklist in
+  `PairingsEngine.Accounts.User`: this is the *only* path that's allowed to
+  create (or attach SSO to) an `@zerotwo.cloud` account, and it's also open
+  to any other domain's SSO identity, per the same "SSO always gets in"
+  policy.
+
+  `attrs` is `%{sub: sub, email: email}` (`sub` and `email` from Keycloak's
+  userinfo response — see `PairingsEngineWeb.KeycloakAuthController`).
+
+  Resolution order, matching how a person's SSO identity can legitimately
+  relate to an existing local account:
+
+  1. **By `keycloak_sub`** — a return visit from someone already coupled.
+     This is checked first and is the only stable key: Keycloak's `sub` never
+     changes, unlike the email below, which can be renamed on either side.
+  2. **By `email`** — a pre-existing password/magic-link account whose email
+     matches this SSO identity gets *coupled* (its `keycloak_sub` is set) —
+     "auto create a coupled account" for someone who already had one, rather
+     than producing a confusing second account with the same email.
+  3. **Neither** — a brand-new account is created, pre-confirmed (see
+     `User.keycloak_changeset/2` for why).
+
+  Returns `{:ok, user}` or `{:error, changeset}`.
+  """
+  def find_or_create_from_keycloak(%{sub: sub, email: email})
+      when is_binary(sub) and is_binary(email) do
+    case get_user_by_keycloak_sub(sub) do
+      %User{} = user ->
+        {:ok, user}
+
+      nil ->
+        Repo.transact(fn ->
+          user = get_user_by_email(email) || %User{}
+
+          user
+          |> User.keycloak_changeset(%{email: email, keycloak_sub: sub})
+          |> Repo.insert_or_update()
+        end)
+    end
   end
 
   ## Settings

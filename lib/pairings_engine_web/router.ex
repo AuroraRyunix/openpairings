@@ -115,6 +115,16 @@ defmodule PairingsEngineWeb.Router do
     delete "/users/log-out", UserSessionController, :delete
   end
 
+  # 02cloud SSO (Keycloak, auth.zerotwo.cloud). Plain controller, not a
+  # LiveView/live_session — it only ever redirects, so there's no page to
+  # keep alive over a socket. See docs/AGENTS.md for the flow.
+  scope "/auth/keycloak", PairingsEngineWeb do
+    pipe_through [:browser]
+
+    get "/", KeycloakAuthController, :new
+    get "/callback", KeycloakAuthController, :callback
+  end
+
   ## Public (no login required) read-only tournament pages — see docs/public-pages.md.
   # Reachable via a tournament's unguessable `public_slug`, not its numeric
   # id. No `:require_authenticated_user` — deliberately public.

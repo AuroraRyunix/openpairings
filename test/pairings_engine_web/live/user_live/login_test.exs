@@ -54,6 +54,26 @@ defmodule PairingsEngineWeb.UserLive.LoginTest do
       assert html =~ "If your email is in our system"
     end
 
+    test "refuses an @zerotwo.cloud address instead of sending a link — even for a real, SSO-coupled account",
+         %{conn: conn} do
+      {:ok, user} =
+        PairingsEngine.Accounts.find_or_create_from_keycloak(%{
+          sub: Ecto.UUID.generate(),
+          email: "someone@zerotwo.cloud"
+        })
+
+      {:ok, lv, _html} = live(conn, ~p"/users/log-in")
+
+      {:ok, _lv, html} =
+        form(lv, "#login_form_magic", user: %{email: user.email})
+        |> render_submit()
+        |> follow_redirect(conn, ~p"/users/log-in")
+
+      assert html =~ "sign in with SSO"
+      refute html =~ "If your email is in our system"
+      refute PairingsEngine.Repo.get_by(PairingsEngine.Accounts.UserToken, user_id: user.id)
+    end
+
     test "stops sending once one address has been asked for too many links", %{conn: conn} do
       user = user_fixture()
       %{max: max} = PairingsEngine.RateLimit.config(:login_email)

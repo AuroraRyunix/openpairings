@@ -70,6 +70,30 @@ defmodule PairingsEngineWeb.UserSessionControllerTest do
       assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Invalid email or password"
       assert redirected_to(conn) == ~p"/users/log-in"
     end
+
+    test "@zerotwo.cloud addresses are refused even with a real password on file", %{
+      conn: conn
+    } do
+      # An SSO-created account that separately set a local password would
+      # otherwise be a way to bypass the directory — this must lose to the
+      # domain check regardless of whether the password is correct.
+      {:ok, user} =
+        Accounts.find_or_create_from_keycloak(%{
+          sub: Ecto.UUID.generate(),
+          email: "someone@zerotwo.cloud"
+        })
+
+      user = set_password(user)
+
+      conn =
+        post(conn, ~p"/users/log-in", %{
+          "user" => %{"email" => user.email, "password" => valid_user_password()}
+        })
+
+      refute get_session(conn, :user_token)
+      assert redirected_to(conn) == ~p"/users/log-in"
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) =~ "sign in with SSO"
+    end
   end
 
   describe "POST /users/log-in - magic link" do

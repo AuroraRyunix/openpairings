@@ -88,6 +88,35 @@ cond do
     :ok
 end
 
+# Where PairingsEngine.Fide.Sync fetches the monthly rating-list zip.
+#
+# Defaults to FIDE itself; set FIDE_LIST_URL to a mirror or pass-through proxy
+# when the host can't reach ratings.fide.com directly — it blocks a number of
+# hosting ranges, which leaves a VPS retrying a download that can never
+# succeed. Whatever this points at is unpacked straight into `fide_players`,
+# so it is trusted exactly as much as FIDE is: only set it to something you
+# control. See `PairingsEngine.Fide.Sync.list_url/0`.
+config :pairings_engine, :fide, list_url: System.get_env("FIDE_LIST_URL")
+
+# Configure 02cloud SSO (Keycloak, auth.zerotwo.cloud, realm `zerotwo`).
+#
+# Unlike SMTP above, this is NOT required to boot — SSO is one login option
+# among several (magic link, password), not the only account-recovery path —
+# so an unconfigured instance (any dev checkout, or a prod deploy that hasn't
+# registered a Keycloak client yet) simply serves an inert "SSO isn't
+# configured" flash from `KeycloakAuthController.new/2` instead of failing to
+# start. See `PairingsEngine.Keycloak.configured?/0`.
+keycloak_client_id = System.get_env("KEYCLOAK_CLIENT_ID")
+keycloak_client_secret = System.get_env("KEYCLOAK_CLIENT_SECRET")
+
+config :pairings_engine, :keycloak,
+  issuer: System.get_env("KEYCLOAK_ISSUER") || "https://auth.zerotwo.cloud/realms/zerotwo",
+  client_id: keycloak_client_id,
+  client_secret: keycloak_client_secret,
+  redirect_uri:
+    System.get_env("KEYCLOAK_REDIRECT_URI") ||
+      "https://#{System.get_env("PHX_HOST") || "example.com"}/auth/keycloak/callback"
+
 # ## Using releases
 #
 # If you use `mix release`, you need to explicitly enable the server

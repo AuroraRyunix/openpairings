@@ -85,6 +85,117 @@ defmodule PairingsEngine.AccountsTest do
       assert is_nil(user.confirmed_at)
       assert is_nil(user.password)
     end
+
+    test "rejects @zerotwo.cloud addresses — those must come through SSO" do
+      {:error, changeset} = Accounts.register_user(%{email: "someone@zerotwo.cloud"})
+      assert %{email: [message]} = errors_on(changeset)
+      assert message =~ "SSO"
+    end
+
+    test "rejects @zerotwo.cloud regardless of case" do
+      {:error, changeset} = Accounts.register_user(%{email: "Someone@ZeroTwo.Cloud"})
+      assert %{email: [message]} = errors_on(changeset)
+      assert message =~ "SSO"
+    end
+
+    test "does not reject a domain that merely contains zerotwo.cloud as a substring" do
+      email = "someone@notzerotwo.cloud.example.com"
+      {:ok, user} = Accounts.register_user(valid_user_attributes(email: email))
+      assert user.email == email
+    end
+  end
+
+  describe "change_user_email/3 (settings-page email change)" do
+    test "also rejects changing to an @zerotwo.cloud address" do
+      user = user_fixture()
+
+      changeset = Accounts.change_user_email(user, %{email: "someone@zerotwo.cloud"})
+      assert %{email: [message]} = errors_on(changeset)
+      assert message =~ "SSO"
+    end
+  end
+
+  describe "User.sso_domain_email?/1" do
+    alias PairingsEngine.Accounts.User
+
+    test "true for the SSO domain, any case" do
+      assert User.sso_domain_email?("someone@zerotwo.cloud")
+      assert User.sso_domain_email?("Someone@ZeroTwo.Cloud")
+      assert User.sso_domain_email?("administrator@zerotwo.cloud")
+    end
+
+    test "false for a domain that merely contains it as a substring" do
+      refute User.sso_domain_email?("someone@notzerotwo.cloud.example.com")
+      refute User.sso_domain_email?("someone@zerotwo.cloud.evil.example.com")
+    end
+
+    test "false for a different domain, and for garbage input" do
+      refute User.sso_domain_email?("someone@example.com")
+      refute User.sso_domain_email?("not an email")
+      refute User.sso_domain_email?(nil)
+    end
+  end
+
+  describe "find_or_create_from_keycloak/1" do
+    test "creates a new, pre-confirmed account for a first-time SSO identity" do
+      email = unique_user_email()
+      sub = Ecto.UUID.generate()
+
+      assert {:ok, user} = Accounts.find_or_create_from_keycloak(%{sub: sub, email: email})
+      assert user.email == email
+      assert user.keycloak_sub == sub
+      assert user.confirmed_at
+    end
+
+    test "creates an account even for an @zerotwo.cloud address (SSO is the intended path)" do
+      email = "someone@zerotwo.cloud"
+      sub = Ecto.UUID.generate()
+
+      assert {:ok, user} = Accounts.find_or_create_from_keycloak(%{sub: sub, email: email})
+      assert user.email == email
+    end
+
+    test "returns the same account on a repeat login, matched by keycloak_sub" do
+      sub = Ecto.UUID.generate()
+
+      {:ok, first} =
+        Accounts.find_or_create_from_keycloak(%{sub: sub, email: unique_user_email()})
+
+      {:ok, second} =
+        Accounts.find_or_create_from_keycloak(%{sub: sub, email: unique_user_email()})
+
+      assert first.id == second.id
+      # The email on file does NOT change from a repeat login — only the
+      # first-ever login (or an explicit coupling) sets it.
+      assert second.email == first.email
+    end
+
+    test "couples an existing password/magic-link account by matching email" do
+      user = user_fixture()
+      sub = Ecto.UUID.generate()
+
+      assert {:ok, coupled} =
+               Accounts.find_or_create_from_keycloak(%{sub: sub, email: user.email})
+
+      assert coupled.id == user.id
+      assert coupled.keycloak_sub == sub
+      # The pre-existing account's own confirmation state / hashed_password
+      # (if any) is untouched by coupling.
+      assert coupled.email == user.email
+    end
+
+    test "couples by email case-insensitively (users.email is nocase-collated)" do
+      user = user_fixture()
+      sub = Ecto.UUID.generate()
+
+      assert {:ok, coupled} =
+               Accounts.find_or_create_from_keycloak(%{
+                 sub: sub,
+                 email: String.upcase(user.email)
+               })
+
+      assert coupled.id == user.id
+    end
   end
 
   describe "sudo_mode?/2" do

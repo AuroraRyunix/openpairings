@@ -184,16 +184,23 @@ defmodule PairingsEngineWeb.UserLive.Login do
               </button>
             </.form>
 
-            <div class="auth-divider"><span>or</span></div>
-            <%!-- Enterprise single sign-on (ADFS / OIDC). Placeholder for now -
-                  wired up later; the button intentionally does nothing yet. --%>
-            <button
-              type="button"
+            <div :if={PairingsEngine.Keycloak.configured?()} class="auth-divider">
+              <span>or</span>
+            </div>
+            <%!-- 02cloud SSO (Keycloak / AD, auth.zerotwo.cloud) - see
+                  KeycloakAuthController and docs/AGENTS.md. Hidden entirely
+                  rather than shown-but-disabled when unconfigured (any dev
+                  checkout, or a prod instance with no client registered yet),
+                  since a login page with a dead button is worse than one
+                  without it. --%>
+            <.link
+              :if={PairingsEngine.Keycloak.configured?()}
+              href={~p"/auth/keycloak"}
               class="pe-btn auth-submit auth-sso"
-              title="Single sign-on (ADFS / OIDC) - coming soon"
+              title="Sign in with 02cloud SSO"
             >
               <.icon name="hero-building-office-2" class="size-4" /> Sign in with SSO
-            </button>
+            </.link>
           </div>
         </div>
       </div>
@@ -225,6 +232,26 @@ defmodule PairingsEngineWeb.UserLive.Login do
   end
 
   def handle_event("submit_magic", %{"user" => %{"email" => email}}, socket) do
+    if PairingsEngine.Accounts.User.sso_domain_email?(email) do
+      # The SSO-only domain never gets a magic link. Some of these addresses
+      # are synthesized from a directory username and have no mailbox at all,
+      # so a link would silently go nowhere; the ones that DO have a mailbox
+      # must still go through the directory rather than around it. Saying so
+      # outright leaks nothing — the rule depends only on the domain, so the
+      # response is identical for addresses that exist and ones that don't.
+      {:noreply,
+       socket
+       |> put_flash(
+         :error,
+         "@#{PairingsEngine.Accounts.User.sso_domain()} accounts sign in with SSO."
+       )
+       |> push_navigate(to: ~p"/users/log-in")}
+    else
+      deliver_magic_link(socket, email)
+    end
+  end
+
+  defp deliver_magic_link(socket, email) do
     # Counted per recipient AND per client: the first stops someone using this
     # form to bury one person's inbox in log-in links, the second stops one
     # client walking a list of addresses. Both are counted for every submit,
