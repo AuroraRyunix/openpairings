@@ -26,11 +26,35 @@ These are real, identified gaps — not yet built, and not accidentally missed:
   models differently than expected, re-verify against it (only synthetic
   fixtures + the one real file with a coincidental match have exercised it).
 
+## Pending deploy steps
+
+- **Set the 02cloud SSO env vars on the production host.** The code, the
+  Keycloak client (`openpairings`, confidential, realm `zerotwo`) and its
+  secret all exist as of 2026-07-25, but the live systemd unit doesn't carry
+  them yet, so SSO is dormant in production — the button is hidden and
+  `/auth/keycloak` flashes "isn't configured", by design rather than as a
+  failure. Add `KEYCLOAK_CLIENT_ID=openpairings` and
+  `KEYCLOAK_CLIENT_SECRET=…` as `Environment=` lines and restart. See
+  [`docs/deployment.md`](docs/deployment.md).
+- **Verify the SSO round trip once against production.** Nothing has exercised
+  it end-to-end yet: the tests stub Keycloak's HTTP responses with `Req.Test`,
+  and only the *derived* endpoint URLs were checked against the live realm's
+  `.well-known` document. Check both branches — a brand-new `@zerotwo.cloud`
+  identity (should auto-create a pre-confirmed account) and an AD identity
+  whose email already matches an existing OpenPairings account (should couple
+  to that account, not duplicate it).
+
 ## Tech debt
 
 - **Security advisory on a transitive dep** — `mix deps.get` surfaced a
   Hex security-advisory notice during the 2026-07-25 deploy (no details
   captured at the time). Run `mix hex.audit` and address whatever it flags.
+- **The SSO registration blocklist is a single hardcoded domain.** `User`'s
+  `@blocked_registration_domain "zerotwo.cloud"` is a module attribute, not
+  configuration. Deliberate while there is exactly one SSO domain — but if a
+  second federated domain is ever added, this must become a configured list
+  (and `validate_not_sso_domain/1` updated), or the new domain will be
+  silently self-registerable.
 - **`docs/AGENTS.md` / this file need to stay current** — both were written
   in a single documentation pass (2026-07-25); nothing enforces they get
   updated when the code moves on. Treat any obviously stale claim in either

@@ -205,6 +205,57 @@ anything here.
    at `ensure_frozen/1`); Keizer runs its own backtracking matcher. Neither
    is affected by anything in this section.
 
+## 02cloud SSO, and the registration blocklist that goes with it
+
+Added 2026-07-25. Three moving parts, deliberately split so the policy lives in
+the schema rather than in a controller:
+
+- `PairingsEngine.Keycloak` — a deliberately minimal OIDC client for exactly
+  one provider (`auth.zerotwo.cloud`, realm `zerotwo`). The three endpoints are
+  derived from the issuer by Keycloak's documented URL scheme rather than
+  fetched from `.well-known/openid-configuration` (verified against the live
+  realm: the advertised endpoints match the derived ones exactly). It is a
+  **confidential** client, so there is no PKCE — PKCE protects a public
+  client's code on the user's own device, whereas here the code is redeemed
+  server-to-server with a client secret, which is the real boundary.
+- `PairingsEngineWeb.KeycloakAuthController` — `/auth/keycloak` (redirect out)
+  and `/auth/keycloak/callback` (verify `state`, exchange code, fetch userinfo,
+  log in). A plain controller, not a LiveView: it only ever redirects, so there
+  is nothing to keep alive over a socket. Its `with` has a catch-all `else`
+  precisely so a userinfo response missing `sub`/`email` degrades to a flash
+  rather than a 500.
+- `Accounts.find_or_create_from_keycloak/1` — resolves **by `keycloak_sub`
+  first, email second**. `sub` is the only stable key; an email can be renamed
+  on either side. Matching on email second is what "couples" a pre-existing
+  password/magic-link account to an SSO identity instead of creating a
+  confusing duplicate.
+
+**The invariant that ties it together:** `User.email_changeset/3` rejects
+`@zerotwo.cloud` addresses (`validate_not_sso_domain/1`), so they cannot be
+created by self-serve registration *or* by a settings-page email change —
+otherwise someone could take a local password account on a domain they don't
+control in the directory. `User.keycloak_changeset/2` deliberately does **not**
+run that check, because SSO is the very on-ramp the blocklist redirects people
+to. If you ever add a third way to write `users.email`, decide explicitly which
+of those two changesets it belongs behind; a `cast` that bypasses both
+reopens the hole.
+
+Two consequences worth knowing before they surprise you:
+
+- SSO-created accounts are **pre-confirmed** (`confirmed_at` set in
+  `keycloak_changeset/2`) — Keycloak/AD already verified the identity, so
+  routing them through magic-link confirmation would be theatre.
+- The blocklist only guards *new* `@zerotwo.cloud` addresses. Accounts that
+  already have one (pre-dating the rule, or coupled via SSO) keep logging in
+  normally, including by password if they have one.
+
+Configuration is optional everywhere: with no client id/secret,
+`Keycloak.configured?/0` is false, the login button isn't rendered, and the
+routes flash instead of crashing. Tests stub the HTTP calls with `Req.Test`
+via `config :pairings_engine, :keycloak_req_plug` (see `config/test.exs`) —
+`Keycloak.request/3` only injects that plug when the setting is present, so
+production is untouched.
+
 ## FIDE norm judgment (`Norms.TitleNorms`)
 
 Implements FIDE Title Regulations B.01 (verified against
