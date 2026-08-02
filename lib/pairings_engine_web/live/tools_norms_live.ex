@@ -203,13 +203,26 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
       %{tournament: tournament} ->
         event_code = collapse_event_codes(event_codes(socket.assigns.files))
+        officials = tournament.officials || %{}
 
         overlay =
           socket.assigns.overlay
           |> maybe_prefill("chief_arbiter_name", tournament.chief_arbiter)
           |> maybe_prefill("organizer", tournament.organizer)
-          |> maybe_prefill("deputy1_name", tournament.deputy_arbiter)
           |> maybe_prefill("event_code", event_code)
+
+        # `tournament.deputy_arbiter` is SWAR's raw, un-split field (multiple
+        # people in one comma-joined string, e.g. "IA Sylvin De Vet, NA Marc
+        # Van Dyck") — using it here dumped the whole string into deputy1
+        # alone. `tournament.officials` is the already-split, per-person map
+        # both SWAR (`SwarImport.split_officials/1`) and TRF (one deputy per
+        # line) produce, and what the signed-in Norms page's officials card
+        # already reads — so prefilling from it here keeps both pages
+        # consistent instead of one silently doing worse than the other.
+        overlay =
+          Enum.reduce(1..4, overlay, fn n, acc ->
+            maybe_prefill(acc, "deputy#{n}_name", Map.get(officials, "deputy#{n}_name", ""))
+          end)
 
         assign(socket, overlay: overlay)
     end

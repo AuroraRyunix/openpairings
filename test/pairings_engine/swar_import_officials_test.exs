@@ -204,6 +204,13 @@ defmodule PairingsEngine.SwarImportOfficialsTest do
 
     assert t.officials["chief_arbiter_fide_id"] == "205494"
     assert t.officials["deputy1_fide_id"] == "214787"
+
+    # A confident match rewrites the name to FIDE's own "Last, First" form
+    # too — same as picking that result by hand from the arbiter combobox
+    # would — so Norms.Forms.fide_display_name/1 has a comma to work with
+    # when the report prints the surname in capitals.
+    assert t.chief_arbiter == "Cornet, Luc"
+    assert t.officials["deputy1_name"] == "De Vet, Sylvin"
   end
 
   test "an ambiguous official is left blank rather than guessed" do

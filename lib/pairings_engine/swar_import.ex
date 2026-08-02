@@ -931,31 +931,47 @@ defmodule PairingsEngine.SwarImport do
   end
 
   # Fills in `chief_arbiter_fide_id` / `deputyN_fide_id` for any official whose
-  # name resolves to exactly one FIDE entry. Only ever runs on the persisting
-  # path — `tournament_attrs/1` is shared with the pure `build_structs/1`
-  # builder, which must not touch the database.
+  # name resolves to exactly one FIDE entry — AND rewrites that official's
+  # name to FIDE's own "Last, First" form, same as picking that result by
+  # hand from the arbiter combobox would (`NormsLive.apply_arbiter_pick/3`).
+  # Without the name rewrite, SWAR's own "First Last" spelling stuck around
+  # even after a confident match, and `Norms.Forms.fide_display_name/1`
+  # (which needs the "Last, First" comma to know where the surname is) had
+  # nothing to work with — the auto-matched id was right, but the printed
+  # report still didn't put the surname in FIDE house-style capitals.
+  #
+  # Only ever runs on the persisting path — `tournament_attrs/1` is shared
+  # with the pure `build_structs/1` builder, which must not touch the
+  # database.
   defp resolve_official_fide_ids(attrs) do
     officials = Map.get(attrs, :officials) || %{}
 
     officials =
       1..4
       |> Enum.reduce(officials, fn n, acc ->
-        put_official_fide_id(acc, "deputy#{n}_name", "deputy#{n}_fide_id")
+        put_matched_official(acc, "deputy#{n}_name", "deputy#{n}_fide_id")
       end)
 
-    officials =
-      case match_official_fide_id(Map.get(attrs, :chief_arbiter)) do
-        nil -> officials
-        id -> Map.put(officials, "chief_arbiter_fide_id", to_string(id))
-      end
+    case match_official_fide_player(Map.get(attrs, :chief_arbiter)) do
+      nil ->
+        Map.put(attrs, :officials, officials)
 
-    Map.put(attrs, :officials, officials)
+      fp ->
+        attrs
+        |> Map.put(:chief_arbiter, fp.name)
+        |> Map.put(:officials, Map.put(officials, "chief_arbiter_fide_id", to_string(fp.fide_id)))
+    end
   end
 
-  defp put_official_fide_id(officials, name_key, id_key) do
-    case match_official_fide_id(Map.get(officials, name_key)) do
-      nil -> officials
-      id -> Map.put(officials, id_key, to_string(id))
+  defp put_matched_official(officials, name_key, id_key) do
+    case match_official_fide_player(Map.get(officials, name_key)) do
+      nil ->
+        officials
+
+      fp ->
+        officials
+        |> Map.put(name_key, fp.name)
+        |> Map.put(id_key, to_string(fp.fide_id))
     end
   end
 
@@ -967,7 +983,7 @@ defmodule PairingsEngine.SwarImport do
   # word order by convention: SWAR has "Sylvin De Vet", FIDE has "De Vet,
   # Sylvin". Sorting the (diacritic-folded) tokens makes those equal without
   # having to guess which words are the surname.
-  defp match_official_fide_id(name) do
+  defp match_official_fide_player(name) do
     case official_name_key(name) do
       [] ->
         nil
@@ -977,7 +993,7 @@ defmodule PairingsEngine.SwarImport do
         |> fide_players_matching_tokens()
         |> Enum.filter(&(official_name_key(&1.name) == tokens))
         |> case do
-          [one] -> one.fide_id
+          [one] -> one
           _ -> nil
         end
     end

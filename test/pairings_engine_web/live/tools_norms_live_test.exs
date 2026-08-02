@@ -450,6 +450,45 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     refute html2 =~ "Different Arbiter"
   end
 
+  test "each deputy prefills into their own box, not one string dumped into deputy1", %{
+    conn: conn
+  } do
+    {:ok, lv, _html} = live(conn, ~p"/tools/norms")
+
+    trf =
+      Trf.serialize(%{
+        tournament: %{
+          name: "Alpha Open",
+          city: "Ghent",
+          federation: "BEL",
+          start_date: "2026-01-01",
+          end_date: "2026-01-02",
+          type: "swiss",
+          chief_arbiter: "Cornet, Luc",
+          deputy_arbiters: ["De Vet, Sylvin", "Van Dyck, Marc"]
+        },
+        players: [
+          %{
+            rank: 1,
+            name: "Alice",
+            fide_rating: 1900,
+            fide_number: 111,
+            federation: "BEL",
+            points: 0.0,
+            games: []
+          }
+        ]
+      })
+
+    html = upload_files(lv, [{"alpha.trf", trf}])
+
+    assert html =~
+             ~s(name="overlay[deputy1_name]" value="De Vet, Sylvin")
+
+    assert html =~
+             ~s(name="overlay[deputy2_name]" value="Van Dyck, Marc")
+  end
+
   ## ---------- uploaded-files totals ----------
 
   test "the uploaded-files table shows per-file titled/federation counts and totals", %{
