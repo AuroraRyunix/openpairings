@@ -50,6 +50,40 @@ IT4 isn't offered here — it's keyed off `Player.norm_data` (the per-player
 title-norm judgment set on the authenticated Norms page's player table),
 which doesn't exist for a player these tools only just parsed out of a file.
 
+## Officials: FIDE lookup and the norm-candidate picker
+
+The officials fields use the exact same combobox as the signed-in Norms page
+(`PairingsEngineWeb.Components.ArbiterCombo`, shared verbatim — see
+[`norms.md`](norms.md)), so an arbiter working from this page doesn't have to
+hand-type FIDE IDs (which is where the wrong person ends up on a report):
+
+- Each official has a name box and a FIDE-ID box side by side. Typing in
+  **either** one, debounced, searches and opens a dropdown attached to that
+  box — no separate lookup button on either page anymore. Result rows show
+  federation, birth year, rating and FIDE ID — federation alone can't
+  separate namesakes, and BEL really does have two `Van Dyck, Marc`. Picking
+  a row fills **both** the name and the ID; the ID box itself is a pure
+  search field, never the thing a download reads.
+- **"Pick an arbiter"** above the FA1/IA1 candidate fields fills all four from
+  whichever official you choose. When that official has a FIDE ID, the record
+  drives the first/last split, so a multi-word surname ("De Vet, Sylvin") stays
+  intact where a positional guess would say "Vet".
+
+There is no behavioral difference from the signed-in page anymore — both
+pages debounce every keystroke 300ms before searching, which is what keeps a
+per-keystroke query against ~1.9M FIDE rows from being an easy thing to point
+a script at.
+
+Downloads are blocked (red bar, naming the official) while any *named* arbiter
+has no FIDE ID — same rule as the signed-in page, for the same reason: FIDE
+identifies officials by id and bounces a report missing one. Leaving an
+official blank is fine; half-filling one is not.
+
+Both need the local FIDE database to be populated (see
+[`rating-refresh.md`](rating-refresh.md)); with an empty table a search
+simply returns no results, and every field stays hand-editable (though still
+gated on a FIDE ID, which then has to come from a populated table eventually).
+
 ## Ephemeral by design
 
 Every piece of state this page collects — parsed tournaments/players, the

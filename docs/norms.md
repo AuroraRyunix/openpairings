@@ -66,6 +66,92 @@ needed only at download time. The Norms page collects it with a plain `GET`
 form submitted straight to the controller (no LiveView round-trip, nothing
 saved).
 
+A **"Pick an arbiter"** select above that form prefills all four fields from
+the event's own officials, since the candidate is nearly always one of them and
+retyping a FIDE ID is a chance to put the right id on the wrong person. When
+the official has an id, the split comes from the *FIDE* record — "De Vet,
+Sylvin" keeps its surname intact, where a positional guess at SWAR's "Sylvin De
+Vet" would have said "Vet". The fields stay editable afterwards and the edited
+values are what get submitted: they're bound to an assign updated on every
+keystroke, so a re-render (a PubSub tournament change, a second pick) can't
+silently revert typing that the form would then submit.
+
+## Name style on the generated forms
+
+FIDE's house style on these forms is the given name in normal case and the
+surname in capitals — **"Jorian BURSSENS"**. `Norms.Forms.fide_display_name/1`
+does the conversion, splitting on the comma in our stored "Last, First" rather
+than by word position, so multi-word surnames survive ("De Vet, Sylvin" →
+"Sylvin DE VET"). A name with no comma is left alone rather than guessed at.
+
+Applied everywhere a person's name is written to a form:
+
+| Form | Cells |
+|---|---|
+| IT3 | `B60` chief arbiter, `B63`/`B65`/`B67`/`B69` deputies |
+| FA1/IA1 | `B1` candidate surname (capitalised on its own, since first/last are separate cells) |
+| IT4 | `C` player name column |
+
+IT4 is the only form that lists players by name; IT3 carries counts only.
+
+The conversion needs the stored "Last, First" form to know which part is the
+surname, which the FIDE lookup always produces. A name typed by hand with no
+comma is left exactly as entered rather than guessed at — another reason the
+officials flow pushes every arbiter through the FIDE combobox rather than a
+free-text name field.
+
+**CM and WCM are not counted as titles** in the FA1/IA1 titled-player count
+(B16): they're federation-awarded, not FIDE titles under the title
+regulations that count refers to, and including them made the report disagree
+with FIDE's own view of the same event.
+
+The Belgian authenticating official pre-printed in the FA1/IA1 templates reads
+`IA/IO CORNET, Luc (205494)` — it lives as a shared string inside the `.xlsx`
+files, not in code, so changing it means editing `xl/sharedStrings.xml` in
+`priv/norm_templates/`.
+
+## Reports are gated on complete officials
+
+FIDE identifies every official by FIDE ID and bounces a report that's missing
+one, so a download that would be rejected is worse than no download.
+`NormsLive.report_blockers/1` blocks IT3/FA1/IA1 behind a red bar naming each
+missing field until:
+
+- the chief arbiter has a name **and** a FIDE ID, and
+- every deputy that has been *named* also has a FIDE ID.
+
+An empty deputy slot is fine — not every event has two. The half-filled state
+(name, no id) is specifically what the SWAR import leaves behind whenever a
+name is ambiguous, so this is the check that stops that reaching FIDE.
+
+**Saving is refused too, not just downloading.** Every arbiter FIDE reports on
+is registered with FIDE and therefore has an id — an official without one
+doesn't exist — so `save_officials` rejects a named official with no id and
+says which one is missing. Two things back this up structurally: the FIDE-ID
+inputs are `hidden` and only written by picking a search result, so an id can
+never be typed (or mistyped) by hand, and the same block applies on the public
+`/tools/norms` page.
+
+To resolve one, use the arbiter combobox in the Officials card: each official
+has a name box and a FIDE-ID box side by side, and typing in **either** one
+(debounced) searches and opens a dropdown attached to that box — retyping the
+name already stored re-triggers the same search, no separate lookup step
+needed. Result rows show federation, birth year, rating and FIDE ID, because
+federation alone doesn't separate namesakes: BEL has two `Van Dyck, Marc`, and
+a list showing both as "Van Dyck, Marc · BEL" is unpickable. Picking a result
+fills both boxes; the ID box itself is a pure search field; a FIDE ID only
+ever gets saved by picking a result, never by typing digits into that box.
+
+The same combobox (`PairingsEngineWeb.Components.ArbiterCombo`, driven by
+`PairingsEngineWeb.Live.ArbiterCombo`) is shared verbatim with the public
+`/tools/norms` page — see [`tools.md`](tools.md) — so the two pages behave
+identically for this field.
+
+Note the Officials card has **no organizer name field** — that lives on the
+General card (`tournament.organizer`), and SWAR supplies it. SWAR has no
+organizer *FIDE ID* and no e-mail addresses at all, so those always start empty
+(see [`swar-import.md`](swar-import.md)).
+
 ## How the in-place fill works, and why
 
 `XlsxFill.fill/2` edits the workbook's XML members directly inside the

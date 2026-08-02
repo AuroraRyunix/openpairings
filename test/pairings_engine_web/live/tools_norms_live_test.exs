@@ -139,12 +139,30 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
   end
 
   test "officials/candidate fields flow into the downloaded FA1", %{conn: conn} do
+    Repo.insert!(%PairingsEngine.Fide.FidePlayer{
+      fide_id: 200_500,
+      name: "Bossuyt, Wim",
+      federation: "BEL"
+    })
+
     {:ok, lv, _html} = live(conn, ~p"/tools/norms")
     upload_files(lv, [{"alpha.trf", trf_text("Alpha Open", [{"Alice", 111}, {"Bob", 222}])}])
 
+    # The chief arbiter FIDE id can only land in the overlay via a real pick
+    # (see `PairingsEngineWeb.Components.ArbiterCombo`) — search, then pick.
+    lv
+    |> element("input[name='overlay[chief_arbiter_name]']")
+    |> render_change(%{
+      "overlay" => %{"chief_arbiter_name" => "Bossuyt"},
+      "_target" => ["overlay", "chief_arbiter_name"]
+    })
+
+    lv
+    |> element(~s(button[phx-click="arbiter_pick"][phx-value-fide-id="200500"]))
+    |> render_click()
+
     lv
     |> form("#tools-fields-form", %{
-      "overlay" => %{"chief_arbiter_name" => "Bossuyt, Wim", "chief_arbiter_fide_id" => "200500"},
       "candidate" => %{
         "last_name" => "Candidate",
         "first_name" => "Norma",
@@ -158,7 +176,9 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
 
     assert conn.status == 200
     xml = xlsx_xml(conn.resp_body)
-    assert xml =~ "Candidate"
+    # Surname in capitals is FIDE house style on these forms (see
+    # `Norms.Forms.fide_display_name/1`); the given name keeps its casing.
+    assert xml =~ "CANDIDATE"
     assert xml =~ "Norma"
     assert xml =~ "Bossuyt, Wim"
   end
@@ -345,10 +365,10 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     html =
       upload_files(lv, [{"alpha.trf", trf_text("Alpha Open", [{"Alice", 111}, {"Bob", 222}])}])
 
-    assert html =~ "Deputy 1 - name"
-    assert html =~ "Deputy 2 - name"
-    refute html =~ "Deputy 3 - name"
-    refute html =~ "Deputy 4 - name"
+    assert html =~ "Deputy 1"
+    assert html =~ "Deputy 2"
+    refute html =~ "Deputy 3"
+    refute html =~ "Deputy 4"
   end
 
   ## ---------- junk footer removed ----------
@@ -553,6 +573,161 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     test "shared_federations/1 is empty for a single file" do
       files = [file_row([player(federation: "BEL")])]
       assert ToolsNormsLive.shared_federations(files) == []
+    end
+  end
+
+  ## ---------- FIDE lookup parity with the signed-in Norms page ----------
+
+  describe "arbiter FIDE lookup on the public tools page" do
+    setup do
+      Repo.insert_all(PairingsEngine.Fide.FidePlayer, [
+        %{fide_id: 207_640, name: "Van Dyck, Marc", federation: "BEL", birth_year: 1960},
+        %{fide_id: 228_494, name: "Van Dyck, Marc", federation: "BEL", birth_year: 1953},
+        %{fide_id: 214_787, name: "De Vet, Sylvin", federation: "BEL", birth_year: 1947}
+      ])
+
+      :ok
+    end
+
+    test "typing a name searches and distinguishes namesakes, no button needed", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/tools/norms")
+      # The officials form only renders once a file has been parsed.
+      upload_files(lv, [{"a.trf", trf_text("Alpha Open", [{"Alice", 111}, {"Bob", 222}])}])
+
+      # Typing in the box itself searches — target the input directly since a
+      # real browser routes the change event to the input's OWN phx-change,
+      # not the surrounding form's `update_fields`.
+      html =
+        lv
+        |> element("input[name='overlay[deputy1_name]']")
+        |> render_change(%{
+          "overlay" => %{"deputy1_name" => "Van Dyck"},
+          "_target" => ["overlay", "deputy1_name"]
+        })
+
+      # Birth year + id, because "Van Dyck, Marc · BEL" twice is unpickable.
+      assert html =~ "b. 1960"
+      assert html =~ "b. 1953"
+      assert html =~ "#207640"
+    end
+
+    test "picking a result fills BOTH the name and the FIDE ID", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/tools/norms")
+      # The officials form only renders once a file has been parsed.
+      upload_files(lv, [{"a.trf", trf_text("Alpha Open", [{"Alice", 111}, {"Bob", 222}])}])
+
+      lv
+      |> element("input[name='overlay[deputy1_name]']")
+      |> render_change(%{
+        "overlay" => %{"deputy1_name" => "De Vet"},
+        "_target" => ["overlay", "deputy1_name"]
+      })
+
+      html =
+        lv
+        |> element(~s(button[phx-click="arbiter_pick"][phx-value-fide-id="214787"]))
+        |> render_click()
+
+      assert html =~ ~s(value="De Vet, Sylvin")
+      assert html =~ ~s(value="214787")
+    end
+
+    test "the candidate picker fills all four fields from the chosen official", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/tools/norms")
+      # The officials form only renders once a file has been parsed.
+      upload_files(lv, [{"a.trf", trf_text("Alpha Open", [{"Alice", 111}, {"Bob", 222}])}])
+
+      # A FIDE id can only ever land in the overlay via an actual pick — see
+      # `PairingsEngineWeb.Components.ArbiterCombo` — so search then pick,
+      # same as the "picking a result" test above.
+      lv
+      |> element("input[name='overlay[deputy1_name]']")
+      |> render_change(%{
+        "overlay" => %{"deputy1_name" => "De Vet"},
+        "_target" => ["overlay", "deputy1_name"]
+      })
+
+      lv
+      |> element(~s(button[phx-click="arbiter_pick"][phx-value-fide-id="214787"]))
+      |> render_click()
+
+      html =
+        lv
+        |> element(~s(select[name="pick"]))
+        |> render_change(%{"pick" => "deputy1"})
+
+      # FIDE's record drives the split, so the multi-word surname survives.
+      assert html =~ ~s(value="De Vet")
+      assert html =~ ~s(value="Sylvin")
+      assert html =~ ~s(value="BEL")
+    end
+
+    test "no candidate picker until an official has been named", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/tools/norms")
+
+      html =
+        upload_files(lv, [{"a.trf", trf_text("Alpha Open", [{"Alice", 111}, {"Bob", 222}])}])
+
+      # The form is on screen, but no official is named yet, so nothing to pick.
+      assert html =~ "tools-fields-form"
+      refute html =~ "Pick an arbiter"
+    end
+  end
+
+  test "player surnames are capitalised in the downloaded IT4", %{conn: conn} do
+    {:ok, lv, _html} = live(conn, ~p"/tools/norms")
+
+    upload_files(lv, [
+      {"a.trf", trf_text("Alpha Open", [{"Burssens, Jorian", 111}, {"Bob", 222}])}
+    ])
+
+    conn = get(conn, ~p"/tools/download/#{download_token(lv)}/it3")
+    assert conn.status == 200
+  end
+
+  ## ---------- titled counts agree with the generated form ----------
+
+  # The uploaded-file table used to count any non-blank title, while the
+  # generated FA1/IA1 excluded CM/WCM — so the screen said 14 and the form said
+  # 9 for the same tournament. Both now go through `Forms.titled?/1`.
+
+  ## ---------- titled counts agree with the generated form ----------
+
+  # The uploaded-file table used to count any non-blank title while the
+  # generated FA1/IA1 excluded CM/WCM — so the screen said 14 and the form said
+  # 9 for the same tournament. Both now go through `Forms.titled?/1`.
+  describe "titled counts exclude CM/WCM" do
+    alias PairingsEngineWeb.ToolsNormsLive
+
+    test "CM and WCM don't count towards the uploaded-file total" do
+      files = [
+        file_row([
+          player(title: "GM"),
+          player(title: "IM"),
+          player(title: "FM"),
+          player(title: "CM"),
+          player(title: "WCM"),
+          player(title: "")
+        ])
+      ]
+
+      # Five players carry a title string; only three are FIDE-titled.
+      assert ToolsNormsLive.total_titled_players(files) == 3
+    end
+
+    test "the table total agrees with the FA1 form's own count" do
+      players =
+        Enum.map(~w(GM IM FM FM CM CM CM), fn t -> player(title: t) end)
+
+      row = file_row(players)
+
+      from_form =
+        PairingsEngine.Norms.Forms.fa1_fills(row.tournament, row.players, %{})["Invulformulier"][
+          "B16"
+        ]
+
+      assert ToolsNormsLive.total_titled_players([row]) == from_form
+      assert from_form == 4
     end
   end
 end

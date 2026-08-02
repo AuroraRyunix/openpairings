@@ -26,7 +26,12 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
   use PairingsEngineWeb, :live_view
 
+  import PairingsEngineWeb.Components.ArbiterCombo
+
+  alias PairingsEngine.Fide
+  alias PairingsEngine.Norms.Forms
   alias PairingsEngine.Tools.{Parser, Session}
+  alias PairingsEngineWeb.Live.ArbiterCombo
 
   @max_entries 10
   @max_file_size 5_000_000
@@ -56,7 +61,10 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
        files: [],
        master_index: 0,
        overlay: overlay,
-       candidate: candidate
+       candidate: candidate,
+       # Results of the current arbiter-combobox search, keyed by which
+       # official/box asked for it (see `PairingsEngineWeb.Live.ArbiterCombo`).
+       arbiter_search: nil
      )
      |> allow_upload(:files,
        accept: :any,
@@ -113,6 +121,52 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
     {:noreply, socket |> assign(overlay: overlay, candidate: candidate) |> sync_session()}
   end
+
+  ## ---------- FIDE lookup for officials (shared with the signed-in Norms page) ----------
+
+  # Both boxes of any official's combobox (name, FIDE ID) route through here —
+  # see `PairingsEngineWeb.Live.ArbiterCombo` for why one shared parser/search
+  # covers both, identically on this page and the signed-in Norms page.
+  def handle_event("arbiter_search", params, socket) do
+    case ArbiterCombo.target_role_and_field(params) do
+      nil ->
+        {:noreply, socket}
+
+      {role, field} ->
+        query = ArbiterCombo.target_value(params)
+        {:noreply, assign(socket, arbiter_search: ArbiterCombo.search(role, field, query))}
+    end
+  end
+
+  # Picking a result writes BOTH the name and the FIDE ID, which is the whole
+  # point — a hand-typed id is where the wrong person ends up on a report.
+  def handle_event("arbiter_pick", %{"role" => role, "fide-id" => fide_id}, socket) do
+    case ArbiterCombo.picked_player(fide_id) do
+      nil ->
+        {:noreply, assign(socket, arbiter_search: nil)}
+
+      fp ->
+        overlay =
+          socket.assigns.overlay
+          |> Map.put(arbiter_name_key(role), fp.name)
+          |> Map.put("#{role}_fide_id", to_string(fp.fide_id))
+
+        {:noreply, socket |> assign(overlay: overlay, arbiter_search: nil) |> sync_session()}
+    end
+  end
+
+  def handle_event("pick_candidate", %{"pick" => ""}, socket) do
+    {:noreply, assign(socket, candidate: empty_fields(@candidate_fields)) |> sync_session()}
+  end
+
+  def handle_event("pick_candidate", %{"pick" => role}, socket) do
+    {:noreply,
+     socket
+     |> assign(candidate: candidate_from_official(socket.assigns.overlay, role))
+     |> sync_session()}
+  end
+
+  def handle_event("pick_candidate", _params, socket), do: {:noreply, socket}
 
   ## ---------- parsing ----------
 
@@ -238,7 +292,10 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
   defp present?(v), do: v not in [nil, ""]
 
-  defp titled_players(players), do: Enum.count(players, &present?(&1.title))
+  # Deliberately delegates rather than re-implementing: this table sits next to
+  # a download whose own titled count comes from `Forms.titled?/1`, and the two
+  # disagreeing (CM counted here, excluded there) is worse than either answer.
+  defp titled_players(players), do: Enum.count(players, &Forms.titled?/1)
 
   defp federations(players) do
     players |> Enum.map(& &1.federation) |> Enum.filter(&present?/1) |> Enum.uniq()
@@ -304,6 +361,78 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   defp upload_error_label(:too_many_files), do: "Too many files — 10 at a time, max"
   defp upload_error_label(:not_accepted), do: "That file type isn't accepted"
   defp upload_error_label(other), do: inspect(other)
+
+  # The overlay stores the chief arbiter's name under a different key from the
+  # deputies', so roles ("chief_arbiter" / "deputyN") map to a name key here
+  # rather than being string-built at each call site.
+  # Same rule the signed-in Norms page enforces: FIDE identifies every official
+  # by FIDE ID and bounces a report missing one, and there is no such thing as
+  # an arbiter without an id — so a named official with no id blocks the
+  # download rather than producing a file that gets rejected.
+  #
+  # An official left entirely blank is fine: not every event has two deputies,
+  # and this page has no chief arbiter until the arbiter fills one in.
+  defp report_blockers(overlay) do
+    for {role, label} <- arbiter_roles(),
+        name = Map.get(overlay, arbiter_name_key(role), ""),
+        String.trim(to_string(name)) != "",
+        String.trim(to_string(Map.get(overlay, "#{role}_fide_id", ""))) == "",
+        do: label
+  end
+
+  defp arbiter_name_key("chief_arbiter"), do: "chief_arbiter_name"
+  # Every other role (the deputies today) follows the "<role>_name" convention.
+  defp arbiter_name_key(role), do: "#{role}_name"
+
+  defp arbiter_roles, do: [{"chief_arbiter", "Chief arbiter"} | deputy_roles()]
+  defp deputy_roles, do: for(n <- 1..2, do: {"deputy#{n}", "Deputy #{n}"})
+
+  # Officials with a name filled in, offered as FA1/IA1 norm candidates.
+  defp candidate_options(overlay) do
+    for {role, label} <- arbiter_roles(),
+        name = Map.get(overlay, arbiter_name_key(role), ""),
+        String.trim(to_string(name)) != "",
+        do: {"#{label} - #{name}", role}
+  end
+
+  # Prefer the FIDE record when the official has an id: it settles the
+  # first/last split ("De Vet, Sylvin") and supplies the federation, neither of
+  # which can be guessed from word position on a multi-word surname.
+  defp candidate_from_official(overlay, role) do
+    name = Map.get(overlay, arbiter_name_key(role), "")
+    fide_id = Map.get(overlay, "#{role}_fide_id", "")
+
+    case Fide.get_player(fide_id) do
+      nil ->
+        {last, first} = split_plain_name(name)
+        %{"last_name" => last, "first_name" => first, "fide_id" => "", "federation" => ""}
+
+      fp ->
+        {last, first} = split_fide_name(fp.name)
+
+        %{
+          "last_name" => last,
+          "first_name" => first,
+          "fide_id" => to_string(fp.fide_id),
+          "federation" => fp.federation || ""
+        }
+    end
+  end
+
+  defp split_fide_name(name) do
+    case String.split(to_string(name), ",", parts: 2) do
+      [last, first] -> {String.trim(last), String.trim(first)}
+      [only] -> {String.trim(only), ""}
+    end
+  end
+
+  defp split_plain_name(name) do
+    case String.split(to_string(name), ~r/\s+/, trim: true) do
+      [] -> {"", ""}
+      [only] -> {only, ""}
+      [first | rest] -> {Enum.join(rest, " "), first}
+    end
+  end
 
   attr :field, :string, required: true
   attr :label, :string, required: true
@@ -471,17 +600,15 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
         <form id="tools-fields-form" phx-change="update_fields">
           <div class="form-grid">
-            <.overlay_input
-              prefix="overlay"
-              field="chief_arbiter_name"
-              label="Chief arbiter - name"
-              values={@overlay}
-            />
-            <.overlay_input
-              prefix="overlay"
-              field="chief_arbiter_fide_id"
-              label="Chief arbiter - FIDE ID"
-              values={@overlay}
+            <.arbiter_combo
+              role="chief_arbiter"
+              label="Chief arbiter"
+              required
+              name_field="overlay[chief_arbiter_name]"
+              name_value={Map.get(@overlay, "chief_arbiter_name", "")}
+              id_field="overlay[chief_arbiter_fide_id]"
+              id_value={Map.get(@overlay, "chief_arbiter_fide_id", "")}
+              search={@arbiter_search}
             />
             <.overlay_input prefix="overlay" field="organizer" label="Organizer" values={@overlay} />
             <.overlay_input
@@ -494,21 +621,27 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
           <h3 style="margin-bottom: 4px">Deputy arbiters</h3>
           <div :for={n <- 1..2} class="form-grid">
-            <.overlay_input
-              prefix="overlay"
-              field={"deputy#{n}_name"}
-              label={"Deputy #{n} - name"}
-              values={@overlay}
-            />
-            <.overlay_input
-              prefix="overlay"
-              field={"deputy#{n}_fide_id"}
-              label={"Deputy #{n} - FIDE ID"}
-              values={@overlay}
+            <.arbiter_combo
+              role={"deputy#{n}"}
+              label={"Deputy #{n}"}
+              name_field={"overlay[deputy#{n}_name]"}
+              name_value={Map.get(@overlay, "deputy#{n}_name", "")}
+              id_field={"overlay[deputy#{n}_fide_id]"}
+              id_value={Map.get(@overlay, "deputy#{n}_fide_id", "")}
+              search={@arbiter_search}
             />
           </div>
 
           <h3 style="margin-bottom: 4px">FA1 / IA1 arbiter norm candidate</h3>
+          <label :if={candidate_options(@overlay) != []} class="field">
+            <span>Pick an arbiter</span>
+            <select name="pick" phx-change="pick_candidate">
+              <option value="">- type the details by hand -</option>
+              <option :for={{label, role} <- candidate_options(@overlay)} value={role}>
+                {label}
+              </option>
+            </select>
+          </label>
           <div class="form-grid">
             <.overlay_input
               prefix="candidate"
@@ -535,10 +668,39 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
       <div :if={successful(@files) != []} class="card">
         <h2>Download</h2>
+        <div :if={report_blockers(@overlay) != []} class="report-blocked">
+          <strong>Not ready to submit to FIDE.</strong>
+          FIDE identifies every official by FIDE ID and bounces a report missing one. Type their
+          name or FIDE ID above and pick the matching result — missing for: {Enum.join(
+            report_blockers(@overlay),
+            ", "
+          )}.
+        </div>
         <div class="actions">
-          <a class="pe-btn primary" href={~p"/tools/download/#{@token}/it3"}>Download IT3</a>
-          <a class="pe-btn primary" href={~p"/tools/download/#{@token}/fa1"}>Download FA1 (FIDE Arbiter)</a>
-          <a class="pe-btn primary" href={~p"/tools/download/#{@token}/ia1"}>Download IA1 (International Arbiter)</a>
+          <a
+            :if={report_blockers(@overlay) == []}
+            class="pe-btn primary"
+            href={~p"/tools/download/#{@token}/it3"}
+          >
+            Download IT3
+          </a>
+          <a
+            :if={report_blockers(@overlay) == []}
+            class="pe-btn primary"
+            href={~p"/tools/download/#{@token}/fa1"}
+          >
+            Download FA1 (FIDE Arbiter)
+          </a>
+          <a
+            :if={report_blockers(@overlay) == []}
+            class="pe-btn primary"
+            href={~p"/tools/download/#{@token}/ia1"}
+          >
+            Download IA1 (International Arbiter)
+          </a>
+          <button :if={report_blockers(@overlay) != []} class="pe-btn" disabled>
+            Download IT3 / FA1 / IA1
+          </button>
         </div>
       </div>
     </Layouts.app>
