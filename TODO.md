@@ -26,24 +26,6 @@ These are real, identified gaps — not yet built, and not accidentally missed:
   models differently than expected, re-verify against it (only synthetic
   fixtures + the one real file with a coincidental match have exercised it).
 
-## Pending deploy steps
-
-- **Set the 02cloud SSO env vars on the production host.** The code, the
-  Keycloak client (`openpairings`, confidential, realm `zerotwo`) and its
-  secret all exist as of 2026-07-25, but the live systemd unit doesn't carry
-  them yet, so SSO is dormant in production — the button is hidden and
-  `/auth/keycloak` flashes "isn't configured", by design rather than as a
-  failure. Add `KEYCLOAK_CLIENT_ID=openpairings` and
-  `KEYCLOAK_CLIENT_SECRET=…` as `Environment=` lines and restart. See
-  [`docs/deployment.md`](docs/deployment.md).
-- **Verify the SSO round trip once against production.** Nothing has exercised
-  it end-to-end yet: the tests stub Keycloak's HTTP responses with `Req.Test`,
-  and only the *derived* endpoint URLs were checked against the live realm's
-  `.well-known` document. Check both branches — a brand-new `@zerotwo.cloud`
-  identity (should auto-create a pre-confirmed account) and an AD identity
-  whose email already matches an existing OpenPairings account (should couple
-  to that account, not duplicate it).
-
 ## Tech debt
 
 - **Security advisory on a transitive dep** — `mix deps.get` surfaced a

@@ -92,7 +92,8 @@ carry a logo (stored in the database, shown on printed documents).
 
 ## Accounts, sharing & transparency
 
-- **Accounts** with magic-link login; every tournament is private to its owner.
+- **Accounts** with magic-link, password, or 02cloud SSO (Keycloak) login;
+  every tournament is private to its owner.
 - **Collaborators** — invite by e-mail with explicit accept/decline; owners
   keep delete and sharing rights.
 - **Public read-only pages** — unguessable per-tournament links for pairings
