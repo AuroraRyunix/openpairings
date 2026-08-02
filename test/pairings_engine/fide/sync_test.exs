@@ -222,6 +222,106 @@ defmodule PairingsEngine.Fide.SyncTest do
       assert Repo.aggregate(FidePlayer, :count) == 10
     end
 
+    # `fide_players_fts` is maintained by per-row triggers whose delete/update
+    # arms match on `fide_id`, a column the FTS5 table declares UNINDEXED — so
+    # every firing scans the whole index. On a re-sync that replaces ~1.9M
+    # rows that is quadratic and never completes, which is why `import_list/3`
+    # suspends the triggers and rebuilds the index set-based instead. These
+    # pin down that the shortcut leaves the schema and the index exactly as the
+    # triggers would have.
+    defp fts_trigger_names do
+      %{rows: rows} =
+        Repo.query!(
+          "SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name='fide_players' ORDER BY name"
+        )
+
+      List.flatten(rows)
+    end
+
+    defp fts_search(term) do
+      %{rows: rows} =
+        Repo.query!("SELECT fide_id FROM fide_players_fts WHERE fide_players_fts MATCH ?", [term])
+
+      # The FTS5 column is UNINDEXED and untyped, so SQLite hands back whatever
+      # was stored — integer after a trigger insert, text after the set-based
+      # rebuild. Normalise both.
+      rows
+      |> List.flatten()
+      |> Enum.map(fn
+        id when is_integer(id) -> id
+        id when is_binary(id) -> String.to_integer(id)
+      end)
+      |> Enum.sort()
+    end
+
+    test "a re-import over an existing cache rebuilds the FTS index and restores the triggers" do
+      before_triggers = fts_trigger_names()
+      assert before_triggers != [], "expected the FTS triggers to exist before the import"
+
+      first =
+        fide_text([
+          fide_row(%{"ID Number" => "1000001", "Name" => "Old, Alpha", "Fed" => "BEL"}),
+          fide_row(%{"ID Number" => "1000002", "Name" => "Old, Beta", "Fed" => "BEL"})
+        ])
+
+      assert {:ok, _} = Sync.import_list(self(), first, %Sync{})
+      assert fts_search("Old") == [1_000_001, 1_000_002]
+
+      # The regression: a SECOND import, which is the one that has rows to
+      # delete and therefore used to fire the triggers once per row.
+      second =
+        fide_text([
+          fide_row(%{"ID Number" => "1000001", "Name" => "New, Alpha", "Fed" => "BEL"}),
+          fide_row(%{"ID Number" => "2000002", "Name" => "New, Gamma", "Fed" => "BEL"})
+        ])
+
+      assert {:ok, _} = Sync.import_list(self(), second, %Sync{})
+
+      # Index reflects the new list only — no stale rows left behind, which a
+      # plain "drop the triggers and forget" would have caused.
+      assert fts_search("Old") == []
+      assert fts_search("New") == [1_000_001, 2_000_002]
+      assert fts_search("Gamma") == [2_000_002]
+
+      # Triggers are back, byte-for-byte, so ordinary single-row writes keep
+      # maintaining the index.
+      assert fts_trigger_names() == before_triggers
+
+      Repo.insert_all(FidePlayer, [
+        %{fide_id: 3_000_003, name: "Trig, Delta", federation: "BEL"}
+      ])
+
+      assert fts_search("Delta") == [3_000_003]
+
+      Repo.delete!(Repo.get!(FidePlayer, 3_000_003))
+      assert fts_search("Delta") == []
+    end
+
+    test "a rolled-back import leaves the triggers and the index intact" do
+      before_triggers = fts_trigger_names()
+
+      seed =
+        fide_text(
+          for n <- 1..10 do
+            fide_row(%{"ID Number" => "#{4_000_000 + n}", "Name" => "Keep, #{n}", "Fed" => "BEL"})
+          end
+        )
+
+      assert {:ok, _} = Sync.import_list(self(), seed, %Sync{})
+      assert length(fts_search("Keep")) == 10
+
+      # Trips the big-drop guard, so the whole transaction rolls back --
+      # including the DROP TRIGGER statements, since SQLite DDL is
+      # transactional. If it didn't, the index would silently stop updating.
+      row = fide_row(%{"ID Number" => "999999", "Name" => "OnlyOne, Player", "Fed" => "BEL"})
+      assert {:error, reason} = Sync.import_list(self(), fide_text([row]), %Sync{})
+      assert reason =~ "far fewer"
+
+      assert fts_trigger_names() == before_triggers
+      assert length(fts_search("Keep")) == 10
+      assert Repo.aggregate(FidePlayer, :count) == 10
+    end
+
     test "a normal, healthy import still succeeds and replaces the cache" do
       rows =
         for n <- 1..5 do

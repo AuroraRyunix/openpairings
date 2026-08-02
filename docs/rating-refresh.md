@@ -5,6 +5,10 @@ registered player against the locally-synced FIDE and KBSB rating lists
 (see `docs/kbsb-sync.md`) and proposes changes, with a dry-run diff shown
 before anything is written.
 
+How the local FIDE copy itself is refreshed — and the two failure modes that
+are easy to misread — is at the foot of this file, under
+"[The monthly FIDE sync](#the-monthly-fide-sync-pairingsenginefidesync)".
+
 ## Where it lives
 
 - `PairingsEngine.RatingRefresh` (`lib/pairings_engine/rating_refresh.ex`) —
@@ -83,3 +87,46 @@ all changed fires **one** broadcast, not 50, keeping other open tabs
   per-player Refresh buttons fill in — only `fide_rating`, `title`, and
   `national_rating`, per the SWAR feature this mirrors ("refresh ratings",
   not "re-sync everything").
+
+## The monthly FIDE sync (`PairingsEngine.Fide.Sync`)
+
+Downloads FIDE's combined rating list (~42 MB zip, ~297 MB of text, ~1.9M
+rows) and full-replaces `fide_players`. Two things about it are load-bearing
+and non-obvious, both discovered the hard way in production.
+
+### The FTS triggers must be suspended for the bulk replace
+
+`fide_players_fts` is kept in step by per-row triggers, and the delete/update
+arms find the row with `WHERE fide_id = ?` on a column the FTS5 table declares
+**`UNINDEXED`** — so each firing scans the entire index. That's fine for the
+ad-hoc single-row writes the triggers exist for, and quadratic for a full
+replace, which fires them ~1.9M times and never finishes.
+
+So `import_list/3` captures the trigger definitions from `sqlite_master`, drops
+them, does the delete/insert in bulk, rebuilds the index with one set-based
+`INSERT ... SELECT`, and puts the triggers back. All inside the surrounding
+transaction — SQLite DDL is transactional, so the corrupt-download rollback
+guards restore the triggers along with the rows.
+
+> This only ever bit on a **re-**sync. The first sync deletes zero rows, so the
+> problem stayed invisible until the second one.
+
+### Symptoms are easy to misread
+
+- **Stuck on "Unpacking…"** does not mean unpacking. `unpack/3` takes about a
+  second; `import_list/3` then sets `total_rows` *without* touching `progress`,
+  so the label stays on "Unpacking…" through the delete. A stall there is the
+  database, not the zip. (The index rebuild now reports
+  `Rebuilding the name index…`, so that phase is no longer silent.)
+- **Stuck on "Contacting FIDE…"** is usually the host being blocked by
+  ratings.fide.com — see `FIDE_LIST_URL` in [`deployment.md`](deployment.md).
+- Memory is worth watching regardless: `:zip.extract/2` is called with
+  `[:memory]` and materialises the whole ~297 MB list as one binary. On a small
+  or shared VPS that alone can push the peak past 1 GB. Streaming it to disk
+  instead is the obvious improvement and has not been done yet.
+
+### The list includes unrated players
+
+Roughly 70% of the rows have no standard rating. So a player being absent from
+it means "has no FIDE ID", not "isn't rated yet" — worth remembering before
+concluding the importer failed to match someone.

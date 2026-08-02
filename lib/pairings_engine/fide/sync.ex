@@ -12,8 +12,50 @@ defmodule PairingsEngine.Fide.Sync do
   alias PairingsEngine.{Repo, Fide}
   alias PairingsEngine.Fide.FidePlayer
 
-  @list_url "https://ratings.fide.com/download/players_list.zip"
+  @default_list_url "https://ratings.fide.com/download/players_list.zip"
   @topic "fide_sync"
+
+  @doc """
+  Where the rating-list zip is fetched from — FIDE directly by default,
+  overridable with `FIDE_LIST_URL` (see `config/runtime.exs`).
+
+  The override exists because ratings.fide.com blocks some hosting ranges
+  outright, which strands a VPS deploy on a download that can never succeed
+  no matter how often it retries. Pointing this at a mirror or a pass-through
+  proxy is the only fix available from this side.
+
+  Whatever it points at is trusted to the same degree FIDE is: the response
+  is unpacked and loaded straight into `fide_players`. Only set it to
+  something you control.
+  """
+  def list_url do
+    Application.get_env(:pairings_engine, :fide, [])[:list_url] || @default_list_url
+  end
+
+  @doc """
+  Host `list_url/0` points at, for the progress line — "FIDE" when it's the
+  default, otherwise the actual hostname.
+
+  Named rather than left as a constant "Contacting FIDE…" because
+  `FIDE_LIST_URL` is read once at boot, from a `.env` in the service's
+  working directory: an override that was mistyped, quoted, put in the wrong
+  directory, or simply added without restarting is invisible from the UI, and
+  looks identical to FIDE blocking the host — the same silent stall, for
+  four different reasons. Showing the host it is actually dialling separates
+  them at a glance.
+  """
+  def source_label do
+    url = list_url()
+
+    if url == @default_list_url do
+      "FIDE"
+    else
+      case URI.parse(url) do
+        %URI{host: host} when is_binary(host) -> host
+        _ -> url
+      end
+    end
+  end
 
   # Req timeouts: connect_options.timeout bounds the initial TCP/TLS handshake,
   # receive_timeout bounds how long we'll wait between chunks once streaming
@@ -25,8 +67,8 @@ defmodule PairingsEngine.Fide.Sync do
   # The real list is ~41 MB. This is a generous ceiling that still bounds how
   # much a redirected, mirrored or misbehaving endpoint can stream into memory
   # here: once crossed, the download is abandoned mid-stream rather than pulled
-  # to completion. The source is trusted (HTTPS ratings.fide.com), so this is a
-  # backstop, not a filter.
+  # to completion. The source is trusted (HTTPS, FIDE or whatever `list_url/0`
+  # was pointed at), so this is a backstop, not a filter.
   @max_download_bytes 250_000_000
 
   # Backstop for the whole sync (download + unpack + import combined): if no
@@ -121,7 +163,7 @@ defmodule PairingsEngine.Fide.Sync do
 
     state = %__MODULE__{
       status: :downloading,
-      progress: "Contacting FIDE…",
+      progress: "Contacting #{source_label()}…",
       task_pid: pid,
       task_ref: ref,
       watchdog_timer: schedule_watchdog()
@@ -311,7 +353,7 @@ defmodule PairingsEngine.Fide.Sync do
       retry: false
     ]
 
-    case Req.get(@list_url, req_opts) do
+    case Req.get(list_url(), req_opts) do
       {:ok, %{status: 200}} ->
         if Process.get(:sync_download_aborted) do
           {:error,
@@ -399,8 +441,24 @@ defmodule PairingsEngine.Fide.Sync do
 
     Repo.transaction(
       fn ->
+        # The `fide_players_fts` triggers are per-row, and the delete/update
+        # ones look the doomed row up with `WHERE fide_id = ?` on a column the
+        # FTS5 table declares UNINDEXED — so each firing scans the whole index.
+        # Fine for the ad-hoc single-row writes they exist for; quadratic for
+        # this full replace, which fires them ~1.9M times and never finishes.
+        # Suspend them, do the bulk work set-based, then put them back.
+        #
+        # Safe because it all rides the surrounding transaction: SQLite makes
+        # DDL transactional, so a rollback (including the guards below)
+        # restores the triggers along with the rows. They're captured from
+        # `sqlite_master` rather than written out here, so they always go back
+        # exactly as the migration defined them, even if that changes.
+        triggers = fts_triggers()
+        Enum.each(triggers, fn %{name: name} -> Repo.query!("DROP TRIGGER #{name}") end)
+
         # Full replace: the monthly list is authoritative (players do get removed).
         Repo.query!("DELETE FROM fide_players")
+        Repo.query!("DELETE FROM fide_players_fts")
 
         imported =
           rows
@@ -445,6 +503,20 @@ defmodule PairingsEngine.Fide.Sync do
             )
 
           true ->
+            # Only worth rebuilding the index once the import is known good —
+            # the guards above roll back, which would throw this away anyway.
+            update(server, %{
+              state
+              | imported_rows: imported,
+                progress: "Rebuilding the name index…"
+            })
+
+            Repo.query!(
+              "INSERT INTO fide_players_fts(fide_id, name) SELECT fide_id, name FROM fide_players"
+            )
+
+            Enum.each(triggers, fn %{sql: sql} -> Repo.query!(sql) end)
+
             imported
         end
       end,
@@ -454,6 +526,21 @@ defmodule PairingsEngine.Fide.Sync do
       {:ok, imported} -> {:ok, %{state | imported_rows: imported}}
       {:error, reason} -> {:error, reason}
     end
+  end
+
+  # The `fide_players` triggers that maintain `fide_players_fts`, read back
+  # from the schema so `import_list/3` can drop and restore them verbatim
+  # without duplicating the migration's definitions here. Empty list (a no-op
+  # on both sides) if the FTS migration hasn't run.
+  defp fts_triggers do
+    %{rows: rows} =
+      Repo.query!("""
+      SELECT name, sql FROM sqlite_master
+      WHERE type = 'trigger' AND tbl_name = 'fide_players' AND sql IS NOT NULL
+      ORDER BY name
+      """)
+
+    Enum.map(rows, fn [name, sql] -> %{name: name, sql: sql} end)
   end
 
   # Column offsets are derived from the header line so a layout change

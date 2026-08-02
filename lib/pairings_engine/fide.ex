@@ -83,6 +83,21 @@ defmodule PairingsEngine.Fide do
 
   def player_count, do: Repo.aggregate(FidePlayer, :count)
 
+  @doc """
+  The FIDE player with `fide_id`, or `nil` — accepts the id as an integer or
+  as the string an `officials` map stores it as. `nil` for anything that isn't
+  an id at all, so callers prefilling a form from stored data don't have to
+  pre-validate it.
+  """
+  def get_player(fide_id) when is_integer(fide_id), do: Repo.get(FidePlayer, fide_id)
+
+  def get_player(fide_id) do
+    case Integer.parse(to_string(fide_id)) do
+      {id, ""} -> Repo.get(FidePlayer, id)
+      _ -> nil
+    end
+  end
+
   def last_sync do
     case Repo.query!("SELECT value FROM meta WHERE key = 'fide_last_sync'").rows do
       [[value]] -> value
