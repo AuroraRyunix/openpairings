@@ -35,8 +35,7 @@ defmodule PairingsEngineWeb.ToolsController do
          {:ok, {tournament, players}} <-
            Combine.combine(pairs, Map.get(session, :master_index, 0)) do
       tournament = Overlay.apply(tournament, Map.get(session, :overlay, %{}))
-      fills = build_fills(kind, tournament, players, Map.get(session, :candidate, %{}))
-      render_xlsx(conn, kind, tournament, fills)
+      render_xlsx_result(conn, kind, tournament, build_result(kind, tournament, players, session))
     else
       {:error, reason} -> error_page(conn, friendly_error(reason))
     end
@@ -44,6 +43,19 @@ defmodule PairingsEngineWeb.ToolsController do
 
   def download(conn, %{"form" => _other}),
     do: error_page(conn, "Unknown report — go back and pick IT3, FA1 or IA1.")
+
+  # IT3 goes through Forms.it3_result/3 (expands the template first when
+  # there are arbiters beyond the 4 built-in deputy slots — see
+  # PairingsEngine.Norms.ItThreeExpand); FA1/IA1 have no such slot limit.
+  defp build_result(:it3, tournament, players, _session),
+    do: Forms.it3_result(tournament, players, :tools)
+
+  defp build_result(kind, tournament, players, session) do
+    XlsxFill.fill(
+      Forms.template_path(kind),
+      build_fills(kind, tournament, players, Map.get(session, :candidate, %{}))
+    )
+  end
 
   ## ---------- session + combine plumbing ----------
 
@@ -68,9 +80,6 @@ defmodule PairingsEngineWeb.ToolsController do
     end
   end
 
-  defp build_fills(:it3, tournament, players, _candidate),
-    do: Forms.it3_fills(tournament, players)
-
   defp build_fills(:fa1, tournament, players, candidate),
     do: Forms.fa1_fills(tournament, players, candidate)
 
@@ -79,8 +88,8 @@ defmodule PairingsEngineWeb.ToolsController do
 
   ## ---------- rendering ----------
 
-  defp render_xlsx(conn, kind, tournament, fills) do
-    case XlsxFill.fill(Forms.template_path(kind), fills) do
+  defp render_xlsx_result(conn, kind, tournament, result) do
+    case result do
       {:ok, binary} ->
         conn
         |> put_resp_content_type(@xlsx_content_type)

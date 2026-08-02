@@ -84,7 +84,7 @@ defmodule PairingsEngine.Norms.FormsTest do
       assert fills["B18"] == "Normal"
       assert fills["B19"] == ""
       assert fills["B21"] == "X"
-      assert fills["B22"] == "OpenPairings"
+      assert fills["B22"] == "OpenPairings (With JaVaFo)"
       assert fills["B23"] == "First remark"
       assert fills["B59"] == 888_001
       assert fills["B60"] == "John Arbiter"
@@ -99,6 +99,19 @@ defmodule PairingsEngine.Norms.FormsTest do
 
       assert fills["B19"] == "X"
       assert fills["B21"] == ""
+    end
+
+    test "B22 defaults to Swar (With JaVaFo) when generated from the public Tools page" do
+      fills = Forms.it3_fills(tournament(), [], :tools)["Invulformulier"]
+
+      assert fills["B22"] == "Swar (With JaVaFo)"
+    end
+
+    test "B22 still honors an explicit pairing_program override on either source" do
+      t = tournament(%{officials: %{"pairing_program" => "Custom Engine 1.0"}})
+
+      assert Forms.it3_fills(t, [], :app)["Invulformulier"]["B22"] == "Custom Engine 1.0"
+      assert Forms.it3_fills(t, [], :tools)["Invulformulier"]["B22"] == "Custom Engine 1.0"
     end
 
     test "team tournaments are labelled Team, not Individual" do
@@ -205,6 +218,59 @@ defmodule PairingsEngine.Norms.FormsTest do
       fills = Forms.it3_fills(tournament(), [player(), player(%{title: "IM"})])
       assert {:ok, binary} = XlsxFill.fill(Forms.template_path(:it3), fills)
       assert is_binary(binary)
+    end
+
+    test "arbiters beyond the 4 deputy slots land on the cells ItThreeExpand grew for them" do
+      t =
+        tournament(%{
+          officials: %{
+            "extra_arbiters_count" => 2,
+            "arbiter1_name" => "Cornet, Luc",
+            "arbiter1_fide_id" => "205494",
+            "arbiter2_name" => "De Vet, Sylvin",
+            "arbiter2_fide_id" => "214787"
+          }
+        })
+
+      fills = Forms.it3_fills(t, [])["Invulformulier"]
+
+      assert fills["B70"] == 205_494
+      assert fills["B71"] == "Luc CORNET"
+      assert fills["B72"] == 214_787
+      assert fills["B73"] == "Sylvin DE VET"
+    end
+
+    test "no extra_arbiters_count means no extra-arbiter cells at all" do
+      fills = Forms.it3_fills(tournament(), [])["Invulformulier"]
+
+      refute Map.has_key?(fills, "B70")
+      refute Map.has_key?(fills, "B71")
+    end
+  end
+
+  describe "it3_result/3" do
+    test "with no extra arbiters, fills the template unexpanded" do
+      assert {:ok, binary} = Forms.it3_result(tournament(), [])
+      assert is_binary(binary)
+    end
+
+    test "with extra arbiters, expands the template first and their data survives in the output" do
+      t =
+        tournament(%{
+          officials: %{
+            "extra_arbiters_count" => 1,
+            "arbiter1_name" => "Cornet, Luc",
+            "arbiter1_fide_id" => "205494"
+          }
+        })
+
+      assert {:ok, binary} = Forms.it3_result(t, [])
+      {:ok, entries} = :zip.unzip(binary, [:memory])
+      entries = Enum.map(entries, fn {n, b} -> {List.to_string(n), b} end)
+      {_, invul} = List.keyfind(entries, "xl/worksheets/sheet2.xml", 0)
+
+      assert invul =~ "205494"
+      assert invul =~ "Luc CORNET"
     end
   end
 

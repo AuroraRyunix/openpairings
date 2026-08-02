@@ -21,6 +21,7 @@ defmodule PairingsEngine.Norms.Forms do
   how to update these mappers if FIDE revises a template.
   """
 
+  alias PairingsEngine.Norms.{ItThreeExpand, XlsxFill}
   alias PairingsEngine.Tournaments.Player
 
   @templates %{
@@ -75,8 +76,18 @@ defmodule PairingsEngine.Norms.Forms do
 
   Never targets the formula cells `B30,B34,B38,B42,B46,B50,B54,B58` (each
   `=total-host` on the template) or the unused orphan `B70`.
+
+  `source` (`:app` | `:tools`) picks `B22`'s ("Program used") default when
+  `officials["pairing_program"]` hasn't been overridden by hand: the
+  signed-in Tournament Manager actually ran the pairings, so it reads
+  "OpenPairings (With JaVaFo)"; the public Tools page only ever generates
+  norm reports from an already-paired file someone uploaded, so crediting
+  OpenPairings there would be false — it defaults to "Swar (With JaVaFo)"
+  instead (the common case: SWAR is what most uploads come from). A TRF
+  from a different program is still just a manual edit of the same field
+  away from being accurate.
   """
-  def it3_fills(tournament, players) do
+  def it3_fills(tournament, players, source \\ :app) do
     o = officials(tournament)
     rated = rating_counts(players, tournament.federation)
 
@@ -104,7 +115,7 @@ defmodule PairingsEngine.Norms.Forms do
           "B19" => manual_mark(o),
           "B20" => blank(Map.get(o, "person_responsible_pairings")),
           "B21" => computerized_mark(o),
-          "B22" => pairing_program(o),
+          "B22" => pairing_program(o, source),
           "B23" => blank(Map.get(o, "remark1")),
           "B24" => blank(Map.get(o, "remark2")),
           "B25" => blank(Map.get(o, "remark3")),
@@ -129,8 +140,69 @@ defmodule PairingsEngine.Norms.Forms do
         |> Map.merge(counts_fills("B47", rated.wgm))
         |> Map.merge(counts_fills("B51", rated.wim))
         |> Map.merge(counts_fills("B55", rated.wfm))
+        |> Map.merge(extra_arbiter_fills(o))
     }
   end
+
+  # Arbiters beyond the 4 built-in deputy slots — cells that only exist once
+  # `ItThreeExpand.expand/2` has grown the template; `it3_result/3` is the
+  # only caller that guarantees that, which is why this is never called on
+  # its own. Uses the exact same cell refs `ItThreeExpand.arbiter_cell_ref/2`
+  # placed the new rows at, so the two stay in lock-step without either one
+  # having to know how the other is implemented.
+  defp extra_arbiter_fills(o) do
+    count = extra_arbiters_count(o)
+
+    if count <= 0 do
+      %{}
+    else
+      1..count
+      |> Enum.flat_map(fn n ->
+        {id_ref, name_ref} = ItThreeExpand.arbiter_cell_ref(n)
+
+        [
+          {id_ref, parse_int(Map.get(o, "arbiter#{n}_fide_id"))},
+          {name_ref, blank(fide_display_name(Map.get(o, "arbiter#{n}_name")))}
+        ]
+      end)
+      |> Map.new()
+    end
+  end
+
+  @doc """
+  Builds the actual IT3 `.xlsx` binary for `tournament` — `it3_fills/3`'s
+  fill map applied to the right template, expanding it first
+  (`ItThreeExpand.expand/2`) when `tournament` has arbiters beyond the 4
+  built-in deputy slots. Every caller that generates a real IT3 download
+  should go through this rather than `XlsxFill.fill(template_path(:it3),
+  it3_fills(...))` directly, since that pairing silently drops any extra
+  arbiter (the template has no cells for them until expanded).
+  """
+  def it3_result(tournament, players, source \\ :app) do
+    fills = it3_fills(tournament, players, source)
+
+    case tournament |> officials() |> extra_arbiters_count() do
+      0 ->
+        XlsxFill.fill(template_path(:it3), fills)
+
+      n ->
+        template_path(:it3)
+        |> File.read!()
+        |> ItThreeExpand.expand(n)
+        |> XlsxFill.fill_from_binary(fills)
+    end
+  end
+
+  defp extra_arbiters_count(o) do
+    case Map.get(o, "extra_arbiters_count") do
+      n when is_integer(n) -> n
+      s when is_binary(s) -> s |> Integer.parse() |> extra_count_from_parse()
+      _ -> 0
+    end
+  end
+
+  defp extra_count_from_parse({n, _}), do: n
+  defp extra_count_from_parse(:error), do: 0
 
   # Fills the {total, feds, host} triple starting at `base_ref` (e.g. "B27"
   # -> B27 total, B28 feds, B29 host); the 4th cell of each block is always
@@ -443,12 +515,15 @@ defmodule PairingsEngine.Norms.Forms do
 
   defp computerized_mark(o), do: if(Map.get(o, "pairing_mode") == "manual", do: "", else: "X")
 
-  defp pairing_program(o) do
+  defp pairing_program(o, source) do
     case Map.get(o, "pairing_mode") do
       "manual" -> ""
-      _ -> blank(Map.get(o, "pairing_program")) || "OpenPairings"
+      _ -> blank(Map.get(o, "pairing_program")) || default_pairing_program(source)
     end
   end
+
+  defp default_pairing_program(:tools), do: "Swar (With JaVaFo)"
+  defp default_pairing_program(_app), do: "OpenPairings (With JaVaFo)"
 
   defp blank(nil), do: nil
   defp blank(""), do: nil

@@ -40,7 +40,7 @@ defmodule PairingsEngineWeb.NormsController do
   def it3(conn, %{"id" => id} = params) do
     case load_scope(conn, id, params) do
       {:ok, tournament, players} ->
-        render_xlsx(conn, :it3, tournament, Forms.it3_fills(tournament, players))
+        render_xlsx_result(conn, :it3, tournament, Forms.it3_result(tournament, players))
 
       {:error, dup} ->
         redirect_duplicate(conn, id, dup)
@@ -119,7 +119,11 @@ defmodule PairingsEngineWeb.NormsController do
   end
 
   defp render_xlsx(conn, kind, tournament, fills) do
-    case XlsxFill.fill(Forms.template_path(kind), fills) do
+    render_xlsx_result(conn, kind, tournament, XlsxFill.fill(Forms.template_path(kind), fills))
+  end
+
+  defp render_xlsx_result(conn, kind, tournament, result) do
+    case result do
       {:ok, binary} ->
         conn
         |> put_resp_content_type(@xlsx_content_type)

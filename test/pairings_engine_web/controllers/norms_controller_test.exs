@@ -47,6 +47,29 @@ defmodule PairingsEngineWeb.NormsControllerTest do
 
       assert_error_sent 404, fn -> get(conn, ~p"/t/#{tournament.id}/norms/it3") end
     end
+
+    test "an arbiter beyond the 4 built-in deputy slots is in the download (real template row-insertion)",
+         %{conn: conn, scope: scope} do
+      tournament = tournament_fixture(scope)
+
+      {:ok, tournament} =
+        Tournaments.update_tournament(tournament, %{
+          "officials" => %{
+            "extra_arbiters_count" => "1",
+            "arbiter1_name" => "Cornet, Luc",
+            "arbiter1_fide_id" => "205494"
+          }
+        })
+
+      conn = get(conn, ~p"/t/#{tournament.id}/norms/it3")
+
+      assert conn.status == 200
+      {:ok, members} = :zip.extract(conn.resp_body, [:memory])
+      xml = Enum.map_join(members, fn {_name, bin} -> bin end)
+
+      assert xml =~ "205494"
+      assert xml =~ "Luc CORNET"
+    end
   end
 
   describe "GET /t/:id/norms/fa1 and /ia1" do

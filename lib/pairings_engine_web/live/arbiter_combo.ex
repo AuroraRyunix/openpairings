@@ -58,6 +58,20 @@ defmodule PairingsEngineWeb.Live.ArbiterCombo do
     end
   end
 
+  # Arbiters beyond the IT3 template's 4 fixed deputy slots — an unbounded,
+  # user-grown list (`officials["extra_arbiters_count"]`), each one a flat
+  # `arbiterN_name`/`arbiterN_fide_id` pair exactly like deputy1-4, so this
+  # whole combobox stack (search/pick/results, `\d+` not `\d` since N isn't
+  # capped at one digit) keeps working unmodified for them. See
+  # `PairingsEngine.Norms.ItThreeExpand` for how the printed IT3 grows to fit.
+  defp parse_field("arbiter" <> rest) do
+    case Regex.run(~r/^(\d+)_(name|fide_id)$/, rest) do
+      [_, n, "name"] -> {"arbiter#{n}", :name}
+      [_, n, "fide_id"] -> {"arbiter#{n}", :id}
+      _ -> nil
+    end
+  end
+
   defp parse_field(_), do: nil
 
   @doc """

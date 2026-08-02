@@ -24,7 +24,7 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
     tournament
   end
 
-  test "the Officials card only shows two deputy slots and no standalone FIDE-id / pairing-mode inputs",
+  test "the Officials card offers all four deputy slots the IT3 template has, and no standalone FIDE-id / pairing-mode inputs",
        %{conn: conn, scope: scope} do
     tournament = create_tournament(scope)
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/norms")
@@ -34,14 +34,93 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
     refute html =~ ~s(name="tournament[officials][pairing_program]")
     refute html =~ ~s(name="tournament[officials][swiss_variant]")
 
+    # All four - the IT3 template (Invulformulier B62-B69) has exactly this
+    # many deputy slots built in; a 5th needs a real additional row in the
+    # template (see docs/norms.md), so the UI doesn't offer one.
     assert html =~ "1st deputy arbiter"
     assert html =~ "2nd deputy arbiter"
-    refute html =~ "3rd deputy arbiter"
-    refute html =~ "4th deputy arbiter"
+    assert html =~ "3rd deputy arbiter"
+    assert html =~ "4th deputy arbiter"
 
     # The deputy FIDE id is only carried as a hidden field.
     refute html =~ ~s(type="text" name="tournament[officials][deputy1_fide_id]")
     assert html =~ ~s(type="hidden" name="tournament[officials][deputy1_fide_id]")
+  end
+
+  test "the 3rd and 4th deputy slots save and reach the officials map, not just the 1st/2nd",
+       %{conn: conn, scope: scope} do
+    tournament = create_tournament(scope)
+    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/norms")
+
+    render_submit(lv, "save_officials", %{
+      "tournament" => %{
+        "officials" => %{
+          "deputy3_name" => "Third Deputy",
+          "deputy3_fide_id" => "300003",
+          "deputy4_name" => "Fourth Deputy",
+          "deputy4_fide_id" => "400004"
+        }
+      }
+    })
+
+    render(lv)
+
+    saved = Tournaments.get_authorized_tournament!(scope, tournament.id)
+    assert saved.officials["deputy3_name"] == "Third Deputy"
+    assert saved.officials["deputy3_fide_id"] == "300003"
+    assert saved.officials["deputy4_name"] == "Fourth Deputy"
+    assert saved.officials["deputy4_fide_id"] == "400004"
+  end
+
+  test "'+ Add arbiter' offers a 5th slot beyond the 4 built-in deputies, which saves and downloads",
+       %{conn: conn, scope: scope} do
+    tournament = create_tournament(scope)
+
+    Repo.insert!(%FidePlayer{
+      fide_id: 205_494,
+      name: "Cornet, Luc",
+      federation: "BEL"
+    })
+
+    {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/norms")
+    refute html =~ "Arbiter 1"
+
+    html = lv |> element(~s(button[phx-click="add_arbiter"])) |> render_click()
+    assert html =~ "Arbiter 1"
+
+    lv
+    |> element("input[name='tournament[officials][arbiter1_name]']")
+    |> render_change(%{
+      "tournament" => %{"officials" => %{"arbiter1_name" => "Cornet"}},
+      "_target" => ["tournament", "officials", "arbiter1_name"]
+    })
+
+    lv
+    |> element(~s(button[phx-click="arbiter_pick"][phx-value-fide-id="205494"]))
+    |> render_click()
+
+    render_submit(lv, "save_officials", %{
+      "tournament" => %{
+        "officials" => %{
+          "extra_arbiters_count" => "1",
+          "arbiter1_name" => "Cornet, Luc",
+          "arbiter1_fide_id" => "205494"
+        }
+      }
+    })
+
+    render(lv)
+
+    saved = Tournaments.get_authorized_tournament!(scope, tournament.id)
+    assert saved.officials["arbiter1_name"] == "Cornet, Luc"
+    assert saved.officials["arbiter1_fide_id"] == "205494"
+
+    conn = get(conn, ~p"/t/#{tournament.id}/norms/it3")
+    assert conn.status == 200
+    {:ok, members} = :zip.extract(conn.resp_body, [:memory])
+    xml = Enum.map_join(members, fn {_name, bin} -> bin end)
+    assert xml =~ "205494"
+    assert xml =~ "Luc CORNET"
   end
 
   test "typing a chief arbiter name — through the real form, either box — shows FIDE matches, and picking one fills name + FIDE id then saves",

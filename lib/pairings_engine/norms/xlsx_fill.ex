@@ -45,8 +45,26 @@ defmodule PairingsEngine.Norms.XlsxFill do
   """
   @spec fill(Path.t(), fills()) :: {:ok, binary()} | {:error, error_reason()}
   def fill(template_path, fills) when is_binary(template_path) and is_map(fills) do
-    with {:ok, entries} <- unzip(template_path),
-         {:ok, workbook_xml} <- fetch_entry(entries, "xl/workbook.xml"),
+    with {:ok, entries} <- unzip(template_path) do
+      fill_entries(entries, fills)
+    end
+  end
+
+  @doc """
+  Same as `fill/2`, but for a template already read into memory (e.g.
+  `PairingsEngine.Norms.ItThreeExpand.expand/2`'s output) instead of a file
+  on disk.
+  """
+  @spec fill_from_binary(binary(), fills()) :: {:ok, binary()} | {:error, error_reason()}
+  def fill_from_binary(template_binary, fills)
+      when is_binary(template_binary) and is_map(fills) do
+    with {:ok, entries} <- unzip_binary(template_binary) do
+      fill_entries(entries, fills)
+    end
+  end
+
+  defp fill_entries(entries, fills) do
+    with {:ok, workbook_xml} <- fetch_entry(entries, "xl/workbook.xml"),
          {:ok, rels_xml} <- fetch_entry(entries, "xl/_rels/workbook.xml.rels"),
          {:ok, sheet_paths} <- resolve_sheet_paths(fills, workbook_xml, rels_xml),
          {:ok, entries} <- apply_sheet_fills(entries, sheet_paths, fills),
@@ -64,6 +82,16 @@ defmodule PairingsEngine.Norms.XlsxFill do
 
   defp unzip(path) do
     case :zip.unzip(String.to_charlist(path), [:memory]) do
+      {:ok, entries} ->
+        {:ok, Enum.map(entries, fn {name, bin} -> {List.to_string(name), bin} end)}
+
+      {:error, reason} ->
+        {:error, {:unzip_failed, reason}}
+    end
+  end
+
+  defp unzip_binary(binary) do
+    case :zip.unzip(binary, [:memory]) do
       {:ok, entries} ->
         {:ok, Enum.map(entries, fn {name, bin} -> {List.to_string(name), bin} end)}
 

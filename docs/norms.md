@@ -137,11 +137,46 @@ one, so a download that would be rejected is worse than no download.
 missing field until:
 
 - the chief arbiter has a name **and** a FIDE ID, and
-- every deputy that has been *named* also has a FIDE ID.
+- every deputy (and every extra arbiter — see below) that has been *named*
+  also has a FIDE ID.
 
 An empty deputy slot is fine — not every event has two. The half-filled state
 (name, no id) is specifically what the SWAR import leaves behind whenever a
 name is ambiguous, so this is the check that stops that reaching FIDE.
+
+## Arbiters beyond chief + 4 deputies
+
+The IT3 template ships with exactly 5 named-arbiter slots: chief + 4
+deputies (`Invulformulier` `B59`-`B69`). FIDE's own printed `Certificaat`
+sheet only ranks the first two by name ("1st/2nd Deputy Chief Arbiter") —
+the 3rd/4th print as a plain, unranked "Arbiter" row, and both UIs (this
+page and the public Tools page) already exposed all four before this
+feature existed.
+
+A 6th, 7th, ... arbiter is genuinely unbounded — both pages have a
+"+ Add arbiter" button (and a matching "Remove last arbiter" once at least
+one exists) below the deputy slots, using the exact same FIDE-lookup
+combobox as everything else. Each one is tracked as a flat
+`officials["arbiterN_name"]` / `officials["arbiterN_fide_id"]` pair
+(1-indexed, independent of the deputy numbering) plus a plain
+`officials["extra_arbiters_count"]` integer — deliberately *not* a nested
+list, so it round-trips through an ordinary HTML form submit exactly like
+`deputy1_name` etc. already do, with no array-param parsing to get wrong.
+
+Making this work on the actual `.xlsx` needs real surgery, since the
+template has no spare rows: `PairingsEngine.Norms.ItThreeExpand` grows both
+sheets on demand — two new rows in `Invulformulier` (an ID cell, a Name
+cell) right after row 69, and two new rows in `Certificaat` (a label row
+reading "Arbiter", a formula row mirroring the 4th deputy's own row exactly)
+right after row 38 — per extra arbiter, renumbering every row/cell/formula
+reference that came after the insertion point. `Forms.it3_result/3` is the
+one entry point that does this (expand-then-fill) when needed; going
+through `Forms.it3_fills/3` + `XlsxFill.fill/2` directly (the old pattern)
+silently drops any arbiter past the 4th, since the template has no cells
+for them until expanded. `extra_arbiters_count == 0` — the common case — is
+a hard no-op: `ItThreeExpand.expand/2` returns the template completely
+untouched, so no tournament without extra arbiters is affected by any of
+this.
 
 **Saving is refused too, not just downloading.** Every arbiter FIDE reports on
 is registered with FIDE and therefore has an id — an official without one

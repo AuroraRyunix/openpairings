@@ -36,8 +36,14 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   @max_entries 10
   @max_file_size 5_000_000
 
-  @overlay_fields ~w(chief_arbiter_name chief_arbiter_fide_id organizer event_code
-                      deputy1_name deputy1_fide_id deputy2_name deputy2_fide_id)
+  # The IT3 template has exactly 4 deputy slots built in (Invulformulier
+  # B62-B69 — see docs/norms.md); a 5th and beyond needs a real additional
+  # row in the template, not modeled here.
+  @max_deputies 4
+
+  @overlay_fields ~w(chief_arbiter_name chief_arbiter_fide_id chief_arbiter_email
+                      organizer organizer_email event_code) ++
+                    Enum.flat_map(1..@max_deputies, &["deputy#{&1}_name", "deputy#{&1}_fide_id"])
   @candidate_fields ~w(last_name first_name fide_id federation)
 
   @impl true
@@ -153,6 +159,20 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
         {:noreply, socket |> assign(overlay: overlay, arbiter_search: nil) |> sync_session()}
     end
+  end
+
+  # Arbiters beyond the IT3 template's 4 built-in deputy slots — see the
+  # identical mechanism (and why it's a plain count, not a list) on
+  # `PairingsEngineWeb.NormsLive`. `sync_session/1` because the count lives
+  # in `overlay`, same as any other officials field on this page.
+  def handle_event("add_arbiter", _params, socket) do
+    overlay = bump_extra_arbiters(socket.assigns.overlay, 1)
+    {:noreply, socket |> assign(overlay: overlay) |> sync_session()}
+  end
+
+  def handle_event("remove_last_arbiter", _params, socket) do
+    overlay = bump_extra_arbiters(socket.assigns.overlay, -1)
+    {:noreply, socket |> assign(overlay: overlay) |> sync_session()}
   end
 
   def handle_event("pick_candidate", %{"pick" => ""}, socket) do
@@ -386,7 +406,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   # An official left entirely blank is fine: not every event has two deputies,
   # and this page has no chief arbiter until the arbiter fills one in.
   defp report_blockers(overlay) do
-    for {role, label} <- arbiter_roles(),
+    for {role, label} <- arbiter_roles(overlay),
         name = Map.get(overlay, arbiter_name_key(role), ""),
         String.trim(to_string(name)) != "",
         String.trim(to_string(Map.get(overlay, "#{role}_fide_id", ""))) == "",
@@ -394,15 +414,56 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   end
 
   defp arbiter_name_key("chief_arbiter"), do: "chief_arbiter_name"
-  # Every other role (the deputies today) follows the "<role>_name" convention.
+  # Every other role (deputies and extra arbiters) follows "<role>_name".
   defp arbiter_name_key(role), do: "#{role}_name"
 
-  defp arbiter_roles, do: [{"chief_arbiter", "Chief arbiter"} | deputy_roles()]
-  defp deputy_roles, do: for(n <- 1..2, do: {"deputy#{n}", "Deputy #{n}"})
+  defp arbiter_roles(overlay),
+    do: [{"chief_arbiter", "Chief arbiter"} | deputy_roles()] ++ extra_arbiter_roles(overlay)
+
+  defp deputy_range, do: 1..@max_deputies
+  defp deputy_roles, do: for(n <- deputy_range(), do: {"deputy#{n}", "Deputy #{n}"})
+
+  defp extra_arbiter_roles(overlay) do
+    for n <- extra_arbiter_range(Map.get(overlay, "extra_arbiters_count")),
+        do: {"arbiter#{n}", "Arbiter #{n}"}
+  end
+
+  # 1..count is a *descending* range (iterating count..1) when count is 0 —
+  # so 0 (the common case: no extra arbiters) has to short-circuit to an
+  # empty range explicitly.
+  defp extra_arbiter_range(count) do
+    case parse_extra_count(count) do
+      n when n > 0 -> 1..n
+      _ -> 1..0//1
+    end
+  end
+
+  defp parse_extra_count(nil), do: 0
+  defp parse_extra_count(n) when is_integer(n), do: n
+
+  defp parse_extra_count(s) when is_binary(s) do
+    case Integer.parse(s) do
+      {n, _} -> n
+      :error -> 0
+    end
+  end
+
+  defp bump_extra_arbiters(overlay, delta) do
+    current = parse_extra_count(Map.get(overlay, "extra_arbiters_count"))
+    new_count = max(current + delta, 0)
+
+    overlay = Map.put(overlay, "extra_arbiters_count", new_count)
+
+    if delta < 0 do
+      overlay |> Map.delete("arbiter#{current}_name") |> Map.delete("arbiter#{current}_fide_id")
+    else
+      overlay
+    end
+  end
 
   # Officials with a name filled in, offered as FA1/IA1 norm candidates.
   defp candidate_options(overlay) do
-    for {role, label} <- arbiter_roles(),
+    for {role, label} <- arbiter_roles(overlay),
         name = Map.get(overlay, arbiter_name_key(role), ""),
         String.trim(to_string(name)) != "",
         do: {"#{label} - #{name}", role}
@@ -623,7 +684,19 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
               id_value={Map.get(@overlay, "chief_arbiter_fide_id", "")}
               search={@arbiter_search}
             />
+            <.overlay_input
+              prefix="overlay"
+              field="chief_arbiter_email"
+              label="Chief arbiter e-mail"
+              values={@overlay}
+            />
             <.overlay_input prefix="overlay" field="organizer" label="Organizer" values={@overlay} />
+            <.overlay_input
+              prefix="overlay"
+              field="organizer_email"
+              label="Organizer e-mail"
+              values={@overlay}
+            />
             <.overlay_input
               prefix="overlay"
               field="event_code"
@@ -633,7 +706,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
           </div>
 
           <h3 style="margin-bottom: 4px">Deputy arbiters</h3>
-          <div :for={n <- 1..2} class="form-grid">
+          <div :for={n <- deputy_range()} class="form-grid">
             <.arbiter_combo
               role={"deputy#{n}"}
               label={"Deputy #{n}"}
@@ -643,6 +716,38 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
               id_value={Map.get(@overlay, "deputy#{n}_fide_id", "")}
               search={@arbiter_search}
             />
+          </div>
+
+          <h3 style="margin-bottom: 4px">
+            Additional arbiters
+            <span class="hint" style="font-weight: normal">
+              (beyond chief + 4 deputies — prints as a plain "Arbiter" row on IT3)
+            </span>
+          </h3>
+          <div
+            :for={n <- extra_arbiter_range(Map.get(@overlay, "extra_arbiters_count"))}
+            class="form-grid"
+          >
+            <.arbiter_combo
+              role={"arbiter#{n}"}
+              label={"Arbiter #{n}"}
+              name_field={"overlay[arbiter#{n}_name]"}
+              name_value={Map.get(@overlay, "arbiter#{n}_name", "")}
+              id_field={"overlay[arbiter#{n}_fide_id]"}
+              id_value={Map.get(@overlay, "arbiter#{n}_fide_id", "")}
+              search={@arbiter_search}
+            />
+          </div>
+          <div class="actions" style="margin: 4px 0 12px">
+            <button type="button" class="pe-btn" phx-click="add_arbiter">+ Add arbiter</button>
+            <button
+              :if={parse_extra_count(Map.get(@overlay, "extra_arbiters_count")) > 0}
+              type="button"
+              class="pe-btn danger-link"
+              phx-click="remove_last_arbiter"
+            >
+              Remove last arbiter
+            </button>
           </div>
 
           <h3 style="margin-bottom: 4px">FA1 / IA1 arbiter norm candidate</h3>

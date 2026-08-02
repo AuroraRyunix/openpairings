@@ -47,9 +47,17 @@ defmodule PairingsEngineWeb.NormsLive do
     {"chief_arbiter_email", "Chief arbiter e-mail", "text"}
   ]
 
+  # The IT3 template has exactly 4 deputy slots built in (Invulformulier
+  # B62-B69 — see docs/norms.md); FIDE's own printed Certificaat only names
+  # the first two ("1st/2nd Deputy Chief Arbiter"), the 3rd/4th print as a
+  # plain, unranked "Arbiter" row, but the underlying data cells (and this
+  # UI) treat all four the same way. A 5th arbiter and beyond needs a real
+  # additional row in the template — not modeled here.
   @deputy_fields [
     {1, "1st deputy arbiter"},
-    {2, "2nd deputy arbiter"}
+    {2, "2nd deputy arbiter"},
+    {3, "3rd deputy arbiter"},
+    {4, "4th deputy arbiter"}
   ]
 
   @impl true
@@ -249,6 +257,22 @@ defmodule PairingsEngineWeb.NormsLive do
     end
   end
 
+  # Arbiters beyond the IT3 template's 4 built-in deputy slots — an unbounded
+  # list, tracked as a plain count (`officials["extra_arbiters_count"]`) plus
+  # flat `arbiterN_name`/`arbiterN_fide_id` officials keys, exactly like
+  # deputy1-4 (see ArbiterCombo.parse_field/1 and apply_arbiter_pick/3 below).
+  # Adding/removing here only touches in-memory `@tournament`, same as a
+  # pick — "Save officials" persists it, and the count travels through that
+  # save via a hidden input (see the template) since it isn't itself an
+  # arbiter_combo field.
+  def handle_event("add_arbiter", _params, socket) do
+    {:noreply, assign(socket, tournament: bump_extra_arbiters(socket.assigns.tournament, 1))}
+  end
+
+  def handle_event("remove_last_arbiter", _params, socket) do
+    {:noreply, assign(socket, tournament: bump_extra_arbiters(socket.assigns.tournament, -1))}
+  end
+
   ## ---------- Officials arbiter FIDE-autocomplete (chief/pairings/deputies) ----------
   #
   # Mirrors PlayersLive's "search"/"pick" flow, generalised over a `role`. A
@@ -405,7 +429,23 @@ defmodule PairingsEngineWeb.NormsLive do
           blank?(Map.get(officials, "deputy#{n}_fide_id")),
           do: label
 
-    chief ++ deputies
+    extras =
+      for n <- extra_arbiter_range(Map.get(officials, "extra_arbiters_count")),
+          not blank?(Map.get(officials, "arbiter#{n}_name")),
+          blank?(Map.get(officials, "arbiter#{n}_fide_id")),
+          do: "Arbiter #{n}"
+
+    chief ++ deputies ++ extras
+  end
+
+  # 1..count is a *descending* range (iterating count..1) when count is 0 —
+  # an easy footgun elsewhere in this codebase — so 0 (the common case: no
+  # extra arbiters) has to short-circuit to an empty range explicitly.
+  defp extra_arbiter_range(count) do
+    case parse_extra_count(count) do
+      n when n > 0 -> 1..n
+      _ -> 1..0//1
+    end
   end
 
   defp id_required_message(missing) do
@@ -474,7 +514,13 @@ defmodule PairingsEngineWeb.NormsLive do
           blank?(o_get(tournament, "deputy#{n}_fide_id")),
           do: "#{label} FIDE ID"
 
-    chief ++ deputies
+    extras =
+      for n <- extra_arbiter_range(o_get(tournament, "extra_arbiters_count")),
+          not blank?(o_get(tournament, "arbiter#{n}_name")),
+          blank?(o_get(tournament, "arbiter#{n}_fide_id")),
+          do: "Arbiter #{n} FIDE ID"
+
+    chief ++ deputies ++ extras
   end
 
   defp apply_arbiter_pick(tournament, "chief_arbiter", fp) do
@@ -503,9 +549,51 @@ defmodule PairingsEngineWeb.NormsLive do
     %{tournament | officials: officials}
   end
 
+  defp apply_arbiter_pick(tournament, "arbiter" <> _ = role, fp) do
+    officials =
+      tournament
+      |> put_official("#{role}_name", fp.name)
+      |> Map.put("#{role}_fide_id", fp.fide_id)
+
+    %{tournament | officials: officials}
+  end
+
   defp apply_arbiter_pick(tournament, _role, _fp), do: tournament
 
   defp put_official(tournament, key, value), do: Map.put(tournament.officials || %{}, key, value)
+
+  defp extra_arbiters_count(tournament),
+    do: tournament |> o_get("extra_arbiters_count") |> parse_extra_count()
+
+  defp parse_extra_count(nil), do: 0
+  defp parse_extra_count(n) when is_integer(n), do: n
+
+  defp parse_extra_count(s) when is_binary(s) do
+    case Integer.parse(s) do
+      {n, _} -> n
+      :error -> 0
+    end
+  end
+
+  defp bump_extra_arbiters(tournament, delta) do
+    current = extra_arbiters_count(tournament)
+    new_count = max(current + delta, 0)
+
+    officials =
+      tournament
+      |> put_official("extra_arbiters_count", new_count)
+      |> then(fn officials ->
+        if delta < 0 do
+          officials
+          |> Map.delete("arbiter#{current}_name")
+          |> Map.delete("arbiter#{current}_fide_id")
+        else
+          officials
+        end
+      end)
+
+    %{tournament | officials: officials}
+  end
 
   defp it4_candidates(players) do
     Enum.filter(players, fn p -> not blank?(Map.get(p.norm_data || %{}, "title_claimed")) end)
@@ -612,7 +700,8 @@ defmodule PairingsEngineWeb.NormsLive do
           <.link navigate={~p"/t/#{@tournament.id}/settings"}>Tournament settings</.link>
           page; the tournament's FIDE ID / event code on the
           <.link navigate={~p"/t/#{@tournament.id}/settings/fide"}>FIDE settings</.link>
-          page. Pairing mode is always computerized and the pairing program is always OpenPairings.
+          page. Pairing mode is always computerized and the pairing program is always
+          "OpenPairings (With JaVaFo)".
         </p>
 
         <p :if={@stale} class="error-note">
@@ -691,6 +780,49 @@ defmodule PairingsEngineWeb.NormsLive do
                 />
               </label>
             </div>
+          </div>
+
+          <h3 style="margin: 18px 0 8px; font-size: 14px">
+            Additional arbiters
+            <span class="hint" style="font-weight: normal">
+              (beyond chief + 4 deputies — print as a plain "Arbiter" row on IT3, same as
+              deputies 3/4)
+            </span>
+          </h3>
+
+          <input
+            type="hidden"
+            name="tournament[officials][extra_arbiters_count]"
+            value={extra_arbiters_count(@tournament)}
+          />
+
+          <div class="form-grid">
+            <div
+              :for={n <- extra_arbiter_range(o_get(@tournament, "extra_arbiters_count"))}
+              style="display: contents"
+            >
+              <.arbiter_combo
+                role={"arbiter#{n}"}
+                label={"Arbiter #{n}"}
+                name_field={"tournament[officials][arbiter#{n}_name]"}
+                name_value={o_get(@tournament, "arbiter#{n}_name")}
+                id_field={"tournament[officials][arbiter#{n}_fide_id]"}
+                id_value={o_get(@tournament, "arbiter#{n}_fide_id")}
+                search={@arbiter_search}
+              />
+            </div>
+          </div>
+
+          <div class="actions" style="margin-top: 8px">
+            <button type="button" class="pe-btn" phx-click="add_arbiter">+ Add arbiter</button>
+            <button
+              :if={extra_arbiters_count(@tournament) > 0}
+              type="button"
+              class="pe-btn danger-link"
+              phx-click="remove_last_arbiter"
+            >
+              Remove last arbiter
+            </button>
           </div>
 
           <h3 style="margin: 18px 0 8px; font-size: 14px">Special remarks (IT3)</h3>

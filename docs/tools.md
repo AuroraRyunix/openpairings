@@ -32,19 +32,25 @@ design" below.
    (master supplies header/schedule fields, players are pooled, the same
    player can't appear in more than one file).
 4. Fields for what a SWAR/TRF file typically doesn't carry — chief arbiter
-   (name + FIDE ID), up to four deputy arbiters, organizer, FIDE event code,
-   and the FA1/IA1 arbiter norm candidate's name/FIDE ID/federation. These
-   are merged onto the (virtual, unpersisted) combined tournament by
-   `PairingsEngine.Tools.Overlay.apply/2` at download time — the same
-   `officials` map shape the Settings page's "Officials & FIDE report data"
-   card writes onto a real tournament (docs/norms.md), just never saved
-   anywhere here. A blank field never overwrites a value the file already
-   supplied (e.g. a TRF's own chief-arbiter line).
+   (name + FIDE ID, e-mail), organizer (name, e-mail), FIDE event code, four
+   deputy arbiters, and — via "+ Add arbiter" — as many further arbiters as
+   the event actually has (see docs/norms.md's "Arbiters beyond chief + 4
+   deputies"), plus the FA1/IA1 arbiter norm candidate's name/FIDE
+   ID/federation. These are merged onto the (virtual, unpersisted) combined
+   tournament by `PairingsEngine.Tools.Overlay.apply/2` at download time —
+   the same `officials` map shape the Settings page's "Officials & FIDE
+   report data" card writes onto a real tournament (docs/norms.md), just
+   never saved anywhere here. A blank field never overwrites a value the
+   file already supplied (e.g. a TRF's own chief-arbiter line).
 5. Download IT3 / FA1 / IA1 — generated the same way
    `PairingsEngineWeb.NormsController` generates them for a real tournament
-   (`PairingsEngine.Norms.Forms` + `PairingsEngine.Norms.XlsxFill`), just
-   fed the in-memory combined tournament/players instead of ones loaded
-   from `Repo`.
+   (`PairingsEngine.Norms.Forms.it3_result/3` for IT3 — expanding the
+   template first if there are arbiters beyond the 4 built-in deputy slots
+   — plain `Forms` + `XlsxFill.fill/2` for FA1/IA1), just fed the in-memory
+   combined tournament/players instead of ones loaded from `Repo`. IT3's
+   "Program used" (`B22`) reads "Swar (With JaVaFo)" by default here, not
+   "OpenPairings" — this page only ever generates a report from an
+   already-paired upload, so crediting OpenPairings would be false.
 
 IT4 isn't offered here — it's keyed off `Player.norm_data` (the per-player
 title-norm judgment set on the authenticated Norms page's player table),

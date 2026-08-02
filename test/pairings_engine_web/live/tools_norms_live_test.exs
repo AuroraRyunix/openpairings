@@ -184,6 +184,105 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     assert xml =~ "Wim BOSSUYT"
   end
 
+  test "organizer and chief arbiter e-mails flow into the downloaded IT3", %{conn: conn} do
+    {:ok, lv, _html} = live(conn, ~p"/tools/norms")
+    upload_files(lv, [{"alpha.trf", trf_text("Alpha Open", [{"Alice", 111}, {"Bob", 222}])}])
+
+    lv
+    |> form("#tools-fields-form", %{
+      "overlay" => %{
+        "chief_arbiter_email" => "chief@example.com",
+        "organizer_email" => "organizer@example.com"
+      }
+    })
+    |> render_change()
+
+    conn = get(conn, ~p"/tools/download/#{download_token(lv)}/it3")
+
+    assert conn.status == 200
+    xml = xlsx_xml(conn.resp_body)
+    assert xml =~ "chief@example.com"
+    assert xml =~ "organizer@example.com"
+    # Generated from the public Tools page, so Program used credits SWAR
+    # rather than OpenPairings (see Norms.Forms.it3_fills/3).
+    assert xml =~ "Swar (With JaVaFo)"
+  end
+
+  test "3rd and 4th deputy arbiters flow into the downloaded IT3, not just 1st/2nd",
+       %{conn: conn} do
+    Repo.insert_all(PairingsEngine.Fide.FidePlayer, [
+      %{fide_id: 300_003, name: "Deputy, Third", federation: "BEL"},
+      %{fide_id: 400_004, name: "Deputy, Fourth", federation: "BEL"}
+    ])
+
+    {:ok, lv, _html} = live(conn, ~p"/tools/norms")
+    upload_files(lv, [{"alpha.trf", trf_text("Alpha Open", [{"Alice", 111}, {"Bob", 222}])}])
+
+    # A named-but-unmatched deputy blocks the IT3 download (see
+    # `NormsLive.report_blockers/1`'s doc), so search then pick, same as the
+    # e-mail/chief-arbiter tests above — this exercises deputy3/4 exactly
+    # like deputy1/2 already work.
+    for {n, fide_id} <- [{3, 300_003}, {4, 400_004}] do
+      lv
+      |> element("input[name='overlay[deputy#{n}_name]']")
+      |> render_change(%{
+        "overlay" => %{"deputy#{n}_name" => "Deputy"},
+        "_target" => ["overlay", "deputy#{n}_name"]
+      })
+
+      lv
+      |> element(~s(button[phx-click="arbiter_pick"][phx-value-fide-id="#{fide_id}"]))
+      |> render_click()
+    end
+
+    conn = get(conn, ~p"/tools/download/#{download_token(lv)}/it3")
+
+    assert conn.status == 200
+    xml = xlsx_xml(conn.resp_body)
+    # IT3's deputy name cells go through fide_display_name/1 too (FIDE
+    # house style: surname in capitals) — "Deputy, Third" -> "Third DEPUTY".
+    assert xml =~ "Third DEPUTY"
+    assert xml =~ "Fourth DEPUTY"
+  end
+
+  test "the '+ Add arbiter' button offers a 5th slot beyond the 4 built-in deputies, which flows into the download",
+       %{conn: conn} do
+    Repo.insert!(%PairingsEngine.Fide.FidePlayer{
+      fide_id: 205_494,
+      name: "Cornet, Luc",
+      federation: "BEL"
+    })
+
+    {:ok, lv, _html} = live(conn, ~p"/tools/norms")
+
+    html =
+      upload_files(lv, [{"alpha.trf", trf_text("Alpha Open", [{"Alice", 111}, {"Bob", 222}])}])
+
+    refute html =~ "Arbiter 1"
+
+    html = lv |> element(~s(button[phx-click="add_arbiter"])) |> render_click()
+
+    assert html =~ "Arbiter 1"
+
+    lv
+    |> element("input[name='overlay[arbiter1_name]']")
+    |> render_change(%{
+      "overlay" => %{"arbiter1_name" => "Cornet"},
+      "_target" => ["overlay", "arbiter1_name"]
+    })
+
+    lv
+    |> element(~s(button[phx-click="arbiter_pick"][phx-value-fide-id="205494"]))
+    |> render_click()
+
+    conn = get(conn, ~p"/tools/download/#{download_token(lv)}/it3")
+
+    assert conn.status == 200
+    xml = xlsx_xml(conn.resp_body)
+    assert xml =~ "205494"
+    assert xml =~ "Luc CORNET"
+  end
+
   test "removing a parsed file takes it out of the report", %{conn: conn} do
     {:ok, lv, _html} = live(conn, ~p"/tools/norms")
 
@@ -358,9 +457,10 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     assert Enum.any?(errors, fn [_ref, reason] -> reason == :too_many_files end)
   end
 
-  ## ---------- deputies trimmed to 2 ----------
+  ## ---------- deputies match the IT3 template's own 4-slot cap ----------
 
-  test "only two deputy arbiter slots are offered, not four", %{conn: conn} do
+  test "all four deputy arbiter slots are offered, matching the IT3 template's own capacity",
+       %{conn: conn} do
     {:ok, lv, _html} = live(conn, ~p"/tools/norms")
 
     html =
@@ -368,8 +468,8 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
 
     assert html =~ "Deputy 1"
     assert html =~ "Deputy 2"
-    refute html =~ "Deputy 3"
-    refute html =~ "Deputy 4"
+    assert html =~ "Deputy 3"
+    assert html =~ "Deputy 4"
   end
 
   ## ---------- junk footer removed ----------
