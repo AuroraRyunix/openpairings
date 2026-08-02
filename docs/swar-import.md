@@ -108,6 +108,29 @@ FIDE identifies every official by FIDE ID and bounces a report missing one, so
 each missing field) until the chief arbiter and every *named* deputy has one.
 An empty deputy slot is fine — not every event has two.
 
+## Rate of play (`Cadence` / `Cadence_Other`)
+
+`Cadence` (manual field 88) is a 0-based index into one of **three** dropdown
+lists SWAR's own UI fills at runtime — which list applies depends on the
+sibling `TournoiStd` field (0=Standard/1=Rapid/2=Blitz, the same field
+`map_standard/1` reads). None of this is in the binary-format notes this
+importer otherwise leans on; the mapping (`SwarImport.cadence_label/2`,
+`@std_cadences`/`@rap_cadences`/`@bli_cadences`) was reverse-engineered
+directly from **SWAR's own C++ source** (`Utils.cpp`'s `GetCadence/2` +
+`Languages/Swar.Lang.fr.ini`'s `[CADENCES]` section) rather than inferred
+from a `.swar` sample, since the integer alone carries no information without
+that table.
+
+`Cadence_Other` (free text) is only meaningful for the list's own last entry
+("autre cadence" / "Other cadence") — SWAR's UI itself detects "Other" by
+comparing the current label against the list's last entry, not a fixed
+sentinel index, so `cadence_label/2` deliberately leaves that last index out
+of each table and returns `nil` for it. `tournament_attrs/1` maps
+`rate_of_play` as `cadence_label(t.tournoi_std, t.cadence) || t.cadence_other`
+— the dropdown pick wins whenever it resolves to something, `Cadence_Other`
+only fills in for "Other" (or, defensively, an index outside all three known
+tables).
+
 ## Two ids per player: national vs. FIDE — never crossed
 
 Every SWAR player record carries **two separate identifiers**, read from

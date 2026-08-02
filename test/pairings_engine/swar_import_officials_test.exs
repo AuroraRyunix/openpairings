@@ -145,6 +145,32 @@ defmodule PairingsEngine.SwarImportOfficialsTest do
     end
   end
 
+  describe "cadence_label/2" do
+    # Reverse-engineered from SWAR's own source (Utils.cpp's GetCadence/2 +
+    # Languages/Swar.Lang.fr.ini's [CADENCES] section), not from a .swar
+    # sample — see the moduledoc comment above cadence_label/2 for how.
+    test "standard cadence 12 (0-based) is 90 min + 30 sec/move — the real Geraardsbergen 2026 value" do
+      assert SwarImport.cadence_label(0, 12) == "90 min + 30 sec/move"
+    end
+
+    test "picks the rapid or blitz table when tournoi_std says so" do
+      assert SwarImport.cadence_label(1, 0) == "Rapid 10 min + 10 sec/move"
+      assert SwarImport.cadence_label(2, 0) == "Blitz 3 min + 2 sec/move"
+    end
+
+    test "the last index of each list ('autre cadence' / Other) is deliberately unmapped" do
+      # Standard has 13 real entries (0-12); index 13 is "autre cadence".
+      refute SwarImport.cadence_label(0, 13)
+      refute SwarImport.cadence_label(1, 22)
+      refute SwarImport.cadence_label(2, 13)
+    end
+
+    test "an out-of-range or missing cadence falls through to nil" do
+      refute SwarImport.cadence_label(0, 999)
+      refute SwarImport.cadence_label(0, nil)
+    end
+  end
+
   ## ---------- import wiring ----------
 
   test "deputies land in numbered officials slots and the chief loses its grade" do

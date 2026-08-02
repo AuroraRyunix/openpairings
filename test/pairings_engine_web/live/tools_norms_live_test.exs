@@ -178,9 +178,10 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     xml = xlsx_xml(conn.resp_body)
     # Surname in capitals is FIDE house style on these forms (see
     # `Norms.Forms.fide_display_name/1`); the given name keeps its casing.
+    # The chief arbiter's name (FA1 B18) gets the same treatment.
     assert xml =~ "CANDIDATE"
     assert xml =~ "Norma"
-    assert xml =~ "Bossuyt, Wim"
+    assert xml =~ "Wim BOSSUYT"
   end
 
   test "removing a parsed file takes it out of the report", %{conn: conn} do

@@ -257,6 +257,27 @@ defmodule PairingsEngine.Norms.FormsTest do
                Forms.ia1_fills(tournament(), [], @candidate)
     end
 
+    test "B18 puts the chief arbiter's name in FIDE house style, same as IT3's B60" do
+      t = tournament(%{chief_arbiter: "Cornet, Luc"})
+      fills = Forms.fa1_fills(t, [], @candidate)["Invulformulier"]
+
+      assert fills["B18"] == "Luc CORNET"
+    end
+
+    test "B17 prefers the structured rate_of_play over the free-text time_control" do
+      t = tournament(%{rate_of_play: "90min/40moves+30min/end+30sec/move from move 1"})
+      fills = Forms.fa1_fills(t, [], @candidate)["Invulformulier"]
+
+      assert fills["B17"] == "90min/40moves+30min/end+30sec/move from move 1"
+    end
+
+    test "B17 falls back to time_control when rate_of_play is blank" do
+      t = tournament(%{rate_of_play: ""})
+      fills = Forms.fa1_fills(t, [], @candidate)["Invulformulier"]
+
+      assert fills["B17"] == "90 min + 30 sec/move"
+    end
+
     test "leaves B5/B21 nil when the tournament has no federation, preserving template defaults" do
       # XlsxFill.fill/2 treats a nil value as a no-op, so this leaves the
       # template's pre-filled Belgian-federation defaults untouched.
@@ -266,14 +287,20 @@ defmodule PairingsEngine.Norms.FormsTest do
       assert fills["B21"] == nil
     end
 
-    test "never targets the signature fields or the Belgian delegate's block" do
+    test "never targets the signature fields or the Belgian delegate's pre-printed name/position" do
       fills = Forms.fa1_fills(tournament(), [], @candidate)["Invulformulier"]
 
       refute Map.has_key?(fills, "B19")
       refute Map.has_key?(fills, "B23")
       refute Map.has_key?(fills, "B24")
       refute Map.has_key?(fills, "B25")
-      refute Map.has_key?(fills, "B26")
+    end
+
+    test "fills both Date fields (B22, B26) with today's date" do
+      fills = Forms.fa1_fills(tournament(), [], @candidate)["Invulformulier"]
+
+      assert fills["B22"] == Date.utc_today()
+      assert fills["B26"] == Date.utc_today()
     end
 
     test "produced fills apply cleanly to the real FA1 and IA1 templates" do

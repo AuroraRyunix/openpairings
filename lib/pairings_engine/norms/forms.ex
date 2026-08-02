@@ -193,8 +193,11 @@ defmodule PairingsEngine.Norms.Forms do
   (nil) when the tournament has no federation set, so the template's
   pre-filled Belgian-federation defaults survive; setting `tournament.federation`
   overrides them. Signature fields (`B19`, `B25`) and the Belgian
-  authenticating official's block (`B23`, `B24`, `B26`) are intentionally
-  never written — they're filled in by hand after export.
+  authenticating official's name/position (`B23`, `B24`, pre-printed in the
+  template) are intentionally never written — they're filled in by hand
+  after export. `B26`, that official's "Date", is written (today's date,
+  same as `B22`'s Chief Arbiter date) since both are the date the report was
+  generated, not two independent events.
   """
   def fa1_fills(tournament, players, candidate),
     do: arbiter_norm_fills(tournament, players, candidate)
@@ -223,11 +226,15 @@ defmodule PairingsEngine.Norms.Forms do
         "B14" => Enum.count(players, &rated?/1),
         "B15" => federations_represented(players),
         "B16" => Enum.count(players, &titled?/1),
-        "B17" => blank(tournament.time_control),
-        "B18" => blank(tournament.chief_arbiter),
+        "B17" => blank(tournament.rate_of_play) || blank(tournament.time_control),
+        "B18" => blank(fide_display_name(tournament.chief_arbiter)),
         "B20" => "Chief Arbiter",
         "B21" => blank(tournament.federation),
-        "B22" => Date.utc_today()
+        "B22" => Date.utc_today(),
+        # The second "Date" field, next to the Belgian authenticating
+        # official's pre-printed name/position — both dates on this form are
+        # the date the report is generated, not two different events.
+        "B26" => Date.utc_today()
       }
     }
   end

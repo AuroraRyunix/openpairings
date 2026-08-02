@@ -96,10 +96,11 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
       assert sheet_xml =~
                ~r/<c r="B3"[^>]*t="inlineStr"><is><t xml:space="preserve">Test Open 2026<\/t><\/is><\/c>/
 
-      # B7 keeps its original style attribute (s="12") and gets a bare
-      # numeric Excel-serial <v> for the date.
+      # B7 keeps its own explicit dd/mm/yyyy style (not the template's
+      # original s="12" — see `docs/norms.md`'s date-format note) and gets a
+      # bare numeric Excel-serial <v> for the date.
       expected_serial = Date.diff(~D[2026-07-12], ~D[1899-12-30])
-      assert sheet_xml =~ ~r/<c r="B7" s="12"><v>#{expected_serial}<\/v><\/c>/
+      assert sheet_xml =~ ~r/<c r="B7" s="\d+"><v>#{expected_serial}<\/v><\/c>/
     end
 
     test "refuses to overwrite formula cells and leaves the archive untouched" do
@@ -228,7 +229,7 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
       sheet_xml = Map.fetch!(members, "xl/worksheets/sheet1.xml")
 
       expected_serial = Date.diff(~D[2026-01-05], ~D[1899-12-30])
-      assert sheet_xml =~ ~r/<c r="B8" s="11"><v>#{expected_serial}<\/v><\/c>/
+      assert sheet_xml =~ ~r/<c r="B8" s="\d+"><v>#{expected_serial}<\/v><\/c>/
     end
 
     test "overwrites a pre-filled Belgian-federation default cell (t=\"s\" -> inlineStr)" do

@@ -106,9 +106,28 @@ regulations that count refers to, and including them made the report disagree
 with FIDE's own view of the same event.
 
 The Belgian authenticating official pre-printed in the FA1/IA1 templates reads
-`IA/IO CORNET, Luc (205494)` — it lives as a shared string inside the `.xlsx`
+`IA CORNET, Luc (205494)` — it lives as a shared string inside the `.xlsx`
 files, not in code, so changing it means editing `xl/sharedStrings.xml` in
-`priv/norm_templates/`.
+`priv/norm_templates/` (it read `IA/IO CORNET, ...` until 2026-08-02, when he
+stopped holding the IO title).
+
+## Dates are always dd/mm/yyyy, never the system locale's short date
+
+Every date-bearing cell across IT3/FA1/IA1/IT4 (`B6`/`B7` on IT3, `B8`/`B9`/
+`B22`/`B26` on FA1/IA1, `V6`/`Z6` on IT4) carries an explicit custom
+`dd/mm/yyyy` number format (`numFmtId="164"` in each template's
+`xl/styles.xml`), not Excel's built-in `numFmtId="14"`. The built-in id
+renders using **the opening machine's own regional short-date setting** —
+on an en-US-locale Windows box that's `m/d/yyyy`, silently swapping day and
+month for any date where both are ≤ 12. IT3's `B6` (Starting date) had it
+worse: the template never gave that cell a style at all, so a written date
+serial rendered as a bare integer, not a date. Both are template-authoring
+issues, invisible in the code (`Norms.Forms.parse_date/1` always produces a
+correct `%Date{}`) and only fixable by editing each template's own
+`xl/styles.xml`/`xl/worksheets/sheetN.xml` — see the fix for the exact
+zip-editing approach (clone the cell's existing style with the numFmtId
+swapped, so borders/fills survive; insert a fresh styled cell for one that
+didn't exist yet).
 
 ## Reports are gated on complete officials
 

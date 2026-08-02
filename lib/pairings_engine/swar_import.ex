@@ -1030,7 +1030,13 @@ defmodule PairingsEngine.SwarImport do
     %{
       name: t.name,
       type: map_tournament_type(t.type),
-      venue: t.city,
+      # SWAR's [TOURNOI] header has exactly one free-text place field (`City`
+      # here); there is no separate venue/address field to pull from. Setting
+      # `venue` to the same value made `Norms.Forms.place/1` (which joins
+      # `[venue, city]`) print the club name twice, e.g. "K.A. Geraardsbergen,
+      # K.A. Geraardsbergen" — so `venue` is left unset (its schema default,
+      # "") for the arbiter to fill in by hand if the report needs a venue
+      # distinct from the city.
       city: t.city,
       federation: map_federation(t.federation),
       start_date: normalize_date(t.start_date),
@@ -1045,7 +1051,10 @@ defmodule PairingsEngine.SwarImport do
       rounds_count: max(t.nb_rounds, 1),
       tiebreaks: map_tiebreaks(data.tiebreaks),
       standard: map_standard(t.tournoi_std),
-      rate_of_play: t.cadence_other,
+      # `Cadence` (the standard-cadence dropdown pick) wins when set; falls
+      # back to `Cadence_Other`'s free text only for the dropdown's own
+      # "autre cadence" pick — see `cadence_label/2`.
+      rate_of_play: cadence_label(t.tournoi_std, t.cadence) || t.cadence_other,
       organizer_club_number: t.club_or_logo,
       round_dates: Enum.map(data.dates, &normalize_date/1),
       categories: map_categories(data.categories),
@@ -1208,6 +1217,95 @@ defmodule PairingsEngine.SwarImport do
   defp map_standard(1), do: "rapid"
   defp map_standard(2), do: "blitz"
   defp map_standard(_), do: "standard"
+
+  # `Cadence` (manual field 88, alongside `Cadence_Other`) is a 0-based index
+  # into one of three dropdown lists SWAR's own UI fills at runtime — which
+  # list depends on the sibling `TournoiStd` field (0=Standard/1=Rapid/
+  # 2=Blitz, same field `map_standard/1` reads). None of this is documented
+  # in the binary-format notes this importer otherwise leans on; it was
+  # reverse-engineered from SWAR's OWN SOURCE (`Utils.cpp`'s `GetCadence/2`,
+  # which builds a language-file key `"_STD_CADENCE_%02d"`-style from
+  # `Cadence + 1`) and its shipped translation table
+  # (`Languages/Swar.Lang.fr.ini`, `[CADENCES]` section) — the source the
+  # maintainer supplied directly, not something inferred from a .swar sample.
+  # Translated here from the .ini's French to plain English, in the same
+  # "X min + Y sec/move" shorthand `rate_of_play` already uses elsewhere.
+  #
+  # The LAST entry of each list is "autre cadence" ("other cadence" — SWAR's
+  # own UI detects "Other" this way too, by comparing against the last
+  # list entry rather than a fixed sentinel index) — deliberately absent from
+  # these tables so `cadence_label/2` returns `nil` for it, falling through
+  # to `Cadence_Other`'s free text in `tournament_attrs/1`.
+  @std_cadences {
+    "105 min/40 moves + 15 min, sudden death",
+    "120 min/40 moves + 15 min + 30 sec/move from move 40",
+    "120 min/40 moves + 30 min, sudden death",
+    "120 min/10 moves + 30 min + 30 sec/move from move 40",
+    "120 min, sudden death",
+    "150 min, sudden death",
+    "60 min, sudden death",
+    "60 min + 30 sec/move",
+    "65 min, sudden death",
+    "75 min + 30 sec/move",
+    "90 min/40 moves + 15 min + 30 sec/move from move 1",
+    "90 min/40 moves + 30 min + 30 sec/move from move 1",
+    "90 min + 30 sec/move"
+  }
+
+  @rap_cadences {
+    "Rapid 10 min + 10 sec/move",
+    "Rapid 10 min + 15 sec/move",
+    "Rapid 10 min + 5 sec/move",
+    "Rapid 11 min, sudden death",
+    "Rapid 12 min, sudden death",
+    "Rapid 13 min + 3 sec/move",
+    "Rapid 13 min + 5 sec/move",
+    "Rapid 15 min, sudden death",
+    "Rapid 15 min + 10 sec/move",
+    "Rapid 15 min + 15 sec/move",
+    "Rapid 15 min + 5 sec/move",
+    "Rapid 20 min, sudden death",
+    "Rapid 20 min + 10 sec/move",
+    "Rapid 20 min + 15 sec/move",
+    "Rapid 20 min + 5 sec/move",
+    "Rapid 25 min, sudden death",
+    "Rapid 25 min + 10 sec/move",
+    "Rapid 25 min + 15 sec/move",
+    "Rapid 25 min + 5 sec/move",
+    "Rapid 30 min, sudden death",
+    "Rapid 45 min, sudden death",
+    "Rapid 8 min + 4 sec/move"
+  }
+
+  @bli_cadences {
+    "Blitz 3 min + 2 sec/move",
+    "Blitz 3 min + 3 sec/move",
+    "Blitz 4 min + 2 sec/move",
+    "Blitz 4 min + 3 sec/move",
+    "Blitz 5 min, sudden death",
+    "Blitz 5 min + 2 sec/move",
+    "Blitz 5 min + 3 sec/move",
+    "Blitz 6 min + 2 sec/move",
+    "Blitz 6 min + 3 sec/move",
+    "Blitz 7 min + 2 sec/move",
+    "Blitz 7 min + 3 sec/move",
+    "Blitz 8 min + 2 sec/move",
+    "Blitz 10 min, sudden death"
+  }
+
+  @doc false
+  def cadence_label(tournoi_std, cadence) when is_integer(cadence) and cadence >= 0 do
+    table =
+      case tournoi_std do
+        1 -> @rap_cadences
+        2 -> @bli_cadences
+        _ -> @std_cadences
+      end
+
+    if cadence < tuple_size(table), do: elem(table, cadence), else: nil
+  end
+
+  def cadence_label(_tournoi_std, _cadence), do: nil
 
   # [CATEGORIES]: Categorie type 0 (NO_CATEGO, manual §5.18) means the
   # tournament defines no categories at all — value1/value2 are all blank
