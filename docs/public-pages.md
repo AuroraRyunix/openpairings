@@ -63,6 +63,16 @@ standings link"** (shown only while public pages are enabled). The
 tournament's **Settings** page has the full "Public pages" card — the
 on/off switch, both share links, and the "Generate new link" button.
 
+The **Live** page (`/t/:id/live`) also has a **"📣 Let spectators follow the
+standings"** card with a QR code straight to `/p/:slug/standings` — meant for
+projecting or holding up at the venue so spectators can scan it on their own
+phones. It reads `public_pages_enabled` directly, so it shows the QR when
+pages are on and a link to Settings to turn them on when they're off, rather
+than ever rendering a QR to a 404. This sits next to the mobile
+result-entry enrollment QR on the same page — see
+[mobile-results.md](mobile-results.md) — because an arbiter typically has
+this page open the whole event anyway.
+
 ## Live updates
 
 Both pages subscribe to the tournament's PubSub topic

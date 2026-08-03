@@ -1,6 +1,6 @@
 # OpenPairings — features & roadmap
 
-Current version: **0.10.0b**. One page: everything the app does today, and where
+Current version: **0.11.1**. One page: everything the app does today, and where
 it is going. Per-feature detail lives in the other [docs pages](README.md).
 
 ## Pairing
@@ -97,7 +97,13 @@ carry a logo (stored in the database, shown on printed documents).
 - **Collaborators** — invite by e-mail with explicit accept/decline; owners
   keep delete and sharing rights.
 - **Public read-only pages** — unguessable per-tournament links for pairings
-  and standings, live-updating, no login.
+  and standings, live-updating, no login. A QR on the Live page links
+  straight to public standings for spectators.
+- **Mobile no-account result entry** — an arbiter QR/code-enrols a helper's
+  phone for results-only access to one tournament (no account, revocable,
+  24h expiry); the results screen shows each player's rating and score
+  entering the round, a lock toggle to guard against accidental taps, and a
+  per-device theme switch.
 - **Audit trail** (Advanced menu) — every state-changing action recorded:
   who, when, what, with field-level diffs for settings changes.
 - **"Explain a round"** (Advanced menu) — a visual rationale per paired round:

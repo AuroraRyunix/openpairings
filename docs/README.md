@@ -86,6 +86,10 @@ everything the app does and what is planned next.
 - [Public pages](public-pages.md) — share `/p/<token>/pairings` and
   `/p/<token>/standings`: no login needed, read-only, live-updating, and the
   token is unguessable so tournaments can't be enumerated.
+- [Mobile no-account result entry](mobile-results.md) — QR/code-enrol a
+  helper's phone from the Live page for results-only access to one
+  tournament: session persistence, the confirm-before-clear and lock-toggle
+  protections, and the per-device theme toggle.
 - [Mobile / responsive](mobile.md) — how the layout adapts at phone/tablet
   widths (breakpoints, scrollable tables, wrapping nav) while desktop stays
   full-width and unchanged.
