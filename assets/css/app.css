@@ -1922,6 +1922,22 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   margin-bottom: 12px;
 }
 .mobile-tname { font-size: 18px; font-weight: 700; color: var(--text); margin-top: 2px; }
+.mobile-header-actions { display: flex; align-items: center; gap: 8px; }
+.mobile-header-actions--standalone { justify-content: flex-end; margin-bottom: 4px; }
+.mobile-header-actions .theme-switch .theme-opt { width: 32px; height: 32px; }
+.mobile-lock-btn {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  font-size: 15px;
+  cursor: pointer;
+}
+.mobile-lock-btn.active { background: var(--accent-soft); border-color: var(--accent); }
 .mobile-leave {
   color: var(--text-soft);
   text-decoration: none;
@@ -1964,6 +1980,9 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 }
 .mobile-white, .mobile-black { flex: 1; min-width: 0; }
 .mobile-black { text-align: right; }
+.mobile-side { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.mobile-side--black { align-items: flex-end; }
+.mobile-meta { font-size: 12px; font-weight: 500; color: var(--text-soft); }
 .mobile-vs { color: var(--text-soft); font-size: 12px; font-weight: 400; }
 .mobile-results { display: flex; gap: 8px; }
 .mobile-result-btn {
@@ -1979,10 +1998,15 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 }
 .mobile-result-btn.chosen { background: var(--accent); color: #fff; border-color: var(--accent); }
 .mobile-result-btn.mobile-clear { flex: 0 0 52px; font-size: 20px; color: var(--text-soft); }
+.mobile-result-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 /* Arbiter-side "enrol a phone" panel (desktop tournament view). */
 .enroll-panel { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
-.enroll-qr { background: #fff; padding: 10px; border-radius: 10px; border: 1px solid var(--border); }
+/* The QR itself must stay black-on-white (scanners need that contrast and
+   quiet zone), so only the frame around it picks up the app's accent colour
+   — otherwise it's a stark white box regardless of theme. */
+.enroll-qr { display: inline-block; background: var(--surface); padding: 10px; border-radius: 12px; border: 2px solid var(--accent); }
+.enroll-qr-inner { background: #fff; padding: 10px; border-radius: 8px; line-height: 0; }
 .enroll-qr svg { display: block; width: 180px; height: 180px; }
 .enroll-code { font-size: 34px; font-weight: 800; letter-spacing: 0.12em; color: var(--accent); }
 .enroll-code-label { font-size: 12px; color: var(--text-soft); text-transform: uppercase; letter-spacing: 0.05em; }

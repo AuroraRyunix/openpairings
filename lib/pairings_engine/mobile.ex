@@ -15,7 +15,7 @@ defmodule PairingsEngine.Mobile do
   alias PairingsEngine.Repo
   alias PairingsEngine.Mobile.Enrollment
 
-  @default_ttl_hours 12
+  @default_ttl_hours 24
 
   @doc """
   Creates an active enrollment for `tournament_id`. Returns `{:ok, enrollment}`.

@@ -5,6 +5,9 @@ defmodule PairingsEngineWeb.MobileEnrollHTML do
   def new(assigns) do
     ~H"""
     <div class="mobile-shell">
+      <div class="mobile-header-actions mobile-header-actions--standalone">
+        <Layouts.theme_switch />
+      </div>
       <div class="mobile-card">
         <div class="mobile-brand">Open<strong>Pairings</strong></div>
         <h1>Enter results</h1>

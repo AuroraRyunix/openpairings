@@ -9,11 +9,18 @@ defmodule PairingsEngineWeb.Endpoint do
   # a `secure` cookie would never be sent there, breaking login locally.
   # Defence in depth on top of the `force_ssl`/HSTS already configured in
   # config/prod.exs.
+  # `max_age` makes the cookie persistent (survives the browser process
+  # dying), not just session-scoped — without it, mobile browsers that kill
+  # the tab in the background drop the cookie and boot the arbiter/helper
+  # back to a login or enrollment-code screen mid-tournament. 30 days comfortably
+  # outlives any single event; re-authenticating (login, or a fresh enrollment
+  # code) still works at any time regardless.
   @session_options [
     store: :cookie,
     key: "_pairings_engine_key",
     signing_salt: "Uti9o2Qk",
     same_site: "Lax",
+    max_age: 60 * 60 * 24 * 30,
     secure: Application.compile_env(:pairings_engine, :secure_cookies, false)
   ]
 

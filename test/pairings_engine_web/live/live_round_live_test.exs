@@ -188,6 +188,27 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
     refute html =~ ">Pts<"
   end
 
+  test "shows a public-standings QR when public pages are on, and an enable-them hint when off",
+       %{
+         conn: conn,
+         scope: scope
+       } do
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{"name" => "Public QR Test", "type" => "swiss"})
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/live")
+
+    assert html =~ "enroll-qr-inner"
+    assert html =~ "/p/#{tournament.public_slug}/standings"
+
+    assert {:ok, tournament} = Tournaments.set_public_pages(tournament, false)
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/live")
+
+    assert html =~ "Public pages are off for this tournament."
+    refute html =~ "enroll-qr-inner"
+  end
+
   test "redirects to the tournament list if the tournament is deleted while the page is open", %{
     conn: conn,
     scope: scope

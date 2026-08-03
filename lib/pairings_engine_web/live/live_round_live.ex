@@ -1,11 +1,13 @@
 defmodule PairingsEngineWeb.LiveRoundLive do
   @moduledoc """
   Read-only "projector" view of a tournament's latest paired round: the
-  pairing list with live results, and current standings below it. Meant to
-  be popped into its own tab/window (see the "Open live view" link on
-  PairingsLive) and left open — it subscribes to the same tournament topic
-  as every other tournament-scoped view and updates the instant a result is
-  entered elsewhere, no polling.
+  pairing list with live results, and current standings below it. Also the
+  arbiter's mobile-enrollment QR generator (see PairingsEngine.Mobile) — both
+  live here since an arbiter typically opens this page once and leaves it up.
+  Meant to be popped into its own tab/window (see the "Live view & phone QR"
+  link on PairingsLive) and left open — it subscribes to the same tournament
+  topic as every other tournament-scoped view and updates the instant a
+  result is entered elsewhere, no polling.
   """
 
   use PairingsEngineWeb, :live_view
@@ -175,7 +177,9 @@ defmodule PairingsEngineWeb.LiveRoundLive do
 
         <div :if={@new_enrollment} class="enroll-panel" style="margin-top: 16px">
           <div class="enroll-qr">
-            {Phoenix.HTML.raw(Mobile.qr_svg(url(~p"/m/e/#{@new_enrollment.token}")))}
+            <div class="enroll-qr-inner">
+              {Phoenix.HTML.raw(Mobile.qr_svg(url(~p"/m/e/#{@new_enrollment.token}")))}
+            </div>
           </div>
           <div>
             <div class="enroll-code-label">6-digit code</div>
@@ -203,6 +207,36 @@ defmodule PairingsEngineWeb.LiveRoundLive do
             </tbody>
           </table>
         </div>
+      </details>
+
+      <details class="card" style="margin-bottom: 20px">
+        <summary style="cursor: pointer; font-weight: 650">
+          📣 Let spectators follow the standings
+        </summary>
+
+        <%= if @tournament.public_pages_enabled do %>
+          <p class="hint">
+            Anyone can scan this to open live standings on their own phone - no login needed.
+          </p>
+          <div class="enroll-panel" style="margin-top: 16px">
+            <div class="enroll-qr">
+              <div class="enroll-qr-inner">
+                {Phoenix.HTML.raw(Mobile.qr_svg(url(~p"/p/#{@tournament.public_slug}/standings")))}
+              </div>
+            </div>
+            <div>
+              <p class="enroll-url">
+                Or open <strong>{url(~p"/p/#{@tournament.public_slug}/standings")}</strong>
+              </p>
+            </div>
+          </div>
+        <% else %>
+          <p class="hint">
+            Public pages are off for this tournament.
+            <.link navigate={~p"/t/#{@tournament.id}/settings"}>Turn them on in Settings</.link>
+            to get a shareable link and QR code.
+          </p>
+        <% end %>
       </details>
 
       <div :if={@round == nil} class="card empty">

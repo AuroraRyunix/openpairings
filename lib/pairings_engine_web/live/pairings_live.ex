@@ -467,7 +467,7 @@ defmodule PairingsEngineWeb.PairingsLive do
 
         <div class="actions" style="margin: 0">
           <a class="pe-btn" href={~p"/t/#{@tournament.id}/live"} target="_blank">
-            Open live view
+            Live view &amp; phone QR
           </a>
 
           <a class="pe-btn" href={~p"/t/#{@tournament.id}/export/trf"} target="_blank">
