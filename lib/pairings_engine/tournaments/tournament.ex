@@ -124,7 +124,11 @@ defmodule PairingsEngine.Tournaments.Tournament do
     #
     #   organizer_id, organizer_email            — IT3 B8/B10
     #   chief_arbiter_fide_id, chief_arbiter_email — IT3 B59/B61, FA1/IA1 B18
-    #   deputyN_name, deputyN_fide_id, deputyN_email (N in 1..4) — IT3 B62-B69
+    #   deputyN_name, deputyN_fide_id, deputyN_email (N in 1..2 — FIDE only
+    #     ranks 2 deputies by name) — IT3 B62-B65
+    #   extra_arbiters_count, arbiterN_name, arbiterN_fide_id (N in
+    #     1..extra_arbiters_count) — arbiters beyond the 2 ranked deputies,
+    #     unranked on IT3 (see PairingsEngine.Norms.ItThreeExpand)
     #   pairing_mode                             — "computerized" | "manual" (IT3 B19/B21)
     #   pairing_program                          — IT3 B22
     #   swiss_variant                            — "Dutch" | "Lim" | "Dubov" | "Burstein" (IT3 B17)

@@ -42,7 +42,10 @@ places hold FIDE-report-specific data:
    metadata that didn't warrant a flat column each. Recognised string keys
    (all optional): `organizer_id`, `organizer_email`,
    `chief_arbiter_fide_id`, `chief_arbiter_email`, `deputyN_name` /
-   `deputyN_fide_id` / `deputyN_email` for `N` in `1..4`, `pairing_mode`
+   `deputyN_fide_id` / `deputyN_email` for `N` in `1..2` (FIDE only ever
+   ranks 2 deputies by name — see "Arbiters beyond chief + 2 deputies"
+   below), `extra_arbiters_count` plus `arbiterN_name` / `arbiterN_fide_id`
+   for `N` in `1..extra_arbiters_count`, `pairing_mode`
    (`"computerized"` or `"manual"`), `pairing_program`, `swiss_variant`
    (`"Dutch"` / `"Lim"` / `"Dubov"` / `"Burstein"`),
    `person_responsible_pairings`, `remark1`..`remark4`, `it4_event_type`,
@@ -144,39 +147,49 @@ An empty deputy slot is fine — not every event has two. The half-filled state
 (name, no id) is specifically what the SWAR import leaves behind whenever a
 name is ambiguous, so this is the check that stops that reaching FIDE.
 
-## Arbiters beyond chief + 4 deputies
+## Arbiters beyond chief + 2 deputies
 
-The IT3 template ships with exactly 5 named-arbiter slots: chief + 4
-deputies (`Invulformulier` `B59`-`B69`). FIDE's own printed `Certificaat`
-sheet only ranks the first two by name ("1st/2nd Deputy Chief Arbiter") —
-the 3rd/4th print as a plain, unranked "Arbiter" row, and both UIs (this
-page and the public Tools page) already exposed all four before this
-feature existed.
+FIDE's own printed `Certificaat` sheet only ranks 2 deputies by name
+("1st/2nd Deputy Chief Arbiter") — every arbiter after that prints as a
+plain, unranked "Arbiter" row, no matter how many there are. Both UIs (this
+page and the public Tools page) only offer 2 ranked "deputy" boxes for
+exactly that reason.
 
-A 6th, 7th, ... arbiter is genuinely unbounded — both pages have a
-"+ Add arbiter" button (and a matching "Remove last arbiter" once at least
-one exists) below the deputy slots, using the exact same FIDE-lookup
-combobox as everything else. Each one is tracked as a flat
-`officials["arbiterN_name"]` / `officials["arbiterN_fide_id"]` pair
+An earlier version of this feature offered 4 "deputy" boxes, because the
+raw `Invulformulier` data sheet happens to ship 4 numbered ID/Name
+row-pairs (`B59`-`B69`: chief + 1st-4th deputy) — but FIDE itself never
+distinguishes past the 2nd, so "deputy 3/4" just meant those two printed as
+an unlabelled "Arbiter" row on `Certificaat`, no different from — and
+confusingly separate from — a 5th arbiter added via "+ Add arbiter". One
+real arbiter tried it and got confused when their "deputy 3/4" didn't look
+like a ranked deputy on the output. Everything past chief + 2 ranked
+deputies now goes through one mechanism:
+
+Both pages have a "+ Add arbiter" button (and a matching "Remove last
+arbiter" once at least one exists) below the 2 deputy slots, using the
+exact same FIDE-lookup combobox as everything else. Each one is tracked as
+a flat `officials["arbiterN_name"]` / `officials["arbiterN_fide_id"]` pair
 (1-indexed, independent of the deputy numbering) plus a plain
 `officials["extra_arbiters_count"]` integer — deliberately *not* a nested
 list, so it round-trips through an ordinary HTML form submit exactly like
 `deputy1_name` etc. already do, with no array-param parsing to get wrong.
 
-Making this work on the actual `.xlsx` needs real surgery, since the
-template has no spare rows: `PairingsEngine.Norms.ItThreeExpand` grows both
-sheets on demand — two new rows in `Invulformulier` (an ID cell, a Name
-cell) right after row 69, and two new rows in `Certificaat` (a label row
-reading "Arbiter", a formula row mirroring the 4th deputy's own row exactly)
-right after row 38 — per extra arbiter, renumbering every row/cell/formula
-reference that came after the insertion point. `Forms.it3_result/3` is the
-one entry point that does this (expand-then-fill) when needed; going
-through `Forms.it3_fills/3` + `XlsxFill.fill/2` directly (the old pattern)
-silently drops any arbiter past the 4th, since the template has no cells
-for them until expanded. `extra_arbiters_count == 0` — the common case — is
-a hard no-op: `ItThreeExpand.expand/2` returns the template completely
-untouched, so no tournament without extra arbiters is affected by any of
-this.
+Arbiters 1 and 2 land on the template's own spare rows for free — the same
+`B66`-`B69` cells "deputy 3/4" used to write to, just renamed and no longer
+presented as ranked. Arbiter 3 onward needs real surgery, since the
+template has no more spare rows:
+`PairingsEngine.Norms.ItThreeExpand` grows both sheets on demand — two new
+rows in `Invulformulier` (an ID cell, a Name cell) right after row 69, and
+two new rows in `Certificaat` (a label row reading "Arbiter", a formula row
+mirroring the "arbiter 2" row exactly) right after row 38 — per extra
+arbiter, renumbering every row/cell/formula reference that came after the
+insertion point. `Forms.it3_result/3` is the one entry point that does this
+(expand-then-fill) when needed; going through `Forms.it3_fills/3` +
+`XlsxFill.fill/2` directly (the old pattern) silently drops any arbiter
+3rd-and-beyond, since the template has no cells for them until expanded.
+`extra_arbiters_count <= 2` — the common case — is a hard no-op:
+`ItThreeExpand.expand/2` returns the template completely untouched, so no
+tournament with 2 or fewer extra arbiters is affected by any of this.
 
 ## Explaining the rated/titled/federation counts
 

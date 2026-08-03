@@ -37,10 +37,12 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   @max_entries 10
   @max_file_size 5_000_000
 
-  # The IT3 template has exactly 4 deputy slots built in (Invulformulier
-  # B62-B69 — see docs/norms.md); a 5th and beyond needs a real additional
-  # row in the template, not modeled here.
-  @max_deputies 4
+  # FIDE's own printed Certificaat only ranks 2 deputies by name; anyone
+  # after that prints as a plain, unranked "Arbiter" row, so this page only
+  # offers 2 ranked deputy slots — see the equivalent note on
+  # `PairingsEngineWeb.NormsLive`'s `@deputy_fields`. Arbiters beyond these
+  # 2 go through "+ Add arbiter" (arbiter_range/1 below).
+  @max_deputies 2
 
   @overlay_fields ~w(chief_arbiter_name chief_arbiter_fide_id chief_arbiter_email
                       organizer organizer_email event_code) ++
@@ -740,7 +742,8 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
           <h3 style="margin-bottom: 4px">
             Additional arbiters
             <span class="hint" style="font-weight: normal">
-              (beyond chief + 4 deputies — prints as a plain "Arbiter" row on IT3)
+              (beyond chief + 2 deputies — FIDE doesn't rank these, so IT3 prints each as a
+              plain "Arbiter" row)
             </span>
           </h3>
           <div

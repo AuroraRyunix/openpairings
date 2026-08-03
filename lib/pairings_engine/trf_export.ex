@@ -205,21 +205,47 @@ defmodule PairingsEngine.TrfExport do
     end
   end
 
-  # 112: one line per deputy arbiter found among the officials map's
-  # `deputyN_name` / `deputyN_fide_id` keys (N in 1..4 — see
-  # `PairingsEngine.Tournaments.Tournament`'s `officials` field docs),
-  # same "<FIDE id> <name>" formatting as the chief arbiter. A deputy slot
+  # 112: one line per deputy/extra arbiter found among the officials map's
+  # `deputyN_name` (N in 1..2 — FIDE only ever ranks 2 deputies by name) and
+  # `arbiterN_name` (N in 1..extra_arbiters_count — everyone past that,
+  # unranked — see `PairingsEngine.Tournaments.Tournament`'s `officials`
+  # field docs and docs/norms.md's "Arbiters beyond chief + 2 deputies")
+  # keys, same "<FIDE id> <name>" formatting as the chief arbiter. A slot
   # with no name set is skipped.
   defp deputy_arbiter_lines(tournament) do
     officials = officials(tournament)
 
-    for n <- 1..4,
-        name = officials["deputy#{n}_name"],
+    keys =
+      Enum.map(1..2, &"deputy#{&1}") ++ Enum.map(extra_arbiter_range(officials), &"arbiter#{&1}")
+
+    for key <- keys,
+        name = officials["#{key}_name"],
         present?(name) do
-      fide_id = officials["deputy#{n}_fide_id"]
+      fide_id = officials["#{key}_fide_id"]
       if present?(fide_id), do: "#{fide_id} #{name}", else: name
     end
   end
+
+  # 1..count is a *descending* range (iterating count..1) when count is 0 —
+  # an easy footgun — so 0 (the common case: no extra arbiters) has to
+  # short-circuit to an empty range explicitly.
+  defp extra_arbiter_range(officials) do
+    case extra_arbiters_count(officials) do
+      n when n > 0 -> 1..n
+      _ -> 1..0//1
+    end
+  end
+
+  defp extra_arbiters_count(officials) do
+    case officials["extra_arbiters_count"] do
+      n when is_integer(n) -> n
+      s when is_binary(s) -> s |> Integer.parse() |> extra_count_from_parse()
+      _ -> 0
+    end
+  end
+
+  defp extra_count_from_parse({n, _}), do: n
+  defp extra_count_from_parse(:error), do: 0
 
   defp officials(tournament), do: tournament.officials || %{}
 

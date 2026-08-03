@@ -220,7 +220,7 @@ defmodule PairingsEngine.Norms.FormsTest do
       assert is_binary(binary)
     end
 
-    test "arbiters beyond the 4 deputy slots land on the cells ItThreeExpand grew for them" do
+    test "arbiters 1 and 2 land on the template's own spare rows (formerly '3rd/4th deputy')" do
       t =
         tournament(%{
           officials: %{
@@ -234,10 +234,26 @@ defmodule PairingsEngine.Norms.FormsTest do
 
       fills = Forms.it3_fills(t, [])["Invulformulier"]
 
-      assert fills["B70"] == 205_494
-      assert fills["B71"] == "Luc CORNET"
-      assert fills["B72"] == 214_787
-      assert fills["B73"] == "Sylvin DE VET"
+      assert fills["B66"] == 205_494
+      assert fills["B67"] == "Luc CORNET"
+      assert fills["B68"] == 214_787
+      assert fills["B69"] == "Sylvin DE VET"
+    end
+
+    test "arbiter 3 onward lands on the cells ItThreeExpand grew for them" do
+      t =
+        tournament(%{
+          officials: %{
+            "extra_arbiters_count" => 3,
+            "arbiter3_name" => "Van Dyck, Marc",
+            "arbiter3_fide_id" => "207640"
+          }
+        })
+
+      fills = Forms.it3_fills(t, [])["Invulformulier"]
+
+      assert fills["B70"] == 207_640
+      assert fills["B71"] == "Marc VAN DYCK"
     end
 
     test "no extra_arbiters_count means no extra-arbiter cells at all" do
@@ -254,7 +270,7 @@ defmodule PairingsEngine.Norms.FormsTest do
       assert is_binary(binary)
     end
 
-    test "with extra arbiters, expands the template first and their data survives in the output" do
+    test "with 1-2 extra arbiters (the template's own spare rows), no expansion needed" do
       t =
         tournament(%{
           officials: %{
@@ -271,6 +287,25 @@ defmodule PairingsEngine.Norms.FormsTest do
 
       assert invul =~ "205494"
       assert invul =~ "Luc CORNET"
+    end
+
+    test "with 3+ extra arbiters, expands the template first and their data survives in the output" do
+      t =
+        tournament(%{
+          officials: %{
+            "extra_arbiters_count" => 3,
+            "arbiter3_name" => "Van Dyck, Marc",
+            "arbiter3_fide_id" => "207640"
+          }
+        })
+
+      assert {:ok, binary} = Forms.it3_result(t, [])
+      {:ok, entries} = :zip.unzip(binary, [:memory])
+      entries = Enum.map(entries, fn {n, b} -> {List.to_string(n), b} end)
+      {_, invul} = List.keyfind(entries, "xl/worksheets/sheet2.xml", 0)
+
+      assert invul =~ "207640"
+      assert invul =~ "Marc VAN DYCK"
     end
   end
 

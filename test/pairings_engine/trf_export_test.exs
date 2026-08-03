@@ -254,6 +254,29 @@ defmodule PairingsEngine.TrfExportTest do
     assert text =~ "112 Assistant Two"
   end
 
+  test "112 also emits a line per arbiterN_name — arbiters beyond the 2 ranked deputies" do
+    {tournament, _} = fixture()
+
+    {:ok, tournament} =
+      Tournaments.update_tournament(tournament, %{
+        "officials" => %{
+          "extra_arbiters_count" => "1",
+          "arbiter1_name" => "Assistant Three",
+          "arbiter1_fide_id" => "333"
+        }
+      })
+
+    assert {:ok, text} = TrfExport.export(tournament)
+    assert text =~ "112 333 Assistant Three"
+  end
+
+  test "112 with no extra arbiters at all doesn't blow up (the 1..0 descending-range footgun)" do
+    {tournament, _} = fixture()
+
+    assert {:ok, text} = TrfExport.export(tournament)
+    refute text =~ "112 "
+  end
+
   test "122 (rate of play) is emitted from tournament.rate_of_play, and skipped when blank" do
     {tournament, _} = fixture()
 

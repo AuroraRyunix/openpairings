@@ -48,17 +48,21 @@ defmodule PairingsEngineWeb.NormsLive do
     {"chief_arbiter_email", "Chief arbiter e-mail", "text"}
   ]
 
-  # The IT3 template has exactly 4 deputy slots built in (Invulformulier
-  # B62-B69 — see docs/norms.md); FIDE's own printed Certificaat only names
-  # the first two ("1st/2nd Deputy Chief Arbiter"), the 3rd/4th print as a
-  # plain, unranked "Arbiter" row, but the underlying data cells (and this
-  # UI) treat all four the same way. A 5th arbiter and beyond needs a real
-  # additional row in the template — not modeled here.
+  # FIDE's own printed Certificaat only ranks 2 deputies by name ("1st/2nd
+  # Deputy Chief Arbiter"); anyone after that prints as a plain, unranked
+  # "Arbiter" row no matter how many there are, so this UI only offers 2
+  # ranked slots too — everyone past that goes through "+ Add arbiter"
+  # (arbiter_range/1 below), which reuses the template's own 2 spare rows
+  # before it ever has to grow the sheet (see
+  # `PairingsEngine.Norms.ItThreeExpand`). An earlier version of this page
+  # offered 4 "deputy" boxes because the raw data sheet happens to have 4
+  # numbered ID/Name row-pairs — but FIDE itself never distinguishes past
+  # the 2nd, so that just meant "deputy 3/4" printed as an unlabelled
+  # "Arbiter" row, no different from — and confusingly separate from —
+  # "+ Add arbiter".
   @deputy_fields [
     {1, "1st deputy arbiter"},
-    {2, "2nd deputy arbiter"},
-    {3, "3rd deputy arbiter"},
-    {4, "4th deputy arbiter"}
+    {2, "2nd deputy arbiter"}
   ]
 
   @impl true
@@ -258,11 +262,14 @@ defmodule PairingsEngineWeb.NormsLive do
     end
   end
 
-  # Arbiters beyond the IT3 template's 4 built-in deputy slots — an unbounded
-  # list, tracked as a plain count (`officials["extra_arbiters_count"]`) plus
-  # flat `arbiterN_name`/`arbiterN_fide_id` officials keys, exactly like
-  # deputy1-4 (see ArbiterCombo.parse_field/1 and apply_arbiter_pick/3 below).
-  # Adding/removing here only touches in-memory `@tournament`, same as a
+  # Arbiters beyond chief + the 2 ranked deputies — an unbounded list,
+  # tracked as a plain count (`officials["extra_arbiters_count"]`) plus flat
+  # `arbiterN_name`/`arbiterN_fide_id` officials keys, exactly like
+  # deputy1/deputy2 (see ArbiterCombo.parse_field/1 and apply_arbiter_pick/3
+  # below). "Arbiter 1"/"Arbiter 2" land on the template's own spare rows;
+  # "Arbiter 3" onward need `PairingsEngine.Norms.ItThreeExpand` to grow the
+  # sheet at download time — invisible here, `Forms.it3_result/3` handles
+  # it. Adding/removing here only touches in-memory `@tournament`, same as a
   # pick — "Save officials" persists it, and the count travels through that
   # save via a hidden input (see the template) since it isn't itself an
   # arbiter_combo field.
@@ -346,9 +353,13 @@ defmodule PairingsEngineWeb.NormsLive do
   # the id onto the wrong person.
   defp fa1_candidate_options(tournament) do
     chief = [{"chief_arbiter", tournament.chief_arbiter}]
-    deputies = for n <- 1..4, do: {"deputy#{n}", o_get(tournament, "deputy#{n}_name")}
+    deputies = for n <- 1..2, do: {"deputy#{n}", o_get(tournament, "deputy#{n}_name")}
 
-    (chief ++ deputies)
+    extras =
+      for n <- extra_arbiter_range(o_get(tournament, "extra_arbiters_count")),
+          do: {"arbiter#{n}", o_get(tournament, "arbiter#{n}_name")}
+
+    (chief ++ deputies ++ extras)
     |> Enum.reject(fn {_key, name} -> blank?(name) end)
     |> Enum.map(fn {key, name} -> {name, key} end)
   end
@@ -357,6 +368,13 @@ defmodule PairingsEngineWeb.NormsLive do
     do: build_fa1_candidate(tournament.chief_arbiter, o_get(tournament, "chief_arbiter_fide_id"))
 
   defp fa1_candidate_for(tournament, "deputy" <> _ = key),
+    do:
+      build_fa1_candidate(
+        o_get(tournament, "#{key}_name"),
+        o_get(tournament, "#{key}_fide_id")
+      )
+
+  defp fa1_candidate_for(tournament, "arbiter" <> _ = key),
     do:
       build_fa1_candidate(
         o_get(tournament, "#{key}_name"),
@@ -786,8 +804,8 @@ defmodule PairingsEngineWeb.NormsLive do
           <h3 style="margin: 18px 0 8px; font-size: 14px">
             Additional arbiters
             <span class="hint" style="font-weight: normal">
-              (beyond chief + 4 deputies — print as a plain "Arbiter" row on IT3, same as
-              deputies 3/4)
+              (beyond chief + 2 deputies — FIDE doesn't rank these, so IT3 prints each as a
+              plain "Arbiter" row)
             </span>
           </h3>
 

@@ -126,11 +126,7 @@ defmodule PairingsEngine.Norms.Forms do
           "B62" => parse_int(Map.get(o, "deputy1_fide_id")),
           "B63" => blank(fide_display_name(Map.get(o, "deputy1_name"))),
           "B64" => parse_int(Map.get(o, "deputy2_fide_id")),
-          "B65" => blank(fide_display_name(Map.get(o, "deputy2_name"))),
-          "B66" => parse_int(Map.get(o, "deputy3_fide_id")),
-          "B67" => blank(fide_display_name(Map.get(o, "deputy3_name"))),
-          "B68" => parse_int(Map.get(o, "deputy4_fide_id")),
-          "B69" => blank(fide_display_name(Map.get(o, "deputy4_name")))
+          "B65" => blank(fide_display_name(Map.get(o, "deputy2_name")))
         }
         |> Map.merge(counts_fills("B27", rated.rated))
         |> Map.merge(counts_fills("B31", rated.gm))
@@ -144,12 +140,14 @@ defmodule PairingsEngine.Norms.Forms do
     }
   end
 
-  # Arbiters beyond the 4 built-in deputy slots — cells that only exist once
-  # `ItThreeExpand.expand/2` has grown the template; `it3_result/3` is the
-  # only caller that guarantees that, which is why this is never called on
-  # its own. Uses the exact same cell refs `ItThreeExpand.arbiter_cell_ref/2`
-  # placed the new rows at, so the two stay in lock-step without either one
-  # having to know how the other is implemented.
+  # Arbiters beyond chief + the 2 ranked deputies — "1" and "2" land on the
+  # template's own spare rows (formerly labelled "3rd/4th Deputy Chief
+  # Arbiter" in the raw sheet, always present); "3" onward only exist once
+  # `ItThreeExpand.expand/2` has grown the template, which `it3_result/3`
+  # guarantees. Uses the exact same cell refs
+  # `ItThreeExpand.arbiter_cell_ref/2` computes, so the two stay in
+  # lock-step without either one having to know how the other is
+  # implemented.
   defp extra_arbiter_fills(o) do
     count = extra_arbiters_count(o)
 
@@ -172,11 +170,13 @@ defmodule PairingsEngine.Norms.Forms do
   @doc """
   Builds the actual IT3 `.xlsx` binary for `tournament` — `it3_fills/3`'s
   fill map applied to the right template, expanding it first
-  (`ItThreeExpand.expand/2`) when `tournament` has arbiters beyond the 4
-  built-in deputy slots. Every caller that generates a real IT3 download
-  should go through this rather than `XlsxFill.fill(template_path(:it3),
-  it3_fills(...))` directly, since that pairing silently drops any extra
-  arbiter (the template has no cells for them until expanded).
+  (`ItThreeExpand.expand/2`) when `tournament` has arbiters beyond chief +
+  the 2 ranked deputies (a no-op there for the first 2, which fit in the
+  template's own spare rows). Every caller that generates a real IT3
+  download should go through this rather than
+  `XlsxFill.fill(template_path(:it3), it3_fills(...))` directly, since that
+  pairing silently drops any arbiter 3rd-and-beyond (the template has no
+  cells for them until expanded).
   """
   def it3_result(tournament, players, source \\ :app) do
     fills = it3_fills(tournament, players, source)

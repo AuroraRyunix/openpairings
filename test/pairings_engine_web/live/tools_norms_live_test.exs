@@ -208,41 +208,17 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     assert xml =~ "Swar (With JaVaFo)"
   end
 
-  test "3rd and 4th deputy arbiters flow into the downloaded IT3, not just 1st/2nd",
+  test "only 2 ranked deputy arbiter slots are offered — FIDE never ranks a 3rd/4th",
        %{conn: conn} do
-    Repo.insert_all(PairingsEngine.Fide.FidePlayer, [
-      %{fide_id: 300_003, name: "Deputy, Third", federation: "BEL"},
-      %{fide_id: 400_004, name: "Deputy, Fourth", federation: "BEL"}
-    ])
-
     {:ok, lv, _html} = live(conn, ~p"/tools/norms")
-    upload_files(lv, [{"alpha.trf", trf_text("Alpha Open", [{"Alice", 111}, {"Bob", 222}])}])
 
-    # A named-but-unmatched deputy blocks the IT3 download (see
-    # `NormsLive.report_blockers/1`'s doc), so search then pick, same as the
-    # e-mail/chief-arbiter tests above — this exercises deputy3/4 exactly
-    # like deputy1/2 already work.
-    for {n, fide_id} <- [{3, 300_003}, {4, 400_004}] do
-      lv
-      |> element("input[name='overlay[deputy#{n}_name]']")
-      |> render_change(%{
-        "overlay" => %{"deputy#{n}_name" => "Deputy"},
-        "_target" => ["overlay", "deputy#{n}_name"]
-      })
+    html =
+      upload_files(lv, [{"alpha.trf", trf_text("Alpha Open", [{"Alice", 111}, {"Bob", 222}])}])
 
-      lv
-      |> element(~s(button[phx-click="arbiter_pick"][phx-value-fide-id="#{fide_id}"]))
-      |> render_click()
-    end
-
-    conn = get(conn, ~p"/tools/download/#{download_token(lv)}/it3")
-
-    assert conn.status == 200
-    xml = xlsx_xml(conn.resp_body)
-    # IT3's deputy name cells go through fide_display_name/1 too (FIDE
-    # house style: surname in capitals) — "Deputy, Third" -> "Third DEPUTY".
-    assert xml =~ "Third DEPUTY"
-    assert xml =~ "Fourth DEPUTY"
+    assert html =~ "Deputy 1"
+    assert html =~ "Deputy 2"
+    refute html =~ "Deputy 3"
+    refute html =~ "Deputy 4"
   end
 
   test "the IT3 counts explainer shows the uploaded players' breakdown, collapsed by default",
@@ -471,21 +447,6 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
 
     assert {:error, errors} = render_upload(input, "file1.trf")
     assert Enum.any?(errors, fn [_ref, reason] -> reason == :too_many_files end)
-  end
-
-  ## ---------- deputies match the IT3 template's own 4-slot cap ----------
-
-  test "all four deputy arbiter slots are offered, matching the IT3 template's own capacity",
-       %{conn: conn} do
-    {:ok, lv, _html} = live(conn, ~p"/tools/norms")
-
-    html =
-      upload_files(lv, [{"alpha.trf", trf_text("Alpha Open", [{"Alice", 111}, {"Bob", 222}])}])
-
-    assert html =~ "Deputy 1"
-    assert html =~ "Deputy 2"
-    assert html =~ "Deputy 3"
-    assert html =~ "Deputy 4"
   end
 
   ## ---------- junk footer removed ----------

@@ -24,7 +24,7 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
     tournament
   end
 
-  test "the Officials card offers all four deputy slots the IT3 template has, and no standalone FIDE-id / pairing-mode inputs",
+  test "the Officials card offers only 2 ranked deputy slots — FIDE never ranks a 3rd/4th — and no standalone FIDE-id / pairing-mode inputs",
        %{conn: conn, scope: scope} do
     tournament = create_tournament(scope)
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/norms")
@@ -34,20 +34,20 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
     refute html =~ ~s(name="tournament[officials][pairing_program]")
     refute html =~ ~s(name="tournament[officials][swiss_variant]")
 
-    # All four - the IT3 template (Invulformulier B62-B69) has exactly this
-    # many deputy slots built in; a 5th needs a real additional row in the
-    # template (see docs/norms.md), so the UI doesn't offer one.
+    # Only 2 — FIDE's own printed Certificaat ranks exactly 2 deputies by
+    # name; anyone beyond that is a plain, unranked "Arbiter" via
+    # "+ Add arbiter" (see docs/norms.md).
     assert html =~ "1st deputy arbiter"
     assert html =~ "2nd deputy arbiter"
-    assert html =~ "3rd deputy arbiter"
-    assert html =~ "4th deputy arbiter"
+    refute html =~ "3rd deputy arbiter"
+    refute html =~ "4th deputy arbiter"
 
     # The deputy FIDE id is only carried as a hidden field.
     refute html =~ ~s(type="text" name="tournament[officials][deputy1_fide_id]")
     assert html =~ ~s(type="hidden" name="tournament[officials][deputy1_fide_id]")
   end
 
-  test "the 3rd and 4th deputy slots save and reach the officials map, not just the 1st/2nd",
+  test "arbiters 1 and 2 (beyond the 2 ranked deputies) save and reach the officials map",
        %{conn: conn, scope: scope} do
     tournament = create_tournament(scope)
     {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/norms")
@@ -55,10 +55,11 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
     render_submit(lv, "save_officials", %{
       "tournament" => %{
         "officials" => %{
-          "deputy3_name" => "Third Deputy",
-          "deputy3_fide_id" => "300003",
-          "deputy4_name" => "Fourth Deputy",
-          "deputy4_fide_id" => "400004"
+          "extra_arbiters_count" => "2",
+          "arbiter1_name" => "First Arbiter",
+          "arbiter1_fide_id" => "300003",
+          "arbiter2_name" => "Second Arbiter",
+          "arbiter2_fide_id" => "400004"
         }
       }
     })
@@ -66,10 +67,10 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
     render(lv)
 
     saved = Tournaments.get_authorized_tournament!(scope, tournament.id)
-    assert saved.officials["deputy3_name"] == "Third Deputy"
-    assert saved.officials["deputy3_fide_id"] == "300003"
-    assert saved.officials["deputy4_name"] == "Fourth Deputy"
-    assert saved.officials["deputy4_fide_id"] == "400004"
+    assert saved.officials["arbiter1_name"] == "First Arbiter"
+    assert saved.officials["arbiter1_fide_id"] == "300003"
+    assert saved.officials["arbiter2_name"] == "Second Arbiter"
+    assert saved.officials["arbiter2_fide_id"] == "400004"
   end
 
   test "the IT3 counts explainer lists the actual players behind each category, collapsed by default",

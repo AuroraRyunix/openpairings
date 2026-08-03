@@ -22,9 +22,9 @@ defmodule PairingsEngine.Tools.Overlay do
 
   Recognised keys: `"chief_arbiter_name"` / `"chief_arbiter_fide_id"` /
   `"chief_arbiter_email"`, `"deputyN_name"` / `"deputyN_fide_id"` for `N` in
-  `1..4` (the IT3 template's own built-in cap — see docs/norms.md),
+  `1..2` (FIDE only ever ranks 2 deputies by name — see docs/norms.md),
   `"arbiterN_name"` / `"arbiterN_fide_id"` for `N` in `1..extra_arbiters_count`
-  (arbiters beyond that 4-slot cap — see
+  (arbiters beyond those 2 ranked deputies — see
   `PairingsEngine.Norms.ItThreeExpand`), `"organizer"` / `"organizer_email"`,
   `"event_code"`. Unrecognised keys are ignored.
   """
@@ -47,9 +47,10 @@ defmodule PairingsEngine.Tools.Overlay do
     }
   end
 
-  # The IT3 template has exactly 4 deputy slots built in; a 5th and beyond
-  # needs a real additional row in the template, not modeled here.
-  @max_deputies 4
+  # FIDE only ever ranks 2 deputies by name; a 3rd arbiter and beyond goes
+  # through merge_extra_arbiters/2 below instead (see
+  # PairingsEngine.Norms.ItThreeExpand).
+  @max_deputies 2
 
   defp merge_deputies(officials, overlay) do
     Enum.reduce(1..@max_deputies, officials, fn n, acc ->

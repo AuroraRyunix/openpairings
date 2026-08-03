@@ -1,16 +1,25 @@
 defmodule PairingsEngine.Norms.ItThreeExpand do
   @moduledoc """
-  Grows the IT3 template to fit arbiters beyond the 4 deputy slots it ships
-  with (`Invulformulier` rows 59-69: chief + 1st-4th deputy — see
-  `docs/norms.md`). FIDE's own printed `Certificaat` sheet doesn't rank
-  those last two by name either ("1st/2nd Deputy Chief Arbiter" then a
-  plain, unranked "Arbiter" row twice) — this module keeps extending that
-  same unranked "Arbiter" block for however many more are needed, rather
-  than inventing a new section.
+  Grows the IT3 template to fit arbiters beyond chief + the 2 *ranked*
+  deputy slots ("1st/2nd Deputy Chief Arbiter"). FIDE's own printed
+  `Certificaat` sheet only ranks those first two by name — every arbiter
+  after that prints as a plain, unranked "Arbiter" row, no matter how many
+  there are, so this module treats them uniformly as one open-ended list
+  rather than inventing ranked "3rd/4th deputy" slots the certificate itself
+  doesn't distinguish (an earlier version of this feature did exactly that,
+  and it confused the one arbiter who actually tried it: 4 "deputy" boxes
+  in the UI when FIDE only recognises 2).
 
-  A no-op (returns `template_binary` untouched) when `extra_count` is `0` —
-  the overwhelming majority of tournaments never need this at all, so the
-  common path never touches the template.
+  `Invulformulier` happens to ship two *unused* extra ID/Name row-pairs
+  beyond the 2 ranked deputies (rows 66-69 — labelled "3rd/4th Deputy Chief
+  Arbiter" in the raw sheet, but printed as generic "Arbiter" rows on
+  `Certificaat`, exactly like every arbiter after them would be). Arbiter 1
+  and 2 land there for free; arbiter 3 onward needs `expand/2`'s real row
+  insertion, described below.
+
+  A no-op (returns `template_binary` untouched) when `extra_count` is `0`,
+  `1` or `2` — those all fit in the template's existing spare capacity, so
+  the overwhelming majority of tournaments never touch the template at all.
 
   Only the Erlang standard library (`:zip`) plus `Regex`/`String` are used,
   same as `PairingsEngine.Norms.XlsxFill` — this module hand-edits the same
@@ -18,13 +27,13 @@ defmodule PairingsEngine.Norms.ItThreeExpand do
   fill cells (`XlsxFill.fill/2` runs afterwards, against the *expanded*
   template, and needs `arbiter_cell_ref/2` to know where to write).
 
-  ## Why row-insertion instead of a fixed larger template
+  ## Why row-insertion beyond arbiter 2
 
-  FIDE's template only ships 4 deputy slots; there is no "just leave room"
-  option for a genuinely unbounded list without either capping arbiters
-  arbitrarily (rejected — a real event can have more) or growing the sheet
-  on demand. Growing on demand means two coupled edits per extra arbiter,
-  one in each sheet:
+  There is no "just leave room" option for a genuinely unbounded list
+  without either capping arbiters arbitrarily (rejected — a real event can
+  have more than 2 beyond the ranked deputies) or growing the sheet on
+  demand once the template's spare rows run out. Growing on demand means
+  two coupled edits per extra arbiter, one in each sheet:
 
     * `Invulformulier` gets two new rows (an ID cell, a Name cell) inserted
       right after row 69, before row 70 (`his/her (federation)` — an
@@ -45,6 +54,8 @@ defmodule PairingsEngine.Norms.ItThreeExpand do
   else references a `Certificaat` cell.
   """
 
+  @fixed_slots 2
+
   @invulformulier_insert_after 69
   @invulformulier_last_untouched_row 70
 
@@ -53,48 +64,59 @@ defmodule PairingsEngine.Norms.ItThreeExpand do
 
   @doc """
   `{id_ref, name_ref}` — the `Invulformulier` cell refs `arbiter_index`
-  (1-based, counting only arbiters *beyond* the 4 fixed deputy slots) will
-  land on once the template has been `expand/2`-ed for at least that many
-  arbiters. Pure and independent of `expand/2` actually having run — the
-  layout is deterministic from `arbiter_index` alone — so
+  (1-based, counting arbiters beyond chief + the 2 ranked deputies) lands
+  on. Indices 1-2 are the template's own spare rows (`B66`/`B67`,
+  `B68`/`B69` — always present, no expansion needed); index 3 onward needs
+  `expand/2`-ed rows. Pure and independent of `expand/2` actually having
+  run — the layout is deterministic from `arbiter_index` alone — so
   `PairingsEngine.Norms.Forms.it3_fills/3` can compute fills without
   reaching into this module's row-building internals.
   """
   def arbiter_cell_ref(arbiter_index, sheet \\ :invulformulier)
 
-  def arbiter_cell_ref(arbiter_index, :invulformulier) when arbiter_index >= 1 do
-    id_row = @invulformulier_insert_after + (arbiter_index - 1) * 2 + 1
+  def arbiter_cell_ref(arbiter_index, :invulformulier) when arbiter_index in 1..@fixed_slots do
+    id_row = @invulformulier_insert_after - (@fixed_slots - arbiter_index) * 2 - 1
+    {"B#{id_row}", "B#{id_row + 1}"}
+  end
+
+  def arbiter_cell_ref(arbiter_index, :invulformulier) when arbiter_index > @fixed_slots do
+    id_row = @invulformulier_insert_after + (arbiter_index - @fixed_slots - 1) * 2 + 1
     {"B#{id_row}", "B#{id_row + 1}"}
   end
 
   @doc """
   Expands `template_binary` (an already-read `.xlsx` file's bytes) to fit
-  `extra_count` arbiters beyond the 4 built-in deputy slots. Returns the
-  binary unchanged when `extra_count` is `0`.
+  `extra_count` arbiters beyond chief + the 2 ranked deputies. A no-op
+  (returns `template_binary` untouched) whenever `extra_count <= #{@fixed_slots}`
+  — those fit in the template's own spare rows, nothing to grow.
   """
-  def expand(template_binary, 0) when is_binary(template_binary), do: template_binary
+  def expand(template_binary, extra_count)
+      when is_binary(template_binary) and is_integer(extra_count) and extra_count <= @fixed_slots,
+      do: template_binary
 
   def expand(template_binary, extra_count)
-      when is_binary(template_binary) and is_integer(extra_count) and extra_count > 0 do
+      when is_binary(template_binary) and is_integer(extra_count) and extra_count > @fixed_slots do
+    insert_count = extra_count - @fixed_slots
+
     {:ok, entries} = :zip.unzip(template_binary, [:memory])
     entries = Enum.map(entries, fn {name, bin} -> {List.to_string(name), bin} end)
 
     {_, invul_xml} = List.keyfind(entries, "xl/worksheets/sheet2.xml", 0)
     {_, cert_xml} = List.keyfind(entries, "xl/worksheets/sheet1.xml", 0)
 
-    shift = extra_count * 2
+    shift = insert_count * 2
 
     invul_xml =
       invul_xml
       |> shift_rows_after(@invulformulier_insert_after, shift)
-      |> insert_rows(@invulformulier_insert_after, invulformulier_new_rows(extra_count))
+      |> insert_rows(@invulformulier_insert_after, invulformulier_new_rows(insert_count))
       |> update_dimension(@invulformulier_last_untouched_row + shift)
 
     cert_xml =
       cert_xml
       |> shift_rows_after(@certificaat_insert_after, shift)
       |> shift_cross_sheet_refs("Invulformulier", @invulformulier_insert_after, shift)
-      |> insert_rows(@certificaat_insert_after, certificaat_new_rows(extra_count))
+      |> insert_rows(@certificaat_insert_after, certificaat_new_rows(insert_count))
       |> update_dimension(@certificaat_original_last_row + shift)
 
     entries =
@@ -112,14 +134,20 @@ defmodule PairingsEngine.Norms.ItThreeExpand do
   # writes the value later) data cell, same shape rows 62-69 already use.
   # ---------------------------------------------------------------------
 
-  defp invulformulier_new_rows(extra_count) do
-    Enum.map_join(1..extra_count, "", fn n ->
-      {id_ref, name_ref} = arbiter_cell_ref(n, :invulformulier)
+  # `insert_count` new rows, one per arbiter beyond the @fixed_slots that
+  # already fit in the template's own spare rows — so the Nth row inserted
+  # here is arbiter number `@fixed_slots + N` overall, both for its cell
+  # position (arbiter_cell_ref/2 is defined in absolute-arbiter-index terms)
+  # and its printed label.
+  defp invulformulier_new_rows(insert_count) do
+    Enum.map_join(1..insert_count, "", fn n ->
+      arbiter_index = @fixed_slots + n
+      {id_ref, name_ref} = arbiter_cell_ref(arbiter_index, :invulformulier)
       id_row = ref_row(id_ref)
       name_row = ref_row(name_ref)
 
-      label_row(id_row, "A#{id_row}", "ID Arbiter #{n}") <>
-        label_row(name_row, "A#{name_row}", "Name Arbiter #{n}")
+      label_row(id_row, "A#{id_row}", "ID Arbiter #{arbiter_index}") <>
+        label_row(name_row, "A#{name_row}", "Name Arbiter #{arbiter_index}")
     end)
   end
 
@@ -134,9 +162,9 @@ defmodule PairingsEngine.Norms.ItThreeExpand do
   # the 4th deputy's own row pair, styles and merges included.
   # ---------------------------------------------------------------------
 
-  defp certificaat_new_rows(extra_count) do
-    Enum.map_join(1..extra_count, "", fn n ->
-      {id_ref, name_ref} = arbiter_cell_ref(n, :invulformulier)
+  defp certificaat_new_rows(insert_count) do
+    Enum.map_join(1..insert_count, "", fn n ->
+      {id_ref, name_ref} = arbiter_cell_ref(@fixed_slots + n, :invulformulier)
       label_row_num = @certificaat_insert_after + (n - 1) * 2 + 1
       formula_row_num = label_row_num + 1
 
