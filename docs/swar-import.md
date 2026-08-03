@@ -83,6 +83,13 @@ As everywhere else in this importer, an ambiguous name is **left blank rather
 than guessed** — BEL has two `Van Dyck, Marc`, so that deputy imports with a
 name and no id, for a human to disambiguate on the Norms page.
 
+This same matcher (`SwarImport.match_official_fide_player/1`, public for
+exactly this reason) is reused on the public Tools page's upload prefill —
+see [`tools.md`](tools.md)'s "Officials: FIDE lookup" section — except there
+a non-match doesn't even leave the raw name in the field: the box stays
+empty with a hint, since that page never has the fallback of "fill it in
+by hand on the Norms page later" this persisting path does.
+
 **Not in the SWAR file at all:** the organizer's FIDE ID, and any e-mail
 address. SWAR has an organizer *name* (`Organizer`) but no id for them, so
 those fields on the Norms page always start empty and are filled in by hand.
@@ -105,7 +112,9 @@ silently keeping only the first is not.
 
 FIDE identifies every official by FIDE ID and bounces a report missing one, so
 `NormsLive.report_blockers/1` blocks the IT3/FA1/IA1 downloads (red bar, naming
-each missing field) until the chief arbiter and every *named* deputy has one.
+each missing field) until the chief arbiter and every *named* deputy has one,
+**and** the chief arbiter's and organizer's e-mail addresses are both filled
+in — the IT3 template's own printed privacy notice states FIDE requires both.
 An empty deputy slot is fine — not every event has two.
 
 ## Rate of play (`Cadence` / `Cadence_Other`)
