@@ -29,6 +29,8 @@ defmodule PairingsEngine.SwarImportAbsValueTest do
     {win, nul, los, bye, pre} = Map.get(opts, :sw321, {4, 2, 0, 4, 0})
     prebye = Map.get(opts, :prebye, 0)
     abs_value = Map.get(opts, :abs_value, 0)
+    abs_nbfois = Map.get(opts, :abs_nbfois, 0)
+    abs_jusque = Map.get(opts, :abs_jusque, 0)
     players = Map.get(opts, :players, [])
     nb_rounds = Map.get(opts, :nb_rounds, 1)
 
@@ -79,8 +81,8 @@ defmodule PairingsEngine.SwarImportAbsValueTest do
         w_i32(0) <>
         w_i32(0) <>
         w_u8(abs_value) <>
-        w_u8(0) <>
-        w_u8(0) <>
+        w_u8(abs_nbfois) <>
+        w_u8(abs_jusque) <>
         w_u8(0) <>
         w_i32(0) <>
         w_i32(0)
@@ -196,12 +198,12 @@ defmodule PairingsEngine.SwarImportAbsValueTest do
   # a TABLE_ABSENT-marked round from a real file would produce.
   defp absent_round(round_nr), do: %{round_nr: round_nr, result: 0, table: 0, advers: 0}
 
-  ## ---------- parsed-map mapping: AbsValue 5/0 -> 0.5/0.0 ----------
+  ## ---------- parsed-map mapping: AbsValue 1/0 -> 0.5/0.0 ----------
 
-  test "import_file/1 maps raw abs_value: 5 onto tournament.abs_value == 0.5" do
+  test "import_file/1 maps raw abs_value: 1 (SWAR's checkbox 'checked') onto tournament.abs_value == 0.5" do
     opts = %{
       type: 0,
-      abs_value: 5,
+      abs_value: 1,
       players: [%{ni: 1, name: "Player, One", rounds: [absent_round(1)]}]
     }
 
@@ -227,7 +229,13 @@ defmodule PairingsEngine.SwarImportAbsValueTest do
       # type != 3 — abs_value is a general [TOURNOI] field, unconditional on
       # tournament type, unlike presence_value (3-2-1 only).
       type: 0,
-      abs_value: 5,
+      abs_value: 1,
+      # SWAR always writes real caps alongside a checked box (see
+      # `TOptionsGetValues` in SWAR's own source) — round 1 comfortably
+      # within both here, since this test is about `abs_value` itself, not
+      # the caps (see the "capped" tests below for those).
+      abs_jusque: 3,
+      abs_nbfois: 5,
       players: [%{ni: 1, name: "Player, One", rounds: [absent_round(1)]}]
     }
 
@@ -244,7 +252,9 @@ defmodule PairingsEngine.SwarImportAbsValueTest do
     opts = %{
       type: 3,
       sw321: {8, 4, 0, 8, 4},
-      abs_value: 5,
+      abs_value: 1,
+      abs_jusque: 3,
+      abs_nbfois: 5,
       players: [%{ni: 1, name: "Player, One", rounds: [absent_round(1)]}]
     }
 
@@ -257,6 +267,73 @@ defmodule PairingsEngine.SwarImportAbsValueTest do
     [player] = PairingsEngine.Tournaments.list_players(tournament.id)
     entry = Enum.find(Standings.standings(tournament), &(&1.player.id == player.id))
     assert entry.points == 0.5
+  end
+
+  ## ---------- SWAR's "Pt ABSENT" caps: AbsJusque (round cutoff) / AbsNbFois (count cap) ----------
+
+  test "an \"absent\" bye past abs_jusque scores points_loss instead of abs_value, even though the box is checked" do
+    opts = %{
+      type: 0,
+      abs_value: 1,
+      # "up to and including round 2" — round 3 misses the cutoff.
+      abs_jusque: 2,
+      abs_nbfois: 5,
+      players: [%{ni: 1, name: "Player, One", rounds: [absent_round(3)]}]
+    }
+
+    assert {:ok, tournament, _warnings} = import_synthetic!(opts)
+    assert tournament.abs_value == 0.5
+    assert tournament.abs_jusque == 2
+
+    [player] = PairingsEngine.Tournaments.list_players(tournament.id)
+    entry = Enum.find(Standings.standings(tournament), &(&1.player.id == player.id))
+    assert entry.points == tournament.points_loss
+    assert entry.points == 0.0
+  end
+
+  test "an \"absent\" bye AT abs_jusque (the cutoff round itself) still scores abs_value — the cap is inclusive" do
+    opts = %{
+      type: 0,
+      abs_value: 1,
+      abs_jusque: 3,
+      abs_nbfois: 5,
+      players: [%{ni: 1, name: "Player, One", rounds: [absent_round(3)]}]
+    }
+
+    assert {:ok, tournament, _warnings} = import_synthetic!(opts)
+
+    [player] = PairingsEngine.Tournaments.list_players(tournament.id)
+    entry = Enum.find(Standings.standings(tournament), &(&1.player.id == player.id))
+    assert entry.points == 0.5
+  end
+
+  test "the (abs_nbfois + 1)th absence, cumulative, scores points_loss — earlier ones still score abs_value" do
+    opts = %{
+      type: 0,
+      abs_value: 1,
+      abs_jusque: 10,
+      # Only the first 2 absences pay — the 3rd doesn't.
+      abs_nbfois: 2,
+      players: [
+        %{
+          ni: 1,
+          name: "Player, One",
+          rounds: [absent_round(1), absent_round(2), absent_round(3)]
+        }
+      ]
+    }
+
+    assert {:ok, tournament, _warnings} = import_synthetic!(opts)
+
+    [player] = PairingsEngine.Tournaments.list_players(tournament.id)
+    entry = Enum.find(Standings.standings(tournament), &(&1.player.id == player.id))
+    # Round 1: 0.5, round 2: 0.5, round 3: 0.0 (3rd absence exceeds abs_nbfois: 2).
+    assert entry.points == 1.0
+
+    by_round = entry.games |> Enum.sort_by(& &1.round) |> Map.new(&{&1.round, &1.points})
+    assert by_round[1] == 0.5
+    assert by_round[2] == 0.5
+    assert by_round[3] == 0.0
   end
 
   test "an \"absent\" bye falls back to points_loss when the tournament isn't a SWAR import (abs_value nil)" do

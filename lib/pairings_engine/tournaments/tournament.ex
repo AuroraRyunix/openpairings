@@ -40,22 +40,47 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # rounds keep scoring at `points_loss` exactly as before this field
     # existed. Only PairingsEngine.SwarImport writes a non-nil value.
     field :presence_value, :float
-    # SWAR `AbsValue` (manual §4.2 field 92: "Absent value: 0 or 5,
-    # representing 0.0 or 0.5 points") — the points paid for a player simply
-    # marked ABSENT for a round (our `byes`-table `type: "absent"` row, from
-    # SWAR's per-player `Absent` status / the per-round `TABLE_ABSENT`
-    # special value). Three genuinely different SWAR concepts, easy to
-    # conflate: `bye_value` is what a *pairing-allocated* bye (a real
-    # opponent-less `Pairing` row) is worth; `presence_value` is the 3-2-1
-    # "presence points" paid for an unpaired-but-present round
-    # (`SW321_Pre`, only meaningful when `TOURNOI_TYPE == 3`); `abs_value`
-    # here is what a plain absence is worth, and — unlike `presence_value`
-    # — it is a GENERAL [TOURNOI] header field that applies to every SWAR
-    # import regardless of tournament type. nil (the default for every
-    # tournament that isn't a SWAR import) means "not set": such rounds
-    # keep scoring at `points_loss` exactly as before this field existed.
-    # Only PairingsEngine.SwarImport writes a non-nil value.
+    # SWAR `AbsValue` — the points paid for a player simply marked ABSENT
+    # for a round (our `byes`-table `type: "absent"` row, from SWAR's
+    # per-player `Absent` status / the per-round `TABLE_ABSENT` special
+    # value). It's a plain UI checkbox ("½ point" for absence) in SWAR's
+    # own source, raw 0 (unchecked) or 1 (checked) — NOT the "0 or 5" an
+    # earlier version of this comment (and the mapping in
+    # `PairingsEngine.SwarImport`) assumed; see that module's
+    # `tournament_attrs/1` for the full story of that bug and how it was
+    # confirmed. Three genuinely different SWAR concepts, easy to conflate:
+    # `bye_value` is what a *pairing-allocated* bye (a real opponent-less
+    # `Pairing` row) is worth; `presence_value` is the 3-2-1 "presence
+    # points" paid for an unpaired-but-present round (`SW321_Pre`, only
+    # meaningful when `TOURNOI_TYPE == 3`); `abs_value` here is what a
+    # plain absence is worth, and — unlike `presence_value` — it is a
+    # GENERAL [TOURNOI] header field that applies to every SWAR import
+    # regardless of tournament type. nil (the default for every tournament
+    # that isn't a SWAR import) means "not set": such rounds keep scoring
+    # at `points_loss` exactly as before this field existed. Only
+    # PairingsEngine.SwarImport writes a non-nil value. See `abs_jusque`/
+    # `abs_nbfois` below for the two caps SWAR applies on top of this.
     field :abs_value, :float
+    # SWAR `AbsJusque` ("Jusque ronde") / `AbsNbFois` ("Nombre de fois") —
+    # the two caps SWAR's own "Pt ABSENT" option applies on top of
+    # `abs_value`, easy to miss because they're separate UCHAR fields right
+    # next to `AbsValue` in the file rather than folded into it:
+    #
+    #   - `abs_jusque`: the last round, INCLUSIVE, a plain absence still
+    #     pays `abs_value` — round `abs_jusque + 1` onward scores
+    #     `points_loss` instead, same as if `abs_value` were unset.
+    #   - `abs_nbfois`: how many absences, cumulative across the
+    #     tournament so far (this round included), still pay `abs_value` —
+    #     the `(abs_nbfois + 1)`th and any later absence scores
+    #     `points_loss` instead.
+    #
+    # Both nil (the default for every tournament that isn't a SWAR import,
+    # and for older SWAR imports predating this field) means "no cap" —
+    # `PairingsEngine.Standings.bye_points/4` treats a nil cap as never
+    # exceeded, so scoring is unaffected until a real value is set. Only
+    # PairingsEngine.SwarImport writes non-nil values.
+    field :abs_jusque, :integer
+    field :abs_nbfois, :integer
     # SWAR `SW321_PreBye` (manual §5.16, "Add presence points for bye
     # games") — when true, a pairing-allocated bye pays `presence_value` ON
     # TOP of `bye_value` (SWAR pays SW321_Bye + SW321_Pre for a WIN_BYE
@@ -285,6 +310,8 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :bye_value,
       :presence_value,
       :abs_value,
+      :abs_jusque,
+      :abs_nbfois,
       :presence_on_allocated_bye,
       :tiebreaks,
       :acceleration,

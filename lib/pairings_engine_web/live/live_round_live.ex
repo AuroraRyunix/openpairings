@@ -254,7 +254,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
 
               <td style="text-align: center">
                 <span class="badge">
-                  {bye_type_label(bye.type)} ({Standings.bye_points(bye.type, @tournament)} pt)
+                  {bye_type_label(bye.type)} ({Standings.bye_points_for_row(bye, @tournament)} pt)
                 </span>
               </td>
             </tr>

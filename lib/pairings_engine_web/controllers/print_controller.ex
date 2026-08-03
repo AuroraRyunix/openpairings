@@ -460,7 +460,7 @@ defmodule PairingsEngineWeb.PrintController do
       byes ->
         rows =
           Enum.map_join(byes, "", fn bye ->
-            points = PairingsEngine.Standings.bye_points(bye.type, tournament)
+            points = PairingsEngine.Standings.bye_points_for_row(bye, tournament)
 
             "<tr><td>#{esc(bye.player.name)}</td>" <>
               "<td style=\"text-align:center\">#{esc(bye_type_label(bye.type))} (#{points} pt)</td></tr>"

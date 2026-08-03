@@ -234,8 +234,22 @@ defmodule PairingsEngine.Standings do
   truth for this mapping — reused by `add_bye_records/3` here and by any
   display code (e.g. `PairingsEngineWeb.PairingsLive`) that needs to show a
   byes-table row's point value without duplicating the rule.
+
+  `round` and `cumulative_absences` only matter for `"absent"` — SWAR's own
+  "Pt ABSENT" option can cap a plain absence's `abs_value` two ways on top
+  of the value itself (manual §4.2, `GetSpecialAbsValue`/`AbsentIsLoss` in
+  SWAR's own `Utils.cpp`): pay it only through round `abs_jusque`
+  (inclusive), and/or only for the first `abs_nbfois` absences, cumulative
+  across the tournament (this round included) — either cap exceeded scores
+  `points_loss` instead, same as an unset `abs_value`. Both arguments
+  default to `nil`, under which neither cap can ever be exceeded, so a
+  caller that doesn't have round/count context on hand (or a tournament
+  that predates these fields, where they're `nil` too) gets exactly the old
+  flat `abs_value` behavior. Prefer `bye_points_for_row/2` over calling this
+  directly with a real byes-table row — it works out `round` and
+  `cumulative_absences` for you.
   """
-  def bye_points(type, tournament) do
+  def bye_points(type, tournament, round \\ nil, cumulative_absences \\ nil) do
     case type do
       "requested-half" -> tournament.points_draw
       # SWAR 3-2-1's `SW321_PreBye` club option ("Add presence points for
@@ -253,14 +267,65 @@ defmodule PairingsEngine.Standings do
       # tournament that isn't a 3-2-1 SWAR import, so this falls back to
       # plain points_loss unchanged for everyone else.
       "requested-zero" -> tournament.presence_value || tournament.points_loss
-      # SWAR `AbsValue` (manual §4.2 field 92) — the points paid for a plain
-      # absence, distinct from `presence_value`'s 3-2-1-specific "presence
-      # points". `abs_value` is nil for every tournament that isn't a SWAR
-      # import, so this falls back to plain points_loss unchanged for
-      # everyone else — same reasoning as `presence_value` above.
-      "absent" -> tournament.abs_value || tournament.points_loss
+      "absent" -> absent_points(tournament, round, cumulative_absences)
       _ -> tournament.points_loss
     end
+  end
+
+  # SWAR `AbsValue` (manual §4.2 field 92) — the points paid for a plain
+  # absence, distinct from `presence_value`'s 3-2-1-specific "presence
+  # points". `abs_value` is nil for every tournament that isn't a SWAR
+  # import, so this falls back to plain points_loss unchanged for everyone
+  # else — same reasoning as `presence_value` in `bye_points/4` above. On
+  # top of that, SWAR's own "Pt ABSENT" option can cap WHICH absences get
+  # paid `abs_value` at all — see `bye_points/4`'s doc for the two caps.
+  defp absent_points(tournament, round, cumulative_absences) do
+    cond do
+      is_nil(tournament.abs_value) -> tournament.points_loss
+      round_capped?(tournament, round) -> tournament.points_loss
+      count_capped?(tournament, cumulative_absences) -> tournament.points_loss
+      true -> tournament.abs_value
+    end
+  end
+
+  defp round_capped?(%{abs_jusque: cap}, round) when is_integer(cap) and is_integer(round),
+    do: round > cap
+
+  defp round_capped?(_tournament, _round), do: false
+
+  defp count_capped?(%{abs_nbfois: cap}, count) when is_integer(cap) and is_integer(count),
+    do: count > cap
+
+  defp count_capped?(_tournament, _count), do: false
+
+  @doc """
+  Same mapping as `bye_points/4`, but takes the byes-table row itself
+  (anything with `:type`, `:round`, `:player_id`) instead of a bare type —
+  works out `round` and the cumulative "absent" count SWAR's `AbsNbFois`
+  cap needs, so display code (`PairingsEngineWeb.PairingsLive`,
+  `LiveRoundLive`, `PublicPairingsLive`, `PrintController`) that only has
+  one row on hand at a time gets the same round/count-aware answer
+  `add_bye_records/3` computes for real standings, without a second
+  implementation of the caps to keep in sync.
+  """
+  def bye_points_for_row(%{type: "absent"} = bye, tournament) do
+    bye_points("absent", tournament, bye.round, absent_count_through_round(tournament, bye))
+  end
+
+  def bye_points_for_row(bye, tournament), do: bye_points(bye.type, tournament)
+
+  # How many "absent" byes `bye.player_id` has racked up in `tournament`
+  # through `bye.round` (inclusive) — the count SWAR's own `GetNbAbsence`
+  # counts up to and including the round being scored (§ manual 4.2,
+  # `AbsentIsLoss`).
+  defp absent_count_through_round(tournament, bye) do
+    Repo.one(
+      from b in "byes",
+        where:
+          b.tournament_id == ^tournament.id and b.player_id == ^bye.player_id and
+            b.type == "absent" and b.round <= ^bye.round,
+        select: count(b.id)
+    )
   end
 
   # The `presence_on_allocated_bye` add-on for a pairing-allocated bye —
@@ -277,27 +342,42 @@ defmodule PairingsEngine.Standings do
   end
 
   defp add_bye_records(games_by_player, byes, tournament) do
-    Enum.reduce(byes, games_by_player, fn bye, acc ->
-      points = bye_points(bye.type, tournament)
+    byes
+    # Grouped and round-sorted per player so the running "absent" count
+    # `bye_points/4`'s `abs_nbfois` cap needs can be tracked in memory in
+    # one pass, instead of the DB round-trip per row `bye_points_for_row/2`
+    # does for a single one-off display lookup — cheap here since every
+    # row for a player is already in hand.
+    |> Enum.group_by(& &1.player_id)
+    |> Enum.reduce(games_by_player, fn {player_id, player_byes}, acc ->
+      {records, _final_count} =
+        player_byes
+        |> Enum.sort_by(& &1.round)
+        |> Enum.map_reduce(0, fn bye, absent_count ->
+          absent_count = if bye.type == "absent", do: absent_count + 1, else: absent_count
+          points = bye_points(bye.type, tournament, bye.round, absent_count)
 
-      record = %{
-        round: bye.round,
-        player_id: bye.player_id,
-        opponent_id: nil,
-        colour: nil,
-        points: points,
-        played: false,
-        voluntary: bye.type in ["requested-half", "requested-zero", "absent"],
-        # The `byes`-table row's own type ("requested-half" /
-        # "requested-zero" / "absent") — carried through so display code
-        # (PairingsEngine.PlayerCard.result_label/2) can label the bye by
-        # KIND instead of guessing it back from the point value, which lies
-        # under custom scoring (e.g. a presence-valued zero bye worth
-        # exactly points_draw).
-        bye_type: bye.type
-      }
+          record = %{
+            round: bye.round,
+            player_id: bye.player_id,
+            opponent_id: nil,
+            colour: nil,
+            points: points,
+            played: false,
+            voluntary: bye.type in ["requested-half", "requested-zero", "absent"],
+            # The `byes`-table row's own type ("requested-half" /
+            # "requested-zero" / "absent") — carried through so display code
+            # (PairingsEngine.PlayerCard.result_label/2) can label the bye by
+            # KIND instead of guessing it back from the point value, which
+            # lies under custom scoring (e.g. a presence-valued zero bye
+            # worth exactly points_draw).
+            bye_type: bye.type
+          }
 
-      Map.update(acc, bye.player_id, [record], &(&1 ++ [record]))
+          {record, absent_count}
+        end)
+
+      Map.update(acc, player_id, records, &(&1 ++ records))
     end)
   end
 

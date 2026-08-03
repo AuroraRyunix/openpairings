@@ -1088,9 +1088,39 @@ defmodule PairingsEngine.SwarImport do
       # (SW321_Pre, only mapped inside `scoring_attrs/1`'s `type == 3`
       # clause), this applies to EVERY SWAR import regardless of tournament
       # type, so it's mapped here unconditionally rather than in
-      # `scoring_attrs/1`. Raw `abs_value` is a `UChar`: 0 or 5, representing
-      # 0.0 or 0.5 points.
-      abs_value: if(t.abs_value == 5, do: 0.5, else: 0.0)
+      # `scoring_attrs/1`.
+      #
+      # Raw `abs_value` is a plain UI checkbox ("½ point" for absence, per
+      # SWAR's own `TOptions.cpp`: `Tournoi.AbsValue =
+      # mTO_AbsValue.GetCheck()`), so it's 0 (unchecked) or 1 (checked) —
+      # NOT "0 or 5". A PREVIOUS version of this clause checked `== 5`,
+      # which happened to "pass" against every synthetic test fixture (they
+      # all hardcoded the test input as 5) but silently mapped every real
+      # SWAR file with the box actually checked — raw byte 1 — to 0.0
+      # instead of 0.5, i.e. exactly backwards from what the tournament was
+      # configured to pay. Confirmed against SWAR's own source
+      # (`Swar.h`'s `enum USE_POINTS { PTS_1, PTS_5, PTS_0 }` gives PTS_0
+      # the ordinal value 2, not 0 or 5 either — the stale `// 0 ou 5`
+      # comment on the struct field is describing an unrelated, pre-v4.21
+      # `AbsValueOld` encoding this current field replaced) and against a
+      # real tournament file with the box checked (raw `abs_value == 1`).
+      abs_value: if(t.abs_value != 0, do: 0.5, else: 0.0),
+      # `AbsNbFois`/`AbsJusque` — the two caps SWAR's own source
+      # (`GetSpecialAbsValue`/`AbsentIsLoss` in Utils.cpp) applies ON TOP
+      # of `AbsValue`, easy to miss since they're separate fields
+      # immediately after it rather than folded into it. See
+      # `PairingsEngine.Tournaments.Tournament`'s field docs for exactly
+      # what each caps, and `PairingsEngine.Standings.bye_points/4` for
+      # where they're actually enforced. Mapped as plain ints — unlike
+      # `abs_value`, 0 is a real, meaningful (if degenerate) SWAR value
+      # here (e.g. `abs_jusque: 0` legitimately means "no round qualifies"
+      # rather than "uncapped") — SWAR itself forces both to 0 when the
+      # checkbox above is unchecked, which is also what makes every round
+      # fail the `abs_jusque` cap in that case (see
+      # `PairingsEngine.Standings.round_capped?/2`) without needing a
+      # separate "is this feature even on" flag.
+      abs_jusque: t.abs_jusque,
+      abs_nbfois: t.abs_nbfois
     }
     |> Map.merge(scoring_attrs(t))
   end

@@ -253,6 +253,71 @@ rating — so absence really does mean "no FIDE id", not "unrated".
   reads these fields directly, so a raw league marker there would produce
   an invalid TRF file.
 
+## Absence scoring: SWAR's "Pt ABSENT" (`AbsValue`/`AbsJusque`/`AbsNbFois`)
+
+A player marked genuinely ABSENT for a round (SWAR's `TABLE_ABSENT`, as
+opposed to a pre-arranged bye — see "Requested bye vs. genuine absence"
+below) can still be paid points for it, but SWAR's own "Pt ABSENT" club
+option caps that three separate ways, all three read from the general
+`[TOURNOI]` header (unconditional on tournament type, unlike the 3-2-1
+fields below):
+
+- **`AbsValue`** — whether the option is on at all. Confirmed against
+  SWAR's own source (`TOptions.cpp`'s `TOptionsGetValues`): this is a
+  plain UI checkbox, raw `0` (unchecked) or `1` (checked) — checked pays
+  `0.5` points. **A previous version of this importer mapped raw `5` to
+  `0.5`** (the `Tournament.abs_value` field's own doc comment said "UChar:
+  0 or 5"), which happened to satisfy every synthetic test fixture (they
+  all hardcoded the test input as `5`, since nobody had checked it
+  against a real file with the box actually checked) but silently scored
+  every real absence-paying tournament as if the option were OFF — raw
+  byte `1` doesn't equal `5`, so `abs_value` always came out `0.0`. Caught
+  by importing a real production `.swar` file (`AbsValue: 1`) whose
+  organizer had confirmed the box was checked (0.5 points, through round
+  7) and finding the imported tournament scored those absences as zero.
+  The stale "0 or 5" comment traces to `Swar.h`'s
+  `enum USE_POINTS { PTS_1, PTS_5, PTS_0 }` — `PTS_0`'s ordinal value is
+  `2`, not `0` or `5` either, and that enum describes the unrelated,
+  pre-v4.21 `AbsValueOld` field this one replaced; the "5" was never a
+  real byte value SWAR writes for this field.
+- **`AbsJusque`** ("jusque ronde", "until round") — the last round,
+  **inclusive**, an absence still pays `AbsValue`. Round `AbsJusque + 1`
+  onward scores a plain loss instead, same as if the option were off.
+- **`AbsNbFois`** ("nombre de fois", "number of times") — how many
+  absences, cumulative across the tournament **up to and including the
+  round being scored**, still pay `AbsValue`. The `(AbsNbFois + 1)`th and
+  any later absence scores a plain loss instead, even if it's still
+  within `AbsJusque`.
+
+Both caps are read from the file even when `AbsValue` is unchecked — SWAR
+itself resets both to `0` in that case (`TOptionsGetValues`), which is
+also what makes `AbsJusque: 0` correctly fail every round's cutoff check
+without a separate "is this feature even on" flag needed on our side.
+
+Mapped onto `Tournament.abs_jusque`/`abs_nbfois` (plain integers, `nil` for
+every non-SWAR-import tournament) and enforced in
+`PairingsEngine.Standings.bye_points/4`'s `"absent"` branch — see that
+function's doc for the exact precedence, and `bye_points_for_row/2` for
+the version display code (`PairingsEngineWeb.PairingsLive`/`LiveRoundLive`/
+`PublicPairingsLive`/`PrintController`) should call instead of working out
+the cumulative count itself.
+
+### Requested bye vs. genuine absence — two different `byes`-table rows
+
+Easy to conflate, so worth stating plainly: a **requested bye** (arranged
+with the arbiter ahead of the round, SWAR's `WIN_BYE`/`DRAW_BYE`/
+`LOST_BYE` result codes) and a **genuine absence** (`TABLE_ABSENT`, no
+result code at all — the player just didn't show and nobody arranged
+anything) are different `byes`-table rows with different scoring rules,
+and always have been (`swar_import.ex`'s `classify_unpaired/1`):
+
+- Requested: `type: "requested-half"` / `"requested-zero"` — scored at
+  `points_draw` / `presence_value || points_loss`, from SWAR's `ByeValue`
+  (or `SW321_Bye` for a 3-2-1 tournament).
+- Genuine absence: `type: "absent"` — scored at `abs_value`, subject to
+  the `abs_jusque`/`abs_nbfois` caps just described. Never affected by
+  `ByeValue`.
+
 ## 3-2-1 scoring (`[TOURNOI].Type == SWISS_321`)
 
 SWAR's "3-2-1" tournament type (`Type == 3` in the on-disk `[TOURNOI]`
