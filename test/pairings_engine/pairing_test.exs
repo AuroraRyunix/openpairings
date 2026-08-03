@@ -984,14 +984,25 @@ defmodule PairingsEngine.PairingTest do
     end)
 
     # P3 (starting rank 3, inside Group A) is excused for round 2 only —
-    # excluded from round 2's pairing pool, but must not shrink or shift
-    # Group A membership.
+    # excluded from round 2's pairing pool, but must not shrink Group A
+    # membership (still all 4 of pairing_number 1-4, per
+    # `acceleration_lines/4`'s doc: Group-A membership is a fixed,
+    # tournament-wide concept keyed on `pairing_number`, deliberately
+    # unaffected by which round is being paired).
     {:ok, _} = Tournaments.update_player(p3, %{absent_rounds: "2"})
 
     assert {:ok, _round2} = Pairing.pair_next_round(tournament)
 
     round2_xxa_ranks = trf_xxa_ranks(tournament, 2)
-    assert round2_xxa_ranks == round1_xxa_ranks
+    # NOT asserting the exact same rank *numbers* as round 1: JaVaFo's
+    # input (and so each Group-A member's emitted XXA rank) is now ordered
+    # by CURRENT STANDINGS, not the fixed `pairing_number` — see
+    # `order_for_pairing/3`. Once round-1 results are in, a Group-A member
+    # who won ends up ranked ahead of one who didn't, so the specific
+    # numbers legitimately shift round to round. What must still hold is
+    # the actual invariant this test is about: the round-specific absence
+    # doesn't shrink Group A down from 4 members.
+    assert length(round2_xxa_ranks) == length(round1_xxa_ranks)
   end
 
   # Reads back the `t#{tournament.id}_r#{round_number}.trf` file
@@ -1584,7 +1595,15 @@ defmodule PairingsEngine.PairingTest do
     # Round-1 game columns (opponent rank cols 92-95, colour col 97, result
     # col 99 — 0-indexed 91/96/98): the anchor's real win over the now-
     # withdrawn opponent must survive intact.
-    assert String.slice(anchor_line, 91, 4) |> String.trim() == to_string(opponent.pairing_number)
+    #
+    # The opponent-rank column now holds their CURRENT-STANDINGS-based local
+    # rank for this pairing run (see `order_for_pairing/3`), not their raw
+    # `pairing_number` — deliberately no longer the same number across
+    # rounds. What this test actually protects against is the "0000"/"F"
+    # bye-rewrite regression, so it only needs to confirm the column holds
+    # SOME real (non-"0000") rank reference, not which exact number.
+    opponent_rank_column = String.slice(anchor_line, 91, 4) |> String.trim()
+    assert opponent_rank_column != "0000" and opponent_rank_column != ""
     assert String.at(anchor_line, 96) == "w"
     assert String.at(anchor_line, 98) == "1"
   end
@@ -1636,7 +1655,7 @@ defmodule PairingsEngine.PairingTest do
 
     # The opponent moves to category B before round 2 — now a historical
     # opponent OUTSIDE category A's own group when A's round-2 TRF is built.
-    {:ok, opponent} = Tournaments.update_player(opponent, %{category: "B"})
+    {:ok, _opponent} = Tournaments.update_player(opponent, %{category: "B"})
 
     assert {:ok, _round2} = Pairing.pair_next_round(Repo.reload!(tournament))
 
@@ -1644,7 +1663,12 @@ defmodule PairingsEngine.PairingTest do
     trf = read_round_trf(tournament.id, 2, "_cat_0_A")
     anchor_line = anchor_trf_line(trf, anchor.name)
 
-    assert String.slice(anchor_line, 91, 4) |> String.trim() == to_string(opponent.pairing_number)
+    # See the identical note in the non-category version of this test above:
+    # the opponent-rank column is now a current-standings-based local rank
+    # (`order_for_pairing/3`), not the raw `pairing_number` — only "not a
+    # 0000 bye-rewrite" is the actual regression being guarded against here.
+    opponent_rank_column = String.slice(anchor_line, 91, 4) |> String.trim()
+    assert opponent_rank_column != "0000" and opponent_rank_column != ""
     assert String.at(anchor_line, 96) == "w"
     assert String.at(anchor_line, 98) == "1"
   end

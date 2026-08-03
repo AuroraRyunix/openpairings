@@ -314,7 +314,7 @@ defmodule PairingsEngine.Pairing do
   # via the inverse map in `create_round/5`. Board numbering (JaVaFo's output
   # *order*, not its rank values) is completely unaffected by this.
   defp do_pair_single(tournament, players, next_number, round_absentees) do
-    full_roster = full_roster_players(tournament.id)
+    full_roster = full_roster_players(tournament.id) |> order_for_pairing(tournament)
     eligible_ids = MapSet.new(players, & &1.id)
 
     local_rank_by_player_id =
@@ -402,7 +402,9 @@ defmodule PairingsEngine.Pairing do
     # colour history. `shared_history.full_roster` is already `%{id =>
     # player}`, so reuse it rather than re-querying.
     full_roster =
-      shared_history.full_roster |> Map.values() |> Enum.sort_by(& &1.pairing_number)
+      shared_history.full_roster
+      |> Map.values()
+      |> order_for_pairing(tournament, shared_history)
 
     local_rank_by_player_id =
       full_roster |> Enum.with_index(1) |> Map.new(fn {p, i} -> {p.id, i} end)
@@ -659,6 +661,9 @@ defmodule PairingsEngine.Pairing do
       |> trf_player_rows(full_roster, shared_history)
       |> mark_ineligible_for_round(eligible_ids)
       |> remap_trf_rows_to_local_ranks(local_rank_by_player_id)
+      # Physical row order, not just the `:rank` field — see the identical
+      # re-sort (and its full rationale) in `javafo_input/4`.
+      |> Enum.sort_by(& &1.rank)
 
     trf =
       Trf.serialize(%{
@@ -997,7 +1002,28 @@ defmodule PairingsEngine.Pairing do
 
     trf_players =
       if rank_by_player_id do
-        remap_trf_rows_to_local_ranks(trf_players, rank_by_player_id)
+        # `remap_trf_rows_to_local_ranks/2` only rewrites each row's `:rank`
+        # field — it preserves `trf_players`' own list order (still whatever
+        # `trf_player_rows/3` sorted by, the player's raw `pairing_number`).
+        # `Trf.serialize/1` writes rows in list order verbatim, with no sort
+        # of its own — so without this re-sort, the TRF's PHYSICAL row order
+        # stays pairing_number-based even when the caller asked for a
+        # different (e.g. current-standings) rank assignment via
+        # `rank_by_player_id`. JaVaFo's Dutch-system pairing engine expects
+        # its input in current-standings order (score desc, then rating
+        # desc) — when a score bracket has more than one structurally-equal
+        # way to pair, it falls back to input order as an implicit
+        # tie-break, so a mismatched physical order can produce a
+        # genuinely different (each still locally "valid") pairing.
+        # Confirmed against a real tournament: SWAR (which also runs
+        # JaVaFo, always re-sorting into standings order first) produced a
+        # different round-2 pairing than this app from identical round-1
+        # data; rebuilding the TRF input in standings order reproduced
+        # SWAR's pairing exactly. See `do_pair_single/4`'s
+        # `local_rank_by_player_id` for where that order is decided.
+        trf_players
+        |> remap_trf_rows_to_local_ranks(rank_by_player_id)
+        |> Enum.sort_by(& &1.rank)
       else
         trf_players
       end
@@ -1317,6 +1343,27 @@ defmodule PairingsEngine.Pairing do
       end
     end)
     |> Enum.sum()
+  end
+
+  # Orders `players` the way JaVaFo's Dutch-system engine expects its input:
+  # current standings, score descending then rating descending — NOT
+  # `pairing_number` (a fixed, initial-seed order `full_roster_players/1`'s
+  # own DB query returns, correct for a downloadable/archival TRF file per
+  # the TRF16 convention, but wrong for feeding a live pairing run). See the
+  # re-sort in `javafo_input/4` for the other half of this fix (physical row
+  # order in the generated TRF) and its full rationale.
+  #
+  # `shared_history`, when given, avoids re-querying rounds/byes/roster
+  # `games_per_player/2` already fetched once for this pairing run — same
+  # sharing `do_pair_by_category/3` already does elsewhere.
+  defp order_for_pairing(players, tournament, shared_history \\ nil) do
+    by_id = Map.new(players, &{&1.id, &1})
+    games = games_per_player(tournament, by_id, shared_history)
+
+    Enum.sort_by(players, fn p ->
+      points = player_points(Map.get(games, p.id, []), tournament)
+      {-points, -Player.rating(p)}
+    end)
   end
 
   # Every player who ever received a pairing_number, regardless of current
