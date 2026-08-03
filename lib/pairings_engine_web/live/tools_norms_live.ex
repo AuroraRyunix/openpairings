@@ -32,6 +32,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   alias PairingsEngine.Fide
   alias PairingsEngine.Norms.{Combine, Forms}
   alias PairingsEngine.Tools.{Parser, Session}
+  alias PairingsEngine.SwarImport
   alias PairingsEngineWeb.Live.ArbiterCombo
 
   @max_entries 10
@@ -159,6 +160,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
           socket.assigns.overlay
           |> Map.put(arbiter_name_key(role), fp.name)
           |> Map.put("#{role}_fide_id", to_string(fp.fide_id))
+          |> Map.delete(arbiter_name_key(role) <> "_hint")
 
         {:noreply, socket |> assign(overlay: overlay, arbiter_search: nil) |> sync_session()}
     end
@@ -230,7 +232,11 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
         overlay =
           socket.assigns.overlay
-          |> maybe_prefill("chief_arbiter_name", tournament.chief_arbiter)
+          |> maybe_prefill_official(
+            "chief_arbiter_name",
+            "chief_arbiter_fide_id",
+            tournament.chief_arbiter
+          )
           |> maybe_prefill("organizer", tournament.organizer)
           |> maybe_prefill("event_code", event_code)
 
@@ -244,7 +250,12 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
         # consistent instead of one silently doing worse than the other.
         overlay =
           Enum.reduce(1..4, overlay, fn n, acc ->
-            maybe_prefill(acc, "deputy#{n}_name", Map.get(officials, "deputy#{n}_name", ""))
+            maybe_prefill_official(
+              acc,
+              "deputy#{n}_name",
+              "deputy#{n}_fide_id",
+              Map.get(officials, "deputy#{n}_name", "")
+            )
           end)
 
         assign(socket, overlay: overlay)
@@ -259,6 +270,49 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
       Map.put(overlay, key, value)
     else
       overlay
+    end
+  end
+
+  # Officials prefill used to dump whatever raw text a SWAR/TRF file carried
+  # straight into the name box, unverified — the same info a hand-typed FIDE
+  # ID would carry, which is exactly what the arbiter combobox's split
+  # name/id boxes exist to prevent everywhere else on this page. A file's
+  # spelling can also disagree with FIDE's own ("Sylvin De Vet" vs. FIDE's
+  # "De Vet, Sylvin"), so this reuses the exact same order-independent
+  # matcher the persisting SWAR import path already trusts
+  # (`SwarImport.match_official_fide_player/1`) rather than a second
+  # heuristic that could drift from it.
+  #
+  # A confident (exactly one) match fills both the name (FIDE's own "Last,
+  # First" spelling) and the FIDE ID, same as picking that result by hand
+  # would. No match — or an already-filled name, so a value the arbiter
+  # already typed or picked is never clobbered — leaves the name/ID boxes
+  # untouched; the raw text is kept under `"#{name_key}_hint"` instead, so
+  # `ArbiterCombo` can show "what you DO know" next to the empty box rather
+  # than silently discarding what the file did provide.
+  defp maybe_prefill_official(overlay, name_key, id_key, raw_name) do
+    raw_name = raw_name |> to_string() |> String.trim()
+    current_name = overlay |> Map.get(name_key, "") |> to_string() |> String.trim()
+    hint_key = "#{name_key}_hint"
+
+    cond do
+      raw_name == "" ->
+        overlay
+
+      current_name != "" ->
+        overlay
+
+      true ->
+        case SwarImport.match_official_fide_player(raw_name) do
+          nil ->
+            Map.put(overlay, hint_key, raw_name)
+
+          fp ->
+            overlay
+            |> Map.put(name_key, fp.name)
+            |> Map.put(id_key, to_string(fp.fide_id))
+            |> Map.delete(hint_key)
+        end
     end
   end
 
@@ -723,6 +777,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
               id_field="overlay[chief_arbiter_fide_id]"
               id_value={Map.get(@overlay, "chief_arbiter_fide_id", "")}
               search={@arbiter_search}
+              hint={Map.get(@overlay, "chief_arbiter_name_hint")}
             />
             <.overlay_input
               prefix="overlay"
@@ -755,6 +810,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
               id_field={"overlay[deputy#{n}_fide_id]"}
               id_value={Map.get(@overlay, "deputy#{n}_fide_id", "")}
               search={@arbiter_search}
+              hint={Map.get(@overlay, "deputy#{n}_name_hint")}
             />
           </div>
 

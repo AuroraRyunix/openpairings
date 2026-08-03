@@ -553,6 +553,18 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
   test "each deputy prefills into their own box, not one string dumped into deputy1", %{
     conn: conn
   } do
+    Repo.insert!(%PairingsEngine.Fide.FidePlayer{
+      fide_id: 100_100,
+      name: "De Vet, Sylvin",
+      federation: "BEL"
+    })
+
+    Repo.insert!(%PairingsEngine.Fide.FidePlayer{
+      fide_id: 100_200,
+      name: "Van Dyck, Marc",
+      federation: "BEL"
+    })
+
     {:ok, lv, _html} = live(conn, ~p"/tools/norms")
 
     trf =
@@ -582,11 +594,57 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
 
     html = upload_files(lv, [{"alpha.trf", trf}])
 
+    # Each name lands in its own box, AND — since both resolve to exactly one
+    # FIDE entry — the matching FIDE ID comes along too (see
+    # `SwarImport.match_official_fide_player/1`), same as picking each by
+    # hand from the combobox would.
     assert html =~
              ~s(name="overlay[deputy1_name]" value="De Vet, Sylvin")
 
     assert html =~
              ~s(name="overlay[deputy2_name]" value="Van Dyck, Marc")
+
+    assert html =~ ~s(name="overlay[deputy1_fide_id]" value="100100")
+    assert html =~ ~s(name="overlay[deputy2_fide_id]" value="100200")
+  end
+
+  test "a deputy name with no confident FIDE match is left blank, with a hint showing what the file said",
+       %{conn: conn} do
+    {:ok, lv, _html} = live(conn, ~p"/tools/norms")
+
+    trf =
+      Trf.serialize(%{
+        tournament: %{
+          name: "Alpha Open",
+          city: "Ghent",
+          federation: "BEL",
+          start_date: "2026-01-01",
+          end_date: "2026-01-02",
+          type: "swiss",
+          chief_arbiter: "Cornet, Luc",
+          deputy_arbiters: ["Someone Unmatched"]
+        },
+        players: [
+          %{
+            rank: 1,
+            name: "Alice",
+            fide_rating: 1900,
+            fide_number: 111,
+            federation: "BEL",
+            points: 0.0,
+            games: []
+          }
+        ]
+      })
+
+    html = upload_files(lv, [{"alpha.trf", trf}])
+
+    # No FIDE entry to match against — the box stays empty (never a raw,
+    # unverified name silently sitting where only a FIDE-confirmed one
+    # should), but the hint says what the file did carry.
+    assert html =~ ~s(name="overlay[deputy1_name]" value="")
+    assert html =~ ~s(name="overlay[deputy1_fide_id]" value="")
+    assert html =~ "Uploaded file says: Someone Unmatched"
   end
 
   ## ---------- uploaded-files totals ----------

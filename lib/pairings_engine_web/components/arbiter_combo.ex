@@ -59,6 +59,7 @@ defmodule PairingsEngineWeb.Components.ArbiterCombo do
   attr :id_field, :string, required: true
   attr :id_value, :string, required: true
   attr :search, :any, default: nil
+  attr :hint, :string, default: nil
 
   def arbiter_combo(assigns) do
     ~H"""
@@ -77,6 +78,13 @@ defmodule PairingsEngineWeb.Components.ArbiterCombo do
             autocomplete="off"
             placeholder="Name"
           />
+          <p
+            :if={@name_value in ["", nil] and @hint not in ["", nil]}
+            class="hint"
+            style="margin: 2px 0 0; font-size: 0.85em"
+          >
+            Uploaded file says: {@hint} — no confident FIDE match, please search or type it in.
+          </p>
           <.results
             options={ArbiterCombo.results_for(@search, @role, :name)}
             role={@role}

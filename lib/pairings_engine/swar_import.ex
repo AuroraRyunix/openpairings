@@ -975,6 +975,7 @@ defmodule PairingsEngine.SwarImport do
     end
   end
 
+  @doc false
   # An official's name matched against the FIDE database, or `nil` unless
   # exactly one entry matches — same "never silently guess" rule the player
   # matcher follows.
@@ -983,7 +984,14 @@ defmodule PairingsEngine.SwarImport do
   # word order by convention: SWAR has "Sylvin De Vet", FIDE has "De Vet,
   # Sylvin". Sorting the (diacritic-folded) tokens makes those equal without
   # having to guess which words are the surname.
-  defp match_official_fide_player(name) do
+  #
+  # Public (rather than the `defp` this started as) so `ToolsNormsLive` can
+  # reuse the exact same matching rules for its own read-only FIDE lookup on
+  # SWAR/TRF officials prefill — that page never persists a `Tournament`, so
+  # it can't go through `resolve_official_fide_ids/1` below, but wants
+  # identical match/no-match behavior rather than a second implementation
+  # that could quietly drift from this one.
+  def match_official_fide_player(name) do
     case official_name_key(name) do
       [] ->
         nil

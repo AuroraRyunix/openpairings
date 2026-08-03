@@ -42,7 +42,9 @@ design" below.
    `officials` map shape the Settings page's "Officials & FIDE report data"
    card writes onto a real tournament (docs/norms.md), just never saved
    anywhere here. A blank field never overwrites a value the file already
-   supplied (e.g. a TRF's own chief-arbiter line).
+   supplied (e.g. a TRF's own chief-arbiter line) — see "Officials: FIDE
+   lookup" below for how the chief arbiter/deputy names specifically get
+   from the file into these boxes (an auto-match, not a raw dump).
 5. Download IT3 / FA1 / IA1 — generated the same way
    `PairingsEngineWeb.NormsController` generates them for a real tournament
    (`PairingsEngine.Norms.Forms.it3_result/3` for IT3 — expanding the
@@ -89,6 +91,28 @@ official blank is fine; half-filling one is not.
 The chief arbiter's and organizer's e-mail addresses are blocked the same
 way if left empty — the IT3 template's own printed privacy notice states
 FIDE requires both, so a download missing them would be rejected anyway.
+
+**Uploaded chief arbiter / deputy names are auto-matched, never dumped in
+raw.** A SWAR or TRF file supplies these as free text, and the two sides
+don't even agree on word order (SWAR: "Sylvin De Vet", FIDE: "De Vet,
+Sylvin") — the arbiter filling in the source file could have typed either.
+On upload, each name is run through the exact same order-independent
+matcher the persisting SWAR import path already uses
+(`PairingsEngine.SwarImport.match_official_fide_player/1`):
+
+- Exactly one FIDE entry matches → both the name (rewritten to FIDE's own
+  "Last, First" form) and the FIDE ID are filled in, same as picking that
+  result by hand from the combobox would.
+- No match (or more than one, which this function treats as "not
+  confident") → the name/ID boxes are left **empty** rather than silently
+  holding an unverified spelling. The raw text the file *did* supply
+  appears as a small hint under the empty name box ("Uploaded file says:
+  …") so nothing the file provided is lost — the arbiter just has to
+  confirm it via a search themselves.
+
+Already-filled boxes (typed by hand, or auto-matched from an earlier file in
+a Festival) are never touched by a later upload — same "don't clobber a
+manual edit" rule every other prefilled field on this page follows.
 
 Both need the local FIDE database to be populated (see
 [`rating-refresh.md`](rating-refresh.md)); with an empty table a search
