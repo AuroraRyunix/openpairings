@@ -3,7 +3,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias PairingsEngine.{Repo, Tournaments}
+  alias PairingsEngine.{Audit, Repo, Tournaments}
   alias PairingsEngine.Tournaments.{Player, Round, Pairing}
 
   setup :register_and_log_in_user
@@ -600,5 +600,94 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     assert html =~ "M2·1"
     assert html =~ "M2·2"
     assert html =~ "Match 1, game 1"
+  end
+
+  describe "a blank result submission never silently overwrites an existing one" do
+    test "stages a confirmation instead of clearing the result immediately", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = fixture(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      round1 = Tournaments.get_round(tournament.id, 1) |> Repo.preload(:pairings)
+      pairing = hd(round1.pairings)
+      assert pairing.result == "1-0"
+
+      html = lv |> element("button[phx-value-number='1']") |> render_click()
+      refute html =~ "Clear the recorded result"
+
+      html =
+        render_change(lv, "result", %{"pairing-id" => to_string(pairing.id), "result" => ""})
+
+      assert html =~ "Clear the recorded result (1-0) for this board?"
+      assert html =~ "Yes, clear it"
+
+      # Never written to the DB just from the blank submission arriving.
+      assert Repo.get!(Pairing, pairing.id).result == "1-0"
+
+      [log] = Audit.list_for_tournament(tournament.id, action: "pairing.result_clear_attempted")
+      assert log.details["pairing_id"] == pairing.id
+      assert log.details["from"] == "1-0"
+    end
+
+    test "confirming the clear actually clears it, and logs a distinct action", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = fixture(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      round1 = Tournaments.get_round(tournament.id, 1) |> Repo.preload(:pairings)
+      pairing = hd(round1.pairings)
+
+      lv |> element("button[phx-value-number='1']") |> render_click()
+      render_change(lv, "result", %{"pairing-id" => to_string(pairing.id), "result" => ""})
+
+      html = render_click(lv, "confirm_clear_result", %{"pairing-id" => to_string(pairing.id)})
+
+      refute html =~ "Clear the recorded result"
+      assert Repo.get!(Pairing, pairing.id).result == ""
+
+      [log] = Audit.list_for_tournament(tournament.id, action: "pairing.result_cleared")
+      assert log.details["pairing_id"] == pairing.id
+      assert log.details["from"] == "1-0"
+    end
+
+    test "cancelling leaves the result untouched", %{conn: conn, scope: scope} do
+      tournament = fixture(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      round1 = Tournaments.get_round(tournament.id, 1) |> Repo.preload(:pairings)
+      pairing = hd(round1.pairings)
+
+      lv |> element("button[phx-value-number='1']") |> render_click()
+      render_change(lv, "result", %{"pairing-id" => to_string(pairing.id), "result" => ""})
+
+      html = render_click(lv, "cancel_clear_result", %{})
+
+      refute html =~ "Clear the recorded result"
+      assert Repo.get!(Pairing, pairing.id).result == "1-0"
+    end
+
+    test "a blank submission on a board with no existing result is a harmless no-op, no confirmation needed",
+         %{conn: conn, scope: scope} do
+      tournament = fixture(scope)
+
+      round1 = Tournaments.get_round(tournament.id, 1) |> Repo.preload(:pairings)
+      pairing = hd(round1.pairings)
+      Repo.update!(Ecto.Changeset.change(pairing, result: ""))
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      html =
+        render_change(lv, "result", %{"pairing-id" => to_string(pairing.id), "result" => ""})
+
+      refute html =~ "Clear the recorded result"
+      assert Repo.get!(Pairing, pairing.id).result == ""
+
+      assert Audit.list_for_tournament(tournament.id, action: "pairing.result_clear_attempted") ==
+               []
+    end
   end
 end

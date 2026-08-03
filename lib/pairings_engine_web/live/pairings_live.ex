@@ -48,7 +48,10 @@ defmodule PairingsEngineWeb.PairingsLive do
        error: nil,
        importing_results: false,
        import_errors: nil,
-       remote_notice: false
+       remote_notice: false,
+       # The pairing (if any) awaiting explicit confirmation to have its
+       # result CLEARED — see `handle_event("result", ...)`'s guard below.
+       confirm_clear_pairing_id: nil
      )
      |> allow_upload(:results_csv, accept: :any, max_entries: 1, max_file_size: 2_000_000)
      |> refresh()}
@@ -163,11 +166,38 @@ defmodule PairingsEngineWeb.PairingsLive do
   def handle_event("result", %{"pairing-id" => id, "result" => result}, socket) do
     %{tournament: t, round_number: round_number} = socket.assigns
 
-    socket.assigns.round.pairings
-    |> Enum.find(&(&1.id == String.to_integer(id)))
-    |> case do
+    case Enum.find(socket.assigns.round.pairings, &(&1.id == String.to_integer(id))) do
       nil ->
-        :ok
+        {:noreply, refresh(socket)}
+
+      %{result: previous} = pairing when result in ["", nil] and previous not in [nil, ""] ->
+        # A blank submission arriving for a board that already has a real
+        # result on file is NEVER committed straight away — only staged,
+        # pending an explicit confirm click (see "confirm_clear_result"
+        # below). A genuine "select the blank option to reset this board"
+        # click from an arbiter still works, just one extra click.
+        #
+        # This exists because of a real incident: a burst of ~11
+        # simultaneous "result" events fired for every board in a round at
+        # once (almost certainly triggered by a LiveView reconnect after a
+        # dropped socket — this page had been reconnecting every 1-2
+        # minutes over a flaky mobile connection), and 4 of them carried a
+        # blank value, silently wiping 4 already-recorded results. Nothing
+        # about a single incoming event distinguishes "an arbiter meant to
+        # clear this" from "a stray reconnect-triggered submission" — the
+        # payload looks identical either way — so this guard doesn't try
+        # to guess; it just refuses to let a blank value overwrite a real
+        # one without a second, explicit action confirming it.
+        Audit.log(t.id, socket.assigns.current_scope, "pairing.result_clear_attempted", %{
+          pairing_id: pairing.id,
+          round: round_number,
+          board: pairing.board,
+          white: player_name(pairing.white_player),
+          black: player_name(pairing.black_player),
+          from: previous
+        })
+
+        {:noreply, assign(socket, confirm_clear_pairing_id: pairing.id)}
 
       pairing ->
         previous = pairing.result
@@ -192,9 +222,50 @@ defmodule PairingsEngineWeb.PairingsLive do
           _ ->
             :ok
         end
+
+        {:noreply, socket |> assign(confirm_clear_pairing_id: nil) |> refresh()}
+    end
+  end
+
+  # The explicit second click confirming a blank-result overwrite staged by
+  # the guard above. Re-fetches the pairing fresh rather than trusting
+  # anything already in `socket.assigns` — the confirmation could be
+  # sitting on screen for a while, and this is exactly the code path a
+  # stale/incorrect write must never happen through.
+  def handle_event("confirm_clear_result", %{"pairing-id" => id}, socket) do
+    %{tournament: t, round_number: round_number} = socket.assigns
+
+    case Enum.find(socket.assigns.round.pairings, &(&1.id == String.to_integer(id))) do
+      nil ->
+        :ok
+
+      pairing ->
+        previous = pairing.result
+
+        case Tournaments.update_pairing_result(pairing, "") do
+          {:ok, _} ->
+            Audit.log(t.id, socket.assigns.current_scope, "pairing.result_cleared", %{
+              pairing_id: pairing.id,
+              round: round_number,
+              board: pairing.board,
+              white: player_name(pairing.white_player),
+              black: player_name(pairing.black_player),
+              from: previous
+            })
+
+          _ ->
+            :ok
+        end
     end
 
-    {:noreply, refresh(socket)}
+    {:noreply, socket |> assign(confirm_clear_pairing_id: nil) |> refresh()}
+  end
+
+  # Backs out of a staged clear without writing anything — the select
+  # reverts to its real (unchanged) value on the next render, since the DB
+  # was never touched.
+  def handle_event("cancel_clear_result", _params, socket) do
+    {:noreply, assign(socket, confirm_clear_pairing_id: nil)}
   end
 
   ## ---------- CSV results import ----------
@@ -723,27 +794,45 @@ defmodule PairingsEngineWeb.PairingsLive do
               <td><strong>{player_label(pairing.white_player)}</strong></td>
 
               <td style="text-align: center">
-                <%= if pairing.result == "bye" do %>
-                  <span class="badge">bye ({@tournament.bye_value} pt)</span>
-                <% else %>
-                  <form phx-change="result" id={"result-form-#{pairing.id}"}>
-                    <input type="hidden" name="pairing-id" value={pairing.id} />
-                    <select
-                      name="result"
-                      class="pe-select"
-                      id={"result-select-#{pairing.id}"}
-                      phx-hook=".BlindResultEntry"
-                      data-board-select
-                    >
-                      <option
-                        :for={{value, label} <- results()}
-                        value={value}
-                        selected={pairing.result == value}
+                <%= cond do %>
+                  <% pairing.result == "bye" -> %>
+                    <span class="badge">bye ({@tournament.bye_value} pt)</span>
+                  <% @confirm_clear_pairing_id == pairing.id -> %>
+                    <div class="confirm-clear-result">
+                      <span class="hint">
+                        Clear the recorded result ({pairing.result}) for this board?
+                      </span>
+                      <button
+                        type="button"
+                        class="pe-btn danger-link"
+                        phx-click="confirm_clear_result"
+                        phx-value-pairing-id={pairing.id}
                       >
-                        {label}
-                      </option>
-                    </select>
-                  </form>
+                        Yes, clear it
+                      </button>
+                      <button type="button" class="pe-btn" phx-click="cancel_clear_result">
+                        Cancel
+                      </button>
+                    </div>
+                  <% true -> %>
+                    <form phx-change="result" id={"result-form-#{pairing.id}"}>
+                      <input type="hidden" name="pairing-id" value={pairing.id} />
+                      <select
+                        name="result"
+                        class="pe-select"
+                        id={"result-select-#{pairing.id}"}
+                        phx-hook=".BlindResultEntry"
+                        data-board-select
+                      >
+                        <option
+                          :for={{value, label} <- results()}
+                          value={value}
+                          selected={pairing.result == value}
+                        >
+                          {label}
+                        </option>
+                      </select>
+                    </form>
                 <% end %>
               </td>
 
