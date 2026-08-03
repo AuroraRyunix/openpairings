@@ -354,6 +354,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_inclusion(:fed_exclusion, @exclusion_modes)
     |> validate_number(:rounds_count, greater_than: 0, less_than_or_equal_to: 30)
     |> validate_keizer_top_value()
+    |> validate_abs_scoring()
     |> validate_rr_match_format()
     |> validate_swiss_match_format()
     |> validate_pair_by_category()
@@ -387,6 +388,25 @@ defmodule PairingsEngine.Tournaments.Tournament do
     case get_field(changeset, :keizer_top_value) do
       nil -> changeset
       _ -> validate_number(changeset, :keizer_top_value, greater_than: 0)
+    end
+  end
+
+  # `abs_jusque`/`abs_nbfois` (SWAR's "Pt ABSENT" caps — see
+  # `PairingsEngine.Standings.bye_points/4`) are nullable the same way
+  # `keizer_top_value` is: nil means "no cap", so only validate a value an
+  # organiser (or SwarImport) actually set. Both are round/count numbers, so
+  # negative doesn't mean anything — 0 is meaningful (see `swar_import.ex`'s
+  # `tournament_attrs/1` doc on why 0 isn't the same as "uncapped").
+  defp validate_abs_scoring(changeset) do
+    changeset
+    |> validate_number_if_present(:abs_jusque, greater_than_or_equal_to: 0)
+    |> validate_number_if_present(:abs_nbfois, greater_than_or_equal_to: 0)
+  end
+
+  defp validate_number_if_present(changeset, field, opts) do
+    case get_field(changeset, field) do
+      nil -> changeset
+      _ -> validate_number(changeset, field, opts)
     end
   end
 

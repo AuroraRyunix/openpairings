@@ -302,6 +302,18 @@ the version display code (`PairingsEngineWeb.PairingsLive`/`LiveRoundLive`/
 `PublicPairingsLive`/`PrintController`) should call instead of working out
 the cumulative count itself.
 
+All three fields (`abs_value`/`abs_jusque`/`abs_nbfois`) are also settable
+by hand, for a tournament with no SWAR file at all, on
+`PairingsEngineWeb.SettingsOptionsLive` (`/t/:id/settings/options`, the
+"Scoring" card) — blank means the same "not applicable"/"no cap" nil does
+here. Like the pairing-shape controls on that same page, all three lock
+(greyed out, server-side enforced regardless of the HTML `disabled`
+attribute) once round 1 has been paired — not because changing them later
+would corrupt anything (scores are computed live from these fields, never
+baked into a stored row), but because a tournament that far along is
+presumably still being run under whatever rule it started with, and
+silently changing who's owed points partway through would be confusing.
+
 ### Requested bye vs. genuine absence — two different `byes`-table rows
 
 Easy to conflate, so worth stating plainly: a **requested bye** (arranged
