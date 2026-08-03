@@ -127,9 +127,85 @@ defmodule PairingsEngine.StandingsTest do
 
     # D: 0.5 (draw) + 0 (loss) + 0.5 (half-point bye) = 1.0
     assert ed.points == 1.0
-    # The bye round contributes a dummy score to Buchholz, capped at
-    # draw-points × rounds (0.5 × 3 = 1.5): before(0.5) + complement(0.5) + 0 remaining... = 1.0
-    assert ed.tiebreaks["BH"] > 0.0
+    # Article 16.4: the bye round's dummy opponent score is D's OWN score
+    # (1.0), capped at draw-points × rounds (0.5 × 3 = 1.5) — the cap
+    # doesn't bind here since 1.0 < 1.5. See the dedicated cap test below
+    # for a case where it does.
+    assert ed.tiebreaks["BH"] == 3.5
+    assert ed.tiebreaks["BHC1"] == 2.5
+    assert ed.tiebreaks["SB"] == 1.0
+  end
+
+  test "Article 16.4's cap applies when a high scorer's own score exceeds draw-points × rounds" do
+    # A single player, 3 rounds: 2 real wins, then a half-point bye — own
+    # score 2.5 comfortably exceeds the cap (draw 0.5 × 3 rounds = 1.5), so
+    # the bye's dummy contribution must be capped at 1.5, not the raw 2.5.
+    # This is exactly the real-world case that exposed the bug this test
+    # (and the one above) locks in: a strong player's own bye was
+    # previously computed via a "points before this round + complementary
+    # result + draws for every remaining round" reconstruction found
+    # nowhere in the regulation, instead of the FIDE Handbook 07 Art. 16.4
+    # text: "The dummy's score for the tie-break calculation is the
+    # participant's own score" (capped per 16.4.2 for a bye/absence).
+    tournament =
+      Repo.insert!(%Tournament{
+        name: "Cap Test",
+        type: "swiss",
+        rounds_count: 3,
+        tiebreaks: ~w(BH)
+      })
+
+    [strong, weak1, weak2] =
+      for {name, rating} <- [{"Strong", 2200}, {"Weak1", 1500}, {"Weak2", 1400}] do
+        Repo.insert!(%Player{tournament_id: tournament.id, name: name, fide_rating: rating})
+      end
+
+    r1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
+    r2 = Repo.insert!(%Round{tournament_id: tournament.id, number: 2, status: "finished"})
+    r3 = Repo.insert!(%Round{tournament_id: tournament.id, number: 3, status: "finished"})
+
+    Repo.insert!(%Pairing{
+      round_id: r1.id,
+      board: 1,
+      white_player_id: strong.id,
+      black_player_id: weak1.id,
+      result: "1-0"
+    })
+
+    Repo.insert!(%Pairing{
+      round_id: r2.id,
+      board: 1,
+      white_player_id: strong.id,
+      black_player_id: weak2.id,
+      result: "1-0"
+    })
+
+    # weak1 and weak2 meet in round 3 (a draw) so each has a game record IN
+    # round 3 — otherwise `adjusted_score/3` would treat their otherwise-
+    # missing final round as an implicit withdrawal and pad their
+    # contribution with draw credit, muddying this test's only point:
+    # confirming the CAP on Strong's own bye specifically.
+    Repo.insert!(%Pairing{
+      round_id: r3.id,
+      board: 1,
+      white_player_id: weak1.id,
+      black_player_id: weak2.id,
+      result: "1/2-1/2"
+    })
+
+    Repo.query!(
+      "INSERT INTO byes (tournament_id, player_id, round, type) VALUES (?, ?, ?, ?)",
+      [tournament.id, strong.id, 3, "requested-half"]
+    )
+
+    entries = Standings.standings(tournament)
+    e = Enum.find(entries, &(&1.player.id == strong.id))
+
+    # Own score before the cap would be 1.0 (win) + 1.0 (win) + 0.5 (bye) = 2.5.
+    assert e.points == 2.5
+    # Buchholz = weak1's score (0.5) + weak2's score (0.5) + the bye's dummy
+    # contribution, capped at 1.5 (not the raw 2.5) = 2.5.
+    assert e.tiebreaks["BH"] == 2.5
   end
 
   # bye_points/2 is pure — a bare %Tournament{} struct is enough, no DB.

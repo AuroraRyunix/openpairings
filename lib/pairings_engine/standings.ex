@@ -594,21 +594,27 @@ defmodule PairingsEngine.Standings do
     Enum.sum(Enum.map(head, & &1.points)) + (length(tail) + missing_tail) * t.points_draw
   end
 
-  # Article 16.4: an unplayed round contributes the score of a dummy opponent —
-  # the participant's score before the round, the complementary result, then
-  # draws for every later round — capped at draw points × total rounds.
-  defp dummy_score(entry, game, t) do
-    before =
-      entry.games
-      |> Enum.filter(&(&1.round < game.round))
-      |> Enum.map(& &1.points)
-      |> Enum.sum()
-
-    complement = max(t.points_win - game.points, t.points_loss)
-    remaining = t.rounds_count - game.round
-
-    dummy = before + complement + remaining * t.points_draw
-    dummy |> min(t.points_draw * t.rounds_count) |> round_f(2)
+  # Article 16.4: an unplayed round contributes the score of a dummy
+  # opponent, whose score for this purpose IS the participant's own actual
+  # score — not a projection reconstructed from "points before this round,
+  # plus a complementary result, plus draws for every round still left in
+  # the schedule". That reconstruction was this function's ENTIRE previous
+  # body and does not appear anywhere in the regulation; confirmed wrong
+  # against both the FIDE Handbook 07 text itself (Art. 16.4: "The dummy's
+  # score for the tie-break calculation is the participant's own score")
+  # and its own worked example (Tie-Break Exercises, Exercise 11: a
+  # player's half-point bye contributes "a value equal to their score...
+  # multiplied by the equivalent result of the round" — nothing else).
+  #
+  # Capped per 16.4.2 at a draw's worth of points × total rounds — this
+  # part of the old formula was already right and is unchanged. 16.4.1's
+  # forfeit-specific cap (against the scheduled opponent's adjusted score)
+  # never applies at this call site: every round `dummy_score` is asked
+  # about has no opponent at all (a real forfeit against a scheduled
+  # opponent is a played=false `Pairing` row WITH an opponent_id, handled
+  # by `adjusted_score/3` via `pairing_records/3` instead).
+  defp dummy_score(entry, _game, t) do
+    entry.points |> min(t.points_draw * t.rounds_count) |> round_f(2)
   end
 
   defp cut(contributions, n_lowest, n_highest) do
