@@ -28,19 +28,6 @@ These are real, identified gaps — not yet built, and not accidentally missed:
 
 ## Tech debt
 
-- **Security advisory on a transitive dep** — `mix deps.get` surfaced a
-  Hex security-advisory notice during the 2026-07-25 deploy (no details
-  captured at the time). Run `mix hex.audit` and address whatever it flags.
-- **The SSO registration blocklist is a single hardcoded domain.** `User`'s
-  `@blocked_registration_domain "zerotwo.cloud"` is a module attribute, not
-  configuration. Deliberate while there is exactly one SSO domain — but if a
-  second federated domain is ever added, this must become a configured list
-  (and `validate_not_sso_domain/1` updated), or the new domain will be
-  silently self-registerable.
-- **`docs/AGENTS.md` / this file need to stay current** — both were written
-  in a single documentation pass (2026-07-25); nothing enforces they get
-  updated when the code moves on. Treat any obviously stale claim in either
-  as a bug, not gospel — see the note at the top of `docs/AGENTS.md`.
 - **`tournaments_live.ex` / `norms_live.ex`** carry `.form-grid` (not the
   Settings pages' `.set-*` layout primitives) by design — those two pages
   are outside the Settings nav, so the inconsistency is intentional, not
@@ -67,6 +54,21 @@ These are real, identified gaps — not yet built, and not accidentally missed:
   event types.
 - Standalone binaries (`docs/binaries.md`) have no automated smoke test in
   CI beyond "it builds" — nothing currently boots each target and hits `/`.
+- **Re-uploading a `.swar` file for a tournament already in OpenPairings
+  creates a second, duplicate tournament instead of updating the existing
+  one** — there's no dedup at all today; two imports of the same file just
+  produce two separate rows with the same name. SWAR's own `.swar` header
+  carries a persistent per-tournament GUID (`SwarImport.parse/1` already
+  parses it as `data.guid`, currently discarded) — SWAR's own "upload to
+  server" feature (`Lists > Tournament > Server`) re-sends that same GUID
+  on every re-upload, so the federation's own systems already treat it as
+  the stable "same tournament" identity. Proposed first step: store the
+  GUID on import, and when a new upload's GUID matches an existing
+  tournament, ask "update this tournament instead of creating a new one?"
+  before proceeding — a full field-level *merge* (rebuild rounds/results
+  without clobbering OpenPairings-only edits like norm_data, manual
+  ranking, extra points, forbidden pairings) is real additional work beyond
+  that and deliberately not scoped yet.
 
 ## Process notes for whoever picks this up next
 
@@ -78,3 +80,7 @@ These are real, identified gaps — not yet built, and not accidentally missed:
   files to LF, but a misconfigured editor can still fight it locally).
 - Never commit `Co-Authored-By`/`Generated with Claude Code` trailers to
   this repo — an explicit, standing maintainer preference.
+- `docs/AGENTS.md` and this file were written in a single documentation
+  pass (2026-07-25); nothing enforces they get updated when the code moves
+  on. Treat any obviously stale claim in either as a bug, not gospel — see
+  the note at the top of `docs/AGENTS.md`.

@@ -73,6 +73,7 @@ server.
 | `KEYCLOAK_ISSUER` | no | defaults to `https://auth.zerotwo.cloud/realms/zerotwo` |
 | `KEYCLOAK_REDIRECT_URI` | no | defaults to `https://$PHX_HOST/auth/keycloak/callback` |
 | `FIDE_LIST_URL` | no | where the monthly rating-list zip is fetched from. Defaults to `https://ratings.fide.com/download/players_list.zip`. **Set this on any host FIDE blocks** — see below |
+| `SSO_BLOCKED_REGISTRATION_DOMAIN` | no | the e-mail domain self-serve registration/email-change is blocked on (accounts there must come from SSO instead — see `PairingsEngine.Accounts.User.blocked_registration_domain/0`). Defaults to `zerotwo.cloud`. Only relevant if a second federated domain is ever added |
 
 ### `FIDE_LIST_URL` — working around FIDE's hosting-range blocks
 

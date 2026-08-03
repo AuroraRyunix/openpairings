@@ -7,6 +7,12 @@ defmodule PairingsEngine.Accounts.User do
   # never through self-serve registration or an email change. Keep this in
   # sync with `validate_not_sso_domain/1` below, which is the enforcement
   # point — this is just the constant it reads.
+  #
+  # The compiled-in default here; `blocked_registration_domain/0` below is
+  # what everything else in this module actually reads, and prefers
+  # `SSO_BLOCKED_REGISTRATION_DOMAIN` (config/runtime.exs) over this so a
+  # second federated domain doesn't need a code change and a redeploy —
+  # only a config change.
   @blocked_registration_domain "zerotwo.cloud"
 
   schema "users" do
@@ -84,7 +90,7 @@ defmodule PairingsEngine.Accounts.User do
   @doc """
   The domain that is reachable **only** through 02cloud SSO.
   """
-  def sso_domain, do: @blocked_registration_domain
+  def sso_domain, do: blocked_registration_domain()
 
   @doc """
   Whether `email` belongs to the SSO-only domain.
@@ -96,12 +102,23 @@ defmodule PairingsEngine.Accounts.User do
   """
   def sso_domain_email?(email) when is_binary(email) do
     case String.split(email, "@") do
-      [_local, domain] -> String.downcase(String.trim(domain)) == @blocked_registration_domain
+      [_local, domain] -> String.downcase(String.trim(domain)) == blocked_registration_domain()
       _ -> false
     end
   end
 
   def sso_domain_email?(_), do: false
+
+  @doc """
+  The email domain self-serve registration/email-change is blocked on —
+  `SSO_BLOCKED_REGISTRATION_DOMAIN` (config/runtime.exs) when set, otherwise
+  the compiled-in default. A runtime lookup (not a module attribute) on
+  purpose, so a second federated domain is a config change, not a release.
+  """
+  def blocked_registration_domain do
+    Application.get_env(:pairings_engine, :accounts, [])[:blocked_registration_domain] ||
+      @blocked_registration_domain
+  end
 
   # `@zerotwo.cloud` accounts must come from SSO (`keycloak_changeset/2`), not
   # self-serve registration or a settings-page email change — otherwise
@@ -117,7 +134,7 @@ defmodule PairingsEngine.Accounts.User do
       if sso_domain_email?(email) do
         [
           email:
-            "sign in with SSO instead of registering an @#{@blocked_registration_domain} account"
+            "sign in with SSO instead of registering an @#{blocked_registration_domain()} account"
         ]
       else
         []

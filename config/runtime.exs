@@ -98,6 +98,16 @@ end
 # control. See `PairingsEngine.Fide.Sync.list_url/0`.
 config :pairings_engine, :fide, list_url: System.get_env("FIDE_LIST_URL")
 
+# The email domain self-serve registration/email-change is blocked on —
+# accounts on it must come from 02cloud SSO instead (see
+# `PairingsEngine.Accounts.User.blocked_registration_domain/0`). Defaults to
+# the one domain that currently has SSO wired up; set
+# SSO_BLOCKED_REGISTRATION_DOMAIN if a second federated domain is ever added,
+# rather than hardcoding it — this was tech debt (a single hardcoded domain
+# module attribute) until this env var existed.
+config :pairings_engine, :accounts,
+  blocked_registration_domain: System.get_env("SSO_BLOCKED_REGISTRATION_DOMAIN")
+
 # Configure 02cloud SSO (Keycloak, auth.zerotwo.cloud, realm `zerotwo`).
 #
 # Unlike SMTP above, this is NOT required to boot — SSO is one login option
