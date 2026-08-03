@@ -86,6 +86,10 @@ has no FIDE ID — same rule as the signed-in page, for the same reason: FIDE
 identifies officials by id and bounces a report missing one. Leaving an
 official blank is fine; half-filling one is not.
 
+The chief arbiter's and organizer's e-mail addresses are blocked the same
+way if left empty — the IT3 template's own printed privacy notice states
+FIDE requires both, so a download missing them would be rejected anyway.
+
 Both need the local FIDE database to be populated (see
 [`rating-refresh.md`](rating-refresh.md)); with an empty table a search
 simply returns no results, and every field stays hand-editable (though still

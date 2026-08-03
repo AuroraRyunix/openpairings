@@ -519,6 +519,13 @@ defmodule PairingsEngineWeb.NormsLive do
   # A deputy slot left empty is fine (not every event has two); a deputy that
   # has been *named* without an ID is not, since that's the half-filled state
   # the SWAR import leaves behind whenever a name is ambiguous.
+  #
+  # Chief arbiter's and organizer's e-mail are ALSO required — not a made-up
+  # rule, FIDE's own template prints "PRIVACY NOTICE: Chief Organizer's and
+  # Chief Arbiter's e-mail address is required only for institutional
+  # purposes and will be displayed on FIDE website" right on the
+  # Certificaat sheet, so a report missing either is exactly as much a
+  # wasted submission as a missing FIDE ID.
   def report_blockers(tournament) do
     chief =
       cond do
@@ -539,7 +546,14 @@ defmodule PairingsEngineWeb.NormsLive do
           blank?(o_get(tournament, "arbiter#{n}_fide_id")),
           do: "Arbiter #{n} FIDE ID"
 
-    chief ++ deputies ++ extras
+    emails =
+      [
+        blank?(o_get(tournament, "chief_arbiter_email")) && "Chief arbiter e-mail",
+        blank?(o_get(tournament, "organizer_email")) && "Organizer e-mail"
+      ]
+      |> Enum.filter(& &1)
+
+    chief ++ deputies ++ extras ++ emails
   end
 
   defp apply_arbiter_pick(tournament, "chief_arbiter", fp) do

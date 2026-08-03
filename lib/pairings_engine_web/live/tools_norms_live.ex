@@ -426,13 +426,32 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   #
   # An official left entirely blank is fine: not every event has two deputies,
   # and this page has no chief arbiter until the arbiter fills one in.
+  #
+  # Chief arbiter's and organizer's e-mail are ALSO required — FIDE's own
+  # template prints "PRIVACY NOTICE: Chief Organizer's and Chief Arbiter's
+  # e-mail address is required only for institutional purposes and will be
+  # displayed on FIDE website" right on the Certificaat sheet, same rule the
+  # signed-in Norms page enforces.
   defp report_blockers(overlay) do
-    for {role, label} <- arbiter_roles(overlay),
-        name = Map.get(overlay, arbiter_name_key(role), ""),
-        String.trim(to_string(name)) != "",
-        String.trim(to_string(Map.get(overlay, "#{role}_fide_id", ""))) == "",
-        do: label
+    ids =
+      for {role, label} <- arbiter_roles(overlay),
+          name = Map.get(overlay, arbiter_name_key(role), ""),
+          String.trim(to_string(name)) != "",
+          String.trim(to_string(Map.get(overlay, "#{role}_fide_id", ""))) == "",
+          do: label
+
+    emails =
+      [
+        blank_overlay?(overlay, "chief_arbiter_email") && "Chief arbiter e-mail",
+        blank_overlay?(overlay, "organizer_email") && "Organizer e-mail"
+      ]
+      |> Enum.filter(& &1)
+
+    ids ++ emails
   end
+
+  defp blank_overlay?(overlay, key),
+    do: overlay |> Map.get(key, "") |> to_string() |> String.trim() == ""
 
   defp arbiter_name_key("chief_arbiter"), do: "chief_arbiter_name"
   # Every other role (deputies and extra arbiters) follows "<role>_name".

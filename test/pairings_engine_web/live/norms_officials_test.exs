@@ -373,7 +373,11 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
 
       {:ok, tournament} =
         Tournaments.update_tournament(tournament, %{
-          "officials" => %{"chief_arbiter_fide_id" => "205494"}
+          "officials" => %{
+            "chief_arbiter_fide_id" => "205494",
+            "chief_arbiter_email" => "arbiter@example.com",
+            "organizer_email" => "organizer@example.com"
+          }
         })
 
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/norms")
@@ -389,6 +393,8 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
         Tournaments.update_tournament(tournament, %{
           "officials" => %{
             "chief_arbiter_fide_id" => "205494",
+            "chief_arbiter_email" => "arbiter@example.com",
+            "organizer_email" => "organizer@example.com",
             "deputy1_name" => "Sylvin De Vet",
             "deputy1_fide_id" => "214787"
           }
@@ -398,6 +404,23 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
 
       refute html =~ "Not ready to submit to FIDE"
       assert html =~ ~s(href="/t/#{tournament.id}/norms/it3")
+    end
+
+    test "a missing chief arbiter or organizer e-mail blocks the download, matching FIDE's own privacy-notice requirement",
+         %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope, %{"chief_arbiter" => "Luc Cornet"})
+
+      {:ok, tournament} =
+        Tournaments.update_tournament(tournament, %{
+          "officials" => %{"chief_arbiter_fide_id" => "205494"}
+        })
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/norms")
+
+      assert html =~ "Not ready to submit to FIDE"
+      assert html =~ "Chief arbiter e-mail"
+      assert html =~ "Organizer e-mail"
+      refute html =~ ~s(href="/t/#{tournament.id}/norms/it3")
     end
   end
 

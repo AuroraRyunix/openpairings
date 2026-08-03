@@ -11,14 +11,20 @@ defmodule PairingsEngineWeb.NormsLiveTest do
     {:ok, tournament} =
       Tournaments.create_tournament(scope, %{"name" => "Norms LV", "type" => "swiss"})
 
-    # IT3/FA1 are gated on every official having a FIDE ID (see
-    # `report_blockers/1` — FIDE bounces a report it can't identify an arbiter
-    # from), so a tournament that's expected to render live download links has
-    # to have a complete chief arbiter.
+    # IT3/FA1 are gated on every official having a FIDE ID, plus chief
+    # arbiter/organizer e-mail (see `report_blockers/1` — FIDE bounces a
+    # report it can't identify an arbiter from, or that's missing the
+    # e-mails its own template's privacy notice requires), so a tournament
+    # that's expected to render live download links has to have all of it.
     {:ok, tournament} =
       Tournaments.update_tournament(tournament, %{
         "chief_arbiter" => "Cornet, Luc",
-        "officials" => %{"chief_arbiter_fide_id" => "205494"}
+        "organizer" => "Jane Organizer",
+        "officials" => %{
+          "chief_arbiter_fide_id" => "205494",
+          "chief_arbiter_email" => "arbiter@example.com",
+          "organizer_email" => "organizer@example.com"
+        }
       })
 
     {:ok, _player} = Tournaments.create_player(tournament.id, %{"name" => "Doe, Jane"})

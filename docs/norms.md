@@ -141,11 +141,18 @@ missing field until:
 
 - the chief arbiter has a name **and** a FIDE ID, and
 - every deputy (and every extra arbiter — see below) that has been *named*
-  also has a FIDE ID.
+  also has a FIDE ID, and
+- the chief arbiter's and organizer's e-mail addresses are both filled in.
 
 An empty deputy slot is fine — not every event has two. The half-filled state
 (name, no id) is specifically what the SWAR import leaves behind whenever a
 name is ambiguous, so this is the check that stops that reaching FIDE.
+
+The two e-mail addresses are mandatory (not just recommended) because the
+IT3 template itself prints a PRIVACY NOTICE stating FIDE requires both to
+process the report — a downloaded file missing them would be sent back
+anyway, so the same "don't produce a download FIDE will reject" logic that
+gates the FIDE IDs above applies to these fields too.
 
 ## Arbiters beyond chief + 2 deputies
 

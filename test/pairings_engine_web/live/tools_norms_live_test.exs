@@ -76,6 +76,21 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     end)
   end
 
+  # FIDE's own template requires chief arbiter's and organizer's e-mail (see
+  # `report_blockers/1`'s doc) — tests that only care about some other
+  # field call this first so the download isn't blocked for an unrelated
+  # reason.
+  defp fill_required_emails(lv) do
+    lv
+    |> form("#tools-fields-form", %{
+      "overlay" => %{
+        "chief_arbiter_email" => "chief@example.com",
+        "organizer_email" => "organizer@example.com"
+      }
+    })
+    |> render_change()
+  end
+
   defp download_token(lv) do
     [_, token] = Regex.run(~r{/tools/download/([A-Za-z0-9_-]+)/it3}, render(lv))
     token
@@ -126,6 +141,7 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     assert html =~ "alpha.trf"
     assert html =~ "Download IT3"
 
+    fill_required_emails(lv)
     conn = get(conn, ~p"/tools/download/#{download_token(lv)}/it3")
 
     assert conn.status == 200
@@ -172,6 +188,7 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     })
     |> render_change()
 
+    fill_required_emails(lv)
     conn = get(conn, ~p"/tools/download/#{download_token(lv)}/fa1")
 
     assert conn.status == 200
@@ -267,6 +284,7 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     |> element(~s(button[phx-click="arbiter_pick"][phx-value-fide-id="205494"]))
     |> render_click()
 
+    fill_required_emails(lv)
     conn = get(conn, ~p"/tools/download/#{download_token(lv)}/it3")
 
     assert conn.status == 200
@@ -298,6 +316,7 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     refute has_element?(lv, "td", "Beta Open")
 
     # Back to a single tournament: the IT3 filename is no longer a Festival.
+    fill_required_emails(lv)
     conn = get(conn, ~p"/tools/download/#{download_token(lv)}/it3")
     assert [disposition] = get_resp_header(conn, "content-disposition")
     assert disposition =~ "IT3-alpha-open.xlsx"
@@ -317,6 +336,7 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     assert html =~ "Festival"
     assert has_element?(lv, "input[type=\"radio\"][phx-value-index=\"0\"]")
 
+    fill_required_emails(lv)
     conn = get(conn, ~p"/tools/download/#{download_token(lv)}/it3")
 
     assert conn.status == 200
@@ -335,6 +355,7 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
 
     lv |> element("input[type=\"radio\"][phx-value-index=\"1\"]") |> render_click()
 
+    fill_required_emails(lv)
     conn = get(conn, ~p"/tools/download/#{download_token(lv)}/it3")
 
     assert [disposition] = get_resp_header(conn, "content-disposition")
@@ -349,6 +370,7 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
       {"beta.trf", trf_text("Beta Open", [{"Alice, Again", 111}, {"Dave", 444}])}
     ])
 
+    fill_required_emails(lv)
     conn = get(conn, ~p"/tools/download/#{download_token(lv)}/it3")
 
     assert conn.status == 200
@@ -371,6 +393,7 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     # The good file still parsed and still downloads.
     assert html =~ "Alpha Open"
 
+    fill_required_emails(lv)
     conn = get(conn, ~p"/tools/download/#{download_token(lv)}/it3")
     assert conn.status == 200
     assert [disposition] = get_resp_header(conn, "content-disposition")
@@ -798,6 +821,7 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
       {"a.trf", trf_text("Alpha Open", [{"Burssens, Jorian", 111}, {"Bob", 222}])}
     ])
 
+    fill_required_emails(lv)
     conn = get(conn, ~p"/tools/download/#{download_token(lv)}/it3")
     assert conn.status == 200
   end
