@@ -70,8 +70,8 @@ defmodule PairingsEngine.Norms.FormsTest do
       assert fills["B3"] == "Test Open 2026"
       assert fills["B4"] == "BEL"
       assert fills["B5"] == "Chess Hall, Brussels"
-      assert fills["B6"] == ~D[2026-07-10]
-      assert fills["B7"] == ~D[2026-07-18]
+      assert fills["B6"] == "10/07/2026"
+      assert fills["B7"] == "18/07/2026"
       assert fills["B8"] == 999_001
       assert fills["B9"] == "Jane Organizer"
       assert fills["B10"] == "organizer@example.com"
@@ -360,8 +360,8 @@ defmodule PairingsEngine.Norms.FormsTest do
       assert fills["B5"] == "BEL"
       assert fills["B6"] == "BEL2026001"
       assert fills["B7"] == "Test Open 2026"
-      assert fills["B8"] == ~D[2026-07-10]
-      assert fills["B9"] == ~D[2026-07-18]
+      assert fills["B8"] == "10/07/2026"
+      assert fills["B9"] == "18/07/2026"
       assert fills["B10"] == "Chess Hall, Brussels"
       assert fills["B11"] == "Swiss"
       assert fills["B12"] == 9
@@ -372,7 +372,7 @@ defmodule PairingsEngine.Norms.FormsTest do
       assert fills["B18"] == "John Arbiter"
       assert fills["B20"] == "Chief Arbiter"
       assert fills["B21"] == "BEL"
-      assert %Date{} = fills["B22"]
+      assert fills["B22"] =~ ~r/^\d\d\/\d\d\/\d\d\d\d$/
     end
 
     test "ia1_fills/3 has the identical cell layout" do
@@ -419,11 +419,12 @@ defmodule PairingsEngine.Norms.FormsTest do
       refute Map.has_key?(fills, "B25")
     end
 
-    test "fills both Date fields (B22, B26) with today's date" do
+    test "fills both Date fields (B22, B26) with today's date, as DD/MM/YYYY text" do
       fills = Forms.fa1_fills(tournament(), [], @candidate)["Invulformulier"]
+      today = Calendar.strftime(Date.utc_today(), "%d/%m/%Y")
 
-      assert fills["B22"] == Date.utc_today()
-      assert fills["B26"] == Date.utc_today()
+      assert fills["B22"] == today
+      assert fills["B26"] == today
     end
 
     test "produced fills apply cleanly to the real FA1 and IA1 templates" do
@@ -458,8 +459,15 @@ defmodule PairingsEngine.Norms.FormsTest do
       assert fills["Y4"] == "https://example.com/t/1"
       assert fills["A6"] == "John Arbiter (888001)"
       assert fills["I6"] == "BEL, Chess Hall, Brussels"
-      assert fills["V6"] == ~D[2026-07-10]
-      assert fills["Z6"] == ~D[2026-07-18]
+      assert fills["V6"] == "10/07/2026"
+      assert fills["Z6"] == "18/07/2026"
+    end
+
+    test "A6's chief arbiter name follows the same FIDE house style as IT3/FA1's, not raw casing" do
+      t = tournament(%{chief_arbiter: "Cornet, Luc"})
+      fills = Forms.it4_fills(t, [])["IT 4"]
+
+      assert fills["A6"] =~ "CORNET, Luc"
     end
 
     test "only includes players with a non-blank claimed title, starting at row 11" do

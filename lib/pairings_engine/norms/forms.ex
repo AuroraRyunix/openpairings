@@ -99,8 +99,8 @@ defmodule PairingsEngine.Norms.Forms do
           "B3" => blank(tournament.name),
           "B4" => blank(tournament.federation),
           "B5" => place(tournament),
-          "B6" => parse_date(tournament.start_date),
-          "B7" => parse_date(tournament.end_date),
+          "B6" => format_date(tournament.start_date),
+          "B7" => format_date(tournament.end_date),
           "B8" => parse_int(Map.get(o, "organizer_id")),
           "B9" => blank(fide_display_name(tournament.organizer)),
           "B10" => blank(Map.get(o, "organizer_email")),
@@ -289,8 +289,8 @@ defmodule PairingsEngine.Norms.Forms do
         "B5" => blank(tournament.federation),
         "B6" => blank(tournament.event_code),
         "B7" => blank(tournament.name),
-        "B8" => parse_date(tournament.start_date),
-        "B9" => parse_date(tournament.end_date),
+        "B8" => format_date(tournament.start_date),
+        "B9" => format_date(tournament.end_date),
         "B10" => place(tournament),
         "B11" => system_label(tournament.type),
         "B12" => tournament.rounds_count,
@@ -302,11 +302,11 @@ defmodule PairingsEngine.Norms.Forms do
         "B18" => blank(fide_display_name(tournament.chief_arbiter)),
         "B20" => "Chief Arbiter",
         "B21" => blank(tournament.federation),
-        "B22" => Date.utc_today(),
+        "B22" => format_date(Date.utc_today()),
         # The second "Date" field, next to the Belgian authenticating
         # official's pre-printed name/position — both dates on this form are
         # the date the report is generated, not two different events.
-        "B26" => Date.utc_today()
+        "B26" => format_date(Date.utc_today())
       }
     }
   end
@@ -353,8 +353,8 @@ defmodule PairingsEngine.Norms.Forms do
       "A6" => it4_chief_arbiter(tournament, o),
       "I6" => it4_country_place(tournament),
       "S6" => blank(Map.get(o, "it4_event_type")),
-      "V6" => parse_date(tournament.start_date),
-      "Z6" => parse_date(tournament.end_date)
+      "V6" => format_date(tournament.start_date),
+      "Z6" => format_date(tournament.end_date)
     }
   end
 
@@ -387,7 +387,7 @@ defmodule PairingsEngine.Norms.Forms do
   end
 
   defp it4_chief_arbiter(tournament, o) do
-    name = blank(tournament.chief_arbiter)
+    name = blank(fide_display_name(tournament.chief_arbiter))
     id = blank(Map.get(o, "chief_arbiter_fide_id"))
 
     case {name, id} do
@@ -569,13 +569,24 @@ defmodule PairingsEngine.Norms.Forms do
     end
   end
 
-  defp parse_date(nil), do: nil
-  defp parse_date(""), do: nil
+  # Every date cell on these forms is written as literal "DD/MM/YYYY" text,
+  # not an Excel date serial — a serial's display format is a *style*, which
+  # Excel renders per the *viewer's own OS locale* (an American reader sees
+  # "8/2/26" for the same underlying value a Belgian reader sees as
+  # "2/8/2026" — the classic Excel numFmt-14 footgun). Writing the digits we
+  # actually mean, as text, means every reader sees the same thing.
+  defp format_date(nil), do: nil
+  defp format_date(""), do: nil
 
-  defp parse_date(s) when is_binary(s) do
+  defp format_date(%Date{} = d),
+    do: "#{pad2(d.day)}/#{pad2(d.month)}/#{d.year}"
+
+  defp format_date(s) when is_binary(s) do
     case Date.from_iso8601(s) do
-      {:ok, date} -> date
+      {:ok, date} -> format_date(date)
       {:error, _} -> nil
     end
   end
+
+  defp pad2(n), do: n |> Integer.to_string() |> String.pad_leading(2, "0")
 end
