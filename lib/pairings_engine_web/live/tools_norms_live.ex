@@ -47,7 +47,8 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
   @overlay_fields ~w(chief_arbiter_name chief_arbiter_fide_id chief_arbiter_email
                       organizer_name organizer_fide_id organizer_email event_code
-                      fide_tournament_id) ++
+                      fide_tournament_id person_responsible_pairings
+                      person_responsible_pairings_fide_id) ++
                     Enum.flat_map(1..@max_deputies, &["deputy#{&1}_name", "deputy#{&1}_fide_id"])
   @candidate_fields ~w(last_name first_name fide_id federation)
 
@@ -519,6 +520,9 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
     do: overlay |> Map.get(key, "") |> to_string() |> String.trim() == ""
 
   defp arbiter_name_key("chief_arbiter"), do: "chief_arbiter_name"
+  # Same flat key the signed-in Norms page's officials map already uses for
+  # this one (no "_name" suffix) — see ArbiterCombo.Live.parse_field/1.
+  defp arbiter_name_key("person_responsible_pairings"), do: "person_responsible_pairings"
   # Every other role (deputies and extra arbiters) follows "<role>_name".
   defp arbiter_name_key(role), do: "#{role}_name"
 
@@ -827,6 +831,15 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
               label="FIDE tournament ID"
               hint="This report's own numeric ID at FIDE — a different thing from the event code above."
               values={@overlay}
+            />
+            <.arbiter_combo
+              role="person_responsible_pairings"
+              label="Person responsible for pairings"
+              name_field="overlay[person_responsible_pairings]"
+              name_value={Map.get(@overlay, "person_responsible_pairings", "")}
+              id_field="overlay[person_responsible_pairings_fide_id]"
+              id_value={Map.get(@overlay, "person_responsible_pairings_fide_id", "")}
+              search={@arbiter_search}
             />
           </div>
 

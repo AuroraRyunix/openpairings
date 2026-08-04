@@ -943,6 +943,42 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
       assert xml =~ "300100"
       assert xml =~ "BURSSENS, Jorian"
     end
+
+    test "person responsible for pairings has the same real FIDE-lookup combobox, and it flows into the downloaded IT3",
+         %{conn: conn} do
+      Repo.insert!(%PairingsEngine.Fide.FidePlayer{
+        fide_id: 500_200,
+        name: "Devet, Sylvin",
+        federation: "BEL"
+      })
+
+      {:ok, lv, _html} = live(conn, ~p"/tools/norms")
+      upload_files(lv, [{"a.trf", trf_text("Alpha Open", [{"Alice", 111}, {"Bob", 222}])}])
+
+      assert has_element?(lv, "input[name='overlay[person_responsible_pairings]']")
+
+      lv
+      |> element("input[name='overlay[person_responsible_pairings]']")
+      |> render_change(%{
+        "overlay" => %{"person_responsible_pairings" => "Devet"},
+        "_target" => ["overlay", "person_responsible_pairings"]
+      })
+
+      html =
+        lv
+        |> element(~s(button[phx-click="arbiter_pick"][phx-value-fide-id="500200"]))
+        |> render_click()
+
+      assert html =~ ~s(value="Devet, Sylvin")
+      assert html =~ ~s(value="500200")
+
+      fill_required_emails(lv)
+      conn = get(conn, ~p"/tools/download/#{download_token(lv)}/it3")
+
+      assert conn.status == 200
+      xml = xlsx_xml(conn.resp_body)
+      assert xml =~ "DEVET, Sylvin"
+    end
   end
 
   test "player surnames are capitalised in the downloaded IT4", %{conn: conn} do

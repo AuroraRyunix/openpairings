@@ -26,8 +26,9 @@ defmodule PairingsEngine.Tools.Overlay do
   `"arbiterN_name"` / `"arbiterN_fide_id"` for `N` in `1..extra_arbiters_count`
   (arbiters beyond those 2 ranked deputies — see
   `PairingsEngine.Norms.ItThreeExpand`), `"organizer_name"` / `"organizer_fide_id"` /
-  `"organizer_email"`, `"event_code"`, `"fide_tournament_id"`. Unrecognised keys
-  are ignored.
+  `"organizer_email"`, `"person_responsible_pairings"` /
+  `"person_responsible_pairings_fide_id"`, `"event_code"`, `"fide_tournament_id"`.
+  Unrecognised keys are ignored.
   """
   def apply(%Tournament{} = tournament, overlay) when is_map(overlay) do
     officials =
@@ -36,6 +37,14 @@ defmodule PairingsEngine.Tools.Overlay do
       |> maybe_put_officials("chief_arbiter_email", get(overlay, "chief_arbiter_email"))
       |> maybe_put_officials("organizer_id", get(overlay, "organizer_fide_id"))
       |> maybe_put_officials("organizer_email", get(overlay, "organizer_email"))
+      |> maybe_put_officials(
+        "person_responsible_pairings",
+        get(overlay, "person_responsible_pairings")
+      )
+      |> maybe_put_officials(
+        "person_responsible_pairings_fide_id",
+        get(overlay, "person_responsible_pairings_fide_id")
+      )
       |> merge_deputies(overlay)
       |> merge_extra_arbiters(overlay)
 

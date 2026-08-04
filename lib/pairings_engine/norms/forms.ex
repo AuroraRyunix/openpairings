@@ -113,7 +113,7 @@ defmodule PairingsEngine.Norms.Forms do
           "B17" => swiss_variant_label(tournament, o),
           "B18" => acceleration_label(tournament.acceleration),
           "B19" => manual_mark(o),
-          "B20" => blank(Map.get(o, "person_responsible_pairings")),
+          "B20" => blank(fide_display_name(Map.get(o, "person_responsible_pairings"))),
           "B21" => computerized_mark(o),
           "B22" => pairing_program(o, source),
           "B23" => blank(Map.get(o, "remark1")),
