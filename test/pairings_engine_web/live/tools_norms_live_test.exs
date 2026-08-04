@@ -80,12 +80,16 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
   # `report_blockers/1`'s doc) — tests that only care about some other
   # field call this first so the download isn't blocked for an unrelated
   # reason.
+  # Grown beyond just e-mails as more fields joined `report_blockers/1` — kept
+  # this name since every call site already means "get to a downloadable
+  # state", not literally "fill only the e-mail boxes".
   defp fill_required_emails(lv) do
     lv
     |> form("#tools-fields-form", %{
       "overlay" => %{
         "chief_arbiter_email" => "chief@example.com",
-        "organizer_email" => "organizer@example.com"
+        "organizer_email" => "organizer@example.com",
+        "fide_tournament_id" => "12345"
       }
     })
     |> render_change()
@@ -209,7 +213,8 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     |> form("#tools-fields-form", %{
       "overlay" => %{
         "chief_arbiter_email" => "chief@example.com",
-        "organizer_email" => "organizer@example.com"
+        "organizer_email" => "organizer@example.com",
+        "fide_tournament_id" => "12345"
       }
     })
     |> render_change()
@@ -223,6 +228,35 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     # Generated from the public Tools page, so Program used credits SWAR
     # rather than OpenPairings (see Norms.Forms.it3_fills/3).
     assert xml =~ "Swar (With JaVaFo)"
+  end
+
+  test "no FIDE tournament ID blocks the downloads, even with every official filled in", %{
+    conn: conn
+  } do
+    {:ok, lv, _html} = live(conn, ~p"/tools/norms")
+    upload_files(lv, [{"alpha.trf", trf_text("Alpha Open", [{"Alice", 111}, {"Bob", 222}])}])
+
+    lv
+    |> form("#tools-fields-form", %{
+      "overlay" => %{
+        "chief_arbiter_email" => "chief@example.com",
+        "organizer_email" => "organizer@example.com"
+      }
+    })
+    |> render_change()
+
+    html = render(lv)
+    assert html =~ "Not ready to submit to FIDE"
+    assert html =~ "FIDE tournament ID"
+    refute html =~ ~s(href="/tools/download/)
+
+    html =
+      lv
+      |> form("#tools-fields-form", %{"overlay" => %{"fide_tournament_id" => "12345"}})
+      |> render_change()
+
+    refute html =~ "Not ready to submit to FIDE"
+    assert html =~ ~s(href="/tools/download/)
   end
 
   test "only 2 ranked deputy arbiter slots are offered — FIDE never ranks a 3rd/4th",
@@ -869,6 +903,44 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
       # The form is on screen, but no official is named yet, so nothing to pick.
       assert html =~ "tools-fields-form"
       refute html =~ "Pick an arbiter"
+    end
+
+    test "organizer has the same real FIDE-lookup combobox as the other officials, and it flows into the downloaded IT3",
+         %{conn: conn} do
+      Repo.insert!(%PairingsEngine.Fide.FidePlayer{
+        fide_id: 300_100,
+        name: "Burssens, Jorian",
+        federation: "BEL"
+      })
+
+      {:ok, lv, html} = live(conn, ~p"/tools/norms")
+      upload_files(lv, [{"a.trf", trf_text("Alpha Open", [{"Alice", 111}, {"Bob", 222}])}])
+
+      refute html =~ "Organizer FIDE ID"
+      assert has_element?(lv, "input[name='overlay[organizer_name]']")
+
+      lv
+      |> element("input[name='overlay[organizer_name]']")
+      |> render_change(%{
+        "overlay" => %{"organizer_name" => "Burssens"},
+        "_target" => ["overlay", "organizer_name"]
+      })
+
+      html =
+        lv
+        |> element(~s(button[phx-click="arbiter_pick"][phx-value-fide-id="300100"]))
+        |> render_click()
+
+      assert html =~ ~s(value="Burssens, Jorian")
+      assert html =~ ~s(value="300100")
+
+      fill_required_emails(lv)
+      conn = get(conn, ~p"/tools/download/#{download_token(lv)}/it3")
+
+      assert conn.status == 200
+      xml = xlsx_xml(conn.resp_body)
+      assert xml =~ "300100"
+      assert xml =~ "BURSSENS, Jorian"
     end
   end
 

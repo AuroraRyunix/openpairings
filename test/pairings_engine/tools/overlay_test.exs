@@ -13,7 +13,8 @@ defmodule PairingsEngine.Tools.OverlayTest do
         "chief_arbiter_name" => "Cornet, Luc",
         "chief_arbiter_fide_id" => "205494",
         "chief_arbiter_email" => "luc@example.com",
-        "organizer" => "VPTD Geraardsbergen",
+        "organizer_name" => "VPTD Geraardsbergen",
+        "organizer_fide_id" => "300100",
         "organizer_email" => "org@example.com",
         "event_code" => "BEL2026001"
       })
@@ -23,6 +24,7 @@ defmodule PairingsEngine.Tools.OverlayTest do
     assert merged.event_code == "BEL2026001"
     assert merged.officials["chief_arbiter_fide_id"] == "205494"
     assert merged.officials["chief_arbiter_email"] == "luc@example.com"
+    assert merged.officials["organizer_id"] == "300100"
     assert merged.officials["organizer_email"] == "org@example.com"
   end
 

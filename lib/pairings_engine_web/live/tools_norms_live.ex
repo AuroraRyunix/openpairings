@@ -46,7 +46,8 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   @max_deputies 2
 
   @overlay_fields ~w(chief_arbiter_name chief_arbiter_fide_id chief_arbiter_email
-                      organizer organizer_email event_code) ++
+                      organizer_name organizer_fide_id organizer_email event_code
+                      fide_tournament_id) ++
                     Enum.flat_map(1..@max_deputies, &["deputy#{&1}_name", "deputy#{&1}_fide_id"])
   @candidate_fields ~w(last_name first_name fide_id federation)
 
@@ -237,7 +238,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
             "chief_arbiter_fide_id",
             tournament.chief_arbiter
           )
-          |> maybe_prefill("organizer", tournament.organizer)
+          |> maybe_prefill_official("organizer_name", "organizer_fide_id", tournament.organizer)
           |> maybe_prefill("event_code", event_code)
 
         # `tournament.deputy_arbiter` is SWAR's raw, un-split field (multiple
@@ -487,6 +488,9 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   # displayed on FIDE website" right on the Certificaat sheet, same rule the
   # signed-in Norms page enforces.
   defp report_blockers(overlay) do
+    fide_id =
+      if blank_overlay?(overlay, "fide_tournament_id"), do: ["FIDE tournament ID"], else: []
+
     ids =
       for {role, label} <- arbiter_roles(overlay),
           name = Map.get(overlay, arbiter_name_key(role), ""),
@@ -501,7 +505,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
       ]
       |> Enum.filter(& &1)
 
-    ids ++ emails
+    fide_id ++ ids ++ emails
   end
 
   defp blank_overlay?(overlay, key),
@@ -785,7 +789,16 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
               label="Chief arbiter e-mail"
               values={@overlay}
             />
-            <.overlay_input prefix="overlay" field="organizer" label="Organizer" values={@overlay} />
+            <.arbiter_combo
+              role="organizer"
+              label="Organizer"
+              name_field="overlay[organizer_name]"
+              name_value={Map.get(@overlay, "organizer_name", "")}
+              id_field="overlay[organizer_fide_id]"
+              id_value={Map.get(@overlay, "organizer_fide_id", "")}
+              search={@arbiter_search}
+              hint={Map.get(@overlay, "organizer_name_hint")}
+            />
             <.overlay_input
               prefix="overlay"
               field="organizer_email"
@@ -796,6 +809,12 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
               prefix="overlay"
               field="event_code"
               label="FIDE event code"
+              values={@overlay}
+            />
+            <.overlay_input
+              prefix="overlay"
+              field="fide_tournament_id"
+              label="FIDE tournament ID"
               values={@overlay}
             />
           </div>

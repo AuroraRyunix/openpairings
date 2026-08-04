@@ -25,14 +25,16 @@ defmodule PairingsEngine.Tools.Overlay do
   `1..2` (FIDE only ever ranks 2 deputies by name — see docs/norms.md),
   `"arbiterN_name"` / `"arbiterN_fide_id"` for `N` in `1..extra_arbiters_count`
   (arbiters beyond those 2 ranked deputies — see
-  `PairingsEngine.Norms.ItThreeExpand`), `"organizer"` / `"organizer_email"`,
-  `"event_code"`. Unrecognised keys are ignored.
+  `PairingsEngine.Norms.ItThreeExpand`), `"organizer_name"` / `"organizer_fide_id"` /
+  `"organizer_email"`, `"event_code"`, `"fide_tournament_id"`. Unrecognised keys
+  are ignored.
   """
   def apply(%Tournament{} = tournament, overlay) when is_map(overlay) do
     officials =
       (tournament.officials || %{})
       |> maybe_put_officials("chief_arbiter_fide_id", get(overlay, "chief_arbiter_fide_id"))
       |> maybe_put_officials("chief_arbiter_email", get(overlay, "chief_arbiter_email"))
+      |> maybe_put_officials("organizer_id", get(overlay, "organizer_fide_id"))
       |> maybe_put_officials("organizer_email", get(overlay, "organizer_email"))
       |> merge_deputies(overlay)
       |> merge_extra_arbiters(overlay)
@@ -41,8 +43,10 @@ defmodule PairingsEngine.Tools.Overlay do
       tournament
       | chief_arbiter:
           first_present(get(overlay, "chief_arbiter_name"), tournament.chief_arbiter),
-        organizer: first_present(get(overlay, "organizer"), tournament.organizer),
+        organizer: first_present(get(overlay, "organizer_name"), tournament.organizer),
         event_code: first_present(get(overlay, "event_code"), tournament.event_code),
+        fide_tournament_id:
+          first_present(get(overlay, "fide_tournament_id"), tournament.fide_tournament_id),
         officials: officials
     }
   end

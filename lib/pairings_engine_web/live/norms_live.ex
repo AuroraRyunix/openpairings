@@ -526,6 +526,13 @@ defmodule PairingsEngineWeb.NormsLive do
   # Certificaat sheet, so a report missing either is exactly as much a
   # wasted submission as a missing FIDE ID.
   def report_blockers(tournament) do
+    fide_id =
+      if Tournaments.Tournament.fide_id_present?(tournament) do
+        []
+      else
+        ["FIDE tournament ID (set it on Settings → FIDE)"]
+      end
+
     chief =
       cond do
         blank?(tournament.chief_arbiter) -> ["Chief arbiter name"]
@@ -552,7 +559,7 @@ defmodule PairingsEngineWeb.NormsLive do
       ]
       |> Enum.filter(& &1)
 
-    chief ++ deputies ++ extras ++ emails
+    fide_id ++ chief ++ deputies ++ extras ++ emails
   end
 
   defp apply_arbiter_pick(tournament, "chief_arbiter", fp) do

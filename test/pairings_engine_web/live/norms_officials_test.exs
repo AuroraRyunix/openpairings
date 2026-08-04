@@ -354,6 +354,40 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
       assert html =~ "disabled"
     end
 
+    test "no FIDE tournament ID blocks the IT3/FA1 downloads, even with every official filled in",
+         %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope, %{"chief_arbiter" => "Luc Cornet"})
+
+      {:ok, tournament} =
+        Tournaments.update_tournament(tournament, %{
+          "officials" => %{
+            "chief_arbiter_fide_id" => "205494",
+            "chief_arbiter_email" => "arbiter@example.com",
+            "organizer_email" => "organizer@example.com"
+          }
+        })
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/norms")
+
+      assert html =~ "Not ready to submit to FIDE"
+      assert html =~ "FIDE tournament ID"
+      refute html =~ ~s(href="/t/#{tournament.id}/norms/it3")
+
+      # Setting it — either directly, or via `fide_id_ranges` covering every
+      # round — unblocks it. `Tournament.fide_id_present?/1` is what
+      # `report_blockers/1` calls, so this exercises the real check rather
+      # than a copy of its logic.
+      {:ok, tournament} =
+        Tournaments.update_tournament(tournament, %{"fide_tournament_id" => "12345"})
+
+      assert PairingsEngine.Tournaments.Tournament.fide_id_present?(tournament)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/norms")
+
+      refute html =~ "Not ready to submit to FIDE"
+      assert html =~ ~s(href="/t/#{tournament.id}/norms/it3")
+    end
+
     test "a named deputy without a FIDE ID also blocks", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope, %{"chief_arbiter" => "Luc Cornet"})
 
@@ -376,6 +410,7 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
 
       {:ok, tournament} =
         Tournaments.update_tournament(tournament, %{
+          "fide_tournament_id" => "12345",
           "officials" => %{
             "chief_arbiter_fide_id" => "205494",
             "chief_arbiter_email" => "arbiter@example.com",
@@ -394,6 +429,7 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
 
       {:ok, tournament} =
         Tournaments.update_tournament(tournament, %{
+          "fide_tournament_id" => "12345",
           "officials" => %{
             "chief_arbiter_fide_id" => "205494",
             "chief_arbiter_email" => "arbiter@example.com",

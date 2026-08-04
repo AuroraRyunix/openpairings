@@ -854,10 +854,25 @@ defmodule PairingsEngine.Tournaments.Tournament do
   # `fide_id_ranges_cover_all_rounds?/1`.
   defp fide_id_ok?(t) do
     if Map.get(t, :fide_homologated, false) == true do
-      present?(t.fide_tournament_id) or fide_id_ranges_cover_all_rounds?(t)
+      fide_id_present?(t)
     else
       true
     end
+  end
+
+  @doc """
+  Whether `tournament` has a FIDE tournament ID configured at all — either
+  the tournament-wide fallback `fide_tournament_id`, or `fide_id_ranges`
+  entries covering every round. Unconditional, unlike `fide_id_ok?/1` (the
+  soft Settings-page nudge, only checked once `fide_homologated` is set):
+  every FIDE report prints the tournament's own numeric ID (IT3 B2)
+  regardless of whether the arbiter has ticked "FIDE-homologated", and a
+  report FIDE can't identify a tournament from is a wasted submission — see
+  `PairingsEngineWeb.NormsLive.report_blockers/1` and its Tools-page
+  counterpart, which both gate report downloads on this.
+  """
+  def fide_id_present?(%__MODULE__{} = t) do
+    present?(t.fide_tournament_id) or fide_id_ranges_cover_all_rounds?(t)
   end
 
   # Whether every round 1..rounds_count is covered by some `fide_id_ranges`
