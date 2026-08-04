@@ -6,6 +6,14 @@ Source documents (FIDE C.04, Systems of Pairings and Programs Commission):
   — 19 numbered requirements an endorsed program must meet.
 - [Annex 1 — Endorsement application form (FE1)](https://www.fide.com/FIDE/handbook/C04Annex1_FE1.pdf)
   — what an applicant declares, including the auto-test report.
+- [Annex 3 — Endorsed Tournament Managers](https://www.fide.com/FIDE/handbook/C04Annex3_EPLIST.pdf)
+  — the actual list of currently-endorsed programs, with per-program
+  Internal Pairing Engine / FPC / RTG details — the real precedent for how
+  a no-internal-engine program (Vega, Swiss Manager, TournamentService, all
+  "uses JaVaFo") answers FE1.
+- [Endorsement procedure page](https://spp.fide.com/c-04-a-appendix-endorsement-of-a-software-program/)
+  — submission timeline, subcommittee/Congress process, the 5000-tournament
+  auto-test scale, renewal cycles.
 
 This doc exists to (1) work out which VCL items even apply to OpenPairings
 given its architecture, (2) record current status against the ones that do,
@@ -34,20 +42,28 @@ the two real bugs found and fixed earlier this session lived (the Article
 16.4 tiebreak formula, and TRF-input ordering) — both integration-layer bugs
 in OpenPairings' own code, with JaVaFo itself never at fault.
 
-**Important caveat, confirmed by directly reading the source documents (not
-just VCL/FE1, but the endorsement-procedure page itself, spp.fide.com/c-04-a-
-appendix-endorsement-of-a-software-program/): nothing FIDE publishes actually
-addresses this "no internal engine, calls an already-endorsed one" scenario
-at all.** The procedure page's every requirement — the FPC, the RTG, the
-5000-tournament auto-test, the subcommittee review — is written assuming the
-applicant supplies its own pairing engine. "Internal engine: NO" is a real
-checkbox on FE1, but no text anywhere says what changes once it's ticked.
-The reframing above is **OpenPairings' own reasonable inference from that
-checkbox existing at all**, not a FIDE-confirmed shortcut — the only way to
-know for certain whether the Commission would actually waive the FPC/RTG
-auto-test burden for a wrapper program is to ask the SPP Commission
-directly before assuming it. Everything below should be read with that
-uncertainty in mind.
+**Confirmed against real precedent, not just inferred from a checkbox.**
+[Annex 3 — Endorsed Tournament Managers](https://www.fide.com/FIDE/handbook/C04Annex3_EPLIST.pdf)
+(the actual list of currently-endorsed programs) shows three with
+OpenPairings' exact architecture:
+
+| Program | Internal Pairing Engine | FPC availability | RTG availability |
+|---|---|---|---|
+| Vega | NO *(uses JaVaFo)* | thru JaVaFo | thru JaVaFo |
+| Swiss Manager | NO *(uses JaVaFo)* | thru JaVaFo | thru JaVaFo |
+| TournamentService | NO *(uses JaVaFo)* | thru JaVaFo | thru JaVaFo |
+
+versus the ones with their own engine (Dubov, JavaPairing, Swiss Master,
+Swiss-Chess), whose FPC is their own binary (e.g. `swiss.exe /trf
+tournament_TRF`). A program with `Internal Pairing Engine: NO` answers
+FE1's FPC/RTG fields **"thru JaVaFo"** — pointing at JaVaFo's own `-c`/`-g`
+modes — instead of building and running its own 5000-tournament auto-test.
+JaVaFo's own endorsement already covers VCL.07 (pairing legality) for
+every program built this way; that's the actual, demonstrated reason
+Vega/Swiss Manager/TournamentService never had to clear that bar
+themselves. This is no longer a hunch about what an unstated checkbox
+might mean — it's the documented behavior of three real, currently-listed
+endorsements.
 
 ## What FIDE actually requires you to submit (confirmed from the primary sources)
 
@@ -96,19 +112,19 @@ Meeting every technical requirement doesn't guarantee endorsement either —
 checklist.
 
 **What this means concretely for "when can we test a shitload of
-tournaments"**: the fuzz harness (below) already IS the "throw random
-tournaments at it and watch the error ratio" mechanic FIDE's own FE1 form
-asks for — `cross_program_test.exs` against `bbpPairings` is directly
-analogous to the "internal RTG vs. reference checker" row (OpenPairings'
-own pairing, checked by an independent tool), just missing the "internal
-RTG" framing since the harness's own synthetic generator plays that role.
-Running it at real scale (`PAIRING_FUZZ_COUNT=5000`, matching FIDE's own
-number) and tracking the discrepancy count against the 1-per-500 bar is a
-meaningful, FIDE-shaped confidence number to have on hand — but it is
-*not* itself a FIDE submission, an SPPC review, or a guarantee of
-endorsement; it's the kind of evidence that would go *into* an application,
-whenever the "does a wrapper program even need this" question above gets a
-real answer from the Commission.
+tournaments"**: per the Annex 3 precedent above, OpenPairings likely
+doesn't need to build or run its own 5000-tournament FPC/RTG auto-test at
+all for FE1 itself — "thru JaVaFo" is the expected answer, same as
+Vega/Swiss Manager/TournamentService, since JaVaFo's own endorsement
+already covers pairing legality. The fuzz harness (below) is still
+genuinely valuable, just for a different reason than satisfying FE1's
+auto-test fields: it's due diligence on the actual bug class that bit this
+project twice — OpenPairings feeding JaVaFo *wrong* input that still comes
+back looking legal — which is squarely OpenPairings' own responsibility
+regardless of which engine box gets ticked. `cross_program_test.exs`
+against `bbpPairings`, run at real scale (`PAIRING_FUZZ_COUNT=5000`,
+matching FIDE's own number), is evidence of integration-layer correctness
+worth having on hand for its own sake, not because FE1 requires it.
 
 ## Checklist against that framing
 
