@@ -158,6 +158,31 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
+  Finds an existing, non-deleted tournament (owned by or shared with
+  `scope`'s user) that was already imported from the same `.swar` file —
+  matched on `swar_guid`, the persistent per-tournament id SWAR itself
+  stamps into every export of the same tournament (see
+  `PairingsEngine.SwarImport.parse/1`'s `:guid`). Used to warn before a
+  re-upload of the same tournament silently creates a duplicate — see
+  docs/import-export.md. `nil` for a blank guid or no match; only ever
+  matches within the uploading user's own accessible tournaments, never
+  across unrelated accounts.
+  """
+  def find_tournament_by_swar_guid(%Scope{} = scope, guid) when guid not in [nil, ""] do
+    user = scope.user
+
+    Repo.one(
+      from t in Tournament,
+        where:
+          t.swar_guid == ^guid and is_nil(t.deleted_at) and
+            (t.user_id == ^user.id or t.id in subquery(collaborator_tournament_ids(user))),
+        limit: 1
+    )
+  end
+
+  def find_tournament_by_swar_guid(_scope, _guid), do: nil
+
+  @doc """
   Gets a tournament owned by the scope's user.
 
   Raises `Ecto.NoResultsError` if the tournament doesn't exist or isn't
@@ -865,9 +890,45 @@ defmodule PairingsEngine.Tournaments do
   def update_player(%Player{} = player, attrs) do
     player
     |> Player.changeset(attrs)
+    |> guard_pairing_number_freeze(player)
     |> Repo.update()
     |> tap_ok(fn updated -> broadcast_tournament_change(updated.tournament_id, :players) end)
   end
+
+  # FIDE C.04.2.B.3: a player's pairing number (TPN) may be adjusted while
+  # the "List of Participants" is still effectively open (late entries,
+  # early data-entry corrections), but "no modification of a TPN ... is
+  # allowed after the fourth round has been paired" — every already-played
+  # round's opponent references are keyed on that number, so reshuffling it
+  # later silently corrupts what "round 2, board 5" actually meant.
+  #
+  # Only guards an *existing* number being changed to a different one —
+  # `Pairing.ensure_pairing_numbers/2` assigning a fresh number to a player
+  # who never had one (nil -> N, e.g. a late entry joining after round 4)
+  # is unaffected, exactly as FIDE's own rule allows.
+  defp guard_pairing_number_freeze(changeset, %Player{pairing_number: current})
+       when not is_nil(current) do
+    case Ecto.Changeset.get_change(changeset, :pairing_number) do
+      nil ->
+        changeset
+
+      ^current ->
+        changeset
+
+      _new ->
+        if PairingsEngine.Pairing.paired_rounds_count(changeset.data.tournament_id) >= 4 do
+          Ecto.Changeset.add_error(
+            changeset,
+            :pairing_number,
+            "cannot be changed after round 4 has been paired (FIDE C.04.2.B.3)"
+          )
+        else
+          changeset
+        end
+    end
+  end
+
+  defp guard_pairing_number_freeze(changeset, %Player{}), do: changeset
 
   def delete_player(%Player{} = player) do
     Repo.delete(player)

@@ -638,6 +638,33 @@ defmodule PairingsEngineWeb.NormsLive do
 
   defp claimed_title(player), do: Map.get(player.norm_data || %{}, "title_claimed", "")
 
+  ## ---------- Players - title-norm judgment table sort order ----------
+
+  # Puts the rows worth an arbiter's attention first: a player who's
+  # actually achieved a norm, then whoever's closest to one (fewest failing
+  # B.01 requirements on their nearest-miss title), then everyone else —
+  # rather than the roster's incidental pairing-number order, which has no
+  # relationship to who's interesting on this specific page.
+  defp players_by_norm_relevance(players, judgments) do
+    Enum.sort_by(players, &{norm_relevance_key(judgments[&1.id]), &1.name})
+  end
+
+  # Same clause order/precedence as `norm_judgment_label/1` below —
+  # `evaluate/1` always returns all three keys, so `games: 0` has to be
+  # checked before `best`/`verdicts`, the same way the label does, rather
+  # than incidentally matching whichever clause happens to come first.
+  defp norm_relevance_key(%{games: 0}), do: 1_000_000
+  defp norm_relevance_key(%{best: %{}}), do: 0
+
+  defp norm_relevance_key(%{verdicts: verdicts}) do
+    nearest = Enum.min_by(verdicts, fn v -> Enum.count(v.checks, &(not &1.ok?)) end)
+    1 + Enum.count(nearest.checks, &(not &1.ok?))
+  end
+
+  # nil (no judgment at all — a player `evaluate/1` never returned an entry
+  # for) also lands at the very bottom.
+  defp norm_relevance_key(_), do: 1_000_000
+
   ## ---------- automatic B.01 norm judgment display ----------
 
   # One-line verdict for the players table: the best achieved norm, or the
@@ -1146,7 +1173,7 @@ defmodule PairingsEngineWeb.NormsLive do
             </tr>
           </thead>
           <tbody>
-            <tr :for={p <- @players}>
+            <tr :for={p <- players_by_norm_relevance(@players, @norm_judgments)}>
               <td>{p.name}</td>
               <td>{p.federation}</td>
               <td title={norm_judgment_details(@norm_judgments[p.id])}>

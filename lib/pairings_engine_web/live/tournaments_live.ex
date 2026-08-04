@@ -49,7 +49,8 @@ defmodule PairingsEngineWeb.TournamentsLive do
        new_team?: false,
        new_standard: "standard",
        new_params: @new_tournament_defaults,
-       swar_pending: nil
+       swar_pending: nil,
+       swar_duplicate: nil
      )
      # ".swar"/".trf" have no registered MIME type, so the browser-side accept
      # filter can't be used; each parser rejects anything that isn't its own
@@ -215,7 +216,8 @@ defmodule PairingsEngineWeb.TournamentsLive do
        new_team?: false,
        new_standard: "standard",
        new_params: @new_tournament_defaults,
-       swar_pending: nil
+       swar_pending: nil,
+       swar_duplicate: nil
      )}
   end
 
@@ -283,6 +285,25 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
   def handle_event("cancel_swar_resolve", _params, socket) do
     {:noreply, assign(socket, swar_pending: nil, importing: true, error: nil)}
+  end
+
+  def handle_event("cancel_swar_duplicate", _params, socket) do
+    {:noreply, assign(socket, swar_duplicate: nil, importing: true, error: nil)}
+  end
+
+  def handle_event("swar_duplicate_open_existing", _params, socket) do
+    existing = socket.assigns.swar_duplicate.existing
+
+    {:noreply,
+     socket
+     |> assign(swar_duplicate: nil)
+     |> push_navigate(to: ~p"/t/#{existing.id}/players")}
+  end
+
+  def handle_event("swar_duplicate_import_anyway", _params, socket) do
+    prepared = socket.assigns.swar_duplicate.prepared
+    {:noreply, socket} = continue_swar_prepared(socket, prepared)
+    {:noreply, assign(socket, swar_duplicate: nil)}
   end
 
   ## ---------- TRF16 import (one step — no resolve modal) ----------
@@ -439,17 +460,8 @@ defmodule PairingsEngineWeb.TournamentsLive do
       end)
 
     case results do
-      [{:swar, {:ok, %{unresolved: []} = prepared}}] ->
-        commit_swar(socket, prepared, %{})
-
-      [{:swar, {:ok, %{unresolved: unresolved} = prepared}}] when unresolved != [] ->
-        {:noreply,
-         assign(socket,
-           swar_pending: prepared,
-           importing: false,
-           importing_trf: false,
-           error: nil
-         )}
+      [{:swar, {:ok, prepared}}] ->
+        continue_or_warn_swar(socket, scope, prepared)
 
       [{:swar, {:error, reason}}] ->
         {:noreply, assign(socket, error: "Could not read this SWAR file: #{inspect(reason)}")}
@@ -472,6 +484,43 @@ defmodule PairingsEngineWeb.TournamentsLive do
            error: "Choose a #{if panel == :swar, do: ".swar", else: ".trf"} file first"
          )}
     end
+  end
+
+  # A `.swar` file carries SWAR's own persistent per-tournament GUID (see
+  # `Tournaments.find_tournament_by_swar_guid/2`), unchanged across every
+  # re-export of the same tournament. If this upload's GUID already belongs
+  # to a tournament the uploader can already reach, pause and ask instead of
+  # silently creating a duplicate — this is the single most common way a
+  # re-upload goes wrong (a re-sync mid-event, forgetting a tournament was
+  # already imported).
+  defp continue_or_warn_swar(socket, scope, %{data: %{guid: guid}} = prepared) do
+    case Tournaments.find_tournament_by_swar_guid(scope, guid) do
+      nil ->
+        continue_swar_prepared(socket, prepared)
+
+      existing ->
+        {:noreply,
+         assign(socket,
+           swar_duplicate: %{prepared: prepared, existing: existing},
+           importing: false,
+           importing_trf: false,
+           error: nil
+         )}
+    end
+  end
+
+  defp continue_swar_prepared(socket, %{unresolved: []} = prepared),
+    do: commit_swar(socket, prepared, %{})
+
+  defp continue_swar_prepared(socket, %{unresolved: unresolved} = prepared)
+       when unresolved != [] do
+    {:noreply,
+     assign(socket,
+       swar_pending: prepared,
+       importing: false,
+       importing_trf: false,
+       error: nil
+     )}
   end
 
   defp commit_swar(socket, prepared, resolutions) do
@@ -841,6 +890,30 @@ defmodule PairingsEngineWeb.TournamentsLive do
         </div>
       </form>
 
+      <div :if={@swar_duplicate} id="swar-duplicate-warning" class="card">
+        <h2>This looks like a tournament you already have</h2>
+
+        <p class="hint" style="margin-top: 0">
+          This file's SWAR tournament id matches <strong>{@swar_duplicate.existing.name}</strong>, already imported here. Re-uploading a
+          sync of the same tournament as a new import would create a second, separate copy rather
+          than updating the one you already have.
+        </p>
+
+        <div class="actions">
+          <button
+            type="button"
+            class="pe-btn primary"
+            phx-click="swar_duplicate_open_existing"
+          >
+            Open {@swar_duplicate.existing.name}
+          </button>
+          <button type="button" class="pe-btn" phx-click="swar_duplicate_import_anyway">
+            Import as a new tournament anyway
+          </button>
+          <button type="button" class="pe-btn" phx-click="cancel_swar_duplicate">Cancel</button>
+        </div>
+      </div>
+
       <form :if={@swar_pending} id="swar-resolve-form" class="card" phx-submit="resolve_swar">
         <h2>Resolve FIDE ids</h2>
 
@@ -980,7 +1053,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
       <div
         :if={
           @tournaments == [] && !@creating && !@importing && !@importing_trf && !@importing_backup &&
-            !@swar_pending
+            !@swar_pending && !@swar_duplicate
         }
         class="card empty"
       >

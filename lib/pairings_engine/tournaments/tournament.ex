@@ -100,6 +100,9 @@ defmodule PairingsEngine.Tournaments.Tournament do
     field :standard, :string, default: "standard"
     field :rate_of_play, :string, default: ""
     field :organizer_club_number, :string, default: ""
+    # SWAR's own per-tournament GUID — see docs/import-export.md's re-upload
+    # section. nil for tournaments never imported from SWAR.
+    field :swar_guid, :string
     # ISO dates, index = round-1
     field :round_dates, {:array, :string}, default: []
     # tournament-defined category names (SWAR CATEGORIES)
@@ -319,6 +322,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :standard,
       :rate_of_play,
       :organizer_club_number,
+      :swar_guid,
       :round_dates,
       :categories,
       :event_code,

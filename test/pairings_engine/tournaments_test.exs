@@ -474,6 +474,71 @@ defmodule PairingsEngine.TournamentsTest do
     end
   end
 
+  describe "find_tournament_by_swar_guid/2" do
+    test "finds a tournament with a matching swar_guid owned by scope's user" do
+      scope = user_scope()
+
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "T",
+          type: "swiss",
+          rounds_count: 3,
+          user_id: scope.user.id,
+          swar_guid: "abc-123"
+        })
+
+      found = Tournaments.find_tournament_by_swar_guid(scope, "abc-123")
+      assert found.id == tournament.id
+    end
+
+    test "never matches another user's tournament, even with the same guid" do
+      owner_scope = user_scope()
+      other_scope = user_scope()
+
+      Repo.insert!(%Tournament{
+        name: "T",
+        type: "swiss",
+        rounds_count: 3,
+        user_id: owner_scope.user.id,
+        swar_guid: "shared-guid"
+      })
+
+      assert Tournaments.find_tournament_by_swar_guid(other_scope, "shared-guid") == nil
+    end
+
+    test "ignores a soft-deleted tournament" do
+      scope = user_scope()
+
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "T",
+          type: "swiss",
+          rounds_count: 3,
+          user_id: scope.user.id,
+          swar_guid: "deleted-guid"
+        })
+
+      {:ok, _} = Tournaments.soft_delete_tournament(tournament)
+
+      assert Tournaments.find_tournament_by_swar_guid(scope, "deleted-guid") == nil
+    end
+
+    test "nil or blank guid never matches anything" do
+      scope = user_scope()
+
+      Repo.insert!(%Tournament{
+        name: "T",
+        type: "swiss",
+        rounds_count: 3,
+        user_id: scope.user.id,
+        swar_guid: nil
+      })
+
+      assert Tournaments.find_tournament_by_swar_guid(scope, nil) == nil
+      assert Tournaments.find_tournament_by_swar_guid(scope, "") == nil
+    end
+  end
+
   describe "fide_id uniqueness within a tournament (players_tournament_id_fide_id_index)" do
     test "update_player/2 rejects editing a player's fide_id to collide with another player in the same tournament" do
       tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
@@ -504,6 +569,100 @@ defmodule PairingsEngine.TournamentsTest do
 
       assert {:ok, _} = Tournaments.create_player(tournament.id, %{"name" => "Alice"})
       assert {:ok, _} = Tournaments.create_player(tournament.id, %{"name" => "Bob"})
+    end
+  end
+
+  describe "pairing_number freeze after round 4 (FIDE C.04.2.B.3)" do
+    test "editing pairing_number is allowed before round 4 has been paired" do
+      tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
+      {:ok, alice} = Tournaments.create_player(tournament.id, %{"name" => "Alice"})
+      alice = %{alice | pairing_number: 5}
+
+      assert {:ok, updated} = Tournaments.update_player(alice, %{"pairing_number" => "9"})
+      assert updated.pairing_number == 9
+    end
+
+    test "assigning a first pairing_number to a player who never had one is always allowed" do
+      tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
+      {:ok, alice} = Tournaments.create_player(tournament.id, %{"name" => "Alice"})
+      assert alice.pairing_number == nil
+
+      assert {:ok, updated} = Tournaments.update_player(alice, %{"pairing_number" => "1"})
+      assert updated.pairing_number == 1
+    end
+
+    @tag :javafo
+    test "editing an existing pairing_number is rejected once round 4 has been paired" do
+      {:ok, tournament} =
+        Tournaments.create_tournament(user_scope(), %{
+          "name" => "Freeze Test",
+          "type" => "swiss",
+          "rounds_count" => "5"
+        })
+
+      for n <- 1..6 do
+        {:ok, _} =
+          Tournaments.create_player(tournament.id, %{
+            "name" => "P#{n}",
+            "fide_rating" => "#{1000 + n}"
+          })
+      end
+
+      for _ <- 1..4 do
+        assert {:ok, round} = PairingsEngine.Pairing.pair_next_round(tournament)
+        round = Tournaments.get_round(tournament.id, round.number)
+
+        for p <- round.pairings, p.result != "bye" do
+          {:ok, _} = Tournaments.update_pairing_result(p, "1-0")
+        end
+      end
+
+      alice = Enum.find(Tournaments.list_players(tournament.id), &(&1.name == "P1"))
+      assert alice.pairing_number != nil
+
+      assert {:error, changeset} =
+               Tournaments.update_player(alice, %{"pairing_number" => "999"})
+
+      assert %{pairing_number: [_msg]} = errors_on(changeset)
+      assert Repo.reload!(alice).pairing_number == alice.pairing_number
+    end
+
+    @tag :javafo
+    test "resubmitting the same pairing_number after round 4 is a no-op, not an error" do
+      {:ok, tournament} =
+        Tournaments.create_tournament(user_scope(), %{
+          "name" => "Freeze Test 2",
+          "type" => "swiss",
+          "rounds_count" => "5"
+        })
+
+      for n <- 1..6 do
+        {:ok, _} =
+          Tournaments.create_player(tournament.id, %{
+            "name" => "P#{n}",
+            "fide_rating" => "#{1000 + n}"
+          })
+      end
+
+      for _ <- 1..4 do
+        assert {:ok, round} = PairingsEngine.Pairing.pair_next_round(tournament)
+        round = Tournaments.get_round(tournament.id, round.number)
+
+        for p <- round.pairings, p.result != "bye" do
+          {:ok, _} = Tournaments.update_pairing_result(p, "1-0")
+        end
+      end
+
+      alice = Enum.find(Tournaments.list_players(tournament.id), &(&1.name == "P1"))
+
+      assert {:ok, updated} =
+               Tournaments.update_player(alice, %{
+                 "pairing_number" => Integer.to_string(alice.pairing_number),
+                 "club" => "Some Club"
+               })
+
+      assert updated.pairing_number == alice.pairing_number
+      assert updated.club == "Some Club"
     end
   end
 

@@ -180,6 +180,34 @@ defmodule PairingsEngine.SwarImportTest do
     assert tournament.organizer_club_number == "401"
   end
 
+  # SWAR's own pairing code (Utils.cpp, `AbsentThisRound`) does NOT treat
+  # Absent=2 as "gone forever" whenever the player also has a non-empty
+  # AbsentRondes list — it checks whether the *current* round is in that
+  # list, and treats every other round as present. A player who missed one
+  # round should be paired normally for the rest of the event, both in SWAR
+  # and in OpenPairings — `map_absent/2` mirrors that exactly. None of the
+  # real fixtures happen to have a player in this combination (Absent=2 with
+  # a non-empty AbsentRondes), so this is a direct unit test of the mapping
+  # rule itself rather than an import fixture.
+  describe "map_absent/2 (Absent is round-specific once AbsentRondes is set)" do
+    test "Absent=2 with no round list at all is permanent" do
+      assert SwarImport.map_absent(2, "") == true
+      assert SwarImport.map_absent(2, nil) == true
+    end
+
+    test "Absent=2 with a round list is NOT permanent - round-specific exclusion takes over" do
+      refute SwarImport.map_absent(2, "3")
+      refute SwarImport.map_absent(2, "3,5")
+    end
+
+    test "Forfeit (1) and Present (4) are never permanently absent, round list or not" do
+      refute SwarImport.map_absent(1, "")
+      refute SwarImport.map_absent(4, "")
+      refute SwarImport.map_absent(1, "3")
+      refute SwarImport.map_absent(4, "3")
+    end
+  end
+
   test "import_file/1 does not create duplicate pairings for the same game" do
     {:ok, tournament, _warnings} = SwarImport.import_file(@c_reeks)
     players = Tournaments.list_players(tournament.id)

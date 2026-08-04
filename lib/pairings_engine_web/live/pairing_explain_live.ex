@@ -999,6 +999,38 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         </span>
       </div>
 
+      <details class="card" style="margin: 8px 0">
+        <summary style="cursor: pointer; font-weight: 650">
+          Pairing numbers ({length(@rationale.boards)} board{if length(@rationale.boards) != 1,
+            do: "s"})
+        </summary>
+        <p class="hint" style="margin: 8px 0 10px">
+          The classic pairing-sheet format — starting rank vs. starting rank, board by board. The
+          bracket map below shows the same pairings with the reasoning behind them.
+        </p>
+        <table class="pe-table">
+          <thead>
+            <tr>
+              <th class="num">Board</th>
+              <th>White</th>
+              <th>Black</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr :for={b <- @rationale.boards}>
+              <td class="num">{b.board}</td>
+              <td>
+                <span class="pe-seed">{b.white.pairing_number}</span> {b.white.player.name}
+              </td>
+              <td :if={!b.is_bye}>
+                <span class="pe-seed">{b.black.pairing_number}</span> {b.black.player.name}
+              </td>
+              <td :if={b.is_bye} class="hint">bye</td>
+            </tr>
+          </tbody>
+        </table>
+      </details>
+
       <div :if={@rationale.berger} class="card" style="margin: 8px 0">
         <h3 style="margin-top: 0">Berger schedule</h3>
         <p :if={@rationale.berger.match_format} style="margin: 0">

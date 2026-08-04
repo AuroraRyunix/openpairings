@@ -3,7 +3,8 @@ defmodule PairingsEngineWeb.NormsLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias PairingsEngine.Tournaments
+  alias PairingsEngine.{Repo, Tournaments}
+  alias PairingsEngine.Tournaments.{Player, Round, Pairing}
 
   setup :register_and_log_in_user
 
@@ -88,6 +89,60 @@ defmodule PairingsEngineWeb.NormsLiveTest do
 
     updated = Tournaments.get_player!(player.tournament_id, player.id)
     assert updated.norm_data["title_claimed"] == "IM"
+  end
+
+  test "the norm-judgment table sorts players who've played games ahead of ones who haven't, regardless of roster order",
+       %{conn: conn, scope: scope} do
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{"name" => "Norms Sort LV", "type" => "swiss"})
+
+    # Inserted in an order that would put "Zed" before "Alice" under any
+    # incidental default (pairing_number/insertion) ordering — the sort has
+    # to be doing real work to put HasGames ahead of NoGames here.
+    has_games =
+      Repo.insert!(%Player{
+        tournament_id: tournament.id,
+        name: "Zed, HasGames",
+        pairing_number: 1
+      })
+
+    _no_games =
+      Repo.insert!(%Player{
+        tournament_id: tournament.id,
+        name: "Alice, NoGames",
+        pairing_number: 2
+      })
+
+    opponent =
+      Repo.insert!(%Player{
+        tournament_id: tournament.id,
+        name: "Opponent, Third",
+        pairing_number: 3
+      })
+
+    round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
+
+    Repo.insert!(%Pairing{
+      round_id: round.id,
+      board: 1,
+      white_player_id: has_games.id,
+      black_player_id: opponent.id,
+      result: "1-0"
+    })
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/norms")
+
+    # Player names also appear earlier on the page (the IT3 counts-explain
+    # breakdown lists every player unsorted) — anchor the search to the
+    # norm-judgment table itself so the comparison is actually of its order,
+    # not whichever section happens to mention a name first.
+    {table_start, _} = :binary.match(html, "Players - title-norm judgment")
+    table_html = binary_part(html, table_start, byte_size(html) - table_start)
+
+    {has_games_pos, _} = :binary.match(table_html, "Zed, HasGames")
+    {no_games_pos, _} = :binary.match(table_html, "Alice, NoGames")
+
+    assert has_games_pos < no_games_pos
   end
 
   describe "Combined report (festival) card" do

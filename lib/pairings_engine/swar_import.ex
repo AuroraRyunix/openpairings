@@ -1054,6 +1054,7 @@ defmodule PairingsEngine.SwarImport do
     %{
       name: t.name,
       type: map_tournament_type(t.type),
+      swar_guid: if(data.guid in [nil, ""], do: nil, else: data.guid),
       # SWAR's [TOURNOI] header has exactly one free-text place field (`City`
       # here); there is no separate venue/address field to pull from. Setting
       # `venue` to the same value made `Norms.Forms.place/1` (which joins
@@ -1394,9 +1395,19 @@ defmodule PairingsEngine.SwarImport do
   defp map_affiliated(0), do: false
   defp map_affiliated(_), do: true
 
-  # Absent: 1=Forfeit, 2=Absent, 4=Present (manual §5.19).
-  defp map_absent(2), do: true
-  defp map_absent(_), do: false
+  # Absent: 1=Forfeit, 2=Absent, 4=Present (manual §5.19). "Absent" alone
+  # does NOT mean permanently gone — SWAR's own `AbsentThisRound` (Utils.cpp)
+  # treats Absent=2 as round-specific whenever AbsentRondes is non-empty: a
+  # round not in that list is PRESENT, not absent. Round-specific exclusion
+  # is `absent_rounds`'s job (see `Pairing.eligible_players/2`); this
+  # boolean should only ever mean "permanently out, no round list at all" —
+  # otherwise a player who sat out one round (a very common case: illness,
+  # a work conflict, a bye request) gets silently excluded from every round
+  # after that, in OpenPairings, forever, even though they came back and
+  # played per SWAR's own reading of the same data.
+  @doc false
+  def map_absent(2, absent_rondes) when absent_rondes in [nil, ""], do: true
+  def map_absent(_, _), do: false
 
   defp map_forfeit(1), do: true
   defp map_forfeit(_), do: false
@@ -1455,7 +1466,7 @@ defmodule PairingsEngine.SwarImport do
       pairing_number: p.ni,
       paid: map_paid(p.paye),
       affiliated: map_affiliated(p.affilie),
-      absent: map_absent(p.absent),
+      absent: map_absent(p.absent, p.absent_rondes),
       forfeit: map_forfeit(p.absent),
       special_table: p.handy_table != 0,
       absent_rounds: p.absent_rondes,

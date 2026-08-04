@@ -153,6 +153,42 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     assert html =~ "paired up"
   end
 
+  @tag :javafo
+  test "the pairing-numbers list shows starting rank vs. starting rank, the classic pairing-sheet format",
+       %{conn: conn, scope: scope} do
+    {:ok, t} =
+      Tournaments.create_tournament(scope, %{
+        "name" => "Swiss",
+        "type" => "swiss",
+        "start_date" => "2026-07-01"
+      })
+
+    for {name, rating} <- [
+          {"Alice", 2000},
+          {"Bob", 1900},
+          {"Carol", 1800},
+          {"Dave", 1700}
+        ] do
+      {:ok, _} = Tournaments.create_player(t.id, %{"name" => name, "fide_rating" => "#{rating}"})
+    end
+
+    assert {:ok, _round1} = Pairing.pair_next_round(t)
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
+
+    assert html =~ "Pairing numbers"
+
+    players = Tournaments.list_players(t.id)
+    alice = Enum.find(players, &(&1.name == "Alice"))
+    dave = Enum.find(players, &(&1.name == "Dave"))
+
+    # The section shows each board's two starting ranks alongside the
+    # names, not just names — the plain "1 vs 4" format an arbiter reading
+    # off a printed pairing sheet expects, no hovering required.
+    assert html =~ ~r/<span class="pe-seed">#{alice.pairing_number}<\/span> Alice/
+    assert html =~ ~r/<span class="pe-seed">#{dave.pairing_number}<\/span> Dave/
+  end
+
   test "a non-collaborator cannot open the explain page", %{conn: conn} do
     other = user_scope_fixture()
     {:ok, t} = Tournaments.create_tournament(other, %{"name" => "Private", "type" => "swiss"})

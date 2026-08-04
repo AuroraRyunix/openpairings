@@ -19,6 +19,9 @@ everything the app does and what is planned next.
   (invariants, non-obvious patterns, gotchas) — read this before making a
   change to the pairing engine, norms/`.xlsx` filling, or standings.
 - [Standalone binaries](binaries.md) — Burrito single-file executables.
+- [FIDE endorsement readiness](fide-endorsement.md) — the Verification Check
+  List mapped against OpenPairings' JaVaFo-wrapper architecture, current gaps,
+  and the RTG/FPC fuzz-testing harness plan.
 
 ## Feature guides
 

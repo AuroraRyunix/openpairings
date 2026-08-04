@@ -459,4 +459,107 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
       assert has_element?(lv, "h2", "Import a SWAR tournament")
     end
   end
+
+  describe "SWAR import: re-uploading the same tournament warns instead of duplicating" do
+    @describetag :swar_fixture
+
+    defp upload_problemski(lv) do
+      lv |> element("button", "Import SWAR file") |> render_click()
+
+      swar =
+        file_input(lv, "form", :swar, [
+          %{
+            name: "problemski.swar",
+            content: File.read!(@problemski),
+            type: "application/octet-stream"
+          }
+        ])
+
+      render_upload(swar, "problemski.swar")
+      lv |> form("#swar-import-form", %{}) |> render_submit()
+    end
+
+    defp import_problemski!(conn) do
+      {:ok, lv, _html} = live(conn, ~p"/")
+      upload_problemski(lv)
+
+      {:error, {:live_redirect, %{to: to}}} =
+        lv |> form("#swar-resolve-form", %{}) |> render_submit()
+
+      to |> String.split("/") |> Enum.at(2) |> String.to_integer()
+    end
+
+    test "re-uploading the same file warns instead of silently creating a second tournament", %{
+      conn: conn,
+      scope: scope
+    } do
+      first_id = import_problemski!(conn)
+
+      {:ok, lv, _html} = live(conn, ~p"/")
+      upload_problemski(lv)
+
+      assert has_element?(lv, "h2", "This looks like a tournament you already have")
+      refute has_element?(lv, "h2", "Resolve FIDE ids")
+
+      # Nothing new was created just from uploading — still exactly one
+      # tournament with this SWAR guid.
+      assert length(Tournaments.list_tournaments(scope)) == 1
+      first = Tournaments.get_tournament!(first_id)
+      assert has_element?(lv, "*", first.name)
+    end
+
+    test "'Open <name>' navigates to the existing tournament without creating anything", %{
+      conn: conn,
+      scope: scope
+    } do
+      first_id = import_problemski!(conn)
+
+      {:ok, lv, _html} = live(conn, ~p"/")
+      upload_problemski(lv)
+
+      {:error, {:live_redirect, %{to: to}}} =
+        lv |> element("#swar-duplicate-warning button", "Open") |> render_click()
+
+      assert to == ~p"/t/#{first_id}/players"
+      assert length(Tournaments.list_tournaments(scope)) == 1
+    end
+
+    test "'Import as a new tournament anyway' proceeds and does create a second tournament", %{
+      conn: conn,
+      scope: scope
+    } do
+      _first_id = import_problemski!(conn)
+
+      {:ok, lv, _html} = live(conn, ~p"/")
+      upload_problemski(lv)
+      assert has_element?(lv, "h2", "This looks like a tournament you already have")
+
+      lv
+      |> element("#swar-duplicate-warning button", "Import as a new tournament anyway")
+      |> render_click()
+
+      assert has_element?(lv, "h2", "Resolve FIDE ids")
+
+      {:error, {:live_redirect, %{to: _to}}} =
+        lv |> form("#swar-resolve-form", %{}) |> render_submit()
+
+      assert length(Tournaments.list_tournaments(scope)) == 2
+    end
+
+    test "'Cancel' on the duplicate warning creates nothing and returns to the upload form", %{
+      conn: conn,
+      scope: scope
+    } do
+      import_problemski!(conn)
+
+      {:ok, lv, _html} = live(conn, ~p"/")
+      upload_problemski(lv)
+      assert has_element?(lv, "h2", "This looks like a tournament you already have")
+
+      lv |> element("#swar-duplicate-warning button", "Cancel") |> render_click()
+
+      refute has_element?(lv, "h2", "This looks like a tournament you already have")
+      assert length(Tournaments.list_tournaments(scope)) == 1
+    end
+  end
 end
