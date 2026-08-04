@@ -34,6 +34,82 @@ the two real bugs found and fixed earlier this session lived (the Article
 16.4 tiebreak formula, and TRF-input ordering) — both integration-layer bugs
 in OpenPairings' own code, with JaVaFo itself never at fault.
 
+**Important caveat, confirmed by directly reading the source documents (not
+just VCL/FE1, but the endorsement-procedure page itself, spp.fide.com/c-04-a-
+appendix-endorsement-of-a-software-program/): nothing FIDE publishes actually
+addresses this "no internal engine, calls an already-endorsed one" scenario
+at all.** The procedure page's every requirement — the FPC, the RTG, the
+5000-tournament auto-test, the subcommittee review — is written assuming the
+applicant supplies its own pairing engine. "Internal engine: NO" is a real
+checkbox on FE1, but no text anywhere says what changes once it's ticked.
+The reframing above is **OpenPairings' own reasonable inference from that
+checkbox existing at all**, not a FIDE-confirmed shortcut — the only way to
+know for certain whether the Commission would actually waive the FPC/RTG
+auto-test burden for a wrapper program is to ask the SPP Commission
+directly before assuming it. Everything below should be read with that
+uncertainty in mind.
+
+## What FIDE actually requires you to submit (confirmed from the primary sources)
+
+Read directly, not summarized from memory — [FE1](https://www.fide.com/FIDE/handbook/C04Annex1_FE1.pdf)
+and the [endorsement-procedure page](https://spp.fide.com/c-04-a-appendix-endorsement-of-a-software-program/):
+
+**The application (FE1) itself** — program identity, author contact,
+download details, whether it's free software, and two yes/no
+specifications: **"Internal engine: YES/NO"** and, if either exists, the
+program's own **FPC** (pairing checker) and **RTG** (random tournament
+generator) calling statements. Then an **auto-test report** with two
+distinct blocks the applicant fills in themselves before ever submitting:
+
+1. **Internal FPC vs. a reference RTG** — an independent/reference Random
+   Tournament Generator produces the test tournaments; the applicant's own
+   pairing checker verifies the applicant's own engine's pairings against
+   them. Reported: number of test tournaments, rounds per tournament
+   (min/max/avg), and number of rounds with a pairing difference.
+2. **Internal RTG vs. a reference checker** — the reverse: the applicant's
+   own RTG generates the test tournaments, and an independent/reference
+   checker verifies the applicant's pairings. Same reported fields.
+
+**The hard bar, FE1's own words**: *"an Endorsement Request can be received
+only if the error ratio is not worse than 1 difference every 500 test
+tournaments."* The procedure page gives the concrete production-scale
+version of the same ratio: **5000 random tournaments, at most 10
+discrepancies** (5000/10 = the same 1-per-500). Each discrepancy gets
+triaged three ways: an input-file/RTG-provider error, a genuine
+candidate-program error (must be fixed "in a reasonable time-frame"), or a
+rules-interpretation dispute escalated to the SPPC itself.
+
+**This is a slow, human, discretionary process, not a test suite you run
+once.** For a brand-new pairing system, "a subcommittee of four people must
+be named by the SPPC at the first Congress that follows the application"
+and reports back at the *next* Congress — i.e., potentially a full year.
+Applications for an already-endorsed system move faster (automated testing
+first, then Congress approval), but FE1 still has to reach the SPPC
+secretariat "at least four months before the Congress." Endorsements run on
+**four-year cycles starting January 1 of leap years** (2028, 2032, ...); at
+each cycle's transition, even already-endorsed programs must re-pass or be
+delisted, with an "interim certificate" possible mid-transition. Post-
+endorsement, a discovered error must be fixed within **two weeks (major)**
+or **two months (minor)**, or the endorsement is automatically suspended.
+Meeting every technical requirement doesn't guarantee endorsement either —
+**the Commission retains discretionary approval authority** on top of the
+checklist.
+
+**What this means concretely for "when can we test a shitload of
+tournaments"**: the fuzz harness (below) already IS the "throw random
+tournaments at it and watch the error ratio" mechanic FIDE's own FE1 form
+asks for — `cross_program_test.exs` against `bbpPairings` is directly
+analogous to the "internal RTG vs. reference checker" row (OpenPairings'
+own pairing, checked by an independent tool), just missing the "internal
+RTG" framing since the harness's own synthetic generator plays that role.
+Running it at real scale (`PAIRING_FUZZ_COUNT=5000`, matching FIDE's own
+number) and tracking the discrepancy count against the 1-per-500 bar is a
+meaningful, FIDE-shaped confidence number to have on hand — but it is
+*not* itself a FIDE submission, an SPPC review, or a guarantee of
+endorsement; it's the kind of evidence that would go *into* an application,
+whenever the "does a wrapper program even need this" question above gets a
+real answer from the Commission.
+
 ## Checklist against that framing
 
 ### A — FIDE Mode Requirements (VCL.01–06)
