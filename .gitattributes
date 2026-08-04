@@ -22,3 +22,5 @@
 *.png binary
 *.ico binary
 *.swar binary
+priv/bbppairings/bbpPairings-linux binary
+priv/bbppairings/bbpPairings-windows.exe binary

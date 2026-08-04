@@ -230,31 +230,51 @@ already tests against hand-worked FIDE Handbook examples (see VCL.19), which
 is precisely the pattern that caught the 16.4 bug; more of that is the fix,
 not a pairing harness.
 
-### Proposed shape of the harness (not yet built)
+### The harness — shipped
 
-1. A generator (property-based test or a `mix` task) that produces a random
-   but legal tournament configuration and simulates N rounds — deliberately
-   including the edge cases that have actually caused bugs so far: gaps in
-   `pairing_number` (a withdrawn player), acceleration on, per-category
-   pairing, forbidden pairings, round-specific absences.
-2. **Data-transformation properties** (item 1 above) run directly against
-   `Pairing.javafo_input`/`TrfExport` — fast, no external process, and the
-   most direct test for the actual bug class already found.
-3. **Cross-program agreement** (item 2 above) runs OpenPairings' real
-   pairing code path (`PairingsEngine.Pairing.pair_next_round/1`) against
-   bbpPairings standalone on identical synthetic input, diffing actual
-   pairings round by round. Needs bbpPairings vendored as a companion
-   binary (same general shape as `priv/javafo/javafo.jar` already is).
-4. Log any disagreement with enough detail to reproduce exactly (the random
-   seed, the roster, the round number) — a flagged round is either a real
-   bug or a legitimate arbiter-discretion case (forbidden pairings,
-   categories) bbpPairings doesn't model, and telling those apart is the
-   actual output of running this.
-5. Keep both runnable on demand (CI nightly, or a local `mix` task) rather
-   than a one-off script — this is a standing confidence check, not a
-   single audit. FIDE's 1-per-500 ratio remains a reasonable target for the
-   cross-program-agreement half specifically, even though it's not the
-   metric this project would submit to FIDE for anything.
+Both halves described above are now built:
 
-This is deliberately scoped as a plan, not code — see the Backlog below for
-the concrete next steps once building starts.
+- **`test/pairings_engine/trf_property_test.exs`** — `StreamData` property
+  tests directly against `Trf.serialize/1`: random-but-legal rosters and
+  round histories (contiguous ranks, mutually consistent result codes),
+  checked against ground truth by round-tripping through `Trf.parse/1`
+  rather than re-deriving `Trf`'s own private column positions. Also covers
+  illegal-result-pair rejection and control-character handling. No external
+  process, runs as part of every normal `mix test`.
+- **`test/pairings_engine/cross_program_test.exs`** — cross-program
+  agreement: runs OpenPairings' real `Pairing.pair_next_round/1` (JaVaFo)
+  against `bbpPairings` (vendored in `priv/bbppairings/`, Apache-2.0 — see
+  `PairingsEngine.Test.BbpPairings`'s moduledoc for the vendoring/invocation
+  details, including the one real interface divergence between the two
+  engines: bbpPairings refuses to guess an unhistoried round's initial
+  color, unlike JaVaFo) on byte-identical TRF16 input (captured via the
+  existing `[:pairings_engine, :pairing, :trf_built]` telemetry event,
+  `pairing_test.exs`'s own established pattern for this), diffing the
+  actual pairing every round. `PAIRING_FUZZ_COUNT` (env var, default 8)
+  controls how many synthetic tournaments run — set it much higher for a
+  deliberate "throw a pile of random tournaments at it" pass, e.g.
+  `PAIRING_FUZZ_COUNT=500 mix test --only javafo --only bbppairings
+  test/pairings_engine/cross_program_test.exs`. Both test files are tagged
+  `:javafo`/`:bbppairings` and gated in `test_helper.exs` exactly like the
+  existing `:swar_fixture` pattern, so a normal `mix test` on a checkout
+  without both binaries simply skips them rather than failing.
+
+Not yet covered from the original plan: the generator doesn't specifically
+target acceleration-on, per-category pairing, forbidden-pairings, or
+round-specific-absence configurations — the current roster generator is a
+plain flat Swiss field. Worth extending if those specific paths need their
+own confidence pass; they're exactly where the two real bugs that motivated
+this harness lived.
+
+**First real finding (not yet resolved)**: a `PAIRING_FUZZ_COUNT=200` run
+found 6 disagreements (~1.2% of paired rounds) — always small rosters
+(5-13 players), always a same-score-group-splitting choice in an otherwise
+fully legal situation (no repeat-opponent conflicts on either side).
+Verified against JaVaFo run standalone (bypassing OpenPairings' own
+pipeline entirely) on the exact captured TRF to rule out an
+OpenPairings-side input bug — the disagreement is genuinely between JaVaFo
+and bbpPairings themselves, not something OpenPairings fed either engine
+wrong. Needs FIDE Dutch-system tie-break rules research (C.04.3) to
+determine whether one of the two engines is actually wrong here, or this is
+a legitimately underspecified case both handle differently — exactly the
+kind of question this harness exists to surface, not resolve on its own.

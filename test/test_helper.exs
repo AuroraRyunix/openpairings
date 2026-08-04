@@ -32,13 +32,20 @@ swar_fixtures_present? =
 
 javafo_present? = File.exists?(PairingsEngine.Pairing.javafo_jar())
 
+# bbpPairings is vendored (priv/bbppairings/ — see PairingsEngine.Test.BbpPairings'
+# moduledoc) for Linux and Windows, so this only ever excludes anything on an
+# OS with no vendored build (currently just macOS).
+bbppairings_present? = PairingsEngine.Test.BbpPairings.available?()
+
 exclude_tags =
   Enum.reduce(
     [
       {swar_fixtures_present?, :swar_fixture,
        "Skipping SWAR-fixture tests: test/fixtures/c-reeks.swar not present"},
       {javafo_present?, :javafo,
-       "Skipping JaVaFo-dependent tests: #{PairingsEngine.Pairing.javafo_jar()} not present"}
+       "Skipping JaVaFo-dependent tests: #{PairingsEngine.Pairing.javafo_jar()} not present"},
+      {bbppairings_present?, :bbppairings,
+       "Skipping bbpPairings-dependent tests: no vendored binary for this OS"}
     ],
     [],
     fn

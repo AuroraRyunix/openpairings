@@ -54,20 +54,28 @@ gaps identified there, extracted here as actionable items:
   (how FIDE expects this encoded in a TRF row pair, since the standard
   win/draw/loss/forfeit codes don't have an obvious slot for it) before any
   implementation.
-- **Fuzz-testing harness — but not a pairing checker.** A plain checker
-  (JaVaFo's own `-g`/`-c`, or bbpPairings') only verifies "is this pairing
-  legal given this input" — it can't catch a wrong-but-internally-consistent
-  input, which is exactly the bug class both real bugs this session were
-  (neither would have been flagged by a checker). What's actually worth
-  building: (1) property tests asserting OpenPairings' TRF-builder produces
-  exactly the hand-computed-correct output for random rosters/histories —
-  no external tool needed; (2) cross-program agreement at scale — run
-  synthetic tournaments through OpenPairings' real pipeline *and*
-  bbpPairings standalone (a genuinely independent second implementation,
-  not just JaVaFo again) on identical input, diff the actual pairings.
-  Neither needs a "1,000,000-tournament database" — a synthetic generator
-  makes any volume cheap (pure CPU), and FIDE's own 1-per-500 error-ratio
-  bar is a reasonable target for the cross-program half specifically.
+- ~~Fuzz-testing harness — but not a pairing checker~~ — **shipped**: (1)
+  `test/pairings_engine/trf_property_test.exs` — `StreamData` property tests
+  on `Trf.serialize/1` against random-but-legal rosters/histories, checked
+  against ground truth via `parse/1` round-tripping rather than re-deriving
+  `Trf`'s own column positions; (2)
+  `test/pairings_engine/cross_program_test.exs` — runs OpenPairings' real
+  `Pairing.pair_next_round/1` (JaVaFo) against `bbpPairings` (Bierema Boyz
+  Programming, Apache-2.0, vendored in `priv/bbppairings/` — a genuinely
+  independent second Dutch-system implementation, not JaVaFo again) on
+  byte-identical TRF16 input, diffing the actual pairing every round across
+  `PAIRING_FUZZ_COUNT` (default 8, set much higher for a deliberate
+  "throw a pile of random tournaments at it" pass) synthetic tournaments.
+  Both tagged `:javafo`/`:bbppairings`, gated in `test_helper.exs` exactly
+  like the existing `:swar_fixture` pattern.
+  **First real finding, not yet resolved**: a `PAIRING_FUZZ_COUNT=200` run
+  found ~6 disagreements (~1.2% of rounds) on small rosters (5-13 players),
+  always a same-score-group-splitting choice in an otherwise-legal
+  situation (verified against JaVaFo run standalone, bypassing OpenPairings
+  entirely, to rule out an OpenPairings-side bug) — needs FIDE Dutch-system
+  rules research to tell whether this is a bbpPairings quirk, a JaVaFo
+  quirk, or a genuinely underspecified tie-break FIDE's own rules leave
+  open; the harness's exact job is surfacing this, not resolving it.
 - **TRF06 import** (VCL.11, recommended not mandatory) — low priority unless
   a real TRF06 file needs importing.
 - Two smaller "needs verification" items in the doc (UTF-8 response headers

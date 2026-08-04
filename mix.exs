@@ -101,7 +101,8 @@ defmodule PairingsEngine.MixProject do
       {:req, "~> 0.5"},
       {:swoosh, "~> 1.16"},
       {:gen_smtp, "~> 1.2"},
-      {:burrito, "~> 1.3"}
+      {:burrito, "~> 1.3"},
+      {:stream_data, "~> 1.1", only: [:dev, :test]}
     ]
   end
 

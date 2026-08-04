@@ -53,6 +53,9 @@ lib/pairings_engine_web/   Phoenix web layer — router, LiveViews, controllers,
 lib/pairings_engine_web/live/   one LiveView per top-bar tab/page
 priv/repo/migrations/      Ecto migrations (SQLite)
 priv/javafo/               javafo.jar goes here (not bundled)
+priv/bbppairings/          bbpPairings binaries (bundled — Apache-2.0, unlike
+                            JaVaFo — used only by the cross-program-agreement
+                            test harness, see docs/fide-endorsement.md)
 priv/norm_templates/       official FIDE .xlsx report templates
 assets/                    hand-written CSS + JS (esbuild), no Node deps
 test/                      ExUnit; test/fixtures/ holds real anonymized
