@@ -165,29 +165,49 @@ defmodule PairingsEngine.TrfExport do
       |> Pairing.trf_player_rows(players)
       |> Enum.map(&filter_player_games(&1, rounds, tournament))
 
-    Trf.serialize(%{
-      tournament: %{
-        name: tournament.name,
-        city: tournament.city,
-        # Defensive normalization: `SwarImport.create_tournament/2` already
-        # normalizes a Belgian regional marker (VSF/FEFB/FRBE/"FIDE"/...) to
-        # "BEL" on import, but a tournament imported before that
-        # normalization existed may still carry the raw marker in the
-        # database — reusing the same helper here means it exports "032
-        # BEL" either way, with no re-import required. A no-op for every
-        # other federation value (see `SwarImport.normalize_federation/1`).
-        federation: SwarImport.normalize_federation(tournament.federation),
-        start_date: tournament.start_date,
-        end_date: tournament.end_date,
-        number_of_rated_players: Enum.count(trf_players, &((&1.fide_rating || 0) > 0)),
-        type: tournament.type,
-        chief_arbiter: chief_arbiter_line(tournament),
-        deputy_arbiters: deputy_arbiter_lines(tournament),
-        time_control: blank_to_nil(tournament.rate_of_play),
-        round_dates: filter_round_dates(tournament.round_dates, rounds)
+    Trf.serialize(
+      %{
+        tournament: %{
+          name: tournament.name,
+          city: tournament.city,
+          # Defensive normalization: `SwarImport.create_tournament/2` already
+          # normalizes a Belgian regional marker (VSF/FEFB/FRBE/"FIDE"/...) to
+          # "BEL" on import, but a tournament imported before that
+          # normalization existed may still carry the raw marker in the
+          # database — reusing the same helper here means it exports "032
+          # BEL" either way, with no re-import required. A no-op for every
+          # other federation value (see `SwarImport.normalize_federation/1`).
+          federation: SwarImport.normalize_federation(tournament.federation),
+          start_date: tournament.start_date,
+          end_date: tournament.end_date,
+          number_of_rated_players: Enum.count(trf_players, &((&1.fide_rating || 0) > 0)),
+          type: tournament.type,
+          chief_arbiter: chief_arbiter_line(tournament),
+          deputy_arbiters: deputy_arbiter_lines(tournament),
+          time_control: blank_to_nil(tournament.rate_of_play),
+          # The count of rounds actually represented in *this* file, not the
+          # tournament's configured total — matches `round_dates` below, which
+          # is filtered to `rounds` the same way (a `?rounds=1-3` export of a
+          # 5-round event describes itself as 3 rounds, honestly).
+          number_of_rounds: length(rounds),
+          round_dates: filter_round_dates(tournament.round_dates, rounds),
+          generator: "OpenPairings v#{app_version()}"
+        },
+        players: trf_players
       },
-      players: trf_players
-    })
+      column_legend: true
+    )
+  end
+
+  # Mirrors `PairingsEngineWeb.Layouts.app_version/0` — duplicated rather
+  # than reused so this domain module doesn't reach into the web layer for
+  # one string.
+  defp app_version do
+    case Application.spec(:pairings_engine, :vsn) do
+      vsn when is_list(vsn) -> List.to_string(vsn)
+      vsn when is_binary(vsn) -> vsn
+      _ -> "0.0.0"
+    end
   end
 
   # 102: chief arbiter, as "<FIDE id> <name>" when the id is known (e.g.

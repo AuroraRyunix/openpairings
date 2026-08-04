@@ -55,7 +55,15 @@ defmodule PairingsEngine.Trf do
     chief_arbiter: "102",
     deputy_arbiter: "112",
     time_control: "122",
-    round_dates: "132"
+    # Not in the official TRF16 spec, but real-world precedent from
+    # Swiss-Manager (which already emits both) and formalized in FIDE's
+    # TRF25/26 draft extension — see docs/import-export.md. Both are
+    # optional/additive: an unrecognized header code is already silently
+    # ignored by `parse_header_line/3`, so including them never breaks a
+    # TRF16-only reader.
+    number_of_rounds: "142",
+    round_dates: "132",
+    generator: "182"
   }
 
   @type_labels %{
@@ -130,15 +138,86 @@ defmodule PairingsEngine.Trf do
                     games: [%{opponent_rank: 2, colour: "w", result: "1"}]}],
         teams: [%{name: ..., player_ranks: [1, 2]}]
       })
+
+  `opts[:column_legend]`: when true, inserts the ruler/field-code lines
+  Swiss-Manager prepends to its own TRF exports (a `DDD SSSS sTTT NNN...`
+  legend plus two column-position rulers) right before the player rows —
+  purely a human-readability courtesy for whoever opens the raw file, no
+  header code of its own, and safely ignored by any TRF16 reader (including
+  `parse/1`, since these lines don't start with a recognized 3-digit code).
+  Off by default — deliberately never used for the JaVaFo-input path (see
+  `PairingsEngine.Pairing.javafo_input/4`), which has no use for it and
+  should stay byte-for-byte what it's always been for a fragile consumer.
   """
-  def serialize(%{tournament: t, players: players} = data) do
+  def serialize(data, opts \\ [])
+
+  def serialize(%{tournament: t, players: players} = data, opts) do
     validate_games!(players)
     teams = Map.get(data, :teams, [])
+    max_round = Enum.reduce(players, 0, &max(&2, length(&1[:games] || [])))
 
     header_lines(t, players, teams)
+    |> Kernel.++(legend_lines(opts[:column_legend], max_round))
     |> Kernel.++(Enum.map(players, &player_line/1))
     |> Kernel.++(Enum.map(teams, &team_line/1))
     |> Enum.map_join("", &(&1 <> "\r\n"))
+  end
+
+  defp legend_lines(true, max_round) when max_round > 0 do
+    legend = legend_line(max_round)
+    width = String.length(legend)
+    ["", ruler_line(width, :tens), ruler_line(width, :units), legend]
+  end
+
+  defp legend_lines(_, _), do: []
+
+  defp legend_line(max_round) do
+    []
+    |> place(@player_cols.code, "DDD")
+    |> place(@player_cols.starting_rank, "SSSS")
+    |> place(@player_cols.sex, "s")
+    |> place(@player_cols.title, "TTT")
+    |> place(@player_cols.name, String.duplicate("N", 33))
+    |> place(@player_cols.fide_rating, "RRRR")
+    |> place(@player_cols.federation, "FFF")
+    |> place(@player_cols.fide_number, String.duplicate("I", 11))
+    |> place(@player_cols.birth_date, "BBBB/BB/BB")
+    |> place(@player_cols.points, "PPPP")
+    |> place(@player_cols.rank, "RRRR")
+    |> legend_games(max_round)
+    |> render()
+  end
+
+  defp legend_games(acc, max_round) do
+    Enum.reduce(1..max_round, acc, fn round, acc ->
+      cols = round_cols(round)
+      digit = round |> Integer.to_string() |> String.last()
+
+      acc
+      |> place(cols.id, String.duplicate(digit, 4))
+      |> place(cols.colour, digit)
+      |> place(cols.result, digit)
+    end)
+  end
+
+  # `:tens` marks every 10th column with its running count (e.g. "1" ending
+  # at column 10, "18" ending at column 180); `:units` repeats "1234567890"
+  # across the full width — together, a standard fixed-width column ruler.
+  defp ruler_line(width, :tens) do
+    Enum.reduce(10..width//10, List.duplicate(" ", width), fn col, acc ->
+      label = col |> div(10) |> Integer.to_string()
+      start = col - String.length(label)
+
+      label
+      |> String.graphemes()
+      |> Enum.with_index()
+      |> Enum.reduce(acc, fn {ch, i}, acc2 -> List.replace_at(acc2, start + i, ch) end)
+    end)
+    |> Enum.join()
+  end
+
+  defp ruler_line(width, :units) do
+    1..width |> Enum.map_join("", &Integer.to_string(rem(&1, 10)))
   end
 
   defp header_lines(t, players, teams) do
@@ -157,7 +236,12 @@ defmodule PairingsEngine.Trf do
       header(:chief_arbiter, t[:chief_arbiter])
     ]
     |> Kernel.++(Enum.map(t[:deputy_arbiters] || [], &header(:deputy_arbiter, &1)))
-    |> Kernel.++([header(:time_control, t[:time_control]), round_dates_line(t[:round_dates])])
+    |> Kernel.++([
+      header(:time_control, t[:time_control]),
+      header(:number_of_rounds, t[:number_of_rounds]),
+      round_dates_line(t[:round_dates]),
+      header(:generator, t[:generator])
+    ])
     |> Enum.reject(&(&1 in [nil, false]))
   end
 
@@ -398,7 +482,13 @@ defmodule PairingsEngine.Trf do
       f when f in [:start_date, :end_date] ->
         put_in(acc.tournament[f], String.replace(value, "/", "-"))
 
-      f when f in [:number_of_players, :number_of_rated_players, :number_of_teams] ->
+      f
+      when f in [
+             :number_of_players,
+             :number_of_rated_players,
+             :number_of_teams,
+             :number_of_rounds
+           ] ->
         put_in(acc.tournament[f], parse_int(value) || 0)
 
       f ->

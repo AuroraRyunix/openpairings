@@ -198,6 +198,52 @@ defmodule PairingsEngine.TrfExportTest do
     assert parsed.tournament.round_dates == ["2026-01-02"]
   end
 
+  ## ---------- 142/182/column-legend (Swiss-Manager parity) ----------
+
+  test "142 (rounds in this file) reflects the selected rounds, not the tournament's configured total" do
+    {tournament, _} = fixture()
+
+    assert {:ok, all} = TrfExport.export(tournament)
+    assert Trf.parse(all).tournament.number_of_rounds == 2
+
+    assert {:ok, one} = TrfExport.export(tournament, "1")
+    assert Trf.parse(one).tournament.number_of_rounds == 1
+  end
+
+  test "182 names OpenPairings and its version" do
+    {tournament, _} = fixture()
+
+    assert {:ok, text} = TrfExport.export(tournament)
+    assert Trf.parse(text).tournament.generator =~ ~r/^OpenPairings v\d+\.\d+\.\d+/
+  end
+
+  test "the Swiss-Manager-style column-ruler/legend lines are present and don't disturb parsing" do
+    {tournament, _} = fixture()
+
+    assert {:ok, text} = TrfExport.export(tournament)
+    lines = String.split(text, "\r\n", trim: true)
+
+    assert Enum.any?(lines, &String.starts_with?(&1, "DDD SSSS sTTT"))
+    assert Enum.any?(lines, &(&1 =~ ~r/^(1234567890)+\d*$/))
+
+    # Still parses back to the exact same player/game data either way — the
+    # legend is inert decoration to any TRF16 reader, including our own.
+    parsed = Trf.parse(text)
+    assert length(parsed.players) == 3
+  end
+
+  test "the JaVaFo-input path never gets the column legend (it's opt-in, TrfExport-only)" do
+    text =
+      Trf.serialize(%{
+        tournament: %{name: "T", type: "swiss"},
+        players: [%{rank: 1, name: "Alice", points: 0.0, games: []}]
+      })
+
+    refute text =~ "DDD SSSS"
+    refute text =~ "142 "
+    refute text =~ "182 "
+  end
+
   ## ---------- header completeness (072/082/102/112/122) ----------
 
   test "072 (number of rated players) counts only players with a fide_rating > 0" do

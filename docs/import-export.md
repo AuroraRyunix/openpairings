@@ -81,6 +81,40 @@ test suite for how it's provoked), since every route that actually **writes**
 results keeps opponents' recorded results consistent with each other by
 construction.
 
+### Beyond the official TRF16 fields: `142`, `182`, and the column legend
+
+Real-world TRF exports (SWAR, Swiss-Manager) all extend TRF16 with a handful
+of extra, unofficial-but-harmless header lines and a readability aid, so this
+export matches:
+
+  * **`142`** — number of rounds represented in *this file* (following the
+    same round-selection filtering as everything else — a `?rounds=1-3`
+    export of a 5-round tournament reports `142 3`, honestly). Not part of
+    official TRF16, but Swiss-Manager already emits it, and it's one of the
+    handful of fields FIDE's TRF25/26 draft extension formalizes.
+  * **`182`** — `OpenPairings v<version>`, naming the program that produced
+    the file (Swiss-Manager does the same with its own name/version).
+  * **A column ruler + field-code legend** (`DDD SSSS sTTT NNN...`, plus two
+    position-marker lines) inserted right before the player rows — purely a
+    human-readability courtesy for whoever opens the raw file in a text
+    editor, copied from Swiss-Manager's own convention.
+
+All three are additive and inert to any TRF16 reader: an unrecognized header
+code (or a line that doesn't start with one of the three-digit codes at all)
+is silently skipped, both by spec convention and by this app's own
+`PairingsEngine.Trf.parse/1`. They're opt-in via `Trf.serialize/2`'s
+`column_legend: true` (and the `number_of_rounds`/`generator` tournament
+fields) — `TrfExport` turns them on; the JaVaFo-input path
+(`PairingsEngine.Pairing.javafo_input/4`) never does, since JaVaFo is a far
+more fragile consumer and has no use for any of this.
+
+One thing this export deliberately does **not** do: reorder rows by final
+standing. Both SWAR (inconsistently — its own row order doesn't even match
+its own printed Rank column) and real-world testing showed Swiss-Manager
+keeping rows in original starting-rank order, same as this app — TRF's
+"Rank" column (086–089) is where final-standing order belongs, not physical
+row position.
+
 ### Where the export controls live
 
 The Pairings page (`/t/:id/pairings`) has an "Export TRF (all rounds)" link
