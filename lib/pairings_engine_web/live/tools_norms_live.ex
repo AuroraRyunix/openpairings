@@ -231,6 +231,14 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
         event_code = collapse_event_codes(event_codes(socket.assigns.files))
         officials = tournament.officials || %{}
 
+        # Deliberately NOT prefilled: `tournament.organizer` (SWAR's
+        # dedicated "organizer" binary field, separate from arbiter1/
+        # arbiter2) is an organizing body/venue string ("VPTD
+        # Geraardsbergen"), not a person's name — running it through the
+        # same FIDE person-matcher as chief_arbiter/deputies would either
+        # find nothing (an unhelpful hint next to a "search for a person"
+        # box) or, worse, a false-positive match to an unrelated namesake.
+        # The organizer combobox is left for the arbiter to fill in by hand.
         overlay =
           socket.assigns.overlay
           |> maybe_prefill_official(
@@ -238,7 +246,6 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
             "chief_arbiter_fide_id",
             tournament.chief_arbiter
           )
-          |> maybe_prefill_official("organizer_name", "organizer_fide_id", tournament.organizer)
           |> maybe_prefill("event_code", event_code)
 
         # `tournament.deputy_arbiter` is SWAR's raw, un-split field (multiple
@@ -610,12 +617,14 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   attr :label, :string, required: true
   attr :values, :map, required: true
   attr :prefix, :string, required: true
+  attr :hint, :string, default: nil
 
   defp overlay_input(assigns) do
     ~H"""
     <label class="field">
       <span>{@label}</span>
       <input name={"#{@prefix}[#{@field}]"} value={Map.get(@values, @field, "")} />
+      <p :if={@hint} class="hint" style="margin: 2px 0 0; font-size: 0.85em">{@hint}</p>
     </label>
     """
   end
@@ -809,12 +818,14 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
               prefix="overlay"
               field="event_code"
               label="FIDE event code"
+              hint="Your federation's rating-homologation code, e.g. BEL2026001."
               values={@overlay}
             />
             <.overlay_input
               prefix="overlay"
               field="fide_tournament_id"
               label="FIDE tournament ID"
+              hint="This report's own numeric ID at FIDE — a different thing from the event code above."
               values={@overlay}
             />
           </div>

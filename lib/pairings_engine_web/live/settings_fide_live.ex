@@ -176,7 +176,9 @@ defmodule PairingsEngineWeb.SettingsFideLive do
             The FIDE tournament ID above is used whenever no per-round range below unambiguously
             covers the exported rounds (no ranges configured, the export spans more than one range,
             or matches none) - see the ranges below for splitting one event's report across
-            differently-rated sections.
+            differently-rated sections. It's a different thing from the event code: the ID is this
+            report's own numeric identifier at FIDE (IT3's "ID of Tournament"), the event code is
+            your federation's rating-homologation code (e.g. BEL2026001).
           </p>
         </div>
 
