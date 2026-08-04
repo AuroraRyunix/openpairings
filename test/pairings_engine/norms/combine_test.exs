@@ -93,7 +93,10 @@ defmodule PairingsEngine.Norms.CombineTest do
       assert virtual.round_dates == ["2026-09-01", "2026-09-02", "2026-09-02"]
       assert virtual.rate_of_play == "40/90+30"
       assert virtual.event_code == "AOPEN"
-      assert virtual.fide_tournament_id == "555"
+      # fide_tournament_id is the one field NOT taken verbatim from the
+      # master — see the "combined FIDE tournament id" describe block below.
+      # `a` is "555", `b` (unoverridden) is the fixture default "111".
+      assert virtual.fide_tournament_id == "555,111"
       assert virtual.officials == %{"chief_arbiter_fide_id" => "12345"}
       assert virtual.id == nil
 
@@ -125,6 +128,99 @@ defmodule PairingsEngine.Norms.CombineTest do
 
       assert virtual.name == "C Festival"
       assert players == pa ++ pb ++ pc
+    end
+  end
+
+  # ---------------------------------------------------------------------
+  # combined FIDE tournament id (IT3 B2) — a festival's category groups are
+  # often separately homologated with FIDE under different tournament ids
+  # ---------------------------------------------------------------------
+
+  describe "combine/2's combined FIDE tournament id" do
+    test "every group sharing one id collapses to just that id" do
+      a = tournament(%{id: 1, name: "A", fide_tournament_id: "555"})
+      b = tournament(%{id: 2, name: "B", fide_tournament_id: "555"})
+
+      assert {:ok, {virtual, _players}} =
+               Combine.combine([{a, [player(%{fide_id: 1})]}, {b, [player(%{fide_id: 2})]}], 0)
+
+      assert virtual.fide_tournament_id == "555"
+    end
+
+    test "consecutive distinct ids compress to a range" do
+      a = tournament(%{id: 1, name: "A", fide_tournament_id: "12345"})
+      b = tournament(%{id: 2, name: "B", fide_tournament_id: "12346"})
+      c = tournament(%{id: 3, name: "C", fide_tournament_id: "12347"})
+
+      assert {:ok, {virtual, _players}} =
+               Combine.combine(
+                 [
+                   {a, [player(%{fide_id: 1})]},
+                   {b, [player(%{fide_id: 2})]},
+                   {c, [player(%{fide_id: 3})]}
+                 ],
+                 0
+               )
+
+      assert virtual.fide_tournament_id == "12345-12347"
+    end
+
+    test "consecutive ids given out of order still compress (sorted, not selection order)" do
+      a = tournament(%{id: 1, name: "A", fide_tournament_id: "12347"})
+      b = tournament(%{id: 2, name: "B", fide_tournament_id: "12345"})
+      c = tournament(%{id: 3, name: "C", fide_tournament_id: "12346"})
+
+      assert {:ok, {virtual, _players}} =
+               Combine.combine(
+                 [
+                   {a, [player(%{fide_id: 1})]},
+                   {b, [player(%{fide_id: 2})]},
+                   {c, [player(%{fide_id: 3})]}
+                 ],
+                 0
+               )
+
+      assert virtual.fide_tournament_id == "12345-12347"
+    end
+
+    test "a gap in otherwise-numeric ids falls back to a comma list, in selection order" do
+      a = tournament(%{id: 1, name: "A", fide_tournament_id: "12345"})
+      b = tournament(%{id: 2, name: "B", fide_tournament_id: "12350"})
+
+      assert {:ok, {virtual, _players}} =
+               Combine.combine([{a, [player(%{fide_id: 1})]}, {b, [player(%{fide_id: 2})]}], 0)
+
+      assert virtual.fide_tournament_id == "12345,12350"
+    end
+
+    test "a non-numeric id among the set falls back to a comma list" do
+      a = tournament(%{id: 1, name: "A", fide_tournament_id: "BEL-2026-A"})
+      b = tournament(%{id: 2, name: "B", fide_tournament_id: "12345"})
+
+      assert {:ok, {virtual, _players}} =
+               Combine.combine([{a, [player(%{fide_id: 1})]}, {b, [player(%{fide_id: 2})]}], 0)
+
+      assert virtual.fide_tournament_id == "BEL-2026-A,12345"
+    end
+
+    test "a group with no id at all is just dropped, not treated as a blank member of the list" do
+      a = tournament(%{id: 1, name: "A", fide_tournament_id: ""})
+      b = tournament(%{id: 2, name: "B", fide_tournament_id: "12345"})
+
+      assert {:ok, {virtual, _players}} =
+               Combine.combine([{a, [player(%{fide_id: 1})]}, {b, [player(%{fide_id: 2})]}], 0)
+
+      assert virtual.fide_tournament_id == "12345"
+    end
+
+    test "no group has an id -> blank, same as a single tournament with no id" do
+      a = tournament(%{id: 1, name: "A", fide_tournament_id: ""})
+      b = tournament(%{id: 2, name: "B", fide_tournament_id: ""})
+
+      assert {:ok, {virtual, _players}} =
+               Combine.combine([{a, [player(%{fide_id: 1})]}, {b, [player(%{fide_id: 2})]}], 0)
+
+      assert virtual.fide_tournament_id == ""
     end
   end
 

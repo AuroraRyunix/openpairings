@@ -95,7 +95,7 @@ defmodule PairingsEngine.Norms.Forms do
       "Invulformulier" =>
         %{
           "B1" => blank(tournament.federation),
-          "B2" => parse_int(tournament.fide_tournament_id),
+          "B2" => fide_tournament_id_cell(tournament.fide_tournament_id),
           "B3" => blank(tournament.name),
           "B4" => blank(tournament.federation),
           "B5" => place(tournament),
@@ -544,6 +544,28 @@ defmodule PairingsEngine.Norms.Forms do
     case Integer.parse(String.trim(s)) do
       {n, _} -> n
       :error -> nil
+    end
+  end
+
+  # IT3 B2 ("ID of Tournament") — unlike every other id-shaped cell, this one
+  # isn't always a single number: `PairingsEngine.Norms.Combine` builds a
+  # festival's B2 as "12345-12347" or "12345,12348" when its category groups
+  # carry several distinct FIDE ids (see `combined_fide_tournament_id/1`
+  # there). `parse_int/1` would silently truncate either of those to just
+  # "12345" (`Integer.parse/1` stops at the first non-digit rather than
+  # failing), so a *whole* string has to parse as one integer to be written
+  # as a number here — anything else (that compressed notation, or any
+  # other non-numeric id a federation might issue) is written as text.
+  defp fide_tournament_id_cell(nil), do: nil
+  defp fide_tournament_id_cell(""), do: nil
+  defp fide_tournament_id_cell(n) when is_integer(n), do: n
+
+  defp fide_tournament_id_cell(s) when is_binary(s) do
+    s = String.trim(s)
+
+    case Integer.parse(s) do
+      {n, ""} -> n
+      _ -> if s == "", do: nil, else: s
     end
   end
 

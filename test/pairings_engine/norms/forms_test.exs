@@ -101,6 +101,28 @@ defmodule PairingsEngine.Norms.FormsTest do
       assert fills["B21"] == ""
     end
 
+    test "B2 writes a festival's compressed multi-id notation as text, not truncated to its leading digits" do
+      # A naive Integer.parse/1-based fill would silently turn either of
+      # these into just 12345 — Combine's own compressed notation (see
+      # PairingsEngine.Norms.Combine.combined_fide_tournament_id/1) has to
+      # survive onto the IT3 cell whole.
+      range = tournament(%{fide_tournament_id: "12345-12347"})
+      assert Forms.it3_fills(range, [])["Invulformulier"]["B2"] == "12345-12347"
+
+      list = tournament(%{fide_tournament_id: "12345,12350"})
+      assert Forms.it3_fills(list, [])["Invulformulier"]["B2"] == "12345,12350"
+    end
+
+    test "B2 still writes a single plain numeric id as a number, not text" do
+      t = tournament(%{fide_tournament_id: "12345"})
+      assert Forms.it3_fills(t, [])["Invulformulier"]["B2"] == 12_345
+    end
+
+    test "B2 is blank when there's no FIDE tournament id at all" do
+      t = tournament(%{fide_tournament_id: ""})
+      assert Forms.it3_fills(t, [])["Invulformulier"]["B2"] == nil
+    end
+
     test "B22 defaults to Swar (With JaVaFo) when generated from the public Tools page" do
       fills = Forms.it3_fills(tournament(), [], :tools)["Invulformulier"]
 
