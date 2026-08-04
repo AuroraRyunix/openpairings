@@ -68,7 +68,7 @@ defmodule PairingsEngineWeb.NormsControllerTest do
       xml = Enum.map_join(members, fn {_name, bin} -> bin end)
 
       assert xml =~ "205494"
-      assert xml =~ "Luc CORNET"
+      assert xml =~ "CORNET, Luc"
     end
   end
 

@@ -91,6 +91,88 @@ defmodule PairingsEngineWeb.NormsLiveTest do
     assert updated.norm_data["title_claimed"] == "IM"
   end
 
+  test "Organizer has a real FIDE-lookup combobox (name + verified id), not a bare id text box",
+       %{
+         conn: conn,
+         scope: scope
+       } do
+    Repo.insert!(%PairingsEngine.Fide.FidePlayer{
+      fide_id: 300_100,
+      name: "Burssens, Jorian",
+      federation: "BEL"
+    })
+
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{"name" => "Organizer Combo LV", "type" => "swiss"})
+
+    {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/norms")
+
+    refute html =~ "Organizer FIDE ID"
+    assert has_element?(lv, "input[name='tournament[organizer]']")
+
+    lv
+    |> element("input[name='tournament[organizer]']")
+    |> render_change(%{
+      "tournament" => %{"organizer" => "Burssens"},
+      "_target" => ["tournament", "organizer"]
+    })
+
+    assert has_element?(lv, ~s(button[phx-click="arbiter_pick"][phx-value-fide-id="300100"]))
+
+    lv
+    |> element(~s(button[phx-click="arbiter_pick"][phx-value-fide-id="300100"]))
+    |> render_click()
+
+    lv |> form("#officials-form") |> render_submit()
+
+    updated = Tournaments.get_tournament!(tournament.id)
+    assert updated.organizer == "Burssens, Jorian"
+    assert updated.officials["organizer_id"] == "300100"
+  end
+
+  test "typing in one official's search box does not blank another official's already-picked value",
+       %{conn: conn, scope: scope} do
+    Repo.insert!(%PairingsEngine.Fide.FidePlayer{
+      fide_id: 214_787,
+      name: "Devet, Sylvin",
+      title: "IA",
+      federation: "BEL"
+    })
+
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{"name" => "Officials Bug LV", "type" => "swiss"})
+
+    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/norms")
+
+    # Pick deputy 1 for real, via search-then-pick — exactly how the arbiter
+    # combo commits a value (see ArbiterCombo's moduledoc).
+    lv
+    |> element("input[name='tournament[officials][deputy1_name]']")
+    |> render_change(%{
+      "tournament" => %{"officials" => %{"deputy1_name" => "Devet"}},
+      "_target" => ["tournament", "officials", "deputy1_name"]
+    })
+
+    lv
+    |> element(~s(button[phx-click="arbiter_pick"][phx-value-fide-id="214787"]))
+    |> render_click()
+
+    assert render(lv) =~ "Devet, Sylvin"
+
+    # Now type into a COMPLETELY DIFFERENT official's box - "Person
+    # responsible for pairings" - the way the user actually hit this: just
+    # typing, no pick yet. Deputy 1's already-committed value must survive.
+    html =
+      lv
+      |> element("input[name='tournament[officials][person_responsible_pairings]']")
+      |> render_change(%{
+        "tournament" => %{"officials" => %{"person_responsible_pairings" => "Jo"}},
+        "_target" => ["tournament", "officials", "person_responsible_pairings"]
+      })
+
+    assert html =~ "Devet, Sylvin"
+  end
+
   test "the norm-judgment table sorts players who've played games ahead of ones who haven't, regardless of roster order",
        %{conn: conn, scope: scope} do
     {:ok, tournament} =

@@ -43,8 +43,11 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
     refute html =~ "4th deputy arbiter"
 
     # The deputy FIDE id is only carried as a hidden field.
-    refute html =~ ~s(type="text" name="tournament[officials][deputy1_fide_id]")
-    assert html =~ ~s(type="hidden" name="tournament[officials][deputy1_fide_id]")
+    refute html =~
+             ~s(type="text" id="arbiter-combo-deputy1-id-hidden" name="tournament[officials][deputy1_fide_id]")
+
+    assert html =~
+             ~s(type="hidden" id="arbiter-combo-deputy1-id-hidden" name="tournament[officials][deputy1_fide_id]")
   end
 
   test "arbiters 1 and 2 (beyond the 2 ranked deputies) save and reach the officials map",
@@ -142,7 +145,7 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
     {:ok, members} = :zip.extract(conn.resp_body, [:memory])
     xml = Enum.map_join(members, fn {_name, bin} -> bin end)
     assert xml =~ "205494"
-    assert xml =~ "Luc CORNET"
+    assert xml =~ "CORNET, Luc"
   end
 
   test "typing a chief arbiter name — through the real form, either box — shows FIDE matches, and picking one fills name + FIDE id then saves",

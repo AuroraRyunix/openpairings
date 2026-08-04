@@ -235,9 +235,9 @@ defmodule PairingsEngine.Norms.FormsTest do
       fills = Forms.it3_fills(t, [])["Invulformulier"]
 
       assert fills["B66"] == 205_494
-      assert fills["B67"] == "Luc CORNET"
+      assert fills["B67"] == "CORNET, Luc"
       assert fills["B68"] == 214_787
-      assert fills["B69"] == "Sylvin DE VET"
+      assert fills["B69"] == "DE VET, Sylvin"
     end
 
     test "arbiter 3 onward lands on the cells ItThreeExpand grew for them" do
@@ -253,7 +253,7 @@ defmodule PairingsEngine.Norms.FormsTest do
       fills = Forms.it3_fills(t, [])["Invulformulier"]
 
       assert fills["B70"] == 207_640
-      assert fills["B71"] == "Marc VAN DYCK"
+      assert fills["B71"] == "VAN DYCK, Marc"
     end
 
     test "no extra_arbiters_count means no extra-arbiter cells at all" do
@@ -286,7 +286,7 @@ defmodule PairingsEngine.Norms.FormsTest do
       {_, invul} = List.keyfind(entries, "xl/worksheets/sheet2.xml", 0)
 
       assert invul =~ "205494"
-      assert invul =~ "Luc CORNET"
+      assert invul =~ "CORNET, Luc"
     end
 
     test "with 3+ extra arbiters, expands the template first and their data survives in the output" do
@@ -305,7 +305,7 @@ defmodule PairingsEngine.Norms.FormsTest do
       {_, invul} = List.keyfind(entries, "xl/worksheets/sheet2.xml", 0)
 
       assert invul =~ "207640"
-      assert invul =~ "Marc VAN DYCK"
+      assert invul =~ "VAN DYCK, Marc"
     end
   end
 
@@ -362,7 +362,7 @@ defmodule PairingsEngine.Norms.FormsTest do
       t = tournament(%{chief_arbiter: "Cornet, Luc"})
       fills = Forms.fa1_fills(t, [], @candidate)["Invulformulier"]
 
-      assert fills["B18"] == "Luc CORNET"
+      assert fills["B18"] == "CORNET, Luc"
     end
 
     test "B17 prefers the structured rate_of_play over the free-text time_control" do
@@ -488,12 +488,12 @@ defmodule PairingsEngine.Norms.FormsTest do
   end
 
   describe "fide_display_name/1" do
-    test "renders \"Last, First\" as \"First LAST\"" do
-      assert Forms.fide_display_name("Burssens, Jorian") == "Jorian BURSSENS"
+    test "renders \"Last, First\" as \"LASTNAME, First\"" do
+      assert Forms.fide_display_name("Burssens, Jorian") == "BURSSENS, Jorian"
       # Multi-word surnames are exactly why the comma decides the split
       # rather than word position.
-      assert Forms.fide_display_name("De Vet, Sylvin") == "Sylvin DE VET"
-      assert Forms.fide_display_name("Van Dyck, Marc") == "Marc VAN DYCK"
+      assert Forms.fide_display_name("De Vet, Sylvin") == "DE VET, Sylvin"
+      assert Forms.fide_display_name("Van Dyck, Marc") == "VAN DYCK, Marc"
     end
 
     test "a name with no comma is left alone rather than guessed at" do
@@ -527,7 +527,7 @@ defmodule PairingsEngine.Norms.FormsTest do
   end
 
   describe "official names on IT3 follow the same capitalisation" do
-    test "chief arbiter and deputies are rendered First LAST" do
+    test "chief arbiter and deputies are rendered LASTNAME, First" do
       t =
         tournament(%{
           chief_arbiter: "Cornet, Luc",
@@ -540,8 +540,8 @@ defmodule PairingsEngine.Norms.FormsTest do
 
       fills = Forms.it3_fills(t, [])["Invulformulier"]
 
-      assert fills["B60"] == "Luc CORNET"
-      assert fills["B63"] == "Sylvin DE VET"
+      assert fills["B60"] == "CORNET, Luc"
+      assert fills["B63"] == "DE VET, Sylvin"
     end
 
     test "an official stored without a comma is left as-is, not guessed at" do

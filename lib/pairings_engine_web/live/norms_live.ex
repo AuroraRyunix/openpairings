@@ -43,7 +43,6 @@ defmodule PairingsEngineWeb.NormsLive do
   # (see PairingsEngine.Tournaments.Tournament for the recognised keys).
   # Relocated here from the old SettingsLive Officials card.
   @officials_fields [
-    {"organizer_id", "Organizer FIDE ID", "text"},
     {"organizer_email", "Organizer e-mail", "text"},
     {"chief_arbiter_email", "Chief arbiter e-mail", "text"}
   ]
@@ -249,7 +248,7 @@ defmodule PairingsEngineWeb.NormsLive do
   end
 
   def handle_event("save_officials", %{"tournament" => params}, socket) do
-    params = Map.take(params, ["chief_arbiter", "officials"])
+    params = Map.take(params, ["chief_arbiter", "organizer", "officials"])
     base = Tournaments.get_tournament!(socket.assigns.tournament.id)
 
     case missing_official_ids(params) do
@@ -564,6 +563,14 @@ defmodule PairingsEngineWeb.NormsLive do
     }
   end
 
+  defp apply_arbiter_pick(tournament, "organizer", fp) do
+    %{
+      tournament
+      | organizer: fp.name,
+        officials: put_official(tournament, "organizer_id", fp.fide_id)
+    }
+  end
+
   defp apply_arbiter_pick(tournament, "person_responsible_pairings", fp) do
     officials =
       tournament
@@ -788,6 +795,16 @@ defmodule PairingsEngineWeb.NormsLive do
               name_value={@tournament.chief_arbiter}
               id_field="tournament[officials][chief_arbiter_fide_id]"
               id_value={o_get(@tournament, "chief_arbiter_fide_id")}
+              search={@arbiter_search}
+            />
+
+            <.arbiter_combo
+              role="organizer"
+              label="Organizer"
+              name_field="tournament[organizer]"
+              name_value={@tournament.organizer}
+              id_field="tournament[officials][organizer_id]"
+              id_value={o_get(@tournament, "organizer_id")}
               search={@arbiter_search}
             />
 

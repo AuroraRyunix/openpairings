@@ -63,7 +63,7 @@ defmodule PairingsEngineWeb.Components.ArbiterCombo do
 
   def arbiter_combo(assigns) do
     ~H"""
-    <div class="field arbiter-combo">
+    <div class="field arbiter-combo" id={"arbiter-combo-#{@role}"}>
       <span class="arbiter-combo-label">
         {@label}<span :if={@required} style="color: var(--danger)">*</span>
       </span>
@@ -71,6 +71,7 @@ defmodule PairingsEngineWeb.Components.ArbiterCombo do
         <div class="search-wrap arbiter-combo-name">
           <input
             type="text"
+            id={"arbiter-combo-#{@role}-name"}
             name={@name_field}
             value={@name_value}
             phx-change="arbiter_search"
@@ -86,14 +87,21 @@ defmodule PairingsEngineWeb.Components.ArbiterCombo do
             Uploaded file says: {@hint} — no confident FIDE match, please search or type it in.
           </p>
           <.results
+            id={"arbiter-combo-#{@role}-name-results"}
             options={ArbiterCombo.results_for(@search, @role, :name)}
             role={@role}
           />
         </div>
         <div class="search-wrap arbiter-combo-id">
-          <input type="hidden" name={@id_field} value={@id_value} />
+          <input
+            type="hidden"
+            id={"arbiter-combo-#{@role}-id-hidden"}
+            name={@id_field}
+            value={@id_value}
+          />
           <input
             type="text"
+            id={"arbiter-combo-#{@role}-id-search"}
             inputmode="numeric"
             name={ArbiterCombo.id_search_name(@role)}
             value={@id_value}
@@ -103,6 +111,7 @@ defmodule PairingsEngineWeb.Components.ArbiterCombo do
             placeholder="FIDE ID"
           />
           <.results
+            id={"arbiter-combo-#{@role}-id-results"}
             options={ArbiterCombo.results_for(@search, @role, :id)}
             role={@role}
           />
@@ -112,12 +121,13 @@ defmodule PairingsEngineWeb.Components.ArbiterCombo do
     """
   end
 
+  attr :id, :string, required: true
   attr :options, :list, required: true
   attr :role, :string, required: true
 
   defp results(assigns) do
     ~H"""
-    <div :if={@options != []} class="search-results">
+    <div :if={@options != []} id={@id} class="search-results">
       <button
         :for={fp <- @options}
         type="button"

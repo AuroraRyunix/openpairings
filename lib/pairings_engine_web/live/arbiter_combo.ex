@@ -45,6 +45,9 @@ defmodule PairingsEngineWeb.Live.ArbiterCombo do
   defp parse_field("chief_arbiter"), do: {"chief_arbiter", :name}
   defp parse_field("chief_arbiter_name"), do: {"chief_arbiter", :name}
   defp parse_field("chief_arbiter_fide_id"), do: {"chief_arbiter", :id}
+  defp parse_field("organizer"), do: {"organizer", :name}
+  defp parse_field("organizer_name"), do: {"organizer", :name}
+  defp parse_field("organizer_fide_id"), do: {"organizer", :id}
   defp parse_field("person_responsible_pairings"), do: {"person_responsible_pairings", :name}
 
   defp parse_field("person_responsible_pairings_fide_id"),

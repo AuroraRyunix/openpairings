@@ -198,7 +198,7 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     # The chief arbiter's name (FA1 B18) gets the same treatment.
     assert xml =~ "CANDIDATE"
     assert xml =~ "Norma"
-    assert xml =~ "Wim BOSSUYT"
+    assert xml =~ "BOSSUYT, Wim"
   end
 
   test "organizer and chief arbiter e-mails flow into the downloaded IT3", %{conn: conn} do
@@ -290,7 +290,7 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     assert conn.status == 200
     xml = xlsx_xml(conn.resp_body)
     assert xml =~ "205494"
-    assert xml =~ "Luc CORNET"
+    assert xml =~ "CORNET, Luc"
   end
 
   test "removing a parsed file takes it out of the report", %{conn: conn} do

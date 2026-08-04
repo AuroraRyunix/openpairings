@@ -102,7 +102,7 @@ defmodule PairingsEngine.Norms.Forms do
           "B6" => parse_date(tournament.start_date),
           "B7" => parse_date(tournament.end_date),
           "B8" => parse_int(Map.get(o, "organizer_id")),
-          "B9" => blank(tournament.organizer),
+          "B9" => blank(fide_display_name(tournament.organizer)),
           "B10" => blank(Map.get(o, "organizer_email")),
           "B11" => tournament.rounds_count,
           "B12" => schedule_label(tournament.round_dates),
@@ -419,18 +419,20 @@ defmodule PairingsEngine.Norms.Forms do
 
   defp cget(candidate, key), do: Map.get(candidate || %{}, key)
 
-  # FIDE's house style on these forms is the given name in normal case and the
-  # surname in capitals — "Jorian BURSSENS" — which also removes the ambiguity
-  # about which part is the surname for multi-word names ("De Vet", "Van
-  # Dyck"). Our records store "Last, First", so the comma is what tells us
-  # where to split; a name with no comma is left alone rather than guessed at.
+  # FIDE house style, and how every FIDE-facing list/roster/pairing sheet in
+  # this app already reads (the arbiter-lookup combobox results, TRF rows,
+  # standings): "LASTNAME, Firstname" — surname in capitals, comma, given
+  # name in normal case, which also removes the ambiguity about which part
+  # is the surname for multi-word names ("De Vet", "Van Dyck"). Our records
+  # already store names this way, so this only needs to uppercase the
+  # surname half; a name with no comma is left alone rather than guessed at.
   @doc false
   def fide_display_name(name) do
     case String.split(to_string(name), ",", parts: 2) do
       [last, first] ->
-        [String.trim(first), String.upcase(String.trim(last))]
-        |> Enum.reject(&(&1 == ""))
-        |> Enum.join(" ")
+        last = String.upcase(String.trim(last))
+        first = String.trim(first)
+        if first == "", do: last, else: "#{last}, #{first}"
 
       _ ->
         String.trim(to_string(name))
