@@ -56,4 +56,37 @@ defmodule PairingsEngine.Norms.CountsBreakdownTest do
     assert CountsBreakdown.breakdown(players, nil).im.host == 0
     assert CountsBreakdown.breakdown(players, "").im.host == 0
   end
+
+  describe "federations/2" do
+    test "sorted by count descending, ties broken alphabetically" do
+      players = [
+        player(%{federation: "NED"}),
+        player(%{federation: "BEL"}),
+        player(%{federation: "BEL"}),
+        player(%{federation: "BEL"}),
+        player(%{federation: "GER"})
+      ]
+
+      assert CountsBreakdown.federations(players, "BEL") == [
+               %{federation: "BEL", count: 3, host?: true},
+               %{federation: "GER", count: 1, host?: false},
+               %{federation: "NED", count: 1, host?: false}
+             ]
+    end
+
+    test "players with no federation on file are excluded entirely" do
+      players = [player(%{federation: ""}), player(%{federation: "BEL"})]
+
+      assert CountsBreakdown.federations(players, "BEL") == [
+               %{federation: "BEL", count: 1, host?: true}
+             ]
+    end
+
+    test "a nil/blank host_federation never marks any federation as host" do
+      players = [player(%{federation: "BEL"})]
+
+      assert [%{host?: false}] = CountsBreakdown.federations(players, nil)
+      assert [%{host?: false}] = CountsBreakdown.federations(players, "")
+    end
+  end
 end

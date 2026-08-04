@@ -22,10 +22,21 @@ defmodule PairingsEngineWeb.Components.It3CountsExplain do
 
   def it3_counts_explain(assigns) do
     breakdown = CountsBreakdown.breakdown(assigns.players, assigns.host_federation)
-    assigns = assign(assigns, :breakdown, breakdown)
+    federations = CountsBreakdown.federations(assigns.players, assigns.host_federation)
+
+    # Empty groups (no GMs at a club event, say) are real information but not
+    # worth a card each — a wall of "0" boxes just buries the ones that
+    # actually have players in them.
+    populated_categories =
+      for {key, label, explanation} <- CountsBreakdown.categories(),
+          category = Map.fetch!(breakdown, key),
+          category.total > 0,
+          do: {label, explanation, category}
+
+    assigns = assign(assigns, categories: populated_categories, federations: federations)
 
     ~H"""
-    <details class="it3-explain">
+    <details class="it3-explain" open>
       <summary class="it3-explain-summary">
         How the IT3 rated / titled / federation counts were calculated
       </summary>
@@ -37,18 +48,55 @@ defmodule PairingsEngineWeb.Components.It3CountsExplain do
         — CM/WCM don't count as
         titled). <strong>feds</strong>
         is the number of distinct federations in that group; <strong>host</strong>
-        is how many of them are {host_label(assigns.host_federation)}.
+        is how many of them are {host_label(assigns.host_federation)}. Groups with no
+        players in them aren't shown.
       </p>
 
       <div class="it3-explain-grid">
+        <.federations_card federations={@federations} host_federation={@host_federation} />
         <.category_card
-          :for={{key, label, explanation} <- CountsBreakdown.categories()}
+          :for={{label, explanation, category} <- @categories}
           label={label}
           explanation={explanation}
-          category={Map.fetch!(@breakdown, key)}
+          category={category}
           host_federation={@host_federation}
         />
       </div>
+    </details>
+    """
+  end
+
+  attr :federations, :list, required: true
+  attr :host_federation, :string, default: nil
+
+  defp federations_card(assigns) do
+    ~H"""
+    <details :if={@federations != []} class="it3-explain-card" open>
+      <summary>
+        <span class="it3-explain-card-label">Federations</span>
+        <span class="pe-stat">
+          <span class="pe-stat-n">{length(@federations)}</span>
+        </span>
+        <span class="it3-explain-card-sub">
+          {Enum.sum(for f <- @federations, do: f.count)} players total
+        </span>
+      </summary>
+
+      <p class="hint" style="margin: 4px 0 8px">
+        Every distinct federation represented, biggest contingent first — FIDE norm
+        regulations often set a minimum federation count, so this is worth checking before
+        submitting.
+      </p>
+
+      <ul class="it3-explain-players">
+        <li :for={f <- @federations} class="it3-explain-player">
+          <span class="it3-explain-player-name">
+            {f.federation}
+            <span :if={f.host?} class="pe-tag pe-tag-ok" style="margin-left: 4px">host</span>
+          </span>
+          <span class="it3-explain-player-rating">{f.count}</span>
+        </li>
+      </ul>
     </details>
     """
   end
@@ -60,7 +108,7 @@ defmodule PairingsEngineWeb.Components.It3CountsExplain do
 
   defp category_card(assigns) do
     ~H"""
-    <details class="it3-explain-card">
+    <details class="it3-explain-card" open>
       <summary>
         <span class="it3-explain-card-label">{@label}</span>
         <span class="pe-stat">
@@ -73,11 +121,7 @@ defmodule PairingsEngineWeb.Components.It3CountsExplain do
 
       <p class="hint" style="margin: 4px 0 8px">{@explanation}</p>
 
-      <div
-        :if={@category.total > 0}
-        class="pe-ladder it3-explain-bar"
-        title={host_bar_title(@category, @host_federation)}
-      >
+      <div class="pe-ladder it3-explain-bar" title={host_bar_title(@category, @host_federation)}>
         <div
           class="pe-ladder-fill"
           style={"width: #{host_pct(@category)}%"}
@@ -88,7 +132,7 @@ defmodule PairingsEngineWeb.Components.It3CountsExplain do
         </span>
       </div>
 
-      <ul :if={@category.total > 0} class="it3-explain-players">
+      <ul class="it3-explain-players">
         <li :for={p <- @category.players} class="it3-explain-player">
           <span class="it3-explain-player-name">{p.name}</span>
           <span class="pe-tag pe-tag-muted">{blank_dash(p.federation)}</span>
@@ -98,8 +142,6 @@ defmodule PairingsEngineWeb.Components.It3CountsExplain do
           </span>
         </li>
       </ul>
-
-      <p :if={@category.total == 0} class="hint" style="margin: 0">No players in this group.</p>
     </details>
     """
   end

@@ -272,8 +272,9 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     refute html =~ "Deputy 4"
   end
 
-  test "the IT3 counts explainer shows the uploaded players' breakdown, collapsed by default",
-       %{conn: conn} do
+  test "the IT3 counts explainer shows the uploaded players' breakdown, open by default", %{
+    conn: conn
+  } do
     {:ok, lv, _html} = live(conn, ~p"/tools/norms")
 
     html =
@@ -283,7 +284,7 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
       ])
 
     assert html =~ "How the IT3 rated / titled / federation counts were calculated"
-    refute html =~ "<details class=\"it3-explain\" open"
+    assert html =~ ~s(class="it3-explain" open)
     assert html =~ "Carlsen, Magnus"
     assert html =~ "Nakamura, Hikaru"
   end

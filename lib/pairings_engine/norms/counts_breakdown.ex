@@ -55,6 +55,39 @@ defmodule PairingsEngine.Norms.CountsBreakdown do
     }
   end
 
+  @type federation_entry :: %{federation: String.t(), count: integer(), host?: boolean()}
+
+  @doc """
+  Every distinct federation among `players`, with how many players carry it
+  — sorted by count descending (ties broken alphabetically), so the biggest
+  contingents read first. Players with no federation on file are excluded
+  from the list entirely (nothing meaningful to show), same as every count
+  cell already does.
+
+  Not itself one of `categories/0`'s `{total, feds, host, players}` shapes —
+  federation representation isn't a subset of players filtered by a
+  predicate, it's a tally across all of them — so it's its own function
+  rather than shoehorned into `breakdown/2`'s per-category map. Worth
+  surfacing on its own: several FIDE norm regulations set a minimum number
+  of federations a tournament must draw from, so "how many, and who's the
+  biggest" is exactly the kind of thing worth checking before submitting.
+  """
+  @spec federations([Player.t()], String.t() | nil) :: [federation_entry()]
+  def federations(players, host_federation) do
+    players
+    |> Enum.map(& &1.federation)
+    |> Enum.reject(&blank?/1)
+    |> Enum.frequencies()
+    |> Enum.map(fn {fed, count} ->
+      %{
+        federation: fed,
+        count: count,
+        host?: fed == host_federation and not blank?(host_federation)
+      }
+    end)
+    |> Enum.sort_by(&{-&1.count, &1.federation})
+  end
+
   defp category(list, host_federation) do
     %{
       total: length(list),

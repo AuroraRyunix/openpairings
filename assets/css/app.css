@@ -2049,7 +2049,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 1px 4px;
 }
 .it3-explain-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px;
 }
 .it3-explain-card {
   border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: var(--surface);
