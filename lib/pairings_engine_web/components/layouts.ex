@@ -43,59 +43,7 @@ defmodule PairingsEngineWeb.Layouts do
     ~H"""
     <header class="topbar">
       <.link navigate={if(@current_scope, do: ~p"/", else: ~p"/users/log-in")} class="brand">
-        <svg
-          class="brand-mark"
-          viewBox="0 0 64 48"
-          xmlns="http://www.w3.org/2000/svg"
-          aria-hidden="true"
-        >
-          <defs>
-            <linearGradient id="bm-orb" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#3d7458" />
-              <stop offset="100%" stop-color="#24503a" />
-            </linearGradient>
-          </defs>
-          <path
-            d="M22,18 Q10,10 1,14 Q8,22 10,30 Q16,32 22,30 Q26,26 22,18 Z"
-            fill="#f7f3e8"
-            stroke="#1c1a15"
-            stroke-width="3"
-            stroke-linejoin="round"
-          />
-          <path
-            d="M42,18 Q54,10 63,14 Q56,22 54,30 Q48,32 42,30 Q38,26 42,18 Z"
-            fill="#f7f3e8"
-            stroke="#1c1a15"
-            stroke-width="3"
-            stroke-linejoin="round"
-          />
-          <path
-            d="M6,17 Q12,20 15,25"
-            fill="none"
-            stroke="#1c1a15"
-            stroke-width="1.6"
-            stroke-linecap="round"
-            opacity="0.55"
-          />
-          <path
-            d="M58,18 Q52,21 49,26"
-            fill="none"
-            stroke="#1c1a15"
-            stroke-width="1.6"
-            stroke-linecap="round"
-            opacity="0.55"
-          />
-          <circle cx="32" cy="24" r="14" fill="url(#bm-orb)" stroke="#1c1a15" stroke-width="3" />
-          <ellipse
-            cx="27"
-            cy="18"
-            rx="4"
-            ry="6"
-            fill="#ffffff"
-            opacity="0.5"
-            transform="rotate(-25 27 18)"
-          />
-        </svg>
+        <.brand_mark />
         <span class="brand-name">Open<strong>Pairings</strong></span>
       </.link>
       <nav>
@@ -187,6 +135,93 @@ defmodule PairingsEngineWeb.Layouts do
         <% end %>
         <span class="app-version">v{app_version()}</span>
       </nav>
+    </header>
+
+    <main class="page">
+      {render_slot(@inner_block)}
+    </main>
+
+    <.flash_group flash={@flash} />
+    """
+  end
+
+  @doc false
+  def brand_mark(assigns) do
+    ~H"""
+    <svg class="brand-mark" viewBox="0 0 64 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <linearGradient id="bm-orb" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#3d7458" />
+          <stop offset="100%" stop-color="#24503a" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M22,18 Q10,10 1,14 Q8,22 10,30 Q16,32 22,30 Q26,26 22,18 Z"
+        fill="#f7f3e8"
+        stroke="#1c1a15"
+        stroke-width="3"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M42,18 Q54,10 63,14 Q56,22 54,30 Q48,32 42,30 Q38,26 42,18 Z"
+        fill="#f7f3e8"
+        stroke="#1c1a15"
+        stroke-width="3"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M6,17 Q12,20 15,25"
+        fill="none"
+        stroke="#1c1a15"
+        stroke-width="1.6"
+        stroke-linecap="round"
+        opacity="0.55"
+      />
+      <path
+        d="M58,18 Q52,21 49,26"
+        fill="none"
+        stroke="#1c1a15"
+        stroke-width="1.6"
+        stroke-linecap="round"
+        opacity="0.55"
+      />
+      <circle cx="32" cy="24" r="14" fill="url(#bm-orb)" stroke="#1c1a15" stroke-width="3" />
+      <ellipse
+        cx="27"
+        cy="18"
+        rx="4"
+        ry="6"
+        fill="#ffffff"
+        opacity="0.5"
+        transform="rotate(-25 27 18)"
+      />
+    </svg>
+    """
+  end
+
+  @doc """
+  Minimal layout for the public (no-login) tournament pages
+  (`PairingsEngineWeb.PublicStandingsLive` / `PublicPairingsLive` — see
+  docs/public-pages.md). Deliberately *not* `app/1`: a spectator who scanned
+  a QR code to check standings has no use for the authenticated topbar's
+  tournament tabs, accent picker, or sign-in/settings links — this is just
+  the brand mark and the theme switch (still useful: a bright phone screen
+  in a dim tournament hall is exactly the scenario `Layouts.theme_switch/1`
+  exists for), then the page content.
+  """
+  attr :flash, :map, required: true, doc: "the map of flash messages"
+  slot :inner_block, required: true
+
+  def public(assigns) do
+    ~H"""
+    <header class="topbar public-topbar">
+      <.link navigate={~p"/"} class="brand">
+        <.brand_mark />
+        <span class="brand-name">Open<strong>Pairings</strong></span>
+      </.link>
+      <div class="topbar-auth">
+        <.theme_switch />
+      </div>
     </header>
 
     <main class="page">

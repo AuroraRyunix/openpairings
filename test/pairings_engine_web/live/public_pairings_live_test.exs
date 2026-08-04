@@ -8,6 +8,24 @@ defmodule PairingsEngineWeb.PublicPairingsLiveTest do
 
   # No login — the public page needs no `register_and_log_in_user` setup.
 
+  test "has no app chrome (topbar tabs/accent picker/sign-in), shows tempo when set", %{
+    conn: conn
+  } do
+    {:ok, tournament} =
+      Tournaments.create_tournament(%{
+        "name" => "Chrome Test",
+        "type" => "swiss",
+        "rate_of_play" => "15 min + 10 sec/move"
+      })
+
+    {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/pairings")
+
+    refute html =~ "accent-picker"
+    refute html =~ "topbar-signin"
+    assert html =~ "theme-switch"
+    assert html =~ "Tempo: 15 min + 10 sec/move"
+  end
+
   test "renders a round's pairings sorted by board number regardless of insertion order", %{
     conn: conn
   } do

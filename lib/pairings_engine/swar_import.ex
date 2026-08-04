@@ -485,6 +485,17 @@ defmodule PairingsEngine.SwarImport do
   # through to the "absent" `byes` row regardless of its exact Table value.
   @table_bye 0x1000
 
+  # SWAR's "HandyTable" accessible-table numbering (Swar.h TABLE_HANDICAP):
+  # 1000 is the sentinel meaning "no fixed table"; a real handicap board is
+  # TABLE_HANDICAP + N (1001, 1002, ...), assigned fresh each round by SWAR's
+  # own pairing code — not a globally meaningful board number, any more than
+  # TABLE_BYE is. Imported verbatim, a 1001+ "board" sorted way past every
+  # real one distorts anything ordered by board number (notably the pairing-
+  # rationale bracket map, where it renders the player far to the right of
+  # where their actual score puts them) — `finalize_boards/1` renormalizes it
+  # the same way it already does for byes.
+  @table_handicap 1000
+
   @doc """
   Reads a `.swar` file from `path`, parses it, and creates the tournament
   (with its players, rounds and pairings) inside a single transaction — the
@@ -1691,18 +1702,37 @@ defmodule PairingsEngine.SwarImport do
 
   # Pairing-allocated byes have no real board (their Table field is the
   # TABLE_BYE sentinel, not a board number) — number them right after the
-  # highest real board used in the round.
-  defp finalize_boards(pairings) do
-    {byes, real} = Enum.split_with(pairings, &(&1.board == nil))
+  # highest real board used in the round. Handicap-table pairings (Table in
+  # TABLE_HANDICAP+1..TABLE_BYE-1, see @table_handicap above) get the same
+  # treatment, placed just before the byes: SWAR's own per-round handicap
+  # numbering isn't a real board number either, and left as-is it sorts a
+  # pairing wildly out of place anywhere board order matters.
+  @doc false
+  def finalize_boards(pairings) do
+    {byes, rest} = Enum.split_with(pairings, &(&1.board == nil))
+    {handicap, real} = Enum.split_with(rest, &handicap_table?(&1.board))
     max_board = real |> Enum.map(& &1.board) |> Enum.max(fn -> 0 end)
+
+    numbered_handicap =
+      handicap
+      |> Enum.sort_by(& &1.board)
+      |> Enum.with_index(max_board + 1)
+      |> Enum.map(fn {p, i} -> %{p | board: i} end)
+
+    max_board_with_handicap = max_board + length(numbered_handicap)
 
     numbered_byes =
       byes
       |> Enum.with_index(1)
-      |> Enum.map(fn {p, i} -> %{p | board: max_board + i} end)
+      |> Enum.map(fn {p, i} -> %{p | board: max_board_with_handicap + i} end)
 
-    real ++ numbered_byes
+    real ++ numbered_handicap ++ numbered_byes
   end
+
+  defp handicap_table?(board) when is_integer(board),
+    do: board >= @table_handicap and board < @table_bye
+
+  defp handicap_table?(_), do: false
 
   ## ---------- Result bitfield mapping (manual §5.2) ----------
 

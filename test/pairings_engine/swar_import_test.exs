@@ -208,6 +208,69 @@ defmodule PairingsEngine.SwarImportTest do
     end
   end
 
+  # User-reported: the "Explain a round" score-bracket map showed a
+  # handicap-table player's pairing far to the right, seemingly regardless
+  # of her actual score. Root cause: SWAR's own per-round accessible-table
+  # numbering (Table = TABLE_HANDICAP + N, i.e. 1001, 1002, ...) was being
+  # imported verbatim as the pairing's `board`, and the rationale/bracket
+  # rendering (like anything ordered by board number) put a "board 1001"
+  # pairing at the very end regardless of score. `finalize_boards/1` now
+  # renormalizes a handicap-range Table value the same way it already does
+  # for the TABLE_BYE sentinel.
+  describe "finalize_boards/1 (SWAR handicap-table and bye sentinels get real board numbers)" do
+    test "ordinary boards are left completely alone" do
+      pairings = [%{board: 1}, %{board: 2}, %{board: 3}]
+      assert SwarImport.finalize_boards(pairings) == pairings
+    end
+
+    test "byes (board: nil) are numbered right after the highest real board - unchanged behaviour" do
+      pairings = [%{board: 1}, %{board: nil}, %{board: 2}]
+      result = SwarImport.finalize_boards(pairings)
+
+      assert Enum.map(result, & &1.board) == [1, 2, 3]
+    end
+
+    test "a handicap-table pairing (Table 1001+) is renumbered to a real board, not left at 1001" do
+      pairings = [%{board: 1}, %{board: 2}, %{board: 1001}]
+      result = SwarImport.finalize_boards(pairings)
+
+      # The real boards are untouched; the handicap pairing becomes board 3
+      # (right after the highest real board), not the raw SWAR sentinel.
+      assert Enum.map(result, & &1.board) == [1, 2, 3]
+      refute 1001 in Enum.map(result, & &1.board)
+    end
+
+    test "multiple handicap-table pairings keep SWAR's own relative order (1001 before 1002)" do
+      pairings = [%{board: 1}, %{board: 1002, tag: :second}, %{board: 1001, tag: :first}]
+      result = SwarImport.finalize_boards(pairings)
+
+      first = Enum.find(result, &(&1[:tag] == :first))
+      second = Enum.find(result, &(&1[:tag] == :second))
+      assert first.board < second.board
+    end
+
+    test "handicap-table pairings are numbered before byes, both after the real boards" do
+      pairings = [%{board: 1}, %{board: nil, tag: :bye}, %{board: 1001, tag: :handicap}]
+      result = SwarImport.finalize_boards(pairings)
+
+      handicap = Enum.find(result, &(&1[:tag] == :handicap))
+      bye = Enum.find(result, &(&1[:tag] == :bye))
+      assert handicap.board == 2
+      assert bye.board == 3
+    end
+
+    test "TABLE_BYE (0x1000 = 4096) itself is never mistaken for a handicap table" do
+      # A real pairing-allocated bye already arrives as board: nil (handled
+      # upstream in single_sided/2) - this just confirms the boundary check
+      # doesn't accidentally swallow the TABLE_BYE sentinel value itself if
+      # it ever showed up as a literal board here.
+      pairings = [%{board: 1}, %{board: 0x1000}]
+      result = SwarImport.finalize_boards(pairings)
+
+      assert Enum.map(result, & &1.board) == [1, 4096]
+    end
+  end
+
   test "import_file/1 does not create duplicate pairings for the same game" do
     {:ok, tournament, _warnings} = SwarImport.import_file(@c_reeks)
     players = Tournaments.list_players(tournament.id)

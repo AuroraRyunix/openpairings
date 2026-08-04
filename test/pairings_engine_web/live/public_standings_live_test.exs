@@ -37,6 +37,38 @@ defmodule PairingsEngineWeb.PublicStandingsLiveTest do
     assert html =~ "Bob"
   end
 
+  describe "minimal public layout (no app chrome)" do
+    test "has no tournament tabs, accent picker, or sign-in link - just the brand and theme switch",
+         %{conn: conn} do
+      {tournament, _a, _b, _pairing} = two_player_tournament()
+
+      {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/standings")
+
+      refute html =~ "accent-picker"
+      refute html =~ "topbar-signin"
+      assert html =~ "theme-switch"
+      assert html =~ "OpenPairings"
+    end
+
+    test "shows the arbiter and tempo when set, nothing extra when blank", %{conn: conn} do
+      {tournament, _a, _b, _pairing} = two_player_tournament()
+
+      {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/standings")
+      refute html =~ "Arbiter:"
+      refute html =~ "Tempo:"
+
+      {:ok, tournament} =
+        Tournaments.update_tournament(tournament, %{
+          "chief_arbiter" => "Cornet, Luc",
+          "rate_of_play" => "90 min + 30 sec/move"
+        })
+
+      {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/standings")
+      assert html =~ "Arbiter: Cornet, Luc"
+      assert html =~ "Tempo: 90 min + 30 sec/move"
+    end
+  end
+
   describe "Manual ranking (SWAR parity #23)" do
     test "no banner while manual_ranking is off", %{conn: conn} do
       {tournament, _a, _b, _pairing} = two_player_tournament()

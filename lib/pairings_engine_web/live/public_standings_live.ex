@@ -10,6 +10,8 @@ defmodule PairingsEngineWeb.PublicStandingsLive do
 
   use PairingsEngineWeb, :live_view
 
+  import PairingsEngineWeb.Components.PublicTournamentMeta
+
   alias PairingsEngine.{Tournaments, Tiebreaks, Standings, Keizer}
   alias PairingsEngine.Tournaments.Player
 
@@ -86,7 +88,7 @@ defmodule PairingsEngineWeb.PublicStandingsLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope}>
+    <Layouts.public flash={@flash}>
       <div :if={@gone} class="card empty">
         <p><strong>This tournament is no longer available.</strong></p>
       </div>
@@ -99,6 +101,8 @@ defmodule PairingsEngineWeb.PublicStandingsLive do
             <p class="subtitle" style="margin: 0">
               Standings{if @rounds_paired > 0, do: " after round #{@rounds_paired}"}
             </p>
+
+            <.public_tournament_meta tournament={@tournament} />
           </div>
         </div>
 
@@ -213,7 +217,7 @@ defmodule PairingsEngineWeb.PublicStandingsLive do
           results, byes and absences every time.
         </p>
       </div>
-    </Layouts.app>
+    </Layouts.public>
     """
   end
 end

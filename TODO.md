@@ -46,10 +46,10 @@ in [`docs/fide-endorsement.md`](docs/fide-endorsement.md) (built from FIDE's
 own Annex 4 Verification Check List and Annex 1 endorsement form). Concrete
 gaps identified there, extracted here as actionable items:
 
-- **Lock `pairing_number` after round 4 is paired** (VCL.09 — FIDE requires
-  this; nothing currently enforces it). Real footgun independent of
-  endorsement: an accidental mid-event renumber (player edit, re-import)
-  today has no guard at all.
+- ~~Lock `pairing_number` after round 4 is paired~~ (VCL.09) — **shipped**:
+  `Tournaments.update_player/2` now rejects changing an already-assigned
+  number once 4 rounds are paired; a first assignment (late entry) still
+  always works.
 - **Asymmetric ½-0 / 0-½ result support** (VCL.13) — needs research first
   (how FIDE expects this encoded in a TRF row pair, since the standard
   win/draw/loss/forfeit codes don't have an obvious slot for it) before any
@@ -80,39 +80,28 @@ gaps identified there, extracted here as actionable items:
   **shipped**: `players_by_norm_relevance/2` now sorts achieved-norm
   players first, then closest-to-qualifying (fewest failing B.01 checks on
   their nearest-miss title), then no-games players last.
-- **"Explain a round" (pairing rationale) score-bracket map may misplace
-  ~3 players — unconfirmed, "special table" ruled out, needs a live look
-  at the real round.** Reported on production tournament "41ste
-  Internationaal Open van Geraardsbergen 2026" (id 18), round 5: ~3
-  players (incl. Vandekerckhove, Ava) sit further right than their score
-  suggests. Traced `PairingRationale.score_groups/1` and
-  `pre_round_scores/2` in full — brackets are built purely from
-  `Standings.rank_score/2` (the same already-validated value the Standings
-  page and TRF export use), with **zero** reference to
-  `special_table`/`fixed_board` anywhere in that module, so that's not the
-  mechanism. Two remaining possibilities, not yet distinguished: (1) these
-  are genuine **floaters** — a pairing crossing bracket lines is the
-  feature's whole documented purpose, in which case this isn't a bug, just
-  possibly needs a clearer visual cue that a float is what's being shown;
-  or (2) a real bug, but in `PairingsEngineWeb.PairingExplainLive`'s
-  render/layout code specifically, not the rationale-computation backend
-  (which traces back to already-trustworthy code). Needs the actual round
-  5 page open (or the real `PairingRationale.for_round/2` output for that
-  round) to tell which.
-- **Public standings page (`/p/:slug/standings`) needs to be a clean
-  spectator overview, not a stripped-down app page.** Right now it renders
-  inside `Layouts.app` (see `docs/public-pages.md`) — no tournament tabs,
-  but the topbar/theme-switch/accent-picker/sign-in chrome is all still
-  there, which makes no sense for someone who just scanned a QR code to
-  check standings. Should be its own minimal layout: tournament name,
-  standings table, and the metadata a spectator/player actually wants —
-  arbiters, tempo/time control, round dates, that kind of thing — none of
-  which the page shows today. The printed standings page should carry the
-  same information for the same reason (check `docs/printing.md` for what's
-  there now). Look at what SWAR's own public/printed layout includes as a
-  reference for *what data* to show — not to copy its visual design, just
-  to make sure OpenPairings isn't quietly omitting something SWAR
-  considers baseline. Keep it simple.
+- ~~"Explain a round" score-bracket map misplaces handicap-table players~~ —
+  **shipped, real confirmed bug**: SWAR assigns accessible/"handicap table"
+  pairings a per-round Table number starting at 1001 (`TABLE_HANDICAP + N`,
+  Swar.h) — not a real board number, just like the `TABLE_BYE` sentinel
+  already handled. The importer was copying it verbatim into `board`, so a
+  handicap-table pairing (confirmed via production tournament 18, round 5,
+  Vandekerckhove Ava — `board: 1001` in the actual DB row) sorted to the
+  far end of anything ordered by board number, including the rationale
+  bracket map, regardless of real score. `SwarImport.finalize_boards/1` now
+  renormalizes a handicap-range Table value the same way it already did for
+  byes. Only fixes *future* imports — tournament 18's existing round-5 row
+  still has the raw 1001 in the DB; a one-off data fix there is separate,
+  deliberately not done without asking first (touches live tournament
+  data).
+- ~~Public standings page needs to be a clean spectator overview~~ —
+  **shipped**: `/p/:slug/standings` and `/p/:slug/pairings` now render
+  through a new minimal `Layouts.public/1` (brand + theme switch only, no
+  tournament tabs/accent picker/sign-in) instead of the full authenticated
+  `Layouts.app/1`, and both show a compact arbiter/deputy/tempo/round-dates
+  line (`PairingsEngineWeb.Components.PublicTournamentMeta`) when set. Still
+  open: the *printed* standings/pairings pages carrying the same info (not
+  touched in this pass).
 - **Audit OpenPairings' logic against SWAR's own C++ source, file by
   file.** Very low priority — this is a "nice to have more confidence,"
   not a response to anything currently broken. Scoping notes from

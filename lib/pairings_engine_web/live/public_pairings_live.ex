@@ -10,6 +10,8 @@ defmodule PairingsEngineWeb.PublicPairingsLive do
 
   use PairingsEngineWeb, :live_view
 
+  import PairingsEngineWeb.Components.PublicTournamentMeta
+
   alias PairingsEngine.{Tournaments, Standings}
   alias PairingsEngine.Pairing, as: Engine
 
@@ -91,7 +93,7 @@ defmodule PairingsEngineWeb.PublicPairingsLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope}>
+    <Layouts.public flash={@flash}>
       <div :if={@gone} class="card empty">
         <p><strong>This tournament is no longer available.</strong></p>
       </div>
@@ -107,6 +109,8 @@ defmodule PairingsEngineWeb.PublicPairingsLive do
                 Pairings &middot; no rounds paired yet
               <% end %>
             </p>
+
+            <.public_tournament_meta tournament={@tournament} />
           </div>
         </div>
 
@@ -167,7 +171,7 @@ defmodule PairingsEngineWeb.PublicPairingsLive do
           </table>
         </div>
       </div>
-    </Layouts.app>
+    </Layouts.public>
     """
   end
 end
