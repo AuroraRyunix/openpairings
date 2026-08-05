@@ -179,6 +179,8 @@ defmodule PairingsEngine.TournamentsTest do
             "1-0",
             "0-1",
             "1/2-1/2",
+            "1/2-0",
+            "0-1/2",
             "1-0FF",
             "0-1FF",
             "0-0FF",

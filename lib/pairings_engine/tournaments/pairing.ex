@@ -11,6 +11,12 @@ defmodule PairingsEngine.Tournaments.Pairing do
   # Plain "0-0" is a PLAYED game where both players lose (e.g. both
   # defaulted/ejected after making moves) — distinct from "0-0FF".
   #
+  # "1/2-0"/"0-1/2" are the asymmetric result FIDE's VCL.13 explicitly
+  # requires support for — an arbiter's disciplinary point adjustment on an
+  # otherwise-drawn game (the TRF16 spec has no dedicated code for this; it's
+  # written as "=" for the ½ side and "0" for the 0 side, see Trf's
+  # @legal_result_pairs), never symmetric like every other result here.
+  #
   # "+--"/"--+" are accepted for backward compatibility with historical and
   # SWAR-imported data that predates the explicit "…FF" notation; the entry
   # UI no longer offers them (see PairingsEngineWeb.PairingsLive).
@@ -19,6 +25,8 @@ defmodule PairingsEngine.Tournaments.Pairing do
     "1-0",
     "1/2-1/2",
     "0-1",
+    "1/2-0",
+    "0-1/2",
     "1-0FF",
     "0-1FF",
     "0-0FF",

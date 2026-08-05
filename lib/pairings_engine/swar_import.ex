@@ -1753,21 +1753,29 @@ defmodule PairingsEngine.SwarImport do
   defp result_class(_), do: :unknown
 
   # Combines each side's own result class into our symmetric result string.
-  # NOTE: DRAW_ZERO/ZERO_DRAW (one side scores 0.5, the other 0) is a legacy
-  # SWAR result once used for special occasions; per the federation it no
-  # longer appears in real files. It has no equivalent here, so it is
-  # deliberately dropped: the pairing imports with a blank result.
-  defp combine_results(:win, :loss), do: "1-0"
-  defp combine_results(:loss, :win), do: "0-1"
-  defp combine_results(:draw, :draw), do: "1/2-1/2"
-  defp combine_results(:draw_ff, :draw_ff), do: "1/2-1/2"
-  defp combine_results(:win_ff, :loss_ff), do: "1-0FF"
-  defp combine_results(:loss_ff, :win_ff), do: "0-1FF"
-  defp combine_results(:zero_zeroff, :zero_zeroff), do: "0-0FF"
-  defp combine_results(:zero_zero, :zero_zero), do: "0-0"
-  defp combine_results(:draw_zero, :zero_draw), do: ""
-  defp combine_results(:zero_draw, :draw_zero), do: ""
-  defp combine_results(:none, _), do: ""
-  defp combine_results(_, :none), do: ""
-  defp combine_results(_, _), do: ""
+  # DRAW_ZERO/ZERO_DRAW (one side scores 0.5, the other 0) is a legacy SWAR
+  # result once used for special occasions (per the federation it no longer
+  # appears in real files) — each side's own class already names BOTH
+  # players' scores from that side's perspective ("I scored the draw value,
+  # my opponent scored zero" / vice versa), so a mutually-consistent pair
+  # maps directly onto "1/2-0"/"0-1/2", FIDE's own VCL.13 asymmetric result.
+  #
+  # Public (not just the `defp` this started as) so a test can exercise
+  # every result-class combination directly — real DRAW_ZERO/ZERO_DRAW SWAR
+  # fixtures don't exist to build a binary test file from (see above), same
+  # reasoning as `finalize_boards/1`'s own `@doc false def`.
+  @doc false
+  def combine_results(:win, :loss), do: "1-0"
+  def combine_results(:loss, :win), do: "0-1"
+  def combine_results(:draw, :draw), do: "1/2-1/2"
+  def combine_results(:draw_ff, :draw_ff), do: "1/2-1/2"
+  def combine_results(:win_ff, :loss_ff), do: "1-0FF"
+  def combine_results(:loss_ff, :win_ff), do: "0-1FF"
+  def combine_results(:zero_zeroff, :zero_zeroff), do: "0-0FF"
+  def combine_results(:zero_zero, :zero_zero), do: "0-0"
+  def combine_results(:draw_zero, :zero_draw), do: "1/2-0"
+  def combine_results(:zero_draw, :draw_zero), do: "0-1/2"
+  def combine_results(:none, _), do: ""
+  def combine_results(_, :none), do: ""
+  def combine_results(_, _), do: ""
 end

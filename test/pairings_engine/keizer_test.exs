@@ -102,6 +102,22 @@ defmodule PairingsEngine.KeizerTest do
       assert Keizer.score_round(a, 1, games, %{}, values).points == 3.5
       assert Keizer.score_round(b, 1, games, %{}, values).points == 4.0
     end
+
+    test "VCL.13's asymmetric \"1/2-0\" scores the ½ side like a draw, the 0 side like a loss", %{
+      a: a,
+      b: b,
+      values: values
+    } do
+      games = %{1 => [%{round: 1, white_id: a.id, black_id: b.id, result: "1/2-0"}]}
+
+      white_entry = Keizer.score_round(a, 1, games, %{}, values)
+      assert white_entry.class == :half_win
+      assert white_entry.points == 3.5
+
+      black_entry = Keizer.score_round(b, 1, games, %{}, values)
+      assert black_entry.class == :half_loss
+      assert black_entry.points == 0.0
+    end
   end
 
   describe "score_round/5 — forfeits, played 0-0, and rounds before joining" do

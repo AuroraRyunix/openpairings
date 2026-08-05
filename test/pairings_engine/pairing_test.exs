@@ -424,7 +424,7 @@ defmodule PairingsEngine.PairingTest do
   ## ---------- TRF result-code mapping ----------
 
   test "javafo_input/2 maps every internal result string to the correct TRF16 codes" do
-    tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 7})
+    tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 9})
 
     white = insert_player(tournament, "White", fide_rating: 2000, pairing_number: 1)
     black = insert_player(tournament, "Black", fide_rating: 1900, pairing_number: 2)
@@ -440,7 +440,12 @@ defmodule PairingsEngine.PairingTest do
       # Double forfeit: neither played, '-' for both.
       {"0-0FF", "-", "-"},
       # Played "0-0" (both lose, e.g. both defaulted after moving): '0' for both.
-      {"0-0", "0", "0"}
+      {"0-0", "0", "0"},
+      # VCL.13's asymmetric result (an arbiter's disciplinary point
+      # adjustment on an otherwise-drawn game) — '=' for the ½ side, '0' for
+      # the 0 side. The one pair here that isn't symmetric.
+      {"1/2-0", "=", "0"},
+      {"0-1/2", "0", "="}
     ]
 
     results

@@ -50,10 +50,14 @@ gaps identified there, extracted here as actionable items:
   `Tournaments.update_player/2` now rejects changing an already-assigned
   number once 4 rounds are paired; a first assignment (late entry) still
   always works.
-- **Asymmetric ½-0 / 0-½ result support** (VCL.13) — needs research first
-  (how FIDE expects this encoded in a TRF row pair, since the standard
-  win/draw/loss/forfeit codes don't have an obvious slot for it) before any
-  implementation.
+- ~~Asymmetric ½-0 / 0-½ result support~~ (VCL.13) — **shipped**: the TRF16
+  spec itself has no cross-validation rule between the two sides' codes
+  (that was `Trf`'s own invention) — it's just `=` for the ½ side, `0` for
+  the 0 side. Wired through the schema, result-entry UI, standings scoring,
+  TRF export/import (both directions), Keizer's own scoring, and SWAR
+  import (which already had bitfield codes for this, previously dropped as
+  unmappable). See `docs/fide-endorsement.md`'s VCL.13 entry for the file
+  list.
 - ~~Fuzz-testing harness — but not a pairing checker~~ — **shipped**: (1)
   `test/pairings_engine/trf_property_test.exs` — `StreamData` property tests
   on `Trf.serialize/1` against random-but-legal rosters/histories, checked

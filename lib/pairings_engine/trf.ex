@@ -98,12 +98,17 @@ defmodule PairingsEngine.Trf do
   # ("1") only pairs with a loss ("0"); a played "0-0" (both players lose,
   # e.g. both defaulted after making moves) is two losses, so "0" also
   # legally pairs with "0". A double forfeit is "-"/"-"; a single forfeit is
-  # "+"/"-". Anything else (both win, both forfeit-win, a win against a
+  # "+"/"-". A draw ("=") also legally pairs with a loss ("0") — FIDE's own
+  # VCL.13 explicitly requires supporting an asymmetric ½-0/0-½ (an
+  # arbiter's disciplinary point adjustment on an otherwise-drawn game, not
+  # a chess outcome the TRF spec itself distinguishes with its own code —
+  # it's still just "=" and "0" per player, only no longer required to
+  # mirror). Anything else (both win, both forfeit-win, a win against a
   # draw, etc.) is impossible and rejected.
   @legal_result_pairs %{
     "1" => ["0"],
-    "0" => ["1", "0"],
-    "=" => ["="],
+    "0" => ["1", "0", "="],
+    "=" => ["=", "0"],
     "+" => ["-"],
     "-" => ["+", "-"]
   }

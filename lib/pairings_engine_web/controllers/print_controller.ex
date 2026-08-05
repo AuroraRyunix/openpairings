@@ -1055,6 +1055,8 @@ defmodule PairingsEngineWeb.PrintController do
 
   defp display_result(""), do: ""
   defp display_result("1/2-1/2"), do: "½-½"
+  defp display_result("1/2-0"), do: "½-0"
+  defp display_result("0-1/2"), do: "0-½"
   defp display_result("bye"), do: "bye"
   defp display_result(result), do: result
 

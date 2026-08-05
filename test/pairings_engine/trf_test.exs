@@ -284,6 +284,20 @@ defmodule PairingsEngine.TrfTest do
     assert trf =~ "001"
   end
 
+  test "serialize/1 accepts the VCL.13 asymmetric result ('=' vs '0', an arbiter's disciplinary point adjustment)" do
+    trf = two_player_round("=", "0") |> Trf.serialize()
+    assert trf =~ "001"
+
+    # And the mirror image — the other side gets the ½.
+    trf2 = two_player_round("0", "=") |> Trf.serialize()
+    assert trf2 =~ "001"
+  end
+
+  test "serialize/1 still rejects '=' paired with anything other than '=' or '0'" do
+    assert_raise Trf.ValidationError, fn -> two_player_round("=", "1") |> Trf.serialize() end
+    assert_raise Trf.ValidationError, fn -> two_player_round("=", "+") |> Trf.serialize() end
+  end
+
   test "serialize/1 accepts a double forfeit ('-' for both sides)" do
     trf = two_player_round("-", "-") |> Trf.serialize()
     assert trf =~ "001"

@@ -480,6 +480,62 @@ defmodule PairingsEngine.StandingsTest do
     end
   end
 
+  describe "asymmetric \"1/2-0\"/\"0-1/2\" results (VCL.13 — an arbiter's disciplinary point adjustment)" do
+    defp asymmetric_fixture(result) do
+      tournament =
+        Repo.insert!(%Tournament{name: "Asymmetric Test", type: "swiss", rounds_count: 1})
+
+      [white, black] =
+        for name <- ["White", "Black"] do
+          Repo.insert!(%Player{tournament_id: tournament.id, name: name, fide_rating: 2000})
+        end
+
+      round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
+
+      Repo.insert!(%Pairing{
+        round_id: round.id,
+        board: 1,
+        white_player_id: white.id,
+        black_player_id: black.id,
+        result: result
+      })
+
+      {tournament, %{white: white, black: black}}
+    end
+
+    test "\"1/2-0\" credits White the draw value and Black nothing" do
+      {tournament, %{white: white, black: black}} = asymmetric_fixture("1/2-0")
+
+      entries = Standings.standings(tournament)
+      ew = Enum.find(entries, &(&1.player.id == white.id))
+      eb = Enum.find(entries, &(&1.player.id == black.id))
+
+      assert ew.points == 0.5
+      assert eb.points == 0.0
+    end
+
+    test "\"0-1/2\" credits Black the draw value and White nothing" do
+      {tournament, %{white: white, black: black}} = asymmetric_fixture("0-1/2")
+
+      entries = Standings.standings(tournament)
+      ew = Enum.find(entries, &(&1.player.id == white.id))
+      eb = Enum.find(entries, &(&1.player.id == black.id))
+
+      assert ew.points == 0.0
+      assert eb.points == 0.5
+    end
+
+    test "counts as played, unlike a forfeit" do
+      {tournament, %{white: white}} = asymmetric_fixture("1/2-0")
+
+      entries = Standings.standings(tournament)
+      ew = Enum.find(entries, &(&1.player.id == white.id))
+      by_round = Map.new(ew.games, &{&1.round, &1})
+
+      assert by_round[1].played == true
+    end
+  end
+
   describe "regression: withdrawn opponent's missing trailing rounds and DE grouping key" do
     # X's only real record is the round-1 loss to A; X gets no pairing/bye
     # row for rounds 2-4 (simulating a withdrawn/forfeited player, since

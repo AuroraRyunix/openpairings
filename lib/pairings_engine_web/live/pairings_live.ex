@@ -12,6 +12,8 @@ defmodule PairingsEngineWeb.PairingsLive do
     {"1-0", "1-0"},
     {"1/2-1/2", "½-½"},
     {"0-1", "0-1"},
+    {"1/2-0", "½-0 (asymmetric — disciplinary point adjustment)"},
+    {"0-1/2", "0-½ (asymmetric — disciplinary point adjustment)"},
     {"1-0FF", "1-0 FF (White wins by forfeit)"},
     {"0-1FF", "0-1 FF (Black wins by forfeit)"},
     {"0-0FF", "0-0 FF (double forfeit)"},

@@ -1559,8 +1559,12 @@ defmodule PairingsEngine.Pairing do
     # per FIDE Art. 16 both sides of a forfeit count as unplayed. A played
     # "0-0" (both players lose, e.g. both defaulted after making moves) is
     # code '0' for BOTH sides — distinct from a "0-0FF" double forfeit,
-    # which is '-' for both. "+--"/"--+" are the legacy forfeit notation,
-    # kept for historical/SWAR-imported data (see PairingsEngine.Tournaments.Pairing).
+    # which is '-' for both. "1/2-0"/"0-1/2" (VCL.13's asymmetric result) is
+    # '=' for the ½ side and '0' for the 0 side — the one case where the two
+    # sides' TRF codes deliberately don't mirror each other, since the TRF16
+    # spec has no dedicated code for it. "+--"/"--+" are the legacy forfeit
+    # notation, kept for historical/SWAR-imported data (see
+    # PairingsEngine.Tournaments.Pairing).
     result =
       case {pairing.result, white?} do
         {"bye", _} -> "U"
@@ -1569,6 +1573,10 @@ defmodule PairingsEngine.Pairing do
         {"0-1", true} -> "0"
         {"0-1", false} -> "1"
         {"1/2-1/2", _} -> "="
+        {"1/2-0", true} -> "="
+        {"1/2-0", false} -> "0"
+        {"0-1/2", true} -> "0"
+        {"0-1/2", false} -> "="
         {"1-0FF", true} -> "+"
         {"1-0FF", false} -> "-"
         {"0-1FF", true} -> "-"

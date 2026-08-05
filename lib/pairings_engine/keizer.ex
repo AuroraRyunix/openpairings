@@ -449,8 +449,11 @@ defmodule PairingsEngine.Keizer do
   Scores every player in `players` over rounds `1..rounds_count`, given the
   current ladder `values`. Returns `%{player_id => %{points:, rounds:
   [%{round:, class:, points:, opponent_id:}]}}` — `class` is one of `:win`,
-  `:draw`, `:loss`, `:forfeit_win`, `:forfeit_loss`, `:zero` (played "0-0"
-  or otherwise unaccounted), `:unpaired_bye`, `:excused`, `:not_joined`.
+  `:draw`, `:loss`, `:forfeit_win`, `:forfeit_loss`, `:half_win`, `:half_loss`
+  (VCL.13's asymmetric "1/2-0"/"0-1/2" — scored like `:draw`/`:loss`
+  respectively, since the ½ side earned the same value as an ordinary draw),
+  `:zero` (played "0-0" or otherwise unaccounted), `:unpaired_bye`,
+  `:excused`, `:not_joined`.
   """
   def score_all(players, games, byes, values, rounds_count) do
     games_by_round = Enum.group_by(games, & &1.round)
@@ -523,6 +526,10 @@ defmodule PairingsEngine.Keizer do
       {"0-1", true} -> :loss
       {"0-1", false} -> :win
       {"1/2-1/2", _} -> :draw
+      {"1/2-0", true} -> :half_win
+      {"1/2-0", false} -> :half_loss
+      {"0-1/2", true} -> :half_loss
+      {"0-1/2", false} -> :half_win
       {"1-0FF", true} -> :forfeit_win
       {"1-0FF", false} -> :forfeit_loss
       {"0-1FF", true} -> :forfeit_loss
@@ -540,6 +547,8 @@ defmodule PairingsEngine.Keizer do
   defp class_points(:win, _p, opponent_id, values), do: own_id(values, opponent_id)
   defp class_points(:draw, _p, opponent_id, values), do: own_id(values, opponent_id) / 2
   defp class_points(:loss, _p, _o, _v), do: 0.0
+  defp class_points(:half_win, _p, opponent_id, values), do: own_id(values, opponent_id) / 2
+  defp class_points(:half_loss, _p, _o, _v), do: 0.0
   defp class_points(:forfeit_win, p, _o, values), do: own(values, p) / 2
   defp class_points(:forfeit_loss, _p, _o, _v), do: 0.0
   defp class_points(:zero, _p, _o, _v), do: 0.0

@@ -194,17 +194,24 @@ OpenPairings' side, with one exception:
 All of this is OpenPairings' own responsibility (JaVaFo never sees results,
 only pairings) — the highest-value section to actually verify:
 
-- **VCL.13** (½-0 / 0-½ / unforfeited 0-0 must be supported; 1-½ / 1-1 must
-  be rejected) — `Trf.@legal_result_pairs` and the result-entry UI
-  (`pairings_live.ex`'s `@results`) support symmetric `1-0` / `½-½` / `0-1`
-  and played `0-0`, and `Trf.validate_games!/1` already rejects illegal
-  pairs. Grepped for an asymmetric `½-0` / `0-½` result code specifically
-  and found nothing. **Gap** — there's currently no way to record a
-  administratively-decided asymmetric score (one side ½, the other 0) for a
-  single game, only the symmetric draw. Needs research first: FIDE's own
-  TRF16 result-code table doesn't have an obvious single-code slot for this
-  (unlike win/draw/loss/the two forfeit codes) — work out how FIDE itself
-  expects this encoded in a TRF row pair before designing the fix.
+- ~~**VCL.13** (½-0 / 0-½ / unforfeited 0-0 must be supported; 1-½ / 1-1 must
+  be rejected)~~ — **shipped**. Read the actual FIDE TRF16 spec
+  (C04Annex2_TRF16) directly: it has no dedicated code for the asymmetric
+  case at all, and — critically — states no cross-validation rule between
+  the two sides' result codes; the "opponent code must mirror mine" check
+  was `Trf`'s own invention, not a FIDE requirement. So ½-0/0-½ is just `=`
+  for the ½ side and `0` for the 0 side, the one legal pair that doesn't
+  mirror. `Trf.@legal_result_pairs` now allows `"=" ↔ "0"`; wired through
+  `Tournaments.Pairing`'s result whitelist (`"1/2-0"`/`"0-1/2"`), the
+  result-entry UI, `Standings` (scored like a draw/loss respectively),
+  `Pairing.trf_game/3`'s TRF-code mapping, `Keizer`'s own scoring (new
+  `:half_win`/`:half_loss` classes), and both import paths (`TrfImport`,
+  and `SwarImport` — whose SWAR binary format already had bitfield codes
+  for exactly this, `DRAW_ZERO`/`ZERO_DRAW`, previously dropped as
+  unmappable). Deliberately not added to the simplified mobile result-entry
+  screen (arbiter-discretion-only call, matches that screen's existing
+  narrower scope) or PGN export (no PGN equivalent exists; falls back to
+  `"*"`, same as the existing double-loss "0-0" case already does).
 - **VCL.14** (forfeit results limited to `1F-0F` / `0F-1F` / `0F-0F`, no
   forfeit draws) — implemented exactly as `1-0FF` / `0-1FF` / `0-0FF` in
   `pairings_live.ex` and `Trf`'s result codes; no forfeit-draw option exists

@@ -176,6 +176,9 @@ defmodule PairingsEngine.TrfImportTest do
   # pad a player's list up to the round index their one real game belongs
   # at — Trf's `place_games/2` numbers rounds by list position, not by any
   # explicit round field.
+  #
+  # Round 5 (Alpha/Golf, "="/"0") is VCL.13's asymmetric result — an
+  # arbiter's disciplinary point adjustment on an otherwise-drawn game.
   defp forfeit_and_bye_trf do
     blank = %{opponent_rank: nil, colour: nil, result: nil}
 
@@ -185,12 +188,13 @@ defmodule PairingsEngine.TrfImportTest do
         %{
           rank: 1,
           name: "Alpha",
-          points: 2.0,
+          points: 2.5,
           games: [
             %{opponent_rank: 2, colour: "w", result: "1"},
             %{opponent_rank: 3, colour: "w", result: "+"},
             %{opponent_rank: 4, colour: "w", result: "-"},
-            %{opponent_rank: 5, colour: "w", result: "0"}
+            %{opponent_rank: 5, colour: "w", result: "0"},
+            %{opponent_rank: 7, colour: "w", result: "="}
           ]
         },
         %{
@@ -230,6 +234,12 @@ defmodule PairingsEngine.TrfImportTest do
           name: "Foxtrot",
           points: 1.0,
           games: [%{opponent_rank: 99, colour: "w", result: "1"}]
+        },
+        %{
+          rank: 7,
+          name: "Golf",
+          points: 0.0,
+          games: [blank, blank, blank, blank, %{opponent_rank: 1, colour: "b", result: "0"}]
         }
       ]
     })
@@ -248,6 +258,7 @@ defmodule PairingsEngine.TrfImportTest do
     delta = Enum.find(players, &(&1.name == "Delta"))
     echo = Enum.find(players, &(&1.name == "Echo"))
     foxtrot = Enum.find(players, &(&1.name == "Foxtrot"))
+    golf = Enum.find(players, &(&1.name == "Golf"))
 
     rounds =
       Repo.all(
@@ -258,7 +269,7 @@ defmodule PairingsEngine.TrfImportTest do
         )
       )
 
-    [r1, r2, r3, r4] = rounds
+    [r1, r2, r3, r4, r5] = rounds
 
     find_for = fn round, player ->
       Enum.find(
@@ -300,6 +311,12 @@ defmodule PairingsEngine.TrfImportTest do
     assert r4_pairing.white_player_id == alpha.id
     assert r4_pairing.black_player_id == echo.id
     assert r4_pairing.result == "0-0"
+
+    # Round 5: Alpha/Golf, "="/"0" -> "1/2-0" — VCL.13's asymmetric result.
+    r5_pairing = find_for.(r5, alpha)
+    assert r5_pairing.white_player_id == alpha.id
+    assert r5_pairing.black_player_id == golf.id
+    assert r5_pairing.result == "1/2-0"
 
     byes =
       Repo.all(

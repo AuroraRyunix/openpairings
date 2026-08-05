@@ -80,14 +80,18 @@ defmodule PairingsEngine.TrfPropertyTest do
   end
 
   # {code, opponent's code} — every legally paired combination `Trf`'s own
-  # @legal_result_pairs recognizes, generated from the public result_codes/0
-  # rather than a hand-copied literal, so this can't silently drift from the
-  # module's own table.
+  # (private) @legal_result_pairs recognizes. Hand-maintained in step with
+  # that table, not derived from it — `illegal_pair_gen/0` below is exactly
+  # the test that catches the two drifting apart (it did, the first time
+  # @legal_result_pairs grew "=" </> "0" for VCL.13's asymmetric result and
+  # this list wasn't updated yet).
   @legal_pairs [
     {"1", "0"},
     {"0", "1"},
     {"0", "0"},
     {"=", "="},
+    {"=", "0"},
+    {"0", "="},
     {"+", "-"},
     {"-", "+"},
     {"-", "-"}

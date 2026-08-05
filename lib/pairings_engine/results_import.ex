@@ -117,6 +117,8 @@ defmodule PairingsEngine.ResultsImport do
       "1-0" -> {:ok, "1-0"}
       "0-1" -> {:ok, "0-1"}
       t when t in ["1/2-1/2", "½-½", "0.5-0.5", "="] -> {:ok, "1/2-1/2"}
+      t when t in ["1/2-0", "½-0", "0.5-0"] -> {:ok, "1/2-0"}
+      t when t in ["0-1/2", "0-½", "0-0.5"] -> {:ok, "0-1/2"}
       t when t in ["0-0", "X"] -> {:ok, "0-0"}
       t when t in ["1-0FF", "+/-"] -> {:ok, "1-0FF"}
       t when t in ["0-1FF", "-/+"] -> {:ok, "0-1FF"}

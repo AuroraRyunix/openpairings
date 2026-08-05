@@ -526,6 +526,8 @@ defmodule PairingsEngine.TrfImport do
   defp result_string("0", "1"), do: "0-1"
   defp result_string("0", "0"), do: "0-0"
   defp result_string("=", "="), do: "1/2-1/2"
+  defp result_string("=", "0"), do: "1/2-0"
+  defp result_string("0", "="), do: "0-1/2"
   defp result_string("+", _), do: "1-0FF"
   defp result_string("-", "+"), do: "0-1FF"
   defp result_string("-", "-"), do: "0-0FF"

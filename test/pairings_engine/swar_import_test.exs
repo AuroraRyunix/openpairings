@@ -271,6 +271,20 @@ defmodule PairingsEngine.SwarImportTest do
     end
   end
 
+  describe "combine_results/2 (VCL.13's asymmetric result revives SWAR's own dead DRAW_ZERO/ZERO_DRAW codes)" do
+    test "a mutually-consistent DRAW_ZERO/ZERO_DRAW pair maps to the asymmetric result, either way round" do
+      assert SwarImport.combine_results(:draw_zero, :zero_draw) == "1/2-0"
+      assert SwarImport.combine_results(:zero_draw, :draw_zero) == "0-1/2"
+    end
+
+    test "every other real result class still maps the same as before" do
+      assert SwarImport.combine_results(:win, :loss) == "1-0"
+      assert SwarImport.combine_results(:loss, :win) == "0-1"
+      assert SwarImport.combine_results(:draw, :draw) == "1/2-1/2"
+      assert SwarImport.combine_results(:zero_zero, :zero_zero) == "0-0"
+    end
+  end
+
   test "import_file/1 does not create duplicate pairings for the same game" do
     {:ok, tournament, _warnings} = SwarImport.import_file(@c_reeks)
     players = Tournaments.list_players(tournament.id)

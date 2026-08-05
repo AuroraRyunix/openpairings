@@ -400,6 +400,8 @@ defmodule PairingsEngine.Standings do
         "1-0" -> {t.points_win, t.points_loss, true, false}
         "1/2-1/2" -> {t.points_draw, t.points_draw, true, false}
         "0-1" -> {t.points_loss, t.points_win, true, false}
+        "1/2-0" -> {t.points_draw, t.points_loss, true, false}
+        "0-1/2" -> {t.points_loss, t.points_draw, true, false}
         "1-0FF" -> {t.points_win, t.points_loss, false, true}
         "0-1FF" -> {t.points_loss, t.points_win, false, true}
         "0-0FF" -> {t.points_loss, t.points_loss, false, true}
