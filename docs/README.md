@@ -39,7 +39,7 @@ everything the app does and what is planned next.
   during import), full birth dates, federation normalization to FIDE codes,
   and SWAR's "3-2-1" configurable scoring (a `TOURNOI_TYPE == 3` file carries
   its own win/draw/loss/bye point values, stored ×8).
-- [Acceleration](acceleration.md) — Baku accelerated Swiss (FIDE C.04.5): we
+- [Acceleration](acceleration.md) — Baku accelerated Swiss (FIDE C.04.7): we
   compute each Group-A player's virtual points per round ourselves and hand
   JaVaFo the full history via fixed-column `XXA` lines, because JaVaFo does
   not derive acceleration from a flag on its own.

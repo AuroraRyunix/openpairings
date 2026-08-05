@@ -7,7 +7,7 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
 
 - **Swiss (FIDE Dutch)** via JaVaFo 2.2 — the reference implementation of the
   FIDE Dutch system, driven through TRF16 files built and validated by the app.
-  - **Accelerated Swiss (Baku, FIDE C.04.5)** — the app computes each Group-A
+  - **Accelerated Swiss (Baku, FIDE C.04.7)** — the app computes each Group-A
     player's virtual points per round and hands JaVaFo the full history via
     fixed-column `XXA` lines.
   - **Per-category pairing** — each category paired by its own independent

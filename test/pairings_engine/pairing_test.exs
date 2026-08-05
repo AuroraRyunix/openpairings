@@ -778,7 +778,7 @@ defmodule PairingsEngine.PairingTest do
 
   ## ---------- Baku acceleration (XXA) — pure line building ----------
 
-  test "acceleration_lines/3 matches FIDE C.04.5.1's own nine-round worked example" do
+  test "acceleration_lines/3 matches FIDE C.04.7's own nine-round worked example" do
     tournament =
       Repo.insert!(%Tournament{
         name: "T",
@@ -793,7 +793,7 @@ defmodule PairingsEngine.PairingTest do
     # "In a nine-round tournament, the accelerated rounds are five. The
     # players in GA are assigned one virtual point in the first three
     # rounds, and half virtual point in the next two rounds." (FIDE
-    # C.04.5.1). Group A = top half rounded up to an even count = 2*ceil(8/4)
+    # C.04.7). Group A = top half rounded up to an even count = 2*ceil(8/4)
     # = 4 players (ranks 1-4); Group B (ranks 5-8) never appears at all.
     assert Pairing.acceleration_lines(tournament, players, 4) ==
              "XXA     1  1.0  1.0  1.0  0.5\r\n" <>
@@ -939,7 +939,7 @@ defmodule PairingsEngine.PairingTest do
   end
 
   # Regression for audit finding #8: Group-A membership must be a
-  # tournament-wide concept fixed at freeze time (FIDE C.04.5.1), not
+  # tournament-wide concept fixed at freeze time (FIDE C.04.7), not
   # something that shifts round-to-round based on who happens to be
   # eligible THIS round. `acceleration_lines/4`'s `ranked`/Group-A
   # computation now always receives the full frozen roster

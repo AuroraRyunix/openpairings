@@ -1,7 +1,7 @@
-# Accelerated pairings (Baku, FIDE C.04.5.1)
+# Accelerated pairings (Baku, FIDE C.04.7)
 
 SWAR parity #13. `tournaments.acceleration` is `"none"` (default) or
-`"baku"`, set from the Settings screen ("Baku acceleration (FIDE C.04.5)"
+`"baku"`, set from the Settings screen ("Baku acceleration (FIDE C.04.7)"
 dropdown, `PairingsEngineWeb.SettingsLive`). It only affects the **Swiss**
 pairing engine (`tournament.pairing_system == "swiss"`) — round robin has a
 fixed Berger schedule and Keizer never goes through JaVaFo at all, so both
@@ -32,7 +32,7 @@ flag. Per the JaVaFo Advanced User Manual
 > history of each player.
 
 So **we** compute every Group-A player's virtual points ourselves, straight
-from FIDE C.04.5.1, and hand JaVaFo the full round-by-round history via one
+from FIDE C.04.7, and hand JaVaFo the full round-by-round history via one
 `XXA` TRF16 extension line per Group-A player:
 
 ```
@@ -53,7 +53,7 @@ differently when Baku acceleration is on vs off" — the test that proves
 JaVaFo actually *honours* the directive rather than silently ignoring it,
 which is the exact bug this feature closes.
 
-## FIDE C.04.5.1, as implemented
+## FIDE C.04.7, as implemented
 
 * **Group A** — the group that receives virtual points — is the top half of
   the field by starting rank (`pairing_number`), rounded up to the nearest

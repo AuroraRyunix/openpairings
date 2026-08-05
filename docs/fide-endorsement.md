@@ -164,13 +164,18 @@ OpenPairings' side, with one exception:
   **shipped**: `Tournaments.update_player/2` rejects changing an
   already-assigned `pairing_number` once 4 rounds are paired (FIDE
   C.04.2.B.3); a first-ever assignment (late entry) always works.
-- **VCL.10** (FIDE handbook C.04.5 acceleration systems) — Baku acceleration
-  is implemented (`docs/acceleration.md`); C.04.5 as currently in force
-  specifies Baku as the standard method. **Satisfied**, but worth confirming
-  the current handbook doesn't list a second acceleration variant alongside
-  Baku that would also need coverage — **needs verification** (re-read
-  C.04.5 in full, not just the acceleration article referenced when Baku was
-  built).
+- ~~**VCL.10**~~ (FIDE handbook acceleration systems) — **verified,
+  Satisfied**. The chapter itself moved: acceleration is no longer C.04.5
+  (that number is now "Double-Swiss Pairing System") — it's
+  [**C.04.7, "FIDE-approved Accelerated Systems"**](https://handbook.fide.com/chapter/C0407202602)
+  as of the 1 February 2026 revision (current now). Despite the plural
+  title, Baku remains the *only* system actually described — the chapter
+  closes by noting additional methods "may exist" once "statistically
+  proven," i.e. a placeholder for the future, not a second currently-
+  approved system today. `docs/acceleration.md`'s Baku implementation
+  needs no second variant. Worth a standing reminder: cite the *current*
+  chapter number (C.04.7, not C.04.5) anywhere this comes up again — FIDE
+  renumbers these under revision.
 
 ### C — Import/Export Requirements (VCL.11–12)
 

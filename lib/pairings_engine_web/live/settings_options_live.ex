@@ -423,7 +423,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               <select name="tournament[acceleration]">
                 <option value="none" selected={@tournament.acceleration == "none"}>None</option>
                 <option value="baku" selected={@tournament.acceleration == "baku"}>
-                  Baku acceleration (FIDE C.04.5)
+                  Baku acceleration (FIDE C.04.7)
                 </option>
               </select>
             </.setting_field>

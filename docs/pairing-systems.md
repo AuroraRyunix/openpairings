@@ -15,7 +15,7 @@ tournament and active players are serialized to TRF16, JaVaFo is invoked as
 a subprocess, and its output becomes the round's pairings. See
 `PairingsEngine.Pairing` for the full lifecycle (TRF build, JaVaFo run,
 round/pairing creation, absentee byes). Optional Baku acceleration
-(`tournament.acceleration == "baku"`, FIDE C.04.5.1) is Swiss-only — see
+(`tournament.acceleration == "baku"`, FIDE C.04.7) is Swiss-only — see
 `docs/acceleration.md`.
 
 ## Round robin (Berger) — available

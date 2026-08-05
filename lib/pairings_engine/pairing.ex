@@ -1130,7 +1130,7 @@ defmodule PairingsEngine.Pairing do
 
   @doc """
   Builds one fixed-column `"XXA"` TRF extension line per Group-A player, per
-  FIDE C.04.5.1 Baku Acceleration — JaVaFo's own "acceleration" TRF
+  FIDE C.04.7 Baku Acceleration — JaVaFo's own "acceleration" TRF
   extension. Returns `""` unless `tournament.acceleration == "baku"` *and*
   `tournament.pairing_system == "swiss"`: round robin's fixed Berger
   schedule ignores acceleration entirely, and Keizer never goes through
@@ -1146,7 +1146,7 @@ defmodule PairingsEngine.Pairing do
   the fictitious points assigned round by round, because this record is
   used to determine the floaters history of each player"*. So **we**
   compute every Group-A player's virtual points for every round played so
-  far ourselves, straight from the FIDE C.04.5.1 text, and hand JaVaFo the
+  far ourselves, straight from the FIDE C.04.7 text, and hand JaVaFo the
   full history — one column per round.
 
   The manual's format spec: `"XXA NNNN pp.p pp.p ..."`, where `XXA` starts
@@ -1165,7 +1165,7 @@ defmodule PairingsEngine.Pairing do
   — see `PairingsEngine.PairingTest` for the same assertion as an
   automated, `:javafo`-tagged end-to-end test.
 
-  ## FIDE C.04.5.1 Baku Acceleration, as implemented here
+  ## FIDE C.04.7 Baku Acceleration, as implemented here
 
   Group A (the group that receives virtual points) is the top half of the
   field by starting rank (`pairing_number`), rounded up to the nearest even
