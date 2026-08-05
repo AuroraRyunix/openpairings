@@ -224,6 +224,50 @@ defmodule PairingsEngine.StandingsTest do
     )
   end
 
+  # Opp: R1 win over Me (1.0), R2 a plain "absent" byes-table row scoring
+  # points_loss (abs_value unset) — trailing, so it's the case
+  # `adjusted_score/3`'s voluntary-window logic can affect. Me's BH is just
+  # Opp's adjusted score (Me's only game is R1 against Opp). Module level,
+  # not inside the describe below: ExUnit forbids defining functions inside
+  # a describe block.
+  defp fixture_with_absent_opponent(absent_counts_as_vur) do
+    tournament =
+      Repo.insert!(%Tournament{
+        name: "Absent VUR Flag Test",
+        type: "swiss",
+        rounds_count: 2,
+        tiebreaks: ~w(BH),
+        points_win: 1.0,
+        points_draw: 0.5,
+        points_loss: 0.0,
+        absent_counts_as_vur: absent_counts_as_vur
+      })
+
+    [me, opp] =
+      for name <- ["Me", "Opp"] do
+        Repo.insert!(%Player{tournament_id: tournament.id, name: name})
+      end
+
+    r1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
+    Repo.insert!(%Round{tournament_id: tournament.id, number: 2, status: "finished"})
+
+    Repo.insert!(%Pairing{
+      round_id: r1.id,
+      board: 1,
+      white_player_id: opp.id,
+      black_player_id: me.id,
+      result: "1-0"
+    })
+
+    Repo.query!(
+      "INSERT INTO byes (tournament_id, player_id, round, type) VALUES (?, ?, ?, ?)",
+      [tournament.id, opp.id, 2, "absent"]
+    )
+
+    entries = Standings.standings(tournament)
+    Enum.find(entries, &(&1.player.id == me.id))
+  end
+
   describe "bye_points/2 and the presence_on_allocated_bye (SW321_PreBye) flag" do
     test "pairing-allocated pays bye_value alone when the flag is off (default)" do
       t = scoring_tournament(presence_on_allocated_bye: false)
@@ -681,6 +725,89 @@ defmodule PairingsEngine.StandingsTest do
       # each other.
       assert ep.tiebreaks["DE"] == 1.0
       assert eq.tiebreaks["DE"] == 0.0
+    end
+  end
+
+  describe "Article 16.5.1 Cut-1 Exception: a VUR contribution is cut in preference to an ordinary one" do
+    # X: R1 win over Opp, R2 a requested-half bye (X's own dummy_score = 1.0,
+    # capped at points_draw * rounds_count = 0.5 * 2 = 1.0 by Art. 16.4 — own
+    # total 1.0 win + 0.5 bye = 1.5, capped down to 1.0). Opp: R1 loss to X,
+    # R2 a real loss to Filler (0.0) — an explicit R2 record so Opp's
+    # adjusted score is their own real total (0.0), not padded by the
+    # "missing trailing round counts as a draw" rule that would otherwise
+    # apply if Opp had no round-2 record at all. Filler pads out rounds so
+    # `rounds_played_count/1` and Filler's own bookkeeping don't skew Opp's
+    # adjustment; not itself asserted on. Two BHC1 contributions for X:
+    # [0.0 (real, Opp), 1.0 (VUR, X's own bye)].
+    #
+    # Without the exception, cutting the plain lowest removes Opp's 0.0,
+    # leaving X's own generous bye (1.0) — BHC1 == 1.0. With Art. 16.5.1,
+    # the VUR contribution (1.0) is cut in preference instead, leaving
+    # Opp's real 0.0 in the sum — BHC1 == 0.0. Confirms the exception
+    # activates even when the VUR contribution is NOT the naturally lowest
+    # value; a self-referential bye must not get to hide behind Cut-1's
+    # protection meant for genuine weak-opponent luck.
+    test "BHC1 cuts the participant's own bye contribution, not the naturally-lowest real result" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "Cut-1 Exception Test",
+          type: "swiss",
+          rounds_count: 2,
+          tiebreaks: ~w(BHC1),
+          points_win: 1.0,
+          points_draw: 0.5,
+          points_loss: 0.0
+        })
+
+      [x, opp, filler] =
+        for name <- ["X", "Opp", "Filler"] do
+          Repo.insert!(%Player{tournament_id: tournament.id, name: name})
+        end
+
+      r1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
+      r2 = Repo.insert!(%Round{tournament_id: tournament.id, number: 2, status: "finished"})
+
+      Repo.insert!(%Pairing{
+        round_id: r1.id,
+        board: 1,
+        white_player_id: x.id,
+        black_player_id: opp.id,
+        result: "1-0"
+      })
+
+      Repo.insert!(%Pairing{
+        round_id: r2.id,
+        board: 1,
+        white_player_id: filler.id,
+        black_player_id: opp.id,
+        result: "1-0"
+      })
+
+      Repo.query!(
+        "INSERT INTO byes (tournament_id, player_id, round, type) VALUES (?, ?, ?, ?)",
+        [tournament.id, x.id, 2, "requested-half"]
+      )
+
+      entries = Standings.standings(tournament)
+      ex = Enum.find(entries, &(&1.player.id == x.id))
+
+      assert ex.tiebreaks["BHC1"] == 0.0
+    end
+  end
+
+  describe "Tournament.absent_counts_as_vur — opt-in only, off by default (FIDE has no 'absent' concept)" do
+    test "off (default): a trailing absence counts at its award value, not upgraded to a draw" do
+      em = fixture_with_absent_opponent(false)
+      # Opp's adjusted score = 1.0 (R1 win) + 0.0 (R2 absence, points_loss,
+      # not treated as voluntary so it stays at its raw award value).
+      assert em.tiebreaks["BH"] == 1.0
+    end
+
+    test "on: a trailing absence is downgraded to a draw, same as a requested bye" do
+      em = fixture_with_absent_opponent(true)
+      # Opp's adjusted score = 1.0 (R1 win) + 0.5 (R2 absence now inside
+      # the trailing-voluntary window, counted as a draw per Art. 16.3).
+      assert em.tiebreaks["BH"] == 1.5
     end
   end
 

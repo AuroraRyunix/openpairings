@@ -289,27 +289,33 @@ only pairings) — the highest-value section to actually verify:
     window, understating every opponent-who-played-them's Buchholz/SB.
     Fixed by adding `and pairing.result != "bye"` to the `voluntary` check,
     with a regression test.
-  - **Open, not implemented**: Art. 16.5.1's new **"Cut-1 Exception"** —
-    when a BHC1/BHC2/MBH cut removes the least significant value(s), a
+  - **Shipped**: Art. 16.5.1's new **"Cut-1 Exception"** — when a
+    BHC1/BHC2/MBH cut removes the least significant value(s), a
     contribution coming from one of the participant's own voluntary
-    unplayed rounds (VURs) must be cut preferentially over an ordinary
-    played-game contribution, as long as it isn't already below the
-    natural least-significant value. `cut/3` currently has no such
-    priority — it's a plain numeric sort-and-drop. Deliberately not
-    implemented yet: the exact scope of "VUR" for this purpose is
-    ambiguous between sources (Art. 16.1's own definition vs. a
-    third-party summary naming forfeit losses specifically), and this is
-    a genuinely new mechanism with no FIDE-published worked example to
-    validate an implementation against — exactly the failure mode that
-    produced the Art. 16.4 bug in the first place. Needs a decision with
-    the user before writing it.
-  - **Open question, not a bug**: SWAR's own `"absent"` bye type is
-    currently grouped into the `voluntary` set alongside `requested-half`/
-    `requested-zero` (line 367). FIDE's C.07 has no native "absent"
-    concept — whether it should behave like a forfeit loss (16.2.4,
-    never downgraded) or a requested bye (16.2.3/16.2.5, downgraded only
-    when trailing) is a modeling judgment call, not something to infer
-    from the handbook text alone.
+    unplayed rounds (VUR) is now cut in preference to an ordinary
+    played-game contribution. Scope decision: only a bye round with no
+    scheduled opponent (`dummy_score/3`) can ever be a VUR contribution —
+    a forfeit always has a real scheduled opponent, so it routes through
+    `adjusted_score/3` instead and never reaches this path — and the
+    existing `g.voluntary` flag (already excluding pairing-allocated byes
+    and forfeits, matching Art. 16.1's own concept) is reused as the VUR
+    tag rather than inventing a second classification. `buchholz_contributions/3`
+    now tags each contribution `{value, vur?}`; `cut/3`'s lowest-value
+    drop picks the minimum VUR-tagged contribution when one exists (its
+    minimum can never be below the overall minimum, satisfying the
+    regulation's own proviso by construction), reapplied per additional
+    cut for BHC2. Highest-value cuts (MBH) are untouched — 16.5.1 only
+    concerns the least significant value. See `standings_test.exs`'s
+    "Article 16.5.1 Cut-1 Exception" describe block for a worked example.
+  - **Resolved**: SWAR's own `"absent"` bye type (no FIDE-native concept)
+    is no longer unconditionally grouped into `voluntary`. New
+    `Tournament.absent_counts_as_vur` field, **off by default** — an
+    absence always counts at its configured award value (the forfeit-loss
+    treatment, the strict/FIDE-safe reading) unless an arbiter explicitly
+    opts in from Settings for the more lenient requested-bye-style
+    treatment (trailing occurrences downgraded to a draw). Matches the
+    project's general posture on extras beyond FIDE's own basics:
+    available, never the default.
 
 ## The FE1 auto-test requirement — and why a plain checker isn't actually the right tool here
 

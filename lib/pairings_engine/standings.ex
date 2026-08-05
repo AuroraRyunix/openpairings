@@ -364,7 +364,14 @@ defmodule PairingsEngine.Standings do
             colour: nil,
             points: points,
             played: false,
-            voluntary: bye.type in ["requested-half", "requested-zero", "absent"],
+            # "absent" only counts as voluntary when the tournament has
+            # explicitly opted in (Tournament.absent_counts_as_vur) — FIDE
+            # has no "absent" concept, so the default treats it like a
+            # forfeit loss (always awarded value, never downgraded). See
+            # that field's doc for the full reasoning.
+            voluntary:
+              bye.type in ["requested-half", "requested-zero"] or
+                (bye.type == "absent" and tournament.absent_counts_as_vur),
             # The `byes`-table row's own type ("requested-half" /
             # "requested-zero" / "absent") — carried through so display code
             # (PairingsEngine.PlayerCard.result_label/2) can label the bye by
@@ -481,8 +488,13 @@ defmodule PairingsEngine.Standings do
 
   # Article 8.1: sum of the (adjusted) scores of the opponents; own unplayed
   # rounds contribute a capped dummy score (Article 16.4).
-  defp tiebreak("BH", entry, by_id, t),
-    do: buchholz_contributions(entry, by_id, t) |> Enum.sum() |> round_f(2)
+  defp tiebreak("BH", entry, by_id, t) do
+    entry
+    |> buchholz_contributions(by_id, t)
+    |> Enum.map(&elem(&1, 0))
+    |> Enum.sum()
+    |> round_f(2)
+  end
 
   # Article 14.1.1: cut the least significant value(s).
   defp tiebreak("BHC1", entry, by_id, t), do: cut(buchholz_contributions(entry, by_id, t), 1, 0)
@@ -563,11 +575,20 @@ defmodule PairingsEngine.Standings do
     end
   end
 
+  # Each contribution tagged with whether it is a voluntary-unplayed-round
+  # (VUR) contribution — Art. 16.5.1's Cut-1 Exception needs to know this to
+  # cut it in preference to an ordinary contribution. Only the participant's
+  # OWN bye rounds (no opponent — `dummy_score`) can ever be a VUR
+  # contribution; a round with a real scheduled opponent always uses that
+  # opponent's adjusted score regardless of whether the round was forfeited,
+  # so it's never tagged. `g.voluntary` (see `pairing_records/3` and
+  # `add_bye_records/3`) already excludes pairing-allocated byes and
+  # forfeits, matching Art. 16.1's own VUR concept.
   defp buchholz_contributions(entry, by_id, t) do
     Enum.map(entry.games, fn g ->
       case opponent(g, by_id) do
-        nil -> dummy_score(entry, g, t)
-        opp -> adjusted_score(opp, by_id, t)
+        nil -> {dummy_score(entry, g, t), g.voluntary}
+        opp -> {adjusted_score(opp, by_id, t), false}
       end
     end)
   end
@@ -626,14 +647,44 @@ defmodule PairingsEngine.Standings do
     entry.points |> min(t.points_draw * t.rounds_count) |> round_f(2)
   end
 
+  # Article 14.1.1/14.1.2/14.2: cut the least/most significant value(s).
+  #
+  # Article 16.5.1 "Cut-1 Exception": when a least-significant-value cut
+  # applies, a contribution from one of the participant's own voluntary
+  # unplayed rounds (VUR — tagged by `buchholz_contributions/3`) is cut in
+  # preference to an ordinary contribution, reapplied once per additional
+  # lowest-cut (so BHC2's second cut re-checks the remaining set). The
+  # regulation's own proviso ("as long as such contribution is not lower
+  # than the least significant value") always holds here: a VUR
+  # contribution is a member of the same set the natural minimum is drawn
+  # from, so its minimum can never be lower than the overall minimum.
+  # Highest-value cuts (MBH's second drop) are untouched — 16.5.1 only
+  # concerns the least significant value.
   defp cut(contributions, n_lowest, n_highest) do
     contributions
-    |> Enum.sort()
-    |> Enum.drop(n_lowest)
-    |> Enum.reverse()
+    |> drop_lowest_with_vur_priority(n_lowest)
+    |> Enum.map(&elem(&1, 0))
+    |> Enum.sort(:desc)
     |> Enum.drop(n_highest)
     |> Enum.sum()
     |> round_f(2)
+  end
+
+  defp drop_lowest_with_vur_priority([], _n), do: []
+  defp drop_lowest_with_vur_priority(contributions, 0), do: contributions
+
+  defp drop_lowest_with_vur_priority(contributions, n) do
+    vur_contributions = Enum.filter(contributions, &elem(&1, 1))
+
+    to_drop =
+      case vur_contributions do
+        [] -> Enum.min_by(contributions, &elem(&1, 0))
+        _ -> Enum.min_by(vur_contributions, &elem(&1, 0))
+      end
+
+    contributions
+    |> List.delete(to_drop)
+    |> drop_lowest_with_vur_priority(n - 1)
   end
 
   # Float.round that also accepts integers (sums of integer points).

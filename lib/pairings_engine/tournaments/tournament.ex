@@ -81,6 +81,17 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # PairingsEngine.SwarImport writes non-nil values.
     field :abs_jusque, :integer
     field :abs_nbfois, :integer
+    # Whether an "absent" byes-table row (a plain no-show — distinct from a
+    # requested bye or a forfeit) is treated as a voluntary unplayed round
+    # for tiebreak purposes (FIDE C.07 Art. 16: trailing occurrences get
+    # downgraded to a draw for opponents' Buchholz/SB, and it becomes
+    # eligible for the Art. 16.5.1 Cut-1 priority). FIDE's own rules have
+    # no "absent" concept at all, so the default is off: an absence always
+    # counts at its configured award value, same as a forfeit loss — the
+    # strict/FIDE-safe reading. An arbiter can opt in from Settings for the
+    # more lenient (SWAR-historical) treatment; never on by default. See
+    # `PairingsEngine.Standings.add_bye_records/3`.
+    field :absent_counts_as_vur, :boolean, default: false
     # SWAR `SW321_PreBye` (manual §5.16, "Add presence points for bye
     # games") — when true, a pairing-allocated bye pays `presence_value` ON
     # TOP of `bye_value` (SWAR pays SW321_Bye + SW321_Pre for a WIN_BYE
@@ -315,6 +326,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :abs_value,
       :abs_jusque,
       :abs_nbfois,
+      :absent_counts_as_vur,
       :presence_on_allocated_bye,
       :tiebreaks,
       :acceleration,

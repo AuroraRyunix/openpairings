@@ -593,6 +593,13 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               </div>
               <.locked_hint_message field={:abs_scoring} locked_hint={@locked_hint} />
             </.setting_field>
+
+            <.setting_toggle
+              name="tournament[absent_counts_as_vur]"
+              label="Treat a genuine absence as a voluntary unplayed round for tiebreaks"
+              hint="Off (FIDE default) = an absence always counts at its award value above. On = a trailing absence is downgraded to a draw for opponents' Buchholz/SB, same as a requested bye — FIDE's own C.07 has no 'absent' concept, so this stays opt-in."
+              checked={@tournament.absent_counts_as_vur}
+            />
           </.setting_group>
         </div>
 

@@ -102,16 +102,18 @@ gaps identified there, extracted here as actionable items:
   case) made `adjusted_score/3` substitute a draw's worth of points for
   the bye's real value in every opponent's Buchholz/SB. See
   `docs/fide-endorsement.md`'s VCL.19 entry.
-- **C.07's new Art. 16.5.1 "Cut-1 Exception" not implemented** — when a
-  BHC1/BHC2/MBH cut removes the least significant value(s), a
-  contribution from one of the participant's own voluntary unplayed
-  rounds should be cut preferentially over an ordinary game contribution.
-  `cut/3` currently does a plain numeric sort-and-drop with no such
-  priority. Deliberately not implemented yet — "VUR" scope is ambiguous
-  between sources, and there's no FIDE-published worked example to
-  validate against (the exact failure mode that produced the earlier
-  Art. 16.4 bug). Needs a decision on scope before writing it. See
-  `docs/fide-endorsement.md`'s VCL.19 entry.
+- ~~C.07's new Art. 16.5.1 "Cut-1 Exception"~~ (VCL.19) — **shipped**:
+  BHC1/BHC2/MBH now cut a contribution from one of the participant's own
+  voluntary unplayed rounds (a bye, via `dummy_score/3`) in preference to
+  an ordinary game contribution, reusing the existing `voluntary` flag as
+  the VUR tag. See `docs/fide-endorsement.md`'s VCL.19 entry.
+- ~~SWAR's "absent" bye type unconditionally treated as voluntary~~ —
+  **shipped**: new `Tournament.absent_counts_as_vur` setting, off by
+  default (an absence always counts at its award value, like a forfeit
+  loss — FIDE has no "absent" concept, so this is the strict/safe
+  reading); an arbiter can opt in from Settings for the more lenient
+  requested-bye-style treatment. See `docs/fide-endorsement.md`'s VCL.19
+  entry.
 
 ## Backlog (no particular order, nothing blocking)
 
