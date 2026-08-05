@@ -53,6 +53,14 @@ defmodule PairingsEngineWeb.ExportControllerTest do
 
       assert response_content_type(conn, :text) =~ "text/plain"
 
+      # VCL.12 ("it is recommended that such export is done using UTF-8
+      # encoding") — the response declares it explicitly, not just "the
+      # bytes happen to be UTF-8": a downstream tool trusting only the
+      # Content-Type header (not sniffing the bytes) still reads accented
+      # names correctly.
+      [content_type] = get_resp_header(conn, "content-type")
+      assert content_type =~ "charset=utf-8"
+
       [disposition] = get_resp_header(conn, "content-disposition")
       assert disposition =~ "attachment"
       assert disposition =~ "S_export-ctrl-test_r1-2.trf"
