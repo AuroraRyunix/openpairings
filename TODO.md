@@ -17,7 +17,15 @@ These are real, identified gaps — not yet built, and not accidentally missed:
   every open page silently when a round is paired elsewhere; there's no
   visible toast/banner calling that out to the arbiter who didn't do it.
 - **Team tournaments** — explicitly deferred by the maintainer as a "future
-  thing." No schema, no UI.
+  thing." More scaffolding already exists than this note used to claim:
+  `Tournaments.Team` schema, `Player.team_id`/`board_order`, TRF16 team-block
+  read/write (`Trf.team_line/1`/`parse_team_line/3`), and "Swiss (teams)"/
+  "Round robin (teams)" are already selectable as a tournament format. None
+  of it is wired end-to-end though — no team CRUD UI, `Pairing.pair_next_round/1`
+  doesn't branch on team type at all (teams pair as plain individuals today),
+  no team standings/tiebreaks, and the team TRF block is never actually sent
+  to JaVaFo. Still a real, substantial feature gap — just not a from-scratch
+  one.
 - **American (accelerated pairing) system** — explicitly dropped, not planned
   ("no one cares" — maintainer's own call).
 - **SWAR presence points on pairing-allocated byes (`SW321_PreBye`)** —
