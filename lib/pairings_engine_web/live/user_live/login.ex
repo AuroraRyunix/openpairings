@@ -62,8 +62,8 @@ defmodule PairingsEngineWeb.UserLive.Login do
             <h1 class="auth-hero-title">Run world-class chess tournaments.</h1>
 
             <p class="auth-hero-sub">
-              FIDE-compliant pairings, tie-breaks and norm reports - from the
-              first round to the final crosstable, right in your browser.
+              Swiss pairings via JaVaFo, FIDE tie-break rules, and official report
+              formats - from the first round to the final crosstable, right in your browser.
             </p>
 
             <ul class="auth-features">

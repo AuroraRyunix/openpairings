@@ -2,7 +2,7 @@
 
 OpenPairings is a chess tournament manager (Elixir/Phoenix + LiveView + SQLite):
 Swiss pairing via JaVaFo, round robin (Berger), the Keizer system,
-FIDE-compliant tiebreaks (C.07), TRF16 export/import, FIDE + KBSB rating lists,
+FIDE tiebreaks (C.07), TRF16 export/import, FIDE + KBSB rating lists,
 SWAR import, per-tournament sharing, and FIDE norm/report forms.
 
 **Start here: [Features & roadmap](features.md)** — a one-page overview of
