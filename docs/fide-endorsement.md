@@ -385,15 +385,50 @@ plain flat Swiss field. Worth extending if those specific paths need their
 own confidence pass; they're exactly where the two real bugs that motivated
 this harness lived.
 
-**First real finding (not yet resolved)**: a `PAIRING_FUZZ_COUNT=200` run
-found 6 disagreements (~1.2% of paired rounds) — always small rosters
-(5-13 players), always a same-score-group-splitting choice in an otherwise
-fully legal situation (no repeat-opponent conflicts on either side).
-Verified against JaVaFo run standalone (bypassing OpenPairings' own
-pipeline entirely) on the exact captured TRF to rule out an
-OpenPairings-side input bug — the disagreement is genuinely between JaVaFo
-and bbpPairings themselves, not something OpenPairings fed either engine
-wrong. Needs FIDE Dutch-system tie-break rules research (C.04.3) to
-determine whether one of the two engines is actually wrong here, or this is
-a legitimately underspecified case both handle differently — exactly the
-kind of question this harness exists to surface, not resolve on its own.
+**First real finding, researched, still not conclusively resolved**: a
+`PAIRING_FUZZ_COUNT=200` run found 6 disagreements (~1.2% of paired rounds)
+— always small rosters (5-13 players), always a same-score-group-splitting
+choice in an otherwise fully legal situation (no repeat-opponent conflicts
+on either side). Verified against JaVaFo run standalone (bypassing
+OpenPairings' own pipeline entirely) on the exact captured TRF to rule out
+an OpenPairings-side input bug — the disagreement is genuinely between
+JaVaFo and bbpPairings themselves.
+
+Traced through the actual current C.04.3 criteria (1 Feb 2026 revision) for
+the seed-12 case (5 players; round 2 score groups after round 1: {P1, P5}
+both 1.0 pts and never played each other; {P2, P3} both 0.5 pts and
+*already* played each other round 1; {P4} 0.0 pts alone): the absolute
+criteria are ordered **[C1]** no repeat opponents, **[C2]** no second
+pairing-allocated bye for the same player, **[C3]** non-topscorer colour
+clash, **[C5]** minimise the score of the bye assignee — quality criteria
+(**[C6]** minimise downfloaters, **[C7]** minimise their scores, ...) only
+apply once C1-C5 are satisfied. ([C4] doesn't appear to exist in the
+current handbook text — possibly retired in a revision, not confirmed.)
+
+- **JaVaFo's answer**: pair the top bracket {P1,P5} together (0
+  downfloaters, satisfies [C6] locally), cascade {P2,P3} down (can't pair
+  each other, [C1]), merge with P4 — the only two legal single-pair options
+  left are P2-P4 or P3-P4, so the bye lands on whichever of P2/P3 isn't
+  chosen (P3, 0.5 pts).
+- **bbpPairings' answer**: {P1-P2, P5-P3}, giving P4 (0.0 pts, the tournament-wide
+  minimum) the bye instead — fully legal, and strictly better on [C5] (0.0
+  < 0.5).
+
+Since [C5] is absolute and outranks [C6], a configuration achieving a
+strictly lower bye-assignee score should, by the stated priority order, be
+preferred over a configuration that's merely locally tidy per bracket —
+which would make bbpPairings' answer the more literally-compliant one, and
+JaVaFo's greedy top-bracket-first pairing a possible edge-case deviation
+from its own governing rule text.
+
+**This is a hypothesis, not a verdict.** It's built on AI-summarized
+fetches of the handbook, not primary text independently double-checked
+line by line, and JaVaFo is FIDE's own actively-maintained reference
+implementation (Roberto Ricca, who also sits on the SPP Commission) — real
+Dutch-system pairing is a constrained search with documented subtleties
+this reading may not fully capture. Concretely narrower than "engines
+disagree, not sure why" was two passes ago, but still short of a confirmed
+answer. What would actually resolve it: reproducing the exact seed-12 TRF
+against JaVaFo's own detailed algorithm description (the AUM), or asking
+the SPP Commission directly — not further inference from handbook
+fetches.
