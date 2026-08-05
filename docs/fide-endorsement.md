@@ -268,6 +268,49 @@ only pairings) — the highest-value section to actually verify:
   (not just against the app's own prior output), the way the 16.4 fix's new
   test does.
 
+  **FIDE reissued C.07 effective 1 March 2026** (currently in force —
+  [handbook.fide.com/chapter/TieBreakRegulations032026](https://handbook.fide.com/chapter/TieBreakRegulations032026)),
+  substantially rewriting Article 16 (unplayed-round handling for
+  Buchholz/SB). Auditing `standings.ex` against the new text turned up:
+
+  - **Fixed this session**: `pairing_records/3` marked every pairing-allocated
+    bye (`Pairing.result == "bye"`, JaVaFo's own odd-player-count assignment)
+    as `voluntary: true`. The separate `byes`-table path
+    (`add_bye_records/3`) already correctly excluded `"pairing-allocated"`
+    from its own `voluntary` set — this was a same-file inconsistency
+    between two code paths modeling the identical concept, not a
+    speculative reading of the new rule text. Under the new Art.
+    16.2.1/16.3, a pairing-allocated bye must always count at its full
+    awarded value for an opponent's tiebreak purposes, never downgraded to
+    a draw when it happens to be trailing (the common case — an odd number
+    of players always produces exactly one last-round bye somewhere).
+    Before the fix, `adjusted_score/3` silently substituted a draw's worth
+    of points for that bye whenever it landed in the trailing/voluntary
+    window, understating every opponent-who-played-them's Buchholz/SB.
+    Fixed by adding `and pairing.result != "bye"` to the `voluntary` check,
+    with a regression test.
+  - **Open, not implemented**: Art. 16.5.1's new **"Cut-1 Exception"** —
+    when a BHC1/BHC2/MBH cut removes the least significant value(s), a
+    contribution coming from one of the participant's own voluntary
+    unplayed rounds (VURs) must be cut preferentially over an ordinary
+    played-game contribution, as long as it isn't already below the
+    natural least-significant value. `cut/3` currently has no such
+    priority — it's a plain numeric sort-and-drop. Deliberately not
+    implemented yet: the exact scope of "VUR" for this purpose is
+    ambiguous between sources (Art. 16.1's own definition vs. a
+    third-party summary naming forfeit losses specifically), and this is
+    a genuinely new mechanism with no FIDE-published worked example to
+    validate an implementation against — exactly the failure mode that
+    produced the Art. 16.4 bug in the first place. Needs a decision with
+    the user before writing it.
+  - **Open question, not a bug**: SWAR's own `"absent"` bye type is
+    currently grouped into the `voluntary` set alongside `requested-half`/
+    `requested-zero` (line 367). FIDE's C.07 has no native "absent"
+    concept — whether it should behave like a forfeit loss (16.2.4,
+    never downgraded) or a requested bye (16.2.3/16.2.5, downgraded only
+    when trailing) is a modeling judgment call, not something to infer
+    from the handbook text alone.
+
 ## The FE1 auto-test requirement — and why a plain checker isn't actually the right tool here
 
 FE1's auto-test report is built from two roles: an **RTG** (Random

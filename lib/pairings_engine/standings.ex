@@ -422,7 +422,14 @@ defmodule PairingsEngine.Standings do
       colour: :w,
       points: wp,
       played: played,
-      voluntary: not played and not forfeit,
+      # A pairing-allocated bye (odd player count) is never voluntary — the
+      # player didn't choose it, so per Art. 16.2.1/16.3 it must always be
+      # evaluated at its awarded value for opponents' tiebreak purposes,
+      # never downgraded to a draw when trailing. The `byes`-table path
+      # (`add_bye_records/3` above) already excludes "pairing-allocated"
+      # from its own `voluntary` set for the same reason — this mirrors it
+      # for the JaVaFo-assigned `Pairing.result == "bye"` shape.
+      voluntary: not played and not forfeit and pairing.result != "bye",
       # Same key `add_bye_records/3` carries for `byes`-table rows — lets
       # PlayerCard label the row as a pairing-allocated bye by KIND rather
       # than by point-value heuristics. nil for a real game.

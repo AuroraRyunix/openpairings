@@ -593,6 +593,60 @@ defmodule PairingsEngine.StandingsTest do
       assert ea.tiebreaks["BH"] == 1.5
     end
 
+    # Opp gets a real pairing-allocated bye (odd player count — a `Pairing`
+    # row with result "bye", not a `byes`-table row) in the LAST round, so it
+    # falls in `adjusted_score/3`'s trailing window. Art. 16.2.1/16.3: a
+    # pairing-allocated bye is never voluntary and must always count at its
+    # awarded value for an opponent's tiebreak purposes — never downgraded to
+    # a draw just because it's trailing. Before the fix, `voluntary` didn't
+    # check `pairing.result != "bye"`, so this bye's real value (2.0, per
+    # `bye_value` below) was silently replaced with a draw's worth (0.5).
+    test "BH counts a trailing pairing-allocated bye at its awarded value, not a draw (Article 16.2.1/16.3)" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "Pairing-Allocated Trailing Bye Test",
+          type: "swiss",
+          rounds_count: 2,
+          tiebreaks: ~w(BH),
+          points_win: 1.0,
+          points_draw: 0.5,
+          points_loss: 0.0,
+          bye_value: 2.0
+        })
+
+      [me, opp] =
+        for name <- ["Me", "Opp"] do
+          Repo.insert!(%Player{tournament_id: tournament.id, name: name})
+        end
+
+      r1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
+      r2 = Repo.insert!(%Round{tournament_id: tournament.id, number: 2, status: "finished"})
+
+      Repo.insert!(%Pairing{
+        round_id: r1.id,
+        board: 1,
+        white_player_id: me.id,
+        black_player_id: opp.id,
+        result: "1-0"
+      })
+
+      Repo.insert!(%Pairing{
+        round_id: r2.id,
+        board: 1,
+        white_player_id: opp.id,
+        black_player_id: nil,
+        result: "bye"
+      })
+
+      entries = Standings.standings(tournament)
+      e = Enum.find(entries, &(&1.player.id == me.id))
+
+      # Opp's adjusted score = 0.0 (round-1 loss) + 2.0 (pairing-allocated
+      # bye, awarded value) = 2.0. Without the fix it would be 0.0 + 0.5
+      # (draw substituted for the trailing bye) = 0.5.
+      assert e.tiebreaks["BH"] == 2.0
+    end
+
     test "DE groups players tied on the ranking key (total), not raw points, when count_extra_points is on" do
       tournament =
         Repo.insert!(%Tournament{
