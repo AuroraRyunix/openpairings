@@ -140,9 +140,15 @@ gaps identified there, extracted here as actionable items:
   through a new minimal `Layouts.public/1` (brand + theme switch only, no
   tournament tabs/accent picker/sign-in) instead of the full authenticated
   `Layouts.app/1`, and both show a compact arbiter/deputy/tempo/round-dates
-  line (`PairingsEngineWeb.Components.PublicTournamentMeta`) when set. Still
-  open: the *printed* standings/pairings pages carrying the same info (not
-  touched in this pass).
+  line (`PairingsEngineWeb.Components.PublicTournamentMeta`) when set.
+- ~~Printed standings/pairings pages don't carry the arbiter/tempo/
+  round-dates line~~ — **shipped**: `PrintController`'s shared
+  `tournament_info_html/1` (already used by every print doc — pairings,
+  standings, player list/cards, crosstable, place cards, result cards) was
+  missing deputy arbiter and the per-round dates list (`round_dates`,
+  distinct from the free-text `start_date`/`end_date` it already showed).
+  Both added as their own line items, labeled "Deputy arbiter" and "Round
+  date(s)" to stay unambiguous next to the existing "Dates: start – end".
 - **Audit OpenPairings' logic against SWAR's own C++ source, file by
   file.** Very low priority — this is a "nice to have more confidence,"
   not a response to anything currently broken. Scoping notes from

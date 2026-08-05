@@ -1095,7 +1095,11 @@ defmodule PairingsEngineWeb.PrintController do
       [
         if(tournament.federation != "", do: "Federation: #{esc(tournament.federation)}"),
         tournament_dates_item(tournament),
+        round_dates_item(tournament.round_dates),
         if(tournament.chief_arbiter != "", do: "Chief arbiter: #{esc(tournament.chief_arbiter)}"),
+        if(tournament.deputy_arbiter != "",
+          do: "Deputy arbiter: #{esc(tournament.deputy_arbiter)}"
+        ),
         if(tournament.rate_of_play != "", do: "Rate of play: #{esc(tournament.rate_of_play)}"),
         if(tournament.fide_homologated and tournament.fide_tournament_id != "",
           do: "FIDE ID: #{esc(tournament.fide_tournament_id)}"
@@ -1119,6 +1123,26 @@ defmodule PairingsEngineWeb.PrintController do
 
       true ->
         nil
+    end
+  end
+
+  # `round_dates` (ISO per-round dates, index = round - 1) is a distinct
+  # concept from `start_date`/`end_date` above (arbitrary free-text festival
+  # dates) — a tournament can set either, both, or neither, so this is a
+  # separate item rather than a fallback. "Round dates" (not "Dates", the
+  # label `tournament_dates_item/1` already uses above) to keep the two
+  # unambiguous when both are present. Same collapsing logic as
+  # `PairingsEngineWeb.Components.PublicTournamentMeta`'s round-dates line
+  # (single date vs first–last range), duplicated here rather than shared
+  # since this module builds raw HTML strings, not HEEx.
+  defp round_dates_item(nil), do: nil
+  defp round_dates_item([]), do: nil
+
+  defp round_dates_item(dates) do
+    case Enum.reject(dates, &(&1 in [nil, ""])) do
+      [] -> nil
+      [single] -> "Round date: #{esc(single)}"
+      real -> "Round dates: #{esc(List.first(real))} – #{esc(List.last(real))}"
     end
   end
 

@@ -1003,9 +1003,10 @@ defmodule PairingsEngineWeb.PrintControllerTest do
   ## ---------- "Tournament info" header block ----------
 
   # A tournament with every info-block field set (federation, dates, chief
-  # arbiter, rate of play) but NOT FIDE-homologated, plus the same 4-player/
-  # 2-round data `fixture/1` sets up (board pairings, results) so every print
-  # doc under test has something to render besides the header.
+  # arbiter, deputy arbiter, rate of play, round dates) but NOT
+  # FIDE-homologated, plus the same 4-player/2-round data `fixture/1` sets up
+  # (board pairings, results) so every print doc under test has something to
+  # render besides the header.
   defp info_fixture(scope, overrides \\ %{}) do
     attrs =
       Map.merge(
@@ -1017,7 +1018,9 @@ defmodule PairingsEngineWeb.PrintControllerTest do
           "start_date" => "2026-08-01",
           "end_date" => "2026-08-03",
           "chief_arbiter" => "Jane Arbiter",
+          "deputy_arbiter" => "Deputy Dan",
           "rate_of_play" => "90 min + 30 sec/move",
+          "round_dates" => ["2026-08-01", "2026-08-02", "2026-08-03"],
           "fide_homologated" => false,
           "fide_tournament_id" => ""
         },
@@ -1050,7 +1053,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
   end
 
   describe "tournament info block" do
-    test "pairing_list shows federation/dates/chief arbiter/rate of play", %{
+    test "pairing_list shows federation/dates/chief+deputy arbiter/rate of play/round dates", %{
       conn: conn,
       scope: scope
     } do
@@ -1062,10 +1065,15 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       assert html =~ "Federation: BEL"
       assert html =~ "Dates: 2026-08-01 &ndash; 2026-08-03" or html =~ "2026-08-01"
       assert html =~ "Chief arbiter: Jane Arbiter"
+      assert html =~ "Deputy arbiter: Deputy Dan"
       assert html =~ "Rate of play: 90 min + 30 sec/move"
+      assert html =~ "Round dates: 2026-08-01 &ndash; 2026-08-03" or html =~ "Round dates:"
     end
 
-    test "standings shows the info block", %{conn: conn, scope: scope} do
+    test "standings shows the info block, including deputy arbiter and round dates", %{
+      conn: conn,
+      scope: scope
+    } do
       tournament = info_fixture(scope)
 
       html = get(conn, ~p"/t/#{tournament.id}/print/standings?round=1") |> html_response(200)
@@ -1073,6 +1081,17 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       assert html =~ "tourney-info"
       assert html =~ "Federation: BEL"
       assert html =~ "Chief arbiter: Jane Arbiter"
+      assert html =~ "Deputy arbiter: Deputy Dan"
+      assert html =~ "Round dates:"
+    end
+
+    test "a single round date is shown as one date, not a range", %{conn: conn, scope: scope} do
+      tournament = info_fixture(scope, %{"round_dates" => ["2026-08-01"]})
+
+      html = get(conn, ~p"/t/#{tournament.id}/print/standings?round=1") |> html_response(200)
+
+      assert html =~ "Round date: 2026-08-01"
+      refute html =~ "Round dates:"
     end
 
     test "player_list and player_cards show the info block", %{conn: conn, scope: scope} do
@@ -1146,7 +1165,9 @@ defmodule PairingsEngineWeb.PrintControllerTest do
 
       refute html =~ "Federation:"
       refute html =~ "Chief arbiter:"
+      refute html =~ "Deputy arbiter:"
       refute html =~ "Rate of play:"
+      refute html =~ "Round date"
       refute html =~ "FIDE ID:"
     end
 
