@@ -80,11 +80,18 @@ gaps identified there, extracted here as actionable items:
   rules research to tell whether this is a bbpPairings quirk, a JaVaFo
   quirk, or a genuinely underspecified tie-break FIDE's own rules leave
   open; the harness's exact job is surfacing this, not resolving it.
-- **TRF06 import** (VCL.11, recommended not mandatory) — low priority unless
-  a real TRF06 file needs importing.
-- Two smaller "needs verification" items in the doc (UTF-8 response headers
-  on the TRF export, no accidental "FIDE"-branded claim about OpenPairings
-  itself in the UI) — quick greps, not full features.
+- ~~TRF06 import~~ (VCL.11, recommended not mandatory) — **shipped**: read
+  FIDE's actual archived TRF06 specs (2006 and 2016 versions) rather than
+  guessing — column positions are byte-identical to TRF16, so no separate
+  importer was needed, just tolerating TRF06's older bye convention (a
+  dangling playing code, no F/H/U/Z). Verifying this surfaced and fixed two
+  real `Trf` bugs along the way — see `docs/fide-endorsement.md`'s VCL.11
+  entry.
+- ~~Two smaller "needs verification" items~~ (UTF-8 response headers on the
+  TRF export, no accidental "FIDE"-branded claim about OpenPairings itself
+  in the UI) — **both verified**: UTF-8 was already correct (confirmed via
+  `Plug.Conn`'s own source, locked in with a test); the login page's hero
+  copy had one real overclaim ("FIDE-compliant pairings..."), reworded.
 
 ## Backlog (no particular order, nothing blocking)
 

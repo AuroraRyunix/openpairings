@@ -380,4 +380,83 @@ defmodule PairingsEngine.TrfTest do
     assert a.games == [%{opponent_rank: 2, colour: "w", result: "+"}]
     assert b.games == [%{opponent_rank: 1, colour: "b", result: "-"}]
   end
+
+  # ---------------------------------------------------------------------
+  # TRF06 (FIDE's Annexure-B, 2006) — column-identical to TRF16, but
+  # predates the F/H/U/Z bye codes: a bye is a dangling playing code
+  # against opponent 0000, and a "not paired" round is left fully blank
+  # rather than carrying any code at all (VCL.11 recommends, not requires,
+  # supporting this older version).
+  # ---------------------------------------------------------------------
+
+  # Places `text` at 1-indexed `col` in `line`, padding with spaces as
+  # needed — exact column math, so these fixtures can't suffer the same
+  # off-by-a-few-spaces mistake a hand-typed fixed-width string risks.
+  defp place_col(line, position, text) do
+    text = to_string(text)
+    needed = position - 1 + String.length(text)
+    line = if String.length(line) < needed, do: String.pad_trailing(line, needed), else: line
+    {before, rest} = String.split_at(line, position - 1)
+    {_, after_} = String.split_at(rest, String.length(text))
+    before <> text <> after_
+  end
+
+  defp round_block(line, round_number, opponent, colour, result) do
+    base = 92 + (round_number - 1) * 10
+
+    line
+    |> place_col(base, (opponent && String.pad_leading(to_string(opponent), 4)) || "0000")
+    |> place_col(base + 5, colour || "-")
+    |> place_col(base + 7, result || "")
+  end
+
+  test "parse/1 tolerates a TRF06-vintage dangling playing code (bye with no F/H/U/Z code) that serialize/1 rejects" do
+    line =
+      ""
+      |> place_col(1, "001")
+      |> place_col(5, "   1")
+      |> place_col(15, "Solo, Player")
+      |> place_col(81, " 1.0")
+      |> place_col(86, "   1")
+      |> round_block(1, nil, nil, "1")
+
+    parsed = Trf.parse(line <> "\r\n")
+    assert [%{games: [%{opponent_rank: nil, colour: nil, result: "1"}]}] = parsed.players
+
+    # The exact same shape is still correctly rejected on the way OUT —
+    # OpenPairings' own JaVaFo-input construction must never write this.
+    assert_raise Trf.ValidationError, fn ->
+      Trf.serialize(%{
+        tournament: %{name: "T"},
+        players: [
+          %{
+            rank: 1,
+            name: "A",
+            points: 1.0,
+            games: [%{opponent_rank: nil, colour: nil, result: "1"}]
+          }
+        ]
+      })
+    end
+  end
+
+  test "parse/1 doesn't stop at a genuinely blank round when real rounds follow (a late entrant's TRF06-style gap)" do
+    # Round 1 is entirely blank ("not paired", TRF06's own convention for a
+    # late entrant) - round 2 is a real game. The old implementation
+    # stopped parsing at the first blank round, silently dropping round 2.
+    line =
+      ""
+      |> place_col(1, "001")
+      |> place_col(5, "   1")
+      |> place_col(15, "Late, Entrant")
+      |> place_col(81, " 1.0")
+      |> place_col(86, "   1")
+      |> round_block(2, 2, "b", "1")
+
+    parsed = Trf.parse(line <> "\r\n")
+
+    assert [%{games: [blank, real]}] = parsed.players
+    assert blank == %{opponent_rank: nil, colour: nil, result: nil}
+    assert real == %{opponent_rank: 2, colour: "b", result: "1"}
+  end
 end

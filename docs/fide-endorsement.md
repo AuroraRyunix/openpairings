@@ -133,12 +133,18 @@ worth having on hand for its own sake, not because FE1 requires it.
 Inherited from JaVaFo's own endorsement — not applicable to audit on
 OpenPairings' side, with one exception:
 
-- **VCL.06** ("the word FIDE cannot be used for any pairing-related service
-  that is currently not endorsed") — worth a pass over the UI copy to make
-  sure nothing implies OpenPairings itself holds an endorsement it doesn't
-  (it correctly calls an endorsed engine, but should never *say* "FIDE
-  pairing" in a way that reads as a claim about OpenPairings itself). **Needs
-  verification** — grep the UI strings.
+- ~~**VCL.06**~~ ("the word FIDE cannot be used for any pairing-related
+  service that is currently not endorsed") — **verified, one real fix
+  made**. Grepped every user-facing "FIDE" mention across `lib/` — nearly
+  all are factual (FIDE's own rating list/data source, a tournament's own
+  FIDE-homologation status, FIDE's own system/tiebreak names) or internal
+  developer docs correctly describing JaVaFo (the actually-endorsed
+  component) as endorsed. One real issue: the login page's hero copy read
+  "FIDE-compliant pairings, tie-breaks and norm reports" — an unqualified
+  claim about OpenPairings itself, which isn't endorsed. Reworded to credit
+  JaVaFo by name and describe FIDE's rules/formats rather than claiming
+  OpenPairings' own compliance; softened the same phrasing in
+  `README.md`/`docs/README.md` for consistency.
 
 ### B — Pairing Requirements (VCL.07–10)
 
@@ -154,13 +160,10 @@ OpenPairings' side, with one exception:
 - **VCL.08** (pairing by pairing number, not rating) — OpenPairings' TRF
   input keys everything off `pairing_number`; ratings only affect the
   Dutch-system algorithm inside JaVaFo itself, per spec. **Satisfied.**
-- **VCL.09** (pairing numbers frozen after round 4 is paired) — grepped for
-  an enforcement point in `players_live.ex`/`tournaments.ex` and found none.
-  **Gap** — nothing currently stops editing/reordering `pairing_number`
-  (e.g. via a player edit, or a re-import) after round 4. Worth its own
-  backlog item regardless of endorsement plans, since SWAR/Swiss-Manager
-  both enforce this and an accidental mid-event renumber would be a real
-  footgun for an arbiter using OpenPairings live.
+- ~~**VCL.09**~~ (pairing numbers frozen after round 4 is paired) —
+  **shipped**: `Tournaments.update_player/2` rejects changing an
+  already-assigned `pairing_number` once 4 rounds are paired (FIDE
+  C.04.2.B.3); a first-ever assignment (late entry) always works.
 - **VCL.10** (FIDE handbook C.04.5 acceleration systems) — Baku acceleration
   is implemented (`docs/acceleration.md`); C.04.5 as currently in force
   specifies Baku as the standard method. **Satisfied**, but worth confirming
@@ -171,23 +174,35 @@ OpenPairings' side, with one exception:
 
 ### C — Import/Export Requirements (VCL.11–12)
 
-- **VCL.11** (TRF16 import mandatory, TRF06 recommended) — TRF16 import
-  exists (`PairingsEngine.TrfImport`, `docs/trf-import.md`). Grepped for
-  TRF06 support and found none. **Gap (non-blocking — "recommended" not
-  "mandatory")** — a TRF06 importer would mean supporting the older,
-  narrower column layout FIDE retired in favor of TRF16; low priority unless
-  a real TRF06 file surfaces that needs importing.
-- **VCL.12** (TRF16 export analyzable by a pairing-checker, even under a
-  non-default scoring system; UTF-8 recommended) — the recent Swiss-Manager
-  parity work (`docs/import-export.md`) already aimed the export format at
-  exactly this ("analyzable by a pairing-checker" is a good description of
-  what the RTG/FPC harness below would exercise directly). Elixir strings
-  are UTF-8 natively and the export has no encoding conversion step, so this
-  should already hold — **needs verification**: confirm the actual HTTP
-  response headers declare UTF-8 explicitly (`ExportController.trf/2`),
-  since a missing/wrong `charset` on the response can still cause a
-  downstream tool to misread accented names even when the bytes themselves
-  are correct.
+- ~~**VCL.11**~~ (TRF16 import mandatory, TRF06 recommended) — **both
+  shipped**. TRF16: `PairingsEngine.TrfImport`, `docs/trf-import.md`. TRF06:
+  read FIDE's actual archived specs directly — [Annexure-B (2006)](https://tec.fide.com/wp-content/uploads/2025/10/Annexure-B-TRF06-%E2%80%93-Version-2006.pdf)
+  and [Annexure-C (2016)](https://tec.fide.com/wp-content/uploads/2025/10/Annexure-C-TRF06-%E2%80%93-Version-2016.pdf)
+  — rather than guessing; the player/round/tournament column positions are
+  byte-identical between TRF06 and TRF16, so no separate importer was
+  needed. The one real difference: TRF06 predates the F/H/U/Z bye codes
+  (a bye is a dangling playing code against opponent `0000`, no dedicated
+  code at all) and represents a "not paired" round as fully blank rather
+  than any code. Verifying this surfaced two real bugs in `Trf`, both
+  fixed: (1) `Trf.parse/1` shared its strict "opponent 0000 needs a bye
+  code" validation with `serialize/1` — correct for OpenPairings' own
+  JaVaFo-input construction (a genuine past crash, see VCL.07 below), wrong
+  for reading someone else's TRF06 file — now an `allow_dangling_playing_code`
+  option `parse/1` alone sets; (2) `parse_games/1` stopped at the *first*
+  fully-blank round rather than the line's actual end, silently discarding
+  every real game after it (a late entrant's blank round 1 followed by real
+  round-2+ games) — now scans to where the line's real content ends.
+- ~~**VCL.12** (TRF16 export analyzable by a pairing-checker, even under a
+  non-default scoring system; UTF-8 recommended)~~ — **verified**. The
+  recent Swiss-Manager parity work (`docs/import-export.md`) already aimed
+  the export format at exactly this. UTF-8: confirmed both ways —
+  `Plug.Conn.put_resp_content_type/2`'s `charset` argument defaults to
+  `"utf-8"` (read the actual dependency source, not assumed), so
+  `ExportController.trf/2`'s `put_resp_content_type("text/plain")` already
+  sends `Content-Type: text/plain; charset=utf-8` — plus Elixir strings are
+  UTF-8 natively with no encoding-conversion step in between. Locked in
+  with an explicit test asserting the header (`export_controller_test.exs`)
+  rather than just trusting the bytes happen to be right.
 
 ### D — Tournament Requirements (VCL.13–19)
 

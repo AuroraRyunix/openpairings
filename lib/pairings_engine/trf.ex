@@ -388,28 +388,41 @@ defmodule PairingsEngine.Trf do
   #      `@legal_result_pairs`). An unresolvable/dangling opponent reference
   #      is not itself flagged — the caller may be validating a partial
   #      roster (e.g. a single player's card).
-  defp validate_games!(players) do
+  #
+  # `opts[:allow_dangling_playing_code]` relaxes the "opponent 0000 needs a
+  # bye code (F/H/Z/U)" rule below — those four codes didn't exist before
+  # TRF16 (see FIDE's Annexure-B, the 2006 spec: only 1/=/0/+/-/blank, a bye
+  # represented as a dangling playing code against 0000, no dedicated bye
+  # code at all). That rule exists to protect OUR OWN JaVaFo-input
+  # construction (a dangling playing code there is a real, previously-hit
+  # crash — see `PairingsEngine.Pairing.bye_safe_result/2`), which only
+  # matters on the way OUT (`serialize/1`); a file we're reading FROM
+  # someone else, possibly TRF06-vintage, is exactly what this option
+  # exists for — `parse/1` passes it, `serialize/1` never does.
+  defp validate_games!(players, opts \\ []) do
     by_rank = Map.new(players, &{&1[:rank], &1})
 
     for player <- players,
         {game, round} <- Enum.with_index(player[:games] || [], 1) do
-      validate_game!(player, round, game, by_rank)
+      validate_game!(player, round, game, by_rank, opts)
     end
 
     :ok
   end
 
-  defp validate_game!(_player, _round, %{result: result}, _by_rank) when result in [nil, ""],
-    do: :ok
+  defp validate_game!(_player, _round, %{result: result}, _by_rank, _opts)
+       when result in [nil, ""],
+       do: :ok
 
-  defp validate_game!(player, round, %{result: result} = game, by_rank) do
+  defp validate_game!(player, round, %{result: result} = game, by_rank, opts) do
     cond do
       result not in (@playing_codes ++ @bye_codes) ->
         raise ValidationError,
           message:
             "#{player_label(player)}, round #{round}: unrecognized TRF result code #{inspect(result)}"
 
-      result in @playing_codes and is_nil(game[:opponent_rank]) ->
+      result in @playing_codes and is_nil(game[:opponent_rank]) and
+          !opts[:allow_dangling_playing_code] ->
         raise ValidationError,
           message:
             "#{player_label(player)}, round #{round}: opponent 0000 cannot carry played-game result " <>
@@ -444,7 +457,16 @@ defmodule PairingsEngine.Trf do
 
   ## ---------- Parsing ----------
 
-  @doc "Inverse of serialize/1: returns %{tournament: ..., players: ..., teams: ...}."
+  @doc """
+  Inverse of serialize/1: returns %{tournament: ..., players: ..., teams: ...}.
+
+  Tolerates a TRF06-vintage file (FIDE's Annexure-B, 2006): before TRF16
+  added the F/H/U/Z bye codes, a bye was just a dangling playing code
+  against opponent 0000 (see `validate_games!/2`'s
+  `allow_dangling_playing_code` option) — column positions are otherwise
+  byte-identical between the two versions, so no separate TRF06 parser is
+  needed, just this one relaxed rule.
+  """
   def parse(text) do
     lines =
       text
@@ -462,7 +484,7 @@ defmodule PairingsEngine.Trf do
         end
       end)
 
-    validate_games!(result.players)
+    validate_games!(result.players, allow_dangling_playing_code: true)
     result
   end
 
@@ -516,29 +538,41 @@ defmodule PairingsEngine.Trf do
     }
   end
 
-  defp parse_games(line, round \\ 1, acc \\ []) do
-    cols = round_cols(round)
-    {id_start, _} = cols.id
+  # Stops on where the line's real content actually ends, not on the first
+  # blank round — a fully-blank round block (FIDE's own "not paired" —
+  # opponent, colour and result all left as spaces, see Annexure-B, the
+  # 2006 TRF06 spec) is a real, legal "no game recorded this round" for a
+  # late entrant, and can legitimately be followed by real games in later
+  # rounds. Stopping at the first one (the previous behaviour) silently
+  # dropped every game after it — invisible on anything OpenPairings itself
+  # writes (`place_games/2` always writes "0000", never true blanks, for a
+  # placeholder round) but a real bug reading a genuinely TRF06-vintage
+  # file, or any writer that follows the spec's own blank convention.
+  defp parse_games(line) do
+    trimmed_length = line |> String.trim_trailing() |> String.length()
+    {round1_start, _} = round_cols(1).id
 
-    if String.length(line) < id_start do
-      Enum.reverse(acc)
-    else
-      id_raw = read(line, cols.id)
-      colour = read(line, cols.colour)
-      result = read(line, cols.result)
-
-      if id_raw == "" and colour == "" and result == "" do
-        Enum.reverse(acc)
+    round_count =
+      if trimmed_length < round1_start do
+        0
       else
-        game = %{
-          opponent_rank: if(id_raw in ["", "0000"], do: nil, else: parse_int(id_raw)),
-          colour: if(colour in ["", "-"], do: nil, else: colour),
-          result: if(result == "", do: nil, else: result)
-        }
-
-        parse_games(line, round + 1, [game | acc])
+        div(trimmed_length - round1_start, 10) + 1
       end
-    end
+
+    Enum.map(1..round_count//1, &parse_game_at_round(line, &1))
+  end
+
+  defp parse_game_at_round(line, round) do
+    cols = round_cols(round)
+    id_raw = read(line, cols.id)
+    colour = read(line, cols.colour)
+    result = read(line, cols.result)
+
+    %{
+      opponent_rank: if(id_raw in ["", "0000"], do: nil, else: parse_int(id_raw)),
+      colour: if(colour in ["", "-"], do: nil, else: colour),
+      result: if(result == "", do: nil, else: result)
+    }
   end
 
   defp parse_team_line(line, slot \\ 1, ranks \\ []) do

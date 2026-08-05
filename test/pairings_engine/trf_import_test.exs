@@ -338,6 +338,126 @@ defmodule PairingsEngine.TrfImportTest do
            )
   end
 
+  ## ---------- TRF06 (FIDE's Annexure-B, 2006) ----------
+
+  # Column-identical to TRF16 (verified against both the 2006 and 2016
+  # specs directly) — the one real difference is TRF06 predates the
+  # F/H/U/Z bye codes: a bye is a dangling playing code against opponent
+  # 0000, and a genuinely blank round ("not paired") can be followed by
+  # real games in later rounds (a late entrant). VCL.11 recommends, not
+  # requires, supporting this — no separate importer needed, `Trf.parse/1`
+  # already tolerates both shapes.
+  #
+  # Built with exact 1-indexed column placement (not hand-typed spacing,
+  # which is exactly how the earlier "opponentless bye" bug surfaced while
+  # verifying this by hand) — mirrors trf_test.exs's own `place_col/3`.
+  defp place_trf_col(line, position, text) do
+    text = to_string(text)
+    needed = position - 1 + String.length(text)
+    line = if String.length(line) < needed, do: String.pad_trailing(line, needed), else: line
+    {before, rest} = String.split_at(line, position - 1)
+    {_, after_} = String.split_at(rest, String.length(text))
+    before <> text <> after_
+  end
+
+  defp trf06_round_block(line, round_number, opponent, colour, result) do
+    base = 92 + (round_number - 1) * 10
+
+    line
+    |> place_trf_col(
+      base,
+      (opponent && String.pad_leading(to_string(opponent), 4)) || "0000"
+    )
+    |> place_trf_col(base + 5, colour || "-")
+    |> place_trf_col(base + 7, result || "")
+  end
+
+  defp trf06_player_line(rank, name, points, round1, round2) do
+    line =
+      ""
+      |> place_trf_col(1, "001")
+      |> place_trf_col(5, String.pad_leading(to_string(rank), 4))
+      |> place_trf_col(15, name)
+      |> place_trf_col(81, String.pad_leading(points, 4))
+      |> place_trf_col(86, String.pad_leading(to_string(rank), 4))
+
+    line =
+      if round1,
+        do: trf06_round_block(line, 1, elem(round1, 0), elem(round1, 1), elem(round1, 2)),
+        else: line
+
+    if round2,
+      do: trf06_round_block(line, 2, elem(round2, 0), elem(round2, 1), elem(round2, 2)),
+      else: line
+  end
+
+  test "a genuine TRF06-vintage file (no F/H/U/Z bye codes, a dangling code for a bye) imports correctly" do
+    lines = [
+      "012 TRF06 Vintage Test",
+      "032 BEL",
+      "062    3",
+      "092 Individual: Swiss System",
+      # Alpha beats Bravo in round 1, then a dangling "1" (win-value bye,
+      # TRF06's only way to express a full-point bye) in round 2.
+      trf06_player_line(1, "Alpha, One", "2.0", {2, "w", "1"}, {nil, nil, "1"}),
+      # Bravo loses to Alpha, then loses to Charlie.
+      trf06_player_line(2, "Bravo, Two", "0.0", {1, "b", "0"}, {3, "w", "0"}),
+      # Charlie is a late entrant: round 1 genuinely blank ("not paired"),
+      # a real game in round 2 — the exact case that used to get silently
+      # dropped by the old parse_games/1.
+      trf06_player_line(3, "Charlie, Three", "1.0", nil, {2, "b", "1"})
+    ]
+
+    trf06 = Enum.join(lines, "\r\n") <> "\r\n"
+
+    assert {:ok, tournament, warnings} = TrfImport.import_text(trf06, user_scope())
+    assert warnings == []
+
+    players = Tournaments.list_players(tournament.id)
+    alpha = Enum.find(players, &(&1.name == "Alpha, One"))
+    bravo = Enum.find(players, &(&1.name == "Bravo, Two"))
+    charlie = Enum.find(players, &(&1.name == "Charlie, Three"))
+
+    rounds =
+      Repo.all(
+        Ecto.Query.from(r in Round,
+          where: r.tournament_id == ^tournament.id,
+          order_by: r.number,
+          preload: [:pairings]
+        )
+      )
+
+    assert [r1, r2] = rounds
+
+    find_for = fn round, player ->
+      Enum.find(
+        round.pairings,
+        &(&1.white_player_id == player.id or &1.black_player_id == player.id)
+      )
+    end
+
+    r1_pairing = find_for.(r1, alpha)
+    assert r1_pairing.white_player_id == alpha.id
+    assert r1_pairing.black_player_id == bravo.id
+    assert r1_pairing.result == "1-0"
+
+    # Charlie's genuinely blank round 1 means no pairing at all for round 1
+    # — not a bye, not an error, simply absent (a late entrant).
+    refute find_for.(r1, charlie)
+
+    # Round 2: Alpha's dangling win-value code becomes a pairing-row bye
+    # (same representation F/U already collapse into — no black player);
+    # Bravo loses to Charlie.
+    alpha_r2 = find_for.(r2, alpha)
+    assert alpha_r2.result == "bye"
+    assert alpha_r2.black_player_id == nil
+
+    bravo_r2 = find_for.(r2, bravo)
+    assert bravo_r2.white_player_id == bravo.id
+    assert bravo_r2.black_player_id == charlie.id
+    assert bravo_r2.result == "0-1"
+  end
+
   ## ---------- points cross-check warning ----------
 
   test "a player whose TRF points column disagrees with the recomputed total is reported in warnings" do
