@@ -92,6 +92,26 @@ gaps identified there, extracted here as actionable items:
   in the UI) — **both verified**: UTF-8 was already correct (confirmed via
   `Plug.Conn`'s own source, locked in with a test); the login page's hero
   copy had one real overclaim ("FIDE-compliant pairings..."), reworded.
+- ~~Trailing pairing-allocated byes scored as draws instead of their
+  awarded value~~ (VCL.19) — **shipped**: found while auditing
+  `standings.ex` against FIDE's C.07 revision effective 1 March 2026
+  (Art. 16.2.1/16.3). `Pairing.result == "bye"` (JaVaFo's own
+  odd-player-count byes) was marked `voluntary: true` — inconsistent with
+  the `byes`-table path, which already excluded `"pairing-allocated"` from
+  its own `voluntary` set. A trailing occurrence (the common last-round
+  case) made `adjusted_score/3` substitute a draw's worth of points for
+  the bye's real value in every opponent's Buchholz/SB. See
+  `docs/fide-endorsement.md`'s VCL.19 entry.
+- **C.07's new Art. 16.5.1 "Cut-1 Exception" not implemented** — when a
+  BHC1/BHC2/MBH cut removes the least significant value(s), a
+  contribution from one of the participant's own voluntary unplayed
+  rounds should be cut preferentially over an ordinary game contribution.
+  `cut/3` currently does a plain numeric sort-and-drop with no such
+  priority. Deliberately not implemented yet — "VUR" scope is ambiguous
+  between sources, and there's no FIDE-published worked example to
+  validate against (the exact failure mode that produced the earlier
+  Art. 16.4 bug). Needs a decision on scope before writing it. See
+  `docs/fide-endorsement.md`'s VCL.19 entry.
 
 ## Backlog (no particular order, nothing blocking)
 
