@@ -468,6 +468,16 @@ defmodule PairingsEngineWeb.PairingsLive do
         </div>
 
         <div class="actions" style="margin: 0">
+          <a
+            :if={@tournament.public_pages_enabled}
+            class="pe-btn"
+            href={~p"/p/#{@tournament.public_slug}/pairings"}
+            target="_blank"
+            title="No login needed - share this link"
+          >
+            Public pairings link
+          </a>
+
           <a class="pe-btn" href={~p"/t/#{@tournament.id}/live"} target="_blank">
             Live view &amp; phone QR
           </a>

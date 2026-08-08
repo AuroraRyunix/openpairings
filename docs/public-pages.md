@@ -59,9 +59,16 @@ audit log (`public_pages.toggled`, `public_pages.link_rotated`).
 ## Where to find the links
 
 On the authenticated **Standings** page, next to **Print**: **"Public
-standings link"** (shown only while public pages are enabled). The
-tournament's **Settings** page has the full "Public pages" card — the
-on/off switch, both share links, and the "Generate new link" button.
+standings link"**. On the authenticated **Pairings** page, first in the
+header actions: **"Public pairings link"**. Both are shown only while
+public pages are enabled. The tournament's **Settings** page has the full
+"Public pages" card — the on/off switch, both share links, and the
+"Generate new link" button.
+
+The pairings one was briefly absent: it was dropped in the July 2026
+pairings declutter and put back afterwards, because without it Settings
+was the only place to get the pairings URL even though the equivalent
+standings link had stayed one click away.
 
 The **Live** page (`/t/:id/live`) also has a **"📣 Let spectators follow the
 standings"** card with a QR code straight to `/p/:slug/standings` — meant for

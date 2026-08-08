@@ -73,11 +73,29 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     refute html =~ ~s(print/standings?round=3)
   end
 
-  test "does not show a public pairings link (removed from the pairings page header)", %{
+  # Was removed in the July 2026 "pairings declutter" and is back by
+  # request: the public standings page had a one-click share link and the
+  # public pairings page did not, so the only way to hand someone the
+  # pairings URL was through Settings.
+  test "shows a public pairings link while public pages are enabled", %{
     conn: conn,
     scope: scope
   } do
     tournament = fixture(scope)
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+    assert tournament.public_slug
+    assert html =~ "Public pairings link"
+    assert html =~ ~s(href="/p/#{tournament.public_slug}/pairings")
+  end
+
+  test "hides the public pairings link once public pages are turned off", %{
+    conn: conn,
+    scope: scope
+  } do
+    tournament = fixture(scope)
+    {:ok, tournament} = Tournaments.set_public_pages(tournament, false)
 
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 
