@@ -726,46 +726,58 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
     end
   end
 
-  describe "Abs. rds column (requested absences)" do
-    test "shows the rounds on the grid, expanded, without opening the player", %{
+  describe "Pr. column (SWAR presence notation)" do
+    test "encodes forfeit, whole-event absence, and per-round absence with case", %{
       conn: conn,
       scope: scope
     } do
       {:ok, tournament} =
-        Tournaments.create_tournament(scope, %{"name" => "Absences Test", "type" => "swiss"})
+        Tournaments.create_tournament(scope, %{"name" => "Presence Test", "type" => "swiss"})
 
-      {:ok, typed_range} =
-        Tournaments.create_player(tournament.id, %{
-          "name" => "Range Typer",
-          "absent_rounds" => "1-4"
-        })
+      {:ok, range} =
+        Tournaments.create_player(tournament.id, %{"name" => "Range", "absent_rounds" => "1-3"})
 
-      {:ok, _listed} =
-        Tournaments.create_player(tournament.id, %{
-          "name" => "List Typer",
-          "absent_rounds" => "3,1"
-        })
+      {:ok, later} =
+        Tournaments.create_player(tournament.id, %{"name" => "Later", "absent_rounds" => "4,5"})
 
-      {:ok, _present} = Tournaments.create_player(tournament.id, %{"name" => "Always Here"})
+      {:ok, all_event} =
+        Tournaments.create_player(tournament.id, %{"name" => "AllEvent", "absent" => true})
+
+      {:ok, here} = Tournaments.create_player(tournament.id, %{"name" => "Here"})
 
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/players")
 
-      # Visible by default: knowing who is sitting out is operational
-      # information, not an optional extra like affiliation or fee status.
-      assert html =~ "Abs. rds"
+      # Every cell in the player's row, so the assertions do not depend on
+      # which column index Pr. happens to sit at.
+      cells = fn player ->
+        row =
+          html
+          |> String.split(~s(data-player-id="#{player.id}"))
+          |> Enum.at(1)
+          |> String.split("</tr>")
+          |> Enum.at(0)
 
-      # A range is stored and shown EXPANDED, which is also exactly what
-      # the pairing engine reads.
-      assert typed_range.absent_rounds == "1,2,3,4"
+        ~r{<td[^>]*>(.*?)</td>}s
+        |> Regex.scan(row)
+        |> Enum.map(fn [_, inner] -> String.trim(inner) end)
+      end
 
-      range_row = html |> String.split(~s(data-player-id="#{typed_range.id}")) |> Enum.at(1)
-      assert range_row =~ "1,2,3,4"
+      # Nothing paired yet, so round 1 is the one about to be paired.
+      # "1-3" is stored expanded AND covers round 1 -> capital A.
+      assert range.absent_rounds == "1,2,3"
+      assert "A(1,2,3)" in cells.(range)
 
-      # Out-of-order input is normalised ascending too.
-      assert html =~ "1,3"
+      # Absences recorded, but none of them is round 1 -> lowercase a,
+      # i.e. on the record but available right now.
+      assert "a(4,5)" in cells.(later)
 
-      # Nobody sitting out gets an em dash rather than a blank cell.
-      assert html =~ "—"
+      # The whole-event boolean is a bare capital, no round list.
+      assert "A" in cells.(all_event)
+
+      # A present player carries no marker at all.
+      here_cells = cells.(here)
+      refute Enum.any?(here_cells, &String.starts_with?(&1, "A"))
+      refute Enum.any?(here_cells, &String.starts_with?(&1, "a("))
     end
   end
 
