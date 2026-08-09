@@ -205,18 +205,25 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
         
         <div :if={is_nil(@picked)}>
           <label for="reg-name">Your name</label>
-          <input
-            id="reg-name"
-            type="text"
-            name="q"
-            value={@query}
-            class="pe-input"
-            style="width: 100%; max-width: 420px"
-            autocomplete="off"
-            phx-change="search"
-            phx-debounce="250"
-            placeholder="Start typing your last name… e.g. Carlsen"
-          />
+          <%!-- The input has to live inside a form: LiveView only delivers
+                phx-change from a form context, so a bare input silently
+                never fires and the FIDE dropdown never appears. PlayersLive's
+                identical search works because it sits inside its own
+                add-player form. phx-submit here lets Enter register too. --%>
+          <form id="reg-search" phx-change="search" phx-submit="submit">
+            <input
+              id="reg-name"
+              type="text"
+              name="q"
+              value={@query}
+              class="pe-input"
+              style="width: 100%; max-width: 420px"
+              autocomplete="off"
+              phx-debounce="250"
+              placeholder="Start typing your last name… e.g. Carlsen"
+            />
+          </form>
+          
           <p class="subtitle" style="margin: 4px 0 0">
             Pick yourself from the FIDE list below. Not on it? Just type your name and
             press Register.

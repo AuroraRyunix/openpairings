@@ -70,7 +70,7 @@ defmodule PairingsEngineWeb.PublicRegisterLiveTest do
 
       {:ok, lv, _html} = live(conn, ~p"/p/#{t.public_slug}/register")
 
-      lv |> element("#reg-name") |> render_change(%{"q" => "Nakamura Hikaru"})
+      lv |> element("#reg-search") |> render_change(%{"q" => "Nakamura Hikaru"})
       html = lv |> element("button", "Register") |> render_click()
 
       assert html =~ "You&#39;re registered" or html =~ "You're registered"
@@ -101,7 +101,7 @@ defmodule PairingsEngineWeb.PublicRegisterLiveTest do
       t = tournament(scope, open?: true)
 
       {:ok, lv, _html} = live(conn, ~p"/p/#{t.public_slug}/register")
-      lv |> element("#reg-name") |> render_change(%{"q" => "Late Entrant"})
+      lv |> element("#reg-search") |> render_change(%{"q" => "Late Entrant"})
 
       # The arbiter closes it after the page was already rendered.
       {:ok, _t} = Tournaments.set_registration_open(t, false)
@@ -139,7 +139,7 @@ defmodule PairingsEngineWeb.PublicRegisterLiveTest do
     # replaces the form with the confirmation — one visitor, one sign-up.
     defp register_once(conn, slug, name) do
       {:ok, lv, _html} = live(conn, ~p"/p/#{slug}/register")
-      lv |> element("#reg-name") |> render_change(%{"q" => name})
+      lv |> element("#reg-search") |> render_change(%{"q" => name})
       lv |> element("button", "Register") |> render_click()
     end
 
