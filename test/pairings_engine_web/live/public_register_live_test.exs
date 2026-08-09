@@ -12,7 +12,8 @@ defmodule PairingsEngineWeb.PublicRegisterLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias PairingsEngine.{RateLimit, Tournaments}
+  alias PairingsEngine.{RateLimit, Repo, Tournaments}
+  alias PairingsEngine.Fide.FidePlayer
 
   setup :register_and_log_in_user
 
@@ -70,13 +71,18 @@ defmodule PairingsEngineWeb.PublicRegisterLiveTest do
 
       {:ok, lv, _html} = live(conn, ~p"/p/#{t.public_slug}/register")
 
-      lv |> element("#reg-search") |> render_change(%{"q" => "Nakamura Hikaru"})
+      lv
+      |> element("#reg-search")
+      |> render_change(%{"q" => "Nakamura Hikaru", "birth_year" => "1990", "federation" => "USA"})
+
       html = lv |> element("button", "Register") |> render_click()
 
       assert html =~ "You&#39;re registered" or html =~ "You're registered"
 
       assert [player] = Tournaments.list_players(t.id)
       assert player.name == "Nakamura Hikaru"
+      assert player.birth_year == 1990
+      assert player.federation == "USA"
 
       assert player.absent,
              "a player who filled in a web form has announced an intention, not arrived"
@@ -90,6 +96,62 @@ defmodule PairingsEngineWeb.PublicRegisterLiveTest do
 
       assert html =~ "Please enter your name"
       assert Tournaments.list_players(t.id) == []
+    end
+
+    test "not on the FIDE list still needs a birth year and federation", %{
+      conn: conn,
+      scope: scope
+    } do
+      t = tournament(scope, open?: true)
+
+      {:ok, lv, _html} = live(conn, ~p"/p/#{t.public_slug}/register")
+      lv |> element("#reg-search") |> render_change(%{"q" => "Unrated Player"})
+      html = lv |> element("button", "Register") |> render_click()
+
+      assert html =~ "Please also fill in your birth year and federation"
+      assert Tournaments.list_players(t.id) == []
+    end
+
+    test "a nonsense birth year is rejected", %{conn: conn, scope: scope} do
+      t = tournament(scope, open?: true)
+
+      {:ok, lv, _html} = live(conn, ~p"/p/#{t.public_slug}/register")
+
+      lv
+      |> element("#reg-search")
+      |> render_change(%{"q" => "Unrated Player", "birth_year" => "abcd", "federation" => "BEL"})
+
+      html = lv |> element("button", "Register") |> render_click()
+
+      assert html =~ "Please enter a birth year as 4 digits"
+      assert Tournaments.list_players(t.id) == []
+    end
+
+    test "picking a FIDE match needs no birth year or federation of its own", %{
+      conn: conn,
+      scope: scope
+    } do
+      t = tournament(scope, open?: true)
+
+      Repo.insert!(%FidePlayer{
+        fide_id: 2_016_192,
+        name: "Nakamura, Hikaru",
+        federation: "USA",
+        birth_year: 1987,
+        title: "GM",
+        standard_rating: 2780
+      })
+
+      {:ok, lv, _html} = live(conn, ~p"/p/#{t.public_slug}/register")
+      lv |> element("#reg-search") |> render_change(%{"q" => "Nakamura"})
+      lv |> element("button[phx-value-fide-id='2016192']") |> render_click()
+      html = lv |> element("button", "Register") |> render_click()
+
+      assert html =~ "You&#39;re registered" or html =~ "You're registered"
+      assert [player] = Tournaments.list_players(t.id)
+      assert player.name == "Nakamura, Hikaru"
+      assert player.federation == "USA"
+      assert player.birth_year == 1987
     end
   end
 
@@ -139,7 +201,11 @@ defmodule PairingsEngineWeb.PublicRegisterLiveTest do
     # replaces the form with the confirmation — one visitor, one sign-up.
     defp register_once(conn, slug, name) do
       {:ok, lv, _html} = live(conn, ~p"/p/#{slug}/register")
-      lv |> element("#reg-search") |> render_change(%{"q" => name})
+
+      lv
+      |> element("#reg-search")
+      |> render_change(%{"q" => name, "birth_year" => "1990", "federation" => "BEL"})
+
       lv |> element("button", "Register") |> render_click()
     end
 

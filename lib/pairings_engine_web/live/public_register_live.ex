@@ -53,6 +53,8 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
        client_ip: ClientIp.from_socket(socket),
        page_title: "#{tournament.name} · Register",
        query: "",
+       birth_year: "",
+       federation: "",
        results: [],
        picked: nil,
        registered: nil,
@@ -69,17 +71,48 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
   end
 
   @impl true
-  def handle_event("search", %{"q" => q}, socket) do
-    {:noreply, assign(socket, query: q, results: Fide.search(q), error: nil)}
+  def handle_event("search", params, socket) do
+    q = params["q"] || ""
+
+    # The name, birth year and country fields all live in the one form, so
+    # every keystroke in any of them re-delivers all three — capture them
+    # together rather than adding a second form, so nothing typed into
+    # birth year/country is lost if the person fills those in first.
+    {:noreply,
+     assign(socket,
+       query: q,
+       birth_year: params["birth_year"] || "",
+       federation: params["federation"] || "",
+       results: Fide.search(q),
+       error: nil
+     )}
   end
 
   def handle_event("pick", %{"fide-id" => fide_id}, socket) do
     picked = Enum.find(socket.assigns.results, &(to_string(&1.fide_id) == fide_id))
-    {:noreply, assign(socket, picked: picked, results: [], query: "", error: nil)}
+    # A FIDE match supplies its own birth year/federation, so whatever was
+    # typed into the manual-entry fields before picking is no longer needed.
+    {:noreply,
+     assign(socket,
+       picked: picked,
+       results: [],
+       query: "",
+       birth_year: "",
+       federation: "",
+       error: nil
+     )}
   end
 
   def handle_event("clear", _params, socket) do
-    {:noreply, assign(socket, picked: nil, query: "", results: [], error: nil)}
+    {:noreply,
+     assign(socket,
+       picked: nil,
+       query: "",
+       birth_year: "",
+       federation: "",
+       results: [],
+       error: nil
+     )}
   end
 
   # Unrated players and anyone not on the FIDE list still have to be able
@@ -116,7 +149,11 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
     attrs =
       case socket.assigns.picked do
         nil ->
-          %{"name" => String.trim(socket.assigns.query)}
+          %{
+            "name" => String.trim(socket.assigns.query),
+            "birth_year" => String.trim(socket.assigns.birth_year || ""),
+            "federation" => socket.assigns.federation |> to_string() |> String.trim()
+          }
 
         fp ->
           %{
@@ -129,25 +166,60 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
           }
       end
 
-    if attrs["name"] in [nil, ""] do
-      {:noreply, assign(socket, error: "Please enter your name.")}
-    else
-      case Tournaments.register_public_player(socket.assigns.slug, attrs) do
-        {:ok, player} ->
-          # Counted only on a real entry: a blank name or a rejected
-          # duplicate must not burn the venue's allowance.
-          record_registration(socket)
-          {:noreply, assign(socket, registered: player, picked: nil, query: "", error: nil)}
+    cond do
+      attrs["name"] in [nil, ""] ->
+        {:noreply, assign(socket, error: "Please enter your name.")}
 
-        {:error, :closed} ->
-          {:noreply, assign(socket, error: "Registration has just closed for this tournament.")}
+      # Not picked from the FIDE list, so there's no other source for these
+      # two — without at least a birth year and federation the arbiter has
+      # no way to tell two "J. Smith"s apart on the entry list.
+      is_nil(socket.assigns.picked) and
+          (attrs["birth_year"] == "" or attrs["federation"] == "") ->
+        {:noreply,
+         assign(socket,
+           error: "Not on the FIDE list? Please also fill in your birth year and federation."
+         )}
 
-        {:error, :duplicate_fide_id} ->
-          {:noreply, assign(socket, error: "Somebody with that FIDE ID is already registered.")}
+      is_nil(socket.assigns.picked) and not valid_birth_year?(attrs["birth_year"]) ->
+        {:noreply, assign(socket, error: "Please enter a birth year as 4 digits, e.g. 1990.")}
 
-        {:error, _changeset} ->
-          {:noreply, assign(socket, error: "Sorry, that could not be saved. Please try again.")}
-      end
+      true ->
+        do_register(socket, attrs)
+    end
+  end
+
+  defp valid_birth_year?(value) do
+    case Integer.parse(value) do
+      {year, ""} -> year in 1900..Date.utc_today().year
+      _ -> false
+    end
+  end
+
+  defp do_register(socket, attrs) do
+    case Tournaments.register_public_player(socket.assigns.slug, attrs) do
+      {:ok, player} ->
+        # Counted only on a real entry: a blank name or a rejected
+        # duplicate must not burn the venue's allowance.
+        record_registration(socket)
+
+        {:noreply,
+         assign(socket,
+           registered: player,
+           picked: nil,
+           query: "",
+           birth_year: "",
+           federation: "",
+           error: nil
+         )}
+
+      {:error, :closed} ->
+        {:noreply, assign(socket, error: "Registration has just closed for this tournament.")}
+
+      {:error, :duplicate_fide_id} ->
+        {:noreply, assign(socket, error: "Somebody with that FIDE ID is already registered.")}
+
+      {:error, _changeset} ->
+        {:noreply, assign(socket, error: "Sorry, that could not be saved. Please try again.")}
     end
   end
 
@@ -158,51 +230,51 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
       <div :if={@tournament} class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
-          
+
           <p class="subtitle" style="margin: 0">Registration</p>
         </div>
       </div>
-       <.public_tournament_meta :if={@tournament} tournament={@tournament} />
+      <.public_tournament_meta :if={@tournament} tournament={@tournament} />
       <div :if={is_nil(@tournament)} class="card empty">
         <p><strong>This tournament is no longer available.</strong></p>
       </div>
-      
+
       <div :if={@tournament && !@tournament.registration_open} class="card empty">
         <p><strong>Registration is closed.</strong></p>
-        
+
         <p>
           The organiser has closed sign-ups for this tournament. If you think that's a
           mistake, contact the arbiter directly.
         </p>
       </div>
-      
+
       <div :if={@registered} class="card">
         <h2>You're registered</h2>
-        
+
         <p>
           <strong>{@registered.name}</strong> has been added to the entry list.
         </p>
-        
+
         <p>
           You are marked <strong>not yet arrived</strong>. Report to the arbiter when you
           get to the venue and they'll confirm you — you won't be paired until they do.
         </p>
       </div>
-      
+
       <div :if={@tournament && @tournament.registration_open && is_nil(@registered)} class="card">
         <h2>Add your name</h2>
-        
+
         <p :if={@error} class="pe-error" role="alert">{@error}</p>
-        
+
         <div :if={@picked} class="picked-player">
           <p style="margin: 0 0 8px">
             <strong>{@picked.name}</strong> <span :if={@picked.title != ""}>{@picked.title}</span>
             <span :if={@picked.standard_rating}>· {@picked.standard_rating}</span>
             <span :if={@picked.federation != ""}>· {@picked.federation}</span>
           </p>
-           <button type="button" class="pe-btn" phx-click="clear">Not me — search again</button>
+          <button type="button" class="pe-btn" phx-click="clear">Not me — search again</button>
         </div>
-        
+
         <div :if={is_nil(@picked)}>
           <label for="reg-name">Your name</label>
           <%!-- The input has to live inside a form: LiveView only delivers
@@ -222,13 +294,50 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
               phx-debounce="250"
               placeholder="Start typing your last name… e.g. Carlsen"
             />
+
+            <div style="display: flex; gap: 12px; margin-top: 10px; max-width: 420px">
+              <div style="flex: 1">
+                <label for="reg-birth-year">Birth year</label>
+                <input
+                  id="reg-birth-year"
+                  type="text"
+                  inputmode="numeric"
+                  name="birth_year"
+                  value={@birth_year}
+                  class="pe-input"
+                  style="width: 100%"
+                  autocomplete="off"
+                  phx-debounce="250"
+                  placeholder="1990"
+                />
+              </div>
+
+              <div style="flex: 1">
+                <label for="reg-federation">Federation</label>
+                <input
+                  id="reg-federation"
+                  type="text"
+                  name="federation"
+                  value={@federation}
+                  class="pe-input"
+                  style="width: 100%"
+                  autocomplete="off"
+                  phx-debounce="250"
+                  placeholder="BEL"
+                />
+              </div>
+            </div>
+            <p class="subtitle" style="margin: 4px 0 0">
+              Not on the FIDE list below? Birth year and federation are required instead, so
+              the arbiter can still tell you apart from anyone with the same name.
+            </p>
           </form>
-          
-          <p class="subtitle" style="margin: 4px 0 0">
-            Pick yourself from the FIDE list below. Not on it? Just type your name and
-            press Register.
+
+          <p class="subtitle" style="margin: 8px 0 0">
+            Pick yourself from the FIDE list below — that fills birth year and federation in
+            for you and the two fields above disappear.
           </p>
-          
+
           <ul :if={@results != []} class="fide-results" style="margin: 8px 0 0; padding: 0">
             <li :for={fp <- Enum.take(@results, 8)} style="list-style: none; margin: 4px 0">
               <button
@@ -243,7 +352,7 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
             </li>
           </ul>
         </div>
-        
+
         <div class="actions" style="margin-top: 12px">
           <button type="button" class="pe-btn primary" phx-click="submit">Register</button>
         </div>

@@ -517,7 +517,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
     # cell in `row_html`, in document order — used to check individual
     # numeric-column values without depending on exact whitespace.
     defp num_cells(row_html) do
-      ~r/<td class="num">(.*?)<\/td>/s
+      ~r/<td class="num"[^>]*>(.*?)<\/td>/s
       |> Regex.scan(row_html)
       |> Enum.map(fn [_, inner] -> String.trim(inner) end)
     end
@@ -779,6 +779,82 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       refute Enum.any?(here_cells, &String.starts_with?(&1, "A"))
       refute Enum.any?(here_cells, &String.starts_with?(&1, "a("))
     end
+  end
+
+  describe "Pr. cell right-click menu (All Absent / All Present)" do
+    test "All Absent sets the whole-event flag but leaves recorded rounds alone", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Pr Menu Test", "type" => "swiss"})
+
+      {:ok, player} =
+        Tournaments.create_player(tournament.id, %{"name" => "Later", "absent_rounds" => "4,5"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      html =
+        render_click(lv, "set_absent_flag", %{"id" => to_string(player.id), "value" => "true"})
+
+      assert "A" in cells_for(html, player.id)
+      reloaded = Tournaments.get_player!(tournament.id, player.id)
+      assert reloaded.absent
+      assert reloaded.absent_rounds == "4,5"
+    end
+
+    test "All Present clears the flag but leaves recorded rounds alone", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Pr Menu Test 2", "type" => "swiss"})
+
+      {:ok, player} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "Both",
+          "absent" => true,
+          "absent_rounds" => "2"
+        })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      html =
+        render_click(lv, "set_absent_flag", %{"id" => to_string(player.id), "value" => "false"})
+
+      assert "a(2)" in cells_for(html, player.id)
+      reloaded = Tournaments.get_player!(tournament.id, player.id)
+      refute reloaded.absent
+      assert reloaded.absent_rounds == "2"
+    end
+
+    test "an unknown id is ignored rather than crashing the view", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Pr Menu Test 3", "type" => "swiss"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      assert render_click(lv, "set_absent_flag", %{"id" => "999999", "value" => "true"})
+    end
+  end
+
+  # Every cell in a player's row, so assertions do not depend on which
+  # column index a given field happens to sit at. Shared by the SWAR
+  # presence-notation tests and the Pr. cell context-menu tests above.
+  defp cells_for(html, player_id) do
+    row =
+      html
+      |> String.split(~s(data-player-id="#{player_id}"))
+      |> Enum.at(1)
+      |> String.split("</tr>")
+      |> Enum.at(0)
+
+    ~r{<td[^>]*>(.*?)</td>}s
+    |> Regex.scan(row)
+    |> Enum.map(fn [_, inner] -> String.trim(inner) end)
   end
 
   describe "Elo used column" do

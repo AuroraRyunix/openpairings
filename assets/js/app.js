@@ -57,8 +57,68 @@ const PlayerGrid = {
       const tr = e.target.closest("tr[data-player-id]")
       if (!tr) return
       e.preventDefault()
+
+      // The Pr. cell gets its own tiny menu instead of the Players Card —
+      // "All Absent"/"All Present" toggle the whole-tournament flag only
+      // (see the `cell(entry, "pr")` doc comment in players_live.ex),
+      // leaving any per-round marks on that player untouched. Every other
+      // cell on the row keeps the existing Players Card behaviour.
+      const prCell = e.target.closest('td[data-col="pr"]')
+      if (prCell) {
+        this.openPrMenu(e.clientX, e.clientY, tr.dataset.playerId)
+        return
+      }
+
       this.pushEvent("show_card", {id: tr.dataset.playerId})
     })
+
+    this.onPrDocMousedown = (e) => {
+      if (this.prPopup && !this.prPopup.contains(e.target)) this.closePrMenu()
+    }
+    this.onPrDocKeydown = (e) => {
+      if (e.key === "Escape") this.closePrMenu()
+    }
+    document.addEventListener("mousedown", this.onPrDocMousedown)
+    document.addEventListener("keydown", this.onPrDocKeydown)
+  },
+
+  openPrMenu(x, y, playerId) {
+    this.closePrMenu()
+
+    const popup = document.createElement("div")
+    popup.className = "print-menu-popup"
+    popup.style.left = `${x}px`
+    popup.style.top = `${y}px`
+
+    const addItem = (label, value) => {
+      const btn = document.createElement("button")
+      btn.type = "button"
+      btn.className = "print-menu-item"
+      btn.textContent = label
+      btn.addEventListener("click", () => {
+        this.pushEvent("set_absent_flag", {id: playerId, value})
+        this.closePrMenu()
+      })
+      popup.appendChild(btn)
+    }
+    addItem("All Absent", "true")
+    addItem("All Present", "false")
+
+    document.body.appendChild(popup)
+    this.prPopup = popup
+  },
+
+  closePrMenu() {
+    if (this.prPopup) {
+      this.prPopup.remove()
+      this.prPopup = null
+    }
+  },
+
+  destroyed() {
+    this.closePrMenu()
+    document.removeEventListener("mousedown", this.onPrDocMousedown)
+    document.removeEventListener("keydown", this.onPrDocKeydown)
   },
 }
 
