@@ -24,6 +24,13 @@ defmodule PairingsEngine.RateLimit do
       single NAT address, and several arbiters signing in at the start of a
       tournament must not lock each other out.
 
+    * `:public_register` — entries submitted through a tournament's public
+      self-registration form, keyed by CLIENT address. Loose for the same
+      NAT reason as `:login_client`, and looser still: a whole club
+      registering from the venue wifi in the ten minutes before round one is
+      the NORMAL use of that page, not abuse. This exists to stop a script
+      filling an entry list, not to ration honest sign-ups.
+
   Callers pass the client address from `PairingsEngineWeb.ClientIp`, not
   `conn.remote_ip` — behind a proxy the latter is the same value for
   everybody, which would turn any of these limits into a way to lock the
@@ -37,11 +44,12 @@ defmodule PairingsEngine.RateLimit do
   @buckets %{
     mobile_enroll: %{max: 8, window_ms: :timer.minutes(10)},
     login_email: %{max: 5, window_ms: :timer.minutes(15)},
-    login_client: %{max: 30, window_ms: :timer.minutes(15)}
+    login_client: %{max: 30, window_ms: :timer.minutes(15)},
+    public_register: %{max: 40, window_ms: :timer.minutes(15)}
   }
 
   @typedoc "Which limit is being counted — see the module doc."
-  @type bucket :: :mobile_enroll | :login_email | :login_client
+  @type bucket :: :mobile_enroll | :login_email | :login_client | :public_register
 
   def start_link(_opts), do: GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
 

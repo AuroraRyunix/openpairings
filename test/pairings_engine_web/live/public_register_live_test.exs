@@ -12,9 +12,18 @@ defmodule PairingsEngineWeb.PublicRegisterLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias PairingsEngine.Tournaments
+  alias PairingsEngine.{RateLimit, Tournaments}
 
   setup :register_and_log_in_user
+
+  # The rate-limit bucket is global ETS keyed by client address, and every
+  # test here arrives from the same one. Tests within a module run
+  # sequentially, so clearing it up front isolates them from each other —
+  # without this the flood test below spends the allowance for the rest.
+  setup do
+    RateLimit.clear(:public_register, "127.0.0.1")
+    :ok
+  end
 
   defp tournament(scope, opts \\ []) do
     {:ok, t} = Tournaments.create_tournament(scope, %{"name" => "Reg Test", "type" => "swiss"})
@@ -122,6 +131,46 @@ defmodule PairingsEngineWeb.PublicRegisterLiveTest do
 
       assert {:error, :closed} =
                Tournaments.register_public_player(t.public_slug, %{"name" => "Nope"})
+    end
+  end
+
+  describe "rate limiting" do
+    # Each entry is its own page load, because a successful registration
+    # replaces the form with the confirmation — one visitor, one sign-up.
+    defp register_once(conn, slug, name) do
+      {:ok, lv, _html} = live(conn, ~p"/p/#{slug}/register")
+      lv |> element("#reg-name") |> render_change(%{"q" => name})
+      lv |> element("button", "Register") |> render_click()
+    end
+
+    test "a flood from one address is cut off, and only real entries count", %{
+      conn: conn,
+      scope: scope
+    } do
+      t = tournament(scope, open?: true)
+      %{max: max} = PairingsEngine.RateLimit.config(:public_register)
+
+      # Blanks are refused, and must not spend the allowance.
+      for _ <- 1..3 do
+        {:ok, lv, _html} = live(conn, ~p"/p/#{t.public_slug}/register")
+        lv |> element("button", "Register") |> render_click()
+      end
+
+      # The bucket is global ETS keyed by client address, and these tests
+      # are async, so a sibling test may already have spent part of the
+      # allowance from the same address. Assert the BEHAVIOUR — that the
+      # flood is eventually cut off and never exceeds the cap — rather than
+      # an exact count that depends on what else ran.
+      results =
+        for i <- 1..(max + 1), do: register_once(conn, t.public_slug, "Player #{i}")
+
+      entered = length(Tournaments.list_players(t.id))
+
+      assert entered > 0, "honest sign-ups must get through"
+      assert entered <= max, "the cap must hold"
+
+      assert List.last(results) =~ "Too many sign-ups",
+             "the flood must be refused once the bucket is spent"
     end
   end
 
