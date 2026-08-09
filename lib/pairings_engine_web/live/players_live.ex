@@ -30,6 +30,13 @@ defmodule PairingsEngineWeb.PlayersLive do
     {"cl", "Cl", true, "Current standings rank (classement)"},
     {"aff", "Aff.", false, "Federation affiliation (blank = affiliated, N = not affiliated)"},
     {"pr", "Pr.", false, "Presence flag (A = absent, F = forfeit)"},
+    # Not a `num` column despite holding digits: the value is a
+    # comma-separated LIST ("1,2,3,4"), so right-aligning it as a number
+    # would be wrong, and it must not join the numeric-cell run the grid
+    # renders with `class="num"`.
+    {"absent_rounds", "Abs. rds", false,
+     "Rounds this player has asked to sit out. Stored expanded, so a range " <>
+       "typed as 1-4 is shown as 1,2,3,4 — the same numbers the pairing engine reads"},
     {"paid", "Paid", false, "Registration fee status (P = paid, N = not paid, G = gratis)"},
     {"nr", "Nr", true, "Pairing number (starting number), frozen once the first round is paired"},
     {"rnk", "Rnk", true,
@@ -86,7 +93,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   ]
 
   @default_visible ~w(title birth_year federation fide_id fide_rating national_rating club) ++
-                     ~w(cl games pts xtpts ptot)
+                     ~w(cl games pts xtpts ptot absent_rounds)
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -851,6 +858,16 @@ defmodule PairingsEngineWeb.PlayersLive do
     end
   end
 
+  # Already canonical (ascending, unique, comma-separated) — Player's own
+  # normalize_absent_rounds/1 expands "1-4" and "2-4;1" alike at save time,
+  # so there is nothing to format here beyond an em dash for none.
+  defp cell(entry, "absent_rounds") do
+    case entry.player.absent_rounds do
+      value when value in [nil, ""] -> "—"
+      value -> value
+    end
+  end
+
   defp cell(entry, "paid") do
     case entry.player.paid do
       "paid" -> "P"
@@ -1281,6 +1298,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           >
             FIDE lookup
           </button>
+
           <button
             type="button"
             class="pe-btn"
@@ -1295,11 +1313,9 @@ defmodule PairingsEngineWeb.PlayersLive do
           <label class="field" style="grid-column: 1 / -1">
             <span>Name</span> <input name="player[name]" value={@form["name"]} />
           </label>
-
           <%!-- Identity --%>
           <label class="field">
-            <span>National ID</span>
-            <input name="player[national_id]" value={@form["national_id"]} />
+            <span>National ID</span> <input name="player[national_id]" value={@form["national_id"]} />
           </label>
 
           <label class="field">
@@ -1310,7 +1326,6 @@ defmodule PairingsEngineWeb.PlayersLive do
             <span>Country</span>
             <input name="player[federation]" value={@form["federation"]} placeholder="BEL" />
           </label>
-
           <%!-- Ratings & title --%>
           <label class="field">
             <span>National Elo</span>
@@ -1330,7 +1345,6 @@ defmodule PairingsEngineWeb.PlayersLive do
               <option :for={t <- @titles} value={t} selected={@form["title"] == t}>{t}</option>
             </select>
           </label>
-
           <%!-- Personal --%>
           <label class="field">
             <span>Birth year</span>
@@ -1374,7 +1388,6 @@ defmodule PairingsEngineWeb.PlayersLive do
               value={@form["category"]}
             />
           </label>
-
           <%!-- Club & board --%>
           <label class="field">
             <span>Club</span> <input name="player[club]" value={@form["club"]} />
@@ -1396,7 +1409,6 @@ defmodule PairingsEngineWeb.PlayersLive do
               title="Displays/prints this player's games at this table number, regardless of normal board order"
             />
           </label>
-
           <%!-- Scoring admin --%>
           <label class="field">
             <span>Extra points</span>

@@ -726,6 +726,49 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
     end
   end
 
+  describe "Abs. rds column (requested absences)" do
+    test "shows the rounds on the grid, expanded, without opening the player", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Absences Test", "type" => "swiss"})
+
+      {:ok, typed_range} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "Range Typer",
+          "absent_rounds" => "1-4"
+        })
+
+      {:ok, _listed} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "List Typer",
+          "absent_rounds" => "3,1"
+        })
+
+      {:ok, _present} = Tournaments.create_player(tournament.id, %{"name" => "Always Here"})
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      # Visible by default: knowing who is sitting out is operational
+      # information, not an optional extra like affiliation or fee status.
+      assert html =~ "Abs. rds"
+
+      # A range is stored and shown EXPANDED, which is also exactly what
+      # the pairing engine reads.
+      assert typed_range.absent_rounds == "1,2,3,4"
+
+      range_row = html |> String.split(~s(data-player-id="#{typed_range.id}")) |> Enum.at(1)
+      assert range_row =~ "1,2,3,4"
+
+      # Out-of-order input is normalised ascending too.
+      assert html =~ "1,3"
+
+      # Nobody sitting out gets an em dash rather than a blank cell.
+      assert html =~ "—"
+    end
+  end
+
   describe "Elo used column" do
     test "shows FIDE rating when set, national rating otherwise", %{conn: conn, scope: scope} do
       {:ok, tournament} =
