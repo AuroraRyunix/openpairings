@@ -647,6 +647,77 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
+  Opens or closes public self-registration at `/p/:slug/register`.
+
+  Deliberately a controlled setter rather than a `changeset/2` field, like
+  `set_public_pages/2` and `rotate_public_slug/1`: this is the only public
+  page that WRITES to the tournament, so an ordinary settings save must not
+  be able to open it by accident. Broadcasts `:settings`, which closes the
+  form live on every device already holding it open.
+  """
+  @spec set_registration_open(Tournament.t(), boolean()) ::
+          {:ok, Tournament.t()} | {:error, Ecto.Changeset.t()}
+  def set_registration_open(%Tournament{} = tournament, open?) when is_boolean(open?) do
+    tournament
+    |> Ecto.Changeset.change(registration_open: open?)
+    |> Repo.update()
+    |> tap_ok(fn updated -> broadcast_tournament_change(updated.id, :settings) end)
+  end
+
+  @doc """
+  Looks up a tournament by `public_slug` for the self-registration form,
+  returning `nil` unless registration is actually open right now.
+
+  Separate from `get_tournament_by_public_slug/1` so that closing the form
+  cannot be bypassed: the read-only public pages stay reachable while
+  registration is shut, and every entry point to the writing page has to go
+  through this one function.
+  """
+  @spec get_tournament_for_registration(String.t()) :: Tournament.t() | nil
+  def get_tournament_for_registration(slug) do
+    Repo.one(
+      from t in Tournament,
+        where:
+          t.public_slug == ^slug and t.public_pages_enabled == true and
+            t.registration_open == true and is_nil(t.deleted_at)
+    )
+  end
+
+  @doc """
+  Registers a player from the public form.
+
+  Always lands them **absent**. Someone filling in a web form has announced
+  an intention, not turned up — the arbiter marks them present when they
+  actually do. Getting this backwards would silently pair a no-show and
+  hand their opponent a forfeit win, so `absent: true` is forced here
+  rather than taken from the submitted params.
+
+  Re-checks `registration_open` inside the call instead of trusting the
+  caller: the form is a long-lived LiveView and the arbiter may close
+  registration between the page rendering and someone pressing submit.
+
+  Everything else the arbiter can edit afterwards on the Players page, so
+  this takes only what the form collects and lets `create_player/2`'s own
+  duplicate-FIDE-id guard reject a double entry.
+  """
+  @spec register_public_player(String.t(), map()) ::
+          {:ok, Player.t()} | {:error, :closed | :duplicate_fide_id | Ecto.Changeset.t()}
+  def register_public_player(slug, attrs) do
+    case get_tournament_for_registration(slug) do
+      nil ->
+        {:error, :closed}
+
+      tournament ->
+        attrs =
+          attrs
+          |> Map.take(["name", "fide_id", "fide_rating", "title", "federation", "birth_year"])
+          |> Map.put("absent", true)
+
+        create_player(tournament.id, attrs)
+    end
+  end
+
+  @doc """
   Rotates `tournament`'s `public_slug` to a fresh random token, permanently
   invalidating any previously shared link while leaving the pages enabled.
   Broadcasts `:settings`.

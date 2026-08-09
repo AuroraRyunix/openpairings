@@ -135,6 +135,11 @@ defmodule PairingsEngineWeb.Router do
       on_mount: [{PairingsEngineWeb.UserAuth, :mount_current_scope}] do
       live "/p/:slug/pairings", PublicPairingsLive
       live "/p/:slug/standings", PublicStandingsLive
+      # The only public page that WRITES. Gated a second time on
+      # `registration_open` inside the LiveView and again inside
+      # `Tournaments.register_public_player/2`, so reaching this route is
+      # not by itself permission to enter.
+      live "/p/:slug/register", PublicRegisterLive
     end
   end
 

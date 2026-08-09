@@ -190,6 +190,16 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # settings save can't flip it — the two writers above are the only ones.
     field :public_pages_enabled, :boolean, default: true
 
+    # Whether /p/:slug/register accepts entries. Toggled by
+    # Tournaments.set_registration_open/2, and NOT cast by changeset/2 for
+    # the same reason as the two fields above — an ordinary settings save
+    # must not be able to open the doors by accident.
+    #
+    # Default false, unlike public_pages_enabled: this is the only public
+    # page that WRITES to the tournament, so it is opt-in per event rather
+    # than something an existing tournament inherits on upgrade.
+    field :registration_open, :boolean, default: false
+
     # Pairing engine dispatch (see PairingsEngine.Pairing.pair_next_round/1):
     # "swiss" | "round_robin" | "keizer". Locked in the UI once the
     # tournament has paired its first round (see SettingsLive).

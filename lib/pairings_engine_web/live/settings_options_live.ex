@@ -139,6 +139,29 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
   end
 
   @impl true
+  ## ---------- Public self-registration ----------
+
+  def handle_event("toggle_registration", _params, socket) do
+    open? = !socket.assigns.tournament.registration_open
+
+    case Tournaments.set_registration_open(socket.assigns.tournament, open?) do
+      {:ok, tournament} ->
+        Audit.log(tournament.id, socket.assigns.current_scope, "registration.toggled", %{
+          open: open?
+        })
+
+        note =
+          if open?,
+            do: "Registration is open — anyone with the link can enter.",
+            else: "Registration is closed."
+
+        {:noreply, socket |> assign(tournament: tournament) |> put_flash(:info, note)}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Could not change registration")}
+    end
+  end
+
   def handle_event("locked_hint", %{"field" => field}, socket) do
     field = String.to_existing_atom(field)
     Process.send_after(self(), {:clear_locked_hint, field}, 3000)
@@ -342,19 +365,57 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
+          
           <p class="subtitle" style="margin: 0">Settings - Options</p>
         </div>
-        <span class={["badge", @tournament.status == "setup" && "muted"]}>{@tournament.status}</span>
+         <span class={["badge", @tournament.status == "setup" && "muted"]}>{@tournament.status}</span>
       </div>
-
-      <.settings_subnav tournament={@tournament} active={:options} />
-
+       <.settings_subnav tournament={@tournament} active={:options} />
       <.stale_banner stale={@stale} />
-
+      <div class="card">
+        <h2>Registration form</h2>
+        
+        <p class="subtitle" style="margin: 0 0 8px">
+          A public page where players enter themselves, finding their own name on the
+          FIDE list. Everyone who signs up arrives marked <strong>not yet arrived</strong> —
+          they are not paired until you confirm them on the Players page.
+        </p>
+        
+        <p :if={!@tournament.public_pages_enabled} class="subtitle" style="margin: 0 0 8px">
+          <strong>Public pages are switched off</strong>, so the form will not open even
+          if you turn it on here. Enable them under Settings → Tournament first.
+        </p>
+        
+        <div class="actions" style="margin: 0">
+          <button
+            type="button"
+            class={["pe-btn", @tournament.registration_open && "primary"]}
+            phx-click="toggle_registration"
+            data-confirm={
+              if @tournament.registration_open,
+                do: "Close the form? Nobody will be able to register until you open it again.",
+                else: nil
+            }
+          >
+            {if @tournament.registration_open, do: "Close the form", else: "Open up"}
+          </button>
+          
+          <a
+            :if={@tournament.registration_open && @tournament.public_pages_enabled}
+            class="pe-btn"
+            href={~p"/p/#{@tournament.public_slug}/register"}
+            target="_blank"
+            title="No login needed - share this link"
+          >
+            Registration link
+          </a>
+        </div>
+      </div>
+      
       <form phx-submit="save">
         <div class="card">
           <h2>Options</h2>
-
+          
           <.setting_group>
             <.setting_field label="Pairing system">
               <div class="locked-wrap">
@@ -367,11 +428,11 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                     {label}
                   </option>
                 </select>
-                <.locked_overlay field={:pairing_system} locked?={@pairing_system_locked?} />
+                 <.locked_overlay field={:pairing_system} locked?={@pairing_system_locked?} />
               </div>
-              <.locked_hint_message field={:pairing_system} locked_hint={@locked_hint} />
+               <.locked_hint_message field={:pairing_system} locked_hint={@locked_hint} />
             </.setting_field>
-
+            
             <.setting_field label="Cycles">
               <div class="locked-wrap">
                 <select name="tournament[rr_cycles]" disabled={@rr_cycles_locked?}>
@@ -383,11 +444,11 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                     {label}
                   </option>
                 </select>
-                <.locked_overlay field={:rr_cycles} locked?={@rr_cycles_locked?} />
+                 <.locked_overlay field={:rr_cycles} locked?={@rr_cycles_locked?} />
               </div>
-              <.locked_hint_message field={:rr_cycles} locked_hint={@locked_hint} />
+               <.locked_hint_message field={:rr_cycles} locked_hint={@locked_hint} />
             </.setting_field>
-
+            
             <.setting_toggle
               name="tournament[rr_match_format]"
               label="Match format (immediate 2-game rematch, reversed colours)"
@@ -397,7 +458,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               locked?={@rr_match_format_locked?}
               locked_hint={@locked_hint}
             />
-
             <.setting_field label="Keizer top value (blank = automatic)">
               <input
                 type="number"
@@ -406,28 +466,30 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 min="1"
               />
             </.setting_field>
-
+            
             <.setting_field label="Pair by">
               <select name="tournament[rating_type]">
                 <option value="fide" selected={@tournament.rating_type == "fide"}>FIDE rating</option>
+                
                 <option value="national" selected={@tournament.rating_type == "national"}>
                   National rating
                 </option>
               </select>
             </.setting_field>
-
+            
             <.setting_field
               label="Acceleration"
               hint="Swiss only - round robin and Keizer ignore this setting"
             >
               <select name="tournament[acceleration]">
                 <option value="none" selected={@tournament.acceleration == "none"}>None</option>
+                
                 <option value="baku" selected={@tournament.acceleration == "baku"}>
                   Baku acceleration (FIDE C.04.7)
                 </option>
               </select>
             </.setting_field>
-
+            
             <.setting_toggle
               name="tournament[swiss_match_format]"
               label="Match format (immediate 2-game rematch, reversed colours)"
@@ -438,7 +500,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               locked?={@swiss_match_format_locked?}
               locked_hint={@locked_hint}
             />
-
             <%!-- Folded in from its own one-checkbox "Categories" card: it gates
                   pair_by_category below, so it belongs next to it. --%>
             <.setting_toggle
@@ -446,7 +507,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               label="Enable the Categories tab (category groups + extra points)"
               checked={@tournament.categories_enabled}
             />
-
             <.setting_toggle
               name="tournament[pair_by_category]"
               label="Pair each category independently"
@@ -464,7 +524,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 enable categories first
               </span>
             </.setting_toggle>
-
+            
             <.setting_field label="Type">
               <select name="tournament[standard]" phx-change="standard_change">
                 <option
@@ -476,7 +536,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 </option>
               </select>
             </.setting_field>
-
+            
             <.setting_field label="Rate of play" required>
               <select name="tournament[rate_of_play]">
                 <option
@@ -488,7 +548,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 </option>
               </select>
             </.setting_field>
-
+            
             <.setting_field label="Other rate of play (overrides the select above)">
               <input
                 type="text"
@@ -499,10 +559,10 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             </.setting_field>
           </.setting_group>
         </div>
-
+        
         <div class="card">
           <h2>Scoring</h2>
-
+          
           <.setting_group>
             <.setting_field label="Points for a win">
               <input
@@ -512,7 +572,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 value={@tournament.points_win}
               />
             </.setting_field>
-
+            
             <.setting_field label="Points for a draw">
               <input
                 type="number"
@@ -521,7 +581,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 value={@tournament.points_draw}
               />
             </.setting_field>
-
+            
             <.setting_field label="Points for a loss">
               <input
                 type="number"
@@ -530,7 +590,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 value={@tournament.points_loss}
               />
             </.setting_field>
-
+            
             <.setting_field label="Pairing-allocated bye worth">
               <input
                 type="number"
@@ -539,7 +599,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 value={@tournament.bye_value}
               />
             </.setting_field>
-
+            
             <.setting_field
               label="Points for a genuine absence (SWAR's 'Pt ABSENT')"
               hint="Blank = not applicable — an absence then scores the same as an ordinary loss"
@@ -552,12 +612,11 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                   name="tournament[abs_value]"
                   value={@tournament.abs_value}
                   disabled={@abs_scoring_locked?}
-                />
-                <.locked_overlay field={:abs_scoring} locked?={@abs_scoring_locked?} />
+                /> <.locked_overlay field={:abs_scoring} locked?={@abs_scoring_locked?} />
               </div>
-              <.locked_hint_message field={:abs_scoring} locked_hint={@locked_hint} />
+               <.locked_hint_message field={:abs_scoring} locked_hint={@locked_hint} />
             </.setting_field>
-
+            
             <.setting_field
               label="...pays through round (inclusive)"
               hint="Blank = no round cutoff"
@@ -570,12 +629,11 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                   name="tournament[abs_jusque]"
                   value={@tournament.abs_jusque}
                   disabled={@abs_scoring_locked?}
-                />
-                <.locked_overlay field={:abs_scoring} locked?={@abs_scoring_locked?} />
+                /> <.locked_overlay field={:abs_scoring} locked?={@abs_scoring_locked?} />
               </div>
-              <.locked_hint_message field={:abs_scoring} locked_hint={@locked_hint} />
+               <.locked_hint_message field={:abs_scoring} locked_hint={@locked_hint} />
             </.setting_field>
-
+            
             <.setting_field
               label="...for up to this many absences (cumulative)"
               hint="Blank = no count cap — every genuine absence pays, no matter how many"
@@ -588,12 +646,11 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                   name="tournament[abs_nbfois]"
                   value={@tournament.abs_nbfois}
                   disabled={@abs_scoring_locked?}
-                />
-                <.locked_overlay field={:abs_scoring} locked?={@abs_scoring_locked?} />
+                /> <.locked_overlay field={:abs_scoring} locked?={@abs_scoring_locked?} />
               </div>
-              <.locked_hint_message field={:abs_scoring} locked_hint={@locked_hint} />
+               <.locked_hint_message field={:abs_scoring} locked_hint={@locked_hint} />
             </.setting_field>
-
+            
             <.setting_toggle
               name="tournament[absent_counts_as_vur]"
               label="Treat a genuine absence as a voluntary unplayed round for tiebreaks"
@@ -602,22 +659,22 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             />
           </.setting_group>
         </div>
-
+        
         <div class="actions">
           <button type="submit" class="pe-btn primary">Save settings</button>
           <span :if={@note} class="ok-note" style="align-self: center">{@note}</span>
           <span :if={@error} class="error-note" style="align-self: center">{@error}</span>
         </div>
       </form>
-
+      
       <div class="card">
         <h2>Forbidden pairings</h2>
-
+        
         <p class="hint" style="margin-top: 0">
           Two players who must never be paired against each other. Applies to Swiss pairing
           (a JaVaFo "XXP" rule) and to Keizer; a round robin's fixed schedule ignores this by design.
         </p>
-
+        
         <form id="add-forbidden-pairing-form" phx-submit="add_forbidden_pairing">
           <.setting_group>
             <.setting_field label="Player A">
@@ -625,16 +682,16 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 <option :for={p <- @forbidden_pairing_players} value={p.id}>{p.name}</option>
               </select>
             </.setting_field>
-
+            
             <.setting_field label="Player B">
               <select name="player_b_id" class="pe-select">
                 <option :for={p <- @forbidden_pairing_players} value={p.id}>{p.name}</option>
               </select>
             </.setting_field>
           </.setting_group>
-
+          
           <p :if={@forbidden_pairing_error} class="error-note">{@forbidden_pairing_error}</p>
-
+          
           <div class="actions">
             <button
               type="submit"
@@ -645,18 +702,21 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             </button>
           </div>
         </form>
-
+        
         <div :if={@forbidden_pairings != []} class="card-table-wrap" style="margin-top: 16px">
           <table class="pe-table">
             <thead>
               <tr>
                 <th>Pair</th>
+                
                 <th></th>
               </tr>
             </thead>
+            
             <tbody>
               <tr :for={fp <- @forbidden_pairings}>
                 <td>{fp.player_a.name} - {fp.player_b.name}</td>
+                
                 <td style="text-align: right">
                   <button
                     class="pe-btn danger-link"
@@ -670,19 +730,19 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             </tbody>
           </table>
         </div>
-
+        
         <p :if={@forbidden_pairings == []} class="hint" style="margin-bottom: 0">
           No forbidden pairings yet.
         </p>
-
+        
         <h3 style="margin-top: 24px">Club / federation exclusions</h3>
-
+        
         <p class="hint" style="margin-top: 0">
           Automatically forbid pairing any two players who share a club or federation, instead of
           listing every pair by hand. Applies to Swiss (JaVaFo "XXP" rules, same as above) and to
           Keizer; a round robin's fixed schedule ignores this by design.
         </p>
-
+        
         <form id="exclusion-rules-form" phx-submit="save_exclusions">
           <.setting_group>
             <.setting_field label="Clubs">
@@ -700,7 +760,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 </option>
               </select>
             </.setting_field>
-
+            
             <.setting_field :if={@club_exclusion_mode == "listed"} label="Clubs (comma-separated)">
               <input
                 type="text"
@@ -709,7 +769,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 placeholder="e.g. Chess Club A, Chess Club B"
               />
             </.setting_field>
-
+            
             <.setting_field label="Federations">
               <select
                 name="tournament[fed_exclusion]"
@@ -725,7 +785,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 </option>
               </select>
             </.setting_field>
-
+            
             <.setting_field
               :if={@fed_exclusion_mode == "listed"}
               label="Federations (comma-separated)"
@@ -738,13 +798,13 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               />
             </.setting_field>
           </.setting_group>
-
+          
           <p class="hint" style="margin-bottom: 0">
             {@excluded_pair_count} pair(s) currently excluded by these rules.
           </p>
-
+          
           <p :if={@exclusion_error} class="error-note">{@exclusion_error}</p>
-
+          
           <div class="actions">
             <button type="submit" class="pe-btn primary">Save exclusion rules</button>
           </div>
