@@ -125,6 +125,21 @@ gaps identified there, extracted here as actionable items:
 
 ## Backlog (no particular order, nothing blocking)
 
+- **Chief arbiter (and the other Officials fields) are unfindable without
+  the link.** They live on `/t/:id/norms`, moved there from SettingsLive at
+  some point (see `norms_live.ex`'s "relocated from SettingsLive" notes).
+  Nothing is broken — the "ready to pair" hint on PairingsLive links
+  straight to the right page via `setup_field_path/2`, and the field saves
+  fine — but an arbiter looking for "chief arbiter" will look under
+  **Settings**, not under a page called **Norms**, and there is nothing on
+  Settings pointing them onward. Reported by the maintainer, who could not
+  find it even while holding the link.
+
+  Cheapest fix is to say where the link goes ("Chief arbiter — on the Norms
+  page") and/or leave a pointer in the Settings → Tournament card. The
+  fuller fix is moving Officials back to Settings, which is a bigger move
+  and would want its own think about what Norms is then for.
+
 - ~~"Players - title-norm judgment" table has no meaningful sort order~~ —
   **shipped**: `players_by_norm_relevance/2` now sorts achieved-norm
   players first, then closest-to-qualifying (fewest failing B.01 checks on
