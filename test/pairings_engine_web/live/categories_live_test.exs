@@ -80,4 +80,101 @@ defmodule PairingsEngineWeb.CategoriesLiveTest do
       refute html =~ "Elo bands (rating:bonus, comma-separated)"
     end
   end
+
+  describe "threshold rules" do
+    test "a category with a rule shows it, and one without shows a dash", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope, %{"categories_enabled" => true})
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/categories")
+
+      html =
+        lv
+        |> form("#add-category-form", %{
+          "name" => "-1100",
+          "kind" => "elo_below",
+          "value" => "1100"
+        })
+        |> render_submit()
+
+      assert html =~ "below 1100 Elo"
+
+      html = lv |> form("#add-category-form", %{"name" => "Open"}) |> render_submit()
+      assert html =~ "Open"
+
+      reloaded = Tournaments.get_authorized_tournament!(scope, tournament.id)
+      assert reloaded.categories == ["-1100", "Open"]
+      assert reloaded.category_rules == %{"-1100" => %{"kind" => "elo_below", "value" => 1100}}
+    end
+
+    test "a non-numeric or zero threshold is rejected, and no category is created", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope, %{"categories_enabled" => true})
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/categories")
+
+      html =
+        lv
+        |> form("#add-category-form", %{
+          "name" => "-1100",
+          "kind" => "elo_below",
+          "value" => "abc"
+        })
+        |> render_submit()
+
+      assert html =~ "positive whole number"
+
+      html =
+        lv
+        |> form("#add-category-form", %{"name" => "-1100", "kind" => "elo_below", "value" => "0"})
+        |> render_submit()
+
+      assert html =~ "positive whole number"
+      assert Tournaments.get_authorized_tournament!(scope, tournament.id).categories == []
+    end
+
+    test "removing a category also removes its rule", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope, %{"categories_enabled" => true})
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/categories")
+
+      lv
+      |> form("#add-category-form", %{"name" => "-1100", "kind" => "elo_below", "value" => "1100"})
+      |> render_submit()
+
+      lv |> element(~s(button[phx-value-name="-1100"]), "Remove") |> render_click()
+      render(lv)
+
+      reloaded = Tournaments.get_authorized_tournament!(scope, tournament.id)
+      assert reloaded.categories == []
+      assert reloaded.category_rules == %{}
+    end
+
+    test "Assign categories only appears once a rule exists, and fills in every player", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope, %{"categories_enabled" => true})
+
+      {:ok, low} =
+        Tournaments.create_player(tournament.id, %{"name" => "Low", "fide_rating" => "900"})
+
+      {:ok, high} =
+        Tournaments.create_player(tournament.id, %{"name" => "High", "fide_rating" => "2200"})
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/categories")
+      refute html =~ "Assign categories"
+
+      lv
+      |> form("#add-category-form", %{"name" => "-1100", "kind" => "elo_below", "value" => "1100"})
+      |> render_submit()
+
+      html = lv |> element("button", "Assign categories") |> render_click()
+      assert html =~ "Assigned 1 of 2 players."
+
+      assert Tournaments.get_player!(tournament.id, low.id).category == "-1100"
+      assert Tournaments.get_player!(tournament.id, high.id).category == ""
+    end
+  end
 end

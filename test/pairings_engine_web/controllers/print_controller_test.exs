@@ -484,13 +484,14 @@ defmodule PairingsEngineWeb.PrintControllerTest do
 
       html = html_response(conn, 200)
       assert (html |> String.split(~s(class="result-card")) |> length()) - 1 == 1
-      # The first board (A vs B, board order) is the one kept. Strip the random
-      # CSP nonce first — as base64 it can itself contain a "C"/"D".
-      body = without_nonce(html)
-      assert body =~ "A"
-      assert body =~ "B"
-      refute body =~ "C"
-      refute body =~ "D"
+      # The first board (A vs B, board order) is the one kept. Matched as
+      # "<strong>A</strong>" rather than a bare letter — a bare "C"/"D"
+      # false-positives on the random CSP nonce (base64) and on the
+      # print-footer credit's "JaVaFo"/"Dutch".
+      assert html =~ "<strong>A</strong>"
+      assert html =~ "<strong>B</strong>"
+      refute html =~ "<strong>C</strong>"
+      refute html =~ "<strong>D</strong>"
     end
 
     test "a junk ?limit value is ignored and the full print is rendered", %{
@@ -865,6 +866,95 @@ defmodule PairingsEngineWeb.PrintControllerTest do
 
       html = html_response(conn, 200)
       assert html =~ "Registered players (4)"
+    end
+
+    test "every printed document credits the pairing engine and Tom Wuyts",
+         %{conn: conn, scope: scope} do
+      {tournament, _players} = fixture(scope)
+
+      for path <- [
+            ~p"/t/#{tournament.id}/print/players",
+            ~p"/t/#{tournament.id}/print/cards",
+            ~p"/t/#{tournament.id}/print/pairings?round=1",
+            ~p"/t/#{tournament.id}/print/standings",
+            ~p"/t/#{tournament.id}/print/crosstable"
+          ] do
+        html = get(conn, path) |> html_response(200)
+
+        assert html =~ "Paired by OpenPairings using Swiss — FIDE Dutch (JaVaFo)",
+               "expected the engine credit on #{path}"
+
+        assert html =~ "many thanks to Tom Wuyts for his valuable feedback.",
+               "expected the Tom Wuyts credit on #{path}"
+      end
+    end
+
+    test "no cols param keeps the historic default column set", %{conn: conn, scope: scope} do
+      {tournament, _players} = fixture(scope)
+
+      html = get(conn, ~p"/t/#{tournament.id}/print/players") |> html_response(200)
+
+      assert html =~ "<th>Club</th>"
+      assert html =~ ~s(<th class="num">Nat.</th>)
+      # Not in the default set, even though it's now a supported column.
+      refute html =~ "<th>Cat</th>"
+    end
+
+    test "cols= prints exactly the ticked columns, including ones beyond the old fixed five", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, _players} = fixture(scope)
+
+      html =
+        get(conn, ~p"/t/#{tournament.id}/print/players?cols=cat,birth_year,sex,elo_used")
+        |> html_response(200)
+
+      assert html =~ "<th>Cat</th>"
+      assert html =~ ~s(<th class="num">Birth</th>)
+      assert html =~ "<th>Sex</th>"
+      assert html =~ ~s(<th class="num">Elo used</th>)
+
+      # Everything NOT ticked stays off, including the previous defaults.
+      refute html =~ "<th>Club</th>"
+      refute html =~ ~s(<th class="num">Nat.</th>)
+      refute html =~ "<th>Title</th>"
+    end
+
+    test "an unticked column set prints name-only", %{conn: conn, scope: scope} do
+      {tournament, _players} = fixture(scope)
+
+      html = get(conn, ~p"/t/#{tournament.id}/print/players?cols=") |> html_response(200)
+
+      assert html =~ "<th>Name</th>"
+      refute html =~ "<th>Club</th>"
+      refute html =~ "<th>Title</th>"
+    end
+
+    test "an unknown column key is ignored rather than crashing", %{conn: conn, scope: scope} do
+      {tournament, _players} = fixture(scope)
+
+      html =
+        get(conn, ~p"/t/#{tournament.id}/print/players?cols=club,not_a_real_column_xyz")
+        |> html_response(200)
+
+      assert html =~ "<th>Club</th>"
+    end
+
+    test "the Pr. column distinguishes a currently-active round absence from a past/future one, same as the grid",
+         %{conn: conn, scope: scope} do
+      {tournament, %{a: a, b: b}} = fixture(scope)
+      # fixture/1 has 2 rounds paired, so the round about to be paired is 3.
+      {:ok, _} = Tournaments.update_player(a, %{"absent_rounds" => "3"})
+      {:ok, _} = Tournaments.update_player(b, %{"absent_rounds" => "1"})
+
+      html =
+        get(conn, ~p"/t/#{tournament.id}/print/players?cols=pr") |> html_response(200)
+
+      # A is absent for round 3 (the upcoming round) — capital A.
+      assert html =~ ">A(3)<"
+      # B was absent for round 1, already past — lowercase a.
+      assert html =~ ">a(1)<"
     end
 
     test "player_cards renders one card per player with the full round list", %{

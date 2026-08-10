@@ -38,6 +38,7 @@ defmodule PairingsEngineWeb.Router do
       live "/t/:id/settings/dates", SettingsDatesLive
       live "/t/:id/settings/extra-points", ExtraPointsLive
       live "/t/:id/settings/fide", SettingsFideLive
+      live "/t/:id/settings/about", SettingsAboutLive
       live "/t/:id/categories", CategoriesLive
       live "/t/:id/live", LiveRoundLive
       live "/t/:id/norms", NormsLive

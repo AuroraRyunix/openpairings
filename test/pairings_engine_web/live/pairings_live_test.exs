@@ -708,4 +708,256 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
                []
     end
   end
+
+  describe "hand-editing a round" do
+    defp two_board_fixture(scope) do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "Swap Test",
+          "type" => "swiss",
+          "rounds_count" => "3"
+        })
+
+      [a, b, c, d, spare] =
+        for name <- ~w(A B C D Spare) do
+          Repo.insert!(%Player{tournament_id: tournament.id, name: name})
+        end
+
+      round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+
+      board1 =
+        Repo.insert!(%Pairing{
+          round_id: round.id,
+          board: 1,
+          white_player_id: a.id,
+          black_player_id: b.id,
+          result: ""
+        })
+
+      Repo.insert!(%Pairing{
+        round_id: round.id,
+        board: 2,
+        white_player_id: c.id,
+        black_player_id: d.id,
+        result: ""
+      })
+
+      %{tournament: tournament, a: a, b: b, c: c, d: d, spare: spare, board1: board1}
+    end
+
+    defp arm_and_pick(lv, first_id, second_id) do
+      render_click(lv, "arm_swap", %{"player-id" => to_string(first_id)})
+      render_click(lv, "pick_swap_target", %{"player-id" => to_string(second_id)})
+    end
+
+    test "right-click opens a menu rather than doing anything", %{conn: conn, scope: scope} do
+      %{tournament: t, a: a} = two_board_fixture(scope)
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{t.id}/pairings")
+      refute html =~ "ctx-menu"
+
+      html =
+        render_click(lv, "open_menu", %{
+          "x" => 100,
+          "y" => 200,
+          "scope" => "seated",
+          "player-id" => to_string(a.id)
+        })
+
+      assert html =~ "ctx-menu"
+      assert html =~ "Swap with"
+      assert html =~ "Mark absent for this round"
+    end
+
+    test "a second right-click never completes a swap, only the menu plus confirm can",
+         %{conn: conn, scope: scope} do
+      %{tournament: t, a: a, d: d} = two_board_fixture(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+
+      render_click(lv, "arm_swap", %{"player-id" => to_string(a.id)})
+
+      # Right-clicking the second player opens ITS menu; nothing is written.
+      html =
+        render_click(lv, "open_menu", %{
+          "x" => 10,
+          "y" => 10,
+          "scope" => "seated",
+          "player-id" => to_string(d.id)
+        })
+
+      assert html =~ "ctx-menu"
+
+      round = Tournaments.get_round(t.id, 1)
+      assert Enum.find(round.pairings, &(&1.board == 1)).white_player_id == a.id
+    end
+
+    test "arm, pick, confirm swaps the two seats", %{conn: conn, scope: scope} do
+      %{tournament: t, a: a, b: b, c: c, d: d} = two_board_fixture(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+
+      html = render_click(lv, "arm_swap", %{"player-id" => to_string(a.id)})
+      assert html =~ "Swapping"
+
+      html = render_click(lv, "pick_swap_target", %{"player-id" => to_string(d.id)})
+      assert html =~ "Swap players"
+      assert html =~ "board-diff"
+
+      render_click(lv, "apply_confirm", %{})
+
+      round = Tournaments.get_round(t.id, 1)
+      board1 = Enum.find(round.pairings, &(&1.board == 1))
+      board2 = Enum.find(round.pairings, &(&1.board == 2))
+      assert board1.white_player_id == d.id
+      assert board1.black_player_id == b.id
+      assert board2.white_player_id == c.id
+      assert board2.black_player_id == a.id
+
+      assert [_] = Audit.list_for_tournament(t.id, action: "pairing.players_swapped")
+    end
+
+    test "picking a player's own opponent is titled as a colour swap", %{conn: conn, scope: scope} do
+      %{tournament: t, a: a, b: b} = two_board_fixture(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      html = arm_and_pick(lv, a.id, b.id)
+
+      assert html =~ "Swap colours"
+    end
+
+    test "cancelling the confirm writes nothing", %{conn: conn, scope: scope} do
+      %{tournament: t, a: a, d: d} = two_board_fixture(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      arm_and_pick(lv, a.id, d.id)
+
+      html = render_click(lv, "cancel_confirm", %{})
+      refute html =~ "pe-modal-card"
+
+      round = Tournaments.get_round(t.id, 1)
+      assert Enum.find(round.pairings, &(&1.board == 1)).white_player_id == a.id
+    end
+
+    test "a recorded result on an affected board is flagged as about to clear",
+         %{conn: conn, scope: scope} do
+      %{tournament: t, a: a, d: d, board1: board1} = two_board_fixture(scope)
+      {:ok, _} = Tournaments.update_pairing_result(board1, "1-0")
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      html = arm_and_pick(lv, a.id, d.id)
+
+      assert html =~ "will be cleared"
+    end
+
+    test "marking a player absent empties their seat and leaves board and opponent alone",
+         %{conn: conn, scope: scope} do
+      %{tournament: t, a: a, b: b} = two_board_fixture(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+
+      html = render_click(lv, "stage_vacate", %{"player-id" => to_string(a.id)})
+      assert html =~ "Mark absent"
+      assert html =~ "keeps its number"
+
+      html = render_click(lv, "apply_confirm", %{})
+
+      round = Tournaments.get_round(t.id, 1)
+      board1 = Enum.find(round.pairings, &(&1.board == 1))
+      assert board1.board == 1
+      assert board1.white_player_id == nil
+      assert board1.black_player_id == b.id
+
+      # The empty seat is visible, and A is now in the not-playing pool.
+      assert html =~ "seat-vacant"
+      assert html =~ "Not playing round 1"
+    end
+
+    test "a pool player can be dropped straight into the only empty seat",
+         %{conn: conn, scope: scope} do
+      %{tournament: t, a: a, spare: spare} = two_board_fixture(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      render_click(lv, "stage_vacate", %{"player-id" => to_string(a.id)})
+      render_click(lv, "apply_confirm", %{})
+
+      # One vacancy open, so this stages the fill without asking which seat.
+      html = render_click(lv, "offer_seats", %{"player-id" => to_string(spare.id)})
+      assert html =~ "Fill the empty seat"
+
+      render_click(lv, "apply_confirm", %{})
+
+      round = Tournaments.get_round(t.id, 1)
+      assert Enum.find(round.pairings, &(&1.board == 1)).white_player_id == spare.id
+    end
+
+    test "a vacancy can instead be resolved as a bye for the player left behind",
+         %{conn: conn, scope: scope} do
+      %{tournament: t, a: a, b: b} = two_board_fixture(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      render_click(lv, "stage_vacate", %{"player-id" => to_string(a.id)})
+      render_click(lv, "apply_confirm", %{})
+
+      round = Tournaments.get_round(t.id, 1)
+      vacant = Enum.find(round.pairings, &(&1.board == 1))
+
+      html = render_click(lv, "stage_bye", %{"pairing-id" => to_string(vacant.id)})
+      assert html =~ "Award a bye"
+
+      render_click(lv, "apply_confirm", %{})
+
+      round = Tournaments.get_round(t.id, 1)
+      board1 = Enum.find(round.pairings, &(&1.board == 1))
+      assert board1.white_player_id == b.id
+      assert board1.black_player_id == nil
+      assert board1.result == "bye"
+    end
+
+    test "two pool players can be paired onto a new board with an editable table number",
+         %{conn: conn, scope: scope} do
+      %{tournament: t, a: a, spare: spare} = two_board_fixture(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+
+      # Vacate A so there are two people in the pool (A and Spare).
+      render_click(lv, "stage_vacate", %{"player-id" => to_string(a.id)})
+      render_click(lv, "apply_confirm", %{})
+
+      html = render_click(lv, "stage_pool_pair", %{"player-id" => to_string(spare.id)})
+      assert html =~ "Pairing"
+
+      html = render_click(lv, "stage_pool_pair", %{"player-id" => to_string(a.id)})
+      assert html =~ "Pair these two"
+      assert html =~ "Table number"
+
+      render_click(lv, "set_confirm_board", %{"board" => "9"})
+      render_click(lv, "apply_confirm", %{})
+
+      round = Tournaments.get_round(t.id, 1)
+      new_board = Enum.find(round.pairings, &(&1.board == 9))
+      assert new_board
+
+      assert Enum.sort([new_board.white_player_id, new_board.black_player_id]) ==
+               Enum.sort([spare.id, a.id])
+    end
+
+    test "swapping a seated player with someone from the pool substitutes them",
+         %{conn: conn, scope: scope} do
+      %{tournament: t, a: a, spare: spare} = two_board_fixture(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+
+      html = arm_and_pick(lv, a.id, spare.id)
+      assert html =~ "Substitute player"
+
+      render_click(lv, "apply_confirm", %{})
+
+      round = Tournaments.get_round(t.id, 1)
+      assert Enum.find(round.pairings, &(&1.board == 1)).white_player_id == spare.id
+
+      pool_ids = Tournaments.list_round_pool(t.id, 1) |> Enum.map(& &1.player.id)
+      assert a.id in pool_ids
+    end
+  end
 end

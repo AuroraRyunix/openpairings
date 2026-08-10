@@ -54,6 +54,18 @@ const PlayerGrid = {
       this.pushEvent("edit_player", {id: tr.dataset.playerId})
     })
     this.el.addEventListener("contextmenu", (e) => {
+      // The Pr. COLUMN HEADER gets the bulk version — "All Absent"/"All
+      // Present" for every player in the tournament at once, left click
+      // on the same header still sorts. Checked before the row lookup
+      // below, since a header cell sits in <thead> with no
+      // tr[data-player-id] ancestor.
+      const prHeader = e.target.closest('th[data-col="pr"]')
+      if (prHeader) {
+        e.preventDefault()
+        this.openPrMenu(e.clientX, e.clientY, null)
+        return
+      }
+
       const tr = e.target.closest("tr[data-player-id]")
       if (!tr) return
       e.preventDefault()
@@ -82,6 +94,9 @@ const PlayerGrid = {
     document.addEventListener("keydown", this.onPrDocKeydown)
   },
 
+  // `playerId` is null for the column-header (bulk, every player) menu,
+  // a player id string for one row's cell — the two push different
+  // server events but share the same little popup.
   openPrMenu(x, y, playerId) {
     this.closePrMenu()
 
@@ -96,7 +111,11 @@ const PlayerGrid = {
       btn.className = "print-menu-item"
       btn.textContent = label
       btn.addEventListener("click", () => {
-        this.pushEvent("set_absent_flag", {id: playerId, value})
+        if (playerId === null) {
+          this.pushEvent("set_all_absent_flag", {value})
+        } else {
+          this.pushEvent("set_absent_flag", {id: playerId, value})
+        }
         this.closePrMenu()
       })
       popup.appendChild(btn)

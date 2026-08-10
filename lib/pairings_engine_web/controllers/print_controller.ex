@@ -34,6 +34,7 @@ defmodule PairingsEngineWeb.PrintController do
   use PairingsEngineWeb, :controller
 
   alias PairingsEngine.{Tournaments, Keizer}
+  alias PairingsEngine.Tournaments.{Player, Tournament}
 
   import Phoenix.HTML, only: [html_escape: 1, safe_to_string: 1]
 
@@ -56,6 +57,8 @@ defmodule PairingsEngineWeb.PrintController do
   .player-card .meta { color: #444; font-size: 12.5px; margin: 2px 0 10px; }
   .player-card table td, .player-card table th { padding: 4px 8px; }
   @media print { .player-card { break-inside: avoid; } }
+  .pf-credit { margin-top: 24px; padding-top: 8px; border-top: 1px solid #ccc;
+               color: #888; font-size: 10px; }
   """
 
   # Card height (30mm) + margin-bottom (2mm) = 32mm per card. Eight of those
@@ -259,25 +262,175 @@ defmodule PairingsEngineWeb.PrintController do
       board_html
   end
 
-  def player_list(conn, %{"id" => id}) do
+  # The optional columns `player_list/2` can show, in the fixed display
+  # order the printed table always uses (Title before Name, everything
+  # else after). Every one of these is also a column on the Players
+  # grid's own Display panel, under the SAME key
+  # (`PairingsEngineWeb.PlayersLive.all_columns/1`) — the `?cols=` query
+  # param `players_live.ex` builds is literally `@visible` filtered down
+  # to this list, so the print shows exactly what the arbiter had checked
+  # on screen when they clicked Print.
+  # Every column is `{key, header_label, numeric?}` — `key` matching the
+  # grid key one-for-one so `?cols=` is literally the arbiter's on-screen
+  # `@visible` list, and this order being the order the grid itself shows
+  # them in. `player_list_value/2` below renders each key's cell.
+  #
+  # Only PLAYER-DATA columns live here. The grid's score-derived columns
+  # (Cl, Pts, Ga, Perf, We, W-We and the tiebreaks) need a full standings
+  # computation and a chosen round to mean anything, which is exactly
+  # what "Print standings" already is — printing them on a registration
+  # list would be a second, subtly-different standings table.
+  @player_list_columns [
+    {:pr, "Pr.", false},
+    {:aff, "Aff.", false},
+    {:paid, "Paid", false},
+    {:nr, "Nr", true},
+    {:cat, "Cat", false},
+    {:title, "Title", false},
+    {:birth_year, "Birth", true},
+    {:sex, "Sex", false},
+    {:federation, "Fed", false},
+    {:national_id, "Id Nat", true},
+    {:fide_id, "Id FIDE", true},
+    {:national_rating, "Nat.", true},
+    {:fide_rating, "FIDE", true},
+    {:elo_used, "Elo used", true},
+    {:club, "Club", false},
+    {:status, "Status", false},
+    {:fixed_board, "Table", true}
+  ]
+
+  # The set a bare/bookmarked link (or the crosstable's own link to this
+  # action) gets — what the printed list always showed before it became
+  # configurable, so an existing bookmark prints exactly as it used to.
+  @player_list_default_columns [:title, :fide_rating, :national_rating, :federation, :club]
+
+  def player_list(conn, %{"id" => id} = params) do
     tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
     players = Tournaments.list_players(tournament.id)
+    cols = player_list_columns(params["cols"])
+    # Same "round about to be paired" the Players grid uses to decide
+    # whether a Pr. cell's A(1,2,3) is upper- or lower-case — see
+    # `player_list_value(:pr, ...)` below and `PlayersLive.build_grid/2`.
+    current_round = PairingsEngine.Standings.rounds_paired(tournament.id) + 1
 
     rows =
       players
       |> Enum.with_index(1)
-      |> Enum.map_join("", fn {p, i} ->
-        "<tr><td class=\"num\">#{i}</td><td>#{esc(p.title)}</td><td><strong>#{esc(p.name)}</strong></td>" <>
-          "<td class=\"num\">#{blank_zero(p.fide_rating)}</td><td class=\"num\">#{blank_zero(p.national_rating)}</td>" <>
-          "<td>#{esc(p.federation)}</td><td>#{esc(p.club)}</td></tr>"
-      end)
+      |> Enum.map_join("", &player_list_row(&1, cols, current_round))
 
     body =
       tournament_info_html(tournament) <>
-        "<table><thead><tr><th class=\"num\">#</th><th>Title</th><th>Name</th><th class=\"num\">FIDE</th>" <>
-        "<th class=\"num\">Nat.</th><th>Fed</th><th>Club</th></tr></thead><tbody>#{rows}</tbody></table>"
+        "<table><thead><tr>#{player_list_header(cols)}</tr></thead><tbody>#{rows}</tbody></table>"
 
-    print_page(conn, tournament.name, "Registered players (#{length(players)})", body)
+    print_page(conn, tournament, tournament.name, "Registered players (#{length(players)})", body)
+  end
+
+  defp player_list_columns(nil), do: selected_player_columns(@player_list_default_columns)
+
+  defp player_list_columns(csv) do
+    requested =
+      csv
+      |> String.split(",", trim: true)
+      |> Enum.flat_map(fn key ->
+        try do
+          [String.to_existing_atom(key)]
+        rescue
+          ArgumentError -> []
+        end
+      end)
+      |> MapSet.new()
+
+    Enum.filter(@player_list_columns, fn {key, _label, _num?} ->
+      MapSet.member?(requested, key)
+    end)
+  end
+
+  defp selected_player_columns(keys) do
+    Enum.filter(@player_list_columns, fn {key, _label, _num?} -> key in keys end)
+  end
+
+  # Name is never optional — it's the one column a player list can't be
+  # without — and Title, when shown, reads better in front of it.
+  defp player_list_header(cols) do
+    {before_name, after_name} = split_around_name(cols)
+
+    ths = fn columns ->
+      Enum.map_join(columns, "", fn {_key, label, num?} ->
+        ~s(<th#{num_class(num?)}>#{esc(label)}</th>)
+      end)
+    end
+
+    ~s(<th class="num">#</th>) <> ths.(before_name) <> "<th>Name</th>" <> ths.(after_name)
+  end
+
+  defp player_list_row({p, i}, cols, current_round) do
+    {before_name, after_name} = split_around_name(cols)
+
+    tds = fn columns ->
+      Enum.map_join(columns, "", fn {key, _label, num?} ->
+        ~s(<td#{num_class(num?)}>#{player_list_value(key, p, current_round)}</td>)
+      end)
+    end
+
+    ~s(<tr><td class="num">#{i}</td>) <>
+      tds.(before_name) <>
+      "<td><strong>#{esc(p.name)}</strong></td>" <> tds.(after_name) <> "</tr>"
+  end
+
+  defp split_around_name(cols) do
+    Enum.split_with(cols, fn {key, _label, _num?} -> key == :title end)
+  end
+
+  defp num_class(true), do: ~s( class="num")
+  defp num_class(false), do: ""
+
+  defp player_list_value(:aff, p, _current_round), do: if(p.affiliated, do: "", else: "N")
+  defp player_list_value(:nr, p, _current_round), do: blank_zero(p.pairing_number)
+  defp player_list_value(:cat, p, _current_round), do: esc(p.category)
+  defp player_list_value(:title, p, _current_round), do: esc(p.title)
+  defp player_list_value(:birth_year, p, _current_round), do: blank_zero(p.birth_year)
+  defp player_list_value(:sex, p, _current_round), do: esc(p.sex)
+  defp player_list_value(:federation, p, _current_round), do: esc(p.federation)
+  defp player_list_value(:national_id, p, _current_round), do: esc(p.national_id)
+  defp player_list_value(:fide_id, p, _current_round), do: esc(p.fide_id)
+  defp player_list_value(:national_rating, p, _current_round), do: blank_zero(p.national_rating)
+  defp player_list_value(:fide_rating, p, _current_round), do: blank_zero(p.fide_rating)
+  defp player_list_value(:elo_used, p, _current_round), do: blank_zero(Player.rating(p))
+  defp player_list_value(:club, p, _current_round), do: esc(p.club)
+  defp player_list_value(:status, p, _current_round), do: esc(p.status)
+  defp player_list_value(:fixed_board, p, _current_round), do: blank_zero(p.fixed_board)
+
+  defp player_list_value(:paid, p, _current_round) do
+    case p.paid do
+      "paid" -> "P"
+      "nopaid" -> "N"
+      "gratis" -> "G"
+      _ -> ""
+    end
+  end
+
+  # SWAR's presence notation, same rules — and the same capital/lowercase
+  # A distinction — as the Players grid's own "Pr." cell
+  # (`PlayersLive.cell(entry, "pr")`): capital when one of the listed
+  # rounds IS the round about to be paired, lowercase otherwise.
+  defp player_list_value(:pr, p, current_round) do
+    rounds = to_string(p.absent_rounds)
+
+    cond do
+      p.forfeit ->
+        "F"
+
+      p.absent ->
+        "A"
+
+      rounds == "" ->
+        ""
+
+      true ->
+        absent_now? = to_string(current_round) in String.split(rounds, ",")
+        if(absent_now?, do: "A", else: "a") <> "(" <> esc(rounds) <> ")"
+    end
   end
 
   def player_cards(conn, %{"id" => id}) do
@@ -309,7 +462,13 @@ defmodule PairingsEngineWeb.PrintController do
           "<th>Result</th><th>Score</th></tr></thead><tbody>#{round_rows}</tbody></table></div>"
       end)
 
-    print_page(conn, tournament.name, "Player cards", tournament_info_html(tournament) <> cards)
+    print_page(
+      conn,
+      tournament,
+      tournament.name,
+      "Player cards",
+      tournament_info_html(tournament) <> cards
+    )
   end
 
   @doc """
@@ -334,6 +493,7 @@ defmodule PairingsEngineWeb.PrintController do
 
     print_page(
       conn,
+      tournament,
       tournament.name,
       "Place cards",
       tournament_info_html(tournament) <> cards,
@@ -368,7 +528,7 @@ defmodule PairingsEngineWeb.PrintController do
           "<tbody>#{rows}</tbody></table>" <>
           absentees_section(tournament, number, params["absentees"])
 
-      print_page(conn, tournament.name, "Pairings — round #{number}", body)
+      print_page(conn, tournament, tournament.name, "Pairings — round #{number}", body)
     end
   end
 
@@ -432,7 +592,13 @@ defmodule PairingsEngineWeb.PrintController do
           "<th style=\"text-align:center\">Colour</th><th>Opponent</th></tr></thead>" <>
           "<tbody>#{rows}</tbody></table>"
 
-      print_page(conn, tournament.name, "Alphabetical pairing list — round #{number}", body)
+      print_page(
+        conn,
+        tournament,
+        tournament.name,
+        "Alphabetical pairing list — round #{number}",
+        body
+      )
     end
   end
 
@@ -523,6 +689,7 @@ defmodule PairingsEngineWeb.PrintController do
 
         print_page(
           conn,
+          tournament,
           tournament.name,
           "Standings after round #{label}",
           tournament_info_html(tournament) <>
@@ -691,6 +858,7 @@ defmodule PairingsEngineWeb.PrintController do
 
       print_page(
         conn,
+        tournament,
         tournament.name,
         "Result cards — round #{number}",
         tournament_info_html(tournament) <> cards,
@@ -721,6 +889,7 @@ defmodule PairingsEngineWeb.PrintController do
 
       print_page(
         conn,
+        tournament,
         tournament.name,
         "Score sheets — round #{number}",
         sheets,
@@ -860,7 +1029,7 @@ defmodule PairingsEngineWeb.PrintController do
         "<th>Name</th><th class=\"num\">Elo</th>#{round_headers}<th class=\"num\">Pts</th>#{tb_headers}" <>
         "</tr></thead><tbody>#{rows}</tbody></table></div>"
 
-    print_page(conn, tournament.name, "Cross table", body, @crosstable_css)
+    print_page(conn, tournament, tournament.name, "Cross table", body, @crosstable_css)
   end
 
   # Classic round-robin players×players grid: rows and columns are the same
@@ -901,7 +1070,7 @@ defmodule PairingsEngineWeb.PrintController do
         "<th>Name</th>#{col_headers}<th class=\"num\">Pts</th><th class=\"num\">Rank</th></tr></thead>" <>
         "<tbody>#{rows}</tbody></table></div>"
 
-    print_page(conn, tournament.name, "Cross table", body, @rr_crosstable_css)
+    print_page(conn, tournament, tournament.name, "Cross table", body, @rr_crosstable_css)
   end
 
   # `row_entry`'s result(s) against `col_entry`, from `row_entry`'s own game
@@ -1060,7 +1229,20 @@ defmodule PairingsEngineWeb.PrintController do
   defp display_result("bye"), do: "bye"
   defp display_result(result), do: result
 
-  defp print_page(conn, title, subtitle, body, extra_css \\ "") do
+  # The credit line on every printed document, mirroring
+  # `PairingsEngineWeb.SettingsAboutLive`'s own "About" tab wording (same
+  # engine name via `Tournament.pairing_system_label/1`) — one source of
+  # truth for what gets said, shown in the two places an arbiter is most
+  # likely to actually read it: on paper, and where the app explains
+  # itself.
+  defp print_footer(tournament) do
+    engine = Tournament.pairing_system_label(tournament.pairing_system)
+
+    ~s(<p class="pf-credit">Paired by OpenPairings using #{esc(engine)} &middot; ) <>
+      ~s(many thanks to Tom Wuyts for his valuable feedback.</p>)
+  end
+
+  defp print_page(conn, tournament, title, subtitle, body, extra_css \\ "") do
     # These pages are assembled here rather than through the root layout, so
     # the auto-print trigger needs the response's CSP nonce spelled out (see
     # PairingsEngineWeb.CSP); without it the browser refuses to run it and the
@@ -1071,6 +1253,7 @@ defmodule PairingsEngineWeb.PrintController do
     <!doctype html><html><head><meta charset="utf-8"><title>#{esc(title)}</title>
     <style>#{@print_css}</style><style>#{extra_css}</style></head><body>
     <h1>#{esc(title)}</h1><p class="sub">#{esc(subtitle)}</p>#{body}
+    #{print_footer(tournament)}
     <script nonce="#{nonce}">window.onload = () => window.print();</script></body></html>
     """
 

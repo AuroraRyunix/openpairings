@@ -53,7 +53,17 @@ defmodule PairingsEngineWeb.PairingsLive do
        remote_notice: false,
        # The pairing (if any) awaiting explicit confirmation to have its
        # result CLEARED — see `handle_event("result", ...)`'s guard below.
-       confirm_clear_pairing_id: nil
+       confirm_clear_pairing_id: nil,
+       # Hand-editing state — see "Editing a paired round by hand" below.
+       # `menu` is the open right-click menu; `swap_first`/`pool_first` are
+       # half-finished two-click gestures; `seat_pick` is a pool player
+       # waiting to be told WHICH vacancy to fill; `confirm` is the staged
+       # change, and the only one of these that can write anything.
+       menu: nil,
+       swap_first: nil,
+       pool_first: nil,
+       seat_pick: nil,
+       confirm: nil
      )
      |> allow_upload(:results_csv, accept: :any, max_entries: 1, max_file_size: 2_000_000)
      |> refresh()}
@@ -115,14 +125,26 @@ defmodule PairingsEngineWeb.PairingsLive do
 
     assign(socket,
       round: Tournaments.get_round(t.id, n),
-      round_byes: Tournaments.list_byes_for_round(t.id, n),
+      # The pool is a superset of `list_byes_for_round/2` — it adds anyone
+      # simply unpaired — so the byes-only query this page used to run is
+      # no longer needed here. Other views still use it.
+      round_pool: Tournaments.list_round_pool(t.id, n),
       paired_rounds: paired,
       next_pairable: paired + 1,
       setup_complete: setup_complete,
       missing_setup: missing_setup,
       recommended_missing: Tournament.missing_recommended_fields(t),
       can_pair:
-        setup_complete and paired < t.rounds_count and Engine.round_complete?(t.id, paired)
+        setup_complete and paired < t.rounds_count and Engine.round_complete?(t.id, paired),
+      # Whatever round data a half-finished gesture was pointing at may no
+      # longer be current by the time `refresh/1` runs (a remote update, a
+      # round switch, or the change's own confirmed write) — safer to drop
+      # back to "nothing selected" than to act on a stale pairing.
+      menu: nil,
+      swap_first: nil,
+      pool_first: nil,
+      seat_pick: nil,
+      confirm: nil
     )
   end
 
@@ -163,6 +185,135 @@ defmodule PairingsEngineWeb.PairingsLive do
       {:error, reason} ->
         {:noreply, assign(socket, error: reason)}
     end
+  end
+
+  ## ---------- Editing a paired round by hand ----------
+  #
+  # Three gestures, all starting from a right-click:
+  #
+  #   right-click a player  -> a context menu (`open_menu`, pushed by the
+  #                            `.PairingMenu` hook's `contextmenu` listener)
+  #   "Swap with…"          -> arms `swap_first`; the NEXT LEFT-click on
+  #                            another player picks the target. A right-click
+  #                            never completes a swap — it only ever opens
+  #                            the menu, so the destructive half of the
+  #                            gesture is always a deliberate second action.
+  #   "Mark absent"         -> empties that seat (see the vacancy model in
+  #                            `Tournaments.vacate_seat/3`)
+  #
+  # Everything that writes goes through `@confirm` first — one modal, one
+  # shape, whatever the action (see `confirm_for/2` and `apply_confirm/2`).
+
+  def handle_event("open_menu", params, socket) do
+    %{"x" => x, "y" => y} = params
+
+    menu = %{
+      x: x,
+      y: y,
+      player_id: int_or_nil(params["player-id"]),
+      pairing_id: int_or_nil(params["pairing-id"]),
+      seat: params["seat"],
+      scope: params["scope"] || "seated"
+    }
+
+    {:noreply, assign(socket, menu: menu)}
+  end
+
+  def handle_event("close_menu", _params, socket), do: {:noreply, assign(socket, menu: nil)}
+
+  def handle_event("arm_swap", %{"player-id" => id}, socket) do
+    player_id = String.to_integer(id)
+
+    {:noreply,
+     assign(socket,
+       menu: nil,
+       confirm: nil,
+       swap_first: %{id: player_id, name: display_name(socket, player_id)}
+     )}
+  end
+
+  def handle_event("cancel_swap", _params, socket) do
+    {:noreply, assign(socket, swap_first: nil, confirm: nil, menu: nil)}
+  end
+
+  # The second half of a swap: a plain LEFT-click, on either a seated
+  # player or someone in the round's pool.
+  def handle_event("pick_swap_target", %{"player-id" => id}, socket) do
+    target_id = String.to_integer(id)
+
+    case socket.assigns.swap_first do
+      nil -> {:noreply, socket}
+      %{id: ^target_id} -> {:noreply, socket}
+      first -> {:noreply, stage(socket, {:swap, first.id, target_id})}
+    end
+  end
+
+  def handle_event("stage_vacate", %{"player-id" => id}, socket) do
+    {:noreply, stage(socket, {:vacate, String.to_integer(id)})}
+  end
+
+  def handle_event("stage_bye", %{"pairing-id" => id}, socket) do
+    {:noreply, stage(socket, {:bye, String.to_integer(id)})}
+  end
+
+  def handle_event("stage_fill", %{"pairing-id" => pid, "player-id" => plid}, socket) do
+    {:noreply, stage(socket, {:fill, String.to_integer(pid), String.to_integer(plid)})}
+  end
+
+  # Choosing which vacant seat a pool player should go into. With exactly
+  # one vacancy open there's nothing to choose, so it stages directly.
+  def handle_event("offer_seats", %{"player-id" => id}, socket) do
+    player_id = String.to_integer(id)
+
+    case vacant_pairings(socket.assigns.round) do
+      [] ->
+        {:noreply, assign(socket, menu: nil)}
+
+      [only] ->
+        {:noreply, stage(socket, {:fill, only.id, player_id})}
+
+      _many ->
+        {:noreply, assign(socket, menu: nil, seat_pick: player_id)}
+    end
+  end
+
+  def handle_event("cancel_seat_pick", _params, socket),
+    do: {:noreply, assign(socket, seat_pick: nil)}
+
+  def handle_event("stage_pool_pair", %{"player-id" => id}, socket) do
+    player_id = String.to_integer(id)
+
+    case socket.assigns.pool_first do
+      %{id: first_id} when first_id != player_id ->
+        {:noreply, stage(socket, {:pool_pair, first_id, player_id})}
+
+      _ ->
+        {:noreply,
+         assign(socket,
+           menu: nil,
+           pool_first: %{id: player_id, name: display_name(socket, player_id)}
+         )}
+    end
+  end
+
+  def handle_event("cancel_pool_pair", _params, socket),
+    do: {:noreply, assign(socket, pool_first: nil, menu: nil)}
+
+  def handle_event("set_confirm_board", %{"board" => board}, socket) do
+    case Integer.parse(String.trim(board)) do
+      {n, ""} when n > 0 ->
+        {:noreply, assign(socket, confirm: Map.put(socket.assigns.confirm, :board, n))}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("cancel_confirm", _params, socket),
+    do: {:noreply, assign(socket, confirm: nil)}
+
+  def handle_event("apply_confirm", _params, socket) do
+    apply_confirm(socket, socket.assigns.confirm)
   end
 
   def handle_event("result", %{"pairing-id" => id, "result" => result}, socket) do
@@ -311,6 +462,323 @@ defmodule PairingsEngineWeb.PairingsLive do
     end
   end
 
+  defp int_or_nil(nil), do: nil
+  defp int_or_nil(""), do: nil
+  defp int_or_nil(value) when is_integer(value), do: value
+  defp int_or_nil(value), do: String.to_integer(value)
+
+  # Builds the confirm state for an action and closes every transient bit
+  # of UI around it, so the modal is always the only thing on screen
+  # asking for a decision.
+  defp stage(socket, action) do
+    case confirm_for(socket, action) do
+      {:ok, confirm} ->
+        assign(socket, confirm: confirm, menu: nil, seat_pick: nil)
+
+      {:error, _reason} ->
+        assign(socket, menu: nil, seat_pick: nil)
+    end
+  end
+
+  ## ---------- Hand-editing a round: preview + apply ----------
+  #
+  # Every action builds the SAME confirm shape, so one modal renders all
+  # of them:
+  #
+  #     %{kind:, title:, subtitle:, changes: [board diff], note:, ...}
+  #
+  # `changes` is a list of `%{board, before:, after:}` where `before`/
+  # `after` are `{white_name, black_name}` — the modal draws those as two
+  # board cards side by side and highlights whichever seat differs, which
+  # is why they stay as a tuple rather than a pre-joined string.
+
+  defp confirm_for(socket, {:swap, a_id, b_id}) do
+    round = socket.assigns.round
+    pool = socket.assigns.round_pool
+
+    cond do
+      # Both seated — a straight seat trade, possibly a colour-only swap.
+      seated?(round, a_id) and seated?(round, b_id) ->
+        with {:ok, {pa, fa}} <- locate_seat(round.pairings, a_id),
+             {:ok, {pb, fb}} <- locate_seat(round.pairings, b_id) do
+          a = display_name(socket, a_id)
+          b = display_name(socket, b_id)
+          same? = pa.id == pb.id
+
+          changes =
+            if same?,
+              do: [board_change(pa, [{fa, b}, {fb, a}])],
+              else: [board_change(pa, [{fa, b}]), board_change(pb, [{fb, a}])]
+
+          {:ok,
+           %{
+             kind: :swap,
+             a_id: a_id,
+             b_id: b_id,
+             title: if(same?, do: "Swap colours", else: "Swap players"),
+             subtitle: "#{a}  ⇄  #{b}",
+             changes: changes,
+             note: nil
+           }}
+        end
+
+      # One seated, one in the pool — a substitution.
+      seated?(round, a_id) or seated?(round, b_id) ->
+        {seated_id, pool_id} = if seated?(round, a_id), do: {a_id, b_id}, else: {b_id, a_id}
+
+        if pool_member?(pool, pool_id) do
+          {:ok, {pairing, field}} = locate_seat(round.pairings, seated_id)
+          seated_name = display_name(socket, seated_id)
+          pool_name = display_name(socket, pool_id)
+
+          {:ok,
+           %{
+             kind: :swap_pool,
+             seated_id: seated_id,
+             pool_id: pool_id,
+             title: "Substitute player",
+             subtitle: "#{pool_name} takes #{seated_name}'s place",
+             changes: [board_change(pairing, [{field, pool_name}])],
+             note: "#{seated_name} moves to the not-playing list for this round."
+           }}
+        else
+          {:error, :not_in_round}
+        end
+
+      true ->
+        {:error, :not_in_round}
+    end
+  end
+
+  defp confirm_for(socket, {:vacate, player_id}) do
+    round = socket.assigns.round
+
+    with {:ok, {pairing, field}} <- locate_seat(round.pairings, player_id) do
+      name = display_name(socket, player_id)
+      opponent = other_seat_name(pairing, field)
+
+      {:ok,
+       %{
+         kind: :vacate,
+         player_id: player_id,
+         title: "Mark absent",
+         subtitle: "#{name} is not playing round #{socket.assigns.round_number}",
+         changes: [board_change(pairing, [{field, ""}])],
+         note:
+           "Board #{pairing.board} keeps its number and #{blank_dash(opponent)} stays put. " <>
+             "The empty seat can be filled from the not-playing list, or turned into a bye — " <>
+             "until then the round counts as unfinished."
+       }}
+    end
+  end
+
+  defp confirm_for(socket, {:bye, pairing_id}) do
+    with {:ok, pairing} <- fetch_pairing(socket.assigns.round, pairing_id) do
+      remaining = pairing.white_player || pairing.black_player
+      name = player_label(remaining)
+
+      {:ok,
+       %{
+         kind: :bye,
+         pairing_id: pairing_id,
+         title: "Award a bye",
+         subtitle: "#{name} sits out round #{socket.assigns.round_number}",
+         changes: [%{board: pairing.board, before: board_seats(pairing), after: {name, "bye"}}],
+         note: "Scores #{socket.assigns.tournament.bye_value} pt, as a pairing-allocated bye."
+       }}
+    end
+  end
+
+  defp confirm_for(socket, {:fill, pairing_id, player_id}) do
+    with {:ok, pairing} <- fetch_pairing(socket.assigns.round, pairing_id) do
+      name = display_name(socket, player_id)
+      field = if is_nil(pairing.white_player_id), do: :white_player_id, else: :black_player_id
+
+      {:ok,
+       %{
+         kind: :fill,
+         pairing_id: pairing_id,
+         player_id: player_id,
+         title: "Fill the empty seat",
+         subtitle: "#{name} joins board #{pairing.board}",
+         changes: [board_change(pairing, [{field, name}])],
+         note: "#{name} is no longer marked absent for this round."
+       }}
+    end
+  end
+
+  defp confirm_for(socket, {:pool_pair, a_id, b_id}) do
+    a = display_name(socket, a_id)
+    b = display_name(socket, b_id)
+    board = Tournaments.next_free_board(socket.assigns.round)
+
+    {:ok,
+     %{
+       kind: :pool_pair,
+       a_id: a_id,
+       b_id: b_id,
+       board: board,
+       title: "Pair these two",
+       subtitle: "#{a}  vs  #{b}",
+       changes: [%{board: board, before: {"", ""}, after: {a, b}}],
+       note: "Neither will be marked absent for this round any more."
+     }}
+  end
+
+  defp apply_confirm(socket, nil), do: {:noreply, socket}
+
+  defp apply_confirm(socket, confirm) do
+    %{tournament: t, round: round} = socket.assigns
+
+    result =
+      case confirm do
+        %{kind: :swap, a_id: a, b_id: b} ->
+          Tournaments.swap_players_in_round(round, a, b)
+
+        %{kind: :swap_pool, seated_id: s, pool_id: p} ->
+          Tournaments.swap_seated_with_pool_player(round, s, p)
+
+        %{kind: :vacate, player_id: p} ->
+          Tournaments.vacate_seat(round, p)
+
+        %{kind: :bye, pairing_id: id} ->
+          with {:ok, pairing} <- fetch_pairing(round, id),
+               do: Tournaments.award_bye_for_vacancy(round, pairing)
+
+        %{kind: :fill, pairing_id: id, player_id: p} ->
+          with {:ok, pairing} <- fetch_pairing(round, id),
+               do: Tournaments.fill_seat(round, pairing, p)
+
+        %{kind: :pool_pair, a_id: a, b_id: b, board: board} ->
+          Tournaments.pair_from_pool(round, a, b, board)
+      end
+
+    case result do
+      {:ok, _} ->
+        Audit.log(t.id, socket.assigns.current_scope, audit_action(confirm.kind), %{
+          round: socket.assigns.round_number,
+          summary: confirm.subtitle
+        })
+
+        {:noreply, socket |> assign(error: nil) |> refresh()}
+
+      {:error, reason} ->
+        {:noreply,
+         assign(socket,
+           error: "Could not apply that change: #{inspect(reason)}",
+           confirm: nil,
+           swap_first: nil,
+           pool_first: nil
+         )}
+    end
+  end
+
+  defp audit_action(:swap), do: "pairing.players_swapped"
+  defp audit_action(:swap_pool), do: "pairing.player_substituted"
+  defp audit_action(:vacate), do: "pairing.seat_vacated"
+  defp audit_action(:bye), do: "pairing.bye_awarded"
+  defp audit_action(:fill), do: "pairing.seat_filled"
+  defp audit_action(:pool_pair), do: "pairing.pool_paired"
+
+  ## ---------- Round lookups ----------
+
+  defp seated?(nil, _player_id), do: false
+
+  defp seated?(round, player_id) do
+    Enum.any?(
+      round.pairings,
+      &(&1.white_player_id == player_id or &1.black_player_id == player_id)
+    )
+  end
+
+  defp pool_member?(pool, player_id), do: Enum.any?(pool, &(&1.player.id == player_id))
+
+  defp fetch_pairing(nil, _id), do: {:error, :not_in_round}
+
+  defp fetch_pairing(round, id) do
+    case Enum.find(round.pairings, &(&1.id == id)) do
+      nil -> {:error, :not_in_round}
+      pairing -> {:ok, pairing}
+    end
+  end
+
+  defp locate_seat(pairings, player_id) do
+    Enum.find_value(pairings, {:error, :not_in_round}, fn pairing ->
+      cond do
+        pairing.white_player_id == player_id -> {:ok, {pairing, :white_player_id}}
+        pairing.black_player_id == player_id -> {:ok, {pairing, :black_player_id}}
+        true -> nil
+      end
+    end)
+  end
+
+  defp vacant_pairings(nil), do: []
+
+  defp vacant_pairings(round) do
+    Enum.filter(round.pairings, &vacant?/1)
+  end
+
+  # A vacancy, not a bye: exactly one empty seat AND no result. A bye is
+  # an empty black seat carrying `result: "bye"`.
+  defp vacant?(%{result: "bye"}), do: false
+
+  defp vacant?(pairing),
+    do: is_nil(pairing.white_player_id) or is_nil(pairing.black_player_id)
+
+  # `player_label/1` by id, across both the boards and the pool — a click
+  # only tells the server which id was hit.
+  defp display_name(socket, player_id) do
+    seated =
+      case socket.assigns.round do
+        nil ->
+          nil
+
+        round ->
+          Enum.find_value(round.pairings, fn pairing ->
+            cond do
+              pairing.white_player_id == player_id -> pairing.white_player
+              pairing.black_player_id == player_id -> pairing.black_player
+              true -> nil
+            end
+          end)
+      end
+
+    pooled =
+      Enum.find_value(socket.assigns.round_pool, fn %{player: p} ->
+        if p.id == player_id, do: p
+      end)
+
+    player_label(seated || pooled)
+  end
+
+  defp board_seats(pairing),
+    do: {player_label(pairing.white_player), player_label(pairing.black_player)}
+
+  # One board's before/after, given the seat substitutions to apply.
+  # `substitutions` is a list of `{field, new_name}`; `""` empties a seat.
+  defp board_change(pairing, substitutions) do
+    {before_white, before_black} = board_seats(pairing)
+
+    {after_white, after_black} =
+      Enum.reduce(substitutions, {before_white, before_black}, fn
+        {:white_player_id, name}, {_w, b} -> {name, b}
+        {:black_player_id, name}, {w, _b} -> {w, name}
+      end)
+
+    %{
+      board: pairing.board,
+      before: {before_white, before_black},
+      after: {after_white, after_black},
+      result_will_clear?: pairing.result not in ["", "bye"]
+    }
+  end
+
+  defp other_seat_name(pairing, :white_player_id), do: player_label(pairing.black_player)
+  defp other_seat_name(pairing, :black_player_id), do: player_label(pairing.white_player)
+
+  defp blank_dash(""), do: "the empty seat"
+  defp blank_dash(name), do: name
+
   defp do_pair(socket) do
     case Engine.pair_next_round(socket.assigns.tournament) do
       {:ok, round} ->
@@ -450,6 +918,167 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   defp match_number(n), do: div(n - 1, 2) + 1
   defp leg_number(n), do: if(rem(n, 2) == 1, do: 1, else: 2)
+
+  ## ---------- Hand-editing UI pieces ----------
+
+  # One board drawn as a card: White over Black, the way the pairing sheet
+  # reads. `compare` (the other side of the diff) is what makes a changed
+  # seat light up, so the arbiter can see WHICH name moved rather than
+  # having to read two strings and spot the difference themselves.
+  attr :seats, :any, required: true
+  attr :state, :string, required: true
+  attr :compare, :any, default: nil
+
+  defp board_card(assigns) do
+    {white, black} = assigns.seats
+    {was_white, was_black} = assigns.compare || assigns.seats
+
+    assigns =
+      assign(assigns,
+        white: white,
+        black: black,
+        white_changed?: white != was_white,
+        black_changed?: black != was_black
+      )
+
+    ~H"""
+    <div class={["board-card", "board-card-#{@state}"]}>
+      <div class={["board-seat", @white_changed? && "board-seat-changed"]}>
+        <span class="board-seat-colour" aria-label="White"></span>
+        <span class="board-seat-name">{seat_text(@white)}</span>
+      </div>
+
+      <div class={["board-seat", @black_changed? && "board-seat-changed"]}>
+        <span class="board-seat-colour board-seat-black" aria-label="Black"></span>
+        <span class="board-seat-name">{seat_text(@black)}</span>
+      </div>
+    </div>
+    """
+  end
+
+  defp seat_text(""), do: "— empty —"
+  defp seat_text(name), do: name
+
+  # A left-click in the pool means "complete the armed gesture" — which
+  # gesture depends on which one is armed. With a swap armed it's the swap
+  # target; otherwise it's the second half of a pool pairing.
+  defp pool_click(nil), do: "stage_pool_pair"
+  defp pool_click(_swap_first), do: "pick_swap_target"
+
+  # What the pool chip says about WHY someone isn't playing, and what it
+  # scores — an unpaired player with no byes row scores nothing at all,
+  # which is worth showing plainly rather than leaving blank.
+  defp pool_tag(%{type: nil}, _tournament), do: "unpaired"
+
+  defp pool_tag(%{type: type} = entry, tournament) do
+    points = PairingsEngine.Standings.bye_points_for_row(entry, tournament)
+    "#{bye_type_label(type)} · #{points} pt"
+  end
+
+  # One seat in the pairings table. Three states: an ordinary player
+  # (right-click for the menu, left-click to complete an armed swap), a
+  # bye's empty black side (nothing to act on — the Result column already
+  # says "bye"), and a VACANCY, which is the one that asks to be filled.
+  attr :player, :any, required: true
+  attr :pairing, :map, required: true
+  attr :side, :atom, required: true
+  attr :swap_first, :any, required: true
+  attr :seat_pick, :any, required: true
+
+  defp seat_cell(assigns) do
+    ~H"""
+    <%= cond do %>
+      <% @player -> %>
+        <span
+          class={[
+            "swap-target",
+            @side == :white && "seat-white",
+            @swap_first && @swap_first.id == @player.id && "swap-selected",
+            @swap_first && @swap_first.id != @player.id && "swap-eligible"
+          ]}
+          data-player-id={@player.id}
+          data-scope="seated"
+          phx-click="pick_swap_target"
+          phx-value-player-id={@player.id}
+          title="Right-click for swap / absent options"
+        >
+          {player_label(@player)}
+        </span>
+      <% @pairing.result == "bye" -> %>
+        <span class="seat-none">—</span>
+      <% @seat_pick -> %>
+        <button
+          type="button"
+          class="seat-vacant seat-vacant-armed"
+          phx-click="stage_fill"
+          phx-value-pairing-id={@pairing.id}
+          phx-value-player-id={@seat_pick}
+        >
+          Put them here
+        </button>
+      <% true -> %>
+        <span
+          class="seat-vacant"
+          data-pairing-id={@pairing.id}
+          data-scope="vacant"
+          title="Empty seat — right-click to award a bye, or pick a replacement from the not-playing list below"
+        >
+          — empty —
+        </span>
+    <% end %>
+    """
+  end
+
+  # The right-click menu. Fixed-positioned at the click point, so it opens
+  # where the pointer is instead of at the top of the page.
+  attr :menu, :map, required: true
+  attr :round, :any, required: true
+
+  defp pairing_menu(assigns) do
+    assigns = assign(assigns, vacancies: length(vacant_pairings(assigns.round)))
+
+    ~H"""
+    <div class="ctx-backdrop" phx-click="close_menu" phx-window-keydown="close_menu" phx-key="escape">
+      <div
+        class="ctx-menu"
+        style={"left: #{@menu.x}px; top: #{@menu.y}px"}
+        phx-click-away="close_menu"
+      >
+        <%= case @menu.scope do %>
+          <% "seated" -> %>
+            <button type="button" phx-click="arm_swap" phx-value-player-id={@menu.player_id}>
+              Swap with…
+            </button>
+
+            <button type="button" phx-click="stage_vacate" phx-value-player-id={@menu.player_id}>
+              Mark absent for this round
+            </button>
+          <% "pool" -> %>
+            <button type="button" phx-click="arm_swap" phx-value-player-id={@menu.player_id}>
+              Swap with a player on a board…
+            </button>
+
+            <button
+              :if={@vacancies > 0}
+              type="button"
+              phx-click="offer_seats"
+              phx-value-player-id={@menu.player_id}
+            >
+              Put in an empty seat{if @vacancies > 1, do: "…", else: ""}
+            </button>
+
+            <button type="button" phx-click="stage_pool_pair" phx-value-player-id={@menu.player_id}>
+              Pair with another player who isn't playing…
+            </button>
+          <% "vacant" -> %>
+            <button type="button" phx-click="stage_bye" phx-value-pairing-id={@menu.pairing_id}>
+              Award a bye to the remaining player
+            </button>
+        <% end %>
+      </div>
+    </div>
+    """
+  end
 
   @impl true
   def render(assigns) do
@@ -765,10 +1394,89 @@ defmodule PairingsEngineWeb.PairingsLive do
 
       <p class="hint" style="margin: 8px 0">
         Tip: click a result box and press 1 / 2 / 3 (top row or numpad, any keyboard layout) to enter results rapidly (white win / draw / black win) - focus jumps to the next board automatically.
+        <strong>Right-click any player</strong>
+        to swap them, or to mark them absent for this round.
       </p>
 
+      <div :if={@swap_first} class="swap-banner" phx-window-keydown="cancel_swap" phx-key="escape">
+        <span class="swap-banner-dot"></span>
+        <span>
+          Swapping <strong>{@swap_first.name}</strong>
+          — now click whoever they should trade places with, on a board or in the
+          not-playing list below.
+        </span>
+        <button type="button" class="pe-btn" phx-click="cancel_swap">Cancel (Esc)</button>
+      </div>
+
+      <div
+        :if={@pool_first}
+        class="swap-banner"
+        phx-window-keydown="cancel_pool_pair"
+        phx-key="escape"
+      >
+        <span class="swap-banner-dot"></span>
+        <span>
+          Pairing <strong>{@pool_first.name}</strong> — now click who they should play.
+        </span>
+        <button type="button" class="pe-btn" phx-click="cancel_pool_pair">Cancel (Esc)</button>
+      </div>
+
+      <div
+        :if={@seat_pick}
+        class="swap-banner"
+        phx-window-keydown="cancel_seat_pick"
+        phx-key="escape"
+      >
+        <span class="swap-banner-dot"></span>
+        <span>Which empty seat should they take? Click one below.</span>
+        <button type="button" class="pe-btn" phx-click="cancel_seat_pick">Cancel (Esc)</button>
+      </div>
+      <.pairing_menu :if={@menu} menu={@menu} round={@round} />
+      <div :if={@confirm} class="pe-modal" phx-window-keydown="cancel_confirm" phx-key="escape">
+        <div class="pe-modal-card" phx-click-away="cancel_confirm">
+          <header class="pe-modal-head">
+            <h2>{@confirm.title}</h2>
+
+            <p>{@confirm.subtitle}</p>
+          </header>
+
+          <div class="pe-modal-body">
+            <div :for={c <- @confirm.changes} class="board-diff">
+              <div class="board-diff-num">Board {c.board}</div>
+              <.board_card seats={c.before} state="before" />
+              <div class="board-diff-arrow">→</div>
+              <.board_card seats={c.after} state="after" compare={c.before} />
+            </div>
+
+            <label :if={@confirm.kind == :pool_pair} class="board-number-field">
+              <span>Table number</span>
+              <form phx-change="set_confirm_board">
+                <input type="number" name="board" value={@confirm.board} min="1" />
+              </form>
+            </label>
+
+            <p :if={@confirm.note} class="pe-modal-note">{@confirm.note}</p>
+
+            <p
+              :if={Enum.any?(@confirm.changes, &Map.get(&1, :result_will_clear?))}
+              class="pe-modal-warn"
+            >
+              A recorded result will be cleared — it described a game between players who are
+              no longer both on that board.
+            </p>
+          </div>
+
+          <footer class="pe-modal-foot">
+            <button type="button" class="pe-btn" phx-click="cancel_confirm">Cancel</button>
+            <button type="button" class="pe-btn primary pe-modal-go" phx-click="apply_confirm">
+              {@confirm.title}
+            </button>
+          </footer>
+        </div>
+      </div>
+
       <div class="card table-card">
-        <table class="pe-table">
+        <table class="pe-table" id={"pairings-table-#{@round_number}"} phx-hook=".PairingMenu">
           <thead>
             <tr>
               <th class="num">Board</th>
@@ -803,7 +1511,15 @@ defmodule PairingsEngineWeb.PairingsLive do
             <tr :for={pairing <- board_sorted((@round && @round.pairings) || [])}>
               <td class="num">{pairing.board}{fixed_board_note(pairing)}</td>
 
-              <td><strong>{player_label(pairing.white_player)}</strong></td>
+              <td>
+                <.seat_cell
+                  player={pairing.white_player}
+                  pairing={pairing}
+                  side={:white}
+                  swap_first={@swap_first}
+                  seat_pick={@seat_pick}
+                />
+              </td>
 
               <td style="text-align: center">
                 <%= cond do %>
@@ -814,6 +1530,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                       <span class="hint">
                         Clear the recorded result ({pairing.result}) for this board?
                       </span>
+
                       <button
                         type="button"
                         class="pe-btn danger-link"
@@ -822,6 +1539,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                       >
                         Yes, clear it
                       </button>
+
                       <button type="button" class="pe-btn" phx-click="cancel_clear_result">
                         Cancel
                       </button>
@@ -848,36 +1566,54 @@ defmodule PairingsEngineWeb.PairingsLive do
                 <% end %>
               </td>
 
-              <td>{player_label(pairing.black_player)}</td>
+              <td>
+                <.seat_cell
+                  player={pairing.black_player}
+                  pairing={pairing}
+                  side={:black}
+                  swap_first={@swap_first}
+                  seat_pick={@seat_pick}
+                />
+              </td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      <div :if={@round_byes != []} class="card table-card" style="margin-top: 16px">
-        <table class="pe-table">
-          <thead>
-            <tr>
-              <th>Player</th>
-              <th style="text-align: center; width: 220px">Bye</th>
-            </tr>
-          </thead>
+      <div
+        :if={@round != nil and @round_pool != []}
+        class="card pool-panel"
+        id={"round-pool-#{@round_number}"}
+        phx-hook=".PairingMenu"
+      >
+        <div class="pool-head">
+          <h3>Not playing round {@round_number}</h3>
 
-          <tbody>
-            <tr :for={bye <- @round_byes}>
-              <td>{player_label(bye.player)}</td>
+          <p class="hint">
+            Right-click anyone here to put them in an empty seat, swap them onto a board, or
+            pair two of them together.
+          </p>
+        </div>
 
-              <td style="text-align: center">
-                <span class="badge">
-                  {bye_type_label(bye.type)} ({PairingsEngine.Standings.bye_points_for_row(
-                    bye,
-                    @tournament
-                  )} pt)
-                </span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <ul class="pool-list">
+          <li
+            :for={entry <- @round_pool}
+            class={[
+              "pool-chip",
+              @swap_first && @swap_first.id == entry.player.id && "swap-selected",
+              @pool_first && @pool_first.id == entry.player.id && "swap-selected",
+              @swap_first && @swap_first.id != entry.player.id && "swap-eligible"
+            ]}
+            data-player-id={entry.player.id}
+            data-scope="pool"
+            phx-click={if @swap_first || @pool_first, do: pool_click(@swap_first), else: nil}
+            phx-value-player-id={entry.player.id}
+            title="Right-click for options"
+          >
+            <span class="pool-chip-name">{player_label(entry.player)}</span>
+            <span class="pool-chip-tag">{pool_tag(entry, @tournament)}</span>
+          </li>
+        </ul>
       </div>
 
       <script :type={Phoenix.LiveView.ColocatedHook} name=".BlindResultEntry">
@@ -967,6 +1703,45 @@ defmodule PairingsEngineWeb.PairingsLive do
           destroyed() {
             this.el.removeEventListener("keydown", this.onKeydown);
             this.el.removeEventListener("mousedown", this.onMousedown);
+          }
+        }
+      </script>
+
+      <script :type={Phoenix.LiveView.ColocatedHook} name=".PairingMenu">
+        // Opens the hand-editing menu where the pointer is. There's no
+        // native phx-contextmenu binding, so this half needs JS; the
+        // left-click half (completing an armed swap) is a plain phx-click
+        // in the markup. One delegated listener per panel rather than one
+        // per name.
+        //
+        // A right-click NEVER completes anything — it only ever opens the
+        // menu. Every write is behind a menu item plus the confirm modal,
+        // so no two-right-clicks-in-a-row can change a pairing by accident.
+        export default {
+          mounted() {
+            this.onContextMenu = (e) => {
+              const target = e.target.closest("[data-scope]");
+              if (!target) return;
+              e.preventDefault();
+
+              // Keep the menu fully on screen: it's ~280x150, so flip it
+              // back inside the viewport when the click lands near an edge.
+              const x = Math.min(e.clientX, window.innerWidth - 300);
+              const y = Math.min(e.clientY, window.innerHeight - 170);
+
+              this.pushEvent("open_menu", {
+                x: Math.max(8, x),
+                y: Math.max(8, y),
+                scope: target.dataset.scope,
+                "player-id": target.dataset.playerId || null,
+                "pairing-id": target.dataset.pairingId || null
+              });
+            };
+            this.el.addEventListener("contextmenu", this.onContextMenu);
+          },
+
+          destroyed() {
+            this.el.removeEventListener("contextmenu", this.onContextMenu);
           }
         }
       </script>

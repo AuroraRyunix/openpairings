@@ -40,7 +40,10 @@ defmodule PairingsEngineWeb.PlayersLive do
     {"nr", "Nr", true, "Pairing number (starting number), frozen once the first round is paired"},
     {"rnk", "Rnk", true,
      "Live rating-based seed: the pairing-number position this player would get if starting numbers were assigned fresh right now (highest rating first, ties by name) — recomputed on every view, so it can drift from the frozen Nr after a rating correction or a late addition"},
-    {"cat", "Cat", false, "Age category (e.g. -18, SEN, S50, S65)"},
+    {"cat", "Cat", false,
+     "Prize category (SWAR CATEGORIES) — only the categories defined for this tournament on " <>
+       "the Categories settings page, assigned per player either by hand or by the " <>
+       "\"Assign categories\" button's threshold rules"},
     {"birth_year", "Birth", true, "Year of birth"},
     {"sex", "Sex", false, "Player's sex (M/F)"},
     {"federation", "Country", false, "Federation / country code (e.g. BEL)"},
@@ -281,7 +284,6 @@ defmodule PairingsEngineWeb.PlayersLive do
   # (`@columns_before_tiebreaks` / `@tiebreak_columns` / `@columns_after_tiebreaks`).
   defp build_grid(entries, tournament) do
     players_by_id = Map.new(entries, &{&1.player.id, &1.player})
-    current_year = Date.utc_today().year
 
     # The round about to be paired — what decides whether a "Pr." cell
     # shows a capital or a lowercase marker.
@@ -337,7 +339,10 @@ defmodule PairingsEngineWeb.PlayersLive do
         "nr" => entry.player.pairing_number,
         "rnk" => Map.get(live_seed_rank_by_id, entry.player.id),
         "elo_used" => Player.rating(entry.player),
-        "cat" => PlayerStats.category(entry.player.birth_year, current_year),
+        # The tournament's OWN category (see Tournament.categories), never a
+        # derived age bracket — the arbiter defines the category set, so
+        # nothing here may invent one they didn't create.
+        "cat" => entry.player.category || "",
         "games" => length(played_games),
         "pts" => entry.points,
         "perf" => PlayerStats.performance(opponent_ratings, wins, losses),
@@ -538,6 +543,31 @@ defmodule PairingsEngineWeb.PlayersLive do
           {:error, _changeset} ->
             {:noreply, socket}
         end
+    end
+  end
+
+  # Right-clicking the Pr. COLUMN HEADER instead of one player's cell —
+  # same whole-tournament flag, applied to every player in the tournament
+  # at once. `set_all_players_absent/2` touches only `absent`;
+  # `absent_rounds` is untouched for everyone, same guarantee as the
+  # single-player version above.
+  def handle_event("set_all_absent_flag", %{"value" => value}, socket) do
+    absent? = value in ["true", true]
+    tournament_id = socket.assigns.tournament.id
+
+    case Tournaments.set_all_players_absent(tournament_id, absent?) do
+      {:ok, players} ->
+        Audit.log(
+          tournament_id,
+          socket.assigns.current_scope,
+          "player.bulk_absent_set",
+          %{absent: absent?, player_count: length(players)}
+        )
+
+        {:noreply, assign_players(socket)}
+
+      {:error, _changeset} ->
+        {:noreply, socket}
     end
   end
 
@@ -961,6 +991,26 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   # We always shows two fixed decimals (SWAR/FIDE convention), unlike the
   # other numeric columns which trim trailing zeros.
+  # `PrintController.player_list/2`'s optional columns — Title, FIDE,
+  # Elo Nat, Country, Club — narrowed to whichever of those this LiveView's
+  # own Display panel currently has checked, so "Print player list" shows
+  # what the arbiter is looking at on screen rather than a fixed set.
+  # Keep in sync with `PairingsEngine.PrintController.@player_list_optional_columns`.
+  # Every grid column the printed player list can actually render — see
+  # `PairingsEngineWeb.PrintController`'s `@player_list_columns`, which
+  # uses these same keys. The score-derived columns (Cl/Pts/Ga/Perf/We/
+  # W-We/tiebreaks) are deliberately absent: those are what the Print
+  # standings button is for.
+  @printable_player_list_columns ~w(
+    pr aff paid nr cat title birth_year sex federation
+    national_id fide_id national_rating fide_rating elo_used
+    club status fixed_board
+  )
+
+  defp printable_player_list_columns(visible) do
+    @printable_player_list_columns |> Enum.filter(&(&1 in visible)) |> Enum.join(",")
+  end
+
   defp format_score(nil), do: "—"
   defp format_score(n), do: :erlang.float_to_binary(n / 1, decimals: 2)
 
@@ -992,7 +1042,13 @@ defmodule PairingsEngineWeb.PlayersLive do
         </div>
 
         <div class="actions" style="margin: 0">
-          <a class="pe-btn" href={~p"/t/#{@tournament.id}/print/players"} target="_blank">
+          <a
+            class="pe-btn"
+            href={
+              ~p"/t/#{@tournament.id}/print/players?#{[cols: printable_player_list_columns(@visible)]}"
+            }
+            target="_blank"
+          >
             Print player list
           </a>
 
@@ -1171,7 +1227,8 @@ defmodule PairingsEngineWeb.PlayersLive do
         <div class="card table-card split-main">
           <p class="hint" style="padding: 12px 16px 0">
             Double-click a row to edit the player, right-click for the Players Card
-            — or right-click the Pr. cell to set All Absent / All Present.
+            — right-click a player's Pr. cell for that player's All Absent / All Present,
+            or right-click the <strong>Pr. column header</strong> to set it for everyone at once.
           </p>
 
           <table class="pe-table" id="players-table" phx-hook="PlayerGrid">
@@ -1194,9 +1251,14 @@ defmodule PairingsEngineWeb.PlayersLive do
                   :for={{key, label, num, desc} <- all_columns(@tournament)}
                   :if={key in @visible}
                   class={[num && "num", "sortable"]}
+                  data-col={key}
                   phx-click="sort"
                   phx-value-key={key}
-                  title={desc}
+                  title={
+                    if key == "pr",
+                      do: desc <> " — right-click for All Absent / All Present",
+                      else: desc
+                  }
                 >
                   {label}{sort_indicator(@sort_col, @sort_dir, key)}
                 </th>

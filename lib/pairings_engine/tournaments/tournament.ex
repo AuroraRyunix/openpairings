@@ -119,6 +119,17 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # tournament-defined category names (SWAR CATEGORIES)
     field :categories, {:array, :string}, default: []
 
+    # Optional threshold RULE behind a category name, keyed by that name —
+    # `%{"-1100" => %{"kind" => "elo_below", "value" => 1100}}`. `kind` is
+    # one of "elo_below" | "elo_above" | "age_below" | "age_above". A
+    # category with no entry here stays exactly what it always was: a
+    # plain name the arbiter assigns to `player.category` by hand on the
+    # Players page. One with a rule can instead be filled in for every
+    # player at once via `Tournaments.auto_assign_categories/1` — see
+    # `PairingsEngine.PlayerStats.assign_category/4` for how a player
+    # matching more than one threshold picks the tightest.
+    field :category_rules, :map, default: %{}
+
     # FIDE "Code of event" (FA1/IA1 B6, IT4 S4 "FIDE Event code")
     field :event_code, :string, default: ""
     # FIDE "ID of Tournament" (IT3 B2) — the report's own numeric ID.
@@ -347,6 +358,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :swar_guid,
       :round_dates,
       :categories,
+      :category_rules,
       :event_code,
       :fide_tournament_id,
       :fide_homologated,

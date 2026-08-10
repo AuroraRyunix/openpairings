@@ -10,6 +10,7 @@ defmodule PairingsEngine.Tournaments do
   alias PairingsEngine.Repo
   alias PairingsEngine.Tiebreaks
   alias PairingsEngine.Standings
+  alias PairingsEngine.PlayerStats
   alias PairingsEngine.Accounts
   alias PairingsEngine.Accounts.{Scope, User}
 
@@ -1035,6 +1036,24 @@ defmodule PairingsEngine.Tournaments do
     end
   end
 
+  @doc """
+  Sets the whole-tournament `absent` flag on every player in `tournament_id`
+  to `absent?` — the "All Absent" / "All Present" right-click action on the
+  Players grid's Pr. column header.
+
+  Deliberately touches ONLY that one boolean. `absent_rounds` (the
+  per-round SWAR notation, see `PairingsEngineWeb.PlayersLive`'s `cell/2`
+  "pr" clause) is left exactly as each player had it — this is the
+  generally-present/generally-absent switch, not a bulk edit of who is
+  out for which specific round. One transaction, one broadcast, via
+  `bulk_update_players/2`.
+  """
+  def set_all_players_absent(tournament_id, absent?) when is_boolean(absent?) do
+    players = list_players(tournament_id)
+    updates = for p <- players, do: {p, %{"absent" => absent?}}
+    bulk_update_players(tournament_id, updates)
+  end
+
   def change_player(%Player{} = player, attrs \\ %{}), do: Player.changeset(player, attrs)
 
   @doc """
@@ -1076,6 +1095,43 @@ defmodule PairingsEngine.Tournaments do
 
       :error ->
         {:error, :invalid_bands}
+    end
+  end
+
+  @doc """
+  Applies `tournament.category_rules` to every player, **overwriting**
+  each player's `category` — same shape as `apply_extra_points_bands/1`.
+  Unconditional: a player who matches no rule is set back to `""`, not
+  left alone, so re-running after a rating update (or a rule edit) always
+  reflects the current rules rather than a stale prior run — and, as a
+  direct consequence, running this DOES clear any category the arbiter
+  set by hand that doesn't happen to also be a ruled category's match.
+  Only meant for tournaments where category is fully rule-driven; a mix
+  of ruled and hand-picked categories doesn't survive a re-run.
+
+  One transaction, one broadcast (`bulk_update_players/2`). Returns
+  `{:ok, %{matched: n, total: m}}` — `matched` counts players who landed
+  in a RULED category (not `""`) — for the same "Assigned N of M players"
+  summary `ExtraPointsLive` shows for its own bulk rule application.
+  """
+  @spec auto_assign_categories(Tournament.t()) ::
+          {:ok, %{matched: non_neg_integer(), total: non_neg_integer()}} | {:error, term()}
+  def auto_assign_categories(%Tournament{} = tournament) do
+    players = list_players(tournament.id)
+
+    updates =
+      Enum.map(players, fn player ->
+        category =
+          PlayerStats.assign_category(player, tournament.categories, tournament.category_rules)
+
+        {player, %{category: category}}
+      end)
+
+    matched = Enum.count(updates, fn {_player, attrs} -> attrs.category != "" end)
+
+    case bulk_update_players(tournament.id, updates) do
+      {:ok, _updated} -> {:ok, %{matched: matched, total: length(players)}}
+      error -> error
     end
   end
 
@@ -1423,6 +1479,398 @@ defmodule PairingsEngine.Tournaments do
 
   defp round_tournament_id(round_id) do
     Repo.one(from r in Round, where: r.id == ^round_id, select: r.tournament_id)
+  end
+
+  @doc """
+  Swaps two players' SEATS in `round` — the SWAR "swap players" move.
+  Whatever slot each player currently occupies (board, colour, opponent
+  or bye), the two trade: the slot itself — its board number and which
+  colour sits there — never moves, only WHO fills it does. Everyone else
+  in the round is untouched.
+
+      round has  1. A-B   2. C-D
+      swap(A, D) gives  1. D-B   2. C-A
+
+  Passing a player's own opponent swaps only that one board's colours —
+  the same operation, since both players are already in the same
+  pairing's two seats.
+
+  Allowed against a bye (`black_player_id: nil`) — the player swapped IN
+  simply inherits the bye, the one swapped OUT inherits whatever seat the
+  other player came from. A recorded RESULT is cleared on any row the
+  swap touches, because a game's result describes what THOSE TWO PLAYERS
+  did, and after the swap it no longer describes what's shown; the "bye"
+  marker is the one exception, since a bye is a scoring rule for an empty
+  seat, not a fact about who fills it, so it doesn't need clearing.
+
+  Returns `{:error, :not_in_round}` if either player has no seat in this
+  round, `{:error, :same_player}` for swapping a player with themselves,
+  or whatever `Ecto.Changeset` validation error the underlying update
+  hits.
+  """
+  def swap_players_in_round(%Round{} = round, player_a_id, player_b_id) do
+    cond do
+      player_a_id == player_b_id ->
+        {:error, :same_player}
+
+      true ->
+        with {:ok, seat_a} <- find_player_seat(round.pairings, player_a_id),
+             {:ok, seat_b} <- find_player_seat(round.pairings, player_b_id) do
+          do_swap_seats(round.tournament_id, seat_a, player_b_id, seat_b, player_a_id)
+        end
+    end
+  end
+
+  defp find_player_seat(pairings, player_id) do
+    Enum.find_value(pairings, {:error, :not_in_round}, fn pairing ->
+      cond do
+        pairing.white_player_id == player_id -> {:ok, {pairing, :white_player_id}}
+        pairing.black_player_id == player_id -> {:ok, {pairing, :black_player_id}}
+        true -> nil
+      end
+    end)
+  end
+
+  defp do_swap_seats(
+         tournament_id,
+         {pairing, field_a},
+         new_a_occupant,
+         {pairing, field_b},
+         new_b_occupant
+       ) do
+    # Same row on both sides — A and B are already each other's opponent,
+    # so this is a plain colour swap: one update, both fields at once.
+    attrs = clear_stale_result(%{field_a => new_a_occupant, field_b => new_b_occupant}, pairing)
+    update_result = pairing |> Pairing.changeset(attrs) |> Repo.update()
+    finish_swap(tournament_id, update_result)
+  end
+
+  defp do_swap_seats(
+         tournament_id,
+         {pairing_a, field_a},
+         new_a_occupant,
+         {pairing_b, field_b},
+         new_b_occupant
+       ) do
+    result =
+      Repo.transaction(fn ->
+        with {:ok, updated_a} <-
+               pairing_a
+               |> Pairing.changeset(clear_stale_result(%{field_a => new_a_occupant}, pairing_a))
+               |> Repo.update(),
+             {:ok, updated_b} <-
+               pairing_b
+               |> Pairing.changeset(clear_stale_result(%{field_b => new_b_occupant}, pairing_b))
+               |> Repo.update() do
+          {updated_a, updated_b}
+        else
+          {:error, changeset} -> Repo.rollback(changeset)
+        end
+      end)
+
+    finish_swap(tournament_id, result)
+  end
+
+  # A bye's "result" is a scoring rule for the empty seat, not a claim
+  # about who's IN it, so it survives a swap untouched. Any other
+  # non-blank result describes a specific game between the two players
+  # who WERE there and is cleared — see the moduledoc on
+  # `swap_players_in_round/3`.
+  defp clear_stale_result(attrs, %Pairing{result: r}) when r not in ["", "bye"],
+    do: Map.put(attrs, :result, "")
+
+  defp clear_stale_result(attrs, %Pairing{}), do: attrs
+
+  defp finish_swap(tournament_id, {:ok, updated}) do
+    invalidate_manual_ranking(tournament_id)
+    broadcast_tournament_change(tournament_id, :results)
+    refresh_status!(tournament_id)
+    {:ok, updated}
+  end
+
+  defp finish_swap(_tournament_id, {:error, _reason} = error), do: error
+
+  # Same invalidate + broadcast + status refresh as `finish_swap/2`, with
+  # the arguments the other way round so it can sit at the end of a pipe.
+  defp finish_round_write(result, tournament_id), do: finish_swap(tournament_id, result)
+
+  ## ---------- Vacancies: absent-on-the-board, and the round's pool ----------
+  #
+  # An arbiter who learns at board 4 that someone hasn't turned up doesn't
+  # want the round re-paired — they want THAT seat emptied and, if
+  # possible, refilled from whoever is sitting the round out. So a seat can
+  # be VACANT: `white_player_id`/`black_player_id` is `nil` while
+  # `result` is `""`.
+  #
+  # That shape is deliberately the one the rest of the codebase already
+  # copes with, rather than a new flag:
+  #
+  #   * `Standings.pairing_records/3` returns `[]` for `result: ""`, so a
+  #     vacant board contributes nothing to anyone's score — true, since
+  #     no game has happened and the arbiter hasn't yet said what should
+  #     happen instead.
+  #   * `Pairing.round_complete?/2` looks for exactly `result == ""`, so a
+  #     vacant board blocks the next round from being paired until the
+  #     arbiter resolves it. That's the safety net: a vacancy can't be
+  #     silently forgotten.
+  #   * TRF export's `bye_safe_result/2` already normalises a row with no
+  #     opponent into a legal bye code.
+  #
+  # A vacancy is resolved exactly two ways — `fill_seat/4` (someone takes
+  # the seat) or `award_bye_for_vacancy/2` (the player left behind gets a
+  # bye). Both land on shapes with well-defined FIDE scoring; neither
+  # invents a "forfeit against nobody", which is the one combination the
+  # tiebreak code has no rule for (see `Standings.dummy_score/3`'s note).
+
+  @doc """
+  Everyone in `tournament_id` who is NOT sitting at a board in round
+  `number` — the round's pool. `type` is the `"byes"`-table type when
+  they have a row there (`"requested-half"`, `"requested-zero"`,
+  `"absent"`), or `nil` for a player who is simply unpaired.
+
+  Each entry carries `player_id` and `round` alongside the preloaded
+  `player`, so an entry IS a `"byes"`-table row as far as
+  `Standings.bye_points_for_row/2` is concerned — the pool panel can ask
+  it what a given absence scores without a second, parallel notion of
+  what byes are worth.
+
+  This is what the Pairings page's "Not playing this round" panel lists,
+  and the set a vacant seat can be filled from.
+  """
+  def list_round_pool(tournament_id, number) do
+    seated =
+      from(p in Pairing,
+        join: r in Round,
+        on: p.round_id == r.id,
+        where: r.tournament_id == ^tournament_id and r.number == ^number,
+        select: [p.white_player_id, p.black_player_id]
+      )
+      |> Repo.all()
+      |> List.flatten()
+      |> Enum.reject(&is_nil/1)
+      |> MapSet.new()
+
+    bye_types =
+      from(b in "byes",
+        where: b.tournament_id == ^tournament_id and b.round == ^number,
+        select: {b.player_id, b.type}
+      )
+      |> Repo.all()
+      |> Map.new()
+
+    # `PairingsEngine.Pairing.active_players/1` — status "active", not
+    # globally `absent`, not `forfeit` — is already the pairing engine's
+    # own definition of "could ever be paired again". A player who fails
+    # that isn't sitting THIS round out, they're out for the rest of the
+    # event, so listing them as a swap/fill candidate here would offer to
+    # bring back someone the arbiter already removed. `list_players/1`
+    # (every player regardless of eligibility) would be the wrong base set.
+    tournament_id
+    |> PairingsEngine.Pairing.active_players()
+    |> Enum.reject(&MapSet.member?(seated, &1.id))
+    |> Enum.map(&%{player: &1, player_id: &1.id, round: number, type: Map.get(bye_types, &1.id)})
+  end
+
+  @doc """
+  Empties the seat `player_id` occupies in `round`, leaving the board, its
+  number and the opponent exactly where they are, and files the player as
+  `"absent"` for the round so they score the tournament's absence value
+  (`Standings.bye_points/4`) and show up in `list_round_pool/2`.
+
+  Any result already on that board is cleared: it described a game between
+  two specific players, and one of them is no longer there.
+  """
+  def vacate_seat(%Round{} = round, player_id, type \\ "absent") do
+    case find_player_seat(round.pairings, player_id) do
+      {:error, reason} ->
+        {:error, reason}
+
+      {:ok, {pairing, field}} ->
+        Repo.transaction(fn ->
+          {:ok, updated} =
+            pairing
+            |> Pairing.changeset(%{field => nil, :result => ""})
+            |> Repo.update()
+
+          Repo.insert_all(
+            "byes",
+            [
+              %{
+                tournament_id: round.tournament_id,
+                player_id: player_id,
+                round: round.number,
+                type: type
+              }
+            ],
+            on_conflict: :nothing
+          )
+
+          updated
+        end)
+        |> finish_round_write(round.tournament_id)
+    end
+  end
+
+  @doc """
+  Seats `player_id` (someone from `list_round_pool/2`) in the vacant side
+  of `pairing`, and drops their `"byes"` row for the round — they're
+  playing after all, so the absence that put them in the pool no longer
+  applies.
+
+  Returns `{:error, :seat_taken}` if neither side of the board is vacant.
+  """
+  def fill_seat(%Round{} = round, %Pairing{} = pairing, player_id) do
+    field =
+      cond do
+        is_nil(pairing.white_player_id) -> :white_player_id
+        is_nil(pairing.black_player_id) -> :black_player_id
+        true -> nil
+      end
+
+    cond do
+      is_nil(field) ->
+        {:error, :seat_taken}
+
+      pairing.result == "bye" ->
+        # Not a vacancy — an allocated bye. Filling it would silently
+        # convert a scored bye into a game; `award_bye_for_vacancy/2`'s
+        # inverse is a deliberate, separate action.
+        {:error, :not_a_vacancy}
+
+      true ->
+        Repo.transaction(fn ->
+          {:ok, updated} = pairing |> Pairing.changeset(%{field => player_id}) |> Repo.update()
+          delete_bye_row(round, player_id)
+          updated
+        end)
+        |> finish_round_write(round.tournament_id)
+    end
+  end
+
+  @doc """
+  Resolves a vacancy the other way: the player still sitting at `pairing`
+  gets a pairing-allocated bye. They move into the white seat (a bye is
+  stored as `black_player_id: nil`, the shape `Standings` and the TRF
+  export both already read) and the board scores `bye_value`.
+  """
+  def award_bye_for_vacancy(%Round{} = round, %Pairing{} = pairing) do
+    remaining = pairing.white_player_id || pairing.black_player_id
+
+    cond do
+      is_nil(remaining) ->
+        {:error, :empty_board}
+
+      pairing.white_player_id && pairing.black_player_id ->
+        {:error, :not_a_vacancy}
+
+      true ->
+        pairing
+        |> Pairing.changeset(%{
+          white_player_id: remaining,
+          black_player_id: nil,
+          result: "bye"
+        })
+        |> Repo.update()
+        |> finish_round_write(round.tournament_id)
+    end
+  end
+
+  @doc """
+  Pairs two pool players into a brand-new board in `round`, numbered
+  `board`. Both players' `"byes"` rows are dropped — they're playing.
+  """
+  def pair_from_pool(%Round{} = round, white_id, black_id, board)
+      when is_integer(board) and board > 0 do
+    if white_id == black_id do
+      {:error, :same_player}
+    else
+      Repo.transaction(fn ->
+        {:ok, created} =
+          %Pairing{round_id: round.id}
+          |> Pairing.changeset(%{
+            board: board,
+            white_player_id: white_id,
+            black_player_id: black_id,
+            result: ""
+          })
+          |> Repo.insert()
+
+        delete_bye_row(round, white_id)
+        delete_bye_row(round, black_id)
+        created
+      end)
+      |> finish_round_write(round.tournament_id)
+    end
+  end
+
+  @doc """
+  The lowest board number not already used in `round` — what the "pair
+  these two" action offers as a default table number.
+  """
+  def next_free_board(%Round{} = round) do
+    used = MapSet.new(round.pairings, & &1.board)
+    Enum.find(1..(MapSet.size(used) + 1)//1, &(not MapSet.member?(used, &1)))
+  end
+
+  @doc """
+  Swaps a SEATED player with one from `list_round_pool/2`: the pool player
+  takes the seat (board, colour and opponent all unchanged), and the
+  player who was there goes into the pool in their place, filed under the
+  same `"byes"` type the pool player had — an "absent" swap hands over the
+  absence along with the seat, so the round's absentee count doesn't
+  change just because two names traded places.
+
+  A pool player with no `"byes"` row at all (simply unpaired) hands over
+  `"absent"`, that being what the displaced player now is.
+  """
+  def swap_seated_with_pool_player(%Round{} = round, seated_id, pool_id) do
+    with {:ok, {pairing, field}} <- find_player_seat(round.pairings, seated_id) do
+      handover_type = pool_player_type(round, pool_id) || "absent"
+
+      Repo.transaction(fn ->
+        {:ok, updated} =
+          pairing
+          |> Pairing.changeset(clear_stale_result(%{field => pool_id}, pairing))
+          |> Repo.update()
+
+        delete_bye_row(round, pool_id)
+
+        Repo.insert_all(
+          "byes",
+          [
+            %{
+              tournament_id: round.tournament_id,
+              player_id: seated_id,
+              round: round.number,
+              type: handover_type
+            }
+          ],
+          on_conflict: :nothing
+        )
+
+        updated
+      end)
+      |> finish_round_write(round.tournament_id)
+    end
+  end
+
+  defp pool_player_type(%Round{} = round, player_id) do
+    Repo.one(
+      from b in "byes",
+        where:
+          b.tournament_id == ^round.tournament_id and b.round == ^round.number and
+            b.player_id == ^player_id,
+        select: b.type
+    )
+  end
+
+  defp delete_bye_row(%Round{} = round, player_id) do
+    Repo.delete_all(
+      from b in "byes",
+        where:
+          b.tournament_id == ^round.tournament_id and b.round == ^round.number and
+            b.player_id == ^player_id
+    )
   end
 
   ## ---------- Tournament/round status ----------

@@ -85,6 +85,12 @@ defmodule PairingsEngineWeb.SettingsSupport do
       >
         FIDE
       </.link>
+      <.link
+        navigate={~p"/t/#{@tournament.id}/settings/about"}
+        class={["pe-btn", "filter-picker", @active == :about && "active"]}
+      >
+        About
+      </.link>
     </div>
     """
   end

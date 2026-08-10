@@ -2,32 +2,67 @@ defmodule PairingsEngine.PlayerStatsTest do
   use ExUnit.Case, async: true
 
   alias PairingsEngine.PlayerStats
+  alias PairingsEngine.Tournaments.Player
 
-  describe "category/2" do
-    test "nil birth_year gives an empty category" do
-      assert PlayerStats.category(nil, 2026) == ""
+  describe "assign_category/4 (SWAR CATEGORIES threshold rules)" do
+    defp player(attrs), do: struct(Player, attrs)
+
+    test "a 1000-rated player picks the tighter of two overlapping elo_below ceilings" do
+      rules = %{
+        "-1200" => %{"kind" => "elo_below", "value" => 1200},
+        "-1100" => %{"kind" => "elo_below", "value" => 1100}
+      }
+
+      p = player(fide_rating: 1000, national_rating: 0)
+      assert PlayerStats.assign_category(p, ["-1200", "-1100"], rules) == "-1100"
+      # Order in the list must not matter — it's the value that's tighter.
+      assert PlayerStats.assign_category(p, ["-1100", "-1200"], rules) == "-1100"
     end
 
-    test "youth brackets step every two years, exclusive upper bound" do
-      assert PlayerStats.category(2019, 2026) == "-8"
-      assert PlayerStats.category(2017, 2026) == "-10"
-      assert PlayerStats.category(2015, 2026) == "-12"
-      assert PlayerStats.category(2013, 2026) == "-14"
-      assert PlayerStats.category(2011, 2026) == "-16"
-      assert PlayerStats.category(2009, 2026) == "-18"
-      assert PlayerStats.category(2007, 2026) == "-20"
+    test "elo_above picks the larger (more specific) floor" do
+      rules = %{
+        "+1800" => %{"kind" => "elo_above", "value" => 1800},
+        "+2000" => %{"kind" => "elo_above", "value" => 2000}
+      }
+
+      p = player(fide_rating: 2100, national_rating: 0)
+      assert PlayerStats.assign_category(p, ["+1800", "+2000"], rules) == "+2000"
     end
 
-    test "adults between -20 and S50 fall into SEN" do
-      assert PlayerStats.category(1996, 2026) == "SEN"
-      assert PlayerStats.category(1977, 2026) == "SEN"
+    test "age_below/age_above use birth_year against the given current_year" do
+      rules = %{"U18" => %{"kind" => "age_below", "value" => 18}}
+      p = player(fide_rating: 0, national_rating: 0, birth_year: 2015)
+      assert PlayerStats.assign_category(p, ["U18"], rules, 2026) == "U18"
+      assert PlayerStats.assign_category(p, ["U18"], rules, 2035) == ""
     end
 
-    test "50-64 is S50, 65+ is S65" do
-      assert PlayerStats.category(1976, 2026) == "S50"
-      assert PlayerStats.category(1962, 2026) == "S50"
-      assert PlayerStats.category(1961, 2026) == "S65"
-      assert PlayerStats.category(1940, 2026) == "S65"
+    test "a plain category with no rule is never auto-matched" do
+      rules = %{}
+      p = player(fide_rating: 1000, national_rating: 0)
+      assert PlayerStats.assign_category(p, ["Open"], rules) == ""
+    end
+
+    test "no match at all (unrated, and no age rule) gives blank" do
+      rules = %{"+1800" => %{"kind" => "elo_above", "value" => 1800}}
+      p = player(fide_rating: 0, national_rating: 0)
+      assert PlayerStats.assign_category(p, ["+1800"], rules) == ""
+    end
+
+    test "matching more than one KIND at once is broken by list order" do
+      rules = %{
+        "-1200" => %{"kind" => "elo_below", "value" => 1200},
+        "U18" => %{"kind" => "age_below", "value" => 18}
+      }
+
+      p = player(fide_rating: 1000, national_rating: 0, birth_year: 2015)
+      assert PlayerStats.assign_category(p, ["-1200", "U18"], rules, 2026) == "-1200"
+      assert PlayerStats.assign_category(p, ["U18", "-1200"], rules, 2026) == "U18"
+    end
+
+    test "falls back to national_rating when there is no FIDE rating" do
+      rules = %{"-1500" => %{"kind" => "elo_below", "value" => 1500}}
+      p = player(fide_rating: 0, national_rating: 1400)
+      assert PlayerStats.assign_category(p, ["-1500"], rules) == "-1500"
     end
   end
 

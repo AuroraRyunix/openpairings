@@ -212,6 +212,305 @@ defmodule PairingsEngine.TournamentsTest do
     end
   end
 
+  describe "swap_players_in_round/3" do
+    setup do
+      tournament = Repo.insert!(%Tournament{name: "Swap T", type: "swiss", rounds_count: 3})
+      a = Repo.insert!(%Player{tournament_id: tournament.id, name: "A"})
+      b = Repo.insert!(%Player{tournament_id: tournament.id, name: "B"})
+      c = Repo.insert!(%Player{tournament_id: tournament.id, name: "C"})
+      d = Repo.insert!(%Player{tournament_id: tournament.id, name: "D"})
+      round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+
+      board1 =
+        Repo.insert!(%Pairing{
+          round_id: round.id,
+          board: 1,
+          white_player_id: a.id,
+          black_player_id: b.id,
+          result: ""
+        })
+
+      board2 =
+        Repo.insert!(%Pairing{
+          round_id: round.id,
+          board: 2,
+          white_player_id: c.id,
+          black_player_id: d.id,
+          result: ""
+        })
+
+      round = Tournaments.get_round(tournament.id, 1)
+      %{round: round, a: a, b: b, c: c, d: d, board1: board1, board2: board2}
+    end
+
+    test "swapping two players from different boards trades their seats, not their opponents",
+         %{round: round, a: a, b: b, c: c, d: d} do
+      # 1. A-B, 2. C-D -> swap(A, D) -> 1. D-B, 2. C-A (verbatim example the
+      # feature was speced against).
+      assert {:ok, _} = Tournaments.swap_players_in_round(round, a.id, d.id)
+
+      round = Tournaments.get_round(round.tournament_id, round.number)
+      board1 = Enum.find(round.pairings, &(&1.board == 1))
+      board2 = Enum.find(round.pairings, &(&1.board == 2))
+
+      assert board1.white_player_id == d.id
+      assert board1.black_player_id == b.id
+      assert board2.white_player_id == c.id
+      assert board2.black_player_id == a.id
+    end
+
+    test "swapping a player with their own opponent only flips that board's colours",
+         %{round: round, a: a, b: b} do
+      assert {:ok, _} = Tournaments.swap_players_in_round(round, a.id, b.id)
+
+      round = Tournaments.get_round(round.tournament_id, round.number)
+      board1 = Enum.find(round.pairings, &(&1.board == 1))
+
+      assert board1.white_player_id == b.id
+      assert board1.black_player_id == a.id
+    end
+
+    test "swapping into a bye reassigns the bye, and the swapped-out player keeps its result",
+         %{round: round, a: a, b: b, board1: board1} do
+      {:ok, _} = Tournaments.update_pairing_result(board1, "1-0")
+
+      round2 =
+        Repo.insert!(%Round{tournament_id: round.tournament_id, number: 2, status: "playing"})
+
+      e = Repo.insert!(%Player{tournament_id: round.tournament_id, name: "E"})
+
+      # A also has a normal board in round 2 (the round the swap actually
+      # happens in) — swap works within one round's own pairings, so both
+      # players being swapped have to be seated in THAT round.
+      Repo.insert!(%Pairing{
+        round_id: round2.id,
+        board: 1,
+        white_player_id: a.id,
+        black_player_id: b.id,
+        result: ""
+      })
+
+      Repo.insert!(%Pairing{
+        round_id: round2.id,
+        board: 2,
+        white_player_id: e.id,
+        black_player_id: nil,
+        result: "bye"
+      })
+
+      round2 = Tournaments.get_round(round.tournament_id, 2)
+      assert {:ok, _} = Tournaments.swap_players_in_round(round2, a.id, e.id)
+
+      round2 = Tournaments.get_round(round.tournament_id, 2)
+      board1_r2 = Enum.find(round2.pairings, &(&1.board == 1))
+      bye_board = Enum.find(round2.pairings, &(&1.board == 2))
+
+      # A now has the bye, and the bye marker itself is untouched — it's a
+      # scoring rule for the empty seat, not a claim about who fills it.
+      assert bye_board.white_player_id == a.id
+      assert bye_board.black_player_id == nil
+      assert bye_board.result == "bye"
+
+      # E has taken over A's old seat in round 2's board 1.
+      assert board1_r2.white_player_id == e.id
+      assert board1_r2.black_player_id == b.id
+      assert board1_r2.result == ""
+
+      # Round 1's own board 1 (A vs B, "1-0") is a completely different
+      # round and is untouched by any of this.
+      board1_r1 =
+        Enum.find(Tournaments.get_round(round.tournament_id, 1).pairings, &(&1.board == 1))
+
+      assert board1_r1.white_player_id == a.id
+      assert board1_r1.result == "1-0"
+    end
+
+    test "a stale non-bye result is cleared by a swap that touches its board",
+         %{round: round, a: a, d: d, board1: board1} do
+      {:ok, _} = Tournaments.update_pairing_result(board1, "1-0")
+      round = Tournaments.get_round(round.tournament_id, round.number)
+
+      assert {:ok, _} = Tournaments.swap_players_in_round(round, a.id, d.id)
+
+      round = Tournaments.get_round(round.tournament_id, round.number)
+      board1_after = Enum.find(round.pairings, &(&1.board == 1))
+      assert board1_after.result == ""
+    end
+
+    test "rejects swapping a player with themselves", %{round: round, a: a} do
+      assert {:error, :same_player} = Tournaments.swap_players_in_round(round, a.id, a.id)
+    end
+
+    test "rejects a player who isn't in this round", %{round: round, a: a} do
+      assert {:error, :not_in_round} = Tournaments.swap_players_in_round(round, a.id, -1)
+    end
+  end
+
+  describe "vacancies (mark absent on the board, refill from the pool)" do
+    # A player who was never seated this round can't be `vacate_seat`ed
+    # into the pool — they're already in it. This is how they get a
+    # `"byes"` type without going through a seat.
+    defp put_bye_row(tournament, player, type) do
+      Repo.insert_all("byes", [
+        %{tournament_id: tournament.id, player_id: player.id, round: 1, type: type}
+      ])
+    end
+
+    setup do
+      tournament = Repo.insert!(%Tournament{name: "Vac T", type: "swiss", rounds_count: 3})
+      a = Repo.insert!(%Player{tournament_id: tournament.id, name: "A"})
+      b = Repo.insert!(%Player{tournament_id: tournament.id, name: "B"})
+      c = Repo.insert!(%Player{tournament_id: tournament.id, name: "C"})
+      spare = Repo.insert!(%Player{tournament_id: tournament.id, name: "Spare"})
+      round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+
+      Repo.insert!(%Pairing{
+        round_id: round.id,
+        board: 1,
+        white_player_id: a.id,
+        black_player_id: b.id,
+        result: "1-0"
+      })
+
+      %{
+        tournament: tournament,
+        round: Tournaments.get_round(tournament.id, 1),
+        a: a,
+        b: b,
+        c: c,
+        spare: spare
+      }
+    end
+
+    test "list_round_pool returns everyone not seated, tagged with their bye type",
+         %{tournament: t, c: c, spare: spare} do
+      pool = Tournaments.list_round_pool(t.id, 1)
+      assert Enum.map(pool, & &1.player.id) |> Enum.sort() == Enum.sort([c.id, spare.id])
+      # Neither has a byes row yet, so neither carries a type.
+      assert Enum.all?(pool, &(&1.type == nil))
+    end
+
+    test "a player who's permanently absent, forfeited, or inactive doesn't appear as a swap candidate",
+         %{tournament: t, c: c, spare: spare} do
+      {:ok, _} = Tournaments.update_player(c, %{"absent" => "true"})
+      {:ok, _} = Tournaments.update_player(spare, %{"forfeit" => "true"})
+      never_active = Repo.insert!(%Player{tournament_id: t.id, name: "Gone", status: "withdrawn"})
+
+      pool = Tournaments.list_round_pool(t.id, 1)
+
+      # None of the three globally-ineligible players are offered as a
+      # replacement — bringing them back via a round-specific swap would
+      # silently undo a permanent removal.
+      refute Enum.any?(pool, &(&1.player.id in [c.id, spare.id, never_active.id]))
+    end
+
+    test "vacating a seat empties it, keeps the board and opponent, and clears the result",
+         %{round: round, a: a, b: b} do
+      assert {:ok, _} = Tournaments.vacate_seat(round, a.id)
+
+      round = Tournaments.get_round(round.tournament_id, 1)
+      board1 = hd(round.pairings)
+
+      assert board1.board == 1
+      assert board1.white_player_id == nil
+      assert board1.black_player_id == b.id
+      assert board1.result == ""
+    end
+
+    test "a vacated player joins the pool as absent and blocks the round from completing",
+         %{tournament: t, round: round, a: a} do
+      assert PairingsEngine.Pairing.round_complete?(t.id, 1) == true
+
+      {:ok, _} = Tournaments.vacate_seat(round, a.id)
+
+      pool = Tournaments.list_round_pool(t.id, 1)
+      assert %{type: "absent"} = Enum.find(pool, &(&1.player.id == a.id))
+
+      # The blank result on the vacant board is what stops the next round
+      # being paired until the arbiter resolves the vacancy.
+      refute PairingsEngine.Pairing.round_complete?(t.id, 1)
+    end
+
+    test "filling a vacant seat seats the replacement and drops their bye row",
+         %{tournament: t, round: round, a: a, c: c} do
+      {:ok, _} = Tournaments.vacate_seat(round, a.id)
+      put_bye_row(t, c, "requested-half")
+
+      round = Tournaments.get_round(t.id, 1)
+      vacant = hd(round.pairings)
+
+      assert {:ok, _} = Tournaments.fill_seat(round, vacant, c.id)
+
+      round = Tournaments.get_round(t.id, 1)
+      board1 = hd(round.pairings)
+      assert board1.white_player_id == c.id
+
+      pool_ids = Tournaments.list_round_pool(t.id, 1) |> Enum.map(& &1.player.id)
+      refute c.id in pool_ids
+      assert a.id in pool_ids
+    end
+
+    test "filling a board that has no vacant side is refused", %{round: round, c: c} do
+      assert {:error, :seat_taken} = Tournaments.fill_seat(round, hd(round.pairings), c.id)
+    end
+
+    test "awarding a bye resolves the vacancy into the shape Standings already scores",
+         %{tournament: t, round: round, a: a, b: b} do
+      {:ok, _} = Tournaments.vacate_seat(round, a.id)
+      round = Tournaments.get_round(t.id, 1)
+
+      assert {:ok, _} = Tournaments.award_bye_for_vacancy(round, hd(round.pairings))
+
+      round = Tournaments.get_round(t.id, 1)
+      board1 = hd(round.pairings)
+      # A bye is white-seat + nil black + "bye" — B moves across from black.
+      assert board1.white_player_id == b.id
+      assert board1.black_player_id == nil
+      assert board1.result == "bye"
+      assert PairingsEngine.Pairing.round_complete?(t.id, 1)
+    end
+
+    test "awarding a bye on a full board is refused", %{round: round} do
+      assert {:error, :not_a_vacancy} =
+               Tournaments.award_bye_for_vacancy(round, hd(round.pairings))
+    end
+
+    test "two pool players can be paired onto a new board with a chosen number",
+         %{tournament: t, round: round, c: c, spare: spare} do
+      assert Tournaments.next_free_board(round) == 2
+
+      assert {:ok, _} = Tournaments.pair_from_pool(round, c.id, spare.id, 7)
+
+      round = Tournaments.get_round(t.id, 1)
+      new_board = Enum.find(round.pairings, &(&1.board == 7))
+      assert new_board.white_player_id == c.id
+      assert new_board.black_player_id == spare.id
+      assert new_board.result == ""
+
+      assert Tournaments.list_round_pool(t.id, 1) == []
+    end
+
+    test "swapping a seated player with a pool player hands over the seat and the absence",
+         %{tournament: t, a: a, c: c} do
+      put_bye_row(t, c, "requested-half")
+      round = Tournaments.get_round(t.id, 1)
+
+      assert {:ok, _} = Tournaments.swap_seated_with_pool_player(round, a.id, c.id)
+
+      round = Tournaments.get_round(t.id, 1)
+      board1 = hd(round.pairings)
+      assert board1.white_player_id == c.id
+      # A's "1-0" described a game A played; it no longer does.
+      assert board1.result == ""
+
+      pool = Tournaments.list_round_pool(t.id, 1)
+      # A inherits the exact bye type C was carrying, so the round's
+      # absentee accounting is unchanged by the substitution.
+      assert %{type: "requested-half"} = Enum.find(pool, &(&1.player.id == a.id))
+      refute Enum.any?(pool, &(&1.player.id == c.id))
+    end
+  end
+
   describe "refresh_status!/1" do
     test "a tournament with no paired rounds stays \"setup\"" do
       tournament =

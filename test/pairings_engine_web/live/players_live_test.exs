@@ -19,7 +19,10 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
 
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/players")
 
-    assert html =~ ~s(href="/t/#{tournament.id}/print/players")
+    # The player-list link carries `?cols=` (see `printable_player_list_columns/1`)
+    # so the print shows whatever's currently checked in the Display panel —
+    # not a fixed set — hence a prefix match rather than an exact href.
+    assert html =~ ~s(href="/t/#{tournament.id}/print/players?)
     assert html =~ ~s(href="/t/#{tournament.id}/print/cards")
     assert html =~ "Print player list"
     assert html =~ "Print player cards"
