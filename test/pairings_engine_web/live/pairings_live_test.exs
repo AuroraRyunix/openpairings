@@ -959,5 +959,38 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       pool_ids = Tournaments.list_round_pool(t.id, 1) |> Enum.map(& &1.player.id)
       assert a.id in pool_ids
     end
+
+    test "an absentee is listed in the pool and can be swapped onto a board",
+         %{conn: conn, scope: scope} do
+      %{tournament: t, a: a, spare: spare} = two_board_fixture(scope)
+      {:ok, _} = Tournaments.update_player(spare, %{"absent" => "true"})
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{t.id}/pairings")
+
+      # The whole point of the panel: someone who said they could not come
+      # has to be visible, because turning up anyway is the commonest
+      # reason to reach for a swap at all.
+      assert html =~ "Spare"
+      assert html =~ "absent (whole event)"
+
+      html = arm_and_pick(lv, a.id, spare.id)
+      assert html =~ "Substitute player"
+      # Playing one round does not un-withdraw them, and the modal says so.
+      assert html =~ "stay marked absent for the whole event"
+
+      render_click(lv, "apply_confirm", %{})
+
+      round = Tournaments.get_round(t.id, 1)
+      assert Enum.find(round.pairings, &(&1.board == 1)).white_player_id == spare.id
+    end
+
+    test "a forfeited player is not listed in the pool", %{conn: conn, scope: scope} do
+      %{tournament: t, spare: spare} = two_board_fixture(scope)
+      {:ok, _} = Tournaments.update_player(spare, %{"forfeit" => "true"})
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings")
+
+      refute html =~ "Spare"
+    end
   end
 end

@@ -390,18 +390,31 @@ defmodule PairingsEngine.TournamentsTest do
       assert Enum.all?(pool, &(&1.type == nil))
     end
 
-    test "a player who's permanently absent, forfeited, or inactive doesn't appear as a swap candidate",
-         %{tournament: t, c: c, spare: spare} do
+    test "an absent player IS offered as a swap candidate, and is flagged as such",
+         %{tournament: t, c: c} do
       {:ok, _} = Tournaments.update_player(c, %{"absent" => "true"})
+
+      pool = Tournaments.list_round_pool(t.id, 1)
+      entry = Enum.find(pool, &(&1.player.id == c.id))
+
+      # The pool exists so an absentee who turned up after all can be put
+      # back in. Filtering them out (which the pairing engine's own
+      # `active_players/1` does, and this function used to borrow) hid
+      # exactly the players worth swapping with.
+      assert entry, "an absent player must still be offered as a substitute"
+      assert entry.absent?
+    end
+
+    test "a forfeited or non-active player is NOT offered as a swap candidate",
+         %{tournament: t, spare: spare} do
       {:ok, _} = Tournaments.update_player(spare, %{"forfeit" => "true"})
-      never_active = Repo.insert!(%Player{tournament_id: t.id, name: "Gone", status: "withdrawn"})
+      withdrawn = Repo.insert!(%Player{tournament_id: t.id, name: "Gone", status: "withdrawn"})
 
       pool = Tournaments.list_round_pool(t.id, 1)
 
-      # None of the three globally-ineligible players are offered as a
-      # replacement — bringing them back via a round-specific swap would
-      # silently undo a permanent removal.
-      refute Enum.any?(pool, &(&1.player.id in [c.id, spare.id, never_active.id]))
+      # These are withdrawals from the event, not "sitting this one out".
+      # Reversing one is a deliberate edit on the Players page.
+      refute Enum.any?(pool, &(&1.player.id in [spare.id, withdrawn.id]))
     end
 
     test "vacating a seat empties it, keeps the board and opponent, and clears the result",

@@ -539,7 +539,9 @@ defmodule PairingsEngineWeb.PairingsLive do
              title: "Substitute player",
              subtitle: "#{pool_name} takes #{seated_name}'s place",
              changes: [board_change(pairing, [{field, pool_name}])],
-             note: "#{seated_name} moves to the not-playing list for this round."
+             note:
+               "#{seated_name} moves to the not-playing list for this round." <>
+                 whole_event_note(socket, pool_id)
            }}
         else
           {:error, :not_in_round}
@@ -602,7 +604,9 @@ defmodule PairingsEngineWeb.PairingsLive do
          title: "Fill the empty seat",
          subtitle: "#{name} joins board #{pairing.board}",
          changes: [board_change(pairing, [{field, name}])],
-         note: "#{name} is no longer marked absent for this round."
+         note:
+           "#{name} is no longer marked absent for this round." <>
+             whole_event_note(socket, player_id)
        }}
     end
   end
@@ -692,6 +696,19 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   defp pool_member?(pool, player_id), do: Enum.any?(pool, &(&1.player.id == player_id))
+
+  # Bringing someone in for ONE round does not un-withdraw them from the
+  # event, and silently clearing a tournament-wide flag as a side effect
+  # of a board-level swap would be a surprise. So the flag stays and the
+  # modal says so, with the one place that can change it.
+  defp whole_event_note(socket, player_id) do
+    if Enum.any?(socket.assigns.round_pool, &(&1.player.id == player_id and &1.absent?)) do
+      " They stay marked absent for the whole event — clear that on the Players page if they " <>
+        "are back for good, or the next round will leave them out again."
+    else
+      ""
+    end
+  end
 
   defp fetch_pairing(nil, _id), do: {:error, :not_in_round}
 
@@ -966,8 +983,12 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp pool_click(_swap_first), do: "pick_swap_target"
 
   # What the pool chip says about WHY someone isn't playing, and what it
-  # scores — an unpaired player with no byes row scores nothing at all,
-  # which is worth showing plainly rather than leaving blank.
+  # scores. The tournament-wide `absent` flag is reported ahead of the
+  # per-round byes row because it is the reason they are not in the
+  # pairing at all — and, being the flag an arbiter most often reverses
+  # on the day, the one they need to recognise at a glance.
+  defp pool_tag(%{absent?: true}, _tournament), do: "absent (whole event)"
+
   defp pool_tag(%{type: nil}, _tournament), do: "unpaired"
 
   defp pool_tag(%{type: type} = entry, tournament) do

@@ -1632,7 +1632,9 @@ defmodule PairingsEngine.Tournaments do
   `player`, so an entry IS a `"byes"`-table row as far as
   `Standings.bye_points_for_row/2` is concerned — the pool panel can ask
   it what a given absence scores without a second, parallel notion of
-  what byes are worth.
+  what byes are worth. `absent?` reports the player's tournament-wide
+  `absent` flag, which is separate from any per-round `"byes"` row and is
+  why a listed player may carry no `type` at all.
 
   This is what the Pairings page's "Not playing this round" panel lists,
   and the set a vacant seat can be filled from.
@@ -1658,17 +1660,32 @@ defmodule PairingsEngine.Tournaments do
       |> Repo.all()
       |> Map.new()
 
-    # `PairingsEngine.Pairing.active_players/1` — status "active", not
-    # globally `absent`, not `forfeit` — is already the pairing engine's
-    # own definition of "could ever be paired again". A player who fails
-    # that isn't sitting THIS round out, they're out for the rest of the
-    # event, so listing them as a swap/fill candidate here would offer to
-    # bring back someone the arbiter already removed. `list_players/1`
-    # (every player regardless of eligibility) would be the wrong base set.
-    tournament_id
-    |> PairingsEngine.Pairing.active_players()
+    # The pool exists so the arbiter can put someone back IN, which
+    # decides who belongs in it. `absent` is the SOFT flag — "told us
+    # they can't make it" — and someone turning up anyway is the
+    # commonest reason to reach for a swap at all, so they have to be
+    # listed. This function used to borrow
+    # `PairingsEngine.Pairing.active_players/1`, whose job is "who may the
+    # engine pair automatically" and which therefore drops `absent`; that
+    # made precisely the players worth swapping with invisible.
+    #
+    # `forfeit` and a non-active status are the HARD ones and stay out.
+    # Those are withdrawals from the event, and reversing one is a
+    # deliberate edit on the Players page, not a round-level substitution.
+    from(p in Player,
+      where: p.tournament_id == ^tournament_id and p.status == "active" and p.forfeit == false
+    )
+    |> Repo.all()
     |> Enum.reject(&MapSet.member?(seated, &1.id))
-    |> Enum.map(&%{player: &1, player_id: &1.id, round: number, type: Map.get(bye_types, &1.id)})
+    |> Enum.map(
+      &%{
+        player: &1,
+        player_id: &1.id,
+        round: number,
+        type: Map.get(bye_types, &1.id),
+        absent?: &1.absent
+      }
+    )
   end
 
   @doc """
