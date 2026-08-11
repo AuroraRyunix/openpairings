@@ -105,6 +105,18 @@ defmodule PairingsEngineWeb.PlayersLive do
       Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
     end
 
+    # Clears the "another arbiter" notice the moment the user interacts with
+    # the page again — same reasoning as PairingsLive's identical hook: a
+    # self-clearing timer alone would leave it sitting through an
+    # in-progress click, and there's no harm clearing it eagerly since every
+    # mutating event already refreshes the player data itself.
+    socket =
+      attach_hook(socket, :remote_notice_clear_on_click, :handle_event, fn _event,
+                                                                           _params,
+                                                                           socket ->
+        {:cont, assign(socket, remote_notice: false)}
+      end)
+
     {:ok,
      socket
      |> assign(
@@ -124,6 +136,7 @@ defmodule PairingsEngineWeb.PlayersLive do
        rating_refresh: nil,
        sort_col: nil,
        sort_dir: nil,
+       remote_notice: false,
        setup_complete: Tournament.setup_complete?(tournament),
        missing_setup: Tournament.missing_setup_fields(tournament)
      )
@@ -134,6 +147,14 @@ defmodule PairingsEngineWeb.PlayersLive do
   # the players list and the tournament itself, but leave any open
   # modal/form (add-player form, edit-player modal, players card) alone so
   # we don't clobber whatever the user is mid-typing there.
+  #
+  # Same "compare before vs after refresh" trick PairingsLive's identical
+  # notice uses, for the identical reason: this LiveView is subscribed to
+  # its own tournament's topic, so a mutation it caused ITSELF echoes right
+  # back here too, after `refresh/1` already ran synchronously — comparing
+  # the freshly reloaded grid against what's already on screen tells "my
+  # own echo" apart from "someone else actually changed something" without
+  # separate bookkeeping.
   @impl true
   def handle_info({:tournament_changed, _tournament_id, _hint}, socket) do
     case Tournaments.get_authorized_tournament(
@@ -147,15 +168,31 @@ defmodule PairingsEngineWeb.PlayersLive do
          |> push_navigate(to: ~p"/")}
 
       tournament ->
-        {:noreply,
-         socket
-         |> assign(
-           tournament: tournament,
-           setup_complete: Tournament.setup_complete?(tournament),
-           missing_setup: Tournament.missing_setup_fields(tournament)
-         )
-         |> assign_players()}
+        old_players = socket.assigns.players
+
+        socket =
+          socket
+          |> assign(
+            tournament: tournament,
+            setup_complete: Tournament.setup_complete?(tournament),
+            missing_setup: Tournament.missing_setup_fields(tournament)
+          )
+          |> assign_players()
+
+        socket =
+          if socket.assigns.players != old_players do
+            Process.send_after(self(), :clear_remote_notice, 4000)
+            assign(socket, remote_notice: true)
+          else
+            socket
+          end
+
+        {:noreply, socket}
     end
+  end
+
+  def handle_info(:clear_remote_notice, socket) do
+    {:noreply, assign(socket, remote_notice: false)}
   end
 
   defp assign_players(socket) do
@@ -622,6 +659,10 @@ defmodule PairingsEngineWeb.PlayersLive do
     {:noreply, assign(socket, editing_player: nil, edit_form: %{}, edit_error: nil)}
   end
 
+  def handle_event("dismiss_remote_notice", _params, socket) do
+    {:noreply, assign(socket, remote_notice: false)}
+  end
+
   # Mirrors SWAR's "Rafraichir": re-looks-up the player in the local FIDE
   # copy (by FIDE ID if the form has one, by name otherwise) and refills
   # rating/title/federation/birth year from the match, if any.
@@ -1032,6 +1073,22 @@ defmodule PairingsEngineWeb.PlayersLive do
       tournament={@tournament}
       active="players"
     >
+      <div
+        :if={@remote_notice}
+        class="card"
+        style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; padding: 8px 12px; border-left: 3px solid var(--accent)"
+      >
+        <span>Player data was just updated by another arbiter - refreshed.</span>
+        <button
+          type="button"
+          class="pe-btn"
+          style="padding: 2px 8px"
+          phx-click="dismiss_remote_notice"
+        >
+          Dismiss
+        </button>
+      </div>
+
       <div class="page-header" id="players-page-header" phx-hook="AddPlayerShortcut">
         <div>
           <h1>{@tournament.name}</h1>

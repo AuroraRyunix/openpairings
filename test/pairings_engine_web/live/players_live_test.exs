@@ -1015,4 +1015,85 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       assert Enum.any?(Tournaments.list_players(tournament.id), &(&1.name == "New Player"))
     end
   end
+
+  ## ---------- concurrent-arbiter "updated by another arbiter" notice ----------
+  ## Same mechanism as PairingsLive's identical notice (see that module's
+  ## test file for the original) — this is the extension of it onto
+  ## PlayersLive, which had none until now.
+
+  test "a broadcast that actually changes a player's data shows the remote-arbiter notice", %{
+    conn: conn,
+    scope: scope
+  } do
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{"name" => "Remote Notice Test", "type" => "swiss"})
+
+    {:ok, player} = Tournaments.create_player(tournament.id, %{"name" => "Alice"})
+
+    {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/players")
+    refute html =~ "updated by another arbiter"
+
+    # Simulate another arbiter/tab changing this player's rating directly in
+    # the DB (bypassing this LiveView entirely) and broadcasting the change.
+    Repo.update!(Ecto.Changeset.change(player, fide_rating: 2000))
+    Tournaments.broadcast_tournament_change(tournament.id, :players)
+
+    html = render(lv)
+    assert html =~ "Player data was just updated by another arbiter"
+    assert html =~ "Dismiss"
+  end
+
+  test "a broadcast echoing this LiveView's own action does not show the notice", %{
+    conn: conn,
+    scope: scope
+  } do
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{
+        "name" => "Self Echo Test",
+        "type" => "swiss",
+        "start_date" => "2026-07-15",
+        "rounds_count" => "9",
+        "round_dates" => List.duplicate("2026-07-15", 9),
+        "tiebreaks" => ["BH", "SB"],
+        "chief_arbiter" => "Jane Arbiter",
+        "federation" => "BEL",
+        "rate_of_play" => "90 min + 30 sec/move"
+      })
+
+    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+    # Adding a player ourselves updates the DB, refreshes `@players`
+    # synchronously inside the same `handle_event`, and also broadcasts
+    # `:players` right back to this same subscribed process — that self-echo
+    # must not trigger the "another arbiter" notice.
+    render_click(lv, "add", %{})
+    html = lv |> form("form", %{"player" => %{"name" => "Bob"}}) |> render_submit()
+
+    refute html =~ "updated by another arbiter"
+
+    # Drain the self-broadcast before asserting again.
+    html = render(lv)
+    refute html =~ "updated by another arbiter"
+  end
+
+  test "the remote-arbiter notice is dismissible and clears on the next click", %{
+    conn: conn,
+    scope: scope
+  } do
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{"name" => "Dismiss Test", "type" => "swiss"})
+
+    {:ok, player} = Tournaments.create_player(tournament.id, %{"name" => "Carla"})
+
+    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+    Repo.update!(Ecto.Changeset.change(player, fide_rating: 1800))
+    Tournaments.broadcast_tournament_change(tournament.id, :players)
+
+    html = render(lv)
+    assert html =~ "updated by another arbiter"
+
+    html = lv |> element("button", "Dismiss") |> render_click()
+    refute html =~ "updated by another arbiter"
+  end
 end

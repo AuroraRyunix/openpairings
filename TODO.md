@@ -13,9 +13,16 @@ These are real, identified gaps — not yet built, and not accidentally missed:
   `PairingsEngine.Fide.Sync` / `PairingsEngine.Kbsb.Sync` are already
   singleton GenServers and `Fide.last_sync/0` already tracks a timestamp;
   only the UI banner showing it is missing.
-- **Live "round paired by someone else" notice** — PubSub already refreshes
-  every open page silently when a round is paired elsewhere; there's no
-  visible toast/banner calling that out to the arbiter who didn't do it.
+- ~~**Live "round paired by someone else" notice**~~ — this claim was
+  already half-stale: PairingsLive has had a dismissible "updated by
+  another arbiter" toast (`remote_notice`) for a while, comparing the
+  freshly-reloaded round against what's on screen to tell a real remote
+  change from its own broadcast echo. **Now shipped**: the identical
+  mechanism on PlayersLive too, the other page where two arbiters actively
+  editing at once is a real scenario (registration, ratings) rather than
+  just viewing. Standings/Live-round/public pages weren't extended — they're
+  read-only "projector" views whose whole point is reflecting changes live,
+  where a toast would be noise rather than useful.
 - **Team tournaments** — explicitly deferred by the maintainer as a "future
   thing." More scaffolding already exists than this note used to claim:
   `Tournaments.Team` schema, `Player.team_id`/`board_order`, TRF16 team-block
