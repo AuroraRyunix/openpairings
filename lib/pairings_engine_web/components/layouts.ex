@@ -333,7 +333,11 @@ defmodule PairingsEngineWeb.Layouts do
     {"violet", "#7c3aed", "Violet"},
     {"amber", "#b45309", "Amber"},
     {"rose", "#be123c", "Rose"},
-    {"slate", "#475569", "Slate"}
+    {"slate", "#475569", "Slate"},
+    {"indigo", "#4338ca", "Indigo"},
+    {"cyan", "#0e7490", "Cyan"},
+    {"orange", "#c2410c", "Orange"},
+    {"fuchsia", "#a21caf", "Fuchsia"}
   ]
 
   @doc """
@@ -368,7 +372,7 @@ defmodule PairingsEngineWeb.Layouts do
   end
 
   @doc """
-  A compact three-way theme switch (System / Light / Dark) for the top bar,
+  A compact theme switch (System / Light / Dark / Solarized Dark) for the top bar,
   styled with the app's own design tokens so it matches the rest of the UI in
   both themes. The active option is highlighted purely from CSS, keyed off the
   `data-theme` / `data-theme-source` attributes the inline script in
@@ -410,6 +414,17 @@ defmodule PairingsEngineWeb.Layouts do
         aria-label="Dark theme"
       >
         <.icon name="hero-moon-micro" class="size-4" />
+      </button>
+      <button
+        type="button"
+        class="theme-opt"
+        data-theme-opt="solarized"
+        data-phx-theme="solarized"
+        phx-click={JS.dispatch("phx:set-theme")}
+        title="Solarized Dark theme"
+        aria-label="Solarized Dark theme"
+      >
+        <.icon name="hero-sparkles-micro" class="size-4" />
       </button>
     </div>
     """

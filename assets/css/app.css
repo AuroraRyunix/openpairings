@@ -171,6 +171,33 @@
   --color-base-content: #e9ebe6;
 }
 
+/* Solarized Dark (Ethan Schoonover's palette: base03/02/01/0/1, blue/red
+   accents) as a third theme option, distinct from the app's own dark
+   theme above — chosen over a generic "soft dark" because it's a real,
+   well-known, exact palette rather than another approximation. */
+[data-theme="solarized"] {
+  --bg: #002b36;
+  --surface: #073642;
+  --border: #0a4552;
+  --text: #93a1a1;
+  --text-soft: #586e75;
+  --accent: #268bd2;
+  --accent-hover: #4f9fda;
+  --accent-soft: rgba(38, 139, 210, 0.18);
+  --danger: #dc322f;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+
+  --surface-alt: #0a3d49;
+  --surface-hover: #0d4652;
+  --scrim: rgba(0, 0, 0, 0.6);
+
+  color-scheme: dark;
+  --color-base-100: #073642;
+  --color-base-200: #0a3d49;
+  --color-base-300: #0d4652;
+  --color-base-content: #93a1a1;
+}
+
 /* ---------- accent colour (independent of light/dark) ----------
    The default (green) lives in the token blocks above. Each alternative sets
    its own --accent / --accent-hover / --accent-soft, with a brighter variant
@@ -182,13 +209,21 @@
 [data-accent="amber"] { --accent: #b45309; --accent-hover: #92400e; --accent-soft: #fbeed9; }
 [data-accent="rose"] { --accent: #be123c; --accent-hover: #9f1239; --accent-soft: #fce4ea; }
 [data-accent="slate"] { --accent: #475569; --accent-hover: #334155; --accent-soft: #eaeef3; }
+[data-accent="indigo"] { --accent: #4338ca; --accent-hover: #3730a3; --accent-soft: #e9e8fc; }
+[data-accent="cyan"] { --accent: #0e7490; --accent-hover: #0c5c74; --accent-soft: #e0f6fa; }
+[data-accent="orange"] { --accent: #c2410c; --accent-hover: #9a3412; --accent-soft: #fdead9; }
+[data-accent="fuchsia"] { --accent: #a21caf; --accent-hover: #86198f; --accent-soft: #fbe6f8; }
 
-[data-accent="blue"][data-theme="dark"] { --accent: #5b9bff; --accent-hover: #74acff; --accent-soft: rgba(91, 155, 255, 0.16); }
-[data-accent="teal"][data-theme="dark"] { --accent: #2dd4bf; --accent-hover: #4de0cd; --accent-soft: rgba(45, 212, 191, 0.16); }
-[data-accent="violet"][data-theme="dark"] { --accent: #a78bfa; --accent-hover: #b9a4fb; --accent-soft: rgba(167, 139, 250, 0.18); }
-[data-accent="amber"][data-theme="dark"] { --accent: #f59e0b; --accent-hover: #fbb024; --accent-soft: rgba(245, 158, 11, 0.16); }
-[data-accent="rose"][data-theme="dark"] { --accent: #fb7185; --accent-hover: #fc8b9b; --accent-soft: rgba(251, 113, 133, 0.16); }
-[data-accent="slate"][data-theme="dark"] { --accent: #94a3b8; --accent-hover: #aab6c7; --accent-soft: rgba(148, 163, 184, 0.18); }
+[data-accent="blue"]:where([data-theme="dark"], [data-theme="solarized"]) { --accent: #5b9bff; --accent-hover: #74acff; --accent-soft: rgba(91, 155, 255, 0.16); }
+[data-accent="teal"]:where([data-theme="dark"], [data-theme="solarized"]) { --accent: #2dd4bf; --accent-hover: #4de0cd; --accent-soft: rgba(45, 212, 191, 0.16); }
+[data-accent="violet"]:where([data-theme="dark"], [data-theme="solarized"]) { --accent: #a78bfa; --accent-hover: #b9a4fb; --accent-soft: rgba(167, 139, 250, 0.18); }
+[data-accent="amber"]:where([data-theme="dark"], [data-theme="solarized"]) { --accent: #f59e0b; --accent-hover: #fbb024; --accent-soft: rgba(245, 158, 11, 0.16); }
+[data-accent="rose"]:where([data-theme="dark"], [data-theme="solarized"]) { --accent: #fb7185; --accent-hover: #fc8b9b; --accent-soft: rgba(251, 113, 133, 0.16); }
+[data-accent="slate"]:where([data-theme="dark"], [data-theme="solarized"]) { --accent: #94a3b8; --accent-hover: #aab6c7; --accent-soft: rgba(148, 163, 184, 0.18); }
+[data-accent="indigo"]:where([data-theme="dark"], [data-theme="solarized"]) { --accent: #818cf8; --accent-hover: #93a2fb; --accent-soft: rgba(129, 140, 248, 0.18); }
+[data-accent="cyan"]:where([data-theme="dark"], [data-theme="solarized"]) { --accent: #22d3ee; --accent-hover: #4dd8ef; --accent-soft: rgba(34, 211, 238, 0.16); }
+[data-accent="orange"]:where([data-theme="dark"], [data-theme="solarized"]) { --accent: #fb923c; --accent-hover: #fca35d; --accent-soft: rgba(251, 146, 60, 0.16); }
+[data-accent="fuchsia"]:where([data-theme="dark"], [data-theme="solarized"]) { --accent: #e879f9; --accent-hover: #ee94fa; --accent-soft: rgba(232, 121, 249, 0.18); }
 
 html { background: var(--bg); }
 
@@ -362,7 +397,11 @@ html[data-accent="teal"] .accent-swatch[data-accent-opt="teal"],
 html[data-accent="violet"] .accent-swatch[data-accent-opt="violet"],
 html[data-accent="amber"] .accent-swatch[data-accent-opt="amber"],
 html[data-accent="rose"] .accent-swatch[data-accent-opt="rose"],
-html[data-accent="slate"] .accent-swatch[data-accent-opt="slate"] {
+html[data-accent="slate"] .accent-swatch[data-accent-opt="slate"],
+html[data-accent="indigo"] .accent-swatch[data-accent-opt="indigo"],
+html[data-accent="cyan"] .accent-swatch[data-accent-opt="cyan"],
+html[data-accent="orange"] .accent-swatch[data-accent-opt="orange"],
+html[data-accent="fuchsia"] .accent-swatch[data-accent-opt="fuchsia"] {
   border-color: var(--text);
   box-shadow: 0 0 0 2px var(--surface) inset;
 }
@@ -399,7 +438,8 @@ html[data-accent="slate"] .accent-swatch[data-accent-opt="slate"] {
    theme script maintains — no server round-trip. */
 html[data-theme-source="system"] .theme-opt[data-theme-opt="system"],
 html[data-theme-source="user"][data-theme="light"] .theme-opt[data-theme-opt="light"],
-html[data-theme-source="user"][data-theme="dark"] .theme-opt[data-theme-opt="dark"] {
+html[data-theme-source="user"][data-theme="dark"] .theme-opt[data-theme-opt="dark"],
+html[data-theme-source="user"][data-theme="solarized"] .theme-opt[data-theme-opt="solarized"] {
   background: var(--accent-soft);
   color: var(--accent);
 }
@@ -468,6 +508,35 @@ html[data-theme-source="user"][data-theme="dark"] .theme-opt[data-theme-opt="dar
 }
 
 .card h2 { font-size: 16px; font-weight: 650; margin: 0 0 14px; }
+
+/* SettingsChangelogLive — rendered CHANGELOG.md */
+.changelog-body h1 { font-size: 20px; margin: 0 0 6px; }
+.changelog-body h2 {
+  font-size: 17px;
+  margin: 28px 0 4px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.changelog-body h2:first-of-type { margin-top: 0; padding-top: 0; border-top: none; }
+.changelog-body h3 {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-soft);
+  margin: 16px 0 6px;
+}
+.changelog-body p { margin: 0 0 10px; color: var(--text-soft); }
+.changelog-body ul { margin: 0 0 10px; padding-left: 20px; }
+.changelog-body li { margin: 4px 0; line-height: 1.5; }
+.changelog-body li strong { color: var(--text); }
+.changelog-body code {
+  background: var(--surface-alt);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 0.92em;
+}
+.changelog-body hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
 
 .pe-table { width: 100%; border-collapse: collapse; background: var(--surface); }
 
