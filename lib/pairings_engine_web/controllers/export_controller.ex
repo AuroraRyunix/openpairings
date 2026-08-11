@@ -15,7 +15,7 @@ defmodule PairingsEngineWeb.ExportController do
 
   use PairingsEngineWeb, :controller
 
-  alias PairingsEngine.{PgnExport, TournamentExport, Tournaments, TrfExport}
+  alias PairingsEngine.{PgnExport, SwarExport, TournamentExport, Tournaments, TrfExport}
 
   @doc """
   GET /t/:id/export/trf?rounds=1-5 — TRF16 text download, all or selected
@@ -73,6 +73,25 @@ defmodule PairingsEngineWeb.ExportController do
       {n, ""} -> n
       _ -> nil
     end
+  end
+
+  @doc """
+  GET /t/:id/export/swar — a `.swar` v7 binary SWAR itself can open. See
+  `PairingsEngine.SwarExport`'s moduledoc for exactly what this can and
+  cannot round-trip, and why it has never been verified against a real
+  SWAR install.
+  """
+  def swar(conn, %{"id" => id}) do
+    tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
+    binary = SwarExport.export(tournament.id)
+
+    conn
+    |> put_resp_content_type("application/octet-stream")
+    |> put_resp_header(
+      "content-disposition",
+      "attachment; filename=\"#{filename(tournament, "swar")}\""
+    )
+    |> send_resp(200, binary)
   end
 
   @doc "GET /t/:id/export/json — full-fidelity JSON backup of one tournament."

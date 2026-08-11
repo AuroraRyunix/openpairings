@@ -245,6 +245,38 @@ defmodule PairingsEngineWeb.ExportControllerTest do
     end
   end
 
+  ## ---------- GET /t/:id/export/swar ----------
+
+  describe "swar/2" do
+    test "downloads a .swar binary that SwarImport.parse/1 can read back", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, _} = fixture(scope)
+
+      conn = get(conn, ~p"/t/#{tournament.id}/export/swar")
+
+      [content_type] = get_resp_header(conn, "content-type")
+      assert content_type =~ "application/octet-stream"
+      [disposition] = get_resp_header(conn, "content-disposition")
+      assert disposition =~ "attachment"
+      assert disposition =~ "export-ctrl-test.swar"
+
+      body = response(conn, 200)
+      assert {:ok, parsed} = PairingsEngine.SwarImport.parse(body)
+      assert parsed.version == "v7.00"
+      assert parsed.tournament.name == "Export Ctrl Test"
+      assert length(parsed.players) == 2
+    end
+
+    test "a tournament belonging to another user 404s", %{conn: conn} do
+      other_scope = PairingsEngine.AccountsFixtures.user_scope_fixture()
+      {tournament, _} = fixture(other_scope)
+
+      assert_error_sent 404, fn -> get(conn, ~p"/t/#{tournament.id}/export/swar") end
+    end
+  end
+
   ## ---------- GET /t/:id/export/json and /export/tournaments.json ----------
 
   describe "json/2" do

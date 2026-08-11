@@ -68,6 +68,34 @@ defmodule PairingsEngine.SwarImport do
     |> List.to_string()
   end
 
+  # codepoint -> byte, for the 27 characters that are genuinely remapped in
+  # 0x80-0x9F. None of their codepoints falls in 0-0xFF (they're all in the
+  # 0x2000s or Latin Extended-A), so it never collides with the plain
+  # identity range `cp1252_encode/1` handles directly below.
+  @cp1252_encode_table for {byte, cp} <- @cp1252_high, into: %{}, do: {cp, byte}
+
+  @doc """
+  Encodes a UTF-8 Elixir string to Windows-1252 (CP-1252) bytes — the
+  inverse of `cp1252_decode/1`, used by `PairingsEngine.SwarExport`.
+
+  Every codepoint 0-0xFF is its own byte: that covers plain ASCII, ordinary
+  Latin-1 (À-ÿ), AND the five CP-1252 bytes with no assignment of their own
+  (0x81/0x8D/0x8F/0x90/0x9D) — `cp1252_decode/1` already treats those as
+  identity, so encoding keeps them that way rather than round-tripping
+  through the lookup table meant for the other 27. Any codepoint outside
+  what CP-1252 can represent at all becomes `?`, the same lossy-but-safe
+  fallback this codebase takes for legacy encodings it can't avoid.
+  """
+  def cp1252_encode(str) when is_binary(str) do
+    str
+    |> String.to_charlist()
+    |> Enum.map(fn
+      cp when cp <= 0xFF -> cp
+      cp -> Map.get(@cp1252_encode_table, cp, ?\?)
+    end)
+    |> :binary.list_to_bin()
+  end
+
   ## ---------- Primitives ----------
 
   defp read_i32(<<v::little-signed-32, rest::binary>>), do: {v, rest}

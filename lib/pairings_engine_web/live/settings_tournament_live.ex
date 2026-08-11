@@ -724,6 +724,14 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
           <a class="pe-btn" href={~p"/t/#{@tournament.id}/export/json"} target="_blank">
             Export full backup (JSON)
           </a>
+          <a
+            class="pe-btn"
+            href={~p"/t/#{@tournament.id}/export/swar"}
+            target="_blank"
+            title="A .swar file SWAR itself can open — never verified against a real SWAR install, see docs/swar-import.md"
+          >
+            Export .swar (v7, experimental)
+          </a>
         </div>
       </div>
     </Layouts.app>

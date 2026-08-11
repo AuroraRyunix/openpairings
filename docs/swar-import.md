@@ -7,6 +7,44 @@ intermediate export step) and creates a full tournament — players, rounds,
 pairings, results — from it. Reached from the Tournaments page's "Import
 SWAR file" panel.
 
+## Export (`PairingsEngine.SwarExport`)
+
+The inverse — `GET /t/:id/export/swar`, "Export .swar (v7, experimental)"
+on the Settings page — writes a v7 `.swar` binary field-for-field against
+this module's own read order and reverse-mapping tables. Full detail
+(what's exactly invertible and what's a documented policy choice) lives
+in `SwarExport`'s moduledoc, not duplicated here. Confirmed to open in a
+real SWAR v7 install.
+
+**Does the pairing "seed" survive an export → re-open-and-continue-in-SWAR
+round trip?** Yes — but getting there took one real wrong answer, found
+by actually doing it: exporting a real tournament, pairing round 1 in a
+real SWAR install, and comparing boards against what a rating-seeded
+pairing should look like. They didn't match at all.
+
+SWAR's Swiss pairing sorts players by `(Category, Class, Rank)` before
+calling its own pairing engine (checked against a real copy of SWAR's
+source, not inferred — `Swar - 20250906 v6.65 FRBE`). Both `Class`
+(current standing) and `Rank` (the seed) are commented `à Calculer` ("to
+be calculated") in `Swar.h`'s own struct definition, which reads like
+"neither is ever trusted from the file" — and for `Class` that's true:
+`CalculLeClassement()`, which recomputes it from each player's actual
+points, runs unconditionally right before every Swiss pairing action
+(`SwarView.cpp`: "Première chose à faire avant appariement", "first
+thing done before pairing"). `Rank` is the trap: `RecomputeRank()` only
+runs from the "add a player" UI action or Round Robin's own pre-pairing
+prompt — never from a plain file load. `SwarExport`'s first version
+wrote `rank` as `Ni` (registration order), which is exactly what a
+freshly-opened export then paired round 1 by.
+
+Fixed in `PairingsEngine.SwarExport.assign_ranks/1`: computes the same
+rating-descending / title-descending / name-ascending sort SWAR's own
+`Joueur.cpp:CmpRnkNormal` does. `test/pairings_engine/swar_export_test.exs`
+pins it down with deliberately scrambled rating vs. registration order,
+so a regression back to `rank = ni` fails loudly. `Class` staying a
+constant 0 remains correct — see `reverse_player/5`'s own comment for
+the full citations on both.
+
 ## File versions, and what SWAR v7 changed
 
 The format is a sequential binary serialization with no index: every field
