@@ -22,7 +22,7 @@ defmodule PairingsEngineWeb.PublicPairingsLiveTest do
 
     refute html =~ "accent-picker"
     refute html =~ "topbar-signin"
-    assert html =~ "theme-switch"
+    assert html =~ "theme-picker"
     assert html =~ "Tempo: 15 min + 10 sec/move"
   end
 

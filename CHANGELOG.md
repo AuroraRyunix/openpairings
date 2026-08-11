@@ -38,8 +38,10 @@ forward this file gets an entry every time the version bumps.
 - 02cloud SSO (Keycloak) as an optional login method; configurable FIDE
   rating-list source URL.
 - Light/dark theming and an accent-colour picker — now with 4 more accent
-  colours (Indigo, Cyan, Orange, Fuchsia, 11 total) and a third full theme,
-  Solarized Dark, alongside System/Light/Dark.
+  colours (Indigo, Cyan, Orange, Fuchsia, 11 total) and 5 more full themes
+  (Solarized Dark, Nord, Dracula, Catppuccin Mocha, Gruvbox Dark) alongside
+  System/Light/Dark, 8 total. The theme switch is now a popover instead of
+  an inline button row, to fit them all.
 - **Tempo-aware FIDE ratings** — a player's FIDE lookup/refresh now pulls
   the Standard, Rapid, or Blitz rating matching the tournament's own
   cadence (Settings → Options → Type), falling back to Standard when the

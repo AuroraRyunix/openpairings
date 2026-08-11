@@ -371,8 +371,24 @@ defmodule PairingsEngineWeb.Layouts do
     """
   end
 
+  # Theme choices shown in the picker: {key, icon, label}. "system" is
+  # special-cased in the template (it has no fixed swatch colour, since it
+  # resolves to whichever of light/dark the OS is in) — everything after it
+  # is a real, named palette with its own `[data-theme="key"]` block in
+  # app.css. Order here is display order in the popover.
+  @themes [
+    {"light", "hero-sun-micro", "Light"},
+    {"dark", "hero-moon-micro", "Dark"},
+    {"solarized", "hero-sparkles-micro", "Solarized Dark"},
+    {"nord", "hero-cloud-micro", "Nord"},
+    {"dracula", "hero-bolt-micro", "Dracula"},
+    {"catppuccin", "hero-heart-micro", "Catppuccin Mocha"},
+    {"gruvbox", "hero-fire-micro", "Gruvbox Dark"}
+  ]
+
   @doc """
-  A compact theme switch (System / Light / Dark / Solarized Dark) for the top bar,
+  A compact theme switch (System / Light / Dark / Solarized Dark / Nord /
+  Dracula / Catppuccin Mocha / Gruvbox Dark) for the top bar,
   styled with the app's own design tokens so it matches the rest of the UI in
   both themes. The active option is highlighted purely from CSS, keyed off the
   `data-theme` / `data-theme-source` attributes the inline script in
@@ -380,53 +396,35 @@ defmodule PairingsEngineWeb.Layouts do
   reflects the choice instantly, even across tabs.
   """
   def theme_switch(assigns) do
+    assigns = assign(assigns, :themes, @themes)
+
     ~H"""
-    <div class="theme-switch" role="group" aria-label="Colour theme">
-      <button
-        type="button"
-        class="theme-opt"
-        data-theme-opt="system"
-        data-phx-theme="system"
-        phx-click={JS.dispatch("phx:set-theme")}
-        title="System theme"
-        aria-label="System theme"
-      >
-        <.icon name="hero-computer-desktop-micro" class="size-4" />
-      </button>
-      <button
-        type="button"
-        class="theme-opt"
-        data-theme-opt="light"
-        data-phx-theme="light"
-        phx-click={JS.dispatch("phx:set-theme")}
-        title="Light theme"
-        aria-label="Light theme"
-      >
-        <.icon name="hero-sun-micro" class="size-4" />
-      </button>
-      <button
-        type="button"
-        class="theme-opt"
-        data-theme-opt="dark"
-        data-phx-theme="dark"
-        phx-click={JS.dispatch("phx:set-theme")}
-        title="Dark theme"
-        aria-label="Dark theme"
-      >
-        <.icon name="hero-moon-micro" class="size-4" />
-      </button>
-      <button
-        type="button"
-        class="theme-opt"
-        data-theme-opt="solarized"
-        data-phx-theme="solarized"
-        phx-click={JS.dispatch("phx:set-theme")}
-        title="Solarized Dark theme"
-        aria-label="Solarized Dark theme"
-      >
-        <.icon name="hero-sparkles-micro" class="size-4" />
-      </button>
-    </div>
+    <details class="theme-picker">
+      <summary class="theme-picker-trigger" title="Colour theme" aria-label="Colour theme">
+        <.icon name="hero-swatch-micro" class="size-4" />
+      </summary>
+      <div class="theme-picker-panel" role="group" aria-label="Colour theme">
+        <button
+          type="button"
+          class="theme-picker-item"
+          data-theme-opt="system"
+          data-phx-theme="system"
+          phx-click={JS.dispatch("phx:set-theme")}
+        >
+          <.icon name="hero-computer-desktop-micro" class="size-4" /> System
+        </button>
+        <button
+          :for={{key, icon, label} <- @themes}
+          type="button"
+          class="theme-picker-item"
+          data-theme-opt={key}
+          data-phx-theme={key}
+          phx-click={JS.dispatch("phx:set-theme")}
+        >
+          <.icon name={icon} class="size-4" /> {label}
+        </button>
+      </div>
+    </details>
     """
   end
 end

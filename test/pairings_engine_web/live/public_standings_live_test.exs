@@ -46,7 +46,7 @@ defmodule PairingsEngineWeb.PublicStandingsLiveTest do
 
       refute html =~ "accent-picker"
       refute html =~ "topbar-signin"
-      assert html =~ "theme-switch"
+      assert html =~ "theme-picker"
       assert html =~ "OpenPairings"
     end
 
