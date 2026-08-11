@@ -1356,13 +1356,41 @@ defmodule PairingsEngine.Pairing do
   # `shared_history`, when given, avoids re-querying rounds/byes/roster
   # `games_per_player/2` already fetched once for this pairing run — same
   # sharing `do_pair_by_category/3` already does elsewhere.
+  # Feeds JaVaFo current-standings order (score desc, then rating desc —
+  # see this function's own commit history for why that matters at all).
+  # `pairing_number` as a third key is the fix a real SWAR export
+  # comparison surfaced: two players tied on BOTH score and rating had no
+  # tie-break here at all, so `Enum.sort_by/2`'s stability silently fell
+  # through to whichever order the INPUT list happened to already be in.
+  # For round 2+ that input is `build_shared_history/1`'s `full_roster`
+  # `Map.values/1` — an unordered map with no `order_by` on its own
+  # query — so the fallback order was essentially DB id / insertion
+  # order: not wrong by any rule, but not a rule either, and not
+  # reproducible the way a tie-break needs to be.
+  #
+  # Found by pairing the same real, in-progress tournament twice: once
+  # live in OpenPairings, once by exporting to `.swar` (see
+  # `PairingsEngine.SwarExport`) and continuing it in a real SWAR
+  # install. 57 of 61 round-7 boards matched exactly; the 4 that didn't
+  # were two clusters of players tied on BOTH score and rating (one pair
+  # unrated 0 vs 0, one pair rated 1775 vs 1775) — precisely the case
+  # this function left undefined. `SwarExport`'s own tie-break for the
+  # identical situation is deliberately name-based (matching what real
+  # SWAR does — see `SwarExport.assign_ranks/1`), which is principled but
+  # different from whatever this function's silent fallback happened to
+  # produce; two different-but-plausible tie-breaks for the same
+  # genuinely-tied pair is exactly what a criss-cross mismatch looks
+  # like. `pairing_number` is FIDE's own prescribed fallback (the
+  # starting rank number, Art. 1.14) once score and rating are both
+  # exhausted, so it's the fix here — not name, to keep this engine's own
+  # rule independent of anyone's SWAR-export tie-break choice.
   defp order_for_pairing(players, tournament, shared_history \\ nil) do
     by_id = Map.new(players, &{&1.id, &1})
     games = games_per_player(tournament, by_id, shared_history)
 
     Enum.sort_by(players, fn p ->
       points = player_points(Map.get(games, p.id, []), tournament)
-      {-points, -Player.rating(p)}
+      {-points, -Player.rating(p), p.pairing_number}
     end)
   end
 

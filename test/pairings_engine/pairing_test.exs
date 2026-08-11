@@ -1678,6 +1678,97 @@ defmodule PairingsEngine.PairingTest do
     assert String.at(anchor_line, 98) == "1"
   end
 
+  # Regression test for `order_for_pairing/3`'s pairing_number tie-break
+  # (see its own doc comment for the full story: a real SWAR-export
+  # comparison on a 125-player tournament surfaced two clusters of players
+  # tied on BOTH score and rating that pair-by-category's round-2+ input
+  # order got wrong, because it fell through to `Map.values/1`'s
+  # non-reproducible enumeration order of `build_shared_history/1`'s
+  # `full_roster` map). Round 1's `do_pair_single/4`/`do_pair_by_category/3`
+  # path can't exercise the bug — `full_roster_players/1`'s own query is
+  # already `order_by: p.pairing_number`, and round 1 has no points/games
+  # yet to tie on anyway — so this deliberately engineers a round-2
+  # standings tie: two players (Y, pairing_number 2; X, pairing_number 5)
+  # who both win their round-1 games against different opponents, landing
+  # them on identical points AND identical rating going into round 2.
+  # `order_for_pairing/3`'s sort key is `{-points, -rating, pairing_number}`,
+  # so once score and rating are exhausted, the fix requires Y (the lower
+  # pairing_number) to sort — and so get a lower JaVaFo-visible local rank,
+  # physically ahead in the TRF row order — before X.
+  @tag :javafo
+  test "order_for_pairing/3: players tied on both score and rating break the tie by pairing_number" do
+    tournament =
+      Repo.insert!(%Tournament{
+        name: "Tie Break",
+        type: "swiss",
+        rounds_count: 3,
+        categories: ["A"],
+        categories_enabled: true,
+        pair_by_category: true
+      })
+
+    # Deliberately inserted in the OPPOSITE order from pairing_number (X's
+    # DB id ends up lower than Y's, even though Y's pairing_number is
+    # lower): `full_roster_players/1`'s query result and
+    # `build_shared_history/1`'s `full_roster` map are keyed/populated from
+    # this same insertion order, so this is what actually distinguishes
+    # "sorted by pairing_number" (the fix) from "whatever order the map
+    # already happened to be in" (the bug) — without this inversion the two
+    # orders coincide by accident and the assertion below can't tell them
+    # apart.
+    x = insert_player(tournament, "X", fide_rating: 1800, pairing_number: 5, category: "A")
+    _a1 = insert_player(tournament, "A1", fide_rating: 2000, pairing_number: 1, category: "A")
+    y = insert_player(tournament, "Y", fide_rating: 1800, pairing_number: 2, category: "A")
+    _a2 = insert_player(tournament, "A2", fide_rating: 1900, pairing_number: 3, category: "A")
+    _a3 = insert_player(tournament, "A3", fide_rating: 1200, pairing_number: 4, category: "A")
+    _a4 = insert_player(tournament, "A4", fide_rating: 1100, pairing_number: 6, category: "A")
+
+    tournament = Repo.reload!(tournament)
+    assert {:ok, round1} = Pairing.pair_next_round(tournament)
+    round1 = Repo.preload(round1, pairings: [:white_player, :black_player])
+
+    # Force the exact result each of Y and X needs (an upset for Y, an
+    # expected result for X) so both land on 1 point with identical 1800
+    # ratings, regardless of which colour JaVaFo assigned them.
+    win_for = fn winner_id ->
+      pairing =
+        Enum.find(
+          round1.pairings,
+          &(&1.white_player_id == winner_id or &1.black_player_id == winner_id)
+        )
+
+      result = if pairing.white_player_id == winner_id, do: "1-0", else: "0-1"
+      Tournaments.update_pairing_result(pairing, result)
+    end
+
+    win_for.(y.id)
+    win_for.(x.id)
+
+    # The other two games' results don't matter for this test, but every
+    # round-1 game needs a result before round 2 can be paired.
+    for p <- round1.pairings, p.result in [nil, ""] do
+      Tournaments.update_pairing_result(p, "1-0")
+    end
+
+    assert {:ok, _round2} = Pairing.pair_next_round(Repo.reload!(tournament))
+
+    trf = read_round_trf(tournament.id, 2, "_cat_0_A")
+    y_line = anchor_trf_line(trf, y.name)
+    x_line = anchor_trf_line(trf, x.name)
+
+    y_rank = String.slice(y_line, 4, 4) |> String.trim() |> String.to_integer()
+    x_rank = String.slice(x_line, 4, 4) |> String.trim() |> String.to_integer()
+
+    assert y_rank < x_rank,
+           "expected Y (pairing_number 2) to sort ahead of X (pairing_number 5) once " <>
+             "tied on both score and rating, got Y rank #{y_rank}, X rank #{x_rank}"
+
+    # Sanity: they really were tied on rating — the only thing that could
+    # have separated them for round 2 standings is the pairing_number
+    # tie-break itself, not rating.
+    assert x.fide_rating == y.fide_rating
+  end
+
   ## ---------- helpers ----------
 
   defp enter_all_wins(round) do
