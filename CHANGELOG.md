@@ -66,8 +66,23 @@ forward this file gets an entry every time the version bumps.
   out to be.
 - The bracket-map pairing-rationale view: unpin no longer stray-scrolls
   the hover panel, plus a head-to-head duo view.
+- The "updated by another arbiter" toast (already on Pairings) now also
+  shows on the Players page.
+- Mobile result entry: forfeit and asymmetric-disciplinary result codes
+  (1-0 FF, 0-0 FF, ½-0, etc.) are now reachable from a phone, behind a
+  "More…" toggle per board rather than crowding the three main buttons —
+  chosen over a long-press gesture, which has no visible affordance and
+  behaves inconsistently across mobile browsers.
 
 ### Fixed
+
+- **Results entered from a phone weren't being written to the audit
+  trail at all** — every other way of entering a result was, mobile was
+  simply never wired up. Now logs the same `pairing.result_entered`/
+  `_changed`/`_cleared` actions the desktop flow does, attributed to
+  "System" (no user account exists for an enrolled phone) with the
+  enrollment's own label/id recorded so an arbiter can still tell which
+  phone made the change.
 
 - **Round 2+ pairing input had no tie-break for players equal on both
   score and rating** — JaVaFo's Dutch-system engine falls back to input

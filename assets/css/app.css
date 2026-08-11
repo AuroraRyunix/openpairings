@@ -2313,6 +2313,20 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .mobile-result-btn.chosen { background: var(--accent); color: #fff; border-color: var(--accent); }
 .mobile-result-btn.mobile-clear { flex: 0 0 52px; font-size: 20px; color: var(--text-soft); }
 .mobile-result-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+/* "More…" (forfeits/asymmetric codes) is secondary to the three main
+   results, so it's smaller and lighter rather than matching their full
+   size/weight — and the panel it opens wraps onto more than one line on a
+   narrow phone instead of squeezing 6 buttons into one. */
+.mobile-result-btn.mobile-more {
+  flex: 0 0 auto;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-soft);
+  background: transparent;
+}
+.mobile-results--extra { flex-wrap: wrap; margin-top: 8px; }
+.mobile-results--extra .mobile-result-btn { flex: 1 1 30%; padding: 10px 4px; font-size: 13px; }
 
 /* Arbiter-side "enrol a phone" panel (desktop tournament view). */
 .enroll-panel { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }

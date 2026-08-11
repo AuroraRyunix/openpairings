@@ -126,11 +126,15 @@ defmodule PairingsEngineWeb.AuditLive do
 
   def describe("pairing.result_entered", d),
     do:
-      "Entered result #{value(d, "to")} on board #{value(d, "board")} (round #{value(d, "round")}): #{board_players(d)}."
+      "Entered result #{value(d, "to")} on board #{value(d, "board")} (round #{value(d, "round")}): #{board_players(d)}.#{mobile_suffix(d)}"
 
   def describe("pairing.result_changed", d),
     do:
-      "Changed result on board #{value(d, "board")} (round #{value(d, "round")}) from #{blank_dash(d["from"])} to #{value(d, "to")}: #{board_players(d)}."
+      "Changed result on board #{value(d, "board")} (round #{value(d, "round")}) from #{blank_dash(d["from"])} to #{value(d, "to")}: #{board_players(d)}.#{mobile_suffix(d)}"
+
+  def describe("pairing.result_cleared", d),
+    do:
+      "Cleared the result on board #{value(d, "board")} (round #{value(d, "round")}) (was #{blank_dash(d["from"])}): #{board_players(d)}.#{mobile_suffix(d)}"
 
   def describe("pairing.round_deleted", d), do: "Unpaired round #{value(d, "round")}."
 
@@ -249,6 +253,21 @@ defmodule PairingsEngineWeb.AuditLive do
       _ -> ""
     end
   end
+
+  # Mobile result entry has no user account to attribute to (`Audit.log/4`'s
+  # `nil` case, rendered as "System" elsewhere on this page) — this is the
+  # one place that still says WHICH phone, using whatever label the arbiter
+  # gave the enrollment (see `MobileResultsLive.log_mobile_result/4`).
+  defp mobile_suffix(%{"via" => "mobile"} = d) do
+    label = d["enrollment_label"]
+
+    device =
+      if label not in [nil, ""], do: "\"#{label}\"", else: "enrollment ##{d["enrollment_id"]}"
+
+    " (via phone, #{device})"
+  end
+
+  defp mobile_suffix(_d), do: ""
 
   defp name(d, key), do: bold_text(d[key] || "(unnamed)")
   defp value(d, key), do: d[key] || "?"

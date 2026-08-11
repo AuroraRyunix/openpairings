@@ -8,10 +8,31 @@ defmodule PairingsEngineWeb.MobileResultsLive do
   use PairingsEngineWeb, :live_view
 
   alias PairingsEngine.Pairing, as: Engine
-  alias PairingsEngine.{Mobile, Standings, Tournaments}
+  alias PairingsEngine.{Audit, Mobile, Standings, Tournaments}
   alias PairingsEngine.Tournaments.{Pairing, Player}
 
   @results [{"1-0", "1-0"}, {"1/2-1/2", "½-½"}, {"0-1", "0-1"}]
+
+  # The rest of PairingsLive's own `@results` (forfeits and the asymmetric
+  # disciplinary codes) — real results a helper at the board genuinely needs
+  # to record, just rare enough that showing all 9 buttons on every board by
+  # default would crowd the three that matter 95% of the time on a small
+  # screen. Tucked behind "More…" (`toggle_extra/2`) instead of a long-press:
+  # a long-press has no visible affordance at all (nothing on screen hints
+  # it exists), fires inconsistently across mobile browsers, and collides
+  # with the OS's own text-selection/context-menu gesture on many devices —
+  # a plain, visible, always-there button is more reliable AND more
+  # discoverable for exactly the audience (arbiters/helpers, not the
+  # tournament owner) most likely to be seeing this screen for the first
+  # time mid-round.
+  @extra_results [
+    {"1/2-0", "½-0 (asymmetric)"},
+    {"0-1/2", "0-½ (asymmetric)"},
+    {"1-0FF", "1-0 FF"},
+    {"0-1FF", "0-1 FF"},
+    {"0-0FF", "0-0 FF (double forfeit)"},
+    {"0-0", "0-0 (both lose, played)"}
+  ]
 
   @impl true
   def mount(_params, _session, socket) do
@@ -25,7 +46,18 @@ defmodule PairingsEngineWeb.MobileResultsLive do
 
     {:ok,
      socket
-     |> assign(page_title: "Enter results", results: @results, paired: paired, locked: false)
+     |> assign(
+       page_title: "Enter results",
+       results: @results,
+       extra_results: @extra_results,
+       paired: paired,
+       locked: false,
+       # Which board's "More…" panel is open, if any — one at a time, so
+       # the page doesn't grow tall with several boards expanded at once.
+       # Cleared on round switch (below) since the boards it referred to no
+       # longer apply.
+       expanded_id: nil
+     )
      |> load_round(max(paired, 1))}
   end
 
@@ -36,7 +68,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
 
   @impl true
   def handle_event("select_round", %{"number" => number}, socket) do
-    {:noreply, load_round(socket, String.to_integer(number))}
+    {:noreply, socket |> assign(expanded_id: nil) |> load_round(String.to_integer(number))}
   end
 
   # A "hand the phone to someone else / put it down for a second" guard, not
@@ -47,14 +79,37 @@ defmodule PairingsEngineWeb.MobileResultsLive do
     {:noreply, assign(socket, locked: !socket.assigns.locked)}
   end
 
+  # Opens/closes one board's "More…" panel (the forfeit/asymmetric codes —
+  # see `@extra_results`). Only one open at a time: opening a different
+  # board's panel closes whichever was already open, same as an accordion.
+  def handle_event("toggle_extra", %{"id" => id}, socket) do
+    id = String.to_integer(id)
+    current = socket.assigns.expanded_id
+    {:noreply, assign(socket, expanded_id: if(current == id, do: nil, else: id))}
+  end
+
   def handle_event("set_result", _params, socket) when socket.assigns.locked,
     do: {:noreply, socket}
 
   # Only pairings belonging to the loaded round (which is loaded from the
   # enrollment's own tournament) can be set - a crafted pairing id from
-  # another tournament simply isn't in the set and is ignored.
+  # another tournament simply isn't in the set and is ignored. The result
+  # codes accepted are PairingsLive's own full `@results` set (see
+  # `@extra_results` above) - mobile only shows three by default, but
+  # anything reachable through "More…" has to actually be writable too.
   def handle_event("set_result", %{"id" => id, "result" => result}, socket)
-      when result in ["1-0", "1/2-1/2", "0-1", ""] do
+      when result in [
+             "1-0",
+             "1/2-1/2",
+             "0-1",
+             "1/2-0",
+             "0-1/2",
+             "1-0FF",
+             "0-1FF",
+             "0-0FF",
+             "0-0",
+             ""
+           ] do
     # Re-validate the enrollment on every write so a revoked or expired phone
     # is kicked out immediately, not only on its next page load.
     if Mobile.get_active(socket.assigns.mobile_enrollment.id) do
@@ -62,7 +117,13 @@ defmodule PairingsEngineWeb.MobileResultsLive do
 
       case round && Enum.find(round.pairings, &(to_string(&1.id) == id)) do
         %Pairing{} = pairing ->
-          Tournaments.update_pairing_result(pairing, result)
+          previous = pairing.result
+
+          case Tournaments.update_pairing_result(pairing, result) do
+            {:ok, _} -> log_mobile_result(socket, pairing, previous, result)
+            _ -> :ok
+          end
+
           {:noreply, load_round(socket, socket.assigns.round_number)}
 
         _ ->
@@ -77,6 +138,44 @@ defmodule PairingsEngineWeb.MobileResultsLive do
   end
 
   def handle_event("set_result", _params, socket), do: {:noreply, socket}
+
+  # No-account phones weren't writing to the audit trail at all before this —
+  # a real gap, since a mobile-entered result is exactly as write-worthy as
+  # one entered from PairingsLive (same `Audit.log/4` action names, so the
+  # audit page's existing "pairings" filter and describe/2 clauses pick
+  # these up automatically), just with no `Scope`/user to attribute it to.
+  # `Audit.log/4`'s `nil` case handles that ("System" in the audit UI) — the
+  # enrollment's own id/code/label are threaded into `details` instead, so
+  # an arbiter can still tell which phone made the change even without a
+  # user account attached to it.
+  defp log_mobile_result(socket, pairing, previous, result) do
+    tournament = socket.assigns.tournament
+    enrollment = socket.assigns.mobile_enrollment
+
+    action =
+      cond do
+        result == "" -> "pairing.result_cleared"
+        previous in [nil, ""] -> "pairing.result_entered"
+        true -> "pairing.result_changed"
+      end
+
+    Audit.log(tournament.id, nil, action, %{
+      pairing_id: pairing.id,
+      round: socket.assigns.round_number,
+      board: pairing.board,
+      white: player_name(pairing.white_player),
+      black: player_name(pairing.black_player),
+      from: previous,
+      to: result,
+      via: "mobile",
+      enrollment_id: enrollment.id,
+      enrollment_code: enrollment.code,
+      enrollment_label: enrollment.label
+    })
+  end
+
+  defp player_name(nil), do: nil
+  defp player_name(%Player{name: name}), do: name
 
   defp load_round(socket, number) do
     tournament = socket.assigns.tournament
@@ -201,6 +300,37 @@ defmodule PairingsEngineWeb.MobileResultsLive do
             title="Clear the result"
           >
             ⟲
+          </button>
+          <button
+            type="button"
+            disabled={@locked}
+            class={["mobile-result-btn", "mobile-more", @expanded_id == p.id && "chosen"]}
+            phx-click="toggle_extra"
+            phx-value-id={p.id}
+          >
+            {if @expanded_id == p.id, do: "▲ Less", else: "▼ More"}
+          </button>
+        </div>
+
+        <%!-- Forfeits and the asymmetric disciplinary codes — rare, so
+              tucked here instead of cluttering every board's default three
+              buttons. Stays open if that's already this board's own
+              recorded result, so "what's currently set" is never hidden
+              behind a tap the arbiter has no reason to make. --%>
+        <div
+          :if={@expanded_id == p.id or (p.result != "" and p.result not in ~w(1-0 1/2-1/2 0-1))}
+          class="mobile-results mobile-results--extra"
+        >
+          <button
+            :for={{value, label} <- @extra_results}
+            type="button"
+            disabled={@locked}
+            class={["mobile-result-btn", p.result == value && "chosen"]}
+            phx-click="set_result"
+            phx-value-id={p.id}
+            phx-value-result={value}
+          >
+            {label}
           </button>
         </div>
       </div>
