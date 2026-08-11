@@ -72,7 +72,8 @@ defmodule PairingsEngineWeb.SettingsAboutLive do
         </p>
 
         <p class="hint" style="margin-bottom: 0">
-          Version {Application.spec(:pairings_engine, :vsn)}.
+          Version {Application.spec(:pairings_engine, :vsn)} -
+          <.link navigate={~p"/t/#{@tournament.id}/settings/changelog"}>What's new</.link>
         </p>
       </div>
 

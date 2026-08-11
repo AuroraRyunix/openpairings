@@ -4,7 +4,7 @@ defmodule PairingsEngine.MixProject do
   def project do
     [
       app: :pairings_engine,
-      version: "0.11.1",
+      version: "0.12.0",
       elixir: "~> 1.17",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -102,7 +102,10 @@ defmodule PairingsEngine.MixProject do
       {:swoosh, "~> 1.16"},
       {:gen_smtp, "~> 1.2"},
       {:burrito, "~> 1.3"},
-      {:stream_data, "~> 1.1", only: [:dev, :test]}
+      {:stream_data, "~> 1.1", only: [:dev, :test]},
+      # Pure Elixir, no native deps — renders CHANGELOG.md on the
+      # Settings > Changelog page (SettingsChangelogLive).
+      {:earmark, "~> 1.4"}
     ]
   end
 

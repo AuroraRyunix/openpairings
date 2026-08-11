@@ -91,6 +91,12 @@ defmodule PairingsEngineWeb.SettingsSupport do
       >
         About
       </.link>
+      <.link
+        navigate={~p"/t/#{@tournament.id}/settings/changelog"}
+        class={["pe-btn", "filter-picker", @active == :changelog && "active"]}
+      >
+        Changelog
+      </.link>
     </div>
     """
   end
