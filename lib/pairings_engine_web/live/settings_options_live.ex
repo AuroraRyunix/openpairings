@@ -196,7 +196,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
            tournament: tournament,
            standard: tournament.standard,
            rate_of_play: tournament.rate_of_play,
-           note: "Saved.",
+           note: save_note(base, tournament),
            error: nil,
            dirty: false,
            stale: false
@@ -335,6 +335,21 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
   defp maybe_drop_locked(params, _key, false), do: params
   defp maybe_drop_locked(params, key, true), do: Map.delete(params, key)
+
+  # Player ratings are looked up per-cadence (`PairingsEngine.Fide.
+  # rating_for_tempo/2` — Standard/Rapid/Blitz), so a saved change to
+  # `standard` silently leaves every already-registered player's stored
+  # `fide_rating` at whatever cadence was in effect when they were last
+  # looked up or refreshed. Nothing re-fetches it automatically (that would
+  # mean a settings save silently rewriting player data) — just flag it so
+  # the arbiter knows to re-run the refresh from the Players page.
+  defp save_note(%{standard: same}, %{standard: same}), do: "Saved."
+
+  defp save_note(_before, tournament) do
+    "Saved. Tempo changed to #{RateOfPlay.standard_options() |> Map.new() |> Map.get(tournament.standard, tournament.standard)} " <>
+      "— FIDE ratings shown are still whichever cadence was last looked up; " <>
+      "refresh them from the Players page to pick up the new one."
+  end
 
   defp apply_rate_of_play_override(params) do
     case String.trim(Map.get(params, "rate_of_play_other", "")) do

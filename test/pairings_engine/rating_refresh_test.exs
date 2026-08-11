@@ -56,6 +56,57 @@ defmodule PairingsEngine.RatingRefreshTest do
       assert id == player.id
     end
 
+    test "a rapid tournament proposes the FIDE record's rapid rating, not standard", %{
+      tournament: standard_tournament
+    } do
+      {:ok, tournament} = Tournaments.update_tournament(standard_tournament, %{standard: "rapid"})
+
+      {:ok, player} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "Frank",
+          "fide_id" => "77",
+          "fide_rating" => "1500"
+        })
+
+      Repo.insert!(%FidePlayer{
+        fide_id: 77,
+        name: "Frank",
+        standard_rating: 2000,
+        rapid_rating: 1950,
+        blitz_rating: 1900,
+        title: ""
+      })
+
+      assert [%RatingRefresh{player: %{id: id}, field: :fide_rating, old: 1500, new: 1950}] =
+               RatingRefresh.dry_run(tournament).proposals
+
+      assert id == player.id
+    end
+
+    test "a blitz tournament falls back to standard_rating when the player has no blitz rating yet",
+         %{tournament: standard_tournament} do
+      {:ok, tournament} = Tournaments.update_tournament(standard_tournament, %{standard: "blitz"})
+
+      {:ok, _player} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "Grace",
+          "fide_id" => "88",
+          "fide_rating" => "1500"
+        })
+
+      Repo.insert!(%FidePlayer{
+        fide_id: 88,
+        name: "Grace",
+        standard_rating: 2000,
+        rapid_rating: 1950,
+        blitz_rating: nil,
+        title: ""
+      })
+
+      assert [%RatingRefresh{field: :fide_rating, old: 1500, new: 2000}] =
+               RatingRefresh.dry_run(tournament).proposals
+    end
+
     test "proposes a title only when the FIDE record actually has one", %{tournament: tournament} do
       {:ok, _player} =
         Tournaments.create_player(tournament.id, %{

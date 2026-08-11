@@ -98,6 +98,28 @@ defmodule PairingsEngine.Fide do
     end
   end
 
+  @doc """
+  The FIDE rating to actually use for a tournament of the given cadence
+  classification (`tournament.standard` — `"standard"`/`"rapid"`/`"blitz"`,
+  same field `PairingsEngine.RateOfPlay` reads): `fide_player`'s rating for
+  that specific list, falling back to the Standard rating when the player
+  has no rating in the tournament's own list (an untitled rapid/blitz
+  newcomer with only a Standard rating is the common case this covers —
+  FIDE itself only publishes a Rapid/Blitz rating once a player has enough
+  rated games in that list). Anything other than `"rapid"`/`"blitz"`
+  (including `""`/`nil`) reads the Standard rating directly, mirroring
+  `RateOfPlay.list_for/1`'s own default. `nil` in, `nil` out.
+  """
+  def rating_for_tempo(nil, _standard), do: nil
+
+  def rating_for_tempo(%FidePlayer{} = fide_player, standard) do
+    case standard do
+      "rapid" -> fide_player.rapid_rating || fide_player.standard_rating
+      "blitz" -> fide_player.blitz_rating || fide_player.standard_rating
+      _ -> fide_player.standard_rating
+    end
+  end
+
   def last_sync do
     case Repo.query!("SELECT value FROM meta WHERE key = 'fide_last_sync'").rows do
       [[value]] -> value

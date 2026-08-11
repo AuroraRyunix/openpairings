@@ -156,10 +156,12 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
           }
 
         fp ->
+          standard = socket.assigns.tournament && socket.assigns.tournament.standard
+
           %{
             "name" => fp.name,
             "fide_id" => fp.fide_id,
-            "fide_rating" => fp.standard_rating,
+            "fide_rating" => Fide.rating_for_tempo(fp, standard),
             "title" => fp.title,
             "federation" => fp.federation,
             "birth_year" => fp.birth_year

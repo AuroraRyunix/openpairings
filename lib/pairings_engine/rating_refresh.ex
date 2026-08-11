@@ -13,7 +13,11 @@ defmodule PairingsEngine.RatingRefresh do
 
     * `player.fide_id` → `fide_players` (exact match): proposes a new
       `fide_rating` when it differs, and a new `title` when the FIDE record
-      has one (never proposes *blanking* a title FIDE doesn't carry).
+      has one (never proposes *blanking* a title FIDE doesn't carry). The
+      rating proposed is the one matching the tournament's own cadence
+      (`tournament.standard` — Standard/Rapid/Blitz, see
+      `PairingsEngine.Fide.rating_for_tempo/2`), falling back to Standard
+      when the player has no rating in that specific list.
     * `player.national_id` → `kbsb_players` (exact match): proposes a new
       `national_rating` when it differs.
 
@@ -24,6 +28,7 @@ defmodule PairingsEngine.RatingRefresh do
   alias PairingsEngine.Repo
   alias PairingsEngine.Tournaments
   alias PairingsEngine.Tournaments.Player
+  alias PairingsEngine.Fide
   alias PairingsEngine.Fide.FidePlayer
   alias PairingsEngine.Kbsb.KbsbPlayer
 
@@ -51,7 +56,7 @@ defmodule PairingsEngine.RatingRefresh do
     results =
       tournament.id
       |> Tournaments.list_players()
-      |> Enum.map(&player_proposals/1)
+      |> Enum.map(&player_proposals(&1, tournament.standard))
 
     %{
       proposals: Enum.flat_map(results, & &1.proposals),
@@ -61,13 +66,18 @@ defmodule PairingsEngine.RatingRefresh do
     }
   end
 
-  defp player_proposals(player) do
+  defp player_proposals(player, standard) do
     fide = fide_match(player)
     kbsb = kbsb_match(player)
 
     proposals =
       []
-      |> maybe_add(player, :fide_rating, player.fide_rating, fide_rating(fide))
+      |> maybe_add(
+        player,
+        :fide_rating,
+        player.fide_rating,
+        Fide.rating_for_tempo(fide, standard)
+      )
       |> maybe_add_title(player, fide)
       |> maybe_add(player, :national_rating, player.national_rating, kbsb_rating(kbsb))
 
@@ -79,9 +89,6 @@ defmodule PairingsEngine.RatingRefresh do
 
   defp kbsb_match(%Player{national_id: nid}) when nid in [nil, ""], do: nil
   defp kbsb_match(%Player{national_id: nid}), do: Repo.get(KbsbPlayer, nid)
-
-  defp fide_rating(nil), do: nil
-  defp fide_rating(%FidePlayer{standard_rating: r}), do: r
 
   defp kbsb_rating(nil), do: nil
   defp kbsb_rating(%KbsbPlayer{national_rating: r}), do: r

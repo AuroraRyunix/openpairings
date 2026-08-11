@@ -427,7 +427,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           "name" => fp.name,
           "title" => fp.title,
           "fide_id" => fp.fide_id,
-          "fide_rating" => fp.standard_rating,
+          "fide_rating" => Fide.rating_for_tempo(fp, socket.assigns.tournament.standard),
           "federation" => fp.federation,
           "birth_year" => fp.birth_year,
           "sex" => fp.sex
@@ -640,7 +640,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           Map.merge(form, %{
             "title" => fp.title,
             "fide_id" => fp.fide_id,
-            "fide_rating" => fp.standard_rating,
+            "fide_rating" => Fide.rating_for_tempo(fp, socket.assigns.tournament.standard),
             "federation" => fp.federation,
             "birth_year" => fp.birth_year
           })
@@ -1402,6 +1402,30 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp field_label(:national_rating), do: "National rating"
   defp field_label(:title), do: "Title"
 
+  # `Player.rating/1`'s own FIDE-first-then-national logic, worked from the
+  # edit form's raw string values instead of a saved `%Player{}` — the form
+  # can hold an unsaved edit the stored struct doesn't have yet, and this is
+  # what "Elo used" in the registration dialog needs to reflect live as the
+  # arbiter types, not just after a save round-trip.
+  defp elo_used_from_form(form) do
+    fide = parse_rating(form["fide_rating"])
+    national = parse_rating(form["national_rating"])
+    if fide > 0, do: fide, else: if(national > 0, do: national, else: nil)
+  end
+
+  defp parse_rating(nil), do: 0
+  defp parse_rating(""), do: 0
+
+  defp parse_rating(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {n, _} -> n
+      :error -> 0
+    end
+  end
+
+  defp parse_rating(value) when is_integer(value), do: value
+  defp parse_rating(_), do: 0
+
   ## ---------- Player registration dialog (double-click) ----------
 
   attr :form, :map, required: true
@@ -1410,6 +1434,11 @@ defmodule PairingsEngineWeb.PlayersLive do
   attr :titles, :list, required: true
 
   defp player_edit_modal(assigns) do
+    assigns =
+      assigns
+      |> Phoenix.Component.assign(:fide_player, Fide.get_player(assigns.form["fide_id"]))
+      |> Phoenix.Component.assign(:elo_used, elo_used_from_form(assigns.form))
+
     ~H"""
     <div class="modal-overlay" phx-window-keydown="close_edit" phx-key="escape">
       <form class="modal-card" phx-submit="save_player" phx-click-away="close_edit">
@@ -1462,6 +1491,18 @@ defmodule PairingsEngineWeb.PlayersLive do
           <label class="field">
             <span>FIDE Elo</span>
             <input type="number" name="player[fide_rating]" value={@form["fide_rating"]} />
+            <span :if={@fide_player} class="hint" style="display: block; margin-top: 2px">
+              Standard {@fide_player.standard_rating || "—"} · Rapid {@fide_player.rapid_rating ||
+                "—"} · Blitz {@fide_player.blitz_rating || "—"}
+              <span :if={@tournament.standard in ["rapid", "blitz"]}>
+                (this is a {String.capitalize(@tournament.standard)} tournament — refreshing fills
+                in the {String.capitalize(@tournament.standard)} rating, or Standard if this player
+                has none yet)
+              </span>
+            </span>
+            <span class="hint" style="display: block">
+              Elo used (pairing/standings): <strong>{@elo_used || "unrated"}</strong>
+            </span>
           </label>
 
           <label class="field">
