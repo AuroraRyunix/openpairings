@@ -69,6 +69,61 @@ defmodule PairingsEngineWeb.PublicStandingsLiveTest do
     end
   end
 
+  describe "Category column — shows on the public page too, whenever the tournament has >= 1 category" do
+    test "hidden when the tournament has no categories defined", %{conn: conn} do
+      {tournament, _a, _b, _pairing} = two_player_tournament()
+
+      {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/standings")
+
+      refute html =~ "<th>Category</th>"
+    end
+
+    test "shows the assigned category per player, dash for unassigned", %{conn: conn} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(%{
+          "name" => "Public Categories Test",
+          "type" => "swiss",
+          "categories" => ["Open", "U18"]
+        })
+
+      Repo.insert!(%Player{
+        tournament_id: tournament.id,
+        name: "Alice",
+        fide_rating: 2000,
+        category: "Open"
+      })
+
+      Repo.insert!(%Player{tournament_id: tournament.id, name: "Bob", fide_rating: 1900})
+
+      {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/standings")
+
+      assert html =~ "<th>Category</th>"
+      assert html =~ "Open"
+    end
+
+    test "shows on the Keizer ladder too", %{conn: conn} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(%{
+          "name" => "Public Keizer Categories Test",
+          "type" => "swiss",
+          "pairing_system" => "keizer",
+          "categories" => ["Open"]
+        })
+
+      Repo.insert!(%Player{
+        tournament_id: tournament.id,
+        name: "Alice",
+        fide_rating: 2000,
+        category: "Open"
+      })
+
+      {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/standings")
+
+      assert html =~ "<th>Category</th>"
+      assert html =~ "Open"
+    end
+  end
+
   describe "Manual ranking (SWAR parity #23)" do
     test "no banner while manual_ranking is off", %{conn: conn} do
       {tournament, _a, _b, _pairing} = two_player_tournament()

@@ -3,6 +3,18 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.15] — 2026-08-12
+
+### Added
+
+- **Public standings link (`/p/:slug/standings`) now also shows the
+  Category column** whenever the tournament has 1+ categories — it was
+  added to the authenticated Standings page and print in 0.14.14, but
+  missed the public page, which has no column-preference system at
+  all and just needed the column added outright. Same "—" for an
+  unassigned player, on both the FIDE-tiebreak table and the Keizer
+  ladder.
+
 ## [0.14.14] — 2026-08-12
 
 ### Added
