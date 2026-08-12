@@ -14,7 +14,16 @@ defmodule PairingsEngineWeb.StandingsLive do
 
     {:ok,
      socket
-     |> assign(tournament: tournament, page_title: "#{tournament.name} · Standings")
+     |> assign(
+       tournament: tournament,
+       page_title: "#{tournament.name} · Standings",
+       # `nil` until the ColumnPrefs hook reports back what's actually
+       # stored in localStorage (see `show_col?/2`) — nil means "no
+       # preference recorded yet", not "hide everything", so a visitor
+       # who's never touched the Players page's Display panel keeps
+       # seeing every column exactly as before this existed.
+       visible: nil
+     )
      |> reload_standings()}
   end
 
@@ -97,6 +106,17 @@ defmodule PairingsEngineWeb.StandingsLive do
   end
 
   def handle_event("manual_move", _params, socket), do: {:noreply, socket}
+
+  # Sent by the ColumnPrefs JS hook after reading localStorage — the same
+  # hook and the same "pairingsengine.playerColumns" key PlayersLive's
+  # Display panel already persists to, so ticking/unticking a column
+  # there is reflected here too, without a second, separate preference to
+  # keep in sync by hand.
+  def handle_event("columns_loaded", %{"columns" => columns}, socket) when is_list(columns) do
+    {:noreply, assign(socket, visible: columns)}
+  end
+
+  def handle_event("columns_loaded", _params, socket), do: {:noreply, socket}
 
   defp do_manual_move(socket, tournament, player, direction) do
     socket =
@@ -201,6 +221,26 @@ defmodule PairingsEngineWeb.StandingsLive do
     sign <> :erlang.float_to_binary(n / 1, decimals: 2)
   end
 
+  # `nil` (ColumnPrefs hasn't reported back yet, or the arbiter has never
+  # touched the Players page's Display panel at all) means "no preference
+  # recorded" — show everything, same as before this existed — not "hide
+  # everything".
+  defp show_col?(nil, _key), do: true
+  defp show_col?(visible, key), do: key in visible
+
+  # A tiebreak code with no Players-grid equivalent (WIN/KS/MP/GP/BB — team
+  # or round-robin-only breaks the grid never offers a toggle for at all)
+  # always shows: there's no preference to defer to.
+  defp show_tiebreak?(visible, code) do
+    case Tiebreaks.grid_key(code) do
+      nil -> true
+      key -> show_col?(visible, key)
+    end
+  end
+
+  defp visible_tiebreak_codes(tiebreaks, visible),
+    do: Enum.filter(tiebreaks, &show_tiebreak?(visible, &1))
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -285,7 +325,12 @@ defmodule PairingsEngineWeb.StandingsLive do
         <p><strong>No players registered yet.</strong></p>
       </div>
 
-      <div :if={@entries != [] and !@keizer?} class="card table-card">
+      <div
+        :if={@entries != [] and !@keizer?}
+        id="standings-table"
+        class="card table-card"
+        phx-hook="ColumnPrefs"
+      >
         <table class="pe-table">
           <thead>
             <tr>
@@ -298,7 +343,7 @@ defmodule PairingsEngineWeb.StandingsLive do
               <th class="num">Pts</th>
 
               <th
-                :if={@tournament.count_extra_points}
+                :if={@tournament.count_extra_points and show_col?(@visible, "xtpts")}
                 class="num"
                 title="Administrative bonus points (SWAR XtPts)"
               >
@@ -306,18 +351,34 @@ defmodule PairingsEngineWeb.StandingsLive do
               </th>
 
               <th
-                :if={@tournament.count_extra_points}
+                :if={@tournament.count_extra_points and show_col?(@visible, "ptot")}
                 class="num"
                 title="Points + extra points - this is what ranking sorts by"
               >
                 Total
               </th>
 
-              <th class="num" title="FIDE expected score (Table 8.1.2)">We</th>
+              <th
+                :if={show_col?(@visible, "we")}
+                class="num"
+                title="FIDE expected score (Table 8.1.2)"
+              >
+                We
+              </th>
 
-              <th class="num" title="Actual score minus expected score">W-We</th>
+              <th
+                :if={show_col?(@visible, "wmwe")}
+                class="num"
+                title="Actual score minus expected score"
+              >
+                W-We
+              </th>
 
-              <th :for={code <- @tournament.tiebreaks} class="num" title={tb_name(code)}>
+              <th
+                :for={code <- visible_tiebreak_codes(@tournament.tiebreaks, @visible)}
+                class="num"
+                title={tb_name(code)}
+              >
                 {code}
               </th>
 
@@ -341,15 +402,19 @@ defmodule PairingsEngineWeb.StandingsLive do
 
               <td class="num"><strong>{entry.points}</strong></td>
 
-              <td :if={@tournament.count_extra_points} class="num">{entry.extra_points}</td>
+              <td :if={@tournament.count_extra_points and show_col?(@visible, "xtpts")} class="num">
+                {entry.extra_points}
+              </td>
 
-              <td :if={@tournament.count_extra_points} class="num"><strong>{entry.total}</strong></td>
+              <td :if={@tournament.count_extra_points and show_col?(@visible, "ptot")} class="num">
+                <strong>{entry.total}</strong>
+              </td>
 
-              <td class="num">{format_we(entry.we)}</td>
+              <td :if={show_col?(@visible, "we")} class="num">{format_we(entry.we)}</td>
 
-              <td class="num">{format_wmwe(entry.wmwe)}</td>
+              <td :if={show_col?(@visible, "wmwe")} class="num">{format_wmwe(entry.wmwe)}</td>
 
-              <td :for={code <- @tournament.tiebreaks} class="num">
+              <td :for={code <- visible_tiebreak_codes(@tournament.tiebreaks, @visible)} class="num">
                 {format_tb(Map.get(entry.tiebreaks, code, 0.0))}
               </td>
 

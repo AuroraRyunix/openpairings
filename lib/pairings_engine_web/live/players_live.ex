@@ -11,7 +11,8 @@ defmodule PairingsEngineWeb.PlayersLive do
     Standings,
     PlayerStats,
     PlayerCard,
-    RatingRefresh
+    RatingRefresh,
+    Tiebreaks
   }
 
   alias PairingsEngine.Tournaments.Player
@@ -79,16 +80,6 @@ defmodule PairingsEngineWeb.PlayersLive do
     {"diren", "DirEn", true,
      "Direct encounter tiebreak: points scored against opponents tied on the same score (only decisive once the whole tied group has played each other)"}
   ]
-
-  # Maps `tournament.tiebreaks` codes (as used by Standings) to the grid keys
-  # above — only the tiebreaks the grid actually displays as columns.
-  @tiebreak_code_to_key %{
-    "BH" => "buch",
-    "BHC1" => "bc1",
-    "SB" => "sb",
-    "PS" => "prog",
-    "DE" => "diren"
-  }
 
   @columns_after_tiebreaks [
     {"xtpts", "XtPts", true, "Extra points (administrative bonus points added by the organizer)"},
@@ -1011,7 +1002,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp tiebreak_columns(tournament) do
     configured_keys =
       tournament.tiebreaks
-      |> Enum.map(&Map.get(@tiebreak_code_to_key, &1))
+      |> Enum.map(&Tiebreaks.grid_key/1)
       |> Enum.reject(&is_nil/1)
 
     by_key = Map.new(@tiebreak_columns, &{elem(&1, 0), &1})

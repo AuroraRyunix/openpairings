@@ -117,4 +117,20 @@ defmodule PairingsEngine.Tiebreaks do
   def get(code), do: Enum.find(@catalogue, &(&1.code == code))
 
   def fide_defaults(type), do: Map.get(@fide_defaults, type, [])
+
+  # Maps a FIDE tiebreak `code` (as used in `tournament.tiebreaks`) to the
+  # column key the Players grid (`PairingsEngineWeb.PlayersLive`) and the
+  # Standings page's column-visibility filter both use — only the
+  # tiebreaks either page actually renders as its own toggleable column.
+  # Anything else (WIN, KS, MP, GP, BB — team/round-robin-only breaks with
+  # no dedicated grid column) returns `nil`.
+  @grid_keys %{
+    "BH" => "buch",
+    "BHC1" => "bc1",
+    "SB" => "sb",
+    "PS" => "prog",
+    "DE" => "diren"
+  }
+
+  def grid_key(code), do: Map.get(@grid_keys, code)
 end

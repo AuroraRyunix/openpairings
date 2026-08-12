@@ -71,6 +71,88 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
     end
   end
 
+  describe "column visibility follows the Players page's Display panel (shared localStorage prefs)" do
+    defp tiebreak_tournament(scope) do
+      Tournaments.create_tournament(scope, %{
+        "name" => "Column Sync Test",
+        "type" => "swiss",
+        "tiebreaks" => ["BH", "SB"]
+      })
+    end
+
+    test "before the ColumnPrefs hook reports back, every optional column still shows (no regression for a first-time visitor)",
+         %{conn: conn, scope: scope} do
+      {:ok, tournament} = tiebreak_tournament(scope)
+      {:ok, _p} = Tournaments.create_player(tournament.id, %{"name" => "Alice"})
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
+
+      assert html =~ "We"
+      assert html =~ "W-We"
+      assert html =~ ~r/>\s*BH\s*</
+      assert html =~ ~r/>\s*SB\s*</
+    end
+
+    test "hiding 'we'/'wmwe' on the Players page hides We/W-We here too", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, tournament} = tiebreak_tournament(scope)
+      {:ok, _p} = Tournaments.create_player(tournament.id, %{"name" => "Alice"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/standings")
+
+      # Everything the Players Display panel currently offers, minus we/wmwe —
+      # mirrors what a real localStorage payload looks like (the full
+      # persisted list, not just a diff).
+      columns =
+        ~w(title birth_year federation fide_id fide_rating national_rating club cl games pts xtpts ptot pr)
+
+      html = render_hook(lv, "columns_loaded", %{"columns" => columns})
+
+      refute html =~ "We</th>"
+      refute html =~ "W-We</th>"
+      # Tiebreak columns aren't in that list either, so they hide too.
+      refute html =~ ~r/>\s*BH\s*</
+      refute html =~ ~r/>\s*SB\s*</
+    end
+
+    test "a tiebreak code with no Players-grid equivalent always shows, preference or not", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "Team RR",
+          "type" => "team-roundrobin",
+          "tiebreaks" => ["MP"]
+        })
+
+      {:ok, _p} = Tournaments.create_player(tournament.id, %{"name" => "Alice"})
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
+      assert html =~ ~r/>\s*MP\s*</
+
+      # Even with an explicit, empty preference list (everything toggleable
+      # hidden), MP has no grid column to defer to, so it stays.
+      html = render_hook(lv, "columns_loaded", %{"columns" => []})
+      assert html =~ ~r/>\s*MP\s*</
+    end
+
+    test "malformed columns_loaded params are ignored instead of crashing the page", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, tournament} = tiebreak_tournament(scope)
+      {:ok, _p} = Tournaments.create_player(tournament.id, %{"name" => "Alice"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/standings")
+
+      html = render_hook(lv, "columns_loaded", %{})
+      assert html =~ "We"
+    end
+  end
+
   describe "Manual ranking (SWAR parity #23)" do
     defp two_player_tournament(scope) do
       {:ok, tournament} =
