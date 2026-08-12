@@ -26,6 +26,7 @@ defmodule PairingsEngineWeb.Router do
       on_mount: [{PairingsEngineWeb.UserAuth, :require_authenticated}] do
       live "/", TournamentsLive
       live "/fide", FideLive
+      live "/changelog", ChangelogLive
       live "/t/:id/players", PlayersLive
       live "/t/:id/pairings", PairingsLive
       live "/t/:id/pairings/:round/explain", PairingExplainLive

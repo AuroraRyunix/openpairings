@@ -109,6 +109,13 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
     end
   end
 
+  test "the top-left nav link reads 'Tournaments' outside a tournament context", %{conn: conn} do
+    {:ok, _lv, html} = live(conn, ~p"/")
+
+    assert html =~ ~r/<a[^>]*href="\/"[^>]*>\s*Tournaments\s*<\/a>/
+    refute html =~ ~r/<a[^>]*href="\/"[^>]*>\s*Home\s*<\/a>/
+  end
+
   ## ---------- Creation modal: pairing_system/type can never contradict (task 6) ----------
 
   describe "New tournament: pairing system drives `type`, the raw type select is gone" do

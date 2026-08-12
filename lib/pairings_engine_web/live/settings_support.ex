@@ -92,8 +92,9 @@ defmodule PairingsEngineWeb.SettingsSupport do
         About
       </.link>
       <.link
-        navigate={~p"/t/#{@tournament.id}/settings/changelog"}
-        class={["pe-btn", "filter-picker", @active == :changelog && "active"]}
+        navigate={~p"/changelog"}
+        class="pe-btn filter-picker"
+        title="Not tournament-specific — opens the app-wide changelog"
       >
         Changelog
       </.link>

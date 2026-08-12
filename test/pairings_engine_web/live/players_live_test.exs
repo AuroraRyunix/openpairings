@@ -10,6 +10,19 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
 
   setup :register_and_log_in_user
 
+  test "the top-left nav link reads 'Home' once inside a tournament", %{
+    conn: conn,
+    scope: scope
+  } do
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{"name" => "Nav Test", "type" => "swiss"})
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+    assert html =~ ~r/<a[^>]*href="\/"[^>]*>\s*Home\s*<\/a>/
+    refute html =~ ~r/<a[^>]*href="\/"[^>]*>\s*Tournaments\s*<\/a>/
+  end
+
   test "print player list / player cards links open the roster-wide documents in a new tab", %{
     conn: conn,
     scope: scope

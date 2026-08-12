@@ -47,7 +47,9 @@ defmodule PairingsEngineWeb.Layouts do
         <span class="brand-name">Open<strong>Pairings</strong></span>
       </.link>
       <nav>
-        <.link navigate={~p"/"} class={tab_class(@active == "tournaments")}>Tournaments</.link>
+        <.link navigate={~p"/"} class={tab_class(@active == "tournaments")}>
+          {if @tournament, do: "Home", else: "Tournaments"}
+        </.link>
         <%= if @tournament do %>
           <.link navigate={~p"/t/#{@tournament.id}/players"} class={tab_class(@active == "players")}>
             Players
@@ -118,6 +120,13 @@ defmodule PairingsEngineWeb.Layouts do
           class={tab_class(@active == "tools")}
         >
           Tools
+        </.link>
+        <.link
+          :if={!@tournament && @current_scope}
+          navigate={~p"/changelog"}
+          class={tab_class(@active == "changelog")}
+        >
+          Changelog
         </.link>
       </nav>
       <nav class="topbar-auth">
