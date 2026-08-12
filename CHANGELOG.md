@@ -3,6 +3,19 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.13.1] — 2026-08-12
+
+### Fixed
+
+- **The KBSB lookup button could find a player's FIDE ID but never used
+  it** — if the player's FIDE ID was blank, "KBSB lookup" would fill it
+  in from KBSB's own cross-reference, but the arbiter then had to click
+  "FIDE lookup" a second time by hand to actually pull that player's real
+  FIDE data (title, rating, federation, birth year). Now the FIDE data
+  comes in automatically the moment KBSB supplies the ID that unlocks it.
+  If the FIDE ID KBSB found isn't in the local FIDE copy (e.g. not synced
+  recently), KBSB's own fields are still applied rather than discarded.
+
 ## [0.13.0] — 2026-08-12
 
 A batch of smaller fixes and features from one round of feedback.

@@ -360,6 +360,44 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       assert html =~ ~s(value="555555")
     end
 
+    test "when KBSB fills a previously-blank FIDE id, it also immediately pulls that player's FIDE data",
+         %{conn: conn, tournament: tournament, player: player} do
+      Repo.insert!(%FidePlayer{
+        fide_id: 555_555,
+        name: "Peeters, Jan",
+        title: "FM",
+        federation: "BEL",
+        standard_rating: 2100,
+        birth_year: 1990
+      })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "edit_player", %{"id" => to_string(player.id)})
+      html = lv |> element("button", "KBSB") |> render_click()
+
+      # KBSB's own fields, plus the FIDE data reachable through the id it
+      # just found — no need to click "FIDE lookup" a second time by hand.
+      assert html =~ ~s(value="555555")
+      assert html =~ ~s(value="2100")
+      assert html =~ "Peeters, Jan"
+    end
+
+    test "when the KBSB-linked FIDE id isn't in our local FIDE copy, KBSB's own data is still applied",
+         %{conn: conn, tournament: tournament, player: player} do
+      # No FidePlayer 555_555 inserted — simulates a stale/not-yet-synced
+      # local FIDE list. The KBSB half of the lookup must not be thrown
+      # away just because the FIDE follow-up came back empty.
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "edit_player", %{"id" => to_string(player.id)})
+      html = lv |> element("button", "KBSB") |> render_click()
+
+      assert html =~ ~s(value="1850")
+      assert html =~ ~s(value="555555")
+      refute html =~ "No matching FIDE player found"
+    end
+
     test "does not clobber an existing FIDE id already on the form", %{
       conn: conn,
       tournament: tournament

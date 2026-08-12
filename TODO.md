@@ -9,10 +9,10 @@ These are real, identified gaps — not yet built, and not accidentally missed:
 
 - **Admin/support role** (`users.role`) — no staff/support role exists yet;
   every user is a plain account owner. Deferred, no target date.
-- **FIDE/KBSB "last synced" banner** — smaller than it sounds:
-  `PairingsEngine.Fide.Sync` / `PairingsEngine.Kbsb.Sync` are already
-  singleton GenServers and `Fide.last_sync/0` already tracks a timestamp;
-  only the UI banner showing it is missing.
+- ~~**FIDE/KBSB "last synced" banner**~~ — this claim was already stale:
+  the topbar's `.sync-freshness` strip ("FIDE: 3 days ago · KBSB: never
+  synced") has been showing this for a while (`Layouts.sync_label/1`,
+  `Fide.last_sync/0`/`Kbsb.last_sync/0`). Nothing left to build here.
 - ~~**Live "round paired by someone else" notice**~~ — this claim was
   already half-stale: PairingsLive has had a dismissible "updated by
   another arbiter" toast (`remote_notice`) for a while, comparing the

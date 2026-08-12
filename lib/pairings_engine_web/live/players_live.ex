@@ -729,9 +729,18 @@ defmodule PairingsEngineWeb.PlayersLive do
   # (KBSB has no FIDE-style name search), refills national rating/club/
   # federation/birth year, and the FIDE id too if the form doesn't already
   # have one — the FIDE list stays the source of truth for that field.
+  #
+  # If that's what fills in the FIDE ID (it was blank before this lookup),
+  # this also immediately pulls that player's actual FIDE data (title,
+  # tempo-aware rating, federation, birth year, name) the same way FIDE
+  # lookup's own exact-ID path does — otherwise the arbiter has to click
+  # "FIDE lookup" a second time by hand just to use the ID this button
+  # already found, which is exactly the "have to push the other button to
+  # make it work" complaint this exists to close.
   def handle_event("refresh_edit_kbsb", _params, socket) do
     form = socket.assigns.edit_form
     national_id = form |> Map.get("national_id", "") |> to_string() |> String.trim()
+    had_fide_id? = form |> Map.get("fide_id") |> to_string() |> String.trim() != ""
 
     cond do
       national_id == "" ->
@@ -749,7 +758,23 @@ defmodule PairingsEngineWeb.PlayersLive do
           })
           |> put_if_blank("fide_id", kp.fide_id)
 
-        {:noreply, assign(socket, edit_form: merged, edit_error: nil)}
+        newly_learned_fide_id = merged |> Map.get("fide_id") |> to_string() |> String.trim()
+
+        case !had_fide_id? && newly_learned_fide_id != "" &&
+               Fide.get_player(newly_learned_fide_id) do
+          %FidePlayer{} = fp ->
+            # KBSB's own fields stay applied either way (merged, not
+            # form) — a real FIDE match on top of that is a bonus, not a
+            # replacement for it.
+            apply_fide_match(socket, merged, fp, by_id: true)
+
+          _ ->
+            # No local FIDE ID to chain to, or the cross-referenced ID
+            # isn't in our local FIDE copy (stale/not synced recently) —
+            # either way, the KBSB data itself is still good and shouldn't
+            # be thrown away over it.
+            {:noreply, assign(socket, edit_form: merged, edit_error: nil)}
+        end
 
       true ->
         {:noreply, assign(socket, edit_error: "No matching KBSB player found")}
