@@ -446,12 +446,23 @@ body {
   list-style: none;
   cursor: pointer;
   color: var(--text-soft);
-  padding: 6px 12px;
+  padding: 5px 10px;
   border-radius: 6px;
   font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  line-height: 1.2;
 }
 .topbar-menu > summary::-webkit-details-marker { display: none; }
-.topbar-menu > summary::after { content: " \25BE"; font-size: 11px; }
+.topbar-menu > summary::after {
+  content: "\25BE";
+  font-size: 10px;
+  line-height: 1;
+  opacity: 0.6;
+  transition: transform 0.15s ease;
+}
+.topbar-menu[open] > summary::after { transform: rotate(180deg); }
 .topbar-menu > summary:hover { background: var(--bg); color: var(--text); }
 .topbar-menu > summary.active { background: var(--accent-soft); color: var(--accent); }
 

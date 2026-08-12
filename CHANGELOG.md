@@ -3,6 +3,16 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.3] — 2026-08-12
+
+### Changed
+
+- **"Norms" moved into the "Advanced" top-bar dropdown**, alongside Audit
+  trail and Pairing rationale, instead of sitting as its own tab.
+- **Cleaned up the "Advanced"/"Settings" dropdown chevron** — it now sits
+  inline with the label (proper vertical alignment instead of a stray
+  floating triangle) and flips to point up while the menu is open.
+
 ## [0.14.2] — 2026-08-12
 
 ### Fixed
