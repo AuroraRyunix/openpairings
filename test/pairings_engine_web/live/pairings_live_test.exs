@@ -1237,4 +1237,87 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       refute html =~ "Spare"
     end
   end
+
+  describe "frozen-round confirmation (editing a round that isn't the latest paired one)" do
+    # Same two-board round 1 as `two_board_fixture/1`, plus a paired round
+    # 2 — so round 1 is no longer the tournament's latest.
+    defp two_rounds_fixture(scope) do
+      %{tournament: t} = fixture = two_board_fixture(scope)
+
+      [e, f] =
+        for name <- ~w(E F) do
+          Repo.insert!(%Player{tournament_id: t.id, name: name})
+        end
+
+      round2 = Repo.insert!(%Round{tournament_id: t.id, number: 2, status: "playing"})
+
+      Repo.insert!(%Pairing{
+        round_id: round2.id,
+        board: 1,
+        white_player_id: e.id,
+        black_player_id: f.id,
+        result: ""
+      })
+
+      Map.merge(fixture, %{e: e, f: f})
+    end
+
+    test "the LATEST round's own confirm modal is never frozen", %{conn: conn, scope: scope} do
+      %{tournament: t, e: e, f: f} = two_rounds_fixture(scope)
+
+      # Default mount lands on the latest paired round (2), where E/F are —
+      # a colour swap between them (their only board) needs no round switch.
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+
+      html = arm_and_pick(lv, e.id, f.id)
+      assert html =~ "Swap colours"
+      refute html =~ "not the current round"
+      refute html =~ "disabled"
+    end
+
+    test "swapping on a past (non-latest) round shows the frozen warning with a disabled primary button",
+         %{conn: conn, scope: scope} do
+      %{tournament: t, a: a, d: d} = two_rounds_fixture(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      render_click(lv, "select_round", %{"number" => "1"})
+
+      html = arm_and_pick(lv, a.id, d.id)
+      assert html =~ "not the current round"
+      assert html =~ "round 2"
+      assert html =~ "disabled"
+
+      # Refused server-side too, not just a disabled button client-side.
+      render_click(lv, "apply_confirm", %{})
+      round = Tournaments.get_round(t.id, 1)
+      assert Enum.find(round.pairings, &(&1.board == 1)).white_player_id == a.id
+    end
+
+    test "ticking the acknowledgement checkbox enables the button and lets the change through",
+         %{conn: conn, scope: scope} do
+      %{tournament: t, a: a, d: d} = two_rounds_fixture(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      render_click(lv, "select_round", %{"number" => "1"})
+      arm_and_pick(lv, a.id, d.id)
+
+      render_click(lv, "toggle_frozen_ack", %{})
+      render_click(lv, "apply_confirm", %{})
+
+      round = Tournaments.get_round(t.id, 1)
+      board1 = Enum.find(round.pairings, &(&1.board == 1))
+      assert board1.white_player_id == d.id
+    end
+
+    test "marking a player absent on a past round is frozen too, not just swaps",
+         %{conn: conn, scope: scope} do
+      %{tournament: t, a: a} = two_rounds_fixture(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      render_click(lv, "select_round", %{"number" => "1"})
+
+      html = render_click(lv, "stage_vacate", %{"player-id" => to_string(a.id)})
+      assert html =~ "not the current round"
+    end
+  end
 end

@@ -224,6 +224,16 @@ defmodule PairingsEngineWeb.ExportControllerTest do
       refute body =~ ~s([Round "2"])
     end
 
+    test "?board=1 adds a [Board] tag; omitted leaves it off", %{conn: conn, scope: scope} do
+      {tournament, _} = fixture(scope)
+
+      without = get(conn, ~p"/t/#{tournament.id}/export/pgn?round=1") |> response(200)
+      refute without =~ "[Board "
+
+      with_board = get(conn, ~p"/t/#{tournament.id}/export/pgn?round=1&board=1") |> response(200)
+      assert with_board =~ "[Board "
+    end
+
     test "an invalid round param falls back to every round rather than erroring", %{
       conn: conn,
       scope: scope

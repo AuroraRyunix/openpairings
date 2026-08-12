@@ -3,6 +3,32 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.20] — 2026-08-13
+
+### Added
+
+- **PGN export can include board numbers** — right-click "Export PGN" on
+  the Pairings page (same `.PrintMenu` pattern as "Print pairings"/"Print
+  result cards") for three more variants: this round with board numbers,
+  every round, and every round with board numbers. `?board=1` adds a
+  `[Board "N"]` tag to every game, using the same DISPLAY board number
+  every other view shows (fixed-table boards relabeled/moved), not the
+  raw stored board.
+- **Editing a past (non-latest) round's pairings now asks you to confirm
+  it's not a mistake** — swap, mark absent, pool-pair, fill a seat, award
+  a bye: any pairing-altering action staged on a round that isn't the
+  tournament's current latest paired round now shows a clear warning in
+  the confirm modal ("You're changing round N, not the current round"),
+  with the primary button disabled until an explicit "I understand, apply
+  anyway" checkbox is ticked — both client-side and re-checked
+  server-side. Entering/editing a result is unaffected; this only gates
+  changes to who's paired with whom.
+
+### Fixed
+
+- **Public pairings round-picker/table sat flush against each other with
+  no gap.**
+
 ## [0.14.19] — 2026-08-13
 
 ### Fixed

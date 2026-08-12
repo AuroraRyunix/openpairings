@@ -1,6 +1,6 @@
 # PGN export
 
-`GET /t/:id/export/pgn?round=N` downloads a metadata-only PGN file
+`GET /t/:id/export/pgn?round=N&board=1` downloads a metadata-only PGN file
 (`application/x-chess-pgn`, `Content-Disposition: attachment`, filename
 `<tournament-slug>.pgn`) built by `PairingsEngine.PgnExport`. Owner-scoped
 the same way every other export route is
@@ -28,6 +28,17 @@ out-of-range silently drops" behavior (see `docs/import-export.md`).
 
 Byes are always skipped — there's no opponent to record a game against.
 
+## The `board` query parameter
+
+Omit `board` (or pass anything other than `1`) to leave board numbers out
+entirely — the export's long-standing default. Pass `?board=1` to add a
+supplemental `[Board "N"]` tag to every game, right after `Round`. `N` is
+the same DISPLAY board number every other view in the app shows
+(`PairingDisplay.with_display_boards/1`: fixed-table pairings relabeled to
+their fixed board and moved to the end, byes/vacant seats excluded from the
+renumbering) — not the raw stored `pairing.board` — so it matches what an
+arbiter actually sees on the pairing sheet for that game.
+
 ## Header (Seven Tag Roster) mapping
 
 | Tag | Source |
@@ -36,6 +47,7 @@ Byes are always skipped — there's no opponent to record a game against.
 | `Site` | Tournament venue if set, else city, else `"?"` |
 | `Date` | The round's own date (`"YYYY.MM.DD"`), or `"????.??.??"` if the round has no date set |
 | `Round` | The round number |
+| `Board` | Only with `?board=1` — see above |
 | `White` / `Black` | Player names, exactly as stored (already `"Last, First"` for anyone imported from SWAR/TRF/FIDE data) |
 | `Result` | See below |
 
@@ -66,3 +78,6 @@ The Pairings page has an "Export PGN" link next to the print and TRF export
 links, scoped to the currently selected round (`?round=<selected round>`) —
 plain `GET`/`<a target="_blank">`, so it opens in a new tab without routing
 through the LiveView socket, same as every other export/print link there.
+Right-click it (same `.PrintMenu` hook the "Print pairings"/"Print result
+cards" buttons use) for three more variants: this round with board numbers,
+every round, and every round with board numbers.

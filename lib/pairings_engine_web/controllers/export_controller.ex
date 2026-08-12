@@ -50,11 +50,16 @@ defmodule PairingsEngineWeb.ExportController do
     end
   end
 
-  @doc "GET /t/:id/export/pgn?round=N — metadata-only PGN text download, one round or all rounds."
+  @doc """
+  GET /t/:id/export/pgn?round=N&board=1 — metadata-only PGN text download,
+  one round or all rounds. `board=1` adds a [Board "N"] tag to every game
+  (see `PgnExport.export/3`'s moduledoc); omitted/anything else leaves it
+  off, matching the export's long-standing default.
+  """
   def pgn(conn, %{"id" => id} = params) do
     tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
     round_number = parse_round_param(params["round"])
-    text = PgnExport.export(tournament, round_number)
+    text = PgnExport.export(tournament, round_number, board: params["board"] == "1")
 
     conn
     |> put_resp_content_type("application/x-chess-pgn")

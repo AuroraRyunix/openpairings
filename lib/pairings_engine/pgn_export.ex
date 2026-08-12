@@ -7,7 +7,7 @@ defmodule PairingsEngine.PgnExport do
   `docs/pgn-export.md`.
   """
 
-  alias PairingsEngine.Tournaments
+  alias PairingsEngine.{PairingDisplay, Tournaments}
   alias PairingsEngine.Tournaments.Tournament
 
   @doc """
@@ -16,11 +16,20 @@ defmodule PairingsEngine.PgnExport do
   Byes are skipped — there's no opponent to record a game against. Returns
   `""` when there's nothing to export (unpaired round, or a round with only
   byes).
+
+  `opts[:board]` (default `false`) adds a supplemental `[Board "N"]` tag
+  to every game, right after `Round` — the same DISPLAY board number
+  shown everywhere else in the app (`PairingDisplay.with_display_boards/1`:
+  fixed-table boards relabeled/moved, byes/vacant seats excluded from the
+  renumbering), not the raw `pairing.board`, so it matches what an arbiter
+  actually sees on the pairing sheet for that game.
   """
-  def export(tournament, round_number \\ nil) do
+  def export(tournament, round_number \\ nil, opts \\ []) do
+    board? = Keyword.get(opts, :board, false)
+
     tournament
     |> rounds_for(round_number)
-    |> Enum.flat_map(&games_for_round(tournament, &1))
+    |> Enum.flat_map(&games_for_round(tournament, &1, board?))
     |> Enum.map(&game_text/1)
     |> Enum.join("\n\n")
     |> append_trailing_newline()
@@ -38,26 +47,44 @@ defmodule PairingsEngine.PgnExport do
     end
   end
 
-  defp games_for_round(tournament, round) do
+  defp games_for_round(tournament, round, board?) do
+    display_board_by_pairing_id =
+      if board? do
+        round.pairings
+        |> PairingDisplay.with_display_boards()
+        |> Map.new(fn %{pairing: p, board: b} -> {p.id, b} end)
+      else
+        %{}
+      end
+
     round.pairings
     |> Enum.reject(&(&1.result == "bye" or is_nil(&1.black_player_id)))
-    |> Enum.map(&{tournament, round, &1})
+    |> Enum.map(&{tournament, round, &1, Map.get(display_board_by_pairing_id, &1.id)})
   end
 
-  defp game_text({tournament, round, pairing}) do
+  defp game_text({tournament, round, pairing, display_board}) do
     headers =
       [
         tag("Event", tournament.name),
         tag("Site", site_tag(tournament)),
         tag("Date", date_tag(round.date)),
-        tag("Round", to_string(round.number)),
-        tag("White", pairing.white_player.name),
-        tag("Black", pairing.black_player.name),
-        tag("Result", result_tag(pairing.result))
-      ] ++ optional_tags(pairing)
+        tag("Round", to_string(round.number))
+      ] ++
+        board_tag(display_board) ++
+        [
+          tag("White", pairing.white_player.name),
+          tag("Black", pairing.black_player.name),
+          tag("Result", result_tag(pairing.result))
+        ] ++ optional_tags(pairing)
 
     Enum.join(headers, "\n") <> "\n\n" <> result_tag(pairing.result)
   end
+
+  # `nil` when `export/3`'s `board:` option wasn't passed — supplemental,
+  # right after Round, the conventional spot for a team/multi-board [Board]
+  # tag in the wild.
+  defp board_tag(nil), do: []
+  defp board_tag(display_board), do: [tag("Board", to_string(display_board))]
 
   defp site_tag(%Tournament{venue: v}) when is_binary(v) and v != "", do: v
   defp site_tag(%Tournament{city: c}) when is_binary(c) and c != "", do: c

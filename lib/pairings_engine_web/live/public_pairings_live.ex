@@ -242,7 +242,7 @@ defmodule PairingsEngineWeb.PublicPairingsLive do
           </p>
         </div>
 
-        <div :if={@round} class="card table-card">
+        <div :if={@round} class="card table-card" style="margin-top: 16px">
           <table class="pe-table">
             <thead>
               <tr>

@@ -305,6 +305,16 @@ defmodule PairingsEngineWeb.PairingsLive do
   def handle_event("cancel_confirm", _params, socket),
     do: {:noreply, assign(socket, confirm: nil)}
 
+  # The "I understand — apply this to round N anyway" checkbox on a
+  # frozen-round confirm (see `frozen_round?/1`) — the primary button
+  # stays disabled until this is ticked.
+  def handle_event("toggle_frozen_ack", _params, socket) do
+    case socket.assigns.confirm do
+      nil -> {:noreply, socket}
+      confirm -> {:noreply, assign(socket, confirm: Map.update!(confirm, :frozen_ack, &(!&1)))}
+    end
+  end
+
   def handle_event("apply_confirm", _params, socket) do
     apply_confirm(socket, socket.assigns.confirm)
   end
@@ -466,11 +476,26 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp stage(socket, action) do
     case confirm_for(socket, action) do
       {:ok, confirm} ->
+        frozen? = frozen_round?(socket)
+        confirm = Map.merge(confirm, %{frozen: frozen?, frozen_ack: !frozen?})
         assign(socket, confirm: confirm, menu: nil, seat_pick: nil)
 
       {:error, _reason} ->
         assign(socket, menu: nil, seat_pick: nil)
     end
+  end
+
+  # A round that isn't the tournament's current latest PAIRED round —
+  # every `confirm_for/2` action (swap, mark absent, pool-pair, fill a
+  # seat, award a bye — everything that alters who's paired with whom)
+  # runs through `stage/2`, so gating it here covers all of them
+  # uniformly. Entering/editing a RESULT is untouched — only pairing
+  # structure gets the extra gate. `paired_rounds == 0` (nothing paired
+  # yet at all) is never "frozen"; there's no other round to confuse this
+  # one with.
+  defp frozen_round?(socket) do
+    %{round_number: n, paired_rounds: paired} = socket.assigns
+    paired > 0 and n != paired
   end
 
   ## ---------- Hand-editing a round: preview + apply ----------
@@ -623,6 +648,12 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   defp apply_confirm(socket, nil), do: {:noreply, socket}
+
+  # Belt-and-braces: the modal's primary button is already `disabled` in
+  # this state (see the template), but a disabled button is a client-side
+  # courtesy, not a guarantee — refuse server-side too rather than trust
+  # it.
+  defp apply_confirm(socket, %{frozen: true, frozen_ack: false}), do: {:noreply, socket}
 
   defp apply_confirm(socket, confirm) do
     %{tournament: t, round: round} = socket.assigns
@@ -1361,15 +1392,39 @@ defmodule PairingsEngineWeb.PairingsLive do
             </div>
           </div>
 
-          <a
+          <div
             :if={@round != nil}
-            class="pe-btn"
-            href={~p"/t/#{@tournament.id}/export/pgn?round=#{@round_number}"}
-            target="_blank"
-            title="Metadata-only PGN - no moves are recorded in OpenPairings"
+            class="print-menu-wrap"
+            phx-hook=".PrintMenu"
+            id={"pgn-export-menu-#{@round_number}"}
           >
-            Export PGN
-          </a>
+            <a
+              class="pe-btn"
+              href={~p"/t/#{@tournament.id}/export/pgn?round=#{@round_number}"}
+              target="_blank"
+              title="Metadata-only PGN - no moves are recorded in OpenPairings. Right-click for more options"
+            >
+              Export PGN <span class="print-menu-affordance">⋯</span>
+            </a>
+
+            <div class="print-menu-items" hidden>
+              <a
+                href={~p"/t/#{@tournament.id}/export/pgn?round=#{@round_number}&board=1"}
+                target="_blank"
+                title="Adds a [Board &quot;N&quot;] tag to every game, using the same board number shown on the pairing sheet"
+              >
+                This round, with board numbers
+              </a>
+
+              <a href={~p"/t/#{@tournament.id}/export/pgn"} target="_blank">
+                All rounds
+              </a>
+
+              <a href={~p"/t/#{@tournament.id}/export/pgn?board=1"} target="_blank">
+                All rounds, with board numbers
+              </a>
+            </div>
+          </div>
 
           <button
             :if={@round != nil}
@@ -1520,11 +1575,27 @@ defmodule PairingsEngineWeb.PairingsLive do
               A recorded result will be cleared — it described a game between players who are
               no longer both on that board.
             </p>
+
+            <div :if={@confirm.frozen} class="pe-modal-warn">
+              <strong>
+                You're changing round {@round_number}, not the current round (round {@paired_rounds}).
+              </strong>
+
+              <label style="display: flex; align-items: center; gap: 6px; margin-top: 6px; font-weight: 400">
+                <input type="checkbox" checked={@confirm.frozen_ack} phx-click="toggle_frozen_ack" />
+                I understand — apply this to round {@round_number} anyway
+              </label>
+            </div>
           </div>
 
           <footer class="pe-modal-foot">
             <button type="button" class="pe-btn" phx-click="cancel_confirm">Cancel</button>
-            <button type="button" class="pe-btn primary pe-modal-go" phx-click="apply_confirm">
+            <button
+              type="button"
+              class="pe-btn primary pe-modal-go"
+              phx-click="apply_confirm"
+              disabled={@confirm.frozen and !@confirm.frozen_ack}
+            >
               {@confirm.title}
             </button>
           </footer>

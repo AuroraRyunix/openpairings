@@ -161,6 +161,41 @@ defmodule PairingsEngine.PgnExportTest do
     assert PgnExport.export(tournament, 3) == ""
   end
 
+  test "board: false (the default) omits the Board tag entirely" do
+    tournament = fixture(user_scope_fixture())
+    refute PgnExport.export(tournament, 1) =~ "[Board "
+  end
+
+  test "board: true adds the display board number, right after Round" do
+    tournament = fixture(user_scope_fixture())
+
+    text = PgnExport.export(tournament, 1, board: true)
+    lines = String.split(text, "\n")
+
+    round_index = Enum.find_index(lines, &(&1 == ~s([Round "1"])))
+    board_index = Enum.find_index(lines, &(&1 == ~s([Board "1"])))
+
+    assert board_index == round_index + 1
+  end
+
+  test "board: true uses the DISPLAY board number, not the raw one — a fixed-table game renumbers/moves like everywhere else" do
+    scope = user_scope_fixture()
+    tournament = fixture(scope)
+
+    # A fixed-table player is relabeled to their fixed_board and moved to
+    # the end, same as `PairingDisplay`'s doctest and every other view —
+    # this pins the export to THAT number, not `pairing.board`. Bob, not
+    # Alice: Alice is double-booked in this fixture's round 1 (board 1's
+    # real game AND board 2's bye), so pinning the fixed board to her
+    # would be ambiguous about which pairing owns it.
+    bob = Repo.get_by!(Player, tournament_id: tournament.id, name: "Bob, B.")
+    Repo.update!(Ecto.Changeset.change(bob, fixed_board: 1001))
+
+    text = PgnExport.export(tournament, 1, board: true)
+    assert text =~ ~s([Board "1001"])
+    refute text =~ ~s([Board "1"])
+  end
+
   test "a control character in a name can't inject a PGN tag line" do
     scope = user_scope_fixture()
     tournament = fixture(scope)
