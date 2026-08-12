@@ -396,6 +396,143 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
     end
   end
 
+  describe "FIDE lookup (edit modal)" do
+    setup %{scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "FIDE Edit Test", "type" => "swiss"})
+
+      %{tournament: tournament}
+    end
+
+    test "by FIDE id: corrects the name straight away, no confirmation needed", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, player} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "tijl de moyer",
+          "fide_id" => "214566"
+        })
+
+      Repo.insert!(%FidePlayer{
+        fide_id: 214_566,
+        name: "De Moyer, Tijl",
+        federation: "BEL",
+        standard_rating: 1865,
+        birth_year: 1982
+      })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "edit_player", %{"id" => to_string(player.id)})
+      html = lv |> element("button", "FIDE lookup") |> render_click()
+
+      assert html =~ ~s(value="De Moyer, Tijl")
+      refute html =~ "correct it?"
+    end
+
+    test "by name: fills the other fields but stages the name behind a yes/no prompt", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, player} =
+        Tournaments.create_player(tournament.id, %{"name" => "tijl de moyer"})
+
+      Repo.insert!(%FidePlayer{
+        fide_id: 214_566,
+        name: "De Moyer, Tijl",
+        federation: "BEL",
+        standard_rating: 1865,
+        birth_year: 1982
+      })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "edit_player", %{"id" => to_string(player.id)})
+      html = lv |> element("button", "FIDE lookup") |> render_click()
+
+      # Other fields applied immediately.
+      assert html =~ ~s(value="214566")
+      assert html =~ ~s(value="BEL")
+      assert html =~ ~s(value="1982")
+      # Name not overwritten yet — staged behind the prompt instead.
+      assert html =~ ~s(value="tijl de moyer")
+      assert html =~ "De Moyer, Tijl"
+      assert html =~ "correct it?"
+
+      html = lv |> element("button[phx-click='confirm_name_correction']") |> render_click()
+      assert html =~ ~s(value="De Moyer, Tijl")
+      refute html =~ "correct it?"
+    end
+
+    test "by name: No keeps the original name but leaves the other fields applied", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, player} =
+        Tournaments.create_player(tournament.id, %{"name" => "tijl de moyer"})
+
+      Repo.insert!(%FidePlayer{
+        fide_id: 214_566,
+        name: "De Moyer, Tijl",
+        federation: "BEL",
+        standard_rating: 1865,
+        birth_year: 1982
+      })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "edit_player", %{"id" => to_string(player.id)})
+      lv |> element("button", "FIDE lookup") |> render_click()
+
+      html = lv |> element("button[phx-click='reject_name_correction']") |> render_click()
+      assert html =~ ~s(value="tijl de moyer")
+      assert html =~ ~s(value="BEL")
+      refute html =~ "correct it?"
+    end
+
+    test "by name: no prompt when the name already matches, ignoring case/formatting", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, player} =
+        Tournaments.create_player(tournament.id, %{"name" => "de moyer tijl"})
+
+      Repo.insert!(%FidePlayer{
+        fide_id: 214_566,
+        name: "De Moyer, Tijl",
+        federation: "BEL",
+        standard_rating: 1865
+      })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "edit_player", %{"id" => to_string(player.id)})
+      html = lv |> element("button", "FIDE lookup") |> render_click()
+
+      assert html =~ ~s(value="De Moyer, Tijl")
+      refute html =~ "correct it?"
+    end
+
+    test "shows an error when both FIDE id and name are blank", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, player} = Tournaments.create_player(tournament.id, %{"name" => "placeholder"})
+      # Name is required on creation; blanked directly to reach the both-blank
+      # form state (e.g. legacy/imported data) without a live-typing round-trip.
+      from(p in PairingsEngine.Tournaments.Player, where: p.id == ^player.id)
+      |> Repo.update_all(set: [name: ""])
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "edit_player", %{"id" => to_string(player.id)})
+      html = lv |> element("button", "FIDE lookup") |> render_click()
+
+      assert html =~ "Enter a FIDE ID or name first"
+    end
+  end
+
   describe "bulk rating refresh (Refresh ratings button)" do
     setup %{scope: scope} do
       {:ok, tournament} =

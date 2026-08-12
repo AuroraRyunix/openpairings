@@ -3,6 +3,18 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.12.2] — 2026-08-12
+
+### Changed
+
+- **FIDE lookup now corrects the player's name, not just the
+  ID/rating/federation/birth year.** By FIDE ID (an exact, unambiguous
+  match) the name is corrected immediately, same as every other field. By
+  name only (a fuzzy best guess), everything else still fills in right
+  away, but the name goes behind a "FIDE has this player's name as
+  '…' — correct it? Yes/No" prompt instead of silently overwriting
+  whatever was typed by hand.
+
 ## [0.12.1] — 2026-08-12
 
 ### Fixed

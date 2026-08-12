@@ -17,6 +17,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   alias PairingsEngine.Tournaments.Player
   alias PairingsEngine.Tournaments.Tournament
   alias PairingsEngine.Kbsb.KbsbPlayer
+  alias PairingsEngine.Fide.FidePlayer
 
   @titles ~w(GM IM FM CM WGM WIM WFM WCM)
 
@@ -131,6 +132,7 @@ defmodule PairingsEngineWeb.PlayersLive do
        editing_player: nil,
        edit_form: %{},
        edit_error: nil,
+       edit_name_suggestion: nil,
        card_player_id: nil,
        titles: @titles,
        rating_refresh: nil,
@@ -650,13 +652,20 @@ defmodule PairingsEngineWeb.PlayersLive do
          assign(socket,
            editing_player: player,
            edit_form: player_to_form(player),
-           edit_error: nil
+           edit_error: nil,
+           edit_name_suggestion: nil
          )}
     end
   end
 
   def handle_event("close_edit", _params, socket) do
-    {:noreply, assign(socket, editing_player: nil, edit_form: %{}, edit_error: nil)}
+    {:noreply,
+     assign(socket,
+       editing_player: nil,
+       edit_form: %{},
+       edit_error: nil,
+       edit_name_suggestion: nil
+     )}
   end
 
   def handle_event("dismiss_remote_notice", _params, socket) do
@@ -665,32 +674,52 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   # Mirrors SWAR's "Rafraichir": re-looks-up the player in the local FIDE
   # copy (by FIDE ID if the form has one, by name otherwise) and refills
-  # rating/title/federation/birth year from the match, if any.
+  # rating/title/federation/birth year from the match, plus the name itself.
+  #
+  # A FIDE ID is an exact, unambiguous match — the arbiter (or a previous
+  # lookup) already pinned down exactly who this is — so the name gets
+  # corrected straight away, same as every other field: FIDE's own
+  # capitalisation, comma, and ordering, replacing whatever was typed by
+  # hand or came in mis-formatted from an import.
+  #
+  # A name-only search is a fuzzy best guess, not a confirmed identity —
+  # every other field is still safe to fill in from it, but silently
+  # overwriting the name too could swap in a same-named stranger's spelling.
+  # So the name goes to `edit_name_suggestion` instead of straight into the
+  # form, and the template asks before applying it.
   def handle_event("refresh_edit_fide", _params, socket) do
     form = socket.assigns.edit_form
+    fide_id = form |> Map.get("fide_id") |> to_string() |> String.trim()
+    typed_name = Map.get(form, "name", "")
 
-    query =
-      case Map.get(form, "fide_id") do
-        v when v in [nil, ""] -> Map.get(form, "name", "")
-        v -> to_string(v)
-      end
+    cond do
+      fide_id != "" ->
+        apply_fide_match(socket, form, Fide.get_player(fide_id), by_id: true)
 
-    case Fide.search(query) do
-      [fp | _] ->
-        merged =
-          Map.merge(form, %{
-            "title" => fp.title,
-            "fide_id" => fp.fide_id,
-            "fide_rating" => Fide.rating_for_tempo(fp, socket.assigns.tournament.standard),
-            "federation" => fp.federation,
-            "birth_year" => fp.birth_year
-          })
+      String.trim(typed_name) != "" ->
+        case Fide.search(typed_name) do
+          [fp | _] -> apply_fide_match(socket, form, fp, by_id: false)
+          [] -> {:noreply, assign(socket, edit_error: "No matching FIDE player found")}
+        end
 
-        {:noreply, assign(socket, edit_form: merged, edit_error: nil)}
-
-      [] ->
-        {:noreply, assign(socket, edit_error: "No matching FIDE player found")}
+      true ->
+        {:noreply, assign(socket, edit_error: "Enter a FIDE ID or name first")}
     end
+  end
+
+  def handle_event("confirm_name_correction", _params, socket) do
+    case socket.assigns.edit_name_suggestion do
+      nil ->
+        {:noreply, socket}
+
+      %{name: name} ->
+        merged = Map.put(socket.assigns.edit_form, "name", name)
+        {:noreply, assign(socket, edit_form: merged, edit_name_suggestion: nil)}
+    end
+  end
+
+  def handle_event("reject_name_correction", _params, socket) do
+    {:noreply, assign(socket, edit_name_suggestion: nil)}
   end
 
   # KBSB counterpart of refresh_edit_fide/2: looked up by National ID only
@@ -742,7 +771,12 @@ defmodule PairingsEngineWeb.PlayersLive do
 
         {:noreply,
          socket
-         |> assign(editing_player: nil, edit_form: %{}, edit_error: nil)
+         |> assign(
+           editing_player: nil,
+           edit_form: %{},
+           edit_error: nil,
+           edit_name_suggestion: nil
+         )
          |> assign_players()}
 
       {:error, changeset} ->
@@ -774,6 +808,54 @@ defmodule PairingsEngineWeb.PlayersLive do
        card_player_id:
          adjacent_player_id(socket.assigns.players, socket.assigns.card_player_id, 1)
      )}
+  end
+
+  # refresh_edit_fide/2 helpers: `nil` fide_id/no match short-circuits to the
+  # existing "no match" error; a real match either applies straight away
+  # (exact FIDE-ID lookup) or stages the name behind the confirm dialog
+  # (fuzzy name-only lookup) — see the moduledoc comment on
+  # handle_event("refresh_edit_fide", ...) above for why.
+  defp apply_fide_match(socket, _form, nil, _opts) do
+    {:noreply, assign(socket, edit_error: "No matching FIDE player found")}
+  end
+
+  defp apply_fide_match(socket, form, %FidePlayer{} = fp, by_id: by_id?) do
+    base = %{
+      "title" => fp.title,
+      "fide_id" => fp.fide_id,
+      "fide_rating" => Fide.rating_for_tempo(fp, socket.assigns.tournament.standard),
+      "federation" => fp.federation,
+      "birth_year" => fp.birth_year
+    }
+
+    name_matches? = names_equivalent?(Map.get(form, "name", ""), fp.name)
+
+    cond do
+      by_id? or name_matches? ->
+        merged = Map.merge(form, Map.put(base, "name", fp.name))
+        {:noreply, assign(socket, edit_form: merged, edit_error: nil, edit_name_suggestion: nil)}
+
+      true ->
+        merged = Map.merge(form, base)
+
+        {:noreply,
+         assign(socket,
+           edit_form: merged,
+           edit_error: nil,
+           edit_name_suggestion: %{fide_id: fp.fide_id, name: fp.name}
+         )}
+    end
+  end
+
+  # Loose enough that re-running the lookup on an already-correct name
+  # (different casing/spacing, e.g. "burssens, jorian" vs "Burssens, Jorian")
+  # doesn't pop the confirm dialog for nothing.
+  defp names_equivalent?(a, b) do
+    norm = fn s ->
+      s |> to_string() |> String.downcase() |> String.replace(~r/[^\p{L}\d]+/u, "")
+    end
+
+    norm.(a) == norm.(b) and norm.(a) != ""
   end
 
   # Tracked player fields whose before/after change is worth recording in the
@@ -1374,6 +1456,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         error={@edit_error}
         tournament={@tournament}
         titles={@titles}
+        name_suggestion={@edit_name_suggestion}
       />
       <.player_card_modal
         :if={@card_player_id}
@@ -1496,6 +1579,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   attr :error, :string, default: nil
   attr :tournament, :map, required: true
   attr :titles, :list, required: true
+  attr :name_suggestion, :map, default: nil
 
   defp player_edit_modal(assigns) do
     assigns =
@@ -1527,6 +1611,18 @@ defmodule PairingsEngineWeb.PlayersLive do
           >
             KBSB lookup
           </button>
+        </div>
+
+        <div
+          :if={@name_suggestion}
+          class="card"
+          style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; padding: 10px 12px"
+        >
+          <span>
+            FIDE has this player's name as <strong>{@name_suggestion.name}</strong> — correct it?
+          </span>
+          <button type="button" class="pe-btn" phx-click="confirm_name_correction">Yes</button>
+          <button type="button" class="pe-btn" phx-click="reject_name_correction">No</button>
         </div>
 
         <div class="form-grid">
