@@ -88,6 +88,19 @@ defmodule PairingsEngine.Accounts.User do
   end
 
   @doc """
+  Whether `user` authenticated through 02cloud SSO (Keycloak) rather than a
+  self-serve local account — i.e. whether `keycloak_sub` is set.
+
+  Local registration is open to anyone (any email outside `sso_domain/0`),
+  so it's the only reliable way to tell "an account we actually vouch for"
+  from "whoever signed up five minutes ago" — used to gate actions that are
+  expensive or abusable to let literally anyone trigger, like the full FIDE
+  rating-list download (`PairingsEngineWeb.FideLive`).
+  """
+  def sso?(%__MODULE__{keycloak_sub: sub}), do: is_binary(sub) and sub != ""
+  def sso?(_), do: false
+
+  @doc """
   The domain that is reachable **only** through 02cloud SSO.
   """
   def sso_domain, do: blocked_registration_domain()

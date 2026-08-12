@@ -3,8 +3,7 @@ defmodule PairingsEngineWeb.FideLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias PairingsEngine.Fide
-  alias PairingsEngine.Kbsb
+  alias PairingsEngine.{Accounts, Fide, Kbsb}
   alias PairingsEngine.Repo
   alias PairingsEngine.Kbsb.KbsbPlayer
 
@@ -68,6 +67,32 @@ defmodule PairingsEngineWeb.FideLiveTest do
     html = render_change(lv, "kbsb_search", %{"q" => "Nobody"})
 
     refute html =~ "kbsb-result-row"
+  end
+
+  describe "FIDE download gated to SSO accounts" do
+    test "a plain local account sees the button disabled and can't trigger sync", %{conn: conn} do
+      {:ok, lv, html} = live(conn, ~p"/fide")
+
+      assert html =~ "limited to SSO-signed-in accounts"
+      assert lv |> element("button[phx-click='sync'][disabled]") |> has_element?()
+
+      html = render_click(lv, "sync", %{})
+      assert html =~ "limited to SSO-signed-in accounts"
+    end
+
+    test "an SSO account sees the button enabled, no restriction message", %{conn: conn} do
+      {:ok, user} =
+        Accounts.find_or_create_from_keycloak(%{
+          sub: "sso-sub-#{System.unique_integer()}",
+          email: "sso-user-#{System.unique_integer()}@example.com"
+        })
+
+      conn = log_in_user(conn, user)
+      {:ok, lv, html} = live(conn, ~p"/fide")
+
+      refute html =~ "limited to SSO-signed-in accounts"
+      refute lv |> element("button[phx-click='sync'][disabled]") |> has_element?()
+    end
   end
 
   describe "top-bar sync freshness strip" do

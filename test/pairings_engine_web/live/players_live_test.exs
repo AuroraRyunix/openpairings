@@ -431,6 +431,34 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       refute html =~ "correct it?"
     end
 
+    test "also fills in Sex, normalized from FIDE's raw M/F to the app's m/w convention", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, player} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "tijl de moyer",
+          "fide_id" => "214566"
+        })
+
+      Repo.insert!(%FidePlayer{
+        fide_id: 214_566,
+        name: "De Moyer, Tijl",
+        federation: "BEL",
+        standard_rating: 1865,
+        sex: "M"
+      })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "edit_player", %{"id" => to_string(player.id)})
+      html = lv |> element("button", "FIDE lookup") |> render_click()
+
+      # The checked radio is the app's internal "m", not FIDE's raw "M".
+      assert html =~ ~r/name="player\[sex\]" value="m" checked/
+      refute html =~ ~r/name="player\[sex\]" value="w" checked/
+    end
+
     test "by name: fills the other fields but stages the name behind a yes/no prompt", %{
       conn: conn,
       tournament: tournament

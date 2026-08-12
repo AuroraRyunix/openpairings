@@ -67,7 +67,7 @@ defmodule PairingsEngineWeb.Layouts do
           <.link navigate={~p"/t/#{@tournament.id}/norms"} class={tab_class(@active == "norms")}>
             Norms
           </.link>
-          <details class="topbar-menu">
+          <details class="topbar-menu" name="topbar-popover">
             <summary class={tab_class(@active == "audit")}>Advanced</summary>
             <div class="topbar-menu-panel">
               <.link navigate={~p"/t/#{@tournament.id}/audit"} class="topbar-menu-item">
@@ -78,7 +78,7 @@ defmodule PairingsEngineWeb.Layouts do
               </.link>
             </div>
           </details>
-          <details class="topbar-menu">
+          <details class="topbar-menu" name="topbar-popover">
             <summary class={tab_class(@active in ["settings", "categories"])}>Settings</summary>
             <div class="topbar-menu-panel">
               <.link navigate={~p"/t/#{@tournament.id}/settings"} class="topbar-menu-item">
@@ -350,7 +350,7 @@ defmodule PairingsEngineWeb.Layouts do
     assigns = assign(assigns, :accents, @accents)
 
     ~H"""
-    <details class="accent-picker">
+    <details class="accent-picker" name="topbar-popover">
       <summary class="accent-picker-trigger" title="Accent colour" aria-label="Accent colour">
         <span class="accent-picker-current"></span>
       </summary>
@@ -399,7 +399,7 @@ defmodule PairingsEngineWeb.Layouts do
     assigns = assign(assigns, :themes, @themes)
 
     ~H"""
-    <details class="theme-picker">
+    <details class="theme-picker" name="topbar-popover">
       <summary class="theme-picker-trigger" title="Colour theme" aria-label="Colour theme">
         <.icon name="hero-swatch-micro" class="size-4" />
       </summary>

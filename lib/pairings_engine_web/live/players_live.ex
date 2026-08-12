@@ -469,7 +469,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           "fide_rating" => Fide.rating_for_tempo(fp, socket.assigns.tournament.standard),
           "federation" => fp.federation,
           "birth_year" => fp.birth_year,
-          "sex" => fp.sex
+          "sex" => normalize_fide_sex(fp.sex)
         }
 
         {:noreply,
@@ -837,7 +837,8 @@ defmodule PairingsEngineWeb.PlayersLive do
       "fide_id" => fp.fide_id,
       "fide_rating" => Fide.rating_for_tempo(fp, socket.assigns.tournament.standard),
       "federation" => fp.federation,
-      "birth_year" => fp.birth_year
+      "birth_year" => fp.birth_year,
+      "sex" => normalize_fide_sex(fp.sex)
     }
 
     name_matches? = names_equivalent?(Map.get(form, "name", ""), fp.name)
@@ -869,6 +870,24 @@ defmodule PairingsEngineWeb.PlayersLive do
 
     norm.(a) == norm.(b) and norm.(a) != ""
   end
+
+  # FIDE's own list writes the raw letter "M"/"F" (see the `Sex` column in
+  # `PairingsEngine.Fide.Sync`), but the app's own internal convention —
+  # what the Sex radio buttons compare against, and what `Trf.trf_sex/1`
+  # normalizes on export — is lowercase "m"/"w" ("w" for female, not "f").
+  # Left as-is, a raw "F" would match neither radio, and since radio groups
+  # send nothing at all when none is checked, the very next live form sync
+  # (`edit_form_change`) would silently drop it again.
+  defp normalize_fide_sex(s) when is_binary(s) do
+    case String.downcase(s) do
+      "f" -> "w"
+      "w" -> "w"
+      "m" -> "m"
+      _ -> ""
+    end
+  end
+
+  defp normalize_fide_sex(_), do: ""
 
   # Tracked player fields whose before/after change is worth recording in the
   # audit trail — returns a `%{"field" => [before, after]}` map of only the

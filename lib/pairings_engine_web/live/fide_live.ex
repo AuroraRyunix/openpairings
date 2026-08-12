@@ -1,6 +1,7 @@
 defmodule PairingsEngineWeb.FideLive do
   use PairingsEngineWeb, :live_view
 
+  alias PairingsEngine.Accounts.User
   alias PairingsEngine.Kbsb
   alias PairingsEngine.Fide.Sync, as: FideSync
   alias PairingsEngine.Kbsb.Sync, as: KbsbSync
@@ -20,7 +21,13 @@ defmodule PairingsEngineWeb.FideLive do
        kbsb_status: KbsbSync.status(),
        kbsb_query: "",
        kbsb_results: [],
-       kbsb_error: nil
+       kbsb_error: nil,
+       # Local self-registration is open to anyone — the full FIDE list
+       # download (~41 MB, once a click) is exactly the kind of thing that's
+       # cheap to trigger and expensive to serve, so it's restricted to
+       # accounts we actually vouch for (SSO), same reasoning as
+       # `PairingsEngine.Accounts.User.sso?/1`'s own moduledoc.
+       sso?: User.sso?(socket.assigns.current_scope.user)
      )
      # There's no registered MIME type to filter on (the export format isn't
      # standardized — see docs/kbsb-sync.md), so accept anything and let the
@@ -39,13 +46,25 @@ defmodule PairingsEngineWeb.FideLive do
 
   @impl true
   def handle_event("sync", _params, socket) do
-    FideSync.start_sync()
-    {:noreply, assign(socket, status: FideSync.status())}
+    if socket.assigns.sso? do
+      FideSync.start_sync()
+      {:noreply, assign(socket, status: FideSync.status())}
+    else
+      {:noreply,
+       put_flash(
+         socket,
+         :error,
+         "Downloading the full FIDE rating list is limited to SSO-signed-in accounts."
+       )}
+    end
   end
 
   @impl true
   def handle_event("cancel", _params, socket) do
-    FideSync.cancel_sync()
+    if socket.assigns.sso? do
+      FideSync.cancel_sync()
+    end
+
     {:noreply, assign(socket, status: FideSync.status())}
   end
 
@@ -132,15 +151,24 @@ defmodule PairingsEngineWeb.FideLive do
           FIDE publishes a new list every month (~1.9 million players, download is around 41 MB).
           Updating takes a minute or two.
         </p>
+        <p :if={!@sso?} class="hint">
+          Downloading the full list is limited to SSO-signed-in accounts, so it can't be
+          triggered by just anyone with a local account.
+        </p>
         <div class="actions">
-          <button class="pe-btn primary" phx-click="sync" disabled={busy?(@status)}>
+          <button
+            class="pe-btn primary"
+            phx-click="sync"
+            disabled={busy?(@status) or !@sso?}
+            title={if !@sso?, do: "Sign in with SSO to update the FIDE rating list"}
+          >
             {cond do
               busy?(@status) -> "Updating…"
               @status.player_count > 0 -> "Update from FIDE"
               true -> "Download rating list"
             end}
           </button>
-          <button :if={busy?(@status)} class="pe-btn" phx-click="cancel">
+          <button :if={busy?(@status) and @sso?} class="pe-btn" phx-click="cancel">
             Cancel
           </button>
         </div>

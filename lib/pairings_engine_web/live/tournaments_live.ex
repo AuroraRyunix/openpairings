@@ -647,6 +647,22 @@ defmodule PairingsEngineWeb.TournamentsLive do
   defp pairing_system_options, do: @pairing_system_options
   defp rr_cycles_options, do: @rr_cycles_options
 
+  # A single-day tournament (the common case for a club event) has
+  # start_date == end_date — showing "2026-08-12 → 2026-08-12" is just
+  # noise, so collapse it to the one date. Free-text fields (no format
+  # enforced at the schema level), so this is a plain string comparison,
+  # not a date-arithmetic one.
+  defp date_range("", _end_date), do: "-"
+  defp date_range(start_date, end_date) when end_date in [nil, "", start_date], do: start_date
+  defp date_range(start_date, end_date), do: "#{start_date} → #{end_date}"
+
+  # "setup" already reads as muted/inactive; "finished" needs its own look
+  # too so it doesn't share "running"'s (the accent colour, which is also
+  # user-customizable) look — otherwise the two are visually identical.
+  defp status_class("setup"), do: "muted"
+  defp status_class("finished"), do: "done"
+  defp status_class(_), do: nil
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -1095,13 +1111,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
               <td class="num">{player_count}</td>
 
-              <td>
-                {if t.start_date == "", do: "-", else: t.start_date}{if t.end_date != "",
-                  do: " → #{t.end_date}"}
-              </td>
+              <td>{date_range(t.start_date, t.end_date)}</td>
 
               <td>
-                <span class={["badge", t.status == "setup" && "muted"]}>{t.status}</span>
+                <span class={["badge", status_class(t.status)]}>{t.status}</span>
               </td>
 
               <td style="text-align: right">

@@ -136,6 +136,28 @@ defmodule PairingsEngine.AccountsTest do
     end
   end
 
+  describe "User.sso?/1" do
+    alias PairingsEngine.Accounts.User
+
+    test "false for a plain local account (no keycloak_sub)" do
+      refute User.sso?(user_fixture())
+    end
+
+    test "true once an account is coupled to a keycloak_sub" do
+      email = unique_user_email()
+      sub = Ecto.UUID.generate()
+
+      assert {:ok, user} = Accounts.find_or_create_from_keycloak(%{sub: sub, email: email})
+      assert User.sso?(user)
+    end
+
+    test "false for nil/garbage input" do
+      refute User.sso?(nil)
+      refute User.sso?(%User{keycloak_sub: nil})
+      refute User.sso?(%User{keycloak_sub: ""})
+    end
+  end
+
   describe "find_or_create_from_keycloak/1" do
     test "creates a new, pre-confirmed account for a first-time SSO identity" do
       email = unique_user_email()

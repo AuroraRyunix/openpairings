@@ -17,6 +17,98 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
 
   setup :register_and_log_in_user
 
+  ## ---------- Topbar popovers don't cover each other while open ----------
+
+  describe "topbar accent/theme pickers" do
+    test "accent-picker and theme-picker share an exclusive <details> group", %{conn: conn} do
+      {:ok, _lv, html} = live(conn, ~p"/")
+
+      # A shared `name` is the browser-native fix for one open popover's
+      # panel visually/functionally covering the next trigger over (the
+      # theme-picker's panel is wide enough to overlap the accent-picker's
+      # summary immediately to its left) — only one can be open at a time,
+      # so there's nothing left to cover.
+      assert html =~ ~r/<details[^>]*class="accent-picker"[^>]*name="topbar-popover"/
+      assert html =~ ~r/<details[^>]*class="theme-picker"[^>]*name="topbar-popover"/
+    end
+  end
+
+  ## ---------- Tournament list: date range and status colour ----------
+
+  describe "tournament list row: dates and status" do
+    test "a single-day tournament shows just the one date, not date -> date", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, _t} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "One Day Open",
+          "type" => "swiss",
+          "start_date" => "2026-08-12",
+          "end_date" => "2026-08-12"
+        })
+
+      {:ok, _lv, html} = live(conn, ~p"/")
+
+      assert html =~ "2026-08-12"
+      refute html =~ "2026-08-12 → 2026-08-12"
+    end
+
+    test "a multi-day tournament still shows the full range", %{conn: conn, scope: scope} do
+      {:ok, _t} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "Weekend Open",
+          "type" => "swiss",
+          "start_date" => "2026-08-12",
+          "end_date" => "2026-08-14"
+        })
+
+      {:ok, _lv, html} = live(conn, ~p"/")
+
+      assert html =~ "2026-08-12 → 2026-08-14"
+    end
+
+    test "no start date shows a dash", %{conn: conn, scope: scope} do
+      {:ok, _t} = Tournaments.create_tournament(scope, %{"name" => "No Dates", "type" => "swiss"})
+
+      {:ok, _lv, html} = live(conn, ~p"/")
+
+      assert html =~ ~r/<td>\s*-\s*<\/td>/
+    end
+
+    test "a finished tournament's badge gets its own colour, distinct from setup/running", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, t} = Tournaments.create_tournament(scope, %{"name" => "Old Open", "type" => "swiss"})
+      {:ok, t} = Tournaments.update_tournament(t, %{"status" => "finished"})
+      assert t.status == "finished"
+
+      {:ok, _lv, html} = live(conn, ~p"/")
+
+      assert html =~ ~s(<span class="badge done">finished</span>)
+    end
+
+    test "setup keeps the muted badge, running gets the plain accent badge", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, _setup} =
+        Tournaments.create_tournament(scope, %{"name" => "Setup Open", "type" => "swiss"})
+
+      {:ok, running} =
+        Tournaments.create_tournament(scope, %{"name" => "Running Open", "type" => "swiss"})
+
+      {:ok, running} = Tournaments.update_tournament(running, %{"status" => "running"})
+      assert running.status == "running"
+
+      {:ok, _lv, html} = live(conn, ~p"/")
+
+      assert html =~ ~s(<span class="badge muted">setup</span>)
+      assert html =~ ~r/<span class="badge\s*">running<\/span>/
+    end
+  end
+
   ## ---------- Creation modal: pairing_system/type can never contradict (task 6) ----------
 
   describe "New tournament: pairing system drives `type`, the raw type select is gone" do
