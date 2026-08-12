@@ -402,12 +402,18 @@ defmodule PairingsEngineWeb.PrintController do
   defp num_class(true), do: ~s( class="num")
   defp num_class(false), do: ""
 
+  defp sex_label("m"), do: "M"
+  defp sex_label("w"), do: "F"
+  defp sex_label(_), do: ""
+
   defp player_list_value(:aff, p, _current_round), do: if(p.affiliated, do: "", else: "N")
   defp player_list_value(:nr, p, _current_round), do: blank_zero(p.pairing_number)
   defp player_list_value(:cat, p, _current_round), do: esc(p.category)
   defp player_list_value(:title, p, _current_round), do: esc(p.title)
   defp player_list_value(:birth_year, p, _current_round), do: blank_zero(p.birth_year)
-  defp player_list_value(:sex, p, _current_round), do: esc(p.sex)
+  # Stored internally as "m"/"w" (see PlayersLive.normalize_fide_sex/1) —
+  # displayed as the FIDE-standard capital letters "M"/"F".
+  defp player_list_value(:sex, p, _current_round), do: sex_label(p.sex)
   defp player_list_value(:federation, p, _current_round), do: esc(p.federation)
   defp player_list_value(:national_id, p, _current_round), do: esc(p.national_id)
   defp player_list_value(:fide_id, p, _current_round), do: esc(p.fide_id)

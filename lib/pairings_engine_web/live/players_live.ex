@@ -1081,7 +1081,17 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   defp cell(entry, "status"), do: entry.player.status
 
-  defp cell(entry, key) when key in ~w(title sex birth_year federation national_id fide_id
+  # Stored internally as "m"/"w" (see normalize_fide_sex/1) — displayed as
+  # the FIDE-standard capital letters "M"/"F".
+  defp cell(entry, "sex") do
+    case entry.player.sex do
+      "m" -> "M"
+      "w" -> "F"
+      _ -> "—"
+    end
+  end
+
+  defp cell(entry, key) when key in ~w(title birth_year federation national_id fide_id
                                         fide_rating national_rating club fixed_board) do
     case Map.get(entry.player, String.to_existing_atom(key)) do
       value when value in [nil, "", 0] -> "—"

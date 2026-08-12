@@ -3,6 +3,15 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.2] — 2026-08-12
+
+### Fixed
+
+- **Sex column showed the raw internal code ("M"/"W") instead of FIDE's
+  own letters ("M"/"F")** — both on the Players table and on printed
+  player lists. Storage is unchanged (still "m"/"w" internally, matching
+  `Trf.trf_sex/1`'s export convention); only the display was wrong.
+
 ## [0.14.1] — 2026-08-12
 
 ### Changed
