@@ -3,6 +3,21 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.12.3] — 2026-08-12
+
+### Fixed
+
+- **The player edit modal's fields weren't live-synced to the server at
+  all** — typing a corrected name or FIDE ID only changed the browser's
+  copy; the server-side form stayed exactly as it was when the modal
+  opened until Save was clicked. Clicking "FIDE lookup" or "KBSB lookup"
+  right after typing something new silently searched on the *old* value
+  instead (or, if a FIDE ID was already on file from before, used that
+  instead of a freshly-typed name — which is also why the name-correction
+  confirmation could seem to not fire: it was really taking the exact-ID
+  path on stale data, not skipping the check). The whole modal now syncs
+  on every field change, matching what Save would actually submit.
+
 ## [0.12.2] — 2026-08-12
 
 ### Changed

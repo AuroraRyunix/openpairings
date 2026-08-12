@@ -514,6 +514,36 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       refute html =~ "correct it?"
     end
 
+    test "typing a name live (no save first) is what the lookup actually searches, not a stale snapshot",
+         %{conn: conn, tournament: tournament} do
+      {:ok, player} = Tournaments.create_player(tournament.id, %{"name" => "placeholder"})
+
+      Repo.insert!(%FidePlayer{
+        fide_id: 214_566,
+        name: "Burssens, Jorian",
+        federation: "BEL",
+        standard_rating: 1865
+      })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "edit_player", %{"id" => to_string(player.id)})
+
+      # Hand-typed, never saved — mirrors editing the field then immediately
+      # clicking the lookup button, with no fide_id present to short-circuit
+      # to the exact-ID (no-confirmation) path.
+      lv
+      |> form("#player-edit-form", player: %{"name" => "jorian burssens"})
+      |> render_change()
+
+      html = lv |> element("button", "FIDE lookup") |> render_click()
+
+      assert html =~ ~s(value="BEL")
+      assert html =~ ~s(value="jorian burssens")
+      assert html =~ "Burssens, Jorian"
+      assert html =~ "correct it?"
+    end
+
     test "shows an error when both FIDE id and name are blank", %{
       conn: conn,
       tournament: tournament

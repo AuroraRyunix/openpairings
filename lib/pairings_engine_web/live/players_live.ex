@@ -672,6 +672,18 @@ defmodule PairingsEngineWeb.PlayersLive do
     {:noreply, assign(socket, remote_notice: false)}
   end
 
+  # Keeps `edit_form` in sync with whatever's actually in the modal's inputs
+  # as the arbiter types, instead of only the snapshot taken when the modal
+  # opened. Without this, "FIDE lookup"/"KBSB lookup" read stale data —
+  # hand-typing a corrected name or FIDE ID and immediately clicking a
+  # lookup button used to silently look up the *old* value (or, worse, an
+  # old FIDE ID nobody meant to still be there), which is what made the
+  # button look like it "sometimes doesn't work" and skipped the name-
+  # correction confirmation it should have shown.
+  def handle_event("edit_form_change", %{"player" => params}, socket) do
+    {:noreply, assign(socket, edit_form: params, edit_name_suggestion: nil)}
+  end
+
   # Mirrors SWAR's "Rafraichir": re-looks-up the player in the local FIDE
   # copy (by FIDE ID if the form has one, by name otherwise) and refills
   # rating/title/federation/birth year from the match, plus the name itself.
@@ -1589,7 +1601,13 @@ defmodule PairingsEngineWeb.PlayersLive do
 
     ~H"""
     <div class="modal-overlay" phx-window-keydown="close_edit" phx-key="escape">
-      <form class="modal-card" phx-submit="save_player" phx-click-away="close_edit">
+      <form
+        id="player-edit-form"
+        class="modal-card"
+        phx-submit="save_player"
+        phx-change="edit_form_change"
+        phx-click-away="close_edit"
+      >
         <h2>Player registration</h2>
 
         <div class="modal-lookup-bar">
