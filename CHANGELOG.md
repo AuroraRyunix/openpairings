@@ -3,6 +3,18 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.6] — 2026-08-12
+
+### Changed
+
+- **Pairings table (and matching print documents) now order byes and
+  vacant/absent seats below the special (fixed-table) boards** —
+  previously a bye or an absence-vacated seat just sat wherever its real
+  board number happened to fall among the ordinary boards. Order is now:
+  ordinary boards, then byes, then vacant seats, then special boards
+  (unchanged). A fixed-table player's own bye still sorts and labels as
+  a special board, not as a bye row — the fixed-table label always wins.
+
 ## [0.14.5] — 2026-08-12
 
 ### Changed

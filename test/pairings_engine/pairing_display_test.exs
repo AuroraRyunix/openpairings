@@ -193,6 +193,114 @@ defmodule PairingsEngine.PairingDisplayTest do
     end
   end
 
+  describe "with_display_boards/1 — byes and vacant seats sort below the special boards" do
+    test "a bye sorts after every normal board and after every special board" do
+      a = player(id: 1, name: "A")
+      b = player(id: 2, name: "B")
+      bye_player = player(id: 3, name: "ByePlayer")
+      special = player(id: 4, name: "Special", fixed_board: 1001)
+      opp = player(id: 5, name: "Opp")
+
+      p_normal = pairing(101, 1, a, b)
+
+      p_bye = %Pairing{
+        id: 102,
+        board: 2,
+        white_player: bye_player,
+        black_player: nil,
+        result: "bye"
+      }
+
+      p_special = pairing(103, 3, special, opp)
+
+      result = PairingDisplay.with_display_boards([p_bye, p_special, p_normal])
+
+      assert [
+               %{pairing: ^p_normal, board: "1"},
+               %{pairing: ^p_bye, board: "2"},
+               %{pairing: ^p_special, board: "1001"}
+             ] = result
+    end
+
+    test "a vacant seat (absent player pulled out mid-round) sorts after byes and after special boards" do
+      a = player(id: 1, name: "A")
+      b = player(id: 2, name: "B")
+      lone = player(id: 3, name: "Lone")
+      bye_player = player(id: 4, name: "ByePlayer")
+      special = player(id: 5, name: "Special", fixed_board: 1001)
+      opp = player(id: 6, name: "Opp")
+
+      p_normal = pairing(101, 1, a, b)
+
+      p_vacant = %Pairing{
+        id: 102,
+        board: 2,
+        white_player: lone,
+        black_player: nil,
+        result: ""
+      }
+
+      p_bye = %Pairing{
+        id: 103,
+        board: 3,
+        white_player: bye_player,
+        black_player: nil,
+        result: "bye"
+      }
+
+      p_special = pairing(104, 4, special, opp)
+
+      result = PairingDisplay.with_display_boards([p_special, p_vacant, p_bye, p_normal])
+
+      assert [
+               %{pairing: ^p_normal, board: "1"},
+               %{pairing: ^p_bye, board: "2"},
+               %{pairing: ^p_vacant, board: "3"},
+               %{pairing: ^p_special, board: "1001"}
+             ] = result
+    end
+
+    test "a fixed-table player's bye still sorts and labels as special, not as a bye row" do
+      alice = player(id: 1, name: "Alice", fixed_board: 1001)
+      p_bye = %Pairing{id: 101, board: 1, white_player: alice, black_player: nil, result: "bye"}
+      p_normal = pairing(102, 2, player(id: 2, name: "B"), player(id: 3, name: "C"))
+
+      result = PairingDisplay.with_display_boards([p_bye, p_normal])
+
+      assert result == [
+               %{pairing: p_normal, board: "1"},
+               %{pairing: p_bye, board: "1001"}
+             ]
+    end
+  end
+
+  describe "board_labels/1 — byes and vacant seats get the same tail numbers as with_display_boards/1" do
+    test "labels a bye/vacant with the number it would get if the rows were reordered, without moving them" do
+      a = player(id: 1, name: "A")
+      b = player(id: 2, name: "B")
+      bye_player = player(id: 3, name: "ByePlayer")
+
+      p_normal = pairing(101, 1, a, b)
+
+      p_bye = %Pairing{
+        id: 102,
+        board: 2,
+        white_player: bye_player,
+        black_player: nil,
+        result: "bye"
+      }
+
+      # Given in "alphabetical" order (bye row first) — board_labels/1 must
+      # not reorder, only get the label right.
+      result = PairingDisplay.board_labels([p_bye, p_normal])
+
+      assert result == [
+               %{pairing: p_bye, board: "2"},
+               %{pairing: p_normal, board: "1"}
+             ]
+    end
+  end
+
   describe "special?/1" do
     test "true if either side has fixed_board set, false otherwise" do
       a = player(id: 1, fixed_board: 5)
