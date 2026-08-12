@@ -1258,8 +1258,8 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
     end
   end
 
-  describe "Pr. cell right-click menu (All Absent / All Present)" do
-    test "All Absent sets the whole-event flag but leaves recorded rounds alone", %{
+  describe "Pr. cell click/right-click menu (Absent / Present)" do
+    test "Absent sets the whole-event flag but leaves recorded rounds alone", %{
       conn: conn,
       scope: scope
     } do
@@ -1280,7 +1280,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       assert reloaded.absent_rounds == "4,5"
     end
 
-    test "All Present clears the flag but leaves recorded rounds alone", %{
+    test "Present clears the flag but leaves recorded rounds alone", %{
       conn: conn,
       scope: scope
     } do

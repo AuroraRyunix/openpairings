@@ -537,14 +537,17 @@ defmodule PairingsEngineWeb.PlayersLive do
     end
   end
 
-  ## ---------- Pr. cell right-click menu (whole-tournament presence) ----------
+  ## ---------- Pr. cell click/right-click menu (whole-tournament presence) ----------
   #
-  # "All Absent" / "All Present" from the Pr. cell's context menu touch only
-  # the whole-tournament `absent` flag — SWAR's plain "A" with no rounds
-  # listed, per `cell(entry, "pr")` above. They deliberately leave
-  # `absent_rounds` untouched: a player who is "All Present" here can still
-  # have specific rounds marked, and clearing/setting this flag must not
-  # silently erase those. Per-round marks stay a job for the edit dialog.
+  # "Absent" / "Present" from a single row's Pr. cell menu (click or
+  # right-click) touch only that one player's whole-tournament `absent`
+  # flag — SWAR's plain "A" with no rounds listed, per `cell(entry, "pr")`
+  # above. They deliberately leave `absent_rounds` untouched: a player set
+  # "Present" here can still have specific rounds marked, and
+  # clearing/setting this flag must not silently erase those. Per-round
+  # marks stay a job for the edit dialog. The Pr. COLUMN HEADER's
+  # right-click menu is the bulk version ("All Absent"/"All Present",
+  # `set_all_absent_flag/3` below) — same flag, every player at once.
   def handle_event("set_absent_flag", %{"id" => id, "value" => value}, socket) do
     absent? = value in ["true", true]
 
@@ -1456,7 +1459,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         <div class="card table-card split-main">
           <p class="hint" style="padding: 12px 16px 0">
             Double-click a row to edit the player, right-click for the Players Card
-            — right-click a player's Pr. cell for that player's All Absent / All Present,
+            — click a player's Pr. cell to mark that player Present/Absent for the whole event,
             or right-click the <strong>Pr. column header</strong> to set it for everyone at once.
           </p>
 
@@ -1485,7 +1488,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                   phx-value-key={key}
                   title={
                     if key == "pr",
-                      do: desc <> " — right-click for All Absent / All Present",
+                      do: desc <> " — right-click here to set Present/Absent for everyone",
                       else: desc
                   }
                 >

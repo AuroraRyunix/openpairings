@@ -890,4 +890,87 @@ defmodule PairingsEngine.StandingsTest do
       assert Standings.manual_ranking_incomplete?(incomplete)
     end
   end
+
+  # Regression coverage for a real bug report: an arbiter entered exactly
+  # one result — a fixed-board pairing (real board 1, displayed as "1001",
+  # see PairingsEngine.PairingDisplay) — and worried the win had been
+  # credited to the wrong player, since a *different*, unrelated player's
+  # row also showed 1.0 points. That second player turned out to have a
+  # full-point bye that round — a real, independent point, not
+  # cross-contamination. This test locks in that a fixed-board result and
+  # a same-round bye are scored completely independently: standings are
+  # keyed by player_id end to end (PairingDisplay never touches
+  # `pairing.board`, and Standings never reads `.board` at all), so a
+  # fixed-board relabeling can't confuse which player's row a result
+  # lands on.
+  describe "a fixed-board result and a same-round bye don't cross-contaminate" do
+    test "the fixed-board winner, loser, and the bye player each score exactly their own result" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "Fixed Board + Bye Test",
+          type: "swiss",
+          rounds_count: 1,
+          tiebreaks: ~w(WIN)
+        })
+
+      [de_block, de_meyere, roersma, vandenhole] =
+        for {name, rating} <- [
+              {"De Block, Yordi", 1951},
+              {"De Meyere, Dirk", 1590},
+              {"Roersma, Melvin", nil},
+              {"Vandenhole, Kobe", 2336}
+            ] do
+          Repo.insert!(%Player{tournament_id: tournament.id, name: name, fide_rating: rating})
+        end
+
+      # De Block is on a fixed (special) table — real board 1, displayed as
+      # "1001" — paired against De Meyere, an ordinary player.
+      Repo.update!(Ecto.Changeset.change(de_block, fixed_board: 1001))
+
+      round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+
+      pairing =
+        Repo.insert!(%Pairing{
+          round_id: round.id,
+          board: 1,
+          white_player_id: de_block.id,
+          black_player_id: de_meyere.id,
+          result: ""
+        })
+
+      Repo.insert!(%Pairing{
+        round_id: round.id,
+        board: 2,
+        white_player_id: vandenhole.id,
+        black_player_id: nil,
+        result: "bye"
+      })
+
+      Repo.query!(
+        "INSERT INTO byes (tournament_id, player_id, round, type) VALUES (?, ?, ?, ?)",
+        [tournament.id, roersma.id, 1, "pairing-allocated"]
+      )
+
+      # Same write path the Pairings page's inline result <select> and the
+      # CSV bulk-import both use (see PairingsEngine.ResultsImport) —
+      # "0-1": White (De Block) loses, Black (De Meyere) wins.
+      {:ok, _} = Tournaments.update_pairing_result(pairing, "0-1")
+
+      by_name = Standings.standings(tournament) |> Map.new(&{&1.player.name, &1})
+
+      assert by_name["De Meyere, Dirk"].points == 1.0
+      assert by_name["De Meyere, Dirk"].tiebreaks["WIN"] == 1.0
+
+      assert by_name["De Block, Yordi"].points == 0.0
+      assert by_name["De Block, Yordi"].tiebreaks["WIN"] == 0.0
+
+      # Roersma's point comes entirely from their own bye — untouched by
+      # the fixed-board result entered above.
+      assert by_name["Roersma, Melvin"].points == 1.0
+      assert by_name["Roersma, Melvin"].tiebreaks["WIN"] == 1.0
+
+      # Vandenhole's bye (board 2) is likewise unaffected.
+      assert by_name["Vandenhole, Kobe"].points == 1.0
+    end
+  end
 end

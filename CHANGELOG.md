@@ -3,6 +3,30 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.5] — 2026-08-12
+
+### Changed
+
+- **Players page Pr. cell menu: clearer wording, and works on a plain
+  click too** — a single player's Present/Absent toggle used to say
+  "All Absent"/"All Present", easily misread as touching every player;
+  it now just says "Absent"/"Present" for one row (the column
+  header's genuinely-bulk menu keeps the "All" wording — right-click
+  it to set everyone at once). Right-click wasn't discoverable to
+  begin with, so a plain left-click on the cell opens the same menu
+  now too.
+
+### Verified
+
+- **Fixed-board results and same-round byes don't cross-contaminate** —
+  investigated a report that a fixed-board win looked mis-credited
+  (it wasn't: a different player's matching score came from their own
+  bye that round, entirely independent). Added a regression test
+  (`PairingsEngine.StandingsTest`) that enters a result through the
+  exact write path the UI/CSV import use and asserts every player's
+  score end to end, confirming standings are keyed by player id start
+  to finish — `PairingDisplay`'s board relabeling can't affect it.
+
 ## [0.14.4] — 2026-08-12
 
 ### Added

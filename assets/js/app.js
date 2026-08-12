@@ -71,10 +71,10 @@ const PlayerGrid = {
       e.preventDefault()
 
       // The Pr. cell gets its own tiny menu instead of the Players Card —
-      // "All Absent"/"All Present" toggle the whole-tournament flag only
-      // (see the `cell(entry, "pr")` doc comment in players_live.ex),
-      // leaving any per-round marks on that player untouched. Every other
-      // cell on the row keeps the existing Players Card behaviour.
+      // "Present"/"Absent" toggle the whole-tournament flag only (see the
+      // `cell(entry, "pr")` doc comment in players_live.ex), leaving any
+      // per-round marks on that player untouched. Every other cell on the
+      // row keeps the existing Players Card behaviour.
       const prCell = e.target.closest('td[data-col="pr"]')
       if (prCell) {
         this.openPrMenu(e.clientX, e.clientY, tr.dataset.playerId)
@@ -82,6 +82,18 @@ const PlayerGrid = {
       }
 
       this.pushEvent("show_card", {id: tr.dataset.playerId})
+    })
+
+    // Left-click on the Pr. cell opens the same little menu — right-click
+    // isn't discoverable (no visible affordance, doesn't exist at all on
+    // touch), so a plain click gets it too. Left-click elsewhere on the
+    // row is unclaimed today, so this can't collide with anything.
+    this.el.addEventListener("click", (e) => {
+      const prCell = e.target.closest('td[data-col="pr"]')
+      if (!prCell) return
+      const tr = e.target.closest("tr[data-player-id]")
+      if (!tr) return
+      this.openPrMenu(e.clientX, e.clientY, tr.dataset.playerId)
     })
 
     this.onPrDocMousedown = (e) => {
@@ -120,8 +132,17 @@ const PlayerGrid = {
       })
       popup.appendChild(btn)
     }
-    addItem("All Absent", "true")
-    addItem("All Present", "false")
+    // The column-header (bulk, every player) menu keeps the "All" wording
+    // — it genuinely means everyone. The per-row menu is about the one
+    // player whose cell was clicked, so plain "Absent"/"Present" reads
+    // right there instead of implying it touches every player too.
+    if (playerId === null) {
+      addItem("All Absent", "true")
+      addItem("All Present", "false")
+    } else {
+      addItem("Absent", "true")
+      addItem("Present", "false")
+    }
 
     document.body.appendChild(popup)
     this.prPopup = popup
