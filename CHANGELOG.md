@@ -3,6 +3,19 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.21] — 2026-08-13 (on branch `swap-arrows-visual`, not yet merged)
+
+### Changed
+
+- **The swap confirm modal's board-seat colour indicator is no longer a
+  fixed-red dot** — replaced with theme-aware W/B letter badges (White:
+  bordered, page-surface background; Black: inverted, same pair either
+  way), so it no longer reads as an alarm colour in the one place —
+  mid-swap — nothing is actually wrong. A genuine two-board swap's
+  changed seat also gets a small "⇄ Board N" chip pointing at the other
+  board involved, so the two independent before/after cards no longer
+  need to be mentally cross-referenced by hand.
+
 ## [0.14.20] — 2026-08-13
 
 ### Added

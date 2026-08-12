@@ -526,7 +526,10 @@ defmodule PairingsEngineWeb.PairingsLive do
           changes =
             if same?,
               do: [board_change(pa, [{fa, b}, {fb, a}])],
-              else: [board_change(pa, [{fa, b}]), board_change(pb, [{fb, a}])]
+              else: [
+                board_change(pa, [{fa, b}], pb.board),
+                board_change(pb, [{fb, a}], pa.board)
+              ]
 
           {:ok,
            %{
@@ -797,7 +800,9 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   # One board's before/after, given the seat substitutions to apply.
   # `substitutions` is a list of `{field, new_name}`; `""` empties a seat.
-  defp board_change(pairing, substitutions) do
+  # `related_board`, when given, is the OTHER board involved in a
+  # two-board swap — see `board_card/1`'s `related_board` attr.
+  defp board_change(pairing, substitutions, related_board \\ nil) do
     {before_white, before_black} = board_seats(pairing)
 
     {after_white, after_black} =
@@ -810,7 +815,8 @@ defmodule PairingsEngineWeb.PairingsLive do
       board: pairing.board,
       before: {before_white, before_black},
       after: {after_white, after_black},
-      result_will_clear?: pairing.result not in ["", "bye"]
+      result_will_clear?: pairing.result not in ["", "bye"],
+      related_board: related_board
     }
   end
 
@@ -1018,6 +1024,12 @@ defmodule PairingsEngineWeb.PairingsLive do
   attr :seats, :any, required: true
   attr :state, :string, required: true
   attr :compare, :any, default: nil
+  # The OTHER board a changed seat's new occupant is trading places with,
+  # for a genuine two-board swap — see `confirm_for/2`'s `:swap` clause
+  # and `board_change/3`. `nil` for every other confirm kind (nothing to
+  # cross-reference: a colour swap, an absence, a bye, a pool fill are
+  # all single-board).
+  attr :related_board, :any, default: nil
 
   defp board_card(assigns) do
     {white, black} = assigns.seats
@@ -1034,13 +1046,25 @@ defmodule PairingsEngineWeb.PairingsLive do
     ~H"""
     <div class={["board-card", "board-card-#{@state}"]}>
       <div class={["board-seat", @white_changed? && "board-seat-changed"]}>
-        <span class="board-seat-colour" aria-label="White"></span>
+        <span class="board-seat-colour" aria-label="White">W</span>
         <span class="board-seat-name">{seat_text(@white)}</span>
+        <span
+          :if={@state == "after" and @white_changed? and @related_board}
+          class="board-seat-swap-ref"
+        >
+          ⇄ Board {@related_board}
+        </span>
       </div>
 
       <div class={["board-seat", @black_changed? && "board-seat-changed"]}>
-        <span class="board-seat-colour board-seat-black" aria-label="Black"></span>
+        <span class="board-seat-colour board-seat-black" aria-label="Black">B</span>
         <span class="board-seat-name">{seat_text(@black)}</span>
+        <span
+          :if={@state == "after" and @black_changed? and @related_board}
+          class="board-seat-swap-ref"
+        >
+          ⇄ Board {@related_board}
+        </span>
       </div>
     </div>
     """
@@ -1556,7 +1580,12 @@ defmodule PairingsEngineWeb.PairingsLive do
               <div class="board-diff-num">Board {c.board}</div>
               <.board_card seats={c.before} state="before" />
               <div class="board-diff-arrow">→</div>
-              <.board_card seats={c.after} state="after" compare={c.before} />
+              <.board_card
+                seats={c.after}
+                state="after"
+                compare={c.before}
+                related_board={c[:related_board]}
+              />
             </div>
 
             <label :if={@confirm.kind == :pool_pair} class="board-number-field">

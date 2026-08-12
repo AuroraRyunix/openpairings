@@ -998,6 +998,32 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       assert [_] = Audit.list_for_tournament(t.id, action: "pairing.players_swapped")
     end
 
+    test "a cross-board swap's confirm modal shows W/B letter badges and a Board cross-reference chip on each changed seat",
+         %{conn: conn, scope: scope} do
+      %{tournament: t, a: a, d: d} = two_board_fixture(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      html = arm_and_pick(lv, a.id, d.id)
+
+      assert html =~ ~s(aria-label="White">W)
+      assert html =~ ~s(aria-label="Black">B)
+      # A now shows up on board 2 (was board 1), D now shows up on board 1
+      # (was board 2) — each changed "after" seat says where it came from.
+      assert html =~ "⇄ Board 1"
+      assert html =~ "⇄ Board 2"
+    end
+
+    test "a same-board colour swap has no Board cross-reference chip — there's only one board involved",
+         %{conn: conn, scope: scope} do
+      %{tournament: t, a: a, b: b} = two_board_fixture(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      html = arm_and_pick(lv, a.id, b.id)
+
+      assert html =~ "Swap colours"
+      refute html =~ "board-seat-swap-ref"
+    end
+
     test "picking a player's own opponent is titled as a colour swap", %{conn: conn, scope: scope} do
       %{tournament: t, a: a, b: b} = two_board_fixture(scope)
 
