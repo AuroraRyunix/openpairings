@@ -3,6 +3,71 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.13.0] — 2026-08-12
+
+A batch of smaller fixes and features from one round of feedback.
+
+### Added
+
+- **"Leave" a shared tournament.** A collaborator could never remove
+  themselves from a tournament someone else shared with them — only the
+  owner could remove a collaborator. Leaving is now self-service, right
+  next to the (still owner-only) Delete button on the tournament list.
+- **"Copy" (duplicate) a tournament**, named "Copy of &lt;original&gt;" —
+  available to the owner and any collaborator, reusing the same export/
+  import round trip Settings > Export/backup already relies on. The copy
+  is owned by whoever clicked it; no collaborators carry over.
+- **Fixed-table ("special board") pairings are now really renumbered**,
+  not just annotated. A player with a Fixed table set (Players page) used
+  to just get a "(table N)" note next to their ordinary board number,
+  leaving no visible gap. Now the ordinary boards close the gap a pulled-
+  out fixed-table board leaves (board 10 -> fixed_board 1001 means
+  whoever was board 11 becomes displayed board 10), and fixed-table
+  pairings move to the end of the Pairings page and the printed
+  board-order pairing list, sorted by their own table number. Two
+  fixed-table players paired against each other show as one row. The
+  player edit modal now warns (doesn't block — sharing a table is valid
+  when paired together) when a Fixed table value is already used by
+  someone else.
+- **Standings columns follow the Players page's Display panel.** We/W-We,
+  tiebreak columns, and XtPts/Total used to always show on Standings;
+  now unticking a column on Players hides it here too (shared
+  localStorage preference, defaults to "show everything" for anyone
+  who's never touched the Display panel).
+- A top-level **Changelog page** (`/changelog`), next to Tournaments and
+  Tools — it used to be buried at Settings > Changelog, needing a
+  specific tournament in context even though the content is entirely
+  app-wide.
+
+### Changed
+
+- The top-left nav link reads **"Home"** instead of "Tournaments" once
+  you're inside a tournament — same destination, clearer label for
+  leaving the tournament context.
+- Tournament list: a single-day tournament shows just the one date
+  instead of "date -> date"; finished tournaments get their own badge
+  colour instead of looking identical to running ones.
+- FIDE rating-list downloads (~41 MB, network fetch) are now limited to
+  SSO-signed-in accounts. Local self-registration is open to anyone, so
+  without this, anyone could sign up and repeatedly trigger the full
+  download.
+
+### Fixed
+
+- **FIDE lookup didn't fill in Sex (M/F)** — added, normalized from
+  FIDE's raw "M"/"F" to the app's own "m"/"w" convention.
+- **The topbar accent-picker/theme-picker (and the Advanced/Settings
+  dropdowns) sometimes didn't open on the first click** — an open
+  popover's panel could cover the next trigger over. All four now share
+  an exclusive `<details>` group, the browser-native fix.
+- **The pairing-rationale "Pre-round score brackets" chart ignored the
+  theme system** — every colour (band backgrounds, player dots, floater/
+  rematch connector lines, the fairness sparkline) was fixed light-theme
+  hex, unreadable under every other theme.
+- **A tournament's uploaded logo only ever showed on place cards** —
+  every other print document (pairing list, standings, player list/
+  cards, crosstable, result cards) never rendered it at all.
+
 ## [0.12.3] — 2026-08-12
 
 ### Fixed
