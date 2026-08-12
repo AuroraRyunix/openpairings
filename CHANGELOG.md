@@ -3,6 +3,20 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.9] — 2026-08-12
+
+### Fixed
+
+- **The public pairings page (`/p/:slug/pairings`) and the projector/live
+  view (`/t/:id/live`) never used the same board display logic as the
+  authenticated Pairings page** — both just sorted by raw `pairing.board`
+  with no relabeling at all, so the moment a tournament had a fixed-table
+  ("special") board, a bye, or an absence, they'd silently disagree with
+  the arbiter's own Pairings page and with print: a real board 10 showed
+  "10" there, "1001" everywhere else, for the exact same game. Both now
+  go through the same `PairingDisplay` module as the Pairings page and
+  print, so every surface shows identical board numbers and row order.
+
 ## [0.14.8] — 2026-08-12
 
 ### Fixed

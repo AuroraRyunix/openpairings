@@ -12,7 +12,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
 
   use PairingsEngineWeb, :live_view
 
-  alias PairingsEngine.{Tournaments, Standings, Tiebreaks, Keizer, Mobile}
+  alias PairingsEngine.{Tournaments, Standings, Tiebreaks, Keizer, Mobile, PairingDisplay}
   alias PairingsEngine.Pairing, as: Engine
 
   @result_labels %{
@@ -126,10 +126,15 @@ defmodule PairingsEngineWeb.LiveRoundLive do
 
   defp result_label(result), do: Map.get(@result_labels, result, result)
 
-  # A round's pairings preload in whatever order the DB/JaVaFo output them,
-  # not board order — sort ascending by board so the table reads "Board 1,
-  # Board 2, ..." top to bottom like a real pairing sheet.
-  defp board_sorted(pairings), do: Enum.sort_by(pairings, & &1.board)
+  # Same display logic the authenticated Pairings page uses
+  # (`PairingsEngineWeb.PairingsLive.display_rows/1`) — fixed-table
+  # ("special") boards renumbered/relabeled and moved to the end, byes and
+  # vacant seats sorted below those, real boards renumbered to close the
+  # gap. Before this, this page just sorted by raw `pairing.board`, so
+  # the projector view silently disagreed with the Pairings page (and
+  # print) on both the board LABEL and the row ORDER the moment a
+  # tournament had a fixed-table player, a bye, or an absence.
+  defp display_rows(pairings), do: PairingDisplay.with_display_boards(pairings)
 
   # Label for a byes-table row's `type` — distinct from the "bye" badge
   # shown for a pairing-allocated bye (a real Pairing row), since these
@@ -256,8 +261,8 @@ defmodule PairingsEngineWeb.LiveRoundLive do
             </tr>
           </thead>
           <tbody>
-            <tr :for={pairing <- board_sorted(@round.pairings)}>
-              <td class="num">{pairing.board}</td>
+            <tr :for={%{pairing: pairing, board: display_board} <- display_rows(@round.pairings)}>
+              <td class="num">{display_board}</td>
               <td><strong>{player_label(pairing.white_player)}</strong></td>
               <td style="text-align: center">
                 <%= cond do %>

@@ -22,6 +22,56 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
     assert html =~ "no rounds paired yet"
   end
 
+  test "a fixed-table board shows the SAME label and position as the authenticated Pairings page",
+       %{conn: conn, scope: scope} do
+    # Regression: this page used to sort by raw `pairing.board` and never
+    # relabeled anything, so a fixed-table pairing showed its real engine
+    # board number here while the Pairings page (and print) showed the
+    # fixed_board value and moved it to the end.
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{
+        "name" => "Live Fixed Board Test",
+        "type" => "swiss",
+        "rounds_count" => "1"
+      })
+
+    [wheelchair, wopp, shifted, sopp] =
+      for name <- ["Wheelchairwendy", "Wheelchairopp", "Shiftedsam", "Shiftedopp"] do
+        Repo.insert!(%Player{tournament_id: tournament.id, name: name})
+      end
+
+    Repo.update!(Ecto.Changeset.change(wheelchair, fixed_board: 1001))
+
+    round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+
+    Repo.insert!(%Pairing{
+      round_id: round.id,
+      board: 1,
+      white_player_id: wheelchair.id,
+      black_player_id: wopp.id,
+      result: ""
+    })
+
+    Repo.insert!(%Pairing{
+      round_id: round.id,
+      board: 2,
+      white_player_id: shifted.id,
+      black_player_id: sopp.id,
+      result: ""
+    })
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/live")
+
+    # Not a bare `refute html =~ ~s(<td class="num">2</td>)` — the
+    # standings table further down the same page legitimately has its own
+    # "2"s (rank, points, etc.) unrelated to board numbering.
+    assert html =~ ~s(<td class="num">1001</td>)
+
+    shifted_pos = :binary.match(html, "Shiftedsam") |> elem(0)
+    wheelchair_pos = :binary.match(html, "Wheelchairwendy") |> elem(0)
+    assert shifted_pos < wheelchair_pos
+  end
+
   # A default (swiss) tournament — pairs via JaVaFo, unlike the keizer test
   # below which dispatches to PairingsEngine.Keizer instead.
   @tag :javafo

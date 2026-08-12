@@ -83,6 +83,55 @@ defmodule PairingsEngineWeb.PublicPairingsLiveTest do
     assert positions == Enum.sort(positions), "expected boards 1, 2, 3 top to bottom"
   end
 
+  test "a fixed-table board shows the SAME label and position as the authenticated Pairings page",
+       %{conn: conn} do
+    # Regression: the public page used to sort by raw `pairing.board` and
+    # never relabeled anything, so a fixed-table pairing showed its real
+    # engine board number here while the authenticated page (and print)
+    # showed the fixed_board value and moved it to the end — the same
+    # round looked different depending on which page you were on.
+    {:ok, tournament} =
+      Tournaments.create_tournament(%{
+        "name" => "Public Fixed Board Test",
+        "type" => "swiss",
+        "rounds_count" => "1"
+      })
+
+    [wheelchair, wopp, shifted, sopp] =
+      for name <- ["Wheelchairwendy", "Wheelchairopp", "Shiftedsam", "Shiftedopp"] do
+        Repo.insert!(%Player{tournament_id: tournament.id, name: name})
+      end
+
+    Repo.update!(Ecto.Changeset.change(wheelchair, fixed_board: 1001))
+
+    round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+
+    Repo.insert!(%Pairing{
+      round_id: round.id,
+      board: 1,
+      white_player_id: wheelchair.id,
+      black_player_id: wopp.id,
+      result: ""
+    })
+
+    Repo.insert!(%Pairing{
+      round_id: round.id,
+      board: 2,
+      white_player_id: shifted.id,
+      black_player_id: sopp.id,
+      result: ""
+    })
+
+    {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/pairings")
+
+    assert html =~ ~s(<td class="num">1001</td>)
+    refute html =~ ~s(<td class="num">2</td>)
+
+    shifted_pos = :binary.match(html, "Shiftedsam") |> elem(0)
+    wheelchair_pos = :binary.match(html, "Wheelchairwendy") |> elem(0)
+    assert shifted_pos < wheelchair_pos
+  end
+
   test "shows byes-table rows (SWAR-imported/round-specific absentee byes) alongside the round's pairings",
        %{
          conn: conn
