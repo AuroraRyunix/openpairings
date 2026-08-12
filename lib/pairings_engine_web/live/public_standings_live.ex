@@ -110,6 +110,12 @@ defmodule PairingsEngineWeb.PublicStandingsLive do
 
             <.public_tournament_meta tournament={@tournament} />
           </div>
+
+          <div class="actions" style="margin: 0">
+            <.link navigate={~p"/p/#{@slug}/pairings"} class="pe-btn">
+              Pairings &amp; round history
+            </.link>
+          </div>
         </div>
 
         <div

@@ -3,6 +3,17 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.18] — 2026-08-13
+
+### Added
+
+- **Public pairings page now shows round history, not just the latest
+  round** — `/p/:slug/pairings` gained the same round-picker the
+  authenticated Pairings page has (`?round=N`, bookmarkable/shareable),
+  so anyone with the public link can look back at earlier rounds instead
+  of only ever seeing whatever round is currently being paired. The
+  public standings and pairings pages now cross-link to each other.
+
 ## [0.14.17] — 2026-08-12
 
 ### Fixed

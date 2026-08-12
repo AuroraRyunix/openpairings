@@ -209,4 +209,111 @@ defmodule PairingsEngineWeb.PublicPairingsLiveTest do
     assert html =~ "Absentee"
     assert html =~ "requested half-point bye"
   end
+
+  describe "round history (?round=N)" do
+    setup do
+      {:ok, tournament} =
+        Tournaments.create_tournament(%{
+          "name" => "Round History Test",
+          "type" => "swiss",
+          "rounds_count" => "3"
+        })
+
+      [a, b] =
+        for name <- ["Alice", "Bob"] do
+          Repo.insert!(%Player{tournament_id: tournament.id, name: name})
+        end
+
+      round1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
+
+      Repo.insert!(%Pairing{
+        round_id: round1.id,
+        board: 1,
+        white_player_id: a.id,
+        black_player_id: b.id,
+        result: "1-0"
+      })
+
+      round2 = Repo.insert!(%Round{tournament_id: tournament.id, number: 2, status: "playing"})
+
+      Repo.insert!(%Pairing{
+        round_id: round2.id,
+        board: 1,
+        white_player_id: b.id,
+        black_player_id: a.id,
+        result: ""
+      })
+
+      %{tournament: tournament, alice: a, bob: b}
+    end
+
+    test "defaults to the latest paired round, not just always round 1", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/pairings")
+
+      assert html =~ "Round 2"
+    end
+
+    test "a round-picker links to every round, including unpaired round 3", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/p/#{tournament.public_slug}/pairings")
+
+      assert has_element?(lv, ".round-picker a", "3")
+    end
+
+    test "clicking round 1 in the picker shows round 1's own pairing, not round 2's", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/p/#{tournament.public_slug}/pairings")
+
+      html =
+        lv
+        |> element(".round-picker a", "1")
+        |> render_click()
+
+      assert html =~ "Round 1"
+      # Round 1: Alice (white) vs Bob (black), 1-0 — entering it both are at 0.
+      assert html =~ "Alice (0)"
+      assert html =~ "Bob (0)"
+    end
+
+    test "requesting a not-yet-paired round shows a placeholder instead of the latest round", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/pairings?round=3")
+
+      assert html =~ "Round 3"
+      assert html =~ "hasn&#39;t been paired yet"
+    end
+
+    test "an out-of-range round falls back to the latest paired round", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/pairings?round=99")
+
+      assert html =~ "Round 2"
+    end
+
+    test "standings page links to the pairings/round-history page", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/standings")
+
+      assert html =~ ~s(href="/p/#{tournament.public_slug}/pairings")
+    end
+
+    test "pairings page links to standings", %{conn: conn, tournament: tournament} do
+      {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/pairings")
+
+      assert html =~ ~s(href="/p/#{tournament.public_slug}/standings")
+    end
+  end
 end
