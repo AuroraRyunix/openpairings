@@ -99,6 +99,24 @@ defmodule PairingsEngine.StandingsTest do
     assert a.id == ea.player.id and b.id == eb.player.id
   end
 
+  describe "player_scores_before_round/2" do
+    test "round 1 is everyone at 0 (nothing played yet, through_round: 0)" do
+      {tournament, %{a: a, b: b, c: c, d: d}} = fixture()
+
+      scores = Standings.player_scores_before_round(tournament, 1)
+
+      assert scores == %{a.id => 0.0, b.id => 0.0, c.id => 0.0, d.id => 0.0}
+    end
+
+    test "round 2 reflects round 1's results, not round 2's own (already-entered) ones" do
+      {tournament, %{a: a, b: b, c: c, d: d}} = fixture()
+
+      scores = Standings.player_scores_before_round(tournament, 2)
+
+      assert scores == %{a.id => 1.0, b.id => 0.0, c.id => 0.5, d.id => 0.5}
+    end
+  end
+
   test "direct encounter splits a two-way tie in which the players met" do
     {tournament, %{c: c, d: d}} = fixture()
 

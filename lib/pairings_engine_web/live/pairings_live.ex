@@ -9,6 +9,7 @@ defmodule PairingsEngineWeb.PairingsLive do
     PairingRationale,
     ResultsImport,
     RoundRobin,
+    Standings,
     Tournaments
   }
 
@@ -133,6 +134,9 @@ defmodule PairingsEngineWeb.PairingsLive do
 
     assign(socket,
       round: Tournaments.get_round(t.id, n),
+      # Each player's score coming INTO round `n` — shown next to their
+      # name on the board list, same as a real printed pairing sheet.
+      scores: Standings.player_scores_before_round(t, n),
       # The pool is a superset of `list_byes_for_round/2` — it adds anyone
       # simply unpaired — so the byes-only query this page used to run is
       # no longer needed here. Other views still use it.
@@ -920,6 +924,30 @@ defmodule PairingsEngineWeb.PairingsLive do
       if(rating > 0, do: " (#{rating})", else: "")
   end
 
+  # Board-list label only: `player_label/1` plus the player's score coming
+  # into this round, in the same parenthetical — "Name (2400, 2.5)", or
+  # "Name (2.5)" with no rating. Deliberately separate from
+  # `player_label/1` itself, which every OTHER player-name spot on this
+  # page (swap dialogs, the not-playing pool, audit text) keeps using
+  # unchanged — the incoming score is specifically a pairing-SHEET thing.
+  # No `nil` clause: `seat_cell/1`'s `@player ->` branch (the only caller)
+  # only ever reaches this with a real player.
+  defp seat_label(player, scores) do
+    rating = PairingsEngine.Tournaments.Player.rating(player)
+    score = format_score(Map.get(scores, player.id, 0.0))
+    title = if player.title != "", do: "#{player.title} "
+
+    bracket = if rating > 0, do: "(#{rating}, #{score})", else: "(#{score})"
+
+    "#{title}#{player.name} #{bracket}"
+  end
+
+  defp format_score(v) when is_float(v) do
+    if v == Float.round(v, 0), do: trunc(v), else: v
+  end
+
+  defp format_score(v), do: v
+
   # A round's pairings preload in whatever order the DB/JaVaFo output them,
   # not board order. `PairingDisplay.with_display_boards/1` both sorts
   # (fixed-table boards moved to the end, ordered by their own table
@@ -1038,6 +1066,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   attr :side, :atom, required: true
   attr :swap_first, :any, required: true
   attr :seat_pick, :any, required: true
+  attr :scores, :map, required: true
 
   defp seat_cell(assigns) do
     ~H"""
@@ -1056,7 +1085,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           phx-value-player-id={@player.id}
           title="Right-click for swap / absent options"
         >
-          {player_label(@player)}
+          {seat_label(@player, @scores)}
         </span>
       <% @pairing.result == "bye" -> %>
         <span class="seat-none">—</span>
@@ -1587,6 +1616,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                   side={:white}
                   swap_first={@swap_first}
                   seat_pick={@seat_pick}
+                  scores={@scores}
                 />
               </td>
 
@@ -1642,6 +1672,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                   side={:black}
                   swap_first={@swap_first}
                   seat_pick={@seat_pick}
+                  scores={@scores}
                 />
               </td>
             </tr>

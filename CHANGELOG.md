@@ -3,6 +3,19 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.10] — 2026-08-12
+
+### Added
+
+- **Each player's score coming into the round now shows next to their
+  name on the pairing list** — the authenticated Pairings page, the
+  public pairings page, the projector/live view, and the printed
+  pairing list all show it now, e.g. "Alice (2400, 2.5)" (rating and
+  score together where a rating exists, just the score otherwise). This
+  is the score BEFORE the round shown, not after — the same figure a
+  real printed pairing sheet has always shown, computed fresh per round
+  so it's correct even when browsing a past round.
+
 ## [0.14.9] — 2026-08-12
 
 ### Fixed

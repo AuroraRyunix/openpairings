@@ -142,6 +142,20 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       assert conn.status == 404
     end
 
+    test "shows each player's score coming INTO the round, in brackets next to their name", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, _players} = fixture(scope)
+
+      # Round 2 pairs C vs A (see the fixture's own doc comment) — coming
+      # into round 2, A is at 1 (won round 1) and C is at 0.5 (drew D).
+      html = get(conn, ~p"/t/#{tournament.id}/print/pairings?round=2") |> html_response(200)
+
+      assert html =~ "A (1)"
+      assert html =~ "C (0.5)"
+    end
+
     test "a board involving a player with a fixed_board override is relabeled and moved to the end",
          %{conn: conn, scope: scope} do
       {tournament, %{a: a}} = fixture(scope)

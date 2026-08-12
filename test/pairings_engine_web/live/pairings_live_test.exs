@@ -43,6 +43,26 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     tournament
   end
 
+  test "board list shows each player's score coming INTO the round, next to their rating", %{
+    conn: conn,
+    scope: scope
+  } do
+    tournament = fixture(scope)
+
+    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+    # Round 1: nobody has played anything yet — both start at 0.
+    html = lv |> element("button[phx-value-number='1']") |> render_click()
+    assert html =~ "A (2000, 0)"
+    assert html =~ "B (1800, 0)"
+
+    # Round 2: A won round 1 (1-0), so A comes in at 1, B at 0 — the score
+    # from BEFORE round 2, not round 2's own (already-entered) result.
+    html = lv |> element("button[phx-value-number='2']") |> render_click()
+    assert html =~ "B (1800, 0)"
+    assert html =~ "A (2000, 1)"
+  end
+
   test "print pairings/standings links open the currently selected round in a new tab", %{
     conn: conn,
     scope: scope

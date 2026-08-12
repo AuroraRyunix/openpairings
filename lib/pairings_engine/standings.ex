@@ -111,6 +111,27 @@ defmodule PairingsEngine.Standings do
     Repo.aggregate(from(r in Round, where: r.tournament_id == ^tournament_id), :count)
   end
 
+  @doc """
+  `%{player_id => points}` for every player in `tournament`, as their
+  score stood immediately BEFORE round `round_number` was paired (i.e.
+  `through_round: round_number - 1`). Used by the pairing sheet (live,
+  public, projector, print) to show each player's incoming score next to
+  their name on the board list, the same way a real printed pairing sheet
+  always has — game `points` only, never `total`/extra points. Dispatches
+  to `PairingsEngine.Keizer.standings/2` for a Keizer tournament (same
+  `:points`/`:player` entry shape), `standings/2` otherwise.
+  """
+  def player_scores_before_round(tournament, round_number) do
+    entries =
+      if tournament.pairing_system == "keizer" do
+        PairingsEngine.Keizer.standings(tournament, through_round: round_number - 1)
+      else
+        standings(tournament, through_round: round_number - 1)
+      end
+
+    Map.new(entries, &{&1.player.id, &1.points})
+  end
+
   ## ---------- manual standings override (SWAR parity #23) ----------
   #
   # See docs/manual-standings.md for the full design write-up. Short

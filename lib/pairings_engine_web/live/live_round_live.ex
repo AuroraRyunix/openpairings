@@ -107,6 +107,8 @@ defmodule PairingsEngineWeb.LiveRoundLive do
     assign(socket,
       round_number: paired,
       round: paired > 0 && Tournaments.get_round(tournament.id, paired),
+      scores:
+        if(paired > 0, do: Standings.player_scores_before_round(tournament, paired), else: %{}),
       round_byes:
         if(paired > 0, do: Tournaments.list_byes_for_round(tournament.id, paired), else: []),
       keizer?: keizer?,
@@ -123,6 +125,27 @@ defmodule PairingsEngineWeb.LiveRoundLive do
     "#{if player.title != "", do: "#{player.title} "}#{player.name}" <>
       if(rating > 0, do: " (#{rating})", else: "")
   end
+
+  # Board-list label only: `player_label/1` plus the player's score coming
+  # into this round, in the same parenthetical — "Name (2400, 2.5)", or
+  # "Name (2.5)" with no rating.
+  defp seat_label(nil, _scores), do: ""
+
+  defp seat_label(player, scores) do
+    rating = PairingsEngine.Tournaments.Player.rating(player)
+    score = format_score(Map.get(scores, player.id, 0.0))
+    title = if player.title != "", do: "#{player.title} "
+
+    bracket = if rating > 0, do: "(#{rating}, #{score})", else: "(#{score})"
+
+    "#{title}#{player.name} #{bracket}"
+  end
+
+  defp format_score(v) when is_float(v) do
+    if v == Float.round(v, 0), do: trunc(v), else: v
+  end
+
+  defp format_score(v), do: v
 
   defp result_label(result), do: Map.get(@result_labels, result, result)
 
@@ -263,7 +286,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
           <tbody>
             <tr :for={%{pairing: pairing, board: display_board} <- display_rows(@round.pairings)}>
               <td class="num">{display_board}</td>
-              <td><strong>{player_label(pairing.white_player)}</strong></td>
+              <td><strong>{seat_label(pairing.white_player, @scores)}</strong></td>
               <td style="text-align: center">
                 <%= cond do %>
                   <% pairing.result == "bye" -> %>
@@ -274,7 +297,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
                     <span class="badge">{result_label(pairing.result)}</span>
                 <% end %>
               </td>
-              <td>{player_label(pairing.black_player)}</td>
+              <td>{seat_label(pairing.black_player, @scores)}</td>
             </tr>
           </tbody>
         </table>

@@ -22,6 +22,48 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
     assert html =~ "no rounds paired yet"
   end
 
+  test "board list shows each player's score coming INTO the round, next to their rating", %{
+    conn: conn,
+    scope: scope
+  } do
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{
+        "name" => "Live Score Test",
+        "type" => "swiss",
+        "rounds_count" => "2"
+      })
+
+    [a, b] =
+      for {name, rating} <- [{"A", 2000}, {"B", 1800}] do
+        Repo.insert!(%Player{tournament_id: tournament.id, name: name, fide_rating: rating})
+      end
+
+    round1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
+
+    Repo.insert!(%Pairing{
+      round_id: round1.id,
+      board: 1,
+      white_player_id: a.id,
+      black_player_id: b.id,
+      result: "1-0"
+    })
+
+    round2 = Repo.insert!(%Round{tournament_id: tournament.id, number: 2, status: "playing"})
+
+    Repo.insert!(%Pairing{
+      round_id: round2.id,
+      board: 1,
+      white_player_id: b.id,
+      black_player_id: a.id,
+      result: ""
+    })
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/live")
+
+    assert html =~ "A (2000, 1)"
+    assert html =~ "B (1800, 0)"
+  end
+
   test "a fixed-table board shows the SAME label and position as the authenticated Pairings page",
        %{conn: conn, scope: scope} do
     # Regression: this page used to sort by raw `pairing.board` and never

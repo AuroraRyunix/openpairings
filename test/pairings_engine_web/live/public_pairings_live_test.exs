@@ -26,6 +26,48 @@ defmodule PairingsEngineWeb.PublicPairingsLiveTest do
     assert html =~ "Tempo: 15 min + 10 sec/move"
   end
 
+  test "board list shows each player's score coming INTO the round, next to their rating", %{
+    conn: conn
+  } do
+    {:ok, tournament} =
+      Tournaments.create_tournament(%{
+        "name" => "Public Score Test",
+        "type" => "swiss",
+        "rounds_count" => "2"
+      })
+
+    [a, b] =
+      for {name, rating} <- [{"A", 2000}, {"B", 1800}] do
+        Repo.insert!(%Player{tournament_id: tournament.id, name: name, fide_rating: rating})
+      end
+
+    round1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
+
+    Repo.insert!(%Pairing{
+      round_id: round1.id,
+      board: 1,
+      white_player_id: a.id,
+      black_player_id: b.id,
+      result: "1-0"
+    })
+
+    round2 = Repo.insert!(%Round{tournament_id: tournament.id, number: 2, status: "playing"})
+
+    Repo.insert!(%Pairing{
+      round_id: round2.id,
+      board: 1,
+      white_player_id: b.id,
+      black_player_id: a.id,
+      result: ""
+    })
+
+    {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/pairings")
+
+    # A won round 1, so entering round 2 A is at 1, B at 0.
+    assert html =~ "A (2000, 1)"
+    assert html =~ "B (1800, 0)"
+  end
+
   test "renders a round's pairings sorted by board number regardless of insertion order", %{
     conn: conn
   } do

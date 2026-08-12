@@ -530,15 +530,19 @@ defmodule PairingsEngineWeb.PrintController do
     if round == nil do
       send_resp(conn, 404, "Round #{number} has not been paired yet")
     else
+      # Each player's score coming INTO this round — shown next to their
+      # name, same as the live/public/projector pairing views.
+      scores = PairingsEngine.Standings.player_scores_before_round(tournament, number)
+
       rows =
         round.pairings
         |> PairingDisplay.with_display_boards()
         |> Enum.map_join("", fn %{pairing: p, board: board} ->
           "<tr><td class=\"num\">#{board}</td>" <>
-            "<td><strong>#{esc(p.white_player && p.white_player.name)}</strong></td>" <>
+            "<td><strong>#{esc(name_with_score(p.white_player, scores))}</strong></td>" <>
             "<td class=\"num\">#{p.white_player && blank_zero(player_rating(p.white_player))}</td>" <>
             "<td style=\"text-align:center\">#{esc(display_result(p.result))}</td>" <>
-            "<td><strong>#{esc((p.black_player && p.black_player.name) || "— bye —")}</strong></td>" <>
+            "<td><strong>#{esc(name_with_score(p.black_player, scores) || "— bye —")}</strong></td>" <>
             "<td class=\"num\">#{p.black_player && blank_zero(player_rating(p.black_player))}</td></tr>"
         end)
 
@@ -1254,6 +1258,23 @@ defmodule PairingsEngineWeb.PrintController do
   end
 
   defp player_rating(player), do: PairingsEngine.Tournaments.Player.rating(player)
+
+  # `pairing_list/2`'s name cell: the player's name plus their score
+  # coming INTO this round, in brackets — "Alice (2.5)". `nil` (the empty
+  # side of a bye) passes through as `nil` so the caller's own "— bye —"
+  # fallback still applies.
+  defp name_with_score(nil, _scores), do: nil
+
+  defp name_with_score(player, scores) do
+    score = format_score(Map.get(scores, player.id, 0.0))
+    "#{player.name} (#{score})"
+  end
+
+  defp format_score(v) when is_float(v) do
+    if v == Float.round(v, 0), do: trunc(v), else: v
+  end
+
+  defp format_score(v), do: v
 
   defp display_result(""), do: ""
   defp display_result("1/2-1/2"), do: "½-½"
