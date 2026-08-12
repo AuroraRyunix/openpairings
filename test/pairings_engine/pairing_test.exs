@@ -1745,7 +1745,16 @@ defmodule PairingsEngine.PairingTest do
     win_for.(x.id)
 
     # The other two games' results don't matter for this test, but every
-    # round-1 game needs a result before round 2 can be paired.
+    # round-1 game needs a result before round 2 can be paired. `round1`
+    # is a stale in-memory snapshot from before the two win_for/1 calls
+    # above (Elixir structs don't mutate), so re-fetch before filling in
+    # the rest — otherwise this blindly re-matches Y's and X's
+    # already-set pairings too (their stale copies still show
+    # result: "") and overwrites both back to "1-0", silently flipping
+    # whichever of the two was sitting Black from a win to a loss and
+    # breaking the very tie this test exists to engineer.
+    round1 = Repo.preload(Repo.reload!(round1), pairings: [])
+
     for p <- round1.pairings, p.result in [nil, ""] do
       Tournaments.update_pairing_result(p, "1-0")
     end
