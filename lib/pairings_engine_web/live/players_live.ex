@@ -123,7 +123,7 @@ defmodule PairingsEngineWeb.PlayersLive do
        editing_player: nil,
        edit_form: %{},
        edit_error: nil,
-       edit_name_suggestion: nil,
+       edit_fide_conflicts: nil,
        card_player_id: nil,
        titles: @titles,
        rating_refresh: nil,
@@ -644,7 +644,7 @@ defmodule PairingsEngineWeb.PlayersLive do
            editing_player: player,
            edit_form: player_to_form(player),
            edit_error: nil,
-           edit_name_suggestion: nil
+           edit_fide_conflicts: nil
          )}
     end
   end
@@ -655,7 +655,7 @@ defmodule PairingsEngineWeb.PlayersLive do
        editing_player: nil,
        edit_form: %{},
        edit_error: nil,
-       edit_name_suggestion: nil
+       edit_fide_conflicts: nil
      )}
   end
 
@@ -672,24 +672,25 @@ defmodule PairingsEngineWeb.PlayersLive do
   # button look like it "sometimes doesn't work" and skipped the name-
   # correction confirmation it should have shown.
   def handle_event("edit_form_change", %{"player" => params}, socket) do
-    {:noreply, assign(socket, edit_form: params, edit_name_suggestion: nil)}
+    {:noreply, assign(socket, edit_form: params, edit_fide_conflicts: nil)}
   end
 
   # Mirrors SWAR's "Rafraichir": re-looks-up the player in the local FIDE
   # copy (by FIDE ID if the form has one, by name otherwise) and refills
-  # rating/title/federation/birth year from the match, plus the name itself.
+  # rating/title/federation from the match directly — those are operational
+  # data (ratings update every FIDE list cycle; that's the whole point of
+  # this button), always safe to overwrite.
   #
-  # A FIDE ID is an exact, unambiguous match — the arbiter (or a previous
-  # lookup) already pinned down exactly who this is — so the name gets
-  # corrected straight away, same as every other field: FIDE's own
-  # capitalisation, comma, and ordering, replacing whatever was typed by
-  # hand or came in mis-formatted from an import.
-  #
-  # A name-only search is a fuzzy best guess, not a confirmed identity —
-  # every other field is still safe to fill in from it, but silently
-  # overwriting the name too could swap in a same-named stranger's spelling.
-  # So the name goes to `edit_name_suggestion` instead of straight into the
-  # form, and the template asks before applying it.
+  # Name/Sex/Birth year are treated differently: identity data that rarely
+  # legitimately changes. Filling a currently-blank one of these applies
+  # immediately (nothing to conflict with), same as the operational
+  # fields — but CHANGING an already-filled one (whether this was an exact
+  # FIDE-ID match or a fuzzy name search; a wrong-person risk from the
+  # fuzzy path and a real data discrepancy either way both deserve the
+  # same human sign-off) is staged in `edit_fide_conflicts` instead of
+  # applied straight away, and the template asks before committing it. A
+  # same-identity reformatting (case/comma/spacing) doesn't count as a
+  # "change" and applies immediately either way — see `names_equivalent?/2`.
   def handle_event("refresh_edit_fide", _params, socket) do
     form = socket.assigns.edit_form
     fide_id = form |> Map.get("fide_id") |> to_string() |> String.trim()
@@ -697,11 +698,11 @@ defmodule PairingsEngineWeb.PlayersLive do
 
     cond do
       fide_id != "" ->
-        apply_fide_match(socket, form, Fide.get_player(fide_id), by_id: true)
+        apply_fide_match(socket, form, Fide.get_player(fide_id))
 
       String.trim(typed_name) != "" ->
         case Fide.search(typed_name) do
-          [fp | _] -> apply_fide_match(socket, form, fp, by_id: false)
+          [fp | _] -> apply_fide_match(socket, form, fp)
           [] -> {:noreply, assign(socket, edit_error: "No matching FIDE player found")}
         end
 
@@ -710,19 +711,19 @@ defmodule PairingsEngineWeb.PlayersLive do
     end
   end
 
-  def handle_event("confirm_name_correction", _params, socket) do
-    case socket.assigns.edit_name_suggestion do
+  def handle_event("apply_fide_conflicts", _params, socket) do
+    case socket.assigns.edit_fide_conflicts do
       nil ->
         {:noreply, socket}
 
-      %{name: name} ->
-        merged = Map.put(socket.assigns.edit_form, "name", name)
-        {:noreply, assign(socket, edit_form: merged, edit_name_suggestion: nil)}
+      conflicts ->
+        merged = Map.merge(socket.assigns.edit_form, conflicts)
+        {:noreply, assign(socket, edit_form: merged, edit_fide_conflicts: nil)}
     end
   end
 
-  def handle_event("reject_name_correction", _params, socket) do
-    {:noreply, assign(socket, edit_name_suggestion: nil)}
+  def handle_event("reject_fide_conflicts", _params, socket) do
+    {:noreply, assign(socket, edit_fide_conflicts: nil)}
   end
 
   # KBSB counterpart of refresh_edit_fide/2: looked up by National ID only
@@ -766,7 +767,7 @@ defmodule PairingsEngineWeb.PlayersLive do
             # KBSB's own fields stay applied either way (merged, not
             # form) — a real FIDE match on top of that is a bonus, not a
             # replacement for it.
-            apply_fide_match(socket, merged, fp, by_id: true)
+            apply_fide_match(socket, merged, fp)
 
           _ ->
             # No local FIDE ID to chain to, or the cross-referenced ID
@@ -803,7 +804,7 @@ defmodule PairingsEngineWeb.PlayersLive do
            editing_player: nil,
            edit_form: %{},
            edit_error: nil,
-           edit_name_suggestion: nil
+           edit_fide_conflicts: nil
          )
          |> assign_players()}
 
@@ -838,54 +839,89 @@ defmodule PairingsEngineWeb.PlayersLive do
      )}
   end
 
-  # refresh_edit_fide/2 helpers: `nil` fide_id/no match short-circuits to the
-  # existing "no match" error; a real match either applies straight away
-  # (exact FIDE-ID lookup) or stages the name behind the confirm dialog
-  # (fuzzy name-only lookup) — see the moduledoc comment on
-  # handle_event("refresh_edit_fide", ...) above for why.
-  defp apply_fide_match(socket, _form, nil, _opts) do
+  # refresh_edit_fide/2 helpers. `nil` (no FIDE ID match / no search
+  # result) short-circuits to the existing "no match" error. A real match
+  # splits its fields into two groups (see handle_event("refresh_edit_fide"
+  # ...)'s doc): operational data (title/fide_id/fide_rating/federation)
+  # applies straight away regardless; identity data (name/sex/birth_year)
+  # applies straight away too UNLESS it would actually change an
+  # already-filled value, in which case it's staged in
+  # `edit_fide_conflicts` for the template's confirm box instead.
+  defp apply_fide_match(socket, _form, nil) do
     {:noreply, assign(socket, edit_error: "No matching FIDE player found")}
   end
 
-  defp apply_fide_match(socket, form, %FidePlayer{} = fp, by_id: by_id?) do
-    base = %{
+  defp apply_fide_match(socket, form, %FidePlayer{} = fp) do
+    auto = %{
       "title" => fp.title,
       "fide_id" => fp.fide_id,
       "fide_rating" => Fide.rating_for_tempo(fp, socket.assigns.tournament.standard),
-      "federation" => fp.federation,
-      "birth_year" => fp.birth_year,
-      "sex" => normalize_fide_sex(fp.sex)
+      "federation" => fp.federation
     }
 
-    name_matches? = names_equivalent?(Map.get(form, "name", ""), fp.name)
+    {to_apply, conflicts} =
+      {%{}, %{}}
+      |> stage_reviewable_field(form, "name", fp.name, &names_equivalent?/2)
+      |> stage_reviewable_field(form, "sex", normalize_fide_sex(fp.sex), &(&1 == &2))
+      |> stage_reviewable_field(form, "birth_year", fp.birth_year, &ratings_equivalent?/2)
+
+    merged = Map.merge(form, Map.merge(auto, to_apply))
+
+    {:noreply,
+     assign(socket,
+       edit_form: merged,
+       edit_error: nil,
+       edit_fide_conflicts: if(conflicts == %{}, do: nil, else: conflicts)
+     )}
+  end
+
+  # `blank?(new_value)` — FIDE simply has nothing for this field, nothing to
+  # apply or conflict with, leave the form exactly as it is.
+  # `blank?(current)` — nothing to conflict with, applies immediately.
+  # `equivalent?.(current, new_value)` — same identity (maybe reformatted,
+  # for name), so FIDE's own canonical form applies immediately too — no
+  # point asking to confirm a spelling/case fix that isn't really a change.
+  # Otherwise: a real change to an already-filled value, staged for the
+  # confirm box rather than applied straight away.
+  defp stage_reviewable_field({applied, conflicts}, form, key, new_value, equivalent?) do
+    current = Map.get(form, key)
 
     cond do
-      by_id? or name_matches? ->
-        merged = Map.merge(form, Map.put(base, "name", fp.name))
-        {:noreply, assign(socket, edit_form: merged, edit_error: nil, edit_name_suggestion: nil)}
-
-      true ->
-        merged = Map.merge(form, base)
-
-        {:noreply,
-         assign(socket,
-           edit_form: merged,
-           edit_error: nil,
-           edit_name_suggestion: %{fide_id: fp.fide_id, name: fp.name}
-         )}
+      blank?(new_value) -> {applied, conflicts}
+      blank?(current) -> {Map.put(applied, key, new_value), conflicts}
+      equivalent?.(current, new_value) -> {Map.put(applied, key, new_value), conflicts}
+      true -> {applied, Map.put(conflicts, key, new_value)}
     end
   end
+
+  defp blank?(nil), do: true
+  defp blank?(""), do: true
+  defp blank?(_), do: false
 
   # Loose enough that re-running the lookup on an already-correct name
-  # (different casing/spacing, e.g. "burssens, jorian" vs "Burssens, Jorian")
-  # doesn't pop the confirm dialog for nothing.
+  # (different casing/spacing/order, e.g. "tijl de moyer" vs FIDE's own
+  # "De Moyer, Tijl") doesn't pop the confirm box for nothing — compares
+  # the *set* of name tokens, not the literal string, same
+  # order-insensitive philosophy `Fide.search/1` already uses ("burssens
+  # jorian" and "jorian burssens" both find the same person).
   defp names_equivalent?(a, b) do
-    norm = fn s ->
-      s |> to_string() |> String.downcase() |> String.replace(~r/[^\p{L}\d]+/u, "")
+    tokens = fn s ->
+      s
+      |> to_string()
+      |> String.downcase()
+      |> String.split(~r/[^\p{L}\d]+/u, trim: true)
+      |> Enum.sort()
     end
 
-    norm.(a) == norm.(b) and norm.(a) != ""
+    t = tokens.(a)
+    t != [] and t == tokens.(b)
   end
+
+  # birth_year comparisons: `current` (from the live form) can be a string
+  # ("1990") or an integer depending on how it got there; `new_value` (from
+  # FidePlayer) is always an integer. parse_rating/1 already normalizes
+  # both shapes the same way the rest of this module does.
+  defp ratings_equivalent?(a, b), do: parse_rating(a) == parse_rating(b)
 
   # FIDE's own list writes the raw letter "M"/"F" (see the `Sex` column in
   # `PairingsEngine.Fide.Sync`), but the app's own internal convention —
@@ -1503,7 +1539,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         error={@edit_error}
         tournament={@tournament}
         titles={@titles}
-        name_suggestion={@edit_name_suggestion}
+        fide_conflicts={@edit_fide_conflicts}
         editing_player_id={@editing_player.id}
         players={@players}
       />
@@ -1622,6 +1658,15 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp rating_or_dash(0), do: "—"
   defp rating_or_dash(rating), do: rating
 
+  defp fide_conflict_label("name"), do: "Name"
+  defp fide_conflict_label("sex"), do: "Sex"
+  defp fide_conflict_label("birth_year"), do: "Birth year"
+  defp fide_conflict_label(key), do: key
+
+  defp fide_conflict_display("sex", "m"), do: "M"
+  defp fide_conflict_display("sex", "w"), do: "F"
+  defp fide_conflict_display(_key, value), do: value
+
   # Names of other players in the tournament already set to the same
   # fixed_board value — not a validation error (two players sharing a
   # fixed table is exactly what happens when they're paired against each
@@ -1647,7 +1692,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   attr :error, :string, default: nil
   attr :tournament, :map, required: true
   attr :titles, :list, required: true
-  attr :name_suggestion, :map, default: nil
+  attr :fide_conflicts, :map, default: nil
   attr :editing_player_id, :integer, default: nil
   attr :players, :list, default: []
 
@@ -1698,15 +1743,19 @@ defmodule PairingsEngineWeb.PlayersLive do
         </div>
 
         <div
-          :if={@name_suggestion}
+          :if={@fide_conflicts}
           class="card"
           style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; padding: 10px 12px"
         >
           <span>
-            FIDE has this player's name as <strong>{@name_suggestion.name}</strong> — correct it?
+            FIDE disagrees with what's already on file:
+            <strong :for={{key, value} <- @fide_conflicts}>
+              {fide_conflict_label(key)} → {fide_conflict_display(key, value)}
+            </strong>
+            — apply {if map_size(@fide_conflicts) > 1, do: "these", else: "this"}?
           </span>
-          <button type="button" class="pe-btn" phx-click="confirm_name_correction">Yes</button>
-          <button type="button" class="pe-btn" phx-click="reject_name_correction">No</button>
+          <button type="button" class="pe-btn" phx-click="apply_fide_conflicts">Yes</button>
+          <button type="button" class="pe-btn" phx-click="reject_fide_conflicts">No</button>
         </div>
 
         <div class="form-grid">

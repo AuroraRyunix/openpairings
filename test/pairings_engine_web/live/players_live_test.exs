@@ -543,7 +543,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       html = lv |> element("button", "FIDE lookup") |> render_click()
 
       assert html =~ ~s(value="De Moyer, Tijl")
-      refute html =~ "correct it?"
+      refute html =~ "FIDE disagrees"
     end
 
     test "also fills in Sex, normalized from FIDE's raw M/F to the app's m/w convention", %{
@@ -574,12 +574,174 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       refute html =~ ~r/name="player\[sex\]" value="w" checked/
     end
 
-    test "by name: fills the other fields but stages the name behind a yes/no prompt", %{
+    test "changing an already-set Sex is staged behind a confirm, not applied silently", %{
       conn: conn,
       tournament: tournament
     } do
       {:ok, player} =
-        Tournaments.create_player(tournament.id, %{"name" => "tijl de moyer"})
+        Tournaments.create_player(tournament.id, %{
+          "name" => "De Moyer, Tijl",
+          "fide_id" => "214566",
+          "sex" => "w"
+        })
+
+      Repo.insert!(%FidePlayer{
+        fide_id: 214_566,
+        name: "De Moyer, Tijl",
+        federation: "BEL",
+        standard_rating: 1865,
+        sex: "M"
+      })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "edit_player", %{"id" => to_string(player.id)})
+      html = lv |> element("button", "FIDE lookup") |> render_click()
+
+      # Not silently flipped — the radio still shows what was on file...
+      assert html =~ ~r/name="player\[sex\]" value="w" checked/
+      refute html =~ ~r/name="player\[sex\]" value="m" checked/
+      # ...and the conflict is visible, naming the field and FIDE's value.
+      assert html =~ "FIDE disagrees"
+      assert html =~ "Sex → M"
+
+      html = lv |> element("button[phx-click='apply_fide_conflicts']") |> render_click()
+      assert html =~ ~r/name="player\[sex\]" value="m" checked/
+      refute html =~ "FIDE disagrees"
+    end
+
+    test "changing an already-set birth year is staged behind a confirm", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, player} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "De Moyer, Tijl",
+          "fide_id" => "214566",
+          "birth_year" => "1980"
+        })
+
+      Repo.insert!(%FidePlayer{
+        fide_id: 214_566,
+        name: "De Moyer, Tijl",
+        federation: "BEL",
+        standard_rating: 1865,
+        birth_year: 1982
+      })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "edit_player", %{"id" => to_string(player.id)})
+      html = lv |> element("button", "FIDE lookup") |> render_click()
+
+      assert html =~ ~s(value="1980")
+      refute html =~ ~s(value="1982")
+      assert html =~ "FIDE disagrees"
+      assert html =~ "Birth year → 1982"
+
+      html = lv |> element("button[phx-click='reject_fide_conflicts']") |> render_click()
+      assert html =~ ~s(value="1980")
+      refute html =~ "FIDE disagrees"
+    end
+
+    test "a matching birth year (string vs integer form) doesn't falsely flag as a conflict", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, player} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "De Moyer, Tijl",
+          "fide_id" => "214566",
+          "birth_year" => "1982"
+        })
+
+      Repo.insert!(%FidePlayer{
+        fide_id: 214_566,
+        name: "De Moyer, Tijl",
+        federation: "BEL",
+        standard_rating: 1865,
+        birth_year: 1982
+      })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "edit_player", %{"id" => to_string(player.id)})
+      html = lv |> element("button", "FIDE lookup") |> render_click()
+
+      refute html =~ "FIDE disagrees"
+    end
+
+    test "multiple conflicting fields at once are all listed together", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, player} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "De Moyer, Tijl",
+          "fide_id" => "214566",
+          "sex" => "w",
+          "birth_year" => "1980"
+        })
+
+      Repo.insert!(%FidePlayer{
+        fide_id: 214_566,
+        name: "De Moyer, Tijl",
+        federation: "BEL",
+        standard_rating: 1865,
+        sex: "M",
+        birth_year: 1982
+      })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "edit_player", %{"id" => to_string(player.id)})
+      html = lv |> element("button", "FIDE lookup") |> render_click()
+
+      assert html =~ "Sex → M"
+      assert html =~ "Birth year → 1982"
+
+      html = lv |> element("button[phx-click='apply_fide_conflicts']") |> render_click()
+      assert html =~ ~r/name="player\[sex\]" value="m" checked/
+      assert html =~ ~s(value="1982")
+      refute html =~ "FIDE disagrees"
+    end
+
+    test "operational fields (title/rating/federation) still apply directly, even when changing",
+         %{conn: conn, tournament: tournament} do
+      {:ok, player} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "De Moyer, Tijl",
+          "fide_id" => "214566",
+          "fide_rating" => "1500",
+          "federation" => "FRA",
+          "title" => "CM"
+        })
+
+      Repo.insert!(%FidePlayer{
+        fide_id: 214_566,
+        name: "De Moyer, Tijl",
+        federation: "BEL",
+        title: "FM",
+        standard_rating: 1865
+      })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "edit_player", %{"id" => to_string(player.id)})
+      html = lv |> element("button", "FIDE lookup") |> render_click()
+
+      assert html =~ ~s(value="1865")
+      assert html =~ ~s(value="BEL")
+      refute html =~ "FIDE disagrees"
+    end
+
+    test "by name: fills the other fields but stages a genuinely different name behind a yes/no prompt",
+         %{conn: conn, tournament: tournament} do
+      # "tijl" alone vs FIDE's full "De Moyer, Tijl" — a real token-set
+      # difference (not just reordering/reformatting), so this is a
+      # genuine identity question worth a human's sign-off, not just a
+      # spelling normalization.
+      {:ok, player} = Tournaments.create_player(tournament.id, %{"name" => "tijl"})
 
       Repo.insert!(%FidePlayer{
         fide_id: 214_566,
@@ -599,21 +761,20 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       assert html =~ ~s(value="BEL")
       assert html =~ ~s(value="1982")
       # Name not overwritten yet — staged behind the prompt instead.
-      assert html =~ ~s(value="tijl de moyer")
+      assert html =~ ~s(value="tijl")
       assert html =~ "De Moyer, Tijl"
-      assert html =~ "correct it?"
+      assert html =~ "FIDE disagrees"
 
-      html = lv |> element("button[phx-click='confirm_name_correction']") |> render_click()
+      html = lv |> element("button[phx-click='apply_fide_conflicts']") |> render_click()
       assert html =~ ~s(value="De Moyer, Tijl")
-      refute html =~ "correct it?"
+      refute html =~ "FIDE disagrees"
     end
 
     test "by name: No keeps the original name but leaves the other fields applied", %{
       conn: conn,
       tournament: tournament
     } do
-      {:ok, player} =
-        Tournaments.create_player(tournament.id, %{"name" => "tijl de moyer"})
+      {:ok, player} = Tournaments.create_player(tournament.id, %{"name" => "tijl"})
 
       Repo.insert!(%FidePlayer{
         fide_id: 214_566,
@@ -628,10 +789,10 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       render_click(lv, "edit_player", %{"id" => to_string(player.id)})
       lv |> element("button", "FIDE lookup") |> render_click()
 
-      html = lv |> element("button[phx-click='reject_name_correction']") |> render_click()
-      assert html =~ ~s(value="tijl de moyer")
+      html = lv |> element("button[phx-click='reject_fide_conflicts']") |> render_click()
+      assert html =~ ~s(value="tijl")
       assert html =~ ~s(value="BEL")
-      refute html =~ "correct it?"
+      refute html =~ "FIDE disagrees"
     end
 
     test "by name: no prompt when the name already matches, ignoring case/formatting", %{
@@ -654,7 +815,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       html = lv |> element("button", "FIDE lookup") |> render_click()
 
       assert html =~ ~s(value="De Moyer, Tijl")
-      refute html =~ "correct it?"
+      refute html =~ "FIDE disagrees"
     end
 
     test "typing a name live (no save first) is what the lookup actually searches, not a stale snapshot",
@@ -681,10 +842,13 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
 
       html = lv |> element("button", "FIDE lookup") |> render_click()
 
+      # The live-typed value ("jorian burssens") is what got searched, not
+      # some stale snapshot — proven by the match actually being found and
+      # applied (same identity as FIDE's own "Burssens, Jorian", just
+      # reordered, so no conflict prompt either).
       assert html =~ ~s(value="BEL")
-      assert html =~ ~s(value="jorian burssens")
-      assert html =~ "Burssens, Jorian"
-      assert html =~ "correct it?"
+      assert html =~ ~s(value="Burssens, Jorian")
+      refute html =~ "FIDE disagrees"
     end
 
     test "shows an error when both FIDE id and name are blank", %{

@@ -3,6 +3,25 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.1] — 2026-08-12
+
+### Changed
+
+- **FIDE lookup now asks before overwriting a Name, Sex, or Birth year
+  that's already on file and disagrees with FIDE's own record** —
+  previously only a fuzzy name-search match staged its name behind a
+  confirmation; an exact FIDE-ID match applied everything, including
+  identity fields, immediately. Filling in a currently-blank value still
+  applies right away either way (nothing to conflict with), and a name
+  that's the same identity just reformatted (case, punctuation, word
+  order — e.g. "tijl de moyer" vs FIDE's own "De Moyer, Tijl") still
+  applies immediately too, not treated as a real change. Operational
+  data (title, rating, federation) keeps applying directly on every
+  refresh, since that's the expected, routine outcome of the button —
+  FIDE publishes a new list monthly and this is how ratings actually
+  get updated. Multiple conflicting fields on the same lookup are shown
+  together in one prompt.
+
 ## [0.14.0] — 2026-08-12
 
 ### Changed
