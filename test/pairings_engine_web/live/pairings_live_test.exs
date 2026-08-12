@@ -669,6 +669,41 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     assert html =~ ~s(id="pairing-row-#{pairing.id}")
   end
 
+  # Real report: an arbiter changed an already-set result ("0-0FF" ->
+  # "0-0") on one tab; a second arbiter who simply had that SAME board's
+  # result <select> focused never saw the change, and it stayed stale
+  # even after they clicked away — confirmed by hand against a running
+  # server. Root cause: once a <select> has been focused, Phoenix
+  # LiveView's client won't overwrite its `value`/`selected` state from a
+  # server-pushed diff (protecting in-progress typing elsewhere), and
+  # that pin doesn't self-clear on blur. Fix: the true result is ALSO
+  # mirrored into a plain `data-result` attribute, which patches
+  # normally regardless of focus (unprotected, unlike `value`/`selected`)
+  # — the `.BlindResultEntry` hook's `updated()` callback then resyncs
+  # `value` from it. This test locks down the SERVER half: `data-result`
+  # always carries the pairing's real, current result. The CLIENT half
+  # (the JS resync itself) was verified by hand in two real browser tabs
+  # — not mechanically testable here, since ExUnit never runs the hook's
+  # JS or touches a real focused DOM element.
+  test "each result select mirrors the pairing's real result into a plain data-result attribute",
+       %{conn: conn, scope: scope} do
+    tournament = fixture(scope)
+    {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+    round2 = Tournaments.get_round(tournament.id, 2) |> Repo.preload(:pairings)
+    pairing = hd(round2.pairings)
+
+    assert html =~ ~s(data-result="#{pairing.result}")
+
+    # Change it (same as the other arbiter's action) and confirm the
+    # mirrored attribute tracks the new value too, not just the initial one.
+    Repo.update!(Ecto.Changeset.change(pairing, result: "0-0"))
+    Tournaments.broadcast_tournament_change(tournament.id, :results)
+
+    html = render(lv)
+    assert html =~ ~s(data-result="0-0")
+  end
+
   ## ---------- match-format round labels ----------
 
   test "round-picker labels are plain numbers when no match format is set", %{

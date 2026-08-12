@@ -1605,6 +1605,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                         id={"result-select-#{pairing.id}"}
                         phx-hook=".BlindResultEntry"
                         data-board-select
+                        data-result={pairing.result}
                       >
                         <option
                           :for={{value, label} <- results()}
@@ -1732,6 +1733,34 @@ defmodule PairingsEngineWeb.PairingsLive do
             };
 
             this.el.addEventListener("keydown", this.onKeydown);
+          },
+
+          // Real incident: an arbiter changed a result on one tab (e.g.
+          // "0-0FF" -> "0-0"); a second arbiter viewing the same round, who
+          // simply had that SAME board's select focused (nothing more --
+          // no typing in progress), never saw the change. Root cause is a
+          // genuine Phoenix LiveView behavior, not a bug in this app's own
+          // code: once a form control has been interacted with, LiveView's
+          // client won't overwrite its `value`/`selected` state on a
+          // server-pushed diff, so as not to clobber someone's in-progress
+          // typing — and confirmed by hand, that pin doesn't even clear on
+          // blur; the element stays stuck on the stale value until it's
+          // touched again or the page reloads. That protection makes sense
+          // for a free-text field mid-keystroke; it's actively wrong for a
+          // discrete-choice dropdown like this one, where "reflect the
+          // truth immediately" matters far more than "don't disturb an
+          // open dropdown" for the sliver of a second that's even at risk.
+          //
+          // Fix: the true value is ALSO mirrored into `data-result` (a
+          // plain attribute, not `value`/`selected`, so it's exempt from
+          // that protection and patches normally regardless of focus).
+          // `updated()` fires on every server-pushed diff to this element,
+          // focused or not — resync `value` from it whenever they drift.
+          updated() {
+            const truth = this.el.dataset.result;
+            if (truth !== undefined && this.el.value !== truth) {
+              this.el.value = truth;
+            }
           },
 
           focusNextBoard() {

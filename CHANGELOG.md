@@ -3,6 +3,24 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.13] — 2026-08-12
+
+### Fixed
+
+- **Changing an already-set result didn't show up for another arbiter
+  viewing the same round, if they had that board's result dropdown
+  focused** — confirmed by hand: the write and the live broadcast both
+  worked correctly (the database and every other part of the page
+  updated), but that one `<select>`'s displayed value stayed stuck on
+  the old result, even after clicking away from it. Root cause is a
+  genuine Phoenix LiveView behavior (protecting a focused form control
+  from a server-pushed value change, so it doesn't clobber in-progress
+  typing) that doesn't fit a discrete-choice dropdown like this one. The
+  real result is now also mirrored into a plain `data-result` attribute,
+  which always patches through regardless of focus; the result select's
+  hook resyncs its value from that on every update, closing the gap
+  without disturbing whatever the arbiter is doing.
+
 ## [0.14.12] — 2026-08-12
 
 ### Removed
