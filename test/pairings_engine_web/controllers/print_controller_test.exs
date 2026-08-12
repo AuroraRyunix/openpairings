@@ -1006,6 +1006,48 @@ defmodule PairingsEngineWeb.PrintControllerTest do
     end
   end
 
+  describe "player_card/2 (single-player \"Players Card\", right-click on the Players page)" do
+    test "renders only that one player's round-by-round history", %{conn: conn, scope: scope} do
+      {tournament, %{a: a}} = fixture(scope)
+
+      html =
+        get(conn, ~p"/t/#{tournament.id}/print/card/#{a.id}") |> html_response(200)
+
+      assert html =~ "Players Card"
+      assert html =~ "<title>A</title>"
+      # A played B in round 1 — B's name shows up as the opponent.
+      assert html =~ "B"
+    end
+
+    test "an unknown player_id 404s", %{conn: conn, scope: scope} do
+      {tournament, _players} = fixture(scope)
+
+      conn = get(conn, ~p"/t/#{tournament.id}/print/card/999999")
+
+      assert conn.status == 404
+    end
+
+    test "a non-numeric player_id 404s instead of crashing", %{conn: conn, scope: scope} do
+      {tournament, _players} = fixture(scope)
+
+      conn = get(conn, ~p"/t/#{tournament.id}/print/card/not-a-number")
+
+      assert conn.status == 404
+    end
+
+    test "a player_id from a DIFFERENT tournament 404s, not a cross-tournament leak", %{
+      conn: conn,
+      scope: scope
+    } do
+      {_tournament, %{a: other_tournament_player}} = fixture(scope)
+      {tournament2, _players2} = fixture(scope)
+
+      conn = get(conn, ~p"/t/#{tournament2.id}/print/card/#{other_tournament_player.id}")
+
+      assert conn.status == 404
+    end
+  end
+
   ## ---------- place_cards/2 (SWAR parity #14-16) ----------
 
   # 1x1 transparent PNG (valid PNG signature: \x89 P N G \r \n \x1a \n).

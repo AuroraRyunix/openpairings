@@ -3,6 +3,16 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.16] — 2026-08-12
+
+### Added
+
+- **Print button on the Players Card popup** (right-click a player on the
+  Players page) — opens a new tab with that one player's round-by-round
+  history (opponent, colour, result, running score) as a print-ready
+  document, same data and table shape as the popup itself. New route:
+  `GET /t/:id/print/card/:player_id`.
+
 ## [0.14.15] — 2026-08-12
 
 ### Added

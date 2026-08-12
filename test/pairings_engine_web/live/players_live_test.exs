@@ -215,6 +215,19 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       assert html =~ ~s(phx-click-away="close_card")
     end
 
+    test "has a Print link to that one player's print/card document", %{
+      conn: conn,
+      tournament: tournament,
+      player: player
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      html = render_click(lv, "show_card", %{"id" => to_string(player.id)})
+
+      assert html =~ ~s(href="/t/#{tournament.id}/print/card/#{player.id}")
+      assert html =~ ~s(target="_blank")
+    end
+
     test "Exit closes the card via close_card", %{
       conn: conn,
       tournament: tournament,

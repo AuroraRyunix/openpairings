@@ -9,6 +9,10 @@ defmodule PairingsEngineWeb.PrintController do
     * `GET /t/:id/print/players`   — roster, no round scoping.
     * `GET /t/:id/print/cards`     — one card per player, full round-by-round
       history (never limited to a single round).
+    * `GET /t/:id/print/card/:player_id` — the same "Players Card" (see
+      `PairingsEngine.PlayerCard`) shown by right-clicking a player on the
+      Players page, for that one player, formatted to print. 404s if
+      `player_id` isn't a real player in this tournament.
     * `GET /t/:id/print/pairings?round=n` — board pairings for round `n`.
       Defaults to round 1; 404s if that round hasn't been paired. Also
       accepts `?absentees=1` to append a below-the-table "Absentees"
@@ -33,7 +37,7 @@ defmodule PairingsEngineWeb.PrintController do
 
   use PairingsEngineWeb, :controller
 
-  alias PairingsEngine.{Tournaments, Keizer, PairingDisplay}
+  alias PairingsEngine.{Tournaments, Keizer, PairingDisplay, PlayerCard, Standings}
   alias PairingsEngine.Tournaments.{Player, Tournament}
 
   import Phoenix.HTML, only: [html_escape: 1, safe_to_string: 1]
@@ -490,6 +494,81 @@ defmodule PairingsEngineWeb.PrintController do
       "Player cards",
       tournament_info_html(tournament) <> cards
     )
+  end
+
+  @doc """
+  `GET /t/:id/print/card/:player_id` — see the moduledoc. Same data
+  (`PairingsEngine.PlayerCard.rows/3`/`totals/2`/`header/1`) and the same
+  N°/Rnk/Nat/Tit/Opponent/N-Elo/Pts/Res/Cl/Flt table the "Players Card"
+  right-click popup on the Players page shows, for one player only.
+  """
+  def player_card(conn, %{"id" => id, "player_id" => player_id}) do
+    tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
+    by_id = tournament |> Standings.grid_standings() |> Map.new(&{&1.player.id, &1})
+
+    with {parsed_id, ""} <- Integer.parse(player_id),
+         %{} = entry <- Map.get(by_id, parsed_id) do
+      rows = PlayerCard.rows(entry, by_id, tournament)
+      totals = PlayerCard.totals(rows, entry)
+
+      print_page(
+        conn,
+        tournament,
+        entry.player.name,
+        "Players Card",
+        tournament_info_html(tournament) <> player_card_body(entry, rows, totals)
+      )
+    else
+      _ -> send_resp(conn, 404, "Player not found")
+    end
+  end
+
+  defp player_card_body(entry, rows, totals) do
+    row_html =
+      Enum.map_join(rows, "", fn row ->
+        "<tr><td class=\"num\">#{row.round}</td>" <>
+          "<td class=\"num\">#{row.opponent_pairing_number || "-"}</td>" <>
+          "<td>#{esc(row.opponent_federation || "-")}</td>" <>
+          "<td>#{esc(blank_dash(row.opponent_title))}</td>" <>
+          "<td>#{esc(row.opponent_name || "-")}</td>" <>
+          "<td class=\"num\">#{row.opponent_elo || "-"}</td>" <>
+          "<td class=\"num\">#{esc(format_num(row.opponent_total))}</td>" <>
+          "<td class=\"num\">#{esc(row.result)}</td>" <>
+          "<td class=\"num\">#{esc(row.colour)}</td>" <>
+          "<td class=\"num\">#{esc(row.float)}</td></tr>"
+      end)
+
+    "<p class=\"card-header-line\">#{esc(PlayerCard.header(entry))}</p>" <>
+      "<table><thead><tr>" <>
+      "<th class=\"num\">N°</th><th class=\"num\">Rnk</th><th>Nat</th><th>Tit</th>" <>
+      "<th>Opponent</th><th class=\"num\">N-Elo</th><th class=\"num\">Pts</th>" <>
+      "<th class=\"num\">Res</th><th class=\"num\">Cl</th><th class=\"num\">Flt</th>" <>
+      "</tr></thead><tbody>#{row_html}" <>
+      "<tr class=\"card-total-row\"><td colspan=\"6\">Total</td>" <>
+      "<td class=\"num\">#{esc(format_num(totals.opponent_total))}</td>" <>
+      "<td class=\"num\">#{esc(format_num(totals.own_total))}</td>" <>
+      "<td colspan=\"2\"></td></tr>" <>
+      "</tbody></table>"
+  end
+
+  defp blank_dash(nil), do: "-"
+  defp blank_dash(""), do: "-"
+  defp blank_dash(value), do: value
+
+  # Same rule PlayersLive's Players Card popup already uses: integers as-is,
+  # floats drop a trailing ".0" and trim to the decimals actually present.
+  defp format_num(nil), do: "—"
+  defp format_num(n) when is_integer(n), do: Integer.to_string(n)
+
+  defp format_num(n) when is_float(n) do
+    if n == Float.round(n, 0) do
+      n |> trunc() |> Integer.to_string()
+    else
+      n
+      |> :erlang.float_to_binary(decimals: 2)
+      |> String.trim_trailing("0")
+      |> String.trim_trailing(".")
+    end
   end
 
   @doc """

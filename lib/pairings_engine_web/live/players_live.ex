@@ -2046,6 +2046,13 @@ defmodule PairingsEngineWeb.PlayersLive do
         <div class="actions">
           <button type="button" class="pe-btn" phx-click="card_prev">Previous</button>
           <button type="button" class="pe-btn" phx-click="card_next">Following</button>
+          <a
+            class="pe-btn"
+            href={~p"/t/#{@tournament.id}/print/card/#{@entry.player.id}"}
+            target="_blank"
+          >
+            Print
+          </a>
           <button type="button" class="pe-btn primary" phx-click="close_card">Exit</button>
         </div>
       </div>
