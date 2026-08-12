@@ -132,6 +132,10 @@
   --danger: #a33c2e;
   --success: #1f7a3d;
   --success-soft: #e4f2e8;
+  --warn: #a76a25;
+  --warn-soft: #f7ead6;
+  --info: #2f5c8c;
+  --info-soft: #dde8f4;
   --radius: 8px;
   --shadow: 0 1px 3px rgba(30, 25, 15, 0.07);
 
@@ -162,6 +166,10 @@
   --danger: #e07a63;
   --success: #4ade80;
   --success-soft: rgba(74, 222, 128, 0.16);
+  --warn: #e8a54a;
+  --warn-soft: rgba(232, 165, 74, 0.16);
+  --info: #7ab8f0;
+  --info-soft: rgba(122, 184, 240, 0.16);
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 
   --surface-alt: #1b211d;
@@ -191,6 +199,10 @@
   --danger: #dc322f;
   --success: #859900;
   --success-soft: rgba(133, 153, 0, 0.18);
+  --warn: #b58900;
+  --warn-soft: rgba(181, 137, 0, 0.18);
+  --info: #6c71c4;
+  --info-soft: rgba(108, 113, 196, 0.18);
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 
   --surface-alt: #0a3d49;
@@ -220,6 +232,10 @@
   --danger: #bf616a;
   --success: #a3be8c;
   --success-soft: rgba(163, 190, 140, 0.18);
+  --warn: #ebcb8b;
+  --warn-soft: rgba(235, 203, 139, 0.18);
+  --info: #81a1c1;
+  --info-soft: rgba(129, 161, 193, 0.18);
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 
   --surface-alt: #3f4a5c;
@@ -247,6 +263,10 @@
   --danger: #ff5555;
   --success: #50fa7b;
   --success-soft: rgba(80, 250, 123, 0.16);
+  --warn: #f1fa8c;
+  --warn-soft: rgba(241, 250, 140, 0.16);
+  --info: #8be9fd;
+  --info-soft: rgba(139, 233, 253, 0.16);
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 
   --surface-alt: #343747;
@@ -274,6 +294,10 @@
   --danger: #f38ba8;
   --success: #a6e3a1;
   --success-soft: rgba(166, 227, 161, 0.18);
+  --warn: #fab387;
+  --warn-soft: rgba(250, 179, 135, 0.18);
+  --info: #74c7ec;
+  --info-soft: rgba(116, 199, 236, 0.18);
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 
   --surface-alt: #383a52;
@@ -302,6 +326,10 @@
   --danger: #fb4934;
   --success: #b8bb26;
   --success-soft: rgba(184, 187, 38, 0.18);
+  --warn: #fabd2f;
+  --warn-soft: rgba(250, 189, 47, 0.18);
+  --info: #83a598;
+  --info-soft: rgba(131, 165, 152, 0.18);
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 
   --surface-alt: #423d3a;
@@ -1538,7 +1566,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .pe-summary { display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: baseline; }
 .pe-stat { display: inline-flex; align-items: baseline; gap: 6px; color: var(--text-soft); font-size: 13px; }
 .pe-stat-n { font-size: 20px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
-.pe-stat.is-warm .pe-stat-n { color: #a76a25; }
+.pe-stat.is-warm .pe-stat-n { color: var(--warn); }
 .pe-stat.is-danger .pe-stat-n { color: var(--danger); }
 
 /* ---- bracket map (SVG) ---- */
@@ -1608,18 +1636,18 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .pe-legend-disc { width: 13px; height: 13px; border-radius: 50%; display: inline-block; }
 .pe-legend-disc.pe-disc-w { background: var(--surface); border: 2px solid var(--accent); }
 .pe-legend-disc.pe-disc-b { background: var(--accent); }
-.pe-legend-line { width: 20px; height: 0; border-top: 3px solid #9db8a8; display: inline-block; }
-.pe-legend-line.is-float { border-top-style: dashed; border-top-color: #b5762f; }
+.pe-legend-line { width: 20px; height: 0; border-top: 3px solid var(--border); display: inline-block; }
+.pe-legend-line.is-float { border-top-style: dashed; border-top-color: var(--warn); }
 /* Deliberate match-format rematch (task 4) — a neutral, non-alarming
    dotted line, distinct from both the plain "within bracket" line and the
    danger-red anomaly dashes below. */
-.pe-legend-line.is-rematch { border-top-style: dotted; border-top-color: #5f7d68; border-top-width: 3px; }
+.pe-legend-line.is-rematch { border-top-style: dotted; border-top-color: var(--text-soft); border-top-width: 3px; }
 /* Bare coloured triangle glyphs, matching the chart's paired-up/-down
    markers — an interim design wrapped both in filled circle chips and the
    user explicitly asked for the plain triangles back. */
 .pe-legend-tri { font-size: 12px; line-height: 1; }
-.pe-legend-tri.down { color: #b5762f; }
-.pe-legend-tri.up { color: #3a6ea5; }
+.pe-legend-tri.down { color: var(--warn); }
+.pe-legend-tri.up { color: var(--info); }
 /* Colour-against-due halo swatch (task 3) — mirrors the SVG halo ring's
    warn colour/dash pattern (see .pe-tag-warn and the `pe-dot-halo` circle
    in pairing_explain_live.ex). */
@@ -1628,7 +1656,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   height: 13px;
   border-radius: 50%;
   display: inline-block;
-  border: 1.75px dashed #a76a25;
+  border: 1.75px dashed var(--warn);
   box-sizing: border-box;
 }
 
@@ -1649,7 +1677,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   flex-direction: column;
   gap: 10px;
 }
-.pe-pair-card.is-float { border-left: 4px solid #d8a763; }
+.pe-pair-card.is-float { border-left: 4px solid var(--warn); }
 .pe-pair-card.is-rematch { border-left: 4px solid var(--danger); }
 .pe-bye-card { border-left: 4px solid var(--accent); background: var(--accent-soft); }
 
@@ -1713,13 +1741,13 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   padding: 1px 8px; border-radius: 99px; white-space: nowrap;
 }
 .pe-tag-ok { background: var(--accent-soft); color: var(--accent); }
-.pe-tag-muted { background: #eeece7; color: var(--text-soft); }
-.pe-tag-warn { background: #f7ead6; color: #a76a25; }
+.pe-tag-muted { background: var(--surface-hover); color: var(--text-soft); }
+.pe-tag-warn { background: var(--warn-soft); color: var(--warn); }
 .pe-tag-danger { background: var(--danger); color: #fff; }
-.pe-tag-float { background: #f4e7d1; color: #a76a25; }
+.pe-tag-float { background: var(--warn-soft); color: var(--warn); }
 .pe-tag-bye { background: var(--accent); color: #fff; }
-.pe-tag-down { background: #f4e0c8; color: #955a1c; }
-.pe-tag-up { background: #dde8f4; color: #2f5c8c; }
+.pe-tag-down { background: var(--warn-soft); color: var(--warn); }
+.pe-tag-up { background: var(--info-soft); color: var(--info); }
 
 .pe-pair-foot { margin: 2px 0 0; font-size: 13px; color: var(--text-soft); }
 
@@ -1798,7 +1826,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .pe-band-row.is-active-filter { background: var(--accent-soft); }
 .pe-band-score { font-weight: 700; font-size: 13.5px; color: var(--text); line-height: 1.15; }
 .pe-band-meta { font-size: 11.5px; color: var(--text-soft); line-height: 1.15; }
-.pe-band-odd { color: #a76a25; font-weight: 600; }
+.pe-band-odd { color: var(--warn); font-weight: 600; }
 
 .pe-bracket-canvas { position: relative; flex: 0 0 auto; }
 /* The tall PINNED popover (with the cross-round trail) needs far more room
@@ -1891,7 +1919,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .pe-pop-foot { margin-top: 6px; font-size: 11.5px; color: var(--text-soft); white-space: normal; }
 
 .pe-legend-disc.pe-disc-byedot { background: var(--surface); border: 2px dashed var(--accent); }
-.pe-legend-line.is-anomaly { border-top-color: #a33c2e; }
+.pe-legend-line.is-anomaly { border-top-color: var(--danger); }
 
 /* ---- bracket-map: legend/gutter click-to-filter (tasks 1 & 2) ----
    Every filterable SVG element (dot circles + halos, connecting lines,
@@ -2006,7 +2034,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .pe-trail-col.is-w { background: var(--surface); border: 1.5px solid var(--accent); color: var(--accent); }
 .pe-trail-col.is-b { background: var(--accent); color: #fff; }
 .pe-trail-col.is-bye { background: var(--surface); border: 1.5px dashed var(--accent); color: var(--accent); }
-.pe-trail-col.is-absent { background: #eeece7; color: var(--text-soft); }
+.pe-trail-col.is-absent { background: var(--surface-hover); color: var(--text-soft); }
 /* Result cell colour mirrors the app's existing W/D/L tag language.
    nowrap/ellipsis is a defensive backstop for the 240px .pe-trail-rounds
    max-height math (see above), which assumes every row stays single-line —
@@ -2016,7 +2044,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .pe-trail-draw .pe-trail-res { color: var(--text-soft); }
 .pe-trail-loss .pe-trail-res { color: var(--danger); }
 .pe-trail-forfeit_win .pe-trail-res,
-.pe-trail-forfeit_loss .pe-trail-res { color: #a76a25; }
+.pe-trail-forfeit_loss .pe-trail-res { color: var(--warn); }
 .pe-trail-bye .pe-trail-res { color: var(--text-soft); font-weight: 600; }
 .pe-trail-pending .pe-trail-res,
 .pe-trail-absent .pe-trail-res { color: var(--text-soft); font-weight: 600; }

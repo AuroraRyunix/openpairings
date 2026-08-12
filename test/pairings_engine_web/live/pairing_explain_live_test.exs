@@ -101,6 +101,17 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     # One score bracket (everyone on 0) is drawn in the bracket map SVG.
     assert html =~ "pe-bracket-svg"
     assert html =~ "Score-bracket map"
+
+    # The bracket map's SVG fills/strokes are CSS custom properties, not
+    # fixed light-theme hex values — otherwise the chart is unreadable
+    # (wrong contrast, or literally invisible) under every theme but the
+    # default light one. Spot-checks the band backgrounds and the player
+    # dots specifically, since those are what "does not work with the
+    # themes" was actually about.
+    assert html =~ "var(--surface)"
+    assert html =~ "var(--accent)"
+    refute html =~ "#faf9f6"
+    refute html =~ "#f1efe9"
   end
 
   @tag :javafo
@@ -151,6 +162,14 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     assert html =~ "pe-tag-float"
     assert html =~ "paired down"
     assert html =~ "paired up"
+
+    # Paired-up/-down triangle markers and the floater/rematch connector
+    # lines are themed too (var(--warn)/var(--info)/var(--text-soft)), not
+    # fixed hex.
+    assert html =~ "var(--warn)"
+    assert html =~ "var(--info)"
+    refute html =~ "#b5762f"
+    refute html =~ "#3a6ea5"
   end
 
   @tag :javafo

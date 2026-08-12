@@ -139,10 +139,13 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   defp float_dir(%{floater: true, float_up: up}, %{player: %{id: id}}) when up == id, do: :up
   defp float_dir(_board, _side), do: nil
 
-  # Colour matching the float direction (warm = down, cool = up, green = none).
-  defp float_colour(:down), do: "#b5762f"
-  defp float_colour(:up), do: "#3a6ea5"
-  defp float_colour(_), do: "#2e5e44"
+  # Colour matching the float direction (warm = down, cool = up, accent =
+  # none) — CSS custom properties, not fixed hex, so this reads correctly
+  # under every theme (SVG presentation attributes participate in the CSS
+  # cascade, so `var()` resolves here same as in a stylesheet).
+  defp float_colour(:down), do: "var(--warn)"
+  defp float_colour(:up), do: "var(--info)"
+  defp float_colour(_), do: "var(--accent)"
 
   # Largest ladder value on the board list, for scaling the Keizer bars.
   defp ladder_max(nil), do: nil
@@ -567,7 +570,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         y={band.y - 22}
         width={@width}
         height="44"
-        fill={if rem(band.idx, 2) == 0, do: "#faf9f6", else: "#f1efe9"}
+        fill={if rem(band.idx, 2) == 0, do: "var(--surface)", else: "var(--surface-alt)"}
       />
     </g>
     """
@@ -589,10 +592,10 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         data-facets={@interactive && link_facets(l)}
         stroke={
           cond do
-            l.rematch_anomaly -> "#a33c2e"
-            l.floater -> "#b5762f"
-            l.rematch -> "#5f7d68"
-            true -> "#9db8a8"
+            l.rematch_anomaly -> "var(--danger)"
+            l.floater -> "var(--warn)"
+            l.rematch -> "var(--text-soft)"
+            true -> "var(--border)"
           end
         }
         stroke-width={if l.rematch_anomaly, do: "3.5", else: "2.5"}
@@ -620,8 +623,8 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         cx={w.x}
         cy={w.y}
         r="9"
-        fill={if w.colour == :w, do: "#ffffff", else: "#2e5e44"}
-        stroke="#2e5e44"
+        fill={if w.colour == :w, do: "var(--surface)", else: "var(--accent)"}
+        stroke="var(--accent)"
         stroke-width="2"
         class={["pe-dot", @interactive && "pe-filterable"]}
         data-facets={@interactive && w.facets}
@@ -633,8 +636,8 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         cx={w.x}
         cy={w.y}
         r="9"
-        fill="#ffffff"
-        stroke="#2e5e44"
+        fill="var(--surface)"
+        stroke="var(--accent)"
         stroke-width="2"
         stroke-dasharray="3 2.4"
         class={["pe-dot", @interactive && "pe-filterable"]}
@@ -649,7 +652,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         font-size="9.5"
         font-weight="700"
         text-anchor="middle"
-        fill="#2e5e44"
+        fill="var(--accent)"
         class="pe-filterable"
         data-facets={w.facets}
       >
@@ -664,7 +667,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         cy={w.y}
         r="13"
         fill="none"
-        stroke="#a76a25"
+        stroke="var(--warn)"
         stroke-width="1.75"
         stroke-dasharray="2 2"
         class="pe-dot pe-dot-halo pe-filterable"
@@ -739,7 +742,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         <polyline
           points={@spark.line}
           fill="none"
-          stroke="#2e5e44"
+          stroke="var(--accent)"
           stroke-width="1.5"
           stroke-linejoin="round"
           stroke-linecap="round"
@@ -749,7 +752,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
           cx={pt.x}
           cy={pt.y}
           r={if pt.current, do: "2.6", else: "1.8"}
-          fill={if pt.current, do: "#b5762f", else: "#2e5e44"}
+          fill={if pt.current, do: "var(--warn)", else: "var(--accent)"}
         />
       </svg>
       <%!-- The right-hand column is the running total AFTER each round, so
@@ -1100,7 +1103,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
                   y={@bracket.height - 7}
                   font-size="10"
                   text-anchor="middle"
-                  fill="#a09a8e"
+                  fill="var(--text-soft)"
                 >
                   {a.label}
                 </text>
