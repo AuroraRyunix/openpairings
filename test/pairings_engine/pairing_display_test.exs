@@ -252,11 +252,43 @@ defmodule PairingsEngine.PairingDisplayTest do
 
       result = PairingDisplay.with_display_boards([p_special, p_vacant, p_bye, p_normal])
 
+      # Row ORDER puts the bye before the vacant seat (real boards 3 then
+      # 2 don't move the game rows around), but each one's NUMBER is still
+      # its own real-board-derived, stable label — bye keeps "3" (its real
+      # board), vacant keeps "2" — not a fresh 1/2/3 renumbering of the
+      # reordered rows. See the "stable numbering" test below for why that
+      # matters.
       assert [
                %{pairing: ^p_normal, board: "1"},
-               %{pairing: ^p_bye, board: "2"},
-               %{pairing: ^p_vacant, board: "3"},
+               %{pairing: ^p_bye, board: "3"},
+               %{pairing: ^p_vacant, board: "2"},
                %{pairing: ^p_special, board: "1001"}
+             ] = result
+    end
+
+    test "marking a player absent never renumbers any OTHER board — the crux of the fix" do
+      # Three ordinary boards, 1/2/3. Board 2's white player is then
+      # marked absent (a vacant seat, same shape `vacate_seat/3` writes),
+      # simulating an arbiter action mid-round. Boards 1 and 3 must show
+      # exactly the numbers they always did — an arbiter marking ONE
+      # player absent must not send everyone else hunting for a
+      # relabeled board while they're already seated.
+      a = player(id: 1, name: "A")
+      b = player(id: 2, name: "B")
+      lone = player(id: 3, name: "Lone")
+      c = player(id: 4, name: "C")
+      d = player(id: 5, name: "D")
+
+      p1 = pairing(101, 1, a, b)
+      p2 = %Pairing{id: 102, board: 2, white_player: lone, black_player: nil, result: ""}
+      p3 = pairing(103, 3, c, d)
+
+      result = PairingDisplay.with_display_boards([p1, p2, p3])
+
+      assert [
+               %{pairing: ^p1, board: "1"},
+               %{pairing: ^p3, board: "3"},
+               %{pairing: ^p2, board: "2"}
              ] = result
     end
 

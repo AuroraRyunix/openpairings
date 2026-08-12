@@ -24,34 +24,51 @@ defmodule PairingsEngine.PairingDisplay do
   `PairingsEngineWeb.PairingsLive`'s moduledoc). Everything else is a
   "normal" pairing: both seats filled, in progress or with a real result.
 
-  Normal, bye, and vacant pairings are renumbered together as one
-  contiguous 1..N sequence — normal ones first (closing the gap a
-  pulled-out special pairing would otherwise leave: real board 10 goes to
-  fixed_board 1001 → whoever was board 11 becomes displayed board 10),
-  then byes, then vacant seats, each group sorted by its own real board
-  number. Special pairings sort after all of those, ordered by their own
-  lowest `fixed_board` value, and are labelled with the union of both
-  sides' `fixed_board` values (one number normally; both, slash-joined, on
-  the rare board where two fixed-board players are paired against each
-  other).
+  Every non-special pairing gets its NUMBER from one single pass, sorted
+  by real board — normal, bye, and vacant alike, exactly as if none of
+  them were byes/vacant (closing the gap a pulled-out special pairing
+  would otherwise leave: real board 10 goes to fixed_board 1001 →
+  whoever was board 11 becomes displayed board 10). This is deliberate
+  and load-bearing: a board's number must never shift just because
+  ANOTHER board's bye/absence status changes later in the round — an
+  arbiter marking one player absent mid-round must not renumber every
+  board after it while people are already seated. Special pairings are
+  numbered separately, by their own lowest `fixed_board` value, and are
+  labelled with the union of both sides' `fixed_board` values (one number
+  normally; both, slash-joined, on the rare board where two fixed-board
+  players are paired against each other).
+
+  `with_display_boards/1`'s ROW ORDER is a separate concern from that
+  numbering: normal pairings print first, then byes, then vacant seats,
+  then special boards — but every row keeps the stable number described
+  above, not a fresh renumbering of the reordered groups. A bye sitting
+  at real board 3 still shows "3" even after it's moved to the bottom of
+  the page.
   """
 
   @doc """
   Returns `pairings` (each preloaded with `:white_player`/`:black_player`)
   as `%{pairing: pairing, board: display_board}` maps, in final display
-  order: renumbered normal boards first (ascending), then byes, then
+  order: normal boards first (ascending by real board), then byes, then
   vacant seats (each ascending by real board), then special boards
-  (ascending by their own fixed_board value). `display_board` is a string
-  — a plain integer for a normal/bye/vacant board, the fixed_board
-  value(s) for a special one.
+  (ascending by their own fixed_board value). `display_board` is a
+  string — a plain integer for a normal/bye/vacant board (stable: see the
+  moduledoc), the fixed_board value(s) for a special one.
   """
   def with_display_boards(pairings) do
-    {special, ordered_non_special} = split_and_order(pairings)
+    {special, non_special, labels} = split_and_label(pairings)
+    {byes, rest} = Enum.split_with(non_special, &bye?/1)
+    {vacant, normal} = Enum.split_with(rest, &vacant?/1)
+
+    ordered_non_special =
+      Enum.sort_by(normal, & &1.board) ++
+        Enum.sort_by(byes, & &1.board) ++
+        Enum.sort_by(vacant, & &1.board)
 
     non_special_rows =
-      ordered_non_special
-      |> Enum.with_index(1)
-      |> Enum.map(fn {pairing, i} -> %{pairing: pairing, board: Integer.to_string(i)} end)
+      Enum.map(ordered_non_special, fn pairing ->
+        %{pairing: pairing, board: Map.fetch!(labels, pairing.id)}
+      end)
 
     special_rows =
       special
@@ -71,38 +88,32 @@ defmodule PairingsEngine.PairingDisplay do
   pairing, in the same order they were given.
   """
   def board_labels(pairings) do
-    {_special, ordered_non_special} = split_and_order(pairings)
-
-    non_special_boards =
-      ordered_non_special
-      |> Enum.with_index(1)
-      |> Map.new(fn {pairing, i} -> {pairing.id, Integer.to_string(i)} end)
+    {_special, _non_special, labels} = split_and_label(pairings)
 
     Enum.map(pairings, fn pairing ->
       board =
-        if special?(pairing),
-          do: special_label(pairing),
-          else: Map.fetch!(non_special_boards, pairing.id)
+        if special?(pairing), do: special_label(pairing), else: Map.fetch!(labels, pairing.id)
 
       %{pairing: pairing, board: board}
     end)
   end
 
-  # Splits `pairings` into `{special, ordered_non_special}` — the second
-  # element already in final numbering order (normal, then byes, then
-  # vacant, each sorted by real board) so both public functions just
-  # `Enum.with_index/2` it for the shared 1..N sequence.
-  defp split_and_order(pairings) do
-    {special, rest} = Enum.split_with(pairings, &special?/1)
-    {byes, rest} = Enum.split_with(rest, &bye?/1)
-    {vacant, normal} = Enum.split_with(rest, &vacant?/1)
+  # Splits `pairings` into `{special, non_special, labels}` — `labels` is
+  # `%{pairing.id => display_board}` for every non-special pairing,
+  # numbered together in ONE pass by real board order regardless of
+  # bye/vacant/normal status (see the moduledoc: this is what keeps a
+  # board's number stable across a later bye/absence action elsewhere in
+  # the round).
+  defp split_and_label(pairings) do
+    {special, non_special} = Enum.split_with(pairings, &special?/1)
 
-    ordered =
-      Enum.sort_by(normal, & &1.board) ++
-        Enum.sort_by(byes, & &1.board) ++
-        Enum.sort_by(vacant, & &1.board)
+    labels =
+      non_special
+      |> Enum.sort_by(& &1.board)
+      |> Enum.with_index(1)
+      |> Map.new(fn {pairing, i} -> {pairing.id, Integer.to_string(i)} end)
 
-    {special, ordered}
+    {special, non_special, labels}
   end
 
   defp bye?(pairing), do: pairing.result == "bye"

@@ -3,6 +3,21 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.8] — 2026-08-12
+
+### Fixed
+
+- **Marking a player absent (or otherwise changing a bye) renumbered
+  every other board in the round** — a real regression from 0.14.6's
+  "byes/absences sort below the special boards" change: pulling a bye
+  or vacant seat out of the ordinary numbering sequence to move it
+  visually to the bottom also shrank that sequence, shifting every
+  later board's displayed number. Board numbers are now computed once,
+  together, from real board order regardless of bye/vacant/normal
+  status — stable no matter what an arbiter does to any other board
+  mid-round — while the ROW ORDER (byes/vacant sorted below the
+  special boards, unchanged from 0.14.6) stays exactly as intended.
+
 ## [0.14.7] — 2026-08-12
 
 ### Fixed
