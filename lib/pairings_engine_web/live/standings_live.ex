@@ -211,6 +211,13 @@ defmodule PairingsEngineWeb.StandingsLive do
 
   defp format_tb(value), do: value
 
+  defp sex_display(sex) do
+    case Player.sex_label(sex) do
+      "" -> "—"
+      label -> label
+    end
+  end
+
   defp format_we(nil), do: "—"
   defp format_we(n), do: :erlang.float_to_binary(n / 1, decimals: 2)
 
@@ -338,6 +345,8 @@ defmodule PairingsEngineWeb.StandingsLive do
 
               <th>Name</th>
 
+              <th :if={show_col?(@visible, "sex")}>Sex</th>
+
               <th class="num">Elo</th>
 
               <th class="num">Pts</th>
@@ -395,6 +404,8 @@ defmodule PairingsEngineWeb.StandingsLive do
                   {if entry.player.title != "", do: "#{entry.player.title} "}{entry.player.name}
                 </strong>
               </td>
+
+              <td :if={show_col?(@visible, "sex")}>{sex_display(entry.player.sex)}</td>
 
               <td class="num">
                 {if Player.rating(entry.player) > 0, do: Player.rating(entry.player), else: "-"}
@@ -459,6 +470,8 @@ defmodule PairingsEngineWeb.StandingsLive do
 
               <th>Name</th>
 
+              <th :if={show_col?(@visible, "sex")}>Sex</th>
+
               <th class="num">Elo</th>
 
               <th class="num">Value</th>
@@ -478,6 +491,8 @@ defmodule PairingsEngineWeb.StandingsLive do
                   {if entry.player.title != "", do: "#{entry.player.title} "}{entry.player.name}
                 </strong>
               </td>
+
+              <td :if={show_col?(@visible, "sex")}>{sex_display(entry.player.sex)}</td>
 
               <td class="num">
                 {if Player.rating(entry.player) > 0, do: Player.rating(entry.player), else: "-"}

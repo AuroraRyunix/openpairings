@@ -259,6 +259,20 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       assert conn.status == 404
     end
 
+    test "shows a Sex column with FIDE's M/F letters, not the internal m/w storage code", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, %{a: a}} = fixture(scope)
+      a |> Ecto.Changeset.change(sex: "w") |> Repo.update!()
+
+      html = get(conn, ~p"/t/#{tournament.id}/print/standings") |> html_response(200)
+
+      assert html =~ "<th>Sex</th>"
+      assert html =~ "<td>F</td>"
+      refute html =~ "<td>w</td>"
+    end
+
     test "a tournament with no categories renders byte-identical to before (no Category column/tables)",
          %{
            conn: conn,

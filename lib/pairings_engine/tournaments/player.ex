@@ -231,4 +231,15 @@ defmodule PairingsEngine.Tournaments.Player do
     n = n || 0
     if f > 0, do: f, else: n
   end
+
+  @doc """
+  Display label for `sex`: stored internally as "m"/"w" (see
+  `PairingsEngineWeb.PlayersLive.normalize_fide_sex/1`, matching
+  `PairingsEngine.Trf.trf_sex/1`'s export convention), shown as FIDE's own
+  capital letters "M"/"F". Blank/unset renders as an empty string, letting
+  callers decide their own placeholder ("—", "" etc).
+  """
+  def sex_label("m"), do: "M"
+  def sex_label("w"), do: "F"
+  def sex_label(_), do: ""
 end

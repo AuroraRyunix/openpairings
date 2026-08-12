@@ -3,6 +3,17 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.4] — 2026-08-12
+
+### Added
+
+- **Sex (M/F) column on the Standings page and printed standings** —
+  follows the same "sex" tickbox preference as the Players page on the
+  live Standings view (shown by default until you touch the Display
+  panel); always shown on the printed standings document (main table,
+  per-category tables, and the Keizer ladder alike). Shows FIDE's own
+  letters, same as the recent Players table fix.
+
 ## [0.14.3] — 2026-08-12
 
 ### Changed

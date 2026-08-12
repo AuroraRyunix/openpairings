@@ -1081,13 +1081,10 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   defp cell(entry, "status"), do: entry.player.status
 
-  # Stored internally as "m"/"w" (see normalize_fide_sex/1) — displayed as
-  # the FIDE-standard capital letters "M"/"F".
   defp cell(entry, "sex") do
-    case entry.player.sex do
-      "m" -> "M"
-      "w" -> "F"
-      _ -> "—"
+    case Player.sex_label(entry.player.sex) do
+      "" -> "—"
+      label -> label
     end
   end
 

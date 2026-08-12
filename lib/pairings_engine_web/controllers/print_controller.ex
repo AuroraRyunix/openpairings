@@ -402,9 +402,7 @@ defmodule PairingsEngineWeb.PrintController do
   defp num_class(true), do: ~s( class="num")
   defp num_class(false), do: ""
 
-  defp sex_label("m"), do: "M"
-  defp sex_label("w"), do: "F"
-  defp sex_label(_), do: ""
+  defp sex_label(sex), do: Player.sex_label(sex)
 
   defp player_list_value(:aff, p, _current_round), do: if(p.affiliated, do: "", else: "N")
   defp player_list_value(:nr, p, _current_round), do: blank_zero(p.pairing_number)
@@ -772,7 +770,7 @@ defmodule PairingsEngineWeb.PrintController do
     rows = Enum.map_join(entries, "", &keizer_standings_row(&1, has_categories))
 
     main_table =
-      "<table><thead><tr><th class=\"num\">Rank</th><th>Name</th><th class=\"num\">Elo</th>" <>
+      "<table><thead><tr><th class=\"num\">Rank</th><th>Name</th><th>Sex</th><th class=\"num\">Elo</th>" <>
         "<th class=\"num\">Value</th><th class=\"num\">Keizer pts</th><th class=\"num\">Score</th>" <>
         "#{cat_header}</tr></thead><tbody>#{rows}</tbody></table>"
 
@@ -800,7 +798,7 @@ defmodule PairingsEngineWeb.PrintController do
       end)
 
     main_table =
-      "<table><thead><tr><th class=\"num\">Rank</th><th>Name</th><th class=\"num\">Elo</th>" <>
+      "<table><thead><tr><th class=\"num\">Rank</th><th>Name</th><th>Sex</th><th class=\"num\">Elo</th>" <>
         "<th class=\"num\">Pts</th>#{tb_headers}#{cat_header}</tr></thead><tbody>#{rows}</tbody></table>"
 
     if has_categories do
@@ -820,7 +818,7 @@ defmodule PairingsEngineWeb.PrintController do
         |> Enum.map_join("", &standings_row(&1, tournament))
 
       "<h2 style=\"margin-top:24px\">Category: #{esc(category)}</h2>" <>
-        "<table><thead><tr><th class=\"num\">Rank</th><th>Name</th><th class=\"num\">Elo</th>" <>
+        "<table><thead><tr><th class=\"num\">Rank</th><th>Name</th><th>Sex</th><th class=\"num\">Elo</th>" <>
         "<th class=\"num\">Pts</th>#{tb_headers}</tr></thead><tbody>#{rows}</tbody></table>"
     end)
   end
@@ -833,7 +831,7 @@ defmodule PairingsEngineWeb.PrintController do
         |> Enum.map_join("", &keizer_standings_row(&1, false))
 
       "<h2 style=\"margin-top:24px\">Category: #{esc(category)}</h2>" <>
-        "<table><thead><tr><th class=\"num\">Rank</th><th>Name</th><th class=\"num\">Elo</th>" <>
+        "<table><thead><tr><th class=\"num\">Rank</th><th>Name</th><th>Sex</th><th class=\"num\">Elo</th>" <>
         "<th class=\"num\">Value</th><th class=\"num\">Keizer pts</th><th class=\"num\">Score</th>" <>
         "</tr></thead><tbody>#{rows}</tbody></table>"
     end)
@@ -846,6 +844,7 @@ defmodule PairingsEngineWeb.PrintController do
       end)
 
     "<tr><td class=\"num\">#{e.rank}</td><td><strong>#{esc(e.player.name)}</strong></td>" <>
+      "<td>#{sex_label(e.player.sex)}</td>" <>
       "<td class=\"num\">#{blank_zero(player_rating(e.player))}</td>" <>
       "<td class=\"num\"><strong>#{e.points}</strong></td>#{tb_cells}#{cat_cell}</tr>"
   end
@@ -857,6 +856,7 @@ defmodule PairingsEngineWeb.PrintController do
         else: ""
 
     "<tr><td class=\"num\">#{e.rank}</td><td><strong>#{esc(e.player.name)}</strong></td>" <>
+      "<td>#{sex_label(e.player.sex)}</td>" <>
       "<td class=\"num\">#{blank_zero(player_rating(e.player))}</td>" <>
       "<td class=\"num\">#{e.value}</td><td class=\"num\"><strong>#{e.points}</strong></td>" <>
       "<td class=\"num\">#{e.raw_points}</td>#{cat_cell}</tr>"

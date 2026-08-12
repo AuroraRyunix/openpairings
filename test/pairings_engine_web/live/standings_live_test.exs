@@ -139,6 +139,25 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
       assert html =~ ~r/>\s*MP\s*</
     end
 
+    test "the Sex column follows the same 'sex' preference as the Players page, showing FIDE's M/F letters",
+         %{conn: conn, scope: scope} do
+      {:ok, tournament} = tiebreak_tournament(scope)
+      {:ok, _p} = Tournaments.create_player(tournament.id, %{"name" => "Alice", "sex" => "w"})
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
+
+      # No preference recorded yet — shows like every other optional column.
+      assert html =~ "<th>Sex</th>"
+      assert html =~ ">F<"
+
+      html = render_hook(lv, "columns_loaded", %{"columns" => []})
+      refute html =~ "<th>Sex</th>"
+
+      html = render_hook(lv, "columns_loaded", %{"columns" => ["sex"]})
+      assert html =~ "<th>Sex</th>"
+      assert html =~ ">F<"
+    end
+
     test "malformed columns_loaded params are ignored instead of crashing the page", %{
       conn: conn,
       scope: scope
