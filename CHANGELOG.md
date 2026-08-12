@@ -3,6 +3,21 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.11] — 2026-08-12
+
+### Fixed
+
+- **"Round was just updated by another arbiter" notice pushed the whole
+  board list down for everyone else viewing the round** — it sat inline
+  above the pairings table with a plain margin, so it appearing the
+  instant someone else entered a result visibly shifted every board
+  underneath it, right as another arbiter might be reading or clicking
+  one. It's now a fixed-position toast that overlays instead of pushing
+  layout — same idea the existing flash-message toast already uses,
+  just anchored top-center. Also gave each board row a stable DOM `id`
+  so a remote update always patches rows in place rather than risking
+  a full node swap that could drop focus from an open result dropdown.
+
 ## [0.14.10] — 2026-08-12
 
 ### Added

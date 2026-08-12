@@ -696,6 +696,31 @@ html[data-theme-source="user"][data-theme="gruvbox"] .theme-picker-item[data-the
 
 .card h2 { font-size: 16px; font-weight: 650; margin: 0 0 14px; }
 
+/* "Round was just updated by another arbiter" notice (PairingsLive) — a
+   fixed-position toast, not an in-flow banner. It used to sit inline
+   above the pairings table (plain margin/padding, no position), so
+   another arbiter's broadcast popping it in would push the WHOLE board
+   list down for everyone else on the page at that instant — visibly
+   shifting whatever board they were looking at or about to click,
+   under their pointer, mid-action. Floating it removes the layout
+   shift entirely; same non-intrusive-toast idea `.flash` already uses
+   (daisyUI's `toast toast-top toast-end`), just anchored top-center
+   instead so it doesn't collide with a flash message in the corner. */
+.remote-update-toast {
+  position: fixed;
+  top: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(560px, 92vw);
+  margin: 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--accent);
+}
+
 /* SettingsChangelogLive — rendered CHANGELOG.md */
 .changelog-body h1 { font-size: 20px; margin: 0 0 6px; }
 .changelog-body h2 {

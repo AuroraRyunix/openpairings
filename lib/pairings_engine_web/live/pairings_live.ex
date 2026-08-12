@@ -1265,11 +1265,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         </button>
       </div>
 
-      <div
-        :if={@remote_notice}
-        class="card"
-        style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 12px 0; padding: 8px 12px; border-left: 3px solid var(--accent)"
-      >
+      <div :if={@remote_notice} class="card remote-update-toast">
         <span>Round {@round_number} was just updated by another arbiter - refreshed.</span>
         <button
           type="button"
@@ -1603,10 +1599,13 @@ defmodule PairingsEngineWeb.PairingsLive do
               </td>
             </tr>
 
-            <tr :for={
-              %{pairing: pairing, board: display_board} <-
-                display_rows((@round && @round.pairings) || [])
-            }>
+            <tr
+              :for={
+                %{pairing: pairing, board: display_board} <-
+                  display_rows((@round && @round.pairings) || [])
+              }
+              id={"pairing-row-#{pairing.id}"}
+            >
               <td class="num">{display_board}</td>
 
               <td>

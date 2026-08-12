@@ -659,6 +659,29 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     assert html =~ "Dismiss"
   end
 
+  # Regression: the notice used to sit inline (plain margin, no
+  # position), so it pushed the whole board list down for everyone else
+  # on the page the instant it appeared — visibly shifting boards under
+  # another arbiter's pointer/focus mid-action. It's now a fixed-position
+  # toast (`.remote-update-toast`) that overlays instead of pushing
+  # layout, and each board row carries a stable `id` so a remote update
+  # patches rows in place instead of risking a DOM-node swap that could
+  # drop focus from whatever result `<select>` someone else has open.
+  test "the remote-arbiter notice is a fixed-position toast, not an in-flow banner, and board rows have stable ids",
+       %{conn: conn, scope: scope} do
+    tournament = fixture(scope)
+    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+    round2 = Tournaments.get_round(tournament.id, 2) |> Repo.preload(:pairings)
+    pairing = hd(round2.pairings)
+    Repo.update!(Ecto.Changeset.change(pairing, result: "0-1"))
+    Tournaments.broadcast_tournament_change(tournament.id, :results)
+
+    html = render(lv)
+    assert html =~ ~s(class="card remote-update-toast")
+    assert html =~ ~s(id="pairing-row-#{pairing.id}")
+  end
+
   test "a broadcast echoing this LiveView's own action does not show the notice", %{
     conn: conn,
     scope: scope
