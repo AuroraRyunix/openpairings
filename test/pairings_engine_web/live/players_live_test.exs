@@ -409,6 +409,70 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
     end
   end
 
+  describe "Fixed table conflict hint (edit modal)" do
+    setup %{scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Fixed Board Test", "type" => "swiss"})
+
+      {:ok, alice} =
+        Tournaments.create_player(tournament.id, %{"name" => "Alice", "fixed_board" => "1001"})
+
+      {:ok, bob} = Tournaments.create_player(tournament.id, %{"name" => "Bob"})
+
+      %{tournament: tournament, alice: alice, bob: bob}
+    end
+
+    test "typing a fixed_board value already used by another player shows who", %{
+      conn: conn,
+      tournament: tournament,
+      bob: bob
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "edit_player", %{"id" => to_string(bob.id)})
+
+      html =
+        lv
+        |> form("#player-edit-form", player: %{"name" => "Bob", "fixed_board" => "1001"})
+        |> render_change()
+
+      assert html =~ "Also used by: Alice"
+    end
+
+    test "no hint when the value is unique", %{conn: conn, tournament: tournament, bob: bob} do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "edit_player", %{"id" => to_string(bob.id)})
+
+      html =
+        lv
+        |> form("#player-edit-form", player: %{"name" => "Bob", "fixed_board" => "1002"})
+        |> render_change()
+
+      refute html =~ "Also used by"
+    end
+
+    test "editing the player who already owns the value doesn't warn against themselves", %{
+      conn: conn,
+      tournament: tournament,
+      alice: alice
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      html = render_click(lv, "edit_player", %{"id" => to_string(alice.id)})
+
+      refute html =~ "Also used by"
+    end
+
+    test "no hint when the field is blank", %{conn: conn, tournament: tournament, bob: bob} do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      html = render_click(lv, "edit_player", %{"id" => to_string(bob.id)})
+
+      refute html =~ "Also used by"
+    end
+  end
+
   describe "FIDE lookup (edit modal)" do
     setup %{scope: scope} do
       {:ok, tournament} =

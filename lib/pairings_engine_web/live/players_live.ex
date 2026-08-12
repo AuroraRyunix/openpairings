@@ -1479,6 +1479,8 @@ defmodule PairingsEngineWeb.PlayersLive do
         tournament={@tournament}
         titles={@titles}
         name_suggestion={@edit_name_suggestion}
+        editing_player_id={@editing_player.id}
+        players={@players}
       />
       <.player_card_modal
         :if={@card_player_id}
@@ -1595,6 +1597,25 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp rating_or_dash(0), do: "—"
   defp rating_or_dash(rating), do: rating
 
+  # Names of other players in the tournament already set to the same
+  # fixed_board value — not a validation error (two players sharing a
+  # fixed table is exactly what happens when they're paired against each
+  # other there), just a heads-up so setting it on the wrong player by
+  # accident doesn't go unnoticed. Excludes the player being edited so
+  # their own unchanged value never warns against itself.
+  defp fixed_board_conflicts(raw, editing_player_id, players) do
+    case parse_rating(raw) do
+      0 ->
+        []
+
+      value ->
+        players
+        |> Enum.map(& &1.player)
+        |> Enum.filter(&(&1.fixed_board == value and &1.id != editing_player_id))
+        |> Enum.map(& &1.name)
+    end
+  end
+
   ## ---------- Player registration dialog (double-click) ----------
 
   attr :form, :map, required: true
@@ -1602,12 +1623,22 @@ defmodule PairingsEngineWeb.PlayersLive do
   attr :tournament, :map, required: true
   attr :titles, :list, required: true
   attr :name_suggestion, :map, default: nil
+  attr :editing_player_id, :integer, default: nil
+  attr :players, :list, default: []
 
   defp player_edit_modal(assigns) do
     assigns =
       assigns
       |> Phoenix.Component.assign(:fide_player, Fide.get_player(assigns.form["fide_id"]))
       |> Phoenix.Component.assign(:elo_used, elo_used_from_form(assigns.form))
+      |> Phoenix.Component.assign(
+        :fixed_board_conflicts,
+        fixed_board_conflicts(
+          assigns.form["fixed_board"],
+          assigns.editing_player_id,
+          assigns.players
+        )
+      )
 
     ~H"""
     <div class="modal-overlay" phx-window-keydown="close_edit" phx-key="escape">
@@ -1765,6 +1796,10 @@ defmodule PairingsEngineWeb.PlayersLive do
               placeholder="none"
               title="Displays/prints this player's games at this table number, regardless of normal board order"
             />
+            <span :if={@fixed_board_conflicts != []} class="hint" style="display: block">
+              Also used by: {Enum.join(@fixed_board_conflicts, ", ")} — fine if they'll be paired
+              together there, otherwise double-check.
+            </span>
           </label>
           <%!-- Scoring admin --%>
           <label class="field">

@@ -208,6 +208,96 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     assert positions == Enum.sort(positions), "expected boards 1, 2, 3 top to bottom"
   end
 
+  test "a fixed-board pairing moves to the bottom and ordinary boards close the gap it leaves", %{
+    conn: conn,
+    scope: scope
+  } do
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{
+        "name" => "Fixed Board Reorder Test",
+        "type" => "swiss",
+        "rounds_count" => "1"
+      })
+
+    [wheelchair, wopp, shifted, sopp] =
+      for name <- ["Wheelchairwendy", "Wheelchairopp", "Shiftedsam", "Shiftedopp"] do
+        Repo.insert!(%Player{tournament_id: tournament.id, name: name})
+      end
+
+    Repo.update!(Ecto.Changeset.change(wheelchair, fixed_board: 1001))
+
+    round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+
+    # Real board 1 is the fixed-table pairing; real board 2 is ordinary —
+    # once board 1 becomes the special row at the bottom, board 2 should
+    # take over displayed board 1 (the gap-closing case), not stay "2".
+    Repo.insert!(%Pairing{
+      round_id: round.id,
+      board: 1,
+      white_player_id: wheelchair.id,
+      black_player_id: wopp.id,
+      result: ""
+    })
+
+    Repo.insert!(%Pairing{
+      round_id: round.id,
+      board: 2,
+      white_player_id: shifted.id,
+      black_player_id: sopp.id,
+      result: ""
+    })
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+    assert html =~ ~s(<td class="num">1001</td>)
+    refute html =~ ~s(<td class="num">2</td>)
+
+    # The gap-closed ordinary board (labelled "1" now) must render before
+    # the fixed-table one (labelled "1001") — i.e. Shiftedsam's row comes
+    # before Wheelchairwendy's.
+    shifted_pos = :binary.match(html, "Shiftedsam") |> elem(0)
+    wheelchair_pos = :binary.match(html, "Wheelchairwendy") |> elem(0)
+    assert shifted_pos < wheelchair_pos
+
+    # The real board numbers in the database are untouched — this is a
+    # display-only relabeling.
+    pairings = Repo.preload(round, :pairings).pairings
+    assert Enum.find(pairings, &(&1.white_player_id == wheelchair.id)).board == 1
+    assert Enum.find(pairings, &(&1.white_player_id == shifted.id)).board == 2
+  end
+
+  test "two fixed-board players paired against each other with different values show both, slash-joined",
+       %{conn: conn, scope: scope} do
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{
+        "name" => "Fixed Board Duo Test",
+        "type" => "swiss",
+        "rounds_count" => "1"
+      })
+
+    [alice, bob] =
+      for name <- ["Duoalice", "Duobob"] do
+        Repo.insert!(%Player{tournament_id: tournament.id, name: name})
+      end
+
+    Repo.update!(Ecto.Changeset.change(alice, fixed_board: 1002))
+    Repo.update!(Ecto.Changeset.change(bob, fixed_board: 1001))
+
+    round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+
+    Repo.insert!(%Pairing{
+      round_id: round.id,
+      board: 1,
+      white_player_id: alice.id,
+      black_player_id: bob.id,
+      result: ""
+    })
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+    assert html =~ ~s(<td class="num">1001/1002</td>)
+  end
+
   test "shows byes-table rows (SWAR-imported/round-specific absentee byes) alongside the round's pairings",
        %{
          conn: conn,
@@ -248,14 +338,22 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     assert html =~ "requested zero-point bye"
   end
 
-  test "shows a fixed-board annotation next to the board number", %{conn: conn, scope: scope} do
+  test "a fixed-board pairing's own board number is the fixed_board value, not the real one", %{
+    conn: conn,
+    scope: scope
+  } do
     tournament = fixture(scope)
     player_a = Repo.get_by!(Player, tournament_id: tournament.id, name: "A")
     Repo.update!(Ecto.Changeset.change(player_a, fixed_board: 7))
 
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 
-    assert html =~ "(table 7)"
+    assert html =~ ~s(<td class="num">7</td>)
+    # Real board 1 stays real board 1 in the database (never touched by
+    # this presentation-only relabeling) — only the one paired board in
+    # this round's fixture, so there's no ordinary board left to
+    # demonstrate the gap-closing here (see PairingDisplayTest for that).
+    refute html =~ ~s(<td class="num">1</td>)
   end
 
   ## ---------- CSV results import ----------

@@ -33,7 +33,7 @@ defmodule PairingsEngineWeb.PrintController do
 
   use PairingsEngineWeb, :controller
 
-  alias PairingsEngine.{Tournaments, Keizer}
+  alias PairingsEngine.{Tournaments, Keizer, PairingDisplay}
   alias PairingsEngine.Tournaments.{Player, Tournament}
 
   import Phoenix.HTML, only: [html_escape: 1, safe_to_string: 1]
@@ -528,9 +528,9 @@ defmodule PairingsEngineWeb.PrintController do
     else
       rows =
         round.pairings
-        |> Enum.sort_by(& &1.board)
-        |> Enum.map_join("", fn p ->
-          "<tr><td class=\"num\">#{p.board}#{fixed_board_note(p)}</td>" <>
+        |> PairingDisplay.with_display_boards()
+        |> Enum.map_join("", fn %{pairing: p, board: board} ->
+          "<tr><td class=\"num\">#{board}</td>" <>
             "<td><strong>#{esc(p.white_player && p.white_player.name)}</strong></td>" <>
             "<td class=\"num\">#{p.white_player && blank_zero(player_rating(p.white_player))}</td>" <>
             "<td style=\"text-align:center\">#{esc(display_result(p.result))}</td>" <>
@@ -563,14 +563,24 @@ defmodule PairingsEngineWeb.PrintController do
     if round == nil do
       send_resp(conn, 404, "Round #{number} has not been paired yet")
     else
+      # Alphabetical order is the whole point of this document, so unlike
+      # pairing_list/2 above, fixed-table boards aren't moved — just
+      # relabelled (board_labels/1, not with_display_boards/1) so a
+      # fixed-table player still finds their real table number here, not
+      # the ordinary board they'd have gotten without one.
+      board_by_pairing_id =
+        round.pairings |> PairingDisplay.board_labels() |> Map.new(&{&1.pairing.id, &1.board})
+
       entries =
         round.pairings
         |> Enum.flat_map(fn p ->
+          board = Map.fetch!(board_by_pairing_id, p.id)
+
           if p.black_player == nil do
             [
               %{
                 name: p.white_player && p.white_player.name,
-                board: p.board,
+                board: board,
                 colour: "—",
                 opp: "bye"
               }
@@ -579,13 +589,13 @@ defmodule PairingsEngineWeb.PrintController do
             [
               %{
                 name: p.white_player.name,
-                board: p.board,
+                board: board,
                 colour: "White",
                 opp: p.black_player.name
               },
               %{
                 name: p.black_player.name,
-                board: p.board,
+                board: board,
                 colour: "Black",
                 opp: p.white_player.name
               }

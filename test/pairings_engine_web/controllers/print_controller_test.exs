@@ -142,25 +142,31 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       assert conn.status == 404
     end
 
-    test "a board involving a player with a fixed_board override is annotated", %{
-      conn: conn,
-      scope: scope
-    } do
+    test "a board involving a player with a fixed_board override is relabeled and moved to the end",
+         %{conn: conn, scope: scope} do
       {tournament, %{a: a}} = fixture(scope)
       a |> Ecto.Changeset.change(fixed_board: 5) |> Repo.update!()
 
       conn = get(conn, ~p"/t/#{tournament.id}/print/pairings?round=1")
 
       html = html_response(conn, 200)
-      assert html =~ "(table 5)"
+      # Board 2 (C/D, ordinary) closes the gap board 1 (A/B, now special)
+      # leaves and becomes displayed board 1; A/B's board shows "5"
+      # (the fixed_board value, not the old real board 1) and sorts last.
+      [board1_row, board5_row] = Regex.scan(~r/<tr><td class="num">(\d+)<\/td>/, html)
+      assert board1_row == ["<tr><td class=\"num\">1</td>", "1"]
+      assert board5_row == ["<tr><td class=\"num\">5</td>", "5"]
+      assert String.contains?(html, "C") and String.contains?(html, "A")
     end
 
-    test "a board with no fixed_board players has no annotation", %{conn: conn, scope: scope} do
+    test "a board with no fixed_board players is numbered normally", %{conn: conn, scope: scope} do
       {tournament, _players} = fixture(scope)
 
       conn = get(conn, ~p"/t/#{tournament.id}/print/pairings?round=2")
 
-      refute html_response(conn, 200) =~ "(table"
+      html = html_response(conn, 200)
+      assert html =~ "<td class=\"num\">1</td>"
+      assert html =~ "<td class=\"num\">2</td>"
     end
 
     test "byes/absentees are off by default, shown below the table with ?absentees=1", %{

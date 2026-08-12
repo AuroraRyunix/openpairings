@@ -3,7 +3,7 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   import PairingsEngineWeb.SettingsSupport, only: [setup_field_path: 2]
 
-  alias PairingsEngine.{Audit, PairingRationale, ResultsImport, Tournaments}
+  alias PairingsEngine.{Audit, PairingDisplay, PairingRationale, ResultsImport, Tournaments}
   alias PairingsEngine.Pairing, as: Engine
   alias PairingsEngine.Tournaments.Tournament
 
@@ -857,27 +857,6 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp pairing_engine_description(%{pairing_system: "keizer"}), do: "Keizer ladder pairing"
   defp pairing_engine_description(_swiss), do: "FIDE Dutch pairing (JaVaFo)"
 
-  # Display-only annotation for a board that involves a player with a
-  # `fixed_board` override (SWAR "special table" — e.g. a wheelchair-access
-  # table) — mirrors `PairingsEngineWeb.PrintController`'s "(table N)" note
-  # on the printed pairing sheet (see docs/printing.md), so the same
-  # information is visible on the Pairings page itself, not just on paper.
-  # Real board renumbering happens nowhere; this purely flags it for the
-  # arbiter.
-  defp fixed_board_note(pairing) do
-    boards =
-      [pairing.white_player, pairing.black_player]
-      |> Enum.reject(&is_nil/1)
-      |> Enum.map(& &1.fixed_board)
-      |> Enum.reject(&is_nil/1)
-      |> Enum.uniq()
-
-    case boards do
-      [] -> ""
-      boards -> " (table #{Enum.join(boards, ", ")})"
-    end
-  end
-
   # Bare display name for an audit-log payload (nil = a bye's empty side).
   defp player_name(nil), do: nil
   defp player_name(player), do: player.name
@@ -892,9 +871,13 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   # A round's pairings preload in whatever order the DB/JaVaFo output them,
-  # not board order — sort ascending by board so the table reads "Board 1,
-  # Board 2, ..." top to bottom like a real pairing sheet.
-  defp board_sorted(pairings), do: Enum.sort_by(pairings, & &1.board)
+  # not board order. `PairingDisplay.with_display_boards/1` both sorts
+  # (fixed-table boards moved to the end, ordered by their own table
+  # number) and relabels (the ordinary boards renumbered to close the gap
+  # a pulled-out fixed-table board leaves) — see its moduledoc. Presentation
+  # only: `pairing.board` itself, used everywhere else in this file
+  # (audit log entries, swap-menu subtitles), is untouched.
+  defp display_rows(pairings), do: PairingDisplay.with_display_boards(pairings)
 
   # Label for a byes-table row's `type` — distinct from the "bye" badge
   # shown for a pairing-allocated bye (a real Pairing row), since these
@@ -1529,8 +1512,11 @@ defmodule PairingsEngineWeb.PairingsLive do
               </td>
             </tr>
 
-            <tr :for={pairing <- board_sorted((@round && @round.pairings) || [])}>
-              <td class="num">{pairing.board}{fixed_board_note(pairing)}</td>
+            <tr :for={
+              %{pairing: pairing, board: display_board} <-
+                display_rows((@round && @round.pairings) || [])
+            }>
+              <td class="num">{display_board}</td>
 
               <td>
                 <.seat_cell
