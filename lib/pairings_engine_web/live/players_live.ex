@@ -691,9 +691,12 @@ defmodule PairingsEngineWeb.PlayersLive do
   # FIDE-ID match or a fuzzy name search; a wrong-person risk from the
   # fuzzy path and a real data discrepancy either way both deserve the
   # same human sign-off) is staged in `edit_fide_conflicts` instead of
-  # applied straight away, and the template asks before committing it. A
-  # same-identity reformatting (case/comma/spacing) doesn't count as a
-  # "change" and applies immediately either way — see `names_equivalent?/2`.
+  # applied straight away, and the template asks before committing it.
+  # Only a byte-for-byte-already-correct value (re-running the lookup on a
+  # name/sex/birth year already spelled exactly like FIDE's own record)
+  # skips the prompt as a genuine no-op — a same-identity reformat (case,
+  # comma, word order) still counts as a real change and gets asked about
+  # too, see `names_equivalent?/2`.
   def handle_event("refresh_edit_fide", _params, socket) do
     form = socket.assigns.edit_form
     fide_id = form |> Map.get("fide_id") |> to_string() |> String.trim()
@@ -846,10 +849,13 @@ defmodule PairingsEngineWeb.PlayersLive do
   # result) short-circuits to the existing "no match" error. A real match
   # splits its fields into two groups (see handle_event("refresh_edit_fide"
   # ...)'s doc): operational data (title/fide_id/fide_rating/federation)
-  # applies straight away regardless; identity data (name/sex/birth_year)
+  # applies straight away regardless — identity data (name/sex/birth_year)
   # applies straight away too UNLESS it would actually change an
-  # already-filled value, in which case it's staged in
-  # `edit_fide_conflicts` for the template's confirm box instead.
+  # already-filled value (whether this was an exact FIDE-ID match or a
+  # fuzzy name search; a wrong-person risk from the fuzzy path and a real
+  # data discrepancy either way both deserve the same human sign-off), in
+  # which case it's staged in `edit_fide_conflicts` for the template's
+  # confirm box instead.
   defp apply_fide_match(socket, _form, nil) do
     {:noreply, assign(socket, edit_error: "No matching FIDE player found")}
   end
@@ -881,11 +887,13 @@ defmodule PairingsEngineWeb.PlayersLive do
   # `blank?(new_value)` — FIDE simply has nothing for this field, nothing to
   # apply or conflict with, leave the form exactly as it is.
   # `blank?(current)` — nothing to conflict with, applies immediately.
-  # `equivalent?.(current, new_value)` — same identity (maybe reformatted,
-  # for name), so FIDE's own canonical form applies immediately too — no
-  # point asking to confirm a spelling/case fix that isn't really a change.
-  # Otherwise: a real change to an already-filled value, staged for the
-  # confirm box rather than applied straight away.
+  # `equivalent?.(current, new_value)` — no real change worth asking about:
+  # the field is already a byte-for-byte match (or, for birth year,
+  # equal once string/integer representations are normalized — see
+  # `ratings_equivalent?/2`). Otherwise: a real change to an
+  # already-filled value — including a same-identity reformat of the name
+  # (case, comma, word order) — staged for the confirm box rather than
+  # applied straight away.
   defp stage_reviewable_field({applied, conflicts}, form, key, new_value, equivalent?) do
     current = Map.get(form, key)
 
@@ -901,23 +909,23 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp blank?(""), do: true
   defp blank?(_), do: false
 
-  # Loose enough that re-running the lookup on an already-correct name
-  # (different casing/spacing/order, e.g. "tijl de moyer" vs FIDE's own
-  # "De Moyer, Tijl") doesn't pop the confirm box for nothing — compares
-  # the *set* of name tokens, not the literal string, same
-  # order-insensitive philosophy `Fide.search/1` already uses ("burssens
-  # jorian" and "jorian burssens" both find the same person).
+  # Deliberately strict: only an EXACT match (after trimming) skips the
+  # confirm box — re-running the lookup on a name already spelled exactly
+  # like FIDE's own record is a genuine no-op, nothing to ask about.
+  # Anything else — including a same-identity reformat (case, comma,
+  # word order: "tom van 't hoff" vs FIDE's own "Van 't Hoff, Tom") — is a
+  # real change to what's on file and gets the same human sign-off as any
+  # other name correction. An earlier, looser version of this check
+  # compared token *sets* instead of the literal string specifically to
+  # skip the popup for reformats like that — reverted after a real report
+  # (an arbiter's own typed "Tom van 't Hoff" got silently rewritten with
+  # no prompt) showed that convenience was the wrong default: silent is
+  # surprising for identity data, even when the rewrite happens to be
+  # correct.
   defp names_equivalent?(a, b) do
-    tokens = fn s ->
-      s
-      |> to_string()
-      |> String.downcase()
-      |> String.split(~r/[^\p{L}\d]+/u, trim: true)
-      |> Enum.sort()
-    end
-
-    t = tokens.(a)
-    t != [] and t == tokens.(b)
+    normalize = fn s -> s |> to_string() |> String.trim() end
+    a = normalize.(a)
+    a != "" and a == normalize.(b)
   end
 
   # birth_year comparisons: `current` (from the live form) can be a string

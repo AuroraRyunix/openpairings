@@ -3,7 +3,21 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.14.6] — 2026-08-12
+## [0.14.7] — 2026-08-12
+
+### Fixed
+
+- **FIDE lookup silently rewrote an already-filled name when the only
+  difference was formatting** (case, punctuation, word order — e.g. an
+  arbiter's own "Tom van 't Hoff" against FIDE's "Van 't Hoff, Tom"),
+  with no confirmation prompt, even though a genuinely different name
+  correctly asked first. The "don't bother asking about a pure
+  reformat" shortcut turned out to be the wrong default for identity
+  data — real report: a player's hand-typed name got rewritten with no
+  warning. Any real change to an already-filled Name/Sex/Birth year
+  now always asks first; only a byte-for-byte-already-correct value
+  (re-running the lookup for no reason) still applies without a
+  prompt, since there's nothing to actually change.
 
 ### Changed
 

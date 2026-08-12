@@ -519,7 +519,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       %{tournament: tournament}
     end
 
-    test "by FIDE id: corrects the name straight away, no confirmation needed", %{
+    test "by FIDE id: a name reformat is still staged behind a confirm, not applied silently", %{
       conn: conn,
       tournament: tournament
     } do
@@ -542,6 +542,16 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       render_click(lv, "edit_player", %{"id" => to_string(player.id)})
       html = lv |> element("button", "FIDE lookup") |> render_click()
 
+      # Operational fields (birth year here) apply directly regardless...
+      assert html =~ ~s(value="1982")
+      # ...but the name isn't silently rewritten, even though it's an
+      # exact FIDE-ID match — an already-filled identity field always gets
+      # a human's sign-off on a real change.
+      assert html =~ ~s(value="tijl de moyer")
+      refute html =~ ~s(value="De Moyer, Tijl")
+      assert html =~ "FIDE disagrees"
+
+      html = lv |> element("button[phx-click='apply_fide_conflicts']") |> render_click()
       assert html =~ ~s(value="De Moyer, Tijl")
       refute html =~ "FIDE disagrees"
     end
@@ -795,12 +805,39 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       refute html =~ "FIDE disagrees"
     end
 
-    test "by name: no prompt when the name already matches, ignoring case/formatting", %{
-      conn: conn,
-      tournament: tournament
-    } do
+    test "by name: a same-identity reformat (case/comma/word order) still gets a prompt, not a silent rewrite",
+         %{conn: conn, tournament: tournament} do
       {:ok, player} =
         Tournaments.create_player(tournament.id, %{"name" => "de moyer tijl"})
+
+      Repo.insert!(%FidePlayer{
+        fide_id: 214_566,
+        name: "De Moyer, Tijl",
+        federation: "BEL",
+        standard_rating: 1865
+      })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "edit_player", %{"id" => to_string(player.id)})
+      html = lv |> element("button", "FIDE lookup") |> render_click()
+
+      # Not silently rewritten — the original text is still what's shown...
+      assert html =~ ~s(value="de moyer tijl")
+      refute html =~ ~s(value="De Moyer, Tijl")
+      # ...and the prompt names the real correction.
+      assert html =~ "FIDE disagrees"
+      assert html =~ "De Moyer, Tijl"
+
+      html = lv |> element("button[phx-click='apply_fide_conflicts']") |> render_click()
+      assert html =~ ~s(value="De Moyer, Tijl")
+      refute html =~ "FIDE disagrees"
+    end
+
+    test "by name: re-running the lookup when the name is already an exact match is a genuine no-op",
+         %{conn: conn, tournament: tournament} do
+      {:ok, player} =
+        Tournaments.create_player(tournament.id, %{"name" => "De Moyer, Tijl"})
 
       Repo.insert!(%FidePlayer{
         fide_id: 214_566,
@@ -843,10 +880,16 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       html = lv |> element("button", "FIDE lookup") |> render_click()
 
       # The live-typed value ("jorian burssens") is what got searched, not
-      # some stale snapshot — proven by the match actually being found and
-      # applied (same identity as FIDE's own "Burssens, Jorian", just
-      # reordered, so no conflict prompt either).
+      # some stale snapshot — proven by the match actually being found:
+      # operational fields (federation) apply directly, and the name
+      # correction ("jorian burssens" -> FIDE's own "Burssens, Jorian") is
+      # a real reformat, so it's staged behind the confirm prompt rather
+      # than silently rewritten.
       assert html =~ ~s(value="BEL")
+      assert html =~ ~s(value="jorian burssens")
+      assert html =~ "FIDE disagrees"
+
+      html = lv |> element("button[phx-click='apply_fide_conflicts']") |> render_click()
       assert html =~ ~s(value="Burssens, Jorian")
       refute html =~ "FIDE disagrees"
     end
