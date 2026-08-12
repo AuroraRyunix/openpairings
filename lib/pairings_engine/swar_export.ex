@@ -582,12 +582,24 @@ defmodule PairingsEngine.SwarExport do
   end
 
   # Builds every player's per-round `[RONDE]` entries across the whole
-  # tournament, keyed by player id. A round a player has no involvement in
-  # at all (never paired, no byes row — joined later, or a gap) is simply
-  # omitted: `round_nr` inside each entry carries the true round number
-  # regardless of position, so the array does not need to be contiguous
-  # (checked directly against `SwarImport.parse_round/1`, which reads
-  # exactly `nb_round` entries with no positional assumption).
+  # tournament, keyed by player id. A round BEFORE the player's
+  # `start_round` (they hadn't joined yet) is omitted — genuinely never
+  # happened for them. A round from `start_round` onward with no pairing
+  # and no byes row (globally `absent: true`, no per-round bye recorded)
+  # gets an explicit zero-point "absent" record instead of being skipped.
+  #
+  # This used to omit those rounds outright, on the theory that our own
+  # reader (`SwarImport.parse_round/1`) doesn't need the array to be
+  # contiguous — true, but irrelevant: real SWAR never produces a player
+  # with fewer round-entries than rounds they were registered for (every
+  # absence there is an explicit UI action), and real SWAR's own reader
+  # turned out not to tolerate the shape either — a real tournament
+  # export with a player like this (many rounds absent, no per-round bye
+  # rows) came back from actual SWAR with garbled rounds for exactly that
+  # player: "???" opponent names and phantom results for rounds that were
+  # never recorded that way, i.e. the reader desyncing past a truncated
+  # block into the next player's raw bytes. Always writing a full,
+  # gap-free block avoids the shape entirely.
   defp build_round_records(players, rounds, ni_by_player_id) do
     for player <- players, into: %{} do
       records =
@@ -661,19 +673,36 @@ defmodule PairingsEngine.SwarExport do
         }
 
       bye && bye.type == "absent" ->
-        %{
-          round_nr: bye.round,
-          table: 0,
-          advers: 0,
-          colour: 0,
-          result: 0,
-          points: 0.0,
-          played?: false
-        }
+        absent_record(bye.round)
+
+      # No pairing, no byes row — the round the player wasn't there for
+      # and nobody logged a bye/absence type for. Before, this was a `nil`
+      # (round omitted from the array); see `build_round_records/3`'s
+      # comment for why that produced garbled real-SWAR reads. Anything
+      # from the player's `start_round` onward gets the exact same
+      # zero-point shape as a real declared absence, just above — a round
+      # BEFORE `start_round` (not registered yet) stays correctly omitted.
+      number >= (player.start_round || 1) ->
+        absent_record(number)
 
       true ->
         nil
     end
+  end
+
+  # Shared shape for a zero-point declared-absence round, used both for a
+  # real "absent" byes-table row and for a gap round with neither a
+  # pairing nor a byes row (see `round_record_for/5`'s two call sites).
+  defp absent_record(round_nr) do
+    %{
+      round_nr: round_nr,
+      table: 0,
+      advers: 0,
+      colour: 0,
+      result: 0,
+      points: 0.0,
+      played?: false
+    }
   end
 
   # Splits `Pairing.result` (a combined FIDE code — "1-0", "1/2-1/2", ...)

@@ -330,6 +330,68 @@ defmodule PairingsEngine.SwarExportTest do
     File.rm(path)
   end
 
+  test "a globally-absent player with no pairing AND no byes row for a round gets an explicit zero-point record, not a gap",
+       %{tournament: t, players: %{d: dave}} do
+    # Regression for the "real SWAR reads back garbage" bug: before this
+    # fix, a round with neither a Pairing nor a "byes" row for a player
+    # was simply left out of their `[RONDE]` array — self-consistent for
+    # our own reader (the length prefix matched what was actually
+    # written), but real SWAR was found to desync on a file shaped like
+    # that (a player accumulating rounds with no record at all): garbled
+    # "???" opponent names and phantom results on LATER rounds for
+    # exactly that player, traced from a real tournament export. Dave is
+    # already globally `absent: true` (see `setup/0`) and played round 1
+    # for real; round 2 here gives him neither a pairing nor a byes row —
+    # the exact gap shape that used to vanish from the array entirely.
+    r2 = Repo.insert!(%Round{tournament_id: t.id, number: 2, status: "finished"})
+    # Round 2 needs at least one real pairing for `Tournaments.list_rounds/1`
+    # to have something to iterate — reuse two other players.
+    a = Repo.get_by!(Player, tournament_id: t.id, name: "Alice Winner")
+    b = Repo.get_by!(Player, tournament_id: t.id, name: "Bob Loser")
+    pairing!(r2, 1, a, b, "1-0")
+
+    binary = SwarExport.export(t.id)
+    {:ok, parsed} = SwarImport.parse(binary)
+
+    dave_parsed = Enum.find(parsed.players, &(&1.name == dave.name))
+
+    # Both round 1 (real forfeit pairing) AND round 2 (the gap) are
+    # present — nb_round is 2, not 1, so the length prefix real SWAR
+    # reads still matches exactly what follows it.
+    assert dave_parsed.nb_round == 2
+    assert Enum.map(dave_parsed.rounds, & &1.round_nr) == [1, 2]
+
+    round2 = Enum.find(dave_parsed.rounds, &(&1.round_nr == 2))
+    assert round2.table == 0
+    assert round2.advers == 0
+    assert round2.result == 0
+  end
+
+  test "a round before a player's start_round stays correctly omitted, not backfilled" do
+    # The opposite case: a player who joined the tournament partway
+    # through must NOT get phantom "absent" records fabricated for
+    # rounds before they even existed in it.
+    t = build_tournament()
+
+    early = build_player(t, %{name: "Early Bird", pairing_number: 1})
+    late = build_player(t, %{name: "Late Joiner", pairing_number: 2, start_round: 2})
+
+    r1 = Repo.insert!(%Round{tournament_id: t.id, number: 1, status: "finished"})
+    pairing!(r1, 1, early, nil, "bye")
+
+    r2 = Repo.insert!(%Round{tournament_id: t.id, number: 2, status: "finished"})
+    pairing!(r2, 1, early, late, "1-0")
+
+    binary = SwarExport.export(t.id)
+    {:ok, parsed} = SwarImport.parse(binary)
+
+    late_parsed = Enum.find(parsed.players, &(&1.name == "Late Joiner"))
+
+    # Only round 2 (the one they actually played) — round 1, before
+    # start_round, is correctly absent from the array, not backfilled.
+    assert Enum.map(late_parsed.rounds, & &1.round_nr) == [2]
+  end
+
   test "Rank is the rating-sorted seed, not pairing_number/registration order" do
     # Deliberately scrambled: the LOWEST pairing_number (registration
     # order, what `Ni` carries) belongs to the LOWEST-rated player, and

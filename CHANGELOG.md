@@ -3,6 +3,25 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.19] — 2026-08-13
+
+### Fixed
+
+- **SWAR export produced a file real SWAR misreads for a player with
+  many rounds absent and no per-round "byes" row** (globally
+  `absent: true`, never explicitly marked absent round-by-round). A
+  round with neither a `Pairing` nor a `byes` row used to be silently
+  omitted from that player's `[RONDE]` array — internally consistent for
+  our own reader, but not a shape real, hand-run SWAR tournaments ever
+  produce, and real SWAR was confirmed (against an actual production
+  export) to desync on it: "???" opponent names and phantom results on
+  *later* rounds for exactly that player, once their block ran out. Every
+  round from the player's `start_round` onward now gets an explicit
+  zero-point "absent" record instead of being skipped — a round before
+  `start_round` (not registered yet) is still correctly omitted. No
+  change to OpenPairings' own scoring/standings; only what gets written
+  into the exported `.swar` file.
+
 ## [0.14.18] — 2026-08-13
 
 ### Added
