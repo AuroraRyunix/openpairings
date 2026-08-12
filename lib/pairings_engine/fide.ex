@@ -109,16 +109,26 @@ defmodule PairingsEngine.Fide do
   rated games in that list). Anything other than `"rapid"`/`"blitz"`
   (including `""`/`nil`) reads the Standard rating directly, mirroring
   `RateOfPlay.list_for/1`'s own default. `nil` in, `nil` out.
+
+  FIDE's own list uses `0`, not a blank field, for "no rating in this list" —
+  so the fallback has to treat `0` the same as `nil`. Plain `||` wouldn't:
+  `0` is truthy in Elixir, so `0 || standard_rating` would return the `0`
+  instead of falling through, and an unrated-in-that-list player would show
+  as literal 0 Elo instead of their real Standard rating.
   """
   def rating_for_tempo(nil, _standard), do: nil
 
   def rating_for_tempo(%FidePlayer{} = fide_player, standard) do
     case standard do
-      "rapid" -> fide_player.rapid_rating || fide_player.standard_rating
-      "blitz" -> fide_player.blitz_rating || fide_player.standard_rating
+      "rapid" -> present(fide_player.rapid_rating) || fide_player.standard_rating
+      "blitz" -> present(fide_player.blitz_rating) || fide_player.standard_rating
       _ -> fide_player.standard_rating
     end
   end
+
+  defp present(nil), do: nil
+  defp present(0), do: nil
+  defp present(rating), do: rating
 
   def last_sync do
     case Repo.query!("SELECT value FROM meta WHERE key = 'fide_last_sync'").rows do

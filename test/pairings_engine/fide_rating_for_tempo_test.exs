@@ -62,4 +62,19 @@ defmodule PairingsEngine.FideRatingForTempoTest do
     assert Fide.rating_for_tempo(fp, "rapid") == nil
     assert Fide.rating_for_tempo(fp, "blitz") == nil
   end
+
+  # FIDE's own list writes `0`, not a blank field, for "no rating in this
+  # list" (e.g. real row for FIDE id 214566: SRtng 1865, RRtng 1865, BRtng
+  # 0). `||` alone doesn't fall through on that — 0 is truthy in Elixir —
+  # so this used to surface as a literal 0 Elo for a blitz tournament
+  # instead of falling back to the player's real Standard rating.
+  test "\"blitz\" falls back to standard_rating when blitz_rating is 0, not nil" do
+    fp = player(standard_rating: 1865, rapid_rating: 1865, blitz_rating: 0)
+    assert Fide.rating_for_tempo(fp, "blitz") == 1865
+  end
+
+  test "\"rapid\" falls back to standard_rating when rapid_rating is 0, not nil" do
+    fp = player(standard_rating: 1865, rapid_rating: 0, blitz_rating: 1800)
+    assert Fide.rating_for_tempo(fp, "rapid") == 1865
+  end
 end

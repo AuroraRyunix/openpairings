@@ -78,6 +78,13 @@ forward this file gets an entry every time the version bumps.
 
 ### Fixed
 
+- **A player unrated in a tournament's own tempo (Rapid/Blitz) showed as a
+  literal 0 Elo instead of falling back to their Standard rating.** FIDE's
+  list uses `0`, not a blank field, for "no rating in this list" — the
+  fallback logic used `||`, which doesn't treat `0` as absent in Elixir, so
+  it never fired. Affects the same tempo-aware lookup added above; also
+  fixed the raw Standard/Rapid/Blitz hint on the player dialog, which had
+  the identical bug.
 - **Results entered from a phone weren't being written to the audit
   trail at all** — every other way of entering a result was, mobile was
   simply never wired up. Now logs the same `pairing.result_entered`/

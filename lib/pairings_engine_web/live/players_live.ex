@@ -1483,6 +1483,13 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp parse_rating(value) when is_integer(value), do: value
   defp parse_rating(_), do: 0
 
+  # FIDE's list uses `0`, not a blank field, for "no rating in this list" —
+  # shown as "—" here so an untitled blitz newcomer with a real Standard
+  # rating doesn't read as "Blitz 0".
+  defp rating_or_dash(nil), do: "—"
+  defp rating_or_dash(0), do: "—"
+  defp rating_or_dash(rating), do: rating
+
   ## ---------- Player registration dialog (double-click) ----------
 
   attr :form, :map, required: true
@@ -1549,8 +1556,9 @@ defmodule PairingsEngineWeb.PlayersLive do
             <span>FIDE Elo</span>
             <input type="number" name="player[fide_rating]" value={@form["fide_rating"]} />
             <span :if={@fide_player} class="hint" style="display: block; margin-top: 2px">
-              Standard {@fide_player.standard_rating || "—"} · Rapid {@fide_player.rapid_rating ||
-                "—"} · Blitz {@fide_player.blitz_rating || "—"}
+              Standard {rating_or_dash(@fide_player.standard_rating)} · Rapid {rating_or_dash(
+                @fide_player.rapid_rating
+              )} · Blitz {rating_or_dash(@fide_player.blitz_rating)}
               <span :if={@tournament.standard in ["rapid", "blitz"]}>
                 (this is a {String.capitalize(@tournament.standard)} tournament — refreshing fills
                 in the {String.capitalize(@tournament.standard)} rating, or Standard if this player
