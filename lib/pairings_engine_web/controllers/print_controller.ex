@@ -516,14 +516,28 @@ defmodule PairingsEngineWeb.PrintController do
         tournament,
         entry.player.name,
         "Players Card",
-        tournament_info_html(tournament) <> player_card_body(entry, rows, totals)
+        tournament_info_html(tournament) <> player_card_body(entry, rows, totals, tournament)
       )
     else
       _ -> send_resp(conn, 404, "Player not found")
     end
   end
 
-  defp player_card_body(entry, rows, totals) do
+  defp player_card_body(entry, rows, totals, tournament) do
+    tiebreaks_line =
+      case tournament.tiebreaks do
+        [] ->
+          ""
+
+        codes ->
+          line =
+            Enum.map_join(codes, " · ", fn code ->
+              "#{esc(code)}: #{esc(format_num(Map.get(entry.tiebreaks, code, 0.0)))}"
+            end)
+
+          "<p class=\"meta\">#{line}</p>"
+      end
+
     row_html =
       Enum.map_join(rows, "", fn row ->
         "<tr><td class=\"num\">#{row.round}</td>" <>
@@ -539,6 +553,7 @@ defmodule PairingsEngineWeb.PrintController do
       end)
 
     "<p class=\"card-header-line\">#{esc(PlayerCard.header(entry))}</p>" <>
+      tiebreaks_line <>
       "<table><thead><tr>" <>
       "<th class=\"num\">N°</th><th class=\"num\">Rnk</th><th>Nat</th><th>Tit</th>" <>
       "<th>Opponent</th><th class=\"num\">N-Elo</th><th class=\"num\">Pts</th>" <>

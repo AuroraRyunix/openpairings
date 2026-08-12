@@ -1046,6 +1046,35 @@ defmodule PairingsEngineWeb.PrintControllerTest do
 
       assert conn.status == 404
     end
+
+    test "shows the player's own tiebreak values, one line, in the tournament's configured order",
+         %{conn: conn, scope: scope} do
+      {tournament, %{a: a}} = fixture(scope)
+
+      {:ok, tournament} =
+        Tournaments.update_tournament(tournament, %{"tiebreaks" => ["BH", "SB"]})
+
+      html = get(conn, ~p"/t/#{tournament.id}/print/card/#{a.id}") |> html_response(200)
+
+      assert html =~ "BH: "
+      assert html =~ "SB: "
+      # BH appears before SB, matching the configured order.
+      assert String.contains?(html, "BH: ") and
+               html |> :binary.match("BH: ") |> elem(0) <
+                 html |> :binary.match("SB: ") |> elem(0)
+    end
+
+    test "no tiebreaks line when the tournament has none configured", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, %{a: a}} = fixture(scope)
+      {:ok, tournament} = Tournaments.update_tournament(tournament, %{"tiebreaks" => []})
+
+      html = get(conn, ~p"/t/#{tournament.id}/print/card/#{a.id}") |> html_response(200)
+
+      refute html =~ "BH: "
+    end
   end
 
   ## ---------- place_cards/2 (SWAR parity #14-16) ----------

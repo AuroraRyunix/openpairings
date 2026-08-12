@@ -3,6 +3,39 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.17] — 2026-08-12
+
+### Fixed
+
+- **"Pair with another player who isn't playing…" confirm dialog got
+  silently closed by an unrelated remote broadcast** — an arbiter mid-way
+  through that gesture, with someone ELSE entering a totally unrelated
+  result elsewhere in the round, got bounced out of it as if they'd hit
+  Escape themselves. A remote broadcast now leaves any in-progress
+  menu/swap/confirm gesture alone (the round data underneath it still
+  refreshes fully either way); only the arbiter's own completed action
+  clears it. Hardened `Tournaments.pair_from_pool/4` to re-check the
+  target board number is still free right before writing, since the
+  confirm dialog can now sit open across a remote update.
+- **The Players page's own "Player data was just updated by another
+  arbiter" popup, removed** — same call as the Pairings page's identical
+  notice (0.14.12): it kept surprising people mid-click regardless of
+  where it sat. Player data still refreshes live underneath; only the
+  popup announcing it is gone.
+- **Assigning categories skipped unrated players for an `elo_below`
+  threshold bracket** (e.g. "U1800") — an unrated player's rating is
+  effectively 0, which genuinely is under any positive ceiling; the
+  `rating > 0` guard had it backwards. `elo_above` keeps requiring a real
+  rating, unchanged — an unrated player has no proven rating to be above
+  anything.
+
+### Added
+
+- **Tiebreak values on the Players Card** (right-click a player) — a
+  compact strip of the tournament's own configured tiebreaks and this
+  player's value for each, same as the Standings page shows per column.
+  Also added to the card's print version.
+
 ## [0.14.16] — 2026-08-12
 
 ### Added

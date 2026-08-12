@@ -67,8 +67,15 @@ defmodule PairingsEngine.PlayerStats do
     end
   end
 
+  # An unrated player (rating 0 — `Player.rating/1` never returns a
+  # negative number) still qualifies for a below-ceiling bracket: 0 is
+  # genuinely under any positive threshold, and treating "no rating on
+  # file" as "definitely not the lowest bracket" was backwards — an
+  # unrated player is, if anything, the LEAST likely to be over a rating
+  # ceiling. `elo_above` keeps its `rating > 0` guard deliberately: an
+  # unrated player has no proven rating to be ABOVE anything.
   defp rule_qualifies?(%{"kind" => "elo_below", "value" => v}, rating, _age),
-    do: rating > 0 and rating < v
+    do: rating < v
 
   defp rule_qualifies?(%{"kind" => "elo_above", "value" => v}, rating, _age),
     do: rating > 0 and rating > v

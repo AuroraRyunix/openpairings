@@ -1824,6 +1824,15 @@ defmodule PairingsEngine.Tournaments do
   @doc """
   Pairs two pool players into a brand-new board in `round`, numbered
   `board`. Both players' `"byes"` rows are dropped — they're playing.
+
+  Re-checks `board` is still free right inside the transaction rather
+  than trusting the `round` struct the caller happened to have on hand —
+  the confirm dialog that stages this (PairingsLive's "pair these two"
+  gesture) can now sit open across a remote update from another arbiter
+  (see `keep_gesture` in that LiveView's `refresh/2`), so the board
+  number could have been taken by something else in the meantime.
+  Returns `{:error, :board_taken}` rather than creating a second pairing
+  at the same board.
   """
   def pair_from_pool(%Round{} = round, white_id, black_id, board)
       when is_integer(board) and board > 0 do
@@ -1831,19 +1840,26 @@ defmodule PairingsEngine.Tournaments do
       {:error, :same_player}
     else
       Repo.transaction(fn ->
-        {:ok, created} =
-          %Pairing{round_id: round.id}
-          |> Pairing.changeset(%{
-            board: board,
-            white_player_id: white_id,
-            black_player_id: black_id,
-            result: ""
-          })
-          |> Repo.insert()
+        taken? =
+          Repo.exists?(from p in Pairing, where: p.round_id == ^round.id and p.board == ^board)
 
-        delete_bye_row(round, white_id)
-        delete_bye_row(round, black_id)
-        created
+        if taken? do
+          Repo.rollback(:board_taken)
+        else
+          {:ok, created} =
+            %Pairing{round_id: round.id}
+            |> Pairing.changeset(%{
+              board: board,
+              white_player_id: white_id,
+              black_player_id: black_id,
+              result: ""
+            })
+            |> Repo.insert()
+
+          delete_bye_row(round, white_id)
+          delete_bye_row(round, black_id)
+          created
+        end
       end)
       |> finish_round_write(round.tournament_id)
     end

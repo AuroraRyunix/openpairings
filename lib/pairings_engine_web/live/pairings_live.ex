@@ -92,42 +92,57 @@ defmodule PairingsEngineWeb.PairingsLive do
          |> push_navigate(to: ~p"/")}
 
       tournament ->
-        {:noreply, socket |> assign(tournament: tournament) |> refresh()}
+        # Real report: an arbiter had "pair with another player who isn't
+        # playing…" staged behind its confirm dialog when someone ELSE
+        # entered a totally unrelated result elsewhere in the round — and
+        # got silently bounced out, as if they'd hit Escape themselves.
+        # `keep_gesture: true` here is the fix: a REMOTE broadcast leaves
+        # any half-finished menu/swap/confirm gesture alone (the round data
+        # underneath it still refreshes fully either way, so whatever gets
+        # applied is checked against the current state regardless — see
+        # each `Tournaments.*` write function's own guards). Only the
+        # arbiter's OWN completed action (every other `refresh()` call
+        # site, still defaulting to reset) clears it — that's the point
+        # where the gesture is genuinely done, not a bystander update.
+        {:noreply, socket |> assign(tournament: tournament) |> refresh(keep_gesture: true)}
     end
   end
 
-  defp refresh(socket) do
+  defp refresh(socket, opts \\ []) do
     %{tournament: t, round_number: n} = socket.assigns
     paired = Engine.paired_rounds_count(t.id)
     missing_setup = Tournament.missing_setup_fields(t)
     setup_complete = missing_setup == []
 
-    assign(socket,
-      round: Tournaments.get_round(t.id, n),
-      # Each player's score coming INTO round `n` — shown next to their
-      # name on the board list, same as a real printed pairing sheet.
-      scores: Standings.player_scores_before_round(t, n),
-      # The pool is a superset of `list_byes_for_round/2` — it adds anyone
-      # simply unpaired — so the byes-only query this page used to run is
-      # no longer needed here. Other views still use it.
-      round_pool: Tournaments.list_round_pool(t.id, n),
-      paired_rounds: paired,
-      next_pairable: paired + 1,
-      setup_complete: setup_complete,
-      missing_setup: missing_setup,
-      recommended_missing: Tournament.missing_recommended_fields(t),
-      can_pair:
-        setup_complete and paired < t.rounds_count and Engine.round_complete?(t.id, paired),
-      # Whatever round data a half-finished gesture was pointing at may no
-      # longer be current by the time `refresh/1` runs (a remote update, a
-      # round switch, or the change's own confirmed write) — safer to drop
-      # back to "nothing selected" than to act on a stale pairing.
-      menu: nil,
-      swap_first: nil,
-      pool_first: nil,
-      seat_pick: nil,
-      confirm: nil
-    )
+    socket =
+      assign(socket,
+        round: Tournaments.get_round(t.id, n),
+        # Each player's score coming INTO round `n` — shown next to their
+        # name on the board list, same as a real printed pairing sheet.
+        scores: Standings.player_scores_before_round(t, n),
+        # The pool is a superset of `list_byes_for_round/2` — it adds anyone
+        # simply unpaired — so the byes-only query this page used to run is
+        # no longer needed here. Other views still use it.
+        round_pool: Tournaments.list_round_pool(t.id, n),
+        paired_rounds: paired,
+        next_pairable: paired + 1,
+        setup_complete: setup_complete,
+        missing_setup: missing_setup,
+        recommended_missing: Tournament.missing_recommended_fields(t),
+        can_pair:
+          setup_complete and paired < t.rounds_count and Engine.round_complete?(t.id, paired)
+      )
+
+    if Keyword.get(opts, :keep_gesture, false) do
+      socket
+    else
+      # Whatever a half-finished gesture was pointing at may no longer be
+      # current by the time OUR OWN action just completed here (a round
+      # switch, or the change's own confirmed write) — safer to drop back
+      # to "nothing selected" than to leave a just-consumed gesture
+      # sitting around.
+      assign(socket, menu: nil, swap_first: nil, pool_first: nil, seat_pick: nil, confirm: nil)
+    end
   end
 
   @impl true

@@ -228,6 +228,48 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       assert html =~ ~s(target="_blank")
     end
 
+    test "shows the player's own tiebreak values, hidden when the tournament has none configured",
+         %{conn: conn, scope: scope} do
+      # create_tournament/2 applies FIDE default tiebreaks unless told
+      # otherwise (see Tournaments.new_tournament/1) — force the truly-empty
+      # case explicitly rather than relying on this describe block's own
+      # default-tiebreaks tournament for the "nothing configured" half.
+      {:ok, no_tb_tournament} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "Card Modal No-TB Test",
+          "type" => "swiss",
+          "tiebreaks" => []
+        })
+
+      {:ok, no_tb_player} = Tournaments.create_player(no_tb_tournament.id, %{"name" => "Eve"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{no_tb_tournament.id}/players")
+
+      # Scoped to inside the modal card specifically (via has_element?/2) —
+      # a bare substring match against the whole page would false-positive
+      # on the Players grid's own "Buch" column tooltip, unrelated to
+      # this card.
+      render_click(lv, "show_card", %{"id" => to_string(no_tb_player.id)})
+      refute has_element?(lv, ".modal-card .pe-summary")
+
+      {:ok, tb_tournament} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "Card Modal TB Test",
+          "type" => "swiss",
+          "tiebreaks" => ["BH", "SB"]
+        })
+
+      {:ok, tb_player} = Tournaments.create_player(tb_tournament.id, %{"name" => "Dave"})
+
+      {:ok, lv2, _html} = live(conn, ~p"/t/#{tb_tournament.id}/players")
+      html = render_click(lv2, "show_card", %{"id" => to_string(tb_player.id)})
+
+      assert html =~ ~s(title="Buchholz")
+      assert html =~ ~s(title="Sonneborn-Berger")
+      assert html =~ "BH"
+      assert html =~ "SB"
+    end
+
     test "Exit closes the card via close_card", %{
       conn: conn,
       tournament: tournament,
@@ -1546,12 +1588,16 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
     end
   end
 
-  ## ---------- concurrent-arbiter "updated by another arbiter" notice ----------
-  ## Same mechanism as PairingsLive's identical notice (see that module's
-  ## test file for the original) — this is the extension of it onto
-  ## PlayersLive, which had none until now.
+  ## ---------- concurrent-arbiter live refresh ----------
+  #
+  # A visible "Player data was just updated by another arbiter" notice
+  # used to fire on a remote broadcast — removed by explicit request, same
+  # call as PairingsLive's identical notice: however it was positioned, a
+  # toast popping up mid-click kept surprising people. The player data
+  # itself still refreshes live underneath; that's the part that actually
+  # matters, and it keeps working with no popup attached to it.
 
-  test "a broadcast that actually changes a player's data shows the remote-arbiter notice", %{
+  test "a broadcast that changes a player's data refreshes it live, with no popup", %{
     conn: conn,
     scope: scope
   } do
@@ -1569,61 +1615,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
     Tournaments.broadcast_tournament_change(tournament.id, :players)
 
     html = render(lv)
-    assert html =~ "Player data was just updated by another arbiter"
-    assert html =~ "Dismiss"
-  end
-
-  test "a broadcast echoing this LiveView's own action does not show the notice", %{
-    conn: conn,
-    scope: scope
-  } do
-    {:ok, tournament} =
-      Tournaments.create_tournament(scope, %{
-        "name" => "Self Echo Test",
-        "type" => "swiss",
-        "start_date" => "2026-07-15",
-        "rounds_count" => "9",
-        "round_dates" => List.duplicate("2026-07-15", 9),
-        "tiebreaks" => ["BH", "SB"],
-        "chief_arbiter" => "Jane Arbiter",
-        "federation" => "BEL",
-        "rate_of_play" => "90 min + 30 sec/move"
-      })
-
-    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
-
-    # Adding a player ourselves updates the DB, refreshes `@players`
-    # synchronously inside the same `handle_event`, and also broadcasts
-    # `:players` right back to this same subscribed process — that self-echo
-    # must not trigger the "another arbiter" notice.
-    render_click(lv, "add", %{})
-    html = lv |> form("form", %{"player" => %{"name" => "Bob"}}) |> render_submit()
-
     refute html =~ "updated by another arbiter"
-
-    # Drain the self-broadcast before asserting again.
-    html = render(lv)
-    refute html =~ "updated by another arbiter"
-  end
-
-  test "the remote-arbiter notice is dismissible and clears on the next click", %{
-    conn: conn,
-    scope: scope
-  } do
-    {:ok, tournament} =
-      Tournaments.create_tournament(scope, %{"name" => "Dismiss Test", "type" => "swiss"})
-
-    {:ok, player} = Tournaments.create_player(tournament.id, %{"name" => "Carla"})
-
-    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
-
-    Repo.update!(Ecto.Changeset.change(player, fide_rating: 1800))
-    Tournaments.broadcast_tournament_change(tournament.id, :players)
-
-    html = render(lv)
-    assert html =~ "updated by another arbiter"
-
-    html = lv |> element("button", "Dismiss") |> render_click()
-    refute html =~ "updated by another arbiter"
+    assert html =~ "2000"
   end
 end

@@ -1123,6 +1123,69 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
                Enum.sort([spare.id, a.id])
     end
 
+    # Real report: an arbiter had "pair with another player who isn't
+    # playing…" staged behind its confirm dialog when someone ELSE
+    # entered a totally unrelated result elsewhere in the round — and got
+    # silently bounced out of it, as if they'd hit Escape themselves.
+    test "an in-progress pool-pair confirm dialog survives an unrelated remote broadcast",
+         %{conn: conn, scope: scope} do
+      %{tournament: t, a: a, spare: spare, board1: board1} = two_board_fixture(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+
+      render_click(lv, "stage_vacate", %{"player-id" => to_string(a.id)})
+      render_click(lv, "apply_confirm", %{})
+
+      render_click(lv, "stage_pool_pair", %{"player-id" => to_string(spare.id)})
+      html = render_click(lv, "stage_pool_pair", %{"player-id" => to_string(a.id)})
+      assert html =~ "Pair these two"
+
+      # Someone else enters a result on a totally different board, in a
+      # totally different process — the exact shape of a real remote
+      # broadcast, bypassing this LiveView entirely.
+      Repo.update!(Ecto.Changeset.change(board1, result: "1-0"))
+      Tournaments.broadcast_tournament_change(t.id, :results)
+
+      html = render(lv)
+      assert html =~ "Pair these two"
+    end
+
+    test "applying a pool-pair confirm whose board number got taken by someone else in the meantime fails without corrupting data",
+         %{conn: conn, scope: scope} do
+      %{tournament: t, a: a, spare: spare} = two_board_fixture(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+
+      render_click(lv, "stage_vacate", %{"player-id" => to_string(a.id)})
+      render_click(lv, "apply_confirm", %{})
+
+      render_click(lv, "stage_pool_pair", %{"player-id" => to_string(spare.id)})
+      render_click(lv, "stage_pool_pair", %{"player-id" => to_string(a.id)})
+      render_click(lv, "set_confirm_board", %{"board" => "9"})
+
+      # Board 9 gets taken by something else entirely — a different
+      # process, in between staging and applying — exactly the race
+      # widened by no longer wiping the confirm dialog on every broadcast.
+      round = Tournaments.get_round(t.id, 1)
+
+      Repo.insert!(%Pairing{
+        round_id: round.id,
+        board: 9,
+        white_player_id: t.id |> Tournaments.list_players() |> hd() |> Map.fetch!(:id),
+        black_player_id: nil,
+        result: "bye"
+      })
+
+      html = render_click(lv, "apply_confirm", %{})
+      assert html =~ "Could not apply that change"
+
+      round = Tournaments.get_round(t.id, 1)
+      board9_pairings = Enum.filter(round.pairings, &(&1.board == 9))
+      # Exactly the one pairing that was already there — no duplicate, and
+      # A/Spare were NOT silently paired onto a colliding board.
+      assert length(board9_pairings) == 1
+    end
+
     test "swapping a seated player with someone from the pool substitutes them",
          %{conn: conn, scope: scope} do
       %{tournament: t, a: a, spare: spare} = two_board_fixture(scope)

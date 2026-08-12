@@ -48,6 +48,24 @@ defmodule PairingsEngine.PlayerStatsTest do
       assert PlayerStats.assign_category(p, ["+1800"], rules) == ""
     end
 
+    # Real report: a real tournament's "U1800" (elo_below 1800) bracket
+    # wasn't picking up its unrated players at all — 0 (an unrated
+    # player's `Player.rating/1`) genuinely IS under any positive
+    # ceiling, so excluding them was backwards.
+    test "an unrated player (rating 0) still qualifies for an elo_below ceiling" do
+      rules = %{"U1800" => %{"kind" => "elo_below", "value" => 1800}}
+      p = player(fide_rating: 0, national_rating: 0)
+      assert PlayerStats.assign_category(p, ["U1800"], rules) == "U1800"
+    end
+
+    # An unrated player has no proven rating to be ABOVE anything —
+    # elo_above deliberately keeps excluding them, unlike elo_below.
+    test "an unrated player never qualifies for an elo_above floor" do
+      rules = %{"+1800" => %{"kind" => "elo_above", "value" => 1800}}
+      p = player(fide_rating: 0, national_rating: 0)
+      assert PlayerStats.assign_category(p, ["+1800"], rules) == ""
+    end
+
     test "matching more than one KIND at once is broken by list order" do
       rules = %{
         "-1200" => %{"kind" => "elo_below", "value" => 1200},
