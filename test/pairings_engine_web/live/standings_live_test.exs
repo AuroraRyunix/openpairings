@@ -35,6 +35,66 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
     assert html =~ "Public standings link"
   end
 
+  describe "Category column — shown whenever the tournament has >= 1 category, print already did this" do
+    test "hidden when the tournament has no categories defined", %{conn: conn, scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "No Categories", "type" => "swiss"})
+
+      {:ok, _p} = Tournaments.create_player(tournament.id, %{"name" => "Alice"})
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
+
+      refute html =~ "<th>Category</th>"
+    end
+
+    test "shows the assigned category per player, unconditionally — not gated by the Players Display panel's tick",
+         %{conn: conn, scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "Has Categories",
+          "type" => "swiss",
+          "categories" => ["Open", "U18"]
+        })
+
+      {:ok, alice} =
+        Tournaments.create_player(tournament.id, %{"name" => "Alice", "category" => "Open"})
+
+      {:ok, _bob} = Tournaments.create_player(tournament.id, %{"name" => "Bob"})
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
+
+      assert html =~ "<th>Category</th>"
+      assert html =~ "Open"
+      # Bob has no category assigned — shows the same "—" print already uses.
+      assert html =~ "—"
+
+      # Not tied to the "cat" Players-grid preference — even an explicit,
+      # empty preference list (everything toggleable hidden) still shows it.
+      html = render_hook(lv, "columns_loaded", %{"columns" => []})
+      assert html =~ "<th>Category</th>"
+      assert html =~ "Open"
+      assert Enum.find(Tournaments.list_players(tournament.id), &(&1.id == alice.id))
+    end
+
+    test "shows on the Keizer ladder too", %{conn: conn, scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "Keizer Categories",
+          "type" => "swiss",
+          "pairing_system" => "keizer",
+          "categories" => ["Open"]
+        })
+
+      {:ok, _p} =
+        Tournaments.create_player(tournament.id, %{"name" => "Alice", "category" => "Open"})
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
+
+      assert html =~ "<th>Category</th>"
+      assert html =~ "Open"
+    end
+  end
+
   describe "Extra points (SWAR parity #12 XtPts) columns" do
     test "XtPts/Total columns are hidden while count_extra_points is off (the default)", %{
       conn: conn,

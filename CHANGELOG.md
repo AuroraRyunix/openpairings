@@ -3,6 +3,19 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.14] — 2026-08-12
+
+### Added
+
+- **Standings page now shows a Category column whenever the tournament
+  has 1+ categories defined** — printed standings already did this
+  (Category column plus one sub-table per category); the live
+  Standings page never had a Category column at all. Shows
+  unconditionally once the tournament has any categories — not gated
+  by the Players page's column-visibility tickbox, matching print's
+  own always-on behavior. Covers both the FIDE-tiebreak table and the
+  Keizer ladder.
+
 ## [0.14.13] — 2026-08-12
 
 ### Fixed

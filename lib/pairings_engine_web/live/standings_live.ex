@@ -211,6 +211,12 @@ defmodule PairingsEngineWeb.StandingsLive do
 
   defp format_tb(value), do: value
 
+  # Same "—" convention PrintController's standings document already
+  # uses for a player with no category assigned.
+  defp category_or_dash(nil), do: "—"
+  defp category_or_dash(""), do: "—"
+  defp category_or_dash(category), do: category
+
   defp sex_display(sex) do
     case Player.sex_label(sex) do
       "" -> "—"
@@ -391,6 +397,8 @@ defmodule PairingsEngineWeb.StandingsLive do
                 {code}
               </th>
 
+              <th :if={@tournament.categories != []}>Category</th>
+
               <th :if={@tournament.manual_ranking}>Reorder</th>
             </tr>
           </thead>
@@ -428,6 +436,8 @@ defmodule PairingsEngineWeb.StandingsLive do
               <td :for={code <- visible_tiebreak_codes(@tournament.tiebreaks, @visible)} class="num">
                 {format_tb(Map.get(entry.tiebreaks, code, 0.0))}
               </td>
+
+              <td :if={@tournament.categories != []}>{category_or_dash(entry.player.category)}</td>
 
               <td :if={@tournament.manual_ranking}>
                 <button
@@ -479,6 +489,8 @@ defmodule PairingsEngineWeb.StandingsLive do
               <th class="num">Keizer pts</th>
 
               <th class="num">Score</th>
+
+              <th :if={@tournament.categories != []}>Category</th>
             </tr>
           </thead>
 
@@ -503,6 +515,8 @@ defmodule PairingsEngineWeb.StandingsLive do
               <td class="num"><strong>{entry.points}</strong></td>
 
               <td class="num">{entry.raw_points}</td>
+
+              <td :if={@tournament.categories != []}>{category_or_dash(entry.player.category)}</td>
             </tr>
           </tbody>
         </table>
