@@ -3,7 +3,15 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   import PairingsEngineWeb.SettingsSupport, only: [setup_field_path: 2]
 
-  alias PairingsEngine.{Audit, PairingDisplay, PairingRationale, ResultsImport, Tournaments}
+  alias PairingsEngine.{
+    Audit,
+    PairingDisplay,
+    PairingRationale,
+    ResultsImport,
+    RoundRobin,
+    Tournaments
+  }
+
   alias PairingsEngine.Pairing, as: Engine
   alias PairingsEngine.Tournaments.Tournament
 
@@ -797,10 +805,52 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp blank_dash(name), do: name
 
   defp do_pair(socket) do
-    case Engine.pair_next_round(socket.assigns.tournament) do
-      {:ok, round} ->
-        log_round_paired(socket, round.number)
-        {:noreply, socket |> assign(round_number: round.number, error: nil) |> refresh()}
+    if socket.assigns.tournament.pairing_system == "round_robin" do
+      do_pair_all_rounds(socket)
+    else
+      case Engine.pair_next_round(socket.assigns.tournament) do
+        {:ok, round} ->
+          log_round_paired(socket, round.number)
+          {:noreply, socket |> assign(round_number: round.number, error: nil) |> refresh()}
+
+        {:error, %Ecto.Changeset{}} ->
+          {:noreply, assign(socket, error: "Could not save the round")}
+
+        {:error, reason} ->
+          {:noreply, assign(socket, error: to_string(reason))}
+      end
+    end
+  end
+
+  # Round-robin pairs its whole Berger schedule in one click instead of one
+  # round at a time (see RoundRobin.pair_all_rounds/1's doc — there's
+  # nothing to wait on between rounds the way Swiss waits on results) —
+  # every round it generates still gets its own "pairing.round_paired"
+  # audit entry, same depth of trail one-round-at-a-time pairing would
+  # have produced.
+  defp do_pair_all_rounds(socket) do
+    tournament = socket.assigns.tournament
+    already_paired = Engine.paired_rounds_count(tournament.id)
+
+    case RoundRobin.pair_all_rounds(tournament) do
+      {:ok, last_round_number} ->
+        for round_number <- (already_paired + 1)..last_round_number do
+          log_round_paired(socket, round_number)
+        end
+
+        # RoundRobin.pair_all_rounds/1 may have corrected rounds_count
+        # (see ensure_correct_rounds_count/2) — reload straight away so
+        # the round picker reflects the real schedule length on this same
+        # render, instead of waiting on the settings-change broadcast this
+        # LiveView is subscribed to anyway (handle_info below) to catch up
+        # a moment later.
+        fresh_tournament =
+          Tournaments.get_authorized_tournament!(socket.assigns.current_scope, tournament.id)
+
+        {:noreply,
+         socket
+         |> assign(tournament: fresh_tournament, round_number: 1, error: nil)
+         |> refresh()}
 
       {:error, %Ecto.Changeset{}} ->
         {:noreply, assign(socket, error: "Could not save the round")}
@@ -1223,6 +1273,12 @@ defmodule PairingsEngineWeb.PairingsLive do
             class="pe-btn primary"
             phx-click="pair"
             disabled={!@can_pair}
+            data-confirm={
+              @tournament.pairing_system == "round_robin" &&
+                "This generates the whole round-robin schedule at once (every round, not just " <>
+                  "this one) and locks in who's playing — anyone added afterward won't be in " <>
+                  "it, and the schedule can't be changed once it exists. Continue?"
+            }
             title={
               cond do
                 !@setup_complete ->
@@ -1237,7 +1293,9 @@ defmodule PairingsEngineWeb.PairingsLive do
               end
             }
           >
-            Pair round {@round_number} ({pairing_engine_label(@tournament)})
+            {if @tournament.pairing_system == "round_robin",
+              do: "Pair the whole tournament (Berger)",
+              else: "Pair round #{@round_number} (#{pairing_engine_label(@tournament)})"}
           </button>
 
           <div
@@ -1500,12 +1558,16 @@ defmodule PairingsEngineWeb.PairingsLive do
                   <p><strong>This round has not been paired yet.</strong></p>
 
                   <p class="hint">
-                    <%= if @round_number == @next_pairable do %>
-                      Press "Pair round {@round_number}" to generate the {pairing_engine_description(
-                        @tournament
-                      )}.
-                    <% else %>
-                      Rounds are paired in order - round {@next_pairable} is next.
+                    <%= cond do %>
+                      <% @tournament.pairing_system == "round_robin" -> %>
+                        Press "Pair the whole tournament" to generate every round of the Berger
+                        schedule at once — round-robin doesn't pair one round at a time.
+                      <% @round_number == @next_pairable -> %>
+                        Press "Pair round {@round_number}" to generate the {pairing_engine_description(
+                          @tournament
+                        )}.
+                      <% true -> %>
+                        Rounds are paired in order - round {@next_pairable} is next.
                     <% end %>
                   </p>
                 </div>

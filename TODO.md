@@ -48,11 +48,20 @@ These are real, identified gaps — not yet built, and not accidentally missed:
   are outside the Settings nav, so the inconsistency is intentional, not
   unfinished. Worth a second look only if Settings' layout system is ever
   extended app-wide on purpose.
-- **Round robin's `total_rounds/2` vs. a user-set `rounds_count`** — pairing
-  now clamps to whichever is lower (an explicit product decision), but the
-  two numbers can still legitimately disagree in the UI if an arbiter sets
-  `rounds_count` below what the Berger schedule needs. Not a bug, just worth
-  remembering when reading round-count logic.
+- ~~Round robin's `total_rounds/2` vs. a user-set `rounds_count`~~ —
+  **shipped**: this used to disagree in the UI (an arbiter could set
+  `rounds_count` to anything, mismatching what the Berger schedule for
+  their actual roster needs — real complaint: "I get too many rounds").
+  `RoundRobin.pair_next_round/1` now corrects `rounds_count` to the real
+  schedule total the moment players are frozen, every call — round-robin's
+  length was never a free-standing choice the way it is for Swiss, it's a
+  pure function of player count + cycles/match-format. Round-robin also
+  now pairs its whole schedule in one action (`RoundRobin.pair_all_rounds/1`,
+  confirm-gated on the Pairings page's "Pair the whole tournament" button)
+  instead of one round at a time, since a round-robin round's pairings
+  never depend on prior results — closing the "I don't see all rounds in
+  advance" complaint too, since the whole schedule now exists right after
+  that one click.
 
 ## FIDE endorsement readiness
 

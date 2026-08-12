@@ -432,13 +432,15 @@ defmodule PairingsEngine.RoundRobinTest do
       end
 
       assert Pairing.pair_next_round(tournament) ==
-               {:error, "All rounds have been paired (round-robin schedule complete)"}
+               {:error, "All 6 rounds have already been paired"}
     end
 
-    test "rounds_count set lower than the Berger schedule needs clamps pairing and ends the event early" do
-      # 6 players, single cycle -> total_rounds(6, 1) == 5, but the arbiter
-      # declared rounds_count: 3, so the event must end after round 3
-      # rather than pairing the schedule's remaining rounds 4 and 5.
+    test "rounds_count set lower than the Berger schedule needs is corrected up, not respected as a clamp" do
+      # 6 players, single cycle -> total_rounds(6, 1) == 5. rounds_count
+      # isn't a free-standing choice for round-robin the way it is for
+      # Swiss (see RoundRobin.pair_next_round/1's doc) — the declared 3
+      # gets corrected to the real total the moment players are frozen, so
+      # the event plays out all 5 rounds rather than ending early at 3.
       tournament = round_robin_tournament(rr_cycles: 1, rounds_count: 3)
 
       insert_player(tournament, "Alice", fide_rating: 2000)
@@ -448,15 +450,16 @@ defmodule PairingsEngine.RoundRobinTest do
       insert_player(tournament, "Eve", fide_rating: 1600)
       insert_player(tournament, "Frank", fide_rating: 1500)
 
-      for expected_round <- 1..3 do
+      for expected_round <- 1..5 do
         assert {:ok, round} = Pairing.pair_next_round(tournament)
         assert round.number == expected_round
       end
 
       assert Pairing.pair_next_round(tournament) ==
-               {:error, "All 3 rounds have already been paired"}
+               {:error, "All 5 rounds have already been paired"}
 
-      assert Tournaments.list_rounds(tournament.id) |> length() == 3
+      assert Repo.reload!(tournament).rounds_count == 5
+      assert Tournaments.list_rounds(tournament.id) |> length() == 5
     end
 
     test "not enough schedulable players returns the same error the Swiss path uses" do

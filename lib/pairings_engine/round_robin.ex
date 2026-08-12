@@ -80,15 +80,24 @@ defmodule PairingsEngine.RoundRobin do
   Unlike Swiss, a round-robin round's pairings never depend on prior
   results (the whole schedule is fixed at freeze time — see moduledoc), so
   there's no need to gate pairing round N+1 on round N being fully scored
-  the way the Swiss/JaVaFo path does. It is still clamped to the
-  tournament's declared `rounds_count`, though: if that's set lower than
-  the schedule needs, the event simply ends early rather than pairing past
-  its declared end.
+  the way the Swiss/JaVaFo path does — see `pair_all_rounds/1` below,
+  which is exactly this fact turned into a feature (generate the whole
+  event in one action, since there's nothing to wait on between rounds).
+
+  `tournament.rounds_count` isn't a free choice the way it is for Swiss —
+  a round-robin's real length is entirely determined by the frozen player
+  count plus cycles/match-format, the moment freezing happens (see
+  `ensure_frozen/1`). This corrects `rounds_count` to that real total on
+  every call (a no-op once it already matches, which is every call after
+  the first), so an arbiter who left the tournament-creation form's
+  generic default in place doesn't end up with a round picker showing
+  more rounds than a Berger table for their actual roster will ever have.
   """
   @spec pair_next_round(Tournament.t()) :: {:ok, Round.t()} | {:error, term()}
   def pair_next_round(%Tournament{} = tournament) do
     ensure_frozen(tournament.id)
     frozen = frozen_players(tournament.id)
+    tournament = ensure_correct_rounds_count(tournament, length(frozen))
     paired = PairingsEngine.Pairing.paired_rounds_count(tournament.id)
     next_number = paired + 1
 
@@ -101,6 +110,35 @@ defmodule PairingsEngine.RoundRobin do
 
       true ->
         do_pair(tournament, frozen, next_number)
+    end
+  end
+
+  @doc """
+  Pairs every remaining round of the Berger schedule in one call — the
+  whole point of round-robin pairing never depending on prior results
+  (see moduledoc and `pair_next_round/1`'s doc): there's no reason to make
+  an arbiter click "pair" once per round when the entire schedule is
+  already fully determined the moment player freezing happens.
+
+  Returns `{:ok, last_round_number}` once the schedule is fully paired
+  (idempotent — calling this again once everything is already paired
+  returns the same `{:ok, last_round_number}`, not an error), or
+  `{:error, reason}` from whichever round first failed to pair (nothing
+  after that point gets attempted; every round up to it is still paired —
+  each round's own insertion is already a self-contained transaction, see
+  `create_round/4`).
+  """
+  @spec pair_all_rounds(Tournament.t()) :: {:ok, pos_integer()} | {:error, term()}
+  def pair_all_rounds(%Tournament{} = tournament) do
+    case pair_next_round(tournament) do
+      {:ok, _round} ->
+        pair_all_rounds(tournament)
+
+      {:error, "All " <> _} ->
+        {:ok, PairingsEngine.Pairing.paired_rounds_count(tournament.id)}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -260,6 +298,29 @@ defmodule PairingsEngine.RoundRobin do
 
     :ok
   end
+
+  # See `pair_next_round/1`'s doc — round-robin's real round count is a
+  # pure function of the frozen player count plus cycles/match-format,
+  # never a free-standing arbiter choice the way it is for Swiss. Fewer
+  # than 2 frozen players is a no-op (pair_next_round/1's own guard
+  # already refuses to pair in that case; nothing useful to correct to).
+  defp ensure_correct_rounds_count(tournament, frozen_count) when frozen_count >= 2 do
+    correct =
+      if tournament.rr_match_format do
+        match_total_rounds(frozen_count)
+      else
+        total_rounds(frozen_count, tournament.rr_cycles)
+      end
+
+    if tournament.rounds_count == correct do
+      tournament
+    else
+      {:ok, updated} = Tournaments.update_tournament(tournament, %{rounds_count: correct})
+      updated
+    end
+  end
+
+  defp ensure_correct_rounds_count(tournament, _frozen_count), do: tournament
 
   # The frozen schedule set: every player who has a pairing_number,
   # regardless of their *current* status/absent/forfeit flags. A

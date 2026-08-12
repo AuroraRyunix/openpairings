@@ -513,6 +513,86 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     assert Tournaments.get_round(tournament.id, 1)
   end
 
+  describe "round-robin pairs its whole schedule in one action" do
+    defp round_robin_setup_tournament(scope, attrs \\ %{}) do
+      {:ok, tournament} =
+        Tournaments.create_tournament(
+          scope,
+          Map.merge(
+            %{
+              "name" => "RR Whole Schedule",
+              "type" => "roundrobin",
+              "pairing_system" => "round_robin",
+              "start_date" => "2026-07-15",
+              # Deliberately wrong on purpose — round-robin corrects this to
+              # the real Berger total, it isn't a free choice the way it is
+              # for Swiss. This is the exact "I get too many rounds" case.
+              "rounds_count" => "9",
+              "round_dates" => List.duplicate("2026-07-15", 9),
+              "chief_arbiter" => "Jane Arbiter",
+              "federation" => "BEL",
+              "rate_of_play" => "90 min + 30 sec/move"
+            },
+            attrs
+          )
+        )
+
+      for name <- ["Alice", "Bob", "Carol", "Dave"] do
+        Repo.insert!(%Player{tournament_id: tournament.id, name: name})
+      end
+
+      tournament
+    end
+
+    test "the button reads 'Pair the whole tournament' and asks for confirmation", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = round_robin_setup_tournament(scope)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      assert html =~ "Pair the whole tournament"
+      assert html =~ "generates the whole round-robin schedule at once"
+      refute html =~ "Pair round 1"
+    end
+
+    test "one click generates every round, and corrects a mismatched rounds_count", %{
+      conn: conn,
+      scope: scope
+    } do
+      # 4 players, single cycle -> RoundRobin.total_rounds(4, 1) == 3, not
+      # the bogus 9 the tournament was created with.
+      tournament = round_robin_setup_tournament(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      render_click(lv, "pair", %{})
+      render(lv)
+
+      assert Tournaments.get_round(tournament.id, 1)
+      assert Tournaments.get_round(tournament.id, 2)
+      assert Tournaments.get_round(tournament.id, 3)
+      refute Tournaments.get_round(tournament.id, 4)
+
+      assert Repo.reload!(tournament).rounds_count == 3
+      assert Tournaments.list_rounds(tournament.id) |> length() == 3
+    end
+
+    test "every generated round gets its own audit entry", %{conn: conn, scope: scope} do
+      tournament = round_robin_setup_tournament(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      render_click(lv, "pair", %{})
+      render(lv)
+
+      entries = Audit.list_for_tournament(tournament.id)
+      round_paired_entries = Enum.filter(entries, &(&1.action == "pairing.round_paired"))
+      assert length(round_paired_entries) == 3
+    end
+  end
+
   defp complete_setup_tournament(scope) do
     {:ok, tournament} =
       Tournaments.create_tournament(scope, %{

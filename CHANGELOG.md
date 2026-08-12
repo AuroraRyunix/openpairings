@@ -3,6 +3,30 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.0] — 2026-08-12
+
+### Changed
+
+- **Round-robin tournaments now pair their whole Berger schedule in one
+  action instead of one round at a time.** A round-robin round's pairings
+  never depend on prior results — the whole schedule is fixed the moment
+  the player list is frozen — so there was never a reason to require a
+  click per round the way Swiss does. "Pair round 1" is now "Pair the
+  whole tournament," confirm-gated (it locks in who's playing; anyone
+  added afterward isn't in the schedule, and it can't be changed once it
+  exists). This also closes "I don't see all rounds in advance" — the
+  whole schedule exists and is browsable right after that one click.
+- **Round-robin's declared round count now always matches what the Berger
+  schedule for the actual roster needs.** It used to be a free-typed
+  number on the tournament-creation form (defaulting to a generic "9",
+  the same default Swiss uses) with nothing tying it to the real math —
+  "I get too many rounds" was a direct symptom of that mismatch, showing
+  round tabs the schedule would never actually reach. `rounds_count` is
+  now corrected to the real total (a pure function of player count plus
+  cycles/match-format) the moment the round-robin pairing pass first
+  freezes the player list, not a value the arbiter needs to compute by
+  hand.
+
 ## [0.13.1] — 2026-08-12
 
 ### Fixed
