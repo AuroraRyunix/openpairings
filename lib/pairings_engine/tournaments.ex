@@ -392,6 +392,35 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
+  Lets a collaborator remove *themselves* from a shared tournament — the
+  self-service counterpart to `remove_collaborator/3`, which is owner-only
+  (an owner can't "leave" their own tournament; they delete it instead).
+
+  Returns `{:error, :owner}` if `scope.user` owns `tournament`, or
+  `{:error, :not_found}` if they have no (accepted or pending) collaborator
+  row on it at all.
+  """
+  def leave_tournament(%Scope{} = scope, %Tournament{} = tournament) do
+    cond do
+      tournament.user_id == scope.user.id ->
+        {:error, :owner}
+
+      true ->
+        case Repo.get_by(Collaborator, tournament_id: tournament.id, user_id: scope.user.id) do
+          nil ->
+            {:error, :not_found}
+
+          collaborator ->
+            Repo.delete(collaborator)
+            |> tap_ok(fn _deleted ->
+              broadcast_tournament_change(tournament.id, :collaborators)
+              broadcast_user_tournaments(scope.user.id)
+            end)
+        end
+    end
+  end
+
+  @doc """
   Lists the scope's user's pending invitations — collaborator rows with
   `status: "pending"` matched by `user_id` (already linked, see
   `link_pending_collaborators/1`) or by `email` (not yet linked). Returns

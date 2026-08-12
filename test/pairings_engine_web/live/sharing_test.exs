@@ -255,6 +255,118 @@ defmodule PairingsEngineWeb.SharingTest do
 
       assert html =~ "shared"
       refute html =~ ~s(phx-click="delete_start" phx-value-id="#{tournament.id}")
+      # A collaborator can't delete it, but they should be able to leave it —
+      # the reverse used to just be missing entirely.
+      assert html =~ ~s(phx-click="leave_tournament" phx-value-id="#{tournament.id}")
+    end
+
+    test "the owner sees Delete, not Leave, for their own tournament", %{
+      conn: conn,
+      scope: scope
+    } do
+      %{tournament: tournament} = fixture(scope)
+
+      {:ok, _lv, html} = live(conn, ~p"/")
+
+      assert html =~ ~s(phx-click="delete_start" phx-value-id="#{tournament.id}")
+      refute html =~ ~s(phx-click="leave_tournament" phx-value-id="#{tournament.id}")
+    end
+  end
+
+  describe "leaving a shared tournament" do
+    test "a collaborator can leave, losing access immediately", %{scope: scope} do
+      %{tournament: tournament} = fixture(scope)
+      %{conn: collaborator_conn, user: other_user} = collaborator_conn(tournament, scope)
+      other_scope = Accounts.Scope.for_user(other_user)
+
+      {:ok, lv, _html} = live(collaborator_conn, ~p"/")
+
+      lv
+      |> element(~s(button[phx-click="leave_tournament"][phx-value-id="#{tournament.id}"]))
+      |> render_click()
+
+      assert Tournaments.get_authorized_tournament(other_scope, tournament.id) == nil
+    end
+
+    test "the owner can't leave their own tournament (leave_tournament/2 returns :owner)", %{
+      scope: scope
+    } do
+      %{tournament: tournament} = fixture(scope)
+
+      assert Tournaments.leave_tournament(scope, tournament) == {:error, :owner}
+    end
+
+    test "a non-collaborator stranger gets :not_found from leave_tournament/2", %{scope: scope} do
+      %{tournament: tournament} = fixture(scope)
+      stranger_scope = Accounts.Scope.for_user(lightweight_user())
+
+      assert Tournaments.leave_tournament(stranger_scope, tournament) == {:error, :not_found}
+    end
+  end
+
+  describe "duplicating a tournament" do
+    test "creates a new tournament named \"Copy of ...\", owned by whoever clicked it", %{
+      conn: conn,
+      scope: scope
+    } do
+      %{tournament: tournament} = fixture(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/")
+
+      html =
+        lv
+        |> element(~s(button[phx-click="duplicate"][phx-value-id="#{tournament.id}"]))
+        |> render_click()
+
+      assert html =~ "Copy of Shared Tournament"
+
+      [copy] =
+        Tournaments.list_tournaments(scope)
+        |> Enum.map(fn {t, _count, _owned?} -> t end)
+        |> Enum.filter(&(&1.name == "Copy of Shared Tournament"))
+
+      assert copy.id != tournament.id
+      assert copy.user_id == scope.user.id
+      assert copy.rounds_count == tournament.rounds_count
+    end
+
+    test "a collaborator can duplicate a shared tournament too, and owns the copy", %{
+      scope: scope
+    } do
+      %{tournament: tournament} = fixture(scope)
+      %{conn: collaborator_conn, user: other_user} = collaborator_conn(tournament, scope)
+      other_scope = Accounts.Scope.for_user(other_user)
+
+      {:ok, lv, _html} = live(collaborator_conn, ~p"/")
+
+      lv
+      |> element(~s(button[phx-click="duplicate"][phx-value-id="#{tournament.id}"]))
+      |> render_click()
+
+      [copy] =
+        Tournaments.list_tournaments(other_scope)
+        |> Enum.map(fn {t, _count, _owned?} -> t end)
+        |> Enum.filter(&(&1.name == "Copy of Shared Tournament"))
+
+      assert copy.user_id == other_user.id
+    end
+
+    test "the copy doesn't carry the original's collaborators", %{conn: conn, scope: scope} do
+      %{tournament: tournament} = fixture(scope)
+      %{conn: _collaborator_conn} = collaborator_conn(tournament, scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/")
+
+      lv
+      |> element(~s(button[phx-click="duplicate"][phx-value-id="#{tournament.id}"]))
+      |> render_click()
+
+      [copy] =
+        Tournaments.list_tournaments(scope)
+        |> Enum.map(fn {t, _count, _owned?} -> t end)
+        |> Enum.filter(&(&1.name == "Copy of Shared Tournament"))
+
+      assert Tournaments.list_collaborators(copy) == []
     end
   end
 

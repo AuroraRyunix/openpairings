@@ -1,7 +1,16 @@
 defmodule PairingsEngineWeb.TournamentsLive do
   use PairingsEngineWeb, :live_view
 
-  alias PairingsEngine.{Audit, Tournaments, SwarImport, TournamentImport, TrfImport, RateOfPlay}
+  alias PairingsEngine.{
+    Audit,
+    Tournaments,
+    SwarImport,
+    TournamentExport,
+    TournamentImport,
+    TrfImport,
+    RateOfPlay
+  }
+
   alias PairingsEngine.Tools.Parser
   alias PairingsEngine.Tournaments.Tournament
 
@@ -382,6 +391,86 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
       _ ->
         {:noreply, socket}
+    end
+  end
+
+  ## ---------- Duplicate tournament ("Copy of ...") ----------
+
+  # Reuses the same export -> import round trip Settings > Export/backup and
+  # "re-upload a .json backup" already go through (PairingsEngine.
+  # TournamentExport / TournamentImport) rather than a bespoke struct copy —
+  # it already does the hard part correctly (fresh ids throughout, every
+  # internal foreign key remapped inside one transaction) and is exactly
+  # what a user could already do by hand today (export, then re-import),
+  # just automated. Available to the owner and any collaborator alike, same
+  # as the existing "Export" link right next to it — the copy is owned by
+  # whoever clicks it, with no collaborators carried over (the export
+  # envelope never includes them).
+  def handle_event("duplicate", %{"id" => id}, socket) do
+    case Tournaments.get_authorized_tournament(socket.assigns.current_scope, id) do
+      nil ->
+        {:noreply, put_flash(socket, :error, "Tournament not found.")}
+
+      tournament ->
+        envelope =
+          tournament
+          |> TournamentExport.export_tournament()
+          |> put_in(
+            ["tournaments", Access.at(0), "tournament", "name"],
+            "Copy of #{tournament.name}"
+          )
+
+        case TournamentImport.import(envelope, socket.assigns.current_scope) do
+          {:ok, [new_tournament]} ->
+            Audit.log(new_tournament.id, socket.assigns.current_scope, "tournament.duplicated", %{
+              from_tournament_id: tournament.id,
+              from_name: tournament.name
+            })
+
+            {:noreply,
+             socket
+             |> put_flash(:info, "Duplicated as \"#{new_tournament.name}\".")
+             |> assign_tournaments()}
+
+          {:error, reason} ->
+            {:noreply, put_flash(socket, :error, "Could not duplicate: #{reason}")}
+        end
+    end
+  end
+
+  ## ---------- Leave a shared tournament (collaborator self-service) ----------
+
+  # The owner-only counterpart is delete_confirmed above; a collaborator has
+  # never been able to remove themselves at all (Tournaments.
+  # remove_collaborator/3 is explicitly owner-only) — "I can't delete a
+  # shared tournament makes sense, but I also can't leave" was a real gap,
+  # not intentional. No confirm-DELETE-to-type modal like the owner's
+  # delete — leaving isn't destructive to the tournament itself, and the
+  # owner can always re-invite.
+  def handle_event("leave_tournament", %{"id" => id}, socket) do
+    case Tournaments.get_authorized_tournament(socket.assigns.current_scope, id) do
+      nil ->
+        {:noreply, put_flash(socket, :error, "Tournament not found.")}
+
+      tournament ->
+        case Tournaments.leave_tournament(socket.assigns.current_scope, tournament) do
+          {:ok, _collaborator} ->
+            Audit.log(tournament.id, socket.assigns.current_scope, "tournament.left", %{
+              name: tournament.name
+            })
+
+            {:noreply,
+             socket
+             |> put_flash(:info, "Left \"#{tournament.name}\".")
+             |> assign_tournaments()}
+
+          {:error, :owner} ->
+            {:noreply,
+             put_flash(socket, :error, "You own this tournament — delete it instead of leaving.")}
+
+          {:error, :not_found} ->
+            {:noreply, put_flash(socket, :error, "You're not a collaborator on this tournament.")}
+        end
     end
   end
 
@@ -1119,6 +1208,9 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
               <td style="text-align: right">
                 <a class="pe-btn" href={~p"/t/#{t.id}/export/json"} target="_blank">Export</a>
+                <button class="pe-btn" phx-click="duplicate" phx-value-id={t.id}>
+                  Copy
+                </button>
                 <button
                   :if={owned?}
                   class="pe-btn danger-link"
@@ -1126,6 +1218,15 @@ defmodule PairingsEngineWeb.TournamentsLive do
                   phx-value-id={t.id}
                 >
                   Delete
+                </button>
+                <button
+                  :if={!owned?}
+                  class="pe-btn danger-link"
+                  phx-click="leave_tournament"
+                  phx-value-id={t.id}
+                  data-confirm={"Leave \"#{t.name}\"? You'll lose access to it unless the owner invites you again."}
+                >
+                  Leave
                 </button>
               </td>
             </tr>
