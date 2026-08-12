@@ -38,18 +38,6 @@ defmodule PairingsEngineWeb.PairingsLive do
       Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
     end
 
-    # Clears the "another arbiter" notice (see `handle_info` below) the
-    # moment the user interacts with the page again — a self-clearing timer
-    # alone would leave it sitting through an in-progress click, and there's
-    # no harm clearing it eagerly since every mutating event already
-    # refreshes the round data itself.
-    socket =
-      attach_hook(socket, :remote_notice_clear_on_click, :handle_event, fn _event,
-                                                                           _params,
-                                                                           socket ->
-        {:cont, assign(socket, remote_notice: false)}
-      end)
-
     {:ok,
      socket
      |> assign(
@@ -59,7 +47,6 @@ defmodule PairingsEngineWeb.PairingsLive do
        error: nil,
        importing_results: false,
        import_errors: nil,
-       remote_notice: false,
        # The pairing (if any) awaiting explicit confirmation to have its
        # result CLEARED — see `handle_event("result", ...)`'s guard below.
        confirm_clear_pairing_id: nil,
@@ -85,15 +72,13 @@ defmodule PairingsEngineWeb.PairingsLive do
   #
   # This LiveView is subscribed to its own tournament's topic, so every
   # mutation it causes itself (pair/unpair/result/import) broadcasts right
-  # back to this same process — but by the time that echo arrives, the
+  # back to this same process too — by the time that echo arrives, the
   # triggering `handle_event` has already called `refresh/1` synchronously,
-  # so `@round` already reflects the new state. Comparing the *freshly
-  # reloaded* round against what's already assigned tells the two cases
-  # apart without any separate "was this my own action" bookkeeping: if
-  # nothing changed, it was our own echo (or an unrelated broadcast, e.g. a
-  # Settings-page edit that doesn't touch this round); if it differs, some
-  # other process actually changed what's on screen, and only then is the
-  # "updated by another arbiter" notice worth showing.
+  # so this just re-does the same (cheap) reload a second time. A visible
+  # "updated by another arbiter" notice used to fire here too; removed —
+  # it sat as a toast that kept surprising people mid-click regardless of
+  # how it was positioned, and the round data refreshing live underneath
+  # it is the part that actually matters.
   @impl true
   def handle_info({:tournament_changed, _tournament_id, _hint}, socket) do
     case Tournaments.get_authorized_tournament(
@@ -107,23 +92,8 @@ defmodule PairingsEngineWeb.PairingsLive do
          |> push_navigate(to: ~p"/")}
 
       tournament ->
-        old_round = socket.assigns.round
-        socket = socket |> assign(tournament: tournament) |> refresh()
-
-        socket =
-          if socket.assigns.round != old_round do
-            Process.send_after(self(), :clear_remote_notice, 4000)
-            assign(socket, remote_notice: true)
-          else
-            socket
-          end
-
-        {:noreply, socket}
+        {:noreply, socket |> assign(tournament: tournament) |> refresh()}
     end
-  end
-
-  def handle_info(:clear_remote_notice, socket) do
-    {:noreply, assign(socket, remote_notice: false)}
   end
 
   defp refresh(socket) do
@@ -161,10 +131,6 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   @impl true
-  def handle_event("dismiss_remote_notice", _params, socket) do
-    {:noreply, assign(socket, remote_notice: false)}
-  end
-
   def handle_event("select_round", %{"number" => number}, socket) do
     {:noreply, socket |> assign(round_number: String.to_integer(number), error: nil) |> refresh()}
   end
@@ -1262,18 +1228,6 @@ defmodule PairingsEngineWeb.PairingsLive do
           phx-value-number={n}
         >
           {round_label(n, @tournament)}
-        </button>
-      </div>
-
-      <div :if={@remote_notice} class="card remote-update-toast">
-        <span>Round {@round_number} was just updated by another arbiter - refreshed.</span>
-        <button
-          type="button"
-          class="pe-btn"
-          style="padding: 2px 8px"
-          phx-click="dismiss_remote_notice"
-        >
-          Dismiss
         </button>
       </div>
 

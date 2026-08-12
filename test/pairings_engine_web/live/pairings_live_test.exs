@@ -633,16 +633,22 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     tournament
   end
 
-  ## ---------- concurrent-arbiter "updated by another arbiter" notice ----------
+  ## ---------- concurrent-arbiter live refresh ----------
+  #
+  # A visible "Round N was just updated by another arbiter" notice used
+  # to fire on a remote broadcast — removed by explicit request: however
+  # it was positioned, a toast popping up mid-click kept surprising
+  # people. The round data itself still refreshes live underneath;
+  # that's the part that actually matters, and it keeps working with no
+  # popup attached to it.
 
-  test "a broadcast that actually changes the viewed round shows the remote-arbiter notice", %{
+  test "a broadcast that changes the viewed round refreshes it live, with no popup", %{
     conn: conn,
     scope: scope
   } do
     tournament = fixture(scope)
     {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 
-    # Round 2 is selected by default; nothing shown yet.
     refute html =~ "updated by another arbiter"
 
     # Simulate another arbiter/tab changing round 2's result directly in the
@@ -655,93 +661,12 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     Tournaments.broadcast_tournament_change(tournament.id, :results)
 
     html = render(lv)
-    assert html =~ "Round 2 was just updated by another arbiter"
-    assert html =~ "Dismiss"
-  end
-
-  # Regression: the notice used to sit inline (plain margin, no
-  # position), so it pushed the whole board list down for everyone else
-  # on the page the instant it appeared — visibly shifting boards under
-  # another arbiter's pointer/focus mid-action. It's now a fixed-position
-  # toast (`.remote-update-toast`) that overlays instead of pushing
-  # layout, and each board row carries a stable `id` so a remote update
-  # patches rows in place instead of risking a DOM-node swap that could
-  # drop focus from whatever result `<select>` someone else has open.
-  test "the remote-arbiter notice is a fixed-position toast, not an in-flow banner, and board rows have stable ids",
-       %{conn: conn, scope: scope} do
-    tournament = fixture(scope)
-    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
-
-    round2 = Tournaments.get_round(tournament.id, 2) |> Repo.preload(:pairings)
-    pairing = hd(round2.pairings)
-    Repo.update!(Ecto.Changeset.change(pairing, result: "0-1"))
-    Tournaments.broadcast_tournament_change(tournament.id, :results)
-
-    html = render(lv)
-    assert html =~ ~s(class="card remote-update-toast")
+    refute html =~ "updated by another arbiter"
+    # Each board row carries a stable id keyed by pairing — a remote
+    # update patches rows in place rather than by position, so a
+    # currently-focused result `<select>` elsewhere on the row list can't
+    # get swapped out from under whoever's using it.
     assert html =~ ~s(id="pairing-row-#{pairing.id}")
-  end
-
-  test "a broadcast echoing this LiveView's own action does not show the notice", %{
-    conn: conn,
-    scope: scope
-  } do
-    tournament = import_fixture(scope)
-    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
-
-    round = Tournaments.get_round(tournament.id, 1) |> Repo.preload(:pairings)
-    pairing = hd(round.pairings)
-
-    # Entering a result ourselves updates the DB, refreshes `@round`
-    # synchronously inside the same `handle_event`, and also broadcasts
-    # `:results` right back to this same subscribed process — that self-echo
-    # must not trigger the "another arbiter" notice.
-    html =
-      render_click(lv, "result", %{"pairing-id" => to_string(pairing.id), "result" => "1-0"})
-
-    refute html =~ "updated by another arbiter"
-
-    # Drain the self-broadcast before asserting again.
-    html = render(lv)
-    refute html =~ "updated by another arbiter"
-  end
-
-  test "the remote-arbiter notice is dismissible and clears on the next click", %{
-    conn: conn,
-    scope: scope
-  } do
-    tournament = fixture(scope)
-    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
-
-    round2 = Tournaments.get_round(tournament.id, 2) |> Repo.preload(:pairings)
-    pairing = hd(round2.pairings)
-    Repo.update!(Ecto.Changeset.change(pairing, result: "0-1"))
-    Tournaments.broadcast_tournament_change(tournament.id, :results)
-
-    html = render(lv)
-    assert html =~ "updated by another arbiter"
-
-    html = lv |> element("button", "Dismiss") |> render_click()
-    refute html =~ "updated by another arbiter"
-  end
-
-  test "the remote-arbiter notice also clears on any other click (e.g. switching rounds)", %{
-    conn: conn,
-    scope: scope
-  } do
-    tournament = fixture(scope)
-    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
-
-    round2 = Tournaments.get_round(tournament.id, 2) |> Repo.preload(:pairings)
-    pairing = hd(round2.pairings)
-    Repo.update!(Ecto.Changeset.change(pairing, result: "0-1"))
-    Tournaments.broadcast_tournament_change(tournament.id, :results)
-
-    html = render(lv)
-    assert html =~ "updated by another arbiter"
-
-    html = lv |> element("button[phx-value-number='1']") |> render_click()
-    refute html =~ "updated by another arbiter"
   end
 
   ## ---------- match-format round labels ----------

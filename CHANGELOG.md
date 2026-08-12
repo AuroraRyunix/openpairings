@@ -3,6 +3,18 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.12] — 2026-08-12
+
+### Removed
+
+- **The "Round N was just updated by another arbiter" notice, entirely**
+  — repositioning it as a fixed toast (0.14.11) didn't fix the
+  underlying complaint: it still popped up and grabbed attention
+  mid-click regardless of where on screen it sat. The round data itself
+  keeps refreshing live via the existing broadcast the moment anyone
+  enters a result elsewhere — that always worked and still does; only
+  the popup announcing it is gone.
+
 ## [0.14.11] — 2026-08-12
 
 ### Fixed
