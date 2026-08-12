@@ -1090,6 +1090,47 @@ defmodule PairingsEngineWeb.PrintControllerTest do
     end
   end
 
+  ## ---------- Header logo (task: didn't show up on any print doc but
+  ## place cards, which have their own separate, bigger logo slot) ----------
+
+  describe "print_page/5 header logo" do
+    test "with no logo set, no logo image is rendered", %{conn: conn, scope: scope} do
+      {tournament, _players} = fixture(scope)
+
+      conn = get(conn, ~p"/t/#{tournament.id}/print/pairings")
+
+      refute html_response(conn, 200) =~ "<img class=\"print-header-logo\""
+    end
+
+    test "with a logo set, it's embedded next to the title on the pairing list", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, _players} = fixture(scope)
+      {:ok, tournament} = Tournaments.set_logo(tournament, @tiny_png)
+
+      conn = get(conn, ~p"/t/#{tournament.id}/print/pairings")
+
+      html = html_response(conn, 200)
+      assert html =~ "<img class=\"print-header-logo\""
+      assert html =~ "data:image/png;base64,"
+    end
+
+    test "also shows on standings, player list, and crosstable — every print doc going through print_page/5",
+         %{conn: conn, scope: scope} do
+      {tournament, _players} = fixture(scope)
+      {:ok, tournament} = Tournaments.set_logo(tournament, @tiny_png)
+
+      for path <- [
+            ~p"/t/#{tournament.id}/print/standings",
+            ~p"/t/#{tournament.id}/print/players",
+            ~p"/t/#{tournament.id}/print/crosstable"
+          ] do
+        assert get(conn, path) |> html_response(200) =~ "<img class=\"print-header-logo\""
+      end
+    end
+  end
+
   ## ---------- "Tournament info" header block ----------
 
   # A tournament with every info-block field set (federation, dates, chief

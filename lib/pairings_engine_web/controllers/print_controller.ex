@@ -41,6 +41,9 @@ defmodule PairingsEngineWeb.PrintController do
   @print_css """
   * { box-sizing: border-box; }
   body { font-family: 'Segoe UI', system-ui, sans-serif; color: #111; margin: 24px; }
+  .print-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .print-header-title { min-width: 0; }
+  .print-header-logo { max-height: 18mm; max-width: 55mm; flex-shrink: 0; }
   h1 { font-size: 20px; margin: 0 0 2px; }
   .sub { color: #555; margin: 0 0 18px; font-size: 13px; }
   .tourney-info { color: #333; margin: 0 0 16px; font-size: 12px; border-bottom: 1px solid #ccc;
@@ -226,6 +229,20 @@ defmodule PairingsEngineWeb.PrintController do
     case Tournaments.logo_data_uri(tournament) do
       nil -> ""
       uri -> "<img class=\"place-card-logo\" src=\"#{uri}\" alt=\"\" />"
+    end
+  end
+
+  # `print_page/5`'s shared header, next to every print document's own
+  # title/subtitle — place cards render their own bigger, centered logo via
+  # `place_card_logo_html/1` above, but every other print document (pairing
+  # list, standings, player list/cards, crosstable, result cards) went
+  # through `print_page/5` and never showed the logo at all: uploading one
+  # had no visible effect anywhere outside place cards. Same tournament
+  # logo, just small and top-right so it doesn't crowd the title.
+  defp header_logo_html(tournament) do
+    case Tournaments.logo_data_uri(tournament) do
+      nil -> ""
+      uri -> "<img class=\"print-header-logo\" src=\"#{uri}\" alt=\"\" />"
     end
   end
 
@@ -1252,7 +1269,10 @@ defmodule PairingsEngineWeb.PrintController do
     html = """
     <!doctype html><html><head><meta charset="utf-8"><title>#{esc(title)}</title>
     <style>#{@print_css}</style><style>#{extra_css}</style></head><body>
-    <h1>#{esc(title)}</h1><p class="sub">#{esc(subtitle)}</p>#{body}
+    <div class="print-header">
+    <div class="print-header-title"><h1>#{esc(title)}</h1><p class="sub">#{esc(subtitle)}</p></div>
+    #{header_logo_html(tournament)}
+    </div>#{body}
     #{print_footer(tournament)}
     <script nonce="#{nonce}">window.onload = () => window.print();</script></body></html>
     """
