@@ -1040,12 +1040,19 @@ defmodule PairingsEngineWeb.PairingsLive do
         white: white,
         black: black,
         white_changed?: white != was_white,
-        black_changed?: black != was_black
+        black_changed?: black != was_black,
+        # Only the "after" card highlights a differing seat — that's the
+        # one the arbiter is being asked to approve. The "before" card
+        # marks the same seats with an unstyled class purely so the
+        # `.SwapArrows` hook can find where each traveller starts; it
+        # deliberately carries no visual weight of its own.
+        changed_class:
+          if(assigns.state == "after", do: "board-seat-changed", else: "board-seat-moving")
       )
 
     ~H"""
     <div class={["board-card", "board-card-#{@state}"]}>
-      <div class={["board-seat", @white_changed? && "board-seat-changed"]}>
+      <div class={["board-seat", @white_changed? && @changed_class]}>
         <span class="board-seat-colour" aria-label="White">W</span>
         <span class="board-seat-name">{seat_text(@white)}</span>
         <span
@@ -1056,7 +1063,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         </span>
       </div>
 
-      <div class={["board-seat", @black_changed? && "board-seat-changed"]}>
+      <div class={["board-seat", @black_changed? && @changed_class]}>
         <span class="board-seat-colour board-seat-black" aria-label="Black">B</span>
         <span class="board-seat-name">{seat_text(@black)}</span>
         <span
@@ -1576,16 +1583,21 @@ defmodule PairingsEngineWeb.PairingsLive do
           </header>
 
           <div class="pe-modal-body">
-            <div :for={c <- @confirm.changes} class="board-diff">
-              <div class="board-diff-num">Board {c.board}</div>
-              <.board_card seats={c.before} state="before" />
-              <div class="board-diff-arrow">→</div>
-              <.board_card
-                seats={c.after}
-                state="after"
-                compare={c.before}
-                related_board={c[:related_board]}
-              />
+            <div id="confirm-board-diffs" class="board-diff-group" phx-hook=".SwapArrows">
+              <div :for={c <- @confirm.changes} class="board-diff">
+                <div class="board-diff-num">Board {c.board}</div>
+                <.board_card seats={c.before} state="before" compare={c.after} />
+                <div class="board-diff-arrow">→</div>
+                <.board_card
+                  seats={c.after}
+                  state="after"
+                  compare={c.before}
+                  related_board={c[:related_board]}
+                />
+              </div>
+              <%!-- Filled in by the .SwapArrows hook; phx-update="ignore" so
+                    LiveView leaves the generated SVG alone on re-render. --%>
+              <div id="swap-arrows-layer" class="swap-arrows-layer" phx-update="ignore"></div>
             </div>
 
             <label :if={@confirm.kind == :pool_pair} class="board-number-field">
@@ -1900,6 +1912,216 @@ defmodule PairingsEngineWeb.PairingsLive do
           destroyed() {
             this.el.removeEventListener("keydown", this.onKeydown);
             this.el.removeEventListener("mousedown", this.onMousedown);
+          }
+        }
+      </script>
+
+      <script :type={Phoenix.LiveView.ColocatedHook} name=".SwapArrows">
+        // Draws one curved arrow per player who MOVES in the confirm modal:
+        // from where they sit now (a changed seat in a "before" card) to
+        // where they land (the same name, in an "after" card). For a
+        // two-board swap that's two curves crossing in the middle — the
+        // crossing is the swap. For a same-board colour swap the two curves
+        // cross inside the single row.
+        //
+        // Which seats to join is decided by NAME MATCHING, not by a flag
+        // from the server: a curve exists exactly when one name is a changed
+        // seat on both sides. That yields 2 curves for either kind of swap
+        // and ZERO for mark-absent / award-bye / fill-seat / pool-pair /
+        // substitute-from-pool, where nobody travels between two shown
+        // boards — no new server state to keep in sync, and it cannot
+        // mislabel a non-swap as one.
+        //
+        // The curves route through the middle grid column (normally just the
+        // static "→", hidden while arrows are up and widened into a real
+        // channel). Straight-line arrows would tunnel under the opaque
+        // board cards; routing through the empty channel keeps every name
+        // readable.
+        //
+        // Pure enhancement: no JS, a failed measurement or an ambiguous
+        // name match all leave the plain "→" layout and the "⇄ Board N"
+        // chips exactly as they are.
+        const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
+        const SVG_NS = "http://www.w3.org/2000/svg";
+
+        export default {
+          mounted() {
+            this.onResize = () => this.schedule();
+            window.addEventListener("resize", this.onResize);
+            this.schedule();
+          },
+
+          // LiveView re-renders this modal for reasons unrelated to the
+          // diff (the frozen-round checkbox, a remote broadcast that now
+          // keeps the confirm open) and its patch drops both the class and
+          // the generated SVG, so redraw rather than assume they survived.
+          updated() {
+            this.schedule();
+          },
+
+          destroyed() {
+            window.removeEventListener("resize", this.onResize);
+            clearTimeout(this.timer);
+          },
+
+          // Deliberately setTimeout, not requestAnimationFrame: rAF never
+          // fires while the tab isn't compositing (backgrounded, or a
+          // hidden panel), which would leave the arrows silently missing
+          // until something forced a repaint.
+          schedule() {
+            clearTimeout(this.timer);
+            this.timer = setTimeout(() => this.draw(), 0);
+          },
+
+          draw() {
+            const layer = this.el.querySelector(".swap-arrows-layer");
+            if (!layer) return;
+
+            layer.replaceChildren();
+            this.el.classList.remove("has-swap-arrows");
+
+            const pairs = this.matchTravellers();
+            if (pairs.length === 0) return;
+
+            // Widening the channel reflows the grid, so the new column
+            // widths have to land BEFORE anything is measured — reading a
+            // layout property forces that synchronously, rather than
+            // waiting on a frame that may never come.
+            this.el.classList.add("has-swap-arrows");
+            void this.el.offsetHeight;
+
+            this.render(layer, pairs);
+          },
+
+          // [beforeSeatEl, afterSeatEl] for every name that changed seats on
+          // both sides. A name appearing twice on either side is ambiguous
+          // (two players sharing a display name) — skipped rather than
+          // guessed at, since a wrong arrow is worse than none.
+          matchTravellers() {
+            const nameOf = (el) =>
+              (el.querySelector(".board-seat-name")?.textContent || "").trim();
+
+            // `board-seat-moving` is the before card's unstyled twin of
+            // `board-seat-changed` — see `board_card/1`'s `changed_class`.
+            const before = Array.from(
+              this.el.querySelectorAll(".board-card-before .board-seat-moving")
+            );
+            const after = Array.from(
+              this.el.querySelectorAll(".board-card-after .board-seat-changed")
+            );
+
+            const tally = (els) => {
+              const counts = new Map();
+              els.forEach((el) => {
+                const n = nameOf(el);
+                counts.set(n, (counts.get(n) || 0) + 1);
+              });
+              return counts;
+            };
+
+            const beforeCounts = tally(before);
+            const afterCounts = tally(after);
+            const pairs = [];
+
+            before.forEach((from) => {
+              const name = nameOf(from);
+              if (!name) return;
+              if (beforeCounts.get(name) !== 1 || afterCounts.get(name) !== 1) return;
+
+              const to = after.find((el) => nameOf(el) === name);
+              if (to) pairs.push([from, to]);
+            });
+
+            return pairs;
+          },
+
+          render(layer, pairs) {
+            const group = this.el.getBoundingClientRect();
+            const box = (el) => {
+              const r = el.getBoundingClientRect();
+              return { x: r.left - group.left, y: r.top - group.top, w: r.width, h: r.height };
+            };
+            // A seat's arrow attaches to its CARD's edge, at the seat row's
+            // own height — so the curve leaves the card beside the right
+            // name rather than from the card's middle.
+            const exit = (seat) => {
+              const card = box(seat.closest(".board-card"));
+              const row = box(seat);
+              return { x: card.x + card.w, y: row.y + row.h / 2 };
+            };
+            const entry = (seat) => {
+              const card = box(seat.closest(".board-card"));
+              const row = box(seat);
+              return { x: card.x, y: row.y + row.h / 2 };
+            };
+
+            const svg = document.createElementNS(SVG_NS, "svg");
+            svg.setAttribute("class", "swap-arrows");
+            svg.setAttribute("width", group.width);
+            svg.setAttribute("height", group.height);
+            svg.setAttribute("aria-hidden", "true");
+            svg.append(this.arrowHeadDefs());
+
+            const animate = !window.matchMedia(REDUCED_MOTION).matches;
+
+            pairs.forEach(([from, to], i) => {
+              const start = exit(from);
+              const end = entry(to);
+
+              // Each curve gets its own lane in the channel so two of them
+              // read as a crossing X rather than one doubled line.
+              const mid = (start.x + end.x) / 2;
+              const lane = mid + (i - (pairs.length - 1) / 2) * 14;
+
+              const path = document.createElementNS(SVG_NS, "path");
+              path.setAttribute("class", "swap-arrow-path");
+              path.setAttribute(
+                "d",
+                `M ${start.x} ${start.y} C ${lane} ${start.y}, ${lane} ${end.y}, ${end.x - 4} ${end.y}`
+              );
+              path.setAttribute("marker-end", "url(#swap-arrow-head)");
+
+              const dot = document.createElementNS(SVG_NS, "circle");
+              dot.setAttribute("class", "swap-arrow-dot");
+              dot.setAttribute("cx", start.x);
+              dot.setAttribute("cy", start.y);
+              dot.setAttribute("r", 3);
+
+              svg.append(path, dot);
+
+              if (animate) {
+                const length = path.getTotalLength();
+                path.style.strokeDasharray = length;
+                path.style.strokeDashoffset = length;
+                // Read back a layout value so the browser commits the
+                // pre-animation state instead of collapsing both writes.
+                void path.getBoundingClientRect();
+                path.style.transition = "stroke-dashoffset .45s ease-out";
+                path.style.strokeDashoffset = "0";
+              }
+            });
+
+            layer.append(svg);
+          },
+
+          arrowHeadDefs() {
+            const defs = document.createElementNS(SVG_NS, "defs");
+            const marker = document.createElementNS(SVG_NS, "marker");
+            marker.setAttribute("id", "swap-arrow-head");
+            marker.setAttribute("viewBox", "0 0 8 8");
+            marker.setAttribute("refX", "7");
+            marker.setAttribute("refY", "4");
+            marker.setAttribute("markerWidth", "5");
+            marker.setAttribute("markerHeight", "5");
+            marker.setAttribute("orient", "auto");
+
+            const head = document.createElementNS(SVG_NS, "path");
+            head.setAttribute("class", "swap-arrow-head");
+            head.setAttribute("d", "M 0 0 L 8 4 L 0 8 z");
+
+            marker.append(head);
+            defs.append(marker);
+            return defs;
           }
         }
       </script>

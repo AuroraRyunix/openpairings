@@ -1024,6 +1024,44 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       refute html =~ "board-seat-swap-ref"
     end
 
+    # The journey arrows themselves are drawn client-side by the
+    # `.SwapArrows` hook, so what's assertable here is the contract it
+    # depends on: the hook mount point, its (LiveView-ignored) draw layer,
+    # and — the part that actually broke first — a `board-seat-moving`
+    # marker on the BEFORE card, which only exists because that card is
+    # passed a `compare`. Without it the hook has no start points and
+    # silently draws nothing.
+    test "a swap's confirm modal carries the mount point and start markers the arrows hook needs",
+         %{conn: conn, scope: scope} do
+      %{tournament: t, a: a, d: d} = two_board_fixture(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      html = arm_and_pick(lv, a.id, d.id)
+
+      assert html =~ ~s(id="confirm-board-diffs")
+      assert html =~ "SwapArrows"
+      assert html =~ ~s(id="swap-arrows-layer")
+
+      # One departing seat per board — the two travellers' start points.
+      assert html |> String.split("board-seat-moving") |> length() == 3
+    end
+
+    test "a non-swap confirm still marks a departing seat, but with no counterpart to pair it to",
+         %{conn: conn, scope: scope} do
+      # Mark-absent empties a seat: the before card marks it moving, but
+      # the after card's changed seat is blank, so the hook's name match
+      # finds no pair and leaves the plain "→" layout alone. Pins the
+      # negative case the arrows must never fire on.
+      %{tournament: t, a: a} = two_board_fixture(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      html = render_click(lv, "stage_vacate", %{"player-id" => to_string(a.id)})
+
+      assert html =~ "Mark absent"
+      assert html =~ "board-seat-moving"
+      refute html =~ "board-seat-swap-ref"
+    end
+
     test "picking a player's own opponent is titled as a colour swap", %{conn: conn, scope: scope} do
       %{tournament: t, a: a, b: b} = two_board_fixture(scope)
 

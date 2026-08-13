@@ -3,6 +3,27 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.23] — 2026-08-13
+
+### Added
+
+- **The swap confirm modal now draws each moving player's journey** — a
+  curved arrow from where they sit now to where they land, with a dot at
+  the start and an arrowhead at the finish. Two boards trading players
+  gives two curves crossing in the middle, which is the swap itself; a
+  same-board colour swap crosses inside the one row. The curves route
+  through the centre column (the static "→" steps aside and widens into
+  a channel) so they never cross the opaque board cards.
+
+  Which seats get joined is worked out by matching a name that changed
+  seats on *both* sides, so mark-absent, award-bye, fill-seat, pool-pair
+  and substitute-from-pool draw nothing at all — nobody travels between
+  two shown boards there — with no extra server-side state to keep in
+  sync. Purely additive: with no JS, or if measurement fails, the plain
+  "→" layout and the "⇄ Board N" chips stand exactly as before. Honours
+  `prefers-reduced-motion` (no draw-in animation), and redraws on
+  window resize and on re-render.
+
 ## [0.14.22] — 2026-08-13
 
 ### Fixed

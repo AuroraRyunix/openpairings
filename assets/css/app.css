@@ -1187,6 +1187,32 @@ button.pe-btn, .pe-btn {
   margin-bottom: 12px;
 }
 .board-diff:last-child { margin-bottom: 0; }
+
+/* Journey arrows (the .SwapArrows hook — see its own comment for what
+   gets an arrow and why). The layer sits over the diff rows but only ever
+   paints in the centre channel, so nothing readable is covered. Both the
+   `has-swap-arrows` class and the SVG inside the layer are added by JS:
+   with no JS, or a measurement that fails, this whole block is inert and
+   the plain "→" layout below stands unchanged. */
+.board-diff-group { position: relative; }
+.swap-arrows-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+/* Arrows on: the static "→" glyphs give up their column, which widens
+   into the channel the curves are routed through. `visibility` rather
+   than `display` so the column keeps a stable box either way. */
+.board-diff-group.has-swap-arrows .board-diff { grid-template-columns: 1fr 56px 1fr; }
+.board-diff-group.has-swap-arrows .board-diff-arrow { visibility: hidden; }
+.swap-arrow-path {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.swap-arrow-dot { fill: var(--accent); }
+.swap-arrow-head { fill: var(--accent); }
 .board-diff-num {
   grid-column: 1 / -1;
   font-size: 11px;
