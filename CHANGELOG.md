@@ -3,6 +3,31 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.27] — 2026-08-13
+
+### Fixed
+
+- **The swap confirm modal's two board-diff cards could end up visibly
+  misaligned** when a long name wrapped to two lines in one card but not
+  its mirror (e.g. on the White row of one card, the Black row of the
+  other) — centering each card vertically meant the taller one grew
+  upward as well as downward, so its own White row landed at a
+  different height than the other card's White row despite White not
+  having changed. Both cards now align to the same top edge instead.
+
+### Changed
+
+- **Every player shown in a swap now gets a journey arrow, not only the
+  ones who moved** — a two-board player swap shows 4 people (the 2 who
+  traded boards plus whoever they left behind on each board); all 4 now
+  get one, in their own colour: the 2 travellers get a real crossing
+  journey, the 2 who stayed put get a short arrow back to their own
+  seat, so nobody shown reads as forgotten next to the two who visibly
+  moved. A same-board colour swap still shows exactly 2 (there's nobody
+  else on that one board to draw) — unchanged. Verified live: 4 paths,
+  4 dots, one per player's own colour; the two stationary players' paths
+  measure as flat, near-zero-length arrows back to themselves.
+
 ## [0.14.26] — 2026-08-13
 
 ### Security

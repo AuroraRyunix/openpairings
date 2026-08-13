@@ -1973,20 +1973,23 @@ defmodule PairingsEngineWeb.PairingsLive do
       </script>
 
       <script :type={Phoenix.LiveView.ColocatedHook} name=".SwapArrows">
-        // Draws one curved arrow per player who MOVES in the confirm modal:
-        // from where they sit now (a changed seat in a "before" card) to
-        // where they land (the same name, in an "after" card). For a
-        // two-board swap that's two curves crossing in the middle — the
-        // crossing is the swap. For a same-board colour swap the two curves
-        // cross inside the single row.
+        // Draws one curved arrow per player SHOWN in the confirm modal, not
+        // only the ones who moved: from where they sit in the "before" card
+        // to where they sit in the "after" one. A two-board player swap
+        // shows 4 people — the 2 who traded boards (a real, crossing
+        // journey) plus whoever they left in place on each board (a short
+        // arrow back to their own seat) — so every name shown has one,
+        // rather than 2 obviously-moved arrows next to 2 unmarked names
+        // that look forgotten. A same-board colour swap only ever shows the
+        // 2 who moved, since there's nobody else on that one board to draw.
         //
         // Which seats to join is decided by NAME MATCHING, not by a flag
-        // from the server: a curve exists exactly when one name is a changed
-        // seat on both sides. That yields 2 curves for either kind of swap
-        // and ZERO for mark-absent / award-bye / fill-seat / pool-pair /
-        // substitute-from-pool, where nobody travels between two shown
-        // boards — no new server state to keep in sync, and it cannot
-        // mislabel a non-swap as one.
+        // from the server: a curve exists exactly when one name appears on
+        // both sides. That's 4 curves for a player swap, 2 for a colour
+        // swap, and ZERO for mark-absent / award-bye / fill-seat /
+        // pool-pair / substitute-from-pool, where nobody shown keeps the
+        // same identity on both sides of an empty seat — no new server
+        // state to keep in sync, and it cannot mislabel a non-swap as one.
         //
         // The curves route through the middle grid column (normally just the
         // static "→", hidden while arrows are up and widened into a real
@@ -2003,6 +2006,9 @@ defmodule PairingsEngineWeb.PairingsLive do
         // destination card the arrowhead stops.
         const STUB = 12;
         const HEAD_GAP = 4;
+        // `seat_text("")`'s own placeholder, verbatim — an empty seat never
+        // gets an arrow drawn to/from it (see `matchTravellers/1`).
+        const EMPTY_SEAT_TEXT = "— empty —";
 
         export default {
           mounted() {
@@ -2053,28 +2059,35 @@ defmodule PairingsEngineWeb.PairingsLive do
             this.render(layer, pairs);
           },
 
-          // [beforeSeatEl, afterSeatEl] for every name that changed seats on
-          // both sides. A name appearing twice on either side is ambiguous
-          // (two players sharing a display name) — skipped rather than
-          // guessed at, since a wrong arrow is worse than none.
+          // [beforeSeatEl, afterSeatEl] for every name shown on BOTH sides —
+          // not only the ones already flagged "changed". A two-board player
+          // swap shows 4 people (the 2 who traded boards, plus whoever they
+          // left in place on each board); a same-board colour swap shows
+          // only the 2 who moved, since there's nobody else on that board to
+          // draw. Either way every name gets an arrow: the 2 (or 4) who
+          // actually moved get a real journey: the ones who didn't get a
+          // short one back to their own seat, same colour, so nobody shown
+          // reads as "forgotten" next to the ones who visibly moved.
+          //
+          // A name appearing twice on either side is ambiguous (two players
+          // sharing a display name) — skipped rather than guessed at, since
+          // a wrong arrow is worse than none. The empty-seat placeholder
+          // text is excluded outright: two different blank seats matching
+          // each other by that shared placeholder would be a false pair,
+          // not a real name.
           matchTravellers() {
             const nameOf = (el) =>
               (el.querySelector(".board-seat-name")?.textContent || "").trim();
+            const isRealName = (name) => name && name !== EMPTY_SEAT_TEXT;
 
-            // `board-seat-moving` is the before card's unstyled twin of
-            // `board-seat-changed` — see `board_card/1`'s `changed_class`.
-            const before = Array.from(
-              this.el.querySelectorAll(".board-card-before .board-seat-moving")
-            );
-            const after = Array.from(
-              this.el.querySelectorAll(".board-card-after .board-seat-changed")
-            );
+            const before = Array.from(this.el.querySelectorAll(".board-card-before .board-seat"));
+            const after = Array.from(this.el.querySelectorAll(".board-card-after .board-seat"));
 
             const tally = (els) => {
               const counts = new Map();
               els.forEach((el) => {
                 const n = nameOf(el);
-                counts.set(n, (counts.get(n) || 0) + 1);
+                if (isRealName(n)) counts.set(n, (counts.get(n) || 0) + 1);
               });
               return counts;
             };
@@ -2085,7 +2098,7 @@ defmodule PairingsEngineWeb.PairingsLive do
 
             before.forEach((from) => {
               const name = nameOf(from);
-              if (!name) return;
+              if (!isRealName(name)) return;
               if (beforeCounts.get(name) !== 1 || afterCounts.get(name) !== 1) return;
 
               const to = after.find((el) => nameOf(el) === name);

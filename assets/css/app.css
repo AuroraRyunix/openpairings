@@ -1182,7 +1182,15 @@ button.pe-btn, .pe-btn {
 .board-diff {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
-  align-items: center;
+  /* `start`, not `center`: a long name wraps to two lines in one card
+     but not its opposite (e.g. "IM Van Assendelft, Floris" on the White
+     row of one card, on the Black row of the other) — centering made
+     the TALLER card grow upward as well as downward, so its own White
+     row landed at a different height than the other card's White row
+     even though nothing about White changed. Aligning both cards to the
+     same top edge keeps row 1 level across the pair; only a card's OWN
+     later rows shift if it's the taller one. */
+  align-items: start;
   gap: 10px;
   margin-bottom: 12px;
 }
@@ -1225,7 +1233,10 @@ button.pe-btn, .pe-btn {
   text-transform: uppercase;
   color: var(--text-soft);
 }
-.board-diff-arrow { color: var(--text-soft); font-size: 18px; }
+/* `.board-diff`'s own `align-items: start` is for the two CARDS (see its
+   comment); the plain "→" glyph between them still wants to sit at
+   whichever card is taller's vertical middle, same as it always did. */
+.board-diff-arrow { align-self: center; color: var(--text-soft); font-size: 18px; }
 .board-card {
   padding: 9px 11px;
   border-radius: 9px;
