@@ -1970,4 +1970,297 @@ defmodule PairingsEngine.TournamentsTest do
       assert updated.logo_content_type == "image/png"
     end
   end
+
+  describe "publish_mode / publish_delay_minutes — Tournament.changeset/2 validation" do
+    test "defaults to immediate mode with a zero delay" do
+      tournament = Repo.insert!(%Tournament{name: "Defaults", type: "swiss", rounds_count: 3})
+      assert tournament.publish_mode == "immediate"
+      assert tournament.publish_delay_minutes == 0
+    end
+
+    test "accepts every documented publish_mode value" do
+      tournament = Repo.insert!(%Tournament{name: "Modes", type: "swiss", rounds_count: 3})
+
+      for mode <- Tournament.publish_modes() do
+        assert {:ok, updated} =
+                 Tournaments.update_tournament(tournament, %{"publish_mode" => mode})
+
+        assert updated.publish_mode == mode
+      end
+    end
+
+    test "rejects an unrecognized publish_mode" do
+      tournament = Repo.insert!(%Tournament{name: "Bad mode", type: "swiss", rounds_count: 3})
+
+      assert {:error, changeset} =
+               Tournaments.update_tournament(tournament, %{"publish_mode" => "whenever"})
+
+      assert %{publish_mode: [_msg]} = errors_on(changeset)
+    end
+
+    test "rejects a negative publish_delay_minutes" do
+      tournament =
+        Repo.insert!(%Tournament{name: "Negative delay", type: "swiss", rounds_count: 3})
+
+      assert {:error, changeset} =
+               Tournaments.update_tournament(tournament, %{"publish_delay_minutes" => -5})
+
+      assert %{publish_delay_minutes: [_msg]} = errors_on(changeset)
+    end
+
+    test "accepts a zero or positive publish_delay_minutes" do
+      tournament = Repo.insert!(%Tournament{name: "Zero delay", type: "swiss", rounds_count: 3})
+
+      assert {:ok, updated} =
+               Tournaments.update_tournament(tournament, %{"publish_delay_minutes" => 30})
+
+      assert updated.publish_delay_minutes == 30
+    end
+  end
+
+  describe "compute_published_at/2" do
+    test "immediate mode returns roughly now" do
+      tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
+
+      at = Tournaments.compute_published_at(tournament, 1)
+
+      assert DateTime.diff(DateTime.utc_now(), at, :second) in -2..2
+    end
+
+    test "manual mode returns nil — the round starts out hidden" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "T",
+          type: "swiss",
+          rounds_count: 3,
+          publish_mode: "manual"
+        })
+
+      assert Tournaments.compute_published_at(tournament, 1) == nil
+    end
+
+    test "timed mode returns now plus the configured delay" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "T",
+          type: "swiss",
+          rounds_count: 3,
+          publish_mode: "timed",
+          publish_delay_minutes: 15
+        })
+
+      at = Tournaments.compute_published_at(tournament, 1)
+      expected = DateTime.add(DateTime.utc_now(), 15 * 60, :second)
+
+      assert DateTime.diff(expected, at, :second) in -2..2
+    end
+
+    test "scheduled mode returns midnight UTC of that round's own round_dates entry" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "T",
+          type: "swiss",
+          rounds_count: 3,
+          publish_mode: "scheduled",
+          round_dates: ["2026-09-01", "2026-09-08", "2026-09-15"]
+        })
+
+      assert Tournaments.compute_published_at(tournament, 2) ==
+               DateTime.new!(~D[2026-09-08], ~T[00:00:00], "Etc/UTC")
+    end
+
+    test "scheduled mode falls back to now when that round's date is missing or unparseable" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "T",
+          type: "swiss",
+          rounds_count: 3,
+          publish_mode: "scheduled",
+          round_dates: ["2026-09-01", "", "not-a-date"]
+        })
+
+      # Round 2's entry is blank, round 3's is garbage — neither should ever
+      # produce a round that can never be published.
+      at2 = Tournaments.compute_published_at(tournament, 2)
+      at3 = Tournaments.compute_published_at(tournament, 3)
+
+      assert DateTime.diff(DateTime.utc_now(), at2, :second) in -2..2
+      assert DateTime.diff(DateTime.utc_now(), at3, :second) in -2..2
+    end
+
+    test "scheduled mode falls back to now when round_dates doesn't cover that round at all" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "T",
+          type: "swiss",
+          rounds_count: 3,
+          publish_mode: "scheduled",
+          round_dates: ["2026-09-01"]
+        })
+
+      at = Tournaments.compute_published_at(tournament, 3)
+
+      assert DateTime.diff(DateTime.utc_now(), at, :second) in -2..2
+    end
+  end
+
+  describe "round_published?/2" do
+    test "immediate mode is always public, regardless of published_at — including nil" do
+      tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
+      round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, published_at: nil})
+
+      assert Tournaments.round_published?(tournament, round)
+    end
+
+    test "non-immediate mode with published_at nil is not public" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "T",
+          type: "swiss",
+          rounds_count: 3,
+          publish_mode: "manual"
+        })
+
+      round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, published_at: nil})
+
+      refute Tournaments.round_published?(tournament, round)
+    end
+
+    test "non-immediate mode with a past published_at is public" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "T",
+          type: "swiss",
+          rounds_count: 3,
+          publish_mode: "timed"
+        })
+
+      past = DateTime.add(DateTime.utc_now(), -60, :second) |> DateTime.truncate(:second)
+      round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, published_at: past})
+
+      assert Tournaments.round_published?(tournament, round)
+    end
+
+    test "non-immediate mode with a future published_at is not public yet" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "T",
+          type: "swiss",
+          rounds_count: 3,
+          publish_mode: "scheduled"
+        })
+
+      future = DateTime.add(DateTime.utc_now(), 3600, :second) |> DateTime.truncate(:second)
+      round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, published_at: future})
+
+      refute Tournaments.round_published?(tournament, round)
+    end
+  end
+
+  describe "publish_round_now/1 and unpublish_round/1" do
+    test "publish_round_now/1 sets published_at to now and broadcasts :settings" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "T",
+          type: "swiss",
+          rounds_count: 3,
+          publish_mode: "manual"
+        })
+
+      round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, published_at: nil})
+
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
+
+      assert {:ok, updated} = Tournaments.publish_round_now(round)
+      assert updated.published_at
+      assert DateTime.diff(DateTime.utc_now(), updated.published_at, :second) in -2..2
+
+      tid = tournament.id
+      assert_receive {:tournament_changed, ^tid, :settings}
+    end
+
+    test "unpublish_round/1 clears published_at back to nil and broadcasts :settings" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "T",
+          type: "swiss",
+          rounds_count: 3,
+          publish_mode: "manual"
+        })
+
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, published_at: now})
+
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
+
+      assert {:ok, updated} = Tournaments.unpublish_round(round)
+      assert updated.published_at == nil
+
+      tid = tournament.id
+      assert_receive {:tournament_changed, ^tid, :settings}
+    end
+  end
+
+  describe "latest_published_round_number/1" do
+    test "immediate mode delegates straight to the paired-rounds count" do
+      tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
+      Repo.insert!(%Round{tournament_id: tournament.id, number: 1, published_at: nil})
+      Repo.insert!(%Round{tournament_id: tournament.id, number: 2, published_at: nil})
+
+      assert Tournaments.latest_published_round_number(tournament) == 2
+    end
+
+    test "non-immediate mode counts only rounds with a published_at that has passed" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "T",
+          type: "swiss",
+          rounds_count: 3,
+          publish_mode: "manual"
+        })
+
+      past = DateTime.add(DateTime.utc_now(), -60, :second) |> DateTime.truncate(:second)
+      future = DateTime.add(DateTime.utc_now(), 3600, :second) |> DateTime.truncate(:second)
+
+      Repo.insert!(%Round{tournament_id: tournament.id, number: 1, published_at: past})
+      Repo.insert!(%Round{tournament_id: tournament.id, number: 2, published_at: nil})
+      Repo.insert!(%Round{tournament_id: tournament.id, number: 3, published_at: future})
+
+      assert Tournaments.latest_published_round_number(tournament) == 1
+    end
+
+    test "non-immediate mode with nothing published returns 0" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "T",
+          type: "swiss",
+          rounds_count: 3,
+          publish_mode: "manual"
+        })
+
+      Repo.insert!(%Round{tournament_id: tournament.id, number: 1, published_at: nil})
+
+      assert Tournaments.latest_published_round_number(tournament) == 0
+    end
+
+    test "non-immediate mode can report a later round published out of order" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "T",
+          type: "swiss",
+          rounds_count: 3,
+          publish_mode: "manual"
+        })
+
+      past = DateTime.add(DateTime.utc_now(), -60, :second) |> DateTime.truncate(:second)
+
+      Repo.insert!(%Round{tournament_id: tournament.id, number: 1, published_at: nil})
+      Repo.insert!(%Round{tournament_id: tournament.id, number: 2, published_at: past})
+
+      # Round 1 was skipped but round 2 was explicitly published — the
+      # "latest" number just tracks the highest published round, callers
+      # that need per-round truth still go through round_published?/2.
+      assert Tournaments.latest_published_round_number(tournament) == 2
+    end
+  end
 end

@@ -35,7 +35,7 @@ defmodule PairingsEngineWeb.PublicTournamentPagesTest do
     {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/pairings")
 
     assert html =~ "Open Public Cup"
-    assert html =~ "no rounds paired yet"
+    assert html =~ "no rounds published yet"
   end
 
   test "logged-out visitor can mount the public standings page", %{conn: conn} do

@@ -347,7 +347,12 @@ defmodule PairingsEngine.Keizer do
   defp create_round(tournament, coloured_pairs, bye_player, next_number) do
     Repo.transaction(fn ->
       round =
-        Repo.insert!(%Round{tournament_id: tournament.id, number: next_number, status: "playing"})
+        Repo.insert!(%Round{
+          tournament_id: tournament.id,
+          number: next_number,
+          status: "playing",
+          published_at: Tournaments.compute_published_at(tournament, next_number)
+        })
 
       coloured_pairs
       |> Enum.with_index(1)

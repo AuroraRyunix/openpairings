@@ -20,7 +20,6 @@ defmodule PairingsEngineWeb.PublicPairingsLive do
   import PairingsEngineWeb.Components.PublicTournamentMeta
 
   alias PairingsEngine.{Tournaments, Standings, PairingDisplay}
-  alias PairingsEngine.Pairing, as: Engine
 
   @result_labels %{
     "1-0" => "1-0",
@@ -81,7 +80,13 @@ defmodule PairingsEngineWeb.PublicPairingsLive do
 
   defp reload(socket, requested) do
     tournament = socket.assigns.tournament
-    paired = Engine.paired_rounds_count(tournament.id)
+    # The bound for both the default round and the "how far can `?round=N`
+    # reach" check is the latest *published* round, not the latest paired
+    # one — `Pairing.paired_rounds_count/1` would leak that a round exists
+    # (and default visitors to it) before the arbiter meant it to be seen.
+    # For "immediate" mode (the common case) these two counts are always
+    # equal, since every paired round is published the instant it's made.
+    published = Tournaments.latest_published_round_number(tournament)
 
     round_number =
       with val when val != nil <- requested,
@@ -89,19 +94,27 @@ defmodule PairingsEngineWeb.PublicPairingsLive do
            true <- n >= 1 and n <= tournament.rounds_count do
         n
       else
-        _ -> max(paired, 1)
+        _ -> max(published, 1)
       end
 
-    # `&&` would leave this `false` (not `nil`) when round_number > paired,
-    # and the template's `:if={@round == nil}` placeholder card checks
-    # specifically for `nil` — so an unpaired round silently rendered
-    # nothing instead of the placeholder. Explicit `if/else` avoids that.
+    # Fetch first, then gate on `round_published?/2` — NOT `round_number <=
+    # published`, because `latest_published_round_number/1` only tracks the
+    # *highest* published round number. In "manual" mode an arbiter can
+    # publish round 3 while leaving round 2 hidden (published out of
+    # order), so a plain `<=` check would wrongly show round 2 just
+    # because round 3 happens to be public. A round that isn't paired at
+    # all comes back `nil` from `get_round/2` and reads the same as one
+    # that's paired-but-unpublished — the public side has no way (and no
+    # need) to tell those two apart.
     round =
-      if round_number <= paired, do: Tournaments.get_round(tournament.id, round_number), else: nil
+      case Tournaments.get_round(tournament.id, round_number) do
+        nil -> nil
+        candidate -> if Tournaments.round_published?(tournament, candidate), do: candidate
+      end
 
     assign(socket,
       round_number: round_number,
-      paired_rounds: paired,
+      paired_rounds: published,
       round: round,
       scores:
         if(round, do: Standings.player_scores_before_round(tournament, round_number), else: %{}),
@@ -204,7 +217,7 @@ defmodule PairingsEngineWeb.PublicPairingsLive do
               <%= if @paired_rounds > 0 do %>
                 Pairings &middot; {round_heading(@round_number, @tournament)}
               <% else %>
-                Pairings &middot; no rounds paired yet
+                Pairings &middot; no rounds published yet
               <% end %>
             </p>
 
@@ -233,10 +246,10 @@ defmodule PairingsEngineWeb.PublicPairingsLive do
         <div :if={@round == nil} class="card empty" style="margin-top: 16px">
           <p>
             <strong>
-              <%= if @round_number > @paired_rounds do %>
-                Round {@round_number} hasn't been paired yet.
+              <%= if @paired_rounds > 0 do %>
+                Round {@round_number} hasn't been published yet.
               <% else %>
-                No round has been paired yet.
+                No round has been published yet.
               <% end %>
             </strong>
           </p>

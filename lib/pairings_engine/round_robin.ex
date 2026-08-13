@@ -370,7 +370,8 @@ defmodule PairingsEngine.RoundRobin do
         Repo.insert!(%Round{
           tournament_id: tournament.id,
           number: next_number,
-          status: "playing"
+          status: "playing",
+          published_at: Tournaments.compute_published_at(tournament, next_number)
         })
 
       matches

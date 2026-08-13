@@ -3,6 +3,26 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.30] — 2026-08-13
+
+### Added
+
+- **Public pairings can now be published on a delay instead of the
+  instant they're paired** — a new "Publish each round" setting
+  (Settings → Options → Public pairings) picks between four modes:
+  *Immediately* (the old, still-default behavior), *Manually* (a round
+  stays hidden from `/p/:slug/pairings` until you publish it by hand),
+  *After a delay* (a fixed number of minutes after pairing), and *On
+  the round's own date* (midnight UTC of that round's date on the
+  Dates page). Whichever mode is active, the Pairings page also gets a
+  standalone **Publish now / Unpublish** button and a public/not-public
+  badge for the round you're viewing — a manual override that works
+  regardless of mode, so an arbiter can always release a round early or
+  pull it back, even under a timed or scheduled setting. Rounds can be
+  published out of order (round 3 public while round 2 still isn't);
+  the public page always shows exactly the round it was asked for, or
+  a placeholder if that one isn't out yet.
+
 ## [0.14.29] — 2026-08-13
 
 ### Changed

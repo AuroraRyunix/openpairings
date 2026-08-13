@@ -1457,6 +1457,142 @@ defmodule PairingsEngine.Tournaments do
     )
   end
 
+  ## ---------- Public pairings publish delay ----------
+  #
+  # Whether a round is visible on /p/:slug/pairings, controlled by the
+  # tournament's `publish_mode`. Doesn't touch `public_pages_enabled` at
+  # all — that's the coarser whole-tournament switch; this is per-round,
+  # on TOP of it.
+
+  @doc """
+  What `round.published_at` should be set to at the moment a round is
+  paired, given `tournament.publish_mode` — called once, by every
+  pairing-engine call site that inserts a `%Round{}`
+  (`PairingsEngine.Pairing`/`RoundRobin`/`Keizer`), never recomputed
+  afterward. `nil` means "not published" (only reachable under "manual",
+  since the other three modes always resolve to a concrete instant).
+
+  - `"immediate"` — `now`. Also what `round_published?/2` treats EVERY
+    round as regardless of this value (see that function's own comment),
+    so the exact instant doesn't actually matter for visibility here —
+    computed anyway for a truthful `published_at` if anything ever reads
+    it directly.
+  - `"manual"` — `nil`. Stays that way until `publish_round_now/1`.
+  - `"timed"` — `now + publish_delay_minutes`.
+  - `"scheduled"` — midnight UTC on that round's own date from
+    `tournament.round_dates` (1-indexed by `round_number`). Falls back to
+    `now` when that date is missing/blank/unparseable — pairing must
+    never silently produce a round that can never become visible because
+    nobody filled in a date.
+  """
+  @spec compute_published_at(Tournament.t(), pos_integer()) :: DateTime.t() | nil
+  def compute_published_at(%Tournament{} = tournament, round_number) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    case tournament.publish_mode do
+      "manual" ->
+        nil
+
+      "timed" ->
+        DateTime.add(now, (tournament.publish_delay_minutes || 0) * 60, :second)
+
+      "scheduled" ->
+        with date_str when is_binary(date_str) and date_str != "" <-
+               Enum.at(tournament.round_dates || [], round_number - 1),
+             {:ok, date} <- Date.from_iso8601(date_str) do
+          DateTime.new!(date, ~T[00:00:00], "Etc/UTC")
+        else
+          _ -> now
+        end
+
+      _ ->
+        now
+    end
+  end
+
+  @doc """
+  Whether `round` is currently visible on the public pairings page.
+
+  "immediate" mode ignores `round.published_at` entirely and always
+  returns `true` — deliberately, not an oversight: it's both today's
+  actual behaviour (a round has always been public the instant it
+  exists) AND what makes this feature safe to ship with no backfill.
+  `rounds.published_at` was added with no data migration, so every round
+  paired before this feature existed has `published_at: nil`; without
+  this special case they'd all retroactively vanish from public pages
+  the moment this shipped. Every OTHER mode is a real timestamp
+  comparison — a round from "manual"/"timed"/"scheduled" is public once
+  `published_at` exists and isn't in the future.
+  """
+  @spec round_published?(Tournament.t(), Round.t()) :: boolean()
+  def round_published?(%Tournament{publish_mode: "immediate"}, %Round{}), do: true
+
+  def round_published?(%Tournament{}, %Round{published_at: nil}), do: false
+
+  def round_published?(%Tournament{}, %Round{published_at: at}) do
+    DateTime.compare(at, DateTime.utc_now()) != :gt
+  end
+
+  @doc """
+  Makes `round` visible right now, regardless of `publish_mode` — the
+  manual override available in every mode, not just "manual" (a
+  "scheduled" or "timed" round can always be published early by hand;
+  nothing about picking an automatic mode should mean you're stuck
+  waiting on it). Broadcasts `:settings` so the public page (subscribed
+  to the same topic) refreshes live the moment this lands, not on its
+  own next poll.
+  """
+  @spec publish_round_now(Round.t()) :: {:ok, Round.t()} | {:error, Ecto.Changeset.t()}
+  def publish_round_now(%Round{} = round) do
+    round
+    |> Round.changeset(%{published_at: DateTime.utc_now() |> DateTime.truncate(:second)})
+    |> Repo.update()
+    |> tap_ok(fn updated -> broadcast_tournament_change(updated.tournament_id, :settings) end)
+  end
+
+  @doc """
+  Hides `round` from the public pairings page again — clears
+  `published_at` back to `nil`. Available regardless of mode, same
+  reasoning as `publish_round_now/1`'s own doc: an arbiter who published
+  something by mistake (or too early) needs a way back, not just a way
+  forward. A no-op in "immediate" mode as far as the public page is
+  concerned (`round_published?/2` never looks at `published_at` there),
+  which is intentional, not a bug to work around — "immediate" means
+  "always public", full stop; hiding a round is only meaningful once
+  you've opted into one of the other three modes.
+  """
+  @spec unpublish_round(Round.t()) :: {:ok, Round.t()} | {:error, Ecto.Changeset.t()}
+  def unpublish_round(%Round{} = round) do
+    round
+    |> Round.changeset(%{published_at: nil})
+    |> Repo.update()
+    |> tap_ok(fn updated -> broadcast_tournament_change(updated.tournament_id, :settings) end)
+  end
+
+  @doc """
+  The highest round NUMBER currently visible on the public pairings
+  page — `PublicPairingsLive`'s equivalent of
+  `PairingsEngine.Pairing.paired_rounds_count/1`, which only knows about
+  PAIRED rounds, not published ones. `0` when nothing is public yet
+  (including "nothing paired at all", same as `paired_rounds_count/1`).
+  """
+  @spec latest_published_round_number(Tournament.t()) :: non_neg_integer()
+  def latest_published_round_number(%Tournament{publish_mode: "immediate"} = tournament) do
+    PairingsEngine.Pairing.paired_rounds_count(tournament.id)
+  end
+
+  def latest_published_round_number(%Tournament{} = tournament) do
+    now = DateTime.utc_now()
+
+    Repo.one(
+      from r in Round,
+        where:
+          r.tournament_id == ^tournament.id and not is_nil(r.published_at) and
+            r.published_at <= ^now,
+        select: max(r.number)
+    ) || 0
+  end
+
   @doc """
   Byes-table rows (`"requested-half"` / `"requested-zero"` / `"absent"` —
   see `PairingsEngine.Standings.add_bye_records/3` for the exact scoring

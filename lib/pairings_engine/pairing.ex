@@ -556,7 +556,8 @@ defmodule PairingsEngine.Pairing do
         Repo.insert!(%Round{
           tournament_id: tournament.id,
           number: next_number,
-          status: "playing"
+          status: "playing",
+          published_at: Tournaments.compute_published_at(tournament, next_number)
         })
 
       insert_round_absentee_byes(tournament, next_number, round_absentees)
@@ -862,7 +863,8 @@ defmodule PairingsEngine.Pairing do
         Repo.insert!(%Round{
           tournament_id: tournament.id,
           number: next_number,
-          status: "playing"
+          status: "playing",
+          published_at: Tournaments.compute_published_at(tournament, next_number)
         })
 
       leg1_pairings =
@@ -917,7 +919,8 @@ defmodule PairingsEngine.Pairing do
       Repo.insert!(%Round{
         tournament_id: tournament.id,
         number: leg2_number,
-        status: "playing"
+        status: "playing",
+        published_at: Tournaments.compute_published_at(tournament, leg2_number)
       })
 
     Enum.each(leg1_pairings, fn p ->

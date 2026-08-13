@@ -180,6 +180,26 @@ defmodule PairingsEngineWeb.PairingsLive do
     end
   end
 
+  # The manual override available in every publish mode, not just
+  # "manual" — see `Tournaments.publish_round_now/1`'s own doc for why.
+  # Guarded by `@round != nil` in the template rather than here; nothing
+  # bad happens either way if this somehow fires with no round (`refresh/2`
+  # just reloads the same nil), but there's genuinely no button to click
+  # in that state.
+  def handle_event("publish_round_now", _params, socket) do
+    case Tournaments.publish_round_now(socket.assigns.round) do
+      {:ok, _round} -> {:noreply, refresh(socket)}
+      {:error, _changeset} -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("unpublish_round", _params, socket) do
+    case Tournaments.unpublish_round(socket.assigns.round) do
+      {:ok, _round} -> {:noreply, refresh(socket)}
+      {:error, _changeset} -> {:noreply, socket}
+    end
+  end
+
   ## ---------- Editing a paired round by hand ----------
   #
   # Three gestures, all starting from a right-click:
@@ -1046,6 +1066,25 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp match_number(n), do: div(n - 1, 2) + 1
   defp leg_number(n), do: if(rem(n, 2) == 1, do: 1, else: 2)
 
+  # Tooltip on the public/not-public badge — spells out WHEN, not just
+  # whether, for the two modes that resolve to a concrete future instant
+  # ("scheduled" is a date-only concept, so "at midnight UTC" is worth
+  # being explicit about — an arbiter reading a bare date could easily
+  # assume "first thing that morning", not literally 00:00).
+  defp publish_status_title(%{publish_mode: "manual"}, %{published_at: nil}),
+    do: "Hidden from the public pairings page until you publish it"
+
+  defp publish_status_title(_tournament, %{published_at: nil}),
+    do: "Not public yet"
+
+  defp publish_status_title(tournament, round) do
+    if Tournaments.round_published?(tournament, round) do
+      "Public since #{Calendar.strftime(round.published_at, "%Y-%m-%d %H:%M UTC")}"
+    else
+      "Becomes public at #{Calendar.strftime(round.published_at, "%Y-%m-%d %H:%M UTC")}"
+    end
+  end
+
   ## ---------- Hand-editing UI pieces ----------
 
   # One board drawn as a card: White over Black, the way the pairing sheet
@@ -1370,10 +1409,47 @@ defmodule PairingsEngineWeb.PairingsLive do
                 true -> "finished"
               end}
             </span>
+            <%!-- Only shown once a tournament has actually opted into a
+                 non-instant publish mode — "immediate" is unchanged/today's
+                 behaviour, and this would just be noise for every other
+                 tournament that never touches this feature. --%>
+            <span
+              :if={@round != nil and @tournament.publish_mode != "immediate"}
+              class={["badge", !Tournaments.round_published?(@tournament, @round) && "muted"]}
+              title={publish_status_title(@tournament, @round)}
+            >
+              {if Tournaments.round_published?(@tournament, @round),
+                do: "public",
+                else: "not public yet"}
+            </span>
           </p>
         </div>
 
         <div class="actions" style="margin: 0">
+          <button
+            :if={
+              @round != nil and @tournament.publish_mode != "immediate" and
+                not Tournaments.round_published?(@tournament, @round)
+            }
+            type="button"
+            class="pe-btn"
+            phx-click="publish_round_now"
+          >
+            Publish now
+          </button>
+
+          <button
+            :if={
+              @round != nil and @tournament.publish_mode != "immediate" and
+                Tournaments.round_published?(@tournament, @round)
+            }
+            type="button"
+            class="pe-btn"
+            phx-click="unpublish_round"
+            data-confirm="Hide this round from the public pairings page again?"
+          >
+            Unpublish
+          </button>
           <button
             :if={@round == nil && @round_number == @next_pairable}
             class="pe-btn primary"

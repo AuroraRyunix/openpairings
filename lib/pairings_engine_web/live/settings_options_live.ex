@@ -576,6 +576,43 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
         </div>
 
         <div class="card">
+          <h2>Public pairings</h2>
+
+          <p class="subtitle" style="margin: 0 0 8px">
+            When a round you pair actually reaches <code>/p/{@tournament.public_slug}/pairings</code>
+            (the public link — still gated on public pages being on at all, see Settings →
+            Tournament). Whichever round is currently paired can always be published early or
+            hidden again by hand from the Pairings page, regardless of this setting.
+          </p>
+
+          <.setting_group>
+            <.setting_field label="Publish each round">
+              <select name="tournament[publish_mode]">
+                <option
+                  :for={mode <- Tournament.publish_modes()}
+                  value={mode}
+                  selected={@tournament.publish_mode == mode}
+                >
+                  {Tournament.publish_mode_label(mode)}
+                </option>
+              </select>
+            </.setting_field>
+
+            <.setting_field
+              label="Delay (minutes)"
+              hint="Only used when 'Publish each round' above is set to 'After a delay'"
+            >
+              <input
+                type="number"
+                name="tournament[publish_delay_minutes]"
+                value={@tournament.publish_delay_minutes}
+                min="0"
+              />
+            </.setting_field>
+          </.setting_group>
+        </div>
+
+        <div class="card">
           <h2>Scoring</h2>
 
           <.setting_group>

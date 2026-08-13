@@ -11,6 +11,13 @@ defmodule PairingsEngine.Tournaments.Tournament do
   # to — independent of `type` above (FIDE report classification).
   @pairing_systems ~w(swiss round_robin keizer)
   @rr_cycles_values [1, 2]
+  # How a newly-paired round becomes visible on the public pairings page
+  # (`PairingsEngineWeb.PublicPairingsLive`) — see
+  # `PairingsEngine.Tournaments.compute_published_at/2` for what each one
+  # actually computes, and `round_published?/2` for the visibility check
+  # itself. "immediate" (the default) is today's only behaviour, unchanged:
+  # a round is public the instant it's paired.
+  @publish_modes ~w(immediate manual timed scheduled)
   # Club/federation pairing-exclusion rules (SWAR parity #7-10) — see
   # PairingsEngine.Exclusions and docs/forbidden-pairings.md.
   @exclusion_modes ~w(none all listed)
@@ -220,6 +227,16 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # than something an existing tournament inherits on upgrade.
     field :registration_open, :boolean, default: false
 
+    # How long a newly-paired round takes to reach the public pairings
+    # page — see `@publish_modes`'s own comment above, and
+    # `PairingsEngine.Tournaments.compute_published_at/2`/`round_published?/2`
+    # for what these two actually drive. Unlike `public_pages_enabled`/
+    # `registration_open` above, these ARE cast by the ordinary changeset —
+    # this is an ordinary settings choice on the Options page, not a
+    # separate toggle-action.
+    field :publish_mode, :string, default: "immediate"
+    field :publish_delay_minutes, :integer, default: 0
+
     # Pairing engine dispatch (see PairingsEngine.Pairing.pair_next_round/1):
     # "swiss" | "round_robin" | "keizer". Locked in the UI once the
     # tournament has paired its first round (see SettingsLive).
@@ -384,7 +401,9 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :count_extra_points,
       :extra_points_bands,
       :categories_enabled,
-      :manual_ranking
+      :manual_ranking,
+      :publish_mode,
+      :publish_delay_minutes
     ])
     |> validate_required([:name, :type, :rounds_count])
     |> validate_length(:name, min: 1, max: 200)
@@ -395,6 +414,8 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_inclusion(:standard, @standards)
     |> validate_inclusion(:pairing_system, @pairing_systems)
     |> validate_inclusion(:rr_cycles, @rr_cycles_values)
+    |> validate_inclusion(:publish_mode, @publish_modes)
+    |> validate_number(:publish_delay_minutes, greater_than_or_equal_to: 0)
     |> validate_inclusion(:club_exclusion, @exclusion_modes)
     |> validate_inclusion(:fed_exclusion, @exclusion_modes)
     |> validate_number(:rounds_count, greater_than: 0, less_than_or_equal_to: 30)
@@ -995,4 +1016,12 @@ defmodule PairingsEngine.Tournaments.Tournament do
   def rr_cycles_label(1), do: "Single"
   def rr_cycles_label(2), do: "Double"
   def rr_cycles_label(other), do: to_string(other)
+
+  def publish_modes, do: @publish_modes
+
+  def publish_mode_label("immediate"), do: "Immediately — public the instant it's paired"
+  def publish_mode_label("manual"), do: "Manually — I'll publish each round myself"
+  def publish_mode_label("timed"), do: "After a delay — a fixed number of minutes"
+  def publish_mode_label("scheduled"), do: "On the round's own date (Dates page)"
+  def publish_mode_label(other), do: other
 end

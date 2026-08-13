@@ -1427,4 +1427,92 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       assert html =~ "not the current round"
     end
   end
+
+  describe "publish now / unpublish (publish-delay feature)" do
+    test "immediate mode shows neither the badge nor any publish buttons", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = fixture(scope)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      # Lowercase "public" only ever comes from the badge text below — the
+      # unrelated "Public pairings link" button is capitalized.
+      refute html =~ "public"
+      refute html =~ "Publish now"
+      refute html =~ "Unpublish"
+    end
+
+    test "manual mode shows 'not public yet' and a Publish now button for an unpublished round",
+         %{conn: conn, scope: scope} do
+      tournament = fixture(scope)
+      {:ok, _} = Tournaments.update_tournament(tournament, %{"publish_mode" => "manual"})
+      Repo.update_all(Round, set: [published_at: nil])
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      assert html =~ "not public yet"
+      assert html =~ "Publish now"
+      refute html =~ "Unpublish"
+    end
+
+    test "manual mode shows 'public' and an Unpublish button once the round is published", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = fixture(scope)
+      {:ok, _} = Tournaments.update_tournament(tournament, %{"publish_mode" => "manual"})
+
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      Repo.update_all(Round, set: [published_at: now])
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      assert html =~ "public"
+      refute html =~ "not public yet"
+      assert html =~ "Unpublish"
+      refute html =~ "Publish now"
+    end
+
+    test "clicking Publish now sets published_at and flips the button to Unpublish", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = fixture(scope)
+      {:ok, _} = Tournaments.update_tournament(tournament, %{"publish_mode" => "manual"})
+      Repo.update_all(Round, set: [published_at: nil])
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      html = lv |> element("button", "Publish now") |> render_click()
+
+      assert html =~ "Unpublish"
+      refute html =~ "Publish now"
+
+      round = Tournaments.get_round(tournament.id, 2)
+      assert round.published_at
+    end
+
+    test "clicking Unpublish clears published_at and flips the button back to Publish now", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = fixture(scope)
+      {:ok, _} = Tournaments.update_tournament(tournament, %{"publish_mode" => "manual"})
+
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      Repo.update_all(Round, set: [published_at: now])
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      html = lv |> element("button", "Unpublish") |> render_click()
+
+      assert html =~ "Publish now"
+      refute html =~ "Unpublish"
+
+      round = Tournaments.get_round(tournament.id, 2)
+      refute round.published_at
+    end
+  end
 end

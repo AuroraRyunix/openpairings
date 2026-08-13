@@ -289,7 +289,7 @@ defmodule PairingsEngineWeb.PublicPairingsLiveTest do
       {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/pairings?round=3")
 
       assert html =~ "Round 3"
-      assert html =~ "hasn&#39;t been paired yet"
+      assert html =~ "hasn&#39;t been published yet"
     end
 
     test "an out-of-range round falls back to the latest paired round", %{
@@ -314,6 +314,117 @@ defmodule PairingsEngineWeb.PublicPairingsLiveTest do
       {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/pairings")
 
       assert html =~ ~s(href="/p/#{tournament.public_slug}/standings")
+    end
+  end
+
+  describe "publish gating (manual/timed/scheduled publish_mode)" do
+    defp manual_fixture do
+      {:ok, tournament} =
+        Tournaments.create_tournament(%{
+          "name" => "Gating Test",
+          "type" => "swiss",
+          "rounds_count" => "3",
+          "publish_mode" => "manual"
+        })
+
+      [a, b] =
+        for name <- ["A", "B"] do
+          Repo.insert!(%Player{tournament_id: tournament.id, name: name})
+        end
+
+      round1 =
+        Repo.insert!(%Round{tournament_id: tournament.id, number: 1, published_at: nil})
+
+      Repo.insert!(%Pairing{
+        round_id: round1.id,
+        board: 1,
+        white_player_id: a.id,
+        black_player_id: b.id
+      })
+
+      %{tournament: tournament, a: a, b: b}
+    end
+
+    test "an unpublished round shows the placeholder, not its pairings", %{conn: conn} do
+      %{tournament: tournament} = manual_fixture()
+
+      {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/pairings")
+
+      assert html =~ "no rounds published yet"
+      refute html =~ "table-card"
+    end
+
+    test "explicitly requesting the unpublished round via ?round=1 still hides it", %{conn: conn} do
+      %{tournament: tournament} = manual_fixture()
+
+      {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/pairings?round=1")
+
+      # Nothing at all has been published yet, so this reads the same as
+      # the no-`?round=` case above — not "Round 1 hasn't been published
+      # yet." (that more specific wording is reserved for when at least
+      # one OTHER round is already public; see the out-of-order test below).
+      assert html =~ "No round has been published yet"
+      refute html =~ "table-card"
+    end
+
+    test "publishing the round makes it visible on the public page", %{conn: conn} do
+      %{tournament: tournament} = manual_fixture()
+      round = Tournaments.get_round(tournament.id, 1)
+
+      {:ok, _round} = Tournaments.publish_round_now(round)
+
+      {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/pairings")
+
+      assert html =~ "Round 1"
+      assert html =~ "A"
+      assert html =~ "B"
+    end
+
+    test "a round published out of order is visible even though a later round isn't", %{
+      conn: conn
+    } do
+      %{tournament: tournament, a: a, b: b} = manual_fixture()
+
+      round2 = Repo.insert!(%Round{tournament_id: tournament.id, number: 2, published_at: nil})
+
+      Repo.insert!(%Pairing{
+        round_id: round2.id,
+        board: 1,
+        white_player_id: b.id,
+        black_player_id: a.id
+      })
+
+      # Publish round 2 but leave round 1 hidden.
+      {:ok, _} = Tournaments.publish_round_now(round2)
+
+      {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/pairings?round=2")
+      assert html =~ "Round 2"
+      assert html =~ "A"
+
+      {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/pairings?round=1")
+      assert html =~ "hasn&#39;t been published yet"
+    end
+
+    test "with no ?round= param, defaults to the latest PUBLISHED round, not the latest paired one",
+         %{conn: conn} do
+      %{tournament: tournament, a: a, b: b} = manual_fixture()
+      round1 = Tournaments.get_round(tournament.id, 1)
+      {:ok, _} = Tournaments.publish_round_now(round1)
+
+      # Round 2 is paired but not published.
+      round2 = Repo.insert!(%Round{tournament_id: tournament.id, number: 2, published_at: nil})
+
+      Repo.insert!(%Pairing{
+        round_id: round2.id,
+        board: 1,
+        white_player_id: b.id,
+        black_player_id: a.id
+      })
+
+      {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/pairings")
+
+      assert html =~ "Round 1"
+      refute html =~ "Round 2"
     end
   end
 end

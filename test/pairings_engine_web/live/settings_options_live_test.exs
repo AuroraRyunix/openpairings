@@ -585,4 +585,47 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
       assert updated.abs_nbfois == nil
     end
   end
+
+  describe "Public pairings publish mode card" do
+    test "defaults to Immediately and renders every mode option", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+
+      assert html =~ "Public pairings"
+      assert html =~ "Publish each round"
+      assert html =~ "Immediately"
+      assert html =~ "Manually"
+      assert html =~ "After a delay"
+      assert html =~ "On the round&#39;s own date"
+    end
+
+    test "switching to manual mode saves it", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+
+      lv
+      |> form("form[phx-submit=save]", %{"tournament" => %{"publish_mode" => "manual"}})
+      |> render_submit()
+
+      assert Tournaments.get_authorized_tournament!(scope, tournament.id).publish_mode == "manual"
+    end
+
+    test "switching to timed mode with a delay saves both fields", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+
+      lv
+      |> form("form[phx-submit=save]", %{
+        "tournament" => %{"publish_mode" => "timed", "publish_delay_minutes" => "20"}
+      })
+      |> render_submit()
+
+      updated = Tournaments.get_authorized_tournament!(scope, tournament.id)
+      assert updated.publish_mode == "timed"
+      assert updated.publish_delay_minutes == 20
+    end
+  end
 end
