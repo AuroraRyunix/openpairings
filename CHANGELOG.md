@@ -3,7 +3,7 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.14.21] — 2026-08-13 (on branch `swap-arrows-visual`, not yet merged)
+## [0.14.21] — 2026-08-13
 
 ### Changed
 
