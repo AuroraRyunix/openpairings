@@ -2,11 +2,14 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
   @moduledoc """
   The "Tournament" settings page (`/t/:id/settings`) — the canonical entry
   point of the split Settings section. Holds the tournament's identity
-  (name/venue/city/federation/organizer/dates), its format and round count,
-  the tie-break selection, sharing/collaborators, the print logo, and the
-  JSON backup export. Pairing options, round dates, categories, extra points
+  (name/venue/city/federation/organizer), its format and round count, the
+  tie-break selection, sharing/collaborators, the print logo, and the JSON
+  backup export. Pairing options, round dates, categories, extra points
   and FIDE-report identifiers each live on their own sibling page — see the
-  sub-nav (`PairingsEngineWeb.SettingsSupport.settings_subnav/1`).
+  sub-nav (`PairingsEngineWeb.SettingsSupport.settings_subnav/1`). Notably,
+  start/end date are NOT here despite once being "tournament identity" —
+  they're derived from round dates now, so they live only on the Dates
+  page (`PairingsEngineWeb.SettingsDatesLive`), read-only.
   """
   use PairingsEngineWeb, :live_view
 
@@ -18,13 +21,15 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
   # 4th tuple element marks a field as mandatory setup data (see
   # `Tournament.required_setup_fields/0`) — its label renders bold with a
   # red "*". `rounds_count` is also required but is a standalone field below.
+  # start_date/end_date used to live here too — removed: they're derived
+  # from round_dates now (see Tournament's own doc comment on those two
+  # fields), so editing them directly would just get overwritten on the
+  # next save anyway. The Dates page shows the derived result.
   @general_fields [
     {"name", "Tournament name", "text", true},
     {"venue", "Venue", "text", false},
     {"city", "City", "text", false},
     {"federation", "Federation", "text", false},
-    {"start_date", "Start date", "date", true},
-    {"end_date", "End date", "date", false},
     {"organizer", "Organizer", "text", false},
     {"organizer_club_number", "Organizer club nr / logo", "text", false}
   ]

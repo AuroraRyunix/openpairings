@@ -42,11 +42,12 @@ defmodule PairingsEngine.Tournaments.TournamentTest do
       assert {:name, _} = find_missing(t, :name)
     end
 
-    test "blank start_date is reported" do
-      t = complete_tournament(%{start_date: ""})
-      refute Tournament.setup_complete?(t)
-      assert {:start_date, _} = find_missing(t, :start_date)
-    end
+    # No "blank start_date is reported" test — start_date isn't its own
+    # `missing_setup_fields/1` entry any more (it's derived from
+    # round_dates, see that field's own doc comment on `Tournament`), so
+    # requiring `:round_dates` already covers it. The round_dates-focused
+    # tests below (empty / too short / has a blank entry) are what that
+    # requirement actually rests on now.
 
     test "rounds_count of 0 is reported" do
       t = complete_tournament(%{rounds_count: 0, round_dates: []})

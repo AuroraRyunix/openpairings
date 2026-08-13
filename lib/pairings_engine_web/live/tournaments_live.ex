@@ -908,15 +908,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
               name="tournament[start_date]"
               value={Map.get(@new_params, "start_date", "")}
             />
-          </label>
-
-          <label class="field">
-            <span>Date to</span>
-            <input
-              type="date"
-              name="tournament[end_date]"
-              value={Map.get(@new_params, "end_date", "")}
-            />
+            <span class="hint">
+              Just seeds every round to this date — refine per-round (and the tournament's end
+              date, derived from those) on the Dates page after creating it.
+            </span>
           </label>
 
           <div class="field">

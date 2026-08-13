@@ -44,8 +44,7 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
         Tournaments.create_tournament(scope, %{
           "name" => "One Day Open",
           "type" => "swiss",
-          "start_date" => "2026-08-12",
-          "end_date" => "2026-08-12"
+          "round_dates" => ["2026-08-12"]
         })
 
       {:ok, _lv, html} = live(conn, ~p"/")
@@ -59,8 +58,7 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
         Tournaments.create_tournament(scope, %{
           "name" => "Weekend Open",
           "type" => "swiss",
-          "start_date" => "2026-08-12",
-          "end_date" => "2026-08-14"
+          "round_dates" => ["2026-08-12", "2026-08-13", "2026-08-14"]
         })
 
       {:ok, _lv, html} = live(conn, ~p"/")

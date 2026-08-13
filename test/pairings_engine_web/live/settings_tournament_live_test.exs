@@ -42,8 +42,10 @@ defmodule PairingsEngineWeb.SettingsTournamentLiveTest do
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
 
       assert html =~ "Tournament name"
-      assert html =~ "Start date"
       assert html =~ "Number of rounds"
+      # Start date used to be here too — it's derived from round_dates now
+      # (Dates page), not entered on this page at all.
+      refute html =~ "Start date"
       # The bold label + red asterisk are now `.set-label.req` / `.set-req`
       # (styled in app.css) rather than inline styles.
       assert html =~ ~s(class="set-label req")

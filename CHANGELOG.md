@@ -3,6 +3,26 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.29] — 2026-08-13
+
+### Changed
+
+- **Start/end date are no longer entered separately from round dates** —
+  they used to be their own fields on the Tournament settings page,
+  independent of the per-round dates on the Dates page (two places that
+  could say different things about what's really one piece of
+  information). They're derived now: the earliest and latest non-blank
+  entry in `round_dates`, recomputed on every save regardless of which
+  settings page triggered it. The Dates page shows the derived result
+  live as a read-only preview, updating as you type before you even
+  save. The "New tournament" form keeps its one "Date from" field (it
+  only ever seeded every round to the same date); "Date to" is gone —
+  it would have been silently ignored under the new model.
+- **A tournament's setup no longer independently requires a start
+  date** — requiring `round_dates` already covers it now that start
+  date is derived from that list, not a second, separate requirement to
+  satisfy.
+
 ## [0.14.28] — 2026-08-13
 
 ### Fixed

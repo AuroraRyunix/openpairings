@@ -314,7 +314,9 @@ defmodule PairingsEngineWeb.SettingsSupport do
   def setup_field_path(tournament, field) when field in [:fide_tournament_id],
     do: ~p"/t/#{tournament.id}/settings/fide"
 
-  # name, start_date, rounds_count, tiebreaks, federation all live on the
-  # main Tournament settings page.
+  # name, rounds_count, tiebreaks, federation all live on the main
+  # Tournament settings page. (start_date, formerly here too, is derived
+  # from round_dates now — see Tournament's own doc comment on that
+  # field — so it's never a `missing_setup_fields/1` entry on its own.)
   def setup_field_path(tournament, _field), do: ~p"/t/#{tournament.id}/settings"
 end

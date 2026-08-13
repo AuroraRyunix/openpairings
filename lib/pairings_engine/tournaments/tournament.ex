@@ -21,6 +21,15 @@ defmodule PairingsEngine.Tournaments.Tournament do
     field :venue, :string, default: ""
     field :city, :string, default: ""
     field :federation, :string, default: ""
+    # Both DERIVED, always — the earliest/latest non-blank entry in
+    # `round_dates` (see `derive_dates_from_round_dates/1`), never set
+    # directly. Still plain stored columns (not virtual): every reader —
+    # TRF/SWAR/PGN export, the FIDE-report forms, the tournament list —
+    # keeps reading these two fields exactly as before; only WRITING them
+    # changed. Kept out of `cast/3`'s field list below on purpose, so
+    # nothing (an import, a stale form, a future call site) can set them
+    # independently even by accident — the changeset recomputes both from
+    # `round_dates` unconditionally, every single save.
     field :start_date, :string, default: ""
     field :end_date, :string, default: ""
     field :organizer, :string, default: ""
@@ -331,8 +340,6 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :venue,
       :city,
       :federation,
-      :start_date,
-      :end_date,
       :organizer,
       :chief_arbiter,
       :deputy_arbiter,
@@ -401,6 +408,27 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> normalize_extra_points_bands()
     |> normalize_fide_id_ranges()
     |> put_public_slug()
+    |> derive_dates_from_round_dates()
+  end
+
+  # start_date/end_date are always the earliest/latest non-blank entry in
+  # round_dates — see the two fields' own doc comment above. Runs on every
+  # save regardless of whether THIS particular update touches round_dates,
+  # so a change made anywhere else (rounds_count shrinking the padded
+  # list, an import) still leaves both in sync. Lexicographic sort is
+  # correct here without parsing: every entry is ISO-8601 ("YYYY-MM-DD",
+  # the native format of `<input type="date">`, and what every importer
+  # normalizes to), which sorts identically as a string or as a date.
+  defp derive_dates_from_round_dates(changeset) do
+    dates =
+      changeset
+      |> get_field(:round_dates, [])
+      |> Enum.reject(&(&1 in [nil, ""]))
+      |> Enum.sort()
+
+    changeset
+    |> put_change(:start_date, List.first(dates) || "")
+    |> put_change(:end_date, List.last(dates) || "")
   end
 
   # Trims each comma-separated entry and drops blanks, storing back in the
@@ -786,6 +814,10 @@ defmodule PairingsEngine.Tournaments.Tournament do
   soft nudge instead — see `recommended_setup_fields/0` /
   `missing_recommended_fields/1`, which never block pairing.
 
+  No separate `:start_date` entry — it's derived from `:round_dates` now
+  (see that field's own doc comment), so requiring `:round_dates` already
+  covers it; a tournament can't satisfy one without the other.
+
   Kept as a flat list of field-name atoms for anything that just wants to
   know *which fields* matter (e.g. bolding a label) — for the actual
   present/absent logic (round dates need one entry per round), see
@@ -794,7 +826,6 @@ defmodule PairingsEngine.Tournaments.Tournament do
   def required_setup_fields do
     [
       :name,
-      :start_date,
       :rounds_count,
       :round_dates,
       :tiebreaks
@@ -828,7 +859,6 @@ defmodule PairingsEngine.Tournaments.Tournament do
   def missing_setup_fields(%__MODULE__{} = t) do
     checks = [
       {:name, "Tournament name", present?(t.name)},
-      {:start_date, "Start date", present?(t.start_date)},
       {:rounds_count, "Number of rounds", is_integer(t.rounds_count) and t.rounds_count >= 1},
       {:round_dates, "Round dates (one per round)", round_dates_complete?(t)},
       {:tiebreaks, "Tie-break selection", t.tiebreaks != []}
