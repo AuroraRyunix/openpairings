@@ -1943,6 +1943,10 @@ defmodule PairingsEngineWeb.PairingsLive do
         // chips exactly as they are.
         const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
         const SVG_NS = "http://www.w3.org/2000/svg";
+        // Straight run at each end of a curve, and how far short of the
+        // destination card the arrowhead stops.
+        const STUB = 12;
+        const HEAD_GAP = 4;
 
         export default {
           mounted() {
@@ -2064,20 +2068,33 @@ defmodule PairingsEngineWeb.PairingsLive do
 
             const animate = !window.matchMedia(REDUCED_MOTION).matches;
 
-            pairs.forEach(([from, to], i) => {
+            pairs.forEach(([from, to]) => {
               const start = exit(from);
               const end = entry(to);
 
-              // Each curve gets its own lane in the channel so two of them
-              // read as a crossing X rather than one doubled line.
-              const mid = (start.x + end.x) / 2;
-              const lane = mid + (i - (pairs.length - 1) / 2) * 14;
+              // A straight stub at each end: the curve is done bending
+              // before the arrowhead, so the head sits on a level run
+              // instead of still turning as it lands. Same at the dot.
+              const tip = end.x - HEAD_GAP;
+              const stub = Math.min(STUB, Math.max(0, (tip - start.x) / 4));
+              const from_x = start.x + stub;
+              const to_x = tip - stub;
+
+              // Symmetric control points — `+k` out of the start, `−k`
+              // into the end. Both curves of a swap then pass through the
+              // exact centre of the channel at their own half-way point,
+              // so they cross dead centre. (Giving each curve a single
+              // shared control x instead — one "lane" per arrow — is what
+              // made the crossing drift below the middle.)
+              const k = Math.max((to_x - from_x) / 2, 14);
 
               const path = document.createElementNS(SVG_NS, "path");
               path.setAttribute("class", "swap-arrow-path");
               path.setAttribute(
                 "d",
-                `M ${start.x} ${start.y} C ${lane} ${start.y}, ${lane} ${end.y}, ${end.x - 4} ${end.y}`
+                `M ${start.x} ${start.y} L ${from_x} ${start.y}` +
+                  ` C ${from_x + k} ${start.y}, ${to_x - k} ${end.y}, ${to_x} ${end.y}` +
+                  ` L ${tip} ${end.y}`
               );
               path.setAttribute("marker-end", "url(#swap-arrow-head)");
 

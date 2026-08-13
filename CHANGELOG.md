@@ -3,6 +3,20 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.24] — 2026-08-13
+
+### Fixed
+
+- **Swap journey arrows: the two curves crossed below the middle rather
+  than at it**, which read as a mistake rather than a swap. Each curve
+  was built with one shared control x ("a lane per arrow"), which is not
+  symmetric; with `+k` out of the start and `−k` into the end, both
+  curves pass through the exact centre of the channel at their own
+  half-way point and meet there.
+- **The arrowhead was still turning as it landed.** Each curve now ends
+  (and starts) with a short straight run, so the head sits on a level
+  segment.
+
 ## [0.14.23] — 2026-08-13
 
 ### Added
