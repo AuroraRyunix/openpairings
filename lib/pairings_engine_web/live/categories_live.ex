@@ -3,7 +3,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
 
   import PairingsEngineWeb.SettingsSupport
 
-  alias PairingsEngine.{Audit, Tournaments}
+  alias PairingsEngine.{Audit, Pairing, Tournaments}
 
   @rule_kinds [
     {"", "None — assign by hand"},
@@ -22,13 +22,26 @@ defmodule PairingsEngineWeb.CategoriesLive do
     end
 
     {:ok,
-     assign(socket,
+     socket
+     |> assign(
        tournament: tournament,
        page_title: "#{tournament.name} · Categories",
        category_error: nil,
        rule_kinds: @rule_kinds,
-       assign_note: nil
-     )}
+       assign_note: nil,
+       toggle_error: nil
+     )
+     |> assign_pair_by_category_lock()}
+  end
+
+  # Same rationale as the other pairing-shape controls on the Options page
+  # (pairing_system/rr_cycles/match format): once round 1 is paired, the
+  # per-category split is baked into every board number and bye that
+  # round produced, so changing it later would corrupt what's already on
+  # the board — locked, not just discouraged.
+  defp assign_pair_by_category_lock(socket) do
+    paired = Pairing.paired_rounds_count(socket.assigns.tournament.id)
+    assign(socket, pair_by_category_locked?: paired > 0)
   end
 
   @impl true
@@ -44,7 +57,62 @@ defmodule PairingsEngineWeb.CategoriesLive do
          |> push_navigate(to: ~p"/")}
 
       tournament ->
-        {:noreply, assign(socket, tournament: tournament)}
+        {:noreply,
+         socket
+         |> assign(tournament: tournament)
+         |> assign_pair_by_category_lock()}
+    end
+  end
+
+  ## ---------- On/off switches — instant, no separate "Save" step ----------
+
+  # Turning categories off also forces `pair_by_category` off in the same
+  # write: `Tournament.changeset/2`'s own
+  # `validate_pair_by_category_requires_categories/1` would otherwise
+  # reject this exact toggle whenever pair-by-category was already on,
+  # since as far as the changeset can tell both fields would be changing
+  # at once and pair_by_category can't outlive the categories switch it
+  # depends on.
+  def handle_event("toggle_categories_enabled", _params, socket) do
+    tournament = socket.assigns.tournament
+    enabled? = !tournament.categories_enabled
+
+    params =
+      if enabled?,
+        do: %{"categories_enabled" => "true"},
+        else: %{"categories_enabled" => "false", "pair_by_category" => "false"}
+
+    case Tournaments.update_tournament(tournament, params) do
+      {:ok, updated} ->
+        Audit.log(updated.id, socket.assigns.current_scope, "categories.toggled", %{
+          enabled: enabled?
+        })
+
+        {:noreply, assign(socket, tournament: updated, toggle_error: nil)}
+
+      {:error, _changeset} ->
+        {:noreply, assign(socket, toggle_error: "Could not change categories")}
+    end
+  end
+
+  def handle_event("toggle_pair_by_category", _params, socket) do
+    if socket.assigns.pair_by_category_locked? do
+      {:noreply, socket}
+    else
+      tournament = socket.assigns.tournament
+      enabled? = !tournament.pair_by_category
+
+      case Tournaments.update_tournament(tournament, %{"pair_by_category" => to_string(enabled?)}) do
+        {:ok, updated} ->
+          Audit.log(updated.id, socket.assigns.current_scope, "pair_by_category.toggled", %{
+            enabled: enabled?
+          })
+
+          {:noreply, assign(socket, tournament: updated, toggle_error: nil)}
+
+        {:error, changeset} ->
+          {:noreply, assign(socket, toggle_error: error_text(changeset))}
+      end
     end
   end
 
@@ -161,20 +229,58 @@ defmodule PairingsEngineWeb.CategoriesLive do
 
       <.settings_subnav tournament={@tournament} active={:categories} />
 
-      <div :if={!@tournament.categories_enabled} class="card">
-        <p class="hint" style="margin: 0">
-          Categories are turned off for this tournament. Enable them on the
-          <.link navigate={~p"/t/#{@tournament.id}/settings/options"}>Options</.link>
-          settings page first.
+      <div class="card">
+        <h2>Categories</h2>
+
+        <p class="hint" style="margin-top: 0">
+          Tournament-defined groups (SWAR CATEGORIES) — e.g. age or rating brackets — players can
+          be assigned to. Off by default; turn on to start adding them below.
         </p>
+
+        <div class="set-field solo">
+          <span class="set-label">Status</span>
+          <div class="actions" style="margin-top: 6px; align-items: center; gap: 10px">
+            <span>{if @tournament.categories_enabled, do: "On", else: "Off"}</span>
+            <button type="button" class="pe-btn" phx-click="toggle_categories_enabled">
+              {if @tournament.categories_enabled, do: "Turn off", else: "Turn on"}
+            </button>
+          </div>
+        </div>
+
+        <div
+          :if={@tournament.categories_enabled}
+          class="set-field solo"
+          style="margin-top: 10px"
+        >
+          <span class="set-label">Pair each category independently (beta)</span>
+          <p class="hint" style="margin: 2px 0 6px">
+            Swiss only — each category gets its own independent pairings and byes within one
+            combined round.
+          </p>
+          <div class="actions" style="align-items: center; gap: 10px">
+            <span>{if @tournament.pair_by_category, do: "On", else: "Off"}</span>
+            <button
+              type="button"
+              class="pe-btn"
+              phx-click="toggle_pair_by_category"
+              disabled={@pair_by_category_locked?}
+            >
+              {if @tournament.pair_by_category, do: "Turn off", else: "Turn on"}
+            </button>
+          </div>
+          <p :if={@pair_by_category_locked?} class="hint" style="margin: 6px 0 0">
+            Locked — cannot be changed after round 1 has been paired.
+          </p>
+        </div>
+
+        <p :if={@toggle_error} class="error-note" style="margin-top: 10px">{@toggle_error}</p>
       </div>
 
       <div :if={@tournament.categories_enabled}>
         <div class="card">
-          <h2>Categories</h2>
+          <h2>Category list</h2>
           <p class="hint" style="margin-top: 0">
-            Tournament-defined groups (SWAR CATEGORIES) - e.g. age or rating brackets - that players
-            can be assigned to on the
+            Players are assigned a category on the
             <.link navigate={~p"/t/#{@tournament.id}/players"}>Players</.link>
             page. Give one a threshold instead of picking "None" and it can be filled in for
             every player automatically, below.

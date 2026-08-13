@@ -28,6 +28,7 @@ defmodule PairingsEngineWeb.PublicRegisterLiveTest do
 
   defp tournament(scope, opts \\ []) do
     {:ok, t} = Tournaments.create_tournament(scope, %{"name" => "Reg Test", "type" => "swiss"})
+    {:ok, t} = Tournaments.set_public_pages(t, true)
 
     if Keyword.get(opts, :open?, false) do
       {:ok, t} = Tournaments.set_registration_open(t, true)

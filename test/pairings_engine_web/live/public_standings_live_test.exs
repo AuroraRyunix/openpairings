@@ -11,6 +11,8 @@ defmodule PairingsEngineWeb.PublicStandingsLiveTest do
     {:ok, tournament} =
       Tournaments.create_tournament(%{"name" => "Public Manual Ranking Test", "type" => "swiss"})
 
+    {:ok, tournament} = Tournaments.set_public_pages(tournament, true)
+
     a = Repo.insert!(%Player{tournament_id: tournament.id, name: "Alice", fide_rating: 2000})
     b = Repo.insert!(%Player{tournament_id: tournament.id, name: "Bob", fide_rating: 1900})
 
@@ -86,6 +88,8 @@ defmodule PairingsEngineWeb.PublicStandingsLiveTest do
           "categories" => ["Open", "U18"]
         })
 
+      {:ok, tournament} = Tournaments.set_public_pages(tournament, true)
+
       Repo.insert!(%Player{
         tournament_id: tournament.id,
         name: "Alice",
@@ -109,6 +113,8 @@ defmodule PairingsEngineWeb.PublicStandingsLiveTest do
           "pairing_system" => "keizer",
           "categories" => ["Open"]
         })
+
+      {:ok, tournament} = Tournaments.set_public_pages(tournament, true)
 
       Repo.insert!(%Player{
         tournament_id: tournament.id,

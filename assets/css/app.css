@@ -930,6 +930,30 @@ button.pe-btn, .pe-btn {
 .ok-note { color: var(--accent); font-weight: 500; }
 .hint { font-size: 13px; color: var(--text-soft); }
 
+/* A settings <form>'s closing "Save" .actions row, when the form is NOT the
+   last thing on the page (another <div class="card"> follows it as a plain
+   sibling, outside the form). .card supplies its own margin-bottom, but a
+   bare .actions row only has margin-top — so without this it sits crammed
+   right up against whatever card comes next. See SettingsTournamentLive's
+   Tiebreaks->Save->Public pages stack and SettingsOptionsLive's
+   Options->Save->Forbidden pairings stack. */
+.form-actions { margin-top: 8px; margin-bottom: 20px; }
+
+/* A settings toggle whose consequences are unusual/hard to undo mentally
+   (e.g. "treat an absence as a voluntary unplayed round for tiebreaks") —
+   deliberately louder than .hint so it can't be mistaken for routine
+   micro-copy. Reuses the same amber tone as .pe-modal-warn. */
+.setting-warning {
+  margin: 10px 0 0;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  background: color-mix(in srgb, #d97706 16%, transparent);
+  border: 1.5px solid color-mix(in srgb, #d97706 45%, transparent);
+}
+.setting-warning strong { color: #d97706; }
+
 /* Locked pairing-shape controls (Settings > Format) — the overlay sits on
    top of a disabled <select>/checkbox so a click attempt is still caught
    and reported (a genuinely disabled element doesn't fire click events). */

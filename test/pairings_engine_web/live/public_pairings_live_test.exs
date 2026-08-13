@@ -18,6 +18,8 @@ defmodule PairingsEngineWeb.PublicPairingsLiveTest do
         "rate_of_play" => "15 min + 10 sec/move"
       })
 
+    {:ok, tournament} = Tournaments.set_public_pages(tournament, true)
+
     {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/pairings")
 
     refute html =~ "accent-picker"
@@ -35,6 +37,8 @@ defmodule PairingsEngineWeb.PublicPairingsLiveTest do
         "type" => "swiss",
         "rounds_count" => "2"
       })
+
+    {:ok, tournament} = Tournaments.set_public_pages(tournament, true)
 
     [a, b] =
       for {name, rating} <- [{"A", 2000}, {"B", 1800}] do
@@ -77,6 +81,8 @@ defmodule PairingsEngineWeb.PublicPairingsLiveTest do
         "type" => "swiss",
         "rounds_count" => "1"
       })
+
+    {:ok, tournament} = Tournaments.set_public_pages(tournament, true)
 
     [a, b, c, d, e, f] =
       for name <- [
@@ -139,6 +145,8 @@ defmodule PairingsEngineWeb.PublicPairingsLiveTest do
         "rounds_count" => "1"
       })
 
+    {:ok, tournament} = Tournaments.set_public_pages(tournament, true)
+
     [wheelchair, wopp, shifted, sopp] =
       for name <- ["Wheelchairwendy", "Wheelchairopp", "Shiftedsam", "Shiftedopp"] do
         Repo.insert!(%Player{tournament_id: tournament.id, name: name})
@@ -185,6 +193,8 @@ defmodule PairingsEngineWeb.PublicPairingsLiveTest do
         "rounds_count" => "1"
       })
 
+    {:ok, tournament} = Tournaments.set_public_pages(tournament, true)
+
     [a, b, absentee] =
       for name <- ["A", "B", "Absentee"] do
         Repo.insert!(%Player{tournament_id: tournament.id, name: name})
@@ -218,6 +228,8 @@ defmodule PairingsEngineWeb.PublicPairingsLiveTest do
           "type" => "swiss",
           "rounds_count" => "3"
         })
+
+      {:ok, tournament} = Tournaments.set_public_pages(tournament, true)
 
       [a, b] =
         for name <- ["Alice", "Bob"] do
@@ -326,6 +338,8 @@ defmodule PairingsEngineWeb.PublicPairingsLiveTest do
           "rounds_count" => "3",
           "publish_mode" => "manual"
         })
+
+      {:ok, tournament} = Tournaments.set_public_pages(tournament, true)
 
       [a, b] =
         for name <- ["A", "B"] do

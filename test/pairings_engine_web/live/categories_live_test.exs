@@ -34,14 +34,144 @@ defmodule PairingsEngineWeb.CategoriesLiveTest do
       assert html =~ ~s(href="/t/#{tournament.id}/categories")
     end
 
-    test "visiting the page while categories are disabled shows a graceful hint instead of the forms",
+    test "visiting the page while categories are disabled shows the status toggle, not the forms",
          %{conn: conn, scope: scope} do
       tournament = create_tournament(scope, %{"categories_enabled" => false})
 
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/categories")
 
-      assert html =~ "Categories are turned off"
+      assert html =~ "Turn on"
       refute html =~ "add-category-form"
+    end
+  end
+
+  describe "Categories on/off — instant button, no separate Save step" do
+    test "turning it on immediately persists and reveals the category-list card", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope, %{"categories_enabled" => false})
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/categories")
+      refute html =~ "add-category-form"
+
+      html = lv |> element("button", "Turn on") |> render_click()
+
+      assert html =~ "add-category-form"
+      assert Tournaments.get_authorized_tournament!(scope, tournament.id).categories_enabled
+    end
+
+    test "turning it off immediately persists and hides the category-list card again", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope, %{"categories_enabled" => true})
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/categories")
+      assert html =~ "add-category-form"
+
+      html = lv |> element("button", "Turn off") |> render_click()
+
+      refute html =~ "add-category-form"
+      refute Tournaments.get_authorized_tournament!(scope, tournament.id).categories_enabled
+    end
+
+    test "turning it off also forces pair_by_category off, avoiding the changeset's own conflict",
+         %{conn: conn, scope: scope} do
+      tournament =
+        create_tournament(scope, %{
+          "pairing_system" => "swiss",
+          "categories_enabled" => true,
+          "categories" => ["A", "B"],
+          "pair_by_category" => true
+        })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/categories")
+
+      lv
+      |> element(~s(button[phx-click="toggle_categories_enabled"]), "Turn off")
+      |> render_click()
+
+      updated = Tournaments.get_authorized_tournament!(scope, tournament.id)
+      refute updated.categories_enabled
+      refute updated.pair_by_category
+    end
+  end
+
+  describe "pair_by_category (beta) — instant button, locked once round 1 has been paired" do
+    defp pair_swiss_round_1(tournament) do
+      Tournaments.create_player(tournament.id, %{name: "Alice", fide_rating: 2000})
+      Tournaments.create_player(tournament.id, %{name: "Bob", fide_rating: 1900})
+      Tournaments.create_player(tournament.id, %{name: "Carol", fide_rating: 1800})
+      Tournaments.create_player(tournament.id, %{name: "Dave", fide_rating: 1700})
+
+      {:ok, _round} =
+        PairingsEngine.Pairing.pair_next_round(Tournaments.get_tournament!(tournament.id))
+    end
+
+    test "not offered at all while categories are off", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope, %{"categories_enabled" => false})
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/categories")
+
+      refute html =~ "Pair each category independently"
+    end
+
+    test "turning it on immediately persists", %{conn: conn, scope: scope} do
+      tournament =
+        create_tournament(scope, %{
+          "pairing_system" => "swiss",
+          "categories_enabled" => true,
+          "categories" => ["A", "B"]
+        })
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/categories")
+      assert html =~ "Pair each category independently"
+
+      lv
+      |> element(~s(button[phx-click="toggle_pair_by_category"]), "Turn on")
+      |> render_click()
+
+      assert Tournaments.get_authorized_tournament!(scope, tournament.id).pair_by_category
+    end
+
+    @tag :javafo
+    test "button is disabled once round 1 has been paired", %{conn: conn, scope: scope} do
+      tournament =
+        create_tournament(scope, %{
+          "pairing_system" => "swiss",
+          "categories_enabled" => true,
+          "categories" => ["A", "B"],
+          "pair_by_category" => true
+        })
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/categories")
+      refute html =~ ~r/phx-click="toggle_pair_by_category"[^>]*disabled/
+
+      pair_swiss_round_1(tournament)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/categories")
+      assert html =~ ~r/phx-click="toggle_pair_by_category"[^>]*disabled/
+      assert html =~ "Locked"
+    end
+
+    @tag :javafo
+    test "a click is a no-op server-side once locked, even with the disabled attribute bypassed",
+         %{conn: conn, scope: scope} do
+      tournament =
+        create_tournament(scope, %{
+          "pairing_system" => "swiss",
+          "categories_enabled" => true,
+          "categories" => ["A", "B"],
+          "pair_by_category" => true
+        })
+
+      pair_swiss_round_1(tournament)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/categories")
+      render_click(lv, "toggle_pair_by_category", %{})
+
+      assert Tournaments.get_authorized_tournament!(scope, tournament.id).pair_by_category
     end
   end
 

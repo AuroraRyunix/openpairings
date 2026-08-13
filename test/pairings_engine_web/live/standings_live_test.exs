@@ -28,6 +28,8 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
     {:ok, tournament} =
       Tournaments.create_tournament(scope, %{"name" => "Public Link Test", "type" => "swiss"})
 
+    {:ok, tournament} = Tournaments.set_public_pages(tournament, true)
+
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
 
     assert tournament.public_slug

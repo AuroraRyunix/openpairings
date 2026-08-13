@@ -102,6 +102,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     scope: scope
   } do
     tournament = fixture(scope)
+    {:ok, tournament} = Tournaments.set_public_pages(tournament, true)
 
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 

@@ -288,6 +288,8 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
     {:ok, tournament} =
       Tournaments.create_tournament(scope, %{"name" => "Public QR Test", "type" => "swiss"})
 
+    {:ok, tournament} = Tournaments.set_public_pages(tournament, true)
+
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/live")
 
     assert html =~ "enroll-qr-inner"

@@ -215,7 +215,13 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # Tournaments.set_public_pages/2; when false, /p/:slug/... 404s even with
     # the right slug. NOT cast by changeset/2 (same as public_slug) so a normal
     # settings save can't flip it — the two writers above are the only ones.
-    field :public_pages_enabled, :boolean, default: true
+    #
+    # Default false: player names, ratings and clubs shouldn't become
+    # reachable by anyone who finds the link until an arbiter has
+    # deliberately opted in for this tournament — same "opt-in per event"
+    # reasoning as `registration_open` below, not something an existing
+    # tournament should inherit for free.
+    field :public_pages_enabled, :boolean, default: false
 
     # Whether /p/:slug/register accepts entries. Toggled by
     # Tournaments.set_registration_open/2, and NOT cast by changeset/2 for
@@ -313,9 +319,16 @@ defmodule PairingsEngine.Tournaments.Tournament do
     field :count_extra_points, :boolean, default: false
     field :extra_points_bands, :string, default: ""
 
-    # When true, the Categories tab (category management + extra-points
-    # admin) is shown in the top bar — see CategoriesLive. Off by default
-    # so the tab only appears for tournaments that actually use categories.
+    # Whether categories are actually in use. The Categories tab itself is
+    # always in the nav (see CategoriesLive/settings_subnav) — this flag
+    # instead gates the category-management UI on that page (off shows a
+    # single on/off control and nothing else) and whether `pair_by_category`
+    # below is even selectable. Toggled from a plain button on the
+    # Categories page itself, not a settings-form checkbox — flipping it
+    # off also forces `pair_by_category` off in the same write, since a
+    # tournament can't pair by category with categories turned off (see
+    # `validate_pair_by_category_requires_categories/1` below). Off by
+    # default so a tournament that never touches categories stays inert.
     field :categories_enabled, :boolean, default: false
 
     # Soft-delete timestamp for the recycle bin (docs: recycle bin). nil =

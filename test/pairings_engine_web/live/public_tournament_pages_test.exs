@@ -25,6 +25,8 @@ defmodule PairingsEngineWeb.PublicTournamentPagesTest do
         "rounds_count" => "3"
       })
 
+    {:ok, tournament} = Tournaments.set_public_pages(tournament, true)
+
     tournament
   end
 

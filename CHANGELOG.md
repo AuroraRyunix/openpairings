@@ -3,6 +3,51 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.31] — 2026-08-13
+
+### Changed
+
+- **Public pages are now off by default** for a new tournament, instead of
+  on — player names, ratings and clubs no longer become reachable by
+  anyone who finds the link until an arbiter deliberately turns it on
+  (Settings → Tournament → Public pages), same "opt-in per event"
+  reasoning self-registration already used.
+- **Scoring moved to its own Settings tab** — points per win/draw/loss,
+  the pairing-allocated bye value, and SWAR's "Pt ABSENT" genuine-absence
+  rule used to live at the bottom of the Options page; they're on
+  Settings → Scoring now, since "how many points" is a different concern
+  from "how the tournament is paired" (Options).
+- **Categories on/off moved onto the Categories page itself** — it used
+  to be a checkbox buried in the Options form (labeled "Enable the
+  Categories tab", even though the tab was already always shown). It's
+  now a plain Turn on/Turn off button right on the Categories page,
+  taking effect immediately — no more Save-then-navigate-over round
+  trip. "Pair each category independently" moved there too, next to the
+  switch it depends on, marked **(beta)**, and turning categories off
+  now also turns this off in the same write (previously conflicted with
+  the changeset's own validation if attempted directly).
+- **Clearer genuine-absence field labels**, on the new Scoring page:
+  "Points for a genuine absence (SWAR's 'Pt ABSENT')" → "Points awarded
+  for a genuine absence", with a fuller explanation of what "genuine
+  absence" actually means (a plain no-show, distinct from a requested
+  bye or a forfeit) above the fields. "...pays through round
+  (inclusive)" → "Last round this still applies to"; "...for up to this
+  many absences (cumulative)" → "Cap: only a player's first N genuine
+  absences pay" — both with longer, more concrete hints.
+- **A prominent warning now accompanies "Treat a genuine absence as a
+  voluntary unplayed round for tiebreaks"** — this option changes FIDE
+  tiebreak results (Buchholz/Sonneborn-Berger), not just scoring, and
+  FIDE's own C.07 has no such concept at all. The warning appears the
+  instant the checkbox is ticked, before the page is even saved.
+
+### Fixed
+
+- **The Save-settings button on the Tournament and Options pages sat
+  crammed against whatever card came right after it** (Tiebreaks → Save
+  → Public pages / Share-Team, and Options → Save → Forbidden pairings)
+  — a bare `.actions` row only ever had margin above it, none below, so
+  it visually ran into the next section. Now has proper spacing on both.
+
 ## [0.14.30] — 2026-08-13
 
 ### Added

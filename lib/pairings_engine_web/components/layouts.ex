@@ -89,6 +89,9 @@ defmodule PairingsEngineWeb.Layouts do
               <.link navigate={~p"/t/#{@tournament.id}/settings/options"} class="topbar-menu-item">
                 Options
               </.link>
+              <.link navigate={~p"/t/#{@tournament.id}/settings/scoring"} class="topbar-menu-item">
+                Scoring
+              </.link>
               <.link navigate={~p"/t/#{@tournament.id}/settings/dates"} class="topbar-menu-item">
                 Dates
               </.link>

@@ -1,13 +1,15 @@
 defmodule PairingsEngineWeb.SettingsOptionsLive do
   @moduledoc """
   The "Options" settings page (`/t/:id/settings/options`) — everything about
-  *how* the tournament is paired and scored: the pairing engine and its
-  variants (RR cycles, RR/Swiss match format, pair-by-category — each locked
-  once round 1 has been paired), the rating used for pairing, acceleration,
-  the rate of play, custom scoring (points per win/draw/loss, the
-  pairing-allocated bye value, and SWAR's "Pt ABSENT" genuine-absence
-  scoring — also locked once round 1 has been paired), and the
-  forbidden-pairing / club-federation exclusion rules.
+  *how* the tournament is paired: the pairing engine and its variants (RR
+  cycles, RR/Swiss match format — each locked once round 1 has been
+  paired), the rating used for pairing, acceleration, the rate of play, the
+  public-pairings publish delay, and the forbidden-pairing / club-federation
+  exclusion rules. Scoring (points per win/draw/loss, byes, SWAR's "Pt
+  ABSENT" genuine-absence rule) has its own page — see
+  `PairingsEngineWeb.SettingsScoringLive`. Pair-by-category lives on
+  `PairingsEngineWeb.CategoriesLive`, next to the categories-enabled switch
+  it depends on.
   """
   use PairingsEngineWeb, :live_view
 
@@ -43,7 +45,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
        stale: false,
        # Which locked pairing-shape control (if any) the user just tried to
        # interact with — one of `:pairing_system`, `:rr_cycles`,
-       # `:rr_match_format`, `:swiss_match_format`, `:pair_by_category`, or nil.
+       # `:rr_match_format`, `:swiss_match_format`, or nil.
        locked_hint: nil,
        forbidden_pairing_error: nil,
        club_exclusion_mode: tournament.club_exclusion,
@@ -70,18 +72,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
       pairing_system_locked?: paired > 0,
       rr_cycles_locked?: paired >= rr_implied_limit,
       rr_match_format_locked?: paired > 0,
-      swiss_match_format_locked?: paired > 0,
-      pair_by_category_locked?: paired > 0,
-      # SWAR's "Pt ABSENT" scoring (abs_value/abs_jusque/abs_nbfois) — like
-      # the pairing-shape controls above, locked once round 1 has been
-      # paired. Unlike those, changing this after the fact wouldn't corrupt
-      # any stored data (scores are computed live from these fields on
-      # every standings read, never baked into a `byes` row) — it's locked
-      # anyway because a tournament this far along is presumably still
-      # being run under whatever absence rule it started with (most often
-      # a SWAR import's own club-configured rule), and silently changing
-      # who's owed points partway through would be confusing at best.
-      abs_scoring_locked?: paired > 0
+      swiss_match_format_locked?: paired > 0
     )
   end
 
@@ -327,10 +318,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     |> maybe_drop_locked("rr_cycles", assigns.rr_cycles_locked?)
     |> maybe_drop_locked("rr_match_format", assigns.rr_match_format_locked?)
     |> maybe_drop_locked("swiss_match_format", assigns.swiss_match_format_locked?)
-    |> maybe_drop_locked("pair_by_category", assigns.pair_by_category_locked?)
-    |> maybe_drop_locked("abs_value", assigns.abs_scoring_locked?)
-    |> maybe_drop_locked("abs_jusque", assigns.abs_scoring_locked?)
-    |> maybe_drop_locked("abs_nbfois", assigns.abs_scoring_locked?)
   end
 
   defp maybe_drop_locked(params, _key, false), do: params
@@ -515,31 +502,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               locked?={@swiss_match_format_locked?}
               locked_hint={@locked_hint}
             />
-            <%!-- Folded in from its own one-checkbox "Categories" card: it gates
-                  pair_by_category below, so it belongs next to it. --%>
-            <.setting_toggle
-              name="tournament[categories_enabled]"
-              label="Enable the Categories tab (category groups + extra points)"
-              checked={@tournament.categories_enabled}
-            />
-            <.setting_toggle
-              name="tournament[pair_by_category]"
-              label="Pair each category independently"
-              hint="Swiss only - each category gets its own independent pairings and byes within one combined round"
-              checked={@tournament.pair_by_category}
-              disabled={@pair_by_category_locked? or not @tournament.categories_enabled}
-              field={:pair_by_category}
-              locked?={@pair_by_category_locked?}
-              locked_hint={@locked_hint}
-            >
-              <span
-                :if={not @tournament.categories_enabled and not @pair_by_category_locked?}
-                class="hint"
-              >
-                enable categories first
-              </span>
-            </.setting_toggle>
-
             <.setting_field label="Type">
               <select name="tournament[standard]" phx-change="standard_change">
                 <option
@@ -612,107 +574,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
           </.setting_group>
         </div>
 
-        <div class="card">
-          <h2>Scoring</h2>
-
-          <.setting_group>
-            <.setting_field label="Points for a win">
-              <input
-                type="number"
-                step="0.5"
-                name="tournament[points_win]"
-                value={@tournament.points_win}
-              />
-            </.setting_field>
-
-            <.setting_field label="Points for a draw">
-              <input
-                type="number"
-                step="0.5"
-                name="tournament[points_draw]"
-                value={@tournament.points_draw}
-              />
-            </.setting_field>
-
-            <.setting_field label="Points for a loss">
-              <input
-                type="number"
-                step="0.5"
-                name="tournament[points_loss]"
-                value={@tournament.points_loss}
-              />
-            </.setting_field>
-
-            <.setting_field label="Pairing-allocated bye worth">
-              <input
-                type="number"
-                step="0.5"
-                name="tournament[bye_value]"
-                value={@tournament.bye_value}
-              />
-            </.setting_field>
-
-            <.setting_field
-              label="Points for a genuine absence (SWAR's 'Pt ABSENT')"
-              hint="Blank = not applicable — an absence then scores the same as an ordinary loss"
-            >
-              <div class="locked-wrap">
-                <input
-                  type="number"
-                  step="0.5"
-                  min="0"
-                  name="tournament[abs_value]"
-                  value={@tournament.abs_value}
-                  disabled={@abs_scoring_locked?}
-                /> <.locked_overlay field={:abs_scoring} locked?={@abs_scoring_locked?} />
-              </div>
-              <.locked_hint_message field={:abs_scoring} locked_hint={@locked_hint} />
-            </.setting_field>
-
-            <.setting_field
-              label="...pays through round (inclusive)"
-              hint="Blank = no round cutoff"
-            >
-              <div class="locked-wrap">
-                <input
-                  type="number"
-                  step="1"
-                  min="0"
-                  name="tournament[abs_jusque]"
-                  value={@tournament.abs_jusque}
-                  disabled={@abs_scoring_locked?}
-                /> <.locked_overlay field={:abs_scoring} locked?={@abs_scoring_locked?} />
-              </div>
-              <.locked_hint_message field={:abs_scoring} locked_hint={@locked_hint} />
-            </.setting_field>
-
-            <.setting_field
-              label="...for up to this many absences (cumulative)"
-              hint="Blank = no count cap — every genuine absence pays, no matter how many"
-            >
-              <div class="locked-wrap">
-                <input
-                  type="number"
-                  step="1"
-                  min="0"
-                  name="tournament[abs_nbfois]"
-                  value={@tournament.abs_nbfois}
-                  disabled={@abs_scoring_locked?}
-                /> <.locked_overlay field={:abs_scoring} locked?={@abs_scoring_locked?} />
-              </div>
-              <.locked_hint_message field={:abs_scoring} locked_hint={@locked_hint} />
-            </.setting_field>
-
-            <.setting_toggle
-              name="tournament[absent_counts_as_vur]"
-              label="Treat a genuine absence as a voluntary unplayed round for tiebreaks"
-              hint="Off (FIDE default) = an absence always counts at its award value above. On = a trailing absence is downgraded to a draw for opponents' Buchholz/SB, same as a requested bye — FIDE's own C.07 has no 'absent' concept, so this stays opt-in."
-              checked={@tournament.absent_counts_as_vur}
-            />
-          </.setting_group>
-        </div>
-
-        <div class="actions">
+        <div class="actions form-actions">
           <button type="submit" class="pe-btn primary">Save settings</button>
           <span :if={@note} class="ok-note" style="align-self: center">{@note}</span>
           <span :if={@error} class="error-note" style="align-self: center">{@error}</span>

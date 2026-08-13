@@ -539,7 +539,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
           </div>
         </div>
 
-        <div class="actions">
+        <div class="actions form-actions">
           <button type="submit" class="pe-btn primary">Save settings</button>
           <span :if={@note} class="ok-note" style="align-self: center">{@note}</span>
           <span :if={@error} class="error-note" style="align-self: center">{@error}</span>
