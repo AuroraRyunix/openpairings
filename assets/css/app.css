@@ -1207,28 +1207,54 @@ button.pe-btn, .pe-btn {
   background: color-mix(in srgb, var(--accent) 7%, var(--surface));
 }
 .board-seat { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: 14px; }
-/* A fixed red chip behind the piece-colour dot, deliberately NOT a theme
-   token: a plain white dot vanishes against a light theme's white
-   surface, and a plain black dot vanishes against a dark theme's near-
-   black one — the exact opposite failure on each theme. Red never
-   matches either theme's background, so the dot inside it always reads. */
+/* W/B letter badges, not a coloured dot — the dot used to sit on a fixed
+   red backdrop (deliberately not a theme token, since a plain white dot
+   vanishes on a light surface and a plain black one vanishes on a dark
+   one) which read as an alarm/warning colour precisely in the one place
+   — mid-swap — where nothing is actually wrong. A bordered/inverted
+   letter pair solves the same "must read on either theme" problem
+   without needing a fixed alarm colour: White is text-on-surface,
+   Black is the exact inverse, so each is always distinct from the page
+   background AND from each other, in both themes, no red required. */
 .board-seat-colour {
-  width: 15px;
-  height: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 19px;
+  height: 19px;
   flex: none;
-  border-radius: 4px;
-  background: #b3261e;
-  position: relative;
+  border-radius: 5px;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
 }
-.board-seat-colour::after {
-  content: "";
-  position: absolute;
-  inset: 3px;
-  border-radius: 50%;
-  background: #fff;
+.board-seat-black {
+  background: var(--text);
+  color: var(--surface);
+  border-color: var(--text);
 }
-.board-seat-black::after { background: #1a1a1a; }
 .board-seat-name { overflow-wrap: anywhere; }
+
+/* The small "⇄ Board N" chip on a changed seat in the confirm modal,
+   when that seat's new occupant came FROM (or is going TO) a different
+   board — the visual link a two-board swap's two independent before/
+   after cards otherwise leave the arbiter to piece together themselves. */
+.board-seat-swap-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 99px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
 .board-seat-changed .board-seat-name { font-weight: 700; color: var(--accent); }
 
 .board-number-field { display: block; margin-top: 14px; }
