@@ -334,16 +334,36 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
       })
 
       {:ok, snapshot} = Snapshots.capture(t, "manual", scope, summary: "Known good")
-      {t, snapshot}
+
+      # A second capture so the first is behind HEAD and therefore something
+      # you can actually go *back* to — capturing advances HEAD, so a lone
+      # snapshot is where the tournament already is.
+      {:ok, _later} = Snapshots.capture(Repo.reload!(t), "manual", scope, summary: "Later")
+
+      {Repo.reload!(t), snapshot}
     end
 
-    test "each restore point offers a Go back button", %{conn: conn, scope: scope} do
+    test "a restore point behind HEAD offers a Go back button", %{conn: conn, scope: scope} do
       {tournament, _snapshot} = restorable(scope)
 
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
 
       assert html =~ "Go back to here"
       assert html =~ ~s(phx-click="restore_start")
+    end
+
+    test "the point the tournament is already at is marked, and offers no button", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope, %{"name" => "At Head"})
+      {:ok, _} = Snapshots.capture(tournament, "manual", scope, summary: "Only point")
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+
+      assert html =~ "the tournament is here"
+      # Nothing to go back to — you're already there.
+      refute html =~ "Go back to here"
     end
 
     test "ordinary audit entries offer no restore button", %{conn: conn, scope: scope} do
@@ -476,6 +496,104 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
       html = render_click(lv, "restore_start", %{"id" => to_string(their_snapshot.id)})
 
       refute html =~ "This overwrites live results"
+    end
+  end
+
+  describe "the branch view" do
+    alias PairingsEngine.Tournaments.Player
+
+    # Builds: base -> abandoned, and base -> (restored) -> current.
+    defp branched(scope) do
+      t = create_tournament(scope, %{"name" => "Branched"})
+      Repo.insert!(%Player{tournament_id: t.id, name: "Common"})
+
+      {:ok, base} = Snapshots.capture(t, "manual", scope, summary: "Base point")
+
+      Repo.insert!(%Player{tournament_id: t.id, name: "Abandoned Line"})
+
+      {:ok, abandoned} =
+        Snapshots.capture(Repo.reload!(t), "manual", scope, summary: "Left behind")
+
+      {:ok, _} = Snapshots.restore(Repo.reload!(t), base.id, scope)
+
+      {Repo.reload!(t), base, abandoned}
+    end
+
+    test "an unbranched history says nothing about branching", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      {:ok, _} = Snapshots.capture(tournament, "manual", scope, summary: "One")
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+
+      refute html =~ "This history has"
+      refute html =~ "off-trunk"
+    end
+
+    test "a branched history explains itself and marks the off-trunk line", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, _base, _abandoned} = branched(scope)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+
+      assert html =~ "This history has"
+      assert html =~ "branched"
+      # The abandoned line is rendered aside from the trunk.
+      assert html =~ "off-trunk"
+    end
+
+    test "the abandoned line offers a switch, not a go-back", %{conn: conn, scope: scope} do
+      {tournament, _base, _abandoned} = branched(scope)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+
+      assert html =~ "Switch to this branch"
+    end
+
+    test "lanes are exposed for the rail to position entries", %{conn: conn, scope: scope} do
+      {tournament, _base, _abandoned} = branched(scope)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+
+      # Trunk entries at lane 0, the abandoned one further out.
+      assert html =~ "--tl-lane: 0"
+      assert html =~ ~r/--tl-lane: [1-9]/
+      # And the elbow connecting a fork back to its parent's lane.
+      assert html =~ "tl-fork"
+      assert html =~ "--tl-parent-lane"
+    end
+
+    test "the branch point itself is labelled", %{conn: conn, scope: scope} do
+      {tournament, _base, _abandoned} = branched(scope)
+
+      # Carrying on after the restore is what actually forks the tree.
+      Repo.insert!(%Player{tournament_id: tournament.id, name: "New Line"})
+      {:ok, _} = Snapshots.capture(Repo.reload!(tournament), "manual", scope, summary: "New line")
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+
+      assert html =~ "branch point"
+    end
+
+    test "switching to the abandoned branch brings its data back", %{conn: conn, scope: scope} do
+      {tournament, _base, abandoned} = branched(scope)
+
+      refute tournament.id
+             |> Tournaments.list_players()
+             |> Enum.any?(&(&1.name == "Abandoned Line"))
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/history")
+      render_click(lv, "restore_start", %{"id" => to_string(abandoned.id)})
+      render_change(lv, "restore_confirm_input", %{"confirm" => "RESTORE"})
+      render_submit(lv, "restore_confirmed", %{})
+
+      assert tournament.id
+             |> Tournaments.list_players()
+             |> Enum.any?(&(&1.name == "Abandoned Line"))
+
+      # And HEAD followed.
+      assert Repo.reload!(tournament).head_snapshot_id == abandoned.id
     end
   end
 

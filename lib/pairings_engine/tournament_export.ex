@@ -76,10 +76,15 @@ defmodule PairingsEngine.TournamentExport do
   #   logo_data, logo_content_type
   #     Known gap: binary, would need base64 in the envelope. Documented in
   #     docs/import-export.md rather than silently dropped.
+  #   head_snapshot_id
+  #     Points at a `tournament_snapshots` row — restore-point bookkeeping,
+  #     and snapshots aren't part of the envelope. Carrying the id would
+  #     dangle against another tournament's snapshot table. An imported copy
+  #     legitimately starts with no history behind it.
   @excluded_tournament_fields ~w(
     id user_id inserted_at updated_at public_slug public_pages_enabled
     registration_open deleted_at archived_at swar_guid
-    logo_data logo_content_type
+    logo_data logo_content_type head_snapshot_id
   )a
 
   @doc false

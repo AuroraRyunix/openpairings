@@ -2916,6 +2916,61 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 
 .tl-actions { margin-top: 6px; }
 
+/* ---- branching ----
+   A restore point's lane is exposed as --tl-lane (0 = the line the live data
+   is on). Each lane steps the dot right by --tl-lane-step and the content
+   with it, so abandoned lines sit visibly aside from the trunk. */
+.tl { --tl-lane-step: 16px; --tl-lanes: 0; }
+
+.tl-item { --tl-lane: 0; }
+.tl-item .tl-dot { left: calc(var(--tl-rail) + var(--tl-lane) * var(--tl-lane-step)); }
+.tl-item { padding-left: calc(30px + var(--tl-lanes) * var(--tl-lane-step)); }
+
+/* Off-trunk entries are dimmed: they're real and reachable, but they are not
+   what the tournament currently is, and that has to be obvious at a glance. */
+.tl-item.off-trunk .tl-text,
+.tl-item.off-trunk .tl-meta { opacity: 0.72; }
+.tl-item.off-trunk .tl-dot { box-shadow: 0 0 0 3px var(--surface); }
+
+/* The elbow from a forked entry back to its parent's lane: up from this
+   dot, then across. Drawn with two borders on one box rather than an SVG so
+   it stays in flow with the row and needs no measuring. */
+.tl-fork {
+  position: absolute;
+  top: 6px;
+  height: 14px;
+  left: calc(var(--tl-rail) + var(--tl-parent-lane) * var(--tl-lane-step));
+  width: calc((var(--tl-lane) - var(--tl-parent-lane)) * var(--tl-lane-step));
+  border-left: 2px solid var(--border);
+  border-bottom: 2px solid var(--border);
+  border-bottom-left-radius: 8px;
+  transform: translateX(-1px);
+  pointer-events: none;
+}
+
+/* Where the tournament actually is right now. */
+.tl-item.is-head .tl-dot {
+  box-shadow:
+    0 0 0 3px var(--surface),
+    0 0 0 5px var(--accent);
+}
+.tl-here,
+.tl-forked {
+  padding: 1px 8px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 650;
+}
+.tl-here { background: var(--accent-soft); color: var(--accent); }
+.tl-forked {
+  background: color-mix(in srgb, #d97706 16%, transparent);
+  color: #b45309;
+}
+:root[data-theme="dark"] .tl-forked { color: #fbbf24; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .tl-forked { color: #fbbf24; }
+}
+
 /* The little diamond used inline in prose to point at what a restore point
    looks like on the rail — same shape and hue as .tl-item[data-kind=snapshot]. */
 .tl-inline-diamond {

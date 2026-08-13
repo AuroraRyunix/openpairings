@@ -337,6 +337,15 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # NOT cast by changeset/2 so ordinary saves can't touch it.
     field :deleted_at, :utc_datetime
 
+    # Which restore point the live data currently corresponds to — HEAD, in
+    # git terms. See `PairingsEngine.Snapshots` and the branching migration.
+    # Stored rather than derived because after a restore the *most recent*
+    # snapshot is precisely not where the data sits, which is the whole point
+    # of branching. Managed only by `Snapshots.capture/4` and
+    # `Snapshots.restore/3`; deliberately not cast by `changeset/2`, so an
+    # ordinary settings save can't move it.
+    field :head_snapshot_id, :integer
+
     # Archive timestamp. nil = live and editable; set = frozen read-only,
     # listed in its own section rather than the main tournament list.
     # Distinct from `deleted_at` in intent: the recycle bin is "on its way

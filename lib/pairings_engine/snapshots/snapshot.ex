@@ -23,12 +23,16 @@ defmodule PairingsEngine.Snapshots.Snapshot do
     belongs_to :tournament, PairingsEngine.Tournaments.Tournament
     belongs_to :user, PairingsEngine.Accounts.User
 
+    # The restore point that was current when this one was taken — see the
+    # migration. Nil for a tournament's first snapshot (a root).
+    belongs_to :parent, __MODULE__, foreign_key: :parent_id
+
     timestamps(type: :utc_datetime, updated_at: false)
   end
 
   def changeset(snapshot, attrs) do
     snapshot
-    |> cast(attrs, [:tournament_id, :user_id, :trigger, :summary, :payload, :pinned])
+    |> cast(attrs, [:tournament_id, :user_id, :trigger, :summary, :payload, :pinned, :parent_id])
     |> validate_required([:tournament_id, :trigger, :payload])
   end
 end

@@ -160,10 +160,10 @@ defmodule PairingsEngineWeb.HistoryLive do
       |> Audit.list_for_tournament(limit: @audit_limit)
       |> Enum.map(&audit_event/1)
 
-    snapshots =
-      tournament.id
-      |> Snapshots.list()
-      |> Enum.map(&snapshot_event/1)
+    # The branch tree carries lane/HEAD info the flat list doesn't, so the
+    # timeline's snapshot rows come from here rather than Snapshots.list/2.
+    tree = Snapshots.branch_tree(tournament)
+    snapshots = Enum.map(tree, &snapshot_event/1)
 
     entries =
       (events ++ snapshots)
@@ -174,7 +174,12 @@ defmodule PairingsEngineWeb.HistoryLive do
       entries: entries,
       days: group_by_day(entries),
       snapshot_count: length(snapshots),
-      event_count: length(events)
+      event_count: length(events),
+      # Widest lane in use — drives how much gutter the rail needs, and
+      # whether to explain branching at all (a never-restored tournament is
+      # a single line and needs no explanation).
+      max_lane: tree |> Enum.map(& &1.lane) |> Enum.max(fn -> 0 end),
+      branched?: Enum.any?(tree, &(&1.lane > 0))
     )
   end
 
@@ -207,7 +212,14 @@ defmodule PairingsEngineWeb.HistoryLive do
       who: who(row.user),
       text: headline(row, diff),
       diff: diff,
-      snapshot_id: nil
+      snapshot_id: nil,
+      # An audit row isn't part of the snapshot tree; it always sits on the
+      # trunk so the rail reads continuously between restore points.
+      lane: 0,
+      parent_lane: nil,
+      on_head_line: true,
+      is_head: false,
+      forks: false
     }
   end
 
@@ -238,7 +250,7 @@ defmodule PairingsEngineWeb.HistoryLive do
   defp field_count(1), do: "1 field"
   defp field_count(n), do: "#{n} fields"
 
-  defp snapshot_event(snapshot) do
+  defp snapshot_event(%{snapshot: snapshot} = entry) do
     %{
       id: "snapshot-#{snapshot.id}",
       at: to_utc(snapshot.inserted_at),
@@ -247,7 +259,12 @@ defmodule PairingsEngineWeb.HistoryLive do
       who: who(snapshot.user),
       text: snapshot.summary || "Restore point saved.",
       diff: [],
-      snapshot_id: snapshot.id
+      snapshot_id: snapshot.id,
+      lane: entry.lane,
+      parent_lane: entry.parent_lane,
+      on_head_line: entry.on_head_line,
+      is_head: entry.is_head,
+      forks: entry.children > 1
     }
   end
 
@@ -354,6 +371,12 @@ defmodule PairingsEngineWeb.HistoryLive do
           saved automatically before anything irreversible. {@event_count} change(s) and {@snapshot_count} restore point(s).
         </p>
 
+        <p :if={@branched?} class="hint" style="margin-top: -4px">
+          This history has <strong>branched</strong> — you went back and carried on differently.
+          The leftmost line is where the tournament is now; the others are the paths you left,
+          still there to go back to.
+        </p>
+
         <div class="round-picker" style="flex-wrap: wrap; margin-bottom: 4px">
           <button
             :for={{key, label} <- filters()}
@@ -375,14 +398,37 @@ defmodule PairingsEngineWeb.HistoryLive do
         <div :for={{date, day_entries} <- @days}>
           <div class="tl-day">{day_label(date)}</div>
 
-          <ul class="tl">
-            <li :for={entry <- day_entries} class="tl-item" data-kind={entry.kind} id={entry.id}>
+          <ul class="tl" style={"--tl-lanes: #{@max_lane}"}>
+            <li
+              :for={entry <- day_entries}
+              class={[
+                "tl-item",
+                entry.lane > 0 && "off-trunk",
+                entry.is_head && "is-head",
+                entry.forks && "forks"
+              ]}
+              data-kind={entry.kind}
+              style={"--tl-lane: #{entry.lane}"}
+              id={entry.id}
+            >
+              <%!-- The connector back to this entry's parent. Only drawn when
+                    the parent sits in a different lane — within a lane the
+                    continuous rail already does the job. --%>
+              <span
+                :if={entry.parent_lane && entry.parent_lane != entry.lane}
+                class="tl-fork"
+                style={"--tl-parent-lane: #{entry.parent_lane}"}
+                aria-hidden="true"
+              ></span>
+
               <span class="tl-dot"></span>
 
               <div class="tl-meta">
                 <span class="tl-time">{time_label(entry.at)}</span>
                 <span class="tl-who">{entry.who}</span>
                 <span class="tl-tag">{entry.kind}</span>
+                <span :if={entry.is_head} class="tl-here">the tournament is here</span>
+                <span :if={entry.forks} class="tl-forked">branch point</span>
               </div>
 
               <div class="tl-text">{entry.text}</div>
@@ -396,14 +442,17 @@ defmodule PairingsEngineWeb.HistoryLive do
                 </div>
               </div>
 
-              <div :if={entry.snapshot_id && !@tournament.archived_at} class="tl-actions">
+              <div
+                :if={entry.snapshot_id && !@tournament.archived_at && !entry.is_head}
+                class="tl-actions"
+              >
                 <button
                   type="button"
                   class="pe-btn"
                   phx-click="restore_start"
                   phx-value-id={entry.snapshot_id}
                 >
-                  Go back to here
+                  {if entry.on_head_line, do: "Go back to here", else: "Switch to this branch"}
                 </button>
               </div>
             </li>

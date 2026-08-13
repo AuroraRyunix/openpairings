@@ -75,12 +75,18 @@ defmodule PairingsEngine.Snapshots do
         trigger: to_string(trigger),
         summary: Keyword.get(opts, :summary),
         pinned: Keyword.get(opts, :pinned, false),
+        # Hangs off wherever the live data currently sits, so a capture taken
+        # after a restore forks the tree at the restored point rather than
+        # extending the line that was abandoned.
+        parent_id: tournament.head_snapshot_id,
         payload: TournamentExport.export_tournament(tournament)
       })
       |> Repo.insert()
 
     case result do
       {:ok, snapshot} ->
+        # The new snapshot is now the tip of the current line.
+        set_head(tournament, snapshot.id)
         prune(tournament.id)
         {:ok, snapshot}
 
@@ -92,6 +98,17 @@ defmodule PairingsEngine.Snapshots do
 
         {:error, changeset}
     end
+  end
+
+  # HEAD is bookkeeping, not user-facing content: written straight rather than
+  # through `Tournaments.update_tournament/2` so it never broadcasts a
+  # settings change or trips the archive guard (a snapshot of an archived
+  # tournament is a read, and still legitimate).
+  defp set_head(%Tournament{} = tournament, snapshot_id) do
+    Repo.update_all(
+      from(t in Tournament, where: t.id == ^tournament.id),
+      set: [head_snapshot_id: snapshot_id]
+    )
   end
 
   defp user_id(%Scope{user: %{id: id}}), do: id
@@ -166,6 +183,108 @@ defmodule PairingsEngine.Snapshots do
     deleted
   end
 
+  ## ---------- the branch tree ----------
+
+  @doc """
+  `tournament`'s restore points as a drawable tree, newest first.
+
+  Returns one entry per snapshot with the structure the timeline needs:
+
+    * `:lane` — which vertical column to draw it in. The line the live data
+      is currently on is always lane 0; each fork takes the next free lane,
+      so a tournament that was never restored is a single straight column.
+    * `:parent_lane` — the lane its parent sits in, so the view can draw the
+      connector (straight down within a lane, a curve when it crosses).
+    * `:on_head_line` — whether it's an ancestor of (or is) the current HEAD,
+      i.e. part of the history that actually produced the live data. The
+      other lanes are abandoned alternatives, still reachable.
+    * `:children` — how many snapshots hang off it; more than one is the fork
+      itself, which the view marks.
+
+  Lane assignment walks oldest-first so a lane number, once given out, is
+  stable as the tournament grows — a new branch never renumbers the existing
+  ones under the reader.
+  """
+  @spec branch_tree(Tournament.t()) :: [map()]
+  def branch_tree(%Tournament{} = tournament) do
+    snapshots =
+      Repo.all(
+        from s in Snapshot,
+          where: s.tournament_id == ^tournament.id,
+          order_by: [asc: s.inserted_at, asc: s.id],
+          preload: [:user],
+          select: %{s | payload: nil}
+      )
+
+    by_id = Map.new(snapshots, &{&1.id, &1})
+    child_counts = Enum.frequencies_by(snapshots, & &1.parent_id)
+    head_line = ancestry(tournament.head_snapshot_id, by_id)
+
+    {entries, _lanes} =
+      Enum.reduce(snapshots, {[], %{}}, fn snapshot, {acc, lanes} ->
+        lane = assign_lane(snapshot, lanes, head_line, child_counts)
+
+        entry = %{
+          snapshot: snapshot,
+          lane: lane,
+          parent_lane: Map.get(lanes, snapshot.parent_id),
+          on_head_line: MapSet.member?(head_line, snapshot.id),
+          is_head: snapshot.id == tournament.head_snapshot_id,
+          children: Map.get(child_counts, snapshot.id, 0)
+        }
+
+        {[entry | acc], Map.put(lanes, snapshot.id, lane)}
+      end)
+
+    # Built oldest-first for stable lanes; returned newest-first to match the
+    # timeline. The reduce already reverses, so this is the right order.
+    entries
+  end
+
+  # Lane 0 is reserved for the line the live data is on, so the "real"
+  # history reads as the trunk however much branching happened around it.
+  # Everything else takes the lowest lane not already used by a sibling.
+  defp assign_lane(snapshot, lanes, head_line, child_counts) do
+    cond do
+      MapSet.member?(head_line, snapshot.id) ->
+        0
+
+      # First child of a parent continues the parent's lane; later children
+      # are the forks and need their own.
+      first_child?(snapshot, lanes, child_counts) ->
+        Map.get(lanes, snapshot.parent_id, 0)
+
+      true ->
+        next_free_lane(lanes)
+    end
+  end
+
+  defp first_child?(%Snapshot{parent_id: nil}, lanes, _counts), do: lanes == %{}
+
+  defp first_child?(%Snapshot{parent_id: parent_id}, lanes, _counts) do
+    # A parent's lane is free to continue only if nothing has taken it yet in
+    # this pass — i.e. this is the first child processed.
+    parent_lane = Map.get(lanes, parent_id)
+    parent_lane != nil and not Enum.any?(lanes, fn {_id, lane} -> lane == parent_lane end)
+  end
+
+  defp next_free_lane(lanes) do
+    used = lanes |> Map.values() |> MapSet.new()
+    Stream.iterate(1, &(&1 + 1)) |> Enum.find(&(not MapSet.member?(used, &1)))
+  end
+
+  # Every snapshot from `id` back to its root — the chain that actually
+  # produced the current live data.
+  defp ancestry(nil, _by_id), do: MapSet.new()
+
+  defp ancestry(id, by_id) do
+    Stream.unfold(id, fn
+      nil -> nil
+      current -> {current, Map.get(by_id, current, %{parent_id: nil}).parent_id}
+    end)
+    |> MapSet.new()
+  end
+
   ## ---------- restoring ----------
 
   @doc """
@@ -204,10 +323,17 @@ defmodule PairingsEngine.Snapshots do
          %Snapshot{} = snapshot <- get(tournament.id, snapshot_id),
          {:ok, entry} <- payload_entry(snapshot) do
       # Capture what we're about to overwrite, pinned, so this is reversible.
+      # This extends the line being left (its parent is the current HEAD), so
+      # that line stays intact and reachable rather than being orphaned.
       capture(tournament, "snapshot.restored", actor,
         summary: "Before restoring to #{restore_label(snapshot)}",
         pinned: true
       )
+
+      # Move HEAD to the point being restored. The next capture hangs off
+      # here, which is what makes the tree fork at this node instead of
+      # continuing the abandoned line.
+      set_head(tournament, snapshot.id)
 
       do_restore(tournament, entry)
     else
