@@ -3,6 +3,22 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.28] — 2026-08-13
+
+### Fixed
+
+- **The swap confirm modal's card pairs still ended up visibly uneven
+  with real (longer) names**, even after 0.14.27's top-alignment fix —
+  the "⇄ Board N" chip sat on the same line as the name, so it ate into
+  the name's own available width on only the "after" card (the one side
+  that ever gets a chip), making the exact same name wrap harder there
+  than its own "before" counterpart managed without a chip competing
+  for room. The chip now forces onto its own line below the name, so
+  both sides of a pair get identical width to wrap into. Verified
+  against the exact case that surfaced it (`Burssens, Ruben (1502)`, a
+  name long enough to wrap under a chip but not without one): the name
+  itself no longer wraps at all now, on either side.
+
 ## [0.14.27] — 2026-08-13
 
 ### Fixed

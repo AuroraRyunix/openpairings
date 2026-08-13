@@ -1247,7 +1247,11 @@ button.pe-btn, .pe-btn {
   border-color: color-mix(in srgb, var(--accent) 55%, transparent);
   background: color-mix(in srgb, var(--accent) 7%, var(--surface));
 }
-.board-seat { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: 14px; }
+/* `flex-wrap: wrap` is for the "⇄ Board N" chip specifically (see its
+   own `flex-basis: 100%` below) — it has nothing to do with the NAME
+   wrapping, which is `.board-seat-name`'s own `overflow-wrap` doing its
+   job regardless of this row's own flex-wrap setting. */
+.board-seat { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 3px 0; font-size: 14px; }
 /* W/B letter badges, not a coloured dot — the dot used to sit on a fixed
    red backdrop (deliberately not a theme token, since a plain white dot
    vanishes on a light surface and a plain black one vanishes on a dark
@@ -1301,10 +1305,20 @@ button.pe-btn, .pe-btn {
    after cards otherwise leave the arbiter to piece together themselves.
    Tinted to match its own traveller, same fallback as the name above. */
 .board-seat-swap-ref {
+  /* Forced onto its own line — see `.board-seat`'s `flex-wrap`. Sitting
+     inline with the name meant this chip ate into the name's own
+     available width on ONLY the "after" card (the one side that ever
+     gets a chip at all), so a name long enough to wrap wrapped harder
+     there than the exact same text on the "before" card managed
+     without a chip competing for room — the two cards of a pair ending
+     up mismatched in height purely because of the chip, not the name
+     itself. On its own line, the chip can no longer do that: the name
+     gets the same width to wrap into on both sides regardless. */
+  flex-basis: 100%;
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  margin-left: 6px;
+  margin-left: 27px;
   padding: 1px 7px;
   border-radius: 99px;
   background: color-mix(in srgb, var(--swap-color, var(--accent)) 16%, transparent);
@@ -1312,6 +1326,7 @@ button.pe-btn, .pe-btn {
   font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
+  width: fit-content;
 }
 
 .board-number-field { display: block; margin-top: 14px; }
