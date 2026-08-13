@@ -3,6 +3,25 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.26] — 2026-08-13
+
+### Security
+
+- **`phoenix_live_view` 1.2.7 → 1.2.9**, clearing a LOW-severity open
+  redirect (EEF-CVE-2026-64941 / GHSA-36m4-rm57-3prf) in LiveView's own
+  internal `validate_local_url!/2` check — an ASCII tab/LF/CR in a URL
+  could pass that check as "local" while a real browser strips those
+  characters and follows the link elsewhere. Pulled `phoenix` along with
+  it (1.8.9 → 1.8.11, phoenix_live_view's own dependency floor) — both
+  already inside this project's existing `mix.exs` version constraints,
+  so only `mix.lock` changed.
+
+  Not obviously reachable from this app's own code today — the one
+  place that stores a redirect target (`user_return_to`) uses the
+  current request's own path, not an attacker-supplied parameter — but
+  the vulnerable check sits inside every `redirect`/`push_navigate`/
+  `push_patch` LiveView does internally, so worth clearing regardless.
+
 ## [0.14.25] — 2026-08-13
 
 ### Added
