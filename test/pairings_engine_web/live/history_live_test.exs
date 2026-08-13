@@ -316,6 +316,183 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
     end
   end
 
+  describe "the two graphs" do
+    alias PairingsEngine.Tournaments.{Pairing, Player, Round}
+
+    defp played_tournament(scope) do
+      t = create_tournament(scope, %{"name" => "Charted"})
+
+      [a, b, c, d] =
+        for name <- ~w(Alice Bob Carol Dave) do
+          Repo.insert!(%Player{tournament_id: t.id, name: name, fide_rating: 2000})
+        end
+
+      r1 = Repo.insert!(%Round{tournament_id: t.id, number: 1})
+
+      Repo.insert!(%Pairing{
+        round_id: r1.id,
+        board: 1,
+        white_player_id: a.id,
+        black_player_id: b.id,
+        result: "1-0"
+      })
+
+      Repo.insert!(%Pairing{
+        round_id: r1.id,
+        board: 2,
+        white_player_id: c.id,
+        black_player_id: d.id,
+        result: "0-1"
+      })
+
+      r2 = Repo.insert!(%Round{tournament_id: t.id, number: 2})
+
+      Repo.insert!(%Pairing{
+        round_id: r2.id,
+        board: 1,
+        white_player_id: a.id,
+        black_player_id: d.id,
+        result: "0-1"
+      })
+
+      Repo.insert!(%Pairing{
+        round_id: r2.id,
+        board: 2,
+        white_player_id: b.id,
+        black_player_id: c.id,
+        result: "1-0"
+      })
+
+      {t, [a, b, c, d]}
+    end
+
+    test "both graphs show a placeholder before anything is played", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+
+      assert html =~ "Nothing to plot yet"
+      assert html =~ "No games played yet"
+      # Not `refute html =~ "<svg"` — the page favicon is itself an inline
+      # SVG data URI, so that always matches. Assert on the chart's own
+      # elements instead.
+      refute html =~ "<polyline"
+      refute html =~ "net-node"
+    end
+
+    test "the bump chart draws one line per player, with a point per round", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, _players} = played_tournament(scope)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+
+      assert html =~ "How the standings moved"
+      assert html =~ "<polyline"
+      # Four players, two rounds each.
+      assert html |> String.split("<polyline") |> length() == 5
+      # Round axis labels (HEEx pads interpolated text with whitespace, so
+      # match the label itself rather than an exact `>R1<`).
+      assert html =~ "R1"
+      assert html =~ "R2"
+      # Every player is labelled on their line.
+      for name <- ~w(Alice Bob Carol Dave), do: assert(html =~ name)
+    end
+
+    test "each point carries a readable tooltip with rank and score", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, _players} = played_tournament(scope)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+
+      assert html =~ ~r/Alice — round 1: rank \d+, [\d.]+ pts/
+    end
+
+    test "the network draws a node per player and an edge per meeting", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, _players} = played_tournament(scope)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+
+      assert html =~ "Who played whom"
+      # Four players who played.
+      assert html |> String.split(~s(class="net-node")) |> length() == 5
+      # Four distinct pairs met across the two rounds.
+      assert html |> String.split("<line") |> length() >= 5
+      assert html =~ "Alice vs Bob — round 1"
+    end
+
+    test "a player with no games is absent from the network", %{conn: conn, scope: scope} do
+      {tournament, _players} = played_tournament(scope)
+      Repo.insert!(%Player{tournament_id: tournament.id, name: "Zzz Neverplayed"})
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+
+      network_section =
+        html
+        |> String.split("Who played whom")
+        |> List.last()
+        |> String.split("What happened")
+        |> hd()
+
+      refute network_section =~ "Zzz Neverplayed"
+    end
+
+    test "both graphs bail out with an explanation on a large roster", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope, %{"name" => "Big"})
+
+      players =
+        for n <- 1..30 do
+          Repo.insert!(%Player{
+            tournament_id: tournament.id,
+            name: "Player #{n}",
+            fide_rating: 2000
+          })
+        end
+
+      round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1})
+
+      players
+      |> Enum.chunk_every(2)
+      |> Enum.with_index(1)
+      |> Enum.each(fn {[w, b], board} ->
+        Repo.insert!(%Pairing{
+          round_id: round.id,
+          board: board,
+          white_player_id: w.id,
+          black_player_id: b.id,
+          result: "1-0"
+        })
+      end)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+
+      # Rather than drawing an unreadable hairball, both say why and point at
+      # the page that shows the same data usefully.
+      assert html =~ "too many to read as a bump chart"
+      assert html =~ "past the point where this graph tells you anything"
+      refute html =~ "<polyline"
+    end
+
+    test "the graphs stay readable on an archived tournament", %{conn: conn, scope: scope} do
+      {tournament, _players} = played_tournament(scope)
+      {:ok, _} = Tournaments.archive_tournament(tournament)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+
+      assert html =~ "<polyline"
+      assert html =~ "net-node"
+    end
+  end
+
   describe "the payload is never loaded for the list" do
     test "snapshot rows on the timeline carry no payload", %{scope: scope} do
       tournament = create_tournament(scope)
