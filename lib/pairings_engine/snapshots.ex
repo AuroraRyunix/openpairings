@@ -41,10 +41,10 @@ defmodule PairingsEngine.Snapshots do
   import Ecto.Query
   require Logger
 
-  alias PairingsEngine.{Repo, TournamentExport}
+  alias PairingsEngine.{Repo, TournamentExport, TournamentImport, Tournaments}
   alias PairingsEngine.Accounts.Scope
   alias PairingsEngine.Snapshots.Snapshot
-  alias PairingsEngine.Tournaments.Tournament
+  alias PairingsEngine.Tournaments.{Player, Round, Team, Tournament}
 
   @keep_per_tournament 50
 
@@ -74,6 +74,7 @@ defmodule PairingsEngine.Snapshots do
         user_id: user_id(actor),
         trigger: to_string(trigger),
         summary: Keyword.get(opts, :summary),
+        pinned: Keyword.get(opts, :pinned, false),
         payload: TournamentExport.export_tournament(tournament)
       })
       |> Repo.insert()
@@ -138,16 +139,19 @@ defmodule PairingsEngine.Snapshots do
   end
 
   @doc """
-  Deletes all but the `@keep_per_tournament` most recent snapshots for
-  `tournament_id`. Called automatically by `capture/4`; returns the number
+  Deletes all but the `@keep_per_tournament` most recent *unpinned* snapshots
+  for `tournament_id`. Called automatically by `capture/4`; returns the number
   deleted.
+
+  Pinned snapshots (the ones a restore takes of the state it replaced) are
+  never counted and never deleted — see the `pinned` field's own comment.
   """
   @spec prune(integer()) :: non_neg_integer()
   def prune(tournament_id) do
     keep_ids =
       Repo.all(
         from s in Snapshot,
-          where: s.tournament_id == ^tournament_id,
+          where: s.tournament_id == ^tournament_id and s.pinned == false,
           order_by: [desc: s.inserted_at, desc: s.id],
           limit: @keep_per_tournament,
           select: s.id
@@ -156,9 +160,102 @@ defmodule PairingsEngine.Snapshots do
     {deleted, _} =
       Repo.delete_all(
         from s in Snapshot,
-          where: s.tournament_id == ^tournament_id and s.id not in ^keep_ids
+          where: s.tournament_id == ^tournament_id and s.pinned == false and s.id not in ^keep_ids
       )
 
     deleted
+  end
+
+  ## ---------- restoring ----------
+
+  @doc """
+  Replaces `tournament`'s contents with the state held in snapshot `id`.
+
+  Before doing anything it captures the *current* state as a pinned snapshot,
+  so the jump is itself reversible — going back to Tuesday leaves a restore
+  point holding Thursday, which appears on the timeline and can be jumped
+  forward to. Pinned so that bouncing between two states can't push the state
+  you jumped away from off the end of the retention window.
+
+  What it replaces: teams, players, rounds (and their pairings, via cascade),
+  byes, forbidden pairings, and the tournament's own settings fields.
+
+  What it deliberately leaves alone:
+
+    * **Collaborators** — who has access is not tournament content, and a
+      restore silently revoking a co-arbiter would be its own incident.
+    * **The audit log and other snapshots** — the history of what happened
+      must survive being rolled back, or the record would be self-erasing.
+    * **Mobile enrolments** — phones already scanned in keep working.
+    * **Sharing state and the public slug** — these aren't in the payload at
+      all (see the moduledoc); a restore must never silently re-publish a
+      tournament or resurrect a rotated link.
+
+  Runs in one transaction: either the whole state lands or nothing does.
+  Refuses on an archived tournament, like every other write.
+
+  Returns `{:ok, tournament}` with the reloaded tournament, or
+  `{:error, reason}`.
+  """
+  @spec restore(Tournament.t(), integer() | String.t(), Scope.t() | integer() | nil) ::
+          {:ok, Tournament.t()} | {:error, term()}
+  def restore(%Tournament{} = tournament, snapshot_id, actor \\ nil) do
+    with :ok <- Tournaments.ensure_writable(tournament),
+         %Snapshot{} = snapshot <- get(tournament.id, snapshot_id),
+         {:ok, entry} <- payload_entry(snapshot) do
+      # Capture what we're about to overwrite, pinned, so this is reversible.
+      capture(tournament, "snapshot.restored", actor,
+        summary: "Before restoring to #{restore_label(snapshot)}",
+        pinned: true
+      )
+
+      do_restore(tournament, entry)
+    else
+      nil -> {:error, :not_found}
+      {:error, _} = error -> error
+    end
+  end
+
+  defp restore_label(%Snapshot{summary: summary}) when is_binary(summary) and summary != "",
+    do: "\"#{summary}\""
+
+  defp restore_label(%Snapshot{inserted_at: at}),
+    do: Calendar.strftime(at, "%Y-%m-%d %H:%M UTC")
+
+  defp payload_entry(%Snapshot{payload: %{"tournaments" => [entry | _]}}) when is_map(entry),
+    do: {:ok, entry}
+
+  defp payload_entry(%Snapshot{}), do: {:error, :malformed_snapshot}
+
+  defp do_restore(tournament, entry) do
+    result =
+      Tournaments.with_broadcast_suppressed(fn ->
+        Repo.transaction(fn ->
+          wipe_contents(tournament.id)
+          TournamentImport.restore_into!(tournament, entry)
+        end)
+      end)
+
+    case result do
+      {:ok, _} ->
+        Tournaments.broadcast_tournament_change(tournament.id, :tournament)
+        {:ok, Tournaments.refresh_status!(tournament.id)}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  # Teams, players, rounds, byes and forbidden pairings are the whole of what
+  # a snapshot carries, so they're replaced wholesale rather than diffed.
+  # Deleting rounds cascades to their pairings; deleting players would too,
+  # but byes/forbidden pairings are schemaless so they're cleared explicitly
+  # and in the right order.
+  defp wipe_contents(tournament_id) do
+    Repo.delete_all(from b in "byes", where: b.tournament_id == ^tournament_id)
+    Repo.delete_all(from f in "forbidden_pairings", where: f.tournament_id == ^tournament_id)
+    Repo.delete_all(from r in Round, where: r.tournament_id == ^tournament_id)
+    Repo.delete_all(from p in Player, where: p.tournament_id == ^tournament_id)
+    Repo.delete_all(from t in Team, where: t.tournament_id == ^tournament_id)
   end
 end

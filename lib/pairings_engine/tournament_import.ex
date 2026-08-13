@@ -81,6 +81,51 @@ defmodule PairingsEngine.TournamentImport do
     end
   end
 
+  @doc """
+  Rebuilds an **existing** tournament's contents from one tournament entry of
+  an export envelope — the restore half of `PairingsEngine.Snapshots`.
+
+  Differs from `import/2` in that it writes into `tournament` rather than
+  creating a new row: the settings on the entry are applied to it, and its
+  teams/players/rounds/byes/forbidden pairings are recreated with fresh ids
+  and internally remapped, exactly as an import does. The caller is
+  responsible for having already deleted the old contents and for wrapping
+  this in a transaction — see `Snapshots.restore/3`, the only caller.
+
+  Raises (via `Repo.rollback/1`) rather than returning an error tuple, for the
+  same reason the private import helpers do: it only runs inside a
+  transaction that must abort wholesale on any bad record.
+  """
+  def restore_into!(%Tournament{} = tournament, entry) when is_map(entry) do
+    t_attrs = fetch_map!(entry, "tournament")
+
+    tournament =
+      tournament
+      |> Tournament.changeset(t_attrs)
+      |> Ecto.Changeset.change(
+        manual_ranking_stale: truthy(Map.get(t_attrs, "manual_ranking_stale"))
+      )
+      |> update!()
+
+    team_map = import_teams!(tournament, list(entry, "teams"))
+    player_map = import_players!(tournament, list(entry, "players"), team_map)
+    import_rounds!(tournament, list(entry, "rounds"), player_map)
+    import_byes!(tournament, list(entry, "byes"), player_map)
+    import_forbidden_pairings!(tournament, list(entry, "forbidden_pairings"), player_map)
+
+    tournament
+  end
+
+  defp update!(changeset) do
+    case Repo.update(changeset) do
+      {:ok, record} ->
+        record
+
+      {:error, changeset} ->
+        Repo.rollback("Could not restore: " <> changeset_error_text(changeset))
+    end
+  end
+
   ## ---------- per-tournament import (runs inside the transaction) ----------
 
   defp import_tournament!(t_data, _scope) when not is_map(t_data) do

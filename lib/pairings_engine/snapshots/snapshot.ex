@@ -14,6 +14,12 @@ defmodule PairingsEngine.Snapshots.Snapshot do
     field :summary, :string
     field :payload, :map
 
+    # Exempt from retention pruning — see the migration and
+    # `PairingsEngine.Snapshots.prune/1`. Set on the snapshot a restore takes
+    # of the state it's about to replace, so stepping forward again stays
+    # possible however much back-and-forth happens.
+    field :pinned, :boolean, default: false
+
     belongs_to :tournament, PairingsEngine.Tournaments.Tournament
     belongs_to :user, PairingsEngine.Accounts.User
 
@@ -22,7 +28,7 @@ defmodule PairingsEngine.Snapshots.Snapshot do
 
   def changeset(snapshot, attrs) do
     snapshot
-    |> cast(attrs, [:tournament_id, :user_id, :trigger, :summary, :payload])
+    |> cast(attrs, [:tournament_id, :user_id, :trigger, :summary, :payload, :pinned])
     |> validate_required([:tournament_id, :trigger, :payload])
   end
 end

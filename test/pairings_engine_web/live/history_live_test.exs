@@ -316,180 +316,166 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
     end
   end
 
-  describe "the two graphs" do
+  describe "restoring from the timeline" do
     alias PairingsEngine.Tournaments.{Pairing, Player, Round}
 
-    defp played_tournament(scope) do
-      t = create_tournament(scope, %{"name" => "Charted"})
-
-      [a, b, c, d] =
-        for name <- ~w(Alice Bob Carol Dave) do
-          Repo.insert!(%Player{tournament_id: t.id, name: name, fide_rating: 2000})
-        end
-
-      r1 = Repo.insert!(%Round{tournament_id: t.id, number: 1})
+    defp restorable(scope) do
+      t = create_tournament(scope, %{"name" => "Restorable"})
+      a = Repo.insert!(%Player{tournament_id: t.id, name: "Alice"})
+      b = Repo.insert!(%Player{tournament_id: t.id, name: "Bob"})
+      r = Repo.insert!(%Round{tournament_id: t.id, number: 1, status: "finished"})
 
       Repo.insert!(%Pairing{
-        round_id: r1.id,
+        round_id: r.id,
         board: 1,
         white_player_id: a.id,
         black_player_id: b.id,
         result: "1-0"
       })
 
-      Repo.insert!(%Pairing{
-        round_id: r1.id,
-        board: 2,
-        white_player_id: c.id,
-        black_player_id: d.id,
-        result: "0-1"
-      })
-
-      r2 = Repo.insert!(%Round{tournament_id: t.id, number: 2})
-
-      Repo.insert!(%Pairing{
-        round_id: r2.id,
-        board: 1,
-        white_player_id: a.id,
-        black_player_id: d.id,
-        result: "0-1"
-      })
-
-      Repo.insert!(%Pairing{
-        round_id: r2.id,
-        board: 2,
-        white_player_id: b.id,
-        black_player_id: c.id,
-        result: "1-0"
-      })
-
-      {t, [a, b, c, d]}
+      {:ok, snapshot} = Snapshots.capture(t, "manual", scope, summary: "Known good")
+      {t, snapshot}
     end
 
-    test "both graphs show a placeholder before anything is played", %{conn: conn, scope: scope} do
+    test "each restore point offers a Go back button", %{conn: conn, scope: scope} do
+      {tournament, _snapshot} = restorable(scope)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+
+      assert html =~ "Go back to here"
+      assert html =~ ~s(phx-click="restore_start")
+    end
+
+    test "ordinary audit entries offer no restore button", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
+      Audit.log(tournament.id, scope, "player.created", %{"player_name" => "Alice"})
 
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
 
-      assert html =~ "Nothing to plot yet"
-      assert html =~ "No games played yet"
-      # Not `refute html =~ "<svg"` — the page favicon is itself an inline
-      # SVG data URI, so that always matches. Assert on the chart's own
-      # elements instead.
-      refute html =~ "<polyline"
-      refute html =~ "net-node"
+      refute html =~ "Go back to here"
     end
 
-    test "the bump chart draws one line per player, with a point per round", %{
+    test "the confirm modal explains the consequences and requires typing RESTORE", %{
       conn: conn,
       scope: scope
     } do
-      {tournament, _players} = played_tournament(scope)
+      {tournament, snapshot} = restorable(scope)
 
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/history")
 
-      assert html =~ "How the standings moved"
-      assert html =~ "<polyline"
-      # Four players, two rounds each.
-      assert html |> String.split("<polyline") |> length() == 5
-      # Round axis labels (HEEx pads interpolated text with whitespace, so
-      # match the label itself rather than an exact `>R1<`).
-      assert html =~ "R1"
-      assert html =~ "R2"
-      # Every player is labelled on their line.
-      for name <- ~w(Alice Bob Carol Dave), do: assert(html =~ name)
+      html = render_click(lv, "restore_start", %{"id" => to_string(snapshot.id)})
+
+      assert html =~ "Go back to this point"
+      assert html =~ "This overwrites live results"
+      assert html =~ "Known good"
+      # The confirm button starts disabled.
+      assert html =~ ~r/<button[^>]*disabled[^>]*>\s*Go back to this point/
     end
 
-    test "each point carries a readable tooltip with rank and score", %{
+    test "a wrong confirmation word does nothing", %{conn: conn, scope: scope} do
+      {tournament, snapshot} = restorable(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/history")
+      render_click(lv, "restore_start", %{"id" => to_string(snapshot.id)})
+      render_change(lv, "restore_confirm_input", %{"confirm" => "restore"})
+
+      # Add something after the snapshot so we can tell whether it was wiped.
+      Repo.insert!(%Player{tournament_id: tournament.id, name: "Added Later"})
+
+      render_submit(lv, "restore_confirmed", %{})
+
+      assert tournament.id
+             |> Tournaments.list_players()
+             |> Enum.any?(&(&1.name == "Added Later"))
+    end
+
+    test "typing RESTORE performs the restore and reports it", %{conn: conn, scope: scope} do
+      {tournament, snapshot} = restorable(scope)
+      Repo.insert!(%Player{tournament_id: tournament.id, name: "Added Later"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/history")
+      render_click(lv, "restore_start", %{"id" => to_string(snapshot.id)})
+      render_change(lv, "restore_confirm_input", %{"confirm" => "RESTORE"})
+
+      html = render_submit(lv, "restore_confirmed", %{})
+
+      assert html =~ "Restored."
+
+      names = tournament.id |> Tournaments.list_players() |> Enum.map(& &1.name) |> Enum.sort()
+      assert names == ["Alice", "Bob"]
+    end
+
+    test "restoring is audit-logged and appears on the timeline in prose", %{
       conn: conn,
       scope: scope
     } do
-      {tournament, _players} = played_tournament(scope)
+      {tournament, snapshot} = restorable(scope)
 
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/history")
+      render_click(lv, "restore_start", %{"id" => to_string(snapshot.id)})
+      render_change(lv, "restore_confirm_input", %{"confirm" => "RESTORE"})
+      html = render_submit(lv, "restore_confirmed", %{})
 
-      assert html =~ ~r/Alice — round 1: rank \d+, [\d.]+ pts/
+      assert html =~ "Restored the tournament back to"
+      assert html =~ "Known good"
+
+      actions = tournament.id |> Audit.list_for_tournament() |> Enum.map(& &1.action)
+      assert "snapshot.restored" in actions
     end
 
-    test "the network draws a node per player and an edge per meeting", %{
+    test "the restore leaves a new pinned restore point to come back to", %{
       conn: conn,
       scope: scope
     } do
-      {tournament, _players} = played_tournament(scope)
+      {tournament, snapshot} = restorable(scope)
 
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/history")
+      render_click(lv, "restore_start", %{"id" => to_string(snapshot.id)})
+      render_change(lv, "restore_confirm_input", %{"confirm" => "RESTORE"})
+      render_submit(lv, "restore_confirmed", %{})
 
-      assert html =~ "Who played whom"
-      # Four players who played.
-      assert html |> String.split(~s(class="net-node")) |> length() == 5
-      # Four distinct pairs met across the two rounds.
-      assert html |> String.split("<line") |> length() >= 5
-      assert html =~ "Alice vs Bob — round 1"
+      assert [newest | _] = Snapshots.list(tournament.id)
+      assert newest.trigger == "snapshot.restored"
+      assert newest.pinned
     end
 
-    test "a player with no games is absent from the network", %{conn: conn, scope: scope} do
-      {tournament, _players} = played_tournament(scope)
-      Repo.insert!(%Player{tournament_id: tournament.id, name: "Zzz Neverplayed"})
+    test "cancelling closes the modal without touching anything", %{conn: conn, scope: scope} do
+      {tournament, snapshot} = restorable(scope)
+      Repo.insert!(%Player{tournament_id: tournament.id, name: "Added Later"})
 
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/history")
+      render_click(lv, "restore_start", %{"id" => to_string(snapshot.id)})
+      html = render_click(lv, "restore_cancel", %{})
 
-      network_section =
-        html
-        |> String.split("Who played whom")
-        |> List.last()
-        |> String.split("What happened")
-        |> hd()
+      refute html =~ "This overwrites live results"
 
-      refute network_section =~ "Zzz Neverplayed"
+      assert tournament.id
+             |> Tournaments.list_players()
+             |> Enum.any?(&(&1.name == "Added Later"))
     end
 
-    test "both graphs bail out with an explanation on a large roster", %{
-      conn: conn,
-      scope: scope
-    } do
-      tournament = create_tournament(scope, %{"name" => "Big"})
-
-      players =
-        for n <- 1..30 do
-          Repo.insert!(%Player{
-            tournament_id: tournament.id,
-            name: "Player #{n}",
-            fide_rating: 2000
-          })
-        end
-
-      round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1})
-
-      players
-      |> Enum.chunk_every(2)
-      |> Enum.with_index(1)
-      |> Enum.each(fn {[w, b], board} ->
-        Repo.insert!(%Pairing{
-          round_id: round.id,
-          board: board,
-          white_player_id: w.id,
-          black_player_id: b.id,
-          result: "1-0"
-        })
-      end)
-
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
-
-      # Rather than drawing an unreadable hairball, both say why and point at
-      # the page that shows the same data usefully.
-      assert html =~ "too many to read as a bump chart"
-      assert html =~ "past the point where this graph tells you anything"
-      refute html =~ "<polyline"
-    end
-
-    test "the graphs stay readable on an archived tournament", %{conn: conn, scope: scope} do
-      {tournament, _players} = played_tournament(scope)
+    test "an archived tournament offers no restore button at all", %{conn: conn, scope: scope} do
+      {tournament, _snapshot} = restorable(scope)
       {:ok, _} = Tournaments.archive_tournament(tournament)
 
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
 
-      assert html =~ "<polyline"
-      assert html =~ "net-node"
+      # The restore points are still listed and readable — just not actionable.
+      assert html =~ "Known good"
+      refute html =~ "Go back to here"
+    end
+
+    test "a snapshot id from another tournament can't be reached", %{conn: conn, scope: scope} do
+      {mine, _} = restorable(scope)
+      {_theirs, their_snapshot} = restorable(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{mine.id}/history")
+
+      # restore_start silently ignores an id that isn't this tournament's,
+      # so no modal opens and nothing can be confirmed against it.
+      html = render_click(lv, "restore_start", %{"id" => to_string(their_snapshot.id)})
+
+      refute html =~ "This overwrites live results"
     end
   end
 

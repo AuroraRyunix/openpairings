@@ -195,8 +195,60 @@ defmodule PairingsEngineWeb.AuditLive do
   def describe("standings.extra_points_applied", d),
     do: "Applied extra-points bands to #{value(d, "matched")} of #{value(d, "total")} players."
 
+  def describe("tournament.archived", d),
+    do: "Archived tournament #{name(d, "name")} — it is now read-only."
+
+  def describe("tournament.unarchived", d),
+    do: "Unarchived tournament #{name(d, "name")} — it is editable again."
+
+  def describe("tournament.duplicated", d),
+    do: "Duplicated tournament #{name(d, "from_name")} into a new copy."
+
+  def describe("tournament.left", d),
+    do: "Left tournament #{name(d, "name")} (gave up collaborator access)."
+
+  def describe("snapshot.restored", d), do: describe_restored(d)
+
+  def describe("categories.toggled", d),
+    do: "Turned categories #{on_off(d["enabled"])}."
+
+  def describe("pair_by_category.toggled", d),
+    do: "Turned per-category pairing #{on_off(d["enabled"])}."
+
+  def describe("public_pages.toggled", d),
+    do: "Turned the public pages #{on_off(d["enabled"])}."
+
+  def describe("public_pages.link_rotated", _d),
+    do: "Generated a new public link — the previous one stopped working."
+
+  def describe("registration.toggled", d),
+    do: "#{if truthy?(d["open"]), do: "Opened", else: "Closed"} the public registration form."
+
+  def describe("pairing.result_clear_attempted", d),
+    do:
+      "Attempted to clear the result on board #{value(d, "board")} (round #{value(d, "round")}) — refused."
+
   # Fallback for any code not explicitly handled — still readable.
   def describe(action, _details), do: "#{action}"
+
+  defp describe_restored(d) do
+    to = d["restored_to"]
+
+    where =
+      if is_binary(to) and to != "" do
+        "\"#{to}\""
+      else
+        "an earlier restore point"
+      end
+
+    "Restored the tournament back to #{where}. The state it replaced was saved first."
+  end
+
+  defp on_off(value), do: if(truthy?(value), do: "on", else: "off")
+
+  defp truthy?(true), do: true
+  defp truthy?("true"), do: true
+  defp truthy?(_), do: false
 
   defp describe_round_paired(d) do
     round = value(d, "round")
