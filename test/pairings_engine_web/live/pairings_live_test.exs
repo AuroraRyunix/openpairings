@@ -1516,4 +1516,50 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       refute round.published_at
     end
   end
+
+  describe "snapshots are captured before the irreversible actions" do
+    test "unpairing a round snapshots the state it is about to destroy", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = fixture(scope)
+      assert PairingsEngine.Snapshots.count(tournament.id) == 0
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+      render_click(lv, "unpair", %{})
+
+      assert [snapshot] = PairingsEngine.Snapshots.list(tournament.id)
+      assert snapshot.trigger == "pairing.round_deleted"
+      assert snapshot.summary =~ "Before unpairing round"
+      assert snapshot.user_id == scope.user.id
+
+      # The point of the snapshot: it still holds the round that unpairing
+      # just deleted, even though the live tournament no longer does.
+      stored = PairingsEngine.Snapshots.get(tournament.id, snapshot.id)
+      snapshot_rounds = stored.payload["tournaments"] |> hd() |> Map.get("rounds")
+
+      assert length(snapshot_rounds) == 2
+      assert PairingsEngine.Pairing.paired_rounds_count(tournament.id) == 1
+    end
+
+    test "a failed action still leaves its snapshot behind, and that's fine", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = fixture(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      # Round 1 isn't the latest, so unpairing it is refused...
+      render_click(lv, "select_round", %{"number" => "1"})
+      render_click(lv, "unpair", %{})
+
+      # ...but the snapshot was taken first, by design: capture must never
+      # depend on the action succeeding, or it would be useless exactly when
+      # something went wrong.
+      assert [snapshot] = PairingsEngine.Snapshots.list(tournament.id)
+      assert snapshot.trigger == "pairing.round_deleted"
+      assert PairingsEngine.Pairing.paired_rounds_count(tournament.id) == 2
+    end
+  end
 end

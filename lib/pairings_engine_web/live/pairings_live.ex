@@ -9,6 +9,7 @@ defmodule PairingsEngineWeb.PairingsLive do
     PairingRationale,
     ResultsImport,
     RoundRobin,
+    Snapshots,
     Standings,
     Tournaments
   }
@@ -166,6 +167,13 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   def handle_event("unpair", _params, socket) do
     %{tournament: t, round_number: round_number} = socket.assigns
+
+    # Unpairing deletes the round and every result in it. Snapshot first —
+    # see PairingsEngine.Snapshots for why this sits at the call site and
+    # why its result is ignored.
+    Snapshots.capture(t, "pairing.round_deleted", socket.assigns.current_scope,
+      summary: "Before unpairing round #{round_number}"
+    )
 
     case Engine.delete_round(t.id, round_number) do
       :ok ->
@@ -464,6 +472,14 @@ defmodule PairingsEngineWeb.PairingsLive do
 
     case uploaded do
       [csv_text] ->
+        # Overwrites a whole round's results in one go — snapshot first.
+        Snapshots.capture(
+          tournament,
+          "pairing.results_imported",
+          socket.assigns.current_scope,
+          summary: "Before importing results into round #{round_number}"
+        )
+
         with {:ok, rows} <- ResultsImport.parse_text(csv_text),
              {:ok, count} <- ResultsImport.apply_import(tournament, round_number, rows) do
           Audit.log(tournament.id, socket.assigns.current_scope, "pairing.results_imported", %{
@@ -881,6 +897,13 @@ defmodule PairingsEngineWeb.PairingsLive do
     if socket.assigns.tournament.pairing_system == "round_robin" do
       do_pair_all_rounds(socket)
     else
+      Snapshots.capture(
+        socket.assigns.tournament,
+        "pairing.round_paired",
+        socket.assigns.current_scope,
+        summary: "Before pairing round #{socket.assigns.round_number}"
+      )
+
       case Engine.pair_next_round(socket.assigns.tournament) do
         {:ok, round} ->
           log_round_paired(socket, round.number)
@@ -904,6 +927,12 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp do_pair_all_rounds(socket) do
     tournament = socket.assigns.tournament
     already_paired = Engine.paired_rounds_count(tournament.id)
+
+    # Generates the entire Berger schedule in one irreversible click, so this
+    # is the single most valuable thing to have a snapshot in front of.
+    Snapshots.capture(tournament, "pairing.round_paired", socket.assigns.current_scope,
+      summary: "Before pairing the whole round-robin schedule"
+    )
 
     case RoundRobin.pair_all_rounds(tournament) do
       {:ok, last_round_number} ->
