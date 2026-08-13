@@ -1211,11 +1211,16 @@ button.pe-btn, .pe-btn {
    red backdrop (deliberately not a theme token, since a plain white dot
    vanishes on a light surface and a plain black one vanishes on a dark
    one) which read as an alarm/warning colour precisely in the one place
-   — mid-swap — where nothing is actually wrong. A bordered/inverted
-   letter pair solves the same "must read on either theme" problem
-   without needing a fixed alarm colour: White is text-on-surface,
-   Black is the exact inverse, so each is always distinct from the page
-   background AND from each other, in both themes, no red required. */
+   — mid-swap — where nothing is actually wrong.
+   First attempt at the fix used `var(--surface)`/`var(--text)` for an
+   "inverted pair" — wrong in exactly the way the red dot was wrong:
+   those tokens FLIP between themes (dark in dark mode), so White ended
+   up rendering as a dark box and Black as a light one, backwards, on a
+   dark theme. Fixed literal colours instead — the same cream/charcoal
+   pair the brand mark's own chess pieces use (`Layouts.brand_mark/1`) —
+   so White is always the light box and Black always the dark one,
+   independent of theme, the same guarantee the old red backdrop gave
+   without the alarm colour. */
 .board-seat-colour {
   display: inline-flex;
   align-items: center;
@@ -1227,14 +1232,14 @@ button.pe-btn, .pe-btn {
   font-size: 10.5px;
   font-weight: 700;
   line-height: 1;
-  border: 1.5px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
+  border: 1.5px solid #1c1a15;
+  background: #f7f3e8;
+  color: #1c1a15;
 }
 .board-seat-black {
-  background: var(--text);
-  color: var(--surface);
-  border-color: var(--text);
+  background: #1c1a15;
+  color: #f7f3e8;
+  border-color: #1c1a15;
 }
 .board-seat-name { overflow-wrap: anywhere; }
 

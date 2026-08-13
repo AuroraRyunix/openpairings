@@ -3,6 +3,18 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.22] — 2026-08-13
+
+### Fixed
+
+- **The new W/B swap-modal badges (0.14.21) were inverted on a dark
+  theme** — White rendered as a dark box, Black as a light one. The fix
+  used `var(--surface)`/`var(--text)` for an "inverted pair," not
+  noticing those tokens themselves flip between light and dark themes.
+  Now fixed literal colours (the same cream/charcoal pair the brand
+  mark's own chess pieces use), so White is always the light box and
+  Black always the dark one, independent of theme.
+
 ## [0.14.21] — 2026-08-13
 
 ### Changed
