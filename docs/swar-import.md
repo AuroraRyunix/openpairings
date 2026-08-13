@@ -90,6 +90,41 @@ players of a 128-player v7 open that resolve by `fide_id`, that Elo tracks
 and ours. `parse_player/2` mirrors it into `elo_fide` so `fide_rating_or/1`
 keeps working instead of filing every v7 player as unrated.
 
+## Verified against the real source, and two real v7 files
+
+Everything in this file up to here was reverse-engineered from `.swar`
+files and cross-checked against our own reader/writer agreeing with each
+other — real evidence, but not proof a genuine SWAR install reads what we
+write the same way. Since then, two more real artifacts turned up and are
+worth recording:
+
+- **The actual SWAR v6.65 FRBE C++ source** (`TournoiReadWrite.cpp`,
+  `Base.cpp`, `Joueur.cpp`, …) — not just a `.swar` file to guess from, the
+  literal read/write code. Checked field-by-field against `SwarImport`'s
+  `parse_player/2` and `SwarExport`'s `reverse_player/5`: the `[RONDE]`
+  record (`round_nr`/`table`/`advers`/`result`/`color`/`float`/`xtra_pts`,
+  all `int32`, in that order) matches exactly, as does the surrounding
+  player-record field order — both confirmed correct, not just
+  self-consistent.
+- **Two genuine SWAR-native `.swar` files, not an OpenPairings export** —
+  `v7.02` and `v7.04`, one with a populated `Arbitre2` field, the specific
+  "does a v7 file exist with non-empty data in the ambiguous `[TOURNOI]`
+  tail" case `parse_tournoi_section/2`'s own comment flagged as untested.
+  Both parse cleanly end to end — every player's name, club, rating and
+  round history reads as real, plausible data all the way to the last
+  player in a 128-player roster, not garbage partway through. (Neither
+  happened to have FIDE homologation turned on, so the FIDE-arbiter-id
+  question specifically is still open — everything else in the file
+  format that a non-homologated tournament touches is now confirmed, not
+  just self-consistent.)
+
+This is also where the real "genuine absence" numbers referenced
+elsewhere in this codebase's history came from: a real historical SWAR
+file with `AbsValue` genuinely checked (`abs_value: 1` → half a point),
+capped to the first absence (`abs_nbfois: 1`) through round 3
+(`abs_jusque: 3`) — confirming those three fields really do get used with
+real, non-default, non-zero values in the wild, not just in theory.
+
 ## Officials: what SWAR carries, and what it doesn't
 
 SWAR stores officials as free text in two `[TOURNOI]` fields, with a grade
