@@ -3,6 +3,37 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- **Archive a tournament** — a new frozen read-only state, separate from the
+  Recycle bin. An archived tournament stays *fully readable*: its own pages,
+  public link, prints and exports all keep working exactly as before. It just
+  refuses every change until you unarchive it. Unlike the bin, nothing
+  archived is ever purged automatically — it's "done with this, keep it
+  forever", not "on its way out".
+
+  Archived tournaments leave the main list and get their own **Archived**
+  panel on the Tournaments page, with an amber `archived` badge, and every
+  page inside one carries a persistent read-only banner.
+
+  The read-only part is enforced in the context layer
+  (`Tournaments.ensure_writable/1`, called by all ~30 write paths plus the
+  pairing engines), not by hiding buttons — a stale open tab, a queued
+  LiveView event or a direct script call are all refused too. `archived_at`
+  is a dedicated column rather than a `status` value (status is derived and
+  would be recomputed away) and is deliberately not cast by the ordinary
+  changeset, so no settings save can archive or silently unarchive anything.
+
+### Fixed
+
+- **`SettingsSupport.error_text/1` crashed the LiveView on any non-changeset
+  error.** It called `changeset.errors` unconditionally, so a bare reason atom
+  parsed as a remote call (`:archived.errors/0`) and took the whole page down.
+  Found by the archive tests — a settings save on an archived tournament hit
+  it immediately. Now handles changesets, atoms and strings.
+
 ## [0.14.31] — 2026-08-13
 
 ### Changed

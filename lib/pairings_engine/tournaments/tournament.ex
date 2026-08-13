@@ -337,6 +337,25 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # NOT cast by changeset/2 so ordinary saves can't touch it.
     field :deleted_at, :utc_datetime
 
+    # Archive timestamp. nil = live and editable; set = frozen read-only,
+    # listed in its own section rather than the main tournament list.
+    # Distinct from `deleted_at` in intent: the recycle bin is "on its way
+    # out, auto-purged after 3 months", archiving is "finished with, keep it
+    # forever, just stop letting anyone change it by accident".
+    #
+    # NOT a `status` value: `status` is derived (see
+    # `Tournaments.derive_status/1`) and would be recomputed away. NOT cast by
+    # changeset/2 either, same as `deleted_at`/`public_pages_enabled` — the
+    # controlled setters `Tournaments.archive_tournament/1` and
+    # `unarchive_tournament/1` are the only writers, so no ordinary settings
+    # save can archive or (more importantly) silently UNarchive a tournament.
+    #
+    # Enforcement of the read-only part lives in
+    # `Tournaments.ensure_writable/1`, called by every write path — not here,
+    # since a changeset can't see the writes that don't go through it
+    # (pairing, round deletion, byes).
+    field :archived_at, :utc_datetime
+
     # Manual standings override (SWAR parity #23) — when true, the arbiter's
     # hand-set `players.manual_rank` order replaces the computed tiebreak
     # order. Every surface showing a rank must display an override banner:

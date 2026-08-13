@@ -65,6 +65,15 @@ defmodule PairingsEngine.Pairing do
   event) — it never crashes on an unimplemented pairing system, it just
   returns a plain-string error the caller already renders as-is.
   """
+  # Archived tournaments are frozen read-only (see
+  # `Tournaments.ensure_writable/1`). Matched before the pairing-system
+  # dispatch below so it covers Swiss, round robin and Keizer in one place.
+  # Returns a plain-string error like every other refusal here, since the
+  # caller renders these as-is.
+  def pair_next_round(%Tournament{archived_at: archived_at}) when not is_nil(archived_at) do
+    {:error, "This tournament is archived — unarchive it before pairing."}
+  end
+
   def pair_next_round(%Tournament{pairing_system: "round_robin"} = tournament) do
     dispatch_stub(tournament, PairingsEngine.RoundRobin)
   end
@@ -170,6 +179,14 @@ defmodule PairingsEngine.Pairing do
   the next time this round number is paired.
   """
   def delete_round(tournament_id, number) do
+    if Tournaments.ensure_writable(tournament_id) != :ok do
+      {:error, "This tournament is archived — unarchive it before unpairing."}
+    else
+      do_delete_round(tournament_id, number)
+    end
+  end
+
+  defp do_delete_round(tournament_id, number) do
     if number == paired_rounds_count(tournament_id) do
       match_format? =
         Repo.one(

@@ -297,10 +297,26 @@ defmodule PairingsEngineWeb.SettingsSupport do
     end
   end
 
-  @doc "Human-readable changeset error string."
-  def error_text(changeset) do
+  @doc """
+  Human-readable error string for whatever a context write returned.
+
+  Usually an `Ecto.Changeset`, but the context also returns bare reason atoms
+  — notably `:archived` from `Tournaments.ensure_writable/1`, which every
+  write path can now return. Before this had an atom clause, an archived
+  tournament's settings save crashed the LiveView outright: `changeset.errors`
+  on the atom `:archived` parses as a remote call to `:archived.errors/0`.
+  """
+  def error_text(%Ecto.Changeset{} = changeset) do
     Enum.map_join(changeset.errors, ", ", fn {field, {msg, _}} -> "#{field} #{msg}" end)
   end
+
+  def error_text(:archived),
+    do: "This tournament is archived — unarchive it to make changes."
+
+  def error_text(reason) when is_atom(reason),
+    do: reason |> to_string() |> String.replace("_", " ")
+
+  def error_text(reason) when is_binary(reason), do: reason
 
   @doc """
   Which page hosts a given `Tournament.missing_setup_fields/1` field — used

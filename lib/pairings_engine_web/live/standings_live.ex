@@ -55,37 +55,50 @@ defmodule PairingsEngineWeb.StandingsLive do
   # Keizer half of the page — nothing here needs to re-check `keizer?`.
   @impl true
   def handle_event("enable_manual_ranking", _params, socket) do
-    {:ok, tournament} = Tournaments.enable_manual_ranking(socket.assigns.tournament)
+    case Tournaments.enable_manual_ranking(socket.assigns.tournament) do
+      {:ok, tournament} ->
+        Audit.log(
+          tournament.id,
+          socket.assigns.current_scope,
+          "standings.manual_ranking_enabled",
+          %{}
+        )
 
-    Audit.log(
-      tournament.id,
-      socket.assigns.current_scope,
-      "standings.manual_ranking_enabled",
-      %{}
-    )
+        {:noreply, socket |> assign(tournament: tournament) |> reload_standings()}
 
-    {:noreply, socket |> assign(tournament: tournament) |> reload_standings()}
+      {:error, :archived} ->
+        {:noreply, archived_refusal(socket)}
+    end
   end
 
   @impl true
   def handle_event("disable_manual_ranking", _params, socket) do
-    {:ok, tournament} = Tournaments.disable_manual_ranking(socket.assigns.tournament)
+    case Tournaments.disable_manual_ranking(socket.assigns.tournament) do
+      {:ok, tournament} ->
+        Audit.log(
+          tournament.id,
+          socket.assigns.current_scope,
+          "standings.manual_ranking_disabled",
+          %{}
+        )
 
-    Audit.log(
-      tournament.id,
-      socket.assigns.current_scope,
-      "standings.manual_ranking_disabled",
-      %{}
-    )
+        {:noreply, socket |> assign(tournament: tournament) |> reload_standings()}
 
-    {:noreply, socket |> assign(tournament: tournament) |> reload_standings()}
+      {:error, :archived} ->
+        {:noreply, archived_refusal(socket)}
+    end
   end
 
   @impl true
   def handle_event("reseed_manual_ranking", _params, socket) do
-    {:ok, tournament} = Tournaments.reseed_manual_ranking(socket.assigns.tournament)
-    Audit.log(tournament.id, socket.assigns.current_scope, "standings.manual_reseeded", %{})
-    {:noreply, socket |> assign(tournament: tournament) |> reload_standings()}
+    case Tournaments.reseed_manual_ranking(socket.assigns.tournament) do
+      {:ok, tournament} ->
+        Audit.log(tournament.id, socket.assigns.current_scope, "standings.manual_reseeded", %{})
+        {:noreply, socket |> assign(tournament: tournament) |> reload_standings()}
+
+      {:error, :archived} ->
+        {:noreply, archived_refusal(socket)}
+    end
   end
 
   @impl true
@@ -117,6 +130,14 @@ defmodule PairingsEngineWeb.StandingsLive do
   end
 
   def handle_event("columns_loaded", _params, socket), do: {:noreply, socket}
+
+  # An archived tournament refuses every write (Tournaments.ensure_writable/1).
+  # These controls are hidden while archived, so reaching one of these clauses
+  # means a stale tab or an event queued before the archive landed — say so
+  # rather than crashing on the unmatched {:error, :archived}.
+  defp archived_refusal(socket) do
+    put_flash(socket, :error, "This tournament is archived — unarchive it to make changes.")
+  end
 
   defp do_manual_move(socket, tournament, player, direction) do
     socket =
@@ -310,7 +331,10 @@ defmodule PairingsEngineWeb.StandingsLive do
           </span>
         </div>
 
-        <div class="actions" style="margin: 0">
+        <%!-- Every control here writes, so the whole row is hidden while the
+              tournament is archived — the layout's archived banner already
+              explains why. The handlers still refuse defensively. --%>
+        <div :if={!@tournament.archived_at} class="actions" style="margin: 0">
           <button
             :if={!@tournament.manual_ranking}
             class="pe-btn"

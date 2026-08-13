@@ -129,6 +129,10 @@ defmodule PairingsEngine.RoundRobin do
   `create_round/4`).
   """
   @spec pair_all_rounds(Tournament.t()) :: {:ok, pos_integer()} | {:error, term()}
+  def pair_all_rounds(%Tournament{archived_at: archived_at}) when not is_nil(archived_at) do
+    {:error, "This tournament is archived — unarchive it before pairing."}
+  end
+
   def pair_all_rounds(%Tournament{} = tournament) do
     case pair_next_round(tournament) do
       {:ok, _round} ->

@@ -923,6 +923,39 @@ button.pe-btn, .pe-btn {
 .badge.muted { background: var(--surface-hover); color: var(--text-soft); }
 .badge.done { background: var(--success-soft); color: var(--success); }
 
+/* Archived (frozen read-only). Deliberately amber rather than one of the
+   accent-derived tones: the accent colour is user-configurable (11 choices),
+   so an accent-based badge could land anywhere including green, and "frozen,
+   you cannot edit this" must never read as a success state. Same amber as
+   .pe-modal-warn / .setting-warning, so every "careful" surface matches. */
+.badge.archived {
+  background: color-mix(in srgb, #d97706 18%, transparent);
+  color: #b45309;
+}
+:root:not([data-theme="light"]) .badge.archived { color: #fbbf24; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .badge.archived { color: #fbbf24; }
+}
+:root[data-theme="dark"] .badge.archived { color: #fbbf24; }
+
+/* The persistent "this tournament is archived" banner shown at the top of
+   every page of an archived tournament. Louder than .hint, quieter than
+   .error-note — this is a state, not a failure. */
+.archived-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  background: color-mix(in srgb, #d97706 14%, transparent);
+  border: 1.5px solid color-mix(in srgb, #d97706 40%, transparent);
+}
+.archived-banner > span:first-child { flex: 1; min-width: 220px; }
+
 .empty { text-align: center; color: var(--text-soft); padding: 48px 20px; }
 .empty p { margin: 4px 0; }
 

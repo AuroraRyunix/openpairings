@@ -150,6 +150,18 @@ defmodule PairingsEngineWeb.Layouts do
     </header>
 
     <main class="page">
+      <%!-- Rendered in the layout rather than per-page so it cannot be
+            forgotten on one: every authenticated tournament page goes through
+            here, so archiving is visible on all of them at once. --%>
+      <div :if={@tournament && @tournament.archived_at} class="archived-banner">
+        <span>
+          <strong>This tournament is archived.</strong>
+          It's read-only — every change is refused until you unarchive it. Everything else
+          (viewing, printing, exporting, its public link) still works normally.
+        </span>
+        <.link navigate={~p"/"} class="pe-btn">Unarchive from Tournaments</.link>
+      </div>
+
       {render_slot(@inner_block)}
     </main>
 

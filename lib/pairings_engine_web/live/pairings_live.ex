@@ -1451,7 +1451,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             Unpublish
           </button>
           <button
-            :if={@round == nil && @round_number == @next_pairable}
+            :if={@round == nil && @round_number == @next_pairable && !@tournament.archived_at}
             class="pe-btn primary"
             phx-click="pair"
             disabled={!@can_pair}
@@ -1592,7 +1592,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           </button>
 
           <button
-            :if={@round != nil && @round_number == @paired_rounds}
+            :if={@round != nil && @round_number == @paired_rounds && !@tournament.archived_at}
             class="pe-btn danger-link"
             phx-click="unpair"
             data-confirm={"Unpair round #{@round_number}? All its results will be deleted."}
@@ -1797,6 +1797,9 @@ defmodule PairingsEngineWeb.PairingsLive do
 
                   <p class="hint">
                     <%= cond do %>
+                      <% @tournament.archived_at -> %>
+                        This tournament is archived, so no more rounds can be paired. Unarchive it
+                        first if you need to change that.
                       <% @tournament.pairing_system == "round_robin" -> %>
                         Press "Pair the whole tournament" to generate every round of the Berger
                         schedule at once — round-robin doesn't pair one round at a time.

@@ -102,6 +102,13 @@ defmodule PairingsEngine.Tournaments do
   when `scope.user` is the tournament's owner and `false` when it's shared
   with them as a collaborator, so the UI can tell the two apart (e.g. a
   "shared" badge).
+
+  Excludes both recycle-binned (`deleted_at`) and archived (`archived_at`)
+  tournaments — each has its own listing (`list_deleted_tournaments/1`,
+  `list_archived_tournaments/1`) and its own panel on the Tournaments page.
+  Note the two are independent flags, so an archived tournament that is
+  later deleted correctly disappears from the archive list too (see
+  `list_archived_tournaments/1`'s own `deleted_at` check).
   """
   def list_tournaments(%Scope{} = scope) do
     user = scope.user
@@ -110,7 +117,7 @@ defmodule PairingsEngine.Tournaments do
       from t in Tournament,
         left_join: p in assoc(t, :players),
         where:
-          is_nil(t.deleted_at) and
+          is_nil(t.deleted_at) and is_nil(t.archived_at) and
             (t.user_id == ^user.id or t.id in subquery(collaborator_tournament_ids(user))),
         group_by: t.id,
         select: {t, count(p.id), t.user_id == ^user.id},
@@ -583,13 +590,15 @@ defmodule PairingsEngine.Tournaments do
   end
 
   def update_tournament(%Tournament{} = tournament, attrs) do
-    tournament
-    |> Tournament.changeset(attrs)
-    |> Repo.update()
-    |> tap_ok(fn updated ->
-      broadcast_tournament_change(updated.id, :settings)
-      broadcast_user_tournaments(updated.user_id)
-    end)
+    with :ok <- ensure_writable(tournament) do
+      tournament
+      |> Tournament.changeset(attrs)
+      |> Repo.update()
+      |> tap_ok(fn updated ->
+        broadcast_tournament_change(updated.id, :settings)
+        broadcast_user_tournaments(updated.user_id)
+      end)
+    end
   end
 
   def delete_tournament(%Tournament{} = tournament) do
@@ -632,6 +641,12 @@ defmodule PairingsEngine.Tournaments do
   @spec set_logo(Tournament.t(), binary()) ::
           {:ok, Tournament.t()} | {:error, :invalid_image} | {:error, Ecto.Changeset.t()}
   def set_logo(%Tournament{} = tournament, binary) when is_binary(binary) do
+    with :ok <- ensure_writable(tournament) do
+      do_set_logo(tournament, binary)
+    end
+  end
+
+  defp do_set_logo(%Tournament{} = tournament, binary) do
     case detect_image_type(binary) do
       {:ok, content_type} ->
         tournament
@@ -647,10 +662,12 @@ defmodule PairingsEngine.Tournaments do
   @doc "Removes `tournament`'s print logo. Broadcasts `:settings`, same as `set_logo/2`."
   @spec clear_logo(Tournament.t()) :: {:ok, Tournament.t()} | {:error, Ecto.Changeset.t()}
   def clear_logo(%Tournament{} = tournament) do
-    tournament
-    |> Ecto.Changeset.change(logo_data: nil, logo_content_type: nil)
-    |> Repo.update()
-    |> tap_ok(fn updated -> broadcast_tournament_change(updated.id, :settings) end)
+    with :ok <- ensure_writable(tournament) do
+      tournament
+      |> Ecto.Changeset.change(logo_data: nil, logo_content_type: nil)
+      |> Repo.update()
+      |> tap_ok(fn updated -> broadcast_tournament_change(updated.id, :settings) end)
+    end
   end
 
   ## ---------- Public pages (enable/disable + slug rotation) ----------
@@ -670,10 +687,12 @@ defmodule PairingsEngine.Tournaments do
   @spec set_public_pages(Tournament.t(), boolean()) ::
           {:ok, Tournament.t()} | {:error, Ecto.Changeset.t()}
   def set_public_pages(%Tournament{} = tournament, enabled?) when is_boolean(enabled?) do
-    tournament
-    |> Ecto.Changeset.change(public_pages_enabled: enabled?)
-    |> Repo.update()
-    |> tap_ok(fn updated -> broadcast_tournament_change(updated.id, :settings) end)
+    with :ok <- ensure_writable(tournament) do
+      tournament
+      |> Ecto.Changeset.change(public_pages_enabled: enabled?)
+      |> Repo.update()
+      |> tap_ok(fn updated -> broadcast_tournament_change(updated.id, :settings) end)
+    end
   end
 
   @doc """
@@ -688,10 +707,12 @@ defmodule PairingsEngine.Tournaments do
   @spec set_registration_open(Tournament.t(), boolean()) ::
           {:ok, Tournament.t()} | {:error, Ecto.Changeset.t()}
   def set_registration_open(%Tournament{} = tournament, open?) when is_boolean(open?) do
-    tournament
-    |> Ecto.Changeset.change(registration_open: open?)
-    |> Repo.update()
-    |> tap_ok(fn updated -> broadcast_tournament_change(updated.id, :settings) end)
+    with :ok <- ensure_writable(tournament) do
+      tournament
+      |> Ecto.Changeset.change(registration_open: open?)
+      |> Repo.update()
+      |> tap_ok(fn updated -> broadcast_tournament_change(updated.id, :settings) end)
+    end
   end
 
   @doc """
@@ -755,10 +776,12 @@ defmodule PairingsEngine.Tournaments do
   @spec rotate_public_slug(Tournament.t()) ::
           {:ok, Tournament.t()} | {:error, Ecto.Changeset.t()}
   def rotate_public_slug(%Tournament{} = tournament) do
-    tournament
-    |> Ecto.Changeset.change(public_slug: Tournament.generate_public_slug())
-    |> Repo.update()
-    |> tap_ok(fn updated -> broadcast_tournament_change(updated.id, :settings) end)
+    with :ok <- ensure_writable(tournament) do
+      tournament
+      |> Ecto.Changeset.change(public_slug: Tournament.generate_public_slug())
+      |> Repo.update()
+      |> tap_ok(fn updated -> broadcast_tournament_change(updated.id, :settings) end)
+    end
   end
 
   @doc """
@@ -891,6 +914,98 @@ defmodule PairingsEngine.Tournaments do
     length(expired)
   end
 
+  ## ---------- Archive (frozen read-only, kept forever) ----------
+  #
+  # Distinct from the recycle bin above in both intent and mechanics. The bin
+  # is "on its way out" — hidden everywhere, auto-purged after 90 days.
+  # Archiving is "done with this one, keep it forever, just stop anyone
+  # changing it by accident": the tournament stays fully readable (its own
+  # pages, its public pages, its exports and prints all keep working), it just
+  # refuses every write until it's unarchived.
+  #
+  # The read-only part is enforced by `ensure_writable/1` at each write path
+  # rather than by hiding the tournament, precisely because it must stay
+  # viewable — a listing-level filter (the bin's mechanism) would be the wrong
+  # tool.
+
+  @doc """
+  Archives `tournament` — sets `archived_at` to now (truncated to the
+  second). From this point every write path refuses with `{:error, :archived}`
+  until `unarchive_tournament/1` clears it; reads are entirely unaffected.
+  Broadcasts on both the tournament topic and the owner's list topic so open
+  pages flip to read-only live.
+  """
+  @spec archive_tournament(Tournament.t()) :: {:ok, Tournament.t()} | {:error, Ecto.Changeset.t()}
+  def archive_tournament(%Tournament{} = tournament) do
+    tournament
+    |> Ecto.Changeset.change(archived_at: DateTime.utc_now() |> DateTime.truncate(:second))
+    |> Repo.update()
+    |> tap_ok(fn updated ->
+      broadcast_tournament_change(updated.id, :tournament)
+      broadcast_user_tournaments(updated.user_id)
+    end)
+  end
+
+  @doc """
+  Unarchives `tournament` — clears `archived_at`, making it writable again.
+  Broadcasts the same as `archive_tournament/1`.
+  """
+  @spec unarchive_tournament(Tournament.t()) ::
+          {:ok, Tournament.t()} | {:error, Ecto.Changeset.t()}
+  def unarchive_tournament(%Tournament{} = tournament) do
+    tournament
+    |> Ecto.Changeset.change(archived_at: nil)
+    |> Repo.update()
+    |> tap_ok(fn updated ->
+      broadcast_tournament_change(updated.id, :tournament)
+      broadcast_user_tournaments(updated.user_id)
+    end)
+  end
+
+  @doc "Whether `tournament` is currently archived (and therefore read-only)."
+  @spec archived?(Tournament.t()) :: boolean()
+  def archived?(%Tournament{archived_at: nil}), do: false
+  def archived?(%Tournament{}), do: true
+
+  @doc """
+  Lists the scope's user's own archived tournaments, most recently archived
+  first. Owner-only, same as `list_deleted_tournaments/1` — archiving is an
+  owner action, so a collaborator never sees someone else's archive list.
+  """
+  @spec list_archived_tournaments(Scope.t()) :: [Tournament.t()]
+  def list_archived_tournaments(%Scope{} = scope) do
+    Repo.all(
+      from t in Tournament,
+        where: t.user_id == ^scope.user.id and not is_nil(t.archived_at) and is_nil(t.deleted_at),
+        order_by: [desc: t.archived_at]
+    )
+  end
+
+  @doc """
+  The write gate: `:ok` when `tournament` may be written to, `{:error,
+  :archived}` when it's archived.
+
+  Called at the top of every state-changing function in this module (and by
+  `PairingsEngine.Pairing`), rather than relying on the UI to hide buttons —
+  a stale open tab, a queued LiveView event, or a direct context call from
+  a script must all be refused too.
+
+  Accepts a `%Tournament{}`, a tournament id, or (for the write paths that
+  only hold a child row) `nil`, which is treated as writable since there is
+  no tournament to check — callers that can resolve one should.
+  """
+  @spec ensure_writable(Tournament.t() | integer() | nil) :: :ok | {:error, :archived}
+  def ensure_writable(nil), do: :ok
+  def ensure_writable(%Tournament{archived_at: nil}), do: :ok
+  def ensure_writable(%Tournament{}), do: {:error, :archived}
+
+  def ensure_writable(tournament_id) when is_integer(tournament_id) do
+    case Repo.one(from t in Tournament, where: t.id == ^tournament_id, select: t.archived_at) do
+      nil -> :ok
+      _archived_at -> {:error, :archived}
+    end
+  end
+
   def change_tournament(%Tournament{} = tournament, attrs \\ %{}) do
     Tournament.changeset(tournament, attrs)
   end
@@ -978,22 +1093,29 @@ defmodule PairingsEngine.Tournaments do
             where: p.tournament_id == ^tournament_id and p.fide_id == ^fide_id
         )
 
-    if duplicate? do
-      {:error, :duplicate_fide_id}
-    else
-      %Player{tournament_id: tournament_id}
-      |> Player.changeset(attrs)
-      |> Repo.insert()
-      |> tap_ok(fn player -> broadcast_tournament_change(player.tournament_id, :players) end)
+    cond do
+      ensure_writable(tournament_id) != :ok ->
+        {:error, :archived}
+
+      duplicate? ->
+        {:error, :duplicate_fide_id}
+
+      true ->
+        %Player{tournament_id: tournament_id}
+        |> Player.changeset(attrs)
+        |> Repo.insert()
+        |> tap_ok(fn player -> broadcast_tournament_change(player.tournament_id, :players) end)
     end
   end
 
   def update_player(%Player{} = player, attrs) do
-    player
-    |> Player.changeset(attrs)
-    |> guard_pairing_number_freeze(player)
-    |> Repo.update()
-    |> tap_ok(fn updated -> broadcast_tournament_change(updated.tournament_id, :players) end)
+    with :ok <- ensure_writable(player.tournament_id) do
+      player
+      |> Player.changeset(attrs)
+      |> guard_pairing_number_freeze(player)
+      |> Repo.update()
+      |> tap_ok(fn updated -> broadcast_tournament_change(updated.tournament_id, :players) end)
+    end
   end
 
   # FIDE C.04.2.B.3: a player's pairing number (TPN) may be adjusted while
@@ -1032,8 +1154,10 @@ defmodule PairingsEngine.Tournaments do
   defp guard_pairing_number_freeze(changeset, %Player{}), do: changeset
 
   def delete_player(%Player{} = player) do
-    Repo.delete(player)
-    |> tap_ok(fn deleted -> broadcast_tournament_change(deleted.tournament_id, :players) end)
+    with :ok <- ensure_writable(player.tournament_id) do
+      Repo.delete(player)
+      |> tap_ok(fn deleted -> broadcast_tournament_change(deleted.tournament_id, :players) end)
+    end
   end
 
   @doc """
@@ -1045,23 +1169,25 @@ defmodule PairingsEngine.Tournaments do
   validation.
   """
   def bulk_update_players(tournament_id, updates) do
-    result =
-      Repo.transaction(fn ->
-        Enum.map(updates, fn {player, attrs} ->
-          case player |> Player.changeset(attrs) |> Repo.update() do
-            {:ok, updated} -> updated
-            {:error, changeset} -> Repo.rollback(changeset)
-          end
+    with :ok <- ensure_writable(tournament_id) do
+      result =
+        Repo.transaction(fn ->
+          Enum.map(updates, fn {player, attrs} ->
+            case player |> Player.changeset(attrs) |> Repo.update() do
+              {:ok, updated} -> updated
+              {:error, changeset} -> Repo.rollback(changeset)
+            end
+          end)
         end)
-      end)
 
-    case result do
-      {:ok, _players} = ok ->
-        broadcast_tournament_change(tournament_id, :players)
-        ok
+      case result do
+        {:ok, _players} = ok ->
+          broadcast_tournament_change(tournament_id, :players)
+          ok
 
-      error ->
-        error
+        error ->
+          error
+      end
     end
   end
 
@@ -1205,6 +1331,12 @@ defmodule PairingsEngine.Tournaments do
     do: set_manual_ranking_flag(tournament, false)
 
   defp set_manual_ranking_flag(tournament, value) do
+    with :ok <- ensure_writable(tournament) do
+      do_set_manual_ranking_flag(tournament, value)
+    end
+  end
+
+  defp do_set_manual_ranking_flag(tournament, value) do
     tournament
     |> Ecto.Changeset.change(manual_ranking: value)
     |> Repo.update()
@@ -1222,6 +1354,12 @@ defmodule PairingsEngine.Tournaments do
   joined after the mode was switched on and was never placed).
   """
   def reseed_manual_ranking(%Tournament{} = tournament) do
+    with :ok <- ensure_writable(tournament) do
+      do_reseed_manual_ranking(tournament)
+    end
+  end
+
+  defp do_reseed_manual_ranking(%Tournament{} = tournament) do
     Repo.transaction(fn ->
       tournament
       |> Standings.standings()
@@ -1262,6 +1400,9 @@ defmodule PairingsEngine.Tournaments do
     swap_idx = if idx, do: if(direction == :up, do: idx - 1, else: idx + 1)
 
     cond do
+      ensure_writable(tournament) != :ok ->
+        {:error, :archived}
+
       idx == nil ->
         {:error, :not_found}
 
@@ -1385,6 +1526,9 @@ defmodule PairingsEngine.Tournaments do
   """
   def add_forbidden_pairing(%Tournament{} = tournament, player_a_id, player_b_id) do
     cond do
+      ensure_writable(tournament) != :ok ->
+        {:error, :archived}
+
       player_a_id == player_b_id ->
         {:error, :same_player}
 
@@ -1437,6 +1581,12 @@ defmodule PairingsEngine.Tournaments do
   page can't reach across).
   """
   def remove_forbidden_pairing(%Tournament{} = tournament, id) do
+    with :ok <- ensure_writable(tournament) do
+      do_remove_forbidden_pairing(tournament, id)
+    end
+  end
+
+  defp do_remove_forbidden_pairing(%Tournament{} = tournament, id) do
     case Repo.get_by(ForbiddenPairing, id: id, tournament_id: tournament.id) do
       nil ->
         {:error, :not_found}
@@ -1544,10 +1694,12 @@ defmodule PairingsEngine.Tournaments do
   """
   @spec publish_round_now(Round.t()) :: {:ok, Round.t()} | {:error, Ecto.Changeset.t()}
   def publish_round_now(%Round{} = round) do
-    round
-    |> Round.changeset(%{published_at: DateTime.utc_now() |> DateTime.truncate(:second)})
-    |> Repo.update()
-    |> tap_ok(fn updated -> broadcast_tournament_change(updated.tournament_id, :settings) end)
+    with :ok <- ensure_writable(round.tournament_id) do
+      round
+      |> Round.changeset(%{published_at: DateTime.utc_now() |> DateTime.truncate(:second)})
+      |> Repo.update()
+      |> tap_ok(fn updated -> broadcast_tournament_change(updated.tournament_id, :settings) end)
+    end
   end
 
   @doc """
@@ -1563,10 +1715,12 @@ defmodule PairingsEngine.Tournaments do
   """
   @spec unpublish_round(Round.t()) :: {:ok, Round.t()} | {:error, Ecto.Changeset.t()}
   def unpublish_round(%Round{} = round) do
-    round
-    |> Round.changeset(%{published_at: nil})
-    |> Repo.update()
-    |> tap_ok(fn updated -> broadcast_tournament_change(updated.tournament_id, :settings) end)
+    with :ok <- ensure_writable(round.tournament_id) do
+      round
+      |> Round.changeset(%{published_at: nil})
+      |> Repo.update()
+      |> tap_ok(fn updated -> broadcast_tournament_change(updated.tournament_id, :settings) end)
+    end
   end
 
   @doc """
@@ -1622,6 +1776,12 @@ defmodule PairingsEngine.Tournaments do
   end
 
   def update_pairing_result(%Pairing{} = pairing, result) do
+    with :ok <- ensure_writable(round_tournament_id(pairing.round_id)) do
+      do_update_pairing_result(pairing, result)
+    end
+  end
+
+  defp do_update_pairing_result(%Pairing{} = pairing, result) do
     pairing
     |> Pairing.changeset(%{result: result})
     |> Repo.update()
@@ -1675,6 +1835,9 @@ defmodule PairingsEngine.Tournaments do
   """
   def swap_players_in_round(%Round{} = round, player_a_id, player_b_id) do
     cond do
+      ensure_writable(round.tournament_id) != :ok ->
+        {:error, :archived}
+
       player_a_id == player_b_id ->
         {:error, :same_player}
 
@@ -1863,6 +2026,12 @@ defmodule PairingsEngine.Tournaments do
   two specific players, and one of them is no longer there.
   """
   def vacate_seat(%Round{} = round, player_id, type \\ "absent") do
+    with :ok <- ensure_writable(round.tournament_id) do
+      do_vacate_seat(round, player_id, type)
+    end
+  end
+
+  defp do_vacate_seat(%Round{} = round, player_id, type) do
     case find_player_seat(round.pairings, player_id) do
       {:error, reason} ->
         {:error, reason}
@@ -2022,7 +2191,8 @@ defmodule PairingsEngine.Tournaments do
   `"absent"`, that being what the displaced player now is.
   """
   def swap_seated_with_pool_player(%Round{} = round, seated_id, pool_id) do
-    with {:ok, {pairing, field}} <- find_player_seat(round.pairings, seated_id) do
+    with :ok <- ensure_writable(round.tournament_id),
+         {:ok, {pairing, field}} <- find_player_seat(round.pairings, seated_id) do
       handover_type = pool_player_type(round, pool_id) || "absent"
 
       Repo.transaction(fn ->

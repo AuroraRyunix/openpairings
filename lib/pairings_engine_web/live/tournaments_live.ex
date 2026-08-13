@@ -69,6 +69,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
      |> allow_upload(:backup, accept: ~w(.json), max_entries: 1, max_file_size: 25_000_000)
      |> assign_tournaments()
      |> assign_deleted_tournaments()
+     |> assign_archived_tournaments()
      |> assign_pending_invitations()}
   end
 
@@ -86,6 +87,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
      socket
      |> assign_tournaments()
      |> assign_deleted_tournaments()
+     |> assign_archived_tournaments()
      |> assign_pending_invitations()}
   end
 
@@ -98,6 +100,14 @@ defmodule PairingsEngineWeb.TournamentsLive do
       socket,
       :deleted_tournaments,
       Tournaments.list_deleted_tournaments(socket.assigns.current_scope)
+    )
+  end
+
+  defp assign_archived_tournaments(socket) do
+    assign(
+      socket,
+      :archived_tournaments,
+      Tournaments.list_archived_tournaments(socket.assigns.current_scope)
     )
   end
 
@@ -472,6 +482,44 @@ defmodule PairingsEngineWeb.TournamentsLive do
             {:noreply, put_flash(socket, :error, "You're not a collaborator on this tournament.")}
         end
     end
+  end
+
+  ## ---------- Archive (freeze read-only / unfreeze) ----------
+  #
+  # Owner-only, same as delete/restore: `get_user_tournament!/2` (rather than
+  # `get_authorized_tournament!/2`) is what enforces that — a collaborator
+  # gets an Ecto.NoResultsError rather than a silent no-op.
+
+  def handle_event("archive_tournament", %{"id" => id}, socket) do
+    tournament = Tournaments.get_user_tournament!(socket.assigns.current_scope, id)
+
+    {:ok, _} = Tournaments.archive_tournament(tournament)
+
+    Audit.log(tournament.id, socket.assigns.current_scope, "tournament.archived", %{
+      name: tournament.name
+    })
+
+    {:noreply,
+     socket
+     |> put_flash(:info, "\"#{tournament.name}\" is archived — it's now read-only.")
+     |> assign_tournaments()
+     |> assign_archived_tournaments()}
+  end
+
+  def handle_event("unarchive_tournament", %{"id" => id}, socket) do
+    tournament = Tournaments.get_user_tournament!(socket.assigns.current_scope, id)
+
+    {:ok, _} = Tournaments.unarchive_tournament(tournament)
+
+    Audit.log(tournament.id, socket.assigns.current_scope, "tournament.unarchived", %{
+      name: tournament.name
+    })
+
+    {:noreply,
+     socket
+     |> put_flash(:info, "\"#{tournament.name}\" is editable again.")
+     |> assign_tournaments()
+     |> assign_archived_tournaments()}
   end
 
   ## ---------- Recycle bin (restore / permanently delete) ----------
@@ -1208,6 +1256,15 @@ defmodule PairingsEngineWeb.TournamentsLive do
                 </button>
                 <button
                   :if={owned?}
+                  class="pe-btn"
+                  phx-click="archive_tournament"
+                  phx-value-id={t.id}
+                  data-confirm={"Archive \"#{t.name}\"? It stays fully readable and keeps its public link, but nothing can be changed until you unarchive it."}
+                >
+                  Archive
+                </button>
+                <button
+                  :if={owned?}
                   class="pe-btn danger-link"
                   phx-click="delete_start"
                   phx-value-id={t.id}
@@ -1227,6 +1284,53 @@ defmodule PairingsEngineWeb.TournamentsLive do
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <div :if={@archived_tournaments != []} class="card">
+        <h2>Archived</h2>
+
+        <p class="hint" style="margin-top: 0">
+          Archived tournaments are kept indefinitely and stay fully readable — their pages, public
+          link, prints and exports all keep working. They just refuse every change until you
+          unarchive them. This is not the Recycle bin: nothing here is ever purged automatically.
+        </p>
+
+        <div class="card-table-wrap">
+          <table class="pe-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Archived</th>
+                <th></th>
+                <th></th>
+              </tr>
+            </thead>
+
+            <tbody>
+              <tr :for={t <- @archived_tournaments}>
+                <td>
+                  <.link navigate={~p"/t/#{t.id}/players"}><strong>{t.name}</strong></.link>
+                </td>
+
+                <td>{t.archived_at}</td>
+
+                <td><span class="badge archived">archived</span></td>
+
+                <td style="text-align: right">
+                  <a class="pe-btn" href={~p"/t/#{t.id}/export/json"} target="_blank">Export</a>
+
+                  <button class="pe-btn" phx-click="unarchive_tournament" phx-value-id={t.id}>
+                    Unarchive
+                  </button>
+
+                  <button class="pe-btn danger-link" phx-click="delete_start" phx-value-id={t.id}>
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div :if={@deleted_tournaments != []} class="card">
