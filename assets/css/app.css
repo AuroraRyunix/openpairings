@@ -2741,3 +2741,197 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .it3-explain-player:first-child { border-top: none; }
 .it3-explain-player-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .it3-explain-player-rating { font-variant-numeric: tabular-nums; color: var(--text-soft); font-size: 11.5px; }
+
+/* ==========================================================================
+   History page (HistoryLive) — change timeline, field diffs, restore points
+   ==========================================================================
+
+   Category hues are fixed literals rather than accent-derived: the accent is
+   user-configurable across 11 colours, so deriving from it would collapse
+   distinct categories into the same hue (and could make "deleted" read green).
+   Each is stated once here as an HSL triple and reused for dot/ring/tint so a
+   category is one edit, not four. */
+
+.tl {
+  --tl-rail: 9px;          /* dot centre, from the left edge of .tl */
+  position: relative;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The continuous vertical rail. Drawn as a pseudo-element rather than a
+   border on each row so it doesn't break between rows or at day headers. */
+.tl::before {
+  content: "";
+  position: absolute;
+  left: var(--tl-rail);
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  transform: translateX(-50%);
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--border) 12px,
+    var(--border) calc(100% - 12px),
+    transparent
+  );
+}
+
+.tl-day {
+  position: relative;
+  margin: 18px 0 10px;
+  padding-left: 30px;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+.tl-day:first-child { margin-top: 0; }
+/* Mask the rail behind the day label so the text sits in a clean gap. */
+.tl-day::before {
+  content: "";
+  position: absolute;
+  left: var(--tl-rail);
+  top: -6px;
+  bottom: -6px;
+  width: 10px;
+  transform: translateX(-50%);
+  background: var(--surface);
+}
+
+.tl-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2px;
+  padding: 8px 0 8px 30px;
+}
+
+/* The dot. `background` is the category hue at full strength; the ring is the
+   card surface so the rail appears to pass behind it. */
+.tl-dot {
+  position: absolute;
+  left: var(--tl-rail);
+  top: 14px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  background: hsl(var(--tl-hue, 215 15% 55%));
+  box-shadow: 0 0 0 3px var(--surface), 0 0 0 4.5px hsl(var(--tl-hue, 215 15% 55%) / 0.28);
+}
+
+.tl-item[data-kind="pairings"]      { --tl-hue: 217 91% 60%; }
+.tl-item[data-kind="players"]       { --tl-hue: 258 90% 66%; }
+.tl-item[data-kind="settings"]      { --tl-hue: 32 95% 44%; }
+.tl-item[data-kind="standings"]     { --tl-hue: 189 94% 43%; }
+.tl-item[data-kind="imports"]       { --tl-hue: 347 89% 61%; }
+.tl-item[data-kind="collaborators"] { --tl-hue: 280 65% 60%; }
+.tl-item[data-kind="tournament"]    { --tl-hue: 215 16% 47%; }
+.tl-item[data-kind="snapshot"]      { --tl-hue: 32 95% 44%; }
+
+/* A restore point is a diamond, not a circle — distinguishable from an
+   ordinary event at a glance and without relying on colour alone. */
+.tl-item[data-kind="snapshot"] .tl-dot {
+  border-radius: 2px;
+  width: 10px;
+  height: 10px;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.tl-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-soft);
+}
+.tl-time { font-variant-numeric: tabular-nums; }
+.tl-who { font-weight: 600; color: var(--text); }
+.tl-text { font-size: 13.5px; line-height: 1.5; }
+
+/* Field-level diffs: before → after, one row per changed field. */
+.tl-diff {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-alt);
+}
+.tl-diff-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12.5px;
+}
+.tl-diff-field {
+  min-width: 130px;
+  font-weight: 600;
+  color: var(--text-soft);
+  font-variant-numeric: tabular-nums;
+}
+.tl-val {
+  padding: 1px 7px;
+  border-radius: 5px;
+  font-variant-numeric: tabular-nums;
+  word-break: break-word;
+}
+.tl-val.before {
+  background: color-mix(in srgb, #a33c2e 13%, transparent);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, #a33c2e 55%, transparent);
+  color: var(--text-soft);
+}
+.tl-val.after { background: color-mix(in srgb, #1f7a3d 15%, transparent); }
+.tl-val.empty { font-style: italic; color: var(--text-soft); }
+.tl-arrow { color: var(--text-soft); flex: none; }
+
+.tl-tag {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 650;
+  background: hsl(var(--tl-hue, 215 15% 55%) / 0.16);
+  color: hsl(var(--tl-hue, 215 15% 55%));
+}
+/* The category hues above are tuned against the light surface; on the dark
+   one they read muddy, so lift them. Repeated for the explicit dark toggle
+   and for system-dark, since those are separate states (see the theme
+   handling at the top of this file). */
+:root[data-theme="dark"] .tl-tag,
+:root[data-theme="dark"] .tl-dot { filter: brightness(1.3); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .tl-tag,
+  :root:not([data-theme="light"]) .tl-dot { filter: brightness(1.3); }
+}
+
+.tl-actions { margin-top: 6px; }
+
+/* The little diamond used inline in prose to point at what a restore point
+   looks like on the rail — same shape and hue as .tl-item[data-kind=snapshot]. */
+.tl-inline-diamond {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin: 0 2px;
+  border-radius: 2px;
+  transform: rotate(45deg);
+  background: hsl(32 95% 44%);
+  vertical-align: baseline;
+}
+
+/* The empty state, when a filter matches nothing. */
+.tl-empty { padding: 28px 0 8px 30px; color: var(--text-soft); font-size: 13.5px; }
+
+@media (max-width: 600px) {
+  .tl-diff-field { min-width: 0; flex-basis: 100%; }
+}

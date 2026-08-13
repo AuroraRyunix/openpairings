@@ -72,6 +72,9 @@ defmodule PairingsEngineWeb.Layouts do
               <.link navigate={~p"/t/#{@tournament.id}/norms"} class="topbar-menu-item">
                 Norms
               </.link>
+              <.link navigate={~p"/t/#{@tournament.id}/history"} class="topbar-menu-item">
+                History
+              </.link>
               <.link navigate={~p"/t/#{@tournament.id}/audit"} class="topbar-menu-item">
                 Audit trail
               </.link>

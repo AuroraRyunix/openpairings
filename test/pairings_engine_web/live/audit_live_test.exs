@@ -69,19 +69,24 @@ defmodule PairingsEngineWeb.AuditLiveTest do
     assert html =~ ~s(href="/t/#{t.id}/audit/explain")
   end
 
-  test "the audit sub-nav highlights the current page and links to the other one", %{
+  test "the sub-nav highlights the current page and links to the other two", %{
     conn: conn,
     scope: scope
   } do
     t = make_tournament(scope)
 
     {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/audit")
-    assert lv |> element("a.filter-picker", "Audit log") |> render() =~ "active"
+    assert lv |> element("a.filter-picker", "Audit trail") |> render() =~ "active"
     refute lv |> element("a.filter-picker", "Pairing rationale") |> render() =~ "active"
+    refute lv |> element("a.filter-picker", "History") |> render() =~ "active"
 
     {:ok, lv2, _html2} = live(conn, ~p"/t/#{t.id}/audit/explain")
     assert lv2 |> element("a.filter-picker", "Pairing rationale") |> render() =~ "active"
-    refute lv2 |> element("a.filter-picker", "Audit log") |> render() =~ "active"
+    refute lv2 |> element("a.filter-picker", "Audit trail") |> render() =~ "active"
+
+    {:ok, lv3, _html3} = live(conn, ~p"/t/#{t.id}/history")
+    assert lv3 |> element("a.filter-picker", "History") |> render() =~ "active"
+    refute lv3 |> element("a.filter-picker", "Audit trail") |> render() =~ "active"
   end
 
   test "the explain picker lists exactly the paired rounds", %{conn: conn, scope: scope} do

@@ -288,9 +288,9 @@ defmodule PairingsEngineWeb.AuditLive do
   defp format_time(other), do: to_string(other)
 
   @doc """
-  Sub-nav shown at the top of both the audit-trail page and the
-  explain-a-round picker/page, so the user can hop between the two without
-  going back through the "Advanced" top-bar menu. `active` is `:index` or
+  Sub-nav across the three views of the same underlying history: the visual
+  timeline (`PairingsEngineWeb.HistoryLive`), this dense audit table, and the
+  explain-a-round picker/page. `active` is `:history`, `:index` or
   `:explain`.
   """
   attr :tournament, :map, required: true
@@ -298,12 +298,18 @@ defmodule PairingsEngineWeb.AuditLive do
 
   def subnav(assigns) do
     ~H"""
-    <div class="round-picker" style="margin-bottom: 12px">
+    <div class="round-picker" style="flex-wrap: wrap; margin-bottom: 12px">
+      <.link
+        navigate={~p"/t/#{@tournament.id}/history"}
+        class={["pe-btn", "filter-picker", @active == :history && "active"]}
+      >
+        History
+      </.link>
       <.link
         navigate={~p"/t/#{@tournament.id}/audit"}
         class={["pe-btn", "filter-picker", @active == :index && "active"]}
       >
-        Audit log
+        Audit trail
       </.link>
       <.link
         navigate={~p"/t/#{@tournament.id}/audit/explain"}
