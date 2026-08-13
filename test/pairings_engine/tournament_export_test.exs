@@ -141,4 +141,78 @@ defmodule PairingsEngine.TournamentExportTest do
     assert length(envelope["tournaments"]) == 2
     assert Enum.all?([t1.name, t2.name], &(&1 in names))
   end
+
+  describe "the exported field list must not rot behind the schema" do
+    # This is the regression guard for a real, long-lived bug: the export's
+    # @tournament_fields list had drifted far behind the schema, most
+    # damagingly missing `pairing_system` — so a JSON backup of a Keizer or
+    # round-robin tournament silently restored as a Swiss one. Adding a
+    # schema field now forces a deliberate choice: export it, or list it in
+    # @excluded_tournament_fields with a reason.
+    test "every tournament schema field is either exported or deliberately excluded" do
+      all = Tournament.__schema__(:fields) |> MapSet.new()
+      exported = TournamentExport.tournament_fields() |> MapSet.new()
+      excluded = TournamentExport.excluded_tournament_fields() |> MapSet.new()
+
+      unaccounted = all |> MapSet.difference(exported) |> MapSet.difference(excluded)
+
+      assert MapSet.size(unaccounted) == 0,
+             "these tournament schema fields are neither exported nor listed as deliberately " <>
+               "excluded: #{inspect(MapSet.to_list(unaccounted))}. Add each to " <>
+               "@tournament_fields or @excluded_tournament_fields (with a reason) in " <>
+               "PairingsEngine.TournamentExport."
+    end
+
+    test "the two lists never overlap, and neither names a field that doesn't exist" do
+      all = Tournament.__schema__(:fields) |> MapSet.new()
+      exported = TournamentExport.tournament_fields() |> MapSet.new()
+      excluded = TournamentExport.excluded_tournament_fields() |> MapSet.new()
+
+      assert MapSet.intersection(exported, excluded) |> MapSet.size() == 0
+
+      for {label, set} <- [{"exported", exported}, {"excluded", excluded}] do
+        stale = MapSet.difference(set, all)
+
+        assert MapSet.size(stale) == 0,
+               "#{label} list names fields that are not on the schema: " <>
+                 inspect(MapSet.to_list(stale))
+      end
+    end
+
+    test "the pairing-shape fields that made this a real bug are actually exported" do
+      scope = user_scope()
+
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "Keizer Backup",
+          type: "swiss",
+          pairing_system: "keizer",
+          rr_cycles: 2,
+          rounds_count: 3,
+          user_id: scope.user.id
+        })
+
+      exported = TournamentExport.export_tournament(tournament)
+      t_map = hd(exported["tournaments"])["tournament"]
+
+      assert t_map["pairing_system"] == "keizer"
+      assert t_map["rr_cycles"] == 2
+    end
+
+    test "identity and sharing state are NOT exported" do
+      scope = user_scope()
+      {tournament, _} = fixture(scope)
+
+      t_map =
+        tournament
+        |> TournamentExport.export_tournament()
+        |> get_in(["tournaments", Access.at(0), "tournament"])
+
+      for field <- ~w(id user_id public_slug public_pages_enabled registration_open
+                      deleted_at archived_at swar_guid) do
+        refute Map.has_key?(t_map, field),
+               "#{field} must not be exported — see @excluded_tournament_fields"
+      end
+    end
+  end
 end

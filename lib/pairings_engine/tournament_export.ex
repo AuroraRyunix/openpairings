@@ -30,14 +30,63 @@ defmodule PairingsEngine.TournamentExport do
   @doc "The envelope's `\"version\"` number."
   def version, do: @version
 
+  # Every tournament field that is actual tournament *content*. Kept in sync
+  # with the schema by `tournament_export_test.exs`, which fails if a new
+  # schema field is neither listed here nor deliberately excluded below —
+  # this list had silently rotted behind the schema for a long time, most
+  # damagingly missing `pairing_system` itself, so a backup of a Keizer or
+  # round-robin tournament restored as a Swiss one.
   @tournament_fields ~w(
     name type venue city federation start_date end_date organizer
     chief_arbiter deputy_arbiter time_control rounds_count rating_type
     points_win points_draw points_loss bye_value presence_value abs_value
+    abs_jusque abs_nbfois absent_counts_as_vur
     presence_on_allocated_bye tiebreaks acceleration
     status standard rate_of_play organizer_club_number round_dates
-    categories event_code fide_tournament_id officials
+    categories category_rules categories_enabled event_code
+    fide_tournament_id fide_homologated fide_id_ranges officials
+    pairing_system rr_cycles rr_match_format swiss_match_format
+    keizer_top_value pair_by_category
+    club_exclusion club_exclusion_list fed_exclusion fed_exclusion_list
+    count_extra_points extra_points_bands
+    publish_mode publish_delay_minutes
+    manual_ranking manual_ranking_stale
   )a
+
+  # Deliberately NOT exported, with the reason for each — asserted by the
+  # same test, so adding a schema field forces a conscious choice rather
+  # than a silent omission.
+  #
+  #   id, user_id, inserted_at, updated_at
+  #     Identity/ownership. An import always mints a new row owned by
+  #     whoever imports it (see this module's moduledoc).
+  #   public_slug
+  #     The imported copy must get its own unguessable link, not share the
+  #     original's — otherwise one leaked link exposes both.
+  #   public_pages_enabled, registration_open
+  #     Sharing must be an explicit opt-in per tournament, never inherited
+  #     from a file someone was handed. Both default off on the new row.
+  #   deleted_at, archived_at
+  #     Lifecycle state of *that* row. An import is always a live,
+  #     editable tournament.
+  #   swar_guid
+  #     SWAR's own per-tournament GUID, used for re-upload duplicate
+  #     detection. Carrying it would make the imported copy look like a
+  #     duplicate of the original it was exported from.
+  #   logo_data, logo_content_type
+  #     Known gap: binary, would need base64 in the envelope. Documented in
+  #     docs/import-export.md rather than silently dropped.
+  @excluded_tournament_fields ~w(
+    id user_id inserted_at updated_at public_slug public_pages_enabled
+    registration_open deleted_at archived_at swar_guid
+    logo_data logo_content_type
+  )a
+
+  @doc false
+  def tournament_fields, do: @tournament_fields
+
+  @doc false
+  def excluded_tournament_fields, do: @excluded_tournament_fields
 
   @team_fields ~w(name captain)a
 
@@ -46,9 +95,10 @@ defmodule PairingsEngine.TournamentExport do
     federation birth_year birth_date club status start_round board_order
     pairing_number paid affiliated absent forfeit special_table
     absent_rounds extra_points category club_number norm_data team_id
+    fixed_board manual_rank
   )a
 
-  @round_fields ~w(number date status)a
+  @round_fields ~w(number date status published_at)a
 
   @doc "Envelope wrapping a single tournament (caller is responsible for owner-scoping it)."
   def export_tournament(%Tournament{} = tournament), do: envelope([tournament])
@@ -91,6 +141,13 @@ defmodule PairingsEngine.TournamentExport do
     |> Map.merge(%{"id" => round.id, "pairings" => Enum.map(round.pairings, &pairing_map/1)})
   end
 
+  # `pairings.match_id` is deliberately NOT exported. The Pairing schema
+  # declares it as a plain `field :match_id, :integer`, but the migration
+  # makes it a real foreign key into the `matches` table — team-tournament
+  # scaffolding that is not exported (and that nothing currently writes;
+  # see TODO.md's team-tournaments entry). Carrying the raw integer across
+  # would point the imported pairing at another tournament's match row, or
+  # at nothing. Revisit together with team-tournament export.
   defp pairing_map(p) do
     %{
       "board" => p.board,

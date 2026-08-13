@@ -93,6 +93,13 @@ defmodule PairingsEngine.TournamentImport do
     tournament =
       %Tournament{user_id: scope.user.id}
       |> Tournament.changeset(t_attrs)
+      # `manual_ranking_stale` is deliberately outside `changeset/2`'s cast
+      # list (only the manual-ranking writers in `Tournaments` set it), so it
+      # has to be carried across explicitly or an imported tournament with a
+      # stale hand-set order would come back claiming to be fresh.
+      |> Ecto.Changeset.change(
+        manual_ranking_stale: truthy(Map.get(t_attrs, "manual_ranking_stale"))
+      )
       |> insert!()
 
     team_map = import_teams!(tournament, list(t_data, "teams"))
@@ -114,7 +121,18 @@ defmodule PairingsEngine.TournamentImport do
   defp import_players!(tournament, players, team_map) do
     Map.new(players, fn p ->
       attrs = Map.put(p, "team_id", Map.get(team_map, Map.get(p, "team_id")))
-      new_player = %Player{tournament_id: tournament.id} |> Player.changeset(attrs) |> insert!()
+
+      new_player =
+        %Player{tournament_id: tournament.id}
+        |> Player.changeset(attrs)
+        # Like `manual_ranking_stale` above, `manual_rank` is deliberately not
+        # cast — only the controlled reseed/move writers in `Tournaments` set
+        # it. Without carrying it here, importing a tournament that used
+        # manual ranking restored the flag but none of the actual order,
+        # leaving it switched on with every rank nil.
+        |> Ecto.Changeset.change(manual_rank: coerce_int(Map.get(p, "manual_rank")))
+        |> insert!()
+
       {Map.get(p, "id"), new_player.id}
     end)
   end
@@ -126,6 +144,9 @@ defmodule PairingsEngine.TournamentImport do
       r
       |> list("pairings")
       |> Enum.each(fn pr ->
+        # `match_id` is deliberately not carried across — it's a foreign key
+        # into the unexported `matches` table, so a raw value would dangle.
+        # See PairingsEngine.TournamentExport.pairing_map/1.
         attrs = %{
           "board" => Map.get(pr, "board"),
           "result" => Map.get(pr, "result"),
@@ -172,6 +193,24 @@ defmodule PairingsEngine.TournamentImport do
     # straight from a hand-edited backup.
     if rows != [], do: Repo.insert_all("byes", rows)
   end
+
+  # These two back the `Ecto.Changeset.change/2` calls above, which bypass
+  # cast entirely — so a hand-edited backup's string/garbage value would
+  # otherwise land in the column as-is under SQLite's dynamic typing.
+  defp truthy(true), do: true
+  defp truthy("true"), do: true
+  defp truthy(_), do: false
+
+  defp coerce_int(n) when is_integer(n), do: n
+
+  defp coerce_int(n) when is_binary(n) do
+    case Integer.parse(n) do
+      {parsed, ""} -> parsed
+      _ -> nil
+    end
+  end
+
+  defp coerce_int(_), do: nil
 
   defp coerce_round(round) when is_integer(round) and round > 0, do: round
 

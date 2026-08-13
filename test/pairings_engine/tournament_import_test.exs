@@ -366,4 +366,191 @@ defmodule PairingsEngine.TournamentImportTest do
     assert {:error, _reason} = TournamentImport.import(bad_envelope, importer)
     assert Tournaments.list_tournaments(importer) == []
   end
+
+  describe "fields that used to be silently dropped now survive the round trip" do
+    test "the pairing shape (system, cycles, match format, categories) comes back intact" do
+      owner = user_scope()
+      importer = user_scope()
+
+      original =
+        Repo.insert!(%Tournament{
+          name: "Shape Round Trip",
+          type: "swiss",
+          rounds_count: 4,
+          user_id: owner.user.id,
+          pairing_system: "keizer",
+          rr_cycles: 2,
+          keizer_top_value: 40,
+          categories_enabled: true,
+          categories: ["Open", "U18"],
+          category_rules: %{"U18" => %{"kind" => "age_below", "value" => 18}},
+          club_exclusion: "all",
+          fed_exclusion: "listed",
+          fed_exclusion_list: "BEL, NED",
+          count_extra_points: true,
+          extra_points_bands: "1400:1",
+          publish_mode: "manual",
+          publish_delay_minutes: 15,
+          abs_value: 0.5,
+          abs_jusque: 7,
+          abs_nbfois: 2,
+          absent_counts_as_vur: true,
+          fide_homologated: true
+        })
+
+      envelope = TournamentExport.export_tournament(original)
+      assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
+      imported = Repo.reload!(imported)
+
+      # Before this, every one of these came back at its schema default —
+      # most damagingly pairing_system, which silently became "swiss".
+      assert imported.pairing_system == "keizer"
+      assert imported.rr_cycles == 2
+      assert imported.keizer_top_value == 40
+      assert imported.categories_enabled
+      assert imported.categories == ["Open", "U18"]
+      assert imported.category_rules == %{"U18" => %{"kind" => "age_below", "value" => 18}}
+      assert imported.club_exclusion == "all"
+      assert imported.fed_exclusion == "listed"
+      assert imported.fed_exclusion_list == "BEL, NED"
+      assert imported.count_extra_points
+      assert imported.extra_points_bands == "1400:1"
+      assert imported.publish_mode == "manual"
+      assert imported.publish_delay_minutes == 15
+      assert imported.abs_value == 0.5
+      assert imported.abs_jusque == 7
+      assert imported.abs_nbfois == 2
+      assert imported.absent_counts_as_vur
+      assert imported.fide_homologated
+    end
+
+    test "manual ranking round-trips with its actual order, not just the flag" do
+      owner = user_scope()
+      importer = user_scope()
+
+      original =
+        Repo.insert!(%Tournament{
+          name: "Manual Rank Round Trip",
+          type: "swiss",
+          rounds_count: 1,
+          user_id: owner.user.id,
+          manual_ranking: true,
+          manual_ranking_stale: true
+        })
+
+      Repo.insert!(%Player{tournament_id: original.id, name: "Second", manual_rank: 2})
+      Repo.insert!(%Player{tournament_id: original.id, name: "First", manual_rank: 1})
+
+      envelope = TournamentExport.export_tournament(original)
+      assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
+      imported = Repo.reload!(imported)
+
+      assert imported.manual_ranking
+      assert imported.manual_ranking_stale
+
+      ranks =
+        imported.id
+        |> Tournaments.list_players()
+        |> Map.new(&{&1.name, &1.manual_rank})
+
+      # Previously the flag came back on with every rank nil — manual ranking
+      # switched on but pointing at nothing.
+      assert ranks == %{"First" => 1, "Second" => 2}
+    end
+
+    test "a player's fixed board and a round's published_at survive" do
+      owner = user_scope()
+      importer = user_scope()
+
+      original =
+        Repo.insert!(%Tournament{
+          name: "Fixed Board Round Trip",
+          type: "swiss",
+          rounds_count: 1,
+          user_id: owner.user.id,
+          publish_mode: "manual"
+        })
+
+      Repo.insert!(%Player{tournament_id: original.id, name: "Wheelchair", fixed_board: 1001})
+
+      published = DateTime.utc_now() |> DateTime.truncate(:second)
+      Repo.insert!(%Round{tournament_id: original.id, number: 1, published_at: published})
+
+      envelope = TournamentExport.export_tournament(original)
+      assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
+
+      assert [player] = Tournaments.list_players(imported.id)
+      assert player.fixed_board == 1001
+
+      assert %Round{published_at: ^published} = Tournaments.get_round(imported.id, 1)
+    end
+
+    test "the match-format flag round-trips, and match_id is deliberately left behind" do
+      owner = user_scope()
+      importer = user_scope()
+
+      original =
+        Repo.insert!(%Tournament{
+          name: "Match Format Round Trip",
+          type: "swiss",
+          rounds_count: 2,
+          user_id: owner.user.id,
+          swiss_match_format: true
+        })
+
+      a = Repo.insert!(%Player{tournament_id: original.id, name: "Alice"})
+      b = Repo.insert!(%Player{tournament_id: original.id, name: "Bob"})
+      round = Repo.insert!(%Round{tournament_id: original.id, number: 1})
+
+      Repo.insert!(%Pairing{
+        round_id: round.id,
+        board: 1,
+        white_player_id: a.id,
+        black_player_id: b.id
+      })
+
+      envelope = TournamentExport.export_tournament(original)
+
+      # `pairings.match_id` looks like a plain integer on the schema but is a
+      # real FK into the unexported `matches` table (team scaffolding), so
+      # exporting it would produce a dangling cross-tournament reference.
+      exported_pairing =
+        envelope
+        |> get_in(["tournaments", Access.at(0), "rounds", Access.at(0), "pairings", Access.at(0)])
+
+      refute Map.has_key?(exported_pairing, "match_id")
+
+      assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
+      assert Repo.reload!(imported).swiss_match_format
+      assert %Round{pairings: [_]} = Tournaments.get_round(imported.id, 1)
+    end
+
+    test "a hand-edited backup can't smuggle junk into the uncast fields" do
+      owner = user_scope()
+      importer = user_scope()
+      fixture(owner)
+
+      envelope = TournamentExport.export_all(owner)
+
+      tampered =
+        envelope
+        |> put_in(
+          ["tournaments", Access.at(0), "tournament", "manual_ranking_stale"],
+          "not-a-boolean"
+        )
+        |> update_in(["tournaments", Access.at(0), "players"], fn players ->
+          Enum.map(players, &Map.put(&1, "manual_rank", "not-an-integer"))
+        end)
+
+      assert {:ok, [imported]} = TournamentImport.import(tampered, importer)
+
+      # Both bypass Ecto's cast, so they're coerced explicitly rather than
+      # landing in the column verbatim under SQLite's dynamic typing.
+      refute Repo.reload!(imported).manual_ranking_stale
+
+      assert imported.id
+             |> Tournaments.list_players()
+             |> Enum.all?(&is_nil(&1.manual_rank))
+    end
+  end
 end
