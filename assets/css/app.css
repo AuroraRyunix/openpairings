@@ -1205,6 +1205,10 @@ button.pe-btn, .pe-btn {
    than `display` so the column keeps a stable box either way. */
 .board-diff-group.has-swap-arrows .board-diff { grid-template-columns: 1fr 56px 1fr; }
 .board-diff-group.has-swap-arrows .board-diff-arrow { visibility: hidden; }
+/* Each arrow's actual colour is set inline by the hook, matching its own
+   traveller's `--swap-color` (read straight off the seat elements it
+   already found — no separate colour list to keep in sync). These are
+   just the fallback if that lookup ever comes back empty. */
 .swap-arrow-path {
   fill: none;
   stroke: var(--accent);
@@ -1269,10 +1273,22 @@ button.pe-btn, .pe-btn {
 }
 .board-seat-name { overflow-wrap: anywhere; }
 
+/* `--swap-color` is set inline per seat by `board_card/1` — see
+   `identity_colors/1`'s own comment for why (every distinct player in
+   the confirm modal gets their own colour, not just whichever ones
+   moved). Two rules, ordered by what a missing colour should fall back
+   to: an UNCHANGED seat (a swap's "stays put" player) just wants its own
+   colour if it has one, else the normal text colour; a CHANGED seat
+   (what every other confirm kind already highlighted) wants its own
+   colour if it has one, else the accent it always used to. */
+.board-seat-name { color: var(--swap-color, inherit); }
+.board-seat-changed .board-seat-name { font-weight: 700; color: var(--swap-color, var(--accent)); }
+
 /* The small "⇄ Board N" chip on a changed seat in the confirm modal,
    when that seat's new occupant came FROM (or is going TO) a different
    board — the visual link a two-board swap's two independent before/
-   after cards otherwise leave the arbiter to piece together themselves. */
+   after cards otherwise leave the arbiter to piece together themselves.
+   Tinted to match its own traveller, same fallback as the name above. */
 .board-seat-swap-ref {
   display: inline-flex;
   align-items: center;
@@ -1280,13 +1296,12 @@ button.pe-btn, .pe-btn {
   margin-left: 6px;
   padding: 1px 7px;
   border-radius: 99px;
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: color-mix(in srgb, var(--swap-color, var(--accent)) 16%, transparent);
+  color: var(--swap-color, var(--accent));
   font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
 }
-.board-seat-changed .board-seat-name { font-weight: 700; color: var(--accent); }
 
 .board-number-field { display: block; margin-top: 14px; }
 .board-number-field > span {

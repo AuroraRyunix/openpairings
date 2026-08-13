@@ -3,6 +3,24 @@
 All notable changes to OpenPairings are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.25] — 2026-08-13
+
+### Added
+
+- **Every player shown in the swap confirm modal gets their own colour**
+  — not just the two who moved. A two-board swap shows up to four
+  people (the two travellers plus whoever stayed put on each board);
+  each now has a distinct colour (from a fixed 6-colour palette,
+  independent of the tournament's own accent) applied to their name
+  everywhere it appears, so identity is legible at a glance instead of
+  only "changed vs. unchanged". Each traveller's journey arrow, dot,
+  arrowhead and "⇄ Board N" chip now match their own colour too — read
+  straight off the seat elements the arrows hook already found, so
+  there's no separate colour list to keep in sync between Elixir and
+  JS. A same-board colour swap gets two colours; a non-swap confirm
+  (mark absent, award bye, fill a seat, pool-pair) gets none, same as
+  before.
+
 ## [0.14.24] — 2026-08-13
 
 ### Fixed

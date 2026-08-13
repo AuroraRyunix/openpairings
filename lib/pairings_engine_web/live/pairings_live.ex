@@ -539,6 +539,11 @@ defmodule PairingsEngineWeb.PairingsLive do
              title: if(same?, do: "Swap colours", else: "Swap players"),
              subtitle: "#{a}  ⇄  #{b}",
              changes: changes,
+             # Every distinct name shown across the diff, each its own
+             # colour — see `identity_colors/1`. Only `:swap` gets one:
+             # it's the one confirm kind where more than one player can
+             # be on screen at once with something to tell apart.
+             colors: identity_colors(changes),
              note: nil
            }}
         end
@@ -820,6 +825,32 @@ defmodule PairingsEngineWeb.PairingsLive do
     }
   end
 
+  # A fixed palette, not derived from the tournament's own accent colour
+  # (`Layouts.theme_switch/1`) — that's a single colour the WHOLE app is
+  # tinted with, so using it here couldn't tell two people apart even
+  # once, let alone four. Assigned in the order names first appear
+  # scanning `changes` (before, then after, board by board) — stable and
+  # deterministic for a given swap, not tied to seat/colour/pairing_number.
+  @identity_palette ~w(#3b82f6 #ec4899 #f59e0b #10b981 #8b5cf6 #06b6d4)
+
+  # One colour per distinct name across the WHOLE diff — every player
+  # shown, not just the ones who moved, so e.g. board 1's "stays put"
+  # opponent is exactly as identifiable as the two who traded seats.
+  # `board_card/1` turns this into each seat's `--swap-color`; the
+  # `.SwapArrows` hook reads that same value back off the seat elements
+  # so an arrow always matches its own traveller's colour, with no
+  # separate colour list to keep in sync between Elixir and JS.
+  defp identity_colors(changes) do
+    changes
+    |> Enum.flat_map(fn c -> Tuple.to_list(c.before) ++ Tuple.to_list(c.after) end)
+    |> Enum.reject(&(&1 in [nil, ""]))
+    |> Enum.uniq()
+    |> Enum.with_index()
+    |> Map.new(fn {name, i} ->
+      {name, Enum.at(@identity_palette, rem(i, length(@identity_palette)))}
+    end)
+  end
+
   defp other_seat_name(pairing, :white_player_id), do: player_label(pairing.black_player)
   defp other_seat_name(pairing, :black_player_id), do: player_label(pairing.white_player)
 
@@ -1030,6 +1061,12 @@ defmodule PairingsEngineWeb.PairingsLive do
   # cross-reference: a colour swap, an absence, a bye, a pool fill are
   # all single-board).
   attr :related_board, :any, default: nil
+  # `%{name => "#hex"}` — see `identity_colors/1`. Every seat gets its
+  # colour set as an inline `--swap-color` custom property regardless of
+  # whether it changed; CSS decides what actually uses it (currently:
+  # the name text, always, and the "changed" highlight/chip, only where
+  # those already applied). Empty for every confirm kind but `:swap`.
+  attr :color_by_name, :map, default: %{}
 
   defp board_card(assigns) do
     {white, black} = assigns.seats
@@ -1052,7 +1089,10 @@ defmodule PairingsEngineWeb.PairingsLive do
 
     ~H"""
     <div class={["board-card", "board-card-#{@state}"]}>
-      <div class={["board-seat", @white_changed? && @changed_class]}>
+      <div
+        class={["board-seat", @white_changed? && @changed_class]}
+        style={seat_color_style(@color_by_name, @white)}
+      >
         <span class="board-seat-colour" aria-label="White">W</span>
         <span class="board-seat-name">{seat_text(@white)}</span>
         <span
@@ -1063,7 +1103,10 @@ defmodule PairingsEngineWeb.PairingsLive do
         </span>
       </div>
 
-      <div class={["board-seat", @black_changed? && @changed_class]}>
+      <div
+        class={["board-seat", @black_changed? && @changed_class]}
+        style={seat_color_style(@color_by_name, @black)}
+      >
         <span class="board-seat-colour board-seat-black" aria-label="Black">B</span>
         <span class="board-seat-name">{seat_text(@black)}</span>
         <span
@@ -1075,6 +1118,13 @@ defmodule PairingsEngineWeb.PairingsLive do
       </div>
     </div>
     """
+  end
+
+  defp seat_color_style(color_by_name, name) do
+    case Map.get(color_by_name, name) do
+      nil -> nil
+      hex -> "--swap-color: #{hex}"
+    end
   end
 
   defp seat_text(""), do: "— empty —"
@@ -1586,13 +1636,19 @@ defmodule PairingsEngineWeb.PairingsLive do
             <div id="confirm-board-diffs" class="board-diff-group" phx-hook=".SwapArrows">
               <div :for={c <- @confirm.changes} class="board-diff">
                 <div class="board-diff-num">Board {c.board}</div>
-                <.board_card seats={c.before} state="before" compare={c.after} />
+                <.board_card
+                  seats={c.before}
+                  state="before"
+                  compare={c.after}
+                  color_by_name={@confirm[:colors] || %{}}
+                />
                 <div class="board-diff-arrow">→</div>
                 <.board_card
                   seats={c.after}
                   state="after"
                   compare={c.before}
                   related_board={c[:related_board]}
+                  color_by_name={@confirm[:colors] || %{}}
                 />
               </div>
               <%!-- Filled in by the .SwapArrows hook; phx-update="ignore" so
@@ -2064,13 +2120,26 @@ defmodule PairingsEngineWeb.PairingsLive do
             svg.setAttribute("width", group.width);
             svg.setAttribute("height", group.height);
             svg.setAttribute("aria-hidden", "true");
-            svg.append(this.arrowHeadDefs());
+
+            const defs = document.createElementNS(SVG_NS, "defs");
+            svg.append(defs);
 
             const animate = !window.matchMedia(REDUCED_MOTION).matches;
 
-            pairs.forEach(([from, to]) => {
+            pairs.forEach(([from, to], i) => {
               const start = exit(from);
               const end = entry(to);
+
+              // Each traveller's OWN colour, read straight off the seat
+              // element `board_card/1` already set it on (`identity_colors/1`
+              // assigned it server-side) — so the arrow always matches the
+              // name/highlight it belongs to, with no colour list of our
+              // own to keep in sync. `from` and `to` are the same person by
+              // construction (matchTravellers/1 paired them by name), so
+              // either would do; `from` is just as good as `to`.
+              const color = getComputedStyle(from).getPropertyValue("--swap-color").trim();
+              const markerId = `swap-arrow-head-${i}`;
+              defs.append(this.arrowHeadDef(markerId, color));
 
               // A straight stub at each end: the curve is done bending
               // before the arrowhead, so the head sits on a level run
@@ -2096,13 +2165,15 @@ defmodule PairingsEngineWeb.PairingsLive do
                   ` C ${from_x + k} ${start.y}, ${to_x - k} ${end.y}, ${to_x} ${end.y}` +
                   ` L ${tip} ${end.y}`
               );
-              path.setAttribute("marker-end", "url(#swap-arrow-head)");
+              path.setAttribute("marker-end", `url(#${markerId})`);
+              if (color) path.style.stroke = color;
 
               const dot = document.createElementNS(SVG_NS, "circle");
               dot.setAttribute("class", "swap-arrow-dot");
               dot.setAttribute("cx", start.x);
               dot.setAttribute("cy", start.y);
               dot.setAttribute("r", 3);
+              if (color) dot.style.fill = color;
 
               svg.append(path, dot);
 
@@ -2121,10 +2192,13 @@ defmodule PairingsEngineWeb.PairingsLive do
             layer.append(svg);
           },
 
-          arrowHeadDefs() {
-            const defs = document.createElementNS(SVG_NS, "defs");
+          // One `<marker>` per arrow, not one shared by all of them — an
+          // SVG marker has exactly one fill, so two differently-coloured
+          // arrowheads need two markers. `id` just needs to be unique
+          // within this one SVG.
+          arrowHeadDef(id, color) {
             const marker = document.createElementNS(SVG_NS, "marker");
-            marker.setAttribute("id", "swap-arrow-head");
+            marker.setAttribute("id", id);
             marker.setAttribute("viewBox", "0 0 8 8");
             marker.setAttribute("refX", "7");
             marker.setAttribute("refY", "4");
@@ -2135,10 +2209,10 @@ defmodule PairingsEngineWeb.PairingsLive do
             const head = document.createElementNS(SVG_NS, "path");
             head.setAttribute("class", "swap-arrow-head");
             head.setAttribute("d", "M 0 0 L 8 4 L 0 8 z");
+            if (color) head.style.fill = color;
 
             marker.append(head);
-            defs.append(marker);
-            return defs;
+            return marker;
           }
         }
       </script>

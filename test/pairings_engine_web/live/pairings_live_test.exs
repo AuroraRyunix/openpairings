@@ -1046,6 +1046,49 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       assert html |> String.split("board-seat-moving") |> length() == 3
     end
 
+    defp swap_colors(html),
+      do: Regex.scan(~r/--swap-color: (#[0-9a-f]{6})/, html) |> Enum.map(&Enum.at(&1, 1))
+
+    test "a cross-board swap colours all FOUR players shown, not just the two who moved",
+         %{conn: conn, scope: scope} do
+      # two_board_fixture's A/B/C/D are all distinct — A and D trade
+      # boards, B and C stay exactly where they are.
+      %{tournament: t, a: a, d: d} = two_board_fixture(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      html = arm_and_pick(lv, a.id, d.id)
+
+      colors = swap_colors(html)
+      # 4 people, each shown twice (once in their board's "before" card,
+      # once in whichever card they're in "after") — 8 colour tags total,
+      # only 4 distinct values, and every value paired exactly twice
+      # (the same person always gets the same colour on both sides).
+      assert length(colors) == 8
+      assert colors |> Enum.uniq() |> length() == 4
+      assert colors |> Enum.frequencies() |> Map.values() |> Enum.all?(&(&1 == 2))
+    end
+
+    test "a same-board colour swap colours both players, distinctly", %{conn: conn, scope: scope} do
+      %{tournament: t, a: a, b: b} = two_board_fixture(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      html = arm_and_pick(lv, a.id, b.id)
+
+      colors = swap_colors(html)
+      assert length(colors) == 4
+      assert colors |> Enum.uniq() |> length() == 2
+    end
+
+    test "a non-swap confirm (mark absent) assigns no player colours at all",
+         %{conn: conn, scope: scope} do
+      %{tournament: t, a: a} = two_board_fixture(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      html = render_click(lv, "stage_vacate", %{"player-id" => to_string(a.id)})
+
+      assert swap_colors(html) == []
+    end
+
     test "a non-swap confirm still marks a departing seat, but with no counterpart to pair it to",
          %{conn: conn, scope: scope} do
       # Mark-absent empties a seat: the before card marks it moving, but
