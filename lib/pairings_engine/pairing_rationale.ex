@@ -387,8 +387,16 @@ defmodule PairingsEngine.PairingRationale do
       not is_bye && white_side && black_side &&
         white_side.score != black_side.score
 
+    # `is_bye` only means BLACK's seat is empty (or a pairing-allocated bye) —
+    # a vacated WHITE seat (`Tournaments.vacate_seat/3` can empty either
+    # colour, leaving black seated) is a real, valid state that isn't a bye
+    # at all. Guarding on `black` alone crashed here (`white.id` on `nil`,
+    # a real prod incident on `/pairings/:round/explain` for any round with
+    # an absent white player) — `floater` two lines up already guards both
+    # sides via `white_side && black_side`; this needed the same white
+    # check.
     rematch =
-      not is_bye && black &&
+      not is_bye && white && black &&
         MapSet.member?(played_before, pair_key(white.id, black.id))
 
     # A rematch is an anomaly worth flagging UNLESS this tournament's own

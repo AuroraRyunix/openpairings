@@ -236,6 +236,67 @@ defmodule PairingsEngine.PairingRationaleTest do
       assert board.rematch_anomaly == true
     end
 
+    test "a vacated white seat doesn't crash the rationale (regression, real prod incident)" do
+      # `Tournaments.vacate_seat/3` can empty EITHER colour's seat, leaving
+      # the other player still seated and NOT a bye (`is_bye` only checks
+      # `black_player_id`). This hand-built pairing reproduces that state
+      # directly: black seated, white vacated. Before the fix, `for_round/2`
+      # crashed with `(KeyError) key :id not found in: nil` computing
+      # `white.id` in the rematch check — this pins that it no longer does,
+      # for both round 1 (no prior history to check) and a later round
+      # (`played_before` is non-empty, exercising the real MapSet lookup
+      # path around the guard, not just an early-return on an empty set).
+      t = Repo.insert!(%Tournament{name: "Swiss", type: "swiss", rounds_count: 5})
+
+      {:ok, alice} = Tournaments.create_player(t.id, %{name: "Alice"})
+      {:ok, bob} = Tournaments.create_player(t.id, %{name: "Bob"})
+      {:ok, carol} = Tournaments.create_player(t.id, %{name: "Carol"})
+
+      round1 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 1, status: "playing"})
+
+      Repo.insert!(%PairingSchema{
+        round_id: round1.id,
+        board: 1,
+        white_player_id: nil,
+        black_player_id: bob.id,
+        result: ""
+      })
+
+      Repo.insert!(%PairingSchema{
+        round_id: round1.id,
+        board: 2,
+        white_player_id: alice.id,
+        black_player_id: carol.id,
+        result: "1-0"
+      })
+
+      rationale1 = PairingRationale.for_round(t, 1)
+      board1 = Enum.find(rationale1.boards, &(&1.board == 1))
+
+      assert board1.is_bye == false
+      assert board1.white == nil
+      assert board1.black.player.id == bob.id
+      assert board1.rematch == false
+      assert board1.rematch_anomaly == false
+
+      round2 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 2, status: "playing"})
+
+      Repo.insert!(%PairingSchema{
+        round_id: round2.id,
+        board: 1,
+        white_player_id: nil,
+        black_player_id: bob.id,
+        result: ""
+      })
+
+      rationale2 = PairingRationale.for_round(t, 2)
+      board2 = Enum.find(rationale2.boards, &(&1.board == 1))
+
+      assert board2.is_bye == false
+      assert board2.white == nil
+      assert board2.rematch == false
+    end
+
     test "a match-format back-to-back rematch is NOT flagged as an anomaly" do
       t =
         Repo.insert!(%Tournament{
