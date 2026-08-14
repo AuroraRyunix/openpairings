@@ -377,6 +377,14 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
 
+      # The "Delay (minutes)" field only renders once the mode select is
+      # actually switched to "timed" (see the "field is hidden by default"
+      # / "appears live" tests below) — flip it first so the form the
+      # submit below reads from actually has the field in it.
+      lv
+      |> element("select[name='tournament[publish_mode]']")
+      |> render_change(%{"tournament" => %{"publish_mode" => "timed"}})
+
       lv
       |> form("form[phx-submit=save]", %{
         "tournament" => %{"publish_mode" => "timed", "publish_delay_minutes" => "20"}
@@ -386,6 +394,54 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
       updated = Tournaments.get_authorized_tournament!(scope, tournament.id)
       assert updated.publish_mode == "timed"
       assert updated.publish_delay_minutes == 20
+    end
+
+    test "the \"Delay (minutes)\" field is hidden by default (mode is Immediately)", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+
+      refute html =~ "Delay (minutes)"
+    end
+
+    test "the \"Delay (minutes)\" field appears live when the mode is switched to 'timed', and hides again when switched away",
+         %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+
+      html =
+        lv
+        |> element("select[name='tournament[publish_mode]']")
+        |> render_change(%{"tournament" => %{"publish_mode" => "timed"}})
+
+      assert html =~ "Delay (minutes)"
+
+      html =
+        lv
+        |> element("select[name='tournament[publish_mode]']")
+        |> render_change(%{"tournament" => %{"publish_mode" => "manual"}})
+
+      refute html =~ "Delay (minutes)"
+    end
+
+    test "a tournament already saved in 'timed' mode shows the Delay field on initial render", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+
+      {:ok, _updated} =
+        Tournaments.update_tournament(tournament, %{
+          "publish_mode" => "timed",
+          "publish_delay_minutes" => "15"
+        })
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+
+      assert html =~ "Delay (minutes)"
     end
   end
 end
