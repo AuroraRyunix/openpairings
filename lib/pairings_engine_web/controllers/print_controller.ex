@@ -71,9 +71,12 @@ defmodule PairingsEngineWeb.PrintController do
   # Card height (30mm) + margin-bottom (2mm) = 32mm per card. Eight of those
   # stack to 256mm, comfortably inside the 277mm an A4 portrait page has left
   # after 10mm top/bottom margins (leaving headroom for the page-1 title/
-  # subtitle that `print_page/5` always renders above the cards). One
-  # compact row per board: header line, then a single players+signatures
-  # line, then the circle-one result line — see `result_card/3`.
+  # subtitle that `print_page/5` always renders above the cards). Each
+  # player gets three stacked rows (name row, sub-info row, signature row —
+  # see `result_card/3`) rather than one crammed line; measured against real
+  # font metrics at these sizes the three rows still total well under the
+  # 26mm of vertical room the fixed 30mm height leaves after padding, so
+  # 8-per-page and the page-break math above are unchanged.
   @result_cards_css """
   @page { size: A4 portrait; margin: 10mm; }
   .result-card { border: 1px dashed #000; box-sizing: border-box; height: 30mm; padding: 2mm 4mm;
@@ -82,17 +85,21 @@ defmodule PairingsEngineWeb.PrintController do
   .result-card:nth-child(8n) { page-break-after: always; margin-bottom: 0; }
   .result-card .rc-head { display: flex; justify-content: space-between; font-size: 8.5px; color: #555; }
   .result-card .rc-head strong { color: #111; }
-  .result-card .rc-players { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-  .result-card .rc-player { font-size: 11px; display: flex; align-items: baseline; gap: 5px; flex: 1 1 46%;
-                             min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-  .result-card .rc-player.rc-black { flex-direction: row-reverse; justify-content: flex-end; }
-  .result-card .rc-who { font-size: 7.5px; color: #777; text-transform: uppercase; letter-spacing: 0.04em; }
+  .result-card .rc-players { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+  .result-card .rc-player { flex: 1 1 46%; min-width: 0; display: flex; flex-direction: column; gap: 0.6mm; }
+  .result-card .rc-player.rc-black { align-items: flex-end; text-align: right; }
+  .result-card .rc-name-row { font-size: 13.5px; display: flex; align-items: baseline; gap: 5px;
+                               max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .result-card .rc-player.rc-black .rc-name-row { flex-direction: row-reverse; }
+  .result-card .rc-who { font-size: 7.5px; color: #777; text-transform: uppercase; letter-spacing: 0.04em;
+                          flex-shrink: 0; }
   .result-card .rc-sub { color: #666; font-size: 8.5px; font-weight: normal; }
   .result-card .rc-sig { font-size: 8px; color: #666; display: inline-flex; align-items: baseline; gap: 3px; }
   .result-card .rc-sig i { font-style: normal; display: inline-block; width: 16mm; border-bottom: 1px solid #000; }
-  .result-card .rc-result-row { display: flex; align-items: baseline; justify-content: center; gap: 26px;
-                                 font-size: 18px; font-weight: bold; }
-  .result-card .rc-result-row .rc-other { margin-left: auto; font-size: 8px; font-weight: normal; color: #666; }
+  .result-card .rc-result-row { position: relative; display: flex; align-items: baseline; justify-content: center;
+                                 gap: 24px; font-size: 17px; font-weight: bold; }
+  .result-card .rc-result-row .rc-other { position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+                                           font-size: 8px; font-weight: normal; color: #666; }
   @media print { .result-card { break-inside: avoid; } }
   .result-card.rc-blank { border-style: none; }
   """
@@ -1243,15 +1250,26 @@ defmodule PairingsEngineWeb.PrintController do
       "<div class=\"rc-head\"><strong>#{esc(tournament.name)}</strong>" <>
       "<span>Round #{round_number} &middot; Board #{pairing.board}#{fixed_board_note(pairing)}</span></div>" <>
       "<div class=\"rc-players\">" <>
-      "<div class=\"rc-player\"><span class=\"rc-who\">White</span> <strong>#{esc(result_card_name(white))}</strong>" <>
-      "<span class=\"rc-sub\">#{result_card_sub(white)}</span>" <>
-      "<span class=\"rc-sig\">Sign <i></i></span></div>" <>
-      "<div class=\"rc-player rc-black\"><span class=\"rc-sig\">Sign <i></i></span>" <>
-      "<span class=\"rc-sub\">#{result_card_sub(black)}</span> <strong>#{esc(result_card_name(black))}</strong>" <>
-      "<span class=\"rc-who\">Black</span></div>" <>
+      "#{result_card_player(white, "White", "rc-player")}" <>
+      "#{result_card_player(black, "Black", "rc-player rc-black")}" <>
       "</div>" <>
       "<div class=\"rc-result-row\"><span>1 &ndash; 0</span><span>&frac12; &ndash; &frac12;</span>" <>
       "<span>0 &ndash; 1</span><span class=\"rc-other\">other: ............</span></div>" <>
+      "</div>"
+  end
+
+  # One player's block within a result card: a name row (who-label + name,
+  # bigger font), a sub-info row (rating/board №), then the signature row on
+  # its own line below — see `@result_cards_css`'s doc comment for why three
+  # stacked rows still fit the existing 8-per-page card height. `who_class`
+  # carries "rc-black" for the black side, which right-aligns the block and
+  # reverses the name row (name before the who-label) to mirror white's
+  # layout, matching this card's existing white/black mirroring elsewhere.
+  defp result_card_player(player, who, class) do
+    "<div class=\"#{class}\">" <>
+      "<div class=\"rc-name-row\"><span class=\"rc-who\">#{who}</span> <strong>#{esc(result_card_name(player))}</strong></div>" <>
+      "<div class=\"rc-sub\">#{result_card_sub(player)}</div>" <>
+      "<div class=\"rc-sig\">Sign <i></i></div>" <>
       "</div>"
   end
 
