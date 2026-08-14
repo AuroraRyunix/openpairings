@@ -151,6 +151,9 @@ defmodule PairingsEngineWeb.StandingsLive do
 
           assign(socket, tournament: %{tournament | manual_ranking_stale: false})
 
+        {:error, :archived} ->
+          archived_refusal(socket)
+
         {:error, _} ->
           socket
       end
@@ -471,6 +474,7 @@ defmodule PairingsEngineWeb.StandingsLive do
                   phx-value-player_id={entry.player.id}
                   phx-value-direction="up"
                   aria-label={"Move #{entry.player.name} up"}
+                  disabled={!is_nil(@tournament.archived_at)}
                 >
                   ↑
                 </button>
@@ -482,6 +486,7 @@ defmodule PairingsEngineWeb.StandingsLive do
                   phx-value-player_id={entry.player.id}
                   phx-value-direction="down"
                   aria-label={"Move #{entry.player.name} down"}
+                  disabled={!is_nil(@tournament.archived_at)}
                 >
                   ↓
                 </button>

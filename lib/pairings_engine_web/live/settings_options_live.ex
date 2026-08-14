@@ -146,8 +146,8 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
         {:noreply, socket |> assign(tournament: tournament) |> put_flash(:info, note)}
 
-      {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, "Could not change registration")}
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, error_text(reason))}
     end
   end
 
@@ -229,6 +229,9 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
         {:error, :already_forbidden} ->
           {:noreply, assign(socket, forbidden_pairing_error: "That pair is already forbidden")}
 
+        {:error, :archived} ->
+          {:noreply, assign(socket, forbidden_pairing_error: error_text(:archived))}
+
         {:error, _reason} ->
           {:noreply,
            assign(socket, forbidden_pairing_error: "Could not add that forbidden pairing")}
@@ -253,8 +256,8 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
         {:noreply, assign_forbidden_pairings(socket)}
 
-      {:error, _reason} ->
-        {:noreply, socket}
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, error_text(reason))}
     end
   end
 

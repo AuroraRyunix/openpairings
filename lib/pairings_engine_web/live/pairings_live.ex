@@ -1,7 +1,7 @@
 defmodule PairingsEngineWeb.PairingsLive do
   use PairingsEngineWeb, :live_view
 
-  import PairingsEngineWeb.SettingsSupport, only: [setup_field_path: 2]
+  import PairingsEngineWeb.SettingsSupport, only: [setup_field_path: 2, error_text: 1]
 
   alias PairingsEngine.{
     Audit,
@@ -46,6 +46,17 @@ defmodule PairingsEngineWeb.PairingsLive do
        page_title: "#{tournament.name} · Pairings",
        round_number: max(paired, 1),
        error: nil,
+       # Bumped whenever a result-entry write is REFUSED (e.g. an archived
+       # tournament) — see the `result`/`confirm_clear_result` handlers'
+       # comments and the `.BlindResultEntry` hook's `updated()` for why: a
+       # refused write leaves every assign byte-identical to before, so
+       # LiveView's diff for that board's <select> is empty and no patch is
+       # sent — the browser's own "user just picked this option" native
+       # state is left uncorrected, LOOKING like the change went through
+       # even though nothing was written. Threading this counter into each
+       # select's markup guarantees a patch fires on every refusal, so the
+       # hook's existing data-result resync actually runs.
+       write_refused_nonce: 0,
        importing_results: false,
        import_errors: nil,
        # The pairing (if any) awaiting explicit confirmation to have its
@@ -184,7 +195,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         {:noreply, socket |> assign(error: nil) |> refresh()}
 
       {:error, reason} ->
-        {:noreply, assign(socket, error: reason)}
+        {:noreply, assign(socket, error: error_text(reason))}
     end
   end
 
@@ -197,14 +208,14 @@ defmodule PairingsEngineWeb.PairingsLive do
   def handle_event("publish_round_now", _params, socket) do
     case Tournaments.publish_round_now(socket.assigns.round) do
       {:ok, _round} -> {:noreply, refresh(socket)}
-      {:error, _changeset} -> {:noreply, socket}
+      {:error, reason} -> {:noreply, put_flash(socket, :error, error_text(reason))}
     end
   end
 
   def handle_event("unpublish_round", _params, socket) do
     case Tournaments.unpublish_round(socket.assigns.round) do
       {:ok, _round} -> {:noreply, refresh(socket)}
-      {:error, _changeset} -> {:noreply, socket}
+      {:error, reason} -> {:noreply, put_flash(socket, :error, error_text(reason))}
     end
   end
 
@@ -224,6 +235,21 @@ defmodule PairingsEngineWeb.PairingsLive do
   #
   # Everything that writes goes through `@confirm` first — one modal, one
   # shape, whatever the action (see `confirm_for/2` and `apply_confirm/2`).
+
+  # Archived is checked here, once, rather than at every downstream
+  # gesture handler (arm_swap, stage_vacate, stage_bye, stage_fill,
+  # offer_seats, stage_pool_pair) — this is the single entry point every
+  # one of them is reached through (a right-click on a player), so
+  # refusing to even open the menu on an archived tournament silently
+  # closes off the whole editing surface in one place. The underlying
+  # writes are refused server-side regardless (`ensure_writable/1`,
+  # confirmed by the whole `archive_test.exs` suite) — this is purely
+  # about not dangling an editing menu in front of someone on a read-only
+  # tournament.
+  def handle_event("open_menu", _params, %{assigns: %{tournament: %{archived_at: at}}} = socket)
+      when not is_nil(at) do
+    {:noreply, put_flash(socket, :error, error_text(:archived))}
+  end
 
   def handle_event("open_menu", params, socket) do
     %{"x" => x, "y" => y} = params
@@ -403,11 +429,18 @@ defmodule PairingsEngineWeb.PairingsLive do
               to: result
             })
 
-          _ ->
-            :ok
-        end
+            {:noreply, socket |> assign(confirm_clear_pairing_id: nil) |> refresh()}
 
-        {:noreply, socket |> assign(confirm_clear_pairing_id: nil) |> refresh()}
+          {:error, reason} ->
+            {:noreply,
+             socket
+             |> put_flash(:error, error_text(reason))
+             |> assign(
+               confirm_clear_pairing_id: nil,
+               write_refused_nonce: socket.assigns.write_refused_nonce + 1
+             )
+             |> refresh()}
+        end
     end
   end
 
@@ -421,7 +454,7 @@ defmodule PairingsEngineWeb.PairingsLive do
 
     case Enum.find(socket.assigns.round.pairings, &(&1.id == String.to_integer(id))) do
       nil ->
-        :ok
+        {:noreply, socket |> assign(confirm_clear_pairing_id: nil) |> refresh()}
 
       pairing ->
         previous = pairing.result
@@ -437,12 +470,19 @@ defmodule PairingsEngineWeb.PairingsLive do
               from: previous
             })
 
-          _ ->
-            :ok
+            {:noreply, socket |> assign(confirm_clear_pairing_id: nil) |> refresh()}
+
+          {:error, reason} ->
+            {:noreply,
+             socket
+             |> put_flash(:error, error_text(reason))
+             |> assign(
+               confirm_clear_pairing_id: nil,
+               write_refused_nonce: socket.assigns.write_refused_nonce + 1
+             )
+             |> refresh()}
         end
     end
-
-    {:noreply, socket |> assign(confirm_clear_pairing_id: nil) |> refresh()}
   end
 
   # Backs out of a staged clear without writing anything — the select
@@ -734,10 +774,19 @@ defmodule PairingsEngineWeb.PairingsLive do
 
         {:noreply, socket |> assign(error: nil) |> refresh()}
 
+      {:error, :archived} ->
+        {:noreply,
+         assign(socket,
+           error: error_text(:archived),
+           confirm: nil,
+           swap_first: nil,
+           pool_first: nil
+         )}
+
       {:error, reason} ->
         {:noreply,
          assign(socket,
-           error: "Could not apply that change: #{inspect(reason)}",
+           error: "Could not apply that change: #{error_text(reason)}",
            confirm: nil,
            swap_first: nil,
            pool_first: nil
@@ -1613,7 +1662,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           </div>
 
           <button
-            :if={@round != nil}
+            :if={@round != nil && !@tournament.archived_at}
             class="pe-btn"
             phx-click="toggle_import_results"
           >
@@ -1897,6 +1946,8 @@ defmodule PairingsEngineWeb.PairingsLive do
                         phx-hook=".BlindResultEntry"
                         data-board-select
                         data-result={pairing.result}
+                        data-refused={@write_refused_nonce}
+                        disabled={!is_nil(@tournament.archived_at)}
                       >
                         <option
                           :for={{value, label} <- results()}

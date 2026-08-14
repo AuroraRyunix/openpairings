@@ -226,6 +226,9 @@ defmodule PairingsEngine.ResultsImport do
         Tournaments.refresh_status!(tournament_id)
         {:ok, length(pairs)}
 
+      {:error, :archived} ->
+        {:error, ["This tournament is archived — unarchive it to make changes."]}
+
       {:error, changeset} ->
         {:error, ["Could not save results: #{changeset_error_text(changeset)}"]}
     end

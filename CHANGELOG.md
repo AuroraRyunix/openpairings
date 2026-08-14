@@ -7,6 +7,34 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **An archived tournament's Pairings page let you enter/change results** —
+  the underlying write was always correctly refused
+  (`Tournaments.ensure_writable/1`, in place since archiving shipped), but
+  the result `<select>` had no `disabled` state tied to `archived_at`, and a
+  refused write showed no error at all. Worse: because a refused write
+  leaves every assign byte-identical to before, LiveView sends no patch for
+  that board's `<select>` — so the browser's own "user just picked this"
+  native state was left uncorrected, visually looking like the change had
+  taken even though nothing was written. Fixed by disabling the select
+  outright while archived, surfacing a clear "This tournament is archived"
+  error on any write that's still refused, and forcing a patch on refusal
+  (a small nonce threaded into the element) so the existing
+  data-result-resync hook actually runs and snaps the value back. The
+  right-click board-editing menu (swap/mark absent/award bye/fill seat/pool
+  pair) now also refuses to open at all on an archived round, and CSV
+  results import is hidden.
+- **Two more instances of the "crashes instead of showing an error" bug
+  class found while fixing the above**: the Players page had its own
+  broken local `error_text/1` (same shape as an earlier-fixed crash in
+  Settings) that raised trying to read `.errors` off the bare atom
+  `:archived` instead of a real changeset — editing, deleting, or bulk
+  actioning a player on an archived tournament crashed the LiveView. CSV
+  results import had the identical bug one level down, in
+  `ResultsImport.write_all/2`. Both fixed; audited and fixed the same
+  "write refused but the LiveView shows nothing" gap (no crash, just
+  silence) across the Pairings, Players, Categories, Standings, and
+  Tournament/Options settings pages too, so every one of them now shows a
+  clear error instead of quietly no-oping.
 - **A production migration wrote `display_special` (the fixed-board freeze
   from the fix below) as the literal text `"true"`/`"false"` instead of the
   integer `0`/`1`** — `Repo.update_all` against the raw `"pairings"` table

@@ -10,6 +10,7 @@ defmodule PairingsEngineWeb.ArchiveLiveTest do
 
   alias PairingsEngine.{Accounts, Repo, Tournaments}
   alias PairingsEngine.Accounts.User
+  alias PairingsEngine.Tournaments.{Pairing, Player, Round}
 
   setup :register_and_log_in_user
 
@@ -294,6 +295,147 @@ defmodule PairingsEngineWeb.ArchiveLiveTest do
 
       assert html =~ "archived"
       refute Repo.reload!(tournament).manual_ranking
+    end
+  end
+
+  describe "the Pairings page's result select is properly disabled while archived (the reported bug)" do
+    defp paired_tournament(scope) do
+      tournament = create_tournament(scope, %{"rounds_count" => "1"})
+      a = Repo.insert!(%Player{tournament_id: tournament.id, name: "Alice"})
+      b = Repo.insert!(%Player{tournament_id: tournament.id, name: "Bob"})
+      round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+
+      pairing =
+        Repo.insert!(%Pairing{
+          round_id: round.id,
+          board: 1,
+          white_player_id: a.id,
+          black_player_id: b.id,
+          result: ""
+        })
+
+      :ok = Tournaments.freeze_round_display_boards!(round.id)
+      %{tournament: tournament, pairing: pairing}
+    end
+
+    test "the result <select> is disabled once archived", %{conn: conn, scope: scope} do
+      %{tournament: tournament} = paired_tournament(scope)
+      {:ok, _} = Tournaments.archive_tournament(tournament)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      assert html =~ ~s(disabled)
+      assert [selector] = Regex.run(~r/<select[^>]*id="result-select-\d+"[^>]*>/, html)
+      assert selector =~ "disabled"
+    end
+
+    test "a result submitted anyway (crafted event, bypassing the disabled select) is refused with a visible error, not silently applied",
+         %{conn: conn, scope: scope} do
+      %{tournament: tournament, pairing: pairing} = paired_tournament(scope)
+      {:ok, _} = Tournaments.archive_tournament(tournament)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      html =
+        render_change(lv, "result", %{"pairing-id" => to_string(pairing.id), "result" => "1-0"})
+
+      assert html =~ "This tournament is archived"
+      assert Repo.reload!(pairing).result == ""
+    end
+
+    test "the right-click edit menu refuses to open on an archived round", %{
+      conn: conn,
+      scope: scope
+    } do
+      %{tournament: tournament} = paired_tournament(scope)
+      {:ok, _} = Tournaments.archive_tournament(tournament)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      html = render_click(lv, "open_menu", %{"x" => "10", "y" => "10", "player-id" => "1"})
+
+      assert html =~ "This tournament is archived"
+      refute html =~ "Swap with"
+    end
+
+    test "the CSV import button is hidden once archived", %{conn: conn, scope: scope} do
+      %{tournament: tournament} = paired_tournament(scope)
+
+      {:ok, _lv, html_before} = live(conn, ~p"/t/#{tournament.id}/pairings")
+      assert html_before =~ "Import results (CSV)"
+
+      {:ok, _} = Tournaments.archive_tournament(tournament)
+
+      {:ok, _lv, html_after} = live(conn, ~p"/t/#{tournament.id}/pairings")
+      refute html_after =~ "Import results (CSV)"
+    end
+  end
+
+  describe "writes on an archived tournament are refused WITHOUT crashing the LiveView (players/results-import)" do
+    test "editing a player on an archived tournament shows an error instead of crashing", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      player = Repo.insert!(%Player{tournament_id: tournament.id, name: "Alice"})
+      {:ok, _} = Tournaments.archive_tournament(tournament)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "edit_player", %{"id" => to_string(player.id)})
+
+      html =
+        lv
+        |> form(~s(form[phx-submit="save_player"]), %{"player" => %{"name" => "Renamed"}})
+        |> render_submit()
+
+      assert html =~ "This tournament is archived"
+      assert Repo.reload!(player).name == "Alice"
+    end
+
+    test "deleting a player on an archived tournament shows an error instead of silently no-oping",
+         %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      player = Repo.insert!(%Player{tournament_id: tournament.id, name: "Alice"})
+      {:ok, _} = Tournaments.archive_tournament(tournament)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      html =
+        lv
+        |> element(~s([phx-click="delete"][phx-value-id="#{player.id}"]))
+        |> render_click()
+
+      assert html =~ "This tournament is archived"
+      assert Repo.get(Player, player.id)
+    end
+
+    test "CSV results import on an archived tournament shows an error instead of crashing", %{
+      scope: scope
+    } do
+      tournament = create_tournament(scope, %{"rounds_count" => "1"})
+      a = Repo.insert!(%Player{tournament_id: tournament.id, name: "Alice"})
+      b = Repo.insert!(%Player{tournament_id: tournament.id, name: "Bob"})
+      round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+
+      Repo.insert!(%Pairing{
+        round_id: round.id,
+        board: 1,
+        white_player_id: a.id,
+        black_player_id: b.id,
+        result: ""
+      })
+
+      assert {:ok, count} =
+               PairingsEngine.ResultsImport.apply_import(tournament, 1, [{1, "1-0"}])
+
+      assert count == 1
+      {:ok, _} = Tournaments.archive_tournament(tournament)
+
+      assert {:error, [message]} =
+               PairingsEngine.ResultsImport.apply_import(tournament, 1, [{1, "0-1"}])
+
+      assert message =~ "archived"
     end
   end
 

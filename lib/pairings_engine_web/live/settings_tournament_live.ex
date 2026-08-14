@@ -250,8 +250,8 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
 
         {:noreply, assign_collaborators(socket)}
 
-      {:error, _reason} ->
-        {:noreply, socket}
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, error_text(reason))}
     end
   end
 
@@ -307,6 +307,9 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
          |> assign(tournament: tournament)
          |> put_flash(:info, "Logo removed.")}
 
+      {:error, :archived} ->
+        {:noreply, put_flash(socket, :error, error_text(:archived))}
+
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Could not remove the logo")}
     end
@@ -326,6 +329,9 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
         note = if enabled?, do: "Public pages are on.", else: "Public pages are off."
         {:noreply, socket |> assign(tournament: tournament) |> put_flash(:info, note)}
 
+      {:error, :archived} ->
+        {:noreply, put_flash(socket, :error, error_text(:archived))}
+
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Could not change public-page sharing")}
     end
@@ -340,6 +346,9 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
          socket
          |> assign(tournament: tournament)
          |> put_flash(:info, "New public link generated — the old one no longer works.")}
+
+      {:error, :archived} ->
+        {:noreply, put_flash(socket, :error, error_text(:archived))}
 
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Could not generate a new link")}

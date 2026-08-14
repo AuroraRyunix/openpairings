@@ -51,6 +51,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
        results: @results,
        extra_results: @extra_results,
        paired: paired,
+       archived?: not is_nil(tournament.archived_at),
        locked: false,
        # Which board's "More…" panel is open, if any — one at a time, so
        # the page doesn't grow tall with several boards expanded at once.
@@ -63,6 +64,18 @@ defmodule PairingsEngineWeb.MobileResultsLive do
 
   @impl true
   def handle_info({:tournament_changed, _id, _hint}, socket) do
+    # `on_mount(:require_enrollment, ...)` only loads `tournament` once, at
+    # connect — reload it here too, or an archive/unarchive elsewhere would
+    # never reach this page and the result buttons would stay stuck in
+    # whichever `disabled?` state was true at the moment this phone opened
+    # the page.
+    tournament = Tournaments.get_tournament(socket.assigns.tournament.id)
+
+    socket =
+      if tournament,
+        do: assign(socket, tournament: tournament, archived?: not is_nil(tournament.archived_at)),
+        else: socket
+
     {:noreply, load_round(socket, socket.assigns.round_number)}
   end
 
@@ -88,8 +101,9 @@ defmodule PairingsEngineWeb.MobileResultsLive do
     {:noreply, assign(socket, expanded_id: if(current == id, do: nil, else: id))}
   end
 
-  def handle_event("set_result", _params, socket) when socket.assigns.locked,
-    do: {:noreply, socket}
+  def handle_event("set_result", _params, socket)
+      when socket.assigns.locked or socket.assigns.archived?,
+      do: {:noreply, socket}
 
   # Only pairings belonging to the loaded round (which is loaded from the
   # enrollment's own tournament) can be set - a crafted pairing id from
@@ -119,10 +133,22 @@ defmodule PairingsEngineWeb.MobileResultsLive do
         %Pairing{} = pairing ->
           previous = pairing.result
 
-          case Tournaments.update_pairing_result(pairing, result) do
-            {:ok, _} -> log_mobile_result(socket, pairing, previous, result)
-            _ -> :ok
-          end
+          socket =
+            case Tournaments.update_pairing_result(pairing, result) do
+              {:ok, _} ->
+                log_mobile_result(socket, pairing, previous, result)
+                socket
+
+              {:error, :archived} ->
+                put_flash(
+                  socket,
+                  :error,
+                  "This tournament is archived — the arbiter needs to unarchive it before results can be entered."
+                )
+
+              {:error, _reason} ->
+                put_flash(socket, :error, "Could not save that result.")
+            end
 
           {:noreply, load_round(socket, socket.assigns.round_number)}
 
@@ -281,7 +307,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
           <button
             :for={{value, label} <- @results}
             type="button"
-            disabled={@locked}
+            disabled={@locked || @archived?}
             class={["mobile-result-btn", p.result == value && "chosen"]}
             phx-click="set_result"
             phx-value-id={p.id}
@@ -292,7 +318,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
           <button
             :if={p.result != ""}
             type="button"
-            disabled={@locked}
+            disabled={@locked || @archived?}
             class="mobile-result-btn mobile-clear"
             phx-click="set_result"
             phx-value-id={p.id}
@@ -303,7 +329,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
           </button>
           <button
             type="button"
-            disabled={@locked}
+            disabled={@locked || @archived?}
             class={["mobile-result-btn", "mobile-more", @expanded_id == p.id && "chosen"]}
             phx-click="toggle_extra"
             phx-value-id={p.id}
@@ -324,7 +350,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
           <button
             :for={{value, label} <- @extra_results}
             type="button"
-            disabled={@locked}
+            disabled={@locked || @archived?}
             class={["mobile-result-btn", p.result == value && "chosen"]}
             phx-click="set_result"
             phx-value-id={p.id}

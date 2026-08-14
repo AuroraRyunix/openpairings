@@ -1,7 +1,7 @@
 defmodule PairingsEngineWeb.PlayersLive do
   use PairingsEngineWeb, :live_view
 
-  import PairingsEngineWeb.SettingsSupport, only: [setup_field_path: 2]
+  import PairingsEngineWeb.SettingsSupport, only: [setup_field_path: 2, error_text: 1]
 
   alias PairingsEngine.{
     Audit,
@@ -498,11 +498,11 @@ defmodule PairingsEngineWeb.PlayersLive do
               %{player_id: player.id, player_name: player.name}
             )
 
-          _ ->
-            :ok
-        end
+            {:noreply, assign_players(socket)}
 
-        {:noreply, assign_players(socket)}
+          {:error, reason} ->
+            {:noreply, put_flash(socket, :error, error_text(reason))}
+        end
     end
   end
 
@@ -542,8 +542,8 @@ defmodule PairingsEngineWeb.PlayersLive do
 
             {:noreply, assign_players(socket)}
 
-          {:error, _changeset} ->
-            {:noreply, socket}
+          {:error, reason} ->
+            {:noreply, put_flash(socket, :error, error_text(reason))}
         end
     end
   end
@@ -568,8 +568,8 @@ defmodule PairingsEngineWeb.PlayersLive do
 
         {:noreply, assign_players(socket)}
 
-      {:error, _changeset} ->
-        {:noreply, socket}
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, error_text(reason))}
     end
   end
 
@@ -598,7 +598,10 @@ defmodule PairingsEngineWeb.PlayersLive do
 
         {:noreply, socket |> assign(rating_refresh: nil) |> assign_players()}
 
-      {:error, _changeset} ->
+      {:error, :archived} ->
+        {:noreply, put_flash(socket, :error, error_text(:archived))}
+
+      {:error, _reason} ->
         {:noreply, put_flash(socket, :error, "Could not apply the rating refresh")}
     end
   end
@@ -1014,10 +1017,6 @@ defmodule PairingsEngineWeb.PlayersLive do
   end
 
   defp players_by_id(players), do: Map.new(players, &{&1.player.id, &1})
-
-  defp error_text(changeset) do
-    Enum.map_join(changeset.errors, ", ", fn {field, {msg, _}} -> "#{field} #{msg}" end)
-  end
 
   # Plain-text summary of `Tournament.missing_setup_fields/1`'s messages, for
   # the flash shown when "Add player" is blocked — the on-page banner (see

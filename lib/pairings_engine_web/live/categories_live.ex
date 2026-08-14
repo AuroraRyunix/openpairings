@@ -90,8 +90,8 @@ defmodule PairingsEngineWeb.CategoriesLive do
 
         {:noreply, assign(socket, tournament: updated, toggle_error: nil)}
 
-      {:error, _changeset} ->
-        {:noreply, assign(socket, toggle_error: "Could not change categories")}
+      {:error, reason} ->
+        {:noreply, assign(socket, toggle_error: error_text(reason))}
     end
   end
 
@@ -171,8 +171,8 @@ defmodule PairingsEngineWeb.CategoriesLive do
         Audit.log(tournament.id, socket.assigns.current_scope, "category.removed", %{name: name})
         {:noreply, assign(socket, tournament: tournament, category_error: nil, assign_note: nil)}
 
-      {:error, _changeset} ->
-        {:noreply, socket}
+      {:error, reason} ->
+        {:noreply, assign(socket, category_error: error_text(reason))}
     end
   end
 
@@ -190,6 +190,9 @@ defmodule PairingsEngineWeb.CategoriesLive do
         )
 
         {:noreply, assign(socket, assign_note: "Assigned #{matched} of #{total} players.")}
+
+      {:error, :archived} ->
+        {:noreply, assign(socket, assign_note: nil, category_error: error_text(:archived))}
 
       {:error, _reason} ->
         {:noreply,
