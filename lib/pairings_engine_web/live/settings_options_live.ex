@@ -56,23 +56,21 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
      |> assign_forbidden_pairings()}
   end
 
-  # `pairing_system` locks once the tournament has paired its first round;
-  # `rr_cycles` locks once the number of already-paired rounds reaches what
-  # the current cycles setting implies a round robin needs. See the original
-  # SettingsLive for the full rationale.
+  # Which pairing-shape settings are frozen. The rule itself lives in
+  # `Tournaments.locked_fields/1`, which is also what refuses the write — so
+  # what this page disables and what the context accepts cannot drift apart.
+  # (They previously could: the lock was enforced *only* here, and any other
+  # caller went straight through.)
   defp assign_pairing_locks(socket) do
     tournament = socket.assigns.tournament
-    paired = Pairing.paired_rounds_count(tournament.id)
-    players = Tournaments.count_players(tournament.id)
-    rr_base = max(players - 1, 1)
-    rr_implied_limit = rr_base * tournament.rr_cycles
+    locked = Tournaments.locked_fields(tournament)
 
     assign(socket,
-      paired_rounds: paired,
-      pairing_system_locked?: paired > 0,
-      rr_cycles_locked?: paired >= rr_implied_limit,
-      rr_match_format_locked?: paired > 0,
-      swiss_match_format_locked?: paired > 0
+      paired_rounds: Pairing.paired_rounds_count(tournament.id),
+      pairing_system_locked?: :pairing_system in locked,
+      rr_cycles_locked?: :rr_cycles in locked,
+      rr_match_format_locked?: :rr_match_format in locked,
+      swiss_match_format_locked?: :swiss_match_format in locked
     )
   end
 

@@ -466,7 +466,21 @@ body {
 .topbar-menu > summary:hover { background: var(--bg); color: var(--text); }
 .topbar-menu > summary.active { background: var(--accent-soft); color: var(--accent); }
 
-.topbar-menu-panel {
+/* Closed by default and only shown under [open] — this used to be an
+   unconditional `display: flex`, relying entirely on <details>'s own native
+   collapse of non-summary content to keep it hidden. That collapse uses
+   `content-visibility: hidden` in Chromium (which still reports a real
+   getBoundingClientRect box for its "last remembered size" while correctly
+   skipping paint/hit-testing), so the panel LOOKED hidden and WAS
+   non-interactive there — but its full-size box still counted toward the
+   page's scrollable width, quietly adding up to ~180px of invisible,
+   uncaused-looking horizontal overflow at exactly the widths where a laptop
+   window has no room to spare. And the old rule was never actually correct
+   cross-engine to begin with: an unconditional `display: flex` is a real bug
+   independent of any one browser's collapse behaviour, this just makes the
+   panel's own visibility unambiguous regardless of it. */
+.topbar-menu-panel { display: none; }
+.topbar-menu[open] > .topbar-menu-panel {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
@@ -498,7 +512,14 @@ body {
   display: flex;
   align-items: center;
   gap: 4px;
+  /* Flex items default to min-width:auto, which refuses to shrink below
+     their content and pushed the whole page wider than the window at common
+     laptop sizes. The intermediate breakpoints below drop the decorative
+     parts; this lets what remains actually give. */
+  min-width: 0;
 }
+
+.topbar > nav { min-width: 0; }
 
 /* ---------- accent-colour picker ---------- */
 .accent-picker { position: relative; }
@@ -522,7 +543,12 @@ body {
   background: var(--accent);
   box-shadow: 0 0 0 2px var(--surface);
 }
-.accent-picker-panel {
+/* Same unconditional-`display` bug as `.topbar-menu-panel` (see that rule's
+   own comment) — gated behind [open] for the same reason: without it, the
+   closed panel's full box still counts toward the page's scrollable width
+   even though nothing paints or hit-tests there. */
+.accent-picker-panel { display: none; }
+.accent-picker[open] > .accent-picker-panel {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
@@ -585,7 +611,9 @@ html[data-accent="fuchsia"] .accent-swatch[data-accent-opt="fuchsia"] {
 .theme-picker-trigger::-webkit-details-marker { display: none; }
 .theme-picker-trigger:hover { color: var(--text); }
 
-.theme-picker-panel {
+/* Same unconditional-`display` bug as `.topbar-menu-panel`. */
+.theme-picker-panel { display: none; }
+.theme-picker[open] > .theme-picker-panel {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
@@ -635,6 +663,12 @@ html[data-theme-source="user"][data-theme="gruvbox"] .theme-picker-item[data-the
   color: var(--text-soft);
   padding: 6px 4px;
   font-size: 13px;
+  /* A long address must not be able to widen the bar. */
+  min-width: 0;
+  max-width: 24ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Single clean sign-in button for logged-out visitors (replaces the two
@@ -1615,6 +1649,34 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
    responsive.
    ============================================================ */
 
+/* ---- laptop widths (769-1280px) ----
+   Between the desktop layout and the 768px tablet rules there was nothing at
+   all, so the top bar stayed a rigid single row: brand + the tournament tab
+   strip + the auth cluster (sync status ~209px, email ~131px, Settings, Log
+   out, version). On a 1280px laptop — and worse on a part-width window —
+   that totalled more than the viewport and pushed the whole PAGE sideways,
+   not just the bar.
+
+   Fixed by dropping the decorative parts as room runs out, heaviest first,
+   rather than by letting the bar scroll (it holds the Advanced/Settings
+   dropdown panels, and a scrolling ancestor clips them — see the note in the
+   768px block below). Everything removed here is either duplicated elsewhere
+   or purely informational. */
+
+@media (max-width: 1280px) {
+  /* The FIDE/KBSB sync strip is the single widest decorative element and is
+     repeated on the rating-list page. */
+  .sync-freshness { display: none; }
+}
+
+@media (max-width: 1120px) {
+  /* The signed-in address is also shown on the account settings page, and
+     the version in Settings → About. */
+  .topbar-auth .user-email { display: none; }
+  .app-version { display: none; }
+  .topbar { gap: 18px; padding: 0 16px; }
+}
+
 @media (max-width: 768px) {
   /* ---- safety net: the page itself must never scroll sideways,
      only individual wide elements (tables) may ---- */
@@ -1657,8 +1719,14 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 
   /* the tab strip scrolls horizontally on mobile, which clips an
      absolutely-positioned dropdown panel — anchor it to the viewport
-     instead so it always renders in full. */
-  .topbar-menu-panel {
+     instead so it always renders in full.
+
+     Matches `.topbar-menu[open] > .topbar-menu-panel`'s own specificity
+     (two classes) rather than the bare `.topbar-menu-panel` this used to be
+     — a single-class selector here would lose the `position` tug-of-war to
+     that rule regardless of appearing later in the file, since a browser
+     only falls back to source order when specificity is tied. */
+  .topbar-menu[open] > .topbar-menu-panel {
     position: fixed;
     top: auto;
     left: 12px;

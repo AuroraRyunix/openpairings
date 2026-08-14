@@ -759,6 +759,8 @@ defmodule PairingsEngineWeb.NormsLive do
         </div>
       </div>
 
+      <PairingsEngineWeb.AuditLive.subnav tournament={@tournament} active={:norms} />
+
       <p class="hint">
         Every report below is generated from the officials/arbiter details in the card just below,
         the FIDE identifiers on the

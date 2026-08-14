@@ -340,10 +340,10 @@ defmodule PairingsEngineWeb.AuditLive do
   defp format_time(other), do: to_string(other)
 
   @doc """
-  Sub-nav across the three views of the same underlying history: the visual
-  timeline (`PairingsEngineWeb.HistoryLive`), this dense audit table, and the
-  explain-a-round picker/page. `active` is `:history`, `:index` or
-  `:explain`.
+  Sub-nav across the pages in the top bar's "Advanced" menu, so the strip on
+  the page matches that menu one-for-one — Norms was previously missing here,
+  leaving four entries in the menu but only three boxes on the page.
+  `active` is `:norms`, `:history`, `:index` or `:explain`.
   """
   attr :tournament, :map, required: true
   attr :active, :atom, required: true
@@ -351,6 +351,12 @@ defmodule PairingsEngineWeb.AuditLive do
   def subnav(assigns) do
     ~H"""
     <div class="round-picker" style="flex-wrap: wrap; margin-bottom: 12px">
+      <.link
+        navigate={~p"/t/#{@tournament.id}/norms"}
+        class={["pe-btn", "filter-picker", @active == :norms && "active"]}
+      >
+        Norms
+      </.link>
       <.link
         navigate={~p"/t/#{@tournament.id}/history"}
         class={["pe-btn", "filter-picker", @active == :history && "active"]}

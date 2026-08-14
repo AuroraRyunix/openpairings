@@ -5,6 +5,51 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The top bar overflowed the page horizontally at laptop widths** (roughly
+  769-1280px, i.e. most laptops with the window not maximised) — the auth
+  cluster (FIDE/KBSB sync status, email, Settings, Log out, version) never
+  shrank, so it pushed the whole page wider than the viewport. There were no
+  responsive rules at all between the 1280px desktop layout and the 768px
+  tablet one. Two new breakpoints now drop the sync strip, then the email and
+  version, before anything is forced to wrap.
+- **The "Advanced" and "Settings" top-bar dropdowns, and the accent/theme
+  pickers, were always laid out and hit-testable, not just when opened** —
+  `.topbar-menu-panel`/`.accent-picker-panel`/`.theme-picker-panel` each set
+  `display: flex` (or `grid`) unconditionally, relying entirely on
+  `<details>`'s own native collapse to hide the closed panel. In Chromium
+  that collapse uses `content-visibility: hidden`, which still reports the
+  panel's full-size box for layout purposes while correctly skipping
+  paint/hit-testing — so a closed dropdown was invisible and non-interactive,
+  but its ~180px-wide box still counted toward the page's scrollable width.
+  This was most of what was actually causing the top-bar overflow above (a
+  closed multi-item "Settings" panel poking out past the viewport with no
+  visible cause). All three panels are now `display: none` unless their
+  `<details>` is `[open]`, which is also simply correct regardless of any one
+  engine's collapse behaviour.
+- **Norms was missing from the "Advanced" sub-nav strip** — the top-bar
+  dropdown menu listed four pages (Norms, History, Audit trail, Pairing
+  rationale) but the strip rendered on each of those pages only showed three
+  boxes, because `NormsLive` never rendered the shared sub-nav at all. It
+  does now, and the sub-nav component covers all four consistently.
+- **Settings that decide the shape of already-paired rounds were locked only
+  in the Settings LiveViews, not in the data layer** — `pairing_system`,
+  `rr_cycles`, `rr_match_format`, `swiss_match_format`, `pair_by_category`
+  and the "Pt ABSENT" trio (`abs_value`/`abs_jusque`/`abs_nbfois`) were
+  disabled inputs plus a strip of the submitted params in
+  `SettingsOptionsLive`/`SettingsScoringLive` — enforced nowhere else.
+  Confirmed exploitable: calling `Tournaments.update_tournament/2` directly
+  with `pairing_system: "keizer"` on a tournament with a paired Swiss round
+  silently succeeded, reinterpreting every round already on the board under
+  different pairing/scoring rules. `Tournaments.locked_fields/1` is now the
+  single source of truth — `update_tournament/2` itself refuses a change to
+  any locked field once round 1 is paired, and both Settings pages render
+  their disabled state from the same function, so the two cannot drift apart
+  again. This is the same shape of bug the archive guard (`ensure_writable/1`)
+  exists to prevent, just for a different property — "the UI hides the
+  button" is not enforcement.
+
 ### Added
 
 - **Archive a tournament** — a new frozen read-only state, separate from the

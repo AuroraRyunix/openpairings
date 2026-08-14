@@ -590,7 +590,8 @@ defmodule PairingsEngine.Tournaments do
   end
 
   def update_tournament(%Tournament{} = tournament, attrs) do
-    with :ok <- ensure_writable(tournament) do
+    with :ok <- ensure_writable(tournament),
+         :ok <- ensure_unlocked(tournament, attrs) do
       tournament
       |> Tournament.changeset(attrs)
       |> Repo.update()
@@ -598,6 +599,95 @@ defmodule PairingsEngine.Tournaments do
         broadcast_tournament_change(updated.id, :settings)
         broadcast_user_tournaments(updated.user_id)
       end)
+    end
+  end
+
+  ## ---------- settings frozen once the tournament is under way ----------
+  #
+  # Some settings decide the SHAPE of rounds that already exist, so changing
+  # them afterwards silently reinterprets history: flipping `pairing_system`
+  # from Swiss to Keizer changes how the rounds already on the board are
+  # scored and paired; `rr_cycles` changes how long the schedule is supposed
+  # to be; the "Pt ABSENT" trio rewrites what past absences were worth.
+  #
+  # These were previously enforced only by the Settings LiveViews (disabled
+  # inputs plus a strip of the submitted params). That is not enforcement:
+  # any other caller — another LiveView, a script, a future code path —
+  # went straight through. Same lesson as the archive guard: the check has
+  # to live where the write does.
+  #
+  # `Snapshots.restore/3` deliberately does NOT come through here (it writes
+  # via `TournamentImport.restore_into!/2`), because restoring a snapshot
+  # legitimately sets every field back at once, locks included.
+
+  @doc """
+  Which settings are currently frozen for `tournament`, as a list of field
+  atoms. Empty before the first round is paired.
+
+  The single source of truth for both the context guard in
+  `update_tournament/2` and the Settings pages' disabled/locked rendering,
+  so the two can't drift apart.
+  """
+  @spec locked_fields(Tournament.t()) :: [atom()]
+  def locked_fields(%Tournament{} = tournament) do
+    paired = PairingsEngine.Pairing.paired_rounds_count(tournament.id)
+
+    if paired == 0 do
+      []
+    else
+      # A round robin's cycle count only locks once the rounds already paired
+      # reach what the current setting implies the schedule needs — before
+      # that, switching single/double is still harmless (see
+      # `RoundRobin.schedule/3`: round N is identical either way while N is
+      # inside cycle 1).
+      rr_implied_limit = max(count_players(tournament.id) - 1, 1) * tournament.rr_cycles
+
+      base = ~w(pairing_system rr_match_format swiss_match_format pair_by_category
+                abs_value abs_jusque abs_nbfois)a
+
+      if paired >= rr_implied_limit, do: [:rr_cycles | base], else: base
+    end
+  end
+
+  @doc """
+  `:ok` unless `attrs` would actually *change* one of `locked_fields/1`.
+
+  Compares against the current value rather than merely spotting the key, so
+  a form that round-trips an unchanged locked field (the ordinary case — the
+  input is disabled but still submitted) is not refused.
+  """
+  @spec ensure_unlocked(Tournament.t(), map()) :: :ok | {:error, :locked_after_pairing}
+  def ensure_unlocked(%Tournament{} = tournament, attrs) when is_map(attrs) do
+    locked = locked_fields(tournament)
+
+    changed? =
+      Enum.any?(locked, fn field ->
+        case fetch_attr(attrs, field) do
+          :error -> false
+          {:ok, value} -> changes_value?(tournament, field, value)
+        end
+      end)
+
+    if changed?, do: {:error, :locked_after_pairing}, else: :ok
+  end
+
+  defp fetch_attr(attrs, field) do
+    case Map.fetch(attrs, Atom.to_string(field)) do
+      {:ok, value} -> {:ok, value}
+      :error -> Map.fetch(attrs, field)
+    end
+  end
+
+  # Params arrive as strings from a form but as native types from a script,
+  # so compare through the schema's own cast rather than by raw equality —
+  # otherwise `"keizer"` vs `:keizer`, or `"2"` vs `2`, reads as a change
+  # when it isn't (or worse, as no change when it is).
+  defp changes_value?(tournament, field, value) do
+    changeset = Tournament.changeset(tournament, %{Atom.to_string(field) => value})
+
+    case Ecto.Changeset.fetch_change(changeset, field) do
+      {:ok, _new} -> true
+      :error -> false
     end
   end
 

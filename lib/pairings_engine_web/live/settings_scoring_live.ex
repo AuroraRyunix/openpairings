@@ -12,7 +12,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
 
   import PairingsEngineWeb.SettingsSupport
 
-  alias PairingsEngine.{Pairing, Tournaments}
+  alias PairingsEngine.Tournaments
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -49,8 +49,8 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
   # are computed live from these fields on every standings read, never
   # baked into a `byes` row.
   defp assign_abs_scoring_lock(socket) do
-    paired = Pairing.paired_rounds_count(socket.assigns.tournament.id)
-    assign(socket, abs_scoring_locked?: paired > 0)
+    locked = Tournaments.locked_fields(socket.assigns.tournament)
+    assign(socket, abs_scoring_locked?: :abs_value in locked)
   end
 
   @impl true
