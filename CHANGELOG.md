@@ -7,6 +7,22 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **A production migration wrote `display_special` (the fixed-board freeze
+  from the fix below) as the literal text `"true"`/`"false"` instead of the
+  integer `0`/`1`** — `Repo.update_all` against the raw `"pairings"` table
+  name has no `:boolean` type info to encode through, so SQLite stored the
+  Elixir atoms' literal text. Every page that loaded a pairing then crashed
+  with `cannot load "false" as type :boolean`, a full outage confirmed and
+  fixed live in production (data repaired, migration source corrected so a
+  fresh deploy can't repeat it).
+- **Only a tournament's owner could archive it — a co-arbiter it was shared
+  with could not**, even though sharing otherwise grants "exactly like you"
+  access. `archive_tournament`/`unarchive_tournament` now go through the
+  same owner-or-accepted-collaborator check every other shared action uses;
+  an archived shared tournament also now shows up in a collaborator's own
+  Archived panel (marked "shared"), not just the owner's — previously it
+  would have simply vanished from their dashboard the moment anyone
+  archived it. Delete stays owner-only, same as the main list.
 - **Giving a player a fixed (accessible) board after their round was already
   paired silently renumbered every board after theirs** — `PairingDisplay`
   read `Player.fixed_board` live on every render, so an arbiter editing a

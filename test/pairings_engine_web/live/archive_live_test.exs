@@ -8,7 +8,8 @@ defmodule PairingsEngineWeb.ArchiveLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias PairingsEngine.{Repo, Tournaments}
+  alias PairingsEngine.{Accounts, Repo, Tournaments}
+  alias PairingsEngine.Accounts.User
 
   setup :register_and_log_in_user
 
@@ -20,6 +21,22 @@ defmodule PairingsEngineWeb.ArchiveLiveTest do
       )
 
     tournament
+  end
+
+  # Same pattern as PairingsEngineWeb.SharingTest's `collaborator_conn/2` —
+  # a fresh, already-accepted collaborator with their own logged-in conn.
+  defp collaborator_conn(tournament, scope) do
+    other_user =
+      Repo.insert!(%User{
+        email: "collab#{System.unique_integer([:positive])}@example.com",
+        confirmed_at: DateTime.truncate(DateTime.utc_now(), :second)
+      })
+
+    other_scope = Accounts.Scope.for_user(other_user)
+    {:ok, invite} = Tournaments.add_collaborator(scope, tournament, other_user.email)
+    {:ok, _accepted} = Tournaments.accept_invitation(other_scope, invite.invite_token)
+
+    Phoenix.ConnTest.build_conn() |> log_in_user(other_user)
   end
 
   describe "Tournaments page — archiving" do
@@ -109,6 +126,89 @@ defmodule PairingsEngineWeb.ArchiveLiveTest do
         |> Enum.map(& &1.action)
 
       assert "tournament.archived" in actions
+    end
+  end
+
+  describe "a collaborator can archive/unarchive a shared tournament too" do
+    test "an Archive button is offered on a shared (not owned) tournament", %{scope: scope} do
+      tournament = create_tournament(scope)
+      collaborator_conn = collaborator_conn(tournament, scope)
+
+      {:ok, _lv, html} = live(collaborator_conn, ~p"/")
+
+      assert html =~ ~s(phx-click="archive_tournament")
+      assert html =~ tournament.name
+      # Delete stays owner-only even for a row the collaborator can archive.
+      refute html =~
+               ~s(button class="pe-btn danger-link" phx-click="delete_start" phx-value-id="#{tournament.id}")
+    end
+
+    test "a collaborator clicking Archive actually archives it", %{scope: scope} do
+      tournament = create_tournament(scope)
+      collaborator_conn = collaborator_conn(tournament, scope)
+
+      {:ok, lv, _html} = live(collaborator_conn, ~p"/")
+
+      html =
+        lv
+        |> element(~s(button[phx-click="archive_tournament"][phx-value-id="#{tournament.id}"]))
+        |> render_click()
+
+      assert html =~ "<h2>Archived</h2>"
+      assert Repo.reload!(tournament).archived_at
+    end
+
+    test "the archived tournament still shows up for the collaborator, marked shared, with Unarchive and Leave (not Delete)",
+         %{scope: scope} do
+      tournament = create_tournament(scope)
+      collaborator_conn = collaborator_conn(tournament, scope)
+      {:ok, _} = Tournaments.archive_tournament(tournament)
+
+      {:ok, _lv, html} = live(collaborator_conn, ~p"/")
+
+      assert html =~ "<h2>Archived</h2>"
+      assert html =~ "shared"
+      assert html =~ ~s(phx-click="unarchive_tournament")
+      assert html =~ ~s(phx-click="leave_tournament")
+    end
+
+    test "a collaborator can unarchive it", %{scope: scope} do
+      tournament = create_tournament(scope)
+      collaborator_conn = collaborator_conn(tournament, scope)
+      {:ok, _} = Tournaments.archive_tournament(tournament)
+
+      {:ok, lv, _html} = live(collaborator_conn, ~p"/")
+
+      html =
+        lv
+        |> element(~s(button[phx-click="unarchive_tournament"][phx-value-id="#{tournament.id}"]))
+        |> render_click()
+
+      refute html =~ "<h2>Archived</h2>"
+      refute Repo.reload!(tournament).archived_at
+    end
+
+    test "a stranger with no access at all cannot archive it via a crafted event", %{
+      conn: _conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+
+      stranger =
+        Repo.insert!(%User{
+          email: "stranger#{System.unique_integer([:positive])}@example.com",
+          confirmed_at: DateTime.truncate(DateTime.utc_now(), :second)
+        })
+
+      stranger_conn = Phoenix.ConnTest.build_conn() |> log_in_user(stranger)
+
+      {:ok, lv, _html} = live(stranger_conn, ~p"/")
+
+      html =
+        render_click(lv, "archive_tournament", %{"id" => to_string(tournament.id)})
+
+      assert html =~ "Tournament not found."
+      refute Repo.reload!(tournament).archived_at
     end
   end
 

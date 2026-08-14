@@ -72,7 +72,7 @@ defmodule PairingsEngine.ArchiveTest do
       {:ok, _} = Tournaments.archive_tournament(t)
 
       refute Enum.any?(Tournaments.list_tournaments(scope), fn {lt, _, _} -> lt.id == t.id end)
-      assert [listed] = Tournaments.list_archived_tournaments(scope)
+      assert [{listed, true}] = Tournaments.list_archived_tournaments(scope)
       assert listed.id == t.id
     end
 
@@ -314,6 +314,41 @@ defmodule PairingsEngine.ArchiveTest do
       assert {:error, message} = Pairing.delete_round(live.id, 1)
       assert message =~ "archived"
       assert Pairing.paired_rounds_count(live.id) == 1
+    end
+  end
+
+  defp accepted_collaborator(owner, tournament) do
+    collaborator = user_scope()
+    {:ok, invite} = Tournaments.add_collaborator(owner, tournament, collaborator.user.email)
+    {:ok, _} = Tournaments.accept_invitation(collaborator, invite.invite_token)
+    collaborator
+  end
+
+  describe "list_archived_tournaments/1 includes shared tournaments" do
+    test "a collaborator sees an owner-archived tournament in their own archive list, marked shared" do
+      owner = user_scope()
+      t = tournament(owner)
+      collaborator = accepted_collaborator(owner, t)
+
+      {:ok, _} = Tournaments.archive_tournament(t)
+
+      assert [{listed, false}] = Tournaments.list_archived_tournaments(collaborator)
+      assert listed.id == t.id
+      assert [{_owned, true}] = Tournaments.list_archived_tournaments(owner)
+    end
+  end
+
+  describe "archiving is open to any collaborator, not just the owner" do
+    test "archive_tournament/1 and unarchive_tournament/1 accept a struct regardless of who calls them — the caller-permission check lives in the LiveView, same as every other shared action" do
+      owner = user_scope()
+      t = tournament(owner)
+      _collaborator = accepted_collaborator(owner, t)
+
+      {:ok, archived} = Tournaments.archive_tournament(t)
+      assert archived.archived_at
+
+      {:ok, live_again} = Tournaments.unarchive_tournament(archived)
+      refute live_again.archived_at
     end
   end
 

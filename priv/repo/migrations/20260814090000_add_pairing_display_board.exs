@@ -114,10 +114,19 @@ defmodule PairingsEngine.Repo.Migrations.AddPairingDisplayBoard do
     end
   end
 
+  # `set:` here targets the raw "pairings" table name, not a schema, so
+  # Ecto has no :boolean type info to encode `special?` through — it would
+  # otherwise pass the literal Elixir `true`/`false` straight to the
+  # driver, which SQLite stores as the literal TEXT "true"/"false" rather
+  # than the integer 0/1 the app's Pairing schema expects when loading it
+  # back. Confirmed in production: every backfilled row's display_special
+  # came back as the string "false" (or "true"), and
+  # `cannot load "false" as type :boolean` 500'd every page that touched a
+  # pairing. Passing 0/1 directly sidesteps the missing type info entirely.
   defp write_label(repo, pairing_id, label, special?) do
     repo.update_all(
       from(p in "pairings", where: p.id == ^pairing_id),
-      set: [display_board: label, display_special: special?]
+      set: [display_board: label, display_special: if(special?, do: 1, else: 0)]
     )
   end
 end

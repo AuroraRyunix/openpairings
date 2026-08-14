@@ -486,40 +486,52 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
   ## ---------- Archive (freeze read-only / unfreeze) ----------
   #
-  # Owner-only, same as delete/restore: `get_user_tournament!/2` (rather than
-  # `get_authorized_tournament!/2`) is what enforces that — a collaborator
-  # gets an Ecto.NoResultsError rather than a silent no-op.
+  # Open to any collaborator, not just the owner — unlike delete/restore
+  # (still owner-only, since deleting is destructive), archiving a shared
+  # tournament is exactly the kind of "we're done with this one" call any
+  # co-arbiter should be able to make. `get_authorized_tournament/2` (the
+  # same owner-or-accepted-collaborator lookup every other shared action
+  # uses, e.g. `leave_tournament` below) is what enforces "some access",
+  # not "owns it" — a stranger still gets nil, not a silent no-op.
 
   def handle_event("archive_tournament", %{"id" => id}, socket) do
-    tournament = Tournaments.get_user_tournament!(socket.assigns.current_scope, id)
+    case Tournaments.get_authorized_tournament(socket.assigns.current_scope, id) do
+      nil ->
+        {:noreply, put_flash(socket, :error, "Tournament not found.")}
 
-    {:ok, _} = Tournaments.archive_tournament(tournament)
+      tournament ->
+        {:ok, _} = Tournaments.archive_tournament(tournament)
 
-    Audit.log(tournament.id, socket.assigns.current_scope, "tournament.archived", %{
-      name: tournament.name
-    })
+        Audit.log(tournament.id, socket.assigns.current_scope, "tournament.archived", %{
+          name: tournament.name
+        })
 
-    {:noreply,
-     socket
-     |> put_flash(:info, "\"#{tournament.name}\" is archived — it's now read-only.")
-     |> assign_tournaments()
-     |> assign_archived_tournaments()}
+        {:noreply,
+         socket
+         |> put_flash(:info, "\"#{tournament.name}\" is archived — it's now read-only.")
+         |> assign_tournaments()
+         |> assign_archived_tournaments()}
+    end
   end
 
   def handle_event("unarchive_tournament", %{"id" => id}, socket) do
-    tournament = Tournaments.get_user_tournament!(socket.assigns.current_scope, id)
+    case Tournaments.get_authorized_tournament(socket.assigns.current_scope, id) do
+      nil ->
+        {:noreply, put_flash(socket, :error, "Tournament not found.")}
 
-    {:ok, _} = Tournaments.unarchive_tournament(tournament)
+      tournament ->
+        {:ok, _} = Tournaments.unarchive_tournament(tournament)
 
-    Audit.log(tournament.id, socket.assigns.current_scope, "tournament.unarchived", %{
-      name: tournament.name
-    })
+        Audit.log(tournament.id, socket.assigns.current_scope, "tournament.unarchived", %{
+          name: tournament.name
+        })
 
-    {:noreply,
-     socket
-     |> put_flash(:info, "\"#{tournament.name}\" is editable again.")
-     |> assign_tournaments()
-     |> assign_archived_tournaments()}
+        {:noreply,
+         socket
+         |> put_flash(:info, "\"#{tournament.name}\" is editable again.")
+         |> assign_tournaments()
+         |> assign_archived_tournaments()}
+    end
   end
 
   ## ---------- Recycle bin (restore / permanently delete) ----------
@@ -1255,7 +1267,6 @@ defmodule PairingsEngineWeb.TournamentsLive do
                   Copy
                 </button>
                 <button
-                  :if={owned?}
                   class="pe-btn"
                   phx-click="archive_tournament"
                   phx-value-id={t.id}
@@ -1307,9 +1318,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
             </thead>
 
             <tbody>
-              <tr :for={t <- @archived_tournaments}>
+              <tr :for={{t, owned?} <- @archived_tournaments}>
                 <td>
                   <.link navigate={~p"/t/#{t.id}/players"}><strong>{t.name}</strong></.link>
+                  <span :if={!owned?} class="badge muted" title="Shared with you by its owner">shared</span>
                 </td>
 
                 <td>{t.archived_at}</td>
@@ -1323,8 +1335,22 @@ defmodule PairingsEngineWeb.TournamentsLive do
                     Unarchive
                   </button>
 
-                  <button class="pe-btn danger-link" phx-click="delete_start" phx-value-id={t.id}>
+                  <button
+                    :if={owned?}
+                    class="pe-btn danger-link"
+                    phx-click="delete_start"
+                    phx-value-id={t.id}
+                  >
                     Delete
+                  </button>
+                  <button
+                    :if={!owned?}
+                    class="pe-btn danger-link"
+                    phx-click="leave_tournament"
+                    phx-value-id={t.id}
+                    data-confirm={"Leave \"#{t.name}\"? You'll lose access to it unless the owner invites you again."}
+                  >
+                    Leave
                   </button>
                 </td>
               </tr>

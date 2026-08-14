@@ -1059,15 +1059,26 @@ defmodule PairingsEngine.Tournaments do
   def archived?(%Tournament{}), do: true
 
   @doc """
-  Lists the scope's user's own archived tournaments, most recently archived
-  first. Owner-only, same as `list_deleted_tournaments/1` — archiving is an
-  owner action, so a collaborator never sees someone else's archive list.
+  Lists archived tournaments the scope's user owns or collaborates on, most
+  recently archived first — the archived counterpart to `list_tournaments/1`,
+  same shape: `{tournament, owner?}` tuples so the UI can show a "shared"
+  badge and gate Delete (owner-only) vs Leave (collaborator-only) the same
+  way the main table does. Unlike the recycle bin (`list_deleted_tournaments/1`,
+  still owner-only — deleting is destructive and stays an owner-only call),
+  archiving is a shared-tournament action collaborators can take too (see
+  `archive_tournament/1`'s callers), so they need to be able to find the
+  tournament again afterward.
   """
-  @spec list_archived_tournaments(Scope.t()) :: [Tournament.t()]
+  @spec list_archived_tournaments(Scope.t()) :: [{Tournament.t(), boolean()}]
   def list_archived_tournaments(%Scope{} = scope) do
+    user = scope.user
+
     Repo.all(
       from t in Tournament,
-        where: t.user_id == ^scope.user.id and not is_nil(t.archived_at) and is_nil(t.deleted_at),
+        where:
+          not is_nil(t.archived_at) and is_nil(t.deleted_at) and
+            (t.user_id == ^user.id or t.id in subquery(collaborator_tournament_ids(user))),
+        select: {t, t.user_id == ^user.id},
         order_by: [desc: t.archived_at]
     )
   end
