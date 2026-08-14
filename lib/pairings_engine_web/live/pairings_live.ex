@@ -1308,7 +1308,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         style={seat_color_style(@color_by_name, @white)}
       >
         <span class="board-seat-colour" aria-label="White">W</span>
-        <span class="board-seat-name">{seat_text(@white)}</span>
+        <span class="board-seat-name" title={seat_text(@white)}>{seat_text(@white)}</span>
         <span
           :if={@state == "after" and @white_changed? and @related_board}
           class="board-seat-swap-ref"
@@ -1322,7 +1322,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         style={seat_color_style(@color_by_name, @black)}
       >
         <span class="board-seat-colour board-seat-black" aria-label="Black">B</span>
-        <span class="board-seat-name">{seat_text(@black)}</span>
+        <span class="board-seat-name" title={seat_text(@black)}>{seat_text(@black)}</span>
         <span
           :if={@state == "after" and @black_changed? and @related_board}
           class="board-seat-swap-ref"
