@@ -524,6 +524,147 @@ defmodule PairingsEngine.TournamentsTest do
     end
   end
 
+  describe "set_pairing_hidden/3 and delete_pairing/2 (declutter a fully-vacated board)" do
+    setup do
+      tournament = Repo.insert!(%Tournament{name: "Declutter T", type: "swiss", rounds_count: 3})
+      a = Repo.insert!(%Player{tournament_id: tournament.id, name: "A"})
+      b = Repo.insert!(%Player{tournament_id: tournament.id, name: "B"})
+      c = Repo.insert!(%Player{tournament_id: tournament.id, name: "C"})
+      d = Repo.insert!(%Player{tournament_id: tournament.id, name: "D"})
+      round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+
+      Repo.insert!(%Pairing{
+        round_id: round.id,
+        board: 1,
+        white_player_id: a.id,
+        black_player_id: b.id,
+        result: ""
+      })
+
+      Repo.insert!(%Pairing{
+        round_id: round.id,
+        board: 2,
+        white_player_id: c.id,
+        black_player_id: d.id,
+        result: ""
+      })
+
+      :ok = Tournaments.freeze_round_display_boards!(round.id)
+
+      # Reload after freezing so `board1`/`board2` carry their real, frozen
+      # `display_board` — every production call site freezes right after
+      # insert, and a fixture that skipped it would test against a struct
+      # no real round is ever actually in.
+      round = Tournaments.get_round(tournament.id, 1)
+      board1 = Enum.find(round.pairings, &(&1.board == 1))
+      board2 = Enum.find(round.pairings, &(&1.board == 2))
+
+      %{
+        tournament: tournament,
+        round: round,
+        a: a,
+        b: b,
+        c: c,
+        d: d,
+        board1: board1,
+        board2: board2
+      }
+    end
+
+    # Vacates BOTH seats of `pairing`, returning the freshly-reloaded round.
+    defp fully_vacate(round, pairing) do
+      {:ok, _} = Tournaments.vacate_seat(round, pairing.white_player_id)
+      round = Tournaments.get_round(round.tournament_id, round.number)
+      pairing = Enum.find(round.pairings, &(&1.id == pairing.id))
+      {:ok, _} = Tournaments.vacate_seat(round, pairing.black_player_id)
+      Tournaments.get_round(round.tournament_id, round.number)
+    end
+
+    test "hiding a fully-vacated pairing sets the flag and un-hiding clears it",
+         %{tournament: t, round: round, board1: board1} do
+      round = fully_vacate(round, board1)
+      board1 = Enum.find(round.pairings, &(&1.id == board1.id))
+
+      assert {:ok, hidden} = Tournaments.set_pairing_hidden(round, board1, true)
+      assert hidden.hidden
+
+      # Board number, frozen display label and result are all untouched.
+      assert hidden.board == 1
+      assert hidden.display_board == board1.display_board
+      assert hidden.result == ""
+
+      round = Tournaments.get_round(t.id, 1)
+      board1 = Enum.find(round.pairings, &(&1.id == board1.id))
+      assert {:ok, unhidden} = Tournaments.set_pairing_hidden(round, board1, false)
+      refute unhidden.hidden
+    end
+
+    test "hiding a pairing that still has someone seated is refused",
+         %{round: round, board1: board1} do
+      # Only ONE side vacated — still not a fully-vacated row.
+      {:ok, _} = Tournaments.vacate_seat(round, board1.white_player_id)
+      round = Tournaments.get_round(round.tournament_id, 1)
+      board1 = Enum.find(round.pairings, &(&1.id == board1.id))
+
+      assert {:error, :not_vacant} = Tournaments.set_pairing_hidden(round, board1, true)
+    end
+
+    test "hiding never changes another row's frozen display label",
+         %{round: round, board1: board1, board2: board2} do
+      before_label = board2.display_board
+
+      round = fully_vacate(round, board1)
+      board1 = Enum.find(round.pairings, &(&1.id == board1.id))
+      {:ok, _} = Tournaments.set_pairing_hidden(round, board1, true)
+
+      round = Tournaments.get_round(round.tournament_id, 1)
+      board2 = Enum.find(round.pairings, &(&1.id == board2.id))
+      assert board2.display_board == before_label
+    end
+
+    test "deleting the non-last board is refused even when it's fully vacant",
+         %{round: round, board1: board1} do
+      round = fully_vacate(round, board1)
+      board1 = Enum.find(round.pairings, &(&1.id == board1.id))
+
+      # board2 (still seated) is the round's max board, so board1 — even
+      # fully vacant — is never eligible.
+      assert {:error, :not_last_board} = Tournaments.delete_pairing(round, board1)
+      assert Repo.get(Pairing, board1.id)
+    end
+
+    test "deleting a seated last board is refused", %{round: round, board2: board2} do
+      assert {:error, :not_vacant} = Tournaments.delete_pairing(round, board2)
+      assert Repo.get(Pairing, board2.id)
+    end
+
+    test "deleting the round's actual fully-vacated last board removes it",
+         %{tournament: t, round: round, board2: board2} do
+      round = fully_vacate(round, board2)
+      board2 = Enum.find(round.pairings, &(&1.id == board2.id))
+
+      assert {:ok, _} = Tournaments.delete_pairing(round, board2)
+      refute Repo.get(Pairing, board2.id)
+
+      round = Tournaments.get_round(t.id, 1)
+      assert length(round.pairings) == 1
+      assert Enum.map(round.pairings, & &1.board) == [1]
+    end
+
+    test "deleting the last board does not disturb any other board's frozen display label",
+         %{round: round, board1: board1, board2: board2} do
+      before_label = board1.display_board
+
+      round = fully_vacate(round, board2)
+      board2 = Enum.find(round.pairings, &(&1.id == board2.id))
+      {:ok, _} = Tournaments.delete_pairing(round, board2)
+
+      round = Tournaments.get_round(round.tournament_id, 1)
+      board1 = Enum.find(round.pairings, &(&1.id == board1.id))
+      assert board1.display_board == before_label
+    end
+  end
+
   describe "refresh_status!/1" do
     test "a tournament with no paired rounds stays \"setup\"" do
       tournament =

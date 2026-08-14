@@ -200,6 +200,35 @@ defmodule PairingsEngine.ArchiveTest do
       assert Tournaments.swap_seated_with_pool_player(round, a.id, b.id) == {:error, :archived}
     end
 
+    test "set_pairing_hidden/3 and delete_pairing/2" do
+      scope = user_scope()
+      live = tournament(scope)
+      {:ok, a} = Tournaments.create_player(live.id, %{"name" => "Alice"})
+      {:ok, b} = Tournaments.create_player(live.id, %{"name" => "Bob"})
+
+      r = Repo.insert!(%Round{tournament_id: live.id, number: 1, status: "playing"})
+
+      pairing =
+        Repo.insert!(%PairingsEngine.Tournaments.Pairing{
+          round_id: r.id,
+          board: 1,
+          white_player_id: a.id,
+          black_player_id: b.id,
+          result: ""
+        })
+
+      {:ok, _} = Tournaments.vacate_seat(Tournaments.get_round(live.id, 1), a.id)
+      {:ok, _} = Tournaments.vacate_seat(Tournaments.get_round(live.id, 1), b.id)
+
+      {:ok, _} = Tournaments.archive_tournament(live)
+      round = Tournaments.get_round(live.id, 1)
+      pairing = Enum.find(round.pairings, &(&1.id == pairing.id))
+
+      assert Tournaments.set_pairing_hidden(round, pairing, true) == {:error, :archived}
+      assert Tournaments.delete_pairing(round, pairing) == {:error, :archived}
+      assert Repo.get(PairingsEngine.Tournaments.Pairing, pairing.id)
+    end
+
     test "publish_round_now/1 and unpublish_round/1" do
       scope = user_scope()
       live = tournament(scope, %{"publish_mode" => "manual"})

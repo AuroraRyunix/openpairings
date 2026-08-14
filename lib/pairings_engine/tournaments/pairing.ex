@@ -51,6 +51,13 @@ defmodule PairingsEngine.Tournaments.Pairing do
     field :display_board, :string
     field :display_special, :boolean, default: false
 
+    # Display-only "don't show me this" flag for a fully-vacated row (both
+    # seats empty) — see PairingsEngine.Tournaments.set_pairing_hidden/3.
+    # Kept out of changeset/2's cast list, same reasoning as display_board
+    # above: one dedicated writer, guarded server-side, never a bare field
+    # update from arbitrary attrs.
+    field :hidden, :boolean, default: false
+
     belongs_to :round, PairingsEngine.Tournaments.Round
     belongs_to :white_player, PairingsEngine.Tournaments.Player
     belongs_to :black_player, PairingsEngine.Tournaments.Player

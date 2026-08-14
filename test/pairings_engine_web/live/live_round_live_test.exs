@@ -214,6 +214,60 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
     assert positions == Enum.sort(positions), "expected boards 1, 2, 3 top to bottom"
   end
 
+  test "a hidden (fully-vacated) row never renders, but every other board keeps its label", %{
+    conn: conn,
+    scope: scope
+  } do
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{
+        "name" => "Hidden Row Live Test",
+        "type" => "swiss",
+        "rounds_count" => "1"
+      })
+
+    round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+
+    Repo.insert!(%Pairing{
+      round_id: round.id,
+      board: 1,
+      white_player_id: nil,
+      black_player_id: nil,
+      result: "",
+      hidden: true
+    })
+
+    [c, d] =
+      for name <- ["Stillhereclara", "Stillheredan"] do
+        Repo.insert!(%Player{tournament_id: tournament.id, name: name})
+      end
+
+    Repo.insert!(%Pairing{
+      round_id: round.id,
+      board: 2,
+      white_player_id: c.id,
+      black_player_id: d.id,
+      result: ""
+    })
+
+    :ok = Tournaments.freeze_round_display_boards!(round.id)
+
+    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/live")
+
+    # Scope to the board-list table specifically ("Board" as the text
+    # filter) — the standings table right below it shares the same
+    # `pe-table` class and legitimately has its own "1"s (rank, etc.)
+    # unrelated to board numbering.
+    pairings_html = lv |> element("table.pe-table", "Board") |> render()
+
+    assert pairings_html =~ "Stillhereclara"
+    # Board 2's label was frozen at pairing time, before board 1 was ever
+    # hidden — hiding board 1 later must NOT retroactively renumber board
+    # 2 down to "1" (that would be exactly the 0.14.6 bug class). Board 2
+    # simply stops having a "1" row above it; its own label is untouched.
+    assert pairings_html =~ ~s(<td class="num">2</td>)
+    refute pairings_html =~ ~s(<td class="num">1</td>)
+  end
+
   test "shows byes-table rows (SWAR-imported/round-specific absentee byes) alongside the round's pairings",
        %{
          conn: conn,

@@ -630,6 +630,7 @@ defmodule PairingsEngineWeb.PrintController do
 
       rows =
         round.pairings
+        |> Enum.reject(& &1.hidden)
         |> PairingDisplay.with_display_boards()
         |> Enum.map_join("", fn %{pairing: p, board: board} ->
           "<tr><td class=\"num\">#{board}</td>" <>

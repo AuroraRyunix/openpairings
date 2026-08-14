@@ -131,6 +131,52 @@ defmodule PairingsEngineWeb.PublicPairingsLiveTest do
     assert positions == Enum.sort(positions), "expected boards 1, 2, 3 top to bottom"
   end
 
+  test "a hidden (fully-vacated) row never renders, and its board number doesn't reappear on another row",
+       %{conn: conn} do
+    {:ok, tournament} =
+      Tournaments.create_tournament(%{
+        "name" => "Hidden Row Public Test",
+        "type" => "swiss",
+        "rounds_count" => "1"
+      })
+
+    {:ok, tournament} = Tournaments.set_public_pages(tournament, true)
+
+    round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+
+    Repo.insert!(%Pairing{
+      round_id: round.id,
+      board: 1,
+      white_player_id: nil,
+      black_player_id: nil,
+      result: "",
+      hidden: true
+    })
+
+    [c, d] =
+      for name <- ["Stillhereclara", "Stillheredan"] do
+        Repo.insert!(%Player{tournament_id: tournament.id, name: name})
+      end
+
+    Repo.insert!(%Pairing{
+      round_id: round.id,
+      board: 2,
+      white_player_id: c.id,
+      black_player_id: d.id,
+      result: ""
+    })
+
+    :ok = Tournaments.freeze_round_display_boards!(round.id)
+
+    {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/pairings")
+
+    assert html =~ "Stillhereclara"
+    # Board 2's label was frozen before board 1 was ever hidden — hiding it
+    # later must not renumber board 2 down to "1".
+    assert html =~ ~s(<td class="num">2</td>)
+    refute html =~ ~s(<td class="num">1</td>)
+  end
+
   test "a fixed-table board shows the SAME label and position as the authenticated Pairings page",
        %{conn: conn} do
     # Regression: the public page used to sort by raw `pairing.board` and

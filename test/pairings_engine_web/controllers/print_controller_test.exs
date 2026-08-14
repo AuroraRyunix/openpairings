@@ -237,6 +237,52 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       assert html =~ "<td class=\"num\">2</td>"
     end
 
+    test "a hidden (fully-vacated) row is skipped, and doesn't renumber any other board", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "Hidden Row Print Test",
+          "type" => "swiss",
+          "rounds_count" => "1"
+        })
+
+      round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+
+      Repo.insert!(%Pairing{
+        round_id: round.id,
+        board: 1,
+        white_player_id: nil,
+        black_player_id: nil,
+        result: "",
+        hidden: true
+      })
+
+      c = Repo.insert!(%Player{tournament_id: tournament.id, name: "C"})
+      d = Repo.insert!(%Player{tournament_id: tournament.id, name: "D"})
+
+      Repo.insert!(%Pairing{
+        round_id: round.id,
+        board: 2,
+        white_player_id: c.id,
+        black_player_id: d.id,
+        result: ""
+      })
+
+      :ok = Tournaments.freeze_round_display_boards!(round.id)
+
+      html = get(conn, ~p"/t/#{tournament.id}/print/pairings?round=1") |> html_response(200)
+
+      # Board 2's label was frozen at pairing time, before board 1 was
+      # ever hidden — hiding it later must not renumber board 2 down to
+      # "1" (the 0.14.6 bug class).
+      assert html =~ "<td class=\"num\">2</td>"
+      refute html =~ "<td class=\"num\">1</td>"
+      assert html =~ "C"
+      assert html =~ "D"
+    end
+
     test "byes/absentees are off by default, shown below the table with ?absentees=1", %{
       conn: conn,
       scope: scope
