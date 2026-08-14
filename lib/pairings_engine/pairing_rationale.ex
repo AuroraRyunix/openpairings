@@ -88,12 +88,29 @@ defmodule PairingsEngine.PairingRationale do
         )
       end)
       |> Enum.map(fn b ->
-        if b.is_bye, do: annotate_bye(b, prior_bye_players, prior_pairing_bye_players), else: b
+        # `is_bye` only means black's seat is empty (or `result == "bye"`) -
+        # it says nothing about whether anyone is actually still seated on
+        # white. Vacating the BYE RECIPIENT themselves (a real gesture -
+        # marking absent the one player already sitting alone on a bye
+        # board) clears white too, but `result` resets to "" while
+        # `black_player_id` was already nil, so `is_bye` stays true with
+        # nobody left to explain. `annotate_bye/3` assumes a real occupant
+        # on white; only call it when that's actually still true, same
+        # fix shape as `board_context/7`'s `rematch` guard above.
+        if b.is_bye and b.white,
+          do: annotate_bye(b, prior_bye_players, prior_pairing_bye_players),
+          else: b
       end)
 
     score_groups = score_groups(boards)
 
-    allocated_bye = Enum.find(boards, & &1.is_bye)
+    # Not just `& &1.is_bye` - a "ghost" bye board (the bye recipient
+    # themselves later vacated, see the `annotate_bye/3` guard above) is
+    # still `is_bye: true` but carries no `:bye_detail` at all, since
+    # there's nobody left to report. Preferring one WITH a recipient means
+    # a real allocated bye elsewhere in the round is still found and
+    # reported, rather than silently reporting an empty ghost instead.
+    allocated_bye = Enum.find(boards, &(&1.is_bye and Map.has_key?(&1, :bye_detail)))
 
     requested_byes =
       tournament.id
