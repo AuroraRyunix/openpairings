@@ -470,7 +470,47 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> normalize_extra_points_bands()
     |> normalize_fide_id_ranges()
     |> put_public_slug()
+    |> pad_round_dates_to_rounds_count()
     |> derive_dates_from_round_dates()
+  end
+
+  @doc """
+  Pads (with `""`) or truncates `dates` to exactly `count` entries — the
+  same one-date-per-round shape `round_dates_complete?/1` requires. Shared
+  by the changeset (`pad_round_dates_to_rounds_count/1`, below, so it fires
+  on every save from every path) and `SettingsDatesLive`'s own live form
+  state (which needs the padded shape mid-edit, before anything is saved).
+  """
+  def pad_round_dates(dates, count) do
+    dates = List.wrap(dates)
+    dates = Enum.take(dates, count)
+    dates ++ List.duplicate("", max(count - length(dates), 0))
+  end
+
+  # Keeps `round_dates` in sync with `rounds_count` on every save, not just
+  # ones that go through SettingsDatesLive's own form. `rounds_count` can
+  # change from other paths too (e.g. RoundRobin auto-correcting it to match
+  # the real Berger schedule total on freeze) — without this running
+  # unconditionally here, `round_dates`'s length goes stale relative to the
+  # new `rounds_count` and `round_dates_complete?/1` never clears even
+  # though every date the arbiter actually needs is filled in. A blank
+  # (`nil`) `rounds_count` is left alone; `validate_required/2` /
+  # `validate_number/3` on `rounds_count` itself handle that case.
+  defp pad_round_dates_to_rounds_count(changeset) do
+    case get_field(changeset, :rounds_count) do
+      count when is_integer(count) and count >= 0 ->
+        dates = get_field(changeset, :round_dates) || []
+        padded = pad_round_dates(dates, count)
+
+        if padded == dates do
+          changeset
+        else
+          put_change(changeset, :round_dates, padded)
+        end
+
+      _ ->
+        changeset
+    end
   end
 
   # start_date/end_date are always the earliest/latest non-blank entry in
@@ -955,7 +995,8 @@ defmodule PairingsEngine.Tournaments.Tournament do
 
   # Round dates are considered "filled in" the same way SettingsDatesLive
   # defines it: one non-blank date per round — the stored list is padded/
-  # truncated to `rounds_count` on every Dates-page save, so a complete
+  # truncated to `rounds_count` by `pad_round_dates_to_rounds_count/1` on
+  # every save (any path, not just the Dates page), so a complete
   # tournament's `round_dates` is exactly `rounds_count` long with no blanks.
   defp round_dates_complete?(t) do
     count = t.rounds_count

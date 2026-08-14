@@ -19,6 +19,7 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
   import PairingsEngineWeb.SettingsSupport
 
   alias PairingsEngine.Tournaments
+  alias PairingsEngine.Tournaments.Tournament
 
   @weekday_names {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
 
@@ -161,11 +162,11 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
 
   ## ---------- helpers ----------
 
-  defp pad_dates(dates, count) do
-    dates = dates || []
-    dates = Enum.take(dates, count)
-    dates ++ List.duplicate("", max(count - length(dates), 0))
-  end
+  # Delegates to `Tournament.pad_round_dates/2` — the same pad/truncate
+  # logic the Tournament changeset now applies on every save. Kept here too
+  # because this page's live form state needs the padded shape mid-edit,
+  # before anything is actually saved.
+  defp pad_dates(dates, count), do: Tournament.pad_round_dates(dates, count)
 
   # Live preview of what `Tournament.changeset/2`'s own
   # `derive_dates_from_round_dates/1` would compute from the CURRENT

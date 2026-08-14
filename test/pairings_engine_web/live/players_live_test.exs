@@ -23,7 +23,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
     refute html =~ ~r/<a[^>]*href="\/"[^>]*>\s*Tournaments\s*<\/a>/
   end
 
-  test "print player list / player cards links open the roster-wide documents in a new tab", %{
+  test "print player list link opens the roster-wide document in a new tab", %{
     conn: conn,
     scope: scope
   } do
@@ -36,10 +36,12 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
     # so the print shows whatever's currently checked in the Display panel —
     # not a fixed set — hence a prefix match rather than an exact href.
     assert html =~ ~s(href="/t/#{tournament.id}/print/players?)
-    assert html =~ ~s(href="/t/#{tournament.id}/print/cards")
     assert html =~ "Print player list"
-    assert html =~ "Print player cards"
     assert html =~ ~s(target="_blank")
+    # "Print player cards" was removed from the UI (the route/controller
+    # action still exist, see docs/printing.md) — assert its absence so a
+    # regression re-adding the button gets caught.
+    refute html =~ "Print player cards"
   end
 
   test "the FIDE database tab is hidden once inside a tournament", %{conn: conn, scope: scope} do

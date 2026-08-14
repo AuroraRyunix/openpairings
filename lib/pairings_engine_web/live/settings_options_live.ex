@@ -39,6 +39,10 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
        page_title: "#{tournament.name} · Settings",
        standard: tournament.standard,
        rate_of_play: tournament.rate_of_play,
+       # Tracked as its own assign so the "Delay (minutes)" field can be
+       # shown/hidden live as the "Publish each round" select changes —
+       # same reason `standard`/`rate_of_play` are tracked separately above.
+       publish_mode: tournament.publish_mode,
        note: nil,
        error: nil,
        dirty: false,
@@ -108,6 +112,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
            tournament: tournament,
            standard: tournament.standard,
            rate_of_play: tournament.rate_of_play,
+           publish_mode: tournament.publish_mode,
            club_exclusion_mode: tournament.club_exclusion,
            fed_exclusion_mode: tournament.fed_exclusion,
            stale: false
@@ -167,6 +172,20 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     {:noreply, assign(socket, standard: new_standard, rate_of_play: new_rate)}
   end
 
+  # Purely cosmetic: shows/hides the "Delay (minutes)" field below as the
+  # "Publish each round" select changes, so an arbiter isn't shown a field
+  # that's ignored unless the mode is "timed" (see the field's own hint
+  # text, still kept as a fallback). Same "track the select's own value as
+  # an assign, gate a sibling `.setting_field` with `:if`" shape as
+  # `club_exclusion_mode_change`/`fed_exclusion_mode_change` below.
+  def handle_event(
+        "publish_mode_change",
+        %{"tournament" => %{"publish_mode" => mode}},
+        socket
+      ) do
+    {:noreply, assign(socket, publish_mode: mode)}
+  end
+
   def handle_event("save", %{"tournament" => params}, socket) do
     params =
       params
@@ -185,6 +204,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
            tournament: tournament,
            standard: tournament.standard,
            rate_of_play: tournament.rate_of_play,
+           publish_mode: tournament.publish_mode,
            note: save_note(base, tournament),
            error: nil,
            dirty: false,
@@ -550,7 +570,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
           <.setting_group>
             <.setting_field label="Publish each round">
-              <select name="tournament[publish_mode]">
+              <select name="tournament[publish_mode]" phx-change="publish_mode_change">
                 <option
                   :for={mode <- Tournament.publish_modes()}
                   value={mode}
@@ -562,6 +582,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             </.setting_field>
 
             <.setting_field
+              :if={@publish_mode == "timed"}
               label="Delay (minutes)"
               hint="Only used when 'Publish each round' above is set to 'After a delay'"
             >

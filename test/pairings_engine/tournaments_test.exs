@@ -2263,4 +2263,75 @@ defmodule PairingsEngine.TournamentsTest do
       assert Tournaments.latest_published_round_number(tournament) == 2
     end
   end
+
+  describe "round_dates padding — Tournament.changeset/2 (kept in sync with rounds_count on every save)" do
+    test "rounds_count increasing after round_dates was already fully filled pads it, keeping setup complete" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "Growing",
+          type: "swiss",
+          rounds_count: 3,
+          round_dates: ["2026-08-01", "2026-08-02", "2026-08-03"],
+          tiebreaks: ["BH"]
+        })
+
+      assert Tournament.setup_complete?(tournament)
+
+      # Simulate rounds_count changing from a path that has nothing to do
+      # with the Dates page (e.g. RoundRobin's freeze-time auto-correction)
+      # — only rounds_count is in the update, round_dates is untouched.
+      {:ok, updated} = Tournaments.update_tournament(tournament, %{"rounds_count" => 5})
+
+      assert updated.rounds_count == 5
+      assert length(updated.round_dates) == 5
+      assert Enum.take(updated.round_dates, 3) == ["2026-08-01", "2026-08-02", "2026-08-03"]
+      assert Enum.drop(updated.round_dates, 3) == ["", ""]
+
+      # The checklist item is still "incomplete" until the new rounds get
+      # real dates — but crucially, its length now matches rounds_count
+      # instead of being permanently stale (the bug this guards against).
+      refute Tournament.setup_complete?(updated)
+
+      {:ok, filled} =
+        Tournaments.update_tournament(updated, %{
+          "round_dates" => ["2026-08-01", "2026-08-02", "2026-08-03", "2026-08-04", "2026-08-05"]
+        })
+
+      assert Tournament.setup_complete?(filled)
+    end
+
+    test "rounds_count decreasing truncates round_dates" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "Shrinking",
+          type: "swiss",
+          rounds_count: 5,
+          round_dates: ["2026-08-01", "2026-08-02", "2026-08-03", "2026-08-04", "2026-08-05"],
+          tiebreaks: ["BH"]
+        })
+
+      assert Tournament.setup_complete?(tournament)
+
+      {:ok, updated} = Tournaments.update_tournament(tournament, %{"rounds_count" => 2})
+
+      assert updated.rounds_count == 2
+      assert updated.round_dates == ["2026-08-01", "2026-08-02"]
+      assert Tournament.setup_complete?(updated)
+    end
+
+    test "an update that doesn't touch rounds_count or round_dates leaves round_dates untouched" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "Untouched",
+          type: "swiss",
+          rounds_count: 3,
+          round_dates: ["2026-08-01", "2026-08-02", "2026-08-03"],
+          tiebreaks: ["BH"]
+        })
+
+      {:ok, updated} = Tournaments.update_tournament(tournament, %{"federation" => "BEL"})
+
+      assert updated.round_dates == ["2026-08-01", "2026-08-02", "2026-08-03"]
+    end
+  end
 end
