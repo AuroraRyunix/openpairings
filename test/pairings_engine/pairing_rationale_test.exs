@@ -297,6 +297,72 @@ defmodule PairingsEngine.PairingRationaleTest do
       assert board2.rematch == false
     end
 
+    test "vacating the bye recipient themselves doesn't crash the rationale (regression, real prod incident)" do
+      # A bye pairing already has black_player_id: nil. If an arbiter then
+      # marks the BYE RECIPIENT ITSELF absent (a real gesture - vacate_seat
+      # doesn't know or care that the seat it's clearing is a bye board's
+      # only occupant), white goes nil too and `result` resets to "" - but
+      # `is_bye` only checks `black_player_id == nil`, which was already
+      # true, so it stays flagged as a bye with nobody left on it at all.
+      # Before the fix, `annotate_bye/3` unconditionally read
+      # `bye_board.white.player`, crashing with
+      # `(KeyError) key :player not found in: nil` - a real prod incident
+      # on `/pairings/:round/explain`.
+      t = Repo.insert!(%Tournament{name: "Swiss", type: "swiss", rounds_count: 5})
+
+      {:ok, alice} = Tournaments.create_player(t.id, %{name: "Alice"})
+      {:ok, bob} = Tournaments.create_player(t.id, %{name: "Bob"})
+
+      round1 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 1, status: "playing"})
+
+      # A normal, real bye first, so score/ladder history has something to
+      # look at in round 2 below.
+      Repo.insert!(%PairingSchema{
+        round_id: round1.id,
+        board: 1,
+        white_player_id: bob.id,
+        black_player_id: nil,
+        result: "bye"
+      })
+
+      round2 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 2, status: "playing"})
+
+      # The ghost bye: black was already nil, and now white is vacated too
+      # (exactly what `do_vacate_seat/3` leaves behind).
+      Repo.insert!(%PairingSchema{
+        round_id: round2.id,
+        board: 1,
+        white_player_id: nil,
+        black_player_id: nil,
+        result: ""
+      })
+
+      Repo.insert!(%PairingSchema{
+        round_id: round2.id,
+        board: 2,
+        white_player_id: alice.id,
+        black_player_id: nil,
+        result: "bye"
+      })
+
+      rationale = PairingRationale.for_round(t, 2)
+      ghost = Enum.find(rationale.boards, &(&1.board == 1))
+      real_bye = Enum.find(rationale.boards, &(&1.board == 2))
+
+      assert ghost.is_bye == true
+      assert ghost.white == nil
+      assert Map.get(ghost, :bye_detail) == nil
+
+      assert real_bye.is_bye == true
+      assert real_bye.bye_detail.player.id == alice.id
+
+      # The ghost (board 1) comes first in board order - `byes.allocated`
+      # must still report the real recipient (Alice, board 2), not the
+      # empty ghost.
+      assert rationale.byes.allocated.board == 2
+      assert rationale.byes.allocated.bye_detail.player.id == alice.id
+    end
+
     test "a match-format back-to-back rematch is NOT flagged as an anomaly" do
       t =
         Repo.insert!(%Tournament{
