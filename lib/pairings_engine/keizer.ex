@@ -376,6 +376,8 @@ defmodule PairingsEngine.Keizer do
         })
       end
 
+      Tournaments.freeze_round_display_boards!(round.id)
+
       round
     end)
   end

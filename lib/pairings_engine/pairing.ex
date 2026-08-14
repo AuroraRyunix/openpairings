@@ -608,6 +608,8 @@ defmodule PairingsEngine.Pairing do
       # docs/manual-standings.md (Fix 3).
       if any_bye?, do: Tournaments.invalidate_manual_ranking(tournament.id)
 
+      Tournaments.freeze_round_display_boards!(round.id)
+
       round
     end)
   end
@@ -909,6 +911,8 @@ defmodule PairingsEngine.Pairing do
       # docs/manual-standings.md (Fix 3).
       if pairing_allocated_bye?, do: Tournaments.invalidate_manual_ranking(tournament.id)
 
+      Tournaments.freeze_round_display_boards!(round.id)
+
       if tournament.swiss_match_format do
         create_mirrored_leg(tournament, leg1_pairings, round_absentees, next_number + 1)
       else
@@ -977,6 +981,8 @@ defmodule PairingsEngine.Pairing do
 
       Repo.insert_all("byes", rows, on_conflict: :nothing)
     end
+
+    Tournaments.freeze_round_display_boards!(leg2.id)
 
     leg2
   end

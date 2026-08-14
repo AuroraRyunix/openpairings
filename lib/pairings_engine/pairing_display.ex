@@ -12,71 +12,93 @@ defmodule PairingsEngine.PairingDisplay do
   number are completely unaffected. This only decides what LABEL to print
   next to a board and what ORDER to print rows in.
 
-  ## The renumbering
+  ## The renumbering — computed once, frozen, never live again
 
-  A pairing is "special" if either player has `fixed_board` set — that
-  check wins over everything below, so a fixed-table player's bye or
-  vacated seat still sorts and labels as a special board, not a bye/vacant
-  one. Among the rest, a pairing is a "bye" if `result == "bye"` (an
-  awarded pairing-allocated bye — an empty black seat), and "vacant" if
-  exactly one seat is empty and it ISN'T a bye (a player pulled out
-  mid-round via "Mark absent", see the vacancy model in
-  `PairingsEngineWeb.PairingsLive`'s moduledoc). Everything else is a
-  "normal" pairing: both seats filled, in progress or with a real result.
+  A pairing is "special" if either player has `fixed_board` set at the
+  moment the round is paired — that check wins over everything below, so a
+  fixed-table player's bye or vacated seat still sorts and labels as a
+  special board, not a bye/vacant one. Among the rest, every non-special
+  pairing gets its NUMBER from one single pass, sorted by real board —
+  normal, bye, and vacant alike, exactly as if none of them were
+  byes/vacant (closing the gap a special pairing would otherwise leave:
+  real board 10 goes to fixed_board 1001 → whoever was board 11 becomes
+  displayed board 10). Special pairings are labelled with the union of
+  both sides' `fixed_board` values (one number normally; both, slash-
+  joined, on the rare board where two fixed-board players are paired
+  against each other).
 
-  Every non-special pairing gets its NUMBER from one single pass, sorted
-  by real board — normal, bye, and vacant alike, exactly as if none of
-  them were byes/vacant (closing the gap a pulled-out special pairing
-  would otherwise leave: real board 10 goes to fixed_board 1001 →
-  whoever was board 11 becomes displayed board 10). This is deliberate
-  and load-bearing: a board's number must never shift just because
-  ANOTHER board's bye/absence status changes later in the round — an
-  arbiter marking one player absent mid-round must not renumber every
-  board after it while people are already seated. Special pairings are
-  numbered separately, by their own lowest `fixed_board` value, and are
-  labelled with the union of both sides' `fixed_board` values (one number
-  normally; both, slash-joined, on the rare board where two fixed-board
-  players are paired against each other).
+  This split and numbering is computed exactly ONCE per round, by
+  `compute_labels/1`, called only from
+  `PairingsEngine.Tournaments.freeze_round_display_boards!/1` at the
+  moment a round is created — ordinary pairing, round-robin, Keizer, or an
+  import/restore. The result is written to `Pairing.display_board` /
+  `Pairing.display_special` and every other function in this module reads
+  those frozen columns instead of recomputing. This is deliberate and
+  load-bearing, and was a real, reported bug (the 0.14.6 board-renumbering
+  class, surviving here): giving a player a fixed board *after* their
+  round was already paired must never retroactively renumber every board
+  after theirs while people are already seated. A board's fixed_board
+  status is only ever allowed to affect the display the next time that
+  player's round is (re-)paired — never on the fly from an unrelated edit
+  (e.g. the Players page) mid-round.
 
-  `with_display_boards/1`'s ROW ORDER is a separate concern from that
-  numbering: normal pairings print first, then byes, then vacant seats,
-  then special boards — but every row keeps the stable number described
-  above, not a fresh renumbering of the reordered groups. A bye sitting
-  at real board 3 still shows "3" even after it's moved to the bottom of
-  the page.
+  `with_display_boards/1`'s ROW ORDER is a separate, deliberately still
+  LIVE concern from that frozen numbering: normal pairings print first,
+  then byes, then vacant seats, then special boards — reflecting whatever
+  currently has a result/vacancy/bye, since reordering rows doesn't
+  renumber anyone. A bye sitting at real board 3 still shows "3" even
+  after it's moved to the bottom of the page.
   """
 
   @doc """
-  Returns `pairings` (each preloaded with `:white_player`/`:black_player`)
-  as `%{pairing: pairing, board: display_board}` maps, in final display
-  order: normal boards first (ascending by real board), then byes, then
-  vacant seats (each ascending by real board), then special boards
-  (ascending by their own fixed_board value). `display_board` is a
-  string — a plain integer for a normal/bye/vacant board (stable: see the
-  moduledoc), the fixed_board value(s) for a special one.
+  Computes what should be FROZEN for `pairings` (each preloaded with
+  `:white_player`/`:black_player`) as
+  `%{pairing.id => %{display_board: label, display_special: bool}}`.
+
+  Called exactly once per round, by
+  `PairingsEngine.Tournaments.freeze_round_display_boards!/1` — this is
+  the only place in the whole application that reads `Player.fixed_board`
+  for display purposes. See the moduledoc for why nothing else may.
+  """
+  def compute_labels(pairings) do
+    {special, non_special} = Enum.split_with(pairings, &special?/1)
+
+    non_special_labels =
+      non_special
+      |> Enum.sort_by(& &1.board)
+      |> Enum.with_index(1)
+      |> Map.new(fn {pairing, i} ->
+        {pairing.id, %{display_board: Integer.to_string(i), display_special: false}}
+      end)
+
+    special_labels =
+      Map.new(special, fn pairing ->
+        {pairing.id, %{display_board: special_label(pairing), display_special: true}}
+      end)
+
+    Map.merge(non_special_labels, special_labels)
+  end
+
+  @doc """
+  Returns `pairings` as `%{pairing: pairing, board: display_board}` maps,
+  in final display order: normal boards first (ascending by real board),
+  then byes, then vacant seats (each ascending by real board), then
+  special boards (ascending by real board). `display_board` is read from
+  each pairing's frozen `display_board` column (see `compute_labels/1`) —
+  not recomputed here.
   """
   def with_display_boards(pairings) do
-    {special, non_special, labels} = split_and_label(pairings)
+    {special, non_special} = Enum.split_with(pairings, & &1.display_special)
     {byes, rest} = Enum.split_with(non_special, &bye?/1)
     {vacant, normal} = Enum.split_with(rest, &vacant?/1)
 
-    ordered_non_special =
+    ordered =
       Enum.sort_by(normal, & &1.board) ++
         Enum.sort_by(byes, & &1.board) ++
-        Enum.sort_by(vacant, & &1.board)
+        Enum.sort_by(vacant, & &1.board) ++
+        Enum.sort_by(special, & &1.board)
 
-    non_special_rows =
-      Enum.map(ordered_non_special, fn pairing ->
-        %{pairing: pairing, board: Map.fetch!(labels, pairing.id)}
-      end)
-
-    special_rows =
-      special
-      |> Enum.map(&%{pairing: &1, board: special_label(&1), sort_key: special_sort_key(&1)})
-      |> Enum.sort_by(& &1.sort_key)
-      |> Enum.map(&Map.delete(&1, :sort_key))
-
-    non_special_rows ++ special_rows
+    Enum.map(ordered, &row/1)
   end
 
   @doc """
@@ -87,34 +109,18 @@ defmodule PairingsEngine.PairingDisplay do
   `%{pairing: pairing, board: display_board}` shape, one per input
   pairing, in the same order they were given.
   """
-  def board_labels(pairings) do
-    {_special, _non_special, labels} = split_and_label(pairings)
+  def board_labels(pairings), do: Enum.map(pairings, &row/1)
 
-    Enum.map(pairings, fn pairing ->
-      board =
-        if special?(pairing), do: special_label(pairing), else: Map.fetch!(labels, pairing.id)
+  defp row(pairing),
+    do: %{pairing: pairing, board: pairing.display_board || fallback_label(pairing)}
 
-      %{pairing: pairing, board: board}
-    end)
-  end
-
-  # Splits `pairings` into `{special, non_special, labels}` — `labels` is
-  # `%{pairing.id => display_board}` for every non-special pairing,
-  # numbered together in ONE pass by real board order regardless of
-  # bye/vacant/normal status (see the moduledoc: this is what keeps a
-  # board's number stable across a later bye/absence action elsewhere in
-  # the round).
-  defp split_and_label(pairings) do
-    {special, non_special} = Enum.split_with(pairings, &special?/1)
-
-    labels =
-      non_special
-      |> Enum.sort_by(& &1.board)
-      |> Enum.with_index(1)
-      |> Map.new(fn {pairing, i} -> {pairing.id, Integer.to_string(i)} end)
-
-    {special, non_special, labels}
-  end
+  # Defensive only: every pairing-creating and import/restore call site
+  # freezes display_board via Tournaments.freeze_round_display_boards!/1,
+  # so display_board should never actually be nil. If some path is ever
+  # missed, fall back to this pairing's own real board number rather than
+  # showing a blank — never re-derive specialness here, or the whole point
+  # of freezing (never recompute live) is undone by its own fallback.
+  defp fallback_label(pairing), do: Integer.to_string(pairing.board)
 
   defp bye?(pairing), do: pairing.result == "bye"
 
@@ -144,6 +150,4 @@ defmodule PairingsEngine.PairingDisplay do
   end
 
   defp special_label(pairing), do: pairing |> fixed_boards() |> Enum.map_join("/", &to_string/1)
-
-  defp special_sort_key(pairing), do: pairing |> fixed_boards() |> List.first()
 end

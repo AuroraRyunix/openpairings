@@ -1643,6 +1643,8 @@ defmodule PairingsEngine.SwarImport do
 
       Repo.insert_all("byes", rows)
     end
+
+    PairingsEngine.Tournaments.freeze_round_display_boards!(round.id)
   end
 
   # Builds one Pairing row per GAME (not per player) by walking each

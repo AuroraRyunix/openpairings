@@ -11,6 +11,7 @@ defmodule PairingsEngine.Tournaments do
   alias PairingsEngine.Tiebreaks
   alias PairingsEngine.Standings
   alias PairingsEngine.PlayerStats
+  alias PairingsEngine.PairingDisplay
   alias PairingsEngine.Accounts
   alias PairingsEngine.Accounts.{Scope, User}
 
@@ -1098,6 +1099,43 @@ defmodule PairingsEngine.Tournaments do
 
   def change_tournament(%Tournament{} = tournament, attrs \\ %{}) do
     Tournament.changeset(tournament, attrs)
+  end
+
+  @doc """
+  Freezes `PairingDisplay`'s board labels/classification for every pairing
+  in `round_id`, using each player's `fixed_board` value AS OF RIGHT NOW.
+
+  Call this exactly once, right after a round's pairings are inserted —
+  ordinary pairing, round-robin, Keizer, or an import/restore — and never
+  again for that round afterward. This is what stops a later edit to a
+  player's `fixed_board` (e.g. on the Players page) from retroactively
+  renumbering an already-paired round's boards while people are already
+  seated: `PairingDisplay.with_display_boards/1` and `board_labels/1` only
+  ever read the columns this writes, never `Player.fixed_board` directly.
+  See `PairingsEngine.PairingDisplay`'s moduledoc for the full rationale.
+  """
+  @spec freeze_round_display_boards!(integer()) :: :ok
+  def freeze_round_display_boards!(round_id) do
+    pairings =
+      Repo.all(
+        from p in Pairing,
+          where: p.round_id == ^round_id,
+          preload: [:white_player, :black_player]
+      )
+
+    labels = PairingDisplay.compute_labels(pairings)
+
+    Enum.each(pairings, fn pairing ->
+      %{display_board: display_board, display_special: display_special} =
+        Map.fetch!(labels, pairing.id)
+
+      Repo.update_all(
+        from(p in Pairing, where: p.id == ^pairing.id),
+        set: [display_board: display_board, display_special: display_special]
+      )
+    end)
+
+    :ok
   end
 
   # Runs `fun` (for its broadcast side effect) when the write succeeded,

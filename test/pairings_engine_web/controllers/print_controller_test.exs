@@ -69,6 +69,13 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       result: "1-0"
     })
 
+    # Every production call site freezes display labels immediately after a
+    # round's pairings are inserted (see
+    # Tournaments.freeze_round_display_boards!/1's callers) — do the same
+    # here so this fixture matches reality.
+    :ok = Tournaments.freeze_round_display_boards!(r1.id)
+    :ok = Tournaments.freeze_round_display_boards!(r2.id)
+
     {tournament, %{a: a, b: b, c: c, d: d}}
   end
 
@@ -156,21 +163,68 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       assert html =~ "C (0.5)"
     end
 
-    test "a board involving a player with a fixed_board override is relabeled and moved to the end",
+    test "a board involving a player with a fixed_board override, set BEFORE pairing, is relabeled and moved to the end",
          %{conn: conn, scope: scope} do
-      {tournament, %{a: a}} = fixture(scope)
-      a |> Ecto.Changeset.change(fixed_board: 5) |> Repo.update!()
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "Fixed Board Print Test",
+          "type" => "swiss",
+          "rounds_count" => "3"
+        })
+
+      a = Repo.insert!(%Player{tournament_id: tournament.id, name: "A", fixed_board: 5})
+      b = Repo.insert!(%Player{tournament_id: tournament.id, name: "B"})
+      c = Repo.insert!(%Player{tournament_id: tournament.id, name: "C"})
+      d = Repo.insert!(%Player{tournament_id: tournament.id, name: "D"})
+
+      round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+
+      Repo.insert!(%Pairing{
+        round_id: round.id,
+        board: 1,
+        white_player_id: a.id,
+        black_player_id: b.id,
+        result: ""
+      })
+
+      Repo.insert!(%Pairing{
+        round_id: round.id,
+        board: 2,
+        white_player_id: c.id,
+        black_player_id: d.id,
+        result: ""
+      })
+
+      :ok = Tournaments.freeze_round_display_boards!(round.id)
 
       conn = get(conn, ~p"/t/#{tournament.id}/print/pairings?round=1")
 
       html = html_response(conn, 200)
-      # Board 2 (C/D, ordinary) closes the gap board 1 (A/B, now special)
-      # leaves and becomes displayed board 1; A/B's board shows "5"
-      # (the fixed_board value, not the old real board 1) and sorts last.
+      # Board 2 (C/D, ordinary) closes the gap board 1 (A/B, special) leaves
+      # and becomes displayed board 1; A/B's board shows "5" (the
+      # fixed_board value, not the old real board 1) and sorts last.
       [board1_row, board5_row] = Regex.scan(~r/<tr><td class="num">(\d+)<\/td>/, html)
       assert board1_row == ["<tr><td class=\"num\">1</td>", "1"]
       assert board5_row == ["<tr><td class=\"num\">5</td>", "5"]
       assert String.contains?(html, "C") and String.contains?(html, "A")
+    end
+
+    test "a fixed_board set AFTER a round is already paired has no effect on that round's print",
+         %{
+           conn: conn,
+           scope: scope
+         } do
+      {tournament, %{a: a}} = fixture(scope)
+
+      html_before =
+        get(conn, ~p"/t/#{tournament.id}/print/pairings?round=1") |> html_response(200)
+
+      a |> Ecto.Changeset.change(fixed_board: 5) |> Repo.update!()
+
+      html_after =
+        get(conn, ~p"/t/#{tournament.id}/print/pairings?round=1") |> html_response(200)
+
+      assert without_nonce(html_before) == without_nonce(html_after)
     end
 
     test "a board with no fixed_board players is numbered normally", %{conn: conn, scope: scope} do

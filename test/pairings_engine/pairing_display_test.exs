@@ -1,17 +1,35 @@
 defmodule PairingsEngine.PairingDisplayTest do
   @moduledoc """
-  Pure, no-DB tests for `PairingsEngine.PairingDisplay` — the presentation
-  layer that renumbers fixed-table ("special") boards to the end of the
-  list, closing the gap in the ordinary sequence.
+  Pure, no-DB tests for `PairingsEngine.PairingDisplay`.
+
+  Split to match the module's own split:
+
+    * `compute_labels/1` is the ONLY function that ever looks at
+      `Player.fixed_board` — it's what
+      `PairingsEngine.Tournaments.freeze_round_display_boards!/1` calls,
+      once, at pairing time. All the "what should a fixed-table board be
+      labelled/renumbered to" logic lives here now.
+    * `with_display_boards/1` and `board_labels/1` never look at
+      `fixed_board` at all anymore — they read the already-frozen
+      `display_board`/`display_special` fields a pairing carries and only
+      decide ROW ORDER (still live: bye/vacant status is fine to reflect
+      immediately, see the module's moduledoc for why that's a different
+      concern from the frozen NUMBER). Their tests below build pairings
+      with `display_board`/`display_special` pre-set, standing in for
+      "already frozen", and never set `fixed_board` on a player at all —
+      if one of these functions started reading it again, these tests
+      wouldn't catch it, but `compute_labels/1`'s tests below would still
+      pin the correct content, and `board_stability_test.exs` pins that
+      editing `fixed_board` after freezing has zero effect end-to-end.
 
   Every test that checks *identity* (which player ends up on which row)
   compares actual struct references (`==` on the whole `%Pairing{}`, not
   just a re-derived board number) — the one thing that must never happen
   here is a real result getting attached to the wrong pairing because a
   display-only renumbering pass touched something it shouldn't have.
-  Nothing in this module writes `pairing.board` — `with_display_boards/1`
-  and `board_labels/1` only ever return a *separate* label alongside the
-  untouched pairing, never mutate the struct.
+  Nothing in this module writes `pairing.board` — every function here only
+  ever returns a *separate* label alongside the untouched pairing, never
+  mutates the struct.
   """
   use ExUnit.Case, async: true
 
@@ -20,12 +38,30 @@ defmodule PairingsEngine.PairingDisplayTest do
 
   defp player(attrs), do: struct(%Player{name: "P"}, attrs)
 
-  defp pairing(id, board, white, black) do
-    %Pairing{id: id, board: board, white_player: white, black_player: black, result: ""}
+  defp pairing(id, board, white, black), do: pairing(id, board, white, black, "")
+
+  defp pairing(id, board, white, black, result) do
+    %Pairing{id: id, board: board, white_player: white, black_player: black, result: result}
   end
 
-  describe "with_display_boards/1 — no fixed-table players at all" do
-    test "boards are untouched, order unchanged" do
+  # A pairing already carrying frozen display fields, standing in for what
+  # Tournaments.freeze_round_display_boards!/1 would have written — used by
+  # the with_display_boards/1 and board_labels/1 tests below, which must
+  # never need to know a player's fixed_board at all.
+  defp frozen(id, board, white, black, result, display_board, display_special \\ false) do
+    %Pairing{
+      id: id,
+      board: board,
+      white_player: white,
+      black_player: black,
+      result: result,
+      display_board: display_board,
+      display_special: display_special
+    }
+  end
+
+  describe "compute_labels/1 — no fixed-table players at all" do
+    test "boards are numbered by real board order, none marked special" do
       a = player(id: 1, name: "Alice")
       b = player(id: 2, name: "Bob")
       c = player(id: 3, name: "Carol")
@@ -34,30 +70,27 @@ defmodule PairingsEngine.PairingDisplayTest do
       p1 = pairing(101, 1, a, b)
       p2 = pairing(102, 2, c, d)
 
-      result = PairingDisplay.with_display_boards([p1, p2])
-
-      assert result == [
-               %{pairing: p1, board: "1"},
-               %{pairing: p2, board: "2"}
-             ]
+      assert PairingDisplay.compute_labels([p1, p2]) == %{
+               101 => %{display_board: "1", display_special: false},
+               102 => %{display_board: "2", display_special: false}
+             }
     end
 
-    test "input order doesn't matter — output is sorted by real board number" do
+    test "input order doesn't matter — labels come from real board order" do
       a = player(id: 1, name: "Alice")
       b = player(id: 2, name: "Bob")
       p1 = pairing(101, 1, a, b)
       p2 = pairing(102, 2, b, a)
 
-      # Given out of board order...
-      assert PairingDisplay.with_display_boards([p2, p1]) == [
-               %{pairing: p1, board: "1"},
-               %{pairing: p2, board: "2"}
-             ]
+      assert PairingDisplay.compute_labels([p2, p1]) == %{
+               101 => %{display_board: "1", display_special: false},
+               102 => %{display_board: "2", display_special: false}
+             }
     end
   end
 
-  describe "with_display_boards/1 — one fixed-table player" do
-    test "the ordinary boards close the gap; the special board moves to the end with its own label" do
+  describe "compute_labels/1 — one fixed-table player" do
+    test "the ordinary boards close the gap; the special board gets its own label" do
       alice = player(id: 1, name: "Alice", fixed_board: 1001)
       bob = player(id: 2, name: "Bob")
       carol = player(id: 3, name: "Carol")
@@ -71,16 +104,13 @@ defmodule PairingsEngine.PairingDisplayTest do
       p_carol = pairing(102, 2, carol, dave)
       p_erin = pairing(103, 3, erin, frank)
 
-      result = PairingDisplay.with_display_boards([p_alice, p_carol, p_erin])
-
       # Carol's board (real 2) becomes displayed board 1; Erin's (real 3)
       # becomes displayed board 2 — the gap real board 1 left is closed.
-      # Alice's pairing is untouched (same struct, same id) and sorts last.
-      assert result == [
-               %{pairing: p_carol, board: "1"},
-               %{pairing: p_erin, board: "2"},
-               %{pairing: p_alice, board: "1001"}
-             ]
+      assert PairingDisplay.compute_labels([p_alice, p_carol, p_erin]) == %{
+               101 => %{display_board: "1001", display_special: true},
+               102 => %{display_board: "1", display_special: false},
+               103 => %{display_board: "2", display_special: false}
+             }
     end
 
     test "matches the user's own worked example: real board 10 -> 1001, real board 11 -> displayed 10" do
@@ -105,26 +135,34 @@ defmodule PairingsEngine.PairingDisplayTest do
       p_fixed = pairing(9999, 10, fixed_player, opp)
       p_shifted = pairing(10_000, 11, shifted_player, shifted_opp)
 
-      result = PairingDisplay.with_display_boards(ordinary ++ [p_fixed, p_shifted])
+      labels = PairingDisplay.compute_labels(ordinary ++ [p_fixed, p_shifted])
 
       # Boards 1-9 keep their own numbers (nothing before them was pulled
       # out); board 11 becomes displayed board 10, taking over the exact
-      # slot board 10 vacated; the fixed-table pairing lands at the end.
-      assert Enum.map(result, &{&1.pairing.id, &1.board}) ==
-               Enum.map(1..9, &{100 + &1, Integer.to_string(&1)}) ++
-                 [{10_000, "10"}, {9999, "1001"}]
+      # slot board 10 vacated; the fixed-table pairing gets its own label.
+      expected =
+        Map.new(
+          1..9,
+          &{100 + &1, %{display_board: Integer.to_string(&1), display_special: false}}
+        )
+        |> Map.put(10_000, %{display_board: "10", display_special: false})
+        |> Map.put(9999, %{display_board: "1001", display_special: true})
+
+      assert labels == expected
     end
 
     test "a bye pairing (no black player) with the fixed-table player doesn't crash" do
       alice = player(id: 1, name: "Alice", fixed_board: 1001)
-      p_bye = pairing(101, 1, alice, nil)
+      p_bye = pairing(101, 1, alice, nil, "bye")
 
-      assert PairingDisplay.with_display_boards([p_bye]) == [%{pairing: p_bye, board: "1001"}]
+      assert PairingDisplay.compute_labels([p_bye]) == %{
+               101 => %{display_board: "1001", display_special: true}
+             }
     end
   end
 
-  describe "with_display_boards/1 — multiple fixed-table players, not paired together" do
-    test "special boards sort by their own fixed_board value, ascending, after every normal board" do
+  describe "compute_labels/1 — multiple fixed-table players, not paired together" do
+    test "each special board gets its own fixed_board-derived label" do
       a = player(id: 1, name: "A", fixed_board: 1002)
       b = player(id: 2, name: "B")
       c = player(id: 3, name: "C", fixed_board: 1001)
@@ -136,23 +174,23 @@ defmodule PairingsEngine.PairingDisplayTest do
       p_c = pairing(102, 2, c, d)
       p_normal = pairing(103, 3, e, f)
 
-      result = PairingDisplay.with_display_boards([p_a, p_c, p_normal])
-
-      assert [
-               %{pairing: ^p_normal, board: "1"},
-               %{pairing: ^p_c, board: "1001"},
-               %{pairing: ^p_a, board: "1002"}
-             ] = result
+      assert PairingDisplay.compute_labels([p_a, p_c, p_normal]) == %{
+               101 => %{display_board: "1002", display_special: true},
+               102 => %{display_board: "1001", display_special: true},
+               103 => %{display_board: "1", display_special: false}
+             }
     end
   end
 
-  describe "with_display_boards/1 — two fixed-table players paired against each other" do
-    test "same fixed_board value on both sides: one row, one label, no duplication" do
+  describe "compute_labels/1 — two fixed-table players paired against each other" do
+    test "same fixed_board value on both sides: one label, no duplication" do
       a = player(id: 1, name: "A", fixed_board: 1001)
       b = player(id: 2, name: "B", fixed_board: 1001)
       p = pairing(101, 1, a, b)
 
-      assert PairingDisplay.with_display_boards([p]) == [%{pairing: p, board: "1001"}]
+      assert PairingDisplay.compute_labels([p]) == %{
+               101 => %{display_board: "1001", display_special: true}
+             }
     end
 
     test "different fixed_board values on both sides: both shown, slash-joined, ascending" do
@@ -160,7 +198,9 @@ defmodule PairingsEngine.PairingDisplayTest do
       b = player(id: 2, name: "B", fixed_board: 1001)
       p = pairing(101, 1, a, b)
 
-      assert PairingDisplay.with_display_boards([p]) == [%{pairing: p, board: "1001/1002"}]
+      assert PairingDisplay.compute_labels([p]) == %{
+               101 => %{display_board: "1001/1002", display_special: true}
+             }
     end
 
     test "only one side of a fixed-table pairing has fixed_board set: uses that one value" do
@@ -168,96 +208,34 @@ defmodule PairingsEngine.PairingDisplayTest do
       b = player(id: 2, name: "B")
       p = pairing(101, 1, a, b)
 
-      assert PairingDisplay.with_display_boards([p]) == [%{pairing: p, board: "1001"}]
+      assert PairingDisplay.compute_labels([p]) == %{
+               101 => %{display_board: "1001", display_special: true}
+             }
     end
   end
 
-  describe "board_labels/1 — relabels without reordering" do
-    test "keeps the input pairings' own order (e.g. already alphabetical), just fixes the label" do
-      alice = player(id: 1, name: "Alice", fixed_board: 1001)
-      bob = player(id: 2, name: "Bob")
-      carol = player(id: 3, name: "Carol")
-      dave = player(id: 4, name: "Dave")
+  describe "with_display_boards/1 — row order over already-frozen labels" do
+    test "labels are read straight from the frozen fields, order unchanged for plain boards" do
+      p1 = frozen(101, 1, player(id: 1), player(id: 2), "", "1")
+      p2 = frozen(102, 2, player(id: 3), player(id: 4), "", "2")
 
-      p_alice = pairing(101, 1, alice, bob)
-      p_carol = pairing(102, 2, carol, dave)
-
-      # Alphabetical-ish order, not board order — board_labels/1 must not
-      # reorder these, only fix up the labels.
-      result = PairingDisplay.board_labels([p_carol, p_alice])
-
-      assert result == [
-               %{pairing: p_carol, board: "1"},
-               %{pairing: p_alice, board: "1001"}
+      assert PairingDisplay.with_display_boards([p2, p1]) == [
+               %{pairing: p1, board: "1"},
+               %{pairing: p2, board: "2"}
              ]
     end
-  end
 
-  describe "with_display_boards/1 — byes and vacant seats sort below the special boards" do
-    test "a bye sorts after every normal board and after every special board" do
-      a = player(id: 1, name: "A")
-      b = player(id: 2, name: "B")
-      bye_player = player(id: 3, name: "ByePlayer")
-      special = player(id: 4, name: "Special", fixed_board: 1001)
-      opp = player(id: 5, name: "Opp")
-
-      p_normal = pairing(101, 1, a, b)
-
-      p_bye = %Pairing{
-        id: 102,
-        board: 2,
-        white_player: bye_player,
-        black_player: nil,
-        result: "bye"
-      }
-
-      p_special = pairing(103, 3, special, opp)
-
-      result = PairingDisplay.with_display_boards([p_bye, p_special, p_normal])
-
-      assert [
-               %{pairing: ^p_normal, board: "1"},
-               %{pairing: ^p_bye, board: "2"},
-               %{pairing: ^p_special, board: "1001"}
-             ] = result
-    end
-
-    test "a vacant seat (absent player pulled out mid-round) sorts after byes and after special boards" do
-      a = player(id: 1, name: "A")
-      b = player(id: 2, name: "B")
-      lone = player(id: 3, name: "Lone")
-      bye_player = player(id: 4, name: "ByePlayer")
-      special = player(id: 5, name: "Special", fixed_board: 1001)
-      opp = player(id: 6, name: "Opp")
-
-      p_normal = pairing(101, 1, a, b)
-
-      p_vacant = %Pairing{
-        id: 102,
-        board: 2,
-        white_player: lone,
-        black_player: nil,
-        result: ""
-      }
-
-      p_bye = %Pairing{
-        id: 103,
-        board: 3,
-        white_player: bye_player,
-        black_player: nil,
-        result: "bye"
-      }
-
-      p_special = pairing(104, 4, special, opp)
+    test "normal boards first, then byes, then vacant seats, then special — each keeping its own frozen label" do
+      p_normal = frozen(101, 1, player(id: 1), player(id: 2), "", "1")
+      p_bye = frozen(102, 3, player(id: 3), nil, "bye", "3")
+      p_vacant = frozen(103, 2, player(id: 4), nil, "", "2")
+      p_special = frozen(104, 4, player(id: 5), player(id: 6), "", "1001", true)
 
       result = PairingDisplay.with_display_boards([p_special, p_vacant, p_bye, p_normal])
 
-      # Row ORDER puts the bye before the vacant seat (real boards 3 then
-      # 2 don't move the game rows around), but each one's NUMBER is still
-      # its own real-board-derived, stable label — bye keeps "3" (its real
-      # board), vacant keeps "2" — not a fresh 1/2/3 renumbering of the
-      # reordered rows. See the "stable numbering" test below for why that
-      # matters.
+      # Row ORDER groups by current bye/vacant/special status (fine to be
+      # live — reordering doesn't renumber anyone), but every label is the
+      # frozen one, untouched.
       assert [
                %{pairing: ^p_normal, board: "1"},
                %{pairing: ^p_bye, board: "3"},
@@ -266,69 +244,33 @@ defmodule PairingsEngine.PairingDisplayTest do
              ] = result
     end
 
-    test "marking a player absent never renumbers any OTHER board — the crux of the fix" do
-      # Three ordinary boards, 1/2/3. Board 2's white player is then
-      # marked absent (a vacant seat, same shape `vacate_seat/3` writes),
-      # simulating an arbiter action mid-round. Boards 1 and 3 must show
-      # exactly the numbers they always did — an arbiter marking ONE
-      # player absent must not send everyone else hunting for a
-      # relabeled board while they're already seated.
-      a = player(id: 1, name: "A")
-      b = player(id: 2, name: "B")
-      lone = player(id: 3, name: "Lone")
-      c = player(id: 4, name: "C")
-      d = player(id: 5, name: "D")
+    test "multiple special boards sort by real board, keeping their own frozen labels" do
+      p_a = frozen(101, 1, player(id: 1), player(id: 2), "", "1002", true)
+      p_c = frozen(102, 2, player(id: 3), player(id: 4), "", "1001", true)
+      p_normal = frozen(103, 3, player(id: 5), player(id: 6), "", "1")
 
-      p1 = pairing(101, 1, a, b)
-      p2 = %Pairing{id: 102, board: 2, white_player: lone, black_player: nil, result: ""}
-      p3 = pairing(103, 3, c, d)
-
-      result = PairingDisplay.with_display_boards([p1, p2, p3])
+      result = PairingDisplay.with_display_boards([p_a, p_c, p_normal])
 
       assert [
-               %{pairing: ^p1, board: "1"},
-               %{pairing: ^p3, board: "3"},
-               %{pairing: ^p2, board: "2"}
+               %{pairing: ^p_normal, board: "1"},
+               %{pairing: ^p_a, board: "1002"},
+               %{pairing: ^p_c, board: "1001"}
              ] = result
-    end
-
-    test "a fixed-table player's bye still sorts and labels as special, not as a bye row" do
-      alice = player(id: 1, name: "Alice", fixed_board: 1001)
-      p_bye = %Pairing{id: 101, board: 1, white_player: alice, black_player: nil, result: "bye"}
-      p_normal = pairing(102, 2, player(id: 2, name: "B"), player(id: 3, name: "C"))
-
-      result = PairingDisplay.with_display_boards([p_bye, p_normal])
-
-      assert result == [
-               %{pairing: p_normal, board: "1"},
-               %{pairing: p_bye, board: "1001"}
-             ]
     end
   end
 
-  describe "board_labels/1 — byes and vacant seats get the same tail numbers as with_display_boards/1" do
-    test "labels a bye/vacant with the number it would get if the rows were reordered, without moving them" do
-      a = player(id: 1, name: "A")
-      b = player(id: 2, name: "B")
-      bye_player = player(id: 3, name: "ByePlayer")
+  describe "board_labels/1 — relabels without reordering" do
+    test "keeps the input pairings' own order, reading each frozen label as-is" do
+      p_alice = frozen(101, 1, player(id: 1), player(id: 2), "", "1001", true)
+      p_carol = frozen(102, 2, player(id: 3), player(id: 4), "", "1")
 
-      p_normal = pairing(101, 1, a, b)
-
-      p_bye = %Pairing{
-        id: 102,
-        board: 2,
-        white_player: bye_player,
-        black_player: nil,
-        result: "bye"
-      }
-
-      # Given in "alphabetical" order (bye row first) — board_labels/1 must
-      # not reorder, only get the label right.
-      result = PairingDisplay.board_labels([p_bye, p_normal])
+      # Alphabetical-ish order, not board order — board_labels/1 must not
+      # reorder these, only report the label.
+      result = PairingDisplay.board_labels([p_carol, p_alice])
 
       assert result == [
-               %{pairing: p_bye, board: "2"},
-               %{pairing: p_normal, board: "1"}
+               %{pairing: p_carol, board: "1"},
+               %{pairing: p_alice, board: "1001"}
              ]
     end
   end

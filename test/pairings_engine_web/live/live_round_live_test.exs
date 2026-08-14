@@ -102,6 +102,8 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
       result: ""
     })
 
+    :ok = Tournaments.freeze_round_display_boards!(round.id)
+
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/live")
 
     # Not a bare `refute html =~ ~s(<td class="num">2</td>)` — the

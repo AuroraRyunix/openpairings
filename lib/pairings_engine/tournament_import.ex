@@ -201,6 +201,15 @@ defmodule PairingsEngine.TournamentImport do
 
         %Pairing{round_id: new_round.id} |> Pairing.changeset(attrs) |> insert!()
       end)
+
+      # Recomputed fresh from the just-imported players' own (faithfully
+      # round-tripped) fixed_board values, rather than carried across in the
+      # export payload — see PairingsEngine.PairingDisplay's moduledoc for
+      # why this must never be read live again after today, once whatever
+      # created this round (a plain "Import backup" or
+      # PairingsEngine.Snapshots.restore/3, both of which call this) is
+      # done.
+      PairingsEngine.Tournaments.freeze_round_display_boards!(new_round.id)
     end)
   end
 

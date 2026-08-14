@@ -424,6 +424,8 @@ defmodule PairingsEngine.RoundRobin do
         Tournaments.invalidate_manual_ranking(tournament.id)
       end
 
+      Tournaments.freeze_round_display_boards!(round.id)
+
       round
     end)
   end

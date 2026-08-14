@@ -7,6 +7,20 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Giving a player a fixed (accessible) board after their round was already
+  paired silently renumbered every board after theirs** — `PairingDisplay`
+  read `Player.fixed_board` live on every render, so an arbiter editing a
+  player's fixed board mid-round (e.g. on the Players page) retroactively
+  moved that player's pairing to the special/end-of-list group and closed the
+  gap in the ordinary sequence, shifting every board number after it, while
+  people were already seated. The special/ordinary classification and board
+  label are now computed exactly once, at the moment a round is (re-)paired —
+  ordinary pairing, round-robin, Keizer, or an import/restore — and frozen
+  onto the pairing (`display_board`/`display_special`). Editing a player's
+  fixed board no longer has any effect on an already-paired round; it only
+  takes effect the next time that round is paired (a fresh round, or an
+  explicit unpair-and-re-pair). The narrower survivor of the 0.14.6
+  board-renumbering bug class.
 - **The top bar overflowed the page horizontally at laptop widths** (roughly
   769-1280px, i.e. most laptops with the window not maximised) — the auth
   cluster (FIDE/KBSB sync status, email, Settings, Log out, version) never

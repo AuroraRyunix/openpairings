@@ -41,6 +41,16 @@ defmodule PairingsEngine.Tournaments.Pairing do
     field :result, :string, default: ""
     field :match_id, :integer
 
+    # The label/classification PairingDisplay prints for this board, frozen
+    # once by PairingsEngine.Tournaments.freeze_round_display_boards!/1 at
+    # the moment the round is paired (or re-paired) — never touched again,
+    # not even by a later edit to a player's fixed_board. Deliberately kept
+    # out of changeset/2's cast list: PairingDisplay.compute_labels/1 and
+    # the freeze wrapper are the only legitimate writers. See
+    # PairingsEngine.PairingDisplay's moduledoc for why.
+    field :display_board, :string
+    field :display_special, :boolean, default: false
+
     belongs_to :round, PairingsEngine.Tournaments.Round
     belongs_to :white_player, PairingsEngine.Tournaments.Player
     belongs_to :black_player, PairingsEngine.Tournaments.Player

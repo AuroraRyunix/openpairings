@@ -40,6 +40,12 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       result: "1-0"
     })
 
+    # Every production call site freezes display labels immediately after a
+    # round's pairings are inserted — do the same here so this fixture
+    # matches reality.
+    :ok = Tournaments.freeze_round_display_boards!(r1.id)
+    :ok = Tournaments.freeze_round_display_boards!(r2.id)
+
     tournament
   end
 
@@ -268,6 +274,8 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       result: ""
     })
 
+    :ok = Tournaments.freeze_round_display_boards!(round.id)
+
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 
     assert html =~ ~s(<td class="num">1001</td>)
@@ -313,6 +321,8 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       black_player_id: bob.id,
       result: ""
     })
+
+    :ok = Tournaments.freeze_round_display_boards!(round.id)
 
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 
@@ -363,9 +373,27 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     conn: conn,
     scope: scope
   } do
-    tournament = fixture(scope)
-    player_a = Repo.get_by!(Player, tournament_id: tournament.id, name: "A")
-    Repo.update!(Ecto.Changeset.change(player_a, fixed_board: 7))
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{
+        "name" => "Pairings Print Test",
+        "type" => "swiss",
+        "rounds_count" => "1"
+      })
+
+    a = Repo.insert!(%Player{tournament_id: tournament.id, name: "A", fixed_board: 7})
+    b = Repo.insert!(%Player{tournament_id: tournament.id, name: "B"})
+
+    round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+
+    Repo.insert!(%Pairing{
+      round_id: round.id,
+      board: 1,
+      white_player_id: a.id,
+      black_player_id: b.id,
+      result: ""
+    })
+
+    :ok = Tournaments.freeze_round_display_boards!(round.id)
 
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 
@@ -375,6 +403,23 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     # this round's fixture, so there's no ordinary board left to
     # demonstrate the gap-closing here (see PairingDisplayTest for that).
     refute html =~ ~s(<td class="num">1</td>)
+  end
+
+  test "a fixed_board set AFTER the round is already paired has no effect on that round", %{
+    conn: conn,
+    scope: scope
+  } do
+    tournament = fixture(scope)
+    player_a = Repo.get_by!(Player, tournament_id: tournament.id, name: "A")
+
+    Repo.update!(Ecto.Changeset.change(player_a, fixed_board: 7))
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+    # The round was already paired before fixed_board was set — its board
+    # still reads "1" (the frozen label), never "7".
+    refute html =~ ~s(<td class="num">7</td>)
+    assert html =~ ~s(<td class="num">1</td>)
   end
 
   ## ---------- CSV results import ----------

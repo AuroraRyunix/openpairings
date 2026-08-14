@@ -172,6 +172,8 @@ defmodule PairingsEngineWeb.PublicPairingsLiveTest do
       result: ""
     })
 
+    :ok = Tournaments.freeze_round_display_boards!(round.id)
+
     {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/pairings")
 
     assert html =~ ~s(<td class="num">1001</td>)

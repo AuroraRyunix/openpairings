@@ -449,6 +449,8 @@ defmodule PairingsEngine.TrfImport do
 
       Repo.insert_all("byes", rows)
     end
+
+    PairingsEngine.Tournaments.freeze_round_display_boards!(round.id)
   end
 
   # Walks each player's round entry (in starting-rank order) and, for a

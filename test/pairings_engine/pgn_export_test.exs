@@ -68,6 +68,12 @@ defmodule PairingsEngine.PgnExportTest do
       result: ""
     })
 
+    # Every production call site freezes display labels immediately after a
+    # round's pairings are inserted — do the same here so this fixture
+    # matches reality.
+    :ok = Tournaments.freeze_round_display_boards!(r1.id)
+    :ok = Tournaments.freeze_round_display_boards!(r2.id)
+
     tournament
   end
 
@@ -179,21 +185,53 @@ defmodule PairingsEngine.PgnExportTest do
   end
 
   test "board: true uses the DISPLAY board number, not the raw one — a fixed-table game renumbers/moves like everywhere else" do
+    # fixed_board must be set BEFORE the round is paired/frozen — see
+    # PairingsEngine.PairingDisplay's moduledoc: this is no longer read
+    # live, so setting it on an already-paired round (as this test used to)
+    # would no longer have any effect. Built standalone rather than via
+    # `fixture/2` so Bob's fixed_board is in place before
+    # Tournaments.freeze_round_display_boards!/1 runs.
     scope = user_scope_fixture()
-    tournament = fixture(scope)
 
-    # A fixed-table player is relabeled to their fixed_board and moved to
-    # the end, same as `PairingDisplay`'s doctest and every other view —
-    # this pins the export to THAT number, not `pairing.board`. Bob, not
-    # Alice: Alice is double-booked in this fixture's round 1 (board 1's
-    # real game AND board 2's bye), so pinning the fixed board to her
-    # would be ambiguous about which pairing owns it.
-    bob = Repo.get_by!(Player, tournament_id: tournament.id, name: "Bob, B.")
-    Repo.update!(Ecto.Changeset.change(bob, fixed_board: 1001))
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{
+        "name" => "PGN Export Fixed Board Test",
+        "type" => "swiss",
+        "rounds_count" => "1"
+      })
+
+    alice = Repo.insert!(%Player{tournament_id: tournament.id, name: "Alice, A."})
+    bob = Repo.insert!(%Player{tournament_id: tournament.id, name: "Bob, B.", fixed_board: 1001})
+
+    r1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
+
+    Repo.insert!(%Pairing{
+      round_id: r1.id,
+      board: 1,
+      white_player_id: alice.id,
+      black_player_id: bob.id,
+      result: "1-0"
+    })
+
+    :ok = Tournaments.freeze_round_display_boards!(r1.id)
 
     text = PgnExport.export(tournament, 1, board: true)
     assert text =~ ~s([Board "1001"])
     refute text =~ ~s([Board "1"])
+  end
+
+  test "a fixed_board set AFTER the round is already paired has no effect on the export" do
+    scope = user_scope_fixture()
+    tournament = fixture(scope)
+
+    text_before = PgnExport.export(tournament, 1, board: true)
+
+    bob = Repo.get_by!(Player, tournament_id: tournament.id, name: "Bob, B.")
+    Repo.update!(Ecto.Changeset.change(bob, fixed_board: 1001))
+
+    text_after = PgnExport.export(tournament, 1, board: true)
+
+    assert text_before == text_after
   end
 
   test "a control character in a name can't inject a PGN tag line" do

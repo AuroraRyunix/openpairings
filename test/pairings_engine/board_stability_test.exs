@@ -1,21 +1,38 @@
 defmodule PairingsEngine.BoardStabilityTest do
   @moduledoc """
-  Regression net for one class of bug, found the hard way in 0.14.6: a
-  board's displayed number was derived from its position within a *filtered*
-  collection, so changing one board's status silently renumbered every board
-  after it — mid-round, with people already seated at them.
+  Regression net for two related instances of one bug class, both found the
+  hard way in production: a board's displayed number was derived LIVE from
+  something outside that board's own row, so changing something unrelated
+  silently renumbered a board that nobody touched — mid-round, with people
+  already seated at it.
+
+    * 0.14.6: the number came from a board's POSITION within a filtered
+      collection (bye/vacant/normal buckets) — fixed by numbering every
+      non-special pairing in one pass, sorted by real board, regardless of
+      bye/vacant/normal status. See the "survives changes to another
+      board" tests below.
+
+    * The narrower survivor: the SPECIAL/ordinary split itself was read
+      LIVE from `Player.fixed_board` on every render, so giving a player a
+      fixed (accessible) table *after* their round was already paired
+      retroactively renumbered every board after theirs. Fixed by freezing
+      `PairingDisplay.compute_labels/1`'s output onto
+      `Pairing.display_board`/`display_special`, once, at the moment a
+      round is (re-)paired — see `PairingsEngine.Tournaments.freeze_round_display_boards!/1`
+      and `PairingsEngine.PairingDisplay`'s moduledoc. See the "frozen at
+      pairing time" tests below.
 
   The invariant these tests pin, stated once:
 
-      Changing ANYTHING about one board must never change the number
-      displayed next to a DIFFERENT board.
-
-  Each test below does something to board 2 of a five-board round and
-  asserts boards 1, 3, 4 and 5 kept their numbers.
+      Changing ANYTHING about one board, or about a player who isn't
+      currently seated at it, must never change the number displayed next
+      to a board it doesn't touch — and once a round is paired, NOTHING
+      short of re-pairing (or an explicit freeze) may change its numbers
+      at all.
   """
   use PairingsEngine.DataCase, async: true
 
-  alias PairingsEngine.{PairingDisplay, Repo}
+  alias PairingsEngine.{PairingDisplay, Repo, Tournaments}
   alias PairingsEngine.Tournaments.{Pairing, Player, Round, Tournament}
 
   defp fixture do
@@ -42,6 +59,12 @@ defmodule PairingsEngine.BoardStabilityTest do
           result: ""
         })
       end)
+
+    # Every production call site freezes display labels immediately after
+    # inserting a round's pairings (see Tournaments.freeze_round_display_boards!/1's
+    # callers) — do the same here so the fixture matches reality instead of
+    # leaving display_board nil, which no real round ever does.
+    :ok = Tournaments.freeze_round_display_boards!(round.id)
 
     {t, round, players, pairings}
   end
@@ -123,64 +146,116 @@ defmodule PairingsEngine.BoardStabilityTest do
 
       untouched(before_labels, labels(round.id), 2)
     end
+  end
 
-    test "a player's OWN fixed board is what relabels their board, not a neighbour's" do
-      {_t, round, players, _pairings} = fixture()
+  describe "special/ordinary labels are frozen at pairing time, never live again" do
+    test "fixed_board set BEFORE pairing is what the freeze picks up" do
+      t = Repo.insert!(%Tournament{name: "Pre-set", type: "swiss", rounds_count: 3})
+
+      players =
+        for n <- 1..6 do
+          Repo.insert!(%Player{tournament_id: t.id, name: "Player #{n}"})
+        end
 
       players |> Enum.at(2) |> Ecto.Changeset.change(fixed_board: 1001) |> Repo.update!()
 
-      # The board whose player moved is relabelled — that much is the point
-      # of the feature.
-      assert labels(round.id)[2] == "1001"
+      round = Repo.insert!(%Round{tournament_id: t.id, number: 1, status: "playing"})
+
+      pairings =
+        players
+        |> Enum.chunk_every(2)
+        |> Enum.with_index(1)
+        |> Enum.map(fn {[w, b], board} ->
+          Repo.insert!(%Pairing{
+            round_id: round.id,
+            board: board,
+            white_player_id: w.id,
+            black_player_id: b.id,
+            result: ""
+          })
+        end)
+
+      :ok = Tournaments.freeze_round_display_boards!(round.id)
+
+      result = labels(round.id)
+      # Board 2 held the fixed_board player (players 3 & 4 → board 2) —
+      # freezing at pairing time is exactly the normal, wanted case: no
+      # hole left in the ordinary sequence.
+      changed_board = Enum.at(pairings, 1).board
+      assert result[changed_board] == "1001"
+      assert result |> Map.values() |> Enum.sort() == ["1", "2", "1001"] |> Enum.sort()
     end
 
-    @tag :known_gap
-    test "KNOWN GAP: setting a fixed board mid-round DOES renumber later boards" do
+    test "setting a player's fixed_board AFTER the round is paired changes nothing" do
       {_t, round, players, _pairings} = fixture()
       before_labels = labels(round.id)
 
-      # This is the one surviving instance of the 0.14.6 class of bug, kept
-      # here as an executable record rather than silently "fixed", because
-      # the two goals genuinely conflict:
-      #
-      #   * A fixed-board player must not leave a hole in the ordinary
-      #     sequence (the reason the feature exists) — which means the
-      #     remaining boards close up.
-      #   * A board's number must not move because another board changed
-      #     (the reason 0.14.6 was a bug) — which means they must not.
-      #
-      # They only collide when `fixed_board` is set AFTER the round is
-      # paired. Set before pairing — the normal case — closing the gap is
-      # exactly right and nothing is live to disturb. Changing this is a
-      # product call, not a refactor, so it is reported rather than assumed.
+      # This is the bug this freeze exists to close: giving a player a
+      # fixed (accessible) table after people are already seated must
+      # never retroactively renumber their board, or any other board, in
+      # an already-paired round.
       players |> Enum.at(2) |> Ecto.Changeset.change(fixed_board: 1001) |> Repo.update!()
 
-      after_labels = labels(round.id)
-
-      assert before_labels[3] == "3"
-
-      assert after_labels[3] == "2",
-             "if this now says 3, the gap was closed differently — " <>
-               "update this test and the note above"
-
-      assert after_labels[4] == "3"
-      assert after_labels[5] == "4"
-      # Board 1 sits before the change and is unaffected either way.
-      assert after_labels[1] == "1"
+      assert labels(round.id) == before_labels
     end
 
-    test "clearing a fixed board restores the ordinary numbering" do
+    test "clearing a player's fixed_board mid-round changes nothing either" do
       {_t, round, players, _pairings} = fixture()
       before_labels = labels(round.id)
 
       player = Enum.at(players, 2)
       player |> Ecto.Changeset.change(fixed_board: 1001) |> Repo.update!()
-
-      # Reload: reusing the stale struct makes `change(fixed_board: nil)` a
-      # no-op (nil -> nil), which silently turns this into a test of nothing.
       player |> Repo.reload!() |> Ecto.Changeset.change(fixed_board: nil) |> Repo.update!()
 
       assert labels(round.id) == before_labels
+    end
+
+    test "re-pairing (a fresh round) reflects fixed_board as it stands at that later moment" do
+      {t, _round1, players, _pairings} = fixture()
+
+      players |> Enum.at(6) |> Ecto.Changeset.change(fixed_board: 42) |> Repo.update!()
+
+      round2 = Repo.insert!(%Round{tournament_id: t.id, number: 2, status: "playing"})
+
+      pairings2 =
+        players
+        |> Enum.chunk_every(2)
+        |> Enum.with_index(1)
+        |> Enum.map(fn {[w, b], board} ->
+          Repo.insert!(%Pairing{
+            round_id: round2.id,
+            board: board,
+            white_player_id: w.id,
+            black_player_id: b.id,
+            result: ""
+          })
+        end)
+
+      :ok = Tournaments.freeze_round_display_boards!(round2.id)
+
+      # Player 7 (index 6) is on board 4 of round 2 — freezing a NEW round
+      # is exactly "when I click pair", so it correctly picks up the
+      # fixed_board that was set in between round 1 and round 2.
+      changed_board = Enum.at(pairings2, 3).board
+      assert labels(round2.id)[changed_board] == "42"
+    end
+
+    test "an explicit re-freeze (not an automatic one) does pick up a later fixed_board change" do
+      {_t, round, players, pairings} = fixture()
+
+      # Player index 2 ("Player 3") sits on board 2 (players are chunked
+      # [1,2]->board 1, [3,4]->board 2, ...).
+      players |> Enum.at(2) |> Ecto.Changeset.change(fixed_board: 1001) |> Repo.update!()
+      changed_board = Enum.at(pairings, 1).board
+      assert labels(round.id)[changed_board] != "1001"
+
+      # There is no automatic trigger for this — an arbiter would have to
+      # explicitly unpair and re-pair the round. This test only confirms
+      # freeze_round_display_boards!/1 itself is not stale logic: calling
+      # it again does reflect current fixed_board state, it is simply never
+      # called again automatically.
+      :ok = Tournaments.freeze_round_display_boards!(round.id)
+      assert labels(round.id)[changed_board] == "1001"
     end
   end
 
