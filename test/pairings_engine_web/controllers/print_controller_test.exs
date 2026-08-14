@@ -109,6 +109,40 @@ defmodule PairingsEngineWeb.PrintControllerTest do
   # renderings of the same page are never byte-identical. Compare the content.
   defp without_nonce(html), do: String.replace(html, ~r/nonce="[^"]*"/, ~s(nonce="_"))
 
+  # A 2-player, single-board round, for the `fixed_board_note/1` tests below
+  # (score sheets / result cards). `before_pairing: true` sets player A's
+  # `fixed_board` before the round is created (and frozen) — the note should
+  # show. `before_pairing: false` freezes an ordinary round first and leaves
+  # `fixed_board` unset, so the caller can set it mid-round afterwards to
+  # exercise the "must not retroactively affect an already-frozen round" case.
+  defp fixed_board_fixture(scope, before_pairing: before_pairing?) do
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{
+        "name" => "Fixed Board Note Test",
+        "type" => "swiss",
+        "rounds_count" => "1"
+      })
+
+    a = Repo.insert!(%Player{tournament_id: tournament.id, name: "A"})
+    b = Repo.insert!(%Player{tournament_id: tournament.id, name: "B"})
+
+    if before_pairing?, do: a |> Ecto.Changeset.change(fixed_board: 5) |> Repo.update!()
+
+    round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+
+    Repo.insert!(%Pairing{
+      round_id: round.id,
+      board: 1,
+      white_player_id: a.id,
+      black_player_id: b.id,
+      result: ""
+    })
+
+    :ok = Tournaments.freeze_round_display_boards!(round.id)
+
+    {tournament, round, %{a: Repo.reload!(a), b: b}}
+  end
+
   describe "pairing_list/2" do
     test "?round=1 renders round 1's board pairings, not round 2's", %{conn: conn, scope: scope} do
       {tournament, _players} = fixture(scope)
@@ -582,17 +616,41 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       refute html =~ ~s(class="result-card")
     end
 
-    test "a board involving a player with a fixed_board override is annotated", %{
-      conn: conn,
-      scope: scope
-    } do
-      {tournament, %{a: a}} = fixture(scope)
-      a |> Ecto.Changeset.change(fixed_board: 5) |> Repo.update!()
+    test "a board involving a player with a fixed_board override, set BEFORE pairing, is annotated",
+         %{conn: conn, scope: scope} do
+      {tournament, round, %{a: a}} = fixed_board_fixture(scope, before_pairing: true)
+      assert Repo.get!(Player, a.id).fixed_board == 5
 
-      conn = get(conn, ~p"/t/#{tournament.id}/print/results?round=1")
+      conn = get(conn, ~p"/t/#{tournament.id}/print/results?round=#{round.number}")
 
       html = html_response(conn, 200)
       assert html =~ "(table 5)"
+    end
+
+    # Regression for the bug where `fixed_board_note/1` read `Player.fixed_board`
+    # LIVE instead of the pairing's own frozen `display_special`/`display_board`
+    # (see `PairingsEngine.BoardStabilityTest` and `PairingsEngine.PairingDisplay`'s
+    # moduledoc): setting a player's fixed_board mid-round, after the round was
+    # already paired (and frozen), must not retroactively add a note that
+    # disagrees with the frozen main pairing sheet for the same round.
+    test "a fixed_board set AFTER the round is already paired and frozen has no effect on the reprinted card",
+         %{conn: conn, scope: scope} do
+      {tournament, round, %{a: a}} = fixed_board_fixture(scope, before_pairing: false)
+
+      html_before =
+        get(conn, ~p"/t/#{tournament.id}/print/results?round=#{round.number}")
+        |> html_response(200)
+
+      refute html_before =~ "(table"
+
+      a |> Ecto.Changeset.change(fixed_board: 5) |> Repo.update!()
+
+      html_after =
+        get(conn, ~p"/t/#{tournament.id}/print/results?round=#{round.number}")
+        |> html_response(200)
+
+      refute html_after =~ "(table"
+      assert without_nonce(html_before) == without_nonce(html_after)
     end
 
     # Eight compact cards per A4 page (down from three tall ones) — see
@@ -771,6 +829,42 @@ defmodule PairingsEngineWeb.PrintControllerTest do
         |> Enum.map(fn [_, n] -> String.to_integer(n) end)
 
       assert actual_whites == [1, 3, 5, 7]
+    end
+  end
+
+  describe "score_sheets/2" do
+    test "a board involving a player with a fixed_board override, set BEFORE pairing, is annotated",
+         %{conn: conn, scope: scope} do
+      {tournament, round, %{a: a}} = fixed_board_fixture(scope, before_pairing: true)
+      assert Repo.get!(Player, a.id).fixed_board == 5
+
+      conn = get(conn, ~p"/t/#{tournament.id}/print/scoresheets?round=#{round.number}")
+
+      html = html_response(conn, 200)
+      assert html =~ "(table 5)"
+    end
+
+    # Same regression as result_cards/2 above, for the other print document
+    # that goes through `fixed_board_note/1` — a mid-round fixed_board edit
+    # must not retroactively add a note to an already-frozen round's sheets.
+    test "a fixed_board set AFTER the round is already paired and frozen has no effect on the reprinted sheet",
+         %{conn: conn, scope: scope} do
+      {tournament, round, %{a: a}} = fixed_board_fixture(scope, before_pairing: false)
+
+      html_before =
+        get(conn, ~p"/t/#{tournament.id}/print/scoresheets?round=#{round.number}")
+        |> html_response(200)
+
+      refute html_before =~ "(table"
+
+      a |> Ecto.Changeset.change(fixed_board: 5) |> Repo.update!()
+
+      html_after =
+        get(conn, ~p"/t/#{tournament.id}/print/scoresheets?round=#{round.number}")
+        |> html_response(200)
+
+      refute html_after =~ "(table"
+      assert without_nonce(html_before) == without_nonce(html_after)
     end
   end
 

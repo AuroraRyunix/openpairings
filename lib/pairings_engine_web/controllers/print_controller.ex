@@ -1330,19 +1330,22 @@ defmodule PairingsEngineWeb.PrintController do
   # `fixed_board` override (SWAR "special table") — e.g. "(table 5)". Real
   # board renumbering happens nowhere; this purely flags it for the arbiter
   # printing the sheet. See docs/printing.md.
-  defp fixed_board_note(pairing) do
-    boards =
-      [pairing.white_player, pairing.black_player]
-      |> Enum.reject(&is_nil/1)
-      |> Enum.map(& &1.fixed_board)
-      |> Enum.reject(&is_nil/1)
-      |> Enum.uniq()
-
-    case boards do
-      [] -> ""
-      boards -> " <span class=\"fixed-board-note\">(table #{Enum.join(boards, ", ")})</span>"
-    end
+  #
+  # Reads the pairing's own FROZEN `display_special`/`display_board`
+  # columns (see `PairingsEngine.PairingDisplay`'s moduledoc and
+  # `Tournaments.freeze_round_display_boards!/1`) instead of live
+  # `Player.fixed_board` — `PairingDisplay.compute_labels/1` is documented
+  # as the only place in the app allowed to read `fixed_board` for display
+  # purposes, and reading it again here would let a fixed_board edit made
+  # AFTER a round is paired retroactively change what an already-printed
+  # score sheet/result card shows for that same round, disagreeing with the
+  # frozen main pairing sheet for boards that were never special at pairing
+  # time (or vice versa).
+  defp fixed_board_note(%{display_special: true, display_board: label}) do
+    " <span class=\"fixed-board-note\">(table #{label})</span>"
   end
+
+  defp fixed_board_note(_pairing), do: ""
 
   # A `?round=` that isn't a positive integer is treated as "no round given"
   # (the caller falls back to the default), the same forgiving way `parse_limit`
