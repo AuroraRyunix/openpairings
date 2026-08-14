@@ -1272,15 +1272,25 @@ button.pe-btn, .pe-btn {
 /* before/after board cards */
 .board-diff {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  /* `start`, not `center`: a long name wraps to two lines in one card
-     but not its opposite (e.g. "IM Van Assendelft, Floris" on the White
-     row of one card, on the Black row of the other) — centering made
-     the TALLER card grow upward as well as downward, so its own White
-     row landed at a different height than the other card's White row
-     even though nothing about White changed. Aligning both cards to the
-     same top edge keeps row 1 level across the pair; only a card's OWN
-     later rows shift if it's the taller one. */
+  /* Each card is sized to its OWN content (`max-content`) instead of being
+     forced into a shared `1fr`/`1fr` split — names no longer wrap (see
+     `.board-seat-name` below), so every card is a fixed, static height
+     (exactly two seat rows, or three with a swap-ref chip); what used to
+     vary was HEIGHT, and forcing equal width bought nothing once height
+     can't mismatch. `minmax(0, max-content)` on both card columns is what
+     keeps this bounded rather than free-floating: if the two cards'
+     combined natural width ever exceeds what's actually available inside
+     `.pe-modal-card` (its `max-width` minus body padding minus this grid's
+     own gaps/arrow column), Grid shrinks both card tracks down from that
+     ceiling instead of overflowing the modal — the same safety-valve role
+     `.board-seat-name`'s own `max-width` plays one level down, for a
+     single pathologically long name inside one card. */
+  grid-template-columns: minmax(0, max-content) auto minmax(0, max-content);
+  /* Still `start`, not `center`: it no longer has to defend against a
+     wrapped name growing one card upward as well as downward, but the two
+     cards of a pair can still legitimately differ in row count (e.g. only
+     the "after" card gets a swap-ref chip row) — `start` is what keeps
+     both cards' first (White) row level regardless. */
   align-items: start;
   gap: 10px;
   margin-bottom: 12px;
@@ -1302,7 +1312,9 @@ button.pe-btn, .pe-btn {
 /* Arrows on: the static "→" glyphs give up their column, which widens
    into the channel the curves are routed through. `visibility` rather
    than `display` so the column keeps a stable box either way. */
-.board-diff-group.has-swap-arrows .board-diff { grid-template-columns: 1fr 56px 1fr; }
+.board-diff-group.has-swap-arrows .board-diff {
+  grid-template-columns: minmax(0, max-content) 56px minmax(0, max-content);
+}
 .board-diff-group.has-swap-arrows .board-diff-arrow { visibility: hidden; }
 /* Each arrow's actual colour is set inline by the hook, matching its own
    traveller's `--swap-color` (read straight off the seat elements it
@@ -1329,6 +1341,12 @@ button.pe-btn, .pe-btn {
    whichever card is taller's vertical middle, same as it always did. */
 .board-diff-arrow { align-self: center; color: var(--text-soft); font-size: 18px; }
 .board-card {
+  /* `min-width: 0` overrides the grid item's implied minimum size (which
+     defaults to its content's natural width, i.e. `auto`) — without it,
+     the `minmax(0, max-content)` on `.board-diff`'s column would never
+     actually get to shrink this card below its own longest unbroken row,
+     defeating the whole point of the safety valve above. */
+  min-width: 0;
   padding: 9px 11px;
   border-radius: 9px;
   border: 1px solid var(--border);
@@ -1338,10 +1356,12 @@ button.pe-btn, .pe-btn {
   border-color: color-mix(in srgb, var(--accent) 55%, transparent);
   background: color-mix(in srgb, var(--accent) 7%, var(--surface));
 }
-/* `flex-wrap: wrap` is for the "⇄ Board N" chip specifically (see its
-   own `flex-basis: 100%` below) — it has nothing to do with the NAME
-   wrapping, which is `.board-seat-name`'s own `overflow-wrap` doing its
-   job regardless of this row's own flex-wrap setting. */
+/* `flex-wrap: wrap` exists for exactly one reason now: the "⇄ Board N"
+   chip's own `flex-basis: 100%` below, which relies on being able to drop
+   to a second line under the name. The name itself never wraps any more
+   (`.board-seat-name` is `nowrap` + ellipsis) — a seat row is either one
+   line (no chip) or two (chip), never more, so a card's height is a fixed
+   function of how many rows it has, not of how long any name is. */
 .board-seat { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 3px 0; font-size: 14px; }
 /* W/B letter badges, not a coloured dot — the dot used to sit on a fixed
    red backdrop (deliberately not a theme token, since a plain white dot
@@ -1377,7 +1397,25 @@ button.pe-btn, .pe-btn {
   color: #f7f3e8;
   border-color: #1c1a15;
 }
-.board-seat-name { overflow-wrap: anywhere; }
+/* Static height, variable width: a name never wraps to a second line
+   (that's what let one card in a before/after pair grow taller than its
+   partner — see `.board-diff`'s comment). `min-width: 0` is required for
+   the `text-overflow: ellipsis` below to ever actually engage: this is a
+   flex item, and a flex item's default minimum width is its content's
+   natural width, which would silently stretch the row (and the card, and
+   the whole modal) rather than truncate. `max-width` is the safety valve
+   for one pathologically long name — everything up to it is handled by
+   `.board-diff`'s own `minmax(0, max-content)` column sizing instead, so
+   normal names are never truncated, only ones that would blow the modal's
+   width budget on their own. */
+.board-seat-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 200px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 
 /* `--swap-color` is set inline per seat by `board_card/1` — see
    `identity_colors/1`'s own comment for why (every distinct player in
@@ -1396,15 +1434,20 @@ button.pe-btn, .pe-btn {
    after cards otherwise leave the arbiter to piece together themselves.
    Tinted to match its own traveller, same fallback as the name above. */
 .board-seat-swap-ref {
-  /* Forced onto its own line — see `.board-seat`'s `flex-wrap`. Sitting
-     inline with the name meant this chip ate into the name's own
-     available width on ONLY the "after" card (the one side that ever
-     gets a chip at all), so a name long enough to wrap wrapped harder
-     there than the exact same text on the "before" card managed
-     without a chip competing for room — the two cards of a pair ending
-     up mismatched in height purely because of the chip, not the name
-     itself. On its own line, the chip can no longer do that: the name
-     gets the same width to wrap into on both sides regardless. */
+  /* Still forced onto its own line — see `.board-seat`'s `flex-wrap` — but
+     for a different reason than it used to be. It originally existed
+     because sitting inline ate into the wrapping NAME's available width
+     on only the "after" card (the one side that ever gets a chip), so the
+     same name wrapped harder there than on its chip-less "before"
+     partner, mismatching the pair's height. Names don't wrap at all any
+     more, so that specific failure mode is gone — but the reasoning still
+     applies one level up: `.board-diff` now sizes each card to its own
+     `max-content`, and an inline chip would inflate the "after" card's
+     max-content (and so its rendered width) beyond its chip-less "before"
+     partner for no reason a reader could see, making an otherwise
+     identical pair look lopsided. On its own line the chip can't feed
+     into the row's width at all, so a pair's two cards stay the same
+     width whenever their names are. */
   flex-basis: 100%;
   display: inline-flex;
   align-items: center;
