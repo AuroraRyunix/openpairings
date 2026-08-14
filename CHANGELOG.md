@@ -5,6 +5,23 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Hide a fully-vacated board, or delete the round's actual last one** — two
+  ways to clean up a pairing row that's left over from marking both players
+  on it absent, without ever risking the 0.14.6 board-renumbering bug class
+  again. "Hide" (right-click the empty board, or from the new "Hidden
+  boards" panel) is a display-only, fully reversible toggle — it's skipped
+  by PairingsLive, LiveRoundLive, PublicPairingsLive and print docs, but the
+  row, its frozen `display_board`, audit history and TRF/export data are
+  completely untouched, and never interacts with `PairingDisplay`'s freeze
+  mechanism at all. "Delete" is a real, permanent removal, but is only ever
+  offered — and only ever accepted server-side — on the round's own current
+  highest real board number, since deleting the trailing row is the one
+  deletion that can never require renumbering anything after it. It goes
+  through the same confirm-modal pattern as every other hand-edit gesture on
+  this page.
+
 ### Fixed
 
 - **An archived tournament's Pairings page let you enter/change results** —

@@ -259,6 +259,62 @@ defmodule PairingsEngine.BoardStabilityTest do
     end
   end
 
+  describe "hiding a fully-vacated row never renumbers anything else (PairingsLive's own display_rows/1 filter)" do
+    # Mirrors `PairingsEngineWeb.PairingsLive.display_rows/1` exactly —
+    # hidden rows are rejected BEFORE `with_display_boards/1` ever sees
+    # them, so this pins that the surviving rows' labels are unaffected,
+    # same invariant as every other test in this file.
+    defp visible_labels(round_id) do
+      Repo.all(
+        from p in Pairing,
+          where: p.round_id == ^round_id,
+          preload: [:white_player, :black_player]
+      )
+      |> Enum.reject(& &1.hidden)
+      |> PairingDisplay.with_display_boards()
+      |> Map.new(fn %{pairing: p, board: label} -> {p.board, label} end)
+    end
+
+    test "hiding a fully-vacated board removes it from the list, without touching any other label" do
+      {_t, round, _players, pairings} = fixture()
+      before_labels = labels(round.id)
+
+      target = Enum.at(pairings, 1)
+
+      target
+      |> Ecto.Changeset.change(white_player_id: nil, black_player_id: nil, result: "")
+      |> Repo.update!()
+      |> Ecto.Changeset.change(hidden: true)
+      |> Repo.update!()
+
+      after_labels = visible_labels(round.id)
+
+      # The hidden board is gone from the rendered set entirely...
+      refute Map.has_key?(after_labels, target.board)
+      # ...and every OTHER board keeps exactly the label it had before -
+      # the 0.14.6 bug would have shifted these down by one.
+      untouched(before_labels, after_labels, target.board)
+    end
+
+    test "un-hiding brings a row back with its original, still-frozen label" do
+      {_t, round, _players, pairings} = fixture()
+      before_labels = labels(round.id)
+
+      target = Enum.at(pairings, 1)
+
+      hidden =
+        target
+        |> Ecto.Changeset.change(white_player_id: nil, black_player_id: nil, result: "")
+        |> Repo.update!()
+        |> Ecto.Changeset.change(hidden: true)
+        |> Repo.update!()
+
+      hidden |> Ecto.Changeset.change(hidden: false) |> Repo.update!()
+
+      assert labels(round.id) == before_labels
+    end
+  end
+
   describe "board_labels/1 (documents that keep their own row order)" do
     test "labels match with_display_boards/1 for the same round" do
       {_t, round, _players, _pairings} = fixture()

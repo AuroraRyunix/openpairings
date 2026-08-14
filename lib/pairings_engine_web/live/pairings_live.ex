@@ -125,10 +125,16 @@ defmodule PairingsEngineWeb.PairingsLive do
     paired = Engine.paired_rounds_count(t.id)
     missing_setup = Tournament.missing_setup_fields(t)
     setup_complete = missing_setup == []
+    round = Tournaments.get_round(t.id, n)
 
     socket =
       assign(socket,
-        round: Tournaments.get_round(t.id, n),
+        round: round,
+        # Fully-vacated rows the arbiter has hidden from the main table
+        # (see `set_pairing_hidden/3`) — kept as their own list so the
+        # "Hidden boards" management panel can still offer Unhide/Delete
+        # even though `display_rows/1` skips them everywhere else.
+        hidden_pairings: (round && Enum.filter(round.pairings, & &1.hidden)) || [],
         # Each player's score coming INTO round `n` — shown next to their
         # name on the board list, same as a real printed pairing sheet.
         scores: Standings.player_scores_before_round(t, n),
@@ -305,6 +311,33 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   def handle_event("stage_fill", %{"pairing-id" => pid, "player-id" => plid}, socket) do
     {:noreply, stage(socket, {:fill, String.to_integer(pid), String.to_integer(plid)})}
+  end
+
+  # Hide/unhide is a plain, immediate toggle — not staged behind `@confirm`
+  # the way the other hand-edit gestures are. It's display-only and fully
+  # reversible (see `Tournaments.set_pairing_hidden/3`'s doc), so it doesn't
+  # need the same "review a board diff before committing" ceremony a real
+  # pairing-structure change does; that ceremony is reserved for
+  # `stage_delete_pairing` below, which actually removes the row.
+  def handle_event("toggle_hidden", %{"pairing-id" => id}, socket) do
+    %{tournament: t, round: round, round_number: round_number} = socket.assigns
+    pairing_id = String.to_integer(id)
+
+    with {:ok, pairing} <- fetch_pairing(round, pairing_id),
+         {:ok, updated} <- Tournaments.set_pairing_hidden(round, pairing, !pairing.hidden) do
+      Audit.log(
+        t.id,
+        socket.assigns.current_scope,
+        if(updated.hidden, do: "pairing.hidden", else: "pairing.unhidden"),
+        %{pairing_id: pairing.id, round: round_number, board: pairing.board}
+      )
+    end
+
+    {:noreply, refresh(socket)}
+  end
+
+  def handle_event("stage_delete_pairing", %{"pairing-id" => id}, socket) do
+    {:noreply, stage(socket, {:delete_pairing, String.to_integer(id)})}
   end
 
   # Choosing which vacant seat a pool player should go into. With exactly
@@ -713,6 +746,27 @@ defmodule PairingsEngineWeb.PairingsLive do
     end
   end
 
+  defp confirm_for(socket, {:delete_pairing, pairing_id}) do
+    with {:ok, pairing} <- fetch_pairing(socket.assigns.round, pairing_id) do
+      {:ok,
+       %{
+         kind: :delete_pairing,
+         pairing_id: pairing_id,
+         title: "Delete this board",
+         subtitle: "Board #{pairing.board} is removed from round #{socket.assigns.round_number}",
+         # Nothing to diff — the row is already empty on both seats
+         # (delete is only offered/allowed on a fully-vacated board), so
+         # the modal's board-diff cards would just show "empty ⇄ empty".
+         # The title/subtitle/note carry the whole story instead.
+         changes: [],
+         note:
+           "This removes the board row itself, not just hides it — permanently, and only " <>
+             "possible on the round's last board, so no other board's number ever has to " <>
+             "change. This cannot be undone from here."
+       }}
+    end
+  end
+
   defp confirm_for(socket, {:pool_pair, a_id, b_id}) do
     a = display_name(socket, a_id)
     b = display_name(socket, b_id)
@@ -763,6 +817,10 @@ defmodule PairingsEngineWeb.PairingsLive do
 
         %{kind: :pool_pair, a_id: a, b_id: b, board: board} ->
           Tournaments.pair_from_pool(round, a, b, board)
+
+        %{kind: :delete_pairing, pairing_id: id} ->
+          with {:ok, pairing} <- fetch_pairing(round, id),
+               do: Tournaments.delete_pairing(round, pairing)
       end
 
     case result do
@@ -800,6 +858,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp audit_action(:bye), do: "pairing.bye_awarded"
   defp audit_action(:fill), do: "pairing.seat_filled"
   defp audit_action(:pool_pair), do: "pairing.pool_paired"
+  defp audit_action(:delete_pairing), do: "pairing.deleted"
 
   ## ---------- Round lookups ----------
 
@@ -836,6 +895,12 @@ defmodule PairingsEngineWeb.PairingsLive do
     end
   end
 
+  # Bare lookup (not the tagged tuple `fetch_pairing/2` returns) for the two
+  # spots that just want the struct or `nil` — `pairing_menu/1`'s eligibility
+  # checks below, and the "Hidden boards" panel.
+  defp find_pairing(nil, _id), do: nil
+  defp find_pairing(round, id), do: Enum.find(round.pairings, &(&1.id == id))
+
   defp locate_seat(pairings, player_id) do
     Enum.find_value(pairings, {:error, :not_in_round}, fn pairing ->
       cond do
@@ -858,6 +923,28 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   defp vacant?(pairing),
     do: is_nil(pairing.white_player_id) or is_nil(pairing.black_player_id)
+
+  # BOTH seats empty — the state two "mark absent" gestures on the same
+  # board eventually leave behind, and the only state `set_pairing_hidden/3`
+  # and `delete_pairing/2` accept. Distinct from `vacant?/1` above, which
+  # is "at least one" (an ordinary one-sided vacancy still needs its
+  # "award a bye" option, which makes no sense once BOTH seats are empty).
+  defp fully_vacant?(pairing),
+    do: is_nil(pairing.white_player_id) and is_nil(pairing.black_player_id)
+
+  # Whether `pairing` sits on `round`'s own highest real board number —
+  # the one board `Tournaments.delete_pairing/2` ever allows removing, so
+  # the menu/panel can grey the option out instead of just letting the
+  # server bounce it. Mirrors that function's own guard exactly (same
+  # `board` field, same `Enum.max`), never the frozen `display_board`.
+  defp last_board?(nil, _pairing), do: false
+
+  defp last_board?(round, pairing) do
+    case round.pairings do
+      [] -> false
+      pairings -> pairing.board == pairings |> Enum.map(& &1.board) |> Enum.max()
+    end
+  end
 
   # `player_label/1` by id, across both the boards and the pool — a click
   # only tells the server which id was hit.
@@ -1102,7 +1189,17 @@ defmodule PairingsEngineWeb.PairingsLive do
   # a pulled-out fixed-table board leaves) — see its moduledoc. Presentation
   # only: `pairing.board` itself, used everywhere else in this file
   # (audit log entries, swap-menu subtitles), is untouched.
-  defp display_rows(pairings), do: PairingDisplay.with_display_boards(pairings)
+  # Hidden rows (see `Tournaments.set_pairing_hidden/3`) never reach
+  # `PairingDisplay` at all — filtering them out here, before the board
+  # renumbering pass, means a hidden row plays no part in it whatsoever,
+  # same as if it didn't exist for display purposes. This is safe against
+  # the 0.14.6 bug class specifically because `display_board` is already
+  # FROZEN (see `PairingDisplay`'s moduledoc) — every other row's label was
+  # decided once, at pairing time, and doesn't get recomputed here just
+  # because one row is missing from this list.
+  defp display_rows(pairings) do
+    pairings |> Enum.reject(& &1.hidden) |> PairingDisplay.with_display_boards()
+  end
 
   # Label for a byes-table row's `type` — distinct from the "bye" badge
   # shown for a pairing-allocated bye (a real Pairing row), since these
@@ -1328,7 +1425,16 @@ defmodule PairingsEngineWeb.PairingsLive do
   attr :round, :any, required: true
 
   defp pairing_menu(assigns) do
-    assigns = assign(assigns, vacancies: length(vacant_pairings(assigns.round)))
+    pairing = assigns.menu.pairing_id && find_pairing(assigns.round, assigns.menu.pairing_id)
+
+    assigns =
+      assign(assigns,
+        vacancies: length(vacant_pairings(assigns.round)),
+        fully_vacant?: pairing != nil and fully_vacant?(pairing),
+        pairing_hidden?: pairing != nil and pairing.hidden,
+        deletable?:
+          pairing != nil and fully_vacant?(pairing) and last_board?(assigns.round, pairing)
+      )
 
     ~H"""
     <div class="ctx-backdrop" phx-click="close_menu" phx-window-keydown="close_menu" phx-key="escape">
@@ -1364,8 +1470,32 @@ defmodule PairingsEngineWeb.PairingsLive do
               Pair with another player who isn't playing…
             </button>
           <% "vacant" -> %>
-            <button type="button" phx-click="stage_bye" phx-value-pairing-id={@menu.pairing_id}>
+            <button
+              :if={!@fully_vacant?}
+              type="button"
+              phx-click="stage_bye"
+              phx-value-pairing-id={@menu.pairing_id}
+            >
               Award a bye to the remaining player
+            </button>
+
+            <button
+              :if={@fully_vacant?}
+              type="button"
+              phx-click="toggle_hidden"
+              phx-value-pairing-id={@menu.pairing_id}
+            >
+              {if @pairing_hidden?, do: "Unhide this board", else: "Hide this board"}
+            </button>
+
+            <button
+              :if={@deletable?}
+              type="button"
+              class="danger-link"
+              phx-click="stage_delete_pairing"
+              phx-value-pairing-id={@menu.pairing_id}
+            >
+              Delete this board…
             </button>
         <% end %>
       </div>
@@ -1974,6 +2104,51 @@ defmodule PairingsEngineWeb.PairingsLive do
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <%!-- Hidden rows never render in the table above (see `display_rows/1`),
+           so this is their only reachable management surface: unhide them,
+           or (only on the round's actual last board) delete them for
+           good. Boards are listed by their real number, not the frozen
+           display label — an arbiter managing clutter cares which
+           physical board this is, and a hidden row by definition no
+           longer has a display label anyone sees anywhere else. --%>
+      <div :if={@hidden_pairings != []} class="card table-card" style="margin-top: 16px">
+        <h3 style="margin-top: 0">Hidden boards</h3>
+
+        <p class="hint">
+          Fully-vacated boards hidden from this round's table, prints, live view and public
+          page. Hiding never renumbers anything else — un-hide any time to bring a row back
+          exactly as it was.
+        </p>
+
+        <ul class="pool-list">
+          <li
+            :for={pairing <- @hidden_pairings}
+            style="display: flex; align-items: center; gap: 8px"
+          >
+            <span>Board {pairing.board}</span>
+
+            <button
+              type="button"
+              class="pe-btn"
+              phx-click="toggle_hidden"
+              phx-value-pairing-id={pairing.id}
+            >
+              Unhide
+            </button>
+
+            <button
+              :if={last_board?(@round, pairing)}
+              type="button"
+              class="pe-btn danger-link"
+              phx-click="stage_delete_pairing"
+              phx-value-pairing-id={pairing.id}
+            >
+              Delete…
+            </button>
+          </li>
+        </ul>
       </div>
 
       <div

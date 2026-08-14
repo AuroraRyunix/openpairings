@@ -1391,6 +1391,122 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     end
   end
 
+  describe "hiding/deleting a fully-vacated board" do
+    # Vacates both seats of board 1 (a, b) so it's fully vacant; board 2
+    # (c, d) stays seated and is therefore the round's real last board.
+    defp fully_vacated_fixture(scope) do
+      %{tournament: t, a: a, b: b, board1: board1} = two_board_fixture(scope)
+
+      round = Tournaments.get_round(t.id, 1)
+      {:ok, _} = Tournaments.vacate_seat(round, a.id)
+      round = Tournaments.get_round(t.id, 1)
+      {:ok, _} = Tournaments.vacate_seat(round, b.id)
+
+      %{tournament: t, a: a, b: b, board1: board1}
+    end
+
+    test "hiding removes the board from the main table and lists it under Hidden boards",
+         %{conn: conn, scope: scope} do
+      %{tournament: t, board1: board1} = fully_vacated_fixture(scope)
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{t.id}/pairings")
+      assert html =~ "pairing-row-#{board1.id}"
+
+      html = render_click(lv, "toggle_hidden", %{"pairing-id" => to_string(board1.id)})
+
+      refute html =~ "pairing-row-#{board1.id}"
+      assert html =~ "Hidden boards"
+      assert html =~ "Board 1"
+
+      round = Tournaments.get_round(t.id, 1)
+      assert Enum.find(round.pairings, &(&1.id == board1.id)).hidden
+    end
+
+    test "un-hiding brings the board back to the main table", %{conn: conn, scope: scope} do
+      %{tournament: t, board1: board1} = fully_vacated_fixture(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      render_click(lv, "toggle_hidden", %{"pairing-id" => to_string(board1.id)})
+
+      html = render_click(lv, "toggle_hidden", %{"pairing-id" => to_string(board1.id)})
+
+      assert html =~ "pairing-row-#{board1.id}"
+      refute html =~ "Hidden boards"
+
+      round = Tournaments.get_round(t.id, 1)
+      refute Enum.find(round.pairings, &(&1.id == board1.id)).hidden
+    end
+
+    test "hiding logs an audit entry, and so does un-hiding", %{conn: conn, scope: scope} do
+      %{tournament: t, board1: board1} = fully_vacated_fixture(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      render_click(lv, "toggle_hidden", %{"pairing-id" => to_string(board1.id)})
+      render_click(lv, "toggle_hidden", %{"pairing-id" => to_string(board1.id)})
+
+      actions = t.id |> Audit.list_for_tournament() |> Enum.map(& &1.action)
+      assert "pairing.hidden" in actions
+      assert "pairing.unhidden" in actions
+    end
+
+    test "deleting a non-last board is refused even from a direct event (server-side, not just a hidden button)",
+         %{conn: conn, scope: scope} do
+      %{tournament: t, board1: board1} = fully_vacated_fixture(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+
+      render_click(lv, "stage_delete_pairing", %{"pairing-id" => to_string(board1.id)})
+      html = render_click(lv, "apply_confirm", %{})
+
+      assert html =~ "Could not apply that change"
+      assert Repo.get(Pairing, board1.id)
+    end
+
+    test "deleting the round's actual last board removes it and is reflected in the round",
+         %{conn: conn, scope: scope} do
+      %{tournament: t, a: a, b: b} = two_board_fixture(scope)
+
+      round = Tournaments.get_round(t.id, 1)
+      board2 = Enum.find(round.pairings, &(&1.board == 2))
+      {:ok, _} = Tournaments.vacate_seat(round, board2.white_player_id)
+      round = Tournaments.get_round(t.id, 1)
+      {:ok, _} = Tournaments.vacate_seat(round, board2.black_player_id)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+
+      html = render_click(lv, "stage_delete_pairing", %{"pairing-id" => to_string(board2.id)})
+      assert html =~ "Delete this board"
+
+      html = render_click(lv, "apply_confirm", %{})
+      refute html =~ "pairing-row-#{board2.id}"
+
+      round = Tournaments.get_round(t.id, 1)
+      refute Enum.find(round.pairings, &(&1.id == board2.id))
+      assert Enum.map(round.pairings, & &1.board) == [1]
+
+      # Untouched: board 1 (still seated, a vs b) is unaffected.
+      assert Enum.find(round.pairings, &(&1.board == 1)).white_player_id == a.id
+      assert Enum.find(round.pairings, &(&1.board == 1)).black_player_id == b.id
+    end
+
+    test "deleting the last board logs an audit entry", %{conn: conn, scope: scope} do
+      %{tournament: t} = two_board_fixture(scope)
+
+      round = Tournaments.get_round(t.id, 1)
+      board2 = Enum.find(round.pairings, &(&1.board == 2))
+      {:ok, _} = Tournaments.vacate_seat(round, board2.white_player_id)
+      round = Tournaments.get_round(t.id, 1)
+      {:ok, _} = Tournaments.vacate_seat(round, board2.black_player_id)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+      render_click(lv, "stage_delete_pairing", %{"pairing-id" => to_string(board2.id)})
+      render_click(lv, "apply_confirm", %{})
+
+      actions = t.id |> Audit.list_for_tournament() |> Enum.map(& &1.action)
+      assert "pairing.deleted" in actions
+    end
+  end
+
   describe "frozen-round confirmation (editing a round that isn't the latest paired one)" do
     # Same two-board round 1 as `two_board_fixture/1`, plus a paired round
     # 2 — so round 1 is no longer the tournament's latest.

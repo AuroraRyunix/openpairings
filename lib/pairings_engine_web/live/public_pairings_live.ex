@@ -191,7 +191,14 @@ defmodule PairingsEngineWeb.PublicPairingsLive do
   # the board LABEL and the row ORDER the moment a tournament had a
   # fixed-table player, a bye, or an absence — real board 10 showed "10"
   # here and "1001" there, for the exact same game.
-  defp display_rows(pairings), do: PairingDisplay.with_display_boards(pairings)
+  # Hidden rows (an arbiter's "don't show me this fully-vacated board" —
+  # see `PairingsEngine.Tournaments.set_pairing_hidden/3`) are filtered out
+  # before they ever reach `PairingDisplay`, so a hidden row plays no part
+  # in the (already-frozen — see `PairingDisplay`'s moduledoc) board
+  # renumbering at all, same as PairingsLive's own `display_rows/1`.
+  defp display_rows(pairings) do
+    pairings |> Enum.reject(& &1.hidden) |> PairingDisplay.with_display_boards()
+  end
 
   # Label for a byes-table row's `type` — distinct from the "bye" badge
   # shown for a pairing-allocated bye (a real Pairing row), since these

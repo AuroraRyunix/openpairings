@@ -2295,6 +2295,89 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
+  Toggles the display-only `hidden` flag on a fully-vacated pairing (both
+  seats empty — the state two "mark absent" gestures on the same board
+  eventually leave behind) so an arbiter can declutter the pairings
+  view/prints of a board with nobody left on it.
+
+  Deliberately narrow and inert: `hidden` is never read by
+  `PairingDisplay.compute_labels/1` or `freeze_round_display_boards!/1`, so
+  toggling it can never change what any OTHER row's `display_board` shows
+  — see `PairingsEngine.PairingDisplay`'s moduledoc for why that freeze
+  must never be touched by anything but a (re-)pairing. The row's real
+  board number, frozen display label, audit history and any TRF/export
+  data are completely unaffected either way, and un-hiding brings the row
+  back exactly as it was.
+
+  Refused with `{:error, :not_vacant}` on a pairing with anyone still
+  seated — hiding is for empty rows only, never a way to make an active
+  board disappear from the arbiter's own working view.
+  """
+  def set_pairing_hidden(%Round{} = round, %Pairing{} = pairing, hidden?)
+      when is_boolean(hidden?) do
+    cond do
+      ensure_writable(round.tournament_id) != :ok ->
+        {:error, :archived}
+
+      pairing.white_player_id != nil or pairing.black_player_id != nil ->
+        {:error, :not_vacant}
+
+      true ->
+        pairing
+        |> Ecto.Changeset.change(hidden: hidden?)
+        |> Repo.update()
+        |> finish_round_write(round.tournament_id)
+    end
+  end
+
+  @doc """
+  Permanently deletes `pairing` — the row, and any result on it, gone for
+  good. This is the one board-cleanup action that is NOT just a display
+  toggle, so it is restricted to the two conditions that together make it
+  safe:
+
+    * `pairing` must be the round's own highest real `board` number.
+      Deleting the trailing row never requires renumbering anything after
+      it, since nothing comes after it — deleting anywhere else in the
+      round would leave a permanent gap in the middle of the real board
+      sequence for no invariant-preserving reason, so it's refused
+      (`{:error, :not_last_board}`). This is a property of the real
+      `board` column, decided fresh from the round's current pairings
+      every call — never the frozen `display_board` string, which can be
+      a fixed-table label like `"1001"` or a slash-joined `"5/6"` that
+      doesn't order the same way real board numbers do.
+    * `pairing` must be fully vacant (both seats empty) —
+      `{:error, :not_vacant}` otherwise. This exists to let an arbiter
+      clean up literal clutter, not as a general "undo a board" button;
+      anything with a player still seated goes through `vacate_seat/3` (or
+      a swap) first, same as hiding above.
+
+  Standings/tiebreaks need no separate invalidation call beyond the usual
+  `invalidate_manual_ranking/1` — `Standings.standings/1` always replays
+  every pairing/bye from scratch (see the module doc), so a deleted empty
+  pairing (no result, no players) simply stops existing to replay.
+  """
+  def delete_pairing(%Round{} = round, %Pairing{} = pairing) do
+    max_board = round.pairings |> Enum.map(& &1.board) |> Enum.max(fn -> nil end)
+
+    cond do
+      ensure_writable(round.tournament_id) != :ok ->
+        {:error, :archived}
+
+      pairing.white_player_id != nil or pairing.black_player_id != nil ->
+        {:error, :not_vacant}
+
+      pairing.board != max_board ->
+        {:error, :not_last_board}
+
+      true ->
+        pairing
+        |> Repo.delete()
+        |> finish_round_write(round.tournament_id)
+    end
+  end
+
+  @doc """
   Pairs two pool players into a brand-new board in `round`, numbered
   `board`. Both players' `"byes"` rows are dropped — they're playing.
 
