@@ -5,7 +5,7 @@ defmodule PairingsEngineWeb.CategoriesLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias PairingsEngine.Tournaments
+  alias PairingsEngine.{Audit, Tournaments}
 
   setup :register_and_log_in_user
 
@@ -281,10 +281,11 @@ defmodule PairingsEngineWeb.CategoriesLiveTest do
       assert reloaded.category_rules == %{}
     end
 
-    test "Assign categories only appears once a rule exists, and fills in every player", %{
-      conn: conn,
-      scope: scope
-    } do
+    test "Assign categories only appears once a rule exists, previews the diff, and applies on confirm",
+         %{
+           conn: conn,
+           scope: scope
+         } do
       tournament = create_tournament(scope, %{"categories_enabled" => true})
 
       {:ok, low} =
@@ -300,11 +301,79 @@ defmodule PairingsEngineWeb.CategoriesLiveTest do
       |> form("#add-category-form", %{"name" => "-1100", "kind" => "elo_below", "value" => "1100"})
       |> render_submit()
 
-      html = lv |> element("button", "Assign categories") |> render_click()
+      html =
+        lv |> element(~s(button[phx-click="assign_categories"])) |> render_click()
+
+      # The dry run only computes a preview — nothing is written yet.
+      assert html =~ "Low"
+      assert html =~ "-1100"
+      refute html =~ "High"
+      assert Tournaments.get_player!(tournament.id, low.id).category == ""
+      assert Tournaments.get_player!(tournament.id, high.id).category == ""
+
+      html =
+        lv |> element(~s(button[phx-click="apply_category_confirm"])) |> render_click()
+
+      # Drain the self-broadcast (bulk_update_players broadcasts :players on
+      # the tournament topic this lv subscribes to) before reading the DB.
+      render(lv)
+
       assert html =~ "Assigned 1 of 2 players."
+      refute html =~ ~s(phx-click="cancel_category_confirm")
 
       assert Tournaments.get_player!(tournament.id, low.id).category == "-1100"
       assert Tournaments.get_player!(tournament.id, high.id).category == ""
+
+      [log | _] = Audit.list_for_tournament(tournament.id, action: "category.auto_assigned")
+      assert log.details == %{"matched" => 1, "total" => 2}
+    end
+
+    test "canceling the preview discards it with zero side effects", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope, %{"categories_enabled" => true})
+
+      {:ok, low} =
+        Tournaments.create_player(tournament.id, %{"name" => "Low", "fide_rating" => "900"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/categories")
+
+      lv
+      |> form("#add-category-form", %{"name" => "-1100", "kind" => "elo_below", "value" => "1100"})
+      |> render_submit()
+
+      lv |> element(~s(button[phx-click="assign_categories"])) |> render_click()
+
+      html =
+        lv |> element(~s(button[phx-click="cancel_category_confirm"])) |> render_click()
+
+      refute html =~ ~s(phx-click="apply_category_confirm")
+      assert Tournaments.get_player!(tournament.id, low.id).category == ""
+    end
+
+    test "when the roster already matches the rules, it says so instead of opening a diff", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope, %{"categories_enabled" => true})
+
+      {:ok, low} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "Low",
+          "fide_rating" => "900",
+          "category" => "-1100"
+        })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/categories")
+
+      lv
+      |> form("#add-category-form", %{"name" => "-1100", "kind" => "elo_below", "value" => "1100"})
+      |> render_submit()
+
+      html =
+        lv |> element(~s(button[phx-click="assign_categories"])) |> render_click()
+
+      assert html =~ "No changes needed"
+      refute html =~ ~s(phx-click="apply_category_confirm")
+      assert Tournaments.get_player!(tournament.id, low.id).category == "-1100"
     end
   end
 end

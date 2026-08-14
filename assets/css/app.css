@@ -1245,6 +1245,10 @@ button.pe-btn, .pe-btn {
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.3);
   overflow: hidden;
 }
+/* Widened variant for a modal whose body is a full-roster table (e.g. the
+   Categories dry-run diff) rather than one or two board-swap cards — the
+   base 560px cap reads cramped once rows are "Player / From / To" wide. */
+.pe-modal-card.pe-modal-wide { max-width: 720px; }
 .pe-modal-head { padding: 18px 20px 14px; border-bottom: 1px solid var(--border); }
 .pe-modal-head h2 { margin: 0; font-size: 19px; }
 .pe-modal-head p { margin: 4px 0 0; color: var(--text-soft); font-size: 14px; }

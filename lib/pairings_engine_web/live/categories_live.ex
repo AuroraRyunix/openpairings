@@ -29,7 +29,8 @@ defmodule PairingsEngineWeb.CategoriesLive do
        category_error: nil,
        rule_kinds: @rule_kinds,
        assign_note: nil,
-       toggle_error: nil
+       toggle_error: nil,
+       category_confirm: nil
      )
      |> assign_pair_by_category_lock()}
   end
@@ -178,8 +179,41 @@ defmodule PairingsEngineWeb.CategoriesLive do
 
   # "Assign categories" — SWAR-style bulk rule application, same pattern as
   # the extra-points bands button: overwrites every player's category from
-  # `tournament.category_rules`, right then, not kept in sync afterward.
+  # `tournament.category_rules`. Step 1 is a dry run: compute the same
+  # decisions `auto_assign_categories/1` would make (via
+  # `preview_auto_assign_categories/1`, so preview and apply can never
+  # disagree) without writing anything, and show the arbiter a before/after
+  # diff to confirm. Nothing is persisted until `apply_category_confirm`.
   def handle_event("assign_categories", _params, socket) do
+    preview = Tournaments.preview_auto_assign_categories(socket.assigns.tournament)
+    changes = Enum.filter(preview, fn %{from: from, to: to} -> from != to end)
+
+    if changes == [] do
+      {:noreply,
+       assign(socket,
+         category_confirm: nil,
+         category_error: nil,
+         assign_note: "No changes needed — every player already matches the rules."
+       )}
+    else
+      {:noreply,
+       assign(socket,
+         category_confirm: %{changes: changes, total: length(preview)},
+         category_error: nil,
+         assign_note: nil
+       )}
+    end
+  end
+
+  def handle_event("cancel_category_confirm", _params, socket) do
+    {:noreply, assign(socket, category_confirm: nil)}
+  end
+
+  # The explicit second click. Re-runs the real write path (not just the
+  # staged preview) so the write always reflects the current DB state at
+  # confirm time — same "read again at apply time" caution as
+  # `PairingsLive`'s own `apply_confirm/2`.
+  def handle_event("apply_category_confirm", _params, socket) do
     case Tournaments.auto_assign_categories(socket.assigns.tournament) do
       {:ok, %{matched: matched, total: total}} ->
         Audit.log(
@@ -189,11 +223,19 @@ defmodule PairingsEngineWeb.CategoriesLive do
           %{matched: matched, total: total}
         )
 
-        {:noreply, assign(socket, assign_note: "Assigned #{matched} of #{total} players.")}
-
-      {:error, _reason} ->
         {:noreply,
-         assign(socket, assign_note: nil, category_error: "Could not assign categories")}
+         assign(socket,
+           category_confirm: nil,
+           assign_note: "Assigned #{matched} of #{total} players."
+         )}
+
+      {:error, reason} ->
+        {:noreply,
+         assign(socket,
+           category_confirm: nil,
+           assign_note: nil,
+           category_error: error_text(reason)
+         )}
     end
   end
 
@@ -337,21 +379,71 @@ defmodule PairingsEngineWeb.CategoriesLive do
             class="actions"
             style="margin-top: 16px"
           >
-            <button
-              type="button"
-              class="pe-btn primary"
-              phx-click="assign_categories"
-              data-confirm="Set every player's category from the threshold rules above? This overwrites any category currently set by hand."
-            >
+            <button type="button" class="pe-btn primary" phx-click="assign_categories">
               Assign categories
             </button>
             <span :if={@assign_note} class="ok-note" style="align-self: center">{@assign_note}</span>
+          </div>
+          <p :if={@category_error} class="error-note" style="margin-top: 10px">
+            {@category_error}
+          </p>
+        </div>
+      </div>
+
+      <div
+        :if={@category_confirm}
+        class="pe-modal"
+        phx-window-keydown="cancel_category_confirm"
+        phx-key="escape"
+      >
+        <div class="pe-modal-card pe-modal-wide" phx-click-away="cancel_category_confirm">
+          <div class="pe-modal-head">
+            <h2>Assign categories?</h2>
+            <p>
+              Applying the threshold rules would move {length(@category_confirm.changes)} of {@category_confirm.total} players to a different category. Players with no change
+              are omitted below.
+            </p>
+          </div>
+          <div class="pe-modal-body">
+            <div class="card-table-wrap">
+              <table class="pe-table">
+                <thead>
+                  <tr>
+                    <th>Player</th>
+                    <th>From</th>
+                    <th>To</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr :for={change <- @category_confirm.changes}>
+                    <td>{change.player.name}</td>
+                    <td>{empty_dash(change.from)}</td>
+                    <td>{empty_dash(change.to)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pe-modal-foot">
+            <button type="button" class="pe-btn" phx-click="cancel_category_confirm">
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="pe-btn primary pe-modal-go"
+              phx-click="apply_category_confirm"
+            >
+              Assign categories
+            </button>
           </div>
         </div>
       </div>
     </Layouts.app>
     """
   end
+
+  defp empty_dash(""), do: "—"
+  defp empty_dash(value), do: value
 
   defp rule_description(nil), do: "—"
   defp rule_description(%{"kind" => "elo_below", "value" => v}), do: "below #{v} Elo"

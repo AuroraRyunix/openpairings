@@ -1392,30 +1392,59 @@ defmodule PairingsEngine.Tournaments do
   Only meant for tournaments where category is fully rule-driven; a mix
   of ruled and hand-picked categories doesn't survive a re-run.
 
-  One transaction, one broadcast (`bulk_update_players/2`). Returns
-  `{:ok, %{matched: n, total: m}}` — `matched` counts players who landed
-  in a RULED category (not `""`) — for the same "Assigned N of M players"
-  summary `ExtraPointsLive` shows for its own bulk rule application.
+  Reuses `preview_auto_assign_categories/1` for the actual assignment
+  decisions — this function's only job beyond that is turning the preview
+  into writes, so the preview shown to the arbiter and what actually gets
+  written can never drift apart. One transaction, one broadcast
+  (`bulk_update_players/2`). Returns `{:ok, %{matched: n, total: m}}` —
+  `matched` counts players who landed in a RULED category (not `""`) — for
+  the same "Assigned N of M players" summary `ExtraPointsLive` shows for its
+  own bulk rule application.
   """
   @spec auto_assign_categories(Tournament.t()) ::
           {:ok, %{matched: non_neg_integer(), total: non_neg_integer()}} | {:error, term()}
   def auto_assign_categories(%Tournament{} = tournament) do
-    players = list_players(tournament.id)
+    changes = preview_auto_assign_categories(tournament)
 
     updates =
-      Enum.map(players, fn player ->
-        category =
-          PlayerStats.assign_category(player, tournament.categories, tournament.category_rules)
+      Enum.map(changes, fn %{player: player, to: category} -> {player, %{category: category}} end)
 
-        {player, %{category: category}}
-      end)
-
-    matched = Enum.count(updates, fn {_player, attrs} -> attrs.category != "" end)
+    matched = Enum.count(changes, fn %{to: category} -> category != "" end)
 
     case bulk_update_players(tournament.id, updates) do
-      {:ok, _updated} -> {:ok, %{matched: matched, total: length(players)}}
+      {:ok, _updated} -> {:ok, %{matched: matched, total: length(changes)}}
       error -> error
     end
+  end
+
+  @doc """
+  Computes what `auto_assign_categories/1` WOULD do to every player,
+  without writing anything — the single source of truth for "what does the
+  rule decide" that both the dry-run preview and the real write path share,
+  so they can never drift apart. Read-only: does not check `ensure_writable/1`
+  itself, since previewing an archived tournament is harmless (only the
+  eventual apply is blocked, by `bulk_update_players/2` inside
+  `auto_assign_categories/1`).
+
+  Returns one entry per player, in `list_players/1` order:
+  `%{player: player, from: player.category, to: rule_decision}`. A player
+  whose `from == to` is not filtered out here — callers that only want the
+  players who'd actually change (e.g. the confirm-modal diff) should filter
+  on that themselves; callers that want the full roster (e.g. computing
+  `matched`/`total`) get it as-is.
+  """
+  @spec preview_auto_assign_categories(Tournament.t()) :: [
+          %{player: Player.t(), from: String.t(), to: String.t()}
+        ]
+  def preview_auto_assign_categories(%Tournament{} = tournament) do
+    tournament.id
+    |> list_players()
+    |> Enum.map(fn player ->
+      category =
+        PlayerStats.assign_category(player, tournament.categories, tournament.category_rules)
+
+      %{player: player, from: player.category || "", to: category}
+    end)
   end
 
   ## ---------- Manual standings override (SWAR parity #23) ----------

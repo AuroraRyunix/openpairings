@@ -2263,4 +2263,71 @@ defmodule PairingsEngine.TournamentsTest do
       assert Tournaments.latest_published_round_number(tournament) == 2
     end
   end
+
+  describe "preview_auto_assign_categories/1 and auto_assign_categories/1" do
+    defp category_tournament do
+      Repo.insert!(%Tournament{
+        name: "Categories",
+        type: "swiss",
+        rounds_count: 3,
+        categories_enabled: true,
+        categories: ["-1100", "Open"],
+        category_rules: %{"-1100" => %{"kind" => "elo_below", "value" => 1100}}
+      })
+    end
+
+    test "preview reports the rule's decision for every player without writing anything" do
+      tournament = category_tournament()
+
+      low = Repo.insert!(%Player{tournament_id: tournament.id, name: "Low", fide_rating: 900})
+      high = Repo.insert!(%Player{tournament_id: tournament.id, name: "High", fide_rating: 2200})
+
+      preview = Tournaments.preview_auto_assign_categories(tournament)
+
+      assert Enum.sort(Enum.map(preview, & &1.player.id)) == Enum.sort([low.id, high.id])
+
+      assert %{from: "", to: "-1100"} =
+               Enum.find(preview, &(&1.player.id == low.id))
+
+      assert %{from: "", to: ""} =
+               Enum.find(preview, &(&1.player.id == high.id))
+
+      # Read-only: the DB rows are untouched by the preview call.
+      assert Repo.get!(Player, low.id).category == ""
+      assert Repo.get!(Player, high.id).category == ""
+    end
+
+    test "applying after previewing matches exactly what the preview predicted" do
+      tournament = category_tournament()
+
+      low = Repo.insert!(%Player{tournament_id: tournament.id, name: "Low", fide_rating: 900})
+      high = Repo.insert!(%Player{tournament_id: tournament.id, name: "High", fide_rating: 2200})
+
+      preview = Tournaments.preview_auto_assign_categories(tournament)
+      predicted = Map.new(preview, fn %{player: p, to: to} -> {p.id, to} end)
+
+      assert {:ok, %{matched: 1, total: 2}} = Tournaments.auto_assign_categories(tournament)
+
+      assert Repo.get!(Player, low.id).category == Map.fetch!(predicted, low.id)
+      assert Repo.get!(Player, high.id).category == Map.fetch!(predicted, high.id)
+    end
+
+    test "zero-change case: a roster already matching the rules stays unchanged and matched still counts it" do
+      tournament = category_tournament()
+
+      low =
+        Repo.insert!(%Player{
+          tournament_id: tournament.id,
+          name: "Low",
+          fide_rating: 900,
+          category: "-1100"
+        })
+
+      preview = Tournaments.preview_auto_assign_categories(tournament)
+      assert Enum.all?(preview, fn %{from: from, to: to} -> from == to end)
+
+      assert {:ok, %{matched: 1, total: 1}} = Tournaments.auto_assign_categories(tournament)
+      assert Repo.get!(Player, low.id).category == "-1100"
+    end
+  end
 end
