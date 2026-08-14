@@ -1241,10 +1241,6 @@ defmodule PairingsEngineWeb.PlayersLive do
             Print player list
           </a>
 
-          <a class="pe-btn" href={~p"/t/#{@tournament.id}/print/cards"} target="_blank">
-            Print player cards
-          </a>
-
           <a class="pe-btn" href={~p"/t/#{@tournament.id}/print/placecards"} target="_blank">
             Print place cards
           </a>

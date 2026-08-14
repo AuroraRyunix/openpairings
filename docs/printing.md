@@ -156,8 +156,10 @@ order)" button links here with `order=stack`.
 `GET /t/:id/print/placecards` (SWAR parity #14-16) prints one **tent
 card** per player — a card meant to be folded once and stood on the table
 so it reads correctly from either side of the board. Linked from the
-Players page ("Print place cards"), the same page that already links
-"Print player list" and "Print player cards".
+Players page ("Print place cards"), the same page that also links
+"Print player list". ("Print player cards" is no longer a Players-page
+button — the route/controller action still exists and is reachable from
+the Print hub, see the table above and the Players row below.)
 
 ### Fold geometry
 
@@ -399,7 +401,7 @@ If `tournament.categories` is non-empty, `PrintController.standings/2`:
 |---|---|---|
 | Pairings (`/t/:id/pairings`) | "Print pairings", "Print pairings (with absentees)", "Print standings", "Print result cards", "Test print (3)", "Print result cards (stack-cut order)" | All open in a new tab, scoped to whichever round is currently selected in the round picker (`?round=<selected round>`). Only shown once that round has been paired. "Print pairings (with absentees)" is the same document with `?absentees=1` — see "Absentees on the pairing list" above. The last two are the result cards document with `limit=3` and `order=stack` respectively — see "Result cards" below. |
 | Standings (`/t/:id/standings`) | "Print" | Opens the overall standings document (no `round` param) in a new tab — this page has no round picker, so it always reflects the current/latest state. |
-| Players (`/t/:id/players`) | "Print player list", "Print player cards", "Print place cards" | Roster-wide, no round scoping — open `/print/players`, `/print/cards` and `/print/placecards` in a new tab. Place cards pick up the latest paired round's board numbers automatically (see "Place cards" above); no round picker needed here either. |
+| Players (`/t/:id/players`) | "Print player list", "Print place cards" | Roster-wide, no round scoping — open `/print/players` and `/print/placecards` in a new tab. Place cards pick up the latest paired round's board numbers automatically (see "Place cards" above); no round picker needed here either. Player cards (`/print/cards`) no longer has a button here — it's still reachable from the Print hub. |
 | Print hub (`/t/:id/print`) | "Print…" per document | Links pairings and result cards to the latest paired round, standings to the overall figures, and the cross table to the always-current picture (available even with zero rounds paired — it just has no round columns yet). |
 
 All of these are real `<a target="_blank">` links (not JS-driven), so
