@@ -203,9 +203,13 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
 
     # The section shows each board's two starting ranks alongside the
     # names, not just names — the plain "1 vs 4" format an arbiter reading
-    # off a printed pairing sheet expects, no hovering required.
-    assert html =~ ~r/<span class="pe-seed">#{alice.pairing_number}<\/span> Alice/
-    assert html =~ ~r/<span class="pe-seed">#{dave.pairing_number}<\/span> Dave/
+    # off a printed pairing sheet expects, no hovering required. `\s+`, not
+    # a literal single space: HEEx/mix format are free to wrap this markup
+    # across lines (whitespace-insignificant to the browser, which
+    # collapses it on render regardless), so pinning an exact single space
+    # here would just be re-testing today's formatter output, not behavior.
+    assert html =~ ~r/<span class="pe-seed">#{alice.pairing_number}<\/span>\s+Alice/
+    assert html =~ ~r/<span class="pe-seed">#{dave.pairing_number}<\/span>\s+Dave/
   end
 
   test "a non-collaborator cannot open the explain page", %{conn: conn} do

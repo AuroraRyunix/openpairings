@@ -109,6 +109,14 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   defp score_str(n) when is_float(n), do: :erlang.float_to_binary(n, decimals: 1)
   defp score_str(n), do: to_string(n)
 
+  # A vacated seat's player name in the "Pairing numbers" table - kept as a
+  # named helper (not an inline if/else) so the call site stays short enough
+  # for `mix format` to leave it on one line; a formatter-inserted line break
+  # between the `<span>` and this text changes the rendered whitespace,
+  # which broke an exact-match test once already.
+  defp seat_name(nil), do: "— vacant —"
+  defp seat_name(side), do: side.player.name
+
   defp colour_word(:w), do: "White"
   defp colour_word(:b), do: "Black"
   defp colour_word(_), do: "—"
@@ -1038,12 +1046,14 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             <tr :for={b <- @rationale.boards}>
               <td class="num">{b.board}</td>
               <td>
-                <span :if={b.white} class="pe-seed">{b.white.pairing_number}</span>
-                {if b.white, do: b.white.player.name, else: "— vacant —"}
+                <span :if={b.white} class="pe-seed">{b.white.pairing_number}</span> {seat_name(
+                  b.white
+                )}
               </td>
               <td :if={!b.is_bye}>
-                <span :if={b.black} class="pe-seed">{b.black.pairing_number}</span>
-                {if b.black, do: b.black.player.name, else: "— vacant —"}
+                <span :if={b.black} class="pe-seed">{b.black.pairing_number}</span> {seat_name(
+                  b.black
+                )}
               </td>
               <td :if={b.is_bye} class="hint">bye</td>
             </tr>
