@@ -1348,6 +1348,30 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       html = arm_and_pick(lv, a.id, spare.id)
       assert html =~ "Substitute player"
 
+      # The redesigned modal shows a second "not playing list" row next to
+      # the board row, with the pool player (Spare) on its "before" side
+      # and the seated player (A) on its "after" side — the mirror image
+      # of the board row's own before/after. That's what lets
+      # `.SwapArrows`' name-matching draw a real in/out arrow for each of
+      # them, instead of the wrong self-referential arrow this modal used
+      # to draw on the untouched seat (see TODO.md's "Substitute player"
+      # entry). Both real board row and the new bench row must render, and
+      # both names must appear in it.
+      assert html =~ "Not playing list"
+
+      # `Spare` now appears TWICE as a `.board-seat-name`: once in the
+      # board row's "after" card (unchanged behaviour — they took the
+      # seat) and once more in the new bench row's "before" card (they
+      # started on the bench). Same for `A`: once in the board row's
+      # "before" card (unchanged — they used to sit there), once more in
+      # the bench row's "after" card (they end up on the bench). This is
+      # exactly the precondition `matchTravellers/1` needs — a name once
+      # on the "before" side and once on the "after" side overall — for
+      # its two automatic arrows; ExUnit can't run the hook's JS itself,
+      # so this asserts the markup shape rather than the drawn arrows.
+      assert html |> String.split(~s(title="Spare">Spare</span>)) |> length() == 3
+      assert html |> String.split(~s(title="A">A</span>)) |> length() == 3
+
       render_click(lv, "apply_confirm", %{})
 
       round = Tournaments.get_round(t.id, 1)

@@ -1467,6 +1467,19 @@ button.pe-btn, .pe-btn {
   width: fit-content;
 }
 
+/* The "not playing list" row a `:swap_pool` substitution adds below its
+   board row (`bench_card/1`) — same `.board-diff` grid, same `.board-card`
+   card shell, so it lines up with the board row above it and stays inside
+   `.SwapArrows`' reach without a layout rule of its own. */
+.board-diff-bench { margin-top: -2px; }
+/* No `.board-seat-colour` disc here — a bench seat has no colour, and
+   drawing a disc would claim a board seat this row doesn't have (see
+   `bench_card/1`'s own comment). `padding-left` makes up the disc's
+   footprint (19px width + 8px gap, same number `.board-seat-swap-ref`'s
+   `margin-left` already uses) so the NAME still lines up under the real
+   board row's name above it instead of sitting flush left on its own. */
+.board-seat-bench { padding-left: 27px; }
+
 .board-number-field { display: block; margin-top: 14px; }
 .board-number-field > span {
   display: block;
