@@ -635,10 +635,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           changes =
             if same?,
               do: [board_change(pa, [{fa, b}, {fb, a}])],
-              else: [
-                board_change(pa, [{fa, b}], pb.board),
-                board_change(pb, [{fb, a}], pa.board)
-              ]
+              else: [board_change(pa, [{fa, b}]), board_change(pb, [{fb, a}])]
 
           {:ok,
            %{
@@ -997,9 +994,7 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   # One board's before/after, given the seat substitutions to apply.
   # `substitutions` is a list of `{field, new_name}`; `""` empties a seat.
-  # `related_board`, when given, is the OTHER board involved in a
-  # two-board swap — see `board_card/1`'s `related_board` attr.
-  defp board_change(pairing, substitutions, related_board \\ nil) do
+  defp board_change(pairing, substitutions) do
     {before_white, before_black} = board_seats(pairing)
 
     {after_white, after_black} =
@@ -1012,8 +1007,7 @@ defmodule PairingsEngineWeb.PairingsLive do
       board: pairing.board,
       before: {before_white, before_black},
       after: {after_white, after_black},
-      result_will_clear?: pairing.result not in ["", "bye"],
-      related_board: related_board
+      result_will_clear?: pairing.result not in ["", "bye"]
     }
   end
 
@@ -1289,12 +1283,6 @@ defmodule PairingsEngineWeb.PairingsLive do
   attr :seats, :any, required: true
   attr :state, :string, required: true
   attr :compare, :any, default: nil
-  # The OTHER board a changed seat's new occupant is trading places with,
-  # for a genuine two-board swap — see `confirm_for/2`'s `:swap` clause
-  # and `board_change/3`. `nil` for every other confirm kind (nothing to
-  # cross-reference: a colour swap, an absence, a bye, a pool fill are
-  # all single-board).
-  attr :related_board, :any, default: nil
   # `%{name => "#hex"}` — see `identity_colors/1`. Every seat gets its
   # colour set as an inline `--swap-color` custom property regardless of
   # whether it changed; CSS decides what actually uses it (currently:
@@ -1329,12 +1317,6 @@ defmodule PairingsEngineWeb.PairingsLive do
       >
         <span class="board-seat-colour" aria-label="White">W</span>
         <span class="board-seat-name" title={seat_text(@white)}>{seat_text(@white)}</span>
-        <span
-          :if={@state == "after" and @white_changed? and @related_board}
-          class="board-seat-swap-ref"
-        >
-          ⇄ Board {@related_board}
-        </span>
       </div>
 
       <div
@@ -1343,12 +1325,6 @@ defmodule PairingsEngineWeb.PairingsLive do
       >
         <span class="board-seat-colour board-seat-black" aria-label="Black">B</span>
         <span class="board-seat-name" title={seat_text(@black)}>{seat_text(@black)}</span>
-        <span
-          :if={@state == "after" and @black_changed? and @related_board}
-          class="board-seat-swap-ref"
-        >
-          ⇄ Board {@related_board}
-        </span>
       </div>
     </div>
     """
@@ -1968,7 +1944,7 @@ defmodule PairingsEngineWeb.PairingsLive do
       </div>
       <.pairing_menu :if={@menu} menu={@menu} round={@round} />
       <div :if={@confirm} class="pe-modal" phx-window-keydown="cancel_confirm" phx-key="escape">
-        <div class="pe-modal-card" phx-click-away="cancel_confirm">
+        <div class="pe-modal-card pe-modal-wide" phx-click-away="cancel_confirm">
           <header class="pe-modal-head">
             <h2>{@confirm.title}</h2>
 
@@ -1990,7 +1966,6 @@ defmodule PairingsEngineWeb.PairingsLive do
                   seats={c.after}
                   state="after"
                   compare={c.before}
-                  related_board={c[:related_board]}
                   color_by_name={@confirm[:colors] || %{}}
                 />
               </div>
@@ -2410,8 +2385,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         // readable.
         //
         // Pure enhancement: no JS, a failed measurement or an ambiguous
-        // name match all leave the plain "→" layout and the "⇄ Board N"
-        // chips exactly as they are.
+        // name match all leave the plain "→" layout exactly as it is.
         const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
         const SVG_NS = "http://www.w3.org/2000/svg";
         // Straight run at each end of a curve, and how far short of the
