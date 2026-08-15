@@ -69,11 +69,11 @@ defmodule PairingsEngineWeb.UserLive.Login do
             <ul class="auth-features">
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                Invite co-arbiters - run one tournament together, live
+                Invite co-arbiters &middot; run one tournament together, live
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                Swiss (JaVaFo Dutch), round-robin & Keizer - all in one
+                Swiss (JaVaFo Dutch), round-robin & Keizer &middot; all in one
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
@@ -86,6 +86,10 @@ defmodule PairingsEngineWeb.UserLive.Login do
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
                 TRF16, SWAR & PGN import / export
+              </li>
+              <li class="auth-feature-soon">
+                <.icon name="hero-clock-mini" class="size-5" />
+                <span class="auth-feature-soon-tag">Coming soon</span> TRF26 &middot; multi-engine
               </li>
             </ul>
 

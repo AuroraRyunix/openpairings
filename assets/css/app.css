@@ -2483,6 +2483,22 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   color: rgba(238, 244, 239, 0.92);
 }
 .auth-features li svg { color: #8fe0b4; flex-shrink: 0; }
+/* A not-yet-shipped feature deliberately looks different from the shipped
+   ones above it — dimmer text, a clock instead of the green checkmark
+   (`hero-clock-mini`, not `hero-check-circle-mini`) — so it reads as "on
+   the roadmap", never as a claim the checkmark rows are already making. */
+.auth-feature-soon { color: rgba(238, 244, 239, 0.6); }
+.auth-feature-soon svg { color: rgba(238, 244, 239, 0.5); }
+.auth-feature-soon-tag {
+  flex-shrink: 0;
+  padding: 1px 7px;
+  border-radius: 99px;
+  border: 1px solid rgba(238, 244, 239, 0.3);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 
 .auth-panel {
   display: flex;

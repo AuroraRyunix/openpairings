@@ -63,7 +63,7 @@ defmodule PairingsEngineWeb.UserLive.Registration do
             <ul class="auth-features">
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                Swiss (JaVaFo Dutch), round-robin & Keizer - all in one
+                Swiss (JaVaFo Dutch), round-robin & Keizer &middot; all in one
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
