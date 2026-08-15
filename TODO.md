@@ -141,6 +141,27 @@ gaps identified there, extracted here as actionable items:
 
 ## Backlog (no particular order, nothing blocking)
 
+- **History page (`/t/:id/history`) reported as "just a read-only thing"
+  with something colliding into the "Everything" filter button** —
+  investigation started 2026-08-15, not resolved. `HistoryLive`'s own
+  moduledoc still says "Read-only — the restore action itself lives in a
+  later change," but that's stale: `restore_start`/`do_restore`/
+  `Snapshots.branch_tree/1` and "Go back to here"/"Switch to this branch"
+  buttons are all fully built and present in the code today. So either
+  there's a real rendering bug hiding that functionality from the
+  maintainer, or something about how it behaves doesn't match what they
+  expect. Never got a confirmed repro — the two open questions, still
+  needing an answer:
+  1. Do restore buttons actually render on past timeline entries at all,
+     or does it look like a plain list with no actions?
+  2. Is something visually overlapping the "Everything" filter button
+     (`{"all", "Everything"}` in `@filters`), or does picking a different
+     filter (Pairings/Players/Settings/etc.) not stick — i.e. a functional
+     filter-state bug, not a layout one?
+
+  Also worth fixing regardless of the above: the moduledoc's stale
+  "Read-only" claim itself is misleading to the next person who reads it.
+
 - ~~"Substitute player" draws its journey arrow on the wrong seat~~ —
   **shipped 2026-08-15, the "bigger redesign" option**: `matchTravellers()`
   in the `.SwapArrows` hook matches purely by NAME across the whole modal,
