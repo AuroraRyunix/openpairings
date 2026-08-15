@@ -1413,7 +1413,21 @@ button.pe-btn, .pe-btn {
    normal names are never truncated, only ones that would blow the modal's
    width budget on their own. */
 .board-seat-name {
-  flex: 1 1 auto;
+  /* `flex-basis: 0%`, not `auto` — with `flex-wrap: wrap` on the parent,
+     the browser decides which LINE an item lands on using its hypothetical
+     (pre-shrink) size, which for `auto` is the item's full content width
+     (the whole name, since `white-space: nowrap` below makes that the
+     "natural" size) — `min-width: 0` only ever gets a chance to shrink an
+     item that's ALREADY on a line, too late to stop a wrap that's already
+     been decided. Once a card's grid track shrinks below badge+full-name
+     width (see `.board-diff`'s own `minmax(0, max-content)` comment), the
+     browser judged the name didn't fit at all and wrapped it onto its own
+     line under the colour badge — visually broken on any "Swap colours"
+     confirm modal with two average-length names, not just a pathological
+     one. A `0%` basis makes the hypothetical size 0, so the browser always
+     considers it fits on line 1; `flex-grow: 1` still expands it to fill
+     the remaining space exactly as before, just decided at the right step. */
+  flex: 1 1 0%;
   min-width: 0;
   max-width: 200px;
   overflow: hidden;
