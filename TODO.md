@@ -141,6 +141,32 @@ gaps identified there, extracted here as actionable items:
 
 ## Backlog (no particular order, nothing blocking)
 
+- **"Substitute player" draws its journey arrow on the wrong seat.** In the
+  swap-confirm modal's `.SwapArrows` hook, `matchTravellers()`
+  (`pairings_live.ex`) decides which seats get an arrow purely by NAME
+  MATCHING — a name appearing once on both the "before" and "after" side
+  gets a curve drawn between them, with no awareness of which `@confirm.kind`
+  is active. A real swap has 2-4 people shown, all of whom keep an identity
+  on both sides, so this works. But `:swap_pool` ("Substitute player") only
+  changes ONE seat — the *other*, untouched seat still shows the same name
+  on both sides (nobody moved it, but the name-matcher can't tell the
+  difference) and gets a spurious arrow drawn from that seat to itself,
+  while the seat that actually changed (different names before/after)
+  correctly gets no arrow at all. Net effect: substituting the black player
+  draws an arrow between the two WHITE rows instead. The code's own comment
+  already documents the intended behavior — "ZERO [arrows] for ... fill-seat
+  / pool-pair / substitute-from-pool" — it just isn't enforced.
+
+  Reported by the maintainer 2026-08-15, not yet fixed. Two options
+  discussed, maintainer hadn't picked before other work took priority:
+  - **Small bug fix**: gate the hook off entirely unless
+    `@confirm.kind == :swap`, restoring the documented "zero arrows for a
+    substitution" behavior.
+  - **Bigger redesign** (the maintainer's actual ask): show the outgoing
+    seated player and the incoming pool player as two explicit "not
+    playing" rows, with a real in/out arrow each, instead of just going
+    silent.
+
 - **Chief arbiter (and the other Officials fields) are unfindable without
   the link.** They live on `/t/:id/norms`, moved there from SettingsLive at
   some point (see `norms_live.ex`'s "relocated from SettingsLive" notes).
