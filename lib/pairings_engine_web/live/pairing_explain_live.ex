@@ -242,7 +242,22 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         }
       end)
 
-    {playing, byes} = Enum.split_with(boards, &(not &1.is_bye))
+    # `is_bye` only means black's seat is empty (or `result == "bye"`) - it
+    # says nothing about whether anyone is actually still seated. A board
+    # can reach here with a seat vacated after pairing (either colour on an
+    # ordinary board, or the bye recipient themselves on a bye board - see
+    # `PairingRationale.board_context/7`/`annotate_bye/3`'s own guards for
+    # the same underlying gap). There's no player to plot a dot for on an
+    # empty seat, so these are excluded from the score-bracket graph
+    # entirely - they still appear in the plain "Board by board" list below
+    # (with a "seat vacant" note), just not on this chart.
+    {playing, byes} =
+      boards
+      |> Enum.split_with(&(not &1.is_bye))
+      |> then(fn {playing, byes} ->
+        {Enum.filter(playing, &(&1.white && &1.black)), Enum.filter(byes, & &1.white)}
+      end)
+
     columns = playing ++ byes
     width = @bracket_pad_left + length(columns) * @bracket_col_gap + 16
     height = @bracket_top + max(length(groups) - 1, 0) * @bracket_row_gap + 44
@@ -1023,10 +1038,12 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             <tr :for={b <- @rationale.boards}>
               <td class="num">{b.board}</td>
               <td>
-                <span class="pe-seed">{b.white.pairing_number}</span> {b.white.player.name}
+                <span :if={b.white} class="pe-seed">{b.white.pairing_number}</span>
+                {if b.white, do: b.white.player.name, else: "— vacant —"}
               </td>
               <td :if={!b.is_bye}>
-                <span class="pe-seed">{b.black.pairing_number}</span> {b.black.player.name}
+                <span :if={b.black} class="pe-seed">{b.black.pairing_number}</span>
+                {if b.black, do: b.black.player.name, else: "— vacant —"}
               </td>
               <td :if={b.is_bye} class="hint">bye</td>
             </tr>
@@ -1480,16 +1497,22 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             </span>
           </div>
 
-          <.pairing_side side={b.white} colour={:w} board={b} ladder_max={@ladder_max} />
+          <.pairing_side :if={b.white} side={b.white} colour={:w} board={b} ladder_max={@ladder_max} />
+          <p :if={!b.white} class="pe-pair-foot">
+            Seat vacant — this board isn't finished yet.
+          </p>
 
           <div :if={not b.is_bye} class="pe-vs">vs</div>
           <.pairing_side
-            :if={not b.is_bye}
+            :if={not b.is_bye and b.black}
             side={b.black}
             colour={:b}
             board={b}
             ladder_max={@ladder_max}
           />
+          <p :if={not b.is_bye and !b.black} class="pe-pair-foot">
+            Seat vacant — this board isn't finished yet.
+          </p>
           <p :if={not b.is_bye and float_note(b)} class="pe-pair-foot">{float_note(b)}</p>
           <p :if={not b.is_bye and b.rematch_anomaly} class="pe-warning">
             <strong>Worth a look:</strong>
