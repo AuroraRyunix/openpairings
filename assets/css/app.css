@@ -1274,26 +1274,41 @@ button.pe-btn, .pe-btn {
 .pe-modal-go { font-size: 15px; padding: 10px 22px; }
 
 /* before/after board cards */
-.board-diff {
+/* `.board-diff-group` is the ONE shared grid for every board row (and the
+   bench row) in a confirm modal — a two-board swap's "Board 1" and
+   "Board 2" rows used to each be their OWN independent `display: grid`
+   (on `.board-diff`), so each row's column widths were computed against
+   only that row's own cards. Nothing tied row 1's "after" column width to
+   row 2's, so the two rows' right-hand cards didn't start at the same x
+   position — reported directly, and confirmed by reading exactly this.
+   Moving `display: grid` up here, one level, and letting each `.board-diff`
+   become `display: contents` (below) makes every row's cards genuine
+   siblings in ONE grid, so column widths are computed once, together, and
+   every row's before/after cards line up — column 1 is the widest "before"
+   card across ALL rows, column 3 the widest "after". This also makes a
+   cross-board swap's connecting arrows land at consistent x-positions
+   between rows, not just fix the box alignment. */
+.board-diff-group {
+  position: relative;
   display: grid;
   /* Each card is sized to its OWN content (`max-content`) instead of being
      forced into a shared `1fr`/`1fr` split — names no longer wrap (see
      `.board-seat-name` below), so every card is a fixed, static height:
      exactly two seat rows, always, on both sides of a pair. `minmax(0,
      max-content)` on both card columns is what keeps this bounded rather
-     than free-floating: if the two cards' combined natural width ever
-     exceeds what's actually available inside `.pe-modal-card` (its
-     `max-width` minus body padding minus this grid's own gaps/arrow
-     column), Grid shrinks both card tracks down from that ceiling instead
-     of overflowing the modal — the same safety-valve role
-     `.board-seat-name`'s own `max-width` plays one level down, for a
-     single pathologically long name inside one card.
+     than free-floating: if the cards' combined natural width ever exceeds
+     what's actually available inside `.pe-modal-card` (its `max-width`
+     minus body padding minus this grid's own gaps/arrow column), Grid
+     shrinks the card tracks down from that ceiling instead of overflowing
+     the modal — the same safety-valve role `.board-seat-name`'s own
+     `max-width` plays one level down, for a single pathologically long
+     name inside one card.
 
      The middle (arrow) column is `max-content`, not `auto` — an easy trap:
      `auto` here doesn't mean "size to content" the way it does for a
      `width` property, it means "eligible to absorb the grid container's
      LEFTOVER space" (CSS Grid's Maximize Tracks step, since nothing else
-     here uses `fr`). With two small cards (e.g. "Pair these two"'s empty
+     here uses `fr`). With small cards (e.g. "Pair these two"'s empty
      "before" slots next to short real names), that leftover space is
      large, and it all piled into the arrow's own column — a big, visibly
      empty gap between two otherwise-narrow cards, not a tight, camera-
@@ -1306,10 +1321,14 @@ button.pe-btn, .pe-btn {
      longer possible now that names never wrap, but there's no reason to
      change a harmless default. */
   align-items: start;
-  gap: 10px;
-  margin-bottom: 12px;
+  column-gap: 10px;
+  /* One value covers both "num label to its own cards" and "one board's
+     row to the next board's row" — the two used to be 10px/12px
+     respectively (barely distinguishable) when each `.board-diff` was its
+     own grid; a single shared `row-gap` reads the same, without needing
+     per-element margin hacks to tell the two apart in a shared grid. */
+  row-gap: 10px;
 }
-.board-diff:last-child { margin-bottom: 0; }
 
 /* Journey arrows (the .SwapArrows hook — see its own comment for what
    gets an arrow and why). The layer sits over the diff rows but only ever
@@ -1317,16 +1336,23 @@ button.pe-btn, .pe-btn {
    `has-swap-arrows` class and the SVG inside the layer are added by JS:
    with no JS, or a measurement that fails, this whole block is inert and
    the plain "→" layout below stands unchanged. */
-.board-diff-group { position: relative; }
 .swap-arrows-layer {
   position: absolute;
   inset: 0;
   pointer-events: none;
 }
+/* `display: contents` — see `.board-diff-group`'s own comment just above:
+   this box disappears entirely for layout purposes, so its children
+   (the num label, both cards, the arrow) become direct items of the
+   SHARED parent grid instead of a nested grid of their own. Nothing else
+   about `.board-diff` needs styling any more; it was purely a grid
+   wrapper. */
+.board-diff { display: contents; }
+
 /* Arrows on: the static "→" glyphs give up their column, which widens
    into the channel the curves are routed through. `visibility` rather
    than `display` so the column keeps a stable box either way. */
-.board-diff-group.has-swap-arrows .board-diff {
+.board-diff-group.has-swap-arrows {
   grid-template-columns: minmax(0, max-content) 56px minmax(0, max-content);
 }
 .board-diff-group.has-swap-arrows .board-diff-arrow { visibility: hidden; }
@@ -1350,8 +1376,8 @@ button.pe-btn, .pe-btn {
   text-transform: uppercase;
   color: var(--text-soft);
 }
-/* `.board-diff`'s own `align-items: start` is for the two CARDS (see its
-   comment); the plain "→" glyph between them still wants to sit at
+/* `.board-diff-group`'s own `align-items: start` is for the two CARDS (see
+   its comment); the plain "→" glyph between them still wants to sit at
    whichever card is taller's vertical middle, same as it always did. */
 .board-diff-arrow { align-self: center; color: var(--text-soft); font-size: 18px; }
 .board-card {
@@ -1361,7 +1387,11 @@ button.pe-btn, .pe-btn {
      actually get to shrink this card below its own longest unbroken row,
      defeating the whole point of the safety valve above. */
   min-width: 0;
-  padding: 9px 11px;
+  /* Bumped from 9px/11px - more visual weight/breathing room per card.
+     Grows every card equally (still the same shared `.board-diff-group`
+     grid from the alignment fix), so this can't reintroduce a size
+     mismatch between cards - it just makes all of them bigger together. */
+  padding: 13px 16px;
   border-radius: 9px;
   border: 1px solid var(--border);
   background: var(--surface-alt);
@@ -1376,7 +1406,7 @@ button.pe-btn, .pe-btn {
    see the "Swap players" confirm modal's own history if it ever needs
    resurrecting. One line, always, so a card's height is a fixed function
    of how many seat rows it has. */
-.board-seat { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; padding: 3px 0; font-size: 14px; }
+.board-seat { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; padding: 4px 0; font-size: 15px; }
 /* W/B letter badges, not a coloured dot — the dot used to sit on a fixed
    red backdrop (deliberately not a theme token, since a plain white dot
    vanishes on a light surface and a plain black one vanishes on a dark
@@ -1439,7 +1469,17 @@ button.pe-btn, .pe-btn {
      the remaining space exactly as before, just decided at the right step. */
   flex: 1 1 0%;
   min-width: 0;
-  max-width: 200px;
+  /* Bumped from 200px — with the modal widened to 720px (`.pe-modal-wide`),
+     200px was leaving real, ordinary names truncated with genuine unused
+     space still visible in the card next to them, since the grid track
+     itself only ever grows to this cap, never further, regardless of how
+     much modal width is actually free. 260px is comfortably under half the
+     modal's usable width even with both cards and the arrow channel
+     accounted for, so a normal two-card pair still fits without the grid's
+     own `minmax(0, max-content)` safety valve having to shrink anything —
+     this is still just a cap for one pathologically long name to stop
+     growing the whole modal, not the normal case any more. */
+  max-width: 260px;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -1457,10 +1497,14 @@ button.pe-btn, .pe-btn {
 .board-seat-changed .board-seat-name { font-weight: 700; color: var(--swap-color, var(--accent)); }
 
 /* The "not playing list" row a `:swap_pool` substitution adds below its
-   board row (`bench_card/1`) — same `.board-diff` grid, same `.board-card`
-   card shell, so it lines up with the board row above it and stays inside
-   `.SwapArrows`' reach without a layout rule of its own. */
-.board-diff-bench { margin-top: -2px; }
+   board row (`bench_card/1`) — same shared `.board-diff-group` grid, same
+   `.board-card` shell, so it lines up with the board row above it and
+   stays inside `.SwapArrows`' reach without a layout rule of its own.
+   (Used to need a `margin-top: -2px` nudge here to tuck it against the
+   board row above — an artifact of each `.board-diff` being its own
+   independent grid box; the shared grid's own `row-gap` alone looks right
+   now that this row is a genuine sibling in it, not a separately-boxed
+   grid stacked underneath.) */
 /* No `.board-seat-colour` disc here — a bench seat has no colour, and
    drawing a disc would claim a board seat this row doesn't have (see
    `bench_card/1`'s own comment). `padding-left` makes up the disc's own
@@ -2388,8 +2432,13 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .auth-wrap {
   display: grid;
   grid-template-columns: 1.1fr 1fr;
-  width: min(1080px, 94vw);
-  height: min(720px, calc(100vh - 64px));
+  /* Trimmed from 1080/720 - the password form collapsing behind a toggle
+     shortened the panel's actual content, so the same fixed box now left
+     more dead space INSIDE it than around it; a slightly smaller box with
+     more page margin around it reads better than a big box with empty
+     room inside. */
+  width: min(1020px, 94vw);
+  height: min(680px, calc(100vh - 64px));
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 20px;
@@ -2442,10 +2491,18 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .auth-hero-inner { position: relative; z-index: 1; }
 
 .auth-hero-brand {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 10px;
   margin-bottom: 34px;
+  /* A subtle darker pill (not the raw gradient) so the mark+name reads as
+     a self-contained badge instead of just floating text on the hero
+     background — `inline-flex` above so the pill hugs the content instead
+     of stretching the full panel width. */
+  padding: 8px 14px 8px 10px;
+  border-radius: 99px;
+  background: rgba(0, 0, 0, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 .auth-hero-mark { width: 46px; height: 35px; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.25)); }
 .auth-hero-name { font-size: 20px; font-weight: 500; letter-spacing: 0.01em; }
@@ -2553,6 +2610,41 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 }
 .auth-sso:hover { border-color: var(--accent); color: var(--accent); }
 .auth-sso svg { flex-shrink: 0; }
+
+/* The password login is collapsed behind this by default (see login.ex's
+   comment) so magic-link reads as the one clear primary path. Explicit
+   `display: none` / `[open] > … { display: flex }` on the form itself,
+   not just relying on `<details>`'s own native collapse — the exact same
+   shape as `.topbar-menu-panel`'s fix earlier today: a descendant with its
+   own unconditional `display: flex` (`.auth-form` is used for the
+   always-visible magic-link form too, so it can't be changed itself) can
+   fight a browser's native collapse in ways that are subtly wrong
+   (Chromium's `content-visibility: hidden` still reports a "last
+   remembered size" for layout even while correctly hiding paint/hit-
+   testing) regardless of whether it happens to look fine in the one
+   browser it was checked in. */
+.auth-password-toggle summary {
+  list-style: none;
+  cursor: pointer;
+  color: var(--text-soft);
+  font-size: 13px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 4px 0 12px;
+}
+.auth-password-toggle summary::-webkit-details-marker { display: none; }
+.auth-password-toggle summary::after {
+  content: "\25BE";
+  font-size: 10px;
+  opacity: 0.6;
+  transition: transform 0.15s ease;
+}
+.auth-password-toggle[open] summary::after { transform: rotate(180deg); }
+.auth-password-toggle summary:hover { color: var(--text); }
+.auth-password-toggle > .auth-form { display: none; }
+.auth-password-toggle[open] > .auth-form { display: flex; }
 
 .auth-divider {
   display: flex;

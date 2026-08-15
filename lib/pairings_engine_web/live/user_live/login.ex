@@ -148,45 +148,53 @@ defmodule PairingsEngineWeb.UserLive.Login do
               </button>
             </.form>
 
-            <div class="auth-divider"><span>or use a password</span></div>
+            <%!-- Collapsed by default: magic-link is the one clear primary path,
+                  not two equally-weighted full forms stacked on top of each
+                  other. Plain `<details>` (same disclosure pattern the top bar's
+                  "Advanced"/"Settings" menus already use) rather than LiveView
+                  assign state - purely a show/hide, no server round-trip earns
+                  its keep for that. --%>
+            <details class="auth-password-toggle">
+              <summary>Use a password instead</summary>
 
-            <.form
-              :let={f}
-              for={@form}
-              id="login_form_password"
-              action={~p"/users/log-in"}
-              phx-submit="submit_password"
-              phx-trigger-action={@trigger_submit}
-              class="auth-form"
-            >
-              <.input
-                readonly={!!@current_scope}
-                field={f[:email]}
-                type="email"
-                label="Email"
-                autocomplete="username"
-                spellcheck="false"
-                required
-              />
-              <.input
-                field={@form[:password]}
-                type="password"
-                label="Password"
-                autocomplete="current-password"
-                spellcheck="false"
-              />
-              <button
-                type="submit"
-                class="pe-btn primary auth-submit"
-                name={@form[:remember_me].name}
-                value="true"
+              <.form
+                :let={f}
+                for={@form}
+                id="login_form_password"
+                action={~p"/users/log-in"}
+                phx-submit="submit_password"
+                phx-trigger-action={@trigger_submit}
+                class="auth-form"
               >
-                Log in and stay signed in <span aria-hidden="true">→</span>
-              </button>
-              <button type="submit" class="pe-btn auth-submit auth-submit-ghost">
-                Log in only this time
-              </button>
-            </.form>
+                <.input
+                  readonly={!!@current_scope}
+                  field={f[:email]}
+                  type="email"
+                  label="Email"
+                  autocomplete="username"
+                  spellcheck="false"
+                  required
+                />
+                <.input
+                  field={@form[:password]}
+                  type="password"
+                  label="Password"
+                  autocomplete="current-password"
+                  spellcheck="false"
+                />
+                <button
+                  type="submit"
+                  class="pe-btn primary auth-submit"
+                  name={@form[:remember_me].name}
+                  value="true"
+                >
+                  Log in and stay signed in <span aria-hidden="true">→</span>
+                </button>
+                <button type="submit" class="pe-btn auth-submit auth-submit-ghost">
+                  Log in only this time
+                </button>
+              </.form>
+            </details>
 
             <div :if={PairingsEngine.Keycloak.configured?()} class="auth-divider">
               <span>or</span>
