@@ -665,6 +665,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           {:ok, {pairing, field}} = locate_seat(round.pairings, seated_id)
           seated_name = display_name(socket, seated_id)
           pool_name = display_name(socket, pool_id)
+          changes = [board_change(pairing, [{field, pool_name}])]
 
           {:ok,
            %{
@@ -673,7 +674,26 @@ defmodule PairingsEngineWeb.PairingsLive do
              pool_id: pool_id,
              title: "Substitute player",
              subtitle: "#{pool_name} takes #{seated_name}'s place",
-             changes: [board_change(pairing, [{field, pool_name}])],
+             changes: changes,
+             # The mirror image of the board row above: the pool player was
+             # on the bench before this action, the seated player lands
+             # there after. Rendered as its own row (`bench_card/1`), not
+             # another `changes` entry — it isn't a board, it has no
+             # number/colours, and it only ever has one seat instead of
+             # two. Its two names are already both present in `changes`
+             # above (seated_name in `before`, pool_name in `after`), so
+             # `identity_colors/1` picks up both without any change there.
+             # Putting this row inside the SAME `#confirm-board-diffs`
+             # container as the board row is what lets `.SwapArrows`'
+             # global name-matching (`matchTravellers/1`) draw the two
+             # journey arrows for free — one leaving the bench, one
+             # arriving on it — with no JS changes needed.
+             bench: %{before: pool_name, after: seated_name},
+             # `:swap` used to be the only kind with more than one
+             # identifiable player on screen at once; a substitution now
+             # is too (the bench row adds a second), so it earns the same
+             # per-traveller colour coding `:swap` already has.
+             colors: identity_colors(changes),
              note:
                "#{seated_name} moves to the not-playing list for this round." <>
                  whole_event_note(socket, pool_id)
@@ -1334,6 +1354,45 @@ defmodule PairingsEngineWeb.PairingsLive do
     """
   end
 
+  # The "not playing list" row `confirm_for/2`'s `:swap_pool` branch adds
+  # alongside the board row — the one `board_card/1` caller that only ever
+  # has ONE seat, not two, so it gets its own small component rather than
+  # forcing an optional-second-seat attr onto `board_card/1`. Deliberately
+  # reuses `board_card/1`'s class vocabulary (`.board-card`/
+  # `.board-card-#{state}`/`.board-seat`/`.board-seat-name`) rather than
+  # inventing new ones: `.SwapArrows`' `matchTravellers/1` finds its
+  # travellers by querying those classes GLOBALLY across the whole modal,
+  # not board-by-board, so as long as this row lives inside the same
+  # `#confirm-board-diffs` container it's picked up for free. What it
+  # skips is the W/B colour disc `board_card/1` always draws — colour is
+  # meaningless off the board, and drawing one here would claim a seat
+  # this row doesn't have.
+  attr :name, :string, required: true
+  attr :state, :string, required: true
+  attr :color_by_name, :map, default: %{}
+
+  defp bench_card(assigns) do
+    ~H"""
+    <div class={["board-card", "board-card-#{@state}"]}>
+      <div
+        class={["board-seat", "board-seat-bench", bench_changed_class(@state)]}
+        style={seat_color_style(@color_by_name, @name)}
+      >
+        <span class="board-seat-name" title={seat_text(@name)}>{seat_text(@name)}</span>
+      </div>
+    </div>
+    """
+  end
+
+  # Both sides of the bench row always differ from each other (the whole
+  # point of a substitution is that the two names swap places) — unlike
+  # `board_card/1`, there's no "did this seat actually change?" branch to
+  # make; both cards always get the highlight/no-visual-weight split
+  # `board_card/1` also uses so `.SwapArrows` can find where each
+  # traveller starts.
+  defp bench_changed_class("after"), do: "board-seat-changed"
+  defp bench_changed_class(_before), do: "board-seat-moving"
+
   defp seat_color_style(color_by_name, name) do
     case Map.get(color_by_name, name) do
       nil -> nil
@@ -1932,6 +1991,25 @@ defmodule PairingsEngineWeb.PairingsLive do
                   state="after"
                   compare={c.before}
                   related_board={c[:related_board]}
+                  color_by_name={@confirm[:colors] || %{}}
+                />
+              </div>
+              <%!-- The "not playing list" row a `:swap_pool` substitution adds
+                    alongside its board row — see `confirm_for/2`'s comment on
+                    `bench:`. Inside the same `#confirm-board-diffs` container
+                    as the loop above so `.SwapArrows` finds both rows' seats
+                    together. --%>
+              <div :if={@confirm[:bench]} class="board-diff board-diff-bench">
+                <div class="board-diff-num">Not playing list</div>
+                <.bench_card
+                  name={@confirm.bench.before}
+                  state="before"
+                  color_by_name={@confirm[:colors] || %{}}
+                />
+                <div class="board-diff-arrow">→</div>
+                <.bench_card
+                  name={@confirm.bench.after}
+                  state="after"
                   color_by_name={@confirm[:colors] || %{}}
                 />
               </div>
