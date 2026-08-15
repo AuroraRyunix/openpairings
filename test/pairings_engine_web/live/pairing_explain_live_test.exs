@@ -954,4 +954,67 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     refute html =~ "bye: Alice, against due colour"
     refute html =~ "Received White; colour history says Black was due"
   end
+
+  describe "vacated seats after pairing (regression, real prod incidents)" do
+    test "renders instead of crashing when a seat is vacated on a playing board or a bye recipient is vacated",
+         %{conn: conn, scope: scope} do
+      {:ok, t} = Tournaments.create_tournament(scope, %{"name" => "Vacated", "type" => "swiss"})
+
+      {:ok, a} = Tournaments.create_player(t.id, %{"name" => "Alice"})
+      {:ok, b} = Tournaments.create_player(t.id, %{"name" => "Bob"})
+      {:ok, c} = Tournaments.create_player(t.id, %{"name" => "Carol"})
+      {:ok, d} = Tournaments.create_player(t.id, %{"name" => "Dave"})
+
+      r1 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 1, status: "playing"})
+      board(r1, 1, a, b, "1-0")
+      bye_board(r1, 2, c)
+
+      r2 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 2, status: "playing"})
+
+      # Board 1: white vacated after pairing (playing board, black stays).
+      Repo.insert!(%PairingSchema{
+        round_id: r2.id,
+        board: 1,
+        white_player_id: nil,
+        black_player_id: b.id,
+        result: ""
+      })
+
+      # Board 2: the bye recipient themselves vacated (a "ghost" bye - both
+      # seats now empty, but still flagged is_bye since black was already
+      # nil before).
+      Repo.insert!(%PairingSchema{
+        round_id: r2.id,
+        board: 2,
+        white_player_id: nil,
+        black_player_id: nil,
+        result: ""
+      })
+
+      # Board 3: an ordinary board and a real bye, so there's something
+      # unaffected to confirm still renders normally alongside the two
+      # vacated boards above.
+      board(r2, 3, d, c, "")
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/2/explain")
+
+      # Renders (no 500), and says plainly that the vacated seats aren't
+      # finished rather than silently omitting them or crashing.
+      assert html =~ "Seat vacant"
+      assert html =~ "Bob"
+      assert html =~ "Dave"
+      assert html =~ "Carol"
+
+      # Neither vacated board contributes a dot to the score-bracket graph
+      # (nobody to plot) - only the untouched board 3's two real players do.
+      assert html =~ ~r/aria-label="Board 3, White: Dave/
+      assert html =~ ~r/aria-label="Board 3, Black: Carol/
+      refute html =~ ~r/aria-label="Board 1,/
+      refute html =~ ~r/aria-label="Board 2,/
+
+      # The "Pairing numbers" table still lists every board, marking the
+      # vacant seats rather than crashing on them.
+      assert html =~ "— vacant —"
+    end
+  end
 end
