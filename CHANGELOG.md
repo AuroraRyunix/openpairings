@@ -7,6 +7,36 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **"Assign categories" now shows a dry-run preview before it writes
+  anything** — clicking the button used to reassign every player's category
+  instantly, no warning. It now computes the same rule decisions
+  (`Tournaments.preview_auto_assign_categories/1`, the single source of
+  truth the real write path now reuses too, so preview and apply can never
+  drift apart) and shows a Player/From/To diff in a confirm modal, filtered
+  to only the players who'd actually move. Cancel discards it with zero
+  side effects; confirming re-checks current DB state rather than trusting
+  the staged preview verbatim, so a concurrent edit mid-modal can't write
+  stale decisions. A no-op roster (nothing would change) says so plainly
+  instead of opening an empty diff.
+- **"Substitute player" now shows both halves of the move, with real in/out
+  arrows** — previously the confirm modal only showed the board seat
+  changing, with no visual for where the outgoing player went or the
+  incoming player came from. A new "Not playing list" row appears alongside
+  the board row (the outgoing seated player arriving there, the incoming
+  pool player leaving it), and the existing `.SwapArrows` journey-arrow
+  mechanism — which matches identical names appearing once on the "before"
+  side and once anywhere on the "after" side, across the whole modal, not
+  just within one row — draws the two arrows automatically from that shape
+  alone. No changes needed to the arrow-drawing code itself. This also
+  fixes a real bug the old single-row layout had: the *unchanged* seat (say,
+  White, when Black was the one substituted) still showed the same name on
+  both its own before/after sides, so the old name-matcher drew a spurious
+  arrow between White's two seats instead of showing anything for the
+  actual substitution — misleading, since it looked like White had somehow
+  moved. That seat still gets its own short "stayed put" arrow today (the
+  same thing an unmoved partner in a two-board swap already got), but it's
+  no longer the only, unexplained arrow on screen.
+
 - **Hide a fully-vacated board, or delete the round's actual last one** — two
   ways to clean up a pairing row that's left over from marking both players
   on it absent, without ever risking the 0.14.6 board-renumbering bug class
@@ -21,6 +51,96 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   deletion that can never require renumbering anything after it. It goes
   through the same confirm-modal pattern as every other hand-edit gesture on
   this page.
+
+### Changed
+
+- **Result cards redesigned** — each player's name, rating/starting-№, and
+  signature line used to be crammed onto one small row alongside a "Sign
+  ___" blank; the name is now on its own, larger row, with the signature on
+  a separate row below it instead of competing for space on the same line.
+  The result row (1-0 / ½-½ / 0-1) is now genuinely centred — the trailing
+  "other: ...." option previously used `margin-left: auto` to push itself
+  right, which dragged the three main results left of true centre as a side
+  effect.
+- **Removed the "Print player cards" button** from the Players page — kept
+  causing confusion with "Print place cards" right next to it and wasn't
+  something arbiters actually used; the print route itself is untouched.
+- **The swap-confirm modal (swap/vacate/fill/substitute/pair) is wider**
+  (720px instead of 560px, the same `.pe-modal-wide` variant the categories
+  preview above already uses) so names have more room before truncating.
+- **Removed the "⇄ Board N" chip** from a cross-board swap's changed seat —
+  confusing, and redundant with the journey arrows the modal already draws
+  to show where a moved player came from. Also removed its now-fully-dead
+  plumbing (`related_board`, threaded through three functions purely to
+  feed this one chip) and the `flex-wrap` machinery that existed only to
+  give it its own line.
+
+### Fixed
+
+- **Three real "vacated seat" crashes in the "Explain this round" page and
+  its underlying analysis, found and fixed over one afternoon as each one
+  surfaced the next.** `Tournaments.vacate_seat/3` can empty EITHER colour's
+  seat (not just the one a bye already leaves empty), which turned out to
+  be a state nothing downstream actually expected:
+  1. `PairingRationale.board_context/7`'s rematch check assumed White is
+     always present whenever the board isn't a formal bye — crashed with
+     `key :id not found in: nil` reading `white.id` when only Black
+     remained seated.
+  2. A bye's own recipient can be vacated too (a bye pairing already has
+     Black's seat empty; vacating White leaves nobody at all, but `is_bye`
+     — which only checks Black's seat — still reports the board as a bye).
+     `annotate_bye/3` then crashed reading the vanished recipient's name.
+     Fixed alongside a real, quieter second bug in the same function: an
+     empty "ghost" bye board sorting before a real one would have silently
+     reported the empty ghost as the round's allocated bye instead of the
+     actual recipient.
+  3. Once the analysis itself stopped crashing, `PairingExplainLive`'s own
+     rendering turned out to make the identical assumption in three
+     separate places — the score-bracket graph, the "Board by board" card
+     list, and the "Pairing numbers" table — each reading a player's name
+     unconditionally with no guard for a missing seat. Boards missing a
+     side are now excluded from the score-bracket graph entirely (there's
+     no player to plot), and the other two now show a plain "Seat vacant"
+     note instead of crashing.
+- **The round-dates setup checklist could stay stuck on "missing" forever**
+  even after every date was filled in — `round_dates` was only padded or
+  truncated to match `rounds_count` on the Dates settings page's own save,
+  not wherever else `rounds_count` can change (e.g. round-robin silently
+  correcting it to match the real Berger schedule on freeze). Moved into
+  the shared tournament changeset so it happens on every save, from any
+  page.
+- **The "Delay (minutes)" field showed even when "Publish each round" was
+  set to "Immediately"** — it now only appears for "After a delay", live,
+  as the dropdown changes.
+- **A print doc could show a stale fixed-board note after a round was
+  already paired and frozen** — `fixed_board_note/1` (score sheets, result
+  cards) read `Player.fixed_board` live, bypassing the freeze mechanism
+  that already exists for exactly this (see the 0.14.6-class fix below) and
+  contradicting its own module doc's claim to be the *only* such reader. A
+  mid-round edit to a player's fixed board could make a reprinted document
+  disagree with the already-frozen main pairing sheet for the same board.
+  Now reads the pairing's own frozen data instead.
+- **The swap-confirm modal's before/after cards could end up different
+  heights**, making the connecting journey arrows look crooked — caused by
+  a long name wrapping onto a second line in one card but not its partner.
+  Names no longer wrap (truncate with an ellipsis instead, full name still
+  available on hover); cards now size to their own content instead of a
+  forced equal split, so a short name's card isn't stretched to match a
+  long one.
+  - A related, more specific wrap bug survived that first fix: the W/B
+    colour badge could end up alone on its own line, above the name, on
+    any "Swap colours" confirm with two ordinary-length names — not just a
+    pathological long one. Root cause: with `flex-wrap: wrap` on the seat
+    row, the browser decides which line an item lands on using its
+    *un-shrunk* preferred size, not its post-ellipsis size — so a name
+    "too wide" to fit next to the badge got bumped to a new line before
+    the shrinking/ellipsis logic ever got a chance to run.
+  - "Pair these two" (pool-pair) could show a large, visibly empty gap
+    between its two cards — a CSS Grid trap: the arrow column's `auto`
+    track sizing doesn't mean "size to content" the way it does for a
+    `width` property, it means "absorb the grid's leftover space" when
+    nothing else claims it, and two narrow cards left a lot of it. Changed
+    to `max-content`, which never grows past the arrow glyph itself.
 
 ### Fixed
 
