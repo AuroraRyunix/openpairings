@@ -105,7 +105,21 @@ defmodule PairingsEngine.MixProject do
       {:stream_data, "~> 1.1", only: [:dev, :test]},
       # Pure Elixir, no native deps — renders CHANGELOG.md on the
       # Settings > Changelog page (SettingsChangelogLive).
-      {:earmark, "~> 1.4"}
+      {:earmark, "~> 1.4"},
+      # OpenPair — the optional second Swiss engine (see
+      # docs/pairing-systems.md). A from-scratch Dutch-system implementation
+      # in pure Elixir with zero runtime dependencies: no JVM, no external
+      # binary, nothing to install alongside a release or a Burrito build.
+      # Not published to Hex, so it comes from GitHub the same way heroicons
+      # and daisyui already do.
+      #
+      # `ref:` is pinned to an exact commit ON PURPOSE and must only ever be
+      # bumped deliberately, with the bump reviewed like any other pairing
+      # change. Floating this to a branch would let an upstream push silently
+      # change what this app pairs — the one thing a tournament manager can
+      # never allow. `override: true`-style looseness is equally out.
+      {:open_pair,
+       github: "AuroraRyunix/openpair", ref: "f984803f4cce9e0a89669ef1292a10e852f009f7"}
     ]
   end
 

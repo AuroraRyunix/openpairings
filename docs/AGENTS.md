@@ -34,7 +34,11 @@ per-tournament collaborator sharing.
 - **JaVaFo** (a real, external, FIDE-endorsed Java program) does the actual
   Swiss pairing math. This app's job for Swiss is building a correct TRF16
   input file, shelling out to `java -jar javafo.jar`, and parsing the output
-  — **not** reimplementing the Dutch pairing algorithm.
+  — **not** reimplementing the Dutch pairing algorithm. A tournament may
+  opt into a second engine (`tournaments.pairing_engine == "openpair"`, the
+  sibling pure-Elixir Dutch engine, beta) which is handed the byte-identical
+  TRF; JaVaFo remains the default and the only engine permitted on a
+  FIDE-homologated tournament. See `docs/pairing-systems.md`.
 - **Burrito** wraps a release into a single self-contained executable
   (bundles the BEAM runtime itself) for zero-dependency distribution.
 
@@ -200,7 +204,15 @@ anything here.
 6. **`pair_by_category` and `swiss_match_format` are mutually exclusive**
    (rejected at the changeset level) — the category path never mirrors a
    second leg. Same for `pair_by_category` + Baku acceleration.
-7. **Round robin and Keizer never send anything to JaVaFo.** Round robin is
+7. **The engine is chosen at exactly one seam** — `run_engine/5`, which
+   takes the finished TRF text and returns `{:ok, [{white, black}]}` (`0`
+   for the pairing-allocated bye) or `{:error, message}`. Both Swiss paths
+   (`do_pair_single/4` and the per-category one) funnel through it, so
+   neither can drift from the other and a third engine would be added in
+   one place. OpenPair reads only the TRF's `XXR` extension, so a round
+   whose TRF would carry `XXP` (forbidden pairings / exclusions) is refused
+   there outright rather than paired with the rule silently dropped.
+8. **Round robin and Keizer never send anything to JaVaFo.** Round robin is
    a pure function of frozen pairing numbers (Berger tables, computed once
    at `ensure_frozen/1`); Keizer runs its own backtracking matcher. Neither
    is affected by anything in this section.

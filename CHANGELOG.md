@@ -7,6 +7,60 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **A second Swiss pairing engine: OpenPair, opt-in and beta** — the
+  "multi-engine" item the login page has been advertising as coming soon.
+  Settings → Options gains a "Swiss engine" control alongside the pairing
+  system: **JaVaFo** stays the default and is unchanged, and
+  [OpenPair](https://github.com/AuroraRyunix/openpair) — a from-scratch
+  Dutch-system engine in pure Elixir, pinned as a `github:` dependency at
+  an exact commit — is available as an alternative for club and non-rated
+  events. It runs inside this app's own BEAM: no JVM, no jar, nothing to
+  install alongside a release or a Burrito binary, which also means its
+  tests are the first Swiss pairing tests in this suite that run on a bare
+  checkout instead of being `@tag :javafo`-excluded.
+
+  Both engines are handed the **byte-identical TRF**
+  `Pairing.javafo_input/4` already built — the engine choice only decides
+  what turns those bytes into pairs, and everything downstream
+  (`create_round/5`, board freezing, absentee byes, standings) is shared and
+  cannot tell which one answered. That keeps the two directly comparable on
+  real tournament data rather than only on synthetic input, which is the
+  whole point of having a second implementation.
+
+  Three guards, all in the data layer rather than the UI, because "the UI
+  hides the control" has never been enforcement here:
+  - **Never on a FIDE-homologated tournament.** OpenPairings' entire FIDE
+    story is FE1's *"Internal engine: NO — thru JaVaFo"*, exactly as Vega,
+    Swiss Manager and TournamentService answer it, and JaVaFo's own
+    endorsement is what then covers pairing legality. The changeset refuses
+    OpenPair on a homologated tournament **and** refuses ticking
+    "FIDE-homologated" on a tournament already running OpenPair — the
+    reverse direction matters just as much, and checking only the changed
+    field would have let it through.
+  - **Locked after round 1**, via `Tournaments.locked_fields/1` (so
+    `update_tournament/2` refuses it, not just the disabled select), same
+    rule and same reason as `pairing_system` one level up: two independent
+    Dutch implementations won't always agree, and swapping mid-event hands
+    the new engine a history it didn't produce.
+  - **Refuses rather than silently ignores anything it can't do.** OpenPair
+    reads every TRF extension this app emits — `XXR` (rounds), `XXP`
+    (forbidden pairings and club/federation exclusions) and `XXA` (Baku
+    acceleration) — so forbidden pairings and accelerated events work on
+    either engine. That's new: OpenPair's parser used to discard everything
+    but `XXR`, which for this input is the worst way to fail, because an
+    engine that ignores an `XXP` line still returns a complete, perfectly
+    legal-looking round that just happens to seat two players who must never
+    meet, and nothing downstream can tell. Integrating it here is what
+    surfaced that; both extensions were implemented upstream rather than
+    worked around, and the round is still refused outright — nothing
+    written, reason named — if the generated TRF ever carries an extension
+    the engine doesn't know. The check reads the generated file rather than
+    the tournament's settings, so a future extension is caught by default
+    instead of being quietly ignored.
+
+  Round robin and Keizer are completely unaffected — they compute their own
+  pairings and never consult the setting. See `docs/pairing-systems.md`.
+
 - **"Save a restore point" on the History page** — restore points could only
   ever be created as a side effect of something else. `Snapshots.capture/4`
   was called from exactly four handlers, all of them in PairingsLive: pairing
@@ -86,6 +140,9 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **The login/registration hero no longer lists "multi-engine" as coming
+  soon** — it ships (above), so the Swiss line now names both engines and
+  the coming-soon row is down to TRF26 alone.
 - **Result cards redesigned** — each player's name, rating/starting-№, and
   signature line used to be crammed onto one small row alongside a "Sign
   ___" blank; the name is now on its own, larger row, with the signature on
@@ -108,6 +165,22 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   give it its own line.
 
 ### Fixed
+
+- **The accelerated TRF this app exports was malformed, and only JaVaFo
+  would read it** — `XXA` lines carry Baku acceleration's virtual points,
+  and the writer padded each player's starting rank to five columns instead
+  of four. That put a single-digit rank in column 9 and left columns 5–8
+  blank, shifting every value on the line one place right of where the
+  format puts it. JaVaFo accepts the malformed form, which is exactly why
+  this survived: JaVaFo has been the only thing that ever read these files.
+  Any stricter reader rejects the line outright, so an accelerated
+  tournament exported for a rating officer, an archive, or a second engine
+  was silently unusable. Confirmed against the real bbpPairings binary,
+  which reads the rank from columns 5–8 and each value four wide on a
+  five-column stride, and proven by generating one accelerated TRF that
+  differs only in this layout: the old form is refused as an invalid line,
+  the new one parses — and JaVaFo pairs both identically, so no existing
+  pairing changes.
 
 - **The bracket map's variable dead space, under the graph** — on
   "Pre-round score brackets" there was sometimes a sizeable empty gap

@@ -58,8 +58,8 @@ defmodule PairingsEngine.SettingsLockTest do
     test "the pairing-shape and absence-scoring settings lock once a round exists" do
       locked = tournament() |> pair_a_round() |> Tournaments.locked_fields()
 
-      for field <- ~w(pairing_system rr_match_format swiss_match_format pair_by_category
-                      abs_value abs_jusque abs_nbfois)a do
+      for field <- ~w(pairing_system pairing_engine rr_match_format swiss_match_format
+                      pair_by_category abs_value abs_jusque abs_nbfois)a do
         assert field in locked, "#{field} should be frozen once a round is paired"
       end
     end

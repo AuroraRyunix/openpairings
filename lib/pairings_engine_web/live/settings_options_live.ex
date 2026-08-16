@@ -1,12 +1,13 @@
 defmodule PairingsEngineWeb.SettingsOptionsLive do
   @moduledoc """
   The "Options" settings page (`/t/:id/settings/options`) — everything about
-  *how* the tournament is paired: the pairing engine and its variants (RR
+  *how* the tournament is paired: the pairing system and its variants (RR
   cycles, RR/Swiss match format — each locked once round 1 has been
-  paired), the rating used for pairing, acceleration, the rate of play, the
-  public-pairings publish delay, and the forbidden-pairing / club-federation
-  exclusion rules. Scoring (points per win/draw/loss, byes, SWAR's "Pt
-  ABSENT" genuine-absence rule) has its own page — see
+  paired), the Swiss engine that does the actual pairing, the rating used
+  for pairing, acceleration, the rate of play, the public-pairings publish
+  delay, and the forbidden-pairing / club-federation exclusion rules.
+  Scoring (points per win/draw/loss, byes, SWAR's "Pt ABSENT"
+  genuine-absence rule) has its own page — see
   `PairingsEngineWeb.SettingsScoringLive`. Pair-by-category lives on
   `PairingsEngineWeb.CategoriesLive`, next to the categories-enabled switch
   it depends on.
@@ -48,8 +49,8 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
        dirty: false,
        stale: false,
        # Which locked pairing-shape control (if any) the user just tried to
-       # interact with — one of `:pairing_system`, `:rr_cycles`,
-       # `:rr_match_format`, `:swiss_match_format`, or nil.
+       # interact with — one of `:pairing_system`, `:pairing_engine`,
+       # `:rr_cycles`, `:rr_match_format`, `:swiss_match_format`, or nil.
        locked_hint: nil,
        forbidden_pairing_error: nil,
        club_exclusion_mode: tournament.club_exclusion,
@@ -72,6 +73,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     assign(socket,
       paired_rounds: Pairing.paired_rounds_count(tournament.id),
       pairing_system_locked?: :pairing_system in locked,
+      pairing_engine_locked?: :pairing_engine in locked,
       rr_cycles_locked?: :rr_cycles in locked,
       rr_match_format_locked?: :rr_match_format in locked,
       swiss_match_format_locked?: :swiss_match_format in locked
@@ -336,6 +338,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
   defp strip_locked_pairing_fields(params, assigns) do
     params
     |> maybe_drop_locked("pairing_system", assigns.pairing_system_locked?)
+    |> maybe_drop_locked("pairing_engine", assigns.pairing_engine_locked?)
     |> maybe_drop_locked("rr_cycles", assigns.rr_cycles_locked?)
     |> maybe_drop_locked("rr_match_format", assigns.rr_match_format_locked?)
     |> maybe_drop_locked("swiss_match_format", assigns.swiss_match_format_locked?)
@@ -454,6 +457,54 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 <.locked_overlay field={:pairing_system} locked?={@pairing_system_locked?} />
               </div>
               <.locked_hint_message field={:pairing_system} locked_hint={@locked_hint} />
+            </.setting_field>
+
+            <.setting_field
+              label="Swiss engine"
+              hint="Swiss only - round robin and Keizer compute their own pairings and never consult this."
+            >
+              <div class="locked-wrap">
+                <select name="tournament[pairing_engine]" disabled={@pairing_engine_locked?}>
+                  <option value="javafo" selected={@tournament.pairing_engine == "javafo"}>
+                    JaVaFo - FIDE-endorsed (default)
+                  </option>
+
+                  <option
+                    value="openpair"
+                    selected={@tournament.pairing_engine == "openpair"}
+                    disabled={@tournament.fide_homologated}
+                  >
+                    OpenPair (beta){if @tournament.fide_homologated,
+                      do: " - unavailable, see below"}
+                  </option>
+                </select>
+                <.locked_overlay field={:pairing_engine} locked?={@pairing_engine_locked?} />
+              </div>
+              <.locked_hint_message field={:pairing_engine} locked_hint={@locked_hint} />
+
+              <span class="hint">
+                <strong>JaVaFo</strong>
+                is the default: the external, FIDE-endorsed Dutch engine this app has always
+                paired with, and the only one permitted for a FIDE-rated tournament.
+              </span>
+
+              <span class="hint">
+                <strong>OpenPair</strong>
+                is a second Dutch engine built straight into the app - no Java, nothing to
+                install - and is <strong>beta</strong>. It matches the reference implementation
+                on the overwhelming majority of tournaments, but a handful of known
+                disagreements remain, so treat it as an alternative worth trying for club and
+                non-rated events, not as a replacement. It also does not yet implement
+                forbidden pairings, club/federation exclusions or Baku acceleration: rather
+                than quietly ignore a rule you set, it refuses to pair the round and says so.
+              </span>
+
+              <span :if={@tournament.fide_homologated} class="hint">
+                OpenPair cannot be selected here because this tournament is marked
+                <strong>FIDE-homologated</strong>
+                (Settings &rarr; FIDE). FIDE-rated events must be paired by JaVaFo - untick
+                homologation first if this is not actually a rated event.
+              </span>
             </.setting_field>
 
             <.setting_field label="Cycles">

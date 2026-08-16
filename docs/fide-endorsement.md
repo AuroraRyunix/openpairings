@@ -65,6 +65,36 @@ themselves. This is no longer a hunch about what an unstated checkbox
 might mean — it's the documented behavior of three real, currently-listed
 endorsements.
 
+### "But OpenPairings can now select OpenPair" — why that doesn't change the answer
+
+Since the multi-engine work, a tournament carries a `pairing_engine`
+setting and can be pointed at [OpenPair](https://github.com/AuroraRyunix/openpair),
+a from-scratch Dutch engine that genuinely does pair. The FE1 answer above
+is nevertheless unchanged, because the setting is **structurally
+unreachable for the tournaments FE1 is about**:
+
+- `pairing_engine: "openpair"` is refused by `Tournament.changeset/2` on
+  any `fide_homologated` tournament, and ticking `fide_homologated` on a
+  tournament already running OpenPair is refused too. Both directions, in
+  the data layer — not a hidden UI control, which this codebase has learned
+  the hard way is not enforcement.
+- The setting joins `Tournaments.locked_fields/1`, so it cannot be flipped
+  mid-event either.
+
+So every FIDE-rated round this program ever produces is a JaVaFo round, and
+"Internal engine: NO — thru JaVaFo" remains the literal truth of what
+OpenPairings does for a rated tournament. If OpenPair is ever *intended* to
+be declared to FIDE, that is a separate application with `Internal Pairing
+Engine: YES`, its own FPC/RTG statements, and the full 5000-tournament
+auto-test described below — and it would be applied for by OpenPair, not
+smuggled in under this answer. See `docs/pairing-systems.md`.
+
+Worth noting for that eventual conversation: OpenPair already implements
+both of FE1's calling statements itself (`-c` pairings checker, `-g` random
+tournament generator, deliberately mirroring JaVaFo's own CLI shape), which
+is exactly the pair of things an `Internal engine: YES` applicant has to
+supply.
+
 ## What FIDE actually requires you to submit (confirmed from the primary sources)
 
 Read directly, not summarized from memory — [FE1](https://www.fide.com/FIDE/handbook/C04Annex1_FE1.pdf)
