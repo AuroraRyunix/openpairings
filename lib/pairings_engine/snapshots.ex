@@ -220,9 +220,9 @@ defmodule PairingsEngine.Snapshots do
     child_counts = Enum.frequencies_by(snapshots, & &1.parent_id)
     head_line = ancestry(tournament.head_snapshot_id, by_id)
 
-    {entries, _lanes} =
-      Enum.reduce(snapshots, {[], %{}}, fn snapshot, {acc, lanes} ->
-        lane = assign_lane(snapshot, lanes, head_line, child_counts)
+    {entries, _lanes, _continued} =
+      Enum.reduce(snapshots, {[], %{}, MapSet.new()}, fn snapshot, {acc, lanes, continued} ->
+        {lane, continued} = assign_lane(snapshot, lanes, continued, head_line)
 
         entry = %{
           snapshot: snapshot,
@@ -233,7 +233,7 @@ defmodule PairingsEngine.Snapshots do
           children: Map.get(child_counts, snapshot.id, 0)
         }
 
-        {[entry | acc], Map.put(lanes, snapshot.id, lane)}
+        {[entry | acc], Map.put(lanes, snapshot.id, lane), continued}
       end)
 
     # Built oldest-first for stable lanes; returned newest-first to match the
@@ -243,29 +243,42 @@ defmodule PairingsEngine.Snapshots do
 
   # Lane 0 is reserved for the line the live data is on, so the "real"
   # history reads as the trunk however much branching happened around it.
-  # Everything else takes the lowest lane not already used by a sibling.
-  defp assign_lane(snapshot, lanes, head_line, child_counts) do
+  # Everything else continues its parent's lane if it is that parent's first
+  # child, and otherwise opens a new lane — which is what makes a fork look
+  # like a fork and a straight run look like a straight run.
+  #
+  # `continued` is the set of parents that have already passed their lane to
+  # a child, and it is why this is threaded through the reduce rather than
+  # derived from `lanes`. Two earlier versions tried to derive it and both
+  # were wrong, in opposite directions:
+  #
+  #   * asking "is any snapshot holding the parent's lane?" always matched
+  #     the PARENT itself (snapshots are walked oldest-first, so the parent
+  #     is already placed) — no child ever continued a lane, and an
+  #     abandoned run of restore points drew as one lane per snapshot;
+  #   * excluding just the parent then matched the GRANDPARENT, who is on
+  #     the same lane legitimately — so a chain broke at its third node
+  #     (A -> B -> C -> D gave B and C lane 1 but D lane 2).
+  #
+  # The question was never "who holds this lane" but "has a SIBLING taken
+  # it", and that is not recoverable from `lanes` alone.
+  defp assign_lane(snapshot, lanes, continued, head_line) do
+    parent_lane = Map.get(lanes, snapshot.parent_id)
+
     cond do
       MapSet.member?(head_line, snapshot.id) ->
-        0
+        {0, continued}
 
-      # First child of a parent continues the parent's lane; later children
-      # are the forks and need their own.
-      first_child?(snapshot, lanes, child_counts) ->
-        Map.get(lanes, snapshot.parent_id, 0)
+      # `parent_lane != 0` matters: reaching here means this snapshot is NOT
+      # on the head line, so inheriting lane 0 from a parent that is would
+      # draw an abandoned branch on the trunk. A root snapshot off the head
+      # line (parent_lane nil) opens its own lane for the same reason.
+      parent_lane not in [nil, 0] and not MapSet.member?(continued, snapshot.parent_id) ->
+        {parent_lane, MapSet.put(continued, snapshot.parent_id)}
 
       true ->
-        next_free_lane(lanes)
+        {next_free_lane(lanes), continued}
     end
-  end
-
-  defp first_child?(%Snapshot{parent_id: nil}, lanes, _counts), do: lanes == %{}
-
-  defp first_child?(%Snapshot{parent_id: parent_id}, lanes, _counts) do
-    # A parent's lane is free to continue only if nothing has taken it yet in
-    # this pass — i.e. this is the first child processed.
-    parent_lane = Map.get(lanes, parent_id)
-    parent_lane != nil and not Enum.any?(lanes, fn {_id, lane} -> lane == parent_lane end)
   end
 
   defp next_free_lane(lanes) do

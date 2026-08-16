@@ -1,27 +1,37 @@
 defmodule PairingsEngineWeb.HistoryLive do
   @moduledoc """
-  The tournament history page (`/t/:id/history`) — a visual, chronological
-  view of everything that has happened to a tournament, built from two
-  sources merged into one stream:
+  The tournament history page (`/t/:id/history`) — the tree of RESTORE POINTS,
+  and the only page that can act on one.
 
-    * `PairingsEngine.Audit` rows — every state-changing action, with the
-      before/after payload rich enough to render a real field-level diff.
-    * `PairingsEngine.Snapshots` rows — the restore points, taken
-      automatically before each irreversible action and, from this page,
-      on demand.
+  It shows `PairingsEngine.Snapshots` rows: the points saved automatically
+  before each irreversible action, plus any the arbiter saved deliberately.
+  Branching is first-class — going back and carrying on differently leaves the
+  abandoned line visible on its own lane, still switchable.
+
+  `PairingsEngine.Audit` rows are NOT peers of those points. Each one is
+  folded under the point it followed, collapsed until asked for. That is a
+  deliberate change from the merged stream this page used to render, made for
+  two reasons that both showed up in use:
+
+    * a hand-saved point writes both a snapshot and an audit row, so it
+      appeared on screen twice;
+    * audit rows carry no branch information at all, so after switching to a
+      branch a result change still rendered at the top of the trunk — which is
+      not where the tournament was. A point knows its lane; hanging the rows
+      off a point is what gives them the context they cannot hold themselves.
 
   Distinct from `PairingsEngineWeb.AuditLive`, which is the dense, paginated,
-  filterable *table* of the same audit rows. This page is the narrative view:
-  fewer entries, more context per entry, and the restore points shown inline
-  where they sit in time. The two share `AuditLive.describe/1` so an action's
-  prose is written once.
+  filterable *table* of those same audit rows and remains the place to search
+  them. This page deliberately has no kind filter: filtering by "players" or
+  "settings" is a question about changes, and changes are that page's subject,
+  not this one's. The two share `AuditLive.describe/1` so an action's prose is
+  written once.
 
-  Not read-only: this is the only page that can *act* on a restore point.
-  "Go back to here" / "Switch to this branch" run `Snapshots.restore/3`
-  behind a type-to-confirm modal, and "Save a restore point" captures one
-  deliberately (`"snapshot.manual"`) — the only capture in the app that
-  isn't a side effect of some other action, and the only way to mark a state
-  reached by hand-editing players, settings or results.
+  "Go back to here" / "Switch to this branch" run `Snapshots.restore/3` behind
+  a type-to-confirm modal, and "Save restore point" captures one
+  (`"snapshot.manual"`) — the only capture in the app that isn't a side effect
+  of some other action, and the only way to mark a state reached by
+  hand-editing players, settings or results.
   """
   use PairingsEngineWeb, :live_view
 
@@ -82,7 +92,11 @@ defmodule PairingsEngineWeb.HistoryLive do
      |> assign(
        tournament: tournament,
        page_title: "#{tournament.name} · History",
-       filter: "all",
+       # Branches start OPEN and collapse on request; it is the CHANGES under
+       # each point that are folded by default. A branch is a path you might
+       # go back to, so hiding it by default hides the reason to be here.
+       collapsed_branches: MapSet.new(),
+       expanded_changes: MapSet.new(),
        restore_target: nil,
        restore_confirm: "",
        snapshot_label: ""
@@ -108,8 +122,27 @@ defmodule PairingsEngineWeb.HistoryLive do
   end
 
   @impl true
-  def handle_event("filter", %{"kind" => kind}, socket) do
-    {:noreply, socket |> assign(filter: kind) |> load_stream()}
+  def handle_event("toggle_changes", %{"id" => id}, socket) do
+    expanded = socket.assigns.expanded_changes
+
+    expanded =
+      if MapSet.member?(expanded, id),
+        do: MapSet.delete(expanded, id),
+        else: MapSet.put(expanded, id)
+
+    {:noreply, assign(socket, expanded_changes: expanded)}
+  end
+
+  def handle_event("toggle_branch", %{"lane" => lane}, socket) do
+    lane = String.to_integer(lane)
+    collapsed = socket.assigns.collapsed_branches
+
+    collapsed =
+      if MapSet.member?(collapsed, lane),
+        do: MapSet.delete(collapsed, lane),
+        else: MapSet.put(collapsed, lane)
+
+    {:noreply, socket |> assign(collapsed_branches: collapsed) |> assign_rows()}
   end
 
   ## ---------- saving a restore point by hand ----------
@@ -255,29 +288,89 @@ defmodule PairingsEngineWeb.HistoryLive do
     events =
       tournament.id
       |> Audit.list_for_tournament(limit: @audit_limit)
+      # A hand-saved point writes BOTH a snapshot and an audit row, so it used
+      # to appear twice on this page -- once as "Saved a restore point." and
+      # once as the point itself. The point IS the event here; the audit row
+      # stays in the audit trail where the duplication does not arise.
+      |> Enum.reject(&(&1.action == @manual_trigger))
       |> Enum.map(&audit_event/1)
+      |> Enum.sort_by(&DateTime.to_unix(&1.at), :desc)
 
     # The branch tree carries lane/HEAD info the flat list doesn't, so the
-    # timeline's snapshot rows come from here rather than Snapshots.list/2.
+    # timeline's rows come from here rather than Snapshots.list/2.
     tree = Snapshots.branch_tree(tournament)
-    snapshots = Enum.map(tree, &snapshot_event/1)
+    {points, older_changes} = tree |> Enum.map(&snapshot_event/1) |> attach_changes(events)
 
-    entries =
-      (events ++ snapshots)
-      |> Enum.sort_by(&sort_key/1, :desc)
-      |> filter_entries(socket.assigns.filter)
+    lanes = Enum.map(points, & &1.lane)
 
-    assign(socket,
-      entries: entries,
-      days: group_by_day(entries),
-      snapshot_count: length(snapshots),
+    socket
+    |> assign(
+      points: points,
+      older_changes: older_changes,
+      snapshot_count: length(points),
+      # How many restore points can actually be RESTORED TO, which is not the
+      # same as how many exist: the newest one is where the tournament already
+      # is, and offering "go back" to the state you are in would be a no-op.
+      # With exactly one restore point that count is zero, so the page showed a
+      # save button and nothing else with no word about why.
+      restorable_count: Enum.count(points, &(&1.snapshot_id && !&1.is_head)),
       event_count: length(events),
-      # Widest lane in use — drives how much gutter the rail needs, and
-      # whether to explain branching at all (a never-restored tournament is
-      # a single line and needs no explanation).
-      max_lane: tree |> Enum.map(& &1.lane) |> Enum.max(fn -> 0 end),
-      branched?: Enum.any?(tree, &(&1.lane > 0))
+      max_lane: Enum.max(lanes, fn -> 0 end),
+      branched?: Enum.any?(lanes, &(&1 > 0))
     )
+    |> assign_rows()
+  end
+
+  # Every change that happened AFTER a restore point and before the next one,
+  # hung off that point instead of being a timeline row in its own right.
+  #
+  # Audit rows used to be merged into the timeline as peers of the restore
+  # points. Two things were wrong with that, both reported. Saving a point by
+  # hand wrote an audit row AND a snapshot, so it appeared twice. And audit
+  # rows carry no branch information at all — after switching to a branch, a
+  # result change still rendered on the trunk at the top of the page, which is
+  # not where the tournament was. Attaching them to the point they follow
+  # gives them the branch context they lack, because the point has it.
+  #
+  # `points` is newest-first and `events` is sorted the same way, so each
+  # point takes everything left that is not older than it. What survives the
+  # fold predates the oldest restore point.
+  defp attach_changes(points, events) do
+    {reversed, older} =
+      Enum.reduce(points, {[], events}, fn point, {acc, remaining} ->
+        {mine, rest} =
+          Enum.split_with(remaining, &(DateTime.compare(&1.at, point.at) != :lt))
+
+        {[Map.put(point, :changes, mine) | acc], rest}
+      end)
+
+    {Enum.reverse(reversed), older}
+  end
+
+  # Flattens the points into what actually renders: either a point, or -- for
+  # the newest point of a collapsed branch -- one summary row standing in for
+  # the whole branch. Rebuilt on every toggle rather than decided in the
+  # template, so the template stays a straight `:for` over `@rows`.
+  defp assign_rows(socket) do
+    %{points: points, collapsed_branches: collapsed} = socket.assigns
+    sizes = Enum.frequencies_by(points, & &1.lane)
+
+    {rows, _seen} =
+      Enum.reduce(points, {[], MapSet.new()}, fn point, {acc, seen} ->
+        cond do
+          not MapSet.member?(collapsed, point.lane) ->
+            {[{:point, point} | acc], seen}
+
+          MapSet.member?(seen, point.lane) ->
+            {acc, seen}
+
+          true ->
+            {[{:branch, point.lane, Map.fetch!(sizes, point.lane)} | acc],
+             MapSet.put(seen, point.lane)}
+        end
+      end)
+
+    assign(socket, rows: Enum.reverse(rows))
   end
 
   # The two sources timestamp differently: `audit_logs` uses Ecto's default
@@ -295,9 +388,6 @@ defmodule PairingsEngineWeb.HistoryLive do
   # (and, since the stream is newest-first, renders below the action). The
   # `id` third makes the order fully deterministic within a source, so the
   # list can't reshuffle between renders.
-  defp sort_key(%{at: at, kind: "snapshot", id: id}), do: {DateTime.to_unix(at), 0, id}
-  defp sort_key(%{at: at, id: id}), do: {DateTime.to_unix(at), 1, id}
-
   defp audit_event(row) do
     diff = diff_rows(row.details)
 
@@ -398,33 +488,25 @@ defmodule PairingsEngineWeb.HistoryLive do
   defp who(%{email: email}) when is_binary(email), do: email
   defp who(_), do: "System"
 
-  defp filter_entries(entries, "all"), do: entries
-
-  defp filter_entries(entries, kind),
-    do: Enum.filter(entries, &(&1.kind == kind))
-
-  # Groups the already-sorted stream into `{date, entries}` pairs, preserving
-  # order. `Enum.chunk_by/2` rather than `group_by` precisely because the
-  # latter loses ordering.
-  defp group_by_day(entries) do
-    entries
-    |> Enum.chunk_by(&DateTime.to_date(&1.at))
-    |> Enum.map(fn [first | _] = chunk -> {DateTime.to_date(first.at), chunk} end)
-  end
-
-  ## ---------- formatting ----------
-
-  defp day_label(date) do
-    today = Date.utc_today()
-
-    case Date.diff(today, date) do
-      0 -> "Today"
-      1 -> "Yesterday"
-      _ -> Calendar.strftime(date, "%A %-d %B %Y")
-    end
-  end
-
   defp time_label(at), do: Calendar.strftime(at, "%H:%M")
+
+  # A restore point's own stamp. Day headings used to carry the date and each
+  # row only the time; that could not survive branch collapse, since one
+  # collapsed branch stands in for points which may span several days. So the
+  # date moved onto the row. "Today"/"Yesterday" stay because they are what an
+  # arbiter actually reads mid-event.
+  defp stamp(at) do
+    date = DateTime.to_date(at)
+
+    prefix =
+      case Date.diff(Date.utc_today(), date) do
+        0 -> "Today"
+        1 -> "Yesterday"
+        _ -> Calendar.strftime(date, "%-d %B %Y")
+      end
+
+    prefix <> " " <> time_label(at)
+  end
 
   # Field names come straight from the schema; humanise them rather than
   # showing `points_win` to an arbiter.
@@ -440,17 +522,6 @@ defmodule PairingsEngineWeb.HistoryLive do
   defp value_label(v) when is_map(v), do: {:value, inspect(v)}
   defp value_label(v), do: {:value, to_string(v)}
 
-  @filters [
-    {"all", "Everything"},
-    {"pairings", "Pairings"},
-    {"players", "Players"},
-    {"settings", "Settings"},
-    {"standings", "Standings"},
-    {"snapshot", "Restore points"}
-  ]
-
-  defp filters, do: @filters
-
   defp label_max, do: @label_max
 
   @impl true
@@ -465,25 +536,27 @@ defmodule PairingsEngineWeb.HistoryLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
+
           <p class="subtitle" style="margin: 0">History</p>
         </div>
       </div>
-
       <AuditLive.subnav tournament={@tournament} active={:history} />
-
       <div class="card">
-        <h2>What happened</h2>
+        <h2>Restore points</h2>
 
         <p class="hint" style="margin-top: 0">
-          Every change to this tournament, newest first, with the restore points
-          <span class="tl-inline-diamond"></span>
-          saved before anything irreversible — plus any you save yourself. {@event_count} change(s) and {@snapshot_count} restore point(s).
+          The states you can put this tournament back into, newest first. One is
+          saved automatically before anything irreversible, and you can save one
+          whenever you like. Everything that changed in between is folded under
+          the point it followed — open a point to read it, or use
+          <.link navigate={~p"/t/#{@tournament.id}/audit"}>Audit trail</.link>
+          for the full searchable log.
         </p>
 
-        <p :if={@branched?} class="hint" style="margin-top: -4px">
-          This history has <strong>branched</strong> — you went back and carried on differently.
-          The leftmost line is where the tournament is now; the others are the paths you left,
-          still there to go back to.
+        <p :if={@branched?} class="hint hist-branched">
+          This history has <strong>branched</strong>
+          — you went back and carried on differently. The leftmost line is where the
+          tournament is now; the others are the paths you left, still there to return to.
         </p>
 
         <%!-- The only capture in the app the arbiter drives themselves. Not
@@ -492,121 +565,83 @@ defmodule PairingsEngineWeb.HistoryLive do
         <form
           :if={!@tournament.archived_at}
           id="tl-save"
-          class="tl-save"
+          class="hist-save"
           phx-change="snapshot_label"
           phx-submit="snapshot_save"
         >
-          <input
-            type="text"
-            name="label"
-            value={@snapshot_label}
-            maxlength={label_max()}
-            autocomplete="off"
-            placeholder="What is this point? (optional)"
-            aria-label="Label for this restore point"
-          />
-          <button type="submit" class="pe-btn">Save a restore point</button>
+          <div class="hist-save-field">
+            <label for="hist-save-label">Name this point</label>
+            <input
+              id="hist-save-label"
+              type="text"
+              name="label"
+              value={@snapshot_label}
+              maxlength={label_max()}
+              autocomplete="off"
+              placeholder="End of day 1"
+              aria-describedby="hist-save-hint"
+            />
+            <span id="hist-save-hint" class="hint">
+              Optional — it is how you will recognise this point later. "Before the
+              appeal", "all round 3 results in".
+            </span>
+          </div>
+          <button type="submit" class="pe-btn primary">Save restore point</button>
         </form>
 
-        <p :if={@snapshot_count == 0} class="hint tl-nopoints">
+        <p :if={@snapshot_count == 0} class="hint hist-note">
           <strong>No restore points yet.</strong>
-          One is saved automatically before anything irreversible — pairing or unpairing a round,
-          or importing results from a file. Editing players, adjusting settings and typing results
-          in by hand don't take one<span :if={!@tournament.archived_at}>, so save one yourself
-            whenever you reach a state worth being able to come back to</span>.
+          One is saved automatically before anything irreversible — pairing or
+          unpairing a round, or importing results from a file. Editing players,
+          adjusting settings and typing results in by hand don't take one<span :if={
+            !@tournament.archived_at
+          }>, so save one yourself whenever you reach a state worth coming back to</span>.
         </p>
 
-        <div class="round-picker" style="flex-wrap: wrap; margin-bottom: 4px">
-          <button
-            :for={{key, label} <- filters()}
-            type="button"
-            class={["pe-btn", "filter-picker", @filter == key && "active"]}
-            phx-click="filter"
-            phx-value-kind={key}
+        <%!-- Having exactly one restore point is the state that looked broken:
+              it is the one the tournament is already on, so it gets no "go
+              back" button and the page showed a save box and nothing else. --%>
+        <p :if={@snapshot_count > 0 and @restorable_count == 0} class="hint hist-note">
+          <strong>One restore point, and you are on it.</strong>
+          There is nowhere to go back to yet — the option to go back appears on a point
+          once the tournament has moved past it. Carry on working, and save another
+          when you reach the next state worth keeping.
+        </p>
+
+        <ol class="hist" style={"--hist-lanes: #{@max_lane}"}>
+          <li
+            :for={row <- @rows}
+            class={["hist-row", row_lane(row) > 0 && "off-trunk"]}
+            style={"--hist-lane: #{row_lane(row)}"}
           >
-            {label}
-          </button>
-        </div>
-
-        <p :if={@entries == []} class="tl-empty">
-          Nothing here yet<%= if @filter != "all" do %>
-            for this filter
-          <% end %>.
-        </p>
-
-        <%!-- Every .tl-day is the first child of its own day group, so CSS
-              can't tell the FIRST day heading on the page from the rest with
-              `:first-child` — it has to be marked here. `.tl-first-day`
-              suppresses that heading's upward rail mask, which otherwise
-              reaches into the filter row above it (see app.css). --%>
-        <div
-          :for={{{date, day_entries}, index} <- Enum.with_index(@days)}
-          class={[index == 0 && "tl-first-day"]}
-        >
-          <div class="tl-day">{day_label(date)}</div>
-
-          <ul class="tl" style={"--tl-lanes: #{@max_lane}"}>
-            <li
-              :for={entry <- day_entries}
-              class={[
-                "tl-item",
-                entry.lane > 0 && "off-trunk",
-                entry.is_head && "is-head",
-                entry.forks && "forks",
-                entry.manual && "manual"
-              ]}
-              data-kind={entry.kind}
-              style={"--tl-lane: #{entry.lane}"}
-              id={entry.id}
-            >
-              <%!-- The connector back to this entry's parent. Only drawn when
-                    the parent sits in a different lane — within a lane the
-                    continuous rail already does the job. --%>
-              <span
-                :if={entry.parent_lane && entry.parent_lane != entry.lane}
-                class="tl-fork"
-                style={"--tl-parent-lane: #{entry.parent_lane}"}
-                aria-hidden="true"
-              ></span>
-
-              <span class="tl-dot"></span>
-
-              <div class="tl-meta">
-                <span class="tl-time">{time_label(entry.at)}</span>
-                <span class="tl-who">{entry.who}</span>
-                <span class="tl-tag">{entry.kind}</span>
-                <span :if={entry.manual} class="tl-manual">saved by hand</span>
-                <span :if={entry.is_head} class="tl-here">the tournament is here</span>
-                <span :if={entry.forks} class="tl-forked">branch point</span>
-              </div>
-
-              <div class="tl-text">{entry.text}</div>
-
-              <div :if={entry.diff != []} class="tl-diff">
-                <div :for={row <- entry.diff} class="tl-diff-row">
-                  <span class="tl-diff-field">{field_label(row.field)}</span>
-                  <.diff_value value={row.before} side="before" />
-                  <span class="tl-arrow" aria-label="changed to">→</span>
-                  <.diff_value value={row.after} side="after" />
-                </div>
-              </div>
-
-              <div
-                :if={entry.snapshot_id && !@tournament.archived_at && !entry.is_head}
-                class="tl-actions"
-              >
+            <%= case row do %>
+              <% {:branch, lane, count} -> %>
                 <button
                   type="button"
-                  class="pe-btn"
-                  phx-click="restore_start"
-                  phx-value-id={entry.snapshot_id}
+                  class="hist-stub"
+                  phx-click="toggle_branch"
+                  phx-value-lane={lane}
                 >
-                  {if entry.on_head_line, do: "Go back to here", else: "Switch to this branch"}
+                  <span class="hist-dot hist-dot-stub"></span>
+                  <span class="hist-chevron" aria-hidden="true">▸</span>
+                  <span>
+                    Abandoned branch — {count} restore point{if count == 1, do: "", else: "s"}
+                  </span>
                 </button>
-              </div>
-            </li>
-          </ul>
-        </div>
+              <% {:point, point} -> %>
+                <.point_row
+                  point={point}
+                  tournament={@tournament}
+                  expanded={MapSet.member?(@expanded_changes, point.id)}
+                />
+            <% end %>
+          </li>
+        </ol>
+
+        <p :if={@older_changes != []} class="hint hist-note">
+          {length(@older_changes)} change(s) predate the oldest restore point — they
+          are in the <.link navigate={~p"/t/#{@tournament.id}/audit"}>Audit trail</.link>.
+        </p>
       </div>
 
       <.restore_modal
@@ -617,6 +652,90 @@ defmodule PairingsEngineWeb.HistoryLive do
     </Layouts.app>
     """
   end
+
+  attr :point, :map, required: true
+  attr :tournament, :map, required: true
+  attr :expanded, :boolean, required: true
+
+  defp point_row(assigns) do
+    ~H"""
+    <span class="hist-dot"></span>
+    <div class="hist-body">
+      <div class="hist-head">
+        <span class="hist-title">{@point.text}</span>
+        <span :if={@point.is_head} class="hist-badge is-here">the tournament is here</span>
+        <span :if={@point.manual} class="hist-badge">saved by hand</span>
+        <span :if={@point.forks} class="hist-badge">branch point</span>
+      </div>
+
+      <div class="hist-meta">
+        <span>{stamp(@point.at)}</span> <span class="hist-sep">·</span> <span>{@point.who}</span>
+      </div>
+
+      <div class="hist-actions">
+        <button
+          :if={@point.snapshot_id && !@tournament.archived_at && !@point.is_head}
+          type="button"
+          class="pe-btn"
+          phx-click="restore_start"
+          phx-value-id={@point.snapshot_id}
+        >
+          {if @point.on_head_line, do: "Go back to here", else: "Switch to this branch"}
+        </button>
+
+        <button
+          :if={@point.lane > 0}
+          type="button"
+          class="pe-btn hist-quiet"
+          phx-click="toggle_branch"
+          phx-value-lane={@point.lane}
+        >
+          Collapse branch
+        </button>
+      </div>
+
+      <%!-- The changes that followed this point. Collapsed by default: on a
+            real tournament this is dozens of single-field edits, and the
+            reason to be on this page is the points, not the edits. --%>
+      <button
+        :if={@point.changes != []}
+        type="button"
+        class="hist-changes-toggle"
+        aria-expanded={to_string(@expanded)}
+        phx-click="toggle_changes"
+        phx-value-id={@point.id}
+      >
+        <span class={["hist-chevron", @expanded && "is-open"]} aria-hidden="true">▸</span> {length(
+          @point.changes
+        )} change{if length(@point.changes) == 1, do: "", else: "s"} after this point
+      </button>
+
+      <ol :if={@expanded and @point.changes != []} class="hist-changes">
+        <li :for={change <- @point.changes} class="hist-change" data-kind={change.kind}>
+          <div class="hist-change-head">
+            <span class="hist-change-time">{time_label(change.at)}</span>
+            <span class="hist-change-tag">{change.kind}</span>
+            <span class="hist-change-who">{change.who}</span>
+          </div>
+
+          <div class="hist-change-text">{change.text}</div>
+
+          <div :if={change.diff != []} class="tl-diff">
+            <div :for={row <- change.diff} class="tl-diff-row">
+              <span class="tl-diff-field">{field_label(row.field)}</span>
+              <.diff_value value={row.before} side="before" />
+              <span class="tl-arrow" aria-label="changed to">→</span>
+              <.diff_value value={row.after} side="after" />
+            </div>
+          </div>
+        </li>
+      </ol>
+    </div>
+    """
+  end
+
+  defp row_lane({:point, point}), do: point.lane
+  defp row_lane({:branch, lane, _count}), do: lane
 
   attr :snapshot, :map, required: true
   attr :confirm, :string, required: true
@@ -653,7 +772,6 @@ defmodule PairingsEngineWeb.HistoryLive do
             autocomplete="off"
             placeholder="RESTORE"
           />
-
           <div class="actions">
             <button type="submit" class="pe-btn danger" disabled={@confirm != "RESTORE"}>
               Go back to this point

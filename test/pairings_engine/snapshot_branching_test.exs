@@ -167,6 +167,38 @@ defmodule PairingsEngine.SnapshotBranchingTest do
       refute abandoned.on_head_line
     end
 
+    test "an abandoned chain stays ONE branch instead of a lane per snapshot" do
+      # The case `first_child?/3` exists for, and the one it silently failed:
+      # walking oldest-first puts the parent in `lanes` before its child is
+      # examined, so a scan for "has anything taken the parent's lane?" always
+      # matched the parent itself. Every child then took a fresh lane, and an
+      # abandoned run of restore points was drawn as several parallel
+      # one-node branches rather than the single line it is.
+      scope = user_scope()
+      t = tournament(scope)
+
+      {:ok, a} = Snapshots.capture(t, "manual", scope, summary: "A")
+      {:ok, _b} = Snapshots.capture(reload(t), "manual", scope, summary: "B")
+      {:ok, _c} = Snapshots.capture(reload(t), "manual", scope, summary: "C")
+      {:ok, _d} = Snapshots.capture(reload(t), "manual", scope, summary: "D")
+
+      # Go back to A, stranding B -> C -> D as one abandoned line.
+      {:ok, _} = Snapshots.restore(reload(t), a.id, scope)
+      {:ok, _} = Snapshots.capture(reload(t), "manual", scope, summary: "Fork")
+
+      tree = reload(t) |> Snapshots.branch_tree()
+      abandoned = Enum.filter(tree, &(&1.snapshot.summary in ~w(B C D)))
+
+      assert length(abandoned) == 3
+
+      lanes = abandoned |> Enum.map(& &1.lane) |> Enum.uniq()
+
+      assert length(lanes) == 1,
+             "B, C and D are one chain and belong in one lane, got #{inspect(Enum.map(abandoned, &{&1.snapshot.summary, &1.lane}))}"
+
+      refute 0 in lanes, "lane 0 is reserved for the line the live data is on"
+    end
+
     test "marks which entry is HEAD" do
       scope = user_scope()
       t = tournament(scope)

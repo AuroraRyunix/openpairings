@@ -18,14 +18,54 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
     tournament
   end
 
-  describe "the timeline" do
-    test "renders audit entries as prose, newest first", %{conn: conn, scope: scope} do
+  # A restore point to hang changes off, since changes are no longer
+  # top-level rows: they are folded under the point they followed. Returns the
+  # snapshot so a test can address its disclosure button.
+  defp point(scope, tournament, summary \\ "P") do
+    {:ok, snapshot} = Snapshots.capture(tournament, "manual", scope, summary: summary)
+    snapshot
+  end
+
+  # Opens a point's "N changes after this point" disclosure and returns the
+  # rendered HTML. Collapsed is the default, so any assertion about a change
+  # has to go through this.
+  defp open_changes(lv, snapshot) do
+    lv
+    |> element(~s(button[phx-click="toggle_changes"][phx-value-id="snapshot-#{snapshot.id}"]))
+    |> render_click()
+  end
+
+  defp reload(tournament), do: Repo.reload!(tournament)
+
+  describe "changes folded under a restore point" do
+    # Audit rows used to be timeline rows in their own right, peers of the
+    # restore points. They are now folded under the point they followed, for
+    # two reasons that both showed up in use: a hand-saved point wrote an
+    # audit row AND a snapshot so it appeared twice, and audit rows carry no
+    # branch information, so after switching to a branch a result change still
+    # rendered on the trunk — which is not where the tournament was.
+    test "they are hidden until the point is opened", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
+      snapshot = point(scope, tournament)
+      Audit.log(tournament.id, scope, "player.created", %{"player_name" => "Alice"})
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+
+      assert html =~ "1 change after this point"
+      refute html =~ "Registered player Alice"
+
+      assert open_changes(lv, snapshot) =~ "Registered player Alice"
+    end
+
+    test "renders them as prose, newest first", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      snapshot = point(scope, tournament)
 
       Audit.log(tournament.id, scope, "player.created", %{"player_name" => "Alice"})
       Audit.log(tournament.id, scope, "pairing.round_deleted", %{"round" => 2})
 
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/history")
+      html = open_changes(lv, snapshot)
 
       assert html =~ "Registered player Alice"
       assert html =~ "Unpaired round 2"
@@ -40,24 +80,28 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
       scope: scope
     } do
       tournament = create_tournament(scope)
+      snapshot = point(scope, tournament)
 
       Audit.log(tournament.id, scope, "player.created", %{"player_name" => "Alice"})
       Audit.log(tournament.id, nil, "player.created", %{"player_name" => "Bob"})
 
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/history")
+      html = open_changes(lv, snapshot)
 
       assert html =~ scope.user.email
       assert html =~ "System"
     end
 
-    test "colour-codes each entry by category via a data attribute", %{conn: conn, scope: scope} do
+    test "colour-codes each change by category via a data attribute", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
+      snapshot = point(scope, tournament)
 
       Audit.log(tournament.id, scope, "player.created", %{"player_name" => "Alice"})
       Audit.log(tournament.id, scope, "pairing.round_deleted", %{"round" => 1})
       Audit.log(tournament.id, scope, "standings.manual_reseeded", %{})
 
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/history")
+      html = open_changes(lv, snapshot)
 
       assert html =~ ~s(data-kind="players")
       assert html =~ ~s(data-kind="pairings")
@@ -69,54 +113,56 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
       scope: scope
     } do
       tournament = create_tournament(scope)
+      snapshot = point(scope, tournament)
       Audit.log(tournament.id, scope, "something.brand_new", %{})
 
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/history")
+      html = open_changes(lv, snapshot)
 
       assert html =~ "something.brand_new"
       assert html =~ ~s(data-kind="tournament")
     end
 
-    test "groups entries under day headings", %{conn: conn, scope: scope} do
+    test "changes older than every restore point are counted, not listed", %{
+      conn: conn,
+      scope: scope
+    } do
+      # They have no point to hang off, and this page is about the points.
       tournament = create_tournament(scope)
       Audit.log(tournament.id, scope, "player.created", %{"player_name" => "Alice"})
 
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
 
-      assert html =~ "Today"
-      assert html =~ "tl-day"
+      refute html =~ "Registered player Alice"
+      assert html =~ "predate the oldest restore point"
+      assert html =~ ~p"/t/#{tournament.id}/audit"
     end
 
-    test "the first day group is marked, so its rail mask stops clipping the filter row", %{
+    test "a tournament with nothing at all says so", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+
+      assert html =~ "No restore points yet"
+    end
+
+    test "there is no kind filter here — that is the audit trail's job", %{
       conn: conn,
       scope: scope
     } do
       tournament = create_tournament(scope)
-      Audit.log(tournament.id, scope, "player.created", %{"player_name" => "Alice"})
+      point(scope, tournament)
 
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
 
-      # A .tl-day is the first child of its own day group, so CSS can't pick
-      # out the first HEADING with :first-child — the marker has to come from
-      # here, and app.css hangs the fix (no upward rail mask, which was
-      # reaching into the "Everything" button) off it.
-      assert html =~ ~s(class="tl-first-day")
-      # Exactly one, however many days are on the page.
-      assert length(String.split(html, ~s(class="tl-first-day"))) == 2
-    end
-
-    test "shows an empty state when there is nothing to show", %{conn: conn, scope: scope} do
-      tournament = create_tournament(scope)
-
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
-
-      assert html =~ "Nothing here yet"
+      refute html =~ ~s(phx-click="filter")
     end
   end
 
   describe "field-level diffs" do
     test "a settings change renders before → after per field", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
+      snapshot = point(scope, tournament)
 
       Audit.log(tournament.id, scope, "tournament.settings_updated", %{
         "changed_fields" => %{
@@ -125,7 +171,8 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
         }
       })
 
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/history")
+      html = open_changes(lv, snapshot)
 
       assert html =~ "tl-diff"
       # Field names are humanised, not raw schema names.
@@ -141,6 +188,7 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
       scope: scope
     } do
       tournament = create_tournament(scope)
+      snapshot = point(scope, tournament)
 
       Audit.log(tournament.id, scope, "tournament.settings_updated", %{
         "changed_fields" => %{
@@ -149,7 +197,8 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
         }
       })
 
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/history")
+      html = open_changes(lv, snapshot)
 
       assert html =~ ">on<"
       assert html =~ ">off<"
@@ -161,17 +210,19 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
       scope: scope
     } do
       tournament = create_tournament(scope)
+      snapshot = point(scope, tournament)
       Audit.log(tournament.id, scope, "logo.cleared", %{})
 
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/history")
+      html = open_changes(lv, snapshot)
 
       assert html =~ "Removed the tournament logo"
       refute html =~ "tl-diff-row"
     end
   end
 
-  describe "restore points appear inline" do
-    test "a snapshot shows on the timeline with its summary", %{conn: conn, scope: scope} do
+  describe "restore points are the timeline" do
+    test "a point shows with its summary and its own stamp", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
 
       {:ok, _} =
@@ -181,18 +232,18 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
 
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
 
-      assert html =~ ~s(data-kind="snapshot")
       assert html =~ "Before pairing round 1"
-      assert html =~ "restore point"
+      assert html =~ "hist-row"
+      # Day headings are gone -- one collapsed branch can stand in for points
+      # spanning several days, which headings could not survive -- so the date
+      # lives on the row itself.
+      assert html =~ "Today"
     end
 
-    test "snapshots and audit rows share one stream, ordered by time", %{
-      conn: conn,
-      scope: scope
-    } do
+    test "points read newest first", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
 
-      # Both tables store whole seconds, so events written in the same second
+      # Both tables store whole seconds, so points written in the same second
       # can't be ordered by timestamp alone — space these out so the assertion
       # is about real chronology rather than the tiebreak.
       earlier = DateTime.utc_now() |> DateTime.add(-120, :second) |> DateTime.truncate(:second)
@@ -205,38 +256,37 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
         set: [inserted_at: earlier]
       )
 
-      Audit.log(tournament.id, scope, "player.created", %{"player_name" => "Newer"})
+      {:ok, _} = Snapshots.capture(reload(tournament), "manual", scope, summary: "Newer point")
 
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
 
-      newer_pos = :binary.match(html, "Registered player Newer") |> elem(0)
-      older_pos = :binary.match(html, "Older point") |> elem(0)
-
-      assert newer_pos < older_pos, "newest first: the audit row should render above the snapshot"
+      assert :binary.match(html, "Newer point") |> elem(0) <
+               :binary.match(html, "Older point") |> elem(0)
     end
 
-    test "at an identical timestamp a snapshot sorts below the action it protects", %{
+    test "the change a point protects is folded under it, not above it", %{
       conn: conn,
       scope: scope
     } do
+      # The real-world shape: capture happens immediately before the action it
+      # guards, both landing in the same second. Ordering them against each
+      # other used to need a tiebreak; now the action is simply one of the
+      # point's own changes, which is what it is.
       tournament = create_tournament(scope)
 
-      # This is the real-world case: capture happens immediately before the
-      # action, both land in the same second. A snapshot is taken *before* the
-      # thing it guards, so it must read as the earlier of the two.
-      {:ok, _} =
+      {:ok, snapshot} =
         Snapshots.capture(tournament, "pairing.round_deleted", scope,
           summary: "Before unpairing round 1"
         )
 
       Audit.log(tournament.id, scope, "pairing.round_deleted", %{"round" => 1})
 
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
 
-      action_pos = :binary.match(html, "Unpaired round 1") |> elem(0)
-      snapshot_pos = :binary.match(html, "Before unpairing round 1") |> elem(0)
+      assert html =~ "Before unpairing round 1"
+      refute html =~ "Unpaired round 1"
 
-      assert action_pos < snapshot_pos
+      assert open_changes(lv, snapshot) =~ "Unpaired round 1"
     end
   end
 
@@ -246,7 +296,7 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
 
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
 
-      assert html =~ "Save a restore point"
+      assert html =~ "Save restore point"
       assert html =~ ~s(phx-submit="snapshot_save")
       # The reported symptom was silence: a tournament nobody has paired has
       # no snapshots, so every restore button is hidden and the page looks
@@ -265,7 +315,7 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
 
       assert html =~ "Restore point saved"
       assert html =~ "End of day 1"
-      assert html =~ ~s(data-kind="snapshot")
+      assert html =~ "hist-row"
       # Distinct from an automatic one.
       assert html =~ "saved by hand"
       # And the empty-state prompt is gone.
@@ -310,7 +360,9 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
       assert row.details["label"] == "Before the appeal"
       assert row.details["snapshot_id"]
 
-      assert html =~ "Saved a restore point"
+      # ...but it is NOT echoed onto this page. The point itself is the
+      # event here; rendering both put the same action on screen twice.
+      refute html =~ "Saved a restore point"
     end
 
     test "the tournament follows to the new point, so it isn't offered as a jump", %{
@@ -371,7 +423,7 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
       {:ok, _} = Tournaments.archive_tournament(tournament)
 
       {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
-      refute html =~ "Save a restore point"
+      refute html =~ "Save restore point"
 
       # The event is still client-supplied, so the handler has to refuse too.
       html = render_submit(lv, "snapshot_save", %{"label" => "Sneaky"})
@@ -381,45 +433,14 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
       assert Audit.list_for_tournament(tournament.id) == []
     end
 
-    test "the restore-points filter shows hand-saved points too", %{conn: conn, scope: scope} do
+    test "a hand-saved point stands on the timeline like any other", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/history")
-      render_submit(lv, "snapshot_save", %{"label" => "Kept by hand"})
-
-      html = lv |> element(~s(button[phx-value-kind="snapshot"])) |> render_click()
+      html = render_submit(lv, "snapshot_save", %{"label" => "Kept by hand"})
 
       assert html =~ "Kept by hand"
-    end
-  end
-
-  describe "filtering" do
-    test "narrows the stream to one category", %{conn: conn, scope: scope} do
-      tournament = create_tournament(scope)
-
-      Audit.log(tournament.id, scope, "player.created", %{"player_name" => "Alice"})
-      Audit.log(tournament.id, scope, "pairing.round_deleted", %{"round" => 1})
-
-      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/history")
-
-      html = lv |> element(~s(button[phx-value-kind="players"])) |> render_click()
-
-      assert html =~ "Registered player Alice"
-      refute html =~ "Unpaired round 1"
-    end
-
-    test "the restore-points filter shows only snapshots", %{conn: conn, scope: scope} do
-      tournament = create_tournament(scope)
-
-      Audit.log(tournament.id, scope, "player.created", %{"player_name" => "Alice"})
-      {:ok, _} = Snapshots.capture(tournament, "pairing.round_paired", scope, summary: "A point")
-
-      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/history")
-
-      html = lv |> element(~s(button[phx-value-kind="snapshot"])) |> render_click()
-
-      assert html =~ "A point"
-      refute html =~ "Registered player Alice"
+      assert html =~ "saved by hand"
     end
   end
 
@@ -451,13 +472,18 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
 
     test "an archived tournament's history is still readable", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
+      snapshot = point(scope, tournament, "Final state")
       Audit.log(tournament.id, scope, "player.created", %{"player_name" => "Alice"})
       {:ok, _} = Tournaments.archive_tournament(tournament)
 
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
 
-      assert html =~ "Registered player Alice"
+      assert html =~ "Final state"
       assert html =~ "This tournament is archived"
+
+      # Readable, including the folded detail — archiving stops writes, not
+      # reads, and the disclosure is a read.
+      assert open_changes(lv, snapshot) =~ "Registered player Alice"
     end
   end
 
@@ -607,8 +633,18 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
       render_change(lv, "restore_confirm_input", %{"confirm" => "RESTORE"})
       html = render_submit(lv, "restore_confirmed", %{})
 
-      assert html =~ "Restored the tournament back to"
+      # The restore's own audit row is a change under the new point, not a
+      # row beside it, so it takes opening that point to read.
       assert html =~ "Known good"
+      refute html =~ "Restored the tournament back to"
+
+      newest = tournament.id |> Snapshots.list() |> List.first()
+
+      assert lv
+             |> element(
+               ~s(button[phx-click="toggle_changes"][phx-value-id="snapshot-#{newest.id}"])
+             )
+             |> render_click() =~ "Restored the tournament back to"
 
       actions = tournament.id |> Audit.list_for_tournament() |> Enum.map(& &1.action)
       assert "snapshot.restored" in actions
@@ -728,11 +764,12 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
 
       # Trunk entries at lane 0, the abandoned one further out.
-      assert html =~ "--tl-lane: 0"
-      assert html =~ ~r/--tl-lane: [1-9]/
-      # And the elbow connecting a fork back to its parent's lane.
-      assert html =~ "tl-fork"
-      assert html =~ "--tl-parent-lane"
+      assert html =~ "--hist-lane: 0"
+      assert html =~ ~r/--hist-lane: [1-9]/
+      # An off-trunk row is marked so it can be de-emphasised, and offers the
+      # control that folds its whole branch away.
+      assert html =~ "off-trunk"
+      assert html =~ ~s(phx-click="toggle_branch")
     end
 
     test "the branch point itself is labelled", %{conn: conn, scope: scope} do

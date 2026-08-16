@@ -164,6 +164,30 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   feed this one chip) and the `flex-wrap` machinery that existed only to
   give it its own line.
 
+### Changed
+
+- **The History page is the restore-point tree now, not a merged event feed**
+  — it used to interleave audit rows and restore points as peers, which broke
+  down in three ways once it was actually used. Saving a point by hand wrote
+  both a snapshot and an audit row, so it showed up twice. Audit rows carry no
+  branch information, so after switching to a branch a result change still
+  rendered at the top of the trunk, which is not where the tournament was. And
+  the page carried filters for "players", "settings" and so on — questions
+  about changes, which is the Audit trail's subject, not this page's.
+
+  So the points are the timeline, and everything that changed between two of
+  them is folded under the earlier one, collapsed until you open it. A branch
+  can be collapsed to a single line. The kind filters are gone; the Audit
+  trail keeps the full searchable log, and this page links to it. Day headings
+  went too — one collapsed branch can stand in for points spanning several
+  days, which headings couldn't survive — so each point carries its own date.
+
+  The save box got a real label and an example instead of the placeholder
+  "What is this point?", which read as a search field. And having exactly one
+  restore point no longer looks broken: it is the point the tournament is
+  already on, so it offers no "go back", and the page now says why instead of
+  showing a save button and nothing else.
+
 ### Fixed
 
 - **Settings now says where the chief arbiter lives** — the Officials

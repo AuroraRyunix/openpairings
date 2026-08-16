@@ -3028,7 +3028,16 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   text-transform: uppercase;
   color: var(--text-soft);
 }
-.tl-day:first-child { margin-top: 0; }
+/* There is deliberately NO `.tl-day:first-child { margin-top: 0 }` here.
+   It used to be, and it was the same mis-selection the note below describes
+   for `::before`: every `.tl-day` is the first child of its own day group,
+   so `:first-child` matched EVERY heading and zeroed the margin on all of
+   them. Two visible consequences — "TODAY" sat 4px under the filter row and
+   read as clipped against it, and later day headings had no separation at
+   all from the previous day's last entry, since `.tl` itself has margin 0.
+   The 18px above applies to every heading, first one included: it is the
+   gap under the filter row, and there is nothing above the first heading
+   that a zero margin would tighten up usefully. */
 /* Mask the rail behind the day label so the text sits in a clean gap. The
    ±6px overhang covers the rail's own 6px inset at the top/bottom of each
    <ul class="tl">, so the gap reads as one continuous break rather than two
@@ -3259,19 +3268,257 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 /* The empty state, when a filter matches nothing. */
 .tl-empty { padding: 28px 0 8px 30px; color: var(--text-soft); font-size: 13.5px; }
 
-/* "Save a restore point": an optional one-line label plus its button, on one
-   row. Sits above the filter picker because the sentence explaining an empty
-   timeline (.tl-nopoints) points back up at it. */
-.tl-save {
+@media (max-width: 600px) {
+  .tl-diff-field { min-width: 0; flex-basis: 100%; }
+}
+
+/* ==========================================================================
+   History page — the restore-point tree.
+   ==========================================================================
+   Replaces the old `.tl-*` merged timeline. The page used to interleave audit
+   rows and restore points as peers; it now shows restore points only, with
+   the changes that followed each one folded underneath it. Audit rows carry
+   no branch information, so as peers they always rendered on the trunk even
+   when the tournament was on a branch — attaching them to a point gives them
+   the context they lack.
+
+   The `.tl-diff*` rules further up are still used, by the expanded change
+   list inside a point. */
+
+.hist {
+  --hist-rail: 10px;         /* dot centre, from the left edge of .hist */
+  --hist-lane-step: 16px;    /* horizontal offset per branch */
+  position: relative;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The continuous vertical rail, faded at both ends so it reads as "history
+   continues" rather than stopping dead. Drawn once on the container, not
+   per row, so it doesn't break between rows. */
+.hist::before {
+  content: "";
+  position: absolute;
+  left: var(--hist-rail);
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  transform: translateX(-50%);
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--border) 14px,
+    var(--border) calc(100% - 14px),
+    transparent
+  );
+}
+
+.hist-row {
+  position: relative;
+  /* Room for the rail plus however many branch lanes are in play, so a
+     branched history indents its cards instead of overlapping the rail. */
+  padding-left: calc(32px + var(--hist-lanes, 0) * var(--hist-lane-step));
+  padding-bottom: 14px;
+}
+.hist-row:last-child { padding-bottom: 0; }
+
+.hist-dot {
+  position: absolute;
+  top: 15px;
+  left: calc(var(--hist-rail) + var(--hist-lane, 0) * var(--hist-lane-step));
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  transform: translateX(-50%) rotate(45deg);
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--surface);
+}
+
+/* An abandoned branch is context, not the subject — desaturate the whole row
+   rather than only its dot, so the trunk stays the thing the eye lands on. */
+.hist-row.off-trunk .hist-dot { background: var(--text-soft); }
+.hist-row.off-trunk .hist-body { opacity: 0.82; }
+
+.hist-body {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 11px 13px;
+  background: var(--surface);
+}
+
+.hist-head {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  margin: 10px 0 6px;
 }
-.tl-save input[type="text"] { flex: 1 1 240px; max-width: 360px; }
-.tl-nopoints { margin-top: 0; }
+
+.hist-title {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.hist-badge {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-soft);
+  white-space: nowrap;
+}
+
+/* Where the live data actually is. The one badge worth colour. */
+.hist-badge.is-here {
+  border-color: transparent;
+  background: var(--accent);
+  color: #fff;
+}
+
+.hist-meta {
+  margin-top: 3px;
+  font-size: 12.5px;
+  color: var(--text-soft);
+  font-variant-numeric: tabular-nums;
+}
+.hist-sep { margin: 0 5px; opacity: 0.6; }
+
+.hist-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+.hist-actions:empty { display: none; }
+
+/* Secondary next to "Go back to here", which is the real action on this row. */
+.pe-btn.hist-quiet {
+  background: transparent;
+  color: var(--text-soft);
+}
+
+/* ---- the folded change list ---- */
+
+.hist-changes-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 9px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--text-soft);
+  cursor: pointer;
+}
+.hist-changes-toggle:hover { color: var(--text); }
+
+.hist-chevron {
+  display: inline-block;
+  font-size: 10px;
+  line-height: 1;
+  transition: transform 120ms ease;
+}
+.hist-chevron.is-open { transform: rotate(90deg); }
+
+.hist-changes {
+  margin: 9px 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--border);
+}
+
+.hist-change {
+  padding: 9px 0 9px 10px;
+  border-bottom: 1px solid var(--border);
+  /* The category stripe, in the same hues the old timeline dots used, so a
+     kind is still recognisable at a glance without a legend. */
+  border-left: 2px solid hsl(var(--hist-hue, 215 16% 47%));
+}
+.hist-change:last-child { border-bottom: 0; padding-bottom: 0; }
+
+.hist-change[data-kind="pairings"]      { --hist-hue: 217 91% 60%; }
+.hist-change[data-kind="players"]       { --hist-hue: 258 90% 66%; }
+.hist-change[data-kind="settings"]      { --hist-hue: 32 95% 44%; }
+.hist-change[data-kind="standings"]     { --hist-hue: 189 94% 43%; }
+.hist-change[data-kind="imports"]       { --hist-hue: 347 89% 61%; }
+.hist-change[data-kind="collaborators"] { --hist-hue: 280 65% 60%; }
+.hist-change[data-kind="tournament"]    { --hist-hue: 215 16% 47%; }
+
+.hist-change-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--text-soft);
+  font-variant-numeric: tabular-nums;
+}
+.hist-change-tag { text-transform: uppercase; letter-spacing: 0.03em; }
+.hist-change-text { margin-top: 2px; font-size: 13px; color: var(--text); }
+
+/* ---- a collapsed branch, standing in for all its points ---- */
+
+.hist-stub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 13px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text-soft);
+  text-align: left;
+  cursor: pointer;
+}
+.hist-stub:hover { color: var(--text); border-color: var(--text-soft); }
+.hist-dot-stub { background: var(--text-soft); }
+
+/* ---- saving a point ---- */
+
+/* Was a bare input and button on one row with "What is this point?" as the
+   only guidance, which read as a search box. It gets a real label and an
+   example instead: the field's whole job is being recognisable later. */
+.hist-save {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  margin: 14px 0 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2, var(--surface));
+}
+
+.hist-save-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.hist-save-field > label {
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+.hist-save-field > .hint { margin: 0; font-size: 12px; }
+.hist-save input[type="text"] { width: 100%; }
+
+.hist-note { margin-top: 10px; }
+.hist-branched { margin-top: -4px; }
 
 @media (max-width: 600px) {
-  .tl-diff-field { min-width: 0; flex-basis: 100%; }
+  .hist-save { align-items: stretch; }
+  .hist-save > .pe-btn { width: 100%; }
 }
