@@ -164,11 +164,10 @@ gaps identified there, extracted here as actionable items:
   candidates — they're already reconstructable from the audit trail's
   before/after diff.
 
-  Still open from the same report:
-  2. Is something visually overlapping the "Everything" filter button
-     (`{"all", "Everything"}` in `@filters`), or does picking a different
-     filter (Pairings/Players/Settings/etc.) not stick — i.e. a functional
-     filter-state bug, not a layout one?
+  The second half of the same report — something colliding into the
+  "Everything" filter button — was a layout bug, not a filter-state one,
+  and is fixed too: the first day heading's opaque rail mask overhung 6px
+  upward into the filter row directly above it. See the CHANGELOG entry.
 
 - ~~"Substitute player" draws its journey arrow on the wrong seat~~ —
   **shipped 2026-08-15, the "bigger redesign" option**: `matchTravellers()`

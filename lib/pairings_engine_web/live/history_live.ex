@@ -534,7 +534,15 @@ defmodule PairingsEngineWeb.HistoryLive do
           <% end %>.
         </p>
 
-        <div :for={{date, day_entries} <- @days}>
+        <%!-- Every .tl-day is the first child of its own day group, so CSS
+              can't tell the FIRST day heading on the page from the rest with
+              `:first-child` — it has to be marked here. `.tl-first-day`
+              suppresses that heading's upward rail mask, which otherwise
+              reaches into the filter row above it (see app.css). --%>
+        <div
+          :for={{{date, day_entries}, index} <- Enum.with_index(@days)}
+          class={[index == 0 && "tl-first-day"]}
+        >
           <div class="tl-day">{day_label(date)}</div>
 
           <ul class="tl" style={"--tl-lanes: #{@max_lane}"}>

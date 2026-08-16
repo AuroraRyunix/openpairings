@@ -1905,9 +1905,9 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
      any transient vertical overflow (an open popover reaching past the
      canvas bottom) let the mouse wheel scroll the GRAPH up and down
      instead of the page — user-reported as really irritating. The canvas
-     min-height reserves (hover inline, pinned via :has — see
-     .pe-bracket-canvas) already guarantee popovers fit inside the canvas,
-     so the strip never legitimately scrolls vertically: lock the axis.
+     grows to hold whichever popover is open (both reserves are :has-gated,
+     see .pe-bracket-canvas), so a popover always fits inside the canvas and
+     the strip never legitimately scrolls vertically: lock the axis.
      (hidden, not clip: clip may not combine with the other axis's auto.) */
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
@@ -2156,13 +2156,27 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .pe-band-odd { color: var(--warn); font-weight: 600; }
 
 .pe-bracket-canvas { position: relative; flex: 0 0 auto; }
-/* The tall PINNED popover (with the cross-round trail) needs far more room
-   below its dot than the short hover popover. Reserving that room
-   permanently in the server-set min-height padded a huge dead band between
-   the graph and the minimap strip (user-reported) — so the inline
-   min-height only covers hover, and the full pinned reservation
-   (--pe-pinned-min, set inline by pairing_explain_live) kicks in only
-   while a dot is actually pinned. */
+/* A popover opening downward has to fit inside .pe-bracket-scroll's vertical
+   clip, so the canvas must be tall enough to hold one — but ONLY while one
+   is open. Both reservations are therefore deferred, the inline min-height
+   resting at exactly the graph's own height.
+
+   The tall PINNED reservation (--pe-pinned-min: the cross-round trail makes
+   that popover much taller) was deferred first, because reserving it
+   permanently padded a huge dead band between the graph and the minimap
+   strip. The short HOVER reservation (--pe-hover-min) stayed inline and
+   turned out to do the same thing on a smaller scale: the server-side flip
+   tests against the pinned room, so past round 1 nearly every dot opens
+   downward and the reservation cleared the graph's own floor by ~110px on
+   most rounds and by nothing on others — the "sometimes there's a gap"
+   report. Both are custom properties set inline by pairing_explain_live.
+
+   Growing on hover can shift what sits below the chart, and that is the
+   accepted trade: a popover covering its surroundings while open beats a
+   permanent empty band under every chart. Pinned is listed last so it wins
+   the tie when a dot is both hovered and pinned — it always needs more. */
+.pe-bracket-canvas:has(.pe-board-wrap:hover),
+.pe-bracket-canvas:has(.pe-board-wrap:focus-within) { min-height: var(--pe-hover-min); }
 .pe-bracket-canvas:has(.pe-board-wrap.is-pinned) { min-height: var(--pe-pinned-min); }
 
 .pe-board-overlay { position: absolute; inset: 0; pointer-events: none; }
@@ -3015,7 +3029,10 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   color: var(--text-soft);
 }
 .tl-day:first-child { margin-top: 0; }
-/* Mask the rail behind the day label so the text sits in a clean gap. */
+/* Mask the rail behind the day label so the text sits in a clean gap. The
+   ±6px overhang covers the rail's own 6px inset at the top/bottom of each
+   <ul class="tl">, so the gap reads as one continuous break rather than two
+   stubs of rail poking into it. */
 .tl-day::before {
   content: "";
   position: absolute;
@@ -3026,6 +3043,15 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   transform: translateX(-50%);
   background: var(--surface);
 }
+/* The first day heading on the page has no rail above it at all — there's no
+   preceding <ul class="tl"> — so the upward overhang masks nothing there and
+   only reaches up into the filter row, which sits directly above it (the
+   heading's own margin-top is 0). It's opaque and 10px wide at x≈4-14px,
+   which is exactly the bottom-left corner of the first filter button:
+   "Everything" came out visibly clipped (user-reported). Marked server-side
+   as .tl-first-day, because .tl-day is the first child of its own day group
+   and `.tl-day:first-child` therefore matches every heading, not the first. */
+.tl-first-day .tl-day::before { top: 0; }
 
 .tl-item {
   position: relative;

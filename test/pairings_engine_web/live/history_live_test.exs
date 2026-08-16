@@ -87,6 +87,24 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
       assert html =~ "tl-day"
     end
 
+    test "the first day group is marked, so its rail mask stops clipping the filter row", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      Audit.log(tournament.id, scope, "player.created", %{"player_name" => "Alice"})
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+
+      # A .tl-day is the first child of its own day group, so CSS can't pick
+      # out the first HEADING with :first-child — the marker has to come from
+      # here, and app.css hangs the fix (no upward rail mask, which was
+      # reaching into the "Everything" button) off it.
+      assert html =~ ~s(class="tl-first-day")
+      # Exactly one, however many days are on the page.
+      assert length(String.split(html, ~s(class="tl-first-day"))) == 2
+    end
+
     test "shows an empty state when there is nothing to show", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
 

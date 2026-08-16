@@ -200,7 +200,8 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   @bracket_reach 13
   # Vertical room a popover needs to open without clipping (est. max popover
   # height plus its 8px gap) — drives both the above/below flip and the
-  # canvas min-height that guarantees a below-opening popover has room. The
+  # canvas growth that guarantees a below-opening popover has room while
+  # it's open (see the reservation comment in bracket_layout/1). The
   # hover popover is short (@bracket_pop_room); a PINNED popover additionally
   # carries the cross-round trail strip + sparkline and is much taller
   # (@bracket_pin_pop_room, capped by the trail's own internal max-height +
@@ -349,24 +350,36 @@ defmodule PairingsEngineWeb.PairingExplainLive do
     wraps = Enum.map(all_dots, &dot_wrap(&1, width, height, pop_room))
 
     # A popover that opens downward must fit inside the scroll container's
-    # vertical clip. Reserving the PINNED popover's full room (500px with a
-    # trail) permanently padded a huge dead band between the graph and the
-    # minimap scroll strip on every round — user-reported. So the canvas
-    # only ever reserves the short HOVER popover's room up front
-    # (`min_height`), and the tall pinned reservation (`pinned_min_height`)
-    # is applied by CSS only while a dot is actually pinned — see
-    # `.pe-bracket-canvas:has(.pe-board-wrap.is-pinned)` in app.css, fed by
-    # the `--pe-pinned-min` custom property set on the canvas below. The
-    # above/below flip (dot_wrap's pop_v) still uses the pinned room, so a
-    # pinned popover always has its reserved side; only the EMPTY padding
-    # is deferred until it's needed.
+    # vertical clip (`.pe-bracket-scroll` is `overflow-y: hidden` — see its
+    # own comment for why that can't be `visible` or `clip`), so the canvas
+    # has to be tall enough to hold one. NEITHER reservation is made up
+    # front: both are custom properties the CSS applies only while a popover
+    # is actually open.
+    #
+    # Reserving the pinned room permanently came first and padded a huge dead
+    # band between the graph and the minimap strip (user-reported). Reserving
+    # only the short HOVER room instead was better but not fixed: the flip
+    # below deliberately tests against the PINNED room, so on any round past
+    # the first essentially every dot opens downward, and the deepest one
+    # then sits `@bracket_reach + @bracket_pop_room` above a canvas floor
+    # that is only 44px below the lowest band — a permanent ~110px gap.
+    # Whether the arithmetic happened to clear the graph's own height varied
+    # with each round's bracket shape, which is why it read as intermittent.
+    #
+    # So the canvas rests at exactly the graph's height and grows only while
+    # a wrap is hovered/focused (`--pe-hover-min`) or pinned
+    # (`--pe-pinned-min`) — see the two `:has()` rules on
+    # `.pe-bracket-canvas` in app.css. The popover covering whatever sits
+    # under the chart while it's open is fine and preferred over a permanent
+    # empty band; the flip (dot_wrap's pop_v) is untouched, so a pinned
+    # popover still always has the side it reserved room on.
     deepest_below =
       wraps
       |> Enum.filter(&(&1.pop_v == "pe-pop-below"))
       |> Enum.map(& &1.y)
       |> Enum.max(fn -> 0 end)
 
-    min_height = max(deepest_below + @bracket_reach + @bracket_pop_room, height)
+    hover_min_height = max(deepest_below + @bracket_reach + @bracket_pop_room, height)
     pinned_min_height = max(deepest_below + @bracket_reach + pop_room, height)
 
     # One head-to-head entry per PLAYING board (both wraps present; byes have
@@ -397,7 +410,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
       axis: axis,
       width: width,
       height: height,
-      min_height: min_height,
+      hover_min_height: hover_min_height,
       pinned_min_height: pinned_min_height,
       duos: duos,
       has_bye: byes != [],
@@ -1112,7 +1125,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
 
           <div
             class="pe-bracket-canvas"
-            style={"width: #{@bracket.width}px; min-height: #{@bracket.min_height}px; --pe-pinned-min: #{@bracket.pinned_min_height}px"}
+            style={"width: #{@bracket.width}px; min-height: #{@bracket.height}px; --pe-hover-min: #{@bracket.hover_min_height}px; --pe-pinned-min: #{@bracket.pinned_min_height}px"}
           >
             <svg
               class="pe-bracket-svg"
