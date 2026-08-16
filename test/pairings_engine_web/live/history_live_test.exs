@@ -87,6 +87,24 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
       assert html =~ "tl-day"
     end
 
+    test "the first day group is marked, so its rail mask stops clipping the filter row", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      Audit.log(tournament.id, scope, "player.created", %{"player_name" => "Alice"})
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+
+      # A .tl-day is the first child of its own day group, so CSS can't pick
+      # out the first HEADING with :first-child — the marker has to come from
+      # here, and app.css hangs the fix (no upward rail mask, which was
+      # reaching into the "Everything" button) off it.
+      assert html =~ ~s(class="tl-first-day")
+      # Exactly one, however many days are on the page.
+      assert length(String.split(html, ~s(class="tl-first-day"))) == 2
+    end
+
     test "shows an empty state when there is nothing to show", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
 
@@ -219,6 +237,159 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
       snapshot_pos = :binary.match(html, "Before unpairing round 1") |> elem(0)
 
       assert action_pos < snapshot_pos
+    end
+  end
+
+  describe "saving a restore point by hand" do
+    test "the button is offered, and the empty state points at it", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+
+      assert html =~ "Save a restore point"
+      assert html =~ ~s(phx-submit="snapshot_save")
+      # The reported symptom was silence: a tournament nobody has paired has
+      # no snapshots, so every restore button is hidden and the page looks
+      # read-only. Say so instead.
+      assert html =~ "No restore points yet"
+    end
+
+    test "saving one puts it on the timeline, labelled and marked as manual", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/history")
+      html = render_submit(lv, "snapshot_save", %{"label" => "End of day 1"})
+
+      assert html =~ "Restore point saved"
+      assert html =~ "End of day 1"
+      assert html =~ ~s(data-kind="snapshot")
+      # Distinct from an automatic one.
+      assert html =~ "saved by hand"
+      # And the empty-state prompt is gone.
+      refute html =~ "No restore points yet"
+
+      assert [snapshot] = Snapshots.list(tournament.id)
+      assert snapshot.trigger == "snapshot.manual"
+      assert snapshot.summary == "End of day 1"
+      refute snapshot.pinned
+    end
+
+    test "an unlabelled one still reads sensibly", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/history")
+      html = render_submit(lv, "snapshot_save", %{"label" => "   "})
+
+      assert html =~ "Manual restore point"
+      assert [snapshot] = Snapshots.list(tournament.id)
+      assert snapshot.summary == "Manual restore point"
+    end
+
+    test "an over-long label is trimmed rather than stored whole", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/history")
+      render_submit(lv, "snapshot_save", %{"label" => String.duplicate("x", 400)})
+
+      assert [snapshot] = Snapshots.list(tournament.id)
+      assert String.length(snapshot.summary) == 120
+    end
+
+    test "it is written to the audit trail and reads as prose", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/history")
+      html = render_submit(lv, "snapshot_save", %{"label" => "Before the appeal"})
+
+      rows = Audit.list_for_tournament(tournament.id)
+      assert row = Enum.find(rows, &(&1.action == "snapshot.manual"))
+      assert row.user_id == scope.user.id
+      assert row.details["label"] == "Before the appeal"
+      assert row.details["snapshot_id"]
+
+      assert html =~ "Saved a restore point"
+    end
+
+    test "the tournament follows to the new point, so it isn't offered as a jump", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/history")
+      html = render_submit(lv, "snapshot_save", %{"label" => "Now"})
+
+      # Capturing advances HEAD, so the point just saved IS where the
+      # tournament is — nothing to go back to yet.
+      assert html =~ "the tournament is here"
+      refute html =~ "Go back to here"
+
+      assert [snapshot] = Snapshots.list(tournament.id)
+      assert Repo.reload!(tournament).head_snapshot_id == snapshot.id
+    end
+
+    test "a hand-saved point is restorable once there is a later one", %{
+      conn: conn,
+      scope: scope
+    } do
+      alias PairingsEngine.Tournaments.Player
+
+      tournament = create_tournament(scope, %{"name" => "Hand run"})
+      Repo.insert!(%Player{tournament_id: tournament.id, name: "Alice"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/history")
+      render_submit(lv, "snapshot_save", %{"label" => "Roster checked"})
+
+      # Carry on by hand, then mark that too — now the first one is behind
+      # HEAD and can actually be jumped back to.
+      Repo.insert!(%Player{tournament_id: tournament.id, name: "Typo McTypo"})
+      html = render_submit(lv, "snapshot_save", %{"label" => "After the typo"})
+
+      assert html =~ "Go back to here"
+
+      [_newer, older] = Snapshots.list(tournament.id)
+      assert older.summary == "Roster checked"
+
+      render_click(lv, "restore_start", %{"id" => to_string(older.id)})
+      render_change(lv, "restore_confirm_input", %{"confirm" => "RESTORE"})
+      html = render_submit(lv, "restore_confirmed", %{})
+
+      assert html =~ "Restored."
+
+      names = tournament.id |> Tournaments.list_players() |> Enum.map(& &1.name)
+      assert names == ["Alice"]
+    end
+
+    test "an archived tournament refuses, and isn't offered the button", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, _} = Tournaments.archive_tournament(tournament)
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
+      refute html =~ "Save a restore point"
+
+      # The event is still client-supplied, so the handler has to refuse too.
+      html = render_submit(lv, "snapshot_save", %{"label" => "Sneaky"})
+
+      assert html =~ "This tournament is archived"
+      assert Snapshots.count(tournament.id) == 0
+      assert Audit.list_for_tournament(tournament.id) == []
+    end
+
+    test "the restore-points filter shows hand-saved points too", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/history")
+      render_submit(lv, "snapshot_save", %{"label" => "Kept by hand"})
+
+      html = lv |> element(~s(button[phx-value-kind="snapshot"])) |> render_click()
+
+      assert html =~ "Kept by hand"
     end
   end
 

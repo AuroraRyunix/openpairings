@@ -209,6 +209,8 @@ defmodule PairingsEngineWeb.AuditLive do
 
   def describe("snapshot.restored", d), do: describe_restored(d)
 
+  def describe("snapshot.manual", d), do: describe_manual_snapshot(d)
+
   def describe("categories.toggled", d),
     do: "Turned categories #{on_off(d["enabled"])}."
 
@@ -242,6 +244,18 @@ defmodule PairingsEngineWeb.AuditLive do
       end
 
     "Restored the tournament back to #{where}. The state it replaced was saved first."
+  end
+
+  # The one restore point nobody's action forced — the arbiter asked for it
+  # from the History page, optionally naming it.
+  defp describe_manual_snapshot(d) do
+    case d["label"] do
+      label when is_binary(label) and label != "" ->
+        "Saved a restore point: \"#{label}\"."
+
+      _ ->
+        "Saved a restore point."
+    end
   end
 
   defp on_off(value), do: if(truthy?(value), do: "on", else: "off")

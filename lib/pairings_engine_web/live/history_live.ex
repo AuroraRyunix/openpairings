@@ -6,8 +6,9 @@ defmodule PairingsEngineWeb.HistoryLive do
 
     * `PairingsEngine.Audit` rows — every state-changing action, with the
       before/after payload rich enough to render a real field-level diff.
-    * `PairingsEngine.Snapshots` rows — the automatic restore points taken
-      before each irreversible action.
+    * `PairingsEngine.Snapshots` rows — the restore points, taken
+      automatically before each irreversible action and, from this page,
+      on demand.
 
   Distinct from `PairingsEngineWeb.AuditLive`, which is the dense, paginated,
   filterable *table* of the same audit rows. This page is the narrative view:
@@ -15,17 +16,39 @@ defmodule PairingsEngineWeb.HistoryLive do
   where they sit in time. The two share `AuditLive.describe/1` so an action's
   prose is written once.
 
-  Read-only — the restore action itself lives in a later change.
+  Not read-only: this is the only page that can *act* on a restore point.
+  "Go back to here" / "Switch to this branch" run `Snapshots.restore/3`
+  behind a type-to-confirm modal, and "Save a restore point" captures one
+  deliberately (`"snapshot.manual"`) — the only capture in the app that
+  isn't a side effect of some other action, and the only way to mark a state
+  reached by hand-editing players, settings or results.
   """
   use PairingsEngineWeb, :live_view
 
   alias PairingsEngine.{Audit, Snapshots, Tournaments}
-  alias PairingsEngineWeb.AuditLive
+  alias PairingsEngineWeb.{AuditLive, SettingsSupport}
 
   # How many audit rows to pull. The stream is merged with snapshots and
   # rendered in full (no pagination) — this is the "recent narrative" view,
   # with AuditLive remaining the exhaustive paginated one.
   @audit_limit 120
+
+  # The trigger code a hand-saved restore point carries. Deliberately its own
+  # code rather than reusing one of the four automatic ones
+  # (`pairing.round_paired`, `pairing.round_deleted`,
+  # `pairing.results_imported`, `snapshot.restored`) so the timeline, the
+  # audit table and anyone reading the raw table can tell "the arbiter chose
+  # this moment" apart from "the app protected an irreversible action".
+  @manual_trigger "snapshot.manual"
+
+  # What a hand-saved point is called when the arbiter doesn't type a label.
+  # Reads correctly both on the timeline and inside `Snapshots.restore/3`'s
+  # "Before restoring to ..." summary.
+  @manual_summary "Manual restore point"
+
+  # A label is a timeline caption, not a document — long enough for "end of
+  # day 1, before the appeal", short enough that it can't wreck the row.
+  @label_max 120
 
   # Maps an action code onto the timeline category that colours its dot.
   # Anything unmatched falls back to "tournament" (neutral slate) rather
@@ -61,7 +84,8 @@ defmodule PairingsEngineWeb.HistoryLive do
        page_title: "#{tournament.name} · History",
        filter: "all",
        restore_target: nil,
-       restore_confirm: ""
+       restore_confirm: "",
+       snapshot_label: ""
      )
      |> load_stream()}
   end
@@ -86,6 +110,56 @@ defmodule PairingsEngineWeb.HistoryLive do
   @impl true
   def handle_event("filter", %{"kind" => kind}, socket) do
     {:noreply, socket |> assign(filter: kind) |> load_stream()}
+  end
+
+  ## ---------- saving a restore point by hand ----------
+  #
+  # Until this existed, `Snapshots.capture/4` was only ever reached from four
+  # handlers in `PairingsLive` (pairing a round, unpairing one, pairing a
+  # whole round-robin schedule, importing results by CSV). A tournament run
+  # entirely by hand — players edited, settings tuned, results typed in one
+  # by one — therefore had *no* restore points at all, so every restore
+  # button on this page was hidden and the whole thing read as a list you
+  # could only look at. This is the deliberate capture that fixes that.
+  #
+  # No confirm step: taking a snapshot is additive and cheap to undo (it is
+  # pruned like any other), the opposite of the restore below.
+
+  def handle_event("snapshot_label", %{"label" => label}, socket) do
+    {:noreply, assign(socket, snapshot_label: label)}
+  end
+
+  def handle_event("snapshot_save", params, socket) do
+    tournament = socket.assigns.tournament
+    label = params |> Map.get("label", socket.assigns.snapshot_label) |> clean_label()
+
+    # A snapshot is a write, so it obeys the same archive guard as everything
+    # else — the button is hidden on an archived tournament, but the event is
+    # client-supplied and the handler can't rely on that.
+    with :ok <- Tournaments.ensure_writable(tournament),
+         {:ok, snapshot} <-
+           Snapshots.capture(tournament, @manual_trigger, socket.assigns.current_scope,
+             summary: label || @manual_summary
+           ) do
+      Audit.log(tournament.id, socket.assigns.current_scope, @manual_trigger, %{
+        snapshot_id: snapshot.id,
+        label: label || ""
+      })
+
+      {:noreply,
+       socket
+       |> assign(tournament: reload_tournament(socket), snapshot_label: "")
+       |> put_flash(:info, "Restore point saved — you can come back to this exact state.")
+       |> load_stream()}
+    else
+      {:error, reason} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "Could not save a restore point: #{SettingsSupport.error_text(reason)}"
+         )}
+    end
   end
 
   ## ---------- restoring ----------
@@ -117,6 +191,29 @@ defmodule PairingsEngineWeb.HistoryLive do
       _ ->
         {:noreply, socket}
     end
+  end
+
+  # (Helpers for "snapshot_save" above. They live down here only because
+  # every `handle_event/3` clause has to stay in one uninterrupted run.)
+
+  defp clean_label(label) do
+    case label |> to_string() |> String.trim() |> String.slice(0, @label_max) do
+      "" -> nil
+      text -> text
+    end
+  end
+
+  # `capture/4` moves the tournament's `head_snapshot_id` straight through
+  # `Repo.update_all` (see `Snapshots.set_head/2` — deliberately not a
+  # broadcasting write), so the struct in assigns is stale the moment it
+  # returns. Re-read it, or `branch_tree/1` marks the *previous* point as
+  # "the tournament is here" and offers a restore button on the one just
+  # saved.
+  defp reload_tournament(socket) do
+    Tournaments.get_authorized_tournament(
+      socket.assigns.current_scope,
+      socket.assigns.tournament.id
+    ) || socket.assigns.tournament
   end
 
   defp do_restore(socket, snapshot) do
@@ -219,7 +316,8 @@ defmodule PairingsEngineWeb.HistoryLive do
       parent_lane: nil,
       on_head_line: true,
       is_head: false,
-      forks: false
+      forks: false,
+      manual: false
     }
   end
 
@@ -251,22 +349,31 @@ defmodule PairingsEngineWeb.HistoryLive do
   defp field_count(n), do: "#{n} fields"
 
   defp snapshot_event(%{snapshot: snapshot} = entry) do
+    manual? = snapshot.trigger == @manual_trigger
+
     %{
       id: "snapshot-#{snapshot.id}",
       at: to_utc(snapshot.inserted_at),
       kind: "snapshot",
       action: snapshot.trigger,
       who: who(snapshot.user),
-      text: snapshot.summary || "Restore point saved.",
+      text: snapshot.summary || default_snapshot_text(manual?),
       diff: [],
       snapshot_id: snapshot.id,
       lane: entry.lane,
       parent_lane: entry.parent_lane,
       on_head_line: entry.on_head_line,
       is_head: entry.is_head,
-      forks: entry.children > 1
+      forks: entry.children > 1,
+      # Drives the "saved by hand" badge and the accented dot — a point
+      # somebody chose to keep reads differently from one the app took on
+      # its own before something irreversible.
+      manual: manual?
     }
   end
+
+  defp default_snapshot_text(true), do: @manual_summary
+  defp default_snapshot_text(false), do: "Restore point saved."
 
   # `details["changed_fields"]` is `%{"field" => [before, after]}` — written
   # by `SettingsSupport.log_settings_change/3` and the player-update handler.
@@ -344,6 +451,8 @@ defmodule PairingsEngineWeb.HistoryLive do
 
   defp filters, do: @filters
 
+  defp label_max, do: @label_max
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -368,13 +477,43 @@ defmodule PairingsEngineWeb.HistoryLive do
         <p class="hint" style="margin-top: 0">
           Every change to this tournament, newest first, with the restore points
           <span class="tl-inline-diamond"></span>
-          saved automatically before anything irreversible. {@event_count} change(s) and {@snapshot_count} restore point(s).
+          saved before anything irreversible — plus any you save yourself. {@event_count} change(s) and {@snapshot_count} restore point(s).
         </p>
 
         <p :if={@branched?} class="hint" style="margin-top: -4px">
           This history has <strong>branched</strong> — you went back and carried on differently.
           The leftmost line is where the tournament is now; the others are the paths you left,
           still there to go back to.
+        </p>
+
+        <%!-- The only capture in the app the arbiter drives themselves. Not
+              behind a confirm: taking one is additive, unlike the restore
+              below. Hidden (but still refused server-side) once archived. --%>
+        <form
+          :if={!@tournament.archived_at}
+          id="tl-save"
+          class="tl-save"
+          phx-change="snapshot_label"
+          phx-submit="snapshot_save"
+        >
+          <input
+            type="text"
+            name="label"
+            value={@snapshot_label}
+            maxlength={label_max()}
+            autocomplete="off"
+            placeholder="What is this point? (optional)"
+            aria-label="Label for this restore point"
+          />
+          <button type="submit" class="pe-btn">Save a restore point</button>
+        </form>
+
+        <p :if={@snapshot_count == 0} class="hint tl-nopoints">
+          <strong>No restore points yet.</strong>
+          One is saved automatically before anything irreversible — pairing or unpairing a round,
+          or importing results from a file. Editing players, adjusting settings and typing results
+          in by hand don't take one<span :if={!@tournament.archived_at}>, so save one yourself
+            whenever you reach a state worth being able to come back to</span>.
         </p>
 
         <div class="round-picker" style="flex-wrap: wrap; margin-bottom: 4px">
@@ -395,7 +534,15 @@ defmodule PairingsEngineWeb.HistoryLive do
           <% end %>.
         </p>
 
-        <div :for={{date, day_entries} <- @days}>
+        <%!-- Every .tl-day is the first child of its own day group, so CSS
+              can't tell the FIRST day heading on the page from the rest with
+              `:first-child` — it has to be marked here. `.tl-first-day`
+              suppresses that heading's upward rail mask, which otherwise
+              reaches into the filter row above it (see app.css). --%>
+        <div
+          :for={{{date, day_entries}, index} <- Enum.with_index(@days)}
+          class={[index == 0 && "tl-first-day"]}
+        >
           <div class="tl-day">{day_label(date)}</div>
 
           <ul class="tl" style={"--tl-lanes: #{@max_lane}"}>
@@ -405,7 +552,8 @@ defmodule PairingsEngineWeb.HistoryLive do
                 "tl-item",
                 entry.lane > 0 && "off-trunk",
                 entry.is_head && "is-head",
-                entry.forks && "forks"
+                entry.forks && "forks",
+                entry.manual && "manual"
               ]}
               data-kind={entry.kind}
               style={"--tl-lane: #{entry.lane}"}
@@ -427,6 +575,7 @@ defmodule PairingsEngineWeb.HistoryLive do
                 <span class="tl-time">{time_label(entry.at)}</span>
                 <span class="tl-who">{entry.who}</span>
                 <span class="tl-tag">{entry.kind}</span>
+                <span :if={entry.manual} class="tl-manual">saved by hand</span>
                 <span :if={entry.is_head} class="tl-here">the tournament is here</span>
                 <span :if={entry.forks} class="tl-forked">branch point</span>
               </div>

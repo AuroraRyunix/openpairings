@@ -7,6 +7,38 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **"Save a restore point" on the History page** — restore points could only
+  ever be created as a side effect of something else. `Snapshots.capture/4`
+  was called from exactly four handlers, all of them in PairingsLive: pairing
+  a round, unpairing one, pairing a whole round-robin schedule, and importing
+  results from a CSV. Run a tournament the way small clubs actually do —
+  register players by hand, tune the settings, type results in one board at a
+  time, never touch an import — and the app took *no* snapshots at all. The
+  History page then had nothing to offer a "Go back to here" button on, so
+  the restore machinery that has been shipped for a while (branch tree,
+  "Switch to this branch", the type-to-confirm modal) was invisible and the
+  whole page read as a list you could only look at. That was the actual
+  complaint behind "History is just a read-only thing".
+
+  So: a button that takes one on demand, with an optional short label
+  ("End of day 1", "before the appeal") that becomes the point's caption on
+  the timeline. It goes through the same `Snapshots.capture/4` as the
+  automatic ones — same payload, same retention, same branch tree, same
+  restore path — under its own `snapshot.manual` action code so hand-saved
+  points show a "saved by hand" badge and read apart from the ones the app
+  took to protect an irreversible action. It's a write like any other:
+  refused on an archived tournament, and logged to the audit trail.
+
+  The empty state is honest now too. A tournament with no restore points
+  yet says so, explains that hand-editing doesn't take one, and points at
+  the button — instead of silently rendering a timeline with no actions on
+  it, which is what made this look broken rather than merely unused.
+
+  The automatic triggers are deliberately unchanged: these are full
+  tournament copies, so adding more of them shifts storage behaviour for
+  every existing tournament and deserves its own decision (candidates noted
+  in `TODO.md`).
+
 - **"Assign categories" now shows a dry-run preview before it writes
   anything** — clicking the button used to reassign every player's category
   instantly, no warning. It now computes the same rule decisions
@@ -76,6 +108,43 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   give it its own line.
 
 ### Fixed
+
+- **The bracket map's variable dead space, under the graph** — on
+  "Pre-round score brackets" there was sometimes a sizeable empty gap
+  between the graph and the minimap strip below it, and sometimes none.
+  Reported as intermittent; it was entirely deterministic. The canvas's
+  inline `min-height` permanently reserved the room a *hover* popover needs
+  below the lowest dot that opens downward, and because the above/below flip
+  deliberately tests against the much taller *pinned* popover's room, on
+  every round past the first essentially every dot opens downward — so the
+  reservation cleared the graph's own floor by about 110px on most rounds
+  and by nothing on the few whose bracket happened to be tall enough. Which
+  round you looked at decided whether you saw a gap.
+
+  Now both reservations are deferred, the same way the pinned one already
+  was: the canvas rests at exactly the graph's height and grows via
+  `:has()` only while a wrap is actually hovered, focused or pinned
+  (`--pe-hover-min` / `--pe-pinned-min`). The popover can cover what sits
+  under the chart while it's open, which is the deliberate trade — a
+  tooltip overlapping its surroundings for as long as you hover is better
+  than a permanent empty band under every chart. Nothing about the flip
+  itself changed, so a pinned popover still always opens onto the side it
+  reserved room on, and neither popover is clipped by the strip's
+  `overflow-y: hidden`.
+
+- **Something covering the corner of the "Everything" button on the History
+  page** — the timeline's day headings paint an opaque 10px-wide mask over
+  the rail so the date sits in a clean gap, and that mask deliberately
+  overhangs 6px above the label to cover the rail's own inset. Above the
+  *first* heading there is no rail to cover — the rail lives inside the
+  `<ul>` below it — so the overhang only reached up into the filter row,
+  which sits directly above with no margin between them, and landed exactly
+  on the bottom-left corner of the first filter button. The first day group
+  is now marked server-side (`.tl-first-day`) and drops the upward overhang;
+  later headings, which genuinely do have rail above them, are unchanged.
+  The marker has to come from the server because each heading is the first
+  child of its own day group, so `.tl-day:first-child` matches every one of
+  them rather than the first.
 
 - **Three real "vacated seat" crashes in the "Explain this round" page and
   its underlying analysis, found and fixed over one afternoon as each one

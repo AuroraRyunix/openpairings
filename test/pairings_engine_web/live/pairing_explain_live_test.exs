@@ -959,6 +959,72 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     refute html =~ "Received White; colour history says Black was due"
   end
 
+  ## ---------- the bracket canvas's height contract ----------
+  #
+  # The visible symptom (a variable dead band between the graph and the
+  # minimap strip) isn't worth a pixel test, but the contract that produces
+  # it is exactly assertable: at rest the canvas claims only the graph's own
+  # height, and the room a popover needs travels as custom properties the
+  # `:has()` rules in app.css apply while one is open.
+
+  # Pulls the canvas's inline style out of the rendered page.
+  defp canvas_style(html) do
+    [_, style] = Regex.run(~r/class="pe-bracket-canvas"\s+style="([^"]+)"/, html)
+    style
+  end
+
+  defp graph_height(html) do
+    [_, height] = Regex.run(~r/class="pe-bracket-svg"\s+width="\d+"\s+height="(\d+)"/, html)
+    String.to_integer(height)
+  end
+
+  defp style_px(style, property) do
+    [_, value] = Regex.run(~r/(?:^|;)\s*#{property}:\s*(\d+)px/, style)
+    String.to_integer(value)
+  end
+
+  for round <- [1, 2, 3] do
+    test "the bracket canvas rests at the graph's own height in round #{round}", %{
+      conn: conn,
+      scope: scope
+    } do
+      {t, _players} = three_round_swiss(scope)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/#{unquote(round)}/explain")
+
+      style = canvas_style(html)
+
+      # No dead space: whatever the round's bracket shape, the resting canvas
+      # is exactly as tall as the graph drawn in it. Reserving the hover
+      # popover's room here instead used to leave ~110px of empty scroll area
+      # on most rounds and none on others, which is why it read as
+      # intermittent rather than deterministic.
+      assert style_px(style, "min-height") == graph_height(html)
+    end
+  end
+
+  test "the popover room is deferred to two custom properties, hover <= pinned", %{
+    conn: conn,
+    scope: scope
+  } do
+    {t, _players} = three_round_swiss(scope)
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/3/explain")
+
+    style = canvas_style(html)
+
+    resting = style_px(style, "min-height")
+    hover = style_px(style, "--pe-hover-min")
+    pinned = style_px(style, "--pe-pinned-min")
+
+    # Both are real reservations (a popover genuinely doesn't fit in the
+    # graph's own height on a round this shape), and the pinned one is the
+    # larger — it carries the cross-round trail. The CSS lists them in that
+    # order so pinned wins when a dot is both hovered and pinned.
+    assert hover > resting
+    assert pinned >= hover
+  end
+
   describe "vacated seats after pairing (regression, real prod incidents)" do
     test "renders instead of crashing when a seat is vacated on a playing board or a bye recipient is vacated",
          %{conn: conn, scope: scope} do

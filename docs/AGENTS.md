@@ -370,15 +370,22 @@ instead of silently overwriting the form.
   a pile of copy-pasted inline `style="display: flex; ..."` attributes.
   Reach for these before writing another one-off inline style for the same
   shape.
-- **The bracket-map's pinned-popover height reservation** is deliberately
-  split into two: the canvas's inline `min-height` only reserves room for
-  the short *hover* popover; the much taller room a *pinned* popover needs
-  (it grows to show a cross-round trail) only applies via a CSS
-  `:has(.is-pinned)` rule reading a `--pe-pinned-min` custom property,
-  and only while something is actually pinned. Reserving the tall room
-  unconditionally previously left a large dead scroll area under every
-  chart even with nothing pinned — don't revert to a single unconditional
-  reservation.
+- **The bracket-map's popover height reservations are both deferred.** A
+  popover opening downward has to fit inside `.pe-bracket-scroll`'s vertical
+  clip, so the canvas must be tall enough to hold one — but the canvas's
+  inline `min-height` rests at exactly the graph's own height, and the two
+  reservations travel as custom properties (`--pe-hover-min` for the short
+  hover popover, `--pe-pinned-min` for the much taller pinned one, which
+  grows a cross-round trail) that CSS `:has()` rules on
+  `.pe-bracket-canvas` apply only while a wrap is hovered/focused or
+  pinned. Both were unconditional at some point and both left a dead scroll
+  band under the chart — the pinned one a large obvious band, the hover one
+  a ~110px band that looked intermittent because whether it cleared the
+  graph's own height depended on the round's bracket shape. Don't turn
+  either back into an unconditional reservation. The above/below flip
+  (`dot_wrap/4`'s `pop_v`) is a separate decision and still tests against
+  the *pinned* room, so a pinned popover always opens onto a side that can
+  be grown; leave that alone too.
 - **`bye_points/2` (in `standings.ex`) is the single source of truth** for
   what any bye type is worth, including the `presence_on_allocated_bye`
   SWAR add-on. `player_card.ex`'s bye row labels are driven by the bye's
