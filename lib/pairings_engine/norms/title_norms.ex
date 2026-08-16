@@ -15,15 +15,40 @@ defmodule PairingsEngine.Norms.TitleNorms do
       unplayed last-round win-by-forfeit) are event types this software
       doesn't model, so they are NOT applied — a judgment here is therefore
       conservative, never optimistic, on game count.
+
+      This is also what makes 1.4.5's "double round-robin tournaments need
+      a minimum of 6 players" redundant rather than missing: a 5-player DRR
+      is 8 games, which the 9-game rule already refuses. It would only start
+      to matter if the 8-game concessions above were ever implemented.
     * **Score** (1.4.8.2): at least 35% (percentage rounded to the nearest
       whole number, 0.5 up — the 1.4.9 note's rounding rule).
     * **Titled opponents** (1.4.5.1): at least 50% of opponents hold any
       title EXCEPT CM/WCM.
-    * **Target-title opponents** (1.4.5.2-1.4.5.5): at least 1/3 (rounded
+    * **Target-title opponents** (1.4.5 b-e): at least 1/3 (rounded
       up per 1.4.4's minimum-rounding rule), with a minimum of 3, hold the
       target title *or higher* — GM for a GM norm; IM/GM for IM; WGM/IM/GM
-      for WGM; WIM/WGM/IM/GM for WIM. (The double-round-robin halving of
-      1.4.5.6 is not applied — see the module limitation note below.)
+      for WGM; WIM/WGM/IM/GM for WIM.
+
+      **The double-round-robin halving is already satisfied here, and must
+      not be "added".** 1.4.5's final clause says the number required by
+      b-e is halved (rounded up) for a DRR, which reads like an exemption
+      this module skips. It isn't. The two sides count in different units:
+      `counted_games/2` emits one entry per GAME, so a DRR opponent appears
+      twice and `high_titled` is already double the number of distinct
+      titled players — while the Annex counts distinct people (its columns
+      are "Different MO" / "Different TH") and halves the requirement to
+      match. The halving exists to cancel the doubling. At 10 rounds (a
+      6-player DRR, the smallest permitted): 1/3 of 10 with a minimum of 3
+      is 4, halved to 2 *different* target-title opponents; this module
+      asks for 4 game-instances, which in a complete DRR IS 2 different
+      people. Halving `high_needed` on top of the per-game count would ask
+      for one distinct titled opponent where FIDE asks for two.
+      `title_norms_test.exs`'s DRR pair sits on that boundary so the
+      mistake cannot land silently.
+
+      In an INCOMPLETE DRR the two can diverge, and only in the safe
+      direction: instances ≤ 2 × distinct, so passing here always implies
+      passing the Annex, never the reverse.
     * **Federation mix** (1.4.3 / 1.4.4): opponents from at least two
       federations other than the player's own; at most 3/5 of opponents
       from the player's own federation and at most 2/3 from any single

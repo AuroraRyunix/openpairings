@@ -370,4 +370,135 @@ defmodule PairingsEngine.Norms.TitleNormsTest do
     assert im.score == 1.0
     assert im.performance == 2850
   end
+
+  # ---------------------------------------------------------------------
+  # Double round-robin (B.01 art. 1.4.5, final clause)
+  # ---------------------------------------------------------------------
+
+  describe "double round-robin: the 1.4.5 halving is already satisfied" do
+    # The regulation reads:
+    #
+    #   "Double round-robin tournaments need a minimum of 6 players. For a
+    #    DRR event, the number of players with the necessary titles required
+    #    by 1.4.5 b-e is 1/2 (rounded up) (See Annex for required numbers)"
+    #
+    # This looks like an unimplemented exemption and was carried in TODO.md
+    # as one. It is not, and implementing it as written would be a REAL BUG
+    # in the dangerous direction.
+    #
+    # The reason is the unit each side counts in. `counted_games/2` builds
+    # one entry per GAME, so in a DRR every opponent appears TWICE in the
+    # list, and `high_titled` is therefore already double the number of
+    # distinct titled players. The Annex counts distinct people -- its
+    # columns are labelled "Different MO" and "Different TH" -- and halves
+    # the requirement to match. The halving exists precisely to cancel the
+    # doubling.
+    #
+    # Concretely, at 10 rounds (a 6-player DRR, the smallest the regulation
+    # permits): 1/3 of 10 opponents with a minimum of 3 gives 4, halved to 2
+    # DIFFERENT opponents holding the target title. This engine requires 4
+    # game-instances, and in a complete DRR 4 instances IS 2 different
+    # people. Same boundary, reached from the other side.
+    #
+    # Halving `high_needed` on top of the per-game count would ask for 2
+    # instances = ONE distinct titled opponent, which is half what FIDE
+    # requires. These two tests sit exactly on the boundary so that change
+    # cannot pass silently.
+    test "two distinct IM-or-higher opponents in a 6-player DRR satisfy 1.4.5" do
+      {tournament, candidate} = drr_fixture(["IM", "GM", "FM", "", ""])
+
+      check = drr_check(tournament, candidate, :high_titled_opponents)
+
+      assert check.ok?, check.detail
+      assert check.detail =~ "(need 4)"
+    end
+
+    test "one distinct IM-or-higher opponent does not, even though it is met twice" do
+      # The case that catches a naive halving: one GM played twice is two
+      # game-instances. Against the real requirement of 4 that fails, which
+      # is right -- the Annex wants 2 DIFFERENT title-holders and there is
+      # one. Against a halved requirement of 2 it would pass.
+      {tournament, candidate} = drr_fixture(["GM", "FM", "FM", "", ""])
+
+      check = drr_check(tournament, candidate, :high_titled_opponents)
+
+      refute check.ok?
+      assert check.detail =~ "(need 4)"
+    end
+  end
+
+  # A complete 6-player double round-robin: the candidate meets each of five
+  # opponents twice, over 10 rounds. `titles` is the five opponents' titles
+  # in order. Ratings are deliberately high and uniform -- these tests assert
+  # on one named check, not on `achieved?`, so nothing else needs to pass.
+  defp drr_fixture(titles) do
+    tournament =
+      Repo.insert!(%Tournament{
+        name: "DRR Norm Test",
+        type: "round_robin",
+        pairing_system: "round_robin",
+        rr_cycles: 2,
+        rounds_count: 10,
+        federation: "BEL",
+        points_win: 1.0,
+        points_draw: 0.5,
+        points_loss: 0.0
+      })
+
+    candidate =
+      Repo.insert!(%Player{
+        tournament_id: tournament.id,
+        name: "Candidate, Ann",
+        federation: "BEL",
+        fide_rating: 2400,
+        pairing_number: 1
+      })
+
+    opponents =
+      titles
+      |> Enum.with_index(2)
+      |> Enum.map(fn {title, n} ->
+        Repo.insert!(%Player{
+          tournament_id: tournament.id,
+          name: "Opp #{n}",
+          title: title,
+          federation: "FRA",
+          fide_rating: 2400,
+          pairing_number: n
+        })
+      end)
+
+    # Two cycles of five rounds: every opponent met once per cycle, so ten
+    # games against five distinct people -- the shape the halving is about.
+    (opponents ++ opponents)
+    |> Enum.with_index(1)
+    |> Enum.each(fn {opp, round_number} ->
+      round =
+        Repo.insert!(%Round{
+          tournament_id: tournament.id,
+          number: round_number,
+          status: "finished"
+        })
+
+      Repo.insert!(%Pairing{
+        round_id: round.id,
+        board: 1,
+        white_player_id: candidate.id,
+        black_player_id: opp.id,
+        result: "1/2-1/2"
+      })
+    end)
+
+    {tournament, candidate}
+  end
+
+  defp drr_check(tournament, candidate, name) do
+    tournament
+    |> TitleNorms.evaluate()
+    |> Map.fetch!(candidate.id)
+    |> Map.fetch!(:verdicts)
+    |> Enum.find(&(&1.title == "IM"))
+    |> Map.fetch!(:checks)
+    |> Enum.find(&(&1.name == name))
+  end
 end

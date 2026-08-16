@@ -269,12 +269,37 @@ gaps identified there, extracted here as actionable items:
   what's in `docs/printing.md`.
 - Extend the automatic B.01 title-norm judgment
   (`PairingsEngine.Norms.TitleNorms`) to the documented-but-unmodelled
-  exemptions: national-championship/zonal federation-mix exemptions
-  (art. 1.4.3a-e), the double-round-robin titled-opponent halving
-  (art. 1.4.3d), and the 7/8-game event concessions (art. 1.4.1.1-1.4.1.3).
-  Currently conservative (never claims a norm the numbers don't strictly
-  support), which is the safe default but under-counts in those specific
-  event types.
+  exemptions. Currently conservative (never claims a norm the numbers don't
+  strictly support), which is the safe default but under-counts in specific
+  event types. What is actually left, after checking each against the
+  handbook text rather than against this list:
+
+  - **Federation-mix exemptions (1.4.3 a-d).** Still open, and the one that
+    bites in practice: a national championship or zonal is exempt from the
+    "two other federations" rule, so a Belgian national championship where
+    most opponents are Belgian reports `foreign_federations` and
+    `own_federation_share` as failing when the norm is valid. Needs a
+    tournament-level event-type field, which is a schema change plus a
+    Settings control plus arbiter discipline in filling it in. One clause —
+    1.4.3's big-Swiss case (20+ FIDE-rated players from 3+ federations,
+    10+ GM/IM/WGM/WIM title-holders per round) — is auto-detectable from
+    data already held and needs no new input.
+  - **7/8-game concessions (1.4.1.1-1.4.1.3).** Still open. World Team/Club
+    and Continental Team/Club Championships, the World Cup, and the
+    unplayed-last-round-win case. Same event-type dependency.
+  - ~~**Double-round-robin titled-opponent halving.**~~ **Not a gap — this
+    entry was wrong**, and acting on it would have introduced a real bug in
+    the dangerous direction. The requirement is already satisfied, because
+    the two sides count in different units: `counted_games/2` emits one
+    entry per GAME, so a DRR opponent is counted twice, while the Annex
+    counts distinct people ("Different MO"/"Different TH") and halves the
+    requirement to compensate. Halving `high_needed` on top of the per-game
+    count would have asked for ONE distinct titled opponent where FIDE asks
+    for two. `title_norms_test.exs` now pins both sides of that boundary.
+    (The article number in the old text was wrong too — it is 1.4.5's final
+    clause, not 1.4.3d.) The companion "DRR needs 6+ players" rule is
+    likewise redundant: a 5-player DRR is 8 games, which the 9-game minimum
+    already refuses.
 - Standalone binaries (`docs/binaries.md`) have no automated smoke test in
   CI beyond "it builds" — nothing currently boots each target and hits `/`.
 - ~~Re-uploading a `.swar` file for a tournament already in OpenPairings
