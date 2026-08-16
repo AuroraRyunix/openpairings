@@ -796,23 +796,23 @@ defmodule PairingsEngine.PairingTest do
     # C.04.7). Group A = top half rounded up to an even count = 2*ceil(8/4)
     # = 4 players (ranks 1-4); Group B (ranks 5-8) never appears at all.
     assert Pairing.acceleration_lines(tournament, players, 4) ==
-             "XXA     1  1.0  1.0  1.0  0.5\r\n" <>
-               "XXA     2  1.0  1.0  1.0  0.5\r\n" <>
-               "XXA     3  1.0  1.0  1.0  0.5\r\n" <>
-               "XXA     4  1.0  1.0  1.0  0.5\r\n"
+             "XXA    1  1.0  1.0  1.0  0.5\r\n" <>
+               "XXA    2  1.0  1.0  1.0  0.5\r\n" <>
+               "XXA    3  1.0  1.0  1.0  0.5\r\n" <>
+               "XXA    4  1.0  1.0  1.0  0.5\r\n"
 
     # Round 1 alone: still 1.0 for Group A, one column only.
     assert Pairing.acceleration_lines(tournament, players, 1) ==
-             "XXA     1  1.0\r\nXXA     2  1.0\r\nXXA     3  1.0\r\nXXA     4  1.0\r\n"
+             "XXA    1  1.0\r\nXXA    2  1.0\r\nXXA    3  1.0\r\nXXA    4  1.0\r\n"
 
     # Round 6 is past the 5 accelerated rounds: the trailing column is 0.0,
     # but the historical columns are still reported in full (JaVaFo's own
     # words: needed for "floaters history").
     assert Pairing.acceleration_lines(tournament, players, 6) ==
-             "XXA     1  1.0  1.0  1.0  0.5  0.5  0.0\r\n" <>
-               "XXA     2  1.0  1.0  1.0  0.5  0.5  0.0\r\n" <>
-               "XXA     3  1.0  1.0  1.0  0.5  0.5  0.0\r\n" <>
-               "XXA     4  1.0  1.0  1.0  0.5  0.5  0.0\r\n"
+             "XXA    1  1.0  1.0  1.0  0.5  0.5  0.0\r\n" <>
+               "XXA    2  1.0  1.0  1.0  0.5  0.5  0.0\r\n" <>
+               "XXA    3  1.0  1.0  1.0  0.5  0.5  0.0\r\n" <>
+               "XXA    4  1.0  1.0  1.0  0.5  0.5  0.0\r\n"
   end
 
   test "acceleration_lines/3 is a no-op unless acceleration is baku and pairing_system is swiss" do
@@ -842,8 +842,8 @@ defmodule PairingsEngine.PairingTest do
     trf = Pairing.javafo_input(tournament, [alice, bob, carol, dave])
 
     assert trf =~ "XXR 9\r\n"
-    assert trf =~ "XXA     1  1.0\r\n"
-    assert trf =~ "XXA     2  1.0\r\n"
+    assert trf =~ "XXA    1  1.0\r\n"
+    assert trf =~ "XXA    2  1.0\r\n"
   end
 
   test "javafo_input/2 omits XXA entirely when acceleration is none" do

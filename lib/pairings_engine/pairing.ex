@@ -1273,19 +1273,31 @@ defmodule PairingsEngine.Pairing do
   defp virtual_points(_round, _accelerated_rounds, _first_stage_rounds), do: 0.5
 
   # Fixed-column TRF extension line: "XXA" (cols 1-3), rank right-aligned in
-  # cols 5-9, then one right-aligned pp.p per round in 5-column slots from
-  # col 10 on — exactly the JaVaFo AUM's column spec. Free-form
+  # cols 5-8, then one right-aligned pp.p per round, 4 columns wide on a
+  # 5-column stride from col 10 — the JaVaFo AUM's column spec. Free-form
   # space-separated XXA crashes JaVaFo (verified), unlike this file's other
   # XXR/XXP extension lines.
+  #
+  # The rank field used to be padded to FIVE, which put a single-digit rank
+  # in col 9 and left cols 5-8 blank. JaVaFo accepts that, which is why it
+  # went unnoticed for as long as JaVaFo was the only reader — but it is not
+  # what the AUM specifies, and a stricter parser rejects the line outright.
+  # Confirmed against the real bbpPairings binary, which reads the rank from
+  # exactly `line[4]..line[8]` and each value as 4 chars from index 9 on a
+  # stride of 5 (`readPlayerAccelerationsXxa`, trf.cpp:485-515): our old
+  # output produced `Error parsing file: Invalid line "XXA     1  1.0  1.0"`,
+  # i.e. every accelerated tournament this app exported was unreadable by
+  # anything but JaVaFo. Found by pointing a second engine at our own TRF,
+  # which is precisely the class of bug a second engine exists to catch.
   defp xxa_line(rank, points) do
-    id_field = String.pad_leading(to_string(rank), 5)
+    id_field = String.pad_leading(to_string(rank), 4)
 
     points_fields =
-      Enum.map_join(points, fn p ->
-        String.pad_leading(:erlang.float_to_binary(p / 1, decimals: 1), 5)
+      Enum.map_join(points, " ", fn p ->
+        String.pad_leading(:erlang.float_to_binary(p / 1, decimals: 1), 4)
       end)
 
-    "XXA " <> id_field <> points_fields <> "\r\n"
+    "XXA " <> id_field <> " " <> points_fields <> "\r\n"
   end
 
   defp ceil_div(a, b), do: div(a + b - 1, b)
