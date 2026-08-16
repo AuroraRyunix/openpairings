@@ -189,20 +189,27 @@ gaps identified there, extracted here as actionable items:
   separately suppressed - consistent with how a real 2-board swap already
   shows a short "stayed" arrow for an unmoved board partner.
 
-- **Chief arbiter (and the other Officials fields) are unfindable without
-  the link.** They live on `/t/:id/norms`, moved there from SettingsLive at
-  some point (see `norms_live.ex`'s "relocated from SettingsLive" notes).
-  Nothing is broken — the "ready to pair" hint on PairingsLive links
+- ~~**Chief arbiter (and the other Officials fields) are unfindable without
+  the link.**~~ **Cheap fix shipped**: Settings > Tournament grew an
+  "Officials" card that names the Norms page, links to it, and shows the
+  current chief arbiter (or says it is unset and that this does not block
+  pairing -- it is a *recommended* field, not a required one). It edits
+  nothing; the point is that Settings is no longer silent about a field it
+  plainly looks like it should own. The fuller fix below -- moving Officials
+  back to Settings -- is untouched and still open, deliberately: it needs a
+  decision about what Norms is then for.
+
+  Original report, kept for that decision: they live on `/t/:id/norms`,
+  moved there from SettingsLive at some point (see `norms_live.ex`'s
+  "relocated from SettingsLive" notes). Nothing is broken — the "ready to pair" hint on PairingsLive links
   straight to the right page via `setup_field_path/2`, and the field saves
   fine — but an arbiter looking for "chief arbiter" will look under
   **Settings**, not under a page called **Norms**, and there is nothing on
   Settings pointing them onward. Reported by the maintainer, who could not
   find it even while holding the link.
 
-  Cheapest fix is to say where the link goes ("Chief arbiter — on the Norms
-  page") and/or leave a pointer in the Settings → Tournament card. The
-  fuller fix is moving Officials back to Settings, which is a bigger move
-  and would want its own think about what Norms is then for.
+  The cheapest fix — a pointer in the Settings → Tournament card — is the
+  one that shipped. What is still open is the fuller move.
 
 - ~~"Players - title-norm judgment" table has no meaningful sort order~~ —
   **shipped**: `players_by_norm_relevance/2` now sorts achieved-norm

@@ -37,6 +37,36 @@ defmodule PairingsEngineWeb.SettingsTournamentLiveTest do
       refute html =~ ~s(name="tournament[chief_arbiter]")
     end
 
+    test "Settings points at where the chief arbiter actually lives", %{conn: conn, scope: scope} do
+      # The field moving to Norms left Settings silent about it, and an
+      # arbiter looking for "chief arbiter" looks under Settings — reported
+      # by someone who could not find it while holding a direct link. Nothing
+      # here should ever edit the value; the point is that the page says
+      # where it is and shows whether it is set.
+      tournament = create_tournament(scope)
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
+
+      assert html =~ "Officials"
+      assert html =~ "Chief arbiter"
+      assert html =~ ~s(href="/t/#{tournament.id}/norms")
+      refute html =~ ~s(name="tournament[chief_arbiter]")
+    end
+
+    test "the Officials pointer shows the chief arbiter once it is set", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+
+      {:ok, tournament} =
+        Tournaments.update_tournament(tournament, %{"chief_arbiter" => "Nona G"})
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
+
+      assert html =~ "Nona G"
+      refute html =~ "Not set."
+    end
+
     test "the mandatory labels render bold with a red asterisk", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")

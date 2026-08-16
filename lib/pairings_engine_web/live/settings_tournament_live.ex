@@ -407,15 +407,13 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
+
           <p class="subtitle" style="margin: 0">Settings - Tournament</p>
         </div>
         <span class={["badge", @tournament.status == "setup" && "muted"]}>{@tournament.status}</span>
       </div>
-
       <.settings_subnav tournament={@tournament} active={:tournament} />
-
       <.stale_banner stale={@stale} />
-
       <form phx-submit="save">
         <div class="card">
           <h2>General</h2>
@@ -457,6 +455,39 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
           </.setting_group>
         </div>
 
+        <%!-- Officials are edited on the Norms page, not here. Nothing is
+              broken about that, but an arbiter looking for "chief arbiter"
+              looks under Settings and there was nothing on Settings pointing
+              anywhere else — reported by someone who could not find the field
+              while holding a direct link to it. So this card says where it
+              lives and shows the current value, rather than making Settings
+              silent about a field it plainly looks like it should own. --%>
+        <div class="card">
+          <h2>Officials</h2>
+
+          <p class="hint" style="margin-top: 0">
+            The chief arbiter, the deputy arbiters and the organizer's and chief
+            arbiter's e-mail addresses are edited on the
+            <.link navigate={~p"/t/#{@tournament.id}/norms"}>Norms</.link>
+            page, because that is what they are for — the IT3, FA1 and IA1 forms
+            are built from them. (The organizer's <em>name</em>
+            is above, under
+            General.)
+          </p>
+
+          <%!-- `.set-row`, not `<.setting_field>`: that renders a <label>,
+                and a label wrapping no control is wrong here. --%>
+          <div class="set-rows">
+            <div class="set-row">
+              <span class="set-row-label">Chief arbiter</span>
+              <span :if={@tournament.chief_arbiter not in [nil, ""]}>{@tournament.chief_arbiter}</span>
+              <span :if={@tournament.chief_arbiter in [nil, ""]} class="hint">
+                Not set. Recommended for FIDE reporting; it does not block pairing.
+              </span>
+            </div>
+          </div>
+        </div>
+
         <div class="card">
           <h2>Tiebreaks</h2>
 
@@ -496,6 +527,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
               <span class="tb-order">{i + 1}.</span>
               <div>
                 <div class="tb-name">{tb_name(code)}</div>
+
                 <div class="tb-desc">{tb_desc(code)}</div>
               </div>
 
@@ -542,6 +574,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
           <div class="actions" style="flex-wrap: wrap">
             <select phx-change="tb_add" name="code" style="width: auto" class="pe-select">
               <option value="">Add a tiebreak…</option>
+
               <option :for={tb <- available_tiebreaks(@tiebreaks)} value={tb.code}>{tb.name}</option>
             </select>
             <button type="button" class="pe-btn" phx-click="tb_reset">Reset to FIDE default</button>
@@ -574,6 +607,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
           </.setting_group>
 
           <p :if={@collaborator_error} class="error-note">{@collaborator_error}</p>
+
           <p :if={@collaborator_note} class="hint">{@collaborator_note}</p>
 
           <div class="actions">
@@ -586,18 +620,23 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
             <thead>
               <tr>
                 <th>Email</th>
+
                 <th>Status</th>
+
                 <th></th>
               </tr>
             </thead>
+
             <tbody>
               <tr :for={c <- @collaborators}>
                 <td>{c.email}</td>
+
                 <td>
                   <span class={["badge", c.status != "accepted" && "muted"]}>
                     {if c.status == "accepted", do: "active", else: "invited (waiting for accept)"}
                   </span>
                 </td>
+
                 <td style="text-align: right">
                   <button
                     class="pe-btn danger-link"
@@ -647,6 +686,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
             >
               Open standings
             </a>
+
             <a
               class="pe-btn"
               href={~p"/p/#{@tournament.public_slug}/pairings"}
@@ -654,6 +694,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
             >
               Open pairings
             </a>
+
             <button
               type="button"
               class="pe-btn danger-link"
@@ -708,6 +749,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
           <p :for={err <- upload_errors(@uploads.logo)} class="error-note">
             {upload_error_label(err)}
           </p>
+
           <div :for={entry <- @uploads.logo.entries}>
             <p :for={err <- upload_errors(@uploads.logo, entry)} class="error-note">
               {entry.client_name}: {upload_error_label(err)}
@@ -738,6 +780,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
           <a class="pe-btn" href={~p"/t/#{@tournament.id}/export/json"} target="_blank">
             Export full backup (JSON)
           </a>
+
           <a
             class="pe-btn"
             href={~p"/t/#{@tournament.id}/export/swar"}

@@ -26,7 +26,22 @@ defmodule PairingsEngine.CrossProgramTest do
   test/pairings_engine/cross_program_test.exs`), each with a random 4-24
   player roster and 2-3 rounds, results entered between rounds so
   standings genuinely change and later rounds pair from real score groups,
-  not just round 1's rating order.
+  not just round 1's rating order. One tournament in three is Baku-
+  accelerated, so `XXA` lines are part of the compared input.
+
+  ## A known disagreement, unrelated to acceleration
+
+  `PAIRING_FUZZ_COUNT=40 ... --seed 0` and up will fail on a 5-player
+  round-2 position where rank 2 took a pairing-allocated bye in round 1 and
+  ranks 3-4 have already met: JaVaFo and bbpPairings hand the bye to
+  different players. It reproduces on commits predating both the OpenPair
+  merge and this acceleration axis, and JaVaFo implements the 2022 Dutch
+  rules against bbpPairings' 2026 edition, so a legitimate difference is
+  plausible — but it has not been adjudicated against the Handbook, and
+  until it is, this file's `disagreements == []` is known to be false above
+  the default count. The default 8 is deterministic (each tournament
+  reseeds `:rand` from its own fuzz seed, so ExUnit's `--seed` only
+  reorders tests) and does not include it.
   """
 
   use PairingsEngine.DataCase, async: true
@@ -94,8 +109,34 @@ defmodule PairingsEngine.CrossProgramTest do
     player_count = Enum.random(4..24)
     round_count = Enum.random(2..3)
 
+    # A third of tournaments carry Baku acceleration, so the generated TRF
+    # carries real `XXA` lines and both engines are compared on them.
+    #
+    # This axis did not exist until the `XXA` writer turned out to be
+    # malformed — `xxa_line/2` padded the starting rank to five columns
+    # instead of four, shifting every value one place right. JaVaFo tolerates
+    # that and has been the only reader, so nothing here noticed; bbpPairings
+    # rejects the line outright, and one accelerated tournament in this
+    # harness would have caught it on the first run. The whole argument for
+    # this file is that a second independent implementation reading the same
+    # bytes catches input bugs a self-check cannot — which only holds for
+    # input this generator actually produces.
+    # Measured before committing this, by forcing every tournament
+    # accelerated: 80 fully-accelerated tournaments produced exactly two
+    # disagreements, both the same 5-player/round-2/prior-bye shape that
+    # already occurs without acceleration, and both with well-formed `XXA`
+    # lines bbpPairings read without complaint. So the axis adds no
+    # disagreements of its own — it is guarding the writer, not chasing a
+    # known difference.
+    acceleration = Enum.random(["none", "none", "baku"])
+
     tournament =
-      Repo.insert!(%Tournament{name: "Fuzz #{seed}", type: "swiss", rounds_count: round_count})
+      Repo.insert!(%Tournament{
+        name: "Fuzz #{seed}",
+        type: "swiss",
+        rounds_count: round_count,
+        acceleration: acceleration
+      })
 
     for n <- 1..player_count do
       {:ok, _player} =

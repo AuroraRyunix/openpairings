@@ -166,6 +166,17 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Settings now says where the chief arbiter lives** — the Officials
+  fields sit on the Norms page, because that is what builds the IT3/FA1/IA1
+  forms from them, but an arbiter looking for "chief arbiter" looks under
+  **Settings**, and Settings said nothing at all. Reported by someone who
+  could not find the field while holding a direct link to it. Settings →
+  Tournament grew an "Officials" card that links to Norms and shows the
+  current chief arbiter, or says it is not set and that this does not block
+  pairing (it is a recommended field, not a required one). It edits
+  nothing — moving the fields back is a separate question about what the
+  Norms page is then for.
+
 - **The accelerated TRF this app exports was malformed, and only JaVaFo
   would read it** — `XXA` lines carry Baku acceleration's virtual points,
   and the writer padded each player's starting rank to five columns instead
