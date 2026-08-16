@@ -154,33 +154,78 @@ defmodule PairingsEngine.PairingEngineTest do
   # `451c749`, so what is tested here is the behaviour itself — the pair is
   # kept apart — on both engines, from identical inputs.
   describe "TRF extensions" do
+    # These two are a control and its experiment, and they have to be read
+    # together. An earlier version of this test asserted only that ranks 1 and
+    # 2 were not paired in round 1 of a SIX-player field -- where the Dutch
+    # system pairs top half against bottom half, so 1 and 2 could never have
+    # met regardless. It passed with the forbidden pairs being thrown away
+    # entirely, which is exactly what was happening: `run_openpair/4` never
+    # passed `:forbidden_pairs` to the engine, so every `XXP` line this app
+    # emitted was parsed and discarded. A test that cannot fail is worse than
+    # no test, because it is read as cover.
+    #
+    # Four players fixes that. Round 1 of a 4-player Swiss pairs 1v3 and 2v4 --
+    # the control below pins that -- so forbidding {1,3} forbids a pair the
+    # engine would otherwise produce, and the experiment can only pass if the
+    # constraint actually reached it.
+    test "without a forbidden pairing, ranks 1 and 3 are the natural round-1 pair" do
+      t = tournament(%{pairing_engine: "openpair"})
+      [p1, _p2, p3, _p4] = roster(t, 4)
+
+      assert {:ok, round} = Pairing.pair_next_round(t)
+
+      assert met?(round, p1, p3),
+             "control failed: if 1v3 is not the natural pairing, the test below proves nothing"
+    end
+
     test "OpenPair keeps a forbidden pair apart" do
       t = tournament(%{pairing_engine: "openpair"})
-      [p1, p2 | _] = roster(t)
+      [p1, p2, p3, p4] = roster(t, 4)
 
       # A pairing number has to exist before XXP lines can name anyone, so
       # pair and delete a round to freeze the numbering.
       {:ok, round} = Pairing.pair_next_round(t)
       :ok = delete_round(t, round)
 
-      {:ok, _} = Tournaments.add_forbidden_pairing(t, p1.id, p2.id)
+      {:ok, _} = Tournaments.add_forbidden_pairing(t, p1.id, p3.id)
 
       assert {:ok, round} = Pairing.pair_next_round(Repo.reload!(t))
 
-      met? =
-        round
-        |> Repo.preload(:pairings)
-        |> Map.fetch!(:pairings)
-        |> Enum.any?(fn pairing ->
-          Enum.sort([pairing.white_player_id, pairing.black_player_id]) ==
-            Enum.sort([p1.id, p2.id])
-        end)
+      refute met?(round, p1, p3), "the arbiter's exclusion was ignored"
 
-      refute met?
+      # A complete round, not a short one that dodged the constraint by
+      # dropping somebody -- and the only other legal shape, so this pins the
+      # actual answer rather than just the absence.
+      assert length(paired_player_ids(round)) == 4
+      assert met?(round, p1, p4)
+      assert met?(round, p2, p3)
+    end
 
-      # And it is a complete round, not a short one that dodged the
-      # constraint by dropping somebody.
-      assert length(paired_player_ids(round)) == 6
+    test "a club/federation exclusion reaches OpenPair too, not just an explicit pair" do
+      # Exclusions live in their own table and are expanded into the same
+      # `XXP` lines (see `Exclusions`), so they travel the identical path --
+      # but they are the case an arbiter never enters by hand, and so the one
+      # least likely to be noticed if it silently stopped working.
+      t = tournament(%{pairing_engine: "openpair", club_exclusion: "all"})
+      [p1, _p2, p3, _p4] = roster(t, 4)
+
+      {:ok, _} = Tournaments.update_player(p1, %{"club" => "Gent"})
+      {:ok, _} = Tournaments.update_player(p3, %{"club" => "Gent"})
+
+      assert {:ok, round} = Pairing.pair_next_round(Repo.reload!(t))
+
+      refute met?(round, p1, p3), "two players from the same club were paired anyway"
+      assert length(paired_player_ids(round)) == 4
+    end
+
+    defp met?(round, a, b) do
+      round
+      |> Repo.preload(:pairings)
+      |> Map.fetch!(:pairings)
+      |> Enum.any?(fn pairing ->
+        Enum.sort([pairing.white_player_id, pairing.black_player_id]) ==
+          Enum.sort([a.id, b.id])
+      end)
     end
 
     @tag :javafo

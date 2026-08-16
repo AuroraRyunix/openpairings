@@ -58,6 +58,19 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     the tournament's settings, so a future extension is caught by default
     instead of being quietly ignored.
 
+    A late catch on that last point, found by a source sweep before any of
+    this shipped: the integration parsed the `XXP` lines and then dropped
+    them. `OpenPair.Pairing.pair_next_round/2` takes forbidden pairs as an
+    OPTION rather than reading them off the parsed file, and the call passed
+    only the round count — so every explicit forbidden pairing and every
+    club/federation exclusion was silently ignored, which is precisely the
+    failure the guard above exists to prevent. The test that was supposed to
+    cover it could not fail: it asserted that ranks 1 and 2 were not paired
+    in round 1 of a six-player field, where the Dutch system pairs top half
+    against bottom half and those two could never have met anyway. Both are
+    fixed, and the replacement is four players — where the forbidden pair IS
+    the natural pairing — with a control test pinning that.
+
   Round robin and Keizer are completely unaffected — they compute their own
   pairings and never consult the setting. See `docs/pairing-systems.md`.
 

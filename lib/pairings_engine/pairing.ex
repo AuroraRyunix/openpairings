@@ -924,7 +924,16 @@ defmodule PairingsEngine.Pairing do
         pairs =
           parsed.players
           |> OpenPair.Pairing.pair_next_round(
-            expected_rounds: parsed.tournament[:number_of_rounds]
+            expected_rounds: parsed.tournament[:number_of_rounds],
+            # `OpenPair.Trf.parse/1` lifts every `XXP` line into
+            # `tournament[:forbidden_pairs]`, but the engine takes them as an
+            # OPTION rather than reading them off the parsed struct — so
+            # omitting this parsed them and threw them away. Every explicit
+            # forbidden pairing and every club/federation exclusion was
+            # silently ignored, which is the exact failure the extension guard
+            # below exists to prevent: a complete, legal-looking round that
+            # happens to seat two players the arbiter separated.
+            forbidden_pairs: parsed.tournament[:forbidden_pairs]
           )
           |> Enum.map(&openpair_bye_to_zero/1)
 
