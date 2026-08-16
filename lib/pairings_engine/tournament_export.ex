@@ -45,7 +45,7 @@ defmodule PairingsEngine.TournamentExport do
     status standard rate_of_play organizer_club_number round_dates
     categories category_rules categories_enabled event_code
     fide_tournament_id fide_homologated fide_id_ranges officials
-    pairing_system rr_cycles rr_match_format swiss_match_format
+    pairing_system pairing_engine rr_cycles rr_match_format swiss_match_format
     keizer_top_value pair_by_category
     club_exclusion club_exclusion_list fed_exclusion fed_exclusion_list
     count_extra_points extra_points_bands

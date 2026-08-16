@@ -232,6 +232,122 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
     end
   end
 
+  describe "Swiss engine — JaVaFo by default, OpenPair opt-in" do
+    test "both engines are offered, JaVaFo selected, and the beta caveats are stated", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+
+      assert html =~ ~s(name="tournament[pairing_engine]")
+      assert html =~ "JaVaFo - FIDE-endorsed (default)"
+      assert html =~ "OpenPair (beta)"
+
+      # The copy must not oversell: beta, not for FIDE, Swiss-only, and
+      # honest about what it doesn't implement.
+      assert html =~ "only one permitted for a FIDE-rated tournament"
+      assert html =~ "Swiss only"
+      assert html =~ "forbidden pairings, club/federation exclusions or Baku acceleration"
+
+      # Nothing is disabled or locked on a fresh tournament.
+      refute html =~ ~r/name="tournament\[pairing_engine\][^>]*disabled/
+      assert tournament.pairing_engine == "javafo"
+    end
+
+    test "selecting OpenPair saves", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+
+      render_submit(lv, "save", %{
+        "tournament" => %{"name" => tournament.name, "pairing_engine" => "openpair"}
+      })
+
+      assert Repo.reload!(tournament).pairing_engine == "openpair"
+    end
+
+    test "on a FIDE-homologated tournament the OpenPair option is visibly unavailable, with the reason",
+         %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+
+      {:ok, _} =
+        Tournaments.update_tournament(tournament, %{
+          "fide_homologated" => "true",
+          "fide_tournament_id" => "12345"
+        })
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+
+      # Present but unselectable — never silently missing, or an arbiter is
+      # left wondering where the setting went.
+      assert html =~ "OpenPair (beta)"
+      assert html =~ ~r/value="openpair"[^>]*disabled/s
+      assert html =~ "FIDE-rated events must be paired by JaVaFo"
+    end
+
+    test "a hand-crafted save of OpenPair on a homologated tournament is still refused", %{
+      conn: conn,
+      scope: scope
+    } do
+      # The disabled <option> is decoration; the changeset is the enforcement.
+      tournament = create_tournament(scope)
+
+      {:ok, _} =
+        Tournaments.update_tournament(tournament, %{
+          "fide_homologated" => "true",
+          "fide_tournament_id" => "12345"
+        })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+
+      html =
+        render_submit(lv, "save", %{
+          "tournament" => %{"name" => tournament.name, "pairing_engine" => "openpair"}
+        })
+
+      assert html =~ "FIDE-homologated"
+      assert Repo.reload!(tournament).pairing_engine == "javafo"
+    end
+
+    test "the select is disabled once round 1 has been paired, and explains why on click", %{
+      conn: conn,
+      scope: scope
+    } do
+      # Deliberately a round robin: it pairs without JaVaFo, so this test
+      # runs anywhere. The lock is on the field, not on the pairing system.
+      tournament = create_tournament(scope, %{"pairing_system" => "round_robin"})
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+      refute html =~ ~r/name="tournament\[pairing_engine\][^>]*disabled/
+
+      pair_round_robin_round_1(tournament)
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+      assert html =~ ~r/name="tournament\[pairing_engine\][^>]*disabled/
+
+      html = render_click(lv, "locked_hint", %{"field" => "pairing_engine"})
+      assert html =~ "Locked - cannot be changed after round 1 has been paired."
+    end
+
+    test "a submitted change to pairing_engine is dropped server-side once locked", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope, %{"pairing_system" => "round_robin"})
+      pair_round_robin_round_1(tournament)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+
+      render_submit(lv, "save", %{
+        "tournament" => %{"name" => tournament.name, "pairing_engine" => "openpair"}
+      })
+
+      assert Repo.reload!(tournament).pairing_engine == "javafo"
+    end
+  end
+
   describe "rr_match_format — locked once round 1 has been paired" do
     defp pair_round_robin_round_1(tournament) do
       Tournaments.create_player(tournament.id, %{name: "Alice", fide_rating: 2000})

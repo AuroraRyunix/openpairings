@@ -10,6 +10,13 @@ defmodule PairingsEngine.Tournaments.Tournament do
   # Which pairing engine PairingsEngine.Pairing.pair_next_round/1 dispatches
   # to — independent of `type` above (FIDE report classification).
   @pairing_systems ~w(swiss round_robin keizer)
+  # Which Swiss engine actually pairs the round, once `pairing_system` has
+  # already decided the Swiss path runs at all — round robin and Keizer never
+  # reach an engine, so this setting is inert for them (see
+  # `PairingsEngine.Pairing.pair_next_round/1`). "javafo" is the default and
+  # the only value permitted on a FIDE-homologated tournament; see
+  # `validate_pairing_engine/1` below and docs/fide-endorsement.md.
+  @pairing_engines ~w(javafo openpair)
   @rr_cycles_values [1, 2]
   # How a newly-paired round becomes visible on the public pairings page
   # (`PairingsEngineWeb.PublicPairingsLive`) — see
@@ -247,6 +254,27 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # "swiss" | "round_robin" | "keizer". Locked in the UI once the
     # tournament has paired its first round (see SettingsLive).
     field :pairing_system, :string, default: "swiss"
+    # Swiss only: which engine pairs the round — "javafo" (the default, the
+    # FIDE-endorsed external Java program this app has always shelled out to)
+    # or "openpair" (the sibling from-scratch Elixir Dutch engine,
+    # github.com/AuroraRyunix/openpair, beta). Both are handed the
+    # byte-identical TRF16 the pipeline already builds, so the two stay
+    # directly comparable; see PairingsEngine.Pairing and
+    # docs/pairing-systems.md.
+    #
+    # Read ONLY on the Swiss path — round robin (Berger) and Keizer compute
+    # their own pairings and never consult it, same "inert unless swiss"
+    # tolerance as `acceleration`/`swiss_match_format`.
+    #
+    # Two hard rules, both enforced below rather than in the UI:
+    # "openpair" can never sit on a `fide_homologated` tournament (that would
+    # break the "Internal engine: NO — thru JaVaFo" answer OpenPairings'
+    # whole FIDE endorsement story rests on, see docs/fide-endorsement.md),
+    # and it can never sit alongside Baku acceleration (OpenPair does not
+    # read the TRF's `XXA` lines at all). Locked once the tournament has
+    # paired its first round, same as `pairing_system` — see
+    # `PairingsEngine.Tournaments.locked_fields/1`.
+    field :pairing_engine, :string, default: "javafo"
     # Round-robin only: 1 = single cycle, 2 = double.
     field :rr_cycles, :integer, default: 1
     # Round-robin only: "match format" — round N and round N+1 are the SAME
@@ -430,6 +458,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :fide_id_ranges,
       :officials,
       :pairing_system,
+      :pairing_engine,
       :rr_cycles,
       :rr_match_format,
       :keizer_top_value,
@@ -454,6 +483,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_inclusion(:status, @statuses)
     |> validate_inclusion(:standard, @standards)
     |> validate_inclusion(:pairing_system, @pairing_systems)
+    |> validate_inclusion(:pairing_engine, @pairing_engines)
     |> validate_inclusion(:rr_cycles, @rr_cycles_values)
     |> validate_inclusion(:publish_mode, @publish_modes)
     |> validate_number(:publish_delay_minutes, greater_than_or_equal_to: 0)
@@ -461,6 +491,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_inclusion(:fed_exclusion, @exclusion_modes)
     |> validate_number(:rounds_count, greater_than: 0, less_than_or_equal_to: 30)
     |> validate_keizer_top_value()
+    |> validate_pairing_engine()
     |> validate_abs_scoring()
     |> validate_rr_match_format()
     |> validate_swiss_match_format()
@@ -575,6 +606,69 @@ defmodule PairingsEngine.Tournaments.Tournament do
     case get_field(changeset, field) do
       nil -> changeset
       _ -> validate_number(changeset, field, opts)
+    end
+  end
+
+  # The two combinations `pairing_engine == "openpair"` can never be part of.
+  #
+  # Enforced HERE, in the data layer, rather than by hiding a radio button —
+  # same lesson as the settings-lock fix: "the UI hides the control" has
+  # never been enforcement in this codebase, because every other caller (a
+  # script, an import, a future LiveView) goes straight past the UI. And
+  # deliberately checked on `get_field/2` (the value the row would END UP
+  # with) rather than `get_change/2`, so BOTH directions are refused: setting
+  # the engine to OpenPair on an already-homologated tournament, AND ticking
+  # "FIDE-homologated" on a tournament already running OpenPair. Only
+  # checking the change would let the second one through and silently leave a
+  # homologated event pairing on a non-endorsed engine, which is exactly the
+  # state this rule exists to make unreachable.
+  #
+  # 1. FIDE homologation. OpenPairings answers FE1's "Internal engine:
+  #    YES/NO" with **NO — thru JaVaFo**, exactly as Vega, Swiss Manager and
+  #    TournamentService do, and JaVaFo's own endorsement is what then covers
+  #    pairing legality (VCL.07) for the whole event. Pairing a homologated
+  #    tournament with anything else voids that answer. See
+  #    docs/fide-endorsement.md.
+  # 2. Baku acceleration. Acceleration reaches JaVaFo as `XXA` extension
+  #    lines in the TRF (see `PairingsEngine.Pairing.acceleration_lines/4`);
+  #    OpenPair's TRF parser ignores every extension except `XXR`, so it
+  #    would pair a Baku tournament as if acceleration had never been
+  #    configured — silently, with a perfectly plausible-looking result.
+  #    Rejected outright rather than guessed at, same precedent as
+  #    `validate_pair_by_category_excludes_baku/1` below. (`acceleration` is
+  #    not one of `locked_fields/1`, so it can be switched on mid-event —
+  #    hence checking the end state here rather than trusting the lock.)
+  defp validate_pairing_engine(changeset) do
+    if get_field(changeset, :pairing_engine) == "openpair" do
+      changeset
+      |> validate_openpair_not_fide_homologated()
+      |> validate_openpair_excludes_baku()
+    else
+      changeset
+    end
+  end
+
+  defp validate_openpair_not_fide_homologated(changeset) do
+    if get_field(changeset, :fide_homologated) == true do
+      add_error(
+        changeset,
+        :pairing_engine,
+        "OpenPair cannot be used for a FIDE-homologated tournament — FIDE-rated events must be paired by JaVaFo"
+      )
+    else
+      changeset
+    end
+  end
+
+  defp validate_openpair_excludes_baku(changeset) do
+    if get_field(changeset, :acceleration) == "baku" do
+      add_error(
+        changeset,
+        :pairing_engine,
+        "OpenPair does not implement Baku acceleration — use JaVaFo, or set acceleration to none"
+      )
+    else
+      changeset
     end
   end
 
@@ -1082,6 +1176,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
   def type_label(other), do: other
 
   def pairing_systems, do: @pairing_systems
+  def pairing_engines, do: @pairing_engines
   def rr_cycles_values, do: @rr_cycles_values
   def exclusion_modes, do: @exclusion_modes
 
@@ -1089,6 +1184,10 @@ defmodule PairingsEngine.Tournaments.Tournament do
   def exclusion_mode_label("all"), do: "All shared clubs/federations"
   def exclusion_mode_label("listed"), do: "Only listed"
   def exclusion_mode_label(other), do: other
+
+  def pairing_engine_label("javafo"), do: "JaVaFo"
+  def pairing_engine_label("openpair"), do: "OpenPair (beta)"
+  def pairing_engine_label(other), do: other
 
   def pairing_system_label("swiss"), do: "Swiss — FIDE Dutch (JaVaFo)"
   def pairing_system_label("round_robin"), do: "Round robin (Berger)"

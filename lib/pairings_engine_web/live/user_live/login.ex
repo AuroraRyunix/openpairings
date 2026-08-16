@@ -73,7 +73,7 @@ defmodule PairingsEngineWeb.UserLive.Login do
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                Swiss (JaVaFo Dutch), round-robin & Keizer &middot; all in one
+                Swiss (JaVaFo Dutch, or OpenPair in beta), round-robin & Keizer
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
@@ -89,7 +89,7 @@ defmodule PairingsEngineWeb.UserLive.Login do
               </li>
               <li class="auth-feature-soon">
                 <.icon name="hero-clock-mini" class="size-5" />
-                <span class="auth-feature-soon-tag">Coming soon</span> TRF26 &middot; multi-engine
+                <span class="auth-feature-soon-tag">Coming soon</span> TRF26
               </li>
             </ul>
 

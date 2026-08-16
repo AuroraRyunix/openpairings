@@ -1,12 +1,27 @@
 defmodule PairingsEngine.Pairing do
   @moduledoc """
-  Round lifecycle: builds the TRF input for JaVaFo, runs the engine, and
+  Round lifecycle: builds the TRF input for the Swiss engine, runs it, and
   creates the round with its pairings.
 
-  JaVaFo (© Roberto Ricca, the FIDE-endorsed Dutch-system engine) is invoked
-  as `java -jar javafo.jar input.trf -p output.txt`; the output lists one
-  "white black" pair of TRF starting ranks per line, 0 meaning the
+  JaVaFo (© Roberto Ricca, the FIDE-endorsed Dutch-system engine) is the
+  default and the only engine permitted for a FIDE-homologated tournament.
+  It is invoked as `java -jar javafo.jar input.trf -p output.txt`; the output
+  lists one "white black" pair of TRF starting ranks per line, 0 meaning the
   pairing-allocated bye.
+
+  A tournament may instead select `pairing_engine: "openpair"` — OpenPair
+  (github.com/AuroraRyunix/openpair), a from-scratch Dutch-system engine in
+  pure Elixir, in beta. Everything up to and including the TRF text is
+  **identical** for both engines: `run_engine/5` is handed the very same
+  bytes `javafo_input/4` built, so the two are directly comparable on real
+  tournament data rather than only on synthetic input, and only the last
+  step — how those bytes become `[{white_rank, black_rank}]` — differs.
+  Everything downstream (`create_round/5`, board freezing, absentee byes) is
+  common to both.
+
+  See `docs/pairing-systems.md` for the arbiter-facing description, and
+  `docs/fide-endorsement.md` for why the FIDE-homologated restriction is not
+  negotiable.
   """
 
   import Ecto.Query
@@ -345,36 +360,12 @@ defmodule PairingsEngine.Pairing do
     trf = javafo_input(tournament, full_roster, local_rank_by_player_id, eligible_ids)
     emit_trf_built(tournament.id, next_number, nil, trf)
 
-    dir = workdir!()
-    input = Path.join(dir, "t#{tournament.id}_r#{next_number}.trf")
-    output = Path.join(dir, "t#{tournament.id}_r#{next_number}_pairs.txt")
+    case run_engine(tournament, trf, next_number, nil) do
+      {:ok, pairs} ->
+        create_round(pairs, tournament, player_by_local_rank, next_number, round_absentees)
 
-    try do
-      File.write!(input, trf)
-
-      case System.cmd("java", ["-jar", javafo_jar(), input, "-p", output], stderr_to_stdout: true) do
-        {_out, 0} ->
-          case output |> File.read!() |> parse_pairs() do
-            {:ok, pairs} ->
-              create_round(pairs, tournament, player_by_local_rank, next_number, round_absentees)
-
-            {:error, message} ->
-              Logger.error(
-                "JaVaFo produced no pairings output for tournament #{tournament.id} round #{next_number} (exit 0, empty output file)"
-              )
-
-              {:error, message}
-          end
-
-        {out, code} ->
-          Logger.error(
-            "JaVaFo failed for tournament #{tournament.id} round #{next_number} (exit #{code}):\n#{out}"
-          )
-
-          {:error, "JaVaFo failed (exit #{code}):\n#{out}"}
-      end
-    after
-      File.rm_rf(dir)
+      {:error, _message} = error ->
+        error
     end
   end
 
@@ -525,37 +516,12 @@ defmodule PairingsEngine.Pairing do
 
     emit_trf_built(tournament.id, next_number, category_name, trf)
 
-    dir = workdir!()
-    slug = category_file_slug(category_name, index)
-    input = Path.join(dir, "t#{tournament.id}_r#{next_number}_cat_#{slug}.trf")
-    output = Path.join(dir, "t#{tournament.id}_r#{next_number}_cat_#{slug}_pairs.txt")
+    case run_engine(tournament, trf, next_number, category_name, index) do
+      {:ok, pairs} ->
+        {:ok, {category_name, :paired, pairs, player_by_local_rank}}
 
-    try do
-      File.write!(input, trf)
-
-      case System.cmd("java", ["-jar", javafo_jar(), input, "-p", output], stderr_to_stdout: true) do
-        {_out, 0} ->
-          case output |> File.read!() |> parse_pairs() do
-            {:ok, pairs} ->
-              {:ok, {category_name, :javafo, pairs, player_by_local_rank}}
-
-            {:error, message} ->
-              Logger.error(
-                "JaVaFo produced no pairings output for tournament #{tournament.id} round #{next_number} category #{category_name} (exit 0, empty output file)"
-              )
-
-              {:error, "#{message} (category \"#{category_name}\")"}
-          end
-
-        {out, code} ->
-          Logger.error(
-            "JaVaFo failed for tournament #{tournament.id} round #{next_number} category #{category_name} (exit #{code}):\n#{out}"
-          )
-
-          {:error, "JaVaFo failed for category \"#{category_name}\" (exit #{code}):\n#{out}"}
-      end
-    after
-      File.rm_rf(dir)
+      {:error, _message} = error ->
+        error
     end
   end
 
@@ -593,7 +559,7 @@ defmodule PairingsEngine.Pairing do
 
               {board_offset + 1, true}
 
-            {_category_name, :javafo, pairs, player_by_local_rank} ->
+            {_category_name, :paired, pairs, player_by_local_rank} ->
               {:ok, boards_used, bye?} =
                 insert_category_pairings(round, pairs, player_by_local_rank, board_offset)
 
@@ -835,6 +801,228 @@ defmodule PairingsEngine.Pairing do
     # write. See docs/manual-standings.md (Fix 3).
     Tournaments.invalidate_manual_ranking(tournament.id)
     :ok
+  end
+
+  ## ---------- pairing engines ----------
+  #
+  # The single seam where a TRF becomes a list of pairs. Both Swiss pairing
+  # paths (`do_pair_single/4` and the per-category
+  # `compute_category_group/8`) funnel through here, so a new engine is added
+  # in exactly one place and neither path can drift from the other.
+  #
+  # The contract in both directions is deliberately identical to what the
+  # JaVaFo-only code already had:
+  #
+  #   * IN — the exact TRF text `javafo_input/4` produced, unmodified. Not a
+  #     re-serialization, not a restructured intermediate: the same bytes.
+  #     That is what makes the two engines comparable on real tournament
+  #     data (feed one round to both, diff the answers) and it is why
+  #     `emit_trf_built/4` still fires exactly once per engine run, engine
+  #     choice notwithstanding.
+  #   * OUT — `{:ok, [{white_rank, black_rank}]}` in the LOCAL contiguous
+  #     rank numbering the TRF was built in, `0` for the pairing-allocated
+  #     bye (`parse_pairs/1`'s long-standing shape), or `{:error, message}`
+  #     with a plain user-facing string. `create_round/5` and
+  #     `insert_category_pairings/4` are untouched and cannot tell which
+  #     engine answered.
+
+  defp run_engine(tournament, trf, round_number, category_name, category_index \\ 0)
+
+  defp run_engine(
+         %Tournament{pairing_engine: "openpair"} = tournament,
+         trf,
+         round_number,
+         category_name,
+         _category_index
+       ) do
+    run_openpair(tournament, trf, round_number, category_name)
+  end
+
+  defp run_engine(tournament, trf, round_number, category_name, category_index) do
+    run_javafo(tournament, trf, round_number, category_name, category_index)
+  end
+
+  # Unchanged from the two copies this replaced, down to the scratch-file
+  # names and the exact error strings — see `workdir!/0` for why the
+  # directory is randomized, 0700 and deleted in an `after`.
+  defp run_javafo(tournament, trf, round_number, category_name, category_index) do
+    dir = workdir!()
+    stem = javafo_file_stem(tournament, round_number, category_name, category_index)
+    input = Path.join(dir, stem <> ".trf")
+    output = Path.join(dir, stem <> "_pairs.txt")
+
+    try do
+      File.write!(input, trf)
+
+      case System.cmd("java", ["-jar", javafo_jar(), input, "-p", output], stderr_to_stdout: true) do
+        {_out, 0} ->
+          case output |> File.read!() |> parse_pairs() do
+            {:ok, pairs} ->
+              {:ok, pairs}
+
+            {:error, message} ->
+              Logger.error(
+                "JaVaFo produced no pairings output for #{engine_log_scope(tournament, round_number, category_name)} (exit 0, empty output file)"
+              )
+
+              {:error, javafo_empty_output_message(message, category_name)}
+          end
+
+        {out, code} ->
+          Logger.error(
+            "JaVaFo failed for #{engine_log_scope(tournament, round_number, category_name)} (exit #{code}):\n#{out}"
+          )
+
+          {:error, javafo_failure_message(code, out, category_name)}
+      end
+    after
+      File.rm_rf(dir)
+    end
+  end
+
+  defp javafo_file_stem(tournament, round_number, nil, _index),
+    do: "t#{tournament.id}_r#{round_number}"
+
+  defp javafo_file_stem(tournament, round_number, category_name, index),
+    do: "t#{tournament.id}_r#{round_number}_cat_#{category_file_slug(category_name, index)}"
+
+  defp engine_log_scope(tournament, round_number, nil),
+    do: "tournament #{tournament.id} round #{round_number}"
+
+  defp engine_log_scope(tournament, round_number, category_name),
+    do: "tournament #{tournament.id} round #{round_number} category #{category_name}"
+
+  defp javafo_empty_output_message(message, nil), do: message
+
+  defp javafo_empty_output_message(message, category_name),
+    do: "#{message} (category \"#{category_name}\")"
+
+  defp javafo_failure_message(code, out, nil), do: "JaVaFo failed (exit #{code}):\n#{out}"
+
+  defp javafo_failure_message(code, out, category_name),
+    do: "JaVaFo failed for category \"#{category_name}\" (exit #{code}):\n#{out}"
+
+  # OpenPair runs IN THIS BEAM — no subprocess, no JVM, no temp file, so
+  # none of `run_javafo/5`'s scratch-directory machinery applies. It reads
+  # the same TRF text through its own `OpenPair.Trf.parse/1` and returns
+  # pairs in the same local-rank convention, differing only in spelling the
+  # pairing-allocated bye `nil` where JaVaFo's text output spells it `0`;
+  # `openpair_bye_to_zero/1` normalizes that so `create_round/5` sees the
+  # shape it has always seen.
+  #
+  # `expected_rounds` is read back out of the TRF rather than off the
+  # tournament struct on purpose: it must be whatever the FILE says, since
+  # that is what JaVaFo would have been told (`XXR`), and OpenPair's
+  # final-round colour exception keys off it. Taking it from the struct
+  # would silently diverge the two engines on the last round if the two ever
+  # disagreed.
+  defp run_openpair(tournament, trf, round_number, category_name) do
+    case openpair_unsupported_extensions(trf) do
+      [] ->
+        parsed = OpenPair.Trf.parse(trf)
+
+        pairs =
+          parsed.players
+          |> OpenPair.Pairing.pair_next_round(
+            expected_rounds: parsed.tournament[:number_of_rounds]
+          )
+          |> Enum.map(&openpair_bye_to_zero/1)
+
+        {:ok, pairs}
+
+      codes ->
+        {:error, openpair_unsupported_message(codes, category_name)}
+    end
+  rescue
+    # OpenPair raises where JaVaFo writes an empty file — a proven
+    # structural deadlock, not a search that gave up (see the exception's own
+    # doc). Mapped onto the same `{:error, string}` shape so
+    # `pair_next_round/1`'s callers, which just render the reason as-is,
+    # cannot tell which engine refused.
+    e in OpenPair.Pairing.NoValidPairingError ->
+      Logger.error(
+        "OpenPair found no legal pairing for #{engine_log_scope(tournament, round_number, category_name)}: #{Exception.message(e)}"
+      )
+
+      {:error,
+       openpair_scoped(
+         "OpenPair found no legal pairing for this round — every remaining player would have to repeat an opponent or take a forbidden colour. #{Exception.message(e)}",
+         category_name
+       )}
+
+    # The TRF we just built is our own, so this should be unreachable; it is
+    # caught rather than allowed to escape because an unhandled raise here
+    # would take down the whole LiveView instead of showing the arbiter a
+    # message, and because OpenPair validates result-code combinations more
+    # eagerly than JaVaFo does.
+    e in OpenPair.Trf.ValidationError ->
+      Logger.error(
+        "OpenPair rejected the generated TRF for #{engine_log_scope(tournament, round_number, category_name)}: #{Exception.message(e)}"
+      )
+
+      {:error,
+       openpair_scoped(
+         "OpenPair could not read the generated pairing file: #{Exception.message(e)}",
+         category_name
+       )}
+  end
+
+  defp openpair_bye_to_zero({white, nil}), do: {white, 0}
+  defp openpair_bye_to_zero({white, black}), do: {white, black}
+
+  defp openpair_scoped(message, nil), do: message
+  defp openpair_scoped(message, category_name), do: "#{message} (category \"#{category_name}\")"
+
+  # Which TRF extension lines OpenPair actually reads. `XXR` (total rounds)
+  # is the only one — everything else this app emits is a JaVaFo extension
+  # that OpenPair's parser silently discards as an unknown header code.
+  @openpair_supported_extensions ~w(XXR)
+
+  # The extension codes in `trf` that OpenPair would ignore. Checked against
+  # the generated TRF itself rather than against the tournament's settings,
+  # so it stays true by construction: any extension line this pipeline
+  # learns to emit in future is caught here without anyone remembering to
+  # update a second list.
+  #
+  # This guard is not tidiness. `XXP` carries the arbiter's forbidden
+  # pairings and club/federation exclusion rules (see
+  # docs/forbidden-pairings.md), and `XXA` carries Baku acceleration's
+  # virtual points. An engine that ignores them still returns a complete,
+  # entirely legal-looking pairing — one that just happens to seat two
+  # players who must never meet. Failing loudly is the only safe answer:
+  # there is nothing downstream that could notice the difference.
+  #
+  # `pairing_engine` + Baku is already refused in the changeset
+  # (`Tournament.validate_pairing_engine/1`); forbidden pairings and
+  # exclusion rules cannot be, because they live in their own table and can
+  # be added at any point mid-tournament, long after the engine choice has
+  # locked.
+  defp openpair_unsupported_extensions(trf) do
+    trf
+    |> String.split(~r/\r?\n/)
+    |> Enum.filter(&String.starts_with?(&1, "XX"))
+    |> Enum.map(&String.slice(&1, 0, 3))
+    |> Enum.reject(&(&1 in @openpair_supported_extensions))
+    |> Enum.uniq()
+  end
+
+  defp openpair_unsupported_message(codes, category_name) do
+    reasons =
+      Enum.map_join(codes, "; ", fn
+        "XXP" ->
+          "forbidden pairings and club/federation exclusions (remove them, or use JaVaFo)"
+
+        "XXA" ->
+          "Baku acceleration (set acceleration to none, or use JaVaFo)"
+
+        other ->
+          "the TRF extension #{other}"
+      end)
+
+    openpair_scoped(
+      "OpenPair does not implement #{reasons}. Nothing was paired — OpenPair would have ignored the rule rather than applied it.",
+      category_name
+    )
   end
 
   # JaVaFo pairing output: first line = number of pairs, then "white black"

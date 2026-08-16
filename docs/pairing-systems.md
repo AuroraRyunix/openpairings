@@ -7,16 +7,71 @@ individual/team + FIDE report classification used for TRF export and
 default tiebreaks) — `pairing_system` only decides which pairing engine
 actually runs.
 
-## Swiss — FIDE Dutch (JaVaFo) — available
+## Swiss — FIDE Dutch — available
 
-The default, and the only one implemented today. Round pairing runs through
-JaVaFo (© Roberto Ricca, the FIDE-endorsed Dutch-system engine): the
-tournament and active players are serialized to TRF16, JaVaFo is invoked as
-a subprocess, and its output becomes the round's pairings. See
-`PairingsEngine.Pairing` for the full lifecycle (TRF build, JaVaFo run,
+The default. The tournament and its players are serialized to TRF16 and
+handed to a Dutch-system engine, whose output becomes the round's pairings.
+See `PairingsEngine.Pairing` for the full lifecycle (TRF build, engine run,
 round/pairing creation, absentee byes). Optional Baku acceleration
 (`tournament.acceleration == "baku"`, FIDE C.04.7) is Swiss-only — see
 `docs/acceleration.md`.
+
+*Which* engine runs is a second, independent setting — `pairing_engine`,
+below. Round robin and Keizer never reach an engine at all, so that setting
+is inert for them.
+
+### The engine: `pairing_engine` (Swiss only)
+
+| Value | Engine | Status |
+|---|---|---|
+| `"javafo"` *(default)* | JaVaFo (© Roberto Ricca), an external Java program invoked as `java -jar javafo.jar input.trf -p output.txt` | FIDE-endorsed; the only engine permitted for a FIDE-homologated tournament |
+| `"openpair"` | [OpenPair](https://github.com/AuroraRyunix/openpair), a from-scratch Dutch engine in pure Elixir, running inside this app's own BEAM | Beta; never for FIDE-rated events |
+
+**Both engines are handed the byte-identical TRF.** `Pairing.javafo_input/4`
+builds the file once and the engine choice only decides what turns those
+bytes into `[{white_rank, black_rank}]`. Everything downstream —
+`create_round/5`, board numbering/freezing, absentee byes, standings — is
+shared and cannot tell which engine answered. That is deliberate: it keeps
+the two directly comparable on real tournament data (pair a round with one,
+delete it, pair it with the other, diff), rather than only on synthetic
+input.
+
+**Why JaVaFo stays the default, and why the FIDE restriction is not
+negotiable.** OpenPairings answers FIDE's FE1 question *"Internal engine:
+YES/NO"* with **NO — thru JaVaFo**, exactly as Vega, Swiss Manager and
+TournamentService do; JaVaFo's own endorsement is what then covers pairing
+legality for the whole event. Pairing a homologated tournament with any
+other engine voids that answer outright. See `docs/fide-endorsement.md`.
+
+**What OpenPair does not do yet.** Its TRF parser reads only the `XXR`
+(round count) extension. The `XXP` lines carrying forbidden pairings and
+club/federation exclusions (`docs/forbidden-pairings.md`) and the `XXA`
+lines carrying Baku acceleration virtual points are invisible to it. An
+engine that ignores those still returns a complete, entirely legal-looking
+pairing — one that just happens to seat two players who must never meet —
+so this is handled by refusing rather than by hoping:
+
+* `pairing_engine: "openpair"` together with `acceleration: "baku"` is
+  rejected by `Tournament.changeset/2`, in both directions.
+* A round whose TRF would carry any `XXP` line is refused at pairing time
+  with a message naming the reason, and nothing is written. Forbidden
+  pairings and exclusion rules can be added at any point mid-tournament,
+  long after the engine choice has locked, so they cannot be caught in the
+  changeset.
+
+**Three guards, all in the data layer** (the Settings UI renders from the
+same rules, but the UI has never been the enforcement here):
+
+1. `pairing_engine` is a member of `Tournaments.locked_fields/1` — frozen
+   once the first round is paired, like `pairing_system` itself. Two
+   independent Dutch implementations will not always choose the same
+   pairing, and swapping mid-event hands the new engine a history it did
+   not produce.
+2. `"openpair"` is refused on a `fide_homologated` tournament, and ticking
+   `fide_homologated` on a tournament already running OpenPair is refused
+   too — the reverse direction matters just as much.
+3. Round robin and Keizer ignore the setting entirely (see below); it is
+   read only on the Swiss path.
 
 ## Round robin (Berger) — available
 
@@ -158,10 +213,17 @@ same way as every other pairing system (see above).
 
 ## Changing the pairing system mid-tournament
 
-`pairing_system` is locked (both in the UI — the select is disabled — and
-server-side in `SettingsLive`) once the tournament has paired its first
-round: switching engines after rounds have already been paired by a
-different system would leave a mixed, likely-inconsistent pairing history.
+`pairing_system` is locked once the tournament has paired its first round:
+switching systems after rounds have already been paired by a different one
+would leave a mixed, likely-inconsistent pairing history. The lock lives in
+`Tournaments.locked_fields/1` and is enforced inside `update_tournament/2`,
+which is what the Settings page's disabled select renders from — one rule,
+one place, so the two can't drift.
+
+`pairing_engine` (the Swiss engine — see above) locks on exactly the same
+condition and for the same reason one level down: JaVaFo and OpenPair are
+two independent implementations of the Dutch system, and a round already on
+the board was decided by whichever one was configured at the time.
 
 `rr_cycles` (round robin only) locks separately once the number of paired
 rounds reaches what the *current* cycles setting implies a round-robin
