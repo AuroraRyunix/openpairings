@@ -141,26 +141,34 @@ gaps identified there, extracted here as actionable items:
 
 ## Backlog (no particular order, nothing blocking)
 
-- **History page (`/t/:id/history`) reported as "just a read-only thing"
-  with something colliding into the "Everything" filter button** —
-  investigation started 2026-08-15, not resolved. `HistoryLive`'s own
-  moduledoc still says "Read-only — the restore action itself lives in a
-  later change," but that's stale: `restore_start`/`do_restore`/
-  `Snapshots.branch_tree/1` and "Go back to here"/"Switch to this branch"
-  buttons are all fully built and present in the code today. So either
-  there's a real rendering bug hiding that functionality from the
-  maintainer, or something about how it behaves doesn't match what they
-  expect. Never got a confirmed repro — the two open questions, still
-  needing an answer:
-  1. Do restore buttons actually render on past timeline entries at all,
-     or does it look like a plain list with no actions?
+- ~~**History page (`/t/:id/history`) reported as "just a read-only thing"**~~
+  — **answered 2026-08-16.** Nothing was broken: the restore buttons only
+  render on entries that ARE restore points, and `Snapshots.capture/4` was
+  reachable from exactly four handlers, all in `PairingsLive` (pair a round,
+  unpair one, pair a whole round-robin schedule, import results by CSV). A
+  tournament run by hand — players edited, settings tuned, results typed in
+  — therefore had zero snapshots, hence zero buttons, hence a page that
+  reads as a list you can only look at. Shipped: a "Save a restore point"
+  action on the page itself (`"snapshot.manual"`), plus an honest empty
+  state saying there are none yet and why. The moduledoc's stale
+  "Read-only" claim is corrected too.
+
+  Deliberately **not** done at the same time: broadening the automatic
+  capture triggers. Adding one before, say, every settings save or every
+  result entry would change snapshot volume and storage for every existing
+  tournament (these are full tournament copies, `@keep_per_tournament 50`
+  of them), so it wants its own decision rather than riding along. The
+  candidates, if that decision is ever taken: bulk player import, "assign
+  categories" / extra-points apply (both rewrite every player in one
+  click), and manual-standings re-seed. Single-field edits are not
+  candidates — they're already reconstructable from the audit trail's
+  before/after diff.
+
+  Still open from the same report:
   2. Is something visually overlapping the "Everything" filter button
      (`{"all", "Everything"}` in `@filters`), or does picking a different
      filter (Pairings/Players/Settings/etc.) not stick — i.e. a functional
      filter-state bug, not a layout one?
-
-  Also worth fixing regardless of the above: the moduledoc's stale
-  "Read-only" claim itself is misleading to the next person who reads it.
 
 - ~~"Substitute player" draws its journey arrow on the wrong seat~~ —
   **shipped 2026-08-15, the "bigger redesign" option**: `matchTravellers()`

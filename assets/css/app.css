@@ -3067,6 +3067,14 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   transform: translateX(-50%) rotate(45deg);
 }
 
+/* A restore point somebody saved on purpose, rather than one the app took
+   before an irreversible action. Same diamond (it restores identically),
+   heavier halo — stated before .is-head below so "the tournament is here"
+   still wins the dot when both apply. */
+.tl-item.manual .tl-dot {
+  box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px hsl(32 95% 44% / 0.55);
+}
+
 .tl-meta {
   display: flex;
   align-items: baseline;
@@ -3187,6 +3195,19 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   font-weight: 650;
 }
 .tl-here { background: var(--accent-soft); color: var(--accent); }
+/* Same pill shape as .tl-here/.tl-forked, in the restore-point hue. */
+.tl-manual {
+  padding: 1px 8px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 650;
+  background: color-mix(in srgb, hsl(32 95% 44%) 16%, transparent);
+  color: #b45309;
+}
+:root[data-theme="dark"] .tl-manual { color: #fbbf24; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .tl-manual { color: #fbbf24; }
+}
 .tl-forked {
   background: color-mix(in srgb, #d97706 16%, transparent);
   color: #b45309;
@@ -3211,6 +3232,19 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 
 /* The empty state, when a filter matches nothing. */
 .tl-empty { padding: 28px 0 8px 30px; color: var(--text-soft); font-size: 13.5px; }
+
+/* "Save a restore point": an optional one-line label plus its button, on one
+   row. Sits above the filter picker because the sentence explaining an empty
+   timeline (.tl-nopoints) points back up at it. */
+.tl-save {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 6px;
+}
+.tl-save input[type="text"] { flex: 1 1 240px; max-width: 360px; }
+.tl-nopoints { margin-top: 0; }
 
 @media (max-width: 600px) {
   .tl-diff-field { min-width: 0; flex-basis: 100%; }

@@ -7,6 +7,38 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **"Save a restore point" on the History page** — restore points could only
+  ever be created as a side effect of something else. `Snapshots.capture/4`
+  was called from exactly four handlers, all of them in PairingsLive: pairing
+  a round, unpairing one, pairing a whole round-robin schedule, and importing
+  results from a CSV. Run a tournament the way small clubs actually do —
+  register players by hand, tune the settings, type results in one board at a
+  time, never touch an import — and the app took *no* snapshots at all. The
+  History page then had nothing to offer a "Go back to here" button on, so
+  the restore machinery that has been shipped for a while (branch tree,
+  "Switch to this branch", the type-to-confirm modal) was invisible and the
+  whole page read as a list you could only look at. That was the actual
+  complaint behind "History is just a read-only thing".
+
+  So: a button that takes one on demand, with an optional short label
+  ("End of day 1", "before the appeal") that becomes the point's caption on
+  the timeline. It goes through the same `Snapshots.capture/4` as the
+  automatic ones — same payload, same retention, same branch tree, same
+  restore path — under its own `snapshot.manual` action code so hand-saved
+  points show a "saved by hand" badge and read apart from the ones the app
+  took to protect an irreversible action. It's a write like any other:
+  refused on an archived tournament, and logged to the audit trail.
+
+  The empty state is honest now too. A tournament with no restore points
+  yet says so, explains that hand-editing doesn't take one, and points at
+  the button — instead of silently rendering a timeline with no actions on
+  it, which is what made this look broken rather than merely unused.
+
+  The automatic triggers are deliberately unchanged: these are full
+  tournament copies, so adding more of them shifts storage behaviour for
+  every existing tournament and deserves its own decision (candidates noted
+  in `TODO.md`).
+
 - **"Assign categories" now shows a dry-run preview before it writes
   anything** — clicking the button used to reassign every player's category
   instantly, no warning. It now computes the same rule decisions
