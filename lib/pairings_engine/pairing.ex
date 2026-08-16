@@ -973,10 +973,19 @@ defmodule PairingsEngine.Pairing do
   defp openpair_scoped(message, nil), do: message
   defp openpair_scoped(message, category_name), do: "#{message} (category \"#{category_name}\")"
 
-  # Which TRF extension lines OpenPair actually reads. `XXR` (total rounds)
-  # is the only one — everything else this app emits is a JaVaFo extension
-  # that OpenPair's parser silently discards as an unknown header code.
-  @openpair_supported_extensions ~w(XXR)
+  # Which TRF extension lines OpenPair actually reads. All three this app
+  # emits, as of openpair `451c749`: `XXR` (total rounds), `XXP` (forbidden
+  # pairings and club/federation exclusions) and `XXA` (Baku acceleration).
+  #
+  # `XXP`/`XXA` were added upstream precisely because this integration
+  # surfaced their absence. Before that, OpenPair's parser discarded them as
+  # unknown header codes — measured on its own fuzz corpus, a 20% forbidden
+  # rate meant 27.72% of rounds seated a pair the arbiter had excluded, and
+  # that figure was its ENTIRE disagreement with bbpPairings on that axis.
+  # Kept as a list, and kept checked against the generated TRF below, so the
+  # next extension this pipeline learns to emit is caught automatically
+  # rather than silently ignored by whichever engine is selected.
+  @openpair_supported_extensions ~w(XXR XXP XXA)
 
   # The extension codes in `trf` that OpenPair would ignore. Checked against
   # the generated TRF itself rather than against the tournament's settings,
@@ -984,19 +993,14 @@ defmodule PairingsEngine.Pairing do
   # learns to emit in future is caught here without anyone remembering to
   # update a second list.
   #
-  # This guard is not tidiness. `XXP` carries the arbiter's forbidden
-  # pairings and club/federation exclusion rules (see
-  # docs/forbidden-pairings.md), and `XXA` carries Baku acceleration's
-  # virtual points. An engine that ignores them still returns a complete,
-  # entirely legal-looking pairing — one that just happens to seat two
-  # players who must never meet. Failing loudly is the only safe answer:
-  # there is nothing downstream that could notice the difference.
-  #
-  # `pairing_engine` + Baku is already refused in the changeset
-  # (`Tournament.validate_pairing_engine/1`); forbidden pairings and
-  # exclusion rules cannot be, because they live in their own table and can
-  # be added at any point mid-tournament, long after the engine choice has
-  # locked.
+  # This guard is not tidiness, and it stays even though every extension the
+  # app currently emits is now supported. An extension line carries a RULE —
+  # `XXP` the arbiter's forbidden pairings, `XXA` the acceleration's virtual
+  # points — and an engine that ignores one still returns a complete,
+  # entirely legal-looking pairing that just happens to break it. There is
+  # nothing downstream that could notice the difference, so refusing to pair
+  # is the only safe answer, and it has to be the DEFAULT for anything not
+  # explicitly known to work.
   defp openpair_unsupported_extensions(trf) do
     trf
     |> String.split(~r/\r?\n/)
@@ -1007,20 +1011,10 @@ defmodule PairingsEngine.Pairing do
   end
 
   defp openpair_unsupported_message(codes, category_name) do
-    reasons =
-      Enum.map_join(codes, "; ", fn
-        "XXP" ->
-          "forbidden pairings and club/federation exclusions (remove them, or use JaVaFo)"
-
-        "XXA" ->
-          "Baku acceleration (set acceleration to none, or use JaVaFo)"
-
-        other ->
-          "the TRF extension #{other}"
-      end)
+    reasons = Enum.map_join(codes, "; ", &"the TRF extension #{&1}")
 
     openpair_scoped(
-      "OpenPair does not implement #{reasons}. Nothing was paired — OpenPair would have ignored the rule rather than applied it.",
+      "OpenPair does not implement #{reasons}. Nothing was paired — OpenPair would have ignored the rule rather than applied it. Use JaVaFo for this tournament.",
       category_name
     )
   end

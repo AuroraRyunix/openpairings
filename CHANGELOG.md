@@ -42,16 +42,21 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     rule and same reason as `pairing_system` one level up: two independent
     Dutch implementations won't always agree, and swapping mid-event hands
     the new engine a history it didn't produce.
-  - **Refuses rather than silently ignores what it can't do.** OpenPair
-    reads only the TRF's `XXR` extension, so forbidden pairings and
-    club/federation exclusions (`XXP`) and Baku acceleration (`XXA`) are
-    invisible to it — and an engine that ignores them still returns a
-    complete, perfectly legal-looking pairing that just happens to seat two
-    players who must never meet. Baku is rejected in the changeset in both
-    directions; `XXP` is caught at pairing time against the generated TRF
-    itself (forbidden pairings can be added mid-tournament, long after the
-    engine choice has locked), refusing the round with the reason named and
-    writing nothing.
+  - **Refuses rather than silently ignores anything it can't do.** OpenPair
+    reads every TRF extension this app emits — `XXR` (rounds), `XXP`
+    (forbidden pairings and club/federation exclusions) and `XXA` (Baku
+    acceleration) — so forbidden pairings and accelerated events work on
+    either engine. That's new: OpenPair's parser used to discard everything
+    but `XXR`, which for this input is the worst way to fail, because an
+    engine that ignores an `XXP` line still returns a complete, perfectly
+    legal-looking round that just happens to seat two players who must never
+    meet, and nothing downstream can tell. Integrating it here is what
+    surfaced that; both extensions were implemented upstream rather than
+    worked around, and the round is still refused outright — nothing
+    written, reason named — if the generated TRF ever carries an extension
+    the engine doesn't know. The check reads the generated file rather than
+    the tournament's settings, so a future extension is caught by default
+    instead of being quietly ignored.
 
   Round robin and Keizer are completely unaffected — they compute their own
   pairings and never consult the setting. See `docs/pairing-systems.md`.

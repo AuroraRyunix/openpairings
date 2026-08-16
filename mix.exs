@@ -119,7 +119,7 @@ defmodule PairingsEngine.MixProject do
       # change what this app pairs — the one thing a tournament manager can
       # never allow. `override: true`-style looseness is equally out.
       {:open_pair,
-       github: "AuroraRyunix/openpair", ref: "d45fb2527d278cdbfeb0d02d8ef4ea77d303215a"}
+       github: "AuroraRyunix/openpair", ref: "f984803f4cce9e0a89669ef1292a10e852f009f7"}
     ]
   end
 

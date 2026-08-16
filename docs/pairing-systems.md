@@ -43,21 +43,30 @@ TournamentService do; JaVaFo's own endorsement is what then covers pairing
 legality for the whole event. Pairing a homologated tournament with any
 other engine voids that answer outright. See `docs/fide-endorsement.md`.
 
-**What OpenPair does not do yet.** Its TRF parser reads only the `XXR`
-(round count) extension. The `XXP` lines carrying forbidden pairings and
-club/federation exclusions (`docs/forbidden-pairings.md`) and the `XXA`
-lines carrying Baku acceleration virtual points are invisible to it. An
-engine that ignores those still returns a complete, entirely legal-looking
-pairing — one that just happens to seat two players who must never meet —
-so this is handled by refusing rather than by hoping:
+**TRF extensions.** OpenPair reads all three this app emits: `XXR` (round
+count), `XXP` (forbidden pairings and club/federation exclusions —
+`docs/forbidden-pairings.md`) and `XXA` (Baku acceleration virtual points).
 
-* `pairing_engine: "openpair"` together with `acceleration: "baku"` is
-  rejected by `Tournament.changeset/2`, in both directions.
-* A round whose TRF would carry any `XXP` line is refused at pairing time
-  with a message naming the reason, and nothing is written. Forbidden
-  pairings and exclusion rules can be added at any point mid-tournament,
-  long after the engine choice has locked, so they cannot be caught in the
-  changeset.
+It did not always. Until openpair `451c749` its parser discarded every
+extension but `XXR`, which is the worst possible failure mode for this
+particular kind of input: an engine that ignores an `XXP` line still returns
+a complete, entirely legal-looking round that just happens to seat two
+players who must never meet, and nothing downstream can tell. Measured on
+openpair's own fuzz corpus at a 20% forbidden rate, **27.72% of rounds
+seated an excluded pair** — and that was its entire disagreement with
+bbpPairings on that axis. Both extensions were implemented upstream rather
+than worked around here, and re-verified against bbpPairings over 1.79M
+rounds carrying them.
+
+The guard that caught it stays, in its general form: `Pairing` scans the TRF
+it actually generated and refuses to pair, writing nothing, if it finds any
+`XX` code not on OpenPair's supported list. That check is against the
+generated file rather than against the tournament's settings, so the next
+extension this pipeline learns to emit is refused by default instead of
+being silently ignored by whichever engine happens to be selected. It cannot
+live in the changeset: forbidden pairings and exclusion rules live in their
+own table and can be added at any point mid-tournament, long after the
+engine choice has locked.
 
 **Three guards, all in the data layer** (the Settings UI renders from the
 same rules, but the UI has never been the enforcement here):

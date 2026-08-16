@@ -640,9 +640,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
   #    hence checking the end state here rather than trusting the lock.)
   defp validate_pairing_engine(changeset) do
     if get_field(changeset, :pairing_engine) == "openpair" do
-      changeset
-      |> validate_openpair_not_fide_homologated()
-      |> validate_openpair_excludes_baku()
+      validate_openpair_not_fide_homologated(changeset)
     else
       changeset
     end
@@ -660,17 +658,14 @@ defmodule PairingsEngine.Tournaments.Tournament do
     end
   end
 
-  defp validate_openpair_excludes_baku(changeset) do
-    if get_field(changeset, :acceleration) == "baku" do
-      add_error(
-        changeset,
-        :pairing_engine,
-        "OpenPair does not implement Baku acceleration — use JaVaFo, or set acceleration to none"
-      )
-    else
-      changeset
-    end
-  end
+  # (There used to be a `validate_openpair_excludes_baku/1` here. OpenPair
+  # did not read `XXA` at all, so an accelerated tournament would have been
+  # paired on unaccelerated brackets — a wrong pairing that looks entirely
+  # legal. It reads both `XXA` and `XXP` as of openpair `451c749`, verified
+  # against bbpPairings on 1.79M rounds carrying those lines, so the
+  # restriction is gone. `Pairing` still guards the general case at pairing
+  # time by scanning the TRF it actually generated, so a future extension is
+  # refused by default without anyone updating a list here.)
 
   # `rr_match_format` (immediate two-game rematch) and `rr_cycles == 2`
   # (season-style repeat a full cycle apart) are two different shapes of

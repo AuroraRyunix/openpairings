@@ -145,13 +145,16 @@ defmodule PairingsEngine.PairingEngineTest do
     end)
   end
 
-  ## ---------- the guard OpenPair needs because it ignores XXP ----------
+  ## ---------- TRF extensions ----------
 
-  describe "TRF extensions OpenPair does not implement" do
-    test "pairing is refused, not silently mis-paired, when a forbidden pairing is set" do
-      # This is also the decisive dispatch proof: the refusal below is only
-      # reachable through the OpenPair branch. JaVaFo reads XXP natively and
-      # never produces this error.
+  # This block used to assert that OpenPair REFUSED a tournament carrying an
+  # XXP line, because its TRF parser dropped every extension but XXR: the
+  # forbidden pair would have been paired together, and the round would have
+  # looked perfectly legal. XXP and XXA are implemented as of openpair
+  # `451c749`, so what is tested here is the behaviour itself — the pair is
+  # kept apart — on both engines, from identical inputs.
+  describe "TRF extensions" do
+    test "OpenPair keeps a forbidden pair apart" do
       t = tournament(%{pairing_engine: "openpair"})
       [p1, p2 | _] = roster(t)
 
@@ -162,13 +165,22 @@ defmodule PairingsEngine.PairingEngineTest do
 
       {:ok, _} = Tournaments.add_forbidden_pairing(t, p1.id, p2.id)
 
-      assert {:error, message} = Pairing.pair_next_round(Repo.reload!(t))
-      assert message =~ "OpenPair does not implement"
-      assert message =~ "forbidden pairings"
-      assert message =~ "use JaVaFo"
+      assert {:ok, round} = Pairing.pair_next_round(Repo.reload!(t))
 
-      # Nothing was written — the refusal is total, not a partial round.
-      assert Pairing.paired_rounds_count(t.id) == 0
+      met? =
+        round
+        |> Repo.preload(:pairings)
+        |> Map.fetch!(:pairings)
+        |> Enum.any?(fn pairing ->
+          Enum.sort([pairing.white_player_id, pairing.black_player_id]) ==
+            Enum.sort([p1.id, p2.id])
+        end)
+
+      refute met?
+
+      # And it is a complete round, not a short one that dodged the
+      # constraint by dropping somebody.
+      assert length(paired_player_ids(round)) == 6
     end
 
     @tag :javafo
@@ -248,26 +260,28 @@ defmodule PairingsEngine.PairingEngineTest do
     end
   end
 
-  describe "changeset: OpenPair and Baku acceleration are mutually exclusive" do
-    test "selecting OpenPair on a Baku-accelerated tournament is refused" do
+  # These two used to assert the OPPOSITE — that OpenPair and Baku were
+  # mutually exclusive — because OpenPair's TRF parser discarded `XXA`
+  # entirely and would have paired an accelerated tournament on
+  # unaccelerated brackets. It reads `XXA` (and `XXP`) as of openpair
+  # `451c749`, verified against bbpPairings over 1.79M rounds carrying
+  # those lines, so the combination is now legal and these assert that it
+  # is allowed rather than refused.
+  describe "changeset: OpenPair works with Baku acceleration" do
+    test "selecting OpenPair on a Baku-accelerated tournament is allowed" do
       t = tournament(%{acceleration: "baku"})
 
-      assert {:error, changeset} =
-               Tournaments.update_tournament(t, %{"pairing_engine" => "openpair"})
-
-      assert %{pairing_engine: [message]} = errors_on(changeset)
-      assert message =~ "Baku acceleration"
+      assert {:ok, updated} = Tournaments.update_tournament(t, %{"pairing_engine" => "openpair"})
+      assert updated.pairing_engine == "openpair"
+      assert updated.acceleration == "baku"
     end
 
-    test "turning ON Baku acceleration while the engine is OpenPair is refused" do
+    test "turning ON Baku acceleration while the engine is OpenPair is allowed" do
       t = tournament(%{pairing_engine: "openpair"})
 
-      assert {:error, changeset} =
-               Tournaments.update_tournament(t, %{"acceleration" => "baku"})
-
-      assert %{pairing_engine: [message]} = errors_on(changeset)
-      assert message =~ "Baku acceleration"
-      assert Repo.reload!(t).acceleration == "none"
+      assert {:ok, updated} = Tournaments.update_tournament(t, %{"acceleration" => "baku"})
+      assert updated.acceleration == "baku"
+      assert Repo.reload!(t).acceleration == "baku"
     end
   end
 
