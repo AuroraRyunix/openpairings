@@ -644,7 +644,7 @@ defmodule PairingsEngine.Tournaments do
       rr_implied_limit = max(count_players(tournament.id) - 1, 1) * tournament.rr_cycles
 
       # `pairing_engine` belongs here for the same reason `pairing_system`
-      # does, one level down: JaVaFo and OpenPair are two independent Dutch
+      # does, one level down: JaVaFo and Ainalrami are two independent Dutch
       # implementations, and a round already on the board was decided by
       # whichever one was configured at the time. Swapping engines mid-event
       # hands the new one a history it did not produce, and every colour /

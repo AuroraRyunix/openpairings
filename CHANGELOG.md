@@ -7,11 +7,11 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- **A second Swiss pairing engine: OpenPair, opt-in and beta** — the
+- **A second Swiss pairing engine: Ainalrami, opt-in and beta** — the
   "multi-engine" item the login page has been advertising as coming soon.
   Settings → Options gains a "Swiss engine" control alongside the pairing
   system: **JaVaFo** stays the default and is unchanged, and
-  [OpenPair](https://github.com/AuroraRyunix/openpair) — a from-scratch
+  [Ainalrami](https://github.com/AuroraRyunix/Ainalrami) — a from-scratch
   Dutch-system engine in pure Elixir, pinned as a `github:` dependency at
   an exact commit — is available as an alternative for club and non-rated
   events. It runs inside this app's own BEAM: no JVM, no jar, nothing to
@@ -33,8 +33,8 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     story is FE1's *"Internal engine: NO — thru JaVaFo"*, exactly as Vega,
     Swiss Manager and TournamentService answer it, and JaVaFo's own
     endorsement is what then covers pairing legality. The changeset refuses
-    OpenPair on a homologated tournament **and** refuses ticking
-    "FIDE-homologated" on a tournament already running OpenPair — the
+    Ainalrami on a homologated tournament **and** refuses ticking
+    "FIDE-homologated" on a tournament already running Ainalrami — the
     reverse direction matters just as much, and checking only the changed
     field would have let it through.
   - **Locked after round 1**, via `Tournaments.locked_fields/1` (so
@@ -42,11 +42,11 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     rule and same reason as `pairing_system` one level up: two independent
     Dutch implementations won't always agree, and swapping mid-event hands
     the new engine a history it didn't produce.
-  - **Refuses rather than silently ignores anything it can't do.** OpenPair
+  - **Refuses rather than silently ignores anything it can't do.** Ainalrami
     reads every TRF extension this app emits — `XXR` (rounds), `XXP`
     (forbidden pairings and club/federation exclusions) and `XXA` (Baku
     acceleration) — so forbidden pairings and accelerated events work on
-    either engine. That's new: OpenPair's parser used to discard everything
+    either engine. That's new: Ainalrami's parser used to discard everything
     but `XXR`, which for this input is the worst way to fail, because an
     engine that ignores an `XXP` line still returns a complete, perfectly
     legal-looking round that just happens to seat two players who must never
@@ -60,7 +60,7 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
     A late catch on that last point, found by a source sweep before any of
     this shipped: the integration parsed the `XXP` lines and then dropped
-    them. `OpenPair.Pairing.pair_next_round/2` takes forbidden pairs as an
+    them. `Ainalrami.Pairing.pair_next_round/2` takes forbidden pairs as an
     OPTION rather than reading them off the parsed file, and the call passed
     only the round count — so every explicit forbidden pairing and every
     club/federation exclusion was silently ignored, which is precisely the

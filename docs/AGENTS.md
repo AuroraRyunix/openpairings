@@ -35,7 +35,7 @@ per-tournament collaborator sharing.
   Swiss pairing math. This app's job for Swiss is building a correct TRF16
   input file, shelling out to `java -jar javafo.jar`, and parsing the output
   — **not** reimplementing the Dutch pairing algorithm. A tournament may
-  opt into a second engine (`tournaments.pairing_engine == "openpair"`, the
+  opt into a second engine (`tournaments.pairing_engine == "ainalrami"`, the
   sibling pure-Elixir Dutch engine, beta) which is handed the byte-identical
   TRF; JaVaFo remains the default and the only engine permitted on a
   FIDE-homologated tournament. See `docs/pairing-systems.md`.
@@ -209,7 +209,7 @@ anything here.
    for the pairing-allocated bye) or `{:error, message}`. Both Swiss paths
    (`do_pair_single/4` and the per-category one) funnel through it, so
    neither can drift from the other and a third engine would be added in
-   one place. OpenPair reads only the TRF's `XXR` extension, so a round
+   one place. Ainalrami reads only the TRF's `XXR` extension, so a round
    whose TRF would carry `XXP` (forbidden pairings / exclusions) is refused
    there outright rather than paired with the rule silently dropped.
 8. **Round robin and Keizer never send anything to JaVaFo.** Round robin is

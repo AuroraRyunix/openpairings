@@ -470,11 +470,11 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                   </option>
 
                   <option
-                    value="openpair"
-                    selected={@tournament.pairing_engine == "openpair"}
+                    value="ainalrami"
+                    selected={@tournament.pairing_engine == "ainalrami"}
                     disabled={@tournament.fide_homologated}
                   >
-                    OpenPair (beta){if @tournament.fide_homologated,
+                    Ainalrami (beta){if @tournament.fide_homologated,
                       do: " - unavailable, see below"}
                   </option>
                 </select>
@@ -489,7 +489,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               </span>
 
               <span class="hint">
-                <strong>OpenPair</strong>
+                <strong>Ainalrami</strong>
                 is a second Dutch engine built straight into the app - no Java, nothing to
                 install - and is <strong>beta</strong>. It matches the reference implementation
                 on the overwhelming majority of tournaments, but a handful of known
@@ -500,7 +500,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               </span>
 
               <span :if={@tournament.fide_homologated} class="hint">
-                OpenPair cannot be selected here because this tournament is marked
+                Ainalrami cannot be selected here because this tournament is marked
                 <strong>FIDE-homologated</strong>
                 (Settings &rarr; FIDE). FIDE-rated events must be paired by JaVaFo - untick
                 homologation first if this is not actually a rated event.

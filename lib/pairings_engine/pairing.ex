@@ -9,8 +9,8 @@ defmodule PairingsEngine.Pairing do
   lists one "white black" pair of TRF starting ranks per line, 0 meaning the
   pairing-allocated bye.
 
-  A tournament may instead select `pairing_engine: "openpair"` — OpenPair
-  (github.com/AuroraRyunix/openpair), a from-scratch Dutch-system engine in
+  A tournament may instead select `pairing_engine: "ainalrami"` — Ainalrami
+  (github.com/AuroraRyunix/Ainalrami), a from-scratch Dutch-system engine in
   pure Elixir, in beta. Everything up to and including the TRF text is
   **identical** for both engines: `run_engine/5` is handed the very same
   bytes `javafo_input/4` built, so the two are directly comparable on real
@@ -829,13 +829,13 @@ defmodule PairingsEngine.Pairing do
   defp run_engine(tournament, trf, round_number, category_name, category_index \\ 0)
 
   defp run_engine(
-         %Tournament{pairing_engine: "openpair"} = tournament,
+         %Tournament{pairing_engine: "ainalrami"} = tournament,
          trf,
          round_number,
          category_name,
          _category_index
        ) do
-    run_openpair(tournament, trf, round_number, category_name)
+    run_ainalrami(tournament, trf, round_number, category_name)
   end
 
   defp run_engine(tournament, trf, round_number, category_name, category_index) do
@@ -902,30 +902,30 @@ defmodule PairingsEngine.Pairing do
   defp javafo_failure_message(code, out, category_name),
     do: "JaVaFo failed for category \"#{category_name}\" (exit #{code}):\n#{out}"
 
-  # OpenPair runs IN THIS BEAM — no subprocess, no JVM, no temp file, so
+  # Ainalrami runs IN THIS BEAM — no subprocess, no JVM, no temp file, so
   # none of `run_javafo/5`'s scratch-directory machinery applies. It reads
-  # the same TRF text through its own `OpenPair.Trf.parse/1` and returns
+  # the same TRF text through its own `Ainalrami.Trf.parse/1` and returns
   # pairs in the same local-rank convention, differing only in spelling the
   # pairing-allocated bye `nil` where JaVaFo's text output spells it `0`;
-  # `openpair_bye_to_zero/1` normalizes that so `create_round/5` sees the
+  # `ainalrami_bye_to_zero/1` normalizes that so `create_round/5` sees the
   # shape it has always seen.
   #
   # `expected_rounds` is read back out of the TRF rather than off the
   # tournament struct on purpose: it must be whatever the FILE says, since
-  # that is what JaVaFo would have been told (`XXR`), and OpenPair's
+  # that is what JaVaFo would have been told (`XXR`), and Ainalrami's
   # final-round colour exception keys off it. Taking it from the struct
   # would silently diverge the two engines on the last round if the two ever
   # disagreed.
-  defp run_openpair(tournament, trf, round_number, category_name) do
-    case openpair_unsupported_extensions(trf) do
+  defp run_ainalrami(tournament, trf, round_number, category_name) do
+    case ainalrami_unsupported_extensions(trf) do
       [] ->
-        parsed = OpenPair.Trf.parse(trf)
+        parsed = Ainalrami.Trf.parse(trf)
 
         pairs =
           parsed.players
-          |> OpenPair.Pairing.pair_next_round(
+          |> Ainalrami.Pairing.pair_next_round(
             expected_rounds: parsed.tournament[:number_of_rounds],
-            # `OpenPair.Trf.parse/1` lifts every `XXP` line into
+            # `Ainalrami.Trf.parse/1` lifts every `XXP` line into
             # `tournament[:forbidden_pairs]`, but the engine takes them as an
             # OPTION rather than reading them off the parsed struct — so
             # omitting this parsed them and threw them away. Every explicit
@@ -935,68 +935,68 @@ defmodule PairingsEngine.Pairing do
             # happens to seat two players the arbiter separated.
             forbidden_pairs: parsed.tournament[:forbidden_pairs]
           )
-          |> Enum.map(&openpair_bye_to_zero/1)
+          |> Enum.map(&ainalrami_bye_to_zero/1)
 
         {:ok, pairs}
 
       codes ->
-        {:error, openpair_unsupported_message(codes, category_name)}
+        {:error, ainalrami_unsupported_message(codes, category_name)}
     end
   rescue
-    # OpenPair raises where JaVaFo writes an empty file — a proven
+    # Ainalrami raises where JaVaFo writes an empty file — a proven
     # structural deadlock, not a search that gave up (see the exception's own
     # doc). Mapped onto the same `{:error, string}` shape so
     # `pair_next_round/1`'s callers, which just render the reason as-is,
     # cannot tell which engine refused.
-    e in OpenPair.Pairing.NoValidPairingError ->
+    e in Ainalrami.Pairing.NoValidPairingError ->
       Logger.error(
-        "OpenPair found no legal pairing for #{engine_log_scope(tournament, round_number, category_name)}: #{Exception.message(e)}"
+        "Ainalrami found no legal pairing for #{engine_log_scope(tournament, round_number, category_name)}: #{Exception.message(e)}"
       )
 
       {:error,
-       openpair_scoped(
-         "OpenPair found no legal pairing for this round — every remaining player would have to repeat an opponent or take a forbidden colour. #{Exception.message(e)}",
+       ainalrami_scoped(
+         "Ainalrami found no legal pairing for this round — every remaining player would have to repeat an opponent or take a forbidden colour. #{Exception.message(e)}",
          category_name
        )}
 
     # The TRF we just built is our own, so this should be unreachable; it is
     # caught rather than allowed to escape because an unhandled raise here
     # would take down the whole LiveView instead of showing the arbiter a
-    # message, and because OpenPair validates result-code combinations more
+    # message, and because Ainalrami validates result-code combinations more
     # eagerly than JaVaFo does.
-    e in OpenPair.Trf.ValidationError ->
+    e in Ainalrami.Trf.ValidationError ->
       Logger.error(
-        "OpenPair rejected the generated TRF for #{engine_log_scope(tournament, round_number, category_name)}: #{Exception.message(e)}"
+        "Ainalrami rejected the generated TRF for #{engine_log_scope(tournament, round_number, category_name)}: #{Exception.message(e)}"
       )
 
       {:error,
-       openpair_scoped(
-         "OpenPair could not read the generated pairing file: #{Exception.message(e)}",
+       ainalrami_scoped(
+         "Ainalrami could not read the generated pairing file: #{Exception.message(e)}",
          category_name
        )}
   end
 
-  defp openpair_bye_to_zero({white, nil}), do: {white, 0}
-  defp openpair_bye_to_zero({white, black}), do: {white, black}
+  defp ainalrami_bye_to_zero({white, nil}), do: {white, 0}
+  defp ainalrami_bye_to_zero({white, black}), do: {white, black}
 
-  defp openpair_scoped(message, nil), do: message
-  defp openpair_scoped(message, category_name), do: "#{message} (category \"#{category_name}\")"
+  defp ainalrami_scoped(message, nil), do: message
+  defp ainalrami_scoped(message, category_name), do: "#{message} (category \"#{category_name}\")"
 
-  # Which TRF extension lines OpenPair actually reads. All three this app
-  # emits, as of openpair `451c749`: `XXR` (total rounds), `XXP` (forbidden
+  # Which TRF extension lines Ainalrami actually reads. All three this app
+  # emits, as of ainalrami `451c749`: `XXR` (total rounds), `XXP` (forbidden
   # pairings and club/federation exclusions) and `XXA` (Baku acceleration).
   #
   # `XXP`/`XXA` were added upstream precisely because this integration
-  # surfaced their absence. Before that, OpenPair's parser discarded them as
+  # surfaced their absence. Before that, Ainalrami's parser discarded them as
   # unknown header codes — measured on its own fuzz corpus, a 20% forbidden
   # rate meant 27.72% of rounds seated a pair the arbiter had excluded, and
   # that figure was its ENTIRE disagreement with bbpPairings on that axis.
   # Kept as a list, and kept checked against the generated TRF below, so the
   # next extension this pipeline learns to emit is caught automatically
   # rather than silently ignored by whichever engine is selected.
-  @openpair_supported_extensions ~w(XXR XXP XXA)
+  @ainalrami_supported_extensions ~w(XXR XXP XXA)
 
-  # The extension codes in `trf` that OpenPair would ignore. Checked against
+  # The extension codes in `trf` that Ainalrami would ignore. Checked against
   # the generated TRF itself rather than against the tournament's settings,
   # so it stays true by construction: any extension line this pipeline
   # learns to emit in future is caught here without anyone remembering to
@@ -1010,20 +1010,20 @@ defmodule PairingsEngine.Pairing do
   # nothing downstream that could notice the difference, so refusing to pair
   # is the only safe answer, and it has to be the DEFAULT for anything not
   # explicitly known to work.
-  defp openpair_unsupported_extensions(trf) do
+  defp ainalrami_unsupported_extensions(trf) do
     trf
     |> String.split(~r/\r?\n/)
     |> Enum.filter(&String.starts_with?(&1, "XX"))
     |> Enum.map(&String.slice(&1, 0, 3))
-    |> Enum.reject(&(&1 in @openpair_supported_extensions))
+    |> Enum.reject(&(&1 in @ainalrami_supported_extensions))
     |> Enum.uniq()
   end
 
-  defp openpair_unsupported_message(codes, category_name) do
+  defp ainalrami_unsupported_message(codes, category_name) do
     reasons = Enum.map_join(codes, "; ", &"the TRF extension #{&1}")
 
-    openpair_scoped(
-      "OpenPair does not implement #{reasons}. Nothing was paired — OpenPair would have ignored the rule rather than applied it. Use JaVaFo for this tournament.",
+    ainalrami_scoped(
+      "Ainalrami does not implement #{reasons}. Nothing was paired — Ainalrami would have ignored the rule rather than applied it. Use JaVaFo for this tournament.",
       category_name
     )
   end

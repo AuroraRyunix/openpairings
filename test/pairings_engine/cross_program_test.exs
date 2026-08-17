@@ -34,7 +34,7 @@ defmodule PairingsEngine.CrossProgramTest do
   `PAIRING_FUZZ_COUNT=40 ... --seed 0` and up will fail on a 5-player
   round-2 position where rank 2 took a pairing-allocated bye in round 1 and
   ranks 3-4 have already met: JaVaFo and bbpPairings hand the bye to
-  different players. It reproduces on commits predating both the OpenPair
+  different players. It reproduces on commits predating both the Ainalrami
   merge and this acceleration axis, and JaVaFo implements the 2022 Dutch
   rules against bbpPairings' 2026 edition, so a legitimate difference is
   plausible — but it has not been adjudicated against the Handbook, and

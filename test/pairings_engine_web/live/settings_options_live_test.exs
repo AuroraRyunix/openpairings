@@ -232,7 +232,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
     end
   end
 
-  describe "Swiss engine — JaVaFo by default, OpenPair opt-in" do
+  describe "Swiss engine — JaVaFo by default, Ainalrami opt-in" do
     test "both engines are offered, JaVaFo selected, and the beta caveats are stated", %{
       conn: conn,
       scope: scope
@@ -243,7 +243,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
 
       assert html =~ ~s(name="tournament[pairing_engine]")
       assert html =~ "JaVaFo - FIDE-endorsed (default)"
-      assert html =~ "OpenPair (beta)"
+      assert html =~ "Ainalrami (beta)"
 
       # The copy must not oversell: beta, not for FIDE, Swiss-only, and
       # honest about what it doesn't implement.
@@ -256,19 +256,19 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
       assert tournament.pairing_engine == "javafo"
     end
 
-    test "selecting OpenPair saves", %{conn: conn, scope: scope} do
+    test "selecting Ainalrami saves", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
 
       render_submit(lv, "save", %{
-        "tournament" => %{"name" => tournament.name, "pairing_engine" => "openpair"}
+        "tournament" => %{"name" => tournament.name, "pairing_engine" => "ainalrami"}
       })
 
-      assert Repo.reload!(tournament).pairing_engine == "openpair"
+      assert Repo.reload!(tournament).pairing_engine == "ainalrami"
     end
 
-    test "on a FIDE-homologated tournament the OpenPair option is visibly unavailable, with the reason",
+    test "on a FIDE-homologated tournament the Ainalrami option is visibly unavailable, with the reason",
          %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
 
@@ -282,12 +282,12 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
 
       # Present but unselectable — never silently missing, or an arbiter is
       # left wondering where the setting went.
-      assert html =~ "OpenPair (beta)"
-      assert html =~ ~r/value="openpair"[^>]*disabled/s
+      assert html =~ "Ainalrami (beta)"
+      assert html =~ ~r/value="ainalrami"[^>]*disabled/s
       assert html =~ "FIDE-rated events must be paired by JaVaFo"
     end
 
-    test "a hand-crafted save of OpenPair on a homologated tournament is still refused", %{
+    test "a hand-crafted save of Ainalrami on a homologated tournament is still refused", %{
       conn: conn,
       scope: scope
     } do
@@ -304,7 +304,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
 
       html =
         render_submit(lv, "save", %{
-          "tournament" => %{"name" => tournament.name, "pairing_engine" => "openpair"}
+          "tournament" => %{"name" => tournament.name, "pairing_engine" => "ainalrami"}
         })
 
       assert html =~ "FIDE-homologated"
@@ -341,7 +341,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
 
       render_submit(lv, "save", %{
-        "tournament" => %{"name" => tournament.name, "pairing_engine" => "openpair"}
+        "tournament" => %{"name" => tournament.name, "pairing_engine" => "ainalrami"}
       })
 
       assert Repo.reload!(tournament).pairing_engine == "javafo"

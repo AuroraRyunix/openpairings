@@ -73,7 +73,7 @@ defmodule PairingsEngineWeb.UserLive.Login do
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                Swiss (JaVaFo Dutch, or OpenPair in beta), round-robin & Keizer
+                Swiss (JaVaFo Dutch, or Ainalrami in beta), round-robin & Keizer
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />

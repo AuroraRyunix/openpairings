@@ -25,7 +25,7 @@ is inert for them.
 | Value | Engine | Status |
 |---|---|---|
 | `"javafo"` *(default)* | JaVaFo (© Roberto Ricca), an external Java program invoked as `java -jar javafo.jar input.trf -p output.txt` | FIDE-endorsed; the only engine permitted for a FIDE-homologated tournament |
-| `"openpair"` | [OpenPair](https://github.com/AuroraRyunix/openpair), a from-scratch Dutch engine in pure Elixir, running inside this app's own BEAM | Beta; never for FIDE-rated events |
+| `"ainalrami"` | [Ainalrami](https://github.com/AuroraRyunix/Ainalrami), a from-scratch Dutch engine in pure Elixir, running inside this app's own BEAM | Beta; never for FIDE-rated events |
 
 **Both engines are handed the byte-identical TRF.** `Pairing.javafo_input/4`
 builds the file once and the engine choice only decides what turns those
@@ -43,16 +43,16 @@ TournamentService do; JaVaFo's own endorsement is what then covers pairing
 legality for the whole event. Pairing a homologated tournament with any
 other engine voids that answer outright. See `docs/fide-endorsement.md`.
 
-**TRF extensions.** OpenPair reads all three this app emits: `XXR` (round
+**TRF extensions.** Ainalrami reads all three this app emits: `XXR` (round
 count), `XXP` (forbidden pairings and club/federation exclusions —
 `docs/forbidden-pairings.md`) and `XXA` (Baku acceleration virtual points).
 
-It did not always. Until openpair `451c749` its parser discarded every
+It did not always. Until ainalrami `451c749` its parser discarded every
 extension but `XXR`, which is the worst possible failure mode for this
 particular kind of input: an engine that ignores an `XXP` line still returns
 a complete, entirely legal-looking round that just happens to seat two
 players who must never meet, and nothing downstream can tell. Measured on
-openpair's own fuzz corpus at a 20% forbidden rate, **27.72% of rounds
+ainalrami's own fuzz corpus at a 20% forbidden rate, **27.72% of rounds
 seated an excluded pair** — and that was its entire disagreement with
 bbpPairings on that axis. Both extensions were implemented upstream rather
 than worked around here, and re-verified against bbpPairings over 1.79M
@@ -60,7 +60,7 @@ rounds carrying them.
 
 The guard that caught it stays, in its general form: `Pairing` scans the TRF
 it actually generated and refuses to pair, writing nothing, if it finds any
-`XX` code not on OpenPair's supported list. That check is against the
+`XX` code not on Ainalrami's supported list. That check is against the
 generated file rather than against the tournament's settings, so the next
 extension this pipeline learns to emit is refused by default instead of
 being silently ignored by whichever engine happens to be selected. It cannot
@@ -76,8 +76,8 @@ same rules, but the UI has never been the enforcement here):
    independent Dutch implementations will not always choose the same
    pairing, and swapping mid-event hands the new engine a history it did
    not produce.
-2. `"openpair"` is refused on a `fide_homologated` tournament, and ticking
-   `fide_homologated` on a tournament already running OpenPair is refused
+2. `"ainalrami"` is refused on a `fide_homologated` tournament, and ticking
+   `fide_homologated` on a tournament already running Ainalrami is refused
    too — the reverse direction matters just as much.
 3. Round robin and Keizer ignore the setting entirely (see below); it is
    read only on the Swiss path.
@@ -230,7 +230,7 @@ which is what the Settings page's disabled select renders from — one rule,
 one place, so the two can't drift.
 
 `pairing_engine` (the Swiss engine — see above) locks on exactly the same
-condition and for the same reason one level down: JaVaFo and OpenPair are
+condition and for the same reason one level down: JaVaFo and Ainalrami are
 two independent implementations of the Dutch system, and a round already on
 the board was decided by whichever one was configured at the time.
 

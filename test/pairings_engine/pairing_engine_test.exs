@@ -5,10 +5,10 @@ defmodule PairingsEngine.PairingEngineTest do
   JaVaFo stays the default and the only engine permitted for a
   FIDE-homologated tournament (see docs/fide-endorsement.md: OpenPairings'
   whole endorsement story is FE1's "Internal engine: NO — thru JaVaFo").
-  OpenPair is an opt-in beta alternative.
+  Ainalrami is an opt-in beta alternative.
 
-  Note which tests carry `@tag :javafo` and which don't. The OpenPair tests
-  are deliberately untagged: OpenPair needs no jar, no JVM and no external
+  Note which tests carry `@tag :javafo` and which don't. The Ainalrami tests
+  are deliberately untagged: Ainalrami needs no jar, no JVM and no external
   binary at all, so unlike every other Swiss pairing test in this suite they
   run on a bare checkout and in CI. That is a real property of the feature,
   not a testing convenience, so it is exercised rather than assumed.
@@ -52,8 +52,8 @@ defmodule PairingsEngine.PairingEngineTest do
   ## ---------- dispatch ----------
 
   describe "engine dispatch" do
-    test "a Swiss tournament set to openpair pairs a round through OpenPair" do
-      t = tournament(%{pairing_engine: "openpair"})
+    test "a Swiss tournament set to ainalrami pairs a round through Ainalrami" do
+      t = tournament(%{pairing_engine: "ainalrami"})
       players = roster(t)
 
       assert {:ok, round} = Pairing.pair_next_round(t)
@@ -86,13 +86,13 @@ defmodule PairingsEngine.PairingEngineTest do
       assert Enum.sort(paired_player_ids(round)) == players |> Enum.map(& &1.id) |> Enum.sort()
     end
 
-    test "OpenPair's nil bye is normalized to the pairing-allocated bye row JaVaFo's 0 produces" do
-      # OpenPair returns `{white_rank, nil}` for the pairing-allocated bye
+    test "Ainalrami's nil bye is normalized to the pairing-allocated bye row JaVaFo's 0 produces" do
+      # Ainalrami returns `{white_rank, nil}` for the pairing-allocated bye
       # where JaVaFo's text output writes a literal `0`. If the adapter
       # dropped that translation, `create_round/5` would try to look up rank
       # `nil` in the local rank map and crash — so an odd field is the
       # cheapest direct test of it.
-      t = tournament(%{pairing_engine: "openpair"})
+      t = tournament(%{pairing_engine: "ainalrami"})
       roster(t, 5)
 
       assert {:ok, round} = Pairing.pair_next_round(t)
@@ -105,8 +105,8 @@ defmodule PairingsEngine.PairingEngineTest do
       assert length(round.pairings) == 3
     end
 
-    test "OpenPair pairs several rounds in a row off its own result history" do
-      t = tournament(%{pairing_engine: "openpair", rounds_count: 3})
+    test "Ainalrami pairs several rounds in a row off its own result history" do
+      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 3})
       roster(t)
 
       assert {:ok, r1} = Pairing.pair_next_round(t)
@@ -119,7 +119,7 @@ defmodule PairingsEngine.PairingEngineTest do
       assert r3.number == 3
 
       # No rematches across the three rounds — the history OpenPairings
-      # writes really is being read back into the TRF OpenPair pairs from.
+      # writes really is being read back into the TRF Ainalrami pairs from.
       opponents =
         [r1, r2, r3]
         |> Enum.flat_map(fn r ->
@@ -147,10 +147,10 @@ defmodule PairingsEngine.PairingEngineTest do
 
   ## ---------- TRF extensions ----------
 
-  # This block used to assert that OpenPair REFUSED a tournament carrying an
+  # This block used to assert that Ainalrami REFUSED a tournament carrying an
   # XXP line, because its TRF parser dropped every extension but XXR: the
   # forbidden pair would have been paired together, and the round would have
-  # looked perfectly legal. XXP and XXA are implemented as of openpair
+  # looked perfectly legal. XXP and XXA are implemented as of ainalrami
   # `451c749`, so what is tested here is the behaviour itself — the pair is
   # kept apart — on both engines, from identical inputs.
   describe "TRF extensions" do
@@ -159,7 +159,7 @@ defmodule PairingsEngine.PairingEngineTest do
     # 2 were not paired in round 1 of a SIX-player field -- where the Dutch
     # system pairs top half against bottom half, so 1 and 2 could never have
     # met regardless. It passed with the forbidden pairs being thrown away
-    # entirely, which is exactly what was happening: `run_openpair/4` never
+    # entirely, which is exactly what was happening: `run_ainalrami/4` never
     # passed `:forbidden_pairs` to the engine, so every `XXP` line this app
     # emitted was parsed and discarded. A test that cannot fail is worse than
     # no test, because it is read as cover.
@@ -169,7 +169,7 @@ defmodule PairingsEngine.PairingEngineTest do
     # engine would otherwise produce, and the experiment can only pass if the
     # constraint actually reached it.
     test "without a forbidden pairing, ranks 1 and 3 are the natural round-1 pair" do
-      t = tournament(%{pairing_engine: "openpair"})
+      t = tournament(%{pairing_engine: "ainalrami"})
       [p1, _p2, p3, _p4] = roster(t, 4)
 
       assert {:ok, round} = Pairing.pair_next_round(t)
@@ -178,8 +178,8 @@ defmodule PairingsEngine.PairingEngineTest do
              "control failed: if 1v3 is not the natural pairing, the test below proves nothing"
     end
 
-    test "OpenPair keeps a forbidden pair apart" do
-      t = tournament(%{pairing_engine: "openpair"})
+    test "Ainalrami keeps a forbidden pair apart" do
+      t = tournament(%{pairing_engine: "ainalrami"})
       [p1, p2, p3, p4] = roster(t, 4)
 
       # A pairing number has to exist before XXP lines can name anyone, so
@@ -201,12 +201,12 @@ defmodule PairingsEngine.PairingEngineTest do
       assert met?(round, p2, p3)
     end
 
-    test "a club/federation exclusion reaches OpenPair too, not just an explicit pair" do
+    test "a club/federation exclusion reaches Ainalrami too, not just an explicit pair" do
       # Exclusions live in their own table and are expanded into the same
       # `XXP` lines (see `Exclusions`), so they travel the identical path --
       # but they are the case an arbiter never enters by hand, and so the one
       # least likely to be noticed if it silently stopped working.
-      t = tournament(%{pairing_engine: "openpair", club_exclusion: "all"})
+      t = tournament(%{pairing_engine: "ainalrami", club_exclusion: "all"})
       [p1, _p2, p3, _p4] = roster(t, 4)
 
       {:ok, _} = Tournaments.update_player(p1, %{"club" => "Gent"})
@@ -259,23 +259,23 @@ defmodule PairingsEngine.PairingEngineTest do
 
   ## ---------- changeset guards ----------
 
-  describe "changeset: OpenPair and FIDE homologation are mutually exclusive" do
-    test "selecting OpenPair on a FIDE-homologated tournament is refused" do
+  describe "changeset: Ainalrami and FIDE homologation are mutually exclusive" do
+    test "selecting Ainalrami on a FIDE-homologated tournament is refused" do
       t = tournament(%{fide_homologated: true, fide_tournament_id: "12345"})
 
       assert {:error, changeset} =
-               Tournaments.update_tournament(t, %{"pairing_engine" => "openpair"})
+               Tournaments.update_tournament(t, %{"pairing_engine" => "ainalrami"})
 
       assert %{pairing_engine: [message]} = errors_on(changeset)
       assert message =~ "FIDE-homologated"
       assert Repo.reload!(t).pairing_engine == "javafo"
     end
 
-    test "turning ON FIDE homologation while the engine is OpenPair is refused" do
+    test "turning ON FIDE homologation while the engine is Ainalrami is refused" do
       # The reverse direction. Checking only the changed field would let this
       # through and leave a homologated event running on a non-endorsed
       # engine — the exact state the rule exists to make unreachable.
-      t = tournament(%{pairing_engine: "openpair"})
+      t = tournament(%{pairing_engine: "ainalrami"})
 
       assert {:error, changeset} =
                Tournaments.update_tournament(t, %{
@@ -305,24 +305,24 @@ defmodule PairingsEngine.PairingEngineTest do
     end
   end
 
-  # These two used to assert the OPPOSITE — that OpenPair and Baku were
-  # mutually exclusive — because OpenPair's TRF parser discarded `XXA`
+  # These two used to assert the OPPOSITE — that Ainalrami and Baku were
+  # mutually exclusive — because Ainalrami's TRF parser discarded `XXA`
   # entirely and would have paired an accelerated tournament on
-  # unaccelerated brackets. It reads `XXA` (and `XXP`) as of openpair
+  # unaccelerated brackets. It reads `XXA` (and `XXP`) as of ainalrami
   # `451c749`, verified against bbpPairings over 1.79M rounds carrying
   # those lines, so the combination is now legal and these assert that it
   # is allowed rather than refused.
-  describe "changeset: OpenPair works with Baku acceleration" do
-    test "selecting OpenPair on a Baku-accelerated tournament is allowed" do
+  describe "changeset: Ainalrami works with Baku acceleration" do
+    test "selecting Ainalrami on a Baku-accelerated tournament is allowed" do
       t = tournament(%{acceleration: "baku"})
 
-      assert {:ok, updated} = Tournaments.update_tournament(t, %{"pairing_engine" => "openpair"})
-      assert updated.pairing_engine == "openpair"
+      assert {:ok, updated} = Tournaments.update_tournament(t, %{"pairing_engine" => "ainalrami"})
+      assert updated.pairing_engine == "ainalrami"
       assert updated.acceleration == "baku"
     end
 
-    test "turning ON Baku acceleration while the engine is OpenPair is allowed" do
-      t = tournament(%{pairing_engine: "openpair"})
+    test "turning ON Baku acceleration while the engine is Ainalrami is allowed" do
+      t = tournament(%{pairing_engine: "ainalrami"})
 
       assert {:ok, updated} = Tournaments.update_tournament(t, %{"acceleration" => "baku"})
       assert updated.acceleration == "baku"
@@ -337,12 +337,12 @@ defmodule PairingsEngine.PairingEngineTest do
       t = tournament()
       refute :pairing_engine in Tournaments.locked_fields(t)
 
-      assert {:ok, updated} = Tournaments.update_tournament(t, %{"pairing_engine" => "openpair"})
-      assert updated.pairing_engine == "openpair"
+      assert {:ok, updated} = Tournaments.update_tournament(t, %{"pairing_engine" => "ainalrami"})
+      assert updated.pairing_engine == "ainalrami"
     end
 
     test "it joins locked_fields/1 once a round exists" do
-      t = tournament(%{pairing_engine: "openpair"})
+      t = tournament(%{pairing_engine: "ainalrami"})
       roster(t)
       {:ok, _round} = Pairing.pair_next_round(t)
 
@@ -351,7 +351,7 @@ defmodule PairingsEngine.PairingEngineTest do
     end
 
     test "update_tournament/2 refuses the switch after round 1" do
-      t = tournament(%{pairing_engine: "openpair"})
+      t = tournament(%{pairing_engine: "ainalrami"})
       roster(t)
       {:ok, _round} = Pairing.pair_next_round(t)
       t = Repo.reload!(t)
@@ -359,20 +359,20 @@ defmodule PairingsEngine.PairingEngineTest do
       assert Tournaments.update_tournament(t, %{"pairing_engine" => "javafo"}) ==
                {:error, :locked_after_pairing}
 
-      assert Repo.reload!(t).pairing_engine == "openpair"
+      assert Repo.reload!(t).pairing_engine == "ainalrami"
     end
 
     test "re-submitting the same engine unchanged still saves" do
       # The ordinary form case: the control is disabled but still posts its
       # current value.
-      t = tournament(%{pairing_engine: "openpair"})
+      t = tournament(%{pairing_engine: "ainalrami"})
       roster(t)
       {:ok, _round} = Pairing.pair_next_round(t)
       t = Repo.reload!(t)
 
       assert {:ok, _} =
                Tournaments.update_tournament(t, %{
-                 "pairing_engine" => "openpair",
+                 "pairing_engine" => "ainalrami",
                  "venue" => "Town Hall"
                })
     end
@@ -381,8 +381,8 @@ defmodule PairingsEngine.PairingEngineTest do
   ## ---------- the other two pairing systems ignore it entirely ----------
 
   describe "round robin and Keizer are unaffected" do
-    test "a round robin set to openpair pairs its Berger schedule, engine untouched" do
-      t = tournament(%{pairing_system: "round_robin", pairing_engine: "openpair"})
+    test "a round robin set to ainalrami pairs its Berger schedule, engine untouched" do
+      t = tournament(%{pairing_system: "round_robin", pairing_engine: "ainalrami"})
       roster(t, 4)
 
       assert {:ok, round} = Pairing.pair_next_round(t)
@@ -405,11 +405,11 @@ defmodule PairingsEngine.PairingEngineTest do
         end)
       end
 
-      assert shape.("javafo") == shape.("openpair")
+      assert shape.("javafo") == shape.("ainalrami")
     end
 
-    test "a Keizer tournament set to openpair pairs through Keizer's own algorithm" do
-      t = tournament(%{pairing_system: "keizer", pairing_engine: "openpair"})
+    test "a Keizer tournament set to ainalrami pairs through Keizer's own algorithm" do
+      t = tournament(%{pairing_system: "keizer", pairing_engine: "ainalrami"})
       roster(t, 4)
 
       assert {:ok, round} = Pairing.pair_next_round(t)
@@ -430,15 +430,15 @@ defmodule PairingsEngine.PairingEngineTest do
         end)
       end
 
-      assert shape.("javafo") == shape.("openpair")
+      assert shape.("javafo") == shape.("ainalrami")
     end
 
     test "a forbidden pairing on a round robin is not refused, engine notwithstanding" do
       # The XXP guard is Swiss-only: a round robin's fixed schedule never
-      # builds a TRF at all, so an OpenPair round robin with a forbidden
+      # builds a TRF at all, so an Ainalrami round robin with a forbidden
       # pairing must still pair (the schedule ignores the rule by design —
       # see docs/pairing-systems.md).
-      t = tournament(%{pairing_system: "round_robin", pairing_engine: "openpair"})
+      t = tournament(%{pairing_system: "round_robin", pairing_engine: "ainalrami"})
       [p1, p2 | _] = roster(t, 4)
 
       {:ok, round} = Pairing.pair_next_round(t)
