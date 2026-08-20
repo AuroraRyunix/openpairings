@@ -18,6 +18,14 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Paid is not one of the columns shown by default — switch it on from the
   column picker first, as before.
 
+- **Embedded pages default to the light theme.** A frame sits inside
+  somebody else's page, which is overwhelmingly light, so following the
+  visitor's OS dark-mode setting dropped a dark slab into the middle of a
+  white club site. Embedded pages now default to light regardless of the
+  OS, and stay light when it flips at sunset. Only the DEFAULT changes --
+  picking a theme from the switch still works inside the frame, still
+  wins, and still persists.
+
 - **Embedded public pages size themselves, and no longer reload-loop.**
   Two follow-ups to the embedding support below, both found by actually
   putting it on a club site.

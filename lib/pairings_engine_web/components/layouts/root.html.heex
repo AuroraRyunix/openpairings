@@ -19,23 +19,59 @@
       (() => {
         const systemTheme = () => matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 
+        // localStorage THROWS (not returns null) in a third-party frame when
+        // the browser blocks or partitions storage — Safari's default, and
+        // Chrome with third-party cookies disabled. Unguarded, that kills
+        // this whole bootstrap and the page renders with no theme and no
+        // accent at all, in exactly the embedded case the default below
+        // exists to serve.
+        const store = {
+          get: (k) => { try { return localStorage.getItem(k); } catch (_) { return null; } },
+          set: (k, v) => { try { localStorage.setItem(k, v); } catch (_) {} },
+          remove: (k) => { try { localStorage.removeItem(k); } catch (_) {} },
+        };
+
+        // An embedded page defaults to LIGHT rather than following the
+        // visitor's OS setting. The frame is a panel inside somebody else's
+        // page, which is overwhelmingly light, and a dark slab dropped into
+        // the middle of a club's white site reads as broken rather than as a
+        // theme. Comparing `self`/`top` is safe cross-origin — the reference
+        // comparison is allowed, only reading top's PROPERTIES would throw.
+        //
+        // Only the DEFAULT changes. An explicit pick from the theme switch
+        // still wins and still persists, including inside the frame (where
+        // partitioned storage scopes it to that one embedding site).
+        const embedded = window.self !== window.top;
+        const defaultTheme = () => embedded ? "embed" : "system";
+
+        const applyTheme = (theme, source) => {
+          document.documentElement.setAttribute("data-theme", theme);
+          document.documentElement.setAttribute("data-theme-source", source);
+        };
+
         const setTheme = (theme) => {
           if (theme === "system") {
-            localStorage.removeItem("phx:theme");
-            document.documentElement.setAttribute("data-theme", systemTheme());
-            document.documentElement.setAttribute("data-theme-source", "system");
+            store.remove("phx:theme");
+            applyTheme(systemTheme(), "system");
+          } else if (theme === "embed") {
+            // Deliberately NOT persisted. Writing it would make the default
+            // indistinguishable from the visitor having chosen light, and
+            // would freeze it for them if this default ever changes.
+            applyTheme("light", "embed");
           } else {
-            localStorage.setItem("phx:theme", theme);
-            document.documentElement.setAttribute("data-theme", theme);
-            document.documentElement.setAttribute("data-theme-source", "user");
+            store.set("phx:theme", theme);
+            applyTheme(theme, "user");
           }
         };
         if (!document.documentElement.hasAttribute("data-theme")) {
-          setTheme(localStorage.getItem("phx:theme") || "system");
+          setTheme(store.get("phx:theme") || defaultTheme());
         }
-        window.addEventListener("storage", (e) => e.key === "phx:theme" && setTheme(e.newValue || "system"));
+        window.addEventListener("storage", (e) => e.key === "phx:theme" && setTheme(e.newValue || defaultTheme()));
         window.addEventListener("phx:set-theme", (e) => setTheme(e.target.dataset.phxTheme));
 
+        // Only a page actually following the OS tracks OS changes — an
+        // embedded default of light must stay light when the visitor's
+        // machine flips to dark at sunset.
         matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e) => {
           if (document.documentElement.getAttribute("data-theme-source") === "system") {
             document.documentElement.setAttribute("data-theme", systemTheme());
@@ -45,10 +81,10 @@
         // Accent colour - independent of light/dark. Default "green".
         const setAccent = (accent) => {
           accent = accent || "green";
-          localStorage.setItem("phx:accent", accent);
+          store.set("phx:accent", accent);
           document.documentElement.setAttribute("data-accent", accent);
         };
-        setAccent(localStorage.getItem("phx:accent"));
+        setAccent(store.get("phx:accent"));
         window.addEventListener("storage", (e) => e.key === "phx:accent" && setAccent(e.newValue));
         window.addEventListener("phx:set-accent", (e) => setAccent(e.target.dataset.phxAccent));
       })();
