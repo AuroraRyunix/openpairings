@@ -7,6 +7,34 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **The Paid column is editable straight from the players table** — click
+  or right-click a player's Paid cell for "Paid" / "Not paid" / "Gratis",
+  the same gesture the Pr. column already had for Present/Absent.
+  Right-clicking the Paid column *header* applies one of the three to
+  every player at once, matching Pr.'s "All Absent" / "All Present". The
+  fee status was previously reachable only by opening a player for
+  editing, which is several clicks each on a registration desk.
+
+  Paid is not one of the columns shown by default — switch it on from the
+  column picker first, as before.
+
+- **The public pairing and standings pages can be embedded in another
+  site.** They previously sent `frame-ancestors 'none'` like every other
+  page, so a club website putting one in an `<iframe>` got a blank frame
+  and a console error. Those two now allow it:
+
+  ```html
+  <iframe src="https://your-host/p/SLUG/pairings"
+          style="width:100%;height:600px;border:0"></iframe>
+  ```
+
+  Nothing else does — not the public registration form, the arbiter
+  tools, the mobile result entry, or any logged-in page, where being
+  frameable is a clickjacking risk rather than a feature. Set
+  `PUBLIC_FRAME_ANCESTORS` to a space-separated origin list to allow only
+  particular sites, or to `'none'` to switch embedding off entirely. See
+  `docs/public-pages.md`.
+
 - **A second Swiss pairing engine: Ainalrami, opt-in and beta** — the
   "multi-engine" item the login page has been advertising as coming soon.
   Settings → Options gains a "Swiss engine" control alongside the pairing
