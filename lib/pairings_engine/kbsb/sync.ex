@@ -19,7 +19,7 @@ defmodule PairingsEngine.Kbsb.Sync do
   use GenServer
   require Logger
   alias PairingsEngine.{Repo, Kbsb}
-  alias PairingsEngine.Kbsb.{KbsbPlayer, Parser}
+  alias PairingsEngine.Kbsb.{Api, KbsbPlayer, Parser}
 
   @topic "kbsb_sync"
 
@@ -46,6 +46,15 @@ defmodule PairingsEngine.Kbsb.Sync do
   @doc "Kicks off an import from the raw contents of an uploaded rating-list file."
   def start_import(binary) when is_binary(binary),
     do: GenServer.cast(__MODULE__, {:start_import, binary})
+
+  @doc """
+  Kicks off an import from the KBSB data platform's roster API instead of an
+  uploaded file (see `PairingsEngine.Kbsb.Api`). Same GenServer, same
+  status, same progress topic, same count guards and same full-replace
+  transaction — only the source of the rows differs, so the two can never
+  disagree about what a valid import is.
+  """
+  def start_api_import, do: GenServer.cast(__MODULE__, :start_api_import)
 
   def cancel_import, do: GenServer.cast(__MODULE__, :cancel_import)
 
@@ -79,6 +88,24 @@ defmodule PairingsEngine.Kbsb.Sync do
     state = %__MODULE__{
       status: :importing,
       progress: "Reading file…",
+      task_pid: pid,
+      task_ref: ref,
+      watchdog_timer: schedule_watchdog()
+    }
+
+    {:noreply, broadcast(state)}
+  end
+
+  @impl true
+  def handle_cast(:start_api_import, %{status: :importing} = state), do: {:noreply, state}
+
+  def handle_cast(:start_api_import, _state) do
+    server = self()
+    {pid, ref} = spawn_monitor(fn -> run_api_import(server) end)
+
+    state = %__MODULE__{
+      status: :importing,
+      progress: "Contacting the KBSB data platform…",
       task_pid: pid,
       task_ref: ref,
       watchdog_timer: schedule_watchdog()
@@ -184,6 +211,36 @@ defmodule PairingsEngine.Kbsb.Sync do
   rescue
     e ->
       Logger.error("KBSB import crashed: #{Exception.message(e)}")
+      update(server, %__MODULE__{status: :error, error: Exception.message(e)})
+  end
+
+  # Mirrors run_import/2 exactly, differing only in where the rows come
+  # from. Each page reports progress, which also resets the watchdog — a
+  # slow network stays alive as long as it is still moving, and only a
+  # genuinely wedged walk trips it.
+  defp run_api_import(server) do
+    state =
+      update(server, %__MODULE__{
+        status: :importing,
+        progress: "Contacting the KBSB data platform…"
+      })
+
+    on_progress = fn count ->
+      update(server, %{state | progress: "Downloading players… #{count}"})
+    end
+
+    with {:ok, rows} <- Api.fetch_all(on_progress),
+         {:ok, state} <- import_rows(server, rows, state) do
+      Kbsb.put_last_sync()
+      update(server, %{state | status: :done, progress: ""})
+    else
+      {:error, reason} ->
+        Logger.error("KBSB API import failed: #{inspect(reason)}")
+        update(server, %__MODULE__{status: :error, error: format_error(reason)})
+    end
+  rescue
+    e ->
+      Logger.error("KBSB API import crashed: #{Exception.message(e)}")
       update(server, %__MODULE__{status: :error, error: Exception.message(e)})
   end
 

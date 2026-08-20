@@ -5,6 +5,7 @@ defmodule PairingsEngineWeb.FideLive do
   alias PairingsEngine.Kbsb
   alias PairingsEngine.Fide.Sync, as: FideSync
   alias PairingsEngine.Kbsb.Sync, as: KbsbSync
+  alias PairingsEngine.Kbsb.Api, as: KbsbApi
 
   @impl true
   def mount(_params, _session, socket) do
@@ -22,6 +23,10 @@ defmodule PairingsEngineWeb.FideLive do
        kbsb_query: "",
        kbsb_results: [],
        kbsb_error: nil,
+       # Read once at mount: this comes from the server's environment, so it
+       # cannot change while the page is open. False hides the sync button
+       # entirely rather than offering an action that can only fail.
+       kbsb_api_configured: KbsbApi.configured?(),
        # Local self-registration is open to anyone — the full FIDE list
        # download (~41 MB, once a click) is exactly the kind of thing that's
        # cheap to trigger and expensive to serve, so it's restricted to
@@ -84,6 +89,11 @@ defmodule PairingsEngineWeb.FideLive do
       [] ->
         {:noreply, assign(socket, kbsb_error: "Choose a file first")}
     end
+  end
+
+  def handle_event("sync_kbsb_api", _params, socket) do
+    KbsbSync.start_api_import()
+    {:noreply, assign(socket, kbsb_status: KbsbSync.status(), kbsb_error: nil)}
   end
 
   def handle_event("cancel_kbsb", _params, socket) do
@@ -182,13 +192,41 @@ defmodule PairingsEngineWeb.FideLive do
           <%= if @kbsb_status.last_sync do %>
             Last updated: <strong>{@kbsb_status.last_sync}</strong> (UTC).
           <% else %>
-            The database is empty - upload a rating-list file to get started.
+            The database is empty - {if @kbsb_api_configured,
+              do: "sync it from the data platform to get started.",
+              else: "upload a rating-list file to get started."}
           <% end %>
         </p>
 
+        <div :if={@kbsb_api_configured} class="card-inset">
+          <p>
+            <strong>Sync from the KBSB data platform.</strong>
+            Pulls the current roster straight from the Odoo-synced database, including each
+            player's club name and number. This is the one to use — no file to find, and it
+            can be re-run any time.
+          </p>
+
+          <div class="actions">
+            <button
+              type="button"
+              class="pe-btn primary"
+              phx-click="sync_kbsb_api"
+              disabled={busy?(@kbsb_status)}
+            >
+              {if busy?(@kbsb_status), do: "Syncing…", else: "Sync from data platform"}
+            </button>
+          </div>
+        </div>
+
         <p class="hint">
-          KBSB/FRBE doesn't publish a stable automatic download (see docs/kbsb-sync.md), so upload
-          the official rating-list export by hand. Uploading a new file replaces the local copy.
+          <%= if @kbsb_api_configured do %>
+            Or upload the official rating-list export by hand. Either source replaces the local
+            copy entirely — see docs/kbsb-sync.md.
+          <% else %>
+            KBSB/FRBE doesn't publish a stable automatic download (see docs/kbsb-sync.md), so upload
+            the official rating-list export by hand. Uploading a new file replaces the local copy.
+            Set KBSB_API_URL and KBSB_API_KEY on the server to sync from the data platform instead.
+          <% end %>
         </p>
 
         <form

@@ -110,9 +110,18 @@ defmodule PairingsEngine.Kbsb do
 
   The value is a LIST because names are not unique. Callers must decide
   what to do with more than one; this function refuses to pick for them.
+
+  Deceased members are excluded. The API sync mirrors the roster unfiltered
+  on purpose (see the AddKbsbPlayerStatusFlags migration), which puts the
+  decision here — and a *name* is exactly the wrong key to resolve onto a
+  dead member with, because the living player sitting at the board is the
+  one being registered. Exact id lookups (`find_by_national_id/1`,
+  `find_by_fide_id/1`) deliberately still find them: an arbiter who types a
+  matricule wants an answer, not a silent miss. Rows from the older
+  file-upload path have `died: nil` and are kept.
   """
   def name_index do
-    KbsbPlayer
+    from(k in KbsbPlayer, where: is_nil(k.died) or k.died == false)
     |> Repo.all()
     |> Enum.group_by(&normalize_name(KbsbPlayer.full_name(&1)))
   end

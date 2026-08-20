@@ -14,6 +14,12 @@ defmodule PairingsEngine.Kbsb.KbsbPlayer do
     field :club_name, :string, default: ""
     field :federation, :string, default: ""
     field :birth_year, :integer
+
+    # Only set by the data-platform API sync, which mirrors the roster
+    # unfiltered (see the AddKbsbPlayerStatusFlags migration). `nil` on
+    # every row that came from an uploaded file, which carries neither.
+    field :died, :boolean
+    field :affiliated, :boolean
   end
 
   @doc "Combined \"Lastname, Firstname\" display name, matching the FIDE list convention."

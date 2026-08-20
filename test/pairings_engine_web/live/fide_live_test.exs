@@ -122,4 +122,42 @@ defmodule PairingsEngineWeb.FideLiveTest do
       assert html =~ "KBSB: just now"
     end
   end
+
+  describe "KBSB data-platform sync button" do
+    setup do
+      original = Application.get_env(:pairings_engine, :kbsb)
+
+      on_exit(fn ->
+        if original,
+          do: Application.put_env(:pairings_engine, :kbsb, original),
+          else: Application.delete_env(:pairings_engine, :kbsb)
+      end)
+
+      :ok
+    end
+
+    test "is offered when the API is configured", %{conn: conn} do
+      Application.put_env(:pairings_engine, :kbsb, api_url: "https://kbsb.test", api_key: "k")
+
+      {:ok, _lv, html} = live(conn, ~p"/fide")
+
+      assert html =~ "Sync from data platform"
+      assert html =~ "phx-click=\"sync_kbsb_api\""
+      # The empty-state copy should point at the button, not at a file.
+      assert html =~ "sync it from the data platform to get started"
+    end
+
+    # Offering a button whose only possible outcome is an error message is
+    # worse than not offering it: the arbiter cannot fix server config from
+    # here, so the page tells them what to set instead.
+    test "is hidden when it is not configured, with the setting named", %{conn: conn} do
+      Application.delete_env(:pairings_engine, :kbsb)
+
+      {:ok, _lv, html} = live(conn, ~p"/fide")
+
+      refute html =~ "Sync from data platform"
+      assert html =~ "KBSB_API_URL"
+      assert html =~ "upload a rating-list file to get started"
+    end
+  end
 end

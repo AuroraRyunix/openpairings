@@ -51,6 +51,25 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **"Sync from data platform" on the rating-lists page.** The Belgian
+  roster can now be pulled straight from the KBSB data platform's
+  Odoo-synced database instead of hunting down a rating-list file and
+  uploading it by hand — including each player's club name and number,
+  which is what "Update clubs" needs and which no earlier source
+  provided. Appears once `KBSB_API_URL` and `KBSB_API_KEY` are set on the
+  server; without them the page is unchanged and the file upload remains
+  the only option.
+
+  It fills the same local copy the file upload always filled, so nothing
+  downstream changes: club refresh, registration autofill and name
+  matching all keep reading it locally and keep working with the internet
+  down, which is the point — rounds get paired in playing halls.
+
+  Deceased members are now stored and handled explicitly: an exact
+  National-id or FIDE-id lookup still resolves one, but a *name* match
+  never will, so a living player cannot inherit a dead namesake's club.
+
+
 - **The Paid column is editable straight from the players table** — click
   or right-click a player's Paid cell for "Paid" / "Not paid" / "Gratis",
   the same gesture the Pr. column already had for Present/Absent.

@@ -7,7 +7,39 @@ them for a tournament. Mirrors the existing FIDE rating sync
 (`lib/pairings_engine/fide/`) in almost everything except *how* the data
 arrives.
 
-## Data source: why a file upload, not an HTTP sync
+## Data source: the data-platform API, with the file upload as fallback
+
+**Preferred: `PairingsEngine.Kbsb.Api`.** The KBSB data platform
+(`kbsb-dataplatform`) exposes the Odoo-synced live roster at
+`GET /api/v1/players_national/export`, and since August 2026 that export
+carries each member's **club name** as well as their club number — which is
+what made it usable here at all, and which the section below was written
+before. Set `KBSB_API_URL` and `KBSB_API_KEY` and the rating-lists page
+grows a "Sync from data platform" button; leave them unset and the page
+behaves exactly as it always did.
+
+The key travels in the `x-api-key` header. The walk is cursor-paginated
+(`next_cursor` until null, ~36 pages of 1000) and is a **full** walk every
+time: the import it feeds is a full replace, so re-walking cannot drift out
+of step with the source. The API's `?since=` incremental mode is
+deliberately unused for that reason.
+
+The export is unfiltered — archived, deceased and non-affiliated members
+included — because filtering it would make `?since=` unsound on the
+platform's side. That decision therefore lands here: `kbsb_players` stores
+`died` and `affiliated`, exact id lookups still resolve a deceased member
+(an arbiter typing a matricule wants an answer), and `Kbsb.name_index/0`
+excludes them so a living player cannot inherit a dead namesake's club.
+
+This does **not** change where clubs are read from at use time. The local
+mirror stays, and `ClubRefresh` still reads it locally: rounds get paired in
+playing halls where the internet cannot be assumed. The API replaces how the
+mirror gets filled, not how it gets used.
+
+**Fallback: the uploaded file.** Everything below still applies, and the
+upload is still the only option when the API isn't configured.
+
+## Why there was no HTTP sync originally
 
 The FIDE sync downloads `players_list.zip` from a stable, public,
 unauthenticated URL on `ratings.fide.com`. There is no equivalent for the

@@ -243,6 +243,31 @@ defmodule PairingsEngine.ClubRefreshTest do
       assert %{proposals: [], unmatched: 1} = ClubRefresh.dry_run(tournament)
     end
 
+    # The API mirror carries deceased members on purpose (filtering the
+    # export would break its incremental mode). A name is the wrong key to
+    # resolve onto one: the player at the board is the living namesake.
+    test "a deceased namesake is not a name match", %{tournament: tournament} do
+      typed_in(tournament, "Janssens, Karel")
+      listed(%{last_name: "Janssens", first_name: "Karel", club_name: "Ghost FC", died: true})
+
+      assert %{proposals: [], unmatched: 1} = ClubRefresh.dry_run(tournament)
+    end
+
+    test "but an exact id still resolves a deceased member", %{tournament: tournament} do
+      typed_in(tournament, "Janssens, Karel", %{"national_id" => "77777"})
+
+      Repo.insert!(%KbsbPlayer{
+        national_id: "77777",
+        last_name: "Janssens",
+        club_name: "Ghost FC",
+        club_number: 9,
+        died: true
+      })
+
+      assert [%{field: :club, new: "Ghost FC", via: :national_id} | _] =
+               ClubRefresh.dry_run(tournament).proposals
+    end
+
     test "an id still wins over the name, and is reported as such", %{tournament: tournament} do
       typed_in(tournament, "Janssens, Karel", %{"national_id" => "55555"})
 
