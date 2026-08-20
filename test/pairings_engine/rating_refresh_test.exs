@@ -127,7 +127,13 @@ defmodule PairingsEngine.RatingRefreshTest do
                RatingRefresh.dry_run(tournament).proposals
     end
 
-    test "proposes a national_rating change from the KBSB list", %{tournament: tournament} do
+    # `national_rating` is an import/manual-entry artifact, not something
+    # OpenPairings keeps in sync — a bulk button rewriting it made it look
+    # like there is a live national-rating system here. Clubs, the part of
+    # the KBSB list that IS worth refreshing, moved to `ClubRefresh`.
+    test "never proposes a national_rating change, even when KBSB disagrees", %{
+      tournament: tournament
+    } do
       {:ok, _player} =
         Tournaments.create_player(tournament.id, %{
           "name" => "Carla",
@@ -137,8 +143,18 @@ defmodule PairingsEngine.RatingRefreshTest do
 
       Repo.insert!(%KbsbPlayer{national_id: "12345", last_name: "Carla", national_rating: 1750})
 
-      assert [%RatingRefresh{field: :national_rating, old: 1600, new: 1750}] =
-               RatingRefresh.dry_run(tournament).proposals
+      assert %{proposals: [], changed: 0} = RatingRefresh.dry_run(tournament)
+    end
+
+    # A national id is no longer a match of any kind here, so a player
+    # carrying only one is "unmatched" — the summary counts FIDE matches.
+    test "a player with only a national id counts as unmatched", %{tournament: tournament} do
+      {:ok, _player} =
+        Tournaments.create_player(tournament.id, %{"name" => "Carla", "national_id" => "12345"})
+
+      Repo.insert!(%KbsbPlayer{national_id: "12345", last_name: "Carla", national_rating: 1750})
+
+      assert %{unmatched: 1, checked: 1} = RatingRefresh.dry_run(tournament)
     end
 
     test "a player with no matching id (or no id at all) counts as unmatched, no proposals", %{
@@ -190,16 +206,18 @@ defmodule PairingsEngine.RatingRefreshTest do
       Repo.insert!(%KbsbPlayer{national_id: "99999", last_name: "Eve", national_rating: 1720})
 
       %{proposals: proposals} = RatingRefresh.dry_run(tournament)
-      assert length(proposals) == 3
+      assert length(proposals) == 2
 
-      # All three proposals belong to the same player (Eve), so `apply/2`
-      # groups them into a single update.
+      # Both proposals belong to the same player (Eve), so `apply/2` groups
+      # them into a single update.
       assert {:ok, [_]} = RatingRefresh.apply(tournament, proposals)
 
       updated = Tournaments.get_player!(player.tournament_id, player.id)
       assert updated.fide_rating == 1900
       assert updated.title == "WIM"
-      assert updated.national_rating == 1720
+
+      # Untouched, despite the KBSB row saying 1720.
+      assert updated.national_rating == 1650
     end
 
     test "empty proposal list is a no-op", %{tournament: tournament} do

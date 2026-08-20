@@ -26,6 +26,19 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   byte-identical pairings either way, verified against both JaVaFo and
   bbpPairings. The pairing input is deliberately left untouched.
 
+### Changed
+
+- **"Refresh ratings" no longer touches national ratings.** It refreshes
+  the FIDE rating and title, and nothing else. A national rating is an
+  import/manual-entry artifact — SWAR's own ELO lands there when you
+  import a `.swar` file, the KBSB search fills it in when you register a
+  player off the list, and you can type it — so a bulk button quietly
+  rewriting it afterwards made OpenPairings look like it maintains a live
+  national-rating system, which it does not. National ratings still work
+  exactly as before as the pairing fallback when a player has no FIDE
+  rating. The part of the KBSB list that *is* worth refreshing in bulk is
+  the club, which has its own "Update clubs" button.
+
 ### Removed
 
 - **The "Pair by: FIDE rating / National rating" setting**, which never

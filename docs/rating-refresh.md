@@ -35,9 +35,14 @@ For each player in the tournament:
   player up under a title-bearing federation, and that's not grounds to
   erase Direct-elect/national titles the tournament director entered by
   hand).
-- **`player.national_id` → `kbsb_players`** (exact primary-key lookup):
-  proposes a new `national_rating` when it differs.
-- A player with neither id set, or whose id has no match in either table,
+- **`national_rating` is deliberately never proposed.** It is an
+  import/manual-entry artifact — SWAR's own ELO lands there on import, the
+  KBSB search pre-fills it when a player is registered off the list, and an
+  arbiter can type it. A bulk button that silently rewrote it made it look
+  like OpenPairings maintains a live national-rating system, which it does
+  not. The part of the KBSB list that *is* worth refreshing is the club —
+  see "Bulk club refresh" below.
+- A player with no `fide_id` set, or whose id has no match in the table,
   contributes **zero** proposals and counts toward the summary's
   `unmatched` figure (distinct from "matched but nothing changed", which
   counts toward neither `changed` nor `unmatched`).
@@ -59,7 +64,7 @@ dry-run instead of applied immediately.
   proposals: [%RatingRefresh{player: %Player{}, field: :fide_rating, old: 1900, new: 2100}, ...],
   checked: 12,    # players in the tournament
   changed: 5,     # players with >= 1 proposal
-  unmatched: 3    # players with no fide_id/national_id match at all
+  unmatched: 3    # players with no fide_id match at all
 }
 ```
 
@@ -83,11 +88,11 @@ all changed fires **one** broadcast, not 50, keeping other open tabs
   add row-level checkboxes if that turns out to matter in practice.
 - No automatic/scheduled refresh — this is a manual action the tournament
   director triggers, same as the existing per-player Refresh buttons.
-- Doesn't touch `federation`, `birth_year`, or anything else the per-player
-  Refresh buttons fill in — only `fide_rating`, `title`, and
-  `national_rating`, per the SWAR feature this mirrors ("refresh ratings",
-  not "re-sync everything"). **`club` is handled separately** — see
-  "Bulk club refresh" below.
+- Doesn't touch `federation`, `birth_year`, `national_rating`, or anything
+  else the per-player Refresh buttons fill in — only `fide_rating` and
+  `title`, per the SWAR feature this mirrors ("refresh ratings", not
+  "re-sync everything"). **`club` is handled separately** — see "Bulk club
+  refresh" below.
 
 ## Bulk club refresh (`PairingsEngine.ClubRefresh`)
 

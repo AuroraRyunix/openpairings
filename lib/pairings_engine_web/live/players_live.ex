@@ -1348,7 +1348,7 @@ defmodule PairingsEngineWeb.PlayersLive do
             type="button"
             class="pe-btn"
             phx-click="open_rating_refresh"
-            title="Compare every registered player against the locally-synced FIDE/KBSB databases and preview rating/title updates before applying them"
+            title="Compare every registered player against the locally-synced FIDE database and preview rating/title updates before applying them"
           >
             Refresh ratings
           </button>
@@ -1638,8 +1638,10 @@ defmodule PairingsEngineWeb.PlayersLive do
         <h2>Refresh ratings</h2>
 
         <p class="hint">
-          Compares every registered player against the locally-synced FIDE and KBSB
-          rating lists (by FIDE id / National id). Nothing is written until you Apply.
+          Compares every registered player against the locally-synced FIDE rating
+          list (by FIDE id) and proposes a new rating and title. National ratings
+          are not touched — they come from import or manual entry. Nothing is
+          written until you Apply.
         </p>
 
         <div :if={@summary.proposals == []} class="card empty">

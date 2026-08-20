@@ -1,15 +1,15 @@
 defmodule PairingsEngine.RatingRefresh do
   @moduledoc """
   Bulk rating refresh (SWAR "Rafraichir toutes les cotes"): re-looks-up every
-  registered player against the locally-synced FIDE and KBSB rating lists
-  (`PairingsEngine.Fide`/`PairingsEngine.Kbsb`, see `docs/kbsb-sync.md`) and
-  proposes changes, without writing anything until `apply/2` is called. See
+  registered player against the locally-synced FIDE rating list
+  (`PairingsEngine.Fide`, see `docs/kbsb-sync.md`) and proposes changes,
+  without writing anything until `apply/2` is called. See
   `docs/rating-refresh.md`.
 
-  Matching mirrors the per-player "Refresh" buttons already on the player
+  Matching mirrors the per-player "Refresh" button already on the player
   registration dialog (`PairingsEngineWeb.PlayersLive.handle_event/3`
-  `"refresh_edit_fide"` / `"refresh_edit_kbsb"`), except by exact id instead
-  of name search, and across every player at once:
+  `"refresh_edit_fide"`), except by exact id instead of name search, and
+  across every player at once:
 
     * `player.fide_id` → `fide_players` (exact match): proposes a new
       `fide_rating` when it differs, and a new `title` when the FIDE record
@@ -18,10 +18,16 @@ defmodule PairingsEngine.RatingRefresh do
       (`tournament.standard` — Standard/Rapid/Blitz, see
       `PairingsEngine.Fide.rating_for_tempo/2`), falling back to Standard
       when the player has no rating in that specific list.
-    * `player.national_id` → `kbsb_players` (exact match): proposes a new
-      `national_rating` when it differs.
 
-  A player with neither id set (or whose id has no match in either list)
+  `national_rating` is deliberately NOT refreshed from the KBSB list. It is
+  an import/manual-entry artifact: SWAR's own ELO lands there on import (see
+  `PairingsEngine.SwarImport`), the KBSB search pre-fills it when a player is
+  registered off the list, and an arbiter can type it. A bulk button that
+  silently rewrote it afterwards made it look like OpenPairings maintains a
+  live national-rating system, which it does not. Clubs are a separate
+  gesture with its own button — see `PairingsEngine.ClubRefresh`.
+
+  A player with no `fide_id` set (or whose id has no match in the list)
   contributes no proposals and counts as "unmatched" in the summary.
   """
 
@@ -30,7 +36,6 @@ defmodule PairingsEngine.RatingRefresh do
   alias PairingsEngine.Tournaments.Player
   alias PairingsEngine.Fide
   alias PairingsEngine.Fide.FidePlayer
-  alias PairingsEngine.Kbsb.KbsbPlayer
 
   @derive {Inspect, only: [:field, :old, :new]}
   defstruct [:player, :field, :old, :new]
@@ -45,10 +50,10 @@ defmodule PairingsEngine.RatingRefresh do
         }
 
   @doc """
-  Looks up every player in `tournament` against the local FIDE/KBSB copies
-  and returns a summary: `%{proposals:, checked:, changed:, unmatched:}` —
+  Looks up every player in `tournament` against the local FIDE copy and
+  returns a summary: `%{proposals:, checked:, changed:, unmatched:}` —
   `changed` is the number of players with at least one proposed change,
-  `unmatched` the number with no FIDE-id or National-id match at all.
+  `unmatched` the number with no FIDE-id match at all.
   Writes nothing; pair with `apply/2` to commit.
   """
   @spec dry_run(Tournaments.Tournament.t()) :: summary()
@@ -68,7 +73,6 @@ defmodule PairingsEngine.RatingRefresh do
 
   defp player_proposals(player, standard) do
     fide = fide_match(player)
-    kbsb = kbsb_match(player)
 
     proposals =
       []
@@ -79,19 +83,12 @@ defmodule PairingsEngine.RatingRefresh do
         Fide.rating_for_tempo(fide, standard)
       )
       |> maybe_add_title(player, fide)
-      |> maybe_add(player, :national_rating, player.national_rating, kbsb_rating(kbsb))
 
-    %{proposals: proposals, matched?: fide != nil or kbsb != nil}
+    %{proposals: proposals, matched?: fide != nil}
   end
 
   defp fide_match(%Player{fide_id: nil}), do: nil
   defp fide_match(%Player{fide_id: fide_id}), do: Repo.get(FidePlayer, fide_id)
-
-  defp kbsb_match(%Player{national_id: nid}) when nid in [nil, ""], do: nil
-  defp kbsb_match(%Player{national_id: nid}), do: Repo.get(KbsbPlayer, nid)
-
-  defp kbsb_rating(nil), do: nil
-  defp kbsb_rating(%KbsbPlayer{national_rating: r}), do: r
 
   # Only proposes a title when the FIDE record actually carries one — never
   # proposes clearing a locally-set title just because the FIDE row is blank.
