@@ -62,6 +62,18 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Paid is not one of the columns shown by default — switch it on from the
   column picker first, as before.
 
+- **"Update clubs" also matches on name + birth year.** The two id
+  lookups (National id, then FIDE id) are exact but only help players
+  registered off one of the databases. A player typed in at the desk with
+  neither id — the common case at a club event — now resolves by name,
+  with accents folded so "Bjorn" finds "Björn".
+
+  It refuses to guess: a name that matches two people is only resolved if
+  the birth year singles out exactly one, and a lone namesake whose birth
+  year disagrees is treated as a different person. The preview gained a
+  "Matched by" column so you can see which proposals rest on a name
+  rather than an id.
+
 - **"Update clubs" on the Players page.** Beside "Refresh ratings", and
   the same gesture: it compares every registered player against the
   locally-synced KBSB list and shows a preview of the club changes before

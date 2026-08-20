@@ -26,11 +26,20 @@ defmodule PairingsEngine.ClubRefresh do
   and taking half of that is how a roster ends up with a name and a number
   that disagree.
 
-  ## Matching, and why it is by two ids
+  ## Matching, in three steps
 
-  `player.national_id` first, then `player.fide_id` — the KBSB row carries
-  both, so a player registered from the FIDE database (FIDE id, no
-  matricule) still resolves. That is worth stating because the obvious
+  `player.national_id` first, then `player.fide_id`, then the player's
+  name plus birth year.
+
+  The two ids are exact and unique, and between them they cover everyone
+  registered off either database. The name step exists for the case those
+  two miss completely and which is very common at a club event: a player
+  typed in by hand, with no matricule and no FIDE id. It is deliberately
+  the last resort and deliberately timid — see `match_by_name/2`, which
+  returns a row only when the name identifies exactly one person, and
+  never guesses between namesakes.
+
+  Matching by id at all is worth stating because the obvious
   alternative, the KBSB data platform's REST API, cannot do it:
   `GET /players_national/:national_id` returns the club, but there is no
   by-FIDE-id route, and `GET /players_fide/:fide_id` is the raw
@@ -53,10 +62,18 @@ defmodule PairingsEngine.ClubRefresh do
   alias PairingsEngine.Tournaments
   alias PairingsEngine.Tournaments.Player
 
-  @derive {Inspect, only: [:field, :old, :new]}
-  defstruct [:player, :field, :old, :new]
+  @derive {Inspect, only: [:field, :old, :new, :via]}
+  defstruct [:player, :field, :old, :new, :via]
 
-  @type t :: %__MODULE__{player: Player.t(), field: atom(), old: term(), new: term()}
+  @type via :: :national_id | :fide_id | :name
+
+  @type t :: %__MODULE__{
+          player: Player.t(),
+          field: atom(),
+          old: term(),
+          new: term(),
+          via: via()
+        }
 
   @type summary :: %{
           proposals: [t()],
@@ -74,10 +91,12 @@ defmodule PairingsEngine.ClubRefresh do
   """
   @spec dry_run(Tournaments.Tournament.t()) :: summary()
   def dry_run(tournament) do
+    index = Kbsb.name_index()
+
     results =
       tournament.id
       |> Tournaments.list_players()
-      |> Enum.map(&player_proposals/1)
+      |> Enum.map(&player_proposals(&1, index))
 
     %{
       proposals: Enum.flat_map(results, & &1.proposals),
@@ -87,15 +106,16 @@ defmodule PairingsEngine.ClubRefresh do
     }
   end
 
-  defp player_proposals(player) do
-    kbsb = kbsb_match(player)
+  defp player_proposals(player, index) do
+    match = kbsb_match(player, index)
+    {row, via} = match || {nil, nil}
 
     proposals =
       []
-      |> maybe_add(player, :club, player.club, club_name(kbsb))
-      |> maybe_add(player, :club_number, player.club_number, club_number(kbsb))
+      |> maybe_add(player, :club, player.club, club_name(row), via)
+      |> maybe_add(player, :club_number, player.club_number, club_number(row), via)
 
-    %{proposals: proposals, matched?: kbsb != nil}
+    %{proposals: proposals, matched?: match != nil}
   end
 
   # National id first — it is the KBSB's own primary key, so it cannot be
@@ -104,9 +124,49 @@ defmodule PairingsEngine.ClubRefresh do
   # That is the right trade for a preview-then-apply action (the arbiter
   # sees the proposed club before it is written) and the wrong one for a
   # silent background write, which is why this stays behind a button.
-  defp kbsb_match(%Player{} = player) do
-    Kbsb.find_by_national_id(player.national_id) || Kbsb.find_by_fide_id(player.fide_id)
+  defp kbsb_match(%Player{} = player, index) do
+    cond do
+      row = Kbsb.find_by_national_id(player.national_id) -> {row, :national_id}
+      row = Kbsb.find_by_fide_id(player.fide_id) -> {row, :fide_id}
+      row = match_by_name(player, index) -> {row, :name}
+      true -> nil
+    end
   end
+
+  # Last resort, for the common case this feature would otherwise miss
+  # entirely: a player typed in by hand at the desk, with no matricule and
+  # no FIDE id. Both ids are exact and unique; a name is neither, so this
+  # only ever returns a row it can be SURE of.
+  #
+  #   * exactly one row with that name -> that row, unless the player and
+  #     the row both carry a birth year and the years disagree (a different
+  #     person who happens to share the name)
+  #   * several rows with that name -> only if the birth year singles out
+  #     exactly one of them; otherwise no match at all
+  #
+  # It never picks "the first" or "the highest rated". A wrong club written
+  # onto a player is worse than no club, and an arbiter reviewing a long
+  # preview will not catch a plausible-looking wrong one.
+  defp match_by_name(%Player{name: name, birth_year: year}, index) do
+    case Map.get(index, Kbsb.normalize_name(name), []) do
+      [] -> nil
+      [only] -> if year_agrees?(only, year), do: only, else: nil
+      many -> only_one_born_in(many, year)
+    end
+  end
+
+  defp only_one_born_in(_rows, nil), do: nil
+
+  defp only_one_born_in(rows, year) do
+    case Enum.filter(rows, &(&1.birth_year == year)) do
+      [only] -> only
+      _ -> nil
+    end
+  end
+
+  defp year_agrees?(_row, nil), do: true
+  defp year_agrees?(%KbsbPlayer{birth_year: nil}, _year), do: true
+  defp year_agrees?(%KbsbPlayer{birth_year: listed}, year), do: listed == year
 
   defp club_name(nil), do: nil
   defp club_name(%KbsbPlayer{club_name: name}) when name in [nil, ""], do: nil
@@ -115,11 +175,11 @@ defmodule PairingsEngine.ClubRefresh do
   defp club_number(nil), do: nil
   defp club_number(%KbsbPlayer{club_number: number}), do: number
 
-  defp maybe_add(list, _player, _field, _old, nil), do: list
-  defp maybe_add(list, _player, _field, old, new) when old == new, do: list
+  defp maybe_add(list, _player, _field, _old, nil, _via), do: list
+  defp maybe_add(list, _player, _field, old, new, _via) when old == new, do: list
 
-  defp maybe_add(list, player, field, old, new) do
-    list ++ [%__MODULE__{player: player, field: field, old: old, new: new}]
+  defp maybe_add(list, player, field, old, new, via) do
+    list ++ [%__MODULE__{player: player, field: field, old: old, new: new, via: via}]
   end
 
   @doc """

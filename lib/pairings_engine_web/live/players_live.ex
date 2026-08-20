@@ -1730,6 +1730,8 @@ defmodule PairingsEngineWeb.PlayersLive do
                 <th>Old</th>
 
                 <th>New</th>
+
+                <th>Matched by</th>
               </tr>
             </thead>
 
@@ -1742,6 +1744,8 @@ defmodule PairingsEngineWeb.PlayersLive do
                 <td>{blank_dash(p.old)}</td>
 
                 <td><strong>{p.new}</strong></td>
+
+                <td class={if p.via == :name, do: "hint"}>{via_label(p.via)}</td>
               </tr>
             </tbody>
           </table>
@@ -1775,6 +1779,14 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp field_label(:title), do: "Title"
   defp field_label(:club), do: "Club"
   defp field_label(:club_number), do: "Club number"
+
+  # How ClubRefresh resolved this player. Ids are exact; a name match is a
+  # judgement the arbiter should be able to see and second-guess, which is
+  # the whole reason this column exists.
+  defp via_label(:national_id), do: "National id"
+  defp via_label(:fide_id), do: "FIDE id"
+  defp via_label(:name), do: "Name + year"
+  defp via_label(_), do: ""
 
   # `Player.rating/1`'s own FIDE-first-then-national logic, worked from the
   # edit form's raw string values instead of a saved `%Player{}` — the form

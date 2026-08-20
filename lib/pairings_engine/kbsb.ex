@@ -76,6 +76,47 @@ defmodule PairingsEngine.Kbsb do
     Repo.one(from k in KbsbPlayer, where: k.fide_id == ^fide_id, limit: 1)
   end
 
+  @doc """
+  Normalized form used to match a typed player name against the list:
+  lower-cased, accents stripped, and every run of non-alphanumerics
+  collapsed to one space. `"Hendricks, Björn"` and `"hendricks  BJORN"`
+  both become `"hendricks bjorn"`.
+
+  Folding accents matters more here than it looks. The KBSB list spells
+  names with them and an arbiter registering players at a desk usually
+  does not, so an exact comparison would miss precisely the Belgian names
+  this exists for.
+  """
+  def normalize_name(nil), do: ""
+
+  def normalize_name(name) do
+    name
+    |> String.downcase()
+    |> :unicode.characters_to_nfd_binary()
+    |> String.replace(~r/[\x{0300}-\x{036F}]/u, "")
+    |> String.replace(~r/[^a-z0-9]+/u, " ")
+    |> String.trim()
+  end
+
+  @doc """
+  Builds `%{normalize_name(full_name) => [KbsbPlayer]}` across the whole
+  list, for callers matching many players in one go (see
+  `PairingsEngine.ClubRefresh`).
+
+  Deliberately one query and one pass rather than a lookup per player: the
+  list is tens of thousands of rows but a tournament is a few hundred
+  players, and there is no index that could serve an accent-folded
+  comparison anyway — SQLite's `lower()` doesn't fold accents.
+
+  The value is a LIST because names are not unique. Callers must decide
+  what to do with more than one; this function refuses to pick for them.
+  """
+  def name_index do
+    KbsbPlayer
+    |> Repo.all()
+    |> Enum.group_by(&normalize_name(KbsbPlayer.full_name(&1)))
+  end
+
   def player_count, do: Repo.aggregate(KbsbPlayer, :count)
 
   def last_sync do

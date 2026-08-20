@@ -184,4 +184,80 @@ defmodule PairingsEngine.ClubRefreshTest do
       assert {:ok, _} = ClubRefresh.apply(tournament, [])
     end
   end
+
+  # The case both id lookups miss entirely, and the common one at a club
+  # event: a player typed in at the desk with no matricule and no FIDE id.
+  describe "matching by name and birth year" do
+    defp typed_in(tournament, name, attrs \\ %{}) do
+      {:ok, player} =
+        Tournaments.create_player(tournament.id, Map.merge(%{"name" => name}, attrs))
+
+      player
+    end
+
+    defp listed(attrs) do
+      Repo.insert!(struct(%KbsbPlayer{national_id: "n#{System.unique_integer([:positive])}"}, attrs))
+    end
+
+    test "matches a player carrying no ids at all", %{tournament: tournament} do
+      typed_in(tournament, "Janssens, Karel")
+      listed(%{last_name: "Janssens", first_name: "Karel", club_name: "KSK Rochade", club_number: 401})
+
+      assert %{proposals: proposals, changed: 1, unmatched: 0} = ClubRefresh.dry_run(tournament)
+      assert [%{field: :club, new: "KSK Rochade", via: :name}, %{field: :club_number, new: 401}] = proposals
+    end
+
+    test "an accent typed off is still the same player", %{tournament: tournament} do
+      typed_in(tournament, "Hendricks, Bjorn")
+      listed(%{last_name: "Hendricks", first_name: "Björn", club_name: "Rokade", club_number: 812})
+
+      assert [%{field: :club, new: "Rokade", via: :name} | _] =
+               ClubRefresh.dry_run(tournament).proposals
+    end
+
+    test "refuses to choose between two namesakes with no birth year to separate them", %{
+      tournament: tournament
+    } do
+      typed_in(tournament, "Peeters, Jan")
+      listed(%{last_name: "Peeters", first_name: "Jan", club_name: "Club A", birth_year: 1970})
+      listed(%{last_name: "Peeters", first_name: "Jan", club_name: "Club B", birth_year: 1995})
+
+      assert %{proposals: [], changed: 0, unmatched: 1} = ClubRefresh.dry_run(tournament)
+    end
+
+    test "a birth year picks the right namesake", %{tournament: tournament} do
+      typed_in(tournament, "Peeters, Jan", %{"birth_year" => "1995"})
+      listed(%{last_name: "Peeters", first_name: "Jan", club_name: "Club A", birth_year: 1970})
+      listed(%{last_name: "Peeters", first_name: "Jan", club_name: "Club B", birth_year: 1995})
+
+      assert [%{field: :club, new: "Club B", via: :name}] =
+               ClubRefresh.dry_run(tournament).proposals
+    end
+
+    test "a lone namesake whose birth year disagrees is a different person", %{
+      tournament: tournament
+    } do
+      typed_in(tournament, "Peeters, Jan", %{"birth_year" => "1995"})
+      listed(%{last_name: "Peeters", first_name: "Jan", club_name: "Club A", birth_year: 1970})
+
+      assert %{proposals: [], unmatched: 1} = ClubRefresh.dry_run(tournament)
+    end
+
+    test "an id still wins over the name, and is reported as such", %{tournament: tournament} do
+      typed_in(tournament, "Janssens, Karel", %{"national_id" => "55555"})
+
+      Repo.insert!(%KbsbPlayer{
+        national_id: "55555",
+        last_name: "Janssens",
+        first_name: "Karel",
+        club_name: "By Id",
+        club_number: 1
+      })
+
+      listed(%{last_name: "Janssens", first_name: "Karel", club_name: "By Name", club_number: 2})
+
+      assert [%{field: :club, new: "By Id", via: :national_id} | _] =
+               ClubRefresh.dry_run(tournament).proposals
+    end
+  end
 end
