@@ -83,10 +83,54 @@ all changed fires **one** broadcast, not 50, keeping other open tabs
   add row-level checkboxes if that turns out to matter in practice.
 - No automatic/scheduled refresh — this is a manual action the tournament
   director triggers, same as the existing per-player Refresh buttons.
-- Doesn't touch `federation`, `birth_year`, `club`, or anything else the
-  per-player Refresh buttons fill in — only `fide_rating`, `title`, and
+- Doesn't touch `federation`, `birth_year`, or anything else the per-player
+  Refresh buttons fill in — only `fide_rating`, `title`, and
   `national_rating`, per the SWAR feature this mirrors ("refresh ratings",
-  not "re-sync everything").
+  not "re-sync everything"). **`club` is handled separately** — see
+  "Bulk club refresh" below.
+
+## Bulk club refresh (`PairingsEngine.ClubRefresh`)
+
+"Update clubs", the button beside "Refresh ratings" on the Players page.
+The same gesture — dry run, preview table, Apply — proposing `club` (name)
+and `club_number` from the locally-synced KBSB list.
+
+It is a **separate button** rather than more proposals inside the rating
+refresh because the two answer different questions ("are these ratings
+current?" and "has anyone changed club?"), are wanted at different
+moments, and merging them would force an arbiter who only wanted clubs to
+accept rating changes too.
+
+### Matching, and why not the KBSB data platform API
+
+`player.national_id` first, then `player.fide_id` — the local KBSB row
+carries both, so a player registered from the FIDE database (FIDE id, no
+matricule) still resolves.
+
+The obvious alternative was the KBSB data platform's REST API
+(`kbsb-api.zerotwo.cloud`). It cannot do this job:
+
+| endpoint | has club? |
+|---|---|
+| `GET /players_national/:national_id` | yes — `club`, as a club id |
+| `GET /players_national/search?q=` | yes, but name search only |
+| `GET /players_fide/:fide_id` | **no** — raw FIDE list, no club or membership fields at all |
+
+There is no by-FIDE-id route into the national table, even though the
+column is there, so every FIDE-only player would go unmatched. Meanwhile
+the local copy already carries `club_name` *and* `club_number` from the
+same upstream sync (`docs/kbsb-sync.md`), needs no API key, and works in a
+playing hall with no internet — which is where this button gets pressed.
+If a by-FIDE-id route is ever added to the platform, it still would not
+beat the local copy on any of those three counts.
+
+### It never clears a club
+
+A KBSB row with a blank club is a lapsed or unrecorded membership, not an
+instruction to delete what the arbiter typed. So a blank proposes nothing,
+exactly as `RatingRefresh` never proposes blanking a title FIDE doesn't
+carry. Name and number always move together — half of a renamed or
+renumbered club is how a roster ends up self-contradictory.
 
 ## The monthly FIDE sync (`PairingsEngine.Fide.Sync`)
 

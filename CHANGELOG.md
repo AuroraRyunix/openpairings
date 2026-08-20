@@ -18,6 +18,14 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Paid is not one of the columns shown by default — switch it on from the
   column picker first, as before.
 
+- **"Update clubs" on the Players page.** Beside "Refresh ratings", and
+  the same gesture: it compares every registered player against the
+  locally-synced KBSB list and shows a preview of the club changes before
+  anything is written. Matches by National id, falling back to FIDE id
+  when no matricule is on file, and never clears a club the list has no
+  entry for — an arbiter who typed a club for an unaffiliated guest keeps
+  it. Club name and club number always move together.
+
 - **Embedded pages default to the light theme.** A frame sits inside
   somebody else's page, which is overwhelmingly light, so following the
   visitor's OS dark-mode setting dropped a dark slab into the middle of a

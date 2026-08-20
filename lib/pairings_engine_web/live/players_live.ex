@@ -12,6 +12,7 @@ defmodule PairingsEngineWeb.PlayersLive do
     PlayerStats,
     PlayerCard,
     RatingRefresh,
+    ClubRefresh,
     Tiebreaks
   }
 
@@ -115,6 +116,7 @@ defmodule PairingsEngineWeb.PlayersLive do
        card_player_id: nil,
        titles: @titles,
        rating_refresh: nil,
+       club_refresh: nil,
        sort_col: nil,
        sort_dir: nil,
        setup_complete: Tournament.setup_complete?(tournament),
@@ -664,6 +666,43 @@ defmodule PairingsEngineWeb.PlayersLive do
 
       {:error, _reason} ->
         {:noreply, put_flash(socket, :error, "Could not apply the rating refresh")}
+    end
+  end
+
+  ## ---------- Bulk club refresh (KBSB) ----------
+  #
+  # The same dry-run/preview/apply gesture as the rating refresh above, on
+  # the club columns instead — see `PairingsEngine.ClubRefresh` for why it
+  # is a separate action rather than more proposals inside that one.
+
+  def handle_event("open_club_refresh", _params, socket) do
+    summary = ClubRefresh.dry_run(socket.assigns.tournament)
+    {:noreply, assign(socket, club_refresh: summary)}
+  end
+
+  def handle_event("close_club_refresh", _params, socket) do
+    {:noreply, assign(socket, club_refresh: nil)}
+  end
+
+  def handle_event("apply_club_refresh", _params, socket) do
+    proposals = (socket.assigns.club_refresh || %{proposals: []}).proposals
+
+    case ClubRefresh.apply(socket.assigns.tournament, proposals) do
+      {:ok, players} ->
+        Audit.log(
+          socket.assigns.tournament.id,
+          socket.assigns.current_scope,
+          "player.clubs_refreshed",
+          %{players_updated: length(players)}
+        )
+
+        {:noreply, socket |> assign(club_refresh: nil) |> assign_players()}
+
+      {:error, :archived} ->
+        {:noreply, put_flash(socket, :error, error_text(:archived))}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Could not apply the club refresh")}
     end
   end
 
@@ -1315,6 +1354,15 @@ defmodule PairingsEngineWeb.PlayersLive do
           </button>
 
           <button
+            type="button"
+            class="pe-btn"
+            phx-click="open_club_refresh"
+            title="Compare every registered player against the locally-synced KBSB database and preview club updates before applying them"
+          >
+            Update clubs
+          </button>
+
+          <button
             :if={!@adding}
             class="pe-btn primary"
             phx-click="add"
@@ -1574,6 +1622,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         by_id={players_by_id(@players)}
         tournament={@tournament}
       /> <.rating_refresh_modal :if={@rating_refresh} summary={@rating_refresh} />
+      <.club_refresh_modal :if={@club_refresh} summary={@club_refresh} />
     </Layouts.app>
     """
   end
@@ -1648,9 +1697,82 @@ defmodule PairingsEngineWeb.PlayersLive do
     """
   end
 
+  # Deliberately the twin of `rating_refresh_modal/1` above: same table, same
+  # counts line, same Apply/Cancel. The wording is the only thing that moves,
+  # because an arbiter recognising the dialog is the point.
+  defp club_refresh_modal(assigns) do
+    ~H"""
+    <div class="modal-overlay" phx-window-keydown="close_club_refresh" phx-key="escape">
+      <div class="modal-card" phx-click-away="close_club_refresh" style="max-width: 700px">
+        <h2>Update clubs</h2>
+
+        <p class="hint">
+          Compares every registered player against the locally-synced KBSB list (by
+          National id, or FIDE id when no matricule is on file) and proposes their
+          current club. Never clears a club the list has no entry for. Nothing is
+          written until you Apply.
+        </p>
+
+        <div :if={@summary.proposals == []} class="card empty">
+          <p><strong>Every club up to date.</strong></p>
+        </div>
+
+        <div :if={@summary.proposals != []} class="card-table-wrap">
+          <table class="pe-table">
+            <thead>
+              <tr>
+                <th>Player</th>
+
+                <th>Field</th>
+
+                <th>Old</th>
+
+                <th>New</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              <tr :for={p <- @summary.proposals}>
+                <td>{p.player.name}</td>
+
+                <td>{field_label(p.field)}</td>
+
+                <td>{blank_dash(p.old)}</td>
+
+                <td><strong>{p.new}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="hint">
+          {@summary.checked} player{if @summary.checked != 1, do: "s"} checked, {@summary.changed} change{if @summary.changed !=
+                                                                                                               1,
+                                                                                                             do:
+                                                                                                               "s"}, {@summary.unmatched} without id match.
+        </p>
+
+        <div class="actions">
+          <button
+            :if={@summary.proposals != []}
+            type="button"
+            class="pe-btn primary"
+            phx-click="apply_club_refresh"
+          >
+            Apply
+          </button>
+          <button type="button" class="pe-btn" phx-click="close_club_refresh">Cancel</button>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
   defp field_label(:fide_rating), do: "FIDE rating"
   defp field_label(:national_rating), do: "National rating"
   defp field_label(:title), do: "Title"
+  defp field_label(:club), do: "Club"
+  defp field_label(:club_number), do: "Club number"
 
   # `Player.rating/1`'s own FIDE-first-then-national logic, worked from the
   # edit form's raw string values instead of a saved `%Player{}` — the form
