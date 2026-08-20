@@ -330,8 +330,35 @@ document.addEventListener("click", (e) => {
 })
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
+
+// `reconnectAfterMs` is overridden with a slower schedule than Phoenix's
+// own default ([10, 50, 100, 150, 200, 250, 500, 1000, 2000], i.e. the
+// FIRST retry after a drop is 10ms later). That default is fine for a
+// normal tab, but `phoenix.js`'s base Socket also force-reconnects on
+// every `visibilitychange` where the connection isn't already open
+// (`!isConnected() && !closeWasClean`) — and a cross-origin iframe (the
+// embeddable public pages, see docs/public-pages.md) gets its own
+// visibility/throttling treatment from the browser, distinct from its
+// parent tab's, which can flip more often than a normal backgrounded
+// tab does. Each flip that finds the socket not cleanly connected tears
+// it down and reconnects; at a 10ms first retry, a run of those produces
+// exactly the browser console spam this was written to fix: repeated
+// "WebSocket is closed before the connection is established", visible as
+// the topbar flashing on nothing in particular. A slower floor does not
+// stop a visibility flip from asking for a reconnect, but it stops one
+// flip's own retry attempts from racing each other, and gives
+// `longPollFallbackMs` below an actual unbroken window to fire in rather
+// than being reset by the next 10ms retry before it can.
+//
+// This has not been measured against a real embed, only reasoned from
+// `deps/phoenix/priv/static/phoenix.js`'s Socket constructor — if the
+// flicker persists after this, the next step is confirming whether
+// visibility events are really what is firing (a temporary debug log
+// on `visibilitychange` inside the embedded frame would settle it) rather
+// than tuning this further blind.
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
+  reconnectAfterMs: (tries) => [250, 500, 1000, 2000, 3000][tries - 1] || 5000,
   params: {_csrf_token: csrfToken},
   hooks: {...colocatedHooks, ColumnPrefs, PlayerGrid, AddPlayerShortcut},
 })
@@ -343,6 +370,26 @@ window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 
 // connect if there are any LiveViews on the page
 liveSocket.connect()
+
+// Temporary: confirms or refutes the visibility-flip theory in
+// `reconnectAfterMs` above, rather than leaving it as pure speculation.
+// Only active when framed (`window.self !== window.top`) — the two
+// embeddable public pages are the only ones this can fire on, and it is
+// silent everywhere else. Remove once the cause is confirmed either way;
+// it does nothing but log.
+if (window.self !== window.top) {
+  let lastLog = 0
+  const logThrottled = (label) => {
+    const now = Date.now()
+    console.log(`[embed-debug] ${label} at +${now - lastLog}ms since last, visibilityState=${document.visibilityState}`)
+    lastLog = now
+  }
+  document.addEventListener("visibilitychange", () => logThrottled("visibilitychange"))
+  window.addEventListener("pagehide", () => logThrottled("pagehide"))
+  window.addEventListener("pageshow", () => logThrottled("pageshow"))
+  window.addEventListener("phx:page-loading-start", () => logThrottled("phx:page-loading-start"))
+  console.log("[embed-debug] active — this frame is embedded, watching for visibility/reconnect churn")
+}
 
 // expose liveSocket on window for web console debug logs and latency simulation:
 // >> liveSocket.enableDebug()
