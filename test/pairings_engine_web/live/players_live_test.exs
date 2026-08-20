@@ -1701,4 +1701,59 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
     refute html =~ "updated by another arbiter"
     assert html =~ "2000"
   end
+
+  describe "bulk club refresh (Update clubs button)" do
+    setup %{scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Club Test", "type" => "swiss"})
+
+      %{tournament: tournament}
+    end
+
+    test "the button is on the Players page toolbar, beside Refresh ratings", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      assert html =~ "Update clubs"
+      assert html =~ "phx-click=\"open_club_refresh\""
+
+      # Adjacent to Refresh ratings, in that order — the two are the same
+      # gesture on different columns and are meant to be found together.
+      [_, between] = String.split(html, "Refresh ratings", parts: 2)
+      assert between =~ ~r/\A.{0,600}Update clubs/s
+    end
+
+    test "opens a preview and writes nothing until Apply", %{conn: conn, tournament: tournament} do
+      {:ok, player} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "Clubless, Carl",
+          "national_id" => "55555",
+          "club" => "Old Club"
+        })
+
+      Repo.insert!(%KbsbPlayer{
+        national_id: "55555",
+        last_name: "Clubless",
+        club_name: "New Club",
+        club_number: 812
+      })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+      html = lv |> element("button", "Update clubs") |> render_click()
+
+      assert html =~ "Old Club"
+      assert html =~ "New Club"
+
+      # Still the old club: the preview is a preview.
+      assert Tournaments.get_player!(tournament.id, player.id).club == "Old Club"
+
+      lv |> element("button", "Apply") |> render_click()
+
+      updated = Tournaments.get_player!(tournament.id, player.id)
+      assert updated.club == "New Club"
+      assert updated.club_number == 812
+    end
+  end
 end
