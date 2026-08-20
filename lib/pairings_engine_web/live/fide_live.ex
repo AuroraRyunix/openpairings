@@ -22,7 +22,6 @@ defmodule PairingsEngineWeb.FideLive do
        kbsb_status: KbsbSync.status(),
        kbsb_query: "",
        kbsb_results: [],
-       kbsb_error: nil,
        # Read once at mount: this comes from the server's environment, so it
        # cannot change while the page is open. False hides the sync button
        # entirely rather than offering an action that can only fail.
@@ -33,11 +32,7 @@ defmodule PairingsEngineWeb.FideLive do
        # accounts we actually vouch for (SSO), same reasoning as
        # `PairingsEngine.Accounts.User.sso?/1`'s own moduledoc.
        sso?: User.sso?(socket.assigns.current_scope.user)
-     )
-     # There's no registered MIME type to filter on (the export format isn't
-     # standardized — see docs/kbsb-sync.md), so accept anything and let the
-     # parser reject anything that isn't a recognisable rating list.
-     |> allow_upload(:kbsb_list, accept: :any, max_entries: 1, max_file_size: 25_000_000)}
+     )}
   end
 
   @impl true
@@ -73,27 +68,9 @@ defmodule PairingsEngineWeb.FideLive do
     {:noreply, assign(socket, status: FideSync.status())}
   end
 
-  def handle_event("validate_kbsb", _params, socket), do: {:noreply, socket}
-
-  def handle_event("import_kbsb", _params, socket) do
-    results =
-      consume_uploaded_entries(socket, :kbsb_list, fn %{path: path}, _entry ->
-        {:ok, File.read!(path)}
-      end)
-
-    case results do
-      [binary] ->
-        KbsbSync.start_import(binary)
-        {:noreply, assign(socket, kbsb_status: KbsbSync.status(), kbsb_error: nil)}
-
-      [] ->
-        {:noreply, assign(socket, kbsb_error: "Choose a file first")}
-    end
-  end
-
   def handle_event("sync_kbsb_api", _params, socket) do
     KbsbSync.start_api_import()
-    {:noreply, assign(socket, kbsb_status: KbsbSync.status(), kbsb_error: nil)}
+    {:noreply, assign(socket, kbsb_status: KbsbSync.status())}
   end
 
   def handle_event("cancel_kbsb", _params, socket) do
@@ -194,61 +171,20 @@ defmodule PairingsEngineWeb.FideLive do
           <% else %>
             The database is empty - {if @kbsb_api_configured,
               do: "sync it from the data platform to get started.",
-              else: "upload a rating-list file to get started."}
+              else: "no source is configured."}
           <% end %>
         </p>
 
-        <div :if={@kbsb_api_configured} class="card-inset">
-          <p>
-            <strong>Sync from the KBSB data platform.</strong>
-            Pulls the current roster straight from the Odoo-synced database, including each
-            player's club name and number. This is the one to use — no file to find, and it
-            can be re-run any time.
+        <p :if={!@kbsb_api_configured} class="hint">
+          No roster source is configured. Set KBSB_API_URL and KBSB_API_KEY on the server to
+          sync the Belgian roster from the KBSB data platform - see docs/kbsb-sync.md.
+        </p>
+
+        <div :if={@kbsb_api_configured}>
+          <p class="hint">
+            Pulls the current roster from the Odoo-synced database, including each player's club
+            name and number. Replaces the local copy entirely, and can be re-run any time.
           </p>
-
-          <div class="actions">
-            <button
-              type="button"
-              class="pe-btn primary"
-              phx-click="sync_kbsb_api"
-              disabled={busy?(@kbsb_status)}
-            >
-              {if busy?(@kbsb_status), do: "Syncing…", else: "Sync from data platform"}
-            </button>
-          </div>
-        </div>
-
-        <p class="hint">
-          <%= if @kbsb_api_configured do %>
-            Or upload the official rating-list export by hand. Either source replaces the local
-            copy entirely — see docs/kbsb-sync.md.
-          <% else %>
-            KBSB/FRBE doesn't publish a stable automatic download (see docs/kbsb-sync.md), so upload
-            the official rating-list export by hand. Uploading a new file replaces the local copy.
-            Set KBSB_API_URL and KBSB_API_KEY on the server to sync from the data platform instead.
-          <% end %>
-        </p>
-
-        <form
-          id="kbsb-import-form"
-          phx-submit="import_kbsb"
-          phx-change="validate_kbsb"
-          phx-drop-target={@uploads.kbsb_list.ref}
-        >
-          <div class={["dropzone", @uploads.kbsb_list.entries != [] && "has-file"]}>
-            <.live_file_input upload={@uploads.kbsb_list} class="dropzone-input" />
-            <div class="dropzone-label">
-              <%= if @uploads.kbsb_list.entries == [] do %>
-                <strong>Choose the KBSB rating-list file</strong>
-                <span class="hint">or drag and drop it here</span>
-              <% else %>
-                <span :for={entry <- @uploads.kbsb_list.entries} class="dropzone-file">
-                  {entry.client_name}
-                </span>
-              <% end %>
-            </div>
-          </div>
-          <p :for={err <- upload_errors(@uploads.kbsb_list)} class="error-note">{inspect(err)}</p>
 
           <div :if={busy?(@kbsb_status)} class="progress-block">
             <div class="progress-track">
@@ -262,21 +198,25 @@ defmodule PairingsEngineWeb.FideLive do
             </p>
           </div>
           <p :if={@kbsb_status.status == :error} class="error-note">
-            Import failed: {@kbsb_status.error}
+            Sync failed: {@kbsb_status.error}
           </p>
-          <p :if={@kbsb_error} class="error-note">{@kbsb_error}</p>
 
           <div class="actions">
-            <button type="submit" class="pe-btn primary" disabled={busy?(@kbsb_status)}>
-              {if busy?(@kbsb_status), do: "Importing…", else: "Import file"}
+            <button
+              type="button"
+              class="pe-btn primary"
+              phx-click="sync_kbsb_api"
+              disabled={busy?(@kbsb_status)}
+            >
+              {if busy?(@kbsb_status), do: "Syncing…", else: "Sync from data platform"}
             </button>
             <button :if={busy?(@kbsb_status)} type="button" class="pe-btn" phx-click="cancel_kbsb">
               Cancel
             </button>
           </div>
-        </form>
+        </div>
 
-        <div class="field search-wrap" style="margin-top: 16px">
+        <form class="field search-wrap" style="margin-top: 16px" phx-change="kbsb_search">
           <span style="display:block;font-size:13px;font-weight:600;color:var(--text-soft);margin-bottom:4px">
             Search the local KBSB database (national ID or last name)
           </span>
@@ -284,7 +224,6 @@ defmodule PairingsEngineWeb.FideLive do
             type="text"
             name="q"
             value={@kbsb_query}
-            phx-change="kbsb_search"
             phx-debounce="250"
             autocomplete="off"
             placeholder="Start typing a last name or matricule…"
@@ -299,7 +238,7 @@ defmodule PairingsEngineWeb.FideLive do
               </span>
             </div>
           </div>
-        </div>
+        </form>
       </div>
     </Layouts.app>
     """

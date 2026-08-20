@@ -331,6 +331,13 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       assert html =~ ~s(value="1990")
       assert html =~ ~s(value="KSK Antwerpen")
       assert html =~ "Peeters, Jan"
+
+      # The club NUMBER too, via the add form's hidden input — it has no
+      # visible field. Without it the player saves with a club name and no
+      # number, and "Update clubs" flags them as a pending change the moment
+      # they are registered, because it treats the two as a pair.
+      assert html =~ ~s(name="player[club_number]")
+      assert html =~ ~s(value="42")
     end
 
     test "an unknown national id leaves the form untouched", %{conn: conn, tournament: tournament} do

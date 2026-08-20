@@ -25,20 +25,12 @@ defmodule PairingsEngineWeb.FideLiveTest do
     assert html =~ "Rating lists"
   end
 
-  test "the KBSB import form is a file upload, not a plain sync button", %{conn: conn} do
+  test "the KBSB list has no manual file upload any more", %{conn: conn} do
     {:ok, _lv, html} = live(conn, ~p"/fide")
 
-    assert html =~ ~s(id="kbsb-import-form")
-    assert html =~ "Import file"
-  end
-
-  test "submitting the KBSB import form with no file chosen shows an error instead of crashing",
-       %{conn: conn} do
-    {:ok, lv, _html} = live(conn, ~p"/fide")
-
-    html = render_submit(lv, "import_kbsb", %{})
-
-    assert html =~ "Choose a file first"
+    refute html =~ ~s(id="kbsb-import-form")
+    refute html =~ "Import file"
+    refute html =~ "drag and drop"
   end
 
   test "searching the local KBSB database returns matches", %{conn: conn} do
@@ -55,7 +47,14 @@ defmodule PairingsEngineWeb.FideLiveTest do
 
     {:ok, lv, _html} = live(conn, ~p"/fide")
 
-    html = render_change(lv, "kbsb_search", %{"q" => "Peet"})
+    # Driven through the actual form element rather than by synthesising the
+    # event: `render_change(lv, "kbsb_search", ...)` proves the handler
+    # works, not that the PAGE can reach it. The search input once carried
+    # phx-change on a bare <input> with no wrapping form, so LiveView sent
+    # %{"value" => ...}, the handler never matched, and the whole LiveView
+    # crashed and silently reconnected — indistinguishable from "no
+    # results". A synthesised event cannot see that; this can.
+    html = lv |> form("form.search-wrap", %{"q" => "Peet"}) |> render_change()
 
     assert html =~ "Peeters"
     assert html =~ "KSK Antwerpen"
@@ -64,7 +63,7 @@ defmodule PairingsEngineWeb.FideLiveTest do
   test "an unknown KBSB search query returns no results", %{conn: conn} do
     {:ok, lv, _html} = live(conn, ~p"/fide")
 
-    html = render_change(lv, "kbsb_search", %{"q" => "Nobody"})
+    html = lv |> form("form.search-wrap", %{"q" => "Nobody"}) |> render_change()
 
     refute html =~ "kbsb-result-row"
   end
@@ -157,7 +156,7 @@ defmodule PairingsEngineWeb.FideLiveTest do
 
       refute html =~ "Sync from data platform"
       assert html =~ "KBSB_API_URL"
-      assert html =~ "upload a rating-list file to get started"
+      assert html =~ "no source is configured"
     end
   end
 end

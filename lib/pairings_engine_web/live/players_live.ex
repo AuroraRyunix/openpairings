@@ -460,6 +460,7 @@ defmodule PairingsEngineWeb.PlayersLive do
             "national_rating" => kp.national_rating,
             "federation" => kp.federation,
             "club" => kp.club_name,
+            "club_number" => kp.club_number,
             "birth_year" => kp.birth_year
           })
           |> put_if_blank("name", KbsbPlayer.full_name(kp))
@@ -1102,7 +1103,8 @@ defmodule PairingsEngineWeb.PlayersLive do
         Map.merge(form_values, %{
           "national_id" => kp.national_id,
           "national_rating" => kp.national_rating,
-          "club" => kp.club_name
+          "club" => kp.club_name,
+          "club_number" => kp.club_number
         })
     end
   end
@@ -1488,6 +1490,12 @@ defmodule PairingsEngineWeb.PlayersLive do
             <span>Club</span> <input name="player[club]" value={@form_values["club"]} />
           </label>
           <input type="hidden" name="player[sex]" value={@form_values["sex"]} />
+          <%!-- Hidden, like sex above: the club NUMBER is filled in by the KBSB
+                lookup and is not something an arbiter types. It still has to be
+                submitted, though — `ClubRefresh` treats name and number as a
+                pair, so a player registered with a name and no number would
+                immediately show up as a pending club change. --%>
+          <input type="hidden" name="player[club_number]" value={@form_values["club_number"]} />
         </div>
 
         <p :if={@error} class="error-note">{@error}</p>
