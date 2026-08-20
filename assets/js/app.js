@@ -356,7 +356,17 @@ const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute
 // visibility events are really what is firing (a temporary debug log
 // on `visibilitychange` inside the embedded frame would settle it) rather
 // than tuning this further blind.
-const liveSocket = new LiveSocket("/live", Socket, {
+// The embeddable public pages (`/p/:slug/pairings`, `/p/:slug/standings`)
+// use a cookie-free socket — see the "/embed/live" socket in endpoint.ex
+// for why. Chosen by path so a normal, non-embedded visit to those same
+// URLs uses it too: the socket works identically either way (those pages
+// have no session state to lose), and picking by `window.self !== window.top`
+// instead would mean the embedded and non-embedded cases exercised
+// different code paths, so a bug in one would not show up in the other.
+const EMBEDDABLE_PATH = /^\/p\/[^/]+\/(pairings|standings)$/
+const socketPath = EMBEDDABLE_PATH.test(window.location.pathname) ? "/embed/live" : "/live"
+
+const liveSocket = new LiveSocket(socketPath, Socket, {
   longPollFallbackMs: 2500,
   reconnectAfterMs: (tries) => [250, 500, 1000, 2000, 3000][tries - 1] || 5000,
   params: {_csrf_token: csrfToken},
@@ -371,24 +381,65 @@ window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 // connect if there are any LiveViews on the page
 liveSocket.connect()
 
-// Temporary: confirms or refutes the visibility-flip theory in
-// `reconnectAfterMs` above, rather than leaving it as pure speculation.
-// Only active when framed (`window.self !== window.top`) — the two
-// embeddable public pages are the only ones this can fire on, and it is
-// silent everywhere else. Remove once the cause is confirmed either way;
-// it does nothing but log.
+// When this page is embedded, tell the parent how tall its content
+// actually is, so the host page can size the <iframe> to fit instead of
+// guessing a fixed pixel height. A guessed height is wrong in both
+// directions: too small and the standings scroll inside a little box, too
+// large and there is a slab of dead space under the table (which is what
+// prompted this — a `height:3000px` embed of a short tournament).
+//
+// The message is `{type: "openpairings:height", height: <px>}`, posted to
+// `"*"` because the whole point is that we do not know or control which
+// site is embedding us — there is nothing secret in the payload, it is one
+// integer describing our own layout. Receivers should check
+// `event.data.type` before trusting it (the snippet in docs/public-pages.md
+// does).
+//
+// Height is reported on load, on every ResizeObserver tick, and after
+// LiveView patches the DOM — results coming in mid-round genuinely change
+// the table's height, and an embed that only sized itself once would drift
+// out of true as soon as that happened. `Math.ceil` + a last-value guard
+// keeps it from posting a message on every sub-pixel reflow.
 if (window.self !== window.top) {
-  let lastLog = 0
-  const logThrottled = (label) => {
-    const now = Date.now()
-    console.log(`[embed-debug] ${label} at +${now - lastLog}ms since last, visibilityState=${document.visibilityState}`)
-    lastLog = now
+  // Opt-in reconnect diagnostics, kept from the flicker investigation. The
+  // reconnect spam ("WebSocket is closed before the connection is
+  // established") appeared to settle after `reconnectAfterMs` was slowed,
+  // but the mechanism was never actually confirmed — see that option's
+  // comment. Rather than delete the instrumentation and have nothing to
+  // reach for if it returns, it now only logs when explicitly asked:
+  // append `?embeddebug=1` to the embedded URL.
+  if (new URLSearchParams(window.location.search).has("embeddebug")) {
+    let lastLog = 0
+    const logThrottled = (label) => {
+      const now = Date.now()
+      console.log(`[embed-debug] ${label} at +${now - lastLog}ms since last, visibilityState=${document.visibilityState}`)
+      lastLog = now
+    }
+    document.addEventListener("visibilitychange", () => logThrottled("visibilitychange"))
+    window.addEventListener("pagehide", () => logThrottled("pagehide"))
+    window.addEventListener("pageshow", () => logThrottled("pageshow"))
+    window.addEventListener("phx:page-loading-start", () => logThrottled("phx:page-loading-start"))
+    console.log("[embed-debug] active — watching for visibility/reconnect churn")
   }
-  document.addEventListener("visibilitychange", () => logThrottled("visibilitychange"))
-  window.addEventListener("pagehide", () => logThrottled("pagehide"))
-  window.addEventListener("pageshow", () => logThrottled("pageshow"))
-  window.addEventListener("phx:page-loading-start", () => logThrottled("phx:page-loading-start"))
-  console.log("[embed-debug] active — this frame is embedded, watching for visibility/reconnect churn")
+
+  let lastHeight = 0
+
+  const reportHeight = () => {
+    // `documentElement.scrollHeight` rather than body's: the public layout's
+    // <main> is the scrolling element and body can report short.
+    const height = Math.ceil(document.documentElement.scrollHeight)
+    if (height === lastHeight || height <= 0) return
+    lastHeight = height
+    window.parent.postMessage({type: "openpairings:height", height}, "*")
+  }
+
+  if (typeof ResizeObserver !== "undefined") {
+    new ResizeObserver(reportHeight).observe(document.documentElement)
+  }
+  window.addEventListener("load", reportHeight)
+  window.addEventListener("phx:page-loading-stop", reportHeight)
+  document.addEventListener("phx:update", reportHeight)
+  reportHeight()
 }
 
 // expose liveSocket on window for web console debug logs and latency simulation:

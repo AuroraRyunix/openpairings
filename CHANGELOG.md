@@ -18,6 +18,24 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Paid is not one of the columns shown by default — switch it on from the
   column picker first, as before.
 
+- **Embedded public pages size themselves, and no longer reload-loop.**
+  Two follow-ups to the embedding support below, both found by actually
+  putting it on a club site.
+
+  The embedded page now posts its height to the host page whenever the
+  content changes, so the iframe can be sized to fit rather than guessing a
+  pixel value — a guess leaves the table scrolling in a small box or a slab
+  of empty space under a short tournament. `docs/public-pages.md` has the
+  snippet to receive it.
+
+  And the embeddable pages now use a websocket that does not require the
+  session cookie. A `SameSite=Lax` cookie is deliberately not sent to a
+  cross-site iframe, so the normal socket connected with no session,
+  LiveView rejected it, and the client retried forever — the page appeared
+  to reload constantly on scroll and hover. Fixed with a second,
+  cookie-free socket for those two pages, rather than by loosening the
+  cookie for the entire app.
+
 - **The public pairing and standings pages can be embedded in another
   site.** They previously sent `frame-ancestors 'none'` like every other
   page, so a club website putting one in an `<iframe>` got a blank frame

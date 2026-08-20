@@ -115,6 +115,52 @@ the pairing list or the standings straight into its own page:
         style="width:100%;height:600px;border:0"></iframe>
 ```
 
+### Sizing it to the content
+
+A fixed `height` is a guess, and it is wrong in both directions: too small
+and the table scrolls inside a little box, too large and there is a slab of
+empty space under it. The embedded page posts its own height to the parent
+whenever it changes, so the host page can size the frame to fit:
+
+```html
+<iframe id="pairings" src="https://pairings.example/p/SLUG/pairings"
+        style="width:100%;height:600px;border:0"></iframe>
+<script>
+  window.addEventListener("message", (event) => {
+    // Only trust messages from the pairings host.
+    if (event.origin !== "https://pairings.example") return;
+    if (!event.data || event.data.type !== "openpairings:height") return;
+    document.getElementById("pairings").style.height = event.data.height + "px";
+  });
+</script>
+```
+
+The message is `{type: "openpairings:height", height: <integer px>}`. It is
+sent on load and again whenever the content resizes — results coming in
+mid-round change the table's height, and a frame sized once would drift out
+of true as soon as that happened.
+
+The `height` in the HTML is still worth setting to something sensible: it
+is what the visitor sees for the moment before the first message arrives.
+
+### Why these pages use a different websocket
+
+The embeddable pages connect their LiveView over `/embed/live` rather than
+`/live` (see the socket declaration in `PairingsEngineWeb.Endpoint`). The
+session cookie is `SameSite=Lax`, which browsers deliberately do not send
+on a cross-site request — and an iframe on someone else's domain is one. On
+the session-bearing socket that means the connection arrives with no
+session, LiveView cannot verify it, and the client retries forever: the
+page appears to reload constantly and the browser console fills with
+"WebSocket is closed before the connection is established".
+
+`/embed/live` never asks for the session, so there is nothing to be
+missing. That is only safe because of what these two pages are — no login,
+no writes, no per-user state — and it is why the fix was a second socket
+rather than loosening the cookie to `SameSite=None`, which would have sent
+the session cookie to every third-party frame on the internet to serve two
+read-only pages.
+
 Nothing else in the app allows it. `/p/:slug/register` does not — it is the
 one public page that writes, and a form in a third-party frame is exactly
 the clickjacking shape the policy exists to prevent — and neither do the
