@@ -1356,6 +1356,24 @@ defmodule PairingsEngine.Tournaments do
     bulk_update_players(tournament_id, updates)
   end
 
+  @doc """
+  Sets the registration-fee status on every player in `tournament_id` — the
+  "All ..." right-click action on the Players grid's Paid column header, the
+  same shape as `set_all_players_absent/2` above.
+
+  `status` is one of `"nopaid"`, `"paid"`, `"gratis"` (SWAR §5.20); anything
+  else returns `{:error, :invalid_paid_status}` rather than reaching the
+  changeset, so a malformed client event cannot half-apply across the
+  roster. One transaction, one broadcast, via `bulk_update_players/2`.
+  """
+  def set_all_players_paid(tournament_id, status) when status in ~w(nopaid paid gratis) do
+    players = list_players(tournament_id)
+    updates = for p <- players, do: {p, %{"paid" => status}}
+    bulk_update_players(tournament_id, updates)
+  end
+
+  def set_all_players_paid(_tournament_id, _status), do: {:error, :invalid_paid_status}
+
   def change_player(%Player{} = player, attrs \\ %{}), do: Player.changeset(player, attrs)
 
   @doc """

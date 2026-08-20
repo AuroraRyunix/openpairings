@@ -1418,6 +1418,87 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
     end
   end
 
+  describe "Paid cell click/right-click menu (fee status)" do
+    test "each of the three states writes through and shows its letter", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Paid Menu Test", "type" => "swiss"})
+
+      {:ok, player} = Tournaments.create_player(tournament.id, %{"name" => "Fee Payer"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+      # Paid is not on by default; a user right-clicking it has switched it
+      # on from the column picker first.
+      render_click(lv, "toggle_column", %{"key" => "paid"})
+
+      for {value, letter} <- [{"nopaid", "N"}, {"gratis", "G"}, {"paid", "P"}] do
+        html = render_click(lv, "set_paid", %{"id" => to_string(player.id), "value" => value})
+
+        assert letter in cells_for(html, player.id),
+               ~s(setting "#{value}" should render "#{letter}" in the Paid column)
+
+        assert Tournaments.get_player!(tournament.id, player.id).paid == value
+      end
+    end
+
+    test "a value outside the three states is refused, not stored", %{conn: conn, scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Paid Reject", "type" => "swiss"})
+
+      {:ok, player} = Tournaments.create_player(tournament.id, %{"name" => "Fee Payer"})
+      before = Tournaments.get_player!(tournament.id, player.id).paid
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+      render_click(lv, "set_paid", %{"id" => to_string(player.id), "value" => "sponsored"})
+
+      assert Tournaments.get_player!(tournament.id, player.id).paid == before
+    end
+
+    test "an unknown player id is a no-op rather than a crash", %{conn: conn, scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Paid Missing", "type" => "swiss"})
+
+      {:ok, _player} = Tournaments.create_player(tournament.id, %{"name" => "Fee Payer"})
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      assert render_click(lv, "set_paid", %{"id" => "999999", "value" => "paid"})
+    end
+
+    test "the column header's bulk action sets every player at once", %{conn: conn, scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Paid Bulk", "type" => "swiss"})
+
+      for name <- ~w(One Two Three) do
+        {:ok, _} = Tournaments.create_player(tournament.id, %{"name" => name})
+      end
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+      render_click(lv, "set_all_paid", %{"value" => "nopaid"})
+
+      assert Enum.all?(Tournaments.list_players(tournament.id), &(&1.paid == "nopaid"))
+
+      render_click(lv, "set_all_paid", %{"value" => "gratis"})
+
+      assert Enum.all?(Tournaments.list_players(tournament.id), &(&1.paid == "gratis"))
+    end
+
+    test "a bad bulk value touches nobody", %{conn: conn, scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Paid Bulk Reject", "type" => "swiss"})
+
+      for name <- ~w(One Two) do
+        {:ok, _} = Tournaments.create_player(tournament.id, %{"name" => name})
+      end
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+      render_click(lv, "set_all_paid", %{"value" => "sponsored"})
+
+      assert Enum.all?(Tournaments.list_players(tournament.id), &(&1.paid == "paid"))
+    end
+  end
+
   # Every cell in a player's row, so assertions do not depend on which
   # column index a given field happens to sit at. Shared by the SWAR
   # presence-notation tests and the Pr. cell context-menu tests above.

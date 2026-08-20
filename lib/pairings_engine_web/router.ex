@@ -2,6 +2,7 @@ defmodule PairingsEngineWeb.Router do
   use PairingsEngineWeb, :router
 
   import PairingsEngineWeb.UserAuth
+  import PairingsEngineWeb.CSP, only: [allow_framing: 2]
 
   pipeline :browser do
     plug :accepts, ["html"]
@@ -17,6 +18,14 @@ defmodule PairingsEngineWeb.Router do
 
   pipeline :api do
     plug :accepts, ["json"]
+  end
+
+  # Runs AFTER `:browser`, and re-opens `frame-ancestors` for the routes
+  # that are safe to put in someone else's page. Nothing else about the
+  # policy changes -- see `PairingsEngineWeb.CSP`'s "Framing" section for
+  # which routes qualify and why the rest must not.
+  pipeline :embeddable do
+    plug :allow_framing
   end
 
   scope "/", PairingsEngineWeb do
@@ -135,17 +144,30 @@ defmodule PairingsEngineWeb.Router do
   ## Public (no login required) read-only tournament pages — see docs/public-pages.md.
   # Reachable via a tournament's unguessable `public_slug`, not its numeric
   # id. No `:require_authenticated_user` — deliberately public.
+  # Read-only, and embeddable: a club site can iframe the pairing list or
+  # the standings. They stay in ONE `live_session` because they link to
+  # each other with `<.link navigate>`, which only stays a live navigation
+  # inside a session.
   scope "/", PairingsEngineWeb do
-    pipe_through [:browser]
+    pipe_through [:browser, :embeddable]
 
     live_session :public_tournament_pages,
       on_mount: [{PairingsEngineWeb.UserAuth, :mount_current_scope}] do
       live "/p/:slug/pairings", PublicPairingsLive
       live "/p/:slug/standings", PublicStandingsLive
-      # The only public page that WRITES. Gated a second time on
-      # `registration_open` inside the LiveView and again inside
-      # `Tournaments.register_public_player/2`, so reaching this route is
-      # not by itself permission to enter.
+    end
+  end
+
+  # The only public page that WRITES, and so the only one NOT embeddable:
+  # a form in a third-party frame is the clickjacking shape this policy
+  # exists to prevent. Gated a second time on `registration_open` inside
+  # the LiveView and again inside `Tournaments.register_public_player/2`,
+  # so reaching this route is not by itself permission to enter.
+  scope "/", PairingsEngineWeb do
+    pipe_through [:browser]
+
+    live_session :public_registration,
+      on_mount: [{PairingsEngineWeb.UserAuth, :mount_current_scope}] do
       live "/p/:slug/register", PublicRegisterLive
     end
   end

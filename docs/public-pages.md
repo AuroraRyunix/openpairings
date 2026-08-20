@@ -104,3 +104,36 @@ logged-out visitor to).
   appear.
 - No way to enumerate tournaments from a public link — the slug reveals
   nothing about the tournament's id or any other tournament's slug.
+
+## Embedding a page in another site
+
+The two read-only pages set `frame-ancestors *`, so a club website can put
+the pairing list or the standings straight into its own page:
+
+```html
+<iframe src="https://pairings.example/p/SLUG/pairings"
+        style="width:100%;height:600px;border:0"></iframe>
+```
+
+Nothing else in the app allows it. `/p/:slug/register` does not — it is the
+one public page that writes, and a form in a third-party frame is exactly
+the clickjacking shape the policy exists to prevent — and neither do the
+arbiter tools, the mobile result entry or any authenticated page. The
+router marks the two that do with a `:embeddable` pipeline; everything else
+keeps `frame-ancestors 'none'`. See `PairingsEngineWeb.CSP`.
+
+Framing these two grants a page no capability it did not already have: they
+hold no session, take no input, and are already readable by anyone with the
+slug. That is the property that makes it safe, and the reason it cannot be
+extended to the rest of the app by loosening one setting.
+
+**To restrict or disable it**, set `PUBLIC_FRAME_ANCESTORS`:
+
+| value | effect |
+|---|---|
+| unset | `*` — any site may embed the two read-only pages (default) |
+| `https://club.example https://federation.example` | only those origins |
+| `'none'` | embedding off, without touching the router |
+
+Turning the public pages off entirely (per tournament, from Settings) also
+removes them from the web, embed or not.

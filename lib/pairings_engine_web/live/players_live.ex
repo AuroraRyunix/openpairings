@@ -573,6 +573,67 @@ defmodule PairingsEngineWeb.PlayersLive do
     end
   end
 
+  ## ---------- Paid cell click/right-click menu (registration fee) ----------
+  #
+  # The same gesture as the Pr. column above, on the Paid column: click or
+  # right-click a player's Paid cell for "Paid" / "Not paid" / "Gratis",
+  # right-click the COLUMN HEADER for the same three applied to everyone.
+  # It is a plain three-state field (SWAR §5.20, `Player`'s
+  # `@paid_statuses`) with no per-round dimension, so unlike `absent` there
+  # is nothing here that a careless bulk action could quietly erase.
+  #
+  # The value is validated by `Player.changeset/2`'s `validate_inclusion`,
+  # so an event carrying anything else fails the update rather than storing
+  # it; the bulk version rejects it before touching the roster at all
+  # (`Tournaments.set_all_players_paid/2`).
+  def handle_event("set_paid", %{"id" => id, "value" => value}, socket) do
+    case Tournaments.get_player(socket.assigns.tournament.id, id) do
+      nil ->
+        {:noreply, socket}
+
+      player ->
+        case Tournaments.update_player(player, %{"paid" => value}) do
+          {:ok, updated} ->
+            if updated.paid != player.paid do
+              Audit.log(
+                socket.assigns.tournament.id,
+                socket.assigns.current_scope,
+                "player.updated",
+                %{
+                  player_id: player.id,
+                  player_name: player.name,
+                  changed_fields: %{"paid" => [player.paid, updated.paid]}
+                }
+              )
+            end
+
+            {:noreply, assign_players(socket)}
+
+          {:error, reason} ->
+            {:noreply, put_flash(socket, :error, error_text(reason))}
+        end
+    end
+  end
+
+  def handle_event("set_all_paid", %{"value" => value}, socket) do
+    tournament_id = socket.assigns.tournament.id
+
+    case Tournaments.set_all_players_paid(tournament_id, value) do
+      {:ok, players} ->
+        Audit.log(
+          tournament_id,
+          socket.assigns.current_scope,
+          "player.bulk_paid_set",
+          %{paid: value, player_count: length(players)}
+        )
+
+        {:noreply, assign_players(socket)}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, error_text(reason))}
+    end
+  end
+
   ## ---------- Bulk rating refresh (FIDE/KBSB) ----------
 
   def handle_event("open_rating_refresh", _params, socket) do
@@ -1439,9 +1500,11 @@ defmodule PairingsEngineWeb.PlayersLive do
                   phx-click="sort"
                   phx-value-key={key}
                   title={
-                    if key == "pr",
-                      do: desc <> " — right-click here to set Present/Absent for everyone",
-                      else: desc
+                    case key do
+                      "pr" -> desc <> " — right-click here to set Present/Absent for everyone"
+                      "paid" -> desc <> " — right-click here to set the fee status for everyone"
+                      _ -> desc
+                    end
                   }
                 >
                   {label}{sort_indicator(@sort_col, @sort_dir, key)}

@@ -40,6 +40,34 @@ const ColumnPrefs = {
 
 // Double-click a player row to edit it, right-click for the Players Card.
 // One listener on the table (event delegation) rather than one per row.
+//
+// Two columns opt out of the Players Card and get their own little menu
+// instead, on the cell for one player and on the column header for every
+// player at once. They are described once here and driven by the same
+// code below, so a third one is a table entry rather than another copy of
+// the popup, the outside-click handling and the teardown.
+const CELL_MENUS = {
+  // Whole-tournament presence only -- per-round marks stay a job for the
+  // edit dialog. See the `cell(entry, "pr")` doc comment in
+  // players_live.ex.
+  pr: {
+    event: "set_absent_flag",
+    bulkEvent: "set_all_absent_flag",
+    items: [["Absent", "true"], ["Present", "false"]],
+    bulkItems: [["All Absent", "true"], ["All Present", "false"]],
+  },
+  // Registration fee, SWAR 5.20. Three states, no per-round dimension.
+  paid: {
+    event: "set_paid",
+    bulkEvent: "set_all_paid",
+    items: [["Paid", "paid"], ["Not paid", "nopaid"], ["Gratis", "gratis"]],
+    bulkItems: [["All Paid", "paid"], ["All Not paid", "nopaid"], ["All Gratis", "gratis"]],
+  },
+}
+
+const CELL_MENU_COLS = Object.keys(CELL_MENUS)
+const cellMenuSelector = (tag) => CELL_MENU_COLS.map((c) => tag + "[data-col=\"" + c + "\"]").join(", ")
+
 const PlayerGrid = {
   mounted() {
     // Double-clicking must not text-select the player name; e.detail > 1
@@ -54,15 +82,14 @@ const PlayerGrid = {
       this.pushEvent("edit_player", {id: tr.dataset.playerId})
     })
     this.el.addEventListener("contextmenu", (e) => {
-      // The Pr. COLUMN HEADER gets the bulk version — "All Absent"/"All
-      // Present" for every player in the tournament at once, left click
-      // on the same header still sorts. Checked before the row lookup
-      // below, since a header cell sits in <thead> with no
-      // tr[data-player-id] ancestor.
-      const prHeader = e.target.closest('th[data-col="pr"]')
-      if (prHeader) {
+      // A COLUMN HEADER in CELL_MENUS gets the bulk version — every player
+      // in the tournament at once; left click on the same header still
+      // sorts. Checked before the row lookup below, since a header cell
+      // sits in <thead> with no tr[data-player-id] ancestor.
+      const header = e.target.closest(cellMenuSelector("th"))
+      if (header) {
         e.preventDefault()
-        this.openPrMenu(e.clientX, e.clientY, null)
+        this.openCellMenu(e.clientX, e.clientY, header.dataset.col, null)
         return
       }
 
@@ -70,95 +97,92 @@ const PlayerGrid = {
       if (!tr) return
       e.preventDefault()
 
-      // The Pr. cell gets its own tiny menu instead of the Players Card —
-      // "Present"/"Absent" toggle the whole-tournament flag only (see the
-      // `cell(entry, "pr")` doc comment in players_live.ex), leaving any
-      // per-round marks on that player untouched. Every other cell on the
-      // row keeps the existing Players Card behaviour.
-      const prCell = e.target.closest('td[data-col="pr"]')
-      if (prCell) {
-        this.openPrMenu(e.clientX, e.clientY, tr.dataset.playerId)
+      // Those columns' cells get their own tiny menu instead of the
+      // Players Card. Every other cell on the row keeps the existing
+      // Players Card behaviour.
+      const cell = e.target.closest(cellMenuSelector("td"))
+      if (cell) {
+        this.openCellMenu(e.clientX, e.clientY, cell.dataset.col, tr.dataset.playerId)
         return
       }
 
       this.pushEvent("show_card", {id: tr.dataset.playerId})
     })
 
-    // Left-click on the Pr. cell opens the same little menu — right-click
-    // isn't discoverable (no visible affordance, doesn't exist at all on
-    // touch), so a plain click gets it too. Left-click elsewhere on the
-    // row is unclaimed today, so this can't collide with anything.
+    // Left-click on one of those cells opens the same little menu —
+    // right-click isn't discoverable (no visible affordance, doesn't exist
+    // at all on touch), so a plain click gets it too. Left-click elsewhere
+    // on the row is unclaimed today, so this can't collide with anything.
     this.el.addEventListener("click", (e) => {
-      const prCell = e.target.closest('td[data-col="pr"]')
-      if (!prCell) return
+      const cell = e.target.closest(cellMenuSelector("td"))
+      if (!cell) return
       const tr = e.target.closest("tr[data-player-id]")
       if (!tr) return
-      this.openPrMenu(e.clientX, e.clientY, tr.dataset.playerId)
+      this.openCellMenu(e.clientX, e.clientY, cell.dataset.col, tr.dataset.playerId)
     })
 
-    this.onPrDocMousedown = (e) => {
-      if (this.prPopup && !this.prPopup.contains(e.target)) this.closePrMenu()
+    this.onCellMenuDocMousedown = (e) => {
+      if (this.cellPopup && !this.cellPopup.contains(e.target)) this.closeCellMenu()
     }
-    this.onPrDocKeydown = (e) => {
-      if (e.key === "Escape") this.closePrMenu()
+    this.onCellMenuDocKeydown = (e) => {
+      if (e.key === "Escape") this.closeCellMenu()
     }
-    document.addEventListener("mousedown", this.onPrDocMousedown)
-    document.addEventListener("keydown", this.onPrDocKeydown)
+    document.addEventListener("mousedown", this.onCellMenuDocMousedown)
+    document.addEventListener("keydown", this.onCellMenuDocKeydown)
   },
 
-  // `playerId` is null for the column-header (bulk, every player) menu,
-  // a player id string for one row's cell — the two push different
-  // server events but share the same little popup.
-  openPrMenu(x, y, playerId) {
-    this.closePrMenu()
+  // `playerId` is null for the column-header (bulk, every player) menu, a
+  // player id string for one row's cell — the two push different server
+  // events but share the same little popup. `col` picks the entry in
+  // CELL_MENUS, which is the only place the labels and event names live.
+  //
+  // The bulk menu keeps its "All ..." wording — it genuinely means
+  // everyone. The per-row menu is about the one player whose cell was
+  // clicked, so the plain wording reads right there instead of implying it
+  // touches every player too.
+  openCellMenu(x, y, col, playerId) {
+    this.closeCellMenu()
 
+    const menu = CELL_MENUS[col]
+    if (!menu) return
+
+    const bulk = playerId === null
     const popup = document.createElement("div")
     popup.className = "print-menu-popup"
     popup.style.left = `${x}px`
     popup.style.top = `${y}px`
 
-    const addItem = (label, value) => {
+    for (const [label, value] of bulk ? menu.bulkItems : menu.items) {
       const btn = document.createElement("button")
       btn.type = "button"
       btn.className = "print-menu-item"
       btn.textContent = label
       btn.addEventListener("click", () => {
-        if (playerId === null) {
-          this.pushEvent("set_all_absent_flag", {value})
+        if (bulk) {
+          this.pushEvent(menu.bulkEvent, {value})
         } else {
-          this.pushEvent("set_absent_flag", {id: playerId, value})
+          this.pushEvent(menu.event, {id: playerId, value})
         }
-        this.closePrMenu()
+        this.closeCellMenu()
       })
       popup.appendChild(btn)
     }
-    // The column-header (bulk, every player) menu keeps the "All" wording
-    // — it genuinely means everyone. The per-row menu is about the one
-    // player whose cell was clicked, so plain "Absent"/"Present" reads
-    // right there instead of implying it touches every player too.
-    if (playerId === null) {
-      addItem("All Absent", "true")
-      addItem("All Present", "false")
-    } else {
-      addItem("Absent", "true")
-      addItem("Present", "false")
-    }
 
     document.body.appendChild(popup)
-    this.prPopup = popup
+    this.cellPopup = popup
   },
 
-  closePrMenu() {
-    if (this.prPopup) {
-      this.prPopup.remove()
-      this.prPopup = null
+  closeCellMenu() {
+    if (this.cellPopup) {
+      this.cellPopup.remove()
+      this.cellPopup = null
     }
   },
 
   destroyed() {
-    this.closePrMenu()
-    document.removeEventListener("mousedown", this.onPrDocMousedown)
-    document.removeEventListener("keydown", this.onPrDocKeydown)
+    this.closeCellMenu()
+    document.removeEventListener("mousedown", this.onCellMenuDocMousedown)
+    document.removeEventListener("keydown", this.onCellMenuDocKeydown)
   },
 }
 
