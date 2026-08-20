@@ -5,7 +5,34 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.15.0] — 2026-08-20
+
+The version in `mix.exs` had run ahead of this file: 0.14.32, 0.14.33 and
+0.14.34 were tagged in code but never cut a section here, so everything
+since 0.14.31 had been accumulating under Unreleased. This release closes
+that gap — it covers those three versions as well as the work below, which
+is why it opens a new minor line rather than continuing 0.14.x.
+
 ### Fixed
+
+- **Searching the local KBSB database returned nothing, always.** The
+  search box carried its `phx-change` on a bare `<input>` with no
+  wrapping form, so LiveView sent `%{"value" => …}` where the handler
+  expected `%{"q" => …}`; nothing matched, the LiveView crashed and
+  silently reconnected, and the box looked inert. It had been broken from
+  the start and nobody could see it, because the KBSB database was never
+  populated until the data-platform sync arrived.
+
+  The test that covered this synthesised the event directly, which proved
+  the handler worked but not that the page could reach it. It now drives
+  the real form element.
+
+- **Registering a player now fills in the club number, not just the club
+  name.** Both autofill paths — picking from the FIDE list, and typing a
+  National id — set the name only, and the add dialog had no field to
+  submit the number with. A player registered that way then showed up
+  immediately as a pending club change, because "Update clubs" treats
+  name and number as a pair.
 
 - **An accented player name no longer corrupts the FIDE TRF export.**
   TRF16 addresses its fields by column, and every reader outside this
@@ -40,6 +67,12 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   the club, which has its own "Update clubs" button.
 
 ### Removed
+
+- **The manual KBSB rating-list file upload.** The Belgian roster now
+  comes from the data platform, which has the club names the file never
+  carried and needs nobody to remember to do it. The rating-lists page
+  offers the sync and nothing else; with no API configured it names the
+  settings to set rather than falling back to a file picker.
 
 - **The "Pair by: FIDE rating / National rating" setting**, which never
   did anything. It was stored, validated and exported, but no code ever
