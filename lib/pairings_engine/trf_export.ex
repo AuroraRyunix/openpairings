@@ -195,7 +195,11 @@ defmodule PairingsEngine.TrfExport do
         },
         players: trf_players
       },
-      column_legend: true
+      column_legend: true,
+      # This file leaves the building — it is what an arbiter submits to
+      # FIDE — so it must survive a byte-oriented reader. See
+      # `Trf.serialize/2`'s `:ascii` option.
+      ascii: true
     )
   end
 

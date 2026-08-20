@@ -3,7 +3,6 @@ defmodule PairingsEngine.Tournaments.Tournament do
   import Ecto.Changeset
 
   @types ~w(swiss roundrobin team-swiss team-roundrobin)
-  @rating_types ~w(fide national none)
   @accelerations ~w(none baku)
   @statuses ~w(setup running finished)
   @standards ~w(standard rapid blitz)
@@ -51,7 +50,6 @@ defmodule PairingsEngine.Tournaments.Tournament do
     field :deputy_arbiter, :string, default: ""
     field :time_control, :string, default: ""
     field :rounds_count, :integer, default: 9
-    field :rating_type, :string, default: "fide"
     field :points_win, :float, default: 1.0
     field :points_draw, :float, default: 0.5
     field :points_loss, :float, default: 0.0
@@ -431,7 +429,6 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :deputy_arbiter,
       :time_control,
       :rounds_count,
-      :rating_type,
       :points_win,
       :points_draw,
       :points_loss,
@@ -478,7 +475,6 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_required([:name, :type, :rounds_count])
     |> validate_length(:name, min: 1, max: 200)
     |> validate_inclusion(:type, @types)
-    |> validate_inclusion(:rating_type, @rating_types)
     |> validate_inclusion(:acceleration, @accelerations)
     |> validate_inclusion(:status, @statuses)
     |> validate_inclusion(:standard, @standards)

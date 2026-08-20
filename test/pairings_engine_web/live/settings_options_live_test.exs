@@ -95,13 +95,17 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
   end
 
   describe "\"Pair by\" rating type" do
-    test "no longer offers the \"No rating (random order)\" option", %{conn: conn, scope: scope} do
+    # The select is gone entirely: `rating_type` was stored, validated and
+    # exported but never read — pairing order comes from
+    # `Tournaments.Player.rating/1`, which never consulted it — so the
+    # choice it offered had no effect. See the migration
+    # 20260820120000_drop_tournament_rating_type.
+    test "is not offered at all, because it never did anything", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
 
-      refute html =~ "No rating (random order)"
-      assert html =~ "FIDE rating"
-      assert html =~ "National rating"
+      refute html =~ "Pair by"
+      refute html =~ "tournament[rating_type]"
     end
   end
 

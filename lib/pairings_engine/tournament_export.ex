@@ -38,7 +38,7 @@ defmodule PairingsEngine.TournamentExport do
   # round-robin tournament restored as a Swiss one.
   @tournament_fields ~w(
     name type venue city federation start_date end_date organizer
-    chief_arbiter deputy_arbiter time_control rounds_count rating_type
+    chief_arbiter deputy_arbiter time_control rounds_count
     points_win points_draw points_loss bye_value presence_value abs_value
     abs_jusque abs_nbfois absent_counts_as_vur
     presence_on_allocated_bye tiebreaks acceleration

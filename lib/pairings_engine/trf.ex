@@ -153,10 +153,18 @@ defmodule PairingsEngine.Trf do
   Off by default — deliberately never used for the JaVaFo-input path (see
   `PairingsEngine.Pairing.javafo_input/4`), which has no use for it and
   should stay byte-for-byte what it's always been for a fragile consumer.
+
+  `opts[:ascii]`: when true, folds every string in `data` to ASCII (é -> e,
+  ß -> ss) before placing it. TRF16 addresses fields by column and its
+  real-world readers count one column as one byte, so a single accented
+  character in a name shifts every field after it on that row — see
+  `maybe_fold_ascii/2` for the measured damage. Also off by default, and
+  for the same reason: only the user-facing export (`TrfExport`) sets it.
   """
   def serialize(data, opts \\ [])
 
-  def serialize(%{tournament: t, players: players} = data, opts) do
+  def serialize(%{tournament: _, players: _} = raw, opts) do
+    %{tournament: t, players: players} = data = maybe_fold_ascii(raw, opts[:ascii])
     validate_games!(players)
     teams = Map.get(data, :teams, [])
     max_round = Enum.reduce(players, 0, &max(&2, length(&1[:games] || [])))
@@ -341,6 +349,75 @@ defmodule PairingsEngine.Trf do
   # the pairing input, the category input and the TRF export alike, since all
   # three go through serialize/1.
   defp strip_controls(text), do: String.replace(text, ~r/[\x00-\x1F\x7F]/, " ")
+
+  # TRF16 addresses its fields by COLUMN, and every real-world reader of a
+  # submitted file (FIDE's rating server, SWAR, Swiss-Manager) treats one
+  # column as one byte. Elixir pads by grapheme, so a single accented
+  # character makes the row one byte too long and shifts every field after
+  # the name: "Hendricks, Björn" turns FIDE id 1001 into 100, rating 2400
+  # into 240, and blanks the whole round history. Measured, not theorised —
+  # see the regression test in test/pairings_engine/trf_test.exs.
+  #
+  # The fix is to make characters and bytes the same thing again by folding
+  # to ASCII (é -> e), which is what FIDE itself does with player names.
+  # Deliberately NOT applied to `Pairing.javafo_input/4`: JaVaFo decodes
+  # UTF-8 correctly, its pairings are byte-identical with or without
+  # accents, and that file is a temp input no other tool ever reads — so it
+  # keeps exactly the bytes a multi-million-tournament corpus validated.
+  # Only `PairingsEngine.TrfExport` passes `ascii: true`.
+  defp maybe_fold_ascii(data, true), do: deep_ascii(data)
+  defp maybe_fold_ascii(data, _), do: data
+
+  defp deep_ascii(%_{} = struct), do: struct
+  defp deep_ascii(map) when is_map(map), do: Map.new(map, fn {k, v} -> {k, deep_ascii(v)} end)
+  defp deep_ascii(list) when is_list(list), do: Enum.map(list, &deep_ascii/1)
+  defp deep_ascii(text) when is_binary(text), do: ascii_fold(text)
+  defp deep_ascii(other), do: other
+
+  # Letters with no canonical decomposition, so NFD alone would leave them
+  # non-ASCII. "ß" -> "ss" and "æ" -> "ae" lengthen the string, which can
+  # push a long name past its 33-column field — correct, and handled by the
+  # same truncation any over-long name already gets.
+  @ascii_fallbacks %{
+    "ß" => "ss",
+    "æ" => "ae",
+    "Æ" => "AE",
+    "œ" => "oe",
+    "Œ" => "OE",
+    "ø" => "o",
+    "Ø" => "O",
+    "đ" => "d",
+    "Đ" => "D",
+    "ð" => "d",
+    "Ð" => "D",
+    "þ" => "th",
+    "Þ" => "TH",
+    "ł" => "l",
+    "Ł" => "L",
+    "ı" => "i",
+    "İ" => "I",
+    "ħ" => "h",
+    "Ħ" => "H",
+    "ŋ" => "n",
+    "Ŋ" => "N",
+    "ŧ" => "t",
+    "Ŧ" => "T",
+    "ĸ" => "k"
+  }
+
+  # Anything still non-ASCII after decomposition is a non-Latin script
+  # (Cyrillic, Greek, CJK) that has no one-to-one Latin form. It becomes
+  # "?" rather than being dropped: a visibly wrong name is something an
+  # arbiter can spot and fix before submitting, a silently shortened one is
+  # not. In practice this never fires on Belgian data — both the KBSB list
+  # and FIDE's own database already store names in Latin script.
+  defp ascii_fold(text) do
+    @ascii_fallbacks
+    |> Enum.reduce(text, fn {from, to}, acc -> String.replace(acc, from, to) end)
+    |> :unicode.characters_to_nfd_binary()
+    |> String.replace(~r/[\x{0300}-\x{036F}]/u, "")
+    |> String.replace(~r/[^\x00-\x7F]/u, "?")
+  end
 
   defp render(placements) do
     placements

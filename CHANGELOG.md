@@ -5,6 +5,37 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **An accented player name no longer corrupts the FIDE TRF export.**
+  TRF16 addresses its fields by column, and every reader outside this
+  codebase — FIDE's rating server, SWAR, Swiss-Manager — counts one
+  column as one byte. Names were padded by character, so a single
+  accented letter made the row one byte too long and shifted every field
+  after the name. For a row like `Hendricks, Björn` that meant the FIDE
+  id `1001` was read as `100` — a *different player* — the rating `2400`
+  as `240`, and the entire round history as blank.
+
+  Exported names are now folded to ASCII (`é` → `e`, `ß` → `ss`), which
+  is what FIDE itself does, so characters and bytes are the same thing
+  again. Non-Latin scripts with no one-to-one Latin form become `?`
+  rather than being dropped silently, so an arbiter can see and fix them
+  before submitting.
+
+  Pairing was never affected: JaVaFo decodes UTF-8 and produced
+  byte-identical pairings either way, verified against both JaVaFo and
+  bbpPairings. The pairing input is deliberately left untouched.
+
+### Removed
+
+- **The "Pair by: FIDE rating / National rating" setting**, which never
+  did anything. It was stored, validated and exported, but no code ever
+  read it — pairing order comes from `Player.rating/1`, which is
+  unconditionally FIDE-rating-first with the national rating as a
+  fallback and never consulted the setting. Choosing "National rating"
+  changed no pairing, which is worse than not offering the choice.
+  National ratings still work exactly as they did as that fallback.
+
 ### Added
 
 - **The Paid column is editable straight from the players table** — click

@@ -541,16 +541,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               />
             </.setting_field>
 
-            <.setting_field label="Pair by">
-              <select name="tournament[rating_type]">
-                <option value="fide" selected={@tournament.rating_type == "fide"}>FIDE rating</option>
-
-                <option value="national" selected={@tournament.rating_type == "national"}>
-                  National rating
-                </option>
-              </select>
-            </.setting_field>
-
             <.setting_field
               label="Acceleration"
               hint="Swiss only - round robin and Keizer ignore this setting"

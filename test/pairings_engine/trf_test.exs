@@ -459,4 +459,103 @@ defmodule PairingsEngine.TrfTest do
     assert blank == %{opponent_rank: nil, colour: nil, result: nil}
     assert real == %{opponent_rank: 2, colour: "b", result: "1"}
   end
+
+  # TRF16 addresses fields by column, and every reader outside this codebase
+  # counts a column as a BYTE. `col/3` above (String.slice) counts graphemes,
+  # so it agrees with itself on a round-trip and cannot see the bug these
+  # tests exist for — hence a byte-exact reader here.
+  defp byte_col(line, start, stop), do: :binary.part(line, start - 1, stop - start + 1)
+
+  defp first_player_line(trf) do
+    trf |> String.split("\r\n") |> Enum.find(&String.starts_with?(&1, "001"))
+  end
+
+  defp roster(name) do
+    %{
+      tournament: %{name: "Byte Test", type: "swiss"},
+      players: [
+        %{
+          rank: 1,
+          name: name,
+          sex: "m",
+          title: "",
+          fide_rating: 2400,
+          federation: "BEL",
+          fide_number: 1001,
+          birth_date: "1985-01-01",
+          points: 1.0,
+          games: [%{opponent_rank: 2, colour: "w", result: "1"}]
+        },
+        %{
+          rank: 2,
+          name: "Bravo, Bob",
+          sex: "m",
+          title: "",
+          fide_rating: 2300,
+          federation: "BEL",
+          fide_number: 1002,
+          birth_date: "1985-01-01",
+          points: 0.0,
+          games: [%{opponent_rank: 1, colour: "b", result: "0"}]
+        }
+      ]
+    }
+  end
+
+  describe "ascii folding keeps the byte columns where the spec puts them" do
+    test "an accented name occupies the same byte columns as a plain one" do
+      plain = "Hendricks, Bjorn" |> roster() |> Trf.serialize(ascii: true) |> first_player_line()
+
+      accented =
+        "Hendricks, Björn" |> roster() |> Trf.serialize(ascii: true) |> first_player_line()
+
+      assert accented == plain
+
+      # Spelled out, so a future reader sees which fields were at stake:
+      # the FIDE id is the one that turns into a different player.
+      assert byte_col(accented, 49, 52) == "2400"
+      assert byte_col(accented, 58, 68) == "       1001"
+      assert byte_col(accented, 81, 84) == " 1.0"
+      assert byte_col(accented, 92, 95) == "   2"
+      assert byte_col(accented, 97, 97) == "w"
+      assert byte_col(accented, 99, 99) == "1"
+    end
+
+    test "without :ascii that same row shifts every field after the name" do
+      line = "Hendricks, Björn" |> roster() |> Trf.serialize() |> first_player_line()
+
+      # One byte longer than it has characters — the whole cause.
+      assert byte_size(line) == String.length(line) + 1
+
+      # Rating 2400 reads as 240, FIDE id 1001 as 100, and the entire round
+      # history goes blank. Asserted rather than merely refuted so the
+      # damage is on the record if anyone reverses this.
+      assert byte_col(line, 49, 52) == " 240"
+      assert byte_col(line, 58, 68) == "        100"
+      assert byte_col(line, 92, 95) == "    "
+      assert byte_col(line, 99, 99) == " "
+    end
+
+    test "folds the letters NFD alone cannot decompose" do
+      line = "Weiß, Jörg-Ømer" |> roster() |> Trf.serialize(ascii: true) |> first_player_line()
+      assert line |> byte_col(15, 47) |> String.trim() == "Weiss, Jorg-Omer"
+    end
+
+    test "a non-Latin script becomes ? rather than silently shrinking the row" do
+      line = "Карпов, Анатолий" |> roster() |> Trf.serialize(ascii: true) |> first_player_line()
+
+      assert byte_col(line, 15, 47) == String.pad_trailing("??????, ????????", 33)
+      assert byte_col(line, 49, 52) == "2400"
+    end
+
+    test "no byte of an ascii-folded file is above 0x7F, headers included" do
+      trf =
+        %{roster("Hendricks, Björn") | tournament: %{name: "Åre Öppna", city: "Liège", type: "swiss"}}
+        |> Trf.serialize(ascii: true)
+
+      refute trf =~ ~r/[^\x00-\x7F]/u
+      assert trf =~ "012 Are Oppna"
+      assert trf =~ "022 Liege"
+    end
+  end
 end
