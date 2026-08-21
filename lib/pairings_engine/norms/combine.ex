@@ -2,43 +2,43 @@ defmodule PairingsEngine.Norms.Combine do
   @moduledoc """
   Combines several tournaments (each with its own player list) into a single
   virtual `%Tournament{}` + player list, standing in for one FIDE report
-  scope — the "categories of one festival" case for a Belgian federation
+  scope - the "categories of one festival" case for a Belgian federation
   arbiter running an IT3/FA1/IA1 for a multi-group event that OpenPairings
   itself only ever manages as separate `Tournament` rows.
 
   `combine/2` is pure and never touches the database: every `%Tournament{}`/
   `%Player{}` struct it's given is read as-is, and the tournament/players it
   returns are themselves plain, UNPERSISTED structs. `PairingsEngine.Norms.Forms`
-  never reads `id` off either — only scalar fields — so no id needs faking.
+  never reads `id` off either - only scalar fields - so no id needs faking.
 
   ## Master tournament
 
   Every header/schedule field on the virtual tournament (name, dates,
   round_dates, rounds_count, rate_of_play, time_control, venue, city,
   federation, officials, event_code, ...) comes from a single designated
-  "master" tournament — `master_index`, a 0-based index into the input list
-  — verbatim, except `name`, which gets FIDE's own term for a multi-category
+  "master" tournament - `master_index`, a 0-based index into the input list
+  - verbatim, except `name`, which gets FIDE's own term for a multi-category
   event appended: `"<master name> Festival"`; and `fide_tournament_id`,
-  which is instead computed across every combined tournament — see
+  which is instead computed across every combined tournament - see
   `combined_fide_tournament_id/1` below (a festival's category groups are
   often separately homologated with FIDE under different tournament ids).
 
   Player-derived aggregates (rated/titled counts, distinct federations, ...)
-  are never computed here — `PairingsEngine.Norms.Forms` already derives all
+  are never computed here - `PairingsEngine.Norms.Forms` already derives all
   of those purely from the player list it's handed (see its `it3_fills/2`,
   `fa1_fills/3`/`ia1_fills/3`), so simply concatenating every tournament's
   players is enough for them to "just work" through Forms unmodified.
 
   ## Duplicate players
 
-  The same person entered in two of the selected tournaments is invalid —
+  The same person entered in two of the selected tournaments is invalid -
   categories of one festival can't share a player. Identity is resolved, in
   order: a nonzero `fide_id` when present; else a non-blank `national_id`;
   else the normalized name + `birth_year`. Only a player showing up under
   more than one *tournament* (not merely more than once inside a single
-  tournament's own list — that's a different, DB-level concern) counts.
+  tournament's own list - that's a different, DB-level concern) counts.
   Returns every duplicate found, not just the first, as
-  `{:error, {:duplicate_players, names}}` — see `error_message/1` for a
+  `{:error, {:duplicate_players, names}}` - see `error_message/1` for a
   user-facing string.
   """
 
@@ -49,7 +49,7 @@ defmodule PairingsEngine.Norms.Combine do
   `{tournament, players}` pair. A single-element list passes through
   unchanged (no renaming, no player concatenation, `master_index` ignored).
   `master_index` (0-based, only consulted for 2+ tournaments) picks which
-  tournament's header/schedule fields the combined result inherits — see
+  tournament's header/schedule fields the combined result inherits - see
   the moduledoc.
 
   Returns `{:ok, {tournament, players}}`, or `{:error, {:duplicate_players,
@@ -80,20 +80,20 @@ defmodule PairingsEngine.Norms.Combine do
 
   @doc """
   A playful, user-facing message for a `{:duplicate_players, names}` error
-  from `combine/2` — names the one player for a single duplicate, or lists
+  from `combine/2` - names the one player for a single duplicate, or lists
   them all for several.
   """
   def error_message({:duplicate_players, [name]}) do
-    "#{name} plays in two of these tournaments — the categories of one festival can't share players!"
+    "#{name} plays in two of these tournaments - the categories of one festival can't share players!"
   end
 
   def error_message({:duplicate_players, names}) do
-    "#{Enum.join(names, ", ")} play in two of these tournaments — the categories of one festival can't share players!"
+    "#{Enum.join(names, ", ")} play in two of these tournaments - the categories of one festival can't share players!"
   end
 
   defp festival_name(name), do: "#{name} Festival"
 
-  # A festival's own IT3 B2 "ID of Tournament" — a Belgian-federation
+  # A festival's own IT3 B2 "ID of Tournament" - a Belgian-federation
   # festival's category groups are each separately homologated with FIDE, so
   # they can (and often do) carry different tournament ids. Per-tournament
   # blanks are dropped; the rest, deduplicated but keeping first-seen order:
@@ -101,7 +101,7 @@ defmodule PairingsEngine.Norms.Combine do
   #   * none set at all -> "" (same "no ID" the single-tournament path
   #     already produces from a blank `fide_tournament_id`)
   #   * exactly one distinct id -> that id, verbatim (a festival whose groups
-  #     all share one id — no different from a single tournament's case)
+  #     all share one id - no different from a single tournament's case)
   #   * several distinct ids that are consecutive integers once sorted ->
   #     "first-last" (FIDE's own shorthand for "these ids in a row")
   #   * anything else (non-numeric, or numeric but with a gap) ->
@@ -146,7 +146,7 @@ defmodule PairingsEngine.Norms.Combine do
 
   # A player is a cross-tournament duplicate when their identity key shows
   # up tagged with more than one distinct tournament (source index) among
-  # the selected pairs — repeats *within* one tournament's own player list
+  # the selected pairs - repeats *within* one tournament's own player list
   # are not this check's business (that's enforced, where it matters, at
   # the DB level when the tournament was itself created/imported).
   defp duplicate_names(pairs) do

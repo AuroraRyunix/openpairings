@@ -133,14 +133,14 @@ defmodule PairingsEngine.Fide.SyncTest do
   # Exercises `Sync.import_list/3` directly with synthetic already-unpacked
   # FIDE-list text (the real thing `unpack/3` would hand it after a real
   # HTTP download + zip extraction, which isn't practical to drive from a
-  # test) — this is the actual transaction/count-guard code path a corrupt
+  # test) - this is the actual transaction/count-guard code path a corrupt
   # or truncated download would hit, not just a re-assertion of the design.
   # `import_list/3` is `def` (not `defp`), `@doc false`, purely to make this
   # callable from here.
   describe "import_list/3 (corrupt/truncated-download guard)" do
     # These tests write real rows to fide_players and need a real DB
     # connection (unlike the rest of this file, which only exercises the
-    # GenServer's in-memory state via :sys) — check out the sandbox exactly
+    # GenServer's in-memory state via :sys) - check out the sandbox exactly
     # like PairingsEngine.DataCase does, but only for this describe block.
     setup do
       pid = Ecto.Adapters.SQL.Sandbox.start_owner!(Repo, shared: false)
@@ -148,7 +148,7 @@ defmodule PairingsEngine.Fide.SyncTest do
       :ok
     end
 
-    # Mirrors Sync's own private @header_labels — the header line just needs
+    # Mirrors Sync's own private @header_labels - the header line just needs
     # each label to appear, in order, for column_offsets/1 to succeed; exact
     # column widths don't matter as long as the header and every data row
     # use the same ones (see fide_row/1).
@@ -177,7 +177,7 @@ defmodule PairingsEngine.Fide.SyncTest do
 
     defp fide_header, do: Enum.map_join(@header_labels, "", &String.pad_trailing(&1, @col_width))
 
-    # `values` is keyed by header label text (e.g. "ID Number", "Name") —
+    # `values` is keyed by header label text (e.g. "ID Number", "Name") -
     # any column not given a value comes out blank, which is exactly what
     # produces an unusable (nil fide_id) row for the zero-valid-rows tests.
     defp fide_row(values \\ %{}) do
@@ -201,7 +201,7 @@ defmodule PairingsEngine.Fide.SyncTest do
       assert {:error, reason} = Sync.import_list(self(), text, %Sync{})
       assert reason =~ "zero usable"
 
-      # The existing cache is untouched — proof the rollback (not just the
+      # The existing cache is untouched - proof the rollback (not just the
       # return value) actually protected the data.
       assert Repo.aggregate(FidePlayer, :count) == 2
       assert Repo.get(FidePlayer, 1).name == "Existing, One"
@@ -223,7 +223,7 @@ defmodule PairingsEngine.Fide.SyncTest do
     end
 
     # `fide_players_fts` is maintained by per-row triggers whose delete/update
-    # arms match on `fide_id`, a column the FTS5 table declares UNINDEXED — so
+    # arms match on `fide_id`, a column the FTS5 table declares UNINDEXED - so
     # every firing scans the whole index. On a re-sync that replaces ~1.9M
     # rows that is quadratic and never completes, which is why `import_list/3`
     # suspends the triggers and rebuilds the index set-based instead. These
@@ -243,7 +243,7 @@ defmodule PairingsEngine.Fide.SyncTest do
         Repo.query!("SELECT fide_id FROM fide_players_fts WHERE fide_players_fts MATCH ?", [term])
 
       # The FTS5 column is UNINDEXED and untyped, so SQLite hands back whatever
-      # was stored — integer after a trigger insert, text after the set-based
+      # was stored - integer after a trigger insert, text after the set-based
       # rebuild. Normalise both.
       rows
       |> List.flatten()
@@ -277,7 +277,7 @@ defmodule PairingsEngine.Fide.SyncTest do
 
       assert {:ok, _} = Sync.import_list(self(), second, %Sync{})
 
-      # Index reflects the new list only — no stale rows left behind, which a
+      # Index reflects the new list only - no stale rows left behind, which a
       # plain "drop the triggers and forget" would have caused.
       assert fts_search("Old") == []
       assert fts_search("New") == [1_000_001, 2_000_002]

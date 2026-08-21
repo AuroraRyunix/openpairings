@@ -1,5 +1,5 @@
 defmodule PairingsEngineWeb.TournamentsLiveTest do
-  # `async: false` — SWAR import writes a tournament, its players and
+  # `async: false` - SWAR import writes a tournament, its players and
   # rounds all in one go; combined with the FIDE-matching tests inserting
   # `FidePlayer` rows, that's enough sequential writes to contend with the
   # async pool for SQLite's single writer lock (see the same rationale on
@@ -26,7 +26,7 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
       # A shared `name` is the browser-native fix for one open popover's
       # panel visually/functionally covering the next trigger over (the
       # theme-picker's panel is wide enough to overlap the accent-picker's
-      # summary immediately to its left) — only one can be open at a time,
+      # summary immediately to its left) - only one can be open at a time,
       # so there's nothing left to cover.
       assert html =~ ~r/<details[^>]*class="accent-picker"[^>]*name="topbar-popover"/
       assert html =~ ~r/<details[^>]*class="theme-picker"[^>]*name="topbar-popover"/
@@ -211,7 +211,7 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
       assert tournament.type == "team-swiss"
     end
 
-    test "a client-forged `tournament[type]` is ignored — the server always derives it", %{
+    test "a client-forged `tournament[type]` is ignored - the server always derives it", %{
       conn: conn
     } do
       {:ok, lv, _html} = live(conn, ~p"/")
@@ -219,7 +219,7 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
 
       # No <select name="tournament[type]"> exists to submit this through in
       # the real UI, but `handle_event("create", ...)` must still overwrite
-      # whatever arrives under that key — this simulates a forged event
+      # whatever arrives under that key - this simulates a forged event
       # (dispatched directly, since there's no real form control for it).
       {:error, {:live_redirect, _}} =
         render_submit(lv, "create", %{
@@ -273,7 +273,7 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
 
       # delete_confirmed soft-deletes the tournament, which broadcasts on
       # both the tournament's own topic and the owner's user-tournaments
-      # topic — this `lv` (the tournaments index) is subscribed to the
+      # topic - this `lv` (the tournaments index) is subscribed to the
       # latter, so drain the self-broadcast before teardown (same pattern
       # as SettingsLiveTest/PlayersLiveTest).
       render(lv)
@@ -366,7 +366,7 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
 
     # Both dropzones accept `:any` (neither format has a browser MIME type),
     # so a `.swar` in the TRF box is an easy and entirely reasonable mistake.
-    # It used to fail with TRF's "no player records (\"001\" lines) found" —
+    # It used to fail with TRF's "no player records (\"001\" lines) found" -
     # accurate about the TRF parser, useless to the arbiter holding a
     # perfectly valid SWAR file. It must import instead.
     test "a .swar dropped into the TRF panel still imports as SWAR", %{conn: conn} do
@@ -411,7 +411,7 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
   ## ---------- SWAR import: FIDE-match confirm step (task 2) ----------
 
   describe "SWAR import: confirm step for players SWAR has no FIDE id for" do
-    # Every test here uploads test/fixtures/problemski.swar — a gitignored
+    # Every test here uploads test/fixtures/problemski.swar - a gitignored
     # personal-data fixture (see .gitignore); excluded automatically by
     # test_helper.exs when it isn't present.
     @describetag :swar_fixture
@@ -420,7 +420,7 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
       conn: conn
     } do
       # c-reeks.swar has two players with no mat_fide (Vanmassenhove,
-      # Cobert) — patch a copy where those two are simply removed isn't
+      # Cobert) - patch a copy where those two are simply removed isn't
       # practical here, so instead this asserts the *modal path* directly;
       # problemski.swar's single unresolved player (Ashrafi) exercises the
       # "skip" choice below. A genuinely fully-resolved import is already
@@ -441,7 +441,7 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
       lv |> form("#swar-import-form", %{}) |> render_submit()
 
       # problemski.swar has one unmatched player (no local FIDE database
-      # seeded in this test) — the confirm step must show, not navigate away.
+      # seeded in this test) - the confirm step must show, not navigate away.
       assert has_element?(lv, "h2", "Resolve FIDE ids")
       assert has_element?(lv, "*", "Ashrafi, Sulaiman Ahmad")
     end
@@ -471,7 +471,7 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
         lv |> form("#swar-resolve-form", %{}) |> render_submit()
 
       # A successful SWAR import lands on the Players page (to review/
-      # resolve players), not Standings — see `commit_swar/3`.
+      # resolve players), not Standings - see `commit_swar/3`.
       assert to =~ ~r{/players$}
 
       tournament_id = to |> String.split("/") |> Enum.at(2) |> String.to_integer()
@@ -509,7 +509,7 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
 
       assert has_element?(lv, "h2", "Resolve FIDE ids")
       # Ashrafi's own birth year is unknown ("19000101" placeholder), so
-      # even a same-name/federation FIDE row never auto-adopts — it must
+      # even a same-name/federation FIDE row never auto-adopts - it must
       # show up as a pickable candidate here instead.
       assert has_element?(lv, "*", "FIDE 555555")
 
@@ -598,7 +598,7 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
       assert has_element?(lv, "h2", "This looks like a tournament you already have")
       refute has_element?(lv, "h2", "Resolve FIDE ids")
 
-      # Nothing new was created just from uploading — still exactly one
+      # Nothing new was created just from uploading - still exactly one
       # tournament with this SWAR guid.
       assert length(Tournaments.list_tournaments(scope)) == 1
       first = Tournaments.get_tournament!(first_id)

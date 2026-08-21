@@ -1,13 +1,13 @@
 defmodule PairingsEngine.TrfPropertyTest do
   @moduledoc """
-  Property-based tests on `PairingsEngine.Trf.serialize/1` — the first half
+  Property-based tests on `PairingsEngine.Trf.serialize/1` - the first half
   of the fuzz-testing harness `docs/fide-endorsement.md` proposes.
 
   These generate random-but-legal rosters and round histories (contiguous
-  starting ranks, mutually consistent result codes — the shape any real
+  starting ranks, mutually consistent result codes - the shape any real
   pairing run, JaVaFo-fed or not, actually produces) and check
   `serialize/1`'s output against ground truth computed independently of
-  `serialize/1` itself — reading `parse/1`'s output back and comparing
+  `serialize/1` itself - reading `parse/1`'s output back and comparing
   against the input, not re-deriving column positions the way `Trf`'s own
   private `place/4`/`read/2` do. This is exactly the class of test that
   would have caught both real TRF-input bugs found earlier this project
@@ -26,7 +26,7 @@ defmodule PairingsEngine.TrfPropertyTest do
   # generators
   # ---------------------------------------------------------------------
 
-  # Printable, non-control characters only — control characters are their
+  # Printable, non-control characters only - control characters are their
   # own narrow test below (serialize/1 is documented to flatten them to
   # spaces, which would make a naive round-trip comparison fail for reasons
   # unrelated to the property being tested here).
@@ -54,7 +54,7 @@ defmodule PairingsEngine.TrfPropertyTest do
   defp fide_number_gen, do: one_of([constant(nil), integer(1..9_999_999)])
 
   # One player, games always attached separately once the round history for
-  # the whole roster is known — see roster_and_rounds_gen/1.
+  # the whole roster is known - see roster_and_rounds_gen/1.
   defp bare_player_gen(rank) do
     gen all(
           name <- name_gen(),
@@ -79,9 +79,9 @@ defmodule PairingsEngine.TrfPropertyTest do
     end
   end
 
-  # {code, opponent's code} — every legally paired combination `Trf`'s own
+  # {code, opponent's code} - every legally paired combination `Trf`'s own
   # (private) @legal_result_pairs recognizes. Hand-maintained in step with
-  # that table, not derived from it — `illegal_pair_gen/0` below is exactly
+  # that table, not derived from it - `illegal_pair_gen/0` below is exactly
   # the test that catches the two drifting apart (it did, the first time
   # @legal_result_pairs grew "=" </> "0" for VCL.13's asymmetric result and
   # this list wasn't updated yet).
@@ -103,11 +103,11 @@ defmodule PairingsEngine.TrfPropertyTest do
 
   # A roster of 2..12 players with contiguous starting ranks 1..N, plus
   # 0..3 rounds of a genuinely legal history: each round randomly pairs up
-  # the roster (Fisher-Yates via Enum.shuffle/1 — fine here since this only
+  # the roster (Fisher-Yates via Enum.shuffle/1 - fine here since this only
   # needs *a* random pairing per generated case, not shrink-friendly
   # structure), an odd player out gets a random bye code, and every playing
   # pair's two result codes are drawn together from @legal_pairs so they can
-  # never disagree — precisely the invariant validate_games!/1 enforces.
+  # never disagree - precisely the invariant validate_games!/1 enforces.
   defp roster_and_rounds_gen do
     gen all(
           n <- integer(2..12),
@@ -136,7 +136,7 @@ defmodule PairingsEngine.TrfPropertyTest do
   end
 
   # One round's games, keyed by rank: consecutive pairs from `ranks` each get
-  # a legal {code, opponent_code} pair (colour alternated arbitrarily — not
+  # a legal {code, opponent_code} pair (colour alternated arbitrarily - not
   # under test here, only result-code legality is), a leftover unpaired rank
   # gets `bye_code`.
   defp build_round(ranks, pair_codes, bye_code) do
@@ -213,9 +213,9 @@ defmodule PairingsEngine.TrfPropertyTest do
     end
   end
 
-  # Column 81-84, 1-indexed inclusive — Trf's own @player_cols.points. Reads
+  # Column 81-84, 1-indexed inclusive - Trf's own @player_cols.points. Reads
   # the raw formatted text directly (not via parse/1, which would just prove
-  # Float.parse/1 tolerates whatever came out) — this checks the actual
+  # Float.parse/1 tolerates whatever came out) - this checks the actual
   # fixed-width format every points_gen/0 value produces.
   defp points_col(line), do: line |> String.slice(80, 4) |> String.trim()
 
@@ -273,7 +273,7 @@ defmodule PairingsEngine.TrfPropertyTest do
       lines = trf |> String.split(~r/\r?\n/) |> Enum.reject(&(&1 == ""))
       player_lines = Enum.filter(lines, &String.starts_with?(&1, "001"))
 
-      # Exactly one "001" row, however weird the input — a stray \n/\r inside
+      # Exactly one "001" row, however weird the input - a stray \n/\r inside
       # the name never split it into extra rows, and no control character
       # (verified via the same regex serialize/1 itself strips against)
       # survives into the output at all.

@@ -7,7 +7,7 @@ defmodule PairingsEngine.Audit.AuditLog do
   into a human-readable sentence.
 
   `action` is a dot-namespaced code (e.g. `"player.updated"`,
-  `"pairing.round_paired"`). `user_id` is nullable — a nil user renders as
+  `"pairing.round_paired"`). `user_id` is nullable - a nil user renders as
   "System". There is no `updated_at`: rows are never modified once written.
   """
 

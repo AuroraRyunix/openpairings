@@ -1,13 +1,13 @@
 defmodule PairingsEngine.Keizer do
   @moduledoc """
-  The Keizer system — a Dutch/Belgian club-league ladder (as used by
+  The Keizer system - a Dutch/Belgian club-league ladder (as used by
   PairTwo and similar SWAR-adjacent software). Players are ranked on a
   running "Keizer list" with a value attached to each rung; every round they
   score points based on the *current* value of whoever/whatever they faced,
   and after every round the whole list is re-ranked and re-valued from
   scratch. That retroactive step is the signature Keizer feature: nothing
-  Keizer-specific is ever stored — nothing but results, byes and absences
-  are — so the list is always freshly recomputed from those and is always
+  Keizer-specific is ever stored - nothing but results, byes and absences
+  are - so the list is always freshly recomputed from those and is always
   reproducible.
 
   ## The algorithm
@@ -35,7 +35,7 @@ defmodule PairingsEngine.Keizer do
      dependent, so this is a fixed point: start from the initial rating
      order, assign values, score every round played so far, re-rank by
      total Keizer points (ties: rating desc, then name), reassign values,
-     rescore every round again — repeat until the order stops changing or
+     rescore every round again - repeat until the order stops changing or
      20 iterations, whichever comes first (guards against a pathological
      oscillation; the last iteration's order wins). Because every round is
      rescored with the *current* values on every iteration, an opponent you
@@ -45,28 +45,28 @@ defmodule PairingsEngine.Keizer do
   5. **Pairing numbers.** The first time a Keizer tournament pairs a round,
      `pairing_number` is frozen over the tournament's active players exactly
      the way the Swiss path does (`PairingsEngine.Pairing.ensure_pairing_numbers/2`,
-     reused rather than duplicated) — highest rating first, name ascending as
+     reused rather than duplicated) - highest rating first, name ascending as
      the tie-break, then never reassigned. A newcomer who joins later gets a
      number the next time this runs, same as Swiss. Nothing about the ladder
-     itself uses this number — it exists purely so the crosstable print and
+     itself uses this number - it exists purely so the crosstable print and
      the player grid have a stable "Nr" to show.
 
   6. **Pairing** the next round takes the recalculated order (round 1: the
-     initial rating order — scoring is a no-op with no rounds played, so
+     initial rating order - scoring is a no-op with no rounds played, so
      this falls out of the fixed point for free), drops anyone not eligible
-     this round (same eligibility Swiss pairing uses — see
-     `PairingsEngine.Pairing.eligible_players/2` — they score an excused
+     this round (same eligibility Swiss pairing uses - see
+     `PairingsEngine.Pairing.eligible_players/2` - they score an excused
      absence instead), then walks top-down pairing each unpaired player
      with the nearest unpaired player below them they haven't already
      played, backtracking (a small recursive matcher, nearest-first) when a
      dead end is hit. A `forbidden_pairings` pair is never paired; if a
      repeat is truly unavoidable the pair repeated longest ago is preferred
      over failing outright. An odd count gives the *bottom*-ranked eligible
-     player the bye — stored the same way `PairingsEngine.Pairing` stores a
+     player the bye - stored the same way `PairingsEngine.Pairing` stores a
      pairing-allocated bye: a `pairings` row with no black player and
      `result: "bye"`, not a `byes`-table row (a `byes`-table row would be
      double-counted by `PairingsEngine.Standings`, which already reads
-     `pairings.result == "bye"` for FIDE-style bye points — see
+     `pairings.result == "bye"` for FIDE-style bye points - see
      `add_bye_records/1` there). Round-specific/permanent absences *do* get
      a `byes` row (`"requested-zero"` / `"absent"`), mirroring
      `PairingsEngine.Pairing.insert_round_absentee_byes/3`, so TRF export
@@ -79,8 +79,8 @@ defmodule PairingsEngine.Keizer do
 
   `PairingsEngine.Pairing.pair_next_round/1` dispatches here for any
   tournament with `pairing_system: "keizer"`. Unlike that dispatcher's
-  fallback (Swiss) clause, it does **not** broadcast on our behalf — see
-  `PairingsEngine.Pairing.dispatch_stub/2` — so `pair_next_round/1` below
+  fallback (Swiss) clause, it does **not** broadcast on our behalf - see
+  `PairingsEngine.Pairing.dispatch_stub/2` - so `pair_next_round/1` below
   broadcasts `:rounds` itself on success.
   """
 
@@ -118,7 +118,7 @@ defmodule PairingsEngine.Keizer do
 
   defp do_pair(tournament, next_number, eligible, paired_count) do
     # Freeze pairing_number exactly the way Swiss does (see
-    # PairingsEngine.Pairing.ensure_pairing_numbers/2) — over the tournament's
+    # PairingsEngine.Pairing.ensure_pairing_numbers/2) - over the tournament's
     # active players (not just this round's eligible ones), so a player
     # excused for round 1 alone still gets a number. Without this, a Keizer
     # tournament's players never carry a pairing_number at all: the crosstable
@@ -160,10 +160,10 @@ defmodule PairingsEngine.Keizer do
   # Players still excluded for this round (in the ladder pool but not among
   # the eligible players actually paired) get a `byes` row so TRF
   # export/print/standings for a Keizer tournament see the round the same
-  # way they would for a Swiss round-specific absence — see
+  # way they would for a Swiss round-specific absence - see
   # `PairingsEngine.Pairing.insert_round_absentee_byes/3`. Only covers
   # `absent`/`absent_rounds` exclusions (the ones Keizer's own scoring
-  # treats as "excused") — a withdrawn or forfeited player gets no row,
+  # treats as "excused") - a withdrawn or forfeited player gets no row,
   # same as Swiss never creates one for them either.
   defp insert_absentee_byes(tournament, round_number, ladder_pool, eligible_ids) do
     rows =
@@ -184,14 +184,14 @@ defmodule PairingsEngine.Keizer do
   @doc """
   Ranked Keizer standings for `tournament`: one entry per ladder player,
   `%{rank:, player:, value:, points:, played:, wins:, draws:, losses:,
-  raw_points:}` — `value` is the player's current ladder value, `points`
+  raw_points:}` - `value` is the player's current ladder value, `points`
   their Keizer points (1 decimal), `raw_points` the same rounds scored in
   ordinary FIDE-style game points (win/draw/loss/bye_value from
   `tournament`), for an at-a-glance "how would this look under normal
   scoring" comparison.
 
   Accepts `through_round: n` to compute the ladder as it stood right after
-  round `n` (rounds `<= n` only) — same idea as
+  round `n` (rounds `<= n` only) - same idea as
   `PairingsEngine.Standings.standings/2`'s option of the same name, used by
   `PairingsEngineWeb.PrintController`'s `?round=n` standings print. Omit the
   option (or pass a round `>=` the latest paired round) for the current/
@@ -282,10 +282,10 @@ defmodule PairingsEngine.Keizer do
 
   ## ---------- DB edge: data extraction ----------
 
-  # The full ladder pool considered for ranking/scoring — every non-withdrawn
+  # The full ladder pool considered for ranking/scoring - every non-withdrawn
   # player, regardless of `absent`/`forfeit` (those affect eligibility for
   # *pairing*, not whether a player stays on the list and keeps scoring
-  # excused-absence fractions — see the module doc). Matches
+  # excused-absence fractions - see the module doc). Matches
   # `PairingsEngine.Standings`, which also doesn't filter by status.
   defp ladder_players(tournament_id) do
     tournament_id
@@ -325,10 +325,10 @@ defmodule PairingsEngine.Keizer do
   end
 
   # Unions explicit forbidden pairings with club/federation exclusion rules
-  # (PairingsEngine.Exclusions — see docs/forbidden-pairings.md), both keyed
+  # (PairingsEngine.Exclusions - see docs/forbidden-pairings.md), both keyed
   # by `pair_key/2` (player ids) since that's the id space `match_round/3`
   # and friends already work in. `players` only needs to cover this round's
-  # ladder pool — Exclusions.excluded_pairs/2 only ever produces pairs drawn
+  # ladder pool - Exclusions.excluded_pairs/2 only ever produces pairs drawn
   # from whatever list it's given.
   defp read_forbidden(tournament, players) do
     explicit =
@@ -408,16 +408,16 @@ defmodule PairingsEngine.Keizer do
 
   @doc """
   Runs the Keizer fixed point for `players` given every round's `games`
-  (plain maps `%{round:, white_id:, black_id: id | nil, result:}` — a bye
+  (plain maps `%{round:, white_id:, black_id: id | nil, result:}` - a bye
   is `black_id: nil, result: "bye"`, same shape as `pairings` rows) and
   `byes` (plain maps `%{round:, player_id:, type:}`, same shape as `byes`
   rows), over `rounds_count` completed rounds.
 
-  Returns `%{order:, values:, scored:, top_value:, iterations:}` — `order`
+  Returns `%{order:, values:, scored:, top_value:, iterations:}` - `order`
   is the final ranked player list (best first), `values` a `%{player_id =>
   integer}` map, `scored` a `%{player_id => %{points:, rounds: [%{round:,
   class:, points:, opponent_id:}]}}` map, `iterations` how many
-  assign/score/re-rank passes it took (capped at 20 — a value of 20 means
+  assign/score/re-rank passes it took (capped at 20 - a value of 20 means
   the ranking was still changing and the cap, not convergence, ended it).
   """
   def recalculate(players, games, byes, top_value_config, rounds_count) do
@@ -455,9 +455,9 @@ defmodule PairingsEngine.Keizer do
   @doc """
   Scores every player in `players` over rounds `1..rounds_count`, given the
   current ladder `values`. Returns `%{player_id => %{points:, rounds:
-  [%{round:, class:, points:, opponent_id:}]}}` — `class` is one of `:win`,
+  [%{round:, class:, points:, opponent_id:}]}}` - `class` is one of `:win`,
   `:draw`, `:loss`, `:forfeit_win`, `:forfeit_loss`, `:half_win`, `:half_loss`
-  (VCL.13's asymmetric "1/2-0"/"0-1/2" — scored like `:draw`/`:loss`
+  (VCL.13's asymmetric "1/2-0"/"0-1/2" - scored like `:draw`/`:loss`
   respectively, since the ½ side earned the same value as an ordinary draw),
   `:zero` (played "0-0" or otherwise unaccounted), `:unpaired_bye`,
   `:excused`, `:not_joined`.
@@ -561,8 +561,8 @@ defmodule PairingsEngine.Keizer do
   defp class_points(:zero, _p, _o, _v), do: 0.0
 
   # "pairing-allocated"/"requested-half" are half-point byes (no game
-  # played, unpaired) — same bucket as an odd-count bye.
-  # "requested-zero"/"absent" are excused absences — a third.
+  # played, unpaired) - same bucket as an odd-count bye.
+  # "requested-zero"/"absent" are excused absences - a third.
   defp bye_class_and_fraction(type) when type in ["pairing-allocated", "requested-half"],
     do: {:unpaired_bye, 1 / 2}
 
@@ -594,10 +594,10 @@ defmodule PairingsEngine.Keizer do
   Pairs `players` (ranked best-first, already restricted to this round's
   eligible players) into `{:ok, [{p1, p2}, ...], bye_player_or_nil}`, given
   `history` (`%{pair_key => last_round_played}`, see `pair_key/2`) and
-  `forbidden` (a `MapSet` of `pair_key/2` results). Pairs top-down —
+  `forbidden` (a `MapSet` of `pair_key/2` results). Pairs top-down -
   nearest first, never-played preferred over a repeat, backtracking when a
   candidate leads to a dead end further down. An odd-length list gives the
-  bye to the lowest-ranked player it can — that's the strong preference,
+  bye to the lowest-ranked player it can - that's the strong preference,
   but if giving them the bye would leave the rest impossible to pair (a
   forbidden pair with no other option), the next-lowest-ranked candidate is
   tried instead, and so on. Returns `{:error, reason}` only if no valid
@@ -650,7 +650,7 @@ defmodule PairingsEngine.Keizer do
     end
   end
 
-  @doc "Order-insensitive key for a pair of player ids — `{a, b}` and `{b, a}` are the same pair."
+  @doc "Order-insensitive key for a pair of player ids - `{a, b}` and `{b, a}` are the same pair."
   def pair_key(a, b), do: {min(a, b), max(a, b)}
 
   defp forbidden?(a, b, forbidden), do: MapSet.member?(forbidden, pair_key(a.id, b.id))

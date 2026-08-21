@@ -26,7 +26,7 @@ defmodule PairingsEngineWeb.FideLive do
        # cannot change while the page is open. False hides the sync button
        # entirely rather than offering an action that can only fail.
        kbsb_api_configured: KbsbApi.configured?(),
-       # Local self-registration is open to anyone — the full FIDE list
+       # Local self-registration is open to anyone - the full FIDE list
        # download (~41 MB, once a click) is exactly the kind of thing that's
        # cheap to trigger and expensive to serve, so it's restricted to
        # accounts we actually vouch for (SSO), same reasoning as

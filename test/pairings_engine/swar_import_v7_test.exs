@@ -3,7 +3,7 @@ defmodule PairingsEngine.SwarImportV7Test do
   # comments in `SwarImport`): [TOURNOI]'s tail lost 12 bytes between the
   # FIDE-id block and `Type`, [JOUEURS] lost `EloFide`, and [JOUEURS] lost one
   # int from the `NbParties`..`Perf` run. A real v7 file is a 26 KB list of
-  # named people, so this covers the layout with synthetic binaries instead —
+  # named people, so this covers the layout with synthetic binaries instead -
   # same approach (and the same builder shape) as
   # swar_import_presence_test.exs and swar_import_abs_value_test.exs, and for
   # the same reason: it must run on a checkout that has no real `.swar`
@@ -79,7 +79,7 @@ defmodule PairingsEngine.SwarImportV7Test do
       Enum.map_join(players, "", &build_player(&1, version))
   end
 
-  # Type, SW_EloR1..SW321_Pre, SW321_PreBye (v6.03+), EloUsed..ByeValue —
+  # Type, SW_EloR1..SW321_Pre, SW321_PreBye (v6.03+), EloUsed..ByeValue -
   # unchanged in v7, and none of them under test here.
   defp tournoi_tail_ints, do: Enum.map_join(1..17, "", fn _ -> w_i32(0) end)
 
@@ -148,7 +148,7 @@ defmodule PairingsEngine.SwarImportV7Test do
     assert length(data.players) == 1
   end
 
-  # The two v7 readings only diverge once a trailing string is non-empty —
+  # The two v7 readings only diverge once a trailing string is non-empty -
   # exactly the case the layout probe exists for. A `:fide_ids`-layout file
   # carrying a real FIDE arbiter id must not be read with the `:strings`
   # layout, which would swallow it and desynchronise everything after.

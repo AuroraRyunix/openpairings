@@ -1,5 +1,5 @@
 defmodule PairingsEngine.ResultsImportTest do
-  # async: false — writes through the same Repo tables as every other
+  # async: false - writes through the same Repo tables as every other
   # import/export test (see TrfExportTest's comment).
   use PairingsEngine.DataCase, async: false
 
@@ -77,7 +77,7 @@ defmodule PairingsEngine.ResultsImportTest do
     end
 
     test "decodes a Windows-1252 byte string (with accented player-adjacent content)" do
-      # 0xE9 is "é" in Windows-1252/Latin-1 but invalid on its own as UTF-8 —
+      # 0xE9 is "é" in Windows-1252/Latin-1 but invalid on its own as UTF-8 -
       # forces the CP1252 fallback path.
       csv = <<"1,1-0 ", 0xE9, "\n">>
       assert {:error, _} = ResultsImport.parse_text(csv)

@@ -21,12 +21,12 @@ if it goes stale.
 - **Remote URL**: `https://github.com/AuroraRyunix/openpairings.git`
 - **Default branch**: `main`
 - **Active branch**: `main`
-- **Branches on GitHub**: `main` only — every feature branch created during
+- **Branches on GitHub**: `main` only - every feature branch created during
   development has been merged and deleted after each PR lands; there is no
   standing branch other than `main`.
 - **Tags / releases**: none yet. `.github/workflows/binaries.yml` is wired
   to build and attach standalone binaries as release assets the first time
-  a `v*` tag is pushed (see [`docs/binaries.md`](docs/binaries.md)) — that
+  a `v*` tag is pushed (see [`docs/binaries.md`](docs/binaries.md)) - that
   hasn't happened yet.
 
 ## Latest commit on `main`
@@ -49,18 +49,18 @@ if it goes stale.
 
 ## CI
 
-- `.github/workflows/elixir.yml` — Elixir compile/format/test checks on
+- `.github/workflows/elixir.yml` - Elixir compile/format/test checks on
   every push.
-- `.github/workflows/binaries.yml` — builds the five Burrito standalone
+- `.github/workflows/binaries.yml` - builds the five Burrito standalone
   targets; uploads as workflow artifacts on every run, and as GitHub
   release assets on a `v*` tag push.
 
 ## Notes
 
-- Repository size per the GitHub API: ~1.9 MB (source only — this excludes
+- Repository size per the GitHub API: ~1.9 MB (source only - this excludes
   everything gitignored: `deps/`, `_build/`, local SQLite databases, the
   JaVaFo jar, and the real anonymized-personal-data `.swar` test fixture).
 - The repository was previously located at a different local path on the
   maintainer's machine (`Desktop/pairingsengine`) and was moved to
-  `Desktop/02cloud/VPS projects/openpairings` on 2026-07-25 — a purely
+  `Desktop/02cloud/VPS projects/openpairings` on 2026-07-25 - a purely
   local reorganization with no effect on the remote history above.

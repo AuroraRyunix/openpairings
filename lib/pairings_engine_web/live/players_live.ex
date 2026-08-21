@@ -25,14 +25,14 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   # Player grid columns, in SWAR-parity display order. Which ones show is up
   # to the user (Display panel); toggling is by `key`, order is fixed by this
-  # list (except the tiebreak columns — see `tiebreak_columns/1` below, which
+  # list (except the tiebreak columns - see `tiebreak_columns/1` below, which
   # splices `@tiebreak_columns` into this sequence according to the
   # tournament's own configured tiebreak order). Fourth element of every
   # 4-tuple is the header tooltip shown via `title=`.
   @columns_before_tiebreaks [
     {"cl", "Cl", true, "Current standings rank (classement)"},
     {"aff", "Aff.", false, "Federation affiliation (blank = affiliated, N = not affiliated)"},
-    # SWAR's presence notation — see `cell/2`'s "pr" clause. Not a `num`
+    # SWAR's presence notation - see `cell/2`'s "pr" clause. Not a `num`
     # column: the value is a marker plus a comma-separated list, so
     # right-aligning it as a number would be wrong.
     {"pr", "Pr.", false,
@@ -42,9 +42,9 @@ defmodule PairingsEngineWeb.PlayersLive do
     {"paid", "Paid", false, "Registration fee status (P = paid, N = not paid, G = gratis)"},
     {"nr", "Nr", true, "Pairing number (starting number), frozen once the first round is paired"},
     {"rnk", "Rnk", true,
-     "Live rating-based seed: the pairing-number position this player would get if starting numbers were assigned fresh right now (highest rating first, ties by name) — recomputed on every view, so it can drift from the frozen Nr after a rating correction or a late addition"},
+     "Live rating-based seed: the pairing-number position this player would get if starting numbers were assigned fresh right now (highest rating first, ties by name) - recomputed on every view, so it can drift from the frozen Nr after a rating correction or a late addition"},
     {"cat", "Cat", false,
-     "Prize category (SWAR CATEGORIES) — only the categories defined for this tournament on " <>
+     "Prize category (SWAR CATEGORIES) - only the categories defined for this tournament on " <>
        "the Categories settings page, assigned per player either by hand or by the " <>
        "\"Assign categories\" button's threshold rules"},
     {"birth_year", "Birth", true, "Year of birth"},
@@ -55,21 +55,21 @@ defmodule PairingsEngineWeb.PlayersLive do
     {"national_rating", "Elo Nat", true, "National federation rating"},
     {"fide_rating", "Elo FIDE", true, "FIDE (international) rating"},
     {"elo_used", "Elo used", true,
-     "The rating actually used for pairing/performance/tiebreak calculations — FIDE rating if the player has one, otherwise the national rating"},
+     "The rating actually used for pairing/performance/tiebreak calculations - FIDE rating if the player has one, otherwise the national rating"},
     {"title", "Title", false, "Chess title (GM, IM, FM, WGM, etc.)"},
     {"club", "Club", false, "Chess club"},
     {"games", "Ga", true, "Games played"},
     {"pts", "Pts", true, "Points (game score, excluding extra points)"},
     {"status", "Status", false, "Player status (active, withdrawn, etc.)"},
     {"fixed_board", "Table", true,
-     "Fixed table number — this player's games always print/display at this board, regardless of normal board order"},
+     "Fixed table number - this player's games always print/display at this board, regardless of normal board order"},
     {"perf", "Perf", true,
      "Performance rating: average opponent rating adjusted for wins/losses"},
     {"we", "We", true, "Expected score from rating (FIDE table)"},
     {"wmwe", "W-We", true, "Actual score minus expected score (W - We)"}
   ]
 
-  # Tiebreak columns — order among themselves is tournament-dependent (see
+  # Tiebreak columns - order among themselves is tournament-dependent (see
   # `tiebreak_columns/1`), this is just the fallback order for any tiebreak
   # NOT in the tournament's configured `tiebreaks` list.
   @tiebreak_columns [
@@ -125,13 +125,13 @@ defmodule PairingsEngineWeb.PlayersLive do
      |> assign_players()}
   end
 
-  # Another user (or another tab) changed this tournament's data — reload
+  # Another user (or another tab) changed this tournament's data - reload
   # the players list and the tournament itself, but leave any open
   # modal/form (add-player form, edit-player modal, players card) alone so
   # we don't clobber whatever the user is mid-typing there.
   #
   # A visible "Player data was just updated by another arbiter - refreshed"
-  # notice used to fire here too — removed, same call as PairingsLive's
+  # notice used to fire here too - removed, same call as PairingsLive's
   # identical notice: it kept surprising people mid-click no matter how it
   # was positioned, and the data refreshing live underneath it is the part
   # that actually matters.
@@ -171,13 +171,13 @@ defmodule PairingsEngineWeb.PlayersLive do
     assign(socket, :players, entries)
   end
 
-  # No column chosen (or the current one was toggled back off) — default
+  # No column chosen (or the current one was toggled back off) - default
   # order: the real tournament ranking. `entry.rank` (set by
   # `Standings.grid_standings/1`, via `build_standings/3`) already sorts by
   # points/total descending, then the tournament's own configured
-  # `tiebreaks` in order, and — because `Tournaments.list_players/1` (the
+  # `tiebreaks` in order, and - because `Tournaments.list_players/1` (the
   # source list `build_standings/3` folds over) itself orders by rating
-  # descending then name ascending, and `Enum.sort_by/2` is stable — any
+  # descending then name ascending, and `Enum.sort_by/2` is stable - any
   # remaining tie naturally falls back to rating descending, then name
   # ascending. That's exactly "points, then configured tiebreaks, then
   # rating" with no need to re-derive it here.
@@ -192,7 +192,7 @@ defmodule PairingsEngineWeb.PlayersLive do
     |> Enum.map(&elem(&1, 0))
   end
 
-  # `sort_value/2` returns `{blank?, comparable_value}` — blanks (nil/"—"
+  # `sort_value/2` returns `{blank?, comparable_value}` - blanks (nil/"-"
   # equivalents, matching what `cell/2` itself treats as blank for that
   # column) always sort last, in either direction. `comparable_value` is the
   # same underlying value the cell displays (never its rendered string),
@@ -286,11 +286,11 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp build_grid(entries, tournament) do
     players_by_id = Map.new(entries, &{&1.player.id, &1.player})
 
-    # The round about to be paired — what decides whether a "Pr." cell
+    # The round about to be paired - what decides whether a "Pr." cell
     # shows a capital or a lowercase marker.
     current_round = Standings.rounds_paired(tournament.id) + 1
 
-    # "Rnk" — a live (unfrozen) re-derivation of the same rule
+    # "Rnk" - a live (unfrozen) re-derivation of the same rule
     # `Pairing.ensure_pairing_numbers/2` uses to freeze `Nr`: highest rating
     # first, ties broken by name. Recomputed over the currently registered
     # player list on every render, so it can drift from the frozen `nr` grid
@@ -316,7 +316,7 @@ defmodule PairingsEngineWeb.PlayersLive do
       losses = Enum.count(played_games, &(&1.points <= tournament.points_loss))
 
       # FIDE expected score (We / W−We, Table 8.1.2): only games against a
-      # rated opponent count, per Article 8.3 — mirrors `opponent_ratings`
+      # rated opponent count, per Article 8.3 - mirrors `opponent_ratings`
       # above but drops unrated (rating <= 0) opponents, since the table has
       # no defined probability against "no rating".
       rated_games =
@@ -341,7 +341,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         "rnk" => Map.get(live_seed_rank_by_id, entry.player.id),
         "elo_used" => Player.rating(entry.player),
         # The tournament's OWN category (see Tournament.categories), never a
-        # derived age bracket — the arbiter defines the category set, so
+        # derived age bracket - the arbiter defines the category set, so
         # nothing here may invent one they didn't create.
         "cat" => entry.player.category || "",
         "games" => length(played_games),
@@ -370,7 +370,7 @@ defmodule PairingsEngineWeb.PlayersLive do
        put_flash(
          socket,
          :error,
-         "Finish the tournament setup before adding players — missing: " <>
+         "Finish the tournament setup before adding players - missing: " <>
            missing_setup_summary(socket.assigns.missing_setup)
        )}
     end
@@ -444,7 +444,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   end
 
   # Mirrors the FIDE add-form's "pick" autofill, but triggered by typing/
-  # leaving the National ID field instead of picking from a search list —
+  # leaving the National ID field instead of picking from a search list -
   # KBSB has no fuzzy name search wired into the add form, only exact
   # national-id lookups.
   def handle_event("lookup_kbsb_add", %{"player" => %{"national_id" => national_id}}, socket) do
@@ -478,7 +478,7 @@ defmodule PairingsEngineWeb.PlayersLive do
        put_flash(
          socket,
          :error,
-         "Finish the tournament setup before adding players — missing: " <>
+         "Finish the tournament setup before adding players - missing: " <>
            missing_setup_summary(socket.assigns.missing_setup)
        )}
     else
@@ -513,13 +513,13 @@ defmodule PairingsEngineWeb.PlayersLive do
   #
   # "Absent" / "Present" from a single row's Pr. cell menu (click or
   # right-click) touch only that one player's whole-tournament `absent`
-  # flag — SWAR's plain "A" with no rounds listed, per `cell(entry, "pr")`
+  # flag - SWAR's plain "A" with no rounds listed, per `cell(entry, "pr")`
   # above. They deliberately leave `absent_rounds` untouched: a player set
   # "Present" here can still have specific rounds marked, and
   # clearing/setting this flag must not silently erase those. Per-round
   # marks stay a job for the edit dialog. The Pr. COLUMN HEADER's
   # right-click menu is the bulk version ("All Absent"/"All Present",
-  # `set_all_absent_flag/3` below) — same flag, every player at once.
+  # `set_all_absent_flag/3` below) - same flag, every player at once.
   def handle_event("set_absent_flag", %{"id" => id, "value" => value}, socket) do
     absent? = value in ["true", true]
 
@@ -551,7 +551,7 @@ defmodule PairingsEngineWeb.PlayersLive do
     end
   end
 
-  # Right-clicking the Pr. COLUMN HEADER instead of one player's cell —
+  # Right-clicking the Pr. COLUMN HEADER instead of one player's cell -
   # same whole-tournament flag, applied to every player in the tournament
   # at once. `set_all_players_absent/2` touches only `absent`;
   # `absent_rounds` is untouched for everyone, same guarantee as the
@@ -673,7 +673,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   ## ---------- Bulk club refresh (KBSB) ----------
   #
   # The same dry-run/preview/apply gesture as the rating refresh above, on
-  # the club columns instead — see `PairingsEngine.ClubRefresh` for why it
+  # the club columns instead - see `PairingsEngine.ClubRefresh` for why it
   # is a separate action rather than more proposals inside that one.
 
   def handle_event("open_club_refresh", _params, socket) do
@@ -737,7 +737,7 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   # Keeps `edit_form` in sync with whatever's actually in the modal's inputs
   # as the arbiter types, instead of only the snapshot taken when the modal
-  # opened. Without this, "FIDE lookup"/"KBSB lookup" read stale data —
+  # opened. Without this, "FIDE lookup"/"KBSB lookup" read stale data -
   # hand-typing a corrected name or FIDE ID and immediately clicking a
   # lookup button used to silently look up the *old* value (or, worse, an
   # old FIDE ID nobody meant to still be there), which is what made the
@@ -749,21 +749,21 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   # Mirrors SWAR's "Rafraichir": re-looks-up the player in the local FIDE
   # copy (by FIDE ID if the form has one, by name otherwise) and refills
-  # rating/title/federation from the match directly — those are operational
+  # rating/title/federation from the match directly - those are operational
   # data (ratings update every FIDE list cycle; that's the whole point of
   # this button), always safe to overwrite.
   #
   # Name/Sex/Birth year are treated differently: identity data that rarely
   # legitimately changes. Filling a currently-blank one of these applies
   # immediately (nothing to conflict with), same as the operational
-  # fields — but CHANGING an already-filled one (whether this was an exact
+  # fields - but CHANGING an already-filled one (whether this was an exact
   # FIDE-ID match or a fuzzy name search; a wrong-person risk from the
   # fuzzy path and a real data discrepancy either way both deserve the
   # same human sign-off) is staged in `edit_fide_conflicts` instead of
   # applied straight away, and the template asks before committing it.
   # Only a byte-for-byte-already-correct value (re-running the lookup on a
   # name/sex/birth year already spelled exactly like FIDE's own record)
-  # skips the prompt as a genuine no-op — a same-identity reformat (case,
+  # skips the prompt as a genuine no-op - a same-identity reformat (case,
   # comma, word order) still counts as a real change and gets asked about
   # too, see `names_equivalent?/2`.
   def handle_event("refresh_edit_fide", _params, socket) do
@@ -804,12 +804,12 @@ defmodule PairingsEngineWeb.PlayersLive do
   # KBSB counterpart of refresh_edit_fide/2: looked up by National ID only
   # (KBSB has no FIDE-style name search), refills national rating/club/
   # federation/birth year, and the FIDE id too if the form doesn't already
-  # have one — the FIDE list stays the source of truth for that field.
+  # have one - the FIDE list stays the source of truth for that field.
   #
   # If that's what fills in the FIDE ID (it was blank before this lookup),
   # this also immediately pulls that player's actual FIDE data (title,
   # tempo-aware rating, federation, birth year, name) the same way FIDE
-  # lookup's own exact-ID path does — otherwise the arbiter has to click
+  # lookup's own exact-ID path does - otherwise the arbiter has to click
   # "FIDE lookup" a second time by hand just to use the ID this button
   # already found, which is exactly the "have to push the other button to
   # make it work" complaint this exists to close.
@@ -840,13 +840,13 @@ defmodule PairingsEngineWeb.PlayersLive do
                Fide.get_player(newly_learned_fide_id) do
           %FidePlayer{} = fp ->
             # KBSB's own fields stay applied either way (merged, not
-            # form) — a real FIDE match on top of that is a bonus, not a
+            # form) - a real FIDE match on top of that is a bonus, not a
             # replacement for it.
             apply_fide_match(socket, merged, fp)
 
           _ ->
             # No local FIDE ID to chain to, or the cross-referenced ID
-            # isn't in our local FIDE copy (stale/not synced recently) —
+            # isn't in our local FIDE copy (stale/not synced recently) -
             # either way, the KBSB data itself is still good and shouldn't
             # be thrown away over it.
             {:noreply, assign(socket, edit_form: merged, edit_error: nil)}
@@ -918,7 +918,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   # result) short-circuits to the existing "no match" error. A real match
   # splits its fields into two groups (see handle_event("refresh_edit_fide"
   # ...)'s doc): operational data (title/fide_id/fide_rating/federation)
-  # applies straight away regardless — identity data (name/sex/birth_year)
+  # applies straight away regardless - identity data (name/sex/birth_year)
   # applies straight away too UNLESS it would actually change an
   # already-filled value (whether this was an exact FIDE-ID match or a
   # fuzzy name search; a wrong-person risk from the fuzzy path and a real
@@ -953,15 +953,15 @@ defmodule PairingsEngineWeb.PlayersLive do
      )}
   end
 
-  # `blank?(new_value)` — FIDE simply has nothing for this field, nothing to
+  # `blank?(new_value)` - FIDE simply has nothing for this field, nothing to
   # apply or conflict with, leave the form exactly as it is.
-  # `blank?(current)` — nothing to conflict with, applies immediately.
-  # `equivalent?.(current, new_value)` — no real change worth asking about:
+  # `blank?(current)` - nothing to conflict with, applies immediately.
+  # `equivalent?.(current, new_value)` - no real change worth asking about:
   # the field is already a byte-for-byte match (or, for birth year,
-  # equal once string/integer representations are normalized — see
+  # equal once string/integer representations are normalized - see
   # `ratings_equivalent?/2`). Otherwise: a real change to an
-  # already-filled value — including a same-identity reformat of the name
-  # (case, comma, word order) — staged for the confirm box rather than
+  # already-filled value - including a same-identity reformat of the name
+  # (case, comma, word order) - staged for the confirm box rather than
   # applied straight away.
   defp stage_reviewable_field({applied, conflicts}, form, key, new_value, equivalent?) do
     current = Map.get(form, key)
@@ -979,14 +979,14 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp blank?(_), do: false
 
   # Deliberately strict: only an EXACT match (after trimming) skips the
-  # confirm box — re-running the lookup on a name already spelled exactly
+  # confirm box - re-running the lookup on a name already spelled exactly
   # like FIDE's own record is a genuine no-op, nothing to ask about.
-  # Anything else — including a same-identity reformat (case, comma,
-  # word order: "tom van 't hoff" vs FIDE's own "Van 't Hoff, Tom") — is a
+  # Anything else - including a same-identity reformat (case, comma,
+  # word order: "tom van 't hoff" vs FIDE's own "Van 't Hoff, Tom") - is a
   # real change to what's on file and gets the same human sign-off as any
   # other name correction. An earlier, looser version of this check
   # compared token *sets* instead of the literal string specifically to
-  # skip the popup for reformats like that — reverted after a real report
+  # skip the popup for reformats like that - reverted after a real report
   # (an arbiter's own typed "Tom van 't Hoff" got silently rewritten with
   # no prompt) showed that convenience was the wrong default: silent is
   # surprising for identity data, even when the rewrite happens to be
@@ -1004,9 +1004,9 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp ratings_equivalent?(a, b), do: parse_rating(a) == parse_rating(b)
 
   # FIDE's own list writes the raw letter "M"/"F" (see the `Sex` column in
-  # `PairingsEngine.Fide.Sync`), but the app's own internal convention —
+  # `PairingsEngine.Fide.Sync`), but the app's own internal convention -
   # what the Sex radio buttons compare against, and what `Trf.trf_sex/1`
-  # normalizes on export — is lowercase "m"/"w" ("w" for female, not "f").
+  # normalizes on export - is lowercase "m"/"w" ("w" for female, not "f").
   # Left as-is, a raw "F" would match neither radio, and since radio groups
   # send nothing at all when none is checked, the very next live form sync
   # (`edit_form_change`) would silently drop it again.
@@ -1022,7 +1022,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp normalize_fide_sex(_), do: ""
 
   # Tracked player fields whose before/after change is worth recording in the
-  # audit trail — returns a `%{"field" => [before, after]}` map of only the
+  # audit trail - returns a `%{"field" => [before, after]}` map of only the
   # fields that actually changed (empty map when nothing tracked changed).
   @audited_player_fields ~w(name title sex fide_id fide_rating national_rating
     federation club club_number birth_year category status absent forfeit
@@ -1092,7 +1092,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp blank_or(value), do: value
 
   # Picking a FIDE result also enriches the form with the matching KBSB row
-  # (if any), the same way a national-id-driven autofill would — the two
+  # (if any), the same way a national-id-driven autofill would - the two
   # lists are cross-referenced by FIDE id.
   defp merge_kbsb_by_fide_id(form_values, fide_id) do
     case Kbsb.find_by_fide_id(fide_id) do
@@ -1121,7 +1121,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp players_by_id(players), do: Map.new(players, &{&1.player.id, &1})
 
   # Plain-text summary of `Tournament.missing_setup_fields/1`'s messages, for
-  # the flash shown when "Add player" is blocked — the on-page banner (see
+  # the flash shown when "Add player" is blocked - the on-page banner (see
   # render/1) additionally links each item to the Settings (sub-)page it
   # lives on.
   defp missing_setup_summary(missing) do
@@ -1129,7 +1129,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   end
 
   # Full column list for `tournament`: the fixed sequence with the tiebreak
-  # columns spliced in at the tournament's own configured order — any
+  # columns spliced in at the tournament's own configured order - any
   # tiebreak the tournament doesn't have configured (or a tournament with no
   # tiebreaks configured, i.e. `tiebreaks == []`) falls back to appearing
   # after the configured ones, in `@tiebreak_columns`'s fixed order.
@@ -1160,7 +1160,7 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   defp cell(entry, "sex") do
     case Player.sex_label(entry.player.sex) do
-      "" -> "—"
+      "" -> "-"
       label -> label
     end
   end
@@ -1168,27 +1168,27 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp cell(entry, key) when key in ~w(title birth_year federation national_id fide_id
                                         fide_rating national_rating club fixed_board) do
     case Map.get(entry.player, String.to_existing_atom(key)) do
-      value when value in [nil, "", 0] -> "—"
+      value when value in [nil, "", 0] -> "-"
       value -> value
     end
   end
 
   # Computed (SWAR-style) columns, sourced from the entry's :grid map built in
-  # build_grid/2. "diren" (Direct Encounter) shows "—" instead of a bare 0,
+  # build_grid/2. "diren" (Direct Encounter) shows "-" instead of a bare 0,
   # since 0 there means "not applicable" rather than an actual value.
   defp cell(entry, "nr"), do: format_num(entry.grid["nr"])
   defp cell(entry, "rnk"), do: format_num(entry.grid["rnk"])
 
   defp cell(entry, "elo_used") do
     case entry.grid["elo_used"] do
-      value when value in [nil, 0] -> "—"
+      value when value in [nil, 0] -> "-"
       value -> value
     end
   end
 
   defp cell(entry, "cat") do
     case entry.grid["cat"] do
-      "" -> "—"
+      "" -> "-"
       value -> value
     end
   end
@@ -1200,7 +1200,7 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   defp cell(entry, "diren") do
     case entry.grid["diren"] do
-      value when value in [nil, 0, 0.0] -> "—"
+      value when value in [nil, 0, 0.0] -> "-"
       value -> format_num(value)
     end
   end
@@ -1218,15 +1218,15 @@ defmodule PairingsEngineWeb.PlayersLive do
   #     F           forfeited / withdrawn
   #     A           absent for the WHOLE event (the `absent` boolean)
   #     A(1,2,3)    sitting out those rounds, and one of them is the round
-  #                 now being paired — so absent RIGHT NOW
+  #                 now being paired - so absent RIGHT NOW
   #     a(1,2,3)    sat out those rounds, but the current round is not one
-  #                 of them — so back in play
+  #                 of them - so back in play
   #
   # The case is the whole point: capital means "absent for the round you
   # are about to pair", lowercase means "has absences on record but is
   # available now". An arbiter scanning the grid before pairing needs that
   # distinction more than either fact on its own, which is why this
-  # replaced the separate rounds column added just before it — two columns
+  # replaced the separate rounds column added just before it - two columns
   # off the same field meant reading both to answer one question.
   defp cell(entry, "pr") do
     player = entry.player
@@ -1256,7 +1256,7 @@ defmodule PairingsEngineWeb.PlayersLive do
       "paid" -> "P"
       "nopaid" -> "N"
       "gratis" -> "G"
-      _ -> "—"
+      _ -> "-"
     end
   end
 
@@ -1265,7 +1265,7 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   # Integers render as-is; floats drop a trailing ".0" and trim to the
   # decimals actually present (6.5, 24.25, but zero always shows as "0").
-  defp format_num(nil), do: "—"
+  defp format_num(nil), do: "-"
   defp format_num(n) when is_integer(n), do: Integer.to_string(n)
 
   defp format_num(n) when is_float(n) do
@@ -1281,12 +1281,12 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   # We always shows two fixed decimals (SWAR/FIDE convention), unlike the
   # other numeric columns which trim trailing zeros.
-  # `PrintController.player_list/2`'s optional columns — Title, FIDE,
-  # Elo Nat, Country, Club — narrowed to whichever of those this LiveView's
+  # `PrintController.player_list/2`'s optional columns - Title, FIDE,
+  # Elo Nat, Country, Club - narrowed to whichever of those this LiveView's
   # own Display panel currently has checked, so "Print player list" shows
   # what the arbiter is looking at on screen rather than a fixed set.
   # Keep in sync with `PairingsEngine.PrintController.@player_list_optional_columns`.
-  # Every grid column the printed player list can actually render — see
+  # Every grid column the printed player list can actually render - see
   # `PairingsEngineWeb.PrintController`'s `@player_list_columns`, which
   # uses these same keys. The score-derived columns (Cl/Pts/Ga/Perf/We/
   # W-We/tiebreaks) are deliberately absent: those are what the Print
@@ -1301,12 +1301,12 @@ defmodule PairingsEngineWeb.PlayersLive do
     @printable_player_list_columns |> Enum.filter(&(&1 in visible)) |> Enum.join(",")
   end
 
-  defp format_score(nil), do: "—"
+  defp format_score(nil), do: "-"
   defp format_score(n), do: :erlang.float_to_binary(n / 1, decimals: 2)
 
   # W-We is signed: an explicit "+" for zero/positive, the built-in "-" for
   # negative values.
-  defp format_signed(nil), do: "—"
+  defp format_signed(nil), do: "-"
 
   defp format_signed(n) do
     sign = if n >= 0, do: "+", else: ""
@@ -1492,7 +1492,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           <input type="hidden" name="player[sex]" value={@form_values["sex"]} />
           <%!-- Hidden, like sex above: the club NUMBER is filled in by the KBSB
                 lookup and is not something an arbiter types. It still has to be
-                submitted, though — `ClubRefresh` treats name and number as a
+                submitted, though - `ClubRefresh` treats name and number as a
                 pair, so a player registered with a name and no number would
                 immediately show up as a pending club change. --%>
           <input type="hidden" name="player[club_number]" value={@form_values["club_number"]} />
@@ -1528,7 +1528,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         <div class="card table-card split-main">
           <p class="hint" style="padding: 12px 16px 0">
             Double-click a row to edit the player, right-click for the Players Card
-            — click a player's Pr. cell to mark that player Present/Absent for the whole event,
+            - click a player's Pr. cell to mark that player Present/Absent for the whole event,
             or right-click the <strong>Pr. column header</strong> to set it for everyone at once.
           </p>
 
@@ -1557,8 +1557,8 @@ defmodule PairingsEngineWeb.PlayersLive do
                   phx-value-key={key}
                   title={
                     case key do
-                      "pr" -> desc <> " — right-click here to set Present/Absent for everyone"
-                      "paid" -> desc <> " — right-click here to set the fee status for everyone"
+                      "pr" -> desc <> " - right-click here to set Present/Absent for everyone"
+                      "paid" -> desc <> " - right-click here to set the fee status for everyone"
                       _ -> desc
                     end
                   }
@@ -1648,7 +1648,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         <p class="hint">
           Compares every registered player against the locally-synced FIDE rating
           list (by FIDE id) and proposes a new rating and title. National ratings
-          are not touched — they come from import or manual entry. Nothing is
+          are not touched - they come from import or manual entry. Nothing is
           written until you Apply.
         </p>
 
@@ -1797,7 +1797,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp via_label(_), do: ""
 
   # `Player.rating/1`'s own FIDE-first-then-national logic, worked from the
-  # edit form's raw string values instead of a saved `%Player{}` — the form
+  # edit form's raw string values instead of a saved `%Player{}` - the form
   # can hold an unsaved edit the stored struct doesn't have yet, and this is
   # what "Elo used" in the registration dialog needs to reflect live as the
   # arbiter types, not just after a save round-trip.
@@ -1820,11 +1820,11 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp parse_rating(value) when is_integer(value), do: value
   defp parse_rating(_), do: 0
 
-  # FIDE's list uses `0`, not a blank field, for "no rating in this list" —
-  # shown as "—" here so an untitled blitz newcomer with a real Standard
+  # FIDE's list uses `0`, not a blank field, for "no rating in this list" -
+  # shown as "-" here so an untitled blitz newcomer with a real Standard
   # rating doesn't read as "Blitz 0".
-  defp rating_or_dash(nil), do: "—"
-  defp rating_or_dash(0), do: "—"
+  defp rating_or_dash(nil), do: "-"
+  defp rating_or_dash(0), do: "-"
   defp rating_or_dash(rating), do: rating
 
   defp fide_conflict_label("name"), do: "Name"
@@ -1837,7 +1837,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp fide_conflict_display(_key, value), do: value
 
   # Names of other players in the tournament already set to the same
-  # fixed_board value — not a validation error (two players sharing a
+  # fixed_board value - not a validation error (two players sharing a
   # fixed table is exactly what happens when they're paired against each
   # other there), just a heads-up so setting it on the wrong player by
   # accident doesn't go unnoticed. Excludes the player being edited so
@@ -1921,7 +1921,7 @@ defmodule PairingsEngineWeb.PlayersLive do
             <strong :for={{key, value} <- @fide_conflicts}>
               {fide_conflict_label(key)} → {fide_conflict_display(key, value)}
             </strong>
-            — apply {if map_size(@fide_conflicts) > 1, do: "these", else: "this"}?
+            - apply {if map_size(@fide_conflicts) > 1, do: "these", else: "this"}?
           </span>
           <button type="button" class="pe-btn" phx-click="apply_fide_conflicts">Yes</button>
           <button type="button" class="pe-btn" phx-click="reject_fide_conflicts">No</button>
@@ -1958,7 +1958,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                 @fide_player.rapid_rating
               )} · Blitz {rating_or_dash(@fide_player.blitz_rating)}
               <span :if={@tournament.standard in ["rapid", "blitz"]}>
-                (this is a {String.capitalize(@tournament.standard)} tournament — refreshing fills
+                (this is a {String.capitalize(@tournament.standard)} tournament - refreshing fills
                 in the {String.capitalize(@tournament.standard)} rating, or Standard if this player
                 has none yet)
               </span>
@@ -2040,7 +2040,7 @@ defmodule PairingsEngineWeb.PlayersLive do
               title="Displays/prints this player's games at this table number, regardless of normal board order"
             />
             <span :if={@fixed_board_conflicts != []} class="hint" style="display: block">
-              Also used by: {Enum.join(@fixed_board_conflicts, ", ")} — fine if they'll be paired
+              Also used by: {Enum.join(@fixed_board_conflicts, ", ")} - fine if they'll be paired
               together there, otherwise double-check.
             </span>
           </label>

@@ -1,7 +1,7 @@
 defmodule PairingsEngineWeb.EmbedSocketTest do
   @moduledoc """
   The embeddable public pages connect their LiveView over `/embed/live`,
-  which is declared WITHOUT the session in `connect_info` — see the socket
+  which is declared WITHOUT the session in `connect_info` - see the socket
   declaration in `PairingsEngineWeb.Endpoint` for why (a `SameSite=Lax`
   session cookie is not sent to a cross-site iframe, so the session-bearing
   socket cannot authenticate there and the client retries forever).
@@ -13,7 +13,7 @@ defmodule PairingsEngineWeb.EmbedSocketTest do
       in `assets/js/app.js` where no Elixir test would otherwise reach it;
     * the pages that use the cookie-free socket must not depend on the
       session for anything, or they would work when opened directly and
-      fail only when embedded — the worst possible failure shape, since
+      fail only when embedded - the worst possible failure shape, since
       every local test would pass.
   """
   use PairingsEngineWeb.ConnCase, async: false
@@ -44,7 +44,7 @@ defmodule PairingsEngineWeb.EmbedSocketTest do
 
       refute declaration =~ "session:",
              """
-             /embed/live must NOT be given the session in connect_info — that is the
+             /embed/live must NOT be given the session in connect_info - that is the
              entire point of it. If the session is passed here, a cross-site iframe
              connects with session: nil, LiveView rejects the connect, and the page
              reload-loops with "WebSocket is closed before the connection is established".
@@ -76,7 +76,7 @@ defmodule PairingsEngineWeb.EmbedSocketTest do
             "/m/results"
           ] do
         refute Regex.match?(embeddable, path),
-               "#{path} must keep the session-bearing socket — it is not embeddable"
+               "#{path} must keep the session-bearing socket - it is not embeddable"
       end
     end
   end
@@ -95,7 +95,7 @@ defmodule PairingsEngineWeb.EmbedSocketTest do
           |> html_response(200)
 
         assert html =~ t.name,
-               "#{path} must render its content without a session — it is embedded cross-site"
+               "#{path} must render its content without a session - it is embedded cross-site"
       end
     end
   end

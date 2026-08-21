@@ -25,7 +25,7 @@ defmodule PairingsEngine.Kbsb do
 
       true ->
         # Match every token (whitespace/comma separated) against either the
-        # last OR first name, in any order — so "burssens jorian", "jorian
+        # last OR first name, in any order - so "burssens jorian", "jorian
         # burssens", "burssens, jorian" and just "jorian" all find the player.
         case search_tokens(query) do
           [] ->
@@ -106,14 +106,14 @@ defmodule PairingsEngine.Kbsb do
   Deliberately one query and one pass rather than a lookup per player: the
   list is tens of thousands of rows but a tournament is a few hundred
   players, and there is no index that could serve an accent-folded
-  comparison anyway — SQLite's `lower()` doesn't fold accents.
+  comparison anyway - SQLite's `lower()` doesn't fold accents.
 
   The value is a LIST because names are not unique. Callers must decide
   what to do with more than one; this function refuses to pick for them.
 
   Deceased members are excluded. The API sync mirrors the roster unfiltered
   on purpose (see the AddKbsbPlayerStatusFlags migration), which puts the
-  decision here — and a *name* is exactly the wrong key to resolve onto a
+  decision here - and a *name* is exactly the wrong key to resolve onto a
   dead member with, because the living player sitting at the board is the
   one being registered. Exact id lookups (`find_by_national_id/1`,
   `find_by_fide_id/1`) deliberately still find them: an arbiter who types a

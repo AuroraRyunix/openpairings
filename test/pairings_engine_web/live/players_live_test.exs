@@ -33,13 +33,13 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/players")
 
     # The player-list link carries `?cols=` (see `printable_player_list_columns/1`)
-    # so the print shows whatever's currently checked in the Display panel —
-    # not a fixed set — hence a prefix match rather than an exact href.
+    # so the print shows whatever's currently checked in the Display panel -
+    # not a fixed set - hence a prefix match rather than an exact href.
     assert html =~ ~s(href="/t/#{tournament.id}/print/players?)
     assert html =~ "Print player list"
     assert html =~ ~s(target="_blank")
     # "Print player cards" was removed from the UI (the route/controller
-    # action still exist, see docs/printing.md) — assert its absence so a
+    # action still exist, see docs/printing.md) - assert its absence so a
     # regression re-adding the button gets caught.
     refute html =~ "Print player cards"
   end
@@ -134,13 +134,13 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       |> render_submit()
 
       # update_player/2 broadcasts on the tournament topic and this `lv` is
-      # subscribed to its own tournament (see PlayersLive's mount) —
+      # subscribed to its own tournament (see PlayersLive's mount) -
       # render_submit/1 only waits for the direct reply to the "save" event,
       # not for that self-broadcast's handle_info reload, which lands in the
       # mailbox microseconds later and runs its own Repo query. Draining it
       # with a synchronous render/1 before the test (and this `lv`'s
       # teardown) proceeds avoids racing that query against the test process
-      # supervisor killing `lv` mid-query — which, on SQLite's single-writer
+      # supervisor killing `lv` mid-query - which, on SQLite's single-writer
       # file, can wedge the shared sandbox connection for later tests with a
       # spurious `Database busy` (see the same fix in sharing_test.exs).
       render(lv)
@@ -164,7 +164,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       |> render_submit()
 
       # Same self-broadcast race as the "saving a fixed_board value" test
-      # above — drain it before the test (and `lv`'s teardown) proceeds.
+      # above - drain it before the test (and `lv`'s teardown) proceeds.
       render(lv)
 
       updated = Tournaments.get_player!(player.tournament_id, player.id)
@@ -233,7 +233,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
     test "shows the player's own tiebreak values, hidden when the tournament has none configured",
          %{conn: conn, scope: scope} do
       # create_tournament/2 applies FIDE default tiebreaks unless told
-      # otherwise (see Tournaments.new_tournament/1) — force the truly-empty
+      # otherwise (see Tournaments.new_tournament/1) - force the truly-empty
       # case explicitly rather than relying on this describe block's own
       # default-tiebreaks tournament for the "nothing configured" half.
       {:ok, no_tb_tournament} =
@@ -247,7 +247,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{no_tb_tournament.id}/players")
 
-      # Scoped to inside the modal card specifically (via has_element?/2) —
+      # Scoped to inside the modal card specifically (via has_element?/2) -
       # a bare substring match against the whole page would false-positive
       # on the Players grid's own "Buch" column tooltip, unrelated to
       # this card.
@@ -332,7 +332,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       assert html =~ ~s(value="KSK Antwerpen")
       assert html =~ "Peeters, Jan"
 
-      # The club NUMBER too, via the add form's hidden input — it has no
+      # The club NUMBER too, via the add form's hidden input - it has no
       # visible field. Without it the player saves with a club name and no
       # number, and "Update clubs" flags them as a pending change the moment
       # they are registered, because it treats the two as a pair.
@@ -441,7 +441,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       html = lv |> element("button", "KBSB") |> render_click()
 
       # KBSB's own fields, plus the FIDE data reachable through the id it
-      # just found — no need to click "FIDE lookup" a second time by hand.
+      # just found - no need to click "FIDE lookup" a second time by hand.
       assert html =~ ~s(value="555555")
       assert html =~ ~s(value="2100")
       assert html =~ "Peeters, Jan"
@@ -449,7 +449,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
 
     test "when the KBSB-linked FIDE id isn't in our local FIDE copy, KBSB's own data is still applied",
          %{conn: conn, tournament: tournament, player: player} do
-      # No FidePlayer 555_555 inserted — simulates a stale/not-yet-synced
+      # No FidePlayer 555_555 inserted - simulates a stale/not-yet-synced
       # local FIDE list. The KBSB half of the lookup must not be thrown
       # away just because the FIDE follow-up came back empty.
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
@@ -479,7 +479,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       render_click(lv, "edit_player", %{"id" => to_string(other.id)})
       html = lv |> element("button", "KBSB") |> render_click()
 
-      # The pre-existing FIDE id (9) wins — KBSB only fills FIDE id when blank.
+      # The pre-existing FIDE id (9) wins - KBSB only fills FIDE id when blank.
       assert html =~ ~s(value="9")
       refute html =~ ~s(value="555555")
     end
@@ -609,7 +609,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       # Operational fields (birth year here) apply directly regardless...
       assert html =~ ~s(value="1982")
       # ...but the name isn't silently rewritten, even though it's an
-      # exact FIDE-ID match — an already-filled identity field always gets
+      # exact FIDE-ID match - an already-filled identity field always gets
       # a human's sign-off on a real change.
       assert html =~ ~s(value="tijl de moyer")
       refute html =~ ~s(value="De Moyer, Tijl")
@@ -672,7 +672,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       render_click(lv, "edit_player", %{"id" => to_string(player.id)})
       html = lv |> element("button", "FIDE lookup") |> render_click()
 
-      # Not silently flipped — the radio still shows what was on file...
+      # Not silently flipped - the radio still shows what was on file...
       assert html =~ ~r/name="player\[sex\]" value="w" checked/
       refute html =~ ~r/name="player\[sex\]" value="m" checked/
       # ...and the conflict is visible, naming the field and FIDE's value.
@@ -811,7 +811,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
 
     test "by name: fills the other fields but stages a genuinely different name behind a yes/no prompt",
          %{conn: conn, tournament: tournament} do
-      # "tijl" alone vs FIDE's full "De Moyer, Tijl" — a real token-set
+      # "tijl" alone vs FIDE's full "De Moyer, Tijl" - a real token-set
       # difference (not just reordering/reformatting), so this is a
       # genuine identity question worth a human's sign-off, not just a
       # spelling normalization.
@@ -834,7 +834,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       assert html =~ ~s(value="214566")
       assert html =~ ~s(value="BEL")
       assert html =~ ~s(value="1982")
-      # Name not overwritten yet — staged behind the prompt instead.
+      # Name not overwritten yet - staged behind the prompt instead.
       assert html =~ ~s(value="tijl")
       assert html =~ "De Moyer, Tijl"
       assert html =~ "FIDE disagrees"
@@ -886,7 +886,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       render_click(lv, "edit_player", %{"id" => to_string(player.id)})
       html = lv |> element("button", "FIDE lookup") |> render_click()
 
-      # Not silently rewritten — the original text is still what's shown...
+      # Not silently rewritten - the original text is still what's shown...
       assert html =~ ~s(value="de moyer tijl")
       refute html =~ ~s(value="De Moyer, Tijl")
       # ...and the prompt names the real correction.
@@ -934,7 +934,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
 
       render_click(lv, "edit_player", %{"id" => to_string(player.id)})
 
-      # Hand-typed, never saved — mirrors editing the field then immediately
+      # Hand-typed, never saved - mirrors editing the field then immediately
       # clicking the lookup button, with no fide_id present to short-circuit
       # to the exact-ID (no-confirmation) path.
       lv
@@ -944,7 +944,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       html = lv |> element("button", "FIDE lookup") |> render_click()
 
       # The live-typed value ("jorian burssens") is what got searched, not
-      # some stale snapshot — proven by the match actually being found:
+      # some stale snapshot - proven by the match actually being found:
       # operational fields (federation) apply directly, and the name
       # correction ("jorian burssens" -> FIDE's own "Burssens, Jorian") is
       # a real reformat, so it's staged behind the confirm prompt rather
@@ -1028,7 +1028,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       assert html =~ "1 change"
 
       lv |> element("button", "Apply") |> render_click()
-      # This click both writes (via RatingRefresh.apply/2) and broadcasts —
+      # This click both writes (via RatingRefresh.apply/2) and broadcasts -
       # synchronize before asserting so the reload always lands before we look.
       html = render(lv)
 
@@ -1098,7 +1098,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
     end
 
     # Extracts the trimmed text content of every `<td class="num">...</td>`
-    # cell in `row_html`, in document order — used to check individual
+    # cell in `row_html`, in document order - used to check individual
     # numeric-column values without depending on exact whitespace.
     defp num_cells(row_html) do
       ~r/<td class="num"[^>]*>(.*?)<\/td>/s
@@ -1143,7 +1143,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
 
       # Ascending by extra points: Bob (0.5) < Carol (1.0) < Alice (2.0). A
       # naive string sort would put "0.5" < "1.0" < "2.0" too, so this alone
-      # wouldn't catch a stringified sort — the real regression guard is that
+      # wouldn't catch a stringified sort - the real regression guard is that
       # a numeric column never crashes when compared, exercised across all
       # these tests via mixed nil/blank values.
       assert position(html, "Bob") < position(html, "Carol")
@@ -1168,7 +1168,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
     test "nil/blank values sort last in both directions", %{conn: conn, tournament: tournament} do
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
 
-      # Bob has no birth_year — must sort after both Alice (1990) and Carol
+      # Bob has no birth_year - must sort after both Alice (1990) and Carol
       # (2000) whether ascending or descending.
       asc_html = render_click(lv, "sort", %{"key" => "birth_year"})
       assert position(asc_html, "Alice") < position(asc_html, "Bob")
@@ -1186,7 +1186,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       assert html =~ "N1"
       assert html =~ ~s(phx-value-key="cl")
 
-      # No ratings given, so all three tie on rank/rating — `entry.rank`'s
+      # No ratings given, so all three tie on rank/rating - `entry.rank`'s
       # own order (Alice, Bob, Carol, per `list_players/1`'s
       # rating-desc/name-asc ordering) already matches ascending "cl", so
       # the first click is a no-op; the real proof N1 is wired to the same
@@ -1284,7 +1284,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       assert alice.pairing_number == 2
 
       # Now correct Alice's rating upward, past Bob's, *after* numbers were
-      # frozen — Nr must stay put (it's frozen), but the live Rnk column
+      # frozen - Nr must stay put (it's frozen), but the live Rnk column
       # must reflect the new rating order immediately.
       {:ok, _alice} = Tournaments.update_player(alice, %{"fide_rating" => "2500"})
 
@@ -1295,7 +1295,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       alice_row = html |> String.split(~s(data-player-id="#{alice.id}")) |> Enum.at(1)
       bob_row = html |> String.split(~s(data-player-id="#{bob.id}")) |> Enum.at(1)
 
-      # Visible numeric columns, in order: N1, Cl, Nr, Rnk, ... — so index 2
+      # Visible numeric columns, in order: N1, Cl, Nr, Rnk, ... - so index 2
       # is the frozen Nr and index 3 is the live Rnk.
       alice_cells = num_cells(alice_row)
       bob_cells = num_cells(bob_row)
@@ -1547,17 +1547,17 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       national_row = html |> String.split(~s(data-player-id="#{national_only.id}")) |> Enum.at(1)
 
       # Visible numeric columns, in order: N1, Cl, Birth, Id FIDE, Elo Nat,
-      # Elo FIDE, Elo used, Ga, Pts, XtPts, P.Tot. — index 4 is the raw
+      # Elo FIDE, Elo used, Ga, Pts, XtPts, P.Tot. - index 4 is the raw
       # national rating, index 6 is the new Elo-used column.
       fide_cells = num_cells(fide_row)
       national_cells = num_cells(national_row)
 
-      # FidePlayer has both ratings set — Elo Nat keeps showing the raw
+      # FidePlayer has both ratings set - Elo Nat keeps showing the raw
       # national rating (1800), while Elo used picks the FIDE one (2200).
       assert Enum.at(fide_cells, 4) == "1800"
       assert Enum.at(fide_cells, 6) == "2200"
 
-      # NationalOnly has no FIDE rating — Elo used falls back to the same
+      # NationalOnly has no FIDE rating - Elo used falls back to the same
       # national rating shown in Elo Nat.
       assert Enum.at(national_cells, 4) == "1700"
       assert Enum.at(national_cells, 6) == "1700"
@@ -1608,7 +1608,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
         |> then(fn _ -> render_click(lv, "toggle_column", %{"key" => "sb"}) end)
 
       # SB is configured, so it comes first; BH is not configured, so it
-      # falls back after — but it must still appear (columns aren't hidden,
+      # falls back after - but it must still appear (columns aren't hidden,
       # only reordered, since the grid always computes all of these).
       assert html =~ "Buch"
       assert position(html, "S.B.") < position(html, "Buch")
@@ -1670,7 +1670,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       assert html =~ "New Player"
 
       # create_player broadcasts :players on the tournament's topic, which
-      # this `lv` is subscribed to — drain the self-broadcast before
+      # this `lv` is subscribed to - drain the self-broadcast before
       # teardown (same race as the other PlayersLive save tests above).
       render(lv)
 
@@ -1681,7 +1681,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
   ## ---------- concurrent-arbiter live refresh ----------
   #
   # A visible "Player data was just updated by another arbiter" notice
-  # used to fire on a remote broadcast — removed by explicit request, same
+  # used to fire on a remote broadcast - removed by explicit request, same
   # call as PairingsLive's identical notice: however it was positioned, a
   # toast popping up mid-click kept surprising people. The player data
   # itself still refreshes live underneath; that's the part that actually
@@ -1726,7 +1726,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       assert html =~ "Update clubs"
       assert html =~ "phx-click=\"open_club_refresh\""
 
-      # Adjacent to Refresh ratings, in that order — the two are the same
+      # Adjacent to Refresh ratings, in that order - the two are the same
       # gesture on different columns and are meant to be found together.
       [_, between] = String.split(html, "Refresh ratings", parts: 2)
       assert between =~ ~r/\A.{0,600}Update clubs/s

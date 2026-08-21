@@ -5,7 +5,7 @@ defmodule PairingsEngine.Repo.Migrations.AddTournamentArchivedAt do
   # `tournaments.status` is DERIVED (Tournaments.derive_status/1 recomputes it
   # from the round/pairing rows on every refresh_status!/1 call), so an
   # "archived" status would be silently clobbered the next time anything
-  # touched the tournament. `archived_at` mirrors `deleted_at` instead — an
+  # touched the tournament. `archived_at` mirrors `deleted_at` instead - an
   # independent, explicitly-set timestamp that nothing derives.
   #
   # No backfill: every existing tournament gets NULL, which reads as

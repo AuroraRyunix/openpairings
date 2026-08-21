@@ -6,7 +6,7 @@ defmodule PairingsEngine.SwarImportOfficialsTest do
   # that decides whether a player is offered any candidates at all.
   #
   # Synthetic binaries rather than the real `.swar` fixtures, which are
-  # gitignored personal data — same approach as swar_import_presence_test.exs.
+  # gitignored personal data - same approach as swar_import_presence_test.exs.
   use PairingsEngine.DataCase, async: false
 
   alias PairingsEngine.{Repo, SwarImport}
@@ -140,7 +140,7 @@ defmodule PairingsEngine.SwarImportOfficialsTest do
     test "strips stacked grades but never eats the actual name" do
       assert SwarImport.strip_arbiter_title("IO NA Marc Van Dyck") == "Marc Van Dyck"
       assert SwarImport.strip_arbiter_title("Luc Cornet") == "Luc Cornet"
-      # "Ian" starts with IA's letters but isn't a grade — must survive.
+      # "Ian" starts with IA's letters but isn't a grade - must survive.
       assert SwarImport.strip_arbiter_title("Ian Nepomniachtchi") == "Ian Nepomniachtchi"
     end
   end
@@ -148,8 +148,8 @@ defmodule PairingsEngine.SwarImportOfficialsTest do
   describe "cadence_label/2" do
     # Reverse-engineered from SWAR's own source (Utils.cpp's GetCadence/2 +
     # Languages/Swar.Lang.fr.ini's [CADENCES] section), not from a .swar
-    # sample — see the moduledoc comment above cadence_label/2 for how.
-    test "standard cadence 12 (0-based) is 90 min + 30 sec/move — the real Geraardsbergen 2026 value" do
+    # sample - see the moduledoc comment above cadence_label/2 for how.
+    test "standard cadence 12 (0-based) is 90 min + 30 sec/move - the real Geraardsbergen 2026 value" do
       assert SwarImport.cadence_label(0, 12) == "90 min + 30 sec/move"
     end
 
@@ -206,8 +206,8 @@ defmodule PairingsEngine.SwarImportOfficialsTest do
     assert t.officials["deputy1_fide_id"] == "214787"
 
     # A confident match rewrites the name to FIDE's own "Last, First" form
-    # too — same as picking that result by hand from the arbiter combobox
-    # would — so Norms.Forms.fide_display_name/1 has a comma to work with
+    # too - same as picking that result by hand from the arbiter combobox
+    # would - so Norms.Forms.fide_display_name/1 has a comma to work with
     # when the report prints the surname in capitals.
     assert t.chief_arbiter == "Cornet, Luc"
     assert t.officials["deputy1_name"] == "De Vet, Sylvin"
@@ -278,7 +278,7 @@ defmodule PairingsEngine.SwarImportOfficialsTest do
 
       path = Path.join(System.tmp_dir!(), "diacritic-#{System.unique_integer([:positive])}.swar")
 
-      # SWAR strings are CP-1252, so "ü" is the single byte 0xFC — writing the
+      # SWAR strings are CP-1252, so "ü" is the single byte 0xFC - writing the
       # UTF-8 encoding here would make the parser (correctly) decode it as
       # "Ã¼" and the test would be checking the wrong thing.
       umlaut_name = <<"M", 0xFC, "ller, Hans">>
@@ -290,7 +290,7 @@ defmodule PairingsEngine.SwarImportOfficialsTest do
 
       try do
         assert {:ok, %{data: data, unresolved: unresolved}} = SwarImport.prepare_import(path)
-        # Exact name + federation + birth year, once folded — auto-adopted.
+        # Exact name + federation + birth year, once folded - auto-adopted.
         assert unresolved == []
         assert [%{mat_fide: 999_001}] = data.players
       after
@@ -312,7 +312,7 @@ defmodule PairingsEngine.SwarImportOfficialsTest do
 
       try do
         assert {:ok, %{unresolved: [entry]}} = SwarImport.prepare_import(path)
-        # Never auto-adopted across federations — but offered for a human to pick.
+        # Never auto-adopted across federations - but offered for a human to pick.
         assert Enum.map(entry.candidates, & &1.fide_id) == [999_002]
       after
         File.rm(path)

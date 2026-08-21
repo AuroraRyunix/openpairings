@@ -8,27 +8,27 @@ defmodule PairingsEngine.PlayerStats do
   alias PairingsEngine.Tournaments.Player
 
   @doc """
-  Picks the tightest-matching threshold PRIZE category (SWAR CATEGORIES —
+  Picks the tightest-matching threshold PRIZE category (SWAR CATEGORIES -
   distinct from the Belgian age category above) for `player`, from a
   tournament's `category_order` (its `categories` list, in the order
   shown/defined) and `category_rules` (name => `%{"kind" =>
   "elo_below"|"elo_above"|"age_below"|"age_above", "value" => integer}`).
 
-  A category with no rule in `category_rules` is never matched here — it
+  A category with no rule in `category_rules` is never matched here - it
   stays a plain name the arbiter assigns by hand.
 
   ## Picking the tightest match
 
   A 1000-rated player in a tournament with both "-1200" (`elo_below`
-  1200) and "-1100" (`elo_below` 1100) qualifies for both — 1000 is under
-  either ceiling — and lands in **"-1100"**: the smaller ceiling is the
+  1200) and "-1100" (`elo_below` 1100) qualifies for both - 1000 is under
+  either ceiling - and lands in **"-1100"**: the smaller ceiling is the
   more specific bracket. Symmetrically, `elo_above`/`age_above` pick the
   LARGEST qualifying floor. This is computed independently per `kind`
   (comparing an Elo ceiling against an age floor means nothing), so each
   kind present contributes at most one candidate.
 
-  If a player ends up qualifying under more than one KIND at once — an
-  Elo category and an age category both defined and both matching — the
+  If a player ends up qualifying under more than one KIND at once - an
+  Elo category and an age category both defined and both matching - the
   tie is broken by `category_order`: whichever kind's winning category
   comes FIRST in that list wins outright. Arbiters who want a specific
   kind to take priority should list it first.
@@ -67,10 +67,10 @@ defmodule PairingsEngine.PlayerStats do
     end
   end
 
-  # An unrated player (rating 0 — `Player.rating/1` never returns a
+  # An unrated player (rating 0 - `Player.rating/1` never returns a
   # negative number) still qualifies for a below-ceiling bracket: 0 is
   # genuinely under any positive threshold, and treating "no rating on
-  # file" as "definitely not the lowest bracket" was backwards — an
+  # file" as "definitely not the lowest bracket" was backwards - an
   # unrated player is, if anything, the LEAST likely to be over a rating
   # ceiling. `elo_above` keeps its `rating > 0` guard deliberately: an
   # unrated player has no proven rating to be ABOVE anything.
@@ -102,7 +102,7 @@ defmodule PairingsEngine.PlayerStats do
   # are the ARBITER's to define (`Tournament.categories`, edited on the
   # Categories settings page), and a column that silently displayed
   # brackets nobody had created was showing categories that didn't exist
-  # for that tournament. Age-based grouping is still available — as an
+  # for that tournament. Age-based grouping is still available - as an
   # `age_below`/`age_above` rule on a category the arbiter created, via
   # `assign_category/4` above.
 
@@ -112,7 +112,7 @@ defmodule PairingsEngine.PlayerStats do
 
   `opponent_ratings` is the list of opponent ratings for each played game
   (one entry per game). Returns `nil` when no games were played (the caller
-  is expected to render that as "—").
+  is expected to render that as "-").
 
       iex> PairingsEngine.PlayerStats.performance([1800, 1700], 2, 0)
       2150
@@ -133,7 +133,7 @@ defmodule PairingsEngine.PlayerStats do
   # rating D into scoring probability PD"), verified against
   # https://handbook.fide.com/chapter/B022024 (FIDE Rating Regulations
   # effective from 1 March 2024). Each entry is `{upper_bound_of_D, P(higher
-  # rated player scores))}` — D is looked up against the *higher*-rated
+  # rated player scores))}` - D is looked up against the *higher*-rated
   # side's probability; the lower-rated side's is `1 - P`. Article 8.3.1
   # caps the rating difference used in this lookup at 400 both ways (applied
   # in `expected_score/1` below), so buckets past 400 (411, 432, … 735) are
@@ -220,7 +220,7 @@ defmodule PairingsEngine.PlayerStats do
 
   @doc """
   Sum of per-game expected scores (We) for a player rated `own_rating`
-  against `opponent_ratings` (one entry per counted game — the caller is
+  against `opponent_ratings` (one entry per counted game - the caller is
   responsible for having already excluded unplayed/forfeit games and
   unrated opponents). Returns `nil` when the player themself is unrated
   (`own_rating <= 0`) or no games were counted, matching `performance/3`'s

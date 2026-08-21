@@ -1,14 +1,14 @@
 defmodule PairingsEngine.TrfImport do
   @moduledoc """
   Imports a FIDE TRF16 file (`PairingsEngine.Trf.parse/1`) as a brand-new
-  tournament — players, rounds, pairings, byes — owned by the importing
+  tournament - players, rounds, pairings, byes - owned by the importing
   user. One-step, single-transaction create, same shape as
   `PairingsEngine.SwarImport.import_file/2`: broadcast-suppressed writes
   inside the transaction, `Tournaments.refresh_status!/1` and the real
   broadcasts after commit.
 
   TRF16 has no board-number field and no explicit "which two rows are the
-  same game" marker beyond each player's own per-round opponent reference —
+  same game" marker beyond each player's own per-round opponent reference -
   a game is reconstructed by pairing up two players' round columns when
   they mutually reference each other (mirrors `PairingsEngine.Trf`'s own
   `validate_games!/1`, which already guarantees any *mutual* pair is
@@ -17,12 +17,12 @@ defmodule PairingsEngine.TrfImport do
 
   TRF's own per-player points column (TRF16 columns 81-84) is a
   self-reported total that arbiter software sometimes leaves stale after a
-  late correction — it is never trusted outright. After import,
+  late correction - it is never trusted outright. After import,
   `PairingsEngine.Pairing.trf_player_rows/2` recomputes each player's
   points from what was actually written to the database (same formula
   `PairingsEngine.TrfExport` uses), and any player whose recomputed total
   disagrees with the TRF file's declared total is returned in `warnings`
-  for the caller to show as a notice — the import itself always proceeds
+  for the caller to show as a notice - the import itself always proceeds
   either way.
   """
 
@@ -37,12 +37,12 @@ defmodule PairingsEngine.TrfImport do
   `SwarImport.import_file/2`).
 
   Returns `{:ok, %Tournament{}, warnings}` where `warnings` is a (possibly
-  empty) list of `%{player_name:, trf_points:, computed_points:}` maps — one
+  empty) list of `%{player_name:, trf_points:, computed_points:}` maps - one
   per player whose recomputed points disagree with the TRF file's own
   points column (see the moduledoc). Returns `{:error, reason}` on a parse
   failure or an invalid file; never raises. `reason` is either a
   `PairingsEngine.Trf.ValidationError` struct, a `{:parse_failed, message}`
-  tuple, or a plain string — pass it to `error_message/1` for a single
+  tuple, or a plain string - pass it to `error_message/1` for a single
   user-facing string.
   """
   def import_text(content, scope \\ nil) when is_binary(content) do
@@ -54,14 +54,14 @@ defmodule PairingsEngine.TrfImport do
 
   @doc """
   Parses `content` (a TRF16 file's raw text, same as `import_text/2`) and
-  builds unpersisted `%Tournament{}`/`%Player{}` structs — same decoding
+  builds unpersisted `%Tournament{}`/`%Player{}` structs - same decoding
   (CP1252/BOM fallback), parsing and header/player field mapping
   `import_text/2` itself uses internally, but with NO `Repo` calls: nothing
   is written to the database, and the returned structs have no `id` (never
-  needed — `PairingsEngine.Norms.Forms` only ever reads scalar fields off a
+  needed - `PairingsEngine.Norms.Forms` only ever reads scalar fields off a
   tournament/player, never `id`).
 
-  Unlike `import_text/2`, this never builds rounds/pairings/byes — TRF's
+  Unlike `import_text/2`, this never builds rounds/pairings/byes - TRF's
   round data has no representation independent of a persisted tournament's
   players and round rows, and no caller of this pure builder (norm-report
   generation from an uploaded file) needs it. Returns `{:ok, {tournament,
@@ -131,7 +131,7 @@ defmodule PairingsEngine.TrfImport do
   ## ---------- encoding ----------
 
   # TRF files exported by Windows chess software (SWAR and similar) are
-  # frequently Windows-1252 encoded rather than UTF-8 — an accented name
+  # frequently Windows-1252 encoded rather than UTF-8 - an accented name
   # (e.g. "Boûtchon", "Gaëtan") then arrives as raw single-byte CP1252,
   # which is not valid UTF-8 on its own. Left untranslated, that byte
   # sequence gets stored as invalid UTF-8 straight through the database:
@@ -175,7 +175,7 @@ defmodule PairingsEngine.TrfImport do
   # for a repeated key. A corrupt or malicious TRF with two "001" lines
   # sharing the same starting rank would otherwise import both players as
   # DB rows, but silently drop the first one's rounds and hand its rank
-  # over to the second — an orphan player nobody's games reference. Caught
+  # over to the second - an orphan player nobody's games reference. Caught
   # up front, before any row is written, so this is always a clean rollback
   # rather than a half-imported tournament.
   defp validate_unique_ranks(data) do
@@ -243,7 +243,7 @@ defmodule PairingsEngine.TrfImport do
   end
 
   # Shared by `create_tournament/2` (persisting) and `build_tournament_struct/1`
-  # (pure, no Repo) — the one place TRF's header fields map onto
+  # (pure, no Repo) - the one place TRF's header fields map onto
   # `Tournament.changeset/2` attrs.
   defp tournament_attrs(data) do
     t = data.tournament
@@ -306,7 +306,7 @@ defmodule PairingsEngine.TrfImport do
   defp blank_to_default(v, _default), do: v
 
   # "Individual: Swiss System" / "Team: Round Robin System" etc (see
-  # PairingsEngine.Trf's @type_labels) — reverse-mapped by substring rather
+  # PairingsEngine.Trf's @type_labels) - reverse-mapped by substring rather
   # than an exact table, since a hand-written or third-party TRF's 092 line
   # may phrase it slightly differently.
   defp infer_type(nil), do: "swiss"
@@ -365,7 +365,7 @@ defmodule PairingsEngine.TrfImport do
   defp zero_to_nil(v), do: v
 
   # Trf.parse's birth_date is already "" | "YYYY-MM-DD" | "YYYY-00-00" (the
-  # year-only form TrfExport itself writes for a birth_year-only player —
+  # year-only form TrfExport itself writes for a birth_year-only player -
   # see Pairing.player_birth_date/1). A genuinely malformed date (bad month/
   # day) falls back to nil/nil rather than raising.
   defp birth_from_iso(v) when v in [nil, ""], do: {nil, nil}
@@ -457,7 +457,7 @@ defmodule PairingsEngine.TrfImport do
   # playing code, tries to resolve the opponent's own entry for the same
   # round and pair the two into one game. `PairingsEngine.Trf.parse/1`
   # already validated that any *mutually referencing* pair is legal (see
-  # `Trf.validate_games!/1`) — this only needs to check the reference is
+  # `Trf.validate_games!/1`) - this only needs to check the reference is
   # mutual at all before trusting it. A dangling/unresolvable playing code,
   # or a genuine TRF bye code (H/F/U/Z), falls through to `single_sided/2`.
   defp build_round(entries) do
@@ -538,8 +538,8 @@ defmodule PairingsEngine.TrfImport do
   # A round entry that never resolves to a real, mutual opponent this round:
   # either a genuine TRF bye code, or a playing code whose opponent isn't
   # resolvable in this round's roster. OpenPairings models exactly one
-  # "full points, no game" outcome (the pairing-allocated bye — a `pairings`
-  # row with no black player) — both TRF's "U" (pairing-allocated) and "F"
+  # "full points, no game" outcome (the pairing-allocated bye - a `pairings`
+  # row with no black player) - both TRF's "U" (pairing-allocated) and "F"
   # (full-point bye) collapse into that same row, since there is no second
   # full-point-bye type to keep them apart (see docs/trf-import.md). "H"
   # (half-point bye) and "Z" (zero-point bye), and a dangling playing code
@@ -560,7 +560,7 @@ defmodule PairingsEngine.TrfImport do
   end
 
   # None of the real pairings carry a board number (TRF16 has no such
-  # field) — number them 1..N in discovery (starting-rank) order, byes
+  # field) - number them 1..N in discovery (starting-rank) order, byes
   # (no black player) numbered last, same convention SwarImport uses for
   # its own pairing-allocated byes.
   defp finalize_boards(pairings) do
@@ -575,7 +575,7 @@ defmodule PairingsEngine.TrfImport do
 
   # Recomputes points from what actually landed in the database (via the
   # same code TrfExport itself uses) and flags any player whose TRF-file
-  # points column disagrees — floating point roundtrips through 0.5-point
+  # points column disagrees - floating point roundtrips through 0.5-point
   # increments exactly, so > 0.01 is a real mismatch, not noise.
   defp points_warnings(tournament, trf_players, players_by_rank) do
     computed_by_rank =

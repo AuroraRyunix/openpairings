@@ -22,7 +22,7 @@ defmodule PairingsEngine.ExclusionsTest do
 
   defp pair_ids(pairs), do: MapSet.new(pairs, fn {a, b} -> {a.id, b.id} end)
 
-  describe "excluded_pairs/2 — club_exclusion: \"none\"" do
+  describe "excluded_pairs/2 - club_exclusion: \"none\"" do
     test "excludes nothing, even when players share a club" do
       players = [player(1, club: "Chess Club"), player(2, club: "Chess Club")]
       t = tournament(club_exclusion: "none")
@@ -31,7 +31,7 @@ defmodule PairingsEngine.ExclusionsTest do
     end
   end
 
-  describe "excluded_pairs/2 — club_exclusion: \"all\"" do
+  describe "excluded_pairs/2 - club_exclusion: \"all\"" do
     test "excludes every pair sharing a non-blank club" do
       a = player(1, club: "Chess Club")
       b = player(2, club: "Chess Club")
@@ -62,7 +62,7 @@ defmodule PairingsEngine.ExclusionsTest do
     end
   end
 
-  describe "excluded_pairs/2 — club_exclusion: \"listed\"" do
+  describe "excluded_pairs/2 - club_exclusion: \"listed\"" do
     test "excludes only pairs whose shared club is in the list" do
       a = player(1, club: "Chess Club")
       b = player(2, club: "Chess Club")
@@ -93,7 +93,7 @@ defmodule PairingsEngine.ExclusionsTest do
     end
   end
 
-  describe "excluded_pairs/2 — federation rules mirror club rules" do
+  describe "excluded_pairs/2 - federation rules mirror club rules" do
     test "\"all\" excludes every pair sharing a non-blank federation" do
       a = player(1, federation: "BEL")
       b = player(2, federation: "BEL")
@@ -125,7 +125,7 @@ defmodule PairingsEngine.ExclusionsTest do
     end
   end
 
-  describe "excluded_pairs/2 — club and federation rules union" do
+  describe "excluded_pairs/2 - club and federation rules union" do
     test "a pair excluded by either rule appears once; a pair excluded by both is not duplicated" do
       # a & b share both a club and a federation; c shares only the federation with a & b.
       a = player(1, club: "Chess Club", federation: "BEL")
@@ -149,7 +149,7 @@ defmodule PairingsEngine.ExclusionsTest do
     end
   end
 
-  describe "excluded_pairs/2 — pair ordering" do
+  describe "excluded_pairs/2 - pair ordering" do
     test "returned pairs are canonically ordered by ascending player id" do
       # Reverse insertion order (b before a by id) shouldn't affect the
       # returned pair's orientation.

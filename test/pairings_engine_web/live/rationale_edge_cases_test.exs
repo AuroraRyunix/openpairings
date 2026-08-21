@@ -7,7 +7,7 @@ defmodule PairingsEngineWeb.RationaleEdgeCasesTest do
   rather than re-reading the code.
 
   Each test builds a round that a real tournament can produce but the
-  existing suite never does, and asserts only that the two pages RENDER —
+  existing suite never does, and asserts only that the two pages RENDER -
   what they say about an odd round is a separate question from whether
   they survive it.
   """
@@ -298,6 +298,6 @@ defmodule PairingsEngineWeb.RationaleEdgeCasesTest do
     ms = div(us, 1000)
     IO.puts("
   [150 players, round 5] rationale page mounted in #{ms} ms")
-    assert ms < 15_000, "rationale page took #{ms} ms — a real tournament would time out"
+    assert ms < 15_000, "rationale page took #{ms} ms - a real tournament would time out"
   end
 end

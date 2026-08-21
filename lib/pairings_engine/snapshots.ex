@@ -5,7 +5,7 @@ defmodule PairingsEngine.Snapshots do
 
   ## What's in one
 
-  The payload is a `PairingsEngine.TournamentExport` envelope — byte-identical
+  The payload is a `PairingsEngine.TournamentExport` envelope - byte-identical
   to what the "Export full backup (JSON)" button produces. Reusing that
   serializer (rather than writing a second one) means snapshots inherit its
   round-trip tests and can't drift from it, and the restore path is a variant
@@ -25,7 +25,7 @@ defmodule PairingsEngine.Snapshots do
 
   ## Where they're taken
 
-  From the LiveView handler, immediately *before* the risky context call —
+  From the LiveView handler, immediately *before* the risky context call -
   the same call-site convention `PairingsEngine.Audit` uses and for the same
   reason (the handler knows exactly which user-facing action is about to
   happen). `capture/4` is deliberately fire-and-forget: a snapshot failing
@@ -59,7 +59,7 @@ defmodule PairingsEngine.Snapshots do
   Fire-and-forget by design: returns `{:ok, snapshot}` or `{:error, reason}`,
   but callers are expected to ignore the result. A snapshot that fails to
   write is logged and must never break the user-facing action it was taken to
-  protect — losing the ability to roll back is bad, refusing to pair a round
+  protect - losing the ability to roll back is bad, refusing to pair a round
   because the safety net failed is worse.
   """
   @spec capture(Tournament.t(), String.t(), Scope.t() | integer() | nil, keyword()) ::
@@ -118,7 +118,7 @@ defmodule PairingsEngine.Snapshots do
 
   @doc """
   Lists `tournament_id`'s snapshots, newest first, with the acting `:user`
-  preloaded. The `payload` is excluded — it's a full tournament copy, far too
+  preloaded. The `payload` is excluded - it's a full tournament copy, far too
   heavy to load for a list view. Use `get/2` to fetch one with its payload.
   """
   @spec list(integer(), keyword()) :: [Snapshot.t()]
@@ -161,7 +161,7 @@ defmodule PairingsEngine.Snapshots do
   deleted.
 
   Pinned snapshots (the ones a restore takes of the state it replaced) are
-  never counted and never deleted — see the `pinned` field's own comment.
+  never counted and never deleted - see the `pinned` field's own comment.
   """
   @spec prune(integer()) :: non_neg_integer()
   def prune(tournament_id) do
@@ -190,19 +190,19 @@ defmodule PairingsEngine.Snapshots do
 
   Returns one entry per snapshot with the structure the timeline needs:
 
-    * `:lane` — which vertical column to draw it in. The line the live data
+    * `:lane` - which vertical column to draw it in. The line the live data
       is currently on is always lane 0; each fork takes the next free lane,
       so a tournament that was never restored is a single straight column.
-    * `:parent_lane` — the lane its parent sits in, so the view can draw the
+    * `:parent_lane` - the lane its parent sits in, so the view can draw the
       connector (straight down within a lane, a curve when it crosses).
-    * `:on_head_line` — whether it's an ancestor of (or is) the current HEAD,
+    * `:on_head_line` - whether it's an ancestor of (or is) the current HEAD,
       i.e. part of the history that actually produced the live data. The
       other lanes are abandoned alternatives, still reachable.
-    * `:children` — how many snapshots hang off it; more than one is the fork
+    * `:children` - how many snapshots hang off it; more than one is the fork
       itself, which the view marks.
 
   Lane assignment walks oldest-first so a lane number, once given out, is
-  stable as the tournament grows — a new branch never renumbers the existing
+  stable as the tournament grows - a new branch never renumbers the existing
   ones under the reader.
   """
   @spec branch_tree(Tournament.t()) :: [map()]
@@ -244,7 +244,7 @@ defmodule PairingsEngine.Snapshots do
   # Lane 0 is reserved for the line the live data is on, so the "real"
   # history reads as the trunk however much branching happened around it.
   # Everything else continues its parent's lane if it is that parent's first
-  # child, and otherwise opens a new lane — which is what makes a fork look
+  # child, and otherwise opens a new lane - which is what makes a fork look
   # like a fork and a straight run look like a straight run.
   #
   # `continued` is the set of parents that have already passed their lane to
@@ -254,10 +254,10 @@ defmodule PairingsEngine.Snapshots do
   #
   #   * asking "is any snapshot holding the parent's lane?" always matched
   #     the PARENT itself (snapshots are walked oldest-first, so the parent
-  #     is already placed) — no child ever continued a lane, and an
+  #     is already placed) - no child ever continued a lane, and an
   #     abandoned run of restore points drew as one lane per snapshot;
   #   * excluding just the parent then matched the GRANDPARENT, who is on
-  #     the same lane legitimately — so a chain broke at its third node
+  #     the same lane legitimately - so a chain broke at its third node
   #     (A -> B -> C -> D gave B and C lane 1 but D lane 2).
   #
   # The question was never "who holds this lane" but "has a SIBLING taken
@@ -286,7 +286,7 @@ defmodule PairingsEngine.Snapshots do
     Stream.iterate(1, &(&1 + 1)) |> Enum.find(&(not MapSet.member?(used, &1)))
   end
 
-  # Every snapshot from `id` back to its root — the chain that actually
+  # Every snapshot from `id` back to its root - the chain that actually
   # produced the current live data.
   defp ancestry(nil, _by_id), do: MapSet.new()
 
@@ -304,7 +304,7 @@ defmodule PairingsEngine.Snapshots do
   Replaces `tournament`'s contents with the state held in snapshot `id`.
 
   Before doing anything it captures the *current* state as a pinned snapshot,
-  so the jump is itself reversible — going back to Tuesday leaves a restore
+  so the jump is itself reversible - going back to Tuesday leaves a restore
   point holding Thursday, which appears on the timeline and can be jumped
   forward to. Pinned so that bouncing between two states can't push the state
   you jumped away from off the end of the retention window.
@@ -314,12 +314,12 @@ defmodule PairingsEngine.Snapshots do
 
   What it deliberately leaves alone:
 
-    * **Collaborators** — who has access is not tournament content, and a
+    * **Collaborators** - who has access is not tournament content, and a
       restore silently revoking a co-arbiter would be its own incident.
-    * **The audit log and other snapshots** — the history of what happened
+    * **The audit log and other snapshots** - the history of what happened
       must survive being rolled back, or the record would be self-erasing.
-    * **Mobile enrolments** — phones already scanned in keep working.
-    * **Sharing state and the public slug** — these aren't in the payload at
+    * **Mobile enrolments** - phones already scanned in keep working.
+    * **Sharing state and the public slug** - these aren't in the payload at
       all (see the moduledoc); a restore must never silently re-publish a
       tournament or resurrect a rotated link.
 

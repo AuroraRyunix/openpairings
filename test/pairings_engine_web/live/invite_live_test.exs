@@ -1,7 +1,7 @@
 defmodule PairingsEngineWeb.InviteLiveTest do
   # `async: false` for the same reason as PairingsEngineWeb.SharingTest: each
   # test here creates a tournament plus at least one extra user on top of
-  # `register_and_log_in_user`'s own — enough sequential writes to contend
+  # `register_and_log_in_user`'s own - enough sequential writes to contend
   # with the async pool for SQLite's single writer lock.
   use PairingsEngineWeb.ConnCase, async: false
 
@@ -102,7 +102,7 @@ defmodule PairingsEngineWeb.InviteLiveTest do
 
     test "an invalid token shows a not-found message", %{scope: owner_scope, conn: conn} do
       # `conn` here is already the owner's logged-in conn from
-      # register_and_log_in_user — any authenticated user hitting a bogus
+      # register_and_log_in_user - any authenticated user hitting a bogus
       # token should see the same not-found state.
       _tournament = fixture(owner_scope)
 
@@ -111,7 +111,7 @@ defmodule PairingsEngineWeb.InviteLiveTest do
       assert html =~ "Invitation not found"
     end
 
-    test "a collaborator id in the URL reveals nothing — invitations are found by token only",
+    test "a collaborator id in the URL reveals nothing - invitations are found by token only",
          %{scope: owner_scope, conn: conn} do
       # `conn` is a *different* logged-in user (the owner) from the invitee.
       # Row ids are sequential and guessable, so resolving one here would have
@@ -136,13 +136,13 @@ defmodule PairingsEngineWeb.InviteLiveTest do
   describe "logged-out visitor is carried back to /invites/:token after auth (return_to)" do
     # `/invites/:token` sits in the `:require_authenticated_tournaments`
     # live_session, whose scope is `pipe_through [:browser,
-    # :require_authenticated_user]` (see router.ex) — so an unauthenticated
+    # :require_authenticated_user]` (see router.ex) - so an unauthenticated
     # hit is caught by the *plug* (`UserAuth.require_authenticated_user/2`)
     # before the LiveView ever mounts, and that plug's
     # `maybe_store_return_to/1` stashes the current path in the session as
     # `user_return_to`. `UserAuth.log_in_user/3` reads it back out after
     # login. These tests drive that whole chain end to end (unlike
-    # `user_auth_test.exs`, which only asserts the session gets the value —
+    # `user_auth_test.exs`, which only asserts the session gets the value -
     # not that a real magic-link login/registration actually lands there).
     test "an account that already exists: unauth visit -> log-in -> magic link -> back on the invite page",
          %{

@@ -75,7 +75,7 @@ defmodule PairingsEngine.SnapshotBranchingTest do
 
       {:ok, _} = Snapshots.restore(reload(t), a.id, scope)
 
-      # The live data is at A now — even though a newer snapshot exists.
+      # The live data is at A now - even though a newer snapshot exists.
       assert reload(t).head_snapshot_id == a.id
     end
   end
@@ -95,7 +95,7 @@ defmodule PairingsEngine.SnapshotBranchingTest do
       assert Repo.reload!(fork).parent_id == a.id
       assert Repo.reload!(b).parent_id == a.id
 
-      # A now has more than one child — that's the fork.
+      # A now has more than one child - that's the fork.
       entry = t |> Snapshots.branch_tree() |> Enum.find(&(&1.snapshot.id == a.id))
       assert entry.children >= 2
     end

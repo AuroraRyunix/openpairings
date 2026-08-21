@@ -5,7 +5,7 @@ defmodule PairingsEngineWeb.CSPFramingTest do
   embeddable, and everything else must not be.
 
   The second half is the half that matters. A regression that opened
-  framing app-wide would not break a single feature — it would just quietly
+  framing app-wide would not break a single feature - it would just quietly
   make every logged-in arbiter clickjackable, and no other test in the
   suite would notice.
   """
@@ -56,7 +56,7 @@ defmodule PairingsEngineWeb.CSPFramingTest do
   end
 
   describe "everything else stays closed" do
-    test "the public REGISTER form is not embeddable — it writes", %{conn: conn} do
+    test "the public REGISTER form is not embeddable - it writes", %{conn: conn} do
       t = public_tournament()
       {:ok, t} = Tournaments.update_tournament(t, %{"registration_open" => true})
 
@@ -67,11 +67,11 @@ defmodule PairingsEngineWeb.CSPFramingTest do
       assert conn |> get(~p"/users/log-in") |> csp() =~ "frame-ancestors 'none'"
     end
 
-    test "the arbiter tools are not embeddable — they take uploads", %{conn: conn} do
+    test "the arbiter tools are not embeddable - they take uploads", %{conn: conn} do
       assert conn |> get(~p"/tools") |> csp() =~ "frame-ancestors 'none'"
     end
 
-    test "mobile result entry is not embeddable — it holds a session", %{conn: conn} do
+    test "mobile result entry is not embeddable - it holds a session", %{conn: conn} do
       assert conn |> get("/m") |> csp() =~ "frame-ancestors 'none'"
     end
 

@@ -10,13 +10,13 @@ defmodule PairingsEngine.Audit do
   By design (see the project's audit-trail spec), `log/4` is called directly
   from each LiveView `handle_event` clause, immediately after the underlying
   `PairingsEngine.Tournaments` (or `PairingsEngine.Pairing`, ...) context
-  call succeeds — *not* threaded as a `user_id`/scope parameter through the
+  call succeeds - *not* threaded as a `user_id`/scope parameter through the
   context functions themselves. Every LiveView handler already has the acting
   user in `socket.assigns.current_scope` and already knows exactly which
   user-facing action just happened, so the audit call sites sit right next to
   the events they describe and the context layer stays untouched.
 
-  Writing an audit row never broadcasts on the tournament PubSub topic — this
+  Writing an audit row never broadcasts on the tournament PubSub topic - this
   is a background bookkeeping write, and the audit page reloads on its own
   navigation/refresh rather than needing live push. Keeping it off the topic
   also avoids feedback loops with the very `broadcast_tournament_change/2`
@@ -33,7 +33,7 @@ defmodule PairingsEngine.Audit do
   Records one audit-trail row for `tournament_id`.
 
   The second argument is the acting user: a `PairingsEngine.Accounts.Scope`
-  (the common LiveView case — the user id is pulled out for you), a plain
+  (the common LiveView case - the user id is pulled out for you), a plain
   integer `user_id`, or `nil` for a system/no-auth write (rendered as
   "System").
 
@@ -100,11 +100,11 @@ defmodule PairingsEngine.Audit do
 
   Options:
 
-    * `:limit` — max rows to return (default 100 — a long-running tournament's
+    * `:limit` - max rows to return (default 100 - a long-running tournament's
       log can grow large, so this is never unbounded).
-    * `:offset` — rows to skip, for simple pagination.
-    * `:action` — exact action code to filter by (e.g. `"pairing.round_paired"`).
-    * `:actions` — a list of action codes to filter by (the audit page's
+    * `:offset` - rows to skip, for simple pagination.
+    * `:action` - exact action code to filter by (e.g. `"pairing.round_paired"`).
+    * `:actions` - a list of action codes to filter by (the audit page's
       category buckets pass the whole set of codes in a category).
   """
   def list_for_tournament(tournament_id, opts \\ []) do

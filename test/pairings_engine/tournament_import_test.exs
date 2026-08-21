@@ -1,7 +1,7 @@
 defmodule PairingsEngine.TournamentImportTest do
   # Each round-trip test performs a full transactional import (many
   # sequential inserts held on one connection) on top of an equally
-  # write-heavy fixture — the single busiest writer in the suite. Kept
+  # write-heavy fixture - the single busiest writer in the suite. Kept
   # `async: false` to keep that write burst from contending with the rest
   # of the async pool for SQLite's single writer lock (see the
   # `busy_timeout` comment in config/test.exs for the general tradeoff).
@@ -25,7 +25,7 @@ defmodule PairingsEngine.TournamentImportTest do
 
   # A non-trivial tournament: a team, 3 players (one with norm data, extra
   # points and a category), 2 rounds (a decisive game, a draw, and a
-  # requested-half bye), and a forbidden pairing — enough surface to catch a
+  # requested-half bye), and a forbidden pairing - enough surface to catch a
   # sloppy remap anywhere in the import pipeline.
   defp fixture(scope) do
     tournament =
@@ -193,7 +193,7 @@ defmodule PairingsEngine.TournamentImportTest do
     assert imported.officials == original.officials
 
     # SWAR-scoring fields (3-2-1 presence/absence values + the PreBye flag)
-    # must survive a backup/restore — same fidelity class as birth_date.
+    # must survive a backup/restore - same fidelity class as birth_date.
     assert imported.presence_value == 0.75
     assert imported.abs_value == 0.25
     assert imported.presence_on_allocated_bye == true
@@ -222,7 +222,7 @@ defmodule PairingsEngine.TournamentImportTest do
     # The fixture's 2 rounds are both fully scored (every pairing has a
     # result), but `original` was inserted directly via Repo.insert! rather
     # than through the normal write paths that call
-    # `Tournaments.refresh_status!/1` — its own `status` column is still
+    # `Tournaments.refresh_status!/1` - its own `status` column is still
     # the schema default, deliberately mismatched with reality, so this
     # proves the import re-derives status (see
     # `PairingsEngine.TournamentImport.do_import/2`) instead of carrying
@@ -262,7 +262,7 @@ defmodule PairingsEngine.TournamentImportTest do
              length(Tournaments.list_players(original.id))
   end
 
-  test "every id is fresh — no player/team/round/pairing id is reused from the source" do
+  test "every id is fresh - no player/team/round/pairing id is reused from the source" do
     owner = user_scope()
     importer = user_scope()
     original = fixture(owner)
@@ -402,7 +402,7 @@ defmodule PairingsEngine.TournamentImportTest do
       assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
       imported = Repo.reload!(imported)
 
-      # Before this, every one of these came back at its schema default —
+      # Before this, every one of these came back at its schema default -
       # most damagingly pairing_system, which silently became "swiss".
       assert imported.pairing_system == "keizer"
       assert imported.rr_cycles == 2
@@ -453,7 +453,7 @@ defmodule PairingsEngine.TournamentImportTest do
         |> Tournaments.list_players()
         |> Map.new(&{&1.name, &1.manual_rank})
 
-      # Previously the flag came back on with every rank nil — manual ranking
+      # Previously the flag came back on with every rank nil - manual ranking
       # switched on but pointing at nothing.
       assert ranks == %{"First" => 1, "Second" => 2}
     end

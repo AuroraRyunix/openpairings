@@ -1,26 +1,26 @@
 defmodule PairingsEngineWeb.ToolsNormsLive do
   @moduledoc """
-  The public, no-login arbiter tools page — `/tools/norms` (see
+  The public, no-login arbiter tools page - `/tools/norms` (see
   docs/tools.md). Lets an arbiter with no OpenPairings account drop one or
   more `.swar`/`.trf` files and download the IT3/FA1/IA1 FIDE report forms
   straight from them, without ever creating a tournament here.
 
   Parsing goes through `PairingsEngine.Tools.Parser` (dispatches on filename
   extension to `PairingsEngine.SwarImport.build_structs/1` /
-  `PairingsEngine.TrfImport.build_structs/1` — both pure, no `Repo` calls).
+  `PairingsEngine.TrfImport.build_structs/1` - both pure, no `Repo` calls).
   Two or more successfully parsed files can be combined into one "Festival"
   report via `PairingsEngine.Norms.Combine`, same as the authenticated Norms
   page would need a real multi-tournament event for.
 
   Nothing here is ever written to the database. This LiveView's own assigns
   (`:files`, `:master_index`, `:overlay`, `:candidate`) are mirrored into
-  `PairingsEngine.Tools.Session` — a plain in-memory ETS store, keyed by a
-  random `:token` generated at `mount/3` — on every change, so that
+  `PairingsEngine.Tools.Session` - a plain in-memory ETS store, keyed by a
+  random `:token` generated at `mount/3` - on every change, so that
   `PairingsEngineWeb.ToolsController`'s plain `GET` download routes (a
   different process from this LiveView) can look the parsed data back up by
   token. Uploaded file bytes themselves are read via
   `consume_uploaded_entries/3` straight into memory and never touch this
-  LiveView's assigns or the session store — only the parsed
+  LiveView's assigns or the session store - only the parsed
   `%Tournament{}`/`%Player{}` structs do.
   """
 
@@ -40,7 +40,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
   # FIDE's own printed Certificaat only ranks 2 deputies by name; anyone
   # after that prints as a plain, unranked "Arbiter" row, so this page only
-  # offers 2 ranked deputy slots — see the equivalent note on
+  # offers 2 ranked deputy slots - see the equivalent note on
   # `PairingsEngineWeb.NormsLive`'s `@deputy_fields`. Arbiters beyond these
   # 2 go through "+ Add arbiter" (arbiter_range/1 below).
   @max_deputies 2
@@ -57,7 +57,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
     overlay = empty_fields(@overlay_fields)
     candidate = empty_fields(@candidate_fields)
 
-    # Only the connected mount claims a session entry — the static render
+    # Only the connected mount claims a session entry - the static render
     # never shows a download link (no files can have been parsed yet), so a
     # disconnected-mount token would just be an orphan ETS entry.
     token =
@@ -68,7 +68,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
     {:ok,
      socket
      |> assign(
-       page_title: "Arbiter tools — Norms",
+       page_title: "Arbiter tools - Norms",
        token: token,
        files: [],
        master_index: 0,
@@ -87,7 +87,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
   ## ---------- events ----------
 
-  # The file input's phx-change target; nothing to do until submit — same
+  # The file input's phx-change target; nothing to do until submit - same
   # no-op pattern TournamentsLive's own SWAR/TRF/backup inputs use.
   @impl true
   def handle_event("validate_files", _params, socket), do: {:noreply, socket}
@@ -136,7 +136,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
   ## ---------- FIDE lookup for officials (shared with the signed-in Norms page) ----------
 
-  # Both boxes of any official's combobox (name, FIDE ID) route through here —
+  # Both boxes of any official's combobox (name, FIDE ID) route through here -
   # see `PairingsEngineWeb.Live.ArbiterCombo` for why one shared parser/search
   # covers both, identically on this page and the signed-in Norms page.
   def handle_event("arbiter_search", params, socket) do
@@ -151,7 +151,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   end
 
   # Picking a result writes BOTH the name and the FIDE ID, which is the whole
-  # point — a hand-typed id is where the wrong person ends up on a report.
+  # point - a hand-typed id is where the wrong person ends up on a report.
   def handle_event("arbiter_pick", %{"role" => role, "fide-id" => fide_id}, socket) do
     case ArbiterCombo.picked_player(fide_id) do
       nil ->
@@ -168,7 +168,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
     end
   end
 
-  # Arbiters beyond the IT3 template's 4 built-in deputy slots — see the
+  # Arbiters beyond the IT3 template's 4 built-in deputy slots - see the
   # identical mechanism (and why it's a plain count, not a list) on
   # `PairingsEngineWeb.NormsLive`. `sync_session/1` because the count lives
   # in `overlay`, same as any other officials field on this page.
@@ -219,7 +219,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   ## ---------- officials prefill (from the master file) ----------
 
   # Fills the officials overlay fields from the master file's own parsed
-  # tournament — but only fields the arbiter's overlay currently has blank,
+  # tournament - but only fields the arbiter's overlay currently has blank,
   # so a value they already typed (or already changed back to something
   # else) is never clobbered. Safe to call after every files/master_index
   # change; re-running it is a no-op for any field that's already filled.
@@ -235,7 +235,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
         # Deliberately NOT prefilled: `tournament.organizer` (SWAR's
         # dedicated "organizer" binary field, separate from arbiter1/
         # arbiter2) is an organizing body/venue string ("VPTD
-        # Geraardsbergen"), not a person's name — running it through the
+        # Geraardsbergen"), not a person's name - running it through the
         # same FIDE person-matcher as chief_arbiter/deputies would either
         # find nothing (an unhelpful hint next to a "search for a person"
         # box) or, worse, a false-positive match to an unrelated namesake.
@@ -251,11 +251,11 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
         # `tournament.deputy_arbiter` is SWAR's raw, un-split field (multiple
         # people in one comma-joined string, e.g. "IA Sylvin De Vet, NA Marc
-        # Van Dyck") — using it here dumped the whole string into deputy1
+        # Van Dyck") - using it here dumped the whole string into deputy1
         # alone. `tournament.officials` is the already-split, per-person map
         # both SWAR (`SwarImport.split_officials/1`) and TRF (one deputy per
         # line) produce, and what the signed-in Norms page's officials card
-        # already reads — so prefilling from it here keeps both pages
+        # already reads - so prefilling from it here keeps both pages
         # consistent instead of one silently doing worse than the other.
         overlay =
           Enum.reduce(1..4, overlay, fn n, acc ->
@@ -283,7 +283,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   end
 
   # Officials prefill used to dump whatever raw text a SWAR/TRF file carried
-  # straight into the name box, unverified — the same info a hand-typed FIDE
+  # straight into the name box, unverified - the same info a hand-typed FIDE
   # ID would carry, which is exactly what the arbiter combobox's split
   # name/id boxes exist to prevent everywhere else on this page. A file's
   # spelling can also disagree with FIDE's own ("Sylvin De Vet" vs. FIDE's
@@ -294,8 +294,8 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   #
   # A confident (exactly one) match fills both the name (FIDE's own "Last,
   # First" spelling) and the FIDE ID, same as picking that result by hand
-  # would. No match — or an already-filled name, so a value the arbiter
-  # already typed or picked is never clobbered — leaves the name/ID boxes
+  # would. No match - or an already-filled name, so a value the arbiter
+  # already typed or picked is never clobbered - leaves the name/ID boxes
   # untouched; the raw text is kept under `"#{name_key}_hint"` instead, so
   # `ArbiterCombo` can show "what you DO know" next to the empty box rather
   # than silently discarding what the file did provide.
@@ -328,7 +328,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   ## ---------- FIDE event code collection ----------
 
   @doc false
-  # Every successful file's own event code(s) — checked on both
+  # Every successful file's own event code(s) - checked on both
   # `tournament.event_code` and a same-named `"event_code"` key under
   # `tournament.officials`, in case a future import path only populates one
   # of the two. Blank/missing values are dropped, order/duplicates aside.
@@ -415,7 +415,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   end
 
   # The same pooled player list Combine.combine/2 would hand
-  # PairingsEngineWeb.ToolsController for an actual IT3 download — reused
+  # PairingsEngineWeb.ToolsController for an actual IT3 download - reused
   # here (not a naive flat-map across files) so the counts explainer never
   # disagrees with the report it's explaining, e.g. by double-counting a
   # player Combine itself dedupes across files. `nil` when there's nothing
@@ -434,7 +434,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
   @doc """
   Federations that appear in two or more of the uploaded (successful)
-  files — the "duplicate feds" signal an arbiter watches for before
+  files - the "duplicate feds" signal an arbiter watches for before
   combining files into a Festival. Sorted for stable display.
   """
   def shared_federations(files) do
@@ -475,7 +475,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   defp rounds_label(%{rounds_count: n}), do: n
 
   defp upload_error_label(:too_large), do: "File is larger than 5 MB"
-  defp upload_error_label(:too_many_files), do: "Too many files — 10 at a time, max"
+  defp upload_error_label(:too_many_files), do: "Too many files - 10 at a time, max"
   defp upload_error_label(:not_accepted), do: "That file type isn't accepted"
   defp upload_error_label(other), do: inspect(other)
 
@@ -484,13 +484,13 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   # rather than being string-built at each call site.
   # Same rule the signed-in Norms page enforces: FIDE identifies every official
   # by FIDE ID and bounces a report missing one, and there is no such thing as
-  # an arbiter without an id — so a named official with no id blocks the
+  # an arbiter without an id - so a named official with no id blocks the
   # download rather than producing a file that gets rejected.
   #
   # An official left entirely blank is fine: not every event has two deputies,
   # and this page has no chief arbiter until the arbiter fills one in.
   #
-  # Chief arbiter's and organizer's e-mail are ALSO required — FIDE's own
+  # Chief arbiter's and organizer's e-mail are ALSO required - FIDE's own
   # template prints "PRIVACY NOTICE: Chief Organizer's and Chief Arbiter's
   # e-mail address is required only for institutional purposes and will be
   # displayed on FIDE website" right on the Certificaat sheet, same rule the
@@ -521,7 +521,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
   defp arbiter_name_key("chief_arbiter"), do: "chief_arbiter_name"
   # Same flat key the signed-in Norms page's officials map already uses for
-  # this one (no "_name" suffix) — see ArbiterCombo.Live.parse_field/1.
+  # this one (no "_name" suffix) - see ArbiterCombo.Live.parse_field/1.
   defp arbiter_name_key("person_responsible_pairings"), do: "person_responsible_pairings"
   # Every other role (deputies and extra arbiters) follows "<role>_name".
   defp arbiter_name_key(role), do: "#{role}_name"
@@ -537,7 +537,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
         do: {"arbiter#{n}", "Arbiter #{n}"}
   end
 
-  # 1..count is a *descending* range (iterating count..1) when count is 0 —
+  # 1..count is a *descending* range (iterating count..1) when count is 0 -
   # so 0 (the common case: no extra arbiters) has to short-circuit to an
   # empty range explicitly.
   defp extra_arbiter_range(count) do
@@ -829,7 +829,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
               prefix="overlay"
               field="fide_tournament_id"
               label="FIDE tournament ID"
-              hint="This report's own numeric ID at FIDE — a different thing from the event code above."
+              hint="This report's own numeric ID at FIDE - a different thing from the event code above."
               values={@overlay}
             />
             <.arbiter_combo
@@ -860,7 +860,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
           <h3 style="margin-bottom: 4px">
             Additional arbiters
             <span class="hint" style="font-weight: normal">
-              (beyond chief + 2 deputies — FIDE doesn't rank these, so IT3 prints each as a
+              (beyond chief + 2 deputies - FIDE doesn't rank these, so IT3 prints each as a
               plain "Arbiter" row)
             </span>
           </h3>
@@ -929,7 +929,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
         <div :if={report_blockers(@overlay) != []} class="report-blocked">
           <strong>Not ready to submit to FIDE.</strong>
           FIDE identifies every official by FIDE ID and bounces a report missing one. Type their
-          name or FIDE ID above and pick the matching result — missing for: {Enum.join(
+          name or FIDE ID above and pick the matching result - missing for: {Enum.join(
             report_blockers(@overlay),
             ", "
           )}.

@@ -1,7 +1,7 @@
 defmodule PairingsEngine.Kbsb.SyncTest do
   # Sync is a singleton GenServer (named process) started by the application
   # supervisor, so tests here mutate shared global state via :sys and fake
-  # OTP messages rather than spinning up isolated instances — same approach
+  # OTP messages rather than spinning up isolated instances - same approach
   # as PairingsEngine.Fide.SyncTest, which this mirrors. Kept `async: false`
   # since nothing else in the suite touches this process, but there's no
   # reason to risk interleaving with itself.
@@ -130,14 +130,14 @@ defmodule PairingsEngine.Kbsb.SyncTest do
   end
 
   # Exercises `Sync.import_rows/3` directly with synthetic already-parsed
-  # rows (the shape `Kbsb.Parser.parse/1` hands it) — the actual
+  # rows (the shape `Kbsb.Parser.parse/1` hands it) - the actual
   # count-guard code path a corrupt/truncated upload would hit, not just a
   # re-assertion of the design. `import_rows/3` is `def` (not `defp`),
   # `@doc false`, purely to make this callable from here.
   describe "import_rows/3 (corrupt/truncated-upload guard)" do
     # These tests write real rows to kbsb_players and need a real DB
     # connection (unlike the rest of this file, which only exercises the
-    # GenServer's in-memory state via :sys) — check out the sandbox exactly
+    # GenServer's in-memory state via :sys) - check out the sandbox exactly
     # like PairingsEngine.DataCase does, but only for this describe block.
     setup do
       pid = Ecto.Adapters.SQL.Sandbox.start_owner!(Repo, shared: false)
@@ -168,7 +168,7 @@ defmodule PairingsEngine.Kbsb.SyncTest do
       assert {:error, reason} = Sync.import_rows(self(), [], %Sync{})
       assert reason =~ "zero usable"
 
-      # Untouched — the guard fires before the delete+insert transaction
+      # Untouched - the guard fires before the delete+insert transaction
       # even starts, so there's nothing to roll back.
       assert Repo.aggregate(KbsbPlayer, :count) == 2
       assert Repo.get(KbsbPlayer, "1").last_name == "Existing One"

@@ -1,15 +1,15 @@
 defmodule PairingsEngine.SwarImportTest do
-  # `async: false` — each test writes a whole tournament (players, rounds,
+  # `async: false` - each test writes a whole tournament (players, rounds,
   # pairings) via a real transaction; with the FIDE-matching tests added on
   # top, that's enough concurrent SQLite writers to occasionally hit
   # "Database busy" under the async pool (SQLite has a single writer).
   use PairingsEngine.DataCase, async: false
 
   # Every test in this module reads test/fixtures/c-reeks.swar and/or
-  # problemski.swar — real personal data, deliberately gitignored (see
+  # problemski.swar - real personal data, deliberately gitignored (see
   # .gitignore) rather than committed. Excluded automatically by
   # test_helper.exs when those files aren't present (a fresh checkout,
-  # CI) — see the comment there.
+  # CI) - see the comment there.
   @moduletag :swar_fixture
 
   alias PairingsEngine.{SwarImport, Tournaments, Repo, Standings}
@@ -22,7 +22,7 @@ defmodule PairingsEngine.SwarImportTest do
   @test3_321 "test/fixtures/test3-321.swar"
 
   # Lightweight stand-in for `PairingsEngine.AccountsFixtures.user_scope_fixture/0`
-  # — see the comment on the equivalent helper in tournaments_test.exs.
+  # - see the comment on the equivalent helper in tournaments_test.exs.
   defp user_scope do
     user =
       Repo.insert!(%User{
@@ -35,7 +35,7 @@ defmodule PairingsEngine.SwarImportTest do
 
   # Builds a real, format-valid .swar file (a byte-for-byte copy of
   # c-reeks.swar) with Deloof, Koen's `MatFide` *and* `EloFide` fields
-  # patched from their real values (210234, 1779) down to 0 — i.e. "SWAR has
+  # patched from their real values (210234, 1779) down to 0 - i.e. "SWAR has
   # neither a FIDE id nor a FIDE rating for this player" (the realistic
   # combination: c-reeks.swar's own actually-unrated players, e.g. Ashrafi
   # in problemski.swar, always have both blank together). This is the only
@@ -182,10 +182,10 @@ defmodule PairingsEngine.SwarImportTest do
 
   # SWAR's own pairing code (Utils.cpp, `AbsentThisRound`) does NOT treat
   # Absent=2 as "gone forever" whenever the player also has a non-empty
-  # AbsentRondes list — it checks whether the *current* round is in that
+  # AbsentRondes list - it checks whether the *current* round is in that
   # list, and treats every other round as present. A player who missed one
   # round should be paired normally for the rest of the event, both in SWAR
-  # and in OpenPairings — `map_absent/2` mirrors that exactly. None of the
+  # and in OpenPairings - `map_absent/2` mirrors that exactly. None of the
   # real fixtures happen to have a player in this combination (Absent=2 with
   # a non-empty AbsentRondes), so this is a direct unit test of the mapping
   # rule itself rather than an import fixture.
@@ -326,14 +326,14 @@ defmodule PairingsEngine.SwarImportTest do
     user_id = scope.user.id
     assert_receive {:tournaments_changed, ^user_id}
 
-    # The tournament is queryable by the time the broadcast lands — proof
+    # The tournament is queryable by the time the broadcast lands - proof
     # the broadcast fired after commit, not from inside the still-open
     # transaction (see PairingsEngine.Tournaments.with_broadcast_suppressed/1).
     assert Tournaments.get_user_tournament(scope, tournament.id)
   end
 
   test "import_file/1 (no scope) does not broadcast on any user's tournament-list topic" do
-    # An unowned import has no user to notify — this also exercises the
+    # An unowned import has no user to notify - this also exercises the
     # nil-safe branch of broadcast_user_tournaments/1.
     assert {:ok, _tournament, _warnings} = SwarImport.import_file(@c_reeks)
   end
@@ -348,10 +348,10 @@ defmodule PairingsEngine.SwarImportTest do
 
   # test/fixtures/test3-321.swar (file version v6.78, well above the v6.49
   # points_adjusted floor) is a real club championship where several
-  # players' `PointsAdjusted` field (an arbiter-entered correction — appeals,
+  # players' `PointsAdjusted` field (an arbiter-entered correction - appeals,
   # deductions) genuinely disagrees with their raw `Points` field, e.g.
   # "Slodicka, Anton" (points=8 -> 2.0, points_adjusted=20 -> 5.0) and
-  # "Lopez, Alfonso" (points=0 -> 0.0, points_adjusted=14 -> 3.5) — both
+  # "Lopez, Alfonso" (points=0 -> 0.0, points_adjusted=14 -> 3.5) - both
   # verified directly against the real fixture (not just trusted from notes)
   # before writing this assertion. Our own standings are always recomputed
   # from replayed pairings/byes (matching the *raw*, not adjusted, points),
@@ -375,7 +375,7 @@ defmodule PairingsEngine.SwarImportTest do
   end
 
   # problemski.swar's players all have points_adjusted == points (verified
-  # directly against the fixture) — no arbiter correction was ever entered,
+  # directly against the fixture) - no arbiter correction was ever entered,
   # so this must not regress into warning on every ordinary import.
   test "import_file/1 does not warn when points_adjusted matches the recomputed total" do
     assert {:ok, _tournament, warnings} = SwarImport.import_file(@problemski)
@@ -387,24 +387,24 @@ defmodule PairingsEngine.SwarImportTest do
   # test/fixtures/test3-321.swar is a real club-championship file saved
   # with SWAR's "3-2-1" tournament type turned on (`[TOURNOI].Type == 3`).
   # This particular club's `SW321_Win/Nul/Los` are configured to a 2.0/1.0/0.0
-  # scale (raw ints 8/4/0, ÷4 — see the long comment on `scoring_attrs/1`
+  # scale (raw ints 8/4/0, ÷4 - see the long comment on `scoring_attrs/1`
   # for why ÷4, not ÷8, is correct: the format manual states the SW321_*
   # fields are stored ×4, and ÷8 was verified to silently halve every
   # configured value, which is the KBSB-reported bug this fixes). "3-2-1" is
-  # SWAR's feature name, not a claim that the values are literally 3/2/1 —
+  # SWAR's feature name, not a claim that the values are literally 3/2/1 -
   # each club sets its own win/draw/loss scale, and this fixture's club
   # happens to use 2/1/0. `SW321_Bye` (raw 4 → 1.0) and `SW321_Pre` (raw
   # 4 → 1.0) are also configured here, and this file's `SW321_PreBye` is
-  # nonzero (raw 1) — per the manual (§5.16, "Add presence points for bye
+  # nonzero (raw 1) - per the manual (§5.16, "Add presence points for bye
   # games") that means a pairing-allocated bye pays `SW321_Bye + SW321_Pre`,
   # modelled as `presence_on_allocated_bye: true` (consulted by
   # `Standings.bye_points/2`) while `bye_value` stays at plain `SW321_Bye`.
-  # An earlier fix folded the sum into `bye_value` (2.0) instead — right
+  # An earlier fix folded the sum into `bye_value` (2.0) instead - right
   # totals, but it redefined `bye_value` away from the club's configured
   # SW321_Bye. Note this fixture contains NO pairing-allocated bye at all
   # (no WIN_BYE result, no TABLE_BYE table value, verified by scanning every
   # [RONDE] entry), so the flag's scoring arithmetic can't be exercised
-  # against a real player's stored total here — that's covered by the
+  # against a real player's stored total here - that's covered by the
   # synthetic-binary tests in swar_import_presence_test.exs. The behavioral
   # check that CAN run on this file: "Descheemaeker, Tom" has two LOST_BYE
   # rounds and two ordinary losses, and his real SWAR total (`points_raw /
@@ -419,7 +419,7 @@ defmodule PairingsEngine.SwarImportTest do
     assert tournament.points_draw == 1.0
     assert tournament.points_loss == 0.0
     assert tournament.presence_value == 1.0
-    # Plain SW321_Bye (raw 4 → 1.0) — the SW321_PreBye add-on is the flag
+    # Plain SW321_Bye (raw 4 → 1.0) - the SW321_PreBye add-on is the flag
     # below, not folded in here.
     assert tournament.bye_value == 1.0
     # SW321_PreBye is raw 1 in this file.
@@ -431,7 +431,7 @@ defmodule PairingsEngine.SwarImportTest do
     tom = Enum.find(data.players, &(&1.name == "Descheemaeker, Tom"))
     # Non-circular check: this player's own raw `Points` field (SWAR's
     # stored total, ÷4 like every other SW321_* field) is the ground truth
-    # here — independent of whatever our scoring_attrs/1 currently does.
+    # here - independent of whatever our scoring_attrs/1 currently does.
     assert tom.points == 8
 
     assert {:ok, tournament, _warnings} =
@@ -466,7 +466,7 @@ defmodule PairingsEngine.SwarImportTest do
 
   test "import_file/1 leaves scoring at schema defaults for a standard (non-3-2-1) tournament" do
     # problemski.swar's raw SW321_Win/Nul/Los/Bye ints (8/4/0/8) happen to
-    # be present and would *also* divide out to 2.0/1.0/0.0/2.0 — but its
+    # be present and would *also* divide out to 2.0/1.0/0.0/2.0 - but its
     # `[TOURNOI].Type` is 0 (plain Swiss), not 3, so the mapping must not
     # fire at all; this only proves the type==3 guard, not the division.
     assert {:ok, tournament, _warnings} = SwarImport.import_file(@problemski)
@@ -481,17 +481,17 @@ defmodule PairingsEngine.SwarImportTest do
   # User-reported crash: test3-321.swar is a real club championship with 42
   # players, 19 of them correctly marked `absent: true` per SWAR's own
   # "Absent" checkbox (excluded from every round upcoming or not yet
-  # paired — confirmed by the tournament's arbiter). Pairing round 9 (past
+  # paired - confirmed by the tournament's arbiter). Pairing round 9 (past
   # the 8 imported rounds) crashed entirely with
   # `PairingsEngine.Trf.ValidationError`: "Aelvoet, Karel, round 2: opponent
-  # 0000 cannot carry played-game result "1" — opponentless games must use
+  # 0000 cannot carry played-game result "1" - opponentless games must use
   # a bye code". Root cause: "Aelvoet, Karel" really did play a round-2
-  # game against "De Winter, Gerrit", one of the 19 now-absent players —
+  # game against "De Winter, Gerrit", one of the 19 now-absent players -
   # `games_per_player/2` was resolving that historical opponent's identity
   # against the current round's narrow *active* player set (correctly used
   # to decide who's eligible to be paired THIS round) instead of the full
   # tournament roster, so a genuine non-nil `opponent_id` produced a nil
-  # `opponent_rank` — a played-game result with no legal way to name its
+  # `opponent_rank` - a played-game result with no legal way to name its
   # opponent. Fixed by resolving historical opponent identity against every
   # player who ever received a pairing_number, regardless of current
   # eligibility (see `PairingsEngine.Pairing.build_shared_history/1`).
@@ -531,9 +531,9 @@ defmodule PairingsEngine.SwarImportTest do
 
   test "import_file/1 marks the tournament as running, not stuck on setup, since rounds were imported" do
     # c-reeks.swar's 11 rounds are all paired but not, as it turns out,
-    # fully scored — 4 of its 297 games carry a blank result (2 from the
-    # legacy SWAR DRAW_ZERO/ZERO_DRAW combo with no equivalent here — see
-    # `combine_results/2`'s moduledoc note — 2 genuinely unplayed), so the
+    # fully scored - 4 of its 297 games carry a blank result (2 from the
+    # legacy SWAR DRAW_ZERO/ZERO_DRAW combo with no equivalent here - see
+    # `combine_results/2`'s moduledoc note - 2 genuinely unplayed), so the
     # honestly-derived status (see the "commits a fully-scored import as
     # finished" test below) is "running", same as this test asserted before
     # status became derived rather than hardcoded.
@@ -548,9 +548,9 @@ defmodule PairingsEngine.SwarImportTest do
     {:ok, prepared} = SwarImport.prepare_import(@c_reeks)
 
     # Patch c-reeks.swar's 4 blank-result games (see the test above) to an
-    # ordinary decisive result, so the fixture is honestly fully scored —
+    # ordinary decisive result, so the fixture is honestly fully scored -
     # then confirm the derived status (Tournaments.refresh_status!/1,
-    # called after commit and outside with_broadcast_suppressed — see
+    # called after commit and outside with_broadcast_suppressed - see
     # PairingsEngine.SwarImport.run_import/2) lands on "finished" rather
     # than the old hardcoded "running".
     patches = [
@@ -593,7 +593,7 @@ defmodule PairingsEngine.SwarImportTest do
     {:ok, tournament, _warnings} = SwarImport.import_file(@c_reeks)
 
     # c-reeks.swar's [TOURNOI] `federation` field is code 6 ("direct FIDE
-    # homologation") — still Belgium, not the literal string "FIDE".
+    # homologation") - still Belgium, not the literal string "FIDE".
     assert tournament.federation == "BEL"
 
     players = Tournaments.list_players(tournament.id)
@@ -614,7 +614,7 @@ defmodule PairingsEngine.SwarImportTest do
   end
 
   # Direct unit coverage of the normalization helper itself (no fixture
-  # needed) — every marker `SwarImport.import_file/2`'s `map_federation/1`
+  # needed) - every marker `SwarImport.import_file/2`'s `map_federation/1`
   # can hand it, plus the pass-through cases. `PairingsEngine.TrfExport`
   # reuses this same function defensively at export time (see
   # trf_export_test.exs) for a tournament whose `federation` was stored raw
@@ -667,7 +667,7 @@ defmodule PairingsEngine.SwarImportTest do
 
       assert {:ok, %{data: data, unresolved: unresolved}} = SwarImport.prepare_import(path)
       # Deloof is auto-matched (exact name+federation+birth-year) and drops
-      # out of `unresolved` entirely — c-reeks.swar has a couple of other,
+      # out of `unresolved` entirely - c-reeks.swar has a couple of other,
       # genuinely-unmatchable players (no local FIDE database seeded for
       # them) that stay unresolved regardless; this only asserts Deloof
       # isn't one of them.
@@ -678,7 +678,7 @@ defmodule PairingsEngine.SwarImportTest do
       deloof = Enum.find(players, &(&1.name == "Deloof, Koen"))
 
       assert deloof.fide_id == 210_234
-      # SWAR's own spelling is canonical — never overwritten by the FIDE
+      # SWAR's own spelling is canonical - never overwritten by the FIDE
       # database's name, even on a match.
       assert deloof.name == "Deloof, Koen"
       # Adopts the matched title...
@@ -686,7 +686,7 @@ defmodule PairingsEngine.SwarImportTest do
       # ...and fills in fide_rating because SWAR's own EloFide was blanked
       # to 0 along with MatFide (see c_reeks_with_deloof_fide_id_blanked!/1).
       assert deloof.fide_rating == 1850
-      # national_id is untouched — comes from mat_nat, never crossed with
+      # national_id is untouched - comes from mat_nat, never crossed with
       # the FIDE match.
       assert deloof.national_id == "39934"
     end
@@ -711,9 +711,9 @@ defmodule PairingsEngine.SwarImportTest do
       assert deloof.fide_id == 210_234
     end
 
-    test "an ambiguous match (right name+federation, wrong/blank birth year) is left for the user to resolve — never silently guessed",
+    test "an ambiguous match (right name+federation, wrong/blank birth year) is left for the user to resolve - never silently guessed",
          %{tmp_dir: tmp_dir} do
-      # Same name and federation, but a *different* birth year — this must
+      # Same name and federation, but a *different* birth year - this must
       # not auto-match, even though it's the only same-named candidate.
       Repo.insert!(%FidePlayer{
         fide_id: 999_999,
@@ -731,7 +731,7 @@ defmodule PairingsEngine.SwarImportTest do
 
       assert [%{fide_id: 999_999, birth_year: 1960}] = candidates
 
-      # And the non-interactive path leaves it unmatched too — nobody to ask.
+      # And the non-interactive path leaves it unmatched too - nobody to ask.
       {:ok, tournament, _warnings} = SwarImport.import_file(path, nil, allow_swiss321: true)
       deloof = Enum.find(Tournaments.list_players(tournament.id), &(&1.name == "Deloof, Koen"))
       assert deloof.fide_id == nil
@@ -798,7 +798,7 @@ defmodule PairingsEngine.SwarImportTest do
     deloof = Enum.find(players, &(&1.name == "Deloof, Koen"))
     assert deloof.id == nil
     assert deloof.national_id == "39934"
-    # No FIDE-database resolve step runs for the pure builder — Deloof
+    # No FIDE-database resolve step runs for the pure builder - Deloof
     # already has a `mat_fide` in the raw file, so this is unaffected either
     # way, but it confirms the field still maps straight through.
     assert deloof.fide_id == 210_234
@@ -815,7 +815,7 @@ defmodule PairingsEngine.SwarImportTest do
 
     deloof = Enum.find(players, &(&1.name == "Deloof, Koen"))
     # SWAR itself has no FIDE id for this (patched) player; the pure builder
-    # never queries the FIDE database, so it simply stays empty — contrast
+    # never queries the FIDE database, so it simply stays empty - contrast
     # with import_file/1's best-effort match (see the FIDE-matching describe
     # block above).
     assert deloof.fide_id == nil

@@ -6,12 +6,12 @@ defmodule PairingsEngine.Accounts.User do
   # (see `keycloak_changeset/2` and `PairingsEngine.Accounts.find_or_create_from_keycloak/1`),
   # never through self-serve registration or an email change. Keep this in
   # sync with `validate_not_sso_domain/1` below, which is the enforcement
-  # point — this is just the constant it reads.
+  # point - this is just the constant it reads.
   #
   # The compiled-in default here; `blocked_registration_domain/0` below is
   # what everything else in this module actually reads, and prefers
   # `SSO_BLOCKED_REGISTRATION_DOMAIN` (config/runtime.exs) over this so a
-  # second federated domain doesn't need a code change and a redeploy —
+  # second federated domain doesn't need a code change and a redeploy -
   # only a config change.
   @blocked_registration_domain "zerotwo.cloud"
 
@@ -47,7 +47,7 @@ defmodule PairingsEngine.Accounts.User do
   The changeset used exclusively by `Accounts.find_or_create_from_keycloak/1`
   to create or couple an account from a verified 02cloud SSO identity.
 
-  Deliberately bypasses `email_changeset/2`'s registration-domain blocklist —
+  Deliberately bypasses `email_changeset/2`'s registration-domain blocklist -
   SSO is the on-ramp that blocklist exists to redirect people to, so it must
   never reject the identity it's protecting. Also sets `confirmed_at`
   immediately: Keycloak (AD federation) already verified this identity, so
@@ -89,11 +89,11 @@ defmodule PairingsEngine.Accounts.User do
 
   @doc """
   Whether `user` authenticated through 02cloud SSO (Keycloak) rather than a
-  self-serve local account — i.e. whether `keycloak_sub` is set.
+  self-serve local account - i.e. whether `keycloak_sub` is set.
 
   Local registration is open to anyone (any email outside `sso_domain/0`),
   so it's the only reliable way to tell "an account we actually vouch for"
-  from "whoever signed up five minutes ago" — used to gate actions that are
+  from "whoever signed up five minutes ago" - used to gate actions that are
   expensive or abusable to let literally anyone trigger, like the full FIDE
   rating-list download (`PairingsEngineWeb.FideLive`).
   """
@@ -123,7 +123,7 @@ defmodule PairingsEngine.Accounts.User do
   def sso_domain_email?(_), do: false
 
   @doc """
-  The email domain self-serve registration/email-change is blocked on —
+  The email domain self-serve registration/email-change is blocked on -
   `SSO_BLOCKED_REGISTRATION_DOMAIN` (config/runtime.exs) when set, otherwise
   the compiled-in default. A runtime lookup (not a module attribute) on
   purpose, so a second federated domain is a config change, not a release.
@@ -134,7 +134,7 @@ defmodule PairingsEngine.Accounts.User do
   end
 
   # `@zerotwo.cloud` accounts must come from SSO (`keycloak_changeset/2`), not
-  # self-serve registration or a settings-page email change — otherwise
+  # self-serve registration or a settings-page email change - otherwise
   # someone could register a local password-only account under an address on
   # that domain without actually controlling it there.
   #

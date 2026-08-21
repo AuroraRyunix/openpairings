@@ -1,6 +1,6 @@
 defmodule PairingsEngineWeb.Components.ArbiterCombo do
   @moduledoc """
-  One official's name + FIDE-ID combobox — the single shared rendering used
+  One official's name + FIDE-ID combobox - the single shared rendering used
   by both `PairingsEngineWeb.NormsLive` (signed-in) and
   `PairingsEngineWeb.ToolsNormsLive` (public), so the two pages render and
   behave identically for this field instead of shipping two hand-rolled
@@ -8,7 +8,7 @@ defmodule PairingsEngineWeb.Components.ArbiterCombo do
   show) live in `PairingsEngineWeb.Live.ArbiterCombo`; this module is pure
   markup.
 
-  Both boxes — name and FIDE ID — are plain, always-typeable text inputs.
+  Both boxes - name and FIDE ID - are plain, always-typeable text inputs.
   Typing in EITHER searches (debounced) and shows a dropdown attached
   directly under THAT box, not a shared results area bolted on below a
   separate "Find in FIDE" button. Picking a result from either dropdown
@@ -17,8 +17,8 @@ defmodule PairingsEngineWeb.Components.ArbiterCombo do
   `ArbiterCombo.id_search_name/1`, is never the one a save/sync reads), and
   the real, submitted id travels in its own hidden `@id_field` input that
   only `arbiter_pick` ever changes. Without that separation, whatever
-  digits were sitting in the search box at submit time — never verified
-  against FIDE, possibly mid-search, possibly just mistyped — would be
+  digits were sitting in the search box at submit time - never verified
+  against FIDE, possibly mid-search, possibly just mistyped - would be
   what gets saved, which defeats the entire point of this combobox.
 
   The calling LiveView owns two `handle_event` clauses, verbatim on both
@@ -40,7 +40,7 @@ defmodule PairingsEngineWeb.Components.ArbiterCombo do
         end
       end
 
-  `apply_pick/3` is the one genuinely page-specific piece — where the name
+  `apply_pick/3` is the one genuinely page-specific piece - where the name
   and id actually get stored differs (an `Ecto`-backed `%Tournament{}` vs. an
   in-memory overlay map), which is why it stays a small per-page function
   rather than something this shared code could own.
@@ -84,7 +84,7 @@ defmodule PairingsEngineWeb.Components.ArbiterCombo do
             class="hint"
             style="margin: 2px 0 0; font-size: 0.85em"
           >
-            Uploaded file says: {@hint} — no confident FIDE match, please search or type it in.
+            Uploaded file says: {@hint} - no confident FIDE match, please search or type it in.
           </p>
           <.results
             id={"arbiter-combo-#{@role}-name-results"}

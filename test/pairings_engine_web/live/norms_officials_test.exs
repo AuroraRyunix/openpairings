@@ -24,7 +24,7 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
     tournament
   end
 
-  test "the Officials card offers only 2 ranked deputy slots — FIDE never ranks a 3rd/4th — and no standalone FIDE-id / pairing-mode inputs",
+  test "the Officials card offers only 2 ranked deputy slots - FIDE never ranks a 3rd/4th - and no standalone FIDE-id / pairing-mode inputs",
        %{conn: conn, scope: scope} do
     tournament = create_tournament(scope)
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/norms")
@@ -34,7 +34,7 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
     refute html =~ ~s(name="tournament[officials][pairing_program]")
     refute html =~ ~s(name="tournament[officials][swiss_variant]")
 
-    # Only 2 — FIDE's own printed Certificaat ranks exactly 2 deputies by
+    # Only 2 - FIDE's own printed Certificaat ranks exactly 2 deputies by
     # name; anyone beyond that is a plain, unranked "Arbiter" via
     # "+ Add arbiter" (see docs/norms.md).
     assert html =~ "1st deputy arbiter"
@@ -110,14 +110,14 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
 
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/norms")
 
-    # One GM, no one else titled — the empty title-category cards (IM, FM,
+    # One GM, no one else titled - the empty title-category cards (IM, FM,
     # WGM, WIM, WFM) shouldn't render at all.
     assert html =~ "it3-explain-card-label\">GM<"
     refute html =~ "it3-explain-card-label\">IM<"
     refute html =~ "it3-explain-card-label\">FM<"
     refute html =~ "it3-explain-card-label\">WGM<"
 
-    # The new Federations card — one distinct federation (NOR), open by
+    # The new Federations card - one distinct federation (NOR), open by
     # default like every other card here.
     assert html =~ "it3-explain-card-label\">Federations<"
     assert html =~ "NOR"
@@ -174,7 +174,7 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
     assert xml =~ "CORNET, Luc"
   end
 
-  test "typing a chief arbiter name — through the real form, either box — shows FIDE matches, and picking one fills name + FIDE id then saves",
+  test "typing a chief arbiter name - through the real form, either box - shows FIDE matches, and picking one fills name + FIDE id then saves",
        %{conn: conn, scope: scope} do
     tournament = create_tournament(scope)
 
@@ -188,7 +188,7 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
 
     {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/norms")
 
-    # Typing in the NAME box searches — a real browser routes the change
+    # Typing in the NAME box searches - a real browser routes the change
     # event to the input's OWN phx-change, not the surrounding form's, so
     # the test must target that input directly rather than going through
     # `form/3` (which sends the form's `phx-change`, "officials_change").
@@ -209,7 +209,7 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
       })
 
     assert html =~ ~s(value="Carlsen, Magnus")
-    # The real, submitted field — a hidden input, only ever set by a pick.
+    # The real, submitted field - a hidden input, only ever set by a pick.
     assert html =~ ~s(name="tournament[officials][chief_arbiter_fide_id]" value="1503014")
 
     render_submit(lv, "save_officials", %{
@@ -242,7 +242,7 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
     {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/norms")
 
     # Typing digits into the ID search box (a field OUTSIDE the
-    # tournament[...] namespace — see ArbiterCombo.id_search_name/1) finds the
+    # tournament[...] namespace - see ArbiterCombo.id_search_name/1) finds the
     # same player a name search would have. Target the input directly, same
     # reasoning as the name-box test above.
     html =
@@ -255,7 +255,7 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
 
     assert html =~ "Carlsen, Magnus"
 
-    # Merely typing the id must NOT itself have committed anything — the real
+    # Merely typing the id must NOT itself have committed anything - the real
     # hidden field is still blank until a result is actually picked.
     refute html =~ ~s(name="tournament[officials][chief_arbiter_fide_id]" value="1503014")
 
@@ -399,8 +399,8 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
       assert html =~ "FIDE tournament ID"
       refute html =~ ~s(href="/t/#{tournament.id}/norms/it3")
 
-      # Setting it — either directly, or via `fide_id_ranges` covering every
-      # round — unblocks it. `Tournament.fide_id_present?/1` is what
+      # Setting it - either directly, or via `fide_id_ranges` covering every
+      # round - unblocks it. `Tournament.fide_id_present?/1` is what
       # `report_blockers/1` calls, so this exercises the real check rather
       # than a copy of its logic.
       {:ok, tournament} =
@@ -431,7 +431,7 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
       assert html =~ "1st deputy arbiter FIDE ID"
     end
 
-    test "an empty deputy slot is fine — not every event has two", %{conn: conn, scope: scope} do
+    test "an empty deputy slot is fine - not every event has two", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope, %{"chief_arbiter" => "Luc Cornet"})
 
       {:ok, tournament} =
@@ -559,17 +559,17 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
 
   ## ---------- regression: the autocomplete crashed the LiveView ----------
 
-  # `phx-value-role` is dropped for form-serialised change events — LiveView
+  # `phx-value-role` is dropped for form-serialised change events - LiveView
   # sends the form data plus `_target` and nothing else. The old handler
   # matched `%{"role" => role}`, so every keystroke in an arbiter name field
   # raised FunctionClauseError and killed the LiveView; the user saw
   # "something went wrong, attempting to reconnect". That parsing now lives in
-  # `PairingsEngineWeb.Live.ArbiterCombo`, shared with the public tools page —
+  # `PairingsEngineWeb.Live.ArbiterCombo`, shared with the public tools page -
   # see `PairingsEngineWeb.ToolsNormsLiveTest` for the same guarantee there.
   #
   # Driven at the role-derivation level with the exact payloads the browser
   # sends. An earlier test passed hand-written params that *included* "role"
-  # and so proved nothing about the real shape — the lesson being that a
+  # and so proved nothing about the real shape - the lesson being that a
   # synthetic payload can only test the clause you already wrote.
   describe "ArbiterCombo.target_role_and_field/1 (the shape that crashed)" do
     test "derives {role, :name} from _target for every name-field spelling" do
@@ -586,7 +586,7 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
 
       # The public tools page spells the chief arbiter's name field
       # differently (a flat "chief_arbiter_name" key, following the same
-      # convention every other role already uses) — both must resolve to the
+      # convention every other role already uses) - both must resolve to the
       # same role.
       assert ArbiterCombo.target_role_and_field(%{
                "_target" => ["overlay", "chief_arbiter_name"]
@@ -684,7 +684,7 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
 
     test "name plus id saves normally", %{conn: conn, scope: scope} do
       # The FIDE-ID inputs are hidden and only written by picking a search
-      # result — there is deliberately no way to type one by hand — so the id
+      # result - there is deliberately no way to type one by hand - so the id
       # is seeded here the way a pick would have left it.
       tournament = create_tournament(scope)
 

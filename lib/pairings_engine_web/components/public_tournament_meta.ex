@@ -1,13 +1,13 @@
 defmodule PairingsEngineWeb.Components.PublicTournamentMeta do
   @moduledoc """
-  A compact line of tournament facts — chief arbiter, deputy, tempo/time
-  control, round dates — for the public (no-login) standings/pairings pages
+  A compact line of tournament facts - chief arbiter, deputy, tempo/time
+  control, round dates - for the public (no-login) standings/pairings pages
   (`PairingsEngineWeb.PublicStandingsLive` / `PublicPairingsLive`, see
   docs/public-pages.md). These pages previously showed only the tournament
   name and the table itself; a spectator or player following the link had no
   way to see who's arbiting or what the time control is, information every
-  printed pairing sheet carries as a matter of course. Deliberately terse —
-  one line, only the fields that have a value — this isn't meant to
+  printed pairing sheet carries as a matter of course. Deliberately terse -
+  one line, only the fields that have a value - this isn't meant to
   replicate a full report, just cover the baseline facts a spectator page
   shouldn't be missing.
   """
@@ -44,7 +44,7 @@ defmodule PairingsEngineWeb.Components.PublicTournamentMeta do
     case Enum.reject(dates, &(&1 in [nil, ""])) do
       [] -> nil
       [single] -> "Date: #{single}"
-      real -> "Dates: #{List.first(real)} – #{List.last(real)}"
+      real -> "Dates: #{List.first(real)} - #{List.last(real)}"
     end
   end
 end

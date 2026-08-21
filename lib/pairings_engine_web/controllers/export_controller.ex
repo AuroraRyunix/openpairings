@@ -2,8 +2,8 @@ defmodule PairingsEngineWeb.ExportController do
   @moduledoc """
   Downloads for tournament data: FIDE TRF16 (`PairingsEngine.TrfExport`) and
   full-fidelity JSON backups (`PairingsEngine.TournamentExport`). See
-  `docs/import-export.md`. JSON *import* isn't here — a file upload can't be
-  a plain GET download route — see the "Import backup" control on
+  `docs/import-export.md`. JSON *import* isn't here - a file upload can't be
+  a plain GET download route - see the "Import backup" control on
   `PairingsEngineWeb.TournamentsLive`, backed by
   `PairingsEngine.TournamentImport`.
 
@@ -18,7 +18,7 @@ defmodule PairingsEngineWeb.ExportController do
   alias PairingsEngine.{PgnExport, SwarExport, TournamentExport, Tournaments, TrfExport}
 
   @doc """
-  GET /t/:id/export/trf?rounds=1-5 — TRF16 text download, all or selected
+  GET /t/:id/export/trf?rounds=1-5 - TRF16 text download, all or selected
   rounds. Filename convention: `<X>_<fideid>_<slug>_<rounds>.trf`, where
   `<X>` is B/R/S for `tournament.standard` (blitz/rapid/standard), `<fideid>`
   is whichever FIDE tournament ID `TrfExport.applicable_fide_id/2` resolves
@@ -51,7 +51,7 @@ defmodule PairingsEngineWeb.ExportController do
   end
 
   @doc """
-  GET /t/:id/export/pgn?round=N&board=1 — metadata-only PGN text download,
+  GET /t/:id/export/pgn?round=N&board=1 - metadata-only PGN text download,
   one round or all rounds. `board=1` adds a [Board "N"] tag to every game
   (see `PgnExport.export/3`'s moduledoc); omitted/anything else leaves it
   off, matching the export's long-standing default.
@@ -81,7 +81,7 @@ defmodule PairingsEngineWeb.ExportController do
   end
 
   @doc """
-  GET /t/:id/export/swar — a `.swar` v7 binary SWAR itself can open. See
+  GET /t/:id/export/swar - a `.swar` v7 binary SWAR itself can open. See
   `PairingsEngine.SwarExport`'s moduledoc for exactly what this can and
   cannot round-trip, and why it has never been verified against a real
   SWAR install.
@@ -99,7 +99,7 @@ defmodule PairingsEngineWeb.ExportController do
     |> send_resp(200, binary)
   end
 
-  @doc "GET /t/:id/export/json — full-fidelity JSON backup of one tournament."
+  @doc "GET /t/:id/export/json - full-fidelity JSON backup of one tournament."
   def json(conn, %{"id" => id}) do
     tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
     envelope = TournamentExport.export_tournament(tournament)
@@ -107,7 +107,7 @@ defmodule PairingsEngineWeb.ExportController do
     send_json_download(conn, envelope, filename(tournament, "json"))
   end
 
-  @doc "GET /export/tournaments.json — full-fidelity JSON backup of every tournament the current user can access (owned or collaborated)."
+  @doc "GET /export/tournaments.json - full-fidelity JSON backup of every tournament the current user can access (owned or collaborated)."
   def all_json(conn, _params) do
     envelope = TournamentExport.export_all(conn.assigns.current_scope)
 
@@ -136,9 +136,9 @@ defmodule PairingsEngineWeb.ExportController do
     |> String.trim("-")
   end
 
-  # `<X>_<fideid>_<slug>_<rounds>.trf` — see the `trf/2` moduledoc above.
+  # `<X>_<fideid>_<slug>_<rounds>.trf` - see the `trf/2` moduledoc above.
   # `.trf` (not the ".txt" a user might informally expect) matches this
-  # project's established TRF export extension — every other TRF surface
+  # project's established TRF export extension - every other TRF surface
   # (this controller's previous filename, `docs/import-export.md`) already
   # uses `.trf`, so this keeps that consistent rather than introducing a
   # second convention.

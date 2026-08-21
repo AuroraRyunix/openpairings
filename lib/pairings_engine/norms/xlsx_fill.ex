@@ -10,7 +10,7 @@ defmodule PairingsEngine.Norms.XlsxFill do
   of `sheet name => %{cell ref => value}` and get back the filled workbook as
   a binary.
 
-  Only the Erlang standard library (`:zip`) plus `Regex`/`String` are used —
+  Only the Erlang standard library (`:zip`) plus `Regex`/`String` are used -
   no new dependencies.
   """
 
@@ -30,16 +30,16 @@ defmodule PairingsEngine.Norms.XlsxFill do
 
   `fills` is `%{"Sheet Name" => %{"B3" => value}}`. `value` may be:
 
-    * a `String.t()` — written as `t="inlineStr"` with `<is><t
+    * a `String.t()` - written as `t="inlineStr"` with `<is><t
       xml:space="preserve">...</t></is>`
-    * a number (integer or float) — written as a plain `<v>` (no `t`
+    * a number (integer or float) - written as a plain `<v>` (no `t`
       attribute)
-    * a `Date.t()`, `DateTime.t()` or `NaiveDateTime.t()` — converted to an
+    * a `Date.t()`, `DateTime.t()` or `NaiveDateTime.t()` - converted to an
       Excel 1900-date-system serial number and written as a plain `<v>`
-    * `nil` — the cell is left untouched
+    * `nil` - the cell is left untouched
 
   Returns `{:error, {:formula_cell, ref}}` if a fill targets a cell that
-  currently holds a formula (`<f>`) — those are never overwritten. Returns
+  currently holds a formula (`<f>`) - those are never overwritten. Returns
   other `{:error, reason}` tuples for unresolvable sheet names, malformed
   refs, or zip/XML problems.
   """
@@ -409,18 +409,18 @@ defmodule PairingsEngine.Norms.XlsxFill do
 
   # Every string that ends up in a cell here ultimately traces back to
   # user-entered or externally-imported data (tournament/player names,
-  # arbiter names, free-text remarks, and — since `PairingsEngine.TrfImport`
+  # arbiter names, free-text remarks, and - since `PairingsEngine.TrfImport`
   # started back-mapping TRF16 "102"/"112" arbiter lines into
-  # `tournament.officials` — names lifted straight out of an uploaded TRF
+  # `tournament.officials` - names lifted straight out of an uploaded TRF
   # file). `escape_xml/1` only escapes the five reserved XML markup
   # characters; it assumes its input is *already* well-formed text, which
   # two classes of real-world input violate and which Excel's (strict)
-  # parser rejects outright — producing exactly the "repair this file"
+  # parser rejects outright - producing exactly the "repair this file"
   # prompt, even though the zip and every other part of the workbook are
   # untouched and fine:
   #
   #   1. Invalid UTF-8 byte sequences. `TrfImport`'s caller reads an
-  #      uploaded TRF file with `File.read!/1` — raw bytes, no charset
+  #      uploaded TRF file with `File.read!/1` - raw bytes, no charset
   #      detection or transcoding. A TRF file saved by arbiter software in
   #      Windows-1252/Latin-1 (common for names with accents, e.g. a
   #      "Boûtchön"-style name) then carries bytes like `0xFC` that are
@@ -430,7 +430,7 @@ defmodule PairingsEngine.Norms.XlsxFill do
   #      bad bytes round-trip silently through the database and land
   #      byte-for-byte in the generated sheet XML.
   #   2. XML-illegal C0 control characters (stray NUL/vertical-tab/etc from
-  #      a bad paste or a different upstream bug) — legal as UTF-8, but
+  #      a bad paste or a different upstream bug) - legal as UTF-8, but
   #      outright forbidden by the `Char` production in the XML 1.0 spec
   #      (only tab/LF/CR are allowed below U+0020) regardless of escaping;
   #      `&#x0B;` is just as illegal as a literal 0x0B byte.
@@ -467,7 +467,7 @@ defmodule PairingsEngine.Norms.XlsxFill do
   end
 
   # XML 1.0's `Char` production only allows #x9 (tab), #xA (LF) and #xD (CR)
-  # below #x20 — every other C0 control character is illegal even as a
+  # below #x20 - every other C0 control character is illegal even as a
   # numeric character reference, so these must be replaced, not escaped.
   @illegal_xml_char_re ~r/[\x00-\x08\x0B\x0C\x0E-\x1F]/
 
@@ -529,10 +529,10 @@ defmodule PairingsEngine.Norms.XlsxFill do
   # These FIDE templates ship with formula cells whose cached `<v>` (e.g. an
   # empty string or `0`) was baked in when the *unfilled* template was last
   # saved in Excel (verified against the shipped templates in
-  # `priv/norm_templates/` — e.g. `Certificaat!A4` ships as
+  # `priv/norm_templates/` - e.g. `Certificaat!A4` ships as
   # `<f>IF(ISBLANK(Invulformulier!$B$1),"",...)</f><v/>`, an empty cached
   # string). `apply_force_recalc/2` sets `fullCalcOnLoad="1"`, but that flag
-  # is only a *request* — headless converters, quick-preview panes, and some
+  # is only a *request* - headless converters, quick-preview panes, and some
   # spreadsheet apps render the cached value as-is without recalculating, so
   # a formula-only sheet like `Certificaat` (which is never a fill target;
   # every value on it is derived from `Invulformulier` via formulas) can
@@ -543,7 +543,7 @@ defmodule PairingsEngine.Norms.XlsxFill do
   # every worksheet leaves the `<f>` element intact but removes any value to
   # display, so any compliant reader (Excel, LibreOffice, Google Sheets) is
   # forced to evaluate the formula on open rather than trusting a stale cache
-  # — regardless of whether it honors `fullCalcOnLoad`.
+  # - regardless of whether it honors `fullCalcOnLoad`.
   defp strip_stale_formula_caches(entries) do
     entries =
       Enum.map(entries, fn {name, bin} = entry ->
@@ -560,20 +560,20 @@ defmodule PairingsEngine.Norms.XlsxFill do
   defp worksheet_entry?(name), do: Regex.match?(~r/^xl\/worksheets\/sheet\d+\.xml$/, name)
 
   # Matches a whole `<c ...>...</c>` element whose first (and only relevant)
-  # child is a formula `<f>` — either the full `<f ...>expr</f>` form or the
-  # self-closing shared-formula-follower form `<f t="shared" si="1"/>` —
+  # child is a formula `<f>` - either the full `<f ...>expr</f>` form or the
+  # self-closing shared-formula-follower form `<f t="shared" si="1"/>` -
   # optionally followed by a cached `<v>...</v>` / self-closing `<v/>`, which
   # is what gets dropped.
   #
   # ORDER AND LOOKBEHINDS ARE LOAD-BEARING. The FIDE templates cache many
   # formulas as an EMPTY self-closing `<v/>`. An earlier version of the
   # `<v>` branch tried the open-tag form first with a bare `[^>]*>`, which
-  # happily eats the `/` of `<v/>` and reads it as an OPENING tag — the
+  # happily eats the `/` of `<v/>` and reads it as an OPENING tag - the
   # lazy `[\s\S]*?<\/v>` then scanned FORWARD ACROSS NEIGHBOURING CELLS to
   # the next real `</v>` anywhere later in the row, and the replacement
   # silently swallowed every cell in between. One minimal fill deleted
   # 99-186 cells from every template's Certificaat/display sheet (the side
-  # the arbiter actually reads/prints) — user-reported as norms "not
+  # the arbiter actually reads/prints) - user-reported as norms "not
   # generating Excel properly". Self-closing forms are now matched FIRST,
   # and the open-tag forms' `>` carries a `(?<!\/)` lookbehind so they can
   # never consume a self-closing tag's slash. Same hardening on `<f>` for
@@ -594,7 +594,7 @@ defmodule PairingsEngine.Norms.XlsxFill do
   # ---------------------------------------------------------------------
 
   # `xl/calcChain.xml` records, for every formula cell, the dependency
-  # order Excel last calculated it in — a cache of the *evaluation plan*,
+  # order Excel last calculated it in - a cache of the *evaluation plan*,
   # not just a value cache. `strip_stale_formula_caches/1` above already
   # invalidates every formula's cached `<v>` (and `apply_force_recalc/2`
   # requests a full recalc on open), which means the calc chain's recorded
@@ -603,7 +603,7 @@ defmodule PairingsEngine.Norms.XlsxFill do
   # module just wrote into the `Invulformulier` input sheet that
   # `Certificaat`'s formulas read from. Leaving a stale calc chain in place
   # is exactly the kind of "some content" Excel's strict OOXML loader
-  # rejects at open time and offers to "repair" — dropping the part
+  # rejects at open time and offers to "repair" - dropping the part
   # entirely (plus its `[Content_Types].xml` override and its
   # `xl/_rels/workbook.xml.rels` relationship, since a dangling reference
   # to a part that no longer exists is its own corruption) is the

@@ -1,13 +1,13 @@
 defmodule PairingsEngineWeb.SettingsOptionsLive do
   @moduledoc """
-  The "Options" settings page (`/t/:id/settings/options`) — everything about
+  The "Options" settings page (`/t/:id/settings/options`) - everything about
   *how* the tournament is paired: the pairing system and its variants (RR
-  cycles, RR/Swiss match format — each locked once round 1 has been
+  cycles, RR/Swiss match format - each locked once round 1 has been
   paired), the Swiss engine that does the actual pairing, the rating used
   for pairing, acceleration, the rate of play, the public-pairings publish
   delay, and the forbidden-pairing / club-federation exclusion rules.
   Scoring (points per win/draw/loss, byes, SWAR's "Pt ABSENT"
-  genuine-absence rule) has its own page — see
+  genuine-absence rule) has its own page - see
   `PairingsEngineWeb.SettingsScoringLive`. Pair-by-category lives on
   `PairingsEngineWeb.CategoriesLive`, next to the categories-enabled switch
   it depends on.
@@ -41,7 +41,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
        standard: tournament.standard,
        rate_of_play: tournament.rate_of_play,
        # Tracked as its own assign so the "Delay (minutes)" field can be
-       # shown/hidden live as the "Publish each round" select changes —
+       # shown/hidden live as the "Publish each round" select changes -
        # same reason `standard`/`rate_of_play` are tracked separately above.
        publish_mode: tournament.publish_mode,
        note: nil,
@@ -49,7 +49,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
        dirty: false,
        stale: false,
        # Which locked pairing-shape control (if any) the user just tried to
-       # interact with — one of `:pairing_system`, `:pairing_engine`,
+       # interact with - one of `:pairing_system`, `:pairing_engine`,
        # `:rr_cycles`, `:rr_match_format`, `:swiss_match_format`, or nil.
        locked_hint: nil,
        forbidden_pairing_error: nil,
@@ -72,7 +72,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
   end
 
   # Which pairing-shape settings are frozen. The rule itself lives in
-  # `Tournaments.locked_fields/1`, which is also what refuses the write — so
+  # `Tournaments.locked_fields/1`, which is also what refuses the write - so
   # what this page disables and what the context accepts cannot drift apart.
   # (They previously could: the lock was enforced *only* here, and any other
   # caller went straight through.)
@@ -134,7 +134,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     end
   end
 
-  # Self-clearing timer for the "locked" hint set by the "locked_hint" event —
+  # Self-clearing timer for the "locked" hint set by the "locked_hint" event -
   # only clears if it's still showing the same field's message.
   def handle_info({:clear_locked_hint, field}, socket) do
     if socket.assigns.locked_hint == field do
@@ -158,7 +158,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
         note =
           if open?,
-            do: "Registration is open — anyone with the link can enter.",
+            do: "Registration is open - anyone with the link can enter.",
             else: "Registration is closed."
 
         {:noreply, socket |> assign(tournament: tournament) |> put_flash(:info, note)}
@@ -428,17 +428,17 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
   defp maybe_drop_locked(params, key, true), do: Map.delete(params, key)
 
   # Player ratings are looked up per-cadence (`PairingsEngine.Fide.
-  # rating_for_tempo/2` — Standard/Rapid/Blitz), so a saved change to
+  # rating_for_tempo/2` - Standard/Rapid/Blitz), so a saved change to
   # `standard` silently leaves every already-registered player's stored
   # `fide_rating` at whatever cadence was in effect when they were last
   # looked up or refreshed. Nothing re-fetches it automatically (that would
-  # mean a settings save silently rewriting player data) — just flag it so
+  # mean a settings save silently rewriting player data) - just flag it so
   # the arbiter knows to re-run the refresh from the Players page.
   defp save_note(%{standard: same}, %{standard: same}), do: "Saved."
 
   defp save_note(_before, tournament) do
     "Saved. Tempo changed to #{RateOfPlay.standard_options() |> Map.new() |> Map.get(tournament.standard, tournament.standard)} " <>
-      "— FIDE ratings shown are still whichever cadence was last looked up; " <>
+      "- FIDE ratings shown are still whichever cadence was last looked up; " <>
       "refresh them from the Players page to pick up the new one."
   end
 
@@ -456,7 +456,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
   defp pairing_system_options, do: @pairing_system_options
   defp rr_cycles_options, do: @rr_cycles_options
 
-  # locked_overlay/1 + locked_hint_message/1 now live in SettingsSupport —
+  # locked_overlay/1 + locked_hint_message/1 now live in SettingsSupport -
   # <.setting_toggle> needs them too.
 
   @impl true
@@ -483,7 +483,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
         <p class="subtitle" style="margin: 0 0 8px">
           A public page where players enter themselves, finding their own name on the
-          FIDE list. Everyone who signs up arrives marked <strong>not yet arrived</strong> —
+          FIDE list. Everyone who signs up arrives marked <strong>not yet arrived</strong> -
           they are not paired until you confirm them on the Players page.
         </p>
 
@@ -706,7 +706,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
           <p class="subtitle" style="margin: 0 0 8px">
             When a round you pair actually reaches <code>/p/{@tournament.public_slug}/pairings</code>
-            (the public link — still gated on public pages being on at all, see Settings →
+            (the public link - still gated on public pages being on at all, see Settings →
             Tournament). Whichever round is currently paired can always be published early or
             hidden again by hand from the Pairings page, regardless of this setting.
           </p>
@@ -747,7 +747,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
         <p class="hint" style="margin-top: 0">
           Two players who must never be paired against each other. Applies to Swiss pairing
-          (a JaVaFo "XXP" rule) and to Keizer; a round robin's fixed schedule ignores this by design.
+          (a TRF "XXP" rule) and to Keizer; a round robin's fixed schedule ignores this by design.
         </p>
 
         <form id="add-forbidden-pairing-form" phx-submit="add_forbidden_pairing">
@@ -814,7 +814,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
         <p class="hint" style="margin-top: 0">
           Automatically forbid pairing any two players who share a club or federation, instead of
-          listing every pair by hand. Applies to Swiss (JaVaFo "XXP" rules, same as above) and to
+          listing every pair by hand. Applies to Swiss (TRF "XXP" rules, same as above) and to
           Keizer; a round robin's fixed schedule ignores this by design.
         </p>
 
@@ -897,13 +897,13 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
           <p class="hint">
             <strong>Experimental, but plausibly better.</strong>
             Ainalrami is a second Dutch engine built into this app. Measured against
-            bbpPairings — the other FIDE-endorsed implementation — over two independent
+            bbpPairings - the other FIDE-endorsed implementation - over two independent
             corpora of roughly 488 million pairings each, the most recent found <strong>zero disagreements</strong>. On a large field it is also several times
             quicker, because it runs in-process with no Java to start.
           </p>
 
           <p class="hint">
-            "Experimental" here means <strong>not FIDE-endorsed</strong> — a paperwork
+            "Experimental" here means <strong>not FIDE-endorsed</strong> - a paperwork
             status, not a measured quality one. That is why a FIDE-rated event must still be
             paired by JaVaFo, and why this is not the default.
           </p>
@@ -911,7 +911,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
           <p class="hint">
             Forbidden pairings, club and federation exclusions, and acceleration are all
             supported. Anything it does not implement makes it <em>refuse</em> to pair the
-            round and say why, rather than quietly ignoring a rule you set — so a wrong
+            round and say why, rather than quietly ignoring a rule you set - so a wrong
             round is not a way this can fail.
           </p>
 
@@ -919,7 +919,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             <strong>This tournament is FIDE-homologated.</strong>
             OpenPairings is endorsed on the basis that it pairs <em>through JaVaFo</em>, so a
             rated round paired by Ainalrami was not produced by the engine that endorsement
-            names. The pairings themselves are not the risk — the paperwork is, and it is
+            names. The pairings themselves are not the risk - the paperwork is, and it is
             yours. Proceed only if you are willing to defend that if the report is queried.
           </p>
 

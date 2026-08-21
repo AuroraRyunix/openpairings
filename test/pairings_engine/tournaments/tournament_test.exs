@@ -4,7 +4,7 @@ defmodule PairingsEngine.Tournaments.TournamentTest do
   alias PairingsEngine.Tournaments.Tournament
 
   # A tournament that satisfies every `Tournament.required_setup_fields/0`
-  # requirement — every individual test below starts from this and knocks
+  # requirement - every individual test below starts from this and knocks
   # out exactly one thing, so a failure clearly points at one requirement.
   defp complete_tournament(overrides \\ %{}) do
     base = %Tournament{
@@ -23,7 +23,7 @@ defmodule PairingsEngine.Tournaments.TournamentTest do
     struct(base, overrides)
   end
 
-  describe "setup_complete?/1 and missing_setup_fields/1 — individually" do
+  describe "setup_complete?/1 and missing_setup_fields/1 - individually" do
     test "a fully filled-in tournament is complete" do
       t = complete_tournament()
       assert Tournament.setup_complete?(t)
@@ -42,7 +42,7 @@ defmodule PairingsEngine.Tournaments.TournamentTest do
       assert {:name, _} = find_missing(t, :name)
     end
 
-    # No "blank start_date is reported" test — start_date isn't its own
+    # No "blank start_date is reported" test - start_date isn't its own
     # `missing_setup_fields/1` entry any more (it's derived from
     # round_dates, see that field's own doc comment on `Tournament`), so
     # requiring `:round_dates` already covers it. The round_dates-focused
@@ -114,7 +114,7 @@ defmodule PairingsEngine.Tournaments.TournamentTest do
 
     test "fide_tournament_id is recommended (not required) once FIDE-homologated" do
       t = complete_tournament(%{fide_homologated: true, fide_tournament_id: ""})
-      # A missing FIDE ID never blocks pairing — you file the report later.
+      # A missing FIDE ID never blocks pairing - you file the report later.
       assert Tournament.setup_complete?(t)
       assert find_missing(t, :fide_tournament_id) == nil
       assert {:fide_tournament_id, _} = find_recommended(t, :fide_tournament_id)
@@ -127,7 +127,7 @@ defmodule PairingsEngine.Tournaments.TournamentTest do
     end
   end
 
-  describe "missing_setup_fields/1 — combined" do
+  describe "missing_setup_fields/1 - combined" do
     test "several unmet requirements are all reported together" do
       t =
         complete_tournament(%{
@@ -143,7 +143,7 @@ defmodule PairingsEngine.Tournaments.TournamentTest do
       # Structural fields block pairing...
       assert :name in fields
       assert :tiebreaks in fields
-      # ...FIDE-report metadata does not — it's recommended, not required.
+      # ...FIDE-report metadata does not - it's recommended, not required.
       refute :chief_arbiter in fields
       refute :federation in fields
       refute :rate_of_play in fields

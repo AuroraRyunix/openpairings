@@ -4,7 +4,7 @@ defmodule PairingsEngine.Repo.Migrations.AddPublicSlugToTournaments do
   import Ecto.Query
 
   # Adds an unguessable public token for the read-only "share this link, no
-  # login needed" pages (PublicPairingsLive / PublicStandingsLive — see
+  # login needed" pages (PublicPairingsLive / PublicStandingsLive - see
   # docs/public-pages.md). Deliberately NOT the tournament's numeric `id`:
   # ids are small sequential integers so they're trivially enumerable, and
   # a public link must not let a visitor page through everyone else's

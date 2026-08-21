@@ -1,5 +1,5 @@
 defmodule PairingsEngine.Tools.ParserTest do
-  # async: true — Parser is pure (dispatches to the pure build_structs/1
+  # async: true - Parser is pure (dispatches to the pure build_structs/1
   # builders), no database, no filesystem.
   use ExUnit.Case, async: true
 
@@ -37,12 +37,12 @@ defmodule PairingsEngine.Tools.ParserTest do
     })
   end
 
-  # A `.swar` opens with its version string, length-prefixed — all
+  # A `.swar` opens with its version string, length-prefixed - all
   # `detect_format/2` reads, so the trailing bytes can be anything.
   defp swar_bytes(version \\ "v7.04"),
     do: <<byte_size(version)::little-signed-32, version::binary, 0, 1, 2, 3>>
 
-  describe "detect_format/2 — content decides, extension only breaks ties" do
+  describe "detect_format/2 - content decides, extension only breaks ties" do
     test "SWAR content wins over a .trf filename" do
       assert Parser.detect_format("misnamed.trf", swar_bytes()) == :swar
       assert Parser.detect_format("misnamed.trf", swar_bytes("v6.78")) == :swar

@@ -6,7 +6,7 @@ defmodule PairingsEngine.TournamentsTest do
   alias PairingsEngine.Accounts.{Scope, User}
 
   # A lightweight stand-in for `PairingsEngine.AccountsFixtures.user_scope_fixture/0`
-  # — these tests only need a persisted owner to satisfy the tournament's
+  # - these tests only need a persisted owner to satisfy the tournament's
   # `user_id` foreign key, not a full register/confirm/magic-link session.
   # Going through the real fixture here (several sequential writes per
   # call) under async/parallel execution was enough to starve SQLite's
@@ -280,7 +280,7 @@ defmodule PairingsEngine.TournamentsTest do
       e = Repo.insert!(%Player{tournament_id: round.tournament_id, name: "E"})
 
       # A also has a normal board in round 2 (the round the swap actually
-      # happens in) — swap works within one round's own pairings, so both
+      # happens in) - swap works within one round's own pairings, so both
       # players being swapped have to be seated in THAT round.
       Repo.insert!(%Pairing{
         round_id: round2.id,
@@ -305,7 +305,7 @@ defmodule PairingsEngine.TournamentsTest do
       board1_r2 = Enum.find(round2.pairings, &(&1.board == 1))
       bye_board = Enum.find(round2.pairings, &(&1.board == 2))
 
-      # A now has the bye, and the bye marker itself is untouched — it's a
+      # A now has the bye, and the bye marker itself is untouched - it's a
       # scoring rule for the empty seat, not a claim about who fills it.
       assert bye_board.white_player_id == a.id
       assert bye_board.black_player_id == nil
@@ -348,7 +348,7 @@ defmodule PairingsEngine.TournamentsTest do
 
   describe "vacancies (mark absent on the board, refill from the pool)" do
     # A player who was never seated this round can't be `vacate_seat`ed
-    # into the pool — they're already in it. This is how they get a
+    # into the pool - they're already in it. This is how they get a
     # `"byes"` type without going through a seat.
     defp put_bye_row(tournament, player, type) do
       Repo.insert_all("byes", [
@@ -476,7 +476,7 @@ defmodule PairingsEngine.TournamentsTest do
 
       round = Tournaments.get_round(t.id, 1)
       board1 = hd(round.pairings)
-      # A bye is white-seat + nil black + "bye" — B moves across from black.
+      # A bye is white-seat + nil black + "bye" - B moves across from black.
       assert board1.white_player_id == b.id
       assert board1.black_player_id == nil
       assert board1.result == "bye"
@@ -552,7 +552,7 @@ defmodule PairingsEngine.TournamentsTest do
       :ok = Tournaments.freeze_round_display_boards!(round.id)
 
       # Reload after freezing so `board1`/`board2` carry their real, frozen
-      # `display_board` — every production call site freezes right after
+      # `display_board` - every production call site freezes right after
       # insert, and a fixture that skipped it would test against a struct
       # no real round is ever actually in.
       round = Tournaments.get_round(tournament.id, 1)
@@ -601,7 +601,7 @@ defmodule PairingsEngine.TournamentsTest do
 
     test "hiding a pairing that still has someone seated is refused",
          %{round: round, board1: board1} do
-      # Only ONE side vacated — still not a fully-vacated row.
+      # Only ONE side vacated - still not a fully-vacated row.
       {:ok, _} = Tournaments.vacate_seat(round, board1.white_player_id)
       round = Tournaments.get_round(round.tournament_id, 1)
       board1 = Enum.find(round.pairings, &(&1.id == board1.id))
@@ -627,8 +627,8 @@ defmodule PairingsEngine.TournamentsTest do
       round = fully_vacate(round, board1)
       board1 = Enum.find(round.pairings, &(&1.id == board1.id))
 
-      # board2 (still seated) is the round's max board, so board1 — even
-      # fully vacant — is never eligible.
+      # board2 (still seated) is the round's max board, so board1 - even
+      # fully vacant - is never eligible.
       assert {:error, :not_last_board} = Tournaments.delete_pairing(round, board1)
       assert Repo.get(Pairing, board1.id)
     end
@@ -713,8 +713,8 @@ defmodule PairingsEngine.TournamentsTest do
       assert updated.status == "finished"
     end
 
-    # A "bye" pairing's result is the literal string "bye" — already
-    # non-blank — so a round made up entirely of a pairing-allocated bye
+    # A "bye" pairing's result is the literal string "bye" - already
+    # non-blank - so a round made up entirely of a pairing-allocated bye
     # still counts as fully scored.
     test "a pairing-allocated bye (result \"bye\") counts as scored, not missing" do
       tournament =
@@ -921,7 +921,7 @@ defmodule PairingsEngine.TournamentsTest do
 
       refute_receive {:tournament_changed, _, _}
 
-      # Suppression only applies inside the function — writes afterwards
+      # Suppression only applies inside the function - writes afterwards
       # broadcast normally again.
       assert {:ok, _} = Tournaments.create_player(tournament.id, %{"name" => "Bob"})
       tid = tournament.id
@@ -1121,7 +1121,7 @@ defmodule PairingsEngine.TournamentsTest do
     end
   end
 
-  describe "collaborators (tournament sharing by email — invite, must be accepted)" do
+  describe "collaborators (tournament sharing by email - invite, must be accepted)" do
     import Swoosh.TestAssertions
 
     test "add_collaborator/3 creates a pending invite, links user_id as a courtesy when the email belongs to an existing user, and emails an invitation" do
@@ -1210,7 +1210,7 @@ defmodule PairingsEngine.TournamentsTest do
       assert Tournaments.list_collaborators(tournament) == []
     end
 
-    test "a pending invite grants no access — only the owner can reach the tournament until it's accepted" do
+    test "a pending invite grants no access - only the owner can reach the tournament until it's accepted" do
       owner = user_scope()
       invited = user_scope()
       pending_email = "pending-#{System.unique_integer([:positive])}@example.com"
@@ -1238,7 +1238,7 @@ defmodule PairingsEngine.TournamentsTest do
       end
     end
 
-    test "get_user_tournament!/2 stays owner-only — an (even accepted) collaborator does not satisfy it" do
+    test "get_user_tournament!/2 stays owner-only - an (even accepted) collaborator does not satisfy it" do
       owner = user_scope()
       collaborator = user_scope()
 
@@ -1293,7 +1293,7 @@ defmodule PairingsEngine.TournamentsTest do
         Tournaments.create_tournament(owner, %{"name" => "T", "type" => "swiss"})
 
       # Add the collaborator by email *before* any account with that email
-      # exists — this is the "pending invite" case add_collaborator/3 itself
+      # exists - this is the "pending invite" case add_collaborator/3 itself
       # covers. link_pending_collaborators/1 is the separate, login-time step
       # that backfills user_id once such an account shows up.
       pending_email = "brand-new-#{System.unique_integer([:positive])}@example.com"
@@ -1316,13 +1316,13 @@ defmodule PairingsEngine.TournamentsTest do
       assert linked.user_id == new_user.id
       assert linked.status == "pending"
 
-      # Linking backfills user_id for tidiness/lookup purposes only — it does
+      # Linking backfills user_id for tidiness/lookup purposes only - it does
       # NOT grant access. The invite is still pending.
       refute Enum.any?(Tournaments.list_tournaments(new_scope), fn {t, _count, _owner?} ->
                t.id == tournament.id
              end)
 
-      # Idempotent — calling again does nothing further.
+      # Idempotent - calling again does nothing further.
       assert :ok = Tournaments.link_pending_collaborators(new_user)
       [still_linked] = Tournaments.list_collaborators(tournament)
       assert still_linked.user_id == new_user.id
@@ -1482,7 +1482,7 @@ defmodule PairingsEngine.TournamentsTest do
     test "storage is normalized so player_a_id is always the smaller id, regardless of call order",
          %{tournament: t, a: a, b: b} do
       # Force b to have the larger id by inserting a fresh pair, since fixture
-      # insertion order already makes a.id < b.id — assert that up front so
+      # insertion order already makes a.id < b.id - assert that up front so
       # this test actually exercises the swap either way it's called.
       assert a.id < b.id
 
@@ -1523,7 +1523,7 @@ defmodule PairingsEngine.TournamentsTest do
     end
   end
 
-  describe "extra points (SWAR parity #12 XtPts) — Tournament.changeset/2 normalization" do
+  describe "extra points (SWAR parity #12 XtPts) - Tournament.changeset/2 normalization" do
     test "count_extra_points defaults false and extra_points_bands defaults blank" do
       tournament = Repo.insert!(%Tournament{name: "Defaults", type: "swiss", rounds_count: 3})
       assert tournament.count_extra_points == false
@@ -1577,7 +1577,7 @@ defmodule PairingsEngine.TournamentsTest do
     end
   end
 
-  describe "fide_id_ranges / fide_homologated — Tournament.changeset/2 normalization" do
+  describe "fide_id_ranges / fide_homologated - Tournament.changeset/2 normalization" do
     test "fide_homologated defaults false and fide_id_ranges defaults empty" do
       tournament =
         Repo.insert!(%Tournament{name: "FIDE Defaults", type: "swiss", rounds_count: 3})
@@ -1863,7 +1863,7 @@ defmodule PairingsEngine.TournamentsTest do
       assert Enum.all?(ranks, &(&1 > 0))
     end
 
-    test "is idempotent — calling it again re-seeds fresh from the current order" do
+    test "is idempotent - calling it again re-seeds fresh from the current order" do
       %{tournament: tournament, a: a} = manual_ranking_fixture()
 
       {:ok, tournament} = Tournaments.enable_manual_ranking(tournament)
@@ -1916,7 +1916,7 @@ defmodule PairingsEngine.TournamentsTest do
       assert Repo.reload!(b).manual_rank == 1
     end
 
-    test "moving confirms freshness — clears staleness for the whole tournament, not just the two rows touched" do
+    test "moving confirms freshness - clears staleness for the whole tournament, not just the two rows touched" do
       %{tournament: tournament, pairing1: pairing1, a: a, b: b, c: c, d: d} =
         manual_ranking_fixture()
 
@@ -1980,7 +1980,7 @@ defmodule PairingsEngine.TournamentsTest do
       assert Repo.reload!(a).manual_rank == rank_before
     end
 
-    test "invalidation commits before the :results broadcast — a subscriber's immediate reload already sees the stale flag" do
+    test "invalidation commits before the :results broadcast - a subscriber's immediate reload already sees the stale flag" do
       %{tournament: tournament, pairing1: pairing1} = manual_ranking_fixture()
       {:ok, tournament} = Tournaments.enable_manual_ranking(tournament)
 
@@ -1991,7 +1991,7 @@ defmodule PairingsEngine.TournamentsTest do
       tid = tournament.id
       assert_receive {:tournament_changed, ^tid, :results}
       # By the time the broadcast is observable, the write has already
-      # committed — no separate confirmation step needed after the message.
+      # committed - no separate confirmation step needed after the message.
       assert Repo.reload!(tournament).manual_ranking_stale
     end
   end
@@ -1999,7 +1999,7 @@ defmodule PairingsEngine.TournamentsTest do
   ## ---------- Logo (SWAR parity #14-16) ----------
 
   describe "set_logo/2, clear_logo/1 and detect_image_type/1" do
-    # 1x1 transparent PNG — real signature bytes, not a fake/truncated stub.
+    # 1x1 transparent PNG - real signature bytes, not a fake/truncated stub.
     @tiny_png Base.decode64!(
                 "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
               )
@@ -2007,10 +2007,10 @@ defmodule PairingsEngine.TournamentsTest do
     @tiny_jpeg <<0xFF, 0xD8, 0xFF, 0xD9>>
     # Minimal valid GIF89a header.
     @tiny_gif "GIF89a" <> <<0, 0, 0, 0, 0, 0>>
-    # Minimal RIFF/WEBP container shape (fourcc + WEBP, no real payload —
+    # Minimal RIFF/WEBP container shape (fourcc + WEBP, no real payload -
     # only the signature bytes matter for detect_image_type/1).
     @tiny_webp "RIFF" <> <<0, 0, 0, 0>> <> "WEBP"
-    # A well-formed SVG — deliberately never accepted, even though it's a
+    # A well-formed SVG - deliberately never accepted, even though it's a
     # perfectly valid image format elsewhere: it's an XML document that can
     # carry a <script>, and this blob is rendered straight back into pages
     # the app serves. No signature match should ever let this through.
@@ -2046,7 +2046,7 @@ defmodule PairingsEngine.TournamentsTest do
       tournament = logo_tournament()
 
       assert Tournaments.set_logo(tournament, @tiny_svg) == {:error, :invalid_image}
-      # Never stored — the row is untouched.
+      # Never stored - the row is untouched.
       refute Repo.reload!(tournament).logo_data
       refute Repo.reload!(tournament).logo_content_type
     end
@@ -2054,7 +2054,7 @@ defmodule PairingsEngine.TournamentsTest do
     test "rejects a file whose bytes don't match any accepted image signature" do
       tournament = logo_tournament()
 
-      # A renamed-but-not-actually-an-image file — plain text, no magic
+      # A renamed-but-not-actually-an-image file - plain text, no magic
       # bytes at all. Validation checks the real content, not a claimed
       # filename/extension/content-type, so this is rejected exactly like
       # the SVG case, not accepted because someone might call it "logo.png".
@@ -2112,7 +2112,7 @@ defmodule PairingsEngine.TournamentsTest do
     end
   end
 
-  describe "publish_mode / publish_delay_minutes — Tournament.changeset/2 validation" do
+  describe "publish_mode / publish_delay_minutes - Tournament.changeset/2 validation" do
     test "defaults to immediate mode with a zero delay" do
       tournament = Repo.insert!(%Tournament{name: "Defaults", type: "swiss", rounds_count: 3})
       assert tournament.publish_mode == "immediate"
@@ -2168,7 +2168,7 @@ defmodule PairingsEngine.TournamentsTest do
       assert DateTime.diff(DateTime.utc_now(), at, :second) in -2..2
     end
 
-    test "manual mode returns nil — the round starts out hidden" do
+    test "manual mode returns nil - the round starts out hidden" do
       tournament =
         Repo.insert!(%Tournament{
           name: "T",
@@ -2220,7 +2220,7 @@ defmodule PairingsEngine.TournamentsTest do
           round_dates: ["2026-09-01", "", "not-a-date"]
         })
 
-      # Round 2's entry is blank, round 3's is garbage — neither should ever
+      # Round 2's entry is blank, round 3's is garbage - neither should ever
       # produce a round that can never be published.
       at2 = Tournaments.compute_published_at(tournament, 2)
       at3 = Tournaments.compute_published_at(tournament, 3)
@@ -2246,7 +2246,7 @@ defmodule PairingsEngine.TournamentsTest do
   end
 
   describe "round_published?/2" do
-    test "immediate mode is always public, regardless of published_at — including nil" do
+    test "immediate mode is always public, regardless of published_at - including nil" do
       tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
       round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, published_at: nil})
 
@@ -2398,14 +2398,14 @@ defmodule PairingsEngine.TournamentsTest do
       Repo.insert!(%Round{tournament_id: tournament.id, number: 1, published_at: nil})
       Repo.insert!(%Round{tournament_id: tournament.id, number: 2, published_at: past})
 
-      # Round 1 was skipped but round 2 was explicitly published — the
+      # Round 1 was skipped but round 2 was explicitly published - the
       # "latest" number just tracks the highest published round, callers
       # that need per-round truth still go through round_published?/2.
       assert Tournaments.latest_published_round_number(tournament) == 2
     end
   end
 
-  describe "round_dates padding — Tournament.changeset/2 (kept in sync with rounds_count on every save)" do
+  describe "round_dates padding - Tournament.changeset/2 (kept in sync with rounds_count on every save)" do
     test "rounds_count increasing after round_dates was already fully filled pads it, keeping setup complete" do
       tournament =
         Repo.insert!(%Tournament{
@@ -2420,7 +2420,7 @@ defmodule PairingsEngine.TournamentsTest do
 
       # Simulate rounds_count changing from a path that has nothing to do
       # with the Dates page (e.g. RoundRobin's freeze-time auto-correction)
-      # — only rounds_count is in the update, round_dates is untouched.
+      # - only rounds_count is in the update, round_dates is untouched.
       {:ok, updated} = Tournaments.update_tournament(tournament, %{"rounds_count" => 5})
 
       assert updated.rounds_count == 5
@@ -2429,7 +2429,7 @@ defmodule PairingsEngine.TournamentsTest do
       assert Enum.drop(updated.round_dates, 3) == ["", ""]
 
       # The checklist item is still "incomplete" until the new rounds get
-      # real dates — but crucially, its length now matches rounds_count
+      # real dates - but crucially, its length now matches rounds_count
       # instead of being permanently stale (the bug this guards against).
       refute Tournament.setup_complete?(updated)
 

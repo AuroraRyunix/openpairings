@@ -1,41 +1,41 @@
 # TODO / Roadmap
 
-Version: **0.11.1** (not 1.0 yet — the maintainer will call that explicitly).
+Version: **0.11.1** (not 1.0 yet - the maintainer will call that explicitly).
 See [`docs/features.md`](docs/features.md) for what's already shipped.
 
 ## Known gaps / deferred features
 
-These are real, identified gaps — not yet built, and not accidentally missed:
+These are real, identified gaps - not yet built, and not accidentally missed:
 
-- **Admin/support role** (`users.role`) — no staff/support role exists yet;
+- **Admin/support role** (`users.role`) - no staff/support role exists yet;
   every user is a plain account owner. Deferred, no target date.
-- ~~**FIDE/KBSB "last synced" banner**~~ — this claim was already stale:
+- ~~**FIDE/KBSB "last synced" banner**~~ - this claim was already stale:
   the topbar's `.sync-freshness` strip ("FIDE: 3 days ago · KBSB: never
   synced") has been showing this for a while (`Layouts.sync_label/1`,
   `Fide.last_sync/0`/`Kbsb.last_sync/0`). Nothing left to build here.
-- ~~**Live "round paired by someone else" notice**~~ — this claim was
+- ~~**Live "round paired by someone else" notice**~~ - this claim was
   already half-stale: PairingsLive has had a dismissible "updated by
   another arbiter" toast (`remote_notice`) for a while, comparing the
   freshly-reloaded round against what's on screen to tell a real remote
   change from its own broadcast echo. **Now shipped**: the identical
   mechanism on PlayersLive too, the other page where two arbiters actively
   editing at once is a real scenario (registration, ratings) rather than
-  just viewing. Standings/Live-round/public pages weren't extended — they're
+  just viewing. Standings/Live-round/public pages weren't extended - they're
   read-only "projector" views whose whole point is reflecting changes live,
   where a toast would be noise rather than useful.
-- **Team tournaments** — explicitly deferred by the maintainer as a "future
+- **Team tournaments** - explicitly deferred by the maintainer as a "future
   thing." More scaffolding already exists than this note used to claim:
   `Tournaments.Team` schema, `Player.team_id`/`board_order`, TRF16 team-block
   read/write (`Trf.team_line/1`/`parse_team_line/3`), and "Swiss (teams)"/
   "Round robin (teams)" are already selectable as a tournament format. None
-  of it is wired end-to-end though — no team CRUD UI, `Pairing.pair_next_round/1`
+  of it is wired end-to-end though - no team CRUD UI, `Pairing.pair_next_round/1`
   doesn't branch on team type at all (teams pair as plain individuals today),
   no team standings/tiebreaks, and the team TRF block is never actually sent
-  to JaVaFo. Still a real, substantial feature gap — just not a from-scratch
+  to JaVaFo. Still a real, substantial feature gap - just not a from-scratch
   one.
-- **American (accelerated pairing) system** — explicitly dropped, not planned
-  ("no one cares" — maintainer's own call).
-- **SWAR presence points on pairing-allocated byes (`SW321_PreBye`)** —
+- **American (accelerated pairing) system** - explicitly dropped, not planned
+  ("no one cares" - maintainer's own call).
+- **SWAR presence points on pairing-allocated byes (`SW321_PreBye`)** -
   modelled now (`tournaments.presence_on_allocated_bye`,
   `Standings.bye_points/2`); if a real club file ever surfaces where this
   models differently than expected, re-verify against it (only synthetic
@@ -44,22 +44,22 @@ These are real, identified gaps — not yet built, and not accidentally missed:
 ## Tech debt
 
 - **`tournaments_live.ex` / `norms_live.ex`** carry `.form-grid` (not the
-  Settings pages' `.set-*` layout primitives) by design — those two pages
+  Settings pages' `.set-*` layout primitives) by design - those two pages
   are outside the Settings nav, so the inconsistency is intentional, not
   unfinished. Worth a second look only if Settings' layout system is ever
   extended app-wide on purpose.
-- ~~Round robin's `total_rounds/2` vs. a user-set `rounds_count`~~ —
+- ~~Round robin's `total_rounds/2` vs. a user-set `rounds_count`~~ -
   **shipped**: this used to disagree in the UI (an arbiter could set
   `rounds_count` to anything, mismatching what the Berger schedule for
-  their actual roster needs — real complaint: "I get too many rounds").
+  their actual roster needs - real complaint: "I get too many rounds").
   `RoundRobin.pair_next_round/1` now corrects `rounds_count` to the real
-  schedule total the moment players are frozen, every call — round-robin's
+  schedule total the moment players are frozen, every call - round-robin's
   length was never a free-standing choice the way it is for Swiss, it's a
   pure function of player count + cycles/match-format. Round-robin also
   now pairs its whole schedule in one action (`RoundRobin.pair_all_rounds/1`,
   confirm-gated on the Pairings page's "Pair the whole tournament" button)
   instead of one round at a time, since a round-robin round's pairings
-  never depend on prior results — closing the "I don't see all rounds in
+  never depend on prior results - closing the "I don't see all rounds in
   advance" complaint too, since the whole schedule now exists right after
   that one click.
 
@@ -70,26 +70,26 @@ in [`docs/fide-endorsement.md`](docs/fide-endorsement.md) (built from FIDE's
 own Annex 4 Verification Check List and Annex 1 endorsement form). Concrete
 gaps identified there, extracted here as actionable items:
 
-- ~~Lock `pairing_number` after round 4 is paired~~ (VCL.09) — **shipped**:
+- ~~Lock `pairing_number` after round 4 is paired~~ (VCL.09) - **shipped**:
   `Tournaments.update_player/2` now rejects changing an already-assigned
   number once 4 rounds are paired; a first assignment (late entry) still
   always works.
-- ~~Asymmetric ½-0 / 0-½ result support~~ (VCL.13) — **shipped**: the TRF16
+- ~~Asymmetric ½-0 / 0-½ result support~~ (VCL.13) - **shipped**: the TRF16
   spec itself has no cross-validation rule between the two sides' codes
-  (that was `Trf`'s own invention) — it's just `=` for the ½ side, `0` for
+  (that was `Trf`'s own invention) - it's just `=` for the ½ side, `0` for
   the 0 side. Wired through the schema, result-entry UI, standings scoring,
   TRF export/import (both directions), Keizer's own scoring, and SWAR
   import (which already had bitfield codes for this, previously dropped as
   unmappable). See `docs/fide-endorsement.md`'s VCL.13 entry for the file
   list.
-- ~~Fuzz-testing harness — but not a pairing checker~~ — **shipped**: (1)
-  `test/pairings_engine/trf_property_test.exs` — `StreamData` property tests
+- ~~Fuzz-testing harness - but not a pairing checker~~ - **shipped**: (1)
+  `test/pairings_engine/trf_property_test.exs` - `StreamData` property tests
   on `Trf.serialize/1` against random-but-legal rosters/histories, checked
   against ground truth via `parse/1` round-tripping rather than re-deriving
   `Trf`'s own column positions; (2)
-  `test/pairings_engine/cross_program_test.exs` — runs OpenPairings' real
+  `test/pairings_engine/cross_program_test.exs` - runs OpenPairings' real
   `Pairing.pair_next_round/1` (JaVaFo) against `bbpPairings` (Bierema Boyz
-  Programming, Apache-2.0, vendored in `priv/bbppairings/` — a genuinely
+  Programming, Apache-2.0, vendored in `priv/bbppairings/` - a genuinely
   independent second Dutch-system implementation, not JaVaFo again) on
   byte-identical TRF16 input, diffing the actual pairing every round across
   `PAIRING_FUZZ_COUNT` (default 8, set much higher for a deliberate
@@ -100,41 +100,41 @@ gaps identified there, extracted here as actionable items:
   found ~6 disagreements (~1.2% of rounds) on small rosters (5-13 players),
   always a same-score-group-splitting choice in an otherwise-legal
   situation (verified against JaVaFo run standalone, bypassing OpenPairings
-  entirely, to rule out an OpenPairings-side bug) — needs FIDE Dutch-system
+  entirely, to rule out an OpenPairings-side bug) - needs FIDE Dutch-system
   rules research to tell whether this is a bbpPairings quirk, a JaVaFo
   quirk, or a genuinely underspecified tie-break FIDE's own rules leave
   open; the harness's exact job is surfacing this, not resolving it.
-- ~~TRF06 import~~ (VCL.11, recommended not mandatory) — **shipped**: read
+- ~~TRF06 import~~ (VCL.11, recommended not mandatory) - **shipped**: read
   FIDE's actual archived TRF06 specs (2006 and 2016 versions) rather than
-  guessing — column positions are byte-identical to TRF16, so no separate
+  guessing - column positions are byte-identical to TRF16, so no separate
   importer was needed, just tolerating TRF06's older bye convention (a
   dangling playing code, no F/H/U/Z). Verifying this surfaced and fixed two
-  real `Trf` bugs along the way — see `docs/fide-endorsement.md`'s VCL.11
+  real `Trf` bugs along the way - see `docs/fide-endorsement.md`'s VCL.11
   entry.
 - ~~Two smaller "needs verification" items~~ (UTF-8 response headers on the
   TRF export, no accidental "FIDE"-branded claim about OpenPairings itself
-  in the UI) — **both verified**: UTF-8 was already correct (confirmed via
+  in the UI) - **both verified**: UTF-8 was already correct (confirmed via
   `Plug.Conn`'s own source, locked in with a test); the login page's hero
   copy had one real overclaim ("FIDE-compliant pairings..."), reworded.
 - ~~Trailing pairing-allocated byes scored as draws instead of their
-  awarded value~~ (VCL.19) — **shipped**: found while auditing
+  awarded value~~ (VCL.19) - **shipped**: found while auditing
   `standings.ex` against FIDE's C.07 revision effective 1 March 2026
   (Art. 16.2.1/16.3). `Pairing.result == "bye"` (JaVaFo's own
-  odd-player-count byes) was marked `voluntary: true` — inconsistent with
+  odd-player-count byes) was marked `voluntary: true` - inconsistent with
   the `byes`-table path, which already excluded `"pairing-allocated"` from
   its own `voluntary` set. A trailing occurrence (the common last-round
   case) made `adjusted_score/3` substitute a draw's worth of points for
   the bye's real value in every opponent's Buchholz/SB. See
   `docs/fide-endorsement.md`'s VCL.19 entry.
-- ~~C.07's new Art. 16.5.1 "Cut-1 Exception"~~ (VCL.19) — **shipped**:
+- ~~C.07's new Art. 16.5.1 "Cut-1 Exception"~~ (VCL.19) - **shipped**:
   BHC1/BHC2/MBH now cut a contribution from one of the participant's own
   voluntary unplayed rounds (a bye, via `dummy_score/3`) in preference to
   an ordinary game contribution, reusing the existing `voluntary` flag as
   the VUR tag. See `docs/fide-endorsement.md`'s VCL.19 entry.
-- ~~SWAR's "absent" bye type unconditionally treated as voluntary~~ —
+- ~~SWAR's "absent" bye type unconditionally treated as voluntary~~ -
   **shipped**: new `Tournament.absent_counts_as_vur` setting, off by
   default (an absence always counts at its award value, like a forfeit
-  loss — FIDE has no "absent" concept, so this is the strict/safe
+  loss - FIDE has no "absent" concept, so this is the strict/safe
   reading); an arbiter can opt in from Settings for the more lenient
   requested-bye-style treatment. See `docs/fide-endorsement.md`'s VCL.19
   entry.
@@ -142,12 +142,12 @@ gaps identified there, extracted here as actionable items:
 ## Backlog (no particular order, nothing blocking)
 
 - ~~**History page (`/t/:id/history`) reported as "just a read-only thing"**~~
-  — **answered 2026-08-16.** Nothing was broken: the restore buttons only
+  - **answered 2026-08-16.** Nothing was broken: the restore buttons only
   render on entries that ARE restore points, and `Snapshots.capture/4` was
   reachable from exactly four handlers, all in `PairingsLive` (pair a round,
   unpair one, pair a whole round-robin schedule, import results by CSV). A
-  tournament run by hand — players edited, settings tuned, results typed in
-  — therefore had zero snapshots, hence zero buttons, hence a page that
+  tournament run by hand - players edited, settings tuned, results typed in
+  - therefore had zero snapshots, hence zero buttons, hence a page that
   reads as a list you can only look at. Shipped: a "Save a restore point"
   action on the page itself (`"snapshot.manual"`), plus an honest empty
   state saying there are none yet and why. The moduledoc's stale
@@ -161,29 +161,29 @@ gaps identified there, extracted here as actionable items:
   candidates, if that decision is ever taken: bulk player import, "assign
   categories" / extra-points apply (both rewrite every player in one
   click), and manual-standings re-seed. Single-field edits are not
-  candidates — they're already reconstructable from the audit trail's
+  candidates - they're already reconstructable from the audit trail's
   before/after diff.
 
-  The second half of the same report — something colliding into the
-  "Everything" filter button — was a layout bug, not a filter-state one,
+  The second half of the same report - something colliding into the
+  "Everything" filter button - was a layout bug, not a filter-state one,
   and is fixed too: the first day heading's opaque rail mask overhung 6px
   upward into the filter row directly above it. See the CHANGELOG entry.
 
-- ~~"Substitute player" draws its journey arrow on the wrong seat~~ —
+- ~~"Substitute player" draws its journey arrow on the wrong seat~~ -
   **shipped 2026-08-15, the "bigger redesign" option**: `matchTravellers()`
   in the `.SwapArrows` hook matches purely by NAME across the whole modal,
-  not per-row (see its own extensive comments) — `confirm_for/2`'s
+  not per-row (see its own extensive comments) - `confirm_for/2`'s
   `:swap_pool` branch now adds a second "Not playing list" row (new
   `bench_card/1` component, single-seat, no colour disc) showing the pool
   player on "before" and the seated player on "after". Because those two
   names already appear once each on the real board row's opposite side,
   the UNCHANGED hook now finds a clean match for both and draws two real
-  arrows — one in, one out — exactly as asked, with zero changes to
+  arrows - one in, one out - exactly as asked, with zero changes to
   `matchTravellers()`/`render()` themselves. The previously-misleading
   phantom arrow on the *unaffected* seat (e.g. white, when black was
-  substituted) still fires — the hook's own stated philosophy is "everyone
+  substituted) still fires - the hook's own stated philosophy is "everyone
   shown gets an arrow, the ones who stayed put get a short one back to
-  their own seat" — but it's no longer the sole, unexplained arrow on
+  their own seat" - but it's no longer the sole, unexplained arrow on
   screen; it now sits alongside two clearly-purposeful in/out arrows, so it
   reads as "white stayed" rather than as a wrong-looking swap. Not
   separately suppressed - consistent with how a real 2-board swap already
@@ -201,50 +201,50 @@ gaps identified there, extracted here as actionable items:
 
   Original report, kept for that decision: they live on `/t/:id/norms`,
   moved there from SettingsLive at some point (see `norms_live.ex`'s
-  "relocated from SettingsLive" notes). Nothing is broken — the "ready to pair" hint on PairingsLive links
+  "relocated from SettingsLive" notes). Nothing is broken - the "ready to pair" hint on PairingsLive links
   straight to the right page via `setup_field_path/2`, and the field saves
-  fine — but an arbiter looking for "chief arbiter" will look under
+  fine - but an arbiter looking for "chief arbiter" will look under
   **Settings**, not under a page called **Norms**, and there is nothing on
   Settings pointing them onward. Reported by the maintainer, who could not
   find it even while holding the link.
 
-  The cheapest fix — a pointer in the Settings → Tournament card — is the
+  The cheapest fix - a pointer in the Settings → Tournament card - is the
   one that shipped. What is still open is the fuller move.
 
-- ~~"Players - title-norm judgment" table has no meaningful sort order~~ —
+- ~~"Players - title-norm judgment" table has no meaningful sort order~~ -
   **shipped**: `players_by_norm_relevance/2` now sorts achieved-norm
   players first, then closest-to-qualifying (fewest failing B.01 checks on
   their nearest-miss title), then no-games players last.
-- ~~"Explain a round" score-bracket map misplaces handicap-table players~~ —
+- ~~"Explain a round" score-bracket map misplaces handicap-table players~~ -
   **shipped, real confirmed bug**: SWAR assigns accessible/"handicap table"
   pairings a per-round Table number starting at 1001 (`TABLE_HANDICAP + N`,
-  Swar.h) — not a real board number, just like the `TABLE_BYE` sentinel
+  Swar.h) - not a real board number, just like the `TABLE_BYE` sentinel
   already handled. The importer was copying it verbatim into `board`, so a
   handicap-table pairing (confirmed via production tournament 18, round 5,
-  Vandekerckhove Ava — `board: 1001` in the actual DB row) sorted to the
+  Vandekerckhove Ava - `board: 1001` in the actual DB row) sorted to the
   far end of anything ordered by board number, including the rationale
   bracket map, regardless of real score. `SwarImport.finalize_boards/1` now
   renormalizes a handicap-range Table value the same way it already did for
-  byes. Only fixes *future* imports — tournament 18's existing round-5 row
+  byes. Only fixes *future* imports - tournament 18's existing round-5 row
   still has the raw 1001 in the DB; a one-off data fix there is separate,
   deliberately not done without asking first (touches live tournament
   data).
-- ~~Public standings page needs to be a clean spectator overview~~ —
+- ~~Public standings page needs to be a clean spectator overview~~ -
   **shipped**: `/p/:slug/standings` and `/p/:slug/pairings` now render
   through a new minimal `Layouts.public/1` (brand + theme switch only, no
   tournament tabs/accent picker/sign-in) instead of the full authenticated
   `Layouts.app/1`, and both show a compact arbiter/deputy/tempo/round-dates
   line (`PairingsEngineWeb.Components.PublicTournamentMeta`) when set.
 - ~~Printed standings/pairings pages don't carry the arbiter/tempo/
-  round-dates line~~ — **shipped**: `PrintController`'s shared
-  `tournament_info_html/1` (already used by every print doc — pairings,
+  round-dates line~~ - **shipped**: `PrintController`'s shared
+  `tournament_info_html/1` (already used by every print doc - pairings,
   standings, player list/cards, crosstable, place cards, result cards) was
   missing deputy arbiter and the per-round dates list (`round_dates`,
   distinct from the free-text `start_date`/`end_date` it already showed).
   Both added as their own line items, labeled "Deputy arbiter" and "Round
-  date(s)" to stay unambiguous next to the existing "Dates: start – end".
+  date(s)" to stay unambiguous next to the existing "Dates: start - end".
 - **Audit OpenPairings' logic against SWAR's own C++ source, file by
-  file.** Very low priority — this is a "nice to have more confidence,"
+  file.** Very low priority - this is a "nice to have more confidence,"
   not a response to anything currently broken. Scoping notes from
   discussing it: SWAR's source is ~74k lines/135 files total, but almost
   all of that is UI/vendored-library noise; the actually-comparable
@@ -256,13 +256,13 @@ gaps identified there, extracted here as actionable items:
   multiple days of work for uncertain payoff, since most of those
   functions are mundane and will never diverge. If this ever gets picked
   up, prioritize the highest-risk subset instead of going exhaustive:
-  `Classement.cpp` (tiebreaks), `Utils.cpp` (shared edge-case logic — this
+  `Classement.cpp` (tiebreaks), `Utils.cpp` (shared edge-case logic - this
   is where the round-specific-absence bug lived), and `EnvoiJAVAFO.cpp`
   (SWAR's own TRF builder, directly comparable to
-  `Pairing.javafo_input`/`TrfExport` — the class of bug already found
+  `Pairing.javafo_input`/`TrfExport` - the class of bug already found
   twice). Both real bugs found so far came from symptom-driven
   investigation (a real tournament comparison surfacing something odd,
-  then a targeted SWAR-source dive), not exhaustive pre-auditing — that's
+  then a targeted SWAR-source dive), not exhaustive pre-auditing - that's
   the higher-leverage pattern to keep leaning on rather than this.
 - Remaining SWAR-parity items: hard pairing variants (accelerated pairing
   beyond Baku, more exotic tiebreak orderings) and printing extras beyond
@@ -280,14 +280,14 @@ gaps identified there, extracted here as actionable items:
     most opponents are Belgian reports `foreign_federations` and
     `own_federation_share` as failing when the norm is valid. Needs a
     tournament-level event-type field, which is a schema change plus a
-    Settings control plus arbiter discipline in filling it in. One clause —
+    Settings control plus arbiter discipline in filling it in. One clause -
     1.4.3's big-Swiss case (20+ FIDE-rated players from 3+ federations,
-    10+ GM/IM/WGM/WIM title-holders per round) — is auto-detectable from
+    10+ GM/IM/WGM/WIM title-holders per round) - is auto-detectable from
     data already held and needs no new input.
   - **7/8-game concessions (1.4.1.1-1.4.1.3).** Still open. World Team/Club
     and Continental Team/Club Championships, the World Cup, and the
     unplayed-last-round-win case. Same event-type dependency.
-  - ~~**Double-round-robin titled-opponent halving.**~~ **Not a gap — this
+  - ~~**Double-round-robin titled-opponent halving.**~~ **Not a gap - this
     entry was wrong**, and acting on it would have introduced a real bug in
     the dangerous direction. The requirement is already satisfied, because
     the two sides count in different units: `counted_games/2` emits one
@@ -296,22 +296,22 @@ gaps identified there, extracted here as actionable items:
     requirement to compensate. Halving `high_needed` on top of the per-game
     count would have asked for ONE distinct titled opponent where FIDE asks
     for two. `title_norms_test.exs` now pins both sides of that boundary.
-    (The article number in the old text was wrong too — it is 1.4.5's final
+    (The article number in the old text was wrong too - it is 1.4.5's final
     clause, not 1.4.3d.) The companion "DRR needs 6+ players" rule is
     likewise redundant: a 5-player DRR is 8 games, which the 9-game minimum
     already refuses.
 - Standalone binaries (`docs/binaries.md`) have no automated smoke test in
-  CI beyond "it builds" — nothing currently boots each target and hits `/`.
+  CI beyond "it builds" - nothing currently boots each target and hits `/`.
 - ~~Re-uploading a `.swar` file for a tournament already in OpenPairings
   creates a second, duplicate tournament instead of updating the existing
-  one~~ — **first step shipped**: `tournaments.swar_guid` is now stored on
+  one~~ - **first step shipped**: `tournaments.swar_guid` is now stored on
   import, and re-uploading a file whose GUID matches a tournament the
   uploader can already reach shows a warning ("This looks like a
   tournament you already have") with the choice to open the existing one,
-  import as a new tournament anyway, or cancel — instead of silently
+  import as a new tournament anyway, or cancel - instead of silently
   creating a duplicate. Still open: a full field-level *merge* (rebuild
   rounds/results without clobbering OpenPairings-only edits like
-  norm_data, manual ranking, extra points, forbidden pairings) — that's
+  norm_data, manual ranking, extra points, forbidden pairings) - that's
   real additional work beyond the detect-and-ask step and deliberately not
   scoped yet.
 
@@ -319,13 +319,13 @@ gaps identified there, extracted here as actionable items:
 
 - `mix precommit` (compile --warnings-as-errors, deps.unlock --unused,
   format, test) is the pre-flight check; CI runs the equivalent.
-- `mix format --check-formatted` must stay green — the whole repo was
+- `mix format --check-formatted` must stay green - the whole repo was
   normalized to pass it in 2026-07-25; don't let it silently regress by
   editing with a tool that reintroduces CRLF (`.gitattributes` pins source
   files to LF, but a misconfigured editor can still fight it locally).
 - Never commit `Co-Authored-By`/`Generated with Claude Code` trailers to
-  this repo — an explicit, standing maintainer preference.
+  this repo - an explicit, standing maintainer preference.
 - `docs/AGENTS.md` and this file were written in a single documentation
   pass (2026-07-25); nothing enforces they get updated when the code moves
-  on. Treat any obviously stale claim in either as a bug, not gospel — see
+  on. Treat any obviously stale claim in either as a bug, not gospel - see
   the note at the top of `docs/AGENTS.md`.

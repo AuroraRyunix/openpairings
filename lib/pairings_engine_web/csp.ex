@@ -7,24 +7,24 @@ defmodule PairingsEngineWeb.CSP do
   the print logo is sniffed down to four raster formats
   (`PairingsEngine.Tournaments.set_logo/2`), so this is a backstop rather than
   the only thing standing between a stray unescaped value and script
-  execution — but it is the difference between a mistake being a bug and it
+  execution - but it is the difference between a mistake being a bug and it
   being an account takeover.
 
   ## The policy
 
-    * `script-src 'self' 'nonce-...'` — bundled JS, plus the one inline
+    * `script-src 'self' 'nonce-...'` - bundled JS, plus the one inline
       bootstrap in the root layout (it sets the theme before first paint, so
       it cannot be deferred into `app.js` without a flash of the wrong
       theme) and the print pages' `window.print()` trigger. Both carry the
       per-response nonce below; anything injected into a page cannot guess it.
-    * `style-src 'self' 'unsafe-inline'` — the app leans on `style="..."`
+    * `style-src 'self' 'unsafe-inline'` - the app leans on `style="..."`
       attributes throughout, and a nonce cannot whitelist an attribute. Far
       less of a lever than script, and tightening it is a template-wide job.
-    * `img-src 'self' data:` — the favicon, the QR codes and the print logo
+    * `img-src 'self' data:` - the favicon, the QR codes and the print logo
       are all `data:` URIs.
-    * `connect-src 'self'` — the LiveView socket, same origin.
+    * `connect-src 'self'` - the LiveView socket, same origin.
     * `default-src 'self'`, `object-src 'none'`, `base-uri 'self'`,
-      `frame-ancestors 'none'`, `form-action 'self'` — nothing here loads
+      `frame-ancestors 'none'`, `form-action 'self'` - nothing here loads
       third-party anything, so everything else is closed.
 
   ## Framing
@@ -36,7 +36,7 @@ defmodule PairingsEngineWeb.CSP do
   via `allow_framing/2` in the router's `:embeddable` pipeline. Those pages
   hold no session, take no input and are already world-readable to anyone
   with the slug, so framing them grants a page no capability it did not
-  already have — which is the property that makes it safe, and the one the
+  already have - which is the property that makes it safe, and the one the
   register form, the arbiter tools, the mobile result entry and the whole
   authenticated app do NOT have. They stay at `'none'`.
 
@@ -75,7 +75,7 @@ defmodule PairingsEngineWeb.CSP do
   Re-open `frame-ancestors` for a route that is safe to embed.
 
   A plug, meant to run AFTER the `:browser` pipeline so it rewrites the
-  header `call/2` already set — the default stays `'none'` and a route has
+  header `call/2` already set - the default stays `'none'` and a route has
   to ask, rather than the other way round. Only the directive changes; the
   nonce and everything else are left exactly as they were, so this cannot
   loosen script or style handling by accident.
@@ -90,7 +90,7 @@ defmodule PairingsEngineWeb.CSP do
   `x-frame-options` is deleted alongside it. Phoenix's
   `put_secure_browser_headers/2` does not set one, but a reverse proxy or a
   custom header map might, and the older header has no syntax for "these
-  origins" — a stray `SAMEORIGIN` would silently override the CSP in the
+  origins" - a stray `SAMEORIGIN` would silently override the CSP in the
   browsers that still prefer it.
   """
   def allow_framing(conn, _opts) do

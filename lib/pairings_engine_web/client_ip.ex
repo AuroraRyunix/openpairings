@@ -3,7 +3,7 @@ defmodule PairingsEngineWeb.ClientIp do
   The address to attribute a request to, for rate limiting.
 
   `conn.remote_ip` is the peer socket address, which behind a reverse proxy
-  is the *proxy* — every visitor then shares one bucket, so a limiter keyed
+  is the *proxy* - every visitor then shares one bucket, so a limiter keyed
   on it either throttles the whole venue at once or, worse, lets one attacker
   lock everybody out. `X-Forwarded-For` fixes that, but only if it is read
   correctly: any part of it the client sent is forged, and the only entry
@@ -13,13 +13,13 @@ defmodule PairingsEngineWeb.ClientIp do
   how many proxies sit in front of the app (`TRUSTED_PROXY_HOPS`, see
   `config/runtime.exs`):
 
-    * `0` (default) — no proxy, or an untrusted one: use `conn.remote_ip`
+    * `0` (default) - no proxy, or an untrusted one: use `conn.remote_ip`
       and ignore the header entirely. A forged header must never win when
       nothing was promised about the deployment.
-    * `1` — one reverse proxy (nginx/Caddy/Traefik/a cloud LB). The client is
+    * `1` - one reverse proxy (nginx/Caddy/Traefik/a cloud LB). The client is
       the LAST entry of `X-Forwarded-For`, because each proxy appends the
       address it received the request from.
-    * `n` — n chained proxies: the nth entry counted from the right.
+    * `n` - n chained proxies: the nth entry counted from the right.
 
   Falling back to `conn.remote_ip` whenever the header is missing or too
   short means a misconfigured hop count degrades to "throttle the proxy",
@@ -40,7 +40,7 @@ defmodule PairingsEngineWeb.ClientIp do
   only readable while mounting; `handle_event/3` raises if you reach for it
   there.
 
-  Returns `nil` for the first, static render, which has no socket peer —
+  Returns `nil` for the first, static render, which has no socket peer -
   mount runs again once the browser connects. Treat `nil` as "unknown"
   rather than falling back to a key many visitors would share.
   """
@@ -86,7 +86,7 @@ defmodule PairingsEngineWeb.ClientIp do
     #
     # The index must be checked, not just handed to `Enum.at/2`: a header
     # with fewer entries than the configured hop count gives a negative
-    # index, which wraps around and hands back a client-supplied entry —
+    # index, which wraps around and hands back a client-supplied entry -
     # precisely the value this module exists to distrust.
     case length(entries) - hops do
       index when index >= 0 -> Enum.at(entries, index)

@@ -7,7 +7,7 @@ defmodule PairingsEngineWeb.PublicTournamentPagesTest do
   alias PairingsEngine.Accounts.Scope
   alias PairingsEngine.AccountsFixtures
 
-  # Public pages must work for a logged-out visitor — deliberately not
+  # Public pages must work for a logged-out visitor - deliberately not
   # using `register_and_log_in_user` here, unlike every other LiveView
   # test in this app.
   defp owner_scope do
@@ -59,7 +59,7 @@ defmodule PairingsEngineWeb.PublicTournamentPagesTest do
     end
   end
 
-  # fixture/0 is a default (swiss) tournament — pairs via JaVaFo.
+  # fixture/0 is a default (swiss) tournament - pairs via JaVaFo.
   @tag :javafo
   test "shows the latest round's pairings and updates live when a result is entered elsewhere", %{
     conn: conn
@@ -91,7 +91,7 @@ defmodule PairingsEngineWeb.PublicTournamentPagesTest do
     pairing = hd(round.pairings)
 
     # Simulates the result being entered elsewhere (e.g. the authenticated
-    # Pairings page) — this public view only ever reacts to the broadcast.
+    # Pairings page) - this public view only ever reacts to the broadcast.
     assert {:ok, _} = Tournaments.update_pairing_result(pairing, "1-0")
 
     assert render(lv) =~ "1-0"

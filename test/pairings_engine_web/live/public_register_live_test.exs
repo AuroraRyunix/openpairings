@@ -1,6 +1,6 @@
 defmodule PairingsEngineWeb.PublicRegisterLiveTest do
   @moduledoc """
-  The public self-registration form — the only public page that writes.
+  The public self-registration form - the only public page that writes.
 
   The two properties worth guarding are the ones that would be damaging
   rather than merely wrong: a closed form must not accept an entry, and
@@ -19,7 +19,7 @@ defmodule PairingsEngineWeb.PublicRegisterLiveTest do
 
   # The rate-limit bucket is global ETS keyed by client address, and every
   # test here arrives from the same one. Tests within a module run
-  # sequentially, so clearing it up front isolates them from each other —
+  # sequentially, so clearing it up front isolates them from each other -
   # without this the flood test below spends the allowance for the rest.
   setup do
     RateLimit.clear(:public_register, "127.0.0.1")
@@ -170,7 +170,7 @@ defmodule PairingsEngineWeb.PublicRegisterLiveTest do
       {:ok, _t} = Tournaments.set_registration_open(t, false)
 
       # The PubSub broadcast reaches the open form and takes the whole
-      # thing away — there is no longer a Register button to press, which
+      # thing away - there is no longer a Register button to press, which
       # is a better outcome than letting someone click it and be refused.
       html = render(lv)
 
@@ -199,7 +199,7 @@ defmodule PairingsEngineWeb.PublicRegisterLiveTest do
 
   describe "rate limiting" do
     # Each entry is its own page load, because a successful registration
-    # replaces the form with the confirmation — one visitor, one sign-up.
+    # replaces the form with the confirmation - one visitor, one sign-up.
     defp register_once(conn, slug, name) do
       {:ok, lv, _html} = live(conn, ~p"/p/#{slug}/register")
 
@@ -225,8 +225,8 @@ defmodule PairingsEngineWeb.PublicRegisterLiveTest do
 
       # The bucket is global ETS keyed by client address, and these tests
       # are async, so a sibling test may already have spent part of the
-      # allowance from the same address. Assert the BEHAVIOUR — that the
-      # flood is eventually cut off and never exceeds the cap — rather than
+      # allowance from the same address. Assert the BEHAVIOUR - that the
+      # flood is eventually cut off and never exceeds the cap - rather than
       # an exact count that depends on what else ran.
       results =
         for i <- 1..(max + 1), do: register_once(conn, t.public_slug, "Player #{i}")

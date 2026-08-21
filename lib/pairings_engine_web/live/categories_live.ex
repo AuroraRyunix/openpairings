@@ -6,7 +6,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
   alias PairingsEngine.{Audit, Pairing, Tournaments}
 
   @rule_kinds [
-    {"", "None — assign by hand"},
+    {"", "None - assign by hand"},
     {"elo_below", "Below this Elo"},
     {"elo_above", "Above this Elo"},
     {"age_below", "Below this age"},
@@ -39,7 +39,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
   # (pairing_system/rr_cycles/match format): once round 1 is paired, the
   # per-category split is baked into every board number and bye that
   # round produced, so changing it later would corrupt what's already on
-  # the board — locked, not just discouraged.
+  # the board - locked, not just discouraged.
   defp assign_pair_by_category_lock(socket) do
     paired = Pairing.paired_rounds_count(socket.assigns.tournament.id)
     assign(socket, pair_by_category_locked?: paired > 0)
@@ -65,7 +65,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
     end
   end
 
-  ## ---------- On/off switches — instant, no separate "Save" step ----------
+  ## ---------- On/off switches - instant, no separate "Save" step ----------
 
   # Turning categories off also forces `pair_by_category` off in the same
   # write: `Tournament.changeset/2`'s own
@@ -117,7 +117,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
     end
   end
 
-  ## ---------- Categories (SWAR CATEGORIES) — any authorized user ----------
+  ## ---------- Categories (SWAR CATEGORIES) - any authorized user ----------
 
   @impl true
   def handle_event("add_category", %{"name" => name} = params, socket) do
@@ -177,7 +177,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
     end
   end
 
-  # "Assign categories" — SWAR-style bulk rule application, same pattern as
+  # "Assign categories" - SWAR-style bulk rule application, same pattern as
   # the extra-points bands button: overwrites every player's category from
   # `tournament.category_rules`. Step 1 is a dry run: compute the same
   # decisions `auto_assign_categories/1` would make (via
@@ -193,7 +193,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
        assign(socket,
          category_confirm: nil,
          category_error: nil,
-         assign_note: "No changes needed — every player already matches the rules."
+         assign_note: "No changes needed - every player already matches the rules."
        )}
     else
       {:noreply,
@@ -211,7 +211,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
 
   # The explicit second click. Re-runs the real write path (not just the
   # staged preview) so the write always reflects the current DB state at
-  # confirm time — same "read again at apply time" caution as
+  # confirm time - same "read again at apply time" caution as
   # `PairingsLive`'s own `apply_confirm/2`.
   def handle_event("apply_category_confirm", _params, socket) do
     case Tournaments.auto_assign_categories(socket.assigns.tournament) do
@@ -240,7 +240,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
   end
 
   # No kind picked ("") means a plain hand-assigned category, same as
-  # before threshold rules existed — `nil` rather than an error.
+  # before threshold rules existed - `nil` rather than an error.
   defp parse_rule(%{"kind" => ""}), do: {:ok, nil}
 
   defp parse_rule(%{"kind" => kind, "value" => value})
@@ -275,7 +275,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
         <h2>Categories</h2>
 
         <p class="hint" style="margin-top: 0">
-          Tournament-defined groups (SWAR CATEGORIES) — e.g. age or rating brackets — players can
+          Tournament-defined groups (SWAR CATEGORIES) - e.g. age or rating brackets - players can
           be assigned to. Off by default; turn on to start adding them below.
         </p>
 
@@ -296,7 +296,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
         >
           <span class="set-label">Pair each category independently (beta)</span>
           <p class="hint" style="margin: 2px 0 6px">
-            Swiss only — each category gets its own independent pairings and byes within one
+            Swiss only - each category gets its own independent pairings and byes within one
             combined round.
           </p>
           <div class="actions" style="align-items: center; gap: 10px">
@@ -311,7 +311,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
             </button>
           </div>
           <p :if={@pair_by_category_locked?} class="hint" style="margin: 6px 0 0">
-            Locked — cannot be changed after round 1 has been paired.
+            Locked - cannot be changed after round 1 has been paired.
           </p>
         </div>
 
@@ -442,13 +442,13 @@ defmodule PairingsEngineWeb.CategoriesLive do
     """
   end
 
-  defp empty_dash(""), do: "—"
+  defp empty_dash(""), do: "-"
   defp empty_dash(value), do: value
 
-  defp rule_description(nil), do: "—"
+  defp rule_description(nil), do: "-"
   defp rule_description(%{"kind" => "elo_below", "value" => v}), do: "below #{v} Elo"
   defp rule_description(%{"kind" => "elo_above", "value" => v}), do: "above #{v} Elo"
   defp rule_description(%{"kind" => "age_below", "value" => v}), do: "below age #{v}"
   defp rule_description(%{"kind" => "age_above", "value" => v}), do: "above age #{v}"
-  defp rule_description(_rule), do: "—"
+  defp rule_description(_rule), do: "-"
 end

@@ -1,11 +1,11 @@
 defmodule PairingsEngineWeb.HistoryLive do
   @moduledoc """
-  The tournament history page (`/t/:id/history`) — the tree of RESTORE POINTS,
+  The tournament history page (`/t/:id/history`) - the tree of RESTORE POINTS,
   and the only page that can act on one.
 
   It shows `PairingsEngine.Snapshots` rows: the points saved automatically
   before each irreversible action, plus any the arbiter saved deliberately.
-  Branching is first-class — going back and carrying on differently leaves the
+  Branching is first-class - going back and carrying on differently leaves the
   abandoned line visible on its own lane, still switchable.
 
   `PairingsEngine.Audit` rows are NOT peers of those points. Each one is
@@ -16,7 +16,7 @@ defmodule PairingsEngineWeb.HistoryLive do
     * a hand-saved point writes both a snapshot and an audit row, so it
       appeared on screen twice;
     * audit rows carry no branch information at all, so after switching to a
-      branch a result change still rendered at the top of the trunk — which is
+      branch a result change still rendered at the top of the trunk - which is
       not where the tournament was. A point knows its lane; hanging the rows
       off a point is what gives them the context they cannot hold themselves.
 
@@ -29,7 +29,7 @@ defmodule PairingsEngineWeb.HistoryLive do
 
   "Go back to here" / "Switch to this branch" run `Snapshots.restore/3` behind
   a type-to-confirm modal, and "Save restore point" captures one
-  (`"snapshot.manual"`) — the only capture in the app that isn't a side effect
+  (`"snapshot.manual"`) - the only capture in the app that isn't a side effect
   of some other action, and the only way to mark a state reached by
   hand-editing players, settings or results.
   """
@@ -39,7 +39,7 @@ defmodule PairingsEngineWeb.HistoryLive do
   alias PairingsEngineWeb.{AuditLive, SettingsSupport}
 
   # How many audit rows to pull. The stream is merged with snapshots and
-  # rendered in full (no pagination) — this is the "recent narrative" view,
+  # rendered in full (no pagination) - this is the "recent narrative" view,
   # with AuditLive remaining the exhaustive paginated one.
   @audit_limit 120
 
@@ -56,7 +56,7 @@ defmodule PairingsEngineWeb.HistoryLive do
   # "Before restoring to ..." summary.
   @manual_summary "Manual restore point"
 
-  # A label is a timeline caption, not a document — long enough for "end of
+  # A label is a timeline caption, not a document - long enough for "end of
   # day 1, before the appeal", short enough that it can't wreck the row.
   @label_max 120
 
@@ -150,8 +150,8 @@ defmodule PairingsEngineWeb.HistoryLive do
   # Until this existed, `Snapshots.capture/4` was only ever reached from four
   # handlers in `PairingsLive` (pairing a round, unpairing one, pairing a
   # whole round-robin schedule, importing results by CSV). A tournament run
-  # entirely by hand — players edited, settings tuned, results typed in one
-  # by one — therefore had *no* restore points at all, so every restore
+  # entirely by hand - players edited, settings tuned, results typed in one
+  # by one - therefore had *no* restore points at all, so every restore
   # button on this page was hidden and the whole thing read as a list you
   # could only look at. This is the deliberate capture that fixes that.
   #
@@ -167,7 +167,7 @@ defmodule PairingsEngineWeb.HistoryLive do
     label = params |> Map.get("label", socket.assigns.snapshot_label) |> clean_label()
 
     # A snapshot is a write, so it obeys the same archive guard as everything
-    # else — the button is hidden on an archived tournament, but the event is
+    # else - the button is hidden on an archived tournament, but the event is
     # client-supplied and the handler can't rely on that.
     with :ok <- Tournaments.ensure_writable(tournament),
          {:ok, snapshot} <-
@@ -182,7 +182,7 @@ defmodule PairingsEngineWeb.HistoryLive do
       {:noreply,
        socket
        |> assign(tournament: reload_tournament(socket), snapshot_label: "")
-       |> put_flash(:info, "Restore point saved — you can come back to this exact state.")
+       |> put_flash(:info, "Restore point saved - you can come back to this exact state.")
        |> load_stream()}
     else
       {:error, reason} ->
@@ -237,7 +237,7 @@ defmodule PairingsEngineWeb.HistoryLive do
   end
 
   # `capture/4` moves the tournament's `head_snapshot_id` straight through
-  # `Repo.update_all` (see `Snapshots.set_head/2` — deliberately not a
+  # `Repo.update_all` (see `Snapshots.set_head/2` - deliberately not a
   # broadcasting write), so the struct in assigns is stale the moment it
   # returns. Re-read it, or `branch_tree/1` marks the *previous* point as
   # "the tournament is here" and offers a restore button on the one just
@@ -270,7 +270,7 @@ defmodule PairingsEngineWeb.HistoryLive do
         {:noreply,
          socket
          |> assign(restore_target: nil, restore_confirm: "")
-         |> put_flash(:error, "This tournament is archived — unarchive it to restore.")}
+         |> put_flash(:error, "This tournament is archived - unarchive it to restore.")}
 
       {:error, reason} ->
         {:noreply,
@@ -327,7 +327,7 @@ defmodule PairingsEngineWeb.HistoryLive do
   # Audit rows used to be merged into the timeline as peers of the restore
   # points. Two things were wrong with that, both reported. Saving a point by
   # hand wrote an audit row AND a snapshot, so it appeared twice. And audit
-  # rows carry no branch information at all — after switching to a branch, a
+  # rows carry no branch information at all - after switching to a branch, a
   # result change still rendered on the trunk at the top of the page, which is
   # not where the tournament was. Attaching them to the point they follow
   # gives them the branch context they lack, because the point has it.
@@ -412,7 +412,7 @@ defmodule PairingsEngineWeb.HistoryLive do
   end
 
   # `AuditLive.describe/1` inlines the changed fields into its sentence, which
-  # is right for the dense audit table but duplicates the diff block here —
+  # is right for the dense audit table but duplicates the diff block here -
   # and its list formatting is cruder than the diff rows'. When there IS a
   # diff to render, use a short headline and let the diff carry the detail.
   defp headline(row, []), do: AuditLive.describe(row)
@@ -421,19 +421,19 @@ defmodule PairingsEngineWeb.HistoryLive do
     do: short_headline(action, details || %{}, length(diff))
 
   defp short_headline("tournament.settings_updated", _details, n),
-    do: "Updated tournament settings — #{field_count(n)} changed."
+    do: "Updated tournament settings - #{field_count(n)} changed."
 
   defp short_headline("player.updated", details, n) do
     case details["player_name"] do
       name when is_binary(name) and name != "" ->
-        "Updated #{name} — #{field_count(n)} changed."
+        "Updated #{name} - #{field_count(n)} changed."
 
       _ ->
-        "Updated a player — #{field_count(n)} changed."
+        "Updated a player - #{field_count(n)} changed."
     end
   end
 
-  defp short_headline(action, _details, n), do: "#{action} — #{field_count(n)} changed."
+  defp short_headline(action, _details, n), do: "#{action} - #{field_count(n)} changed."
 
   defp field_count(1), do: "1 field"
   defp field_count(n), do: "#{n} fields"
@@ -455,7 +455,7 @@ defmodule PairingsEngineWeb.HistoryLive do
       on_head_line: entry.on_head_line,
       is_head: entry.is_head,
       forks: entry.children > 1,
-      # Drives the "saved by hand" badge and the accented dot — a point
+      # Drives the "saved by hand" badge and the accented dot - a point
       # somebody chose to keep reads differently from one the app took on
       # its own before something irreversible.
       manual: manual?
@@ -465,7 +465,7 @@ defmodule PairingsEngineWeb.HistoryLive do
   defp default_snapshot_text(true), do: @manual_summary
   defp default_snapshot_text(false), do: "Restore point saved."
 
-  # `details["changed_fields"]` is `%{"field" => [before, after]}` — written
+  # `details["changed_fields"]` is `%{"field" => [before, after]}` - written
   # by `SettingsSupport.log_settings_change/3` and the player-update handler.
   # Anything else (an action whose details aren't a field diff) renders as
   # prose only, via `describe/1`.
@@ -548,14 +548,14 @@ defmodule PairingsEngineWeb.HistoryLive do
           The states you can put this tournament back into, newest first. One is
           saved automatically before anything irreversible, and you can save one
           whenever you like. Everything that changed in between is folded under
-          the point it followed — open a point to read it, or use
+          the point it followed - open a point to read it, or use
           <.link navigate={~p"/t/#{@tournament.id}/audit"}>Audit trail</.link>
           for the full searchable log.
         </p>
 
         <p :if={@branched?} class="hint hist-branched">
           This history has <strong>branched</strong>
-          — you went back and carried on differently. The leftmost line is where the
+          - you went back and carried on differently. The leftmost line is where the
           tournament is now; the others are the paths you left, still there to return to.
         </p>
 
@@ -582,7 +582,7 @@ defmodule PairingsEngineWeb.HistoryLive do
               aria-describedby="hist-save-hint"
             />
             <span id="hist-save-hint" class="hint">
-              Optional — it is how you will recognise this point later. "Before the
+              Optional - it is how you will recognise this point later. "Before the
               appeal", "all round 3 results in".
             </span>
           </div>
@@ -591,7 +591,7 @@ defmodule PairingsEngineWeb.HistoryLive do
 
         <p :if={@snapshot_count == 0} class="hint hist-note">
           <strong>No restore points yet.</strong>
-          One is saved automatically before anything irreversible — pairing or
+          One is saved automatically before anything irreversible - pairing or
           unpairing a round, or importing results from a file. Editing players,
           adjusting settings and typing results in by hand don't take one<span :if={
             !@tournament.archived_at
@@ -603,7 +603,7 @@ defmodule PairingsEngineWeb.HistoryLive do
               back" button and the page showed a save box and nothing else. --%>
         <p :if={@snapshot_count > 0 and @restorable_count == 0} class="hint hist-note">
           <strong>One restore point, and you are on it.</strong>
-          There is nowhere to go back to yet — the option to go back appears on a point
+          There is nowhere to go back to yet - the option to go back appears on a point
           once the tournament has moved past it. Carry on working, and save another
           when you reach the next state worth keeping.
         </p>
@@ -625,7 +625,7 @@ defmodule PairingsEngineWeb.HistoryLive do
                   <span class="hist-dot hist-dot-stub"></span>
                   <span class="hist-chevron" aria-hidden="true">▸</span>
                   <span>
-                    Abandoned branch — {count} restore point{if count == 1, do: "", else: "s"}
+                    Abandoned branch - {count} restore point{if count == 1, do: "", else: "s"}
                   </span>
                 </button>
               <% {:point, point} -> %>
@@ -639,7 +639,7 @@ defmodule PairingsEngineWeb.HistoryLive do
         </ol>
 
         <p :if={@older_changes != []} class="hint hist-note">
-          {length(@older_changes)} change(s) predate the oldest restore point — they
+          {length(@older_changes)} change(s) predate the oldest restore point - they
           are in the <.link navigate={~p"/t/#{@tournament.id}/audit"}>Audit trail</.link>.
         </p>
       </div>

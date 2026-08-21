@@ -1,6 +1,6 @@
 # KBSB/FRBE national rating list
 
-Local copy of the Belgian national rating list (KBSB/FRBE — Koninklijke
+Local copy of the Belgian national rating list (KBSB/FRBE - Koninklijke
 Belgische Schaakbond / Fédération Royale Belge des Échecs), used to look up
 players' national ID, national rating, club and FIDE ID when registering
 them for a tournament. Mirrors the existing FIDE rating sync
@@ -12,7 +12,7 @@ arrives.
 **Preferred: `PairingsEngine.Kbsb.Api`.** The KBSB data platform
 (`kbsb-dataplatform`) exposes the Odoo-synced live roster at
 `GET /api/v1/players_national/export`, and since August 2026 that export
-carries each member's **club name** as well as their club number — which is
+carries each member's **club name** as well as their club number - which is
 what made it usable here at all, and which the section below was written
 before. Set `KBSB_API_URL` and `KBSB_API_KEY` and the rating-lists page
 grows a "Sync from data platform" button; leave them unset and the page
@@ -24,8 +24,8 @@ time: the import it feeds is a full replace, so re-walking cannot drift out
 of step with the source. The API's `?since=` incremental mode is
 deliberately unused for that reason.
 
-The export is unfiltered — archived, deceased and non-affiliated members
-included — because filtering it would make `?since=` unsound on the
+The export is unfiltered - archived, deceased and non-affiliated members
+included - because filtering it would make `?since=` unsound on the
 platform's side. That decision therefore lands here: `kbsb_players` stores
 `died` and `affiliated`, exact id lookups still resolve a deceased member
 (an arbiter typing a matricule wants an answer), and `Kbsb.name_index/0`
@@ -47,21 +47,21 @@ KBSB list. Before writing any code, the following was checked (all fetched
 2026-07-13):
 
 - `https://blog.frbe-kbsb-ksb.be/elo/`, `/elo-treatment/`, `/checklist-elo/`
-  and `/software/` (the federation's current site) — no PDF/CSV/TXT/ZIP/
+  and `/software/` (the federation's current site) - no PDF/CSV/TXT/ZIP/
   SQLite download link anywhere on any of these pages. Every link was
   either navigation or one of the two authenticated tools below.
 - **The national ELO system itself is retired.** Per
   `https://blog.frbe-kbsb-ksb.be/elo-treatment/`: the General Assembly of
   2025-12-06 approved migrating from national ELO to FIDE ELO, target date
   2026-07-01. As of today the page states the national ELO system "has been
-  archived since July, 2026, and is available as a read-only system" — the
+  archived since July, 2026, and is available as a read-only system" - the
   July 2026 list is the *final* one. Building a live sync against a source
   that will never publish another update is far less valuable than it would
   have been a year ago, which reinforces going with the simpler
   file-based fallback rather than over-investing in an HTTP integration.
 - **"Player Manager"** (`https://www.frbe-kbsb.be/sites/manager/GestionCOMMON/GestionLogin.php`)
   and its announced replacement (`https://frbe-kbsb.odoo.com/`) are the
-  federation's actual bulk player databases, but both sit behind a login —
+  federation's actual bulk player databases, but both sit behind a login -
   not a stable anonymous machine-readable endpoint we can hit from a
   background job.
 - The legacy per-club "Fiche" pages (e.g.
@@ -73,7 +73,7 @@ KBSB list. Before writing any code, the following was checked (all fetched
   local KBSB/FIDE SQLite files the organizer places on disk by hand
   (`blog.frbe-kbsb-ksb.be/software/`, per Bernard Malfliet's comment: *"The
   ELO's are loaded automatically from the sqlite files of KBSB and FIDE. You
-  must place them on your hard drive..."*) — i.e. even the federation's own
+  must place them on your hard drive..."*) - i.e. even the federation's own
   reference software doesn't sync this over HTTP; the file arrives by hand.
 
 No stable, machine-readable, unauthenticated bulk download exists. Per the
@@ -82,7 +82,7 @@ instead of an HTTP sync: the tournament director downloads the official
 KBSB rating-list export themselves (from the Player Manager, or whatever
 the federation supplies) and uploads it on the Rating lists page. If the
 federation later opens a stable bulk endpoint, only
-`lib/pairings_engine/kbsb/sync.ex`'s trigger needs to change — the parser
+`lib/pairings_engine/kbsb/sync.ex`'s trigger needs to change - the parser
 and storage are already format-driven, not transport-driven.
 
 ## File format
@@ -98,29 +98,29 @@ auto-detected from the header line; UTF-8 or Windows-1252 encoding is
 auto-detected the same way `PairingsEngine.SwarImport` does for `.swar`
 files).
 
-Only `national_id` (matricule) and `last_name` are required columns —
+Only `national_id` (matricule) and `last_name` are required columns -
 everything else (`first_name`, `national_rating`, `fide_id`, `club_number`,
 `club_name`, `federation`, `birth_year`) is optional and defaults to
 nil/blank if the column is absent. **If a real export's headers don't match
 `@field_headers` in `parser.ex`, add the real header string to the relevant
-alias list** — no other code needs to change.
+alias list** - no other code needs to change.
 
 ## Architecture
 
-- `PairingsEngine.Kbsb.KbsbPlayer` — Ecto schema for `kbsb_players`,
+- `PairingsEngine.Kbsb.KbsbPlayer` - Ecto schema for `kbsb_players`,
   keyed by `national_id` (string, to preserve any leading zeros).
-- `PairingsEngine.Kbsb.Parser` — pure parser, `binary -> {:ok, rows} |
+- `PairingsEngine.Kbsb.Parser` - pure parser, `binary -> {:ok, rows} |
   {:error, reason}`.
-- `PairingsEngine.Kbsb.Sync` — GenServer, mirrors
+- `PairingsEngine.Kbsb.Sync` - GenServer, mirrors
   `PairingsEngine.Fide.Sync`'s hardening: watchdog (3 min of no progress
   fails the job), `cancel_import/0`, PubSub progress on the `"kbsb_sync"`
   topic, full-table `insert_all` with `on_conflict: :replace_all`, and a
   manual-only trigger (`start_import/1`, taking the uploaded file's raw
-  bytes — never started at boot). It does *not* have FIDE's
+  bytes - never started at boot). It does *not* have FIDE's
   connect/receive-timeout or retry/backoff logic, because there's no
-  network download step to protect against — the bytes are already in
+  network download step to protect against - the bytes are already in
   memory by the time `start_import/1` is called.
-- `PairingsEngine.Kbsb` — context module: `search/1` (national ID exact
+- `PairingsEngine.Kbsb` - context module: `search/1` (national ID exact
   match, or last-name prefix), `find_by_national_id/1`,
   `find_by_fide_id/1`, `player_count/0`, `last_sync/0`.
 
@@ -151,8 +151,8 @@ the page now covers both lists; the route and module name are unchanged.
 
 ## Not implemented (out of scope for this wave)
 
-- No automatic re-import — the source list is frozen since July 2026, and
+- No automatic re-import - the source list is frozen since July 2026, and
   even before that, updates only happen when a director explicitly obtains
   and uploads a new export.
-- No historical/point-in-time ratings — only the latest imported snapshot
+- No historical/point-in-time ratings - only the latest imported snapshot
   is kept (`DELETE FROM kbsb_players` before each import, same as FIDE).

@@ -1,13 +1,13 @@
 defmodule PairingsEngineWeb.PairingExplainLive do
   @moduledoc """
-  "Why were these players paired this way?" — a live, visual explanation of a
+  "Why were these players paired this way?" - a live, visual explanation of a
   single round's pairings, computed fresh from current data by
   `PairingsEngine.PairingRationale` (the same analysis behind the audit
   trail's `"pairing.round_paired"` entry).
 
   For each board it shows both players' pre-round score, starting rank and
   colour (with FIDE due-colour agreement), flags floaters (a pairing that
-  crosses score brackets — someone "paired up" or "paired down"), confirms no
+  crosses score brackets - someone "paired up" or "paired down"), confirms no
   rematch, and names the pairing-allocated bye recipient. Round-robin shows
   the deterministic Berger-schedule slot; Keizer shows ladder values.
 
@@ -19,6 +19,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   alias PairingsEngine.{PairingRationale, Tournaments}
   alias PairingsEngine.Pairing, as: Engine
   alias PairingsEngine.Tournaments.Player
+  alias PairingsEngine.Tournaments.Tournament
   alias PairingsEngineWeb.AuditLive
 
   @impl true
@@ -28,7 +29,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
     rationale = PairingRationale.for_round(tournament, round_number)
     paired_rounds = Engine.paired_rounds_count(tournament.id)
 
-    # Cross-round trails for the pinned-popover history strip + sparkline —
+    # Cross-round trails for the pinned-popover history strip + sparkline -
     # precomputed once here and rendered hidden into every dot's popover, so
     # pinning stays purely client-side (no LiveView roundtrip). Empty for
     # round 1 (no history), which suppresses the trail chrome entirely.
@@ -44,16 +45,16 @@ defmodule PairingsEngineWeb.PairingExplainLive do
        ladder_max: ladder_max(rationale),
        paired_rounds: paired_rounds,
        anomalies: anomaly_index(rationale),
-       page_title: "#{tournament.name} · Pairing rationale — Round #{round_number}"
+       page_title: "#{tournament.name} · Pairing rationale - Round #{round_number}"
      )}
   end
 
-  # Top-of-page index of the genuine per-board anomalies — rematch outside
+  # Top-of-page index of the genuine per-board anomalies - rematch outside
   # match format, a repeat pairing-allocated (engine-assigned) bye, and the
-  # softer "already had a bye" note — flattened once here so the summary
+  # softer "already had a bye" note - flattened once here so the summary
   # panel and its per-item anchor links share one source of truth with the
   # inline per-board copy still rendered on each card. `had_prior_pairing_bye`
-  # implies `had_prior_bye` (it's the stricter subset — see
+  # implies `had_prior_bye` (it's the stricter subset - see
   # `PairingRationale.players_with_prior_bye/2`), so a board only ever
   # contributes one entry, not two. Empty for a clean round or an unpaired
   # one, which suppresses the panel entirely (see its `:if` in the template).
@@ -67,7 +68,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             %{
               board: b.board,
               text:
-                "Board #{b.board} — #{b.white.player.name} and #{b.black.player.name} " <>
+                "Board #{b.board} - #{b.white.player.name} and #{b.black.player.name} " <>
                   "already met in an earlier round"
             }
           ]
@@ -77,7 +78,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             %{
               board: b.board,
               text:
-                "Board #{b.board} — #{b.bye_detail.player.name} has now had two engine-assigned byes"
+                "Board #{b.board} - #{b.bye_detail.player.name} has now had two engine-assigned byes"
             }
           ]
 
@@ -85,7 +86,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
           [
             %{
               board: b.board,
-              text: "Board #{b.board} — #{b.bye_detail.player.name} already had a bye earlier"
+              text: "Board #{b.board} - #{b.bye_detail.player.name} already had a bye earlier"
             }
           ]
 
@@ -97,7 +98,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
 
   ## ---------- display helpers ----------
 
-  defp player_label(nil), do: "—"
+  defp player_label(nil), do: "-"
 
   defp player_label(%Player{} = p) do
     rating = Player.rating(p)
@@ -114,27 +115,31 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   # for `mix format` to leave it on one line; a formatter-inserted line break
   # between the `<span>` and this text changes the rendered whitespace,
   # which broke an exact-match test once already.
-  defp seat_name(nil), do: "— vacant —"
+  defp seat_name(nil), do: "- vacant -"
   defp seat_name(side), do: side.player.name
 
   defp colour_word(:w), do: "White"
   defp colour_word(:b), do: "Black"
-  defp colour_word(_), do: "—"
+  defp colour_word(_), do: "-"
 
   defp float_note(%{floater: false}), do: nil
 
   defp float_note(%{white: w, black: b}) when not is_nil(b) do
     {high, low} = if w.score >= b.score, do: {w, b}, else: {b, w}
 
-    "Floater — #{high.player.name} (#{score_str(high.score)}) paired down against " <>
+    "Floater - #{high.player.name} (#{score_str(high.score)}) paired down against " <>
       "#{low.player.name} (#{score_str(low.score)}), who paired up."
   end
 
   defp float_note(_), do: nil
 
-  defp system_label("round_robin"), do: "Round robin (Berger schedule)"
-  defp system_label("keizer"), do: "Keizer ladder"
-  defp system_label(_), do: "Swiss (FIDE Dutch / JaVaFo)"
+  defp system_label("round_robin", _tournament), do: "Round robin (Berger schedule)"
+  defp system_label("keizer", _tournament), do: "Keizer ladder"
+
+  # Named after the engine that actually paired it, not after whichever one
+  # the app happened to ship with when this page was written.
+  defp system_label(_swiss, tournament),
+    do: "Swiss (FIDE Dutch / #{Tournament.engine_name(tournament)})"
 
   ## ---------- purely-presentational derivations ----------
   ## These reshape facts PairingRationale already computed into geometry /
@@ -148,7 +153,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   defp float_dir(_board, _side), do: nil
 
   # Colour matching the float direction (warm = down, cool = up, accent =
-  # none) — CSS custom properties, not fixed hex, so this reads correctly
+  # none) - CSS custom properties, not fixed hex, so this reads correctly
   # under every theme (SVG presentation attributes participate in the CSS
   # cascade, so `var()` resolves here same as in a stylesheet).
   defp float_colour(:down), do: "var(--warn)"
@@ -178,17 +183,17 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   # Geometry for the score-bracket map. One horizontal band per pre-round
   # score bracket (highest at top; labels live in a sticky HTML gutter so
   # they stay visible while the chart scrolls), one connector per playing
-  # board between its two players' bracket bands — a floater's line visibly
-  # slopes across bands — plus the bye recipient(s) as lone dashed dots in
+  # board between its two players' bracket bands - a floater's line visibly
+  # slopes across bands - plus the bye recipient(s) as lone dashed dots in
   # their own band.
   #
   # Every DOT (one per player, one for a bye recipient) gets its own HTML
-  # hover wrap centred exactly on it, showing only that player's detail —
+  # hover wrap centred exactly on it, showing only that player's detail -
   # hovering a specific circle shows that circle's player, not also
   # whoever they're paired against elsewhere on the chart. Each wrap
   # carries a server-computed popover flip direction so the pure-CSS
   # popover opens toward whichever side of the chart has room, instead of
-  # clipping (the scroll container clips vertically too — `overflow-x:
+  # clipping (the scroll container clips vertically too - `overflow-x:
   # auto` forces `overflow-y` to auto as well). Returns nil when there is
   # nothing to draw.
   @bracket_top 34
@@ -199,7 +204,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   # Wrap box extends this far beyond each dot centre (dot r=9 + ring halo).
   @bracket_reach 13
   # Vertical room a popover needs to open without clipping (est. max popover
-  # height plus its 8px gap) — drives both the above/below flip and the
+  # height plus its 8px gap) - drives both the above/below flip and the
   # canvas growth that guarantees a below-opening popover has room while
   # it's open (see the reservation comment in bracket_layout/1). The
   # hover popover is short (@bracket_pop_room); a PINNED popover additionally
@@ -208,12 +213,12 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   # overflow so this stays a fixed bound regardless of round count). Because
   # the pin re-uses the same server-computed flip direction as hover, the
   # flip itself must reserve the pinned room whenever a trail can appear
-  # (round > 1) — otherwise a pinned popover on a near-top/near-bottom dot
+  # (round > 1) - otherwise a pinned popover on a near-top/near-bottom dot
   # would clip out of the scroll container.
   @bracket_pop_room 140
   # 310 (the old reservation) + 144 for .pe-trail-rounds' max-height growing
   # 96px -> 240px, + ~38px for the fairness stats row added above the
-  # sparkline (up to two wrapped 16px lines plus its 6px margin) — that row
+  # sparkline (up to two wrapped 16px lines plus its 6px margin) - that row
   # is new chrome the old 310 never covered. Rounded up to 500: over-
   # reserving only pads the canvas min-height a little, while under-
   # reserving clips a pinned popover out of the scroll container.
@@ -232,7 +237,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
 
     # Score-band index per score, threaded onto every dot so the legend/gutter
     # click-filter (see dot_facets/1) can highlight "everyone in this band"
-    # without a new query — counts already come from score_groups below.
+    # without a new query - counts already come from score_groups below.
     band_idx_of =
       groups
       |> Enum.with_index()
@@ -299,10 +304,10 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         }
       end)
 
-    # One hover wrap per DOT — two per playing board (white, black), one per
-    # bye — each centred on that dot alone, carrying just that player's facts.
+    # One hover wrap per DOT - two per playing board (white, black), one per
+    # bye - each centred on that dot alone, carrying just that player's facts.
     # These same per-dot maps (via dot_wrap/2, which just adds wrap geometry
-    # on top) also drive every SVG dot circle/halo/triangle below — one
+    # on top) also drive every SVG dot circle/halo/triangle below - one
     # source of truth for "what facets does this dot belong to" instead of
     # re-deriving colour/floater/rematch facts separately for the overlay
     # and the SVG.
@@ -350,7 +355,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
     wraps = Enum.map(all_dots, &dot_wrap(&1, width, height, pop_room))
 
     # A popover that opens downward must fit inside the scroll container's
-    # vertical clip (`.pe-bracket-scroll` is `overflow-y: hidden` — see its
+    # vertical clip (`.pe-bracket-scroll` is `overflow-y: hidden` - see its
     # own comment for why that can't be `visible` or `clip`), so the canvas
     # has to be tall enough to hold one. NEITHER reservation is made up
     # front: both are custom properties the CSS applies only while a popover
@@ -362,13 +367,13 @@ defmodule PairingsEngineWeb.PairingExplainLive do
     # below deliberately tests against the PINNED room, so on any round past
     # the first essentially every dot opens downward, and the deepest one
     # then sits `@bracket_reach + @bracket_pop_room` above a canvas floor
-    # that is only 44px below the lowest band — a permanent ~110px gap.
+    # that is only 44px below the lowest band - a permanent ~110px gap.
     # Whether the arithmetic happened to clear the graph's own height varied
     # with each round's bracket shape, which is why it read as intermittent.
     #
     # So the canvas rests at exactly the graph's height and grows only while
     # a wrap is hovered/focused (`--pe-hover-min`) or pinned
-    # (`--pe-pinned-min`) — see the two `:has()` rules on
+    # (`--pe-pinned-min`) - see the two `:has()` rules on
     # `.pe-bracket-canvas` in app.css. The popover covering whatever sits
     # under the chart while it's open is fine and preferred over a permanent
     # empty band; the flip (dot_wrap's pop_v) is untouched, so a pinned
@@ -383,7 +388,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
     pinned_min_height = max(deepest_below + @bracket_reach + pop_room, height)
 
     # One head-to-head entry per PLAYING board (both wraps present; byes have
-    # no opponent) — drives the hidden `.pe-duo` panels under the chart,
+    # no opponent) - drives the hidden `.pe-duo` panels under the chart,
     # opened by clicking a pinned player's exact opponent (see app.js).
     duos =
       wraps
@@ -423,7 +428,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   defp column_x(i), do: @bracket_pad_left + i * @bracket_col_gap + div(@bracket_col_gap, 2)
 
   # One dot's full popover content: which board, this player's side, and
-  # (for a real pairing, not a bye) the shared board-level facts — floater
+  # (for a real pairing, not a bye) the shared board-level facts - floater
   # direction and rematch status apply to the specific side that floated /
   # to both sides of the same game respectively. Also carries every fact the
   # legend/gutter click-filter (task 1/2) and the colour-against-due halo
@@ -435,11 +440,11 @@ defmodule PairingsEngineWeb.PairingExplainLive do
     rematch_anomaly = if(colour == :bye, do: false, else: board.rematch_anomaly)
     # Deliberate rematches (round-robin / Swiss "match format") vs. flagged
     # anomalies are mutually exclusive by construction (rematch_anomaly is
-    # only set when NOT match-format-expected — see PairingRationale).
+    # only set when NOT match-format-expected - see PairingRationale).
     match_rematch = rematch and not rematch_anomaly
     # The only colour-history signal PairingRationale exposes is the boolean
-    # colour_ok verdict (no numeric imbalance) — see pairing_rationale.ex's
-    # `side/6` / `colour_matches_due?/2` — so this halo is binary, not scaled.
+    # colour_ok verdict (no numeric imbalance) - see pairing_rationale.ex's
+    # `side/6` / `colour_matches_due?/2` - so this halo is binary, not scaled.
     # Byes are excluded like floater/rematch above, and for the same kind of
     # reason: a bye recipient's side is built as the board's WHITE side (see
     # PairingRationale's `board_context/7`), so `colour_ok` compares a
@@ -467,7 +472,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
     Map.put(base, :facets, dot_facets(base))
   end
 
-  # Space-separated facet tokens for one dot — consumed both as the
+  # Space-separated facet tokens for one dot - consumed both as the
   # `data-facets` attribute JS reads to decide what to dim (see the
   # delegated listener in assets/js/app.js) and, indirectly, as the set of
   # `data-filter` values the legend/gutter buttons can target. Keep this in
@@ -488,7 +493,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
     |> Enum.join(" ")
   end
 
-  # Same idea as dot_facets/1 but for a board's connecting `<line>` — no
+  # Same idea as dot_facets/1 but for a board's connecting `<line>` - no
   # colour/direction/band facets (a link spans two dots that may disagree on
   # those), just its link-type classification.
   defp link_facets(l) do
@@ -511,7 +516,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
     do:
       "#{w.side.player.name} - #{colour_word(w.colour)}, score #{score_str(w.side.score)}#{due_title_suffix(w)}"
 
-  defp due_title_suffix(%{against_due: true}), do: " — against due colour"
+  defp due_title_suffix(%{against_due: true}), do: " - against due colour"
   defp due_title_suffix(_), do: ""
 
   # The HTML hover wrap for one dot: a small box centred on it (ring drawn
@@ -528,7 +533,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
     # a pinned dot (the pinned popover is 300px wide, centred on the dot via
     # `left: 50%; transform: translateX(-50%)`) plus a safety margin, or a
     # centred popover near the canvas edge overflows past x=0/width even
-    # while "not flipped". Half of 300 is 150 — preserve the same ~25px
+    # while "not flipped". Half of 300 is 150 - preserve the same ~25px
     # buffer the old 150 threshold had over the old 250px popover's
     # half-width of 125: 150 + 25 = 175.
     pop_h =
@@ -544,7 +549,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
       pop_v: pop_v,
       pop_h: pop_h,
       id: dot_id(d.board, d.colour),
-      # This round's opponent's wrap id (nil for a bye) — rendered as
+      # This round's opponent's wrap id (nil for a bye) - rendered as
       # `data-opponent` so the delegated click listener in assets/js/app.js
       # can detect "the pinned player's exact opponent was clicked" and open
       # the board's head-to-head duo panel instead of re-pinning.
@@ -557,7 +562,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   defp opponent_dot_id(%{colour: :b, board: board}), do: dot_id(board, :w)
   defp opponent_dot_id(_bye), do: nil
 
-  # Display rating for a duo panel's side — FIDE first, national fallback
+  # Display rating for a duo panel's side - FIDE first, national fallback
   # (Player.rating/1), nil when unrated so the tag is dropped entirely.
   defp duo_rating(wrap) do
     case PairingsEngine.Tournaments.Player.rating(wrap.side.player) do
@@ -576,7 +581,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   defp due_aria_suffix(_), do: ""
 
   # Stable per-dot element id, shared by the map's own hover wrap (as its
-  # `id`) and each board card's colour disc (as its `data-dot-target`) — a
+  # `id`) and each board card's colour disc (as its `data-dot-target`) - a
   # delegated click listener in assets/js/app.js matches the two, toggles a
   # `.is-pinned` class on the wrap, and scrolls it into view, pinning its
   # ring/popover open until a different dot is pinned. See app.css for the
@@ -589,7 +594,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
 
   ## ---------- shared SVG fragments ----------
   ## Both the full interactive chart and the small overview minimap (task B)
-  ## draw the same bands / links / dots over the same layout & viewBox — SVG
+  ## draw the same bands / links / dots over the same layout & viewBox - SVG
   ## scales for free. These components are the single source of that markup;
   ## the minimap passes interactive={false} to drop the hover/filter/halo/
   ## triangle/text chrome and keep just the overview shapes.
@@ -737,7 +742,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   ## Rendered hidden into every dot's popover; CSS reveals it only when the
   ## dot is PINNED (`.pe-board-wrap.is-pinned .pe-trail`), so casual hover
   ## scanning stays light. All data is precomputed server-side by
-  ## PairingRationale.player_trails/2 — pinning never hits the server.
+  ## PairingRationale.player_trails/2 - pinning never hits the server.
 
   attr :trail, :list, required: true
   attr :summary, :map, default: nil
@@ -795,7 +800,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             the last row is deliberately one result ahead of the pre-round
             score on the pairing card behind this popover. Said out loud in a
             caption because the two numbers sitting a click apart otherwise
-            read as a contradiction — especially on a bye, which already
+            read as a contradiction - especially on a bye, which already
             counts here the moment the round is paired. --%>
       <div class="pe-trail-rounds">
         <div :for={e <- @trail} class={["pe-trail-row", "pe-trail-#{e.outcome}"]}>
@@ -818,7 +823,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
 
   defp trail_col_label("W"), do: "W"
   defp trail_col_label("B"), do: "B"
-  defp trail_col_label("bye"), do: "—"
+  defp trail_col_label("bye"), do: "-"
   defp trail_col_label(_), do: "·"
 
   defp trail_res_label(%{outcome: :pending}), do: "this round"
@@ -827,8 +832,8 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   defp trail_res_label(%{result: r}), do: r
 
   defp trail_opp_label(%{outcome: :bye}), do: "(bye)"
-  defp trail_opp_label(%{outcome: :absent}), do: "—"
-  defp trail_opp_label(%{opponent_name: nil}), do: "—"
+  defp trail_opp_label(%{outcome: :absent}), do: "-"
+  defp trail_opp_label(%{opponent_name: nil}), do: "-"
   defp trail_opp_label(%{opponent_name: n, opponent_seed: s}), do: "#{n} ##{s}"
 
   # Tiny inline sparkline of the running score after each round. `nil` when
@@ -895,12 +900,12 @@ defmodule PairingsEngineWeb.PairingExplainLive do
                 score going INTO the round, which is what the pairing was
                 computed from, while the trail popover one click away lists
                 the score AFTER each round. They differ by the current
-                round's result — most visibly for a bye, which scores the
+                round's result - most visibly for a bye, which scores the
                 moment the round is paired, so a bye recipient's popover is
                 already a point ahead of this number by design. --%>
           <span
             class="pe-score"
-            title="Score going into this round — what this pairing was based on"
+            title="Score going into this round - what this pairing was based on"
           >
             {score_str(@side.score)}
           </span>
@@ -991,7 +996,10 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         <div>
           <h1>{@tournament.name}</h1>
           <p class="subtitle" style="margin: 0">
-            Pairing rationale for round {@round_number} - {system_label(@rationale.pairing_system)}
+            Pairing rationale for round {@round_number} - {system_label(
+              @rationale.pairing_system,
+              @tournament
+            )}
           </p>
         </div>
         <div class="actions" style="margin: 0">
@@ -1008,9 +1016,9 @@ defmodule PairingsEngineWeb.PairingExplainLive do
 
       <p class="hint" style="margin: 4px 0 12px">
         This is a live analysis of the current data (pre-round standings, colour history and
-        pairing output), not a stored replay. JaVaFo's internal tie-break reasoning can't be
-        extracted, so for Swiss this shows the input state that constrained the decision and the
-        observable shape of its output (brackets, floaters, byes). Items marked
+        pairing output), not a stored replay. The engine's internal tie-break reasoning is not
+        recorded in what it hands back, so for Swiss this shows the input state that constrained
+        the decision and the observable shape of its output (brackets, floaters, byes). Items marked
         <strong>Worth a look</strong>
         below are automated data-consistency checks, not proof of
         an actual arbiting error - they flag patterns worth a second look, nothing more.
@@ -1044,7 +1052,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             do: "s"})
         </summary>
         <p class="hint" style="margin: 8px 0 10px">
-          The classic pairing-sheet format — starting rank vs. starting rank, board by board. The
+          The classic pairing-sheet format - starting rank vs. starting rank, board by board. The
           bracket map below shows the same pairings with the reasoning behind them.
         </p>
         <table class="pe-table">
@@ -1522,7 +1530,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
 
           <.pairing_side :if={b.white} side={b.white} colour={:w} board={b} ladder_max={@ladder_max} />
           <p :if={!b.white} class="pe-pair-foot">
-            Seat vacant — this board isn't finished yet.
+            Seat vacant - this board isn't finished yet.
           </p>
 
           <div :if={not b.is_bye} class="pe-vs">vs</div>
@@ -1534,7 +1542,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             ladder_max={@ladder_max}
           />
           <p :if={not b.is_bye and !b.black} class="pe-pair-foot">
-            Seat vacant — this board isn't finished yet.
+            Seat vacant - this board isn't finished yet.
           </p>
           <p :if={not b.is_bye and float_note(b)} class="pe-pair-foot">{float_note(b)}</p>
           <p :if={not b.is_bye and b.rematch_anomaly} class="pe-warning">

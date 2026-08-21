@@ -1,13 +1,13 @@
 defmodule PairingsEngineWeb.SettingsTournamentLive do
   @moduledoc """
-  The "Tournament" settings page (`/t/:id/settings`) — the canonical entry
+  The "Tournament" settings page (`/t/:id/settings`) - the canonical entry
   point of the split Settings section. Holds the tournament's identity
   (name/venue/city/federation/organizer), its format and round count, the
   tie-break selection, sharing/collaborators, the print logo, and the JSON
   backup export. Pairing options, round dates, categories, extra points
-  and FIDE-report identifiers each live on their own sibling page — see the
+  and FIDE-report identifiers each live on their own sibling page - see the
   sub-nav (`PairingsEngineWeb.SettingsSupport.settings_subnav/1`). Notably,
-  start/end date are NOT here despite once being "tournament identity" —
+  start/end date are NOT here despite once being "tournament identity" -
   they're derived from round dates now, so they live only on the Dates
   page (`PairingsEngineWeb.SettingsDatesLive`), read-only.
   """
@@ -19,9 +19,9 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
   alias PairingsEngine.Tournaments.Tournament
 
   # 4th tuple element marks a field as mandatory setup data (see
-  # `Tournament.required_setup_fields/0`) — its label renders bold with a
+  # `Tournament.required_setup_fields/0`) - its label renders bold with a
   # red "*". `rounds_count` is also required but is a standalone field below.
-  # start_date/end_date used to live here too — removed: they're derived
+  # start_date/end_date used to live here too - removed: they're derived
   # from round_dates now (see Tournament's own doc comment on those two
   # fields), so editing them directly would just get overwritten on the
   # next save anyway. The Dates page shows the derived result.
@@ -34,7 +34,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
     {"organizer_club_number", "Organizer club nr / logo", "text", false}
   ]
 
-  # SWAR §5.22 Tie-break Presets (TB_PERSONEL) — see the original SettingsLive
+  # SWAR §5.22 Tie-break Presets (TB_PERSONEL) - see the original SettingsLive
   # for the best-effort mapping rationale onto our own catalogue codes.
   @tb_presets [
     {"fide_rr", "FIDE Round Robin", ~w(DE WIN SB KS)},
@@ -176,7 +176,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
     end
   end
 
-  ## ---------- Share / Team (collaborators) — owner-only ----------
+  ## ---------- Share / Team (collaborators) - owner-only ----------
 
   def handle_event("add_collaborator", %{"email" => email}, socket) do
     case Tournaments.add_collaborator(
@@ -194,7 +194,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
 
         note =
           if collaborator.mail_status == :failed do
-            "Invite saved, but the email could not be sent — share this link manually: " <>
+            "Invite saved, but the email could not be sent - share this link manually: " <>
               "/invites/#{collaborator.invite_token}"
           end
 
@@ -285,7 +285,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                socket,
                :error,
                "That file isn't a supported image. Only PNG, JPEG, GIF or WebP are accepted " <>
-                 "(SVG is not supported) — the file's actual content is checked, not just its name."
+                 "(SVG is not supported) - the file's actual content is checked, not just its name."
              )}
 
           {:error, changeset} ->
@@ -345,7 +345,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
         {:noreply,
          socket
          |> assign(tournament: tournament)
-         |> put_flash(:info, "New public link generated — the old one no longer works.")}
+         |> put_flash(:info, "New public link generated - the old one no longer works.")}
 
       {:error, :archived} ->
         {:noreply, put_flash(socket, :error, error_text(:archived))}
@@ -371,7 +371,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
 
   # Per-entry errors (a too-big or wrong-typed file) are what users actually
   # hit here, and LiveView keeps those on the entry, not on the upload config
-  # — rendering only the config's errors left the picked file looking accepted
+  # - rendering only the config's errors left the picked file looking accepted
   # while `consume_uploaded_entries` skipped it, so the logo silently never
   # arrived.
   defp upload_error_label(:too_large), do: "Image is larger than 2 MB"
@@ -458,7 +458,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
         <%!-- Officials are edited on the Norms page, not here. Nothing is
               broken about that, but an arbiter looking for "chief arbiter"
               looks under Settings and there was nothing on Settings pointing
-              anywhere else — reported by someone who could not find the field
+              anywhere else - reported by someone who could not find the field
               while holding a direct link to it. So this card says where it
               lives and shows the current value, rather than making Settings
               silent about a field it plainly looks like it should own. --%>
@@ -469,7 +469,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
             The chief arbiter, the deputy arbiters and the organizer's and chief
             arbiter's e-mail addresses are edited on the
             <.link navigate={~p"/t/#{@tournament.id}/norms"}>Norms</.link>
-            page, because that is what they are for — the IT3, FA1 and IA1 forms
+            page, because that is what they are for - the IT3, FA1 and IA1 forms
             are built from them. (The organizer's <em>name</em>
             is above, under
             General.)
@@ -785,7 +785,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
             class="pe-btn"
             href={~p"/t/#{@tournament.id}/export/swar"}
             target="_blank"
-            title="A .swar file SWAR itself can open — never verified against a real SWAR install, see docs/swar-import.md"
+            title="A .swar file SWAR itself can open - never verified against a real SWAR install, see docs/swar-import.md"
           >
             Export .swar (v7, experimental)
           </a>

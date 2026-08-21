@@ -4,7 +4,7 @@ defmodule PairingsEngine.Repo.Migrations.AddTournamentsSwarGuid do
   def change do
     alter table(:tournaments) do
       # SWAR's own per-tournament GUID (from the .swar file's header, see
-      # PairingsEngine.SwarImport.parse/1's `:guid` key) — SWAR's own
+      # PairingsEngine.SwarImport.parse/1's `:guid` key) - SWAR's own
       # "upload to server" feature re-sends the same GUID on every re-upload
       # of the same tournament, so it's the stable "same tournament" identity
       # a fresh .swar upload can be matched against, to warn before creating

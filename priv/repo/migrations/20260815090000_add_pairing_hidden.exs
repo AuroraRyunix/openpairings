@@ -2,13 +2,13 @@ defmodule PairingsEngine.Repo.Migrations.AddPairingHidden do
   use Ecto.Migration
 
   # A display-only "don't show me this" flag for a fully-vacated pairing
-  # row (both seats empty — see PairingsEngine.Tournaments.set_pairing_hidden/3)
+  # row (both seats empty - see PairingsEngine.Tournaments.set_pairing_hidden/3)
   # so an arbiter can declutter the pairings view/prints of empty boards
   # left behind by two "mark absent" gestures on the same board, without
   # touching anything the 0.14.6 board-renumbering-class fix protects.
   #
   # Deliberately NOT read by PairingDisplay.compute_labels/1 or the freeze
-  # wrapper (freeze_round_display_boards!/1) — hiding a row must never
+  # wrapper (freeze_round_display_boards!/1) - hiding a row must never
   # change what any OTHER row's display_board says, and this column plays
   # no part in that computation at all, unlike display_board/display_special
   # (see add_pairing_display_board.exs). It's read only by the render-time

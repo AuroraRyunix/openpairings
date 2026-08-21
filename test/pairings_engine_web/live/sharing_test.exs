@@ -2,12 +2,12 @@ defmodule PairingsEngineWeb.SharingTest do
   # `async: false` for the same reason as PairingsEngine.TournamentImportTest
   # and PairingsEngine.Fide.SyncTest (see their own comments): this file's
   # tests each add a tournament + player/round/pairing fixture plus at least
-  # one extra user on top of `register_and_log_in_user`'s own — enough
+  # one extra user on top of `register_and_log_in_user`'s own - enough
   # sequential writes to contend with the async pool for SQLite's single
   # writer lock. Every collaborator/stranger here is created with the same
   # lightweight direct-insert helper PairingsEngine.TournamentsTest uses
   # (see its `user_scope/0` comment) rather than the full
-  # register/confirm/magic-link fixture, to keep that write burden down —
+  # register/confirm/magic-link fixture, to keep that write burden down -
   # except the one test that specifically needs the real login flow (see
   # "invite-by-email for a not-yet-registered person" below).
   use PairingsEngineWeb.ConnCase, async: false
@@ -53,12 +53,12 @@ defmodule PairingsEngineWeb.SharingTest do
 
   # Adds a fresh, already-registered user as a collaborator on `tournament`,
   # accepts the invitation on their behalf via the context (equivalent to
-  # them clicking Accept on the /invites/:token page — that exact page gets
+  # them clicking Accept on the /invites/:token page - that exact page gets
   # its own end-to-end test below), and logs them in via ConnCase's
   # session-shortcut `log_in_user/2` (like every other test in the suite)
   # rather than the real magic-link POST, since these tests only care about
   # *access after acceptance*, not about the login-time
-  # `link_pending_collaborators/1` backfill — that gets its own real-flow
+  # `link_pending_collaborators/1` backfill - that gets its own real-flow
   # test below, under "invite-by-email for a not-yet-registered person".
   defp collaborator_conn(tournament, scope) do
     other_user = lightweight_user()
@@ -94,7 +94,7 @@ defmodule PairingsEngineWeb.SharingTest do
       |> render_change()
 
       # update_pairing_result/2 broadcasts on the tournament topic and this
-      # `lv` is subscribed to its own tournament (see PairingsLive's mount) —
+      # `lv` is subscribed to its own tournament (see PairingsLive's mount) -
       # render_change/1 only waits for the *direct* reply to the "result"
       # event, not for that self-broadcast's handle_info reload, which lands
       # in the mailbox microseconds later and runs a second, independent
@@ -102,9 +102,9 @@ defmodule PairingsEngineWeb.SharingTest do
       # process supervisor kills `lv`, via ExUnit.fetch_test_supervisor/0)
       # while that query may still be in flight, which can abort it mid-way
       # on the shared sandbox connection (this file's tests share one
-      # connection — see the moduledoc comment) and briefly wedge SQLite's
+      # connection - see the moduledoc comment) and briefly wedge SQLite's
       # single writer lock for later tests. render/1 is a synchronous call
-      # into `lv`, so — since Erlang delivers messages in mailbox order — it
+      # into `lv`, so - since Erlang delivers messages in mailbox order - it
       # can't return until that already-queued self-broadcast reload has
       # been handled first.
       render(lv)
@@ -114,7 +114,7 @@ defmodule PairingsEngineWeb.SharingTest do
              |> Map.get(:result) == "1-0"
     end
 
-    test "the Share/Team card on Settings is owner-only — a collaborator doesn't see it", %{
+    test "the Share/Team card on Settings is owner-only - a collaborator doesn't see it", %{
       scope: scope
     } do
       %{tournament: tournament} = fixture(scope)
@@ -139,7 +139,7 @@ defmodule PairingsEngineWeb.SharingTest do
                )
     end
 
-    test "a collaborator cannot delete the tournament — get_user_tournament!/2 stays owner-only",
+    test "a collaborator cannot delete the tournament - get_user_tournament!/2 stays owner-only",
          %{scope: scope} do
       %{tournament: tournament} = fixture(scope)
       %{user: collaborator_user} = collaborator_conn(tournament, scope)
@@ -163,7 +163,7 @@ defmodule PairingsEngineWeb.SharingTest do
       end
     end
 
-    test "a pending (not-yet-accepted) invite grants no access at all — every page 404s", %{
+    test "a pending (not-yet-accepted) invite grants no access at all - every page 404s", %{
       scope: scope
     } do
       %{tournament: tournament} = fixture(scope)
@@ -196,8 +196,8 @@ defmodule PairingsEngineWeb.SharingTest do
       assert pending.status == "pending"
 
       # The invited person has no account yet. They register and log in for
-      # the first time via the *real* magic-link controller flow — POSTing
-      # to /users/log-in like the browser would — so this exercises
+      # the first time via the *real* magic-link controller flow - POSTing
+      # to /users/log-in like the browser would - so this exercises
       # PairingsEngineWeb.UserAuth.log_in_user/3's call to
       # Tournaments.link_pending_collaborators/1 for real, rather than
       # bypassing it via ConnCase's session-only `log_in_user/2` test
@@ -215,7 +215,7 @@ defmodule PairingsEngineWeb.SharingTest do
       new_scope = Accounts.Scope.for_user(Accounts.get_user!(new_user.id))
 
       # Logging in only backfilled user_id (see link_pending_collaborators/1)
-      # — the invite is still pending, so the tournament does NOT show up
+      # - the invite is still pending, so the tournament does NOT show up
       # yet and the page still 404s.
       refute {tournament.id, false} in Enum.map(
                Tournaments.list_tournaments(new_scope),
@@ -224,7 +224,7 @@ defmodule PairingsEngineWeb.SharingTest do
 
       assert_raise Ecto.NoResultsError, fn -> live(new_conn, ~p"/t/#{tournament.id}/players") end
 
-      # Now they explicitly accept — via the /invites/:token page in real
+      # Now they explicitly accept - via the /invites/:token page in real
       # usage (see invite_live_test.exs), via the context here.
       [collaborator] = Tournaments.list_collaborators(tournament)
 
@@ -255,7 +255,7 @@ defmodule PairingsEngineWeb.SharingTest do
 
       assert html =~ "shared"
       refute html =~ ~s(phx-click="delete_start" phx-value-id="#{tournament.id}")
-      # A collaborator can't delete it, but they should be able to leave it —
+      # A collaborator can't delete it, but they should be able to leave it -
       # the reverse used to just be missing entirely.
       assert html =~ ~s(phx-click="leave_tournament" phx-value-id="#{tournament.id}")
     end
@@ -406,7 +406,7 @@ defmodule PairingsEngineWeb.SharingTest do
       lv |> element(~s(button[phx-value-id="#{invite.id}"])) |> render_click()
 
       # Same self-broadcast race as the "enter a pairing result" test above
-      # — remove_collaborator/3 broadcasts on the tournament topic that this
+      # - remove_collaborator/3 broadcasts on the tournament topic that this
       # `lv` (Settings) is itself subscribed to. Drain it before the test
       # (and `lv`'s teardown) proceeds.
       render(lv)

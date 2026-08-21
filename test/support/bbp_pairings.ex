@@ -1,7 +1,7 @@
 defmodule PairingsEngine.Test.BbpPairings do
   @moduledoc """
   Runs a TRF16 tournament through `bbpPairings` (© Bierema Boyz Programming,
-  Apache-2.0, vendored in `priv/bbppairings/` — see that directory's
+  Apache-2.0, vendored in `priv/bbppairings/` - see that directory's
   `LICENSE.txt`), a second, independently-written Dutch-system pairing
   engine, standalone (no JaVaFo involved). Exists purely for the
   cross-program-agreement check (`test/pairings_engine/cross_program_test.exs`)
@@ -15,11 +15,11 @@ defmodule PairingsEngine.Test.BbpPairings do
   README), so its `-p` pairing-output format is identical to what
   `PairingsEngine.Pairing.parse_pairs/1` already parses: a count line, then
   one `"white black"` starting-rank pair per line (`0` = pairing-allocated
-  bye) — reused directly here rather than a second parser.
+  bye) - reused directly here rather than a second parser.
 
   One real divergence: unlike JaVaFo, bbpPairings refuses to guess an
   unhistoried round's initial board-1 color ("BBP Pairings does not support
-  random selection of the initial piece color" — its README) and errors out
+  random selection of the initial piece color" - its README) and errors out
   instead. `pair/2` appends an `XXC white1` line (JaVaFo's own extension
   code, which bbpPairings also honors) whenever the TRF has no per-round
   game columns yet, forcing the same deterministic choice on both engines so
@@ -40,12 +40,12 @@ defmodule PairingsEngine.Test.BbpPairings do
     case :os.type() do
       {:unix, :linux} -> "bbpPairings-linux"
       {:win32, _} -> "bbpPairings-windows.exe"
-      # No macOS build in bbpPairings' own releases — see binary_path/0's doc.
+      # No macOS build in bbpPairings' own releases - see binary_path/0's doc.
       _ -> nil
     end
   end
 
-  @doc "Whether a usable bbpPairings binary is vendored for the current OS — the gate `test_helper.exs` checks."
+  @doc "Whether a usable bbpPairings binary is vendored for the current OS - the gate `test_helper.exs` checks."
   def available? do
     case binary_path() do
       nil -> false
@@ -80,8 +80,8 @@ defmodule PairingsEngine.Test.BbpPairings do
     end
   end
 
-  # No "001 ... " row anywhere carries a round-1-or-later game column yet —
-  # i.e. this is a fresh round-1 pairing — so bbpPairings has no history to
+  # No "001 ... " row anywhere carries a round-1-or-later game column yet -
+  # i.e. this is a fresh round-1 pairing - so bbpPairings has no history to
   # infer an initial color from and needs XXC forced explicitly. A TRF with
   # any prior round's results already has real color history, which both
   # engines read the same way, so this only ever fires for round 1.
@@ -94,7 +94,7 @@ defmodule PairingsEngine.Test.BbpPairings do
   end
 
   # A player row's fixed-width game column starts right after the header
-  # columns (position 92, 1-indexed, per Trf's own @player_cols) — presence
+  # columns (position 92, 1-indexed, per Trf's own @player_cols) - presence
   # of ANY non-blank character there on ANY player row means real round
   # history already exists.
   defp round_one?(trf) do

@@ -20,7 +20,7 @@
         const systemTheme = () => matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 
         // localStorage THROWS (not returns null) in a third-party frame when
-        // the browser blocks or partitions storage — Safari's default, and
+        // the browser blocks or partitions storage - Safari's default, and
         // Chrome with third-party cookies disabled. Unguarded, that kills
         // this whole bootstrap and the page renders with no theme and no
         // accent at all, in exactly the embedded case the default below
@@ -35,7 +35,7 @@
         // visitor's OS setting. The frame is a panel inside somebody else's
         // page, which is overwhelmingly light, and a dark slab dropped into
         // the middle of a club's white site reads as broken rather than as a
-        // theme. Comparing `self`/`top` is safe cross-origin — the reference
+        // theme. Comparing `self`/`top` is safe cross-origin - the reference
         // comparison is allowed, only reading top's PROPERTIES would throw.
         //
         // Only the DEFAULT changes. An explicit pick from the theme switch
@@ -69,7 +69,7 @@
         window.addEventListener("storage", (e) => e.key === "phx:theme" && setTheme(e.newValue || defaultTheme()));
         window.addEventListener("phx:set-theme", (e) => setTheme(e.target.dataset.phxTheme));
 
-        // Only a page actually following the OS tracks OS changes — an
+        // Only a page actually following the OS tracks OS changes - an
         // embedded default of light must stay light when the visitor's
         // machine flips to dark at sunset.
         matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e) => {

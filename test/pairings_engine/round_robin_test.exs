@@ -16,7 +16,7 @@ defmodule PairingsEngine.RoundRobinTest do
   ## MapSet per round ignores board-listing order (not part of "the
   ## schedule") while still checking exact composition *and* colour.
 
-  describe "schedule/3 — published Berger tables" do
+  describe "schedule/3 - published Berger tables" do
     test "N=4 matches the FIDE table for every round" do
       published = %{
         1 => [{1, 4}, {2, 3}],
@@ -50,7 +50,7 @@ defmodule PairingsEngine.RoundRobinTest do
 
   ## ---------- structural properties ----------
 
-  describe "schedule/3 — structural properties" do
+  describe "schedule/3 - structural properties" do
     test "single cycle needs N-1 rounds for even N, N rounds for odd N" do
       assert RoundRobin.total_rounds(4, 1) == 3
       assert RoundRobin.total_rounds(6, 1) == 5
@@ -117,11 +117,11 @@ defmodule PairingsEngine.RoundRobinTest do
 
   ## ---------- match_schedule/2 & match_total_rounds/1: "match format" ----------
   ##
-  ## rr_match_format's immediate two-game rematch — physical round 2k-1/2k
-  ## are match k's two legs — as opposed to rr_cycles=2's far-apart repeat
+  ## rr_match_format's immediate two-game rematch - physical round 2k-1/2k
+  ## are match k's two legs - as opposed to rr_cycles=2's far-apart repeat
   ## (already covered above).
 
-  describe "match_schedule/2 — structural properties" do
+  describe "match_schedule/2 - structural properties" do
     test "leg 2 is a byte-for-byte colour-mirrored copy of leg 1's pairings (N=4)" do
       for match <- 1..3 do
         leg1_round = 2 * match - 1
@@ -174,7 +174,7 @@ defmodule PairingsEngine.RoundRobinTest do
     end
   end
 
-  describe "pair_next_round/1 with rr_match_format — end-to-end" do
+  describe "pair_next_round/1 with rr_match_format - end-to-end" do
     test "round 1 and round 2 pair the same players with reversed colours, each in its own round/pairing rows" do
       tournament = round_robin_tournament(rr_cycles: 1, rr_match_format: true)
 
@@ -204,7 +204,7 @@ defmodule PairingsEngine.RoundRobinTest do
       assert {d.id, a.id} in pairs2
       assert {c.id, b.id} in pairs2
 
-      # Each round has its own independent Pairing rows — never two
+      # Each round has its own independent Pairing rows - never two
       # Pairings sharing a Round.
       assert Enum.all?(round1.pairings, &(&1.round_id == round1.id))
       assert Enum.all?(round2.pairings, &(&1.round_id == round2.id))
@@ -292,7 +292,7 @@ defmodule PairingsEngine.RoundRobinTest do
       assert {:ok, _round} = Pairing.pair_next_round(tournament)
 
       # PairingsEngine.RoundRobin doesn't call Tournaments.refresh_status!/1
-      # itself — the dispatcher in PairingsEngine.Pairing does it centrally
+      # itself - the dispatcher in PairingsEngine.Pairing does it centrally
       # for round_robin/keizer, same as the Swiss path already did.
       assert Tournaments.get_tournament!(tournament.id).status == "running"
     end
@@ -334,7 +334,7 @@ defmodule PairingsEngine.RoundRobinTest do
     # The "byes" table has no round_id foreign key (see the migration), so a
     # plain `Round` delete alone leaves the row behind. Re-pairing the same
     # round number then hits `insert_all("byes", ...)`'s
-    # `UNIQUE(player_id, round)` index — which used to raise, permanently
+    # `UNIQUE(player_id, round)` index - which used to raise, permanently
     # bricking the round. `delete_round/2` must delete the round's `byes`
     # rows too.
     test "delete_round/2 clears the round's byes row so re-pairing an odd-player-count round doesn't crash" do
@@ -362,7 +362,7 @@ defmodule PairingsEngine.RoundRobinTest do
             select: %{player_id: bye.player_id, round: bye.round, type: bye.type}
         )
 
-      # Exactly one row for {Alice, round: 1} — no duplicate from the
+      # Exactly one row for {Alice, round: 1} - no duplicate from the
       # deleted round's leftover row.
       assert byes == [%{player_id: a.id, round: 1, type: "requested-zero"}]
     end
@@ -372,7 +372,7 @@ defmodule PairingsEngine.RoundRobinTest do
     # SWAR parity #23 (manual standings) fix 3: a "requested-zero" bye
     # awards points immediately (see PairingsEngine.Standings) without ever
     # going through Tournaments.update_pairing_result/2, so every bye-write
-    # site needs its own Tournaments.invalidate_manual_ranking/1 call — see
+    # site needs its own Tournaments.invalidate_manual_ranking/1 call - see
     # PairingsEngine.Pairing.insert_round_absentee_byes/3 for the Swiss/
     # JaVaFo-path equivalent and docs/manual-standings.md.
 
@@ -438,7 +438,7 @@ defmodule PairingsEngine.RoundRobinTest do
     test "rounds_count set lower than the Berger schedule needs is corrected up, not respected as a clamp" do
       # 6 players, single cycle -> total_rounds(6, 1) == 5. rounds_count
       # isn't a free-standing choice for round-robin the way it is for
-      # Swiss (see RoundRobin.pair_next_round/1's doc) — the declared 3
+      # Swiss (see RoundRobin.pair_next_round/1's doc) - the declared 3
       # gets corrected to the real total the moment players are frozen, so
       # the event plays out all 5 rounds rather than ending early at 3.
       tournament = round_robin_tournament(rr_cycles: 1, rounds_count: 3)
@@ -506,7 +506,7 @@ defmodule PairingsEngine.RoundRobinTest do
       {:ok, _} = Pairing.pair_next_round(t1)
       {:ok, round2_a} = Pairing.pair_next_round(t1)
 
-      # Capture round 2's pairings before deleting it — delete_round cascades
+      # Capture round 2's pairings before deleting it - delete_round cascades
       # and removes them from the DB.
       pairs_a =
         round2_a
@@ -534,25 +534,25 @@ defmodule PairingsEngine.RoundRobinTest do
   ## ---------- absent/forfeit players auto-record a forfeit result ----------
   ##
   ## Round-robin's Berger schedule is frozen player-count math (see
-  ## moduledoc: "Freezing pairing numbers") — an absent/forfeit player still
+  ## moduledoc: "Freezing pairing numbers") - an absent/forfeit player still
   ## gets paired every round by design, but shouldn't be left with a blank
   ## result for the arbiter to notice manually across dozens of players.
   ## This matters most for a tournament continued from a SWAR import, where
   ## `pairing_number` (and `absent`/`forfeit`) are set directly at player
-  ## creation, bypassing `ensure_frozen/1`'s one-time freeze entirely — these
+  ## creation, bypassing `ensure_frozen/1`'s one-time freeze entirely - these
   ## tests simulate that shape directly via `pairing_number` in the attrs
   ## rather than going through the SWAR binary parser.
 
-  describe "pair_next_round/1 — absent/forfeit players auto-record a forfeit result" do
+  describe "pair_next_round/1 - absent/forfeit players auto-record a forfeit result" do
     # `ensure_frozen/1` explicitly EXCLUDES currently-absent/forfeit players
     # from the initial freeze itself (`p.absent == false and p.forfeit ==
-    # false` in its query) — so a player marked absent/forfeit *before* ever
+    # false` in its query) - so a player marked absent/forfeit *before* ever
     # being frozen wouldn't get a `pairing_number` at all via that path, and
     # these tests would be exercising "excluded from the schedule" rather
     # than the real bug. Every test below therefore sets `pairing_number`
     # directly at player creation (all four players at once, so
     # `already_frozen?` is true from the first insert and `ensure_frozen/1`
-    # never runs) — this is exactly the SWAR-import shape the real bug lives
+    # never runs) - this is exactly the SWAR-import shape the real bug lives
     # in: pairing numbers pre-set, absent/forfeit pre-set, freeze bypassed.
 
     test "an absent black player's pairing is auto-recorded as a white-forfeit-win" do

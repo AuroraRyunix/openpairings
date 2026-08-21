@@ -83,7 +83,7 @@ defmodule PairingsEngineWeb.KeycloakAuthControllerTest do
     test "synthesizes an @sso-domain email and logs in when the directory account has none",
          %{conn: conn} do
       # A real AD account with no `mail` attribute: Keycloak sends `sub` and
-      # even `email_verified`, but no `email` at all — this is exactly what
+      # even `email_verified`, but no `email` at all - this is exactly what
       # `administrator` returned in production (2026-07-25).
       Req.Test.stub(PairingsEngine.KeycloakTest, fn conn ->
         case conn.request_path do

@@ -45,7 +45,7 @@ defmodule PairingsEngineWeb.CategoriesLiveTest do
     end
   end
 
-  describe "Categories on/off — instant button, no separate Save step" do
+  describe "Categories on/off - instant button, no separate Save step" do
     test "turning it on immediately persists and reveals the category-list card", %{
       conn: conn,
       scope: scope
@@ -98,7 +98,7 @@ defmodule PairingsEngineWeb.CategoriesLiveTest do
     end
   end
 
-  describe "pair_by_category (beta) — instant button, locked once round 1 has been paired" do
+  describe "pair_by_category (beta) - instant button, locked once round 1 has been paired" do
     defp pair_swiss_round_1(tournament) do
       Tournaments.create_player(tournament.id, %{name: "Alice", fide_rating: 2000})
       Tournaments.create_player(tournament.id, %{name: "Bob", fide_rating: 1900})
@@ -304,7 +304,7 @@ defmodule PairingsEngineWeb.CategoriesLiveTest do
       html =
         lv |> element(~s(button[phx-click="assign_categories"])) |> render_click()
 
-      # The dry run only computes a preview — nothing is written yet.
+      # The dry run only computes a preview - nothing is written yet.
       assert html =~ "Low"
       assert html =~ "-1100"
       refute html =~ "High"

@@ -37,7 +37,7 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
     assert html =~ "Public standings link"
   end
 
-  describe "Category column — shown whenever the tournament has >= 1 category, print already did this" do
+  describe "Category column - shown whenever the tournament has >= 1 category, print already did this" do
     test "hidden when the tournament has no categories defined", %{conn: conn, scope: scope} do
       {:ok, tournament} =
         Tournaments.create_tournament(scope, %{"name" => "No Categories", "type" => "swiss"})
@@ -49,7 +49,7 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
       refute html =~ "<th>Category</th>"
     end
 
-    test "shows the assigned category per player, unconditionally — not gated by the Players Display panel's tick",
+    test "shows the assigned category per player, unconditionally - not gated by the Players Display panel's tick",
          %{conn: conn, scope: scope} do
       {:ok, tournament} =
         Tournaments.create_tournament(scope, %{
@@ -67,10 +67,10 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
 
       assert html =~ "<th>Category</th>"
       assert html =~ "Open"
-      # Bob has no category assigned — shows the same "—" print already uses.
-      assert html =~ "—"
+      # Bob has no category assigned - shows the same "-" print already uses.
+      assert html =~ "-"
 
-      # Not tied to the "cat" Players-grid preference — even an explicit,
+      # Not tied to the "cat" Players-grid preference - even an explicit,
       # empty preference list (everything toggleable hidden) still shows it.
       html = render_hook(lv, "columns_loaded", %{"columns" => []})
       assert html =~ "<th>Category</th>"
@@ -164,7 +164,7 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/standings")
 
-      # Everything the Players Display panel currently offers, minus we/wmwe —
+      # Everything the Players Display panel currently offers, minus we/wmwe -
       # mirrors what a real localStorage payload looks like (the full
       # persisted list, not just a diff).
       columns =
@@ -208,7 +208,7 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
 
       {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
 
-      # No preference recorded yet — shows like every other optional column.
+      # No preference recorded yet - shows like every other optional column.
       assert html =~ "<th>Sex</th>"
       assert html =~ ">F<"
 

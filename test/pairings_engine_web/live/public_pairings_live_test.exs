@@ -6,7 +6,7 @@ defmodule PairingsEngineWeb.PublicPairingsLiveTest do
   alias PairingsEngine.{Repo, Tournaments}
   alias PairingsEngine.Tournaments.{Player, Round, Pairing}
 
-  # No login — the public page needs no `register_and_log_in_user` setup.
+  # No login - the public page needs no `register_and_log_in_user` setup.
 
   test "has no app chrome (topbar tabs/accent picker/sign-in), shows tempo when set", %{
     conn: conn
@@ -171,7 +171,7 @@ defmodule PairingsEngineWeb.PublicPairingsLiveTest do
     {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/pairings")
 
     assert html =~ "Stillhereclara"
-    # Board 2's label was frozen before board 1 was ever hidden — hiding it
+    # Board 2's label was frozen before board 1 was ever hidden - hiding it
     # later must not renumber board 2 down to "1".
     assert html =~ ~s(<td class="num">2</td>)
     refute html =~ ~s(<td class="num">1</td>)
@@ -182,7 +182,7 @@ defmodule PairingsEngineWeb.PublicPairingsLiveTest do
     # Regression: the public page used to sort by raw `pairing.board` and
     # never relabeled anything, so a fixed-table pairing showed its real
     # engine board number here while the authenticated page (and print)
-    # showed the fixed_board value and moved it to the end — the same
+    # showed the fixed_board value and moved it to the end - the same
     # round looked different depending on which page you were on.
     {:ok, tournament} =
       Tournaments.create_tournament(%{
@@ -337,7 +337,7 @@ defmodule PairingsEngineWeb.PublicPairingsLiveTest do
         |> render_click()
 
       assert html =~ "Round 1"
-      # Round 1: Alice (white) vs Bob (black), 1-0 — entering it both are at 0.
+      # Round 1: Alice (white) vs Bob (black), 1-0 - entering it both are at 0.
       assert html =~ "Alice (0)"
       assert html =~ "Bob (0)"
     end
@@ -422,7 +422,7 @@ defmodule PairingsEngineWeb.PublicPairingsLiveTest do
       {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/pairings?round=1")
 
       # Nothing at all has been published yet, so this reads the same as
-      # the no-`?round=` case above — not "Round 1 hasn't been published
+      # the no-`?round=` case above - not "Round 1 hasn't been published
       # yet." (that more specific wording is reserved for when at least
       # one OTHER round is already public; see the out-of-order test below).
       assert html =~ "No round has been published yet"

@@ -1,8 +1,8 @@
 defmodule PairingsEngine.SwarExportTest do
   @moduledoc """
   The internal-consistency check `SwarExport`'s own moduledoc promises:
-  export a tournament, re-parse the bytes with `SwarImport.parse/1` — the
-  same probe-three-layouts heuristic a real `.swar` would go through — and
+  export a tournament, re-parse the bytes with `SwarImport.parse/1` - the
+  same probe-three-layouts heuristic a real `.swar` would go through - and
   assert every field survives. This is strong evidence the writer and
   reader agree with each other; it is NOT proof a real SWAR install
   accepts the file (see `SwarExport`'s moduledoc for why that can't be
@@ -11,7 +11,7 @@ defmodule PairingsEngine.SwarExportTest do
   The tournament below deliberately exercises every branch `SwarExport`
   has: a normal win/loss/draw, both forfeit directions, a double forfeit,
   a played 0-0, both asymmetric FIDE codes, a pairing-allocated bye, and
-  all three `"byes"`-table types (requested-half/requested-zero/absent) —
+  all three `"byes"`-table types (requested-half/requested-zero/absent) -
   plus distinct non-blank chief/deputy arbiter text, so the ambiguous
   `[TOURNOI]` tail (see `SwarExport`'s `@tournoi_layout`) is carrying real
   content rather than the all-zero case that can't distinguish a layout
@@ -189,7 +189,7 @@ defmodule PairingsEngine.SwarExportTest do
     pairing!(r1, 3, e, f, "0-0FF")
     pairing!(r1, 4, g, h, "1/2-1/2")
     pairing!(r1, 5, i, nil, "bye")
-    # None of these three has a real board this round — the ONE
+    # None of these three has a real board this round - the ONE
     # combination `round_record_for/5` can actually represent, since a
     # real Pairing and a "byes" row for the same player/round both
     # claiming the same SWAR record would be unrepresentable (SWAR has
@@ -221,7 +221,7 @@ defmodule PairingsEngine.SwarExportTest do
     assert tournoi.nb_rounds == 3
     assert tournoi.fide_homolog == 1
     # v7_strings layout: arb1/arb2 cannot survive (only ONE trailing
-    # string exists on the wire) — see SwarExport's moduledoc. Only the
+    # string exists on the wire) - see SwarExport's moduledoc. Only the
     # single "remarks" slot (written from deputy_arbiter) comes back.
     assert tournoi.fide_arb1 == ""
     assert tournoi.fide_arb2 == ""
@@ -268,7 +268,7 @@ defmodule PairingsEngine.SwarExportTest do
     assert alice.title == 4
     assert alice.birth == "19900514"
     # "-1800" is index 1 (0-based) in tournament.categories, so cat_index
-    # is (1+1)*100 = 200 — see reverse_cat_index/2 and category_name/2.
+    # is (1+1)*100 = 200 - see reverse_cat_index/2 and category_name/2.
     assert alice.cat_index == 200
     assert alice.extra_pts == 2
 
@@ -334,18 +334,18 @@ defmodule PairingsEngine.SwarExportTest do
        %{tournament: t, players: %{d: dave}} do
     # Regression for the "real SWAR reads back garbage" bug: before this
     # fix, a round with neither a Pairing nor a "byes" row for a player
-    # was simply left out of their `[RONDE]` array — self-consistent for
+    # was simply left out of their `[RONDE]` array - self-consistent for
     # our own reader (the length prefix matched what was actually
     # written), but real SWAR was found to desync on a file shaped like
     # that (a player accumulating rounds with no record at all): garbled
     # "???" opponent names and phantom results on LATER rounds for
     # exactly that player, traced from a real tournament export. Dave is
     # already globally `absent: true` (see `setup/0`) and played round 1
-    # for real; round 2 here gives him neither a pairing nor a byes row —
+    # for real; round 2 here gives him neither a pairing nor a byes row -
     # the exact gap shape that used to vanish from the array entirely.
     r2 = Repo.insert!(%Round{tournament_id: t.id, number: 2, status: "finished"})
     # Round 2 needs at least one real pairing for `Tournaments.list_rounds/1`
-    # to have something to iterate — reuse two other players.
+    # to have something to iterate - reuse two other players.
     a = Repo.get_by!(Player, tournament_id: t.id, name: "Alice Winner")
     b = Repo.get_by!(Player, tournament_id: t.id, name: "Bob Loser")
     pairing!(r2, 1, a, b, "1-0")
@@ -356,7 +356,7 @@ defmodule PairingsEngine.SwarExportTest do
     dave_parsed = Enum.find(parsed.players, &(&1.name == dave.name))
 
     # Both round 1 (real forfeit pairing) AND round 2 (the gap) are
-    # present — nb_round is 2, not 1, so the length prefix real SWAR
+    # present - nb_round is 2, not 1, so the length prefix real SWAR
     # reads still matches exactly what follows it.
     assert dave_parsed.nb_round == 2
     assert Enum.map(dave_parsed.rounds, & &1.round_nr) == [1, 2]
@@ -387,7 +387,7 @@ defmodule PairingsEngine.SwarExportTest do
 
     late_parsed = Enum.find(parsed.players, &(&1.name == "Late Joiner"))
 
-    # Only round 2 (the one they actually played) — round 1, before
+    # Only round 2 (the one they actually played) - round 1, before
     # start_round, is correctly absent from the array, not backfilled.
     assert Enum.map(late_parsed.rounds, & &1.round_nr) == [2]
   end
@@ -396,7 +396,7 @@ defmodule PairingsEngine.SwarExportTest do
     # Deliberately scrambled: the LOWEST pairing_number (registration
     # order, what `Ni` carries) belongs to the LOWEST-rated player, and
     # vice versa. If `Rank` were ever written as `Ni` again (the bug
-    # this pins down — see `reverse_player/5`'s own comment for the full
+    # this pins down - see `reverse_player/5`'s own comment for the full
     # story, including the real SWAR install this was found against),
     # this test would see Rank in registration order instead of rating
     # order and fail on every assertion below.

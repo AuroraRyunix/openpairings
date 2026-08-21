@@ -1,7 +1,7 @@
 defmodule PairingsEngine.TournamentExportTest do
   # Several tests here insert a second/third full tournament (teams, players,
   # rounds, byes, forbidden pairings) per test. Kept `async: false` for the
-  # same reason as PairingsEngine.TournamentImportTest — see the comment
+  # same reason as PairingsEngine.TournamentImportTest - see the comment
   # there and the `busy_timeout` note in config/test.exs.
   use PairingsEngine.DataCase, async: false
 
@@ -145,7 +145,7 @@ defmodule PairingsEngine.TournamentExportTest do
   describe "the exported field list must not rot behind the schema" do
     # This is the regression guard for a real, long-lived bug: the export's
     # @tournament_fields list had drifted far behind the schema, most
-    # damagingly missing `pairing_system` — so a JSON backup of a Keizer or
+    # damagingly missing `pairing_system` - so a JSON backup of a Keizer or
     # round-robin tournament silently restored as a Swiss one. Adding a
     # schema field now forces a deliberate choice: export it, or list it in
     # @excluded_tournament_fields with a reason.
@@ -211,7 +211,7 @@ defmodule PairingsEngine.TournamentExportTest do
       for field <- ~w(id user_id public_slug public_pages_enabled registration_open
                       deleted_at archived_at swar_guid) do
         refute Map.has_key?(t_map, field),
-               "#{field} must not be exported — see @excluded_tournament_fields"
+               "#{field} must not be exported - see @excluded_tournament_fields"
       end
     end
   end

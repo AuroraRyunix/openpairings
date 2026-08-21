@@ -44,7 +44,7 @@ defmodule PairingsEngine.Fide do
 
   # FTS5 prefix match, AND-ed across tokens (`"jorian"* "burssens"*`), then load
   # + rank the matched players. Returns nil (not []) if the FTS table is
-  # missing, so the caller can fall back — an empty *result* is a real answer.
+  # missing, so the caller can fall back - an empty *result* is a real answer.
   defp fts_search(tokens) do
     match = Enum.map_join(tokens, " ", &(~s("#{&1}") <> "*"))
 
@@ -84,7 +84,7 @@ defmodule PairingsEngine.Fide do
   def player_count, do: Repo.aggregate(FidePlayer, :count)
 
   @doc """
-  The FIDE player with `fide_id`, or `nil` — accepts the id as an integer or
+  The FIDE player with `fide_id`, or `nil` - accepts the id as an integer or
   as the string an `officials` map stores it as. `nil` for anything that isn't
   an id at all, so callers prefilling a form from stored data don't have to
   pre-validate it.
@@ -100,17 +100,17 @@ defmodule PairingsEngine.Fide do
 
   @doc """
   The FIDE rating to actually use for a tournament of the given cadence
-  classification (`tournament.standard` — `"standard"`/`"rapid"`/`"blitz"`,
+  classification (`tournament.standard` - `"standard"`/`"rapid"`/`"blitz"`,
   same field `PairingsEngine.RateOfPlay` reads): `fide_player`'s rating for
   that specific list, falling back to the Standard rating when the player
   has no rating in the tournament's own list (an untitled rapid/blitz
-  newcomer with only a Standard rating is the common case this covers —
+  newcomer with only a Standard rating is the common case this covers -
   FIDE itself only publishes a Rapid/Blitz rating once a player has enough
   rated games in that list). Anything other than `"rapid"`/`"blitz"`
   (including `""`/`nil`) reads the Standard rating directly, mirroring
   `RateOfPlay.list_for/1`'s own default. `nil` in, `nil` out.
 
-  FIDE's own list uses `0`, not a blank field, for "no rating in this list" —
+  FIDE's own list uses `0`, not a blank field, for "no rating in this list" -
   so the fallback has to treat `0` the same as `nil`. Plain `||` wouldn't:
   `0` is truthy in Elixir, so `0 || standard_rating` would return the `0`
   instead of falling through, and an unrated-in-that-list player would show

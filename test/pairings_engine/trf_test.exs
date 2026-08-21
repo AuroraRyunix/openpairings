@@ -106,7 +106,7 @@ defmodule PairingsEngine.TrfTest do
     # A player name has no format check beyond length, so it can carry a
     # newline/CR/tab. TRF is line- and column-oriented and this text is written
     # to the JaVaFo pairing-input file, so an unstripped newline would break
-    # the row into two — corrupting the parse or injecting a line.
+    # the row into two - corrupting the parse or injecting a line.
     data = put_in(sample(), [:players, Access.at(0), :name], "Ev\r\nil\t001 injected")
 
     lines = Trf.serialize(data) |> String.split("\r\n")
@@ -288,7 +288,7 @@ defmodule PairingsEngine.TrfTest do
     trf = two_player_round("=", "0") |> Trf.serialize()
     assert trf =~ "001"
 
-    # And the mirror image — the other side gets the ½.
+    # And the mirror image - the other side gets the ½.
     trf2 = two_player_round("0", "=") |> Trf.serialize()
     assert trf2 =~ "001"
   end
@@ -309,7 +309,7 @@ defmodule PairingsEngine.TrfTest do
   end
 
   test "serialize/1 does not flag a dangling/unresolvable opponent reference as illegal" do
-    # Round 1's opponent (rank 2) doesn't exist in this single-player roster —
+    # Round 1's opponent (rank 2) doesn't exist in this single-player roster -
     # that's a caller concern (e.g. a partial player card), not a result
     # validation error.
     data = %{
@@ -327,7 +327,7 @@ defmodule PairingsEngine.TrfTest do
     lines = String.split(text, "\r\n")
     p2 = Enum.find(lines, &(String.starts_with?(&1, "001") and &1 =~ "B"))
 
-    # Round 1's result column is 99 (base 92 + 7) — see round_cols/1. Flip
+    # Round 1's result column is 99 (base 92 + 7) - see round_cols/1. Flip
     # player B's loss into a second win, making the round illegal.
     bad_p2 = set_char(p2, 99, "1")
     bad_text = lines |> Enum.map(&if &1 == p2, do: bad_p2, else: &1) |> Enum.join("\r\n")
@@ -382,7 +382,7 @@ defmodule PairingsEngine.TrfTest do
   end
 
   # ---------------------------------------------------------------------
-  # TRF06 (FIDE's Annexure-B, 2006) — column-identical to TRF16, but
+  # TRF06 (FIDE's Annexure-B, 2006) - column-identical to TRF16, but
   # predates the F/H/U/Z bye codes: a bye is a dangling playing code
   # against opponent 0000, and a "not paired" round is left fully blank
   # rather than carrying any code at all (VCL.11 recommends, not requires,
@@ -390,7 +390,7 @@ defmodule PairingsEngine.TrfTest do
   # ---------------------------------------------------------------------
 
   # Places `text` at 1-indexed `col` in `line`, padding with spaces as
-  # needed — exact column math, so these fixtures can't suffer the same
+  # needed - exact column math, so these fixtures can't suffer the same
   # off-by-a-few-spaces mistake a hand-typed fixed-width string risks.
   defp place_col(line, position, text) do
     text = to_string(text)
@@ -423,7 +423,7 @@ defmodule PairingsEngine.TrfTest do
     parsed = Trf.parse(line <> "\r\n")
     assert [%{games: [%{opponent_rank: nil, colour: nil, result: "1"}]}] = parsed.players
 
-    # The exact same shape is still correctly rejected on the way OUT —
+    # The exact same shape is still correctly rejected on the way OUT -
     # OpenPairings' own JaVaFo-input construction must never write this.
     assert_raise Trf.ValidationError, fn ->
       Trf.serialize(%{
@@ -463,7 +463,7 @@ defmodule PairingsEngine.TrfTest do
   # TRF16 addresses fields by column, and every reader outside this codebase
   # counts a column as a BYTE. `col/3` above (String.slice) counts graphemes,
   # so it agrees with itself on a round-trip and cannot see the bug these
-  # tests exist for — hence a byte-exact reader here.
+  # tests exist for - hence a byte-exact reader here.
   defp byte_col(line, start, stop), do: :binary.part(line, start - 1, stop - start + 1)
 
   defp first_player_line(trf) do
@@ -524,7 +524,7 @@ defmodule PairingsEngine.TrfTest do
     test "without :ascii that same row shifts every field after the name" do
       line = "Hendricks, Björn" |> roster() |> Trf.serialize() |> first_player_line()
 
-      # One byte longer than it has characters — the whole cause.
+      # One byte longer than it has characters - the whole cause.
       assert byte_size(line) == String.length(line) + 1
 
       # Rating 2400 reads as 240, FIDE id 1001 as 100, and the entire round

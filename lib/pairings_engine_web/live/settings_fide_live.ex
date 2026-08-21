@@ -1,10 +1,10 @@
 defmodule PairingsEngineWeb.SettingsFideLive do
   @moduledoc """
-  The "FIDE" settings page (`/t/:id/settings/fide`) — the tournament's
+  The "FIDE" settings page (`/t/:id/settings/fide`) - the tournament's
   FIDE-report identifiers (the "ID of Tournament" and "Code of event" used on
   the IT3 / FA1 / IA1 / IT4 forms), the `fide_homologated` tickbox, and the
   per-round FIDE-ID-range editor (SWAR's "this FIDE tournament ID applies to
-  rounds X-Y" model — see `PairingsEngine.Tournaments.Tournament`'s
+  rounds X-Y" model - see `PairingsEngine.Tournaments.Tournament`'s
   `fide_id_ranges` schema doc and `PairingsEngine.TrfExport.applicable_fide_id/2`,
   the consumer at export time). The officials and arbiter details that feed
   those same report forms live on the Norms tab.
@@ -64,8 +64,8 @@ defmodule PairingsEngineWeb.SettingsFideLive do
   end
 
   # Keeps `rows` (the in-progress range editor state) in sync with every
-  # keystroke, so "Add row"/"Remove row" — which only touch `rows` directly,
-  # not the raw form params — never clobber edits the arbiter already typed
+  # keystroke, so "Add row"/"Remove row" - which only touch `rows` directly,
+  # not the raw form params - never clobber edits the arbiter already typed
   # into other rows. Nothing is persisted here; only "save" writes to the DB.
   @impl true
   def handle_event("validate", %{"tournament" => params}, socket) do
@@ -110,7 +110,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
   end
 
   # The "fide_id_ranges" form param arrives as a map indexed by string
-  # position ("0", "1", ...) rather than a list — standard HTML nested-form
+  # position ("0", "1", ...) rather than a list - standard HTML nested-form
   # shape for `tournament[fide_id_ranges][0][fide_tournament_id]` etc. Sorts
   # numerically back into row order. `nil` (no rows at all, e.g. every row
   # removed) yields an empty list.

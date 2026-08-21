@@ -5,13 +5,13 @@ defmodule PairingsEngine.Repo.Migrations.AddSwarAdminFields do
     alter table(:players) do
       # nopaid | paid | gratis (SWAR §5.20)
       add :paid, :string, null: false, default: "paid"
-      # SWAR Aff. (§5.21) — 0=not affiliated maps to false, 1/2 to true
+      # SWAR Aff. (§5.21) - 0=not affiliated maps to false, 1/2 to true
       add :affiliated, :boolean, null: false, default: true
-      # SWAR Absent checkbox — player not paired at all while set
+      # SWAR Absent checkbox - player not paired at all while set
       add :absent, :boolean, null: false, default: false
-      # SWAR Forfeit — player withdrawn/forfeited out
+      # SWAR Forfeit - player withdrawn/forfeited out
       add :forfeit, :boolean, null: false, default: false
-      # Fixed-table accommodation (SWAR HandyTable) — informational only
+      # Fixed-table accommodation (SWAR HandyTable) - informational only
       add :special_table, :boolean, null: false, default: false
       # Comma-separated round numbers, e.g. "3,5"
       add :absent_rounds, :string, null: false, default: ""

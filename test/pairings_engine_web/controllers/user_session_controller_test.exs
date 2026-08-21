@@ -75,7 +75,7 @@ defmodule PairingsEngineWeb.UserSessionControllerTest do
       conn: conn
     } do
       # An SSO-created account that separately set a local password would
-      # otherwise be a way to bypass the directory — this must lose to the
+      # otherwise be a way to bypass the directory - this must lose to the
       # domain check regardless of whether the password is correct.
       {:ok, user} =
         Accounts.find_or_create_from_keycloak(%{

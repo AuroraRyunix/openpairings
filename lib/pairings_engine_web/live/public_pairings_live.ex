@@ -1,7 +1,7 @@
 defmodule PairingsEngineWeb.PublicPairingsLive do
   @moduledoc """
   Public (no login required) read-only view of a tournament's paired
-  rounds — reachable at `/p/:slug/pairings` where `:slug` is the
+  rounds - reachable at `/p/:slug/pairings` where `:slug` is the
   tournament's unguessable `public_slug` (see docs/public-pages.md), not
   its numeric id. Anyone holding the link can view it; nothing here is
   editable. Subscribes to the tournament's PubSub topic and reloads live
@@ -10,7 +10,7 @@ defmodule PairingsEngineWeb.PublicPairingsLive do
   Defaults to the latest paired round, but carries a `?round=N` query param
   (via `<.link patch=...>`, same pattern PrintController's round links
   use) so any past round's history is reachable and bookmarkable/shareable
-  — not just whatever is currently being paired. Mirrors the authenticated
+  - not just whatever is currently being paired. Mirrors the authenticated
   Pairings page's round-picker (`PairingsLive`'s `round-picker` div), minus
   the editing controls.
   """
@@ -52,7 +52,7 @@ defmodule PairingsEngineWeb.PublicPairingsLive do
      )}
   end
 
-  # `?round=N` drives which round is shown — handled here (not in mount/3)
+  # `?round=N` drives which round is shown - handled here (not in mount/3)
   # so clicking a round-picker button patches the URL without a full
   # remount/re-subscribe. Missing/invalid/out-of-range values fall back to
   # the latest paired round, same as before this param existed.
@@ -68,7 +68,7 @@ defmodule PairingsEngineWeb.PublicPairingsLive do
         {:noreply, assign(socket, gone: true)}
 
       tournament ->
-        # Preserve whichever round the visitor is currently looking at —
+        # Preserve whichever round the visitor is currently looking at -
         # an unrelated broadcast (someone else's result elsewhere) must not
         # yank them back to the latest round mid-read.
         {:noreply,
@@ -82,7 +82,7 @@ defmodule PairingsEngineWeb.PublicPairingsLive do
     tournament = socket.assigns.tournament
     # The bound for both the default round and the "how far can `?round=N`
     # reach" check is the latest *published* round, not the latest paired
-    # one — `Pairing.paired_rounds_count/1` would leak that a round exists
+    # one - `Pairing.paired_rounds_count/1` would leak that a round exists
     # (and default visitors to it) before the arbiter meant it to be seen.
     # For "immediate" mode (the common case) these two counts are always
     # equal, since every paired round is published the instant it's made.
@@ -97,14 +97,14 @@ defmodule PairingsEngineWeb.PublicPairingsLive do
         _ -> max(published, 1)
       end
 
-    # Fetch first, then gate on `round_published?/2` — NOT `round_number <=
+    # Fetch first, then gate on `round_published?/2` - NOT `round_number <=
     # published`, because `latest_published_round_number/1` only tracks the
     # *highest* published round number. In "manual" mode an arbiter can
     # publish round 3 while leaving round 2 hidden (published out of
     # order), so a plain `<=` check would wrongly show round 2 just
     # because round 3 happens to be public. A round that isn't paired at
     # all comes back `nil` from `get_round/2` and reads the same as one
-    # that's paired-but-unpublished — the public side has no way (and no
+    # that's paired-but-unpublished - the public side has no way (and no
     # need) to tell those two apart.
     round =
       case Tournaments.get_round(tournament.id, round_number) do
@@ -133,7 +133,7 @@ defmodule PairingsEngineWeb.PublicPairingsLive do
   end
 
   # Board-list label only: `player_label/1` plus the player's score coming
-  # into this round, in the same parenthetical — "Name (2400, 2.5)", or
+  # into this round, in the same parenthetical - "Name (2400, 2.5)", or
   # "Name (2.5)" with no rating.
   defp seat_label(nil, _scores), do: ""
 
@@ -183,24 +183,24 @@ defmodule PairingsEngineWeb.PublicPairingsLive do
   defp leg_number(n), do: if(rem(n, 2) == 1, do: 1, else: 2)
 
   # Same display logic the authenticated Pairings page uses
-  # (`PairingsEngineWeb.PairingsLive.display_rows/1`) — fixed-table
+  # (`PairingsEngineWeb.PairingsLive.display_rows/1`) - fixed-table
   # ("special") boards renumbered/relabeled and moved to the end, byes and
   # vacant seats sorted below those, real boards renumbered to close the
   # gap. Before this, the public page just sorted by raw `pairing.board`,
   # so it silently disagreed with the private page (and print) on both
   # the board LABEL and the row ORDER the moment a tournament had a
-  # fixed-table player, a bye, or an absence — real board 10 showed "10"
+  # fixed-table player, a bye, or an absence - real board 10 showed "10"
   # here and "1001" there, for the exact same game.
-  # Hidden rows (an arbiter's "don't show me this fully-vacated board" —
+  # Hidden rows (an arbiter's "don't show me this fully-vacated board" -
   # see `PairingsEngine.Tournaments.set_pairing_hidden/3`) are filtered out
   # before they ever reach `PairingDisplay`, so a hidden row plays no part
-  # in the (already-frozen — see `PairingDisplay`'s moduledoc) board
+  # in the (already-frozen - see `PairingDisplay`'s moduledoc) board
   # renumbering at all, same as PairingsLive's own `display_rows/1`.
   defp display_rows(pairings) do
     pairings |> Enum.reject(& &1.hidden) |> PairingDisplay.with_display_boards()
   end
 
-  # Label for a byes-table row's `type` — distinct from the "bye" badge
+  # Label for a byes-table row's `type` - distinct from the "bye" badge
   # shown for a pairing-allocated bye (a real Pairing row), since these
   # never appear in round.pairings (see Tournaments.list_byes_for_round/2).
   defp bye_type_label("requested-half"), do: "requested half-point bye"

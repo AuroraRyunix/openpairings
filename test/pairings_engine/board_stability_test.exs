@@ -3,11 +3,11 @@ defmodule PairingsEngine.BoardStabilityTest do
   Regression net for two related instances of one bug class, both found the
   hard way in production: a board's displayed number was derived LIVE from
   something outside that board's own row, so changing something unrelated
-  silently renumbered a board that nobody touched — mid-round, with people
+  silently renumbered a board that nobody touched - mid-round, with people
   already seated at it.
 
     * 0.14.6: the number came from a board's POSITION within a filtered
-      collection (bye/vacant/normal buckets) — fixed by numbering every
+      collection (bye/vacant/normal buckets) - fixed by numbering every
       non-special pairing in one pass, sorted by real board, regardless of
       bye/vacant/normal status. See the "survives changes to another
       board" tests below.
@@ -18,7 +18,7 @@ defmodule PairingsEngine.BoardStabilityTest do
       retroactively renumbered every board after theirs. Fixed by freezing
       `PairingDisplay.compute_labels/1`'s output onto
       `Pairing.display_board`/`display_special`, once, at the moment a
-      round is (re-)paired — see `PairingsEngine.Tournaments.freeze_round_display_boards!/1`
+      round is (re-)paired - see `PairingsEngine.Tournaments.freeze_round_display_boards!/1`
       and `PairingsEngine.PairingDisplay`'s moduledoc. See the "frozen at
       pairing time" tests below.
 
@@ -26,7 +26,7 @@ defmodule PairingsEngine.BoardStabilityTest do
 
       Changing ANYTHING about one board, or about a player who isn't
       currently seated at it, must never change the number displayed next
-      to a board it doesn't touch — and once a round is paired, NOTHING
+      to a board it doesn't touch - and once a round is paired, NOTHING
       short of re-pairing (or an explicit freeze) may change its numbers
       at all.
   """
@@ -62,7 +62,7 @@ defmodule PairingsEngine.BoardStabilityTest do
 
     # Every production call site freezes display labels immediately after
     # inserting a round's pairings (see Tournaments.freeze_round_display_boards!/1's
-    # callers) — do the same here so the fixture matches reality instead of
+    # callers) - do the same here so the fixture matches reality instead of
     # leaving display_board nil, which no real round ever does.
     :ok = Tournaments.freeze_round_display_boards!(round.id)
 
@@ -85,7 +85,7 @@ defmodule PairingsEngine.BoardStabilityTest do
       assert Map.get(after_labels, board) == label,
              "board #{board} was renumbered from #{label} to " <>
                "#{inspect(Map.get(after_labels, board))} because board " <>
-               "#{changed_board} changed — that is the 0.14.6 bug"
+               "#{changed_board} changed - that is the 0.14.6 bug"
     end
   end
 
@@ -178,7 +178,7 @@ defmodule PairingsEngine.BoardStabilityTest do
       :ok = Tournaments.freeze_round_display_boards!(round.id)
 
       result = labels(round.id)
-      # Board 2 held the fixed_board player (players 3 & 4 → board 2) —
+      # Board 2 held the fixed_board player (players 3 & 4 → board 2) -
       # freezing at pairing time is exactly the normal, wanted case: no
       # hole left in the ordinary sequence.
       changed_board = Enum.at(pairings, 1).board
@@ -233,7 +233,7 @@ defmodule PairingsEngine.BoardStabilityTest do
 
       :ok = Tournaments.freeze_round_display_boards!(round2.id)
 
-      # Player 7 (index 6) is on board 4 of round 2 — freezing a NEW round
+      # Player 7 (index 6) is on board 4 of round 2 - freezing a NEW round
       # is exactly "when I click pair", so it correctly picks up the
       # fixed_board that was set in between round 1 and round 2.
       changed_board = Enum.at(pairings2, 3).board
@@ -249,7 +249,7 @@ defmodule PairingsEngine.BoardStabilityTest do
       changed_board = Enum.at(pairings, 1).board
       assert labels(round.id)[changed_board] != "1001"
 
-      # There is no automatic trigger for this — an arbiter would have to
+      # There is no automatic trigger for this - an arbiter would have to
       # explicitly unpair and re-pair the round. This test only confirms
       # freeze_round_display_boards!/1 itself is not stale logic: calling
       # it again does reflect current fixed_board state, it is simply never
@@ -260,7 +260,7 @@ defmodule PairingsEngine.BoardStabilityTest do
   end
 
   describe "hiding a fully-vacated row never renumbers anything else (PairingsLive's own display_rows/1 filter)" do
-    # Mirrors `PairingsEngineWeb.PairingsLive.display_rows/1` exactly —
+    # Mirrors `PairingsEngineWeb.PairingsLive.display_rows/1` exactly -
     # hidden rows are rejected BEFORE `with_display_boards/1` ever sees
     # them, so this pins that the surviving rows' labels are unaffected,
     # same invariant as every other test in this file.

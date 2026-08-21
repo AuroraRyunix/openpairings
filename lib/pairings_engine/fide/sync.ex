@@ -16,7 +16,7 @@ defmodule PairingsEngine.Fide.Sync do
   @topic "fide_sync"
 
   @doc """
-  Where the rating-list zip is fetched from — FIDE directly by default,
+  Where the rating-list zip is fetched from - FIDE directly by default,
   overridable with `FIDE_LIST_URL` (see `config/runtime.exs`).
 
   The override exists because ratings.fide.com blocks some hosting ranges
@@ -33,14 +33,14 @@ defmodule PairingsEngine.Fide.Sync do
   end
 
   @doc """
-  Host `list_url/0` points at, for the progress line — "FIDE" when it's the
+  Host `list_url/0` points at, for the progress line - "FIDE" when it's the
   default, otherwise the actual hostname.
 
   Named rather than left as a constant "Contacting FIDE…" because
   `FIDE_LIST_URL` is read once at boot, from a `.env` in the service's
   working directory: an override that was mistyped, quoted, put in the wrong
   directory, or simply added without restarting is invisible from the UI, and
-  looks identical to FIDE blocking the host — the same silent stall, for
+  looks identical to FIDE blocking the host - the same silent stall, for
   four different reasons. Showing the host it is actually dialling separates
   them at a glance.
   """
@@ -77,7 +77,7 @@ defmodule PairingsEngine.Fide.Sync do
   # UI on "Contacting FIDE…" forever. Reset on every progress broadcast.
   @watchdog_timeout_ms :timer.minutes(3)
 
-  # Header labels in file order — "ID Number" is one column despite the space.
+  # Header labels in file order - "ID Number" is one column despite the space.
   @header_labels [
     "ID Number",
     "Name",
@@ -205,7 +205,7 @@ defmodule PairingsEngine.Fide.Sync do
   end
 
   # Safety net for exits that bypass run_sync's `rescue` (e.g. the task being
-  # killed, or an exit signal from the HTTP client) — without this, a crashed
+  # killed, or an exit signal from the HTTP client) - without this, a crashed
   # task would leave the GenServer stuck in :downloading/:importing forever
   # and the "Update" button would never re-enable.
   def handle_info({:DOWN, ref, :process, _pid, reason}, %{task_ref: ref} = state)
@@ -233,7 +233,7 @@ defmodule PairingsEngine.Fide.Sync do
     new_state = %__MODULE__{
       status: :error,
       error:
-        "Sync stalled with no progress — the FIDE server may be slow or unreachable. Please try again."
+        "Sync stalled with no progress - the FIDE server may be slow or unreachable. Please try again."
     }
 
     {:noreply, broadcast(new_state)}
@@ -278,7 +278,7 @@ defmodule PairingsEngine.Fide.Sync do
   end
 
   defp format_error(%Req.TransportError{} = reason),
-    do: "Download failed — #{describe_error(reason)}. Please try again."
+    do: "Download failed - #{describe_error(reason)}. Please try again."
 
   defp format_error(reason) when is_binary(reason), do: reason
   defp format_error(reason), do: inspect(reason)
@@ -357,7 +357,7 @@ defmodule PairingsEngine.Fide.Sync do
       {:ok, %{status: 200}} ->
         if Process.get(:sync_download_aborted) do
           {:error,
-           "Rating list exceeded #{div(@max_download_bytes, 1_000_000)} MB — download stopped."}
+           "Rating list exceeded #{div(@max_download_bytes, 1_000_000)} MB - download stopped."}
         else
           zip = Process.get(:sync_chunks) |> Enum.reverse() |> IO.iodata_to_binary()
           loaded = byte_size(zip)
@@ -375,7 +375,7 @@ defmodule PairingsEngine.Fide.Sync do
             state
             | status: :downloading,
               progress:
-                "Download interrupted (#{describe_error(reason)}) — retrying " <>
+                "Download interrupted (#{describe_error(reason)}) - retrying " <>
                   "(attempt #{attempt + 1}/#{@max_download_attempts})…"
           })
 
@@ -417,7 +417,7 @@ defmodule PairingsEngine.Fide.Sync do
 
   # `@doc false` and `def` (not `defp`) purely so tests can drive this
   # transaction/count-guard logic directly with synthetic FIDE-list text,
-  # without going through the real HTTP download+unpack — see
+  # without going through the real HTTP download+unpack - see
   # PairingsEngine.Fide.SyncTest. Not part of the module's intended public API.
   @doc false
   def import_list(server, text, state) do
@@ -436,14 +436,14 @@ defmodule PairingsEngine.Fide.Sync do
     # Snapshot the cache size *before* the transaction touches anything, so
     # a corrupt/truncated download that still parses a valid header but
     # yields few/no usable data rows can be detected and rolled back rather
-    # than silently wiping the whole local cache — see the guard below.
+    # than silently wiping the whole local cache - see the guard below.
     current_count = Repo.aggregate(FidePlayer, :count)
 
     Repo.transaction(
       fn ->
         # The `fide_players_fts` triggers are per-row, and the delete/update
         # ones look the doomed row up with `WHERE fide_id = ?` on a column the
-        # FTS5 table declares UNINDEXED — so each firing scans the whole index.
+        # FTS5 table declares UNINDEXED - so each firing scans the whole index.
         # Fine for the ad-hoc single-row writes they exist for; quadratic for
         # this full replace, which fires them ~1.9M times and never finishes.
         # Suspend them, do the bulk work set-based, then put them back.
@@ -471,7 +471,7 @@ defmodule PairingsEngine.Fide.Sync do
             )
 
             # Real running total (not an i * 2000 approximation, which
-            # overcounts on a partial final chunk) — also what the
+            # overcounts on a partial final chunk) - also what the
             # zero-row/big-drop guard below checks.
             imported = acc + length(chunk)
 
@@ -489,7 +489,7 @@ defmodule PairingsEngine.Fide.Sync do
         cond do
           imported == 0 ->
             Repo.rollback(
-              "FIDE import produced zero usable player rows — the downloaded file may be " <>
+              "FIDE import produced zero usable player rows - the downloaded file may be " <>
                 "corrupt or truncated. The existing #{format_int(current_count)}-player " <>
                 "cache was left untouched."
             )
@@ -497,13 +497,13 @@ defmodule PairingsEngine.Fide.Sync do
           current_count > 0 and imported < div(current_count, 2) ->
             Repo.rollback(
               "FIDE import only produced #{format_int(imported)} usable player rows, far " <>
-                "fewer than the existing #{format_int(current_count)}-player cache — the " <>
+                "fewer than the existing #{format_int(current_count)}-player cache - the " <>
                 "downloaded file may be corrupt or truncated. The existing cache was left " <>
                 "untouched."
             )
 
           true ->
-            # Only worth rebuilding the index once the import is known good —
+            # Only worth rebuilding the index once the import is known good -
             # the guards above roll back, which would throw this away anyway.
             update(server, %{
               state

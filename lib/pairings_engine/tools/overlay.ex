@@ -2,7 +2,7 @@ defmodule PairingsEngine.Tools.Overlay do
   @moduledoc """
   Merges the "what the files don't contain" fields collected on the public
   arbiter tools page (`PairingsEngineWeb.ToolsNormsLive`, see docs/tools.md)
-  — chief arbiter, deputy arbiters, organizer, event code — onto a
+  - chief arbiter, deputy arbiters, organizer, event code - onto a
   `%Tournament{}` (already produced by `PairingsEngine.Norms.Combine.combine/2`),
   the same shape the Settings page's "Officials & FIDE report data" card
   writes onto a real, persisted tournament (see docs/norms.md).
@@ -10,21 +10,21 @@ defmodule PairingsEngine.Tools.Overlay do
   Pure: never touches the database. Every field is only applied when
   non-blank, so a `SwarImport`/`TrfImport`-supplied value already on the
   tournament (e.g. a chief arbiter name a TRF file's 092 line carried) isn't
-  silently blanked out by an empty form field — the overlay only *adds*
+  silently blanked out by an empty form field - the overlay only *adds*
   what's missing.
   """
 
   alias PairingsEngine.Tournaments.Tournament
 
   @doc """
-  Applies `overlay` (a string-keyed map — see the field list below, all
+  Applies `overlay` (a string-keyed map - see the field list below, all
   optional) onto `tournament`, returning the merged `%Tournament{}`.
 
   Recognised keys: `"chief_arbiter_name"` / `"chief_arbiter_fide_id"` /
   `"chief_arbiter_email"`, `"deputyN_name"` / `"deputyN_fide_id"` for `N` in
-  `1..2` (FIDE only ever ranks 2 deputies by name — see docs/norms.md),
+  `1..2` (FIDE only ever ranks 2 deputies by name - see docs/norms.md),
   `"arbiterN_name"` / `"arbiterN_fide_id"` for `N` in `1..extra_arbiters_count`
-  (arbiters beyond those 2 ranked deputies — see
+  (arbiters beyond those 2 ranked deputies - see
   `PairingsEngine.Norms.ItThreeExpand`), `"organizer_name"` / `"organizer_fide_id"` /
   `"organizer_email"`, `"person_responsible_pairings"` /
   `"person_responsible_pairings_fide_id"`, `"event_code"`, `"fide_tournament_id"`.

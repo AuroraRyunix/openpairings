@@ -64,7 +64,7 @@ defmodule PairingsEngine.PairingRationaleTest do
   test "for_round/2 flags the floater and names the bye recipient in a later Swiss round" do
     t = Repo.insert!(%Tournament{name: "Swiss", type: "swiss", rounds_count: 5})
 
-    # Five players — odd field, so every round has a pairing-allocated bye.
+    # Five players - odd field, so every round has a pairing-allocated bye.
     p =
       for {name, rating} <- [
             {"Alice", 2000},
@@ -119,7 +119,7 @@ defmodule PairingsEngine.PairingRationaleTest do
   # tournament actually ranks (and pairs) on. Reading `entry.total` here
   # instead of `Standings.rank_score/2` put a player's administrative extra
   # points (SWAR "XtPts") into the rationale even when `count_extra_points`
-  # was off — the default, and what every SWAR import starts as — so the
+  # was off - the default, and what every SWAR import starts as - so the
   # rationale's numbers disagreed with the standings table by exactly the
   # extra points, on every board, every round.
   describe "extra points count in the rationale only when the tournament counts them" do
@@ -217,7 +217,7 @@ defmodule PairingsEngine.PairingRationaleTest do
         result: "1-0"
       })
 
-      # Round 2 hand-built with the same pair meeting again — the real
+      # Round 2 hand-built with the same pair meeting again - the real
       # engine avoids this, so this simulates hand-edited/imported data.
       round2 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 2, status: "playing"})
 
@@ -242,7 +242,7 @@ defmodule PairingsEngine.PairingRationaleTest do
       # `black_player_id`). This hand-built pairing reproduces that state
       # directly: black seated, white vacated. Before the fix, `for_round/2`
       # crashed with `(KeyError) key :id not found in: nil` computing
-      # `white.id` in the rematch check — this pins that it no longer does,
+      # `white.id` in the rematch check - this pins that it no longer does,
       # for both round 1 (no prior history to check) and a later round
       # (`played_before` is non-empty, exercising the real MapSet lookup
       # path around the guard, not just an early-return on an empty set).

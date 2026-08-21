@@ -1,5 +1,5 @@
 defmodule PairingsEngine.Tools.SessionTest do
-  # async: true — pure ETS, no database. The store under test is the app's
+  # async: true - pure ETS, no database. The store under test is the app's
   # own singleton (started by PairingsEngine.Application); every test uses
   # its own random token, so concurrent tests never collide.
   use ExUnit.Case, async: true
@@ -65,7 +65,7 @@ defmodule PairingsEngine.Tools.SessionTest do
     # bytes, not just in rows: 500 entries of ten 5 MB uploads each would
     # otherwise pin gigabytes for an hour. The budget is shrunk here rather
     # than allocating real hundreds of megabytes, and every token these tests
-    # create is removed again — the ETS table outlives the test.
+    # create is removed again - the ETS table outlives the test.
     setup do
       Application.put_env(:pairings_engine, :tools_session_max_bytes, 300_000)
 
@@ -93,7 +93,7 @@ defmodule PairingsEngine.Tools.SessionTest do
 
       assert total <= 300_000
 
-      # The most recent upload always survives — it is the one whose download
+      # The most recent upload always survives - it is the one whose download
       # link the person is about to click.
       assert {:ok, %{blob: _}} = Session.get(List.last(tokens))
       # ...and the oldest ones are what paid for it.

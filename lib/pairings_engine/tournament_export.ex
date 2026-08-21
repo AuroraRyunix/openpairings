@@ -1,13 +1,13 @@
 defmodule PairingsEngine.TournamentExport do
   @moduledoc """
-  Full-fidelity JSON backup of one or more tournaments — everything
+  Full-fidelity JSON backup of one or more tournaments - everything
   OpenPairings models for a tournament (settings incl. officials/norm
   metadata, teams, players incl. `norm_data`, rounds, pairings/results,
   byes, forbidden pairings), as opposed to `PairingsEngine.TrfExport`'s
   FIDE-report-shaped TRF16 output. See `docs/import-export.md` for the
   envelope format and `PairingsEngine.TournamentImport` for the inverse.
 
-  The owning user is deliberately never included — an import always creates
+  The owning user is deliberately never included - an import always creates
   brand-new tournaments owned by whoever imports the file. Every other id
   (tournament, team, player, round) is carried along verbatim as `"id"`
   purely so sibling records within the *same* envelope (pairings under a
@@ -32,7 +32,7 @@ defmodule PairingsEngine.TournamentExport do
 
   # Every tournament field that is actual tournament *content*. Kept in sync
   # with the schema by `tournament_export_test.exs`, which fails if a new
-  # schema field is neither listed here nor deliberately excluded below —
+  # schema field is neither listed here nor deliberately excluded below -
   # this list had silently rotted behind the schema for a long time, most
   # damagingly missing `pairing_system` itself, so a backup of a Keizer or
   # round-robin tournament restored as a Swiss one.
@@ -53,7 +53,7 @@ defmodule PairingsEngine.TournamentExport do
     manual_ranking manual_ranking_stale
   )a
 
-  # Deliberately NOT exported, with the reason for each — asserted by the
+  # Deliberately NOT exported, with the reason for each - asserted by the
   # same test, so adding a schema field forces a conscious choice rather
   # than a silent omission.
   #
@@ -62,7 +62,7 @@ defmodule PairingsEngine.TournamentExport do
   #     whoever imports it (see this module's moduledoc).
   #   public_slug
   #     The imported copy must get its own unguessable link, not share the
-  #     original's — otherwise one leaked link exposes both.
+  #     original's - otherwise one leaked link exposes both.
   #   public_pages_enabled, registration_open
   #     Sharing must be an explicit opt-in per tournament, never inherited
   #     from a file someone was handed. Both default off on the new row.
@@ -77,7 +77,7 @@ defmodule PairingsEngine.TournamentExport do
   #     Known gap: binary, would need base64 in the envelope. Documented in
   #     docs/import-export.md rather than silently dropped.
   #   head_snapshot_id
-  #     Points at a `tournament_snapshots` row — restore-point bookkeeping,
+  #     Points at a `tournament_snapshots` row - restore-point bookkeeping,
   #     and snapshots aren't part of the envelope. Carrying the id would
   #     dangle against another tournament's snapshot table. An imported copy
   #     legitimately starts with no history behind it.
@@ -148,7 +148,7 @@ defmodule PairingsEngine.TournamentExport do
 
   # `pairings.match_id` is deliberately NOT exported. The Pairing schema
   # declares it as a plain `field :match_id, :integer`, but the migration
-  # makes it a real foreign key into the `matches` table — team-tournament
+  # makes it a real foreign key into the `matches` table - team-tournament
   # scaffolding that is not exported (and that nothing currently writes;
   # see TODO.md's team-tournaments entry). Carrying the raw integer across
   # would point the imported pairing at another tournament's match row, or

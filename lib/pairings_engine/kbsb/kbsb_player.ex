@@ -2,7 +2,7 @@ defmodule PairingsEngine.Kbsb.KbsbPlayer do
   use Ecto.Schema
 
   # Belgian national IDs ("matricule") are printed with leading zeros in some
-  # club exports, so they're kept as strings — same treatment as
+  # club exports, so they're kept as strings - same treatment as
   # `PairingsEngine.Tournaments.Player.national_id`.
   @primary_key {:national_id, :string, autogenerate: false}
   schema "kbsb_players" do

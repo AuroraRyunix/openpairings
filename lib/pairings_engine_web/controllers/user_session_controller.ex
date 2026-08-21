@@ -36,7 +36,7 @@ defmodule PairingsEngineWeb.UserSessionController do
     cond do
       # The SSO-only domain is exactly that: an account there exists solely
       # because 02cloud SSO created it, so a local password must never be an
-      # alternative way in — otherwise setting one in Settings would quietly
+      # alternative way in - otherwise setting one in Settings would quietly
       # route around the directory (and around its MFA). Unlike the generic
       # branch below this says so plainly, which leaks nothing: the rule is a
       # property of the domain, identical for addresses that exist and ones

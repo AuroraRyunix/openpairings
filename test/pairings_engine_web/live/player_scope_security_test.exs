@@ -5,7 +5,7 @@ defmodule PairingsEngineWeb.PlayerScopeSecurityTest do
 
   `get_authorized_tournament!/2` gates the TOURNAMENT at mount, but a player
   id arrives later, in the event payload, and is entirely attacker-controlled
-  — so authorising the mount proves nothing about the row a handler then goes
+  - so authorising the mount proves nothing about the row a handler then goes
   and fetches. Without a scoped lookup, any logged-in user with a tournament
   of their own can name a player id belonging to somebody else's tournament
   and have these handlers act on it.
@@ -31,7 +31,7 @@ defmodule PairingsEngineWeb.PlayerScopeSecurityTest do
     {t, player}
   end
 
-  # The attacker's own tournament, which they legitimately own — this is what
+  # The attacker's own tournament, which they legitimately own - this is what
   # gets them a mounted, authorised socket to fire events from.
   defp attacker_tournament(scope) do
     {:ok, t} = Tournaments.create_tournament(scope, %{"name" => "Attacker's", "type" => "swiss"})
@@ -40,17 +40,17 @@ defmodule PairingsEngineWeb.PlayerScopeSecurityTest do
 
   # The scoped lookup (`Tournaments.get_player/2`) returns nil for a player id
   # outside the socket's tournament, so these handlers refuse the action by
-  # doing nothing — a graceful no-op, not a crash. A legitimate user never
+  # doing nothing - a graceful no-op, not a crash. A legitimate user never
   # reaches this path: every id they can click is inside their own tournament.
-  # The assertion each test cares about is the security property — the foreign
-  # row is untouched and its data is never rendered — not the mechanism.
+  # The assertion each test cares about is the security property - the foreign
+  # row is untouched and its data is never rendered - not the mechanism.
   test "deleting a player from another user's tournament is refused", %{conn: conn, scope: scope} do
     {_victim_t, victim_player} = victim_player()
     mine = attacker_tournament(scope)
 
     {:ok, lv, _html} = live(conn, ~p"/t/#{mine.id}/players")
 
-    # The attacker names a player id they were never authorised for — the
+    # The attacker names a player id they were never authorised for - the
     # handler no-ops rather than crashing the socket.
     render_hook(lv, "delete", %{"id" => to_string(victim_player.id)})
 

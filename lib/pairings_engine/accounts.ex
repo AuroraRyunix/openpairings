@@ -99,7 +99,7 @@ defmodule PairingsEngine.Accounts do
   ## 02cloud SSO
 
   @doc """
-  Finds or creates the local account for a verified 02cloud SSO identity —
+  Finds or creates the local account for a verified 02cloud SSO identity -
   the counterpart to the registration-domain blocklist in
   `PairingsEngine.Accounts.User`: this is the *only* path that's allowed to
   create (or attach SSO to) an `@zerotwo.cloud` account, and it's also open
@@ -107,19 +107,19 @@ defmodule PairingsEngine.Accounts do
   policy.
 
   `attrs` is `%{sub: sub, email: email}` (`sub` and `email` from Keycloak's
-  userinfo response — see `PairingsEngineWeb.KeycloakAuthController`).
+  userinfo response - see `PairingsEngineWeb.KeycloakAuthController`).
 
   Resolution order, matching how a person's SSO identity can legitimately
   relate to an existing local account:
 
-  1. **By `keycloak_sub`** — a return visit from someone already coupled.
+  1. **By `keycloak_sub`** - a return visit from someone already coupled.
      This is checked first and is the only stable key: Keycloak's `sub` never
      changes, unlike the email below, which can be renamed on either side.
-  2. **By `email`** — a pre-existing password/magic-link account whose email
-     matches this SSO identity gets *coupled* (its `keycloak_sub` is set) —
+  2. **By `email`** - a pre-existing password/magic-link account whose email
+     matches this SSO identity gets *coupled* (its `keycloak_sub` is set) -
      "auto create a coupled account" for someone who already had one, rather
      than producing a confusing second account with the same email.
-  3. **Neither** — a brand-new account is created, pre-confirmed (see
+  3. **Neither** - a brand-new account is created, pre-confirmed (see
      `User.keycloak_changeset/2` for why).
 
   Returns `{:ok, user}` or `{:error, changeset}`.

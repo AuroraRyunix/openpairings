@@ -1,13 +1,13 @@
 defmodule PairingsEngine.ResultsImport do
   @moduledoc """
-  Bulk CSV import of a round's results — "board number + result" lines
+  Bulk CSV import of a round's results - "board number + result" lines
   entered by the arbiter, applied to exactly the boards named and leaving
   everyone else alone. See `docs/results-import.md`.
 
   `parse_text/1` is a pure parser (raw file bytes in, `{board, result}`
   pairs out); `apply_import/3` matches each parsed board against a round's
   actual pairings and writes results through
-  `PairingsEngine.Tournaments.update_pairing_result/2` — the exact same
+  `PairingsEngine.Tournaments.update_pairing_result/2` - the exact same
   write path the Pairings page's inline result `<select>` uses, so live
   broadcasts and status refresh happen identically whether a result came
   from a click or a CSV line.
@@ -20,7 +20,7 @@ defmodule PairingsEngine.ResultsImport do
   ## ---------- Parsing ----------
 
   @doc """
-  Parses CSV text (raw file bytes — UTF-8 or Windows-1252, with or without a
+  Parses CSV text (raw file bytes - UTF-8 or Windows-1252, with or without a
   UTF-8 BOM) into a list of `{board, result}` pairs.
 
   Accepts either `;` or `,` as the field separator (auto-detected per file:
@@ -30,17 +30,17 @@ defmodule PairingsEngine.ResultsImport do
 
   Recognized result tokens (case-insensitive, whitespace-trimmed):
 
-    * `1-0` — white wins
-    * `0-1` — black wins
-    * `1/2-1/2`, `½-½`, `0.5-0.5`, `=` — draw
-    * `0-0`, `X` — both lose, game actually played
-    * `1-0FF`, `+/-` — white wins by forfeit
-    * `0-1FF`, `-/+` — black wins by forfeit
-    * `0-0FF`, `-/-` — double forfeit (neither played)
+    * `1-0` - white wins
+    * `0-1` - black wins
+    * `1/2-1/2`, `½-½`, `0.5-0.5`, `=` - draw
+    * `0-0`, `X` - both lose, game actually played
+    * `1-0FF`, `+/-` - white wins by forfeit
+    * `0-1FF`, `-/+` - black wins by forfeit
+    * `0-0FF`, `-/-` - double forfeit (neither played)
 
   Returns `{:ok, [{board, result}]}` when every line parses cleanly, or
-  `{:error, [reason, ...]}` — one entry per malformed line or duplicate
-  board — otherwise. Never raises.
+  `{:error, [reason, ...]}` - one entry per malformed line or duplicate
+  board - otherwise. Never raises.
   """
   def parse_text(raw) when is_binary(raw) do
     lines =
@@ -78,7 +78,7 @@ defmodule PairingsEngine.ResultsImport do
   end
 
   # A header row's first field won't parse as a plain integer ("Board",
-  # "Bord nr", ...) — a data row's always will. Only ever called with a
+  # "Bord nr", ...) - a data row's always will. Only ever called with a
   # non-empty list (the caller already handled `[]` itself).
   defp maybe_drop_header([first | rest] = lines, separator) do
     case String.split(first, separator, parts: 2) do
@@ -163,7 +163,7 @@ defmodule PairingsEngine.ResultsImport do
   validated against that round's actual pairings first (unknown board, a
   bye board, or a board named twice are all collected as errors) and
   *nothing* is written unless every row is valid. Boards not mentioned in
-  `rows` keep their current result — this is a partial-entry-friendly
+  `rows` keep their current result - this is a partial-entry-friendly
   update, not a wholesale replace.
 
   Returns `{:ok, count}` (number of results written) or
@@ -184,7 +184,7 @@ defmodule PairingsEngine.ResultsImport do
                 {resolved, ["board #{board}: no such board in round #{round_number}" | errors]}
 
               %{result: "bye"} ->
-                {resolved, ["board #{board}: is a bye — no result to enter" | errors]}
+                {resolved, ["board #{board}: is a bye - no result to enter" | errors]}
 
               pairing ->
                 {[{pairing, result} | resolved], errors}
@@ -201,7 +201,7 @@ defmodule PairingsEngine.ResultsImport do
 
   # Mirrors PairingsEngine.SwarImport's bulk-write shape: individual writes
   # inside the transaction don't broadcast (a subscriber could otherwise
-  # query the database before the writes are actually committed) —
+  # query the database before the writes are actually committed) -
   # broadcast once, for real, after commit, then let `refresh_status!/1`
   # recompute round/tournament status the same way any other result write
   # does.
@@ -227,7 +227,7 @@ defmodule PairingsEngine.ResultsImport do
         {:ok, length(pairs)}
 
       {:error, :archived} ->
-        {:error, ["This tournament is archived — unarchive it to make changes."]}
+        {:error, ["This tournament is archived - unarchive it to make changes."]}
 
       {:error, changeset} ->
         {:error, ["Could not save results: #{changeset_error_text(changeset)}"]}

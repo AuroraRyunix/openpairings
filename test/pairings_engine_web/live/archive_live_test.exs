@@ -24,7 +24,7 @@ defmodule PairingsEngineWeb.ArchiveLiveTest do
     tournament
   end
 
-  # Same pattern as PairingsEngineWeb.SharingTest's `collaborator_conn/2` —
+  # Same pattern as PairingsEngineWeb.SharingTest's `collaborator_conn/2` -
   # a fresh, already-accepted collaborator with their own logged-in conn.
   defp collaborator_conn(tournament, scope) do
     other_user =
@@ -40,7 +40,7 @@ defmodule PairingsEngineWeb.ArchiveLiveTest do
     Phoenix.ConnTest.build_conn() |> log_in_user(other_user)
   end
 
-  describe "Tournaments page — archiving" do
+  describe "Tournaments page - archiving" do
     test "an Archive button is offered for an owned tournament", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
 

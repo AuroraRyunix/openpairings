@@ -7,7 +7,7 @@ defmodule PairingsEngine.Repo.Migrations.AddPairingDisplayBoard do
   # whatever a player's `fixed_board` happens to be RIGHT NOW. That was a
   # real, reported bug: giving a player a fixed (accessible/wheelchair)
   # table after their round was already paired silently renumbered every
-  # board after theirs on an already-in-progress round — the 0.14.6 board-
+  # board after theirs on an already-in-progress round - the 0.14.6 board-
   # renumbering class of bug, surviving in one narrower spot. A board's
   # displayed number and special/ordinary classification must be decided
   # once, at the moment the round is actually paired, and never move again
@@ -15,12 +15,12 @@ defmodule PairingsEngine.Repo.Migrations.AddPairingDisplayBoard do
   # while people are already seated.
   #
   # `display_board` is the label to print (a plain "N" for an ordinary
-  # board, the fixed_board value(s) for a special one — see
+  # board, the fixed_board value(s) for a special one - see
   # PairingsEngine.PairingDisplay); `display_special` is whether it counts
   # as special for row-ordering purposes. Both are set exactly once, by
   # PairingsEngine.Tournaments.freeze_round_display_boards!/1, at every
   # place a round's pairings are created (ordinary pairing, round-robin,
-  # Keizer, and the three importers) — never touched again afterward, not
+  # Keizer, and the three importers) - never touched again afterward, not
   # even by a later swap/vacate/fill edit on the same round.
   def change do
     alter table(:pairings) do
@@ -30,13 +30,13 @@ defmodule PairingsEngine.Repo.Migrations.AddPairingDisplayBoard do
 
     # Backfill every existing pairing using the exact algorithm
     # PairingDisplay used to run live, so this migration changes NOTHING
-    # about what any existing round currently displays — it only freezes
+    # about what any existing round currently displays - it only freezes
     # today's already-correct computed values in place, stopping them from
     # ever drifting again. Deliberately self-contained (raw table queries,
     # no application schema/module) rather than calling
     # PairingsEngine.PairingDisplay directly, matching this repo's existing
     # backfill-migration precedent (see add_public_slug_to_tournaments.exs)
-    # — a migration must keep producing the SAME result when replayed from
+    # - a migration must keep producing the SAME result when replayed from
     # scratch years from now, even after that module has since changed.
     flush()
     backfill_display_boards()
@@ -115,7 +115,7 @@ defmodule PairingsEngine.Repo.Migrations.AddPairingDisplayBoard do
   end
 
   # `set:` here targets the raw "pairings" table name, not a schema, so
-  # Ecto has no :boolean type info to encode `special?` through — it would
+  # Ecto has no :boolean type info to encode `special?` through - it would
   # otherwise pass the literal Elixir `true`/`false` straight to the
   # driver, which SQLite stores as the literal TEXT "true"/"false" rather
   # than the integer 0/1 the app's Pairing schema expects when loading it

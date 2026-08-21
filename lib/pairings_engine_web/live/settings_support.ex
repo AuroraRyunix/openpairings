@@ -7,20 +7,20 @@ defmodule PairingsEngineWeb.SettingsSupport do
   The old monolithic `SettingsLive` was one ~1900-line page; it's now six
   focused pages sharing:
 
-    * `settings_subnav/1` — the tab strip that lets the user hop between the
+    * `settings_subnav/1` - the tab strip that lets the user hop between the
       six pages without going back through the top-bar "Settings ▾" menu
       (mirrors `AuditLive.subnav/1`).
-    * the dirty/stale tracker mechanism — each page whose form renders its
+    * the dirty/stale tracker mechanism - each page whose form renders its
       inputs' `value` straight from `@tournament` must not blindly reload
       `@tournament` on every PubSub broadcast (that would reset text the user
       is mid-typing). `attach_dirty_tracker/1` flips `dirty` the moment any
       event fires; `handle_stale_check/1` only flags the page `stale` when a
       freshly-loaded row actually differs from what's assigned.
-    * `log_settings_change/3` / `tournament_diff/2` — the before/after audit
+    * `log_settings_change/3` / `tournament_diff/2` - the before/after audit
       diff written on every settings save.
-    * `error_text/1` — changeset error formatting.
-    * the settings layout primitives — `setting_group/1`, `setting_field/1`,
-      `setting_toggle/1` — plus the `locked_overlay/1` / `locked_hint_message/1`
+    * `error_text/1` - changeset error formatting.
+    * the settings layout primitives - `setting_group/1`, `setting_field/1`,
+      `setting_toggle/1` - plus the `locked_overlay/1` / `locked_hint_message/1`
       pair they build on. See the `.set-*` block in `app.css` for the layout
       model and why settings doesn't share `.form-grid` with the other pages.
   """
@@ -31,7 +31,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
   alias PairingsEngine.{Audit, Tournaments}
   alias PairingsEngine.Tournaments.Tournament
 
-  # Tournament fields excluded from the settings audit diff — derived,
+  # Tournament fields excluded from the settings audit diff - derived,
   # internal or noisy (binary logo blob, PubSub-recomputed status/flags,
   # timestamps, ownership). Everything else is diffed field-by-field.
   @settings_diff_ignore ~w(id status public_slug public_pages_enabled deleted_at
@@ -100,7 +100,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
       <.link
         navigate={~p"/changelog"}
         class="pe-btn filter-picker"
-        title="Not tournament-specific — opens the app-wide changelog"
+        title="Not tournament-specific - opens the app-wide changelog"
       >
         Changelog
       </.link>
@@ -109,7 +109,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
   end
 
   @doc """
-  A vertical run of settings — the only layout wrapper the Settings pages use.
+  A vertical run of settings - the only layout wrapper the Settings pages use.
   Holds `<.setting_field>`s and `<.setting_toggle>`s in DOM order, one per row.
   """
   attr :class, :any, default: nil
@@ -124,7 +124,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
   @doc """
   A stacked setting: label above the control. The control itself is the slot,
   so a caller can pass a bare `<input>`, a `<select>`, or a `<select>` inside
-  a `.locked-wrap` — plus any trailing `<.locked_hint_message>`.
+  a `.locked-wrap` - plus any trailing `<.locked_hint_message>`.
 
   `required` renders the bold label + red asterisk used for
   `Tournament.required_setup_fields/0` members.
@@ -247,7 +247,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
   local form is dirty, so reloading would clobber in-progress edits. Only
   flag the page `stale` when the freshly-loaded row actually differs from
   what's already assigned (comparing full structs sidesteps `updated_at`'s
-  second-level precision) — a broadcast could just be the echo of our own
+  second-level precision) - a broadcast could just be the echo of our own
   child-table write (forbidden pairings, exclusions), which doesn't touch the
   `tournaments` row itself.
   """
@@ -270,7 +270,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
 
   @doc """
   Records a "tournament.settings_updated" audit row with the before/after
-  diff of only the fields that actually changed — a no-op when nothing
+  diff of only the fields that actually changed - a no-op when nothing
   tracked changed (e.g. a "Save" that touched only ignored/derived fields).
   """
   def log_settings_change(socket, before, after_tournament) do
@@ -301,7 +301,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
   Human-readable error string for whatever a context write returned.
 
   Usually an `Ecto.Changeset`, but the context also returns bare reason atoms
-  — notably `:archived` from `Tournaments.ensure_writable/1`, which every
+  - notably `:archived` from `Tournaments.ensure_writable/1`, which every
   write path can now return. Before this had an atom clause, an archived
   tournament's settings save crashed the LiveView outright: `changeset.errors`
   on the atom `:archived` parses as a remote call to `:archived.errors/0`.
@@ -311,7 +311,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
   end
 
   def error_text(:archived),
-    do: "This tournament is archived — unarchive it to make changes."
+    do: "This tournament is archived - unarchive it to make changes."
 
   def error_text(reason) when is_atom(reason),
     do: reason |> to_string() |> String.replace("_", " ")
@@ -319,7 +319,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
   def error_text(reason) when is_binary(reason), do: reason
 
   @doc """
-  Which page hosts a given `Tournament.missing_setup_fields/1` field — used
+  Which page hosts a given `Tournament.missing_setup_fields/1` field - used
   by PlayersLive/PairingsLive to link each specific missing item straight to
   the Settings (sub-)page it lives on, now that Settings is split across
   several pages rather than being one.
@@ -338,7 +338,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
 
   # name, rounds_count, tiebreaks, federation all live on the main
   # Tournament settings page. (start_date, formerly here too, is derived
-  # from round_dates now — see Tournament's own doc comment on that
-  # field — so it's never a `missing_setup_fields/1` entry on its own.)
+  # from round_dates now - see Tournament's own doc comment on that
+  # field - so it's never a `missing_setup_fields/1` entry on its own.)
   def setup_field_path(tournament, _field), do: ~p"/t/#{tournament.id}/settings"
 end

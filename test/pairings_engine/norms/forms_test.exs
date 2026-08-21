@@ -5,7 +5,7 @@ defmodule PairingsEngine.Norms.FormsTest do
   alias PairingsEngine.Tournaments.{Tournament, Player}
 
   # ---------------------------------------------------------------------
-  # fixtures (plain structs — no DB needed, the mappers are pure)
+  # fixtures (plain structs - no DB needed, the mappers are pure)
   # ---------------------------------------------------------------------
 
   defp tournament(overrides \\ %{}) do
@@ -103,7 +103,7 @@ defmodule PairingsEngine.Norms.FormsTest do
 
     test "B2 writes a festival's compressed multi-id notation as text, not truncated to its leading digits" do
       # A naive Integer.parse/1-based fill would silently turn either of
-      # these into just 12345 — Combine's own compressed notation (see
+      # these into just 12345 - Combine's own compressed notation (see
       # PairingsEngine.Norms.Combine.combined_fide_tournament_id/1) has to
       # survive onto the IT3 cell whole.
       range = tournament(%{fide_tournament_id: "12345-12347"})
@@ -538,7 +538,7 @@ defmodule PairingsEngine.Norms.FormsTest do
     end
   end
 
-  describe "titled? — CM/WCM are not FIDE titles" do
+  describe "titled? - CM/WCM are not FIDE titles" do
     test "CM and WCM are excluded from the IT3 titled count" do
       players = [
         player(%{title: "GM"}),
@@ -550,7 +550,7 @@ defmodule PairingsEngine.Norms.FormsTest do
 
       fills = Forms.fa1_fills(tournament(), players, @candidate)["Invulformulier"]
 
-      # GM + IM only — CM/WCM are federation-awarded, not FIDE titles for the
+      # GM + IM only - CM/WCM are federation-awarded, not FIDE titles for the
       # purposes of this count.
       assert fills["B16"] == 2
     end

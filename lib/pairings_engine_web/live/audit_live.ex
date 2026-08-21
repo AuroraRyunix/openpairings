@@ -4,7 +4,7 @@ defmodule PairingsEngineWeb.AuditLive do
   newest-first list of every state-changing action, each rendered into a
   human-readable sentence by `describe/1`, filterable by action category.
 
-  Access control is the same as every other tournament page —
+  Access control is the same as every other tournament page -
   `Tournaments.get_authorized_tournament!/2` (owner or accepted
   collaborator); a non-collaborator 404s exactly like anywhere else.
   """
@@ -196,10 +196,10 @@ defmodule PairingsEngineWeb.AuditLive do
     do: "Applied extra-points bands to #{value(d, "matched")} of #{value(d, "total")} players."
 
   def describe("tournament.archived", d),
-    do: "Archived tournament #{name(d, "name")} — it is now read-only."
+    do: "Archived tournament #{name(d, "name")} - it is now read-only."
 
   def describe("tournament.unarchived", d),
-    do: "Unarchived tournament #{name(d, "name")} — it is editable again."
+    do: "Unarchived tournament #{name(d, "name")} - it is editable again."
 
   def describe("tournament.duplicated", d),
     do: "Duplicated tournament #{name(d, "from_name")} into a new copy."
@@ -221,16 +221,16 @@ defmodule PairingsEngineWeb.AuditLive do
     do: "Turned the public pages #{on_off(d["enabled"])}."
 
   def describe("public_pages.link_rotated", _d),
-    do: "Generated a new public link — the previous one stopped working."
+    do: "Generated a new public link - the previous one stopped working."
 
   def describe("registration.toggled", d),
     do: "#{if truthy?(d["open"]), do: "Opened", else: "Closed"} the public registration form."
 
   def describe("pairing.result_clear_attempted", d),
     do:
-      "Attempted to clear the result on board #{value(d, "board")} (round #{value(d, "round")}) — refused."
+      "Attempted to clear the result on board #{value(d, "board")} (round #{value(d, "round")}) - refused."
 
-  # Fallback for any code not explicitly handled — still readable.
+  # Fallback for any code not explicitly handled - still readable.
   def describe(action, _details), do: "#{action}"
 
   defp describe_restored(d) do
@@ -246,7 +246,7 @@ defmodule PairingsEngineWeb.AuditLive do
     "Restored the tournament back to #{where}. The state it replaced was saved first."
   end
 
-  # The one restore point nobody's action forced — the arbiter asked for it
+  # The one restore point nobody's action forced - the arbiter asked for it
   # from the History page, optionally naming it.
   defp describe_manual_snapshot(d) do
     case d["label"] do
@@ -321,7 +321,7 @@ defmodule PairingsEngineWeb.AuditLive do
   end
 
   # Mobile result entry has no user account to attribute to (`Audit.log/4`'s
-  # `nil` case, rendered as "System" elsewhere on this page) — this is the
+  # `nil` case, rendered as "System" elsewhere on this page) - this is the
   # one place that still says WHICH phone, using whatever label the arbiter
   # gave the enrollment (see `MobileResultsLive.log_mobile_result/4`).
   defp mobile_suffix(%{"via" => "mobile"} = d) do
@@ -340,7 +340,7 @@ defmodule PairingsEngineWeb.AuditLive do
   defp count(d, key), do: d[key] || 0
   defp bold_text(v), do: v
 
-  defp blank_dash(v) when v in [nil, ""], do: "—"
+  defp blank_dash(v) when v in [nil, ""], do: "-"
   defp blank_dash(v), do: to_string(v)
 
   defp plural(1, word), do: "1 #{word}"
@@ -355,7 +355,7 @@ defmodule PairingsEngineWeb.AuditLive do
 
   @doc """
   Sub-nav across the pages in the top bar's "Advanced" menu, so the strip on
-  the page matches that menu one-for-one — Norms was previously missing here,
+  the page matches that menu one-for-one - Norms was previously missing here,
   leaving four entries in the menu but only three boxes on the page.
   `active` is `:norms`, `:history`, `:index` or `:explain`.
   """

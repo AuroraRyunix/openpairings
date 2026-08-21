@@ -6,7 +6,7 @@ defmodule PairingsEngineWeb.ExportControllerTest do
 
   setup :register_and_log_in_user
 
-  # 3 players, 2 paired rounds — mirrors PairingsEngine.TrfExportTest's fixture.
+  # 3 players, 2 paired rounds - mirrors PairingsEngine.TrfExportTest's fixture.
   defp fixture(scope) do
     {:ok, tournament} =
       PairingsEngine.Tournaments.create_tournament(scope, %{
@@ -54,7 +54,7 @@ defmodule PairingsEngineWeb.ExportControllerTest do
       assert response_content_type(conn, :text) =~ "text/plain"
 
       # VCL.12 ("it is recommended that such export is done using UTF-8
-      # encoding") — the response declares it explicitly, not just "the
+      # encoding") - the response declares it explicitly, not just "the
       # bytes happen to be UTF-8": a downstream tool trusting only the
       # Content-Type header (not sniffing the bytes) still reads accented
       # names correctly.

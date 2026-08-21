@@ -14,7 +14,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
   alias PairingsEngine.Tools.Parser
   alias PairingsEngine.Tournaments.Tournament
 
-  # Initial values for the "New tournament" form — kept in `new_params` and
+  # Initial values for the "New tournament" form - kept in `new_params` and
   # bound to each input so a phx-change re-render never wipes them.
   @new_tournament_defaults %{
     "pairing_system" => "swiss",
@@ -37,7 +37,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
     end
 
     # Lazy sweep: purge any recycle-bin tournament past its 3-month
-    # retention on every page load, rather than on a schedule — see
+    # retention on every page load, rather than on a schedule - see
     # `Tournaments.purge_expired_tournaments/0`.
     Tournaments.purge_expired_tournaments()
 
@@ -73,7 +73,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
      |> assign_pending_invitations()}
   end
 
-  # Refresh the list only — the delete-confirmation modal (if open) keeps
+  # Refresh the list only - the delete-confirmation modal (if open) keeps
   # its own `delete_target`/`delete_confirm_text` assigns untouched, since
   # `assign_tournaments/1` only ever sets `:tournaments`.
   #
@@ -174,13 +174,13 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
   # Tracks the "Pairing system" select's (and the "Team tournament"
   # checkbox's) live value so the "Cycles" field can be shown only for
-  # round_robin, without a full form round-trip — see `derive_type/2` for
+  # round_robin, without a full form round-trip - see `derive_type/2` for
   # where these two combine into the single `type` value actually stored.
   # Also tracks the picked "Standard" (Standard/Rapid/Blitz) so the "Rate of
-  # play" preset list switches to match — mirroring the Options settings page.
+  # play" preset list switches to match - mirroring the Options settings page.
   # A form-level phx-change sends the WHOLE form's current values on every
   # keystroke/toggle, so we stash them in `new_params` and bind every input's
-  # value back to it — otherwise each re-render (e.g. toggling "Team
+  # value back to it - otherwise each re-render (e.g. toggling "Team
   # tournament", or the rate-of-play list reacting to the format) would wipe
   # the uncontrolled text inputs the arbiter had already filled in.
   def handle_event("pairing_system_picked", %{"tournament" => params}, socket) do
@@ -240,7 +240,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
      )}
   end
 
-  # The "Tournament format" select is gone from the creation modal — `type`
+  # The "Tournament format" select is gone from the creation modal - `type`
   # (the FIDE-report classification: swiss | roundrobin | team-swiss |
   # team-roundrobin) is *always* derived here from the single "Pairing
   # system" choice plus the "Team tournament" checkbox, never taken from
@@ -274,13 +274,13 @@ defmodule PairingsEngineWeb.TournamentsLive do
   ## ---------- SWAR FIDE-match confirm step (players with no FIDE id) ----------
   #
   # Only reached when `prepare_import/1` came back with `unresolved != []`
-  # (see `import_swar` above) — every player SWAR itself already had a FIDE
+  # (see `import_swar` above) - every player SWAR itself already had a FIDE
   # id for, and every player who matched exactly one local FIDE database
   # entry on name+federation+birth-year, is already settled at that point
   # and never shown here.
 
   # Each unresolved player renders a radio group named
-  # `resolution[<ni>]` — either a candidate's FIDE id, or "skip" (the
+  # `resolution[<ni>]` - either a candidate's FIDE id, or "skip" (the
   # default) to import them with no `fide_id` at all, same as if no local
   # FIDE database match had ever been attempted.
   def handle_event("resolve_swar", %{"resolution" => resolution_params}, socket) do
@@ -325,7 +325,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
     {:noreply, assign(socket, swar_duplicate: nil)}
   end
 
-  ## ---------- TRF16 import (one step — no resolve modal) ----------
+  ## ---------- TRF16 import (one step - no resolve modal) ----------
 
   # The file input's phx-change target; nothing to do until submit.
   def handle_event("validate_trf", _params, socket), do: {:noreply, socket}
@@ -408,12 +408,12 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
   # Reuses the same export -> import round trip Settings > Export/backup and
   # "re-upload a .json backup" already go through (PairingsEngine.
-  # TournamentExport / TournamentImport) rather than a bespoke struct copy —
+  # TournamentExport / TournamentImport) rather than a bespoke struct copy -
   # it already does the hard part correctly (fresh ids throughout, every
   # internal foreign key remapped inside one transaction) and is exactly
   # what a user could already do by hand today (export, then re-import),
   # just automated. Available to the owner and any collaborator alike, same
-  # as the existing "Export" link right next to it — the copy is owned by
+  # as the existing "Export" link right next to it - the copy is owned by
   # whoever clicks it, with no collaborators carried over (the export
   # envelope never includes them).
   def handle_event("duplicate", %{"id" => id}, socket) do
@@ -452,10 +452,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
   # The owner-only counterpart is delete_confirmed above; a collaborator has
   # never been able to remove themselves at all (Tournaments.
-  # remove_collaborator/3 is explicitly owner-only) — "I can't delete a
+  # remove_collaborator/3 is explicitly owner-only) - "I can't delete a
   # shared tournament makes sense, but I also can't leave" was a real gap,
   # not intentional. No confirm-DELETE-to-type modal like the owner's
-  # delete — leaving isn't destructive to the tournament itself, and the
+  # delete - leaving isn't destructive to the tournament itself, and the
   # owner can always re-invite.
   def handle_event("leave_tournament", %{"id" => id}, socket) do
     case Tournaments.get_authorized_tournament(socket.assigns.current_scope, id) do
@@ -476,7 +476,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
           {:error, :owner} ->
             {:noreply,
-             put_flash(socket, :error, "You own this tournament — delete it instead of leaving.")}
+             put_flash(socket, :error, "You own this tournament - delete it instead of leaving.")}
 
           {:error, :not_found} ->
             {:noreply, put_flash(socket, :error, "You're not a collaborator on this tournament.")}
@@ -486,13 +486,13 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
   ## ---------- Archive (freeze read-only / unfreeze) ----------
   #
-  # Open to any collaborator, not just the owner — unlike delete/restore
+  # Open to any collaborator, not just the owner - unlike delete/restore
   # (still owner-only, since deleting is destructive), archiving a shared
   # tournament is exactly the kind of "we're done with this one" call any
   # co-arbiter should be able to make. `get_authorized_tournament/2` (the
   # same owner-or-accepted-collaborator lookup every other shared action
   # uses, e.g. `leave_tournament` below) is what enforces "some access",
-  # not "owns it" — a stranger still gets nil, not a silent no-op.
+  # not "owns it" - a stranger still gets nil, not a silent no-op.
 
   def handle_event("archive_tournament", %{"id" => id}, socket) do
     case Tournaments.get_authorized_tournament(socket.assigns.current_scope, id) do
@@ -508,7 +508,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
         {:noreply,
          socket
-         |> put_flash(:info, "\"#{tournament.name}\" is archived — it's now read-only.")
+         |> put_flash(:info, "\"#{tournament.name}\" is archived - it's now read-only.")
          |> assign_tournaments()
          |> assign_archived_tournaments()}
     end
@@ -584,7 +584,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
   # Shared by both import panels. Neither `.swar` nor `.trf` has a registered
   # browser MIME type, so both dropzones have to accept `:any` and a file can
-  # always be dropped into the "wrong" one — which panel it came through
+  # always be dropped into the "wrong" one - which panel it came through
   # therefore says nothing about what it is. Route on the CONTENT
   # (`Parser.detect_format/2`) and run the importer the file actually needs;
   # `panel` only breaks the tie when the bytes are inconclusive, so the box
@@ -639,7 +639,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
   # `Tournaments.find_tournament_by_swar_guid/2`), unchanged across every
   # re-export of the same tournament. If this upload's GUID already belongs
   # to a tournament the uploader can already reach, pause and ask instead of
-  # silently creating a duplicate — this is the single most common way a
+  # silently creating a duplicate - this is the single most common way a
   # re-upload goes wrong (a re-sync mid-event, forgetting a tournament was
   # already imported).
   defp continue_or_warn_swar(socket, scope, %{data: %{guid: guid}} = prepared) do
@@ -698,7 +698,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
   defp maybe_flash_trf_warnings(socket, []), do: socket
 
   defp maybe_flash_trf_warnings(socket, warnings) do
-    # Layouts.flash_group/1 only renders :info and :error kinds — this is
+    # Layouts.flash_group/1 only renders :info and :error kinds - this is
     # a notice, not a failure, so :info (not :error) even though it reads
     # as a warning.
     put_flash(
@@ -714,7 +714,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
   defp maybe_flash_swar_warnings(socket, []), do: socket
 
   defp maybe_flash_swar_warnings(socket, warnings) do
-    # Same reasoning as maybe_flash_trf_warnings/2 — :info, not :error, since
+    # Same reasoning as maybe_flash_trf_warnings/2 - :info, not :error, since
     # this is a notice about a discarded arbiter correction, not a failure.
     put_flash(
       socket,
@@ -742,7 +742,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
     Enum.map_join(changeset.errors, ", ", fn {field, {msg, _}} -> "#{field} #{msg}" end)
   end
 
-  # The "Tournament format" select is gone from the creation modal — `type`
+  # The "Tournament format" select is gone from the creation modal - `type`
   # (the FIDE-report classification: swiss | roundrobin | team-swiss |
   # team-roundrobin) is *always* derived from the single "Pairing system"
   # choice plus the "Team tournament" checkbox, never taken from the
@@ -751,8 +751,8 @@ defmodule PairingsEngineWeb.TournamentsLive do
   # Seed one round date per round from the start date, so a freshly created
   # tournament isn't blocked on the "Round dates" required-setup item (which
   # otherwise sends the arbiter to the Dates page to fill each round by hand
-  # before they can pair). It's only a sensible default — the arbiter refines
-  # the individual round dates on the Dates page — so we never overwrite dates
+  # before they can pair). It's only a sensible default - the arbiter refines
+  # the individual round dates on the Dates page - so we never overwrite dates
   # the caller already supplied, and do nothing when there's no start date or
   # no valid round count to seed from.
   defp seed_round_dates(%{"round_dates" => existing} = params) when existing not in [nil, []],
@@ -782,7 +782,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
   defp derive_type("round_robin", "true"), do: "team-roundrobin"
   defp derive_type("round_robin", _team?), do: "roundrobin"
-  # keizer is Swiss-classified for FIDE reporting purposes — there's no
+  # keizer is Swiss-classified for FIDE reporting purposes - there's no
   # separate "type" for it (see `PairingsEngine.Tournaments.Tournament`'s
   # `pairing_system` field docs).
   defp derive_type(_swiss_or_keizer, "true"), do: "team-swiss"
@@ -790,14 +790,14 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
   defp standard_options, do: RateOfPlay.standard_options()
   # Rate-of-play presets shown on the create form depend on the picked Standard
-  # (Standard / Rapid / Blitz) — the same cadence-appropriate lists the Options
+  # (Standard / Rapid / Blitz) - the same cadence-appropriate lists the Options
   # settings page uses, via the shared `PairingsEngine.RateOfPlay` catalogue.
   defp rate_of_play_options(standard), do: RateOfPlay.select_options(standard, nil)
   defp pairing_system_options, do: @pairing_system_options
   defp rr_cycles_options, do: @rr_cycles_options
 
   # A single-day tournament (the common case for a club event) has
-  # start_date == end_date — showing "2026-08-12 → 2026-08-12" is just
+  # start_date == end_date - showing "2026-08-12 → 2026-08-12" is just
   # noise, so collapse it to the one date. Free-text fields (no format
   # enforced at the schema level), so this is a plain string comparison,
   # not a date-arithmetic one.
@@ -807,7 +807,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
   # "setup" already reads as muted/inactive; "finished" needs its own look
   # too so it doesn't share "running"'s (the accent colour, which is also
-  # user-customizable) look — otherwise the two are visually identical.
+  # user-customizable) look - otherwise the two are visually identical.
   defp status_class("setup"), do: "muted"
   defp status_class("finished"), do: "done"
   defp status_class(_), do: nil
@@ -936,7 +936,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
                 `Pairing.pair_next_round/1` never branches on team type, so
                 players are paired as individuals either way. That is a real
                 gap (see TODO.md), and an unlabelled checkbox made it a silent
-                one — the round it produces looks like a valid pairing, so
+                one - the round it produces looks like a valid pairing, so
                 there is nothing to notice until someone checks the boards
                 against the teams. --%>
           <label class="field field-check" style="margin-top: 1.6rem">
@@ -953,7 +953,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             <strong>Reporting only.</strong>
             This marks the tournament as a team event on the FIDE report. Pairing
             is still done <em>player by player</em>
-            — team pairing, team standings
+            - team pairing, team standings
             and team tie-breaks are not built yet, so boards will not respect team
             membership.
           </p>
@@ -986,7 +986,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
               value={Map.get(@new_params, "start_date", "")}
             />
             <span class="hint">
-              Just seeds every round to this date — refine per-round (and the tournament's end
+              Just seeds every round to this date - refine per-round (and the tournament's end
               date, derived from those) on the Dates page after creating it.
             </span>
           </label>
@@ -1318,7 +1318,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <h2>Archived</h2>
 
         <p class="hint" style="margin-top: 0">
-          Archived tournaments are kept indefinitely and stay fully readable — their pages, public
+          Archived tournaments are kept indefinitely and stay fully readable - their pages, public
           link, prints and exports all keep working. They just refuse every change until you
           unarchive them. This is not the Recycle bin: nothing here is ever purged automatically.
         </p>

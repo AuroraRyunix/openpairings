@@ -1,13 +1,13 @@
 defmodule PairingsEngine.Changelog do
   @moduledoc """
-  Renders `CHANGELOG.md` (repo root) to HTML once, at compile time — the
+  Renders `CHANGELOG.md` (repo root) to HTML once, at compile time - the
   single source both `PairingsEngineWeb.ChangelogLive` (the global
   `/changelog` page) and `PairingsEngineWeb.SettingsChangelogLive` (the
   older tournament-scoped `/t/:id/settings/changelog` page) share, so
   there's exactly one place that reads and converts the file rather than
   two copies drifting apart.
 
-  Read via `@external_resource`, not `:code.priv_dir/1` — `priv/` is the
+  Read via `@external_resource`, not `:code.priv_dir/1` - `priv/` is the
   one directory guaranteed to ship with an OTP release, but `CHANGELOG.md`
   at the repo root is not, so there's no reliable *runtime* path back to it
   once a release has moved things around. `@external_resource` sidesteps
@@ -23,7 +23,7 @@ defmodule PairingsEngine.Changelog do
   Stored XSS needs attacker-controlled markdown. There is none here: the
   only input is `CHANGELOG.md` from this repo, read at COMPILE time, and
   the result is baked into `@html` as a constant. Nothing user-supplied
-  reaches Earmark at runtime, or at all — an attacker who could edit
+  reaches Earmark at runtime, or at all - an attacker who could edit
   `CHANGELOG.md` in the build tree could commit Elixir instead, so the
   markdown renderer would not be the weak link.
 
@@ -35,7 +35,7 @@ defmodule PairingsEngine.Changelog do
   that cannot be reached.
 
   What keeps this true is the ONE call site. `changelog_test.exs` fails if
-  Earmark is ever called from anywhere else — if that guard trips, this
+  Earmark is ever called from anywhere else - if that guard trips, this
   analysis is void and the dependency has to be reconsidered rather than
   the test relaxed.
   """
@@ -43,11 +43,34 @@ defmodule PairingsEngine.Changelog do
   @changelog_path Path.expand("../../CHANGELOG.md", __DIR__)
   @external_resource @changelog_path
 
+  # Entry tags. The markdown writes them as plain `[Fix]` text so the file
+  # still reads on GitHub, and they become coloured pills here.
+  #
+  # Substituted after rendering rather than written as `<span>` into the
+  # markdown, because raw HTML in the source would mean turning Earmark's
+  # escaping OFF for the whole document. Escaping stays on and the only
+  # markup that can appear is these six literals, which keeps the
+  # CVE-2026-48591 reasoning above intact rather than quietly widening what
+  # the renderer may emit.
+  #
+  # Inlined rather than called as a private function: this runs while the
+  # module is still being compiled, and a module cannot call itself there.
+  @tags ~w(Feature Fix Change Removed Security Verified)
+
   @html (case File.read(@changelog_path) do
            {:ok, markdown} ->
              case Earmark.as_html(markdown) do
-               {:ok, html, _messages} -> html
-               {:error, _html, _messages} -> "<p>Could not render the changelog.</p>"
+               {:ok, html, _messages} ->
+                 Enum.reduce(@tags, html, fn tag, acc ->
+                   String.replace(
+                     acc,
+                     "[#{tag}]",
+                     ~s(<span class="cl-tag cl-#{String.downcase(tag)}">#{tag}</span>)
+                   )
+                 end)
+
+               {:error, _html, _messages} ->
+                 "<p>Could not render the changelog.</p>"
              end
 
            {:error, _reason} ->

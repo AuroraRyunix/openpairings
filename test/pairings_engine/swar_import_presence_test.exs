@@ -1,9 +1,9 @@
 defmodule PairingsEngine.SwarImportPresenceTest do
   # Deliberately a SEPARATE module from swar_import_test.exs, which carries
   # `@moduletag :swar_fixture` (excluded when the gitignored real .swar
-  # fixtures aren't present — a fresh checkout, CI). ExUnit's bare-atom
+  # fixtures aren't present - a fresh checkout, CI). ExUnit's bare-atom
   # `exclude: [:swar_fixture]` filter (see test/test_helper.exs) matches on
-  # tag *presence*, not value — `@tag swar_fixture: false` on an individual
+  # tag *presence*, not value - `@tag swar_fixture: false` on an individual
   # test does not un-exclude it (ExUnit.Filters.has_tag/2 for a bare atom key
   # only checks `Map.has_key?/2`). So a synthetic-binary test that must run
   # even without the real fixtures cannot live in that module; it lives here
@@ -19,7 +19,7 @@ defmodule PairingsEngine.SwarImportPresenceTest do
   # Mirrors PairingsEngine.SwarImport.parse/1's field-by-field layout (header,
   # [TOURNOI], [DATES], [TIE_BREAK], [EXCLUSION], [CATEGORIES],
   # [XTRA_POINTS], [JOUEURS] with per-player [RONDE] rounds) closely enough
-  # to produce a binary `parse/1` accepts — every field not under test is
+  # to produce a binary `parse/1` accepts - every field not under test is
   # written as a zero/blank placeholder. Only the handful of fields relevant
   # to 3-2-1 presence-points scoring are ever varied by callers.
 
@@ -40,7 +40,7 @@ defmodule PairingsEngine.SwarImportPresenceTest do
 
     header = w_str(version) <> w_str("guid") <> w_str("mac")
 
-    # legacy ByeValue field — deliberately not the one under test here
+    # legacy ByeValue field - deliberately not the one under test here
     tournoi =
       w_str("[TOURNOI]") <>
         w_str("Test Tournament") <>
@@ -193,10 +193,10 @@ defmodule PairingsEngine.SwarImportPresenceTest do
     end
   end
 
-  # SWAR result codes (manual §5.2): LOST_BYE (0x0010) — unpaired-but-present
+  # SWAR result codes (manual §5.2): LOST_BYE (0x0010) - unpaired-but-present
   # round, imported as a `byes` row with `type: "requested-zero"`.
   @lost_bye 0x0010
-  # WIN_BYE (0x0040) — pairing-allocated bye, imported as a `Pairing` row
+  # WIN_BYE (0x0040) - pairing-allocated bye, imported as a `Pairing` row
   # with `result: "bye"`.
   @win_bye 0x0040
 
@@ -223,7 +223,7 @@ defmodule PairingsEngine.SwarImportPresenceTest do
     entries = Standings.standings(tournament)
     entry = Enum.find(entries, &(&1.player.id == player.id))
 
-    # Scored at presence_value (1.0), not at points_loss (0.0) — the bug
+    # Scored at presence_value (1.0), not at points_loss (0.0) - the bug
     # this fixes: before presence_value existed, a "requested-zero" bye
     # always fell through to points_loss regardless of SW321_Pre.
     assert entry.points == 1.0
@@ -243,7 +243,7 @@ defmodule PairingsEngine.SwarImportPresenceTest do
 
     assert {:ok, tournament, _warnings} = import_synthetic!(opts)
 
-    # bye_value stays at plain SW321_Bye (8/4 = 2.0) — the PreBye add-on is
+    # bye_value stays at plain SW321_Bye (8/4 = 2.0) - the PreBye add-on is
     # the flag, applied by Standings.bye_points/2, not a fold into bye_value.
     assert tournament.bye_value == 2.0
     assert tournament.presence_on_allocated_bye == true
@@ -251,7 +251,7 @@ defmodule PairingsEngine.SwarImportPresenceTest do
     [player] = PairingsEngine.Tournaments.list_players(tournament.id)
     entries = Standings.standings(tournament)
     entry = Enum.find(entries, &(&1.player.id == player.id))
-    # 8/4 (SW321_Bye) + 4/4 (SW321_Pre) = 3.0 — SWAR pays presence points ON
+    # 8/4 (SW321_Bye) + 4/4 (SW321_Pre) = 3.0 - SWAR pays presence points ON
     # TOP of the bye points for a pairing-allocated bye when PreBye is set.
     assert entry.points == 3.0
   end
@@ -275,13 +275,13 @@ defmodule PairingsEngine.SwarImportPresenceTest do
     [player] = PairingsEngine.Tournaments.list_players(tournament.id)
     entries = Standings.standings(tournament)
     entry = Enum.find(entries, &(&1.player.id == player.id))
-    # SW321_Bye (2.0) only — no presence add-on.
+    # SW321_Bye (2.0) only - no presence add-on.
     assert entry.points == 2.0
   end
 
   test "import_file/1 leaves presence_on_allocated_bye false when SW321_PreBye is absent (pre-v6.03 file)" do
     opts = %{
-      # < v6.03 — SW321_PreBye isn't even present in the file format at this
+      # < v6.03 - SW321_PreBye isn't even present in the file format at this
       # version, so it parses to `nil` regardless of what a caller might
       # otherwise want to set.
       version: "v5.90",
@@ -294,7 +294,7 @@ defmodule PairingsEngine.SwarImportPresenceTest do
 
     assert {:ok, tournament, _warnings} = import_synthetic!(opts)
 
-    # 8/4 (SW321_Bye) only, and no flag — SW321_PreBye doesn't exist yet at
+    # 8/4 (SW321_Bye) only, and no flag - SW321_PreBye doesn't exist yet at
     # this file version.
     assert tournament.bye_value == 2.0
     assert tournament.presence_value == 1.0
@@ -304,7 +304,7 @@ defmodule PairingsEngine.SwarImportPresenceTest do
   test "import_file/1 never sets presence_on_allocated_bye for a non-3-2-1 tournament, even with SW321_PreBye bytes present" do
     opts = %{
       version: "v6.60",
-      # type != 3 — the whole 3-2-1 mapping (including the PreBye flag) must
+      # type != 3 - the whole 3-2-1 mapping (including the PreBye flag) must
       # not fire at all, same regression guard as the presence_value test
       # below.
       type: 0,
@@ -330,7 +330,7 @@ defmodule PairingsEngine.SwarImportPresenceTest do
   test "import_file/1 leaves presence_value nil and requested-zero byes at plain points_loss for a non-3-2-1 tournament" do
     opts = %{
       version: "v6.60",
-      # type != 3 — 3-2-1 mapping must not fire at all, same regression this
+      # type != 3 - 3-2-1 mapping must not fire at all, same regression this
       # guards for the ordinary points_win/points_draw/points_loss fields.
       type: 0,
       sw321: {8, 4, 0, 8, 4},
@@ -355,7 +355,7 @@ defmodule PairingsEngine.SwarImportPresenceTest do
 
   describe "3-2-1 import is switched off" do
     # Every test in this file passes `allow_swiss321: true`, which is the
-    # test-only door. The DEFAULT — what the app actually does — is to
+    # test-only door. The DEFAULT - what the app actually does - is to
     # refuse, because the scoring is not fully settled: SWAR pays a presence
     # point per round attended (verified against its own source, and modelled
     # in Standings), but what a BYE is worth under the scheme is unresolved,

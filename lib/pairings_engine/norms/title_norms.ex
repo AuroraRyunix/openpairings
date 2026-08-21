@@ -1,19 +1,19 @@
 defmodule PairingsEngine.Norms.TitleNorms do
   @moduledoc """
   Automatic title-norm judgment per the FIDE International Title Regulations
-  (B.01, effective 1 January 2024, verified against handbook.fide.com) — for
+  (B.01, effective 1 January 2024, verified against handbook.fide.com) - for
   each player, evaluates whether this tournament's games amount to a GM /
   IM / WGM / WIM norm (the four norm-based titles; FM/CM/WFM/WCM are direct
   rating titles with no norms, B.01 art. 1.3/1.4).
 
   ## What is checked (article references per check)
 
-    * **Counted games** (1.4.1 / 1.4.2): only games played over the board —
+    * **Counted games** (1.4.1 / 1.4.2): only games played over the board -
       forfeits/adjudications are excluded (1.4.2.3), byes have no opponent.
       A norm needs at least 9 of them. The 7/8-game concessions
       (1.4.1.1-1.4.1.3: World Team/Club championships, World Cup, an
       unplayed last-round win-by-forfeit) are event types this software
-      doesn't model, so they are NOT applied — a judgment here is therefore
+      doesn't model, so they are NOT applied - a judgment here is therefore
       conservative, never optimistic, on game count.
 
       This is also what makes 1.4.5's "double round-robin tournaments need
@@ -21,12 +21,12 @@ defmodule PairingsEngine.Norms.TitleNorms do
       is 8 games, which the 9-game rule already refuses. It would only start
       to matter if the 8-game concessions above were ever implemented.
     * **Score** (1.4.8.2): at least 35% (percentage rounded to the nearest
-      whole number, 0.5 up — the 1.4.9 note's rounding rule).
+      whole number, 0.5 up - the 1.4.9 note's rounding rule).
     * **Titled opponents** (1.4.5.1): at least 50% of opponents hold any
       title EXCEPT CM/WCM.
     * **Target-title opponents** (1.4.5 b-e): at least 1/3 (rounded
       up per 1.4.4's minimum-rounding rule), with a minimum of 3, hold the
-      target title *or higher* — GM for a GM norm; IM/GM for IM; WGM/IM/GM
+      target title *or higher* - GM for a GM norm; IM/GM for IM; WGM/IM/GM
       for WGM; WIM/WGM/IM/GM for WIM.
 
       **The double-round-robin halving is already satisfied here, and must
@@ -35,7 +35,7 @@ defmodule PairingsEngine.Norms.TitleNorms do
       this module skips. It isn't. The two sides count in different units:
       `counted_games/2` emits one entry per GAME, so a DRR opponent appears
       twice and `high_titled` is already double the number of distinct
-      titled players — while the Annex counts distinct people (its columns
+      titled players - while the Annex counts distinct people (its columns
       are "Different MO" / "Different TH") and halves the requirement to
       match. The halving exists to cancel the doubling. At 10 rounds (a
       6-player DRR, the smallest permitted): 1/3 of 10 with a minimum of 3
@@ -58,7 +58,7 @@ defmodule PairingsEngine.Norms.TitleNorms do
       reporting such an event should treat a federation-mix failure here as
       overridable.
     * **Opponent ratings** (1.4.6 / 1.4.7): an unrated opponent counts as
-      1400 (1.4.6.4); at most ONE opponent — the lowest — is raised to the
+      1400 (1.4.6.4); at most ONE opponent - the lowest - is raised to the
       norm's adjusted rating floor (2200 GM / 2050 IM / 2000 WGM / 1850
       WIM) when below it (1.4.6.2-1.4.6.3); the average is rounded to the
       nearest whole number, 0.5 up (1.4.7.2), and must reach 2380 GM /
@@ -70,7 +70,7 @@ defmodule PairingsEngine.Norms.TitleNorms do
   Women's titles (WGM/WIM) are restricted to women (B.01 0.3.1), so they
   are only evaluated for players with `sex == "w"`.
 
-  This is a *judgment aid* for the arbiter filling IT4 — the title claimed
+  This is a *judgment aid* for the arbiter filling IT4 - the title claimed
   on the report stays a manual field (appeals, exemptions and the
   unmodelled event-type concessions are the arbiter's call); this module
   says what the numbers themselves support and exactly which requirement
@@ -108,7 +108,7 @@ defmodule PairingsEngine.Norms.TitleNorms do
   # B.01 art. 1.4.6.4.
   @unrated_rating 1400
 
-  # B.01 art. 1.4.9 — the p (score percentage) -> dp conversion table,
+  # B.01 art. 1.4.9 - the p (score percentage) -> dp conversion table,
   # transcribed verbatim from the handbook (verified complete + perfectly
   # antisymmetric: dp(p) == -dp(100 - p), which the test suite asserts).
   @dp_by_percent %{
@@ -223,7 +223,7 @@ defmodule PairingsEngine.Norms.TitleNorms do
   `%{player_id => %{verdicts: [verdict], best: verdict | nil, games: n}}`.
 
   Each verdict is `%{title:, achieved?:, checks: [check], performance:,
-  avg_opponent_rating:, score:, games:}` — `checks` is the full
+  avg_opponent_rating:, score:, games:}` - `checks` is the full
   requirement-by-requirement breakdown (`%{name:, ok?:, detail:}`), so the
   UI can say exactly which article fails. `best` is the highest achieved
   norm (GM > IM > WGM > WIM), or nil.
@@ -244,13 +244,13 @@ defmodule PairingsEngine.Norms.TitleNorms do
     end)
   end
 
-  @doc "Titles evaluated for `player` — women's titles only for `sex == \"w\"` (B.01 0.3.1)."
+  @doc "Titles evaluated for `player` - women's titles only for `sex == \"w\"` (B.01 0.3.1)."
   def titles_for(%{sex: "w"}), do: @norm_titles
   def titles_for(_player), do: ~w(GM IM)
 
   # A game that counts for norm purposes: played over the board (excludes
-  # forfeits — B.01 1.4.2.3) against a real opponent (excludes byes).
-  # Returns `[%{opponent: %Player{}, points: awarded}]` — `points` is still
+  # forfeits - B.01 1.4.2.3) against a real opponent (excludes byes).
+  # Returns `[%{opponent: %Player{}, points: awarded}]` - `points` is still
   # on the tournament's own (possibly club-configured) scale; `to_standard/2`
   # converts to 1 / ½ / 0 at evaluation time.
   defp counted_games(entry, by_id) do
@@ -383,7 +383,7 @@ defmodule PairingsEngine.Norms.TitleNorms do
     end
   end
 
-  # Norm arithmetic uses the FIDE rating only — B.01 1.4.6.1's "Rating List
+  # Norm arithmetic uses the FIDE rating only - B.01 1.4.6.1's "Rating List
   # in effect" is FIDE's, never a national list.
   defp fide_rating(%{fide_rating: r}) when is_integer(r) and r > 0, do: r
   defp fide_rating(_), do: 0

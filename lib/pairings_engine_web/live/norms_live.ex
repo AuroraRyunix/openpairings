@@ -5,22 +5,22 @@ defmodule PairingsEngineWeb.NormsLive do
   the tournament's data by `PairingsEngine.Norms.Forms`.
 
   The actual `.xlsx` bytes are produced by `PairingsEngineWeb.NormsController`
-  (plain `GET` downloads, not LiveView) — this page is just the picker UI:
+  (plain `GET` downloads, not LiveView) - this page is just the picker UI:
 
     * IT3 needs no extra input, so it's a single download link.
     * FA1/IA1 need an arbiter norm candidate's name/FIDE ID/federation, which
       isn't tracked anywhere else in the app (the candidate needn't even be
-      a tournament player) — collected via a plain `GET` form, submitted
+      a tournament player) - collected via a plain `GET` form, submitted
       straight to the controller with no LiveView round-trip.
     * IT4 lists every player, with a small modal to set that player's
       title-norm judgment (`norm_data` on `PairingsEngine.Tournaments.Player`)
-      — only players with a non-blank claimed title are included when IT4 is
+      - only players with a non-blank claimed title are included when IT4 is
       generated.
     * "Combined report (festival)" lets a Belgian-federation arbiter running
       several category groups as one festival (each its own `Tournament`
       row) pick other tournaments to merge into one IT3/FA1/IA1, plus a
       "master" tournament supplying the shared header/schedule fields (see
-      `PairingsEngine.Norms.Combine`). This card only *builds the link* —
+      `PairingsEngine.Norms.Combine`). This card only *builds the link* -
       the selection lives in `@combine_selected`/`@combine_master` and is
       passed to `PairingsEngineWeb.NormsController` as `combine`/`master`
       query params; nothing here is saved.
@@ -38,7 +38,7 @@ defmodule PairingsEngineWeb.NormsLive do
 
   @norm_titles ~w(GM IM FM CM WGM WIM WFM WCM)
 
-  # Officials & FIDE report fields not on the Tournament schema directly —
+  # Officials & FIDE report fields not on the Tournament schema directly -
   # nested under tournament[officials][KEY] and stored in the :officials map
   # (see PairingsEngine.Tournaments.Tournament for the recognised keys).
   # Relocated here from the old SettingsLive Officials card.
@@ -50,14 +50,14 @@ defmodule PairingsEngineWeb.NormsLive do
   # FIDE's own printed Certificaat only ranks 2 deputies by name ("1st/2nd
   # Deputy Chief Arbiter"); anyone after that prints as a plain, unranked
   # "Arbiter" row no matter how many there are, so this UI only offers 2
-  # ranked slots too — everyone past that goes through "+ Add arbiter"
+  # ranked slots too - everyone past that goes through "+ Add arbiter"
   # (arbiter_range/1 below), which reuses the template's own 2 spare rows
   # before it ever has to grow the sheet (see
   # `PairingsEngine.Norms.ItThreeExpand`). An earlier version of this page
   # offered 4 "deputy" boxes because the raw data sheet happens to have 4
-  # numbered ID/Name row-pairs — but FIDE itself never distinguishes past
+  # numbered ID/Name row-pairs - but FIDE itself never distinguishes past
   # the 2nd, so that just meant "deputy 3/4" printed as an unlabelled
-  # "Arbiter" row, no different from — and confusingly separate from —
+  # "Arbiter" row, no different from - and confusingly separate from -
   # "+ Add arbiter".
   @deputy_fields [
     {1, "1st deputy arbiter"},
@@ -86,7 +86,7 @@ defmodule PairingsEngineWeb.NormsLive do
        combine_master: to_string(tournament.id),
        # Officials editing (relocated from SettingsLive). `dirty` guards the
        # always-open officials form against a PubSub reload clobbering
-       # in-progress typing — same last-write-wins tracking the old Settings
+       # in-progress typing - same last-write-wins tracking the old Settings
        # page used. `arbiter_search` drives the FIDE-autocomplete dropdown.
        officials_note: nil,
        officials_error: nil,
@@ -103,7 +103,7 @@ defmodule PairingsEngineWeb.NormsLive do
   end
 
   # Every *other* tournament the current user can access (owner or accepted
-  # collaborator — same scoping `Tournaments.list_tournaments/1` already
+  # collaborator - same scoping `Tournaments.list_tournaments/1` already
   # gives the tournament list page), for the "Combined report (festival)"
   # card's checkbox picker. The current tournament itself is excluded here
   # since it's always implicitly part of the combined set (see
@@ -115,7 +115,7 @@ defmodule PairingsEngineWeb.NormsLive do
   end
 
   # While the officials form is dirty (the user is mid-edit), don't reload
-  # `@tournament` — that would reset text being typed. Only flag `stale` when
+  # `@tournament` - that would reset text being typed. Only flag `stale` when
   # a freshly-loaded row actually differs (see SettingsSupport). This mirrors
   # the old SettingsLive behaviour that guarded the Officials form.
   @impl true
@@ -213,7 +213,7 @@ defmodule PairingsEngineWeb.NormsLive do
   # Typing in the FA1/IA1 fields writes straight back into the assign that
   # renders them. Without this the inputs are controlled by `@fa1_candidate`
   # but nothing updates it, so any re-render (a PubSub tournament change, a
-  # second pick) would silently revert what was typed — and the form would
+  # second pick) would silently revert what was typed - and the form would
   # then submit the reverted values.
   def handle_event("fa1_change", %{"candidate" => candidate}, socket) do
     merged = Map.merge(socket.assigns.fa1_candidate, Map.take(candidate, fa1_candidate_keys()))
@@ -231,7 +231,7 @@ defmodule PairingsEngineWeb.NormsLive do
   end
 
   # A standalone select can serialise as `%{"value" => ...}` rather than by
-  # name, and an unexpected shape must never take the LiveView down — see the
+  # name, and an unexpected shape must never take the LiveView down - see the
   # `arbiter_search` comment above for what that costs the user.
   def handle_event("pick_fa1_candidate", %{"value" => ""}, socket) do
     {:noreply, assign(socket, fa1_candidate: empty_fa1_candidate())}
@@ -261,15 +261,15 @@ defmodule PairingsEngineWeb.NormsLive do
     end
   end
 
-  # Arbiters beyond chief + the 2 ranked deputies — an unbounded list,
+  # Arbiters beyond chief + the 2 ranked deputies - an unbounded list,
   # tracked as a plain count (`officials["extra_arbiters_count"]`) plus flat
   # `arbiterN_name`/`arbiterN_fide_id` officials keys, exactly like
   # deputy1/deputy2 (see ArbiterCombo.parse_field/1 and apply_arbiter_pick/3
   # below). "Arbiter 1"/"Arbiter 2" land on the template's own spare rows;
   # "Arbiter 3" onward need `PairingsEngine.Norms.ItThreeExpand` to grow the
-  # sheet at download time — invisible here, `Forms.it3_result/3` handles
+  # sheet at download time - invisible here, `Forms.it3_result/3` handles
   # it. Adding/removing here only touches in-memory `@tournament`, same as a
-  # pick — "Save officials" persists it, and the count travels through that
+  # pick - "Save officials" persists it, and the count travels through that
   # save via a hidden input (see the template) since it isn't itself an
   # arbiter_combo field.
   def handle_event("add_arbiter", _params, socket) do
@@ -286,12 +286,12 @@ defmodule PairingsEngineWeb.NormsLive do
   # pick only updates the in-memory `@tournament` (name + FIDE id under
   # `officials`); it's persisted once "Save officials" is submitted.
 
-  # Both boxes of any official's combobox (name, FIDE ID) route through here —
+  # Both boxes of any official's combobox (name, FIDE ID) route through here -
   # see `PairingsEngineWeb.Live.ArbiterCombo` for why one shared parser/search
   # covers both, on this page and the public tools page alike. Ignoring an
   # unrecognised field (rather than crashing) matters: LiveView drops
   # `phx-value-*` on a form-serialised change event, so this can only ever
-  # learn which field changed from `_target` — a shape this page has gotten
+  # learn which field changed from `_target` - a shape this page has gotten
   # wrong before, and getting it wrong took the whole LiveView down with it
   # ("something went wrong, attempting to reconnect").
   def handle_event("arbiter_search", params, socket) do
@@ -346,7 +346,7 @@ defmodule PairingsEngineWeb.NormsLive do
 
   defp empty_fa1_candidate, do: Map.new(fa1_candidate_keys(), &{&1, ""})
 
-  # The event's own officials, as pickable norm candidates — an arbiter earning
+  # The event's own officials, as pickable norm candidates - an arbiter earning
   # a norm here is nearly always one of them, and retyping a name and FIDE ID
   # that the tournament already knows is both tedious and a chance to fat-finger
   # the id onto the wrong person.
@@ -384,7 +384,7 @@ defmodule PairingsEngineWeb.NormsLive do
 
   # Prefer the FIDE record when there's an id: it's authoritative on the
   # first/last split ("De Vet, Sylvin") and carries the federation, neither of
-  # which can be inferred reliably from SWAR's "Sylvin De Vet" ordering — a
+  # which can be inferred reliably from SWAR's "Sylvin De Vet" ordering - a
   # multi-word surname makes any positional guess wrong as often as right.
   defp build_fa1_candidate(name, fide_id) do
     case Fide.get_player(fide_id) do
@@ -428,7 +428,7 @@ defmodule PairingsEngineWeb.NormsLive do
   defp o_get(tournament, key), do: Map.get(tournament.officials || %{}, key, "")
 
   # Every arbiter FIDE reports on is registered with FIDE and therefore has an
-  # id — there is no such thing as an official without one. Saving a bare name
+  # id - there is no such thing as an official without one. Saving a bare name
   # only produces a report FIDE will bounce, and the half-filled record is what
   # the SWAR import leaves behind when a name is ambiguous, so refuse the save
   # and point at the lookup instead of storing something unusable.
@@ -456,8 +456,8 @@ defmodule PairingsEngineWeb.NormsLive do
     chief ++ deputies ++ extras
   end
 
-  # 1..count is a *descending* range (iterating count..1) when count is 0 —
-  # an easy footgun elsewhere in this codebase — so 0 (the common case: no
+  # 1..count is a *descending* range (iterating count..1) when count is 0 -
+  # an easy footgun elsewhere in this codebase - so 0 (the common case: no
   # extra arbiters) has to short-circuit to an empty range explicitly.
   defp extra_arbiter_range(count) do
     case parse_extra_count(count) do
@@ -467,7 +467,7 @@ defmodule PairingsEngineWeb.NormsLive do
   end
 
   defp id_required_message(missing) do
-    "Every official needs a FIDE ID — type their name or FIDE ID above and pick the matching " <>
+    "Every official needs a FIDE ID - type their name or FIDE ID above and pick the matching " <>
       "result. Missing for: #{Enum.join(missing, ", ")}."
   end
 
@@ -511,7 +511,7 @@ defmodule PairingsEngineWeb.NormsLive do
   ## ---------- FIDE report readiness ----------
 
   # FIDE won't accept an IT3 with an arbiter it can't identify, so a report
-  # missing an official's FIDE ID is a wasted submission — better to say so
+  # missing an official's FIDE ID is a wasted submission - better to say so
   # here than to hand over a file that gets bounced. Returns the human-readable
   # list of what's missing; `[]` means good to go.
   #
@@ -519,7 +519,7 @@ defmodule PairingsEngineWeb.NormsLive do
   # has been *named* without an ID is not, since that's the half-filled state
   # the SWAR import leaves behind whenever a name is ambiguous.
   #
-  # Chief arbiter's and organizer's e-mail are ALSO required — not a made-up
+  # Chief arbiter's and organizer's e-mail are ALSO required - not a made-up
   # rule, FIDE's own template prints "PRIVACY NOTICE: Chief Organizer's and
   # Chief Arbiter's e-mail address is required only for institutional
   # purposes and will be displayed on FIDE website" right on the
@@ -656,14 +656,14 @@ defmodule PairingsEngineWeb.NormsLive do
 
   # Puts the rows worth an arbiter's attention first: a player who's
   # actually achieved a norm, then whoever's closest to one (fewest failing
-  # B.01 requirements on their nearest-miss title), then everyone else —
+  # B.01 requirements on their nearest-miss title), then everyone else -
   # rather than the roster's incidental pairing-number order, which has no
   # relationship to who's interesting on this specific page.
   defp players_by_norm_relevance(players, judgments) do
     Enum.sort_by(players, &{norm_relevance_key(judgments[&1.id]), &1.name})
   end
 
-  # Same clause order/precedence as `norm_judgment_label/1` below —
+  # Same clause order/precedence as `norm_judgment_label/1` below -
   # `evaluate/1` always returns all three keys, so `games: 0` has to be
   # checked before `best`/`verdicts`, the same way the label does, rather
   # than incidentally matching whichever clause happens to come first.
@@ -675,7 +675,7 @@ defmodule PairingsEngineWeb.NormsLive do
     1 + Enum.count(nearest.checks, &(not &1.ok?))
   end
 
-  # nil (no judgment at all — a player `evaluate/1` never returned an entry
+  # nil (no judgment at all - a player `evaluate/1` never returned an entry
   # for) also lands at the very bottom.
   defp norm_relevance_key(_), do: 1_000_000
 
@@ -685,8 +685,8 @@ defmodule PairingsEngineWeb.NormsLive do
   # closest miss (fewest failing checks among the evaluated titles), or a
   # plain "no games yet". Full per-check breakdown goes in the cell's
   # `title` tooltip via norm_judgment_details/1.
-  defp norm_judgment_label(nil), do: "—"
-  defp norm_judgment_label(%{games: 0}), do: "— no counted games"
+  defp norm_judgment_label(nil), do: "-"
+  defp norm_judgment_label(%{games: 0}), do: "- no counted games"
 
   defp norm_judgment_label(%{best: %{title: title, performance: perf}}),
     do: "#{title} norm ✓ (Rp #{perf})"
@@ -695,7 +695,7 @@ defmodule PairingsEngineWeb.NormsLive do
     nearest = Enum.min_by(verdicts, fn v -> Enum.count(v.checks, &(not &1.ok?)) end)
     failing = Enum.count(nearest.checks, &(not &1.ok?))
 
-    "no norm — best #{nearest.title}: #{failing} requirement#{if failing == 1, do: "", else: "s"} short"
+    "no norm - best #{nearest.title}: #{failing} requirement#{if failing == 1, do: "", else: "s"} short"
   end
 
   defp norm_judgment_details(nil), do: nil
@@ -718,7 +718,7 @@ defmodule PairingsEngineWeb.NormsLive do
   ## up by save_norm, grouped with the rest of handle_event/3) ----------
 
   # `[current tournament id | selected companion ids]`, always leading with
-  # the current tournament — the order used both for the master picker's
+  # the current tournament - the order used both for the master picker's
   # options and for the `combine=` query param, since `NormsController`
   # resolves `master` to an index into this same order.
   defp combine_ids(tournament, other_tournaments, combine_selected) do
@@ -776,8 +776,8 @@ defmodule PairingsEngineWeb.NormsLive do
           <.link navigate={~p"/t/#{@tournament.id}/settings"}>Tournament settings</.link>
           page; the tournament's FIDE ID / event code on the
           <.link navigate={~p"/t/#{@tournament.id}/settings/fide"}>FIDE settings</.link>
-          page. Pairing mode is always computerized and the pairing program is always
-          "OpenPairings (With JaVaFo)".
+          page. Pairing mode is always computerized, and the pairing program names whichever
+          engine paired this tournament.
         </p>
 
         <p :if={@stale} class="error-note">
@@ -871,7 +871,7 @@ defmodule PairingsEngineWeb.NormsLive do
           <h3 style="margin: 18px 0 8px; font-size: 14px">
             Additional arbiters
             <span class="hint" style="font-weight: normal">
-              (beyond chief + 2 deputies — FIDE doesn't rank these, so IT3 prints each as a
+              (beyond chief + 2 deputies - FIDE doesn't rank these, so IT3 prints each as a
               plain "Arbiter" row)
             </span>
           </h3>

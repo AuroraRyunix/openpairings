@@ -128,7 +128,7 @@ defmodule PairingsEngine.RatingRefreshTest do
     end
 
     # `national_rating` is an import/manual-entry artifact, not something
-    # OpenPairings keeps in sync — a bulk button rewriting it made it look
+    # OpenPairings keeps in sync - a bulk button rewriting it made it look
     # like there is a live national-rating system here. Clubs, the part of
     # the KBSB list that IS worth refreshing, moved to `ClubRefresh`.
     test "never proposes a national_rating change, even when KBSB disagrees", %{
@@ -147,7 +147,7 @@ defmodule PairingsEngine.RatingRefreshTest do
     end
 
     # A national id is no longer a match of any kind here, so a player
-    # carrying only one is "unmatched" — the summary counts FIDE matches.
+    # carrying only one is "unmatched" - the summary counts FIDE matches.
     test "a player with only a national id counts as unmatched", %{tournament: tournament} do
       {:ok, _player} =
         Tournaments.create_player(tournament.id, %{"name" => "Carla", "national_id" => "12345"})

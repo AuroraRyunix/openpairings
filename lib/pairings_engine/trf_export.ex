@@ -2,18 +2,18 @@ defmodule PairingsEngine.TrfExport do
   @moduledoc """
   User-facing FIDE TRF16 export of a tournament's full roster, as opposed to
   `PairingsEngine.Pairing.javafo_input/2` (a JaVaFo-only input file, built
-  from active players and fed straight into the pairing engine — never
+  from active players and fed straight into the pairing engine - never
   downloaded by a user).
 
   The distinguishing feature here is **round selection**: `export/2` can
-  produce a TRF containing only a chosen subset of rounds — the header's
+  produce a TRF containing only a chosen subset of rounds - the header's
   round-dates line and every player's per-round result columns are trimmed
   to match, and points are recomputed from the filtered games only. See
   `parse_rounds/2` for the accepted `rounds` query-param syntax and
   `docs/import-export.md` for the user-facing reference.
 
   Only players who have actually been included in a paired round (i.e. have
-  a `pairing_number`) are exported — see
+  a `pairing_number`) are exported - see
   `PairingsEngine.Pairing.trf_player_rows/2`.
   """
 
@@ -28,7 +28,7 @@ defmodule PairingsEngine.TrfExport do
 
   Returns `{:ok, text}`, or `{:error, %PairingsEngine.Trf.ValidationError{}}`
   if the filtered result set fails `Trf`'s own legality validation (an
-  unrecognized or mutually-inconsistent result code) — never raises.
+  unrecognized or mutually-inconsistent result code) - never raises.
   """
   def export(tournament, rounds_spec \\ nil) do
     {:ok, build(tournament, rounds_spec)}
@@ -37,16 +37,16 @@ defmodule PairingsEngine.TrfExport do
   end
 
   # SWAR parity #23 (manual standings override) is deliberately NOT
-  # surfaced in this file — see docs/manual-standings.md for the full
+  # surfaced in this file - see docs/manual-standings.md for the full
   # reasoning. In short: the FIDE "086-089 Rank" column and the "005-008
   # Starting rank" column both carry `pairing_number` in this codebase (see
   # `Pairing.trf_player_rows/2`), and every game's opponent cross-reference
-  # is baked against that same value — rewriting it per player to the
+  # is baked against that same value - rewriting it per player to the
   # standings rank would desync those references and fail
   # `Trf.serialize/1`'s own cross-check, so this doesn't touch it. There is
   # therefore no hidden override to disclose in this file at all: the TRF's
   # rank column was never affected by manual ranking in the first place.
-  # The UI (the page offering this download) carries the caveat instead —
+  # The UI (the page offering this download) carries the caveat instead -
   # see `PairingsEngineWeb.PairingsLive`.
 
   @doc """
@@ -120,7 +120,7 @@ defmodule PairingsEngine.TrfExport do
 
   @doc """
   The FIDE tournament ID that applies to `rounds` (a list of round numbers,
-  e.g. from `parse_rounds/2`) — SWAR's "this FIDE ID applies to rounds X-Y"
+  e.g. from `parse_rounds/2`) - SWAR's "this FIDE ID applies to rounds X-Y"
   model (`tournament.fide_id_ranges`, see
   `PairingsEngine.Tournaments.Tournament`'s schema doc).
 
@@ -128,10 +128,10 @@ defmodule PairingsEngine.TrfExport do
 
     * If exactly one configured range fully covers `rounds` (its
       `from_round..to_round` spans at least `min(rounds)..max(rounds)`),
-      that range's ID is used — this is the common case (a report cleanly
+      that range's ID is used - this is the common case (a report cleanly
       split by round).
-    * Otherwise — no ranges configured, the round span crosses more than
-      one range's boundary, only partially overlaps one, or matches none —
+    * Otherwise - no ranges configured, the round span crosses more than
+      one range's boundary, only partially overlaps one, or matches none -
       falls back to the tournament-wide `tournament.fide_tournament_id`.
       This never raises: an unresolvable/blank case simply yields `nil`,
       which the filename builder renders as an omitted segment (e.g. a
@@ -174,7 +174,7 @@ defmodule PairingsEngine.TrfExport do
           # normalizes a Belgian regional marker (VSF/FEFB/FRBE/"FIDE"/...) to
           # "BEL" on import, but a tournament imported before that
           # normalization existed may still carry the raw marker in the
-          # database — reusing the same helper here means it exports "032
+          # database - reusing the same helper here means it exports "032
           # BEL" either way, with no re-import required. A no-op for every
           # other federation value (see `SwarImport.normalize_federation/1`).
           federation: SwarImport.normalize_federation(tournament.federation),
@@ -186,7 +186,7 @@ defmodule PairingsEngine.TrfExport do
           deputy_arbiters: deputy_arbiter_lines(tournament),
           time_control: blank_to_nil(tournament.rate_of_play),
           # The count of rounds actually represented in *this* file, not the
-          # tournament's configured total — matches `round_dates` below, which
+          # tournament's configured total - matches `round_dates` below, which
           # is filtered to `rounds` the same way (a `?rounds=1-3` export of a
           # 5-round event describes itself as 3 rounds, honestly).
           number_of_rounds: length(rounds),
@@ -196,14 +196,14 @@ defmodule PairingsEngine.TrfExport do
         players: trf_players
       },
       column_legend: true,
-      # This file leaves the building — it is what an arbiter submits to
-      # FIDE — so it must survive a byte-oriented reader. See
+      # This file leaves the building - it is what an arbiter submits to
+      # FIDE - so it must survive a byte-oriented reader. See
       # `Trf.serialize/2`'s `:ascii` option.
       ascii: true
     )
   end
 
-  # Mirrors `PairingsEngineWeb.Layouts.app_version/0` — duplicated rather
+  # Mirrors `PairingsEngineWeb.Layouts.app_version/0` - duplicated rather
   # than reused so this domain module doesn't reach into the web layer for
   # one string.
   defp app_version do
@@ -216,7 +216,7 @@ defmodule PairingsEngine.TrfExport do
 
   # 102: chief arbiter, as "<FIDE id> <name>" when the id is known (e.g.
   # "102 208418 Boutchon, Gaston"), else just the name. Skipped entirely
-  # (nil) when the chief arbiter isn't known at all — `Trf.serialize/1`
+  # (nil) when the chief arbiter isn't known at all - `Trf.serialize/1`
   # already drops a nil/blank header line.
   defp chief_arbiter_line(tournament) do
     name = tournament.chief_arbiter || ""
@@ -230,9 +230,9 @@ defmodule PairingsEngine.TrfExport do
   end
 
   # 112: one line per deputy/extra arbiter found among the officials map's
-  # `deputyN_name` (N in 1..2 — FIDE only ever ranks 2 deputies by name) and
-  # `arbiterN_name` (N in 1..extra_arbiters_count — everyone past that,
-  # unranked — see `PairingsEngine.Tournaments.Tournament`'s `officials`
+  # `deputyN_name` (N in 1..2 - FIDE only ever ranks 2 deputies by name) and
+  # `arbiterN_name` (N in 1..extra_arbiters_count - everyone past that,
+  # unranked - see `PairingsEngine.Tournaments.Tournament`'s `officials`
   # field docs and docs/norms.md's "Arbiters beyond chief + 2 deputies")
   # keys, same "<FIDE id> <name>" formatting as the chief arbiter. A slot
   # with no name set is skipped.
@@ -250,8 +250,8 @@ defmodule PairingsEngine.TrfExport do
     end
   end
 
-  # 1..count is a *descending* range (iterating count..1) when count is 0 —
-  # an easy footgun — so 0 (the common case: no extra arbiters) has to
+  # 1..count is a *descending* range (iterating count..1) when count is 0 -
+  # an easy footgun - so 0 (the common case: no extra arbiters) has to
   # short-circuit to an empty range explicitly.
   defp extra_arbiter_range(officials) do
     case extra_arbiters_count(officials) do

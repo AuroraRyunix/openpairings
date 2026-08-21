@@ -4,7 +4,7 @@ defmodule PairingsEngine.Repo.Migrations.AddTournamentsPresenceValue do
   def change do
     alter table(:tournaments) do
       # SWAR "3-2-1" custom-scoring `SW321_Pre` ("presence points", manual
-      # §4.6 field 84) — the points paid for an unpaired-but-present round
+      # §4.6 field 84) - the points paid for an unpaired-but-present round
       # (SWAR's LOST_BYE / our byes.type == "requested-zero"), which is a
       # distinct value from an ordinary configured loss even though SWAR's
       # own result-code bitmask (§5.2) files LOST_BYE under its generic

@@ -5,8 +5,8 @@ defmodule PairingsEngine.ClubRefresh do
   and proposes club changes, without writing anything until `apply/2` is
   called.
 
-  Deliberately the same shape as `PairingsEngine.RatingRefresh` — dry run,
-  preview modal, apply — because it is the same gesture on a different
+  Deliberately the same shape as `PairingsEngine.RatingRefresh` - dry run,
+  preview modal, apply - because it is the same gesture on a different
   column, and an arbiter who has used one should not have to learn the
   other. It is a SEPARATE action rather than extra proposals inside the
   rating refresh: the two answer different questions ("are these ratings
@@ -18,8 +18,8 @@ defmodule PairingsEngine.ClubRefresh do
 
   Two fields, from one matched KBSB row:
 
-    * `club` — the club NAME (`club_name` on the KBSB row)
-    * `club_number` — the KBSB club id
+    * `club` - the club NAME (`club_name` on the KBSB row)
+    * `club_number` - the KBSB club id
 
   Both move together or not at all. A player whose name matches but whose
   number does not (or vice versa) is a club that was renamed or renumbered,
@@ -35,7 +35,7 @@ defmodule PairingsEngine.ClubRefresh do
   registered off either database. The name step exists for the case those
   two miss completely and which is very common at a club event: a player
   typed in by hand, with no matricule and no FIDE id. It is deliberately
-  the last resort and deliberately timid — see `match_by_name/2`, which
+  the last resort and deliberately timid - see `match_by_name/2`, which
   returns a row only when the name identifies exactly one person, and
   never guesses between namesakes.
 
@@ -46,7 +46,7 @@ defmodule PairingsEngine.ClubRefresh do
   international rating list, which carries no club or federation membership
   at all. Going through the already-synced local copy covers strictly more
   players than the remote API would, needs no API key, and works offline in
-  a playing hall — which is where this button gets pressed.
+  a playing hall - which is where this button gets pressed.
 
   ## What it will not do
 
@@ -84,7 +84,7 @@ defmodule PairingsEngine.ClubRefresh do
 
   @doc """
   Looks up every player in `tournament` against the local KBSB copy and
-  returns `%{proposals:, checked:, changed:, unmatched:}` — `changed` is the
+  returns `%{proposals:, checked:, changed:, unmatched:}` - `changed` is the
   number of players with at least one proposed change, `unmatched` the
   number with no KBSB match at all (no ids set, or ids not on the list).
   Writes nothing; pair with `apply/2` to commit.
@@ -118,7 +118,7 @@ defmodule PairingsEngine.ClubRefresh do
     %{proposals: proposals, matched?: match != nil}
   end
 
-  # National id first — it is the KBSB's own primary key, so it cannot be
+  # National id first - it is the KBSB's own primary key, so it cannot be
   # ambiguous. FIDE id second, and only as a fallback: it is indexed but not
   # unique on the local copy, so `find_by_fide_id/1` takes the first row.
   # That is the right trade for a preview-then-apply action (the arbiter
@@ -190,7 +190,7 @@ defmodule PairingsEngine.ClubRefresh do
   same player are grouped into a single update.
 
   `RatingRefresh.apply/2` is byte-for-byte this function, and it would work
-  on these structs unchanged — it only ever reads `.player`, `.field` and
+  on these structs unchanged - it only ever reads `.player`, `.field` and
   `.new`. It is not called: that would be an undeclared cross-module
   contract holding two features together by accident, and the twelve lines
   are cheaper than the day someone spends finding out.

@@ -6,7 +6,7 @@ OpenPairings sends transactional emails for account confirmation, login links, a
 
 By default, emails are captured in a local preview mailbox. After registering an account or requesting a magic link, visit **http://localhost:4000/dev/mailbox** to view sent emails without leaving the browser.
 
-No setup required — this works out of the box.
+No setup required - this works out of the box.
 
 ## Real email delivery
 

@@ -15,7 +15,7 @@ defmodule PairingsEngine.PlayerStatsTest do
 
       p = player(fide_rating: 1000, national_rating: 0)
       assert PlayerStats.assign_category(p, ["-1200", "-1100"], rules) == "-1100"
-      # Order in the list must not matter — it's the value that's tighter.
+      # Order in the list must not matter - it's the value that's tighter.
       assert PlayerStats.assign_category(p, ["-1100", "-1200"], rules) == "-1100"
     end
 
@@ -49,7 +49,7 @@ defmodule PairingsEngine.PlayerStatsTest do
     end
 
     # Real report: a real tournament's "U1800" (elo_below 1800) bracket
-    # wasn't picking up its unrated players at all — 0 (an unrated
+    # wasn't picking up its unrated players at all - 0 (an unrated
     # player's `Player.rating/1`) genuinely IS under any positive
     # ceiling, so excluding them was backwards.
     test "an unrated player (rating 0) still qualifies for an elo_below ceiling" do
@@ -58,7 +58,7 @@ defmodule PairingsEngine.PlayerStatsTest do
       assert PlayerStats.assign_category(p, ["U1800"], rules) == "U1800"
     end
 
-    # An unrated player has no proven rating to be ABOVE anything —
+    # An unrated player has no proven rating to be ABOVE anything -
     # elo_above deliberately keeps excluding them, unlike elo_below.
     test "an unrated player never qualifies for an elo_above floor" do
       rules = %{"+1800" => %{"kind" => "elo_above", "value" => 1800}}
@@ -125,7 +125,7 @@ defmodule PairingsEngine.PlayerStatsTest do
     test "Article 8.3.1 caps the difference at 400 (0.92 / 0.08)" do
       assert PlayerStats.expected_score(400) == 0.92
       assert PlayerStats.expected_score(-400) == 0.08
-      # Beyond 400 the cap still applies — 735 behaves exactly like 400.
+      # Beyond 400 the cap still applies - 735 behaves exactly like 400.
       assert PlayerStats.expected_score(735) == 0.92
       assert PlayerStats.expected_score(-735) == 0.08
     end

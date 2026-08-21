@@ -3,7 +3,7 @@ defmodule PairingsEngine.Repo.Migrations.CreateKbsbPlayers do
 
   def change do
     # Local copy of the Belgian national rating list (KBSB/FRBE), imported
-    # from an uploaded rating-list file — see docs/kbsb-sync.md for why this
+    # from an uploaded rating-list file - see docs/kbsb-sync.md for why this
     # is a file upload rather than an HTTP sync like the FIDE list.
     create table(:kbsb_players, primary_key: false) do
       add :national_id, :string, primary_key: true

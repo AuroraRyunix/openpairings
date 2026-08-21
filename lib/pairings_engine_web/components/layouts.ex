@@ -159,7 +159,7 @@ defmodule PairingsEngineWeb.Layouts do
       <div :if={@tournament && @tournament.archived_at} class="archived-banner">
         <span>
           <strong>This tournament is archived.</strong>
-          It's read-only — every change is refused until you unarchive it. Everything else
+          It's read-only - every change is refused until you unarchive it. Everything else
           (viewing, printing, exporting, its public link) still works normally.
         </span>
         <.link navigate={~p"/"} class="pe-btn">Unarchive from Tournaments</.link>
@@ -228,10 +228,10 @@ defmodule PairingsEngineWeb.Layouts do
 
   @doc """
   Minimal layout for the public (no-login) tournament pages
-  (`PairingsEngineWeb.PublicStandingsLive` / `PublicPairingsLive` — see
+  (`PairingsEngineWeb.PublicStandingsLive` / `PublicPairingsLive` - see
   docs/public-pages.md). Deliberately *not* `app/1`: a spectator who scanned
   a QR code to check standings has no use for the authenticated topbar's
-  tournament tabs, accent picker, or sign-in/settings links — this is just
+  tournament tabs, accent picker, or sign-in/settings links - this is just
   the brand mark and the theme switch (still useful: a bright phone screen
   in a dim tournament hall is exactly the scenario `Layouts.theme_switch/1`
   exists for), then the page content.
@@ -368,7 +368,7 @@ defmodule PairingsEngineWeb.Layouts do
   ]
 
   @doc """
-  Accent-colour picker for the top bar — a palette popover of swatches,
+  Accent-colour picker for the top bar - a palette popover of swatches,
   independent of the light/dark theme. Applied client-side via `data-accent`
   on `<html>` (see the inline script in root.html.heex), so it needs no server
   state and persists across reloads and tabs.
@@ -400,7 +400,7 @@ defmodule PairingsEngineWeb.Layouts do
 
   # Theme choices shown in the picker: {key, icon, label}. "system" is
   # special-cased in the template (it has no fixed swatch colour, since it
-  # resolves to whichever of light/dark the OS is in) — everything after it
+  # resolves to whichever of light/dark the OS is in) - everything after it
   # is a real, named palette with its own `[data-theme="key"]` block in
   # app.css. Order here is display order in the popover.
   @themes [
@@ -419,7 +419,7 @@ defmodule PairingsEngineWeb.Layouts do
   styled with the app's own design tokens so it matches the rest of the UI in
   both themes. The active option is highlighted purely from CSS, keyed off the
   `data-theme` / `data-theme-source` attributes the inline script in
-  root.html.heex maintains on `<html>` — so it needs no server state and
+  root.html.heex maintains on `<html>` - so it needs no server state and
   reflects the choice instantly, even across tabs.
   """
   def theme_switch(assigns) do

@@ -264,7 +264,7 @@ Controllers automatically have the `current_scope` available if they use the `:b
         <% end %>
       </div>
 
-  and **Never** do this – the program will terminate with a syntax error:
+  and **Never** do this - the program will terminate with a syntax error:
 
       <%!-- THIS IS INVALID NEVER EVER DO THIS --%>
       <div id="<%= @invalid_interpolation %>">

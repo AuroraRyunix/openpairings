@@ -6,7 +6,7 @@ defmodule PairingsEngineWeb.PublicStandingsLiveTest do
   alias PairingsEngine.{Repo, Tournaments}
   alias PairingsEngine.Tournaments.{Player, Round, Pairing}
 
-  # No login — the public page needs no `register_and_log_in_user` setup.
+  # No login - the public page needs no `register_and_log_in_user` setup.
   defp two_player_tournament do
     {:ok, tournament} =
       Tournaments.create_tournament(%{"name" => "Public Manual Ranking Test", "type" => "swiss"})
@@ -71,7 +71,7 @@ defmodule PairingsEngineWeb.PublicStandingsLiveTest do
     end
   end
 
-  describe "Category column — shows on the public page too, whenever the tournament has >= 1 category" do
+  describe "Category column - shows on the public page too, whenever the tournament has >= 1 category" do
     test "hidden when the tournament has no categories defined", %{conn: conn} do
       {tournament, _a, _b, _pairing} = two_player_tournament()
 

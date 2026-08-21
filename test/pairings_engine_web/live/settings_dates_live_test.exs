@@ -49,7 +49,7 @@ defmodule PairingsEngineWeb.SettingsDatesLiveTest do
 
     {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/dates")
 
-    # Simulates typing round 1's date in — there's no separate "start
+    # Simulates typing round 1's date in - there's no separate "start
     # date" field to seed from any more, so the live phx-change tracking
     # (rd_update/2) is what makes round 1's own unsaved value visible to
     # the fill helper at all.
@@ -88,7 +88,7 @@ defmodule PairingsEngineWeb.SettingsDatesLiveTest do
 
     assert html =~ "2026-07-13 → 2026-07-20"
 
-    # Not saved yet — the tournament record itself is untouched.
+    # Not saved yet - the tournament record itself is untouched.
     tournament = Tournaments.get_authorized_tournament!(scope, tournament.id)
     assert tournament.start_date == ""
   end

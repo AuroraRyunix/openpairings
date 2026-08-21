@@ -14,13 +14,13 @@ defmodule PairingsEngineWeb.MobileResultsLive do
   @results [{"1-0", "1-0"}, {"1/2-1/2", "½-½"}, {"0-1", "0-1"}]
 
   # The rest of PairingsLive's own `@results` (forfeits and the asymmetric
-  # disciplinary codes) — real results a helper at the board genuinely needs
+  # disciplinary codes) - real results a helper at the board genuinely needs
   # to record, just rare enough that showing all 9 buttons on every board by
   # default would crowd the three that matter 95% of the time on a small
   # screen. Tucked behind "More…" (`toggle_extra/2`) instead of a long-press:
   # a long-press has no visible affordance at all (nothing on screen hints
   # it exists), fires inconsistently across mobile browsers, and collides
-  # with the OS's own text-selection/context-menu gesture on many devices —
+  # with the OS's own text-selection/context-menu gesture on many devices -
   # a plain, visible, always-there button is more reliable AND more
   # discoverable for exactly the audience (arbiters/helpers, not the
   # tournament owner) most likely to be seeing this screen for the first
@@ -53,7 +53,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
        paired: paired,
        archived?: not is_nil(tournament.archived_at),
        locked: false,
-       # Which board's "More…" panel is open, if any — one at a time, so
+       # Which board's "More…" panel is open, if any - one at a time, so
        # the page doesn't grow tall with several boards expanded at once.
        # Cleared on round switch (below) since the boards it referred to no
        # longer apply.
@@ -65,7 +65,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
   @impl true
   def handle_info({:tournament_changed, _id, _hint}, socket) do
     # `on_mount(:require_enrollment, ...)` only loads `tournament` once, at
-    # connect — reload it here too, or an archive/unarchive elsewhere would
+    # connect - reload it here too, or an archive/unarchive elsewhere would
     # never reach this page and the result buttons would stay stuck in
     # whichever `disabled?` state was true at the moment this phone opened
     # the page.
@@ -85,14 +85,14 @@ defmodule PairingsEngineWeb.MobileResultsLive do
   end
 
   # A "hand the phone to someone else / put it down for a second" guard, not
-  # a security boundary — off by default (per-session, resets on reload), and
+  # a security boundary - off by default (per-session, resets on reload), and
   # purely to stop an accidental tap from overwriting a result. The buttons
   # are also `disabled` client-side, but this is the actual enforcement.
   def handle_event("toggle_lock", _params, socket) do
     {:noreply, assign(socket, locked: !socket.assigns.locked)}
   end
 
-  # Opens/closes one board's "More…" panel (the forfeit/asymmetric codes —
+  # Opens/closes one board's "More…" panel (the forfeit/asymmetric codes -
   # see `@extra_results`). Only one open at a time: opening a different
   # board's panel closes whichever was already open, same as an accordion.
   def handle_event("toggle_extra", %{"id" => id}, socket) do
@@ -143,7 +143,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
                 put_flash(
                   socket,
                   :error,
-                  "This tournament is archived — the arbiter needs to unarchive it before results can be entered."
+                  "This tournament is archived - the arbiter needs to unarchive it before results can be entered."
                 )
 
               {:error, _reason} ->
@@ -165,12 +165,12 @@ defmodule PairingsEngineWeb.MobileResultsLive do
 
   def handle_event("set_result", _params, socket), do: {:noreply, socket}
 
-  # No-account phones weren't writing to the audit trail at all before this —
+  # No-account phones weren't writing to the audit trail at all before this -
   # a real gap, since a mobile-entered result is exactly as write-worthy as
   # one entered from PairingsLive (same `Audit.log/4` action names, so the
   # audit page's existing "pairings" filter and describe/2 clauses pick
   # these up automatically), just with no `Scope`/user to attribute it to.
-  # `Audit.log/4`'s `nil` case handles that ("System" in the audit UI) — the
+  # `Audit.log/4`'s `nil` case handles that ("System" in the audit UI) - the
   # enrollment's own id/code/label are threaded into `details` instead, so
   # an arbiter can still tell which phone made the change even without a
   # user account attached to it.
@@ -338,7 +338,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
           </button>
         </div>
 
-        <%!-- Forfeits and the asymmetric disciplinary codes — rare, so
+        <%!-- Forfeits and the asymmetric disciplinary codes - rare, so
               tucked here instead of cluttering every board's default three
               buttons. Stays open if that's already this board's own
               recorded result, so "what's currently set" is never hidden

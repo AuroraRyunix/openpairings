@@ -16,7 +16,7 @@ defmodule PairingsEngine.MixProject do
     ]
   end
 
-  # Standalone single-file binaries via Burrito — one self-contained
+  # Standalone single-file binaries via Burrito - one self-contained
   # executable per OS/arch (x86_64 + aarch64 for macOS, Linux, Windows).
   # Build with `MIX_ENV=prod mix release`; output lands in `burrito_out/`.
   # See docs/binaries.md. Needs Zig + xz on the build machine; cross-target
@@ -103,10 +103,10 @@ defmodule PairingsEngine.MixProject do
       {:gen_smtp, "~> 1.2"},
       {:burrito, "~> 1.3"},
       {:stream_data, "~> 1.1", only: [:dev, :test]},
-      # Pure Elixir, no native deps — renders CHANGELOG.md on the
+      # Pure Elixir, no native deps - renders CHANGELOG.md on the
       # Settings > Changelog page (SettingsChangelogLive).
       {:earmark, "~> 1.4"},
-      # Ainalrami — the optional second Swiss engine (see
+      # Ainalrami - the optional second Swiss engine (see
       # docs/pairing-systems.md). A from-scratch Dutch-system implementation
       # in pure Elixir with zero runtime dependencies: no JVM, no external
       # binary, nothing to install alongside a release or a Burrito build.
@@ -116,7 +116,7 @@ defmodule PairingsEngine.MixProject do
       # `ref:` is pinned to an exact commit ON PURPOSE and must only ever be
       # bumped deliberately, with the bump reviewed like any other pairing
       # change. Floating this to a branch would let an upstream push silently
-      # change what this app pairs — the one thing a tournament manager can
+      # change what this app pairs - the one thing a tournament manager can
       # never allow. `override: true`-style looseness is equally out.
       {:ainalrami,
        github: "AuroraRyunix/Ainalrami", ref: "6d739bdb3ee1338646d71550a73e770fc8c29ddb"}

@@ -1,5 +1,5 @@
 defmodule PairingsEngine.Norms.CountsBreakdownTest do
-  # async: true — pure, no database.
+  # async: true - pure, no database.
   use ExUnit.Case, async: true
 
   alias PairingsEngine.Norms.CountsBreakdown

@@ -32,14 +32,14 @@ defmodule PairingsEngineWeb.SettingsTournamentLiveTest do
 
       refute html =~ ~s(name="tournament[deputy_arbiter]")
       refute html =~ ~s(name="tournament[time_control]")
-      # Chief arbiter is no longer a Settings field at all — it moved to the
+      # Chief arbiter is no longer a Settings field at all - it moved to the
       # Officials card on the Norms tab.
       refute html =~ ~s(name="tournament[chief_arbiter]")
     end
 
     test "Settings points at where the chief arbiter actually lives", %{conn: conn, scope: scope} do
       # The field moving to Norms left Settings silent about it, and an
-      # arbiter looking for "chief arbiter" looks under Settings — reported
+      # arbiter looking for "chief arbiter" looks under Settings - reported
       # by someone who could not find it while holding a direct link. Nothing
       # here should ever edit the value; the point is that the page says
       # where it is and shows whether it is set.
@@ -73,7 +73,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLiveTest do
 
       assert html =~ "Tournament name"
       assert html =~ "Number of rounds"
-      # Start date used to be here too — it's derived from round_dates now
+      # Start date used to be here too - it's derived from round_dates now
       # (Dates page), not entered on this page at all.
       refute html =~ "Start date"
       # The bold label + red asterisk are now `.set-label.req` / `.set-req`

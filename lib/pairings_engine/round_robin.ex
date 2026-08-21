@@ -15,21 +15,21 @@ defmodule PairingsEngine.RoundRobin do
 
     * Players are numbered 1..N by their frozen `pairing_number` (see
       "Freezing" below). If N is odd, a phantom player numbered N+1 is
-      added to make the count even — FIDE's own rule ("where there is an
+      added to make the count even - FIDE's own rule ("where there is an
       odd number of players, the highest number counts as a bye").
     * `effective_n` = N (even) or N+1 (odd); `m = effective_n - 1` (always
       odd, since `effective_n` is always even) is both the number of
       rounds in one cycle and the modulus for the round-robin arithmetic.
-    * Player `effective_n` (the highest number — real when N is even, the
+    * Player `effective_n` (the highest number - real when N is even, the
       phantom when N is odd) is the *fixed* player: in round `r`
       (0-indexed), it plays whichever real player `f(r) = (r * inv2) rem m`
       is (where `inv2` is the modular inverse of 2 mod `m`, i.e.
-      `(m + 1) / 2` since `m` is odd) — this is a bijection over `r`, so
+      `(m + 1) / 2` since `m` is odd) - this is a bijection over `r`, so
       every player takes the fixed player's opponent slot exactly once per
       cycle. When the fixed player is the phantom, that real opponent gets
       the round's structural bye instead of a real pairing.
     * Every other player `i` (0-indexed label, real number `i + 1`) not
-      equal to `f(r)` pairs with `j` such that `i + j ≡ r (mod m)` — the
+      equal to `f(r)` pairs with `j` such that `i + j ≡ r (mod m)` - the
       remaining `m - 1` labels split into `(m - 1) / 2` such pairs.
     * Colour: for the fixed pairing, the fixed player is White iff `r` is
       odd. For every other pair `(i, j)` with `i < j`, White is the
@@ -37,18 +37,18 @@ defmodule PairingsEngine.RoundRobin do
       higher-numbered player `j`. Both rules were reverse-engineered from
       the FIDE-published N=4 and N=6 tables and hold for every pair in
       both (all four possible `j - i` distances for N=6, both possible
-      distances for N=4) — see `docs/pairing-systems.md`.
+      distances for N=4) - see `docs/pairing-systems.md`.
 
   All of this lives in `schedule/3`, which is a **pure** function of
-  `(player_count, cycles, round_number)` — pairing round K always produces
+  `(player_count, cycles, round_number)` - pairing round K always produces
   the same result, satisfying the correctness rule that a round-robin
   schedule must not depend on when it's computed.
 
   ## Freezing pairing numbers
 
   Exactly like the Swiss path (`PairingsEngine.Pairing`), pairing numbers
-  are assigned once — highest rating first, name as the tie-break (FIDE
-  C.04.2.B) — and then frozen forever. Unlike Swiss, round robin never
+  are assigned once - highest rating first, name as the tie-break (FIDE
+  C.04.2.B) - and then frozen forever. Unlike Swiss, round robin never
   assigns numbers to anyone after that first freeze: the schedule is fixed
   the moment round 1 is first paired, and it would be structurally
   impossible to slot a newcomer into an already-computed Berger table
@@ -59,10 +59,10 @@ defmodule PairingsEngine.RoundRobin do
   ## Byes
 
   Odd player counts always produce exactly one structural, zero-point bye
-  per player per cycle (never zero, never two) — see `schedule/3`'s doc.
+  per player per cycle (never zero, never two) - see `schedule/3`'s doc.
   It's recorded as a `"requested-zero"` row in the `byes` table (TRF code
   `Z`, 0 points via `PairingsEngine.Standings`/`PairingsEngine.Pairing`'s
-  existing bye-type handling) with no corresponding `pairings` row — the
+  existing bye-type handling) with no corresponding `pairings` row - the
   same shape Swiss already uses for a round-specific requested absence.
   `"pairing-allocated"` (a full point) is deliberately not used: this bye
   isn't the pairing engine running out of opponents, it's a structural
@@ -78,13 +78,13 @@ defmodule PairingsEngine.RoundRobin do
   Pairs the next round using a Berger round-robin schedule.
 
   Unlike Swiss, a round-robin round's pairings never depend on prior
-  results (the whole schedule is fixed at freeze time — see moduledoc), so
+  results (the whole schedule is fixed at freeze time - see moduledoc), so
   there's no need to gate pairing round N+1 on round N being fully scored
-  the way the Swiss/JaVaFo path does — see `pair_all_rounds/1` below,
+  the way the Swiss/JaVaFo path does - see `pair_all_rounds/1` below,
   which is exactly this fact turned into a feature (generate the whole
   event in one action, since there's nothing to wait on between rounds).
 
-  `tournament.rounds_count` isn't a free choice the way it is for Swiss —
+  `tournament.rounds_count` isn't a free choice the way it is for Swiss -
   a round-robin's real length is entirely determined by the frozen player
   count plus cycles/match-format, the moment freezing happens (see
   `ensure_frozen/1`). This corrects `rounds_count` to that real total on
@@ -114,23 +114,23 @@ defmodule PairingsEngine.RoundRobin do
   end
 
   @doc """
-  Pairs every remaining round of the Berger schedule in one call — the
+  Pairs every remaining round of the Berger schedule in one call - the
   whole point of round-robin pairing never depending on prior results
   (see moduledoc and `pair_next_round/1`'s doc): there's no reason to make
   an arbiter click "pair" once per round when the entire schedule is
   already fully determined the moment player freezing happens.
 
   Returns `{:ok, last_round_number}` once the schedule is fully paired
-  (idempotent — calling this again once everything is already paired
+  (idempotent - calling this again once everything is already paired
   returns the same `{:ok, last_round_number}`, not an error), or
   `{:error, reason}` from whichever round first failed to pair (nothing
-  after that point gets attempted; every round up to it is still paired —
+  after that point gets attempted; every round up to it is still paired -
   each round's own insertion is already a self-contained transaction, see
   `create_round/4`).
   """
   @spec pair_all_rounds(Tournament.t()) :: {:ok, pos_integer()} | {:error, term()}
   def pair_all_rounds(%Tournament{archived_at: archived_at}) when not is_nil(archived_at) do
-    {:error, "This tournament is archived — unarchive it before pairing."}
+    {:error, "This tournament is archived - unarchive it before pairing."}
   end
 
   def pair_all_rounds(%Tournament{} = tournament) do
@@ -148,7 +148,7 @@ defmodule PairingsEngine.RoundRobin do
 
   @doc """
   Computes the Berger schedule for `round_number` (1-indexed, spanning
-  however many `cycles` the tournament plays — see `tournaments.rr_cycles`)
+  however many `cycles` the tournament plays - see `tournaments.rr_cycles`)
   over `player_count` schedulable (frozen) players numbered 1..player_count.
 
   Pure: touches no database, depends only on these three integers. Returns
@@ -185,13 +185,13 @@ defmodule PairingsEngine.RoundRobin do
 
   @doc """
   "Match format" schedule: like `schedule/3` but every single-cycle pairing
-  is played twice, back-to-back, colours reversed, instead of once —
+  is played twice, back-to-back, colours reversed, instead of once -
   `tournaments.rr_match_format`, a different shape from `rr_cycles == 2`
   (see the moduledoc and the field's own doc comment on
   `PairingsEngine.Tournaments.Tournament`).
 
   `physical_round` is the round number as actually paired/displayed (1, 2,
-  3, 4, ... — nothing here renumbers rounds). Physical rounds `2k-1` and
+  3, 4, ... - nothing here renumbers rounds). Physical rounds `2k-1` and
   `2k` are match `k`'s two legs: `match_number = div(physical_round + 1, 2)`
   maps both `2k-1` and `2k` to `k`, and `schedule(player_count, 1, k)` gives
   that match's pairing exactly once (a single-cycle Berger table, since a
@@ -201,7 +201,7 @@ defmodule PairingsEngine.RoundRobin do
   colours swapped (`mirror_leg/1`).
 
   A structural bye (odd player count) mirrors unchanged rather than
-  swapping anything — the player sitting out match `k` sits out both of its
+  swapping anything - the player sitting out match `k` sits out both of its
   legs identically, so leg 2's bye row is the same player, same
   `"requested-zero"` type, just recorded against the next round number by
   the caller (`do_pair/2` inserts one row per physical round, same as
@@ -228,7 +228,7 @@ defmodule PairingsEngine.RoundRobin do
 
   @doc """
   Total number of physical rounds the match-format schedule needs for
-  `player_count` players — exactly double `total_rounds(player_count, 1)`,
+  `player_count` players - exactly double `total_rounds(player_count, 1)`,
   since every single-cycle pairing becomes two physical rounds (its two
   legs). Match format is always a single Berger cycle underneath (see
   `match_schedule/2`), so unlike `total_rounds/2` there's no `cycles`
@@ -273,7 +273,7 @@ defmodule PairingsEngine.RoundRobin do
 
   ## ---------- pairing numbers ----------
 
-  # Frozen once, forever — the very first call for this tournament (no
+  # Frozen once, forever - the very first call for this tournament (no
   # player has a pairing_number yet). Every later call is a no-op, so
   # players added afterward never get one and are excluded from the
   # schedule (see moduledoc). Same ordering rule as the Swiss path
@@ -303,7 +303,7 @@ defmodule PairingsEngine.RoundRobin do
     :ok
   end
 
-  # See `pair_next_round/1`'s doc — round-robin's real round count is a
+  # See `pair_next_round/1`'s doc - round-robin's real round count is a
   # pure function of the frozen player count plus cycles/match-format,
   # never a free-standing arbiter choice the way it is for Swiss. Fewer
   # than 2 frozen players is a no-op (pair_next_round/1's own guard
@@ -328,7 +328,7 @@ defmodule PairingsEngine.RoundRobin do
 
   # The frozen schedule set: every player who has a pairing_number,
   # regardless of their *current* status/absent/forfeit flags. A
-  # round-robin schedule is fixed at freeze time — pulling someone out
+  # round-robin schedule is fixed at freeze time - pulling someone out
   # later would change every other player's opponent for that round, so
   # a player who becomes absent/withdrawn/forfeited after the freeze
   # still gets paired every round; the arbiter records a forfeit result
@@ -414,7 +414,7 @@ defmodule PairingsEngine.RoundRobin do
 
         # A "requested-zero" bye immediately awards points (see
         # PairingsEngine.Standings) without ever going through
-        # Tournaments.update_pairing_result/2 — a hand-set manual standings
+        # Tournaments.update_pairing_result/2 - a hand-set manual standings
         # order must be marked stale here too, same as any other
         # point-changing write. See docs/manual-standings.md (Fix 3) and
         # PairingsEngine.Pairing.insert_round_absentee_byes/3 for the same
@@ -432,13 +432,13 @@ defmodule PairingsEngine.RoundRobin do
 
   # A player who is currently `absent` or `forfeit` (both fields bypass
   # `ensure_frozen/1`'s filter identically for tournaments continued from a
-  # SWAR import, where `pairing_number` is set directly at player creation —
+  # SWAR import, where `pairing_number` is set directly at player creation -
   # see `PairingsEngine.SwarImport`) still gets paired every round by design
   # (see moduledoc: the Berger schedule can't be recomputed mid-tournament),
   # but should never be left with a blank result for the arbiter to notice
   # manually. Automate exactly what the moduledoc already documents: record
   # the forfeit result at insert time instead. `absent` and `forfeit` are
-  # treated as equivalent OR-conditions — either one alone is enough to mark
+  # treated as equivalent OR-conditions - either one alone is enough to mark
   # a side as forfeiting, and having both set changes nothing.
   defp forfeit_result(%Player{} = white, %Player{} = black) do
     white_out? = white.absent || white.forfeit

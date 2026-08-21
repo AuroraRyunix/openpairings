@@ -13,7 +13,7 @@ defmodule PairingsEngineWeb.NormsLiveTest do
       Tournaments.create_tournament(scope, %{"name" => "Norms LV", "type" => "swiss"})
 
     # IT3/FA1 are gated on a FIDE tournament ID, every official having a FIDE
-    # ID, plus chief arbiter/organizer e-mail (see `report_blockers/1` — FIDE
+    # ID, plus chief arbiter/organizer e-mail (see `report_blockers/1` - FIDE
     # bounces a report it can't identify a tournament or arbiter from, or
     # that's missing the e-mails its own template's privacy notice requires),
     # so a tournament that's expected to render live download links has to
@@ -41,7 +41,7 @@ defmodule PairingsEngineWeb.NormsLiveTest do
     assert html =~ "Doe, Jane"
     assert html =~ "No players have a claimed title yet"
 
-    # The automatic B.01 judgment column renders for every player — with no
+    # The automatic B.01 judgment column renders for every player - with no
     # games played yet, the verdict is the honest "no counted games".
     assert html =~ "Computed (B.01)"
     assert html =~ "no counted games"
@@ -81,7 +81,7 @@ defmodule PairingsEngineWeb.NormsLiveTest do
     assert html =~ "IM norm"
 
     # "save_norm" broadcasts :players on the tournament topic and this `lv`
-    # is subscribed to its own tournament (see NormsLive's mount) —
+    # is subscribed to its own tournament (see NormsLive's mount) -
     # render_submit/1 only waits for the direct reply to the "save_norm"
     # event, not for that self-broadcast's handle_info reload, which lands
     # in the mailbox microseconds later and runs its own Repo query. Drain
@@ -146,7 +146,7 @@ defmodule PairingsEngineWeb.NormsLiveTest do
 
     {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/norms")
 
-    # Pick deputy 1 for real, via search-then-pick — exactly how the arbiter
+    # Pick deputy 1 for real, via search-then-pick - exactly how the arbiter
     # combo commits a value (see ArbiterCombo's moduledoc).
     lv
     |> element("input[name='tournament[officials][deputy1_name]']")
@@ -181,7 +181,7 @@ defmodule PairingsEngineWeb.NormsLiveTest do
       Tournaments.create_tournament(scope, %{"name" => "Norms Sort LV", "type" => "swiss"})
 
     # Inserted in an order that would put "Zed" before "Alice" under any
-    # incidental default (pairing_number/insertion) ordering — the sort has
+    # incidental default (pairing_number/insertion) ordering - the sort has
     # to be doing real work to put HasGames ahead of NoGames here.
     has_games =
       Repo.insert!(%Player{
@@ -217,7 +217,7 @@ defmodule PairingsEngineWeb.NormsLiveTest do
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/norms")
 
     # Player names also appear earlier on the page (the IT3 counts-explain
-    # breakdown lists every player unsorted) — anchor the search to the
+    # breakdown lists every player unsorted) - anchor the search to the
     # norm-judgment table itself so the comparison is actually of its order,
     # not whichever section happens to mention a name first.
     {table_start, _} = :binary.match(html, "Players - title-norm judgment")
@@ -254,7 +254,7 @@ defmodule PairingsEngineWeb.NormsLiveTest do
       {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/norms")
 
       assert html =~ "Youth Group"
-      # The current tournament is always part of the combined set — it must
+      # The current tournament is always part of the combined set - it must
       # appear in its own festival's list (checked + disabled), not be
       # silently omitted (user-reported as "doesn't list its own tournament").
       assert html =~ "this tournament, always included"
@@ -318,7 +318,7 @@ defmodule PairingsEngineWeb.NormsLiveTest do
       |> form("form[phx-change=set_combine_master]", %{"master" => to_string(other.id)})
       |> render_change()
 
-      # Deselect `other` again — it was the master, so the master resets to
+      # Deselect `other` again - it was the master, so the master resets to
       # the current tournament, and the combined section disappears (no
       # tournaments selected).
       html = lv |> element(~s(input[phx-value-id="#{other.id}"])) |> render_click()

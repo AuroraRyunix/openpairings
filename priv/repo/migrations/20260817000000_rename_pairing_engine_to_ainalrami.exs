@@ -12,8 +12,8 @@ defmodule PairingsEngine.Repo.Migrations.RenamePairingEngineToAinalrami do
   # never touched, and the settings dropdown would render no selection.
   #
   # Narrow by construction: `WHERE pairing_engine = 'openpair'` touches
-  # nothing else, and "javafo" rows — the default, and the overwhelming
-  # majority — are not read or written at all.
+  # nothing else, and "javafo" rows - the default, and the overwhelming
+  # majority - are not read or written at all.
   def up do
     execute "UPDATE tournaments SET pairing_engine = 'ainalrami' WHERE pairing_engine = 'openpair'"
   end

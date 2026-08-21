@@ -3,7 +3,7 @@ defmodule PairingsEngine.Norms.CombineFormsIntegrationTest do
   End-to-end checks that `PairingsEngine.Norms.Forms` + `PairingsEngine.Norms.XlsxFill`
   accept the fully in-memory, unpersisted structs produced by
   `PairingsEngine.Norms.Combine.combine/2` and `PairingsEngine.TrfImport.build_structs/1`
-  — the two building blocks for the upcoming "combined norms" flow and the
+  - the two building blocks for the upcoming "combined norms" flow and the
   public no-login /tools page, neither of which touch the database. This is
   Task 3 of that groundwork: confirming Forms needs no adaptation for either
   path.
@@ -16,7 +16,7 @@ defmodule PairingsEngine.Norms.CombineFormsIntegrationTest do
   alias PairingsEngine.Tournaments.{Tournament, Player}
 
   # ---------------------------------------------------------------------
-  # strict XML well-formedness helper — same technique as
+  # strict XML well-formedness helper - same technique as
   # test/pairings_engine/norms/xlsx_fill_test.exs's `assert_well_formed_xml!/2`
   # (xmerl_scan is a real, validating XML parser, catching corruption a
   # lenient reader would silently pass through).
@@ -60,7 +60,7 @@ defmodule PairingsEngine.Norms.CombineFormsIntegrationTest do
       open =
         %Tournament{
           id: 100,
-          name: "Ghent Chess Festival — Open",
+          name: "Ghent Chess Festival - Open",
           federation: "BEL",
           venue: "City Hall",
           city: "Ghent",
@@ -81,7 +81,7 @@ defmodule PairingsEngine.Norms.CombineFormsIntegrationTest do
           officials: %{"pairing_mode" => "computerized"}
         }
 
-      youth = %Tournament{id: 200, name: "Ghent Chess Festival — Youth", federation: "BEL"}
+      youth = %Tournament{id: 200, name: "Ghent Chess Festival - Youth", federation: "BEL"}
 
       open_players = [
         %Player{name: "Alpha, One", federation: "BEL", fide_id: 1, fide_rating: 2100},
@@ -96,16 +96,16 @@ defmodule PairingsEngine.Norms.CombineFormsIntegrationTest do
       assert {:ok, {virtual_tournament, virtual_players}} =
                Combine.combine([{open, open_players}, {youth, youth_players}], 0)
 
-      assert virtual_tournament.name == "Ghent Chess Festival — Open Festival"
+      assert virtual_tournament.name == "Ghent Chess Festival - Open Festival"
       assert length(virtual_players) == 4
 
       fills = Forms.it3_fills(virtual_tournament, virtual_players)
       invulformulier = fills["Invulformulier"]
 
-      assert invulformulier["B3"] == "Ghent Chess Festival — Open Festival"
+      assert invulformulier["B3"] == "Ghent Chess Festival - Open Festival"
       assert invulformulier["B11"] == 9
       # 9 rounds over 5 distinct days, two double-round days each after the
-      # first — same chunk-by-consecutive-equal-date rule as forms_test.exs.
+      # first - same chunk-by-consecutive-equal-date rule as forms_test.exs.
       assert invulformulier["B12"] == "1-2-2-2-2"
 
       # Rated total: Alpha (2100) + Bravo (2000) = 2 (Charlie/Delta are both
@@ -122,7 +122,7 @@ defmodule PairingsEngine.Norms.CombineFormsIntegrationTest do
       sheet_xml = Map.fetch!(members, "xl/worksheets/sheet2.xml")
 
       assert sheet_xml =~
-               ~r/<c r="B3"[^>]*t="inlineStr"><is><t xml:space="preserve">Ghent Chess Festival — Open Festival<\/t><\/is><\/c>/
+               ~r/<c r="B3"[^>]*t="inlineStr"><is><t xml:space="preserve">Ghent Chess Festival - Open Festival<\/t><\/is><\/c>/
     end
   end
 

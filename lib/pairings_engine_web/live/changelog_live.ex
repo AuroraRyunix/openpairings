@@ -1,6 +1,6 @@
 defmodule PairingsEngineWeb.ChangelogLive do
   @moduledoc """
-  The app-wide "Changelog" page (`/changelog`) — renders `CHANGELOG.md`
+  The app-wide "Changelog" page (`/changelog`) - renders `CHANGELOG.md`
   from the repo root via `PairingsEngine.Changelog`. Not tournament-scoped
   (the changelog describes the whole app, not one tournament), so it sits
   in the main nav alongside Tournaments/Tools rather than buried inside a

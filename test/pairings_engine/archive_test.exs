@@ -91,7 +91,7 @@ defmodule PairingsEngine.ArchiveTest do
       {:ok, t} = Tournaments.set_public_pages(t, true)
       {:ok, _} = Tournaments.archive_tournament(t)
 
-      # Still fetchable — archiving freezes writes, it doesn't hide anything.
+      # Still fetchable - archiving freezes writes, it doesn't hide anything.
       assert Tournaments.get_authorized_tournament!(scope, t.id)
       assert Tournaments.get_tournament_by_public_slug(t.public_slug)
     end
@@ -368,7 +368,7 @@ defmodule PairingsEngine.ArchiveTest do
   end
 
   describe "archiving is open to any collaborator, not just the owner" do
-    test "archive_tournament/1 and unarchive_tournament/1 accept a struct regardless of who calls them — the caller-permission check lives in the LiveView, same as every other shared action" do
+    test "archive_tournament/1 and unarchive_tournament/1 accept a struct regardless of who calls them - the caller-permission check lives in the LiveView, same as every other shared action" do
       owner = user_scope()
       t = tournament(owner)
       _collaborator = accepted_collaborator(owner, t)
@@ -382,7 +382,7 @@ defmodule PairingsEngine.ArchiveTest do
   end
 
   describe "lifecycle actions that stay allowed while archived" do
-    test "archiving does not block binning or restoring — a separate lifecycle" do
+    test "archiving does not block binning or restoring - a separate lifecycle" do
       scope = user_scope()
       t = archived(scope)
 
@@ -425,7 +425,7 @@ defmodule PairingsEngine.ArchiveTest do
       scope = user_scope()
       t = archived(scope)
 
-      # Refused outright by the guard — but even the attempt must not clear it.
+      # Refused outright by the guard - but even the attempt must not clear it.
       assert Tournaments.update_tournament(t, %{"archived_at" => nil}) == {:error, :archived}
       assert Repo.reload!(t).archived_at
     end

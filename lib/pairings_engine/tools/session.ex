@@ -1,22 +1,22 @@
 defmodule PairingsEngine.Tools.Session do
   @moduledoc """
   In-memory-only store backing the public, no-login arbiter tools at
-  `/tools/norms` (see docs/tools.md) — the parsed tournaments an arbiter has
+  `/tools/norms` (see docs/tools.md) - the parsed tournaments an arbiter has
   uploaded there, keyed by a random token embedded in that page's download
   links (`GET /tools/download/:token/:form`, `PairingsEngineWeb.ToolsController`).
 
   Deliberately **not** `PairingsEngine.Repo`-backed: nothing an arbiter drops
-  on this page — the uploaded file's parsed tournament/players, the
-  chief-arbiter/organizer overrides, the FA1/IA1 candidate — is ever written
+  on this page - the uploaded file's parsed tournament/players, the
+  chief-arbiter/organizer overrides, the FA1/IA1 candidate - is ever written
   to the database or to disk. It lives only in this process's ETS table, and
   is gone within an hour whether or not anyone comes back for it.
 
   ## Design
 
   A single `GenServer` owns a `:public` ETS table (`read_concurrency` +
-  `write_concurrency`) so that `PairingsEngineWeb.ToolsController` — a
+  `write_concurrency`) so that `PairingsEngineWeb.ToolsController` - a
   different process from the `PairingsEngineWeb.ToolsNormsLive` that filled
-  it in — can `get/1` straight from the table with no message pass through
+  it in - can `get/1` straight from the table with no message pass through
   this server; the server itself only exists to own the table (so it isn't
   tied to whichever process happened to create it first) and to run the
   periodic expiry sweep.
@@ -24,13 +24,13 @@ defmodule PairingsEngine.Tools.Session do
   ## Expiry
 
   Every `put/1,2,3` stamps the entry with an absolute expiry (default one
-  hour from now — see `@default_ttl_ms`), refreshed on every subsequent
-  `put/2` for that token (a sliding TTL: touching a session — adding a file,
-  editing the officials fields — keeps it alive another hour). Expiry is
+  hour from now - see `@default_ttl_ms`), refreshed on every subsequent
+  `put/2` for that token (a sliding TTL: touching a session - adding a file,
+  editing the officials fields - keeps it alive another hour). Expiry is
   enforced two ways: lazily, on every `get/1` (an expired-but-not-yet-swept
   entry is deleted and treated as a miss), and by a periodic sweep
   (`@sweep_interval_ms`) that walks the table and deletes anything already
-  past its expiry — a backstop for entries nobody ever calls `get/1` on
+  past its expiry - a backstop for entries nobody ever calls `get/1` on
   again, so memory doesn't grow unbounded across many abandoned sessions.
   """
 
@@ -100,7 +100,7 @@ defmodule PairingsEngine.Tools.Session do
     :ok
   end
 
-  @doc "A fresh random URL-safe token — 24 bytes, same shape as a tournament's `public_slug`."
+  @doc "A fresh random URL-safe token - 24 bytes, same shape as a tournament's `public_slug`."
   def token, do: :crypto.strong_rand_bytes(24) |> Base.url_encode64(padding: false)
 
   ## ---------- GenServer ----------
@@ -128,7 +128,7 @@ defmodule PairingsEngine.Tools.Session do
 
   defp sweep do
     now = System.monotonic_time(:millisecond)
-    # {token, data, expires_at, bytes} — delete every row already expired.
+    # {token, data, expires_at, bytes} - delete every row already expired.
     # `=<` (not `<`) so the boundary agrees with `get/1`'s `now < expires_at`
     # liveness check: an entry expiring this exact millisecond is expired
     # both ways.
@@ -140,7 +140,7 @@ defmodule PairingsEngine.Tools.Session do
   # Keep the table at or below `@max_entries` AND `@max_bytes` by evicting the
   # soonest-to-expire (effectively oldest) rows first. Runs after every
   # `put/3`; a no-op in the overwhelmingly common case where the table is
-  # under both. Any process may call this — the table is `:public` — and
+  # under both. Any process may call this - the table is `:public` - and
   # concurrent callers only ever over-delete already-doomed rows, never
   # live-and-under-cap data.
   defp enforce_cap do

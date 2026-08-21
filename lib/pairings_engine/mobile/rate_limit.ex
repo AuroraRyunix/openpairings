@@ -2,7 +2,7 @@ defmodule PairingsEngine.Mobile.RateLimit do
   @moduledoc """
   Per-IP throttle for the mobile enrollment code-entry endpoint. The numeric
   code is short, so wrong guesses are counted and, past `@max_attempts` inside
-  a rolling window, further attempts from that IP are blocked — making a
+  a rolling window, further attempts from that IP are blocked - making a
   brute-force of the 6-digit space infeasible. A successful enrollment clears
   the IP's counter. Owns a `:public` ETS table (same pattern as
   `PairingsEngine.Tools.Session`), swept periodically.

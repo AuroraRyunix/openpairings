@@ -3,7 +3,7 @@ defmodule PairingsEngine.Repo.Migrations.CreateFidePlayersFts do
 
   # Full-text index over FIDE player names so the add-player search can match
   # any name token (first name, last name, in any order, comma optional) fast
-  # — a plain LIKE '%token%' can't use an index and scans all ~1.9M rows.
+  # - a plain LIKE '%token%' can't use an index and scans all ~1.9M rows.
   #
   # Standalone (not external-content) FTS5 table keyed by fide_id, kept in sync
   # by PairingsEngine.Fide.Sync after each rating-list rebuild. `remove_diacritics`
@@ -17,8 +17,8 @@ defmodule PairingsEngine.Repo.Migrations.CreateFidePlayersFts do
     )
     """)
 
-    # Keep the index in lock-step with `fide_players` on every write — the
-    # monthly sync's bulk delete/insert, test fixtures, ad-hoc corrections —
+    # Keep the index in lock-step with `fide_players` on every write - the
+    # monthly sync's bulk delete/insert, test fixtures, ad-hoc corrections -
     # so nothing has to remember to refresh it.
     execute("""
     CREATE TRIGGER fide_players_fts_ai AFTER INSERT ON fide_players BEGIN

@@ -7,7 +7,7 @@ defmodule PairingsEngine.PairingTest do
 
   # `Pairing`'s JaVaFo scratch file is written into a per-run randomized
   # directory and deleted again the moment that run finishes (see
-  # `Pairing.workdir!/0`'s doc — a security hardening against a shared-tmp
+  # `Pairing.workdir!/0`'s doc - a security hardening against a shared-tmp
   # symlink/read attack), so tests can no longer read the TRF text back off
   # disk after `pair_next_round/1` returns. `Pairing` fires a
   # `[:pairings_engine, :pairing, :trf_built]` telemetry event with the exact
@@ -110,7 +110,7 @@ defmodule PairingsEngine.PairingTest do
     round = Repo.preload(round, :pairings)
 
     assert round.number == 1
-    # Only 1 real pairing among {Alice, Bob, Carol} — the fourth (odd) player
+    # Only 1 real pairing among {Alice, Bob, Carol} - the fourth (odd) player
     # among the eligible three gets a pairing-allocated bye, so 2 pairing
     # rows total (1 game + 1 allocated bye); Dave never reaches JaVaFo.
     assert length(round.pairings) == 2
@@ -142,11 +142,11 @@ defmodule PairingsEngine.PairingTest do
   # (`absent_rounds`) is excluded from just this round's eligible set, and
   # that absentee's rating places them in the MIDDLE of the field rather
   # than at either end, the eligible set's starting ranks have a GAP in the
-  # middle of the 1..N range (e.g. {1,2,4,5}, rank 3 missing) — this really
+  # middle of the 1..N range (e.g. {1,2,4,5}, rank 3 missing) - this really
   # does crash the real javafo.jar with a bare NullPointerException. The
   # existing "excludes a player absent for this round" test above doesn't
   # catch this because its absentee is the LOWEST-rated player (a gap at
-  # the very end of the range only, which apparently doesn't crash JaVaFo —
+  # the very end of the range only, which apparently doesn't crash JaVaFo -
   # only a middle gap does).
   @tag :javafo
   test "pair_next_round/1 doesn't crash when a round-specific absentee leaves a gap in the middle of the starting-rank range" do
@@ -156,7 +156,7 @@ defmodule PairingsEngine.PairingTest do
     p2 = insert_player(tournament, "Bob", fide_rating: 1900)
 
     # Rated exactly between Bob and Dave, so after `ensure_pairing_numbers/2`
-    # freezes ranks highest-rating-first, Carol lands 3rd of 5 — round 1's
+    # freezes ranks highest-rating-first, Carol lands 3rd of 5 - round 1's
     # eligible set {Alice, Bob, Dave, Eve} then has starting ranks {1,2,4,5},
     # a gap in the MIDDLE of the range, not at either end.
     absentee = insert_player(tournament, "Carol", fide_rating: 1800, absent_rounds: "1")
@@ -195,7 +195,7 @@ defmodule PairingsEngine.PairingTest do
   # User-reported concern: "byes don't end up in the pairings history/list.
   # if i pair a new round, i can maybe even get a duplicate bye this way!"
   # Investigation traced the *visibility* half (bye rows never rendered on
-  # PairingsLive/LiveRoundLive/PublicPairingsLive — fixed alongside this
+  # PairingsLive/LiveRoundLive/PublicPairingsLive - fixed alongside this
   # test) but found `games_per_player/2` already joins the "byes" table
   # independently of `Tournaments.get_round/2` when building each round's
   # TRF history for JaVaFo, so the "duplicate bye" half was suspected to be
@@ -215,25 +215,25 @@ defmodule PairingsEngine.PairingTest do
     _bob = insert_player(tournament, "Bob", fide_rating: 1900)
     _carol = insert_player(tournament, "Carol", fide_rating: 1800)
     _eve = insert_player(tournament, "Eve", fide_rating: 1700)
-    # Absent for round 1 only — eligible_players/2 excludes Dave from round
+    # Absent for round 1 only - eligible_players/2 excludes Dave from round
     # 1's pairing and Pairing.pair_next_round/1 records a "requested-zero"
     # byes-table row for them (same mechanism as the excludes-absentee test
     # above), simulating a SWAR-imported round-specific absence. Deliberately
     # the LOWEST-rated player, so their pairing_number lands last (5) among
-    # the five — round 1's eligible four then keep a contiguous 1..4 range
+    # the five - round 1's eligible four then keep a contiguous 1..4 range
     # of starting ranks in the TRF sent to JaVaFo. (A gap in the middle of
-    # the starting-rank range — e.g. the absentee rated between Carol and
-    # Eve — hits a separate, pre-existing JaVaFo/TRF starting-rank
+    # the starting-rank range - e.g. the absentee rated between Carol and
+    # Eve - hits a separate, pre-existing JaVaFo/TRF starting-rank
     # contiguity issue unrelated to what this test is checking.)
     dave = insert_player(tournament, "Dave", fide_rating: 1600, absent_rounds: "1")
 
-    # Round 1: {Alice, Bob, Carol, Eve} — even, so two real games, no
+    # Round 1: {Alice, Bob, Carol, Eve} - even, so two real games, no
     # pairing-allocated bye. Dave sits out via absent_rounds.
     assert {:ok, round1} = Pairing.pair_next_round(tournament)
     assert round1.number == 1
 
     # Round 2 can't be paired until round 1's results are all in (the
-    # scoring the pairing engine relies on wouldn't be final otherwise) —
+    # scoring the pairing engine relies on wouldn't be final otherwise) -
     # fill in arbitrary decisive results for round 1's two real games.
     round1 = Repo.preload(round1, :pairings)
 
@@ -253,7 +253,7 @@ defmodule PairingsEngine.PairingTest do
     assert dave_byes == [%{round: 1, type: "requested-zero"}]
 
     # (a) The round-1 absence must survive into the TRF history built for
-    # round 2 — inspect the actual TRF export rather than trusting the
+    # round 2 - inspect the actual TRF export rather than trusting the
     # trace. Dave's round-1 slot must carry TRF code "Z" (requested-zero /
     # absent bye), not be silently blank/dropped.
     dave = Repo.reload(dave)
@@ -270,7 +270,7 @@ defmodule PairingsEngine.PairingTest do
     # (b) Round 2: all five players are eligible again (odd count), so one
     # of them gets a fresh pairing-allocated bye. Standard FIDE Dutch-system
     # logic prefers giving a bye to a player who hasn't already had one,
-    # all else being equal — assert JaVaFo picked someone other than Dave,
+    # all else being equal - assert JaVaFo picked someone other than Dave,
     # proving the round-1 absence wasn't lost/ignored when pairing round 2
     # (which is exactly what would let the same player collect a second,
     # "duplicate" bye).
@@ -284,14 +284,14 @@ defmodule PairingsEngine.PairingTest do
     bye_player_id = bye_pairing.white_player_id
 
     refute bye_player_id == dave.id,
-           "JaVaFo re-assigned round 2's bye to Dave, who already sat out round 1 — the prior absence appears to have been lost"
+           "JaVaFo re-assigned round 2's bye to Dave, who already sat out round 1 - the prior absence appears to have been lost"
   end
 
   ## ---------- byes must invalidate a hand-set manual standings order ----------
   #
   # SWAR parity #23 (manual standings) fix 3: byes award points too (see
   # PairingsEngine.Standings) but are written entirely inside this module,
-  # never through Tournaments.update_pairing_result/2 — so they need their
+  # never through Tournaments.update_pairing_result/2 - so they need their
   # own PairingsEngine.Tournaments.invalidate_manual_ranking/1 call sites.
   # See docs/manual-standings.md.
 
@@ -390,7 +390,7 @@ defmodule PairingsEngine.PairingTest do
   # The "byes" table has no round_id foreign key, so a plain `Round` delete
   # alone leaves a round-specific absentee's "requested-zero" bye row
   # behind. Re-pairing the same round number then hits
-  # `insert_all("byes", ...)`'s `UNIQUE(player_id, round)` index — which
+  # `insert_all("byes", ...)`'s `UNIQUE(player_id, round)` index - which
   # used to raise, permanently bricking the round.
   @tag :javafo
   test "delete_round/2 clears a round-specific absentee's byes row so re-pairing doesn't crash" do
@@ -416,7 +416,7 @@ defmodule PairingsEngine.PairingTest do
           select: %{round: b.round, type: b.type}
       )
 
-    # Exactly one row for {Dave, round: 1} — no duplicate from the deleted
+    # Exactly one row for {Dave, round: 1} - no duplicate from the deleted
     # round's leftover row.
     assert byes == [%{round: 1, type: "requested-zero"}]
   end
@@ -442,7 +442,7 @@ defmodule PairingsEngine.PairingTest do
       # Played "0-0" (both lose, e.g. both defaulted after moving): '0' for both.
       {"0-0", "0", "0"},
       # VCL.13's asymmetric result (an arbiter's disciplinary point
-      # adjustment on an otherwise-drawn game) — '=' for the ½ side, '0' for
+      # adjustment on an otherwise-drawn game) - '=' for the ½ side, '0' for
       # the 0 side. The one pair here that isn't symmetric.
       {"1/2-0", "=", "0"},
       {"0-1/2", "0", "="}
@@ -477,7 +477,7 @@ defmodule PairingsEngine.PairingTest do
     |> Enum.each(fn {{result, w_code, b_code}, round_number} ->
       # Round blocks repeat every 10 columns starting at column 92; result
       # is the 8th char of the block (opponent id 4, colour 1, result 1,
-      # with 1-char gaps — see PairingsEngine.Trf's round_cols/1).
+      # with 1-char gaps - see PairingsEngine.Trf's round_cols/1).
       result_col = 92 + (round_number - 1) * 10 + 7
 
       assert String.at(white_line, result_col - 1) == w_code,
@@ -491,10 +491,10 @@ defmodule PairingsEngine.PairingTest do
   ## ---------- opponentless games normalize to bye codes (JaVaFo crash fix) ----------
 
   # User-reported crash: JaVaFo exits 1 on "B.A.B.E: Unexpected format of
-  # player line" for rows like "... 0000 - 1 ... 0000 - = ..." — opponent
+  # player line" for rows like "... 0000 - 1 ... 0000 - = ..." - opponent
   # 0000 illegally carrying a played-game result code. This reproduces the
   # underlying data shape (an opponentless Pairing row whose `result` is a
-  # playing code rather than the "bye" sentinel — e.g. a won/half bye
+  # playing code rather than the "bye" sentinel - e.g. a won/half bye
   # recorded as if it were an ordinary scored game) and asserts the shared
   # row builder rewrites it to a legal bye code before it ever reaches
   # JaVaFo or the user-facing TRF export.
@@ -527,7 +527,7 @@ defmodule PairingsEngine.PairingTest do
         status: "finished"
       })
 
-    # Round 1: an ordinary game against a real opponent — unaffected.
+    # Round 1: an ordinary game against a real opponent - unaffected.
     Repo.insert!(%PairingsEngine.Tournaments.Pairing{
       round_id: r1.id,
       board: 1,
@@ -537,7 +537,7 @@ defmodule PairingsEngine.PairingTest do
     })
 
     # Round 2: a "won bye" recorded with no opponent but a playing-code
-    # result ("1-0") instead of the "bye" sentinel — reproduces "0000 - 1".
+    # result ("1-0") instead of the "bye" sentinel - reproduces "0000 - 1".
     Repo.insert!(%PairingsEngine.Tournaments.Pairing{
       round_id: r2.id,
       board: 2,
@@ -546,7 +546,7 @@ defmodule PairingsEngine.PairingTest do
       result: "1-0"
     })
 
-    # Round 3: a "half bye" recorded the same anomalous way — reproduces
+    # Round 3: a "half bye" recorded the same anomalous way - reproduces
     # "0000 - =".
     Repo.insert!(%PairingsEngine.Tournaments.Pairing{
       round_id: r3.id,
@@ -563,7 +563,7 @@ defmodule PairingsEngine.PairingTest do
     assert Enum.map(row.games, & &1.opponent_rank) == [2, nil, nil]
 
     # The fix applies to both the JaVaFo input path and the TRF export,
-    # since both go through this same shared builder — confirm the
+    # since both go through this same shared builder - confirm the
     # generated TRF text never contains the illegal combination.
     trf = Pairing.javafo_input(tournament, [player, opponent])
     refute trf =~ "0000 - 1"
@@ -571,14 +571,14 @@ defmodule PairingsEngine.PairingTest do
   end
 
   # User-reported crash (real SWAR 3-2-1 import, see swar_import_test.exs):
-  # pairing a new round after import raised `Trf.ValidationError` —
+  # pairing a new round after import raised `Trf.ValidationError` -
   # "opponent 0000 cannot carry played-game result ... opponentless games
-  # must use a bye code" — for a player whose round-1 REAL opponent had
+  # must use a bye code" - for a player whose round-1 REAL opponent had
   # since been marked `absent: true` and dropped out of `active_players/1`.
   # `games_per_player/2` was resolving that historical opponent's identity
   # against the same narrow player set used to decide who's eligible to be
   # paired THIS round, so a genuinely non-nil `opponent_id` produced a nil
-  # `opponent_rank` — a played-game result with no way to name its
+  # `opponent_rank` - a played-game result with no way to name its
   # opponent, the illegal TRF combination. This is a synthetic
   # reproduction, independent of the gitignored real fixture: A beats B in
   # round 1, B then goes absent, and A's round-1 TRF line must still show
@@ -617,8 +617,8 @@ defmodule PairingsEngine.PairingTest do
     assert game.opponent_rank == 2
 
     # And the full TRF text used to previously crash JaVaFo never contains
-    # the illegal "0000 - 1" combination for Alice's round-1 game — her
-    # opponent id block (columns 92-95, round 1 — see Trf's round_cols/1)
+    # the illegal "0000 - 1" combination for Alice's round-1 game - her
+    # opponent id block (columns 92-95, round 1 - see Trf's round_cols/1)
     # must carry Bob's real starting rank (2), not the "0000" placeholder.
     trf = Pairing.javafo_input(tournament)
     refute trf =~ "0000 - 1"
@@ -657,7 +657,7 @@ defmodule PairingsEngine.PairingTest do
     {:ok, _} = Tournaments.add_forbidden_pairing(tournament, alice.id, bob.id)
 
     # Bob isn't in the `players` list passed in (e.g. not eligible this
-    # round) — the pair is dropped rather than emitting a malformed line.
+    # round) - the pair is dropped rather than emitting a malformed line.
     assert Pairing.forbidden_pairs_lines(tournament.id, [alice]) == ""
   end
 
@@ -726,7 +726,7 @@ defmodule PairingsEngine.PairingTest do
     {:ok, _} = Tournaments.add_forbidden_pairing(tournament, alice.id, bob.id)
 
     # forbidden_pairs_lines/2 already emits "XXP 1 2\r\n" for the explicit
-    # pairing above — exclusion_pairs_lines/2 must not emit it a second time.
+    # pairing above - exclusion_pairs_lines/2 must not emit it a second time.
     assert Pairing.exclusion_pairs_lines(tournament, [alice, bob]) == ""
   end
 
@@ -776,7 +776,7 @@ defmodule PairingsEngine.PairingTest do
            end)
   end
 
-  ## ---------- Baku acceleration (XXA) — pure line building ----------
+  ## ---------- Baku acceleration (XXA) - pure line building ----------
 
   test "acceleration_lines/3 matches FIDE C.04.7's own nine-round worked example" do
     tournament =
@@ -865,7 +865,7 @@ defmodule PairingsEngine.PairingTest do
   # `acceleration`. Group A (starting ranks 1-4) is given +1.0 virtual
   # points for round 1 in the accelerated tournament, which changes their
   # effective round-2 standings score group from the real ranks-1-4 winners
-  # (1, 3, 6, 8) to (1, 2, 3, 4) — so round 2 must pair 1 against 3 (the only
+  # (1, 3, 6, 8) to (1, 2, 3, 4) - so round 2 must pair 1 against 3 (the only
   # two Group-A players left once the group is a clean foursome), which
   # never happens without acceleration. Verified once by hand directly
   # against `javafo.jar` (see `PairingsEngine.Pairing.acceleration_lines/3`
@@ -905,7 +905,7 @@ defmodule PairingsEngine.PairingTest do
           status: "finished"
         })
 
-      # 1 beats 5, 6 beats 2, 3 beats 7, 8 beats 4 — real scores after round
+      # 1 beats 5, 6 beats 2, 3 beats 7, 8 beats 4 - real scores after round
       # 1: {1, 3, 6, 8} = 1.0, {2, 4, 5, 7} = 0.0.
       for {white, black} <- [{p1, p5}, {p6, p2}, {p3, p7}, {p8, p4}] do
         Repo.insert!(%PairingsEngine.Tournaments.Pairing{
@@ -926,14 +926,14 @@ defmodule PairingsEngine.PairingTest do
 
     refute control_pairs == accel_pairs
 
-    # Without acceleration, the real score-1.0 group is {1, 3, 6, 8} — ranks
+    # Without acceleration, the real score-1.0 group is {1, 3, 6, 8} - ranks
     # 1 and 3 never meet in round 2 (they're both undefeated but slotted
     # against 6/8 respectively).
     refute {1, 3} in control_pairs or {3, 1} in control_pairs
 
     # With acceleration, ranks 1-4 (Group A) each get +1.0 virtual points for
     # round 1, so the effective score-2.0 group entering round 2 is exactly
-    # {1, 3} (real winners 1 and 3, boosted) — leaving JaVaFo no choice but
+    # {1, 3} (real winners 1 and 3, boosted) - leaving JaVaFo no choice but
     # to pair them together.
     assert {1, 3} in accel_pairs or {3, 1} in accel_pairs
   end
@@ -944,11 +944,11 @@ defmodule PairingsEngine.PairingTest do
   # eligible THIS round. `acceleration_lines/4`'s `ranked`/Group-A
   # computation now always receives the full frozen roster
   # (`do_pair_single/4` passes `full_roster`, not the round's eligible
-  # subset, all the way through `javafo_input/4`) — this was fixed as a
+  # subset, all the way through `javafo_input/4`) - this was fixed as a
   # side effect of a separate colour-history fix. Proven here by pairing
   # round 2 with a non-trivial-rank Group-A player (#3) excused for round 2
   # only (`absent_rounds`) and asserting the round-2 TRF's XXA starting
-  # ranks are byte-identical to round 1's — if Group A were still being
+  # ranks are byte-identical to round 1's - if Group A were still being
   # recomputed from the round's eligible subset, excluding rank 3 would
   # shift the remaining Group-A ranks to {1, 2, 4, 5}.
   @tag :javafo
@@ -988,7 +988,7 @@ defmodule PairingsEngine.PairingTest do
       {:ok, _} = Tournaments.update_pairing_result(pairing, "1-0")
     end)
 
-    # P3 (starting rank 3, inside Group A) is excused for round 2 only —
+    # P3 (starting rank 3, inside Group A) is excused for round 2 only -
     # excluded from round 2's pairing pool, but must not shrink Group A
     # membership (still all 4 of pairing_number 1-4, per
     # `acceleration_lines/4`'s doc: Group-A membership is a fixed,
@@ -1001,7 +1001,7 @@ defmodule PairingsEngine.PairingTest do
     round2_xxa_ranks = trf_xxa_ranks(tournament, 2)
     # NOT asserting the exact same rank *numbers* as round 1: JaVaFo's
     # input (and so each Group-A member's emitted XXA rank) is now ordered
-    # by CURRENT STANDINGS, not the fixed `pairing_number` — see
+    # by CURRENT STANDINGS, not the fixed `pairing_number` - see
     # `order_for_pairing/3`. Once round-1 results are in, a Group-A member
     # who won ends up ranked ahead of one who didn't, so the specific
     # numbers legitimately shift round to round. What must still hold is
@@ -1207,7 +1207,7 @@ defmodule PairingsEngine.PairingTest do
   ## ---------- delete_round/2 under swiss_match_format deletes both legs ----------
   #
   # A single do_pair/2 call under swiss_match_format inserts BOTH legs of a
-  # match (rounds N and N+1 — see create_mirrored_leg/4 and the comment
+  # match (rounds N and N+1 - see create_mirrored_leg/4 and the comment
   # above max_pairable_round/1, which documents that paired_rounds_count/1
   # always lands on an even number after a match-format pairing run).
   # delete_round/2 used to delete exactly one round regardless of match
@@ -1239,7 +1239,7 @@ defmodule PairingsEngine.PairingTest do
 
     assert :ok = Pairing.delete_round(tournament.id, 2)
 
-    # Both legs (round 1 AND round 2) must be gone, not just round 2 —
+    # Both legs (round 1 AND round 2) must be gone, not just round 2 -
     # otherwise round 1 would be orphaned (never rematched).
     assert Pairing.paired_rounds_count(tournament.id) == 0
     refute Tournaments.get_round(tournament.id, 1)
@@ -1247,7 +1247,7 @@ defmodule PairingsEngine.PairingTest do
   end
 
   @tag :javafo
-  test "delete_round/2 on the last leg of the last match doesn't strand the tournament — pairing resumes cleanly" do
+  test "delete_round/2 on the last leg of the last match doesn't strand the tournament - pairing resumes cleanly" do
     tournament =
       Repo.insert!(%Tournament{
         name: "Match",
@@ -1278,7 +1278,7 @@ defmodule PairingsEngine.PairingTest do
     assert Pairing.paired_rounds_count(tournament.id) == 4
 
     # Deleting round 4 (the requested "latest round") must also delete
-    # round 3 — leaving round 3 behind would strand the tournament:
+    # round 3 - leaving round 3 behind would strand the tournament:
     # next_number would become 4, but max_pairable_round is rounds_count - 1
     # == 3, so pairing would be permanently blocked with a misleading
     # "all rounds paired" error, and the UI has no way to delete round 3
@@ -1288,7 +1288,7 @@ defmodule PairingsEngine.PairingTest do
     refute Tournaments.get_round(tournament.id, 3)
     refute Tournaments.get_round(tournament.id, 4)
 
-    # Pairing must succeed again, creating rounds 3 and 4 fresh — not error
+    # Pairing must succeed again, creating rounds 3 and 4 fresh - not error
     # out and not treat round 3 as a leftover mismatched leg.
     assert {:ok, fresh_round4} = Pairing.pair_next_round(Repo.reload!(tournament))
     assert fresh_round4.number == 4
@@ -1351,7 +1351,7 @@ defmodule PairingsEngine.PairingTest do
       |> Enum.map(& &1.board)
       |> Enum.sort()
 
-    # tournament.categories == ["A", "B"] — A's boards come first.
+    # tournament.categories == ["A", "B"] - A's boards come first.
     assert boards_a == [1, 2]
     assert boards_b == [3, 4]
   end
@@ -1477,7 +1477,7 @@ defmodule PairingsEngine.PairingTest do
     _b2 = insert_player(tournament, "B2", fide_rating: 1500, category: "B")
 
     {:ok, _} = Tournaments.add_forbidden_pairing(tournament, a1.id, a2.id)
-    # Cross-category forbidden pairing — these two could never meet anyway,
+    # Cross-category forbidden pairing - these two could never meet anyway,
     # so this must be a harmless no-op, not an error.
     {:ok, _} = Tournaments.add_forbidden_pairing(tournament, a1.id, b1.id)
 
@@ -1545,7 +1545,7 @@ defmodule PairingsEngine.PairingTest do
   # excluded from `active_players/1` entirely, so a still-active player's
   # real, decisive past game against them fell outside the map and got
   # rewritten by `remap_trf_rows_to_local_ranks/2` into a synthetic bye
-  # ("0000", win -> "F") in the TRF sent to JaVaFo — silently destroying
+  # ("0000", win -> "F") in the TRF sent to JaVaFo - silently destroying
   # that game's played result, which can make JaVaFo repeat a colour and
   # break FIDE alternation. The fix scopes the local map (and the TRF row
   # set) to the full frozen roster and marks non-candidates with an explicit
@@ -1598,12 +1598,12 @@ defmodule PairingsEngine.PairingTest do
     anchor_line = anchor_trf_line(read_round_trf(tournament.id, 4), anchor.name)
 
     # Round-1 game columns (opponent rank cols 92-95, colour col 97, result
-    # col 99 — 0-indexed 91/96/98): the anchor's real win over the now-
+    # col 99 - 0-indexed 91/96/98): the anchor's real win over the now-
     # withdrawn opponent must survive intact.
     #
     # The opponent-rank column now holds their CURRENT-STANDINGS-based local
     # rank for this pairing run (see `order_for_pairing/3`), not their raw
-    # `pairing_number` — deliberately no longer the same number across
+    # `pairing_number` - deliberately no longer the same number across
     # rounds. What this test actually protects against is the "0000"/"F"
     # bye-rewrite regression, so it only needs to confirm the column holds
     # SOME real (non-"0000") rank reference, not which exact number.
@@ -1658,7 +1658,7 @@ defmodule PairingsEngine.PairingTest do
 
     enter_all_wins(round1)
 
-    # The opponent moves to category B before round 2 — now a historical
+    # The opponent moves to category B before round 2 - now a historical
     # opponent OUTSIDE category A's own group when A's round-2 TRF is built.
     {:ok, _opponent} = Tournaments.update_player(opponent, %{category: "B"})
 
@@ -1670,7 +1670,7 @@ defmodule PairingsEngine.PairingTest do
 
     # See the identical note in the non-category version of this test above:
     # the opponent-rank column is now a current-standings-based local rank
-    # (`order_for_pairing/3`), not the raw `pairing_number` — only "not a
+    # (`order_for_pairing/3`), not the raw `pairing_number` - only "not a
     # 0000 bye-rewrite" is the actual regression being guarded against here.
     opponent_rank_column = String.slice(anchor_line, 91, 4) |> String.trim()
     assert opponent_rank_column != "0000" and opponent_rank_column != ""
@@ -1685,16 +1685,16 @@ defmodule PairingsEngine.PairingTest do
   # order got wrong, because it fell through to `Map.values/1`'s
   # non-reproducible enumeration order of `build_shared_history/1`'s
   # `full_roster` map). Round 1's `do_pair_single/4`/`do_pair_by_category/3`
-  # path can't exercise the bug — `full_roster_players/1`'s own query is
+  # path can't exercise the bug - `full_roster_players/1`'s own query is
   # already `order_by: p.pairing_number`, and round 1 has no points/games
-  # yet to tie on anyway — so this deliberately engineers a round-2
+  # yet to tie on anyway - so this deliberately engineers a round-2
   # standings tie: two players (Y, pairing_number 2; X, pairing_number 5)
   # who both win their round-1 games against different opponents, landing
   # them on identical points AND identical rating going into round 2.
   # `order_for_pairing/3`'s sort key is `{-points, -rating, pairing_number}`,
   # so once score and rating are exhausted, the fix requires Y (the lower
-  # pairing_number) to sort — and so get a lower JaVaFo-visible local rank,
-  # physically ahead in the TRF row order — before X.
+  # pairing_number) to sort - and so get a lower JaVaFo-visible local rank,
+  # physically ahead in the TRF row order - before X.
   @tag :javafo
   test "order_for_pairing/3: players tied on both score and rating break the tie by pairing_number" do
     tournament =
@@ -1713,7 +1713,7 @@ defmodule PairingsEngine.PairingTest do
     # `build_shared_history/1`'s `full_roster` map are keyed/populated from
     # this same insertion order, so this is what actually distinguishes
     # "sorted by pairing_number" (the fix) from "whatever order the map
-    # already happened to be in" (the bug) — without this inversion the two
+    # already happened to be in" (the bug) - without this inversion the two
     # orders coincide by accident and the assertion below can't tell them
     # apart.
     x = insert_player(tournament, "X", fide_rating: 1800, pairing_number: 5, category: "A")
@@ -1748,7 +1748,7 @@ defmodule PairingsEngine.PairingTest do
     # round-1 game needs a result before round 2 can be paired. `round1`
     # is a stale in-memory snapshot from before the two win_for/1 calls
     # above (Elixir structs don't mutate), so re-fetch before filling in
-    # the rest — otherwise this blindly re-matches Y's and X's
+    # the rest - otherwise this blindly re-matches Y's and X's
     # already-set pairings too (their stale copies still show
     # result: "") and overwrites both back to "1-0", silently flipping
     # whichever of the two was sitting Black from a win to a loss and
@@ -1772,7 +1772,7 @@ defmodule PairingsEngine.PairingTest do
            "expected Y (pairing_number 2) to sort ahead of X (pairing_number 5) once " <>
              "tied on both score and rating, got Y rank #{y_rank}, X rank #{x_rank}"
 
-    # Sanity: they really were tied on rating — the only thing that could
+    # Sanity: they really were tied on rating - the only thing that could
     # have separated them for round 2 standings is the pairing_number
     # tie-break itself, not rating.
     assert x.fide_rating == y.fide_rating
@@ -1788,14 +1788,14 @@ defmodule PairingsEngine.PairingTest do
 
   # Each pairing run writes its JaVaFo scratch files into its own freshly
   # randomized `pairingsengine-<random>` directory (see `Pairing.workdir!/0`
-  # — a security hardening so a symlink/predictable-path attack in a shared
+  # - a security hardening so a symlink/predictable-path attack in a shared
   # temp dir can't clobber/read another user's scratch file), rather than
   # a single fixed `pairingsengine` subfolder. Glob every such directory and
-  # find the one holding this round's file — safe in tests, where pairing
+  # find the one holding this round's file - safe in tests, where pairing
   # runs happen sequentially and each round's file is unique by
   # tournament/round/suffix.
   # `suffix` mirrors the old scratch-filename suffix (e.g. `"_cat_0_A"` for
-  # a category run) purely to pick the category vs. non-category event —
+  # a category run) purely to pick the category vs. non-category event -
   # any non-empty suffix means "the one category event captured for this
   # round" (these tests only ever pair one category at a time per
   # assertion, so there's never more than one to disambiguate between).
@@ -1808,7 +1808,7 @@ defmodule PairingsEngine.PairingTest do
   # :pairing, :trf_built]` telemetry event (see this file's top-level
   # `setup`) for `tournament_id`/`round_number`, optionally narrowed to one
   # category (`:any_category` matches whichever single category event is
-  # present — fine since these tests only ever pair one category at a time
+  # present - fine since these tests only ever pair one category at a time
   # per assertion).
   defp trf_for(tournament_id, round_number, category_name \\ nil) do
     match =
@@ -1838,7 +1838,7 @@ defmodule PairingsEngine.PairingTest do
 
   describe "parse_pairs/1" do
     # `parse_pairs/1` is `@doc false`-public purely for these tests (same
-    # precedent as PairingsEngine.Fide.Sync) — JaVaFo has been observed to
+    # precedent as PairingsEngine.Fide.Sync) - JaVaFo has been observed to
     # exit 0 having written an EMPTY output file, and the old bare
     # `[_count | lines] =` match crashed pair_next_round/1 with an opaque
     # MatchError instead of a tidy {:error, ...}.

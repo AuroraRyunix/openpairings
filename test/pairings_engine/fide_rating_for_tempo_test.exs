@@ -1,6 +1,6 @@
 defmodule PairingsEngine.FideRatingForTempoTest do
   @moduledoc """
-  `PairingsEngine.Fide.rating_for_tempo/2` — pure, no DB — is what picks
+  `PairingsEngine.Fide.rating_for_tempo/2` - pure, no DB - is what picks
   which of a `FidePlayer`'s three FIDE ratings (Standard/Rapid/Blitz) a
   tournament actually uses, per the tournament's own `standard` cadence
   classification (`PairingsEngine.RateOfPlay`).
@@ -65,7 +65,7 @@ defmodule PairingsEngine.FideRatingForTempoTest do
 
   # FIDE's own list writes `0`, not a blank field, for "no rating in this
   # list" (e.g. real row for FIDE id 214566: SRtng 1865, RRtng 1865, BRtng
-  # 0). `||` alone doesn't fall through on that — 0 is truthy in Elixir —
+  # 0). `||` alone doesn't fall through on that - 0 is truthy in Elixir -
   # so this used to surface as a literal 0 Elo for a blitz tournament
   # instead of falling back to the player's real Standard rating.
   test "\"blitz\" falls back to standard_rating when blitz_rating is 0, not nil" do

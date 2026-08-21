@@ -2,7 +2,7 @@ defmodule PairingsEngine.Norms.ItThreeExpand do
   @moduledoc """
   Grows the IT3 template to fit arbiters beyond chief + the 2 *ranked*
   deputy slots ("1st/2nd Deputy Chief Arbiter"). FIDE's own printed
-  `Certificaat` sheet only ranks those first two by name — every arbiter
+  `Certificaat` sheet only ranks those first two by name - every arbiter
   after that prints as a plain, unranked "Arbiter" row, no matter how many
   there are, so this module treats them uniformly as one open-ended list
   rather than inventing ranked "3rd/4th deputy" slots the certificate itself
@@ -11,18 +11,18 @@ defmodule PairingsEngine.Norms.ItThreeExpand do
   in the UI when FIDE only recognises 2).
 
   `Invulformulier` happens to ship two *unused* extra ID/Name row-pairs
-  beyond the 2 ranked deputies (rows 66-69 — labelled "3rd/4th Deputy Chief
+  beyond the 2 ranked deputies (rows 66-69 - labelled "3rd/4th Deputy Chief
   Arbiter" in the raw sheet, but printed as generic "Arbiter" rows on
   `Certificaat`, exactly like every arbiter after them would be). Arbiter 1
   and 2 land there for free; arbiter 3 onward needs `expand/2`'s real row
   insertion, described below.
 
   A no-op (returns `template_binary` untouched) when `extra_count` is `0`,
-  `1` or `2` — those all fit in the template's existing spare capacity, so
+  `1` or `2` - those all fit in the template's existing spare capacity, so
   the overwhelming majority of tournaments never touch the template at all.
 
   Only the Erlang standard library (`:zip`) plus `Regex`/`String` are used,
-  same as `PairingsEngine.Norms.XlsxFill` — this module hand-edits the same
+  same as `PairingsEngine.Norms.XlsxFill` - this module hand-edits the same
   kind of zip-of-XML `.xlsx` internals, just to grow the sheet rather than
   fill cells (`XlsxFill.fill/2` runs afterwards, against the *expanded*
   template, and needs `arbiter_cell_ref/2` to know where to write).
@@ -30,27 +30,27 @@ defmodule PairingsEngine.Norms.ItThreeExpand do
   ## Why row-insertion beyond arbiter 2
 
   There is no "just leave room" option for a genuinely unbounded list
-  without either capping arbiters arbitrarily (rejected — a real event can
+  without either capping arbiters arbitrarily (rejected - a real event can
   have more than 2 beyond the ranked deputies) or growing the sheet on
   demand once the template's spare rows run out. Growing on demand means
   two coupled edits per extra arbiter, one in each sheet:
 
     * `Invulformulier` gets two new rows (an ID cell, a Name cell) inserted
-      right after row 69, before row 70 (`his/her (federation)` — an
+      right after row 69, before row 70 (`his/her (federation)` - an
       unrelated field used elsewhere in `Certificaat`'s own text, whose row
       number shifts down and whose formula reference has to follow it).
     * `Certificaat` gets two new rows (a label row reading "Arbiter", a row
-      of formulas mirroring rows 37-38's exactly — pointing at *this*
+      of formulas mirroring rows 37-38's exactly - pointing at *this*
       arbiter's new `Invulformulier` cells) inserted right after row 38,
-      before row 40 (the "organizer must provide..." note, which — along
-      with the privacy notices below it — shifts down by the same amount).
+      before row 40 (the "organizer must provide..." note, which - along
+      with the privacy notices below it - shifts down by the same amount).
 
   Every row **after** an insertion point, in the sheet being grown, gets its
   `r="N"` (and every cell ref inside it) renumbered by the shift; any
   formula anywhere in the workbook referencing an `Invulformulier` row at or
   past the insertion point (today, just `Certificaat`'s one
   `Invulformulier!$B$70` reference) gets renumbered the same way. Growing
-  `Certificaat` only ever shifts `Certificaat`'s own later rows — nothing
+  `Certificaat` only ever shifts `Certificaat`'s own later rows - nothing
   else references a `Certificaat` cell.
   """
 
@@ -63,12 +63,12 @@ defmodule PairingsEngine.Norms.ItThreeExpand do
   @certificaat_original_last_row 42
 
   @doc """
-  `{id_ref, name_ref}` — the `Invulformulier` cell refs `arbiter_index`
+  `{id_ref, name_ref}` - the `Invulformulier` cell refs `arbiter_index`
   (1-based, counting arbiters beyond chief + the 2 ranked deputies) lands
   on. Indices 1-2 are the template's own spare rows (`B66`/`B67`,
-  `B68`/`B69` — always present, no expansion needed); index 3 onward needs
+  `B68`/`B69` - always present, no expansion needed); index 3 onward needs
   `expand/2`-ed rows. Pure and independent of `expand/2` actually having
-  run — the layout is deterministic from `arbiter_index` alone — so
+  run - the layout is deterministic from `arbiter_index` alone - so
   `PairingsEngine.Norms.Forms.it3_fills/3` can compute fills without
   reaching into this module's row-building internals.
   """
@@ -88,7 +88,7 @@ defmodule PairingsEngine.Norms.ItThreeExpand do
   Expands `template_binary` (an already-read `.xlsx` file's bytes) to fit
   `extra_count` arbiters beyond chief + the 2 ranked deputies. A no-op
   (returns `template_binary` untouched) whenever `extra_count <= #{@fixed_slots}`
-  — those fit in the template's own spare rows, nothing to grow.
+  - those fit in the template's own spare rows, nothing to grow.
   """
   def expand(template_binary, extra_count)
       when is_binary(template_binary) and is_integer(extra_count) and extra_count <= @fixed_slots,
@@ -130,12 +130,12 @@ defmodule PairingsEngine.Norms.ItThreeExpand do
   end
 
   # ---------------------------------------------------------------------
-  # Invulformulier — plain label + (empty, unstyled — XlsxFill.fill/2
+  # Invulformulier - plain label + (empty, unstyled - XlsxFill.fill/2
   # writes the value later) data cell, same shape rows 62-69 already use.
   # ---------------------------------------------------------------------
 
   # `insert_count` new rows, one per arbiter beyond the @fixed_slots that
-  # already fit in the template's own spare rows — so the Nth row inserted
+  # already fit in the template's own spare rows - so the Nth row inserted
   # here is arbiter number `@fixed_slots + N` overall, both for its cell
   # position (arbiter_cell_ref/2 is defined in absolute-arbiter-index terms)
   # and its printed label.
@@ -158,7 +158,7 @@ defmodule PairingsEngine.Norms.ItThreeExpand do
   end
 
   # ---------------------------------------------------------------------
-  # Certificaat — mirrors rows 37 (label) / 38 (formula), which is itself
+  # Certificaat - mirrors rows 37 (label) / 38 (formula), which is itself
   # the 4th deputy's own row pair, styles and merges included.
   # ---------------------------------------------------------------------
 
@@ -192,7 +192,7 @@ defmodule PairingsEngine.Norms.ItThreeExpand do
       merge_cell("A#{row}:B#{row}") <> merge_cell("C#{row}:J#{row}")
   end
 
-  # `$B$71` from `B71` — matches the `$COL$ROW` style every other formula
+  # `$B$71` from `B71` - matches the `$COL$ROW` style every other formula
   # in this template already uses.
   defp dollar_ref(ref) do
     [_, col, row] = Regex.run(~r/^([A-Z]+)(\d+)$/, ref)
@@ -200,7 +200,7 @@ defmodule PairingsEngine.Norms.ItThreeExpand do
   end
 
   # mergeCell elements aren't inside <sheetData>, so they can't be embedded
-  # in the row XML insert_rows/3 splices in — collected here and spliced
+  # in the row XML insert_rows/3 splices in - collected here and spliced
   # into <mergeCells> separately by insert_rows/3 (it recognises this
   # sentinel wrapper and routes it there instead of into <sheetData>).
   defp merge_cell(ref), do: "<!--mergeCell:#{ref}-->"
@@ -215,7 +215,7 @@ defmodule PairingsEngine.Norms.ItThreeExpand do
   end
 
   # Renumbers every `<row r="N">` (and the cell refs inside it) where
-  # `N > after_row`, by `shift` — highest row first, so an insert can never
+  # `N > after_row`, by `shift` - highest row first, so an insert can never
   # collide with an already-renumbered row while this runs.
   defp shift_rows_after(xml, after_row, shift) do
     xml
@@ -236,15 +236,15 @@ defmodule PairingsEngine.Norms.ItThreeExpand do
   defp renumber_row(row_xml, old_n, new_n) do
     row_xml
     |> String.replace(~r/<row r="#{old_n}"(?=[\s>])/, "<row r=\"#{new_n}\"", global: false)
-    # \g{1}/\g{2} (not bare \1/\2) — new_n's digits sit immediately after the
+    # \g{1}/\g{2} (not bare \1/\2) - new_n's digits sit immediately after the
     # backreference, and PCRE reads a bare \1 followed by more digits as one
     # ambiguous (usually invalid, silently-empty) group number instead of
-    # "group 1, then literal digits" — \g{1} disambiguates explicitly.
+    # "group 1, then literal digits" - \g{1} disambiguates explicitly.
     |> then(&Regex.replace(~r/(<c r="[A-Z]+)#{old_n}(")/, &1, "\\g{1}#{new_n}\\g{2}"))
   end
 
   # Rewrites `"#{sheet_name}!$COL$ROW"` (and the un-prefixed `$COL$ROW`
-  # right after it, ISBLANK's own arg — see the formula shape above) for
+  # right after it, ISBLANK's own arg - see the formula shape above) for
   # every `ROW > after_row`, wherever it appears in `xml` (a different
   # sheet's formulas, when `sheet_name`'s rows shifted).
   defp shift_cross_sheet_refs(xml, sheet_name, after_row, shift) do
@@ -262,7 +262,7 @@ defmodule PairingsEngine.Norms.ItThreeExpand do
   # `certificaat_new_rows/1`, possibly carrying `merge_cell/1` sentinels)
   # right after `after_row`, and any collected mergeCell sentinels into
   # `<mergeCells>` (bumping its `count`, creating the element if the sheet
-  # doesn't have one yet — Invulformulier doesn't).
+  # doesn't have one yet - Invulformulier doesn't).
   defp insert_rows(xml, after_row, new_rows_xml) do
     {row_xml, merge_xml} = split_merge_sentinels(new_rows_xml)
 
@@ -272,7 +272,7 @@ defmodule PairingsEngine.Norms.ItThreeExpand do
           String.replace(xml, after_row_xml, after_row_xml <> row_xml, global: false)
 
         nil ->
-          raise "row #{after_row} not found — template layout has changed, re-verify ItThreeExpand"
+          raise "row #{after_row} not found - template layout has changed, re-verify ItThreeExpand"
       end
 
     if merge_xml == "", do: xml, else: add_merge_cells(xml, merge_xml)

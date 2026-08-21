@@ -6,10 +6,10 @@ defmodule PairingsEngine.Kbsb.Sync do
   Unlike `PairingsEngine.Fide.Sync`, which downloads its list over HTTP,
   there is no stable public bulk-download endpoint for the KBSB list (see
   docs/kbsb-sync.md for the research behind that decision), so this is
-  triggered by an uploaded file's contents instead of a URL — there's no
+  triggered by an uploaded file's contents instead of a URL - there's no
   download/connect step, so no connect/receive timeouts or retry/backoff.
   Everything else mirrors the FIDE sync's hardening: watchdog, cancel,
-  PubSub progress, `insert_all` with `:replace_all`, manual trigger only —
+  PubSub progress, `insert_all` with `:replace_all`, manual trigger only -
   this never runs at boot.
 
   Progress is broadcast on the "kbsb_sync" PubSub topic and queryable via
@@ -51,7 +51,7 @@ defmodule PairingsEngine.Kbsb.Sync do
   Kicks off an import from the KBSB data platform's roster API instead of an
   uploaded file (see `PairingsEngine.Kbsb.Api`). Same GenServer, same
   status, same progress topic, same count guards and same full-replace
-  transaction — only the source of the rows differs, so the two can never
+  transaction - only the source of the rows differs, so the two can never
   disagree about what a valid import is.
   """
   def start_api_import, do: GenServer.cast(__MODULE__, :start_api_import)
@@ -146,7 +146,7 @@ defmodule PairingsEngine.Kbsb.Sync do
   end
 
   # Safety net for exits that bypass run_import's `rescue` (e.g. the task
-  # being killed) — without this, a crashed task would leave the GenServer
+  # being killed) - without this, a crashed task would leave the GenServer
   # stuck in :importing forever and the button would never re-enable.
   def handle_info({:DOWN, ref, :process, _pid, reason}, %{task_ref: ref} = state)
       when reason != :normal do
@@ -215,7 +215,7 @@ defmodule PairingsEngine.Kbsb.Sync do
   end
 
   # Mirrors run_import/2 exactly, differing only in where the rows come
-  # from. Each page reports progress, which also resets the watchdog — a
+  # from. Each page reports progress, which also resets the watchdog - a
   # slow network stays alive as long as it is still moving, and only a
   # genuinely wedged walk trips it.
   defp run_api_import(server) do
@@ -249,7 +249,7 @@ defmodule PairingsEngine.Kbsb.Sync do
 
   # `@doc false` and `def` (not `defp`) purely so tests can drive this
   # count-guard/transaction logic directly with synthetic already-parsed
-  # rows, without going through `Parser.parse/1` — see
+  # rows, without going through `Parser.parse/1` - see
   # PairingsEngine.Kbsb.SyncTest. Not part of the module's intended public
   # API.
   @doc false
@@ -260,14 +260,14 @@ defmodule PairingsEngine.Kbsb.Sync do
     cond do
       total == 0 ->
         {:error,
-         "KBSB import produced zero usable player rows — the uploaded file may be corrupt " <>
+         "KBSB import produced zero usable player rows - the uploaded file may be corrupt " <>
            "or in an unexpected format. The existing #{current_count}-player cache was left " <>
            "untouched."}
 
       current_count > 0 and total < div(current_count, 2) ->
         {:error,
          "KBSB import only produced #{total} usable player rows, far fewer than the " <>
-           "existing #{current_count}-player cache — the uploaded file may be corrupt or " <>
+           "existing #{current_count}-player cache - the uploaded file may be corrupt or " <>
            "truncated. The existing cache was left untouched."}
 
       true ->

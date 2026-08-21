@@ -1,7 +1,7 @@
 defmodule PairingsEngineWeb.PublicStandingsLive do
   @moduledoc """
   Public (no login required) read-only view of a tournament's current
-  standings — reachable at `/p/:slug/standings` where `:slug` is the
+  standings - reachable at `/p/:slug/standings` where `:slug` is the
   tournament's unguessable `public_slug` (see docs/public-pages.md), not
   its numeric id. Anyone holding the link can view it; nothing here is
   editable. Subscribes to the tournament's PubSub topic and reloads live
@@ -45,15 +45,15 @@ defmodule PairingsEngineWeb.PublicStandingsLive do
   end
 
   # Keizer tournaments show their own ladder (rank/value/Keizer points)
-  # instead of the FIDE-tiebreak table — see PairingsEngine.Keizer.standings/1
+  # instead of the FIDE-tiebreak table - see PairingsEngine.Keizer.standings/1
   # and docs/pairing-systems.md, and StandingsLive (the authenticated
   # equivalent of this page), which does the same.
   #
   # Manual ranking (SWAR parity #23) mirrors StandingsLive: applied only on
   # the non-Keizer branch (see docs/manual-standings.md for why Keizer
-  # doesn't offer it), read-only here — no reorder controls, just the same
+  # doesn't offer it), read-only here - no reorder controls, just the same
   # banner, since a silent override is exactly as misleading on the public
-  # page as anywhere else (arguably more so — this is the page anyone with
+  # page as anywhere else (arguably more so - this is the page anyone with
   # the link sees, unauthenticated).
   defp reload_standings(socket) do
     tournament = socket.assigns.tournament
@@ -83,10 +83,10 @@ defmodule PairingsEngineWeb.PublicStandingsLive do
 
   defp format_tb(value), do: value
 
-  # Same "—" convention PrintController's/StandingsLive's standings
+  # Same "-" convention PrintController's/StandingsLive's standings
   # tables already use for a player with no category assigned.
-  defp category_or_dash(nil), do: "—"
-  defp category_or_dash(""), do: "—"
+  defp category_or_dash(nil), do: "-"
+  defp category_or_dash(""), do: "-"
   defp category_or_dash(category), do: category
 
   defp tb_name(code), do: (Tiebreaks.get(code) || %{name: code}).name

@@ -1,6 +1,6 @@
 defmodule PairingsEngineWeb.Components.It3CountsExplain do
   @moduledoc """
-  A collapsed-by-default breakdown of IT3's rated/titled/federation counts —
+  A collapsed-by-default breakdown of IT3's rated/titled/federation counts -
   same visual language as the pairing-rationale screens (`.pe-stat`,
   `.pe-tag`, `.pe-ladder`-style proportional bars, see
   `PairingsEngineWeb.PairingExplainLive`) so an arbiter checking "why does
@@ -25,7 +25,7 @@ defmodule PairingsEngineWeb.Components.It3CountsExplain do
     federations = CountsBreakdown.federations(assigns.players, assigns.host_federation)
 
     # Empty groups (no GMs at a club event, say) are real information but not
-    # worth a card each — a wall of "0" boxes just buries the ones that
+    # worth a card each - a wall of "0" boxes just buries the ones that
     # actually have players in them.
     populated_categories =
       for {key, label, explanation} <- CountsBreakdown.categories(),
@@ -45,7 +45,7 @@ defmodule PairingsEngineWeb.Components.It3CountsExplain do
         Same grouping the report itself uses (see
         <span class="it3-explain-code">Norms.Forms.it3_fills/3</span>
         and <span class="it3-explain-code">Norms.Forms.titled?/1</span>
-        — CM/WCM don't count as
+        - CM/WCM don't count as
         titled). <strong>feds</strong>
         is the number of distinct federations in that group; <strong>host</strong>
         is how many of them are {host_label(assigns.host_federation)}. Groups with no
@@ -83,7 +83,7 @@ defmodule PairingsEngineWeb.Components.It3CountsExplain do
       </summary>
 
       <p class="hint" style="margin: 4px 0 8px">
-        Every distinct federation represented, biggest contingent first — FIDE norm
+        Every distinct federation represented, biggest contingent first - FIDE norm
         regulations often set a minimum federation count, so this is worth checking before
         submitting.
       </p>
@@ -157,7 +157,7 @@ defmodule PairingsEngineWeb.Components.It3CountsExplain do
     "#{host} of #{total} from #{host_label(host_federation)}"
   end
 
-  defp blank_dash(nil), do: "—"
-  defp blank_dash(""), do: "—"
+  defp blank_dash(nil), do: "-"
+  defp blank_dash(""), do: "-"
   defp blank_dash(fed), do: fed
 end

@@ -2,10 +2,10 @@ defmodule PairingsEngineWeb.LiveRoundLive do
   @moduledoc """
   Read-only "projector" view of a tournament's latest paired round: the
   pairing list with live results, and current standings below it. Also the
-  arbiter's mobile-enrollment QR generator (see PairingsEngine.Mobile) — both
+  arbiter's mobile-enrollment QR generator (see PairingsEngine.Mobile) - both
   live here since an arbiter typically opens this page once and leaves it up.
   Meant to be popped into its own tab/window (see the "Live view & phone QR"
-  link on PairingsLive) and left open — it subscribes to the same tournament
+  link on PairingsLive) and left open - it subscribes to the same tournament
   topic as every other tournament-scoped view and updates the instant a
   result is entered elsewhere, no polling.
   """
@@ -77,7 +77,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
     {:noreply, socket |> assign(new_enrollment: new_enrollment) |> assign_enrollments()}
   end
 
-  # Purely a display page — nothing here is user-editable, so every
+  # Purely a display page - nothing here is user-editable, so every
   # broadcast just reloads everything.
   @impl true
   def handle_info({:tournament_changed, _tournament_id, _hint}, socket) do
@@ -97,7 +97,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
   end
 
   # Keizer tournaments show their own ladder (rank/value/Keizer points)
-  # instead of the FIDE-tiebreak table — see PairingsEngine.Keizer.standings/1
+  # instead of the FIDE-tiebreak table - see PairingsEngine.Keizer.standings/1
   # and docs/pairing-systems.md, same as StandingsLive/PublicStandingsLive.
   defp reload(socket) do
     tournament = socket.assigns.tournament
@@ -127,7 +127,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
   end
 
   # Board-list label only: `player_label/1` plus the player's score coming
-  # into this round, in the same parenthetical — "Name (2400, 2.5)", or
+  # into this round, in the same parenthetical - "Name (2400, 2.5)", or
   # "Name (2.5)" with no rating.
   defp seat_label(nil, _scores), do: ""
 
@@ -150,23 +150,23 @@ defmodule PairingsEngineWeb.LiveRoundLive do
   defp result_label(result), do: Map.get(@result_labels, result, result)
 
   # Same display logic the authenticated Pairings page uses
-  # (`PairingsEngineWeb.PairingsLive.display_rows/1`) — fixed-table
+  # (`PairingsEngineWeb.PairingsLive.display_rows/1`) - fixed-table
   # ("special") boards renumbered/relabeled and moved to the end, byes and
   # vacant seats sorted below those, real boards renumbered to close the
   # gap. Before this, this page just sorted by raw `pairing.board`, so
   # the projector view silently disagreed with the Pairings page (and
   # print) on both the board LABEL and the row ORDER the moment a
   # tournament had a fixed-table player, a bye, or an absence.
-  # Hidden rows (an arbiter's "don't show me this fully-vacated board" —
+  # Hidden rows (an arbiter's "don't show me this fully-vacated board" -
   # see `PairingsEngine.Tournaments.set_pairing_hidden/3`) are filtered out
   # before they ever reach `PairingDisplay`, so a hidden row plays no part
-  # in the (already-frozen — see `PairingDisplay`'s moduledoc) board
+  # in the (already-frozen - see `PairingDisplay`'s moduledoc) board
   # renumbering at all, same as PairingsLive's own `display_rows/1`.
   defp display_rows(pairings) do
     pairings |> Enum.reject(& &1.hidden) |> PairingDisplay.with_display_boards()
   end
 
-  # Label for a byes-table row's `type` — distinct from the "bye" badge
+  # Label for a byes-table row's `type` - distinct from the "bye" badge
   # shown for a pairing-allocated bye (a real Pairing row), since these
   # never appear in round.pairings (see Tournaments.list_byes_for_round/2).
   defp bye_type_label("requested-half"), do: "requested half-point bye"

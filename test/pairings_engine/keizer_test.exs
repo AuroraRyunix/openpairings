@@ -1,5 +1,5 @@
 defmodule PairingsEngine.KeizerTest do
-  # SQLite sandbox flake with concurrent test processes — keep this serial,
+  # SQLite sandbox flake with concurrent test processes - keep this serial,
   # per project convention for DB-touching test files.
   use PairingsEngine.DataCase, async: false
 
@@ -43,7 +43,7 @@ defmodule PairingsEngine.KeizerTest do
     end
 
     test "an explicit (or automatic) top value is floored at n + 1 so the bottom rung stays positive" do
-      # 2 players, top forced down to 1 — floored to n + 1 = 3.
+      # 2 players, top forced down to 1 - floored to n + 1 = 3.
       assert Keizer.effective_top_value(1, 2) == 3
       # Automatic with a single player: 2*1 = 2, still floored to n + 1 = 2 (no-op here).
       assert Keizer.effective_top_value(nil, 1) == 2
@@ -77,7 +77,7 @@ defmodule PairingsEngine.KeizerTest do
 
   ## ---------- scoring fractions (score_round/5, no DB) ----------
 
-  describe "score_round/5 — win/draw/loss" do
+  describe "score_round/5 - win/draw/loss" do
     setup do
       a = player(1, "A", 2000)
       b = player(2, "B", 1800)
@@ -120,7 +120,7 @@ defmodule PairingsEngine.KeizerTest do
     end
   end
 
-  describe "score_round/5 — forfeits, played 0-0, and rounds before joining" do
+  describe "score_round/5 - forfeits, played 0-0, and rounds before joining" do
     setup do
       a = player(1, "A", 2000)
       b = player(2, "B", 1800)
@@ -165,7 +165,7 @@ defmodule PairingsEngine.KeizerTest do
     end
   end
 
-  describe "score_round/5 — byes and excused absences" do
+  describe "score_round/5 - byes and excused absences" do
     setup do
       a = player(1, "A", 2000)
       values = %{1 => 8}
@@ -213,9 +213,9 @@ defmodule PairingsEngine.KeizerTest do
 
   ## ---------- hand-computed ladder values + retroactive recalculation ----------
 
-  describe "recalculate/5 — hand-computed values and retroactive recalculation" do
+  describe "recalculate/5 - hand-computed values and retroactive recalculation" do
     # A(2000) B(1900) C(1800) D(1700). Round 1: A beats B, C beats D
-    # (both decisive — this fixture stays clear of the drawn-game
+    # (both decisive - this fixture stays clear of the drawn-game
     # oscillation exercised separately below). n = 4, automatic top = 8.
     test "round 1 alone: a loser's fall changes the WINNER's already-recorded points" do
       a = player(1, "A", 2000)
@@ -231,15 +231,15 @@ defmodule PairingsEngine.KeizerTest do
       result = Keizer.recalculate([a, b, c, d], games, [], nil, 1)
 
       # B loses and C wins, so C leapfrogs B on the ladder despite B's
-      # higher initial rating — the ranking genuinely changed order, so
+      # higher initial rating - the ranking genuinely changed order, so
       # this took more than 1 iteration (retroactive recalculation, not
       # just the initial rating order).
       assert Enum.map(result.order, & &1.id) == [a.id, c.id, b.id, d.id]
       assert result.iterations > 1
       assert result.values == %{a.id => 8, c.id => 7, b.id => 6, d.id => 5}
 
-      # A's win over B is worth B's *current* (post-recalculation) value —
-      # 6, not the 7 B started with — because B fell to 3rd.
+      # A's win over B is worth B's *current* (post-recalculation) value -
+      # 6, not the 7 B started with - because B fell to 3rd.
       scored_a = Map.fetch!(result.scored, a.id)
       assert scored_a.points == 6.0
 
@@ -273,7 +273,7 @@ defmodule PairingsEngine.KeizerTest do
 
       assert round1_value_after_r1 == 6.0
       # B won round 2 and reclaimed 2nd place (tied with C on points, but
-      # ahead on the rating tiebreak), so B's ladder value is back to 7 —
+      # ahead on the rating tiebreak), so B's ladder value is back to 7 -
       # and A's round-1 win is rescored against that higher value.
       assert Enum.map(after_r2.order, & &1.id) == [a.id, b.id, c.id, d.id]
       assert round1_entry_after_r2.points == 7.0
@@ -281,7 +281,7 @@ defmodule PairingsEngine.KeizerTest do
     end
   end
 
-  describe "recalculate/5 — determinism" do
+  describe "recalculate/5 - determinism" do
     test "the same inputs always produce the same order, values and points" do
       a = player(1, "A", 2000)
       b = player(2, "B", 1900)
@@ -304,7 +304,7 @@ defmodule PairingsEngine.KeizerTest do
     end
   end
 
-  describe "recalculate/5 — fixed-point termination on an oscillating case" do
+  describe "recalculate/5 - fixed-point termination on an oscillating case" do
     test "a drawn game between two otherwise-tied players can oscillate forever; the iteration cap still returns" do
       a = player(1, "A", 2000)
       b = player(2, "B", 1800)
@@ -314,7 +314,7 @@ defmodule PairingsEngine.KeizerTest do
       # A beats B (decisive); C and D draw. Whichever of C/D is ranked
       # higher scores *less* than the one ranked lower (they each earn
       # half of the OTHER's current value), so re-ranking keeps swapping
-      # C and D every single iteration — a genuine, unbounded oscillation
+      # C and D every single iteration - a genuine, unbounded oscillation
       # given this system's literal rules.
       games = [
         %{round: 1, white_id: a.id, black_id: b.id, result: "1-0"},
@@ -335,7 +335,7 @@ defmodule PairingsEngine.KeizerTest do
 
   ## ---------- pairing: cascade, forbidden pairs, repeats, byes ----------
 
-  describe "match_round/3 — no-repeat with cascade backtracking" do
+  describe "match_round/3 - no-repeat with cascade backtracking" do
     test "backtracks past a dead end caused by a forbidden pair further down the list" do
       a = player(1, "A", 2000)
       b = player(2, "B", 1900)
@@ -344,7 +344,7 @@ defmodule PairingsEngine.KeizerTest do
 
       # No games played yet, but C-D is forbidden. Pairing A with B (the
       # naive nearest choice) strands C and D together with no valid
-      # option — the matcher must backtrack and try A-C instead, freeing
+      # option - the matcher must backtrack and try A-C instead, freeing
       # up B-D.
       forbidden = MapSet.new([Keizer.pair_key(c.id, d.id)])
 
@@ -362,7 +362,7 @@ defmodule PairingsEngine.KeizerTest do
       c = player(3, "C", 1800)
       d = player(4, "D", 1700)
 
-      # A already played B — must skip to C.
+      # A already played B - must skip to C.
       history = %{Keizer.pair_key(a.id, b.id) => 1}
 
       assert {:ok, pairs, nil} = Keizer.match_round([a, b, c, d], history, MapSet.new())
@@ -373,7 +373,7 @@ defmodule PairingsEngine.KeizerTest do
     end
   end
 
-  describe "match_round/3 — forbidden pairing is never paired" do
+  describe "match_round/3 - forbidden pairing is never paired" do
     test "a simple forbidden pair is skipped for the next nearest player" do
       a = player(1, "A", 2000)
       b = player(2, "B", 1900)
@@ -390,7 +390,7 @@ defmodule PairingsEngine.KeizerTest do
     end
   end
 
-  describe "match_round/3 — forced repeats prefer the pair repeated longest ago" do
+  describe "match_round/3 - forced repeats prefer the pair repeated longest ago" do
     test "when every option is a repeat, the oldest repeat is chosen" do
       a = player(1, "A", 2000)
       b = player(2, "B", 1900)
@@ -410,7 +410,7 @@ defmodule PairingsEngine.KeizerTest do
     end
   end
 
-  describe "match_round/3 — odd count gives the bye to the bottom-ranked player" do
+  describe "match_round/3 - odd count gives the bye to the bottom-ranked player" do
     test "5 players: the lowest-ranked unpaired player gets the bye" do
       players =
         for {n, i} <- Enum.with_index([2000, 1900, 1800, 1700, 1600], 1),
@@ -422,7 +422,7 @@ defmodule PairingsEngine.KeizerTest do
     end
   end
 
-  describe "assign_colours/3 — colour rule" do
+  describe "assign_colours/3 - colour rule" do
     test "the player with fewer games as White gets White" do
       a = player(1, "A", 2000)
       b = player(2, "B", 1900)
@@ -440,7 +440,7 @@ defmodule PairingsEngine.KeizerTest do
       assert Keizer.assign_colours([{a, b}], order, %{}) == [{b, a}]
     end
 
-    test "colour is never a reason to skip a pairing — always returns one entry per pair" do
+    test "colour is never a reason to skip a pairing - always returns one entry per pair" do
       a = player(1, "A", 2000)
       b = player(2, "B", 1900)
       c = player(3, "C", 1800)
@@ -521,14 +521,14 @@ defmodule PairingsEngine.KeizerTest do
 
       reloaded = fn p -> Repo.get!(Player, p.id) end
 
-      # Alice(2000) > Bob(1900) > Carol(1800) > Dave(1700) — same
+      # Alice(2000) > Bob(1900) > Carol(1800) > Dave(1700) - same
       # highest-rating-first numbering the Swiss path uses.
       assert reloaded.(a).pairing_number == 1
       assert reloaded.(b).pairing_number == 2
       assert reloaded.(c).pairing_number == 3
       assert reloaded.(d).pairing_number == 4
 
-      # Pairing round 2 doesn't renumber anyone — the numbers stay frozen.
+      # Pairing round 2 doesn't renumber anyone - the numbers stay frozen.
       Enum.each(
         Repo.preload(Tournaments.get_round(tournament.id, 1), :pairings).pairings,
         fn pairing ->
@@ -583,7 +583,7 @@ defmodule PairingsEngine.KeizerTest do
 
       refute late.id in paired_ids_r1
 
-      # No "byes" row for the late entrant either — score_round/5's
+      # No "byes" row for the late entrant either - score_round/5's
       # :not_joined branch needs none (unlike an excused absence).
       byes_r1 =
         Repo.all(
@@ -651,7 +651,7 @@ defmodule PairingsEngine.KeizerTest do
           club_exclusion: "all"
         })
 
-      # Alice/Bob are ranked 1st/2nd (highest ratings) and share a club —
+      # Alice/Bob are ranked 1st/2nd (highest ratings) and share a club -
       # without the exclusion rule they'd be paired together round 1.
       a = insert_player(tournament, "Alice", fide_rating: 2000, club: "Chess Club")
       b = insert_player(tournament, "Bob", fide_rating: 1900, club: "Chess Club")

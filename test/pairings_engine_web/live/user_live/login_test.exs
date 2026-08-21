@@ -15,7 +15,7 @@ defmodule PairingsEngineWeb.UserLive.LoginTest do
 
     # The landing page is the shop window: it leads with the engine we
     # wrote and does not advertise the third-party one. This is about what
-    # a visitor is sold, not about dropping attribution — JaVaFo is still
+    # a visitor is sold, not about dropping attribution - JaVaFo is still
     # the default engine, and is still credited in the README, the licence
     # notes and the cross-program-agreement docs, where the credit is owed.
     test "leads with our own engine and does not name JaVaFo", %{conn: conn} do
@@ -67,7 +67,7 @@ defmodule PairingsEngineWeb.UserLive.LoginTest do
       assert html =~ "If your email is in our system"
     end
 
-    test "refuses an @zerotwo.cloud address instead of sending a link — even for a real, SSO-coupled account",
+    test "refuses an @zerotwo.cloud address instead of sending a link - even for a real, SSO-coupled account",
          %{conn: conn} do
       {:ok, user} =
         PairingsEngine.Accounts.find_or_create_from_keycloak(%{

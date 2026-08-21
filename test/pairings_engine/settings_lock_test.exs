@@ -1,7 +1,7 @@
 defmodule PairingsEngine.SettingsLockTest do
   @moduledoc """
   Settings that decide the shape of rounds which already exist are frozen
-  once the first round is paired — changing them afterwards silently
+  once the first round is paired - changing them afterwards silently
   reinterprets history (flip `pairing_system` to Keizer and the rounds
   already on the board are scored by different rules).
 
@@ -157,7 +157,7 @@ defmodule PairingsEngine.SettingsLockTest do
       for n <- 1..3, do: Repo.insert!(%Player{tournament_id: t.id, name: "P#{n}"})
       t = pair_a_round(t)
 
-      # "2" from a form vs the stored integer 2 — same value, must not read
+      # "2" from a form vs the stored integer 2 - same value, must not read
       # as a change.
       assert {:ok, _} = Tournaments.update_tournament(t, %{"rr_cycles" => "2"})
     end
@@ -206,7 +206,7 @@ defmodule PairingsEngine.SettingsLockTest do
       locked = Tournaments.locked_fields(t)
 
       # If these ever diverge, a disabled input would still be writable (or
-      # an enabled one refused) — the failure mode this whole module exists
+      # an enabled one refused) - the failure mode this whole module exists
       # to prevent.
       assert :pairing_system in locked
       assert :abs_value in locked

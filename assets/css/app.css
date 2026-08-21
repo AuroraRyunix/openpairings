@@ -119,7 +119,7 @@
    The daisyUI component variables (--color-base-*, used by core_components'
    <.input>/<.select>/<.textarea> on the auth and settings pages) are themed
    here too, so those inputs follow the same palette as the rest of the app
-   in both themes — no dark-on-dark. */
+   in both themes - no dark-on-dark. */
 :root {
   --bg: #f7f6f3;
   --surface: #ffffff;
@@ -140,7 +140,7 @@
   --shadow: 0 1px 3px rgba(30, 25, 15, 0.07);
 
   /* soft raised/alt surfaces used across list rows, dropzones, band rows,
-     modal scrims — tokenized so dark mode can override them in one place. */
+     modal scrims - tokenized so dark mode can override them in one place. */
   --surface-alt: #faf9f6;
   --surface-hover: #fbfaf8;
   --scrim: rgba(20, 18, 12, 0.45);
@@ -185,7 +185,7 @@
 
 /* Solarized Dark (Ethan Schoonover's palette: base03/02/01/0/1, blue/red
    accents) as a third theme option, distinct from the app's own dark
-   theme above — chosen over a generic "soft dark" because it's a real,
+   theme above - chosen over a generic "soft dark" because it's a real,
    well-known, exact palette rather than another approximation. */
 [data-theme="solarized"] {
   --bg: #002b36;
@@ -217,7 +217,7 @@
 }
 
 /* Nord (arcticicestudio/nordtheme.com): nord0-3 for backgrounds/text,
-   "frost" nord7-10 for accents — nord8 is the theme's own signature light
+   "frost" nord7-10 for accents - nord8 is the theme's own signature light
    blue, used here as --accent directly rather than picking a different
    shade to differentiate from the accent picker's own "blue"/"cyan". */
 [data-theme="nord"] {
@@ -249,7 +249,7 @@
   --color-base-content: #d8dee9;
 }
 
-/* Dracula (draculatheme.com) — its own canonical hex values, purple as
+/* Dracula (draculatheme.com) - its own canonical hex values, purple as
    the signature accent. */
 [data-theme="dracula"] {
   --bg: #282a36;
@@ -280,7 +280,7 @@
   --color-base-content: #f8f8f2;
 }
 
-/* Catppuccin Mocha (catppuccin.com) — base/surface0/surface1 for
+/* Catppuccin Mocha (catppuccin.com) - base/surface0/surface1 for
    backgrounds, mauve as the signature accent. */
 [data-theme="catppuccin"] {
   --bg: #1e1e2e;
@@ -311,7 +311,7 @@
   --color-base-content: #cdd6f4;
 }
 
-/* Gruvbox Dark (morhetz/gruvbox), medium contrast — bg0-2 for
+/* Gruvbox Dark (morhetz/gruvbox), medium contrast - bg0-2 for
    backgrounds, the bright orange as the signature accent (the theme's
    own most characteristic colour). */
 [data-theme="gruvbox"] {
@@ -438,7 +438,7 @@ body {
 .topbar nav a:hover { background: var(--bg); color: var(--text); }
 .topbar nav a.active { background: var(--accent-soft); color: var(--accent); }
 
-/* "Advanced" tab — a no-JS <details>/<summary> dropdown living in the same
+/* "Advanced" tab - a no-JS <details>/<summary> dropdown living in the same
    tab row, styled to look like the other tab links until opened. */
 .topbar-menu { position: relative; }
 
@@ -466,13 +466,13 @@ body {
 .topbar-menu > summary:hover { background: var(--bg); color: var(--text); }
 .topbar-menu > summary.active { background: var(--accent-soft); color: var(--accent); }
 
-/* Closed by default and only shown under [open] — this used to be an
+/* Closed by default and only shown under [open] - this used to be an
    unconditional `display: flex`, relying entirely on <details>'s own native
    collapse of non-summary content to keep it hidden. That collapse uses
    `content-visibility: hidden` in Chromium (which still reports a real
    getBoundingClientRect box for its "last remembered size" while correctly
    skipping paint/hit-testing), so the panel LOOKED hidden and WAS
-   non-interactive there — but its full-size box still counted toward the
+   non-interactive there - but its full-size box still counted toward the
    page's scrollable width, quietly adding up to ~180px of invisible,
    uncaused-looking horizontal overflow at exactly the widths where a laptop
    window has no room to spare. And the old rule was never actually correct
@@ -544,7 +544,7 @@ body {
   box-shadow: 0 0 0 2px var(--surface);
 }
 /* Same unconditional-`display` bug as `.topbar-menu-panel` (see that rule's
-   own comment) — gated behind [open] for the same reason: without it, the
+   own comment) - gated behind [open] for the same reason: without it, the
    closed panel's full box still counts toward the page's scrollable width
    even though nothing paints or hit-tests there. */
 .accent-picker-panel { display: none; }
@@ -591,7 +591,7 @@ html[data-accent="fuchsia"] .accent-swatch[data-accent-opt="fuchsia"] {
 /* ---------- theme picker (System / Light / Dark / Solarized / Nord /
    Dracula / Catppuccin / Gruvbox) ----------
    A popover, not an inline button row, once there are more than a
-   handful of themes — matches the accent-picker's own <details>/<summary>
+   handful of themes - matches the accent-picker's own <details>/<summary>
    pattern, and the .topbar-menu-panel/.topbar-menu-item vertical-list
    styling already used for the "Advanced"/"Settings" dropdowns. */
 .theme-picker { position: relative; }
@@ -646,7 +646,7 @@ html[data-accent="fuchsia"] .accent-swatch[data-accent-opt="fuchsia"] {
 .theme-picker-item:hover { background: var(--bg); }
 
 /* Highlight the active option straight from the <html> attributes the inline
-   theme script maintains — no server round-trip. */
+   theme script maintains - no server round-trip. */
 html[data-theme-source="system"] .theme-picker-item[data-theme-opt="system"],
 html[data-theme-source="user"][data-theme="light"] .theme-picker-item[data-theme-opt="light"],
 html[data-theme-source="user"][data-theme="dark"] .theme-picker-item[data-theme-opt="dark"],
@@ -730,7 +730,7 @@ html[data-theme-source="user"][data-theme="gruvbox"] .theme-picker-item[data-the
 
 .card h2 { font-size: 16px; font-weight: 650; margin: 0 0 14px; }
 
-/* SettingsChangelogLive — rendered CHANGELOG.md */
+/* SettingsChangelogLive - rendered CHANGELOG.md */
 .changelog-body h1 { font-size: 20px; margin: 0 0 6px; }
 .changelog-body h2 {
   font-size: 17px;
@@ -758,6 +758,36 @@ html[data-theme-source="user"][data-theme="gruvbox"] .theme-picker-item[data-the
   font-size: 0.92em;
 }
 .changelog-body hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+/* Entry tags. These were emoji (a sparkle for a feature, a bug for a fix);
+   they read as decoration rather than as a label, and rendered at a
+   different size in every font the themes use. A pill outlined in its own
+   colour says the same thing and stays legible in both themes: the colour
+   is a theme token and the border is currentColor, so there is no
+   background/foreground pair that can go dark-on-dark. */
+.changelog-body .cl-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  line-height: 1.6;
+  padding: 0 6px;
+  margin-right: 3px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: transparent;
+  white-space: nowrap;
+}
+.changelog-body .cl-feature { color: var(--success); }
+.changelog-body .cl-fix { color: var(--color-warning); }
+.changelog-body .cl-change { color: var(--info); }
+.changelog-body .cl-removed { color: var(--text-soft); }
+.changelog-body .cl-security { color: var(--danger); }
+.changelog-body .cl-verified { color: var(--accent); }
+
+/* The legend table's first column is nothing but a tag - stop it stretching. */
+.changelog-body table td:first-child { white-space: nowrap; }
 
 .pe-table { width: 100%; border-collapse: collapse; background: var(--surface); }
 
@@ -837,13 +867,13 @@ label.field > span {
    Scoped to the Settings pages (see SettingsSupport's <.setting_group> /
    <.setting_field> / <.setting_toggle>). Deliberately separate from
    `.form-grid` / `label.field`, which Players, Norms and Tournaments also
-   use — those keep their auto-fill grid; settings does not.
+   use - those keep their auto-fill grid; settings does not.
 
    One column, not a grid: `.form-grid`'s auto-fill packed 4-5 settings per
    row at 1080p and reflowed them on resize, so related settings landed
    wherever they fit. Settings are read top-to-bottom, and one column is the
    only layout where a stacked field (label above control) and a toggle row
-   (checkbox beside label) coexist without deforming one to match the other —
+   (checkbox beside label) coexist without deforming one to match the other -
    which is what the per-call-site inline flex patches used to paper over.
    Controls cap at a readable width instead of stretching the whole card. */
 .set-group { display: flex; flex-direction: column; gap: 16px; }
@@ -877,8 +907,8 @@ label.field > span {
   padding: 2px 0;
 }
 
-/* The checkbox is wrapped (locked-overlay anchor), so the wrapper — not the
-   box — is the flex item that must not shrink. */
+/* The checkbox is wrapped (locked-overlay anchor), so the wrapper - not the
+   box - is the flex item that must not shrink. */
 .set-toggle > .locked-wrap { flex: none; line-height: 1; }
 
 .set-toggle input[type="checkbox"] {
@@ -890,7 +920,7 @@ label.field > span {
 .set-toggle-text { font-size: 14px; color: var(--text); }
 .set-toggle-text .hint { display: block; font-weight: 400; margin-top: 2px; }
 
-/* Dates: one row per round, read top-to-bottom. No inner scroller — a long
+/* Dates: one row per round, read top-to-bottom. No inner scroller - a long
    tournament is meant to make a long list. */
 .set-rows { display: flex; flex-direction: column; }
 
@@ -974,7 +1004,7 @@ button.pe-btn, .pe-btn {
 
 /* The persistent "this tournament is archived" banner shown at the top of
    every page of an archived tournament. Louder than .hint, quieter than
-   .error-note — this is a state, not a failure. */
+   .error-note - this is a state, not a failure. */
 .archived-banner {
   display: flex;
   align-items: center;
@@ -1000,14 +1030,14 @@ button.pe-btn, .pe-btn {
 /* A settings <form>'s closing "Save" .actions row, when the form is NOT the
    last thing on the page (another <div class="card"> follows it as a plain
    sibling, outside the form). .card supplies its own margin-bottom, but a
-   bare .actions row only has margin-top — so without this it sits crammed
+   bare .actions row only has margin-top - so without this it sits crammed
    right up against whatever card comes next. See SettingsTournamentLive's
    Tiebreaks->Save->Public pages stack and SettingsOptionsLive's
    Options->Save->Forbidden pairings stack. */
 .form-actions { margin-top: 8px; margin-bottom: 20px; }
 
 /* A settings toggle whose consequences are unusual/hard to undo mentally
-   (e.g. "treat an absence as a voluntary unplayed round for tiebreaks") —
+   (e.g. "treat an absence as a voluntary unplayed round for tiebreaks") -
    deliberately louder than .hint so it can't be mistaken for routine
    micro-copy. Reuses the same amber tone as .pe-modal-warn. */
 .setting-warning {
@@ -1021,7 +1051,7 @@ button.pe-btn, .pe-btn {
 }
 .setting-warning strong { color: #d97706; }
 
-/* Locked pairing-shape controls (Settings > Format) — the overlay sits on
+/* Locked pairing-shape controls (Settings > Format) - the overlay sits on
    top of a disabled <select>/checkbox so a click attempt is still caught
    and reported (a genuinely disabled element doesn't fire click events). */
 .locked-wrap { position: relative; }
@@ -1029,7 +1059,7 @@ button.pe-btn, .pe-btn {
 .locked-overlay { position: absolute; inset: 0; cursor: not-allowed; }
 .locked-hint-msg { display: block; margin-top: 2px; }
 
-/* Arbiter FIDE-lookup combobox (PairingsEngineWeb.Components.ArbiterCombo) —
+/* Arbiter FIDE-lookup combobox (PairingsEngineWeb.Components.ArbiterCombo) -
    name box and FIDE-ID box side by side, each its own .search-wrap so its
    dropdown attaches directly under THAT box, not a shared results area. */
 .arbiter-combo-label {
@@ -1189,7 +1219,7 @@ button.pe-btn, .pe-btn {
 @keyframes swap-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
 @media (prefers-reduced-motion: reduce) { .swap-banner-dot { animation: none; } }
 
-/* right-click menu — z-index 100 to match `.print-menu-popup`/
+/* right-click menu - z-index 100 to match `.print-menu-popup`/
    `.modal-overlay`'s own convention elsewhere in this file, so it's never
    shadowed by another on-page popover. */
 .ctx-backdrop { position: fixed; inset: 0; z-index: 100; }
@@ -1198,7 +1228,7 @@ button.pe-btn, .pe-btn {
   min-width: 260px;
   padding: 5px;
   border-radius: 9px;
-  /* Opaque on purpose — an earlier `var(--card)` here didn't exist as a
+  /* Opaque on purpose - an earlier `var(--card)` here didn't exist as a
      token in this theme (see `--surface` above), so the background fell
      through to transparent and the menu read as a smear over whatever
      was underneath it, including the player name it was opened on. */
@@ -1221,7 +1251,7 @@ button.pe-btn, .pe-btn {
 }
 .ctx-menu button:hover { background: var(--surface-hover); }
 
-/* the confirm modal — fixed and self-scrolling, so it is never below
+/* the confirm modal - fixed and self-scrolling, so it is never below
    the fold no matter how far down the page the clicked board was */
 .pe-modal {
   position: fixed;
@@ -1246,7 +1276,7 @@ button.pe-btn, .pe-btn {
   overflow: hidden;
 }
 /* Widened variant for a modal whose body is a full-roster table (e.g. the
-   Categories dry-run diff) rather than one or two board-swap cards — the
+   Categories dry-run diff) rather than one or two board-swap cards - the
    base 560px cap reads cramped once rows are "Player / From / To" wide. */
 .pe-modal-card.pe-modal-wide { max-width: 720px; }
 .pe-modal-head { padding: 18px 20px 14px; border-bottom: 1px solid var(--border); }
@@ -1275,16 +1305,16 @@ button.pe-btn, .pe-btn {
 
 /* before/after board cards */
 /* `.board-diff-group` is the ONE shared grid for every board row (and the
-   bench row) in a confirm modal — a two-board swap's "Board 1" and
+   bench row) in a confirm modal - a two-board swap's "Board 1" and
    "Board 2" rows used to each be their OWN independent `display: grid`
    (on `.board-diff`), so each row's column widths were computed against
    only that row's own cards. Nothing tied row 1's "after" column width to
    row 2's, so the two rows' right-hand cards didn't start at the same x
-   position — reported directly, and confirmed by reading exactly this.
+   position - reported directly, and confirmed by reading exactly this.
    Moving `display: grid` up here, one level, and letting each `.board-diff`
    become `display: contents` (below) makes every row's cards genuine
    siblings in ONE grid, so column widths are computed once, together, and
-   every row's before/after cards line up — column 1 is the widest "before"
+   every row's before/after cards line up - column 1 is the widest "before"
    card across ALL rows, column 3 the widest "after". This also makes a
    cross-board swap's connecting arrows land at consistent x-positions
    between rows, not just fix the box alignment. */
@@ -1292,7 +1322,7 @@ button.pe-btn, .pe-btn {
   position: relative;
   display: grid;
   /* Each card is sized to its OWN content (`max-content`) instead of being
-     forced into a shared `1fr`/`1fr` split — names no longer wrap (see
+     forced into a shared `1fr`/`1fr` split - names no longer wrap (see
      `.board-seat-name` below), so every card is a fixed, static height:
      exactly two seat rows, always, on both sides of a pair. `minmax(0,
      max-content)` on both card columns is what keeps this bounded rather
@@ -1300,37 +1330,37 @@ button.pe-btn, .pe-btn {
      what's actually available inside `.pe-modal-card` (its `max-width`
      minus body padding minus this grid's own gaps/arrow column), Grid
      shrinks the card tracks down from that ceiling instead of overflowing
-     the modal — the same safety-valve role `.board-seat-name`'s own
+     the modal - the same safety-valve role `.board-seat-name`'s own
      `max-width` plays one level down, for a single pathologically long
      name inside one card.
 
-     The middle (arrow) column is `max-content`, not `auto` — an easy trap:
+     The middle (arrow) column is `max-content`, not `auto` - an easy trap:
      `auto` here doesn't mean "size to content" the way it does for a
      `width` property, it means "eligible to absorb the grid container's
      LEFTOVER space" (CSS Grid's Maximize Tracks step, since nothing else
      here uses `fr`). With small cards (e.g. "Pair these two"'s empty
      "before" slots next to short real names), that leftover space is
-     large, and it all piled into the arrow's own column — a big, visibly
+     large, and it all piled into the arrow's own column - a big, visibly
      empty gap between two otherwise-narrow cards, not a tight, camera-
      centered "→". `max-content` sizes strictly to the glyph's own content
      and never grows to soak up anything extra, same as the two card
      columns already do. */
   grid-template-columns: minmax(0, max-content) max-content minmax(0, max-content);
   /* `start`, not `center`: a wrapped name used to be able to grow one card
-     taller than its partner, which this originally defended against — no
+     taller than its partner, which this originally defended against - no
      longer possible now that names never wrap, but there's no reason to
      change a harmless default. */
   align-items: start;
   column-gap: 10px;
   /* One value covers both "num label to its own cards" and "one board's
-     row to the next board's row" — the two used to be 10px/12px
+     row to the next board's row" - the two used to be 10px/12px
      respectively (barely distinguishable) when each `.board-diff` was its
      own grid; a single shared `row-gap` reads the same, without needing
      per-element margin hacks to tell the two apart in a shared grid. */
   row-gap: 10px;
 }
 
-/* Journey arrows (the .SwapArrows hook — see its own comment for what
+/* Journey arrows (the .SwapArrows hook - see its own comment for what
    gets an arrow and why). The layer sits over the diff rows but only ever
    paints in the centre channel, so nothing readable is covered. Both the
    `has-swap-arrows` class and the SVG inside the layer are added by JS:
@@ -1341,7 +1371,7 @@ button.pe-btn, .pe-btn {
   inset: 0;
   pointer-events: none;
 }
-/* `display: contents` — see `.board-diff-group`'s own comment just above:
+/* `display: contents` - see `.board-diff-group`'s own comment just above:
    this box disappears entirely for layout purposes, so its children
    (the num label, both cards, the arrow) become direct items of the
    SHARED parent grid instead of a nested grid of their own. Nothing else
@@ -1358,7 +1388,7 @@ button.pe-btn, .pe-btn {
 .board-diff-group.has-swap-arrows .board-diff-arrow { visibility: hidden; }
 /* Each arrow's actual colour is set inline by the hook, matching its own
    traveller's `--swap-color` (read straight off the seat elements it
-   already found — no separate colour list to keep in sync). These are
+   already found - no separate colour list to keep in sync). These are
    just the fallback if that lookup ever comes back empty. */
 .swap-arrow-path {
   fill: none;
@@ -1382,7 +1412,7 @@ button.pe-btn, .pe-btn {
 .board-diff-arrow { align-self: center; color: var(--text-soft); font-size: 18px; }
 .board-card {
   /* `min-width: 0` overrides the grid item's implied minimum size (which
-     defaults to its content's natural width, i.e. `auto`) — without it,
+     defaults to its content's natural width, i.e. `auto`) - without it,
      the `minmax(0, max-content)` on `.board-diff`'s column would never
      actually get to shrink this card below its own longest unbroken row,
      defeating the whole point of the safety valve above. */
@@ -1400,24 +1430,24 @@ button.pe-btn, .pe-btn {
   border-color: color-mix(in srgb, var(--accent) 55%, transparent);
   background: color-mix(in srgb, var(--accent) 7%, var(--surface));
 }
-/* `nowrap`: a seat row is the colour badge plus the name, nothing else —
+/* `nowrap`: a seat row is the colour badge plus the name, nothing else -
    the "⇄ Board N" cross-reference chip that used to live here (and was
    `flex-wrap`'s only reason to exist) was removed as confusing/unwanted;
    see the "Swap players" confirm modal's own history if it ever needs
    resurrecting. One line, always, so a card's height is a fixed function
    of how many seat rows it has. */
 .board-seat { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; padding: 4px 0; font-size: 15px; }
-/* W/B letter badges, not a coloured dot — the dot used to sit on a fixed
+/* W/B letter badges, not a coloured dot - the dot used to sit on a fixed
    red backdrop (deliberately not a theme token, since a plain white dot
    vanishes on a light surface and a plain black one vanishes on a dark
    one) which read as an alarm/warning colour precisely in the one place
-   — mid-swap — where nothing is actually wrong.
+   - mid-swap - where nothing is actually wrong.
    First attempt at the fix used `var(--surface)`/`var(--text)` for an
-   "inverted pair" — wrong in exactly the way the red dot was wrong:
+   "inverted pair" - wrong in exactly the way the red dot was wrong:
    those tokens FLIP between themes (dark in dark mode), so White ended
    up rendering as a dark box and Black as a light one, backwards, on a
-   dark theme. Fixed literal colours instead — the same cream/charcoal
-   pair the brand mark's own chess pieces use (`Layouts.brand_mark/1`) —
+   dark theme. Fixed literal colours instead - the same cream/charcoal
+   pair the brand mark's own chess pieces use (`Layouts.brand_mark/1`) -
    so White is always the light box and Black always the dark one,
    independent of theme, the same guarantee the old red backdrop gave
    without the alarm colour. */
@@ -1443,40 +1473,40 @@ button.pe-btn, .pe-btn {
 }
 /* Static height, variable width: a name never wraps to a second line
    (that's what let one card in a before/after pair grow taller than its
-   partner — see `.board-diff`'s comment). `min-width: 0` is required for
+   partner - see `.board-diff`'s comment). `min-width: 0` is required for
    the `text-overflow: ellipsis` below to ever actually engage: this is a
    flex item, and a flex item's default minimum width is its content's
    natural width, which would silently stretch the row (and the card, and
    the whole modal) rather than truncate. `max-width` is the safety valve
-   for one pathologically long name — everything up to it is handled by
+   for one pathologically long name - everything up to it is handled by
    `.board-diff`'s own `minmax(0, max-content)` column sizing instead, so
    normal names are never truncated, only ones that would blow the modal's
    width budget on their own. */
 .board-seat-name {
-  /* `flex-basis: 0%`, not `auto` — with `flex-wrap: wrap` on the parent,
+  /* `flex-basis: 0%`, not `auto` - with `flex-wrap: wrap` on the parent,
      the browser decides which LINE an item lands on using its hypothetical
      (pre-shrink) size, which for `auto` is the item's full content width
      (the whole name, since `white-space: nowrap` below makes that the
-     "natural" size) — `min-width: 0` only ever gets a chance to shrink an
+     "natural" size) - `min-width: 0` only ever gets a chance to shrink an
      item that's ALREADY on a line, too late to stop a wrap that's already
      been decided. Once a card's grid track shrinks below badge+full-name
      width (see `.board-diff`'s own `minmax(0, max-content)` comment), the
      browser judged the name didn't fit at all and wrapped it onto its own
-     line under the colour badge — visually broken on any "Swap colours"
+     line under the colour badge - visually broken on any "Swap colours"
      confirm modal with two average-length names, not just a pathological
      one. A `0%` basis makes the hypothetical size 0, so the browser always
      considers it fits on line 1; `flex-grow: 1` still expands it to fill
      the remaining space exactly as before, just decided at the right step. */
   flex: 1 1 0%;
   min-width: 0;
-  /* Bumped from 200px — with the modal widened to 720px (`.pe-modal-wide`),
+  /* Bumped from 200px - with the modal widened to 720px (`.pe-modal-wide`),
      200px was leaving real, ordinary names truncated with genuine unused
      space still visible in the card next to them, since the grid track
      itself only ever grows to this cap, never further, regardless of how
      much modal width is actually free. 260px is comfortably under half the
      modal's usable width even with both cards and the arrow channel
      accounted for, so a normal two-card pair still fits without the grid's
-     own `minmax(0, max-content)` safety valve having to shrink anything —
+     own `minmax(0, max-content)` safety valve having to shrink anything -
      this is still just a cap for one pathologically long name to stop
      growing the whole modal, not the normal case any more. */
   max-width: 260px;
@@ -1485,7 +1515,7 @@ button.pe-btn, .pe-btn {
   text-overflow: ellipsis;
 }
 
-/* `--swap-color` is set inline per seat by `board_card/1` — see
+/* `--swap-color` is set inline per seat by `board_card/1` - see
    `identity_colors/1`'s own comment for why (every distinct player in
    the confirm modal gets their own colour, not just whichever ones
    moved). Two rules, ordered by what a missing colour should fall back
@@ -1497,15 +1527,15 @@ button.pe-btn, .pe-btn {
 .board-seat-changed .board-seat-name { font-weight: 700; color: var(--swap-color, var(--accent)); }
 
 /* The "not playing list" row a `:swap_pool` substitution adds below its
-   board row (`bench_card/1`) — same shared `.board-diff-group` grid, same
+   board row (`bench_card/1`) - same shared `.board-diff-group` grid, same
    `.board-card` shell, so it lines up with the board row above it and
    stays inside `.SwapArrows`' reach without a layout rule of its own.
    (Used to need a `margin-top: -2px` nudge here to tuck it against the
-   board row above — an artifact of each `.board-diff` being its own
+   board row above - an artifact of each `.board-diff` being its own
    independent grid box; the shared grid's own `row-gap` alone looks right
    now that this row is a genuine sibling in it, not a separately-boxed
    grid stacked underneath.) */
-/* No `.board-seat-colour` disc here — a bench seat has no colour, and
+/* No `.board-seat-colour` disc here - a bench seat has no colour, and
    drawing a disc would claim a board seat this row doesn't have (see
    `bench_card/1`'s own comment). `padding-left` makes up the disc's own
    footprint (19px width + 8px gap) so the NAME still lines up under the
@@ -1575,7 +1605,7 @@ button.pe-btn, .pe-btn {
 
 /* word-label buttons (category filters, sub-nav tabs) reuse the
    .round-picker row layout but must not be squeezed to the 40px
-   number-sized boxes above — give them real horizontal padding. */
+   number-sized boxes above - give them real horizontal padding. */
 .round-picker .pe-btn.filter-picker {
   min-width: auto;
   padding: 7px 14px;
@@ -1599,11 +1629,11 @@ button.pe-btn, .pe-btn {
 .display-panel .check input { width: auto; accent-color: var(--accent); }
 
 /* Dense SWAR-style grid: many toggleable columns, so keep cells from
-   wrapping — the .split-main wrapper already scrolls horizontally. */
+   wrapping - the .split-main wrapper already scrolls horizontally. */
 .pe-table td { white-space: nowrap; }
 
 /* SWAR-style dialogs: Player registration (double-click) and Players Card
-   (right-click). Plain overlay + card — no daisyUI modal classes. */
+   (right-click). Plain overlay + card - no daisyUI modal classes. */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -1629,7 +1659,7 @@ button.pe-btn, .pe-btn {
 .modal-card h2 { margin-top: 0; }
 .modal-card .actions { margin-top: 18px; }
 
-/* Database auto-fill actions at the top of the player-registration modal —
+/* Database auto-fill actions at the top of the player-registration modal -
    pulled out of the National-ID field so it's no longer an oversized cell. */
 .modal-lookup-bar {
   display: flex;
@@ -1654,7 +1684,7 @@ button.pe-btn, .pe-btn {
 /* A `label.field` that wraps a checkbox: row-oriented (control + text on
    one line) instead of the .field default column. Replaces the per-call-
    site inline flex styles that used to patch this in tournaments_live /
-   norms_live — NOT part of the settings .set-* system, which those pages
+   norms_live - NOT part of the settings .set-* system, which those pages
    deliberately don't use. */
 label.field.field-check { display: flex; flex-direction: row; align-items: center; gap: 0.5rem; }
 
@@ -1746,13 +1776,13 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
    Between the desktop layout and the 768px tablet rules there was nothing at
    all, so the top bar stayed a rigid single row: brand + the tournament tab
    strip + the auth cluster (sync status ~209px, email ~131px, Settings, Log
-   out, version). On a 1280px laptop — and worse on a part-width window —
+   out, version). On a 1280px laptop - and worse on a part-width window -
    that totalled more than the viewport and pushed the whole PAGE sideways,
    not just the bar.
 
    Fixed by dropping the decorative parts as room runs out, heaviest first,
    rather than by letting the bar scroll (it holds the Advanced/Settings
-   dropdown panels, and a scrolling ancestor clips them — see the note in the
+   dropdown panels, and a scrolling ancestor clips them - see the note in the
    768px block below). Everything removed here is either duplicated elsewhere
    or purely informational. */
 
@@ -1811,12 +1841,12 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   }
 
   /* the tab strip scrolls horizontally on mobile, which clips an
-     absolutely-positioned dropdown panel — anchor it to the viewport
+     absolutely-positioned dropdown panel - anchor it to the viewport
      instead so it always renders in full.
 
      Matches `.topbar-menu[open] > .topbar-menu-panel`'s own specificity
      (two classes) rather than the bare `.topbar-menu-panel` this used to be
-     — a single-class selector here would lose the `position` tug-of-war to
+     - a single-class selector here would lose the `position` tug-of-war to
      that rule regardless of appearing later in the file, since a browser
      only falls back to source order when specificity is tied. */
   .topbar-menu[open] > .topbar-menu-panel {
@@ -1882,7 +1912,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 }
 
 /* ============================================================
-   "Explain this round" — visual pairing rationale
+   "Explain this round" - visual pairing rationale
    (PairingsEngineWeb.PairingExplainLive). Appended block; does
    not touch any rule above. Warm tone = a down-float (higher
    score paired down), cool tone = an up-float (lower score
@@ -1904,7 +1934,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   /* overflow-x: auto alone makes this a scroll container on BOTH axes, so
      any transient vertical overflow (an open popover reaching past the
      canvas bottom) let the mouse wheel scroll the GRAPH up and down
-     instead of the page — user-reported as really irritating. The canvas
+     instead of the page - user-reported as really irritating. The canvas
      grows to hold whichever popover is open (both reserves are :has-gated,
      see .pe-bracket-canvas), so a popover always fits inside the canvas and
      the strip never legitimately scrolls vertically: lock the axis.
@@ -1915,12 +1945,12 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   padding-bottom: 4px;
   position: relative;
   /* a board card's disc click pins its dot via JS (assets/js/app.js) and
-     calls scrollIntoView — glide instead of snapping when that scrolls
+     calls scrollIntoView - glide instead of snapping when that scrolls
      this container horizontally */
   scroll-behavior: smooth;
   /* The minimap below is the intended scroll-position affordance; the
      native bar duplicated it and added its own layout gap. Wheel/drag/
-     keyboard scrolling all keep working — only the visible track/thumb
+     keyboard scrolling all keep working - only the visible track/thumb
      chrome is suppressed. */
   scrollbar-width: none;
 }
@@ -1929,7 +1959,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .pe-bracket-svg text { font-family: 'Segoe UI', system-ui, sans-serif; }
 
 .pe-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; font-size: 12.5px; color: var(--text-soft); }
-/* Legend items are real buttons (task 1: legend-as-filter) — reset native
+/* Legend items are real buttons (task 1: legend-as-filter) - reset native
    chrome first, same pattern as .pe-disc above, so the swatch + label
    layout is unaffected by being a <button> instead of a <span>. */
 .pe-legend-item {
@@ -1952,7 +1982,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   outline: none;
 }
 /* Active-filter affordance, toggled by the delegated listener in
-   assets/js/app.js — shared by legend items AND .pe-band-row (task 2),
+   assets/js/app.js - shared by legend items AND .pe-band-row (task 2),
    since both are `[data-filter]` buttons targeting the same
    `data-active-filter` state on the nearest .pe-bracket-map. */
 .pe-legend-item.is-active-filter {
@@ -1965,17 +1995,17 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .pe-legend-disc.pe-disc-b { background: var(--accent); }
 .pe-legend-line { width: 20px; height: 0; border-top: 3px solid var(--border); display: inline-block; }
 .pe-legend-line.is-float { border-top-style: dashed; border-top-color: var(--warn); }
-/* Deliberate match-format rematch (task 4) — a neutral, non-alarming
+/* Deliberate match-format rematch (task 4) - a neutral, non-alarming
    dotted line, distinct from both the plain "within bracket" line and the
    danger-red anomaly dashes below. */
 .pe-legend-line.is-rematch { border-top-style: dotted; border-top-color: var(--text-soft); border-top-width: 3px; }
 /* Bare coloured triangle glyphs, matching the chart's paired-up/-down
-   markers — an interim design wrapped both in filled circle chips and the
+   markers - an interim design wrapped both in filled circle chips and the
    user explicitly asked for the plain triangles back. */
 .pe-legend-tri { font-size: 12px; line-height: 1; }
 .pe-legend-tri.down { color: var(--warn); }
 .pe-legend-tri.up { color: var(--info); }
-/* Colour-against-due halo swatch (task 3) — mirrors the SVG halo ring's
+/* Colour-against-due halo swatch (task 3) - mirrors the SVG halo ring's
    warn colour/dash pattern (see .pe-tag-warn and the `pe-dot-halo` circle
    in pairing_explain_live.ex). */
 .pe-legend-halo {
@@ -2016,7 +2046,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .pe-head-flags { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
 
 .pe-side { display: flex; gap: 11px; align-items: flex-start; }
-/* A button, not a plain span — clicking it pins open (and scrolls to)
+/* A button, not a plain span - clicking it pins open (and scrolls to)
    this player's own circle on the score-bracket map above. Reset native
    button chrome first; .pe-disc-w/.pe-disc-b (applied via the same class
    list, so later in the cascade) still win on background/border. */
@@ -2109,11 +2139,11 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
    pinning and legend/gutter click-filtering. The gutter is a sticky flex
    child, so the score-band labels stay readable while the (often
    wider-than-viewport) chart scrolls beneath them. Each DOT (one per
-   player, one for a bye recipient — not one per board) gets its own
+   player, one for a bye recipient - not one per board) gets its own
    absolutely-positioned hover wrap, `left`/`top` set inline by the
    template so the ring (::before below) is always dead-centre on that one
    dot; the popover's opening direction comes from server-computed
-   pe-pop-* classes — the scroll container clips on BOTH axes (overflow-x:
+   pe-pop-* classes - the scroll container clips on BOTH axes (overflow-x:
    auto forces overflow-y to auto too), so an always-below popover would
    clip at the bottom band. `bracket_layout/1`'s viewBox is 1:1 with CSS
    pixels, so SVG and overlay share coordinates. */
@@ -2126,7 +2156,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   background: var(--surface);
   border-right: 1px solid var(--border);
 }
-/* A button, not a plain div (task 2: clicking a band highlights it) — reset
+/* A button, not a plain div (task 2: clicking a band highlights it) - reset
    native chrome, keep the same absolute-positioned row layout. */
 .pe-band-row {
   position: absolute;
@@ -2157,7 +2187,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 
 .pe-bracket-canvas { position: relative; flex: 0 0 auto; }
 /* A popover opening downward has to fit inside .pe-bracket-scroll's vertical
-   clip, so the canvas must be tall enough to hold one — but ONLY while one
+   clip, so the canvas must be tall enough to hold one - but ONLY while one
    is open. Both reservations are therefore deferred, the inline min-height
    resting at exactly the graph's own height.
 
@@ -2168,20 +2198,20 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
    turned out to do the same thing on a smaller scale: the server-side flip
    tests against the pinned room, so past round 1 nearly every dot opens
    downward and the reservation cleared the graph's own floor by ~110px on
-   most rounds and by nothing on others — the "sometimes there's a gap"
+   most rounds and by nothing on others - the "sometimes there's a gap"
    report. Both are custom properties set inline by pairing_explain_live.
 
    Growing on hover can shift what sits below the chart, and that is the
    accepted trade: a popover covering its surroundings while open beats a
    permanent empty band under every chart. Pinned is listed last so it wins
-   the tie when a dot is both hovered and pinned — it always needs more. */
+   the tie when a dot is both hovered and pinned - it always needs more. */
 .pe-bracket-canvas:has(.pe-board-wrap:hover),
 .pe-bracket-canvas:has(.pe-board-wrap:focus-within) { min-height: var(--pe-hover-min); }
 .pe-bracket-canvas:has(.pe-board-wrap.is-pinned) { min-height: var(--pe-pinned-min); }
 
 .pe-board-overlay { position: absolute; inset: 0; pointer-events: none; }
 /* One hover wrap per DOT (one per player, one for a bye), a fixed square
-   centred exactly on it (`left`/`top` set inline, size fixed here) — so
+   centred exactly on it (`left`/`top` set inline, size fixed here) - so
    hovering a specific circle shows only that circle's player, never the
    opponent elsewhere on the chart. */
 .pe-board-wrap {
@@ -2197,7 +2227,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .pe-board-wrap:focus,
 .pe-board-wrap.is-pinned { z-index: 30; }
 
-/* highlight ring — always dead-centre in the wrap, since the wrap is
+/* highlight ring - always dead-centre in the wrap, since the wrap is
    always sized/positioned around exactly one dot. `.is-pinned` is what
    lights this up (and pins the popover open, see below); it's added by the
    delegated click listener in assets/js/app.js, either when this wrap's
@@ -2264,14 +2294,14 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 
 /* ---- bracket-map: legend/gutter click-to-filter (tasks 1 & 2) ----
    Every filterable SVG element (dot circles + halos, connecting lines,
-   float-direction triangles) carries a `data-facets` attribute — a
-   space-separated list of tokens like "w within band-2" — set by
+   float-direction triangles) carries a `data-facets` attribute - a
+   space-separated list of tokens like "w within band-2" - set by
    dot_facets/1 / link_facets/1 in pairing_explain_live.ex. Clicking a
    legend item or a .pe-band-row (both are `[data-filter]` buttons) is
    handled by the delegated listener in assets/js/app.js, which toggles
    that button's facet in a multi-select SET (`data-active-filter`, a
    space-separated string) and dims (.pe-dim) any element whose own facets
-   don't intersect ANY active facet (OR semantics) — plain JS matching
+   don't intersect ANY active facet (OR semantics) - plain JS matching
    rather than static per-facet CSS rules, because the score-band count
    (and therefore the set of possible "band-N" facet values) is unbounded
    and only known at render time. Popovers/hover/pin are untouched: only
@@ -2281,7 +2311,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .pe-dim { opacity: 0.16; }
 
 /* ---- bracket-map: head-to-head duo panel ----
-   One hidden panel per playing board, under the chart (normal flow — never
+   One hidden panel per playing board, under the chart (normal flow - never
    clipped by the scroll strip). Opened by the delegated listener in
    assets/js/app.js when a pinned player's exact opponent is clicked;
    closed by clicking either of the two dots or the ✕. Both dots keep
@@ -2331,7 +2361,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
   color: var(--text-soft); margin-bottom: 4px;
 }
-/* Fairness summary row (task 4d) — smaller variant of .pe-stat/.pe-stat-n
+/* Fairness summary row (task 4d) - smaller variant of .pe-stat/.pe-stat-n
    (see the page's summary strip above) for the popover's tighter width. */
 .pe-trail-stats { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 6px; }
 .pe-stat-sm { font-size: 10.5px; gap: 4px; }
@@ -2349,13 +2379,13 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 }
 /* Column widths at the pinned popover's 300px width (padding 10px each
    side = 20px, 4 gaps * 5px = 20px, leaving 260px of content):
-     round   20px  — only ever "R" + 1-2 digits (e.g. "R12"), trimmed down
+     round   20px  - only ever "R" + 1-2 digits (e.g. "R12"), trimmed down
                       from the old 24px (was more than that ever needs)
-     colour  16px  — the disc badge, fixed, can't shrink
-     result  70px  — must fit the widest label, "this round" (11 chars,
+     colour  16px  - the disc badge, fixed, can't shrink
+     result  70px  - must fit the widest label, "this round" (11 chars,
                       bold 11px sans ≈ 60-64px), plus a small safety margin
-     score   auto  — ~4 tabular-nums chars + 4px padding, ≈ 30px
-     opponent 1fr  — gets what's left: 260 - 20 - 16 - 70 - ~30 ≈ 124px
+     score   auto  - ~4 tabular-nums chars + 4px padding, ≈ 30px
+     opponent 1fr  - gets what's left: 260 - 20 - 16 - 70 - ~30 ≈ 124px
                       (was ≈ 100px at the old 250px width) */
 .pe-trail-row {
   display: grid;
@@ -2378,7 +2408,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .pe-trail-col.is-absent { background: var(--surface-hover); color: var(--text-soft); }
 /* Result cell colour mirrors the app's existing W/D/L tag language.
    nowrap/ellipsis is a defensive backstop for the 240px .pe-trail-rounds
-   max-height math (see above), which assumes every row stays single-line —
+   max-height math (see above), which assumes every row stays single-line -
    the 70px column width already fits "this round", the longest label. */
 .pe-trail-res { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pe-trail-win .pe-trail-res { color: var(--accent); }
@@ -2394,7 +2424,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   font-weight: 700; font-variant-numeric: tabular-nums;
   color: var(--text); padding-left: 4px;
 }
-/* Says which moment the score column measures — the pairing card behind this
+/* Says which moment the score column measures - the pairing card behind this
    popover shows the PRE-round score, this shows the total after each round. */
 .pe-trail-note {
   margin-top: 4px; font-size: 11px; line-height: 1.3;
@@ -2429,7 +2459,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 }
 
 /* ============================================================
-   Auth pages (log in / register) — split brand + form panel
+   Auth pages (log in / register) - split brand + form panel
    ============================================================ */
 /* The auth page centres a rounded card in the viewport under the top bar
    (56px). The page area itself never scrolls (overflow hidden); the card is
@@ -2460,7 +2490,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   overflow: hidden;
 }
 
-/* Single-column variant (no brand hero) — used by the magic-link
+/* Single-column variant (no brand hero) - used by the magic-link
    confirmation page, which is a short one-action card. */
 .auth-wrap-solo {
   grid-template-columns: 1fr;
@@ -2511,7 +2541,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   margin-bottom: 34px;
   /* A subtle darker pill (not the raw gradient) so the mark+name reads as
      a self-contained badge instead of just floating text on the hero
-     background — `inline-flex` above so the pill hugs the content instead
+     background - `inline-flex` above so the pill hugs the content instead
      of stretching the full panel width. */
   padding: 8px 14px 8px 10px;
   border-radius: 99px;
@@ -2555,8 +2585,8 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 }
 .auth-features li svg { color: #8fe0b4; flex-shrink: 0; }
 /* A not-yet-shipped feature deliberately looks different from the shipped
-   ones above it — dimmer text, a clock instead of the green checkmark
-   (`hero-clock-mini`, not `hero-check-circle-mini`) — so it reads as "on
+   ones above it - dimmer text, a clock instead of the green checkmark
+   (`hero-clock-mini`, not `hero-check-circle-mini`) - so it reads as "on
    the roadmap", never as a claim the checkmark rows are already making. */
 .auth-feature-soon { color: rgba(238, 244, 239, 0.6); }
 .auth-feature-soon svg { color: rgba(238, 244, 239, 0.5); }
@@ -2578,7 +2608,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 }
 /* `margin: auto` (not align/justify-center) so the card centres when there's
    room but aligns to the top and stays fully scrollable when it's taller than
-   the panel — flex centering would crop the top/bottom out of reach. */
+   the panel - flex centering would crop the top/bottom out of reach. */
 .auth-card { width: 100%; max-width: 360px; margin: auto; }
 
 .auth-card-title {
@@ -2628,7 +2658,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 /* The password login is collapsed behind this by default (see login.ex's
    comment) so magic-link reads as the one clear primary path. Explicit
    `display: none` / `[open] > … { display: flex }` on the form itself,
-   not just relying on `<details>`'s own native collapse — the exact same
+   not just relying on `<details>`'s own native collapse - the exact same
    shape as `.topbar-menu-panel`'s fix earlier today: a descendant with its
    own unconditional `display: flex` (`.auth-form` is used for the
    always-visible magic-link form too, so it can't be changed itself) can
@@ -2728,7 +2758,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 
 @media (max-width: 900px) {
   /* Phones/tablets/small laptops: single column, natural page scroll (no
-     fixed-height card — the top bar wraps taller here, so a fixed
+     fixed-height card - the top bar wraps taller here, so a fixed
      viewport-height would clip). The two-column card needs more width to
      look right, so below this the hero shrinks to a compact banner and the
      form flows beneath it. */
@@ -2897,7 +2927,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .mobile-result-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 /* "More…" (forfeits/asymmetric codes) is secondary to the three main
    results, so it's smaller and lighter rather than matching their full
-   size/weight — and the panel it opens wraps onto more than one line on a
+   size/weight - and the panel it opens wraps onto more than one line on a
    narrow phone instead of squeezing 6 buttons into one. */
 .mobile-result-btn.mobile-more {
   flex: 0 0 auto;
@@ -2914,7 +2944,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .enroll-panel { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
 /* The QR itself must stay black-on-white (scanners need that contrast and
    quiet zone), so only the frame around it picks up the app's accent colour
-   — otherwise it's a stark white box regardless of theme. */
+   - otherwise it's a stark white box regardless of theme. */
 .enroll-qr { display: inline-block; background: var(--surface); padding: 10px; border-radius: 12px; border: 2px solid var(--accent); }
 .enroll-qr-inner { background: #fff; padding: 10px; border-radius: 8px; line-height: 0; }
 .enroll-qr svg { display: block; width: 180px; height: 180px; }
@@ -2923,7 +2953,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .enroll-url { font-size: 12px; color: var(--text-soft); word-break: break-all; }
 
 /* Blocked FIDE report: the download is disabled because an official has no
-   FIDE ID, so the bar has to carry the reason — a greyed button alone reads
+   FIDE ID, so the bar has to carry the reason - a greyed button alone reads
    as a broken page. */
 .report-blocked {
   border: 1px solid #b3261e;
@@ -2941,7 +2971,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .report-blocked li { margin: 2px 0; }
 
 /* IT3 rated/titled/federation counts explainer (PairingsEngineWeb.Components.It3CountsExplain)
-   — same pe-stat/pe-tag/pe-ladder language as the pairing-rationale screens,
+   - same pe-stat/pe-tag/pe-ladder language as the pairing-rationale screens,
    collapsed by default via plain <details>/<summary>, no JS. */
 .it3-explain { margin: 8px 0 4px; }
 .it3-explain-summary {
@@ -2982,7 +3012,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .it3-explain-player-rating { font-variant-numeric: tabular-nums; color: var(--text-soft); font-size: 11.5px; }
 
 /* ==========================================================================
-   History page (HistoryLive) — change timeline, field diffs, restore points
+   History page (HistoryLive) - change timeline, field diffs, restore points
    ==========================================================================
 
    Category hues are fixed literals rather than accent-derived: the accent is
@@ -3032,7 +3062,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
    It used to be, and it was the same mis-selection the note below describes
    for `::before`: every `.tl-day` is the first child of its own day group,
    so `:first-child` matched EVERY heading and zeroed the margin on all of
-   them. Two visible consequences — "TODAY" sat 4px under the filter row and
+   them. Two visible consequences - "TODAY" sat 4px under the filter row and
    read as clipped against it, and later day headings had no separation at
    all from the previous day's last entry, since `.tl` itself has margin 0.
    The 18px above applies to every heading, first one included: it is the
@@ -3052,8 +3082,8 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   transform: translateX(-50%);
   background: var(--surface);
 }
-/* The first day heading on the page has no rail above it at all — there's no
-   preceding <ul class="tl"> — so the upward overhang masks nothing there and
+/* The first day heading on the page has no rail above it at all - there's no
+   preceding <ul class="tl"> - so the upward overhang masks nothing there and
    only reaches up into the filter row, which sits directly above it (the
    heading's own margin-top is 0). It's opaque and 10px wide at x≈4-14px,
    which is exactly the bottom-left corner of the first filter button:
@@ -3093,7 +3123,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .tl-item[data-kind="tournament"]    { --tl-hue: 215 16% 47%; }
 .tl-item[data-kind="snapshot"]      { --tl-hue: 32 95% 44%; }
 
-/* A restore point is a diamond, not a circle — distinguishable from an
+/* A restore point is a diamond, not a circle - distinguishable from an
    ordinary event at a glance and without relying on colour alone. */
 .tl-item[data-kind="snapshot"] .tl-dot {
   border-radius: 2px;
@@ -3104,7 +3134,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 
 /* A restore point somebody saved on purpose, rather than one the app took
    before an irreversible action. Same diamond (it restores identically),
-   heavier halo — stated before .is-head below so "the tournament is here"
+   heavier halo - stated before .is-head below so "the tournament is here"
    still wins the dot when both apply. */
 .tl-item.manual .tl-dot {
   box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px hsl(32 95% 44% / 0.55);
@@ -3253,7 +3283,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 }
 
 /* The little diamond used inline in prose to point at what a restore point
-   looks like on the rail — same shape and hue as .tl-item[data-kind=snapshot]. */
+   looks like on the rail - same shape and hue as .tl-item[data-kind=snapshot]. */
 .tl-inline-diamond {
   display: inline-block;
   width: 8px;
@@ -3273,13 +3303,13 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 }
 
 /* ==========================================================================
-   History page — the restore-point tree.
+   History page - the restore-point tree.
    ==========================================================================
    Replaces the old `.tl-*` merged timeline. The page used to interleave audit
    rows and restore points as peers; it now shows restore points only, with
    the changes that followed each one folded underneath it. Audit rows carry
    no branch information, so as peers they always rendered on the trunk even
-   when the tournament was on a branch — attaching them to a point gives them
+   when the tournament was on a branch - attaching them to a point gives them
    the context they lack.
 
    The `.tl-diff*` rules further up are still used, by the expanded change
@@ -3335,7 +3365,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   box-shadow: 0 0 0 4px var(--surface);
 }
 
-/* An abandoned branch is context, not the subject — desaturate the whole row
+/* An abandoned branch is context, not the subject - desaturate the whole row
    rather than only its dot, so the trunk stays the thing the eye lands on. */
 .hist-row.off-trunk .hist-dot { background: var(--text-soft); }
 .hist-row.off-trunk .hist-body { opacity: 0.82; }

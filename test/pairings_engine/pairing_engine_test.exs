@@ -1,10 +1,10 @@
 defmodule PairingsEngine.PairingEngineTest do
   @moduledoc """
-  `tournaments.pairing_engine` — which Swiss engine actually pairs a round.
+  `tournaments.pairing_engine` - which Swiss engine actually pairs a round.
 
   JaVaFo stays the default and the only engine permitted for a
   FIDE-homologated tournament (see docs/fide-endorsement.md: OpenPairings'
-  whole endorsement story is FE1's "Internal engine: NO — thru JaVaFo").
+  whole endorsement story is FE1's "Internal engine: NO - thru JaVaFo").
   Ainalrami is an opt-in beta alternative.
 
   Note which tests carry `@tag :javafo` and which don't. The Ainalrami tests
@@ -66,7 +66,7 @@ defmodule PairingsEngine.PairingEngineTest do
       ids = paired_player_ids(round)
       assert Enum.sort(ids) == players |> Enum.map(& &1.id) |> Enum.sort()
 
-      # Every board is a real game, and every seat is filled — the shape
+      # Every board is a real game, and every seat is filled - the shape
       # `create_round/5` writes is identical whichever engine answered.
       assert Enum.all?(round.pairings, &(&1.white_player_id && &1.black_player_id))
       assert Enum.map(round.pairings, & &1.board) == [1, 2, 3]
@@ -90,7 +90,7 @@ defmodule PairingsEngine.PairingEngineTest do
       # Ainalrami returns `{white_rank, nil}` for the pairing-allocated bye
       # where JaVaFo's text output writes a literal `0`. If the adapter
       # dropped that translation, `create_round/5` would try to look up rank
-      # `nil` in the local rank map and crash — so an odd field is the
+      # `nil` in the local rank map and crash - so an odd field is the
       # cheapest direct test of it.
       t = tournament(%{pairing_engine: "ainalrami"})
       roster(t, 5)
@@ -118,7 +118,7 @@ defmodule PairingsEngine.PairingEngineTest do
       assert {:ok, r3} = Pairing.pair_next_round(Repo.reload!(t))
       assert r3.number == 3
 
-      # No rematches across the three rounds — the history OpenPairings
+      # No rematches across the three rounds - the history OpenPairings
       # writes really is being read back into the TRF Ainalrami pairs from.
       opponents =
         [r1, r2, r3]
@@ -151,8 +151,8 @@ defmodule PairingsEngine.PairingEngineTest do
   # XXP line, because its TRF parser dropped every extension but XXR: the
   # forbidden pair would have been paired together, and the round would have
   # looked perfectly legal. XXP and XXA are implemented as of ainalrami
-  # `451c749`, so what is tested here is the behaviour itself — the pair is
-  # kept apart — on both engines, from identical inputs.
+  # `451c749`, so what is tested here is the behaviour itself - the pair is
+  # kept apart - on both engines, from identical inputs.
   describe "TRF extensions" do
     # These two are a control and its experiment, and they have to be read
     # together. An earlier version of this test asserted only that ranks 1 and
@@ -262,12 +262,12 @@ defmodule PairingsEngine.PairingEngineTest do
   describe "changeset: Ainalrami on a FIDE-homologated tournament is allowed, with warnings in the UI" do
     # Refused outright until 2026-08-21, now the arbiter's call. The engine
     # agrees with bbpPairings across ~488M pairings, and where it differs
-    # from JaVaFo it is on Article 5.2.5's TPN parity — where it follows the
+    # from JaVaFo it is on Article 5.2.5's TPN parity - where it follows the
     # handbook text and JaVaFo carries pre-2026 behaviour. Blocking asserted
     # a quality judgement the measurements do not support.
     #
     # The exposure is paperwork, not pairings: OpenPairings is endorsed as
-    # "Internal engine: NO — thru JaVaFo", so a rated round paired by
+    # "Internal engine: NO - thru JaVaFo", so a rated round paired by
     # Ainalrami was not produced by the engine that endorsement names. The
     # UI warns prominently in two places; the data layer does not refuse.
     test "selecting Ainalrami on a FIDE-homologated tournament is allowed" do
@@ -310,8 +310,8 @@ defmodule PairingsEngine.PairingEngineTest do
     end
   end
 
-  # These two used to assert the OPPOSITE — that Ainalrami and Baku were
-  # mutually exclusive — because Ainalrami's TRF parser discarded `XXA`
+  # These two used to assert the OPPOSITE - that Ainalrami and Baku were
+  # mutually exclusive - because Ainalrami's TRF parser discarded `XXA`
   # entirely and would have paired an accelerated tournament on
   # unaccelerated brackets. It reads `XXA` (and `XXP`) as of ainalrami
   # `451c749`, verified against bbpPairings over 1.79M rounds carrying
@@ -441,7 +441,7 @@ defmodule PairingsEngine.PairingEngineTest do
     test "a forbidden pairing on a round robin is not refused, engine notwithstanding" do
       # The XXP guard is Swiss-only: a round robin's fixed schedule never
       # builds a TRF at all, so an Ainalrami round robin with a forbidden
-      # pairing must still pair (the schedule ignores the rule by design —
+      # pairing must still pair (the schedule ignores the rule by design -
       # see docs/pairing-systems.md).
       t = tournament(%{pairing_system: "round_robin", pairing_engine: "ainalrami"})
       [p1, p2 | _] = roster(t, 4)
@@ -530,7 +530,7 @@ defmodule PairingsEngine.PairingEngineTest do
     end
   end
 
-  # Unordered pairs, sorted — who played whom, with colour deliberately
+  # Unordered pairs, sorted - who played whom, with colour deliberately
   # discarded (see the describe block above).
   defp boards(round) do
     round
@@ -562,7 +562,7 @@ defmodule PairingsEngine.PairingEngineTest do
   #
   # Scoring "1-0" on every board looks equivalent and is not: the two
   # engines legitimately disagree about colours (Article 5.2.5's TPN parity
-  # — see the describe block), so the same pair can be seated the opposite
+  # - see the describe block), so the same pair can be seated the opposite
   # way round in each tournament and "White wins" then hands the point to a
   # DIFFERENT player. Round two is then compared from two different score
   # histories, and the test reports an engine disagreement that is entirely

@@ -15,7 +15,7 @@ defmodule PairingsEngine.RatingRefresh do
       `fide_rating` when it differs, and a new `title` when the FIDE record
       has one (never proposes *blanking* a title FIDE doesn't carry). The
       rating proposed is the one matching the tournament's own cadence
-      (`tournament.standard` — Standard/Rapid/Blitz, see
+      (`tournament.standard` - Standard/Rapid/Blitz, see
       `PairingsEngine.Fide.rating_for_tempo/2`), falling back to Standard
       when the player has no rating in that specific list.
 
@@ -25,7 +25,7 @@ defmodule PairingsEngine.RatingRefresh do
   registered off the list, and an arbiter can type it. A bulk button that
   silently rewrote it afterwards made it look like OpenPairings maintains a
   live national-rating system, which it does not. Clubs are a separate
-  gesture with its own button — see `PairingsEngine.ClubRefresh`.
+  gesture with its own button - see `PairingsEngine.ClubRefresh`.
 
   A player with no `fide_id` set (or whose id has no match in the list)
   contributes no proposals and counts as "unmatched" in the summary.
@@ -51,7 +51,7 @@ defmodule PairingsEngine.RatingRefresh do
 
   @doc """
   Looks up every player in `tournament` against the local FIDE copy and
-  returns a summary: `%{proposals:, checked:, changed:, unmatched:}` —
+  returns a summary: `%{proposals:, checked:, changed:, unmatched:}` -
   `changed` is the number of players with at least one proposed change,
   `unmatched` the number with no FIDE-id match at all.
   Writes nothing; pair with `apply/2` to commit.
@@ -90,7 +90,7 @@ defmodule PairingsEngine.RatingRefresh do
   defp fide_match(%Player{fide_id: nil}), do: nil
   defp fide_match(%Player{fide_id: fide_id}), do: Repo.get(FidePlayer, fide_id)
 
-  # Only proposes a title when the FIDE record actually carries one — never
+  # Only proposes a title when the FIDE record actually carries one - never
   # proposes clearing a locally-set title just because the FIDE row is blank.
   defp maybe_add_title(list, player, %FidePlayer{title: t}) when t not in [nil, ""],
     do: maybe_add(list, player, :title, player.title, t)

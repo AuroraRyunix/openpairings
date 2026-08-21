@@ -1,25 +1,25 @@
 defmodule PairingsEngine.CrossProgramTest do
   @moduledoc """
-  Cross-program-agreement check — the second half of the fuzz-testing
+  Cross-program-agreement check - the second half of the fuzz-testing
   harness `docs/fide-endorsement.md` proposes. Runs OpenPairings' own,
   real `PairingsEngine.Pairing.pair_next_round/1` (JaVaFo-backed) against
   `bbpPairings` (Bierema Boyz Programming, Apache-2.0, vendored in
-  `priv/bbppairings/` — see `PairingsEngine.Test.BbpPairings`), a
+  `priv/bbppairings/` - see `PairingsEngine.Test.BbpPairings`), a
   standalone, independently-written second Dutch-system implementation, on
   byte-identical TRF16 input, round by round, over many random synthetic
-  tournaments — diffing the actual pairing (who plays whom), not asking
+  tournaments - diffing the actual pairing (who plays whom), not asking
   either engine whether its own output is "legal".
 
   This is deliberately a different check from the plain checker verdict a
   `-c` mode would give (see the doc's "why a plain checker isn't the right
   tool" section): a checker only confirms a pairing follows from whatever
   TRF it was handed, and can't catch OpenPairings feeding either engine
-  *wrong* input that still happens to produce a locally-legal pairing —
+  *wrong* input that still happens to produce a locally-legal pairing -
   exactly the bug class both real TRF-input bugs found in this project
   belonged to. Agreement between two independent implementations given
   identical input is a much stronger signal.
 
-  Runs `PAIRING_FUZZ_COUNT` synthetic tournaments (default 8 — enough to
+  Runs `PAIRING_FUZZ_COUNT` synthetic tournaments (default 8 - enough to
   matter in ordinary CI/dev runs without being slow; set a much higher
   count for a deliberate "throw a pile of random tournaments at it" pass,
   e.g. `PAIRING_FUZZ_COUNT=500 mix test --only javafo --only bbppairings
@@ -37,7 +37,7 @@ defmodule PairingsEngine.CrossProgramTest do
   different players. It reproduces on commits predating both the Ainalrami
   merge and this acceleration axis, and JaVaFo implements the 2022 Dutch
   rules against bbpPairings' 2026 edition, so a legitimate difference is
-  plausible — but it has not been adjudicated against the Handbook, and
+  plausible - but it has not been adjudicated against the Handbook, and
   until it is, this file's `disagreements == []` is known to be false above
   the default count. The default 8 is deterministic (each tournament
   reseeds `:rand` from its own fuzz seed, so ExUnit's `--seed` only
@@ -54,7 +54,7 @@ defmodule PairingsEngine.CrossProgramTest do
   @moduletag :bbppairings
 
   # Same telemetry-capture pattern pairing_test.exs uses (see its own
-  # top-level `setup` doc) — `Pairing`'s scratch TRF file is deleted the
+  # top-level `setup` doc) - `Pairing`'s scratch TRF file is deleted the
   # instant its JaVaFo run finishes, so this is the only way to get the
   # exact text back out to also hand to bbpPairings.
   setup do
@@ -74,7 +74,7 @@ defmodule PairingsEngine.CrossProgramTest do
     :ok
   end
 
-  # Each tournament shells out to two separate external binaries per round —
+  # Each tournament shells out to two separate external binaries per round -
   # deliberately slow at any real PAIRING_FUZZ_COUNT, unlike the rest of the
   # suite. :infinity rather than a bigger fixed number since there's no good
   # one-size-fits-all bound between the default quick run and a deliberate
@@ -91,7 +91,7 @@ defmodule PairingsEngine.CrossProgramTest do
       |> List.flatten()
 
     assert disagreements == [], """
-    #{length(disagreements)} disagreement(s) out of #{count} synthetic tournament(s) — \
+    #{length(disagreements)} disagreement(s) out of #{count} synthetic tournament(s) - \
     a legal-but-different pairing choice, not necessarily a bug in either engine (see
     this test module's doc). Each needs its own look to tell which, if either, is right:
 
@@ -100,7 +100,7 @@ defmodule PairingsEngine.CrossProgramTest do
   end
 
   # Returns this tournament's list of disagreements (possibly []) instead of
-  # asserting inline — a fuzz run's whole point is surfacing every
+  # asserting inline - a fuzz run's whole point is surfacing every
   # disagreement in one pass, not stopping at the first. Pairing still
   # proceeds normally round to round regardless of a disagreement (only
   # OpenPairings' own real pairing ever feeds the next round; bbpPairings is
@@ -113,20 +113,20 @@ defmodule PairingsEngine.CrossProgramTest do
     # carries real `XXA` lines and both engines are compared on them.
     #
     # This axis did not exist until the `XXA` writer turned out to be
-    # malformed — `xxa_line/2` padded the starting rank to five columns
+    # malformed - `xxa_line/2` padded the starting rank to five columns
     # instead of four, shifting every value one place right. JaVaFo tolerates
     # that and has been the only reader, so nothing here noticed; bbpPairings
     # rejects the line outright, and one accelerated tournament in this
     # harness would have caught it on the first run. The whole argument for
     # this file is that a second independent implementation reading the same
-    # bytes catches input bugs a self-check cannot — which only holds for
+    # bytes catches input bugs a self-check cannot - which only holds for
     # input this generator actually produces.
     # Measured before committing this, by forcing every tournament
     # accelerated: 80 fully-accelerated tournaments produced exactly two
     # disagreements, both the same 5-player/round-2/prior-bye shape that
     # already occurs without acceleration, and both with well-formed `XXA`
     # lines bbpPairings read without complaint. So the axis adds no
-    # disagreements of its own — it is guarding the writer, not chasing a
+    # disagreements of its own - it is guarding the writer, not chasing a
     # known difference.
     acceleration = Enum.random(["none", "none", "baku"])
 
@@ -150,9 +150,9 @@ defmodule PairingsEngine.CrossProgramTest do
       assert {:ok, round} = Pairing.pair_next_round(tournament)
       assert round.number == round_number
 
-      # `create_player/2` doesn't assign `pairing_number` itself — only
+      # `create_player/2` doesn't assign `pairing_number` itself - only
       # `pair_next_round/1`'s own `ensure_pairing_numbers/2` does, on its
-      # first-ever call — so this can only be read back correctly after that
+      # first-ever call - so this can only be read back correctly after that
       # call has happened, never from the freshly-created player structs.
       name_to_pairing_number =
         tournament.id |> Tournaments.list_players() |> Map.new(&{&1.name, &1.pairing_number})
@@ -201,7 +201,7 @@ defmodule PairingsEngine.CrossProgramTest do
   end
 
   # bbpPairings' output pairs are TRF *starting ranks* (the same local
-  # numbering the captured TRF itself assigned this run — see
+  # numbering the captured TRF itself assigned this run - see
   # PairingsEngine.Pairing.javafo_input/4's rank_by_player_id, which is
   # NOT the same as pairing_number from round 2 onward, since pairing
   # re-sorts into current-standings order first). Translate via the TRF's
@@ -230,7 +230,7 @@ defmodule PairingsEngine.CrossProgramTest do
     end)
   end
 
-  # Board order/colour is presentation, not the thing under test here — only
+  # Board order/colour is presentation, not the thing under test here - only
   # WHO is paired with WHOM matters, so sort each pair's own two members and
   # then the whole set, discarding color/board-order noise from both sides.
   defp normalize(pairs) do

@@ -86,7 +86,7 @@ defmodule PairingsEngine.AccountsTest do
       assert is_nil(user.password)
     end
 
-    test "rejects @zerotwo.cloud addresses — those must come through SSO" do
+    test "rejects @zerotwo.cloud addresses - those must come through SSO" do
       {:error, changeset} = Accounts.register_user(%{email: "someone@zerotwo.cloud"})
       assert %{email: [message]} = errors_on(changeset)
       assert message =~ "SSO"
@@ -187,7 +187,7 @@ defmodule PairingsEngine.AccountsTest do
         Accounts.find_or_create_from_keycloak(%{sub: sub, email: unique_user_email()})
 
       assert first.id == second.id
-      # The email on file does NOT change from a repeat login — only the
+      # The email on file does NOT change from a repeat login - only the
       # first-ever login (or an explicit coupling) sets it.
       assert second.email == first.email
     end

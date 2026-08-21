@@ -1,17 +1,17 @@
 defmodule PairingsEngineWeb.SettingsDatesLive do
   @moduledoc """
-  The "Dates" settings page (`/t/:id/settings/dates`) — one date per round
+  The "Dates" settings page (`/t/:id/settings/dates`) - one date per round
   (SWAR Dates tab), with helpers to fill them weekly or sequentially from
   round 1's own date. The round count itself is set on the Tournament page;
   this page pads/truncates to match it.
 
-  The ONLY place a tournament's dates get entered at all — `start_date`/
+  The ONLY place a tournament's dates get entered at all - `start_date`/
   `end_date` used to be separate fields on the Tournament page, editable
   independently of these per-round dates (two sources of truth for what's
   really one piece of information, which could drift out of sync with each
   other). They're derived now (`Tournament.changeset/2`'s
   `derive_dates_from_round_dates/1`: the earliest/latest non-blank entry
-  here), and shown below read-only as a preview of what that derives to —
+  here), and shown below read-only as a preview of what that derives to -
   not entered directly anywhere.
   """
   use PairingsEngineWeb, :live_view
@@ -72,7 +72,7 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
   end
 
   # Keeps `round_dates` reflecting whatever's actually in the form as the
-  # arbiter types, unsaved changes included — the two fill helpers below
+  # arbiter types, unsaved changes included - the two fill helpers below
   # read round 1's date OUT of this assign, so without this they'd only
   # ever see whatever was last saved, not what's just been typed into
   # round 1's own box a moment ago.
@@ -162,7 +162,7 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
 
   ## ---------- helpers ----------
 
-  # Delegates to `Tournament.pad_round_dates/2` — the same pad/truncate
+  # Delegates to `Tournament.pad_round_dates/2` - the same pad/truncate
   # logic the Tournament changeset now applies on every save. Kept here too
   # because this page's live form state needs the padded shape mid-edit,
   # before anything is actually saved.
@@ -170,7 +170,7 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
 
   # Live preview of what `Tournament.changeset/2`'s own
   # `derive_dates_from_round_dates/1` would compute from the CURRENT
-  # (possibly unsaved) form state — same "earliest/latest non-blank
+  # (possibly unsaved) form state - same "earliest/latest non-blank
   # entry" logic, so what's shown here always matches what Save would
   # actually produce, not just what's already on disk.
   defp derived_range(round_dates) do
@@ -220,7 +220,7 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
           <p class="hint" style="margin-top: 0">
             One date per round (SWAR Dates tab). Leave blank if unknown; two or more rounds can
             share the same date (e.g. a Saturday double round). The tournament's own start/end
-            date is no longer entered separately — it's just the earliest and latest date set
+            date is no longer entered separately - it's just the earliest and latest date set
             here:
           </p>
 

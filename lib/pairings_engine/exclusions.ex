@@ -1,11 +1,11 @@
 defmodule PairingsEngine.Exclusions do
   @moduledoc """
-  Club / federation pairing-exclusion rules (SWAR parity #7-10) — arbiter
+  Club / federation pairing-exclusion rules (SWAR parity #7-10) - arbiter
   policy that certain groups of players (clubmates, players sharing a
   federation) must never be paired against each other, translated into a
   set of forbidden player pairs at pairing time.
 
-  `excluded_pairs/2` returns a `MapSet` of `{player, player}` tuples — pairs
+  `excluded_pairs/2` returns a `MapSet` of `{player, player}` tuples - pairs
   of the full `PairingsEngine.Tournaments.Player` struct, not ids or
   starting ranks, so each call site can map to whatever id space it needs
   without this module knowing about either:
@@ -21,7 +21,7 @@ defmodule PairingsEngine.Exclusions do
   produced them, and so unioning the club and federation results never
   double-counts a pair excluded by both.
 
-  A round robin's fixed schedule ignores these rules entirely by design —
+  A round robin's fixed schedule ignores these rules entirely by design -
   see `docs/forbidden-pairings.md`.
   """
 
@@ -30,22 +30,22 @@ defmodule PairingsEngine.Exclusions do
   @doc """
   Pairs of `players` excluded by `tournament`'s club and federation
   exclusion rules (`club_exclusion`/`club_exclusion_list`,
-  `fed_exclusion`/`fed_exclusion_list` — see
+  `fed_exclusion`/`fed_exclusion_list` - see
   `PairingsEngine.Tournaments.Tournament`). Club rules and federation rules
   are independent and their results unioned: a pair excluded by both counts
   once.
 
   Rule semantics, identical on both axes:
 
-    * `"none"` — no exclusions from this axis.
-    * `"all"` — every pair of players sharing the same non-blank
+    * `"none"` - no exclusions from this axis.
+    * `"all"` - every pair of players sharing the same non-blank
       club/federation is excluded.
-    * `"listed"` — only pairs sharing a club/federation whose name (after
+    * `"listed"` - only pairs sharing a club/federation whose name (after
       trimming and case-insensitive compare) appears in the axis's
       comma-separated list.
 
   A player with a blank club/federation is never excluded on that axis
-  under any rule — there's no group for them to share.
+  under any rule - there's no group for them to share.
   """
   @spec excluded_pairs(Tournament.t(), [Player.t()]) :: MapSet.t({Player.t(), Player.t()})
   def excluded_pairs(%Tournament{} = tournament, players) do
@@ -76,7 +76,7 @@ defmodule PairingsEngine.Exclusions do
   defp pairs_for(_players, _other_mode, _list, _field_fn), do: MapSet.new()
 
   # Groups players by their (trimmed) club/federation value, dropping any
-  # group keyed on a blank value — blank means "no club/federation", never
+  # group keyed on a blank value - blank means "no club/federation", never
   # a group to exclude within. Grouped case-insensitively (trimmed, then
   # downcased) so "Chess Club" and "chess club" are treated as the same
   # club, matching the "listed" rule's case-insensitive list compare below.
@@ -95,7 +95,7 @@ defmodule PairingsEngine.Exclusions do
   end
 
   # Every unordered pair within `players`, generated once each (i < j over
-  # the list's own indices, not the players' ids) — quadratic in group size,
+  # the list's own indices, not the players' ids) - quadratic in group size,
   # which is fine: exclusion groups are clubs/federations, not the whole
   # field.
   defp unordered_pairs(players) do

@@ -1,6 +1,6 @@
 defmodule PairingsEngineWeb.SettingsAboutLive do
   @moduledoc """
-  The "About" settings page (`/t/:id/settings/about`) — what OpenPairings is,
+  The "About" settings page (`/t/:id/settings/about`) - what OpenPairings is,
   which pairing engine this tournament uses (via
   `PairingsEngine.Tournaments.Tournament.pairing_system_label/1`, the same
   wording `PairingsEngineWeb.PrintController`'s footer credit uses), and the

@@ -18,7 +18,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
     tournament
   end
 
-  describe "Rate of play — dependent on Type (standard)" do
+  describe "Rate of play - dependent on Type (standard)" do
     test "the active rate-of-play list matches the tournament's standard on load", %{
       conn: conn,
       scope: scope
@@ -96,8 +96,8 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
 
   describe "\"Pair by\" rating type" do
     # The select is gone entirely: `rating_type` was stored, validated and
-    # exported but never read — pairing order comes from
-    # `Tournaments.Player.rating/1`, which never consulted it — so the
+    # exported but never read - pairing order comes from
+    # `Tournaments.Player.rating/1`, which never consulted it - so the
     # choice it offered had no effect. See the migration
     # 20260820120000_drop_tournament_rating_type.
     test "is not offered at all, because it never did anything", %{conn: conn, scope: scope} do
@@ -236,7 +236,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
     end
   end
 
-  describe "Swiss engine — JaVaFo by default, Ainalrami opt-in" do
+  describe "Swiss engine - JaVaFo by default, Ainalrami opt-in" do
     test "both engines are offered, JaVaFo selected, and the beta caveats are stated", %{
       conn: conn,
       scope: scope
@@ -280,7 +280,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
 
       assert html =~ "Switch to Ainalrami?"
       assert html =~ "Experimental, but plausibly better"
-      # Nothing written yet — the dialog is a gate, not a notification.
+      # Nothing written yet - the dialog is a gate, not a notification.
       assert Repo.reload!(tournament).pairing_engine == "javafo"
 
       render_click(lv, "confirm_engine", %{})
@@ -445,7 +445,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
     end
   end
 
-  describe "rr_match_format — locked once round 1 has been paired" do
+  describe "rr_match_format - locked once round 1 has been paired" do
     defp pair_round_robin_round_1(tournament) do
       Tournaments.create_player(tournament.id, %{name: "Alice", fide_rating: 2000})
       Tournaments.create_player(tournament.id, %{name: "Bob", fide_rating: 1900})
@@ -496,7 +496,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
     end
   end
 
-  describe "swiss_match_format — locked once round 1 (match 1) has been paired" do
+  describe "swiss_match_format - locked once round 1 (match 1) has been paired" do
     defp pair_swiss_match_1(tournament) do
       Tournaments.create_player(tournament.id, %{name: "Alice", fide_rating: 2000})
       Tournaments.create_player(tournament.id, %{name: "Bob", fide_rating: 1900})
@@ -592,7 +592,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
 
       # The "Delay (minutes)" field only renders once the mode select is
       # actually switched to "timed" (see the "field is hidden by default"
-      # / "appears live" tests below) — flip it first so the form the
+      # / "appears live" tests below) - flip it first so the form the
       # submit below reads from actually has the field in it.
       lv
       |> element("select[name='tournament[publish_mode]']")

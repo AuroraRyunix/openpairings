@@ -1,8 +1,8 @@
 defmodule PairingsEngineWeb.SettingsScoringLive do
   @moduledoc """
-  The "Scoring" settings page (`/t/:id/settings/scoring`) — how many points
+  The "Scoring" settings page (`/t/:id/settings/scoring`) - how many points
   a win/draw/loss/pairing-allocated bye is worth, plus SWAR's "Pt ABSENT"
-  genuine-absence rule (`abs_value`/`abs_jusque`/`abs_nbfois` — locked once
+  genuine-absence rule (`abs_value`/`abs_jusque`/`abs_nbfois` - locked once
   round 1 has been paired) and the FIDE-vs-SWAR tiebreak treatment of a
   genuine absence (`absent_counts_as_vur`). Split out of the combined
   Options page into its own focused Settings sub-page, since it's a
@@ -35,17 +35,17 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
        locked_hint: nil,
        # Live preview of the "voluntary unplayed round" checkbox, tracked
        # independently of the saved value so the warning below it appears
-       # (or disappears) the instant it's toggled — before "Save settings"
+       # (or disappears) the instant it's toggled - before "Save settings"
        # is even clicked. See the "vur_toggle" handler.
        vur_checked: tournament.absent_counts_as_vur
      )
      |> assign_abs_scoring_lock()}
   end
 
-  # Locked once round 1 has been paired — same rationale as the
+  # Locked once round 1 has been paired - same rationale as the
   # pairing-shape controls on the Options page: changing who's owed points
   # partway through a tournament would be confusing at best, even though
-  # (unlike those controls) it wouldn't corrupt any stored data — scores
+  # (unlike those controls) it wouldn't corrupt any stored data - scores
   # are computed live from these fields on every standings read, never
   # baked into a `byes` row.
   defp assign_abs_scoring_lock(socket) do
@@ -98,7 +98,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
 
   # Toggling the checkbox flips a live preview of its state (see the
   # `vur_checked` assign) so the warning box below it shows/hides
-  # immediately — it has no effect on the saved tournament until "Save
+  # immediately - it has no effect on the saved tournament until "Save
   # settings" is actually submitted.
   def handle_event("vur_toggle", _params, socket) do
     {:noreply, assign(socket, vur_checked: !socket.assigns.vur_checked)}
@@ -204,7 +204,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
           <h2>Genuine absences</h2>
 
           <p class="subtitle" style="margin: 0 0 8px">
-            A "genuine absence" is a plain no-show — a player marked absent for a round without
+            A "genuine absence" is a plain no-show - a player marked absent for a round without
             requesting a bye, and without it being scored as a forfeit. It's distinct from a
             requested half/zero-point bye and from a forfeit loss, which are configured
             elsewhere. SWAR calls this option "Pt ABSENT".
@@ -213,7 +213,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
           <.setting_group>
             <.setting_field
               label="Points awarded for a genuine absence"
-              hint="Leave blank if this doesn't apply — a genuine absence then scores the same as an ordinary loss, same as before this was set."
+              hint="Leave blank if this doesn't apply - a genuine absence then scores the same as an ordinary loss, same as before this was set."
             >
               <div class="locked-wrap">
                 <input
@@ -283,7 +283,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
 
             <div :if={@vur_checked} class="setting-warning">
               <strong>⚠ This changes FIDE tiebreak results, not just scoring.</strong>
-              FIDE's own C.07 tiebreak regulations have no "genuine absence" concept at all — this
+              FIDE's own C.07 tiebreak regulations have no "genuine absence" concept at all - this
               is a SWAR-historical convenience, not something a FIDE arbiter would expect by
               default. Turning it on retroactively recomputes Buchholz/Sonneborn-Berger for every
               opponent of every absent player, for the whole tournament, the moment you save. If

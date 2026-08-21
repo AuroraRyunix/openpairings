@@ -26,18 +26,18 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
 
     %{"Alice" => a, "Bob" => b, "Carol" => c, "Dave" => d, "Erin" => e} = players
 
-    # Round 1 — Carol absent (no pairing); Alice/Dave win.
+    # Round 1 - Carol absent (no pairing); Alice/Dave win.
     r1 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 1, status: "playing"})
     board(r1, 1, a, b, "1-0")
     board(r1, 2, d, e, "1-0")
 
-    # Round 2 — Carol back and wins as Black; Bob/Dave draw; Erin gets the bye.
+    # Round 2 - Carol back and wins as Black; Bob/Dave draw; Erin gets the bye.
     r2 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 2, status: "playing"})
     board(r2, 1, a, c, "0-1")
     board(r2, 2, b, d, "1/2-1/2")
     bye_board(r2, 3, e)
 
-    # Round 3 — the round being explained: two unplayed boards + Bob's bye.
+    # Round 3 - the round being explained: two unplayed boards + Bob's bye.
     r3 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 3, status: "playing"})
     board(r3, 1, a, d, "")
     board(r3, 2, c, e, "")
@@ -103,7 +103,7 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     assert html =~ "Score-bracket map"
 
     # The bracket map's SVG fills/strokes are CSS custom properties, not
-    # fixed light-theme hex values — otherwise the chart is unreadable
+    # fixed light-theme hex values - otherwise the chart is unreadable
     # (wrong contrast, or literally invisible) under every theme but the
     # default light one. Spot-checks the band backgrounds and the player
     # dots specifically, since those are what "does not work with the
@@ -202,7 +202,7 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     dave = Enum.find(players, &(&1.name == "Dave"))
 
     # The section shows each board's two starting ranks alongside the
-    # names, not just names — the plain "1 vs 4" format an arbiter reading
+    # names, not just names - the plain "1 vs 4" format an arbiter reading
     # off a printed pairing sheet expects, no hovering required. `\s+`, not
     # a literal single space: HEEx/mix format are free to wrap this markup
     # across lines (whitespace-insignificant to the browser, which
@@ -308,7 +308,7 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
 
     # Round 2 is hand-built rather than paired by the real engine (which
     # actively avoids re-byeing the same player) so Carol gets the
-    # pairing-allocated bye a second time — the one scenario the
+    # pairing-allocated bye a second time - the one scenario the
     # "already had a bye" warning exists to flag.
     round2 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 2, status: "playing"})
 
@@ -355,7 +355,7 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
 
     # Pure-CSS hover-reveal scaffold: one wrap per DOT (not per board), each
     # holding a hidden single-player popover shown via CSS (no JS anywhere
-    # on this page) — hovering a specific circle shows only that player.
+    # on this page) - hovering a specific circle shows only that player.
     assert html =~ "pe-board-overlay"
     assert html =~ "pe-dot-popover"
 
@@ -482,8 +482,8 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
 
     # The intro hint still names "Worth a look" once (explaining what the
-    # label means), but the summary panel itself — a per-item anchor link to
-    # a flagged board — must not render when the round is clean.
+    # label means), but the summary panel itself - a per-item anchor link to
+    # a flagged board - must not render when the round is clean.
     refute html =~ ~s(href="#pe-board-)
     refute html =~ "gap in the pairing-number sequence"
   end
@@ -554,7 +554,7 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
 
     # The score-band gutter row is itself a clickable filter button, and
     # already showed the per-band player count before this task ("4p" for
-    # everyone on 0 — one band, four players).
+    # everyone on 0 - one band, four players).
     assert html =~ ~s(data-filter="band-0")
     assert html =~ "4p"
 
@@ -575,7 +575,7 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
 
     # Both hand-built (no real pairing engine involved) so the same colours
     # repeat back-to-back: after round 1, Alice is due Black and Bob is due
-    # White, but round 2 gives them the SAME colours again — the one
+    # White, but round 2 gives them the SAME colours again - the one
     # scenario colour_matches_due?/2 flags as a violation for both sides.
     round1 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 1, status: "playing"})
 
@@ -723,7 +723,7 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     {t, %{"Alice" => alice}} = three_round_swiss(scope)
 
     # Alice's R3 pairing (White vs Dave) exists but has no result. Every stat
-    # must share one denominator — her two resolved games — so the pending
+    # must share one denominator - her two resolved games - so the pending
     # round can't sneak into the float counts while colour/rating ignore it.
     summary = PairingRationale.player_trails(t, 3)[alice.id].summary
 
@@ -752,7 +752,7 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
 
     trails = PairingRationale.player_trails(Tournaments.get_tournament!(t.id), 2)
 
-    # Alice's only resolved game was against Bob (1800) — her pending R2
+    # Alice's only resolved game was against Bob (1800) - her pending R2
     # opponent Carol must not drag the average.
     assert trails[a.id].summary.avg_opponent_rating == 1800
 
@@ -768,7 +768,7 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/3/explain")
 
     # Each playing dot carries its opponent's wrap id so the delegated JS
-    # listener can detect "pinned player's exact opponent clicked" — a bye
+    # listener can detect "pinned player's exact opponent clicked" - a bye
     # dot must carry none.
     assert html =~ ~s(id="pe-dot-1-w")
     assert html =~ ~r/id="pe-dot-1-w"[^>]*data-opponent="pe-dot-1-b"/
@@ -811,7 +811,7 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/2/explain")
 
     # The trail scaffold is present in the popovers (revealed only when the
-    # dot is pinned — pure CSS, no server roundtrip).
+    # dot is pinned - pure CSS, no server roundtrip).
     assert html =~ "pe-trail"
     assert html =~ "Pairing fairness"
     # Sparkline of the running score across rounds.
@@ -829,7 +829,7 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
 
     {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/3/explain")
 
-    # Carol was absent round 1; Erin/Bob had byes — all shown, not skipped.
+    # Carol was absent round 1; Erin/Bob had byes - all shown, not skipped.
     assert html =~ "pe-trail-absent"
     assert html =~ "pe-trail-bye"
     # The current (unplayed) round is flagged rather than shown as a result.
@@ -925,7 +925,7 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     {:ok, b} = Tournaments.create_player(t.id, %{"name" => "Bob"})
     {:ok, c} = Tournaments.create_player(t.id, %{"name" => "Carol"})
 
-    # Alice plays White twice, so Black is due in round 3 — but she takes the
+    # Alice plays White twice, so Black is due in round 3 - but she takes the
     # bye there. A bye recipient's side is modelled as the board's White side,
     # so an unguarded colour check would call that "White against a due Black"
     # and halo a round she never played a game in.
@@ -1019,7 +1019,7 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
 
     # Both are real reservations (a popover genuinely doesn't fit in the
     # graph's own height on a round this shape), and the pinned one is the
-    # larger — it carries the cross-round trail. The CSS lists them in that
+    # larger - it carries the cross-round trail. The CSS lists them in that
     # order so pinned wins when a dot is both hovered and pinned.
     assert hover > resting
     assert pinned >= hover
@@ -1084,7 +1084,7 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
 
       # The "Pairing numbers" table still lists every board, marking the
       # vacant seats rather than crashing on them.
-      assert html =~ "— vacant —"
+      assert html =~ "- vacant -"
     end
   end
 end

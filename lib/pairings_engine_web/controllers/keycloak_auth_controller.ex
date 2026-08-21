@@ -36,7 +36,7 @@ defmodule PairingsEngineWeb.KeycloakAuthController do
   """
   def callback(conn, %{"error" => _} = params) do
     # The user cancelled at Keycloak, or Keycloak itself rejected the request
-    # (e.g. access_denied). Not an application error — just bounce back.
+    # (e.g. access_denied). Not an application error - just bounce back.
     detail = params["error_description"] || params["error"]
 
     conn
@@ -52,14 +52,14 @@ defmodule PairingsEngineWeb.KeycloakAuthController do
       complete_login(conn, code)
     else
       conn
-      |> put_flash(:error, "Single sign-on session expired — please try again.")
+      |> put_flash(:error, "Single sign-on session expired - please try again.")
       |> redirect(to: ~p"/users/log-in")
     end
   end
 
   def callback(conn, _params) do
     conn
-    |> put_flash(:error, "Single sign-on response was incomplete — please try again.")
+    |> put_flash(:error, "Single sign-on response was incomplete - please try again.")
     |> redirect(to: ~p"/users/log-in")
   end
 
@@ -80,13 +80,13 @@ defmodule PairingsEngineWeb.KeycloakAuthController do
         Logger.warning("02cloud SSO login failed: #{inspect(other)}")
 
         conn
-        |> put_flash(:error, "Single sign-on failed — please try again or contact support.")
+        |> put_flash(:error, "Single sign-on failed - please try again or contact support.")
         |> redirect(to: ~p"/users/log-in")
     end
   end
 
   # Keycloak omits the `email` claim entirely for a directory account with no
-  # `mail` attribute, while still sending `email_verified` — so the presence of
+  # `mail` attribute, while still sending `email_verified` - so the presence of
   # the latter proves nothing, and a blank string must be treated as absent.
   #
   # When there's no email we synthesize `<preferred_username>@<sso domain>`.
@@ -95,7 +95,7 @@ defmodule PairingsEngineWeb.KeycloakAuthController do
   # be used for magic-link or password login (see `User.sso_domain_email?/1`
   # and its call sites). So a synthesized address can never collide with an
   # account someone made by another route, and the fact that it isn't a real
-  # mailbox costs nothing — SSO is the only way in for that domain anyway.
+  # mailbox costs nothing - SSO is the only way in for that domain anyway.
   defp identity_from(%{"sub" => sub, "email" => email})
        when is_binary(sub) and is_binary(email) and email != "" do
     {:ok, sub, email}

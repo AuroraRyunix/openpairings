@@ -106,7 +106,7 @@ defmodule PairingsEngine.SnapshotsTest do
       assert newest.summary == "second"
       assert oldest.summary == "first"
 
-      # Payload is dropped from list rows — it's a whole tournament each.
+      # Payload is dropped from list rows - it's a whole tournament each.
       assert newest.payload == nil
       # ...but the acting user is preloaded, for rendering "who".
       assert newest.user.id == scope.user.id
@@ -153,7 +153,7 @@ defmodule PairingsEngine.SnapshotsTest do
       assert "snapshot #{keep + 1}" in summaries
     end
 
-    test "pruning is per tournament — one busy tournament can't evict another's" do
+    test "pruning is per tournament - one busy tournament can't evict another's" do
       scope = user_scope()
       busy = tournament(scope, %{"name" => "Busy"})
       quiet = tournament(scope, %{"name" => "Quiet"})

@@ -5,10 +5,10 @@ defmodule PairingsEngine.Norms.Forms do
   the `fills` maps that `PairingsEngine.Norms.XlsxFill` expects, for each of
   the four official FIDE report templates in `priv/norm_templates/`:
 
-    * **IT3** — Tournament Report Form (whole-tournament, always available)
-    * **FA1** — FIDE Arbiter norm report (for one arbiter norm candidate)
-    * **IA1** — International Arbiter norm report (same shape as FA1)
-    * **IT4** — Title/Norm report (crosstable of up to 40 player candidates)
+    * **IT3** - Tournament Report Form (whole-tournament, always available)
+    * **FA1** - FIDE Arbiter norm report (for one arbiter norm candidate)
+    * **IA1** - International Arbiter norm report (same shape as FA1)
+    * **IT4** - Title/Norm report (crosstable of up to 40 player candidates)
 
   Every function here is pure: given already-loaded data it returns a plain
   map, so these are unit-testable without a database. Callers (typically
@@ -17,12 +17,13 @@ defmodule PairingsEngine.Norms.Forms do
   `XlsxFill.fill/2` back to the client.
 
   Cell references were cross-checked against the fill map derived from the
-  four template files — see `docs/norms.md` for the full reference and for
+  four template files - see `docs/norms.md` for the full reference and for
   how to update these mappers if FIDE revises a template.
   """
 
   alias PairingsEngine.Norms.{ItThreeExpand, XlsxFill}
   alias PairingsEngine.Tournaments.Player
+  alias PairingsEngine.Tournaments.Tournament
 
   @templates %{
     it3: "IT3-TournamentReportForm.xlsx",
@@ -52,7 +53,7 @@ defmodule PairingsEngine.Norms.Forms do
   end
 
   # ---------------------------------------------------------------------
-  # IT3 — Tournament Report Form
+  # IT3 - Tournament Report Form
   # ---------------------------------------------------------------------
 
   @doc """
@@ -64,7 +65,7 @@ defmodule PairingsEngine.Norms.Forms do
   `B12` ("Schedule (number of rounds/day)") is derived from
   `tournament.round_dates` (ISO date strings, index = round-1, blanks
   allowed) as a `-`-joined count of rounds per day, e.g. dates spanning 5
-  distinct days with two double-round days becomes `"1-1-2-2-1"` — each
+  distinct days with two double-round days becomes `"1-1-2-2-1"` - each
   chunk is a run of *consecutive* rounds sharing a date, in round order (not
   sorted), so a rescheduled date out of sequence still reads as its own
   chunk. Left nil (untouched) when every round date is blank.
@@ -82,7 +83,7 @@ defmodule PairingsEngine.Norms.Forms do
   signed-in Tournament Manager actually ran the pairings, so it reads
   "OpenPairings (With JaVaFo)"; the public Tools page only ever generates
   norm reports from an already-paired file someone uploaded, so crediting
-  OpenPairings there would be false — it defaults to "Swar (With JaVaFo)"
+  OpenPairings there would be false - it defaults to "Swar (With JaVaFo)"
   instead (the common case: SWAR is what most uploads come from). A TRF
   from a different program is still just a manual edit of the same field
   away from being accurate.
@@ -115,7 +116,7 @@ defmodule PairingsEngine.Norms.Forms do
           "B19" => manual_mark(o),
           "B20" => blank(fide_display_name(Map.get(o, "person_responsible_pairings"))),
           "B21" => computerized_mark(o),
-          "B22" => pairing_program(o, source),
+          "B22" => pairing_program(o, source, tournament),
           "B23" => blank(Map.get(o, "remark1")),
           "B24" => blank(Map.get(o, "remark2")),
           "B25" => blank(Map.get(o, "remark3")),
@@ -140,7 +141,7 @@ defmodule PairingsEngine.Norms.Forms do
     }
   end
 
-  # Arbiters beyond chief + the 2 ranked deputies — "1" and "2" land on the
+  # Arbiters beyond chief + the 2 ranked deputies - "1" and "2" land on the
   # template's own spare rows (formerly labelled "3rd/4th Deputy Chief
   # Arbiter" in the raw sheet, always present); "3" onward only exist once
   # `ItThreeExpand.expand/2` has grown the template, which `it3_result/3`
@@ -168,7 +169,7 @@ defmodule PairingsEngine.Norms.Forms do
   end
 
   @doc """
-  Builds the actual IT3 `.xlsx` binary for `tournament` — `it3_fills/3`'s
+  Builds the actual IT3 `.xlsx` binary for `tournament` - `it3_fills/3`'s
   fill map applied to the right template, expanding it first
   (`ItThreeExpand.expand/2`) when `tournament` has arbiters beyond chief +
   the 2 ranked deputies (a no-op there for the first 2, which fit in the
@@ -230,7 +231,7 @@ defmodule PairingsEngine.Norms.Forms do
     }
   end
 
-  # See the `it3_fills/2` doc for the exact shape — grouped by *consecutive*
+  # See the `it3_fills/2` doc for the exact shape - grouped by *consecutive*
   # equal dates (in round order), not by sorted date, since the schedule is
   # meant to describe the tournament's actual day-by-day rhythm.
   defp schedule_label(round_dates) do
@@ -252,13 +253,13 @@ defmodule PairingsEngine.Norms.Forms do
   end
 
   # ---------------------------------------------------------------------
-  # FA1 / IA1 — Arbiter norm report (identical cell layout)
+  # FA1 / IA1 - Arbiter norm report (identical cell layout)
   # ---------------------------------------------------------------------
 
   @doc """
   Fills for the FA1 "Invulformulier" sheet for one arbiter norm `candidate`
   (a plain string-keyed map with `"last_name"`, `"first_name"`, `"fide_id"`,
-  `"federation"` — the candidate isn't necessarily a tournament `Player`, so
+  `"federation"` - the candidate isn't necessarily a tournament `Player`, so
   it's passed in separately rather than looked up).
 
   Leaves `B5`/`B21` (federation of event / certifying federation) untouched
@@ -266,7 +267,7 @@ defmodule PairingsEngine.Norms.Forms do
   pre-filled Belgian-federation defaults survive; setting `tournament.federation`
   overrides them. Signature fields (`B19`, `B25`) and the Belgian
   authenticating official's name/position (`B23`, `B24`, pre-printed in the
-  template) are intentionally never written — they're filled in by hand
+  template) are intentionally never written - they're filled in by hand
   after export. `B26`, that official's "Date", is written (today's date,
   same as `B22`'s Chief Arbiter date) since both are the date the report was
   generated, not two independent events.
@@ -274,7 +275,7 @@ defmodule PairingsEngine.Norms.Forms do
   def fa1_fills(tournament, players, candidate),
     do: arbiter_norm_fills(tournament, players, candidate)
 
-  @doc "Same cell layout as `fa1_fills/3` — see there for details."
+  @doc "Same cell layout as `fa1_fills/3` - see there for details."
   def ia1_fills(tournament, players, candidate),
     do: arbiter_norm_fills(tournament, players, candidate)
 
@@ -304,7 +305,7 @@ defmodule PairingsEngine.Norms.Forms do
         "B21" => blank(tournament.federation),
         "B22" => format_date(Date.utc_today()),
         # The second "Date" field, next to the Belgian authenticating
-        # official's pre-printed name/position — both dates on this form are
+        # official's pre-printed name/position - both dates on this form are
         # the date the report is generated, not two different events.
         "B26" => format_date(Date.utc_today())
       }
@@ -316,14 +317,14 @@ defmodule PairingsEngine.Norms.Forms do
   end
 
   # ---------------------------------------------------------------------
-  # IT4 — Title/Norm report (crosstable)
+  # IT4 - Title/Norm report (crosstable)
   # ---------------------------------------------------------------------
 
   @doc """
   Fills for the single `"IT 4"` sheet. `entries` are standings entries from
   `PairingsEngine.Standings.standings/1` (`%{player:, points:, ...}`);
   only entries whose player has a non-blank `norm_data["title_claimed"]`
-  are included, capped at the template's 40-row limit (rows 11-50) — a
+  are included, capped at the template's 40-row limit (rows 11-50) - a
   tournament with more norm candidates needs a second IT4 file for the rest.
 
   Never targets `Z` or `AF` in any row (both live verdict formulas).
@@ -421,7 +422,7 @@ defmodule PairingsEngine.Norms.Forms do
 
   # FIDE house style, and how every FIDE-facing list/roster/pairing sheet in
   # this app already reads (the arbiter-lookup combobox results, TRF rows,
-  # standings): "LASTNAME, Firstname" — surname in capitals, comma, given
+  # standings): "LASTNAME, Firstname" - surname in capitals, comma, given
   # name in normal case, which also removes the ambiguity about which part
   # is the surname for multi-word names ("De Vet", "Van Dyck"). Our records
   # already store names this way, so this only needs to uppercase the
@@ -451,7 +452,7 @@ defmodule PairingsEngine.Norms.Forms do
   makes the report disagree with FIDE's own view of the same tournament.
 
   Public because this is the single source of truth for that rule and more
-  than one screen shows a "titled players" figure — `ToolsNormsLive`'s
+  than one screen shows a "titled players" figure - `ToolsNormsLive`'s
   uploaded-file table had its own `Enum.count(players, &(&1.title != ""))`,
   which silently disagreed with the generated form the moment CM stopped
   counting. `PairingsEngine.Norms.TitleNorms` applies the same exclusion to
@@ -474,7 +475,7 @@ defmodule PairingsEngine.Norms.Forms do
 
   # The Settings page no longer offers a "Swiss variant" select (arbiters
   # always run the Dutch system for Swiss pairings, and there's no UI-level
-  # variant to pick for other pairing systems) — so a blank
+  # variant to pick for other pairing systems) - so a blank
   # `officials["swiss_variant"]` (the common case going forward, though an
   # older tournament could still have one saved from before) now defaults
   # to "Dutch" for `pairing_system == "swiss"` tournaments, and stays blank
@@ -517,15 +518,26 @@ defmodule PairingsEngine.Norms.Forms do
 
   defp computerized_mark(o), do: if(Map.get(o, "pairing_mode") == "manual", do: "", else: "X")
 
-  defp pairing_program(o, source) do
+  defp pairing_program(o, source, tournament) do
     case Map.get(o, "pairing_mode") do
       "manual" -> ""
-      _ -> blank(Map.get(o, "pairing_program")) || default_pairing_program(source)
+      _ -> blank(Map.get(o, "pairing_program")) || default_pairing_program(source, tournament)
     end
   end
 
-  defp default_pairing_program(:tools), do: "Swar (With JaVaFo)"
-  defp default_pairing_program(_app), do: "OpenPairings (With JaVaFo)"
+  # B22 is a statement to FIDE about which program produced the pairings, so
+  # it has to name the engine this tournament actually used. It said "With
+  # JaVaFo" unconditionally, which became false the moment Ainalrami could be
+  # selected - and false on a round robin or a Keizer event, where no Swiss
+  # engine is consulted at all.
+  defp default_pairing_program(:tools, _tournament), do: "Swar (With JaVaFo)"
+
+  defp default_pairing_program(_app, tournament) do
+    case Tournament.engine_name(tournament) do
+      swiss when swiss in ["JaVaFo", "Ainalrami"] -> "OpenPairings (With #{swiss})"
+      _own -> "OpenPairings"
+    end
+  end
 
   defp blank(nil), do: nil
   defp blank(""), do: nil
@@ -547,14 +559,14 @@ defmodule PairingsEngine.Norms.Forms do
     end
   end
 
-  # IT3 B2 ("ID of Tournament") — unlike every other id-shaped cell, this one
+  # IT3 B2 ("ID of Tournament") - unlike every other id-shaped cell, this one
   # isn't always a single number: `PairingsEngine.Norms.Combine` builds a
   # festival's B2 as "12345-12347" or "12345,12348" when its category groups
   # carry several distinct FIDE ids (see `combined_fide_tournament_id/1`
   # there). `parse_int/1` would silently truncate either of those to just
   # "12345" (`Integer.parse/1` stops at the first non-digit rather than
   # failing), so a *whole* string has to parse as one integer to be written
-  # as a number here — anything else (that compressed notation, or any
+  # as a number here - anything else (that compressed notation, or any
   # other non-numeric id a federation might issue) is written as text.
   defp fide_tournament_id_cell(nil), do: nil
   defp fide_tournament_id_cell(""), do: nil
@@ -570,10 +582,10 @@ defmodule PairingsEngine.Norms.Forms do
   end
 
   # Every date cell on these forms is written as literal "DD/MM/YYYY" text,
-  # not an Excel date serial — a serial's display format is a *style*, which
+  # not an Excel date serial - a serial's display format is a *style*, which
   # Excel renders per the *viewer's own OS locale* (an American reader sees
   # "8/2/26" for the same underlying value a Belgian reader sees as
-  # "2/8/2026" — the classic Excel numFmt-14 footgun). Writing the digits we
+  # "2/8/2026" - the classic Excel numFmt-14 footgun). Writing the digits we
   # actually mean, as text, means every reader sees the same thing.
   defp format_date(nil), do: nil
   defp format_date(""), do: nil

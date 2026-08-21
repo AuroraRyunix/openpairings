@@ -120,9 +120,9 @@ defmodule PairingsEngine.Tiebreaks do
 
   # Maps a FIDE tiebreak `code` (as used in `tournament.tiebreaks`) to the
   # column key the Players grid (`PairingsEngineWeb.PlayersLive`) and the
-  # Standings page's column-visibility filter both use — only the
+  # Standings page's column-visibility filter both use - only the
   # tiebreaks either page actually renders as its own toggleable column.
-  # Anything else (WIN, KS, MP, GP, BB — team/round-robin-only breaks with
+  # Anything else (WIN, KS, MP, GP, BB - team/round-robin-only breaks with
   # no dedicated grid column) returns `nil`.
   @grid_keys %{
     "BH" => "buch",

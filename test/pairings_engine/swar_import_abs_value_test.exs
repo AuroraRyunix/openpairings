@@ -1,9 +1,9 @@
 defmodule PairingsEngine.SwarImportAbsValueTest do
   # Deliberately a SEPARATE module from swar_import_test.exs, which carries
   # `@moduletag :swar_fixture` (excluded when the gitignored real .swar
-  # fixtures aren't present — a fresh checkout, CI). A synthetic-binary test
+  # fixtures aren't present - a fresh checkout, CI). A synthetic-binary test
   # that must run even without the real fixtures cannot live in that module
-  # — same rationale as swar_import_presence_test.exs, whose minimal-but-
+  # - same rationale as swar_import_presence_test.exs, whose minimal-but-
   # format-valid `.swar` binary builder this file mirrors (with `abs_value`
   # made variable instead of hardcoded).
   use PairingsEngine.DataCase, async: false
@@ -13,7 +13,7 @@ defmodule PairingsEngine.SwarImportAbsValueTest do
   ## ---------- synthetic .swar binary builder ----------
   #
   # Mirrors PairingsEngine.SwarImport.parse/1's field-by-field layout closely
-  # enough to produce a binary `parse/1` accepts — every field not under
+  # enough to produce a binary `parse/1` accepts - every field not under
   # test is written as a zero/blank placeholder.
 
   defp w_str(s), do: <<byte_size(s)::little-signed-32, s::binary>>
@@ -36,7 +36,7 @@ defmodule PairingsEngine.SwarImportAbsValueTest do
 
     header = w_str(version) <> w_str("guid") <> w_str("mac")
 
-    # legacy ByeValue field — not under test here
+    # legacy ByeValue field - not under test here
     tournoi =
       w_str("[TOURNOI]") <>
         w_str("Test Tournament") <>
@@ -187,7 +187,7 @@ defmodule PairingsEngine.SwarImportAbsValueTest do
 
     try do
       # `allow_swiss321: true` because one case here is a type-3 file and
-      # 3-2-1 import is switched off by default — see SwarImport.swiss321?/1.
+      # 3-2-1 import is switched off by default - see SwarImport.swiss321?/1.
       SwarImport.import_file(path, nil, allow_swiss321: true)
     after
       File.rm(path)
@@ -196,7 +196,7 @@ defmodule PairingsEngine.SwarImportAbsValueTest do
 
   # A `[RONDE]` entry with result 0 (SWAR's `:none`), a non-bye table, and
   # no real opponent (`advers: 0`) falls through `single_sided/2`'s
-  # catch-all clause to a `byes` row with `type: "absent"` — the same shape
+  # catch-all clause to a `byes` row with `type: "absent"` - the same shape
   # a TABLE_ABSENT-marked round from a real file would produce.
   defp absent_round(round_nr), do: %{round_nr: round_nr, result: 0, table: 0, advers: 0}
 
@@ -228,12 +228,12 @@ defmodule PairingsEngine.SwarImportAbsValueTest do
 
   test "an \"absent\" bye scores at abs_value (0.5) when the tournament has one, for a standard-scoring import" do
     opts = %{
-      # type != 3 — abs_value is a general [TOURNOI] field, unconditional on
+      # type != 3 - abs_value is a general [TOURNOI] field, unconditional on
       # tournament type, unlike presence_value (3-2-1 only).
       type: 0,
       abs_value: 1,
       # SWAR always writes real caps alongside a checked box (see
-      # `TOptionsGetValues` in SWAR's own source) — round 1 comfortably
+      # `TOptionsGetValues` in SWAR's own source) - round 1 comfortably
       # within both here, since this test is about `abs_value` itself, not
       # the caps (see the "capped" tests below for those).
       abs_jusque: 3,
@@ -250,7 +250,7 @@ defmodule PairingsEngine.SwarImportAbsValueTest do
     assert entry.points == 0.5
   end
 
-  test "an \"absent\" bye scores at abs_value for a 3-2-1 (type == 3) import too — the field is type-independent" do
+  test "an \"absent\" bye scores at abs_value for a 3-2-1 (type == 3) import too - the field is type-independent" do
     opts = %{
       type: 3,
       sw321: {8, 4, 0, 8, 4},
@@ -277,7 +277,7 @@ defmodule PairingsEngine.SwarImportAbsValueTest do
     opts = %{
       type: 0,
       abs_value: 1,
-      # "up to and including round 2" — round 3 misses the cutoff.
+      # "up to and including round 2" - round 3 misses the cutoff.
       abs_jusque: 2,
       abs_nbfois: 5,
       players: [%{ni: 1, name: "Player, One", rounds: [absent_round(3)]}]
@@ -293,7 +293,7 @@ defmodule PairingsEngine.SwarImportAbsValueTest do
     assert entry.points == 0.0
   end
 
-  test "an \"absent\" bye AT abs_jusque (the cutoff round itself) still scores abs_value — the cap is inclusive" do
+  test "an \"absent\" bye AT abs_jusque (the cutoff round itself) still scores abs_value - the cap is inclusive" do
     opts = %{
       type: 0,
       abs_value: 1,
@@ -309,12 +309,12 @@ defmodule PairingsEngine.SwarImportAbsValueTest do
     assert entry.points == 0.5
   end
 
-  test "the (abs_nbfois + 1)th absence, cumulative, scores points_loss — earlier ones still score abs_value" do
+  test "the (abs_nbfois + 1)th absence, cumulative, scores points_loss - earlier ones still score abs_value" do
     opts = %{
       type: 0,
       abs_value: 1,
       abs_jusque: 10,
-      # Only the first 2 absences pay — the 3rd doesn't.
+      # Only the first 2 absences pay - the 3rd doesn't.
       abs_nbfois: 2,
       players: [
         %{
@@ -339,7 +339,7 @@ defmodule PairingsEngine.SwarImportAbsValueTest do
   end
 
   test "an \"absent\" bye falls back to points_loss when the tournament isn't a SWAR import (abs_value nil)" do
-    # Not a SWAR import at all — abs_value is nil by schema default.
+    # Not a SWAR import at all - abs_value is nil by schema default.
     {:ok, tournament} =
       PairingsEngine.Tournaments.create_tournament(%{
         "name" => "Non-SWAR",

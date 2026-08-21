@@ -1,5 +1,5 @@
 defmodule PairingsEngine.TrfImportTest do
-  # async: false — writes a whole tournament (players, rounds, pairings) via
+  # async: false - writes a whole tournament (players, rounds, pairings) via
   # a real transaction; same reason swar_import_test.exs and
   # trf_export_test.exs are serial (SQLite has a single writer).
   use PairingsEngine.DataCase, async: false
@@ -168,16 +168,16 @@ defmodule PairingsEngine.TrfImportTest do
   # win/loss (R1, Alpha/Bravo), a single forfeit (R2, Alpha/Charlie), a
   # double forfeit (R3, Alpha/Delta), a played 0-0 (R4, Alpha/Echo), every
   # TRF bye code except U (Bravo: F round 2, H round 3, Z round 4), a
-  # pairing-allocated ("U") bye (Charlie, round 1), and — Foxtrot — a
+  # pairing-allocated ("U") bye (Charlie, round 1), and - Foxtrot - a
   # playing code ("1") whose declared opponent (rank 99) doesn't exist at
   # all, exercising the single-sided fallback.
   #
   # Blank placeholder games (`opponent_rank: nil, colour: nil, result: nil`)
   # pad a player's list up to the round index their one real game belongs
-  # at — Trf's `place_games/2` numbers rounds by list position, not by any
+  # at - Trf's `place_games/2` numbers rounds by list position, not by any
   # explicit round field.
   #
-  # Round 5 (Alpha/Golf, "="/"0") is VCL.13's asymmetric result — an
+  # Round 5 (Alpha/Golf, "="/"0") is VCL.13's asymmetric result - an
   # arbiter's disciplinary point adjustment on an otherwise-drawn game.
   defp forfeit_and_bye_trf do
     blank = %{opponent_rank: nil, colour: nil, result: nil}
@@ -291,7 +291,7 @@ defmodule PairingsEngine.TrfImportTest do
 
     # Round 2: Alpha forfeit-wins vs Charlie ("+"/"-" -> "1-0FF"); Bravo's
     # unpaired "F" (full-point bye) collapses to the same "bye" Pairing row
-    # kind (OpenPairings has no separate full-point-bye type — see
+    # kind (OpenPairings has no separate full-point-bye type - see
     # docs/trf-import.md).
     r2_pairing = find_for.(r2, alpha)
     assert r2_pairing.white_player_id == alpha.id
@@ -312,7 +312,7 @@ defmodule PairingsEngine.TrfImportTest do
     assert r4_pairing.black_player_id == echo.id
     assert r4_pairing.result == "0-0"
 
-    # Round 5: Alpha/Golf, "="/"0" -> "1/2-0" — VCL.13's asymmetric result.
+    # Round 5: Alpha/Golf, "="/"0" -> "1/2-0" - VCL.13's asymmetric result.
     r5_pairing = find_for.(r5, alpha)
     assert r5_pairing.white_player_id == alpha.id
     assert r5_pairing.black_player_id == golf.id
@@ -341,16 +341,16 @@ defmodule PairingsEngine.TrfImportTest do
   ## ---------- TRF06 (FIDE's Annexure-B, 2006) ----------
 
   # Column-identical to TRF16 (verified against both the 2006 and 2016
-  # specs directly) — the one real difference is TRF06 predates the
+  # specs directly) - the one real difference is TRF06 predates the
   # F/H/U/Z bye codes: a bye is a dangling playing code against opponent
   # 0000, and a genuinely blank round ("not paired") can be followed by
   # real games in later rounds (a late entrant). VCL.11 recommends, not
-  # requires, supporting this — no separate importer needed, `Trf.parse/1`
+  # requires, supporting this - no separate importer needed, `Trf.parse/1`
   # already tolerates both shapes.
   #
   # Built with exact 1-indexed column placement (not hand-typed spacing,
   # which is exactly how the earlier "opponentless bye" bug surfaced while
-  # verifying this by hand) — mirrors trf_test.exs's own `place_col/3`.
+  # verifying this by hand) - mirrors trf_test.exs's own `place_col/3`.
   defp place_trf_col(line, position, text) do
     text = to_string(text)
     needed = position - 1 + String.length(text)
@@ -403,7 +403,7 @@ defmodule PairingsEngine.TrfImportTest do
       # Bravo loses to Alpha, then loses to Charlie.
       trf06_player_line(2, "Bravo, Two", "0.0", {1, "b", "0"}, {3, "w", "0"}),
       # Charlie is a late entrant: round 1 genuinely blank ("not paired"),
-      # a real game in round 2 — the exact case that used to get silently
+      # a real game in round 2 - the exact case that used to get silently
       # dropped by the old parse_games/1.
       trf06_player_line(3, "Charlie, Three", "1.0", nil, {2, "b", "1"})
     ]
@@ -442,11 +442,11 @@ defmodule PairingsEngine.TrfImportTest do
     assert r1_pairing.result == "1-0"
 
     # Charlie's genuinely blank round 1 means no pairing at all for round 1
-    # — not a bye, not an error, simply absent (a late entrant).
+    # - not a bye, not an error, simply absent (a late entrant).
     refute find_for.(r1, charlie)
 
     # Round 2: Alpha's dangling win-value code becomes a pairing-row bye
-    # (same representation F/U already collapse into — no black player);
+    # (same representation F/U already collapse into - no black player);
     # Bravo loses to Charlie.
     alpha_r2 = find_for.(r2, alpha)
     assert alpha_r2.result == "bye"
@@ -468,7 +468,7 @@ defmodule PairingsEngine.TrfImportTest do
           %{
             rank: 1,
             name: "Overclaimed",
-            # Declares 5.0, but the only game below is a single win (1.0) —
+            # Declares 5.0, but the only game below is a single win (1.0) -
             # a stale/incorrect points column, same as a late correction an
             # arbiter forgot to re-total.
             points: 5.0,
@@ -491,12 +491,12 @@ defmodule PairingsEngine.TrfImportTest do
   ## ---------- encoding fallback (CP1252 / BOM) ----------
 
   # Real-world TRF files from Windows chess software are frequently
-  # Windows-1252 encoded, not UTF-8 — an accented name then arrives as raw
+  # Windows-1252 encoded, not UTF-8 - an accented name then arrives as raw
   # single-byte CP1252, invalid as UTF-8 on its own (see
   # `docs/trf-import.md`). Built at the byte level rather than through
   # `Trf.serialize/1` (which only ever emits valid UTF-8): a well-formed TRF
   # is serialized with an ASCII placeholder name, then those placeholder
-  # bytes are swapped for the raw CP1252 bytes of the accented name —
+  # bytes are swapped for the raw CP1252 bytes of the accented name -
   # same byte length, so the fixed-width name column (TRF cols 15-47) is
   # unaffected.
   defp trf_with_cp1252_name(placeholder, cp1252_bytes) do
@@ -511,7 +511,7 @@ defmodule PairingsEngine.TrfImportTest do
   end
 
   test "a CP1252-encoded TRF file (accented name as raw Windows-1252 bytes) imports as proper UTF-8" do
-    # "Gaëtan" — ë is Windows-1252/Latin-1 byte 0xEB.
+    # "Gaëtan" - ë is Windows-1252/Latin-1 byte 0xEB.
     trf = trf_with_cp1252_name("Gaetan", <<"Ga", 0xEB, "tan">>)
 
     assert {:ok, tournament, _warnings} = TrfImport.import_text(trf, user_scope())
@@ -520,7 +520,7 @@ defmodule PairingsEngine.TrfImportTest do
   end
 
   test "a CP1252-encoded TRF file with a u-umlaut imports as proper UTF-8" do
-    # "Gürkan" — ü is Windows-1252/Latin-1 byte 0xFC.
+    # "Gürkan" - ü is Windows-1252/Latin-1 byte 0xFC.
     trf = trf_with_cp1252_name("Gurkan", <<"G", 0xFC, "rkan">>)
 
     assert {:ok, tournament, _warnings} = TrfImport.import_text(trf, user_scope())
@@ -556,12 +556,12 @@ defmodule PairingsEngine.TrfImportTest do
     assert TrfImport.error_message(reason) =~ "Could not read this TRF file"
   end
 
-  # Both sides claim a win — illegal per Trf.validate_games!/1's
+  # Both sides claim a win - illegal per Trf.validate_games!/1's
   # @legal_result_pairs (a "1" can only pair with a "0"). Trf.serialize/1
   # itself refuses to produce this in one call (it validates the whole
-  # roster up front), so each player's line is serialized alone — with no
+  # roster up front), so each player's line is serialized alone - with no
   # opponent in that call's roster, the mutual check has nothing to compare
-  # against and passes — then the two lines are combined by hand into one
+  # against and passes - then the two lines are combined by hand into one
   # file, which only becomes "mutually illegal" once both are parsed
   # together.
   defp illegal_combo_trf do
@@ -605,8 +605,8 @@ defmodule PairingsEngine.TrfImportTest do
   # <<0, 255, 1, 2, 3>> is not itself valid UTF-8 (0xFF alone is not a legal
   # UTF-8 lead byte), so this exercises the CP1252 fallback (see
   # `TrfImport`'s `decode_content/1`) rather than the plain-UTF-8 path.
-  # `SwarImport.cp1252_decode/1` never itself fails — every byte 0x00-0xFF
-  # has *some* Windows-1252 mapping — so this always reaches TRF parsing,
+  # `SwarImport.cp1252_decode/1` never itself fails - every byte 0x00-0xFF
+  # has *some* Windows-1252 mapping - so this always reaches TRF parsing,
   # which then rejects it for having no "001" player lines, same as any
   # other non-TRF text; it never raises.
   test "binary garbage that isn't valid UTF-8 falls back to CP1252 decoding and still doesn't crash" do
@@ -617,7 +617,7 @@ defmodule PairingsEngine.TrfImportTest do
   # Two "001" lines sharing the same starting rank: every downstream step
   # keys players by rank via Map.new/2 (create_players/2's players_by_rank,
   # build_round/1's by_rank), which silently keeps only the last entry for
-  # a repeated key — without this guard, "Second" would land in the
+  # a repeated key - without this guard, "Second" would land in the
   # database as an orphan player row (referenced by nobody's games) while
   # "First"'s own rank slot is silently handed to "Second". Caught before
   # any row is written, so this is a clean rollback and a friendly flash,
@@ -636,7 +636,7 @@ defmodule PairingsEngine.TrfImportTest do
     assert TrfImport.error_message(reason) =~ "duplicate starting rank"
     assert TrfImport.error_message(reason) =~ "1"
 
-    # Nothing was written — not even a rolled-back tournament row lingering.
+    # Nothing was written - not even a rolled-back tournament row lingering.
     refute Repo.exists?(Ecto.Query.from(t in Tournament, where: t.name == "Duplicate Ranks"))
   end
 

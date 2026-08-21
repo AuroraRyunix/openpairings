@@ -1,19 +1,19 @@
 defmodule PairingsEngineWeb.InviteLive do
   @moduledoc """
-  `/invites/:token` — accept or decline a tournament collaborator
+  `/invites/:token` - accept or decline a tournament collaborator
   invitation (see `docs/teams.md`). Reached from the link in the
   invitation email (`PairingsEngine.Accounts.UserNotifier.deliver_invitation/4`,
   sent by `PairingsEngine.Tournaments.add_collaborator/3`) or shared
   manually by the owner if that email failed to send.
 
   Requires login (this route sits in the `:require_authenticated_tournaments`
-  live_session) — an invitee with no account yet is bounced through the
+  live_session) - an invitee with no account yet is bounced through the
   normal magic-link login/registration flow first, then lands back here.
 
   Being added never grants access by itself: this page is the only way an
   invitation actually turns into access, via
   `PairingsEngine.Tournaments.accept_invitation/2`, which also requires the
-  logged-in user's email to match the invitation's — otherwise this shows a
+  logged-in user's email to match the invitation's - otherwise this shows a
   "sent to a different address" message and does nothing, so a stray click
   on someone else's forwarded invite link can't be used to claim access.
   """
@@ -35,7 +35,7 @@ defmodule PairingsEngineWeb.InviteLive do
 
     # By token only. Resolving a numeric segment as a collaborator id would
     # make every pending invitation in the system readable by walking
-    # `/invites/1`, `/invites/2`, ... — see `find_invitation_by_token/1`.
+    # `/invites/1`, `/invites/2`, ... - see `find_invitation_by_token/1`.
     case Tournaments.find_invitation_by_token(socket.assigns.token) do
       nil ->
         assign(socket, invitation: nil, tournament: nil, owner_email: nil, mismatch?: false)
@@ -61,7 +61,7 @@ defmodule PairingsEngineWeb.InviteLive do
   defp normalize(email), do: email |> to_string() |> String.trim() |> String.downcase()
 
   # No loaded invitation means the token matched nothing, so there is nothing
-  # to act on — and in particular the raw URL segment never reaches
+  # to act on - and in particular the raw URL segment never reaches
   # `find_invitation/1`'s id branch from here.
   @impl true
   def handle_event(event, _params, %{assigns: %{invitation: nil}} = socket)

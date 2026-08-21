@@ -10,21 +10,21 @@ defmodule PairingsEngine.RateLimit do
 
   ## Buckets
 
-    * `:mobile_enroll` — wrong enrollment codes, keyed by client address. The
+    * `:mobile_enroll` - wrong enrollment codes, keyed by client address. The
       code is short and `PairingsEngine.Mobile.get_active_by_code/1` matches
       it across every tournament, so guesses have to be expensive.
 
-    * `:login_email` — magic-link sends, keyed by RECIPIENT address. This is
+    * `:login_email` - magic-link sends, keyed by RECIPIENT address. This is
       the one that protects a person's inbox (and the SMTP quota) from being
       buried in log-in links, so it is deliberately tight.
 
-    * `:login_client` — the same sends, keyed by CLIENT address, to stop one
+    * `:login_client` - the same sends, keyed by CLIENT address, to stop one
       client walking a list of addresses. Much looser than the recipient
       limit on purpose: a chess club, a school or an office arrives from a
       single NAT address, and several arbiters signing in at the start of a
       tournament must not lock each other out.
 
-    * `:public_register` — entries submitted through a tournament's public
+    * `:public_register` - entries submitted through a tournament's public
       self-registration form, keyed by CLIENT address. Loose for the same
       NAT reason as `:login_client`, and looser still: a whole club
       registering from the venue wifi in the ten minutes before round one is
@@ -32,7 +32,7 @@ defmodule PairingsEngine.RateLimit do
       filling an entry list, not to ration honest sign-ups.
 
   Callers pass the client address from `PairingsEngineWeb.ClientIp`, not
-  `conn.remote_ip` — behind a proxy the latter is the same value for
+  `conn.remote_ip` - behind a proxy the latter is the same value for
   everybody, which would turn any of these limits into a way to lock the
   whole venue out at once.
   """
@@ -48,7 +48,7 @@ defmodule PairingsEngine.RateLimit do
     public_register: %{max: 40, window_ms: :timer.minutes(15)}
   }
 
-  @typedoc "Which limit is being counted — see the module doc."
+  @typedoc "Which limit is being counted - see the module doc."
   @type bucket :: :mobile_enroll | :login_email | :login_client | :public_register
 
   def start_link(_opts), do: GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
@@ -86,7 +86,7 @@ defmodule PairingsEngine.RateLimit do
     :ok
   end
 
-  @doc "Forgets `key`'s count in `bucket` — used where a success proves the caller isn't guessing."
+  @doc "Forgets `key`'s count in `bucket` - used where a success proves the caller isn't guessing."
   @spec clear(bucket(), String.t()) :: :ok
   def clear(bucket, key) do
     :ets.delete(@table, {bucket, key})
@@ -118,7 +118,7 @@ defmodule PairingsEngine.RateLimit do
     now = System.monotonic_time(:millisecond)
 
     # Rows are {{bucket, key}, count, started_at} and buckets have different
-    # window lengths, so sweep per bucket rather than with one global cutoff —
+    # window lengths, so sweep per bucket rather than with one global cutoff -
     # dropping a row early would hand back a fresh allowance.
     Enum.each(@buckets, fn {bucket, %{window_ms: window_ms}} ->
       cutoff = now - window_ms

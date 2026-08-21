@@ -1,5 +1,5 @@
 defmodule PairingsEngine.Tools.OverlayTest do
-  # async: true — Overlay is pure, no database.
+  # async: true - Overlay is pure, no database.
   use ExUnit.Case, async: true
 
   alias PairingsEngine.Tools.Overlay

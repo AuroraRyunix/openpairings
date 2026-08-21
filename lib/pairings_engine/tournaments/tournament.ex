@@ -7,10 +7,10 @@ defmodule PairingsEngine.Tournaments.Tournament do
   @statuses ~w(setup running finished)
   @standards ~w(standard rapid blitz)
   # Which pairing engine PairingsEngine.Pairing.pair_next_round/1 dispatches
-  # to — independent of `type` above (FIDE report classification).
+  # to - independent of `type` above (FIDE report classification).
   @pairing_systems ~w(swiss round_robin keizer)
   # Which Swiss engine actually pairs the round, once `pairing_system` has
-  # already decided the Swiss path runs at all — round robin and Keizer never
+  # already decided the Swiss path runs at all - round robin and Keizer never
   # reach an engine, so this setting is inert for them (see
   # `PairingsEngine.Pairing.pair_next_round/1`). "javafo" is the default and
   # the only value permitted on a FIDE-homologated tournament; see
@@ -18,13 +18,13 @@ defmodule PairingsEngine.Tournaments.Tournament do
   @pairing_engines ~w(javafo ainalrami)
   @rr_cycles_values [1, 2]
   # How a newly-paired round becomes visible on the public pairings page
-  # (`PairingsEngineWeb.PublicPairingsLive`) — see
+  # (`PairingsEngineWeb.PublicPairingsLive`) - see
   # `PairingsEngine.Tournaments.compute_published_at/2` for what each one
   # actually computes, and `round_published?/2` for the visibility check
   # itself. "immediate" (the default) is today's only behaviour, unchanged:
   # a round is public the instant it's paired.
   @publish_modes ~w(immediate manual timed scheduled)
-  # Club/federation pairing-exclusion rules (SWAR parity #7-10) — see
+  # Club/federation pairing-exclusion rules (SWAR parity #7-10) - see
   # PairingsEngine.Exclusions and docs/forbidden-pairings.md.
   @exclusion_modes ~w(none all listed)
 
@@ -34,14 +34,14 @@ defmodule PairingsEngine.Tournaments.Tournament do
     field :venue, :string, default: ""
     field :city, :string, default: ""
     field :federation, :string, default: ""
-    # Both DERIVED, always — the earliest/latest non-blank entry in
+    # Both DERIVED, always - the earliest/latest non-blank entry in
     # `round_dates` (see `derive_dates_from_round_dates/1`), never set
-    # directly. Still plain stored columns (not virtual): every reader —
-    # TRF/SWAR/PGN export, the FIDE-report forms, the tournament list —
+    # directly. Still plain stored columns (not virtual): every reader -
+    # TRF/SWAR/PGN export, the FIDE-report forms, the tournament list -
     # keeps reading these two fields exactly as before; only WRITING them
     # changed. Kept out of `cast/3`'s field list below on purpose, so
     # nothing (an import, a stale form, a future call site) can set them
-    # independently even by accident — the changeset recomputes both from
+    # independently even by accident - the changeset recomputes both from
     # `round_dates` unconditionally, every single save.
     field :start_date, :string, default: ""
     field :end_date, :string, default: ""
@@ -54,18 +54,18 @@ defmodule PairingsEngine.Tournaments.Tournament do
     field :points_draw, :float, default: 0.5
     field :points_loss, :float, default: 0.0
     field :bye_value, :float, default: 1.0
-    # SWAR "3-2-1" custom-scoring `SW321_Pre` ("presence points") — the
+    # SWAR "3-2-1" custom-scoring `SW321_Pre` ("presence points") - the
     # points paid for an unpaired-but-present round, a distinct concept from
     # an ordinary configured `points_loss`. nil (the default for every
     # tournament not imported from a SWAR 3-2-1 file) means "unused": such
     # rounds keep scoring at `points_loss` exactly as before this field
     # existed. Only PairingsEngine.SwarImport writes a non-nil value.
     field :presence_value, :float
-    # SWAR `AbsValue` — the points paid for a player simply marked ABSENT
+    # SWAR `AbsValue` - the points paid for a player simply marked ABSENT
     # for a round (our `byes`-table `type: "absent"` row, from SWAR's
     # per-player `Absent` status / the per-round `TABLE_ABSENT` special
     # value). It's a plain UI checkbox ("½ point" for absence) in SWAR's
-    # own source, raw 0 (unchecked) or 1 (checked) — NOT the "0 or 5" an
+    # own source, raw 0 (unchecked) or 1 (checked) - NOT the "0 or 5" an
     # earlier version of this comment (and the mapping in
     # `PairingsEngine.SwarImport`) assumed; see that module's
     # `tournament_attrs/1` for the full story of that bug and how it was
@@ -74,7 +74,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # `Pairing` row) is worth; `presence_value` is the 3-2-1 "presence
     # points" paid for an unpaired-but-present round (`SW321_Pre`, only
     # meaningful when `TOURNOI_TYPE == 3`); `abs_value` here is what a
-    # plain absence is worth, and — unlike `presence_value` — it is a
+    # plain absence is worth, and - unlike `presence_value` - it is a
     # GENERAL [TOURNOI] header field that applies to every SWAR import
     # regardless of tournament type. nil (the default for every tournament
     # that isn't a SWAR import) means "not set": such rounds keep scoring
@@ -82,39 +82,39 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # PairingsEngine.SwarImport writes a non-nil value. See `abs_jusque`/
     # `abs_nbfois` below for the two caps SWAR applies on top of this.
     field :abs_value, :float
-    # SWAR `AbsJusque` ("Jusque ronde") / `AbsNbFois` ("Nombre de fois") —
+    # SWAR `AbsJusque` ("Jusque ronde") / `AbsNbFois` ("Nombre de fois") -
     # the two caps SWAR's own "Pt ABSENT" option applies on top of
     # `abs_value`, easy to miss because they're separate UCHAR fields right
     # next to `AbsValue` in the file rather than folded into it:
     #
     #   - `abs_jusque`: the last round, INCLUSIVE, a plain absence still
-    #     pays `abs_value` — round `abs_jusque + 1` onward scores
+    #     pays `abs_value` - round `abs_jusque + 1` onward scores
     #     `points_loss` instead, same as if `abs_value` were unset.
     #   - `abs_nbfois`: how many absences, cumulative across the
-    #     tournament so far (this round included), still pay `abs_value` —
+    #     tournament so far (this round included), still pay `abs_value` -
     #     the `(abs_nbfois + 1)`th and any later absence scores
     #     `points_loss` instead.
     #
     # Both nil (the default for every tournament that isn't a SWAR import,
-    # and for older SWAR imports predating this field) means "no cap" —
+    # and for older SWAR imports predating this field) means "no cap" -
     # `PairingsEngine.Standings.bye_points/4` treats a nil cap as never
     # exceeded, so scoring is unaffected until a real value is set. Only
     # PairingsEngine.SwarImport writes non-nil values.
     field :abs_jusque, :integer
     field :abs_nbfois, :integer
-    # Whether an "absent" byes-table row (a plain no-show — distinct from a
+    # Whether an "absent" byes-table row (a plain no-show - distinct from a
     # requested bye or a forfeit) is treated as a voluntary unplayed round
     # for tiebreak purposes (FIDE C.07 Art. 16: trailing occurrences get
     # downgraded to a draw for opponents' Buchholz/SB, and it becomes
     # eligible for the Art. 16.5.1 Cut-1 priority). FIDE's own rules have
     # no "absent" concept at all, so the default is off: an absence always
-    # counts at its configured award value, same as a forfeit loss — the
+    # counts at its configured award value, same as a forfeit loss - the
     # strict/FIDE-safe reading. An arbiter can opt in from Settings for the
     # more lenient (SWAR-historical) treatment; never on by default. See
     # `PairingsEngine.Standings.add_bye_records/3`.
     field :absent_counts_as_vur, :boolean, default: false
     # SWAR `SW321_PreBye` (manual §5.16, "Add presence points for bye
-    # games") — when true, a pairing-allocated bye pays `presence_value` ON
+    # games") - when true, a pairing-allocated bye pays `presence_value` ON
     # TOP of `bye_value` (SWAR pays SW321_Bye + SW321_Pre for a WIN_BYE
     # round when this club option is on). Kept as a flag rather than folded
     # into `bye_value` at import so `bye_value` keeps meaning exactly the
@@ -132,7 +132,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     field :standard, :string, default: "standard"
     field :rate_of_play, :string, default: ""
     field :organizer_club_number, :string, default: ""
-    # SWAR's own per-tournament GUID — see docs/import-export.md's re-upload
+    # SWAR's own per-tournament GUID - see docs/import-export.md's re-upload
     # section. nil for tournaments never imported from SWAR.
     field :swar_guid, :string
     # ISO dates, index = round-1
@@ -140,43 +140,43 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # tournament-defined category names (SWAR CATEGORIES)
     field :categories, {:array, :string}, default: []
 
-    # Optional threshold RULE behind a category name, keyed by that name —
+    # Optional threshold RULE behind a category name, keyed by that name -
     # `%{"-1100" => %{"kind" => "elo_below", "value" => 1100}}`. `kind` is
     # one of "elo_below" | "elo_above" | "age_below" | "age_above". A
     # category with no entry here stays exactly what it always was: a
     # plain name the arbiter assigns to `player.category` by hand on the
     # Players page. One with a rule can instead be filled in for every
-    # player at once via `Tournaments.auto_assign_categories/1` — see
+    # player at once via `Tournaments.auto_assign_categories/1` - see
     # `PairingsEngine.PlayerStats.assign_category/4` for how a player
     # matching more than one threshold picks the tightest.
     field :category_rules, :map, default: %{}
 
     # FIDE "Code of event" (FA1/IA1 B6, IT4 S4 "FIDE Event code")
     field :event_code, :string, default: ""
-    # FIDE "ID of Tournament" (IT3 B2) — the report's own numeric ID.
+    # FIDE "ID of Tournament" (IT3 B2) - the report's own numeric ID.
     #
     # DECISION (see `fide_id_ranges` below for the full per-round model):
     # this plain field remains the tournament-WIDE **fallback/default** ID.
     # It is what `PairingsEngine.TrfExport.applicable_fide_id/2` returns when
     # no single configured `fide_id_ranges` entry fully covers the exported
     # round range (no ranges configured at all, the range spans/partially
-    # overlaps more than one entry, or matches none) — never fully
+    # overlaps more than one entry, or matches none) - never fully
     # superseded by the per-round mechanism. Blank means "no ID at all" for
     # that fallback case (the TRF filename's FIDE-ID segment is then simply
     # omitted, e.g. a non-homologated tournament).
     field :fide_tournament_id, :string, default: ""
-    # "This tournament is FIDE-rated/reportable" — an informational tickbox
+    # "This tournament is FIDE-rated/reportable" - an informational tickbox
     # surfaced on the FIDE settings page. Not itself read by TrfExport (the
     # export logic only cares whether an ID resolves, per
     # `applicable_fide_id/2`), but kept here as the single place an arbiter
     # marks a tournament homologated for FIDE rating purposes.
     field :fide_homologated, :boolean, default: false
     # SWAR's per-round FIDE-ID-range model ("FIDE id 89495 applies to
-    # rounds 1-3, this other id applies to rounds 4-9, ...") — for splitting
+    # rounds 1-3, this other id applies to rounds 4-9, ...") - for splitting
     # one club's FIDE report across differently-rated sections/legs of the
     # same tournament. An ordered list of
     # `%{"fide_tournament_id" => string, "from_round" => integer, "to_round" => integer}`
-    # maps (a plain `{:array, :map}`, like `officials` is a plain `:map` —
+    # maps (a plain `{:array, :map}`, like `officials` is a plain `:map` -
     # this project doesn't otherwise use Ecto embedded schemas for map-shaped
     # config data, so this follows that existing precedent rather than
     # introducing one). Validated by `normalize_fide_id_ranges/1` below:
@@ -184,34 +184,34 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # `from_round <= to_round`, and entries may never overlap each other.
     # Canonicalized (sorted by `from_round`, round numbers coerced to
     # integers) on every write, same pattern as `extra_points_bands`.
-    # Consulted by `PairingsEngine.TrfExport.applicable_fide_id/2` — see
+    # Consulted by `PairingsEngine.TrfExport.applicable_fide_id/2` - see
     # `fide_tournament_id` above for the fallback behaviour when no entry
     # here unambiguously covers the exported round range.
     field :fide_id_ranges, {:array, :map}, default: []
 
     # Officials / pairing-system / FIDE-report metadata that doesn't
-    # warrant its own column each — recognised string keys (all optional,
+    # warrant its own column each - recognised string keys (all optional,
     # blank/missing means "not set"):
     #
-    #   organizer_id, organizer_email            — IT3 B8/B10
-    #   chief_arbiter_fide_id, chief_arbiter_email — IT3 B59/B61, FA1/IA1 B18
-    #   deputyN_name, deputyN_fide_id, deputyN_email (N in 1..2 — FIDE only
-    #     ranks 2 deputies by name) — IT3 B62-B65
+    #   organizer_id, organizer_email            - IT3 B8/B10
+    #   chief_arbiter_fide_id, chief_arbiter_email - IT3 B59/B61, FA1/IA1 B18
+    #   deputyN_name, deputyN_fide_id, deputyN_email (N in 1..2 - FIDE only
+    #     ranks 2 deputies by name) - IT3 B62-B65
     #   extra_arbiters_count, arbiterN_name, arbiterN_fide_id (N in
-    #     1..extra_arbiters_count) — arbiters beyond the 2 ranked deputies,
+    #     1..extra_arbiters_count) - arbiters beyond the 2 ranked deputies,
     #     unranked on IT3 (see PairingsEngine.Norms.ItThreeExpand)
-    #   pairing_mode                             — "computerized" | "manual" (IT3 B19/B21)
-    #   pairing_program                          — IT3 B22
-    #   swiss_variant                            — "Dutch" | "Lim" | "Dubov" | "Burstein" (IT3 B17)
-    #   person_responsible_pairings              — IT3 B20
-    #   remark1..remark4                         — IT3 B23-B26 (free text)
-    #   it4_event_type                           — IT4 S6 "Event type"
-    #   pairings_web_link                        — IT4 Y4 "Link to pairings web"
+    #   pairing_mode                             - "computerized" | "manual" (IT3 B19/B21)
+    #   pairing_program                          - IT3 B22
+    #   swiss_variant                            - "Dutch" | "Lim" | "Dubov" | "Burstein" (IT3 B17)
+    #   person_responsible_pairings              - IT3 B20
+    #   remark1..remark4                         - IT3 B23-B26 (free text)
+    #   it4_event_type                           - IT4 S6 "Event type"
+    #   pairings_web_link                        - IT4 Y4 "Link to pairings web"
     field :officials, :map, default: %{}
 
-    # Unguessable token for the public (no-login) read-only pages — see
+    # Unguessable token for the public (no-login) read-only pages - see
     # docs/public-pages.md. Deliberately not the numeric `id`, which is
-    # sequential and easy to enumerate. Always set (never nil) — see
+    # sequential and easy to enumerate. Always set (never nil) - see
     # `put_public_slug/1` below, applied by every creation path. Rotated by
     # Tournaments.rotate_public_slug/1 to kill a leaked link.
     field :public_slug, :string
@@ -219,18 +219,18 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # Whether the public pages are actually served. Toggled by
     # Tournaments.set_public_pages/2; when false, /p/:slug/... 404s even with
     # the right slug. NOT cast by changeset/2 (same as public_slug) so a normal
-    # settings save can't flip it — the two writers above are the only ones.
+    # settings save can't flip it - the two writers above are the only ones.
     #
     # Default false: player names, ratings and clubs shouldn't become
     # reachable by anyone who finds the link until an arbiter has
-    # deliberately opted in for this tournament — same "opt-in per event"
+    # deliberately opted in for this tournament - same "opt-in per event"
     # reasoning as `registration_open` below, not something an existing
     # tournament should inherit for free.
     field :public_pages_enabled, :boolean, default: false
 
     # Whether /p/:slug/register accepts entries. Toggled by
     # Tournaments.set_registration_open/2, and NOT cast by changeset/2 for
-    # the same reason as the two fields above — an ordinary settings save
+    # the same reason as the two fields above - an ordinary settings save
     # must not be able to open the doors by accident.
     #
     # Default false, unlike public_pages_enabled: this is the only public
@@ -239,10 +239,10 @@ defmodule PairingsEngine.Tournaments.Tournament do
     field :registration_open, :boolean, default: false
 
     # How long a newly-paired round takes to reach the public pairings
-    # page — see `@publish_modes`'s own comment above, and
+    # page - see `@publish_modes`'s own comment above, and
     # `PairingsEngine.Tournaments.compute_published_at/2`/`round_published?/2`
     # for what these two actually drive. Unlike `public_pages_enabled`/
-    # `registration_open` above, these ARE cast by the ordinary changeset —
+    # `registration_open` above, these ARE cast by the ordinary changeset -
     # this is an ordinary settings choice on the Options page, not a
     # separate toggle-action.
     field :publish_mode, :string, default: "immediate"
@@ -252,7 +252,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # "swiss" | "round_robin" | "keizer". Locked in the UI once the
     # tournament has paired its first round (see SettingsLive).
     field :pairing_system, :string, default: "swiss"
-    # Swiss only: which engine pairs the round — "javafo" (the default, the
+    # Swiss only: which engine pairs the round - "javafo" (the default, the
     # FIDE-endorsed external Java program this app has always shelled out to)
     # or "ainalrami" (the sibling from-scratch Elixir Dutch engine,
     # github.com/AuroraRyunix/Ainalrami, beta). Both are handed the
@@ -260,28 +260,28 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # directly comparable; see PairingsEngine.Pairing and
     # docs/pairing-systems.md.
     #
-    # Read ONLY on the Swiss path — round robin (Berger) and Keizer compute
+    # Read ONLY on the Swiss path - round robin (Berger) and Keizer compute
     # their own pairings and never consult it, same "inert unless swiss"
     # tolerance as `acceleration`/`swiss_match_format`.
     #
     # Two hard rules, both enforced below rather than in the UI:
     # "ainalrami" can never sit on a `fide_homologated` tournament (that would
-    # break the "Internal engine: NO — thru JaVaFo" answer OpenPairings'
+    # break the "Internal engine: NO - thru JaVaFo" answer OpenPairings'
     # whole FIDE endorsement story rests on, see docs/fide-endorsement.md),
     # and it can never sit alongside Baku acceleration (Ainalrami does not
     # read the TRF's `XXA` lines at all). Locked once the tournament has
-    # paired its first round, same as `pairing_system` — see
+    # paired its first round, same as `pairing_system` - see
     # `PairingsEngine.Tournaments.locked_fields/1`.
     field :pairing_engine, :string, default: "javafo"
     # Round-robin only: 1 = single cycle, 2 = double.
     field :rr_cycles, :integer, default: 1
-    # Round-robin only: "match format" — round N and round N+1 are the SAME
+    # Round-robin only: "match format" - round N and round N+1 are the SAME
     # pairing with colours reversed, played back-to-back as an immediate
     # two-game match (PairingsEngine.RoundRobin.match_schedule/2). This is a
     # different shape from `rr_cycles == 2` ("double round robin"), which
     # repeats a pairing a full cycle apart (season-style home/away) rather
     # than immediately. Currently mutually exclusive with `rr_cycles == 2`
-    # (see the changeset validation below) — composing the two (an immediate
+    # (see the changeset validation below) - composing the two (an immediate
     # rematch *and* a season-style repeat) is a documented future extension,
     # not supported by this field yet. Locked in the UI once the tournament
     # has paired its first round, same as `pairing_system`/`rr_cycles`.
@@ -289,14 +289,14 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # Keizer only: nil means "automatic" (2 x player count), computed by
     # PairingsEngine.Keizer.
     field :keizer_top_value, :integer
-    # Swiss only: "match format" — the sibling feature to `rr_match_format`
+    # Swiss only: "match format" - the sibling feature to `rr_match_format`
     # above, same immediate-two-game-rematch-with-reversed-colours concept,
     # but for Swiss the first leg is a real JaVaFo decision (who plays
     # whom), not a fixed schedule; the second leg is then an exact
     # colour-reversed mirror of the first, inserted alongside it by
     # PairingsEngine.Pairing.do_pair/2 in the same transaction, with no
     # second JaVaFo call. Like `acceleration`, this is only meaningful when
-    # `pairing_system == "swiss"` — inert (never read) otherwise, same
+    # `pairing_system == "swiss"` - inert (never read) otherwise, same
     # tolerance as that field (no changeset error for setting it on a
     # non-swiss tournament; see PairingsEngine.Pairing.acceleration_lines/3
     # for the precedent of gating via pattern match rather than a
@@ -304,40 +304,40 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # first round, same as `pairing_system`/`rr_match_format`.
     field :swiss_match_format, :boolean, default: false
 
-    # Native per-category Swiss pairing (SWAR-parity #24) — when true, each
+    # Native per-category Swiss pairing (SWAR-parity #24) - when true, each
     # category in `categories` (plus a catch-all "Uncategorized" pool for
     # blank/unlisted `player.category`) is paired completely independently:
     # its own JaVaFo run and its own pairing-allocated byes, merged into ONE
     # combined Round with board numbers running continuously across
     # categories in `categories` order (see PairingsEngine.Pairing's
     # per-category pairing logic). Requires `categories_enabled` and is not
-    # yet supported together with Baku acceleration — both enforced below.
-    # Only meaningful when `pairing_system == "swiss"` — inert (never read)
+    # yet supported together with Baku acceleration - both enforced below.
+    # Only meaningful when `pairing_system == "swiss"` - inert (never read)
     # otherwise, same tolerance as `acceleration`/`swiss_match_format` (no
     # changeset error for setting it on a non-swiss tournament). Locked in
     # the UI once the tournament has paired its first round, same as
     # `swiss_match_format`.
     field :pair_by_category, :boolean, default: false
 
-    # Club/federation pairing exclusions (SWAR parity #7-10) — arbiters
+    # Club/federation pairing exclusions (SWAR parity #7-10) - arbiters
     # often must avoid pairing clubmates / same-federation players
-    # together. "none" | "all" | "listed" — "listed" restricts the rule to
+    # together. "none" | "all" | "listed" - "listed" restricts the rule to
     # the comma-separated names in the matching `_list` field. Translated
     # into forbidden pairs at pairing time by PairingsEngine.Exclusions;
     # respected by Swiss (JaVaFo XXP lines) and Keizer, ignored by round
-    # robin's fixed schedule by design — see docs/forbidden-pairings.md.
+    # robin's fixed schedule by design - see docs/forbidden-pairings.md.
     field :club_exclusion, :string, default: "none"
     field :club_exclusion_list, :string, default: ""
     field :fed_exclusion, :string, default: "none"
     field :fed_exclusion_list, :string, default: ""
 
-    # Extra points (SWAR parity #12, "XtPts") — see docs/extra-points.md.
+    # Extra points (SWAR parity #12, "XtPts") - see docs/extra-points.md.
     # `players.extra_points` (administrative bonus points) already exists,
     # but an explicit earlier product decision keeps standings from counting
-    # it by default — this flag is the opt-in, per tournament, always
+    # it by default - this flag is the opt-in, per tournament, always
     # starting off. `extra_points_bands` is the Elo-band auto-assign rule:
     # a comma-separated "threshold:bonus" string, e.g. "1400:1, 1600:0.5"
-    # (rating below 1400 gets 1.0, below 1600 gets 0.5) — see
+    # (rating below 1400 gets 1.0, below 1600 gets 0.5) - see
     # `parse_extra_points_bands/1` and `band_extra_points/2` below for exact
     # matching semantics. Never applied automatically; only
     # `PairingsEngine.Tournaments.apply_extra_points_bands/1`, triggered
@@ -346,11 +346,11 @@ defmodule PairingsEngine.Tournaments.Tournament do
     field :extra_points_bands, :string, default: ""
 
     # Whether categories are actually in use. The Categories tab itself is
-    # always in the nav (see CategoriesLive/settings_subnav) — this flag
+    # always in the nav (see CategoriesLive/settings_subnav) - this flag
     # instead gates the category-management UI on that page (off shows a
     # single on/off control and nothing else) and whether `pair_by_category`
     # below is even selectable. Toggled from a plain button on the
-    # Categories page itself, not a settings-form checkbox — flipping it
+    # Categories page itself, not a settings-form checkbox - flipping it
     # off also forces `pair_by_category` off in the same write, since a
     # tournament can't pair by category with categories turned off (see
     # `validate_pair_by_category_requires_categories/1` below). Off by
@@ -359,11 +359,11 @@ defmodule PairingsEngine.Tournaments.Tournament do
 
     # Soft-delete timestamp for the recycle bin (docs: recycle bin). nil =
     # live tournament; set = in the bin, auto-purged 3 months later. Managed
-    # by PairingsEngine.Tournaments.soft_delete/restore/purge — deliberately
+    # by PairingsEngine.Tournaments.soft_delete/restore/purge - deliberately
     # NOT cast by changeset/2 so ordinary saves can't touch it.
     field :deleted_at, :utc_datetime
 
-    # Which restore point the live data currently corresponds to — HEAD, in
+    # Which restore point the live data currently corresponds to - HEAD, in
     # git terms. See `PairingsEngine.Snapshots` and the branching migration.
     # Stored rather than derived because after a restore the *most recent*
     # snapshot is precisely not where the data sits, which is the whole point
@@ -380,18 +380,18 @@ defmodule PairingsEngine.Tournaments.Tournament do
     #
     # NOT a `status` value: `status` is derived (see
     # `Tournaments.derive_status/1`) and would be recomputed away. NOT cast by
-    # changeset/2 either, same as `deleted_at`/`public_pages_enabled` — the
+    # changeset/2 either, same as `deleted_at`/`public_pages_enabled` - the
     # controlled setters `Tournaments.archive_tournament/1` and
     # `unarchive_tournament/1` are the only writers, so no ordinary settings
     # save can archive or (more importantly) silently UNarchive a tournament.
     #
     # Enforcement of the read-only part lives in
-    # `Tournaments.ensure_writable/1`, called by every write path — not here,
+    # `Tournaments.ensure_writable/1`, called by every write path - not here,
     # since a changeset can't see the writes that don't go through it
     # (pairing, round deletion, byes).
     field :archived_at, :utc_datetime
 
-    # Manual standings override (SWAR parity #23) — when true, the arbiter's
+    # Manual standings override (SWAR parity #23) - when true, the arbiter's
     # hand-set `players.manual_rank` order replaces the computed tiebreak
     # order. Every surface showing a rank must display an override banner:
     # a silent override is indistinguishable from a tiebreak bug.
@@ -404,7 +404,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
 
     # Per-tournament print logo (SWAR parity #14-16), stored as a DB blob so
     # backups/deploys carry it. Written only by Tournaments.set_logo/2 and
-    # clear_logo/1 — NOT cast by changeset/2, same reasoning as deleted_at.
+    # clear_logo/1 - NOT cast by changeset/2, same reasoning as deleted_at.
     field :logo_data, :binary
     field :logo_content_type, :string
 
@@ -502,7 +502,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
   end
 
   @doc """
-  Pads (with `""`) or truncates `dates` to exactly `count` entries — the
+  Pads (with `""`) or truncates `dates` to exactly `count` entries - the
   same one-date-per-round shape `round_dates_complete?/1` requires. Shared
   by the changeset (`pad_round_dates_to_rounds_count/1`, below, so it fires
   on every save from every path) and `SettingsDatesLive`'s own live form
@@ -517,7 +517,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
   # Keeps `round_dates` in sync with `rounds_count` on every save, not just
   # ones that go through SettingsDatesLive's own form. `rounds_count` can
   # change from other paths too (e.g. RoundRobin auto-correcting it to match
-  # the real Berger schedule total on freeze) — without this running
+  # the real Berger schedule total on freeze) - without this running
   # unconditionally here, `round_dates`'s length goes stale relative to the
   # new `rounds_count` and `round_dates_complete?/1` never clears even
   # though every date the arbiter actually needs is filled in. A blank
@@ -541,7 +541,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
   end
 
   # start_date/end_date are always the earliest/latest non-blank entry in
-  # round_dates — see the two fields' own doc comment above. Runs on every
+  # round_dates - see the two fields' own doc comment above. Runs on every
   # save regardless of whether THIS particular update touches round_dates,
   # so a change made anywhere else (rounds_count shrinking the padded
   # list, an import) still leaves both in sync. Lexicographic sort is
@@ -561,10 +561,10 @@ defmodule PairingsEngine.Tournaments.Tournament do
   end
 
   # Trims each comma-separated entry and drops blanks, storing back in the
-  # same comma-separated shape ("Club A, Club B") — keeps the stored value
+  # same comma-separated shape ("Club A, Club B") - keeps the stored value
   # tidy regardless of how the arbiter typed it (extra spaces, trailing
   # commas, ...). Runs before validate_inclusion has any bearing on this
-  # field (there is none — free text), so it's safe unconditionally.
+  # field (there is none - free text), so it's safe unconditionally.
   defp normalize_exclusion_list(changeset, field) do
     case get_change(changeset, field) do
       nil ->
@@ -576,7 +576,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     end
   end
 
-  # `keizer_top_value` is nullable (nil means "automatic") — only validate
+  # `keizer_top_value` is nullable (nil means "automatic") - only validate
   # it when an organiser has actually set it, so clearing the field back to
   # blank/automatic never fails validation.
   defp validate_keizer_top_value(changeset) do
@@ -586,11 +586,11 @@ defmodule PairingsEngine.Tournaments.Tournament do
     end
   end
 
-  # `abs_jusque`/`abs_nbfois` (SWAR's "Pt ABSENT" caps — see
+  # `abs_jusque`/`abs_nbfois` (SWAR's "Pt ABSENT" caps - see
   # `PairingsEngine.Standings.bye_points/4`) are nullable the same way
   # `keizer_top_value` is: nil means "no cap", so only validate a value an
   # organiser (or SwarImport) actually set. Both are round/count numbers, so
-  # negative doesn't mean anything — 0 is meaningful (see `swar_import.ex`'s
+  # negative doesn't mean anything - 0 is meaningful (see `swar_import.ex`'s
   # `tournament_attrs/1` doc on why 0 isn't the same as "uncapped").
   defp validate_abs_scoring(changeset) do
     changeset
@@ -607,7 +607,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
 
   # The two combinations `pairing_engine == "ainalrami"` can never be part of.
   #
-  # Enforced HERE, in the data layer, rather than by hiding a radio button —
+  # Enforced HERE, in the data layer, rather than by hiding a radio button -
   # same lesson as the settings-lock fix: "the UI hides the control" has
   # never been enforcement in this codebase, because every other caller (a
   # script, an import, a future LiveView) goes straight past the UI. And
@@ -620,7 +620,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
   # state this rule exists to make unreachable.
   #
   # 1. FIDE homologation. OpenPairings answers FE1's "Internal engine:
-  #    YES/NO" with **NO — thru JaVaFo**, exactly as Vega, Swiss Manager and
+  #    YES/NO" with **NO - thru JaVaFo**, exactly as Vega, Swiss Manager and
   #    TournamentService do, and JaVaFo's own endorsement is what then covers
   #    pairing legality (VCL.07) for the whole event. Pairing a homologated
   #    tournament with anything else voids that answer. See
@@ -629,14 +629,14 @@ defmodule PairingsEngine.Tournaments.Tournament do
   #    lines in the TRF (see `PairingsEngine.Pairing.acceleration_lines/4`);
   #    Ainalrami's TRF parser ignores every extension except `XXR`, so it
   #    would pair a Baku tournament as if acceleration had never been
-  #    configured — silently, with a perfectly plausible-looking result.
+  #    configured - silently, with a perfectly plausible-looking result.
   #    Rejected outright rather than guessed at, same precedent as
   #    `validate_pair_by_category_excludes_baku/1` below. (`acceleration` is
-  #    not one of `locked_fields/1`, so it can be switched on mid-event —
+  #    not one of `locked_fields/1`, so it can be switched on mid-event -
   #    hence checking the end state here rather than trusting the lock.)
   # Ainalrami on a FIDE-homologated tournament used to be REFUSED here, on
   # the grounds that OpenPairings' endorsement is FE1's "Internal engine:
-  # NO — thru JaVaFo", and a rated round paired by anything else makes that
+  # NO - thru JaVaFo", and a rated round paired by anything else makes that
   # declaration untrue.
   #
   # It is now the arbiter's decision, taken deliberately (2026-08-21): the
@@ -655,7 +655,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
 
   # (There used to be a `validate_ainalrami_excludes_baku/1` here. Ainalrami
   # did not read `XXA` at all, so an accelerated tournament would have been
-  # paired on unaccelerated brackets — a wrong pairing that looks entirely
+  # paired on unaccelerated brackets - a wrong pairing that looks entirely
   # legal. It reads both `XXA` and `XXP` as of ainalrami `451c749`, verified
   # against bbpPairings on 1.79M rounds carrying those lines, so the
   # restriction is gone. `Pairing` still guards the general case at pairing
@@ -665,7 +665,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
   # `rr_match_format` (immediate two-game rematch) and `rr_cycles == 2`
   # (season-style repeat a full cycle apart) are two different shapes of
   # "play everyone twice" that this codebase does not yet know how to
-  # compose into a single schedule (see the field's doc comment above) — an
+  # compose into a single schedule (see the field's doc comment above) - an
   # arbiter turning both on at once would silently get whichever one
   # `PairingsEngine.RoundRobin.do_pair/2` happens to check first, not the
   # combination they asked for, so this is rejected outright rather than
@@ -704,7 +704,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
   # `pair_by_category` (SWAR-parity #24) needs category management actually
   # turned on (pairing per-category with no category data makes no sense),
   # and is deliberately not yet supported together with Baku acceleration or
-  # `swiss_match_format` — rejected outright rather than guessed at, same
+  # `swiss_match_format` - rejected outright rather than guessed at, same
   # precedent as `validate_rr_match_format`/`validate_swiss_match_format`
   # above.
   defp validate_pair_by_category(changeset) do
@@ -756,7 +756,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
 
   # Re-parses and re-normalizes `extra_points_bands` on every write (like the
   # exclusion lists above), storing back the canonical
-  # "threshold:bonus, threshold:bonus" shape sorted ascending by threshold —
+  # "threshold:bonus, threshold:bonus" shape sorted ascending by threshold -
   # tidy regardless of how the arbiter typed it, and a guarantee that
   # anything stored always parses cleanly for `apply_extra_points_bands/1`.
   # Blank input is valid (no bands configured). Adds a changeset error,
@@ -794,13 +794,13 @@ defmodule PairingsEngine.Tournaments.Tournament do
 
   # Re-parses, validates and re-canonicalizes `fide_id_ranges` on every
   # write, same pattern as `normalize_extra_points_bands/1` above. Each
-  # incoming entry (a map with either string or atom keys — a direct
+  # incoming entry (a map with either string or atom keys - a direct
   # `Tournaments.update_tournament/2` caller and a LiveView form submission
   # shape it slightly differently) needs a non-blank `fide_tournament_id`
   # and an integer-parseable `from_round <= to_round`; the canonical stored
   # shape always has string keys, integer round numbers, and is sorted by
   # `from_round`. Entries may never overlap each other (an unambiguous
-  # per-round ID is the whole point of this field — see
+  # per-round ID is the whole point of this field - see
   # `PairingsEngine.TrfExport.applicable_fide_id/2`, the consumer).
   defp normalize_fide_id_ranges(changeset) do
     case get_change(changeset, :fide_id_ranges) do
@@ -877,7 +877,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
 
   defp parse_fide_id_range_round(_), do: :error
 
-  # First overlapping pair found (by round-span intersection), if any —
+  # First overlapping pair found (by round-span intersection), if any -
   # O(n^2) but `fide_id_ranges` is always a handful of entries per
   # tournament, never a performance concern.
   defp find_overlapping_fide_id_ranges(ranges) do
@@ -893,8 +893,8 @@ defmodule PairingsEngine.Tournaments.Tournament do
   end
 
   @doc """
-  Parses `extra_points_bands`'s stored/typed shape — a comma-separated list
-  of `"threshold:bonus"` pairs, e.g. `"1400:1, 1600:0.5"` — into
+  Parses `extra_points_bands`'s stored/typed shape - a comma-separated list
+  of `"threshold:bonus"` pairs, e.g. `"1400:1, 1600:0.5"` - into
   `{:ok, [{threshold :: non_neg_integer(), bonus :: float()}]}`, or `:error`
   for anything that doesn't match (wrong shape, negative numbers, ...).
   Blank/whitespace-only input parses to `{:ok, []}`.
@@ -939,14 +939,14 @@ defmodule PairingsEngine.Tournaments.Tournament do
 
     * A rated player (`rating > 0`) matches every band whose threshold is
       strictly greater than their rating (i.e. "rating below `threshold`").
-      Among those, the **lowest-threshold** band wins — the most selective
+      Among those, the **lowest-threshold** band wins - the most selective
       band, which is also the most generous one when bands are configured
       the expected way (lower threshold = bigger bonus for the
       lowest-rated players). A player at or above every threshold matches
       no band and gets `0.0`.
     * An unrated player (`rating == 0`) never matches a `rating < threshold`
       comparison (0 isn't below anything), so they only get a bonus when
-      `bands` has an explicit `0:bonus` entry — an arbiter opt-in to give
+      `bands` has an explicit `0:bonus` entry - an arbiter opt-in to give
       unrated players the same treatment as the lowest band, rather than an
       accidental side effect of the general rule.
   """
@@ -970,7 +970,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     end
   end
 
-  # Every tournament must always have a `public_slug` — this is the single
+  # Every tournament must always have a `public_slug` - this is the single
   # choke point all creation paths go through (the UI's "New tournament"
   # form, the SWAR importer, and the JSON tournament importer all call
   # `changeset/2`), so none of them need to generate one themselves. Only
@@ -993,19 +993,19 @@ defmodule PairingsEngine.Tournaments.Tournament do
   (see the guards in PlayersLive / PairingsLive), and their labels are shown
   bold in Settings.
 
-  These are only the fields structurally needed to actually run rounds — the
+  These are only the fields structurally needed to actually run rounds - the
   tournament's identity, its schedule and how standings are ordered. The
   FIDE-report metadata (chief arbiter, federation, rate of play, FIDE ID) is
   **not** here: it's needed to file a FIDE report, not to pair, so it's a
-  soft nudge instead — see `recommended_setup_fields/0` /
+  soft nudge instead - see `recommended_setup_fields/0` /
   `missing_recommended_fields/1`, which never block pairing.
 
-  No separate `:start_date` entry — it's derived from `:round_dates` now
+  No separate `:start_date` entry - it's derived from `:round_dates` now
   (see that field's own doc comment), so requiring `:round_dates` already
   covers it; a tournament can't satisfy one without the other.
 
   Kept as a flat list of field-name atoms for anything that just wants to
-  know *which fields* matter (e.g. bolding a label) — for the actual
+  know *which fields* matter (e.g. bolding a label) - for the actual
   present/absent logic (round dates need one entry per round), see
   `missing_setup_fields/1`.
   """
@@ -1019,7 +1019,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
   end
 
   @doc """
-  Fields recommended for a complete FIDE report but **not** required to pair —
+  Fields recommended for a complete FIDE report but **not** required to pair -
   the counterpart to `required_setup_fields/0`. Surfaced as a soft,
   non-blocking notice (see `missing_recommended_fields/1`) so an arbiter
   running a casual/club event can pair immediately, while one running a
@@ -1037,10 +1037,10 @@ defmodule PairingsEngine.Tournaments.Tournament do
   @doc """
   The specific pairing-blocking requirements `tournament` doesn't satisfy
   yet, as a list of `{field, message}` pairs (plain-English `message`,
-  suitable for showing directly to an arbiter) — empty once setup is
+  suitable for showing directly to an arbiter) - empty once setup is
   complete. Each `field` is one of `required_setup_fields/0`'s atoms, so a
   caller that knows which Settings page hosts each field (Settings is split
-  across several pages) can link straight to it — see PlayersLive/PairingsLive.
+  across several pages) can link straight to it - see PlayersLive/PairingsLive.
   """
   def missing_setup_fields(%__MODULE__{} = t) do
     checks = [
@@ -1058,7 +1058,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
   the same `{field, message}` shape as `missing_setup_fields/1`. Drives the
   soft "recommended for FIDE reporting" notice; never blocks pairing. The
   FIDE tournament ID only appears once the event is flagged FIDE-homologated
-  (same rule as before — see `fide_id_ok?/1`).
+  (same rule as before - see `fide_id_ok?/1`).
   """
   def missing_recommended_fields(%__MODULE__{} = t) do
     checks = [
@@ -1078,7 +1078,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
   def setup_complete?(%__MODULE__{} = t), do: missing_setup_fields(t) == []
 
   # Round dates are considered "filled in" the same way SettingsDatesLive
-  # defines it: one non-blank date per round — the stored list is padded/
+  # defines it: one non-blank date per round - the stored list is padded/
   # truncated to `rounds_count` by `pad_round_dates_to_rounds_count/1` on
   # every save (any path, not just the Dates page), so a complete
   # tournament's `round_dates` is exactly `rounds_count` long with no blanks.
@@ -1094,14 +1094,14 @@ defmodule PairingsEngine.Tournaments.Tournament do
   # The FIDE tournament ID is only mandatory once the tournament is flagged
   # as FIDE-homologated (`fide_homologated`, set on the FIDE settings page).
   # Read via `Map.get/3` with a `false` default rather than `t.fide_homologated`
-  # directly — this was written while `fide_homologated` was being added to
+  # directly - this was written while `fide_homologated` was being added to
   # the schema by a separate change; `Map.get/3` degrades gracefully (never
   # required) if that field is ever absent, and behaves like ordinary field
   # access now that it's present.
   #
   # A tournament that splits its FIDE ID entirely via `fide_id_ranges` (no
   # tournament-wide fallback `fide_tournament_id` set) still satisfies this
-  # check as long as those ranges cover every round 1..rounds_count — see
+  # check as long as those ranges cover every round 1..rounds_count - see
   # `fide_id_ranges_cover_all_rounds?/1`.
   defp fide_id_ok?(t) do
     if Map.get(t, :fide_homologated, false) == true do
@@ -1112,13 +1112,13 @@ defmodule PairingsEngine.Tournaments.Tournament do
   end
 
   @doc """
-  Whether `tournament` has a FIDE tournament ID configured at all — either
+  Whether `tournament` has a FIDE tournament ID configured at all - either
   the tournament-wide fallback `fide_tournament_id`, or `fide_id_ranges`
   entries covering every round. Unconditional, unlike `fide_id_ok?/1` (the
   soft Settings-page nudge, only checked once `fide_homologated` is set):
   every FIDE report prints the tournament's own numeric ID (IT3 B2)
   regardless of whether the arbiter has ticked "FIDE-homologated", and a
-  report FIDE can't identify a tournament from is a wasted submission — see
+  report FIDE can't identify a tournament from is a wasted submission - see
   `PairingsEngineWeb.NormsLive.report_blockers/1` and its Tools-page
   counterpart, which both gate report downloads on this.
   """
@@ -1179,7 +1179,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
   def pairing_engine_label("ainalrami"), do: "Ainalrami (beta)"
   def pairing_engine_label(other), do: other
 
-  def pairing_system_label("swiss"), do: "Swiss — FIDE Dutch (JaVaFo)"
+  def pairing_system_label("swiss"), do: "Swiss - FIDE Dutch (JaVaFo)"
   def pairing_system_label("round_robin"), do: "Round robin (Berger)"
   def pairing_system_label("keizer"), do: "Keizer"
   def pairing_system_label(other), do: other
@@ -1188,11 +1188,26 @@ defmodule PairingsEngine.Tournaments.Tournament do
   def rr_cycles_label(2), do: "Double"
   def rr_cycles_label(other), do: to_string(other)
 
+  @doc """
+  The name of the program that actually pairs this tournament, for anywhere
+  a page or a FIDE report has to say WHICH one produced the round.
+
+  Lives here rather than in each page because it had already drifted once:
+  the Pairings page hardcoded "JaVaFo" for every Swiss tournament, so a
+  tournament opted into Ainalrami still had a button reading "Pair round 5
+  (JaVaFo)" over pairings JaVaFo never produced. Round robin and Keizer
+  compute their own schedules and consult no Swiss engine at all.
+  """
+  def engine_name(%{pairing_system: "round_robin"}), do: "Berger"
+  def engine_name(%{pairing_system: "keizer"}), do: "Keizer"
+  def engine_name(%{pairing_engine: "ainalrami"}), do: "Ainalrami"
+  def engine_name(_swiss), do: "JaVaFo"
+
   def publish_modes, do: @publish_modes
 
-  def publish_mode_label("immediate"), do: "Immediately — public the instant it's paired"
-  def publish_mode_label("manual"), do: "Manually — I'll publish each round myself"
-  def publish_mode_label("timed"), do: "After a delay — a fixed number of minutes"
+  def publish_mode_label("immediate"), do: "Immediately - public the instant it's paired"
+  def publish_mode_label("manual"), do: "Manually - I'll publish each round myself"
+  def publish_mode_label("timed"), do: "After a delay - a fixed number of minutes"
   def publish_mode_label("scheduled"), do: "On the round's own date (Dates page)"
   def publish_mode_label(other), do: other
 end

@@ -1,6 +1,6 @@
 defmodule PairingsEngine.Tournaments.Collaborator do
   @moduledoc """
-  Grants a user (by email) access to a tournament they don't own — the
+  Grants a user (by email) access to a tournament they don't own - the
   "Share a tournament" feature (see `docs/teams.md`). A row here is created
   by the tournament's owner via `PairingsEngine.Tournaments.add_collaborator/3`
   and, once *accepted*, lets that person open/edit/pair/enter-results/print/
@@ -14,7 +14,7 @@ defmodule PairingsEngine.Tournaments.Collaborator do
   `PairingsEngine.Tournaments.accept_invitation/2`) before
   `get_authorized_tournament/2`, `get_authorized_tournament!/2` or
   `list_tournaments/1` will honour the row (only `status == "accepted"`
-  counts — see `PairingsEngine.Tournaments.collaborator_tournament_ids/1`).
+  counts - see `PairingsEngine.Tournaments.collaborator_tournament_ids/1`).
   Declining, or the owner revoking, deletes the row outright.
 
   `user_id` starts out `nil` when the invited email has no account yet; it
@@ -22,10 +22,10 @@ defmodule PairingsEngine.Tournaments.Collaborator do
   `PairingsEngine.Tournaments.link_pending_collaborators/1`, called from
   `PairingsEngineWeb.UserAuth.log_in_user/3`) or, definitely, the moment the
   invitation is accepted. A `nil` `user_id` never grants access on its
-  own — only `status == "accepted"` does.
+  own - only `status == "accepted"` does.
 
   Not to be confused with `PairingsEngine.Tournaments.Team` (table
-  `teams`) — that's an unrelated concept, chess teams within a team
+  `teams`) - that's an unrelated concept, chess teams within a team
   tournament (name/captain/players), nothing to do with user access.
   """
 
@@ -40,7 +40,7 @@ defmodule PairingsEngine.Tournaments.Collaborator do
     field :role, :string, default: "editor"
     field :status, :string, default: "pending"
     field :invite_token, :string
-    # Not persisted — set in-memory by
+    # Not persisted - set in-memory by
     # `PairingsEngine.Tournaments.add_collaborator/3` so the caller (the
     # Settings LiveView) can tell whether the invitation email actually went
     # out, without changing that function's `{:ok, collaborator}` contract.

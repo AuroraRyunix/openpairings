@@ -106,7 +106,7 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
 
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/live")
 
-    # Not a bare `refute html =~ ~s(<td class="num">2</td>)` — the
+    # Not a bare `refute html =~ ~s(<td class="num">2</td>)` - the
     # standings table further down the same page legitimately has its own
     # "2"s (rank, points, etc.) unrelated to board numbering.
     assert html =~ ~s(<td class="num">1001</td>)
@@ -116,7 +116,7 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
     assert shifted_pos < wheelchair_pos
   end
 
-  # A default (swiss) tournament — pairs via JaVaFo, unlike the keizer test
+  # A default (swiss) tournament - pairs via JaVaFo, unlike the keizer test
   # below which dispatches to PairingsEngine.Keizer instead.
   @tag :javafo
   test "shows the latest round's pairings and current standings, and updates live when a result is entered elsewhere",
@@ -149,7 +149,7 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
     pairing = hd(round.pairings)
 
     # Simulates another browser tab entering the result on the Pairings
-    # page — this live view never touches the DB itself, it just reacts to
+    # page - this live view never touches the DB itself, it just reacts to
     # the tournament-topic broadcast.
     assert {:ok, _} = Tournaments.update_pairing_result(pairing, "1-0")
 
@@ -254,14 +254,14 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
     {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/live")
 
     # Scope to the board-list table specifically ("Board" as the text
-    # filter) — the standings table right below it shares the same
+    # filter) - the standings table right below it shares the same
     # `pe-table` class and legitimately has its own "1"s (rank, etc.)
     # unrelated to board numbering.
     pairings_html = lv |> element("table.pe-table", "Board") |> render()
 
     assert pairings_html =~ "Stillhereclara"
     # Board 2's label was frozen at pairing time, before board 1 was ever
-    # hidden — hiding board 1 later must NOT retroactively renumber board
+    # hidden - hiding board 1 later must NOT retroactively renumber board
     # 2 down to "1" (that would be exactly the 0.14.6 bug class). Board 2
     # simply stops having a "1" row above it; its own label is untouched.
     assert pairings_html =~ ~s(<td class="num">2</td>)

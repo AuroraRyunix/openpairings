@@ -136,7 +136,7 @@ defmodule PairingsEngine.Norms.TitleNormsTest do
 
     im = Enum.find(result.verdicts, &(&1.title == "IM"))
     assert im.achieved?
-    # Ra: (2450+2400+2350+2300+2250+2200+2150+2100+2050)/9 = 2250 — the
+    # Ra: (2450+2400+2350+2300+2250+2200+2150+2100+2050)/9 = 2250 - the
     # unrated opponent went 0 -> 1400 -> floor-raised to 2050.
     assert im.avg_opponent_rating == 2250
     # 7.5/9 = 83.33% -> 83% -> dp 273 -> Rp 2523.
@@ -315,7 +315,7 @@ defmodule PairingsEngine.Norms.TitleNormsTest do
     result = TitleNorms.evaluate(tournament) |> Map.fetch!(a.id)
     wim = Enum.find(result.verdicts, &(&1.title == "WIM"))
 
-    # (1850 + 1800) / 2 = 1825 — NOT (1850 + 1850) / 2 = 1850.
+    # (1850 + 1800) / 2 = 1825 - NOT (1850 + 1850) / 2 = 1850.
     assert wim.avg_opponent_rating == 1825
   end
 
@@ -364,7 +364,7 @@ defmodule PairingsEngine.Norms.TitleNormsTest do
     result = TitleNorms.evaluate(tournament) |> Map.fetch!(a.id)
     im = Enum.find(result.verdicts, &(&1.title == "IM"))
 
-    # 1 win of 1 game = 100% (not 200%!) — dp(100) = 800. The 2000-rated
+    # 1 win of 1 game = 100% (not 200%!) - dp(100) = 800. The 2000-rated
     # opponent is the single lowest and is floor-raised to the IM floor
     # 2050 (1.4.6.3), so Rp = 2050 + 800.
     assert im.score == 1.0

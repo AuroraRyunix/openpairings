@@ -2,7 +2,7 @@ defmodule PairingsEngine.TournamentImport do
   @moduledoc """
   Imports a `PairingsEngine.TournamentExport` envelope (already JSON-decoded
   to a string-keyed map), recreating every tournament it describes as a
-  brand-new tournament owned by the importing user — fresh ids throughout,
+  brand-new tournament owned by the importing user - fresh ids throughout,
   every internal foreign key (team ids referenced by players; player ids
   referenced by pairings, byes, forbidden pairings) remapped inside a single
   transaction via an old-id -> new-id map built as each record is inserted.
@@ -26,7 +26,7 @@ defmodule PairingsEngine.TournamentImport do
   Imports every tournament in `data` (a JSON-decoded export envelope) as new
   tournaments owned by `scope`'s user. Returns `{:ok, [%Tournament{}, ...]}`
   on success (broadcasting the user's tournament-list change once, after
-  commit) or `{:error, reason}` — `reason` is a human-readable string safe
+  commit) or `{:error, reason}` - `reason` is a human-readable string safe
   to show directly in a flash. Never raises: a malformed envelope, a bad
   format/version tag, or an invalid record anywhere inside it rolls the
   whole import back and comes back as `{:error, _}`, not a crash.
@@ -58,7 +58,7 @@ defmodule PairingsEngine.TournamentImport do
 
   # Same after-commit, outside-suppression pattern as `PairingsEngine.SwarImport`:
   # imported rounds/results already carry whatever status the export
-  # snapshotted, but the round-trip should stand on its own — re-derive
+  # snapshotted, but the round-trip should stand on its own - re-derive
   # each tournament's status from what actually landed in the database
   # (after the transaction commits, so the query sees the imported data;
   # outside `with_broadcast_suppressed`, so a real status change still
@@ -83,14 +83,14 @@ defmodule PairingsEngine.TournamentImport do
 
   @doc """
   Rebuilds an **existing** tournament's contents from one tournament entry of
-  an export envelope — the restore half of `PairingsEngine.Snapshots`.
+  an export envelope - the restore half of `PairingsEngine.Snapshots`.
 
   Differs from `import/2` in that it writes into `tournament` rather than
   creating a new row: the settings on the entry are applied to it, and its
   teams/players/rounds/byes/forbidden pairings are recreated with fresh ids
   and internally remapped, exactly as an import does. The caller is
   responsible for having already deleted the old contents and for wrapping
-  this in a transaction — see `Snapshots.restore/3`, the only caller.
+  this in a transaction - see `Snapshots.restore/3`, the only caller.
 
   Raises (via `Repo.rollback/1`) rather than returning an error tuple, for the
   same reason the private import helpers do: it only runs inside a
@@ -171,7 +171,7 @@ defmodule PairingsEngine.TournamentImport do
         %Player{tournament_id: tournament.id}
         |> Player.changeset(attrs)
         # Like `manual_ranking_stale` above, `manual_rank` is deliberately not
-        # cast — only the controlled reseed/move writers in `Tournaments` set
+        # cast - only the controlled reseed/move writers in `Tournaments` set
         # it. Without carrying it here, importing a tournament that used
         # manual ranking restored the flag but none of the actual order,
         # leaving it switched on with every rank nil.
@@ -189,7 +189,7 @@ defmodule PairingsEngine.TournamentImport do
       r
       |> list("pairings")
       |> Enum.each(fn pr ->
-        # `match_id` is deliberately not carried across — it's a foreign key
+        # `match_id` is deliberately not carried across - it's a foreign key
         # into the unexported `matches` table, so a raw value would dangle.
         # See PairingsEngine.TournamentExport.pairing_map/1.
         attrs = %{
@@ -204,7 +204,7 @@ defmodule PairingsEngine.TournamentImport do
 
       # Recomputed fresh from the just-imported players' own (faithfully
       # round-tripped) fixed_board values, rather than carried across in the
-      # export payload — see PairingsEngine.PairingDisplay's moduledoc for
+      # export payload - see PairingsEngine.PairingDisplay's moduledoc for
       # why this must never be read live again after today, once whatever
       # created this round (a plain "Import backup" or
       # PairingsEngine.Snapshots.restore/3, both of which call this) is
@@ -213,7 +213,7 @@ defmodule PairingsEngine.TournamentImport do
     end)
   end
 
-  # Schemaless tables (no Ecto schema in the app — see PairingsEngine.Pairing
+  # Schemaless tables (no Ecto schema in the app - see PairingsEngine.Pairing
   # and PairingsEngine.Standings for the same pattern on reads). A bye or
   # forbidden pairing referencing a player id that isn't in `player_map`
   # (only possible from a hand-edited/corrupt file) is silently dropped
@@ -249,7 +249,7 @@ defmodule PairingsEngine.TournamentImport do
   end
 
   # These two back the `Ecto.Changeset.change/2` calls above, which bypass
-  # cast entirely — so a hand-edited backup's string/garbage value would
+  # cast entirely - so a hand-edited backup's string/garbage value would
   # otherwise land in the column as-is under SQLite's dynamic typing.
   defp truthy(true), do: true
   defp truthy("true"), do: true

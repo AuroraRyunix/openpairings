@@ -1,8 +1,8 @@
 defmodule PairingsEngine.Repo.Migrations.AddKbsbPlayerStatusFlags do
   use Ecto.Migration
 
-  # The data platform's roster export is deliberately unfiltered — it carries
-  # archived, deceased and non-affiliated members alongside everyone else —
+  # The data platform's roster export is deliberately unfiltered - it carries
+  # archived, deceased and non-affiliated members alongside everyone else -
   # because filtering it would make its `?since=` incremental mode unsound: a
   # row dropping out of a filter is indistinguishable from a row that did not
   # change, so an incremental mirror would keep a stale copy forever.

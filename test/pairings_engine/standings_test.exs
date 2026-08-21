@@ -125,7 +125,7 @@ defmodule PairingsEngine.StandingsTest do
     ed = Enum.find(entries, &(&1.player.id == d.id))
 
     # C and D are tied on 0.5 and drew their game: DE gives each 0.5 and
-    # cannot separate them — both get the same DE value.
+    # cannot separate them - both get the same DE value.
     assert ec.tiebreaks["DE"] == ed.tiebreaks["DE"]
   end
 
@@ -146,7 +146,7 @@ defmodule PairingsEngine.StandingsTest do
     # D: 0.5 (draw) + 0 (loss) + 0.5 (half-point bye) = 1.0
     assert ed.points == 1.0
     # Article 16.4: the bye round's dummy opponent score is D's OWN score
-    # (1.0), capped at draw-points × rounds (0.5 × 3 = 1.5) — the cap
+    # (1.0), capped at draw-points × rounds (0.5 × 3 = 1.5) - the cap
     # doesn't bind here since 1.0 < 1.5. See the dedicated cap test below
     # for a case where it does.
     assert ed.tiebreaks["BH"] == 3.5
@@ -155,7 +155,7 @@ defmodule PairingsEngine.StandingsTest do
   end
 
   test "Article 16.4's cap applies when a high scorer's own score exceeds draw-points × rounds" do
-    # A single player, 3 rounds: 2 real wins, then a half-point bye — own
+    # A single player, 3 rounds: 2 real wins, then a half-point bye - own
     # score 2.5 comfortably exceeds the cap (draw 0.5 × 3 rounds = 1.5), so
     # the bye's dummy contribution must be capped at 1.5, not the raw 2.5.
     # This is exactly the real-world case that exposed the bug this test
@@ -199,7 +199,7 @@ defmodule PairingsEngine.StandingsTest do
     })
 
     # weak1 and weak2 meet in round 3 (a draw) so each has a game record IN
-    # round 3 — otherwise `adjusted_score/3` would treat their otherwise-
+    # round 3 - otherwise `adjusted_score/3` would treat their otherwise-
     # missing final round as an implicit withdrawal and pad their
     # contribution with draw credit, muddying this test's only point:
     # confirming the CAP on Strong's own bye specifically.
@@ -226,7 +226,7 @@ defmodule PairingsEngine.StandingsTest do
     assert e.tiebreaks["BH"] == 2.5
   end
 
-  # bye_points/2 is pure — a bare %Tournament{} struct is enough, no DB.
+  # bye_points/2 is pure - a bare %Tournament{} struct is enough, no DB.
   # (Module level, not inside the describe below: ExUnit forbids defining
   # functions inside a describe block.)
   defp scoring_tournament(overrides) do
@@ -243,7 +243,7 @@ defmodule PairingsEngine.StandingsTest do
   end
 
   # Opp: R1 win over Me (1.0), R2 a plain "absent" byes-table row scoring
-  # points_loss (abs_value unset) — trailing, so it's the case
+  # points_loss (abs_value unset) - trailing, so it's the case
   # `adjusted_score/3`'s voluntary-window logic can affect. Me's BH is just
   # Opp's adjusted score (Me's only game is R1 against Opp). Module level,
   # not inside the describe below: ExUnit forbids defining functions inside
@@ -315,7 +315,7 @@ defmodule PairingsEngine.StandingsTest do
     test "a real result: \"bye\" Pairing row scores bye_value + presence_value in standings when the flag is on" do
       # The pairing-allocated bye's actual scoring path is
       # pairing_records/3's "bye" branch (a real Pairing row with no black
-      # player), which must route through the same bye_points/2 rule — this
+      # player), which must route through the same bye_points/2 rule - this
       # is the standings-side half of the SW321_PreBye model.
       tournament =
         Repo.insert!(%Tournament{
@@ -350,7 +350,7 @@ defmodule PairingsEngine.StandingsTest do
 
       [entry] = Standings.standings(tournament)
       assert entry.player.id == player.id
-      # SW321_Bye (2.0) + SW321_Pre (1.0) — presence points on top.
+      # SW321_Bye (2.0) + SW321_Pre (1.0) - presence points on top.
       assert entry.points == 3.0
     end
   end
@@ -416,7 +416,7 @@ defmodule PairingsEngine.StandingsTest do
 
   test "grid_standings/1 always includes BH, BHC1, SB, PS and DE, with ranks matching standings/1" do
     # This tournament only configures WIN as a tiebreak, so standings/1 would
-    # not compute BH/SB/PS/DE at all — the player grid needs them regardless.
+    # not compute BH/SB/PS/DE at all - the player grid needs them regardless.
     {tournament, %{a: a, b: b}} = fixture()
     tournament = %{tournament | tiebreaks: ~w(WIN)}
 
@@ -446,7 +446,7 @@ defmodule PairingsEngine.StandingsTest do
 
   describe "played \"0-0\" vs a \"0-0FF\" double forfeit (FIDE Art. 16)" do
     # E and F meet twice: round 1 is a played "0-0" (e.g. both players
-    # ejected from the venue after making moves — the game WAS contested,
+    # ejected from the venue after making moves - the game WAS contested,
     # both lose), round 2 is a "0-0FF" double forfeit (neither played at
     # all). Both are worth 0 points for both players either way, but only
     # the played round should count as "played" for tiebreak purposes.
@@ -542,7 +542,7 @@ defmodule PairingsEngine.StandingsTest do
     end
   end
 
-  describe "asymmetric \"1/2-0\"/\"0-1/2\" results (VCL.13 — an arbiter's disciplinary point adjustment)" do
+  describe "asymmetric \"1/2-0\"/\"0-1/2\" results (VCL.13 - an arbiter's disciplinary point adjustment)" do
     defp asymmetric_fixture(result) do
       tournament =
         Repo.insert!(%Tournament{name: "Asymmetric Test", type: "swiss", rounds_count: 1})
@@ -603,7 +603,7 @@ defmodule PairingsEngine.StandingsTest do
     # row for rounds 2-4 (simulating a withdrawn/forfeited player, since
     # `active_players/1` stops generating any record for such a player).
     # B and C keep playing each other every round purely to drive
-    # `rounds_played_count(by_id)` up to 4 — not a realistic Swiss schedule,
+    # `rounds_played_count(by_id)` up to 4 - not a realistic Swiss schedule,
     # just a unit-level tiebreak fixture.
     test "BH counts a withdrawn opponent's missing trailing rounds as draws (Article 16.3)" do
       tournament =
@@ -655,11 +655,11 @@ defmodule PairingsEngine.StandingsTest do
       assert ea.tiebreaks["BH"] == 1.5
     end
 
-    # Opp gets a real pairing-allocated bye (odd player count — a `Pairing`
+    # Opp gets a real pairing-allocated bye (odd player count - a `Pairing`
     # row with result "bye", not a `byes`-table row) in the LAST round, so it
     # falls in `adjusted_score/3`'s trailing window. Art. 16.2.1/16.3: a
     # pairing-allocated bye is never voluntary and must always count at its
-    # awarded value for an opponent's tiebreak purposes — never downgraded to
+    # awarded value for an opponent's tiebreak purposes - never downgraded to
     # a draw just because it's trailing. Before the fix, `voluntary` didn't
     # check `pairing.result != "bye"`, so this bye's real value (2.0, per
     # `bye_value` below) was silently replaced with a draw's worth (0.5).
@@ -736,7 +736,7 @@ defmodule PairingsEngine.StandingsTest do
       ep = Enum.find(entries, &(&1.player.id == p.id))
       eq = Enum.find(entries, &(&1.player.id == q.id))
 
-      # P.points = 1.0, P.total = 1.5; Q.points = 0.0, Q.total = 1.5 — tied on
+      # P.points = 1.0, P.total = 1.5; Q.points = 0.0, Q.total = 1.5 - tied on
       # `total` (the actual ranking key here) but not on raw `points`. Without
       # the fix (grouping by raw points) they'd land in singleton groups and
       # both get DE == 0.0 despite being genuinely tied and having played
@@ -748,9 +748,9 @@ defmodule PairingsEngine.StandingsTest do
 
   describe "Article 16.5.1 Cut-1 Exception: a VUR contribution is cut in preference to an ordinary one" do
     # X: R1 win over Opp, R2 a requested-half bye (X's own dummy_score = 1.0,
-    # capped at points_draw * rounds_count = 0.5 * 2 = 1.0 by Art. 16.4 — own
+    # capped at points_draw * rounds_count = 0.5 * 2 = 1.0 by Art. 16.4 - own
     # total 1.0 win + 0.5 bye = 1.5, capped down to 1.0). Opp: R1 loss to X,
-    # R2 a real loss to Filler (0.0) — an explicit R2 record so Opp's
+    # R2 a real loss to Filler (0.0) - an explicit R2 record so Opp's
     # adjusted score is their own real total (0.0), not padded by the
     # "missing trailing round counts as a draw" rule that would otherwise
     # apply if Opp had no round-2 record at all. Filler pads out rounds so
@@ -759,9 +759,9 @@ defmodule PairingsEngine.StandingsTest do
     # [0.0 (real, Opp), 1.0 (VUR, X's own bye)].
     #
     # Without the exception, cutting the plain lowest removes Opp's 0.0,
-    # leaving X's own generous bye (1.0) — BHC1 == 1.0. With Art. 16.5.1,
+    # leaving X's own generous bye (1.0) - BHC1 == 1.0. With Art. 16.5.1,
     # the VUR contribution (1.0) is cut in preference instead, leaving
-    # Opp's real 0.0 in the sum — BHC1 == 0.0. Confirms the exception
+    # Opp's real 0.0 in the sum - BHC1 == 0.0. Confirms the exception
     # activates even when the VUR contribution is NOT the naturally lowest
     # value; a self-referential bye must not get to hide behind Cut-1's
     # protection meant for genuine weak-opponent luck.
@@ -813,7 +813,7 @@ defmodule PairingsEngine.StandingsTest do
     end
   end
 
-  describe "Tournament.absent_counts_as_vur — opt-in only, off by default (FIDE has no 'absent' concept)" do
+  describe "Tournament.absent_counts_as_vur - opt-in only, off by default (FIDE has no 'absent' concept)" do
     test "off (default): a trailing absence counts at its award value, not upgraded to a draw" do
       em = fixture_with_absent_opponent(false)
       # Opp's adjusted score = 1.0 (R1 win) + 0.0 (R2 absence, points_loss,
@@ -843,7 +843,7 @@ defmodule PairingsEngine.StandingsTest do
       {tournament, %{a: a, b: b, c: c, d: d}} = fixture()
       tournament = %{tournament | manual_ranking: true}
 
-      # Computed order is A, B, then C/D — hand-flip it so D leads.
+      # Computed order is A, B, then C/D - hand-flip it so D leads.
       Repo.update_all(from(p in Player, where: p.id == ^d.id), set: [manual_rank: 1])
       Repo.update_all(from(p in Player, where: p.id == ^c.id), set: [manual_rank: 2])
       Repo.update_all(from(p in Player, where: p.id == ^a.id), set: [manual_rank: 3])
@@ -865,7 +865,7 @@ defmodule PairingsEngine.StandingsTest do
              ] = reordered
 
       ea_reordered = Enum.find(reordered, &(&1.player.id == a.id))
-      # points/tiebreaks are untouched by the reorder — only :rank differs.
+      # points/tiebreaks are untouched by the reorder - only :rank differs.
       assert ea_reordered.points == ea_computed.points
       assert ea_reordered.tiebreaks == ea_computed.tiebreaks
       assert ea_reordered.total == ea_computed.total
@@ -878,7 +878,7 @@ defmodule PairingsEngine.StandingsTest do
       Repo.update_all(from(p in Player, where: p.id == ^a.id), set: [manual_rank: 1])
       Repo.update_all(from(p in Player, where: p.id == ^b.id), set: [manual_rank: 2])
       Repo.update_all(from(p in Player, where: p.id == ^c.id), set: [manual_rank: 3])
-      # D never seeded (manual_rank stays nil) — simulates a player added after enabling.
+      # D never seeded (manual_rank stays nil) - simulates a player added after enabling.
 
       reordered = Standings.apply_manual_ranking(Standings.standings(tournament), tournament)
       assert List.last(reordered).player.id == d.id
@@ -910,11 +910,11 @@ defmodule PairingsEngine.StandingsTest do
   end
 
   # Regression coverage for a real bug report: an arbiter entered exactly
-  # one result — a fixed-board pairing (real board 1, displayed as "1001",
-  # see PairingsEngine.PairingDisplay) — and worried the win had been
+  # one result - a fixed-board pairing (real board 1, displayed as "1001",
+  # see PairingsEngine.PairingDisplay) - and worried the win had been
   # credited to the wrong player, since a *different*, unrelated player's
   # row also showed 1.0 points. That second player turned out to have a
-  # full-point bye that round — a real, independent point, not
+  # full-point bye that round - a real, independent point, not
   # cross-contamination. This test locks in that a fixed-board result and
   # a same-round bye are scored completely independently: standings are
   # keyed by player_id end to end (PairingDisplay never touches
@@ -941,8 +941,8 @@ defmodule PairingsEngine.StandingsTest do
           Repo.insert!(%Player{tournament_id: tournament.id, name: name, fide_rating: rating})
         end
 
-      # De Block is on a fixed (special) table — real board 1, displayed as
-      # "1001" — paired against De Meyere, an ordinary player.
+      # De Block is on a fixed (special) table - real board 1, displayed as
+      # "1001" - paired against De Meyere, an ordinary player.
       Repo.update!(Ecto.Changeset.change(de_block, fixed_board: 1001))
 
       round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
@@ -970,7 +970,7 @@ defmodule PairingsEngine.StandingsTest do
       )
 
       # Same write path the Pairings page's inline result <select> and the
-      # CSV bulk-import both use (see PairingsEngine.ResultsImport) —
+      # CSV bulk-import both use (see PairingsEngine.ResultsImport) -
       # "0-1": White (De Block) loses, Black (De Meyere) wins.
       {:ok, _} = Tournaments.update_pairing_result(pairing, "0-1")
 
@@ -982,7 +982,7 @@ defmodule PairingsEngine.StandingsTest do
       assert by_name["De Block, Yordi"].points == 0.0
       assert by_name["De Block, Yordi"].tiebreaks["WIN"] == 0.0
 
-      # Roersma's point comes entirely from their own bye — untouched by
+      # Roersma's point comes entirely from their own bye - untouched by
       # the fixed-board result entered above.
       assert by_name["Roersma, Melvin"].points == 1.0
       assert by_name["Roersma, Melvin"].tiebreaks["WIN"] == 1.0
@@ -1049,7 +1049,7 @@ defmodule PairingsEngine.StandingsTest do
       t |> Standings.standings() |> Enum.find(&(&1.player.id == player.id)) |> Map.get(:points)
     end
 
-    test "a played win scores 3, a loss scores 1 — not 2 and 0" do
+    test "a played win scores 3, a loss scores 1 - not 2 and 0" do
       t = swiss321_tournament()
       [a, b] = two_players(t)
       play(t, 1, a, b, "1-0")
@@ -1080,7 +1080,7 @@ defmodule PairingsEngine.StandingsTest do
     end
 
     # RESULTATS_WIN is `WIN | WIN_BYE | WIN_FF`, and LOST_FF/DRAW_FF are in
-    # none of the three sets the presence condition tests — so a forfeit
+    # none of the three sets the presence condition tests - so a forfeit
     # pays the winner only. The player who did not turn up does not collect
     # a point for turning up.
     test "a forfeit pays presence to the winner only" do

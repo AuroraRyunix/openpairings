@@ -1,5 +1,5 @@
 defmodule PairingsEngine.Norms.ItThreeExpandTest do
-  # async: true — pure, no database; reads the real IT3 template file only.
+  # async: true - pure, no database; reads the real IT3 template file only.
   use ExUnit.Case, async: true
 
   alias PairingsEngine.Norms.{Forms, ItThreeExpand, XlsxFill}
@@ -36,7 +36,7 @@ defmodule PairingsEngine.Norms.ItThreeExpandTest do
         name = List.to_string(name)
 
         if String.ends_with?(name, ".xml") do
-          # Raises on malformed XML — the assertion is that this doesn't.
+          # Raises on malformed XML - the assertion is that this doesn't.
           :xmerl_scan.string(:binary.bin_to_list(bin))
         end
       end)
@@ -61,8 +61,8 @@ defmodule PairingsEngine.Norms.ItThreeExpandTest do
       entries = Enum.map(entries, fn {n, b} -> {List.to_string(n), b} end)
       {_, cert} = List.keyfind(entries, "xl/worksheets/sheet1.xml", 0)
 
-      # $B$70 legitimately still appears (it's arbiter 3's own id cell now —
-      # see the next test) — what must NOT survive is the CONCATENATE note
+      # $B$70 legitimately still appears (it's arbiter 3's own id cell now -
+      # see the next test) - what must NOT survive is the CONCATENATE note
       # still pointing at the old (pre-shift) row 70.
       refute cert =~
                ~s(CONCATENATE("The organizer must provide this report form to each arbiter who has achieved a norm,  ",Invulformulier!$B$70,)

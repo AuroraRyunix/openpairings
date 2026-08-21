@@ -1,7 +1,7 @@
 defmodule PairingsEngine.Tournaments do
   @moduledoc """
   Tournament, player, team and round management, plus ownership/access
-  control — who owns a tournament, and who else it's been shared with (see
+  control - who owns a tournament, and who else it's been shared with (see
   `PairingsEngine.Tournaments.Collaborator` and `docs/teams.md` for the
   full "share a tournament by email" feature).
   """
@@ -32,7 +32,7 @@ defmodule PairingsEngine.Tournaments do
   # PairingsEngine.SwarImport) broadcasts on the tournament's topic so any
   # open LiveView showing that tournament can reload instantly instead of
   # polling. `hint` is a lightweight atom describing what changed
-  # (:players, :pairings, :results, :settings, :rounds, :tournament) — most
+  # (:players, :pairings, :results, :settings, :rounds, :tournament) - most
   # subscribers just reload their data regardless of the exact hint, but it
   # keeps the message self-documenting.
 
@@ -75,7 +75,7 @@ defmodule PairingsEngine.Tournaments do
   @doc """
   Runs `fun` with per-write broadcasting suppressed for the current
   process. Used by bulk operations that wrap many individual writes in a
-  single `Repo.transaction` (e.g. `PairingsEngine.SwarImport`) — broadcasting
+  single `Repo.transaction` (e.g. `PairingsEngine.SwarImport`) - broadcasting
   from inside an uncommitted transaction would let a subscriber query the
   database before the writes are actually visible. The caller is
   responsible for broadcasting once, after the transaction has committed.
@@ -99,13 +99,13 @@ defmodule PairingsEngine.Tournaments do
   Lists the tournaments the scope's user owns or collaborates on (see
   `add_collaborator/3`), most recently created first.
 
-  Returns `{tournament, player_count, owner?}` tuples — `owner?` is `true`
+  Returns `{tournament, player_count, owner?}` tuples - `owner?` is `true`
   when `scope.user` is the tournament's owner and `false` when it's shared
   with them as a collaborator, so the UI can tell the two apart (e.g. a
   "shared" badge).
 
   Excludes both recycle-binned (`deleted_at`) and archived (`archived_at`)
-  tournaments — each has its own listing (`list_deleted_tournaments/1`,
+  tournaments - each has its own listing (`list_deleted_tournaments/1`,
   `list_archived_tournaments/1`) and its own panel on the Tournaments page.
   Note the two are independent flags, so an archived tournament that is
   later deleted correctly disappears from the archive list too (see
@@ -131,7 +131,7 @@ defmodule PairingsEngine.Tournaments do
     do: tournament.user_id == scope.user.id
 
   @doc """
-  Gets a tournament by id, excluding soft-deleted (recycle-binned) ones —
+  Gets a tournament by id, excluding soft-deleted (recycle-binned) ones -
   see `soft_delete_tournament/1`. Raises `Ecto.NoResultsError` if the
   tournament doesn't exist or is currently in the recycle bin.
   """
@@ -145,11 +145,11 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
-  Gets a tournament by its `public_slug` — the unguessable token behind the
+  Gets a tournament by its `public_slug` - the unguessable token behind the
   public (no-login) read-only pages (see docs/public-pages.md). Returns
   `nil` if no tournament has this slug.
 
-  **Deliberately no scope/authorization check** — this is the one lookup in
+  **Deliberately no scope/authorization check** - this is the one lookup in
   this module that's meant to be public. Anyone holding the link can view
   the tournament; the slug itself (a random 12-byte token, not the
   sequential numeric `id`) is what keeps it from being enumerable.
@@ -168,11 +168,11 @@ defmodule PairingsEngine.Tournaments do
 
   @doc """
   Finds an existing, non-deleted tournament (owned by or shared with
-  `scope`'s user) that was already imported from the same `.swar` file —
+  `scope`'s user) that was already imported from the same `.swar` file -
   matched on `swar_guid`, the persistent per-tournament id SWAR itself
   stamps into every export of the same tournament (see
   `PairingsEngine.SwarImport.parse/1`'s `:guid`). Used to warn before a
-  re-upload of the same tournament silently creates a duplicate — see
+  re-upload of the same tournament silently creates a duplicate - see
   docs/import-export.md. `nil` for a blank guid or no match; only ever
   matches within the uploading user's own accessible tournaments, never
   across unrelated accounts.
@@ -205,7 +205,7 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
-  Same as `get_user_tournament!/2`, but returns `nil` instead of raising —
+  Same as `get_user_tournament!/2`, but returns `nil` instead of raising -
   useful when reloading after a PubSub notification, since the tournament
   may have been deleted (by another tab/user) in the meantime.
   """
@@ -218,7 +218,7 @@ defmodule PairingsEngine.Tournaments do
 
   @doc """
   Gets tournament `id`, owned by the scope's user, **including** ones
-  currently in the recycle bin (`deleted_at` set) — the counterpart to
+  currently in the recycle bin (`deleted_at` set) - the counterpart to
   `get_user_tournament!/2` for the Recycle bin panel's Restore/Delete
   permanently actions, which need to load the very row `list_tournaments/1`
   now hides. Raises `Ecto.NoResultsError` if the tournament doesn't exist or
@@ -229,13 +229,13 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
-  Gets a tournament the scope's user is authorized to access — either
+  Gets a tournament the scope's user is authorized to access - either
   because they own it, or because they collaborate on it (matched by
   `user_id`, or by `email` for a not-yet-linked pending invite; see
   `link_pending_collaborators/1`).
 
   Use this (instead of `get_user_tournament!/2`) for every tournament-scoped
-  view/action a collaborator should also be able to use — everything except
+  view/action a collaborator should also be able to use - everything except
   managing collaborators and deleting the tournament, which stay
   owner-only via `get_user_tournament!/2`.
 
@@ -249,7 +249,7 @@ defmodule PairingsEngine.Tournaments do
 
   @doc """
   Same as `get_authorized_tournament!/2`, but returns `nil` instead of
-  raising — useful when reloading after a PubSub notification, since the
+  raising - useful when reloading after a PubSub notification, since the
   tournament may have been deleted (or the caller's access revoked) in the
   meantime.
   """
@@ -266,7 +266,7 @@ defmodule PairingsEngine.Tournaments do
           (t.user_id == ^user.id or t.id in subquery(collaborator_tournament_ids(user)))
   end
 
-  # Only *accepted* collaborator rows grant access — a pending invite (added
+  # Only *accepted* collaborator rows grant access - a pending invite (added
   # but not yet accepted via `/invites/:token`, see `accept_invitation/2`)
   # must not unlock the tournament for anyone. This is the single choke
   # point both `authorized_tournament_query/2` and `list_tournaments/1` go
@@ -277,7 +277,7 @@ defmodule PairingsEngine.Tournaments do
       select: c.tournament_id
   end
 
-  ## Collaborators (tournament sharing by email — see docs/teams.md)
+  ## Collaborators (tournament sharing by email - see docs/teams.md)
 
   @doc "Lists a tournament's collaborators (pending and active), most recently added first."
   def list_collaborators(%Tournament{} = tournament) do
@@ -289,10 +289,10 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
-  Invites `email` to collaborate on `tournament`. Owner-only — returns
+  Invites `email` to collaborate on `tournament`. Owner-only - returns
   `{:error, :not_owner}` unless `scope.user` is the tournament's owner.
 
-  This grants **no access by itself** — it creates a `status: "pending"`
+  This grants **no access by itself** - it creates a `status: "pending"`
   row with a fresh `invite_token` and emails that person a link to
   `/invites/:token` (see `PairingsEngineWeb.InviteLive`), where they must
   explicitly accept (`accept_invitation/2`) before `collaborator_tournament_ids/1`
@@ -303,7 +303,7 @@ defmodule PairingsEngine.Tournaments do
   email and a duplicate email gracefully rather than raising.
 
   Returns `{:ok, collaborator}` on success, where `collaborator.mail_status`
-  (a virtual field, not persisted) is `:sent` or `:failed` — the row is
+  (a virtual field, not persisted) is `:sent` or `:failed` - the row is
   still created even if the invitation email couldn't be delivered (e.g. an
   SMTP hiccup), so the owner can share `/invites/<invite_token>` manually.
   """
@@ -353,7 +353,7 @@ defmodule PairingsEngine.Tournaments do
     end
   end
 
-  # Never lets a mailer exception (e.g. an SMTP hiccup) crash the caller —
+  # Never lets a mailer exception (e.g. an SMTP hiccup) crash the caller -
   # the collaborator row above is already committed, so a failed send just
   # means the owner has to share the invite link manually.
   defp deliver_invitation_email(owner, tournament, collaborator) do
@@ -375,8 +375,8 @@ defmodule PairingsEngine.Tournaments do
     do: :crypto.strong_rand_bytes(16) |> Base.url_encode64(padding: false)
 
   @doc """
-  Removes a collaborator from `tournament` — whether still pending or
-  already accepted. Owner-only — returns `{:error, :not_owner}` unless
+  Removes a collaborator from `tournament` - whether still pending or
+  already accepted. Owner-only - returns `{:error, :not_owner}` unless
   `scope.user` is the tournament's owner, and `{:error, :not_found}` if
   `collaborator_id` isn't one of this tournament's collaborators. For a
   pending row, this revokes the invitation outright.
@@ -400,7 +400,7 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
-  Lets a collaborator remove *themselves* from a shared tournament — the
+  Lets a collaborator remove *themselves* from a shared tournament - the
   self-service counterpart to `remove_collaborator/3`, which is owner-only
   (an owner can't "leave" their own tournament; they delete it instead).
 
@@ -429,7 +429,7 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
-  Lists the scope's user's pending invitations — collaborator rows with
+  Lists the scope's user's pending invitations - collaborator rows with
   `status: "pending"` matched by `user_id` (already linked, see
   `link_pending_collaborators/1`) or by `email` (not yet linked). Returns
   `%{collaborator: Collaborator.t(), tournament: Tournament.t(), owner_email: String.t()}`
@@ -452,7 +452,7 @@ defmodule PairingsEngine.Tournaments do
 
   @doc """
   Accepts a pending invitation, identified by its `invite_token` or its
-  `id` — see `find_invitation/1`. Requires the scope's user's email to
+  `id` - see `find_invitation/1`. Requires the scope's user's email to
   match the invitation's email (case-insensitively); returns
   `{:error, :email_mismatch}` otherwise, so a logged-in user can't accept an
   invite that was sent to someone else. Returns `{:error, :not_found}` if
@@ -481,7 +481,7 @@ defmodule PairingsEngine.Tournaments do
 
   @doc """
   Declines a pending invitation, identified by its `invite_token` or its
-  `id` — deletes the row outright. Requires the scope's user's email to
+  `id` - deletes the row outright. Requires the scope's user's email to
   match the invitation's email (case-insensitively), same as
   `accept_invitation/2`. Returns `{:error, :not_found}` or
   `{:error, :email_mismatch}`.
@@ -507,7 +507,7 @@ defmodule PairingsEngine.Tournaments do
   or, as a fallback, its numeric `id`. Returns `nil` if neither matches.
 
   Only ever call this where the caller then proves the row is the current
-  user's — `accept_invitation/2` and `decline_invitation/2` both check the
+  user's - `accept_invitation/2` and `decline_invitation/2` both check the
   logged-in email against the invitation's, which is what makes the `id`
   branch safe for the in-app accept/decline buttons (they carry a
   collaborator id, not a token). Anything that *renders* an invitation must
@@ -523,7 +523,7 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
-  Finds a collaborator row by its `invite_token` only — never by id, so a
+  Finds a collaborator row by its `invite_token` only - never by id, so a
   guessed URL segment can't reach someone else's invitation. Returns `nil`
   for a blank token, so an empty segment can't match rows whose token has
   been cleared (`accept_invitation/2` nils it out).
@@ -540,8 +540,8 @@ defmodule PairingsEngine.Tournaments do
   every login (see `PairingsEngineWeb.UserAuth.log_in_user/3`) so a
   freshly-registered invitee can find their invitation under `user_id` too,
   and so `list_pending_invitations/1` picks it up without needing an exact
-  email match. This alone still grants **no access** — the invite stays
-  `status: "pending"` until explicitly accepted. Idempotent — a no-op once
+  email match. This alone still grants **no access** - the invite stays
+  `status: "pending"` until explicitly accepted. Idempotent - a no-op once
   every matching row is already linked.
   """
   def link_pending_collaborators(%User{} = user) do
@@ -613,7 +613,7 @@ defmodule PairingsEngine.Tournaments do
   #
   # These were previously enforced only by the Settings LiveViews (disabled
   # inputs plus a strip of the submitted params). That is not enforcement:
-  # any other caller — another LiveView, a script, a future code path —
+  # any other caller - another LiveView, a script, a future code path -
   # went straight through. Same lesson as the archive guard: the check has
   # to live where the write does.
   #
@@ -637,7 +637,7 @@ defmodule PairingsEngine.Tournaments do
       []
     else
       # A round robin's cycle count only locks once the rounds already paired
-      # reach what the current setting implies the schedule needs — before
+      # reach what the current setting implies the schedule needs - before
       # that, switching single/double is still harmless (see
       # `RoundRobin.schedule/3`: round N is identical either way while N is
       # inside cycle 1).
@@ -649,7 +649,7 @@ defmodule PairingsEngine.Tournaments do
       # whichever one was configured at the time. Swapping engines mid-event
       # hands the new one a history it did not produce, and every colour /
       # float / rematch judgement from then on is made against a bracket
-      # shape the previous engine chose — the same "silently reinterprets
+      # shape the previous engine chose - the same "silently reinterprets
       # rounds that already exist" failure this whole list guards.
       base = ~w(pairing_system pairing_engine rr_match_format swiss_match_format
                 pair_by_category abs_value abs_jusque abs_nbfois)a
@@ -662,7 +662,7 @@ defmodule PairingsEngine.Tournaments do
   `:ok` unless `attrs` would actually *change* one of `locked_fields/1`.
 
   Compares against the current value rather than merely spotting the key, so
-  a form that round-trips an unchanged locked field (the ordinary case — the
+  a form that round-trips an unchanged locked field (the ordinary case - the
   input is disabled but still submitted) is not refused.
   """
   @spec ensure_unlocked(Tournament.t(), map()) :: :ok | {:error, :locked_after_pairing}
@@ -688,7 +688,7 @@ defmodule PairingsEngine.Tournaments do
   end
 
   # Params arrive as strings from a form but as native types from a script,
-  # so compare through the schema's own cast rather than by raw equality —
+  # so compare through the schema's own cast rather than by raw equality -
   # otherwise `"keizer"` vs `:keizer`, or `"2"` vs `2`, reads as a change
   # when it isn't (or worse, as no change when it is).
   defp changes_value?(tournament, field, value) do
@@ -708,24 +708,24 @@ defmodule PairingsEngine.Tournaments do
     end)
   end
 
-  ## ---------- Logo (SWAR parity #14-16 — place cards) ----------
+  ## ---------- Logo (SWAR parity #14-16 - place cards) ----------
   #
   # Per-tournament print logo, stored as a DB blob (`tournaments.logo_data`
-  # + `logo_content_type`) so backups/deploys carry it — no filesystem or
+  # + `logo_content_type`) so backups/deploys carry it - no filesystem or
   # upload-dir question. Both fields are deliberately NOT cast by
   # `Tournament.changeset/2` (see that schema's comment), so an ordinary
   # settings-form save can never clobber the blob; these two functions are
   # the only writers.
 
-  # A print logo has no business being larger than this — it's stored in
+  # A print logo has no business being larger than this - it's stored in
   # the DB and shipped in every JSON backup.
   @max_logo_bytes 2_000_000
 
   @doc """
   Sets `tournament`'s print logo (embedded as a base64 `data:` URI by
-  `PairingsEngineWeb.PrintController` — see `docs/printing.md`) after
+  `PairingsEngineWeb.PrintController` - see `docs/printing.md`) after
   verifying `binary` is actually one of the accepted raster image types, by
-  its real file signature (magic bytes) — never by a filename extension or
+  its real file signature (magic bytes) - never by a filename extension or
   the browser-supplied content-type, both of which are attacker-controlled.
   SVG is deliberately never accepted, no matter how it's labelled: it's an
   XML document that can carry scripts, and this blob is rendered straight
@@ -734,7 +734,7 @@ defmodule PairingsEngine.Tournaments do
   the size cap.
 
   Returns `{:error, :invalid_image}` (never touching the row) for anything
-  that fails validation — the caller (`SettingsLive`) turns that into a
+  that fails validation - the caller (`SettingsLive`) turns that into a
   friendly flash rather than ever storing unvalidated bytes.
   """
   @spec set_logo(Tournament.t(), binary()) ::
@@ -773,7 +773,7 @@ defmodule PairingsEngine.Tournaments do
   #
   # The public read-only pages (/p/:slug/...) expose player names, ratings,
   # clubs and federations to anyone with the link. These two functions are the
-  # off switch and the "the link leaked" recovery for that — `public_slug` and
+  # off switch and the "the link leaked" recovery for that - `public_slug` and
   # `public_pages_enabled` are both deliberately outside `Tournament.changeset/2`,
   # so an ordinary settings save can neither disable sharing nor rotate a link
   # by accident; these are the only writers.
@@ -837,7 +837,7 @@ defmodule PairingsEngine.Tournaments do
   Registers a player from the public form.
 
   Always lands them **absent**. Someone filling in a web form has announced
-  an intention, not turned up — the arbiter marks them present when they
+  an intention, not turned up - the arbiter marks them present when they
   actually do. Getting this backwards would silently pair a no-show and
   hand their opponent a forfeit win, so `absent: true` is forced here
   rather than taken from the submitted params.
@@ -886,16 +886,16 @@ defmodule PairingsEngine.Tournaments do
   @doc """
   Sniffs `binary`'s real file-format signature and returns
   `{:ok, verified_content_type}` for one of the accepted raster types, or
-  `:error` for anything else — including a well-formed SVG (never accepted,
+  `:error` for anything else - including a well-formed SVG (never accepted,
   see `set_logo/2`) or anything over #{@max_logo_bytes} bytes.
 
-  Signatures checked (first matching bytes win, order doesn't matter — the
+  Signatures checked (first matching bytes win, order doesn't matter - the
   four are mutually exclusive):
 
-    * PNG  — the 8-byte PNG signature `\\x89 P N G \\r \\n \\x1a \\n`
-    * JPEG — the `\\xFF \\xD8 \\xFF` SOI marker
-    * GIF  — `GIF87a` or `GIF89a`
-    * WebP — a RIFF container carrying a `WEBP` fourcc (`RIFF????WEBP`)
+    * PNG  - the 8-byte PNG signature `\\x89 P N G \\r \\n \\x1a \\n`
+    * JPEG - the `\\xFF \\xD8 \\xFF` SOI marker
+    * GIF  - `GIF87a` or `GIF89a`
+    * WebP - a RIFF container carrying a `WEBP` fourcc (`RIFF????WEBP`)
   """
   @spec detect_image_type(binary()) :: {:ok, String.t()} | :error
   def detect_image_type(binary) when is_binary(binary) do
@@ -927,7 +927,7 @@ defmodule PairingsEngine.Tournaments do
   ## ---------- Recycle bin (soft delete, 3-month retention) ----------
   #
   # Deleting a tournament from the Tournaments page no longer hard-deletes
-  # it outright — it sets `deleted_at`, which every normal listing/fetch
+  # it outright - it sets `deleted_at`, which every normal listing/fetch
   # path above (`list_tournaments/1`, `get_tournament!/1`,
   # `get_tournament_by_public_slug/1`, `get_user_tournament!/2`,
   # `get_user_tournament/2`, `get_authorized_tournament!/2`,
@@ -941,7 +941,7 @@ defmodule PairingsEngine.Tournaments do
   @recycle_bin_retention_days 90
 
   @doc """
-  Moves `tournament` to the recycle bin — sets `deleted_at` to now (truncated
+  Moves `tournament` to the recycle bin - sets `deleted_at` to now (truncated
   to the second) instead of deleting the row. From this point on every
   normal fetch/listing path treats it as gone; `restore_tournament/1` undoes
   this, `purge_tournament/1` finishes the job for real. Broadcasts on the
@@ -959,7 +959,7 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
-  Restores `tournament` out of the recycle bin — clears `deleted_at`, so it
+  Restores `tournament` out of the recycle bin - clears `deleted_at`, so it
   reappears everywhere `soft_delete_tournament/1` made it disappear from.
   Broadcasts the same as `soft_delete_tournament/1`.
   """
@@ -974,7 +974,7 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
-  The real, irreversible hard delete — cascades exactly like
+  The real, irreversible hard delete - cascades exactly like
   `delete_tournament/1` (which this now backs), used both for the owner's
   "Delete permanently" action from the recycle bin and by
   `purge_expired_tournaments/0`'s automatic sweep.
@@ -983,7 +983,7 @@ defmodule PairingsEngine.Tournaments do
 
   @doc """
   Lists the scope's user's own recycle-binned tournaments (`deleted_at` set),
-  most recently deleted first — collaborator-shared tournaments never show
+  most recently deleted first - collaborator-shared tournaments never show
   up here, since only the owner can delete (and therefore restore/purge)
   one. Used by the "Recycle bin" panel on the Tournaments page.
   """
@@ -998,7 +998,7 @@ defmodule PairingsEngine.Tournaments do
   @doc """
   Hard-deletes every tournament that's been in the recycle bin for more than
   #{@recycle_bin_retention_days} days. Meant to be called lazily (see
-  `TournamentsLive`'s mount/handle_params) rather than on a schedule — cheap
+  `TournamentsLive`'s mount/handle_params) rather than on a schedule - cheap
   enough to run on every page load, and self-correcting if a deploy misses a
   few days. Returns the number of tournaments purged.
   """
@@ -1016,7 +1016,7 @@ defmodule PairingsEngine.Tournaments do
   ## ---------- Archive (frozen read-only, kept forever) ----------
   #
   # Distinct from the recycle bin above in both intent and mechanics. The bin
-  # is "on its way out" — hidden everywhere, auto-purged after 90 days.
+  # is "on its way out" - hidden everywhere, auto-purged after 90 days.
   # Archiving is "done with this one, keep it forever, just stop anyone
   # changing it by accident": the tournament stays fully readable (its own
   # pages, its public pages, its exports and prints all keep working), it just
@@ -1024,11 +1024,11 @@ defmodule PairingsEngine.Tournaments do
   #
   # The read-only part is enforced by `ensure_writable/1` at each write path
   # rather than by hiding the tournament, precisely because it must stay
-  # viewable — a listing-level filter (the bin's mechanism) would be the wrong
+  # viewable - a listing-level filter (the bin's mechanism) would be the wrong
   # tool.
 
   @doc """
-  Archives `tournament` — sets `archived_at` to now (truncated to the
+  Archives `tournament` - sets `archived_at` to now (truncated to the
   second). From this point every write path refuses with `{:error, :archived}`
   until `unarchive_tournament/1` clears it; reads are entirely unaffected.
   Broadcasts on both the tournament topic and the owner's list topic so open
@@ -1046,7 +1046,7 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
-  Unarchives `tournament` — clears `archived_at`, making it writable again.
+  Unarchives `tournament` - clears `archived_at`, making it writable again.
   Broadcasts the same as `archive_tournament/1`.
   """
   @spec unarchive_tournament(Tournament.t()) ::
@@ -1068,11 +1068,11 @@ defmodule PairingsEngine.Tournaments do
 
   @doc """
   Lists archived tournaments the scope's user owns or collaborates on, most
-  recently archived first — the archived counterpart to `list_tournaments/1`,
+  recently archived first - the archived counterpart to `list_tournaments/1`,
   same shape: `{tournament, owner?}` tuples so the UI can show a "shared"
   badge and gate Delete (owner-only) vs Leave (collaborator-only) the same
   way the main table does. Unlike the recycle bin (`list_deleted_tournaments/1`,
-  still owner-only — deleting is destructive and stays an owner-only call),
+  still owner-only - deleting is destructive and stays an owner-only call),
   archiving is a shared-tournament action collaborators can take too (see
   `archive_tournament/1`'s callers), so they need to be able to find the
   tournament again afterward.
@@ -1096,13 +1096,13 @@ defmodule PairingsEngine.Tournaments do
   :archived}` when it's archived.
 
   Called at the top of every state-changing function in this module (and by
-  `PairingsEngine.Pairing`), rather than relying on the UI to hide buttons —
+  `PairingsEngine.Pairing`), rather than relying on the UI to hide buttons -
   a stale open tab, a queued LiveView event, or a direct context call from
   a script must all be refused too.
 
   Accepts a `%Tournament{}`, a tournament id, or (for the write paths that
   only hold a child row) `nil`, which is treated as writable since there is
-  no tournament to check — callers that can resolve one should.
+  no tournament to check - callers that can resolve one should.
   """
   @spec ensure_writable(Tournament.t() | integer() | nil) :: :ok | {:error, :archived}
   def ensure_writable(nil), do: :ok
@@ -1124,8 +1124,8 @@ defmodule PairingsEngine.Tournaments do
   Freezes `PairingDisplay`'s board labels/classification for every pairing
   in `round_id`, using each player's `fixed_board` value AS OF RIGHT NOW.
 
-  Call this exactly once, right after a round's pairings are inserted —
-  ordinary pairing, round-robin, Keizer, or an import/restore — and never
+  Call this exactly once, right after a round's pairings are inserted -
+  ordinary pairing, round-robin, Keizer, or an import/restore - and never
   again for that round afterward. This is what stops a later edit to a
   player's `fixed_board` (e.g. on the Players page) from retroactively
   renumbering an already-paired round's boards while people are already
@@ -1198,7 +1198,7 @@ defmodule PairingsEngine.Tournaments do
   `get_authorized_tournament!/2` gated the mount, so it is attacker-controlled
   and authorising the tournament proves nothing about the row. Raises
   `Ecto.NoResultsError` for a player in some other arbiter's tournament, exactly
-  as it does for one that doesn't exist — a caller cannot tell the difference,
+  as it does for one that doesn't exist - a caller cannot tell the difference,
   and cannot act on the row either way.
   """
   def get_player!(tournament_id, id),
@@ -1206,7 +1206,7 @@ defmodule PairingsEngine.Tournaments do
 
   @doc """
   Like `get_player!/2` but returns `nil` instead of raising when the player
-  doesn't exist in this tournament — and, unlike the bang version, tolerates
+  doesn't exist in this tournament - and, unlike the bang version, tolerates
   a non-integer `id` string (a stale or crafted client value) by treating it
   as "not found" rather than letting an `Ecto.Query.CastError` crash the
   caller. Use this in LiveView event handlers, which receive `id` straight
@@ -1268,11 +1268,11 @@ defmodule PairingsEngine.Tournaments do
   # FIDE C.04.2.B.3: a player's pairing number (TPN) may be adjusted while
   # the "List of Participants" is still effectively open (late entries,
   # early data-entry corrections), but "no modification of a TPN ... is
-  # allowed after the fourth round has been paired" — every already-played
+  # allowed after the fourth round has been paired" - every already-played
   # round's opponent references are keyed on that number, so reshuffling it
   # later silently corrupts what "round 2, board 5" actually meant.
   #
-  # Only guards an *existing* number being changed to a different one —
+  # Only guards an *existing* number being changed to a different one -
   # `Pairing.ensure_pairing_numbers/2` assigning a fresh number to a player
   # who never had one (nil -> N, e.g. a late entry joining after round 4)
   # is unaffected, exactly as FIDE's own rule allows.
@@ -1310,7 +1310,7 @@ defmodule PairingsEngine.Tournaments do
   @doc """
   Applies `updates` (a list of `{%Player{}, attrs}` pairs) in a single
   transaction and fires exactly one `tournament_changed` broadcast on
-  success — used by `PairingsEngine.RatingRefresh.apply/2` so a bulk rating
+  success - used by `PairingsEngine.RatingRefresh.apply/2` so a bulk rating
   refresh doesn't flood open LiveViews with one broadcast per player.
   Rolls back (returning `{:error, changeset}`) if any single update fails
   validation.
@@ -1340,12 +1340,12 @@ defmodule PairingsEngine.Tournaments do
 
   @doc """
   Sets the whole-tournament `absent` flag on every player in `tournament_id`
-  to `absent?` — the "All Absent" / "All Present" right-click action on the
+  to `absent?` - the "All Absent" / "All Present" right-click action on the
   Players grid's Pr. column header.
 
   Deliberately touches ONLY that one boolean. `absent_rounds` (the
   per-round SWAR notation, see `PairingsEngineWeb.PlayersLive`'s `cell/2`
-  "pr" clause) is left exactly as each player had it — this is the
+  "pr" clause) is left exactly as each player had it - this is the
   generally-present/generally-absent switch, not a bulk edit of who is
   out for which specific round. One transaction, one broadcast, via
   `bulk_update_players/2`.
@@ -1357,7 +1357,7 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
-  Sets the registration-fee status on every player in `tournament_id` — the
+  Sets the registration-fee status on every player in `tournament_id` - the
   "All ..." right-click action on the Players grid's Paid column header, the
   same shape as `set_all_players_absent/2` above.
 
@@ -1378,17 +1378,17 @@ defmodule PairingsEngine.Tournaments do
 
   @doc """
   Applies `tournament.extra_points_bands` (SWAR parity #12 Elo-band
-  auto-assign — see `PairingsEngine.Tournaments.Tournament.band_extra_points/2`
+  auto-assign - see `PairingsEngine.Tournaments.Tournament.band_extra_points/2`
   and `docs/extra-points.md`) to every player in the tournament, **overwriting**
-  each player's `extra_points` — a player matching no band is set back to
+  each player's `extra_points` - a player matching no band is set back to
   `0.0`, not left alone, so re-running after a rating change (or a bands
   edit) always reflects the current rule rather than layering on top of a
   stale prior run. A single transaction, one `tournament_changed` broadcast
   (via `bulk_update_players/2`), same pattern as `PairingsEngine.RatingRefresh.apply/2`.
 
-  Returns `{:ok, %{matched: n, total: m}}` — `matched` counts players whose
+  Returns `{:ok, %{matched: n, total: m}}` - `matched` counts players whose
   rating fell under at least one band (bonus > 0.0), `total` every player in
-  the tournament — for the "Set extra points for N of M players" summary on
+  the tournament - for the "Set extra points for N of M players" summary on
   the Settings page. Returns `{:error, :invalid_bands}` if
   `extra_points_bands` doesn't parse (shouldn't happen for a value that went
   through `Tournament.changeset/2`, but this function doesn't assume that).
@@ -1420,21 +1420,21 @@ defmodule PairingsEngine.Tournaments do
 
   @doc """
   Applies `tournament.category_rules` to every player, **overwriting**
-  each player's `category` — same shape as `apply_extra_points_bands/1`.
+  each player's `category` - same shape as `apply_extra_points_bands/1`.
   Unconditional: a player who matches no rule is set back to `""`, not
   left alone, so re-running after a rating update (or a rule edit) always
-  reflects the current rules rather than a stale prior run — and, as a
+  reflects the current rules rather than a stale prior run - and, as a
   direct consequence, running this DOES clear any category the arbiter
   set by hand that doesn't happen to also be a ruled category's match.
   Only meant for tournaments where category is fully rule-driven; a mix
   of ruled and hand-picked categories doesn't survive a re-run.
 
   Reuses `preview_auto_assign_categories/1` for the actual assignment
-  decisions — this function's only job beyond that is turning the preview
+  decisions - this function's only job beyond that is turning the preview
   into writes, so the preview shown to the arbiter and what actually gets
   written can never drift apart. One transaction, one broadcast
-  (`bulk_update_players/2`). Returns `{:ok, %{matched: n, total: m}}` —
-  `matched` counts players who landed in a RULED category (not `""`) — for
+  (`bulk_update_players/2`). Returns `{:ok, %{matched: n, total: m}}` -
+  `matched` counts players who landed in a RULED category (not `""`) - for
   the same "Assigned N of M players" summary `ExtraPointsLive` shows for its
   own bulk rule application.
   """
@@ -1456,7 +1456,7 @@ defmodule PairingsEngine.Tournaments do
 
   @doc """
   Computes what `auto_assign_categories/1` WOULD do to every player,
-  without writing anything — the single source of truth for "what does the
+  without writing anything - the single source of truth for "what does the
   rule decide" that both the dry-run preview and the real write path share,
   so they can never drift apart. Read-only: does not check `ensure_writable/1`
   itself, since previewing an archived tournament is harmless (only the
@@ -1465,7 +1465,7 @@ defmodule PairingsEngine.Tournaments do
 
   Returns one entry per player, in `list_players/1` order:
   `%{player: player, from: player.category, to: rule_decision}`. A player
-  whose `from == to` is not filtered out here — callers that only want the
+  whose `from == to` is not filtered out here - callers that only want the
   players who'd actually change (e.g. the confirm-modal diff) should filter
   on that themselves; callers that want the full roster (e.g. computing
   `matched`/`total`) get it as-is.
@@ -1489,14 +1489,14 @@ defmodule PairingsEngine.Tournaments do
   # See docs/manual-standings.md for the full write-up: seeding, the
   # staleness mechanism, and why Keizer tournaments don't offer this. Short
   # version: `tournament.manual_ranking` lets the arbiter hand-order the
-  # standings display via `players.manual_rank` — always a plain positive
+  # standings display via `players.manual_rank` - always a plain positive
   # `1..N` value (or `nil` for a never-placed player), never sign-encoded.
   # Staleness lives on `tournaments.manual_ranking_stale` (one row, set by
   # `invalidate_manual_ranking/1` below and read back by
   # `PairingsEngine.Standings.manual_ranking_stale?/1`). This never touches
   # points/tiebreaks, only which `:rank` gets displayed
   # (`PairingsEngine.Standings.apply_manual_ranking/2`). Nothing here
-  # special-cases Keizer — the only caller of these functions
+  # special-cases Keizer - the only caller of these functions
   # (`StandingsLive`) simply never shows the controls when
   # `pairing_system == "keizer"`.
 
@@ -1504,7 +1504,7 @@ defmodule PairingsEngine.Tournaments do
   Turns manual ranking on for `tournament` and seeds every player's
   `manual_rank` from the current computed standings order (SWAR parity #23
   requirement: seed from the real standings, not an empty/arbitrary list).
-  Safe to call even when manual ranking is already on — always reseeds
+  Safe to call even when manual ranking is already on - always reseeds
   fresh, same effect as `reseed_manual_ranking/1` (kept as a separate name
   because the call site reads better either way: "turn it on" vs. "fix it
   up").
@@ -1517,7 +1517,7 @@ defmodule PairingsEngine.Tournaments do
 
   @doc """
   Turns manual ranking off. Leaves every player's `manual_rank` value in
-  place (harmless while off — nothing reads it) so switching back on later
+  place (harmless while off - nothing reads it) so switching back on later
   starts from a familiar state before `enable_manual_ranking/1` reseeds it
   fresh, rather than needing to be rebuilt from scratch.
   """
@@ -1539,7 +1539,7 @@ defmodule PairingsEngine.Tournaments do
 
   @doc """
   Re-seeds `tournament`'s manual order from the current computed standings
-  (`PairingsEngine.Standings.standings/1`) — every player's `manual_rank`
+  (`PairingsEngine.Standings.standings/1`) - every player's `manual_rank`
   is set to their current tiebreak rank (a plain positive `1..N` value),
   and `tournaments.manual_ranking_stale` is cleared. This is both how
   `enable_manual_ranking/1` seeds the first time and the arbiter's explicit
@@ -1579,7 +1579,7 @@ defmodule PairingsEngine.Tournaments do
   current position at all (shouldn't happen once seeded, but the roster
   can move while manual ranking is off).
 
-  An explicit reorder also confirms the whole list is fresh — even from a
+  An explicit reorder also confirms the whole list is fresh - even from a
   stale (or partially-unseeded) state, moving a player renumbers every
   player 1..N from the *current* display order and clears
   `tournaments.manual_ranking_stale`. The arbiter looking at the list and
@@ -1613,11 +1613,11 @@ defmodule PairingsEngine.Tournaments do
     end
   end
 
-  # Current manual order, nulls (never-seeded players) last — the same
+  # Current manual order, nulls (never-seeded players) last - the same
   # "rank, nil-last" ordering `PairingsEngine.Standings.apply_manual_ranking/2`
   # displays, computed here directly off `manual_rank` since we need the
   # actual `%Player{}` structs to write back, not just display entries.
-  # `manual_rank` is always a plain positive `1..N` value (or `nil`) — no
+  # `manual_rank` is always a plain positive `1..N` value (or `nil`) - no
   # sign smuggling, see the moduledoc above.
   defp manual_rank_ordered_players(tournament_id) do
     tournament_id
@@ -1640,31 +1640,31 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
-  SWAR parity #23 requirement 5: a result (or bye — see
+  SWAR parity #23 requirement 5: a result (or bye - see
   `PairingsEngine.Pairing`) changing invalidates a previously hand-set
   manual order without discarding it. Sets `tournaments.manual_ranking_stale`
-  to `true` in a single one-row update — the hand-set `players.manual_rank`
+  to `true` in a single one-row update - the hand-set `players.manual_rank`
   values are left completely untouched, so the order itself survives
   intact; only the "is this still trustworthy" flag changes. This is
   exactly the bit `PairingsEngine.Standings.manual_ranking_stale?/1` reads.
-  Idempotent — setting an already-true flag is a no-op write, just like
+  Idempotent - setting an already-true flag is a no-op write, just like
   the sign-flip approach it replaced was WHERE-clause idempotent.
   See docs/manual-standings.md.
 
   Gated on `manual_ranking` so a tournament that never uses this feature
   (or has switched it off) never pays for the extra write on every
   result/bye write, and so a since-disabled tournament's flag doesn't get
-  needlessly marked stale — irrelevant anyway since
+  needlessly marked stale - irrelevant anyway since
   `enable_manual_ranking/1` always reseeds fresh (and clears staleness).
 
   Public (not just called from this module's own `update_pairing_result/2`)
-  because `PairingsEngine.Pairing` — the pairing engine, which is where
-  byes are written — needs the same hook. Both call sites are required to
+  because `PairingsEngine.Pairing` - the pairing engine, which is where
+  byes are written - needs the same hook. Both call sites are required to
   invalidate **before** broadcasting `:tournament_changed` on the
   tournament's topic: a subscriber (StandingsLive, PublicStandingsLive,
   ...) reacts to that broadcast by immediately re-reading the DB, so
   committing this write first means every reload the broadcast triggers
-  already observes the stale flag — never a race where a subscriber
+  already observes the stale flag - never a race where a subscriber
   renders one look-fresh frame before the flag lands.
   """
   def invalidate_manual_ranking(tournament_id) do
@@ -1683,17 +1683,17 @@ defmodule PairingsEngine.Tournaments do
     Repo.all(from t in Team, where: t.tournament_id == ^tournament_id, order_by: t.name)
   end
 
-  ## Forbidden pairings (arbiter-configured "never pair these two" — see
+  ## Forbidden pairings (arbiter-configured "never pair these two" - see
   ## docs/forbidden-pairings.md). A tournament-configuration write like
   ## `update_tournament/2` above: any authorized user (owner or accepted
   ## collaborator, per `get_authorized_tournament!/2`) may manage these, not
-  ## just the owner — there's no separate ownership check here, same as the
+  ## just the owner - there's no separate ownership check here, same as the
   ## general Settings form.
 
   @doc """
   Lists `tournament`'s forbidden pairings, most recently added first, with
   both players preloaded as `:player_a` / `:player_b` so the UI can render
-  "Name A — Name B" without a second query per row.
+  "Name A - Name B" without a second query per row.
   """
   def list_forbidden_pairings(tournament_id) do
     Repo.all(
@@ -1709,13 +1709,13 @@ defmodule PairingsEngine.Tournaments do
   each other in `tournament`. Returns `{:error, reason}` without writing
   anything for any of these:
 
-    * `:same_player` — `player_a_id == player_b_id`
-    * `:invalid_player` — either id doesn't belong to `tournament`
-    * `:already_forbidden` — the pair is already forbidden, in either order
+    * `:same_player` - `player_a_id == player_b_id`
+    * `:invalid_player` - either id doesn't belong to `tournament`
+    * `:already_forbidden` - the pair is already forbidden, in either order
       (`{a, b}` and `{b, a}` are the same pair)
 
   Otherwise inserts the row and broadcasts `:settings` on the tournament's
-  topic (same hint `update_tournament/2` uses — both are tournament
+  topic (same hint `update_tournament/2` uses - both are tournament
   configuration, so the Settings page reload path is identical).
   """
   def add_forbidden_pairing(%Tournament{} = tournament, player_a_id, player_b_id) do
@@ -1805,27 +1805,27 @@ defmodule PairingsEngine.Tournaments do
   #
   # Whether a round is visible on /p/:slug/pairings, controlled by the
   # tournament's `publish_mode`. Doesn't touch `public_pages_enabled` at
-  # all — that's the coarser whole-tournament switch; this is per-round,
+  # all - that's the coarser whole-tournament switch; this is per-round,
   # on TOP of it.
 
   @doc """
   What `round.published_at` should be set to at the moment a round is
-  paired, given `tournament.publish_mode` — called once, by every
+  paired, given `tournament.publish_mode` - called once, by every
   pairing-engine call site that inserts a `%Round{}`
   (`PairingsEngine.Pairing`/`RoundRobin`/`Keizer`), never recomputed
   afterward. `nil` means "not published" (only reachable under "manual",
   since the other three modes always resolve to a concrete instant).
 
-  - `"immediate"` — `now`. Also what `round_published?/2` treats EVERY
+  - `"immediate"` - `now`. Also what `round_published?/2` treats EVERY
     round as regardless of this value (see that function's own comment),
-    so the exact instant doesn't actually matter for visibility here —
+    so the exact instant doesn't actually matter for visibility here -
     computed anyway for a truthful `published_at` if anything ever reads
     it directly.
-  - `"manual"` — `nil`. Stays that way until `publish_round_now/1`.
-  - `"timed"` — `now + publish_delay_minutes`.
-  - `"scheduled"` — midnight UTC on that round's own date from
+  - `"manual"` - `nil`. Stays that way until `publish_round_now/1`.
+  - `"timed"` - `now + publish_delay_minutes`.
+  - `"scheduled"` - midnight UTC on that round's own date from
     `tournament.round_dates` (1-indexed by `round_number`). Falls back to
-    `now` when that date is missing/blank/unparseable — pairing must
+    `now` when that date is missing/blank/unparseable - pairing must
     never silently produce a round that can never become visible because
     nobody filled in a date.
   """
@@ -1858,14 +1858,14 @@ defmodule PairingsEngine.Tournaments do
   Whether `round` is currently visible on the public pairings page.
 
   "immediate" mode ignores `round.published_at` entirely and always
-  returns `true` — deliberately, not an oversight: it's both today's
+  returns `true` - deliberately, not an oversight: it's both today's
   actual behaviour (a round has always been public the instant it
   exists) AND what makes this feature safe to ship with no backfill.
   `rounds.published_at` was added with no data migration, so every round
   paired before this feature existed has `published_at: nil`; without
   this special case they'd all retroactively vanish from public pages
   the moment this shipped. Every OTHER mode is a real timestamp
-  comparison — a round from "manual"/"timed"/"scheduled" is public once
+  comparison - a round from "manual"/"timed"/"scheduled" is public once
   `published_at` exists and isn't in the future.
   """
   @spec round_published?(Tournament.t(), Round.t()) :: boolean()
@@ -1878,7 +1878,7 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
-  Makes `round` visible right now, regardless of `publish_mode` — the
+  Makes `round` visible right now, regardless of `publish_mode` - the
   manual override available in every mode, not just "manual" (a
   "scheduled" or "timed" round can always be published early by hand;
   nothing about picking an automatic mode should mean you're stuck
@@ -1897,13 +1897,13 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
-  Hides `round` from the public pairings page again — clears
+  Hides `round` from the public pairings page again - clears
   `published_at` back to `nil`. Available regardless of mode, same
   reasoning as `publish_round_now/1`'s own doc: an arbiter who published
   something by mistake (or too early) needs a way back, not just a way
   forward. A no-op in "immediate" mode as far as the public page is
   concerned (`round_published?/2` never looks at `published_at` there),
-  which is intentional, not a bug to work around — "immediate" means
+  which is intentional, not a bug to work around - "immediate" means
   "always public", full stop; hiding a round is only meaningful once
   you've opted into one of the other three modes.
   """
@@ -1919,7 +1919,7 @@ defmodule PairingsEngine.Tournaments do
 
   @doc """
   The highest round NUMBER currently visible on the public pairings
-  page — `PublicPairingsLive`'s equivalent of
+  page - `PublicPairingsLive`'s equivalent of
   `PairingsEngine.Pairing.paired_rounds_count/1`, which only knows about
   PAIRED rounds, not published ones. `0` when nothing is public yet
   (including "nothing paired at all", same as `paired_rounds_count/1`).
@@ -1942,14 +1942,14 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
-  Byes-table rows (`"requested-half"` / `"requested-zero"` / `"absent"` —
+  Byes-table rows (`"requested-half"` / `"requested-zero"` / `"absent"` -
   see `PairingsEngine.Standings.add_bye_records/3` for the exact scoring
   rule per type) for `tournament_id` in round `number`, each with its
   `%Player{}` preloaded as `:player`.
 
   These are DIFFERENT from a pairing-allocated bye (a real `Pairing` row
   with `black_player_id: nil, result: "bye"`, already visible via
-  `get_round/2`'s `round.pairings`) — a byes-table row never appears in
+  `get_round/2`'s `round.pairings`) - a byes-table row never appears in
   `round.pairings`, so callers that only render `round.pairings` (as
   PairingsLive/LiveRoundLive/PublicPairingsLive all did before this
   function existed) silently drop every SWAR-imported or round-specific
@@ -1987,7 +1987,7 @@ defmodule PairingsEngine.Tournaments do
       # write happened after the broadcast, a subscriber's reload could
       # race it and render the old (fresh-looking) manual order for one
       # frame, with nothing left to trigger a second re-render once the
-      # flag actually commits — exactly the "silently serving stale as
+      # flag actually commits - exactly the "silently serving stale as
       # fresh" failure this feature exists to prevent. Committing the flag
       # first means every reload triggered by this write already sees it.
       invalidate_manual_ranking(tournament_id)
@@ -2001,20 +2001,20 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
-  Swaps two players' SEATS in `round` — the SWAR "swap players" move.
+  Swaps two players' SEATS in `round` - the SWAR "swap players" move.
   Whatever slot each player currently occupies (board, colour, opponent
-  or bye), the two trade: the slot itself — its board number and which
-  colour sits there — never moves, only WHO fills it does. Everyone else
+  or bye), the two trade: the slot itself - its board number and which
+  colour sits there - never moves, only WHO fills it does. Everyone else
   in the round is untouched.
 
       round has  1. A-B   2. C-D
       swap(A, D) gives  1. D-B   2. C-A
 
-  Passing a player's own opponent swaps only that one board's colours —
+  Passing a player's own opponent swaps only that one board's colours -
   the same operation, since both players are already in the same
   pairing's two seats.
 
-  Allowed against a bye (`black_player_id: nil`) — the player swapped IN
+  Allowed against a bye (`black_player_id: nil`) - the player swapped IN
   simply inherits the bye, the one swapped OUT inherits whatever seat the
   other player came from. A recorded RESULT is cleared on any row the
   swap touches, because a game's result describes what THOSE TWO PLAYERS
@@ -2060,7 +2060,7 @@ defmodule PairingsEngine.Tournaments do
          {pairing, field_b},
          new_b_occupant
        ) do
-    # Same row on both sides — A and B are already each other's opponent,
+    # Same row on both sides - A and B are already each other's opponent,
     # so this is a plain colour swap: one update, both fields at once.
     attrs = clear_stale_result(%{field_a => new_a_occupant, field_b => new_b_occupant}, pairing)
     update_result = pairing |> Pairing.changeset(attrs) |> Repo.update()
@@ -2096,7 +2096,7 @@ defmodule PairingsEngine.Tournaments do
   # A bye's "result" is a scoring rule for the empty seat, not a claim
   # about who's IN it, so it survives a swap untouched. Any other
   # non-blank result describes a specific game between the two players
-  # who WERE there and is cleared — see the moduledoc on
+  # who WERE there and is cleared - see the moduledoc on
   # `swap_players_in_round/3`.
   defp clear_stale_result(attrs, %Pairing{result: r}) when r not in ["", "bye"],
     do: Map.put(attrs, :result, "")
@@ -2119,7 +2119,7 @@ defmodule PairingsEngine.Tournaments do
   ## ---------- Vacancies: absent-on-the-board, and the round's pool ----------
   #
   # An arbiter who learns at board 4 that someone hasn't turned up doesn't
-  # want the round re-paired — they want THAT seat emptied and, if
+  # want the round re-paired - they want THAT seat emptied and, if
   # possible, refilled from whoever is sitting the round out. So a seat can
   # be VACANT: `white_player_id`/`black_player_id` is `nil` while
   # `result` is `""`.
@@ -2128,7 +2128,7 @@ defmodule PairingsEngine.Tournaments do
   # copes with, rather than a new flag:
   #
   #   * `Standings.pairing_records/3` returns `[]` for `result: ""`, so a
-  #     vacant board contributes nothing to anyone's score — true, since
+  #     vacant board contributes nothing to anyone's score - true, since
   #     no game has happened and the arbiter hasn't yet said what should
   #     happen instead.
   #   * `Pairing.round_complete?/2` looks for exactly `result == ""`, so a
@@ -2138,7 +2138,7 @@ defmodule PairingsEngine.Tournaments do
   #   * TRF export's `bye_safe_result/2` already normalises a row with no
   #     opponent into a legal bye code.
   #
-  # A vacancy is resolved exactly two ways — `fill_seat/4` (someone takes
+  # A vacancy is resolved exactly two ways - `fill_seat/4` (someone takes
   # the seat) or `award_bye_for_vacancy/2` (the player left behind gets a
   # bye). Both land on shapes with well-defined FIDE scoring; neither
   # invents a "forfeit against nobody", which is the one combination the
@@ -2146,13 +2146,13 @@ defmodule PairingsEngine.Tournaments do
 
   @doc """
   Everyone in `tournament_id` who is NOT sitting at a board in round
-  `number` — the round's pool. `type` is the `"byes"`-table type when
+  `number` - the round's pool. `type` is the `"byes"`-table type when
   they have a row there (`"requested-half"`, `"requested-zero"`,
   `"absent"`), or `nil` for a player who is simply unpaired.
 
   Each entry carries `player_id` and `round` alongside the preloaded
   `player`, so an entry IS a `"byes"`-table row as far as
-  `Standings.bye_points_for_row/2` is concerned — the pool panel can ask
+  `Standings.bye_points_for_row/2` is concerned - the pool panel can ask
   it what a given absence scores without a second, parallel notion of
   what byes are worth. `absent?` reports the player's tournament-wide
   `absent` flag, which is separate from any per-round `"byes"` row and is
@@ -2183,8 +2183,8 @@ defmodule PairingsEngine.Tournaments do
       |> Map.new()
 
     # The pool exists so the arbiter can put someone back IN, which
-    # decides who belongs in it. `absent` is the SOFT flag — "told us
-    # they can't make it" — and someone turning up anyway is the
+    # decides who belongs in it. `absent` is the SOFT flag - "told us
+    # they can't make it" - and someone turning up anyway is the
     # commonest reason to reach for a swap at all, so they have to be
     # listed. This function used to borrow
     # `PairingsEngine.Pairing.active_players/1`, whose job is "who may the
@@ -2258,7 +2258,7 @@ defmodule PairingsEngine.Tournaments do
 
   @doc """
   Seats `player_id` (someone from `list_round_pool/2`) in the vacant side
-  of `pairing`, and drops their `"byes"` row for the round — they're
+  of `pairing`, and drops their `"byes"` row for the round - they're
   playing after all, so the absence that put them in the pool no longer
   applies.
 
@@ -2277,7 +2277,7 @@ defmodule PairingsEngine.Tournaments do
         {:error, :seat_taken}
 
       pairing.result == "bye" ->
-        # Not a vacancy — an allocated bye. Filling it would silently
+        # Not a vacancy - an allocated bye. Filling it would silently
         # convert a scored bye into a game; `award_bye_for_vacancy/2`'s
         # inverse is a deliberate, separate action.
         {:error, :not_a_vacancy}
@@ -2322,21 +2322,21 @@ defmodule PairingsEngine.Tournaments do
 
   @doc """
   Toggles the display-only `hidden` flag on a fully-vacated pairing (both
-  seats empty — the state two "mark absent" gestures on the same board
+  seats empty - the state two "mark absent" gestures on the same board
   eventually leave behind) so an arbiter can declutter the pairings
   view/prints of a board with nobody left on it.
 
   Deliberately narrow and inert: `hidden` is never read by
   `PairingDisplay.compute_labels/1` or `freeze_round_display_boards!/1`, so
   toggling it can never change what any OTHER row's `display_board` shows
-  — see `PairingsEngine.PairingDisplay`'s moduledoc for why that freeze
+  - see `PairingsEngine.PairingDisplay`'s moduledoc for why that freeze
   must never be touched by anything but a (re-)pairing. The row's real
   board number, frozen display label, audit history and any TRF/export
   data are completely unaffected either way, and un-hiding brings the row
   back exactly as it was.
 
   Refused with `{:error, :not_vacant}` on a pairing with anyone still
-  seated — hiding is for empty rows only, never a way to make an active
+  seated - hiding is for empty rows only, never a way to make an active
   board disappear from the arbiter's own working view.
   """
   def set_pairing_hidden(%Round{} = round, %Pairing{} = pairing, hidden?)
@@ -2357,29 +2357,29 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
-  Permanently deletes `pairing` — the row, and any result on it, gone for
+  Permanently deletes `pairing` - the row, and any result on it, gone for
   good. This is the one board-cleanup action that is NOT just a display
   toggle, so it is restricted to the two conditions that together make it
   safe:
 
     * `pairing` must be the round's own highest real `board` number.
       Deleting the trailing row never requires renumbering anything after
-      it, since nothing comes after it — deleting anywhere else in the
+      it, since nothing comes after it - deleting anywhere else in the
       round would leave a permanent gap in the middle of the real board
       sequence for no invariant-preserving reason, so it's refused
       (`{:error, :not_last_board}`). This is a property of the real
       `board` column, decided fresh from the round's current pairings
-      every call — never the frozen `display_board` string, which can be
+      every call - never the frozen `display_board` string, which can be
       a fixed-table label like `"1001"` or a slash-joined `"5/6"` that
       doesn't order the same way real board numbers do.
-    * `pairing` must be fully vacant (both seats empty) —
+    * `pairing` must be fully vacant (both seats empty) -
       `{:error, :not_vacant}` otherwise. This exists to let an arbiter
       clean up literal clutter, not as a general "undo a board" button;
       anything with a player still seated goes through `vacate_seat/3` (or
       a swap) first, same as hiding above.
 
   Standings/tiebreaks need no separate invalidation call beyond the usual
-  `invalidate_manual_ranking/1` — `Standings.standings/1` always replays
+  `invalidate_manual_ranking/1` - `Standings.standings/1` always replays
   every pairing/bye from scratch (see the module doc), so a deleted empty
   pairing (no result, no players) simply stops existing to replay.
   """
@@ -2405,10 +2405,10 @@ defmodule PairingsEngine.Tournaments do
 
   @doc """
   Pairs two pool players into a brand-new board in `round`, numbered
-  `board`. Both players' `"byes"` rows are dropped — they're playing.
+  `board`. Both players' `"byes"` rows are dropped - they're playing.
 
   Re-checks `board` is still free right inside the transaction rather
-  than trusting the `round` struct the caller happened to have on hand —
+  than trusting the `round` struct the caller happened to have on hand -
   the confirm dialog that stages this (PairingsLive's "pair these two"
   gesture) can now sit open across a remote update from another arbiter
   (see `keep_gesture` in that LiveView's `refresh/2`), so the board
@@ -2448,7 +2448,7 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
-  The lowest board number not already used in `round` — what the "pair
+  The lowest board number not already used in `round` - what the "pair
   these two" action offers as a default table number.
   """
   def next_free_board(%Round{} = round) do
@@ -2460,7 +2460,7 @@ defmodule PairingsEngine.Tournaments do
   Swaps a SEATED player with one from `list_round_pool/2`: the pool player
   takes the seat (board, colour and opponent all unchanged), and the
   player who was there goes into the pool in their place, filed under the
-  same `"byes"` type the pool player had — an "absent" swap hands over the
+  same `"byes"` type the pool player had - an "absent" swap hands over the
   absence along with the seat, so the round's absentee count doesn't
   change just because two names traded places.
 
@@ -2520,7 +2520,7 @@ defmodule PairingsEngine.Tournaments do
 
   ## ---------- Tournament/round status ----------
   #
-  # `status` ("setup" | "running" | "finished") is derived, not hand-set —
+  # `status` ("setup" | "running" | "finished") is derived, not hand-set -
   # see `refresh_status!/1` below. A round itself is considered "finished"
   # when every one of its pairings carries a result (a "bye" pairing's
   # result is the literal string "bye", already non-blank, so pairing-
@@ -2531,17 +2531,17 @@ defmodule PairingsEngine.Tournaments do
   persists it if it changed, returning the (possibly updated) tournament
   unchanged otherwise. Accepts either a `%Tournament{}` or a tournament id.
 
-    * `"finished"` — `rounds_count` rounds have been paired, and every
+    * `"finished"` - `rounds_count` rounds have been paired, and every
       pairing in every paired round has a recorded result.
-    * `"running"`  — at least one round has been paired, but the tournament
+    * `"running"`  - at least one round has been paired, but the tournament
       isn't finished yet per the rule above.
-    * `"setup"`    — no round has been paired yet.
+    * `"setup"`    - no round has been paired yet.
 
   Tolerant and self-contained by design: safe to call after any write that
   might affect completeness (a result entered, a round paired or unpaired,
   a bulk import) without the caller needing to know the current status or
   pass any extra context. Returns `nil` if the tournament (or its id) no
-  longer exists — e.g. deleted concurrently — rather than raising.
+  longer exists - e.g. deleted concurrently - rather than raising.
 
   Broadcasts `{:tournament_changed, tournament_id, :tournament}` (the same
   hint `delete_tournament/1` uses) only when the status actually changes, so

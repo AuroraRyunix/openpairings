@@ -24,7 +24,7 @@ defmodule PairingsEngine.Kbsb.Api do
         api_url: System.get_env("KBSB_API_URL"),
         api_key: System.get_env("KBSB_API_KEY")
 
-  `api_url` is the base, without a trailing path — e.g.
+  `api_url` is the base, without a trailing path - e.g.
   `https://kbsb-api.zerotwo.cloud`. The key travels in the `x-api-key`
   header, which is what the platform checks on every `/api` route.
   `configured?/0` is false when either is missing, and the UI hides the
@@ -32,7 +32,7 @@ defmodule PairingsEngine.Kbsb.Api do
 
   ## Pagination
 
-  The platform paginates by cursor rather than streaming NDJSON — ordinary
+  The platform paginates by cursor rather than streaming NDJSON - ordinary
   JSON, and a dropped connection costs one page rather than the whole walk.
   `fetch_all/1` follows `next_cursor` until it comes back `nil`, which the
   platform guarantees happens on the first short page, so there is never a
@@ -52,7 +52,7 @@ defmodule PairingsEngine.Kbsb.Api do
 
   # A cursor that fails to advance would spin forever on the same page. The
   # walk already refuses that (see `advance/2`), so this is a second, dumber
-  # backstop against any other non-terminating shape — a platform bug, a
+  # backstop against any other non-terminating shape - a platform bug, a
   # proxy replaying responses. ~36 pages expected; 500 is far past any
   # plausible roster and still bounded.
   @max_pages 500
@@ -68,7 +68,7 @@ defmodule PairingsEngine.Kbsb.Api do
   defp config, do: Application.get_env(:pairings_engine, :kbsb, [])
 
   # Extra options merged into every request. Exists so tests can pass a
-  # `plug:` and exercise the cursor walk without standing up a server — a
+  # `plug:` and exercise the cursor walk without standing up a server - a
   # cursor that fails to advance is the one bug in here that would hang
   # rather than fail, so it has to be reachable from a test.
   defp req_options, do: config()[:req_options] || []
@@ -77,14 +77,14 @@ defmodule PairingsEngine.Kbsb.Api do
   defp blank_to_nil(v), do: v
 
   @doc """
-  Walks the whole roster export and returns `{:ok, rows}` — rows shaped for
+  Walks the whole roster export and returns `{:ok, rows}` - rows shaped for
   `PairingsEngine.Kbsb.KbsbPlayer`, ready for `Sync.import_rows/3`.
 
   `on_progress` is called with the running row count after each page, for
   the sync's progress line.
 
-  Returns `{:error, message}` — a human-readable string, since it is shown
-  to whoever pressed the button — on a transport failure, a non-200, an
+  Returns `{:error, message}` - a human-readable string, since it is shown
+  to whoever pressed the button - on a transport failure, a non-200, an
   unparseable body, or a cursor that does not advance.
   """
   def fetch_all(on_progress \\ fn _count -> :ok end) do
@@ -98,7 +98,7 @@ defmodule PairingsEngine.Kbsb.Api do
   end
 
   defp walk(_cursor, _acc, page, _on_progress) when page >= @max_pages do
-    {:error, "KBSB API export did not finish after #{@max_pages} pages — aborting."}
+    {:error, "KBSB API export did not finish after #{@max_pages} pages - aborting."}
   end
 
   defp walk(cursor, acc, page, on_progress) do
@@ -120,7 +120,7 @@ defmodule PairingsEngine.Kbsb.Api do
 
   # `nil` is the platform's "that was the last page". Anything else must be
   # strictly greater than the cursor we just used, because the export is
-  # ordered by id ascending and the cursor IS the id — a cursor that stalls
+  # ordered by id ascending and the cursor IS the id - a cursor that stalls
   # or goes backwards would re-fetch rows forever.
   defp advance(_cursor, nil), do: :done
   defp advance(nil, next) when is_integer(next), do: {:ok, next}
@@ -154,7 +154,7 @@ defmodule PairingsEngine.Kbsb.Api do
         Logger.error("KBSB API export: unexpected body #{inspect(body, limit: 5)}")
 
         {:error,
-         "KBSB API returned a 200 with no player list — is KBSB_API_URL pointing at the right host?"}
+         "KBSB API returned a 200 with no player list - is KBSB_API_URL pointing at the right host?"}
 
       {:ok, %Req.Response{status: 401}} ->
         {:error, "KBSB API rejected the key (401). Check KBSB_API_KEY and its scope."}
@@ -194,7 +194,7 @@ defmodule PairingsEngine.Kbsb.Api do
       affiliated: p["affiliated"],
       # The national ELO system was retired and archived in July 2026, and
       # the export carries no rating at all. `national_rating` survives as
-      # an import/manual-entry field only — see PairingsEngine.RatingRefresh.
+      # an import/manual-entry field only - see PairingsEngine.RatingRefresh.
       national_rating: nil
     }
   end

@@ -1,7 +1,7 @@
 defmodule PairingsEngine.RateOfPlay do
   @moduledoc """
   The rate-of-play (time-control cadence) preset catalogue, keyed by the
-  tournament's `standard` classification — Standard / Rapid / Blitz.
+  tournament's `standard` classification - Standard / Rapid / Blitz.
 
   Single source of truth for both the "New tournament" form
   (`PairingsEngineWeb.TournamentsLive`) and the Options settings page
@@ -103,7 +103,7 @@ defmodule PairingsEngine.RateOfPlay do
   def standard_options, do: @standard_options
 
   @doc """
-  The ordered list of preset cadences for `standard` — the Rapid list for
+  The ordered list of preset cadences for `standard` - the Rapid list for
   `"rapid"`, the Blitz list for `"blitz"`, otherwise the Standard list.
   """
   def list_for("rapid"), do: @rapid
@@ -112,7 +112,7 @@ defmodule PairingsEngine.RateOfPlay do
 
   @doc """
   The options to render in a rate-of-play `<select>` for `standard`: a leading
-  blank (`""`, shown as "— none —") plus `list_for/1`. If `current` is a
+  blank (`""`, shown as "- none -") plus `list_for/1`. If `current` is a
   non-blank value that isn't one of the presets for this classification (a
   custom cadence, or one carried over from a different classification), it is
   prepended so the select still shows the saved value rather than silently

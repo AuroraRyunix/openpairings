@@ -3,7 +3,7 @@ defmodule PairingsEngine.Mobile do
   "Enrol a phone" for no-account mobile result entry.
 
   An arbiter (from the tournament) generates a `PairingsEngine.Mobile.Enrollment`
-  — a `token` (in a QR code / URL) plus a short numeric `code`. A helper scans
+  - a `token` (in a QR code / URL) plus a short numeric `code`. A helper scans
   the QR or types the code on their phone; that browser then gets a
   result-entry-only session scoped to the tournament (see
   `PairingsEngineWeb.MobileEnroll` / `PairingsEngineWeb.MobileResultsLive`)
@@ -69,7 +69,7 @@ defmodule PairingsEngine.Mobile do
 
   def get_active_by_code(_), do: nil
 
-  @doc "Fetches an active enrollment by id, or nil — used to re-validate the session on each request."
+  @doc "Fetches an active enrollment by id, or nil - used to re-validate the session on each request."
   def get_active(id) do
     Repo.one(from e in active_query(), where: e.id == ^id)
   end

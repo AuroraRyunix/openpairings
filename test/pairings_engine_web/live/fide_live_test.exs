@@ -52,7 +52,7 @@ defmodule PairingsEngineWeb.FideLiveTest do
     # works, not that the PAGE can reach it. The search input once carried
     # phx-change on a bare <input> with no wrapping form, so LiveView sent
     # %{"value" => ...}, the handler never matched, and the whole LiveView
-    # crashed and silently reconnected — indistinguishable from "no
+    # crashed and silently reconnected - indistinguishable from "no
     # results". A synthesised event cannot see that; this can.
     html = lv |> form("form.search-wrap", %{"q" => "Peet"}) |> render_change()
 

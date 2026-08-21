@@ -5,12 +5,12 @@ defmodule PairingsEngineWeb.Endpoint do
   # this means its contents can be read but not tampered with.
   # Set :encryption_salt if you would also like to encrypt it.
   # `secure: true` marks the session cookie https-only. It's set in prod (see
-  # config/prod.exs) and left off in dev/test, which run over plain http —
+  # config/prod.exs) and left off in dev/test, which run over plain http -
   # a `secure` cookie would never be sent there, breaking login locally.
   # Defence in depth on top of the `force_ssl`/HSTS already configured in
   # config/prod.exs.
   # `max_age` makes the cookie persistent (survives the browser process
-  # dying), not just session-scoped — without it, mobile browsers that kill
+  # dying), not just session-scoped - without it, mobile browsers that kill
   # the tab in the background drop the cookie and boot the arbiter/helper
   # back to a login or enrollment-code screen mid-tournament. 30 days comfortably
   # outlives any single event; re-authenticating (login, or a fresh enrollment
@@ -38,7 +38,7 @@ defmodule PairingsEngineWeb.Endpoint do
   # session in `connect_info`.
   #
   # The session cookie is `same_site: "Lax"` (above), which by design is not
-  # sent on a cross-site request — and an <iframe> on someone else's domain
+  # sent on a cross-site request - and an <iframe> on someone else's domain
   # is exactly that. So on the embeddable pages (`/p/:slug/pairings` and
   # `/p/:slug/standings`, see PairingsEngineWeb.CSP) the "/live" socket
   # above connects with `session: nil`, LiveView cannot verify the session
@@ -47,13 +47,13 @@ defmodule PairingsEngineWeb.Endpoint do
   # on every attempt, and the page appearing to reload constantly.
   #
   # Relaxing the cookie to `same_site: "None"` would fix it and is the wrong
-  # trade — that would send the session cookie to every third-party frame in
+  # trade - that would send the session cookie to every third-party frame in
   # existence, weakening CSRF protection for the whole app (including every
   # authenticated page) to serve two read-only ones. Instead these pages get
   # a socket that never wanted the session in the first place.
   #
   # Safe precisely because of what those two pages are: no login, no session,
-  # no writes, no per-user state — `mount_current_scope` on them resolves to
+  # no writes, no per-user state - `mount_current_scope` on them resolves to
   # an anonymous scope whether or not a session is present, so nothing is
   # lost by not having one. Any page that DOES depend on the session keeps
   # using "/live"; `assets/js/app.js` picks between them by path.

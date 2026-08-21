@@ -22,8 +22,8 @@ defmodule PairingsEngineWeb.PairingsLive do
     {"1-0", "1-0"},
     {"1/2-1/2", "½-½"},
     {"0-1", "0-1"},
-    {"1/2-0", "½-0 (asymmetric — disciplinary point adjustment)"},
-    {"0-1/2", "0-½ (asymmetric — disciplinary point adjustment)"},
+    {"1/2-0", "½-0 (asymmetric - disciplinary point adjustment)"},
+    {"0-1/2", "0-½ (asymmetric - disciplinary point adjustment)"},
     {"1-0FF", "1-0 FF (White wins by forfeit)"},
     {"0-1FF", "0-1 FF (Black wins by forfeit)"},
     {"0-0FF", "0-0 FF (double forfeit)"},
@@ -47,11 +47,11 @@ defmodule PairingsEngineWeb.PairingsLive do
        round_number: max(paired, 1),
        error: nil,
        # Bumped whenever a result-entry write is REFUSED (e.g. an archived
-       # tournament) — see the `result`/`confirm_clear_result` handlers'
+       # tournament) - see the `result`/`confirm_clear_result` handlers'
        # comments and the `.BlindResultEntry` hook's `updated()` for why: a
        # refused write leaves every assign byte-identical to before, so
        # LiveView's diff for that board's <select> is empty and no patch is
-       # sent — the browser's own "user just picked this option" native
+       # sent - the browser's own "user just picked this option" native
        # state is left uncorrected, LOOKING like the change went through
        # even though nothing was written. Threading this counter into each
        # select's markup guarantees a patch fires on every refusal, so the
@@ -60,9 +60,9 @@ defmodule PairingsEngineWeb.PairingsLive do
        importing_results: false,
        import_errors: nil,
        # The pairing (if any) awaiting explicit confirmation to have its
-       # result CLEARED — see `handle_event("result", ...)`'s guard below.
+       # result CLEARED - see `handle_event("result", ...)`'s guard below.
        confirm_clear_pairing_id: nil,
-       # Hand-editing state — see "Editing a paired round by hand" below.
+       # Hand-editing state - see "Editing a paired round by hand" below.
        # `menu` is the open right-click menu; `swap_first`/`pool_first` are
        # half-finished two-click gestures; `seat_pick` is a pool player
        # waiting to be told WHICH vacancy to fill; `confirm` is the staged
@@ -78,16 +78,16 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   # Results are entered inline (each select saves immediately on change, no
-  # draft state to protect), so a broadcast can just reload everything —
+  # draft state to protect), so a broadcast can just reload everything -
   # including the tournament itself, since rounds_count/status can change
   # from the Settings page.
   #
   # This LiveView is subscribed to its own tournament's topic, so every
   # mutation it causes itself (pair/unpair/result/import) broadcasts right
-  # back to this same process too — by the time that echo arrives, the
+  # back to this same process too - by the time that echo arrives, the
   # triggering `handle_event` has already called `refresh/1` synchronously,
   # so this just re-does the same (cheap) reload a second time. A visible
-  # "updated by another arbiter" notice used to fire here too; removed —
+  # "updated by another arbiter" notice used to fire here too; removed -
   # it sat as a toast that kept surprising people mid-click regardless of
   # how it was positioned, and the round data refreshing live underneath
   # it is the part that actually matters.
@@ -106,15 +106,15 @@ defmodule PairingsEngineWeb.PairingsLive do
       tournament ->
         # Real report: an arbiter had "pair with another player who isn't
         # playing…" staged behind its confirm dialog when someone ELSE
-        # entered a totally unrelated result elsewhere in the round — and
+        # entered a totally unrelated result elsewhere in the round - and
         # got silently bounced out, as if they'd hit Escape themselves.
         # `keep_gesture: true` here is the fix: a REMOTE broadcast leaves
         # any half-finished menu/swap/confirm gesture alone (the round data
         # underneath it still refreshes fully either way, so whatever gets
-        # applied is checked against the current state regardless — see
+        # applied is checked against the current state regardless - see
         # each `Tournaments.*` write function's own guards). Only the
         # arbiter's OWN completed action (every other `refresh()` call
-        # site, still defaulting to reset) clears it — that's the point
+        # site, still defaulting to reset) clears it - that's the point
         # where the gesture is genuinely done, not a bystander update.
         {:noreply, socket |> assign(tournament: tournament) |> refresh(keep_gesture: true)}
     end
@@ -131,15 +131,15 @@ defmodule PairingsEngineWeb.PairingsLive do
       assign(socket,
         round: round,
         # Fully-vacated rows the arbiter has hidden from the main table
-        # (see `set_pairing_hidden/3`) — kept as their own list so the
+        # (see `set_pairing_hidden/3`) - kept as their own list so the
         # "Hidden boards" management panel can still offer Unhide/Delete
         # even though `display_rows/1` skips them everywhere else.
         hidden_pairings: (round && Enum.filter(round.pairings, & &1.hidden)) || [],
-        # Each player's score coming INTO round `n` — shown next to their
+        # Each player's score coming INTO round `n` - shown next to their
         # name on the board list, same as a real printed pairing sheet.
         scores: Standings.player_scores_before_round(t, n),
-        # The pool is a superset of `list_byes_for_round/2` — it adds anyone
-        # simply unpaired — so the byes-only query this page used to run is
+        # The pool is a superset of `list_byes_for_round/2` - it adds anyone
+        # simply unpaired - so the byes-only query this page used to run is
         # no longer needed here. Other views still use it.
         round_pool: Tournaments.list_round_pool(t.id, n),
         paired_rounds: paired,
@@ -156,7 +156,7 @@ defmodule PairingsEngineWeb.PairingsLive do
     else
       # Whatever a half-finished gesture was pointing at may no longer be
       # current by the time OUR OWN action just completed here (a round
-      # switch, or the change's own confirmed write) — safer to drop back
+      # switch, or the change's own confirmed write) - safer to drop back
       # to "nothing selected" than to leave a just-consumed gesture
       # sitting around.
       assign(socket, menu: nil, swap_first: nil, pool_first: nil, seat_pick: nil, confirm: nil)
@@ -174,7 +174,7 @@ defmodule PairingsEngineWeb.PairingsLive do
        put_flash(
          socket,
          :error,
-         "Finish the tournament setup before pairing — missing: " <>
+         "Finish the tournament setup before pairing - missing: " <>
            missing_setup_summary(socket.assigns.missing_setup)
        )}
     else
@@ -185,7 +185,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   def handle_event("unpair", _params, socket) do
     %{tournament: t, round_number: round_number} = socket.assigns
 
-    # Unpairing deletes the round and every result in it. Snapshot first —
+    # Unpairing deletes the round and every result in it. Snapshot first -
     # see PairingsEngine.Snapshots for why this sits at the call site and
     # why its result is ignored.
     Snapshots.capture(t, "pairing.round_deleted", socket.assigns.current_scope,
@@ -206,7 +206,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   # The manual override available in every publish mode, not just
-  # "manual" — see `Tournaments.publish_round_now/1`'s own doc for why.
+  # "manual" - see `Tournaments.publish_round_now/1`'s own doc for why.
   # Guarded by `@round != nil` in the template rather than here; nothing
   # bad happens either way if this somehow fires with no round (`refresh/2`
   # just reloads the same nil), but there's genuinely no button to click
@@ -233,23 +233,23 @@ defmodule PairingsEngineWeb.PairingsLive do
   #                            `.PairingMenu` hook's `contextmenu` listener)
   #   "Swap with…"          -> arms `swap_first`; the NEXT LEFT-click on
   #                            another player picks the target. A right-click
-  #                            never completes a swap — it only ever opens
+  #                            never completes a swap - it only ever opens
   #                            the menu, so the destructive half of the
   #                            gesture is always a deliberate second action.
   #   "Mark absent"         -> empties that seat (see the vacancy model in
   #                            `Tournaments.vacate_seat/3`)
   #
-  # Everything that writes goes through `@confirm` first — one modal, one
+  # Everything that writes goes through `@confirm` first - one modal, one
   # shape, whatever the action (see `confirm_for/2` and `apply_confirm/2`).
 
   # Archived is checked here, once, rather than at every downstream
   # gesture handler (arm_swap, stage_vacate, stage_bye, stage_fill,
-  # offer_seats, stage_pool_pair) — this is the single entry point every
+  # offer_seats, stage_pool_pair) - this is the single entry point every
   # one of them is reached through (a right-click on a player), so
   # refusing to even open the menu on an archived tournament silently
   # closes off the whole editing surface in one place. The underlying
   # writes are refused server-side regardless (`ensure_writable/1`,
-  # confirmed by the whole `archive_test.exs` suite) — this is purely
+  # confirmed by the whole `archive_test.exs` suite) - this is purely
   # about not dangling an editing menu in front of someone on a read-only
   # tournament.
   def handle_event("open_menu", _params, %{assigns: %{tournament: %{archived_at: at}}} = socket)
@@ -313,7 +313,7 @@ defmodule PairingsEngineWeb.PairingsLive do
     {:noreply, stage(socket, {:fill, String.to_integer(pid), String.to_integer(plid)})}
   end
 
-  # Hide/unhide is a plain, immediate toggle — not staged behind `@confirm`
+  # Hide/unhide is a plain, immediate toggle - not staged behind `@confirm`
   # the way the other hand-edit gestures are. It's display-only and fully
   # reversible (see `Tournaments.set_pairing_hidden/3`'s doc), so it doesn't
   # need the same "review a board diff before committing" ceremony a real
@@ -392,8 +392,8 @@ defmodule PairingsEngineWeb.PairingsLive do
   def handle_event("cancel_confirm", _params, socket),
     do: {:noreply, assign(socket, confirm: nil)}
 
-  # The "I understand — apply this to round N anyway" checkbox on a
-  # frozen-round confirm (see `frozen_round?/1`) — the primary button
+  # The "I understand - apply this to round N anyway" checkbox on a
+  # frozen-round confirm (see `frozen_round?/1`) - the primary button
   # stays disabled until this is ticked.
   def handle_event("toggle_frozen_ack", _params, socket) do
     case socket.assigns.confirm do
@@ -415,7 +415,7 @@ defmodule PairingsEngineWeb.PairingsLive do
 
       %{result: previous} = pairing when result in ["", nil] and previous not in [nil, ""] ->
         # A blank submission arriving for a board that already has a real
-        # result on file is NEVER committed straight away — only staged,
+        # result on file is NEVER committed straight away - only staged,
         # pending an explicit confirm click (see "confirm_clear_result"
         # below). A genuine "select the blank option to reset this board"
         # click from an arbiter still works, just one extra click.
@@ -423,12 +423,12 @@ defmodule PairingsEngineWeb.PairingsLive do
         # This exists because of a real incident: a burst of ~11
         # simultaneous "result" events fired for every board in a round at
         # once (almost certainly triggered by a LiveView reconnect after a
-        # dropped socket — this page had been reconnecting every 1-2
+        # dropped socket - this page had been reconnecting every 1-2
         # minutes over a flaky mobile connection), and 4 of them carried a
         # blank value, silently wiping 4 already-recorded results. Nothing
         # about a single incoming event distinguishes "an arbiter meant to
-        # clear this" from "a stray reconnect-triggered submission" — the
-        # payload looks identical either way — so this guard doesn't try
+        # clear this" from "a stray reconnect-triggered submission" - the
+        # payload looks identical either way - so this guard doesn't try
         # to guess; it just refuses to let a blank value overwrite a real
         # one without a second, explicit action confirming it.
         Audit.log(t.id, socket.assigns.current_scope, "pairing.result_clear_attempted", %{
@@ -479,7 +479,7 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   # The explicit second click confirming a blank-result overwrite staged by
   # the guard above. Re-fetches the pairing fresh rather than trusting
-  # anything already in `socket.assigns` — the confirmation could be
+  # anything already in `socket.assigns` - the confirmation could be
   # sitting on screen for a while, and this is exactly the code path a
   # stale/incorrect write must never happen through.
   def handle_event("confirm_clear_result", %{"pairing-id" => id}, socket) do
@@ -518,7 +518,7 @@ defmodule PairingsEngineWeb.PairingsLive do
     end
   end
 
-  # Backs out of a staged clear without writing anything — the select
+  # Backs out of a staged clear without writing anything - the select
   # reverts to its real (unchanged) value on the next render, since the DB
   # was never touched.
   def handle_event("cancel_clear_result", _params, socket) do
@@ -545,7 +545,7 @@ defmodule PairingsEngineWeb.PairingsLive do
 
     case uploaded do
       [csv_text] ->
-        # Overwrites a whole round's results in one go — snapshot first.
+        # Overwrites a whole round's results in one go - snapshot first.
         Snapshots.capture(
           tournament,
           "pairing.results_imported",
@@ -594,11 +594,11 @@ defmodule PairingsEngineWeb.PairingsLive do
     end
   end
 
-  # A round that isn't the tournament's current latest PAIRED round —
+  # A round that isn't the tournament's current latest PAIRED round -
   # every `confirm_for/2` action (swap, mark absent, pool-pair, fill a
-  # seat, award a bye — everything that alters who's paired with whom)
+  # seat, award a bye - everything that alters who's paired with whom)
   # runs through `stage/2`, so gating it here covers all of them
-  # uniformly. Entering/editing a RESULT is untouched — only pairing
+  # uniformly. Entering/editing a RESULT is untouched - only pairing
   # structure gets the extra gate. `paired_rounds == 0` (nothing paired
   # yet at all) is never "frozen"; there's no other round to confuse this
   # one with.
@@ -615,7 +615,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   #     %{kind:, title:, subtitle:, changes: [board diff], note:, ...}
   #
   # `changes` is a list of `%{board, before:, after:}` where `before`/
-  # `after` are `{white_name, black_name}` — the modal draws those as two
+  # `after` are `{white_name, black_name}` - the modal draws those as two
   # board cards side by side and highlights whichever seat differs, which
   # is why they stay as a tuple rather than a pre-joined string.
 
@@ -624,7 +624,7 @@ defmodule PairingsEngineWeb.PairingsLive do
     pool = socket.assigns.round_pool
 
     cond do
-      # Both seated — a straight seat trade, possibly a colour-only swap.
+      # Both seated - a straight seat trade, possibly a colour-only swap.
       seated?(round, a_id) and seated?(round, b_id) ->
         with {:ok, {pa, fa}} <- locate_seat(round.pairings, a_id),
              {:ok, {pb, fb}} <- locate_seat(round.pairings, b_id) do
@@ -646,7 +646,7 @@ defmodule PairingsEngineWeb.PairingsLive do
              subtitle: "#{a}  ⇄  #{b}",
              changes: changes,
              # Every distinct name shown across the diff, each its own
-             # colour — see `identity_colors/1`. Only `:swap` gets one:
+             # colour - see `identity_colors/1`. Only `:swap` gets one:
              # it's the one confirm kind where more than one player can
              # be on screen at once with something to tell apart.
              colors: identity_colors(changes),
@@ -654,7 +654,7 @@ defmodule PairingsEngineWeb.PairingsLive do
            }}
         end
 
-      # One seated, one in the pool — a substitution.
+      # One seated, one in the pool - a substitution.
       seated?(round, a_id) or seated?(round, b_id) ->
         {seated_id, pool_id} = if seated?(round, a_id), do: {a_id, b_id}, else: {b_id, a_id}
 
@@ -675,7 +675,7 @@ defmodule PairingsEngineWeb.PairingsLive do
              # The mirror image of the board row above: the pool player was
              # on the bench before this action, the seated player lands
              # there after. Rendered as its own row (`bench_card/1`), not
-             # another `changes` entry — it isn't a board, it has no
+             # another `changes` entry - it isn't a board, it has no
              # number/colours, and it only ever has one seat instead of
              # two. Its two names are already both present in `changes`
              # above (seated_name in `before`, pool_name in `after`), so
@@ -683,8 +683,8 @@ defmodule PairingsEngineWeb.PairingsLive do
              # Putting this row inside the SAME `#confirm-board-diffs`
              # container as the board row is what lets `.SwapArrows`'
              # global name-matching (`matchTravellers/1`) draw the two
-             # journey arrows for free — one leaving the bench, one
-             # arriving on it — with no JS changes needed.
+             # journey arrows for free - one leaving the bench, one
+             # arriving on it - with no JS changes needed.
              bench: %{before: pool_name, after: seated_name},
              # `:swap` used to be the only kind with more than one
              # identifiable player on screen at once; a substitution now
@@ -720,7 +720,7 @@ defmodule PairingsEngineWeb.PairingsLive do
          changes: [board_change(pairing, [{field, ""}])],
          note:
            "Board #{pairing.board} keeps its number and #{blank_dash(opponent)} stays put. " <>
-             "The empty seat can be filled from the not-playing list, or turned into a bye — " <>
+             "The empty seat can be filled from the not-playing list, or turned into a bye - " <>
              "until then the round counts as unfinished."
        }}
     end
@@ -771,13 +771,13 @@ defmodule PairingsEngineWeb.PairingsLive do
          pairing_id: pairing_id,
          title: "Delete this board",
          subtitle: "Board #{pairing.board} is removed from round #{socket.assigns.round_number}",
-         # Nothing to diff — the row is already empty on both seats
+         # Nothing to diff - the row is already empty on both seats
          # (delete is only offered/allowed on a fully-vacated board), so
          # the modal's board-diff cards would just show "empty ⇄ empty".
          # The title/subtitle/note carry the whole story instead.
          changes: [],
          note:
-           "This removes the board row itself, not just hides it — permanently, and only " <>
+           "This removes the board row itself, not just hides it - permanently, and only " <>
              "possible on the round's last board, so no other board's number ever has to " <>
              "change. This cannot be undone from here."
        }}
@@ -806,7 +806,7 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   # Belt-and-braces: the modal's primary button is already `disabled` in
   # this state (see the template), but a disabled button is a client-side
-  # courtesy, not a guarantee — refuse server-side too rather than trust
+  # courtesy, not a guarantee - refuse server-side too rather than trust
   # it.
   defp apply_confirm(socket, %{frozen: true, frozen_ack: false}), do: {:noreply, socket}
 
@@ -896,7 +896,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   # modal says so, with the one place that can change it.
   defp whole_event_note(socket, player_id) do
     if Enum.any?(socket.assigns.round_pool, &(&1.player.id == player_id and &1.absent?)) do
-      " They stay marked absent for the whole event — clear that on the Players page if they " <>
+      " They stay marked absent for the whole event - clear that on the Players page if they " <>
         "are back for good, or the next round will leave them out again."
     else
       ""
@@ -913,7 +913,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   # Bare lookup (not the tagged tuple `fetch_pairing/2` returns) for the two
-  # spots that just want the struct or `nil` — `pairing_menu/1`'s eligibility
+  # spots that just want the struct or `nil` - `pairing_menu/1`'s eligibility
   # checks below, and the "Hidden boards" panel.
   defp find_pairing(nil, _id), do: nil
   defp find_pairing(round, id), do: Enum.find(round.pairings, &(&1.id == id))
@@ -941,7 +941,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp vacant?(pairing),
     do: is_nil(pairing.white_player_id) or is_nil(pairing.black_player_id)
 
-  # BOTH seats empty — the state two "mark absent" gestures on the same
+  # BOTH seats empty - the state two "mark absent" gestures on the same
   # board eventually leave behind, and the only state `set_pairing_hidden/3`
   # and `delete_pairing/2` accept. Distinct from `vacant?/1` above, which
   # is "at least one" (an ordinary one-sided vacancy still needs its
@@ -949,7 +949,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp fully_vacant?(pairing),
     do: is_nil(pairing.white_player_id) and is_nil(pairing.black_player_id)
 
-  # Whether `pairing` sits on `round`'s own highest real board number —
+  # Whether `pairing` sits on `round`'s own highest real board number -
   # the one board `Tournaments.delete_pairing/2` ever allows removing, so
   # the menu/panel can grey the option out instead of just letting the
   # server bounce it. Mirrors that function's own guard exactly (same
@@ -963,7 +963,7 @@ defmodule PairingsEngineWeb.PairingsLive do
     end
   end
 
-  # `player_label/1` by id, across both the boards and the pool — a click
+  # `player_label/1` by id, across both the boards and the pool - a click
   # only tells the server which id was hit.
   defp display_name(socket, player_id) do
     seated =
@@ -1012,14 +1012,14 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   # A fixed palette, not derived from the tournament's own accent colour
-  # (`Layouts.theme_switch/1`) — that's a single colour the WHOLE app is
+  # (`Layouts.theme_switch/1`) - that's a single colour the WHOLE app is
   # tinted with, so using it here couldn't tell two people apart even
   # once, let alone four. Assigned in the order names first appear
-  # scanning `changes` (before, then after, board by board) — stable and
+  # scanning `changes` (before, then after, board by board) - stable and
   # deterministic for a given swap, not tied to seat/colour/pairing_number.
   @identity_palette ~w(#3b82f6 #ec4899 #f59e0b #10b981 #8b5cf6 #06b6d4)
 
-  # One colour per distinct name across the WHOLE diff — every player
+  # One colour per distinct name across the WHOLE diff - every player
   # shown, not just the ones who moved, so e.g. board 1's "stays put"
   # opponent is exactly as identifiable as the two who traded seats.
   # `board_card/1` turns this into each seat's `--swap-color`; the
@@ -1069,8 +1069,8 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   # Round-robin pairs its whole Berger schedule in one click instead of one
-  # round at a time (see RoundRobin.pair_all_rounds/1's doc — there's
-  # nothing to wait on between rounds the way Swiss waits on results) —
+  # round at a time (see RoundRobin.pair_all_rounds/1's doc - there's
+  # nothing to wait on between rounds the way Swiss waits on results) -
   # every round it generates still gets its own "pairing.round_paired"
   # audit entry, same depth of trail one-round-at-a-time pairing would
   # have produced.
@@ -1091,7 +1091,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         end
 
         # RoundRobin.pair_all_rounds/1 may have corrected rounds_count
-        # (see ensure_correct_rounds_count/2) — reload straight away so
+        # (see ensure_correct_rounds_count/2) - reload straight away so
         # the round picker reflects the real schedule length on this same
         # render, instead of waiting on the settings-change broadcast this
         # LiveView is subscribed to anyway (handle_info below) to catch up
@@ -1113,7 +1113,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   # Logs the rich "pairing.round_paired" audit entry, reusing the exact same
-  # PairingRationale analysis the "Explain this round" page renders live — so
+  # PairingRationale analysis the "Explain this round" page renders live - so
   # the durable audit record and the visual page describe the same decision.
   # `swiss_match_format` pairs two rounds in one action; we log the primary
   # (leg-1) round number, whose rationale covers the decision that was made.
@@ -1132,33 +1132,30 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp results, do: @results
 
   # Plain-text summary of `Tournament.missing_setup_fields/1`'s messages, for
-  # the flash/tooltip shown when pairing is blocked — the on-page banner (see
+  # the flash/tooltip shown when pairing is blocked - the on-page banner (see
   # render/1) additionally links each item to the Settings (sub-)page it
   # lives on.
   defp missing_setup_summary(missing) do
     Enum.map_join(missing, "; ", fn {_field, message} -> message end)
   end
 
-  # Long JaVaFo failures come through as multi-line output — show a short
+  # Long JaVaFo failures come through as multi-line output - show a short
   # first-line preview as the collapsed summary, never a truncated message
   # (the full text is always available by expanding the block).
   defp error_summary(text) do
     text |> String.split("\n", parts: 2) |> hd()
   end
 
-  # The pairing engine actually used, for button/notice copy — only Swiss runs
+  # The pairing engine actually used, for button/notice copy - only Swiss runs
   # JaVaFo, so the label must not claim it for round-robin (Berger schedule) or
   # Keizer.
   # Swiss falls through to whichever engine the tournament actually selected.
   # This used to hardcode "JaVaFo" for every Swiss tournament, so a
   # tournament opted into Ainalrami still had a button reading "Pair round 5
-  # (JaVaFo)" and a sheet describing pairings JaVaFo had not produced — the
+  # (JaVaFo)" and a sheet describing pairings JaVaFo had not produced - the
   # one place in the app where the engine choice was invisible after making
   # it.
-  defp pairing_engine_label(%{pairing_system: "round_robin"}), do: "Berger"
-  defp pairing_engine_label(%{pairing_system: "keizer"}), do: "Keizer"
-  defp pairing_engine_label(%{pairing_engine: "ainalrami"}), do: "Ainalrami"
-  defp pairing_engine_label(_swiss), do: "JaVaFo"
+  defp pairing_engine_label(tournament), do: Tournament.engine_name(tournament)
 
   defp pairing_engine_description(%{pairing_system: "round_robin"}),
     do: "round-robin schedule (Berger tables)"
@@ -1184,11 +1181,11 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   # Board-list label only: `player_label/1` plus the player's score coming
-  # into this round, in the same parenthetical — "Name (2400, 2.5)", or
+  # into this round, in the same parenthetical - "Name (2400, 2.5)", or
   # "Name (2.5)" with no rating. Deliberately separate from
   # `player_label/1` itself, which every OTHER player-name spot on this
   # page (swap dialogs, the not-playing pool, audit text) keeps using
-  # unchanged — the incoming score is specifically a pairing-SHEET thing.
+  # unchanged - the incoming score is specifically a pairing-SHEET thing.
   # No `nil` clause: `seat_cell/1`'s `@player ->` branch (the only caller)
   # only ever reaches this with a real player.
   defp seat_label(player, scores) do
@@ -1211,22 +1208,22 @@ defmodule PairingsEngineWeb.PairingsLive do
   # not board order. `PairingDisplay.with_display_boards/1` both sorts
   # (fixed-table boards moved to the end, ordered by their own table
   # number) and relabels (the ordinary boards renumbered to close the gap
-  # a pulled-out fixed-table board leaves) — see its moduledoc. Presentation
+  # a pulled-out fixed-table board leaves) - see its moduledoc. Presentation
   # only: `pairing.board` itself, used everywhere else in this file
   # (audit log entries, swap-menu subtitles), is untouched.
   # Hidden rows (see `Tournaments.set_pairing_hidden/3`) never reach
-  # `PairingDisplay` at all — filtering them out here, before the board
+  # `PairingDisplay` at all - filtering them out here, before the board
   # renumbering pass, means a hidden row plays no part in it whatsoever,
   # same as if it didn't exist for display purposes. This is safe against
   # the 0.14.6 bug class specifically because `display_board` is already
-  # FROZEN (see `PairingDisplay`'s moduledoc) — every other row's label was
+  # FROZEN (see `PairingDisplay`'s moduledoc) - every other row's label was
   # decided once, at pairing time, and doesn't get recomputed here just
   # because one row is missing from this list.
   defp display_rows(pairings) do
     pairings |> Enum.reject(& &1.hidden) |> PairingDisplay.with_display_boards()
   end
 
-  # Label for a byes-table row's `type` — distinct from the "bye" badge
+  # Label for a byes-table row's `type` - distinct from the "bye" badge
   # shown for a pairing-allocated bye (a real Pairing row), since these
   # never appear in round.pairings (see Tournaments.list_byes_for_round/2).
   defp bye_type_label("requested-half"), do: "requested half-point bye"
@@ -1236,7 +1233,7 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   # Cosmetic-only: under `rr_match_format`/`swiss_match_format`, round
   # 2k-1/2k are legs 1/2 of the same "match" (Pairing.max_pairable_round/1,
-  # RoundRobin.do_pair/3 — leg 2 is always a colour-reversed mirror of leg
+  # RoundRobin.do_pair/3 - leg 2 is always a colour-reversed mirror of leg
   # 1, never a separate JaVaFo decision). `rounds_count` keeps meaning
   # "total physical rounds" everywhere else; this only changes what the
   # round-picker buttons and the "Round N" heading display.
@@ -1266,10 +1263,10 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp match_number(n), do: div(n - 1, 2) + 1
   defp leg_number(n), do: if(rem(n, 2) == 1, do: 1, else: 2)
 
-  # Tooltip on the public/not-public badge — spells out WHEN, not just
+  # Tooltip on the public/not-public badge - spells out WHEN, not just
   # whether, for the two modes that resolve to a concrete future instant
   # ("scheduled" is a date-only concept, so "at midnight UTC" is worth
-  # being explicit about — an arbiter reading a bare date could easily
+  # being explicit about - an arbiter reading a bare date could easily
   # assume "first thing that morning", not literally 00:00).
   defp publish_status_title(%{publish_mode: "manual"}, %{published_at: nil}),
     do: "Hidden from the public pairings page until you publish it"
@@ -1294,7 +1291,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   attr :seats, :any, required: true
   attr :state, :string, required: true
   attr :compare, :any, default: nil
-  # `%{name => "#hex"}` — see `identity_colors/1`. Every seat gets its
+  # `%{name => "#hex"}` - see `identity_colors/1`. Every seat gets its
   # colour set as an inline `--swap-color` custom property regardless of
   # whether it changed; CSS decides what actually uses it (currently:
   # the name text, always, and the "changed" highlight/chip, only where
@@ -1311,7 +1308,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         black: black,
         white_changed?: white != was_white,
         black_changed?: black != was_black,
-        # Only the "after" card highlights a differing seat — that's the
+        # Only the "after" card highlights a differing seat - that's the
         # one the arbiter is being asked to approve. The "before" card
         # marks the same seats with an unstyled class purely so the
         # `.SwapArrows` hook can find where each traveller starts; it
@@ -1342,7 +1339,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   # The "not playing list" row `confirm_for/2`'s `:swap_pool` branch adds
-  # alongside the board row — the one `board_card/1` caller that only ever
+  # alongside the board row - the one `board_card/1` caller that only ever
   # has ONE seat, not two, so it gets its own small component rather than
   # forcing an optional-second-seat attr onto `board_card/1`. Deliberately
   # reuses `board_card/1`'s class vocabulary (`.board-card`/
@@ -1351,7 +1348,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   # travellers by querying those classes GLOBALLY across the whole modal,
   # not board-by-board, so as long as this row lives inside the same
   # `#confirm-board-diffs` container it's picked up for free. What it
-  # skips is the W/B colour disc `board_card/1` always draws — colour is
+  # skips is the W/B colour disc `board_card/1` always draws - colour is
   # meaningless off the board, and drawing one here would claim a seat
   # this row doesn't have.
   attr :name, :string, required: true
@@ -1372,7 +1369,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   # Both sides of the bench row always differ from each other (the whole
-  # point of a substitution is that the two names swap places) — unlike
+  # point of a substitution is that the two names swap places) - unlike
   # `board_card/1`, there's no "did this seat actually change?" branch to
   # make; both cards always get the highlight/no-visual-weight split
   # `board_card/1` also uses so `.SwapArrows` can find where each
@@ -1387,10 +1384,10 @@ defmodule PairingsEngineWeb.PairingsLive do
     end
   end
 
-  defp seat_text(""), do: "— empty —"
+  defp seat_text(""), do: "- empty -"
   defp seat_text(name), do: name
 
-  # A left-click in the pool means "complete the armed gesture" — which
+  # A left-click in the pool means "complete the armed gesture" - which
   # gesture depends on which one is armed. With a swap armed it's the swap
   # target; otherwise it's the second half of a pool pairing.
   defp pool_click(nil), do: "stage_pool_pair"
@@ -1399,7 +1396,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   # What the pool chip says about WHY someone isn't playing, and what it
   # scores. The tournament-wide `absent` flag is reported ahead of the
   # per-round byes row because it is the reason they are not in the
-  # pairing at all — and, being the flag an arbiter most often reverses
+  # pairing at all - and, being the flag an arbiter most often reverses
   # on the day, the one they need to recognise at a glance.
   defp pool_tag(%{absent?: true}, _tournament), do: "absent (whole event)"
 
@@ -1412,7 +1409,7 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   # One seat in the pairings table. Three states: an ordinary player
   # (right-click for the menu, left-click to complete an armed swap), a
-  # bye's empty black side (nothing to act on — the Result column already
+  # bye's empty black side (nothing to act on - the Result column already
   # says "bye"), and a VACANCY, which is the one that asks to be filled.
   attr :player, :any, required: true
   attr :pairing, :map, required: true
@@ -1441,7 +1438,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           {seat_label(@player, @scores)}
         </span>
       <% @pairing.result == "bye" -> %>
-        <span class="seat-none">—</span>
+        <span class="seat-none">-</span>
       <% @seat_pick -> %>
         <button
           type="button"
@@ -1457,9 +1454,9 @@ defmodule PairingsEngineWeb.PairingsLive do
           class="seat-vacant"
           data-pairing-id={@pairing.id}
           data-scope="vacant"
-          title="Empty seat — right-click to award a bye, or pick a replacement from the not-playing list below"
+          title="Empty seat - right-click to award a bye, or pick a replacement from the not-playing list below"
         >
-          — empty —
+          - empty -
         </span>
     <% end %>
     """
@@ -1664,7 +1661,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               end}
             </span>
             <%!-- Only shown once a tournament has actually opted into a
-                 non-instant publish mode — "immediate" is unchanged/today's
+                 non-instant publish mode - "immediate" is unchanged/today's
                  behaviour, and this would just be noise for every other
                  tournament that never touches this feature. --%>
             <span
@@ -1712,7 +1709,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             data-confirm={
               @tournament.pairing_system == "round_robin" &&
                 "This generates the whole round-robin schedule at once (every round, not just " <>
-                  "this one) and locks in who's playing — anyone added afterward won't be in " <>
+                  "this one) and locks in who's playing - anyone added afterward won't be in " <>
                   "it, and the schedule can't be changed once it exists. Continue?"
             }
             title={
@@ -1924,7 +1921,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         <span class="swap-banner-dot"></span>
         <span>
           Swapping <strong>{@swap_first.name}</strong>
-          — now click whoever they should trade places with, on a board or in the
+          - now click whoever they should trade places with, on a board or in the
           not-playing list below.
         </span>
         <button type="button" class="pe-btn" phx-click="cancel_swap">Cancel (Esc)</button>
@@ -1938,7 +1935,7 @@ defmodule PairingsEngineWeb.PairingsLive do
       >
         <span class="swap-banner-dot"></span>
         <span>
-          Pairing <strong>{@pool_first.name}</strong> — now click who they should play.
+          Pairing <strong>{@pool_first.name}</strong> - now click who they should play.
         </span>
         <button type="button" class="pe-btn" phx-click="cancel_pool_pair">Cancel (Esc)</button>
       </div>
@@ -1981,7 +1978,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                 />
               </div>
               <%!-- The "not playing list" row a `:swap_pool` substitution adds
-                    alongside its board row — see `confirm_for/2`'s comment on
+                    alongside its board row - see `confirm_for/2`'s comment on
                     `bench:`. Inside the same `#confirm-board-diffs` container
                     as the loop above so `.SwapArrows` finds both rows' seats
                     together. --%>
@@ -2017,7 +2014,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               :if={Enum.any?(@confirm.changes, &Map.get(&1, :result_will_clear?))}
               class="pe-modal-warn"
             >
-              A recorded result will be cleared — it described a game between players who are
+              A recorded result will be cleared - it described a game between players who are
               no longer both on that board.
             </p>
 
@@ -2028,7 +2025,7 @@ defmodule PairingsEngineWeb.PairingsLive do
 
               <label style="display: flex; align-items: center; gap: 6px; margin-top: 6px; font-weight: 400">
                 <input type="checkbox" checked={@confirm.frozen_ack} phx-click="toggle_frozen_ack" />
-                I understand — apply this to round {@round_number} anyway
+                I understand - apply this to round {@round_number} anyway
               </label>
             </div>
           </div>
@@ -2074,7 +2071,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                         first if you need to change that.
                       <% @tournament.pairing_system == "round_robin" -> %>
                         Press "Pair the whole tournament" to generate every round of the Berger
-                        schedule at once — round-robin doesn't pair one round at a time.
+                        schedule at once - round-robin doesn't pair one round at a time.
                       <% @round_number == @next_pairable -> %>
                         Press "Pair round {@round_number}" to generate the {pairing_engine_description(
                           @tournament
@@ -2174,7 +2171,7 @@ defmodule PairingsEngineWeb.PairingsLive do
            so this is their only reachable management surface: unhide them,
            or (only on the round's actual last board) delete them for
            good. Boards are listed by their real number, not the frozen
-           display label — an arbiter managing clutter cares which
+           display label - an arbiter managing clutter cares which
            physical board this is, and a hidden row by definition no
            longer has a display label anyone sees anywhere else. --%>
       <div :if={@hidden_pairings != []} class="card table-card" style="margin-top: 16px">
@@ -2182,7 +2179,7 @@ defmodule PairingsEngineWeb.PairingsLive do
 
         <p class="hint">
           Fully-vacated boards hidden from this round's table, prints, live view and public
-          page. Hiding never renumbers anything else — un-hide any time to bring a row back
+          page. Hiding never renumbers anything else - un-hide any time to bring a row back
           exactly as it was.
         </p>
 
@@ -2324,7 +2321,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           // code: once a form control has been interacted with, LiveView's
           // client won't overwrite its `value`/`selected` state on a
           // server-pushed diff, so as not to clobber someone's in-progress
-          // typing — and confirmed by hand, that pin doesn't even clear on
+          // typing - and confirmed by hand, that pin doesn't even clear on
           // blur; the element stays stuck on the stale value until it's
           // touched again or the page reloads. That protection makes sense
           // for a free-text field mid-keystroke; it's actively wrong for a
@@ -2336,7 +2333,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           // plain attribute, not `value`/`selected`, so it's exempt from
           // that protection and patches normally regardless of focus).
           // `updated()` fires on every server-pushed diff to this element,
-          // focused or not — resync `value` from it whenever they drift.
+          // focused or not - resync `value` from it whenever they drift.
           updated() {
             const truth = this.el.dataset.result;
             if (truth !== undefined && this.el.value !== truth) {
@@ -2374,9 +2371,9 @@ defmodule PairingsEngineWeb.PairingsLive do
         // Draws one curved arrow per player SHOWN in the confirm modal, not
         // only the ones who moved: from where they sit in the "before" card
         // to where they sit in the "after" one. A two-board player swap
-        // shows 4 people — the 2 who traded boards (a real, crossing
+        // shows 4 people - the 2 who traded boards (a real, crossing
         // journey) plus whoever they left in place on each board (a short
-        // arrow back to their own seat) — so every name shown has one,
+        // arrow back to their own seat) - so every name shown has one,
         // rather than 2 obviously-moved arrows next to 2 unmarked names
         // that look forgotten. A same-board colour swap only ever shows the
         // 2 who moved, since there's nobody else on that one board to draw.
@@ -2386,7 +2383,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         // both sides. That's 4 curves for a player swap, 2 for a colour
         // swap, and ZERO for mark-absent / award-bye / fill-seat /
         // pool-pair / substitute-from-pool, where nobody shown keeps the
-        // same identity on both sides of an empty seat — no new server
+        // same identity on both sides of an empty seat - no new server
         // state to keep in sync, and it cannot mislabel a non-swap as one.
         //
         // The curves route through the middle grid column (normally just the
@@ -2403,9 +2400,9 @@ defmodule PairingsEngineWeb.PairingsLive do
         // destination card the arrowhead stops.
         const STUB = 12;
         const HEAD_GAP = 4;
-        // `seat_text("")`'s own placeholder, verbatim — an empty seat never
+        // `seat_text("")`'s own placeholder, verbatim - an empty seat never
         // gets an arrow drawn to/from it (see `matchTravellers/1`).
-        const EMPTY_SEAT_TEXT = "— empty —";
+        const EMPTY_SEAT_TEXT = "- empty -";
 
         export default {
           mounted() {
@@ -2447,7 +2444,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             if (pairs.length === 0) return;
 
             // Widening the channel reflows the grid, so the new column
-            // widths have to land BEFORE anything is measured — reading a
+            // widths have to land BEFORE anything is measured - reading a
             // layout property forces that synchronously, rather than
             // waiting on a frame that may never come.
             this.el.classList.add("has-swap-arrows");
@@ -2456,7 +2453,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             this.render(layer, pairs);
           },
 
-          // [beforeSeatEl, afterSeatEl] for every name shown on BOTH sides —
+          // [beforeSeatEl, afterSeatEl] for every name shown on BOTH sides -
           // not only the ones already flagged "changed". A two-board player
           // swap shows 4 people (the 2 who traded boards, plus whoever they
           // left in place on each board); a same-board colour swap shows
@@ -2467,7 +2464,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           // reads as "forgotten" next to the ones who visibly moved.
           //
           // A name appearing twice on either side is ambiguous (two players
-          // sharing a display name) — skipped rather than guessed at, since
+          // sharing a display name) - skipped rather than guessed at, since
           // a wrong arrow is worse than none. The empty-seat placeholder
           // text is excluded outright: two different blank seats matching
           // each other by that shared placeholder would be a false pair,
@@ -2512,7 +2509,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               return { x: r.left - group.left, y: r.top - group.top, w: r.width, h: r.height };
             };
             // A seat's arrow attaches to its CARD's edge, at the seat row's
-            // own height — so the curve leaves the card beside the right
+            // own height - so the curve leaves the card beside the right
             // name rather than from the card's middle.
             const exit = (seat) => {
               const card = box(seat.closest(".board-card"));
@@ -2542,7 +2539,7 @@ defmodule PairingsEngineWeb.PairingsLive do
 
               // Each traveller's OWN colour, read straight off the seat
               // element `board_card/1` already set it on (`identity_colors/1`
-              // assigned it server-side) — so the arrow always matches the
+              // assigned it server-side) - so the arrow always matches the
               // name/highlight it belongs to, with no colour list of our
               // own to keep in sync. `from` and `to` are the same person by
               // construction (matchTravellers/1 paired them by name), so
@@ -2559,11 +2556,11 @@ defmodule PairingsEngineWeb.PairingsLive do
               const from_x = start.x + stub;
               const to_x = tip - stub;
 
-              // Symmetric control points — `+k` out of the start, `−k`
+              // Symmetric control points - `+k` out of the start, `−k`
               // into the end. Both curves of a swap then pass through the
               // exact centre of the channel at their own half-way point,
               // so they cross dead centre. (Giving each curve a single
-              // shared control x instead — one "lane" per arrow — is what
+              // shared control x instead - one "lane" per arrow - is what
               // made the crossing drift below the middle.)
               const k = Math.max((to_x - from_x) / 2, 14);
 
@@ -2602,7 +2599,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             layer.append(svg);
           },
 
-          // One `<marker>` per arrow, not one shared by all of them — an
+          // One `<marker>` per arrow, not one shared by all of them - an
           // SVG marker has exactly one fill, so two differently-coloured
           // arrowheads need two markers. `id` just needs to be unique
           // within this one SVG.
@@ -2634,7 +2631,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         // in the markup. One delegated listener per panel rather than one
         // per name.
         //
-        // A right-click NEVER completes anything — it only ever opens the
+        // A right-click NEVER completes anything - it only ever opens the
         // menu. Every write is behind a menu item plus the confirm modal,
         // so no two-right-clicks-in-a-row can change a pairing by accident.
         export default {

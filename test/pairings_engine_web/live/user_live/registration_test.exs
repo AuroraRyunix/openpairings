@@ -14,7 +14,7 @@ defmodule PairingsEngineWeb.UserLive.RegistrationTest do
 
     # The landing page is the shop window: it leads with the engine we
     # wrote and does not advertise the third-party one. This is about what
-    # a visitor is sold, not about dropping attribution — JaVaFo is still
+    # a visitor is sold, not about dropping attribution - JaVaFo is still
     # the default engine, and is still credited in the README, the licence
     # notes and the cross-program-agreement docs, where the credit is owed.
     test "leads with our own engine and does not name JaVaFo", %{conn: conn} do

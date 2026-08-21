@@ -8,7 +8,7 @@ defmodule PairingsEngine.Repo.Migrations.DropTournamentRatingType do
   # consulted this column. Switching it to "National rating" therefore
   # changed nothing at all, which is worse than not offering the choice.
   #
-  # Dropping the column loses no information — every row's value was inert.
+  # Dropping the column loses no information - every row's value was inert.
   def up do
     alter table(:tournaments) do
       remove :rating_type

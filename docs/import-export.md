@@ -22,11 +22,11 @@ it.
 `Content-Disposition: attachment`, filename
 `<X>_<fideid>_<tournament-slug>_<rounds>.trf`) for the tournament,
 owner-scoped the same way every other tournament route is
-(`Tournaments.get_user_tournament!/2` — a tournament id you don't own 404s).
+(`Tournaments.get_user_tournament!/2` - a tournament id you don't own 404s).
 
   * `<X>` is `B`/`R`/`S` for `tournament.standard` (blitz/rapid/standard).
   * `<fideid>` is whichever FIDE tournament ID applies to the exported round
-    range — a configured `fide_id_ranges` entry if one fully covers it, else
+    range - a configured `fide_id_ranges` entry if one fully covers it, else
     the tournament-wide `fide_tournament_id`, omitted entirely if neither
     resolves (see `PairingsEngine.TrfExport.applicable_fide_id/2` and the
     FIDE settings page).
@@ -34,7 +34,7 @@ owner-scoped the same way every other tournament route is
     `r1-5`, `r1-3+8` for a non-contiguous selection.
 
 Only players who have actually been included in a paired round (i.e. have a
-`pairing_number`) are included — a player added after the fact who was
+`pairing_number`) are included - a player added after the fact who was
 never paired has nothing meaningful to report.
 
 ### Round selection: the `rounds` query parameter
@@ -50,7 +50,7 @@ single round numbers and dash ranges:
 | `?rounds=1,2,4` | Rounds 1, 2 and 4 only |
 | `?rounds=1-3,6,8-9` | Any mix of ranges and singles |
 
-Tokens are deduped and sorted, and clamped to `1..<latest paired round>` —
+Tokens are deduped and sorted, and clamped to `1..<latest paired round>` -
 asking for round 12 of a 9-round tournament (or a round that simply hasn't
 been paired yet) silently drops that token rather than erroring. If nothing
 valid remains after parsing (a typo, an empty string, or the param omitted
@@ -59,11 +59,11 @@ entirely), the export falls back to every paired round.
 Selecting a subset doesn't just hide columns cosmetically: each player's
 `:games` list is filtered down to exactly the chosen rounds before the TRF
 is built, so the file only ever contains that many round-columns per player
-(TRF16's round data is purely positional — there's no round-number field in
+(TRF16's round data is purely positional - there's no round-number field in
 the row itself). Points are recomputed from the filtered games only, and
 the header's round-dates ("132") line is filtered to match. This is the
 same computation used by
-[round-scoped standings for printing](printing.md#round-scoped-standings-how-its-computed) —
+[round-scoped standings for printing](printing.md#round-scoped-standings-how-its-computed) -
 trimming the game set before computing anything downstream, rather than
 computing everything and truncating the display.
 
@@ -75,7 +75,7 @@ opponents before returning text, raising `PairingsEngine.Trf.ValidationError`
 on anything illegal. `TrfExport.export/2` catches that and returns
 `{:error, %Trf.ValidationError{}}` instead of letting it raise;
 `PairingsEngineWeb.ExportController.trf/2` turns that into a flash message
-and redirects back to the Pairings page — never a raw 500. In practice this
+and redirects back to the Pairings page - never a raw 500. In practice this
 can only happen with data corruption that bypassed the app entirely (see the
 test suite for how it's provoked), since every route that actually **writes**
 results keeps opponents' recorded results consistent with each other by
@@ -87,15 +87,15 @@ Real-world TRF exports (SWAR, Swiss-Manager) all extend TRF16 with a handful
 of extra, unofficial-but-harmless header lines and a readability aid, so this
 export matches:
 
-  * **`142`** — number of rounds represented in *this file* (following the
-    same round-selection filtering as everything else — a `?rounds=1-3`
+  * **`142`** - number of rounds represented in *this file* (following the
+    same round-selection filtering as everything else - a `?rounds=1-3`
     export of a 5-round tournament reports `142 3`, honestly). Not part of
     official TRF16, but Swiss-Manager already emits it, and it's one of the
     handful of fields FIDE's TRF25/26 draft extension formalizes.
-  * **`182`** — `OpenPairings v<version>`, naming the program that produced
+  * **`182`** - `OpenPairings v<version>`, naming the program that produced
     the file (Swiss-Manager does the same with its own name/version).
   * **A column ruler + field-code legend** (`DDD SSSS sTTT NNN...`, plus two
-    position-marker lines) inserted right before the player rows — purely a
+    position-marker lines) inserted right before the player rows - purely a
     human-readability courtesy for whoever opens the raw file in a text
     editor, copied from Swiss-Manager's own convention.
 
@@ -104,21 +104,21 @@ code (or a line that doesn't start with one of the three-digit codes at all)
 is silently skipped, both by spec convention and by this app's own
 `PairingsEngine.Trf.parse/1`. They're opt-in via `Trf.serialize/2`'s
 `column_legend: true` (and the `number_of_rounds`/`generator` tournament
-fields) — `TrfExport` turns them on; the JaVaFo-input path
+fields) - `TrfExport` turns them on; the JaVaFo-input path
 (`PairingsEngine.Pairing.javafo_input/4`) never does, since JaVaFo is a far
 more fragile consumer and has no use for any of this.
 
 One thing this export deliberately does **not** do: reorder rows by final
-standing. Both SWAR (inconsistently — its own row order doesn't even match
+standing. Both SWAR (inconsistently - its own row order doesn't even match
 its own printed Rank column) and real-world testing showed Swiss-Manager
-keeping rows in original starting-rank order, same as this app — TRF's
-"Rank" column (086–089) is where final-standing order belongs, not physical
+keeping rows in original starting-rank order, same as this app - TRF's
+"Rank" column (086-089) is where final-standing order belongs, not physical
 row position.
 
 ### Where the export controls live
 
 The Pairings page (`/t/:id/pairings`) has an "Export TRF (all rounds)" link
-plus a small `rounds=` text field for a subset — both are plain
+plus a small `rounds=` text field for a subset - both are plain
 `GET`/`<a target="_blank">`/`<form method="get" target="_blank">`, so
 middle-click / open-in-new-tab work and nothing routes through a LiveView
 socket.
@@ -148,7 +148,7 @@ socket.
 
 `format`/`version` identify the envelope so a garbage or foreign file is
 rejected up front rather than partially imported. `"id"` on teams/players/
-rounds is **not** a promise about anything outside this one JSON file — it
+rounds is **not** a promise about anything outside this one JSON file - it
 only lets sibling records within the same envelope point at the right team/
 player (a pairing's `white_player_id`, a bye's `player_id`, ...). The owning
 user is never included: who exported a tournament has no bearing on who can
@@ -173,28 +173,28 @@ per-row "Export" link) for the rest.
 
 ### Import
 
-There's no `GET` import route — a file upload needs a form, so it lives on
+There's no `GET` import route - a file upload needs a form, so it lives on
 the Tournaments page (`PairingsEngineWeb.TournamentsLive`) as an "Import
 backup (JSON)" panel using `live_file_input`, parallel to the existing SWAR
 import panel. Importing:
 
 1. Reads and `Jason.decode!`s the uploaded file.
 2. Validates the envelope's `format`/`version`/`tournaments` shape. Anything
-   that doesn't match is rejected with a flash — no crash, no partial write.
+   that doesn't match is rejected with a flash - no crash, no partial write.
 3. For **every** tournament in the envelope (one for a single-tournament
    export, one-or-more for `export_all`), inserts a brand-new tournament
    row owned by the importing user, then teams, then players, then rounds
-   (each with its pairings), then byes, then forbidden pairings — in that
+   (each with its pairings), then byes, then forbidden pairings - in that
    order, because each later step needs the previous step's *new* ids.
 4. Every reference to an old id (a player's `team_id`, a pairing's
    `white_player_id`/`black_player_id`, a bye's/forbidden-pairing's player
    ids) is rewritten through an old-id → new-id map built as each record is
-   inserted, so the imported tournament shares **no** ids with the source —
+   inserted, so the imported tournament shares **no** ids with the source -
    not the tournament, not a single player, round or pairing.
 
 The whole thing runs inside one `Repo.transaction` (broadcasts suppressed
 until it commits, then `Tournaments.broadcast_user_tournaments/1` fires
-once) — if anything fails partway (a malformed sub-record, a changeset
+once) - if anything fails partway (a malformed sub-record, a changeset
 validation error), the transaction rolls back and nothing is left behind.
 Byes and forbidden pairings referencing a player id that doesn't resolve
 (only possible from a hand-edited file) are skipped individually rather than
@@ -202,15 +202,15 @@ failing the whole import, since they're not load-bearing for the rest of
 the tournament.
 
 **Importing never overwrites anything.** A re-imported tournament is always
-a new tournament owned by whoever ran the import — including re-importing
+a new tournament owned by whoever ran the import - including re-importing
 your own export back into your own account. If you want a real backup/
 restore workflow, that's the point: nothing is destructive.
 
 ### Round-trip integrity
 
-The property that actually matters — export a tournament, import it back,
+The property that actually matters - export a tournament, import it back,
 and the copy is indistinguishable from the original in every way a user
 would notice (same players, same round-by-round results, same standings and
-points) — is asserted directly in
+points) - is asserted directly in
 `test/pairings_engine/tournament_import_test.exs`, both for a single
 tournament and for a multi-tournament `export_all` envelope.

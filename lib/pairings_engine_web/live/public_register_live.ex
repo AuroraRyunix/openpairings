@@ -1,6 +1,6 @@
 defmodule PairingsEngineWeb.PublicRegisterLive do
   @moduledoc """
-  Public (no login required) self-registration form — reachable at
+  Public (no login required) self-registration form - reachable at
   `/p/:slug/register` where `:slug` is the tournament's unguessable
   `public_slug`, the same one the read-only public pages use (see
   docs/public-pages.md).
@@ -21,7 +21,7 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
   Closing the form takes effect immediately, everywhere. The page
   subscribes to the tournament topic, so an already-open form flips to the
   closed notice the moment the arbiter shuts it, and
-  `Tournaments.register_public_player/2` re-checks anyway — a form rendered
+  `Tournaments.register_public_player/2` re-checks anyway - a form rendered
   a minute ago cannot smuggle an entry in afterwards.
   """
 
@@ -75,7 +75,7 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
     q = params["q"] || ""
 
     # The name, birth year and country fields all live in the one form, so
-    # every keystroke in any of them re-delivers all three — capture them
+    # every keystroke in any of them re-delivers all three - capture them
     # together rather than adding a second form, so nothing typed into
     # birth year/country is lost if the person fills those in first.
     {:noreply,
@@ -128,9 +128,9 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
     end
   end
 
-  # Keyed by client address only. There is no per-person key available — a
+  # Keyed by client address only. There is no per-person key available - a
   # name is not an identity and the whole point of the page is that the
-  # registrant has no account — so the address is all there is to count.
+  # registrant has no account - so the address is all there is to count.
   defp registration_allowed?(socket) do
     case socket.assigns.client_ip do
       nil -> true
@@ -173,7 +173,7 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
         {:noreply, assign(socket, error: "Please enter your name.")}
 
       # Not picked from the FIDE list, so there's no other source for these
-      # two — without at least a birth year and federation the arbiter has
+      # two - without at least a birth year and federation the arbiter has
       # no way to tell two "J. Smith"s apart on the entry list.
       is_nil(socket.assigns.picked) and
           (attrs["birth_year"] == "" or attrs["federation"] == "") ->
@@ -259,7 +259,7 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
 
         <p>
           You are marked <strong>not yet arrived</strong>. Report to the arbiter when you
-          get to the venue and they'll confirm you — you won't be paired until they do.
+          get to the venue and they'll confirm you - you won't be paired until they do.
         </p>
       </div>
 
@@ -274,7 +274,7 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
             <span :if={@picked.standard_rating}>· {@picked.standard_rating}</span>
             <span :if={@picked.federation != ""}>· {@picked.federation}</span>
           </p>
-          <button type="button" class="pe-btn" phx-click="clear">Not me — search again</button>
+          <button type="button" class="pe-btn" phx-click="clear">Not me - search again</button>
         </div>
 
         <div :if={is_nil(@picked)}>
@@ -336,7 +336,7 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
           </form>
 
           <p class="subtitle" style="margin: 8px 0 0">
-            Pick yourself from the FIDE list below — that fills birth year and federation in
+            Pick yourself from the FIDE list below - that fills birth year and federation in
             for you and the two fields above disappear.
           </p>
 

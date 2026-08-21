@@ -71,7 +71,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
 
     # Every production call site freezes display labels immediately after a
     # round's pairings are inserted (see
-    # Tournaments.freeze_round_display_boards!/1's callers) — do the same
+    # Tournaments.freeze_round_display_boards!/1's callers) - do the same
     # here so this fixture matches reality.
     :ok = Tournaments.freeze_round_display_boards!(r1.id)
     :ok = Tournaments.freeze_round_display_boards!(r2.id)
@@ -79,7 +79,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
     {tournament, %{a: a, b: b, c: c, d: d}}
   end
 
-  # A Keizer tournament, one round paired — enough to exercise
+  # A Keizer tournament, one round paired - enough to exercise
   # PairingsEngine.Keizer.standings/1's rank/value/points/raw_points shape
   # from the print document.
   defp keizer_fixture(scope) do
@@ -111,7 +111,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
 
   # A 2-player, single-board round, for the `fixed_board_note/1` tests below
   # (score sheets / result cards). `before_pairing: true` sets player A's
-  # `fixed_board` before the round is created (and frozen) — the note should
+  # `fixed_board` before the round is created (and frozen) - the note should
   # show. `before_pairing: false` freezes an ordinary round first and leaves
   # `fixed_board` unset, so the caller can set it mid-round afterwards to
   # exercise the "must not retroactively affect an already-frozen round" case.
@@ -150,10 +150,10 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       conn = get(conn, ~p"/t/#{tournament.id}/print/pairings?round=1")
 
       html = html_response(conn, 200)
-      assert html =~ "Pairings — round 1"
+      assert html =~ "Pairings - round 1"
       assert html =~ "A"
       assert html =~ "B"
-      # Round 2's pairing (C vs A on board 1) should not appear as a row —
+      # Round 2's pairing (C vs A on board 1) should not appear as a row -
       # C only appears paired with D on round 1's board 2.
       refute html =~ "round 2"
     end
@@ -164,7 +164,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       conn = get(conn, ~p"/t/#{tournament.id}/print/pairings?round=2")
 
       html = html_response(conn, 200)
-      assert html =~ "Pairings — round 2"
+      assert html =~ "Pairings - round 2"
     end
 
     test "omitting ?round defaults to round 1", %{conn: conn, scope: scope} do
@@ -172,7 +172,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
 
       conn = get(conn, ~p"/t/#{tournament.id}/print/pairings")
 
-      assert html_response(conn, 200) =~ "Pairings — round 1"
+      assert html_response(conn, 200) =~ "Pairings - round 1"
     end
 
     test "an unpaired round 404s", %{conn: conn, scope: scope} do
@@ -189,7 +189,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
     } do
       {tournament, _players} = fixture(scope)
 
-      # Round 2 pairs C vs A (see the fixture's own doc comment) — coming
+      # Round 2 pairs C vs A (see the fixture's own doc comment) - coming
       # into round 2, A is at 1 (won round 1) and C is at 0.5 (drew D).
       html = get(conn, ~p"/t/#{tournament.id}/print/pairings?round=2") |> html_response(200)
 
@@ -309,7 +309,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       html = get(conn, ~p"/t/#{tournament.id}/print/pairings?round=1") |> html_response(200)
 
       # Board 2's label was frozen at pairing time, before board 1 was
-      # ever hidden — hiding it later must not renumber board 2 down to
+      # ever hidden - hiding it later must not renumber board 2 down to
       # "1" (the 0.14.6 bug class).
       assert html =~ "<td class=\"num\">2</td>"
       refute html =~ "<td class=\"num\">1</td>"
@@ -358,7 +358,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       })
 
       html = html_response(get(conn, ~p"/t/#{tournament.id}/print/pairings?round=1"), 200)
-      assert html =~ "— bye —"
+      assert html =~ "- bye -"
     end
   end
 
@@ -486,7 +486,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
     end
   end
 
-  describe "standings/2 — manual ranking (SWAR parity #23)" do
+  describe "standings/2 - manual ranking (SWAR parity #23)" do
     test "off: no banner, order is the computed tiebreak order", %{conn: conn, scope: scope} do
       {tournament, _players} = fixture(scope)
 
@@ -511,7 +511,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       assert html =~ ~r/B.*A/s
     end
 
-    test "on but round-scoped (?round=n): the historical print is unaffected — no banner, computed order",
+    test "on but round-scoped (?round=n): the historical print is unaffected - no banner, computed order",
          %{
            conn: conn,
            scope: scope
@@ -564,7 +564,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       conn = get(conn, ~p"/t/#{tournament.id}/print/results?round=1")
 
       html = html_response(conn, 200)
-      assert html =~ "Result cards — round 1"
+      assert html =~ "Result cards - round 1"
       assert html =~ "A"
       assert html =~ "B"
       assert html =~ "C"
@@ -578,7 +578,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
 
       conn = get(conn, ~p"/t/#{tournament.id}/print/results?round=2")
 
-      assert html_response(conn, 200) =~ "Result cards — round 2"
+      assert html_response(conn, 200) =~ "Result cards - round 2"
     end
 
     test "omitting ?round defaults to the latest paired round", %{conn: conn, scope: scope} do
@@ -586,8 +586,8 @@ defmodule PairingsEngineWeb.PrintControllerTest do
 
       conn = get(conn, ~p"/t/#{tournament.id}/print/results")
 
-      # Fixture has rounds 1 and 2 paired — the latest paired round is 2.
-      assert html_response(conn, 200) =~ "Result cards — round 2"
+      # Fixture has rounds 1 and 2 paired - the latest paired round is 2.
+      assert html_response(conn, 200) =~ "Result cards - round 2"
     end
 
     test "an unpaired round 404s", %{conn: conn, scope: scope} do
@@ -653,7 +653,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       assert without_nonce(html_before) == without_nonce(html_after)
     end
 
-    # Eight compact cards per A4 page (down from three tall ones) — see
+    # Eight compact cards per A4 page (down from three tall ones) - see
     # `@result_cards_css`: `.result-card:nth-child(8n)` forces the page
     # break every 8th card instead of every 3rd.
     test "cards are laid out eight to a page", %{conn: conn, scope: scope} do
@@ -677,7 +677,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       html = html_response(conn, 200)
       assert (html |> String.split(~s(class="result-card")) |> length()) - 1 == 1
       # The first board (A vs B, board order) is the one kept. Matched as
-      # "<strong>A</strong>" rather than a bare letter — a bare "C"/"D"
+      # "<strong>A</strong>" rather than a bare letter - a bare "C"/"D"
       # false-positives on the random CSP nonce (base64) and on the
       # print-footer credit's "JaVaFo"/"Dutch".
       assert html =~ "<strong>A</strong>"
@@ -749,7 +749,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
 
       # Extract player names in the order their cards actually render, then
       # keep only the ones belonging to a White-slot rc-player span (each
-      # card mentions its White player first) — simplest robust check is to
+      # card mentions its White player first) - simplest robust check is to
       # just walk the "P<n>" tokens in document order and assert against the
       # expected slot -> board mapping directly.
       names_in_order =
@@ -810,7 +810,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
 
       # 6 boards exist; limit=4 keeps boards 1-4 (players P1..P8) before the
       # stack-cut imposition runs. pages = ceil(4/8) = 1, so slots 0..3 hold
-      # boards 0..3 and slots 4..7 are blank — i.e. plain board order with 4
+      # boards 0..3 and slots 4..7 are blank - i.e. plain board order with 4
       # blanks appended (a single page never needs reordering).
       html =
         get(conn, ~p"/t/#{tournament.id}/print/results?round=1&limit=4&order=stack")
@@ -862,7 +862,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
     end
 
     # Same regression as result_cards/2 above, for the other print document
-    # that goes through `fixed_board_note/1` — a mid-round fixed_board edit
+    # that goes through `fixed_board_note/1` - a mid-round fixed_board edit
     # must not retroactively add a note to an already-frozen round's sheets.
     test "a fixed_board set AFTER the round is already paired and frozen has no effect on the reprinted sheet",
          %{conn: conn, scope: scope} do
@@ -907,17 +907,17 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       conn = get(conn, ~p"/t/#{tournament.id}/print/crosstable")
 
       html = html_response(conn, 200)
-      # A (pairing_number 1) beat B (pairing_number 2) as white in round 1 —
+      # A (pairing_number 1) beat B (pairing_number 2) as white in round 1 -
       # B's row shows a loss ("0") against opponent #1 as black.
       assert html =~ "1b0"
     end
   end
 
-  describe "crosstable/2 — round robin players×players grid" do
+  describe "crosstable/2 - round robin players×players grid" do
     # Round-robin tournament, `cycles` cycles, 4 rated players (Alice=2000,
     # Bob=1900, Carol=1800, Dave=1700 -> frozen pairing numbers 1..4). Round
     # 1 is the FIDE Berger table's {1,4} (Alice white vs Dave) and {2,3}
-    # (Bob white vs Carol) — see PairingsEngine.RoundRobinTest, which
+    # (Bob white vs Carol) - see PairingsEngine.RoundRobinTest, which
     # verifies this exact table against the published FIDE N=4 annex.
     defp round_robin_fixture(scope, cycles) do
       {:ok, tournament} =
@@ -944,7 +944,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       {tournament, players}
     end
 
-    # Pairs the next round and enters `results` — a `%{{white_name,
+    # Pairs the next round and enters `results` - a `%{{white_name,
     # black_name} => result}` map matched against the round's actual
     # pairings by player id (order-independent lookup, since which pair
     # lands on which board isn't asserted here).
@@ -1015,7 +1015,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       pair_and_score(tournament, players, %{{"Bob", "Dave"} => "1-0", {"Carol", "Alice"} => "1-0"})
 
       # Round 4 (cycle 2, colours reversed vs round 1): Dave white vs Alice
-      # black — Alice wins again, this time as Black.
+      # black - Alice wins again, this time as Black.
       pair_and_score(tournament, players, %{{"Dave", "Alice"} => "0-1", {"Carol", "Bob"} => "0-1"})
 
       html = get(conn, ~p"/t/#{tournament.id}/print/crosstable") |> html_response(200)
@@ -1073,7 +1073,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
         end
 
       # Alice (highest rated, pairing number 1) sits out round 1's
-      # structural bye (see PairingsEngine.RoundRobinTest) — no result to
+      # structural bye (see PairingsEngine.RoundRobinTest) - no result to
       # enter for her.
       {:ok, round} = PairingsEngine.Pairing.pair_next_round(tournament)
       round = Repo.preload(round, :pairings)
@@ -1091,13 +1091,13 @@ defmodule PairingsEngineWeb.PrintControllerTest do
 
       html = get(conn, ~p"/t/#{tournament.id}/print/crosstable") |> html_response(200)
 
-      # Only 5 real players get a column — no 6th column for the phantom
+      # Only 5 real players get a column - no 6th column for the phantom
       # player that the odd-count bye mechanism uses internally.
       assert html =~ "<th class=\"num\">5</th>"
       refute html =~ "<th class=\"num\">6</th>"
 
       # Alice played no game this round (she had the bye), so her total is
-      # exactly the bye's point value (0.0, "requested-zero") — the bye
+      # exactly the bye's point value (0.0, "requested-zero") - the bye
       # doesn't show as a column, but it's still folded into her Pts total.
       assert html =~ ~r/Alice<\/strong><\/td>.*?<strong>0\.0<\/strong>/s
     end
@@ -1126,7 +1126,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
           ] do
         html = get(conn, path) |> html_response(200)
 
-        assert html =~ "Paired by OpenPairings using Swiss — FIDE Dutch (JaVaFo)",
+        assert html =~ "Paired by OpenPairings using Swiss - FIDE Dutch (JaVaFo)",
                "expected the engine credit on #{path}"
 
         assert html =~ "many thanks to Tom Wuyts for his valuable feedback.",
@@ -1196,9 +1196,9 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       html =
         get(conn, ~p"/t/#{tournament.id}/print/players?cols=pr") |> html_response(200)
 
-      # A is absent for round 3 (the upcoming round) — capital A.
+      # A is absent for round 3 (the upcoming round) - capital A.
       assert html =~ ">A(3)<"
-      # B was absent for round 1, already past — lowercase a.
+      # B was absent for round 1, already past - lowercase a.
       assert html =~ ">a(1)<"
     end
 
@@ -1226,7 +1226,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
 
       assert html =~ "Players Card"
       assert html =~ "<title>A</title>"
-      # A played B in round 1 — B's name shows up as the opponent.
+      # A played B in round 1 - B's name shows up as the opponent.
       assert html =~ "B"
     end
 
@@ -1311,7 +1311,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       assert length(Regex.scan(~r/<div class="place-card-page">/, html)) == 4
       assert html =~ "place-card-flip"
       # Fixture's round 2 (the latest paired round): board 1 is C vs A,
-      # board 2 is B vs D — every player should show a board number.
+      # board 2 is B vs D - every player should show a board number.
       assert html =~ "Board 1"
       assert html =~ "Board 2"
     end
@@ -1432,7 +1432,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       assert html =~ "data:image/png;base64,"
     end
 
-    test "also shows on standings, player list, and crosstable — every print doc going through print_page/5",
+    test "also shows on standings, player list, and crosstable - every print doc going through print_page/5",
          %{conn: conn, scope: scope} do
       {tournament, _players} = fixture(scope)
       {:ok, tournament} = Tournaments.set_logo(tournament, @tiny_png)

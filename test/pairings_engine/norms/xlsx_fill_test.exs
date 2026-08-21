@@ -32,11 +32,11 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
 
   # Strict well-formedness check for a single XML part, independent of the
   # `Regex`-based surgery this module does to produce it. `:xmerl_scan` (part
-  # of the Erlang/OTP standard library — no new dep) is a real, validating
+  # of the Erlang/OTP standard library - no new dep) is a real, validating
   # XML parser, unlike the module's own regexes: it rejects invalid UTF-8,
   # XML-illegal control characters, and any other well-formedness violation
   # that a lenient reader (openpyxl, some quick-preview panes) would happily
-  # skip past but Excel's own strict parser does not — that gap is exactly
+  # skip past but Excel's own strict parser does not - that gap is exactly
   # what produced the "we found a problem with some content" repair prompt
   # this module now guards against.
   defp assert_well_formed_xml!(name, binary) do
@@ -48,7 +48,7 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
     # `String.to_charlist/1`'s *already-decoded* Unicode codepoints instead
     # double-decodes multi-byte characters and misfires as a bogus
     # `bad_character` error on perfectly legal text (e.g. the FIDE
-    # template's own "…" in `sharedStrings.xml`) — this must stay raw bytes.
+    # template's own "…" in `sharedStrings.xml`) - this must stay raw bytes.
     charlist = :erlang.binary_to_list(binary)
 
     case :xmerl_scan.string(charlist, quiet: true) do
@@ -65,7 +65,7 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
   end
 
   # Every XML/rels part of a filled workbook must be strictly well-formed,
-  # not just the parts this module directly edited — `:zip.create/3` never
+  # not just the parts this module directly edited - `:zip.create/3` never
   # touches untouched members, but this is the guard that would catch it if
   # it ever did.
   defp assert_all_parts_well_formed!(members) do
@@ -97,7 +97,7 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
                ~r/<c r="B3"[^>]*t="inlineStr"><is><t xml:space="preserve">Test Open 2026<\/t><\/is><\/c>/
 
       # B7 keeps its own explicit dd/mm/yyyy style (not the template's
-      # original s="12" — see `docs/norms.md`'s date-format note) and gets a
+      # original s="12" - see `docs/norms.md`'s date-format note) and gets a
       # bare numeric Excel-serial <v> for the date.
       expected_serial = Date.diff(~D[2026-07-12], ~D[1899-12-30])
       assert sheet_xml =~ ~r/<c r="B7" s="\d+"><v>#{expected_serial}<\/v><\/c>/
@@ -181,7 +181,7 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
     test "strips the stale cached <v> from Certificaat's formula cells so they can't render blank/stale" do
       # The shipped template itself bakes in a stale cached value for this
       # cell (an empty cached string, `<v/>`, from when the template was
-      # last saved unfilled in Excel) — reproduces the reported bug where
+      # last saved unfilled in Excel) - reproduces the reported bug where
       # the Certificaat sheet displayed blank even though Invulformulier had
       # correct data, because non-recalculating readers just show the cache.
       template_members = unzip_template_map(@it3)
@@ -202,7 +202,7 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
       assert certificaat =~ ~r/<c r="A4" s="\d+"><f>[^<]*<\/f><\/c>/
       refute certificaat =~ ~r/<c r="A4"[^>]*><f>[^<]*<\/f><v/
 
-      # B23 shipped with a cached numeric `0` (`<v>0<\/v>`) — also stripped.
+      # B23 shipped with a cached numeric `0` (`<v>0<\/v>`) - also stripped.
       assert Map.fetch!(template_members, "xl/worksheets/sheet1.xml") =~
                ~r/<c r="B23" s="\d+"><f>[^<]*<\/f><v>0<\/v><\/c>/
 
@@ -357,7 +357,7 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
   # `strip_stale_formula_caches/1`'s old regex read `<v/>` as an OPENING
   # `<v>` tag (its `[^>]*` ate the slash), then lazily scanned FORWARD
   # ACROSS NEIGHBOURING CELLS to the next real `</v>` later in the row and
-  # silently swallowed every cell in between — one minimal fill deleted
+  # silently swallowed every cell in between - one minimal fill deleted
   # 99-186 cells from every template's Certificaat/display sheet (the side
   # the arbiter reads/prints; the Invulformulier fills themselves survived,
   # which is why the cell-content assertions above never caught it).
@@ -396,7 +396,7 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
     end
 
     test "IT4: a full candidate row's remarks (AB column, past the Z-column verdict formula) lands" do
-      # AB11 sits right after the Z11 verdict formula's `<v/>` empty cache —
+      # AB11 sits right after the Z11 verdict formula's `<v/>` empty cache -
       # exactly the span the old regex swallowed (AA11, AB11, AD11 all
       # vanished, taking the remarks fill with them).
       assert {:ok, binary} = XlsxFill.fill(@it4, %{"IT 4" => %{"AB11" => "board 2 tie split"}})
@@ -438,7 +438,7 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
     end
 
     test "non-ASCII text round-trips untouched and every part stays well-formed" do
-      hostile = "Gaëtan Boûtchön — Müller"
+      hostile = "Gaëtan Boûtchön - Müller"
 
       assert {:ok, binary} = XlsxFill.fill(@it3, %{"Invulformulier" => %{"B3" => hostile}})
 
@@ -446,20 +446,20 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
       sheet_xml = Map.fetch!(members, "xl/worksheets/sheet2.xml")
 
       assert sheet_xml =~
-               ~r/<c r="B3"[^>]*t="inlineStr"><is><t xml:space="preserve">Gaëtan Boûtchön — Müller<\/t><\/is><\/c>/
+               ~r/<c r="B3"[^>]*t="inlineStr"><is><t xml:space="preserve">Gaëtan Boûtchön - Müller<\/t><\/is><\/c>/
 
       assert_all_parts_well_formed!(members)
     end
 
     # Reproduces the reported bug: a TRF file (or any other upstream text
-    # source) whose bytes are Windows-1252/Latin-1 rather than UTF-8 — read
+    # source) whose bytes are Windows-1252/Latin-1 rather than UTF-8 - read
     # raw (`File.read!/1`, no transcoding) by `PairingsEngine.TrfImport`'s
-    # caller — carries byte sequences that are simply illegal UTF-8. SQLite
+    # caller - carries byte sequences that are simply illegal UTF-8. SQLite
     # doesn't validate encoding on TEXT columns, so a name like this can
     # reach `XlsxFill.fill/2` completely unchanged from what was uploaded.
     # Before the fix, these raw invalid bytes landed byte-for-byte inside
     # the `<t>` element, producing a sheet XML that fails to even decode as
-    # UTF-8 (let alone parse) — exactly the "we found a problem with some
+    # UTF-8 (let alone parse) - exactly the "we found a problem with some
     # content" Excel repair prompt from the bug report.
     test "invalid UTF-8 byte sequences (mis-encoded TRF import data) are sanitized, not corrupted through" do
       invalid_utf8_name = <<"Bo", 0xFC, "tchon, Ga", 0xEB, "tan">>
@@ -483,7 +483,7 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
 
     test "XML-illegal C0 control characters are sanitized even though they're valid UTF-8" do
       # \x0B (vertical tab) is legal UTF-8 but outright forbidden by XML
-      # 1.0's Char production below \x20 (only tab/LF/CR are legal there) —
+      # 1.0's Char production below \x20 (only tab/LF/CR are legal there) -
       # escaping it as `&#xB;` is just as illegal as the raw byte, so it
       # must be replaced, not merely escaped.
       hostile = "Weird\x0BName\x00Here"
@@ -500,7 +500,7 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
     end
 
     test "hostile data across every fillable cell in an IT3 still produces a fully well-formed workbook" do
-      hostile = ~s(O'Brien & <Sons> "Café" — Boûtchön) <> <<0xFC>>
+      hostile = ~s(O'Brien & <Sons> "Café" - Boûtchön) <> <<0xFC>>
 
       fills = %{
         "Invulformulier" => %{
@@ -525,7 +525,7 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
   # ---------------------------------------------------------------------
 
   # Excel's own (strict) OOXML loader requires the `<c>` children of a
-  # `<row>` to appear in ascending column order — a `<c r="C5">` written
+  # `<row>` to appear in ascending column order - a `<c r="C5">` written
   # after a `<c r="B5">` but before-in-source-order a `<c r="A5">` is
   # exactly the class of "problem with some content" that triggers the
   # repair prompt even though every part is otherwise well-formed XML

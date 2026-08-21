@@ -8,7 +8,7 @@ defmodule PairingsEngine.Repo.Migrations.AddPublicPagesEnabled do
       # an arbiter can switch it off to take a tournament's public pages down,
       # and rotating public_slug (Tournaments.rotate_public_slug/1) invalidates
       # a leaked link without disabling the feature. Written only via
-      # Tournaments.set_public_pages/2 and rotate_public_slug/1 — NOT cast by
+      # Tournaments.set_public_pages/2 and rotate_public_slug/1 - NOT cast by
       # changeset/2, same as public_slug and deleted_at.
       add :public_pages_enabled, :boolean, default: true, null: false
     end

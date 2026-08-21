@@ -31,7 +31,7 @@ defmodule PairingsEngine.SnapshotRestoreTest do
     t
   end
 
-  # A tournament with a played round — the state we'll snapshot and come back to.
+  # A tournament with a played round - the state we'll snapshot and come back to.
   defp played(scope, attrs \\ %{}) do
     t = tournament(scope, attrs)
     a = Repo.insert!(%Player{tournament_id: t.id, name: "Alice", fide_rating: 2100})
@@ -137,7 +137,7 @@ defmodule PairingsEngine.SnapshotRestoreTest do
   end
 
   describe "restore/3 leaves alone what it must not touch" do
-    test "the audit log survives — the record of what happened isn't rolled back" do
+    test "the audit log survives - the record of what happened isn't rolled back" do
       scope = user_scope()
       {t, _a, _b} = played(scope)
 
@@ -349,7 +349,7 @@ defmodule PairingsEngine.SnapshotRestoreTest do
       assert {:error, _reason} = Snapshots.restore(t, snapshot.id, scope)
 
       # The wipe and the rebuild share one transaction, so a failed rebuild
-      # must roll the wipe back too — otherwise a bad snapshot would destroy
+      # must roll the wipe back too - otherwise a bad snapshot would destroy
       # the tournament it was supposed to protect.
       players = Tournaments.list_players(t.id)
       assert length(players) == 2

@@ -1,7 +1,7 @@
 name: Build binaries
 
 # Builds a single self-contained executable per OS/arch with Burrito, each on
-# its NATIVE runner (so the SQLite NIF is native — no cross-compile guesswork).
+# its NATIVE runner (so the SQLite NIF is native - no cross-compile guesswork).
 # Runs on demand, and attaches the binaries to a GitHub release on a v* tag.
 on:
   push:

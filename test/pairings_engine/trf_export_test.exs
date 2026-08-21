@@ -1,5 +1,5 @@
 defmodule PairingsEngine.TrfExportTest do
-  # async: false — this DataCase does many writes; under ExUnit parallelism it
+  # async: false - this DataCase does many writes; under ExUnit parallelism it
   # contends on SQLite's single writer lock and flakes with "Database busy"
   # (same reason fide/sync_test and the import/export tests are serial).
   use PairingsEngine.DataCase, async: false
@@ -226,7 +226,7 @@ defmodule PairingsEngine.TrfExportTest do
     assert Enum.any?(lines, &String.starts_with?(&1, "DDD SSSS sTTT"))
     assert Enum.any?(lines, &(&1 =~ ~r/^(1234567890)+\d*$/))
 
-    # Still parses back to the exact same player/game data either way — the
+    # Still parses back to the exact same player/game data either way - the
     # legend is inert decoration to any TRF16 reader, including our own.
     parsed = Trf.parse(text)
     assert length(parsed.players) == 3
@@ -248,7 +248,7 @@ defmodule PairingsEngine.TrfExportTest do
 
   test "072 (number of rated players) counts only players with a fide_rating > 0" do
     {tournament, %{carol: carol}} = fixture()
-    # Make Carol unrated in the FIDE sense but give her a national rating —
+    # Make Carol unrated in the FIDE sense but give her a national rating -
     # that national figure must NOT count towards 072.
     Tournaments.update_player(carol, %{fide_rating: 0, national_rating: 1500})
 
@@ -300,7 +300,7 @@ defmodule PairingsEngine.TrfExportTest do
     assert text =~ "112 Assistant Two"
   end
 
-  test "112 also emits a line per arbiterN_name — arbiters beyond the 2 ranked deputies" do
+  test "112 also emits a line per arbiterN_name - arbiters beyond the 2 ranked deputies" do
     {tournament, _} = fixture()
 
     {:ok, tournament} =
@@ -337,7 +337,7 @@ defmodule PairingsEngine.TrfExportTest do
   ## ---------- 032 federation normalization ----------
 
   # SwarImport.create_tournament/2 already normalizes a Belgian regional
-  # league marker (VSF/FEFB/FRBE/"FIDE"/...) to "BEL" on import — but a
+  # league marker (VSF/FEFB/FRBE/"FIDE"/...) to "BEL" on import - but a
   # tournament imported before that normalization existed may still have
   # the raw marker sitting in `tournament.federation` in the database.
   # `TrfExport` applies the same normalization defensively at export time
@@ -392,7 +392,7 @@ defmodule PairingsEngine.TrfExportTest do
   # of a SWAR-imported tournament lacked 072/082/102/112/122 entirely and
   # had year-only birth dates (e.g. "1975/00/00") even for players SWAR
   # knew a full birth date for. Both were supposedly fixed already (see the
-  # synthetic-fixture tests above) — this exercises the exact real-world
+  # synthetic-fixture tests above) - this exercises the exact real-world
   # path (SwarImport -> TrfExport) rather than a hand-built fixture, using
   # c-reeks.swar, which has both rated and unrated players and at least one
   # player with a known full birth date (Deloof, Koen, 1973-04-30).
@@ -506,11 +506,11 @@ defmodule PairingsEngine.TrfExportTest do
 
   # `games_per_player` resolves a player's own game via the first pairing row
   # that mentions them in a round (see PairingsEngine.Pairing), so ordinary
-  # DB writes can never produce a genuinely inconsistent mutual result pair —
+  # DB writes can never produce a genuinely inconsistent mutual result pair -
   # the derivation from a single Pairing.result is symmetric by construction.
   # This test manufactures the corruption directly (two players sharing the
-  # same pairing_number, one of whom is wired up to mutually — and
-  # illegally — contradict another player's recorded result) to prove the
+  # same pairing_number, one of whom is wired up to mutually - and
+  # illegally - contradict another player's recorded result) to prove the
   # rescue path actually works end-to-end, rather than only unit-testing
   # `PairingsEngine.Trf.serialize/1` in isolation (already covered by
   # trf_test.exs).
@@ -519,7 +519,7 @@ defmodule PairingsEngine.TrfExportTest do
 
     a = Repo.insert!(%Player{tournament_id: tournament.id, name: "A", pairing_number: 1})
     x = Repo.insert!(%Player{tournament_id: tournament.id, name: "X", pairing_number: 2})
-    # Duplicate pairing_number 2 — never happens via the normal pairing flow
+    # Duplicate pairing_number 2 - never happens via the normal pairing flow
     # (PairingsEngine.Pairing.ensure_pairing_numbers/2 assigns each once),
     # only via direct data corruption/tampering.
     y = Repo.insert!(%Player{tournament_id: tournament.id, name: "Y", pairing_number: 2})
@@ -536,10 +536,10 @@ defmodule PairingsEngine.TrfExportTest do
     })
 
     # A second row also pairs A against Y in the same round, with Y (black)
-    # winning — Y's own resolved game genuinely points back at A's rank
+    # winning - Y's own resolved game genuinely points back at A's rank
     # (opponent_rank 1, result "1"). Because X and Y share pairing_number 2,
     # `by_rank[2]` resolves to Y, so A's claimed "1" against rank 2 gets
-    # mutually matched against Y's own "1" — a "1"/"1" pair, illegal.
+    # mutually matched against Y's own "1" - a "1"/"1" pair, illegal.
     Repo.insert!(%Pairing{
       round_id: round.id,
       board: 2,
@@ -567,7 +567,7 @@ defmodule PairingsEngine.TrfExportTest do
       refute on_text =~ "990"
       refute on_text =~ "MANUAL RANKING"
 
-      # Rank/starting-rank columns stay pairing_number-based regardless —
+      # Rank/starting-rank columns stay pairing_number-based regardless -
       # see docs/manual-standings.md for why manual ranking never touches
       # the TRF rank column at all.
       parsed = Trf.parse(on_text)

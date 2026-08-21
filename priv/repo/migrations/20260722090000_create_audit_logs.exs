@@ -13,7 +13,7 @@ defmodule PairingsEngine.Repo.Migrations.CreateAuditLogs do
       timestamps(updated_at: false)
     end
 
-    # Chronological per-tournament listing is the primary access pattern —
+    # Chronological per-tournament listing is the primary access pattern -
     # every audit query filters by tournament_id and orders by inserted_at.
     create index(:audit_logs, [:tournament_id, :inserted_at])
     # Filtering by action type (the audit page's category filter).

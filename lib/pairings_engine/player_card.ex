@@ -54,7 +54,7 @@ defmodule PairingsEngine.PlayerCard do
   @doc """
   Rating shown for an opponent: national rating if set (> 0), FIDE rating
   otherwise (mirrors `PairingsEngine.Tournaments.Player.rating/1`, but with
-  the opposite fallback order — SWAR's card prefers the national rating).
+  the opposite fallback order - SWAR's card prefers the national rating).
   """
   def opponent_rating(%{national_rating: n}) when is_integer(n) and n > 0, do: n
   def opponent_rating(%{fide_rating: f}), do: f || 0
@@ -63,10 +63,10 @@ defmodule PairingsEngine.PlayerCard do
   Result label for a single game record, from the point of view of the
   player the game record belongs to:
 
-    * `"1"` / `"½"` / `"0"` — an actual result over the board
-    * `"1FF"` / `"0FF"` — a forfeit win/loss (opponent existed, game unplayed)
-    * `"1 bye"` / `"½ bye"` / `"0 bye"` — a bye (no opponent)
-    * `""` — round not played and none of the above (e.g. still to be paired)
+    * `"1"` / `"½"` / `"0"` - an actual result over the board
+    * `"1FF"` / `"0FF"` - a forfeit win/loss (opponent existed, game unplayed)
+    * `"1 bye"` / `"½ bye"` / `"0 bye"` - a bye (no opponent)
+    * `""` - round not played and none of the above (e.g. still to be paired)
 
   A bye row is labelled by its KIND, via the `:bye_type` key
   `PairingsEngine.Standings` carries on every bye record (the `byes`-table
@@ -74,7 +74,7 @@ defmodule PairingsEngine.PlayerCard do
   `result: "bye"`):
 
     * `"requested-half"` → `"½ bye"`, `"requested-zero"`/`"absent"` →
-      `"0 bye"` — always, regardless of the points actually awarded. Under
+      `"0 bye"` - always, regardless of the points actually awarded. Under
       custom scoring the awarded value can coincide with a different kind's
       usual value (e.g. SWAR 3-2-1 presence points paying a requested-zero
       bye exactly `points_draw`), and inferring the label back from the
@@ -84,7 +84,7 @@ defmodule PairingsEngine.PlayerCard do
       at all) → the point-value heuristic below: `"½ bye"`/`"0 bye"` when
       the awarded points equal `points_draw`/`points_loss`, `"1 bye"`
       otherwise. For a pairing-allocated bye that heuristic is the right
-      shape — the number tracks what the bye actually pays (e.g. `"½ bye"`
+      shape - the number tracks what the bye actually pays (e.g. `"½ bye"`
       for a club paying half-point pairing byes).
   """
   def result_label(%{opponent_id: nil} = game, tournament) do
@@ -141,7 +141,7 @@ defmodule PairingsEngine.PlayerCard do
   @doc """
   Totals for the card's bottom row: the sum of the opponents' current totals
   (skipping byes, which have none) and the sum of this player's own result
-  points for the rounds shown — which is just `entry.points`.
+  points for the rounds shown - which is just `entry.points`.
   """
   def totals(rows, entry) do
     opponent_total =

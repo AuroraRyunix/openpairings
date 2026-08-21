@@ -41,7 +41,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     })
 
     # Every production call site freezes display labels immediately after a
-    # round's pairings are inserted — do the same here so this fixture
+    # round's pairings are inserted - do the same here so this fixture
     # matches reality.
     :ok = Tournaments.freeze_round_display_boards!(r1.id)
     :ok = Tournaments.freeze_round_display_boards!(r2.id)
@@ -57,12 +57,12 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
 
     {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 
-    # Round 1: nobody has played anything yet — both start at 0.
+    # Round 1: nobody has played anything yet - both start at 0.
     html = lv |> element("button[phx-value-number='1']") |> render_click()
     assert html =~ "A (2000, 0)"
     assert html =~ "B (1800, 0)"
 
-    # Round 2: A won round 1 (1-0), so A comes in at 1, B at 0 — the score
+    # Round 2: A won round 1 (1-0), so A comes in at 1, B at 0 - the score
     # from BEFORE round 2, not round 2's own (already-entered) result.
     html = lv |> element("button[phx-value-number='2']") |> render_click()
     assert html =~ "B (1800, 0)"
@@ -196,7 +196,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
 
     round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
 
-    # Inserted deliberately out of board order (3, 1, 2) — the round's
+    # Inserted deliberately out of board order (3, 1, 2) - the round's
     # `pairings` association preloads in whatever order the DB returns
     # them, not board order, so this reproduces the bug: without a sort at
     # render time the table would read "Board 3, Board 1, Board 2".
@@ -227,7 +227,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 
     # Distinct, unlikely-to-collide-elsewhere names for boards 1/2/3's white
-    # players — their positions in the rendered HTML must be ascending.
+    # players - their positions in the rendered HTML must be ascending.
     positions =
       for name <- ["Boardonealice", "Boardtwocarol", "Boardthreeeve"],
           do: :binary.match(html, name) |> elem(0)
@@ -255,7 +255,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
 
     round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
 
-    # Real board 1 is the fixed-table pairing; real board 2 is ordinary —
+    # Real board 1 is the fixed-table pairing; real board 2 is ordinary -
     # once board 1 becomes the special row at the bottom, board 2 should
     # take over displayed board 1 (the gap-closing case), not stay "2".
     Repo.insert!(%Pairing{
@@ -282,13 +282,13 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     refute html =~ ~s(<td class="num">2</td>)
 
     # The gap-closed ordinary board (labelled "1" now) must render before
-    # the fixed-table one (labelled "1001") — i.e. Shiftedsam's row comes
+    # the fixed-table one (labelled "1001") - i.e. Shiftedsam's row comes
     # before Wheelchairwendy's.
     shifted_pos = :binary.match(html, "Shiftedsam") |> elem(0)
     wheelchair_pos = :binary.match(html, "Wheelchairwendy") |> elem(0)
     assert shifted_pos < wheelchair_pos
 
-    # The real board numbers in the database are untouched — this is a
+    # The real board numbers in the database are untouched - this is a
     # display-only relabeling.
     pairings = Repo.preload(round, :pairings).pairings
     assert Enum.find(pairings, &(&1.white_player_id == wheelchair.id)).board == 1
@@ -357,7 +357,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     })
 
     # A byes-table row (SWAR-imported or round-specific absentee bye) is
-    # NOT a Pairing row and previously never showed up anywhere in the UI —
+    # NOT a Pairing row and previously never showed up anywhere in the UI -
     # the bug this display fixes.
     Repo.insert_all("byes", [
       %{tournament_id: tournament.id, player_id: absentee.id, round: 1, type: "requested-zero"}
@@ -399,7 +399,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
 
     assert html =~ ~s(<td class="num">7</td>)
     # Real board 1 stays real board 1 in the database (never touched by
-    # this presentation-only relabeling) — only the one paired board in
+    # this presentation-only relabeling) - only the one paired board in
     # this round's fixture, so there's no ordinary board left to
     # demonstrate the gap-closing here (see PairingDisplayTest for that).
     refute html =~ ~s(<td class="num">1</td>)
@@ -416,7 +416,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
 
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 
-    # The round was already paired before fixed_board was set — its board
+    # The round was already paired before fixed_board was set - its board
     # still reads "1" (the frozen label), never "7".
     refute html =~ ~s(<td class="num">7</td>)
     assert html =~ ~s(<td class="num">1</td>)
@@ -495,7 +495,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     assert Enum.find(round.pairings, &(&1.board == 2)).result == "0-1"
 
     # A successful import writes results, which broadcasts on the
-    # tournament's PubSub topic — this LiveView is subscribed to its own
+    # tournament's PubSub topic - this LiveView is subscribed to its own
     # topic, so drain that message before the test process exits.
     render(lv)
   end
@@ -561,7 +561,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
   end
 
   # Only this half of the setup-gate coverage actually runs the pairing, which
-  # shells out to javafo.jar — the gate assertions above stay untagged so they
+  # shells out to javafo.jar - the gate assertions above stay untagged so they
   # keep running where the (gitignored) jar isn't present, e.g. CI.
   @tag :javafo
   test "pairing with a complete setup creates the round", %{conn: conn, scope: scope} do
@@ -572,7 +572,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     render_click(lv, "pair", %{})
 
     # do_pair writes the round/pairings and broadcasts on the tournament's
-    # topic, which this `lv` is subscribed to — drain the self-broadcast
+    # topic, which this `lv` is subscribed to - drain the self-broadcast
     # before teardown (same race as the CSV import test above).
     render(lv)
 
@@ -590,7 +590,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
               "type" => "roundrobin",
               "pairing_system" => "round_robin",
               "start_date" => "2026-07-15",
-              # Deliberately wrong on purpose — round-robin corrects this to
+              # Deliberately wrong on purpose - round-robin corrects this to
               # the real Berger total, it isn't a free choice the way it is
               # for Swiss. This is the exact "I get too many rounds" case.
               "rounds_count" => "9",
@@ -682,7 +682,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
   ## ---------- concurrent-arbiter live refresh ----------
   #
   # A visible "Round N was just updated by another arbiter" notice used
-  # to fire on a remote broadcast — removed by explicit request: however
+  # to fire on a remote broadcast - removed by explicit request: however
   # it was positioned, a toast popping up mid-click kept surprising
   # people. The round data itself still refreshes live underneath;
   # that's the part that actually matters, and it keeps working with no
@@ -698,7 +698,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     refute html =~ "updated by another arbiter"
 
     # Simulate another arbiter/tab changing round 2's result directly in the
-    # DB (bypassing this LiveView entirely) and broadcasting the change —
+    # DB (bypassing this LiveView entirely) and broadcasting the change -
     # exactly what `Tournaments.update_pairing_result/2` would do from a
     # different process.
     round2 = Tournaments.get_round(tournament.id, 2) |> Repo.preload(:pairings)
@@ -708,7 +708,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
 
     html = render(lv)
     refute html =~ "updated by another arbiter"
-    # Each board row carries a stable id keyed by pairing — a remote
+    # Each board row carries a stable id keyed by pairing - a remote
     # update patches rows in place rather than by position, so a
     # currently-focused result `<select>` elsewhere on the row list can't
     # get swapped out from under whoever's using it.
@@ -718,18 +718,18 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
   # Real report: an arbiter changed an already-set result ("0-0FF" ->
   # "0-0") on one tab; a second arbiter who simply had that SAME board's
   # result <select> focused never saw the change, and it stayed stale
-  # even after they clicked away — confirmed by hand against a running
+  # even after they clicked away - confirmed by hand against a running
   # server. Root cause: once a <select> has been focused, Phoenix
   # LiveView's client won't overwrite its `value`/`selected` state from a
   # server-pushed diff (protecting in-progress typing elsewhere), and
   # that pin doesn't self-clear on blur. Fix: the true result is ALSO
   # mirrored into a plain `data-result` attribute, which patches
   # normally regardless of focus (unprotected, unlike `value`/`selected`)
-  # — the `.BlindResultEntry` hook's `updated()` callback then resyncs
+  # - the `.BlindResultEntry` hook's `updated()` callback then resyncs
   # `value` from it. This test locks down the SERVER half: `data-result`
   # always carries the pairing's real, current result. The CLIENT half
   # (the JS resync itself) was verified by hand in two real browser tabs
-  # — not mechanically testable here, since ExUnit never runs the hook's
+  # - not mechanically testable here, since ExUnit never runs the hook's
   # JS or touches a real focused DOM element.
   test "each result select mirrors the pairing's real result into a plain data-result attribute",
        %{conn: conn, scope: scope} do
@@ -1053,7 +1053,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
 
       assert html =~ ~s(aria-label="White">W)
       assert html =~ ~s(aria-label="Black">B)
-      # No "⇄ Board N" cross-reference chip any more — removed as
+      # No "⇄ Board N" cross-reference chip any more - removed as
       # confusing/unwanted; the journey arrows drawn by .SwapArrows already
       # show which board a moved player came from without it.
       refute html =~ "board-seat-swap-ref"
@@ -1063,7 +1063,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     # The journey arrows themselves are drawn client-side by the
     # `.SwapArrows` hook, so what's assertable here is the contract it
     # depends on: the hook mount point, its (LiveView-ignored) draw layer,
-    # and — the part that actually broke first — a `board-seat-moving`
+    # and - the part that actually broke first - a `board-seat-moving`
     # marker on the BEFORE card, which only exists because that card is
     # passed a `compare`. Without it the hook has no start points and
     # silently draws nothing.
@@ -1078,7 +1078,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       assert html =~ "SwapArrows"
       assert html =~ ~s(id="swap-arrows-layer")
 
-      # One departing seat per board — the two travellers' start points.
+      # One departing seat per board - the two travellers' start points.
       assert html |> String.split("board-seat-moving") |> length() == 3
     end
 
@@ -1087,7 +1087,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
 
     test "a cross-board swap colours all FOUR players shown, not just the two who moved",
          %{conn: conn, scope: scope} do
-      # two_board_fixture's A/B/C/D are all distinct — A and D trade
+      # two_board_fixture's A/B/C/D are all distinct - A and D trade
       # boards, B and C stay exactly where they are.
       %{tournament: t, a: a, d: d} = two_board_fixture(scope)
 
@@ -1096,7 +1096,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
 
       colors = swap_colors(html)
       # 4 people, each shown twice (once in their board's "before" card,
-      # once in whichever card they're in "after") — 8 colour tags total,
+      # once in whichever card they're in "after") - 8 colour tags total,
       # only 4 distinct values, and every value paired exactly twice
       # (the same person always gets the same colour on both sides).
       assert length(colors) == 8
@@ -1268,7 +1268,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
 
     # Real report: an arbiter had "pair with another player who isn't
     # playing…" staged behind its confirm dialog when someone ELSE
-    # entered a totally unrelated result elsewhere in the round — and got
+    # entered a totally unrelated result elsewhere in the round - and got
     # silently bounced out of it, as if they'd hit Escape themselves.
     test "an in-progress pool-pair confirm dialog survives an unrelated remote broadcast",
          %{conn: conn, scope: scope} do
@@ -1284,7 +1284,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       assert html =~ "Pair these two"
 
       # Someone else enters a result on a totally different board, in a
-      # totally different process — the exact shape of a real remote
+      # totally different process - the exact shape of a real remote
       # broadcast, bypassing this LiveView entirely.
       Repo.update!(Ecto.Changeset.change(board1, result: "1-0"))
       Tournaments.broadcast_tournament_change(t.id, :results)
@@ -1306,8 +1306,8 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       render_click(lv, "stage_pool_pair", %{"player-id" => to_string(a.id)})
       render_click(lv, "set_confirm_board", %{"board" => "9"})
 
-      # Board 9 gets taken by something else entirely — a different
-      # process, in between staging and applying — exactly the race
+      # Board 9 gets taken by something else entirely - a different
+      # process, in between staging and applying - exactly the race
       # widened by no longer wiping the confirm dialog on every broadcast.
       round = Tournaments.get_round(t.id, 1)
 
@@ -1324,7 +1324,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
 
       round = Tournaments.get_round(t.id, 1)
       board9_pairings = Enum.filter(round.pairings, &(&1.board == 9))
-      # Exactly the one pairing that was already there — no duplicate, and
+      # Exactly the one pairing that was already there - no duplicate, and
       # A/Spare were NOT silently paired onto a colliding board.
       assert length(board9_pairings) == 1
     end
@@ -1340,7 +1340,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
 
       # The redesigned modal shows a second "not playing list" row next to
       # the board row, with the pool player (Spare) on its "before" side
-      # and the seated player (A) on its "after" side — the mirror image
+      # and the seated player (A) on its "after" side - the mirror image
       # of the board row's own before/after. That's what lets
       # `.SwapArrows`' name-matching draw a real in/out arrow for each of
       # them, instead of the wrong self-referential arrow this modal used
@@ -1350,13 +1350,13 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       assert html =~ "Not playing list"
 
       # `Spare` now appears TWICE as a `.board-seat-name`: once in the
-      # board row's "after" card (unchanged behaviour — they took the
+      # board row's "after" card (unchanged behaviour - they took the
       # seat) and once more in the new bench row's "before" card (they
       # started on the bench). Same for `A`: once in the board row's
-      # "before" card (unchanged — they used to sit there), once more in
+      # "before" card (unchanged - they used to sit there), once more in
       # the bench row's "after" card (they end up on the bench). This is
-      # exactly the precondition `matchTravellers/1` needs — a name once
-      # on the "before" side and once on the "after" side overall — for
+      # exactly the precondition `matchTravellers/1` needs - a name once
+      # on the "before" side and once on the "after" side overall - for
       # its two automatic arrows; ExUnit can't run the hook's JS itself,
       # so this asserts the markup shape rather than the drawn arrows.
       assert html |> String.split(~s(title="Spare">Spare</span>)) |> length() == 3
@@ -1523,7 +1523,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
 
   describe "frozen-round confirmation (editing a round that isn't the latest paired one)" do
     # Same two-board round 1 as `two_board_fixture/1`, plus a paired round
-    # 2 — so round 1 is no longer the tournament's latest.
+    # 2 - so round 1 is no longer the tournament's latest.
     defp two_rounds_fixture(scope) do
       %{tournament: t} = fixture = two_board_fixture(scope)
 
@@ -1548,7 +1548,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     test "the LATEST round's own confirm modal is never frozen", %{conn: conn, scope: scope} do
       %{tournament: t, e: e, f: f} = two_rounds_fixture(scope)
 
-      # Default mount lands on the latest paired round (2), where E/F are —
+      # Default mount lands on the latest paired round (2), where E/F are -
       # a colour swap between them (their only board) needs no round switch.
       {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
 
@@ -1613,7 +1613,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
 
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 
-      # Lowercase "public" only ever comes from the badge text below — the
+      # Lowercase "public" only ever comes from the badge text below - the
       # unrelated "Public pairings link" button is capitalized.
       refute html =~ "public"
       refute html =~ "Publish now"

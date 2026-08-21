@@ -1,6 +1,6 @@
 defmodule PairingsEngineWeb.ToolsNormsLiveTest do
   # The whole point of /tools/norms is that it works for a logged-out
-  # visitor and never touches the database — so unlike most LiveView tests
+  # visitor and never touches the database - so unlike most LiveView tests
   # here, no register_and_log_in_user, and several tests assert row counts
   # stay frozen. async: false only because the "nothing persisted" test
   # counts absolute row totals.
@@ -16,7 +16,7 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
 
   ## ---------- fixtures: fabricated TRF text (no DB, no fixture files) ----------
 
-  # `players` is [{name, fide_id}] — one finished round between rank 1 and 2
+  # `players` is [{name, fide_id}] - one finished round between rank 1 and 2
   # when there are exactly two players, else no games (both are valid TRF).
   defp trf_text(name, players) do
     games =
@@ -59,7 +59,7 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
 
   # One file per submit: the page supports adding files incrementally (each
   # parse appends a row), and the LiveViewTest upload client can't survive a
-  # submit that consumes several entries at once — consuming the first entry
+  # submit that consumes several entries at once - consuming the first entry
   # closes its channel, which stops the shared test UploadClient (the fake
   # transport), killing the remaining entries' channels before their turn.
   # A real socket just deletes the closed channel, so this is purely a
@@ -77,10 +77,10 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
   end
 
   # FIDE's own template requires chief arbiter's and organizer's e-mail (see
-  # `report_blockers/1`'s doc) — tests that only care about some other
+  # `report_blockers/1`'s doc) - tests that only care about some other
   # field call this first so the download isn't blocked for an unrelated
   # reason.
-  # Grown beyond just e-mails as more fields joined `report_blockers/1` — kept
+  # Grown beyond just e-mails as more fields joined `report_blockers/1` - kept
   # this name since every call site already means "get to a downloadable
   # state", not literally "fill only the e-mail boxes".
   defp fill_required_emails(lv) do
@@ -130,7 +130,7 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
 
   ## ---------- upload -> parse -> download round-trip ----------
 
-  test "uploading a TRF file lists it and IT3 downloads as a filled xlsx — with nothing persisted",
+  test "uploading a TRF file lists it and IT3 downloads as a filled xlsx - with nothing persisted",
        %{conn: conn} do
     tournaments_before = Repo.aggregate(Tournament, :count)
     players_before = Repo.aggregate(Player, :count)
@@ -169,7 +169,7 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     upload_files(lv, [{"alpha.trf", trf_text("Alpha Open", [{"Alice", 111}, {"Bob", 222}])}])
 
     # The chief arbiter FIDE id can only land in the overlay via a real pick
-    # (see `PairingsEngineWeb.Components.ArbiterCombo`) — search, then pick.
+    # (see `PairingsEngineWeb.Components.ArbiterCombo`) - search, then pick.
     lv
     |> element("input[name='overlay[chief_arbiter_name]']")
     |> render_change(%{
@@ -259,7 +259,7 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     assert html =~ ~s(href="/tools/download/)
   end
 
-  test "only 2 ranked deputy arbiter slots are offered — FIDE never ranks a 3rd/4th",
+  test "only 2 ranked deputy arbiter slots are offered - FIDE never ranks a 3rd/4th",
        %{conn: conn} do
     {:ok, lv, _html} = live(conn, ~p"/tools/norms")
 
@@ -469,7 +469,7 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     assert conn.resp_body =~ "upload at least one"
   end
 
-  # No download links render when nothing parsed — pull the token straight
+  # No download links render when nothing parsed - pull the token straight
   # out of the LiveView's state instead.
   defp download_token_from_session(lv) do
     :sys.get_state(lv.pid).socket.assigns.token
@@ -493,7 +493,7 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     assert render(lv) =~ "File is larger than 5 MB"
   end
 
-  test "an 11th file is rejected — 10 at a time, max", %{conn: conn} do
+  test "an 11th file is rejected - 10 at a time, max", %{conn: conn} do
     {:ok, lv, _html} = live(conn, ~p"/tools/norms")
 
     entries =
@@ -550,7 +550,7 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     assert html =~ "Bossuyt, Wim"
 
     # Manually overwrite the chief arbiter, then upload a second file whose
-    # own chief arbiter differs — the manual edit must survive.
+    # own chief arbiter differs - the manual edit must survive.
     lv
     |> form("#tools-fields-form", %{"overlay" => %{"chief_arbiter_name" => "Someone Else"}})
     |> render_change()
@@ -629,8 +629,8 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
 
     html = upload_files(lv, [{"alpha.trf", trf}])
 
-    # Each name lands in its own box, AND — since both resolve to exactly one
-    # FIDE entry — the matching FIDE ID comes along too (see
+    # Each name lands in its own box, AND - since both resolve to exactly one
+    # FIDE entry - the matching FIDE ID comes along too (see
     # `SwarImport.match_official_fide_player/1`), same as picking each by
     # hand from the combobox would.
     assert html =~
@@ -674,7 +674,7 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
 
     html = upload_files(lv, [{"alpha.trf", trf}])
 
-    # No FIDE entry to match against — the box stays empty (never a raw,
+    # No FIDE entry to match against - the box stays empty (never a raw,
     # unverified name silently sitting where only a FIDE-confirmed one
     # should), but the hint says what the file did carry.
     assert html =~ ~s(name="overlay[deputy1_name]" value="")
@@ -827,7 +827,7 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
       # The officials form only renders once a file has been parsed.
       upload_files(lv, [{"a.trf", trf_text("Alpha Open", [{"Alice", 111}, {"Bob", 222}])}])
 
-      # Typing in the box itself searches — target the input directly since a
+      # Typing in the box itself searches - target the input directly since a
       # real browser routes the change event to the input's OWN phx-change,
       # not the surrounding form's `update_fields`.
       html =
@@ -870,8 +870,8 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
       # The officials form only renders once a file has been parsed.
       upload_files(lv, [{"a.trf", trf_text("Alpha Open", [{"Alice", 111}, {"Bob", 222}])}])
 
-      # A FIDE id can only ever land in the overlay via an actual pick — see
-      # `PairingsEngineWeb.Components.ArbiterCombo` — so search then pick,
+      # A FIDE id can only ever land in the overlay via an actual pick - see
+      # `PairingsEngineWeb.Components.ArbiterCombo` - so search then pick,
       # same as the "picking a result" test above.
       lv
       |> element("input[name='overlay[deputy1_name]']")
@@ -996,13 +996,13 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
   ## ---------- titled counts agree with the generated form ----------
 
   # The uploaded-file table used to count any non-blank title, while the
-  # generated FA1/IA1 excluded CM/WCM — so the screen said 14 and the form said
+  # generated FA1/IA1 excluded CM/WCM - so the screen said 14 and the form said
   # 9 for the same tournament. Both now go through `Forms.titled?/1`.
 
   ## ---------- titled counts agree with the generated form ----------
 
   # The uploaded-file table used to count any non-blank title while the
-  # generated FA1/IA1 excluded CM/WCM — so the screen said 14 and the form said
+  # generated FA1/IA1 excluded CM/WCM - so the screen said 14 and the form said
   # 9 for the same tournament. Both now go through `Forms.titled?/1`.
   describe "titled counts exclude CM/WCM" do
     alias PairingsEngineWeb.ToolsNormsLive

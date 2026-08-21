@@ -8,7 +8,7 @@ defmodule PairingsEngine.Kbsb.Parser do
   offsets, columns here are resolved **by header name** against a small set
   of recognised French/Dutch/English aliases. That makes the parser
   resilient to column reordering and to the exact delimiter/locale the
-  federation ends up using — adjust `@field_headers` once a real export is
+  federation ends up using - adjust `@field_headers` once a real export is
   available and doesn't match.
 
   Recognised delimiters: `;` (typical for French/Belgian locale CSV, since
@@ -18,7 +18,7 @@ defmodule PairingsEngine.Kbsb.Parser do
 
   Field splitting is RFC-4180-style, done by hand (no new deps): a field
   wrapped in double quotes may contain the delimiter (and newlines aren't
-  supported inside a quoted field — a value straddling a line break isn't
+  supported inside a quoted field - a value straddling a line break isn't
   something this parser reassembles), and a doubled `""` inside a quoted
   field unescapes to one literal `"`. See `split_row/2`.
   """
@@ -77,7 +77,7 @@ defmodule PairingsEngine.Kbsb.Parser do
   # encoding detection. Order matters: a file that's actually CP1252-encoded
   # but prefixed with a UTF-8 BOM has those three bytes decode (via
   # `decode/1`'s CP1252 fallback) into three *valid but wrong* characters
-  # ("ï»¿") rather than the BOM codepoint — `strip_bom/1` never recognizes
+  # ("ï»¿") rather than the BOM codepoint - `strip_bom/1` never recognizes
   # them, so the header's first cell reads "ï»¿MATRICULE" and
   # `column_offsets/1` reports a false "missing national ID column". Doing
   # it here, on the raw bytes, sidesteps encoding entirely.
@@ -86,7 +86,7 @@ defmodule PairingsEngine.Kbsb.Parser do
 
   # The file may arrive as UTF-8 (most likely for a modern export) or as
   # Windows-1252/Latin-1 (common for older Belgian federation tooling, same
-  # as the .swar format — see PairingsEngine.SwarImport.cp1252_decode/1).
+  # as the .swar format - see PairingsEngine.SwarImport.cp1252_decode/1).
   defp decode(binary) do
     if String.valid?(binary), do: binary, else: SwarImport.cp1252_decode(binary)
   end
@@ -142,7 +142,7 @@ defmodule PairingsEngine.Kbsb.Parser do
 
   # RFC-4180-style field splitting, hand-rolled (no new deps): a field is
   # "quoted" only when the opening `"` is the very first character of that
-  # field (matched below via the empty accumulator) — a delimiter inside a
+  # field (matched below via the empty accumulator) - a delimiter inside a
   # quoted field is literal text, not a field boundary, and a doubled `""`
   # inside a quoted field unescapes to one literal `"`. Newlines inside a
   # quoted field are unsupported: `parse/1` already splits the file into

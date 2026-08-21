@@ -1,6 +1,6 @@
 defmodule PairingsEngine.SwarExport do
   @moduledoc """
-  Writes a `.swar` file from an OpenPairings tournament — the inverse of
+  Writes a `.swar` file from an OpenPairings tournament - the inverse of
   `PairingsEngine.SwarImport`, built field-for-field against its read
   order and its reverse-mapping tables. See that module's moduledoc for
   the format background, and `docs/swar-import.md` for the underlying
@@ -10,34 +10,34 @@ defmodule PairingsEngine.SwarExport do
 
   `SwarImport` copes with v5/v6/v7 because it has to handle whatever an
   arbiter hands it. `export/1` only ever writes ONE version, hardcoded as
-  `"v7.00"` — there is no reason to synthesize an older layout, and one
+  `"v7.00"` - there is no reason to synthesize an older layout, and one
   concrete reason not to: v6's `[JOUEURS]` record carries
   `points_adjusted`, an arbiter's own manual correction entered inside
   SWAR itself, which does not exist for a tournament that has never been
   opened there. Targeting v7 sidesteps that field, and the separate
-  `EloFide` field (v7 reuses `Elo` for both — see `reverse_player/1`).
+  `EloFide` field (v7 reuses `Elo` for both - see `reverse_player/1`).
 
   ## What's been checked, and against what
 
   Confirmed opening cleanly in a real SWAR v7 install (not just
-  `SwarImport.parse/1` reading it back) — so `@tournoi_layout` below is
+  `SwarImport.parse/1` reading it back) - so `@tournoi_layout` below is
   right, at least for a file with the arbiter/remarks tail this codebase
   has tried so far.
 
   Whether a re-paired round then MATCHES what continuing the original
-  file in SWAR would have produced is a separate question — "does the
-  seed survive" — and cost one real wrong answer before it was actually
+  file in SWAR would have produced is a separate question - "does the
+  seed survive" - and cost one real wrong answer before it was actually
   right. SWAR's Swiss pairing sorts players by `(Category, Class,
   Rank)` before calling its own pairing engine, and it was tempting to
-  assume both get recomputed from the file's results the same way —
+  assume both get recomputed from the file's results the same way -
   they don't. Checked against a real copy of SWAR's source
   (`Swar - 20250906 v6.65 FRBE`, not inferred): `class` genuinely is
-  safe, recomputed unconditionally right before every Swiss pairing —
+  safe, recomputed unconditionally right before every Swiss pairing -
   but `rank` (the seed) is only recomputed from the "add a player" UI
   action, which a bulk file load never goes through. This function's
   first version wrote `rank` as `Ni` (plain registration order); found
   wrong by exporting a real tournament, pairing round 1 in a real SWAR
-  install, and comparing boards against a rating-seeded pairing — they
+  install, and comparing boards against a rating-seeded pairing - they
   didn't match at all. `assign_ranks/1` now computes the same
   rating/title/name sort SWAR's own `CmpRnkNormal` does. Full story,
   with the exact source citations, is on `reverse_player/5`'s own
@@ -46,12 +46,12 @@ defmodule PairingsEngine.SwarExport do
   back to `rank = ni` fails loudly).
 
   What the test suite can check on its own, separately: the round-by-
-  round RESULT data survives re-import — export, reimport through the
+  round RESULT data survives re-import - export, reimport through the
   real persisting path, reread the resulting `Pairing` rows.
 
   What's still a documented guess rather than a checked fact: whether
   `@tournoi_layout` is ALSO right for a file where the arbiter/remarks
-  strings are genuinely non-blank — `SwarImport` itself couldn't pin
+  strings are genuinely non-blank - `SwarImport` itself couldn't pin
   that region down from the one v7 sample it had either (see
   `@tournoi_layout` below), and it's exactly why arbiter-1/arbiter-2
   don't round-trip (see `reverse_tournoi_tail_strings/2`). If a real
@@ -60,20 +60,20 @@ defmodule PairingsEngine.SwarExport do
 
   ## Known-lossy mappings
 
-  Several `SwarImport` mappings are many-to-one — several SWAR codes
-  collapse onto one OpenPairings value — and have no principled inverse.
+  Several `SwarImport` mappings are many-to-one - several SWAR codes
+  collapse onto one OpenPairings value - and have no principled inverse.
   Each is documented at its own `reverse_*` function below rather than
   here, since the reasoning differs per field. The two structural ones
   worth knowing before reading further:
 
     * SWAR's `[EXCLUSION]` section is parsed but never mapped to
       anything on import (`data.exclusion` is read and discarded), so
-      there is no reverse to write either — always exported empty.
+      there is no reverse to write either - always exported empty.
     * SWAR's `[CATEGORIES]` section is TWO parallel 16-slot lists
       (`value1`/`value2`, presumably two independent category
       dimensions); import already collapses them into one flat list
       (`map_categories/1` concatenates both). Export puts everything
-      back into `value1` and leaves `value2` blank — which dimension a
+      back into `value1` and leaves `value2` blank - which dimension a
       category belonged to was never captured, so there is nothing to
       restore it from.
   """
@@ -83,25 +83,25 @@ defmodule PairingsEngine.SwarExport do
   alias PairingsEngine.{Repo, Tournaments, SwarImport}
   alias PairingsEngine.Tournaments.Tournament
 
-  # Table number sentinel for a pairing-allocated bye (Swar.h TABLE_BYE) —
+  # Table number sentinel for a pairing-allocated bye (Swar.h TABLE_BYE) -
   # mirrors `SwarImport`'s own `@table_bye`, kept as a second copy rather
   # than made public there: it is read-side vocabulary that export needs
   # too, not a shared concept worth coupling the two modules over.
   @table_bye 0x1000
 
-  # `{fide-id entries, trailing strings}` — see `SwarImport`'s own
+  # `{fide-id entries, trailing strings}` - see `SwarImport`'s own
   # `@tournoi_layouts` and the moduledoc above. `:v7_strings` is
   # `SwarImport`'s own FIRST guess for a v7 file (see
   # `parse_tournoi_section/2`'s `order`), so writing that layout is what a
   # real v7 `.swar` most likely already looks like, on the evidence this
   # codebase has. Sixteen FIDE-id entries, ONE trailing string (folding
-  # arbiter-1/arbiter-2/remarks into a single free-text field — see
+  # arbiter-1/arbiter-2/remarks into a single free-text field - see
   # `reverse_tournoi/1`).
   @tournoi_layout {16, 1}
 
   @doc """
   Builds a v7 `.swar` binary for `tournament`. Loads players, rounds and
-  byes itself — pass a plain `%Tournament{}` (or its `id`), not a
+  byes itself - pass a plain `%Tournament{}` (or its `id`), not a
   pre-preloaded one, since the round/pairing assembly below needs several
   separate queries `Repo.preload/2` would not give it in the right shape.
   """
@@ -135,7 +135,7 @@ defmodule PairingsEngine.SwarExport do
       reverse_joueurs(players, categories, ni_by_player_id, round_records)
   end
 
-  ## ---------- Write primitives — the exact inverse of SwarImport's read_* ----------
+  ## ---------- Write primitives - the exact inverse of SwarImport's read_* ----------
 
   defp w_i32(v), do: <<v::little-signed-32>>
   defp w_i16(v), do: <<v::little-signed-16>>
@@ -154,29 +154,29 @@ defmodule PairingsEngine.SwarExport do
     {n_fide_ids, n_strings} = @tournoi_layout
 
     # `arbiter1`/`arbiter2` on import: `arbiter1` becomes `chief_arbiter`
-    # via `strip_arbiter_title/1` (a one-way trim — a stripped title
+    # via `strip_arbiter_title/1` (a one-way trim - a stripped title
     # can't be reconstructed, so this writes the title-less name SWAR
     # would have to re-derive the same way); `arbiter2`/`deputy_arbiter`
     # is kept raw both directions.
     # FRBE/FIDE homologation-range fields: no OpenPairings equivalent
     # (rounds_count-wide homologation is tracked as a single boolean,
-    # `fide_homologated`, not a from/to round range) — written as "not
+    # `fide_homologated`, not a from/to round range) - written as "not
     # set" rather than guessed.
-    # `cat_separes` ("categories use separate standings tables") — no
+    # `cat_separes` ("categories use separate standings tables") - no
     # OpenPairings equivalent; 0 (off) is the safe default.
     # `elo_ou_pays` ("prefer Elo or federation for tiebreak/seeding
-    # display") — no OpenPairings equivalent; 0 is SWAR's own default.
-    # `plusieurs` ("several tournaments in one club session") — no
+    # display") - no OpenPairings equivalent; 0 is SWAR's own default.
+    # `plusieurs` ("several tournaments in one club session") - no
     # OpenPairings equivalent; 0 (off).
-    # `first_table` (starting board number offset) — OpenPairings always
+    # `first_table` (starting board number offset) - OpenPairings always
     # numbers boards from 1.
-    # `elo_used` (which rating column feeds pairing/tiebreak) — no
+    # `elo_used` (which rating column feeds pairing/tiebreak) - no
     # single OpenPairings equivalent (`Player.rating/1` always prefers
     # FIDE); 0 is SWAR's own default.
-    # `tb_personel` (custom tiebreak formula toggle) — not modeled.
-    # `appar_order` (pairing-list display order) — not modeled.
-    # `elo_equal` (how equal-rated players are ordered) — not modeled.
-    # `ff_value` — the points paid for a forfeit, distinct from
+    # `tb_personel` (custom tiebreak formula toggle) - not modeled.
+    # `appar_order` (pairing-list display order) - not modeled.
+    # `elo_equal` (how equal-rated players are ordered) - not modeled.
+    # `ff_value` - the points paid for a forfeit, distinct from
     # `abs_value`; not modeled as its own tournament setting
     # (`Standings` scores a forfeit the same as an ordinary
     # win/loss/draw code, not via a separate club-configured value), so
@@ -229,9 +229,9 @@ defmodule PairingsEngine.SwarExport do
   end
 
   # `Cadence` is a 0-based index into a dropdown SWAR fills at runtime from
-  # `t.standard` (see `SwarImport.cadence_label/2`) — reversing it means
+  # `t.standard` (see `SwarImport.cadence_label/2`) - reversing it means
   # finding which index THAT dropdown would show `t.rate_of_play` at. -1
-  # (SWAR's own "custom" sentinel — verified against `cadence_label/2`
+  # (SWAR's own "custom" sentinel - verified against `cadence_label/2`
   # returning `nil` for any cadence outside its known table) falls back to
   # writing `t.rate_of_play` as free text in `Cadence_Other` instead.
   defp reverse_cadence(t) do
@@ -240,18 +240,18 @@ defmodule PairingsEngine.SwarExport do
   end
 
   # v7_strings folds arbiter-1/arbiter-2/remarks into ONE trailing string
-  # (see `@tournoi_layout`) — `SwarImport.parse_tournoi/3` reads a
+  # (see `@tournoi_layout`) - `SwarImport.parse_tournoi/3` reads a
   # single-element list back as `{"", "", remarks}`, so anything written
   # as `fide_arb1`/`fide_arb2` here is unrecoverable on reimport no matter
   # what goes in it. There's no dedicated "FIDE remarks" field on
   # `Tournament` either, so this carries the deputy arbiter text instead
-  # of nothing — better than an empty string, not a claim it's correct.
+  # of nothing - better than an empty string, not a claim it's correct.
   defp reverse_tournoi_tail_strings(t, 1), do: [t.deputy_arbiter]
   defp reverse_tournoi_tail_strings(t, 4), do: [t.chief_arbiter, t.deputy_arbiter, "", ""]
 
   @tournament_type_reverse %{"swiss" => 0, "roundrobin" => 4}
   # `team-swiss`/`team-roundrobin` have no SWAR code of their own (import
-  # never produces them — see `SwarImport`'s `@tournament_types`, every
+  # never produces them - see `SwarImport`'s `@tournament_types`, every
   # entry maps to plain "swiss"/"roundrobin"), so they fall back to their
   # non-team base type: the closest SWAR concept, not an exact one.
   defp reverse_tournament_type("team-swiss"), do: 0
@@ -269,13 +269,13 @@ defmodule PairingsEngine.SwarExport do
   defp reverse_bye_value(_), do: 0
 
   # Belgian sub-federation codes 1-6 all collapse to the single FIDE
-  # country code "BEL" on import (`normalize_federation/1`) — which ONE
+  # country code "BEL" on import (`normalize_federation/1`) - which ONE
   # organized the tournament is gone by the time it reaches
   # `tournament.federation`. 2 (KBSB, the national federation itself) is
   # the arbitrary-but-documented choice for writing it back; any other
   # value (a real FIDE country code, or "") has no SWAR federation-code
-  # equivalent at all — that field means "which Belgian entity", not "which
-  # country" — so it becomes 0 ("none selected").
+  # equivalent at all - that field means "which Belgian entity", not "which
+  # country" - so it becomes 0 ("none selected").
   defp reverse_federation("BEL"), do: 2
   defp reverse_federation(_), do: 0
 
@@ -303,7 +303,7 @@ defmodule PairingsEngine.SwarExport do
 
   ## ---------- [EXCLUSION] ----------
 
-  # Never mapped to anything on import (see moduledoc) — written as "off,
+  # Never mapped to anything on import (see moduledoc) - written as "off,
   # no list" rather than guessed.
   defp reverse_exclusion, do: w_str("[EXCLUSION]") <> w_i32(0) <> w_str("")
 
@@ -324,7 +324,7 @@ defmodule PairingsEngine.SwarExport do
 
   ## ---------- [XTRA_POINTS] ----------
 
-  # SWAR's own Elo-band extra-points table — a DIFFERENT mechanism from
+  # SWAR's own Elo-band extra-points table - a DIFFERENT mechanism from
   # `Tournament.extra_points_bands` (OpenPairings' own band syntax, an
   # importer-side addition with no SWAR-side field to write back to; see
   # `docs/extra-points.md`). Four empty bands, matching "feature unused".
@@ -333,11 +333,11 @@ defmodule PairingsEngine.SwarExport do
 
   ## ---------- [JOUEURS] ----------
 
-  # SWAR's own internal player number (`NI`) IS `pairing_number` — checked
+  # SWAR's own internal player number (`NI`) IS `pairing_number` - checked
   # directly against `SwarImport.player_attrs/2`, `pairing_number: p.ni`.
   # A player who was never paired has no `pairing_number`; such a player
   # has no round records either (see `build_round_records/3`), so their NI
-  # is cosmetic — just needs to be distinct — and gets one continuing past
+  # is cosmetic - just needs to be distinct - and gets one continuing past
   # the highest real pairing number.
   defp assign_ni(players) do
     max_assigned =
@@ -354,30 +354,30 @@ defmodule PairingsEngine.SwarExport do
     map
   end
 
-  # `Rank` is SWAR's own initial seed — checked against a real copy of its
+  # `Rank` is SWAR's own initial seed - checked against a real copy of its
   # source (`Swar - 20250906 v6.65 FRBE`), NOT inferred: `Joueur.cpp`'s
   # `CmpRnkNormal` sorts by rating descending, then title descending
-  # (`J_TITRE`'s own enum order — GM highest), then a configurable
+  # (`J_TITRE`'s own enum order - GM highest), then a configurable
   # tie-break defaulting to name (`ELO_EQUAL`'s `EQUAL_ALPHA = 0`, the
   # value `reverse_tournoi/1` already writes for `elo_equal`, since it had
-  # no better default at the time — this makes that choice load-bearing
+  # no better default at the time - this makes that choice load-bearing
   # rather than arbitrary, so the two now agree on purpose).
   #
   # Unlike `Class` (see `reverse_player/4`'s own comment), `Rank` is NOT
-  # recomputed on a plain file load for a Swiss tournament — checked
+  # recomputed on a plain file load for a Swiss tournament - checked
   # directly: `RecomputeRank()` only runs from the "add a player" action
   # (`Base.cpp`) or Round Robin's own pre-pairing prompt
   # (`SwarView.cpp`'s `AskRankingMethode()`, itself Robin-only), neither
   # of which a bulk file-open goes through. Writing `Rank` as `Ni`
-  # (registration order) here — this function's first version — meant
+  # (registration order) here - this function's first version - meant
   # SWAR paired round 1 by registration order instead of rating: found by
   # exporting a real tournament, pairing round 1 in a real SWAR install,
   # and comparing boards. `Class` doesn't have the same failure mode (see
-  # its own comment) because `CalculLeClassement` — which DOES run
-  # unconditionally before every Swiss pairing — computes it fresh from
+  # its own comment) because `CalculLeClassement` - which DOES run
+  # unconditionally before every Swiss pairing - computes it fresh from
   # each player's actual points every time, with no "only on this one
   # action" gap for it to fall through.
-  # `reverse_title/1`'s `@title_reverse` IS `J_TITRE`'s own enum order —
+  # `reverse_title/1`'s `@title_reverse` IS `J_TITRE`'s own enum order -
   # higher value wins a rating tie, same table, reused rather than
   # duplicated.
   defp assign_ranks(players) do
@@ -406,25 +406,25 @@ defmodule PairingsEngine.SwarExport do
     points_x2 = round(Enum.sum(Enum.map(rounds, & &1.points)) * 2)
 
     # `class` and `rank` are the two fields the SWAR question "does the
-    # seed survive?" turns on — SWAR's Swiss pairing sorts players by
+    # seed survive?" turns on - SWAR's Swiss pairing sorts players by
     # exactly `(Category, Class, Rank)` before it ever calls its pairing
     # engine (`PairingSwiss.cpp`'s `InitSwiss()`: "Tri par Cat, Class,
-    # Rank") — and the two behave differently, checked against a real
+    # Rank") - and the two behave differently, checked against a real
     # copy of SWAR's source (`Swar - 20250906 v6.65 FRBE`), not guessed:
     #
     #   * `class` is genuinely safe at a constant 0. `Swar.h` marks it
     #     "à Calculer" ("to be calculated"), and `CalculLeClassement()`
-    #     — which computes it fresh from each player's actual points —
+    #     - which computes it fresh from each player's actual points -
     #     runs unconditionally right before every Swiss pairing
     #     (`SwarView.cpp`'s "Première chose à faire avant appariement",
     #     "first thing done before pairing"). Whatever is on disk gets
     #     overwritten before it can matter.
     #
     #   * `rank` is NOT safe at a placeholder, despite `Swar.h` marking
-    #     it "à Calculer" too — the recompute has a gap `class` doesn't.
+    #     it "à Calculer" too - the recompute has a gap `class` doesn't.
     #     `RecomputeRank()` only runs from the "add a player" action
     #     (`Base.cpp`) or Round Robin's own pre-pairing prompt
-    #     (`AskRankingMethode()`, itself Robin-only) — neither of which
+    #     (`AskRankingMethode()`, itself Robin-only) - neither of which
     #     a bulk file load goes through. A Swiss tournament opened
     #     straight from a file pairs using WHATEVER `rank` the file
     #     said. This function's first version wrote `rank = ni`
@@ -438,20 +438,20 @@ defmodule PairingsEngine.SwarExport do
     # `test/pairings_engine/swar_export_test.exs` proves the round DATA
     # survives re-import; it can't prove `rank` matches what a live SWAR
     # pairing action would produce, since that needs SWAR itself to
-    # check — which this specific fix already was.
+    # check - which this specific fix already was.
     #
-    # v7's single wire `Elo` IS the FIDE rating — see
+    # v7's single wire `Elo` IS the FIDE rating - see
     # `SwarImport.parse_player/2`'s `elo_fide` comment ("Belgium retired
     # its own rating list... the single Elo a v7 record still carries
     # IS the FIDE rating"). `national_rating` has nowhere to go in a v7
     # record at all.
     # no `points_adjusted` for v7 (see moduledoc)
-    # `amer_pts` (American/Fischer-scoring points) — not modeled.
-    # `perf` — SWAR's own cached performance rating; not read by
+    # `amer_pts` (American/Fischer-scoring points) - not modeled.
+    # `perf` - SWAR's own cached performance rating; not read by
     # `player_attrs/2` on import (OpenPairings recomputes its own via
     # `PlayerStats.performance/3`), so left at 0 for SWAR to recompute
     # the same way this codebase already treats it as disposable.
-    # `special_pts` — parsed but never bound into any output field on
+    # `special_pts` - parsed but never bound into any output field on
     # import; unknown meaning.
     w_i32(0) <>
       w_str(p.name) <>
@@ -495,7 +495,7 @@ defmodule PairingsEngine.SwarExport do
   end
 
   # "YYYYMMDD" when the full date is known, "YYYY0000" when only the year
-  # is (still recovers `birth_year/1` on reimport — `Integer.parse` only
+  # is (still recovers `birth_year/1` on reimport - `Integer.parse` only
   # reads the first 4 characters; `birth_date/1` correctly comes back nil,
   # since month/day 00 isn't a real date), "" when neither is.
   defp reverse_birth(%{birth_date: %Date{} = d}),
@@ -531,16 +531,16 @@ defmodule PairingsEngine.SwarExport do
 
   # `federation` on `Player` is a plain FIDE country code (e.g. "BEL"), but
   # SWAR's per-player `Country` field on import is read as a STRING and
-  # passed through `normalize_federation/1` — so unlike the tournament-level
+  # passed through `normalize_federation/1` - so unlike the tournament-level
   # `federation` int field above, this one really is just the code itself,
   # written back verbatim.
   defp reverse_federation_code(code), do: code || ""
 
-  # `national_id`/`mat_nat` — SWAR stores this as an int; OpenPairings
+  # `national_id`/`mat_nat` - SWAR stores this as an int; OpenPairings
   # keeps it as a string (`zero_to_blank/1` is the import-side reverse:
   # `0 -> ""`, `n -> Integer.to_string(n)`). A non-numeric national_id
   # (federations that use alphanumeric ids) has no SWAR representation at
-  # all — 0, same as blank.
+  # all - 0, same as blank.
   defp reverse_national_id(nil), do: 0
 
   defp reverse_national_id(str) do
@@ -550,12 +550,12 @@ defmodule PairingsEngine.SwarExport do
     end
   end
 
-  # Absent: 1=Forfeit, 2=Absent, 4=Present (manual §5.19) — see
+  # Absent: 1=Forfeit, 2=Absent, 4=Present (manual §5.19) - see
   # `SwarImport.map_absent/2`'s doc for why raw 2 covers BOTH "globally
   # absent" and "sitting out specific rounds via AbsentRondes": reimporting
   # only recovers `absent: true` when `absent_rounds` comes back blank, so
   # a player who is BOTH globally absent AND carries round-specific text
-  # cannot round-trip through this one field — an ambiguity in SWAR's own
+  # cannot round-trip through this one field - an ambiguity in SWAR's own
   # encoding, not something export can fix.
   defp reverse_absent_code(%{forfeit: true}), do: 1
   defp reverse_absent_code(%{absent: true}), do: 2
@@ -583,17 +583,17 @@ defmodule PairingsEngine.SwarExport do
 
   # Builds every player's per-round `[RONDE]` entries across the whole
   # tournament, keyed by player id. A round BEFORE the player's
-  # `start_round` (they hadn't joined yet) is omitted — genuinely never
+  # `start_round` (they hadn't joined yet) is omitted - genuinely never
   # happened for them. A round from `start_round` onward with no pairing
   # and no byes row (globally `absent: true`, no per-round bye recorded)
   # gets an explicit zero-point "absent" record instead of being skipped.
   #
   # This used to omit those rounds outright, on the theory that our own
   # reader (`SwarImport.parse_round/1`) doesn't need the array to be
-  # contiguous — true, but irrelevant: real SWAR never produces a player
+  # contiguous - true, but irrelevant: real SWAR never produces a player
   # with fewer round-entries than rounds they were registered for (every
   # absence there is an explicit UI action), and real SWAR's own reader
-  # turned out not to tolerate the shape either — a real tournament
+  # turned out not to tolerate the shape either - a real tournament
   # export with a player like this (many rounds absent, no per-round bye
   # rows) came back from actual SWAR with garbled rounds for exactly that
   # player: "???" opponent names and phantom results for rounds that were
@@ -621,7 +621,7 @@ defmodule PairingsEngine.SwarExport do
     cond do
       pairing && is_nil(pairing.black_player_id) ->
         # Pairing-allocated bye: `SwarImport.single_sided/2`'s FIRST check
-        # is the result bitmask (`:win_bye`, 0x0040) — table only matters
+        # is the result bitmask (`:win_bye`, 0x0040) - table only matters
         # as a fallback for a result-less bye, so writing both is
         # belt-and-braces, not strictly required by the read side.
         %{
@@ -675,12 +675,12 @@ defmodule PairingsEngine.SwarExport do
       bye && bye.type == "absent" ->
         absent_record(bye.round)
 
-      # No pairing, no byes row — the round the player wasn't there for
+      # No pairing, no byes row - the round the player wasn't there for
       # and nobody logged a bye/absence type for. Before, this was a `nil`
       # (round omitted from the array); see `build_round_records/3`'s
       # comment for why that produced garbled real-SWAR reads. Anything
       # from the player's `start_round` onward gets the exact same
-      # zero-point shape as a real declared absence, just above — a round
+      # zero-point shape as a real declared absence, just above - a round
       # BEFORE `start_round` (not registered yet) stays correctly omitted.
       number >= (player.start_round || 1) ->
         absent_record(number)
@@ -705,8 +705,8 @@ defmodule PairingsEngine.SwarExport do
     }
   end
 
-  # Splits `Pairing.result` (a combined FIDE code — "1-0", "1/2-1/2", ...)
-  # back into ONE side's own SWAR result bitmask + point value — the exact
+  # Splits `Pairing.result` (a combined FIDE code - "1-0", "1/2-1/2", ...)
+  # back into ONE side's own SWAR result bitmask + point value - the exact
   # inverse of `SwarImport.combine_results/2`, split per side. "" (not
   # played yet) is bitmask 0, matching `result_class(0) == :none`.
   defp result_bits("1-0", true), do: {0x4000, 1.0}

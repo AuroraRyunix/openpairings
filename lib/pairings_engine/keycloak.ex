@@ -1,20 +1,20 @@
 defmodule PairingsEngine.Keycloak do
   @moduledoc """
   Minimal OIDC Authorization Code client for 02cloud SSO (`auth.zerotwo.cloud`,
-  Keycloak realm `zerotwo`) — see the `auth framework` repo for the identity
+  Keycloak realm `zerotwo`) - see the `auth framework` repo for the identity
   provider itself; this module is the only thing on this side of that
   integration.
 
   Deliberately not a general-purpose OIDC library: there is exactly one
   identity provider in play, so the three endpoints are derived directly from
   the realm issuer using Keycloak's stable, documented URL scheme rather than
-  fetched from `.well-known/openid-configuration` — the same approach
+  fetched from `.well-known/openid-configuration` - the same approach
   `auth framework`'s own `launcher.js` takes for its client-side OIDC flow.
 
   This is a confidential client (`openpairings`, server-side, holds a secret)
   using plain Authorization Code + `state` for CSRF protection. PKCE is
   deliberately omitted: it defends a *public* client's authorization code in
-  transit on the user's own device, which doesn't apply here — the code is
+  transit on the user's own device, which doesn't apply here - the code is
   exchanged server-to-server over a direct HTTPS POST authenticated with the
   client secret, which is the actual security boundary for a confidential
   client.
@@ -50,7 +50,7 @@ defmodule PairingsEngine.Keycloak do
   Returns `{:ok, %{"access_token" => ..., "id_token" => ...}}` or
   `{:error, reason}`. `reason` is either a `Req.TransportError`-style struct
   (network failure) or `{:unexpected_status, status, body}` (Keycloak
-  rejected the request — expired/reused code, wrong redirect_uri, etc.).
+  rejected the request - expired/reused code, wrong redirect_uri, etc.).
   """
   def exchange_code(code) when is_binary(code) do
     config = config!()
@@ -101,7 +101,7 @@ defmodule PairingsEngine.Keycloak do
 
   # In prod, no `:keycloak_req_plug` is configured, so `opts` passes through
   # unchanged and Req performs a real HTTP request. In tests, `config/test.exs`
-  # points it at a `Req.Test` stub name — see `Req.Test`'s moduledoc for the
+  # points it at a `Req.Test` stub name - see `Req.Test`'s moduledoc for the
   # `plug: {Req.Test, name}` convention this follows.
   defp maybe_put_test_plug(opts) do
     case Application.get_env(:pairings_engine, :keycloak_req_plug) do

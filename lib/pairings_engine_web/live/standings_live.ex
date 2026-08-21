@@ -18,7 +18,7 @@ defmodule PairingsEngineWeb.StandingsLive do
        tournament: tournament,
        page_title: "#{tournament.name} · Standings",
        # `nil` until the ColumnPrefs hook reports back what's actually
-       # stored in localStorage (see `show_col?/2`) — nil means "no
+       # stored in localStorage (see `show_col?/2`) - nil means "no
        # preference recorded yet", not "hide everything", so a visitor
        # who's never touched the Players page's Display panel keeps
        # seeing every column exactly as before this existed.
@@ -28,7 +28,7 @@ defmodule PairingsEngineWeb.StandingsLive do
   end
 
   # Nothing here is user-editable except the manual-ranking controls below
-  # — standings are otherwise read-only — so any broadcast can just refresh
+  # - standings are otherwise read-only - so any broadcast can just refresh
   # everything, including the tournament (its tiebreak configuration drives
   # which columns are shown, and `manual_ranking` drives the banner/order).
   @impl true
@@ -48,11 +48,11 @@ defmodule PairingsEngineWeb.StandingsLive do
     end
   end
 
-  # SWAR parity #23 (manual standings override) — see docs/manual-standings.md
+  # SWAR parity #23 (manual standings override) - see docs/manual-standings.md
   # and PairingsEngine.Tournaments' "Manual standings override" section for
   # the seeding/staleness design. Not offered for Keizer tournaments (see
   # `reload_standings/1` below) so these handlers are unreachable from the
-  # Keizer half of the page — nothing here needs to re-check `keizer?`.
+  # Keizer half of the page - nothing here needs to re-check `keizer?`.
   @impl true
   def handle_event("enable_manual_ranking", _params, socket) do
     case Tournaments.enable_manual_ranking(socket.assigns.tournament) do
@@ -120,7 +120,7 @@ defmodule PairingsEngineWeb.StandingsLive do
 
   def handle_event("manual_move", _params, socket), do: {:noreply, socket}
 
-  # Sent by the ColumnPrefs JS hook after reading localStorage — the same
+  # Sent by the ColumnPrefs JS hook after reading localStorage - the same
   # hook and the same "pairingsengine.playerColumns" key PlayersLive's
   # Display panel already persists to, so ticking/unticking a column
   # there is reflected here too, without a second, separate preference to
@@ -133,10 +133,10 @@ defmodule PairingsEngineWeb.StandingsLive do
 
   # An archived tournament refuses every write (Tournaments.ensure_writable/1).
   # These controls are hidden while archived, so reaching one of these clauses
-  # means a stale tab or an event queued before the archive landed — say so
+  # means a stale tab or an event queued before the archive landed - say so
   # rather than crashing on the unmatched {:error, :archived}.
   defp archived_refusal(socket) do
-    put_flash(socket, :error, "This tournament is archived — unarchive it to make changes.")
+    put_flash(socket, :error, "This tournament is archived - unarchive it to make changes.")
   end
 
   defp do_manual_move(socket, tournament, player, direction) do
@@ -162,16 +162,16 @@ defmodule PairingsEngineWeb.StandingsLive do
   end
 
   # Keizer tournaments show their own ladder (rank/value/Keizer points)
-  # instead of the FIDE-tiebreak table — see PairingsEngine.Keizer.standings/1
+  # instead of the FIDE-tiebreak table - see PairingsEngine.Keizer.standings/1
   # and docs/pairing-systems.md. Everything else on this page (PubSub
   # refresh, the print/public links) is unaffected either way.
   #
   # Manual ranking (SWAR parity #23) is deliberately not offered for Keizer
-  # — its ladder is recomputed on the fly every render and stored nowhere
+  # - its ladder is recomputed on the fly every render and stored nowhere
   # (see docs/manual-standings.md for the reasoning), so `entries` only
   # ever gets `Standings.apply_manual_ranking/2` applied on the non-Keizer
   # branch, and the manual-ranking assigns below are simply `false`/`[]`
-  # for a Keizer tournament — the template never shows the banner/controls.
+  # for a Keizer tournament - the template never shows the banner/controls.
   defp reload_standings(socket) do
     tournament = socket.assigns.tournament
     keizer? = tournament.pairing_system == "keizer"
@@ -198,10 +198,10 @@ defmodule PairingsEngineWeb.StandingsLive do
   end
 
   # Attaches `:we` / `:wmwe` (FIDE expected score / W−We, Table 8.1.2) to
-  # every entry — same computation as the Players page grid
+  # every entry - same computation as the Players page grid
   # (`PairingsEngineWeb.PlayersLive.build_grid/2`): only played games
   # against a rated opponent count, own rating unrated or zero counted
-  # games renders blank. Not offered for Keizer standings — Keizer scoring
+  # games renders blank. Not offered for Keizer standings - Keizer scoring
   # isn't rating-based, so an "expected score" has no meaning there.
   defp with_expected_score(entries) do
     players_by_id = Map.new(entries, &{&1.player.id, &1.player})
@@ -235,23 +235,23 @@ defmodule PairingsEngineWeb.StandingsLive do
 
   defp format_tb(value), do: value
 
-  # Same "—" convention PrintController's standings document already
+  # Same "-" convention PrintController's standings document already
   # uses for a player with no category assigned.
-  defp category_or_dash(nil), do: "—"
-  defp category_or_dash(""), do: "—"
+  defp category_or_dash(nil), do: "-"
+  defp category_or_dash(""), do: "-"
   defp category_or_dash(category), do: category
 
   defp sex_display(sex) do
     case Player.sex_label(sex) do
-      "" -> "—"
+      "" -> "-"
       label -> label
     end
   end
 
-  defp format_we(nil), do: "—"
+  defp format_we(nil), do: "-"
   defp format_we(n), do: :erlang.float_to_binary(n / 1, decimals: 2)
 
-  defp format_wmwe(nil), do: "—"
+  defp format_wmwe(nil), do: "-"
 
   defp format_wmwe(n) do
     sign = if n >= 0, do: "+", else: ""
@@ -260,12 +260,12 @@ defmodule PairingsEngineWeb.StandingsLive do
 
   # `nil` (ColumnPrefs hasn't reported back yet, or the arbiter has never
   # touched the Players page's Display panel at all) means "no preference
-  # recorded" — show everything, same as before this existed — not "hide
+  # recorded" - show everything, same as before this existed - not "hide
   # everything".
   defp show_col?(nil, _key), do: true
   defp show_col?(visible, key), do: key in visible
 
-  # A tiebreak code with no Players-grid equivalent (WIN/KS/MP/GP/BB — team
+  # A tiebreak code with no Players-grid equivalent (WIN/KS/MP/GP/BB - team
   # or round-robin-only breaks the grid never offers a toggle for at all)
   # always shows: there's no preference to defer to.
   defp show_tiebreak?(visible, code) do
@@ -335,7 +335,7 @@ defmodule PairingsEngineWeb.StandingsLive do
         </div>
 
         <%!-- Every control here writes, so the whole row is hidden while the
-              tournament is archived — the layout's archived banner already
+              tournament is archived - the layout's archived banner already
               explains why. The handlers still refuse defensively. --%>
         <div :if={!@tournament.archived_at} class="actions" style="margin: 0">
           <button

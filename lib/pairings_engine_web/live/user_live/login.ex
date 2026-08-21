@@ -253,7 +253,7 @@ defmodule PairingsEngineWeb.UserLive.Login do
       # are synthesized from a directory username and have no mailbox at all,
       # so a link would silently go nowhere; the ones that DO have a mailbox
       # must still go through the directory rather than around it. Saying so
-      # outright leaks nothing — the rule depends only on the domain, so the
+      # outright leaks nothing - the rule depends only on the domain, so the
       # response is identical for addresses that exist and ones that don't.
       {:noreply,
        socket
@@ -271,7 +271,7 @@ defmodule PairingsEngineWeb.UserLive.Login do
     # Counted per recipient AND per client: the first stops someone using this
     # form to bury one person's inbox in log-in links, the second stops one
     # client walking a list of addresses. Both are counted for every submit,
-    # whether or not the address belongs to an account — a limit that only
+    # whether or not the address belongs to an account - a limit that only
     # applied to real users would answer "does this address exist?".
     limits = rate_limits(socket, email)
 

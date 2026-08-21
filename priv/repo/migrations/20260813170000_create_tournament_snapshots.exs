@@ -4,8 +4,8 @@ defmodule PairingsEngine.Repo.Migrations.CreateTournamentSnapshots do
   # Point-in-time copies of a whole tournament, taken automatically just
   # before an action that is hard or impossible to undo by hand (pairing a
   # round, unpairing one, importing results in bulk, restoring an earlier
-  # snapshot). The payload is a `PairingsEngine.TournamentExport` envelope —
-  # the same shape as a JSON backup — so one serializer covers both and the
+  # snapshot). The payload is a `PairingsEngine.TournamentExport` envelope -
+  # the same shape as a JSON backup - so one serializer covers both and the
   # restore path is a variant of the importer rather than a second
   # implementation that could drift.
   def change do

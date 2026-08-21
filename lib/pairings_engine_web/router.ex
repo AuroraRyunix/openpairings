@@ -132,7 +132,7 @@ defmodule PairingsEngineWeb.Router do
   end
 
   # 02cloud SSO (Keycloak, auth.zerotwo.cloud). Plain controller, not a
-  # LiveView/live_session — it only ever redirects, so there's no page to
+  # LiveView/live_session - it only ever redirects, so there's no page to
   # keep alive over a socket. See docs/AGENTS.md for the flow.
   scope "/auth/keycloak", PairingsEngineWeb do
     pipe_through [:browser]
@@ -141,9 +141,9 @@ defmodule PairingsEngineWeb.Router do
     get "/callback", KeycloakAuthController, :callback
   end
 
-  ## Public (no login required) read-only tournament pages — see docs/public-pages.md.
+  ## Public (no login required) read-only tournament pages - see docs/public-pages.md.
   # Reachable via a tournament's unguessable `public_slug`, not its numeric
-  # id. No `:require_authenticated_user` — deliberately public.
+  # id. No `:require_authenticated_user` - deliberately public.
   # Read-only, and embeddable: a club site can iframe the pairing list or
   # the standings. They stay in ONE `live_session` because they link to
   # each other with `<.link navigate>`, which only stays a live navigation
@@ -172,9 +172,9 @@ defmodule PairingsEngineWeb.Router do
     end
   end
 
-  ## Public (no login required) arbiter tools — see docs/tools.md. Upload a
+  ## Public (no login required) arbiter tools - see docs/tools.md. Upload a
   # SWAR/TRF file, no account needed, and download the IT3/FA1/IA1 FIDE
-  # report forms straight from it. Nothing here ever touches the database —
+  # report forms straight from it. Nothing here ever touches the database -
   # parsed files live only in `PairingsEngine.Tools.Session`'s in-memory
   # store, looked up by the `:token` in the download route below.
   scope "/", PairingsEngineWeb do
@@ -190,7 +190,7 @@ defmodule PairingsEngineWeb.Router do
     get "/tools/download/:token/:form", ToolsController, :download
   end
 
-  ## Mobile no-account result entry — see PairingsEngine.Mobile. An arbiter
+  ## Mobile no-account result entry - see PairingsEngine.Mobile. An arbiter
   # generates a QR + numeric code from a tournament; a helper's phone enrolls
   # here (no account) and gets a result-entry-only session for that tournament.
   scope "/m", PairingsEngineWeb do

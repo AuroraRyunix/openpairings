@@ -1,5 +1,5 @@
 defmodule PairingsEngine.Kbsb.ApiTest do
-  # async: false — these swap the :kbsb application env, which is global.
+  # async: false - these swap the :kbsb application env, which is global.
   use ExUnit.Case, async: false
 
   alias PairingsEngine.Kbsb.Api
@@ -73,7 +73,7 @@ defmodule PairingsEngine.Kbsb.ApiTest do
       configure(api_url: nil)
       refute Api.configured?()
 
-      # Blank strings are as unconfigured as nil — an env var set to "" is
+      # Blank strings are as unconfigured as nil - an env var set to "" is
       # the usual shape of "someone meant to set this and didn't".
       configure(api_key: "")
       refute Api.configured?()
@@ -165,7 +165,7 @@ defmodule PairingsEngine.Kbsb.ApiTest do
       assert row.club_number == 812
       assert row.club_name == "Rokade"
       assert row.federation == "VSF"
-      # `birthday` is a YEAR on the platform, not a date — confirmed in
+      # `birthday` is a YEAR on the platform, not a date - confirmed in
       # database_manager's players/player.ex (`birth && birth.year`).
       assert row.birth_year == 1985
       assert row.died == false

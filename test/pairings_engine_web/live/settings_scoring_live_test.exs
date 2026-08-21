@@ -53,7 +53,7 @@ defmodule PairingsEngineWeb.SettingsScoringLiveTest do
     end
   end
 
-  describe "abs_value/abs_jusque/abs_nbfois (SWAR's \"Pt ABSENT\") — settable, locked once round 1 has been paired" do
+  describe "abs_value/abs_jusque/abs_nbfois (SWAR's \"Pt ABSENT\") - settable, locked once round 1 has been paired" do
     test "settable on a brand-new (non-SWAR) tournament before any round is paired", %{
       conn: conn,
       scope: scope
@@ -149,7 +149,7 @@ defmodule PairingsEngineWeb.SettingsScoringLiveTest do
     end
   end
 
-  describe "absent_counts_as_vur — massive warning" do
+  describe "absent_counts_as_vur - massive warning" do
     test "the warning is hidden while the box is unchecked", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
 
@@ -172,7 +172,7 @@ defmodule PairingsEngineWeb.SettingsScoringLiveTest do
 
       assert html =~ "setting-warning"
       assert html =~ "changes FIDE tiebreak results"
-      # Not saved yet — only the live preview flipped.
+      # Not saved yet - only the live preview flipped.
       refute Repo.reload!(tournament).absent_counts_as_vur
     end
 

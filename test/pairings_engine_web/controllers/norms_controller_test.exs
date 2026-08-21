@@ -119,7 +119,7 @@ defmodule PairingsEngineWeb.NormsControllerTest do
     end
   end
 
-  describe "combined reports (festival) — combine=/master= query params" do
+  describe "combined reports (festival) - combine=/master= query params" do
     defp unzip_map(binary) do
       tmp =
         Path.join(
@@ -150,13 +150,13 @@ defmodule PairingsEngineWeb.NormsControllerTest do
          %{conn: conn, scope: scope} do
       open =
         create_tournament(scope, %{
-          "name" => "Ghent Festival — Open",
+          "name" => "Ghent Festival - Open",
           "federation" => "BEL",
           "round_dates" => ["2026-09-01", "2026-09-02", "2026-09-02"]
         })
 
       youth =
-        create_tournament(scope, %{"name" => "Ghent Festival — Youth", "federation" => "BEL"})
+        create_tournament(scope, %{"name" => "Ghent Festival - Youth", "federation" => "BEL"})
 
       {:ok, _} =
         Tournaments.create_player(open.id, %{
@@ -190,7 +190,7 @@ defmodule PairingsEngineWeb.NormsControllerTest do
       sheet_xml = Map.fetch!(members, "xl/worksheets/sheet2.xml")
 
       assert sheet_xml =~
-               ~r/<c r="B3"[^>]*t="inlineStr"><is><t xml:space="preserve">Ghent Festival — Open Festival<\/t><\/is><\/c>/
+               ~r/<c r="B3"[^>]*t="inlineStr"><is><t xml:space="preserve">Ghent Festival - Open Festival<\/t><\/is><\/c>/
 
       # Schedule (B12) comes from the master's (open's) round_dates: two
       # distinct days, the second a double round -> "1-2".
@@ -208,14 +208,14 @@ defmodule PairingsEngineWeb.NormsControllerTest do
       conn: conn,
       scope: scope
     } do
-      # `open` (the route id) deliberately has no round_dates — if the
+      # `open` (the route id) deliberately has no round_dates - if the
       # schedule field came from the route id instead of `master`, B12
       # would be left blank instead of showing youth's own schedule.
-      open = create_tournament(scope, %{"name" => "Ghent Festival — Open", "federation" => "BEL"})
+      open = create_tournament(scope, %{"name" => "Ghent Festival - Open", "federation" => "BEL"})
 
       youth =
         create_tournament(scope, %{
-          "name" => "Ghent Festival — Youth",
+          "name" => "Ghent Festival - Youth",
           "federation" => "BEL",
           "round_dates" => ["2026-09-01", "2026-09-02"]
         })
@@ -234,7 +234,7 @@ defmodule PairingsEngineWeb.NormsControllerTest do
       sheet_xml = Map.fetch!(members, "xl/worksheets/sheet2.xml")
 
       assert sheet_xml =~
-               ~r/<c r="B3"[^>]*t="inlineStr"><is><t xml:space="preserve">Ghent Festival — Youth Festival<\/t><\/is><\/c>/
+               ~r/<c r="B3"[^>]*t="inlineStr"><is><t xml:space="preserve">Ghent Festival - Youth Festival<\/t><\/is><\/c>/
 
       assert sheet_xml =~
                ~r/<c r="B12"[^>]*t="inlineStr"><is><t xml:space="preserve">1-1<\/t><\/is><\/c>/
@@ -245,10 +245,10 @@ defmodule PairingsEngineWeb.NormsControllerTest do
            conn: conn,
            scope: scope
          } do
-      open = create_tournament(scope, %{"name" => "Ghent Festival — Open", "federation" => "BEL"})
+      open = create_tournament(scope, %{"name" => "Ghent Festival - Open", "federation" => "BEL"})
 
       youth =
-        create_tournament(scope, %{"name" => "Ghent Festival — Youth", "federation" => "BEL"})
+        create_tournament(scope, %{"name" => "Ghent Festival - Youth", "federation" => "BEL"})
 
       {:ok, _} =
         Tournaments.create_player(open.id, %{
@@ -279,7 +279,7 @@ defmodule PairingsEngineWeb.NormsControllerTest do
       conn: conn,
       scope: scope
     } do
-      open = create_tournament(scope, %{"name" => "Ghent Festival — Open", "federation" => "BEL"})
+      open = create_tournament(scope, %{"name" => "Ghent Festival - Open", "federation" => "BEL"})
 
       other_scope = PairingsEngine.AccountsFixtures.user_scope_fixture()
       forbidden = tournament_fixture(other_scope)

@@ -1,7 +1,7 @@
 defmodule PairingsEngineWeb.ToolsController do
   @moduledoc """
   `GET /tools` (redirects to the only tool there is right now) and
-  `GET /tools/download/:token/:form` — the download half of the public,
+  `GET /tools/download/:token/:form` - the download half of the public,
   no-login arbiter tools page (`PairingsEngineWeb.ToolsNormsLive`, see
   docs/tools.md).
 
@@ -11,9 +11,9 @@ defmodule PairingsEngineWeb.ToolsController do
   and fills the same `.xlsx` templates `PairingsEngineWeb.NormsController`
   does via `PairingsEngine.Norms.Forms` + `PairingsEngine.Norms.XlsxFill`.
 
-  Every failure mode reachable from hostile or merely stale input — an
+  Every failure mode reachable from hostile or merely stale input - an
   unknown/expired token, no successfully-parsed files, a `Combine`
-  duplicate-player conflict — renders a small friendly HTML page instead of
+  duplicate-player conflict - renders a small friendly HTML page instead of
   a 500 or a crash.
   """
 
@@ -42,10 +42,10 @@ defmodule PairingsEngineWeb.ToolsController do
   end
 
   def download(conn, %{"form" => _other}),
-    do: error_page(conn, "Unknown report — go back and pick IT3, FA1 or IA1.")
+    do: error_page(conn, "Unknown report - go back and pick IT3, FA1 or IA1.")
 
   # IT3 goes through Forms.it3_result/3 (expands the template first when
-  # there are arbiters beyond the 4 built-in deputy slots — see
+  # there are arbiters beyond the 4 built-in deputy slots - see
   # PairingsEngine.Norms.ItThreeExpand); FA1/IA1 have no such slot limit.
   defp build_result(:it3, tournament, players, _session),
     do: Forms.it3_result(tournament, players, :tools)
@@ -106,11 +106,11 @@ defmodule PairingsEngineWeb.ToolsController do
 
   defp friendly_error(:session_missing),
     do:
-      "This session has expired or wasn't found — your files were never saved, so please re-upload them."
+      "This session has expired or wasn't found - your files were never saved, so please re-upload them."
 
   defp friendly_error(:no_files),
     do:
-      "No files have been successfully parsed yet — upload at least one .swar or .trf file first."
+      "No files have been successfully parsed yet - upload at least one .swar or .trf file first."
 
   defp friendly_error({:duplicate_players, _} = reason), do: Combine.error_message(reason)
 
@@ -126,7 +126,7 @@ defmodule PairingsEngineWeb.ToolsController do
     <html lang="en">
       <head>
         <meta charset="utf-8" />
-        <title>Arbiter tools — OpenPairings</title>
+        <title>Arbiter tools - OpenPairings</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
       <body style="font-family: system-ui, sans-serif; max-width: 520px; margin: 80px auto; padding: 0 20px; text-align: center; color: #1c1a15;">

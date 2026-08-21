@@ -1,6 +1,6 @@
 defmodule PairingsEngineWeb.ExtraPointsLive do
   @moduledoc """
-  The "Extra points" settings page (`/t/:id/settings/extra-points`) — SWAR
+  The "Extra points" settings page (`/t/:id/settings/extra-points`) - SWAR
   parity #12 ("XtPts"): administrative bonus points added to a player's
   standing, optionally auto-assigned from Elo bands. Split out of the
   combined Categories page into its own focused Settings sub-page.
@@ -138,7 +138,7 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
         <h2>Extra points</h2>
         <p class="hint" style="margin-top: 0">
           Administrative bonus points (SWAR "XtPts") - e.g. a handicap head start for lower-rated
-          players. Off by default: pairing (JaVaFo, TRF export) always uses game points only, and
+          players. Off by default: pairing and TRF export always use game points only, and
           standings only add extra points to the ranking once you turn this on. See
           <.link navigate={~p"/t/#{@tournament.id}/players"}>Players</.link>
           to edit a single player's value, or auto-assign everyone from Elo bands below.

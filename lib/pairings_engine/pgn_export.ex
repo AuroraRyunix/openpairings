@@ -2,7 +2,7 @@ defmodule PairingsEngine.PgnExport do
   @moduledoc """
   Metadata-only PGN export. OpenPairings never records moves, so every
   game's movetext is just its result token (or `*` for an unplayed/unknown
-  result) — the value here is the Seven Tag Roster, built from the
+  result) - the value here is the Seven Tag Roster, built from the
   tournament, round and pairing data the app already has. See
   `docs/pgn-export.md`.
   """
@@ -13,12 +13,12 @@ defmodule PairingsEngine.PgnExport do
   @doc """
   Builds PGN text for `tournament`. `round_number` limits the export to one
   round; `nil` (the default) exports every paired round, in round order.
-  Byes are skipped — there's no opponent to record a game against. Returns
+  Byes are skipped - there's no opponent to record a game against. Returns
   `""` when there's nothing to export (unpaired round, or a round with only
   byes).
 
   `opts[:board]` (default `false`) adds a supplemental `[Board "N"]` tag
-  to every game, right after `Round` — the same DISPLAY board number
+  to every game, right after `Round` - the same DISPLAY board number
   shown everywhere else in the app (`PairingDisplay.with_display_boards/1`:
   fixed-table boards relabeled/moved, byes/vacant seats excluded from the
   renumbering), not the raw `pairing.board`, so it matches what an arbiter
@@ -80,7 +80,7 @@ defmodule PairingsEngine.PgnExport do
     Enum.join(headers, "\n") <> "\n\n" <> result_tag(pairing.result)
   end
 
-  # `nil` when `export/3`'s `board:` option wasn't passed — supplemental,
+  # `nil` when `export/3`'s `board:` option wasn't passed - supplemental,
   # right after Round, the conventional spot for a team/multi-board [Board]
   # tag in the wild.
   defp board_tag(nil), do: []

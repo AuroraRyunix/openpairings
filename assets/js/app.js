@@ -82,7 +82,7 @@ const PlayerGrid = {
       this.pushEvent("edit_player", {id: tr.dataset.playerId})
     })
     this.el.addEventListener("contextmenu", (e) => {
-      // A COLUMN HEADER in CELL_MENUS gets the bulk version — every player
+      // A COLUMN HEADER in CELL_MENUS gets the bulk version - every player
       // in the tournament at once; left click on the same header still
       // sorts. Checked before the row lookup below, since a header cell
       // sits in <thead> with no tr[data-player-id] ancestor.
@@ -109,7 +109,7 @@ const PlayerGrid = {
       this.pushEvent("show_card", {id: tr.dataset.playerId})
     })
 
-    // Left-click on one of those cells opens the same little menu —
+    // Left-click on one of those cells opens the same little menu -
     // right-click isn't discoverable (no visible affordance, doesn't exist
     // at all on touch), so a plain click gets it too. Left-click elsewhere
     // on the row is unclaimed today, so this can't collide with anything.
@@ -132,11 +132,11 @@ const PlayerGrid = {
   },
 
   // `playerId` is null for the column-header (bulk, every player) menu, a
-  // player id string for one row's cell — the two push different server
+  // player id string for one row's cell - the two push different server
   // events but share the same little popup. `col` picks the entry in
   // CELL_MENUS, which is the only place the labels and event names live.
   //
-  // The bulk menu keeps its "All ..." wording — it genuinely means
+  // The bulk menu keeps its "All ..." wording - it genuinely means
   // everyone. The per-row menu is about the one player whose cell was
   // clicked, so the plain wording reads right there instead of implying it
   // touches every player too.
@@ -209,7 +209,7 @@ const AddPlayerShortcut = {
 
 // Legend items and score-band gutter labels on the bracket map are both
 // `[data-filter]` buttons sharing one `data-active-filter` state (a
-// space-separated SET of facets) on the nearest .pe-bracket-map —
+// space-separated SET of facets) on the nearest .pe-bracket-map -
 // multi-select: clicking a button toggles its own facet in the set (any
 // number can be active at once), and an element dims only when the active
 // set is non-empty AND none of its own facets intersect it (OR across
@@ -219,7 +219,7 @@ const AddPlayerShortcut = {
 // `data-facets` (set by dot_facets/1 / link_facets/1 in
 // pairing_explain_live.ex) happens here in JS rather than via static
 // per-facet CSS, since the set of possible "band-N" values is unbounded and
-// only known at render time — see the comment above .pe-filterable/.pe-dim
+// only known at render time - see the comment above .pe-filterable/.pe-dim
 // in assets/css/app.css.
 function applyBracketFilter(map, filter) {
   const active = new Set((map.dataset.activeFilter || "").split(" ").filter(Boolean))
@@ -247,7 +247,7 @@ function closeBracketDuo() {
 // The wraps are focusable (tabindex=0 for keyboard users), and the popover
 // CSS shows on :focus as well as :hover/.is-pinned. A mouse click leaves
 // the wrap focused, so after UNPINNING (or closing a duo) the "small"
-// hover-size popover stayed open even after the mouse left — user-reported.
+// hover-size popover stayed open even after the mouse left - user-reported.
 // Dropping focus after a mouse-driven close keeps hover/keyboard behaviour
 // intact while letting the panel actually disappear on mouse-away.
 function blurBracketWrap(wrap) {
@@ -260,9 +260,9 @@ function blurBracketWrap(wrap) {
 // head-to-head duo panel under the chart (clicking either of the two, or
 // the panel's ✕, closes it); clicking a board card's colour disc always
 // pins that dot and scrolls it into view; clicking a legend item or band
-// label highlights just that facet. One delegated listener on document —
+// label highlights just that facet. One delegated listener on document -
 // not the scroll container, which LiveView can replace on round navigation
-// — so no re-binding needed (and round navigation naturally resets any
+// - so no re-binding needed (and round navigation naturally resets any
 // active filter along with it).
 document.addEventListener("click", (e) => {
   // A click inside an open popover (e.g. selecting the player's name)
@@ -336,7 +336,7 @@ const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute
 // FIRST retry after a drop is 10ms later). That default is fine for a
 // normal tab, but `phoenix.js`'s base Socket also force-reconnects on
 // every `visibilitychange` where the connection isn't already open
-// (`!isConnected() && !closeWasClean`) — and a cross-origin iframe (the
+// (`!isConnected() && !closeWasClean`) - and a cross-origin iframe (the
 // embeddable public pages, see docs/public-pages.md) gets its own
 // visibility/throttling treatment from the browser, distinct from its
 // parent tab's, which can flip more often than a normal backgrounded
@@ -351,13 +351,13 @@ const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute
 // than being reset by the next 10ms retry before it can.
 //
 // This has not been measured against a real embed, only reasoned from
-// `deps/phoenix/priv/static/phoenix.js`'s Socket constructor — if the
+// `deps/phoenix/priv/static/phoenix.js`'s Socket constructor - if the
 // flicker persists after this, the next step is confirming whether
 // visibility events are really what is firing (a temporary debug log
 // on `visibilitychange` inside the embedded frame would settle it) rather
 // than tuning this further blind.
 // The embeddable public pages (`/p/:slug/pairings`, `/p/:slug/standings`)
-// use a cookie-free socket — see the "/embed/live" socket in endpoint.ex
+// use a cookie-free socket - see the "/embed/live" socket in endpoint.ex
 // for why. Chosen by path so a normal, non-embedded visit to those same
 // URLs uses it too: the socket works identically either way (those pages
 // have no session state to lose), and picking by `window.self !== window.top`
@@ -386,17 +386,17 @@ liveSocket.connect()
 // guessing a fixed pixel height. A guessed height is wrong in both
 // directions: too small and the standings scroll inside a little box, too
 // large and there is a slab of dead space under the table (which is what
-// prompted this — a `height:3000px` embed of a short tournament).
+// prompted this - a `height:3000px` embed of a short tournament).
 //
 // The message is `{type: "openpairings:height", height: <px>}`, posted to
 // `"*"` because the whole point is that we do not know or control which
-// site is embedding us — there is nothing secret in the payload, it is one
+// site is embedding us - there is nothing secret in the payload, it is one
 // integer describing our own layout. Receivers should check
 // `event.data.type` before trusting it (the snippet in docs/public-pages.md
 // does).
 //
 // Height is reported on load, on every ResizeObserver tick, and after
-// LiveView patches the DOM — results coming in mid-round genuinely change
+// LiveView patches the DOM - results coming in mid-round genuinely change
 // the table's height, and an embed that only sized itself once would drift
 // out of true as soon as that happened. `Math.ceil` + a last-value guard
 // keeps it from posting a message on every sub-pixel reflow.
@@ -404,7 +404,7 @@ if (window.self !== window.top) {
   // Opt-in reconnect diagnostics, kept from the flicker investigation. The
   // reconnect spam ("WebSocket is closed before the connection is
   // established") appeared to settle after `reconnectAfterMs` was slowed,
-  // but the mechanism was never actually confirmed — see that option's
+  // but the mechanism was never actually confirmed - see that option's
   // comment. Rather than delete the instrumentation and have nothing to
   // reach for if it returns, it now only logs when explicitly asked:
   // append `?embeddebug=1` to the embedded URL.
@@ -419,7 +419,7 @@ if (window.self !== window.top) {
     window.addEventListener("pagehide", () => logThrottled("pagehide"))
     window.addEventListener("pageshow", () => logThrottled("pageshow"))
     window.addEventListener("phx:page-loading-start", () => logThrottled("phx:page-loading-start"))
-    console.log("[embed-debug] active — watching for visibility/reconnect churn")
+    console.log("[embed-debug] active - watching for visibility/reconnect churn")
   }
 
   let lastHeight = 0

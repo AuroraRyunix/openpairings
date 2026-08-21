@@ -43,7 +43,7 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
     # two reasons that both showed up in use: a hand-saved point wrote an
     # audit row AND a snapshot so it appeared twice, and audit rows carry no
     # branch information, so after switching to a branch a result change still
-    # rendered on the trunk — which is not where the tournament was.
+    # rendered on the trunk - which is not where the tournament was.
     test "they are hidden until the point is opened", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
       snapshot = point(scope, tournament)
@@ -146,7 +146,7 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
       assert html =~ "No restore points yet"
     end
 
-    test "there is no kind filter here — that is the audit trail's job", %{
+    test "there is no kind filter here - that is the audit trail's job", %{
       conn: conn,
       scope: scope
     } do
@@ -244,7 +244,7 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
       tournament = create_tournament(scope)
 
       # Both tables store whole seconds, so points written in the same second
-      # can't be ordered by timestamp alone — space these out so the assertion
+      # can't be ordered by timestamp alone - space these out so the assertion
       # is about real chronology rather than the tiebreak.
       earlier = DateTime.utc_now() |> DateTime.add(-120, :second) |> DateTime.truncate(:second)
 
@@ -375,7 +375,7 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
       html = render_submit(lv, "snapshot_save", %{"label" => "Now"})
 
       # Capturing advances HEAD, so the point just saved IS where the
-      # tournament is — nothing to go back to yet.
+      # tournament is - nothing to go back to yet.
       assert html =~ "the tournament is here"
       refute html =~ "Go back to here"
 
@@ -395,7 +395,7 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/history")
       render_submit(lv, "snapshot_save", %{"label" => "Roster checked"})
 
-      # Carry on by hand, then mark that too — now the first one is behind
+      # Carry on by hand, then mark that too - now the first one is behind
       # HEAD and can actually be jumped back to.
       Repo.insert!(%Player{tournament_id: tournament.id, name: "Typo McTypo"})
       html = render_submit(lv, "snapshot_save", %{"label" => "After the typo"})
@@ -481,7 +481,7 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
       assert html =~ "Final state"
       assert html =~ "This tournament is archived"
 
-      # Readable, including the folded detail — archiving stops writes, not
+      # Readable, including the folded detail - archiving stops writes, not
       # reads, and the disclosure is a read.
       assert open_changes(lv, snapshot) =~ "Registered player Alice"
     end
@@ -533,7 +533,7 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
       {:ok, snapshot} = Snapshots.capture(t, "manual", scope, summary: "Known good")
 
       # A second capture so the first is behind HEAD and therefore something
-      # you can actually go *back* to — capturing advances HEAD, so a lone
+      # you can actually go *back* to - capturing advances HEAD, so a lone
       # snapshot is where the tournament already is.
       {:ok, _later} = Snapshots.capture(Repo.reload!(t), "manual", scope, summary: "Later")
 
@@ -559,7 +559,7 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
 
       assert html =~ "the tournament is here"
-      # Nothing to go back to — you're already there.
+      # Nothing to go back to - you're already there.
       refute html =~ "Go back to here"
     end
 
@@ -687,7 +687,7 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
 
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
 
-      # The restore points are still listed and readable — just not actionable.
+      # The restore points are still listed and readable - just not actionable.
       assert html =~ "Known good"
       refute html =~ "Go back to here"
     end
@@ -811,7 +811,7 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
       {:ok, _} = Snapshots.capture(tournament, "pairing.round_paired", scope, summary: "X")
 
       # Guards against a future refactor pulling whole tournament copies into
-      # the list view — Snapshots.list/2 deliberately nils the payload out.
+      # the list view - Snapshots.list/2 deliberately nils the payload out.
       assert [row] = Snapshots.list(tournament.id)
       assert row.payload == nil
       assert Repo.reload!(row).payload

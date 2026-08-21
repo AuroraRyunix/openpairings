@@ -1,24 +1,24 @@
 defmodule PairingsEngine.PairingDisplay do
   @moduledoc """
   Presentation-only board renumbering for a round's pairings, so a
-  fixed-table player (`Player.fixed_board` — e.g. a wheelchair-accessible
+  fixed-table player (`Player.fixed_board` - e.g. a wheelchair-accessible
   board, often a separate room) doesn't leave a hole in the ordinary board
   sequence.
 
-  **Pure and read-only**: nothing here ever writes `pairing.board` — the
+  **Pure and read-only**: nothing here ever writes `pairing.board` - the
   real, engine-assigned board number stays exactly what JaVaFo/the pairing
   algorithm computed, in the database, forever. Results, the audit trail,
   TRF export, and every other lookup keyed on a pairing's real board
   number are completely unaffected. This only decides what LABEL to print
   next to a board and what ORDER to print rows in.
 
-  ## The renumbering — computed once, frozen, never live again
+  ## The renumbering - computed once, frozen, never live again
 
   A pairing is "special" if either player has `fixed_board` set at the
-  moment the round is paired — that check wins over everything below, so a
+  moment the round is paired - that check wins over everything below, so a
   fixed-table player's bye or vacated seat still sorts and labels as a
   special board, not a bye/vacant one. Among the rest, every non-special
-  pairing gets its NUMBER from one single pass, sorted by real board —
+  pairing gets its NUMBER from one single pass, sorted by real board -
   normal, bye, and vacant alike, exactly as if none of them were
   byes/vacant (closing the gap a special pairing would otherwise leave:
   real board 10 goes to fixed_board 1001 → whoever was board 11 becomes
@@ -30,7 +30,7 @@ defmodule PairingsEngine.PairingDisplay do
   This split and numbering is computed exactly ONCE per round, by
   `compute_labels/1`, called only from
   `PairingsEngine.Tournaments.freeze_round_display_boards!/1` at the
-  moment a round is created — ordinary pairing, round-robin, Keizer, or an
+  moment a round is created - ordinary pairing, round-robin, Keizer, or an
   import/restore. The result is written to `Pairing.display_board` /
   `Pairing.display_special` and every other function in this module reads
   those frozen columns instead of recomputing. This is deliberate and
@@ -39,12 +39,12 @@ defmodule PairingsEngine.PairingDisplay do
   round was already paired must never retroactively renumber every board
   after theirs while people are already seated. A board's fixed_board
   status is only ever allowed to affect the display the next time that
-  player's round is (re-)paired — never on the fly from an unrelated edit
+  player's round is (re-)paired - never on the fly from an unrelated edit
   (e.g. the Players page) mid-round.
 
   `with_display_boards/1`'s ROW ORDER is a separate, deliberately still
   LIVE concern from that frozen numbering: normal pairings print first,
-  then byes, then vacant seats, then special boards — reflecting whatever
+  then byes, then vacant seats, then special boards - reflecting whatever
   currently has a result/vacancy/bye, since reordering rows doesn't
   renumber anyone. A bye sitting at real board 3 still shows "3" even
   after it's moved to the bottom of the page.
@@ -56,7 +56,7 @@ defmodule PairingsEngine.PairingDisplay do
   `%{pairing.id => %{display_board: label, display_special: bool}}`.
 
   Called exactly once per round, by
-  `PairingsEngine.Tournaments.freeze_round_display_boards!/1` — this is
+  `PairingsEngine.Tournaments.freeze_round_display_boards!/1` - this is
   the only place in the whole application that reads `Player.fixed_board`
   for display purposes. See the moduledoc for why nothing else may.
   """
@@ -84,7 +84,7 @@ defmodule PairingsEngine.PairingDisplay do
   in final display order: normal boards first (ascending by real board),
   then byes, then vacant seats (each ascending by real board), then
   special boards (ascending by real board). `display_board` is read from
-  each pairing's frozen `display_board` column (see `compute_labels/1`) —
+  each pairing's frozen `display_board` column (see `compute_labels/1`) -
   not recomputed here.
   """
   def with_display_boards(pairings) do
@@ -103,7 +103,7 @@ defmodule PairingsEngine.PairingDisplay do
 
   @doc """
   Like `with_display_boards/1`, but keeps `pairings`' own order instead of
-  reordering — for documents sorted some other way (alphabetically by
+  reordering - for documents sorted some other way (alphabetically by
   name, say) that still need the right label next to each board, without
   physically moving special/bye/vacant rows to the end. Returns the same
   `%{pairing: pairing, board: display_board}` shape, one per input
@@ -118,7 +118,7 @@ defmodule PairingsEngine.PairingDisplay do
   # freezes display_board via Tournaments.freeze_round_display_boards!/1,
   # so display_board should never actually be nil. If some path is ever
   # missed, fall back to this pairing's own real board number rather than
-  # showing a blank — never re-derive specialness here, or the whole point
+  # showing a blank - never re-derive specialness here, or the whole point
   # of freezing (never recompute live) is undone by its own fallback.
   defp fallback_label(pairing), do: Integer.to_string(pairing.board)
 
@@ -137,7 +137,7 @@ defmodule PairingsEngine.PairingDisplay do
     [pairing.white_player, pairing.black_player] |> Enum.reject(&is_nil/1)
   end
 
-  # Both sides' fixed_board values, deduped and ascending — a pairing
+  # Both sides' fixed_board values, deduped and ascending - a pairing
   # between two DIFFERENT fixed-board players (both set, disagreeing) is
   # the one case this can return more than one value for.
   defp fixed_boards(pairing) do

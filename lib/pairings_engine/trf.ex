@@ -21,7 +21,7 @@ defmodule PairingsEngine.Trf do
   unrecognized code or an illegal combination between two opponents (see
   `validate_games!/1`). Validation only cross-checks a pairing when both
   sides are present in the given player set and mutually reference each
-  other for that round — a lone/dangling reference is not itself an error.
+  other for that round - a lone/dangling reference is not itself an error.
   """
 
   alias PairingsEngine.Trf.ValidationError
@@ -57,7 +57,7 @@ defmodule PairingsEngine.Trf do
     time_control: "122",
     # Not in the official TRF16 spec, but real-world precedent from
     # Swiss-Manager (which already emits both) and formalized in FIDE's
-    # TRF25/26 draft extension — see docs/import-export.md. Both are
+    # TRF25/26 draft extension - see docs/import-export.md. Both are
     # optional/additive: an unrecognized header code is already silently
     # ignored by `parse_header_line/3`, so including them never breaks a
     # TRF16-only reader.
@@ -90,7 +90,7 @@ defmodule PairingsEngine.Trf do
   # TRF16 result codes for an actually-contested game (win/draw/loss/forfeit)
   # vs. an unpaired round (byes of every kind). A forfeit is legally
   # "unplayed" per FIDE Art. 16, but it still occupies a pairing slot (an
-  # opponent), unlike a bye — so the two groups get different validation.
+  # opponent), unlike a bye - so the two groups get different validation.
   @playing_codes ~w(1 = 0 + -)
   @bye_codes ~w(H F U Z)
 
@@ -98,10 +98,10 @@ defmodule PairingsEngine.Trf do
   # ("1") only pairs with a loss ("0"); a played "0-0" (both players lose,
   # e.g. both defaulted after making moves) is two losses, so "0" also
   # legally pairs with "0". A double forfeit is "-"/"-"; a single forfeit is
-  # "+"/"-". A draw ("=") also legally pairs with a loss ("0") — FIDE's own
+  # "+"/"-". A draw ("=") also legally pairs with a loss ("0") - FIDE's own
   # VCL.13 explicitly requires supporting an asymmetric ½-0/0-½ (an
   # arbiter's disciplinary point adjustment on an otherwise-drawn game, not
-  # a chess outcome the TRF spec itself distinguishes with its own code —
+  # a chess outcome the TRF spec itself distinguishes with its own code -
   # it's still just "=" and "0" per player, only no longer required to
   # mirror). Anything else (both win, both forfeit-win, a win against a
   # draw, etc.) is impossible and rejected.
@@ -146,18 +146,18 @@ defmodule PairingsEngine.Trf do
 
   `opts[:column_legend]`: when true, inserts the ruler/field-code lines
   Swiss-Manager prepends to its own TRF exports (a `DDD SSSS sTTT NNN...`
-  legend plus two column-position rulers) right before the player rows —
+  legend plus two column-position rulers) right before the player rows -
   purely a human-readability courtesy for whoever opens the raw file, no
   header code of its own, and safely ignored by any TRF16 reader (including
   `parse/1`, since these lines don't start with a recognized 3-digit code).
-  Off by default — deliberately never used for the JaVaFo-input path (see
+  Off by default - deliberately never used for the JaVaFo-input path (see
   `PairingsEngine.Pairing.javafo_input/4`), which has no use for it and
   should stay byte-for-byte what it's always been for a fragile consumer.
 
   `opts[:ascii]`: when true, folds every string in `data` to ASCII (é -> e,
   ß -> ss) before placing it. TRF16 addresses fields by column and its
   real-world readers count one column as one byte, so a single accented
-  character in a name shifts every field after it on that row — see
+  character in a name shifts every field after it on that row - see
   `maybe_fold_ascii/2` for the measured damage. Also off by default, and
   for the same reason: only the user-facing export (`TrfExport`) sets it.
   """
@@ -215,7 +215,7 @@ defmodule PairingsEngine.Trf do
 
   # `:tens` marks every 10th column with its running count (e.g. "1" ending
   # at column 10, "18" ending at column 180); `:units` repeats "1234567890"
-  # across the full width — together, a standard fixed-width column ruler.
+  # across the full width - together, a standard fixed-width column ruler.
   defp ruler_line(width, :tens) do
     Enum.reduce(10..width//10, List.duplicate(" ", width), fn col, acc ->
       label = col |> div(10) |> Integer.to_string()
@@ -242,7 +242,7 @@ defmodule PairingsEngine.Trf do
       header(:end_date, slash_date(t[:end_date])),
       header(:number_of_players, length(players)),
       t[:number_of_rated_players] && header(:number_of_rated_players, t[:number_of_rated_players]),
-      # Always emitted (082), even 0 for an individual tournament — matches
+      # Always emitted (082), even 0 for an individual tournament - matches
       # SWAR, which emits "082 0" rather than omitting the line.
       header(:number_of_teams, length(teams)),
       header(:type, t[:type] && Map.get(@type_labels, t[:type], t[:type])),
@@ -265,7 +265,7 @@ defmodule PairingsEngine.Trf do
   defp round_dates_line([]), do: nil
 
   defp round_dates_line(dates) do
-    # Only emit the line at all if at least one round actually has a date —
+    # Only emit the line at all if at least one round actually has a date -
     # a list of all-nil/blank entries (e.g. a round-subset export where none
     # of the selected rounds have a date set) means "no round dates", same
     # as an empty list.
@@ -344,7 +344,7 @@ defmodule PairingsEngine.Trf do
   # TRF is line- and column-oriented: a newline, carriage return or tab inside
   # a field (a player name has no format check beyond length) would split or
   # shift the fixed-width row. When that row is written to the JaVaFo input
-  # file, a crafted name could break the parse or inject a line — so control
+  # file, a crafted name could break the parse or inject a line - so control
   # characters are flattened to spaces before the value is placed. Applies to
   # the pairing input, the category input and the TRF export alike, since all
   # three go through serialize/1.
@@ -355,14 +355,14 @@ defmodule PairingsEngine.Trf do
   # column as one byte. Elixir pads by grapheme, so a single accented
   # character makes the row one byte too long and shifts every field after
   # the name: "Hendricks, Björn" turns FIDE id 1001 into 100, rating 2400
-  # into 240, and blanks the whole round history. Measured, not theorised —
+  # into 240, and blanks the whole round history. Measured, not theorised -
   # see the regression test in test/pairings_engine/trf_test.exs.
   #
   # The fix is to make characters and bytes the same thing again by folding
   # to ASCII (é -> e), which is what FIDE itself does with player names.
   # Deliberately NOT applied to `Pairing.javafo_input/4`: JaVaFo decodes
   # UTF-8 correctly, its pairings are byte-identical with or without
-  # accents, and that file is a temp input no other tool ever reads — so it
+  # accents, and that file is a temp input no other tool ever reads - so it
   # keeps exactly the bytes a multi-million-tournament corpus validated.
   # Only `PairingsEngine.TrfExport` passes `ascii: true`.
   defp maybe_fold_ascii(data, true), do: deep_ascii(data)
@@ -376,7 +376,7 @@ defmodule PairingsEngine.Trf do
 
   # Letters with no canonical decomposition, so NFD alone would leave them
   # non-ASCII. "ß" -> "ss" and "æ" -> "ae" lengthen the string, which can
-  # push a long name past its 33-column field — correct, and handled by the
+  # push a long name past its 33-column field - correct, and handled by the
   # same truncation any over-long name already gets.
   @ascii_fallbacks %{
     "ß" => "ss",
@@ -409,7 +409,7 @@ defmodule PairingsEngine.Trf do
   # (Cyrillic, Greek, CJK) that has no one-to-one Latin form. It becomes
   # "?" rather than being dropped: a visibly wrong name is something an
   # arbiter can spot and fix before submitting, a silently shortened one is
-  # not. In practice this never fires on Belgian data — both the KBSB list
+  # not. In practice this never fires on Belgian data - both the KBSB list
   # and FIDE's own database already store names in Latin script.
   defp ascii_fold(text) do
     @ascii_fallbacks
@@ -463,19 +463,19 @@ defmodule PairingsEngine.Trf do
   #      for that round is resolvable in `players` *and* mutually references
   #      this player back, the two codes must be a legal pair (see
   #      `@legal_result_pairs`). An unresolvable/dangling opponent reference
-  #      is not itself flagged — the caller may be validating a partial
+  #      is not itself flagged - the caller may be validating a partial
   #      roster (e.g. a single player's card).
   #
   # `opts[:allow_dangling_playing_code]` relaxes the "opponent 0000 needs a
-  # bye code (F/H/Z/U)" rule below — those four codes didn't exist before
+  # bye code (F/H/Z/U)" rule below - those four codes didn't exist before
   # TRF16 (see FIDE's Annexure-B, the 2006 spec: only 1/=/0/+/-/blank, a bye
   # represented as a dangling playing code against 0000, no dedicated bye
   # code at all). That rule exists to protect OUR OWN JaVaFo-input
   # construction (a dangling playing code there is a real, previously-hit
-  # crash — see `PairingsEngine.Pairing.bye_safe_result/2`), which only
+  # crash - see `PairingsEngine.Pairing.bye_safe_result/2`), which only
   # matters on the way OUT (`serialize/1`); a file we're reading FROM
   # someone else, possibly TRF06-vintage, is exactly what this option
-  # exists for — `parse/1` passes it, `serialize/1` never does.
+  # exists for - `parse/1` passes it, `serialize/1` never does.
   defp validate_games!(players, opts \\ []) do
     by_rank = Map.new(players, &{&1[:rank], &1})
 
@@ -503,7 +503,7 @@ defmodule PairingsEngine.Trf do
         raise ValidationError,
           message:
             "#{player_label(player)}, round #{round}: opponent 0000 cannot carry played-game result " <>
-              "#{inspect(result)} — opponentless games must use a bye code (F/H/Z/U)"
+              "#{inspect(result)} - opponentless games must use a bye code (F/H/Z/U)"
 
       result in @playing_codes ->
         validate_playing_pair!(player, round, game, by_rank, result)
@@ -540,7 +540,7 @@ defmodule PairingsEngine.Trf do
   Tolerates a TRF06-vintage file (FIDE's Annexure-B, 2006): before TRF16
   added the F/H/U/Z bye codes, a bye was just a dangling playing code
   against opponent 0000 (see `validate_games!/2`'s
-  `allow_dangling_playing_code` option) — column positions are otherwise
+  `allow_dangling_playing_code` option) - column positions are otherwise
   byte-identical between the two versions, so no separate TRF06 parser is
   needed, just this one relaxed rule.
   """
@@ -616,12 +616,12 @@ defmodule PairingsEngine.Trf do
   end
 
   # Stops on where the line's real content actually ends, not on the first
-  # blank round — a fully-blank round block (FIDE's own "not paired" —
+  # blank round - a fully-blank round block (FIDE's own "not paired" -
   # opponent, colour and result all left as spaces, see Annexure-B, the
   # 2006 TRF06 spec) is a real, legal "no game recorded this round" for a
   # late entrant, and can legitimately be followed by real games in later
   # rounds. Stopping at the first one (the previous behaviour) silently
-  # dropped every game after it — invisible on anything OpenPairings itself
+  # dropped every game after it - invisible on anything OpenPairings itself
   # writes (`place_games/2` always writes "0000", never true blanks, for a
   # placeholder round) but a real bug reading a genuinely TRF06-vintage
   # file, or any writer that follows the spec's own blank convention.

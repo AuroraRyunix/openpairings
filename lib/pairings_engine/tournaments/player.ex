@@ -24,11 +24,11 @@ defmodule PairingsEngine.Tournaments.Player do
     field :paid, :string, default: "paid"
     # SWAR Aff. (§5.21)
     field :affiliated, :boolean, default: true
-    # SWAR Absent checkbox — player not paired at all while set
+    # SWAR Absent checkbox - player not paired at all while set
     field :absent, :boolean, default: false
-    # SWAR Forfeit — player withdrawn/forfeited out
+    # SWAR Forfeit - player withdrawn/forfeited out
     field :forfeit, :boolean, default: false
-    # Fixed-table accommodation (SWAR HandyTable) — informational only
+    # Fixed-table accommodation (SWAR HandyTable) - informational only
     field :special_table, :boolean, default: false
     # Comma-separated round numbers, e.g. "3,5"
     field :absent_rounds, :string, default: ""
@@ -39,17 +39,17 @@ defmodule PairingsEngine.Tournaments.Player do
     # SWAR N° Club (club NAME stays in `club`)
     field :club_number, :integer
 
-    # Per-player title-norm judgment data for the IT4 report — recognised
+    # Per-player title-norm judgment data for the IT4 report - recognised
     # string keys (all optional; a blank/missing "title_claimed" means this
     # player isn't currently an IT4 candidate):
     #
-    #   title_claimed       — target title being claimed, e.g. "IM" (IT4 W11)
-    #   norm_description    — free text, e.g. "IM norm" (IT4 Y11)
-    #   medal_percent       — free text/numeric, e.g. "62.5%" (IT4 U11)
-    #   remarks             — free text (IT4 AB11)
-    #   event_group         — e.g. "U20, Women" (IT4 P11)
-    #   fed_participating   — number of federations participating (IT4 R11)
-    #   fed_members         — number of federations eligible (IT4 S11)
+    #   title_claimed       - target title being claimed, e.g. "IM" (IT4 W11)
+    #   norm_description    - free text, e.g. "IM norm" (IT4 Y11)
+    #   medal_percent       - free text/numeric, e.g. "62.5%" (IT4 U11)
+    #   remarks             - free text (IT4 AB11)
+    #   event_group         - e.g. "U20, Women" (IT4 P11)
+    #   fed_participating   - number of federations participating (IT4 R11)
+    #   fed_members         - number of federations eligible (IT4 S11)
     field :norm_data, :map, default: %{}
 
     # Full date of birth when known (TRF wants YYYY/MM/DD); birth_year is the
@@ -62,7 +62,7 @@ defmodule PairingsEngine.Tournaments.Player do
 
     # Arbiter-assigned standings position, honoured only while the tournament
     # has `manual_ranking` on (SWAR parity #23). nil = never hand-placed.
-    # Managed by the Tournaments reorder functions — NOT cast by changeset/2,
+    # Managed by the Tournaments reorder functions - NOT cast by changeset/2,
     # so an ordinary player edit can never silently reposition the field.
     field :manual_rank, :integer
 
@@ -119,7 +119,7 @@ defmodule PairingsEngine.Tournaments.Player do
   # storage, to the strict canonical form every consumer parses:
   # comma-separated, ascending, unique, plain integers (e.g. "1,2,3,4"). Do
   # not change `parse_absent_rounds/1` in `PairingsEngine.Pairing` or
-  # `PairingsEngine.Keizer` to understand the forgiving grammar — they only
+  # `PairingsEngine.Keizer` to understand the forgiving grammar - they only
   # ever see the canonical form produced here.
   #
   # Accepted grammar (see `parse_absent_rounds_input/1` below):
@@ -148,7 +148,7 @@ defmodule PairingsEngine.Tournaments.Player do
     end
   end
 
-  # Max rounds a single range token may expand to — guards against a
+  # Max rounds a single range token may expand to - guards against a
   # pathological input (e.g. "1-999999999") ballooning the stored string.
   @max_range_span 1000
 
@@ -206,8 +206,8 @@ defmodule PairingsEngine.Tournaments.Player do
   # Keeps `special_table` (SWAR round-trip compat: HandyTable != 0) in sync
   # with `fixed_board` whenever the caller actually touches `fixed_board`
   # (e.g. the player-edit form always submits it, blank or not). Other
-  # writers — notably the SWAR importer, which sets `special_table` directly
-  # from HandyTable without going through `fixed_board` at all — never
+  # writers - notably the SWAR importer, which sets `special_table` directly
+  # from HandyTable without going through `fixed_board` at all - never
   # include `fixed_board` in their attrs, so this leaves their value alone.
   defp sync_special_table(changeset) do
     if Map.has_key?(changeset.params || %{}, "fixed_board") do
@@ -225,7 +225,7 @@ defmodule PairingsEngine.Tournaments.Player do
   def rating(%__MODULE__{fide_rating: f, national_rating: n}) do
     # Coerce nils to 0 first: a `nil` rating field (a raw/partial insert that
     # bypassed the schema's `default: 0`) would otherwise make `f > 0` return
-    # `nil` — in Elixir's term ordering `nil > 0` is `true` — and returning
+    # `nil` - in Elixir's term ordering `nil > 0` is `true` - and returning
     # `nil` here crashes every `-Player.rating(p)` sort key downstream.
     f = f || 0
     n = n || 0
@@ -237,7 +237,7 @@ defmodule PairingsEngine.Tournaments.Player do
   `PairingsEngineWeb.PlayersLive.normalize_fide_sex/1`, matching
   `PairingsEngine.Trf.trf_sex/1`'s export convention), shown as FIDE's own
   capital letters "M"/"F". Blank/unset renders as an empty string, letting
-  callers decide their own placeholder ("—", "" etc).
+  callers decide their own placeholder ("-", "" etc).
   """
   def sex_label("m"), do: "M"
   def sex_label("w"), do: "F"

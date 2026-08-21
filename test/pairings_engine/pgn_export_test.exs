@@ -1,5 +1,5 @@
 defmodule PairingsEngine.PgnExportTest do
-  # async: false — same reasoning as TrfExportTest: many writes contend on
+  # async: false - same reasoning as TrfExportTest: many writes contend on
   # SQLite's single writer lock under ExUnit parallelism.
   use PairingsEngine.DataCase, async: false
 
@@ -69,7 +69,7 @@ defmodule PairingsEngine.PgnExportTest do
     })
 
     # Every production call site freezes display labels immediately after a
-    # round's pairings are inserted — do the same here so this fixture
+    # round's pairings are inserted - do the same here so this fixture
     # matches reality.
     :ok = Tournaments.freeze_round_display_boards!(r1.id)
     :ok = Tournaments.freeze_round_display_boards!(r2.id)
@@ -184,8 +184,8 @@ defmodule PairingsEngine.PgnExportTest do
     assert board_index == round_index + 1
   end
 
-  test "board: true uses the DISPLAY board number, not the raw one — a fixed-table game renumbers/moves like everywhere else" do
-    # fixed_board must be set BEFORE the round is paired/frozen — see
+  test "board: true uses the DISPLAY board number, not the raw one - a fixed-table game renumbers/moves like everywhere else" do
+    # fixed_board must be set BEFORE the round is paired/frozen - see
     # PairingsEngine.PairingDisplay's moduledoc: this is no longer read
     # live, so setting it on an already-paired round (as this test used to)
     # would no longer have any effect. Built standalone rather than via

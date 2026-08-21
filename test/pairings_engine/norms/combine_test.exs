@@ -5,7 +5,7 @@ defmodule PairingsEngine.Norms.CombineTest do
   alias PairingsEngine.Tournaments.{Tournament, Player}
 
   # ---------------------------------------------------------------------
-  # fixtures (plain structs — Combine is pure, no DB needed)
+  # fixtures (plain structs - Combine is pure, no DB needed)
   # ---------------------------------------------------------------------
 
   defp tournament(overrides) do
@@ -94,7 +94,7 @@ defmodule PairingsEngine.Norms.CombineTest do
       assert virtual.rate_of_play == "40/90+30"
       assert virtual.event_code == "AOPEN"
       # fide_tournament_id is the one field NOT taken verbatim from the
-      # master — see the "combined FIDE tournament id" describe block below.
+      # master - see the "combined FIDE tournament id" describe block below.
       # `a` is "555", `b` (unoverridden) is the fixture default "111".
       assert virtual.fide_tournament_id == "555,111"
       assert virtual.officials == %{"chief_arbiter_fide_id" => "12345"}
@@ -132,7 +132,7 @@ defmodule PairingsEngine.Norms.CombineTest do
   end
 
   # ---------------------------------------------------------------------
-  # combined FIDE tournament id (IT3 B2) — a festival's category groups are
+  # combined FIDE tournament id (IT3 B2) - a festival's category groups are
   # often separately homologated with FIDE under different tournament ids
   # ---------------------------------------------------------------------
 
@@ -320,7 +320,7 @@ defmodule PairingsEngine.Norms.CombineTest do
       a = tournament(%{id: 1})
       b = tournament(%{id: 2})
 
-      # Both entries share an identity, but they're both in tournament A —
+      # Both entries share an identity, but they're both in tournament A -
       # only a duplicate that spans two different *tournaments* matters here.
       a_players = [
         player(%{name: "Data Quality Issue", fide_id: 777}),

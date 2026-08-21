@@ -23,16 +23,16 @@ defmodule PairingsEngine.Standings do
 
   `points` is game points only; `extra_points` is the player's administrative
   bonus (SWAR "XtPts"); `total` is `points + extra_points`. Ranking sorts by
-  `total` — which equals `points` unless the tournament opted in via
+  `total` - which equals `points` unless the tournament opted in via
   `tournament.count_extra_points` (SWAR parity #12, default off; see
-  `docs/extra-points.md`) — then the tournament's configured tiebreaks.
+  `docs/extra-points.md`) - then the tournament's configured tiebreaks.
   FIDE tiebreaks (Buchholz, Sonneborn-Berger, etc.) always keep using
-  opponents' game `points`, never `total`, regardless of the toggle —
+  opponents' game `points`, never `total`, regardless of the toggle -
   administrative bonus points never leak into another player's tiebreak
   inputs.
 
   Accepts `through_round: n` to compute standings using only rounds `<= n`
-  (and byes recorded for those rounds) — i.e. "standings as they stood right
+  (and byes recorded for those rounds) - i.e. "standings as they stood right
   after round n". This is exactly the same code path ordinary standings use
   once a tournament is mid-way through (they simply never see rounds beyond
   the latest paired one), so a past round number produces the same honest
@@ -62,7 +62,7 @@ defmodule PairingsEngine.Standings do
 
   Public because it is the single source of truth for that rule, and
   anything that shows a player "their score" has to agree with the standings
-  table or it will contradict it on screen — `PairingRationale` reads it for
+  table or it will contradict it on screen - `PairingRationale` reads it for
   the pre-round scores behind its score brackets. Reading `entry.total`
   directly is almost always a bug: it silently counts extra points in
   tournaments that rank without them (the default, and what SWAR imports
@@ -97,7 +97,7 @@ defmodule PairingsEngine.Standings do
       tb_values = Enum.map(tournament.tiebreaks, &Map.get(e.tiebreaks, &1, 0.0))
       # Ranking sorts by `total` (points + extra_points) only when the
       # tournament opted in to counting extra points; otherwise it's plain
-      # game `points` — see the moduledoc/doc above and docs/extra-points.md.
+      # game `points` - see the moduledoc/doc above and docs/extra-points.md.
       # ARO-style tiebreaks sort descending like the rest (higher = better).
       rank_score = rank_score(e, tournament)
       [-rank_score | Enum.map(tb_values, &(-&1))]
@@ -117,7 +117,7 @@ defmodule PairingsEngine.Standings do
   `through_round: round_number - 1`). Used by the pairing sheet (live,
   public, projector, print) to show each player's incoming score next to
   their name on the board list, the same way a real printed pairing sheet
-  always has — game `points` only, never `total`/extra points. Dispatches
+  always has - game `points` only, never `total`/extra points. Dispatches
   to `PairingsEngine.Keizer.standings/2` for a Keizer tournament (same
   `:points`/`:player` entry shape), `standings/2` otherwise.
   """
@@ -139,24 +139,24 @@ defmodule PairingsEngine.Standings do
   # displayed standings via `players.manual_rank`, managed exclusively by
   # `PairingsEngine.Tournaments.enable_manual_ranking/1`,
   # `reseed_manual_ranking/1` and `move_manual_rank/3`. This never touches
-  # points or tiebreaks — `apply_manual_ranking/2` only ever rewrites
+  # points or tiebreaks - `apply_manual_ranking/2` only ever rewrites
   # `:rank` on entries `standings/2` (or `grid_standings/1`) already
-  # computed, purely for display. Not offered for Keizer tournaments — see
-  # the doc — so callers never apply this to `PairingsEngine.Keizer.standings/1`
+  # computed, purely for display. Not offered for Keizer tournaments - see
+  # the doc - so callers never apply this to `PairingsEngine.Keizer.standings/1`
   # output.
 
   @doc """
   Reorders already-computed `entries` (from `standings/2` or
   `grid_standings/1`) by `tournament.manual_ranking`, reassigning `:rank`
-  to match — display only, every other field (`:points`, `:tiebreaks`,
+  to match - display only, every other field (`:points`, `:tiebreaks`,
   `:total`, ...) is untouched. A no-op, returning `entries` unchanged, when
   `tournament.manual_ranking` is false.
 
   Ordering: players with a `manual_rank` (always a plain positive `1..N`
-  value — never sign-encoded, see `manual_ranking_stale?/1` for where
+  value - never sign-encoded, see `manual_ranking_stale?/1` for where
   staleness actually lives) sort by it ascending; a player with no
   `manual_rank` yet (added after the mode was switched on, before anyone
-  re-seeded — see `manual_ranking_incomplete?/1`) sorts after every ranked
+  re-seeded - see `manual_ranking_incomplete?/1`) sorts after every ranked
   player, in their own computed-tiebreak order.
   """
   def apply_manual_ranking(entries, tournament) do
@@ -174,10 +174,10 @@ defmodule PairingsEngine.Standings do
   defp manual_sort_key(rank) when is_integer(rank), do: {0, rank}
 
   @doc """
-  True if `tournament`'s manual order is stale — a pairing result or bye
+  True if `tournament`'s manual order is stale - a pairing result or bye
   was entered/changed since it was last (re)seeded/confirmed, invalidating
   the hand-set order without discarding it. Reads the persisted
-  `tournaments.manual_ranking_stale` column directly — see
+  `tournaments.manual_ranking_stale` column directly - see
   `PairingsEngine.Tournaments.invalidate_manual_ranking/1` for how it's
   set, and `reseed_manual_ranking/1` / `move_manual_rank/3` for how it's
   cleared.
@@ -186,10 +186,10 @@ defmodule PairingsEngine.Standings do
     do: tournament.manual_ranking_stale
 
   @doc """
-  True if `entries` contains a player never placed in the manual order —
+  True if `entries` contains a player never placed in the manual order -
   added to the tournament after `manual_ranking` was switched on, before
   anyone re-seeded. Distinct from `manual_ranking_stale?/1` (a *result*
-  invalidating the order) — this is the roster having grown underneath it.
+  invalidating the order) - this is the roster having grown underneath it.
   """
   def manual_ranking_incomplete?(entries) do
     Enum.any?(entries, &is_nil(&1.player.manual_rank))
@@ -201,7 +201,7 @@ defmodule PairingsEngine.Standings do
   # %{round: n, opponent_id: id | nil, colour: :w | :b | nil, points: float,
   #   played: boolean (over the board), voluntary: boolean (for unplayed)}
   #
-  # `opts[:through_round]`, when set, limits rounds (and byes) to `<= n` —
+  # `opts[:through_round]`, when set, limits rounds (and byes) to `<= n` -
   # this is how round-scoped ("as of round n") standings are computed.
   defp games_by_player(tournament, players, opts) do
     through_round = Keyword.get(opts, :through_round)
@@ -257,37 +257,37 @@ defmodule PairingsEngine.Standings do
   Points a bye of `type` (a `"byes"`-table row's `type`: `"requested-half"`,
   `"requested-zero"`, `"absent"`, or (for completeness) `"pairing-allocated"`)
   is worth under `tournament`'s configured scoring. The single source of
-  truth for this mapping — reused by `add_bye_records/3` here and by any
+  truth for this mapping - reused by `add_bye_records/3` here and by any
   display code (e.g. `PairingsEngineWeb.PairingsLive`) that needs to show a
   byes-table row's point value without duplicating the rule.
 
-  `round` and `cumulative_absences` only matter for `"absent"` — SWAR's own
+  `round` and `cumulative_absences` only matter for `"absent"` - SWAR's own
   "Pt ABSENT" option can cap a plain absence's `abs_value` two ways on top
   of the value itself (manual §4.2, `GetSpecialAbsValue`/`AbsentIsLoss` in
   SWAR's own `Utils.cpp`): pay it only through round `abs_jusque`
   (inclusive), and/or only for the first `abs_nbfois` absences, cumulative
-  across the tournament (this round included) — either cap exceeded scores
+  across the tournament (this round included) - either cap exceeded scores
   `points_loss` instead, same as an unset `abs_value`. Both arguments
   default to `nil`, under which neither cap can ever be exceeded, so a
   caller that doesn't have round/count context on hand (or a tournament
   that predates these fields, where they're `nil` too) gets exactly the old
   flat `abs_value` behavior. Prefer `bye_points_for_row/2` over calling this
-  directly with a real byes-table row — it works out `round` and
+  directly with a real byes-table row - it works out `round` and
   `cumulative_absences` for you.
   """
   def bye_points(type, tournament, round \\ nil, cumulative_absences \\ nil) do
     case type do
       "requested-half" -> tournament.points_draw
       # SWAR 3-2-1's `SW321_PreBye` club option ("Add presence points for
-      # bye games", manual §5.16) — when `presence_on_allocated_bye` is set,
+      # bye games", manual §5.16) - when `presence_on_allocated_bye` is set,
       # a pairing-allocated bye pays `presence_value` ON TOP of `bye_value`
       # (SWAR pays SW321_Bye + SW321_Pre), not `bye_value` alone. The flag
       # defaults false and `presence_value` is nil outside SWAR 3-2-1
       # imports, so everyone else keeps scoring `bye_value` exactly as
       # before. This is also the scoring rule for a real `Pairing` row with
-      # `result: "bye"` — `pairing_records/3` below routes through here.
+      # `result: "bye"` - `pairing_records/3` below routes through here.
       "pairing-allocated" -> tournament.bye_value + allocated_bye_presence_bonus(tournament)
-      # SWAR 3-2-1 "presence points" (SW321_Pre) — distinct from an
+      # SWAR 3-2-1 "presence points" (SW321_Pre) - distinct from an
       # ordinary configured loss even though SWAR's own bitmask files
       # LOST_BYE as a "loss". `presence_value` is nil for every
       # tournament that isn't a 3-2-1 SWAR import, so this falls back to
@@ -298,13 +298,13 @@ defmodule PairingsEngine.Standings do
     end
   end
 
-  # SWAR `AbsValue` (manual §4.2 field 92) — the points paid for a plain
+  # SWAR `AbsValue` (manual §4.2 field 92) - the points paid for a plain
   # absence, distinct from `presence_value`'s 3-2-1-specific "presence
   # points". `abs_value` is nil for every tournament that isn't a SWAR
   # import, so this falls back to plain points_loss unchanged for everyone
-  # else — same reasoning as `presence_value` in `bye_points/4` above. On
+  # else - same reasoning as `presence_value` in `bye_points/4` above. On
   # top of that, SWAR's own "Pt ABSENT" option can cap WHICH absences get
-  # paid `abs_value` at all — see `bye_points/4`'s doc for the two caps.
+  # paid `abs_value` at all - see `bye_points/4`'s doc for the two caps.
   defp absent_points(tournament, round, cumulative_absences) do
     cond do
       is_nil(tournament.abs_value) -> tournament.points_loss
@@ -326,7 +326,7 @@ defmodule PairingsEngine.Standings do
 
   @doc """
   Same mapping as `bye_points/4`, but takes the byes-table row itself
-  (anything with `:type`, `:round`, `:player_id`) instead of a bare type —
+  (anything with `:type`, `:round`, `:player_id`) instead of a bare type -
   works out `round` and the cumulative "absent" count SWAR's `AbsNbFois`
   cap needs, so display code (`PairingsEngineWeb.PairingsLive`,
   `LiveRoundLive`, `PublicPairingsLive`, `PrintController`) that only has
@@ -341,7 +341,7 @@ defmodule PairingsEngine.Standings do
   def bye_points_for_row(bye, tournament), do: bye_points(bye.type, tournament)
 
   # How many "absent" byes `bye.player_id` has racked up in `tournament`
-  # through `bye.round` (inclusive) — the count SWAR's own `GetNbAbsence`
+  # through `bye.round` (inclusive) - the count SWAR's own `GetNbAbsence`
   # counts up to and including the round being scored (§ manual 4.2,
   # `AbsentIsLoss`).
   defp absent_count_through_round(tournament, bye) do
@@ -354,7 +354,7 @@ defmodule PairingsEngine.Standings do
     )
   end
 
-  # The `presence_on_allocated_bye` add-on for a pairing-allocated bye —
+  # The `presence_on_allocated_bye` add-on for a pairing-allocated bye -
   # see `bye_points/2` above. Nil-safe on both fields: `presence_value` can
   # be nil (every non-3-2-1 tournament) and the flag can be nil/false on any
   # struct/map that predates the field.
@@ -372,7 +372,7 @@ defmodule PairingsEngine.Standings do
     # Grouped and round-sorted per player so the running "absent" count
     # `bye_points/4`'s `abs_nbfois` cap needs can be tracked in memory in
     # one pass, instead of the DB round-trip per row `bye_points_for_row/2`
-    # does for a single one-off display lookup — cheap here since every
+    # does for a single one-off display lookup - cheap here since every
     # row for a player is already in hand.
     |> Enum.group_by(& &1.player_id)
     |> Enum.reduce(games_by_player, fn {player_id, player_byes}, acc ->
@@ -391,7 +391,7 @@ defmodule PairingsEngine.Standings do
             points: points,
             played: false,
             # "absent" only counts as voluntary when the tournament has
-            # explicitly opted in (Tournament.absent_counts_as_vur) — FIDE
+            # explicitly opted in (Tournament.absent_counts_as_vur) - FIDE
             # has no "absent" concept, so the default treats it like a
             # forfeit loss (always awarded value, never downgraded). See
             # that field's doc for the full reasoning.
@@ -399,7 +399,7 @@ defmodule PairingsEngine.Standings do
               bye.type in ["requested-half", "requested-zero"] or
                 (bye.type == "absent" and tournament.absent_counts_as_vur),
             # The `byes`-table row's own type ("requested-half" /
-            # "requested-zero" / "absent") — carried through so display code
+            # "requested-zero" / "absent") - carried through so display code
             # (PairingsEngine.PlayerCard.result_label/2) can label the bye by
             # KIND instead of guessing it back from the point value, which
             # lies under custom scoring (e.g. a presence-valued zero bye
@@ -422,7 +422,7 @@ defmodule PairingsEngine.Standings do
     b = pairing.black_player_id
 
     # `played` marks a game contested over the board (FIDE Art. 16 unplayed
-    # rules apply otherwise). A forfeit — win or loss, single or double — is
+    # rules apply otherwise). A forfeit - win or loss, single or double - is
     # always unplayed for BOTH sides, even for the side awarded the point.
     # Plain "0-0" is a played game where both players lose (e.g. both
     # defaulted after making moves); "0-0FF" is the double-forfeit, unplayed.
@@ -441,7 +441,7 @@ defmodule PairingsEngine.Standings do
         "0-0" -> {t.points_loss, t.points_loss, true, false}
         "+--" -> {t.points_win, t.points_loss, false, true}
         "--+" -> {t.points_loss, t.points_win, false, true}
-        # A pairing-allocated bye scores via bye_points/2 — the single
+        # A pairing-allocated bye scores via bye_points/2 - the single
         # source of truth, including the `presence_on_allocated_bye`
         # (SW321_PreBye) add-on. See that function's doc.
         "bye" -> {bye_points("pairing-allocated", t), 0.0, false, false}
@@ -459,15 +459,15 @@ defmodule PairingsEngine.Standings do
       colour: :w,
       points: wp + presence_points(t, w_present?),
       played: played,
-      # A pairing-allocated bye (odd player count) is never voluntary — the
+      # A pairing-allocated bye (odd player count) is never voluntary - the
       # player didn't choose it, so per Art. 16.2.1/16.3 it must always be
       # evaluated at its awarded value for opponents' tiebreak purposes,
       # never downgraded to a draw when trailing. The `byes`-table path
       # (`add_bye_records/3` above) already excludes "pairing-allocated"
-      # from its own `voluntary` set for the same reason — this mirrors it
+      # from its own `voluntary` set for the same reason - this mirrors it
       # for the JaVaFo-assigned `Pairing.result == "bye"` shape.
       voluntary: not played and not forfeit and pairing.result != "bye",
-      # Same key `add_bye_records/3` carries for `byes`-table rows — lets
+      # Same key `add_bye_records/3` carries for `byes`-table rows - lets
       # PlayerCard label the row as a pairing-allocated bye by KIND rather
       # than by point-value heuristics. nil for a real game.
       bye_type: if(pairing.result == "bye", do: "pairing-allocated", else: nil)
@@ -494,13 +494,13 @@ defmodule PairingsEngine.Standings do
 
   # SWAR's 3-2-1 "presence point": a separate per-round accumulator
   # (`GetPresentPtsUntilRound`, Classement.cpp:137) that is added to the
-  # result points, not folded into them —
+  # result points, not folded into them -
   # `Pts = Joueur.Points + Joueur.ExtraPts + Joueur.SpecialPts`
   # (Classement.cpp:1425), and `Points + SpecialPts` again in the TRF it
   # sends to JaVaFo (EnvoiJAVAFO.cpp:250).
   #
   # This is the "1" in 3-2-1. The Belgian club scheme is Win 2 / Draw 1 /
-  # Loss 0 with a presence point on top, which totals 3 / 2 / 1 — so
+  # Loss 0 with a presence point on top, which totals 3 / 2 / 1 - so
   # scoring the result value alone turns a 3-2-1 tournament into a 2-1-0
   # one. It is not a uniform shift either: presence is per round ATTENDED,
   # so a player who misses rounds falls behind by one point per absence,
@@ -520,14 +520,14 @@ defmodule PairingsEngine.Standings do
   # Which side of a result earned the presence point, from SWAR's own
   # condition: `RESULTATS_NORMAUX | RESULTATS_WIN | RESULTATS_SPECIAUX`.
   #
-  # A contested game pays both players — including "0-0", which is
+  # A contested game pays both players - including "0-0", which is
   # ZERO_ZERO and lands in SPECIAUX. A forfeit pays only the WINNER, since
   # `RESULTATS_WIN` is `WIN | WIN_BYE | WIN_FF` while LOST_FF and DRAW_FF
   # are in none of the three sets: the player who did not turn up does not
   # collect a point for turning up. A double forfeit (ZERO_ZEROFF) pays
   # neither.
   #
-  # Byes are deliberately NOT handled here — they score through
+  # Byes are deliberately NOT handled here - they score through
   # `bye_points/2`, and their 3-2-1 treatment has open questions this pass
   # did not settle (see docs/swar-import.md).
   defp presence_earned(result)
@@ -652,9 +652,9 @@ defmodule PairingsEngine.Standings do
   end
 
   # Each contribution tagged with whether it is a voluntary-unplayed-round
-  # (VUR) contribution — Art. 16.5.1's Cut-1 Exception needs to know this to
+  # (VUR) contribution - Art. 16.5.1's Cut-1 Exception needs to know this to
   # cut it in preference to an ordinary contribution. Only the participant's
-  # OWN bye rounds (no opponent — `dummy_score`) can ever be a VUR
+  # OWN bye rounds (no opponent - `dummy_score`) can ever be a VUR
   # contribution; a round with a real scheduled opponent always uses that
   # opponent's adjusted score regardless of whether the round was forfeited,
   # so it's never tagged. `g.voluntary` (see `pairing_records/3` and
@@ -673,7 +673,7 @@ defmodule PairingsEngine.Standings do
   # unplayed rounds count as draws; other rounds count as the points awarded.
   # A withdrawn/forfeited opponent's missing trailing rounds (no game record
   # at all, because `active_players/1` stops generating any record for them)
-  # are treated the same as a real "not played and voluntary" record — that's
+  # are treated the same as a real "not played and voluntary" record - that's
   # the fix; everything else here is unchanged.
   defp adjusted_score(opp_entry, by_id, t) do
     games = Enum.sort_by(opp_entry.games, & &1.round)
@@ -702,7 +702,7 @@ defmodule PairingsEngine.Standings do
 
   # Article 16.4: an unplayed round contributes the score of a dummy
   # opponent, whose score for this purpose IS the participant's own actual
-  # score — not a projection reconstructed from "points before this round,
+  # score - not a projection reconstructed from "points before this round,
   # plus a complementary result, plus draws for every round still left in
   # the schedule". That reconstruction was this function's ENTIRE previous
   # body and does not appear anywhere in the regulation; confirmed wrong
@@ -710,9 +710,9 @@ defmodule PairingsEngine.Standings do
   # score for the tie-break calculation is the participant's own score")
   # and its own worked example (Tie-Break Exercises, Exercise 11: a
   # player's half-point bye contributes "a value equal to their score...
-  # multiplied by the equivalent result of the round" — nothing else).
+  # multiplied by the equivalent result of the round" - nothing else).
   #
-  # Capped per 16.4.2 at a draw's worth of points × total rounds — this
+  # Capped per 16.4.2 at a draw's worth of points × total rounds - this
   # part of the old formula was already right and is unchanged. 16.4.1's
   # forfeit-specific cap (against the scheduled opponent's adjusted score)
   # never applies at this call site: every round `dummy_score` is asked
@@ -727,14 +727,14 @@ defmodule PairingsEngine.Standings do
   #
   # Article 16.5.1 "Cut-1 Exception": when a least-significant-value cut
   # applies, a contribution from one of the participant's own voluntary
-  # unplayed rounds (VUR — tagged by `buchholz_contributions/3`) is cut in
+  # unplayed rounds (VUR - tagged by `buchholz_contributions/3`) is cut in
   # preference to an ordinary contribution, reapplied once per additional
   # lowest-cut (so BHC2's second cut re-checks the remaining set). The
   # regulation's own proviso ("as long as such contribution is not lower
   # than the least significant value") always holds here: a VUR
   # contribution is a member of the same set the natural minimum is drawn
   # from, so its minimum can never be lower than the overall minimum.
-  # Highest-value cuts (MBH's second drop) are untouched — 16.5.1 only
+  # Highest-value cuts (MBH's second drop) are untouched - 16.5.1 only
   # concerns the least significant value.
   defp cut(contributions, n_lowest, n_highest) do
     contributions

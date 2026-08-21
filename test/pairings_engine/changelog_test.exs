@@ -13,12 +13,12 @@ defmodule PairingsEngine.ChangelogTest do
 
   # earmark is retired and carries CVE-2026-48591 (stored XSS via unescaped
   # HTML attribute values). It is kept on purpose, because the only markdown
-  # it ever sees is this repo's own CHANGELOG.md, at compile time — see the
+  # it ever sees is this repo's own CHANGELOG.md, at compile time - see the
   # reasoning in `PairingsEngine.Changelog`'s moduledoc.
   #
   # That reasoning holds only while there is exactly ONE call site. The day
-  # someone renders user-supplied markdown — a tournament description, an
-  # arbiter's note, an imported file — the CVE becomes live and reachable.
+  # someone renders user-supplied markdown - a tournament description, an
+  # arbiter's note, an imported file - the CVE becomes live and reachable.
   # This test is the tripwire for that day. If it fails, do not relax it:
   # the dependency has to be replaced, or the new call site sanitised.
   test "Earmark is called from exactly one place, so no user input can reach it" do

@@ -36,7 +36,7 @@ defmodule PairingsEngineWeb.UserAuth do
     user_return_to = get_session(conn, :user_return_to)
 
     # Resolve any tournaments shared with this email before an invite had a
-    # matching account — see `PairingsEngine.Tournaments.link_pending_collaborators/1`.
+    # matching account - see `PairingsEngine.Tournaments.link_pending_collaborators/1`.
     Tournaments.link_pending_collaborators(user)
 
     conn
