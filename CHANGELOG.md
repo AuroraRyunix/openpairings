@@ -16,6 +16,16 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+### Changed
+
+- 🔧 **SWAR 3-2-1 tournaments are refused on import for now**, with an
+  explanation rather than a silent failure. Their scoring works
+  differently — a presence point for turning up, on top of the result —
+  and while that part is now understood and implemented, what a BYE is
+  worth under the scheme is still unresolved. Importing anyway would
+  produce a standings table that looks right and is wrong, which is worse
+  than not importing. Every other SWAR tournament type is unaffected.
+
 ### Fixed
 
 - 🐛 **SWAR 3-2-1 tournaments were scored 2-1-0.** The Belgian club

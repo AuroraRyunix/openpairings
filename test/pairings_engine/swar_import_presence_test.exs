@@ -187,7 +187,7 @@ defmodule PairingsEngine.SwarImportPresenceTest do
     File.write!(path, binary)
 
     try do
-      SwarImport.import_file(path)
+      SwarImport.import_file(path, nil, allow_swiss321: true)
     after
       File.rm(path)
     end
@@ -351,5 +351,42 @@ defmodule PairingsEngine.SwarImportPresenceTest do
     # Unchanged behaviour: falls straight through to points_loss (0.0) since
     # presence_value is nil.
     assert entry.points == 0.0
+  end
+
+  describe "3-2-1 import is switched off" do
+    # Every test in this file passes `allow_swiss321: true`, which is the
+    # test-only door. The DEFAULT — what the app actually does — is to
+    # refuse, because the scoring is not fully settled: SWAR pays a presence
+    # point per round attended (verified against its own source, and modelled
+    # in Standings), but what a BYE is worth under the scheme is unresolved,
+    # and the only real fixture has SW321_Bye, SW321_Pre and
+    # points_loss + presence all equal to 1.0, so it cannot tell the
+    # candidate models apart.
+    #
+    # Importing anyway would produce a standings table that looks right and
+    # is wrong, which is the worst available outcome.
+    defp import_without_optin(opts) do
+      binary = build_swar_binary(opts)
+      path = Path.join(System.tmp_dir!(), "refuse-#{System.unique_integer([:positive])}.swar")
+      File.write!(path, binary)
+
+      try do
+        SwarImport.import_file(path)
+      after
+        File.rm(path)
+      end
+    end
+
+    test "a 3-2-1 file is refused by default, with an explanation" do
+      assert {:error, message} = import_without_optin(%{type: 3, sw321: {8, 4, 0, 8, 4}})
+
+      assert message =~ "3-2-1"
+      assert message =~ "cannot import yet"
+      assert message =~ "planned"
+    end
+
+    test "every other tournament type still imports" do
+      assert {:ok, _tournament, _warnings} = import_without_optin(%{type: 0})
+    end
   end
 end

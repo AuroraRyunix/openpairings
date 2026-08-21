@@ -135,7 +135,7 @@ defmodule PairingsEngine.SwarImport do
   Parses a raw `.swar` binary into a plain map mirroring the SWAR structure.
   Returns `{:ok, map}` or `{:error, reason}`.
   """
-  def parse(binary) when is_binary(binary) do
+  def parse(binary, opts \\ []) when is_binary(binary) do
     {version, rest} = read_str(binary)
     {guid, rest} = read_str(rest)
     {mac, rest} = read_str(rest)
@@ -147,6 +147,15 @@ defmodule PairingsEngine.SwarImport do
     {categories, rest} = parse_categories(rest, version)
     {xtra_points, rest} = parse_xtra_points(rest)
     {players, _rest} = parse_joueurs(rest, version)
+
+    # Refused unless the caller explicitly opts in. `allow_swiss321: true`
+    # exists so the parser, the SW321_* field mapping and the presence
+    # scoring stay under test while the feature is switched off — that
+    # machinery is correct as far as it goes and will be wanted back; see
+    # `swiss321?/1` for what is actually unresolved.
+    if swiss321?(tournoi) and not Keyword.get(opts, :allow_swiss321, false) do
+      throw(:swiss321_unsupported)
+    end
 
     {:ok,
      %{
@@ -165,6 +174,15 @@ defmodule PairingsEngine.SwarImport do
     e in MatchError -> {:error, {:parse_failed, Exception.message(e)}}
     e in ArgumentError -> {:error, {:parse_failed, Exception.message(e)}}
     e -> {:error, {:parse_failed, Exception.message(e)}}
+  catch
+    :swiss321_unsupported ->
+      {:error,
+       "This is a SWAR 3-2-1 tournament, which OpenPairings cannot import yet. " <>
+         "Its scoring works differently — a presence point for turning up, on top of " <>
+         "the result — and how SWAR values the two kinds of bye under that scheme is " <>
+         "not settled yet, so importing one would produce a standings table that looks " <>
+         "right and is wrong. Support is planned; every other SWAR tournament type " <>
+         "imports normally."}
   end
 
   ## ---------- [TOURNOI] ----------
@@ -541,9 +559,9 @@ defmodule PairingsEngine.SwarImport do
   be reconstructed from replayed pairings/byes the way ordinary standings
   always are, so an import that silently drops it is flagged here instead.
   """
-  def import_file(path, scope \\ nil) do
+  def import_file(path, scope \\ nil, opts \\ []) do
     with {:ok, binary} <- File.read(path),
-         {:ok, data} <- parse(binary) do
+         {:ok, data} <- parse(binary, opts) do
       cache = build_fide_candidates_cache(data.players)
       players = Enum.map(data.players, &best_effort_fide_match(&1, cache))
       run_import(%{data | players: players}, scope)
@@ -1219,6 +1237,22 @@ defmodule PairingsEngine.SwarImport do
   # which produced the right totals but silently redefined `bye_value` away
   # from the club's configured SW321_Bye, losing the distinction for
   # display/editing.
+  # SWAR's `[TOURNOI].Type` 3 is the Belgian 3-2-1 club scheme (SWAR's own
+  # `IsSwiss321`). Import is refused for it — see `parse/1`.
+  #
+  # `scoring_attrs/1`'s `type: 3` clause below, `Standings`' presence
+  # handling and the whole `swar_import_presence_test.exs` suite are
+  # deliberately LEFT IN PLACE and still tested. They are correct for
+  # everything they cover: the presence point is paid per round attended,
+  # verified against `GetPresentPtsUntilRound` in SWAR's own source. What is
+  # unsettled is only what a BYE is worth under the scheme, and only because
+  # `SW321_Bye`, `SW321_Pre` and `points_loss + presence` are all 1.0 in the
+  # single real fixture available, so it cannot distinguish them. One file
+  # with unequal values re-opens this in minutes; deleting the work would
+  # mean rediscovering it.
+  defp swiss321?(%{type: 3}), do: true
+  defp swiss321?(_), do: false
+
   defp scoring_attrs(%{type: 3} = t) do
     %{
       points_win: t.sw321_win / 4,

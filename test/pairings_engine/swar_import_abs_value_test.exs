@@ -186,7 +186,9 @@ defmodule PairingsEngine.SwarImportAbsValueTest do
     File.write!(path, binary)
 
     try do
-      SwarImport.import_file(path)
+      # `allow_swiss321: true` because one case here is a type-3 file and
+      # 3-2-1 import is switched off by default — see SwarImport.swiss321?/1.
+      SwarImport.import_file(path, nil, allow_swiss321: true)
     after
       File.rm(path)
     end

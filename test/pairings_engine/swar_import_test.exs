@@ -359,7 +359,7 @@ defmodule PairingsEngine.SwarImportTest do
   # lost on import.
   @tag :swar_fixture
   test "import_file/1 warns when the real fixture's points_adjusted disagrees with the recomputed total" do
-    {:ok, tournament, warnings} = SwarImport.import_file(@test3_321)
+    {:ok, tournament, warnings} = SwarImport.import_file(@test3_321, nil, allow_swiss321: true)
 
     assert tournament.id
 
@@ -412,7 +412,7 @@ defmodule PairingsEngine.SwarImportTest do
   # at `presence_value` (not `points_loss`).
 
   test "import_file/1 maps SWAR's 3-2-1 scoring fields (SW321_Win/Nul/Los/Bye/Pre/PreBye) onto the tournament" do
-    assert {:ok, tournament, _warnings} = SwarImport.import_file(@test3_321)
+    assert {:ok, tournament, _warnings} = SwarImport.import_file(@test3_321, nil, allow_swiss321: true)
 
     assert tournament.points_win == 2.0
     assert tournament.points_draw == 1.0
@@ -426,14 +426,14 @@ defmodule PairingsEngine.SwarImportTest do
   end
 
   test "import_file/1 reproduces SWAR's stored result-only total, and adds presence on top for the displayed score" do
-    {:ok, data} = SwarImport.parse(File.read!(@test3_321))
+    {:ok, data} = SwarImport.parse(File.read!(@test3_321), allow_swiss321: true)
     tom = Enum.find(data.players, &(&1.name == "Descheemaeker, Tom"))
     # Non-circular check: this player's own raw `Points` field (SWAR's
     # stored total, ÷4 like every other SW321_* field) is the ground truth
     # here — independent of whatever our scoring_attrs/1 currently does.
     assert tom.points == 8
 
-    assert {:ok, tournament, _warnings} = SwarImport.import_file(@test3_321)
+    assert {:ok, tournament, _warnings} = SwarImport.import_file(@test3_321, nil, allow_swiss321: true)
 
     [player] =
       Enum.filter(Tournaments.list_players(tournament.id), &(&1.name == "Descheemaeker, Tom"))
@@ -495,7 +495,7 @@ defmodule PairingsEngine.SwarImportTest do
   # eligibility (see `PairingsEngine.Pairing.build_shared_history/1`).
   @tag :javafo
   test "pairing a new round after import doesn't crash when a historical opponent is now excluded" do
-    assert {:ok, tournament, _warnings} = SwarImport.import_file(@test3_321)
+    assert {:ok, tournament, _warnings} = SwarImport.import_file(@test3_321, nil, allow_swiss321: true)
     assert {:ok, tournament} = Tournaments.update_tournament(tournament, %{rounds_count: 9})
 
     assert {:ok, round} = PairingsEngine.Pairing.pair_next_round(tournament)
@@ -702,7 +702,7 @@ defmodule PairingsEngine.SwarImportTest do
 
       path = c_reeks_with_deloof_fide_id_blanked!(tmp_dir)
 
-      {:ok, tournament, _warnings} = SwarImport.import_file(path)
+      {:ok, tournament, _warnings} = SwarImport.import_file(path, nil, allow_swiss321: true)
       deloof = Enum.find(Tournaments.list_players(tournament.id), &(&1.name == "Deloof, Koen"))
       assert deloof.fide_id == 210_234
     end
@@ -728,7 +728,7 @@ defmodule PairingsEngine.SwarImportTest do
       assert [%{fide_id: 999_999, birth_year: 1960}] = candidates
 
       # And the non-interactive path leaves it unmatched too — nobody to ask.
-      {:ok, tournament, _warnings} = SwarImport.import_file(path)
+      {:ok, tournament, _warnings} = SwarImport.import_file(path, nil, allow_swiss321: true)
       deloof = Enum.find(Tournaments.list_players(tournament.id), &(&1.name == "Deloof, Koen"))
       assert deloof.fide_id == nil
 
