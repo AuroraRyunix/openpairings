@@ -18,6 +18,29 @@ Each entry is tagged so a version can be skimmed:
 
 ### Changed
 
+- 🐛 **The app was shipping a four-day-old Ainalrami, and every claim made
+  about the engine was measured on a different build.** The dependency is
+  pinned to an exact commit on purpose - an engine that changes under you
+  is the one thing a tournament manager can never allow - but the pin had
+  not been moved since 17 August, leaving it 79 commits behind.
+
+  What that build was missing is not cosmetic:
+
+  - **Article 5.2.5 initial-colour handling**, added the day after the pin.
+    This is the exact behaviour the settings screen cites when it says
+    Ainalrami follows the current handbook text, so the app was making a
+    claim its own bundled engine could not honour.
+  - **The entire matching-performance rewrite.** Measured here on a round 6
+    after five played rounds: 100 players 4.35 s → 0.11 s, 200 players
+    82.7 s → 0.19 s, and 400 players did not finish in seven and a half
+    minutes → 0.65 s. A 200-player event was effectively unusable and a
+    400-player one would have looked like a hang.
+  - **The validation the UI quotes.** The zero-disagreements-over-488-million
+    figure was measured against the current engine, not the pinned one.
+
+  Pin moved to `6d739bd`, and the full suite - including the
+  JaVaFo-versus-Ainalrami differential tests - passes against it.
+
 - 🔧 **The landing page leads with Ainalrami now, and no longer names
   JaVaFo.** The hero read "Swiss pairings via JaVaFo" and the feature list
   offered "JaVaFo Dutch, or Ainalrami in beta" - advertising a third-party

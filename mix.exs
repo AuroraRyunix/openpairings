@@ -119,7 +119,7 @@ defmodule PairingsEngine.MixProject do
       # change what this app pairs — the one thing a tournament manager can
       # never allow. `override: true`-style looseness is equally out.
       {:ainalrami,
-       github: "AuroraRyunix/Ainalrami", ref: "3a30b6c527aa5e57948920c2c748fa5455f4b622"}
+       github: "AuroraRyunix/Ainalrami", ref: "6d739bdb3ee1338646d71550a73e770fc8c29ddb"}
     ]
   end
 
