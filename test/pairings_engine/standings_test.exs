@@ -991,4 +991,135 @@ defmodule PairingsEngine.StandingsTest do
       assert by_name["Vandenhole, Kobe"].points == 1.0
     end
   end
+
+  describe "SWAR 3-2-1 presence points on played rounds" do
+    # The "1" in 3-2-1. SWAR's scheme is Win 2 / Draw 1 / Loss 0 with a
+    # presence point on top, totalling 3 / 2 / 1 -- and it pays that point
+    # per ROUND ATTENDED, in a separate accumulator added to the result
+    # points (GetPresentPtsUntilRound, Classement.cpp:137; the sum at
+    # Classement.cpp:1425). Scoring the result value alone turns a 3-2-1
+    # tournament into a 2-1-0 one.
+    #
+    # Every 3-2-1 test before this one exercised only BYES, which is how a
+    # whole scoring mode shipped without a played round ever being checked.
+    defp swiss321_tournament do
+      Repo.insert!(%Tournament{
+        name: "321",
+        type: "swiss",
+        rounds_count: 2,
+        tiebreaks: ["BH"],
+        points_win: 2.0,
+        points_draw: 1.0,
+        points_loss: 0.0,
+        presence_value: 1.0
+      })
+    end
+
+    defp plain_tournament do
+      Repo.insert!(%Tournament{
+        name: "Normal",
+        type: "swiss",
+        rounds_count: 1,
+        tiebreaks: ["BH"],
+        points_win: 1.0,
+        points_draw: 0.5,
+        points_loss: 0.0
+      })
+    end
+
+    defp two_players(t) do
+      for {name, n} <- [{"A", 1}, {"B", 2}] do
+        Repo.insert!(%Player{tournament_id: t.id, name: name, pairing_number: n})
+      end
+    end
+
+    defp play(t, round_number, white, black, result) do
+      r = Repo.insert!(%Round{tournament_id: t.id, number: round_number, status: "finished"})
+
+      Repo.insert!(%Pairing{
+        round_id: r.id,
+        board: 1,
+        white_player_id: white.id,
+        black_player_id: black.id,
+        result: result
+      })
+    end
+
+    defp score(t, player) do
+      t |> Standings.standings() |> Enum.find(&(&1.player.id == player.id)) |> Map.get(:points)
+    end
+
+    test "a played win scores 3, a loss scores 1 — not 2 and 0" do
+      t = swiss321_tournament()
+      [a, b] = two_players(t)
+      play(t, 1, a, b, "1-0")
+
+      assert score(t, a) == 3.0
+      assert score(t, b) == 1.0
+    end
+
+    test "a played draw scores 2 for both" do
+      t = swiss321_tournament()
+      [a, b] = two_players(t)
+      play(t, 1, a, b, "1/2-1/2")
+
+      assert score(t, a) == 2.0
+      assert score(t, b) == 2.0
+    end
+
+    test "presence accumulates per round, so missing one costs a point" do
+      t = swiss321_tournament()
+      [a, b] = two_players(t)
+      play(t, 1, a, b, "1-0")
+      play(t, 2, a, b, "0-1")
+
+      # One win and one loss each, so the RESULT points tie at 2.0 apiece.
+      # Both attended both rounds, so both collect two presence points.
+      assert score(t, a) == 4.0
+      assert score(t, b) == 4.0
+    end
+
+    # RESULTATS_WIN is `WIN | WIN_BYE | WIN_FF`, and LOST_FF/DRAW_FF are in
+    # none of the three sets the presence condition tests — so a forfeit
+    # pays the winner only. The player who did not turn up does not collect
+    # a point for turning up.
+    test "a forfeit pays presence to the winner only" do
+      t = swiss321_tournament()
+      [a, b] = two_players(t)
+      play(t, 1, a, b, "1-0FF")
+
+      assert score(t, a) == 3.0
+      assert score(t, b) == 0.0
+    end
+
+    test "a double forfeit pays neither" do
+      t = swiss321_tournament()
+      [a, b] = two_players(t)
+      play(t, 1, a, b, "0-0FF")
+
+      assert score(t, a) == 0.0
+      assert score(t, b) == 0.0
+    end
+
+    # ZERO_ZERO is in RESULTATS_SPECIAUX, so a played 0-0 pays both.
+    test "a played 0-0 pays presence to both" do
+      t = swiss321_tournament()
+      [a, b] = two_players(t)
+      play(t, 1, a, b, "0-0")
+
+      assert score(t, a) == 1.0
+      assert score(t, b) == 1.0
+    end
+
+    # presence_value is nil for every tournament that is not a 3-2-1
+    # import, which is what keeps all of this inert everywhere else.
+    test "an ordinary tournament is untouched" do
+      t = plain_tournament()
+      [a, b] = two_players(t)
+      play(t, 1, a, b, "1-0")
+
+      assert score(t, a) == 1.0
+      assert score(t, b) == 0.0
+    end
+  end
 end

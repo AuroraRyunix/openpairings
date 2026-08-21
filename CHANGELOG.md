@@ -18,6 +18,24 @@ Each entry is tagged so a version can be skimmed:
 
 ### Fixed
 
+- 🐛 **SWAR 3-2-1 tournaments were scored 2-1-0.** The Belgian club
+  scheme is Win 2 / Draw 1 / Loss 0 plus a **presence point** for turning
+  up — which is what makes it 3-2-1. That presence point was only ever
+  applied to byes, never to a played game, so every played round came out
+  one point short.
+
+  It is not a uniform shift: presence is paid per round ATTENDED, so a
+  player who misses rounds falls one point further behind for each one,
+  and the ORDER of the standings changed too, not just the totals.
+
+  Found by reading SWAR's own source rather than by a bug report:
+  `GetPresentPtsUntilRound` keeps presence in a separate accumulator and
+  the ranking adds `Points + ExtraPts + SpecialPts`. A forfeit pays the
+  winner only — the player who did not turn up does not collect a point
+  for turning up — and a double forfeit pays neither.
+
+  Only affects tournaments imported from a SWAR 3-2-1 file. Every other
+  tournament carries no presence value and is untouched.
 - 🐛 **"Team tournament" no longer looks like it does something it
   doesn't.** Ticking it sets the FIDE classification on the report and
   nothing else — pairing has never branched on team type, so players are

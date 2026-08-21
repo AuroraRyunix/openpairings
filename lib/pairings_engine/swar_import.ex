@@ -721,9 +721,19 @@ defmodule PairingsEngine.SwarImport do
   # clauses guarded on it.
   defp points_adjusted_warnings(tournament, data, players_by_ni) do
     if has_points_adjusted?(data.version) do
+      # `presence: false` because SWAR's stored `points_adjusted` is
+      # `Joueur.Points` — result points ONLY. The 3-2-1 presence point lives
+      # in a separate accumulator (`SpecialPts`, Classement.cpp:1390) that is
+      # added at display time (`Points + ExtraPts + SpecialPts`,
+      # Classement.cpp:1425) and never written to the file.
+      #
+      # Comparing our full standings total against it would warn for every
+      # single player in every 3-2-1 tournament — the totals genuinely
+      # differ, by one point per round attended, and neither side is wrong.
+      # This reconciles like with like.
       computed_by_id =
         tournament
-        |> Standings.standings()
+        |> Standings.standings(presence: false)
         |> Map.new(fn e -> {e.player.id, e.points} end)
 
       data.players

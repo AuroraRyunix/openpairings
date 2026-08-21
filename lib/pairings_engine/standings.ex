@@ -205,6 +205,11 @@ defmodule PairingsEngine.Standings do
   # this is how round-scoped ("as of round n") standings are computed.
   defp games_by_player(tournament, players, opts) do
     through_round = Keyword.get(opts, :through_round)
+    # `presence: false` scores result points ONLY, with no SWAR 3-2-1
+    # presence point. Used by the import's reconciliation check, which
+    # compares against a field SWAR stores WITHOUT presence in it -- see
+    # `SwarImport.points_adjusted_warnings/3`.
+    presence? = Keyword.get(opts, :presence, true)
 
     rounds_query =
       from r in Round,
@@ -225,7 +230,7 @@ defmodule PairingsEngine.Standings do
 
     for round <- rounds,
         pairing <- round.pairings,
-        record <- pairing_records(pairing, round.number, tournament),
+        record <- pairing_records(pairing, round.number, tournament, presence?),
         MapSet.member?(player_ids, record.player_id),
         reduce: %{} do
       acc -> Map.update(acc, record.player_id, [record], &(&1 ++ [record]))
@@ -410,9 +415,9 @@ defmodule PairingsEngine.Standings do
   end
 
   # Expands one stored pairing into records for both players.
-  defp pairing_records(%Pairing{result: ""}, _round, _t), do: []
+  defp pairing_records(%Pairing{result: ""}, _round, _t, _presence?), do: []
 
-  defp pairing_records(pairing, round_number, t) do
+  defp pairing_records(pairing, round_number, t, presence?) do
     w = pairing.white_player_id
     b = pairing.black_player_id
 
@@ -443,12 +448,16 @@ defmodule PairingsEngine.Standings do
         _ -> {0.0, 0.0, false, false}
       end
 
+    {w_earned?, b_earned?} = presence_earned(pairing.result)
+    w_present? = presence? and w_earned?
+    b_present? = presence? and b_earned?
+
     white_record = %{
       round: round_number,
       player_id: w,
       opponent_id: if(pairing.result == "bye", do: nil, else: b),
       colour: :w,
-      points: wp,
+      points: wp + presence_points(t, w_present?),
       played: played,
       # A pairing-allocated bye (odd player count) is never voluntary — the
       # player didn't choose it, so per Art. 16.2.1/16.3 it must always be
@@ -474,7 +483,7 @@ defmodule PairingsEngine.Standings do
           player_id: b,
           opponent_id: w,
           colour: :b,
-          points: bp,
+          points: bp + presence_points(t, b_present?),
           played: played,
           voluntary: false,
           bye_type: nil
@@ -482,6 +491,52 @@ defmodule PairingsEngine.Standings do
       ]
     end
   end
+
+  # SWAR's 3-2-1 "presence point": a separate per-round accumulator
+  # (`GetPresentPtsUntilRound`, Classement.cpp:137) that is added to the
+  # result points, not folded into them —
+  # `Pts = Joueur.Points + Joueur.ExtraPts + Joueur.SpecialPts`
+  # (Classement.cpp:1425), and `Points + SpecialPts` again in the TRF it
+  # sends to JaVaFo (EnvoiJAVAFO.cpp:250).
+  #
+  # This is the "1" in 3-2-1. The Belgian club scheme is Win 2 / Draw 1 /
+  # Loss 0 with a presence point on top, which totals 3 / 2 / 1 — so
+  # scoring the result value alone turns a 3-2-1 tournament into a 2-1-0
+  # one. It is not a uniform shift either: presence is per round ATTENDED,
+  # so a player who misses rounds falls behind by one point per absence,
+  # and relative order changes, not just the totals.
+  #
+  # `presence_value` is nil for every tournament that is not a SWAR 3-2-1
+  # import, which is what keeps this inert everywhere else.
+  defp presence_points(_tournament, false), do: 0.0
+
+  defp presence_points(tournament, true) do
+    case Map.get(tournament, :presence_value) do
+      value when is_number(value) -> value
+      _ -> 0.0
+    end
+  end
+
+  # Which side of a result earned the presence point, from SWAR's own
+  # condition: `RESULTATS_NORMAUX | RESULTATS_WIN | RESULTATS_SPECIAUX`.
+  #
+  # A contested game pays both players — including "0-0", which is
+  # ZERO_ZERO and lands in SPECIAUX. A forfeit pays only the WINNER, since
+  # `RESULTATS_WIN` is `WIN | WIN_BYE | WIN_FF` while LOST_FF and DRAW_FF
+  # are in none of the three sets: the player who did not turn up does not
+  # collect a point for turning up. A double forfeit (ZERO_ZEROFF) pays
+  # neither.
+  #
+  # Byes are deliberately NOT handled here — they score through
+  # `bye_points/2`, and their 3-2-1 treatment has open questions this pass
+  # did not settle (see docs/swar-import.md).
+  defp presence_earned(result)
+       when result in ["1-0", "1/2-1/2", "0-1", "1/2-0", "0-1/2", "0-0"],
+       do: {true, true}
+
+  defp presence_earned(result) when result in ["1-0FF", "+--"], do: {true, false}
+  defp presence_earned(result) when result in ["0-1FF", "--+"], do: {false, true}
+  defp presence_earned(_result), do: {false, false}
 
   defp total_points(games), do: games |> Enum.map(& &1.points) |> Enum.sum() |> round_f(1)
 

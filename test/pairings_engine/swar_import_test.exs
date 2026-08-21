@@ -425,7 +425,7 @@ defmodule PairingsEngine.SwarImportTest do
     assert tournament.presence_on_allocated_bye == true
   end
 
-  test "import_file/1 scores a real player's LOST_BYE rounds at presence_value, reproducing SWAR's own raw point total" do
+  test "import_file/1 reproduces SWAR's stored result-only total, and adds presence on top for the displayed score" do
     {:ok, data} = SwarImport.parse(File.read!(@test3_321))
     tom = Enum.find(data.players, &(&1.name == "Descheemaeker, Tom"))
     # Non-circular check: this player's own raw `Points` field (SWAR's
@@ -440,13 +440,26 @@ defmodule PairingsEngine.SwarImportTest do
 
     entry = Enum.find(Standings.standings(tournament), &(&1.player.id == player.id))
 
-    # tom.points (8, raw) / 4 == 2.0 == wins*Win + draws*Nul + losses*Los +
-    # lost_byes*Pre, all raw, / 4 — this player has 0 wins, 0 draws, 2
-    # ordinary losses (Los raw 0, contributing nothing either way) and 2
-    # LOST_BYE rounds (Pre raw 4 each): (2*0 + 2*4) / 4 = 2.0. Before this
-    # session's fix, LOST_BYE scored at points_loss (0.0), which would have
-    # produced 0.0 here instead — the exact regression this guards.
-    assert entry.points == 2.0
+    # SWAR's stored `Points` field is `Joueur.Points` -- RESULT points only.
+    # The 3-2-1 presence point lives in a separate accumulator (SpecialPts,
+    # Classement.cpp:1390) added at display time (Classement.cpp:1425) and
+    # never written to the file. So the file's 2.0 is what our standings
+    # produce with presence switched OFF, and comparing it against the full
+    # total is apples-to-oranges -- which is what this test used to do, back
+    # when we did not pay presence on played rounds at all.
+    #
+    # Result-only: 0 wins, 0 draws, 2 ordinary losses (Los raw 0) and 2
+    # LOST_BYE rounds (raw 4 each) -> (2*0 + 2*4) / 4 = 2.0.
+    presence_free =
+      Enum.find(Standings.standings(tournament, presence: false), &(&1.player.id == player.id))
+
+    assert presence_free.points == 2.0
+
+    # The full total adds one presence point per round ATTENDED. He played
+    # two ordinary losses, so +2.0. This is the number a 3-2-1 standings
+    # table actually shows, and the reason the scheme is called 3-2-1 rather
+    # than 2-1-0.
+    assert entry.points == 4.0
   end
 
   test "import_file/1 leaves scoring at schema defaults for a standard (non-3-2-1) tournament" do
