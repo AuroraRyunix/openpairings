@@ -2,10 +2,9 @@ defmodule PairingsEngine.PairingEngineTest do
   @moduledoc """
   `tournaments.pairing_engine` - which Swiss engine actually pairs a round.
 
-  JaVaFo stays the default and the only engine permitted for a
-  FIDE-homologated tournament (see docs/fide-endorsement.md: OpenPairings'
-  whole endorsement story is FE1's "Internal engine: NO - thru JaVaFo").
-  Ainalrami is an opt-in beta alternative.
+  JaVaFo stays the default. Ainalrami is opt-in, and may be selected even on
+  a FIDE-homologated tournament, with a warning - see
+  docs/fide-endorsement.md for what that costs on paper.
 
   Note which tests carry `@tag :javafo` and which don't. The Ainalrami tests
   are deliberately untagged: Ainalrami needs no jar, no JVM and no external
@@ -594,5 +593,85 @@ defmodule PairingsEngine.PairingEngineTest do
   defp seed_number(id) do
     "P" <> n = player_seed(id)
     String.to_integer(n)
+  end
+
+  ## ---------- the engine's own account of the round ----------
+
+  describe "explanation capture" do
+    test "an Ainalrami round records the brackets the engine actually built" do
+      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
+      players = roster(t, 8)
+      roster_ids = players |> Enum.map(& &1.id) |> MapSet.new()
+
+      assert {:ok, round} = Pairing.pair_next_round(t)
+
+      assert %{"engine" => "ainalrami", "version" => 1, "sections" => [section]} =
+               round.explanation
+
+      # One pool, so no category name.
+      assert section["category"] == nil
+      assert [bracket | _] = section["brackets"]
+
+      # The engine speaks in local TRF ranks, which mean nothing once the
+      # roster changes. What is STORED has to be player ids - this is the
+      # assertion that catches the translation being dropped, because local
+      # ranks 1..8 would look perfectly plausible next to real ids.
+      stored =
+        section["brackets"]
+        |> Enum.flat_map(fn b ->
+          b["residents"] ++ b["mdps"] ++ b["floats"] ++ List.flatten(b["pairs"])
+        end)
+        |> Enum.reject(&is_nil/1)
+        |> MapSet.new()
+
+      assert MapSet.size(stored) > 0
+      assert MapSet.subset?(stored, roster_ids)
+
+      # Round 1 is one bracket at 0 points, and it must carry the criteria
+      # that actually scored, with their labels - the whole point of storing
+      # this rather than re-deriving it.
+      assert bracket["group"] == 0.0
+      assert is_integer(bracket["edge_count"])
+      assert [%{"label" => label, "value" => value} | _] = bracket["rungs"]
+      assert is_binary(label)
+      assert value != 0
+    end
+
+    test "the stored pairs are the pairs that were actually seated" do
+      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
+      roster(t, 8)
+
+      assert {:ok, round} = Pairing.pair_next_round(t)
+      round = Repo.preload(round, :pairings)
+
+      seated =
+        round.pairings
+        |> Enum.map(
+          &MapSet.new(
+            Enum.reject([&1.white_player_id, &1.black_player_id], fn x -> is_nil(x) end)
+          )
+        )
+        |> MapSet.new()
+
+      explained =
+        round.explanation["sections"]
+        |> Enum.flat_map(& &1["brackets"])
+        |> Enum.flat_map(& &1["pairs"])
+        |> Enum.map(&MapSet.new(Enum.reject(&1, fn x -> is_nil(x) end)))
+        |> MapSet.new()
+
+      assert explained == seated
+    end
+
+    @tag :javafo
+    test "a JaVaFo round stores nothing rather than an empty explanation" do
+      # nil, not %{} - the page distinguishes "this engine cannot explain
+      # itself" from "it explained and had nothing to say".
+      t = tournament()
+      roster(t, 6)
+
+      assert {:ok, round} = Pairing.pair_next_round(t)
+      assert round.explanation == nil
+    end
   end
 end

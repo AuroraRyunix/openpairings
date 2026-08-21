@@ -64,6 +64,30 @@ Each entry is tagged so a version can be skimmed:
   Pin moved to `6d739bd`, and the full suite - including the
   JaVaFo-versus-Ainalrami differential tests - passes against it.
 
+- [Feature] **The pairing rationale now quotes the engine instead of
+  inferring it - for Ainalrami rounds.** That page has always
+  RECONSTRUCTED its brackets from a round's inputs and outputs, because
+  JaVaFo hands back nothing but pairs and its reasoning cannot be
+  extracted. Ainalrami can report its own working, so a round it pairs now
+  stores that account on the round itself, at the moment it is paired.
+
+  A new **"What the engine reported"** panel shows, per score bracket: who
+  was moved down into it, who floated onward, the pairs it kept, and the
+  **FIDE C.04.3 criteria that actually scored**, by name and value -
+  "C6 pairs in bracket", "C12 colour preference" and the rest. Criteria
+  that scored zero are not listed, because they did not come into the
+  decision. Nothing in the app could show any of this before.
+
+  It is stored rather than recomputed on demand for a reason: a round can
+  be edited by hand after the engine paired it, and re-deriving the
+  reasoning afterwards would explain a pairing the engine never produced.
+  If boards are swapped or substituted later, the panel says so plainly
+  rather than quietly presenting a record that no longer matches the
+  boards.
+
+  JaVaFo rounds, and every round paired before this release, keep the
+  reconstruction exactly as before, and the page still says so.
+
 - [Fix] **The app still said "JaVaFo" in places where Ainalrami had done
   the pairing.** The rationale page titled every Swiss round "Swiss (FIDE
   Dutch / JaVaFo)" whichever engine ran, and - the one that actually

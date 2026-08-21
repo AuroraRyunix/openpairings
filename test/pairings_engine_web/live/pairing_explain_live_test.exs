@@ -1087,4 +1087,83 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
       assert html =~ "- vacant -"
     end
   end
+
+  # The page has always RECONSTRUCTED its brackets, because JaVaFo hands back
+  # nothing but pairs. Ainalrami records its own decision at pairing time, so
+  # for those rounds the page quotes the engine instead of inferring it.
+  describe "the engine's own account" do
+    defp ainalrami_round(scope) do
+      {:ok, t} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "Account",
+          "type" => "swiss",
+          "rounds_count" => "5"
+        })
+
+      {:ok, t} = Tournaments.update_tournament(t, %{"pairing_engine" => "ainalrami"})
+
+      for n <- 1..8 do
+        {:ok, _} = Tournaments.create_player(t.id, %{"name" => "P#{n}"})
+      end
+
+      {:ok, round} = Pairing.pair_next_round(t)
+      {t, round}
+    end
+
+    test "an Ainalrami round quotes the engine, with the criteria that scored", %{
+      conn: conn,
+      scope: scope
+    } do
+      {t, _round} = ainalrami_round(scope)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
+
+      assert html =~ "What the engine reported"
+      assert html =~ "paired by <strong>Ainalrami</strong>"
+
+      # A real C-criterion label out of the engine, not a word this codebase
+      # made up - if the rungs stopped being stored this is what breaks.
+      assert html =~ "C6 pairs in bracket"
+
+      # And the reconstruction-era caveat must be GONE, because it is false
+      # here: the engine did record its reasoning.
+      refute html =~ "internal tie-break reasoning is not"
+    end
+
+    test "a hand-edited board is flagged, and the record is not quietly rewritten", %{
+      conn: conn,
+      scope: scope
+    } do
+      {t, round} = ainalrami_round(scope)
+      [first, second | _] = Repo.preload(round, :pairings).pairings
+
+      # Swap two players between boards, the way an arbiter would.
+      Repo.update!(PairingSchema.changeset(first, %{black_player_id: second.black_player_id}))
+      Repo.update!(PairingSchema.changeset(second, %{black_player_id: first.black_player_id}))
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
+
+      assert html =~ "The boards have changed since this was recorded"
+      # Still quoting the engine - the record stands, it is just no longer a
+      # description of the round as it now stands.
+      assert html =~ "What the engine reported"
+    end
+
+    @tag :javafo
+    test "a JaVaFo round keeps the reconstruction and says so", %{conn: conn, scope: scope} do
+      {:ok, t} =
+        Tournaments.create_tournament(scope, %{"name" => "Recon", "type" => "swiss"})
+
+      for n <- 1..6 do
+        {:ok, _} = Tournaments.create_player(t.id, %{"name" => "P#{n}"})
+      end
+
+      {:ok, _round} = Pairing.pair_next_round(t)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
+
+      refute html =~ "What the engine reported"
+      assert html =~ "internal tie-break reasoning is not"
+    end
+  end
 end

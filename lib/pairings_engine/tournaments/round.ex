@@ -17,13 +17,25 @@ defmodule PairingsEngine.Tournaments.Round do
     # visibility is just "is this timestamp in the past", checked live.
     field :published_at, :utc_datetime
 
+    # What the pairing engine reported about its own decision, captured when
+    # the round was paired - see `PairingsEngine.Pairing.explanation/3`. Only
+    # Ainalrami produces one; a JaVaFo round, and every round paired before
+    # this column existed, leaves it nil and the rationale page falls back to
+    # reconstructing brackets from the round's inputs and outputs.
+    #
+    # Stored rather than recomputed because it is a record of what happened,
+    # not a derivation of current state: a round can be edited by hand
+    # afterwards (`pairing.players_swapped` and friends), and re-deriving
+    # then would explain a pairing the engine never produced.
+    field :explanation, :map
+
     belongs_to :tournament, PairingsEngine.Tournaments.Tournament
     has_many :pairings, PairingsEngine.Tournaments.Pairing
   end
 
   def changeset(round, attrs) do
     round
-    |> cast(attrs, [:number, :date, :status, :published_at])
+    |> cast(attrs, [:number, :date, :status, :published_at, :explanation])
     |> validate_required([:number])
     |> validate_inclusion(:status, ~w(pairing playing finished))
   end

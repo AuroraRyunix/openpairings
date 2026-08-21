@@ -1911,6 +1911,30 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   .card { padding: 16px; }
 }
 
+/* "What the engine reported" - the stored account Ainalrami hands back at
+   pairing time. Deliberately plainer than the bracket map below it: this is
+   a record being quoted, not a visualisation, and it should read as such. */
+.pe-account-section { margin-bottom: 4px; }
+.pe-account-bracket {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  margin: 8px 0;
+  background: var(--surface-alt);
+}
+.pe-account-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+.pe-account-bracket .hint { margin: 2px 0; }
+.pe-account-pairs { margin: 6px 0; padding-left: 18px; }
+.pe-account-pairs li { line-height: 1.5; }
+.pe-account-rungs { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 12px; }
+.pe-account-rungs td { padding: 2px 0; color: var(--text-soft); border-top: 1px solid var(--border); }
+.pe-account-rung-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  width: 6ch;
+}
+
 /* ============================================================
    "Explain this round" - visual pairing rationale
    (PairingsEngineWeb.PairingExplainLive). Appended block; does

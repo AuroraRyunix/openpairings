@@ -361,8 +361,15 @@ defmodule PairingsEngine.Pairing do
     emit_trf_built(tournament.id, next_number, nil, trf)
 
     case run_engine(tournament, trf, next_number, nil) do
-      {:ok, pairs} ->
-        create_round(pairs, tournament, player_by_local_rank, next_number, round_absentees)
+      {:ok, pairs, explanation} ->
+        create_round(
+          pairs,
+          tournament,
+          player_by_local_rank,
+          next_number,
+          round_absentees,
+          explanation_payload([{nil, explanation, player_by_local_rank}])
+        )
 
       {:error, _message} = error ->
         error
@@ -517,8 +524,8 @@ defmodule PairingsEngine.Pairing do
     emit_trf_built(tournament.id, next_number, category_name, trf)
 
     case run_engine(tournament, trf, next_number, category_name, index) do
-      {:ok, pairs} ->
-        {:ok, {category_name, :paired, pairs, player_by_local_rank}}
+      {:ok, pairs, explanation} ->
+        {:ok, {category_name, :paired, pairs, player_by_local_rank, explanation}}
 
       {:error, _message} = error ->
         error
@@ -534,13 +541,27 @@ defmodule PairingsEngine.Pairing do
   # for ordinary DB-write atomicity (Round + N Pairings as one unit), not to
   # guard against a JaVaFo failure (that's already been ruled out).
   defp insert_category_round(tournament, group_results, next_number, round_absentees) do
+    # One section per category that the engine actually paired. A 1-player
+    # group's automatic bye never reaches an engine, so it contributes none.
+    explanation =
+      group_results
+      |> Enum.flat_map(fn
+        {category_name, :paired, _pairs, by_rank, bracket_report} ->
+          [{category_name, bracket_report, by_rank}]
+
+        _bye ->
+          []
+      end)
+      |> explanation_payload()
+
     Repo.transaction(fn ->
       round =
         Repo.insert!(%Round{
           tournament_id: tournament.id,
           number: next_number,
           status: "playing",
-          published_at: Tournaments.compute_published_at(tournament, next_number)
+          published_at: Tournaments.compute_published_at(tournament, next_number),
+          explanation: explanation
         })
 
       insert_round_absentee_byes(tournament, next_number, round_absentees)
@@ -559,7 +580,7 @@ defmodule PairingsEngine.Pairing do
 
               {board_offset + 1, true}
 
-            {_category_name, :paired, pairs, player_by_local_rank} ->
+            {_category_name, :paired, pairs, player_by_local_rank, _explanation} ->
               {:ok, boards_used, bye?} =
                 insert_category_pairings(round, pairs, player_by_local_rank, board_offset)
 
@@ -839,7 +860,10 @@ defmodule PairingsEngine.Pairing do
   end
 
   defp run_engine(tournament, trf, round_number, category_name, category_index) do
-    run_javafo(tournament, trf, round_number, category_name, category_index)
+    case run_javafo(tournament, trf, round_number, category_name, category_index) do
+      {:ok, pairs} -> {:ok, pairs, nil}
+      {:error, _message} = error -> error
+    end
   end
 
   # Unchanged from the two copies this replaced, down to the scratch-file
@@ -921,7 +945,12 @@ defmodule PairingsEngine.Pairing do
       [] ->
         parsed = Ainalrami.Trf.parse(trf)
 
-        pairs =
+        engine_opts = [
+          expected_rounds: parsed.tournament[:number_of_rounds],
+          forbidden_pairs: parsed.tournament[:forbidden_pairs]
+        ]
+
+        raw_pairs =
           parsed.players
           |> Ainalrami.Pairing.pair_next_round(
             expected_rounds: parsed.tournament[:number_of_rounds],
@@ -935,9 +964,28 @@ defmodule PairingsEngine.Pairing do
             # happens to seat two players the arbiter separated.
             forbidden_pairs: parsed.tournament[:forbidden_pairs]
           )
-          |> Enum.map(&ainalrami_bye_to_zero/1)
 
-        {:ok, pairs}
+        # Ground truth, taken while the decision is fresh. `explain_round/3`
+        # analyses a pairing it is GIVEN rather than emitting one as it
+        # works, so it is a second call - but it is one call per round, on a
+        # click the arbiter is already waiting on, not per page view.
+        #
+        # Deliberately not allowed to fail the round: an explanation is
+        # commentary, and losing it must never cost an arbiter a pairing
+        # that the engine has already computed correctly.
+        explanation =
+          try do
+            Ainalrami.Pairing.explain_round(parsed.players, raw_pairs, engine_opts)
+          rescue
+            e ->
+              Logger.warning(
+                "Ainalrami could not explain #{engine_log_scope(tournament, round_number, category_name)}: #{Exception.message(e)}"
+              )
+
+              nil
+          end
+
+        {:ok, Enum.map(raw_pairs, &ainalrami_bye_to_zero/1), explanation}
 
       codes ->
         {:error, ainalrami_unsupported_message(codes, category_name)}
@@ -1065,7 +1113,86 @@ defmodule PairingsEngine.Pairing do
   # that function's doc comment for why. JaVaFo's output pairs are starting
   # ranks in whatever numbering it was given, so the lookup here must use
   # the exact same map that was fed into `javafo_input/3`.
-  defp create_round(pairs, tournament, player_by_local_rank, next_number, round_absentees) do
+  ## ---------- the engine's own account of the round ----------
+
+  # Turns what `Ainalrami.Pairing.explain_round/3` reports into something a
+  # round row can hold and a page can read years later.
+  #
+  # Two translations matter. First, RANKS: the engine speaks in the local
+  # contiguous numbering the TRF was built in, which is an artefact of who
+  # was in the field that day and means nothing once the roster changes.
+  # Everything is stored as player ids instead. Second, SHAPE: the report is
+  # full of tuples (`{a, b}` pairs, `{label, value}` rungs) and a `:map`
+  # column is JSON, where tuples do not exist - so pairs become two-element
+  # lists and rungs become labelled maps.
+  #
+  # Returns nil when no section has anything to report, so a JaVaFo round
+  # stores nothing at all rather than an empty husk that reads, to the page,
+  # like an explanation that came back blank.
+  defp explanation_payload(sections) do
+    built =
+      sections
+      |> Enum.flat_map(fn
+        {_category_name, nil, _by_rank} ->
+          []
+
+        {category_name, brackets, by_rank} ->
+          [
+            %{
+              "category" => category_name,
+              "brackets" => Enum.map(brackets, &bracket_json(&1, by_rank))
+            }
+          ]
+      end)
+
+    case built do
+      [] -> nil
+      sections -> %{"engine" => "ainalrami", "version" => 1, "sections" => sections}
+    end
+  end
+
+  defp bracket_json(bracket, by_rank) do
+    %{
+      "group" => bracket.group,
+      "mdps" => player_ids(bracket.mdps, by_rank),
+      "residents" => player_ids(bracket.residents, by_rank),
+      "floats" => player_ids(bracket.floats, by_rank),
+      "pairs" =>
+        Enum.map(bracket.pairs, fn {a, b} -> [player_id(a, by_rank), player_id(b, by_rank)] end),
+      "edge_count" => Map.get(bracket, :edge_count),
+      # Only the criteria that actually scored. A bracket reports every rung
+      # on the ladder and most are zero; keeping them all would triple the
+      # stored size to say "this criterion did not come into it".
+      "rungs" =>
+        bracket.rungs
+        |> Enum.reject(fn {_label, value} -> value == 0 end)
+        |> Enum.map(fn {label, value} -> %{"label" => label, "value" => value} end)
+    }
+  end
+
+  defp player_ids(ranks, by_rank), do: Enum.map(ranks, &player_id(&1, by_rank))
+
+  # A rank with no player behind it should be impossible - the map is built
+  # over the same roster the TRF was - but a nil here would be a crash on a
+  # page rendering an explanation, so an unknown rank is simply dropped from
+  # the account rather than taking the page down with it.
+  defp player_id(0, _by_rank), do: nil
+
+  defp player_id(rank, by_rank) do
+    case Map.get(by_rank, rank) do
+      nil -> nil
+      player -> player.id
+    end
+  end
+
+  defp create_round(
+         pairs,
+         tournament,
+         player_by_local_rank,
+         next_number,
+         round_absentees,
+         explanation
+       ) do
     pairing_allocated_bye? = Enum.any?(pairs, fn {_w, b} -> b == 0 end)
 
     Repo.transaction(fn ->
@@ -1074,7 +1201,8 @@ defmodule PairingsEngine.Pairing do
           tournament_id: tournament.id,
           number: next_number,
           status: "playing",
-          published_at: Tournaments.compute_published_at(tournament, next_number)
+          published_at: Tournaments.compute_published_at(tournament, next_number),
+          explanation: explanation
         })
 
       leg1_pairings =

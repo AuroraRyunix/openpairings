@@ -18,6 +18,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
 
   alias PairingsEngine.{PairingRationale, Tournaments}
   alias PairingsEngine.Pairing, as: Engine
+  alias PairingsEngine.RoundExplanation
   alias PairingsEngine.Tournaments.Player
   alias PairingsEngine.Tournaments.Tournament
   alias PairingsEngineWeb.AuditLive
@@ -35,6 +36,14 @@ defmodule PairingsEngineWeb.PairingExplainLive do
     # round 1 (no history), which suppresses the trail chrome entirely.
     trails = PairingRationale.player_trails(tournament, round_number)
 
+    # What the engine itself reported, if it was able to. Only Ainalrami
+    # records this; everything else falls through to the reconstruction the
+    # rest of this page has always done.
+    round = tournament.id |> Tournaments.get_round(round_number) |> preload_pairings()
+    players = Tournaments.list_players(tournament.id)
+    engine_account = round && RoundExplanation.for_round(round, players)
+    account_divergence = if round, do: RoundExplanation.divergence(round), else: :no_record
+
     {:ok,
      assign(socket,
        tournament: tournament,
@@ -45,9 +54,14 @@ defmodule PairingsEngineWeb.PairingExplainLive do
        ladder_max: ladder_max(rationale),
        paired_rounds: paired_rounds,
        anomalies: anomaly_index(rationale),
+       engine_account: engine_account,
+       account_divergence: account_divergence,
        page_title: "#{tournament.name} · Pairing rationale - Round #{round_number}"
      )}
   end
+
+  defp preload_pairings(nil), do: nil
+  defp preload_pairings(round), do: PairingsEngine.Repo.preload(round, :pairings)
 
   # Top-of-page index of the genuine per-board anomalies - rematch outside
   # match format, a repeat pairing-allocated (engine-assigned) bye, and the
@@ -105,6 +119,9 @@ defmodule PairingsEngineWeb.PairingExplainLive do
 
     "#{if p.title not in [nil, ""], do: "#{p.title} "}#{p.name}#{if rating > 0, do: " (#{rating})", else: ""}"
   end
+
+  defp plural(1), do: ""
+  defp plural(_), do: "s"
 
   defp score_str(nil), do: "0"
   defp score_str(n) when is_float(n), do: :erlang.float_to_binary(n, decimals: 1)
@@ -1014,7 +1031,76 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         round_number={@round_number}
       />
 
-      <p class="hint" style="margin: 4px 0 12px">
+      <div :if={@engine_account} class="card">
+        <h2>What the engine reported</h2>
+
+        <p :if={match?({:changed, _}, @account_divergence)} class="error-note">
+          <strong>The boards have changed since this was recorded.</strong>
+          {elem(@account_divergence, 1)} of the pairs below are no longer on a board - somebody
+          was swapped, substituted or reseated by hand afterwards. What follows is still an
+          accurate record of what the engine decided; it is no longer a description of the round
+          as it now stands.
+        </p>
+
+        <div :for={section <- @engine_account} class="pe-account-section">
+          <h3 :if={section.category}>{section.category}</h3>
+
+          <div :for={bracket <- section.brackets} class="pe-account-bracket">
+            <div class="pe-account-head">
+              <strong>{score_str(bracket.group)}</strong>
+              <span class="hint">
+                {length(bracket.pairs)} pair{plural(length(bracket.pairs))}, over {bracket.edge_count} edge{plural(
+                  bracket.edge_count
+                )}
+              </span>
+            </div>
+
+            <p :if={bracket.mdps != []} class="hint">
+              <strong>Moved down into this bracket:</strong>
+              {Enum.map_join(bracket.mdps, ", ", & &1.name)}
+            </p>
+
+            <p :if={bracket.floats != []} class="hint">
+              <strong>Floated onward:</strong>
+              {Enum.map_join(bracket.floats, ", ", & &1.name)}
+            </p>
+
+            <ul class="pe-account-pairs">
+              <li :for={{white, black} <- bracket.pairs}>
+                {white && white.name} vs {(black && black.name) || "bye"}
+              </li>
+            </ul>
+
+            <table :if={bracket.rungs != []} class="pe-account-rungs">
+              <tbody>
+                <tr :for={{label, value} <- bracket.rungs}>
+                  <td>{label}</td>
+                  <td class="pe-account-rung-value">{value}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <p :if={bracket.rungs == []} class="hint">Nothing separated this bracket.</p>
+          </div>
+        </div>
+
+        <p class="hint">
+          The rows above are the FIDE C.04.3 criteria that actually scored for each bracket, in
+          ladder order. A criterion that scored zero is not listed: it did not come into the
+          decision.
+        </p>
+      </div>
+
+      <p :if={@engine_account} class="hint" style="margin: 4px 0 12px">
+        This round was paired by <strong>Ainalrami</strong>, which records what it decided as it
+        decides it, so the account below is the engine's own - the brackets it actually built and
+        the criteria that actually separated them, not an inference drawn from the result. The
+        board-by-board analysis that follows is still computed live from current data. Items marked
+        <strong>Worth a look</strong>
+        below are automated data-consistency checks, not proof of an actual arbiting error.
+      </p>
+
+      <p :if={is_nil(@engine_account)} class="hint" style="margin: 4px 0 12px">
         This is a live analysis of the current data (pre-round standings, colour history and
         pairing output), not a stored replay. The engine's internal tie-break reasoning is not
         recorded in what it hands back, so for Swiss this shows the input state that constrained

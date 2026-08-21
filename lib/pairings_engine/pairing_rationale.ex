@@ -28,6 +28,13 @@ defmodule PairingsEngine.PairingRationale do
   Round-robin is fully deterministic (a Berger schedule slot), and Keizer's
   ladder values are computed by us, so for those systems the explanation is
   exact rather than inferred.
+
+  **Ainalrami is the exception on the Swiss side.** It reports its own
+  bracket composition, floats and criterion scores, and a round it paired
+  has that account stored on the round row at pairing time - see
+  `PairingsEngine.RoundExplanation`. Where one exists the page quotes it
+  instead of inferring, and everything in this module remains the fallback:
+  for JaVaFo rounds, and for every round paired before the column existed.
   """
 
   import Ecto.Query
