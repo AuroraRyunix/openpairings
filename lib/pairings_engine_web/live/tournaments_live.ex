@@ -931,6 +931,14 @@ defmodule PairingsEngineWeb.TournamentsLive do
             </select>
           </label>
 
+          <%!-- The checkbox only sets the FIDE classification on the report
+                (092: "Team: Swiss System"). It does NOT change pairing:
+                `Pairing.pair_next_round/1` never branches on team type, so
+                players are paired as individuals either way. That is a real
+                gap (see TODO.md), and an unlabelled checkbox made it a silent
+                one — the round it produces looks like a valid pairing, so
+                there is nothing to notice until someone checks the boards
+                against the teams. --%>
           <label class="field field-check" style="margin-top: 1.6rem">
             <input
               type="checkbox"
@@ -940,6 +948,14 @@ defmodule PairingsEngineWeb.TournamentsLive do
               style="width: auto"
             /> <span>Team tournament</span>
           </label>
+
+          <p :if={@new_team?} class="hint" style="margin-top: 0">
+            <strong>Reporting only.</strong>
+            This marks the tournament as a team event on the FIDE report. Pairing
+            is still done <em>player by player</em> — team pairing, team standings
+            and team tie-breaks are not built yet, so boards will not respect team
+            membership.
+          </p>
 
           <label class="field">
             <span>Rounds</span>

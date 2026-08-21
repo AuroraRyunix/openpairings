@@ -14,6 +14,19 @@ Each entry is tagged so a version can be skimmed:
 | 🔒 | **Security** |
 | ✅ | **Verified** — checked against a reference, no code change |
 
+## [Unreleased]
+
+### Fixed
+
+- 🐛 **"Team tournament" no longer looks like it does something it
+  doesn't.** Ticking it sets the FIDE classification on the report and
+  nothing else — pairing has never branched on team type, so players are
+  paired individually either way. Unlabelled, that was a silent trap: the
+  round it produces looks like a perfectly good pairing, so there is
+  nothing to notice until someone checks the boards against the teams. The
+  box now says "Reporting only" and spells out that team pairing, team
+  standings and team tie-breaks are not built yet.
+
 ## [0.15.0] — 2026-08-20
 
 The version in `mix.exs` had run ahead of this file: 0.14.32, 0.14.33 and

@@ -659,4 +659,39 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
       assert length(Tournaments.list_tournaments(scope)) == 1
     end
   end
+
+  describe "the Team tournament checkbox says what it actually does" do
+    # Ticking it sets the FIDE classification (092) and nothing else:
+    # Pairing.pair_next_round/1 never branches on team type, so players are
+    # paired individually either way. Unlabelled, that is a SILENT trap --
+    # the round it produces looks like a perfectly good pairing, so there is
+    # nothing to notice until someone checks the boards against the teams.
+    test "warns that pairing is still player-by-player once it is ticked", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/")
+
+      # The create form is behind the "New tournament" button.
+      html = lv |> element("button", "New tournament") |> render_click()
+      refute html =~ "Reporting only"
+
+      html =
+        lv
+        |> element("form[phx-change='pairing_system_picked']")
+        |> render_change(%{"tournament" => %{"pairing_system" => "swiss", "team" => "true"}})
+
+      assert html =~ "Reporting only"
+      assert html =~ "player by player"
+    end
+
+    test "no warning when it is not ticked", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/")
+      lv |> element("button", "New tournament") |> render_click()
+
+      html =
+        lv
+        |> element("form[phx-change='pairing_system_picked']")
+        |> render_change(%{"tournament" => %{"pairing_system" => "swiss"}})
+
+      refute html =~ "Reporting only"
+    end
+  end
 end
