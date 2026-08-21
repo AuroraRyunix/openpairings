@@ -12,6 +12,19 @@ defmodule PairingsEngineWeb.UserLive.RegistrationTest do
       assert html =~ "Log in"
     end
 
+    # The landing page is the shop window: it leads with the engine we
+    # wrote and does not advertise the third-party one. This is about what
+    # a visitor is sold, not about dropping attribution — JaVaFo is still
+    # the default engine, and is still credited in the README, the licence
+    # notes and the cross-program-agreement docs, where the credit is owed.
+    test "leads with our own engine and does not name JaVaFo", %{conn: conn} do
+      {:ok, _lv, html} = live(conn, ~p"/users/register")
+
+      assert html =~ "Ainalrami"
+      assert html =~ "built in Elixir"
+      refute html =~ "JaVaFo"
+    end
+
     test "redirects if already logged in", %{conn: conn} do
       result =
         conn
