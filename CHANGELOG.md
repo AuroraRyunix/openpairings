@@ -28,6 +28,19 @@ Each entry is tagged so a version can be skimmed:
 
 ### Fixed
 
+- 🐛 **FA1 and IA1 arbiter norm forms had two values in the wrong
+  boxes.** FIDE revised those templates and the bottom block moved: the
+  old "Recommendation: (please tick…)" section was replaced by a
+  confirmation-and-signature block. Our field mapping already matched the
+  NEW layout, but the templates shipped in the app were the OLD ones — so
+  the tournament federation and the chief arbiter's date were written into
+  the recommendation rows instead of beside "Federation" and "Date".
+
+  Templates updated, and verified by filling a form and reading each value
+  back beside its own label rather than by trusting the cell numbers.
+
+  IT3 was unaffected — its layout is unchanged; the revision only adds a
+  "Pairing System" label above a value that was already there.
 - 🐛 **SWAR 3-2-1 tournaments were scored 2-1-0.** The Belgian club
   scheme is Win 2 / Draw 1 / Loss 0 plus a **presence point** for turning
   up — which is what makes it 3-2-1. That presence point was only ever

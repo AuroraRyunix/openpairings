@@ -186,7 +186,11 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
       # correct data, because non-recalculating readers just show the cache.
       template_members = unzip_template_map(@it3)
       original_certificaat = Map.fetch!(template_members, "xl/worksheets/sheet1.xml")
-      assert original_certificaat =~ ~r/<c r="A4" s="39" t="str"><f>[^<]*<\/f><v\/><\/c>/
+      # The style index is deliberately NOT pinned: it is presentation, it
+      # changes whenever FIDE re-saves the template (39 -> 54 in the
+      # 2026-08-21 revision), and pinning it turns a cosmetic upstream edit
+      # into a red build that says nothing about the behaviour under test.
+      assert original_certificaat =~ ~r/<c r="A4" s="\d+" t="str"><f>[^<]*<\/f><v\/><\/c>/
 
       {:ok, binary} =
         XlsxFill.fill(@it3, %{"Invulformulier" => %{"B1" => "FIDE"}})
@@ -195,14 +199,14 @@ defmodule PairingsEngine.Norms.XlsxFillTest do
       certificaat = Map.fetch!(members, "xl/worksheets/sheet1.xml")
 
       # <f> survives, <v> and the now-meaningless cached-type t="str" are gone.
-      assert certificaat =~ ~r/<c r="A4" s="39"><f>[^<]*<\/f><\/c>/
+      assert certificaat =~ ~r/<c r="A4" s="\d+"><f>[^<]*<\/f><\/c>/
       refute certificaat =~ ~r/<c r="A4"[^>]*><f>[^<]*<\/f><v/
 
       # B23 shipped with a cached numeric `0` (`<v>0<\/v>`) — also stripped.
       assert Map.fetch!(template_members, "xl/worksheets/sheet1.xml") =~
-               ~r/<c r="B23" s="25"><f>[^<]*<\/f><v>0<\/v><\/c>/
+               ~r/<c r="B23" s="\d+"><f>[^<]*<\/f><v>0<\/v><\/c>/
 
-      assert certificaat =~ ~r/<c r="B23" s="25"><f>[^<]*<\/f><\/c>/
+      assert certificaat =~ ~r/<c r="B23" s="\d+"><f>[^<]*<\/f><\/c>/
     end
 
     test "also strips stale cached values from Invulformulier's own formula cells (e.g. B30)" do
