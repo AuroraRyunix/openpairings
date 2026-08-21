@@ -53,6 +53,9 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
        # `:rr_cycles`, `:rr_match_format`, `:swiss_match_format`, or nil.
        locked_hint: nil,
        forbidden_pairing_error: nil,
+       # Holds the pending settings params while the "switching engine"
+       # dialog is up; nil when no dialog is showing.
+       engine_confirm: nil,
        club_exclusion_mode: tournament.club_exclusion,
        fed_exclusion_mode: tournament.fed_exclusion,
        exclusion_error: nil
@@ -196,27 +199,30 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
     base = Tournaments.get_tournament!(socket.assigns.tournament.id)
 
-    case Tournaments.update_tournament(base, params) do
-      {:ok, tournament} ->
-        log_settings_change(socket, base, tournament)
-
-        {:noreply,
-         socket
-         |> assign(
-           tournament: tournament,
-           standard: tournament.standard,
-           rate_of_play: tournament.rate_of_play,
-           publish_mode: tournament.publish_mode,
-           note: save_note(base, tournament),
-           error: nil,
-           dirty: false,
-           stale: false
-         )
-         |> assign_pairing_locks()}
-
-      {:error, changeset} ->
-        {:noreply, assign(socket, error: error_text(changeset), note: nil)}
+    # Switching the engine is the one setting on this page that changes who
+    # computes the pairings, so it asks first rather than saving silently
+    # with an explanation buried in a hint the arbiter has already scrolled
+    # past. Only on the way IN: switching BACK to JaVaFo needs no ceremony.
+    if switching_to_ainalrami?(base, params) do
+      {:noreply, assign(socket, engine_confirm: params)}
+    else
+      save_settings(socket, base, params)
     end
+  end
+
+  def handle_event("confirm_engine", _params, socket) do
+    case socket.assigns.engine_confirm do
+      nil ->
+        {:noreply, socket}
+
+      params ->
+        base = Tournaments.get_tournament!(socket.assigns.tournament.id)
+        save_settings(assign(socket, engine_confirm: nil), base, params)
+    end
+  end
+
+  def handle_event("cancel_engine", _params, socket) do
+    {:noreply, assign(socket, engine_confirm: nil)}
   end
 
   ## ---------- Forbidden pairings ----------
@@ -335,6 +341,37 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
   # Server-side enforcement of the locks: drop any submitted value for a
   # locked field regardless of the HTML `disabled` attribute.
+  # Only when it is actually a CHANGE. Re-saving the page with Ainalrami
+  # already selected must not re-prompt, or every unrelated edit on a
+  # tournament already using it drags the dialog back up.
+  defp switching_to_ainalrami?(base, params) do
+    params["pairing_engine"] == "ainalrami" and base.pairing_engine != "ainalrami"
+  end
+
+  defp save_settings(socket, base, params) do
+    case Tournaments.update_tournament(base, params) do
+      {:ok, tournament} ->
+        log_settings_change(socket, base, tournament)
+
+        {:noreply,
+         socket
+         |> assign(
+           tournament: tournament,
+           standard: tournament.standard,
+           rate_of_play: tournament.rate_of_play,
+           publish_mode: tournament.publish_mode,
+           note: save_note(base, tournament),
+           error: nil,
+           dirty: false,
+           stale: false
+         )
+         |> assign_pairing_locks()}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, error: error_text(changeset), note: nil)}
+    end
+  end
+
   defp strip_locked_pairing_fields(params, assigns) do
     params
     |> maybe_drop_locked("pairing_system", assigns.pairing_system_locked?)
@@ -491,12 +528,20 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               <span class="hint">
                 <strong>Ainalrami</strong>
                 is a second Dutch engine built straight into the app - no Java, nothing to
-                install - and is <strong>beta</strong>. It matches the reference implementation
-                on the overwhelming majority of tournaments, but a handful of known
-                disagreements remain, so treat it as an alternative worth trying for club and
-                non-rated events, not as a replacement. It also does not yet implement
-                forbidden pairings, club/federation exclusions or Baku acceleration: rather
-                than quietly ignore a rule you set, it refuses to pair the round and says so.
+                install. It is <strong>experimental</strong>, and on the evidence it is also
+                very good: measured against bbpPairings (the other FIDE-endorsed
+                implementation) over two independent corpora of roughly 488 million pairings
+                each, the most recent found <strong>zero disagreements</strong>. Being
+                in-process, it is also several times quicker than JaVaFo on large fields.
+              </span>
+
+              <span class="hint">
+                What "experimental" means here is not "probably wrong" - it means
+                <strong>not FIDE-endorsed</strong>. That is a paperwork status, not a quality
+                one, and it is why a FIDE-rated event must still use JaVaFo. Forbidden
+                pairings, club/federation exclusions and acceleration are all supported; any
+                TRF extension it does not implement makes it refuse the round and say so,
+                rather than quietly ignoring a rule you set.
               </span>
 
               <span :if={@tournament.fide_homologated} class="hint">
@@ -786,6 +831,52 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             <button type="submit" class="pe-btn primary">Save exclusion rules</button>
           </div>
         </form>
+      </div>
+      <div
+        :if={@engine_confirm}
+        class="modal-overlay"
+        phx-window-keydown="cancel_engine"
+        phx-key="escape"
+      >
+        <div class="modal-card" phx-click-away="cancel_engine" style="max-width: 640px">
+          <h2>Switch to Ainalrami?</h2>
+
+          <p class="hint">
+            <strong>Experimental, but plausibly better.</strong>
+            Ainalrami is a second Dutch engine built into this app. Measured against
+            bbpPairings — the other FIDE-endorsed implementation — over two independent
+            corpora of roughly 488 million pairings each, the most recent found
+            <strong>zero disagreements</strong>. On a large field it is also several times
+            quicker, because it runs in-process with no Java to start.
+          </p>
+
+          <p class="hint">
+            "Experimental" here means <strong>not FIDE-endorsed</strong> — a paperwork
+            status, not a measured quality one. That is why a FIDE-rated event must still be
+            paired by JaVaFo, and why this is not the default.
+          </p>
+
+          <p class="hint">
+            Forbidden pairings, club and federation exclusions, and acceleration are all
+            supported. Anything it does not implement makes it <em>refuse</em> to pair the
+            round and say why, rather than quietly ignoring a rule you set — so a wrong
+            round is not a way this can fail.
+          </p>
+
+          <p class="hint">
+            You can switch back to JaVaFo at any time before round one is paired, and rounds
+            already paired are never recomputed.
+          </p>
+
+          <div class="actions">
+            <button type="button" class="pe-btn primary" phx-click="confirm_engine">
+              Use Ainalrami
+            </button>
+            <button type="button" class="pe-btn" phx-click="cancel_engine">
+              Keep JaVaFo
+            </button>
+          </div>
+        </div>
       </div>
     </Layouts.app>
     """

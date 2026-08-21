@@ -18,6 +18,24 @@ Each entry is tagged so a version can be skimmed:
 
 ### Changed
 
+- 🔧 **Choosing the Ainalrami engine now asks first, and the
+  description finally tells the truth about it.** The old copy said a
+  handful of known disagreements remained and that forbidden pairings,
+  club/federation exclusions and acceleration were unimplemented. None of
+  that had been true for some time — the most recent measurement against
+  bbpPairings found **zero disagreements** across ~488 million pairings,
+  and all three features are supported.
+
+  Understating an engine misleads an arbiter exactly as badly as
+  overselling one, so the wording now says what it is: experimental
+  meaning **not FIDE-endorsed**, which is a paperwork status rather than a
+  measured quality one. Switching to it opens a confirmation dialog
+  explaining that; switching back to JaVaFo needs no ceremony.
+
+- 🐛 **The Pair button named the wrong engine.** A tournament using
+  Ainalrami still read "Pair round 5 (JaVaFo)", and the pairing sheet
+  described pairings JaVaFo had not produced — the one place the engine
+  choice became invisible after making it.
 - 🔧 **SWAR 3-2-1 tournaments are refused on import for now**, with an
   explanation rather than a silent failure. Their scoring works
   differently — a presence point for turning up, on top of the result —

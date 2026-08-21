@@ -452,4 +452,142 @@ defmodule PairingsEngine.PairingEngineTest do
 
   defp player_number(nil), do: nil
   defp player_number(id), do: Repo.get!(PairingsEngine.Tournaments.Player, id).pairing_number
+
+  ## ---------- the two engines against each other ----------
+
+  describe "differential: Ainalrami vs JaVaFo on the same tournament" do
+    # The settings dialog tells an arbiter that Ainalrami found ZERO
+    # disagreements against bbpPairings over ~488 million pairings. That
+    # claim is earned in the engine's own repository, on a 36-core machine,
+    # over hours -- it cannot be re-run here and should not be.
+    #
+    # What CAN be checked here, and is worth checking because it is the
+    # claim as the arbiter experiences it, is that the two engines wired
+    # into THIS app agree about who plays whom on ordinary tournaments,
+    # through this app's own TRF construction and result plumbing rather
+    # than in isolation.
+    #
+    # Colours are deliberately not compared. The engines are known to
+    # disagree about Article 5.2.5's TPN parity -- an open question raised
+    # with FIDE, where Ainalrami follows the handbook text and every
+    # reference implementation carries pre-2026 behaviour -- so asserting
+    # colour equality would encode the disputed reading as correct.
+    @tag :javafo
+    test "they agree on the boards, round after round" do
+      for size <- [6, 8, 10] do
+        a = tournament(%{pairing_engine: "ainalrami", rounds_count: 3})
+        j = tournament(%{pairing_engine: "javafo", rounds_count: 3})
+
+        roster(a, size)
+        roster(j, size)
+
+        for round_number <- 1..3 do
+          {:ok, ra} = Pairing.pair_next_round(a)
+          {:ok, rj} = Pairing.pair_next_round(j)
+
+          assert boards(ra) == boards(rj),
+                 """
+                 #{size} players, round #{round_number}: the two engines seated
+                 different boards.
+
+                   ainalrami: #{inspect(boards(ra))}
+                   javafo:    #{inspect(boards(rj))}
+                 """
+
+          # Advance both on the SAME results, so round n+1 is compared from
+          # an identical history rather than from whatever each engine's own
+          # previous round happened to produce.
+          enter_same_results(ra, rj)
+        end
+      end
+    end
+
+    # A field with a bye every round is where the two most plausibly part
+    # company: C2 governs who may receive a second one, and it is the rule
+    # the known bbpPairings defects violate.
+    @tag :javafo
+    test "they agree on an odd field, where a bye is allocated every round" do
+      a = tournament(%{pairing_engine: "ainalrami", rounds_count: 3})
+      j = tournament(%{pairing_engine: "javafo", rounds_count: 3})
+
+      roster(a, 7)
+      roster(j, 7)
+
+      for _round <- 1..3 do
+        {:ok, ra} = Pairing.pair_next_round(a)
+        {:ok, rj} = Pairing.pair_next_round(j)
+
+        assert boards(ra) == boards(rj)
+        assert byes(ra) == byes(rj), "the two engines gave the bye to different players"
+
+        enter_same_results(ra, rj)
+      end
+    end
+  end
+
+  # Unordered pairs, sorted — who played whom, with colour deliberately
+  # discarded (see the describe block above).
+  defp boards(round) do
+    round
+    |> Repo.preload(:pairings)
+    |> Map.fetch!(:pairings)
+    |> Enum.reject(&is_nil(&1.black_player_id))
+    |> Enum.map(fn p ->
+      Enum.sort([player_seed(p.white_player_id), player_seed(p.black_player_id)])
+    end)
+    |> Enum.sort()
+  end
+
+  defp byes(round) do
+    round
+    |> Repo.preload(:pairings)
+    |> Map.fetch!(:pairings)
+    |> Enum.filter(&is_nil(&1.black_player_id))
+    |> Enum.map(&player_seed(&1.white_player_id))
+    |> Enum.sort()
+  end
+
+  # Compares by NAME, not by database id: the two tournaments hold different
+  # player rows, so ids are meaningless across them and "P3" is the only
+  # thing that means the same player in both.
+  defp player_seed(nil), do: nil
+  defp player_seed(id), do: Repo.get!(PairingsEngine.Tournaments.Player, id).name
+
+  # Results are decided by WHICH PLAYER wins, never by which seat.
+  #
+  # Scoring "1-0" on every board looks equivalent and is not: the two
+  # engines legitimately disagree about colours (Article 5.2.5's TPN parity
+  # — see the describe block), so the same pair can be seated the opposite
+  # way round in each tournament and "White wins" then hands the point to a
+  # DIFFERENT player. Round two is then compared from two different score
+  # histories, and the test reports an engine disagreement that is entirely
+  # its own doing. It did exactly that before this was fixed.
+  #
+  # The lower seed always wins, translated into whichever seat that player
+  # actually occupies, so both tournaments carry identical standings into
+  # the next round no matter how the colours fell.
+  defp enter_same_results(round_a, round_b) do
+    for round <- [round_a, round_b] do
+      round
+      |> Repo.preload(:pairings)
+      |> Map.fetch!(:pairings)
+      |> Enum.each(fn p ->
+        result =
+          cond do
+            is_nil(p.black_player_id) -> "bye"
+            seed_number(p.white_player_id) < seed_number(p.black_player_id) -> "1-0"
+            true -> "0-1"
+          end
+
+        Repo.update!(Ecto.Changeset.change(p, result: result))
+      end)
+
+      Repo.update!(Ecto.Changeset.change(round, status: "finished"))
+    end
+  end
+
+  defp seed_number(id) do
+    "P" <> n = player_seed(id)
+    String.to_integer(n)
+  end
 end

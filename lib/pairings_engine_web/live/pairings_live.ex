@@ -1149,14 +1149,25 @@ defmodule PairingsEngineWeb.PairingsLive do
   # The pairing engine actually used, for button/notice copy — only Swiss runs
   # JaVaFo, so the label must not claim it for round-robin (Berger schedule) or
   # Keizer.
+  # Swiss falls through to whichever engine the tournament actually selected.
+  # This used to hardcode "JaVaFo" for every Swiss tournament, so a
+  # tournament opted into Ainalrami still had a button reading "Pair round 5
+  # (JaVaFo)" and a sheet describing pairings JaVaFo had not produced — the
+  # one place in the app where the engine choice was invisible after making
+  # it.
   defp pairing_engine_label(%{pairing_system: "round_robin"}), do: "Berger"
   defp pairing_engine_label(%{pairing_system: "keizer"}), do: "Keizer"
+  defp pairing_engine_label(%{pairing_engine: "ainalrami"}), do: "Ainalrami"
   defp pairing_engine_label(_swiss), do: "JaVaFo"
 
   defp pairing_engine_description(%{pairing_system: "round_robin"}),
     do: "round-robin schedule (Berger tables)"
 
   defp pairing_engine_description(%{pairing_system: "keizer"}), do: "Keizer ladder pairing"
+
+  defp pairing_engine_description(%{pairing_engine: "ainalrami"}),
+    do: "FIDE Dutch pairing (Ainalrami)"
+
   defp pairing_engine_description(_swiss), do: "FIDE Dutch pairing (JaVaFo)"
 
   # Bare display name for an audit-log payload (nil = a bye's empty side).

@@ -249,18 +249,45 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
       assert html =~ "JaVaFo - FIDE-endorsed (default)"
       assert html =~ "Ainalrami (beta)"
 
-      # The copy must not oversell: beta, not for FIDE, Swiss-only, and
-      # honest about what it doesn't implement.
+      # The copy must be ACCURATE, which is a stricter test than "cautious".
+      # It previously claimed a handful of known disagreements remained and
+      # that forbidden pairings, exclusions and acceleration were not
+      # implemented. Both had stopped being true, and understating an engine
+      # misleads an arbiter exactly as badly as overselling one.
       assert html =~ "only one permitted for a FIDE-rated tournament"
       assert html =~ "Swiss only"
-      assert html =~ "forbidden pairings, club/federation exclusions or Baku acceleration"
+      assert html =~ "zero disagreements"
+      refute html =~ "handful of known disagreements"
+      refute html =~ "does not yet implement"
 
       # Nothing is disabled or locked on a fresh tournament.
       refute html =~ ~r/name="tournament\[pairing_engine\][^>]*disabled/
       assert tournament.pairing_engine == "javafo"
     end
 
-    test "selecting Ainalrami saves", %{conn: conn, scope: scope} do
+    test "selecting Ainalrami asks first, and does not save until confirmed", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+
+      html =
+        render_submit(lv, "save", %{
+          "tournament" => %{"name" => tournament.name, "pairing_engine" => "ainalrami"}
+        })
+
+      assert html =~ "Switch to Ainalrami?"
+      assert html =~ "Experimental, but plausibly better"
+      # Nothing written yet — the dialog is a gate, not a notification.
+      assert Repo.reload!(tournament).pairing_engine == "javafo"
+
+      render_click(lv, "confirm_engine", %{})
+      assert Repo.reload!(tournament).pairing_engine == "ainalrami"
+    end
+
+    test "cancelling the dialog leaves the engine alone", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
@@ -269,7 +296,61 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
         "tournament" => %{"name" => tournament.name, "pairing_engine" => "ainalrami"}
       })
 
-      assert Repo.reload!(tournament).pairing_engine == "ainalrami"
+      html = render_click(lv, "cancel_engine", %{})
+
+      refute html =~ "Switch to Ainalrami?"
+      assert Repo.reload!(tournament).pairing_engine == "javafo"
+    end
+
+    # The dialog gates the CHANGE, not the value. A tournament already on
+    # Ainalrami must be able to edit anything else on this page without the
+    # dialog reappearing every time.
+    test "editing other settings on a tournament already using Ainalrami does not re-prompt", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, tournament} = Tournaments.update_tournament(tournament, %{"pairing_engine" => "ainalrami"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+
+      html =
+        render_submit(lv, "save", %{
+          "tournament" => %{"name" => "Renamed", "pairing_engine" => "ainalrami"}
+        })
+
+      refute html =~ "Switch to Ainalrami?"
+      assert Repo.reload!(tournament).name == "Renamed"
+    end
+
+    # Switching BACK needs no ceremony: JaVaFo is the default and the
+    # FIDE-endorsed one, so there is nothing to warn about.
+    test "switching back to JaVaFo saves immediately", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      {:ok, tournament} = Tournaments.update_tournament(tournament, %{"pairing_engine" => "ainalrami"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+
+      html =
+        render_submit(lv, "save", %{
+          "tournament" => %{"name" => tournament.name, "pairing_engine" => "javafo"}
+        })
+
+      refute html =~ "Switch to Ainalrami?"
+      assert Repo.reload!(tournament).pairing_engine == "javafo"
+    end
+
+    test "confirming with no pending change is a no-op rather than a crash", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+
+      render_click(lv, "confirm_engine", %{})
+
+      assert Repo.reload!(tournament).pairing_engine == "javafo"
     end
 
     test "on a FIDE-homologated tournament the Ainalrami option is visibly unavailable, with the reason",
