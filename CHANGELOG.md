@@ -16,6 +16,29 @@ Each entry is tagged so a version can be skimmed:
 
 ## [0.15.1] — 2026-08-21
 
+### Security
+
+- 🔒 **Bandit upgraded to 1.12.5, closing a HIGH and a MEDIUM.** Bandit is
+  the HTTP server, so both were reachable from the internet:
+  CVE-2026-74836 (HIGH) let HTTP/2 connection-window starvation pin Plug
+  processes indefinitely - a denial of service - and CVE-2026-75484
+  (MEDIUM) passed header values containing CR, LF or NUL through to the
+  application unvalidated.
+
+- 🔒 **earmark's CVE-2026-48591 is reported but not reachable here, and it
+  stays for now.** The advisory is a stored XSS through unescaped HTML
+  attribute values, which needs attacker-controlled markdown. There is
+  none: the only thing earmark ever renders is this repo's own
+  `CHANGELOG.md`, at compile time, baked into a constant. Nothing
+  user-supplied reaches it at runtime.
+
+  The suggested replacement is a Rust NIF, and the release workflow
+  cross-builds Burrito executables for five OS/arch targets - taking that
+  on to close a hole that cannot be reached is the worse trade. The
+  reasoning is written down beside the code, and a test now fails if
+  earmark is ever called from anywhere else, because a second call site is
+  exactly what would make the CVE live.
+
 ### Changed
 
 - 🐛 **The app was shipping a four-day-old Ainalrami, and every claim made

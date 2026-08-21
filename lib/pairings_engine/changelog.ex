@@ -14,6 +14,30 @@ defmodule PairingsEngine.Changelog do
   that by baking the file's content into the compiled module at build
   time instead. The tradeoff: editing `CHANGELOG.md` needs a rebuild to
   show up, same as every other code change in a compiled release.
+
+  ## On earmark's CVE-2026-48591, and why this app is not exposed
+
+  `mix hex.audit` reports earmark as retired and carrying a MEDIUM stored
+  XSS (unescaped HTML attribute values). It stays anyway, deliberately.
+
+  Stored XSS needs attacker-controlled markdown. There is none here: the
+  only input is `CHANGELOG.md` from this repo, read at COMPILE time, and
+  the result is baked into `@html` as a constant. Nothing user-supplied
+  reaches Earmark at runtime, or at all — an attacker who could edit
+  `CHANGELOG.md` in the build tree could commit Elixir instead, so the
+  markdown renderer would not be the weak link.
+
+  The suggested replacement, MDEx, is a Rust NIF. `.github/workflows/
+  binaries.yml` cross-builds Burrito executables for five OS/arch targets
+  (macOS x86_64 + aarch64, Linux x86_64 + aarch64, Windows x86_64), and
+  every one of them would need a Rust toolchain or a matching precompiled
+  NIF. That is a real risk to the release builds, taken on to close a hole
+  that cannot be reached.
+
+  What keeps this true is the ONE call site. `changelog_test.exs` fails if
+  Earmark is ever called from anywhere else — if that guard trips, this
+  analysis is void and the dependency has to be reconsidered rather than
+  the test relaxed.
   """
 
   @changelog_path Path.expand("../../CHANGELOG.md", __DIR__)
