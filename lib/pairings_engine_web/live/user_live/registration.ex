@@ -67,7 +67,11 @@ defmodule PairingsEngineWeb.UserLive.Registration do
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                Swiss (JaVaFo Dutch, or Ainalrami in beta), round-robin & Keizer
+                Swiss (Dutch), round-robin & Keizer
+              </li>
+              <li>
+                <.icon name="hero-check-circle-mini" class="size-5" />
+                Ainalrami &middot; our own Swiss engine, built in Elixir
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />

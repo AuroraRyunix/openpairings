@@ -62,8 +62,8 @@ defmodule PairingsEngineWeb.UserLive.Login do
             <h1 class="auth-hero-title">Run world-class chess tournaments.</h1>
 
             <p class="auth-hero-sub">
-              Swiss pairings via JaVaFo, FIDE tie-break rules, and official report
-              formats - from the first round to the final crosstable, right in your browser.
+              Swiss pairings from our own engine, FIDE tie-break rules, and official
+              report formats - from the first round to the final crosstable, right in your browser.
             </p>
 
             <ul class="auth-features">
@@ -73,7 +73,11 @@ defmodule PairingsEngineWeb.UserLive.Login do
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                Swiss (JaVaFo Dutch, or Ainalrami in beta), round-robin & Keizer
+                Swiss (Dutch), round-robin & Keizer
+              </li>
+              <li>
+                <.icon name="hero-check-circle-mini" class="size-5" />
+                Ainalrami &middot; our own Swiss engine, built in Elixir
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />

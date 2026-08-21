@@ -18,6 +18,15 @@ Each entry is tagged so a version can be skimmed:
 
 ### Changed
 
+- 🔧 **The landing page leads with Ainalrami now, and no longer names
+  JaVaFo.** The hero read "Swiss pairings via JaVaFo" and the feature list
+  offered "JaVaFo Dutch, or Ainalrami in beta" - advertising a third-party
+  dependency as the headline capability, and the in-house engine as a
+  hedge. Ainalrami gets its own line: our own Swiss engine, built in
+  Elixir. JaVaFo is still the default engine and is still credited where
+  the credit is owed - in the README, the licence notes and the
+  cross-program-agreement documentation.
+
 - 🔧 **Choosing the Ainalrami engine now asks first, and the
   description finally tells the truth about it.** The old copy said a
   handful of known disagreements remained and that forbidden pairings,
