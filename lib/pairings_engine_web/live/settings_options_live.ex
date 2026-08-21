@@ -506,13 +506,8 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                     JaVaFo - FIDE-endorsed (default)
                   </option>
 
-                  <option
-                    value="ainalrami"
-                    selected={@tournament.pairing_engine == "ainalrami"}
-                    disabled={@tournament.fide_homologated}
-                  >
-                    Ainalrami (beta){if @tournament.fide_homologated,
-                      do: " - unavailable, see below"}
+                  <option value="ainalrami" selected={@tournament.pairing_engine == "ainalrami"}>
+                    Ainalrami (experimental)
                   </option>
                 </select>
                 <.locked_overlay field={:pairing_engine} locked?={@pairing_engine_locked?} />
@@ -544,11 +539,14 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 rather than quietly ignoring a rule you set.
               </span>
 
-              <span :if={@tournament.fide_homologated} class="hint">
-                Ainalrami cannot be selected here because this tournament is marked
-                <strong>FIDE-homologated</strong>
-                (Settings &rarr; FIDE). FIDE-rated events must be paired by JaVaFo - untick
-                homologation first if this is not actually a rated event.
+              <span :if={@tournament.fide_homologated} class="error-note">
+                This tournament is marked <strong>FIDE-homologated</strong>
+                (Settings &rarr; FIDE). Ainalrami is allowed here, but understand what it
+                costs: OpenPairings is endorsed by FIDE on the basis that it pairs
+                <em>through JaVaFo</em>, so a rated round paired by Ainalrami was not
+                produced by the engine that endorsement names. That is a paperwork
+                exposure, not a pairing-quality one - but it is yours, and it is the
+                reason JaVaFo remains the default.
               </span>
             </.setting_field>
 
@@ -861,6 +859,14 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             supported. Anything it does not implement makes it <em>refuse</em> to pair the
             round and say why, rather than quietly ignoring a rule you set — so a wrong
             round is not a way this can fail.
+          </p>
+
+          <p :if={@tournament.fide_homologated} class="error-note">
+            <strong>This tournament is FIDE-homologated.</strong>
+            OpenPairings is endorsed on the basis that it pairs <em>through JaVaFo</em>, so a
+            rated round paired by Ainalrami was not produced by the engine that endorsement
+            names. The pairings themselves are not the risk — the paperwork is, and it is
+            yours. Proceed only if you are willing to defend that if the report is queried.
           </p>
 
           <p class="hint">

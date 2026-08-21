@@ -14,7 +14,7 @@ Each entry is tagged so a version can be skimmed:
 | 🔒 | **Security** |
 | ✅ | **Verified** — checked against a reference, no code change |
 
-## [Unreleased]
+## [0.15.1] — 2026-08-21
 
 ### Changed
 
@@ -31,6 +31,20 @@ Each entry is tagged so a version can be skimmed:
   meaning **not FIDE-endorsed**, which is a paperwork status rather than a
   measured quality one. Switching to it opens a confirmation dialog
   explaining that; switching back to JaVaFo needs no ceremony.
+
+- 🔧 **Ainalrami may now be used on a FIDE-homologated tournament.** It
+  was refused outright before. That refusal asserted a quality judgement
+  the measurements do not support: the engine agrees with bbpPairings
+  across ~488 million pairings, and the one article where it differs from
+  JaVaFo is 5.2.5, where it follows the current handbook text and JaVaFo
+  carries pre-2026 behaviour.
+
+  What remains true is the paperwork: FIDE endorses **engines**, not
+  pairings, so a rated round paired by Ainalrami was not produced by the
+  engine the endorsement names. That is now stated rather than enforced —
+  the setting carries the warning, and confirming the switch on a
+  homologated tournament shows it a second time. The default is still
+  JaVaFo, and nothing changes for a tournament that leaves it alone.
 
 - 🐛 **The Pair button named the wrong engine.** A tournament using
   Ainalrami still read "Pair round 5 (JaVaFo)", and the pairing sheet

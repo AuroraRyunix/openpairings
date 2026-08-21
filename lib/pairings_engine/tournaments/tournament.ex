@@ -634,25 +634,24 @@ defmodule PairingsEngine.Tournaments.Tournament do
   #    `validate_pair_by_category_excludes_baku/1` below. (`acceleration` is
   #    not one of `locked_fields/1`, so it can be switched on mid-event —
   #    hence checking the end state here rather than trusting the lock.)
-  defp validate_pairing_engine(changeset) do
-    if get_field(changeset, :pairing_engine) == "ainalrami" do
-      validate_ainalrami_not_fide_homologated(changeset)
-    else
-      changeset
-    end
-  end
-
-  defp validate_ainalrami_not_fide_homologated(changeset) do
-    if get_field(changeset, :fide_homologated) == true do
-      add_error(
-        changeset,
-        :pairing_engine,
-        "Ainalrami cannot be used for a FIDE-homologated tournament — FIDE-rated events must be paired by JaVaFo"
-      )
-    else
-      changeset
-    end
-  end
+  # Ainalrami on a FIDE-homologated tournament used to be REFUSED here, on
+  # the grounds that OpenPairings' endorsement is FE1's "Internal engine:
+  # NO — thru JaVaFo", and a rated round paired by anything else makes that
+  # declaration untrue.
+  #
+  # It is now the arbiter's decision, taken deliberately (2026-08-21): the
+  # engine agrees with bbpPairings across ~488 million pairings, and where
+  # it differs from JaVaFo it is on Article 5.2.5's TPN parity, where it
+  # follows the handbook text and JaVaFo carries pre-2026 behaviour (see
+  # the sibling project's dispute-initial-colour.md). Refusing outright
+  # asserted a quality judgement the measurements do not support.
+  #
+  # What has NOT changed is the paperwork, and that is the real risk: a
+  # rated event paired this way was not paired by the engine OpenPairings'
+  # endorsement names. So the UI warns prominently instead of blocking, and
+  # docs/fide-endorsement.md now says so rather than claiming every rated
+  # round is a JaVaFo round.
+  defp validate_pairing_engine(changeset), do: changeset
 
   # (There used to be a `validate_ainalrami_excludes_baku/1` here. Ainalrami
   # did not read `XXA` at all, so an accelerated tournament would have been

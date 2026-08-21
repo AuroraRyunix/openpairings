@@ -259,33 +259,38 @@ defmodule PairingsEngine.PairingEngineTest do
 
   ## ---------- changeset guards ----------
 
-  describe "changeset: Ainalrami and FIDE homologation are mutually exclusive" do
-    test "selecting Ainalrami on a FIDE-homologated tournament is refused" do
+  describe "changeset: Ainalrami on a FIDE-homologated tournament is allowed, with warnings in the UI" do
+    # Refused outright until 2026-08-21, now the arbiter's call. The engine
+    # agrees with bbpPairings across ~488M pairings, and where it differs
+    # from JaVaFo it is on Article 5.2.5's TPN parity — where it follows the
+    # handbook text and JaVaFo carries pre-2026 behaviour. Blocking asserted
+    # a quality judgement the measurements do not support.
+    #
+    # The exposure is paperwork, not pairings: OpenPairings is endorsed as
+    # "Internal engine: NO — thru JaVaFo", so a rated round paired by
+    # Ainalrami was not produced by the engine that endorsement names. The
+    # UI warns prominently in two places; the data layer does not refuse.
+    test "selecting Ainalrami on a FIDE-homologated tournament is allowed" do
       t = tournament(%{fide_homologated: true, fide_tournament_id: "12345"})
 
-      assert {:error, changeset} =
+      assert {:ok, updated} =
                Tournaments.update_tournament(t, %{"pairing_engine" => "ainalrami"})
 
-      assert %{pairing_engine: [message]} = errors_on(changeset)
-      assert message =~ "FIDE-homologated"
-      assert Repo.reload!(t).pairing_engine == "javafo"
+      assert updated.pairing_engine == "ainalrami"
+      assert updated.fide_homologated
     end
 
-    test "turning ON FIDE homologation while the engine is Ainalrami is refused" do
-      # The reverse direction. Checking only the changed field would let this
-      # through and leave a homologated event running on a non-endorsed
-      # engine — the exact state the rule exists to make unreachable.
+    test "turning ON FIDE homologation while the engine is Ainalrami is allowed" do
       t = tournament(%{pairing_engine: "ainalrami"})
 
-      assert {:error, changeset} =
+      assert {:ok, updated} =
                Tournaments.update_tournament(t, %{
                  "fide_homologated" => "true",
                  "fide_tournament_id" => "12345"
                })
 
-      assert %{pairing_engine: [message]} = errors_on(changeset)
-      assert message =~ "FIDE-homologated"
-      refute Repo.reload!(t).fide_homologated
+      assert updated.fide_homologated
+      assert updated.pairing_engine == "ainalrami"
     end
 
     test "JaVaFo on a FIDE-homologated tournament is of course fine" do

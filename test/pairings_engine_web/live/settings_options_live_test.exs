@@ -247,7 +247,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
 
       assert html =~ ~s(name="tournament[pairing_engine]")
       assert html =~ "JaVaFo - FIDE-endorsed (default)"
-      assert html =~ "Ainalrami (beta)"
+      assert html =~ "Ainalrami (experimental)"
 
       # The copy must be ACCURATE, which is a stricter test than "cautious".
       # It previously claimed a handful of known disagreements remained and
@@ -365,18 +365,19 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
 
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
 
-      # Present but unselectable — never silently missing, or an arbiter is
-      # left wondering where the setting went.
-      assert html =~ "Ainalrami (beta)"
-      assert html =~ ~r/value="ainalrami"[^>]*disabled/s
-      assert html =~ "FIDE-rated events must be paired by JaVaFo"
+      # Selectable, and warned about. The block was removed deliberately
+      # (2026-08-21): the exposure is paperwork, not pairing quality, and
+      # refusing outright asserted a judgement the measurements do not
+      # support. What must never happen is it being allowed SILENTLY.
+      assert html =~ "Ainalrami (experimental)"
+      refute html =~ ~r/value="ainalrami"[^>]*disabled/s
+      assert html =~ "endorsed by FIDE on the basis that it pairs"
     end
 
-    test "a hand-crafted save of Ainalrami on a homologated tournament is still refused", %{
+    test "saving Ainalrami on a homologated tournament warns in the dialog, then allows it", %{
       conn: conn,
       scope: scope
     } do
-      # The disabled <option> is decoration; the changeset is the enforcement.
       tournament = create_tournament(scope)
 
       {:ok, _} =
@@ -392,8 +393,15 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
           "tournament" => %{"name" => tournament.name, "pairing_engine" => "ainalrami"}
         })
 
-      assert html =~ "FIDE-homologated"
+      # The dialog carries the homologation-specific warning ON TOP of the
+      # ordinary one, and still nothing is written until it is confirmed.
+      assert html =~ "Switch to Ainalrami?"
+      assert html =~ "This tournament is FIDE-homologated"
+      assert html =~ "not produced by the engine that endorsement"
       assert Repo.reload!(tournament).pairing_engine == "javafo"
+
+      render_click(lv, "confirm_engine", %{})
+      assert Repo.reload!(tournament).pairing_engine == "ainalrami"
     end
 
     test "the select is disabled once round 1 has been paired, and explains why on click", %{

@@ -81,9 +81,27 @@ unreachable for the tournaments FE1 is about**:
 - The setting joins `Tournaments.locked_fields/1`, so it cannot be flipped
   mid-event either.
 
-So every FIDE-rated round this program ever produces is a JaVaFo round, and
-"Internal engine: NO — thru JaVaFo" remains the literal truth of what
-OpenPairings does for a rated tournament. If Ainalrami is ever *intended* to
+**Changed 2026-08-21, and this is the paragraph to read before filing.**
+Ainalrami used to be REFUSED on a FIDE-homologated tournament, which is
+what made "every FIDE-rated round this program ever produces is a JaVaFo
+round" literally true. That block is now a warning: the arbiter may choose
+Ainalrami for a rated event, and the UI says plainly what it costs, in the
+settings hint and again in the confirmation dialog.
+
+The reason for allowing it is that refusing asserted a quality judgement
+the measurements do not support — Ainalrami agrees with bbpPairings across
+~488 million pairings, and where it differs from JaVaFo it is on Article
+5.2.5's TPN parity, where it follows the handbook text and JaVaFo carries
+pre-2026 behaviour.
+
+The consequence for THIS document is unavoidable and must not be papered
+over: **"Internal engine: NO — thru JaVaFo" is no longer unconditionally
+true of what OpenPairings can do.** It remains true of the default, and of
+every tournament where the arbiter has not overridden it. Anyone filing
+FE1 on the strength of this framing has to decide how to state that —
+either declare it accurately, or restore the hard block for the duration
+of the application. What is not available any more is filing the old
+sentence unchanged and assuming it still holds. If Ainalrami is ever *intended* to
 be declared to FIDE, that is a separate application with `Internal Pairing
 Engine: YES`, its own FPC/RTG statements, and the full 5000-tournament
 auto-test described below — and it would be applied for by Ainalrami, not
