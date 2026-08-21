@@ -56,6 +56,13 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
        # Holds the pending settings params while the "switching engine"
        # dialog is up; nil when no dialog is showing.
        engine_confirm: nil,
+       # Which subject's form the pending dialog came from, so a confirmed
+       # save reports back beside the button that was pressed.
+       engine_confirm_section: nil,
+       # Which subject's save produced the current `note`/`error`. Each card
+       # saves on its own, so the feedback has to say WHICH one saved rather
+       # than appearing once at the foot of the page.
+       saved_section: nil,
        club_exclusion_mode: tournament.club_exclusion,
        fed_exclusion_mode: tournament.fed_exclusion,
        exclusion_error: nil
@@ -191,7 +198,11 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     {:noreply, assign(socket, publish_mode: mode)}
   end
 
-  def handle_event("save", %{"tournament" => params}, socket) do
+  def handle_event("save", %{"tournament" => params} = payload, socket) do
+    # Each card is its own form and posts the subject it belongs to. Defaults
+    # to "pairing" for a hand-built event with no section (tests do this).
+    section = Map.get(payload, "section", "pairing")
+
     params =
       params
       |> apply_rate_of_play_override()
@@ -204,9 +215,9 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     # with an explanation buried in a hint the arbiter has already scrolled
     # past. Only on the way IN: switching BACK to JaVaFo needs no ceremony.
     if switching_to_ainalrami?(base, params) do
-      {:noreply, assign(socket, engine_confirm: params)}
+      {:noreply, assign(socket, engine_confirm: params, engine_confirm_section: section)}
     else
-      save_settings(socket, base, params)
+      save_settings(socket, base, params, section)
     end
   end
 
@@ -217,7 +228,14 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
       params ->
         base = Tournaments.get_tournament!(socket.assigns.tournament.id)
-        save_settings(assign(socket, engine_confirm: nil), base, params)
+        section = socket.assigns.engine_confirm_section || "pairing"
+
+        save_settings(
+          assign(socket, engine_confirm: nil, engine_confirm_section: nil),
+          base,
+          params,
+          section
+        )
     end
   end
 
@@ -348,7 +366,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     params["pairing_engine"] == "ainalrami" and base.pairing_engine != "ainalrami"
   end
 
-  defp save_settings(socket, base, params) do
+  defp save_settings(socket, base, params, section) do
     case Tournaments.update_tournament(base, params) do
       {:ok, tournament} ->
         log_settings_change(socket, base, tournament)
@@ -362,14 +380,39 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
            publish_mode: tournament.publish_mode,
            note: save_note(base, tournament),
            error: nil,
+           saved_section: section,
            dirty: false,
            stale: false
          )
          |> assign_pairing_locks()}
 
       {:error, changeset} ->
-        {:noreply, assign(socket, error: error_text(changeset), note: nil)}
+        {:noreply,
+         assign(socket, error: error_text(changeset), note: nil, saved_section: section)}
     end
+  end
+
+  attr :section, :string, required: true
+  attr :note, :string, default: nil
+  attr :error, :string, default: nil
+  attr :saved, :string, default: nil
+
+  # One save button per subject, with that subject's own feedback beside it.
+  # A single button under everything meant scrolling the whole page to save a
+  # single select, and a bare "Saved." at the foot said nothing about WHICH
+  # of the settings above it had just been written.
+  defp section_actions(assigns) do
+    ~H"""
+    <div class="actions form-actions">
+      <button type="submit" class="pe-btn primary">Save</button>
+      <span :if={@note && @saved == @section} class="ok-note" style="align-self: center">
+        {@note}
+      </span>
+      <span :if={@error && @saved == @section} class="error-note" style="align-self: center">
+        {@error}
+      </span>
+    </div>
+    """
   end
 
   defp strip_locked_pairing_fields(params, assigns) do
@@ -475,9 +518,10 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
         </div>
       </div>
 
-      <form phx-submit="save">
+      <form id="pairing-settings-form" phx-submit="save">
+        <input type="hidden" name="section" value="pairing" />
         <div class="card">
-          <h2>Options</h2>
+          <h2>Pairing</h2>
 
           <.setting_group>
             <.setting_field label="Pairing system">
@@ -517,7 +561,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               <span class="hint">
                 <strong>JaVaFo</strong>
                 is the default: the external, FIDE-endorsed Dutch engine this app has always
-                paired with, and the only one permitted for a FIDE-rated tournament.
+                paired with, and the safe choice for a FIDE-rated tournament.
               </span>
 
               <span class="hint">
@@ -532,7 +576,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
               <span class="hint">
                 What "experimental" means here is not "probably wrong" - it means <strong>not FIDE-endorsed</strong>. That is a paperwork status, not a quality
-                one, and it is why a FIDE-rated event must still use JaVaFo. Forbidden
+                one, and it is why JaVaFo remains the default. Forbidden
                 pairings, club/federation exclusions and acceleration are all supported; any
                 TRF extension it does not implement makes it refuse the round and say so,
                 rather than quietly ignoring a rule you set.
@@ -605,6 +649,18 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               locked?={@swiss_match_format_locked?}
               locked_hint={@locked_hint}
             />
+          </.setting_group>
+        </div>
+
+        <.section_actions section="pairing" note={@note} error={@error} saved={@saved_section} />
+      </form>
+
+      <form id="play-settings-form" phx-submit="save">
+        <input type="hidden" name="section" value="play" />
+        <div class="card">
+          <h2>Tournament type &amp; rate of play</h2>
+
+          <.setting_group>
             <.setting_field label="Type">
               <select name="tournament[standard]" phx-change="standard_change">
                 <option
@@ -640,6 +696,11 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
           </.setting_group>
         </div>
 
+        <.section_actions section="play" note={@note} error={@error} saved={@saved_section} />
+      </form>
+
+      <form id="publish-settings-form" phx-submit="save">
+        <input type="hidden" name="section" value="publish" />
         <div class="card">
           <h2>Public pairings</h2>
 
@@ -678,11 +739,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
           </.setting_group>
         </div>
 
-        <div class="actions form-actions">
-          <button type="submit" class="pe-btn primary">Save settings</button>
-          <span :if={@note} class="ok-note" style="align-self: center">{@note}</span>
-          <span :if={@error} class="error-note" style="align-self: center">{@error}</span>
-        </div>
+        <.section_actions section="publish" note={@note} error={@error} saved={@saved_section} />
       </form>
 
       <div class="card">

@@ -69,7 +69,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
       |> render_change(%{"tournament" => %{"standard" => "rapid"}})
 
       lv
-      |> form("form[phx-submit=save]", %{"tournament" => %{"rate_of_play" => "59min/end"}})
+      |> form("#play-settings-form", %{"tournament" => %{"rate_of_play" => "59min/end"}})
       |> render_submit()
 
       render(lv)
@@ -254,7 +254,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
       # that forbidden pairings, exclusions and acceleration were not
       # implemented. Both had stopped being true, and understating an engine
       # misleads an arbiter exactly as badly as overselling one.
-      assert html =~ "only one permitted for a FIDE-rated tournament"
+      assert html =~ "the safe choice for a FIDE-rated tournament"
       assert html =~ "Swiss only"
       assert html =~ "zero disagreements"
       refute html =~ "handful of known disagreements"
@@ -579,7 +579,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
 
       lv
-      |> form("form[phx-submit=save]", %{"tournament" => %{"publish_mode" => "manual"}})
+      |> form("#publish-settings-form", %{"tournament" => %{"publish_mode" => "manual"}})
       |> render_submit()
 
       assert Tournaments.get_authorized_tournament!(scope, tournament.id).publish_mode == "manual"
@@ -599,7 +599,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
       |> render_change(%{"tournament" => %{"publish_mode" => "timed"}})
 
       lv
-      |> form("form[phx-submit=save]", %{
+      |> form("#publish-settings-form", %{
         "tournament" => %{"publish_mode" => "timed", "publish_delay_minutes" => "20"}
       })
       |> render_submit()
@@ -655,6 +655,60 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
 
       assert html =~ "Delay (minutes)"
+    end
+  end
+
+  # The page used to be one long form with a single "Save settings" button
+  # underneath everything, so changing a select near the top meant scrolling
+  # past every other setting to commit it, and the resulting "Saved." said
+  # nothing about which of those settings had been written.
+  describe "each subject saves on its own" do
+    test "every subject has its own form and its own save button", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+
+      for id <- ~w(pairing-settings-form play-settings-form publish-settings-form) do
+        assert has_element?(lv, "##{id}"), "expected a form ##{id}"
+        assert has_element?(lv, "##{id} button[type=submit]"), "##{id} has no save button"
+      end
+    end
+
+    test "saving one subject leaves the others alone", %{conn: conn, scope: scope} do
+      tournament =
+        create_tournament(scope, %{"standard" => "rapid", "rate_of_play" => "45min/end"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+
+      lv
+      |> form("#publish-settings-form", %{"tournament" => %{"publish_mode" => "manual"}})
+      |> render_submit()
+
+      # The publish form carries no rate-of-play or engine field at all, so
+      # those columns must come through untouched rather than being cast
+      # from a blank the other form would have submitted.
+      updated = Tournaments.get_authorized_tournament!(scope, tournament.id)
+      assert updated.publish_mode == "manual"
+      assert updated.rate_of_play == "45min/end"
+      assert updated.standard == "rapid"
+      assert updated.pairing_engine == "javafo"
+    end
+
+    test "the confirmation lands beside the button that was pressed", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+
+      lv
+      |> form("#publish-settings-form", %{"tournament" => %{"publish_mode" => "manual"}})
+      |> render_submit()
+
+      assert has_element?(lv, "#publish-settings-form .ok-note")
+      refute has_element?(lv, "#pairing-settings-form .ok-note")
+      refute has_element?(lv, "#play-settings-form .ok-note")
     end
   end
 end

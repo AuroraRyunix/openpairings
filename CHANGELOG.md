@@ -64,6 +64,25 @@ Each entry is tagged so a version can be skimmed:
   Pin moved to `6d739bd`, and the full suite - including the
   JaVaFo-versus-Ainalrami differential tests - passes against it.
 
+- 🔧 **Settings &rarr; Options saves per subject instead of all at once.**
+  The page was one long form with a single "Save settings" button beneath
+  everything, so changing the pairing system at the top meant scrolling
+  past the engine notes, the rate of play and the public-pairings card to
+  commit it - and the "Saved." that came back sat at the bottom, telling
+  you nothing about which of those settings had just been written.
+
+  It is now three: **Pairing**, **Tournament type & rate of play**, and
+  **Public pairings**, each with its own Save and its own confirmation
+  beside that button. Saving one leaves the others untouched, including
+  any edits left unsaved in them. Forbidden pairings and club/federation
+  exclusions already worked this way and are unchanged.
+
+- 🐛 **Two lines on that screen still said Ainalrami was not allowed for a
+  FIDE-rated event.** They survived the change that permitted it and
+  directly contradicted the warning printed a few lines below them. Both
+  now say JaVaFo is the default and the safe choice, which is what is
+  actually true.
+
 - 🔧 **The landing page leads with Ainalrami now, and no longer names
   JaVaFo.** The hero read "Swiss pairings via JaVaFo" and the feature list
   offered "JaVaFo Dutch, or Ainalrami in beta" - advertising a third-party
