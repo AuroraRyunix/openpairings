@@ -531,8 +531,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               </span>
 
               <span class="hint">
-                What "experimental" means here is not "probably wrong" - it means
-                <strong>not FIDE-endorsed</strong>. That is a paperwork status, not a quality
+                What "experimental" means here is not "probably wrong" - it means <strong>not FIDE-endorsed</strong>. That is a paperwork status, not a quality
                 one, and it is why a FIDE-rated event must still use JaVaFo. Forbidden
                 pairings, club/federation exclusions and acceleration are all supported; any
                 TRF extension it does not implement makes it refuse the round and say so,
@@ -542,8 +541,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               <span :if={@tournament.fide_homologated} class="error-note">
                 This tournament is marked <strong>FIDE-homologated</strong>
                 (Settings &rarr; FIDE). Ainalrami is allowed here, but understand what it
-                costs: OpenPairings is endorsed by FIDE on the basis that it pairs
-                <em>through JaVaFo</em>, so a rated round paired by Ainalrami was not
+                costs: OpenPairings is endorsed by FIDE on the basis that it pairs <em>through JaVaFo</em>, so a rated round paired by Ainalrami was not
                 produced by the engine that endorsement names. That is a paperwork
                 exposure, not a pairing-quality one - but it is yours, and it is the
                 reason JaVaFo remains the default.
@@ -843,8 +841,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             <strong>Experimental, but plausibly better.</strong>
             Ainalrami is a second Dutch engine built into this app. Measured against
             bbpPairings — the other FIDE-endorsed implementation — over two independent
-            corpora of roughly 488 million pairings each, the most recent found
-            <strong>zero disagreements</strong>. On a large field it is also several times
+            corpora of roughly 488 million pairings each, the most recent found <strong>zero disagreements</strong>. On a large field it is also several times
             quicker, because it runs in-process with no Java to start.
           </p>
 

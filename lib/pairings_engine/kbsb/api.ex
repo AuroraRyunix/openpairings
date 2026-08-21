@@ -127,7 +127,8 @@ defmodule PairingsEngine.Kbsb.Api do
   defp advance(cursor, next) when is_integer(next) and next > cursor, do: {:ok, next}
 
   defp advance(cursor, next) do
-    {:error, "KBSB API returned a cursor that did not advance (#{inspect(cursor)} -> #{inspect(next)})."}
+    {:error,
+     "KBSB API returned a cursor that did not advance (#{inspect(cursor)} -> #{inspect(next)})."}
   end
 
   defp get_page(cursor) do
@@ -151,7 +152,9 @@ defmodule PairingsEngine.Kbsb.Api do
 
       {:ok, %Req.Response{status: 200, body: body}} ->
         Logger.error("KBSB API export: unexpected body #{inspect(body, limit: 5)}")
-        {:error, "KBSB API returned a 200 with no player list — is KBSB_API_URL pointing at the right host?"}
+
+        {:error,
+         "KBSB API returned a 200 with no player list — is KBSB_API_URL pointing at the right host?"}
 
       {:ok, %Req.Response{status: 401}} ->
         {:error, "KBSB API rejected the key (401). Check KBSB_API_KEY and its scope."}

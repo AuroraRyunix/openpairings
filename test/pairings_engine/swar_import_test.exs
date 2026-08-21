@@ -412,7 +412,8 @@ defmodule PairingsEngine.SwarImportTest do
   # at `presence_value` (not `points_loss`).
 
   test "import_file/1 maps SWAR's 3-2-1 scoring fields (SW321_Win/Nul/Los/Bye/Pre/PreBye) onto the tournament" do
-    assert {:ok, tournament, _warnings} = SwarImport.import_file(@test3_321, nil, allow_swiss321: true)
+    assert {:ok, tournament, _warnings} =
+             SwarImport.import_file(@test3_321, nil, allow_swiss321: true)
 
     assert tournament.points_win == 2.0
     assert tournament.points_draw == 1.0
@@ -433,7 +434,8 @@ defmodule PairingsEngine.SwarImportTest do
     # here — independent of whatever our scoring_attrs/1 currently does.
     assert tom.points == 8
 
-    assert {:ok, tournament, _warnings} = SwarImport.import_file(@test3_321, nil, allow_swiss321: true)
+    assert {:ok, tournament, _warnings} =
+             SwarImport.import_file(@test3_321, nil, allow_swiss321: true)
 
     [player] =
       Enum.filter(Tournaments.list_players(tournament.id), &(&1.name == "Descheemaeker, Tom"))
@@ -495,7 +497,9 @@ defmodule PairingsEngine.SwarImportTest do
   # eligibility (see `PairingsEngine.Pairing.build_shared_history/1`).
   @tag :javafo
   test "pairing a new round after import doesn't crash when a historical opponent is now excluded" do
-    assert {:ok, tournament, _warnings} = SwarImport.import_file(@test3_321, nil, allow_swiss321: true)
+    assert {:ok, tournament, _warnings} =
+             SwarImport.import_file(@test3_321, nil, allow_swiss321: true)
+
     assert {:ok, tournament} = Tournaments.update_tournament(tournament, %{rounds_count: 9})
 
     assert {:ok, round} = PairingsEngine.Pairing.pair_next_round(tournament)

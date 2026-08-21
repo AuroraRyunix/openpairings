@@ -822,7 +822,9 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       # what it actually was -- and ExUnit's default for `assert html =~ ...`
       # is to print the entire page, which is how the first one was lost.
       cards = (html |> String.split(~s(class="result-card">)) |> length()) - 1
-      blanks = (html |> String.split(~s(<div class="result-card rc-blank"></div>)) |> length()) - 1
+
+      blanks =
+        (html |> String.split(~s(<div class="result-card rc-blank"></div>)) |> length()) - 1
 
       actual_whites =
         Regex.scan(~r/rc-who">White<\/span> <strong>P(\d+)/, html)
@@ -831,7 +833,8 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       leaked =
         Enum.filter(9..12, fn n -> html =~ "P#{n}<" or html =~ "P#{n} " end)
 
-      assert cards == 4, "expected 4 result cards, got #{cards}; whites were #{inspect(actual_whites)}"
+      assert cards == 4,
+             "expected 4 result cards, got #{cards}; whites were #{inspect(actual_whites)}"
 
       assert blanks == 4,
              "expected 4 blank cards, got #{blanks}; #{cards} real cards, whites #{inspect(actual_whites)}"

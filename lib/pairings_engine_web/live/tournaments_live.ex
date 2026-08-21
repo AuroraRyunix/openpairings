@@ -952,7 +952,8 @@ defmodule PairingsEngineWeb.TournamentsLive do
           <p :if={@new_team?} class="hint" style="margin-top: 0">
             <strong>Reporting only.</strong>
             This marks the tournament as a team event on the FIDE report. Pairing
-            is still done <em>player by player</em> — team pairing, team standings
+            is still done <em>player by player</em>
+            — team pairing, team standings
             and team tie-breaks are not built yet, so boards will not respect team
             membership.
           </p>

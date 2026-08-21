@@ -550,7 +550,10 @@ defmodule PairingsEngine.TrfTest do
 
     test "no byte of an ascii-folded file is above 0x7F, headers included" do
       trf =
-        %{roster("Hendricks, Björn") | tournament: %{name: "Åre Öppna", city: "Liège", type: "swiss"}}
+        %{
+          roster("Hendricks, Björn")
+          | tournament: %{name: "Åre Öppna", city: "Liège", type: "swiss"}
+        }
         |> Trf.serialize(ascii: true)
 
       refute trf =~ ~r/[^\x00-\x7F]/u

@@ -196,20 +196,36 @@ defmodule PairingsEngine.ClubRefreshTest do
     end
 
     defp listed(attrs) do
-      Repo.insert!(struct(%KbsbPlayer{national_id: "n#{System.unique_integer([:positive])}"}, attrs))
+      Repo.insert!(
+        struct(%KbsbPlayer{national_id: "n#{System.unique_integer([:positive])}"}, attrs)
+      )
     end
 
     test "matches a player carrying no ids at all", %{tournament: tournament} do
       typed_in(tournament, "Janssens, Karel")
-      listed(%{last_name: "Janssens", first_name: "Karel", club_name: "KSK Rochade", club_number: 401})
+
+      listed(%{
+        last_name: "Janssens",
+        first_name: "Karel",
+        club_name: "KSK Rochade",
+        club_number: 401
+      })
 
       assert %{proposals: proposals, changed: 1, unmatched: 0} = ClubRefresh.dry_run(tournament)
-      assert [%{field: :club, new: "KSK Rochade", via: :name}, %{field: :club_number, new: 401}] = proposals
+
+      assert [%{field: :club, new: "KSK Rochade", via: :name}, %{field: :club_number, new: 401}] =
+               proposals
     end
 
     test "an accent typed off is still the same player", %{tournament: tournament} do
       typed_in(tournament, "Hendricks, Bjorn")
-      listed(%{last_name: "Hendricks", first_name: "Björn", club_name: "Rokade", club_number: 812})
+
+      listed(%{
+        last_name: "Hendricks",
+        first_name: "Björn",
+        club_name: "Rokade",
+        club_number: 812
+      })
 
       assert [%{field: :club, new: "Rokade", via: :name} | _] =
                ClubRefresh.dry_run(tournament).proposals

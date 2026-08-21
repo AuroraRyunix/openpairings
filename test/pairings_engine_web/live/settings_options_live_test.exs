@@ -310,7 +310,9 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
       scope: scope
     } do
       tournament = create_tournament(scope)
-      {:ok, tournament} = Tournaments.update_tournament(tournament, %{"pairing_engine" => "ainalrami"})
+
+      {:ok, tournament} =
+        Tournaments.update_tournament(tournament, %{"pairing_engine" => "ainalrami"})
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
 
@@ -327,7 +329,9 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
     # FIDE-endorsed one, so there is nothing to warn about.
     test "switching back to JaVaFo saves immediately", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
-      {:ok, tournament} = Tournaments.update_tournament(tournament, %{"pairing_engine" => "ainalrami"})
+
+      {:ok, tournament} =
+        Tournaments.update_tournament(tournament, %{"pairing_engine" => "ainalrami"})
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
 
