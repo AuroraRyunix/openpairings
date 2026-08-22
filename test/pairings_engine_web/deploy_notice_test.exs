@@ -97,6 +97,32 @@ defmodule PairingsEngineWeb.DeployNoticeTest do
       end)
     end
 
+    test "accepts seconds, for the deploy script's --fast path", %{conn: conn} do
+      with_token("right-token", fn ->
+        conn =
+          conn
+          |> put_req_header("authorization", "Bearer right-token")
+          |> post(~p"/internal/deploy-notice", %{"seconds" => "30"})
+
+        assert %{"ok" => true} = json_response(conn, 200)
+        assert DateTime.diff(Deploy.restart_at(), DateTime.utc_now()) in 25..30
+      end)
+    end
+
+    test "refuses a countdown too short to read", %{conn: conn} do
+      # A two-second warning is a flicker, not a warning - the page still has
+      # to receive and render it.
+      with_token("right-token", fn ->
+        conn =
+          conn
+          |> put_req_header("authorization", "Bearer right-token")
+          |> post(~p"/internal/deploy-notice", %{"seconds" => "2"})
+
+        assert json_response(conn, 400)
+        assert Deploy.restart_at() == nil
+      end)
+    end
+
     test "caps the delay, so a typo cannot leave a banner up for days", %{conn: conn} do
       with_token("right-token", fn ->
         conn =

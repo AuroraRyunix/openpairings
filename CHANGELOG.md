@@ -83,6 +83,17 @@ Each entry is tagged so a version can be skimmed:
   comparison happens in the browser, because only it remembers what was
   running before the restart - the server that knew has been replaced.
 
+- [Feature] **`--fast` on the deploy script warns for 30 seconds instead of
+  ten minutes**, for a hotfix where the thing being fixed is worse than the
+  interruption. The banner opens straight on its red tier, since there is no
+  gentle phase to escalate from in half a minute.
+
+  A flag rather than a smaller default: ten minutes is the right answer
+  during a live tournament, and the short one should have to be asked for
+  each time rather than inherited from a config file edited months ago. The
+  notice endpoint accepts `seconds` as well as `minutes` now, floored at ten
+  - a countdown nobody can finish reading is a flicker, not a warning.
+
 - [Feature] **A deploy now warns everyone with a page open, before the
   server restarts.** The deploy script announces the restart, waits, and
   only then restarts; every connected page shows a banner that counts down

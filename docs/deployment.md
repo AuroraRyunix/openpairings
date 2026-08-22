@@ -61,8 +61,25 @@ What the deploy script actually does, in order:
    what you are doing", then red under 30 seconds. The countdown runs in
    the browser, so this costs one message per page, not one per second.
 
-   `DEPLOY_NOTICE_MINUTES` overrides the ten; `0` skips the wait entirely,
-   for a hotfix where being down sooner beats being polite.
+   **`--fast`** (or `-f`) cuts the warning to 30 seconds, for a hotfix
+   where the thing being fixed is worse than the interruption:
+
+   ```bash
+   python deploy_openpairings.py --fast
+   ```
+
+   At 30 seconds the banner opens straight on its red tier - there is no
+   gentle phase to escalate from - so people get one loud "go and grab a
+   coffee, we will be back in about 30 seconds" rather than a countdown
+   they will not finish reading.
+
+   It is a flag rather than a smaller default on purpose. Ten minutes is
+   the right answer during a live tournament, and the short one should have
+   to be asked for each time instead of being inherited from a `.env`
+   somebody edited months ago.
+
+   `DEPLOY_NOTICE_MINUTES` overrides the ten for every run; `0` skips the
+   wait entirely.
 
    **Bootstrap:** the app being asked is the one *currently running*, so
    the first deploy after adding the token is refused - that process was

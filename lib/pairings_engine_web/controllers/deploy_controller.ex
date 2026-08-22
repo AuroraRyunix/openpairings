@@ -24,6 +24,13 @@ defmodule PairingsEngineWeb.DeployController do
   @default_minutes 10
   @max_minutes 120
 
+  # `seconds` exists for the deploy script's --fast path, where the whole
+  # point is a warning shorter than a minute. Floored at 10 rather than 1: a
+  # countdown nobody can read before it fires is not a warning, it is a
+  # flicker, and the page still has to receive and render the thing.
+  @min_seconds 10
+  @max_seconds @max_minutes * 60
+
   def notice(conn, params) do
     with :ok <- authorize(conn),
          {:ok, seconds} <- seconds(params) do
@@ -52,19 +59,25 @@ defmodule PairingsEngineWeb.DeployController do
     end
   end
 
-  defp seconds(params) do
-    case params["minutes"] do
-      nil ->
-        {:ok, @default_minutes * 60}
-
-      raw ->
-        case Integer.parse(to_string(raw)) do
-          {m, ""} when m > 0 and m <= @max_minutes -> {:ok, m * 60}
-          {_m, ""} -> {:error, "minutes must be 1..#{@max_minutes}"}
-          _ -> {:error, "minutes must be an integer"}
-        end
+  # `seconds` wins over `minutes` when both are given, since it is the more
+  # specific of the two.
+  defp seconds(%{"seconds" => raw}) do
+    case Integer.parse(to_string(raw)) do
+      {s, ""} when s >= @min_seconds and s <= @max_seconds -> {:ok, s}
+      {_s, ""} -> {:error, "seconds must be #{@min_seconds}..#{@max_seconds}"}
+      _ -> {:error, "seconds must be an integer"}
     end
   end
+
+  defp seconds(%{"minutes" => raw}) do
+    case Integer.parse(to_string(raw)) do
+      {m, ""} when m > 0 and m <= @max_minutes -> {:ok, m * 60}
+      {_m, ""} -> {:error, "minutes must be 1..#{@max_minutes}"}
+      _ -> {:error, "minutes must be an integer"}
+    end
+  end
+
+  defp seconds(_params), do: {:ok, @default_minutes * 60}
 
   defp authorize(conn) do
     configured = Application.get_env(:pairings_engine, :deploy_notice_token)
