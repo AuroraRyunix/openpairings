@@ -64,6 +64,13 @@ Each entry is tagged so a version can be skimmed:
   Pin moved to `6d739bd`, and the full suite - including the
   JaVaFo-versus-Ainalrami differential tests - passes against it.
 
+- [Fix] **The restart banner can no longer get stuck on screen forever.**
+  It was cleared only by a server push - fine, until the very thing it warns
+  about is what stops those pushes arriving. If the socket did not come
+  back, the page never heard the expiry and sat on "back shortly"
+  indefinitely; reported after half an hour of it. It now times out on the
+  client too, three minutes past the deadline, with no server involved.
+
 - [Fix] **A page left stranded by a restart now comes back on its own.**
   The banner promised "this page reconnects on its own" and it did not
   always: LiveView retries the rejoin every five seconds forever, so

@@ -424,6 +424,12 @@ const DOWNTIME_HINT = "about 30 seconds"
 
 const deployBanner = {
   timer: null,
+  watchdog: null,
+
+  // How long after the deadline the banner gives up and hides itself. Longer
+  // than the watchdog's reload window, so a page that CAN recover reloads
+  // first and a page that cannot at least stops lying about it.
+  STALE_AFTER_MS: 180000,
 
   clock(sec) {
     const m = Math.floor(sec / 60)
@@ -434,6 +440,21 @@ const deployBanner = {
   render(el, at) {
     const left = Math.max(0, Math.round((at - Date.now()) / 1000))
     const text = el.querySelector(".deploy-banner-text")
+
+    // Give up on our own, well past the deadline.
+    //
+    // The banner is cleared by a server push, which is fine until the thing
+    // it is warning about is exactly what stops those pushes arriving. If
+    // the socket does not come back, the client never hears the expiry and
+    // sits on "back shortly" indefinitely - reported after thirty minutes of
+    // it. A warning about a restart that finished long ago is just wrong, so
+    // it times out here too, with no server involved.
+    if (Date.now() > at + this.STALE_AFTER_MS) {
+      clearInterval(this.timer)
+      clearInterval(this.watchdog)
+      el.hidden = true
+      return
+    }
 
     let tier = "soon"
     let message
