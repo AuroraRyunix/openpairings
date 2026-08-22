@@ -384,9 +384,23 @@ const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute
 //   <= 2 min  do not START anything; finish and save what is open
 //   <= 30 s   imminent
 //
-// Deliberately never says "you will be logged out": the deploy reuses
-// SECRET_KEY_BASE, so sessions survive a restart. What is lost is unsaved
-// input, which is the thing actually worth warning about.
+// The wording is deliberately narrow, because the obvious warnings are both
+// false here:
+//
+//   "you will be logged out" - no. The deploy reuses SECRET_KEY_BASE, so
+//   sessions survive a restart.
+//
+//   "you may lose unsaved changes" - not for the person most likely to be
+//   reading this. Result entry is phx-change and writes straight through
+//   (see handle_event("result", ...) in pairings_live.ex), so every result
+//   is already in the database the moment it is picked. An earlier version
+//   of this banner told arbiters to stop entering results, which was
+//   advising against the safest thing on the page.
+//
+// What a reconnect actually costs is server-side state rebuilt by mount: an
+// open dialog, a half-filled registration form, and settings pages with an
+// explicit Save button, which re-render from stored state and discard
+// unsaved edits. That is what it names.
 const deployBanner = {
   timer: null,
 
@@ -407,12 +421,12 @@ const deployBanner = {
       message = "restarting now - this page will reconnect on its own"
     } else if (left <= 30) {
       tier = "now"
-      message = `in ${left}s - stop entering results now`
+      message = `in ${left}s - this page will reconnect on its own`
     } else if (left <= 120) {
       tier = "close"
-      message = `in ${this.clock(left)} - finish and save what you are doing, and do not start anything new`
+      message = `in ${this.clock(left)} - save any form you have open but have not saved yet`
     } else {
-      message = `in ${this.clock(left)} - you may lose unsaved changes, so save as you go`
+      message = `in ${this.clock(left)} - the page will reconnect on its own. Results are saved as you enter them`
     }
 
     if (text) { text.textContent = message }

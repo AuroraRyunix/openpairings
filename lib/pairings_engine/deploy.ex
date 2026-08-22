@@ -21,13 +21,24 @@ defmodule PairingsEngine.Deploy do
 
   ## What it must not claim
 
-  Not "you will be logged out". The deploy reuses `SECRET_KEY_BASE` rather
-  than regenerating it (docs/deployment.md, step 4) precisely so a restart
-  never invalidates sessions. What a restart actually costs is the LiveView
-  socket dropping for a few seconds and any unsaved form input going with
-  it - which for an arbiter halfway through entering a round's results is
-  the real damage. Warning about a logout that cannot happen is how people
-  learn to ignore banners.
+  Both of the obvious warnings are false, and the banner says neither.
+
+  **Not "you will be logged out".** The deploy reuses `SECRET_KEY_BASE`
+  rather than regenerating it (docs/deployment.md, step 4) precisely so a
+  restart never invalidates sessions.
+
+  **Not "you may lose unsaved changes"** either, at least not for the person
+  most likely to be reading it. Result entry is `phx-change` and writes
+  straight through - see `handle_event("result", ...)` in `pairings_live.ex`
+  - so every result is in the database the moment it is picked. An earlier
+  version of this told arbiters to stop entering results, which was advising
+  against the safest thing on the page.
+
+  What a reconnect actually costs is server-side state rebuilt by `mount`:
+  an open dialog, a half-filled registration form, and the settings pages
+  with an explicit Save button, which re-render from stored state and
+  discard unsaved edits. That is what the banner names, and nothing more.
+  A banner that overstates its case is one people learn to ignore.
   """
   use GenServer
 

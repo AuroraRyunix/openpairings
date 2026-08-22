@@ -74,10 +74,17 @@ What the deploy script actually does, in order:
    expires it five minutes past the deadline, which covers the script dying
    outright rather than failing cleanly.
 
-   Note what the banner does NOT say: nobody is logged out. Step 4 reuses
-   `SECRET_KEY_BASE`, so sessions survive. What a restart costs is the
-   socket dropping and any unsaved form input with it - so that is what it
-   warns about.
+   Note what the banner does NOT say, because both would be false:
+
+   - **Nobody is logged out.** Step 4 reuses `SECRET_KEY_BASE`, so sessions
+     survive a restart.
+   - **Results are not lost.** Result entry writes straight through on every
+     change, so they are already saved. An early version of this banner told
+     arbiters to stop entering results, which was exactly backwards.
+
+   What a reconnect does cost is server-side state rebuilt by `mount` - an
+   open dialog, a half-filled registration form, and the settings pages with
+   an explicit Save button. That is what it warns about.
 
 5. **Restarts the service** and prints the last systemd/journalctl output
    so a failed boot is visible immediately.

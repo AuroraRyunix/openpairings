@@ -77,11 +77,14 @@ Each entry is tagged so a version can be skimmed:
   deadline is held server-side and read on mount rather than only
   broadcast - that person is the whole point of the feature.
 
-  It deliberately does **not** say you will be logged out, because you will
-  not be: the deploy reuses `SECRET_KEY_BASE` so sessions survive a
-  restart. What a restart actually costs is the socket dropping and unsaved
-  form input going with it, which is what it warns about instead. Warning
-  about a logout that cannot happen is how people learn to ignore banners.
+  It deliberately says neither of the two obvious things, because both are
+  false. **You are not logged out** - the deploy reuses `SECRET_KEY_BASE`,
+  so sessions survive. And **results are not lost**: they write straight
+  through as you enter them, so they are already saved. What a reconnect
+  actually costs is server-side state rebuilt on mount - an open dialog, a
+  half-filled registration form, a settings page with unsaved edits - and
+  that is what it names. A banner that overstates its case is one people
+  learn to ignore.
 
   Off unless `DEPLOY_NOTICE_TOKEN` is set: the endpoint fails closed, so an
   unset variable means no banner rather than an open route.
