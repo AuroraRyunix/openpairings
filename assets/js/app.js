@@ -439,7 +439,7 @@ const deployBanner = {
     let message
     if (left <= 0) {
       tier = "now"
-      message = "back shortly - this page reconnects on its own, no need to touch anything"
+      message = "back shortly - this page comes back on its own, no need to touch anything"
     } else if (left <= 30) {
       tier = "now"
       message = `in ${left}s - go and grab a coffee, we will be back in ${DOWNTIME_HINT}`
@@ -458,6 +458,7 @@ const deployBanner = {
     const el = document.getElementById("deploy-banner")
     if (!el) { return }
     clearInterval(this.timer)
+    clearInterval(this.watchdog)
 
     if (!iso) { el.hidden = true; return }
 
@@ -467,6 +468,42 @@ const deployBanner = {
     el.hidden = false
     this.render(el, at)
     this.timer = setInterval(() => this.render(el, at), 1000)
+    this.watch(at)
+  },
+
+  // "This page reconnects on its own" has to be true, and it is not always.
+  // LiveView retries the rejoin every 5s forever (see reconnectAfterMs), so
+  // anything that makes the rejoin fail PERMANENTLY leaves the page sitting
+  // there looking alive and doing nothing until somebody hits reload.
+  //
+  // The known cause was the deploy minting a fresh SECRET_KEY_BASE on every
+  // run, which invalidates the signed session token baked into the page:
+  // every retry then fails for the same reason the last one did. That is
+  // fixed in the deploy script, but a retry loop that can never succeed is a
+  // bad enough failure mode to guard against on its own terms, whatever
+  // causes it next.
+  //
+  // So: once the restart is well past due and the socket is still down,
+  // reload. A reload always works - it fetches a fresh page with fresh
+  // tokens - and it is what the person would do themselves a minute later.
+  //
+  // Only ever armed by an ANNOUNCED restart. Reloading on any long
+  // disconnection would catch people on flaky mobile connections in a
+  // tournament hall, which is a much easier way to lose someone's work than
+  // the problem it fixes.
+  watch(at) {
+    const RELOAD_AFTER_MS = 45000
+
+    this.watchdog = setInterval(() => {
+      if (Date.now() < at + RELOAD_AFTER_MS) { return }
+
+      const socketUp = typeof liveSocket !== "undefined" && liveSocket.isConnected()
+      if (socketUp) { clearInterval(this.watchdog); return }
+
+      clearInterval(this.watchdog)
+      clearInterval(this.timer)
+      window.location.reload()
+    }, 3000)
   },
 }
 

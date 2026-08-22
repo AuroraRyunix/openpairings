@@ -64,6 +64,24 @@ Each entry is tagged so a version can be skimmed:
   Pin moved to `6d739bd`, and the full suite - including the
   JaVaFo-versus-Ainalrami differential tests - passes against it.
 
+- [Fix] **A page left stranded by a restart now comes back on its own.**
+  The banner promised "this page reconnects on its own" and it did not
+  always: LiveView retries the rejoin every five seconds forever, so
+  anything that makes the rejoin fail *permanently* leaves the page looking
+  alive and doing nothing until somebody hits reload.
+
+  The known cause was the `SECRET_KEY_BASE` rotation above - the signed
+  session token baked into the page could no longer be verified, so every
+  retry failed for the same reason as the last. That is fixed at the root,
+  but a retry loop that can never succeed is a bad enough failure mode to
+  guard against on its own terms. If a restart is well past due and the
+  socket is still down, the page reloads itself, which always works.
+
+  Only ever armed by an announced restart. Reloading on any long
+  disconnection would catch people on flaky phone signal in a tournament
+  hall, which is an easier way to lose someone's work than the problem it
+  fixes.
+
 - [Fix] **Updates no longer log everyone out.** The deploy script has always
   meant to reuse `SECRET_KEY_BASE` across deploys, so sessions survive a
   restart - the code and the docs both said so. It never worked. The systemd
