@@ -113,13 +113,20 @@ defmodule PairingsEngine.MixProject do
       # Not published to Hex, so it comes from GitHub the same way heroicons
       # and daisyui already do.
       #
-      # `ref:` is pinned to an exact commit ON PURPOSE and must only ever be
-      # bumped deliberately, with the bump reviewed like any other pairing
-      # change. Floating this to a branch would let an upstream push silently
-      # change what this app pairs - the one thing a tournament manager can
-      # never allow. `override: true`-style looseness is equally out.
-      {:ainalrami,
-       github: "AuroraRyunix/Ainalrami", ref: "6d739bdb3ee1338646d71550a73e770fc8c29ddb"}
+      # Pinned to an exact RELEASE on purpose, and only ever bumped
+      # deliberately, with the bump reviewed like any other pairing change.
+      # Floating this to a branch would let an upstream push silently change
+      # what this app pairs - the one thing a tournament manager can never
+      # allow. `override: true`-style looseness is equally out.
+      #
+      # A tag rather than a bare SHA, since 2026-08-22. The pin sat 79
+      # commits and four days stale without anyone noticing, because
+      # "6d739bd" looks exactly as current as any other SHA - there is
+      # nothing in it to be stale-looking. A version number is legible: a
+      # `v0.4.0` here against a v0.10.0 upstream is visible at a glance, in
+      # a diff and in review. mix.lock still records the resolved commit, so
+      # this is no less exact than a SHA was; it is only easier to read.
+      {:ainalrami, github: "AuroraRyunix/Ainalrami", tag: "v0.10.0"}
     ]
   end
 

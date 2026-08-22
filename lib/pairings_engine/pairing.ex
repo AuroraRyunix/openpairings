@@ -1160,6 +1160,17 @@ defmodule PairingsEngine.Pairing do
       "pairs" =>
         Enum.map(bracket.pairs, fn {a, b} -> [player_id(a, by_rank), player_id(b, by_rank)] end),
       "edge_count" => Map.get(bracket, :edge_count),
+      # Per-board attribution: which pair carries which criterion's cost.
+      # The engine reports one rung vector per edge, in `pairs` order and
+      # then the cross edges the floats leave on, and the bracket's own
+      # rungs are their column-wise sum.
+      #
+      # The cross edges are kept rather than dropped, tagged "float". They
+      # are a lower bracket's boards, so they will appear again there - but
+      # without them the per-board rows would not add up to the bracket
+      # total sitting right above them, and a reader checking the arithmetic
+      # would be right to distrust the whole panel.
+      "edges" => edges_json(bracket, by_rank),
       # Only the criteria that actually scored. A bracket reports every rung
       # on the ladder and most are zero; keeping them all would triple the
       # stored size to say "this criterion did not come into it".
@@ -1168,6 +1179,24 @@ defmodule PairingsEngine.Pairing do
         |> Enum.reject(fn {_label, value} -> value == 0 end)
         |> Enum.map(fn {label, value} -> %{"label" => label, "value" => value} end)
     }
+  end
+
+  defp edges_json(bracket, by_rank) do
+    kept = length(bracket.pairs)
+
+    bracket
+    |> Map.get(:edge_rungs, [])
+    |> Enum.with_index()
+    |> Enum.map(fn {{{a, b}, rungs}, index} ->
+      %{
+        "players" => [player_id(a, by_rank), player_id(b, by_rank)],
+        "kind" => if(index < kept, do: "pair", else: "float"),
+        "rungs" =>
+          rungs
+          |> Enum.reject(fn {_label, value} -> value == 0 end)
+          |> Enum.map(fn {label, value} -> %{"label" => label, "value" => value} end)
+      }
+    end)
   end
 
   defp player_ids(ranks, by_rank), do: Enum.map(ranks, &player_id(&1, by_rank))

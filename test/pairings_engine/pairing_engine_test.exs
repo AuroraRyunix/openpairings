@@ -663,6 +663,35 @@ defmodule PairingsEngine.PairingEngineTest do
       assert explained == seated
     end
 
+    test "each board's criteria sum to the bracket total the page prints above them" do
+      # The panel states this in so many words ("a bracket's totals are
+      # exactly the sum of the boards beneath it"), and an arbiter checking
+      # the arithmetic is exactly the person this feature is for. Note the
+      # float edges are INCLUDED - drop them and the columns stop adding up.
+      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
+      roster(t, 10)
+
+      assert {:ok, round} = Pairing.pair_next_round(t)
+
+      for section <- round.explanation["sections"], bracket <- section["brackets"] do
+        totals = Map.new(bracket["rungs"], &{&1["label"], &1["value"]})
+
+        per_board =
+          bracket["edges"]
+          |> Enum.flat_map(& &1["rungs"])
+          |> Enum.reduce(%{}, fn %{"label" => l, "value" => v}, acc ->
+            Map.update(acc, l, v, &(&1 + v))
+          end)
+
+        assert per_board == totals, """
+        bracket #{bracket["group"]}: the per-board criteria do not add up.
+
+          boards: #{inspect(Enum.sort(Map.to_list(per_board)))}
+          total:  #{inspect(Enum.sort(Map.to_list(totals)))}
+        """
+      end
+    end
+
     @tag :javafo
     test "a JaVaFo round stores nothing rather than an empty explanation" do
       # nil, not %{} - the page distinguishes "this engine cannot explain

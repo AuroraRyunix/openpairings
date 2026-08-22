@@ -1125,6 +1125,11 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
       # made up - if the rungs stopped being stored this is what breaks.
       assert html =~ "C6 pairs in bracket"
 
+      # Per-board attribution: the criteria are shown against the board that
+      # carries them, not only as a bracket total.
+      assert html =~ "pe-account-edge"
+      assert html =~ "pe-account-chip"
+
       # And the reconstruction-era caveat must be GONE, because it is false
       # here: the engine did record its reasoning.
       refute html =~ "internal tie-break reasoning is not"

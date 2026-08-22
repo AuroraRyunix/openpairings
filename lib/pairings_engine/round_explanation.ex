@@ -52,7 +52,21 @@ defmodule PairingsEngine.RoundExplanation do
       pairs:
         Enum.map(bracket["pairs"] || [], fn [a, b] -> {player(a, by_id), player(b, by_id)} end),
       edge_count: bracket["edge_count"],
+      edges: Enum.map(bracket["edges"] || [], &edge(&1, by_id)),
       rungs: Enum.map(bracket["rungs"] || [], &{&1["label"], &1["value"]})
+    }
+  end
+
+  # A round paired before per-board attribution existed simply has no
+  # "edges" key, and the panel falls back to bracket totals alone.
+  defp edge(edge, by_id) do
+    [a, b] = edge["players"]
+
+    %{
+      white: player(a, by_id),
+      black: player(b, by_id),
+      float?: edge["kind"] == "float",
+      rungs: Enum.map(edge["rungs"] || [], &{&1["label"], &1["value"]})
     }
   end
 

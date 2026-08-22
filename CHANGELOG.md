@@ -64,6 +64,29 @@ Each entry is tagged so a version can be skimmed:
   Pin moved to `6d739bd`, and the full suite - including the
   JaVaFo-versus-Ainalrami differential tests - passes against it.
 
+- [Feature] **The rationale now says which BOARD carries a criterion, not
+  just which bracket.** A bracket total like "C12 colour preference: 2"
+  tells you two colour preferences were denied somewhere in it. Each board
+  now carries its own share, so you can see which two.
+
+  This needed nothing new to be computed. The engine had always worked out
+  a full criterion vector per board and then summed them, discarding the
+  parts; Ainalrami v0.10.0 returns them. The boards add up to the bracket
+  total exactly, float boards included, and there is a test asserting that
+  because the panel says so on screen.
+
+  One caveat, stated on the page: the top criterion counts one per board,
+  so every board scores one there and it separates nothing. Only its
+  bracket total means anything.
+
+- [Change] **The Ainalrami dependency is pinned to a version tag rather
+  than a bare commit.** The pin had sat 79 commits and four days stale
+  without anyone noticing, because one commit hash looks exactly as current
+  as another - there is nothing in a SHA to look old. `v0.10.0` against a
+  newer upstream is legible at a glance, in a diff and in review.
+  `mix.lock` still records the exact resolved commit, so the pin is no less
+  precise than before, only readable.
+
 - [Feature] **The pairing rationale now quotes the engine instead of
   inferring it - for Ainalrami rounds.** That page has always
   RECONSTRUCTED its brackets from a round's inputs and outputs, because

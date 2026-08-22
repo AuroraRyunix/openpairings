@@ -1928,6 +1928,24 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .pe-account-pairs li { line-height: 1.5; }
 .pe-account-rungs { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 12px; }
 .pe-account-rungs td { padding: 2px 0; color: var(--text-soft); border-top: 1px solid var(--border); }
+.pe-account-edge {
+  border-top: 1px solid var(--border);
+  padding: 6px 0;
+}
+.pe-account-edge-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.pe-account-float-tag { font-size: 11px; color: var(--text-soft); }
+.pe-account-chip {
+  display: inline-block;
+  font-size: 11px;
+  color: var(--text-soft);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0 7px;
+  margin: 3px 3px 0 0;
+  white-space: nowrap;
+}
+.pe-account-chip-n { color: var(--text); font-variant-numeric: tabular-nums; font-weight: 600; }
 .pe-account-rung-value {
   text-align: right;
   font-variant-numeric: tabular-nums;

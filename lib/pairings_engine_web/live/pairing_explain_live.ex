@@ -1065,11 +1065,27 @@ defmodule PairingsEngineWeb.PairingExplainLive do
               {Enum.map_join(bracket.floats, ", ", & &1.name)}
             </p>
 
-            <ul class="pe-account-pairs">
+            <ul :if={bracket.edges == []} class="pe-account-pairs">
               <li :for={{white, black} <- bracket.pairs}>
                 {white && white.name} vs {(black && black.name) || "bye"}
               </li>
             </ul>
+
+            <div :for={edge <- bracket.edges} class="pe-account-edge">
+              <div class="pe-account-edge-head">
+                <strong>{edge.white && edge.white.name} vs {(edge.black && edge.black.name) || "bye"}</strong>
+                <span :if={edge.float?} class="pe-account-float-tag">
+                  floats onward - this board belongs to the bracket below, and is
+                  counted here because the total above includes it
+                </span>
+              </div>
+
+              <span :for={{label, value} <- edge.rungs} class="pe-account-chip">
+                {label} <span class="pe-account-chip-n">{value}</span>
+              </span>
+
+              <span :if={edge.rungs == []} class="hint">nothing scored on this board</span>
+            </div>
 
             <table :if={bracket.rungs != []} class="pe-account-rungs">
               <tbody>
@@ -1085,9 +1101,16 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         </div>
 
         <p class="hint">
-          The rows above are the FIDE C.04.3 criteria that actually scored for each bracket, in
-          ladder order. A criterion that scored zero is not listed: it did not come into the
-          decision.
+          The rows above are the FIDE C.04.3 criteria that actually scored, in ladder order; a
+          criterion that scored zero is not listed, because it did not come into the decision.
+          Each board carries its own share, and a bracket's totals are exactly the sum of the
+          boards beneath it.
+        </p>
+
+        <p class="hint">
+          One caveat on reading a single board: the top criterion counts one per board, so every
+          board scores exactly one there and it separates nothing. It is the bracket total that
+          means something for that one.
         </p>
       </div>
 
