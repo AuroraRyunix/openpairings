@@ -398,9 +398,15 @@ const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute
 //   advising against the safest thing on the page.
 //
 // What a reconnect actually costs is server-side state rebuilt by mount: an
-// open dialog, a half-filled registration form, and settings pages with an
-// explicit Save button, which re-render from stored state and discard
-// unsaved edits. That is what it names.
+// open dialog, a half-filled registration form, a settings page with edits
+// not yet saved. All of those re-render from stored state and lose what was
+// typed.
+//
+// The two-minute tier says "finish anything you are halfway through" rather
+// than "save your work", because on most pages there is nothing to save -
+// results, presence and pairings all write straight through, and only the
+// settings pages have a Save button at all. Telling an arbiter on the
+// pairings screen to save points at a control that is not there.
 // Roughly how long the service is actually down. Named rather than inlined
 // because it is an EXPECTATION, not a measurement the app can make - the
 // restart happens after this process is gone. If restarts start taking
@@ -439,7 +445,7 @@ const deployBanner = {
       message = `in ${left}s - go and grab a coffee, we will be back in ${DOWNTIME_HINT}`
     } else if (left <= 120) {
       tier = "close"
-      message = `in ${this.clock(left)} - good moment to save anything you have typed but not saved yet`
+      message = `in ${this.clock(left)} - good moment to finish anything you are halfway through`
     } else {
       message = `in ${this.clock(left)} - we will be away for ${DOWNTIME_HINT}. Results save as you enter them, and you stay logged in`
     }

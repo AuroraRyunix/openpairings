@@ -88,7 +88,7 @@ Each entry is tagged so a version can be skimmed:
   only then restarts; every connected page shows a banner that counts down
   and escalates in three steps: "we will be away for about 30 seconds,
   results save as you enter them, and you stay logged in", then at two
-  minutes "good moment to save anything you have typed but not saved yet",
+  minutes "good moment to finish anything you are halfway through",
   then red at thirty seconds with "go and grab a coffee, we will be back in
   about 30 seconds".
 
