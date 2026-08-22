@@ -401,6 +401,13 @@ const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute
 // open dialog, a half-filled registration form, and settings pages with an
 // explicit Save button, which re-render from stored state and discard
 // unsaved edits. That is what it names.
+// Roughly how long the service is actually down. Named rather than inlined
+// because it is an EXPECTATION, not a measurement the app can make - the
+// restart happens after this process is gone. If restarts start taking
+// visibly longer than this, change it here rather than letting the banner
+// keep promising something it does not deliver.
+const DOWNTIME_HINT = "about 30 seconds"
+
 const deployBanner = {
   timer: null,
 
@@ -418,15 +425,15 @@ const deployBanner = {
     let message
     if (left <= 0) {
       tier = "now"
-      message = "restarting now - this page will reconnect on its own"
+      message = `restarting - back in ${DOWNTIME_HINT}. This page reconnects by itself; reload it if it does not`
     } else if (left <= 30) {
       tier = "now"
-      message = `in ${left}s - this page will reconnect on its own`
+      message = `in ${left}s - down for ${DOWNTIME_HINT}, then this page reconnects by itself. No need to log in again`
     } else if (left <= 120) {
       tier = "close"
-      message = `in ${this.clock(left)} - save any form you have open but have not saved yet`
+      message = `in ${this.clock(left)} - down for ${DOWNTIME_HINT}. Save any form you have open but have not saved yet`
     } else {
-      message = `in ${this.clock(left)} - the page will reconnect on its own. Results are saved as you enter them`
+      message = `in ${this.clock(left)} - down for ${DOWNTIME_HINT}. Results are saved as you enter them, and you stay logged in`
     }
 
     if (text) { text.textContent = message }

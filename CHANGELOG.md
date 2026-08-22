@@ -77,6 +77,11 @@ Each entry is tagged so a version can be skimmed:
   deadline is held server-side and read on mount rather than only
   broadcast - that person is the whole point of the feature.
 
+  The banner also says how long the outage lasts (about 30 seconds), that
+  the page reconnects by itself, and that you stay logged in - the three
+  things somebody actually wants to know when a bar appears telling them
+  the server is going away.
+
   It deliberately says neither of the two obvious things, because both are
   false. **You are not logged out** - the deploy reuses `SECRET_KEY_BASE`,
   so sessions survive. And **results are not lost**: they write straight
