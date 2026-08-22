@@ -40,27 +40,39 @@ What the deploy script actually does, in order:
    rather than regenerated, so redeploying never invalidates every existing
    user's logged-in session.
 4b. **Warns everyone who has a page open**, if `DEPLOY_NOTICE_TOKEN` is
-   set. Before the restart, POST to the running release and then wait:
+   set - and note WHERE in the sequence this happens.
 
-   ```bash
-   curl -sf -X POST http://localhost:4000/internal/deploy-notice      -H "Authorization: Bearer $DEPLOY_NOTICE_TOKEN" -d 'minutes=10'      || echo "deploy notice failed - continuing anyway"
-   sleep 600
-   ```
+   The notice goes out after the build and **before** `ecto.migrate`, not
+   just before the restart. Everything up to that point is invisible to
+   users: the old release is still serving its own code against the old
+   schema. Migrations are the first step that changes what the running app
+   sees, and a destructive one - a dropped column, say - can break the old
+   code the moment it lands. So the ten-minute wait sits before the
+   migration, leaving migrate and restart back to back, seconds apart, as
+   they always were.
 
-   Every connected LiveView shows a banner that counts down and escalates:
-   informational, then at 2 minutes "finish and save what you are doing",
-   then red under 30 seconds. The countdown runs in the browser, so this
-   costs one message per page, not one per second.
+   Waiting *after* migrating would leave the previous release running
+   against a migrated schema for ten minutes, which is a better way to
+   cause an outage than the one this feature prevents.
 
-   If the deploy aborts after announcing, withdraw it so the banner does
-   not sit at zero on everyone's screen:
+   The script does this itself (`announce_deploy_notice` /
+   `wait_out_notice`). Every connected LiveView shows a banner that counts
+   down and escalates: informational, then at 2 minutes "finish and save
+   what you are doing", then red under 30 seconds. The countdown runs in
+   the browser, so this costs one message per page, not one per second.
 
-   ```bash
-   curl -sf -X POST http://localhost:4000/internal/deploy-notice/cancel      -H "Authorization: Bearer $DEPLOY_NOTICE_TOKEN"
-   ```
+   `DEPLOY_NOTICE_MINUTES` overrides the ten; `0` skips the wait entirely,
+   for a hotfix where being down sooner beats being polite.
 
-   The notice also expires by itself five minutes past the deadline, which
-   is what covers the script dying outright rather than aborting cleanly.
+   **Bootstrap:** the app being asked is the one *currently running*, so
+   the first deploy after adding the token is refused - that process was
+   started without it. The script reports this and carries on. From the
+   next deploy onwards it works.
+
+   If the migration fails the script withdraws the notice, so a countdown
+   never hits zero waiting for a restart that is not coming. The app also
+   expires it five minutes past the deadline, which covers the script dying
+   outright rather than failing cleanly.
 
    Note what the banner does NOT say: nobody is logged out. Step 4 reuses
    `SECRET_KEY_BASE`, so sessions survive. What a restart costs is the
