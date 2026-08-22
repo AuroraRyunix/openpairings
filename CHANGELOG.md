@@ -64,6 +64,25 @@ Each entry is tagged so a version can be skimmed:
   Pin moved to `6d739bd`, and the full suite - including the
   JaVaFo-versus-Ainalrami differential tests - passes against it.
 
+- [Fix] **Hovering a player at the bottom of the bracket map cut the
+  popover off.** The chart clips vertically on purpose (letting it overflow
+  makes the mouse wheel scroll the graph instead of the page), so the
+  canvas grows while a popover is open to give it room. That reserve was
+  measured against a typical popover - and the tallest one belongs to
+  precisely the player most likely to be at the bottom of the chart.
+
+  A pairing-allocated bye goes to the LOWEST score group, and that player's
+  popover carries two rows an ordinary one does not: the repeat-bye warning
+  and the bye-detail footer. Deepest dot, tallest box, reserve sized for
+  neither - about 52px of it was cut off below the graph, which is why it
+  only ever happened on players with the fewest points.
+
+  The reserve now covers the tallest popover rather than the average one.
+  It costs nothing to be generous: the canvas only grows while a popover is
+  actually open, so an over-estimate is a slightly larger transient grow,
+  while an under-estimate silently clips content. There is a test that
+  fails at the old value.
+
 - [Fix] **The registration form's name matches are a dropdown now.** They
   rendered as a list underneath the form, so every keystroke reflowed the
   page and pushed the birth-year and federation fields down, out from under

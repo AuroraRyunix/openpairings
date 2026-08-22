@@ -1195,4 +1195,46 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
       assert html =~ "internal tie-break reasoning is not"
     end
   end
+
+  # A popover that opens downward has to fit inside .pe-bracket-scroll's
+  # vertical clip, so the canvas reserves room for it while it is open. The
+  # reserve was sized for a TYPICAL popover, and the tallest one belongs to
+  # exactly the player most likely to sit at the bottom of the chart: the
+  # pairing-allocated bye goes to the lowest score group, and that popover
+  # carries two extra rows (the repeat-bye warning and the bye-detail foot).
+  # Deepest dot, tallest box, reserve sized for neither - it clipped off the
+  # bottom of the graph.
+  describe "the hover popover has room to open" do
+    test "the canvas reserve clears the deepest downward-opening dot", %{
+      conn: conn,
+      scope: scope
+    } do
+      t = three_round_swiss(scope) |> elem(0)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/3/explain")
+
+      [reserve] = Regex.run(~r/--pe-hover-min:\s*(\d+)px/, html, capture: :all_but_first)
+      reserve = String.to_integer(reserve)
+
+      deepest =
+        Regex.scan(~r/class="pe-board-wrap[^"]*pe-pop-below[^"]*"[^>]*top:\s*(\d+)px/, html)
+        |> Enum.map(fn [_, top] -> String.to_integer(top) end)
+        |> Enum.max(fn -> 0 end)
+
+      # 13 is the wrap's reach beyond the dot centre; 260 the room a hover
+      # popover needs. Kept as literals rather than reaching for the module
+      # attributes, so shrinking either one has to be a deliberate edit here
+      # too rather than silently re-clipping the chart.
+      assert reserve >= deepest + 13 + 260,
+             """
+             The canvas reserves #{reserve}px but the deepest downward-opening
+             dot sits at #{deepest}px, leaving #{reserve - deepest}px for a
+             popover that can be 218px tall plus its 8px gap.
+
+             A bye recipient's popover carries two rows an ordinary one does
+             not, and that player is at the BOTTOM of the chart, so this is
+             the case that clips first.
+             """
+    end
+  end
 end

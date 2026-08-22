@@ -286,7 +286,34 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   # flip itself must reserve the pinned room whenever a trail can appear
   # (round > 1) - otherwise a pinned popover on a near-top/near-bottom dot
   # would clip out of the scroll container.
-  @bracket_pop_room 140
+  #
+  # 140 was measured against a TYPICAL hover popover, and the tallest one is
+  # not typical - it belongs to exactly the player most likely to be at the
+  # bottom of the chart. The box is 218px wide, so at the worst:
+  #
+  #   16  padding
+  #   38  name, wrapping to two lines
+  #   24  colour/bye + score row
+  #   48  paired up/down + colour-due row, wrapping
+  #   48  "rematch" + "already had a bye" row - only rendered when one of
+  #       those is true, and a repeat bye is a bottom-score condition
+  #   36  the bye-detail foot, only rendered for a bye
+  #    8  the gap above the box
+  #  ---
+  #  218
+  #
+  # The last three rows are conditional and they co-occur: the
+  # pairing-allocated bye goes to the LOWEST score group, so the tallest
+  # popover on the chart is also the deepest one, and it overran a reserve
+  # sized for a popover half its height. That is the "hovering a 0-point
+  # player and the box vanishes behind the scroll strip" report.
+  #
+  # 260 covers it with room to spare, and over-reserving is close to free
+  # now that both reservations are deferred behind `:has()` - the canvas
+  # only grows while a popover is actually open, so a too-large number
+  # costs a slightly bigger transient grow, while a too-small one silently
+  # clips content off the bottom of the chart.
+  @bracket_pop_room 260
   # 310 (the old reservation) + 144 for .pe-trail-rounds' max-height growing
   # 96px -> 240px, + ~38px for the fairness stats row added above the
   # sparkline (up to two wrapped 16px lines plus its 6px margin) - that row
