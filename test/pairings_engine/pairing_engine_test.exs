@@ -71,6 +71,56 @@ defmodule PairingsEngine.PairingEngineTest do
       assert Enum.map(round.pairings, & &1.board) == [1, 2, 3]
     end
 
+    test "a board that gives something up is flagged, and says which player pays" do
+      # The clean-round test above proves the polarity is not inverted (round
+      # 1 would light up like a christmas tree if it were). This proves the
+      # other direction: that a real compromise is actually surfaced, rather
+      # than the panel only ever being able to say "fine".
+      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 9})
+      roster(t, 10)
+
+      given_up =
+        Enum.reduce(1..6, [], fn _round, acc ->
+          case Pairing.pair_next_round(t) do
+            {:ok, round} ->
+              enter_results(round)
+
+              flags =
+                (round.explanation["sections"] || [])
+                |> Enum.flat_map(& &1["brackets"])
+                |> Enum.flat_map(& &1["edges"])
+                |> Enum.filter(&(&1["kind"] == "pair"))
+                |> Enum.flat_map(fn edge ->
+                  for %{"label" => label, "value" => 0} <- edge["rungs"], do: label
+                end)
+
+              acc ++ flags
+
+            {:error, _} ->
+              acc
+          end
+        end)
+
+      # Every colour preference cannot be honoured forever in a 10-player
+      # Swiss - somebody eventually takes a colour they were not due, and
+      # that is exactly the board an arbiter gets asked about.
+      assert given_up != [],
+             """
+             Six rounds of a 10-player Swiss and not one board gave anything
+             up. Either the verdict criteria stopped being stored with their
+             zeros (they are filtered out everywhere else), or the polarity
+             is being read backwards.
+             """
+
+      # And what is flagged must come from the verdict set, never from the
+      # score-magnitude rungs or the downfloat-reward ones.
+      assert Enum.all?(given_up, &String.starts_with?(&1, "C"))
+
+      refute Enum.any?(given_up, fn label ->
+               String.contains?(label, "scores") or String.contains?(label, "downfloat")
+             end)
+    end
+
     @tag :javafo
     test "a Swiss tournament left on the default still pairs through JaVaFo" do
       t = tournament()

@@ -1928,24 +1928,67 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .pe-account-pairs li { line-height: 1.5; }
 .pe-account-rungs { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 12px; }
 .pe-account-rungs td { padding: 2px 0; color: var(--text-soft); border-top: 1px solid var(--border); }
-.pe-account-edge {
+/* One row per board: who is on it, the colour history that explains the
+   verdict, and what the pairing gave up to exist. A board that gave up
+   nothing is dimmed rather than hidden - "we checked, it is fine" is
+   information, and hiding it would make the panel look like it only ever
+   reports problems. */
+.pe-verdict-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  justify-content: space-between;
   border-top: 1px solid var(--border);
-  padding: 6px 0;
+  padding: 7px 0;
 }
-.pe-account-edge-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-.pe-account-float-tag { font-size: 11px; color: var(--text-soft); }
-.pe-account-chip {
-  display: inline-block;
+.pe-verdict-row.is-clean { opacity: 0.62; }
+.pe-verdict-seats { display: flex; flex-wrap: wrap; gap: 4px 18px; min-width: 0; }
+.pe-verdict-tags { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+.pe-verdict-note { font-size: 11px; color: var(--text-soft); }
+.pe-verdict-flag {
   font-size: 11px;
-  color: var(--text-soft);
-  background: var(--bg);
-  border: 1px solid var(--border);
+  font-weight: 600;
   border-radius: 999px;
-  padding: 0 7px;
-  margin: 3px 3px 0 0;
+  padding: 1px 8px;
+  border: 1px solid currentColor;
   white-space: nowrap;
 }
-.pe-account-chip-n { color: var(--text); font-variant-numeric: tabular-nums; font-weight: 600; }
+.pe-verdict-flag.is-colour { color: var(--color-warning); }
+.pe-verdict-flag.is-float { color: var(--info); }
+
+.pe-seat { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.pe-seat.is-bye .pe-seat-name { color: var(--text-soft); font-style: italic; }
+.pe-seat-badge {
+  font-size: 10px;
+  font-weight: 700;
+  width: 16px;
+  height: 16px;
+  line-height: 16px;
+  text-align: center;
+  border-radius: 4px;
+  flex: none;
+}
+/* The same cream/charcoal pair the brand mark's pieces use, fixed rather
+   than themed, so W is never rendered dark-on-dark in one theme. */
+.pe-seat-badge.is-w { background: #f7f3e8; color: #1c1a15; }
+.pe-seat-badge.is-b { background: #1c1a15; color: #f7f3e8; }
+.pe-seat-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The colour record, oldest first. Small on purpose: it is a pattern to be
+   scanned, not a table to be read. */
+.pe-seat-history { display: inline-flex; gap: 2px; flex: none; }
+.pe-seat-chip { width: 7px; height: 12px; border-radius: 2px; border: 1px solid var(--border); }
+.pe-seat-chip.is-w { background: #f7f3e8; }
+.pe-seat-chip.is-b { background: #1c1a15; }
+.pe-seat-chip.is-none { background: transparent; }
+
+.pe-account-ladder { margin-top: 6px; }
+.pe-account-ladder summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-soft);
+}
 .pe-account-rung-value {
   text-align: right;
   font-variant-numeric: tabular-nums;

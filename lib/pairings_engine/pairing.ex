@@ -1181,6 +1181,27 @@ defmodule PairingsEngine.Pairing do
     }
   end
 
+  # The six criteria whose value can be read as a verdict about ONE board,
+  # kept even when zero because zero is the whole point: every one of these
+  # is phrased so that higher is better, so a 0 is the board where something
+  # was given up, and a filtered-out 0 is indistinguishable from a criterion
+  # the engine never reported.
+  #
+  # The rest of the ladder is deliberately NOT in here. C7, C8 and C19-C21
+  # are score-scale magnitudes the matcher ranks candidates by, not
+  # statements about a board, and C14/C16 REWARD pairing a recent
+  # downfloater rather than penalising anything - a zero there means this
+  # board did not happen to pair one, which is not a compromise and must
+  # never be rendered as one.
+  @board_verdicts [
+    "C10 topscorer colour diff",
+    "C11 topscorer same colour x3",
+    "C12 colour preference",
+    "C13 strong colour preference",
+    "C15 upfloat repeat r-1",
+    "C17 upfloat repeat r-2"
+  ]
+
   defp edges_json(bracket, by_rank) do
     kept = length(bracket.pairs)
 
@@ -1193,7 +1214,7 @@ defmodule PairingsEngine.Pairing do
         "kind" => if(index < kept, do: "pair", else: "float"),
         "rungs" =>
           rungs
-          |> Enum.reject(fn {_label, value} -> value == 0 end)
+          |> Enum.filter(fn {label, value} -> value != 0 or label in @board_verdicts end)
           |> Enum.map(fn {label, value} -> %{"label" => label, "value" => value} end)
       }
     end)

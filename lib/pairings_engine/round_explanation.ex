@@ -62,12 +62,40 @@ defmodule PairingsEngine.RoundExplanation do
   defp edge(edge, by_id) do
     [a, b] = edge["players"]
 
+    rungs = Enum.map(edge["rungs"] || [], &{&1["label"], &1["value"]})
+    float? = edge["kind"] == "float"
+
     %{
       white: player(a, by_id),
       black: player(b, by_id),
-      float?: edge["kind"] == "float",
-      rungs: Enum.map(edge["rungs"] || [], &{&1["label"], &1["value"]})
+      float?: float?,
+      rungs: rungs,
+      gave_up: if(float?, do: [], else: gave_up(rungs))
     }
+  end
+
+  # Every criterion in `@verdicts` is phrased so that higher is better, so a
+  # zero is a board where that thing was given up to pair the bracket at all.
+  #
+  # Only ever computed for a board INSIDE the bracket. These criteria are
+  # gated on the pair being in the current bracket, so a float edge scores
+  # zero on all six by construction rather than by having sacrificed
+  # anything - reading those zeros as compromises would paint every floating
+  # board as a disaster.
+  @verdicts %{
+    "C10 topscorer colour diff" => {:colour, "topscorer colour balance given up"},
+    "C11 topscorer same colour x3" => {:colour, "a topscorer takes the same colour a third time"},
+    "C12 colour preference" => {:colour, "colour preference denied"},
+    "C13 strong colour preference" => {:colour, "strong colour preference denied"},
+    "C15 upfloat repeat r-1" => {:float, "upfloated again, having upfloated last round"},
+    "C17 upfloat repeat r-2" => {:float, "upfloated again, having upfloated two rounds back"}
+  }
+
+  defp gave_up(rungs) do
+    for {label, 0} <- rungs, Map.has_key?(@verdicts, label) do
+      {kind, text} = Map.fetch!(@verdicts, label)
+      %{kind: kind, text: text, criterion: label}
+    end
   end
 
   defp names(ids, by_id),

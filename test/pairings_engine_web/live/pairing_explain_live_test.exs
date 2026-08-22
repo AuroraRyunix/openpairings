@@ -1125,10 +1125,18 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
       # made up - if the rungs stopped being stored this is what breaks.
       assert html =~ "C6 pairs in bracket"
 
-      # Per-board attribution: the criteria are shown against the board that
-      # carries them, not only as a bracket total.
-      assert html =~ "pe-account-edge"
-      assert html =~ "pe-account-chip"
+      # Per-board: a row per board, each saying what it gave up (or that it
+      # gave up nothing), with the colour record that explains a colour
+      # verdict. The full ladder is still there, behind a disclosure.
+      assert html =~ "pe-verdict-row"
+      assert html =~ "pe-seat-history"
+      assert html =~ "Full criteria ladder"
+
+      # Round 1 gives nothing up: nobody has a colour or float history yet,
+      # so every board is clean. If this ever starts flagging, the polarity
+      # has been read backwards again.
+      assert html =~ "nothing given up"
+      refute html =~ "colour preference denied"
 
       # And the reconstruction-era caveat must be GONE, because it is false
       # here: the engine did record its reasoning.

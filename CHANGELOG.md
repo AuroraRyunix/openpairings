@@ -64,20 +64,36 @@ Each entry is tagged so a version can be skimmed:
   Pin moved to `6d739bd`, and the full suite - including the
   JaVaFo-versus-Ainalrami differential tests - passes against it.
 
-- [Feature] **The rationale now says which BOARD carries a criterion, not
-  just which bracket.** A bracket total like "C12 colour preference: 2"
-  tells you two colour preferences were denied somewhere in it. Each board
-  now carries its own share, so you can see which two.
+- [Feature] **The rationale now shows, board by board, what the pairing
+  gave up - and shows the colour record that explains it.** One row per
+  board: both seats with their assigned colour, each player's last six
+  colours as a strip you can read at a glance, and a flag for anything
+  sacrificed to pair the bracket at all ("colour preference denied",
+  "upfloated again, having upfloated last round"). A board that gave up
+  nothing says so, dimmed - checked and fine is information too.
 
-  This needed nothing new to be computed. The engine had always worked out
-  a full criterion vector per board and then summed them, discarding the
-  parts; Ainalrami v0.10.0 returns them. The boards add up to the bracket
-  total exactly, float boards included, and there is a test asserting that
-  because the panel says so on screen.
+  This replaces a first attempt that was, frankly, unusable: it printed
+  every criterion that scored on every board, around 200 tags for a
+  40-player round, and - worse - it had the polarity backwards. These
+  criteria are phrased so that HIGHER is better, because the engine
+  maximises them. A board scoring 1 on "colour preference" is the board
+  where the preference was *honoured*. The board an arbiter is asked about
+  scores 0, and zeros were exactly what the old view filtered out, so the
+  one fact worth having was rendered as nothing at all.
 
-  One caveat, stated on the page: the top criterion counts one per board,
-  so every board scores one there and it separates nothing. Only its
-  bracket total means anything.
+  Six criteria can be read as a verdict about a single board (the four
+  colour ones, and the two repeat-upfloat ones). The rest deliberately are
+  not shown per board: C7, C8 and C19-C21 are score-scale magnitudes used
+  to rank candidates, and C14/C16 REWARD pairing a recent downfloater
+  rather than penalising anything, so a zero there is not a compromise and
+  must never be drawn as one. Float boards are exempt entirely - those
+  criteria are gated on the pair being inside the bracket, so a float
+  scores zero on all six by construction, and reading that as sacrifice
+  would paint every floating board as a disaster.
+
+  The full ladder is still there, one disclosure away, with the bracket
+  totals. The boards still sum to those totals exactly, float boards
+  included, and a test asserts it because the page says so.
 
 - [Change] **The Ainalrami dependency is pinned to a version tag rather
   than a bare commit.** The pin had sat 79 commits and four days stale

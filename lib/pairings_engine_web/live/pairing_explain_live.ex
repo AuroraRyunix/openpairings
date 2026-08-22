@@ -120,6 +120,60 @@ defmodule PairingsEngineWeb.PairingExplainLive do
     "#{if p.title not in [nil, ""], do: "#{p.title} "}#{p.name}#{if rating > 0, do: " (#{rating})", else: ""}"
   end
 
+  attr :player, :map, default: nil
+  attr :colour, :string, required: true
+  attr :trails, :map, required: true
+
+  # A seat, with the colour history that makes a colour verdict legible. The
+  # squares are the point: "colour preference denied" is a sentence, but
+  # B B W B is the reason, and an arbiter reading it to a player can point
+  # at it. Round 1 has no history, so it renders as the name alone.
+  defp seat(assigns) do
+    ~H"""
+    <div :if={@player} class="pe-seat">
+      <span class={["pe-seat-badge", "is-#{@colour}"]}>{String.upcase(@colour)}</span>
+      <span class="pe-seat-name">{@player.name}</span>
+      <span class="pe-seat-history">
+        <span
+          :for={round <- seat_history(@trails, @player.id)}
+          class={["pe-seat-chip", "is-#{round}"]}
+          aria-hidden="true"
+        ></span>
+      </span>
+    </div>
+
+    <div :if={is_nil(@player)} class="pe-seat is-bye">
+      <span class="pe-seat-name">bye</span>
+    </div>
+    """
+  end
+
+  # The last few rounds' colours, oldest first. Anything that is not a played
+  # colour (a bye, an absence) is its own neutral marker rather than being
+  # skipped, because a gap in the colour record is itself part of why a
+  # preference lands where it does.
+  defp seat_history(trails, player_id) do
+    case Map.get(trails || %{}, player_id) do
+      nil ->
+        []
+
+      %{rounds: rounds} ->
+        rounds
+        |> Enum.reject(& &1[:current])
+        |> Enum.take(-6)
+        |> Enum.map(fn round ->
+          case round[:colour] do
+            "w" -> "w"
+            "b" -> "b"
+            _ -> "none"
+          end
+        end)
+
+      _ ->
+        []
+    end
+  end
+
   defp plural(1), do: ""
   defp plural(_), do: "s"
 
@@ -1071,30 +1125,53 @@ defmodule PairingsEngineWeb.PairingExplainLive do
               </li>
             </ul>
 
-            <div :for={edge <- bracket.edges} class="pe-account-edge">
-              <div class="pe-account-edge-head">
-                <strong>{edge.white && edge.white.name} vs {(edge.black && edge.black.name) || "bye"}</strong>
-                <span :if={edge.float?} class="pe-account-float-tag">
-                  floats onward - this board belongs to the bracket below, and is
-                  counted here because the total above includes it
-                </span>
+            <div
+              :for={edge <- bracket.edges}
+              class={["pe-verdict-row", edge.gave_up == [] && "is-clean"]}
+            >
+              <div class="pe-verdict-seats">
+                <.seat player={edge.white} colour="w" trails={@trails} />
+                <.seat player={edge.black} colour="b" trails={@trails} />
               </div>
 
-              <span :for={{label, value} <- edge.rungs} class="pe-account-chip">
-                {label} <span class="pe-account-chip-n">{value}</span>
-              </span>
+              <div class="pe-verdict-tags">
+                <span :if={edge.float?} class="pe-verdict-note">
+                  floats onward - scored again in the bracket below
+                </span>
 
-              <span :if={edge.rungs == []} class="hint">nothing scored on this board</span>
+                <span :if={not edge.float? and edge.gave_up == []} class="pe-verdict-note">
+                  nothing given up
+                </span>
+
+                <span
+                  :for={item <- edge.gave_up}
+                  class={["pe-verdict-flag", "is-#{item.kind}"]}
+                  title={item.criterion}
+                >
+                  {item.text}
+                </span>
+              </div>
             </div>
 
-            <table :if={bracket.rungs != []} class="pe-account-rungs">
-              <tbody>
-                <tr :for={{label, value} <- bracket.rungs}>
-                  <td>{label}</td>
-                  <td class="pe-account-rung-value">{value}</td>
-                </tr>
-              </tbody>
-            </table>
+            <details :if={bracket.rungs != []} class="pe-account-ladder">
+              <summary>Full criteria ladder for this bracket</summary>
+
+              <table class="pe-account-rungs">
+                <tbody>
+                  <tr :for={{label, value} <- bracket.rungs}>
+                    <td>{label}</td>
+                    <td class="pe-account-rung-value">{value}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <p class="hint">
+                Every criterion that scored, in ladder order, summed over this bracket's boards
+                and the boards its floats leave on. Higher is better throughout: these are what
+                the engine maximises, so a board that scores nothing on a criterion is the board
+                that gave it up.
+              </p>
+            </details>
 
             <p :if={bracket.rungs == []} class="hint">Nothing separated this bracket.</p>
           </div>
