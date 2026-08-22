@@ -1121,6 +1121,22 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
       assert html =~ "What the engine reported"
       assert html =~ "paired by <strong>Ainalrami</strong>"
 
+      # Reference detail, so it sits at the FOOT of the page - after the
+      # bracket map and the board-by-board cards, which are what an arbiter
+      # is actually here for. The intro links down to it.
+      assert html =~ ~s(id="engine-account")
+      assert html =~ ~s(href="#engine-account")
+
+      [map_at, boards_at, account_at] =
+        Enum.map(
+          ["pe-bracket-map", "Board by board", ~s(id="engine-account")],
+          &:binary.match(html, &1)
+        )
+        |> Enum.map(&elem(&1, 0))
+
+      assert map_at < account_at, "the engine account must come after the bracket map"
+      assert boards_at < account_at, "the engine account must come after the board cards"
+
       # A real C-criterion label out of the engine, not a word this codebase
       # made up - if the rungs stopped being stored this is what breaks.
       assert html =~ "C6 pairs in bracket"

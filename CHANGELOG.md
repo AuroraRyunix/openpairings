@@ -64,6 +64,12 @@ Each entry is tagged so a version can be skimmed:
   Pin moved to `6d739bd`, and the full suite - including the
   JaVaFo-versus-Ainalrami differential tests - passes against it.
 
+- [Change] **"What the engine reported" moved to the foot of the rationale
+  page.** It was sitting above the bracket map and the board-by-board
+  cards, which are what an arbiter actually opens the page for. It is
+  reference detail for the moment somebody queries one board, not something
+  to read past every time; the intro now links down to it.
+
 - [Feature] **The rationale now shows, board by board, what the pairing
   gave up - and shows the colour record that explains it.** One row per
   board: both seats with their assigned colour, each player's last six

@@ -1085,117 +1085,12 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         round_number={@round_number}
       />
 
-      <div :if={@engine_account} class="card">
-        <h2>What the engine reported</h2>
-
-        <p :if={match?({:changed, _}, @account_divergence)} class="error-note">
-          <strong>The boards have changed since this was recorded.</strong>
-          {elem(@account_divergence, 1)} of the pairs below are no longer on a board - somebody
-          was swapped, substituted or reseated by hand afterwards. What follows is still an
-          accurate record of what the engine decided; it is no longer a description of the round
-          as it now stands.
-        </p>
-
-        <div :for={section <- @engine_account} class="pe-account-section">
-          <h3 :if={section.category}>{section.category}</h3>
-
-          <div :for={bracket <- section.brackets} class="pe-account-bracket">
-            <div class="pe-account-head">
-              <strong>{score_str(bracket.group)}</strong>
-              <span class="hint">
-                {length(bracket.pairs)} pair{plural(length(bracket.pairs))}, over {bracket.edge_count} edge{plural(
-                  bracket.edge_count
-                )}
-              </span>
-            </div>
-
-            <p :if={bracket.mdps != []} class="hint">
-              <strong>Moved down into this bracket:</strong>
-              {Enum.map_join(bracket.mdps, ", ", & &1.name)}
-            </p>
-
-            <p :if={bracket.floats != []} class="hint">
-              <strong>Floated onward:</strong>
-              {Enum.map_join(bracket.floats, ", ", & &1.name)}
-            </p>
-
-            <ul :if={bracket.edges == []} class="pe-account-pairs">
-              <li :for={{white, black} <- bracket.pairs}>
-                {white && white.name} vs {(black && black.name) || "bye"}
-              </li>
-            </ul>
-
-            <div
-              :for={edge <- bracket.edges}
-              class={["pe-verdict-row", edge.gave_up == [] && "is-clean"]}
-            >
-              <div class="pe-verdict-seats">
-                <.seat player={edge.white} colour="w" trails={@trails} />
-                <.seat player={edge.black} colour="b" trails={@trails} />
-              </div>
-
-              <div class="pe-verdict-tags">
-                <span :if={edge.float?} class="pe-verdict-note">
-                  floats onward - scored again in the bracket below
-                </span>
-
-                <span :if={not edge.float? and edge.gave_up == []} class="pe-verdict-note">
-                  nothing given up
-                </span>
-
-                <span
-                  :for={item <- edge.gave_up}
-                  class={["pe-verdict-flag", "is-#{item.kind}"]}
-                  title={item.criterion}
-                >
-                  {item.text}
-                </span>
-              </div>
-            </div>
-
-            <details :if={bracket.rungs != []} class="pe-account-ladder">
-              <summary>Full criteria ladder for this bracket</summary>
-
-              <table class="pe-account-rungs">
-                <tbody>
-                  <tr :for={{label, value} <- bracket.rungs}>
-                    <td>{label}</td>
-                    <td class="pe-account-rung-value">{value}</td>
-                  </tr>
-                </tbody>
-              </table>
-
-              <p class="hint">
-                Every criterion that scored, in ladder order, summed over this bracket's boards
-                and the boards its floats leave on. Higher is better throughout: these are what
-                the engine maximises, so a board that scores nothing on a criterion is the board
-                that gave it up.
-              </p>
-            </details>
-
-            <p :if={bracket.rungs == []} class="hint">Nothing separated this bracket.</p>
-          </div>
-        </div>
-
-        <p class="hint">
-          The rows above are the FIDE C.04.3 criteria that actually scored, in ladder order; a
-          criterion that scored zero is not listed, because it did not come into the decision.
-          Each board carries its own share, and a bracket's totals are exactly the sum of the
-          boards beneath it.
-        </p>
-
-        <p class="hint">
-          One caveat on reading a single board: the top criterion counts one per board, so every
-          board scores exactly one there and it separates nothing. It is the bracket total that
-          means something for that one.
-        </p>
-      </div>
-
       <p :if={@engine_account} class="hint" style="margin: 4px 0 12px">
-        This round was paired by <strong>Ainalrami</strong>, which records what it decided as it
-        decides it, so the account below is the engine's own - the brackets it actually built and
-        the criteria that actually separated them, not an inference drawn from the result. The
-        board-by-board analysis that follows is still computed live from current data. Items marked
+        This is a live analysis of the current data (pre-round standings, colour history and
+        pairing output). This round was paired by <strong>Ainalrami</strong>, which records what
+        it decided as it decides it, so <a href="#engine-account">what the engine reported</a>
+        is kept at the foot of this page - the brackets it actually built and the criteria that
+        separated them, rather than an inference drawn from the result. Items marked
         <strong>Worth a look</strong>
         below are automated data-consistency checks, not proof of an actual arbiting error.
       </p>
@@ -1779,6 +1674,118 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <div :if={@engine_account} id="engine-account" class="card" style="margin-top: 16px">
+        <h2>What the engine reported</h2>
+
+        <p class="subtitle" style="margin: 0 0 8px">
+          Reference detail, kept out of the way: the engine's own record of how it built this
+          round. Nothing here is needed to run the tournament - it is for the moment somebody
+          asks why a particular board looks the way it does.
+        </p>
+
+        <p :if={match?({:changed, _}, @account_divergence)} class="error-note">
+          <strong>The boards have changed since this was recorded.</strong>
+          {elem(@account_divergence, 1)} of the pairs below are no longer on a board - somebody
+          was swapped, substituted or reseated by hand afterwards. What follows is still an
+          accurate record of what the engine decided; it is no longer a description of the round
+          as it now stands.
+        </p>
+
+        <div :for={section <- @engine_account} class="pe-account-section">
+          <h3 :if={section.category}>{section.category}</h3>
+
+          <div :for={bracket <- section.brackets} class="pe-account-bracket">
+            <div class="pe-account-head">
+              <strong>{score_str(bracket.group)}</strong>
+              <span class="hint">
+                {length(bracket.pairs)} pair{plural(length(bracket.pairs))}, over {bracket.edge_count} edge{plural(
+                  bracket.edge_count
+                )}
+              </span>
+            </div>
+
+            <p :if={bracket.mdps != []} class="hint">
+              <strong>Moved down into this bracket:</strong>
+              {Enum.map_join(bracket.mdps, ", ", & &1.name)}
+            </p>
+
+            <p :if={bracket.floats != []} class="hint">
+              <strong>Floated onward:</strong>
+              {Enum.map_join(bracket.floats, ", ", & &1.name)}
+            </p>
+
+            <ul :if={bracket.edges == []} class="pe-account-pairs">
+              <li :for={{white, black} <- bracket.pairs}>
+                {white && white.name} vs {(black && black.name) || "bye"}
+              </li>
+            </ul>
+
+            <div
+              :for={edge <- bracket.edges}
+              class={["pe-verdict-row", edge.gave_up == [] && "is-clean"]}
+            >
+              <div class="pe-verdict-seats">
+                <.seat player={edge.white} colour="w" trails={@trails} />
+                <.seat player={edge.black} colour="b" trails={@trails} />
+              </div>
+
+              <div class="pe-verdict-tags">
+                <span :if={edge.float?} class="pe-verdict-note">
+                  floats onward - scored again in the bracket below
+                </span>
+
+                <span :if={not edge.float? and edge.gave_up == []} class="pe-verdict-note">
+                  nothing given up
+                </span>
+
+                <span
+                  :for={item <- edge.gave_up}
+                  class={["pe-verdict-flag", "is-#{item.kind}"]}
+                  title={item.criterion}
+                >
+                  {item.text}
+                </span>
+              </div>
+            </div>
+
+            <details :if={bracket.rungs != []} class="pe-account-ladder">
+              <summary>Full criteria ladder for this bracket</summary>
+
+              <table class="pe-account-rungs">
+                <tbody>
+                  <tr :for={{label, value} <- bracket.rungs}>
+                    <td>{label}</td>
+                    <td class="pe-account-rung-value">{value}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <p class="hint">
+                Every criterion that scored, in ladder order, summed over this bracket's boards
+                and the boards its floats leave on. Higher is better throughout: these are what
+                the engine maximises, so a board that scores nothing on a criterion is the board
+                that gave it up.
+              </p>
+            </details>
+
+            <p :if={bracket.rungs == []} class="hint">Nothing separated this bracket.</p>
+          </div>
+        </div>
+
+        <p class="hint">
+          The rows above are the FIDE C.04.3 criteria that actually scored, in ladder order; a
+          criterion that scored zero is not listed, because it did not come into the decision.
+          Each board carries its own share, and a bracket's totals are exactly the sum of the
+          boards beneath it.
+        </p>
+
+        <p class="hint">
+          One caveat on reading a single board: the top criterion counts one per board, so every
+          board scores exactly one there and it separates nothing. It is the bracket total that
+          means something for that one.
+        </p>
       </div>
     </Layouts.app>
     """
