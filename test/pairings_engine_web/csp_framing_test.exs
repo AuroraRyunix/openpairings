@@ -56,11 +56,27 @@ defmodule PairingsEngineWeb.CSPFramingTest do
   end
 
   describe "everything else stays closed" do
-    test "the public REGISTER form is not embeddable - it writes", %{conn: conn} do
+    # Embeddable since 2026-08-22, deliberately. It writes, but the test is
+    # not "does it write" - it is whether framing grants a capability the
+    # embedding page did not already have. This form runs under an anonymous
+    # scope, needs values typed in, and posts to this server rather than the
+    # framing one, so it does not. See PairingsEngineWeb.CSP's "Framing".
+    test "the public REGISTER form IS embeddable, and keeps its own gates", %{conn: conn} do
       t = public_tournament()
       {:ok, t} = Tournaments.update_tournament(t, %{"registration_open" => true})
 
-      assert conn |> get("/p/#{t.public_slug}/register") |> csp() =~ "frame-ancestors 'none'"
+      conn = get(conn, "/p/#{t.public_slug}/register")
+
+      refute csp(conn) =~ "frame-ancestors 'none'"
+      assert get_resp_header(conn, "x-frame-options") == []
+
+      # Framing changes nothing about who may actually enter: closing
+      # registration still closes it, frame or no frame.
+      {:ok, t} = Tournaments.update_tournament(t, %{"registration_open" => false})
+
+      assert build_conn()
+             |> get("/p/#{t.public_slug}/register")
+             |> html_response(200) =~ "Registration is closed"
     end
 
     test "the log-in page is not embeddable", %{conn: conn} do

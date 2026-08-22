@@ -356,14 +356,20 @@ const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute
 // visibility events are really what is firing (a temporary debug log
 // on `visibilitychange` inside the embedded frame would settle it) rather
 // than tuning this further blind.
-// The embeddable public pages (`/p/:slug/pairings`, `/p/:slug/standings`)
-// use a cookie-free socket - see the "/embed/live" socket in endpoint.ex
-// for why. Chosen by path so a normal, non-embedded visit to those same
-// URLs uses it too: the socket works identically either way (those pages
-// have no session state to lose), and picking by `window.self !== window.top`
-// instead would mean the embedded and non-embedded cases exercised
-// different code paths, so a bug in one would not show up in the other.
-const EMBEDDABLE_PATH = /^\/p\/[^/]+\/(pairings|standings)$/
+// The embeddable public pages (`/p/:slug/pairings`, `/p/:slug/standings`,
+// `/p/:slug/register`) use a cookie-free socket - see the "/embed/live"
+// socket in endpoint.ex for why. Chosen by path so a normal, non-embedded
+// visit to those same URLs uses it too: the socket works identically either
+// way (these pages have no session state to lose), and picking by
+// `window.self !== window.top` instead would mean the embedded and
+// non-embedded cases exercised different code paths, so a bug in one would
+// not show up in the other.
+//
+// `register` must stay on this list for as long as it is in the router's
+// `:embeddable` pipeline. Framed on the "/live" socket it would hand
+// LiveView a session token it cannot verify (the Lax cookie is not sent
+// cross-site), and the page would appear to reload forever.
+const EMBEDDABLE_PATH = /^\/p\/[^/]+\/(pairings|standings|register)$/
 const socketPath = EMBEDDABLE_PATH.test(window.location.pathname) ? "/embed/live" : "/live"
 
 const liveSocket = new LiveSocket(socketPath, Socket, {

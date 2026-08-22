@@ -64,6 +64,28 @@ Each entry is tagged so a version can be skimmed:
   Pin moved to `6d739bd`, and the full suite - including the
   JaVaFo-versus-Ainalrami differential tests - passes against it.
 
+- [Fix] **The registration form's name matches are a dropdown now.** They
+  rendered as a list underneath the form, so every keystroke reflowed the
+  page and pushed the birth-year and federation fields down, out from under
+  the cursor of anyone halfway through filling them in. The matches now
+  hang under the field as an overlay - the same panel the arbiter-side FIDE
+  lookup already used. Clicking away closes it and keeps what you typed,
+  which matters for anyone not on the FIDE list, who never picks from it.
+
+- [Feature] **The registration form can be embedded in a club's own site**,
+  like the public pairings and standings pages already could. Same
+  `<iframe>`, same cookie-free socket.
+
+  It was excluded under a blanket "no forms in a third-party frame" rule.
+  That is the right default and was the wrong call here: clickjacking
+  steals authority a victim already holds, and this form holds none - it
+  needs a name, birth year and federation typed in, runs under an anonymous
+  scope, and posts to this server rather than to whoever framed it, so it
+  hands an embedding page nothing that fetching the URL would not.
+
+  Nothing about who may enter has changed: `registration_open` is still
+  checked twice, and entries are still rate-limited per IP.
+
 - [Change] **"What the engine reported" moved to the foot of the rationale
   page.** It was sitting above the bracket map and the board-by-board
   cards, which are what an arbiter actually opens the page for. It is

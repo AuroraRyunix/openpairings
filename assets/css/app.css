@@ -1076,6 +1076,12 @@ button.pe-btn, .pe-btn {
 
 /* FIDE search dropdown */
 .search-wrap { position: relative; }
+/* The public registration name field. `position: relative` is what lets
+   the shared .search-results panel hang under it instead of pushing the
+   birth-year and federation fields down the page on every keystroke. */
+.reg-name-wrap { position: relative; max-width: 420px; }
+.reg-name-wrap input { width: 100%; }
+
 .search-results {
   position: absolute;
   top: 100%;

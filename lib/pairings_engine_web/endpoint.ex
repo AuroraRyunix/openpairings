@@ -52,11 +52,18 @@ defmodule PairingsEngineWeb.Endpoint do
   # authenticated page) to serve two read-only ones. Instead these pages get
   # a socket that never wanted the session in the first place.
   #
-  # Safe precisely because of what those two pages are: no login, no session,
-  # no writes, no per-user state - `mount_current_scope` on them resolves to
-  # an anonymous scope whether or not a session is present, so nothing is
-  # lost by not having one. Any page that DOES depend on the session keeps
-  # using "/live"; `assets/js/app.js` picks between them by path.
+  # Safe because of what these pages are: no login and no per-user state -
+  # `mount_current_scope` resolves to an anonymous scope whether or not a
+  # session is present, so nothing is lost by not having one.
+  #
+  # `/p/:slug/register` joined them on 2026-08-22, and it DOES write, so the
+  # old shorthand "no writes" no longer describes this list. What actually
+  # matters is unchanged: the write takes no authority from the visitor's
+  # session, because there is none to take. It is gated on
+  # `registration_open` and rate-limited per IP, neither of which has
+  # anything to do with which socket carried it. Any page that genuinely
+  # DEPENDS on the session keeps using "/live"; `assets/js/app.js` picks
+  # between them by path.
   socket "/embed/live", Phoenix.LiveView.Socket,
     websocket: [connect_info: [:peer_data, :x_headers]],
     longpoll: [connect_info: [:peer_data, :x_headers]]

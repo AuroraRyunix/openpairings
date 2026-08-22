@@ -158,13 +158,24 @@ defmodule PairingsEngineWeb.Router do
     end
   end
 
-  # The only public page that WRITES, and so the only one NOT embeddable:
-  # a form in a third-party frame is the clickjacking shape this policy
-  # exists to prevent. Gated a second time on `registration_open` inside
-  # the LiveView and again inside `Tournaments.register_public_player/2`,
-  # so reaching this route is not by itself permission to enter.
+  # The only public page that WRITES, and embeddable since 2026-08-22 - a
+  # club wants the entry form on its own site, not a link away from it.
+  #
+  # It was excluded on the rule "no forms in a third-party frame", which is
+  # the right default and the wrong call here. Clickjacking steals AUTHORITY
+  # the victim already holds: an invisible frame, a stray click, and
+  # something happens as them. This form holds none. It needs a name, a
+  # birth year and a federation TYPED IN, it runs under an anonymous scope,
+  # and it grants a framing page nothing it could not do by fetching the
+  # same URL itself. What a visitor types goes to this server either way,
+  # so framing cannot harvest it.
+  #
+  # What stops abuse is unchanged, and none of it is the frame policy:
+  # `registration_open` is checked in the LiveView and again in
+  # `Tournaments.register_public_player/2`, and `RateLimit.allow?` caps
+  # entries per IP. Reaching this route was never permission to enter.
   scope "/", PairingsEngineWeb do
-    pipe_through [:browser]
+    pipe_through [:browser, :embeddable]
 
     live_session :public_registration,
       on_mount: [{PairingsEngineWeb.UserAuth, :mount_current_scope}] do

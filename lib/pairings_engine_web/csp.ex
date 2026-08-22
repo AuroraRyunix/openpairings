@@ -31,14 +31,21 @@ defmodule PairingsEngineWeb.CSP do
 
   `frame-ancestors 'none'` is the default on every response, which is what
   stops the authenticated app being put in someone else's iframe and
-  clicked through by a logged-in victim. Two routes opt out of it:
-  `/p/:slug/pairings` and `/p/:slug/standings`, the read-only public pages,
-  via `allow_framing/2` in the router's `:embeddable` pipeline. Those pages
-  hold no session, take no input and are already world-readable to anyone
-  with the slug, so framing them grants a page no capability it did not
-  already have - which is the property that makes it safe, and the one the
-  register form, the arbiter tools, the mobile result entry and the whole
-  authenticated app do NOT have. They stay at `'none'`.
+  clicked through by a logged-in victim. Three routes opt out of it, via
+  `allow_framing/2` in the router's `:embeddable` pipeline:
+  `/p/:slug/pairings`, `/p/:slug/standings` and `/p/:slug/register`.
+
+  The test is not "does the page write". It is **whether framing hands the
+  embedding page a capability it did not already have**. The two read-only
+  pages hold no session, take no input, and are world-readable to anyone
+  holding the slug. The register form does write, but under an anonymous
+  scope, from values a visitor has to type, to this server rather than the
+  framing one - an attacker gains nothing by framing it that fetching the
+  URL would not already give them.
+
+  The arbiter tools, the mobile result entry and the whole authenticated
+  app fail that test, because they act with authority the visitor already
+  holds. They stay at `'none'`.
 
   ## The nonce
 

@@ -154,6 +154,45 @@ defmodule PairingsEngineWeb.PublicRegisterLiveTest do
       assert player.federation == "USA"
       assert player.birth_year == 1987
     end
+
+    # The matches used to render as a list UNDER the form, so every keystroke
+    # reflowed the birth-year and federation fields further down the page,
+    # out from under the cursor of anyone mid-form.
+    test "matches appear in an overlay panel, not as content that moves the form", %{
+      conn: conn,
+      scope: scope
+    } do
+      t = tournament(scope, open?: true)
+
+      Repo.insert!(%FidePlayer{
+        fide_id: 2_016_192,
+        name: "Nakamura, Hikaru",
+        federation: "USA",
+        birth_year: 1987,
+        title: "GM",
+        standard_rating: 2780
+      })
+
+      {:ok, lv, html} = live(conn, ~p"/p/#{t.public_slug}/register")
+      refute html =~ "search-results"
+
+      html = lv |> element("#reg-search") |> render_change(%{"q" => "Nakamura"})
+
+      # The shared overlay panel, anchored to the field by .reg-name-wrap -
+      # the same component the arbiter-side FIDE lookup uses.
+      assert html =~ "reg-name-wrap"
+      assert html =~ ~s(id="reg-results")
+      assert html =~ "search-results"
+      assert html =~ "Nakamura, Hikaru"
+
+      # Clicking away puts the panel away but must NOT discard what was
+      # typed: someone not on the FIDE list types their name and never picks
+      # from the panel at all.
+      html = render_click(lv, "close_results", %{})
+
+      refute html =~ ~s(id="reg-results")
+      assert html =~ ~s(value="Nakamura")
+    end
   end
 
   describe "closing the form" do

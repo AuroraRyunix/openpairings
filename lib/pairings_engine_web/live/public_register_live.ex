@@ -103,6 +103,14 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
      )}
   end
 
+  # Clicking outside the field puts the overlay away. The typed query is
+  # kept: the panel is a suggestion list, and closing it must not throw away
+  # what someone has written, since a player who is not on the FIDE list
+  # fills the name in by hand and never picks from it at all.
+  def handle_event("close_results", _params, socket) do
+    {:noreply, assign(socket, results: [])}
+  end
+
   def handle_event("clear", _params, socket) do
     {:noreply,
      assign(socket,
@@ -285,17 +293,41 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
                 identical search works because it sits inside its own
                 add-player form. phx-submit here lets Enter register too. --%>
           <form id="reg-search" phx-change="search" phx-submit="submit">
-            <input
-              id="reg-name"
-              type="text"
-              name="q"
-              value={@query}
-              class="pe-input"
-              style="width: 100%; max-width: 420px"
-              autocomplete="off"
-              phx-debounce="250"
-              placeholder="Start typing your last name… e.g. Carlsen"
-            />
+            <%!-- The matches hang UNDER the input as an overlay rather than
+                  pushing the rest of the form down the page. Typing a name
+                  used to reflow everything below it on every keystroke,
+                  which moved the birth-year and federation fields out from
+                  under the cursor mid-form. --%>
+            <div class="reg-name-wrap" phx-click-away="close_results">
+              <input
+                id="reg-name"
+                type="text"
+                name="q"
+                value={@query}
+                class="pe-input"
+                autocomplete="off"
+                role="combobox"
+                aria-expanded={to_string(@results != [])}
+                aria-controls="reg-results"
+                aria-autocomplete="list"
+                phx-debounce="250"
+                placeholder="Start typing your last name… e.g. Carlsen"
+              />
+
+              <div :if={@results != []} id="reg-results" class="search-results" role="listbox">
+                <button
+                  :for={fp <- Enum.take(@results, 8)}
+                  type="button"
+                  role="option"
+                  aria-selected="false"
+                  phx-click="pick"
+                  phx-value-fide-id={fp.fide_id}
+                >
+                  <span>{if fp.title != "", do: "#{fp.title} "}{fp.name}</span>
+                  <span class="meta">{result_meta(fp)}</span>
+                </button>
+              </div>
+            </div>
 
             <div style="display: flex; gap: 12px; margin-top: 10px; max-width: 420px">
               <div style="flex: 1">
@@ -330,29 +362,11 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
               </div>
             </div>
             <p class="subtitle" style="margin: 4px 0 0">
-              Not on the FIDE list below? Birth year and federation are required instead, so
-              the arbiter can still tell you apart from anyone with the same name.
+              Pick yourself from the list that appears as you type and these two fields fill
+              themselves in. Not on the FIDE list? Then birth year and federation are required,
+              so the arbiter can tell you apart from anyone with the same name.
             </p>
           </form>
-
-          <p class="subtitle" style="margin: 8px 0 0">
-            Pick yourself from the FIDE list below - that fills birth year and federation in
-            for you and the two fields above disappear.
-          </p>
-
-          <ul :if={@results != []} class="fide-results" style="margin: 8px 0 0; padding: 0">
-            <li :for={fp <- Enum.take(@results, 8)} style="list-style: none; margin: 4px 0">
-              <button
-                type="button"
-                class="pe-btn"
-                phx-click="pick"
-                phx-value-fide-id={fp.fide_id}
-              >
-                {fp.name} <span :if={fp.standard_rating}>· {fp.standard_rating}</span>
-                <span :if={fp.federation != ""}>· {fp.federation}</span>
-              </button>
-            </li>
-          </ul>
         </div>
 
         <div class="actions" style="margin-top: 12px">
@@ -361,5 +375,17 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
       </div>
     </Layouts.public>
     """
+  end
+
+  # Federation alone cannot separate namesakes, so a row carries birth year
+  # and rating too - the same fields ArbiterCombo shows, for the same reason.
+  defp result_meta(fp) do
+    [
+      fp.federation != "" && fp.federation,
+      fp.birth_year && "b. #{fp.birth_year}",
+      fp.standard_rating && fp.standard_rating > 0 && "#{fp.standard_rating}"
+    ]
+    |> Enum.filter(&is_binary/1)
+    |> Enum.join(" · ")
   end
 end
