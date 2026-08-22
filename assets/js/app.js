@@ -408,6 +408,14 @@ const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute
 // keep promising something it does not deliver.
 const DOWNTIME_HINT = "about 30 seconds"
 
+// A note on "you stay logged in", which the calm tier promises: that is only
+// true because the deploy reuses SECRET_KEY_BASE. That reuse was BROKEN
+// until 2026-08-22 - the systemd unit is written quoted and was read back
+// unquoted, so the regex never matched the file the deploy script itself had
+// written, and every deploy minted a fresh key. Updates logged everyone out
+// for exactly that reason. If sessions start dropping again, suspect that
+// first, and fix it rather than softening this line.
+
 const deployBanner = {
   timer: null,
 
@@ -425,15 +433,15 @@ const deployBanner = {
     let message
     if (left <= 0) {
       tier = "now"
-      message = `restarting - back in ${DOWNTIME_HINT}. This page reconnects by itself; reload it if it does not`
+      message = "back shortly - this page reconnects on its own, no need to touch anything"
     } else if (left <= 30) {
       tier = "now"
-      message = `in ${left}s - down for ${DOWNTIME_HINT}, then this page reconnects by itself. No need to log in again`
+      message = `in ${left}s - go and grab a coffee, we will be back in ${DOWNTIME_HINT}`
     } else if (left <= 120) {
       tier = "close"
-      message = `in ${this.clock(left)} - down for ${DOWNTIME_HINT}. Save any form you have open but have not saved yet`
+      message = `in ${this.clock(left)} - good moment to save anything you have typed but not saved yet`
     } else {
-      message = `in ${this.clock(left)} - down for ${DOWNTIME_HINT}. Results are saved as you enter them, and you stay logged in`
+      message = `in ${this.clock(left)} - we will be away for ${DOWNTIME_HINT}. Results save as you enter them, and you stay logged in`
     }
 
     if (text) { text.textContent = message }
@@ -457,6 +465,46 @@ const deployBanner = {
 }
 
 window.addEventListener("phx:deploy-notice", (e) => deployBanner.show(e.detail.restart_at))
+
+// "Updated to v0.15.2", shown once after a restart that actually changed the
+// version. The comparison has to be client-side: only the browser remembers
+// what was running BEFORE the restart, because the server that knew has been
+// replaced.
+//
+// Nothing is shown on a first visit (no stored version to compare against)
+// or on a restart that did not change the version - a crash-restart or a
+// config reload is not news, and a toast that appears for non-events is one
+// people stop reading.
+const VERSION_KEY = "pairingsengine.version"
+
+// localStorage THROWS rather than returning null in a partitioned third-party
+// frame - Safari's default. Unguarded that would break the socket setup on
+// exactly the embedded pages this app supports.
+const versionStore = {
+  get: () => { try { return localStorage.getItem(VERSION_KEY) } catch (_) { return null } },
+  set: (v) => { try { localStorage.setItem(VERSION_KEY, v) } catch (_) {} },
+}
+
+window.addEventListener("phx:app-version", (e) => {
+  const now = e.detail.version
+  if (!now) { return }
+
+  const before = versionStore.get()
+  versionStore.set(now)
+
+  if (!before || before === now) { return }
+
+  const el = document.getElementById("version-toast")
+  if (!el) { return }
+
+  const text = el.querySelector(".version-toast-text")
+  if (text) { text.textContent = `Updated to v${now}` }
+  el.hidden = false
+
+  const hide = () => { el.hidden = true }
+  el.querySelector(".version-toast-close")?.addEventListener("click", hide, {once: true})
+  setTimeout(hide, 12000)
+})
 
 const EMBEDDABLE_PATH = /^\/p\/[^/]+\/(pairings|standings|register)$/
 const socketPath = EMBEDDABLE_PATH.test(window.location.pathname) ? "/embed/live" : "/live"

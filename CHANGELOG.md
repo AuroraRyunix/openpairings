@@ -64,12 +64,33 @@ Each entry is tagged so a version can be skimmed:
   Pin moved to `6d739bd`, and the full suite - including the
   JaVaFo-versus-Ainalrami differential tests - passes against it.
 
+- [Fix] **Updates no longer log everyone out.** The deploy script has always
+  meant to reuse `SECRET_KEY_BASE` across deploys, so sessions survive a
+  restart - the code and the docs both said so. It never worked. The systemd
+  unit is written as `Environment="SECRET_KEY_BASE=..."` and was read back
+  with a pattern expecting no quotes, so the regex could not match the file
+  the same script had just written. The reuse branch never ran, every deploy
+  minted a fresh key, and every signed session cookie was invalidated.
+
+  The script lives outside this repo and has been fixed there; both quoted
+  and unquoted units are accepted now. Sessions survive from the next deploy
+  onwards.
+
+- [Feature] **"Updated to v0.15.1" appears once after an update**, bottom
+  right, dismissible, gone by itself after twelve seconds. Only when the
+  version actually changed: a crash-restart or a config reload is not news,
+  and a toast that fires for non-events is one people stop reading. The
+  comparison happens in the browser, because only it remembers what was
+  running before the restart - the server that knew has been replaced.
+
 - [Feature] **A deploy now warns everyone with a page open, before the
   server restarts.** The deploy script announces the restart, waits, and
   only then restarts; every connected page shows a banner that counts down
-  and escalates - informational at first, at 2 minutes "finish and save
-  what you are doing, and do not start anything new", and red under 30
-  seconds.
+  and escalates in three steps: "we will be away for about 30 seconds,
+  results save as you enter them, and you stay logged in", then at two
+  minutes "good moment to save anything you have typed but not saved yet",
+  then red at thirty seconds with "go and grab a coffee, we will be back in
+  about 30 seconds".
 
   The countdown runs in the browser from a single timestamp, so this costs
   one message per page rather than one per second per socket. Someone who

@@ -3682,3 +3682,33 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   border-bottom-color: var(--danger);
 }
 .deploy-banner[data-tier="now"] .deploy-banner-text { color: #fff; font-weight: 700; }
+
+/* "Updated to vX.Y.Z", after a restart that changed the version. Bottom
+   corner rather than a top bar: the update has already happened, so this is
+   an acknowledgement, not something to act on. */
+.version-toast {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 210;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-size: 13px;
+  color: var(--text);
+}
+.version-toast-close {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--text-soft);
+  padding: 0 2px;
+}
+.version-toast-close:hover { color: var(--text); }

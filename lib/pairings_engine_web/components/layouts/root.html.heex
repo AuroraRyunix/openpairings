@@ -110,6 +110,14 @@
       <strong class="deploy-banner-lead">Server update</strong>
       <span class="deploy-banner-text"></span>
     </div>
+    <%!-- Shown once, after a restart, when the version the browser last saw
+          is not the version now running. The comparison is client-side
+          because only the browser remembers what it saw BEFORE the restart -
+          the server that knew has been replaced. --%>
+    <div id="version-toast" class="version-toast" role="status" aria-live="polite" hidden>
+      <span class="version-toast-text"></span>
+      <button type="button" class="version-toast-close" aria-label="Dismiss">&times;</button>
+    </div>
     {@inner_content}
   </body>
 </html>

@@ -162,6 +162,20 @@ defmodule PairingsEngineWeb.DeployNoticeTest do
       assert_push_event(lv, "deploy-notice", %{restart_at: nil})
     end
 
+    test "every mount is told the running version, for the after-update toast" do
+      # The browser compares this against what it saw last: only IT remembers
+      # what was running before a restart, because the server that knew has
+      # been replaced.
+      %{conn: conn} = register_and_log_in_user(%{conn: build_conn()})
+
+      {:ok, lv, html} = live(conn, ~p"/")
+
+      assert html =~ ~s(id="version-toast")
+      assert_push_event(lv, "app-version", %{version: version})
+      assert version == PairingsEngineWeb.Layouts.app_version()
+      assert version =~ ~r/^\d+\.\d+\.\d+/
+    end
+
     test "no notice pending means nothing is pushed", %{conn: conn} do
       {:ok, lv, _html} = live(conn, ~p"/")
 

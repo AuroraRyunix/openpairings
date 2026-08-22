@@ -37,7 +37,9 @@ defmodule PairingsEngineWeb.DeployNotice do
   # already connected when it fired.
   defp announce_current(socket) do
     if connected?(socket) do
-      push(socket, Deploy.restart_at())
+      socket
+      |> push(Deploy.restart_at())
+      |> push_event("app-version", %{version: PairingsEngineWeb.Layouts.app_version()})
     else
       socket
     end
