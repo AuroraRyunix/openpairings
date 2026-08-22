@@ -72,6 +72,12 @@ Each entry is tagged so a version can be skimmed:
   lookup already used. Clicking away closes it and keeps what you typed,
   which matters for anyone not on the FIDE list, who never picks from it.
 
+  The matches are real buttons rather than an ARIA listbox, on purpose:
+  those roles promise arrow-key navigation, and a screen reader announcing
+  a listbox whose arrows do nothing is worse than plain controls. Tab
+  reaches them, Enter picks, and a live region says how many appeared,
+  since a panel opening is otherwise silent.
+
 - [Feature] **The registration form can be embedded in a club's own site**,
   like the public pairings and standings pages already could. Same
   `<iframe>`, same cookie-free socket.

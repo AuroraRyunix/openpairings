@@ -298,6 +298,15 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
                   used to reflow everything below it on every keystroke,
                   which moved the birth-year and federation fields out from
                   under the cursor mid-form. --%>
+            <%!-- Deliberately NOT marked up as an ARIA combobox/listbox.
+                  Those roles promise arrow-key navigation and an
+                  aria-activedescendant that follows it, and none of that is
+                  wired here - a screen reader would announce a listbox whose
+                  arrows do nothing, which is worse than plain controls.
+                  These are real <button>s in document order, so Tab reaches
+                  them and Enter activates them. The live region below says
+                  how many appeared, since the panel opening is otherwise
+                  silent. ArbiterCombo makes the same call. --%>
             <div class="reg-name-wrap" phx-click-away="close_results">
               <input
                 id="reg-name"
@@ -306,20 +315,14 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
                 value={@query}
                 class="pe-input"
                 autocomplete="off"
-                role="combobox"
-                aria-expanded={to_string(@results != [])}
-                aria-controls="reg-results"
-                aria-autocomplete="list"
                 phx-debounce="250"
                 placeholder="Start typing your last name… e.g. Carlsen"
               />
 
-              <div :if={@results != []} id="reg-results" class="search-results" role="listbox">
+              <div :if={@results != []} id="reg-results" class="search-results">
                 <button
                   :for={fp <- Enum.take(@results, 8)}
                   type="button"
-                  role="option"
-                  aria-selected="false"
                   phx-click="pick"
                   phx-value-fide-id={fp.fide_id}
                 >
@@ -328,6 +331,10 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
                 </button>
               </div>
             </div>
+
+            <p class="sr-only" aria-live="polite">
+              {match_announcement(@results)}
+            </p>
 
             <div style="display: flex; gap: 12px; margin-top: 10px; max-width: 420px">
               <div style="flex: 1">
@@ -376,6 +383,15 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
     </Layouts.public>
     """
   end
+
+  # The panel opening is a purely visual event, so it is announced. Empty
+  # string when there is nothing to say - an aria-live region that keeps
+  # repeating "0 matches" while somebody types their name is noise.
+  defp match_announcement([]), do: ""
+  defp match_announcement([_one]), do: "1 matching player, listed below the field."
+
+  defp match_announcement(results),
+    do: "#{min(length(results), 8)} matching players, listed below the field."
 
   # Federation alone cannot separate namesakes, so a row carries birth year
   # and rating too - the same fields ArbiterCombo shows, for the same reason.
