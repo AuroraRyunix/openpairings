@@ -3643,3 +3643,42 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   .hist-save { align-items: stretch; }
   .hist-save > .pe-btn { width: 100%; }
 }
+
+/* Pending-restart banner. Sticky at the very top, above the topbar, so it
+   cannot be scrolled away from - the whole point is that somebody typing
+   results at the bottom of a long page still sees it.
+
+   Three tiers set by the DeployCountdown hook, escalating in colour rather
+   than only in wording: a flat banner sitting there for ten minutes stops
+   being read long before the restart lands. */
+.deploy-banner {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 14px;
+  font-size: 13px;
+  border-bottom: 1px solid currentColor;
+  background: var(--surface-alt);
+  color: var(--text-soft);
+}
+.deploy-banner-lead { text-transform: uppercase; letter-spacing: 0.05em; font-size: 11px; }
+.deploy-banner-text { color: var(--text); }
+
+.deploy-banner[data-tier="close"] {
+  background: var(--surface-alt);
+  color: var(--color-warning);
+}
+.deploy-banner[data-tier="close"] .deploy-banner-text { color: var(--color-warning); font-weight: 600; }
+
+/* No animation: a flashing bar over a results table is the wrong kind of
+   urgent when somebody is trying to finish typing a scoresheet. */
+.deploy-banner[data-tier="now"] {
+  background: var(--danger);
+  color: #fff;
+  border-bottom-color: var(--danger);
+}
+.deploy-banner[data-tier="now"] .deploy-banner-text { color: #fff; font-weight: 700; }

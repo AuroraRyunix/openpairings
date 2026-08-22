@@ -91,6 +91,25 @@
     </script>
   </head>
   <body>
+    <%!-- Pending-restart warning, announced by the deploy script shortly
+          before it restarts the service.
+
+          It lives HERE, in the root layout, rather than in `Layouts.app`
+          and `Layouts.public`, because those are function components: they
+          receive only the attributes each page passes them, not the
+          LiveView's assigns. Threading the deadline through would mean
+          touching 29 call sites, and a call site missed later shows no
+          warning at all - which looks exactly like no deploy pending.
+
+          So it is rendered once, empty, on every page, and driven entirely
+          by the `phx:deploy-notice` event the DeployNotice hook pushes.
+          The countdown and the escalation both run in the browser (see
+          assets/js/app.js), so the server never sends a per-second message
+          to every open socket. --%>
+    <div id="deploy-banner" class="deploy-banner" role="status" aria-live="polite" hidden>
+      <strong class="deploy-banner-lead">Server update</strong>
+      <span class="deploy-banner-text"></span>
+    </div>
     {@inner_content}
   </body>
 </html>

@@ -237,6 +237,7 @@ defmodule PairingsEngineWeb.Layouts do
   exists for), then the page content.
   """
   attr :flash, :map, required: true, doc: "the map of flash messages"
+
   slot :inner_block, required: true
 
   def public(assigns) do

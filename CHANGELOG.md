@@ -64,6 +64,28 @@ Each entry is tagged so a version can be skimmed:
   Pin moved to `6d739bd`, and the full suite - including the
   JaVaFo-versus-Ainalrami differential tests - passes against it.
 
+- [Feature] **A deploy now warns everyone with a page open, before the
+  server restarts.** The deploy script announces the restart, waits, and
+  only then restarts; every connected page shows a banner that counts down
+  and escalates - informational at first, at 2 minutes "finish and save
+  what you are doing, and do not start anything new", and red under 30
+  seconds.
+
+  The countdown runs in the browser from a single timestamp, so this costs
+  one message per page rather than one per second per socket. Someone who
+  opens a page halfway through the countdown still sees it, because the
+  deadline is held server-side and read on mount rather than only
+  broadcast - that person is the whole point of the feature.
+
+  It deliberately does **not** say you will be logged out, because you will
+  not be: the deploy reuses `SECRET_KEY_BASE` so sessions survive a
+  restart. What a restart actually costs is the socket dropping and unsaved
+  form input going with it, which is what it warns about instead. Warning
+  about a logout that cannot happen is how people learn to ignore banners.
+
+  Off unless `DEPLOY_NOTICE_TOKEN` is set: the endpoint fails closed, so an
+  unset variable means no banner rather than an open route.
+
 - [Fix] **Hovering a player at the bottom of the bracket map cut the
   popover off.** The chart clips vertically on purpose (letting it overflow
   makes the mouse wheel scroll the graph instead of the page), so the

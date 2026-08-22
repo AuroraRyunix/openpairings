@@ -32,7 +32,10 @@ defmodule PairingsEngineWeb.Router do
     pipe_through [:browser, :require_authenticated_user]
 
     live_session :require_authenticated_tournaments,
-      on_mount: [{PairingsEngineWeb.UserAuth, :require_authenticated}] do
+      on_mount: [
+        PairingsEngineWeb.DeployNotice,
+        {PairingsEngineWeb.UserAuth, :require_authenticated}
+      ] do
       live "/", TournamentsLive
       live "/fide", FideLive
       live "/changelog", ChangelogLive
@@ -103,13 +106,27 @@ defmodule PairingsEngineWeb.Router do
     end
   end
 
+  # Called by the deploy script on the box itself, immediately before it
+  # sleeps and then restarts the service, so every open page can warn before
+  # its socket drops. Bearer-token authenticated and fails closed when
+  # DEPLOY_NOTICE_TOKEN is unset - see PairingsEngineWeb.DeployController.
+  scope "/internal", PairingsEngineWeb do
+    pipe_through [:api]
+
+    post "/deploy-notice", DeployController, :notice
+    post "/deploy-notice/cancel", DeployController, :cancel
+  end
+
   ## Authentication routes
 
   scope "/", PairingsEngineWeb do
     pipe_through [:browser, :require_authenticated_user]
 
     live_session :require_authenticated_user,
-      on_mount: [{PairingsEngineWeb.UserAuth, :require_authenticated}] do
+      on_mount: [
+        PairingsEngineWeb.DeployNotice,
+        {PairingsEngineWeb.UserAuth, :require_authenticated}
+      ] do
       live "/users/settings", UserLive.Settings, :edit
       live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
     end
@@ -121,7 +138,10 @@ defmodule PairingsEngineWeb.Router do
     pipe_through [:browser]
 
     live_session :current_user,
-      on_mount: [{PairingsEngineWeb.UserAuth, :mount_current_scope}] do
+      on_mount: [
+        PairingsEngineWeb.DeployNotice,
+        {PairingsEngineWeb.UserAuth, :mount_current_scope}
+      ] do
       live "/users/register", UserLive.Registration, :new
       live "/users/log-in", UserLive.Login, :new
       live "/users/log-in/:token", UserLive.Confirmation, :new
@@ -152,7 +172,10 @@ defmodule PairingsEngineWeb.Router do
     pipe_through [:browser, :embeddable]
 
     live_session :public_tournament_pages,
-      on_mount: [{PairingsEngineWeb.UserAuth, :mount_current_scope}] do
+      on_mount: [
+        PairingsEngineWeb.DeployNotice,
+        {PairingsEngineWeb.UserAuth, :mount_current_scope}
+      ] do
       live "/p/:slug/pairings", PublicPairingsLive
       live "/p/:slug/standings", PublicStandingsLive
     end
@@ -178,7 +201,10 @@ defmodule PairingsEngineWeb.Router do
     pipe_through [:browser, :embeddable]
 
     live_session :public_registration,
-      on_mount: [{PairingsEngineWeb.UserAuth, :mount_current_scope}] do
+      on_mount: [
+        PairingsEngineWeb.DeployNotice,
+        {PairingsEngineWeb.UserAuth, :mount_current_scope}
+      ] do
       live "/p/:slug/register", PublicRegisterLive
     end
   end
@@ -194,7 +220,10 @@ defmodule PairingsEngineWeb.Router do
     get "/tools", ToolsController, :index
 
     live_session :tools,
-      on_mount: [{PairingsEngineWeb.UserAuth, :mount_current_scope}] do
+      on_mount: [
+        PairingsEngineWeb.DeployNotice,
+        {PairingsEngineWeb.UserAuth, :mount_current_scope}
+      ] do
       live "/tools/norms", ToolsNormsLive
     end
 
@@ -213,7 +242,10 @@ defmodule PairingsEngineWeb.Router do
     get "/leave", MobileEnrollController, :leave
 
     live_session :mobile_results,
-      on_mount: [{PairingsEngineWeb.MobileAuth, :require_enrollment}] do
+      on_mount: [
+        PairingsEngineWeb.DeployNotice,
+        {PairingsEngineWeb.MobileAuth, :require_enrollment}
+      ] do
       live "/results", MobileResultsLive
     end
   end

@@ -39,6 +39,34 @@ What the deploy script actually does, in order:
    already exists from a prior deploy, its `SECRET_KEY_BASE` is **reused**
    rather than regenerated, so redeploying never invalidates every existing
    user's logged-in session.
+4b. **Warns everyone who has a page open**, if `DEPLOY_NOTICE_TOKEN` is
+   set. Before the restart, POST to the running release and then wait:
+
+   ```bash
+   curl -sf -X POST http://localhost:4000/internal/deploy-notice      -H "Authorization: Bearer $DEPLOY_NOTICE_TOKEN" -d 'minutes=10'      || echo "deploy notice failed - continuing anyway"
+   sleep 600
+   ```
+
+   Every connected LiveView shows a banner that counts down and escalates:
+   informational, then at 2 minutes "finish and save what you are doing",
+   then red under 30 seconds. The countdown runs in the browser, so this
+   costs one message per page, not one per second.
+
+   If the deploy aborts after announcing, withdraw it so the banner does
+   not sit at zero on everyone's screen:
+
+   ```bash
+   curl -sf -X POST http://localhost:4000/internal/deploy-notice/cancel      -H "Authorization: Bearer $DEPLOY_NOTICE_TOKEN"
+   ```
+
+   The notice also expires by itself five minutes past the deadline, which
+   is what covers the script dying outright rather than aborting cleanly.
+
+   Note what the banner does NOT say: nobody is logged out. Step 4 reuses
+   `SECRET_KEY_BASE`, so sessions survive. What a restart costs is the
+   socket dropping and any unsaved form input with it - so that is what it
+   warns about.
+
 5. **Restarts the service** and prints the last systemd/journalctl output
    so a failed boot is visible immediately.
 
@@ -67,6 +95,7 @@ server.
 | `PORT` | no (default 4000) | internal HTTP port |
 | `SMTP_USERNAME` / `SMTP_PASSWORD` | yes | magic-link login sends real e-mail in prod - **the app refuses to boot without both**, since there is no local mailbox fallback outside dev |
 | `POOL_SIZE` | no (default 5) | Ecto connection pool size |
+| `DEPLOY_NOTICE_TOKEN` | no | shared secret for the pre-restart warning below. Unset means the endpoint refuses everything, so the only cost of omitting it is no banner |
 | `DNS_CLUSTER_QUERY` | no | multi-node clustering, unused in this single-node deployment |
 | `KEYCLOAK_CLIENT_ID` | no | 02cloud SSO client id (`openpairings`). Omit to disable SSO entirely |
 | `KEYCLOAK_CLIENT_SECRET` | no | the confidential client's secret - **treat like `SECRET_KEY_BASE`** |

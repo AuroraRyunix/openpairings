@@ -236,6 +236,11 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
   @impl true
   def render(assigns) do
     ~H"""
+    <%!-- The one public page that opts into the restart banner. The
+          read-only pages deliberately do not: they are embedded in club
+          websites, where a countdown from somebody else's server reads as
+          that site being broken, and a spectator has no work to lose. A
+          half-typed entry here is exactly the work a restart costs. --%>
     <Layouts.public flash={@flash}>
       <div :if={@tournament} class="page-header">
         <div>

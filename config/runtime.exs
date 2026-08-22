@@ -271,3 +271,10 @@ if config_env() == :prod do
   #
   # Check `Plug.SSL` for all available options in `force_ssl`.
 end
+
+# Shared secret for the deploy script's "about to restart" announcement.
+# Unset means the endpoint refuses everything, which is the safe default:
+# an unset variable must not silently open a route that can put a banner on
+# every user's screen.
+config :pairings_engine,
+  deploy_notice_token: System.get_env("DEPLOY_NOTICE_TOKEN")

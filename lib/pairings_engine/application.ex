@@ -18,6 +18,7 @@ defmodule PairingsEngine.Application do
       PairingsEngine.Kbsb.Sync,
       PairingsEngine.Tools.Session,
       PairingsEngine.RateLimit,
+      PairingsEngine.Deploy,
       # Start to serve requests, typically the last entry
       PairingsEngineWeb.Endpoint
     ]

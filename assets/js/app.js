@@ -369,6 +369,74 @@ const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute
 // `:embeddable` pipeline. Framed on the "/live" socket it would hand
 // LiveView a session token it cannot verify (the Lax cookie is not sent
 // cross-site), and the page would appear to reload forever.
+
+// Pending-restart countdown, driven by the `deploy-notice` event the
+// DeployNotice on_mount hook pushes. The banner itself is rendered empty in
+// the root layout on every page, so there is no per-page plumbing to forget.
+//
+// Ticks here rather than server-side: a per-second assign would mean one
+// message per second to every open socket, which is real load for a
+// cosmetic number. The tier switches here too, so escalation is free.
+//
+// Three tiers, because one flat banner sitting there for ten minutes becomes
+// furniture and stops being read:
+//   > 2 min   a restart is coming, save as you go
+//   <= 2 min  do not START anything; finish and save what is open
+//   <= 30 s   imminent
+//
+// Deliberately never says "you will be logged out": the deploy reuses
+// SECRET_KEY_BASE, so sessions survive a restart. What is lost is unsaved
+// input, which is the thing actually worth warning about.
+const deployBanner = {
+  timer: null,
+
+  clock(sec) {
+    const m = Math.floor(sec / 60)
+    const s = String(sec % 60).padStart(2, "0")
+    return `${m}:${s}`
+  },
+
+  render(el, at) {
+    const left = Math.max(0, Math.round((at - Date.now()) / 1000))
+    const text = el.querySelector(".deploy-banner-text")
+
+    let tier = "soon"
+    let message
+    if (left <= 0) {
+      tier = "now"
+      message = "restarting now - this page will reconnect on its own"
+    } else if (left <= 30) {
+      tier = "now"
+      message = `in ${left}s - stop entering results now`
+    } else if (left <= 120) {
+      tier = "close"
+      message = `in ${this.clock(left)} - finish and save what you are doing, and do not start anything new`
+    } else {
+      message = `in ${this.clock(left)} - you may lose unsaved changes, so save as you go`
+    }
+
+    if (text) { text.textContent = message }
+    el.dataset.tier = tier
+  },
+
+  show(iso) {
+    const el = document.getElementById("deploy-banner")
+    if (!el) { return }
+    clearInterval(this.timer)
+
+    if (!iso) { el.hidden = true; return }
+
+    const at = Date.parse(iso)
+    if (isNaN(at)) { el.hidden = true; return }
+
+    el.hidden = false
+    this.render(el, at)
+    this.timer = setInterval(() => this.render(el, at), 1000)
+  },
+}
+
+window.addEventListener("phx:deploy-notice", (e) => deployBanner.show(e.detail.restart_at))
+
 const EMBEDDABLE_PATH = /^\/p\/[^/]+\/(pairings|standings|register)$/
 const socketPath = EMBEDDABLE_PATH.test(window.location.pathname) ? "/embed/live" : "/live"
 
