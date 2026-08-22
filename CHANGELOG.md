@@ -14,7 +14,7 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
-## [0.15.1] - 2026-08-21
+## [0.16.0] - 2026-08-22
 
 ### Security
 
@@ -94,7 +94,7 @@ Each entry is tagged so a version can be skimmed:
   and unquoted units are accepted now. Sessions survive from the next deploy
   onwards.
 
-- [Feature] **"Updated to v0.15.1" appears once after an update**, bottom
+- [Feature] **"Updated to v0.16.0" appears once after an update**, bottom
   right, dismissible, gone by itself after twelve seconds. Only when the
   version actually changed: a crash-restart or a config reload is not news,
   and a toast that fires for non-events is one people stop reading. The
@@ -318,6 +318,10 @@ Each entry is tagged so a version can be skimmed:
   Elixir. JaVaFo is still the default engine and is still credited where
   the credit is owed - in the README, the licence notes and the
   cross-program-agreement documentation.
+
+## [0.15.1] - 2026-08-21
+
+### Changed
 
 - [Change] **Choosing the Ainalrami engine now asks first, and the
   description finally tells the truth about it.** The old copy said a
