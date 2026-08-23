@@ -18,6 +18,13 @@ Each entry is tagged so a version can be skimmed:
 
 ### Changed
 
+- [Removed] **The orange accent and the Gruvbox theme are gone too.**
+  Orange carried the same translucent-warm `--accent-soft` as amber, so
+  removing only amber left the identical trap one click away in the picker.
+  Gruvbox showed it regardless of accent, because its own signature colour
+  is orange - that one was the theme working as intended rather than a
+  defect, and it goes because it is not wanted.
+
 - [Removed] **The amber accent is gone.** In every dark theme its
   `--accent-soft` was a translucent orange, and that value is painted behind
   the active topbar tab and as the focus ring on selects - so a

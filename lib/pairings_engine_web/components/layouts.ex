@@ -363,7 +363,6 @@ defmodule PairingsEngineWeb.Layouts do
     {"slate", "#475569", "Slate"},
     {"indigo", "#4338ca", "Indigo"},
     {"cyan", "#0e7490", "Cyan"},
-    {"orange", "#c2410c", "Orange"},
     {"fuchsia", "#a21caf", "Fuchsia"}
   ]
 
@@ -409,13 +408,12 @@ defmodule PairingsEngineWeb.Layouts do
     {"solarized", "hero-sparkles-micro", "Solarized Dark"},
     {"nord", "hero-cloud-micro", "Nord"},
     {"dracula", "hero-bolt-micro", "Dracula"},
-    {"catppuccin", "hero-heart-micro", "Catppuccin Mocha"},
-    {"gruvbox", "hero-fire-micro", "Gruvbox Dark"}
+    {"catppuccin", "hero-heart-micro", "Catppuccin Mocha"}
   ]
 
   @doc """
   A compact theme switch (System / Light / Dark / Solarized Dark / Nord /
-  Dracula / Catppuccin Mocha / Gruvbox Dark) for the top bar,
+  Dracula / Catppuccin Mocha) for the top bar,
   styled with the app's own design tokens so it matches the rest of the UI in
   both themes. The active option is highlighted purely from CSS, keyed off the
   `data-theme` / `data-theme-source` attributes the inline script in
