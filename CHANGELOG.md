@@ -18,6 +18,29 @@ Each entry is tagged so a version can be skimmed:
 
 ### Changed
 
+- [Feature] **Four new themes: Solarized Light, High Contrast, Tokyo Night
+  and Nocturne.**
+
+  The set was five dark themes and one light, which is backwards for the
+  work: an arbiter enters results in a brightly lit hall at two in the
+  afternoon, not in a dark room at midnight. Three of these four address
+  that.
+
+  - **Solarized Light** - the palette already here, read the other way up.
+  - **High Contrast** - pure black on white, heavy borders, no tinted
+    surfaces. Not a flavour but an accessibility option, for reading a
+    laptop across a hall; every other theme here trades contrast for calm.
+  - **Tokyo Night** - deep indigo, distinct from a set that skewed grey
+    (Nord) or purple-on-charcoal (Dracula, Catppuccin).
+  - **Nocturne** - muted rose and gold over deep plum-grey. The only one
+    that is not somebody else's palette.
+
+- [Fix] **A categories test asserted a bare word against the whole page.**
+  It creates a player called "High" and then did `refute html =~ "High"`,
+  which broke the moment unrelated chrome contained that substring - the
+  "High Contrast" theme in the topbar picker. The claim is about the preview
+  modal's contents, so it now asks the modal rather than the document.
+
 - [Removed] **The orange accent and the Gruvbox theme are gone too.**
   Orange carried the same translucent-warm `--accent-soft` as amber, so
   removing only amber left the identical trap one click away in the picker.

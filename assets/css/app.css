@@ -216,6 +216,140 @@
   --color-base-content: #93a1a1;
 }
 
+/* Solarized LIGHT (Ethan Schoonover's palette, light side: base3/2/1 for
+   surfaces, base00/01 for text). Ships alongside Solarized Dark because the
+   tokens are the same palette read the other way up, and because this app
+   is used in bright halls far more than in dark rooms. */
+[data-theme="solarized-light"] {
+  --bg: #fdf6e3;
+  --surface: #fffbf0;
+  --border: #e6dcc4;
+  --text: #073642;
+  --text-soft: #657b83;
+  --accent: #268bd2;
+  --accent-hover: #1f6f9f;
+  --accent-soft: #dcecf7;
+  --danger: #dc322f;
+  --success: #859900;
+  --success-soft: #eef0d9;
+  --warn: #b58900;
+  --warn-soft: #f6ecd2;
+  --info: #6c71c4;
+  --info-soft: #e6e7f4;
+  --shadow: 0 1px 3px rgba(101, 123, 131, 0.16);
+
+  --surface-alt: #f5eed9;
+  --surface-hover: #f0e7cd;
+  --scrim: rgba(7, 54, 66, 0.4);
+  --pe-bg-alt: var(--surface-alt);
+
+  color-scheme: light;
+  --color-base-100: #fffbf0;
+  --color-base-200: #fdf6e3;
+  --color-base-300: #f5eed9;
+  --color-base-content: #073642;
+}
+
+/* HIGH CONTRAST (light). Not a flavour - an accessibility option. Pure
+   black on white, heavier borders, no tinted surfaces, and a blue that
+   clears WCAG AA against white at body size. The case it exists for is an
+   arbiter reading a laptop across a bright hall, where every other theme
+   here trades contrast for calm. */
+[data-theme="contrast"] {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --border: #767676;
+  --text: #000000;
+  --text-soft: #3d3d3d;
+  --accent: #0b4fa8;
+  --accent-hover: #073a7d;
+  --accent-soft: #dbe6f6;
+  --danger: #b3000f;
+  --success: #0a6b21;
+  --success-soft: #d8ecdb;
+  --warn: #7a4c00;
+  --warn-soft: #f4e7cf;
+  --info: #0b4fa8;
+  --info-soft: #dbe6f6;
+  --shadow: 0 0 0 1px #000000;
+
+  --surface-alt: #f2f2f2;
+  --surface-hover: #e8e8e8;
+  --scrim: rgba(0, 0, 0, 0.6);
+  --pe-bg-alt: var(--surface-alt);
+
+  color-scheme: light;
+  --color-base-100: #ffffff;
+  --color-base-200: #f2f2f2;
+  --color-base-300: #e8e8e8;
+  --color-base-content: #000000;
+}
+
+/* Tokyo Night (enkia/tokyo-night-vscode-theme): the deep indigo base with
+   its blue/purple foreground. Distinct from the themes above, which skew
+   grey (Nord) or purple-on-charcoal (Dracula, Catppuccin). */
+[data-theme="tokyo"] {
+  --bg: #1a1b26;
+  --surface: #24283b;
+  --border: #2f3549;
+  --text: #c0caf5;
+  --text-soft: #8189af;
+  --accent: #7aa2f7;
+  --accent-hover: #9ab4f9;
+  --accent-soft: rgba(122, 162, 247, 0.18);
+  --danger: #f7768e;
+  --success: #9ece6a;
+  --success-soft: rgba(158, 206, 106, 0.18);
+  --warn: #e0af68;
+  --warn-soft: rgba(224, 175, 104, 0.18);
+  --info: #7dcfff;
+  --info-soft: rgba(125, 207, 255, 0.18);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+
+  --surface-alt: #1f2335;
+  --surface-hover: #2a2f45;
+  --scrim: rgba(0, 0, 0, 0.62);
+
+  color-scheme: dark;
+  --color-base-100: #24283b;
+  --color-base-200: #1f2335;
+  --color-base-300: #2a2f45;
+  --color-base-content: #c0caf5;
+}
+
+/* NOCTURNE. The only theme here that is not somebody else's palette - a
+   muted rose and gold over a deep plum-grey, warm where Nord is cold and
+   restrained where Dracula is loud. Named rather than borrowed because it
+   is ours. */
+[data-theme="nocturne"] {
+  --bg: #191724;
+  --surface: #1f1d2e;
+  --border: #2a2739;
+  --text: #e0def4;
+  --text-soft: #908caa;
+  --accent: #c4a7e7;
+  --accent-hover: #d3bcf0;
+  --accent-soft: rgba(196, 167, 231, 0.18);
+  --danger: #eb6f92;
+  --success: #9ccfd8;
+  --success-soft: rgba(156, 207, 216, 0.18);
+  --warn: #f6c177;
+  --warn-soft: rgba(246, 193, 119, 0.18);
+  --info: #31748f;
+  --info-soft: rgba(49, 116, 143, 0.22);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+
+  --surface-alt: #232132;
+  --surface-hover: #2a2740;
+  --scrim: rgba(0, 0, 0, 0.62);
+
+  color-scheme: dark;
+  --color-base-100: #1f1d2e;
+  --color-base-200: #232132;
+  --color-base-300: #2a2740;
+  --color-base-content: #e0def4;
+}
+
 /* Nord (arcticicestudio/nordtheme.com): nord0-3 for backgrounds/text,
    "frost" nord7-10 for accents - nord8 is the theme's own signature light
    blue, used here as --accent directly rather than picking a different
@@ -326,14 +460,14 @@
 [data-accent="cyan"] { --accent: #0e7490; --accent-hover: #0c5c74; --accent-soft: #e0f6fa; }
 [data-accent="fuchsia"] { --accent: #a21caf; --accent-hover: #86198f; --accent-soft: #fbe6f8; }
 
-[data-accent="blue"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"]) { --accent: #5b9bff; --accent-hover: #74acff; --accent-soft: rgba(91, 155, 255, 0.16); }
-[data-accent="teal"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"]) { --accent: #2dd4bf; --accent-hover: #4de0cd; --accent-soft: rgba(45, 212, 191, 0.16); }
-[data-accent="violet"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"]) { --accent: #a78bfa; --accent-hover: #b9a4fb; --accent-soft: rgba(167, 139, 250, 0.18); }
-[data-accent="rose"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"]) { --accent: #fb7185; --accent-hover: #fc8b9b; --accent-soft: rgba(251, 113, 133, 0.16); }
-[data-accent="slate"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"]) { --accent: #94a3b8; --accent-hover: #aab6c7; --accent-soft: rgba(148, 163, 184, 0.18); }
-[data-accent="indigo"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"]) { --accent: #818cf8; --accent-hover: #93a2fb; --accent-soft: rgba(129, 140, 248, 0.18); }
-[data-accent="cyan"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"]) { --accent: #22d3ee; --accent-hover: #4dd8ef; --accent-soft: rgba(34, 211, 238, 0.16); }
-[data-accent="fuchsia"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"]) { --accent: #e879f9; --accent-hover: #ee94fa; --accent-soft: rgba(232, 121, 249, 0.18); }
+[data-accent="blue"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #5b9bff; --accent-hover: #74acff; --accent-soft: rgba(91, 155, 255, 0.16); }
+[data-accent="teal"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #2dd4bf; --accent-hover: #4de0cd; --accent-soft: rgba(45, 212, 191, 0.16); }
+[data-accent="violet"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #a78bfa; --accent-hover: #b9a4fb; --accent-soft: rgba(167, 139, 250, 0.18); }
+[data-accent="rose"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #fb7185; --accent-hover: #fc8b9b; --accent-soft: rgba(251, 113, 133, 0.16); }
+[data-accent="slate"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #94a3b8; --accent-hover: #aab6c7; --accent-soft: rgba(148, 163, 184, 0.18); }
+[data-accent="indigo"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #818cf8; --accent-hover: #93a2fb; --accent-soft: rgba(129, 140, 248, 0.18); }
+[data-accent="cyan"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #22d3ee; --accent-hover: #4dd8ef; --accent-soft: rgba(34, 211, 238, 0.16); }
+[data-accent="fuchsia"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #e879f9; --accent-hover: #ee94fa; --accent-soft: rgba(232, 121, 249, 0.18); }
 
 html { background: var(--bg); }
 
@@ -616,7 +750,11 @@ html[data-theme-source="user"][data-theme="dark"] .theme-picker-item[data-theme-
 html[data-theme-source="user"][data-theme="solarized"] .theme-picker-item[data-theme-opt="solarized"],
 html[data-theme-source="user"][data-theme="nord"] .theme-picker-item[data-theme-opt="nord"],
 html[data-theme-source="user"][data-theme="dracula"] .theme-picker-item[data-theme-opt="dracula"],
-html[data-theme-source="user"][data-theme="catppuccin"] .theme-picker-item[data-theme-opt="catppuccin"] {
+html[data-theme-source="user"][data-theme="catppuccin"] .theme-picker-item[data-theme-opt="catppuccin"],
+html[data-theme-source="user"][data-theme="solarized-light"] .theme-picker-item[data-theme-opt="solarized-light"],
+html[data-theme-source="user"][data-theme="contrast"] .theme-picker-item[data-theme-opt="contrast"],
+html[data-theme-source="user"][data-theme="tokyo"] .theme-picker-item[data-theme-opt="tokyo"],
+html[data-theme-source="user"][data-theme="nocturne"] .theme-picker-item[data-theme-opt="nocturne"] {
   background: var(--accent-soft);
   color: var(--accent);
 }

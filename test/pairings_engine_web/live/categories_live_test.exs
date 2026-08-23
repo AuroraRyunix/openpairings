@@ -307,7 +307,13 @@ defmodule PairingsEngineWeb.CategoriesLiveTest do
       # The dry run only computes a preview - nothing is written yet.
       assert html =~ "Low"
       assert html =~ "-1100"
-      refute html =~ "High"
+
+      # Scoped to the preview, not the whole document. This player is called
+      # "High", and a bare `refute html =~ "High"` fails the moment any
+      # unrelated chrome contains that substring - which is what happened
+      # when a "High Contrast" theme joined the topbar picker. The claim
+      # being made is about the preview's contents, so ask the preview.
+      refute lv |> element(".pe-modal-body") |> render() =~ "High"
       assert Tournaments.get_player!(tournament.id, low.id).category == ""
       assert Tournaments.get_player!(tournament.id, high.id).category == ""
 
