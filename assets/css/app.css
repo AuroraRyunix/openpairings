@@ -3717,3 +3717,26 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   padding: 0 2px;
 }
 .version-toast-close:hover { color: var(--text); }
+
+/* Change-kind pips on a collapsed restore point. The hues are the SAME
+   custom properties `.tl-item[data-kind=...]` already sets for the audit
+   timeline and the expanded rows, restated here because these pips are not
+   inside a .tl-item - so a new kind added to that list needs adding here
+   too, and the pip simply will not colour if it is forgotten (which is a
+   visible prompt rather than a silent wrong colour). */
+.hist-kinds { display: inline-flex; gap: 3px; margin-left: 6px; vertical-align: middle; }
+.hist-kind-pip {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: hsl(var(--tl-hue, 215 16% 47%));
+  flex: none;
+}
+.hist-kind-pip[data-kind="pairings"]      { --tl-hue: 217 91% 60%; }
+.hist-kind-pip[data-kind="players"]       { --tl-hue: 258 90% 66%; }
+.hist-kind-pip[data-kind="settings"]      { --tl-hue: 32 95% 44%; }
+.hist-kind-pip[data-kind="standings"]     { --tl-hue: 189 94% 43%; }
+.hist-kind-pip[data-kind="imports"]       { --tl-hue: 347 89% 61%; }
+.hist-kind-pip[data-kind="collaborators"] { --tl-hue: 280 65% 60%; }
+.hist-kind-pip[data-kind="tournament"]    { --tl-hue: 215 16% 47%; }
+.hist-kind-pip[data-kind="snapshot"]      { --tl-hue: 32 95% 44%; }

@@ -16,6 +16,17 @@ Each entry is tagged so a version can be skimmed:
 
 ## [0.16.1] - 2026-08-23
 
+### Changed
+
+- [Change] **A collapsed restore point now shows WHAT changed under it, not
+  just how many.** The row said "4 changes after this point", which is the
+  one thing you cannot act on - it reads identically whether they were four
+  rating refreshes or four re-pairings. Each point now carries a pip per
+  kind of change folded beneath it, in the same hue the audit timeline and
+  the expanded rows already use for that kind, so the colour language is one
+  language rather than two. The count is still there, and screen readers get
+  the kinds as text.
+
 ### Fixed
 
 - [Fix] **`-fast` on the deploy script did nothing.** The flag was matched

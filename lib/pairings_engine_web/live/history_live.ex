@@ -708,6 +708,20 @@ defmodule PairingsEngineWeb.HistoryLive do
         <span class={["hist-chevron", @expanded && "is-open"]} aria-hidden="true">▸</span> {length(
           @point.changes
         )} change{if length(@point.changes) == 1, do: "", else: "s"} after this point
+        <%!-- One pip per KIND of change folded under this point, in the hue
+              the expanded rows and the audit timeline already use for it.
+              The row only ever said how MANY changes there were, which is
+              the one thing you cannot act on: "4 changes" reads identically
+              whether they were four rating refreshes or four re-pairings. --%>
+        <span class="hist-kinds" aria-hidden="true">
+          <span
+            :for={kind <- change_kinds(@point.changes)}
+            class="hist-kind-pip"
+            data-kind={kind}
+            title={kind}
+          ></span>
+        </span>
+        <span class="sr-only">({Enum.join(change_kinds(@point.changes), ", ")})</span>
       </button>
 
       <ol :if={@expanded and @point.changes != []} class="hist-changes">
@@ -732,6 +746,16 @@ defmodule PairingsEngineWeb.HistoryLive do
       </ol>
     </div>
     """
+  end
+
+  # Distinct kinds under a point, ordered the way the timeline colours them
+  # so the pips do not reshuffle between renders.
+  @kind_order ~w(pairings players standings settings imports collaborators tournament snapshot)
+
+  defp change_kinds(changes) do
+    present = changes |> Enum.map(& &1.kind) |> MapSet.new()
+    known = Enum.filter(@kind_order, &MapSet.member?(present, &1))
+    known ++ Enum.sort(MapSet.to_list(MapSet.difference(present, MapSet.new(known))))
   end
 
   defp row_lane({:point, point}), do: point.lane
