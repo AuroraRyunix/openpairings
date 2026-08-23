@@ -137,6 +137,7 @@ defmodule PairingsEngineWeb.Layouts do
       </nav>
       <nav class="topbar-auth">
         <.accent_picker />
+        <.language_picker locale={assigns[:locale]} path={assigns[:current_path] || "/"} />
         <.theme_switch />
         <%= if @current_scope do %>
           <span class="sync-freshness" title="Local FIDE / KBSB rating-list sync status">
@@ -248,6 +249,7 @@ defmodule PairingsEngineWeb.Layouts do
         <span class="brand-name">Open<strong>Pairings</strong></span>
       </.link>
       <div class="topbar-auth">
+        <.language_picker locale={assigns[:locale]} path={assigns[:current_path] || "/"} />
         <.theme_switch />
       </div>
     </header>
@@ -414,6 +416,46 @@ defmodule PairingsEngineWeb.Layouts do
     {"solarized-light", "hero-sun-micro", "Solarized Light"},
     {"contrast", "hero-eye-micro", "High Contrast"}
   ]
+
+  attr :locale, :string, default: nil
+  attr :path, :string, default: "/"
+
+  @doc """
+  Language picker.
+
+  Links rather than buttons, because switching language is a GET that
+  changes a session value and comes back - there is no form here to submit
+  and no LiveView event that could write a session anyway.
+
+  Rendered only when there is more than one language to choose. A picker
+  offering a single option is furniture: it takes space in the top bar,
+  invites a click and does nothing. It appears by itself the day a second
+  catalogue lands, which is the point of building this now.
+  """
+  def language_picker(assigns) do
+    assigns = assign(assigns, :locales, PairingsEngineWeb.Locale.locales())
+
+    ~H"""
+    <details :if={length(@locales) > 1} class="theme-picker" name="topbar-popover">
+      <summary
+        class="theme-picker-trigger"
+        title={gettext("Language")}
+        aria-label={gettext("Language")}
+      >
+        <.icon name="hero-language-micro" class="size-4" />
+      </summary>
+      <div class="theme-picker-panel" role="group" aria-label={gettext("Language")}>
+        <a
+          :for={{code, name} <- @locales}
+          href={~p"/locale/#{code}?redirect_to=#{@path}"}
+          class={["theme-picker-item", code == @locale && "is-current"]}
+        >
+          {name}
+        </a>
+      </div>
+    </details>
+    """
+  end
 
   @doc """
   A compact theme switch (System / Light / Dark / Solarized Dark / Nord /

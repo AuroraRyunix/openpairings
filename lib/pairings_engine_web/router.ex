@@ -13,6 +13,9 @@ defmodule PairingsEngineWeb.Router do
     plug :put_secure_browser_headers
     # ...which sets no Content-Security-Policy of its own. See PairingsEngineWeb.CSP.
     plug PairingsEngineWeb.CSP
+    # After :fetch_session (it reads and writes the session) and before any
+    # rendering, so the very first byte is already in the right language.
+    plug PairingsEngineWeb.Plugs.Locale
     plug :fetch_current_scope_for_user
   end
 
@@ -33,6 +36,7 @@ defmodule PairingsEngineWeb.Router do
 
     live_session :require_authenticated_tournaments,
       on_mount: [
+        PairingsEngineWeb.LocaleHook,
         PairingsEngineWeb.DeployNotice,
         {PairingsEngineWeb.UserAuth, :require_authenticated}
       ] do
@@ -117,6 +121,14 @@ defmodule PairingsEngineWeb.Router do
     post "/deploy-notice/cancel", DeployController, :cancel
   end
 
+  # Changing language. A controller rather than a LiveView event: the choice
+  # lives in the session, and a LiveView holds a socket, not a conn.
+  scope "/", PairingsEngineWeb do
+    pipe_through [:browser]
+
+    get "/locale/:locale", LocaleController, :update
+  end
+
   ## Authentication routes
 
   scope "/", PairingsEngineWeb do
@@ -124,6 +136,7 @@ defmodule PairingsEngineWeb.Router do
 
     live_session :require_authenticated_user,
       on_mount: [
+        PairingsEngineWeb.LocaleHook,
         PairingsEngineWeb.DeployNotice,
         {PairingsEngineWeb.UserAuth, :require_authenticated}
       ] do
@@ -139,6 +152,7 @@ defmodule PairingsEngineWeb.Router do
 
     live_session :current_user,
       on_mount: [
+        PairingsEngineWeb.LocaleHook,
         PairingsEngineWeb.DeployNotice,
         {PairingsEngineWeb.UserAuth, :mount_current_scope}
       ] do
@@ -173,6 +187,7 @@ defmodule PairingsEngineWeb.Router do
 
     live_session :public_tournament_pages,
       on_mount: [
+        PairingsEngineWeb.LocaleHook,
         PairingsEngineWeb.DeployNotice,
         {PairingsEngineWeb.UserAuth, :mount_current_scope}
       ] do
@@ -202,6 +217,7 @@ defmodule PairingsEngineWeb.Router do
 
     live_session :public_registration,
       on_mount: [
+        PairingsEngineWeb.LocaleHook,
         PairingsEngineWeb.DeployNotice,
         {PairingsEngineWeb.UserAuth, :mount_current_scope}
       ] do
@@ -221,6 +237,7 @@ defmodule PairingsEngineWeb.Router do
 
     live_session :tools,
       on_mount: [
+        PairingsEngineWeb.LocaleHook,
         PairingsEngineWeb.DeployNotice,
         {PairingsEngineWeb.UserAuth, :mount_current_scope}
       ] do
@@ -243,6 +260,7 @@ defmodule PairingsEngineWeb.Router do
 
     live_session :mobile_results,
       on_mount: [
+        PairingsEngineWeb.LocaleHook,
         PairingsEngineWeb.DeployNotice,
         {PairingsEngineWeb.MobileAuth, :require_enrollment}
       ] do

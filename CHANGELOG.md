@@ -18,6 +18,29 @@ Each entry is tagged so a version can be skimmed:
 
 ### Changed
 
+- [Feature] **Language scaffolding, English only for now.** Adding a
+  language is now translation work rather than architecture work: add it to
+  `PairingsEngineWeb.Locale`, run `mix gettext.extract --merge`, translate
+  the `.po`, done. The picker appears by itself once there is a second
+  language - it stays hidden while there is one, because a picker offering
+  a single option is furniture.
+
+  A locale comes from the session first, then the browser's
+  `accept-language`, then English. The header matters more here than in most
+  apps: the people reading the public pages are players with no account and
+  no settings screen, so their browser is the only thing that can speak for
+  them. `nl-BE`, `nl-NL` and `nl` all collapse to one catalogue.
+
+  Two things this had to get right, both documented in `docs/i18n.md`. A
+  LiveView does not run in the process that served the request, so a locale
+  set only by a plug would be lost the moment the socket connects - the page
+  would render translated and then silently revert. And the resolved locale
+  is written back into the session, because a LiveView cannot read headers,
+  and without it the dead render and the live render disagree.
+
+  Almost nothing is translated yet; a few strings are wrapped to prove the
+  pipeline end to end.
+
 - [Feature] **Four new themes: Solarized Light, High Contrast, Tokyo Night
   and Nocturne.**
 

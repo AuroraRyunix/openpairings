@@ -1,0 +1,65 @@
+## "msgid"s in this file come from POT (.pot) files.
+###
+### Do not add, change, or remove "msgid"s manually here as
+### they're tied to the ones in the corresponding POT file
+### (with the same domain).
+###
+### Use "mix gettext.extract --merge" or "mix gettext.merge"
+### to merge POT files into PO files.
+msgid ""
+msgstr ""
+"Language: en\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: lib/pairings_engine_web/components/core_components.ex:375
+#, elixir-autogen, elixir-format
+msgid "Actions"
+msgstr ""
+
+#: lib/pairings_engine_web/components/layouts.ex:336
+#: lib/pairings_engine_web/components/layouts.ex:351
+#, elixir-autogen, elixir-format
+msgid "Attempting to reconnect"
+msgstr ""
+
+#: lib/pairings_engine_web/live/public_register_live.ex:346
+#, elixir-autogen, elixir-format
+msgid "Birth year"
+msgstr ""
+
+#: lib/pairings_engine_web/live/public_register_live.ex:362
+#, elixir-autogen, elixir-format
+msgid "Federation"
+msgstr ""
+
+#: lib/pairings_engine_web/components/layouts.ex:442
+#: lib/pairings_engine_web/components/layouts.ex:443
+#: lib/pairings_engine_web/components/layouts.ex:447
+#, elixir-autogen, elixir-format
+msgid "Language"
+msgstr ""
+
+#: lib/pairings_engine_web/live/public_register_live.ex:258
+#, elixir-autogen, elixir-format
+msgid "Registration is closed."
+msgstr ""
+
+#: lib/pairings_engine_web/components/layouts.ex:343
+#, elixir-autogen, elixir-format
+msgid "Something went wrong!"
+msgstr ""
+
+#: lib/pairings_engine_web/components/layouts.ex:328
+#, elixir-autogen, elixir-format
+msgid "We can't find the internet"
+msgstr ""
+
+#: lib/pairings_engine_web/live/public_register_live.ex:294
+#, elixir-autogen, elixir-format
+msgid "Your name"
+msgstr ""
+
+#: lib/pairings_engine_web/components/core_components.ex:81
+#, elixir-autogen, elixir-format
+msgid "close"
+msgstr ""
