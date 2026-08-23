@@ -18,6 +18,29 @@ Each entry is tagged so a version can be skimmed:
 
 ### Changed
 
+- [Removed] **The amber accent is gone.** In every dark theme its
+  `--accent-soft` was a translucent orange, and that value is painted behind
+  the active topbar tab and as the focus ring on selects - so a
+  semi-transparent orange box followed you onto every page and around every
+  dropdown you touched. All seven themes were swept against the accents to
+  confirm: amber was the only *choice* that produced it. Gruvbox still does,
+  but its accent is orange by definition, which is the theme rather than a
+  bug.
+
+- [Fix] **The stranded-page watchdog never fired.** It tested
+  `liveSocket.isConnected()`, which is transport-level - and the websocket
+  can be perfectly connected while the LiveView on the page has failed to
+  rejoin and is dead. That is exactly the state a restart produces, so the
+  check reported "connected", cleared itself, and the reload it existed to
+  perform never happened. It now requires the main view to carry
+  `phx-connected`, which LiveView sets only while genuinely joined.
+
+- [Change] **The restart banner tells you to reload if the page is stuck.**
+  It said "this page comes back on its own, no need to touch anything",
+  which was not reliably true. A promise that does not arrive leaves
+  somebody staring at a bar; "reload this page if it has not come back in a
+  minute" costs one click and always works.
+
 - [Change] **The history tree reads as a tree now.** Three things it was
   missing:
 
