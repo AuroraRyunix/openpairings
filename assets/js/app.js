@@ -460,7 +460,7 @@ const deployBanner = {
     let message
     if (left <= 0) {
       tier = "now"
-      message = "back shortly - this page comes back on its own, no need to touch anything"
+      message = "back shortly - reload this page if it has not come back in a minute"
     } else if (left <= 30) {
       tier = "now"
       message = `in ${left}s - go and grab a coffee, we will be back in ${DOWNTIME_HINT}`
@@ -518,8 +518,26 @@ const deployBanner = {
     this.watchdog = setInterval(() => {
       if (Date.now() < at + RELOAD_AFTER_MS) { return }
 
-      const socketUp = typeof liveSocket !== "undefined" && liveSocket.isConnected()
-      if (socketUp) { clearInterval(this.watchdog); return }
+      // Ask whether the VIEW is alive, not merely the socket.
+      //
+      // The first version tested `liveSocket.isConnected()` alone, which is
+      // transport-level: the websocket can be perfectly connected while the
+      // LiveView on the page has failed to rejoin and is dead. That is the
+      // exact state a restart produces when the page's session token no
+      // longer verifies - so the check reported "connected", cleared itself,
+      // and the reload it existed to perform never happened.
+      //
+      // LiveView marks the main view `phx-connected` only while it is
+      // genuinely joined, and swaps in phx-loading / phx-error /
+      // phx-client-error / phx-server-error otherwise.
+      const main = document.querySelector("[data-phx-main]")
+      const viewUp =
+        typeof liveSocket !== "undefined" &&
+        liveSocket.isConnected() &&
+        main &&
+        main.classList.contains("phx-connected")
+
+      if (viewUp) { clearInterval(this.watchdog); return }
 
       clearInterval(this.watchdog)
       clearInterval(this.timer)

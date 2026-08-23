@@ -351,7 +351,6 @@
 [data-accent="blue"] { --accent: #2563eb; --accent-hover: #1d4ed8; --accent-soft: #e7effe; }
 [data-accent="teal"] { --accent: #0d7d74; --accent-hover: #0b665f; --accent-soft: #e2f4f2; }
 [data-accent="violet"] { --accent: #7c3aed; --accent-hover: #6d28d9; --accent-soft: #f0e9fe; }
-[data-accent="amber"] { --accent: #b45309; --accent-hover: #92400e; --accent-soft: #fbeed9; }
 [data-accent="rose"] { --accent: #be123c; --accent-hover: #9f1239; --accent-soft: #fce4ea; }
 [data-accent="slate"] { --accent: #475569; --accent-hover: #334155; --accent-soft: #eaeef3; }
 [data-accent="indigo"] { --accent: #4338ca; --accent-hover: #3730a3; --accent-soft: #e9e8fc; }
@@ -362,7 +361,6 @@
 [data-accent="blue"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="gruvbox"]) { --accent: #5b9bff; --accent-hover: #74acff; --accent-soft: rgba(91, 155, 255, 0.16); }
 [data-accent="teal"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="gruvbox"]) { --accent: #2dd4bf; --accent-hover: #4de0cd; --accent-soft: rgba(45, 212, 191, 0.16); }
 [data-accent="violet"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="gruvbox"]) { --accent: #a78bfa; --accent-hover: #b9a4fb; --accent-soft: rgba(167, 139, 250, 0.18); }
-[data-accent="amber"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="gruvbox"]) { --accent: #f59e0b; --accent-hover: #fbb024; --accent-soft: rgba(245, 158, 11, 0.16); }
 [data-accent="rose"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="gruvbox"]) { --accent: #fb7185; --accent-hover: #fc8b9b; --accent-soft: rgba(251, 113, 133, 0.16); }
 [data-accent="slate"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="gruvbox"]) { --accent: #94a3b8; --accent-hover: #aab6c7; --accent-soft: rgba(148, 163, 184, 0.18); }
 [data-accent="indigo"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="gruvbox"]) { --accent: #818cf8; --accent-hover: #93a2fb; --accent-soft: rgba(129, 140, 248, 0.18); }
@@ -577,7 +575,6 @@ html[data-accent="green"] .accent-swatch[data-accent-opt="green"],
 html[data-accent="blue"] .accent-swatch[data-accent-opt="blue"],
 html[data-accent="teal"] .accent-swatch[data-accent-opt="teal"],
 html[data-accent="violet"] .accent-swatch[data-accent-opt="violet"],
-html[data-accent="amber"] .accent-swatch[data-accent-opt="amber"],
 html[data-accent="rose"] .accent-swatch[data-accent-opt="rose"],
 html[data-accent="slate"] .accent-swatch[data-accent-opt="slate"],
 html[data-accent="indigo"] .accent-swatch[data-accent-opt="indigo"],

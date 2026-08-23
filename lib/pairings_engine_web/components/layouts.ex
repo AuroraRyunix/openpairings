@@ -359,7 +359,6 @@ defmodule PairingsEngineWeb.Layouts do
     {"blue", "#2563eb", "Blue"},
     {"teal", "#0d7d74", "Teal"},
     {"violet", "#7c3aed", "Violet"},
-    {"amber", "#b45309", "Amber"},
     {"rose", "#be123c", "Rose"},
     {"slate", "#475569", "Slate"},
     {"indigo", "#4338ca", "Indigo"},
