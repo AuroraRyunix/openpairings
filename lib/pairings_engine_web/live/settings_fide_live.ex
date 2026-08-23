@@ -136,7 +136,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
-          <p class="subtitle" style="margin: 0">Settings - FIDE</p>
+          <p class="subtitle" style="margin: 0">{gettext("Settings - FIDE")}</p>
         </div>
         <span class={["badge", @tournament.status == "setup" && "muted"]}>{@tournament.status}</span>
       </div>
@@ -147,7 +147,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
 
       <form id="fide-settings-form" phx-submit="save" phx-change="validate">
         <div class="card">
-          <h2>FIDE report identifiers</h2>
+          <h2>{gettext("FIDE report identifiers")}</h2>
 
           <p class="hint" style="margin-top: 0">
             The tournament's own FIDE identifiers, used to fill the IT3 / FA1 / IA1 / IT4 report
@@ -159,15 +159,15 @@ defmodule PairingsEngineWeb.SettingsFideLive do
           <.setting_group>
             <.setting_toggle
               name="tournament[fide_homologated]"
-              label="This tournament is FIDE-homologated (rated/reportable)"
+              label={gettext("This tournament is FIDE-homologated (rated/reportable)")}
               checked={@tournament.fide_homologated}
             />
 
-            <.setting_field label="FIDE tournament ID (tournament-wide default)">
+            <.setting_field label={gettext("FIDE tournament ID (tournament-wide default)")}>
               <input name="tournament[fide_tournament_id]" value={@tournament.fide_tournament_id} />
             </.setting_field>
 
-            <.setting_field label="FIDE event code">
+            <.setting_field label={gettext("FIDE event code")}>
               <input name="tournament[event_code]" value={@tournament.event_code} />
             </.setting_field>
           </.setting_group>
@@ -183,7 +183,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
         </div>
 
         <div class="card">
-          <h2>Per-round FIDE-ID ranges</h2>
+          <h2>{gettext("Per-round FIDE-ID ranges")}</h2>
           <p class="hint" style="margin-top: 0">
             For splitting one event's FIDE report across rated sections - e.g. FIDE ID 89495 for
             rounds 1-3, a different ID for rounds 4-9. When exporting a TRF whose selected rounds
@@ -195,9 +195,9 @@ defmodule PairingsEngineWeb.SettingsFideLive do
             <table class="pe-table">
               <thead>
                 <tr>
-                  <th>FIDE tournament ID</th>
-                  <th>From round</th>
-                  <th>To round</th>
+                  <th>{gettext("FIDE tournament ID")}</th>
+                  <th>{gettext("From round")}</th>
+                  <th>{gettext("To round")}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -246,16 +246,18 @@ defmodule PairingsEngineWeb.SettingsFideLive do
           </div>
 
           <p :if={@rows == []} class="hint">
-            No per-round ranges configured - every export uses the tournament-wide default ID above.
+            {gettext(
+              "No per-round ranges configured - every export uses the tournament-wide default ID above."
+            )}
           </p>
 
           <div class="actions">
-            <button type="button" class="pe-btn" phx-click="add_range">Add range</button>
+            <button type="button" class="pe-btn" phx-click="add_range">{gettext("Add range")}</button>
           </div>
         </div>
 
         <div class="actions">
-          <button type="submit" class="pe-btn primary">Save FIDE settings</button>
+          <button type="submit" class="pe-btn primary">{gettext("Save FIDE settings")}</button>
           <span :if={@note} class="ok-note" style="align-self: center">{@note}</span>
           <span :if={@error} class="error-note" style="align-self: center">{@error}</span>
         </div>

@@ -542,15 +542,15 @@ defmodule PairingsEngineWeb.HistoryLive do
       </div>
       <AuditLive.subnav tournament={@tournament} active={:history} />
       <div class="card">
-        <h2>Restore points</h2>
+        <h2>{gettext("Restore points")}</h2>
 
         <p class="hint" style="margin-top: 0">
           The states you can put this tournament back into, newest first. One is
           saved automatically before anything irreversible, and you can save one
           whenever you like. Everything that changed in between is folded under
           the point it followed - open a point to read it, or use
-          <.link navigate={~p"/t/#{@tournament.id}/audit"}>Audit trail</.link>
-          for the full searchable log.
+          <.link navigate={~p"/t/#{@tournament.id}/audit"}>{gettext("Audit trail")}</.link>
+          {gettext("for the full searchable log.")}
         </p>
 
         <p :if={@branched?} class="hint hist-branched">
@@ -570,7 +570,7 @@ defmodule PairingsEngineWeb.HistoryLive do
           phx-submit="snapshot_save"
         >
           <div class="hist-save-field">
-            <label for="hist-save-label">Name this point</label>
+            <label for="hist-save-label">{gettext("Name this point")}</label>
             <input
               id="hist-save-label"
               type="text"
@@ -578,7 +578,7 @@ defmodule PairingsEngineWeb.HistoryLive do
               value={@snapshot_label}
               maxlength={label_max()}
               autocomplete="off"
-              placeholder="End of day 1"
+              placeholder={gettext("End of day 1")}
               aria-describedby="hist-save-hint"
             />
             <span id="hist-save-hint" class="hint">
@@ -586,23 +586,23 @@ defmodule PairingsEngineWeb.HistoryLive do
               appeal", "all round 3 results in".
             </span>
           </div>
-          <button type="submit" class="pe-btn primary">Save restore point</button>
+          <button type="submit" class="pe-btn primary">{gettext("Save restore point")}</button>
         </form>
 
         <p :if={@snapshot_count == 0} class="hint hist-note">
-          <strong>No restore points yet.</strong>
+          <strong>{gettext("No restore points yet.")}</strong>
           One is saved automatically before anything irreversible - pairing or
           unpairing a round, or importing results from a file. Editing players,
           adjusting settings and typing results in by hand don't take one<span :if={
             !@tournament.archived_at
-          }>, so save one yourself whenever you reach a state worth coming back to</span>.
+          }>{gettext(", so save one yourself whenever you reach a state worth coming back to")}</span>.
         </p>
 
         <%!-- Having exactly one restore point is the state that looked broken:
               it is the one the tournament is already on, so it gets no "go
               back" button and the page showed a save box and nothing else. --%>
         <p :if={@snapshot_count > 0 and @restorable_count == 0} class="hint hist-note">
-          <strong>One restore point, and you are on it.</strong>
+          <strong>{gettext("One restore point, and you are on it.")}</strong>
           There is nowhere to go back to yet - the option to go back appears on a point
           once the tournament has moved past it. Carry on working, and save another
           when you reach the next state worth keeping.
@@ -640,7 +640,7 @@ defmodule PairingsEngineWeb.HistoryLive do
 
         <p :if={@older_changes != []} class="hint hist-note">
           {length(@older_changes)} change(s) predate the oldest restore point - they
-          are in the <.link navigate={~p"/t/#{@tournament.id}/audit"}>Audit trail</.link>.
+          are in the <.link navigate={~p"/t/#{@tournament.id}/audit"}>{gettext("Audit trail")}</.link>.
         </p>
       </div>
 
@@ -663,9 +663,9 @@ defmodule PairingsEngineWeb.HistoryLive do
     <div class="hist-body">
       <div class="hist-head">
         <span class="hist-title">{@point.text}</span>
-        <span :if={@point.is_head} class="hist-badge is-here">the tournament is here</span>
-        <span :if={@point.manual} class="hist-badge">saved by hand</span>
-        <span :if={@point.forks} class="hist-badge">branch point</span>
+        <span :if={@point.is_head} class="hist-badge is-here">{gettext("the tournament is here")}</span>
+        <span :if={@point.manual} class="hist-badge">{gettext("saved by hand")}</span>
+        <span :if={@point.forks} class="hist-badge">{gettext("branch point")}</span>
       </div>
 
       <div class="hist-meta">
@@ -690,7 +690,7 @@ defmodule PairingsEngineWeb.HistoryLive do
           phx-click="toggle_branch"
           phx-value-lane={@point.lane}
         >
-          Collapse branch
+          {gettext("Collapse branch")}
         </button>
       </div>
 
@@ -738,7 +738,7 @@ defmodule PairingsEngineWeb.HistoryLive do
             <div :for={row <- change.diff} class="tl-diff-row">
               <span class="tl-diff-field">{field_label(row.field)}</span>
               <.diff_value value={row.before} side="before" />
-              <span class="tl-arrow" aria-label="changed to">→</span>
+              <span class="tl-arrow" aria-label={gettext("changed to")}>→</span>
               <.diff_value value={row.after} side="after" />
             </div>
           </div>
@@ -773,7 +773,7 @@ defmodule PairingsEngineWeb.HistoryLive do
     ~H"""
     <div class="modal-overlay" phx-window-keydown="restore_cancel" phx-key="escape">
       <div class="modal-card" phx-click-away="restore_cancel" style="max-width: 500px">
-        <h2>Go back to this point</h2>
+        <h2>{gettext("Go back to this point")}</h2>
 
         <p>
           This replaces the players, rounds, results and settings with how they were at <strong>{Calendar.strftime(@snapshot.inserted_at, "%Y-%m-%d %H:%M UTC")}</strong>{if @snapshot.summary,
@@ -781,8 +781,8 @@ defmodule PairingsEngineWeb.HistoryLive do
         </p>
 
         <div class="setting-warning">
-          <strong>⚠ This overwrites live results.</strong>
-          Every result, pairing and player change made after that point goes away.
+          <strong>{gettext("⚠ This overwrites live results.")}</strong>
+          {gettext("Every result, pairing and player change made after that point goes away.")}
         </div>
 
         <p class="hint">
@@ -791,7 +791,7 @@ defmodule PairingsEngineWeb.HistoryLive do
           not affected.
         </p>
 
-        <p>Type <strong>RESTORE</strong> to confirm.</p>
+        <p>Type <strong>RESTORE</strong> {gettext("to confirm.")}</p>
 
         <form phx-change="restore_confirm_input" phx-submit="restore_confirmed">
           <input
@@ -803,7 +803,7 @@ defmodule PairingsEngineWeb.HistoryLive do
           />
           <div class="actions">
             <button type="submit" class="pe-btn danger" disabled={@confirm != "RESTORE"}>
-              Go back to this point
+              {gettext("Go back to this point")}
             </button>
             <button type="button" class="pe-btn" phx-click="restore_cancel">Cancel</button>
           </div>

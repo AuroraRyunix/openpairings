@@ -43,7 +43,7 @@ defmodule PairingsEngineWeb.CoreComponents do
         phx-mounted={show("#welcome-back") |> JS.remove_attribute("hidden")}
         hidden
       >
-        Welcome Back!
+        {gettext("Welcome Back!")}
       </.flash>
   """
   attr :id, :string, doc: "the optional id of flash container"
@@ -91,8 +91,8 @@ defmodule PairingsEngineWeb.CoreComponents do
 
   ## Examples
 
-      <.button>Send!</.button>
-      <.button phx-click="go" variant="primary">Send!</.button>
+      <.button>{gettext("Send!")}</.button>
+      <.button phx-click="go" variant="primary">{gettext("Send!")}</.button>
       <.button navigate={~p"/"}>Home</.button>
   """
   attr :rest, :global, include: ~w(href navigate patch method download name value disabled)

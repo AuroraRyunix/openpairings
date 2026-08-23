@@ -76,10 +76,10 @@ defmodule PairingsEngineWeb.Layouts do
                 History
               </.link>
               <.link navigate={~p"/t/#{@tournament.id}/audit"} class="topbar-menu-item">
-                Audit trail
+                {gettext("Audit trail")}
               </.link>
               <.link navigate={~p"/t/#{@tournament.id}/audit/explain"} class="topbar-menu-item">
-                Pairing rationale
+                {gettext("Pairing rationale")}
               </.link>
             </div>
           </details>
@@ -105,7 +105,7 @@ defmodule PairingsEngineWeb.Layouts do
                 navigate={~p"/t/#{@tournament.id}/settings/extra-points"}
                 class="topbar-menu-item"
               >
-                Extra points
+                {gettext("Extra points")}
               </.link>
               <.link navigate={~p"/t/#{@tournament.id}/settings/fide"} class="topbar-menu-item">
                 FIDE
@@ -118,7 +118,7 @@ defmodule PairingsEngineWeb.Layouts do
           navigate={~p"/fide"}
           class={tab_class(@active == "fide")}
         >
-          Rating lists
+          {gettext("Rating lists")}
         </.link>
         <.link
           :if={!@tournament}
@@ -140,14 +140,14 @@ defmodule PairingsEngineWeb.Layouts do
         <.language_picker locale={assigns[:locale]} path={assigns[:current_path] || "/"} />
         <.theme_switch />
         <%= if @current_scope do %>
-          <span class="sync-freshness" title="Local FIDE / KBSB rating-list sync status">
+          <span class="sync-freshness" title={gettext("Local FIDE / KBSB rating-list sync status")}>
             FIDE: {sync_label(Fide.last_sync())} · KBSB: {sync_label(Kbsb.last_sync())}
           </span>
           <span class="user-email">{@current_scope.user.email}</span>
           <.link navigate={~p"/users/settings"}>Settings</.link>
-          <.link href={~p"/users/log-out"} method="delete">Log out</.link>
+          <.link href={~p"/users/log-out"} method="delete">{gettext("Log out")}</.link>
         <% else %>
-          <.link navigate={~p"/users/log-in"} class="topbar-signin">Log in</.link>
+          <.link navigate={~p"/users/log-in"} class="topbar-signin">{gettext("Log in")}</.link>
         <% end %>
         <span class="app-version">v{app_version()}</span>
       </nav>
@@ -159,11 +159,11 @@ defmodule PairingsEngineWeb.Layouts do
             here, so archiving is visible on all of them at once. --%>
       <div :if={@tournament && @tournament.archived_at} class="archived-banner">
         <span>
-          <strong>This tournament is archived.</strong>
+          <strong>{gettext("This tournament is archived.")}</strong>
           It's read-only - every change is refused until you unarchive it. Everything else
           (viewing, printing, exporting, its public link) still works normally.
         </span>
-        <.link navigate={~p"/"} class="pe-btn">Unarchive from Tournaments</.link>
+        <.link navigate={~p"/"} class="pe-btn">{gettext("Unarchive from Tournaments")}</.link>
       </div>
 
       {render_slot(@inner_block)}
@@ -379,7 +379,11 @@ defmodule PairingsEngineWeb.Layouts do
 
     ~H"""
     <details class="accent-picker" name="topbar-popover">
-      <summary class="accent-picker-trigger" title="Accent colour" aria-label="Accent colour">
+      <summary
+        class="accent-picker-trigger"
+        title={gettext("Accent colour")}
+        aria-label={gettext("Accent colour")}
+      >
         <span class="accent-picker-current"></span>
       </summary>
       <div class="accent-picker-panel">
@@ -472,10 +476,14 @@ defmodule PairingsEngineWeb.Layouts do
 
     ~H"""
     <details class="theme-picker" name="topbar-popover">
-      <summary class="theme-picker-trigger" title="Colour theme" aria-label="Colour theme">
+      <summary
+        class="theme-picker-trigger"
+        title={gettext("Colour theme")}
+        aria-label={gettext("Colour theme")}
+      >
         <.icon name="hero-swatch-micro" class="size-4" />
       </summary>
-      <div class="theme-picker-panel" role="group" aria-label="Colour theme">
+      <div class="theme-picker-panel" role="group" aria-label={gettext("Colour theme")}>
         <button
           type="button"
           class="theme-picker-item"

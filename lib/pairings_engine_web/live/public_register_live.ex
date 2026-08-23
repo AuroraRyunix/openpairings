@@ -255,7 +255,7 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
       </div>
 
       <div :if={@tournament && !@tournament.registration_open} class="card empty">
-        <p><strong>{gettext("Registration is closed.")}</strong></p>
+        <p><strong>Registration is closed.</strong></p>
 
         <p>
           The organiser has closed sign-ups for this tournament. If you think that's a
@@ -291,7 +291,7 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
         </div>
 
         <div :if={is_nil(@picked)}>
-          <label for="reg-name">{gettext("Your name")}</label>
+          <label for="reg-name">Your name</label>
           <%!-- The input has to live inside a form: LiveView only delivers
                 phx-change from a form context, so a bare input silently
                 never fires and the FIDE dropdown never appears. PlayersLive's
@@ -343,7 +343,7 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
 
             <div style="display: flex; gap: 12px; margin-top: 10px; max-width: 420px">
               <div style="flex: 1">
-                <label for="reg-birth-year">{gettext("Birth year")}</label>
+                <label for="reg-birth-year">Birth year</label>
                 <input
                   id="reg-birth-year"
                   type="text"
@@ -359,7 +359,7 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
               </div>
 
               <div style="flex: 1">
-                <label for="reg-federation">{gettext("Federation")}</label>
+                <label for="reg-federation">Federation</label>
                 <input
                   id="reg-federation"
                   type="text"

@@ -408,7 +408,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
         <div>
           <h1>{@tournament.name}</h1>
 
-          <p class="subtitle" style="margin: 0">Settings - Tournament</p>
+          <p class="subtitle" style="margin: 0">{gettext("Settings - Tournament")}</p>
         </div>
         <span class={["badge", @tournament.status == "setup" && "muted"]}>{@tournament.status}</span>
       </div>
@@ -431,7 +431,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
               />
             </.setting_field>
 
-            <.setting_field label="Tournament format">
+            <.setting_field label={gettext("Tournament format")}>
               <select name="tournament[type]">
                 <option
                   :for={type <- Tournament.types()}
@@ -443,7 +443,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
               </select>
             </.setting_field>
 
-            <.setting_field label="Number of rounds" required>
+            <.setting_field label={gettext("Number of rounds")} required>
               <input
                 type="number"
                 name="tournament[rounds_count]"
@@ -479,10 +479,10 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                 and a label wrapping no control is wrong here. --%>
           <div class="set-rows">
             <div class="set-row">
-              <span class="set-row-label">Chief arbiter</span>
+              <span class="set-row-label">{gettext("Chief arbiter")}</span>
               <span :if={@tournament.chief_arbiter not in [nil, ""]}>{@tournament.chief_arbiter}</span>
               <span :if={@tournament.chief_arbiter in [nil, ""]} class="hint">
-                Not set. Recommended for FIDE reporting; it does not block pairing.
+                {gettext("Not set. Recommended for FIDE reporting; it does not block pairing.")}
               </span>
             </div>
           </div>
@@ -492,7 +492,9 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
           <h2>Tiebreaks</h2>
 
           <p class="hint" style="margin-top: 0">
-            Applied in order, following the FIDE Tie-Break Regulations. Higher in the list = decided first.
+            {gettext(
+              "Applied in order, following the FIDE Tie-Break Regulations. Higher in the list = decided first."
+            )}
           </p>
 
           <%!-- A div, not <.setting_field>: that renders a <label>, which would
@@ -535,7 +537,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                 <button
                   type="button"
                   class="pe-btn"
-                  title="Move up"
+                  title={gettext("Move up")}
                   disabled={i == 0}
                   phx-click="tb_up"
                   phx-value-index={i}
@@ -546,7 +548,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                 <button
                   type="button"
                   class="pe-btn"
-                  title="Move down"
+                  title={gettext("Move down")}
                   disabled={i == length(@tiebreaks) - 1}
                   phx-click="tb_down"
                   phx-value-index={i}
@@ -568,41 +570,45 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
           </ol>
 
           <p :if={@tiebreaks == []} class="hint">
-            No tiebreaks selected - tied players will share a rank.
+            {gettext("No tiebreaks selected - tied players will share a rank.")}
           </p>
 
           <div class="actions" style="flex-wrap: wrap">
             <select phx-change="tb_add" name="code" style="width: auto" class="pe-select">
-              <option value="">Add a tiebreak…</option>
+              <option value="">{gettext("Add a tiebreak…")}</option>
 
               <option :for={tb <- available_tiebreaks(@tiebreaks)} value={tb.code}>{tb.name}</option>
             </select>
-            <button type="button" class="pe-btn" phx-click="tb_reset">Reset to FIDE default</button>
+            <button type="button" class="pe-btn" phx-click="tb_reset">{gettext(
+              "Reset to FIDE default"
+            )}</button>
           </div>
         </div>
 
         <div class="actions form-actions">
-          <button type="submit" class="pe-btn primary">Save settings</button>
+          <button type="submit" class="pe-btn primary">{gettext("Save settings")}</button>
           <span :if={@note} class="ok-note" style="align-self: center">{@note}</span>
           <span :if={@error} class="error-note" style="align-self: center">{@error}</span>
         </div>
       </form>
 
       <div :if={@owner?} class="card">
-        <h2>Share / Team</h2>
+        <h2>{gettext("Share / Team")}</h2>
 
         <p class="hint" style="margin-top: 0">
           Invite other people to this tournament by email - they can open, edit, pair, enter
           results, print and export it, exactly like you, except they can't manage collaborators or
           delete the tournament. They only get access once they explicitly accept the emailed
           invitation while signed in with their own email
-          (<.link navigate={~p"/users/log-in"}>magic link</.link>) - no shared password needed.
+          (<.link navigate={~p"/users/log-in"}>{gettext("magic link")}</.link>{gettext(
+            ") - no shared password needed."
+          )}
         </p>
 
         <form id="add-collaborator-form" phx-submit="add_collaborator">
           <.setting_group>
-            <.setting_field label="Email address">
-              <input type="email" name="email" placeholder="teammate@example.com" />
+            <.setting_field label={gettext("Email address")}>
+              <input type="email" name="email" placeholder={gettext("teammate@example.com")} />
             </.setting_field>
           </.setting_group>
 
@@ -611,7 +617,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
           <p :if={@collaborator_note} class="hint">{@collaborator_note}</p>
 
           <div class="actions">
-            <button type="submit" class="pe-btn primary">Add collaborator</button>
+            <button type="submit" class="pe-btn primary">{gettext("Add collaborator")}</button>
           </div>
         </form>
 
@@ -652,12 +658,12 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
         </div>
 
         <p :if={@collaborators == []} class="hint" style="margin-bottom: 0">
-          Nobody else has access to this tournament yet.
+          {gettext("Nobody else has access to this tournament yet.")}
         </p>
       </div>
 
       <div class="card">
-        <h2>Public pages</h2>
+        <h2>{gettext("Public pages")}</h2>
 
         <p class="hint" style="margin-top: 0">
           Read-only standings and pairings anyone can open with the link below - no login. The
@@ -677,14 +683,14 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
         </div>
 
         <div :if={@tournament.public_pages_enabled} class="set-field solo" style="margin-top: 10px">
-          <span class="set-label">Share link</span>
+          <span class="set-label">{gettext("Share link")}</span>
           <div class="actions" style="margin-top: 6px; gap: 10px; flex-wrap: wrap">
             <a
               class="pe-btn"
               href={~p"/p/#{@tournament.public_slug}/standings"}
               target="_blank"
             >
-              Open standings
+              {gettext("Open standings")}
             </a>
 
             <a
@@ -692,7 +698,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
               href={~p"/p/#{@tournament.public_slug}/pairings"}
               target="_blank"
             >
-              Open pairings
+              {gettext("Open pairings")}
             </a>
 
             <button
@@ -701,7 +707,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
               phx-click="rotate_public_slug"
               data-confirm="Generate a new link? The current one will stop working immediately."
             >
-              Generate new link
+              {gettext("Generate new link")}
             </button>
           </div>
         </div>
@@ -718,7 +724,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
         </p>
 
         <div :if={@tournament.logo_data} class="set-field solo">
-          <span class="set-label">Current logo</span>
+          <span class="set-label">{gettext("Current logo")}</span>
           <img
             src={Tournaments.logo_data_uri(@tournament)}
             alt="Tournament logo"
@@ -726,7 +732,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
           />
           <div class="actions" style="margin-top: 8px">
             <button type="button" class="pe-btn danger-link" phx-click="clear_logo">
-              Remove logo
+              {gettext("Remove logo")}
             </button>
           </div>
         </div>
@@ -736,8 +742,8 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
             <.live_file_input upload={@uploads.logo} class="dropzone-input" />
             <div class="dropzone-label">
               <%= if @uploads.logo.entries == [] do %>
-                <strong>Choose a PNG, JPEG, GIF or WebP image</strong>
-                <span class="hint">or drag and drop it here</span>
+                <strong>{gettext("Choose a PNG, JPEG, GIF or WebP image")}</strong>
+                <span class="hint">{gettext("or drag and drop it here")}</span>
               <% else %>
                 <span :for={entry <- @uploads.logo.entries} class="dropzone-file">
                   {entry.client_name}
@@ -758,14 +764,14 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
 
           <div class="actions">
             <button type="submit" class="pe-btn primary" disabled={@uploads.logo.entries == []}>
-              Upload logo
+              {gettext("Upload logo")}
             </button>
           </div>
         </form>
       </div>
 
       <div class="card">
-        <h2>Export / backup</h2>
+        <h2>{gettext("Export / backup")}</h2>
 
         <p class="hint" style="margin-top: 0">
           A full JSON backup of this tournament - settings, officials, every player (including norm
@@ -778,16 +784,20 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
 
         <div class="actions">
           <a class="pe-btn" href={~p"/t/#{@tournament.id}/export/json"} target="_blank">
-            Export full backup (JSON)
+            {gettext("Export full backup (JSON)")}
           </a>
 
           <a
             class="pe-btn"
             href={~p"/t/#{@tournament.id}/export/swar"}
             target="_blank"
-            title="A .swar file SWAR itself can open - never verified against a real SWAR install, see docs/swar-import.md"
+            title={
+              gettext(
+                "A .swar file SWAR itself can open - never verified against a real SWAR install, see docs/swar-import.md"
+              )
+            }
           >
-            Export .swar (v7, experimental)
+            {gettext("Export .swar (v7, experimental)")}
           </a>
         </div>
       </div>

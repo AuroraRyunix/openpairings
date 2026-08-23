@@ -498,7 +498,7 @@ defmodule PairingsEngineWeb.NormsLive do
   defp report_blockers_bar(assigns) do
     ~H"""
     <div :if={@blockers != []} class="report-blocked">
-      <strong>Not ready to submit to FIDE.</strong>
+      <strong>{gettext("Not ready to submit to FIDE.")}</strong>
       FIDE identifies every official by FIDE ID, so a report missing one gets bounced. Fill these in
       under "Officials &amp; FIDE report data" above:
       <ul>
@@ -755,7 +755,7 @@ defmodule PairingsEngineWeb.NormsLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
-          <p class="subtitle" style="margin: 0">Norms &amp; FIDE reports</p>
+          <p class="subtitle" style="margin: 0">{gettext("Norms & FIDE reports")}</p>
         </div>
       </div>
 
@@ -764,18 +764,18 @@ defmodule PairingsEngineWeb.NormsLive do
       <p class="hint">
         Every report below is generated from the officials/arbiter details in the card just below,
         the FIDE identifiers on the
-        <.link navigate={~p"/t/#{@tournament.id}/settings/fide"}>FIDE settings</.link>
-        page, and the player list.
+        <.link navigate={~p"/t/#{@tournament.id}/settings/fide"}>{gettext("FIDE settings")}</.link>
+        {gettext("page, and the player list.")}
       </p>
 
       <div class="card">
-        <h2>Officials &amp; FIDE report data</h2>
+        <h2>{gettext("Officials & FIDE report data")}</h2>
 
         <p class="hint" style="margin-top: 0">
           Feeds the IT3 / FA1 / IA1 / IT4 FIDE report forms below. Organizer name is set on the
-          <.link navigate={~p"/t/#{@tournament.id}/settings"}>Tournament settings</.link>
+          <.link navigate={~p"/t/#{@tournament.id}/settings"}>{gettext("Tournament settings")}</.link>
           page; the tournament's FIDE ID / event code on the
-          <.link navigate={~p"/t/#{@tournament.id}/settings/fide"}>FIDE settings</.link>
+          <.link navigate={~p"/t/#{@tournament.id}/settings/fide"}>{gettext("FIDE settings")}</.link>
           page. Pairing mode is always computerized, and the pairing program names whichever
           engine paired this tournament.
         </p>
@@ -798,7 +798,7 @@ defmodule PairingsEngineWeb.NormsLive do
 
             <.arbiter_combo
               role="chief_arbiter"
-              label="Chief arbiter"
+              label={gettext("Chief arbiter")}
               required
               name_field="tournament[chief_arbiter]"
               name_value={@tournament.chief_arbiter}
@@ -819,7 +819,7 @@ defmodule PairingsEngineWeb.NormsLive do
 
             <.arbiter_combo
               role="person_responsible_pairings"
-              label="Person responsible for pairings"
+              label={gettext("Person responsible for pairings")}
               name_field="tournament[officials][person_responsible_pairings]"
               name_value={o_get(@tournament, "person_responsible_pairings")}
               id_field="tournament[officials][person_responsible_pairings_fide_id]"
@@ -828,7 +828,7 @@ defmodule PairingsEngineWeb.NormsLive do
             />
 
             <label class="field">
-              <span>IT4 event type</span>
+              <span>{gettext("IT4 event type")}</span>
               <input
                 name="tournament[officials][it4_event_type]"
                 value={o_get(@tournament, "it4_event_type")}
@@ -836,7 +836,7 @@ defmodule PairingsEngineWeb.NormsLive do
             </label>
 
             <label class="field" style="grid-column: 1 / -1">
-              <span>Link to pairings web (IT4)</span>
+              <span>{gettext("Link to pairings web (IT4)")}</span>
               <input
                 name="tournament[officials][pairings_web_link]"
                 value={o_get(@tournament, "pairings_web_link")}
@@ -844,7 +844,7 @@ defmodule PairingsEngineWeb.NormsLive do
             </label>
           </div>
 
-          <h3 style="margin: 18px 0 8px; font-size: 14px">Deputy arbiters</h3>
+          <h3 style="margin: 18px 0 8px; font-size: 14px">{gettext("Deputy arbiters")}</h3>
 
           <div class="form-grid">
             <div :for={{n, label} <- deputy_fields()} style="display: contents">
@@ -900,18 +900,18 @@ defmodule PairingsEngineWeb.NormsLive do
           </div>
 
           <div class="actions" style="margin-top: 8px">
-            <button type="button" class="pe-btn" phx-click="add_arbiter">+ Add arbiter</button>
+            <button type="button" class="pe-btn" phx-click="add_arbiter">{gettext("+ Add arbiter")}</button>
             <button
               :if={extra_arbiters_count(@tournament) > 0}
               type="button"
               class="pe-btn danger-link"
               phx-click="remove_last_arbiter"
             >
-              Remove last arbiter
+              {gettext("Remove last arbiter")}
             </button>
           </div>
 
-          <h3 style="margin: 18px 0 8px; font-size: 14px">Special remarks (IT3)</h3>
+          <h3 style="margin: 18px 0 8px; font-size: 14px">{gettext("Special remarks (IT3)")}</h3>
 
           <div class="form-grid">
             <label :for={n <- 1..4} class="field">
@@ -924,7 +924,7 @@ defmodule PairingsEngineWeb.NormsLive do
           </div>
 
           <div class="actions">
-            <button type="submit" class="pe-btn primary">Save officials</button>
+            <button type="submit" class="pe-btn primary">{gettext("Save officials")}</button>
             <span :if={@officials_note} class="ok-note" style="align-self: center">{@officials_note}</span>
             <span :if={@officials_error} class="error-note" style="align-self: center">{@officials_error}</span>
           </div>
@@ -932,7 +932,7 @@ defmodule PairingsEngineWeb.NormsLive do
       </div>
 
       <div class="card">
-        <h2>IT3 - Tournament Report Form</h2>
+        <h2>{gettext("IT3 - Tournament Report Form")}</h2>
         <p class="hint" style="margin-top: 0">
           The whole-tournament report: identity, officials, pairing system, and rated/titled player
           counts by federation. Always available.
@@ -944,25 +944,25 @@ defmodule PairingsEngineWeb.NormsLive do
             class="pe-btn primary"
             href={~p"/t/#{@tournament.id}/norms/it3"}
           >
-            Download IT3
+            {gettext("Download IT3")}
           </a>
           <button :if={report_blockers(@tournament) != []} class="pe-btn" disabled>
-            Download IT3
+            {gettext("Download IT3")}
           </button>
         </div>
         <.it3_counts_explain players={@players} host_federation={@tournament.federation} />
       </div>
 
       <div class="card">
-        <h2>FA1 / IA1 - Arbiter norm report</h2>
+        <h2>{gettext("FA1 / IA1 - Arbiter norm report")}</h2>
         <p class="hint" style="margin-top: 0">
           For an arbiter earning a norm at this tournament. The candidate needn't be a registered
           player, so fill in their details below - nothing here is saved.
         </p>
         <label :if={fa1_candidate_options(@tournament) != []} class="field">
-          <span>Pick an arbiter</span>
+          <span>{gettext("Pick an arbiter")}</span>
           <select name="fa1_candidate" phx-change="pick_fa1_candidate">
-            <option value="">- type the details by hand -</option>
+            <option value="">{gettext("- type the details by hand -")}</option>
             <option
               :for={{label, key} <- fa1_candidate_options(@tournament)}
               value={key}
@@ -980,11 +980,11 @@ defmodule PairingsEngineWeb.NormsLive do
         >
           <div class="form-grid">
             <label class="field">
-              <span>Last name</span>
+              <span>{gettext("Last name")}</span>
               <input name="candidate[last_name]" value={@fa1_candidate["last_name"]} />
             </label>
             <label class="field">
-              <span>First name</span>
+              <span>{gettext("First name")}</span>
               <input name="candidate[first_name]" value={@fa1_candidate["first_name"]} />
             </label>
             <label class="field">
@@ -1008,7 +1008,7 @@ defmodule PairingsEngineWeb.NormsLive do
               class="pe-btn primary"
               disabled={report_blockers(@tournament) != []}
             >
-              Download FA1 (FIDE Arbiter)
+              {gettext("Download FA1 (FIDE Arbiter)")}
             </button>
             <button
               type="submit"
@@ -1016,14 +1016,14 @@ defmodule PairingsEngineWeb.NormsLive do
               class="pe-btn primary"
               disabled={report_blockers(@tournament) != []}
             >
-              Download IA1 (International Arbiter)
+              {gettext("Download IA1 (International Arbiter)")}
             </button>
           </div>
         </form>
       </div>
 
       <div class="card">
-        <h2>Combined report (festival)</h2>
+        <h2>{gettext("Combined report (festival)")}</h2>
         <p class="hint" style="margin-top: 0">
           Running several category groups as separate tournaments? Pick the others below to
           generate one combined IT3/FA1/IA1 for the whole festival - the master tournament
@@ -1031,7 +1031,7 @@ defmodule PairingsEngineWeb.NormsLive do
         </p>
 
         <p :if={@other_tournaments == []} class="hint">
-          You have no other tournaments to combine this one with.
+          {gettext("You have no other tournaments to combine this one with.")}
         </p>
 
         <div :if={@other_tournaments != []}>
@@ -1044,7 +1044,8 @@ defmodule PairingsEngineWeb.NormsLive do
                   combined. --%>
             <label class="opt-row">
               <input type="checkbox" checked disabled style="width: auto" />
-              <span>{@tournament.name} <span class="hint">- this tournament, always included</span></span>
+              <span>{@tournament.name}
+              <span class="hint">{gettext("- this tournament, always included")}</span></span>
             </label>
             <label :for={{t, _count, _owner?} <- @other_tournaments} class="opt-row">
               <input
@@ -1058,13 +1059,13 @@ defmodule PairingsEngineWeb.NormsLive do
           </div>
 
           <p :if={MapSet.size(@combine_selected) == 0} class="hint">
-            Select at least one tournament above to enable the combined downloads.
+            {gettext("Select at least one tournament above to enable the combined downloads.")}
           </p>
 
           <div :if={MapSet.size(@combine_selected) > 0}>
             <form id="combine-master-form" phx-change="set_combine_master">
               <label class="field" style="max-width: 360px">
-                <span>Master tournament (header/schedule/name)</span>
+                <span>{gettext("Master tournament (header/schedule/name)")}</span>
                 <select name="master">
                   <option
                     :for={
@@ -1091,7 +1092,7 @@ defmodule PairingsEngineWeb.NormsLive do
                   )
                 }
               >
-                Download combined IT3
+                {gettext("Download combined IT3")}
               </a>
             </div>
 
@@ -1106,11 +1107,11 @@ defmodule PairingsEngineWeb.NormsLive do
               <input type="hidden" name="master" value={@combine_master} />
               <div class="form-grid">
                 <label class="field">
-                  <span>Last name</span>
+                  <span>{gettext("Last name")}</span>
                   <input name="candidate[last_name]" />
                 </label>
                 <label class="field">
-                  <span>First name</span>
+                  <span>{gettext("First name")}</span>
                   <input name="candidate[first_name]" />
                 </label>
                 <label class="field">
@@ -1128,14 +1129,14 @@ defmodule PairingsEngineWeb.NormsLive do
                   formaction={~p"/t/#{@tournament.id}/norms/fa1"}
                   class="pe-btn primary"
                 >
-                  Download combined FA1 (FIDE Arbiter)
+                  {gettext("Download combined FA1 (FIDE Arbiter)")}
                 </button>
                 <button
                   type="submit"
                   formaction={~p"/t/#{@tournament.id}/norms/ia1"}
                   class="pe-btn primary"
                 >
-                  Download combined IA1 (International Arbiter)
+                  {gettext("Download combined IA1 (International Arbiter)")}
                 </button>
               </div>
             </form>
@@ -1144,14 +1145,14 @@ defmodule PairingsEngineWeb.NormsLive do
       </div>
 
       <div class="card">
-        <h2>IT4 - Title/Norm report</h2>
+        <h2>{gettext("IT4 - Title/Norm report")}</h2>
         <p class="hint" style="margin-top: 0">
           Lists every player with a claimed title norm (set below). Up to 40 candidates per file -
           a tournament with more needs a second IT4 download for the rest.
         </p>
 
         <p :if={it4_candidates(@players) == []} class="hint">
-          No players have a claimed title yet - set one below to include a player.
+          {gettext("No players have a claimed title yet - set one below to include a player.")}
         </p>
 
         <div :if={it4_candidates(@players) != []} class="card-table-wrap">
@@ -1174,12 +1175,12 @@ defmodule PairingsEngineWeb.NormsLive do
         </div>
 
         <div class="actions">
-          <a class="pe-btn primary" href={~p"/t/#{@tournament.id}/norms/it4"}>Download IT4</a>
+          <a class="pe-btn primary" href={~p"/t/#{@tournament.id}/norms/it4"}>{gettext("Download IT4")}</a>
         </div>
       </div>
 
       <div class="card table-card">
-        <h2 style="padding: 16px 16px 0">Players - title-norm judgment</h2>
+        <h2 style="padding: 16px 16px 0">{gettext("Players - title-norm judgment")}</h2>
         <p class="hint" style="padding: 0 16px">
           The "computed" column judges each player's games against the FIDE Title Regulations
           (B.01: game count, score %, titled opponents, federation mix, opponent-rating average,
@@ -1193,8 +1194,8 @@ defmodule PairingsEngineWeb.NormsLive do
             <tr>
               <th>Name</th>
               <th>Federation</th>
-              <th>Computed (B.01)</th>
-              <th>Claimed title</th>
+              <th>{gettext("Computed (B.01)")}</th>
+              <th>{gettext("Claimed title")}</th>
               <th></th>
             </tr>
           </thead>
@@ -1207,7 +1208,9 @@ defmodule PairingsEngineWeb.NormsLive do
               </td>
               <td>{if claimed_title(p) == "", do: "-", else: claimed_title(p)}</td>
               <td style="text-align: right">
-                <button class="pe-btn" phx-click="edit_norm" phx-value-id={p.id}>Edit norm data</button>
+                <button class="pe-btn" phx-click="edit_norm" phx-value-id={p.id}>{gettext(
+                  "Edit norm data"
+                )}</button>
               </td>
             </tr>
           </tbody>
@@ -1238,9 +1241,11 @@ defmodule PairingsEngineWeb.NormsLive do
 
         <div class="form-grid">
           <label class="field">
-            <span>Title claimed</span>
+            <span>{gettext("Title claimed")}</span>
             <select name="player[norm_data][title_claimed]">
-              <option value="" selected={@form["norm_data"]["title_claimed"] == ""}>- none -</option>
+              <option value="" selected={@form["norm_data"]["title_claimed"] == ""}>
+                {gettext("- none -")}
+              </option>
               <option
                 :for={t <- @norm_titles}
                 value={t}
@@ -1258,7 +1263,7 @@ defmodule PairingsEngineWeb.NormsLive do
             />
           </label>
           <label class="field">
-            <span>Medal / %</span>
+            <span>{gettext("Medal / %")}</span>
             <input
               name="player[norm_data][medal_percent]"
               value={@form["norm_data"]["medal_percent"]}
@@ -1269,7 +1274,7 @@ defmodule PairingsEngineWeb.NormsLive do
             <input name="player[norm_data][event_group]" value={@form["norm_data"]["event_group"]} />
           </label>
           <label class="field">
-            <span>Federations participating</span>
+            <span>{gettext("Federations participating")}</span>
             <input
               type="number"
               name="player[norm_data][fed_participating]"
@@ -1277,7 +1282,7 @@ defmodule PairingsEngineWeb.NormsLive do
             />
           </label>
           <label class="field">
-            <span>Federations eligible (members)</span>
+            <span>{gettext("Federations eligible (members)")}</span>
             <input
               type="number"
               name="player[norm_data][fed_members]"

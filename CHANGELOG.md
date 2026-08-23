@@ -18,6 +18,23 @@ Each entry is tagged so a version can be skimmed:
 
 ### Changed
 
+- [Feature] **The arbiter UI is now translatable: 469 strings in one file
+  per language.** `priv/gettext/nl/LC_MESSAGES/default.po` would be Dutch -
+  one entry per string, each recording the file and line it came from so a
+  translator has context. Fill in the right-hand sides and the app speaks
+  Dutch; nothing else needs touching.
+
+  **The player-facing pages stay English on purpose.** Public pairings,
+  standings, registration and mobile result entry are pinned via
+  `EnglishHook` regardless of the chosen language. An open draws players
+  from a dozen federations, and the language a Belgian arbiter picked for
+  their own admin screens is not one to impose on a visiting player reading
+  the standings.
+
+  Nothing changes visually today: gettext returns the original text when no
+  translation exists, so a wrapped app is byte-identical until a catalogue
+  arrives.
+
 - [Feature] **Language scaffolding, English only for now.** Adding a
   language is now translation work rather than architecture work: add it to
   `PairingsEngineWeb.Locale`, run `mix gettext.extract --merge`, translate

@@ -58,7 +58,7 @@ defmodule PairingsEngineWeb.SettingsAboutLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
-          <p class="subtitle" style="margin: 0">Settings - About</p>
+          <p class="subtitle" style="margin: 0">{gettext("Settings - About")}</p>
         </div>
       </div>
 
@@ -73,12 +73,12 @@ defmodule PairingsEngineWeb.SettingsAboutLive do
 
         <p class="hint" style="margin-bottom: 0">
           Version {Application.spec(:pairings_engine, :vsn)} -
-          <.link navigate={~p"/t/#{@tournament.id}/settings/changelog"}>What's new</.link>
+          <.link navigate={~p"/t/#{@tournament.id}/settings/changelog"}>{gettext("What's new")}</.link>
         </p>
       </div>
 
       <div class="card">
-        <h2>Pairing engine</h2>
+        <h2>{gettext("Pairing engine")}</h2>
         <p>
           This tournament is paired using <strong>{Tournament.pairing_system_label(@tournament.pairing_system)}</strong>.
         </p>
@@ -87,8 +87,8 @@ defmodule PairingsEngineWeb.SettingsAboutLive do
       <div class="card">
         <h2>Credits</h2>
         <p>
-          Many thanks to <strong>Tom Wuyts</strong>
-          for his valuable feedback in the making of OpenPairings.
+          Many thanks to <strong>{gettext("Tom Wuyts")}</strong>
+          {gettext("for his valuable feedback in the making of OpenPairings.")}
         </p>
       </div>
     </Layouts.app>

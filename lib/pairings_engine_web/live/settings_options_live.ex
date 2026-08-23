@@ -472,23 +472,25 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
         <div>
           <h1>{@tournament.name}</h1>
 
-          <p class="subtitle" style="margin: 0">Settings - Options</p>
+          <p class="subtitle" style="margin: 0">{gettext("Settings - Options")}</p>
         </div>
         <span class={["badge", @tournament.status == "setup" && "muted"]}>{@tournament.status}</span>
       </div>
       <.settings_subnav tournament={@tournament} active={:options} />
       <.stale_banner stale={@stale} />
       <div class="card">
-        <h2>Registration form</h2>
+        <h2>{gettext("Registration form")}</h2>
 
         <p class="subtitle" style="margin: 0 0 8px">
           A public page where players enter themselves, finding their own name on the
-          FIDE list. Everyone who signs up arrives marked <strong>not yet arrived</strong> -
+          FIDE list. Everyone who signs up arrives marked
+          <strong>{gettext("not yet arrived")}</strong>
+          -
           they are not paired until you confirm them on the Players page.
         </p>
 
         <p :if={!@tournament.public_pages_enabled} class="subtitle" style="margin: 0 0 8px">
-          <strong>Public pages are switched off</strong>, so the form will not open even
+          <strong>{gettext("Public pages are switched off")}</strong>, so the form will not open even
           if you turn it on here. Enable them under Settings → Tournament first.
         </p>
 
@@ -511,9 +513,9 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             class="pe-btn"
             href={~p"/p/#{@tournament.public_slug}/register"}
             target="_blank"
-            title="No login needed - share this link"
+            title={gettext("No login needed - share this link")}
           >
-            Registration link
+            {gettext("Registration link")}
           </a>
         </div>
       </div>
@@ -524,7 +526,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
           <h2>Pairing</h2>
 
           <.setting_group>
-            <.setting_field label="Pairing system">
+            <.setting_field label={gettext("Pairing system")}>
               <div class="locked-wrap">
                 <select name="tournament[pairing_system]" disabled={@pairing_system_locked?}>
                   <option
@@ -541,17 +543,21 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             </.setting_field>
 
             <.setting_field
-              label="Swiss engine"
-              hint="Swiss only - round robin and Keizer compute their own pairings and never consult this."
+              label={gettext("Swiss engine")}
+              hint={
+                gettext(
+                  "Swiss only - round robin and Keizer compute their own pairings and never consult this."
+                )
+              }
             >
               <div class="locked-wrap">
                 <select name="tournament[pairing_engine]" disabled={@pairing_engine_locked?}>
                   <option value="javafo" selected={@tournament.pairing_engine == "javafo"}>
-                    JaVaFo - FIDE-endorsed (default)
+                    {gettext("JaVaFo - FIDE-endorsed (default)")}
                   </option>
 
                   <option value="ainalrami" selected={@tournament.pairing_engine == "ainalrami"}>
-                    Ainalrami (experimental)
+                    {gettext("Ainalrami (experimental)")}
                   </option>
                 </select>
                 <.locked_overlay field={:pairing_engine} locked?={@pairing_engine_locked?} />
@@ -570,12 +576,12 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 install. It is <strong>experimental</strong>, and on the evidence it is also
                 very good: measured against bbpPairings (the other FIDE-endorsed
                 implementation) over two independent corpora of roughly 488 million pairings
-                each, the most recent found <strong>zero disagreements</strong>. Being
+                each, the most recent found <strong>{gettext("zero disagreements")}</strong>. Being
                 in-process, it is also several times quicker than JaVaFo on large fields.
               </span>
 
               <span class="hint">
-                What "experimental" means here is not "probably wrong" - it means <strong>not FIDE-endorsed</strong>. That is a paperwork status, not a quality
+                What "experimental" means here is not "probably wrong" - it means <strong>{gettext("not FIDE-endorsed")}</strong>. That is a paperwork status, not a quality
                 one, and it is why JaVaFo remains the default. Forbidden
                 pairings, club/federation exclusions and acceleration are all supported; any
                 TRF extension it does not implement makes it refuse the round and say so,
@@ -583,9 +589,9 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               </span>
 
               <span :if={@tournament.fide_homologated} class="error-note">
-                This tournament is marked <strong>FIDE-homologated</strong>
+                This tournament is marked <strong>{gettext("FIDE-homologated")}</strong>
                 (Settings &rarr; FIDE). Ainalrami is allowed here, but understand what it
-                costs: OpenPairings is endorsed by FIDE on the basis that it pairs <em>through JaVaFo</em>, so a rated round paired by Ainalrami was not
+                costs: OpenPairings is endorsed by FIDE on the basis that it pairs <em>{gettext("through JaVaFo")}</em>, so a rated round paired by Ainalrami was not
                 produced by the engine that endorsement names. That is a paperwork
                 exposure, not a pairing-quality one - but it is yours, and it is the
                 reason JaVaFo remains the default.
@@ -610,14 +616,14 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
             <.setting_toggle
               name="tournament[rr_match_format]"
-              label="Match format (immediate 2-game rematch, reversed colours)"
+              label={gettext("Match format (immediate 2-game rematch, reversed colours)")}
               checked={@tournament.rr_match_format}
               disabled={@rr_match_format_locked?}
               field={:rr_match_format}
               locked?={@rr_match_format_locked?}
               locked_hint={@locked_hint}
             />
-            <.setting_field label="Keizer top value (blank = automatic)">
+            <.setting_field label={gettext("Keizer top value (blank = automatic)")}>
               <input
                 type="number"
                 name="tournament[keizer_top_value]"
@@ -628,21 +634,23 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
             <.setting_field
               label="Acceleration"
-              hint="Swiss only - round robin and Keizer ignore this setting"
+              hint={gettext("Swiss only - round robin and Keizer ignore this setting")}
             >
               <select name="tournament[acceleration]">
                 <option value="none" selected={@tournament.acceleration == "none"}>None</option>
 
                 <option value="baku" selected={@tournament.acceleration == "baku"}>
-                  Baku acceleration (FIDE C.04.7)
+                  {gettext("Baku acceleration (FIDE C.04.7)")}
                 </option>
               </select>
             </.setting_field>
 
             <.setting_toggle
               name="tournament[swiss_match_format]"
-              label="Match format (immediate 2-game rematch, reversed colours)"
-              hint="Swiss only - requires an even number of rounds (each match is 2 rounds)"
+              label={gettext("Match format (immediate 2-game rematch, reversed colours)")}
+              hint={
+                gettext("Swiss only - requires an even number of rounds (each match is 2 rounds)")
+              }
               checked={@tournament.swiss_match_format}
               disabled={@swiss_match_format_locked?}
               field={:swiss_match_format}
@@ -658,7 +666,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
       <form id="play-settings-form" phx-submit="save">
         <input type="hidden" name="section" value="play" />
         <div class="card">
-          <h2>Tournament type &amp; rate of play</h2>
+          <h2>{gettext("Tournament type & rate of play")}</h2>
 
           <.setting_group>
             <.setting_field label="Type">
@@ -673,7 +681,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               </select>
             </.setting_field>
 
-            <.setting_field label="Rate of play" required>
+            <.setting_field label={gettext("Rate of play")} required>
               <select name="tournament[rate_of_play]">
                 <option
                   :for={opt <- rate_of_play_select_options(@standard, @rate_of_play)}
@@ -685,12 +693,12 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               </select>
             </.setting_field>
 
-            <.setting_field label="Other rate of play (overrides the select above)">
+            <.setting_field label={gettext("Other rate of play (overrides the select above)")}>
               <input
                 type="text"
                 name="tournament[rate_of_play_other]"
                 value=""
-                placeholder="e.g. 40 min + 10 sec/move"
+                placeholder={gettext("e.g. 40 min + 10 sec/move")}
               />
             </.setting_field>
           </.setting_group>
@@ -702,7 +710,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
       <form id="publish-settings-form" phx-submit="save">
         <input type="hidden" name="section" value="publish" />
         <div class="card">
-          <h2>Public pairings</h2>
+          <h2>{gettext("Public pairings")}</h2>
 
           <p class="subtitle" style="margin: 0 0 8px">
             When a round you pair actually reaches <code>/p/{@tournament.public_slug}/pairings</code>
@@ -712,7 +720,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
           </p>
 
           <.setting_group>
-            <.setting_field label="Publish each round">
+            <.setting_field label={gettext("Publish each round")}>
               <select name="tournament[publish_mode]" phx-change="publish_mode_change">
                 <option
                   :for={mode <- Tournament.publish_modes()}
@@ -726,8 +734,8 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
             <.setting_field
               :if={@publish_mode == "timed"}
-              label="Delay (minutes)"
-              hint="Only used when 'Publish each round' above is set to 'After a delay'"
+              label={gettext("Delay (minutes)")}
+              hint={gettext("Only used when 'Publish each round' above is set to 'After a delay'")}
             >
               <input
                 type="number"
@@ -743,7 +751,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
       </form>
 
       <div class="card">
-        <h2>Forbidden pairings</h2>
+        <h2>{gettext("Forbidden pairings")}</h2>
 
         <p class="hint" style="margin-top: 0">
           Two players who must never be paired against each other. Applies to Swiss pairing
@@ -752,13 +760,13 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
         <form id="add-forbidden-pairing-form" phx-submit="add_forbidden_pairing">
           <.setting_group>
-            <.setting_field label="Player A">
+            <.setting_field label={gettext("Player A")}>
               <select name="player_a_id" class="pe-select">
                 <option :for={p <- @forbidden_pairing_players} value={p.id}>{p.name}</option>
               </select>
             </.setting_field>
 
-            <.setting_field label="Player B">
+            <.setting_field label={gettext("Player B")}>
               <select name="player_b_id" class="pe-select">
                 <option :for={p <- @forbidden_pairing_players} value={p.id}>{p.name}</option>
               </select>
@@ -807,10 +815,10 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
         </div>
 
         <p :if={@forbidden_pairings == []} class="hint" style="margin-bottom: 0">
-          No forbidden pairings yet.
+          {gettext("No forbidden pairings yet.")}
         </p>
 
-        <h3 style="margin-top: 24px">Club / federation exclusions</h3>
+        <h3 style="margin-top: 24px">{gettext("Club / federation exclusions")}</h3>
 
         <p class="hint" style="margin-top: 0">
           Automatically forbid pairing any two players who share a club or federation, instead of
@@ -836,12 +844,15 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               </select>
             </.setting_field>
 
-            <.setting_field :if={@club_exclusion_mode == "listed"} label="Clubs (comma-separated)">
+            <.setting_field
+              :if={@club_exclusion_mode == "listed"}
+              label={gettext("Clubs (comma-separated)")}
+            >
               <input
                 type="text"
                 name="tournament[club_exclusion_list]"
                 value={@tournament.club_exclusion_list}
-                placeholder="e.g. Chess Club A, Chess Club B"
+                placeholder={gettext("e.g. Chess Club A, Chess Club B")}
               />
             </.setting_field>
 
@@ -863,13 +874,13 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
             <.setting_field
               :if={@fed_exclusion_mode == "listed"}
-              label="Federations (comma-separated)"
+              label={gettext("Federations (comma-separated)")}
             >
               <input
                 type="text"
                 name="tournament[fed_exclusion_list]"
                 value={@tournament.fed_exclusion_list}
-                placeholder="e.g. BEL, NED"
+                placeholder={gettext("e.g. BEL, NED")}
               />
             </.setting_field>
           </.setting_group>
@@ -881,7 +892,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
           <p :if={@exclusion_error} class="error-note">{@exclusion_error}</p>
 
           <div class="actions">
-            <button type="submit" class="pe-btn primary">Save exclusion rules</button>
+            <button type="submit" class="pe-btn primary">{gettext("Save exclusion rules")}</button>
           </div>
         </form>
       </div>
@@ -892,18 +903,18 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
         phx-key="escape"
       >
         <div class="modal-card" phx-click-away="cancel_engine" style="max-width: 640px">
-          <h2>Switch to Ainalrami?</h2>
+          <h2>{gettext("Switch to Ainalrami?")}</h2>
 
           <p class="hint">
-            <strong>Experimental, but plausibly better.</strong>
+            <strong>{gettext("Experimental, but plausibly better.")}</strong>
             Ainalrami is a second Dutch engine built into this app. Measured against
             bbpPairings - the other FIDE-endorsed implementation - over two independent
-            corpora of roughly 488 million pairings each, the most recent found <strong>zero disagreements</strong>. On a large field it is also several times
+            corpora of roughly 488 million pairings each, the most recent found <strong>{gettext("zero disagreements")}</strong>. On a large field it is also several times
             quicker, because it runs in-process with no Java to start.
           </p>
 
           <p class="hint">
-            "Experimental" here means <strong>not FIDE-endorsed</strong> - a paperwork
+            "Experimental" here means <strong>{gettext("not FIDE-endorsed")}</strong> - a paperwork
             status, not a measured quality one. That is why a FIDE-rated event must still be
             paired by JaVaFo, and why this is not the default.
           </p>
@@ -916,8 +927,8 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
           </p>
 
           <p :if={@tournament.fide_homologated} class="error-note">
-            <strong>This tournament is FIDE-homologated.</strong>
-            OpenPairings is endorsed on the basis that it pairs <em>through JaVaFo</em>, so a
+            <strong>{gettext("This tournament is FIDE-homologated.")}</strong>
+            OpenPairings is endorsed on the basis that it pairs <em>{gettext("through JaVaFo")}</em>, so a
             rated round paired by Ainalrami was not produced by the engine that endorsement
             names. The pairings themselves are not the risk - the paperwork is, and it is
             yours. Proceed only if you are willing to defend that if the report is queried.
@@ -930,10 +941,10 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
           <div class="actions">
             <button type="button" class="pe-btn primary" phx-click="confirm_engine">
-              Use Ainalrami
+              {gettext("Use Ainalrami")}
             </button>
             <button type="button" class="pe-btn" phx-click="cancel_engine">
-              Keep JaVaFo
+              {gettext("Keep JaVaFo")}
             </button>
           </div>
         </div>

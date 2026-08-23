@@ -95,22 +95,37 @@ defmodule PairingsEngineWeb.LocaleTest do
   end
 
   describe "coverage" do
-    test "every live_session applies the locale hook" do
-      # No central place catches them all: a live_session added later without
-      # this renders in English while the rest of the app is not, which is
-      # invisible until somebody is using another language.
+    test "every live_session decides a locale one way or the other" do
+      # No central place catches them all. Either hook counts: EnglishHook is
+      # a deliberate pin for the player-facing pages. What must never happen
+      # is a session with no opinion, which renders in whatever locale the
+      # process was last left with - invisible until somebody uses Dutch.
       source = File.read!("lib/pairings_engine_web/router.ex")
 
       missing =
         Regex.scan(~r/live_session\s+:(\w+)(.{0,400}?)\bdo\b/s, source)
-        |> Enum.reject(fn [_all, _name, between] -> between =~ "LocaleHook" end)
+        |> Enum.reject(fn [_all, _name, between] ->
+          between =~ "LocaleHook" or between =~ "EnglishHook"
+        end)
         |> Enum.map(fn [_all, name, _between] -> name end)
 
       assert missing == [],
              """
-             These live_sessions have no LocaleHook, so their pages ignore the
-             chosen language: #{Enum.join(missing, ", ")}
+             These live_sessions set no locale at all: #{Enum.join(missing, ", ")}
              """
+    end
+
+    test "the player-facing sessions are pinned to English, deliberately" do
+      # An open draws players from many federations, and the language its
+      # arbiter picked for their own admin screens is not one to impose on a
+      # visiting player reading the standings.
+      source = File.read!("lib/pairings_engine_web/router.ex")
+
+      for name <- ~w(public_tournament_pages public_registration mobile_results) do
+        [[_all, between]] = Regex.scan(~r/live_session\s+:#{name}(.{0,400}?)\bdo\b/s, source)
+
+        assert between =~ "EnglishHook", "#{name} is not pinned to English"
+      end
     end
   end
 end

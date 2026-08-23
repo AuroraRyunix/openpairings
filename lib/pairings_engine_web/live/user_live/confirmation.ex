@@ -10,7 +10,7 @@ defmodule PairingsEngineWeb.UserLive.Confirmation do
       <div class="auth-wrap auth-wrap-solo">
         <div class="auth-panel">
           <div class="auth-card">
-            <h2 class="auth-card-title">Welcome back</h2>
+            <h2 class="auth-card-title">{gettext("Welcome back")}</h2>
             <p class="auth-card-sub">Signing in as <strong>{@user.email}</strong>.</p>
 
             <.form
@@ -38,7 +38,7 @@ defmodule PairingsEngineWeb.UserLive.Confirmation do
                 phx-disable-with="Confirming..."
                 class="pe-btn auth-submit auth-submit-ghost"
               >
-                Confirm and sign in only this time
+                {gettext("Confirm and sign in only this time")}
               </button>
             </.form>
 
@@ -76,13 +76,13 @@ defmodule PairingsEngineWeb.UserLive.Confirmation do
                   phx-disable-with="Signing in..."
                   class="pe-btn auth-submit auth-submit-ghost"
                 >
-                  Sign in only this time
+                  {gettext("Sign in only this time")}
                 </button>
               <% end %>
             </.form>
 
             <p :if={!@user.confirmed_at} class="auth-tools">
-              Prefer passwords? You can enable one later in your user settings.
+              {gettext("Prefer passwords? You can enable one later in your user settings.")}
             </p>
           </div>
         </div>

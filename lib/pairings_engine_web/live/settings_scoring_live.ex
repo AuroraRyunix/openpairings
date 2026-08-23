@@ -149,7 +149,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
-          <p class="subtitle" style="margin: 0">Settings - Scoring</p>
+          <p class="subtitle" style="margin: 0">{gettext("Settings - Scoring")}</p>
         </div>
       </div>
 
@@ -162,7 +162,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
           <h2>Points</h2>
 
           <.setting_group>
-            <.setting_field label="Points for a win">
+            <.setting_field label={gettext("Points for a win")}>
               <input
                 type="number"
                 step="0.5"
@@ -171,7 +171,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
               />
             </.setting_field>
 
-            <.setting_field label="Points for a draw">
+            <.setting_field label={gettext("Points for a draw")}>
               <input
                 type="number"
                 step="0.5"
@@ -180,7 +180,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
               />
             </.setting_field>
 
-            <.setting_field label="Points for a loss">
+            <.setting_field label={gettext("Points for a loss")}>
               <input
                 type="number"
                 step="0.5"
@@ -189,7 +189,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
               />
             </.setting_field>
 
-            <.setting_field label="Pairing-allocated bye worth">
+            <.setting_field label={gettext("Pairing-allocated bye worth")}>
               <input
                 type="number"
                 step="0.5"
@@ -201,7 +201,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
         </div>
 
         <div class="card">
-          <h2>Genuine absences</h2>
+          <h2>{gettext("Genuine absences")}</h2>
 
           <p class="subtitle" style="margin: 0 0 8px">
             A "genuine absence" is a plain no-show - a player marked absent for a round without
@@ -212,8 +212,12 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
 
           <.setting_group>
             <.setting_field
-              label="Points awarded for a genuine absence"
-              hint="Leave blank if this doesn't apply - a genuine absence then scores the same as an ordinary loss, same as before this was set."
+              label={gettext("Points awarded for a genuine absence")}
+              hint={
+                gettext(
+                  "Leave blank if this doesn't apply - a genuine absence then scores the same as an ordinary loss, same as before this was set."
+                )
+              }
             >
               <div class="locked-wrap">
                 <input
@@ -229,8 +233,12 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
             </.setting_field>
 
             <.setting_field
-              label="Last round this still applies to"
-              hint="After this round (inclusive of it), a genuine absence scores an ordinary loss instead, no matter how many are left. Leave blank so it applies for the whole tournament, with no cutoff round."
+              label={gettext("Last round this still applies to")}
+              hint={
+                gettext(
+                  "After this round (inclusive of it), a genuine absence scores an ordinary loss instead, no matter how many are left. Leave blank so it applies for the whole tournament, with no cutoff round."
+                )
+              }
             >
               <div class="locked-wrap">
                 <input
@@ -246,8 +254,12 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
             </.setting_field>
 
             <.setting_field
-              label="Cap: only a player's first N genuine absences pay"
-              hint="Counting this round, once a player has this many genuine absences, any further one scores an ordinary loss instead. Leave blank so every genuine absence pays, no matter how many the player racks up."
+              label={gettext("Cap: only a player's first N genuine absences pay")}
+              hint={
+                gettext(
+                  "Counting this round, once a player has this many genuine absences, any further one scores an ordinary loss instead. Leave blank so every genuine absence pays, no matter how many the player racks up."
+                )
+              }
             >
               <div class="locked-wrap">
                 <input
@@ -282,7 +294,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
             </label>
 
             <div :if={@vur_checked} class="setting-warning">
-              <strong>⚠ This changes FIDE tiebreak results, not just scoring.</strong>
+              <strong>{gettext("⚠ This changes FIDE tiebreak results, not just scoring.")}</strong>
               FIDE's own C.07 tiebreak regulations have no "genuine absence" concept at all - this
               is a SWAR-historical convenience, not something a FIDE arbiter would expect by
               default. Turning it on retroactively recomputes Buchholz/Sonneborn-Berger for every
@@ -294,7 +306,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
         </div>
 
         <div class="actions form-actions">
-          <button type="submit" class="pe-btn primary">Save settings</button>
+          <button type="submit" class="pe-btn primary">{gettext("Save settings")}</button>
           <span :if={@note} class="ok-note" style="align-self: center">{@note}</span>
           <span :if={@error} class="error-note" style="align-self: center">{@error}</span>
         </div>

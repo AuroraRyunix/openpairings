@@ -639,9 +639,11 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
     <Layouts.app flash={@flash} current_scope={@current_scope} active="tools">
       <div class="page-header">
         <div>
-          <h1>Arbiter tools</h1>
+          <h1>{gettext("Arbiter tools")}</h1>
           <p class="subtitle" style="margin: 0">
-            Upload a SWAR or TRF file, no account needed - download the IT3/FA1/IA1 FIDE report forms.
+            {gettext(
+              "Upload a SWAR or TRF file, no account needed - download the IT3/FA1/IA1 FIDE report forms."
+            )}
           </p>
         </div>
       </div>
@@ -651,7 +653,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
         database, and this whole session (files, officials, arbiter candidate) is discarded after
         60 minutes of inactivity or as soon as you close the tab and come back later. See
         <.link navigate={~p"/"}>OpenPairings</.link>
-        if you'd rather manage a tournament with an account.
+        {gettext("if you'd rather manage a tournament with an account.")}
       </p>
 
       <form
@@ -660,7 +662,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
         phx-submit="parse_files"
         phx-change="validate_files"
       >
-        <h2>Upload files</h2>
+        <h2>{gettext("Upload files")}</h2>
         <p class="hint" style="margin-top: 0">
           Up to 10 files, 5 MB each - <code>.swar</code> or <code>.trf</code>. Two or more files
           combine into one "Festival" report (see below).
@@ -673,8 +675,8 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
           <.live_file_input upload={@uploads.files} class="dropzone-input" />
           <div class="dropzone-label">
             <%= if @uploads.files.entries == [] do %>
-              <strong>Choose SWAR/TRF files</strong>
-              <span class="hint">or drag and drop them here</span>
+              <strong>{gettext("Choose SWAR/TRF files")}</strong>
+              <span class="hint">{gettext("or drag and drop them here")}</span>
             <% else %>
               <span :for={entry <- @uploads.files.entries} class="dropzone-file">
                 {entry.client_name}
@@ -694,13 +696,13 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
         <div class="actions">
           <button type="submit" class="pe-btn primary" disabled={@uploads.files.entries == []}>
-            Parse files
+            {gettext("Parse files")}
           </button>
         </div>
       </form>
 
       <div :if={@files != []} class="card table-card">
-        <h2 style="padding: 16px 16px 0">Uploaded files</h2>
+        <h2 style="padding: 16px 16px 0">{gettext("Uploaded files")}</h2>
         <table class="pe-table">
           <thead>
             <tr>
@@ -767,7 +769,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
           class="hint"
           style="padding: 4px 16px 16px; margin: 0"
         >
-          No federation appears in more than one uploaded file.
+          {gettext("No federation appears in more than one uploaded file.")}
         </p>
 
         <p :if={successful(@files) |> length() >= 2} class="hint" style="padding: 0 16px 16px">
@@ -778,16 +780,18 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
       </div>
 
       <div :if={successful(@files) != []} class="card">
-        <h2>Officials &amp; arbiter candidate</h2>
+        <h2>{gettext("Officials & arbiter candidate")}</h2>
         <p class="hint" style="margin-top: 0">
-          Fill in anything the uploaded file(s) don't already carry - nothing here is saved either.
+          {gettext(
+            "Fill in anything the uploaded file(s) don't already carry - nothing here is saved either."
+          )}
         </p>
 
         <form id="tools-fields-form" phx-change="update_fields">
           <div class="form-grid">
             <.arbiter_combo
               role="chief_arbiter"
-              label="Chief arbiter"
+              label={gettext("Chief arbiter")}
               required
               name_field="overlay[chief_arbiter_name]"
               name_value={Map.get(@overlay, "chief_arbiter_name", "")}
@@ -799,7 +803,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
             <.overlay_input
               prefix="overlay"
               field="chief_arbiter_email"
-              label="Chief arbiter e-mail"
+              label={gettext("Chief arbiter e-mail")}
               values={@overlay}
             />
             <.arbiter_combo
@@ -815,26 +819,30 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
             <.overlay_input
               prefix="overlay"
               field="organizer_email"
-              label="Organizer e-mail"
+              label={gettext("Organizer e-mail")}
               values={@overlay}
             />
             <.overlay_input
               prefix="overlay"
               field="event_code"
-              label="FIDE event code"
-              hint="Your federation's rating-homologation code, e.g. BEL2026001."
+              label={gettext("FIDE event code")}
+              hint={gettext("Your federation's rating-homologation code, e.g. BEL2026001.")}
               values={@overlay}
             />
             <.overlay_input
               prefix="overlay"
               field="fide_tournament_id"
-              label="FIDE tournament ID"
-              hint="This report's own numeric ID at FIDE - a different thing from the event code above."
+              label={gettext("FIDE tournament ID")}
+              hint={
+                gettext(
+                  "This report's own numeric ID at FIDE - a different thing from the event code above."
+                )
+              }
               values={@overlay}
             />
             <.arbiter_combo
               role="person_responsible_pairings"
-              label="Person responsible for pairings"
+              label={gettext("Person responsible for pairings")}
               name_field="overlay[person_responsible_pairings]"
               name_value={Map.get(@overlay, "person_responsible_pairings", "")}
               id_field="overlay[person_responsible_pairings_fide_id]"
@@ -843,7 +851,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
             />
           </div>
 
-          <h3 style="margin-bottom: 4px">Deputy arbiters</h3>
+          <h3 style="margin-bottom: 4px">{gettext("Deputy arbiters")}</h3>
           <div :for={n <- deputy_range()} class="form-grid">
             <.arbiter_combo
               role={"deputy#{n}"}
@@ -879,22 +887,22 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
             />
           </div>
           <div class="actions" style="margin: 4px 0 12px">
-            <button type="button" class="pe-btn" phx-click="add_arbiter">+ Add arbiter</button>
+            <button type="button" class="pe-btn" phx-click="add_arbiter">{gettext("+ Add arbiter")}</button>
             <button
               :if={parse_extra_count(Map.get(@overlay, "extra_arbiters_count")) > 0}
               type="button"
               class="pe-btn danger-link"
               phx-click="remove_last_arbiter"
             >
-              Remove last arbiter
+              {gettext("Remove last arbiter")}
             </button>
           </div>
 
-          <h3 style="margin-bottom: 4px">FA1 / IA1 arbiter norm candidate</h3>
+          <h3 style="margin-bottom: 4px">{gettext("FA1 / IA1 arbiter norm candidate")}</h3>
           <label :if={candidate_options(@overlay) != []} class="field">
-            <span>Pick an arbiter</span>
+            <span>{gettext("Pick an arbiter")}</span>
             <select name="pick" phx-change="pick_candidate">
-              <option value="">- type the details by hand -</option>
+              <option value="">{gettext("- type the details by hand -")}</option>
               <option :for={{label, role} <- candidate_options(@overlay)} value={role}>
                 {label}
               </option>
@@ -904,13 +912,13 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
             <.overlay_input
               prefix="candidate"
               field="last_name"
-              label="Last name"
+              label={gettext("Last name")}
               values={@candidate}
             />
             <.overlay_input
               prefix="candidate"
               field="first_name"
-              label="First name"
+              label={gettext("First name")}
               values={@candidate}
             />
             <.overlay_input prefix="candidate" field="fide_id" label="FIDE ID" values={@candidate} />
@@ -927,7 +935,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
       <div :if={successful(@files) != []} class="card">
         <h2>Download</h2>
         <div :if={report_blockers(@overlay) != []} class="report-blocked">
-          <strong>Not ready to submit to FIDE.</strong>
+          <strong>{gettext("Not ready to submit to FIDE.")}</strong>
           FIDE identifies every official by FIDE ID and bounces a report missing one. Type their
           name or FIDE ID above and pick the matching result - missing for: {Enum.join(
             report_blockers(@overlay),
@@ -940,24 +948,24 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
             class="pe-btn primary"
             href={~p"/tools/download/#{@token}/it3"}
           >
-            Download IT3
+            {gettext("Download IT3")}
           </a>
           <a
             :if={report_blockers(@overlay) == []}
             class="pe-btn primary"
             href={~p"/tools/download/#{@token}/fa1"}
           >
-            Download FA1 (FIDE Arbiter)
+            {gettext("Download FA1 (FIDE Arbiter)")}
           </a>
           <a
             :if={report_blockers(@overlay) == []}
             class="pe-btn primary"
             href={~p"/tools/download/#{@token}/ia1"}
           >
-            Download IA1 (International Arbiter)
+            {gettext("Download IA1 (International Arbiter)")}
           </a>
           <button :if={report_blockers(@overlay) != []} class="pe-btn" disabled>
-            Download IT3 / FA1 / IA1
+            {gettext("Download IT3 / FA1 / IA1")}
           </button>
         </div>
         <% combined = combined_for_explain(@files, @master_index) %>

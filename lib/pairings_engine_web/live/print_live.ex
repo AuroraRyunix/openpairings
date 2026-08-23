@@ -66,7 +66,7 @@ defmodule PairingsEngineWeb.PrintLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
-          <p class="subtitle" style="margin: 0">Print documents</p>
+          <p class="subtitle" style="margin: 0">{gettext("Print documents")}</p>
         </div>
       </div>
 
@@ -84,14 +84,16 @@ defmodule PairingsEngineWeb.PrintLive do
               <td><strong>{doc.name}</strong></td>
               <td class="hint">{doc.desc}</td>
               <td style="text-align: right">
-                <a :if={doc.href} class="pe-btn primary" href={doc.href} target="_blank">Print…</a>
+                <a :if={doc.href} class="pe-btn primary" href={doc.href} target="_blank">{gettext(
+                  "Print…"
+                )}</a>
                 <button
                   :if={!doc.href}
                   class="pe-btn"
                   disabled
-                  title="Available once rounds are paired"
+                  title={gettext("Available once rounds are paired")}
                 >
-                  Print…
+                  {gettext("Print…")}
                 </button>
               </td>
             </tr>

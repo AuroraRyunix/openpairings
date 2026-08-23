@@ -381,13 +381,13 @@ defmodule PairingsEngineWeb.AuditLive do
         navigate={~p"/t/#{@tournament.id}/audit"}
         class={["pe-btn", "filter-picker", @active == :index && "active"]}
       >
-        Audit trail
+        {gettext("Audit trail")}
       </.link>
       <.link
         navigate={~p"/t/#{@tournament.id}/audit/explain"}
         class={["pe-btn", "filter-picker", @active == :explain && "active"]}
       >
-        Pairing rationale
+        {gettext("Pairing rationale")}
       </.link>
     </div>
     """
@@ -401,7 +401,7 @@ defmodule PairingsEngineWeb.AuditLive do
         <div>
           <h1>{@tournament.name}</h1>
           <p class="subtitle" style="margin: 0">
-            Pick a paired round to see its pairing rationale
+            {gettext("Pick a paired round to see its pairing rationale")}
           </p>
         </div>
       </div>
@@ -409,7 +409,7 @@ defmodule PairingsEngineWeb.AuditLive do
       <.subnav tournament={@tournament} active={:explain} />
 
       <div :if={@paired_rounds == 0} class="card error-note" style="display: block; margin: 12px 0">
-        No rounds have been paired yet, so there is nothing to explain.
+        {gettext("No rounds have been paired yet, so there is nothing to explain.")}
       </div>
 
       <div :if={@paired_rounds > 0} class="round-picker">
@@ -434,7 +434,9 @@ defmodule PairingsEngineWeb.AuditLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
-          <p class="subtitle" style="margin: 0">Audit trail - every change, who made it, and when</p>
+          <p class="subtitle" style="margin: 0">
+            {gettext("Audit trail - every change, who made it, and when")}
+          </p>
         </div>
       </div>
 
@@ -468,7 +470,7 @@ defmodule PairingsEngineWeb.AuditLive do
             <tr :if={@entries == []}>
               <td colspan="3">
                 <div class="empty">
-                  <p class="hint">No audit events recorded yet.</p>
+                  <p class="hint">{gettext("No audit events recorded yet.")}</p>
                 </div>
               </td>
             </tr>
@@ -489,7 +491,7 @@ defmodule PairingsEngineWeb.AuditLive do
           phx-value-delta="-1"
           disabled={@page == 0}
         >
-          ← Newer
+          {gettext("← Newer")}
         </button>
 
         <span class="hint">Page {@page + 1}</span>
@@ -500,7 +502,7 @@ defmodule PairingsEngineWeb.AuditLive do
           phx-value-delta="1"
           disabled={(@page + 1) * @per_page >= @total}
         >
-          Older →
+          {gettext("Older →")}
         </button>
       </div>
     </Layouts.app>

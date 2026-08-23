@@ -204,7 +204,7 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
-          <p class="subtitle" style="margin: 0">Settings - Dates</p>
+          <p class="subtitle" style="margin: 0">{gettext("Settings - Dates")}</p>
         </div>
         <span class={["badge", @tournament.status == "setup" && "muted"]}>{@tournament.status}</span>
       </div>
@@ -215,7 +215,7 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
 
       <form phx-submit="save" phx-change="rd_update">
         <div class="card">
-          <h2>Round dates</h2>
+          <h2>{gettext("Round dates")}</h2>
 
           <p class="hint" style="margin-top: 0">
             One date per round (SWAR Dates tab). Leave blank if unknown; two or more rounds can
@@ -240,17 +240,17 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
 
           <div class="actions" style="flex-wrap: wrap">
             <button type="button" class="pe-btn" phx-click="rd_fill_sequential">
-              Fill sequentially from round 1
+              {gettext("Fill sequentially from round 1")}
             </button>
             <button type="button" class="pe-btn" phx-click="rd_calc">
-              Calculate weekly from round 1
+              {gettext("Calculate weekly from round 1")}
             </button>
-            <button type="button" class="pe-btn" phx-click="rd_clear">Clear all</button>
+            <button type="button" class="pe-btn" phx-click="rd_clear">{gettext("Clear all")}</button>
           </div>
         </div>
 
         <div class="actions">
-          <button type="submit" class="pe-btn primary">Save round dates</button>
+          <button type="submit" class="pe-btn primary">{gettext("Save round dates")}</button>
           <span :if={@note} class="ok-note" style="align-self: center">{@note}</span>
           <span :if={@error} class="error-note" style="align-self: center">{@error}</span>
         </div>

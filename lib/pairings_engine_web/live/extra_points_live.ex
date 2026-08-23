@@ -128,31 +128,31 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
-          <p class="subtitle" style="margin: 0">Settings - Extra points</p>
+          <p class="subtitle" style="margin: 0">{gettext("Settings - Extra points")}</p>
         </div>
       </div>
 
       <.settings_subnav tournament={@tournament} active={:extra_points} />
 
       <div class="card">
-        <h2>Extra points</h2>
+        <h2>{gettext("Extra points")}</h2>
         <p class="hint" style="margin-top: 0">
           Administrative bonus points (SWAR "XtPts") - e.g. a handicap head start for lower-rated
           players. Off by default: pairing and TRF export always use game points only, and
           standings only add extra points to the ranking once you turn this on. See
           <.link navigate={~p"/t/#{@tournament.id}/players"}>Players</.link>
-          to edit a single player's value, or auto-assign everyone from Elo bands below.
+          {gettext("to edit a single player's value, or auto-assign everyone from Elo bands below.")}
         </p>
         <form id="extra-points-form" phx-submit="save_extra_points">
           <.setting_group>
             <.setting_toggle
               name="tournament[count_extra_points]"
-              label="Count extra points in standings"
+              label={gettext("Count extra points in standings")}
               checked={@tournament.count_extra_points}
             />
 
             <.setting_field
-              label="Elo bands (rating:bonus, comma-separated)"
+              label={gettext("Elo bands (rating:bonus, comma-separated)")}
               hint={
                 ~s|A player matches the lowest band whose threshold their rating is below (e.g. "1400:1, 1600:0.5" gives 1.0 below 1400, 0.5 from 1400 up to 1599, nothing from 1600 up). Unrated players only match an explicit "0:bonus" band.|
               }
@@ -168,9 +168,9 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
           <p :if={@extra_points_error} class="error-note">{@extra_points_error}</p>
           <p :if={@extra_points_note} class="ok-note">{@extra_points_note}</p>
           <div class="actions">
-            <button type="submit" class="pe-btn primary">Save extra points settings</button>
+            <button type="submit" class="pe-btn primary">{gettext("Save extra points settings")}</button>
             <button type="button" class="pe-btn" phx-click="apply_extra_points_bands">
-              Apply bands to players
+              {gettext("Apply bands to players")}
             </button>
           </div>
         </form>

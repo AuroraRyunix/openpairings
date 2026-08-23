@@ -1339,29 +1339,37 @@ defmodule PairingsEngineWeb.PlayersLive do
             }
             target="_blank"
           >
-            Print player list
+            {gettext("Print player list")}
           </a>
 
           <a class="pe-btn" href={~p"/t/#{@tournament.id}/print/placecards"} target="_blank">
-            Print place cards
+            {gettext("Print place cards")}
           </a>
 
           <button
             type="button"
             class="pe-btn"
             phx-click="open_rating_refresh"
-            title="Compare every registered player against the locally-synced FIDE database and preview rating/title updates before applying them"
+            title={
+              gettext(
+                "Compare every registered player against the locally-synced FIDE database and preview rating/title updates before applying them"
+              )
+            }
           >
-            Refresh ratings
+            {gettext("Refresh ratings")}
           </button>
 
           <button
             type="button"
             class="pe-btn"
             phx-click="open_club_refresh"
-            title="Compare every registered player against the locally-synced KBSB database and preview club updates before applying them"
+            title={
+              gettext(
+                "Compare every registered player against the locally-synced KBSB database and preview club updates before applying them"
+              )
+            }
           >
-            Update clubs
+            {gettext("Update clubs")}
           </button>
 
           <button
@@ -1377,7 +1385,8 @@ defmodule PairingsEngineWeb.PlayersLive do
                     missing_setup_summary(@missing_setup)
             }
           >
-            Add player <span style="opacity: 0.7; font-size: 11px; margin-left: 4px">Ctrl+I</span>
+            Add player
+            <span style="opacity: 0.7; font-size: 11px; margin-left: 4px">{gettext("Ctrl+I")}</span>
           </button>
         </div>
       </div>
@@ -1392,11 +1401,11 @@ defmodule PairingsEngineWeb.PlayersLive do
       </div>
 
       <form :if={@adding} class="card" phx-submit="save">
-        <h2>Add player</h2>
+        <h2>{gettext("Add player")}</h2>
 
         <div class="field search-wrap">
           <span style="display:block;font-size:13px;font-weight:600;color:var(--text-soft);margin-bottom:4px">
-            Search the FIDE database (name or FIDE ID)
+            {gettext("Search the FIDE database (name or FIDE ID)")}
           </span>
 
           <input
@@ -1406,7 +1415,7 @@ defmodule PairingsEngineWeb.PlayersLive do
             phx-change="search"
             phx-debounce="250"
             autocomplete="off"
-            placeholder="Start typing a last name… e.g. Carlsen"
+            placeholder={gettext("Start typing a last name… e.g. Carlsen")}
             class="pe-input"
           />
           <div :if={@results != []} class="search-results">
@@ -1424,12 +1433,16 @@ defmodule PairingsEngineWeb.PlayersLive do
           </div>
         </div>
 
-        <p class="hint">…or fill the details in by hand below.</p>
+        <p class="hint">{gettext("…or fill the details in by hand below.")}</p>
 
         <div class="form-grid">
           <label class="field">
-            <span>Full name *</span>
-            <input name="player[name]" value={@form_values["name"]} placeholder="Lastname, Firstname" />
+            <span>{gettext("Full name *")}</span>
+            <input
+              name="player[name]"
+              value={@form_values["name"]}
+              placeholder={gettext("Lastname, Firstname")}
+            />
           </label>
 
           <label class="field">
@@ -1452,12 +1465,12 @@ defmodule PairingsEngineWeb.PlayersLive do
           </label>
 
           <label class="field">
-            <span>FIDE rating</span>
+            <span>{gettext("FIDE rating")}</span>
             <input type="number" name="player[fide_rating]" value={@form_values["fide_rating"]} />
           </label>
 
           <label class="field">
-            <span>National ID</span>
+            <span>{gettext("National ID")}</span>
             <input
               name="player[national_id]"
               value={@form_values["national_id"]}
@@ -1468,7 +1481,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           </label>
 
           <label class="field">
-            <span>National rating</span>
+            <span>{gettext("National rating")}</span>
             <input
               type="number"
               name="player[national_rating]"
@@ -1482,7 +1495,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           </label>
 
           <label class="field">
-            <span>Birth year</span>
+            <span>{gettext("Birth year")}</span>
             <input type="number" name="player[birth_year]" value={@form_values["birth_year"]} />
           </label>
 
@@ -1512,16 +1525,16 @@ defmodule PairingsEngineWeb.PlayersLive do
                     missing_setup_summary(@missing_setup)
             }
           >
-            Add player
+            {gettext("Add player")}
           </button>
           <button type="button" class="pe-btn" phx-click="done">Done</button>
         </div>
       </form>
 
       <div :if={@players == []} class="card empty">
-        <p><strong>No players registered yet.</strong></p>
+        <p><strong>{gettext("No players registered yet.")}</strong></p>
 
-        <p>Add players by searching the FIDE database, or enter them by hand.</p>
+        <p>{gettext("Add players by searching the FIDE database, or enter them by hand.")}</p>
       </div>
 
       <div :if={@players != []} class="split" id="players-grid" phx-hook="ColumnPrefs">
@@ -1529,7 +1542,10 @@ defmodule PairingsEngineWeb.PlayersLive do
           <p class="hint" style="padding: 12px 16px 0">
             Double-click a row to edit the player, right-click for the Players Card
             - click a player's Pr. cell to mark that player Present/Absent for the whole event,
-            or right-click the <strong>Pr. column header</strong> to set it for everyone at once.
+            or right-click the
+            <strong>{gettext("Pr. column header")}</strong> {gettext(
+              "to set it for everyone at once."
+            )}
           </p>
 
           <table class="pe-table" id="players-table" phx-hook="PlayerGrid">
@@ -1539,12 +1555,21 @@ defmodule PairingsEngineWeb.PlayersLive do
                   class={["num", "sortable"]}
                   phx-click="sort"
                   phx-value-key="cl"
-                  title="Live tournament rank - click to sort by current standings rank (same as Cl)"
+                  title={
+                    gettext(
+                      "Live tournament rank - click to sort by current standings rank (same as Cl)"
+                    )
+                  }
                 >
                   N1{sort_indicator(@sort_col, @sort_dir, "cl")}
                 </th>
 
-                <th class="sortable" phx-click="sort" phx-value-key="name" title="Player's full name">
+                <th
+                  class="sortable"
+                  phx-click="sort"
+                  phx-value-key="name"
+                  title={gettext("Player's full name")}
+                >
                   Name{sort_indicator(@sort_col, @sort_dir, "name")}
                 </th>
 
@@ -1643,7 +1668,7 @@ defmodule PairingsEngineWeb.PlayersLive do
     ~H"""
     <div class="modal-overlay" phx-window-keydown="close_rating_refresh" phx-key="escape">
       <div class="modal-card" phx-click-away="close_rating_refresh" style="max-width: 700px">
-        <h2>Refresh ratings</h2>
+        <h2>{gettext("Refresh ratings")}</h2>
 
         <p class="hint">
           Compares every registered player against the locally-synced FIDE rating
@@ -1653,7 +1678,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         </p>
 
         <div :if={@summary.proposals == []} class="card empty">
-          <p><strong>Everything up to date.</strong></p>
+          <p><strong>{gettext("Everything up to date.")}</strong></p>
         </div>
 
         <div :if={@summary.proposals != []} class="card-table-wrap">
@@ -1714,7 +1739,7 @@ defmodule PairingsEngineWeb.PlayersLive do
     ~H"""
     <div class="modal-overlay" phx-window-keydown="close_club_refresh" phx-key="escape">
       <div class="modal-card" phx-click-away="close_club_refresh" style="max-width: 700px">
-        <h2>Update clubs</h2>
+        <h2>{gettext("Update clubs")}</h2>
 
         <p class="hint">
           Compares every registered player against the locally-synced KBSB list (by
@@ -1724,7 +1749,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         </p>
 
         <div :if={@summary.proposals == []} class="card empty">
-          <p><strong>Every club up to date.</strong></p>
+          <p><strong>{gettext("Every club up to date.")}</strong></p>
         </div>
 
         <div :if={@summary.proposals != []} class="card-table-wrap">
@@ -1739,7 +1764,7 @@ defmodule PairingsEngineWeb.PlayersLive do
 
                 <th>New</th>
 
-                <th>Matched by</th>
+                <th>{gettext("Matched by")}</th>
               </tr>
             </thead>
 
@@ -1888,26 +1913,34 @@ defmodule PairingsEngineWeb.PlayersLive do
         phx-change="edit_form_change"
         phx-click-away="close_edit"
       >
-        <h2>Player registration</h2>
+        <h2>{gettext("Player registration")}</h2>
 
         <div class="modal-lookup-bar">
-          <span class="hint" style="margin:0">Auto-fill from the local rating databases:</span>
+          <span class="hint" style="margin:0">{gettext("Auto-fill from the local rating databases:")}</span>
           <button
             type="button"
             class="pe-btn"
             phx-click="refresh_edit_fide"
-            title="Look up this player in the local FIDE rating database (by FIDE ID if set, otherwise by name) and fill in their title, FIDE rating, federation and birth year"
+            title={
+              gettext(
+                "Look up this player in the local FIDE rating database (by FIDE ID if set, otherwise by name) and fill in their title, FIDE rating, federation and birth year"
+              )
+            }
           >
-            FIDE lookup
+            {gettext("FIDE lookup")}
           </button>
 
           <button
             type="button"
             class="pe-btn"
             phx-click="refresh_edit_kbsb"
-            title="Look up this player in the local KBSB (Belgian) rating database by National ID and fill in their national rating, club, federation, birth year and FIDE ID"
+            title={
+              gettext(
+                "Look up this player in the local KBSB (Belgian) rating database by National ID and fill in their national rating, club, federation, birth year and FIDE ID"
+              )
+            }
           >
-            KBSB lookup
+            {gettext("KBSB lookup")}
           </button>
         </div>
 
@@ -1933,7 +1966,8 @@ defmodule PairingsEngineWeb.PlayersLive do
           </label>
           <%!-- Identity --%>
           <label class="field">
-            <span>National ID</span> <input name="player[national_id]" value={@form["national_id"]} />
+            <span>{gettext("National ID")}</span>
+            <input name="player[national_id]" value={@form["national_id"]} />
           </label>
 
           <label class="field">
@@ -1946,12 +1980,12 @@ defmodule PairingsEngineWeb.PlayersLive do
           </label>
           <%!-- Ratings & title --%>
           <label class="field">
-            <span>National Elo</span>
+            <span>{gettext("National Elo")}</span>
             <input type="number" name="player[national_rating]" value={@form["national_rating"]} />
           </label>
 
           <label class="field">
-            <span>FIDE Elo</span>
+            <span>{gettext("FIDE Elo")}</span>
             <input type="number" name="player[fide_rating]" value={@form["fide_rating"]} />
             <span :if={@fide_player} class="hint" style="display: block; margin-top: 2px">
               Standard {rating_or_dash(@fide_player.standard_rating)} · Rapid {rating_or_dash(
@@ -1978,7 +2012,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           </label>
           <%!-- Personal --%>
           <label class="field">
-            <span>Birth year</span>
+            <span>{gettext("Birth year")}</span>
             <input type="number" name="player[birth_year]" value={@form["birth_year"]} />
           </label>
 
@@ -2025,19 +2059,23 @@ defmodule PairingsEngineWeb.PlayersLive do
           </label>
 
           <label class="field">
-            <span>Club nr</span>
+            <span>{gettext("Club nr")}</span>
             <input type="number" name="player[club_number]" value={@form["club_number"]} />
           </label>
 
           <label class="field">
-            <span>Fixed table</span>
+            <span>{gettext("Fixed table")}</span>
             <input
               type="number"
               min="1"
               name="player[fixed_board]"
               value={@form["fixed_board"]}
               placeholder="none"
-              title="Displays/prints this player's games at this table number, regardless of normal board order"
+              title={
+                gettext(
+                  "Displays/prints this player's games at this table number, regardless of normal board order"
+                )
+              }
             />
             <span :if={@fixed_board_conflicts != []} class="hint" style="display: block">
               Also used by: {Enum.join(@fixed_board_conflicts, ", ")} - fine if they'll be paired
@@ -2046,12 +2084,12 @@ defmodule PairingsEngineWeb.PlayersLive do
           </label>
           <%!-- Scoring admin --%>
           <label class="field">
-            <span>Extra points</span>
+            <span>{gettext("Extra points")}</span>
             <input type="number" step="0.5" name="player[extra_points]" value={@form["extra_points"]} />
           </label>
 
           <label class="field" style="grid-column: span 2">
-            <span>Absent at the rounds (e.g. 3,5 or 2-4)</span>
+            <span>{gettext("Absent at the rounds (e.g. 3,5 or 2-4)")}</span>
             <input name="player[absent_rounds]" value={@form["absent_rounds"]} />
           </label>
 
@@ -2063,7 +2101,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                 name="player[paid]"
                 value="nopaid"
                 checked={@form["paid"] == "nopaid"}
-              /> No Paid</label>
+              /> {gettext("No Paid")}</label>
               <label><input
                 type="radio"
                 name="player[paid]"
@@ -2128,7 +2166,7 @@ defmodule PairingsEngineWeb.PlayersLive do
     ~H"""
     <div class="modal-overlay" phx-window-keydown="close_card" phx-key="escape">
       <div class="modal-card" phx-click-away="close_card" style="max-width: 900px">
-        <h2>Players Card</h2>
+        <h2>{gettext("Players Card")}</h2>
 
         <p class="card-header-line">{PlayerCard.header(@entry)}</p>
 
@@ -2152,7 +2190,7 @@ defmodule PairingsEngineWeb.PlayersLive do
 
                 <th>Opponent</th>
 
-                <th class="num">N-Elo</th>
+                <th class="num">{gettext("N-Elo")}</th>
 
                 <th class="num">Pts</th>
 

@@ -1433,7 +1433,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           data-scope="seated"
           phx-click="pick_swap_target"
           phx-value-player-id={@player.id}
-          title="Right-click for swap / absent options"
+          title={gettext("Right-click for swap / absent options")}
         >
           {seat_label(@player, @scores)}
         </span>
@@ -1447,16 +1447,20 @@ defmodule PairingsEngineWeb.PairingsLive do
           phx-value-pairing-id={@pairing.id}
           phx-value-player-id={@seat_pick}
         >
-          Put them here
+          {gettext("Put them here")}
         </button>
       <% true -> %>
         <span
           class="seat-vacant"
           data-pairing-id={@pairing.id}
           data-scope="vacant"
-          title="Empty seat - right-click to award a bye, or pick a replacement from the not-playing list below"
+          title={
+            gettext(
+              "Empty seat - right-click to award a bye, or pick a replacement from the not-playing list below"
+            )
+          }
         >
-          - empty -
+          {gettext("- empty -")}
         </span>
     <% end %>
     """
@@ -1489,15 +1493,15 @@ defmodule PairingsEngineWeb.PairingsLive do
         <%= case @menu.scope do %>
           <% "seated" -> %>
             <button type="button" phx-click="arm_swap" phx-value-player-id={@menu.player_id}>
-              Swap with…
+              {gettext("Swap with…")}
             </button>
 
             <button type="button" phx-click="stage_vacate" phx-value-player-id={@menu.player_id}>
-              Mark absent for this round
+              {gettext("Mark absent for this round")}
             </button>
           <% "pool" -> %>
             <button type="button" phx-click="arm_swap" phx-value-player-id={@menu.player_id}>
-              Swap with a player on a board…
+              {gettext("Swap with a player on a board…")}
             </button>
 
             <button
@@ -1510,7 +1514,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             </button>
 
             <button type="button" phx-click="stage_pool_pair" phx-value-player-id={@menu.player_id}>
-              Pair with another player who isn't playing…
+              {gettext("Pair with another player who isn't playing…")}
             </button>
           <% "vacant" -> %>
             <button
@@ -1519,7 +1523,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               phx-click="stage_bye"
               phx-value-pairing-id={@menu.pairing_id}
             >
-              Award a bye to the remaining player
+              {gettext("Award a bye to the remaining player")}
             </button>
 
             <button
@@ -1538,7 +1542,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               phx-click="stage_delete_pairing"
               phx-value-pairing-id={@menu.pairing_id}
             >
-              Delete this board…
+              {gettext("Delete this board…")}
             </button>
         <% end %>
       </div>
@@ -1559,7 +1563,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         <div>
           <h1>{@tournament.name}</h1>
 
-          <p class="subtitle" style="margin: 0">Pairings &amp; results</p>
+          <p class="subtitle" style="margin: 0">{gettext("Pairings & results")}</p>
         </div>
 
         <div class="actions" style="margin: 0">
@@ -1568,17 +1572,17 @@ defmodule PairingsEngineWeb.PairingsLive do
             class="pe-btn"
             href={~p"/p/#{@tournament.public_slug}/pairings"}
             target="_blank"
-            title="No login needed - share this link"
+            title={gettext("No login needed - share this link")}
           >
-            Public pairings link
+            {gettext("Public pairings link")}
           </a>
 
           <a class="pe-btn" href={~p"/t/#{@tournament.id}/live"} target="_blank">
-            Live view &amp; phone QR
+            {gettext("Live view & phone QR")}
           </a>
 
           <a class="pe-btn" href={~p"/t/#{@tournament.id}/export/trf"} target="_blank">
-            Export TRF (all rounds)
+            {gettext("Export TRF (all rounds)")}
           </a>
 
           <form
@@ -1591,12 +1595,12 @@ defmodule PairingsEngineWeb.PairingsLive do
             <input
               type="text"
               name="rounds"
-              placeholder="e.g. 1-5 or 1,3,5"
+              placeholder={gettext("e.g. 1-5 or 1,3,5")}
               class="pe-select"
               style="width: 150px"
             />
-            <button type="submit" class="pe-btn" title="Export only the rounds listed here">
-              Export rounds…
+            <button type="submit" class="pe-btn" title={gettext("Export only the rounds listed here")}>
+              {gettext("Export rounds…")}
             </button>
           </form>
         </div>
@@ -1686,7 +1690,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             class="pe-btn"
             phx-click="publish_round_now"
           >
-            Publish now
+            {gettext("Publish now")}
           </button>
 
           <button
@@ -1741,7 +1745,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               class="pe-btn"
               href={~p"/t/#{@tournament.id}/print/pairings?round=#{@round_number}"}
               target="_blank"
-              title="Right-click for more print options"
+              title={gettext("Right-click for more print options")}
             >
               Print pairings <span class="print-menu-affordance">⋯</span>
             </a>
@@ -1750,9 +1754,13 @@ defmodule PairingsEngineWeb.PairingsLive do
               <a
                 href={~p"/t/#{@tournament.id}/print/pairings?round=#{@round_number}&absentees=1"}
                 target="_blank"
-                title="Same pairing sheet, with a below-the-table section listing requested byes and absences"
+                title={
+                  gettext(
+                    "Same pairing sheet, with a below-the-table section listing requested byes and absences"
+                  )
+                }
               >
-                With absentees section
+                {gettext("With absentees section")}
               </a>
             </div>
           </div>
@@ -1763,7 +1771,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             href={~p"/t/#{@tournament.id}/print/standings?round=#{@round_number}"}
             target="_blank"
           >
-            Print standings
+            {gettext("Print standings")}
           </a>
 
           <div
@@ -1776,7 +1784,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               class="pe-btn"
               href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}"}
               target="_blank"
-              title="Right-click for more print options"
+              title={gettext("Right-click for more print options")}
             >
               Print result cards <span class="print-menu-affordance">⋯</span>
             </a>
@@ -1785,17 +1793,25 @@ defmodule PairingsEngineWeb.PairingsLive do
               <a
                 href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}&limit=3"}
                 target="_blank"
-                title="Print just the first 3 result cards, to check printer alignment before printing the full stack"
+                title={
+                  gettext(
+                    "Print just the first 3 result cards, to check printer alignment before printing the full stack"
+                  )
+                }
               >
-                Test print (first 3 cards)
+                {gettext("Test print (first 3 cards)")}
               </a>
 
               <a
                 href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}&order=stack"}
                 target="_blank"
-                title="Reorders cards so guillotine-cutting the printed stack into 8 piles and collating them recovers board order"
+                title={
+                  gettext(
+                    "Reorders cards so guillotine-cutting the printed stack into 8 piles and collating them recovers board order"
+                  )
+                }
               >
-                Stack-cut order
+                {gettext("Stack-cut order")}
               </a>
             </div>
           </div>
@@ -1810,7 +1826,11 @@ defmodule PairingsEngineWeb.PairingsLive do
               class="pe-btn"
               href={~p"/t/#{@tournament.id}/export/pgn?round=#{@round_number}"}
               target="_blank"
-              title="Metadata-only PGN - no moves are recorded in OpenPairings. Right-click for more options"
+              title={
+                gettext(
+                  "Metadata-only PGN - no moves are recorded in OpenPairings. Right-click for more options"
+                )
+              }
             >
               Export PGN <span class="print-menu-affordance">⋯</span>
             </a>
@@ -1819,17 +1839,21 @@ defmodule PairingsEngineWeb.PairingsLive do
               <a
                 href={~p"/t/#{@tournament.id}/export/pgn?round=#{@round_number}&board=1"}
                 target="_blank"
-                title="Adds a [Board &quot;N&quot;] tag to every game, using the same board number shown on the pairing sheet"
+                title={
+                  gettext(
+                    ~s(Adds a [Board "N"] tag to every game, using the same board number shown on the pairing sheet)
+                  )
+                }
               >
-                This round, with board numbers
+                {gettext("This round, with board numbers")}
               </a>
 
               <a href={~p"/t/#{@tournament.id}/export/pgn"} target="_blank">
-                All rounds
+                {gettext("All rounds")}
               </a>
 
               <a href={~p"/t/#{@tournament.id}/export/pgn?board=1"} target="_blank">
-                All rounds, with board numbers
+                {gettext("All rounds, with board numbers")}
               </a>
             </div>
           </div>
@@ -1839,7 +1863,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             class="pe-btn"
             phx-click="toggle_import_results"
           >
-            Import results (CSV)
+            {gettext("Import results (CSV)")}
           </button>
 
           <button
@@ -1848,7 +1872,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             phx-click="unpair"
             data-confirm={"Unpair round #{@round_number}? All its results will be deleted."}
           >
-            Unpair round
+            {gettext("Unpair round")}
           </button>
         </div>
       </div>
@@ -1887,7 +1911,8 @@ defmodule PairingsEngineWeb.PairingsLive do
           <.live_file_input upload={@uploads.results_csv} class="dropzone-input" />
           <div class="dropzone-label">
             <%= if @uploads.results_csv.entries == [] do %>
-              <strong>Choose a .csv file</strong> <span class="hint">or drag and drop it here</span>
+              <strong>{gettext("Choose a .csv file")}</strong>
+              <span class="hint">{gettext("or drag and drop it here")}</span>
             <% else %>
               <span :for={entry <- @uploads.results_csv.entries} class="dropzone-file">
                 {entry.client_name}
@@ -1899,7 +1924,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         <p :for={err <- upload_errors(@uploads.results_csv)} class="error-note">{inspect(err)}</p>
 
         <div :if={@import_errors} class="error-note" style="display: block">
-          <strong>Nothing was saved - fix these and try again:</strong>
+          <strong>{gettext("Nothing was saved - fix these and try again:")}</strong>
           <ul style="margin: 6px 0 0">
             <li :for={err <- @import_errors}>{err}</li>
           </ul>
@@ -1913,8 +1938,8 @@ defmodule PairingsEngineWeb.PairingsLive do
 
       <p class="hint" style="margin: 8px 0">
         Tip: click a result box and press 1 / 2 / 3 (top row or numpad, any keyboard layout) to enter results rapidly (white win / draw / black win) - focus jumps to the next board automatically.
-        <strong>Right-click any player</strong>
-        to swap them, or to mark them absent for this round.
+        <strong>{gettext("Right-click any player")}</strong>
+        {gettext("to swap them, or to mark them absent for this round.")}
       </p>
 
       <div :if={@swap_first} class="swap-banner" phx-window-keydown="cancel_swap" phx-key="escape">
@@ -1924,7 +1949,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           - now click whoever they should trade places with, on a board or in the
           not-playing list below.
         </span>
-        <button type="button" class="pe-btn" phx-click="cancel_swap">Cancel (Esc)</button>
+        <button type="button" class="pe-btn" phx-click="cancel_swap">{gettext("Cancel (Esc)")}</button>
       </div>
 
       <div
@@ -1935,9 +1960,9 @@ defmodule PairingsEngineWeb.PairingsLive do
       >
         <span class="swap-banner-dot"></span>
         <span>
-          Pairing <strong>{@pool_first.name}</strong> - now click who they should play.
+          Pairing <strong>{@pool_first.name}</strong> {gettext("- now click who they should play.")}
         </span>
-        <button type="button" class="pe-btn" phx-click="cancel_pool_pair">Cancel (Esc)</button>
+        <button type="button" class="pe-btn" phx-click="cancel_pool_pair">{gettext("Cancel (Esc)")}</button>
       </div>
 
       <div
@@ -1947,8 +1972,8 @@ defmodule PairingsEngineWeb.PairingsLive do
         phx-key="escape"
       >
         <span class="swap-banner-dot"></span>
-        <span>Which empty seat should they take? Click one below.</span>
-        <button type="button" class="pe-btn" phx-click="cancel_seat_pick">Cancel (Esc)</button>
+        <span>{gettext("Which empty seat should they take? Click one below.")}</span>
+        <button type="button" class="pe-btn" phx-click="cancel_seat_pick">{gettext("Cancel (Esc)")}</button>
       </div>
       <.pairing_menu :if={@menu} menu={@menu} round={@round} />
       <div :if={@confirm} class="pe-modal" phx-window-keydown="cancel_confirm" phx-key="escape">
@@ -1983,7 +2008,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                     as the loop above so `.SwapArrows` finds both rows' seats
                     together. --%>
               <div :if={@confirm[:bench]} class="board-diff board-diff-bench">
-                <div class="board-diff-num">Not playing list</div>
+                <div class="board-diff-num">{gettext("Not playing list")}</div>
                 <.bench_card
                   name={@confirm.bench.before}
                   state="before"
@@ -2002,7 +2027,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             </div>
 
             <label :if={@confirm.kind == :pool_pair} class="board-number-field">
-              <span>Table number</span>
+              <span>{gettext("Table number")}</span>
               <form phx-change="set_confirm_board">
                 <input type="number" name="board" value={@confirm.board} min="1" />
               </form>
@@ -2062,7 +2087,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             <tr :if={@round == nil}>
               <td colspan="4">
                 <div class="empty">
-                  <p><strong>This round has not been paired yet.</strong></p>
+                  <p><strong>{gettext("This round has not been paired yet.")}</strong></p>
 
                   <p class="hint">
                     <%= cond do %>
@@ -2120,7 +2145,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                         phx-click="confirm_clear_result"
                         phx-value-pairing-id={pairing.id}
                       >
-                        Yes, clear it
+                        {gettext("Yes, clear it")}
                       </button>
 
                       <button type="button" class="pe-btn" phx-click="cancel_clear_result">
@@ -2175,7 +2200,7 @@ defmodule PairingsEngineWeb.PairingsLive do
            physical board this is, and a hidden row by definition no
            longer has a display label anyone sees anywhere else. --%>
       <div :if={@hidden_pairings != []} class="card table-card" style="margin-top: 16px">
-        <h3 style="margin-top: 0">Hidden boards</h3>
+        <h3 style="margin-top: 0">{gettext("Hidden boards")}</h3>
 
         <p class="hint">
           Fully-vacated boards hidden from this round's table, prints, live view and public
@@ -2206,7 +2231,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               phx-click="stage_delete_pairing"
               phx-value-pairing-id={pairing.id}
             >
-              Delete…
+              {gettext("Delete…")}
             </button>
           </li>
         </ul>
@@ -2240,7 +2265,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             data-scope="pool"
             phx-click={if @swap_first || @pool_first, do: pool_click(@swap_first), else: nil}
             phx-value-player-id={entry.player.id}
-            title="Right-click for options"
+            title={gettext("Right-click for options")}
           >
             <span class="pool-chip-name">{player_label(entry.player)}</span>
             <span class="pool-chip-tag">{pool_tag(entry, @tournament)}</span>

@@ -294,7 +294,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
           class="set-field solo"
           style="margin-top: 10px"
         >
-          <span class="set-label">Pair each category independently (beta)</span>
+          <span class="set-label">{gettext("Pair each category independently (beta)")}</span>
           <p class="hint" style="margin: 2px 0 6px">
             Swiss only - each category gets its own independent pairings and byes within one
             combined round.
@@ -311,7 +311,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
             </button>
           </div>
           <p :if={@pair_by_category_locked?} class="hint" style="margin: 6px 0 0">
-            Locked - cannot be changed after round 1 has been paired.
+            {gettext("Locked - cannot be changed after round 1 has been paired.")}
           </p>
         </div>
 
@@ -320,7 +320,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
 
       <div :if={@tournament.categories_enabled}>
         <div class="card">
-          <h2>Category list</h2>
+          <h2>{gettext("Category list")}</h2>
           <p class="hint" style="margin-top: 0">
             Players are assigned a category on the
             <.link navigate={~p"/t/#{@tournament.id}/players"}>Players</.link>
@@ -329,15 +329,15 @@ defmodule PairingsEngineWeb.CategoriesLive do
           </p>
           <form id="add-category-form" phx-submit="add_category">
             <.setting_group>
-              <.setting_field label="New category name">
-                <input type="text" name="name" value="" placeholder="e.g. -1100 or U18" />
+              <.setting_field label={gettext("New category name")}>
+                <input type="text" name="name" value="" placeholder={gettext("e.g. -1100 or U18")} />
               </.setting_field>
               <.setting_field label="Rule">
                 <select name="kind">
                   <option :for={{value, label} <- @rule_kinds} value={value}>{label}</option>
                 </select>
               </.setting_field>
-              <.setting_field label="Threshold" hint="Ignored when Rule is None">
+              <.setting_field label="Threshold" hint={gettext("Ignored when Rule is None")}>
                 <input type="number" name="value" value="" min="1" placeholder="e.g. 1100" />
               </.setting_field>
             </.setting_group>
@@ -371,7 +371,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
           </div>
 
           <p :if={@tournament.categories == []} class="hint" style="margin-bottom: 0">
-            No categories yet.
+            {gettext("No categories yet.")}
           </p>
 
           <div
@@ -380,7 +380,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
             style="margin-top: 16px"
           >
             <button type="button" class="pe-btn primary" phx-click="assign_categories">
-              Assign categories
+              {gettext("Assign categories")}
             </button>
             <span :if={@assign_note} class="ok-note" style="align-self: center">{@assign_note}</span>
           </div>
@@ -398,7 +398,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
       >
         <div class="pe-modal-card pe-modal-wide" phx-click-away="cancel_category_confirm">
           <div class="pe-modal-head">
-            <h2>Assign categories?</h2>
+            <h2>{gettext("Assign categories?")}</h2>
             <p>
               Applying the threshold rules would move {length(@category_confirm.changes)} of {@category_confirm.total} players to a different category. Players with no change
               are omitted below.
@@ -433,7 +433,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
               class="pe-btn primary pe-modal-go"
               phx-click="apply_category_confirm"
             >
-              Assign categories
+              {gettext("Assign categories")}
             </button>
           </div>
         </div>

@@ -187,7 +187,7 @@ defmodule PairingsEngineWeb.Router do
 
     live_session :public_tournament_pages,
       on_mount: [
-        PairingsEngineWeb.LocaleHook,
+        PairingsEngineWeb.EnglishHook,
         PairingsEngineWeb.DeployNotice,
         {PairingsEngineWeb.UserAuth, :mount_current_scope}
       ] do
@@ -217,7 +217,7 @@ defmodule PairingsEngineWeb.Router do
 
     live_session :public_registration,
       on_mount: [
-        PairingsEngineWeb.LocaleHook,
+        PairingsEngineWeb.EnglishHook,
         PairingsEngineWeb.DeployNotice,
         {PairingsEngineWeb.UserAuth, :mount_current_scope}
       ] do
@@ -260,7 +260,7 @@ defmodule PairingsEngineWeb.Router do
 
     live_session :mobile_results,
       on_mount: [
-        PairingsEngineWeb.LocaleHook,
+        PairingsEngineWeb.EnglishHook,
         PairingsEngineWeb.DeployNotice,
         {PairingsEngineWeb.MobileAuth, :require_enrollment}
       ] do

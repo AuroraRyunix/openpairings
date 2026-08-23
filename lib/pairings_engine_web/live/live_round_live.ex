@@ -201,7 +201,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
 
       <details class="card" style="margin-bottom: 20px">
         <summary style="cursor: pointer; font-weight: 650">
-          📱 Enrol a phone to enter results
+          {gettext("📱 Enrol a phone to enter results")}
         </summary>
 
         <p class="hint">
@@ -210,7 +210,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
           revoke it any time.
         </p>
 
-        <button class="pe-btn primary" phx-click="generate_enrollment">Generate a code</button>
+        <button class="pe-btn primary" phx-click="generate_enrollment">{gettext("Generate a code")}</button>
 
         <div :if={@new_enrollment} class="enroll-panel" style="margin-top: 16px">
           <div class="enroll-qr">
@@ -219,17 +219,18 @@ defmodule PairingsEngineWeb.LiveRoundLive do
             </div>
           </div>
           <div>
-            <div class="enroll-code-label">6-digit code</div>
+            <div class="enroll-code-label">{gettext("6-digit code")}</div>
             <div class="enroll-code">{@new_enrollment.code}</div>
             <p class="enroll-url">
-              Scan the QR, or open <strong>{url(~p"/m")}</strong> on the phone and enter the code.
+              Scan the QR, or open
+              <strong>{url(~p"/m")}</strong> {gettext("on the phone and enter the code.")}
             </p>
             <p class="hint">Expires {enroll_expiry(@new_enrollment.expires_at)}.</p>
           </div>
         </div>
 
         <div :if={@enrollments != []} style="margin-top: 18px">
-          <h3 style="margin: 0 0 8px; font-size: 14px">Active phones</h3>
+          <h3 style="margin: 0 0 8px; font-size: 14px">{gettext("Active phones")}</h3>
           <table class="pe-table">
             <tbody>
               <tr :for={e <- @enrollments}>
@@ -248,12 +249,14 @@ defmodule PairingsEngineWeb.LiveRoundLive do
 
       <details class="card" style="margin-bottom: 20px">
         <summary style="cursor: pointer; font-weight: 650">
-          📣 Let spectators follow the standings
+          {gettext("📣 Let spectators follow the standings")}
         </summary>
 
         <%= if @tournament.public_pages_enabled do %>
           <p class="hint">
-            Anyone can scan this to open live standings on their own phone - no login needed.
+            {gettext(
+              "Anyone can scan this to open live standings on their own phone - no login needed."
+            )}
           </p>
           <div class="enroll-panel" style="margin-top: 16px">
             <div class="enroll-qr">
@@ -270,14 +273,14 @@ defmodule PairingsEngineWeb.LiveRoundLive do
         <% else %>
           <p class="hint">
             Public pages are off for this tournament.
-            <.link navigate={~p"/t/#{@tournament.id}/settings"}>Turn them on in Settings</.link>
-            to get a shareable link and QR code.
+            <.link navigate={~p"/t/#{@tournament.id}/settings"}>{gettext("Turn them on in Settings")}</.link>
+            {gettext("to get a shareable link and QR code.")}
           </p>
         <% end %>
       </details>
 
       <div :if={@round == nil} class="card empty">
-        <p><strong>No round has been paired yet.</strong></p>
+        <p><strong>{gettext("No round has been paired yet.")}</strong></p>
       </div>
 
       <div :if={@round} class="card table-card">
@@ -299,7 +302,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
                   <% pairing.result == "bye" -> %>
                     <span class="badge">bye ({@tournament.bye_value} pt)</span>
                   <% pairing.result == "" -> %>
-                    <span class="badge muted">in progress</span>
+                    <span class="badge muted">{gettext("in progress")}</span>
                   <% true -> %>
                     <span class="badge">{result_label(pairing.result)}</span>
                 <% end %>
@@ -336,7 +339,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
       <h2 style="margin-top: 32px">Standings</h2>
 
       <div :if={@entries == []} class="card empty">
-        <p><strong>No players registered yet.</strong></p>
+        <p><strong>{gettext("No players registered yet.")}</strong></p>
       </div>
 
       <div :if={@entries != [] and !@keizer?} class="card table-card">
@@ -382,7 +385,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
               <th>Name</th>
               <th class="num">Elo</th>
               <th class="num">Value</th>
-              <th class="num">Keizer pts</th>
+              <th class="num">{gettext("Keizer pts")}</th>
               <th class="num">Score</th>
             </tr>
           </thead>

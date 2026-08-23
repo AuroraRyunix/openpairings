@@ -53,7 +53,7 @@ defmodule PairingsEngineWeb.UserLive.Registration do
               <span class="auth-hero-name">Open<strong>Pairings</strong></span>
             </div>
 
-            <h1 class="auth-hero-title">Create your free account.</h1>
+            <h1 class="auth-hero-title">{gettext("Create your free account.")}</h1>
 
             <p class="auth-hero-sub">
               One account runs every event you organise - set up in seconds, no
@@ -63,36 +63,36 @@ defmodule PairingsEngineWeb.UserLive.Registration do
             <ul class="auth-features">
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                Invite co-arbiters &middot; run one tournament together, live
+                {gettext("Invite co-arbiters · run one tournament together, live")}
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                Swiss (Dutch), round-robin & Keizer
+                {gettext("Swiss (Dutch), round-robin & Keizer")}
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                Ainalrami &middot; our own Swiss engine, built in Elixir
+                {gettext("Ainalrami · our own Swiss engine, built in Elixir")}
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                FIDE C.07 tie-breaks & automatic title-norm judgment
+                {gettext("FIDE C.07 tie-breaks & automatic title-norm judgment")}
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                Live standings, printing & public share links
+                {gettext("Live standings, printing & public share links")}
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                TRF16, SWAR & PGN import / export
+                {gettext("TRF16, SWAR & PGN import / export")}
               </li>
               <li class="auth-feature-soon">
                 <.icon name="hero-clock-mini" class="size-5" />
-                <span class="auth-feature-soon-tag">Coming soon</span> TRF26
+                <span class="auth-feature-soon-tag">{gettext("Coming soon")}</span> TRF26
               </li>
             </ul>
 
             <div class="auth-hero-cta">
-              <span>Already have an account?</span>
+              <span>{gettext("Already have an account?")}</span>
               <.link navigate={~p"/users/log-in"} class="auth-hero-cta-btn">
                 Log in <span aria-hidden="true">→</span>
               </.link>
@@ -102,9 +102,9 @@ defmodule PairingsEngineWeb.UserLive.Registration do
 
         <div class="auth-panel">
           <div class="auth-card">
-            <h2 class="auth-card-title">Create an account</h2>
+            <h2 class="auth-card-title">{gettext("Create an account")}</h2>
             <p class="auth-card-sub">
-              Enter your email and we'll send a magic link to confirm it.
+              {gettext("Enter your email and we'll send a magic link to confirm it.")}
             </p>
 
             <.form

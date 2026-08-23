@@ -103,14 +103,14 @@ defmodule PairingsEngineWeb.FideLive do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope} active="fide">
-      <h1>Rating lists</h1>
+      <h1>{gettext("Rating lists")}</h1>
       <p class="subtitle">
         Local copies of the FIDE and Belgian national (KBSB/FRBE) rating lists, used to look up
         players when registering them.
       </p>
 
       <div class="card">
-        <h2>FIDE database</h2>
+        <h2>{gettext("FIDE database")}</h2>
         <p>
           <strong>{format_count(@status.player_count)}</strong>
           players in the local database.
@@ -162,7 +162,7 @@ defmodule PairingsEngineWeb.FideLive do
       </div>
 
       <div class="card">
-        <h2>Belgian national rating list (KBSB/FRBE)</h2>
+        <h2>{gettext("Belgian national rating list (KBSB/FRBE)")}</h2>
         <p>
           <strong>{format_count(@kbsb_status.player_count)}</strong>
           players in the local database.
@@ -218,7 +218,7 @@ defmodule PairingsEngineWeb.FideLive do
 
         <form class="field search-wrap" style="margin-top: 16px" phx-change="kbsb_search">
           <span style="display:block;font-size:13px;font-weight:600;color:var(--text-soft);margin-bottom:4px">
-            Search the local KBSB database (national ID or last name)
+            {gettext("Search the local KBSB database (national ID or last name)")}
           </span>
           <input
             type="text"
@@ -226,7 +226,7 @@ defmodule PairingsEngineWeb.FideLive do
             value={@kbsb_query}
             phx-debounce="250"
             autocomplete="off"
-            placeholder="Start typing a last name or matricule…"
+            placeholder={gettext("Start typing a last name or matricule…")}
             class="pe-input"
           />
           <div :if={@kbsb_results != []} class="search-results">

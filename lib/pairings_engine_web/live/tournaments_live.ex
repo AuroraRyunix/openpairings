@@ -820,22 +820,26 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <div>
           <h1>Tournaments</h1>
 
-          <p class="subtitle">Everything you are organising, most recent first.</p>
+          <p class="subtitle">{gettext("Everything you are organising, most recent first.")}</p>
         </div>
 
         <div class="actions" style="margin: 0">
-          <a class="pe-btn" href={~p"/export/tournaments.json"} target="_blank">Export all (JSON)</a>
+          <a class="pe-btn" href={~p"/export/tournaments.json"} target="_blank">{gettext(
+            "Export all (JSON)"
+          )}</a>
           <button :if={!@importing_backup} class="pe-btn" phx-click="import_backup">
-            Import backup (JSON)
+            {gettext("Import backup (JSON)")}
           </button>
-          <button :if={!@importing} class="pe-btn" phx-click="import">Import SWAR file</button>
-          <button :if={!@importing_trf} class="pe-btn" phx-click="import_trf">Import TRF file</button>
-          <button :if={!@creating} class="pe-btn primary" phx-click="new">New tournament</button>
+          <button :if={!@importing} class="pe-btn" phx-click="import">{gettext("Import SWAR file")}</button>
+          <button :if={!@importing_trf} class="pe-btn" phx-click="import_trf">{gettext(
+            "Import TRF file"
+          )}</button>
+          <button :if={!@creating} class="pe-btn primary" phx-click="new">{gettext("New tournament")}</button>
         </div>
       </div>
 
       <div :if={@pending_invitations != []} class="card">
-        <h2>Pending invitations</h2>
+        <h2>{gettext("Pending invitations")}</h2>
 
         <p class="hint" style="margin-top: 0">
           Someone has invited you to collaborate on these tournaments. Accepting gives you full
@@ -848,7 +852,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
               <tr>
                 <th>Tournament</th>
 
-                <th>Invited by</th>
+                <th>{gettext("Invited by")}</th>
 
                 <th></th>
               </tr>
@@ -892,7 +896,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         phx-submit="create"
         phx-change="pairing_system_picked"
       >
-        <h2>New tournament</h2>
+        <h2>{gettext("New tournament")}</h2>
 
         <div class="form-grid">
           <label class="field">
@@ -901,12 +905,12 @@ defmodule PairingsEngineWeb.TournamentsLive do
               name="tournament[name]"
               value={Map.get(@new_params, "name", "")}
               autofocus
-              placeholder="e.g. Summer Open 2026"
+              placeholder={gettext("e.g. Summer Open 2026")}
             />
           </label>
 
           <label class="field">
-            <span>Pairing system</span>
+            <span>{gettext("Pairing system")}</span>
             <select name="tournament[pairing_system]">
               <option
                 :for={{val, label} <- pairing_system_options()}
@@ -946,13 +950,13 @@ defmodule PairingsEngineWeb.TournamentsLive do
               value="true"
               checked={@new_team?}
               style="width: auto"
-            /> <span>Team tournament</span>
+            /> <span>{gettext("Team tournament")}</span>
           </label>
 
           <p :if={@new_team?} class="hint" style="margin-top: 0">
-            <strong>Reporting only.</strong>
+            <strong>{gettext("Reporting only.")}</strong>
             This marks the tournament as a team event on the FIDE report. Pairing
-            is still done <em>player by player</em>
+            is still done <em>{gettext("player by player")}</em>
             - team pairing, team standings
             and team tie-breaks are not built yet, so boards will not respect team
             membership.
@@ -974,12 +978,12 @@ defmodule PairingsEngineWeb.TournamentsLive do
             <input
               name="tournament[city]"
               value={Map.get(@new_params, "city", "")}
-              placeholder="e.g. Gent"
+              placeholder={gettext("e.g. Gent")}
             />
           </label>
 
           <label class="field">
-            <span>Date from</span>
+            <span>{gettext("Date from")}</span>
             <input
               type="date"
               name="tournament[start_date]"
@@ -1006,7 +1010,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
           </div>
 
           <label class="field">
-            <span>Rate of play</span>
+            <span>{gettext("Rate of play")}</span>
             <select name="tournament[rate_of_play]">
               <option
                 :for={opt <- rate_of_play_options(@new_standard)}
@@ -1022,7 +1026,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <p :if={@error} class="error-note">{@error}</p>
 
         <div class="actions">
-          <button type="submit" class="pe-btn primary">Create tournament</button>
+          <button type="submit" class="pe-btn primary">{gettext("Create tournament")}</button>
           <button type="button" class="pe-btn" phx-click="cancel">Cancel</button>
         </div>
       </form>
@@ -1034,7 +1038,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         phx-submit="import_swar"
         phx-change="validate_swar"
       >
-        <h2>Import a SWAR tournament</h2>
+        <h2>{gettext("Import a SWAR tournament")}</h2>
 
         <p class="hint" style="margin-top: 0">
           Pick a <code>.swar</code> file - the tournament, its players, rounds and results
@@ -1048,7 +1052,8 @@ defmodule PairingsEngineWeb.TournamentsLive do
           <.live_file_input upload={@uploads.swar} class="dropzone-input" />
           <div class="dropzone-label">
             <%= if @uploads.swar.entries == [] do %>
-              <strong>Choose a .swar file</strong> <span class="hint">or drag and drop it here</span>
+              <strong>{gettext("Choose a .swar file")}</strong>
+              <span class="hint">{gettext("or drag and drop it here")}</span>
             <% else %>
               <span :for={entry <- @uploads.swar.entries} class="dropzone-file">
                 {entry.client_name}
@@ -1068,7 +1073,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
       </form>
 
       <div :if={@swar_duplicate} id="swar-duplicate-warning" class="card">
-        <h2>This looks like a tournament you already have</h2>
+        <h2>{gettext("This looks like a tournament you already have")}</h2>
 
         <p class="hint" style="margin-top: 0">
           This file's SWAR tournament id matches <strong>{@swar_duplicate.existing.name}</strong>, already imported here. Re-uploading a
@@ -1085,14 +1090,14 @@ defmodule PairingsEngineWeb.TournamentsLive do
             Open {@swar_duplicate.existing.name}
           </button>
           <button type="button" class="pe-btn" phx-click="swar_duplicate_import_anyway">
-            Import as a new tournament anyway
+            {gettext("Import as a new tournament anyway")}
           </button>
           <button type="button" class="pe-btn" phx-click="cancel_swar_duplicate">Cancel</button>
         </div>
       </div>
 
       <form :if={@swar_pending} id="swar-resolve-form" class="card" phx-submit="resolve_swar">
-        <h2>Resolve FIDE ids</h2>
+        <h2>{gettext("Resolve FIDE ids")}</h2>
 
         <p class="hint" style="margin-top: 0">
           SWAR has no FIDE id on file for {length(@swar_pending.unresolved)} player{if length(
@@ -1128,7 +1133,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
             <label class="opt-row opt-baseline">
               <input type="radio" name={"resolution[#{entry.ni}]"} value="skip" checked />
-              Import without a FIDE id
+              {gettext("Import without a FIDE id")}
             </label>
           </div>
         </div>
@@ -1136,7 +1141,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <p :if={@error} class="error-note">{@error}</p>
 
         <div class="actions">
-          <button type="submit" class="pe-btn primary">Confirm and import</button>
+          <button type="submit" class="pe-btn primary">{gettext("Confirm and import")}</button>
           <button type="button" class="pe-btn" phx-click="cancel_swar_resolve">Back</button>
         </div>
       </form>
@@ -1148,7 +1153,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         phx-submit="import_trf_file"
         phx-change="validate_trf"
       >
-        <h2>Import a TRF16 tournament</h2>
+        <h2>{gettext("Import a TRF16 tournament")}</h2>
 
         <p class="hint" style="margin-top: 0">
           Pick a <code>.trf</code> file - the tournament, its players, rounds and results are
@@ -1163,7 +1168,8 @@ defmodule PairingsEngineWeb.TournamentsLive do
           <.live_file_input upload={@uploads.trf} class="dropzone-input" />
           <div class="dropzone-label">
             <%= if @uploads.trf.entries == [] do %>
-              <strong>Choose a .trf file</strong> <span class="hint">or drag and drop it here</span>
+              <strong>{gettext("Choose a .trf file")}</strong>
+              <span class="hint">{gettext("or drag and drop it here")}</span>
             <% else %>
               <span :for={entry <- @uploads.trf.entries} class="dropzone-file">
                 {entry.client_name}
@@ -1189,12 +1195,12 @@ defmodule PairingsEngineWeb.TournamentsLive do
         phx-submit="import_backup_file"
         phx-change="validate_backup"
       >
-        <h2>Import an OpenPairings backup</h2>
+        <h2>{gettext("Import an OpenPairings backup")}</h2>
 
         <p class="hint" style="margin-top: 0">
           Pick a <code>.json</code>
-          file exported from <em>Settings → Export / backup</em>
-          or <em>Export all (JSON)</em>
+          file exported from <em>{gettext("Settings → Export / backup")}</em>
+          or <em>{gettext("Export all (JSON)")}</em>
           - every tournament it contains is imported as a brand-new
           tournament owned by you, with all players, rounds and results intact. This never
           overwrites an existing tournament.
@@ -1207,8 +1213,8 @@ defmodule PairingsEngineWeb.TournamentsLive do
           <.live_file_input upload={@uploads.backup} class="dropzone-input" />
           <div class="dropzone-label">
             <%= if @uploads.backup.entries == [] do %>
-              <strong>Choose a .json backup file</strong>
-              <span class="hint">or drag and drop it here</span>
+              <strong>{gettext("Choose a .json backup file")}</strong>
+              <span class="hint">{gettext("or drag and drop it here")}</span>
             <% else %>
               <span :for={entry <- @uploads.backup.entries} class="dropzone-file">
                 {entry.client_name}
@@ -1234,9 +1240,9 @@ defmodule PairingsEngineWeb.TournamentsLive do
         }
         class="card empty"
       >
-        <p><strong>No tournaments yet.</strong></p>
+        <p><strong>{gettext("No tournaments yet.")}</strong></p>
 
-        <p>Create your first tournament, or import one from SWAR, TRF16, or a backup.</p>
+        <p>{gettext("Create your first tournament, or import one from SWAR, TRF16, or a backup.")}</p>
       </div>
 
       <div :if={@tournaments != []} class="card table-card">
@@ -1263,7 +1269,11 @@ defmodule PairingsEngineWeb.TournamentsLive do
             <tr :for={{t, player_count, owned?} <- @tournaments}>
               <td>
                 <.link navigate={~p"/t/#{t.id}/players"}><strong>{t.name}</strong></.link>
-                <span :if={!owned?} class="badge muted" title="Shared with you by its owner">shared</span>
+                <span
+                  :if={!owned?}
+                  class="badge muted"
+                  title={gettext("Shared with you by its owner")}
+                >shared</span>
               </td>
 
               <td>{Tournament.type_label(t.type)}</td>
@@ -1338,7 +1348,11 @@ defmodule PairingsEngineWeb.TournamentsLive do
               <tr :for={{t, owned?} <- @archived_tournaments}>
                 <td>
                   <.link navigate={~p"/t/#{t.id}/players"}><strong>{t.name}</strong></.link>
-                  <span :if={!owned?} class="badge muted" title="Shared with you by its owner">shared</span>
+                  <span
+                    :if={!owned?}
+                    class="badge muted"
+                    title={gettext("Shared with you by its owner")}
+                  >shared</span>
                 </td>
 
                 <td>{t.archived_at}</td>
@@ -1377,7 +1391,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
       </div>
 
       <div :if={@deleted_tournaments != []} class="card">
-        <h2>Recycle bin</h2>
+        <h2>{gettext("Recycle bin")}</h2>
 
         <p class="hint" style="margin-top: 0">
           Deleted tournaments stay here for 3 months, after which they are purged automatically.
@@ -1408,7 +1422,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
                   </button>
 
                   <button class="pe-btn danger-link" phx-click="purge_start" phx-value-id={t.id}>
-                    Delete permanently
+                    {gettext("Delete permanently")}
                   </button>
                 </td>
               </tr>
@@ -1439,7 +1453,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
     ~H"""
     <div class="modal-overlay" phx-window-keydown="delete_cancel" phx-key="escape">
       <div class="modal-card" phx-click-away="delete_cancel" style="max-width: 440px">
-        <h2>Delete tournament</h2>
+        <h2>{gettext("Delete tournament")}</h2>
 
         <p>
           This moves <strong>{@tournament.name}</strong>
@@ -1450,7 +1464,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
         <form id="delete-confirm-form" phx-change="delete_confirm_input">
           <label class="field">
-            <span>Type DELETE to confirm</span>
+            <span>{gettext("Type DELETE to confirm")}</span>
             <input name="confirm" value={@confirm_text} autocomplete="off" phx-mounted={JS.focus()} />
           </label>
         </form>
@@ -1462,7 +1476,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             phx-click="delete_confirmed"
             disabled={@confirm_text != "DELETE"}
           >
-            Delete tournament
+            {gettext("Delete tournament")}
           </button>
           <button type="button" class="pe-btn" phx-click="delete_cancel">Cancel</button>
         </div>
@@ -1478,16 +1492,16 @@ defmodule PairingsEngineWeb.TournamentsLive do
     ~H"""
     <div class="modal-overlay" phx-window-keydown="purge_cancel" phx-key="escape">
       <div class="modal-card" phx-click-away="purge_cancel" style="max-width: 440px">
-        <h2>Delete permanently</h2>
+        <h2>{gettext("Delete permanently")}</h2>
 
         <p>
           This permanently deletes <strong>{@tournament.name}</strong>
-          and all of its players, rounds and results. This cannot be undone.
+          {gettext("and all of its players, rounds and results. This cannot be undone.")}
         </p>
 
         <form id="purge-confirm-form" phx-change="purge_confirm_input">
           <label class="field">
-            <span>Type DELETE to confirm</span>
+            <span>{gettext("Type DELETE to confirm")}</span>
             <input name="confirm" value={@confirm_text} autocomplete="off" phx-mounted={JS.focus()} />
           </label>
         </form>
@@ -1499,7 +1513,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             phx-click="purge_confirmed"
             disabled={@confirm_text != "DELETE"}
           >
-            Delete permanently
+            {gettext("Delete permanently")}
           </button>
           <button type="button" class="pe-btn" phx-click="purge_cancel">Cancel</button>
         </div>

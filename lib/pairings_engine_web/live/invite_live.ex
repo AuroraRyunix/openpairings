@@ -109,25 +109,25 @@ defmodule PairingsEngineWeb.InviteLive do
         <div class="card">
           <%= cond do %>
             <% is_nil(@invitation) -> %>
-              <h2>Invitation not found</h2>
+              <h2>{gettext("Invitation not found")}</h2>
               <p class="hint">
-                This invitation link is invalid, has already been used, or was declined.
+                {gettext("This invitation link is invalid, has already been used, or was declined.")}
               </p>
               <div class="actions">
-                <.link navigate={~p"/"} class="pe-btn">Go to Tournaments</.link>
+                <.link navigate={~p"/"} class="pe-btn">{gettext("Go to Tournaments")}</.link>
               </div>
             <% @mismatch? -> %>
-              <h2>Wrong account</h2>
+              <h2>{gettext("Wrong account")}</h2>
               <p class="hint">
                 This invitation was sent to <strong>{@invitation.email}</strong>,
                 but you're signed in as <strong>{@current_scope.user.email}</strong>.
                 Log in with the invited address to accept it.
               </p>
               <div class="actions">
-                <.link navigate={~p"/"} class="pe-btn">Go to Tournaments</.link>
+                <.link navigate={~p"/"} class="pe-btn">{gettext("Go to Tournaments")}</.link>
               </div>
             <% true -> %>
-              <h2>You've been invited</h2>
+              <h2>{gettext("You've been invited")}</h2>
               <p class="hint" style="margin-top: 0">
                 <strong>{@owner_email}</strong>
                 invited you to collaborate on <strong>{@tournament.name}</strong>.

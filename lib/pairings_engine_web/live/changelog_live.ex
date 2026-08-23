@@ -23,7 +23,9 @@ defmodule PairingsEngineWeb.ChangelogLive do
       <div class="page-header">
         <div>
           <h1>Changelog</h1>
-          <p class="subtitle" style="margin: 0">What's changed in OpenPairings, release by release</p>
+          <p class="subtitle" style="margin: 0">
+            {gettext("What's changed in OpenPairings, release by release")}
+          </p>
         </div>
       </div>
 

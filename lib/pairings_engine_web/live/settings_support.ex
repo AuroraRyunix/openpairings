@@ -83,7 +83,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
         navigate={~p"/t/#{@tournament.id}/settings/extra-points"}
         class={["pe-btn", "filter-picker", @active == :extra_points && "active"]}
       >
-        Extra points
+        {gettext("Extra points")}
       </.link>
       <.link
         navigate={~p"/t/#{@tournament.id}/settings/fide"}
@@ -100,7 +100,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
       <.link
         navigate={~p"/changelog"}
         class="pe-btn filter-picker"
-        title="Not tournament-specific - opens the app-wide changelog"
+        title={gettext("Not tournament-specific - opens the app-wide changelog")}
       >
         Changelog
       </.link>
@@ -205,7 +205,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
   def locked_hint_message(assigns) do
     ~H"""
     <span :if={@locked_hint == @field} class="hint locked-hint-msg">
-      Locked - cannot be changed after round 1 has been paired.
+      {gettext("Locked - cannot be changed after round 1 has been paired.")}
     </span>
     """
   end

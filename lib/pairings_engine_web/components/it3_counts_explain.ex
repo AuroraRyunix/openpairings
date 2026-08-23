@@ -14,6 +14,7 @@ defmodule PairingsEngineWeb.Components.It3CountsExplain do
   """
 
   use Phoenix.Component
+  use Gettext, backend: PairingsEngineWeb.Gettext
 
   alias PairingsEngine.Norms.CountsBreakdown
 
@@ -38,7 +39,7 @@ defmodule PairingsEngineWeb.Components.It3CountsExplain do
     ~H"""
     <details class="it3-explain" open>
       <summary class="it3-explain-summary">
-        How the IT3 rated / titled / federation counts were calculated
+        {gettext("How the IT3 rated / titled / federation counts were calculated")}
       </summary>
 
       <p class="hint" style="margin: 6px 0 12px">

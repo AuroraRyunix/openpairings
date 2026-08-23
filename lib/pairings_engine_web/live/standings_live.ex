@@ -302,9 +302,9 @@ defmodule PairingsEngineWeb.StandingsLive do
             class="pe-btn"
             href={~p"/p/#{@tournament.public_slug}/standings"}
             target="_blank"
-            title="No login needed - share this link"
+            title={gettext("No login needed - share this link")}
           >
-            Public standings link
+            {gettext("Public standings link")}
           </a>
 
           <a class="pe-btn" href={~p"/t/#{@tournament.id}/print/standings"} target="_blank">
@@ -319,7 +319,7 @@ defmodule PairingsEngineWeb.StandingsLive do
           class="manual-ranking-banner"
           style="margin-bottom: 8px; padding: 8px 12px; border: 2px solid var(--color-warning, #b45309); border-radius: 6px;"
         >
-          <strong>Manual ranking is ON.</strong>
+          <strong>{gettext("Manual ranking is ON.")}</strong>
           The rank column below reflects the arbiter's
           hand-set order, not the computed tiebreak order - this also applies on the public
           standings page, printed standings, and the TRF export.
@@ -344,11 +344,11 @@ defmodule PairingsEngineWeb.StandingsLive do
             phx-click="enable_manual_ranking"
             data-confirm="Switch to manual ranking? The current computed order will be used as the starting point."
           >
-            Enable manual ranking
+            {gettext("Enable manual ranking")}
           </button>
 
           <button :if={@tournament.manual_ranking} class="pe-btn" phx-click="disable_manual_ranking">
-            Disable manual ranking
+            {gettext("Disable manual ranking")}
           </button>
 
           <button
@@ -356,13 +356,13 @@ defmodule PairingsEngineWeb.StandingsLive do
             class="pe-btn"
             phx-click="reseed_manual_ranking"
           >
-            Re-seed from current order
+            {gettext("Re-seed from current order")}
           </button>
         </div>
       </div>
 
       <div :if={@entries == []} class="card empty">
-        <p><strong>No players registered yet.</strong></p>
+        <p><strong>{gettext("No players registered yet.")}</strong></p>
       </div>
 
       <div
@@ -387,7 +387,7 @@ defmodule PairingsEngineWeb.StandingsLive do
               <th
                 :if={@tournament.count_extra_points and show_col?(@visible, "xtpts")}
                 class="num"
-                title="Administrative bonus points (SWAR XtPts)"
+                title={gettext("Administrative bonus points (SWAR XtPts)")}
               >
                 XtPts
               </th>
@@ -395,7 +395,7 @@ defmodule PairingsEngineWeb.StandingsLive do
               <th
                 :if={@tournament.count_extra_points and show_col?(@visible, "ptot")}
                 class="num"
-                title="Points + extra points - this is what ranking sorts by"
+                title={gettext("Points + extra points - this is what ranking sorts by")}
               >
                 Total
               </th>
@@ -403,7 +403,7 @@ defmodule PairingsEngineWeb.StandingsLive do
               <th
                 :if={show_col?(@visible, "we")}
                 class="num"
-                title="FIDE expected score (Table 8.1.2)"
+                title={gettext("FIDE expected score (Table 8.1.2)")}
               >
                 We
               </th>
@@ -411,9 +411,9 @@ defmodule PairingsEngineWeb.StandingsLive do
               <th
                 :if={show_col?(@visible, "wmwe")}
                 class="num"
-                title="Actual score minus expected score"
+                title={gettext("Actual score minus expected score")}
               >
-                W-We
+                {gettext("W-We")}
               </th>
 
               <th
@@ -515,7 +515,7 @@ defmodule PairingsEngineWeb.StandingsLive do
 
               <th class="num">Value</th>
 
-              <th class="num">Keizer pts</th>
+              <th class="num">{gettext("Keizer pts")}</th>
 
               <th class="num">Score</th>
 

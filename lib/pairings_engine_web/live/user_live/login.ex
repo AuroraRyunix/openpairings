@@ -59,7 +59,7 @@ defmodule PairingsEngineWeb.UserLive.Login do
               <span class="auth-hero-name">Open<strong>Pairings</strong></span>
             </div>
 
-            <h1 class="auth-hero-title">Run world-class chess tournaments.</h1>
+            <h1 class="auth-hero-title">{gettext("Run world-class chess tournaments.")}</h1>
 
             <p class="auth-hero-sub">
               Swiss pairings from our own engine, FIDE tie-break rules, and official
@@ -69,36 +69,36 @@ defmodule PairingsEngineWeb.UserLive.Login do
             <ul class="auth-features">
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                Invite co-arbiters &middot; run one tournament together, live
+                {gettext("Invite co-arbiters · run one tournament together, live")}
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                Swiss (Dutch), round-robin & Keizer
+                {gettext("Swiss (Dutch), round-robin & Keizer")}
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                Ainalrami &middot; our own Swiss engine, built in Elixir
+                {gettext("Ainalrami · our own Swiss engine, built in Elixir")}
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                FIDE C.07 tie-breaks & automatic title-norm judgment
+                {gettext("FIDE C.07 tie-breaks & automatic title-norm judgment")}
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                Live standings, printing & public share links
+                {gettext("Live standings, printing & public share links")}
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                TRF16, SWAR & PGN import / export
+                {gettext("TRF16, SWAR & PGN import / export")}
               </li>
               <li class="auth-feature-soon">
                 <.icon name="hero-clock-mini" class="size-5" />
-                <span class="auth-feature-soon-tag">Coming soon</span> TRF26
+                <span class="auth-feature-soon-tag">{gettext("Coming soon")}</span> TRF26
               </li>
             </ul>
 
             <div :if={!@current_scope} class="auth-hero-cta">
-              <span>New to OpenPairings?</span>
+              <span>{gettext("New to OpenPairings?")}</span>
               <.link navigate={~p"/users/register"} class="auth-hero-cta-btn">
                 Create a free account <span aria-hidden="true">→</span>
               </.link>
@@ -115,7 +115,7 @@ defmodule PairingsEngineWeb.UserLive.Login do
               <%= if @current_scope do %>
                 Re-authenticate to perform sensitive actions on your account.
               <% else %>
-                New here? <.link navigate={~p"/users/register"} class="auth-link">Create an account</.link>.
+                New here? <.link navigate={~p"/users/register"} class="auth-link">{gettext("Create an account")}</.link>.
               <% end %>
             </p>
 
@@ -125,7 +125,7 @@ defmodule PairingsEngineWeb.UserLive.Login do
                 Local mail adapter - sent emails appear in <.link
                   href="/dev/mailbox"
                   class="auth-link"
-                >the mailbox</.link>.
+                >{gettext("the mailbox")}</.link>.
               </span>
             </div>
 
@@ -159,7 +159,7 @@ defmodule PairingsEngineWeb.UserLive.Login do
                   assign state - purely a show/hide, no server round-trip earns
                   its keep for that. --%>
             <details class="auth-password-toggle">
-              <summary>Use a password instead</summary>
+              <summary>{gettext("Use a password instead")}</summary>
 
               <.form
                 :let={f}
@@ -195,7 +195,7 @@ defmodule PairingsEngineWeb.UserLive.Login do
                   Log in and stay signed in <span aria-hidden="true">→</span>
                 </button>
                 <button type="submit" class="pe-btn auth-submit auth-submit-ghost">
-                  Log in only this time
+                  {gettext("Log in only this time")}
                 </button>
               </.form>
             </details>
@@ -213,9 +213,9 @@ defmodule PairingsEngineWeb.UserLive.Login do
               :if={PairingsEngine.Keycloak.configured?()}
               href={~p"/auth/keycloak"}
               class="pe-btn auth-submit auth-sso"
-              title="Sign in with 02cloud SSO"
+              title={gettext("Sign in with 02cloud SSO")}
             >
-              <.icon name="hero-building-office-2" class="size-4" /> Sign in with SSO
+              <.icon name="hero-building-office-2" class="size-4" /> {gettext("Sign in with SSO")}
             </.link>
           </div>
         </div>

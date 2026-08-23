@@ -12,7 +12,7 @@ defmodule PairingsEngineWeb.UserLive.Settings do
       <div class="text-center">
         <.header>
           Account Settings
-          <:subtitle>Manage your account email address and password settings</:subtitle>
+          <:subtitle>{gettext("Manage your account email address and password settings")}</:subtitle>
         </.header>
       </div>
 
@@ -25,7 +25,7 @@ defmodule PairingsEngineWeb.UserLive.Settings do
           spellcheck="false"
           required
         />
-        <.button variant="primary" phx-disable-with="Changing...">Change Email</.button>
+        <.button variant="primary" phx-disable-with="Changing...">{gettext("Change Email")}</.button>
       </.form>
 
       <div class="divider" />
@@ -49,7 +49,7 @@ defmodule PairingsEngineWeb.UserLive.Settings do
         <.input
           field={@password_form[:password]}
           type="password"
-          label="New password"
+          label={gettext("New password")}
           autocomplete="new-password"
           spellcheck="false"
           required
@@ -57,12 +57,12 @@ defmodule PairingsEngineWeb.UserLive.Settings do
         <.input
           field={@password_form[:password_confirmation]}
           type="password"
-          label="Confirm new password"
+          label={gettext("Confirm new password")}
           autocomplete="new-password"
           spellcheck="false"
         />
         <.button variant="primary" phx-disable-with="Saving...">
-          Save Password
+          {gettext("Save Password")}
         </.button>
       </.form>
     </Layouts.app>
