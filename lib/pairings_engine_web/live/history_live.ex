@@ -611,7 +611,7 @@ defmodule PairingsEngineWeb.HistoryLive do
         <ol class="hist" style={"--hist-lanes: #{@max_lane}"}>
           <li
             :for={row <- @rows}
-            class={["hist-row", row_lane(row) > 0 && "off-trunk"]}
+            class={["hist-row", row_lane(row) > 0 && "off-trunk", row_head?(row) && "is-head"]}
             style={"--hist-lane: #{row_lane(row)}"}
           >
             <%= case row do %>
@@ -757,6 +757,11 @@ defmodule PairingsEngineWeb.HistoryLive do
     known = Enum.filter(@kind_order, &MapSet.member?(present, &1))
     known ++ Enum.sort(MapSet.to_list(MapSet.difference(present, MapSet.new(known))))
   end
+
+  # Where the tournament actually IS. Marked on the ROW as well as with a
+  # badge, so it can be found by shape rather than by reading every caption.
+  defp row_head?({:point, point}), do: point.is_head
+  defp row_head?(_branch_stub), do: false
 
   defp row_lane({:point, point}), do: point.lane
   defp row_lane({:branch, lane, _count}), do: lane

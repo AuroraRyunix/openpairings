@@ -18,6 +18,22 @@ Each entry is tagged so a version can be skimmed:
 
 ### Changed
 
+- [Change] **The history tree reads as a tree now.** Three things it was
+  missing:
+
+  - **Branches had no rail.** The vertical line was drawn once for the trunk,
+    so a branch appeared as offset diamonds with nothing joining them - and
+    that a branch is a *path* is the one thing this view exists to say. Each
+    lane now draws its own rail, fainter than the trunk, because the
+    leftmost line is where the tournament is now and should stay the line
+    the eye follows.
+  - **Cards ignored the pointer** despite carrying buttons. Border and a
+    whisper of shadow on hover, nothing more: a row is a record, and lifting
+    each one off the page would turn a history into a deck of cards.
+  - **"Where the tournament is" could only be found by reading captions.**
+    That card now carries an accent left edge and a faint tint, so it is
+    findable at a glance down a long list. The badge still says it in words.
+
 - [Change] **A collapsed restore point now shows WHAT changed under it, not
   just how many.** The row said "4 changes after this point", which is the
   one thing you cannot act on - it reads identically whether they were four

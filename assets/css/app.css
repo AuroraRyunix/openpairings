@@ -3461,6 +3461,46 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .hist-row.off-trunk .hist-dot { background: var(--text-soft); }
 .hist-row.off-trunk .hist-body { opacity: 0.82; }
 
+/* Each branch lane gets its own rail segment, drawn per row at that lane's
+   offset. `.hist::before` only ever drew the TRUNK, so a branch rendered as
+   offset diamonds with nothing joining them - and that a branch is a PATH is
+   the one thing this view exists to communicate. Consecutive rows in a lane
+   butt together into a continuous line, because each segment spans its own
+   row's full height.
+
+   Fainter than the trunk deliberately: the leftmost line is where the
+   tournament is now, and it should stay the line the eye follows. */
+.hist-row.off-trunk::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--hist-rail) + var(--hist-lane, 0) * var(--hist-lane-step));
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  transform: translateX(-50%);
+  background: var(--border);
+  opacity: 0.55;
+}
+
+/* A card carrying buttons should acknowledge the pointer. Border and a
+   whisper of shadow, nothing more: a row is a record, and lifting each one
+   off the page would turn a history into a deck of cards to sort. */
+.hist-body { transition: border-color 0.12s, box-shadow 0.12s, background 0.12s; }
+
+.hist-row:hover > .hist-body {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+}
+
+/* Where the tournament is, findable by shape rather than by reading every
+   caption down a long list. The badge says it in words; this says it at a
+   glance. */
+.hist-row.is-head > .hist-body {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  box-shadow: inset 3px 0 0 var(--accent);
+  background: color-mix(in srgb, var(--accent) 4%, var(--surface));
+}
+
 .hist-body {
   border: 1px solid var(--border);
   border-radius: 10px;
