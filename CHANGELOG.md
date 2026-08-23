@@ -64,6 +64,14 @@ Each entry is tagged so a version can be skimmed:
   Pin moved to `6d739bd`, and the full suite - including the
   JaVaFo-versus-Ainalrami differential tests - passes against it.
 
+- [Change] **The two-minute step of the restart banner actually looks
+  different now.** It changed only the text colour, on a background
+  identical to the calm tier - so the moment carrying the most actionable
+  instruction got the least visible change, and anyone heads-down in a
+  results table would not notice the bar had shifted at all. The bar itself
+  goes amber, tinted with `color-mix` so it stays right in both themes. Red
+  is still held back for the last thirty seconds.
+
 - [Fix] **The restart banner can no longer get stuck on screen forever.**
   It was cleared only by a server push - fine, until the very thing it warns
   about is what stops those pushes arriving. If the socket did not come

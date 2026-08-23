@@ -3668,9 +3668,19 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .deploy-banner-lead { text-transform: uppercase; letter-spacing: 0.05em; font-size: 11px; }
 .deploy-banner-text { color: var(--text); }
 
+/* The two-minute tier used to change only the TEXT colour, on a background
+   identical to the calm tier - so the bar carrying the most actionable
+   instruction got the least visible change, and somebody heads-down in a
+   results table would not notice it had shifted at all. The bar itself
+   changes state now.
+
+   color-mix keeps it theme-aware: a tint of the warning colour over
+   whatever the surface currently is, rather than a fixed amber that would
+   be too bright in dark mode and too washed out in light. */
 .deploy-banner[data-tier="close"] {
-  background: var(--surface-alt);
+  background: color-mix(in srgb, var(--color-warning) 18%, var(--surface-alt));
   color: var(--color-warning);
+  border-bottom-color: var(--color-warning);
 }
 .deploy-banner[data-tier="close"] .deploy-banner-text { color: var(--color-warning); font-weight: 600; }
 
