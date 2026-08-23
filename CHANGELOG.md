@@ -14,6 +14,23 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.16.1] - 2026-08-23
+
+### Fixed
+
+- [Fix] **`-fast` on the deploy script did nothing.** The flag was matched
+  against `--fast` and `-f` only, so the single-dash spelling - the one
+  actually typed - fell through and the deploy waited the full countdown
+  with no complaint. A mistyped flag that looks exactly like a working one
+  is the worst kind. `--fast`, `-fast` and `-f` are all accepted now, and
+  anything unrecognised is called out instead of ignored.
+
+### Changed
+
+- [Change] **The two-minute restart tier is quieter again.** It was briefly
+  given a tinted amber bar to make the state change harder to miss. Red at
+  thirty seconds is where the volume belongs.
+
 ## [0.16.0] - 2026-08-22
 
 ### Security
