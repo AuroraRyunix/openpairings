@@ -98,7 +98,7 @@ defmodule PairingsEngine.PairingTest do
   ## ---------- full pairing run (invokes JaVaFo) ----------
 
   @tag :javafo
-  test "pair_next_round/1 excludes a player absent for this round and gives them a requested-zero bye" do
+  test "pair_next_round/1 excludes a player absent for this round and records the absence" do
     tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
 
     p1 = insert_player(tournament, "Alice", fide_rating: 2000)
@@ -132,7 +132,7 @@ defmodule PairingsEngine.PairingTest do
           select: %{round: b.round, type: b.type}
       )
 
-    assert byes == [%{round: 1, type: "requested-zero"}]
+    assert byes == [%{round: 1, type: "absent"}]
   end
 
   # Root-caused bug: `do_pair_single/4` used to feed JaVaFo the players'
@@ -187,7 +187,7 @@ defmodule PairingsEngine.PairingTest do
           select: %{round: b.round, type: b.type}
       )
 
-    assert byes == [%{round: 1, type: "requested-zero"}]
+    assert byes == [%{round: 1, type: "absent"}]
   end
 
   ## ---------- a player's prior bye must not be lost when pairing later rounds ----------
@@ -250,7 +250,7 @@ defmodule PairingsEngine.PairingTest do
           select: %{round: b.round, type: b.type}
       )
 
-    assert dave_byes == [%{round: 1, type: "requested-zero"}]
+    assert dave_byes == [%{round: 1, type: "absent"}]
 
     # (a) The round-1 absence must survive into the TRF history built for
     # round 2 - inspect the actual TRF export rather than trusting the
@@ -296,7 +296,7 @@ defmodule PairingsEngine.PairingTest do
   # See docs/manual-standings.md.
 
   @tag :javafo
-  test "a round-specific absentee's requested-zero bye marks a hand-set manual order stale" do
+  test "a round-specific absentee's bye row marks a hand-set manual order stale" do
     tournament =
       Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3, manual_ranking: true})
 
@@ -418,7 +418,7 @@ defmodule PairingsEngine.PairingTest do
 
     # Exactly one row for {Dave, round: 1} - no duplicate from the deleted
     # round's leftover row.
-    assert byes == [%{round: 1, type: "requested-zero"}]
+    assert byes == [%{round: 1, type: "absent"}]
   end
 
   ## ---------- TRF result-code mapping ----------
@@ -1199,8 +1199,8 @@ defmodule PairingsEngine.PairingTest do
       |> Enum.sort_by(& &1.round)
 
     assert byes == [
-             %{round: 1, type: "requested-zero"},
-             %{round: 2, type: "requested-zero"}
+             %{round: 1, type: "absent"},
+             %{round: 2, type: "absent"}
            ]
   end
 
@@ -1871,6 +1871,71 @@ defmodule PairingsEngine.PairingTest do
       black_rank = p.black_player && p.black_player.pairing_number
       {white_rank, black_rank}
     end)
+  end
+
+  describe "absences are recorded, whatever kind they are" do
+    test "a player marked absent for the whole tournament gets a bye row for the round" do
+      # They used to get nothing at all. `active_players/1` filters them out
+      # in SQL, so they were never in the round, never in the absentee
+      # split, and no row was written - which meant they scored zero no
+      # matter what the tournament paid for a round sat out, silently.
+      # Keizer had always recorded them; Swiss never did.
+      tournament =
+        Repo.insert!(%Tournament{name: "Absent", type: "swiss", rounds_count: 5, abs_value: 0.5})
+
+      for n <- 1..4, do: insert_player(tournament, "P#{n}", [])
+      away = insert_player(tournament, "Away", absent: true)
+
+      {:ok, _round} = Pairing.pair_next_round(tournament)
+
+      assert [row] = byes_for(tournament, away)
+      assert row.round == 1
+
+      # And the pairing itself is unaffected: four players, two boards, and
+      # the absent one is not among them.
+      refute away.id in seated_player_ids(tournament, 1)
+    end
+
+    test "a round-specific absence and a whole-tournament one record the same kind" do
+      # They are the same event. You only ever know somebody is absent
+      # before the round is paired because they told you - an unannounced
+      # no-show gets paired and forfeits on their board - so there is one
+      # value and one allowance behind both, not two.
+      tournament =
+        Repo.insert!(%Tournament{name: "Both", type: "swiss", rounds_count: 5, abs_value: 0.5})
+
+      for n <- 1..4, do: insert_player(tournament, "P#{n}", [])
+      away = insert_player(tournament, "Away", absent: true)
+      skipping = insert_player(tournament, "Skipping", absent_rounds: "1")
+
+      {:ok, _round} = Pairing.pair_next_round(tournament)
+
+      assert [%{type: away_type}] = byes_for(tournament, away)
+      assert [%{type: skipping_type}] = byes_for(tournament, skipping)
+      assert away_type == skipping_type
+    end
+  end
+
+  defp byes_for(tournament, player) do
+    Repo.all(
+      from b in "byes",
+        where: b.tournament_id == ^tournament.id and b.player_id == ^player.id,
+        select: %{round: b.round, type: b.type}
+    )
+  end
+
+  defp seated_player_ids(tournament, round_number) do
+    round = Tournaments.get_round(tournament.id, round_number)
+
+    round.id
+    |> then(fn id ->
+      Repo.all(
+        from p in PairingsEngine.Tournaments.Pairing,
+          where: p.round_id == ^id,
+          select: {p.white_player_id, p.black_player_id}
+      )
+    end)
+    |> Enum.flat_map(fn {w, b} -> Enum.reject([w, b], &is_nil/1) end)
   end
 
   defp insert_player(tournament, name, attrs) do

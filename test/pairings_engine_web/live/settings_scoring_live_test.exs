@@ -150,8 +150,13 @@ defmodule PairingsEngineWeb.SettingsScoringLiveTest do
   end
 
   describe "absent_counts_as_vur - massive warning" do
-    test "the warning is hidden while the box is unchecked", %{conn: conn, scope: scope} do
+    test "an untouched tournament shows no warning", %{conn: conn, scope: scope} do
+      # It fires on CHANGE, not on state. While the default was off those
+      # were the same test; now that it is on, tying the warning to the
+      # ticked box would shout at every arbiter opening a fresh tournament
+      # about a setting they never touched.
       tournament = create_tournament(scope)
+      assert tournament.absent_counts_as_vur
 
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/scoring")
 
@@ -159,12 +164,11 @@ defmodule PairingsEngineWeb.SettingsScoringLiveTest do
       refute html =~ "changes FIDE tiebreak results"
     end
 
-    test "clicking the checkbox shows the warning immediately, before saving", %{
+    test "moving it away from what is saved warns immediately, before saving", %{
       conn: conn,
       scope: scope
     } do
       tournament = create_tournament(scope)
-      refute tournament.absent_counts_as_vur
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/scoring")
 
@@ -173,10 +177,10 @@ defmodule PairingsEngineWeb.SettingsScoringLiveTest do
       assert html =~ "setting-warning"
       assert html =~ "changes FIDE tiebreak results"
       # Not saved yet - only the live preview flipped.
-      refute Repo.reload!(tournament).absent_counts_as_vur
+      assert Repo.reload!(tournament).absent_counts_as_vur
     end
 
-    test "clicking again hides the warning again", %{conn: conn, scope: scope} do
+    test "putting it back where it was clears the warning", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/scoring")

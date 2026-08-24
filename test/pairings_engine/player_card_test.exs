@@ -45,7 +45,15 @@ defmodule PairingsEngine.PlayerCardTest do
       game = %{opponent_id: nil, points: 1.0, bye_type: "requested-half"}
       assert PlayerCard.result_label(game, t) == "½ bye"
 
+      # An absence is labelled by what it actually PAID. It read "0 bye"
+      # while nothing could pay anything else; now that a tournament can
+      # award half a point for a round sat out, that label would be a lie.
+      # Read from the value itself, not compared against this tournament's
+      # 2/1/0 - half a point is neither its draw nor its loss.
       game = %{opponent_id: nil, points: 0.5, bye_type: "absent"}
+      assert PlayerCard.result_label(game, t) == "½ bye"
+
+      game = %{opponent_id: nil, points: 0.0, bye_type: "absent"}
       assert PlayerCard.result_label(game, t) == "0 bye"
 
       # Pairing-allocated keeps the point-value number (it tracks what the

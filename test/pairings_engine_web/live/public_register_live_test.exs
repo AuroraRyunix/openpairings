@@ -158,15 +158,19 @@ defmodule PairingsEngineWeb.PublicRegisterLiveTest do
       # whether to ask for a bye is exactly who is misled by a hardcoded one.
       t = tournament(scope, open?: true)
 
-      {:ok, lv, html} = live(conn, ~p"/p/#{t.public_slug}/register")
+      {:ok, _lv, html} = live(conn, ~p"/p/#{t.public_slug}/register")
       assert html =~ "no points"
 
-      {:ok, _t} = Tournaments.update_tournament(t, %{"requested_bye_type" => "half"})
+      {:ok, _t} =
+        Tournaments.update_tournament(t, %{"abs_value" => "0.5", "abs_nbfois" => "2"})
 
       {:ok, _lv, html} = live(conn, ~p"/p/#{t.public_slug}/register")
-      assert html =~ "half a point"
 
-      _ = lv
+      # The allowance belongs in the sentence too: "half a point" and "half
+      # a point for your first two" are different offers to somebody
+      # deciding how many rounds to skip.
+      assert html =~ "half a point"
+      assert html =~ "for your first 2"
     end
 
     test "confirming arrival does not cancel the byes that were requested",

@@ -541,7 +541,7 @@ defmodule PairingsEngine.KeizerTest do
       assert reloaded.(d).pairing_number == 4
     end
 
-    test "a round-specific absence excludes the player from pairing and records a requested-zero bye",
+    test "a round-specific absence excludes the player from pairing and records the absence",
          %{tournament: tournament, d: d} do
       {:ok, d} = Tournaments.update_player(d, %{absent_rounds: "1"})
 
@@ -562,7 +562,10 @@ defmodule PairingsEngine.KeizerTest do
             select: b.type
         )
 
-      assert byes == ["requested-zero"]
+      # One kind for both: Keizer used to split "asked for this round off"
+      # from "marked absent outright", which meant the two drew from
+      # different settings for no reason an arbiter could see.
+      assert byes == ["absent"]
 
       # Still shows up in the Keizer standings despite not being paired.
       entries = Keizer.standings(tournament)

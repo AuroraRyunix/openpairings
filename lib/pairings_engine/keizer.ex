@@ -171,8 +171,11 @@ defmodule PairingsEngine.Keizer do
       |> Enum.reject(&MapSet.member?(eligible_ids, &1.id))
       |> Enum.filter(&excused_absence?(&1, round_number))
       |> Enum.map(fn p ->
-        type = if p.absent, do: "absent", else: "requested-zero"
-        %{tournament_id: tournament.id, player_id: p.id, round: round_number, type: type}
+        # One type for both, since they are the same event: you only know
+        # before pairing because the player told you. Keizer used to split
+        # them, which meant a Keizer bye and a Keizer absence drew from
+        # different settings for no reason a arbiter could see.
+        %{tournament_id: tournament.id, player_id: p.id, round: round_number, type: "absent"}
       end)
 
     if rows != [], do: Repo.insert_all("byes", rows, on_conflict: :nothing)

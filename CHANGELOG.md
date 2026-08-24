@@ -51,15 +51,48 @@ Each entry is tagged so a version can be skimmed:
   read from its settings rather than assumed - a player deciding whether to
   ask for one is exactly who a hardcoded answer misleads.
 
-- [Feature] **Requested byes can be worth half a point.** New setting under
-  Settings → Scoring. Every part of the app could already READ a
-  half-point requested bye - standings paid it `points_draw`, TRF export
-  wrote it as `H`, the player card called it "½ bye" - but nothing could
-  create one: a SWAR import was the only way such a row could exist,
-  because pairing hardcoded the zero-point kind. Defaults to zero-point, so
-  no existing tournament changes.
+- [Feature] **One value and one allowance for every round a player sits
+  out.** Settings -> Scoring's "Genuine absences" card is now "Byes and
+  absences": what a sat-out round pays, for the first N of them, up to
+  round Y. It already existed - it just had almost nothing feeding it.
+
+  A player asking for a specific round off and a player marked absent
+  outright are now the same thing, because they are: the only way you know
+  before the round is paired is that the player told you. Somebody who was
+  paired and then didn't turn up is a forfeit on their board, which is a
+  different event entirely and always was.
+
+  FIDE's default is zero, so nothing changes until an arbiter sets a value.
 
 ### Fixed
+
+- [Fix] **A player marked absent in a Swiss tournament now scores their
+  absence award.** They used to score nothing at all, whatever the
+  tournament paid. Players absent for the whole event were filtered out of
+  the round before the point where absences get recorded, so no record was
+  written - no board, no forfeit, no row - and the award had nothing to
+  attach to. Keizer had always recorded them; Swiss never did. Invisible
+  while the award was zero, which is the default, and silently wrong for
+  anyone who had set it.
+
+  Round robin is unaffected and was never wrong: its schedule is fixed, so
+  an absent player still has an opponent and the round is scored as a
+  forfeit on that board rather than as an absence.
+
+- [Fix] **A half-point absence is no longer labelled "0 bye"** on player
+  cards and printed lists. It reads from what the round actually paid,
+  which could not vary until now.
+
+- [Change] **Absences count as voluntary unplayed rounds by default.**
+  FIDE's C.07 treats a voluntarily unplayed round differently in
+  Buchholz/Sonneborn-Berger, and every absence the pairing knows about was
+  announced in advance - so that is what it is. Existing tournaments keep
+  whatever they have; only new ones start with it on.
+
+  The warning attached to this setting now fires when you CHANGE it rather
+  than whenever it is on. Tied to the state, it would have greeted every
+  arbiter opening a fresh tournament with a red box about a setting they
+  never touched.
 
 - [Fix] **A browser asking for Dutch with a broken quality value now gets
   Dutch.** `accept-language: nl;q=banana` resolved to English, as did a

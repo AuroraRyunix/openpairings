@@ -288,8 +288,22 @@ defmodule PairingsEngine.Pairing do
   defp do_pair(tournament, next_number) do
     active = active_players(tournament.id)
 
-    {players, round_absentees} =
+    {players, round_specific} =
       Enum.split_with(active, &(not absent_for_round?(&1, next_number)))
+
+    # A player marked absent for the whole tournament never reached this
+    # function at all: `active_players/1` filters them out in SQL, so they
+    # were not in `active`, not in the split above, and got no bye row for
+    # any round. No board, no forfeit, no row - they simply vanished from
+    # the round, scoring zero no matter what the tournament's absence value
+    # said. Keizer had always recorded them; Swiss never did.
+    #
+    # Both kinds are the same event. You only ever know somebody is absent
+    # BEFORE the round is paired because they told you - an unannounced
+    # no-show gets paired and forfeits - so "requested a bye" and "marked
+    # absent" are one thing wearing two names, and they score through one
+    # value and one allowance.
+    round_absentees = round_specific ++ absent_players(tournament.id)
 
     # Players requesting an absence for this specific round get a bye row
     # instead of being sent to the engine, so the
@@ -809,7 +823,7 @@ defmodule PairingsEngine.Pairing do
           tournament_id: tournament.id,
           player_id: p.id,
           round: round_number,
-          type: Tournament.requested_bye_row_type(tournament)
+          type: "absent"
         }
       end)
 
@@ -1344,7 +1358,7 @@ defmodule PairingsEngine.Pairing do
             tournament_id: tournament.id,
             player_id: player.id,
             round: leg2_number,
-            type: Tournament.requested_bye_row_type(tournament)
+            type: "absent"
           }
         end)
 
@@ -1831,6 +1845,23 @@ defmodule PairingsEngine.Pairing do
         where:
           p.tournament_id == ^tournament_id and p.status == "active" and
             p.absent == false and p.forfeit == false
+    )
+  end
+
+  @doc """
+  Players on the roster who are marked absent for the whole tournament.
+
+  The exact complement of `active_players/1` on the `absent` flag, and
+  deliberately still excluding `forfeit`: a forfeited player's rounds are
+  scored as forfeit losses on their boards, not as absences, and paying
+  them an absence award as well would count the same round twice.
+  """
+  def absent_players(tournament_id) do
+    Repo.all(
+      from p in Player,
+        where:
+          p.tournament_id == ^tournament_id and p.status == "active" and
+            p.absent == true and p.forfeit == false
     )
   end
 

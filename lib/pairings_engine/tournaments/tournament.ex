@@ -28,9 +28,6 @@ defmodule PairingsEngine.Tournaments.Tournament do
   # PairingsEngine.Exclusions and docs/forbidden-pairings.md.
   @exclusion_modes ~w(none all listed)
 
-  # What a requested bye pays. See the `requested_bye_type` field.
-  @requested_bye_types ~w(zero half)
-
   schema "tournaments" do
     field :name, :string
     field :type, :string, default: "swiss"
@@ -57,19 +54,6 @@ defmodule PairingsEngine.Tournaments.Tournament do
     field :points_draw, :float, default: 0.5
     field :points_loss, :float, default: 0.0
     field :bye_value, :float, default: 1.0
-    # What a bye the player ASKED for is worth: "zero" or "half".
-    #
-    # This is a TYPE rather than a number because the `byes` table already
-    # stores a type and `PairingsEngine.Standings.bye_points/4` already maps
-    # both of them to a value - "requested-half" to `points_draw`,
-    # "requested-zero" to `presence_value || points_loss`. Adding a second
-    # float would have given two places to disagree about the same points.
-    #
-    # Every reader of "requested-half" predates this field; the SWAR
-    # importer was the only thing that could ever WRITE one, because
-    # `Pairing.insert_round_absentee_byes/3` hardcoded "requested-zero".
-    # Defaults to "zero" so nothing an existing tournament does changes.
-    field :requested_bye_type, :string, default: "zero"
     # SWAR "3-2-1" custom-scoring `SW321_Pre` ("presence points") - the
     # points paid for an unpaired-but-present round, a distinct concept from
     # an ordinary configured `points_loss`. nil (the default for every
@@ -128,7 +112,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # strict/FIDE-safe reading. An arbiter can opt in from Settings for the
     # more lenient (SWAR-historical) treatment; never on by default. See
     # `PairingsEngine.Standings.add_bye_records/3`.
-    field :absent_counts_as_vur, :boolean, default: false
+    field :absent_counts_as_vur, :boolean, default: true
     # SWAR `SW321_PreBye` (manual §5.16, "Add presence points for bye
     # games") - when true, a pairing-allocated bye pays `presence_value` ON
     # TOP of `bye_value` (SWAR pays SW321_Bye + SW321_Pre for a WIN_BYE
@@ -449,7 +433,6 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :points_draw,
       :points_loss,
       :bye_value,
-      :requested_bye_type,
       :presence_value,
       :abs_value,
       :abs_jusque,
@@ -497,7 +480,6 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_inclusion(:standard, @standards)
     |> validate_inclusion(:pairing_system, @pairing_systems)
     |> validate_inclusion(:pairing_engine, @pairing_engines)
-    |> validate_inclusion(:requested_bye_type, @requested_bye_types)
     |> validate_inclusion(:rr_cycles, @rr_cycles_values)
     |> validate_inclusion(:publish_mode, @publish_modes)
     |> validate_number(:publish_delay_minutes, greater_than_or_equal_to: 0)
@@ -1187,28 +1169,6 @@ defmodule PairingsEngine.Tournaments.Tournament do
   def pairing_engines, do: @pairing_engines
   def rr_cycles_values, do: @rr_cycles_values
   def exclusion_modes, do: @exclusion_modes
-  def requested_bye_types, do: @requested_bye_types
-
-  @doc """
-  The `byes`-table type a requested absence should be recorded as.
-
-  One place decides this, because the pairing path and the registration
-  form have to agree about it: the form tells a player what their bye will
-  be worth before they ask for it, and the pairing writes the row that makes
-  that true.
-  """
-  def requested_bye_row_type(%{requested_bye_type: "half"}), do: "requested-half"
-  def requested_bye_row_type(_tournament), do: "requested-zero"
-
-  @doc """
-  What a requested bye actually pays in this tournament's own points.
-
-  Mirrors `PairingsEngine.Standings.bye_points/4` for the two requested
-  types rather than restating the numbers, so the figure shown on the
-  registration form is the figure the standings will award.
-  """
-  def requested_bye_points(%{requested_bye_type: "half"} = t), do: t.points_draw
-  def requested_bye_points(t), do: t.presence_value || t.points_loss
 
   def exclusion_mode_label("none"), do: "None"
   def exclusion_mode_label("all"), do: "All shared clubs/federations"

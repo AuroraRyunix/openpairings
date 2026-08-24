@@ -89,10 +89,21 @@ defmodule PairingsEngine.PlayerCard do
   """
   def result_label(%{opponent_id: nil} = game, tournament) do
     case Map.get(game, :bye_type) do
+      # SWAR-imported rows carry the kind the FILE stated, and those two
+      # kinds have fixed values there, so they keep fixed labels.
       "requested-half" -> "½ bye"
       "requested-zero" -> "0 bye"
-      "absent" -> "0 bye"
-      _pairing_allocated_or_unknown -> points_bye_label(game.points, tournament)
+      # Everything this app records is an "absent" row, and what it pays
+      # depends on the tournament and on how many the player has already
+      # had - "0 bye" was right only while nothing could pay anything else.
+      #
+      # Labelled from the value ITSELF rather than by comparing it against
+      # the tournament's win/draw/loss, because an absence award is a free
+      # number and need not equal any of them: a half point in a 2/1/0
+      # tournament matches neither the draw nor the loss, and
+      # `points_bye_label/2` would fall through and call it "1 bye".
+      "absent" -> absence_label(game.points)
+      _allocated_or_unknown -> points_bye_label(game.points, tournament)
     end
   end
 
@@ -109,6 +120,15 @@ defmodule PairingsEngine.PlayerCard do
   end
 
   def result_label(_game, _tournament), do: ""
+
+  defp absence_label(points) do
+    cond do
+      points == 0.0 -> "0 bye"
+      points == 0.5 -> "½ bye"
+      points == 1.0 -> "1 bye"
+      true -> "#{:erlang.float_to_binary(points / 1, decimals: 1)} bye"
+    end
+  end
 
   defp points_bye_label(points, tournament) do
     cond do

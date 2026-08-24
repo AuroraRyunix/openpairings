@@ -4,7 +4,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
   a win/draw/loss/pairing-allocated bye is worth, plus SWAR's "Pt ABSENT"
   genuine-absence rule (`abs_value`/`abs_jusque`/`abs_nbfois` - locked once
   round 1 has been paired) and the FIDE-vs-SWAR tiebreak treatment of a
-  genuine absence (`absent_counts_as_vur`). Split out of the combined
+  round a player sat out (`absent_counts_as_vur`). Split out of the combined
   Options page into its own focused Settings sub-page, since it's a
   distinct concern from *how the tournament is paired* (Options).
   """
@@ -107,10 +107,8 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
   def handle_event("save", %{"tournament" => params}, socket) do
     params =
       params
-      |> Map.take(
-        ~w(points_win points_draw points_loss bye_value requested_bye_type abs_value abs_jusque abs_nbfois
-        absent_counts_as_vur)
-      )
+      |> Map.take(~w(points_win points_draw points_loss bye_value abs_value abs_jusque abs_nbfois
+        absent_counts_as_vur))
       |> maybe_drop_locked("abs_value", socket.assigns.abs_scoring_locked?)
       |> maybe_drop_locked("abs_jusque", socket.assigns.abs_scoring_locked?)
       |> maybe_drop_locked("abs_nbfois", socket.assigns.abs_scoring_locked?)
@@ -199,46 +197,32 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
                 value={@tournament.bye_value}
               />
             </.setting_field>
-
-            <%!-- A type rather than a number: `Standings` already maps both
-                  requested types to a value, and a second float here would
-                  give two places to disagree about the same points. --%>
-            <.setting_field
-              label={gettext("Requested bye worth")}
-              hint={
-                gettext(
-                  "What a bye a player asked for in advance is worth. Shown on the public registration form, so a player deciding whether to request one sees the real answer."
-                )
-              }
-            >
-              <select name="tournament[requested_bye_type]">
-                <option value="zero" selected={@tournament.requested_bye_type == "zero"}>
-                  {gettext("Zero-point bye")}
-                </option>
-                <option value="half" selected={@tournament.requested_bye_type == "half"}>
-                  {gettext("Half-point bye")}
-                </option>
-              </select>
-            </.setting_field>
           </.setting_group>
         </div>
 
         <div class="card">
-          <h2>{gettext("Genuine absences")}</h2>
+          <h2>{gettext("Byes and absences")}</h2>
 
           <p class="subtitle" style="margin: 0 0 8px">
-            A "genuine absence" is a plain no-show - a player marked absent for a round without
-            requesting a bye, and without it being scored as a forfeit. It's distinct from a
-            requested half/zero-point bye and from a forfeit loss, which are configured
-            elsewhere. SWAR calls this option "Pt ABSENT".
+            What a round a player sits out is worth, and how many of them are paid. This covers
+            every absence the pairing knows about, whether the player asked for a specific round
+            off or is marked absent outright - those are the same event, because the only way
+            you know before pairing is that they told you. Somebody who was paired and then
+            didn't turn up is a forfeit on their board, not this. A pairing-allocated bye - the
+            odd player out when the field is uneven - has its own value above.
+          </p>
+
+          <p class="subtitle" style="margin: 0 0 8px">
+            FIDE's default is zero. Most opens pay half a point for the first one or two, which
+            is what the two limits below are for. SWAR calls this option "Pt ABSENT".
           </p>
 
           <.setting_group>
             <.setting_field
-              label={gettext("Points awarded for a genuine absence")}
+              label={gettext("Points for a round sat out")}
               hint={
                 gettext(
-                  "Leave blank if this doesn't apply - a genuine absence then scores the same as an ordinary loss, same as before this was set."
+                  "Leave blank if this doesn't apply - a round sat out then scores the same as an ordinary loss, same as before this was set."
                 )
               }
             >
@@ -259,7 +243,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
               label={gettext("Last round this still applies to")}
               hint={
                 gettext(
-                  "After this round (inclusive of it), a genuine absence scores an ordinary loss instead, no matter how many are left. Leave blank so it applies for the whole tournament, with no cutoff round."
+                  "After this round (inclusive of it), a round sat out scores an ordinary loss instead, no matter how many are left. Leave blank so it applies for the whole tournament, with no cutoff round."
                 )
               }
             >
@@ -277,10 +261,10 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
             </.setting_field>
 
             <.setting_field
-              label={gettext("Cap: only a player's first N genuine absences pay")}
+              label={gettext("Cap: only a player's first N rounds sat out are paid")}
               hint={
                 gettext(
-                  "Counting this round, once a player has this many genuine absences, any further one scores an ordinary loss instead. Leave blank so every genuine absence pays, no matter how many the player racks up."
+                  "Counting this round, once a player has sat out this many rounds, any further one scores an ordinary loss instead. Leave blank so every one pays, no matter how many the player racks up."
                 )
               }
             >
@@ -307,23 +291,29 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
                 phx-click="vur_toggle"
               />
               <span class="set-toggle-text">
-                Treat a genuine absence as a voluntary unplayed round for tiebreaks
+                Treat a round sat out as a voluntary unplayed round for tiebreaks
                 <span class="hint">
-                  Off (FIDE default) = a genuine absence always counts at its award value above,
-                  same as a forfeit loss. On = a trailing one is instead downgraded to a draw for
-                  opponents' Buchholz/SB, same as a requested bye.
+                  On (the default) = a trailing one is downgraded to a draw for opponents'
+                  Buchholz/SB, which is what C.07 does with a voluntarily unplayed round. Off =
+                  it always counts at its award value above, same as a forfeit loss.
                 </span>
               </span>
             </label>
 
-            <div :if={@vur_checked} class="setting-warning">
+            <%!-- Fires on CHANGE, not on state. It used to fire whenever the
+                  box was ticked, which was the same thing while the default
+                  was off - and would now shout at every arbiter opening a
+                  fresh tournament about a setting they never touched. What
+                  is actually dangerous is moving it mid-event. --%>
+            <div :if={@vur_checked != @tournament.absent_counts_as_vur} class="setting-warning">
               <strong>{gettext("⚠ This changes FIDE tiebreak results, not just scoring.")}</strong>
-              FIDE's own C.07 tiebreak regulations have no "genuine absence" concept at all - this
-              is a SWAR-historical convenience, not something a FIDE arbiter would expect by
-              default. Turning it on retroactively recomputes Buchholz/Sonneborn-Berger for every
-              opponent of every absent player, for the whole tournament, the moment you save. If
-              this tournament is FIDE-rated or reported, leave this off unless you specifically
-              intend this non-standard treatment.
+              Saving this recomputes Buchholz/Sonneborn-Berger for every opponent of every player
+              who has sat a round out, across the whole tournament, immediately. The default is
+              on because every absence the pairing knows about was announced - you only find out
+              before the round is paired because the player told you - and an announced absence
+              is exactly what C.07 means by a voluntarily unplayed round. Turning it off treats
+              those rounds like forfeit losses instead. Either is defensible; changing it
+              mid-tournament moves published standings.
             </div>
           </.setting_group>
         </div>

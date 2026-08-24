@@ -30,7 +30,6 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
   import PairingsEngineWeb.Components.PublicTournamentMeta
 
   alias PairingsEngine.{Fide, RateLimit, Tournaments}
-  alias PairingsEngine.Tournaments.Tournament
   alias PairingsEngineWeb.ClientIp
 
   @impl true
@@ -302,8 +301,8 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
         <p :if={@registered.absent_rounds not in [nil, ""]}>
           You asked to sit out <strong>round {@registered.absent_rounds}</strong>, scoring {bye_award(
             @tournament
-          )} each. Confirming your arrival does not cancel that -
-          the rounds you picked stay requested.
+          )}. Confirming your arrival does not cancel that -
+          the rounds you picked stay set.
         </p>
       </div>
 
@@ -440,7 +439,7 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
                 what this sentence must say, and a registrant deciding whether
                 to ask for one is exactly who needs the true answer. --%>
           <p class="subtitle" style="margin-top: 8px">
-            A requested bye scores <strong>{bye_award(@tournament)}</strong> here.
+            A round you sit out scores <strong>{bye_award(@tournament)}</strong> here.
           </p>
         </div>
 
@@ -452,16 +451,33 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
     """
   end
 
-  # What a requested bye pays, in words rather than as a bare float. "0.5"
-  # on a public form aimed at players is a worse answer than "half a point",
-  # and "0.0" reads like a bug rather than a policy.
+  # What a bye pays, in words rather than as a bare float. "0.5" on a form
+  # aimed at players is a worse answer than "half a point", and "0.0" reads
+  # like a bug rather than a policy.
+  #
+  # Read from the tournament, never assumed. FIDE's default is zero and most
+  # opens change it, so the only honest sentence is the one this tournament
+  # can actually pay - and it has to include the ALLOWANCE, because "half a
+  # point" and "half a point for your first two" are different offers to
+  # somebody deciding how many rounds to skip.
   defp bye_award(tournament) do
-    case Tournament.requested_bye_points(tournament) do
-      nil -> "no points"
-      value when value == 0.0 -> "no points"
-      value when value == 0.5 -> "half a point"
-      value when value == 1.0 -> "a full point"
-      value -> "#{:erlang.float_to_binary(value / 1, decimals: 1)} points"
+    value =
+      case tournament.abs_value || tournament.points_loss do
+        v when v == 0.0 -> "no points"
+        v when v == 0.5 -> "half a point"
+        v when v == 1.0 -> "a full point"
+        v -> "#{:erlang.float_to_binary(v / 1, decimals: 1)} points"
+      end
+
+    value <> allowance(tournament)
+  end
+
+  defp allowance(%{abs_nbfois: n, abs_jusque: r}) do
+    case {n, r} do
+      {nil, nil} -> ""
+      {n, nil} -> ", for your first #{n}"
+      {nil, r} -> ", up to round #{r}"
+      {n, r} -> ", for your first #{n} and up to round #{r}"
     end
   end
 
