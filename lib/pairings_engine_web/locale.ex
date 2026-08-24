@@ -37,7 +37,8 @@ defmodule PairingsEngineWeb.Locale do
   # in English: someone who needs Dutch is looking for "Nederlands", and
   # cannot necessarily read the word "Dutch" to find it.
   @locales [
-    {"en", "English"}
+    {"en", "English"},
+    {"nl", "Nederlands"}
   ]
 
   @default "en"

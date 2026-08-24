@@ -4,14 +4,17 @@ defmodule PairingsEngineWeb.LocaleTest do
   LiveView process, and that the switch cannot be turned into an open
   redirect.
 
-  Only English ships today. These tests are deliberately written against the
-  MECHANISM rather than against a second catalogue, so they keep their value
-  on the day Dutch is added rather than needing rewriting then.
+  English and Dutch ship. Most of these are written against the MECHANISM
+  rather than against a particular catalogue, so they keep their value when
+  a third language lands - but note what happened when Dutch arrived: the
+  malformed-header test asserted `== "en"` and only passed because there
+  was nothing else to resolve TO. "Written against the mechanism" is easy to
+  believe about a test and worth re-checking each time the set of shipped
+  languages changes.
   """
   use PairingsEngineWeb.ConnCase
 
   import Phoenix.LiveViewTest
-  import PairingsEngine.AccountsFixtures
 
   alias PairingsEngineWeb.Locale
 
@@ -34,9 +37,30 @@ defmodule PairingsEngineWeb.LocaleTest do
 
     test "a malformed accept-language cannot crash a public page" do
       # This header is attacker-controlled on pages with no login at all.
-      for header <- [";;;", "q=", "nl;q=banana", String.duplicate("x,", 500), "nl-", "-"] do
+      # The invariant is that garbage always lands on a locale we actually
+      # ship - never a crash, never a code we cannot render.
+      #
+      # This asserted `== "en"` until Dutch shipped, which was the exact
+      # trap this module's own moduledoc warns about: it read as a
+      # statement about malformed input and was really a statement about
+      # there being one catalogue.
+      for header <- [";;;", "q=", String.duplicate("x,", 500), "-", "nl;q=banana", "nl-"] do
+        assert Locale.known?(Locale.resolve(%{}, header))
+      end
+
+      # Nothing in these names a language, so they fall through to the
+      # default.
+      for header <- [";;;", "q=", String.duplicate("x,", 500), "-"] do
         assert Locale.resolve(%{}, header) == "en"
       end
+    end
+
+    test "a valid language with a broken quality value still gets its language" do
+      # `q=banana` sorts last rather than raising, so a client that asked
+      # for Dutch and mangled only the weighting still gets Dutch. Same for
+      # a dangling region separator.
+      assert Locale.resolve(%{}, "nl;q=banana") == "nl"
+      assert Locale.resolve(%{}, "nl-") == "nl"
     end
 
     test "region subtags collapse to the language" do
@@ -64,7 +88,7 @@ defmodule PairingsEngineWeb.LocaleTest do
       assert get_session(conn, "locale") == "en"
     end
 
-    test "refuses to send you to another site", %{conn: conn} do
+    test "refuses to send you to another site" do
       # Presented to a visitor as "change language", so an open redirect here
       # would be a genuinely effective one.
       for target <- ["//evil.example.com", "https://evil.example.com", "", nil] do
@@ -83,6 +107,21 @@ defmodule PairingsEngineWeb.LocaleTest do
 
   describe "reaching the LiveView process" do
     setup :register_and_log_in_user
+
+    test "picking Dutch actually renders Dutch, end to end", %{conn: conn} do
+      # The whole pipeline in one assertion: the switch writes the session,
+      # the plug resolves it, LocaleHook re-applies it inside the LiveView
+      # process, and the catalogue answers. Every earlier test in this file
+      # could pass with an empty `nl` catalogue; this one cannot.
+      conn = get(conn, ~p"/locale/nl?redirect_to=/")
+      assert redirected_to(conn) == "/"
+
+      {:ok, _lv, html} = live(conn, ~p"/")
+
+      assert html =~ "Nieuw toernooi"
+      assert html =~ "Alles wat je organiseert"
+      refute html =~ "New tournament"
+    end
 
     test "a LiveView renders in the resolved locale, not the default", %{conn: conn} do
       # The reason LocaleHook exists at all: a LiveView does not run in the

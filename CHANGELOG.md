@@ -14,6 +14,39 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [Unreleased]
+
+### Added
+
+- [Feature] **Dutch.** The arbiter interface now speaks Nederlands - all 468
+  interface strings plus the 24 validation messages, picked from the
+  language menu or taken from the browser's own `accept-language`. `nl-BE`
+  and `nl-NL` both resolve to it; there is one catalogue, because chess
+  vocabulary does not differ enough between Flanders and the Netherlands to
+  justify two.
+
+  Terminology follows Belgian (KBSB/FRBE) usage rather than literal
+  translation: *paring* rather than the Dutch *indeling*, *scoregroep* for a
+  score bracket, *doorschuiver* for a floater, and *stamnummer* for a
+  national ID. **bye**, **tiebreak** and **Elo** stay untranslated because
+  that is what arbiters actually say. Product and format names - JaVaFo,
+  Ainalrami, SWAR, TRF16, IT3/FA1/IA1 - are never translated.
+
+  **The public pages stay English**, deliberately and unchanged: an open
+  draws players from many federations, and the language an arbiter picked
+  for their own screens is not one to impose on a visiting player reading
+  the standings.
+
+### Fixed
+
+- [Fix] **A browser asking for Dutch with a broken quality value now gets
+  Dutch.** `accept-language: nl;q=banana` resolved to English, as did a
+  dangling `nl-`. The resolver was already right - a malformed weighting
+  sorts last rather than raising - but its test asserted the result was
+  English, which was only ever true because Dutch did not exist yet. Worth
+  recording as a fix rather than a test change: the behaviour a user gets
+  really did change.
+
 ## [0.16.1] - 2026-08-23
 
 ### Changed
