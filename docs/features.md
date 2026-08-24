@@ -1,12 +1,20 @@
 # OpenPairings - features & roadmap
 
-Current version: **0.11.1**. One page: everything the app does today, and where
+Current version: **0.16.1**. One page: everything the app does today, and where
 it is going. Per-feature detail lives in the other [docs pages](README.md).
 
 ## Pairing
 
-- **Swiss (FIDE Dutch)** via JaVaFo 2.2 - the reference implementation of the
-  FIDE Dutch system, driven through TRF16 files built and validated by the app.
+- **Swiss (FIDE Dutch)** on either of two engines, chosen per tournament and
+  driven through TRF16 files built and validated by the app:
+  - **JaVaFo 2.2** (default) - FIDE's own reference implementation, of the
+    **2022** edition of C.04.3.
+  - **[Ainalrami](https://github.com/AuroraRyunix/Ainalrami)** (beta) - written
+    for this project in Elixir, implementing C.04.3 as it stands from
+    **1 February 2026**, in-process with no JVM. Cross-checked against
+    bbpPairings 6.0.0 over 2.5 billion individual pairings with two
+    disagreements, both defects in bbpPairings. See
+    [`fide-endorsement.md`](fide-endorsement.md).
   - **Accelerated Swiss (Baku, FIDE C.04.7)** - the app computes each Group-A
     player's virtual points per round and hands JaVaFo the full history via
     fixed-column `XXA` lines.
@@ -110,8 +118,10 @@ carry a logo (stored in the database, shown on printed documents).
   a score-bracket map showing every pairing as a connector between score
   groups (floaters visibly crossing bands), board-by-board cards with colour
   chips, due-colour verdicts and float badges. Exact explanations for round
-  robin and Keizer; honest input/output analysis for Swiss (JaVaFo's internal
-  reasoning is not pretended to be known).
+  robin and Keizer, and for Swiss on Ainalrami, which reports the criteria it
+  applied per bracket and per board (which colour preference was denied, whose
+  float was repeated). Swiss on JaVaFo stays an honest input/output analysis:
+  its internal reasoning is not pretended to be known.
 - **Recycle bin** - deleted tournaments are soft-deleted and restorable.
 
 ## Platform
@@ -119,7 +129,10 @@ carry a logo (stored in the database, shown on printed documents).
 - Elixir/Phoenix LiveView + SQLite; runs locally with `mix phx.server` and
   deploys unchanged to a server (systemd, SMTP e-mail, production hardening).
 - Responsive layout for tablet/phone; desktop stays full-width.
-- CI on GitHub Actions; 950+ tests including end-to-end runs against the real
+- **Interface language** - a full gettext catalogue with a per-session picker;
+  English ships today, and the player-facing public pages stay English on
+  purpose because an open draws players from many federations.
+- CI on GitHub Actions; 2,000+ tests including end-to-end runs against the real
   JaVaFo engine.
 
 ## What's next
