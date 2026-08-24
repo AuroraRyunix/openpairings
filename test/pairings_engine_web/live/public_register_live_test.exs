@@ -89,6 +89,107 @@ defmodule PairingsEngineWeb.PublicRegisterLiveTest do
              "a player who filled in a web form has announced an intention, not arrived"
     end
 
+    test "a player can request byes for the rounds they cannot play",
+         %{conn: conn, scope: scope} do
+      t = tournament(scope, open?: true)
+
+      {:ok, lv, html} = live(conn, ~p"/p/#{t.public_slug}/register")
+
+      # One box per round the tournament actually has.
+      assert html =~ "Rounds you cannot play"
+      assert html =~ "Round 1"
+      assert html =~ "Round #{t.rounds_count}"
+      refute html =~ "Round #{t.rounds_count + 1}"
+
+      lv
+      |> element("#reg-search")
+      |> render_change(%{"q" => "Bye Requester", "birth_year" => "1990", "federation" => "BEL"})
+
+      lv |> element("input[phx-value-round='1']") |> render_click()
+      lv |> element("input[phx-value-round='4']") |> render_click()
+
+      # Ticking twice unticks - a mis-tap on a phone has to be undoable.
+      lv |> element("input[phx-value-round='7']") |> render_click()
+      lv |> element("input[phx-value-round='7']") |> render_click()
+
+      lv |> element("button", "Register") |> render_click()
+
+      assert [player] = Tournaments.list_players(t.id)
+      assert player.absent_rounds == "1,4"
+
+      assert player.absent,
+             "requesting byes is still only an announcement - the arbiter confirms arrival"
+    end
+
+    test "a forged round number cannot reach the database", %{scope: scope} do
+      # The LiveView only ever renders boxes for rounds that exist, but the
+      # context function is the actual boundary: this page has no login at
+      # all, so "the form would not send that" is not a control.
+      t = tournament(scope, open?: true)
+
+      {:ok, player} =
+        Tournaments.register_public_player(t.public_slug, %{
+          "name" => "Forger",
+          "birth_year" => "1990",
+          "federation" => "BEL",
+          "absent_rounds" => "1,#{t.rounds_count + 5},999"
+        })
+
+      assert player.absent_rounds == "1"
+    end
+
+    test "nonsense in the rounds field is dropped, not stored", %{scope: scope} do
+      t = tournament(scope, open?: true)
+
+      {:ok, player} =
+        Tournaments.register_public_player(t.public_slug, %{
+          "name" => "Nonsense",
+          "birth_year" => "1990",
+          "federation" => "BEL",
+          "absent_rounds" => "drop table players"
+        })
+
+      assert player.absent_rounds == ""
+    end
+
+    test "the form states what a requested bye is actually worth here",
+         %{conn: conn, scope: scope} do
+      # The figure has to come from the tournament. A player deciding
+      # whether to ask for a bye is exactly who is misled by a hardcoded one.
+      t = tournament(scope, open?: true)
+
+      {:ok, lv, html} = live(conn, ~p"/p/#{t.public_slug}/register")
+      assert html =~ "no points"
+
+      {:ok, _t} = Tournaments.update_tournament(t, %{"requested_bye_type" => "half"})
+
+      {:ok, _lv, html} = live(conn, ~p"/p/#{t.public_slug}/register")
+      assert html =~ "half a point"
+
+      _ = lv
+    end
+
+    test "confirming arrival does not cancel the byes that were requested",
+         %{scope: scope} do
+      # The thing an arbiter relies on: they see the player in the room,
+      # mark them present, and the rounds that player already said they
+      # would miss survive it.
+      t = tournament(scope, open?: true)
+
+      {:ok, player} =
+        Tournaments.register_public_player(t.public_slug, %{
+          "name" => "Arrives Late",
+          "birth_year" => "1990",
+          "federation" => "BEL",
+          "absent_rounds" => "1,2"
+        })
+
+      {:ok, present} = Tournaments.update_player(player, %{"absent" => false})
+
+      refute present.absent
+      assert present.absent_rounds == "1,2"
+    end
+
     test "an empty name is rejected", %{conn: conn, scope: scope} do
       t = tournament(scope, open?: true)
 

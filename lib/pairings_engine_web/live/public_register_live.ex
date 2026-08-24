@@ -30,6 +30,7 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
   import PairingsEngineWeb.Components.PublicTournamentMeta
 
   alias PairingsEngine.{Fide, RateLimit, Tournaments}
+  alias PairingsEngine.Tournaments.Tournament
   alias PairingsEngineWeb.ClientIp
 
   @impl true
@@ -57,6 +58,7 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
        federation: "",
        results: [],
        picked: nil,
+       bye_rounds: [],
        registered: nil,
        error: nil
      )}
@@ -107,6 +109,25 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
   # kept: the panel is a suggestion list, and closing it must not throw away
   # what someone has written, since a player who is not on the FIDE list
   # fills the name in by hand and never picks from it at all.
+  # Byes are toggled one at a time rather than read off the search form.
+  # That form is `phx-change="search"`, so a checkbox inside it would fire a
+  # FIDE lookup on every tick, and the round the player just chose would
+  # have to survive a code path that exists to rebuild the results list.
+  def handle_event("toggle_bye", %{"round" => round}, socket) do
+    case Integer.parse(round) do
+      {n, ""} when n >= 1 ->
+        rounds = socket.assigns.bye_rounds
+
+        rounds =
+          if n in rounds, do: List.delete(rounds, n), else: Enum.sort([n | rounds])
+
+        {:noreply, assign(socket, bye_rounds: rounds)}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
   def handle_event("close_results", _params, socket) do
     {:noreply, assign(socket, results: [])}
   end
@@ -176,6 +197,8 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
           }
       end
 
+    attrs = Map.put(attrs, "absent_rounds", Enum.join(socket.assigns.bye_rounds, ","))
+
     cond do
       attrs["name"] in [nil, ""] ->
         {:noreply, assign(socket, error: "Please enter your name.")}
@@ -216,6 +239,7 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
          assign(socket,
            registered: player,
            picked: nil,
+           bye_rounds: [],
            query: "",
            birth_year: "",
            federation: "",
@@ -273,6 +297,13 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
         <p>
           You are marked <strong>not yet arrived</strong>. Report to the arbiter when you
           get to the venue and they'll confirm you - you won't be paired until they do.
+        </p>
+
+        <p :if={@registered.absent_rounds not in [nil, ""]}>
+          You asked to sit out <strong>round {@registered.absent_rounds}</strong>, scoring {bye_award(
+            @tournament
+          )} each. Confirming your arrival does not cancel that -
+          the rounds you picked stay requested.
         </p>
       </div>
 
@@ -381,12 +412,57 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
           </form>
         </div>
 
+        <div :if={@tournament.rounds_count > 0} class="reg-byes">
+          <h3>Rounds you cannot play</h3>
+
+          <p class="subtitle">
+            Tick any round you already know you will miss. Leave them all clear if you can
+            play the whole tournament - the arbiter can change this later either way.
+          </p>
+
+          <div class="reg-bye-grid">
+            <label
+              :for={n <- 1..@tournament.rounds_count}
+              class={["reg-bye", n in @bye_rounds && "on"]}
+            >
+              <input
+                type="checkbox"
+                checked={n in @bye_rounds}
+                phx-click="toggle_bye"
+                phx-value-round={n}
+              />
+              <span>Round {n}</span>
+            </label>
+          </div>
+
+          <%!-- Read from the tournament rather than stated as a constant.
+                An arbiter who sets requested byes to half a point has changed
+                what this sentence must say, and a registrant deciding whether
+                to ask for one is exactly who needs the true answer. --%>
+          <p class="subtitle" style="margin-top: 8px">
+            A requested bye scores <strong>{bye_award(@tournament)}</strong> here.
+          </p>
+        </div>
+
         <div class="actions" style="margin-top: 12px">
           <button type="button" class="pe-btn primary" phx-click="submit">Register</button>
         </div>
       </div>
     </Layouts.public>
     """
+  end
+
+  # What a requested bye pays, in words rather than as a bare float. "0.5"
+  # on a public form aimed at players is a worse answer than "half a point",
+  # and "0.0" reads like a bug rather than a policy.
+  defp bye_award(tournament) do
+    case Tournament.requested_bye_points(tournament) do
+      nil -> "no points"
+      value when value == 0.0 -> "no points"
+      value when value == 0.5 -> "half a point"
+      value when value == 1.0 -> "a full point"
+      value -> "#{:erlang.float_to_binary(value / 1, decimals: 1)} points"
+    end
   end
 
   # The panel opening is a purely visual event, so it is announced. Empty

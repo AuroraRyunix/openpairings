@@ -37,6 +37,28 @@ Each entry is tagged so a version can be skimmed:
   for their own screens is not one to impose on a visiting player reading
   the standings.
 
+- [Feature] **Players can request byes when they register.** The public
+  form now shows one tickbox per round, so somebody who already knows they
+  will miss round 1 says so while signing up instead of e-mailing the
+  arbiter about it. They still land **not yet arrived**, exactly as before -
+  requesting a bye is an announcement, not an arrival.
+
+  Marking them present later does not cancel the byes. The two are separate
+  fields and always have been; this is the first time anything filled the
+  second one in from the player's side.
+
+  The form states what a requested bye is actually worth in that tournament,
+  read from its settings rather than assumed - a player deciding whether to
+  ask for one is exactly who a hardcoded answer misleads.
+
+- [Feature] **Requested byes can be worth half a point.** New setting under
+  Settings → Scoring. Every part of the app could already READ a
+  half-point requested bye - standings paid it `points_draw`, TRF export
+  wrote it as `H`, the player card called it "½ bye" - but nothing could
+  create one: a SWAR import was the only way such a row could exist,
+  because pairing hardcoded the zero-point kind. Defaults to zero-point, so
+  no existing tournament changes.
+
 ### Fixed
 
 - [Fix] **A browser asking for Dutch with a broken quality value now gets

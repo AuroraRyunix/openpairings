@@ -3880,3 +3880,39 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .hist-kind-pip[data-kind="collaborators"] { --tl-hue: 280 65% 60%; }
 .hist-kind-pip[data-kind="tournament"]    { --tl-hue: 215 16% 47%; }
 .hist-kind-pip[data-kind="snapshot"]      { --tl-hue: 32 95% 44%; }
+
+/* Public registration: the rounds a player asks to sit out.
+   A grid of real checkboxes rather than a multi-select, because this is a
+   phone form filled in by somebody who is not an arbiter and will not be
+   back to fix a mis-tap. Wide targets, and the whole label is the target. */
+.reg-byes { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
+.reg-byes h3 { margin: 0 0 4px; font-size: 1rem; }
+
+.reg-bye-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.reg-bye {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+  background: var(--surface);
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.reg-bye:hover { border-color: var(--accent); }
+.reg-bye input { margin: 0; accent-color: var(--accent); }
+
+.reg-bye.on {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  font-weight: 600;
+}

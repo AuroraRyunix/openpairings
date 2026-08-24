@@ -860,10 +860,53 @@ defmodule PairingsEngine.Tournaments do
       tournament ->
         attrs =
           attrs
-          |> Map.take(["name", "fide_id", "fide_rating", "title", "federation", "birth_year"])
+          |> Map.take([
+            "name",
+            "fide_id",
+            "fide_rating",
+            "title",
+            "federation",
+            "birth_year",
+            "absent_rounds"
+          ])
           |> Map.put("absent", true)
+          |> Map.update("absent_rounds", "", &clamp_requested_rounds(&1, tournament))
 
         create_player(tournament.id, attrs)
+    end
+  end
+
+  # Rounds a stranger asked to sit out, reduced to ones this tournament
+  # actually has.
+  #
+  # `Player.changeset/2` already validates the GRAMMAR, which is the wrong
+  # guarantee on its own here: "1-999" is perfectly well-formed and would be
+  # accepted from a public form with no login behind it. Every value is
+  # re-derived from the round count rather than trusted, so the worst a
+  # forged submission can do is request byes for rounds that exist.
+  #
+  # Kept here rather than in the changeset because it is a property of THIS
+  # entry path. An arbiter editing the same field on the Players page may
+  # legitimately type a round beyond the current count - they are about to
+  # add rounds.
+  defp clamp_requested_rounds(value, tournament) do
+    case Player.parse_absent_rounds_input(to_string(value)) do
+      {:ok, canonical} ->
+        canonical
+        |> String.split(",", trim: true)
+        |> Enum.flat_map(fn part ->
+          case Integer.parse(String.trim(part)) do
+            {n, ""} -> [n]
+            _ -> []
+          end
+        end)
+        |> Enum.filter(&(&1 >= 1 and &1 <= tournament.rounds_count))
+        |> Enum.uniq()
+        |> Enum.sort()
+        |> Enum.join(",")
+
+      :error ->
+        ""
     end
   end
 

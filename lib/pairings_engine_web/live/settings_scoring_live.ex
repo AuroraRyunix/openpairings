@@ -107,8 +107,10 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
   def handle_event("save", %{"tournament" => params}, socket) do
     params =
       params
-      |> Map.take(~w(points_win points_draw points_loss bye_value abs_value abs_jusque abs_nbfois
-        absent_counts_as_vur))
+      |> Map.take(
+        ~w(points_win points_draw points_loss bye_value requested_bye_type abs_value abs_jusque abs_nbfois
+        absent_counts_as_vur)
+      )
       |> maybe_drop_locked("abs_value", socket.assigns.abs_scoring_locked?)
       |> maybe_drop_locked("abs_jusque", socket.assigns.abs_scoring_locked?)
       |> maybe_drop_locked("abs_nbfois", socket.assigns.abs_scoring_locked?)
@@ -196,6 +198,27 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
                 name="tournament[bye_value]"
                 value={@tournament.bye_value}
               />
+            </.setting_field>
+
+            <%!-- A type rather than a number: `Standings` already maps both
+                  requested types to a value, and a second float here would
+                  give two places to disagree about the same points. --%>
+            <.setting_field
+              label={gettext("Requested bye worth")}
+              hint={
+                gettext(
+                  "What a bye a player asked for in advance is worth. Shown on the public registration form, so a player deciding whether to request one sees the real answer."
+                )
+              }
+            >
+              <select name="tournament[requested_bye_type]">
+                <option value="zero" selected={@tournament.requested_bye_type == "zero"}>
+                  {gettext("Zero-point bye")}
+                </option>
+                <option value="half" selected={@tournament.requested_bye_type == "half"}>
+                  {gettext("Half-point bye")}
+                </option>
+              </select>
             </.setting_field>
           </.setting_group>
         </div>

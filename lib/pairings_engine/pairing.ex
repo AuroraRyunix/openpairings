@@ -281,8 +281,8 @@ defmodule PairingsEngine.Pairing do
   # transaction, an exact colour-reversed mirror of leg 1 - no second
   # JaVaFo call, no new TRF file (see `create_mirrored_leg/4`). Round-
   # specific absentees for `next_number` (`round_absentees` below) are
-  # threaded through so leg 2 can mirror their "requested-zero" bye rows
-  # too, rather than independently re-evaluating `absent_for_round?/2` for
+  # threaded through so leg 2 can mirror their requested-bye rows too,
+  # rather than independently re-evaluating `absent_for_round?/2` for
   # `next_number + 1` - a deliberate scope limitation, see
   # `create_mirrored_leg/4`.
   defp do_pair(tournament, next_number) do
@@ -291,8 +291,8 @@ defmodule PairingsEngine.Pairing do
     {players, round_absentees} =
       Enum.split_with(active, &(not absent_for_round?(&1, next_number)))
 
-    # Players requesting an absence for this specific round get a
-    # "requested-zero" bye row instead of being sent to JaVaFo, so the
+    # Players requesting an absence for this specific round get a bye row
+    # instead of being sent to the engine, so the
     # pairing engine never considers them for this round. Computed once over
     # the whole active/round_absentees split, before any category
     # partitioning happens below - unaffected by `pair_by_category`.
@@ -809,13 +809,13 @@ defmodule PairingsEngine.Pairing do
           tournament_id: tournament.id,
           player_id: p.id,
           round: round_number,
-          type: "requested-zero"
+          type: Tournament.requested_bye_row_type(tournament)
         }
       end)
 
     Repo.insert_all("byes", rows, on_conflict: :nothing)
 
-    # A "requested-zero" bye immediately awards points (see
+    # A requested bye immediately awards points (see
     # PairingsEngine.Standings) without ever going through
     # Tournaments.update_pairing_result/2 - a hand-set manual standings
     # order must be marked stale here too, same as any other point-changing
@@ -1344,7 +1344,7 @@ defmodule PairingsEngine.Pairing do
             tournament_id: tournament.id,
             player_id: player.id,
             round: leg2_number,
-            type: "requested-zero"
+            type: Tournament.requested_bye_row_type(tournament)
           }
         end)
 
