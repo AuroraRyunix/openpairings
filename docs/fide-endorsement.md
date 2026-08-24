@@ -90,8 +90,9 @@ settings hint and again in the confirmation dialog.
 
 The reason for allowing it is that refusing asserted a quality judgement
 the measurements do not support - Ainalrami agrees with bbpPairings across
-2,536,328,265 individual pairings (217,470,056 rounds, 6 corpora, 82 axes,
-as of 2026-08-24), with two disagreements that are both defects in
+2,536,328,265 individual pairings (217,470,056 rounds, 6 corpora, 82
+distinct axes, as of 2026-08-24), with two disagreements that are both
+defects in
 bbpPairings rather than in Ainalrami. Where it differs from JaVaFo it is on
 Article 5.2.5's TPN parity, where it follows the handbook text and JaVaFo
 carries pre-2026 behaviour.

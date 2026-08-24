@@ -75,8 +75,9 @@ Apache-2.0 implementation of the same 2026 rules, by replaying whole
 generated tournaments round by round and diffing every board:
 
 **2,536,328,265 individual pairings compared, across 217,470,056 rounds, in
-6 corpora over 82 axes - two disagreements, both a defect in bbpPairings
-that a third engine resolves Ainalrami's way, and zero illegal rounds.**
+6 corpora over 82 distinct axes - two disagreements, both a defect in
+bbpPairings that a third engine resolves Ainalrami's way, and zero illegal
+rounds.**
 
 The axes vary round count (1 to 20), field size (2 to 500), forfeits,
 requested and arbiter-allocated byes, forbidden pairings, acceleration,
