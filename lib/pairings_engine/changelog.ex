@@ -15,29 +15,32 @@ defmodule PairingsEngine.Changelog do
   time instead. The tradeoff: editing `CHANGELOG.md` needs a rebuild to
   show up, same as every other code change in a compiled release.
 
-  ## On earmark's CVE-2026-48591, and why this app is not exposed
+  ## Earmark's CVE-2026-48591, and why the dependency is gone
 
-  `mix hex.audit` reports earmark as retired and carrying a MEDIUM stored
-  XSS (unescaped HTML attribute values). It stays anyway, deliberately.
+  This used to call `Earmark.as_html/1`. `mix hex.audit` reported earmark
+  as retired and carrying a MEDIUM stored XSS through unescaped HTML
+  attribute values, and the reasoning here used to be that the hole was
+  unreachable: the only input is `CHANGELOG.md` from this repo, read at
+  COMPILE time, so nothing user-supplied reaches the renderer at all.
 
-  Stored XSS needs attacker-controlled markdown. There is none here: the
-  only input is `CHANGELOG.md` from this repo, read at COMPILE time, and
-  the result is baked into `@html` as a constant. Nothing user-supplied
-  reaches Earmark at runtime, or at all - an attacker who could edit
-  `CHANGELOG.md` in the build tree could commit Elixir instead, so the
-  markdown renderer would not be the weak link.
+  That reasoning was correct and is not why the dependency left. It left
+  because EVERY earmark release is retired, so there was no fixed version
+  to move to and never will be - an unreachable hole in an abandoned
+  package is still a permanent line in every audit, and the next person to
+  read that line has to re-derive the whole argument to dismiss it.
 
-  The suggested replacement, MDEx, is a Rust NIF. `.github/workflows/
-  binaries.yml` cross-builds Burrito executables for five OS/arch targets
-  (macOS x86_64 + aarch64, Linux x86_64 + aarch64, Windows x86_64), and
-  every one of them would need a Rust toolchain or a matching precompiled
-  NIF. That is a real risk to the release builds, taken on to close a hole
-  that cannot be reached.
+  The suggested replacement, MDEx, is a Rust NIF, which
+  `.github/workflows/binaries.yml` cannot have: it cross-builds Burrito
+  executables for five OS/arch targets, and each would then need a Rust
+  toolchain or a matching precompiled NIF. So instead `earmark_parser`
+  does the parse - maintained, pure Elixir, and the half that never had
+  the flaw, since the flaw is in HTML generation - and
+  `PairingsEngine.Markdown` does the generation, with escaping that is not
+  optional and a closed tag set. See that module.
 
-  What keeps this true is the ONE call site. `changelog_test.exs` fails if
-  Earmark is ever called from anywhere else - if that guard trips, this
-  analysis is void and the dependency has to be reconsidered rather than
-  the test relaxed.
+  `changelog_test.exs` asserts earmark is absent from the dependency tree
+  rather than merely called from one place, which is a check that cannot
+  quietly stop being true.
   """
 
   @changelog_path Path.expand("../../CHANGELOG.md", __DIR__)
@@ -47,11 +50,10 @@ defmodule PairingsEngine.Changelog do
   # still reads on GitHub, and they become coloured pills here.
   #
   # Substituted after rendering rather than written as `<span>` into the
-  # markdown, because raw HTML in the source would mean turning Earmark's
-  # escaping OFF for the whole document. Escaping stays on and the only
-  # markup that can appear is these six literals, which keeps the
-  # CVE-2026-48591 reasoning above intact rather than quietly widening what
-  # the renderer may emit.
+  # markdown: the renderer escapes text and emits only tags on its own
+  # allowlist, so a `<span>` in the source would come out as visible
+  # characters rather than markup. Doing it here keeps that property - the
+  # only markup this step can introduce is these six literals.
   #
   # Inlined rather than called as a private function: this runs while the
   # module is still being compiled, and a module cannot call itself there.
@@ -59,19 +61,13 @@ defmodule PairingsEngine.Changelog do
 
   @html (case File.read(@changelog_path) do
            {:ok, markdown} ->
-             case Earmark.as_html(markdown) do
-               {:ok, html, _messages} ->
-                 Enum.reduce(@tags, html, fn tag, acc ->
-                   String.replace(
-                     acc,
-                     "[#{tag}]",
-                     ~s(<span class="cl-tag cl-#{String.downcase(tag)}">#{tag}</span>)
-                   )
-                 end)
-
-               {:error, _html, _messages} ->
-                 "<p>Could not render the changelog.</p>"
-             end
+             Enum.reduce(@tags, PairingsEngine.Markdown.to_html(markdown), fn tag, acc ->
+               String.replace(
+                 acc,
+                 "[#{tag}]",
+                 ~s(<span class="cl-tag cl-#{String.downcase(tag)}">#{tag}</span>)
+               )
+             end)
 
            {:error, _reason} ->
              "<p>CHANGELOG.md was not found at compile time.</p>"

@@ -11,30 +11,69 @@ defmodule PairingsEngine.ChangelogTest do
     refute html =~ "was not found at compile time"
   end
 
-  # earmark is retired and carries CVE-2026-48591 (stored XSS via unescaped
-  # HTML attribute values). It is kept on purpose, because the only markdown
-  # it ever sees is this repo's own CHANGELOG.md, at compile time - see the
-  # reasoning in `PairingsEngine.Changelog`'s moduledoc.
+  # earmark is retired - every release of it - and carries CVE-2026-48591,
+  # a stored XSS via unescaped HTML attribute values. It was kept for a
+  # while on the argument that the only markdown it ever saw was this repo's
+  # own CHANGELOG.md at compile time, which was true and is not enough: an
+  # abandoned package with a permanent advisory has no version to move to,
+  # and every future audit reopens the same argument.
   #
-  # That reasoning holds only while there is exactly ONE call site. The day
-  # someone renders user-supplied markdown - a tournament description, an
-  # arbiter's note, an imported file - the CVE becomes live and reachable.
-  # This test is the tripwire for that day. If it fails, do not relax it:
-  # the dependency has to be replaced, or the new call site sanitised.
-  test "Earmark is called from exactly one place, so no user input can reach it" do
-    call_sites =
-      Path.wildcard("lib/**/*.ex")
-      |> Enum.filter(&(File.read!(&1) =~ "Earmark."))
+  # It is gone (2026-08-25). `PairingsEngine.Markdown` renders instead, on
+  # `earmark_parser` - maintained, pure Elixir, and the half without the
+  # flaw. This asserts absence rather than "one call site", because absence
+  # cannot quietly stop being true.
+  test "earmark is not a dependency at all" do
+    refute Code.ensure_loaded?(Earmark),
+           "Earmark is back on the load path - see PairingsEngine.Markdown for why it left."
 
-    assert call_sites == ["lib/pairings_engine/changelog.ex"],
-           """
-           Earmark gained a call site outside the compile-time changelog renderer.
+    mix_exs = File.read!("mix.exs")
 
-             found: #{inspect(call_sites)}
+    refute mix_exs =~ ~r/\{:earmark,/,
+           "mix.exs declares :earmark again (\:earmark_parser is the intended one)."
+  end
 
-           CVE-2026-48591 is only unreachable because the sole input is this
-           repo's CHANGELOG.md, read at compile time. A new call site may
-           feed it user input, which makes the stored-XSS live.
-           """
+  describe "the renderer, which is ours now" do
+    test "escapes text rather than emitting it as markup" do
+      html = PairingsEngine.Markdown.to_html(~s|A <script>alert(1)</script> line.|)
+
+      refute html =~ "<script"
+      assert html =~ "&lt;script&gt;"
+    end
+
+    test "escapes attribute values, which is the exact defect earmark had" do
+      html = PairingsEngine.Markdown.to_html(~s|[x](https://e.com/?a=") onload=alert)|)
+
+      # Whatever the parser made of it, the quote may not close the href and
+      # let `onload` become an attribute of its own.
+      refute html =~ ~s|" onload=|
+    end
+
+    test "drops a javascript: link rather than rendering it" do
+      html = PairingsEngine.Markdown.to_html("[click](javascript:alert(1))")
+
+      refute html =~ "javascript:"
+      # The text survives; only the href is refused.
+      assert html =~ "click"
+    end
+
+    test "still renders everything the changelog is made of" do
+      html =
+        PairingsEngine.Markdown.to_html("""
+        # Title
+
+        Some **bold** and `code` and a [link](https://example.com).
+
+        - one
+        - two
+
+        | a | b |
+        |---|---|
+        | 1 | 2 |
+        """)
+
+      for tag <- ~w(h1 p strong code a ul li table thead tbody tr th td) do
+        assert html =~ "<#{tag}", "the renderer stopped emitting <#{tag}>"
+      end
+    end
   end
 end

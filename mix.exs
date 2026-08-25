@@ -105,7 +105,7 @@ defmodule PairingsEngine.MixProject do
       {:stream_data, "~> 1.1", only: [:dev, :test]},
       # Pure Elixir, no native deps - renders CHANGELOG.md on the
       # Settings > Changelog page (SettingsChangelogLive).
-      {:earmark, "~> 1.4"},
+      {:earmark_parser, "~> 1.4"},
       # Ainalrami - the optional second Swiss engine (see
       # docs/pairing-systems.md). A from-scratch Dutch-system implementation
       # in pure Elixir with zero runtime dependencies: no JVM, no external

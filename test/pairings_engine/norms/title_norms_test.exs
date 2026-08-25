@@ -149,6 +149,46 @@ defmodule PairingsEngine.Norms.TitleNormsTest do
     assert result.best.title == "IM"
   end
 
+  test "an unrated game still counts toward the norm; a forfeit still does not" do
+    # B.01 1.4.2 excludes games "decided by forfeit, adjudication or any
+    # means other than over the board play". A game recorded unrated was
+    # decided over the board - it is unrated for RATING purposes, which
+    # 1.4.2 does not ask about - so it counts, and the norm is unchanged.
+    #
+    # This was correct already, by accident rather than on purpose: nothing
+    # in this module mentions unrated results and nothing tested them, so
+    # the whole judgment rested on `Standings` happening to set `played` on
+    # a code the norms module has never heard of. Asserting both halves,
+    # because only the contrast shows the rule is being applied rather than
+    # everything simply being counted.
+    {tournament, candidate, _} = im_norm_fixture()
+    baseline = TitleNorms.evaluate(tournament) |> Map.fetch!(candidate.id)
+    im_before = Enum.find(baseline.verdicts, &(&1.title == "IM"))
+
+    round_four = Repo.get_by!(Round, tournament_id: tournament.id, number: 4)
+    pairing = Repo.get_by!(Pairing, round_id: round_four.id)
+
+    # Same game, recorded as played but unrated.
+    Repo.update!(Ecto.Changeset.change(pairing, result: "1-0U"))
+    unrated = TitleNorms.evaluate(tournament) |> Map.fetch!(candidate.id)
+    im_unrated = Enum.find(unrated.verdicts, &(&1.title == "IM"))
+
+    assert im_unrated.games == im_before.games
+    assert im_unrated.score == im_before.score
+    assert im_unrated.performance == im_before.performance
+    assert im_unrated.achieved?
+
+    # The same board as a forfeit win: not over the board, so 1.4.2.3 drops
+    # it and the count falls below the nine 1.4.1 requires.
+    Repo.update!(Ecto.Changeset.change(pairing, result: "1-0FF"))
+    forfeited = TitleNorms.evaluate(tournament) |> Map.fetch!(candidate.id)
+    im_forfeit = Enum.find(forfeited.verdicts, &(&1.title == "IM"))
+
+    assert im_forfeit.games == im_before.games - 1
+    refute im_forfeit.achieved?
+    assert :games in (im_forfeit.checks |> Enum.reject(& &1.ok?) |> Enum.map(& &1.name))
+  end
+
   test "the same games do NOT amount to a GM norm (avg + performance both short), with the failing checks named" do
     {tournament, candidate, _} = im_norm_fixture()
 

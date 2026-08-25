@@ -137,6 +137,48 @@ Each entry is tagged so a version can be skimmed:
   was to ask us. Someone cross-checking a board against SWAR should be able
   to read the answer off the screen.
 
+### Security
+
+- [Security] **The retired markdown renderer is gone.** The changelog page
+  was rendered by earmark, which carries CVE-2026-48591 - a stored XSS
+  through unescaped HTML attribute values - and is retired in *every*
+  release, so there was no version to upgrade to and never will be.
+
+  The old reasoning for keeping it was sound as far as it went: the only
+  markdown it ever saw was this repo's own `CHANGELOG.md`, read at compile
+  time, so the hole was unreachable. That is a property of today's call
+  sites, not of the code, and an abandoned package with a permanent
+  advisory reopens the same argument at every audit.
+
+  The suggested replacement, MDEx, is a Rust NIF, and this app cross-builds
+  standalone binaries for five OS/arch targets - each would then need a Rust
+  toolchain. So the parse now uses `earmark_parser` (maintained, pure
+  Elixir, and the half that never had the flaw, since the flaw is in HTML
+  generation) and the generation is ours, in `PairingsEngine.Markdown`,
+  where escaping is not optional, the tag set is an allowlist, and a
+  `javascript:` link is not something the renderer can emit.
+
+  Verified as a swap rather than a rewrite: rendering the whole changelog
+  through both produces identical counts for all 20 tags it uses and
+  identical text, but for the apostrophe - earmark applied smartypants,
+  which `earmark_parser` has deprecated. `mix hex.audit` now reports
+  nothing.
+
+### Verified
+
+- [Verified] **An unrated game counts toward a title norm; a forfeit on the
+  same board does not.** B.01 1.4.2 excludes a game "decided by forfeit,
+  adjudication or any means other than over the board play" - it says
+  nothing about rating, so a game recorded unrated still counts, at full
+  value.
+
+  That was already the behaviour, but by accident: the norms module reads a
+  `played` flag and has never heard of unrated result codes, so the right
+  answer fell out of another module's bookkeeping. No code changed; the
+  rule is now stated where it applies and asserted both ways, because only
+  the contrast shows the rule is being applied rather than everything being
+  counted.
+
 ### Fixed
 
 These first four came out of a deliberate sweep of the codebase for

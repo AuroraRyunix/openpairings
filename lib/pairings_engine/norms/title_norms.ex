@@ -16,6 +16,20 @@ defmodule PairingsEngine.Norms.TitleNorms do
       doesn't model, so they are NOT applied - a judgment here is therefore
       conservative, never optimistic, on game count.
 
+      **An UNRATED game counts.** 1.4.2 excludes a game "decided by
+      forfeit, adjudication or any means other than over the board play";
+      it says nothing about rating. A game recorded `1-0U` was decided over
+      the board and is unrated for RATING purposes only, which is a
+      different question. So it counts toward the norm, at full value.
+
+      Worth stating, because nothing here reads a result code:
+      `counted_games/2` filters on the `played` flag
+      `PairingsEngine.Standings` sets, and that flag is true for `W`/`D`/`L`
+      because those are played games. The right answer therefore fell out of
+      a module that has never heard of them - a fragile way to be correct,
+      so `title_norms_test.exs` now asserts both halves: the unrated game
+      counting, and a forfeit on the same board not.
+
       This is also what makes 1.4.5's "double round-robin tournaments need
       a minimum of 6 players" redundant rather than missing: a 5-player DRR
       is 8 games, which the 9-game rule already refuses. It would only start
