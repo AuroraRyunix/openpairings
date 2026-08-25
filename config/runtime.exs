@@ -32,6 +32,58 @@ if File.exists?(env_file) do
   end)
 end
 
+# ---------------------------------------------------------------------------
+# Local mode: the standalone binary, run on somebody's own machine.
+#
+# A release normally refuses to start without SMTP credentials, a
+# DATABASE_PATH and a SECRET_KEY_BASE, all of which are right for a server
+# and all of which are nonsense for a person who downloaded one file and
+# double-clicked it. `OPENPAIRINGS_LOCAL=1` says "this is that": pick
+# sensible paths, generate the secret once and keep it, and print the
+# login link to the terminal instead of mailing it.
+#
+# The safety property, and the reason this is a variable rather than a
+# guess: local mode PINS THE LISTENER TO LOOPBACK further down. A server
+# that sets it by accident serves nobody rather than serving a
+# console-login build to the internet. It never relaxes authentication -
+# the magic-link token, its expiry and its verification are untouched;
+# only the delivery changes. See `PairingsEngine.ConsoleMailer`.
+local_mode? = System.get_env("OPENPAIRINGS_LOCAL") in ["1", "true", "yes"]
+
+# Where a local run keeps its database and its generated secret. OTP's own
+# per-OS answer: AppData\Local on Windows, Library/Application Support on
+# macOS, ~/.local/share on Linux.
+# `OPENPAIRINGS_DATA_DIR` overrides it - for a run off a USB stick, a
+# machine where the profile is not writable, and for the test that asserts
+# what this file does without writing into the developer's real profile.
+local_dir =
+  if local_mode? do
+    dir =
+      System.get_env("OPENPAIRINGS_DATA_DIR") ||
+        :filename.basedir(:user_data, ~c"OpenPairings") |> to_string()
+
+    File.mkdir_p!(dir)
+    dir
+  end
+
+# Generated once and kept. Regenerating it every boot would silently
+# invalidate every session and every unexpired login link on restart.
+local_secret = fn ->
+  path = Path.join(local_dir, "secret_key_base")
+
+  case File.read(path) do
+    {:ok, existing} when byte_size(existing) >= 64 ->
+      String.trim(existing)
+
+    _ ->
+      secret = 48 |> :crypto.strong_rand_bytes() |> Base.encode64()
+      File.write!(path, secret)
+      # Best-effort; File.chmod is a no-op that returns :ok on Windows.
+      _ = File.chmod(path, 0o600)
+      secret
+  end
+end
+
 # Configure outgoing email.
 #
 # SMTP credentials (Gmail) come from the .env loader above or from the real
@@ -68,6 +120,14 @@ cond do
       ]
 
     # The SMTP adapter (gen_smtp) needs no HTTP API client.
+    config :swoosh, :api_client, false
+
+  local_mode? ->
+    # Not Swoosh's Local adapter (an in-memory mailbox with a web UI you
+    # would have to find) and not its Logger one (the whole struct, at
+    # whatever log level): the point is that the link lands in the terminal
+    # already in front of the person.
+    config :pairings_engine, PairingsEngine.Mailer, adapter: PairingsEngine.ConsoleMailer
     config :swoosh, :api_client, false
 
   config_env() == :prod and System.get_env("PHX_SERVER") ->
@@ -160,7 +220,7 @@ config :pairings_engine, :keycloak,
 #
 # Alternatively, you can use `mix phx.gen.release` to generate a `bin/server`
 # script that automatically sets the env var above.
-if System.get_env("PHX_SERVER") do
+if System.get_env("PHX_SERVER") || local_mode? do
   config :pairings_engine, PairingsEngineWeb.Endpoint, server: true
 end
 
@@ -198,6 +258,7 @@ end
 if config_env() == :prod do
   database_path =
     System.get_env("DATABASE_PATH") ||
+      (local_mode? && Path.join(local_dir, "openpairings.db")) ||
       raise """
       environment variable DATABASE_PATH is missing.
       For example: /etc/pairings_engine/pairings_engine.db
@@ -219,25 +280,51 @@ if config_env() == :prod do
   # variable instead.
   secret_key_base =
     System.get_env("SECRET_KEY_BASE") ||
+      (local_mode? && local_secret.()) ||
       raise """
       environment variable SECRET_KEY_BASE is missing.
       You can generate one by calling: mix phx.gen.secret
       """
 
-  host = System.get_env("PHX_HOST") || "example.com"
+  host = System.get_env("PHX_HOST") || (local_mode? && "localhost") || "example.com"
 
   config :pairings_engine, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
+  port = String.to_integer(System.get_env("PORT", "4000"))
+
+  # The loopback pin. This is what makes local mode safe to have at all: the
+  # mode prints login links to a terminal, so it must not be reachable from
+  # another machine, and that is enforced here rather than left to whoever
+  # sets the variable. A server that switches it on by mistake stops
+  # answering the internet - loud, and the safe direction to fail in.
+  {listen_ip, url_config} =
+    if local_mode? do
+      {{127, 0, 0, 1}, [host: host, port: port, scheme: "http"]}
+    else
+      {{0, 0, 0, 0, 0, 0, 0, 0}, [host: host, port: 443, scheme: "https"]}
+    end
+
   config :pairings_engine, PairingsEngineWeb.Endpoint,
-    url: [host: host, port: 443, scheme: "https"],
+    url: url_config,
     http: [
-      # Enable IPv6 and bind on all interfaces.
-      # Set it to  {0, 0, 0, 0, 0, 0, 0, 1} for local network only access.
-      # See the documentation on https://bandit.hexdocs.pm/Bandit.html#t:options/0
-      # for details about using IPv6 vs IPv4 and loopback vs public addresses.
-      ip: {0, 0, 0, 0, 0, 0, 0, 0}
+      # Enable IPv6 and bind on all interfaces - except in local mode, see
+      # above. See https://bandit.hexdocs.pm/Bandit.html#t:options/0 for
+      # IPv6 vs IPv4 and loopback vs public addresses.
+      ip: listen_ip
     ],
     secret_key_base: secret_key_base
+
+  if local_mode? do
+    IO.puts("""
+
+    OpenPairings - local mode
+      database  #{database_path}
+      address   http://#{host}:#{port}
+
+    Login emails are printed here instead of being sent. Enter your address
+    on the sign-in page and the link will appear in this window.
+    """)
+  end
 
   # ## SSL Support
   #

@@ -36,6 +36,43 @@ MIX_ENV=prod BURRITO_TARGET=macos_aarch64 mix release
 
 The binary lands in `burrito_out/` (e.g. `burrito_out/pairings_engine_macos_aarch64`).
 
+## Running it locally (`OPENPAIRINGS_LOCAL=1`)
+
+For one person on their own machine, set one variable and nothing else:
+
+```bash
+OPENPAIRINGS_LOCAL=1 ./pairings_engine_macos_aarch64 start
+```
+
+That is the whole setup. Local mode:
+
+- **needs no SMTP.** A server refuses to boot without it, because magic-link
+  login has no other way to reach you. Locally the link is printed in the
+  terminal you started the binary from - the login flow itself is unchanged,
+  same token, same expiry, same verification, only the delivery differs.
+- **generates `SECRET_KEY_BASE` once** and keeps it, so a restart does not
+  log you out.
+- **puts the database** in the OS's own per-user data directory
+  (`%LOCALAPPDATA%\OpenPairings` on Windows,
+  `~/Library/Application Support/OpenPairings` on macOS,
+  `~/.local/share/OpenPairings` on Linux). Override with
+  `OPENPAIRINGS_DATA_DIR`, or point `DATABASE_PATH` somewhere specific.
+- **serves `http://localhost:4000`**, and `PORT` moves it.
+
+Migrations run at boot in any release, so the database is created and
+brought up to date on first start. There is nothing to run first.
+
+**It binds to loopback only, and you cannot turn that off** - not with
+`PHX_HOST`, not with anything. A mode that prints login links to a console
+must not be reachable from another machine, so the pin is in
+`config/runtime.exs` rather than in the instructions. If you want other
+people on the network to reach this, you want a normal server run, not this
+mode.
+
+No Java is needed for either mode. Pairing is done by Ainalrami, which is
+Elixir and is inside the binary; JaVaFo is the only thing that ever wanted a
+JVM, and it is now the non-default alternative.
+
 ## Running the binary
 
 The app is a web server; it reads its config from the environment at start:
@@ -48,9 +85,10 @@ PORT=4000 \
 ./pairings_engine_macos_aarch64 start
 ```
 
-- `DATABASE_PATH` - where the SQLite database file lives (created on first run
-  after `… eval "PairingsEngine.Release.migrate"`, or migrations run at boot in
-  a release).
+- `DATABASE_PATH` - where the SQLite database file lives. Created and
+  migrated on first start: `PairingsEngine.Application` supervises
+  `Ecto.Migrator`, which runs whenever `RELEASE_NAME` is set, i.e. in every
+  release. There is no `mix ecto.migrate` step and no `eval` to run first.
 - `SECRET_KEY_BASE` - required; generate once and keep it stable.
 - `PHX_SERVER=true` - actually serve HTTP (a release doesn't by default).
 - SMTP (`SMTP_USERNAME` / `SMTP_PASSWORD`) is required in prod for magic-link

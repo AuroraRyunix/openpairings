@@ -137,6 +137,38 @@ Each entry is tagged so a version can be skimmed:
   was to ask us. Someone cross-checking a board against SWAR should be able
   to read the answer off the screen.
 
+- [Feature] **Local mode: the standalone binary now runs on your own machine
+  with one setting and nothing else.**
+
+  ```bash
+  OPENPAIRINGS_LOCAL=1 ./pairings_engine_linux_x86_64 start
+  ```
+
+  A release is built for a server, and refused to start without SMTP
+  credentials, a `DATABASE_PATH` and a `SECRET_KEY_BASE` - all correct for a
+  server, all nonsense for one person who downloaded one file. Local mode
+  generates the secret once and keeps it, puts the database in the OS's own
+  per-user data directory, and serves `http://localhost:4000`.
+
+  **Login works without a mail server.** The magic-link email is printed in
+  the terminal you started it from instead of being sent. The login flow
+  itself is untouched - same token, same expiry, same verification - because
+  a mode that logs in whoever asks is one environment variable away from
+  being on somewhere it should not be. Only the delivery changes.
+
+  **It binds to loopback and will not be talked out of it**, not by
+  `PHX_HOST` or anything else. A build that prints login links to a console
+  must not answer another machine, so that is pinned in the config rather
+  than left to the instructions. A server that sets the variable by mistake
+  stops answering the internet, which is the safe direction to fail in.
+
+  What made this worth doing now is the engine switch: pairing no longer
+  needs a JVM. Ainalrami is Elixir and is *inside* the binary, so a local
+  install has no external dependency at all. Migrations already ran at boot
+  in any release, so first start creates and migrates the database itself -
+  the binaries guide said to run an `eval` step first, and that step
+  referenced a module that has never existed.
+
 ### Security
 
 - [Security] **The retired markdown renderer is gone.** The changelog page
