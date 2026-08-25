@@ -15,6 +15,17 @@
 *.yml text eol=lf
 *.yaml text eol=lf
 
+# Shell launchers must reach a Unix machine with LF endings - a `#!/bin/sh`
+# line ending in CRLF gives "bad interpreter: /bin/sh^M", which reads like
+# a missing shell rather than a line ending. The exec bit is carried in the
+# index too (`git update-index --chmod=+x`), since the mode is what a fresh
+# checkout on a CI runner gets - and what a downloaded artifact inherits.
+*.sh text eol=lf
+
+# And a .bat wants CRLF: cmd tolerates LF for most things and not for all,
+# and this one ships to end users.
+*.bat text eol=crlf
+
 # Binary - never touch.
 *.xlsx binary
 *.jar binary
