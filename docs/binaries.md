@@ -17,6 +17,37 @@ There is no Windows/ARM target: Erlang/OTP publishes no Windows/ARM runtime for
 Burrito to bundle. Windows on ARM runs `windows_x86_64` under its built-in
 x86_64 emulation.
 
+## Building them in CI (the normal way)
+
+`.github/workflows/binaries.yml` builds all five, each on its own native
+runner, so the SQLite NIF is compiled natively rather than cross-guessed.
+
+Two triggers:
+
+- **Push a `v*` tag** - builds every target and attaches the binaries to a
+  GitHub release for that tag. This is the release path.
+- **Run it by hand** - Actions -> Build binaries -> Run workflow, or:
+
+  ```bash
+  gh workflow run binaries.yml --ref main
+  ```
+
+  Same build, but the results are uploaded as workflow artifacts instead of
+  being attached to a release. Use this to check a branch builds before
+  tagging it.
+
+Each target is also **started after it is built** and asked for a page, in
+local mode, and the run fails unless the page comes back with the
+auto-signed-in owner's address on it. A Burrito build can succeed and still
+produce a binary that dies at boot - `config/runtime.exs` is evaluated by
+the real release at start, and no unit test exercises that path.
+
+To cut a release:
+
+```bash
+git tag -a v0.17.0 -m "0.17.0" && git push origin v0.17.0
+```
+
 ## Building locally
 
 Needs **Zig** and **xz** on the build machine (`brew install zig xz`, or your

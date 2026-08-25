@@ -4,9 +4,9 @@ defmodule PairingsEngine.LocalModeTest do
 
   Read by evaluating the real file with `Config.Reader` rather than by
   asserting on a copy of the logic, because the thing worth guarding is the
-  file that ships. In particular the loopback pin: local mode prints login
-  links to a terminal, so the day it starts answering on `0.0.0.0` is the
-  day it hands anyone on the network a way in.
+  file that ships. In particular the loopback pin: local mode signs in
+  whoever asks, so the day it starts answering on `0.0.0.0` is the day it
+  hands anyone on the network a way in.
   """
   use ExUnit.Case, async: false
 
@@ -51,7 +51,7 @@ defmodule PairingsEngine.LocalModeTest do
       assert endpoint[:server] == true
     end
 
-    test "starts without SMTP, and prints the login link instead of sending it", %{dir: dir} do
+    test "starts without SMTP, printing what it would have sent", %{dir: dir} do
       config =
         with_env(
           %{
@@ -117,7 +117,7 @@ defmodule PairingsEngine.LocalModeTest do
   describe "the console mailer" do
     import ExUnit.CaptureIO
 
-    test "prints the sign-in link where the person running the binary will see it" do
+    test "prints a link where the person running the binary will see it" do
       email =
         Swoosh.Email.new()
         |> Swoosh.Email.to({"Ann", "ann@example.com"})
