@@ -11,7 +11,7 @@ defmodule PairingsEngineWeb.UserLive.Settings do
     <Layouts.app flash={@flash} current_scope={@current_scope}>
       <div class="text-center">
         <.header>
-          Account Settings
+          {gettext("Account Settings")}
           <:subtitle>{gettext("Manage your account email address and password settings")}</:subtitle>
         </.header>
       </div>
@@ -20,12 +20,12 @@ defmodule PairingsEngineWeb.UserLive.Settings do
         <.input
           field={@email_form[:email]}
           type="email"
-          label="Email"
+          label={gettext("Email")}
           autocomplete="username"
           spellcheck="false"
           required
         />
-        <.button variant="primary" phx-disable-with="Changing...">{gettext("Change Email")}</.button>
+        <.button variant="primary" phx-disable-with={gettext("Changing...")}>{gettext("Change Email")}</.button>
       </.form>
 
       <div class="divider" />
@@ -61,7 +61,7 @@ defmodule PairingsEngineWeb.UserLive.Settings do
           autocomplete="new-password"
           spellcheck="false"
         />
-        <.button variant="primary" phx-disable-with="Saving...">
+        <.button variant="primary" phx-disable-with={gettext("Saving...")}>
           {gettext("Save Password")}
         </.button>
       </.form>

@@ -11,7 +11,11 @@ defmodule PairingsEngineWeb.UserLive.Confirmation do
         <div class="auth-panel">
           <div class="auth-card">
             <h2 class="auth-card-title">{gettext("Welcome back")}</h2>
-            <p class="auth-card-sub">Signing in as <strong>{@user.email}</strong>.</p>
+            <p class="auth-card-sub">
+              <.rich_text text={gettext("Signing in as %[email].")}>
+                <:part name="email"><strong>{@user.email}</strong></:part>
+              </.rich_text>
+            </p>
 
             <.form
               :if={!@user.confirmed_at}
@@ -28,14 +32,14 @@ defmodule PairingsEngineWeb.UserLive.Confirmation do
                 type="submit"
                 name={@form[:remember_me].name}
                 value="true"
-                phx-disable-with="Confirming..."
+                phx-disable-with={gettext("Confirming...")}
                 class="pe-btn primary auth-submit"
               >
                 {gettext("Confirm and stay signed in")} <span aria-hidden="true">→</span>
               </button>
               <button
                 type="submit"
-                phx-disable-with="Confirming..."
+                phx-disable-with={gettext("Confirming...")}
                 class="pe-btn auth-submit auth-submit-ghost"
               >
                 {gettext("Confirm and sign in only this time")}
@@ -56,24 +60,24 @@ defmodule PairingsEngineWeb.UserLive.Confirmation do
               <%= if @current_scope do %>
                 <button
                   type="submit"
-                  phx-disable-with="Signing in..."
+                  phx-disable-with={gettext("Signing in...")}
                   class="pe-btn primary auth-submit"
                 >
-                  Sign in <span aria-hidden="true">→</span>
+                  {gettext("Sign in")} <span aria-hidden="true">→</span>
                 </button>
               <% else %>
                 <button
                   type="submit"
                   name={@form[:remember_me].name}
                   value="true"
-                  phx-disable-with="Signing in..."
+                  phx-disable-with={gettext("Signing in...")}
                   class="pe-btn primary auth-submit"
                 >
                   {gettext("Keep me signed in on this device")} <span aria-hidden="true">→</span>
                 </button>
                 <button
                   type="submit"
-                  phx-disable-with="Signing in..."
+                  phx-disable-with={gettext("Signing in...")}
                   class="pe-btn auth-submit auth-submit-ghost"
                 >
                   {gettext("Sign in only this time")}

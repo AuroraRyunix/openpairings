@@ -78,7 +78,7 @@ defmodule PairingsEngineWeb.Components.ArbiterCombo do
             phx-change="arbiter_search"
             phx-debounce="300"
             autocomplete="off"
-            placeholder="Name"
+            placeholder={gettext("Name")}
           />
           <p
             :if={@name_value in ["", nil] and @hint not in ["", nil]}

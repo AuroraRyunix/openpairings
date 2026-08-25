@@ -150,10 +150,15 @@ defmodule PairingsEngineWeb.SettingsFideLive do
           <h2>{gettext("FIDE report identifiers")}</h2>
 
           <p class="hint" style="margin-top: 0">
-            The tournament's own FIDE identifiers, used to fill the IT3 / FA1 / IA1 / IT4 report forms on the
-            <.link navigate={~p"/t/#{@tournament.id}/norms"}>Norms</.link>
-            tab. The officials, arbiters and pairing-system details for those reports live on the
-            Norms tab too.
+            <.rich_text text={
+              gettext(
+                "The tournament's own FIDE identifiers, used to fill the IT3 / FA1 / IA1 / IT4 report forms on the %[norms] tab. The officials, arbiters and pairing-system details for those reports live on the Norms tab too."
+              )
+            }>
+              <:part name="norms">
+                <.link navigate={~p"/t/#{@tournament.id}/norms"}>{gettext("Norms")}</.link>
+              </:part>
+            </.rich_text>
           </p>
 
           <.setting_group>
@@ -173,12 +178,9 @@ defmodule PairingsEngineWeb.SettingsFideLive do
           </.setting_group>
 
           <p class="hint" style="margin-bottom: 0">
-            The FIDE tournament ID above is used whenever no per-round range below unambiguously
-            covers the exported rounds (no ranges configured, the export spans more than one range,
-            or matches none) - see the ranges below for splitting one event's report across
-            differently-rated sections. It's a different thing from the event code: the ID is this
-            report's own numeric identifier at FIDE (IT3's "ID of Tournament"), the event code is
-            your federation's rating-homologation code (e.g. BEL2026001).
+            {gettext(
+              "The FIDE tournament ID above is used whenever no per-round range below unambiguously covers the exported rounds (no ranges configured, the export spans more than one range, or matches none) - see the ranges below for splitting one event's report across differently-rated sections. It's a different thing from the event code: the ID is this report's own numeric identifier at FIDE (IT3's \"ID of Tournament\"), the event code is your federation's rating-homologation code (e.g. BEL2026001)."
+            )}
           </p>
         </div>
 
@@ -236,7 +238,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
                       phx-click="remove_range"
                       phx-value-index={i}
                     >
-                      Remove
+                      {gettext("Remove")}
                     </button>
                   </td>
                 </tr>

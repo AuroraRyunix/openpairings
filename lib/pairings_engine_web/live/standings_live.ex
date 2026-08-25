@@ -292,7 +292,9 @@ defmodule PairingsEngineWeb.StandingsLive do
           <h1>{@tournament.name}</h1>
 
           <p class="subtitle" style="margin: 0">
-            Standings{if @rounds_paired > 0, do: " after round #{@rounds_paired}"}
+            {if @rounds_paired > 0,
+              do: gettext("Standings after round %{n}", n: @rounds_paired),
+              else: gettext("Standings")}
           </p>
         </div>
 
@@ -308,7 +310,7 @@ defmodule PairingsEngineWeb.StandingsLive do
           </a>
 
           <a class="pe-btn" href={~p"/t/#{@tournament.id}/print/standings"} target="_blank">
-            Print
+            {gettext("Print")}
           </a>
         </div>
       </div>
@@ -344,7 +346,11 @@ defmodule PairingsEngineWeb.StandingsLive do
             :if={!@tournament.manual_ranking}
             class="pe-btn"
             phx-click="enable_manual_ranking"
-            data-confirm="Switch to manual ranking? The current computed order will be used as the starting point."
+            data-confirm={
+              gettext(
+                "Switch to manual ranking? The current computed order will be used as the starting point."
+              )
+            }
           >
             {gettext("Enable manual ranking")}
           </button>
@@ -376,9 +382,9 @@ defmodule PairingsEngineWeb.StandingsLive do
         <table class="pe-table">
           <thead>
             <tr>
-              <th class="num">Rank</th>
+              <th class="num">{gettext("Rank")}</th>
 
-              <th>Name</th>
+              <th>{gettext("Name")}</th>
 
               <th :if={show_col?(@visible, "sex")}>Sex</th>
 
@@ -399,7 +405,7 @@ defmodule PairingsEngineWeb.StandingsLive do
                 class="num"
                 title={gettext("Points + extra points - this is what ranking sorts by")}
               >
-                Total
+                {gettext("Total")}
               </th>
 
               <th
@@ -426,9 +432,9 @@ defmodule PairingsEngineWeb.StandingsLive do
                 {code}
               </th>
 
-              <th :if={@tournament.categories != []}>Category</th>
+              <th :if={@tournament.categories != []}>{gettext("Category")}</th>
 
-              <th :if={@tournament.manual_ranking}>Reorder</th>
+              <th :if={@tournament.manual_ranking}>{gettext("Reorder")}</th>
             </tr>
           </thead>
 
@@ -508,21 +514,21 @@ defmodule PairingsEngineWeb.StandingsLive do
         <table class="pe-table">
           <thead>
             <tr>
-              <th class="num">Rank</th>
+              <th class="num">{gettext("Rank")}</th>
 
-              <th>Name</th>
+              <th>{gettext("Name")}</th>
 
               <th :if={show_col?(@visible, "sex")}>Sex</th>
 
               <th class="num">Elo</th>
 
-              <th class="num">Value</th>
+              <th class="num">{gettext("Value")}</th>
 
               <th class="num">{gettext("Keizer pts")}</th>
 
-              <th class="num">Score</th>
+              <th class="num">{gettext("Score")}</th>
 
-              <th :if={@tournament.categories != []}>Category</th>
+              <th :if={@tournament.categories != []}>{gettext("Category")}</th>
             </tr>
           </thead>
 

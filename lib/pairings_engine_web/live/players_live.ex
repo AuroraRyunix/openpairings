@@ -1327,7 +1327,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           <h1>{@tournament.name}</h1>
 
           <p class="subtitle" style="margin: 0">
-            {length(@players)} player{if length(@players) != 1, do: "s"} registered
+            {ngettext("%{count} player registered", "%{count} players registered", length(@players))}
           </p>
         </div>
 
@@ -1385,7 +1385,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                     missing_setup_summary(@missing_setup)
             }
           >
-            Add player
+            {gettext("Add player")}
             <span style="opacity: 0.7; font-size: 11px; margin-left: 4px">{gettext("Ctrl+I")}</span>
           </button>
         </div>
@@ -1446,7 +1446,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           </label>
 
           <label class="field">
-            <span>Title</span>
+            <span>{gettext("Title")}</span>
             <select name="player[title]">
               <option value="">-</option>
 
@@ -1490,7 +1490,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           </label>
 
           <label class="field">
-            <span>Federation</span>
+            <span>{gettext("Federation")}</span>
             <input name="player[federation]" value={@form_values["federation"]} placeholder="BEL" />
           </label>
 
@@ -1500,7 +1500,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           </label>
 
           <label class="field">
-            <span>Club</span> <input name="player[club]" value={@form_values["club"]} />
+            <span>{gettext("Club")}</span> <input name="player[club]" value={@form_values["club"]} />
           </label>
           <input type="hidden" name="player[sex]" value={@form_values["sex"]} />
           <%!-- Hidden, like sex above: the club NUMBER is filled in by the KBSB
@@ -1527,7 +1527,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           >
             {gettext("Add player")}
           </button>
-          <button type="button" class="pe-btn" phx-click="done">Done</button>
+          <button type="button" class="pe-btn" phx-click="done">{gettext("Done")}</button>
         </div>
       </form>
 
@@ -1575,7 +1575,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                   phx-value-key="name"
                   title={gettext("Player's full name")}
                 >
-                  Name{sort_indicator(@sort_col, @sort_dir, "name")}
+                  {gettext("Name")}{sort_indicator(@sort_col, @sort_dir, "name")}
                 </th>
 
                 <th
@@ -1622,7 +1622,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                     phx-value-id={p.player.id}
                     data-confirm={"Remove #{p.player.name} from the tournament?"}
                   >
-                    Remove
+                    {gettext("Remove")}
                   </button>
                 </td>
               </tr>
@@ -1631,7 +1631,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         </div>
 
         <aside class="card display-panel">
-          <h2>Display</h2>
+          <h2>{gettext("Display")}</h2>
 
           <label :for={{key, label, _num, _desc} <- all_columns(@tournament)} class="check">
             <input
@@ -1689,9 +1689,9 @@ defmodule PairingsEngineWeb.PlayersLive do
           <table class="pe-table">
             <thead>
               <tr>
-                <th>Player</th>
+                <th>{gettext("Player")}</th>
 
-                <th>Field</th>
+                <th>{gettext("Field")}</th>
 
                 <th class="num">Old</th>
 
@@ -1714,10 +1714,11 @@ defmodule PairingsEngineWeb.PlayersLive do
         </div>
 
         <p class="hint">
-          {@summary.checked} player{if @summary.checked != 1, do: "s"} checked, {@summary.changed} change{if @summary.changed !=
-                                                                                                               1,
-                                                                                                             do:
-                                                                                                               "s"}, {@summary.unmatched} without id match.
+          {gettext("%{checked} checked, %{changed}, %{unmatched} without id match.",
+            checked: ngettext("%{count} player", "%{count} players", @summary.checked),
+            changed: ngettext("%{count} change", "%{count} changes", @summary.changed),
+            unmatched: @summary.unmatched
+          )}
         </p>
 
         <div class="actions">
@@ -1727,9 +1728,9 @@ defmodule PairingsEngineWeb.PlayersLive do
             class="pe-btn primary"
             phx-click="apply_rating_refresh"
           >
-            Apply
+            {gettext("Apply")}
           </button>
-          <button type="button" class="pe-btn" phx-click="close_rating_refresh">Cancel</button>
+          <button type="button" class="pe-btn" phx-click="close_rating_refresh">{gettext("Cancel")}</button>
         </div>
       </div>
     </div>
@@ -1759,9 +1760,9 @@ defmodule PairingsEngineWeb.PlayersLive do
           <table class="pe-table">
             <thead>
               <tr>
-                <th>Player</th>
+                <th>{gettext("Player")}</th>
 
-                <th>Field</th>
+                <th>{gettext("Field")}</th>
 
                 <th>Old</th>
 
@@ -1788,10 +1789,11 @@ defmodule PairingsEngineWeb.PlayersLive do
         </div>
 
         <p class="hint">
-          {@summary.checked} player{if @summary.checked != 1, do: "s"} checked, {@summary.changed} change{if @summary.changed !=
-                                                                                                               1,
-                                                                                                             do:
-                                                                                                               "s"}, {@summary.unmatched} without id match.
+          {gettext("%{checked} checked, %{changed}, %{unmatched} without id match.",
+            checked: ngettext("%{count} player", "%{count} players", @summary.checked),
+            changed: ngettext("%{count} change", "%{count} changes", @summary.changed),
+            unmatched: @summary.unmatched
+          )}
         </p>
 
         <div class="actions">
@@ -1801,9 +1803,9 @@ defmodule PairingsEngineWeb.PlayersLive do
             class="pe-btn primary"
             phx-click="apply_club_refresh"
           >
-            Apply
+            {gettext("Apply")}
           </button>
-          <button type="button" class="pe-btn" phx-click="close_club_refresh">Cancel</button>
+          <button type="button" class="pe-btn" phx-click="close_club_refresh">{gettext("Cancel")}</button>
         </div>
       </div>
     </div>
@@ -1957,15 +1959,19 @@ defmodule PairingsEngineWeb.PlayersLive do
             <strong :for={{key, value} <- @fide_conflicts}>
               {fide_conflict_label(key)} → {fide_conflict_display(key, value)}
             </strong>
-            - apply {if map_size(@fide_conflicts) > 1, do: "these", else: "this"}?
+            {ngettext("- apply this?", "- apply these?", map_size(@fide_conflicts))}
           </span>
-          <button type="button" class="pe-btn" phx-click="apply_fide_conflicts">Yes</button>
-          <button type="button" class="pe-btn" phx-click="reject_fide_conflicts">No</button>
+          <button type="button" class="pe-btn" phx-click="apply_fide_conflicts">
+            {gettext("Yes")}
+          </button>
+          <button type="button" class="pe-btn" phx-click="reject_fide_conflicts">
+            {gettext("No")}
+          </button>
         </div>
 
         <div class="form-grid">
           <label class="field" style="grid-column: 1 / -1">
-            <span>Name</span> <input name="player[name]" value={@form["name"]} />
+            <span>{gettext("Name")}</span> <input name="player[name]" value={@form["name"]} />
           </label>
           <%!-- Identity --%>
           <label class="field">
@@ -1978,7 +1984,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           </label>
 
           <label class="field">
-            <span>Country</span>
+            <span>{gettext("Country")}</span>
             <input name="player[federation]" value={@form["federation"]} placeholder="BEL" />
           </label>
           <%!-- Ratings & title --%>
@@ -1991,22 +1997,26 @@ defmodule PairingsEngineWeb.PlayersLive do
             <span>{gettext("FIDE Elo")}</span>
             <input type="number" name="player[fide_rating]" value={@form["fide_rating"]} />
             <span :if={@fide_player} class="hint" style="display: block; margin-top: 2px">
-              Standard {rating_or_dash(@fide_player.standard_rating)} · Rapid {rating_or_dash(
-                @fide_player.rapid_rating
-              )} · Blitz {rating_or_dash(@fide_player.blitz_rating)}
+              {gettext("Standard %{std} · Rapid %{rapid} · Blitz %{blitz}",
+                std: rating_or_dash(@fide_player.standard_rating),
+                rapid: rating_or_dash(@fide_player.rapid_rating),
+                blitz: rating_or_dash(@fide_player.blitz_rating)
+              )}
               <span :if={@tournament.standard in ["rapid", "blitz"]}>
-                (this is a {String.capitalize(@tournament.standard)} tournament - refreshing fills
-                in the {String.capitalize(@tournament.standard)} rating, or Standard if this player
-                has none yet)
+                {gettext(
+                  "(this is a %{kind} tournament - refreshing fills in the %{kind} rating, or Standard if this player has none yet)",
+                  kind: String.capitalize(@tournament.standard)
+                )}
               </span>
             </span>
             <span class="hint" style="display: block">
-              {gettext("Elo used (pairing/standings):")} <strong>{@elo_used || "unrated"}</strong>
+              {gettext("Elo used (pairing/standings):")}
+              <strong>{@elo_used || gettext("unrated")}</strong>
             </span>
           </label>
 
           <label class="field">
-            <span>Title</span>
+            <span>{gettext("Title")}</span>
             <select name="player[title]">
               <option value="">-</option>
 
@@ -2030,7 +2040,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           </div>
 
           <label class="field">
-            <span>Category</span>
+            <span>{gettext("Category")}</span>
             <select :if={@tournament.categories != []} name="player[category]">
               <option value="" selected={@form["category"] in [nil, ""]}>---</option>
 
@@ -2046,7 +2056,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                 value={@form["category"]}
                 selected
               >
-                {@form["category"]} (not in list)
+                {gettext("%{name} (not in list)", name: @form["category"])}
               </option>
             </select>
 
@@ -2058,7 +2068,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           </label>
           <%!-- Club & board --%>
           <label class="field">
-            <span>Club</span> <input name="player[club]" value={@form["club"]} />
+            <span>{gettext("Club")}</span> <input name="player[club]" value={@form["club"]} />
           </label>
 
           <label class="field">
@@ -2073,7 +2083,7 @@ defmodule PairingsEngineWeb.PlayersLive do
               min="1"
               name="player[fixed_board]"
               value={@form["fixed_board"]}
-              placeholder="none"
+              placeholder={gettext("none")}
               title={
                 gettext(
                   "Displays/prints this player's games at this table number, regardless of normal board order"
@@ -2081,8 +2091,10 @@ defmodule PairingsEngineWeb.PlayersLive do
               }
             />
             <span :if={@fixed_board_conflicts != []} class="hint" style="display: block">
-              {gettext("Also used by:")} {Enum.join(@fixed_board_conflicts, ", ")} - fine if they'll be paired
-              together there, otherwise double-check.
+              {gettext(
+                "Also used by: %{who} - fine if they'll be paired together there, otherwise double-check.",
+                who: Enum.join(@fixed_board_conflicts, ", ")
+              )}
             </span>
           </label>
           <%!-- Scoring admin --%>
@@ -2097,7 +2109,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           </label>
 
           <div class="field" style="grid-column: 1 / -1">
-            <span>Registration</span>
+            <span>{gettext("Registration")}</span>
             <div class="radio-row">
               <label><input
                 type="radio"
@@ -2110,13 +2122,13 @@ defmodule PairingsEngineWeb.PlayersLive do
                 name="player[paid]"
                 value="paid"
                 checked={@form["paid"] == "paid"}
-              /> Paid</label>
+              /> {gettext("Paid")}</label>
               <label><input
                 type="radio"
                 name="player[paid]"
                 value="gratis"
                 checked={@form["paid"] == "gratis"}
-              /> Gratis</label>
+              /> {gettext("Gratis")}</label>
             </div>
           </div>
 
@@ -2128,7 +2140,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                 name="player[absent]"
                 value="true"
                 checked={@form["absent"] in [true, "true"]}
-              /> Absent
+              /> {gettext("Absent")}
             </label>
 
             <label>
@@ -2138,7 +2150,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                 name="player[forfeit]"
                 value="true"
                 checked={@form["forfeit"] in [true, "true"]}
-              /> Forfeit
+              /> {gettext("Forfeit")}
             </label>
           </div>
         </div>
@@ -2146,8 +2158,8 @@ defmodule PairingsEngineWeb.PlayersLive do
         <p :if={@error} class="error-note">{@error}</p>
 
         <div class="actions">
-          <button type="submit" class="pe-btn primary">Save</button>
-          <button type="button" class="pe-btn" phx-click="close_edit">Cancel</button>
+          <button type="submit" class="pe-btn primary">{gettext("Save")}</button>
+          <button type="button" class="pe-btn" phx-click="close_edit">{gettext("Cancel")}</button>
         </div>
       </form>
     </div>
@@ -2191,7 +2203,7 @@ defmodule PairingsEngineWeb.PlayersLive do
 
                 <th>Tit</th>
 
-                <th>Opponent</th>
+                <th>{gettext("Opponent")}</th>
 
                 <th class="num">{gettext("N-Elo")}</th>
 
@@ -2229,7 +2241,7 @@ defmodule PairingsEngineWeb.PlayersLive do
               </tr>
 
               <tr class="card-total-row">
-                <td colspan="6">Total</td>
+                <td colspan="6">{gettext("Total")}</td>
 
                 <td class="num">{format_num(@totals.opponent_total)}</td>
 
@@ -2242,16 +2254,16 @@ defmodule PairingsEngineWeb.PlayersLive do
         </div>
 
         <div class="actions">
-          <button type="button" class="pe-btn" phx-click="card_prev">Previous</button>
-          <button type="button" class="pe-btn" phx-click="card_next">Following</button>
+          <button type="button" class="pe-btn" phx-click="card_prev">{gettext("Previous")}</button>
+          <button type="button" class="pe-btn" phx-click="card_next">{gettext("Following")}</button>
           <a
             class="pe-btn"
             href={~p"/t/#{@tournament.id}/print/card/#{@entry.player.id}"}
             target="_blank"
           >
-            Print
+            {gettext("Print")}
           </a>
-          <button type="button" class="pe-btn primary" phx-click="close_card">Exit</button>
+          <button type="button" class="pe-btn primary" phx-click="close_card">{gettext("Exit")}</button>
         </div>
       </div>
     </div>

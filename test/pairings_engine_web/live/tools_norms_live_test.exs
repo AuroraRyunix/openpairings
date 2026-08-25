@@ -726,8 +726,8 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
 
     assert html =~ "Titled"
     assert html =~ "Feds"
-    assert html =~ "2 player(s), 1 titled"
-    assert html =~ "2 distinct federation(s)"
+    assert html =~ "2 players, 1 titled"
+    assert html =~ "2 distinct federations"
     assert html =~ "No federation appears in more than one uploaded file."
   end
 

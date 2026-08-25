@@ -37,6 +37,31 @@ Each entry is tagged so a version can be skimmed:
   for their own screens is not one to impose on a visiting player reading
   the standings.
 
+- [Feature] **The Dutch is finished: the sentences with links in them, and
+  everything that prints.** 840 interface strings now, up from 548.
+
+  Two gaps closed. First, the sentences a previous pass deliberately left in
+  English because they wrap around a link or a value: those needed the whole
+  sentence to stay one translatable unit with the markup movable inside it,
+  which is what `<.rich_text>` now does - the msgid carries a `%[name]`
+  placeholder and the translator puts it wherever Dutch wants it. 54
+  sentences that read half in each language, or not at all, now read as one.
+
+  Second, **everything you print**. Pairing sheets, standings, cross tables,
+  score sheets, place cards, result cards and player lists came out in
+  English whatever language the arbiter had picked, because
+  `PrintController` assembles its HTML as strings instead of through a
+  template and so was invisible to every pass that walked templates. Printed
+  documents now also carry the right `lang`, as does the app itself.
+
+  Along the way, a wrapping script's "this is a code, not prose" filter
+  turned out to be matching case-insensitively, which had silently skipped
+  every one-word label in the app: eighteen Cancel buttons, and most column
+  headers. Those are translated now too.
+
+  Column headers that are codes (Pr., Nr, Fed, Elo, Pts, W/B, 1-0) stay
+  English on purpose - they match the FIDE forms and the on-screen grid.
+
 - [Feature] **Another 80 interface strings translated, and the half-Dutch
   sentences fixed.** The first pass wrapped 468 strings but only matched
   text sitting against a tag boundary on a single line, so longer sentences

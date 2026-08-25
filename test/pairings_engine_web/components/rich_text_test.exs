@@ -29,29 +29,37 @@ defmodule PairingsEngineWeb.RichTextTest do
   end
 
   test "substitutes a part without adding whitespace around it" do
-    assert html("on the %{players} page.") == ~s(on the <a href="/players">Players</a> page.)
+    assert html("on the %[players] page.") == ~s(on the <a href="/players">Players</a> page.)
   end
 
   test "leaves no gap when the placeholder is flush against punctuation" do
-    assert html("see %{players}.") == ~s(see <a href="/players">Players</a>.)
+    assert html("see %[players].") == ~s(see <a href="/players">Players</a>.)
   end
 
   test "puts the markup wherever the translation moved it" do
-    assert html("%{players} is where they live.") ==
+    assert html("%[players] is where they live.") ==
              ~s(<a href="/players">Players</a> is where they live.)
   end
 
   test "substitutes more than one part" do
-    assert html("%{players}, then %{settings}.") ==
+    assert html("%[players], then %[settings].") ==
              ~s(<a href="/players">Players</a>, then <b>Settings</b>.)
   end
 
   test "escapes the surrounding text rather than trusting it" do
-    assert html("a & b %{players}") == ~s(a &amp; b <a href="/players">Players</a>)
+    assert html("a & b %[players]") == ~s(a &amp; b <a href="/players">Players</a>)
   end
 
   test "renders an unknown placeholder literally instead of eating it" do
-    assert html("hello %{nobody} there") == "hello %{nobody} there"
+    assert html("hello %[nobody] there") == "hello %[nobody] there"
+  end
+
+  test "leaves gettext's own %{} interpolation syntax alone" do
+    # The two markers coexist in one sentence: `%{version}` is a binding
+    # gettext already substituted before this component sees the string, so
+    # anything shaped like one here is literal text by the time we run.
+    assert html("v%{version}, see %[players]") ==
+             ~s(v%{version}, see <a href="/players">Players</a>)
   end
 
   test "renders a sentence with no placeholder at all unchanged" do

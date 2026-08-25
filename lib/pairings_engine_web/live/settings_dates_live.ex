@@ -230,7 +230,7 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
           <div class="set-rows">
             <label :for={{date, i} <- Enum.with_index(@round_dates)} class="set-row">
               <span class="set-row-label">
-                Round {i + 1}
+                {gettext("Round %{n}", n: i + 1)}
                 <span :if={weekday_label(date)} class="hint">({weekday_label(date)})</span>
               </span>
               <input type="date" name="tournament[round_dates][]" value={date} />

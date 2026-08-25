@@ -191,9 +191,9 @@ defmodule PairingsEngineWeb.LiveRoundLive do
           <h1>{@tournament.name}</h1>
           <p class="subtitle" style="margin: 0">
             <%= if @round_number > 0 do %>
-              Live &middot; Round {@round_number}
+              {gettext("Live · Round %{n}", n: @round_number)}
             <% else %>
-              Live &middot; no rounds paired yet
+              {gettext("Live · no rounds paired yet")}
             <% end %>
           </p>
         </div>
@@ -222,10 +222,15 @@ defmodule PairingsEngineWeb.LiveRoundLive do
             <div class="enroll-code-label">{gettext("6-digit code")}</div>
             <div class="enroll-code">{@new_enrollment.code}</div>
             <p class="enroll-url">
-              Scan the QR, or open
-              <strong>{url(~p"/m")}</strong> {gettext("on the phone and enter the code.")}
+              <.rich_text text={
+                gettext("Scan the QR, or open %[url] on the phone and enter the code.")
+              }>
+                <:part name="url"><strong>{url(~p"/m")}</strong></:part>
+              </.rich_text>
             </p>
-            <p class="hint">Expires {enroll_expiry(@new_enrollment.expires_at)}.</p>
+            <p class="hint">
+              {gettext("Expires %{when}.", when: enroll_expiry(@new_enrollment.expires_at))}
+            </p>
           </div>
         </div>
 
@@ -234,11 +239,11 @@ defmodule PairingsEngineWeb.LiveRoundLive do
           <table class="pe-table">
             <tbody>
               <tr :for={e <- @enrollments}>
-                <td><strong>Code {e.code}</strong></td>
-                <td class="hint">expires {enroll_expiry(e.expires_at)}</td>
+                <td><strong>{gettext("Code %{code}", code: e.code)}</strong></td>
+                <td class="hint">{gettext("expires %{when}", when: enroll_expiry(e.expires_at))}</td>
                 <td style="text-align: right">
                   <button class="pe-btn danger-link" phx-click="revoke_enrollment" phx-value-id={e.id}>
-                    Revoke
+                    {gettext("Revoke")}
                   </button>
                 </td>
               </tr>
@@ -266,15 +271,27 @@ defmodule PairingsEngineWeb.LiveRoundLive do
             </div>
             <div>
               <p class="enroll-url">
-                Or open <strong>{url(~p"/p/#{@tournament.public_slug}/standings")}</strong>
+                <.rich_text text={gettext("Or open %[url]")}>
+                  <:part name="url">
+                    <strong>{url(~p"/p/#{@tournament.public_slug}/standings")}</strong>
+                  </:part>
+                </.rich_text>
               </p>
             </div>
           </div>
         <% else %>
           <p class="hint">
-            {gettext("Public pages are off for this tournament.")}
-            <.link navigate={~p"/t/#{@tournament.id}/settings"}>{gettext("Turn them on in Settings")}</.link>
-            {gettext("to get a shareable link and QR code.")}
+            <.rich_text text={
+              gettext(
+                "Public pages are off for this tournament. %[settings] to get a shareable link and QR code."
+              )
+            }>
+              <:part name="settings">
+                <.link navigate={~p"/t/#{@tournament.id}/settings"}>
+                  {gettext("Turn them on in Settings")}
+                </.link>
+              </:part>
+            </.rich_text>
           </p>
         <% end %>
       </details>
@@ -287,10 +304,10 @@ defmodule PairingsEngineWeb.LiveRoundLive do
         <table class="pe-table">
           <thead>
             <tr>
-              <th class="num">Board</th>
-              <th>White</th>
-              <th style="text-align: center; width: 160px">Result</th>
-              <th>Black</th>
+              <th class="num">{gettext("Board")}</th>
+              <th>{gettext("White")}</th>
+              <th style="text-align: center; width: 160px">{gettext("Result")}</th>
+              <th>{gettext("Black")}</th>
             </tr>
           </thead>
           <tbody>
@@ -300,7 +317,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
               <td style="text-align: center">
                 <%= cond do %>
                   <% pairing.result == "bye" -> %>
-                    <span class="badge">bye ({@tournament.bye_value} pt)</span>
+                    <span class="badge">{gettext("bye (%{pts} pt)", pts: @tournament.bye_value)}</span>
                   <% pairing.result == "" -> %>
                     <span class="badge muted">{gettext("in progress")}</span>
                   <% true -> %>
@@ -317,7 +334,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
         <table class="pe-table">
           <thead>
             <tr>
-              <th>Player</th>
+              <th>{gettext("Player")}</th>
               <th style="text-align: center; width: 220px">Bye</th>
             </tr>
           </thead>
@@ -336,7 +353,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
         </table>
       </div>
 
-      <h2 style="margin-top: 32px">Standings</h2>
+      <h2 style="margin-top: 32px">{gettext("Standings")}</h2>
 
       <div :if={@entries == []} class="card empty">
         <p><strong>{gettext("No players registered yet.")}</strong></p>
@@ -346,8 +363,8 @@ defmodule PairingsEngineWeb.LiveRoundLive do
         <table class="pe-table">
           <thead>
             <tr>
-              <th class="num">Rank</th>
-              <th>Name</th>
+              <th class="num">{gettext("Rank")}</th>
+              <th>{gettext("Name")}</th>
               <th class="num">Elo</th>
               <th class="num">Pts</th>
               <th :for={code <- @tournament.tiebreaks} class="num" title={tb_name(code)}>
@@ -381,12 +398,12 @@ defmodule PairingsEngineWeb.LiveRoundLive do
         <table class="pe-table">
           <thead>
             <tr>
-              <th class="num">Rank</th>
-              <th>Name</th>
+              <th class="num">{gettext("Rank")}</th>
+              <th>{gettext("Name")}</th>
               <th class="num">Elo</th>
-              <th class="num">Value</th>
+              <th class="num">{gettext("Value")}</th>
               <th class="num">{gettext("Keizer pts")}</th>
-              <th class="num">Score</th>
+              <th class="num">{gettext("Score")}</th>
             </tr>
           </thead>
           <tbody>

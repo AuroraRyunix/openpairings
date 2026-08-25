@@ -265,14 +265,14 @@ defmodule PairingsEngineWeb.CategoriesLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
-          <p class="subtitle" style="margin: 0">Categories</p>
+          <p class="subtitle" style="margin: 0">{gettext("Categories")}</p>
         </div>
       </div>
 
       <.settings_subnav tournament={@tournament} active={:categories} />
 
       <div class="card">
-        <h2>Categories</h2>
+        <h2>{gettext("Categories")}</h2>
 
         <p class="hint" style="margin-top: 0">
           {gettext(
@@ -281,7 +281,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
         </p>
 
         <div class="set-field solo">
-          <span class="set-label">Status</span>
+          <span class="set-label">{gettext("Status")}</span>
           <div class="actions" style="margin-top: 6px; align-items: center; gap: 10px">
             <span>{if @tournament.categories_enabled, do: "On", else: "Off"}</span>
             <button type="button" class="pe-btn" phx-click="toggle_categories_enabled">
@@ -326,7 +326,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
           <p class="hint" style="margin-top: 0">
             <.rich_text text={
               gettext(
-                ~s(Players are assigned a category on the %{players} page. Give one a threshold instead of picking "None" and it can be filled in for every player automatically, below.)
+                ~s(Players are assigned a category on the %[players] page. Give one a threshold instead of picking "None" and it can be filled in for every player automatically, below.)
               )
             }>
               <:part name="players">
@@ -339,12 +339,12 @@ defmodule PairingsEngineWeb.CategoriesLive do
               <.setting_field label={gettext("New category name")}>
                 <input type="text" name="name" value="" placeholder={gettext("e.g. -1100 or U18")} />
               </.setting_field>
-              <.setting_field label="Rule">
+              <.setting_field label={gettext("Rule")}>
                 <select name="kind">
                   <option :for={{value, label} <- @rule_kinds} value={value}>{label}</option>
                 </select>
               </.setting_field>
-              <.setting_field label="Threshold" hint={gettext("Ignored when Rule is None")}>
+              <.setting_field label={gettext("Threshold")} hint={gettext("Ignored when Rule is None")}>
                 <input type="number" name="value" value="" min="1" placeholder="e.g. 1100" />
               </.setting_field>
             </.setting_group>
@@ -358,8 +358,8 @@ defmodule PairingsEngineWeb.CategoriesLive do
             <table class="pe-table">
               <thead>
                 <tr>
-                  <th>Category</th>
-                  <th>Rule</th>
+                  <th>{gettext("Category")}</th>
+                  <th>{gettext("Rule")}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -369,7 +369,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
                   <td>{rule_description(Map.get(@tournament.category_rules, c))}</td>
                   <td style="text-align: right">
                     <button class="pe-btn danger-link" phx-click="remove_category" phx-value-name={c}>
-                      Remove
+                      {gettext("Remove")}
                     </button>
                   </td>
                 </tr>
@@ -419,8 +419,8 @@ defmodule PairingsEngineWeb.CategoriesLive do
               <table class="pe-table">
                 <thead>
                   <tr>
-                    <th>Player</th>
-                    <th>From</th>
+                    <th>{gettext("Player")}</th>
+                    <th>{gettext("From")}</th>
                     <th>To</th>
                   </tr>
                 </thead>
@@ -436,7 +436,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
           </div>
           <div class="pe-modal-foot">
             <button type="button" class="pe-btn" phx-click="cancel_category_confirm">
-              Cancel
+              {gettext("Cancel")}
             </button>
             <button
               type="button"

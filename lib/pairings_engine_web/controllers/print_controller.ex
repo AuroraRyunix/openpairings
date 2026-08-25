@@ -281,7 +281,11 @@ defmodule PairingsEngineWeb.PrintController do
       |> Enum.join(" &middot; ")
 
     board = fields.board && Map.get(board_map, player.id)
-    board_html = if board, do: "<div class=\"place-card-board\">Board #{board}</div>", else: ""
+
+    board_html =
+      if board,
+        do: "<div class=\"place-card-board\">#{gettext("Board %{n}", n: board)}</div>",
+        else: ""
 
     logo_html <>
       "<h2 class=\"place-card-name\">#{esc(player.name)}</h2>" <>
@@ -351,7 +355,13 @@ defmodule PairingsEngineWeb.PrintController do
       tournament_info_html(tournament) <>
         "<table><thead><tr>#{player_list_header(cols)}</tr></thead><tbody>#{rows}</tbody></table>"
 
-    print_page(conn, tournament, tournament.name, "Registered players (#{length(players)})", body)
+    print_page(
+      conn,
+      tournament,
+      tournament.name,
+      gettext("Registered players (%{count})", count: length(players)),
+      body
+    )
   end
 
   defp player_list_columns(nil), do: selected_player_columns(@player_list_default_columns)
@@ -389,7 +399,8 @@ defmodule PairingsEngineWeb.PrintController do
       end)
     end
 
-    ~s(<th class="num">#</th>) <> ths.(before_name) <> "<th>Name</th>" <> ths.(after_name)
+    ~s(<th class="num">#</th>) <>
+      ths.(before_name) <> "<th>#{gettext("Name")}</th>" <> ths.(after_name)
   end
 
   defp player_list_row({p, i}, cols, current_round) do
@@ -490,15 +501,16 @@ defmodule PairingsEngineWeb.PrintController do
 
         "<div class=\"player-card\"><h2>#{i}. #{esc(p.title)} #{esc(p.name)}</h2>" <>
           "<p class=\"meta\">#{meta}</p>" <>
-          "<table><thead><tr><th class=\"num\">Rd</th><th>Opponent</th><th>Colour</th>" <>
-          "<th>Result</th><th>Score</th></tr></thead><tbody>#{round_rows}</tbody></table></div>"
+          "<table><thead><tr><th class=\"num\">Rd</th><th>#{gettext("Opponent")}</th>" <>
+          "<th>#{gettext("Colour")}</th><th>#{gettext("Result")}</th>" <>
+          "<th>#{gettext("Score")}</th></tr></thead><tbody>#{round_rows}</tbody></table></div>"
       end)
 
     print_page(
       conn,
       tournament,
       tournament.name,
-      "Player cards",
+      gettext("Player cards"),
       tournament_info_html(tournament) <> cards
     )
   end
@@ -522,11 +534,11 @@ defmodule PairingsEngineWeb.PrintController do
         conn,
         tournament,
         entry.player.name,
-        "Players Card",
+        gettext("Players Card"),
         tournament_info_html(tournament) <> player_card_body(entry, rows, totals, tournament)
       )
     else
-      _ -> send_resp(conn, 404, "Player not found")
+      _ -> send_resp(conn, 404, gettext("Player not found"))
     end
   end
 
@@ -563,10 +575,10 @@ defmodule PairingsEngineWeb.PrintController do
       tiebreaks_line <>
       "<table><thead><tr>" <>
       "<th class=\"num\">N°</th><th class=\"num\">Rnk</th><th>Nat</th><th>Tit</th>" <>
-      "<th>Opponent</th><th class=\"num\">N-Elo</th><th class=\"num\">Pts</th>" <>
+      "<th>#{gettext("Opponent")}</th><th class=\"num\">N-Elo</th><th class=\"num\">Pts</th>" <>
       "<th class=\"num\">Res</th><th class=\"num\">Cl</th><th class=\"num\">Flt</th>" <>
       "</tr></thead><tbody>#{row_html}" <>
-      "<tr class=\"card-total-row\"><td colspan=\"6\">Total</td>" <>
+      "<tr class=\"card-total-row\"><td colspan=\"6\">#{gettext("Total")}</td>" <>
       "<td class=\"num\">#{esc(format_num(totals.opponent_total))}</td>" <>
       "<td class=\"num\">#{esc(format_num(totals.own_total))}</td>" <>
       "<td colspan=\"2\"></td></tr>" <>
@@ -617,7 +629,7 @@ defmodule PairingsEngineWeb.PrintController do
       conn,
       tournament,
       tournament.name,
-      "Place cards",
+      gettext("Place cards"),
       tournament_info_html(tournament) <> cards,
       @place_cards_css
     )
@@ -629,7 +641,7 @@ defmodule PairingsEngineWeb.PrintController do
     round = Tournaments.get_round(tournament.id, number)
 
     if round == nil do
-      send_resp(conn, 404, "Round #{number} has not been paired yet")
+      send_resp(conn, 404, gettext("Round %{n} has not been paired yet", n: number))
     else
       # Each player's score coming INTO this round - shown next to their
       # name, same as the live/public/projector pairing views.
@@ -650,12 +662,20 @@ defmodule PairingsEngineWeb.PrintController do
 
       body =
         tournament_info_html(tournament) <>
-          "<table><thead><tr><th class=\"num\">Board</th><th>White</th><th class=\"num\">Elo</th>" <>
-          "<th style=\"text-align:center\">Result</th><th>Black</th><th class=\"num\">Elo</th></tr></thead>" <>
+          "<table><thead><tr><th class=\"num\">#{gettext("Board")}</th>" <>
+          "<th>#{gettext("White")}</th><th class=\"num\">Elo</th>" <>
+          "<th style=\"text-align:center\">#{gettext("Result")}</th>" <>
+          "<th>#{gettext("Black")}</th><th class=\"num\">Elo</th></tr></thead>" <>
           "<tbody>#{rows}</tbody></table>" <>
           absentees_section(tournament, number, params["absentees"])
 
-      print_page(conn, tournament, tournament.name, "Pairings - round #{number}", body)
+      print_page(
+        conn,
+        tournament,
+        tournament.name,
+        gettext("Pairings - round %{n}", n: number),
+        body
+      )
     end
   end
 
@@ -671,7 +691,7 @@ defmodule PairingsEngineWeb.PrintController do
     round = Tournaments.get_round(tournament.id, number)
 
     if round == nil do
-      send_resp(conn, 404, "Round #{number} has not been paired yet")
+      send_resp(conn, 404, gettext("Round %{n} has not been paired yet", n: number))
     else
       # Alphabetical order is the whole point of this document, so unlike
       # pairing_list/2 above, fixed-table boards aren't moved - just
@@ -700,13 +720,13 @@ defmodule PairingsEngineWeb.PrintController do
               %{
                 name: p.white_player.name,
                 board: board,
-                colour: "White",
+                colour: gettext("White"),
                 opp: p.black_player.name
               },
               %{
                 name: p.black_player.name,
                 board: board,
-                colour: "Black",
+                colour: gettext("Black"),
                 opp: p.white_player.name
               }
             ]
@@ -725,15 +745,17 @@ defmodule PairingsEngineWeb.PrintController do
 
       body =
         tournament_info_html(tournament) <>
-          "<table><thead><tr><th>Player</th><th class=\"num\">Board</th>" <>
-          "<th style=\"text-align:center\">Colour</th><th>Opponent</th></tr></thead>" <>
+          "<table><thead><tr><th>#{gettext("Player")}</th>" <>
+          "<th class=\"num\">#{gettext("Board")}</th>" <>
+          "<th style=\"text-align:center\">#{gettext("Colour")}</th>" <>
+          "<th>#{gettext("Opponent")}</th></tr></thead>" <>
           "<tbody>#{rows}</tbody></table>"
 
       print_page(
         conn,
         tournament,
         tournament.name,
-        "Alphabetical pairing list - round #{number}",
+        gettext("Alphabetical pairing list - round %{n}", n: number),
         body
       )
     end
@@ -766,11 +788,12 @@ defmodule PairingsEngineWeb.PrintController do
             points = PairingsEngine.Standings.bye_points_for_row(bye, tournament)
 
             "<tr><td>#{esc(bye.player.name)}</td>" <>
-              "<td style=\"text-align:center\">#{esc(bye_type_label(bye.type))} (#{points} pt)</td></tr>"
+              "<td style=\"text-align:center\">#{esc(bye_type_label(bye.type))} #{gettext("(%{points} pt)", points: points)}</td></tr>"
           end)
 
-        "<h2 style=\"margin-top:24px\">Absentees</h2>" <>
-          "<table><thead><tr><th>Player</th><th style=\"text-align:center\">Bye</th></tr></thead>" <>
+        "<h2 style=\"margin-top:24px\">#{gettext("Absentees")}</h2>" <>
+          "<table><thead><tr><th>#{gettext("Player")}</th>" <>
+          "<th style=\"text-align:center\">#{gettext("Bye")}</th></tr></thead>" <>
           "<tbody>#{rows}</tbody></table>"
     end
   end
@@ -778,9 +801,9 @@ defmodule PairingsEngineWeb.PrintController do
   # Same labels PairingsEngineWeb.PairingsLive uses for a byes-table row's
   # `type` - distinct from the "bye" badge shown for a pairing-allocated
   # bye (a real Pairing row), since these never appear in round.pairings.
-  defp bye_type_label("requested-half"), do: "requested half-point bye"
-  defp bye_type_label("requested-zero"), do: "requested zero-point bye"
-  defp bye_type_label("absent"), do: "absent"
+  defp bye_type_label("requested-half"), do: gettext("requested half-point bye")
+  defp bye_type_label("requested-zero"), do: gettext("requested zero-point bye")
+  defp bye_type_label("absent"), do: gettext("absent")
   defp bye_type_label(other), do: other
 
   def standings(conn, %{"id" => id} = params) do
@@ -791,7 +814,7 @@ defmodule PairingsEngineWeb.PrintController do
 
     cond do
       requested_round != nil and Tournaments.get_round(tournament.id, requested_round) == nil ->
-        send_resp(conn, 404, "Round #{requested_round} has not been paired yet")
+        send_resp(conn, 404, gettext("Round %{n} has not been paired yet", n: requested_round))
 
       true ->
         entries =
@@ -828,7 +851,7 @@ defmodule PairingsEngineWeb.PrintController do
           conn,
           tournament,
           tournament.name,
-          "Standings after round #{label}",
+          gettext("Standings after round %{n}", n: label),
           tournament_info_html(tournament) <>
             manual_banner <> standings_body(entries, tournament, keizer?)
         )
@@ -846,17 +869,24 @@ defmodule PairingsEngineWeb.PrintController do
     stale_note =
       if stale?,
         do:
-          " <strong>A result changed since this order was last set - it may no longer match the real standings.</strong>",
+          " <strong>" <>
+            gettext(
+              "A result changed since this order was last set - it may no longer match the real standings."
+            ) <> "</strong>",
         else: ""
 
     incomplete_note =
       if incomplete?,
-        do: " A player was added after this was turned on and has not been placed yet.",
+        do:
+          " " <>
+            gettext("A player was added after this was turned on and has not been placed yet."),
         else: ""
 
     "<div style=\"border: 2px solid #000; padding: 8px 12px; margin-bottom: 14px; font-size: 12.5px;\">" <>
-      "<strong>MANUAL RANKING IS ON.</strong> The rank column below is the arbiter's hand-set order, " <>
-      "not the computed tiebreak order.#{incomplete_note}#{stale_note}</div>"
+      "<strong>#{gettext("MANUAL RANKING IS ON.")}</strong> " <>
+      gettext(
+        "The rank column below is the arbiter's hand-set order, not the computed tiebreak order."
+      ) <> "#{incomplete_note}#{stale_note}</div>"
   end
 
   # Tournaments without categories render exactly as before (byte-identical):
@@ -871,13 +901,14 @@ defmodule PairingsEngineWeb.PrintController do
   # uses for a Keizer tournament - with the same category treatment.
   defp standings_body(entries, tournament, true) do
     has_categories = tournament.categories != []
-    cat_header = if has_categories, do: "<th>Category</th>", else: ""
+    cat_header = if has_categories, do: "<th>#{gettext("Category")}</th>", else: ""
 
     rows = Enum.map_join(entries, "", &keizer_standings_row(&1, has_categories))
 
     main_table =
-      "<table><thead><tr><th class=\"num\">Rank</th><th>Name</th><th>Sex</th><th class=\"num\">Elo</th>" <>
-        "<th class=\"num\">Value</th><th class=\"num\">Keizer pts</th><th class=\"num\">Score</th>" <>
+      "<table><thead><tr>#{standings_head_cells()}" <>
+        "<th class=\"num\">#{gettext("Value")}</th><th class=\"num\">Keizer pts</th>" <>
+        "<th class=\"num\">#{gettext("Score")}</th>" <>
         "#{cat_header}</tr></thead><tbody>#{rows}</tbody></table>"
 
     if has_categories do
@@ -891,7 +922,7 @@ defmodule PairingsEngineWeb.PrintController do
     has_categories = tournament.categories != []
 
     tb_headers = Enum.map_join(tournament.tiebreaks, "", &"<th class=\"num\">#{esc(&1)}</th>")
-    cat_header = if has_categories, do: "<th>Category</th>", else: ""
+    cat_header = if has_categories, do: "<th>#{gettext("Category")}</th>", else: ""
 
     rows =
       Enum.map_join(entries, "", fn e ->
@@ -904,7 +935,7 @@ defmodule PairingsEngineWeb.PrintController do
       end)
 
     main_table =
-      "<table><thead><tr><th class=\"num\">Rank</th><th>Name</th><th>Sex</th><th class=\"num\">Elo</th>" <>
+      "<table><thead><tr>#{standings_head_cells()}" <>
         "<th class=\"num\">Pts</th>#{tb_headers}#{cat_header}</tr></thead><tbody>#{rows}</tbody></table>"
 
     if has_categories do
@@ -923,8 +954,8 @@ defmodule PairingsEngineWeb.PrintController do
         |> Enum.filter(&(&1.player.category == category))
         |> Enum.map_join("", &standings_row(&1, tournament))
 
-      "<h2 style=\"margin-top:24px\">Category: #{esc(category)}</h2>" <>
-        "<table><thead><tr><th class=\"num\">Rank</th><th>Name</th><th>Sex</th><th class=\"num\">Elo</th>" <>
+      "<h2 style=\"margin-top:24px\">#{gettext("Category: %{name}", name: esc(category))}</h2>" <>
+        "<table><thead><tr>#{standings_head_cells()}" <>
         "<th class=\"num\">Pts</th>#{tb_headers}</tr></thead><tbody>#{rows}</tbody></table>"
     end)
   end
@@ -936,9 +967,10 @@ defmodule PairingsEngineWeb.PrintController do
         |> Enum.filter(&(&1.player.category == category))
         |> Enum.map_join("", &keizer_standings_row(&1, false))
 
-      "<h2 style=\"margin-top:24px\">Category: #{esc(category)}</h2>" <>
-        "<table><thead><tr><th class=\"num\">Rank</th><th>Name</th><th>Sex</th><th class=\"num\">Elo</th>" <>
-        "<th class=\"num\">Value</th><th class=\"num\">Keizer pts</th><th class=\"num\">Score</th>" <>
+      "<h2 style=\"margin-top:24px\">#{gettext("Category: %{name}", name: esc(category))}</h2>" <>
+        "<table><thead><tr>#{standings_head_cells()}" <>
+        "<th class=\"num\">#{gettext("Value")}</th><th class=\"num\">Keizer pts</th>" <>
+        "<th class=\"num\">#{gettext("Score")}</th>" <>
         "</tr></thead><tbody>#{rows}</tbody></table>"
     end)
   end
@@ -968,6 +1000,13 @@ defmodule PairingsEngineWeb.PrintController do
       "<td class=\"num\">#{e.raw_points}</td>#{cat_cell}</tr>"
   end
 
+  # Rank/Name/Sex/Elo lead every standings table (main, per-category, Keizer
+  # or not) - one place to translate them rather than five copies drifting.
+  defp standings_head_cells do
+    "<th class=\"num\">#{gettext("Rank")}</th><th>#{gettext("Name")}</th>" <>
+      "<th>#{gettext("Sex")}</th><th class=\"num\">Elo</th>"
+  end
+
   defp category_or_dash(nil), do: "-"
   defp category_or_dash(""), do: "-"
   defp category_or_dash(category), do: category
@@ -979,7 +1018,7 @@ defmodule PairingsEngineWeb.PrintController do
     round = Tournaments.get_round(tournament.id, number)
 
     if round == nil do
-      send_resp(conn, 404, "Round #{number} has not been paired yet")
+      send_resp(conn, 404, gettext("Round %{n} has not been paired yet", n: number))
     else
       pairings = Enum.reject(round.pairings, &(&1.black_player_id == nil))
 
@@ -999,7 +1038,7 @@ defmodule PairingsEngineWeb.PrintController do
         conn,
         tournament,
         tournament.name,
-        "Result cards - round #{number}",
+        gettext("Result cards - round %{n}", n: number),
         tournament_info_html(tournament) <> cards,
         @result_cards_css
       )
@@ -1018,7 +1057,7 @@ defmodule PairingsEngineWeb.PrintController do
     round = Tournaments.get_round(tournament.id, number)
 
     if round == nil do
-      send_resp(conn, 404, "Round #{number} has not been paired yet")
+      send_resp(conn, 404, gettext("Round %{n} has not been paired yet", n: number))
     else
       sheets =
         round.pairings
@@ -1030,7 +1069,7 @@ defmodule PairingsEngineWeb.PrintController do
         conn,
         tournament,
         tournament.name,
-        "Score sheets - round #{number}",
+        gettext("Score sheets - round %{n}", n: number),
         sheets,
         @score_sheet_css
       )
@@ -1043,16 +1082,16 @@ defmodule PairingsEngineWeb.PrintController do
 
     "<div class=\"score-sheet\">" <>
       "<div class=\"ss-head\"><strong>#{esc(tournament.name)}</strong>" <>
-      "<span>Round #{round_number} &middot; Board #{pairing.board}#{fixed_board_note(pairing)}</span></div>" <>
+      "<span>#{round_and_board(round_number, pairing)}</span></div>" <>
       "<div class=\"ss-players\">" <>
-      "<div class=\"ss-player\"><span class=\"ss-who\">White</span><strong>#{esc(result_card_name(white))}</strong> " <>
+      "<div class=\"ss-player\"><span class=\"ss-who\">#{gettext("White")}</span><strong>#{esc(result_card_name(white))}</strong> " <>
       "<span class=\"ss-sub\">#{result_card_sub(white)}</span></div>" <>
-      "<div class=\"ss-player\"><span class=\"ss-who\">Black</span><strong>#{esc(result_card_name(black))}</strong> " <>
+      "<div class=\"ss-player\"><span class=\"ss-who\">#{gettext("Black")}</span><strong>#{esc(result_card_name(black))}</strong> " <>
       "<span class=\"ss-sub\">#{result_card_sub(black)}</span></div>" <>
       "</div>" <>
       "<div class=\"ss-grid\">#{ss_move_column(1, 40)}#{ss_move_column(41, 80)}</div>" <>
-      "<div class=\"ss-footer\"><span class=\"ss-result\">Result: &nbsp; 1&ndash;0 &nbsp;&nbsp; &frac12;&ndash;&frac12; &nbsp;&nbsp; 0&ndash;1</span>" <>
-      "<span class=\"ss-sig\">White <i></i> &nbsp; Black <i></i></span></div>" <>
+      "<div class=\"ss-footer\"><span class=\"ss-result\">#{gettext("Result:")} &nbsp; 1&ndash;0 &nbsp;&nbsp; &frac12;&ndash;&frac12; &nbsp;&nbsp; 0&ndash;1</span>" <>
+      "<span class=\"ss-sig\">#{gettext("White")} <i></i> &nbsp; #{gettext("Black")} <i></i></span></div>" <>
       "</div>"
   end
 
@@ -1062,7 +1101,8 @@ defmodule PairingsEngineWeb.PrintController do
         "<tr><td class=\"ss-n\">#{n}</td><td></td><td></td></tr>"
       end
 
-    "<table class=\"ss-moves\"><thead><tr><th></th><th>White</th><th>Black</th></tr></thead>" <>
+    "<table class=\"ss-moves\"><thead><tr><th></th><th>#{gettext("White")}</th>" <>
+      "<th>#{gettext("Black")}</th></tr></thead>" <>
       "<tbody>#{rows}</tbody></table>"
   end
 
@@ -1164,11 +1204,12 @@ defmodule PairingsEngineWeb.PrintController do
 
     body =
       tournament_info_html(tournament) <>
-        "<div class=\"crosstable-wrap\"><table class=\"crosstable\"><thead><tr><th class=\"num\">Rank</th>" <>
-        "<th>Name</th><th class=\"num\">Elo</th>#{round_headers}<th class=\"num\">Pts</th>#{tb_headers}" <>
+        "<div class=\"crosstable-wrap\"><table class=\"crosstable\"><thead><tr>" <>
+        "<th class=\"num\">#{gettext("Rank")}</th>" <>
+        "<th>#{gettext("Name")}</th><th class=\"num\">Elo</th>#{round_headers}<th class=\"num\">Pts</th>#{tb_headers}" <>
         "</tr></thead><tbody>#{rows}</tbody></table></div>"
 
-    print_page(conn, tournament, tournament.name, "Cross table", body, @crosstable_css)
+    print_page(conn, tournament, tournament.name, gettext("Cross table"), body, @crosstable_css)
   end
 
   # Classic round-robin players×players grid: rows and columns are the same
@@ -1206,10 +1247,18 @@ defmodule PairingsEngineWeb.PrintController do
     body =
       tournament_info_html(tournament) <>
         "<div class=\"crosstable-wrap\"><table class=\"crosstable rr-crosstable\"><thead><tr><th class=\"num\">#</th>" <>
-        "<th>Name</th>#{col_headers}<th class=\"num\">Pts</th><th class=\"num\">Rank</th></tr></thead>" <>
+        "<th>#{gettext("Name")}</th>#{col_headers}<th class=\"num\">Pts</th>" <>
+        "<th class=\"num\">#{gettext("Rank")}</th></tr></thead>" <>
         "<tbody>#{rows}</tbody></table></div>"
 
-    print_page(conn, tournament, tournament.name, "Cross table", body, @rr_crosstable_css)
+    print_page(
+      conn,
+      tournament,
+      tournament.name,
+      gettext("Cross table"),
+      body,
+      @rr_crosstable_css
+    )
   end
 
   # `row_entry`'s result(s) against `col_entry`, from `row_entry`'s own game
@@ -1249,13 +1298,13 @@ defmodule PairingsEngineWeb.PrintController do
 
     "<div class=\"result-card\">" <>
       "<div class=\"rc-head\"><strong>#{esc(tournament.name)}</strong>" <>
-      "<span>Round #{round_number} &middot; Board #{pairing.board}#{fixed_board_note(pairing)}</span></div>" <>
+      "<span>#{round_and_board(round_number, pairing)}</span></div>" <>
       "<div class=\"rc-players\">" <>
-      "#{result_card_player(white, "White", "rc-player")}" <>
-      "#{result_card_player(black, "Black", "rc-player rc-black")}" <>
+      "#{result_card_player(white, gettext("White"), "rc-player")}" <>
+      "#{result_card_player(black, gettext("Black"), "rc-player rc-black")}" <>
       "</div>" <>
       "<div class=\"rc-result-row\"><span>1 &ndash; 0</span><span>&frac12; &ndash; &frac12;</span>" <>
-      "<span>0 &ndash; 1</span><span class=\"rc-other\">other: ............</span></div>" <>
+      "<span>0 &ndash; 1</span><span class=\"rc-other\">#{gettext("other:")} ............</span></div>" <>
       "</div>"
   end
 
@@ -1270,7 +1319,7 @@ defmodule PairingsEngineWeb.PrintController do
     "<div class=\"#{class}\">" <>
       "<div class=\"rc-name-row\"><span class=\"rc-who\">#{who}</span> <strong>#{esc(result_card_name(player))}</strong></div>" <>
       "<div class=\"rc-sub\">#{result_card_sub(player)}</div>" <>
-      "<div class=\"rc-sig\">Sign <i></i></div>" <>
+      "<div class=\"rc-sig\">#{gettext("Sign")} <i></i></div>" <>
       "</div>"
   end
 
@@ -1342,10 +1391,18 @@ defmodule PairingsEngineWeb.PrintController do
   # frozen main pairing sheet for boards that were never special at pairing
   # time (or vice versa).
   defp fixed_board_note(%{display_special: true, display_board: label}) do
-    " <span class=\"fixed-board-note\">(table #{label})</span>"
+    " <span class=\"fixed-board-note\">#{gettext("(table %{n})", n: label)}</span>"
   end
 
   defp fixed_board_note(_pairing), do: ""
+
+  # The "Round 3 · Board 7" line a result card and a score sheet both print.
+  # One msgid, because the two documents are read side by side at the board
+  # and a translator seeing them twice would have to keep them in step.
+  defp round_and_board(round_number, pairing) do
+    gettext("Round %{round} · Board %{board}", round: round_number, board: pairing.board) <>
+      fixed_board_note(pairing)
+  end
 
   # A `?round=` that isn't a positive integer is treated as "no round given"
   # (the caller falls back to the default), the same forgiving way `parse_limit`
@@ -1408,8 +1465,11 @@ defmodule PairingsEngineWeb.PrintController do
   defp print_footer(tournament) do
     engine = Tournament.pairing_system_label(tournament.pairing_system)
 
-    ~s(<p class="pf-credit">Paired by OpenPairings using #{esc(engine)} &middot; ) <>
-      ~s(many thanks to Tom Wuyts for his valuable feedback.</p>)
+    ~s(<p class="pf-credit">) <>
+      gettext(
+        "Paired by OpenPairings using %{engine} · many thanks to Tom Wuyts for his valuable feedback.",
+        engine: esc(engine)
+      ) <> ~s(</p>)
   end
 
   defp print_page(conn, tournament, title, subtitle, body, extra_css \\ "") do
@@ -1420,7 +1480,7 @@ defmodule PairingsEngineWeb.PrintController do
     nonce = esc(conn.assigns[:csp_nonce])
 
     html = """
-    <!doctype html><html><head><meta charset="utf-8"><title>#{esc(title)}</title>
+    <!doctype html><html lang="#{Gettext.get_locale(PairingsEngineWeb.Gettext)}"><head><meta charset="utf-8"><title>#{esc(title)}</title>
     <style>#{@print_css}</style><style>#{extra_css}</style></head><body>
     <div class="print-header">
     <div class="print-header-title"><h1>#{esc(title)}</h1><p class="sub">#{esc(subtitle)}</p></div>
@@ -1449,16 +1509,22 @@ defmodule PairingsEngineWeb.PrintController do
   defp tournament_info_html(tournament) do
     items =
       [
-        if(tournament.federation != "", do: "Federation: #{esc(tournament.federation)}"),
+        if(tournament.federation != "",
+          do: gettext("Federation: %{value}", value: esc(tournament.federation))
+        ),
         tournament_dates_item(tournament),
         round_dates_item(tournament.round_dates),
-        if(tournament.chief_arbiter != "", do: "Chief arbiter: #{esc(tournament.chief_arbiter)}"),
-        if(tournament.deputy_arbiter != "",
-          do: "Deputy arbiter: #{esc(tournament.deputy_arbiter)}"
+        if(tournament.chief_arbiter != "",
+          do: gettext("Chief arbiter: %{value}", value: esc(tournament.chief_arbiter))
         ),
-        if(tournament.rate_of_play != "", do: "Rate of play: #{esc(tournament.rate_of_play)}"),
+        if(tournament.deputy_arbiter != "",
+          do: gettext("Deputy arbiter: %{value}", value: esc(tournament.deputy_arbiter))
+        ),
+        if(tournament.rate_of_play != "",
+          do: gettext("Rate of play: %{value}", value: esc(tournament.rate_of_play))
+        ),
         if(tournament.fide_homologated and tournament.fide_tournament_id != "",
-          do: "FIDE ID: #{esc(tournament.fide_tournament_id)}"
+          do: gettext("FIDE ID: %{value}", value: esc(tournament.fide_tournament_id))
         )
       ]
       |> Enum.reject(&is_nil/1)
@@ -1472,10 +1538,10 @@ defmodule PairingsEngineWeb.PrintController do
   defp tournament_dates_item(%{start_date: start_date, end_date: end_date}) do
     cond do
       start_date not in [nil, ""] and end_date not in [nil, ""] and end_date != start_date ->
-        "Dates: #{esc(start_date)} - #{esc(end_date)}"
+        gettext("Dates: %{from} - %{to}", from: esc(start_date), to: esc(end_date))
 
       start_date not in [nil, ""] ->
-        "Dates: #{esc(start_date)}"
+        gettext("Dates: %{value}", value: esc(start_date))
 
       true ->
         nil
@@ -1496,9 +1562,17 @@ defmodule PairingsEngineWeb.PrintController do
 
   defp round_dates_item(dates) do
     case Enum.reject(dates, &(&1 in [nil, ""])) do
-      [] -> nil
-      [single] -> "Round date: #{esc(single)}"
-      real -> "Round dates: #{esc(List.first(real))} - #{esc(List.last(real))}"
+      [] ->
+        nil
+
+      [single] ->
+        gettext("Round date: %{value}", value: esc(single))
+
+      real ->
+        gettext("Round dates: %{from} - %{to}",
+          from: esc(List.first(real)),
+          to: esc(List.last(real))
+        )
     end
   end
 

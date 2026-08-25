@@ -137,9 +137,15 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
       <div class="card">
         <h2>{gettext("Extra points")}</h2>
         <p class="hint" style="margin-top: 0">
-          Administrative bonus points (SWAR "XtPts") - e.g. a handicap head start for lower-rated players. Off by default: pairing and TRF export always use game points only, and standings only add extra points to the ranking once you turn this on. See
-          <.link navigate={~p"/t/#{@tournament.id}/players"}>Players</.link>
-          {gettext("to edit a single player's value, or auto-assign everyone from Elo bands below.")}
+          <.rich_text text={
+            gettext(
+              "Administrative bonus points (SWAR \"XtPts\") - e.g. a handicap head start for lower-rated players. Off by default: pairing and TRF export always use game points only, and standings only add extra points to the ranking once you turn this on. See %[players] to edit a single player's value, or auto-assign everyone from Elo bands below."
+            )
+          }>
+            <:part name="players">
+              <.link navigate={~p"/t/#{@tournament.id}/players"}>{gettext("Players")}</.link>
+            </:part>
+          </.rich_text>
         </p>
         <form id="extra-points-form" phx-submit="save_extra_points">
           <.setting_group>

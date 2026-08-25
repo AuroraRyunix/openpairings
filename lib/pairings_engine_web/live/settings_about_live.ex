@@ -73,23 +73,39 @@ defmodule PairingsEngineWeb.SettingsAboutLive do
         </p>
 
         <p class="hint" style="margin-bottom: 0">
-          Version {Application.spec(:pairings_engine, :vsn)} -
-          <.link navigate={~p"/t/#{@tournament.id}/settings/changelog"}>{gettext("What's new")}</.link>
+          <.rich_text text={
+            gettext("Version %{version} - %[whats_new]",
+              version: Application.spec(:pairings_engine, :vsn)
+            )
+          }>
+            <:part name="whats_new">
+              <.link navigate={~p"/t/#{@tournament.id}/settings/changelog"}>
+                {gettext("What's new")}
+              </.link>
+            </:part>
+          </.rich_text>
         </p>
       </div>
 
       <div class="card">
         <h2>{gettext("Pairing engine")}</h2>
         <p>
-          This tournament is paired using <strong>{Tournament.pairing_system_label(@tournament.pairing_system)}</strong>.
+          <.rich_text text={gettext("This tournament is paired using %[engine].")}>
+            <:part name="engine">
+              <strong>{Tournament.pairing_system_label(@tournament.pairing_system)}</strong>
+            </:part>
+          </.rich_text>
         </p>
       </div>
 
       <div class="card">
-        <h2>Credits</h2>
+        <h2>{gettext("Credits")}</h2>
         <p>
-          Many thanks to <strong>{gettext("Tom Wuyts")}</strong>
-          {gettext("for his valuable feedback in the making of OpenPairings.")}
+          <.rich_text text={
+            gettext("Many thanks to %[who] for his valuable feedback in the making of OpenPairings.")
+          }>
+            <:part name="who"><strong>Tom Wuyts</strong></:part>
+          </.rich_text>
         </p>
       </div>
     </Layouts.app>

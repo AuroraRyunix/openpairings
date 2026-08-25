@@ -649,9 +649,13 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
       </div>
 
       <p class="hint">
-        Nothing here is saved: uploaded files are parsed in memory only, never written to a database, and this whole session (files, officials, arbiter candidate) is discarded after 60 minutes of inactivity or as soon as you close the tab and come back later. See
-        <.link navigate={~p"/"}>OpenPairings</.link>
-        {gettext("if you'd rather manage a tournament with an account.")}
+        <.rich_text text={
+          gettext(
+            "Nothing here is saved: uploaded files are parsed in memory only, never written to a database, and this whole session (files, officials, arbiter candidate) is discarded after 60 minutes of inactivity or as soon as you close the tab and come back later. See %[app] if you'd rather manage a tournament with an account."
+          )
+        }>
+          <:part name="app"><.link navigate={~p"/"}>OpenPairings</.link></:part>
+        </.rich_text>
       </p>
 
       <form
@@ -662,8 +666,14 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
       >
         <h2>{gettext("Upload files")}</h2>
         <p class="hint" style="margin-top: 0">
-          Up to 10 files, 5 MB each - <code>.swar</code>
-          or <code>.trf</code>. Two or more files combine into one "Festival" report (see below).
+          <.rich_text text={
+            gettext(
+              "Up to 10 files, 5 MB each - %[swar] or %[trf]. Two or more files combine into one \"Festival\" report (see below)."
+            )
+          }>
+            <:part name="swar"><code>.swar</code></:part>
+            <:part name="trf"><code>.trf</code></:part>
+          </.rich_text>
         </p>
 
         <div
@@ -704,12 +714,12 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
         <table class="pe-table">
           <thead>
             <tr>
-              <th :if={successful(@files) |> length() >= 2}>Master</th>
-              <th>File</th>
-              <th>Tournament</th>
-              <th class="num" style="text-align: right">Players</th>
-              <th class="num" style="text-align: right">Rounds</th>
-              <th class="num" style="text-align: right">Titled</th>
+              <th :if={successful(@files) |> length() >= 2}>{gettext("Master")}</th>
+              <th>{gettext("File")}</th>
+              <th>{gettext("Tournament")}</th>
+              <th class="num" style="text-align: right">{gettext("Players")}</th>
+              <th class="num" style="text-align: right">{gettext("Rounds")}</th>
+              <th class="num" style="text-align: right">{gettext("Titled")}</th>
               <th class="num" style="text-align: right">Feds</th>
               <th></th>
             </tr>
@@ -733,7 +743,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
               <td class="num">{length(federations(row.players))}</td>
               <td style="text-align: right">
                 <button class="pe-btn danger-link" phx-click="remove_file" phx-value-id={row.id}>
-                  Remove
+                  {gettext("Remove")}
                 </button>
               </td>
             </tr>
@@ -743,7 +753,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
               <td colspan="5" class="error-note">{row.error}</td>
               <td style="text-align: right">
                 <button class="pe-btn danger-link" phx-click="remove_file" phx-value-id={row.id}>
-                  Remove
+                  {gettext("Remove")}
                 </button>
               </td>
             </tr>
@@ -751,9 +761,22 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
         </table>
 
         <p class="hint" style="padding: 12px 16px 0; margin: 0">
-          Totals across {length(successful(@files))} uploaded file(s): {total_players(@files)} player(s), {total_titled_players(
-            @files
-          )} titled, {total_federations(@files)} distinct federation(s).
+          {gettext("Totals across %{files}: %{players}, %{titled} titled, %{feds}.",
+            files:
+              ngettext(
+                "%{count} uploaded file",
+                "%{count} uploaded files",
+                length(successful(@files))
+              ),
+            players: ngettext("%{count} player", "%{count} players", total_players(@files)),
+            titled: total_titled_players(@files),
+            feds:
+              ngettext(
+                "%{count} distinct federation",
+                "%{count} distinct federations",
+                total_federations(@files)
+              )
+          )}
         </p>
         <p
           :if={shared_federations(@files) != []}
@@ -771,9 +794,10 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
         </p>
 
         <p :if={successful(@files) |> length() >= 2} class="hint" style="padding: 0 16px 16px">
-          These {successful(@files) |> length()} files combine into one "Festival" report - the
-          master file supplies the name/dates/venue/officials, players from every file are pooled,
-          and the same player can't appear in more than one of them.
+          {gettext(
+            "These %{count} files combine into one \"Festival\" report - the master file supplies the name/dates/venue/officials, players from every file are pooled, and the same player can't appear in more than one of them.",
+            count: successful(@files) |> length()
+          )}
         </p>
       </div>
 
@@ -806,7 +830,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
             />
             <.arbiter_combo
               role="organizer"
-              label="Organizer"
+              label={gettext("Organizer")}
               name_field="overlay[organizer_name]"
               name_value={Map.get(@overlay, "organizer_name", "")}
               id_field="overlay[organizer_fide_id]"
@@ -864,10 +888,11 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
           </div>
 
           <h3 style="margin-bottom: 4px">
-            Additional arbiters
+            {gettext("Additional arbiters")}
             <span class="hint" style="font-weight: normal">
-              (beyond chief + 2 deputies - FIDE doesn't rank these, so IT3 prints each as a
-              plain "Arbiter" row)
+              {gettext(
+                "(beyond chief + 2 deputies - FIDE doesn't rank these, so IT3 prints each as a plain \"Arbiter\" row)"
+              )}
             </span>
           </h3>
           <div
@@ -923,7 +948,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
             <.overlay_input
               prefix="candidate"
               field="federation"
-              label="Federation"
+              label={gettext("Federation")}
               values={@candidate}
             />
           </div>
@@ -931,7 +956,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
       </div>
 
       <div :if={successful(@files) != []} class="card">
-        <h2>Download</h2>
+        <h2>{gettext("Download")}</h2>
         <div :if={report_blockers(@overlay) != []} class="report-blocked">
           <strong>{gettext("Not ready to submit to FIDE.")}</strong>
           {gettext(

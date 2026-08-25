@@ -72,7 +72,7 @@ defmodule PairingsEngineWeb.Components.It3CountsExplain do
     ~H"""
     <details :if={@federations != []} class="it3-explain-card" open>
       <summary>
-        <span class="it3-explain-card-label">Federations</span>
+        <span class="it3-explain-card-label">{gettext("Federations")}</span>
         <span class="pe-stat">
           <span class="pe-stat-n">{length(@federations)}</span>
         </span>

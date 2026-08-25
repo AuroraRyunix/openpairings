@@ -369,13 +369,13 @@ defmodule PairingsEngineWeb.AuditLive do
         navigate={~p"/t/#{@tournament.id}/norms"}
         class={["pe-btn", "filter-picker", @active == :norms && "active"]}
       >
-        Norms
+        {gettext("Norms")}
       </.link>
       <.link
         navigate={~p"/t/#{@tournament.id}/history"}
         class={["pe-btn", "filter-picker", @active == :history && "active"]}
       >
-        History
+        {gettext("History")}
       </.link>
       <.link
         navigate={~p"/t/#{@tournament.id}/audit"}
@@ -454,16 +454,23 @@ defmodule PairingsEngineWeb.AuditLive do
       </div>
 
       <p class="hint" style="margin: 8px 0">
-        {@total} event{if @total != 1, do: "s"} total{if @category != "all", do: " in this category"}.
+        {if @category == "all",
+          do: ngettext("%{count} event total.", "%{count} events total.", @total),
+          else:
+            ngettext(
+              "%{count} event total in this category.",
+              "%{count} events total in this category.",
+              @total
+            )}
       </p>
 
       <div class="card table-card">
         <table class="pe-table">
           <thead>
             <tr>
-              <th style="width: 150px">When</th>
-              <th style="width: 220px">Who</th>
-              <th>What</th>
+              <th style="width: 150px">{gettext("When")}</th>
+              <th style="width: 220px">{gettext("Who")}</th>
+              <th>{gettext("What")}</th>
             </tr>
           </thead>
           <tbody>
@@ -494,7 +501,7 @@ defmodule PairingsEngineWeb.AuditLive do
           {gettext("← Newer")}
         </button>
 
-        <span class="hint">Page {@page + 1}</span>
+        <span class="hint">{gettext("Page %{n}", n: @page + 1)}</span>
 
         <button
           class="pe-btn"

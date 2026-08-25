@@ -537,7 +537,7 @@ defmodule PairingsEngineWeb.HistoryLive do
         <div>
           <h1>{@tournament.name}</h1>
 
-          <p class="subtitle" style="margin: 0">History</p>
+          <p class="subtitle" style="margin: 0">{gettext("History")}</p>
         </div>
       </div>
       <AuditLive.subnav tournament={@tournament} active={:history} />
@@ -545,15 +545,25 @@ defmodule PairingsEngineWeb.HistoryLive do
         <h2>{gettext("Restore points")}</h2>
 
         <p class="hint" style="margin-top: 0">
-          The states you can put this tournament back into, newest first. One is saved automatically before anything irreversible, and you can save one whenever you like. Everything that changed in between is folded under the point it followed - open a point to read it, or use
-          <.link navigate={~p"/t/#{@tournament.id}/audit"}>{gettext("Audit trail")}</.link>
-          {gettext("for the full searchable log.")}
+          <.rich_text text={
+            gettext(
+              "The states you can put this tournament back into, newest first. One is saved automatically before anything irreversible, and you can save one whenever you like. Everything that changed in between is folded under the point it followed - open a point to read it, or use %[audit] for the full searchable log."
+            )
+          }>
+            <:part name="audit">
+              <.link navigate={~p"/t/#{@tournament.id}/audit"}>{gettext("Audit trail")}</.link>
+            </:part>
+          </.rich_text>
         </p>
 
         <p :if={@branched?} class="hint hist-branched">
-          This history has <strong>branched</strong>
-          - you went back and carried on differently. The leftmost line is where the
-          tournament is now; the others are the paths you left, still there to return to.
+          <.rich_text text={
+            gettext(
+              "This history has %[branched] - you went back and carried on differently. The leftmost line is where the tournament is now; the others are the paths you left, still there to return to."
+            )
+          }>
+            <:part name="branched"><strong>{gettext("branched")}</strong></:part>
+          </.rich_text>
         </p>
 
         <%!-- The only capture in the app the arbiter drives themselves. Not
@@ -589,9 +599,15 @@ defmodule PairingsEngineWeb.HistoryLive do
 
         <p :if={@snapshot_count == 0} class="hint hist-note">
           <strong>{gettext("No restore points yet.")}</strong>
-          One is saved automatically before anything irreversible - pairing or unpairing a round, or importing results from a file. Editing players, adjusting settings and typing results in by hand don't take one<span :if={
-            !@tournament.archived_at
-          }>{gettext(", so save one yourself whenever you reach a state worth coming back to")}</span>.
+          {if @tournament.archived_at,
+            do:
+              gettext(
+                "One is saved automatically before anything irreversible - pairing or unpairing a round, or importing results from a file. Editing players, adjusting settings and typing results in by hand don't take one."
+              ),
+            else:
+              gettext(
+                "One is saved automatically before anything irreversible - pairing or unpairing a round, or importing results from a file. Editing players, adjusting settings and typing results in by hand don't take one, so save one yourself whenever you reach a state worth coming back to."
+              )}
         </p>
 
         <%!-- Having exactly one restore point is the state that looked broken:
@@ -621,7 +637,11 @@ defmodule PairingsEngineWeb.HistoryLive do
                   <span class="hist-dot hist-dot-stub"></span>
                   <span class="hist-chevron" aria-hidden="true">▸</span>
                   <span>
-                    Abandoned branch - {count} restore point{if count == 1, do: "", else: "s"}
+                    {ngettext(
+                      "Abandoned branch - %{count} restore point",
+                      "Abandoned branch - %{count} restore points",
+                      count
+                    )}
                   </span>
                 </button>
               <% {:point, point} -> %>
@@ -635,8 +655,17 @@ defmodule PairingsEngineWeb.HistoryLive do
         </ol>
 
         <p :if={@older_changes != []} class="hint hist-note">
-          {length(@older_changes)} change(s) predate the oldest restore point - they
-          are in the <.link navigate={~p"/t/#{@tournament.id}/audit"}>{gettext("Audit trail")}</.link>.
+          <.rich_text text={
+            ngettext(
+              "%{count} change predates the oldest restore point - it is in the %[audit].",
+              "%{count} changes predate the oldest restore point - they are in the %[audit].",
+              length(@older_changes)
+            )
+          }>
+            <:part name="audit">
+              <.link navigate={~p"/t/#{@tournament.id}/audit"}>{gettext("Audit trail")}</.link>
+            </:part>
+          </.rich_text>
         </p>
       </div>
 
@@ -701,9 +730,12 @@ defmodule PairingsEngineWeb.HistoryLive do
         phx-click="toggle_changes"
         phx-value-id={@point.id}
       >
-        <span class={["hist-chevron", @expanded && "is-open"]} aria-hidden="true">▸</span> {length(
-          @point.changes
-        )} change{if length(@point.changes) == 1, do: "", else: "s"} after this point
+        <span class={["hist-chevron", @expanded && "is-open"]} aria-hidden="true">▸</span>
+        {ngettext(
+          "%{count} change after this point",
+          "%{count} changes after this point",
+          length(@point.changes)
+        )}
         <%!-- One pip per KIND of change folded under this point, in the hue
               the expanded rows and the audit timeline already use for it.
               The row only ever said how MANY changes there were, which is
@@ -772,8 +804,16 @@ defmodule PairingsEngineWeb.HistoryLive do
         <h2>{gettext("Go back to this point")}</h2>
 
         <p>
-          This replaces the players, rounds, results and settings with how they were at <strong>{Calendar.strftime(@snapshot.inserted_at, "%Y-%m-%d %H:%M UTC")}</strong>{if @snapshot.summary,
-            do: " (#{@snapshot.summary})"}. Anything entered since then is replaced.
+          <.rich_text text={
+            gettext(
+              "This replaces the players, rounds, results and settings with how they were at %[when]. Anything entered since then is replaced."
+            )
+          }>
+            <:part name="when">
+              <strong>{Calendar.strftime(@snapshot.inserted_at, "%Y-%m-%d %H:%M UTC")}</strong>{if @snapshot.summary,
+                do: " (#{@snapshot.summary})"}
+            </:part>
+          </.rich_text>
         </p>
 
         <div class="setting-warning">
@@ -787,7 +827,11 @@ defmodule PairingsEngineWeb.HistoryLive do
           )}
         </p>
 
-        <p>Type <strong>RESTORE</strong> {gettext("to confirm.")}</p>
+        <p>
+          <.rich_text text={gettext("Type %[word] to confirm.")}>
+            <:part name="word"><strong>RESTORE</strong></:part>
+          </.rich_text>
+        </p>
 
         <form phx-change="restore_confirm_input" phx-submit="restore_confirmed">
           <input
@@ -801,7 +845,7 @@ defmodule PairingsEngineWeb.HistoryLive do
             <button type="submit" class="pe-btn danger" disabled={@confirm != "RESTORE"}>
               {gettext("Go back to this point")}
             </button>
-            <button type="button" class="pe-btn" phx-click="restore_cancel">Cancel</button>
+            <button type="button" class="pe-btn" phx-click="restore_cancel">{gettext("Cancel")}</button>
           </div>
         </form>
       </div>

@@ -16,6 +16,7 @@ defmodule PairingsEngineWeb.LocaleTest do
 
   import Phoenix.LiveViewTest
 
+  alias PairingsEngine.Tournaments
   alias PairingsEngineWeb.Locale
 
   describe "resolving a locale" do
@@ -121,6 +122,39 @@ defmodule PairingsEngineWeb.LocaleTest do
       assert html =~ "Nieuw toernooi"
       assert html =~ "Alles wat je organiseert"
       refute html =~ "New tournament"
+    end
+
+    test "a printed document comes out in Dutch too", %{conn: conn, scope: scope} do
+      # `PrintController` assembles its HTML by string concatenation rather
+      # than through `~H`, so it was invisible to every gettext pass that
+      # walked HEEx: pairing sheets, standings and player lists printed in
+      # English no matter which language the arbiter had picked. It is also
+      # a different process path from the LiveView test above - a plain
+      # controller response, where only `Plugs.Locale` has run.
+      #
+      # Like the test above, this one cannot pass against an empty
+      # catalogue, and unlike it, it cannot pass against a catalogue that
+      # only covers the ~H templates.
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "Taaltoernooi",
+          "type" => "swiss",
+          "rounds_count" => "3"
+        })
+
+      conn = get(conn, ~p"/locale/nl?redirect_to=/")
+      html = conn |> get(~p"/t/#{tournament.id}/print/players") |> response(200)
+
+      # The document's own subtitle, its table header, and the credit line
+      # every printed page carries.
+      assert html =~ "Ingeschreven spelers"
+      assert html =~ "<th>Naam</th>"
+      assert html =~ "Gepaard door OpenPairings"
+      assert html =~ ~s(lang="nl")
+
+      refute html =~ "Registered players"
+      refute html =~ "<th>Name</th>"
+      refute html =~ "Paired by OpenPairings"
     end
 
     test "a LiveView renders in the resolved locale, not the default", %{conn: conn} do

@@ -52,28 +52,28 @@ defmodule PairingsEngineWeb.Layouts do
         </.link>
         <%= if @tournament do %>
           <.link navigate={~p"/t/#{@tournament.id}/players"} class={tab_class(@active == "players")}>
-            Players
+            {gettext("Players")}
           </.link>
           <.link navigate={~p"/t/#{@tournament.id}/pairings"} class={tab_class(@active == "pairings")}>
-            Pairings
+            {gettext("Pairings")}
           </.link>
           <.link
             navigate={~p"/t/#{@tournament.id}/standings"}
             class={tab_class(@active == "standings")}
           >
-            Standings
+            {gettext("Standings")}
           </.link>
           <.link navigate={~p"/t/#{@tournament.id}/print"} class={tab_class(@active == "print")}>
-            Print
+            {gettext("Print")}
           </.link>
           <details class="topbar-menu" name="topbar-popover">
-            <summary class={tab_class(@active in ["audit", "norms"])}>Advanced</summary>
+            <summary class={tab_class(@active in ["audit", "norms"])}>{gettext("Advanced")}</summary>
             <div class="topbar-menu-panel">
               <.link navigate={~p"/t/#{@tournament.id}/norms"} class="topbar-menu-item">
-                Norms
+                {gettext("Norms")}
               </.link>
               <.link navigate={~p"/t/#{@tournament.id}/history"} class="topbar-menu-item">
-                History
+                {gettext("History")}
               </.link>
               <.link navigate={~p"/t/#{@tournament.id}/audit"} class="topbar-menu-item">
                 {gettext("Audit trail")}
@@ -84,22 +84,24 @@ defmodule PairingsEngineWeb.Layouts do
             </div>
           </details>
           <details class="topbar-menu" name="topbar-popover">
-            <summary class={tab_class(@active in ["settings", "categories"])}>Settings</summary>
+            <summary class={tab_class(@active in ["settings", "categories"])}>
+              {gettext("Settings")}
+            </summary>
             <div class="topbar-menu-panel">
               <.link navigate={~p"/t/#{@tournament.id}/settings"} class="topbar-menu-item">
-                Tournament
+                {gettext("Tournament")}
               </.link>
               <.link navigate={~p"/t/#{@tournament.id}/settings/options"} class="topbar-menu-item">
-                Options
+                {gettext("Options")}
               </.link>
               <.link navigate={~p"/t/#{@tournament.id}/settings/scoring"} class="topbar-menu-item">
-                Scoring
+                {gettext("Scoring")}
               </.link>
               <.link navigate={~p"/t/#{@tournament.id}/settings/dates"} class="topbar-menu-item">
-                Dates
+                {gettext("Dates")}
               </.link>
               <.link navigate={~p"/t/#{@tournament.id}/categories"} class="topbar-menu-item">
-                Categories
+                {gettext("Categories")}
               </.link>
               <.link
                 navigate={~p"/t/#{@tournament.id}/settings/extra-points"}
@@ -125,14 +127,14 @@ defmodule PairingsEngineWeb.Layouts do
           navigate={~p"/tools/norms"}
           class={tab_class(@active == "tools")}
         >
-          Tools
+          {gettext("Tools")}
         </.link>
         <.link
           :if={!@tournament && @current_scope}
           navigate={~p"/changelog"}
           class={tab_class(@active == "changelog")}
         >
-          Changelog
+          {gettext("Changelog")}
         </.link>
       </nav>
       <nav class="topbar-auth">
@@ -144,7 +146,7 @@ defmodule PairingsEngineWeb.Layouts do
             FIDE: {sync_label(Fide.last_sync())} · KBSB: {sync_label(Kbsb.last_sync())}
           </span>
           <span class="user-email">{@current_scope.user.email}</span>
-          <.link navigate={~p"/users/settings"}>Settings</.link>
+          <.link navigate={~p"/users/settings"}>{gettext("Settings")}</.link>
           <.link href={~p"/users/log-out"} method="delete">{gettext("Log out")}</.link>
         <% else %>
           <.link navigate={~p"/users/log-in"} class="topbar-signin">{gettext("Log in")}</.link>
@@ -492,7 +494,7 @@ defmodule PairingsEngineWeb.Layouts do
           data-phx-theme="system"
           phx-click={JS.dispatch("phx:set-theme")}
         >
-          <.icon name="hero-computer-desktop-micro" class="size-4" /> System
+          <.icon name="hero-computer-desktop-micro" class="size-4" /> {gettext("System")}
         </button>
         <button
           :for={{key, icon, label} <- @themes}

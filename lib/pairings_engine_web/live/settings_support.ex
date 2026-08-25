@@ -53,31 +53,31 @@ defmodule PairingsEngineWeb.SettingsSupport do
         navigate={~p"/t/#{@tournament.id}/settings"}
         class={["pe-btn", "filter-picker", @active == :tournament && "active"]}
       >
-        Tournament
+        {gettext("Tournament")}
       </.link>
       <.link
         navigate={~p"/t/#{@tournament.id}/settings/options"}
         class={["pe-btn", "filter-picker", @active == :options && "active"]}
       >
-        Options
+        {gettext("Options")}
       </.link>
       <.link
         navigate={~p"/t/#{@tournament.id}/settings/scoring"}
         class={["pe-btn", "filter-picker", @active == :scoring && "active"]}
       >
-        Scoring
+        {gettext("Scoring")}
       </.link>
       <.link
         navigate={~p"/t/#{@tournament.id}/settings/dates"}
         class={["pe-btn", "filter-picker", @active == :dates && "active"]}
       >
-        Dates
+        {gettext("Dates")}
       </.link>
       <.link
         navigate={~p"/t/#{@tournament.id}/categories"}
         class={["pe-btn", "filter-picker", @active == :categories && "active"]}
       >
-        Categories
+        {gettext("Categories")}
       </.link>
       <.link
         navigate={~p"/t/#{@tournament.id}/settings/extra-points"}
@@ -95,14 +95,14 @@ defmodule PairingsEngineWeb.SettingsSupport do
         navigate={~p"/t/#{@tournament.id}/settings/about"}
         class={["pe-btn", "filter-picker", @active == :about && "active"]}
       >
-        About
+        {gettext("About")}
       </.link>
       <.link
         navigate={~p"/changelog"}
         class="pe-btn filter-picker"
         title={gettext("Not tournament-specific - opens the app-wide changelog")}
       >
-        Changelog
+        {gettext("Changelog")}
       </.link>
     </div>
     """

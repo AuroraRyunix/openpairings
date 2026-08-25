@@ -416,7 +416,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
       <.stale_banner stale={@stale} />
       <form phx-submit="save">
         <div class="card">
-          <h2>General</h2>
+          <h2>{gettext("General")}</h2>
 
           <.setting_group>
             <.setting_field
@@ -463,15 +463,19 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
               lives and shows the current value, rather than making Settings
               silent about a field it plainly looks like it should own. --%>
         <div class="card">
-          <h2>Officials</h2>
+          <h2>{gettext("Officials")}</h2>
 
           <p class="hint" style="margin-top: 0">
-            The chief arbiter, the deputy arbiters and the organizer's and chief arbiter's e-mail addresses are edited on the
-            <.link navigate={~p"/t/#{@tournament.id}/norms"}>Norms</.link>
-            page, because that is what they are for - the IT3, FA1 and IA1 forms
-            are built from them. (The organizer's <em>name</em>
-            is above, under
-            General.)
+            <.rich_text text={
+              gettext(
+                "The chief arbiter, the deputy arbiters and the organizer's and chief arbiter's e-mail addresses are edited on the %[norms] page, because that is what they are for - the IT3, FA1 and IA1 forms are built from them. (The organizer's %[name] is above, under General.)"
+              )
+            }>
+              <:part name="norms">
+                <.link navigate={~p"/t/#{@tournament.id}/norms"}>{gettext("Norms")}</.link>
+              </:part>
+              <:part name="name"><em>{gettext("name")}</em></:part>
+            </.rich_text>
           </p>
 
           <%!-- `.set-row`, not `<.setting_field>`: that renders a <label>,
@@ -488,7 +492,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
         </div>
 
         <div class="card">
-          <h2>Tiebreaks</h2>
+          <h2>{gettext("Tiebreaks")}</h2>
 
           <p class="hint" style="margin-top: 0">
             {gettext(
@@ -499,7 +503,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
           <%!-- A div, not <.setting_field>: that renders a <label>, which would
                 make the "Preset" text toggle whichever radio it wrapped. --%>
           <div class="set-field solo">
-            <span class="set-label">Preset</span>
+            <span class="set-label">{gettext("Preset")}</span>
             <div class="radio-row">
               <label>
                 <input
@@ -508,7 +512,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                   phx-click="tb_preset"
                   phx-value-key="personel"
                   checked={tb_preset_match(@tiebreaks) == "personel"}
-                /> Custom
+                /> {gettext("Custom")}
               </label>
 
               <label :for={{key, label, _methods} <- tb_presets()}>
@@ -558,7 +562,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                 <button
                   type="button"
                   class="pe-btn"
-                  title="Remove"
+                  title={gettext("Remove")}
                   phx-click="tb_remove"
                   phx-value-code={code}
                 >
@@ -595,9 +599,15 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
         <h2>{gettext("Share / Team")}</h2>
 
         <p class="hint" style="margin-top: 0">
-          Invite other people to this tournament by email - they can open, edit, pair, enter results, print and export it, exactly like you, except they can't manage collaborators or delete the tournament. They only get access once they explicitly accept the emailed invitation while signed in with their own email (<.link navigate={
-            ~p"/users/log-in"
-          }>{gettext("magic link")}</.link>{gettext(") - no shared password needed.")}
+          <.rich_text text={
+            gettext(
+              "Invite other people to this tournament by email - they can open, edit, pair, enter results, print and export it, exactly like you, except they can't manage collaborators or delete the tournament. They only get access once they explicitly accept the emailed invitation while signed in with their own email (%[magic_link]) - no shared password needed."
+            )
+          }>
+            <:part name="magic_link">
+              <.link navigate={~p"/users/log-in"}>{gettext("magic link")}</.link>
+            </:part>
+          </.rich_text>
         </p>
 
         <form id="add-collaborator-form" phx-submit="add_collaborator">
@@ -620,9 +630,9 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
           <table class="pe-table">
             <thead>
               <tr>
-                <th>Email</th>
+                <th>{gettext("Email")}</th>
 
-                <th>Status</th>
+                <th>{gettext("Status")}</th>
 
                 <th></th>
               </tr>
@@ -644,7 +654,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                     phx-click="remove_collaborator"
                     phx-value-id={c.id}
                   >
-                    Remove
+                    {gettext("Remove")}
                   </button>
                 </td>
               </tr>
@@ -667,7 +677,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
         </p>
 
         <div class="set-field solo">
-          <span class="set-label">Status</span>
+          <span class="set-label">{gettext("Status")}</span>
           <div class="actions" style="margin-top: 6px; align-items: center; gap: 10px">
             <span>{if @tournament.public_pages_enabled, do: "On", else: "Off"}</span>
             <button type="button" class="pe-btn" phx-click="toggle_public_pages">
@@ -699,7 +709,9 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
               type="button"
               class="pe-btn danger-link"
               phx-click="rotate_public_slug"
-              data-confirm="Generate a new link? The current one will stop working immediately."
+              data-confirm={
+                gettext("Generate a new link? The current one will stop working immediately.")
+              }
             >
               {gettext("Generate new link")}
             </button>
@@ -708,21 +720,25 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
       </div>
 
       <div class="card">
-        <h2>Logo</h2>
+        <h2>{gettext("Logo")}</h2>
 
         <p class="hint" style="margin-top: 0">
-          Shown on printed documents (place cards, and any other print page that has a logo slot - see <.link navigate={
-            ~p"/t/#{@tournament.id}/print"
-          }>Print</.link>). Only raster images
-          (PNG, JPEG, GIF, WebP) are accepted - SVG is rejected, since it can carry scripts and this
-          image is embedded straight back into pages the app serves. Capped at 2&nbsp;MB.
+          <.rich_text text={
+            gettext(
+              "Shown on printed documents (place cards, and any other print page that has a logo slot - see %[print]). Only raster images (PNG, JPEG, GIF, WebP) are accepted - SVG is rejected, since it can carry scripts and this image is embedded straight back into pages the app serves. Capped at 2 MB."
+            )
+          }>
+            <:part name="print">
+              <.link navigate={~p"/t/#{@tournament.id}/print"}>{gettext("Print")}</.link>
+            </:part>
+          </.rich_text>
         </p>
 
         <div :if={@tournament.logo_data} class="set-field solo">
           <span class="set-label">{gettext("Current logo")}</span>
           <img
             src={Tournaments.logo_data_uri(@tournament)}
-            alt="Tournament logo"
+            alt={gettext("Tournament logo")}
             style="max-height: 80px; max-width: 240px; display: block; margin-top: 6px"
           />
           <div class="actions" style="margin-top: 8px">
@@ -769,11 +785,23 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
         <h2>{gettext("Export / backup")}</h2>
 
         <p class="hint" style="margin-top: 0">
-          A full JSON backup of this tournament - settings, officials, every player (including norm data), rounds, pairings/results, byes and forbidden pairings. Re-importing it (from the
-          <.link navigate={~p"/"}>Tournaments</.link>
-          page) always creates a brand-new tournament, never overwrites this one. For a FIDE-report-shaped
-          TRF16 file instead, see <.link navigate={~p"/t/#{@tournament.id}/pairings"}>Pairings</.link>{if @tournament.manual_ranking,
-            do: " - note its rank column is the computed order, not manual ranking's hand-set one"}.
+          <.rich_text text={
+            gettext(
+              "A full JSON backup of this tournament - settings, officials, every player (including norm data), rounds, pairings/results, byes and forbidden pairings. Re-importing it (from the %[tournaments] page) always creates a brand-new tournament, never overwrites this one. For a FIDE-report-shaped TRF16 file instead, see %[pairings]."
+            )
+          }>
+            <:part name="tournaments">
+              <.link navigate={~p"/"}>{gettext("Tournaments")}</.link>
+            </:part>
+            <:part name="pairings">
+              <.link navigate={~p"/t/#{@tournament.id}/pairings"}>{gettext("Pairings")}</.link>
+            </:part>
+          </.rich_text>
+          <span :if={@tournament.manual_ranking}>
+            {gettext(
+              "Note that its rank column is the computed order, not manual ranking's hand-set one."
+            )}
+          </span>
         </p>
 
         <div class="actions">

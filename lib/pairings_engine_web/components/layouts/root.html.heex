@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang={Gettext.get_locale(PairingsEngineWeb.Gettext)}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -116,7 +116,7 @@
           the server that knew has been replaced. --%>
     <div id="version-toast" class="version-toast" role="status" aria-live="polite" hidden>
       <span class="version-toast-text"></span>
-      <button type="button" class="version-toast-close" aria-label="Dismiss">&times;</button>
+      <button type="button" class="version-toast-close" aria-label={gettext("Dismiss")}>&times;</button>
     </div>
     {@inner_content}
   </body>

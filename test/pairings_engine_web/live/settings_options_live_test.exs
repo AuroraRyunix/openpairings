@@ -168,14 +168,14 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
         Tournaments.create_player(tournament.id, %{"name" => "Bob", "club" => "Chess Club"})
 
       {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
-      assert html =~ "0 pair(s) currently excluded"
+      assert html =~ "0 pairs currently excluded"
 
       html =
         lv
         |> form("#exclusion-rules-form", %{"tournament" => %{"club_exclusion" => "all"}})
         |> render_submit()
 
-      assert html =~ "1 pair(s) currently excluded"
+      assert html =~ "1 pair currently excluded"
       assert Tournaments.get_authorized_tournament!(scope, tournament.id).club_exclusion == "all"
 
       render(lv)
@@ -226,7 +226,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
         })
         |> render_submit()
 
-      assert html =~ "1 pair(s) currently excluded"
+      assert html =~ "1 pair currently excluded"
 
       tournament = Tournaments.get_authorized_tournament!(scope, tournament.id)
       assert tournament.fed_exclusion == "listed"

@@ -404,7 +404,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
   defp section_actions(assigns) do
     ~H"""
     <div class="actions form-actions">
-      <button type="submit" class="pe-btn primary">Save</button>
+      <button type="submit" class="pe-btn primary">{gettext("Save")}</button>
       <span :if={@note && @saved == @section} class="ok-note" style="align-self: center">
         {@note}
       </span>
@@ -482,15 +482,23 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
         <h2>{gettext("Registration form")}</h2>
 
         <p class="subtitle" style="margin: 0 0 8px">
-          A public page where players enter themselves, finding their own name on the FIDE list. Everyone who signs up arrives marked
-          <strong>{gettext("not yet arrived")}</strong>
-          -
-          they are not paired until you confirm them on the Players page.
+          <.rich_text text={
+            gettext(
+              "A public page where players enter themselves, finding their own name on the FIDE list. Everyone who signs up arrives marked %[flag] - they are not paired until you confirm them on the Players page."
+            )
+          }>
+            <:part name="flag"><strong>{gettext("not yet arrived")}</strong></:part>
+          </.rich_text>
         </p>
 
         <p :if={!@tournament.public_pages_enabled} class="subtitle" style="margin: 0 0 8px">
-          <strong>{gettext("Public pages are switched off")}</strong>, so the form will not open even
-          if you turn it on here. Enable them under Settings → Tournament first.
+          <.rich_text text={
+            gettext(
+              "%[off], so the form will not open even if you turn it on here. Enable them under Settings → Tournament first."
+            )
+          }>
+            <:part name="off"><strong>{gettext("Public pages are switched off")}</strong></:part>
+          </.rich_text>
         </p>
 
         <div class="actions" style="margin: 0">
@@ -522,7 +530,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
       <form id="pairing-settings-form" phx-submit="save">
         <input type="hidden" name="section" value="pairing" />
         <div class="card">
-          <h2>Pairing</h2>
+          <h2>{gettext("Pairing")}</h2>
 
           <.setting_group>
             <.setting_field label={gettext("Pairing system")}>
@@ -564,35 +572,50 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               <.locked_hint_message field={:pairing_engine} locked_hint={@locked_hint} />
 
               <span class="hint">
-                <strong>JaVaFo</strong>
-                is the default: the external, FIDE-endorsed Dutch engine this app has always
-                paired with, and the safe choice for a FIDE-rated tournament.
+                <.rich_text text={
+                  gettext(
+                    "%[engine] is the default: the external, FIDE-endorsed Dutch engine this app has always paired with, and the safe choice for a FIDE-rated tournament."
+                  )
+                }>
+                  <:part name="engine"><strong>JaVaFo</strong></:part>
+                </.rich_text>
               </span>
 
               <span class="hint">
-                <strong>Ainalrami</strong>
-                is a second Dutch engine built straight into the app - no Java, nothing to
-                install. It is <strong>experimental</strong>, and on the evidence it is also
-                very good: measured against bbpPairings (the other FIDE-endorsed
-                implementation) over two independent corpora of roughly 488 million pairings
-                each, the most recent found <strong>{gettext("zero disagreements")}</strong>. Being in-process, it is also several times quicker than JaVaFo on large fields.
+                <.rich_text text={
+                  gettext(
+                    "%[engine] is a second Dutch engine built straight into the app - no Java, nothing to install. It is %[experimental], and on the evidence it is also very good: measured against bbpPairings (the other FIDE-endorsed implementation) over two independent corpora of roughly 488 million pairings each, the most recent found %[result]. Being in-process, it is also several times quicker than JaVaFo on large fields."
+                  )
+                }>
+                  <:part name="engine"><strong>Ainalrami</strong></:part>
+                  <:part name="experimental"><strong>{gettext("experimental")}</strong></:part>
+                  <:part name="result"><strong>{gettext("zero disagreements")}</strong></:part>
+                </.rich_text>
               </span>
 
               <span class="hint">
-                What "experimental" means here is not "probably wrong" - it means <strong>{gettext("not FIDE-endorsed")}</strong>. That is a paperwork status, not a quality one, and it is why JaVaFo remains the default. Forbidden pairings, club/federation exclusions and acceleration are all supported; any TRF extension it does not implement makes it refuse the round and say so, rather than quietly ignoring a rule you set.
+                <.rich_text text={
+                  gettext(
+                    "What \"experimental\" means here is not \"probably wrong\" - it means %[status]. That is a paperwork status, not a quality one, and it is why JaVaFo remains the default. Forbidden pairings, club/federation exclusions and acceleration are all supported; any TRF extension it does not implement makes it refuse the round and say so, rather than quietly ignoring a rule you set."
+                  )
+                }>
+                  <:part name="status"><strong>{gettext("not FIDE-endorsed")}</strong></:part>
+                </.rich_text>
               </span>
 
               <span :if={@tournament.fide_homologated} class="error-note">
-                This tournament is marked <strong>{gettext("FIDE-homologated")}</strong>
-                (Settings &rarr; FIDE). Ainalrami is allowed here, but understand what it
-                costs: OpenPairings is endorsed by FIDE on the basis that it pairs <em>{gettext("through JaVaFo")}</em>, so a rated round paired by Ainalrami was not
-                produced by the engine that endorsement names. That is a paperwork
-                exposure, not a pairing-quality one - but it is yours, and it is the
-                reason JaVaFo remains the default.
+                <.rich_text text={
+                  gettext(
+                    "This tournament is marked %[flag] (Settings → FIDE). Ainalrami is allowed here, but understand what it costs: OpenPairings is endorsed by FIDE on the basis that it pairs %[via], so a rated round paired by Ainalrami was not produced by the engine that endorsement names. That is a paperwork exposure, not a pairing-quality one - but it is yours, and it is the reason JaVaFo remains the default."
+                  )
+                }>
+                  <:part name="flag"><strong>{gettext("FIDE-homologated")}</strong></:part>
+                  <:part name="via"><em>{gettext("through JaVaFo")}</em></:part>
+                </.rich_text>
               </span>
             </.setting_field>
 
-            <.setting_field label="Cycles">
+            <.setting_field label={gettext("Cycles")}>
               <div class="locked-wrap">
                 <select name="tournament[rr_cycles]" disabled={@rr_cycles_locked?}>
                   <option
@@ -627,11 +650,13 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             </.setting_field>
 
             <.setting_field
-              label="Acceleration"
+              label={gettext("Acceleration")}
               hint={gettext("Swiss only - round robin and Keizer ignore this setting")}
             >
               <select name="tournament[acceleration]">
-                <option value="none" selected={@tournament.acceleration == "none"}>None</option>
+                <option value="none" selected={@tournament.acceleration == "none"}>
+                  {gettext("None")}
+                </option>
 
                 <option value="baku" selected={@tournament.acceleration == "baku"}>
                   {gettext("Baku acceleration (FIDE C.04.7)")}
@@ -663,7 +688,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
           <h2>{gettext("Tournament type & rate of play")}</h2>
 
           <.setting_group>
-            <.setting_field label="Type">
+            <.setting_field label={gettext("Type")}>
               <select name="tournament[standard]" phx-change="standard_change">
                 <option
                   :for={{val, label} <- standard_options()}
@@ -707,10 +732,15 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
           <h2>{gettext("Public pairings")}</h2>
 
           <p class="subtitle" style="margin: 0 0 8px">
-            When a round you pair actually reaches <code>/p/{@tournament.public_slug}/pairings</code>
-            (the public link - still gated on public pages being on at all, see Settings →
-            Tournament). Whichever round is currently paired can always be published early or
-            hidden again by hand from the Pairings page, regardless of this setting.
+            <.rich_text text={
+              gettext(
+                "When a round you pair actually reaches %[link] (the public link - still gated on public pages being on at all, see Settings → Tournament). Whichever round is currently paired can always be published early or hidden again by hand from the Pairings page, regardless of this setting."
+              )
+            }>
+              <:part name="link">
+                <code>/p/{@tournament.public_slug}/pairings</code>
+              </:part>
+            </.rich_text>
           </p>
 
           <.setting_group>
@@ -785,7 +815,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
           <table class="pe-table">
             <thead>
               <tr>
-                <th>Pair</th>
+                <th>{gettext("Pair")}</th>
 
                 <th></th>
               </tr>
@@ -801,7 +831,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                     phx-click="remove_forbidden_pairing"
                     phx-value-id={fp.id}
                   >
-                    Remove
+                    {gettext("Remove")}
                   </button>
                 </td>
               </tr>
@@ -823,7 +853,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
         <form id="exclusion-rules-form" phx-submit="save_exclusions">
           <.setting_group>
-            <.setting_field label="Clubs">
+            <.setting_field label={gettext("Clubs")}>
               <select
                 name="tournament[club_exclusion]"
                 class="pe-select"
@@ -851,7 +881,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               />
             </.setting_field>
 
-            <.setting_field label="Federations">
+            <.setting_field label={gettext("Federations")}>
               <select
                 name="tournament[fed_exclusion]"
                 class="pe-select"
@@ -881,7 +911,11 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
           </.setting_group>
 
           <p class="hint" style="margin-bottom: 0">
-            {@excluded_pair_count} pair(s) currently excluded by these rules.
+            {ngettext(
+              "%{count} pair currently excluded by these rules.",
+              "%{count} pairs currently excluded by these rules.",
+              @excluded_pair_count
+            )}
           </p>
 
           <p :if={@exclusion_error} class="error-note">{@exclusion_error}</p>
@@ -902,29 +936,44 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
           <p class="hint">
             <strong>{gettext("Experimental, but plausibly better.")}</strong>
-            Ainalrami is a second Dutch engine built into this app. Measured against bbpPairings - the other FIDE-endorsed implementation - over two independent corpora of roughly 488 million pairings each, the most recent found <strong>{gettext("zero disagreements")}</strong>. On a large field it is also several times quicker, because it runs in-process with no Java to start.
+            <.rich_text text={
+              gettext(
+                "Ainalrami is a second Dutch engine built into this app. Measured against bbpPairings - the other FIDE-endorsed implementation - over two independent corpora of roughly 488 million pairings each, the most recent found %[result]. On a large field it is also several times quicker, because it runs in-process with no Java to start."
+              )
+            }>
+              <:part name="result"><strong>{gettext("zero disagreements")}</strong></:part>
+            </.rich_text>
           </p>
 
           <p class="hint">
-            "Experimental" here means <strong>{gettext("not FIDE-endorsed")}</strong> - a paperwork
-            status, not a measured quality one. That is why a FIDE-rated event must still be
-            paired by JaVaFo, and why this is not the default.
+            <.rich_text text={
+              gettext(
+                "\"Experimental\" here means %[status] - a paperwork status, not a measured quality one. That is why a FIDE-rated event must still be paired by JaVaFo, and why this is not the default."
+              )
+            }>
+              <:part name="status"><strong>{gettext("not FIDE-endorsed")}</strong></:part>
+            </.rich_text>
           </p>
 
           <p class="hint">
-            Forbidden pairings, club and federation exclusions, and acceleration are all supported. Anything it does not implement makes it
-            <em>refuse</em>
-            to pair the
-            round and say why, rather than quietly ignoring a rule you set - so a wrong
-            round is not a way this can fail.
+            <.rich_text text={
+              gettext(
+                "Forbidden pairings, club and federation exclusions, and acceleration are all supported. Anything it does not implement makes it %[refuse] to pair the round and say why, rather than quietly ignoring a rule you set - so a wrong round is not a way this can fail."
+              )
+            }>
+              <:part name="refuse"><em>{gettext("refuse")}</em></:part>
+            </.rich_text>
           </p>
 
           <p :if={@tournament.fide_homologated} class="error-note">
             <strong>{gettext("This tournament is FIDE-homologated.")}</strong>
-            OpenPairings is endorsed on the basis that it pairs <em>{gettext("through JaVaFo")}</em>, so a
-            rated round paired by Ainalrami was not produced by the engine that endorsement
-            names. The pairings themselves are not the risk - the paperwork is, and it is
-            yours. Proceed only if you are willing to defend that if the report is queried.
+            <.rich_text text={
+              gettext(
+                "OpenPairings is endorsed on the basis that it pairs %[via], so a rated round paired by Ainalrami was not produced by the engine that endorsement names. The pairings themselves are not the risk - the paperwork is, and it is yours. Proceed only if you are willing to defend that if the report is queried."
+              )
+            }>
+              <:part name="via"><em>{gettext("through JaVaFo")}</em></:part>
+            </.rich_text>
           </p>
 
           <p class="hint">

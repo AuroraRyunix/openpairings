@@ -113,10 +113,13 @@ defmodule PairingsEngineWeb.FideLive do
       <div class="card">
         <h2>{gettext("FIDE database")}</h2>
         <p>
-          <strong>{format_count(@status.player_count)}</strong>
-          players in the local database.
+          <.rich_text text={gettext("%[count] players in the local database.")}>
+            <:part name="count"><strong>{format_count(@status.player_count)}</strong></:part>
+          </.rich_text>
           <%= if @status.last_sync do %>
-            {gettext("Last updated:")} <strong>{@status.last_sync}</strong> (UTC).
+            <.rich_text text={gettext("Last updated: %[when] (UTC).")}>
+              <:part name="when"><strong>{@status.last_sync}</strong></:part>
+            </.rich_text>
           <% else %>
             {gettext("The database is empty - download the rating list to get started.")}
           <% end %>
@@ -129,7 +132,9 @@ defmodule PairingsEngineWeb.FideLive do
               style={percent(@status) && "width: #{percent(@status)}%"}
             />
           </div>
-          <p class="ok-note">{if @status.progress != "", do: @status.progress, else: "Working…"}</p>
+          <p class="ok-note">
+            {if @status.progress != "", do: @status.progress, else: gettext("Working…")}
+          </p>
         </div>
         <p :if={@status.status == :error} class="error-note">
           {gettext("Update failed:")} {@status.error}
@@ -150,16 +155,16 @@ defmodule PairingsEngineWeb.FideLive do
             class="pe-btn primary"
             phx-click="sync"
             disabled={busy?(@status) or !@sso?}
-            title={if !@sso?, do: "Sign in with SSO to update the FIDE rating list"}
+            title={if !@sso?, do: gettext("Sign in with SSO to update the FIDE rating list")}
           >
             {cond do
-              busy?(@status) -> "Updating…"
-              @status.player_count > 0 -> "Update from FIDE"
-              true -> "Download rating list"
+              busy?(@status) -> gettext("Updating…")
+              @status.player_count > 0 -> gettext("Update from FIDE")
+              true -> gettext("Download rating list")
             end}
           </button>
           <button :if={busy?(@status) and @sso?} class="pe-btn" phx-click="cancel">
-            Cancel
+            {gettext("Cancel")}
           </button>
         </div>
       </div>
@@ -167,14 +172,17 @@ defmodule PairingsEngineWeb.FideLive do
       <div class="card">
         <h2>{gettext("Belgian national rating list (KBSB/FRBE)")}</h2>
         <p>
-          <strong>{format_count(@kbsb_status.player_count)}</strong>
-          players in the local database.
+          <.rich_text text={gettext("%[count] players in the local database.")}>
+            <:part name="count"><strong>{format_count(@kbsb_status.player_count)}</strong></:part>
+          </.rich_text>
           <%= if @kbsb_status.last_sync do %>
-            {gettext("Last updated:")} <strong>{@kbsb_status.last_sync}</strong> (UTC).
+            <.rich_text text={gettext("Last updated: %[when] (UTC).")}>
+              <:part name="when"><strong>{@kbsb_status.last_sync}</strong></:part>
+            </.rich_text>
           <% else %>
-            The database is empty - {if @kbsb_api_configured,
-              do: "sync it from the data platform to get started.",
-              else: "no source is configured."}
+            {if @kbsb_api_configured,
+              do: gettext("The database is empty - sync it from the data platform to get started."),
+              else: gettext("The database is empty - no source is configured.")}
           <% end %>
         </p>
 
@@ -199,7 +207,7 @@ defmodule PairingsEngineWeb.FideLive do
               />
             </div>
             <p class="ok-note">
-              {if @kbsb_status.progress != "", do: @kbsb_status.progress, else: "Working…"}
+              {if @kbsb_status.progress != "", do: @kbsb_status.progress, else: gettext("Working…")}
             </p>
           </div>
           <p :if={@kbsb_status.status == :error} class="error-note">
@@ -213,10 +221,12 @@ defmodule PairingsEngineWeb.FideLive do
               phx-click="sync_kbsb_api"
               disabled={busy?(@kbsb_status)}
             >
-              {if busy?(@kbsb_status), do: "Syncing…", else: "Sync from data platform"}
+              {if busy?(@kbsb_status),
+                do: gettext("Syncing…"),
+                else: gettext("Sync from data platform")}
             </button>
             <button :if={busy?(@kbsb_status)} type="button" class="pe-btn" phx-click="cancel_kbsb">
-              Cancel
+              {gettext("Cancel")}
             </button>
           </div>
         </div>
@@ -238,7 +248,7 @@ defmodule PairingsEngineWeb.FideLive do
             <div :for={kp <- @kbsb_results} class="kbsb-result-row">
               <span>{kp.last_name}{if kp.first_name != "", do: ", #{kp.first_name}"}</span>
               <span class="meta">
-                {kp.national_id} · {kp.club_name} · {kp.national_rating || "unrated"}{if kp.fide_id,
+                {kp.national_id} · {kp.club_name} · {kp.national_rating || gettext("unrated")}{if kp.fide_id,
                   do: " · FIDE #{kp.fide_id}"}
               </span>
             </div>

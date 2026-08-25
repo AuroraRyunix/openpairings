@@ -74,8 +74,8 @@ defmodule PairingsEngineWeb.PrintLive do
         <table class="pe-table">
           <thead>
             <tr>
-              <th>Document</th>
-              <th>Description</th>
+              <th>{gettext("Document")}</th>
+              <th>{gettext("Description")}</th>
               <th></th>
             </tr>
           </thead>

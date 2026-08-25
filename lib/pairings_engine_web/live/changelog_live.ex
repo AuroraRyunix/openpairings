@@ -22,7 +22,7 @@ defmodule PairingsEngineWeb.ChangelogLive do
     <Layouts.app flash={@flash} current_scope={@current_scope} active="changelog">
       <div class="page-header">
         <div>
-          <h1>Changelog</h1>
+          <h1>{gettext("Changelog")}</h1>
           <p class="subtitle" style="margin: 0">
             {gettext("What's changed in OpenPairings, release by release")}
           </p>

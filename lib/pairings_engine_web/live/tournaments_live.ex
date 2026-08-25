@@ -818,7 +818,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
     <Layouts.app flash={@flash} current_scope={@current_scope} active="tournaments">
       <div class="page-header">
         <div>
-          <h1>Tournaments</h1>
+          <h1>{gettext("Tournaments")}</h1>
 
           <p class="subtitle">{gettext("Everything you are organising, most recent first.")}</p>
         </div>
@@ -851,7 +851,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
           <table class="pe-table">
             <thead>
               <tr>
-                <th>Tournament</th>
+                <th>{gettext("Tournament")}</th>
 
                 <th>{gettext("Invited by")}</th>
 
@@ -873,7 +873,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
                     phx-click="accept_invite"
                     phx-value-token={c.invite_token}
                   >
-                    Accept
+                    {gettext("Accept")}
                   </button>
 
                   <button
@@ -881,7 +881,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
                     phx-click="decline_invite"
                     phx-value-token={c.invite_token}
                   >
-                    Decline
+                    {gettext("Decline")}
                   </button>
                 </td>
               </tr>
@@ -901,7 +901,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
         <div class="form-grid">
           <label class="field">
-            <span>Name</span>
+            <span>{gettext("Name")}</span>
             <input
               name="tournament[name]"
               value={Map.get(@new_params, "name", "")}
@@ -924,7 +924,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
           </label>
 
           <label :if={@new_pairing_system == "round_robin"} class="field">
-            <span>Cycles</span>
+            <span>{gettext("Cycles")}</span>
             <select name="tournament[rr_cycles]">
               <option
                 :for={{val, label} <- rr_cycles_options()}
@@ -956,15 +956,17 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
           <p :if={@new_team?} class="hint" style="margin-top: 0">
             <strong>{gettext("Reporting only.")}</strong>
-            This marks the tournament as a team event on the FIDE report. Pairing is still done
-            <em>{gettext("player by player")}</em>
-            - team pairing, team standings
-            and team tie-breaks are not built yet, so boards will not respect team
-            membership.
+            <.rich_text text={
+              gettext(
+                "This marks the tournament as a team event on the FIDE report. Pairing is still done %[how] - team pairing, team standings and team tie-breaks are not built yet, so boards will not respect team membership."
+              )
+            }>
+              <:part name="how"><em>{gettext("player by player")}</em></:part>
+            </.rich_text>
           </p>
 
           <label class="field">
-            <span>Rounds</span>
+            <span>{gettext("Rounds")}</span>
             <input
               type="number"
               name="tournament[rounds_count]"
@@ -975,7 +977,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
           </label>
 
           <label class="field">
-            <span>Place</span>
+            <span>{gettext("Place")}</span>
             <input
               name="tournament[city]"
               value={Map.get(@new_params, "city", "")}
@@ -998,7 +1000,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
           </label>
 
           <div class="field">
-            <span>Format</span>
+            <span>{gettext("Format")}</span>
             <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center">
               <label :for={{val, label} <- standard_options()} class="opt-row">
                 <input
@@ -1029,7 +1031,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
         <div class="actions">
           <button type="submit" class="pe-btn primary">{gettext("Create tournament")}</button>
-          <button type="button" class="pe-btn" phx-click="cancel">Cancel</button>
+          <button type="button" class="pe-btn" phx-click="cancel">{gettext("Cancel")}</button>
         </div>
       </form>
 
@@ -1043,8 +1045,13 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <h2>{gettext("Import a SWAR tournament")}</h2>
 
         <p class="hint" style="margin-top: 0">
-          Pick a <code>.swar</code> file - the tournament, its players, rounds and results
-          are imported and become yours to continue here.
+          <.rich_text text={
+            gettext(
+              "Pick a %[ext] file - the tournament, its players, rounds and results are imported and become yours to continue here."
+            )
+          }>
+            <:part name="ext"><code>.swar</code></:part>
+          </.rich_text>
         </p>
 
         <div
@@ -1069,8 +1076,8 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <p :if={@error} class="error-note">{@error}</p>
 
         <div class="actions">
-          <button type="submit" class="pe-btn primary">Import</button>
-          <button type="button" class="pe-btn" phx-click="cancel">Cancel</button>
+          <button type="submit" class="pe-btn primary">{gettext("Import")}</button>
+          <button type="button" class="pe-btn" phx-click="cancel">{gettext("Cancel")}</button>
         </div>
       </form>
 
@@ -1078,9 +1085,13 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <h2>{gettext("This looks like a tournament you already have")}</h2>
 
         <p class="hint" style="margin-top: 0">
-          This file's SWAR tournament id matches <strong>{@swar_duplicate.existing.name}</strong>, already imported here. Re-uploading a
-          sync of the same tournament as a new import would create a second, separate copy rather
-          than updating the one you already have.
+          <.rich_text text={
+            gettext(
+              "This file's SWAR tournament id matches %[name], already imported here. Re-uploading a sync of the same tournament as a new import would create a second, separate copy rather than updating the one you already have."
+            )
+          }>
+            <:part name="name"><strong>{@swar_duplicate.existing.name}</strong></:part>
+          </.rich_text>
         </p>
 
         <div class="actions">
@@ -1089,12 +1100,12 @@ defmodule PairingsEngineWeb.TournamentsLive do
             class="pe-btn primary"
             phx-click="swar_duplicate_open_existing"
           >
-            Open {@swar_duplicate.existing.name}
+            {gettext("Open %{name}", name: @swar_duplicate.existing.name)}
           </button>
           <button type="button" class="pe-btn" phx-click="swar_duplicate_import_anyway">
             {gettext("Import as a new tournament anyway")}
           </button>
-          <button type="button" class="pe-btn" phx-click="cancel_swar_duplicate">Cancel</button>
+          <button type="button" class="pe-btn" phx-click="cancel_swar_duplicate">{gettext("Cancel")}</button>
         </div>
       </div>
 
@@ -1102,11 +1113,11 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <h2>{gettext("Resolve FIDE ids")}</h2>
 
         <p class="hint" style="margin-top: 0">
-          SWAR has no FIDE id on file for {length(@swar_pending.unresolved)} player{if length(
-                                                                                         @swar_pending.unresolved
-                                                                                       ) !=
-                                                                                         1,
-                                                                                       do: "s"}. Pick a match below if one of these is the right person, or import them without a FIDE id - nothing is saved until you confirm.
+          {ngettext(
+            "SWAR has no FIDE id on file for %{count} player. Pick a match below if one of these is the right person, or import them without a FIDE id - nothing is saved until you confirm.",
+            "SWAR has no FIDE id on file for %{count} players. Pick a match below if one of these is the right person, or import them without a FIDE id - nothing is saved until you confirm.",
+            length(@swar_pending.unresolved)
+          )}
         </p>
 
         <div
@@ -1117,8 +1128,11 @@ defmodule PairingsEngineWeb.TournamentsLive do
           <h3 style="margin-top: 0">
             {entry.name}
             <span class="hint">
-              - {if entry.federation == "", do: "no federation", else: entry.federation},
-              born {entry.birth_year || "unknown"}
+              {gettext("- %{federation}, born %{year}",
+                federation:
+                  if(entry.federation == "", do: gettext("no federation"), else: entry.federation),
+                year: entry.birth_year || gettext("unknown")
+              )}
             </span>
           </h3>
 
@@ -1127,8 +1141,11 @@ defmodule PairingsEngineWeb.TournamentsLive do
               <input type="radio" name={"resolution[#{entry.ni}]"} value={c.fide_id} />
               <span>
                 <strong>{c.name}</strong>
-                - FIDE {c.fide_id} - {if c.federation == "", do: "?", else: c.federation},
-                born {c.birth_year || "unknown"}{if c.title != "", do: ", #{c.title}"}{if c.standard_rating,
+                {gettext("- FIDE %{id} - %{federation}, born %{year}",
+                  id: c.fide_id,
+                  federation: if(c.federation == "", do: "?", else: c.federation),
+                  year: c.birth_year || gettext("unknown")
+                )}{if c.title != "", do: ", #{c.title}"}{if c.standard_rating,
                   do: ", #{c.standard_rating}"}
               </span>
             </label>
@@ -1144,7 +1161,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
         <div class="actions">
           <button type="submit" class="pe-btn primary">{gettext("Confirm and import")}</button>
-          <button type="button" class="pe-btn" phx-click="cancel_swar_resolve">Back</button>
+          <button type="button" class="pe-btn" phx-click="cancel_swar_resolve">{gettext("Back")}</button>
         </div>
       </form>
 
@@ -1158,9 +1175,13 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <h2>{gettext("Import a TRF16 tournament")}</h2>
 
         <p class="hint" style="margin-top: 0">
-          Pick a <code>.trf</code> file - the tournament, its players, rounds and results are
-          imported and become yours to continue here. If the file's own points column doesn't
-          match what we recompute from the imported results, you'll see a notice after import.
+          <.rich_text text={
+            gettext(
+              "Pick a %[ext] file - the tournament, its players, rounds and results are imported and become yours to continue here. If the file's own points column doesn't match what we recompute from the imported results, you'll see a notice after import."
+            )
+          }>
+            <:part name="ext"><code>.trf</code></:part>
+          </.rich_text>
         </p>
 
         <div
@@ -1185,8 +1206,8 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <p :if={@error} class="error-note">{@error}</p>
 
         <div class="actions">
-          <button type="submit" class="pe-btn primary">Import</button>
-          <button type="button" class="pe-btn" phx-click="cancel">Cancel</button>
+          <button type="submit" class="pe-btn primary">{gettext("Import")}</button>
+          <button type="button" class="pe-btn" phx-click="cancel">{gettext("Cancel")}</button>
         </div>
       </form>
 
@@ -1200,12 +1221,17 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <h2>{gettext("Import an OpenPairings backup")}</h2>
 
         <p class="hint" style="margin-top: 0">
-          Pick a <code>.json</code>
-          file exported from <em>{gettext("Settings → Export / backup")}</em>
-          or <em>{gettext("Export all (JSON)")}</em>
-          - every tournament it contains is imported as a brand-new
-          tournament owned by you, with all players, rounds and results intact. This never
-          overwrites an existing tournament.
+          <.rich_text text={
+            gettext(
+              "Pick a %[ext] file exported from %[settings_export] or %[export_all] - every tournament it contains is imported as a brand-new tournament owned by you, with all players, rounds and results intact. This never overwrites an existing tournament."
+            )
+          }>
+            <:part name="ext"><code>.json</code></:part>
+            <:part name="settings_export">
+              <em>{gettext("Settings → Export / backup")}</em>
+            </:part>
+            <:part name="export_all"><em>{gettext("Export all (JSON)")}</em></:part>
+          </.rich_text>
         </p>
 
         <div
@@ -1230,8 +1256,8 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <p :if={@error} class="error-note">{@error}</p>
 
         <div class="actions">
-          <button type="submit" class="pe-btn primary">Import</button>
-          <button type="button" class="pe-btn" phx-click="cancel">Cancel</button>
+          <button type="submit" class="pe-btn primary">{gettext("Import")}</button>
+          <button type="button" class="pe-btn" phx-click="cancel">{gettext("Cancel")}</button>
         </div>
       </form>
 
@@ -1251,17 +1277,17 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <table class="pe-table">
           <thead>
             <tr>
-              <th>Name</th>
+              <th>{gettext("Name")}</th>
 
-              <th>System</th>
+              <th>{gettext("System")}</th>
 
-              <th class="num">Rounds</th>
+              <th class="num">{gettext("Rounds")}</th>
 
-              <th class="num">Players</th>
+              <th class="num">{gettext("Players")}</th>
 
-              <th>Dates</th>
+              <th>{gettext("Dates")}</th>
 
-              <th>Status</th>
+              <th>{gettext("Status")}</th>
 
               <th></th>
             </tr>
@@ -1275,7 +1301,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
                   :if={!owned?}
                   class="badge muted"
                   title={gettext("Shared with you by its owner")}
-                >shared</span>
+                >{gettext("shared")}</span>
               </td>
 
               <td>{Tournament.type_label(t.type)}</td>
@@ -1291,9 +1317,9 @@ defmodule PairingsEngineWeb.TournamentsLive do
               </td>
 
               <td style="text-align: right">
-                <a class="pe-btn" href={~p"/t/#{t.id}/export/json"} target="_blank">Export</a>
+                <a class="pe-btn" href={~p"/t/#{t.id}/export/json"} target="_blank">{gettext("Export")}</a>
                 <button class="pe-btn" phx-click="duplicate" phx-value-id={t.id}>
-                  Copy
+                  {gettext("Copy")}
                 </button>
                 <button
                   class="pe-btn"
@@ -1301,7 +1327,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
                   phx-value-id={t.id}
                   data-confirm={"Archive \"#{t.name}\"? It stays fully readable and keeps its public link, but nothing can be changed until you unarchive it."}
                 >
-                  Archive
+                  {gettext("Archive")}
                 </button>
                 <button
                   :if={owned?}
@@ -1309,7 +1335,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
                   phx-click="delete_start"
                   phx-value-id={t.id}
                 >
-                  Delete
+                  {gettext("Delete")}
                 </button>
                 <button
                   :if={!owned?}
@@ -1318,7 +1344,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
                   phx-value-id={t.id}
                   data-confirm={"Leave \"#{t.name}\"? You'll lose access to it unless the owner invites you again."}
                 >
-                  Leave
+                  {gettext("Leave")}
                 </button>
               </td>
             </tr>
@@ -1327,7 +1353,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
       </div>
 
       <div :if={@archived_tournaments != []} class="card">
-        <h2>Archived</h2>
+        <h2>{gettext("Archived")}</h2>
 
         <p class="hint" style="margin-top: 0">
           {gettext(
@@ -1339,8 +1365,8 @@ defmodule PairingsEngineWeb.TournamentsLive do
           <table class="pe-table">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Archived</th>
+                <th>{gettext("Name")}</th>
+                <th>{gettext("Archived")}</th>
                 <th></th>
                 <th></th>
               </tr>
@@ -1354,18 +1380,20 @@ defmodule PairingsEngineWeb.TournamentsLive do
                     :if={!owned?}
                     class="badge muted"
                     title={gettext("Shared with you by its owner")}
-                  >shared</span>
+                  >{gettext("shared")}</span>
                 </td>
 
                 <td>{t.archived_at}</td>
 
-                <td><span class="badge archived">archived</span></td>
+                <td><span class="badge archived">{gettext("archived")}</span></td>
 
                 <td style="text-align: right">
-                  <a class="pe-btn" href={~p"/t/#{t.id}/export/json"} target="_blank">Export</a>
+                  <a class="pe-btn" href={~p"/t/#{t.id}/export/json"} target="_blank">{gettext(
+                    "Export"
+                  )}</a>
 
                   <button class="pe-btn" phx-click="unarchive_tournament" phx-value-id={t.id}>
-                    Unarchive
+                    {gettext("Unarchive")}
                   </button>
 
                   <button
@@ -1374,7 +1402,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
                     phx-click="delete_start"
                     phx-value-id={t.id}
                   >
-                    Delete
+                    {gettext("Delete")}
                   </button>
                   <button
                     :if={!owned?}
@@ -1383,7 +1411,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
                     phx-value-id={t.id}
                     data-confirm={"Leave \"#{t.name}\"? You'll lose access to it unless the owner invites you again."}
                   >
-                    Leave
+                    {gettext("Leave")}
                   </button>
                 </td>
               </tr>
@@ -1405,9 +1433,9 @@ defmodule PairingsEngineWeb.TournamentsLive do
           <table class="pe-table">
             <thead>
               <tr>
-                <th>Name</th>
+                <th>{gettext("Name")}</th>
 
-                <th>Deleted</th>
+                <th>{gettext("Deleted")}</th>
 
                 <th></th>
               </tr>
@@ -1421,7 +1449,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
                 <td style="text-align: right">
                   <button class="pe-btn" phx-click="restore_tournament" phx-value-id={t.id}>
-                    Restore
+                    {gettext("Restore")}
                   </button>
 
                   <button class="pe-btn danger-link" phx-click="purge_start" phx-value-id={t.id}>
@@ -1459,10 +1487,13 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <h2>{gettext("Delete tournament")}</h2>
 
         <p>
-          This moves <strong>{@tournament.name}</strong>
-          to the Recycle bin - it disappears from your tournament list and its pages, but you can
-          restore it (or delete it permanently) for the next 3 months, after which it is purged
-          automatically.
+          <.rich_text text={
+            gettext(
+              "This moves %[name] to the Recycle bin - it disappears from your tournament list and its pages, but you can restore it (or delete it permanently) for the next 3 months, after which it is purged automatically."
+            )
+          }>
+            <:part name="name"><strong>{@tournament.name}</strong></:part>
+          </.rich_text>
         </p>
 
         <form id="delete-confirm-form" phx-change="delete_confirm_input">
@@ -1481,7 +1512,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
           >
             {gettext("Delete tournament")}
           </button>
-          <button type="button" class="pe-btn" phx-click="delete_cancel">Cancel</button>
+          <button type="button" class="pe-btn" phx-click="delete_cancel">{gettext("Cancel")}</button>
         </div>
       </div>
     </div>
@@ -1498,8 +1529,13 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <h2>{gettext("Delete permanently")}</h2>
 
         <p>
-          This permanently deletes <strong>{@tournament.name}</strong>
-          {gettext("and all of its players, rounds and results. This cannot be undone.")}
+          <.rich_text text={
+            gettext(
+              "This permanently deletes %[name] and all of its players, rounds and results. This cannot be undone."
+            )
+          }>
+            <:part name="name"><strong>{@tournament.name}</strong></:part>
+          </.rich_text>
         </p>
 
         <form id="purge-confirm-form" phx-change="purge_confirm_input">
@@ -1518,7 +1554,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
           >
             {gettext("Delete permanently")}
           </button>
-          <button type="button" class="pe-btn" phx-click="purge_cancel">Cancel</button>
+          <button type="button" class="pe-btn" phx-click="purge_cancel">{gettext("Cancel")}</button>
         </div>
       </div>
     </div>

@@ -159,7 +159,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
 
       <form phx-submit="save">
         <div class="card">
-          <h2>Points</h2>
+          <h2>{gettext("Points")}</h2>
 
           <.setting_group>
             <.setting_field label={gettext("Points for a win")}>
@@ -204,12 +204,9 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
           <h2>{gettext("Byes and absences")}</h2>
 
           <p class="subtitle" style="margin: 0 0 8px">
-            What a round a player sits out is worth, and how many of them are paid. This covers
-            every absence the pairing knows about, whether the player asked for a specific round
-            off or is marked absent outright - those are the same event, because the only way
-            you know before pairing is that they told you. Somebody who was paired and then
-            didn't turn up is a forfeit on their board, not this. A pairing-allocated bye - the
-            odd player out when the field is uneven - has its own value above.
+            {gettext(
+              "What a round a player sits out is worth, and how many of them are paid. This covers every absence the pairing knows about, whether the player asked for a specific round off or is marked absent outright - those are the same event, because the only way you know before pairing is that they told you. Somebody who was paired and then didn't turn up is a forfeit on their board, not this. A pairing-allocated bye - the odd player out when the field is uneven - has its own value above."
+            )}
           </p>
 
           <p class="subtitle" style="margin: 0 0 8px">
@@ -308,13 +305,9 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
                   is actually dangerous is moving it mid-event. --%>
             <div :if={@vur_checked != @tournament.absent_counts_as_vur} class="setting-warning">
               <strong>{gettext("⚠ This changes FIDE tiebreak results, not just scoring.")}</strong>
-              Saving this recomputes Buchholz/Sonneborn-Berger for every opponent of every player
-              who has sat a round out, across the whole tournament, immediately. The default is
-              on because every absence the pairing knows about was announced - you only find out
-              before the round is paired because the player told you - and an announced absence
-              is exactly what C.07 means by a voluntarily unplayed round. Turning it off treats
-              those rounds like forfeit losses instead. Either is defensible; changing it
-              mid-tournament moves published standings.
+              {gettext(
+                "Saving this recomputes Buchholz/Sonneborn-Berger for every opponent of every player who has sat a round out, across the whole tournament, immediately. The default is on because every absence the pairing knows about was announced - you only find out before the round is paired because the player told you - and an announced absence is exactly what C.07 means by a voluntarily unplayed round. Turning it off treats those rounds like forfeit losses instead. Either is defensible; changing it mid-tournament moves published standings."
+              )}
             </div>
           </.setting_group>
         </div>

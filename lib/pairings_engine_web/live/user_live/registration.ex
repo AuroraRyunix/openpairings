@@ -95,7 +95,7 @@ defmodule PairingsEngineWeb.UserLive.Registration do
             <div class="auth-hero-cta">
               <span>{gettext("Already have an account?")}</span>
               <.link navigate={~p"/users/log-in"} class="auth-hero-cta-btn">
-                Log in <span aria-hidden="true">→</span>
+                {gettext("Log in")} <span aria-hidden="true">→</span>
               </.link>
             </div>
           </div>
@@ -118,7 +118,7 @@ defmodule PairingsEngineWeb.UserLive.Registration do
               <.input
                 field={@form[:email]}
                 type="email"
-                label="Email"
+                label={gettext("Email")}
                 autocomplete="username"
                 spellcheck="false"
                 required
@@ -126,7 +126,7 @@ defmodule PairingsEngineWeb.UserLive.Registration do
               />
               <button
                 type="submit"
-                phx-disable-with="Creating account..."
+                phx-disable-with={gettext("Creating account...")}
                 class="pe-btn primary auth-submit"
               >
                 {gettext("Create a free account")} <span aria-hidden="true">→</span>

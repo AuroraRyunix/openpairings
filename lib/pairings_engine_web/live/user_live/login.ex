@@ -123,10 +123,11 @@ defmodule PairingsEngineWeb.UserLive.Login do
             <div :if={local_mail_adapter?()} class="auth-notice">
               <.icon name="hero-information-circle" class="size-5 shrink-0" />
               <span>
-                Local mail adapter - sent emails appear in <.link
-                  href="/dev/mailbox"
-                  class="auth-link"
-                >{gettext("the mailbox")}</.link>.
+                <.rich_text text={gettext("Local mail adapter - sent emails appear in %[mailbox].")}>
+                  <:part name="mailbox">
+                    <.link href="/dev/mailbox" class="auth-link">{gettext("the mailbox")}</.link>
+                  </:part>
+                </.rich_text>
               </span>
             </div>
 
@@ -142,7 +143,7 @@ defmodule PairingsEngineWeb.UserLive.Login do
                 readonly={!!@current_scope}
                 field={f[:email]}
                 type="email"
-                label="Email"
+                label={gettext("Email")}
                 autocomplete="username"
                 spellcheck="false"
                 required
@@ -175,7 +176,7 @@ defmodule PairingsEngineWeb.UserLive.Login do
                   readonly={!!@current_scope}
                   field={f[:email]}
                   type="email"
-                  label="Email"
+                  label={gettext("Email")}
                   autocomplete="username"
                   spellcheck="false"
                   required
@@ -183,7 +184,7 @@ defmodule PairingsEngineWeb.UserLive.Login do
                 <.input
                   field={@form[:password]}
                   type="password"
-                  label="Password"
+                  label={gettext("Password")}
                   autocomplete="current-password"
                   spellcheck="false"
                 />

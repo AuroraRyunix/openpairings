@@ -1119,7 +1119,8 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
       {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
 
       assert html =~ "What the engine reported"
-      assert html =~ "paired by <strong>Ainalrami</strong>"
+      assert html =~ "This round was paired by"
+      assert html =~ ">Ainalrami</strong>"
 
       # Reference detail, so it sits at the FOOT of the page - after the
       # bracket map and the board-by-board cards, which are what an arbiter

@@ -134,7 +134,7 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/history")
 
       refute html =~ "Registered player Alice"
-      assert html =~ "predate the oldest restore point"
+      assert html =~ "1 change predates the oldest restore point"
       assert html =~ ~p"/t/#{tournament.id}/audit"
     end
 

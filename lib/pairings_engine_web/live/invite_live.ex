@@ -119,8 +119,14 @@ defmodule PairingsEngineWeb.InviteLive do
             <% @mismatch? -> %>
               <h2>{gettext("Wrong account")}</h2>
               <p class="hint">
-                This invitation was sent to <strong>{@invitation.email}</strong>,
-                but you're signed in as <strong>{@current_scope.user.email}</strong>. Log in with the invited address to accept it.
+                <.rich_text text={
+                  gettext(
+                    "This invitation was sent to %[invited], but you're signed in as %[current]. Log in with the invited address to accept it."
+                  )
+                }>
+                  <:part name="invited"><strong>{@invitation.email}</strong></:part>
+                  <:part name="current"><strong>{@current_scope.user.email}</strong></:part>
+                </.rich_text>
               </p>
               <div class="actions">
                 <.link navigate={~p"/"} class="pe-btn">{gettext("Go to Tournaments")}</.link>
@@ -128,12 +134,18 @@ defmodule PairingsEngineWeb.InviteLive do
             <% true -> %>
               <h2>{gettext("You've been invited")}</h2>
               <p class="hint" style="margin-top: 0">
-                <strong>{@owner_email}</strong>
-                invited you to collaborate on <strong>{@tournament.name}</strong>. Accepting gives you full editing access to this tournament - everything the owner can do, except managing collaborators or deleting it.
+                <.rich_text text={
+                  gettext(
+                    "%[owner] invited you to collaborate on %[tournament]. Accepting gives you full editing access to this tournament - everything the owner can do, except managing collaborators or deleting it."
+                  )
+                }>
+                  <:part name="owner"><strong>{@owner_email}</strong></:part>
+                  <:part name="tournament"><strong>{@tournament.name}</strong></:part>
+                </.rich_text>
               </p>
               <div class="actions">
-                <button type="button" class="pe-btn primary" phx-click="accept">Accept</button>
-                <button type="button" class="pe-btn" phx-click="decline">Decline</button>
+                <button type="button" class="pe-btn primary" phx-click="accept">{gettext("Accept")}</button>
+                <button type="button" class="pe-btn" phx-click="decline">{gettext("Decline")}</button>
               </div>
           <% end %>
         </div>

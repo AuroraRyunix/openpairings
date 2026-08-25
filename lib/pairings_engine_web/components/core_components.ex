@@ -434,16 +434,23 @@ defmodule PairingsEngineWeb.CoreComponents do
   handed half a clause, and Dutch does not put that clause where English
   does.
 
-  So the whole sentence stays ONE msgid carrying `%{name}` placeholders, and
+  So the whole sentence stays ONE msgid carrying `%[name]` placeholders, and
   this substitutes the matching `<:part>` at render time. A translator moves
   the placeholder to wherever the target language wants it and the markup
   follows it there.
 
-      <.rich_text text={gettext("Players get their category on the %{players} page.")}>
+      <.rich_text text={gettext("Players get their category on the %[players] page.")}>
         <:part name="players">
           <.link navigate={~p"/t/#{@tournament.id}/players"}>{gettext("Players")}</.link>
         </:part>
       </.rich_text>
+
+  Square brackets, deliberately, not gettext's own curly `%{...}`: gettext
+  interpolates `%{...}` itself, and a msgid carrying one with no matching
+  binding logs `missing Gettext bindings` at :error on EVERY render. These
+  placeholders are for this component to fill, not gettext, so they use a
+  shape gettext leaves alone. Ordinary value interpolation in the same
+  sentence still uses `%{...}` and still goes to `gettext/2` as bindings.
 
   A placeholder with no matching part renders literally rather than
   vanishing, so a translation that invents one is visible instead of
@@ -463,14 +470,14 @@ defmodule PairingsEngineWeb.CoreComponents do
     """noformat
   end
 
-  @placeholder ~r/%\{[a-zA-Z_][a-zA-Z0-9_]*\}/
+  @placeholder ~r/%\[[a-zA-Z_][a-zA-Z0-9_]*\]/
 
   defp rich_chunks(text, parts) do
     @placeholder
     |> Regex.split(text, include_captures: true, trim: true)
     |> Enum.map(fn chunk ->
       case Regex.run(@placeholder, chunk) do
-        [^chunk] -> Enum.find(parts, chunk, &("%{" <> &1.name <> "}" == chunk))
+        [^chunk] -> Enum.find(parts, chunk, &("%[" <> &1.name <> "]" == chunk))
         _ -> chunk
       end
     end)
