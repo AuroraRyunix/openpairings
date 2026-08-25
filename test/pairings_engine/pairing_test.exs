@@ -71,6 +71,32 @@ defmodule PairingsEngine.PairingTest do
     assert latecomer.id in (Pairing.eligible_players(tournament.id, 4) |> Enum.map(& &1.id))
   end
 
+  test "pair_next_round/1 leaves a late entrant out of the round entirely, with no bye row" do
+    tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
+
+    p1 = insert_player(tournament, "Alice", fide_rating: 2000)
+    p2 = insert_player(tournament, "Bob", fide_rating: 1900)
+    p3 = insert_player(tournament, "Carol", fide_rating: 1800)
+    latecomer = insert_player(tournament, "Dave", fide_rating: 1700, start_round: 3)
+
+    assert {:ok, round} = Pairing.pair_next_round(tournament)
+    round = Repo.preload(round, :pairings)
+
+    paired_ids =
+      round.pairings
+      |> Enum.flat_map(&[&1.white_player_id, &1.black_player_id])
+      |> Enum.reject(&is_nil/1)
+
+    refute latecomer.id in paired_ids
+    for p <- [p1, p2, p3], do: assert(p.id in paired_ids)
+
+    # And no absentee bye either: a round before `start_round` is not an
+    # absence, it is a round the player was not in the tournament for. The
+    # odd man out among the three who ARE playing takes the allocated bye.
+    byes = Repo.all(from b in "byes", where: b.round == 1, select: b.player_id)
+    refute latecomer.id in byes
+  end
+
   test "not_yet_started?/2 is a pure check against start_round" do
     tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 5})
     player = insert_player(tournament, "P", start_round: 3)

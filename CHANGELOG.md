@@ -177,6 +177,19 @@ Each entry is tagged so a version can be skimmed:
 
 ### Changed
 
+- [Fix] **A Swiss late entrant was paired before the round they joined in.**
+  A player with a `start_round` of 3 played rounds 1 and 2. The check
+  existed and was correct - it is what decides whether there are enough
+  players to pair at all - but the roster handed to the engine was rebuilt
+  from scratch a few lines later without it. Keizer read `start_round`
+  properly all along; only the Swiss path did not.
+
+  They are now left out of the round completely: no board, and no absentee
+  bye either, because a round before you join is not a round you were
+  absent from. Reachable in practice by restoring a tournament from a
+  backup, or by importing one, since nothing in the Swiss interface sets
+  `start_round` by hand.
+
 - [Change] **Ainalrami is the default Swiss engine now.** A new Swiss
   tournament is paired by our own engine unless you go and pick JaVaFo; it
   used to be the other way round. The confirmation dialog flipped with it -

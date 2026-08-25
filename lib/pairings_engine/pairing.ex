@@ -286,7 +286,23 @@ defmodule PairingsEngine.Pairing do
   # `next_number + 1` - a deliberate scope limitation, see
   # `create_mirrored_leg/4`.
   defp do_pair(tournament, next_number) do
-    active = active_players(tournament.id)
+    # A late entrant is dropped here, before the absent/present split, and
+    # so lands in NEITHER list: not sent to the engine, and not given an
+    # absentee bye row either. They are not absent - they have not joined
+    # yet, and a round before `start_round` is a round the tournament did
+    # not have them for.
+    #
+    # `pair_next_round/1` has always computed this filter (that is what
+    # `eligible_players/2` is), but only ever used the result to count
+    # heads for the "at least two players" guard. The roster handed to the
+    # engine was rebuilt here from `active_players/1` and never had the
+    # filter applied, so a Swiss tournament restored from a backup with a
+    # player at `start_round: 3` paired them in rounds 1 and 2. Keizer read
+    # `start_round` correctly all along; only this path did not.
+    active =
+      tournament.id
+      |> active_players()
+      |> Enum.reject(&not_yet_started?(&1, next_number))
 
     {players, round_specific} =
       Enum.split_with(active, &(not absent_for_round?(&1, next_number)))
