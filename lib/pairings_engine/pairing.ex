@@ -3,15 +3,15 @@ defmodule PairingsEngine.Pairing do
   Round lifecycle: builds the TRF input for the Swiss engine, runs it, and
   creates the round with its pairings.
 
-  JaVaFo (© Roberto Ricca, the FIDE-endorsed Dutch-system engine) is the
-  default and the only engine permitted for a FIDE-homologated tournament.
-  It is invoked as `java -jar javafo.jar input.trf -p output.txt`; the output
-  lists one "white black" pair of TRF starting ranks per line, 0 meaning the
-  pairing-allocated bye.
+  Ainalrami (github.com/AuroraRyunix/Ainalrami), a from-scratch Dutch-system
+  engine in pure Elixir, is the default. It implements C.04.3 as it stands
+  in the edition effective 1 February 2026.
 
-  A tournament may instead select `pairing_engine: "ainalrami"` - Ainalrami
-  (github.com/AuroraRyunix/Ainalrami), a from-scratch Dutch-system engine in
-  pure Elixir, in beta. Everything up to and including the TRF text is
+  A tournament may instead select `pairing_engine: "javafo"` - JaVaFo
+  (© Roberto Ricca), invoked as `java -jar javafo.jar input.trf -p
+  output.txt`, whose output lists one "white black" pair of TRF starting
+  ranks per line with 0 meaning the pairing-allocated bye. It carries FIDE's
+  endorsement, and implements the 2022 rules. Everything up to and including the TRF text is
   **identical** for both engines: `run_engine/5` is handed the very same
   bytes `javafo_input/4` built, so the two are directly comparable on real
   tournament data rather than only on synthetic input, and only the last
@@ -20,8 +20,9 @@ defmodule PairingsEngine.Pairing do
   common to both.
 
   See `docs/pairing-systems.md` for the arbiter-facing description, and
-  `docs/fide-endorsement.md` for why the FIDE-homologated restriction is not
-  negotiable.
+  `docs/fide-endorsement.md` for what running a rated event on Ainalrami
+  does to the "Internal engine: NO - thru JaVaFo" answer on FE1. It is no
+  longer refused, but it is not free either.
   """
 
   import Ecto.Query

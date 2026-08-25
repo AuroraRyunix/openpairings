@@ -65,28 +65,31 @@ themselves. This is no longer a hunch about what an unstated checkbox
 might mean - it's the documented behavior of three real, currently-listed
 endorsements.
 
-### "But OpenPairings can now select Ainalrami" - why that doesn't change the answer
+### "But OpenPairings can now select Ainalrami" - and since 2026-08-25 it does by default
 
-Since the multi-engine work, a tournament carries a `pairing_engine`
-setting and can be pointed at [Ainalrami](https://github.com/AuroraRyunix/Ainalrami),
-a from-scratch Dutch engine that genuinely does pair. The FE1 answer above
-is nevertheless unchanged, because the setting is **structurally
-unreachable for the tournaments FE1 is about**:
+A tournament carries a `pairing_engine` setting and can be pointed at
+[Ainalrami](https://github.com/AuroraRyunix/Ainalrami), a from-scratch
+Dutch engine that genuinely does pair. **It is now the default**, and the
+only thing still guaranteed about it is that it cannot change mid-event:
+the setting joins `Tournaments.locked_fields/1`, so whichever engine paired
+round 1 pairs the rest.
 
-- `pairing_engine: "ainalrami"` is refused by `Tournament.changeset/2` on
-  any `fide_homologated` tournament, and ticking `fide_homologated` on a
-  tournament already running Ainalrami is refused too. Both directions, in
-  the data layer - not a hidden UI control, which this codebase has learned
-  the hard way is not enforcement.
-- The setting joins `Tournaments.locked_fields/1`, so it cannot be flipped
-  mid-event either.
+Read this section as history in two steps, because both steps matter to
+anyone filing.
 
-**Changed 2026-08-21, and this is the paragraph to read before filing.**
-Ainalrami used to be REFUSED on a FIDE-homologated tournament, which is
-what made "every FIDE-rated round this program ever produces is a JaVaFo
-round" literally true. That block is now a warning: the arbiter may choose
-Ainalrami for a rated event, and the UI says plainly what it costs, in the
-settings hint and again in the confirmation dialog.
+**2026-08-21.** `pairing_engine: "ainalrami"` used to be REFUSED by
+`Tournament.changeset/2` on any `fide_homologated` tournament, in both
+directions - the engine could not be set on a homologated event, and
+homologation could not be ticked on an event already running Ainalrami.
+That block is what made "every FIDE-rated round this program ever produces
+is a JaVaFo round" literally true. It became a warning instead: the
+arbiter may choose Ainalrami for a rated event, and the UI says plainly
+what it costs.
+
+**2026-08-25.** The default flipped. JaVaFo 2.2 implements C.04.3 as it
+stood in 2022 and has not been updated for the edition effective
+1 February 2026, so leaving it as the default meant handing arbiters
+superseded pairings by default. Ainalrami implements the current text.
 
 The reason for allowing it is that refusing asserted a quality judgement
 the measurements do not support - Ainalrami agrees with bbpPairings across
@@ -98,13 +101,17 @@ Article 5.2.5's TPN parity, where it follows the handbook text and JaVaFo
 carries pre-2026 behaviour.
 
 The consequence for THIS document is unavoidable and must not be papered
-over: **"Internal engine: NO - thru JaVaFo" is no longer unconditionally
-true of what OpenPairings can do.** It remains true of the default, and of
-every tournament where the arbiter has not overridden it. Anyone filing
-FE1 on the strength of this framing has to decide how to state that -
-either declare it accurately, or restore the hard block for the duration
-of the application. What is not available any more is filing the old
-sentence unchanged and assuming it still holds. If Ainalrami is ever *intended* to
+over: **"Internal engine: NO - thru JaVaFo" is no longer true of what
+OpenPairings normally does.** It was never unconditionally true after
+2026-08-21; since 2026-08-25 the ordinary case is the other way round, and
+a JaVaFo round is the one that takes a deliberate override.
+
+That is a decision, not an oversight - see the changelog entry for the
+flip. But it means the framing this whole document is built on has expired
+as a description of the shipped default. Anyone filing FE1 has to either
+declare `Internal engine: YES` and apply for Ainalrami on its own merits,
+or restore JaVaFo as the default for the duration of the application.
+Filing the old sentence unchanged is not one of the options. If Ainalrami is ever *intended* to
 be declared to FIDE, that is a separate application with `Internal Pairing
 Engine: YES`, its own FPC/RTG statements, and the full 5000-tournament
 auto-test described below - and it would be applied for by Ainalrami, not

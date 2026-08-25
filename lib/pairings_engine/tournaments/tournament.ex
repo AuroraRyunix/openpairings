@@ -252,10 +252,10 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # "swiss" | "round_robin" | "keizer". Locked in the UI once the
     # tournament has paired its first round (see SettingsLive).
     field :pairing_system, :string, default: "swiss"
-    # Swiss only: which engine pairs the round - "javafo" (the default, the
-    # FIDE-endorsed external Java program this app has always shelled out to)
-    # or "ainalrami" (the sibling from-scratch Elixir Dutch engine,
-    # github.com/AuroraRyunix/Ainalrami, beta). Both are handed the
+    # Swiss only: which engine pairs the round - "ainalrami" (the default,
+    # the sibling from-scratch Elixir Dutch engine,
+    # github.com/AuroraRyunix/Ainalrami) or "javafo" (the external Java
+    # program this app shelled out to first). Both are handed the
     # byte-identical TRF16 the pipeline already builds, so the two stay
     # directly comparable; see PairingsEngine.Pairing and
     # docs/pairing-systems.md.
@@ -264,13 +264,11 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # their own pairings and never consult it, same "inert unless swiss"
     # tolerance as `acceleration`/`swiss_match_format`.
     #
-    # Two hard rules, both enforced below rather than in the UI:
-    # "ainalrami" can never sit on a `fide_homologated` tournament (that would
-    # break the "Internal engine: NO - thru JaVaFo" answer OpenPairings'
-    # whole FIDE endorsement story rests on, see docs/fide-endorsement.md),
-    # and it can never sit alongside Baku acceleration (Ainalrami does not
-    # read the TRF's `XXA` lines at all). Locked once the tournament has
-    # paired its first round, same as `pairing_system` - see
+    # Neither combination this field used to refuse is refused any more -
+    # Ainalrami on a homologated tournament, and Ainalrami with Baku
+    # acceleration - see `validate_pairing_engine/1` below for why each
+    # went. Still locked once the tournament has paired its first round,
+    # same as `pairing_system`; see
     # `PairingsEngine.Tournaments.locked_fields/1`.
     # Ainalrami by default since 2026-08-25. Not a preference: JaVaFo
     # implements C.04.3 as it stood in 2022 and has not been updated for the
@@ -611,35 +609,6 @@ defmodule PairingsEngine.Tournaments.Tournament do
     end
   end
 
-  # The two combinations `pairing_engine == "ainalrami"` can never be part of.
-  #
-  # Enforced HERE, in the data layer, rather than by hiding a radio button -
-  # same lesson as the settings-lock fix: "the UI hides the control" has
-  # never been enforcement in this codebase, because every other caller (a
-  # script, an import, a future LiveView) goes straight past the UI. And
-  # deliberately checked on `get_field/2` (the value the row would END UP
-  # with) rather than `get_change/2`, so BOTH directions are refused: setting
-  # the engine to Ainalrami on an already-homologated tournament, AND ticking
-  # "FIDE-homologated" on a tournament already running Ainalrami. Only
-  # checking the change would let the second one through and silently leave a
-  # homologated event pairing on a non-endorsed engine, which is exactly the
-  # state this rule exists to make unreachable.
-  #
-  # 1. FIDE homologation. OpenPairings answers FE1's "Internal engine:
-  #    YES/NO" with **NO - thru JaVaFo**, exactly as Vega, Swiss Manager and
-  #    TournamentService do, and JaVaFo's own endorsement is what then covers
-  #    pairing legality (VCL.07) for the whole event. Pairing a homologated
-  #    tournament with anything else voids that answer. See
-  #    docs/fide-endorsement.md.
-  # 2. Baku acceleration. Acceleration reaches JaVaFo as `XXA` extension
-  #    lines in the TRF (see `PairingsEngine.Pairing.acceleration_lines/4`);
-  #    Ainalrami's TRF parser ignores every extension except `XXR`, so it
-  #    would pair a Baku tournament as if acceleration had never been
-  #    configured - silently, with a perfectly plausible-looking result.
-  #    Rejected outright rather than guessed at, same precedent as
-  #    `validate_pair_by_category_excludes_baku/1` below. (`acceleration` is
-  #    not one of `locked_fields/1`, so it can be switched on mid-event -
-  #    hence checking the end state here rather than trusting the lock.)
   # Ainalrami on a FIDE-homologated tournament used to be REFUSED here, on
   # the grounds that OpenPairings' endorsement is FE1's "Internal engine:
   # NO - thru JaVaFo", and a rated round paired by anything else makes that
