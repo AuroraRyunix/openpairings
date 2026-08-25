@@ -762,8 +762,7 @@ defmodule PairingsEngineWeb.NormsLive do
       <PairingsEngineWeb.AuditLive.subnav tournament={@tournament} active={:norms} />
 
       <p class="hint">
-        Every report below is generated from the officials/arbiter details in the card just below,
-        the FIDE identifiers on the
+        Every report below is generated from the officials/arbiter details in the card just below, the FIDE identifiers on the
         <.link navigate={~p"/t/#{@tournament.id}/settings/fide"}>{gettext("FIDE settings")}</.link>
         {gettext("page, and the player list.")}
       </p>
@@ -781,8 +780,9 @@ defmodule PairingsEngineWeb.NormsLive do
         </p>
 
         <p :if={@stale} class="error-note">
-          This tournament was updated elsewhere while you were editing. Saving officials will
-          overwrite that change with what's on this page - reload first if you want to see it instead.
+          {gettext(
+            "This tournament was updated elsewhere while you were editing. Saving officials will overwrite that change with what's on this page - reload first if you want to see it instead."
+          )}
         </p>
 
         <form id="officials-form" phx-submit="save_officials" phx-change="officials_change">
@@ -934,8 +934,9 @@ defmodule PairingsEngineWeb.NormsLive do
       <div class="card">
         <h2>{gettext("IT3 - Tournament Report Form")}</h2>
         <p class="hint" style="margin-top: 0">
-          The whole-tournament report: identity, officials, pairing system, and rated/titled player
-          counts by federation. Always available.
+          {gettext(
+            "The whole-tournament report: identity, officials, pairing system, and rated/titled player counts by federation. Always available."
+          )}
         </p>
         <.report_blockers_bar blockers={report_blockers(@tournament)} />
         <div class="actions">
@@ -956,8 +957,9 @@ defmodule PairingsEngineWeb.NormsLive do
       <div class="card">
         <h2>{gettext("FA1 / IA1 - Arbiter norm report")}</h2>
         <p class="hint" style="margin-top: 0">
-          For an arbiter earning a norm at this tournament. The candidate needn't be a registered
-          player, so fill in their details below - nothing here is saved.
+          {gettext(
+            "For an arbiter earning a norm at this tournament. The candidate needn't be a registered player, so fill in their details below - nothing here is saved."
+          )}
         </p>
         <label :if={fa1_candidate_options(@tournament) != []} class="field">
           <span>{gettext("Pick an arbiter")}</span>
@@ -1025,9 +1027,9 @@ defmodule PairingsEngineWeb.NormsLive do
       <div class="card">
         <h2>{gettext("Combined report (festival)")}</h2>
         <p class="hint" style="margin-top: 0">
-          Running several category groups as separate tournaments? Pick the others below to
-          generate one combined IT3/FA1/IA1 for the whole festival - the master tournament
-          supplies the shared header/schedule fields, and gives the combined report its name.
+          {gettext(
+            "Running several category groups as separate tournaments? Pick the others below to generate one combined IT3/FA1/IA1 for the whole festival - the master tournament supplies the shared header/schedule fields, and gives the combined report its name."
+          )}
         </p>
 
         <p :if={@other_tournaments == []} class="hint">
@@ -1147,8 +1149,9 @@ defmodule PairingsEngineWeb.NormsLive do
       <div class="card">
         <h2>{gettext("IT4 - Title/Norm report")}</h2>
         <p class="hint" style="margin-top: 0">
-          Lists every player with a claimed title norm (set below). Up to 40 candidates per file -
-          a tournament with more needs a second IT4 download for the rest.
+          {gettext(
+            "Lists every player with a claimed title norm (set below). Up to 40 candidates per file - a tournament with more needs a second IT4 download for the rest."
+          )}
         </p>
 
         <p :if={it4_candidates(@players) == []} class="hint">
@@ -1256,7 +1259,7 @@ defmodule PairingsEngineWeb.NormsLive do
             </select>
           </label>
           <label class="field">
-            <span>Norm (e.g. "IM norm")</span>
+            <span>{gettext("Norm (e.g. \"IM norm\")")}</span>
             <input
               name="player[norm_data][norm_description]"
               value={@form["norm_data"]["norm_description"]}
@@ -1270,7 +1273,7 @@ defmodule PairingsEngineWeb.NormsLive do
             />
           </label>
           <label class="field">
-            <span>Event / group (e.g. "U20, Women")</span>
+            <span>{gettext("Event / group (e.g. \"U20, Women\")")}</span>
             <input name="player[norm_data][event_group]" value={@form["norm_data"]["event_group"]} />
           </label>
           <label class="field">

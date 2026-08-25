@@ -275,8 +275,9 @@ defmodule PairingsEngineWeb.CategoriesLive do
         <h2>Categories</h2>
 
         <p class="hint" style="margin-top: 0">
-          Tournament-defined groups (SWAR CATEGORIES) - e.g. age or rating brackets - players can
-          be assigned to. Off by default; turn on to start adding them below.
+          {gettext(
+            "Tournament-defined groups (SWAR CATEGORIES) - e.g. age or rating brackets - players can be assigned to. Off by default; turn on to start adding them below."
+          )}
         </p>
 
         <div class="set-field solo">
@@ -296,8 +297,9 @@ defmodule PairingsEngineWeb.CategoriesLive do
         >
           <span class="set-label">{gettext("Pair each category independently (beta)")}</span>
           <p class="hint" style="margin: 2px 0 6px">
-            Swiss only - each category gets its own independent pairings and byes within one
-            combined round.
+            {gettext(
+              "Swiss only - each category gets its own independent pairings and byes within one combined round."
+            )}
           </p>
           <div class="actions" style="align-items: center; gap: 10px">
             <span>{if @tournament.pair_by_category, do: "On", else: "Off"}</span>

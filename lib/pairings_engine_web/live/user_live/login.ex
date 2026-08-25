@@ -62,8 +62,9 @@ defmodule PairingsEngineWeb.UserLive.Login do
             <h1 class="auth-hero-title">{gettext("Run world-class chess tournaments.")}</h1>
 
             <p class="auth-hero-sub">
-              Swiss pairings from our own engine, FIDE tie-break rules, and official
-              report formats - from the first round to the final crosstable, right in your browser.
+              {gettext(
+                "Swiss pairings from our own engine, FIDE tie-break rules, and official report formats - from the first round to the final crosstable, right in your browser."
+              )}
             </p>
 
             <ul class="auth-features">
@@ -100,7 +101,7 @@ defmodule PairingsEngineWeb.UserLive.Login do
             <div :if={!@current_scope} class="auth-hero-cta">
               <span>{gettext("New to OpenPairings?")}</span>
               <.link navigate={~p"/users/register"} class="auth-hero-cta-btn">
-                Create a free account <span aria-hidden="true">→</span>
+                {gettext("Create a free account")} <span aria-hidden="true">→</span>
               </.link>
             </div>
           </div>
@@ -113,9 +114,9 @@ defmodule PairingsEngineWeb.UserLive.Login do
             </h2>
             <p class="auth-card-sub">
               <%= if @current_scope do %>
-                Re-authenticate to perform sensitive actions on your account.
+                {gettext("Re-authenticate to perform sensitive actions on your account.")}
               <% else %>
-                New here? <.link navigate={~p"/users/register"} class="auth-link">{gettext("Create an account")}</.link>.
+                {gettext("New here?")} <.link navigate={~p"/users/register"} class="auth-link">{gettext("Create an account")}</.link>.
               <% end %>
             </p>
 
@@ -148,7 +149,7 @@ defmodule PairingsEngineWeb.UserLive.Login do
                 phx-mounted={JS.focus()}
               />
               <button type="submit" class="pe-btn primary auth-submit">
-                Email me a magic link <span aria-hidden="true">→</span>
+                {gettext("Email me a magic link")} <span aria-hidden="true">→</span>
               </button>
             </.form>
 
@@ -192,7 +193,7 @@ defmodule PairingsEngineWeb.UserLive.Login do
                   name={@form[:remember_me].name}
                   value="true"
                 >
-                  Log in and stay signed in <span aria-hidden="true">→</span>
+                  {gettext("Log in and stay signed in")} <span aria-hidden="true">→</span>
                 </button>
                 <button type="submit" class="pe-btn auth-submit auth-submit-ghost">
                   {gettext("Log in only this time")}

@@ -47,6 +47,7 @@ defmodule PairingsEngineWeb.Components.ArbiterCombo do
   """
 
   use Phoenix.Component
+  use Gettext, backend: PairingsEngineWeb.Gettext
 
   alias PairingsEngine.Fide.FidePlayer
   alias PairingsEngineWeb.Live.ArbiterCombo
@@ -84,7 +85,7 @@ defmodule PairingsEngineWeb.Components.ArbiterCombo do
             class="hint"
             style="margin: 2px 0 0; font-size: 0.85em"
           >
-            Uploaded file says: {@hint} - no confident FIDE match, please search or type it in.
+            {gettext("Uploaded file says:")} {@hint} - no confident FIDE match, please search or type it in.
           </p>
           <.results
             id={"arbiter-combo-#{@role}-name-results"}

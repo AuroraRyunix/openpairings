@@ -466,8 +466,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
           <h2>Officials</h2>
 
           <p class="hint" style="margin-top: 0">
-            The chief arbiter, the deputy arbiters and the organizer's and chief
-            arbiter's e-mail addresses are edited on the
+            The chief arbiter, the deputy arbiters and the organizer's and chief arbiter's e-mail addresses are edited on the
             <.link navigate={~p"/t/#{@tournament.id}/norms"}>Norms</.link>
             page, because that is what they are for - the IT3, FA1 and IA1 forms
             are built from them. (The organizer's <em>name</em>
@@ -596,13 +595,9 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
         <h2>{gettext("Share / Team")}</h2>
 
         <p class="hint" style="margin-top: 0">
-          Invite other people to this tournament by email - they can open, edit, pair, enter
-          results, print and export it, exactly like you, except they can't manage collaborators or
-          delete the tournament. They only get access once they explicitly accept the emailed
-          invitation while signed in with their own email
-          (<.link navigate={~p"/users/log-in"}>{gettext("magic link")}</.link>{gettext(
-            ") - no shared password needed."
-          )}
+          Invite other people to this tournament by email - they can open, edit, pair, enter results, print and export it, exactly like you, except they can't manage collaborators or delete the tournament. They only get access once they explicitly accept the emailed invitation while signed in with their own email (<.link navigate={
+            ~p"/users/log-in"
+          }>{gettext("magic link")}</.link>{gettext(") - no shared password needed.")}
         </p>
 
         <form id="add-collaborator-form" phx-submit="add_collaborator">
@@ -666,10 +661,9 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
         <h2>{gettext("Public pages")}</h2>
 
         <p class="hint" style="margin-top: 0">
-          Read-only standings and pairings anyone can open with the link below - no login. The
-          link is an unguessable token, but anyone who has it can see player names, ratings and
-          clubs, so treat it like a shared secret. Turn it off to take the public pages down, or
-          generate a new link to revoke one that has leaked.
+          {gettext(
+            "Read-only standings and pairings anyone can open with the link below - no login. The link is an unguessable token, but anyone who has it can see player names, ratings and clubs, so treat it like a shared secret. Turn it off to take the public pages down, or generate a new link to revoke one that has leaked."
+          )}
         </p>
 
         <div class="set-field solo">
@@ -717,8 +711,9 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
         <h2>Logo</h2>
 
         <p class="hint" style="margin-top: 0">
-          Shown on printed documents (place cards, and any other print page that has a logo slot -
-          see <.link navigate={~p"/t/#{@tournament.id}/print"}>Print</.link>). Only raster images
+          Shown on printed documents (place cards, and any other print page that has a logo slot - see <.link navigate={
+            ~p"/t/#{@tournament.id}/print"
+          }>Print</.link>). Only raster images
           (PNG, JPEG, GIF, WebP) are accepted - SVG is rejected, since it can carry scripts and this
           image is embedded straight back into pages the app serves. Capped at 2&nbsp;MB.
         </p>
@@ -774,8 +769,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
         <h2>{gettext("Export / backup")}</h2>
 
         <p class="hint" style="margin-top: 0">
-          A full JSON backup of this tournament - settings, officials, every player (including norm
-          data), rounds, pairings/results, byes and forbidden pairings. Re-importing it (from the
+          A full JSON backup of this tournament - settings, officials, every player (including norm data), rounds, pairings/results, byes and forbidden pairings. Re-importing it (from the
           <.link navigate={~p"/"}>Tournaments</.link>
           page) always creates a brand-new tournament, never overwrites this one. For a FIDE-report-shaped
           TRF16 file instead, see <.link navigate={~p"/t/#{@tournament.id}/pairings"}>Pairings</.link>{if @tournament.manual_ranking,

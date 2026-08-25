@@ -842,8 +842,9 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <h2>{gettext("Pending invitations")}</h2>
 
         <p class="hint" style="margin-top: 0">
-          Someone has invited you to collaborate on these tournaments. Accepting gives you full
-          editing access; declining removes the invitation.
+          {gettext(
+            "Someone has invited you to collaborate on these tournaments. Accepting gives you full editing access; declining removes the invitation."
+          )}
         </p>
 
         <div class="card-table-wrap">
@@ -955,8 +956,8 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
           <p :if={@new_team?} class="hint" style="margin-top: 0">
             <strong>{gettext("Reporting only.")}</strong>
-            This marks the tournament as a team event on the FIDE report. Pairing
-            is still done <em>{gettext("player by player")}</em>
+            This marks the tournament as a team event on the FIDE report. Pairing is still done
+            <em>{gettext("player by player")}</em>
             - team pairing, team standings
             and team tie-breaks are not built yet, so boards will not respect team
             membership.
@@ -990,8 +991,9 @@ defmodule PairingsEngineWeb.TournamentsLive do
               value={Map.get(@new_params, "start_date", "")}
             />
             <span class="hint">
-              Just seeds every round to this date - refine per-round (and the tournament's end
-              date, derived from those) on the Dates page after creating it.
+              {gettext(
+                "Just seeds every round to this date - refine per-round (and the tournament's end date, derived from those) on the Dates page after creating it."
+              )}
             </span>
           </label>
 
@@ -1102,9 +1104,9 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <p class="hint" style="margin-top: 0">
           SWAR has no FIDE id on file for {length(@swar_pending.unresolved)} player{if length(
                                                                                          @swar_pending.unresolved
-                                                                                       ) != 1, do: "s"}. Pick a match below if one of
-          these is the right person, or import them without a FIDE id - nothing is saved until
-          you confirm.
+                                                                                       ) !=
+                                                                                         1,
+                                                                                       do: "s"}. Pick a match below if one of these is the right person, or import them without a FIDE id - nothing is saved until you confirm.
         </p>
 
         <div
@@ -1328,9 +1330,9 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <h2>Archived</h2>
 
         <p class="hint" style="margin-top: 0">
-          Archived tournaments are kept indefinitely and stay fully readable - their pages, public
-          link, prints and exports all keep working. They just refuse every change until you
-          unarchive them. This is not the Recycle bin: nothing here is ever purged automatically.
+          {gettext(
+            "Archived tournaments are kept indefinitely and stay fully readable - their pages, public link, prints and exports all keep working. They just refuse every change until you unarchive them. This is not the Recycle bin: nothing here is ever purged automatically."
+          )}
         </p>
 
         <div class="card-table-wrap">
@@ -1394,8 +1396,9 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <h2>{gettext("Recycle bin")}</h2>
 
         <p class="hint" style="margin-top: 0">
-          Deleted tournaments stay here for 3 months, after which they are purged automatically.
-          Restore one to bring it back, or delete it permanently right away.
+          {gettext(
+            "Deleted tournaments stay here for 3 months, after which they are purged automatically. Restore one to bring it back, or delete it permanently right away."
+          )}
         </p>
 
         <div class="card-table-wrap">

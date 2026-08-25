@@ -67,8 +67,9 @@ defmodule PairingsEngineWeb.SettingsAboutLive do
       <div class="card">
         <h2>OpenPairings</h2>
         <p>
-          A FIDE Swiss / round-robin / Keizer tournament manager - pairing, results, standings,
-          tiebreaks and FIDE reporting in one place.
+          {gettext(
+            "A FIDE Swiss / round-robin / Keizer tournament manager - pairing, results, standings, tiebreaks and FIDE reporting in one place."
+          )}
         </p>
 
         <p class="hint" style="margin-bottom: 0">

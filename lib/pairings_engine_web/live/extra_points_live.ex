@@ -137,9 +137,7 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
       <div class="card">
         <h2>{gettext("Extra points")}</h2>
         <p class="hint" style="margin-top: 0">
-          Administrative bonus points (SWAR "XtPts") - e.g. a handicap head start for lower-rated
-          players. Off by default: pairing and TRF export always use game points only, and
-          standings only add extra points to the ranking once you turn this on. See
+          Administrative bonus points (SWAR "XtPts") - e.g. a handicap head start for lower-rated players. Off by default: pairing and TRF export always use game points only, and standings only add extra points to the ranking once you turn this on. See
           <.link navigate={~p"/t/#{@tournament.id}/players"}>Players</.link>
           {gettext("to edit a single player's value, or auto-assign everyone from Elo bands below.")}
         </p>
@@ -175,9 +173,9 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
           </div>
         </form>
         <p class="hint" style="margin-bottom: 0">
-          OpenPairings only supports extra points as an Elo-band bonus added to a player's
-          standing, as configured above. SWAR's other use of extra points - "speed up pairings"
-          (accelerating/seeding early-round pairings based on extra points) - is not supported.
+          {gettext(
+            "OpenPairings only supports extra points as an Elo-band bonus added to a player's standing, as configured above. SWAR's other use of extra points - \"speed up pairings\" (accelerating/seeding early-round pairings based on extra points) - is not supported."
+          )}
         </p>
       </div>
     </Layouts.app>

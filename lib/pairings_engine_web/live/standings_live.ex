@@ -320,17 +320,19 @@ defmodule PairingsEngineWeb.StandingsLive do
           style="margin-bottom: 8px; padding: 8px 12px; border: 2px solid var(--color-warning, #b45309); border-radius: 6px;"
         >
           <strong>{gettext("Manual ranking is ON.")}</strong>
-          The rank column below reflects the arbiter's
-          hand-set order, not the computed tiebreak order - this also applies on the public
-          standings page, printed standings, and the TRF export.
+          {gettext(
+            "The rank column below reflects the arbiter's hand-set order, not the computed tiebreak order - this also applies on the public standings page, printed standings, and the TRF export."
+          )}
           <span :if={@manual_incomplete?}>
-            A player was added after this was turned on and hasn't been placed yet - new players
-            sort last until you re-seed.
+            {gettext(
+              "A player was added after this was turned on and hasn't been placed yet - new players sort last until you re-seed."
+            )}
           </span>
 
           <span :if={@manual_stale?}>
-            <strong>A result changed since this order was last set - it may no longer match the
-            real standings.</strong>
+            <strong>{gettext(
+              "A result changed since this order was last set - it may no longer match the real standings."
+            )}</strong>
           </span>
         </div>
 
@@ -497,8 +499,9 @@ defmodule PairingsEngineWeb.StandingsLive do
       </div>
 
       <p :if={@rounds_paired == 0 and !@keizer?} class="hint">
-        Tiebreak columns fill in as results are entered, following the FIDE Tie-Break
-        Regulations in the order set under Settings.
+        {gettext(
+          "Tiebreak columns fill in as results are entered, following the FIDE Tie-Break Regulations in the order set under Settings."
+        )}
       </p>
 
       <div :if={@entries != [] and @keizer?} class="card table-card">
@@ -552,8 +555,9 @@ defmodule PairingsEngineWeb.StandingsLive do
       </div>
 
       <p :if={@keizer?} class="hint">
-        Keizer points, not FIDE tiebreaks - the whole ladder is recalculated from
-        results, byes and absences every time (see docs/pairing-systems.md).
+        {gettext(
+          "Keizer points, not FIDE tiebreaks - the whole ladder is recalculated from results, byes and absences every time (see docs/pairing-systems.md)."
+        )}
       </p>
     </Layouts.app>
     """

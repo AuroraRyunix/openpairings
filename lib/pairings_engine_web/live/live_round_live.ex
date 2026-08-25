@@ -205,9 +205,9 @@ defmodule PairingsEngineWeb.LiveRoundLive do
         </summary>
 
         <p class="hint">
-          Let helpers enter results from their phone, no account needed. Show them the QR code
-          or the 6-digit code. Access is result-entry only, scoped to this tournament, and you can
-          revoke it any time.
+          {gettext(
+            "Let helpers enter results from their phone, no account needed. Show them the QR code or the 6-digit code. Access is result-entry only, scoped to this tournament, and you can revoke it any time."
+          )}
         </p>
 
         <button class="pe-btn primary" phx-click="generate_enrollment">{gettext("Generate a code")}</button>
@@ -272,7 +272,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
           </div>
         <% else %>
           <p class="hint">
-            Public pages are off for this tournament.
+            {gettext("Public pages are off for this tournament.")}
             <.link navigate={~p"/t/#{@tournament.id}/settings"}>{gettext("Turn them on in Settings")}</.link>
             {gettext("to get a shareable link and QR code.")}
           </p>

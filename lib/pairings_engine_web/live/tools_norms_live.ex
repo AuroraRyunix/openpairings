@@ -649,9 +649,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
       </div>
 
       <p class="hint">
-        Nothing here is saved: uploaded files are parsed in memory only, never written to a
-        database, and this whole session (files, officials, arbiter candidate) is discarded after
-        60 minutes of inactivity or as soon as you close the tab and come back later. See
+        Nothing here is saved: uploaded files are parsed in memory only, never written to a database, and this whole session (files, officials, arbiter candidate) is discarded after 60 minutes of inactivity or as soon as you close the tab and come back later. See
         <.link navigate={~p"/"}>OpenPairings</.link>
         {gettext("if you'd rather manage a tournament with an account.")}
       </p>
@@ -664,8 +662,8 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
       >
         <h2>{gettext("Upload files")}</h2>
         <p class="hint" style="margin-top: 0">
-          Up to 10 files, 5 MB each - <code>.swar</code> or <code>.trf</code>. Two or more files
-          combine into one "Festival" report (see below).
+          Up to 10 files, 5 MB each - <code>.swar</code>
+          or <code>.trf</code>. Two or more files combine into one "Festival" report (see below).
         </p>
 
         <div
@@ -762,7 +760,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
           class="hint"
           style="padding: 4px 16px 16px; margin: 0"
         >
-          Federations shared across files: {Enum.join(shared_federations(@files), ", ")}.
+          {gettext("Federations shared across files:")} {Enum.join(shared_federations(@files), ", ")}.
         </p>
         <p
           :if={shared_federations(@files) == []}
@@ -936,8 +934,9 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
         <h2>Download</h2>
         <div :if={report_blockers(@overlay) != []} class="report-blocked">
           <strong>{gettext("Not ready to submit to FIDE.")}</strong>
-          FIDE identifies every official by FIDE ID and bounces a report missing one. Type their
-          name or FIDE ID above and pick the matching result - missing for: {Enum.join(
+          {gettext(
+            "FIDE identifies every official by FIDE ID and bounces a report missing one. Type their name or FIDE ID above and pick the matching result - missing for:"
+          )} {Enum.join(
             report_blockers(@overlay),
             ", "
           )}.

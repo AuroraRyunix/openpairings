@@ -105,8 +105,9 @@ defmodule PairingsEngineWeb.FideLive do
     <Layouts.app flash={@flash} current_scope={@current_scope} active="fide">
       <h1>{gettext("Rating lists")}</h1>
       <p class="subtitle">
-        Local copies of the FIDE and Belgian national (KBSB/FRBE) rating lists, used to look up
-        players when registering them.
+        {gettext(
+          "Local copies of the FIDE and Belgian national (KBSB/FRBE) rating lists, used to look up players when registering them."
+        )}
       </p>
 
       <div class="card">
@@ -115,9 +116,9 @@ defmodule PairingsEngineWeb.FideLive do
           <strong>{format_count(@status.player_count)}</strong>
           players in the local database.
           <%= if @status.last_sync do %>
-            Last updated: <strong>{@status.last_sync}</strong> (UTC).
+            {gettext("Last updated:")} <strong>{@status.last_sync}</strong> (UTC).
           <% else %>
-            The database is empty - download the rating list to get started.
+            {gettext("The database is empty - download the rating list to get started.")}
           <% end %>
         </p>
 
@@ -131,16 +132,18 @@ defmodule PairingsEngineWeb.FideLive do
           <p class="ok-note">{if @status.progress != "", do: @status.progress, else: "Working…"}</p>
         </div>
         <p :if={@status.status == :error} class="error-note">
-          Update failed: {@status.error}
+          {gettext("Update failed:")} {@status.error}
         </p>
 
         <p class="hint">
-          FIDE publishes a new list every month (~1.9 million players, download is around 41 MB).
-          Updating takes a minute or two.
+          {gettext(
+            "FIDE publishes a new list every month (~1.9 million players, download is around 41 MB). Updating takes a minute or two."
+          )}
         </p>
         <p :if={!@sso?} class="hint">
-          Downloading the full list is limited to SSO-signed-in accounts, so it can't be
-          triggered by just anyone with a local account.
+          {gettext(
+            "Downloading the full list is limited to SSO-signed-in accounts, so it can't be triggered by just anyone with a local account."
+          )}
         </p>
         <div class="actions">
           <button
@@ -167,7 +170,7 @@ defmodule PairingsEngineWeb.FideLive do
           <strong>{format_count(@kbsb_status.player_count)}</strong>
           players in the local database.
           <%= if @kbsb_status.last_sync do %>
-            Last updated: <strong>{@kbsb_status.last_sync}</strong> (UTC).
+            {gettext("Last updated:")} <strong>{@kbsb_status.last_sync}</strong> (UTC).
           <% else %>
             The database is empty - {if @kbsb_api_configured,
               do: "sync it from the data platform to get started.",
@@ -176,14 +179,16 @@ defmodule PairingsEngineWeb.FideLive do
         </p>
 
         <p :if={!@kbsb_api_configured} class="hint">
-          No roster source is configured. Set KBSB_API_URL and KBSB_API_KEY on the server to
-          sync the Belgian roster from the KBSB data platform - see docs/kbsb-sync.md.
+          {gettext(
+            "No roster source is configured. Set KBSB_API_URL and KBSB_API_KEY on the server to sync the Belgian roster from the KBSB data platform - see docs/kbsb-sync.md."
+          )}
         </p>
 
         <div :if={@kbsb_api_configured}>
           <p class="hint">
-            Pulls the current roster from the Odoo-synced database, including each player's club
-            name and number. Replaces the local copy entirely, and can be re-run any time.
+            {gettext(
+              "Pulls the current roster from the Odoo-synced database, including each player's club name and number. Replaces the local copy entirely, and can be re-run any time."
+            )}
           </p>
 
           <div :if={busy?(@kbsb_status)} class="progress-block">
@@ -198,7 +203,7 @@ defmodule PairingsEngineWeb.FideLive do
             </p>
           </div>
           <p :if={@kbsb_status.status == :error} class="error-note">
-            Sync failed: {@kbsb_status.error}
+            {gettext("Sync failed:")} {@kbsb_status.error}
           </p>
 
           <div class="actions">

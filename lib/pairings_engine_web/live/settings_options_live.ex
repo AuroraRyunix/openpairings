@@ -482,8 +482,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
         <h2>{gettext("Registration form")}</h2>
 
         <p class="subtitle" style="margin: 0 0 8px">
-          A public page where players enter themselves, finding their own name on the
-          FIDE list. Everyone who signs up arrives marked
+          A public page where players enter themselves, finding their own name on the FIDE list. Everyone who signs up arrives marked
           <strong>{gettext("not yet arrived")}</strong>
           -
           they are not paired until you confirm them on the Players page.
@@ -576,16 +575,11 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 install. It is <strong>experimental</strong>, and on the evidence it is also
                 very good: measured against bbpPairings (the other FIDE-endorsed
                 implementation) over two independent corpora of roughly 488 million pairings
-                each, the most recent found <strong>{gettext("zero disagreements")}</strong>. Being
-                in-process, it is also several times quicker than JaVaFo on large fields.
+                each, the most recent found <strong>{gettext("zero disagreements")}</strong>. Being in-process, it is also several times quicker than JaVaFo on large fields.
               </span>
 
               <span class="hint">
-                What "experimental" means here is not "probably wrong" - it means <strong>{gettext("not FIDE-endorsed")}</strong>. That is a paperwork status, not a quality
-                one, and it is why JaVaFo remains the default. Forbidden
-                pairings, club/federation exclusions and acceleration are all supported; any
-                TRF extension it does not implement makes it refuse the round and say so,
-                rather than quietly ignoring a rule you set.
+                What "experimental" means here is not "probably wrong" - it means <strong>{gettext("not FIDE-endorsed")}</strong>. That is a paperwork status, not a quality one, and it is why JaVaFo remains the default. Forbidden pairings, club/federation exclusions and acceleration are all supported; any TRF extension it does not implement makes it refuse the round and say so, rather than quietly ignoring a rule you set.
               </span>
 
               <span :if={@tournament.fide_homologated} class="error-note">
@@ -754,8 +748,9 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
         <h2>{gettext("Forbidden pairings")}</h2>
 
         <p class="hint" style="margin-top: 0">
-          Two players who must never be paired against each other. Applies to Swiss pairing
-          (a TRF "XXP" rule) and to Keizer; a round robin's fixed schedule ignores this by design.
+          {gettext(
+            "Two players who must never be paired against each other. Applies to Swiss pairing (a TRF \"XXP\" rule) and to Keizer; a round robin's fixed schedule ignores this by design."
+          )}
         </p>
 
         <form id="add-forbidden-pairing-form" phx-submit="add_forbidden_pairing">
@@ -821,9 +816,9 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
         <h3 style="margin-top: 24px">{gettext("Club / federation exclusions")}</h3>
 
         <p class="hint" style="margin-top: 0">
-          Automatically forbid pairing any two players who share a club or federation, instead of
-          listing every pair by hand. Applies to Swiss (TRF "XXP" rules, same as above) and to
-          Keizer; a round robin's fixed schedule ignores this by design.
+          {gettext(
+            "Automatically forbid pairing any two players who share a club or federation, instead of listing every pair by hand. Applies to Swiss (TRF \"XXP\" rules, same as above) and to Keizer; a round robin's fixed schedule ignores this by design."
+          )}
         </p>
 
         <form id="exclusion-rules-form" phx-submit="save_exclusions">
@@ -907,10 +902,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
           <p class="hint">
             <strong>{gettext("Experimental, but plausibly better.")}</strong>
-            Ainalrami is a second Dutch engine built into this app. Measured against
-            bbpPairings - the other FIDE-endorsed implementation - over two independent
-            corpora of roughly 488 million pairings each, the most recent found <strong>{gettext("zero disagreements")}</strong>. On a large field it is also several times
-            quicker, because it runs in-process with no Java to start.
+            Ainalrami is a second Dutch engine built into this app. Measured against bbpPairings - the other FIDE-endorsed implementation - over two independent corpora of roughly 488 million pairings each, the most recent found <strong>{gettext("zero disagreements")}</strong>. On a large field it is also several times quicker, because it runs in-process with no Java to start.
           </p>
 
           <p class="hint">
@@ -920,8 +912,9 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
           </p>
 
           <p class="hint">
-            Forbidden pairings, club and federation exclusions, and acceleration are all
-            supported. Anything it does not implement makes it <em>refuse</em> to pair the
+            Forbidden pairings, club and federation exclusions, and acceleration are all supported. Anything it does not implement makes it
+            <em>refuse</em>
+            to pair the
             round and say why, rather than quietly ignoring a rule you set - so a wrong
             round is not a way this can fail.
           </p>
@@ -935,8 +928,9 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
           </p>
 
           <p class="hint">
-            You can switch back to JaVaFo at any time before round one is paired, and rounds
-            already paired are never recomputed.
+            {gettext(
+              "You can switch back to JaVaFo at any time before round one is paired, and rounds already paired are never recomputed."
+            )}
           </p>
 
           <div class="actions">

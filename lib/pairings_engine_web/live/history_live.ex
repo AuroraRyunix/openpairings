@@ -545,10 +545,7 @@ defmodule PairingsEngineWeb.HistoryLive do
         <h2>{gettext("Restore points")}</h2>
 
         <p class="hint" style="margin-top: 0">
-          The states you can put this tournament back into, newest first. One is
-          saved automatically before anything irreversible, and you can save one
-          whenever you like. Everything that changed in between is folded under
-          the point it followed - open a point to read it, or use
+          The states you can put this tournament back into, newest first. One is saved automatically before anything irreversible, and you can save one whenever you like. Everything that changed in between is folded under the point it followed - open a point to read it, or use
           <.link navigate={~p"/t/#{@tournament.id}/audit"}>{gettext("Audit trail")}</.link>
           {gettext("for the full searchable log.")}
         </p>
@@ -582,8 +579,9 @@ defmodule PairingsEngineWeb.HistoryLive do
               aria-describedby="hist-save-hint"
             />
             <span id="hist-save-hint" class="hint">
-              Optional - it is how you will recognise this point later. "Before the
-              appeal", "all round 3 results in".
+              {gettext(
+                "Optional - it is how you will recognise this point later. \"Before the appeal\", \"all round 3 results in\"."
+              )}
             </span>
           </div>
           <button type="submit" class="pe-btn primary">{gettext("Save restore point")}</button>
@@ -591,9 +589,7 @@ defmodule PairingsEngineWeb.HistoryLive do
 
         <p :if={@snapshot_count == 0} class="hint hist-note">
           <strong>{gettext("No restore points yet.")}</strong>
-          One is saved automatically before anything irreversible - pairing or
-          unpairing a round, or importing results from a file. Editing players,
-          adjusting settings and typing results in by hand don't take one<span :if={
+          One is saved automatically before anything irreversible - pairing or unpairing a round, or importing results from a file. Editing players, adjusting settings and typing results in by hand don't take one<span :if={
             !@tournament.archived_at
           }>{gettext(", so save one yourself whenever you reach a state worth coming back to")}</span>.
         </p>
@@ -603,9 +599,9 @@ defmodule PairingsEngineWeb.HistoryLive do
               back" button and the page showed a save box and nothing else. --%>
         <p :if={@snapshot_count > 0 and @restorable_count == 0} class="hint hist-note">
           <strong>{gettext("One restore point, and you are on it.")}</strong>
-          There is nowhere to go back to yet - the option to go back appears on a point
-          once the tournament has moved past it. Carry on working, and save another
-          when you reach the next state worth keeping.
+          {gettext(
+            "There is nowhere to go back to yet - the option to go back appears on a point once the tournament has moved past it. Carry on working, and save another when you reach the next state worth keeping."
+          )}
         </p>
 
         <ol class="hist" style={"--hist-lanes: #{@max_lane}"}>
@@ -786,9 +782,9 @@ defmodule PairingsEngineWeb.HistoryLive do
         </div>
 
         <p class="hint">
-          It is reversible: the state you're leaving is saved as its own restore point first, so
-          you can come straight back to it. Your audit trail, collaborators and public link are
-          not affected.
+          {gettext(
+            "It is reversible: the state you're leaving is saved as its own restore point first, so you can come straight back to it. Your audit trail, collaborators and public link are not affected."
+          )}
         </p>
 
         <p>Type <strong>RESTORE</strong> {gettext("to confirm.")}</p>

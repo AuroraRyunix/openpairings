@@ -1392,7 +1392,7 @@ defmodule PairingsEngineWeb.PlayersLive do
       </div>
 
       <div :if={!@setup_complete} class="card error-note" style="display: block; margin: 12px 0">
-        Finish the tournament setup before adding players - still missing:
+        {gettext("Finish the tournament setup before adding players - still missing:")}
         <ul style="margin: 6px 0 0; padding-left: 20px">
           <li :for={{field, message} <- @missing_setup}>
             <.link navigate={setup_field_path(@tournament, field)}>{message}</.link>
@@ -1540,11 +1540,16 @@ defmodule PairingsEngineWeb.PlayersLive do
       <div :if={@players != []} class="split" id="players-grid" phx-hook="ColumnPrefs">
         <div class="card table-card split-main">
           <p class="hint" style="padding: 12px 16px 0">
-            Double-click a row to edit the player, right-click for the Players Card
-            - click a player's Pr. cell to mark that player Present/Absent for the whole event,
-            or right-click the
-            <strong>{gettext("Pr. column header")}</strong> {gettext(
-              "to set it for everyone at once."
+            <%!-- One sentence, one msgid. This was three pieces - a bare
+                  English run and two wrapped FRAGMENTS - so it rendered half
+                  Dutch. It could not have been translated properly either:
+                  Dutch puts the verb where English does not, so a translator
+                  handed "to set it for everyone at once." on its own has
+                  nowhere to put it. The automatic wrapper cannot see this,
+                  because it judges a run by how it STARTS and this one
+                  starts like a sentence and ends "or right-click the". --%>
+            {gettext(
+              "Double-click a row to edit the player, or right-click for their Players Card. Click a player's Pr. cell to mark them present or absent for the whole event, and right-click the Pr. column header to set it for everyone at once."
             )}
           </p>
 
@@ -1671,10 +1676,9 @@ defmodule PairingsEngineWeb.PlayersLive do
         <h2>{gettext("Refresh ratings")}</h2>
 
         <p class="hint">
-          Compares every registered player against the locally-synced FIDE rating
-          list (by FIDE id) and proposes a new rating and title. National ratings
-          are not touched - they come from import or manual entry. Nothing is
-          written until you Apply.
+          {gettext(
+            "Compares every registered player against the locally-synced FIDE rating list (by FIDE id) and proposes a new rating and title. National ratings are not touched - they come from import or manual entry. Nothing is written until you Apply."
+          )}
         </p>
 
         <div :if={@summary.proposals == []} class="card empty">
@@ -1742,10 +1746,9 @@ defmodule PairingsEngineWeb.PlayersLive do
         <h2>{gettext("Update clubs")}</h2>
 
         <p class="hint">
-          Compares every registered player against the locally-synced KBSB list (by
-          National id, or FIDE id when no matricule is on file) and proposes their
-          current club. Never clears a club the list has no entry for. Nothing is
-          written until you Apply.
+          {gettext(
+            "Compares every registered player against the locally-synced KBSB list (by National id, or FIDE id when no matricule is on file) and proposes their current club. Never clears a club the list has no entry for. Nothing is written until you Apply."
+          )}
         </p>
 
         <div :if={@summary.proposals == []} class="card empty">
@@ -1950,7 +1953,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; padding: 10px 12px"
         >
           <span>
-            FIDE disagrees with what's already on file:
+            {gettext("FIDE disagrees with what's already on file:")}
             <strong :for={{key, value} <- @fide_conflicts}>
               {fide_conflict_label(key)} → {fide_conflict_display(key, value)}
             </strong>
@@ -1998,7 +2001,7 @@ defmodule PairingsEngineWeb.PlayersLive do
               </span>
             </span>
             <span class="hint" style="display: block">
-              Elo used (pairing/standings): <strong>{@elo_used || "unrated"}</strong>
+              {gettext("Elo used (pairing/standings):")} <strong>{@elo_used || "unrated"}</strong>
             </span>
           </label>
 
@@ -2078,7 +2081,7 @@ defmodule PairingsEngineWeb.PlayersLive do
               }
             />
             <span :if={@fixed_board_conflicts != []} class="hint" style="display: block">
-              Also used by: {Enum.join(@fixed_board_conflicts, ", ")} - fine if they'll be paired
+              {gettext("Also used by:")} {Enum.join(@fixed_board_conflicts, ", ")} - fine if they'll be paired
               together there, otherwise double-check.
             </span>
           </label>

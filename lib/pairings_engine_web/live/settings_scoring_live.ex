@@ -213,8 +213,9 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
           </p>
 
           <p class="subtitle" style="margin: 0 0 8px">
-            FIDE's default is zero. Most opens pay half a point for the first one or two, which
-            is what the two limits below are for. SWAR calls this option "Pt ABSENT".
+            {gettext(
+              "FIDE's default is zero. Most opens pay half a point for the first one or two, which is what the two limits below are for. SWAR calls this option \"Pt ABSENT\"."
+            )}
           </p>
 
           <.setting_group>
@@ -291,11 +292,11 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
                 phx-click="vur_toggle"
               />
               <span class="set-toggle-text">
-                Treat a round sat out as a voluntary unplayed round for tiebreaks
+                {gettext("Treat a round sat out as a voluntary unplayed round for tiebreaks")}
                 <span class="hint">
-                  On (the default) = a trailing one is downgraded to a draw for opponents'
-                  Buchholz/SB, which is what C.07 does with a voluntarily unplayed round. Off =
-                  it always counts at its award value above, same as a forfeit loss.
+                  {gettext(
+                    "On (the default) = a trailing one is downgraded to a draw for opponents' Buchholz/SB, which is what C.07 does with a voluntarily unplayed round. Off = it always counts at its award value above, same as a forfeit loss."
+                  )}
                 </span>
               </span>
             </label>

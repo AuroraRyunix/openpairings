@@ -220,8 +220,9 @@ defmodule PairingsEngineWeb.SettingsSupport do
   def stale_banner(assigns) do
     ~H"""
     <p :if={@stale} class="error-note">
-      This tournament was updated elsewhere while you were editing. Saving will overwrite that
-      change with what's on this page - reload the page first if you want to see it instead.
+      {gettext(
+        "This tournament was updated elsewhere while you were editing. Saving will overwrite that change with what's on this page - reload the page first if you want to see it instead."
+      )}
     </p>
     """
   end

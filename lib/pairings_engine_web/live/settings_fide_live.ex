@@ -150,8 +150,8 @@ defmodule PairingsEngineWeb.SettingsFideLive do
           <h2>{gettext("FIDE report identifiers")}</h2>
 
           <p class="hint" style="margin-top: 0">
-            The tournament's own FIDE identifiers, used to fill the IT3 / FA1 / IA1 / IT4 report
-            forms on the <.link navigate={~p"/t/#{@tournament.id}/norms"}>Norms</.link>
+            The tournament's own FIDE identifiers, used to fill the IT3 / FA1 / IA1 / IT4 report forms on the
+            <.link navigate={~p"/t/#{@tournament.id}/norms"}>Norms</.link>
             tab. The officials, arbiters and pairing-system details for those reports live on the
             Norms tab too.
           </p>
@@ -185,10 +185,9 @@ defmodule PairingsEngineWeb.SettingsFideLive do
         <div class="card">
           <h2>{gettext("Per-round FIDE-ID ranges")}</h2>
           <p class="hint" style="margin-top: 0">
-            For splitting one event's FIDE report across rated sections - e.g. FIDE ID 89495 for
-            rounds 1-3, a different ID for rounds 4-9. When exporting a TRF whose selected rounds
-            fall entirely inside one range below, that range's ID is used instead of the
-            tournament-wide default above. Ranges may not overlap.
+            {gettext(
+              "For splitting one event's FIDE report across rated sections - e.g. FIDE ID 89495 for rounds 1-3, a different ID for rounds 4-9. When exporting a TRF whose selected rounds fall entirely inside one range below, that range's ID is used instead of the tournament-wide default above. Ranges may not overlap."
+            )}
           </p>
 
           <div :if={@rows != []} class="card-table-wrap">

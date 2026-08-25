@@ -56,8 +56,9 @@ defmodule PairingsEngineWeb.UserLive.Registration do
             <h1 class="auth-hero-title">{gettext("Create your free account.")}</h1>
 
             <p class="auth-hero-sub">
-              One account runs every event you organise - set up in seconds, no
-              credit card, invite co-arbiters whenever you like.
+              {gettext(
+                "One account runs every event you organise - set up in seconds, no credit card, invite co-arbiters whenever you like."
+              )}
             </p>
 
             <ul class="auth-features">
@@ -128,7 +129,7 @@ defmodule PairingsEngineWeb.UserLive.Registration do
                 phx-disable-with="Creating account..."
                 class="pe-btn primary auth-submit"
               >
-                Create a free account <span aria-hidden="true">→</span>
+                {gettext("Create a free account")} <span aria-hidden="true">→</span>
               </button>
             </.form>
           </div>

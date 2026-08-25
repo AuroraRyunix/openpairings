@@ -218,10 +218,9 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
           <h2>{gettext("Round dates")}</h2>
 
           <p class="hint" style="margin-top: 0">
-            One date per round (SWAR Dates tab). Leave blank if unknown; two or more rounds can
-            share the same date (e.g. a Saturday double round). The tournament's own start/end
-            date is no longer entered separately - it's just the earliest and latest date set
-            here:
+            {gettext(
+              "One date per round (SWAR Dates tab). Leave blank if unknown; two or more rounds can share the same date (e.g. a Saturday double round). The tournament's own start/end date is no longer entered separately - it's just the earliest and latest date set here:"
+            )}
           </p>
 
           <p class="hint" style="margin-top: 0">

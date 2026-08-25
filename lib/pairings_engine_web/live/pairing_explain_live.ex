@@ -1069,7 +1069,9 @@ defmodule PairingsEngineWeb.PairingExplainLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
-          <p class="subtitle" style="margin: 0">Pairing rationale for round {@round_number}</p>
+          <p class="subtitle" style="margin: 0">
+            Pairing rationale for round {@round_number}
+          </p>
         </div>
       </div>
 
@@ -1117,8 +1119,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
       />
 
       <p :if={@engine_account} class="hint" style="margin: 4px 0 12px">
-        This is a live analysis of the current data (pre-round standings, colour history and
-        pairing output). This round was paired by <strong>Ainalrami</strong>, which records what
+        This is a live analysis of the current data (pre-round standings, colour history and pairing output). This round was paired by <strong>Ainalrami</strong>, which records what
         it decided as it decides it, so
         <a href="#engine-account">{gettext("what the engine reported")}</a>
         is kept at the foot of this page - the brackets it actually built and the criteria that
@@ -1130,10 +1131,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
       </p>
 
       <p :if={is_nil(@engine_account)} class="hint" style="margin: 4px 0 12px">
-        This is a live analysis of the current data (pre-round standings, colour history and
-        pairing output), not a stored replay. The engine's internal tie-break reasoning is not
-        recorded in what it hands back, so for Swiss this shows the input state that constrained
-        the decision and the observable shape of its output (brackets, floaters, byes). Items marked
+        This is a live analysis of the current data (pre-round standings, colour history and pairing output), not a stored replay. The engine's internal tie-break reasoning is not recorded in what it hands back, so for Swiss this shows the input state that constrained the decision and the observable shape of its output (brackets, floaters, byes). Items marked
         <strong>{gettext("Worth a look")}</strong>
         below are automated data-consistency checks, not proof of
         an actual arbiting error - they flag patterns worth a second look, nothing more.
@@ -1167,8 +1165,9 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             do: "s"})
         </summary>
         <p class="hint" style="margin: 8px 0 10px">
-          The classic pairing-sheet format - starting rank vs. starting rank, board by board. The
-          bracket map below shows the same pairings with the reasoning behind them.
+          {gettext(
+            "The classic pairing-sheet format - starting rank vs. starting rank, board by board. The bracket map below shows the same pairings with the reasoning behind them."
+          )}
         </p>
         <table class="pe-table">
           <thead>
@@ -1200,12 +1199,10 @@ defmodule PairingsEngineWeb.PairingExplainLive do
       <div :if={@rationale.berger} class="card" style="margin: 8px 0">
         <h3 style="margin-top: 0">{gettext("Berger schedule")}</h3>
         <p :if={@rationale.berger.match_format} style="margin: 0">
-          This is match {@rationale.berger.match_number}, leg {@rationale.berger.leg}. The whole
-          schedule is fully determined by the number of players - there is no choice to explain.
+          This is match {@rationale.berger.match_number}, leg {@rationale.berger.leg}. The whole schedule is fully determined by the number of players - there is no choice to explain.
         </p>
         <p :if={!@rationale.berger.match_format} style="margin: 0">
-          Cycle {@rationale.berger.cycle} of {@rationale.berger.total_cycles}, schedule round {@rationale.berger.cycle_round}. The Berger table fixes every pairing in advance - this
-          round's boards are the deterministic slot, not a computed choice.
+          Cycle {@rationale.berger.cycle} of {@rationale.berger.total_cycles}, schedule round {@rationale.berger.cycle_round}. The Berger table fixes every pairing in advance - this round's boards are the deterministic slot, not a computed choice.
         </p>
       </div>
 
@@ -1217,11 +1214,9 @@ defmodule PairingsEngineWeb.PairingExplainLive do
       >
         <h3 style="margin-top: 0">{gettext("Pre-round score brackets")}</h3>
         <p class="hint" style="margin-top: 0">
-          Players grouped by their standing going into this round (highest at the top). Each line
-          is one board; a connector that slopes across bands is a floater - an odd bracket can't
-          pair entirely within itself, so it floats a player to the neighbouring bracket. Hover
-          (or tap) a pairing for its full detail. Click a legend item or a score-band label to
-          highlight just that slice of the map.
+          {gettext(
+            "Players grouped by their standing going into this round (highest at the top). Each line is one board; a connector that slopes across bands is a floater - an odd bracket can't pair entirely within itself, so it floats a player to the neighbouring bracket. Hover (or tap) a pairing for its full detail. Click a legend item or a score-band label to highlight just that slice of the map."
+          )}
         </p>
 
         <div :if={@bracket} class="pe-bracket-scroll">
@@ -1726,9 +1721,9 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         <h2>{gettext("What the engine reported")}</h2>
 
         <p class="subtitle" style="margin: 0 0 8px">
-          Reference detail, kept out of the way: the engine's own record of how it built this
-          round. Nothing here is needed to run the tournament - it is for the moment somebody
-          asks why a particular board looks the way it does.
+          {gettext(
+            "Reference detail, kept out of the way: the engine's own record of how it built this round. Nothing here is needed to run the tournament - it is for the moment somebody asks why a particular board looks the way it does."
+          )}
         </p>
 
         <p :if={match?({:changed, _}, @account_divergence)} class="error-note">
@@ -1809,10 +1804,9 @@ defmodule PairingsEngineWeb.PairingExplainLive do
               </table>
 
               <p class="hint">
-                Every criterion that scored, in ladder order, summed over this bracket's boards
-                and the boards its floats leave on. Higher is better throughout: these are what
-                the engine maximises, so a board that scores nothing on a criterion is the board
-                that gave it up.
+                {gettext(
+                  "Every criterion that scored, in ladder order, summed over this bracket's boards and the boards its floats leave on. Higher is better throughout: these are what the engine maximises, so a board that scores nothing on a criterion is the board that gave it up."
+                )}
               </p>
             </details>
 
@@ -1821,16 +1815,15 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         </div>
 
         <p class="hint">
-          The rows above are the FIDE C.04.3 criteria that actually scored, in ladder order; a
-          criterion that scored zero is not listed, because it did not come into the decision.
-          Each board carries its own share, and a bracket's totals are exactly the sum of the
-          boards beneath it.
+          {gettext(
+            "The rows above are the FIDE C.04.3 criteria that actually scored, in ladder order; a criterion that scored zero is not listed, because it did not come into the decision. Each board carries its own share, and a bracket's totals are exactly the sum of the boards beneath it."
+          )}
         </p>
 
         <p class="hint">
-          One caveat on reading a single board: the top criterion counts one per board, so every
-          board scores exactly one there and it separates nothing. It is the bracket total that
-          means something for that one.
+          {gettext(
+            "One caveat on reading a single board: the top criterion counts one per board, so every board scores exactly one there and it separates nothing. It is the bracket total that means something for that one."
+          )}
         </p>
       </div>
     </Layouts.app>

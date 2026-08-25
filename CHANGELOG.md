@@ -37,6 +37,21 @@ Each entry is tagged so a version can be skimmed:
   for their own screens is not one to impose on a visiting player reading
   the standings.
 
+- [Feature] **Another 80 interface strings translated, and the half-Dutch
+  sentences fixed.** The first pass wrapped 468 strings but only matched
+  text sitting against a tag boundary on a single line, so longer sentences
+  were left bare - and where it did fire mid-sentence it produced
+  FRAGMENTS. The Players page read "Double-click a row to edit the player
+  ... or right-click the Kolomtitel Pr. om het voor iedereen tegelijk in te
+  stellen": half English, half Dutch, in one sentence.
+
+  Sentences are now the unit. A fragment cannot be translated properly
+  anyway - Dutch puts the verb where English does not, so a translator
+  handed "to set it for everyone at once." on its own has nowhere to put
+  it. Where a sentence wraps around an inline value it is left in English
+  rather than split, which is untranslated but at least coherent; those are
+  listed in `docs/i18n.md` as the remaining work.
+
 - [Feature] **Players can request byes when they register.** The public
   form now shows one tickbox per round, so somebody who already knows they
   will miss round 1 says so while signing up instead of e-mailing the

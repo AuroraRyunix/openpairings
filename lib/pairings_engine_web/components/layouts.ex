@@ -160,8 +160,9 @@ defmodule PairingsEngineWeb.Layouts do
       <div :if={@tournament && @tournament.archived_at} class="archived-banner">
         <span>
           <strong>{gettext("This tournament is archived.")}</strong>
-          It's read-only - every change is refused until you unarchive it. Everything else
-          (viewing, printing, exporting, its public link) still works normally.
+          {gettext(
+            "It's read-only - every change is refused until you unarchive it. Everything else (viewing, printing, exporting, its public link) still works normally."
+          )}
         </span>
         <.link navigate={~p"/"} class="pe-btn">{gettext("Unarchive from Tournaments")}</.link>
       </div>

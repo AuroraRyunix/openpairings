@@ -49,8 +49,7 @@ defmodule PairingsEngineWeb.Components.It3CountsExplain do
         - CM/WCM don't count as
         titled). <strong>feds</strong>
         is the number of distinct federations in that group; <strong>host</strong>
-        is how many of them are {host_label(assigns.host_federation)}. Groups with no
-        players in them aren't shown.
+        is how many of them are {host_label(assigns.host_federation)}. Groups with no players in them aren't shown.
       </p>
 
       <div class="it3-explain-grid">
@@ -84,9 +83,9 @@ defmodule PairingsEngineWeb.Components.It3CountsExplain do
       </summary>
 
       <p class="hint" style="margin: 4px 0 8px">
-        Every distinct federation represented, biggest contingent first - FIDE norm
-        regulations often set a minimum federation count, so this is worth checking before
-        submitting.
+        {gettext(
+          "Every distinct federation represented, biggest contingent first - FIDE norm regulations often set a minimum federation count, so this is worth checking before submitting."
+        )}
       </p>
 
       <ul class="it3-explain-players">

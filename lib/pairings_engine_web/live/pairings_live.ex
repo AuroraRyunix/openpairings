@@ -1510,7 +1510,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               phx-click="offer_seats"
               phx-value-player-id={@menu.player_id}
             >
-              Put in an empty seat{if @vacancies > 1, do: "…", else: ""}
+              {gettext("Put in an empty seat")}{if @vacancies > 1, do: "…", else: ""}
             </button>
 
             <button type="button" phx-click="stage_pool_pair" phx-value-player-id={@menu.player_id}>
@@ -1611,12 +1611,13 @@ defmodule PairingsEngineWeb.PairingsLive do
         class="hint"
         style="margin-top: -8px; margin-bottom: 12px"
       >
-        Manual ranking is on for this tournament, but the TRF export's rank column reflects the
-        computed/starting-rank order, not the arbiter's hand-set display order.
+        {gettext(
+          "Manual ranking is on for this tournament, but the TRF export's rank column reflects the computed/starting-rank order, not the arbiter's hand-set display order."
+        )}
       </p>
 
       <div :if={!@setup_complete} class="card error-note" style="display: block; margin: 12px 0">
-        Finish the tournament setup before pairing - still missing:
+        {gettext("Finish the tournament setup before pairing - still missing:")}
         <ul style="margin: 6px 0 0; padding-left: 20px">
           <li :for={{field, message} <- @missing_setup}>
             <.link navigate={setup_field_path(@tournament, field)}>{message}</.link>
@@ -1629,7 +1630,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         class="card"
         style="display: block; margin: 12px 0; border-left: 3px solid var(--accent)"
       >
-        You're ready to pair. For a complete FIDE report, you may also want to fill in:
+        {gettext("You're ready to pair. For a complete FIDE report, you may also want to fill in:")}
         <ul style="margin: 6px 0 0; padding-left: 20px">
           <li :for={{field, message} <- @recommended_missing}>
             <.link navigate={setup_field_path(@tournament, field)}>{message}</.link>
@@ -1895,7 +1896,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         <h3 style="margin-top: 0">Import results (CSV) - round {@round_number}</h3>
 
         <p class="hint" style="margin-top: 0">
-          One line per board: <code>board,result</code>
+          {gettext("One line per board:")} <code>board,result</code>
           (or <code>;</code>-separated).
           Results: <code>1-0</code>, <code>0-1</code>, <code>1/2-1/2</code>
           (or <code>=</code>), <code>0-0</code>
@@ -1937,7 +1938,9 @@ defmodule PairingsEngineWeb.PairingsLive do
       </form>
 
       <p class="hint" style="margin: 8px 0">
-        Tip: click a result box and press 1 / 2 / 3 (top row or numpad, any keyboard layout) to enter results rapidly (white win / draw / black win) - focus jumps to the next board automatically.
+        {gettext(
+          "Tip: click a result box and press 1 / 2 / 3 (top row or numpad, any keyboard layout) to enter results rapidly (white win / draw / black win) - focus jumps to the next board automatically."
+        )}
         <strong>{gettext("Right-click any player")}</strong>
         {gettext("to swap them, or to mark them absent for this round.")}
       </p>
@@ -2039,8 +2042,9 @@ defmodule PairingsEngineWeb.PairingsLive do
               :if={Enum.any?(@confirm.changes, &Map.get(&1, :result_will_clear?))}
               class="pe-modal-warn"
             >
-              A recorded result will be cleared - it described a game between players who are
-              no longer both on that board.
+              {gettext(
+                "A recorded result will be cleared - it described a game between players who are no longer both on that board."
+              )}
             </p>
 
             <div :if={@confirm.frozen} class="pe-modal-warn">
@@ -2092,11 +2096,13 @@ defmodule PairingsEngineWeb.PairingsLive do
                   <p class="hint">
                     <%= cond do %>
                       <% @tournament.archived_at -> %>
-                        This tournament is archived, so no more rounds can be paired. Unarchive it
-                        first if you need to change that.
+                        {gettext(
+                          "This tournament is archived, so no more rounds can be paired. Unarchive it first if you need to change that."
+                        )}
                       <% @tournament.pairing_system == "round_robin" -> %>
-                        Press "Pair the whole tournament" to generate every round of the Berger
-                        schedule at once - round-robin doesn't pair one round at a time.
+                        {gettext(
+                          "Press \"Pair the whole tournament\" to generate every round of the Berger schedule at once - round-robin doesn't pair one round at a time."
+                        )}
                       <% @round_number == @next_pairable -> %>
                         Press "Pair round {@round_number}" to generate the {pairing_engine_description(
                           @tournament
@@ -2203,9 +2209,9 @@ defmodule PairingsEngineWeb.PairingsLive do
         <h3 style="margin-top: 0">{gettext("Hidden boards")}</h3>
 
         <p class="hint">
-          Fully-vacated boards hidden from this round's table, prints, live view and public
-          page. Hiding never renumbers anything else - un-hide any time to bring a row back
-          exactly as it was.
+          {gettext(
+            "Fully-vacated boards hidden from this round's table, prints, live view and public page. Hiding never renumbers anything else - un-hide any time to bring a row back exactly as it was."
+          )}
         </p>
 
         <ul class="pool-list">
@@ -2247,8 +2253,9 @@ defmodule PairingsEngineWeb.PairingsLive do
           <h3>Not playing round {@round_number}</h3>
 
           <p class="hint">
-            Right-click anyone here to put them in an empty seat, swap them onto a board, or
-            pair two of them together.
+            {gettext(
+              "Right-click anyone here to put them in an empty seat, swap them onto a board, or pair two of them together."
+            )}
           </p>
         </div>
 

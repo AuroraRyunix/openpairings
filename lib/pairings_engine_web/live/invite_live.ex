@@ -120,8 +120,7 @@ defmodule PairingsEngineWeb.InviteLive do
               <h2>{gettext("Wrong account")}</h2>
               <p class="hint">
                 This invitation was sent to <strong>{@invitation.email}</strong>,
-                but you're signed in as <strong>{@current_scope.user.email}</strong>.
-                Log in with the invited address to accept it.
+                but you're signed in as <strong>{@current_scope.user.email}</strong>. Log in with the invited address to accept it.
               </p>
               <div class="actions">
                 <.link navigate={~p"/"} class="pe-btn">{gettext("Go to Tournaments")}</.link>
@@ -130,9 +129,7 @@ defmodule PairingsEngineWeb.InviteLive do
               <h2>{gettext("You've been invited")}</h2>
               <p class="hint" style="margin-top: 0">
                 <strong>{@owner_email}</strong>
-                invited you to collaborate on <strong>{@tournament.name}</strong>.
-                Accepting gives you full editing access to this tournament - everything the owner
-                can do, except managing collaborators or deleting it.
+                invited you to collaborate on <strong>{@tournament.name}</strong>. Accepting gives you full editing access to this tournament - everything the owner can do, except managing collaborators or deleting it.
               </p>
               <div class="actions">
                 <button type="button" class="pe-btn primary" phx-click="accept">Accept</button>

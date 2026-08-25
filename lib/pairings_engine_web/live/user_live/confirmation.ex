@@ -31,7 +31,7 @@ defmodule PairingsEngineWeb.UserLive.Confirmation do
                 phx-disable-with="Confirming..."
                 class="pe-btn primary auth-submit"
               >
-                Confirm and stay signed in <span aria-hidden="true">→</span>
+                {gettext("Confirm and stay signed in")} <span aria-hidden="true">→</span>
               </button>
               <button
                 type="submit"
@@ -69,7 +69,7 @@ defmodule PairingsEngineWeb.UserLive.Confirmation do
                   phx-disable-with="Signing in..."
                   class="pe-btn primary auth-submit"
                 >
-                  Keep me signed in on this device <span aria-hidden="true">→</span>
+                  {gettext("Keep me signed in on this device")} <span aria-hidden="true">→</span>
                 </button>
                 <button
                   type="submit"
