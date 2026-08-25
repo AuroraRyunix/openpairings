@@ -37,8 +37,34 @@ defmodule PairingsEngine.Application do
     :ok
   end
 
-  defp skip_migrations?() do
-    # By default, sqlite migrations are run when using a release
-    System.get_env("RELEASE_NAME") == nil
+  # Migrations run at boot when this is a release, and not under `mix`, where
+  # `mix ecto.migrate` is the workflow and running them from the supervision
+  # tree would fight it.
+  #
+  # "Is this a release" used to be `RELEASE_NAME != nil`, which is what
+  # `mix phx.gen.release` writes and is true of a release started through its
+  # own `bin/<name>` script. **It is false in a Burrito binary**, which is
+  # every standalone executable this project ships: Burrito's launcher execs
+  # `erl` directly rather than going through that script, and sets
+  # `RELEASE_ROOT` and `RELEASE_SYS_CONFIG` but not `RELEASE_NAME`
+  # (`deps/burrito/src/erlang_launcher.zig`).
+  #
+  # So every binary ever built skipped its migrations, started against an
+  # empty database, and returned 500 on the first page - "no such table:
+  # users". Nobody noticed because nothing ever ran one: the binaries CI
+  # built five executables and tested none of them, and `docs/binaries.md`
+  # told you to run a migration step by hand first, through a
+  # `PairingsEngine.Release.migrate` that does not exist.
+  #
+  # `RELEASE_ROOT` is set by both kinds of release, so it is the honest test.
+  # `RELEASE_NAME` stays in the check for a plain `mix release` run, where
+  # both are set anyway - keeping it costs nothing and means this does not
+  # depend on Burrito's launcher continuing to set any particular variable.
+  defp skip_migrations? do
+    not release?()
+  end
+
+  defp release? do
+    System.get_env("RELEASE_NAME") != nil or System.get_env("RELEASE_ROOT") != nil
   end
 end

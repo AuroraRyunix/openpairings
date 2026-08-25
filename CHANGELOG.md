@@ -137,6 +137,52 @@ Each entry is tagged so a version can be skimmed:
   was to ask us. Someone cross-checking a board against SWAR should be able
   to read the answer off the screen.
 
+- [Fix] **Every standalone binary ever built skipped its own migrations and
+  served a 500 on the first page.** `no such table: users`. Downloading a
+  release, running it and opening the page did not work, and never had.
+
+  Migrations run at boot when the app detects it is a release, and the check
+  for that was `RELEASE_NAME != nil` - the line `mix phx.gen.release`
+  generates. It is true of a release started through its own `bin/<name>`
+  script and **false in a Burrito binary**, which is every executable this
+  project ships: Burrito's launcher execs `erl` directly rather than going
+  through that script, and sets `RELEASE_ROOT` but not `RELEASE_NAME`. So the
+  guard said "not a release", migrations were skipped, and the app started
+  against an empty database.
+
+  It went unnoticed because nothing ever ran one. The binaries workflow built
+  five executables and tested none of them, and the guide told you to run a
+  migration step by hand first - through a `PairingsEngine.Release.migrate`
+  that has never existed in this codebase. Two pieces of documentation and a
+  CI job all agreeing about a step that could not be performed is what a gap
+  in coverage looks like from the outside.
+
+  Now keyed on `RELEASE_ROOT`, which both kinds of release set. Found by the
+  new smoke test below, on its first run.
+
+- [Change] **The binaries are built on every push to main, and each one is
+  started before the build is called a success.** They were built on tags and
+  manual dispatch only; the last build before this was a month old, on a
+  branch, from before the engine switch. A shipped artifact built only at
+  release time is tested only at release time.
+
+  Each target now boots in local mode and is asked for a page, and the run
+  fails unless the page comes back carrying the auto-signed-in owner's
+  address. That is a thing no unit test can cover: the release evaluates
+  `config/runtime.exs` for real, inside a self-extracting wrapper, and the
+  migration bug above lived precisely in that gap. Concurrent runs on a
+  branch cancel each other so a burst of commits does not queue five runners
+  deep; tag builds never cancel.
+
+  Deliberately no `paths-ignore` for documentation: `CHANGELOG.md` is
+  compiled into the binary, so a docs-only change is not docs-only here.
+
+- [Fix] **A first local run could hit "database is locked" while creating its
+  own database.** Five pool connections racing to create the same new file
+  and set WAL on it. Locally the pool is two now - one person cannot use five
+  - which is both faster to start and a smaller race. It recovered either
+  way, since Ecto retries, but a fresh install should not have to.
+
 - [Feature] **Local mode: the standalone binary now runs on your own machine
   with one setting and nothing else.**
 

@@ -90,6 +90,15 @@ defmodule PairingsEngine.LocalModeTest do
                Path.join(dir, "openpairings.db")
     end
 
+    test "uses a small connection pool, since one person is not five", %{dir: dir} do
+      config =
+        with_env(%{"OPENPAIRINGS_LOCAL" => "1", "OPENPAIRINGS_DATA_DIR" => dir}, fn ->
+          read_prod(:prod)
+        end)
+
+      assert config[:pairings_engine][PairingsEngine.Repo][:pool_size] == 2
+    end
+
     test "an explicit setting still wins over every default", %{dir: dir} do
       config =
         with_env(

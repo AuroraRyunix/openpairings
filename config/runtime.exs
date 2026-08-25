@@ -271,7 +271,13 @@ if config_env() == :prod do
 
   config :pairings_engine, PairingsEngine.Repo,
     database: database_path,
-    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "5"),
+    # Two locally rather than five. One person cannot use five connections,
+    # and on a FIRST run they all race to create the same new file and set
+    # `journal_mode = wal` on it, which produced an intermittent
+    # "database is locked" at boot on the CI smoke run. Fewer connections,
+    # smaller race. (It recovers either way - Ecto retries - but a fresh
+    # install should not have to.)
+    pool_size: String.to_integer(System.get_env("POOL_SIZE") || (local_mode? && "2") || "5"),
     # See config/test.exs for why: rollback-journal mode lets one reader
     # starve every writer, and the adapter's 2000ms default busy_timeout is
     # too short for a multi-arbiter app with concurrent readers/writers.

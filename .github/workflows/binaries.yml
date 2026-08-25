@@ -2,11 +2,29 @@ name: Build binaries
 
 # Builds a single self-contained executable per OS/arch with Burrito, each on
 # its NATIVE runner (so the SQLite NIF is native - no cross-compile guesswork).
-# Runs on demand, and attaches the binaries to a GitHub release on a v* tag.
+#
+# Runs on EVERY push to main, not only on tags. It used to be tags plus manual
+# dispatch, and the result was a month between builds while the app changed
+# underneath them - by the time anyone looked, "do the binaries still build"
+# was a question nobody could answer without an experiment. The binaries are a
+# shipped artifact; a shipped artifact that is only built at release time is
+# only tested at release time.
+#
+# Deliberately NO `paths-ignore` for docs. CHANGELOG.md is compiled INTO the
+# binary (`PairingsEngine.Changelog` reads it via @external_resource at build
+# time), so a "docs-only" change is not docs-only here.
 on:
   push:
+    branches: ["main"]
     tags: ["v*"]
   workflow_dispatch:
+
+# A run per push, and pushing three commits in a row should not tie up five
+# runners building the first two. Tags are exempt: a release build must finish
+# even if another tag lands while it is going.
+concurrency:
+  group: binaries-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 permissions:
   contents: write
@@ -177,6 +195,11 @@ jobs:
           name: pairings_engine_${{ matrix.target }}
           path: burrito_out/*
           if-no-files-found: error
+          # A tag build's artifacts are also attached to the release below, so
+          # these are the throwaway copy - kept long enough to grab one off a
+          # branch build, not long enough to accumulate. Tag builds keep the
+          # default 90 days.
+          retention-days: ${{ startsWith(github.ref, 'refs/tags/') && 90 || 14 }}
 
       - name: Attach to release (tag builds)
         if: startsWith(github.ref, 'refs/tags/')
