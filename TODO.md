@@ -143,7 +143,12 @@ These are real, identified gaps - not yet built, and not accidentally missed:
   advance" complaint too, since the whole schedule now exists right after
   that one click.
 
-## FIDE endorsement readiness
+## FIDE endorsement readiness (pre-2026 cycle)
+
+> Written against FIDE's earlier Annex 4 checklist. Superseded in scope by
+> the 2026 Acceptance Cycle section at the top of this file - kept because
+> the shipped items below are still shipped, and the reasoning is still the
+> record of why they were done that way.
 
 Full checklist, current status per item, and the testing-harness plan live
 in [`docs/fide-endorsement.md`](docs/fide-endorsement.md) (built from FIDE's
