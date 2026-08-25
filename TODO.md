@@ -1,7 +1,70 @@
 # TODO / Roadmap
 
-Version: **0.11.1** (not 1.0 yet - the maintainer will call that explicitly).
+Version: **0.16.1** (not 1.0 yet - the maintainer will call that explicitly).
 See [`docs/features.md`](docs/features.md) for what's already shipped.
+
+## The 2026 Acceptance Cycle (dominates everything below)
+
+FIDE TEC circulated draft **VCL4THP v13** and a revised **TEC Manual** on
+2026-08-25, for consultation until **2026-09-07**. When the final versions
+publish, TEC announces a new Acceptance Cycle and **existing endorsements
+are revoked** - every vendor re-qualifies. Our feedback draft is
+[tec-feedback-2026-09.md](docs/tec-feedback-2026-09.md); it is not sent.
+
+The VCL is 226 questions with **accumulating penalty percentages, where
+over 100% is a failure**, plus hard stops that end verification on the
+spot. What follows is our own read of where we stand. It is a read, not a
+verdict - TEC verifies, we do not.
+
+### Hard failures (verification stops)
+
+- **FIDE Mode does not exist.** We have a fide_homologated flag; the VCL
+  wants a MODE (Q40-46) with warning Levels 1-5, a Level-4 double warning
+  on exit, no re-entry once exited, and a ### TRF comment recording the
+  round it was left. Half the other requirements report THROUGH this, so it
+  is the spine: build it first, or build everything else twice.
+- **Adjourned games are not implemented at all** (Q157-169). The word does
+  not appear in the codebase. Needs a result state, "counts as a draw for
+  pairing purposes", a Level-3 warning when a non-draw result is entered
+  later, and a block on final standings while any remain.
+- **Prohibited pairings can be added mid-tournament** (Q196).
+  Tournaments.add_forbidden_pairing/3 does not go through
+  ensure_unlocked/2. Cheap to fix - but see the feedback draft, where we
+  argue this should be a Level-4 warning rather than a prohibition, since
+  C.05:5.2 binds the ORGANISER to communicate, not the software to refuse.
+- **Past results are editable in any round** (Q189-191). C.04.2:4.3 allows
+  only the round immediately preceding the last one played.
+- **TRF import does not verify the imported rounds** against the pairing
+  rules (Q54). Mostly plumbing, now that a checker exists.
+
+### Accumulating penalties
+
+Over 100% fails, so these add up rather than standing alone:
+
+- Tournaments over 30 days, where a player may hold more than one rating
+  (Q210, **40%**; Q212, 35%)
+- Unrated players in rating-based tie-breaks (Q208, **32%**)
+- Consistency checks only on explicit request (Q140, **25%**)
+- Custom Rating Lists (Q117, 18%)
+- Chess960 (Q222, 15%)
+- W/D/L unrated results, games shorter than one move (Q185, 7%)
+
+### Blocked on FIDE
+
+- **TRF-26.** Required throughout (Q21 PTC input, Q217 report completeness
+  at 30%), but the Manual documents Records 162/172/299 as clarifications
+  OF a specification rather than as one. Whether it is published is the
+  main question in our feedback. We implement TRF16 today.
+
+### Where we are already strong
+
+Written down so it is not accidentally rebuilt. Q19-23 wants a free CLI
+Pairing/Tie-Break Checker AND a Random Tournament Generator, and Ainalrami
+has both. Q33's mandatory 50,000-tournament cross-test we exceed by five
+orders of magnitude. Q70-88's scoring and PAB configuration landed
+2026-08-24. Q180-184's result codes are already exact: 1/2-0, 0-1/2 and 0-0
+are supported, forfeits are restricted to the three legal codes, and the
+illegal combinations cannot be entered.
 
 ## Known gaps / deferred features
 
@@ -35,6 +98,23 @@ These are real, identified gaps - not yet built, and not accidentally missed:
   one.
 - **American (accelerated pairing) system** - explicitly dropped, not planned
   ("no one cares" - maintainer's own call).
+- **SWAR categories: value1 / value2 are merged on import** - the
+  [CATEGORIES] block holds a type integer plus two parallel 17-slot arrays.
+  SwarImport.map_categories/1 flattens both into one name list and ignores
+  the type, while SwarExport.reverse_categories/1 writes value2 blank and
+  the type always 1. Per-player CatIndex only ever indexes value1, so
+  either value2 holds boundaries (and import invents phantom categories) or
+  it continues the name list (and assignment breaks past the 16th).
+  **Unresolvable from what we have**: all three .swar fixtures in the repo
+  carry type = 0. One real club file with categories configured settles it.
+- **Print output is not translated** - print_controller.ex builds HTML
+  directly rather than through HEEx, so the gettext passes never reached
+  it. Pairing sheets, standings and place cards print in English whatever
+  the interface language is set to.
+- **41 i18n fragments left English on purpose** - sentences wrapping around
+  an inline value cannot be one gettext/1 call as written, and splitting
+  them renders half in each language. Listed with the placeholder shape
+  each needs in docs/i18n.md. Do not wrap a fragment to raise the count.
 - **SWAR presence points on pairing-allocated byes (`SW321_PreBye`)** -
   modelled now (`tournaments.presence_on_allocated_bye`,
   `Standings.bye_points/2`); if a real club file ever surfaces where this
