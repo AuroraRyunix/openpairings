@@ -121,6 +121,22 @@ Each entry is tagged so a version can be skimmed:
   a winner, and SWAR export's catch-all returned bitmask 0 and 0.0 points,
   dropping the result and the score together.
 
+- [Feature] **The pairing rationale explains Article 5.2.5, and says where
+  we differ.** When neither player held a colour preference, 5.2.5 decided
+  the board - the higher ranked player takes the initial colour if their
+  tournament pairing number is odd. The board now says so.
+
+  On a tournament paired by Ainalrami it adds the part an arbiter actually
+  needs: other programs may seat that board the other way round. They take
+  5.2.5's parity on the player's position within the bracket; we take it on
+  the tournament pairing number, which is what Article 1.1 points to. **The
+  pairing is identical either way - only who holds White differs.**
+
+  This is the one rule where the engine knowingly differs from both
+  reference implementations, and until now the only way to find that out
+  was to ask us. Someone cross-checking a board against SWAR should be able
+  to read the answer off the screen.
+
 ### Fixed
 
 - [Fix] **A player marked absent in a Swiss tournament now scores their

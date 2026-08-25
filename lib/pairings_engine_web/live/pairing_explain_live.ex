@@ -17,6 +17,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   use PairingsEngineWeb, :live_view
 
   alias PairingsEngine.{PairingRationale, Tournaments}
+  alias PairingsEngine.Tournaments.Tournament
   alias PairingsEngine.Pairing, as: Engine
   alias PairingsEngine.RoundExplanation
   alias PairingsEngine.Tournaments.Player
@@ -610,6 +611,24 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   defp dot_title(w),
     do:
       "#{w.side.player.name} - #{colour_word(w.colour)}, score #{score_str(w.side.score)}#{due_title_suffix(w)}"
+
+  # Article 5.2.5 is the last resort: it is reached only when NEITHER player
+  # holds a colour preference, which is exactly the state the rationale
+  # already records as "no colour history yet" on both sides.
+  #
+  # Worth surfacing because it is the one rule where this engine knowingly
+  # differs from both reference implementations - see
+  # docs/dispute-initial-colour.md in the Ainalrami repository. An arbiter
+  # cross-checking a board against SWAR or another program will find the
+  # colours swapped, and should be able to find out why from the app rather
+  # than from us.
+  defp article_525_board?(%{is_bye: true}), do: false
+
+  defp article_525_board?(%{white: white, black: black})
+       when is_map(white) and is_map(black),
+       do: is_nil(white.colour_due) and is_nil(black.colour_due)
+
+  defp article_525_board?(_board), do: false
 
   defp due_title_suffix(%{against_due: true}), do: " - against due colour"
   defp due_title_suffix(_), do: ""
@@ -1688,6 +1707,16 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             {gettext("Seat vacant - this board isn't finished yet.")}
           </p>
           <p :if={not b.is_bye and float_note(b)} class="pe-pair-foot">{float_note(b)}</p>
+          <p :if={article_525_board?(b)} class="pe-pair-foot pe-525">
+            {gettext(
+              "Neither player had a colour preference, so Article 5.2.5 decided this board: the higher ranked player takes the initial colour when their tournament pairing number is odd."
+            )}
+            <span :if={Tournament.engine_name(@tournament) == "Ainalrami"}>
+              {gettext(
+                "Other programs may seat this board the other way round. They read 5.2.5's parity on the player's position within the bracket; this engine reads it on the tournament pairing number, which is what Article 1.1 points to. The pairing is the same either way - only who holds White differs."
+              )}
+            </span>
+          </p>
           <p :if={not b.is_bye and b.rematch_anomaly} class="pe-warning">
             <strong>{gettext("Worth a look:")}</strong>
             {gettext(

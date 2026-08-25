@@ -46,6 +46,68 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
     {Tournaments.get_tournament!(t.id), players}
   end
 
+  # Round 1 of a fresh tournament: nobody has played, so nobody has a colour
+  # preference and every board is decided by Article 5.2.5 - the one rule
+  # where this engine knowingly differs from both reference implementations.
+  defp round_one_only(scope, engine) do
+    {:ok, t} =
+      Tournaments.create_tournament(scope, %{
+        "name" => "First",
+        "type" => "swiss",
+        "pairing_engine" => engine
+      })
+
+    [a, b] =
+      for name <- ~w(Anna Bram) do
+        {:ok, p} = Tournaments.create_player(t.id, %{"name" => name})
+        p
+      end
+
+    r1 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 1, status: "playing"})
+    board(r1, 1, a, b, "")
+
+    Tournaments.get_tournament!(t.id)
+  end
+
+  describe "Article 5.2.5" do
+    test "a board decided by 5.2.5 says so", %{conn: conn, scope: scope} do
+      t = round_one_only(scope, "javafo")
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
+
+      assert html =~ "Article 5.2.5 decided this board"
+      assert html =~ "tournament pairing number is odd"
+    end
+
+    test "the divergence is named only when Ainalrami produced the round",
+         %{conn: conn, scope: scope} do
+      # On JaVaFo the note would be a lie - JaVaFo reads 5.2.5 the same way
+      # the other references do, so its boards do NOT differ from theirs.
+      # The engine is locked once a round is paired - correctly, since
+      # C.04.2 does not allow changing pairing system mid-tournament - so
+      # each case needs its own tournament rather than a flip.
+      javafo = round_one_only(scope, "javafo")
+      {:ok, _lv, html} = live(conn, ~p"/t/#{javafo.id}/pairings/1/explain")
+      refute html =~ "Other programs may seat this board"
+
+      ainalrami = round_one_only(scope, "ainalrami")
+      {:ok, _lv, html} = live(conn, ~p"/t/#{ainalrami.id}/pairings/1/explain")
+      assert html =~ "Other programs may seat this board"
+    end
+
+    test "a board where somebody has a colour preference does not claim 5.2.5",
+         %{conn: conn, scope: scope} do
+      # 5.2.5 is the LAST resort. If either player holds a preference, an
+      # earlier sub-article decided the board and saying otherwise would send
+      # an arbiter looking for a divergence that is not there.
+      {t, _players} = three_round_swiss(scope)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/3/explain")
+
+      refute html =~ "Article 5.2.5 decided this board"
+    end
+  end
+
   defp board(round, board, white, black, result) do
     Repo.insert!(%PairingSchema{
       round_id: round.id,
