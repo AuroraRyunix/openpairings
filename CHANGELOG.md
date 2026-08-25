@@ -183,12 +183,30 @@ Each entry is tagged so a version can be skimmed:
   - which is both faster to start and a smaller race. It recovered either
   way, since Ecto retries, but a fresh install should not have to.
 
-- [Feature] **Local mode: the standalone binary now runs on your own machine
-  with one setting and nothing else.**
+- [Feature] **Local mode: the standalone binary runs on your own machine with
+  no setup at all.**
 
   ```bash
-  OPENPAIRINGS_LOCAL=1 ./pairings_engine_linux_x86_64 start
+  ./pairings_engine_linux_x86_64 start
   ```
+
+  It is the default in a binary, and it took two goes to get there. The first
+  version made you pass `OPENPAIRINGS_LOCAL=1`, so running the file the way
+  anyone actually runs a file - by running it - produced `environment
+  variable DATABASE_PATH is missing` and a 2.8 MB `erl_crash_dump`. That is a
+  server's error message shown to somebody who is not running a server.
+
+  Nobody deploys a self-extracting single-file executable to production; a
+  server gets a real release and a service unit. So a binary IS the local
+  case, and it now knows it without being told (Burrito's launcher exports
+  `__BURRITO`). `OPENPAIRINGS_LOCAL` still overrides both ways: `=1` for a
+  plain `mix release` or a dev run, `=0` to make a binary behave like a
+  server anyway.
+
+  The CI smoke test was complicit and has been fixed too: it passed
+  `OPENPAIRINGS_LOCAL=1`, which proved the flag worked and said nothing about
+  the case that broke. It now starts each binary with no configuration
+  whatsoever.
 
   A release is built for a server, and refused to start without SMTP
   credentials, a `DATABASE_PATH` and a `SECRET_KEY_BASE` - all correct for a

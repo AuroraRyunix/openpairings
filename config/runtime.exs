@@ -42,13 +42,36 @@ end
 # sensible paths, generate the secret once and keep it, and print the
 # login link to the terminal instead of mailing it.
 #
-# The safety property, and the reason this is a variable rather than a
-# guess: local mode PINS THE LISTENER TO LOOPBACK further down. A server
-# that sets it by accident serves nobody rather than serving a
-# console-login build to the internet. It never relaxes authentication -
-# the magic-link token, its expiry and its verification are untouched;
-# only the delivery changes. See `PairingsEngine.ConsoleMailer`.
-local_mode? = System.get_env("OPENPAIRINGS_LOCAL") in ["1", "true", "yes"]
+# ON BY DEFAULT IN A STANDALONE BINARY, and off everywhere else.
+#
+# It was opt-in at first, which was wrong in the way that only shows up when
+# somebody actually uses the thing: you download one file, run it, and get
+# "environment variable DATABASE_PATH is missing" followed by a 2.8 MB
+# erl_crash_dump. That is a server's error message, and the person reading
+# it is not running a server. Nobody deploys a self-extracting executable to
+# production - a server gets a real release and a systemd unit - so a
+# Burrito binary IS the local case, and asking it to be told so was asking
+# the user to know something the program already knew.
+#
+# `__BURRITO=1` is set by Burrito's own launcher on both of its start paths
+# (`deps/burrito/src/erlang_launcher.zig`), which makes it the marker rather
+# than a guess about install paths - those are overridable.
+#
+# `OPENPAIRINGS_LOCAL` still wins in BOTH directions: `=1` turns it on for a
+# plain `mix release` or a dev run, `=0` turns it off inside a binary for
+# anyone who really does want to point one at a server config.
+#
+# The safety property is unchanged and is what makes the default safe to
+# flip: local mode PINS THE LISTENER TO LOOPBACK further down, and the
+# auto-sign-in additionally re-checks per request that the connection came
+# from this machine. A binary run somewhere unexpected serves nobody rather
+# than serving a no-login build to the network.
+local_mode? =
+  case System.get_env("OPENPAIRINGS_LOCAL") do
+    value when value in ["1", "true", "yes"] -> true
+    value when value in ["0", "false", "no"] -> false
+    _ -> System.get_env("__BURRITO") == "1"
+  end
 
 # Where a local run keeps its database and its generated secret. OTP's own
 # per-OS answer: AppData\Local on Windows, Library/Application Support on

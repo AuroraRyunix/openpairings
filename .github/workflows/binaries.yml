@@ -98,12 +98,18 @@ jobs:
       # Config.Reader but never through a real BEAM start with a real
       # self-extracting wrapper around it.
       #
-      # Local mode is what makes this checkable at all: it needs no SMTP, no
-      # database path and no secret, so the binary can be started with one
-      # variable and asked for a page. The assertion is that the page comes
-      # back AND carries the auto-signed-in owner's address, which is the
-      # end-to-end version of what local_owner_session_test.exs checks at the
-      # plug.
+      # Started with NO configuration - no OPENPAIRINGS_LOCAL, nothing but a
+      # scratch data directory and a port to keep runners isolated. That is
+      # deliberate: the first version of this passed `OPENPAIRINGS_LOCAL=1`,
+      # which proved the flag worked and said nothing about what happens when
+      # somebody just runs the file. Which is what they do, and it crashed -
+      # "environment variable DATABASE_PATH is missing" plus a crash dump.
+      #
+      # So the binary now defaults to local mode (it exports `__BURRITO`, and
+      # a self-extracting executable is not a server), and this step is the
+      # thing that would have caught that: run it the way a person runs it.
+      # The assertion is that the page comes back AND carries the
+      # auto-signed-in owner's address.
       - name: Smoke test the binary (Unix)
         if: runner.os != 'Windows'
         shell: bash
@@ -113,7 +119,6 @@ jobs:
           echo "starting $bin"
           chmod +x "$bin"
 
-          export OPENPAIRINGS_LOCAL=1
           export OPENPAIRINGS_DATA_DIR="$RUNNER_TEMP/op-smoke"
           export PORT=4001
 
@@ -154,7 +159,6 @@ jobs:
           $bin = (Get-ChildItem burrito_out -File | Select-Object -First 1).FullName
           Write-Host "starting $bin"
 
-          $env:OPENPAIRINGS_LOCAL = "1"
           $env:OPENPAIRINGS_DATA_DIR = Join-Path $env:RUNNER_TEMP "op-smoke"
           $env:PORT = "4001"
 

@@ -67,15 +67,24 @@ MIX_ENV=prod BURRITO_TARGET=macos_aarch64 mix release
 
 The binary lands in `burrito_out/` (e.g. `burrito_out/pairings_engine_macos_aarch64`).
 
-## Running it locally (`OPENPAIRINGS_LOCAL=1`)
+## Running it locally (the default)
 
-For one person on their own machine, set one variable and nothing else:
+Run it. That is the whole setup:
 
 ```bash
-OPENPAIRINGS_LOCAL=1 ./pairings_engine_macos_aarch64 start
+./pairings_engine_macos_aarch64 start
 ```
 
-That is the whole setup. Local mode:
+A standalone binary is in **local mode by default** - it is a single file
+somebody downloaded onto their own computer, and nobody deploys one of those
+to a server, so it does not make you say so. (It knows because Burrito's
+launcher exports `__BURRITO`.)
+
+`OPENPAIRINGS_LOCAL` overrides it either way: `=1` turns local mode on for a
+plain `mix release` or a dev run, `=0` turns it off inside a binary if you
+really do want to point one at a server configuration.
+
+Local mode:
 
 - **has no login at all.** There is nobody to tell apart from anybody else,
   so the first request signs you in as this machine's owner - an account
@@ -95,6 +104,12 @@ That is the whole setup. Local mode:
   `~/.local/share/OpenPairings` on Linux). Override with
   `OPENPAIRINGS_DATA_DIR`, or point `DATABASE_PATH` somewhere specific.
 - **serves `http://localhost:4000`**, and `PORT` moves it.
+
+Before this was the default, running the binary with no environment gave you
+`environment variable DATABASE_PATH is missing` and a multi-megabyte
+`erl_crash_dump` - a server's error, shown to somebody who is not running a
+server. The CI smoke test now starts each binary with no configuration at
+all, for exactly that reason.
 
 Migrations run at boot in any release, so the database is created and
 brought up to date on first start. There is nothing to run first.

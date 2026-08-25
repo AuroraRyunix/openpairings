@@ -123,6 +123,58 @@ defmodule PairingsEngine.LocalModeTest do
     end
   end
 
+  describe "a standalone binary, with nothing set at all" do
+    # `__BURRITO=1` is what Burrito's launcher exports, so this is what
+    # double-clicking the downloaded executable actually looks like.
+    test "is in local mode without being told", %{dir: dir} do
+      config =
+        with_env(%{"__BURRITO" => "1", "OPENPAIRINGS_DATA_DIR" => dir}, fn ->
+          read_prod(:prod)
+        end)
+
+      endpoint = config[:pairings_engine][PairingsEngineWeb.Endpoint]
+
+      assert endpoint[:http][:ip] == {127, 0, 0, 1}
+      assert endpoint[:server] == true
+      assert config[:pairings_engine][:local_mode] == true
+      assert config[:pairings_engine][PairingsEngine.Repo][:database]
+    end
+
+    test "does not demand DATABASE_PATH, which is what crashed the first one", %{dir: dir} do
+      # The bug this exists for: running the binary with no environment gave
+      # "environment variable DATABASE_PATH is missing" and a crash dump. It
+      # is a server's requirement, and a self-extracting executable is not a
+      # server.
+      config =
+        with_env(%{"__BURRITO" => "1", "OPENPAIRINGS_DATA_DIR" => dir}, fn ->
+          read_prod(:prod)
+        end)
+
+      assert config[:pairings_engine][PairingsEngine.Repo][:database] ==
+               Path.join(dir, "openpairings.db")
+    end
+
+    test "can still be told to behave like a server", %{dir: _dir} do
+      config =
+        with_env(
+          %{
+            "__BURRITO" => "1",
+            "OPENPAIRINGS_LOCAL" => "0",
+            "DATABASE_PATH" => "/srv/op.db",
+            "SECRET_KEY_BASE" => String.duplicate("k", 64),
+            "SMTP_USERNAME" => "someone@example.com",
+            "SMTP_PASSWORD" => "hunter2"
+          },
+          fn -> read_prod(:prod) end
+        )
+
+      endpoint = config[:pairings_engine][PairingsEngineWeb.Endpoint]
+
+      assert endpoint[:http][:ip] == {0, 0, 0, 0, 0, 0, 0, 0}
+      assert config[:pairings_engine][:local_mode] == false
+    end
+  end
+
   describe "the console mailer" do
     import ExUnit.CaptureIO
 
@@ -164,6 +216,25 @@ defmodule PairingsEngine.LocalModeTest do
   end
 
   describe "without it, nothing changes" do
+    test "a plain release is not local mode just because nothing was set" do
+      # No OPENPAIRINGS_LOCAL, no __BURRITO: a `mix release` on a server.
+      config =
+        with_env(
+          %{
+            "DATABASE_PATH" => "/srv/op.db",
+            "SECRET_KEY_BASE" => String.duplicate("k", 64),
+            "SMTP_USERNAME" => "someone@example.com",
+            "SMTP_PASSWORD" => "hunter2"
+          },
+          fn -> read_prod(:prod) end
+        )
+
+      assert config[:pairings_engine][:local_mode] == false
+
+      assert config[:pairings_engine][PairingsEngineWeb.Endpoint][:http][:ip] ==
+               {0, 0, 0, 0, 0, 0, 0, 0}
+    end
+
     test "a server run still binds every interface and still demands SMTP" do
       config =
         with_env(
