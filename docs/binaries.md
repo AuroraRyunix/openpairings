@@ -67,6 +67,48 @@ MIX_ENV=prod BURRITO_TARGET=macos_aarch64 mix release
 
 The binary lands in `burrito_out/` (e.g. `burrito_out/pairings_engine_macos_aarch64`).
 
+## Two shapes, and why
+
+| download | what it is | when |
+|---|---|---|
+| `pairings_engine_<target>` | one self-contained executable | you want a single file |
+| `openpairings_portable_<target>` | a folder you unzip, runtime inside | **antivirus ate the other one** |
+
+**Start with the portable one if you are on Windows.** The single-file build
+is nicer to hand somebody, but it gets deleted by antivirus - not flagged,
+not quarantined with a prompt: removed from disk before it ran once,
+observed with Symantec. Nothing is wrong with it. An unsigned executable
+carrying a compressed payload, which unpacks a runtime into AppData and
+spawns processes, is byte-for-byte what a dropper looks like, and a
+heuristic engine has no way to tell the difference.
+
+The real fix on Windows is an Authenticode signature, which since 2023 needs
+a certificate on a hardware token or a cloud HSM - Azure Trusted Signing is
+the cheap route at roughly $10/month, a normal OV certificate is a few
+hundred a year. Until that is worth paying for, the portable release costs
+nothing and does not look like anything: a directory of DLLs, a bundled
+runtime and a `.bat` is not a shape antivirus hunts for.
+
+Both are built by the same CI run, both carry the whole Erlang runtime, and
+both are started and checked before the build is called a success.
+
+### The portable release
+
+Unzip it and run the launcher next to the `bin` folder:
+
+- **Windows** - double-click `OpenPairings.bat`
+- **macOS / Linux** - `./openpairings.sh`
+
+Same as the binary from there: `http://localhost:4000`, no login, database in
+your user data directory. The launcher exists because a plain release cannot
+detect local mode for itself - the binary reads `__BURRITO`, and this is
+exactly the build that is not one - so the launcher sets it explicitly.
+`bin/pairings_engine_portable start` also works and gives you a server-shaped
+run wanting `DATABASE_PATH`.
+
+It is about 150 MB unpacked, most of which is the Erlang runtime and the
+FIDE rating tooling.
+
 ## Running it locally (the default)
 
 Run it. That is the whole setup:

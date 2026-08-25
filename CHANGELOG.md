@@ -183,6 +183,28 @@ Each entry is tagged so a version can be skimmed:
   - which is both faster to start and a smaller race. It recovered either
   way, since Ecto retries, but a fresh install should not have to.
 
+- [Feature] **A second download shape, because antivirus deletes the first
+  one.** `openpairings_portable_<target>` is the same application as an
+  ordinary Erlang release: a folder you unzip, runtime inside, with a
+  launcher beside it - `OpenPairings.bat` on Windows, `openpairings.sh`
+  elsewhere. Unzip, run the launcher, same localhost, same no-login, same
+  everything.
+
+  The single-file binary is nicer to hand somebody and it is not always
+  possible to hand it to them. Symantec removed one from disk before it ran
+  once - not a warning, not a quarantine prompt, deleted. Nothing is wrong
+  with the binary: an unsigned executable carrying a compressed payload,
+  which unpacks a runtime into AppData and spawns processes, is byte-for-byte
+  what a dropper looks like, and a heuristic engine cannot tell them apart.
+
+  Code signing is the real answer on Windows and needs a certificate on a
+  hardware token or a cloud HSM. This needs neither, and a directory of DLLs
+  with a `.bat` beside it is not a shape anything hunts for. Both shapes are
+  built by the same CI run, both bundle the Erlang runtime, and both are now
+  **started and asked for a page** before the build is called a success - the
+  portable one through its launcher rather than around it, since the launcher
+  is the part that is new.
+
 - [Feature] **Local mode: the standalone binary runs on your own machine with
   no setup at all.**
 

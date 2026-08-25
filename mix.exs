@@ -36,6 +36,30 @@ defmodule PairingsEngine.MixProject do
             windows_x86_64: [os: :windows, cpu: :x86_64]
           ]
         ]
+      ],
+      # The same application, shipped as an ordinary Erlang release: a folder
+      # you unzip, with a launcher next to it. No self-extracting stub.
+      #
+      # This exists because the Burrito binary gets deleted by antivirus.
+      # Not "warned about" - Symantec removed it from disk before it ran
+      # once. Nothing is wrong with it: an unsigned executable carrying a
+      # compressed payload, which unpacks a runtime into AppData and spawns
+      # processes, is byte-for-byte what a dropper looks like, and heuristics
+      # cannot tell the difference. Code signing is the real answer on
+      # Windows and costs money and a hardware token; this costs nothing and
+      # works today, because a directory of DLLs and a .bat is not a shape
+      # anything hunts for.
+      #
+      # `include_erts: true` is the default and the point - the runtime ships
+      # inside, so there is still nothing to install.
+      pairings_engine_portable: [
+        applications: [pairings_engine: :permanent],
+        steps: [:assemble],
+        include_executables_for: [:unix, :windows],
+        # `bin/pairings_engine_portable start` works, but says nothing about
+        # local mode - which a plain release cannot detect, since `__BURRITO`
+        # is exactly what it is not. The launchers make it explicit.
+        overlays: ["rel/portable"]
       ]
     ]
   end
