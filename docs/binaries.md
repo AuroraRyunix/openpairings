@@ -46,10 +46,16 @@ OPENPAIRINGS_LOCAL=1 ./pairings_engine_macos_aarch64 start
 
 That is the whole setup. Local mode:
 
+- **has no login at all.** There is nobody to tell apart from anybody else,
+  so the first request signs you in as this machine's owner - an account
+  named after your OS user and hostname
+  (`ann@her-laptop.local`), created on first start and reused forever after,
+  so your tournaments are still there next time. Nothing to remember, no
+  email, no password.
 - **needs no SMTP.** A server refuses to boot without it, because magic-link
-  login has no other way to reach you. Locally the link is printed in the
-  terminal you started the binary from - the login flow itself is unchanged,
-  same token, same expiry, same verification, only the delivery differs.
+  login has no other way to reach you. Nothing here needs to reach you; the
+  few emails the app can still send (a collaborator invitation) are printed
+  to the terminal instead.
 - **generates `SECRET_KEY_BASE` once** and keeps it, so a restart does not
   log you out.
 - **puts the database** in the OS's own per-user data directory
@@ -63,11 +69,20 @@ Migrations run at boot in any release, so the database is created and
 brought up to date on first start. There is nothing to run first.
 
 **It binds to loopback only, and you cannot turn that off** - not with
-`PHX_HOST`, not with anything. A mode that prints login links to a console
-must not be reachable from another machine, so the pin is in
-`config/runtime.exs` rather than in the instructions. If you want other
-people on the network to reach this, you want a normal server run, not this
-mode.
+`PHX_HOST`, not with anything. A mode that signs in whoever asks must not be
+reachable from another machine, so the pin is in `config/runtime.exs` rather
+than in the instructions.
+
+That is not the only guard. The sign-in itself checks, per request, that the
+connection physically came from this machine, and ignores `X-Forwarded-For`
+while doing it - so a reverse proxy in front of the app, or a later change to
+how the endpoint is configured, cannot turn local mode into an open door. Both
+conditions have to hold.
+
+If you want other people on the network to reach this - a second arbiter at
+the same event, results entry from a phone - you want a normal server run,
+where everyone has their own account. Local mode is for one person on one
+computer, and it is not a shortcut to skip setting up the other thing.
 
 No Java is needed for either mode. Pairing is done by Ainalrami, which is
 Elixir and is inside the binary; JaVaFo is the only thing that ever wanted a

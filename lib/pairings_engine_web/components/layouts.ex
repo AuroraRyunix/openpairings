@@ -147,7 +147,14 @@ defmodule PairingsEngineWeb.Layouts do
           </span>
           <span class="user-email">{@current_scope.user.email}</span>
           <.link navigate={~p"/users/settings"}>{gettext("Settings")}</.link>
-          <.link href={~p"/users/log-out"} method="delete">{gettext("Log out")}</.link>
+          <%!-- No log out on a local install. There is no second account to
+                log in as, and the next request would sign the same owner
+                straight back in - a control that visibly does nothing is
+                worse than no control. See
+                `PairingsEngineWeb.UserAuth.local_owner_session/2`. --%>
+          <.link :if={!local_mode?()} href={~p"/users/log-out"} method="delete">
+            {gettext("Log out")}
+          </.link>
         <% else %>
           <.link navigate={~p"/users/log-in"} class="topbar-signin">{gettext("Log in")}</.link>
         <% end %>
@@ -273,6 +280,10 @@ defmodule PairingsEngineWeb.Layouts do
   # strip, e.g. "3 days ago" / "just now" / "never synced". `last_sync/0`
   # returns the raw `datetime('now')` string stored in the `meta` table
   # (UTC, "YYYY-MM-DD HH:MM:SS", no "T") or nil if the list has never synced.
+  # Whether this is a single-user local install (`OPENPAIRINGS_LOCAL=1`).
+  # False everywhere else, including every server deployment.
+  defp local_mode?, do: Application.get_env(:pairings_engine, :local_mode, false) == true
+
   def sync_label(nil), do: "never synced"
 
   def sync_label(timestamp) when is_binary(timestamp) do

@@ -67,6 +67,30 @@ defmodule PairingsEngine.Accounts.User do
     |> put_change(:confirmed_at, DateTime.utc_now(:second))
   end
 
+  @doc """
+  The account a local-mode run signs in as.
+
+  Same shape as `keycloak_changeset/2` and for the same reason: an identity
+  asserted by something outside the app, pre-confirmed because there is no
+  mailbox to confirm through and nothing to confirm - being able to run the
+  binary IS the credential.
+
+  It deliberately skips `validate_not_sso_domain/1`: that blocklist stops
+  someone registering an `@zerotwo.cloud` address by email when they should
+  be coming through SSO, which is a rule about a hosted deployment and has
+  nothing to say about a machine-local account.
+  """
+  def local_owner_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:email])
+    |> validate_required([:email])
+    |> validate_format(:email, ~r/^[^@,;\s]+@[^@,;\s]+$/,
+      message: "must have the @ sign and no spaces"
+    )
+    |> validate_length(:email, max: 160)
+    |> put_change(:confirmed_at, DateTime.utc_now(:second))
+  end
+
   defp validate_email(changeset, opts) do
     changeset =
       changeset

@@ -16,6 +16,13 @@ defmodule PairingsEngineWeb.Router do
     # After :fetch_session (it reads and writes the session) and before any
     # rendering, so the very first byte is already in the right language.
     plug PairingsEngineWeb.Plugs.Locale
+    # Local mode only, and only for a request that physically came from this
+    # machine: establishes the owner's session so there is no login screen on
+    # a single-user local install. Inert in every other configuration - see
+    # `PairingsEngineWeb.UserAuth.local_owner_session/2`. Before the scope
+    # fetch, so the scope it builds is the signed-in one on the first request
+    # rather than the one after a redirect.
+    plug :local_owner_session
     plug :fetch_current_scope_for_user
   end
 

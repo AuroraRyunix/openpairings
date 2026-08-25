@@ -150,17 +150,29 @@ Each entry is tagged so a version can be skimmed:
   generates the secret once and keeps it, puts the database in the OS's own
   per-user data directory, and serves `http://localhost:4000`.
 
-  **Login works without a mail server.** The magic-link email is printed in
-  the terminal you started it from instead of being sent. The login flow
-  itself is untouched - same token, same expiry, same verification - because
-  a mode that logs in whoever asks is one environment variable away from
-  being on somewhere it should not be. Only the delivery changes.
+  **There is no login.** A local install has one user by definition - the
+  person at the keyboard - so it does not ask who you are. The first request
+  signs you in as an account named after your OS user and hostname
+  (`ann@her-laptop.local`), created on first start and reused after that, so
+  your tournaments are still there next time. The account exists at all only
+  because tournament ownership, the audit trail and invitations are keyed on
+  a user; it is cheaper to give local mode a real account than to teach all
+  of that about a user who is not there. The log-out button is hidden, since
+  there is nothing to log out of.
 
-  **It binds to loopback and will not be talked out of it**, not by
-  `PHX_HOST` or anything else. A build that prints login links to a console
-  must not answer another machine, so that is pinned in the config rather
-  than left to the instructions. A server that sets the variable by mistake
-  stops answering the internet, which is the safe direction to fail in.
+  This is a session, not a bypass: a genuine token is issued the same way a
+  magic link would issue one, so scopes, sudo mode, expiry and LiveView all
+  behave exactly as they always did. Nothing else in the app knows local mode
+  exists.
+
+  **Two independent conditions gate it, and both must hold.** The setting has
+  to be on, *and* the request has to have physically come from this machine -
+  checked per request against the peer address, ignoring `X-Forwarded-For`,
+  which the client controls. The listener is also pinned to loopback and will
+  not be talked out of it, not by `PHX_HOST` or anything else. The per-request
+  check is not redundant with the pin: a reverse proxy in front of the app, or
+  a later change to how the endpoint is built, breaks the pin's guarantee and
+  leaves the other one standing.
 
   What made this worth doing now is the engine switch: pairing no longer
   needs a JVM. Ainalrami is Elixir and is *inside* the binary, so a local

@@ -1,6 +1,7 @@
 defmodule PairingsEngineWeb.UserAuth do
   use PairingsEngineWeb, :verified_routes
 
+  import Bitwise, only: [>>>: 2]
   import Plug.Conn
   import Phoenix.Controller
 
@@ -62,6 +63,62 @@ defmodule PairingsEngineWeb.UserAuth do
     |> delete_resp_cookie(@remember_me_cookie, @remember_me_options)
     |> redirect(to: ~p"/")
   end
+
+  @doc """
+  In local mode, signs the visitor in as the machine's owner.
+
+  A local run is one person on their own computer. There is no one to tell
+  apart from anyone else, so there is no login: the first request
+  establishes a session for `PairingsEngine.Accounts.local_owner!/0` and
+  every page just works.
+
+  ## It is a real session, not a bypass
+
+  This does not skip authentication - it performs it. A genuine session
+  token is issued through `create_or_extend_session/3`, exactly as a
+  magic-link login would, so everything downstream is unchanged: the scope,
+  sudo mode, token expiry, LiveView's `on_mount`, logging out. Nothing else
+  in the app learns that local mode exists, which is the point. A flag
+  threaded through the auth checks themselves would be a second code path
+  through the part of the app that must not have two.
+
+  ## Two independent conditions, and both must hold
+
+  1. `:local_mode` is set, which only `config/runtime.exs` does, only when
+     `OPENPAIRINGS_LOCAL` is set.
+  2. **The request came from loopback.** Checked here, per request, against
+     `conn.remote_ip`.
+
+  The second is not redundant. Local mode already pins the listener to
+  127.0.0.1, so in a correctly configured run nothing else can reach this
+  at all - but "correctly configured" is the assumption a bypass must not
+  rest on. A reverse proxy in front of the app, a future change to how the
+  endpoint is built, a deployment that sets the variable by mistake: each
+  of those breaks the config-level guarantee, and this check survives all
+  three. `X-Forwarded-For` is deliberately NOT consulted - that header is
+  attacker-controlled, and the whole question here is which machine the
+  connection physically came from.
+
+  Placed before `fetch_current_scope_for_user/2` in the browser pipeline,
+  and does nothing at all when a session already exists, so an explicit log
+  out stays logged out until the next fresh session.
+  """
+  def local_owner_session(conn, _opts) do
+    if local_mode?() and loopback?(conn.remote_ip) and get_session(conn, :user_token) == nil do
+      create_or_extend_session(conn, Accounts.local_owner!(), %{})
+    else
+      conn
+    end
+  end
+
+  defp local_mode?, do: Application.get_env(:pairings_engine, :local_mode, false) == true
+
+  # IPv4 127.0.0.0/8, IPv6 ::1, and IPv4-mapped IPv6 (::ffff:127.0.0.1),
+  # which is what a dual-stack listener reports for a v4 loopback client.
+  defp loopback?({127, _, _, _}), do: true
+  defp loopback?({0, 0, 0, 0, 0, 0, 0, 1}), do: true
+  defp loopback?({0, 0, 0, 0, 0, 0xFFFF, ab, _cd}) when ab >>> 8 == 127, do: true
+  defp loopback?(_), do: false
 
   @doc """
   Authenticates the user by looking into the session and remember me token.

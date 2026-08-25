@@ -84,6 +84,11 @@ local_secret = fn ->
   end
 end
 
+# Read back by `PairingsEngineWeb.UserAuth.local_owner_session/2`. Set from
+# here and nowhere else, so "is this a local run" has exactly one answer and
+# it is decided at boot rather than per request.
+config :pairings_engine, :local_mode, local_mode?
+
 # Configure outgoing email.
 #
 # SMTP credentials (Gmail) come from the .env loader above or from the real
@@ -321,9 +326,15 @@ if config_env() == :prod do
       database  #{database_path}
       address   http://#{host}:#{port}
 
-    Login emails are printed here instead of being sent. Enter your address
-    on the sign-in page and the link will appear in this window.
+    There is no login - this is your machine, so you are already signed in.
+    Reachable from this computer only.
     """)
+
+    # Deliberately does NOT print the owner's address by calling
+    # `PairingsEngine.Accounts.local_owner_email/0`. runtime.exs is evaluated
+    # before the application starts, so reaching into app modules from here
+    # turns a cosmetic line into a way for boot to fail. The address is on
+    # screen in the top bar a second later anyway.
   end
 
   # ## SSL Support

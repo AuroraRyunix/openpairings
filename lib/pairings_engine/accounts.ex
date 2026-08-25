@@ -141,6 +141,73 @@ defmodule PairingsEngine.Accounts do
     end
   end
 
+  ## Local mode
+
+  @doc """
+  The single account a local-mode run uses, created on first sign-in.
+
+  Local mode is one person on their own machine (see
+  `PairingsEngineWeb.UserAuth.local_owner_session/2`), so there is nothing
+  for an account system to decide: whoever can run the binary is the owner.
+  The row still exists because everything downstream - tournament ownership,
+  the audit trail, collaborator invitations - is keyed on a user, and giving
+  local mode a real account is far less invasive than teaching all of that
+  about a user that is not there.
+
+  Named after the machine, so exports and audit entries say something
+  truthful about where they came from rather than "local@localhost".
+  Resolved by email, so restarting the binary returns the same account and
+  the same tournaments.
+  """
+  def local_owner! do
+    email = local_owner_email()
+
+    case get_user_by_email(email) do
+      %User{} = user ->
+        user
+
+      nil ->
+        %User{}
+        |> User.local_owner_changeset(%{email: email})
+        |> Repo.insert!()
+    end
+  end
+
+  @doc """
+  The address `local_owner!/0` uses: the OS user at this machine's hostname.
+
+  `.local` is reserved for exactly this (RFC 6762) - it cannot resolve on
+  the public internet, so an address built from it can never collide with a
+  real one, and a tournament file exported from a local install carries an
+  arbiter address that is visibly machine-local rather than plausibly real.
+  """
+  def local_owner_email do
+    user =
+      System.get_env("USER") || System.get_env("USERNAME") || "arbiter"
+
+    host =
+      case :inet.gethostname() do
+        {:ok, name} -> to_string(name)
+        _ -> "localhost"
+      end
+
+    "#{sanitize_local_part(user)}@#{sanitize_local_part(host)}.local"
+  end
+
+  # Usernames and hostnames can carry spaces, accents and the @ the email
+  # format check forbids ("Ann O'Brien" is a perfectly ordinary Windows
+  # account name). Reduced to something an address can hold, never empty.
+  defp sanitize_local_part(value) do
+    cleaned =
+      value
+      |> String.downcase()
+      |> String.replace(~r/[^a-z0-9._-]+/u, "-")
+      |> String.trim("-")
+      |> String.slice(0, 64)
+
+    if cleaned == "", do: "arbiter", else: cleaned
+  end
+
   ## Settings
 
   @doc """
