@@ -97,7 +97,12 @@ both are started and checked before the build is called a success.
 Unzip it and run the launcher next to the `bin` folder:
 
 - **Windows** - double-click `OpenPairings.bat`
-- **macOS / Linux** - `./openpairings.sh`
+- **macOS / Linux** - `chmod +x openpairings.sh && ./openpairings.sh`
+
+  The `chmod` is needed because GitHub's artifact upload zips without Unix
+  permissions - the executable bit is set in the repository and does not
+  survive the round trip. Nothing to be done about it from this side; a
+  release attached to a tag has the same limitation.
 
 Same as the binary from there: `http://localhost:4000`, no login, database in
 your user data directory. The launcher exists because a plain release cannot

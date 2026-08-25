@@ -103,13 +103,6 @@ jobs:
       # needs neither and works today.
       - run: mix release pairings_engine_portable --overwrite
 
-      - name: Package the portable release
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p portable_out
-          cp -r _build/prod/rel/pairings_engine_portable "portable_out/openpairings"
-
 
       # Prove the thing we just built actually starts. A Burrito build can
       # succeed and still produce a binary that dies at boot - the release
@@ -224,8 +217,9 @@ jobs:
           # Through the LAUNCHER, not the release script underneath it: the
           # launcher is what sets local mode here, so testing around it would
           # test everything except the part that is new.
-          chmod +x portable_out/openpairings/openpairings.sh
-          portable_out/openpairings/openpairings.sh > "$RUNNER_TEMP/portable.log" 2>&1 &
+          rel_dir=_build/prod/rel/pairings_engine_portable
+          chmod +x "$rel_dir/openpairings.sh"
+          "$rel_dir/openpairings.sh" > "$RUNNER_TEMP/portable.log" 2>&1 &
           pid=$!
 
           body=""
@@ -252,7 +246,7 @@ jobs:
           $env:PORT = "4002"
           $log = Join-Path $env:RUNNER_TEMP "portable.log"
 
-          $launcher = "portable_out\openpairings\OpenPairings.bat"
+          $launcher = "_build\prod\rel\pairings_engine_portable\OpenPairings.bat"
           $proc = Start-Process -FilePath "cmd.exe" -ArgumentList "/c", $launcher -PassThru `
                     -RedirectStandardOutput $log -RedirectStandardError "$log.err" -NoNewWindow
 
@@ -281,7 +275,12 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: openpairings_portable_${{ matrix.target }}
-          path: portable_out/*
+          # Straight from where mix assembled it. There used to be a copy
+          # step here, purely to rename the folder inside the zip, and it
+          # failed on Windows - Git Bash's `cp -r` on the ERTS bin directory
+          # gives "cannot create regular file .../erts-17.0.5/bin/erl: File
+          # exists". A cosmetic step is not worth a platform-specific bug.
+          path: _build/prod/rel/pairings_engine_portable
           if-no-files-found: error
           retention-days: ${{ startsWith(github.ref, 'refs/tags/') && 90 || 14 }}
 
