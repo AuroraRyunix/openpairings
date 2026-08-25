@@ -813,8 +813,8 @@ defmodule PairingsEngine.StandingsTest do
     end
   end
 
-  describe "Tournament.absent_counts_as_vur - opt-in only, off by default (FIDE has no 'absent' concept)" do
-    test "off (default): a trailing absence counts at its award value, not upgraded to a draw" do
+  describe "Tournament.absent_counts_as_vur - on by default, opt OUT for the strict reading" do
+    test "off: a trailing absence counts at its award value, not upgraded to a draw" do
       em = fixture_with_absent_opponent(false)
       # Opp's adjusted score = 1.0 (R1 win) + 0.0 (R2 absence, points_loss,
       # not treated as voluntary so it stays at its raw award value).
@@ -826,6 +826,17 @@ defmodule PairingsEngine.StandingsTest do
       # Opp's adjusted score = 1.0 (R1 win) + 0.5 (R2 absence now inside
       # the trailing-voluntary window, counted as a draw per Art. 16.3).
       assert em.tiebreaks["BH"] == 1.5
+    end
+
+    test "and ON is what a tournament nobody configured actually gets" do
+      # Both tests above pass the flag explicitly, so neither of them would
+      # have noticed the default moving - and it did move, while the field's
+      # own comment went on saying "never on by default" for a while. Assert
+      # the value an arbiter who touches nothing receives.
+      assert %Tournament{}.absent_counts_as_vur == true
+
+      tournament = Repo.insert!(%Tournament{name: "Default", type: "swiss", rounds_count: 2})
+      assert tournament.absent_counts_as_vur == true
     end
   end
 

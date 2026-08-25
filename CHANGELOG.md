@@ -14,7 +14,7 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
-## [Unreleased]
+## [0.17.0] - 2026-08-25
 
 ### Added
 
@@ -139,6 +139,60 @@ Each entry is tagged so a version can be skimmed:
 
 ### Fixed
 
+These first four came out of a deliberate sweep of the codebase for
+inconsistencies rather than from a bug report, prompted by the engine
+switch: if Ainalrami is what pairs every tournament now, the input it is
+handed had better be right. The sweep looked for one shape in particular -
+the same rule written down in two places, where the two can drift apart
+without anything failing. It found five, four of them live.
+
+- [Fix] **A game that was played but not rated was handed to the pairing
+  engine as a loss.** The crosstable scored it correctly - an unrated win
+  pays what a rated win pays - but the score written into the pairing file
+  came from a second, hand-written mapping that listed six result codes and
+  sent everything else to `points_loss`. `W` and `D` were not on the list.
+
+  So a player who won an unrated game was given to the engine a full point
+  light. That is not a display problem: score is what decides which bracket
+  you are paired in, so they were bracketed too low and played the wrong
+  opponents, while the standings on the next screen showed the point they
+  had actually earned.
+
+- [Fix] **An absence worth half a point was worth nothing to the pairing
+  engine.** Same cause, bigger blast radius. A bye was scored from its
+  letter in the file, and the letter for an absence is `Z`, read as a loss.
+  But `Z` is also written for a requested zero-point bye, and an absence may
+  be worth `abs_value` - half a point, in most clubs that set it, capped by
+  round and by count.
+
+  Exactly the tournaments that configure a paid absence are the ones it went
+  wrong for: the arbiter sets "half a point for a round sat out", the
+  standings honour it, and the file says zero. Byes are now scored by the
+  same function the crosstable calls, so there is one answer to the question
+  instead of two.
+
+- [Fix] **A pairing-allocated bye in a SWAR 3-2-1 event dropped its presence
+  points on the way to the engine.** The crosstable pays `bye_value` plus
+  presence points; the engine was told `bye_value` alone.
+
+- [Fix] **The explanation on the pairing-rationale page could have described
+  a different pairing than the one on the board.** The options handed to the
+  engine and the options handed to its explain pass were two separately
+  written lists that happened to contain the same three keys. They now are
+  the same list. Nothing was wrong yet - the next key added to one of them
+  would have been.
+
+- [Change] **The "absent counts as a voluntary unplayed round" setting is on
+  by default, and now says so.** The field's own comment read "never on by
+  default" directly above `default: true`. The default is correct - an
+  absence and a requested bye are one event under two names, and splitting
+  them for tie-break purposes split one thing in half - so the comment was
+  the thing that was wrong, along with two test names describing the old
+  default and no test asserting the real one. There is one now.
+
+  Behaviour is unchanged; this entry exists because the documentation said
+  the opposite of the code, which is worse than saying nothing.
+
 - [Fix] **A player marked absent in a Swiss tournament now scores their
   absence award.** They used to score nothing at all, whatever the
   tournament paid. Players absent for the whole event were filtered out of
@@ -189,6 +243,24 @@ Each entry is tagged so a version can be skimmed:
   absent from. Reachable in practice by restoring a tournament from a
   backup, or by importing one, since nothing in the Swiss interface sets
   `start_round` by hand.
+
+- [Change] **The new-tournament form names the engine.** Picking "Swiss"
+  now says, underneath, that Ainalrami will pair it and which edition of the
+  rules that means. The engine was previously only visible in Settings,
+  which is not where the choice is being made.
+
+- [Change] **The interface no longer claims a FIDE endorsement.** Four
+  places said it - the engine picker, the note beside it on a homologated
+  tournament, and both halves of the switch dialog. FIDE has announced that
+  existing endorsements are revoked in the coming Acceptance Cycle, so it
+  was a claim with a shelf life, and an app should not be trading on one.
+
+  What replaced it is the thing that is both true and actually decides the
+  question: Ainalrami implements C.04.3 as it stands from 1 February 2026,
+  JaVaFo implements the 2022 edition it was last built for, and on a
+  homologated event that difference is what you would be defending. The
+  reasons to prefer JaVaFo are stated without the badge - most tournament
+  software ships it, so its boards are the ones that reconcile.
 
 - [Change] **Ainalrami is the default Swiss engine now.** A new Swiss
   tournament is paired by our own engine unless you go and pick JaVaFo; it

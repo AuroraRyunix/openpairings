@@ -106,12 +106,18 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # requested bye or a forfeit) is treated as a voluntary unplayed round
     # for tiebreak purposes (FIDE C.07 Art. 16: trailing occurrences get
     # downgraded to a draw for opponents' Buchholz/SB, and it becomes
-    # eligible for the Art. 16.5.1 Cut-1 priority). FIDE's own rules have
-    # no "absent" concept at all, so the default is off: an absence always
-    # counts at its configured award value, same as a forfeit loss - the
-    # strict/FIDE-safe reading. An arbiter can opt in from Settings for the
-    # more lenient (SWAR-historical) treatment; never on by default. See
-    # `PairingsEngine.Standings.add_bye_records/3`.
+    # eligible for the Art. 16.5.1 Cut-1 priority). FIDE's own rules have no
+    # "absent" concept at all, which is why this is a setting rather than a
+    # constant.
+    #
+    # ON by default. An absence and a requested bye are the same event under
+    # two names - you only ever know somebody is out BEFORE the round is
+    # paired because they told you, and an unannounced no-show gets paired
+    # and forfeits on their board instead. Treating the two differently for
+    # tie-break purposes split one thing in half. An arbiter can turn it off
+    # from Settings for the stricter reading, where an absence always counts
+    # at its configured award value like a forfeit loss.
+    # See `PairingsEngine.Standings.add_bye_records/3`.
     field :absent_counts_as_vur, :boolean, default: true
     # SWAR `SW321_PreBye` (manual §5.16, "Add presence points for bye
     # games") - when true, a pairing-allocated bye pays `presence_value` ON
@@ -1173,12 +1179,22 @@ defmodule PairingsEngine.Tournaments.Tournament do
   it is pairing a different tournament. Until this existed, a tournament set
   to 3-1-0 was scored by us at 3-1-0 and paired by the engine at 1/half/0.
 
-  One limitation, stated rather than hidden: `abs_value` carries two caps
-  (`abs_jusque`, `abs_nbfois`) and the engine's map has nowhere to put them,
-  so a capped absence is passed at its uncapped value. That degrades
-  gracefully - the engine reconciles a player's stated total against its own
-  recomputation and keeps the stated one when they disagree - but it is a
-  gap, not a design.
+  One limitation, stated rather than hidden, and it is really one limitation
+  wearing two hats: TRF has a single letter, `Z`, for three different things
+  this app scores differently - a requested zero-point bye
+  (`presence_value || points_loss`), an absence (`abs_value`, capped by
+  `abs_jusque` and `abs_nbfois`), and a round with no row at all
+  (`points_loss`). A per-result map cannot express that, so `zero_point_bye`
+  is set to the absence value, which is the one people actually configure,
+  and a capped absence or a 3-2-1 requested bye is passed at a value the
+  crosstable would not agree with.
+
+  It degrades gracefully rather than silently: the score the engine BRACKETS
+  by comes from the file's own score column (`Pairing.player_points/2`),
+  which is exact in all three cases. This map is only consulted where a
+  per-round value is needed - reconstructing what a player had before round
+  N, and deciding float direction - so the error is bounded to those. It is
+  a gap, not a design.
   """
   def engine_point_system(%__MODULE__{} = t) do
     loss = t.points_loss || 0.0
@@ -1187,7 +1203,11 @@ defmodule PairingsEngine.Tournaments.Tournament do
       win: t.points_win || 1.0,
       draw: t.points_draw || 0.5,
       loss: loss,
-      pairing_allocated_bye: t.bye_value || 1.0,
+      # SWAR 3-2-1's `SW321_PreBye` pays presence points ON TOP of the bye
+      # value, and `Standings.bye_points/4` has always added them - so the
+      # engine was told a smaller number than the crosstable used for the
+      # same bye. Nil for every tournament that is not a 3-2-1 import.
+      pairing_allocated_bye: (t.bye_value || 1.0) + allocated_bye_bonus(t),
       # A forfeit loss pays an ordinary loss here; the TRF code is what marks
       # it unplayed, not the value.
       forfeit_loss: loss,
@@ -1195,6 +1215,12 @@ defmodule PairingsEngine.Tournaments.Tournament do
       zero_point_bye: t.abs_value || loss
     }
   end
+
+  defp allocated_bye_bonus(%__MODULE__{presence_on_allocated_bye: true, presence_value: v})
+       when is_number(v),
+       do: v
+
+  defp allocated_bye_bonus(_t), do: 0.0
 
   @doc """
   The name of the program that actually pairs this tournament, for anywhere

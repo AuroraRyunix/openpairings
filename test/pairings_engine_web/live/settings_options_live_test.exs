@@ -366,14 +366,19 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
       # Neither engine is blocked here, and neither is allowed SILENTLY.
       # The block was removed deliberately (2026-08-21) because the exposure
       # is paperwork rather than pairing quality; what replaced it has to
-      # keep saying so, now from the other side - the default is the engine
-      # the endorsement does NOT name.
+      # keep saying so.
       refute html =~ ~r/value="ainalrami"[^>]*disabled/s
       refute html =~ ~r/value="javafo"[^>]*disabled/s
 
-      assert html =~ "The endorsement this app currently holds names JaVaFo"
-      assert html =~ "superseded 2022 rules"
-      assert html =~ "revoked in the coming Acceptance Cycle"
+      # The note used to rest on OpenPairings' own endorsement. That claim is
+      # gone from the whole interface (2026-08-25) - FIDE has said existing
+      # endorsements are revoked in the coming Acceptance Cycle, so it was a
+      # promise with a shelf life, and the app should not be trading on it.
+      # What is left is the thing that is actually true and actually decides
+      # the question: which edition of the rules each engine implements.
+      refute html =~ "endorse"
+      assert html =~ "1 February 2026"
+      assert html =~ "2022"
     end
 
     test "switching a homologated tournament to JaVaFo still asks first", %{

@@ -390,11 +390,10 @@ defmodule PairingsEngine.Standings do
             colour: nil,
             points: points,
             played: false,
-            # "absent" only counts as voluntary when the tournament has
-            # explicitly opted in (Tournament.absent_counts_as_vur) - FIDE
-            # has no "absent" concept, so the default treats it like a
-            # forfeit loss (always awarded value, never downgraded). See
-            # that field's doc for the full reasoning.
+            # "absent" counts as voluntary unless the tournament has opted
+            # OUT (Tournament.absent_counts_as_vur, on by default). An
+            # absence and a requested bye are one event under two names, so
+            # they get one answer here. See that field's doc.
             voluntary:
               bye.type in ["requested-half", "requested-zero"] or
                 (bye.type == "absent" and tournament.absent_counts_as_vur),

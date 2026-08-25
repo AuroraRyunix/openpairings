@@ -27,7 +27,7 @@ defmodule PairingsEngine.Pairing do
 
   import Ecto.Query
   require Logger
-  alias PairingsEngine.{Repo, Trf, Tournaments, Exclusions}
+  alias PairingsEngine.{Repo, Standings, Trf, Tournaments, Exclusions}
   alias PairingsEngine.Tournaments.{Player, Round, Pairing, Tournament}
 
   def javafo_jar do
@@ -978,6 +978,14 @@ defmodule PairingsEngine.Pairing do
 
         engine_opts = [
           expected_rounds: parsed.tournament[:number_of_rounds],
+          # `Ainalrami.Trf.parse/1` lifts every `XXP` line into
+          # `tournament[:forbidden_pairs]`, but the engine takes them as an
+          # OPTION rather than reading them off the parsed struct - so
+          # omitting this parsed them and threw them away. Every explicit
+          # forbidden pairing and every club/federation exclusion was
+          # silently ignored, which is the exact failure the extension guard
+          # below exists to prevent: a complete, legal-looking round that
+          # happens to seat two players the arbiter separated.
           forbidden_pairs: parsed.tournament[:forbidden_pairs],
           # What a result is WORTH. Omitting this paired every tournament on
           # the standard 1/half/0 system regardless of what the arbiter had
@@ -987,21 +995,12 @@ defmodule PairingsEngine.Pairing do
           point_system: Tournament.engine_point_system(tournament)
         ]
 
-        raw_pairs =
-          parsed.players
-          |> Ainalrami.Pairing.pair_next_round(
-            expected_rounds: parsed.tournament[:number_of_rounds],
-            point_system: Tournament.engine_point_system(tournament),
-            # `Ainalrami.Trf.parse/1` lifts every `XXP` line into
-            # `tournament[:forbidden_pairs]`, but the engine takes them as an
-            # OPTION rather than reading them off the parsed struct - so
-            # omitting this parsed them and threw them away. Every explicit
-            # forbidden pairing and every club/federation exclusion was
-            # silently ignored, which is the exact failure the extension guard
-            # below exists to prevent: a complete, legal-looking round that
-            # happens to seat two players the arbiter separated.
-            forbidden_pairs: parsed.tournament[:forbidden_pairs]
-          )
+        # `engine_opts` verbatim, NOT a second list spelling out the same
+        # three keys. They were written out twice and happened to agree; the
+        # next option added to one of them would not have, and the failure
+        # mode is quiet - `explain_round/3` would describe a pairing that is
+        # not the one the arbiter is looking at.
+        raw_pairs = Ainalrami.Pairing.pair_next_round(parsed.players, engine_opts)
 
         # Ground truth, taken while the decision is fresh. `explain_round/3`
         # analyses a pairing it is GIVEN rather than emitting one as it
@@ -1773,21 +1772,69 @@ defmodule PairingsEngine.Pairing do
   defp player_birth_date(%{birth_year: year}) when is_integer(year), do: "#{year}/00/00"
   defp player_birth_date(_), do: nil
 
-  @doc "Sums `games`' TRF result codes into game points, per `tournament`'s point values."
+  @doc """
+  Sums `games` into the score that goes in TRF columns 81-84, per
+  `tournament`'s point values.
+
+  That number is not decoration: it is what a pairing engine reads to decide
+  which score bracket a player belongs in. It therefore has to equal what
+  `PairingsEngine.Standings` puts in the crosstable, and for a long time it
+  did not.
+
+  Two ways it drifted. The result codes were matched by hand and everything
+  unlisted fell through to `points_loss`, which silently swallowed `W` and
+  `D` - a game that was PLAYED but is not rated, worth exactly what its
+  rated twin is worth. An unrated win was banked as a zero, so the engine
+  put that player a full point too low and paired them against the wrong
+  people, while the crosstable next to it showed the point.
+
+  And a bye was scored from its TRF LETTER rather than from what it was. The
+  letter cannot carry the difference: `Z` is written both for a requested
+  zero-point bye and for an absence, and an absence may be worth `abs_value`
+  - half a point in most clubs that use it, capped by round and by count.
+  Scoring the letter paid every absence `points_loss`, so exactly the
+  tournaments that configure a half-point absence had a file disagreeing
+  with their own standings.
+
+  The rows built by `games_per_player/2` carry `points_kind` (the bye's real
+  type) and `round`, so a bye is now scored by `Standings.bye_points/4` -
+  the same function the crosstable calls, rather than a second opinion about
+  the same rule. `cumulative_absences` is counted along the list instead of
+  re-queried; the list is one entry per round in round order, which is what
+  makes that equivalent.
+  """
   def player_points(games, t) do
-    games
-    |> Enum.map(fn g ->
-      case g.result do
-        "1" -> t.points_win
-        "+" -> t.points_win
-        "=" -> t.points_draw
-        "H" -> t.points_draw
-        "F" -> t.points_win
-        "U" -> t.bye_value
-        _ -> t.points_loss
-      end
-    end)
-    |> Enum.sum()
+    {points, _absences} =
+      Enum.reduce(games, {0.0, 0}, fn g, {sum, absences} ->
+        absences = if Map.get(g, :points_kind) == "absent", do: absences + 1, else: absences
+        {sum + game_points(g, t, absences), absences}
+      end)
+
+    points
+  end
+
+  # The bye kinds, and ONLY those. `points_kind` is also set to "game" on a
+  # played board, and matching on the key alone sent every real game to
+  # `bye_points/4`'s catch-all and scored the whole tournament as zeroes.
+  # Listing the kinds rather than excluding "game" means a kind added later
+  # falls back to the result code - today's behaviour - instead of silently
+  # becoming a loss.
+  @bye_kinds ~w(requested-half requested-zero absent pairing-allocated zero)
+
+  # A bye knows what kind it is; ask the crosstable's own rule.
+  defp game_points(%{points_kind: kind} = g, t, absences) when kind in @bye_kinds,
+    do: Standings.bye_points(kind, t, Map.get(g, :round), absences)
+
+  # Anything else is a game with a result code. `W`/`D`/`L` are TRF16's
+  # letter spellings of `1`/`=`/`0` for a played but unrated game and belong
+  # with their twins, not in the catch-all.
+  defp game_points(g, t, _absences) do
+    case g.result do
+      r when r in ~w(1 + F W) -> t.points_win
+      "U" -> t.bye_value
+      r when r in ~w(= H D) -> t.points_draw
+      _ -> t.points_loss
+    end
   end
 
   # Orders `players` the way JaVaFo's Dutch-system engine expects its input:
@@ -1971,7 +2018,10 @@ defmodule PairingsEngine.Pairing do
                 opponent_id: nil,
                 colour: nil,
                 result: bye_code(bye_type),
-                points_kind: bye_type
+                points_kind: bye_type,
+                # For `abs_jusque` - SWAR's "pay an absence only up to round
+                # N". `player_points/2` reads it; nothing serialises it.
+                round: round.number
               }
 
             true ->
@@ -1980,7 +2030,8 @@ defmodule PairingsEngine.Pairing do
                 opponent_id: nil,
                 colour: nil,
                 result: "Z",
-                points_kind: "zero"
+                points_kind: "zero",
+                round: round.number
               }
           end
         end)

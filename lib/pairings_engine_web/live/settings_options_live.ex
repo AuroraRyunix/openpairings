@@ -615,7 +615,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               <span :if={@tournament.fide_homologated} class="error-note">
                 <.rich_text text={
                   gettext(
-                    "This tournament is marked %[flag] (Settings → FIDE). Both engines are allowed. The endorsement this app currently holds names JaVaFo, which pairs by the superseded 2022 rules; Ainalrami pairs by the current ones but is not itself endorsed. FIDE has announced that existing endorsements will be revoked in the coming Acceptance Cycle, so neither choice is a settled paperwork position - it is yours to make."
+                    "This tournament is marked %[flag] (Settings → FIDE). Both engines are allowed, and the choice is which edition of the rules its boards follow: Ainalrami pairs by the one in force since 1 February 2026, JaVaFo by the 2022 one it was last built for. Neither is a settled paperwork position - it is yours to make."
                   )
                 }>
                   <:part name="flag"><strong>{gettext("FIDE-homologated")}</strong></:part>
@@ -956,7 +956,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
           <p class="hint">
             <.rich_text text={
               gettext(
-                "There are real reasons to choose it. The endorsement this app currently holds names JaVaFo, and an arbiter reconciling against another program that also uses it will find %[matching] boards. FIDE has announced that existing endorsements will be revoked in the coming Acceptance Cycle, so that reason has a shelf life."
+                "There are real reasons to choose it. Most tournament software has shipped JaVaFo for years, so an arbiter reconciling this event against another program will find %[matching] boards - and a board that matches is a board nobody has to argue about."
               )
             }>
               <:part name="matching"><strong>{gettext("matching")}</strong></:part>
@@ -973,17 +973,11 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             <strong>{gettext("This tournament is FIDE-homologated.")}</strong>
             <.rich_text text={
               gettext(
-                "OpenPairings is endorsed on the basis that it pairs %[via], so a rated round paired by Ainalrami was not produced by the engine that endorsement names. The pairings themselves are not the risk - the paperwork is, and it is yours. Proceed only if you are willing to defend that if the report is queried."
+                "That does not stop you, but it raises the stakes on the paragraph above: this event will be %[rated], and its boards will have been paired by the 2022 edition of the rules rather than the one in force. If a result is queried, that is the answer you will be giving."
               )
             }>
-              <:part name="via"><em>{gettext("through JaVaFo")}</em></:part>
+              <:part name="rated"><em>{gettext("submitted for rating")}</em></:part>
             </.rich_text>
-          </p>
-
-          <p class="hint">
-            {gettext(
-              "You can switch back to JaVaFo at any time before round one is paired, and rounds already paired are never recomputed."
-            )}
           </p>
 
           <div class="actions">

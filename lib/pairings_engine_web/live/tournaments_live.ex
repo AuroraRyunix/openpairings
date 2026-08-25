@@ -936,6 +936,21 @@ defmodule PairingsEngineWeb.TournamentsLive do
             </select>
           </label>
 
+          <%!-- Named here rather than only in Settings because this is where
+                the choice is actually made, and because "Swiss" alone stopped
+                identifying anything once the system label and the engine name
+                came apart. Swiss only: round robin and Keizer name their
+                engine inside the system label already. --%>
+          <p :if={@new_pairing_system == "swiss"} class="hint" style="margin-top: 0">
+            <.rich_text text={
+              gettext(
+                "Paired by %[engine], our own Dutch engine, following C.04.3 as it stands in the edition effective 1 February 2026. You can change the engine per tournament in Settings."
+              )
+            }>
+              <:part name="engine"><strong>Ainalrami</strong></:part>
+            </.rich_text>
+          </p>
+
           <%!-- The checkbox only sets the FIDE classification on the report
                 (092: "Team: Swiss System"). It does NOT change pairing:
                 `Pairing.pair_next_round/1` never branches on team type, so

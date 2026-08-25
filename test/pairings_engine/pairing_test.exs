@@ -1922,6 +1922,45 @@ defmodule PairingsEngine.PairingTest do
       refute away.id in seated_player_ids(tournament, 1)
     end
 
+    test "the points an absence pays are the points the pairing engine is told about" do
+      # The crosstable and the file the engine reads are computed by two
+      # different functions, and they disagreed. `Standings` paid an absence
+      # `abs_value`; `Pairing.player_points/2` scored the TRF letter, and the
+      # letter for an absence is Z, which it read as a loss.
+      #
+      # So a club paying half a point for a round sat out had a player shown
+      # on 0.5 in the standings and handed to the engine on 0.0 - one bracket
+      # too low, paired against the wrong people, with nothing on screen to
+      # suggest it. Exactly the tournaments that configure the feature are
+      # the ones it went wrong for.
+      # A player absent for ONE round, not the whole event - the case that
+      # reaches the engine at all. A player marked absent for the tournament
+      # never receives a pairing number and so is not in the file; this one
+      # sits out round 1 and is paired again in round 2, carrying the round-1
+      # score the engine brackets them by.
+      tournament =
+        Repo.insert!(%Tournament{name: "Paid", type: "swiss", rounds_count: 5, abs_value: 0.5})
+
+      for n <- 1..4, do: insert_player(tournament, "P#{n}", [])
+      away = insert_player(tournament, "Away", absent_rounds: "1")
+
+      {:ok, _round} = Pairing.pair_next_round(tournament)
+
+      tournament = Repo.reload!(tournament)
+      away = Repo.reload!(away)
+      [row] = Pairing.trf_player_rows(tournament, [away])
+
+      assert row.points == 0.5
+
+      standings_points =
+        tournament
+        |> PairingsEngine.Standings.standings()
+        |> Enum.find(&(&1.player.id == away.id))
+        |> Map.fetch!(:points)
+
+      assert row.points == standings_points
+    end
+
     test "a round-specific absence and a whole-tournament one record the same kind" do
       # They are the same event. You only ever know somebody is absent
       # before the round is paired because they told you - an unannounced

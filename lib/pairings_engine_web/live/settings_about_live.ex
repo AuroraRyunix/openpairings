@@ -111,6 +111,7 @@ defmodule PairingsEngineWeb.SettingsAboutLive do
     </Layouts.app>
     """
   end
+
   # Round robin and Keizer name their engine inside the system label
   # already ("Round robin (Berger)"). Swiss does not, because there the
   # engine is a choice - so say which one this tournament is actually on.

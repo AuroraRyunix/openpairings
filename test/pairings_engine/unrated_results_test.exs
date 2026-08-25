@@ -110,6 +110,41 @@ defmodule PairingsEngine.UnratedResultsTest do
       end
     end
 
+    test "the score column matches the standings, not just the result letter" do
+      # The letter and the score are written by two different functions, and
+      # only the letter was ever asserted. `Pairing.player_points/2` mapped
+      # "1"/"+"/"="/"H"/"F"/"U" by hand and sent everything else to
+      # `points_loss` - so an unrated WIN, correctly written as W in the
+      # round column, was banked as zero four columns to the left.
+      #
+      # That number is the score the pairing engine reads. A player who won
+      # an unrated game was handed to it a full point light, which puts them
+      # in the wrong score bracket and pairs them against the wrong people.
+      # The crosstable, computed by `Standings`, said one thing and the file
+      # said another.
+      {tournament, _, _} = fixture("1-0U")
+      {:ok, trf} = TrfExport.export(tournament)
+
+      scores =
+        trf
+        |> String.split(~r/\r?\n/)
+        |> Enum.filter(&String.starts_with?(&1, "001"))
+        |> Map.new(fn line ->
+          {String.trim(String.slice(line, 14, 32)), String.trim(String.slice(line, 80, 4))}
+        end)
+
+      assert scores == %{"White" => "1.0", "Black" => "0.0"}
+    end
+
+    test "an unrated draw banks a half point in the file too" do
+      {tournament, _, _} = fixture("1/2-1/2U")
+      {:ok, trf} = TrfExport.export(tournament)
+
+      for line <- trf |> String.split(~r/\r?\n/) |> Enum.filter(&String.starts_with?(&1, "001")) do
+        assert String.trim(String.slice(line, 80, 4)) == "0.5"
+      end
+    end
+
     test "the rated twin still exports as 1 and 0, unchanged" do
       # The new codes must not have captured the ordinary path on the way in.
       {tournament, _, _} = fixture("1-0")
