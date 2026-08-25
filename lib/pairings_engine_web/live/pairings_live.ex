@@ -27,7 +27,10 @@ defmodule PairingsEngineWeb.PairingsLive do
     {"1-0FF", "1-0 FF (White wins by forfeit)"},
     {"0-1FF", "0-1 FF (Black wins by forfeit)"},
     {"0-0FF", "0-0 FF (double forfeit)"},
-    {"0-0", "0-0 (both lose, game played)"}
+    {"0-0", "0-0 (both lose, game played)"},
+    {"1-0U", "1-0 (played, not rated)"},
+    {"0-1U", "0-1 (played, not rated)"},
+    {"1/2-1/2U", "½-½ (played, not rated)"}
   ]
 
   @impl true

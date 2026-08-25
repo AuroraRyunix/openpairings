@@ -85,7 +85,10 @@ defmodule PairingsEngineWeb.Components.ArbiterCombo do
             class="hint"
             style="margin: 2px 0 0; font-size: 0.85em"
           >
-            {gettext("Uploaded file says:")} {@hint} - no confident FIDE match, please search or type it in.
+            {gettext(
+              "Uploaded file says: %{hint} - no confident FIDE match, please search or type it in.",
+              hint: @hint
+            )}
           </p>
           <.results
             id={"arbiter-combo-#{@role}-name-results"}

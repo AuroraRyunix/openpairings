@@ -109,6 +109,11 @@ defmodule PairingsEngine.PgnExport do
   defp result_tag("1-0"), do: "1-0"
   defp result_tag("0-1"), do: "0-1"
   defp result_tag("1/2-1/2"), do: "1/2-1/2"
+  # Played but unrated: the game happened and had a winner, so PGN records
+  # it exactly as its rated twin. PGN has no "unrated" concept to preserve.
+  defp result_tag("1-0U"), do: "1-0"
+  defp result_tag("0-1U"), do: "0-1"
+  defp result_tag("1/2-1/2U"), do: "1/2-1/2"
   defp result_tag("1-0FF"), do: "1-0"
   defp result_tag("0-1FF"), do: "0-1"
   defp result_tag(_), do: "*"

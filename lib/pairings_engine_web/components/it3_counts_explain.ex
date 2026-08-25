@@ -43,13 +43,12 @@ defmodule PairingsEngineWeb.Components.It3CountsExplain do
       </summary>
 
       <p class="hint" style="margin: 6px 0 12px">
-        Same grouping the report itself uses (see
-        <span class="it3-explain-code">Norms.Forms.it3_fills/3</span>
-        and <span class="it3-explain-code">Norms.Forms.titled?/1</span>
-        - CM/WCM don't count as
-        titled). <strong>feds</strong>
-        is the number of distinct federations in that group; <strong>host</strong>
-        is how many of them are {host_label(assigns.host_federation)}. Groups with no players in them aren't shown.
+        {gettext(
+          "Same grouping the report itself uses (see %{fills} and %{titled} - CM/WCM don't count as titled). The feds count is the number of distinct federations in that group; the host count is how many of them are %{host}. Groups with no players in them aren't shown.",
+          fills: "Norms.Forms.it3_fills/3",
+          titled: "Norms.Forms.titled?/1",
+          host: host_label(assigns.host_federation)
+        )}
       </p>
 
       <div class="it3-explain-grid">
@@ -78,7 +77,7 @@ defmodule PairingsEngineWeb.Components.It3CountsExplain do
           <span class="pe-stat-n">{length(@federations)}</span>
         </span>
         <span class="it3-explain-card-sub">
-          {Enum.sum(for f <- @federations, do: f.count)} players total
+          {gettext("%{n} players total", n: Enum.sum(for f <- @federations, do: f.count))}
         </span>
       </summary>
 
@@ -128,7 +127,10 @@ defmodule PairingsEngineWeb.Components.It3CountsExplain do
         >
         </div>
         <span class="pe-ladder-num">
-          {@category.host} host · {@category.total - @category.host} other feds
+          {gettext("%{host} host · %{other} other feds",
+            host: @category.host,
+            other: @category.total - @category.host
+          )}
         </span>
       </div>
 

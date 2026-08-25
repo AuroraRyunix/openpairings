@@ -31,6 +31,13 @@ defmodule PairingsEngine.Tournaments.Pairing do
     "0-1FF",
     "0-0FF",
     "0-0",
+    # Played but unrated (TRF codes W / D / L) - a game contested over the
+    # board that does not reach the rating report, typically because it
+    # ended before the minimum number of moves. Scores and pairs exactly
+    # like its rated twin. VCL4THP Q185.
+    "1-0U",
+    "0-1U",
+    "1/2-1/2U",
     "+--",
     "--+",
     "bye"

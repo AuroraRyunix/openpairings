@@ -724,5 +724,14 @@ defmodule PairingsEngine.SwarExport do
   defp result_bits("1/2-0", false), do: {0x0100, 0.0}
   defp result_bits("0-1/2", true), do: {0x0100, 0.0}
   defp result_bits("0-1/2", false), do: {0x0200, 0.5}
+  # Played but unrated. SWAR has no code for "played, not rated", so these
+  # map onto their rated twins: the game and its points survive, the
+  # unrated flag does not. Better than falling through to the catch-all
+  # below, which would silently drop the points as well.
+  defp result_bits("1-0U", true), do: {0x4000, 1.0}
+  defp result_bits("1-0U", false), do: {0x1000, 0.0}
+  defp result_bits("0-1U", true), do: {0x1000, 0.0}
+  defp result_bits("0-1U", false), do: {0x4000, 1.0}
+  defp result_bits("1/2-1/2U", _white?), do: {0x2000, 0.5}
   defp result_bits(_other, _white?), do: {0, 0.0}
 end

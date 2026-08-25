@@ -324,10 +324,15 @@ defmodule PairingsEngineWeb.CategoriesLive do
         <div class="card">
           <h2>{gettext("Category list")}</h2>
           <p class="hint" style="margin-top: 0">
-            Players are assigned a category on the
-            <.link navigate={~p"/t/#{@tournament.id}/players"}>Players</.link>
-            page. Give one a threshold instead of picking "None" and it can be filled in for
-            every player automatically, below.
+            <.rich_text text={
+              gettext(
+                ~s(Players are assigned a category on the %{players} page. Give one a threshold instead of picking "None" and it can be filled in for every player automatically, below.)
+              )
+            }>
+              <:part name="players">
+                <.link navigate={~p"/t/#{@tournament.id}/players"}>{gettext("Players")}</.link>
+              </:part>
+            </.rich_text>
           </p>
           <form id="add-category-form" phx-submit="add_category">
             <.setting_group>
@@ -402,8 +407,11 @@ defmodule PairingsEngineWeb.CategoriesLive do
           <div class="pe-modal-head">
             <h2>{gettext("Assign categories?")}</h2>
             <p>
-              Applying the threshold rules would move {length(@category_confirm.changes)} of {@category_confirm.total} players to a different category. Players with no change
-              are omitted below.
+              {gettext(
+                "Applying the threshold rules would move %{changed} of %{total} players to a different category. Players with no change are omitted below.",
+                changed: length(@category_confirm.changes),
+                total: @category_confirm.total
+              )}
             </p>
           </div>
           <div class="pe-modal-body">

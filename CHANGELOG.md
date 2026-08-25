@@ -79,6 +79,23 @@ Each entry is tagged so a version can be skimmed:
 
   FIDE's default is zero, so nothing changes until an arbiter sets a value.
 
+- [Feature] **Played-but-unrated results (TRF `W` / `D` / `L`).** A game
+  that was contested over the board but does not reach the rating report -
+  typically one that ended before the minimum number of moves. Three new
+  results on the Pairings page: "1-0 (played, not rated)" and its draw and
+  loss counterparts.
+
+  They score exactly what their rated twins score and count as PLAYED for
+  every FIDE Art. 16 purpose, because the game happened. The only thing
+  that differs is the letter in the TRF, which is how FIDE is told not to
+  rate it. Required by the draft VCL4THP (Q185).
+
+  Wired through the result table, standings, Keizer, TRF import and export,
+  PGN and SWAR export. The last two mattered more than they look: PGN would
+  have written `*` (its unknown-result marker) for a game that plainly had
+  a winner, and SWAR export's catch-all returned bitmask 0 and 0.0 points,
+  dropping the result and the score together.
+
 ### Fixed
 
 - [Fix] **A player marked absent in a Swiss tournament now scores their

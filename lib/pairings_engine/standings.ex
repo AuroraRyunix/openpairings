@@ -439,6 +439,12 @@ defmodule PairingsEngine.Standings do
         "0-1FF" -> {t.points_loss, t.points_win, false, true}
         "0-0FF" -> {t.points_loss, t.points_loss, false, true}
         "0-0" -> {t.points_loss, t.points_loss, true, false}
+        # Unrated (TRF W/D/L) scores identically to its rated twin and is
+        # `played` for every FIDE Art. 16 purpose - the game happened. What
+        # makes it unrated is the rating report, not the standings.
+        "1-0U" -> {t.points_win, t.points_loss, true, false}
+        "0-1U" -> {t.points_loss, t.points_win, true, false}
+        "1/2-1/2U" -> {t.points_draw, t.points_draw, true, false}
         "+--" -> {t.points_win, t.points_loss, false, true}
         "--+" -> {t.points_loss, t.points_win, false, true}
         # A pairing-allocated bye scores via bye_points/2 - the single
@@ -531,7 +537,17 @@ defmodule PairingsEngine.Standings do
   # `bye_points/2`, and their 3-2-1 treatment has open questions this pass
   # did not settle (see docs/swar-import.md).
   defp presence_earned(result)
-       when result in ["1-0", "1/2-1/2", "0-1", "1/2-0", "0-1/2", "0-0"],
+       when result in [
+              "1-0",
+              "1/2-1/2",
+              "0-1",
+              "1/2-0",
+              "0-1/2",
+              "0-0",
+              "1-0U",
+              "0-1U",
+              "1/2-1/2U"
+            ],
        do: {true, true}
 
   defp presence_earned(result) when result in ["1-0FF", "+--"], do: {true, false}

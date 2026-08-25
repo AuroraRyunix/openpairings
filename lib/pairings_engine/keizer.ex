@@ -540,6 +540,12 @@ defmodule PairingsEngine.Keizer do
       {"1/2-0", false} -> :half_loss
       {"0-1/2", true} -> :half_loss
       {"0-1/2", false} -> :half_win
+      # Played but unrated - a contested game for every Keizer purpose.
+      {"1-0U", true} -> :win
+      {"1-0U", false} -> :loss
+      {"0-1U", true} -> :loss
+      {"0-1U", false} -> :win
+      {"1/2-1/2U", _} -> :draw
       {"1-0FF", true} -> :forfeit_win
       {"1-0FF", false} -> :forfeit_loss
       {"0-1FF", true} -> :forfeit_loss

@@ -2049,6 +2049,13 @@ defmodule PairingsEngine.Pairing do
         {"0-1FF", false} -> "+"
         {"0-0FF", _} -> "-"
         {"0-0", _} -> "0"
+        # Unrated but PLAYED: W/D/L are the rated codes' twins, and every
+        # pairing rule treats them as contested games.
+        {"1-0U", true} -> "W"
+        {"1-0U", false} -> "L"
+        {"0-1U", true} -> "L"
+        {"0-1U", false} -> "W"
+        {"1/2-1/2U", _} -> "D"
         {"+--", true} -> "+"
         {"+--", false} -> "-"
         {"--+", true} -> "-"

@@ -425,6 +425,57 @@ defmodule PairingsEngineWeb.CoreComponents do
     """
   end
 
+  @doc ~S"""
+  A translated sentence that has markup - usually a link - sitting inside it.
+
+  `gettext/1` returns a plain string, so a `<.link>` cannot be interpolated
+  into it the way a value can. Splitting the sentence into a fragment either
+  side of the link is what `docs/i18n.md` warns against: the translator is
+  handed half a clause, and Dutch does not put that clause where English
+  does.
+
+  So the whole sentence stays ONE msgid carrying `%{name}` placeholders, and
+  this substitutes the matching `<:part>` at render time. A translator moves
+  the placeholder to wherever the target language wants it and the markup
+  follows it there.
+
+      <.rich_text text={gettext("Players get their category on the %{players} page.")}>
+        <:part name="players">
+          <.link navigate={~p"/t/#{@tournament.id}/players"}>{gettext("Players")}</.link>
+        </:part>
+      </.rich_text>
+
+  A placeholder with no matching part renders literally rather than
+  vanishing, so a translation that invents one is visible instead of
+  silently eating text.
+  """
+  attr :text, :string, required: true
+
+  slot :part, required: true do
+    attr :name, :string, required: true
+  end
+
+  def rich_text(assigns) do
+    assigns = assign(assigns, :chunks, rich_chunks(assigns.text, assigns.part))
+
+    ~H"""
+    <%= for chunk <- @chunks do %><%= if is_binary(chunk) do %>{chunk}<% else %>{render_slot(chunk)}<% end %><% end %>
+    """noformat
+  end
+
+  @placeholder ~r/%\{[a-zA-Z_][a-zA-Z0-9_]*\}/
+
+  defp rich_chunks(text, parts) do
+    @placeholder
+    |> Regex.split(text, include_captures: true, trim: true)
+    |> Enum.map(fn chunk ->
+      case Regex.run(@placeholder, chunk) do
+        [^chunk] -> Enum.find(parts, chunk, &("%{" <> &1.name <> "}" == chunk))
+        _ -> chunk
+      end
+    end)
+  end
+
   @doc """
   Renders a [Heroicon](https://heroicons.com).
 

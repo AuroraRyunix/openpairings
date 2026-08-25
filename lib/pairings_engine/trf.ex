@@ -82,7 +82,14 @@ defmodule PairingsEngine.Trf do
     half_point_bye: "H",
     full_point_bye: "F",
     pairing_allocated_bye: "U",
-    zero_point_bye: "Z"
+    zero_point_bye: "Z",
+    # A game that WAS contested but is not rated - typically one that ended
+    # before the minimum number of moves. Scored exactly like 1 / = / 0 and
+    # played for every pairing purpose; the only difference is that it does
+    # not reach the rating report. VCL4THP Q185.
+    unrated_win: "W",
+    unrated_draw: "D",
+    unrated_loss: "L"
   }
 
   def result_codes, do: @result_codes
@@ -91,7 +98,7 @@ defmodule PairingsEngine.Trf do
   # vs. an unpaired round (byes of every kind). A forfeit is legally
   # "unplayed" per FIDE Art. 16, but it still occupies a pairing slot (an
   # opponent), unlike a bye - so the two groups get different validation.
-  @playing_codes ~w(1 = 0 + -)
+  @playing_codes ~w(1 = 0 + - W D L)
   @bye_codes ~w(H F U Z)
 
   # Legal opponent-result for each of this player's playing codes. A win
@@ -110,7 +117,13 @@ defmodule PairingsEngine.Trf do
     "0" => ["1", "0", "="],
     "=" => ["=", "0"],
     "+" => ["-"],
-    "-" => ["+", "-"]
+    "-" => ["+", "-"],
+    # Unrated played games (W/D/L). They pair only with each other: a game
+    # either reaches the rating report or it does not, and it cannot do one
+    # for White and the other for Black. So there is no W/0 or D/= pairing.
+    "W" => ["L"],
+    "L" => ["W"],
+    "D" => ["D"]
   }
 
   # Round blocks repeat every 10 columns starting at column 92 (round 1):

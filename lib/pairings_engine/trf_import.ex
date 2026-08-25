@@ -530,6 +530,9 @@ defmodule PairingsEngine.TrfImport do
   defp result_string("=", "="), do: "1/2-1/2"
   defp result_string("=", "0"), do: "1/2-0"
   defp result_string("0", "="), do: "0-1/2"
+  defp result_string("W", _), do: "1-0U"
+  defp result_string("L", "W"), do: "0-1U"
+  defp result_string("D", "D"), do: "1/2-1/2U"
   defp result_string("+", _), do: "1-0FF"
   defp result_string("-", "+"), do: "0-1FF"
   defp result_string("-", "-"), do: "0-0FF"
@@ -548,13 +551,13 @@ defmodule PairingsEngine.TrfImport do
   # the opposite direction), become `byes` table rows.
   defp single_sided(p, %{result: result}) do
     case result do
-      code when code in ["U", "F", "1", "+"] ->
+      code when code in ["U", "F", "1", "+", "W"] ->
         {:pairing, %{board: nil, white_rank: p.rank, black_rank: nil, result: "bye"}}
 
-      code when code in ["H", "="] ->
+      code when code in ["H", "=", "D"] ->
         {:bye, %{rank: p.rank, type: "requested-half"}}
 
-      code when code in ["Z", "0", "-"] ->
+      code when code in ["Z", "0", "-", "L"] ->
         {:bye, %{rank: p.rank, type: "requested-zero"}}
     end
   end
