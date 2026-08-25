@@ -1,4 +1,4 @@
-# Secrets (SMTP credentials etc.) — never commit
+# Secrets (SMTP credentials etc.) - never commit
 .env
 
 # machine-specific Claude Code config (absolute paths)
@@ -53,7 +53,7 @@ npm-debug.log
 # real tournament data (personal player info)
 /test/fixtures/*.swar
 
-# JaVaFo binary: not ours to redistribute — see README for the download link
+# JaVaFo binary: not ours to redistribute - see README for the download link
 /priv/javafo/*.jar
 
 # graphify skill output (not part of the app)

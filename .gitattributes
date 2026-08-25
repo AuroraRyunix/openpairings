@@ -15,7 +15,7 @@
 *.yml text eol=lf
 *.yaml text eol=lf
 
-# Binary — never touch.
+# Binary - never touch.
 *.xlsx binary
 *.jar binary
 *.db binary

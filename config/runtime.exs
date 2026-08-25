@@ -36,8 +36,8 @@ end
 #
 # SMTP credentials (Gmail) come from the .env loader above or from the real
 # process environment (systemd `Environment=` lines on the server). When both
-# are present we use real Gmail SMTP. In :prod email is MANDATORY — magic-link
-# login depends on it and there is no local mailbox in production — so we refuse
+# are present we use real Gmail SMTP. In :prod email is MANDATORY - magic-link
+# login depends on it and there is no local mailbox in production - so we refuse
 # to boot without it rather than fail confusingly at the first login attempt.
 # In :dev/:test without credentials we leave the adapter from dev.exs/test.exs
 # (local mailbox / test adapter) untouched.
@@ -91,7 +91,7 @@ end
 # Where PairingsEngine.Fide.Sync fetches the monthly rating-list zip.
 #
 # Defaults to FIDE itself; set FIDE_LIST_URL to a mirror or pass-through proxy
-# when the host can't reach ratings.fide.com directly — it blocks a number of
+# when the host can't reach ratings.fide.com directly - it blocks a number of
 # hosting ranges, which leaves a VPS retrying a download that can never
 # succeed. Whatever this points at is unpacked straight into `fide_players`,
 # so it is trusted exactly as much as FIDE is: only set it to something you
@@ -122,20 +122,20 @@ config :pairings_engine,
        :public_frame_ancestors,
        System.get_env("PUBLIC_FRAME_ANCESTORS") || "*"
 
-# The email domain self-serve registration/email-change is blocked on —
+# The email domain self-serve registration/email-change is blocked on -
 # accounts on it must come from 02cloud SSO instead (see
 # `PairingsEngine.Accounts.User.blocked_registration_domain/0`). Defaults to
 # the one domain that currently has SSO wired up; set
 # SSO_BLOCKED_REGISTRATION_DOMAIN if a second federated domain is ever added,
-# rather than hardcoding it — this was tech debt (a single hardcoded domain
+# rather than hardcoding it - this was tech debt (a single hardcoded domain
 # module attribute) until this env var existed.
 config :pairings_engine, :accounts,
   blocked_registration_domain: System.get_env("SSO_BLOCKED_REGISTRATION_DOMAIN")
 
 # Configure 02cloud SSO (Keycloak, auth.zerotwo.cloud, realm `zerotwo`).
 #
-# Unlike SMTP above, this is NOT required to boot — SSO is one login option
-# among several (magic link, password), not the only account-recovery path —
+# Unlike SMTP above, this is NOT required to boot - SSO is one login option
+# among several (magic link, password), not the only account-recovery path -
 # so an unconfigured instance (any dev checkout, or a prod deploy that hasn't
 # registered a Keycloak client yet) simply serves an inert "SSO isn't
 # configured" flash from `KeycloakAuthController.new/2` instead of failing to
@@ -169,7 +169,7 @@ config :pairings_engine, PairingsEngineWeb.Endpoint,
 
 # How many reverse proxies sit in front of this app. Rate limiting (the mobile
 # enrollment code and the log-in email) keys on the client address, and behind
-# a proxy every request otherwise arrives from the proxy's own address — one
+# a proxy every request otherwise arrives from the proxy's own address - one
 # shared bucket for the whole venue. Set this to the number of proxies you
 # actually run (usually 1) so the address is read from the right position in
 # X-Forwarded-For; leaving it 0 means "no proxy", and the header is ignored

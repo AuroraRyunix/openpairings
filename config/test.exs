@@ -16,7 +16,7 @@ config :pairings_engine, PairingsEngine.Repo,
   # every checked-out connection for the length of its test, so several
   # connections plus ExUnit's parallelism meant tests genuinely raced for the
   # write lock. That surfaced as `Exqlite.Error: Database busy` raised from
-  # an unrelated test's setup — reliably 1-5 tests per full run by the end,
+  # an unrelated test's setup - reliably 1-5 tests per full run by the end,
   # nearly always in the Settings LiveView files, because a LiveView
   # receiving a late PubSub broadcast at teardown kept its connection busy
   # into the next test's checkout. Neither of the two settings below fixed
@@ -33,7 +33,7 @@ config :pairings_engine, PairingsEngine.Repo,
   busy_timeout: 30_000,
   # In the default rollback-journal mode a mere READER blocks every writer,
   # and the SQL Sandbox keeps a transaction open per checked-out connection
-  # for the whole test — so one long-lived sandbox read transaction starves
+  # for the whole test - so one long-lived sandbox read transaction starves
   # unrelated writes past even the generous busy_timeout above. WAL mode
   # lets readers and the single writer coexist, which removes that whole
   # contention class.
@@ -53,7 +53,7 @@ config :swoosh, :api_client, false
 config :pairings_engine, PairingsEngine.Mailer, adapter: Swoosh.Adapters.Test
 
 # Route PairingsEngine.Keycloak's Req calls through a Req.Test stub instead of
-# the real network — see Req.Test's moduledoc for the `plug: {Req.Test, name}`
+# the real network - see Req.Test's moduledoc for the `plug: {Req.Test, name}`
 # convention. Individual tests set behaviour with Req.Test.stub/2.
 config :pairings_engine, :keycloak_req_plug, PairingsEngine.KeycloakTest
 
