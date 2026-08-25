@@ -262,6 +262,30 @@ without anything failing. It found five, four of them live.
   reasons to prefer JaVaFo are stated without the badge - most tournament
   software ships it, so its boards are the ones that reconcile.
 
+- [Fix] **The engine that pairs every tournament now was pinned to a build
+  from before two of its own fixes.** The pin moves to Ainalrami v0.11.1.
+
+  Both fixes came from reading bbpPairings 6.0.0's source rather than
+  inferring behaviour from its output. The final-round topscorer threshold
+  used `pointsForWin` where the reference uses
+  `max(pointsForWin, pointsForDraw)` - which only matters in a point system
+  where a draw outscores a win, something FIDE would never publish but a TRF
+  can state outright, since the values are free-form numbers in the file.
+
+  It was measured rather than argued: a new corpus axis with a draw worth
+  more than a win, run in two arms over identical seeds. With the fix,
+  3,775,174 rounds and 31,184,698 pairings at 100.00% agreement. With that
+  one line reverted, 8,181 rounds paired differently from the reference -
+  and zero illegal rounds in either arm, which is the point. The broken arm
+  does not fail loudly. It quietly pairs a different tournament.
+
+  The second fix: the engine recognised only `1`, `=` and `0` as "a game was
+  played". Correct for anything that came through its own TRF parser, which
+  normalises the letter spellings `W`, `D` and `L` on the way in - and wrong
+  for a caller building player maps directly, which is exactly what a host
+  application does. A played unrated game read as unplayed carries no colour
+  and no float history.
+
 - [Change] **Ainalrami is the default Swiss engine now.** A new Swiss
   tournament is paired by our own engine unless you go and pick JaVaFo; it
   used to be the other way round. The confirmation dialog flipped with it -
