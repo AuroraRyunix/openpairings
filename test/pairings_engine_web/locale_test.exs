@@ -167,6 +167,54 @@ defmodule PairingsEngineWeb.LocaleTest do
     end
   end
 
+  describe "the catalogues themselves" do
+    # Two kinds of placeholder live in these msgids and neither survives
+    # being dropped: `%{name}` is a gettext binding, and `%[name]` is a slot
+    # `CoreComponents.rich_text/1` fills with a link or a piece of markup.
+    #
+    # A translation that loses one loses whatever it stood for - silently,
+    # since gettext is perfectly happy to return a string with a hole in it,
+    # and the page still renders. A translation that invents one prints the
+    # placeholder at the reader. Neither shows up in `mix gettext.extract`,
+    # and neither is something a translator can be expected to police by
+    # hand across 840 strings.
+    for path <- Path.wildcard("priv/gettext/*/LC_MESSAGES/*.po") do
+      @po path
+
+      test "#{path} keeps every placeholder its msgid has" do
+        for message <- Expo.PO.parse_file!(@po).messages,
+            {source, target} <- placeholder_pairs(message),
+            target != "" do
+          for {kind, regex} <- [
+                {"binding %{...}", ~r/%\{[a-zA-Z_][a-zA-Z0-9_]*\}/},
+                {"rich_text slot %[...]", ~r/%\[[a-zA-Z_][a-zA-Z0-9_]*\]/}
+              ] do
+            assert Enum.sort(Regex.scan(regex, source) |> List.flatten() |> Enum.uniq()) ==
+                     Enum.sort(Regex.scan(regex, target) |> List.flatten() |> Enum.uniq()),
+                   """
+                   #{kind} mismatch in #{@po}
+
+                     msgid : #{source}
+                     msgstr: #{target}
+                   """
+          end
+        end
+      end
+    end
+  end
+
+  # One {msgid, msgstr} per translated form - a plural message has its
+  # singular judged against msgstr[0] and its plural against msgstr[1], so a
+  # form that quietly dropped a placeholder is not hidden by its sibling.
+  defp placeholder_pairs(%Expo.Message.Singular{msgid: id, msgstr: str}) do
+    [{Enum.join(id), Enum.join(str)}]
+  end
+
+  defp placeholder_pairs(%Expo.Message.Plural{} = m) do
+    forms = m.msgstr |> Enum.sort_by(&elem(&1, 0)) |> Enum.map(&Enum.join(elem(&1, 1)))
+    Enum.zip([Enum.join(m.msgid), Enum.join(m.msgid_plural)], forms)
+  end
+
   describe "coverage" do
     test "every live_session decides a locale one way or the other" do
       # No central place catches them all. Either hook counts: EnglishHook is
