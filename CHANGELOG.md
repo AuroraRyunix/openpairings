@@ -18,7 +18,7 @@ Each entry is tagged so a version can be skimmed:
 
 ### Added
 
-- [Feature] **Dutch.** The arbiter interface now speaks Nederlands - all 468
+- [Feature] **Dutch.** The arbiter interface now speaks Nederlands - 548
   interface strings plus the 24 validation messages, picked from the
   language menu or taken from the browser's own `accept-language`. `nl-BE`
   and `nl-NL` both resolve to it; there is one catalogue, because chess
