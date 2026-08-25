@@ -84,7 +84,7 @@ defmodule PairingsEngine.Norms.FormsTest do
       assert fills["B18"] == "Normal"
       assert fills["B19"] == ""
       assert fills["B21"] == "X"
-      assert fills["B22"] == "OpenPairings (With JaVaFo)"
+      assert fills["B22"] == "OpenPairings (With Ainalrami)"
       assert fills["B23"] == "First remark"
       assert fills["B59"] == 888_001
       assert fills["B60"] == "John Arbiter"

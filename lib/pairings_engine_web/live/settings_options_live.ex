@@ -213,8 +213,15 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     # Switching the engine is the one setting on this page that changes who
     # computes the pairings, so it asks first rather than saving silently
     # with an explanation buried in a hint the arbiter has already scrolled
-    # past. Only on the way IN: switching BACK to JaVaFo needs no ceremony.
-    if switching_to_ainalrami?(base, params) do
+    # past.
+    #
+    # The direction reversed on 2026-08-25. It used to guard the way IN to
+    # Ainalrami, when JaVaFo was the default and the endorsed one. Now the
+    # choice that deserves a second look is the way OUT: JaVaFo implements
+    # C.04.3 as it stood in 2022 and has not been updated for the edition
+    # effective 1 February 2026, so selecting it means pairing a 2026
+    # tournament by superseded rules.
+    if switching_to_javafo?(base, params) do
       {:noreply, assign(socket, engine_confirm: params, engine_confirm_section: section)}
     else
       save_settings(socket, base, params, section)
@@ -359,11 +366,11 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
   # Server-side enforcement of the locks: drop any submitted value for a
   # locked field regardless of the HTML `disabled` attribute.
-  # Only when it is actually a CHANGE. Re-saving the page with Ainalrami
+  # Only when it is actually a CHANGE. Re-saving the page with JaVaFo
   # already selected must not re-prompt, or every unrelated edit on a
   # tournament already using it drags the dialog back up.
-  defp switching_to_ainalrami?(base, params) do
-    params["pairing_engine"] == "ainalrami" and base.pairing_engine != "ainalrami"
+  defp switching_to_javafo?(base, params) do
+    params["pairing_engine"] == "javafo" and base.pairing_engine != "javafo"
   end
 
   defp save_settings(socket, base, params, section) do
@@ -560,11 +567,11 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               <div class="locked-wrap">
                 <select name="tournament[pairing_engine]" disabled={@pairing_engine_locked?}>
                   <option value="javafo" selected={@tournament.pairing_engine == "javafo"}>
-                    {gettext("JaVaFo - FIDE-endorsed (default)")}
+                    {gettext("JaVaFo - external, implements the 2022 rules")}
                   </option>
 
                   <option value="ainalrami" selected={@tournament.pairing_engine == "ainalrami"}>
-                    {gettext("Ainalrami (experimental)")}
+                    {gettext("Ainalrami - built in, implements the 2026 rules (default)")}
                   </option>
                 </select>
                 <.locked_overlay field={:pairing_engine} locked?={@pairing_engine_locked?} />
@@ -574,43 +581,44 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               <span class="hint">
                 <.rich_text text={
                   gettext(
-                    "%[engine] is the default: the external, FIDE-endorsed Dutch engine this app has always paired with, and the safe choice for a FIDE-rated tournament."
-                  )
-                }>
-                  <:part name="engine"><strong>JaVaFo</strong></:part>
-                </.rich_text>
-              </span>
-
-              <span class="hint">
-                <.rich_text text={
-                  gettext(
-                    "%[engine] is a second Dutch engine built straight into the app - no Java, nothing to install. It is %[experimental], and on the evidence it is also very good: measured against bbpPairings (the other FIDE-endorsed implementation) over two independent corpora of roughly 488 million pairings each, the most recent found %[result]. Being in-process, it is also several times quicker than JaVaFo on large fields."
+                    "%[engine] is the default. It is built into the app - no Java, nothing to install - and it implements C.04.3 as it stands from %[date], the current edition."
                   )
                 }>
                   <:part name="engine"><strong>Ainalrami</strong></:part>
-                  <:part name="experimental"><strong>{gettext("experimental")}</strong></:part>
-                  <:part name="result"><strong>{gettext("zero disagreements")}</strong></:part>
+                  <:part name="date"><strong>{gettext("1 February 2026")}</strong></:part>
                 </.rich_text>
               </span>
 
               <span class="hint">
                 <.rich_text text={
                   gettext(
-                    "What \"experimental\" means here is not \"probably wrong\" - it means %[status]. That is a paperwork status, not a quality one, and it is why JaVaFo remains the default. Forbidden pairings, club/federation exclusions and acceleration are all supported; any TRF extension it does not implement makes it refuse the round and say so, rather than quietly ignoring a rule you set."
+                    "%[engine] is the external engine this app paired with first. It implements the %[edition] of the same rules and has not been updated for the current one, so the two disagree on roughly 4%% of rounds - that gap is the size of the rules change, not a fault in either."
                   )
                 }>
-                  <:part name="status"><strong>{gettext("not FIDE-endorsed")}</strong></:part>
+                  <:part name="engine"><strong>JaVaFo</strong></:part>
+                  <:part name="edition"><strong>{gettext("2022 edition")}</strong></:part>
+                </.rich_text>
+              </span>
+
+              <span class="hint">
+                <.rich_text text={
+                  gettext(
+                    "Ainalrami is checked against bbpPairings, an independent implementation of the same 2026 rules, by replaying whole generated tournaments and diffing every board: %[pairings], with two disagreements that are both defects in bbpPairings. A third implementation agrees with it on both. Forbidden pairings, club and federation exclusions and acceleration are all supported; any TRF extension it does not implement makes it refuse the round and say so, rather than quietly ignoring a rule you set."
+                  )
+                }>
+                  <:part name="pairings">
+                    <strong>{gettext("2.5 billion individual pairings")}</strong>
+                  </:part>
                 </.rich_text>
               </span>
 
               <span :if={@tournament.fide_homologated} class="error-note">
                 <.rich_text text={
                   gettext(
-                    "This tournament is marked %[flag] (Settings → FIDE). Ainalrami is allowed here, but understand what it costs: OpenPairings is endorsed by FIDE on the basis that it pairs %[via], so a rated round paired by Ainalrami was not produced by the engine that endorsement names. That is a paperwork exposure, not a pairing-quality one - but it is yours, and it is the reason JaVaFo remains the default."
+                    "This tournament is marked %[flag] (Settings → FIDE). Both engines are allowed. The endorsement this app currently holds names JaVaFo, which pairs by the superseded 2022 rules; Ainalrami pairs by the current ones but is not itself endorsed. FIDE has announced that existing endorsements will be revoked in the coming Acceptance Cycle, so neither choice is a settled paperwork position - it is yours to make."
                   )
                 }>
                   <:part name="flag"><strong>{gettext("FIDE-homologated")}</strong></:part>
-                  <:part name="via"><em>{gettext("through JaVaFo")}</em></:part>
                 </.rich_text>
               </span>
             </.setting_field>
@@ -932,37 +940,33 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
         phx-key="escape"
       >
         <div class="modal-card" phx-click-away="cancel_engine" style="max-width: 640px">
-          <h2>{gettext("Switch to Ainalrami?")}</h2>
+          <h2>{gettext("Switch to JaVaFo?")}</h2>
 
           <p class="hint">
-            <strong>{gettext("Experimental, but plausibly better.")}</strong>
+            <strong>{gettext("This pairs the tournament by superseded rules.")}</strong>
             <.rich_text text={
               gettext(
-                "Ainalrami is a second Dutch engine built into this app. Measured against bbpPairings - the other FIDE-endorsed implementation - over two independent corpora of roughly 488 million pairings each, the most recent found %[result]. On a large field it is also several times quicker, because it runs in-process with no Java to start."
+                "JaVaFo implements C.04.3 as it stood in %[edition] and has not been updated for the edition effective 1 February 2026. It is a good engine; it is answering an older rulebook. The two disagree on roughly 4%% of rounds, and that gap is the size of the rules change."
               )
             }>
-              <:part name="result"><strong>{gettext("zero disagreements")}</strong></:part>
+              <:part name="edition"><strong>{gettext("2022")}</strong></:part>
             </.rich_text>
           </p>
 
           <p class="hint">
             <.rich_text text={
               gettext(
-                "\"Experimental\" here means %[status] - a paperwork status, not a measured quality one. That is why a FIDE-rated event must still be paired by JaVaFo, and why this is not the default."
+                "There are real reasons to choose it. The endorsement this app currently holds names JaVaFo, and an arbiter reconciling against another program that also uses it will find %[matching] boards. FIDE has announced that existing endorsements will be revoked in the coming Acceptance Cycle, so that reason has a shelf life."
               )
             }>
-              <:part name="status"><strong>{gettext("not FIDE-endorsed")}</strong></:part>
+              <:part name="matching"><strong>{gettext("matching")}</strong></:part>
             </.rich_text>
           </p>
 
           <p class="hint">
-            <.rich_text text={
-              gettext(
-                "Forbidden pairings, club and federation exclusions, and acceleration are all supported. Anything it does not implement makes it %[refuse] to pair the round and say why, rather than quietly ignoring a rule you set - so a wrong round is not a way this can fail."
-              )
-            }>
-              <:part name="refuse"><em>{gettext("refuse")}</em></:part>
-            </.rich_text>
+            {gettext(
+              "You can switch back at any time before round one is paired. Once a round exists the engine is locked, because changing pairing system mid-tournament is not something the regulations allow."
+            )}
           </p>
 
           <p :if={@tournament.fide_homologated} class="error-note">
@@ -984,10 +988,10 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
           <div class="actions">
             <button type="button" class="pe-btn primary" phx-click="confirm_engine">
-              {gettext("Use Ainalrami")}
+              {gettext("Use JaVaFo")}
             </button>
             <button type="button" class="pe-btn" phx-click="cancel_engine">
-              {gettext("Keep JaVaFo")}
+              {gettext("Keep Ainalrami")}
             </button>
           </div>
         </div>

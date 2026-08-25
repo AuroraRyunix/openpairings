@@ -122,9 +122,9 @@ defmodule PairingsEngine.PairingEngineTest do
     end
 
     @tag :javafo
-    test "a Swiss tournament left on the default still pairs through JaVaFo" do
+    test "a Swiss tournament left on the default pairs through Ainalrami" do
       t = tournament()
-      assert t.pairing_engine == "javafo"
+      assert t.pairing_engine == "ainalrami"
 
       players = roster(t)
 
@@ -744,9 +744,12 @@ defmodule PairingsEngine.PairingEngineTest do
 
     @tag :javafo
     test "a JaVaFo round stores nothing rather than an empty explanation" do
+      # Explicit since 2026-08-25: Ainalrami is the default, so a test about
+      # the OTHER engine has to say so rather than lean on a default that no
+      # longer points at it.
       # nil, not %{} - the page distinguishes "this engine cannot explain
       # itself" from "it explained and had nothing to say".
-      t = tournament()
+      t = tournament(%{pairing_engine: "javafo"})
       roster(t, 6)
 
       assert {:ok, round} = Pairing.pair_next_round(t)

@@ -92,7 +92,7 @@ defmodule PairingsEngineWeb.SettingsAboutLive do
         <p>
           <.rich_text text={gettext("This tournament is paired using %[engine].")}>
             <:part name="engine">
-              <strong>{Tournament.pairing_system_label(@tournament.pairing_system)}</strong>
+              <strong>{engine_line(@tournament)}</strong>
             </:part>
           </.rich_text>
         </p>
@@ -111,4 +111,14 @@ defmodule PairingsEngineWeb.SettingsAboutLive do
     </Layouts.app>
     """
   end
+  # Round robin and Keizer name their engine inside the system label
+  # already ("Round robin (Berger)"). Swiss does not, because there the
+  # engine is a choice - so say which one this tournament is actually on.
+  defp engine_line(%{pairing_system: "swiss"} = tournament) do
+    Tournament.pairing_system_label("swiss") <>
+      " (" <> Tournament.engine_name(tournament) <> ")"
+  end
+
+  defp engine_line(tournament),
+    do: Tournament.pairing_system_label(tournament.pairing_system)
 end

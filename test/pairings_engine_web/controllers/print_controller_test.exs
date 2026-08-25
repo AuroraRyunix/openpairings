@@ -1126,7 +1126,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
           ] do
         html = get(conn, path) |> html_response(200)
 
-        assert html =~ "Paired by OpenPairings using Swiss - FIDE Dutch (JaVaFo)",
+        assert html =~ "Paired by OpenPairings using Ainalrami",
                "expected the engine credit on #{path}"
 
         assert html =~ "many thanks to Tom Wuyts for his valuable feedback.",

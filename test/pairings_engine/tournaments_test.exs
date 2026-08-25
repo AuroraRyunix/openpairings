@@ -1055,7 +1055,7 @@ defmodule PairingsEngine.TournamentsTest do
           "rounds_count" => "5"
         })
 
-      for n <- 1..6 do
+      for n <- 1..10 do
         {:ok, _} =
           Tournaments.create_player(tournament.id, %{
             "name" => "P#{n}",
@@ -1067,8 +1067,12 @@ defmodule PairingsEngine.TournamentsTest do
         assert {:ok, round} = PairingsEngine.Pairing.pair_next_round(tournament)
         round = Tournaments.get_round(tournament.id, round.number)
 
-        for p <- round.pairings, p.result != "bye" do
-          {:ok, _} = Tournaments.update_pairing_result(p, "1-0")
+        # Alternating rather than always "1-0": a field where White always
+        # wins collapses into a position with no legal pairing, which both
+        # 2026 engines correctly refuse.
+        for {p, i} <- Enum.with_index(round.pairings), p.result != "bye" do
+          {:ok, _} =
+            Tournaments.update_pairing_result(p, if(rem(i, 2) == 0, do: "1-0", else: "1/2-1/2"))
         end
       end
 
@@ -1091,7 +1095,7 @@ defmodule PairingsEngine.TournamentsTest do
           "rounds_count" => "5"
         })
 
-      for n <- 1..6 do
+      for n <- 1..10 do
         {:ok, _} =
           Tournaments.create_player(tournament.id, %{
             "name" => "P#{n}",
@@ -1103,8 +1107,12 @@ defmodule PairingsEngine.TournamentsTest do
         assert {:ok, round} = PairingsEngine.Pairing.pair_next_round(tournament)
         round = Tournaments.get_round(tournament.id, round.number)
 
-        for p <- round.pairings, p.result != "bye" do
-          {:ok, _} = Tournaments.update_pairing_result(p, "1-0")
+        # Alternating rather than always "1-0": a field where White always
+        # wins collapses into a position with no legal pairing, which both
+        # 2026 engines correctly refuse.
+        for {p, i} <- Enum.with_index(round.pairings), p.result != "bye" do
+          {:ok, _} =
+            Tournaments.update_pairing_result(p, if(rem(i, 2) == 0, do: "1-0", else: "1/2-1/2"))
         end
       end
 

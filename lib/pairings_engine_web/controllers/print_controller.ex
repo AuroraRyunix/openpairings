@@ -1463,7 +1463,12 @@ defmodule PairingsEngineWeb.PrintController do
   # likely to actually read it: on paper, and where the app explains
   # itself.
   defp print_footer(tournament) do
-    engine = Tournament.pairing_system_label(tournament.pairing_system)
+    # The ENGINE, not the pairing system. This read the system label, which
+    # named JaVaFo only because the label did - so a tournament paired by the
+    # other engine printed a credit to the one that had not touched it, and
+    # the moment the label stopped naming an engine the credit named none.
+    # `engine_name/1` answers for round robin and Keizer too.
+    engine = Tournament.engine_name(tournament)
 
     ~s(<p class="pf-credit">) <>
       gettext(

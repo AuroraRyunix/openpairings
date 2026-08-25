@@ -961,13 +961,20 @@ defmodule PairingsEngine.Pairing do
 
         engine_opts = [
           expected_rounds: parsed.tournament[:number_of_rounds],
-          forbidden_pairs: parsed.tournament[:forbidden_pairs]
+          forbidden_pairs: parsed.tournament[:forbidden_pairs],
+          # What a result is WORTH. Omitting this paired every tournament on
+          # the standard 1/half/0 system regardless of what the arbiter had
+          # configured, so a 3-1-0 event was scored one way and bracketed
+          # another. The TRF carries each player's TOTAL, which the engine
+          # reconciles, but not the values behind it.
+          point_system: Tournament.engine_point_system(tournament)
         ]
 
         raw_pairs =
           parsed.players
           |> Ainalrami.Pairing.pair_next_round(
             expected_rounds: parsed.tournament[:number_of_rounds],
+            point_system: Tournament.engine_point_system(tournament),
             # `Ainalrami.Trf.parse/1` lifts every `XXP` line into
             # `tournament[:forbidden_pairs]`, but the engine takes them as an
             # OPTION rather than reading them off the parsed struct - so

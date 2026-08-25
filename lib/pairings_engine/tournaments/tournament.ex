@@ -272,7 +272,13 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # read the TRF's `XXA` lines at all). Locked once the tournament has
     # paired its first round, same as `pairing_system` - see
     # `PairingsEngine.Tournaments.locked_fields/1`.
-    field :pairing_engine, :string, default: "javafo"
+    # Ainalrami by default since 2026-08-25. Not a preference: JaVaFo
+    # implements C.04.3 as it stood in 2022 and has not been updated for the
+    # edition effective 1 February 2026, so leaving it as the default handed
+    # arbiters superseded pairings. Existing tournaments keep whatever they
+    # were created with - the engine is locked once a round is paired, and
+    # changing one mid-event is exactly what C.04.2 forbids.
+    field :pairing_engine, :string, default: "ainalrami"
     # Round-robin only: 1 = single cycle, 2 = double.
     field :rr_cycles, :integer, default: 1
     # Round-robin only: "match format" - round N and round N+1 are the SAME
@@ -1175,11 +1181,13 @@ defmodule PairingsEngine.Tournaments.Tournament do
   def exclusion_mode_label("listed"), do: "Only listed"
   def exclusion_mode_label(other), do: other
 
-  def pairing_engine_label("javafo"), do: "JaVaFo"
-  def pairing_engine_label("ainalrami"), do: "Ainalrami (beta)"
+  def pairing_engine_label("javafo"), do: "JaVaFo (2022 rules)"
+  def pairing_engine_label("ainalrami"), do: "Ainalrami"
   def pairing_engine_label(other), do: other
 
-  def pairing_system_label("swiss"), do: "Swiss - FIDE Dutch (JaVaFo)"
+  # Names the SYSTEM, not the engine - which one runs it is a separate
+  # setting, and naming JaVaFo here was wrong the day a second engine landed.
+  def pairing_system_label("swiss"), do: "Swiss - FIDE Dutch"
   def pairing_system_label("round_robin"), do: "Round robin (Berger)"
   def pairing_system_label("keizer"), do: "Keizer"
   def pairing_system_label(other), do: other
@@ -1187,6 +1195,37 @@ defmodule PairingsEngine.Tournaments.Tournament do
   def rr_cycles_label(1), do: "Single"
   def rr_cycles_label(2), do: "Double"
   def rr_cycles_label(other), do: to_string(other)
+
+  @doc """
+  This tournament's scoring, in the shape `Ainalrami.Pairing` takes.
+
+  Score decides which bracket a player is paired in, so an engine reading
+  different values than the standings do is not reporting different totals -
+  it is pairing a different tournament. Until this existed, a tournament set
+  to 3-1-0 was scored by us at 3-1-0 and paired by the engine at 1/half/0.
+
+  One limitation, stated rather than hidden: `abs_value` carries two caps
+  (`abs_jusque`, `abs_nbfois`) and the engine's map has nowhere to put them,
+  so a capped absence is passed at its uncapped value. That degrades
+  gracefully - the engine reconciles a player's stated total against its own
+  recomputation and keeps the stated one when they disagree - but it is a
+  gap, not a design.
+  """
+  def engine_point_system(%__MODULE__{} = t) do
+    loss = t.points_loss || 0.0
+
+    %{
+      win: t.points_win || 1.0,
+      draw: t.points_draw || 0.5,
+      loss: loss,
+      pairing_allocated_bye: t.bye_value || 1.0,
+      # A forfeit loss pays an ordinary loss here; the TRF code is what marks
+      # it unplayed, not the value.
+      forfeit_loss: loss,
+      # TRF `Z` - a round the player sat out. See the cap note above.
+      zero_point_bye: t.abs_value || loss
+    }
+  end
 
   @doc """
   The name of the program that actually pairs this tournament, for anywhere

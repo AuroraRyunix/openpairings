@@ -1243,8 +1243,14 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
 
     @tag :javafo
     test "a JaVaFo round keeps the reconstruction and says so", %{conn: conn, scope: scope} do
+      # Named explicitly since 2026-08-25: this is a test ABOUT JaVaFo, and
+      # the default now points at the other engine.
       {:ok, t} =
-        Tournaments.create_tournament(scope, %{"name" => "Recon", "type" => "swiss"})
+        Tournaments.create_tournament(scope, %{
+          "name" => "Recon",
+          "type" => "swiss",
+          "pairing_engine" => "javafo"
+        })
 
       for n <- 1..6 do
         {:ok, _} = Tournaments.create_player(t.id, %{"name" => "P#{n}"})

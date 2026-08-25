@@ -32,7 +32,7 @@ defmodule PairingsEngineWeb.SettingsAboutLiveTest do
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/about")
 
     assert html =~ "Swiss"
-    assert html =~ "JaVaFo"
+    assert html =~ "Ainalrami"
     assert html =~ "Tom Wuyts"
   end
 

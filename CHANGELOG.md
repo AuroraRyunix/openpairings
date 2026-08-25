@@ -175,6 +175,48 @@ Each entry is tagged so a version can be skimmed:
   recording as a fix rather than a test change: the behaviour a user gets
   really did change.
 
+### Changed
+
+- [Change] **Ainalrami is the default Swiss engine now.** A new Swiss
+  tournament is paired by our own engine unless you go and pick JaVaFo; it
+  used to be the other way round. The confirmation dialog flipped with it -
+  it now asks before switching a running tournament *to* JaVaFo, since that
+  is the change that swaps a maintained engine for a third-party one frozen
+  on the 2022 rules.
+
+  The reason for the flip is that Ainalrami is no longer the riskier
+  choice. It implements the 2026 handbook text where JaVaFo 2.2 implements
+  2022, it agrees with bbpPairings 6.0.0 across two independent corpora of
+  roughly 488 million pairings each, and the second corpus - run after the
+  optimisation work - found zero disagreements. Every claim the settings
+  screen used to make about the engines has been rewritten to match: the
+  old copy called JaVaFo "FIDE-endorsed" and Ainalrami "experimental", and
+  neither is a fair description any more. Nothing on the FIDE side is
+  endorsed for the 2026 rules at all, which is the whole point.
+
+  Existing tournaments are untouched. Whichever engine paired round 1 keeps
+  pairing the rest.
+
+- [Change] **The tournament's point system now reaches the pairing engine.**
+  An event scored 3/1/0, or one with a half-point loss, or a pairing-allocated
+  bye worth something other than a full point, was pairing as though it were
+  1/½/0. The engine was reading its own defaults because nothing ever handed
+  it the tournament's values. It does now - win, draw, loss, the
+  pairing-allocated bye, the forfeit loss and the zero-point bye all travel
+  with the pairing request.
+
+  This matters most for downfloat history. A player whose "loss" is worth
+  half a point was being recorded as having *scored*, and therefore as
+  having floated down, which then steered later rounds. Tournaments on a
+  standard 1/½/0 scoring see no change.
+
+- [Change] **The About screen names the engine that is actually pairing.**
+  It showed the pairing *system* - "Swiss" - which stopped identifying
+  anything once the system label and the engine name came apart. A Swiss
+  tournament now reads "Swiss - FIDE Dutch (Ainalrami)", matching how round
+  robin has always read "Round robin (Berger)". The printed pairing sheet
+  credits the engine by name for the same reason.
+
 ## [0.16.1] - 2026-08-23
 
 ### Changed

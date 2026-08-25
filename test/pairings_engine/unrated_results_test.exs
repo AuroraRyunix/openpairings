@@ -123,6 +123,43 @@ defmodule PairingsEngine.UnratedResultsTest do
     end
   end
 
+  describe "the engine is told this tournament's scoring" do
+    test "a non-standard scoring system reaches the engine" do
+      # Score decides bracket. Until the point system was passed, a 3-1-0
+      # tournament was SCORED at 3-1-0 by the standings and PAIRED at
+      # 1/half/0 by the engine - two different tournaments, one database.
+      t = %Tournament{
+        points_win: 3.0,
+        points_draw: 1.0,
+        points_loss: 0.0,
+        bye_value: 3.0,
+        abs_value: nil
+      }
+
+      assert Tournament.engine_point_system(t) == %{
+               win: 3.0,
+               draw: 1.0,
+               loss: 0.0,
+               pairing_allocated_bye: 3.0,
+               forfeit_loss: 0.0,
+               zero_point_bye: 0.0
+             }
+    end
+
+    test "the default tournament maps to the engine's own default" do
+      # A tournament nobody has touched must pair exactly as it did before
+      # the point system was passed at all.
+      assert Tournament.engine_point_system(%Tournament{}) ==
+               Ainalrami.Trf.default_point_system()
+    end
+
+    test "a sat-out round carries the tournament's absence value" do
+      t = %Tournament{points_win: 1.0, points_draw: 0.5, points_loss: 0.0, abs_value: 0.5}
+
+      assert Tournament.engine_point_system(t).zero_point_bye == 0.5
+    end
+  end
+
   describe "the codes themselves" do
     test "W, D and L are known to Trf as playing codes" do
       # `Trf` validates every game against its playing/bye sets. Left out of
