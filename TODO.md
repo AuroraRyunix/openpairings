@@ -46,7 +46,9 @@ Over 100% fails, so these add up rather than standing alone:
 - Unrated players in rating-based tie-breaks (Q208, **32%**)
 - Consistency checks only on explicit request (Q140, **25%**)
 - Custom Rating Lists (Q117, 18%)
-- Chess960 (Q222, 15%)
+- Chess960 (Q222, 15%) - **deferred by decision, 2026-08-25.** Cheap for
+  the penalty it carries (a start-position draw would satisfy the question)
+  but deliberately not now. Keep it on the list.
 - W/D/L unrated results, games shorter than one move (Q185, 7%)
 
 ### Blocked on FIDE

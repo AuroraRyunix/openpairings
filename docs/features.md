@@ -137,6 +137,17 @@ carry a logo (stored in the database, shown on printed documents).
 
 ## What's next
 
+**The 2026 Acceptance Cycle now sets the order.** FIDE TEC circulated a
+draft VCL and TEC Manual on 2026-08-25; when the final versions publish,
+existing endorsements are revoked and every vendor re-qualifies. The gap
+list, with our own read of which items are hard failures and which are
+accumulating penalties, is at the top of [`../TODO.md`](../TODO.md). The
+short version: FIDE Mode and adjourned games are the two real build items,
+and TRF-26 is blocked on FIDE publishing the specification.
+
+Everything below predates that and is still wanted, just not first:
+
+
 Near-term, in rough order:
 
 1. **Admin/support role** - a federation-level support account that can see
