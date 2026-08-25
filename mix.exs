@@ -11,6 +11,12 @@ defmodule PairingsEngine.MixProject do
       aliases: aliases(),
       deps: deps(),
       releases: releases(),
+      # There are two releases now, so a bare `mix release` is ambiguous and
+      # fails - which broke CI and would have broken the build instructions
+      # in docs/binaries.md the same way. The single-file binary is the one
+      # you get when you do not say, because it is the one the docs have
+      # always described.
+      default_release: :pairings_engine,
       compilers: [:phoenix_live_view] ++ Mix.compilers(),
       listeners: [Phoenix.CodeReloader]
     ]

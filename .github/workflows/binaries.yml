@@ -90,7 +90,9 @@ jobs:
       - run: mix compile
       - run: mix assets.deploy
 
-      - run: mix release --overwrite
+      # Named explicitly. `default_release` in mix.exs covers the bare form,
+      # but a build script should not depend on which release is the default.
+      - run: mix release pairings_engine --overwrite
 
       # The same app as an ordinary Erlang release - a folder with the runtime
       # inside and a launcher beside it. Built because the single-file binary
