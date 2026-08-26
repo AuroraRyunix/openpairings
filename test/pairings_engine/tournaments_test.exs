@@ -878,6 +878,18 @@ defmodule PairingsEngine.TournamentsTest do
 
       assert {:error, _changeset} = Tournaments.create_player(tournament.id, %{"name" => ""})
 
+      # A FIDE ID that is not a number is a changeset error, not a crash.
+      # `Player.fide_id` is an :integer column, so pinning the raw form value
+      # into the duplicate-check query made Ecto cast it, and anything that
+      # does not parse cleanly raised Ecto.Query.CastError from the planner
+      # before the changeset could say "is invalid". Reachable from the
+      # arbiter's own add-player form.
+      for bad <- ["ABC", "12-34", " 123 ", "12.5", String.duplicate("9", 40)] do
+        assert {:error, %Ecto.Changeset{}} =
+                 Tournaments.create_player(tournament.id, %{"name" => "X", "fide_id" => bad}),
+               "#{inspect(bad)} should be a changeset error, not a raise"
+      end
+
       refute_receive {:tournament_changed, _, _}
     end
 

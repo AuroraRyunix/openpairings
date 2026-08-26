@@ -1274,10 +1274,27 @@ defmodule PairingsEngine.Tournaments do
   defp normalize_id(_), do: nil
 
   def create_player(tournament_id, attrs) do
-    fide_id = attrs["fide_id"] || attrs[:fide_id]
+    # Through `normalize_id/1`, which is defined directly above and was not
+    # being used here. `Player.fide_id` is an `:integer` column, so pinning
+    # the raw form value into the query made Ecto cast it - and anything that
+    # does not parse cleanly (letters, a dash, a pasted value with a stray
+    # space) raised `Ecto.Query.CastError` from the planner before
+    # `Player.changeset/2` could return the ordinary "is invalid" error.
+    #
+    # The reachable path is the arbiter's own add-player form, not an import.
+    # A value that is not an integer cannot match an integer column, so the
+    # right answer is "no duplicate" and let the changeset reject it.
+    fide_id = normalize_id(attrs["fide_id"] || attrs[:fide_id])
+
+    # The range bound matters here as much as the parse: a 40-digit string
+    # parses cleanly to an integer and then blows up inside the driver
+    # (`Exqlite.Error: argument error`) when it is pinned into SQL. A number
+    # the column cannot hold cannot be a duplicate of anything in it, so skip
+    # the check and let `Player.changeset/2` return the ordinary error.
+    storable? = is_integer(fide_id) and fide_id > 0 and fide_id <= Player.max_fide_id()
 
     duplicate? =
-      fide_id not in [nil, ""] and
+      storable? and
         Repo.exists?(
           from p in Player,
             where: p.tournament_id == ^tournament_id and p.fide_id == ^fide_id

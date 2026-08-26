@@ -110,6 +110,7 @@ defmodule PairingsEngine.Tournaments.Player do
     |> validate_number(:extra_points, greater_than_or_equal_to: 0.0)
     |> normalize_absent_rounds()
     |> sync_special_table()
+    |> validate_fide_id_range()
     |> unique_fide_id_in_tournament()
   end
 
@@ -215,6 +216,34 @@ defmodule PairingsEngine.Tournaments.Player do
     else
       changeset
     end
+  end
+
+  # A FIDE ID is an :integer column, and nothing bounded it. A value that
+  # parses as a number but is larger than SQLite's signed 64-bit range - a
+  # mistyped or pasted string of digits - reached the driver and raised
+  # `Exqlite.Error: argument error` on insert, rather than coming back as an
+  # ordinary changeset error the form could render.
+  #
+  # Bounded generously rather than to FIDE's real issuing range: this is a
+  # storage guard, not a registry check, and an ID FIDE has not issued yet is
+  # still a number this app should be able to hold. 999,999,999 is nine
+  # digits, comfortably past the ~8 in use today.
+  @max_fide_id 999_999_999
+
+  @doc """
+  The largest `fide_id` this app stores.
+
+  Public because `Tournaments.create_player/2`'s duplicate-check query pins
+  the value into SQL BEFORE the changeset runs, so it has to apply the same
+  bound or the driver raises on an oversized number first.
+  """
+  def max_fide_id, do: @max_fide_id
+
+  defp validate_fide_id_range(changeset) do
+    validate_number(changeset, :fide_id,
+      greater_than: 0,
+      less_than_or_equal_to: @max_fide_id
+    )
   end
 
   defp unique_fide_id_in_tournament(changeset) do
