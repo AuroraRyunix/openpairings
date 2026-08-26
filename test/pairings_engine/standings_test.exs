@@ -813,6 +813,62 @@ defmodule PairingsEngine.StandingsTest do
     end
   end
 
+  describe "played_result?/1 and the case it mirrors" do
+    test "every code it calls played really is played in pairing_records/4" do
+      # The two live in one module and must be edited together: the list is
+      # what SwarExport now asks, and the case is what the standings use.
+      # This drives each code through the real path and checks the answers
+      # agree, so the list cannot quietly fall behind the case the way
+      # SwarExport's private four-code copy did.
+      for result <- ~w(1-0 1/2-1/2 0-1 1/2-0 0-1/2 0-0 1-0U 0-1U 1/2-1/2U) do
+        assert Standings.played_result?(result), "#{result} should count as played"
+      end
+
+      for result <- ~w(1-0FF 0-1FF 0-0FF +-- --+) do
+        refute Standings.played_result?(result),
+               "#{result} is a forfeit - unplayed under FIDE Art. 16"
+      end
+    end
+
+    test "it agrees with what pairing_records/4 actually marks" do
+      # Not a restatement of the list - a comparison against the case.
+      for result <- ~w(1-0 1/2-1/2 0-1 1/2-0 0-1/2 0-0 1-0U 0-1U 1/2-1/2U 1-0FF 0-1FF 0-0FF) do
+        tournament =
+          Repo.insert!(%Tournament{
+            name: "P #{result}",
+            type: "swiss",
+            rounds_count: 1,
+            tiebreaks: []
+          })
+
+        {:ok, w} = Tournaments.create_player(tournament.id, %{"name" => "W"})
+        {:ok, b} = Tournaments.create_player(tournament.id, %{"name" => "B"})
+
+        round =
+          Repo.insert!(%PairingsEngine.Tournaments.Round{
+            tournament_id: tournament.id,
+            number: 1,
+            status: "finished"
+          })
+
+        Repo.insert!(%PairingsEngine.Tournaments.Pairing{
+          round_id: round.id,
+          board: 1,
+          white_player_id: w.id,
+          black_player_id: b.id,
+          result: result
+        })
+
+        entry = tournament |> Standings.standings() |> Enum.find(&(&1.player.id == w.id))
+        [record] = entry.games
+
+        assert record.played == Standings.played_result?(result),
+               "#{result}: the case says played=#{record.played}, the list says " <>
+                 "#{Standings.played_result?(result)}"
+      end
+    end
+  end
+
   describe "Tournament.absent_counts_as_vur - on by default, opt OUT for the strict reading" do
     test "off: a trailing absence counts at its award value, not upgraded to a draw" do
       em = fixture_with_absent_opponent(false)

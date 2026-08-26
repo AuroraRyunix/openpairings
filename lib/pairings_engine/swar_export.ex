@@ -80,7 +80,7 @@ defmodule PairingsEngine.SwarExport do
 
   import Ecto.Query
 
-  alias PairingsEngine.{Repo, Tournaments, SwarImport}
+  alias PairingsEngine.{Repo, Standings, Tournaments, SwarImport}
   alias PairingsEngine.Tournaments.Tournament
 
   # Table number sentinel for a pairing-allocated bye (Swar.h TABLE_BYE) -
@@ -221,8 +221,8 @@ defmodule PairingsEngine.SwarExport do
       w_i32(0) <>
       w_i32(reverse_bye_value(t.bye_value)) <>
       w_u8(if (t.abs_value || 0.0) > 0, do: 1, else: 0) <>
-      w_u8(t.abs_nbfois || 0) <>
-      w_u8(t.abs_jusque || 0) <>
+      w_u8(abs_cap(t, t.abs_nbfois)) <>
+      w_u8(abs_cap(t, t.abs_jusque)) <>
       w_u8(0) <>
       w_i32(0) <>
       w_i32(reverse_federation(t.federation))
@@ -262,6 +262,36 @@ defmodule PairingsEngine.SwarExport do
   defp reverse_standard("rapid"), do: 1
   defp reverse_standard("blitz"), do: 2
   defp reverse_standard(_), do: 0
+
+  # SWAR's absence caps, where nil does NOT mean zero.
+  #
+  # In OpenPairings a nil `abs_jusque`/`abs_nbfois` means "no cap" -
+  # `Standings.round_capped?/2` and `count_capped?/2` only fire
+  # `when is_integer(cap)`. In SWAR's format 0 is a real value meaning "no
+  # round qualifies" / "no absence qualifies", i.e. pay nothing. Writing
+  # `|| 0` mapped nil onto the byte that means the opposite of nil, so a
+  # tournament paying an uncapped half point for every round sat out
+  # exported as one paying nothing, and re-importing it made that true.
+  #
+  # Reachable from the ordinary UI, not just an import: SettingsScoringLive
+  # tells the arbiter to leave the limits blank for "no cutoff round" and
+  # "every one pays", and blank casts to nil.
+  #
+  # Three cases:
+  #   * the checkbox is off (`abs_value` nil or 0) - write 0, which is what
+  #     SWAR itself writes and what line 223 has already said;
+  #   * a real cap - write it;
+  #   * no cap, with a value to pay - write the round count, which is
+  #     "every round" and "every absence" in a tournament that long. It is
+  #     the largest honest number rather than a sentinel, and it survives
+  #     the u8 because `rounds_count` is capped at 30.
+  defp abs_cap(t, cap) do
+    cond do
+      (t.abs_value || 0.0) <= 0 -> 0
+      is_integer(cap) -> cap
+      true -> t.rounds_count || 0
+    end
+  end
 
   defp reverse_bye_value(1.0), do: 0
   defp reverse_bye_value(0.5), do: 1
@@ -647,7 +677,18 @@ defmodule PairingsEngine.SwarExport do
           colour: if(white?, do: 1, else: -1),
           result: my_result,
           points: my_points,
-          played?: pairing.result in ~w(1-0 1/2-1/2 0-1 0-0)
+          # `Standings.played_result?/1`, not a private list. This was
+          # `~w(1-0 1/2-1/2 0-1 0-0)` - four of the nine codes Standings
+          # marks played - so the VCL.13 asymmetric results and the unrated
+          # W/D/L twins all counted as not played. That flag feeds exactly
+          # one output, the `NbParties` i32, so a player whose games were
+          # unrated exported as "0 games played" next to nonzero points and
+          # three populated round records.
+          #
+          # Provably drift rather than intent: `result_bits/2` in this same
+          # file already handled all five missing codes before this line was
+          # written.
+          played?: Standings.played_result?(pairing.result)
         }
 
       bye && bye.type == "requested-half" ->

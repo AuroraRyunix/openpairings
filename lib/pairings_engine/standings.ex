@@ -513,6 +513,28 @@ defmodule PairingsEngine.Standings do
   #
   # `presence_value` is nil for every tournament that is not a SWAR 3-2-1
   # import, which is what keeps this inert everywhere else.
+  # Kept next to `pairing_records/4`'s own case so the two are edited
+  # together. Any code here must appear there with `played: true`, and
+  # `standings_test.exs` asserts exactly that.
+  @played_results ~w(1-0 1/2-1/2 0-1 1/2-0 0-1/2 0-0 1-0U 0-1U 1/2-1/2U)
+
+  @doc """
+  Whether a result string means the game was actually PLAYED.
+
+  The nine codes `pairing_records/4` marks `played: true` - every contested
+  game including the VCL.13 asymmetric ones and the unrated W/D/L twins, and
+  not the forfeits, which occupy a pairing slot but are unplayed under FIDE
+  Art. 16.
+
+  Public because `SwarExport` had grown a four-code private copy of it
+  (`~w(1-0 1/2-1/2 0-1 0-0)`) that never learned the other five, so a player
+  whose games were all unrated or asymmetric exported with `NbParties = 0`
+  alongside nonzero points and populated round records - a file that
+  contradicts itself. Same precedent as `Trf.playing_codes/0`: the list kept
+  being copied, so it stopped being private.
+  """
+  def played_result?(result), do: result in @played_results
+
   @doc """
   SWAR 3-2-1 presence points for one game, keyed by its **TRF code**.
 

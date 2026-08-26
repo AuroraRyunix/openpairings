@@ -205,6 +205,75 @@ defmodule PairingsEngine.SwarExportTest do
     }
   end
 
+  test "an uncapped paid absence does not export as an unpaid one", %{tournament: t} do
+    # nil means "no cap" here; 0 means "cap at zero" in SWAR's format, i.e.
+    # pay nothing. The exporter wrote `|| 0`, mapping nil onto the byte that
+    # means its opposite - so a club paying half a point for every round sat
+    # out exported as one paying for none, and re-importing made that true.
+    #
+    # Reachable from the ordinary settings screen, which tells the arbiter to
+    # leave the limits blank for "no cutoff round" and "every one pays".
+    # Written straight through the Repo: the fixture is already paired, so
+    # the scoring fields are locked against update_tournament/2. The lock is
+    # correct - this test is about what the EXPORTER does with the state, not
+    # about how it got there (a SWAR import sets it before round 1).
+    {:ok, t} =
+      t
+      |> Ecto.Changeset.change(abs_value: 0.5, abs_jusque: nil, abs_nbfois: nil)
+      |> Repo.update()
+
+    binary = SwarExport.export(t.id)
+    assert {:ok, parsed} = SwarImport.parse(binary)
+
+    refute parsed.tournament.abs_nbfois == 0,
+           "an uncapped absence count exported as 0, which SWAR reads as 'pay none'"
+
+    refute parsed.tournament.abs_jusque == 0,
+           "an uncapped cutoff round exported as 0, which SWAR reads as 'no round qualifies'"
+  end
+
+  test "a real cap still exports as itself", %{tournament: t} do
+    {:ok, t} =
+      t
+      |> Ecto.Changeset.change(abs_value: 0.5, abs_jusque: 3, abs_nbfois: 2)
+      |> Repo.update()
+
+    binary = SwarExport.export(t.id)
+    assert {:ok, parsed} = SwarImport.parse(binary)
+
+    assert parsed.tournament.abs_jusque == 3
+    assert parsed.tournament.abs_nbfois == 2
+  end
+
+  test "unrated and asymmetric games count towards NbParties", %{
+    tournament: t,
+    players: %{a: a, b: b},
+    round: r1
+  } do
+    # `played?` was a private four-code copy of Standings' nine-code set, and
+    # it feeds exactly one output - the NbParties i32. A player whose games
+    # were unrated exported as "0 games played" beside nonzero points and a
+    # populated round record: a file contradicting itself.
+    pairing =
+      Repo.get_by!(PairingsEngine.Tournaments.Pairing,
+        round_id: r1.id,
+        white_player_id: a.id
+      )
+
+    {:ok, _} =
+      pairing
+      |> Ecto.Changeset.change(result: "1-0U", black_player_id: b.id)
+      |> Repo.update()
+
+    binary = SwarExport.export(t.id)
+    assert {:ok, parsed} = SwarImport.parse(binary)
+
+    played = Enum.find(parsed.players, &(&1.name =~ "A" or &1.ni == 1))
+
+    assert played.nb_parties > 0,
+           "an unrated game is still a game played - NbParties must not be 0"
+  end
+
   test "export then reparse survives the tournament header", %{tournament: t} do
     binary = SwarExport.export(t.id)
     assert {:ok, parsed} = SwarImport.parse(binary)
