@@ -813,6 +813,77 @@ defmodule PairingsEngine.StandingsTest do
     end
   end
 
+  describe "progressive score across a withdrawal (Art. 7.5 with 16.1.1)" do
+    test "the series runs to the end of the event, not to the last record" do
+      # A player who withdraws has no record for the rounds after they left -
+      # absent_players/1 requires status == active and forfeit == false, so no
+      # byes row is written - while build_standings/3 still ranks them. The
+      # fold over entry.games therefore stopped early and understated their PS
+      # by (rounds since leaving) x (frozen score).
+      #
+      # C.07 Art. 16.1.1 settles what those rounds are worth: "any round after
+      # a participant withdraws is a zero-point-bye", so they exist and add
+      # nothing - the running total carries forward.
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "Withdrawal",
+          type: "swiss",
+          rounds_count: 3,
+          tiebreaks: ["PS"]
+        })
+
+      {:ok, quitter} = Tournaments.create_player(tournament.id, %{"name" => "Quitter"})
+      {:ok, stayer} = Tournaments.create_player(tournament.id, %{"name" => "Stayer"})
+      {:ok, third} = Tournaments.create_player(tournament.id, %{"name" => "Third"})
+      {:ok, fourth} = Tournaments.create_player(tournament.id, %{"name" => "Fourth"})
+
+      # Round 1: Quitter wins, and then leaves the event.
+      r1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
+
+      Repo.insert!(%PairingsEngine.Tournaments.Pairing{
+        round_id: r1.id,
+        board: 1,
+        white_player_id: quitter.id,
+        black_player_id: stayer.id,
+        result: "1-0"
+      })
+
+      Repo.insert!(%PairingsEngine.Tournaments.Pairing{
+        round_id: r1.id,
+        board: 2,
+        white_player_id: third.id,
+        black_player_id: fourth.id,
+        result: "1-0"
+      })
+
+      # Rounds 2 and 3 happen without them.
+      for n <- 2..3 do
+        r = Repo.insert!(%Round{tournament_id: tournament.id, number: n, status: "finished"})
+
+        Repo.insert!(%PairingsEngine.Tournaments.Pairing{
+          round_id: r.id,
+          board: 1,
+          white_player_id: stayer.id,
+          black_player_id: third.id,
+          result: "1-0"
+        })
+      end
+
+      {:ok, _} =
+        quitter |> Ecto.Changeset.change(status: "withdrawn") |> Repo.update()
+
+      entry =
+        tournament
+        |> Standings.standings()
+        |> Enum.find(&(&1.player.id == quitter.id))
+
+      # One point after round 1, and still one after rounds 2 and 3 - the
+      # zero-point byes leave the running total where it was.
+      assert entry.tiebreaks["PS"] == 3.0,
+             "PS stopped at the last record instead of running to round 3"
+    end
+  end
+
   describe "played_result?/1 and the case it mirrors" do
     test "every code it calls played really is played in pairing_records/4" do
       # The two live in one module and must be edited together: the list is

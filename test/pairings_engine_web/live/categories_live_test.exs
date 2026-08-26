@@ -382,4 +382,63 @@ defmodule PairingsEngineWeb.CategoriesLiveTest do
       assert Tournaments.get_player!(tournament.id, low.id).category == "-1100"
     end
   end
+
+  describe "turning categories off when pairing by category is locked" do
+    test "the button is disabled and says why, instead of failing on another field", %{
+      conn: conn,
+      scope: scope
+    } do
+      # categories_enabled is not itself locked, so the off-toggle works fine
+      # whenever pair-by-category is off. The refusal needs all three:
+      # categories on, pair-by-category on, and a round paired. The combined
+      # write then carries "pair_by_category" => "false", ensure_unlocked/2
+      # rejects it, and the switch could never be turned off again.
+      #
+      # It also rendered the bare string "locked after pairing" - error_text/1
+      # has no clause for that atom - naming a setting the arbiter never
+      # touched.
+      tournament = create_tournament(scope, %{"type" => "swiss"})
+
+      {:ok, tournament} =
+        tournament
+        |> Ecto.Changeset.change(categories_enabled: true, pair_by_category: true)
+        |> PairingsEngine.Repo.update()
+
+      PairingsEngine.Repo.insert!(%PairingsEngine.Tournaments.Round{
+        tournament_id: tournament.id,
+        number: 1,
+        status: "finished"
+      })
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/categories")
+
+      assert html =~ "Locked - categories cannot be turned off while pairing by category"
+      refute html =~ "locked after pairing", "the raw atom should never reach the page"
+    end
+
+    test "with pair-by-category off, turning categories off still works after round 1", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope, %{"type" => "swiss"})
+
+      {:ok, tournament} =
+        tournament
+        |> Ecto.Changeset.change(categories_enabled: true, pair_by_category: false)
+        |> PairingsEngine.Repo.update()
+
+      PairingsEngine.Repo.insert!(%PairingsEngine.Tournaments.Round{
+        tournament_id: tournament.id,
+        number: 1,
+        status: "finished"
+      })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/categories")
+
+      lv |> element("button", "Turn off") |> render_click()
+
+      refute PairingsEngine.Repo.reload!(tournament).categories_enabled,
+             "categories_enabled is not a locked field - this must still work"
+    end
+  end
 end

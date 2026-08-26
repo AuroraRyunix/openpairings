@@ -3,7 +3,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
 
   import PairingsEngineWeb.SettingsSupport
 
-  alias PairingsEngine.{Audit, Pairing, Tournaments}
+  alias PairingsEngine.{Audit, Tournaments}
 
   @rule_kinds [
     {"", "None - assign by hand"},
@@ -41,8 +41,24 @@ defmodule PairingsEngineWeb.CategoriesLive do
   # round produced, so changing it later would corrupt what's already on
   # the board - locked, not just discouraged.
   defp assign_pair_by_category_lock(socket) do
-    paired = Pairing.paired_rounds_count(socket.assigns.tournament.id)
-    assign(socket, pair_by_category_locked?: paired > 0)
+    tournament = socket.assigns.tournament
+    locked? = :pair_by_category in Tournaments.locked_fields(tournament)
+
+    socket
+    |> assign(pair_by_category_locked?: locked?)
+    # Whether turning CATEGORIES off would be refused. `categories_enabled`
+    # is not itself locked, so the off-toggle works fine whenever
+    # pair-by-category is already off - the refusal needs all three of:
+    # categories on, pair-by-category on, and a round paired. In that state
+    # the combined write carries `"pair_by_category" => "false"`, which
+    # `ensure_unlocked/2` rejects, so the switch could never be turned off
+    # again for the rest of the event.
+    #
+    # It was not even silent about it: `error_text/1` has no
+    # `:locked_after_pairing` clause, so the generic atom formatter rendered
+    # the bare string "locked after pairing" - naming a setting the arbiter
+    # had not touched.
+    |> assign(categories_off_locked?: locked? and tournament.pair_by_category)
   end
 
   @impl true
@@ -79,9 +95,19 @@ defmodule PairingsEngineWeb.CategoriesLive do
     enabled? = !tournament.categories_enabled
 
     params =
-      if enabled?,
-        do: %{"categories_enabled" => "true"},
-        else: %{"categories_enabled" => "false", "pair_by_category" => "false"}
+      cond do
+        enabled? ->
+          %{"categories_enabled" => "true"}
+
+        # Only send the locked field when there is something to change. With
+        # pair-by-category already off, the key added nothing and turned an
+        # ordinary toggle into a write that `ensure_unlocked/2` refuses.
+        tournament.pair_by_category ->
+          %{"categories_enabled" => "false", "pair_by_category" => "false"}
+
+        true ->
+          %{"categories_enabled" => "false"}
+      end
 
     case Tournaments.update_tournament(tournament, params) do
       {:ok, updated} ->
@@ -285,10 +311,24 @@ defmodule PairingsEngineWeb.CategoriesLive do
           <span class="set-label">{gettext("Status")}</span>
           <div class="actions" style="margin-top: 6px; align-items: center; gap: 10px">
             <span>{if @tournament.categories_enabled, do: "On", else: "Off"}</span>
-            <button type="button" class="pe-btn" phx-click="toggle_categories_enabled">
+            <button
+              type="button"
+              class="pe-btn"
+              phx-click="toggle_categories_enabled"
+              disabled={@categories_off_locked?}
+            >
               {if @tournament.categories_enabled, do: "Turn off", else: "Turn on"}
             </button>
           </div>
+          <%!-- Turning categories off would also have to turn pair-by-category
+                off, and that IS locked once a round is paired. Said here, next
+                to the disabled control, rather than left to a refusal that
+                named a setting the arbiter never touched. --%>
+          <p :if={@categories_off_locked?} class="hint" style="margin: 6px 0 0">
+            {gettext(
+              "Locked - categories cannot be turned off while pairing by category, and that cannot change after round 1 has been paired."
+            )}
+          </p>
         </div>
 
         <div

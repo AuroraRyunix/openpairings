@@ -673,13 +673,36 @@ defmodule PairingsEngine.Standings do
   end
 
   # Article 7.5: sum of the running score after each round.
-  defp tiebreak("PS", entry, _by_id, _t) do
-    entry.games
-    |> Enum.sort_by(& &1.round)
-    |> Enum.map_reduce(0.0, fn g, acc -> {acc + g.points, acc + g.points} end)
-    |> elem(0)
-    |> Enum.sum()
-    |> round_f(1)
+  #
+  # One term per ROUND OF THE EVENT, not per stored record. A player who
+  # withdrew or was forfeited out mid-event has no record for the rounds
+  # after they left - `Pairing.absent_players/1` requires
+  # `status == "active" and forfeit == false`, so no `byes` row is written -
+  # while `build_standings/3` still ranks them. Folding over `entry.games`
+  # alone therefore stopped the series early and understated their PS by
+  # (rounds since they left) x (their frozen score).
+  #
+  # C.07 in force 1 March 2026 settles what those rounds are worth: Art.
+  # 16.1.1 says "any round after a participant withdraws is a
+  # zero-point-bye", so the rounds exist for them and add nothing - which is
+  # exactly "carry the running total forward", since a zero-point round
+  # leaves the total where it was.
+  defp tiebreak("PS", entry, by_id, _t) do
+    horizon = round_horizon(by_id)
+    by_round = Map.new(entry.games, &{&1.round, &1.points})
+
+    if horizon == 0 do
+      0.0
+    else
+      1..horizon
+      |> Enum.map_reduce(0.0, fn round, running ->
+        running = running + Map.get(by_round, round, 0.0)
+        {running, running}
+      end)
+      |> elem(0)
+      |> Enum.sum()
+      |> round_f(1)
+    end
   end
 
   # Article 9.2: points against opponents with >= 50% of the maximum score.
@@ -835,6 +858,17 @@ defmodule PairingsEngine.Standings do
 
   defp opponent(%{opponent_id: nil}, _by_id), do: nil
   defp opponent(%{opponent_id: id}, by_id), do: Map.get(by_id, id)
+
+  # The highest round NUMBER anyone has a record for - not
+  # `rounds_played_count/1`, which counts records and so gives a different
+  # (smaller) answer for exactly the players this matters for.
+  defp round_horizon(by_id) do
+    by_id
+    |> Map.values()
+    |> Enum.flat_map(& &1.games)
+    |> Enum.map(& &1.round)
+    |> Enum.max(fn -> 0 end)
+  end
 
   defp rounds_played_count(by_id) do
     by_id

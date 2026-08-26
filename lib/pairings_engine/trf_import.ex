@@ -402,17 +402,44 @@ defmodule PairingsEngine.TrfImport do
     sorted = Enum.sort_by(trf_players, & &1.rank)
     max_round = rounds_from_data(trf_players)
 
-    for round_number <- 1..max_round//1 do
-      entries =
-        for p <- sorted,
-            game = Enum.at(p.games, round_number - 1),
-            game != nil,
-            game.result not in [nil, ""],
-            do: {p, game}
+    all_entries =
+      for round_number <- 1..max_round//1, into: %{} do
+        entries =
+          for p <- sorted,
+              game = Enum.at(p.games, round_number - 1),
+              game != nil,
+              game.result not in [nil, ""],
+              do: {p, game}
 
-      if entries != [] do
-        insert_round(tournament, round_number, entries, players_by_rank)
+        {round_number, entries}
       end
+
+    # An INTERIOR round with no results still gets a Round row. Skipping it
+    # left a hole - rows numbered 1 and 3 with no 2 - and several readers
+    # index rounds positionally rather than by number:
+    # `Pairing.games_per_player/3` maps over the number-ordered rows and
+    # `Trf.place_games/2` writes them back with `Enum.with_index(1)`, so
+    # round 3's game was emitted in round 2's columns while the round dates
+    # still came from rounds 1 and 2.
+    #
+    # A blank interior round is legal input (see `Trf.parse_games/1`'s
+    # Annexure-B note), so this is a real file shape rather than a
+    # hypothetical. Trailing empty rounds are still skipped: those are
+    # placeholder columns for rounds that have not happened, and inventing
+    # rows for them would claim the tournament is further along than it is.
+    last_with_entries =
+      all_entries
+      |> Enum.filter(fn {_n, entries} -> entries != [] end)
+      |> Enum.map(&elem(&1, 0))
+      |> Enum.max(fn -> 0 end)
+
+    for round_number <- 1..max_round//1, round_number <= last_with_entries do
+      insert_round(
+        tournament,
+        round_number,
+        Map.fetch!(all_entries, round_number),
+        players_by_rank
+      )
     end
 
     :ok

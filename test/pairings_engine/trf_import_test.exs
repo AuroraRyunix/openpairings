@@ -179,6 +179,55 @@ defmodule PairingsEngine.TrfImportTest do
   #
   # Round 5 (Alpha/Golf, "="/"0") is VCL.13's asymmetric result - an
   # arbiter's disciplinary point adjustment on an otherwise-drawn game.
+  test "a blank interior round still gets a Round row, so numbering stays contiguous" do
+    # A round with no results anywhere is legal input, and skipping it left
+    # Round rows numbered 1 and 3 with no 2. Several readers index rounds
+    # POSITIONALLY rather than by number - games_per_player/3 maps over the
+    # ordered rows and Trf.place_games/2 writes them back with
+    # Enum.with_index(1) - so round 3's game came out in round 2's columns
+    # while the dates still came from rounds 1 and 2.
+    blank = %{opponent_rank: nil, colour: nil, result: nil}
+
+    text =
+      Trf.serialize(%{
+        tournament: %{name: "Hole", type: "swiss"},
+        players: [
+          %{
+            rank: 1,
+            name: "Alpha",
+            points: 2.0,
+            games: [
+              %{opponent_rank: 2, colour: "w", result: "1"},
+              blank,
+              %{opponent_rank: 2, colour: "b", result: "1"}
+            ]
+          },
+          %{
+            rank: 2,
+            name: "Bravo",
+            points: 0.0,
+            games: [
+              %{opponent_rank: 1, colour: "b", result: "0"},
+              blank,
+              %{opponent_rank: 1, colour: "w", result: "0"}
+            ]
+          }
+        ]
+      })
+
+    assert {:ok, imported, _warnings} = TrfImport.import_text(text, user_scope())
+
+    numbers =
+      Round
+      |> where(tournament_id: ^imported.id)
+      |> Repo.all()
+      |> Enum.map(& &1.number)
+      |> Enum.sort()
+
+    assert numbers == [1, 2, 3],
+           "round 2 is blank but interior - skipping it leaves a hole: #{inspect(numbers)}"
+  end
+
   defp forfeit_and_bye_trf do
     blank = %{opponent_rank: nil, colour: nil, result: nil}
 
