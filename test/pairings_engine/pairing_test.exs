@@ -3,7 +3,7 @@ defmodule PairingsEngine.PairingTest do
   import Ecto.Query
 
   alias PairingsEngine.{Pairing, Repo, Tournaments}
-  alias PairingsEngine.Tournaments.Tournament
+  alias PairingsEngine.Tournaments.{Player, Tournament}
 
   # `Pairing`'s JaVaFo scratch file is written into a per-run randomized
   # directory and deleted again the moment that run finishes (see
@@ -609,6 +609,56 @@ defmodule PairingsEngine.PairingTest do
   # reproduction, independent of the gitignored real fixture: A beats B in
   # round 1, B then goes absent, and A's round-1 TRF line must still show
   # B's real starting rank, not "0000".
+  # Same family as the test below, and the same root cause: a question about
+  # the ROSTER answered against the currently-eligible subset.
+  #
+  # `ensure_pairing_numbers/2` took its "highest number so far" as the max of
+  # the list it was handed, and both callers hand it `active_players/1`.
+  # Marking the top-numbered player absent therefore removed their number
+  # from the maximum while the number stayed frozen on their row, so the next
+  # registration was handed a number already in use. Nothing rejects a
+  # duplicate - no unique index, no changeset check - and the exported FIDE
+  # TRF then carries two rows with the same starting rank.
+  test "a new player never reuses a pairing number held by an absent one" do
+    tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 5})
+
+    for n <- 1..4, do: insert_player(tournament, "P#{n}", fide_rating: 2000 - n * 10)
+
+    Pairing.ensure_pairing_numbers(tournament, Pairing.active_players(tournament.id))
+
+    numbers = pairing_numbers(tournament)
+    assert Enum.sort(Map.values(numbers)) == [1, 2, 3, 4]
+
+    # The player holding the highest number leaves the active pool.
+    {top_name, top_number} = Enum.max_by(numbers, fn {_name, n} -> n end)
+    top = Repo.get_by!(Player, tournament_id: tournament.id, name: top_name)
+    {:ok, _} = Tournaments.update_player(top, %{"absent" => true})
+
+    # A walk-in registers and the next pairing run assigns their number.
+    insert_player(tournament, "Walkin", fide_rating: 1500)
+    Pairing.ensure_pairing_numbers(tournament, Pairing.active_players(tournament.id))
+
+    after_numbers = pairing_numbers(tournament)
+
+    assert after_numbers["Walkin"] == top_number + 1,
+           "the newcomer must continue past every number ever issued, not past the active ones"
+
+    assert after_numbers[top_name] == top_number, "an absent player keeps their frozen number"
+
+    all = Map.values(after_numbers)
+
+    assert length(Enum.uniq(all)) == length(all),
+           "two players share a pairing number: #{inspect(after_numbers)}"
+  end
+
+  defp pairing_numbers(tournament) do
+    Player
+    |> where(tournament_id: ^tournament.id)
+    |> Repo.all()
+    |> Enum.reject(&is_nil(&1.pairing_number))
+    |> Map.new(&{&1.name, &1.pairing_number})
+  end
+
   test "javafo_input/2 resolves a historical opponent's rank even after they've gone absent" do
     tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
 

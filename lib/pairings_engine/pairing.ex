@@ -259,8 +259,7 @@ defmodule PairingsEngine.Pairing do
   """
   def ensure_pairing_numbers(tournament, players) do
     if Enum.any?(players, &is_nil(&1.pairing_number)) do
-      max_existing =
-        players |> Enum.map(&(&1.pairing_number || 0)) |> Enum.max(fn -> 0 end)
+      max_existing = highest_pairing_number(tournament.id)
 
       players
       |> Enum.filter(&is_nil(&1.pairing_number))
@@ -272,6 +271,29 @@ defmodule PairingsEngine.Pairing do
     end
 
     tournament
+  end
+
+  # The highest number ever ISSUED in this tournament, over the whole roster.
+  #
+  # It used to be `Enum.max` over the `players` argument, and both callers
+  # hand that argument `active_players/1` - which excludes `status != active`,
+  # `absent` and `forfeit`. So marking the top-numbered player absent removed
+  # their number from the maximum while the number itself stayed frozen on
+  # their row, and the next player to register was handed a number already in
+  # use. Nothing rejected it: there is no unique index and no changeset check,
+  # and `guard_pairing_number_freeze/2` only guards CHANGING a number, not
+  # issuing a duplicate.
+  #
+  # "Which numbers exist" is a question about the roster, never about who is
+  # currently eligible - the same distinction `full_roster_players/1` and
+  # `build_shared_history/1` already exist to make. This is one query rather
+  # than reusing those because it needs the maximum, not the rows.
+  defp highest_pairing_number(tournament_id) do
+    Repo.one(
+      from p in Player,
+        where: p.tournament_id == ^tournament_id and not is_nil(p.pairing_number),
+        select: max(p.pairing_number)
+    ) || 0
   end
 
   ## ---------- the pairing run ----------
