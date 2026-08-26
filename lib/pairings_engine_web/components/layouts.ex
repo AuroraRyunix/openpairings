@@ -23,7 +23,7 @@ defmodule PairingsEngineWeb.Layouts do
 
   ## Examples
 
-      <Layouts.app flash={@flash}>
+      <Layouts.app flash={@flash} current_path={assigns[:current_path]}>
         <h1>Content</h1>
       </Layouts.app>
 
@@ -36,6 +36,14 @@ defmodule PairingsEngineWeb.Layouts do
 
   attr :tournament, :map, default: nil, doc: "current tournament, enables its tabs"
   attr :active, :string, default: nil, doc: "active tab key"
+
+  attr :current_path, :string,
+    default: nil,
+    doc:
+      "the path the visitor is on, so the language picker can return them to it. " <>
+        "Assigned by PairingsEngineWeb.LocaleHook and forwarded by each caller - a " <>
+        "function component only sees what it is passed, which is why it must be " <>
+        "threaded rather than read from the socket."
 
   slot :inner_block, required: true
 
@@ -248,6 +256,14 @@ defmodule PairingsEngineWeb.Layouts do
   exists for), then the page content.
   """
   attr :flash, :map, required: true, doc: "the map of flash messages"
+
+  attr :current_path, :string,
+    default: nil,
+    doc:
+      "the path the visitor is on, so the language picker can return them to it. " <>
+        "Assigned by PairingsEngineWeb.LocaleHook and forwarded by each caller - a " <>
+        "function component only sees what it is passed, which is why it must be " <>
+        "threaded rather than read from the socket."
 
   slot :inner_block, required: true
 

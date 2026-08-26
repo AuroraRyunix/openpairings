@@ -102,7 +102,12 @@ defmodule PairingsEngineWeb.FideLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} active="fide">
+    <Layouts.app
+      flash={@flash}
+      current_path={assigns[:current_path]}
+      current_scope={@current_scope}
+      active="fide"
+    >
       <h1>{gettext("Rating lists")}</h1>
       <p class="subtitle">
         {gettext(

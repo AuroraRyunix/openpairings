@@ -201,13 +201,31 @@ defmodule PairingsEngineWeb.UserAuth do
   #       |> put_session(:preferred_locale, preferred_locale)
   #     end
   #
+  # The comment above is not a suggestion this app declined - it is a
+  # description of a bug this app had. `PairingsEngineWeb.Plugs.Locale`
+  # really does keep the chosen language in the session, so clearing the
+  # session on log in threw it away, and the language picker is rendered in
+  # the topbar of the log-in page itself. Choosing Nederlands and then
+  # signing in - a first-class flow, not a corner - dropped the visitor back
+  # into English.
+  #
+  # `locale_test.exs` missed it because its end-to-end tests log in during
+  # `setup` and only switch language afterwards, so the pick-then-log-in
+  # order was never exercised.
   defp renew_session(conn, _user) do
     delete_csrf_token()
+    locale = get_session(conn, PairingsEngineWeb.Locale.session_key())
 
     conn
     |> configure_session(renew: true)
     |> clear_session()
+    |> maybe_restore_locale(locale)
   end
+
+  defp maybe_restore_locale(conn, nil), do: conn
+
+  defp maybe_restore_locale(conn, locale),
+    do: put_session(conn, PairingsEngineWeb.Locale.session_key(), locale)
 
   defp maybe_write_remember_me_cookie(conn, token, %{"remember_me" => "true"}, _),
     do: write_remember_me_cookie(conn, token)

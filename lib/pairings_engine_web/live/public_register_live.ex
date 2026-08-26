@@ -264,7 +264,7 @@ defmodule PairingsEngineWeb.PublicRegisterLive do
           websites, where a countdown from somebody else's server reads as
           that site being broken, and a spectator has no work to lose. A
           half-typed entry here is exactly the work a restart costs. --%>
-    <Layouts.public flash={@flash}>
+    <Layouts.public flash={@flash} current_path={assigns[:current_path]}>
       <div :if={@tournament} class="page-header">
         <div>
           <h1>{@tournament.name}</h1>

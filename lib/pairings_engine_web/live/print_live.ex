@@ -62,7 +62,13 @@ defmodule PairingsEngineWeb.PrintLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} tournament={@tournament} active="print">
+    <Layouts.app
+      flash={@flash}
+      current_path={assigns[:current_path]}
+      current_scope={@current_scope}
+      tournament={@tournament}
+      active="print"
+    >
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>

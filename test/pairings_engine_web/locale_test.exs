@@ -106,6 +106,63 @@ defmodule PairingsEngineWeb.LocaleTest do
     end
   end
 
+  describe "the picker comes back to the page you were on" do
+    setup :register_and_log_in_user
+
+    test "the switch link carries the current path, not \"/\"", %{conn: conn} do
+      # Both layouts build the picker's href from
+      # `assigns[:current_path] || "/"`, and nothing ever assigned
+      # `:current_path` - so the fallback was always taken and every language
+      # switch dumped the visitor on the tournaments list.
+      {:ok, _lv, html} = live(conn, ~p"/fide")
+
+      assert html =~ "redirect_to=%2Ffide" or html =~ "redirect_to=/fide",
+             "the language picker should return to /fide, not to /"
+    end
+
+    test "a query string survives the switch too", %{conn: conn} do
+      {:ok, _lv, html} = live(conn, ~p"/fide?q=carlsen")
+
+      assert html =~ "q%3Dcarlsen" or html =~ "q=carlsen",
+             "a filtered page should come back filtered"
+    end
+  end
+
+  describe "the language survives signing in" do
+    test "a locale chosen before log in is still set afterwards", %{conn: conn} do
+      # The order every other test in this file gets backwards: the picker is
+      # in the log-in page's own topbar, so choosing a language and THEN
+      # signing in is a first-class flow. `renew_session/2` clears the whole
+      # session on log in, and the locale lives in the session - so the
+      # choice was thrown away and the visitor landed back in English.
+      #
+      # The generated comment above `renew_session/2` uses the locale as its
+      # worked example of what to re-put after clearing. It had never been
+      # applied.
+      user = PairingsEngine.AccountsFixtures.user_fixture()
+
+      conn =
+        conn
+        |> Plug.Test.init_test_session(%{})
+        |> Plug.Conn.put_session(PairingsEngineWeb.Locale.session_key(), "nl")
+        |> PairingsEngineWeb.UserAuth.log_in_user(user)
+
+      assert Plug.Conn.get_session(conn, PairingsEngineWeb.Locale.session_key()) == "nl",
+             "the language chosen before signing in must survive the session renewal"
+    end
+
+    test "logging in without a chosen language leaves the session clean", %{conn: conn} do
+      user = PairingsEngine.AccountsFixtures.user_fixture()
+
+      conn =
+        conn
+        |> Plug.Test.init_test_session(%{})
+        |> PairingsEngineWeb.UserAuth.log_in_user(user)
+
+      refute Plug.Conn.get_session(conn, PairingsEngineWeb.Locale.session_key())
+    end
+  end
+
   describe "reaching the LiveView process" do
     setup :register_and_log_in_user
 

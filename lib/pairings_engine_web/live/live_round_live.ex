@@ -185,7 +185,13 @@ defmodule PairingsEngineWeb.LiveRoundLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} tournament={@tournament} active="live">
+    <Layouts.app
+      flash={@flash}
+      current_path={assigns[:current_path]}
+      current_scope={@current_scope}
+      tournament={@tournament}
+      active="live"
+    >
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>

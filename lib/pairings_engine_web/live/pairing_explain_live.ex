@@ -1084,7 +1084,13 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   @impl true
   def render(%{rationale: nil} = assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} tournament={@tournament} active="audit">
+    <Layouts.app
+      flash={@flash}
+      current_path={assigns[:current_path]}
+      current_scope={@current_scope}
+      tournament={@tournament}
+      active="audit"
+    >
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
@@ -1114,7 +1120,13 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} tournament={@tournament} active="audit">
+    <Layouts.app
+      flash={@flash}
+      current_path={assigns[:current_path]}
+      current_scope={@current_scope}
+      tournament={@tournament}
+      active="audit"
+    >
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>

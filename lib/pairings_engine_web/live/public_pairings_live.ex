@@ -211,7 +211,7 @@ defmodule PairingsEngineWeb.PublicPairingsLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.public flash={@flash}>
+    <Layouts.public flash={@flash} current_path={assigns[:current_path]}>
       <div :if={@gone} class="card empty">
         <p><strong>This tournament is no longer available.</strong></p>
       </div>

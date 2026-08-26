@@ -471,6 +471,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     ~H"""
     <Layouts.app
       flash={@flash}
+      current_path={assigns[:current_path]}
       current_scope={@current_scope}
       tournament={@tournament}
       active="settings"
