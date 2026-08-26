@@ -401,6 +401,73 @@ without anything failing. It found five, four of them live.
   arbiter opening a fresh tournament with a red box about a setting they
   never touched.
 
+- [Fix] **A 3-2-1 event scored every norm the wrong way round.** The norm
+  calculation bands each game's stored points against the tournament's own
+  win/draw values to get FIDE's 1/½/0 - and on a SWAR 3-2-1 event those
+  stored points already carry the point for turning up. So every played
+  game shifted one band UP: a win read as a loss, a draw read as a win, a
+  loss read as a draw. Not an occasional misread but a uniform inversion,
+  so a player's norm score and every check derived from it were wrong for
+  everyone in the event. The same nine games score 7.5/9 normally and
+  scored 1.5/9 under 3-2-1.
+
+- [Fix] **A club that pays for absences no longer exports as one that pays
+  for none.** Leaving the absence limits blank means "no cap", which is
+  what the settings screen tells you to do; the `.swar` exporter wrote a
+  blank as `0`, and `0` in that format means "cap at zero - pay nothing".
+  Re-importing the file made it true. Blank now exports as the round count,
+  which is the largest honest number for a tournament that long.
+
+- [Fix] **A player whose games were all unrated exported as "0 games
+  played".** The `.swar` game counter used its own four-code list of what
+  counts as played, against the nine the standings use - so the unrated
+  W/D/L results and the asymmetric ones were invisible to it, and the file
+  said zero games beside nonzero points and three round records. A file
+  that contradicts itself, and one that re-imports as fact.
+
+- [Fix] **Two forfeits exported to PGN as "unknown result".** `+/-` and
+  `-/+`, the legacy spelling of a single-sided forfeit, fell through to
+  `*` where their `FF` twins export as a decisive result. A double forfeit
+  still exports as `*`, deliberately: PGN has no way to say it.
+
+- [Fix] **A withdrawn player's progressive-score tie-break stopped when
+  they left.** Progressive score sums the running total round by round, and
+  it was folding over the rounds a player had a record for rather than over
+  the rounds of the event. FIDE's C.07 Art. 16.1.1 settles it - "any round
+  after a participant withdraws is a zero-point-bye" - so those rounds
+  exist and add nothing, which means carrying the total forward. A player
+  who left after round 1 on 1.0 scored 1.0 where 3.0 is correct, and was
+  placed below players they should have tied with.
+
+- [Fix] **Importing a TRF with a blank round in the middle of it shifted
+  every later round up one.** A round with no results is legal input - a
+  late entrant's earlier rounds look exactly like that - but the import
+  skipped it, so rounds came out numbered 1 and 3 with no 2 and the games
+  from round 3 landed in round 2's columns, dates and all. Trailing blank
+  rounds are still skipped: inventing rows for rounds that have not
+  happened would claim the event is further along than it is.
+
+- [Fix] **The categories "Turn off" button could not turn categories off
+  once a round was paired.** Pairing by category locks after round 1, and
+  the off-switch sent that locked setting along with the one it meant to
+  change, so the whole write was refused - with a message naming a setting
+  the arbiter had not touched. The button now sends only what it needs to,
+  and is disabled with a sentence saying which setting is in the way.
+
+- [Fix] **A late entrant marked absent was paid for rounds before they
+  joined.** A player who is both absent and joining in a later round was
+  written an absence row for every round of the event, including the ones
+  the tournament did not have them for. Those rows score: on an event that
+  pays for absences they collect real points and burn the per-player
+  allowance doing it, and they go into the `.swar` export as well.
+
+- [Fix] **A FIDE ID with a letter in it crashed the add-player form.**
+  Anything that is not a clean number - letters, a dash, a pasted value
+  with a stray space - raised out of the duplicate check before the form
+  could say "is invalid". A 40-digit number got further and raised from the
+  database driver instead; IDs are now bounded to nine digits, which is
+  more than FIDE issues.
+
 - [Fix] **A browser asking for Dutch with a broken quality value now gets
   Dutch.** `accept-language: nl;q=banana` resolved to English, as did a
   dangling `nl-`. The resolver was already right - a malformed weighting
