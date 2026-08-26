@@ -2024,6 +2024,69 @@ defmodule PairingsEngine.PairingTest do
       refute away.id in seated_player_ids(tournament, 1)
     end
 
+    test "a late entrant who is also marked absent gets no bye row either" do
+      # do_pair/2's own comment says a late entrant "lands in NEITHER list -
+      # not sent to the engine, and not given an absentee bye row either".
+      # That was true only of the active side: absent_players/1 was a
+      # separate, unfiltered query appended straight after, so a player who
+      # is BOTH absent and not yet started came back through it and was
+      # written an absentee row for every round before they joined.
+      #
+      # Those rows are read. Standings.add_bye_records/3 scores them and
+      # increments the counter the abs_nbfois cap is measured against, so on
+      # an event with abs_value set they pay for rounds the tournament did
+      # not have the player for - and burn the allowance doing it.
+      tournament =
+        Repo.insert!(%Tournament{name: "Late", type: "swiss", rounds_count: 5, abs_value: 0.5})
+
+      for n <- 1..4, do: insert_player(tournament, "P#{n}", [])
+      late = insert_player(tournament, "Late", absent: true, start_round: 3)
+
+      {:ok, _round} = Pairing.pair_next_round(tournament)
+
+      byes =
+        Repo.all(
+          from b in "byes",
+            where: b.tournament_id == ^tournament.id and b.player_id == ^late.id,
+            select: b.round
+        )
+
+      assert byes == [],
+             "a round before start_round is not a round they were absent from: #{inspect(byes)}"
+    end
+
+    test "once their start_round arrives, an absent late entrant is recorded again" do
+      tournament =
+        Repo.insert!(%Tournament{name: "Late2", type: "swiss", rounds_count: 5, abs_value: 0.5})
+
+      for n <- 1..4, do: insert_player(tournament, "P#{n}", [])
+      late = insert_player(tournament, "Late", absent: true, start_round: 2)
+
+      {:ok, _} = Pairing.pair_next_round(tournament)
+
+      for p <- Pairing.active_players(tournament.id) |> Enum.take(2) do
+        round = Tournaments.get_round(tournament.id, 1)
+
+        for pr <- Repo.preload(round, :pairings).pairings, pr.result == "" do
+          {:ok, _} = Tournaments.update_pairing_result(pr, "1-0")
+        end
+
+        _ = p
+      end
+
+      {:ok, _} = Pairing.pair_next_round(tournament)
+
+      byes =
+        Repo.all(
+          from b in "byes",
+            where: b.tournament_id == ^tournament.id and b.player_id == ^late.id,
+            select: b.round
+        )
+
+      assert 2 in byes, "from start_round onward the absence is real and must be recorded"
+      refute 1 in byes
+    end
+
     test "the points an absence pays are the points the pairing engine is told about" do
       # The crosstable and the file the engine reads are computed by two
       # different functions, and they disagreed. `Standings` paid an absence

@@ -342,7 +342,7 @@ defmodule PairingsEngine.Pairing do
     # no-show gets paired and forfeits - so "requested a bye" and "marked
     # absent" are one thing wearing two names, and they score through one
     # value and one allowance.
-    round_absentees = round_specific ++ absent_players(tournament.id)
+    round_absentees = round_specific ++ absent_players(tournament.id, next_number)
 
     # Players requesting an absence for this specific round get a bye row
     # instead of being sent to the engine, so the
@@ -1970,6 +1970,36 @@ defmodule PairingsEngine.Pairing do
           p.tournament_id == ^tournament_id and p.status == "active" and
             p.absent == true and p.forfeit == false
     )
+  end
+
+  @doc """
+  `absent_players/1`, minus anyone who had not joined by `round_number`.
+
+  A late entrant marked absent used to come back through this query after
+  `do_pair/2` had already filtered them out of the active side, so they
+  landed in `round_absentees` and were written an absentee bye row for every
+  round before they joined - contradicting `do_pair/2`'s own comment, which
+  says a late entrant "lands in NEITHER list ... not given an absentee bye
+  row either".
+
+  Those phantom rows are read: `Standings.add_bye_records/3` scores them and
+  increments the cumulative counter the `abs_nbfois` cap is measured
+  against, so on a SWAR-imported event they pay real points for rounds the
+  tournament did not have the player for, and burn the allowance doing it.
+  `SwarExport.round_record_for/5` emits them too - its `type == "absent"`
+  branch is matched BEFORE its own `start_round` guard, so a stray row
+  defeats that guard.
+
+  A round-aware arity rather than a filter at the call site, so "did this
+  player exist in round N" has one home. `Keizer.insert_absentee_byes/4`
+  has the same structural gap and now uses this too; it was harmless there
+  only because `Keizer.score_round/5` guards on `start_round` before the bye
+  lookup, which the Swiss `Standings` module does not.
+  """
+  def absent_players(tournament_id, round_number) do
+    tournament_id
+    |> absent_players()
+    |> Enum.reject(&not_yet_started?(&1, round_number))
   end
 
   @doc """

@@ -169,6 +169,13 @@ defmodule PairingsEngine.Keizer do
     rows =
       ladder_pool
       |> Enum.reject(&MapSet.member?(eligible_ids, &1.id))
+      # A round before the player joined is not a round they were absent
+      # from. `Keizer.score_round/5` already guards on `start_round` before
+      # the bye lookup, so a stray row never reached Keizer's own standings -
+      # but it IS emitted by the .swar export, whose "absent" branch is
+      # matched before its own start_round guard. Same gap the Swiss path
+      # had; fixed on both rather than only where it currently bites.
+      |> Enum.reject(&Engine.not_yet_started?(&1, round_number))
       |> Enum.filter(&excused_absence?(&1, round_number))
       |> Enum.map(fn p ->
         # One type for both, since they are the same event: you only know
