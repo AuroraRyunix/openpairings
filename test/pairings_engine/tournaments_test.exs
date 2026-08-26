@@ -1476,6 +1476,46 @@ defmodule PairingsEngine.TournamentsTest do
       assert Tournaments.list_forbidden_pairings(t.id) == []
     end
 
+    test "the vacancy seats reject a player from another tournament too", %{
+      tournament: t,
+      a: a
+    } do
+      # `add_forbidden_pairing/3` has enforced this for a long time; the two
+      # functions that SEAT a player did not. A player id arrives in a
+      # LiveView event payload long after the mount was authorised, so it is
+      # attacker-controlled - `get_player!/2`'s own doc says exactly that -
+      # and `Pairing.changeset/2` casts it with no ownership check while the
+      # FK is `references(:players)` with no tournament column. Any player id
+      # in the database could be seated on any board.
+      other = Repo.insert!(%Tournament{name: "Other", type: "swiss", rounds_count: 3})
+      stranger = Repo.insert!(%Player{tournament_id: other.id, name: "Stranger"})
+
+      round = Repo.insert!(%Round{tournament_id: t.id, number: 1, status: "playing"})
+
+      vacancy =
+        Repo.insert!(%PairingsEngine.Tournaments.Pairing{
+          round_id: round.id,
+          board: 1,
+          white_player_id: a.id,
+          black_player_id: nil,
+          result: ""
+        })
+
+      assert {:error, :invalid_player} = Tournaments.fill_seat(round, vacancy, stranger.id)
+      assert Repo.reload!(vacancy).black_player_id == nil
+
+      assert {:error, :invalid_player} =
+               Tournaments.pair_from_pool(round, a.id, stranger.id, 2)
+
+      assert {:error, :invalid_player} =
+               Tournaments.pair_from_pool(round, stranger.id, a.id, 2)
+
+      refute Repo.exists?(
+               from p in PairingsEngine.Tournaments.Pairing,
+                 where: p.round_id == ^round.id and p.board == 2
+             )
+    end
+
     test "add_forbidden_pairing/3 rejects a duplicate pair regardless of order", %{
       tournament: t,
       a: a,

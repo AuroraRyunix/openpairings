@@ -200,6 +200,40 @@ defmodule PairingsEngine.ArchiveTest do
       assert Tournaments.swap_seated_with_pool_player(round, a.id, b.id) == {:error, :archived}
     end
 
+    test "fill_seat/3, award_bye_for_vacancy/2 and pair_from_pool/4" do
+      # These three were the vacancy family's missing members. Their siblings
+      # were all in this suite; they were not, which is how they went years
+      # without the guard while two comments in pairings_live.ex asserted the
+      # writes were "refused server-side regardless".
+      scope = user_scope()
+      live = tournament(scope)
+      {:ok, a} = Tournaments.create_player(live.id, %{"name" => "Alice"})
+      {:ok, b} = Tournaments.create_player(live.id, %{"name" => "Bob"})
+      {:ok, c} = Tournaments.create_player(live.id, %{"name" => "Carol"})
+
+      r = Repo.insert!(%Round{tournament_id: live.id, number: 1, status: "playing"})
+
+      vacancy =
+        Repo.insert!(%PairingsEngine.Tournaments.Pairing{
+          round_id: r.id,
+          board: 1,
+          white_player_id: a.id,
+          black_player_id: nil,
+          result: ""
+        })
+
+      {:ok, _} = Tournaments.archive_tournament(live)
+      round = Tournaments.get_round(live.id, 1)
+
+      assert Tournaments.fill_seat(round, vacancy, b.id) == {:error, :archived}
+      assert Tournaments.award_bye_for_vacancy(round, vacancy) == {:error, :archived}
+      assert Tournaments.pair_from_pool(round, b.id, c.id, 2) == {:error, :archived}
+
+      # And nothing was written.
+      assert Repo.reload!(vacancy).black_player_id == nil
+      assert Repo.reload!(vacancy).result == ""
+    end
+
     test "set_pairing_hidden/3 and delete_pairing/2" do
       scope = user_scope()
       live = tournament(scope)

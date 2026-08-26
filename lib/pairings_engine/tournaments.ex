@@ -1789,6 +1789,15 @@ defmodule PairingsEngine.Tournaments do
     end
   end
 
+  # One player's half of `both_players_belong_to_tournament?/3`. Same reason
+  # it exists: an id from an event payload is attacker-controlled, and
+  # authorising the tournament at mount proves nothing about the row.
+  defp player_belongs_to_tournament?(tournament_id, player_id) do
+    Repo.exists?(
+      from p in Player, where: p.id == ^player_id and p.tournament_id == ^tournament_id
+    )
+  end
+
   defp both_players_belong_to_tournament?(tournament_id, player_a_id, player_b_id) do
     ids = Enum.uniq([player_a_id, player_b_id])
 
@@ -2316,6 +2325,24 @@ defmodule PairingsEngine.Tournaments do
       end
 
     cond do
+      # `ensure_writable/1` is documented as being called at the top of every
+      # state-changing function in this module, and three of the vacancy
+      # family were missed - this one, `award_bye_for_vacancy/2` and
+      # `pair_from_pool/4`. Two comments in `pairings_live.ex` assert the
+      # writes are refused server-side "regardless", which was not true for
+      # them.
+      ensure_writable(round.tournament_id) != :ok ->
+        {:error, :archived}
+
+      # A player id arrives in a LiveView event payload, long after the mount
+      # was authorised - `get_player!/2`'s own doc says exactly this: it is
+      # attacker-controlled, and authorising the tournament proves nothing
+      # about the row. `Pairing.changeset/2` casts the id with no ownership
+      # check and the FK is `references(:players)` with no tournament column,
+      # so any player id in the database was accepted onto this board.
+      not player_belongs_to_tournament?(round.tournament_id, player_id) ->
+        {:error, :invalid_player}
+
       is_nil(field) ->
         {:error, :seat_taken}
 
@@ -2345,6 +2372,9 @@ defmodule PairingsEngine.Tournaments do
     remaining = pairing.white_player_id || pairing.black_player_id
 
     cond do
+      ensure_writable(round.tournament_id) != :ok ->
+        {:error, :archived}
+
       is_nil(remaining) ->
         {:error, :empty_board}
 
@@ -2461,33 +2491,47 @@ defmodule PairingsEngine.Tournaments do
   """
   def pair_from_pool(%Round{} = round, white_id, black_id, board)
       when is_integer(board) and board > 0 do
-    if white_id == black_id do
-      {:error, :same_player}
-    else
-      Repo.transaction(fn ->
-        taken? =
-          Repo.exists?(from p in Pairing, where: p.round_id == ^round.id and p.board == ^board)
+    cond do
+      ensure_writable(round.tournament_id) != :ok ->
+        {:error, :archived}
 
-        if taken? do
-          Repo.rollback(:board_taken)
-        else
-          {:ok, created} =
-            %Pairing{round_id: round.id}
-            |> Pairing.changeset(%{
-              board: board,
-              white_player_id: white_id,
-              black_player_id: black_id,
-              result: ""
-            })
-            |> Repo.insert()
+      white_id == black_id ->
+        {:error, :same_player}
 
-          delete_bye_row(round, white_id)
-          delete_bye_row(round, black_id)
-          created
-        end
-      end)
-      |> finish_round_write(round.tournament_id)
+      # Same reasoning as `fill_seat/3`. `add_forbidden_pairing/3` already
+      # enforces this with the same predicate; these seats did not.
+      not both_players_belong_to_tournament?(round.tournament_id, white_id, black_id) ->
+        {:error, :invalid_player}
+
+      true ->
+        do_pair_from_pool(round, white_id, black_id, board)
     end
+  end
+
+  defp do_pair_from_pool(round, white_id, black_id, board) do
+    Repo.transaction(fn ->
+      taken? =
+        Repo.exists?(from p in Pairing, where: p.round_id == ^round.id and p.board == ^board)
+
+      if taken? do
+        Repo.rollback(:board_taken)
+      else
+        {:ok, created} =
+          %Pairing{round_id: round.id}
+          |> Pairing.changeset(%{
+            board: board,
+            white_player_id: white_id,
+            black_player_id: black_id,
+            result: ""
+          })
+          |> Repo.insert()
+
+        delete_bye_row(round, white_id)
+        delete_bye_row(round, black_id)
+        created
+      end
+    end)
+    |> finish_round_write(round.tournament_id)
   end
 
   @doc """
