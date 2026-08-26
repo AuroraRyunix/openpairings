@@ -619,6 +619,58 @@ defmodule PairingsEngine.PairingTest do
   # registration was handed a number already in use. Nothing rejects a
   # duplicate - no unique index, no changeset check - and the exported FIDE
   # TRF then carries two rows with the same starting rank.
+  test "the engine's score column includes SWAR 3-2-1 presence points" do
+    # player_points/2's own docstring states the requirement - it has to
+    # equal what Standings puts in the crosstable - and lists two drifts it
+    # fixed. This was the third: Standings adds a presence point on top of
+    # every played game in a 3-2-1 event, and the TRF score column had no
+    # presence term at all, so the engine bracketed by a different number
+    # than the standings showed.
+    tournament =
+      Repo.insert!(%Tournament{
+        name: "321",
+        type: "swiss",
+        rounds_count: 3,
+        points_win: 3.0,
+        points_draw: 2.0,
+        points_loss: 1.0,
+        presence_value: 1.0
+      })
+
+    a = insert_player(tournament, "Alice", fide_rating: 2000, pairing_number: 1)
+    b = insert_player(tournament, "Bob", fide_rating: 1900, pairing_number: 2)
+
+    round =
+      Repo.insert!(%PairingsEngine.Tournaments.Round{
+        tournament_id: tournament.id,
+        number: 1,
+        status: "finished"
+      })
+
+    Repo.insert!(%PairingsEngine.Tournaments.Pairing{
+      round_id: round.id,
+      board: 1,
+      white_player_id: a.id,
+      black_player_id: b.id,
+      result: "1-0"
+    })
+
+    tournament = Repo.reload!(tournament)
+    rows = Map.new(Pairing.trf_player_rows(tournament, [a, b]), &{&1.name, &1.points})
+
+    standings =
+      tournament
+      |> PairingsEngine.Standings.standings()
+      |> Map.new(&{&1.player.name, &1.points})
+
+    assert rows["Alice"] == standings["Alice"],
+           "the file and the crosstable must agree: #{inspect(rows)} vs #{inspect(standings)}"
+
+    assert rows["Bob"] == standings["Bob"]
+    assert rows["Alice"] == 4.0, "3 for the win plus 1 for being there"
+    assert rows["Bob"] == 2.0, "1 for the loss plus 1 for being there"
+  end
+
   test "a new player never reuses a pairing number held by an absent one" do
     tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 5})
 

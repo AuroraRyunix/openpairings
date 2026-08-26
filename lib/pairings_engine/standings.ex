@@ -513,6 +513,36 @@ defmodule PairingsEngine.Standings do
   #
   # `presence_value` is nil for every tournament that is not a SWAR 3-2-1
   # import, which is what keeps this inert everywhere else.
+  @doc """
+  SWAR 3-2-1 presence points for one game, keyed by its **TRF code**.
+
+  `presence_earned/1` answers the same question from a result STRING
+  ("1-0", "0-1FF"); the TRF side of the app only ever has the per-player
+  code. Both are here so the two readings of "was this player present"
+  cannot drift - which they already had: `Pairing.player_points/2`, the
+  number written into TRF columns 81-84 and the number the engine brackets
+  by, had no presence term at all, so a 3-2-1 club event was scored one way
+  in the crosstable and handed to the engine another.
+
+  Presence is earned by playing, so it follows `Trf.playing_codes/0` with
+  one exception: `-` is a forfeit LOSS, and the player who forfeits is the
+  one who was not there. Its mirror `+` does earn it, matching
+  `presence_earned/1`'s `{true, false}` for "1-0FF".
+
+  Returns 0.0 for every tournament that is not a 3-2-1 import, because
+  `presence_value` is nil for them.
+  """
+  def presence_points_for_code(tournament, code) do
+    if code in presence_earning_codes() do
+      presence_points(tournament, true)
+    else
+      0.0
+    end
+  end
+
+  @doc "TRF codes whose player was present - see `presence_points_for_code/2`."
+  def presence_earning_codes, do: PairingsEngine.Trf.playing_codes() -- ["-"]
+
   defp presence_points(_tournament, false), do: 0.0
 
   defp presence_points(tournament, true) do

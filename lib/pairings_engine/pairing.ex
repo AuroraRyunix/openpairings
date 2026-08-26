@@ -1851,12 +1851,26 @@ defmodule PairingsEngine.Pairing do
   # letter spellings of `1`/`=`/`0` for a played but unrated game and belong
   # with their twins, not in the catch-all.
   defp game_points(g, t, _absences) do
-    case g.result do
-      r when r in ~w(1 + F W) -> t.points_win
-      "U" -> t.bye_value
-      r when r in ~w(= H D) -> t.points_draw
-      _ -> t.points_loss
-    end
+    base =
+      case g.result do
+        r when r in ~w(1 + F W) -> t.points_win
+        "U" -> t.bye_value
+        r when r in ~w(= H D) -> t.points_draw
+        _ -> t.points_loss
+      end
+
+    # The third drift this function's own docstring did not know about.
+    # `Standings.pairing_records/4` adds SWAR's 3-2-1 presence point on top
+    # of every played game's value; this had no presence term at all, so a
+    # Belgian 3-2-1 club event - a supported, real-data-tested import path -
+    # was scored one way in the crosstable and handed to the engine another,
+    # which puts players in the wrong score brackets.
+    #
+    # SWAR itself sends Points + SpecialPts in the TRF it hands JaVaFo
+    # (standings.ex records the EnvoiJAVAFO.cpp reference), so this was also
+    # sending a different column than the program it was reverse-engineered
+    # from. Inert unless `presence_value` is set, i.e. everywhere but 3-2-1.
+    base + Standings.presence_points_for_code(t, g.result)
   end
 
   # Orders `players` the way JaVaFo's Dutch-system engine expects its input:

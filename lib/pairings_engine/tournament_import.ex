@@ -176,6 +176,19 @@ defmodule PairingsEngine.TournamentImport do
         # manual ranking restored the flag but none of the actual order,
         # leaving it switched on with every rank nil.
         |> Ecto.Changeset.change(manual_rank: coerce_int(Map.get(p, "manual_rank")))
+        # And `special_table`, for the mirror-image reason. `Player`'s
+        # `sync_special_table/1` derives it from the PRESENCE of a
+        # "fixed_board" key, on the stated assumption that "other writers -
+        # notably the SWAR importer, which sets `special_table` directly from
+        # HandyTable without going through `fixed_board` at all - never
+        # include `fixed_board` in their attrs".
+        #
+        # This exporter does include it, always, even when its value is nil -
+        # which that assumption did not anticipate. So a SWAR-imported
+        # fixed-table player came back from a JSON backup or a snapshot
+        # restore with `special_table` flipped to false, losing the flag that
+        # keeps them on their table.
+        |> Ecto.Changeset.change(special_table: !!Map.get(p, "special_table"))
         |> insert!()
 
       {Map.get(p, "id"), new_player.id}

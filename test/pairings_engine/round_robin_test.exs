@@ -174,6 +174,40 @@ defmodule PairingsEngine.RoundRobinTest do
     end
   end
 
+  describe "a schedule longer than the app's round cap" do
+    test "refuses with a message instead of crashing" do
+      # `ensure_correct_rounds_count/2` forces the derived schedule length
+      # onto the tournament with a hard `{:ok, _} =` match, and
+      # `Tournament.changeset/2` caps rounds_count at 30. The two were
+      # written independently - the cap is a sanity bound on a Swiss round
+      # picker, the derivation is however long a Berger table has to be - so
+      # a big enough field made update_tournament/2 return an error tuple and
+      # the match raised MatchError straight out of pair_next_round/1.
+      #
+      # 32 players over two cycles is 62 rounds. Every other refusal in this
+      # module returns {:error, reason} for the LiveView to render; this one
+      # took the process down.
+      tournament = round_robin_tournament(rr_cycles: 2)
+
+      for n <- 1..32 do
+        insert_player(tournament, "P#{n}", fide_rating: 2400 - n)
+      end
+
+      assert {:error, message} = Pairing.pair_next_round(tournament)
+      assert message =~ "62 rounds"
+      assert message =~ "#{Tournament.max_rounds()}"
+    end
+
+    test "a schedule that fits is unaffected" do
+      tournament = round_robin_tournament(rr_cycles: 1)
+
+      for n <- 1..6, do: insert_player(tournament, "P#{n}", fide_rating: 2400 - n)
+
+      assert {:ok, _round} = Pairing.pair_next_round(tournament)
+      assert Repo.reload!(tournament).rounds_count == 5
+    end
+  end
+
   describe "pair_next_round/1 with rr_match_format - end-to-end" do
     test "round 1 and round 2 pair the same players with reversed colours, each in its own round/pairing rows" do
       tournament = round_robin_tournament(rr_cycles: 1, rr_match_format: true)

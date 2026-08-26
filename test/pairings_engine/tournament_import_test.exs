@@ -236,6 +236,45 @@ defmodule PairingsEngine.TournamentImportTest do
     assert Tournaments.get_tournament!(imported.id).status == "finished"
   end
 
+  test "a fixed-table player keeps special_table across a round trip" do
+    # `Player.sync_special_table/1` derives the flag from the PRESENCE of a
+    # "fixed_board" key, on the stated assumption that writers which set
+    # `special_table` directly - the SWAR importer, from HandyTable - never
+    # include `fixed_board`. This exporter includes it always, even as nil,
+    # which that assumption did not anticipate: the exported `true` was
+    # overwritten with false on the way back in, so a SWAR-imported
+    # fixed-table player lost the flag that keeps them on their table.
+    owner = user_scope()
+    importer = user_scope()
+    original = fixture(owner)
+
+    [player | _] = Tournaments.list_players(original.id)
+
+    {:ok, _} =
+      player
+      |> Ecto.Changeset.change(special_table: true, fixed_board: nil)
+      |> Repo.update()
+
+    envelope = TournamentExport.export_tournament(original)
+    assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
+
+    restored = Enum.find(Tournaments.list_players(imported.id), &(&1.name == player.name))
+
+    assert restored.special_table == true,
+           "a SWAR-style fixed-table player must not lose the flag on restore"
+  end
+
+  test "a player who is not on a fixed table stays that way" do
+    owner = user_scope()
+    importer = user_scope()
+    original = fixture(owner)
+
+    envelope = TournamentExport.export_tournament(original)
+    assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
+
+    assert Enum.all?(Tournaments.list_players(imported.id), &(&1.special_table in [false, nil]))
+  end
+
   test "round-trip on a partially-paired tournament re-derives status as running, not finished" do
     owner = user_scope()
     importer = user_scope()

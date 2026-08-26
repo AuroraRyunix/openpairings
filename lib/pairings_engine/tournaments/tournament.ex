@@ -495,7 +495,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_number(:publish_delay_minutes, greater_than_or_equal_to: 0)
     |> validate_inclusion(:club_exclusion, @exclusion_modes)
     |> validate_inclusion(:fed_exclusion, @exclusion_modes)
-    |> validate_number(:rounds_count, greater_than: 0, less_than_or_equal_to: 30)
+    |> validate_number(:rounds_count, greater_than: 0, less_than_or_equal_to: max_rounds())
     |> validate_keizer_top_value()
     |> validate_pairing_engine()
     |> validate_abs_scoring()
@@ -1236,6 +1236,19 @@ defmodule PairingsEngine.Tournaments.Tournament do
   def engine_name(%{pairing_system: "keizer"}), do: "Keizer"
   def engine_name(%{pairing_engine: "ainalrami"}), do: "Ainalrami"
   def engine_name(_swiss), do: "JaVaFo"
+
+  @max_rounds 30
+
+  @doc """
+  The largest `rounds_count` this app accepts.
+
+  Exposed because it is a bound on the UI's round picker, and a round robin
+  derives its own length from the field size with no knowledge of it - so
+  `RoundRobin.ensure_correct_rounds_count/2` needs to name the number in the
+  message it returns when a schedule is longer than this. Hardcoding it
+  there would let the message and the validation drift.
+  """
+  def max_rounds, do: @max_rounds
 
   def publish_modes, do: @publish_modes
 

@@ -97,7 +97,14 @@ defmodule PairingsEngine.RoundRobin do
   def pair_next_round(%Tournament{} = tournament) do
     ensure_frozen(tournament.id)
     frozen = frozen_players(tournament.id)
-    tournament = ensure_correct_rounds_count(tournament, length(frozen))
+
+    case ensure_correct_rounds_count(tournament, length(frozen)) do
+      {:error, reason} -> {:error, reason}
+      tournament -> do_pair_next_round(tournament, frozen)
+    end
+  end
+
+  defp do_pair_next_round(tournament, frozen) do
     paired = PairingsEngine.Pairing.paired_rounds_count(tournament.id)
     next_number = paired + 1
 
@@ -316,11 +323,33 @@ defmodule PairingsEngine.RoundRobin do
         total_rounds(frozen_count, tournament.rr_cycles)
       end
 
-    if tournament.rounds_count == correct do
-      tournament
-    else
-      {:ok, updated} = Tournaments.update_tournament(tournament, %{rounds_count: correct})
-      updated
+    cond do
+      tournament.rounds_count == correct ->
+        tournament
+
+      true ->
+        case Tournaments.update_tournament(tournament, %{rounds_count: correct}) do
+          {:ok, updated} ->
+            updated
+
+          # `Tournament.changeset/2` caps rounds_count at 30 - a sanity bound
+          # on a Swiss field's round picker, written independently of
+          # `total_rounds/2`, which derives whatever a Berger schedule
+          # actually needs. A 32-player double round robin needs 62, so the
+          # two disagree and the hard `{:ok, _} =` match raised MatchError
+          # straight out of `pair_next_round/1` - an unhandled crash where
+          # every other refusal in this module returns `{:error, reason}` for
+          # the LiveView to display.
+          #
+          # Returned as a tagged tuple rather than raised, and rather than
+          # quietly capping: capping would pair a schedule the arbiter did
+          # not ask for and silently drop its tail.
+          {:error, %Ecto.Changeset{}} ->
+            {:error,
+             "A round robin with #{frozen_count} players needs #{correct} rounds, " <>
+               "which is above the #{Tournament.max_rounds()}-round maximum this app supports. " <>
+               "Reduce the field, or use a single cycle instead of a double."}
+        end
     end
   end
 
