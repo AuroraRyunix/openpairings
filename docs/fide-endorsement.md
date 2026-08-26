@@ -26,10 +26,13 @@ below for what still wants a real look at the code before it's marked done.
 FE1 asks applicants to declare **"Internal engine: YES / NO"** - FIDE's own
 form anticipates that a Tournament Handler Program (THP) might *not*
 implement Dutch-system pairing itself and instead call an already-endorsed
-engine. That's exactly OpenPairings' situation: `PairingsEngine.Pairing`
-builds a TRF16 file and hands it to `javafo.jar` (Roberto Ricca's JaVaFo,
-already FIDE-endorsed) via `-p`, then reads the result back - see
-`docs/AGENTS.md`.
+engine. That was exactly OpenPairings' situation when this checklist was
+written: `PairingsEngine.Pairing` builds a TRF16 file and hands it to
+`javafo.jar` (Roberto Ricca's JaVaFo, already FIDE-endorsed) via `-p`, then
+reads the result back - see `docs/AGENTS.md`. It is still what happens on a
+tournament set to JaVaFo, but JaVaFo is no longer the engine a tournament
+gets by default; the section "But OpenPairings can now select Ainalrami"
+below is where this framing runs out, and it is not a footnote to it.
 
 That reframes the whole checklist. **Section A (FIDE Mode) and most of
 Section B (Pairing) describe JaVaFo's obligations, already discharged by its

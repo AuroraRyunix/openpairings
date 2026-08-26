@@ -12,9 +12,16 @@ defmodule PairingsEngine.Tournaments.Tournament do
   # Which Swiss engine actually pairs the round, once `pairing_system` has
   # already decided the Swiss path runs at all - round robin and Keizer never
   # reach an engine, so this setting is inert for them (see
-  # `PairingsEngine.Pairing.pair_next_round/1`). "javafo" is the default and
-  # the only value permitted on a FIDE-homologated tournament; see
-  # `validate_pairing_engine/1` below and docs/fide-endorsement.md.
+  # `PairingsEngine.Pairing.pair_next_round/1`). "ainalrami" is the default
+  # (see the field itself below); BOTH values are permitted on a
+  # FIDE-homologated tournament since 2026-08-21 - the UI warns rather than
+  # blocking. See `validate_pairing_engine/1` below, which now refuses
+  # nothing and carries the reasoning, and docs/fide-endorsement.md.
+  #
+  # This comment said the opposite of both for six days: "javafo" as the
+  # default, and the only value a homologated tournament permits. It is the
+  # copy anyone grepping for `@pairing_engines` reads first, and it cited
+  # the two sources that refute it.
   @pairing_engines ~w(javafo ainalrami)
   @rr_cycles_values [1, 2]
   # How a newly-paired round becomes visible on the public pairings page

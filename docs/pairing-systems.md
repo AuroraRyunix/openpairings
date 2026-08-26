@@ -24,8 +24,8 @@ is inert for them.
 
 | Value | Engine | Status |
 |---|---|---|
-| `"javafo"` *(default)* | JaVaFo (© Roberto Ricca), an external Java program invoked as `java -jar javafo.jar input.trf -p output.txt` | FIDE-endorsed; the only engine permitted for a FIDE-homologated tournament |
-| `"ainalrami"` | [Ainalrami](https://github.com/AuroraRyunix/Ainalrami), a from-scratch Dutch engine in pure Elixir, running inside this app's own BEAM | Beta; never for FIDE-rated events |
+| `"ainalrami"` *(default)* | [Ainalrami](https://github.com/AuroraRyunix/Ainalrami), a from-scratch Dutch engine in pure Elixir, running inside this app's own BEAM | Implements C.04.3 effective 1 February 2026; permitted on a FIDE-homologated tournament, with the paperwork caveat below |
+| `"javafo"` | JaVaFo (© Roberto Ricca), an external Java program invoked as `java -jar javafo.jar input.trf -p output.txt` | FIDE-endorsed; implements the 2022 edition of C.04.3 |
 
 **Both engines are handed the byte-identical TRF.** `Pairing.javafo_input/4`
 builds the file once and the engine choice only decides what turns those
@@ -36,12 +36,19 @@ the two directly comparable on real tournament data (pair a round with one,
 delete it, pair it with the other, diff), rather than only on synthetic
 input.
 
-**Why JaVaFo stays the default, and why the FIDE restriction is not
-negotiable.** OpenPairings answers FIDE's FE1 question *"Internal engine:
-YES/NO"* with **NO - thru JaVaFo**, exactly as Vega, Swiss Manager and
-TournamentService do; JaVaFo's own endorsement is what then covers pairing
-legality for the whole event. Pairing a homologated tournament with any
-other engine voids that answer outright. See `docs/fide-endorsement.md`.
+**Why Ainalrami is the default, and what that costs on the FIDE side.** The
+default flipped on 2026-08-25. JaVaFo 2.2 implements C.04.3 as it stood in
+2022 and has not been updated for the edition effective 1 February 2026, so
+leaving it as the default meant handing arbiters superseded pairings without
+their having asked for them. A program with no engine of its own answers
+FIDE's FE1 question *"Internal engine: YES/NO"* with **NO - thru JaVaFo**,
+exactly as Vega, Swiss Manager and TournamentService do, and JaVaFo's own
+endorsement is what then covers pairing legality for the whole event. That
+answer no longer describes what this app normally does. The cost is
+paperwork rather than pairing quality: a rated event paired by Ainalrami was
+not paired by the engine such an answer names. Which engine a homologated
+tournament uses is the arbiter's decision, and the Settings page says so
+there instead of blocking the choice. See `docs/fide-endorsement.md`.
 
 **TRF extensions.** Ainalrami reads all three this app emits: `XXR` (round
 count), `XXP` (forbidden pairings and club/federation exclusions -
@@ -68,7 +75,7 @@ live in the changeset: forbidden pairings and exclusion rules live in their
 own table and can be added at any point mid-tournament, long after the
 engine choice has locked.
 
-**Three guards, all in the data layer** (the Settings UI renders from the
+**Two guards, both in the data layer** (the Settings UI renders from the
 same rules, but the UI has never been the enforcement here):
 
 1. `pairing_engine` is a member of `Tournaments.locked_fields/1` - frozen
@@ -76,11 +83,16 @@ same rules, but the UI has never been the enforcement here):
    independent Dutch implementations will not always choose the same
    pairing, and swapping mid-event hands the new engine a history it did
    not produce.
-2. `"ainalrami"` is refused on a `fide_homologated` tournament, and ticking
-   `fide_homologated` on a tournament already running Ainalrami is refused
-   too - the reverse direction matters just as much.
-3. Round robin and Keizer ignore the setting entirely (see below); it is
+2. Round robin and Keizer ignore the setting entirely (see below); it is
    read only on the Swiss path.
+
+There used to be a third: `"ainalrami"` was refused on a `fide_homologated`
+tournament, and ticking `fide_homologated` on a tournament already running
+Ainalrami was refused too. That block was removed on 2026-08-21 -
+`Tournament.validate_pairing_engine/1` now passes the changeset through
+unchanged, and the comment above it records why: refusing outright asserted
+a quality judgement the measurements do not support. The Settings page warns
+on a homologated tournament instead.
 
 ## Round robin (Berger) - available
 

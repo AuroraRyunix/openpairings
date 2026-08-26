@@ -13,11 +13,11 @@ code** and treat this file as stale on that specific point (see `TODO.md`).
 
 ## What this app is
 
-A web-based chess tournament manager: FIDE Swiss pairing (via the external
-JaVaFo engine), round robin (Berger), the Keizer system, FIDE tiebreaks
-(C.07), result entry, live standings, printing, TRF16/SWAR import-export,
-FIDE/KBSB rating-list sync, automatic FIDE title-norm judgment (B.01), and
-no-account mobile result entry. Single-user-owned tournaments with optional
+A web-based chess tournament manager: FIDE Swiss pairing (via the built-in
+Ainalrami engine, or the external JaVaFo), round robin (Berger), the Keizer
+system, FIDE tiebreaks (C.07), result entry, live standings, printing,
+TRF16/SWAR import-export, FIDE/KBSB rating-list sync, automatic FIDE
+title-norm judgment (B.01), and no-account mobile result entry. Single-user-owned tournaments with optional
 per-tournament collaborator sharing.
 
 ## Stack & why
@@ -31,14 +31,16 @@ per-tournament collaborator sharing.
   process, deployable to a small VPS or as a standalone binary with zero
   external service dependencies. This has real consequences (see "SQLite
   concurrency" below) that don't exist in a Postgres-backed Phoenix app.
-- **JaVaFo** (a real, external, FIDE-endorsed Java program) does the actual
-  Swiss pairing math. This app's job for Swiss is building a correct TRF16
-  input file, shelling out to `java -jar javafo.jar`, and parsing the output
-  - **not** reimplementing the Dutch pairing algorithm. A tournament may
-  opt into a second engine (`tournaments.pairing_engine == "ainalrami"`, the
-  sibling pure-Elixir Dutch engine, beta) which is handed the byte-identical
-  TRF; JaVaFo remains the default and the only engine permitted on a
-  FIDE-homologated tournament. See `docs/pairing-systems.md`.
+- **Two Swiss engines**, chosen per tournament by
+  `tournaments.pairing_engine`, which defaults to `"ainalrami"`. Either way
+  this app's job for Swiss is the same: build a correct TRF16 input file,
+  hand it over, parse the result back. **Ainalrami** is the sibling
+  pure-Elixir Dutch engine and runs in-process, no JVM. **JaVaFo** (a real,
+  external, FIDE-endorsed Java program) is the alternative, invoked as
+  `java -jar javafo.jar`, and is handed the byte-identical TRF. Both are
+  permitted on a FIDE-homologated tournament; what that costs on the
+  paperwork side is `docs/fide-endorsement.md`. See
+  `docs/pairing-systems.md`.
 - **Burrito** wraps a release into a single self-contained executable
   (bundles the BEAM runtime itself) for zero-dependency distribution.
 
@@ -209,9 +211,12 @@ anything here.
    for the pairing-allocated bye) or `{:error, message}`. Both Swiss paths
    (`do_pair_single/4` and the per-category one) funnel through it, so
    neither can drift from the other and a third engine would be added in
-   one place. Ainalrami reads only the TRF's `XXR` extension, so a round
-   whose TRF would carry `XXP` (forbidden pairings / exclusions) is refused
-   there outright rather than paired with the rule silently dropped.
+   one place. Ainalrami reads `XXR`, `XXP` and `XXA`
+   (`@ainalrami_supported_extensions`, `pairing.ex:1104`); any OTHER
+   extension code makes it refuse the round outright rather than pair it
+   with the rule silently dropped. The check is made against the TRF the
+   pipeline actually generated, not against the tournament's settings, so a
+   new extension is refused by default without anyone updating a list.
 8. **Round robin and Keizer never send anything to JaVaFo.** Round robin is
    a pure function of frozen pairing numbers (Berger tables, computed once
    at `ensure_frozen/1`); Keizer runs its own backtracking matcher. Neither

@@ -59,12 +59,13 @@ error instead of a crash or a raw changeset dump.
 
 ## Applying it to pairing
 
-### Swiss (JaVaFo) - implemented
+### Swiss - implemented
 
-JaVaFo (the FIDE-endorsed Dutch-system engine `PairingsEngine.Pairing`
-shells out to) supports a TRF extension line for this: `XXP <ids...>` - all
-player ids listed on one `XXP` line must never be paired against each
-other; multiple `XXP` lines are allowed, one per rule.
+The TRF carries an extension line for this: `XXP <ids...>` - all player ids
+listed on one `XXP` line must never be paired against each other; multiple
+`XXP` lines are allowed, one per rule. Both Swiss engines read it (see
+`docs/pairing-systems.md`), and both are handed the same file, so nothing
+below depends on which one is selected.
 
 `PairingsEngine.Pairing.javafo_input/2` builds one `"XXP a b\r\n"` line per
 forbidden pairing, right after the existing `XXR` (total rounds) line. The
@@ -88,7 +89,7 @@ end
 If either player in a forbidden pair isn't in `players` at all, or hasn't
 been assigned a `pairing_number` yet (not active, permanently
 absent/forfeited, or simply never paired before), that pair is **skipped
-silently** - JaVaFo only needs to hear about players it's actually being
+silently** - the engine only needs to hear about players it's actually being
 asked to pair this round, and a rank-less id on an `XXP` line would be
 meaningless (or could even collide with another player's rank by
 coincidence).

@@ -7,21 +7,22 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
 
 - **Swiss (FIDE Dutch)** on either of two engines, chosen per tournament and
   driven through TRF16 files built and validated by the app:
-  - **JaVaFo 2.2** (default) - FIDE's own reference implementation, of the
-    **2022** edition of C.04.3.
-  - **[Ainalrami](https://github.com/AuroraRyunix/Ainalrami)** (beta) - written
-    for this project in Elixir, implementing C.04.3 as it stands from
-    **1 February 2026**, in-process with no JVM. Cross-checked against
+  - **[Ainalrami](https://github.com/AuroraRyunix/Ainalrami)** (default) -
+    written for this project in Elixir, implementing C.04.3 as it stands
+    from **1 February 2026**, in-process with no JVM. Cross-checked against
     bbpPairings 6.0.0 over 2.5 billion individual pairings with two
     disagreements, both defects in bbpPairings. See
     [`fide-endorsement.md`](fide-endorsement.md).
+  - **JaVaFo 2.2** - FIDE's own reference implementation, of the **2022**
+    edition of C.04.3. External, needs a JVM, and is the choice for an
+    organiser who wants the endorsed engine rather than the current rules.
   - **Accelerated Swiss (Baku, FIDE C.04.7)** - the app computes each Group-A
-    player's virtual points per round and hands JaVaFo the full history via
-    fixed-column `XXA` lines.
+    player's virtual points per round and hands the selected engine the full
+    history via fixed-column `XXA` lines.
   - **Per-category pairing** - each category paired by its own independent
-    JaVaFo run, merged into one round with continuous board numbers and a
+    engine run, merged into one round with continuous board numbers and a
     single pairing sheet.
-  - **Match format** - two-game matches: each JaVaFo decision produces two
+  - **Match format** - two-game matches: each pairing decision produces two
     back-to-back rounds, the second a colour-reversed mirror (verified safe
     against the real JaVaFo engine before implementation).
   - Robust against real-world rosters: absent and round-specific-absent

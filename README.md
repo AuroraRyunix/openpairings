@@ -7,12 +7,12 @@ sync, automatic FIDE title-norm judgment (B.01), and no-account mobile result
 entry. Runs locally and deploys unchanged to a server or as a standalone
 binary, with user accounts and per-user tournaments.
 
-Swiss pairing runs on either of two engines, chosen per tournament: JaVaFo,
-or **[Ainalrami](https://github.com/AuroraRyunix/Ainalrami)** - a FIDE
-Dutch-system engine written for this project in Elixir, with no JVM and no
-external binary. Ainalrami implements C.04.3 **effective 1 February 2026**,
-the current rules rather than the 2022 edition JaVaFo and most other engines
-still ship. See [Pairing engines](#pairing-engines).
+Swiss pairing runs on either of two engines, chosen per tournament:
+**[Ainalrami](https://github.com/AuroraRyunix/Ainalrami)** - the default, a
+FIDE Dutch-system engine written for this project in Elixir, with no JVM and
+no external binary - or JaVaFo. Ainalrami implements C.04.3 **effective
+1 February 2026**, the current rules rather than the 2022 edition JaVaFo and
+most other engines still ship. See [Pairing engines](#pairing-engines).
 
 ## Tech stack
 
@@ -27,7 +27,7 @@ still ship. See [Pairing engines](#pairing-engines).
   pairing - an in-house Elixir dependency, so it runs in-process with no
   subprocess and no JVM.
 - **JaVaFo** (© Roberto Ricca), an external `.jar`, run as a subprocess - the
-  default Swiss engine and the alternative to Ainalrami, not bundled, see
+  alternative to Ainalrami, selectable per tournament, not bundled, see
   Quick start below.
 - **Burrito** for standalone single-file binaries (bundles the BEAM runtime
   itself - see [`docs/binaries.md`](docs/binaries.md)).
@@ -47,9 +47,9 @@ confirmation e-mail appears at http://localhost:4000/dev/mailbox).
 
 **JaVaFo:** the JAR is not bundled (it is © Roberto Ricca). Download it from
 https://www.rrweb.org/javafo/ and save it as `priv/javafo/javafo.jar`. It is
-only needed for Swiss tournaments left on the default engine - round robin,
-Keizer, and any Swiss switched to Ainalrami all run without Java installed
-at all.
+only needed for Swiss tournaments switched to JaVaFo - round robin, Keizer,
+and any Swiss left on the default engine all run without Java installed at
+all.
 
 For a from-scratch environment setup (installing Erlang/Elixir/Java, first-run
 gotchas), see [`docs/setup-guide.md`](docs/setup-guide.md).
@@ -61,14 +61,13 @@ Keizer have no such choice and never call either one.
 
 | engine | rules edition | runs as | needs Java |
 |---|---|---|---|
-| **JaVaFo 2.2** (default) | C.04.3, 2022 | subprocess, `.jar` | yes |
-| **[Ainalrami](https://github.com/AuroraRyunix/Ainalrami)** (beta) | C.04.3, **1 Feb 2026** | in-process Elixir | no |
+| **[Ainalrami](https://github.com/AuroraRyunix/Ainalrami)** (default) | C.04.3, **1 Feb 2026** | in-process Elixir | no |
+| **JaVaFo 2.2** | C.04.3, 2022 | subprocess, `.jar` | yes |
 
 The two disagree on roughly 4% of rounds, and that is the size of the rules
-change rather than a defect in either: JaVaFo is FIDE's own reference
-implementation of the **superseded** edition, and it has not been updated
-for 2026. An engine that agreed with both editions at once would be reading
-neither.
+change rather than a defect in either: JaVaFo is FIDE-endorsed, and it
+implements the **superseded** edition - it has not been updated for 2026. An engine that
+agreed with both editions at once would be reading neither.
 
 Ainalrami is cross-checked against **bbpPairings 6.0.0**, an independent
 Apache-2.0 implementation of the same 2026 rules, by replaying whole

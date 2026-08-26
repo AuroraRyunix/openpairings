@@ -5,12 +5,14 @@ See [`docs/features.md`](docs/features.md) for what's already shipped.
 
 > **A whole-codebase sweep ran on 2026-08-26** and its findings are in
 > [docs/sweep-2026-08-26.md](docs/sweep-2026-08-26.md) - 78 items for this
-> repository, of which **12 are bugs that survived an adversarial
-> refutation pass**: a TRF round-trip that turns unrated games into byes,
-> two players able to share a pairing number, a Keizer standings crash on
-> asymmetric results, and a manual-pairing path that seats a player id it
-> never scopes to the tournament. None are fixed. This file is the roadmap;
-> that one is the bug list.
+> repository, of which 12 were bugs that survived an adversarial refutation
+> pass and 15 more were filed as unverified leads. **All 12 confirmed bugs
+> and 10 of the 15 leads are now fixed**; that document's Status section
+> carries the finding-to-commit table. Five leads are open and are listed
+> under "Still open from the 2026-08-26 sweep" below, three of them under a
+> disagreement about whether they are bugs at all. Nothing below bug
+> severity - 27 drift items, 7 optimizations, 15 additions - has been
+> re-audited. This file is the roadmap; that one is the bug list.
 
 ## The 2026 Acceptance Cycle (dominates everything below)
 
@@ -163,6 +165,64 @@ These are real, identified gaps - not yet built, and not accidentally missed:
   never depend on prior results - closing the "I don't see all rounds in
   advance" complaint too, since the whole schedule now exists right after
   that one click.
+
+## Still open from the 2026-08-26 sweep
+
+The bug-severity findings from [docs/sweep-2026-08-26.md](docs/sweep-2026-08-26.md)
+that no commit has closed. All were filed as leads, not as confirmed bugs.
+Three of them were adjudicated on 2026-08-27 - two confirmed, one refuted -
+and that pass turned up a fourth. Full evidence and line references are in
+that document's "Three leads, adjudicated 2026-08-27"; this is the index.
+
+- **Keizer's `classify_result` catch-all scores an unscored pairing as a
+  played loss** (`lib/pairings_engine/keizer.ex:605`). A paired-but-unscored
+  pairing carries `result: ""`, falls to `_ -> :zero`, and `round_stats/2`'s
+  `:zero` bucket increments both `played` and `losses`, where
+  `Standings.pairing_records/4` returns `[]` for the same state.
+  **CONFIRMED as a defect, harm refuted**: `played`/`wins`/`draws`/`losses`
+  are dead fields - returned by `Keizer.standings/2` and read by nothing, and
+  all four Keizer surfaces render Score only. The one live effect is
+  `raw_points` inflated by `points_loss` per unreported game, which is 0.0
+  by default. Low priority, but it is two implementations of one rule.
+- **`adjusted_score/3` mixes a record count with a round number**
+  (`lib/pairings_engine/standings.ex:770`). `missing_tail` subtracts a round
+  number from `rounds_played_count/1`, which counts records, so one board
+  reporting first can hand every un-reported player's opponents a phantom
+  draw on Buchholz/BHC1/BHC2/MBH/SB, and move Koya's 50% threshold a full
+  win at the same instant. **CONFIRMED - and the cause and cure both need
+  correcting.** `rounds_played_count <= round_horizon` always (one record
+  per player per round, both global maxima), so swapping to `round_horizon`
+  as this document first proposed pads MORE, not less. The fix is a third
+  horizon: the highest round in which no pairing still has `result: ""`,
+  threaded into both `adjusted_score/3` and `tiebreak("KS", ...)`. This is
+  the one open finding with a wrong number on an arbiter's screen.
+- **The public standings page ignores the per-round publish gate**
+  (`lib/pairings_engine_web/live/public_standings_live.ex:72`). It calls
+  `Standings.standings/2` with no `through_round` and counts every `rounds`
+  row, so in manual or timed publish mode it shows a round the public
+  pairings page one link away deliberately hides. **REFUTED as a bug** - the
+  settings card is headed "Public pairings" and names `/p/<slug>/pairings`
+  literally, and the unpublish confirm, `round_published?/2`'s `@doc` and the
+  CHANGELOG entry all scope it the same way. Open only as a PRODUCT
+  question: should withholding a round withhold its results too?
+- **`Ainalrami.Pairing.explain_round/3` drops `:point_system`**, so a
+  non-1/½/0 tournament's stored round explanation is computed at the wrong
+  scale and can describe a bracket the engine did not use. Fixed upstream by
+  `4dd9980` in the Ainalrami repository, but that commit is on
+  `feature/team-pairing` and is not an ancestor of `v0.11.1`, which is what
+  `mix.exs:159` pins. Closes here when the pin moves.
+- **A vacated seat pays the player left on the board a half-value Keizer
+  bye** (`lib/pairings_engine/keizer.ex:561`). `score_game/3` treats any
+  pairing with `opponent_id == nil` as `:unpaired_bye` worth half the
+  player's own ladder value, and `do_vacate_seat/3` writes exactly that
+  shape - so vacating a seat pays the REMAINING player until the arbiter
+  runs `award_bye_for_vacancy/2`. Found while adjudicating the three above;
+  unlike the `classify_result` one, this is a real points effect. The Swiss
+  path gives them nothing.
+- **`Standings.bye_points_for_row/2` fires one COUNT query per rendered bye
+  row** (`lib/pairings_engine/standings.ex:347`), an N+1 inside four render
+  loops. `add_bye_records/3` already does the same count in one in-memory
+  pass; the display path never learned it.
 
 ## FIDE endorsement readiness (pre-2026 cycle)
 

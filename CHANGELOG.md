@@ -302,6 +302,16 @@ that.
   which `earmark_parser` has deprecated. `mix hex.audit` now reports
   nothing.
 
+- [Security] **A player could be seated on a board of a tournament they were
+  not in.** Two of the ways an empty seat is resolved on the Pairings page -
+  seating somebody from the pool, and pairing two players out of it - took
+  the player id straight from the browser's message and checked only that the
+  arbiter owned the *tournament*, which proves nothing about the row. The
+  board's foreign key points at the players table and cannot say "and in this
+  event", so any player id in the database could be put on any board of any
+  tournament, under any account. Both now ask the ownership question the rest
+  of the module already asks before accepting an id from the page.
+
 ### Verified
 
 - [Verified] **An unrated game counts toward a title norm; a forfeit on the
@@ -373,6 +383,15 @@ without anything failing. It found five, four of them live.
   Behaviour is unchanged; this entry exists because the documentation said
   the opposite of the code, which is worse than saying nothing.
 
+- [Fix] **A 3-2-1 event was scored one way on screen and another in the file
+  the engine brackets from.** SWAR's 3-2-1 system pays a point for turning
+  up on top of the result, and the standings pay it - but the score column
+  written into the pairing file carried no such point, for any game. So a
+  Belgian club event bracketed its players by a number that was not the one
+  on their own crosstable row. SWAR sends the sum of both to its engine, so
+  this was also handing over a different column than the program the format
+  was read off.
+
 - [Fix] **A player marked absent in a Swiss tournament now scores their
   absence award.** They used to score nothing at all, whatever the
   tournament paid. Players absent for the whole event were filtered out of
@@ -385,6 +404,17 @@ without anything failing. It found five, four of them live.
   Round robin is unaffected and was never wrong: its schedule is fixed, so
   an absent player still has an opponent and the round is scored as a
   forfeit on that board rather than as an absence.
+
+- [Fix] **A round robin too long for the app's own round limit crashed
+  instead of refusing.** 32 players over two cycles is a 62-round schedule,
+  and this app supports 30 rounds - the length a Berger table needs and the
+  ceiling the tournament validation enforces were two numbers written
+  independently, so asking for the next round threw an exception rather than
+  saying anything. It now refuses in words, naming how many rounds that
+  field would need and the maximum, and the maximum in the message comes
+  from the same place the validation reads it. It is not quietly capped:
+  capping would pair a schedule the arbiter did not ask for and drop the end
+  of it.
 
 - [Fix] **A half-point absence is no longer labelled "0 bye"** on player
   cards and printed lists. It reads from what the round actually paid,
@@ -401,7 +431,7 @@ without anything failing. It found five, four of them live.
   arbiter opening a fresh tournament with a red box about a setting they
   never touched.
 
-- [Fix] **A 3-2-1 event scored every norm the wrong way round.** The norm
+- [Fix] **Every title norm in a 3-2-1 event was judged one band out.** The norm
   calculation bands each game's stored points against the tournament's own
   win/draw values to get FIDE's 1/½/0 - and on a SWAR 3-2-1 event those
   stored points already carry the point for turning up. So every played
@@ -430,6 +460,16 @@ without anything failing. It found five, four of them live.
   `*` where their `FF` twins export as a decisive result. A double forfeit
   still exports as `*`, deliberately: PGN has no way to say it.
 
+- [Fix] **Entering "1/2-0" in a Keizer tournament took the standings page
+  down.** The asymmetric VCL.13 results have been storable, and scored, since
+  they were added; Keizer's per-round statistics were the one reader of the
+  same vocabulary never extended to them, and had no fallback, so the page
+  raised the moment such a result was entered. They now count what the
+  crosstable counts - the side on the half as a draw, the side on zero as a
+  loss, both as games played. An unknown class is now a loud failure naming
+  itself rather than a silently ignored one, because the alternative to a
+  crash here is wrong standings.
+
 - [Fix] **A withdrawn player's progressive-score tie-break stopped when
   they left.** Progressive score sums the running total round by round, and
   it was folding over the rounds a player had a record for rather than over
@@ -447,6 +487,35 @@ without anything failing. It found five, four of them live.
   rounds are still skipped: inventing rows for rounds that have not
   happened would claim the event is further along than it is.
 
+- [Fix] **A TRF this app exported could not be read back into it: every
+  played-but-unrated game returned as two byes.** The importer decided
+  whether a round entry was a game at all from its own private list of
+  result codes, written before `W`, `D` and `L` existed and never extended
+  to them, so an unrated game failed to resolve to a board and each side
+  came back as a bye with the opponent gone. The proof it was drift and not
+  a decision sat thirty lines below the list, in code that could never run.
+  There is one canonical list of playing codes now and the last two private
+  copies of it are deleted - a private copy cannot be fixed by correcting
+  the real one, which is how this kept happening.
+
+- [Fix] **A played-but-unrated result recorded against a bye crashed both
+  pairing and the FIDE download.** The guard that exists to stop a bye ever
+  carrying a playing code had the same gap, so `W`, `D` and `L` stayed
+  playing codes on a row with no opponent - the exact combination it is
+  there to prevent. Building the FIDE file then raised, and raised early
+  enough that nothing caught it: pairing the next round threw an exception
+  where every other refusal returns a message, and the download went with
+  it.
+
+- [Fix] **A player marked as needing an accessible table lost that marking
+  when the tournament was restored.** SWAR records the marking on its own,
+  with no table number attached, and a `.swar` import stores it that way.
+  Restoring a JSON backup or a snapshot re-derived it from whether a table
+  number was present, so a player who had the marking and no number came
+  back without it - and exporting that tournament to `.swar` again then told
+  the next program the player did not need one. It is carried across as
+  stored now.
+
 - [Fix] **The categories "Turn off" button could not turn categories off
   once a round was paired.** Pairing by category locks after round 1, and
   the off-switch sent that locked setting along with the one it meant to
@@ -461,12 +530,49 @@ without anything failing. It found five, four of them live.
   pays for absences they collect real points and burn the per-player
   allowance doing it, and they go into the `.swar` export as well.
 
+- [Fix] **Two players could be handed the same pairing number.** Mark the
+  top-numbered player absent, then register a walk-in, and the walk-in was
+  issued a number that was already on somebody's row: the next number was
+  taken as the highest among players currently *eligible*, and an absent
+  player keeps the number they were given. Nothing downstream objected. The
+  exported FIDE file then carried two rows with the same starting rank and
+  opponent references that could mean either of them, and the tie-break that
+  exists so the pairing order is reproducible had nothing left to break the
+  tie with. Which numbers have been issued is a question about the whole
+  roster, and is now asked of the whole roster.
+
+- [Fix] **An archived tournament still accepted three edits to a vacant
+  board.** An archive is read-only, and seating somebody from the pool,
+  awarding a bye for the vacancy and pairing two players out of the pool
+  were the three members of that family that never asked whether the
+  tournament was writable. Their five siblings all did, which is why the
+  Pairings page carried a comment saying these writes were refused
+  server-side regardless - and why the suite that proves it names the five
+  and not the three.
+
 - [Fix] **A FIDE ID with a letter in it crashed the add-player form.**
   Anything that is not a clean number - letters, a dash, a pasted value
   with a stray space - raised out of the duplicate check before the form
   could say "is invalid". A 40-digit number got further and raised from the
   database driver instead; IDs are now bounded to nine digits, which is
   more than FIDE issues.
+
+- [Fix] **Picking a language on the log-in page and then signing in put you
+  back in English.** Signing in clears the session, which is where the
+  chosen language is kept, and nothing put the language back afterwards. The
+  picker sits in the log-in page's own bar, so "choose Nederlands, then sign
+  in" is the obvious order to do it in and it was the one order that lost
+  the setting. The end-to-end language tests all signed in first and
+  switched afterwards, so none of them was ever in a position to see it.
+
+- [Fix] **Switching language sent you to the home page instead of back to
+  what you were reading.** The picker is meant to return you to the page you
+  were on and nothing in the app ever told it which page that was, so it
+  always took its fallback. On the public pages that is worse than an
+  inconvenience: a visitor reading the standings who switched language was
+  bounced to the log-in screen, because the home page needs an account. The
+  page is now passed through, query string included, so a switch on a
+  filtered page comes back filtered.
 
 - [Fix] **A browser asking for Dutch with a broken quality value now gets
   Dutch.** `accept-language: nl;q=banana` resolved to English, as did a
