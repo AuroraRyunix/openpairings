@@ -14,7 +14,15 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
-## [0.17.0] - 2026-08-25
+## [0.17.1] - 2026-08-26
+
+There is no 0.17.0 release. The version existed for a day and binaries
+were built from it, none of which worked - migrations were skipped, so
+every one served a 500 on its first page. A Burrito binary caches its
+unpacked runtime under its own version number, so a machine that ran one
+of those would be handed the broken extraction back for any later build
+calling itself 0.17.0. Skipping the number is cheaper than explaining
+that.
 
 ### Added
 
