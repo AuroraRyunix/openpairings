@@ -5,10 +5,12 @@ See [`docs/features.md`](docs/features.md) for what's already shipped.
 
 > **A whole-codebase sweep ran on 2026-08-26** and its findings are in
 > [docs/sweep-2026-08-26.md](docs/sweep-2026-08-26.md) - 78 items for this
-> repository, including three confirmed bugs (a TRF round-trip that turns
-> unrated games into byes, a Keizer standings crash on asymmetric results,
-> and JSON backup dropping every round's pairing rationale). None are
-> fixed. This file is the roadmap; that one is the bug list.
+> repository, of which **12 are bugs that survived an adversarial
+> refutation pass**: a TRF round-trip that turns unrated games into byes,
+> two players able to share a pairing number, a Keizer standings crash on
+> asymmetric results, and a manual-pairing path that seats a player id it
+> never scopes to the tournament. None are fixed. This file is the roadmap;
+> that one is the bug list.
 
 ## The 2026 Acceptance Cycle (dominates everything below)
 
