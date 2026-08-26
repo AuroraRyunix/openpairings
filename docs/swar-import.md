@@ -465,16 +465,18 @@ what the club had configured.
   contrary to what an earlier version of this doc claimed. Every unpaired
   "LOST_BYE" round for every affected player (e.g. `ni=10`, `ni=15`,
   `ni=39`, `ni=43`) is scored as `SW321_Pre` raw points, not `SW321_Bye` -
-  see the worked example above. There is no field in the `Tournament`/
-  `byes` schema for "points awarded just for being marked present" as
-  distinct from `bye_value`, so this mechanic is **not modeled**: a
-  pairing-allocated bye in a 3-2-1 tournament still imports at `bye_value`
-  points only, which may undercount relative to what SWAR itself displays
-  whenever `SW321_PreBye` (field 85, "add presence points for bye games")
-  is set - as it is (`1`) in the real fixture. This is a real, separate
-  scoring gap; fixing it needs a schema decision (where do presence points
-  live?), not just a divisor change, so it is left as a follow-up rather
-  than guessed at here.
+  see the worked example above.
+
+  **Modelled since 0.16.x, and the engine was told about it in 0.17.1.**
+  `Tournament.presence_value` holds the points and
+  `Tournament.presence_on_allocated_bye` (SWAR field 85, "add presence
+  points for bye games") says whether a pairing-allocated bye pays them ON
+  TOP of `bye_value`. `Standings.bye_points/4` adds the bonus, and
+  `Tournament.engine_point_system/1` passes the same total to the pairing
+  engine - which it did not until 0.17.1, so for a while the crosstable
+  and the pairing file disagreed about what a 3-2-1 allocated bye was
+  worth. An earlier version of this document described the mechanic as
+  "not modeled" and left it as a follow-up; that is no longer true.
 - Test fixture: `test/fixtures/test3-321.swar` (gitignored, real personal
   data, same convention as `c-reeks.swar`/`problemski.swar`) - a real
   club-championship file saved with 3-2-1 mode on.

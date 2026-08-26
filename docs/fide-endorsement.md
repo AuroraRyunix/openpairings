@@ -367,13 +367,20 @@ only pairings) - the highest-value section to actually verify:
     "Article 16.5.1 Cut-1 Exception" describe block for a worked example.
   - **Resolved**: SWAR's own `"absent"` bye type (no FIDE-native concept)
     is no longer unconditionally grouped into `voluntary`. New
-    `Tournament.absent_counts_as_vur` field, **off by default** - an
-    absence always counts at its configured award value (the forfeit-loss
-    treatment, the strict/FIDE-safe reading) unless an arbiter explicitly
-    opts in from Settings for the more lenient requested-bye-style
-    treatment (trailing occurrences downgraded to a draw). Matches the
-    project's general posture on extras beyond FIDE's own basics:
-    available, never the default.
+    `Tournament.absent_counts_as_vur` field, **on by default since
+    0.17.1** - an absence is treated as a voluntary unplayed round, the
+    same as a requested bye, so trailing occurrences are downgraded to a
+    draw for opponents' Buchholz/SB. An arbiter can opt OUT from Settings
+    for the stricter reading, where an absence counts at its configured
+    award value like a forfeit loss.
+
+    It shipped off by default and was flipped deliberately: an absence and
+    a requested bye are one event under two names - you only ever know
+    somebody is out before the round is paired because they told you - so
+    splitting them for tie-break purposes split one thing in half. The
+    field's own comment said "never on by default" above `default: true`
+    for a while; that is fixed, and `standings_test.exs` now asserts the
+    default a tournament nobody configured actually gets.
 
 ## The FE1 auto-test requirement - and why a plain checker isn't actually the right tool here
 

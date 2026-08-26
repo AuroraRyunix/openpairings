@@ -1,7 +1,14 @@
 # TODO / Roadmap
 
-Version: **0.16.1** (not 1.0 yet - the maintainer will call that explicitly).
+Version: **0.17.1** (not 1.0 yet - the maintainer will call that explicitly).
 See [`docs/features.md`](docs/features.md) for what's already shipped.
+
+> **A whole-codebase sweep ran on 2026-08-26** and its findings are in
+> [docs/sweep-2026-08-26.md](docs/sweep-2026-08-26.md) - 78 items for this
+> repository, including three confirmed bugs (a TRF round-trip that turns
+> unrated games into byes, a Keizer standings crash on asymmetric results,
+> and JSON backup dropping every round's pairing rationale). None are
+> fixed. This file is the roadmap; that one is the bug list.
 
 ## The 2026 Acceptance Cycle (dominates everything below)
 
@@ -49,7 +56,17 @@ Over 100% fails, so these add up rather than standing alone:
 - Chess960 (Q222, 15%) - **deferred by decision, 2026-08-25.** Cheap for
   the penalty it carries (a start-position draw would satisfy the question)
   but deliberately not now. Keep it on the list.
-- W/D/L unrated results, games shorter than one move (Q185, 7%)
+- ~~W/D/L unrated results, games shorter than one move (Q185, 7%)~~ -
+  **shipped 0.17.1.** The codes were already read and written; what
+  0.17.1 fixed is that they reached the *pairing engine* correctly. The
+  score in TRF columns 81-84 came from a hand-written mapping separate
+  from the crosstable's, and `W`/`D` were not on it - so an unrated win
+  was banked as a loss and the player was bracketed a full point low.
+
+  Two private copies of the same played-code vocabulary were found and
+  missed in the 2026-08-26 sweep, though, so this is not finished:
+  `TrfImport`'s and `bye_safe_result/2`'s. See
+  [docs/sweep-2026-08-26.md](docs/sweep-2026-08-26.md).
 
 ### Blocked on FIDE
 
