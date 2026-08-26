@@ -488,7 +488,19 @@ defmodule PairingsEngine.TrfImport do
     {finalize_boards(Enum.reverse(pairings)), Enum.reverse(byes)}
   end
 
-  @playing_codes ~w(1 = 0 + -)
+  # `Trf.playing_codes/0`, not a private copy. There WAS a private copy here
+  # reading `~w(1 = 0 + -)`, written before TRF16's unrated twins `W`/`D`/`L`
+  # were supported, and never updated when they were. Since this guard is
+  # what decides whether a round entry is a GAME, an unrated game stopped
+  # being one: it fell through to `single_sided/2` and was reinterpreted as a
+  # bye, losing the opponent entirely.
+  #
+  # The proof it was a drift rather than a decision is thirty lines below -
+  # `result_string("W", _)`, `result_string("L", "W")` and
+  # `result_string("D", "D")` were unreachable, because nothing could ever
+  # reach the call site. So this app's own TRF export did not round-trip
+  # through its own importer.
+  @playing_codes Trf.playing_codes()
 
   defp mutual_opponent(p, %{result: result, opponent_rank: opp_rank}, by_rank)
        when result in @playing_codes and not is_nil(opp_rank) do

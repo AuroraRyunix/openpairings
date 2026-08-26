@@ -22,6 +22,8 @@ defmodule PairingsEngine.UnratedResultsTest do
   use PairingsEngine.DataCase, async: true
 
   alias PairingsEngine.{Keizer, PgnExport, Repo, Standings, SwarExport, Trf, TrfExport}
+  alias PairingsEngine.{TrfImport, Tournaments}
+  alias PairingsEngine.Accounts.{Scope, User}
   alias PairingsEngine.Tournaments.{Tournament, Player, Round, Pairing}
 
   # Two players, one round, one game - the smallest thing that can carry a
@@ -192,6 +194,56 @@ defmodule PairingsEngine.UnratedResultsTest do
       t = %Tournament{points_win: 1.0, points_draw: 0.5, points_loss: 0.0, abs_value: 0.5}
 
       assert Tournament.engine_point_system(t).zero_point_bye == 0.5
+    end
+  end
+
+  defp user_scope do
+    user =
+      Repo.insert!(%User{
+        email: "unrated#{System.unique_integer([:positive])}@example.com",
+        confirmed_at: DateTime.truncate(DateTime.utc_now(), :second)
+      })
+
+    Scope.for_user(user)
+  end
+
+  describe "the import side, which is where the export has to land" do
+    test "a TRF this app exported re-imports as the same game, not as two byes" do
+      # The round trip nobody had asserted. `TrfImport` kept a private
+      # `@playing_codes ~w(1 = 0 + -)` from before the unrated codes existed,
+      # and that list is what decides whether a round entry is a GAME - so a
+      # W/L pair failed to resolve to a mutual pairing, fell through to
+      # `single_sided/2`, and each side became a BYE. The opponent was gone.
+      #
+      # The give-away was `result_string("W", _) -> "1-0U"` sitting
+      # unreachable thirty lines below the guard that excluded "W".
+      {tournament, white, black} = fixture("1-0U")
+      {:ok, trf} = TrfExport.export(tournament)
+
+      {:ok, imported, _warnings} = TrfImport.import_text(trf, user_scope())
+
+      round = Tournaments.get_round(imported.id, 1) |> Repo.preload(:pairings)
+
+      assert [pairing] = round.pairings,
+             "the unrated game must come back as one board, not as two byes"
+
+      names =
+        [pairing.white_player_id, pairing.black_player_id]
+        |> Enum.map(fn id -> Repo.get!(Player, id).name end)
+
+      assert Enum.sort(names) == Enum.sort([white.name, black.name])
+      assert pairing.result == "1-0U", "the unrated marker must survive the trip"
+    end
+
+    test "an unrated draw round-trips too" do
+      {tournament, _, _} = fixture("1/2-1/2U")
+      {:ok, trf} = TrfExport.export(tournament)
+      {:ok, imported, _warnings} = TrfImport.import_text(trf, user_scope())
+
+      round = Tournaments.get_round(imported.id, 1) |> Repo.preload(:pairings)
+
+      assert [pairing] = round.pairings
+      assert pairing.result == "1/2-1/2U"
     end
   end
 

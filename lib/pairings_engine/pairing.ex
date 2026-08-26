@@ -2177,9 +2177,20 @@ defmodule PairingsEngine.Pairing do
 
   defp bye_safe_result(result, nil) do
     case result do
-      code when code in ["1", "+"] -> "F"
-      "=" -> "H"
-      code when code in ["0", "-"] -> "Z"
+      # `W`/`D`/`L` are TRF16's unrated twins of `1`/`=`/`0` and belong with
+      # them. They were missing until 2026-08-26, so an opponentless unrated
+      # result stayed a playing code with a nil opponent - precisely the
+      # combination this function exists to make impossible.
+      #
+      # It did not degrade quietly: `Trf.validate_games!/2` raises on it, and
+      # the raise happens while BUILDING the file, before `run_engine/5` is
+      # called - so `run_ainalrami/4`'s ValidationError rescue could not see
+      # it either. It escaped `pair_next_round/1` as an exception instead of
+      # the `{:error, message}` every other refusal here returns, and took
+      # the FIDE download down the same way.
+      code when code in ["1", "+", "W"] -> "F"
+      code when code in ["=", "D"] -> "H"
+      code when code in ["0", "-", "L"] -> "Z"
       other -> other
     end
   end

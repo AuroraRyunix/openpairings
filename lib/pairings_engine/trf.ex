@@ -101,6 +101,27 @@ defmodule PairingsEngine.Trf do
   @playing_codes ~w(1 = 0 + - W D L)
   @bye_codes ~w(H F U Z)
 
+  @doc """
+  The TRF16 result codes for a game that occupies a pairing slot.
+
+  Public because it kept being copied. Two other modules had grown their own
+  `@playing_codes ~w(1 = 0 + -)` from before `W`/`D`/`L` existed here, and
+  both drifted silently: `TrfImport` stopped recognising unrated games as
+  games at all, and `Pairing.bye_safe_result/2` let them out with a nil
+  opponent. Neither copy was wrong when it was written, which is exactly the
+  failure mode - a private list cannot be updated by editing the canonical
+  one.
+  """
+  def playing_codes, do: @playing_codes
+
+  @doc """
+  The TRF16 codes for a round the player was not paired in.
+
+  Exposed alongside `playing_codes/0` for the same reason: the two sets are
+  complementary and a caller reasoning about one usually needs the other.
+  """
+  def bye_codes, do: @bye_codes
+
   # Legal opponent-result for each of this player's playing codes. A win
   # ("1") only pairs with a loss ("0"); a played "0-0" (both players lose,
   # e.g. both defaulted after making moves) is two losses, so "0" also
