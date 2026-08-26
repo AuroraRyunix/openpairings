@@ -30,6 +30,113 @@ defmodule PairingsEngine.KeizerTest do
     player
   end
 
+  ## ---------- the result vocabulary reaches every consumer ----------
+
+  describe "every result an arbiter can enter reaches the standings" do
+    # `classify_result/2` owns a vocabulary of result classes;
+    # `class_points/4` and `round_stats/2` both consume it. They drifted:
+    # the VCL.13 asymmetric results "1/2-0"/"0-1/2" were added to the
+    # classifier and to class_points/4, and round_stats/2 - in the same
+    # module - was not updated and had no catch-all. Entering one took the
+    # standings page down with CaseClauseError.
+    #
+    # This drives every result string the app can store through the real
+    # standings path. It is deliberately a list of RESULTS rather than of
+    # classes: a class list would have to be kept in step with the
+    # classifier by hand, which is the failure being guarded against.
+    @every_result [
+      "1-0",
+      "0-1",
+      "1/2-1/2",
+      "1/2-0",
+      "0-1/2",
+      "1-0U",
+      "0-1U",
+      "1/2-1/2U",
+      "1-0FF",
+      "0-1FF",
+      "0-0FF",
+      "0-0",
+      "+--",
+      "--+"
+    ]
+
+    for result <- @every_result do
+      test "#{result} does not crash Keizer standings" do
+        result = unquote(result)
+
+        tournament =
+          Repo.insert!(%Tournament{
+            name: "Keizer #{result}",
+            type: "swiss",
+            pairing_system: "keizer",
+            rounds_count: 1
+          })
+
+        white = insert_player(tournament, "White", fide_rating: 2000)
+        black = insert_player(tournament, "Black", fide_rating: 1900)
+
+        round =
+          Repo.insert!(%PairingsEngine.Tournaments.Round{
+            tournament_id: tournament.id,
+            number: 1,
+            status: "finished"
+          })
+
+        Repo.insert!(%PairingsEngine.Tournaments.Pairing{
+          round_id: round.id,
+          board: 1,
+          white_player_id: white.id,
+          black_player_id: black.id,
+          result: result
+        })
+
+        entries = Keizer.standings(tournament)
+
+        assert length(entries) == 2, "#{result} should leave both players on the ladder"
+
+        for e <- entries do
+          assert is_number(e.points), "#{result} produced a non-numeric score"
+        end
+      end
+    end
+
+    test "the asymmetric results score the half to one side and nothing to the other" do
+      # Matching PairingsEngine.Standings, which maps "1/2-0" to
+      # {points_draw, points_loss} - not a draw for both.
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "Asymmetric",
+          type: "swiss",
+          pairing_system: "keizer",
+          rounds_count: 1
+        })
+
+      white = insert_player(tournament, "White", fide_rating: 2000)
+      black = insert_player(tournament, "Black", fide_rating: 1900)
+
+      round =
+        Repo.insert!(%PairingsEngine.Tournaments.Round{
+          tournament_id: tournament.id,
+          number: 1,
+          status: "finished"
+        })
+
+      Repo.insert!(%PairingsEngine.Tournaments.Pairing{
+        round_id: round.id,
+        board: 1,
+        white_player_id: white.id,
+        black_player_id: black.id,
+        result: "1/2-0"
+      })
+
+      by_name = Map.new(Keizer.standings(tournament), &{&1.player.name, &1})
+
+      assert by_name["White"].points > by_name["Black"].points,
+             "the side on the half must outscore the side on zero"
+    end
+  end
+
   ## ---------- ladder values ----------
 
   describe "effective_top_value/2" do

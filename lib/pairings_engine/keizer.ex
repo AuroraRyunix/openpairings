@@ -273,11 +273,50 @@ defmodule PairingsEngine.Keizer do
         :unpaired_bye ->
           %{acc | raw_points: acc.raw_points + t.bye_value}
 
+        # The VCL.13 asymmetric results. `classify_result/2` has emitted
+        # these since they were added; this case did not learn them, and
+        # with no catch-all below it raised CaseClauseError - so entering a
+        # "1/2-0" took the whole standings page down.
+        #
+        # The values match `PairingsEngine.Standings`, which maps "1/2-0" to
+        # `{points_draw, points_loss, played}` (standings.ex:435): the side
+        # on the half scores a draw's points and is tallied as a draw, the
+        # side on zero scores a loss's and is tallied as a loss, and both
+        # played. `class_points/4` already pays them that way for the ladder
+        # value; this is the same reading for the stat line.
+        :half_win ->
+          %{
+            acc
+            | played: acc.played + 1,
+              draws: acc.draws + 1,
+              raw_points: acc.raw_points + t.points_draw
+          }
+
+        :half_loss ->
+          %{
+            acc
+            | played: acc.played + 1,
+              losses: acc.losses + 1,
+              raw_points: acc.raw_points + t.points_loss
+          }
+
         :excused ->
           acc
 
         :not_joined ->
           acc
+
+        # Deliberately a raise rather than a silent `acc`. This case and
+        # `class_points/4` are two consumers of one vocabulary that
+        # `classify_result/2` owns, and they have already drifted once. A
+        # catch-all that quietly ignored an unknown class would turn the next
+        # drift into wrong standings instead of a loud one, which is worse.
+        # `keizer_test.exs` asserts every class the classifier can emit
+        # reaches both consumers, so this should be unreachable.
+        other ->
+          raise "PairingsEngine.Keizer.round_stats/2 has no clause for #{inspect(other)} - " <>
+                  "classify_result/2 emits it and this function was not updated. " <>
+                  "See class_points/4, which is the other consumer of the same vocabulary."
       end
     end)
     |> Map.update!(:raw_points, &round_f(&1, 1))
