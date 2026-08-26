@@ -149,6 +149,47 @@ defmodule PairingsEngine.Norms.TitleNormsTest do
     assert result.best.title == "IM"
   end
 
+  test "a 3-2-1 presence point does not shift every result up one band" do
+    # to_standard/2 bands a game's stored points against points_win /
+    # points_draw, and the points it receives already include SWAR's 3-2-1
+    # presence point - Standings adds it on top of the result value rather
+    # than folding it into those fields.
+    #
+    # So on a 2/1/0 event with a presence point, a win stored 3.0 and matched
+    # neither band (read as a LOSS), a draw stored 2.0 and matched points_win
+    # (read as a WIN), a loss stored 1.0 and matched points_draw (read as a
+    # DRAW). A uniform inversion, so every check derived from the score was
+    # wrong for every player.
+    {tournament, candidate, _} = im_norm_fixture()
+
+    plain =
+      tournament
+      |> TitleNorms.evaluate()
+      |> Map.fetch!(candidate.id)
+      |> then(&Enum.find(&1.verdicts, fn v -> v.title == "IM" end))
+
+    # Same games, rescored as 3-2-1 with a presence point. The RESULTS are
+    # unchanged, so the standard score must be unchanged too.
+    {:ok, three_two_one} =
+      tournament
+      |> Ecto.Changeset.change(
+        points_win: 2.0,
+        points_draw: 1.0,
+        points_loss: 0.0,
+        presence_value: 1.0
+      )
+      |> Repo.update()
+
+    shifted =
+      three_two_one
+      |> TitleNorms.evaluate()
+      |> Map.fetch!(candidate.id)
+      |> then(&Enum.find(&1.verdicts, fn v -> v.title == "IM" end))
+
+    assert shifted.score == plain.score,
+           "the same games scored 7.5/9 under 1/1/2/0 and #{shifted.score}/9 under 3-2-1"
+  end
+
   test "an unrated game still counts toward the norm; a forfeit still does not" do
     # B.01 1.4.2 excludes games "decided by forfeit, adjudication or any
     # means other than over the board play". A game recorded unrated was

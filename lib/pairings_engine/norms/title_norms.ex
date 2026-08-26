@@ -389,11 +389,36 @@ defmodule PairingsEngine.Norms.TitleNorms do
   defp check(name, ok?, detail), do: %{name: name, ok?: !!ok?, detail: detail}
 
   # Awarded configured points -> standard 1 / ½ / 0 (see moduledoc).
+  #
+  # The points arriving here are `Standings.pairing_records/4`'s, which ADD
+  # SWAR's 3-2-1 presence point on top of the result value rather than
+  # folding it into `points_win`/`points_draw` - those are imported as the
+  # result-only figures. Banding the raw total against them therefore shifted
+  # every played game one band UP on a 3-2-1 event: with 2/1/0 scoring and a
+  # presence point, a win stored 3.0 and matched neither band (read as a
+  # LOSS), a draw stored 2.0 and matched `points_win` (read as a WIN), a loss
+  # stored 1.0 and matched `points_draw` (read as a DRAW).
+  #
+  # Not an occasional misread - a uniform inversion, so `score` and every
+  # check derived from it were wrong for every player in the event. Strip
+  # the presence component before banding.
   defp to_standard(points, t) do
+    presence = presence_component(t)
+    points = points - presence
+
     cond do
       points == t.points_win -> 1.0
       points == t.points_draw -> 0.5
       true -> 0.0
+    end
+  end
+
+  # Mirrors `Standings.presence_points/2`'s own guard: nil for every
+  # tournament that is not a 3-2-1 import, which keeps this a no-op there.
+  defp presence_component(t) do
+    case Map.get(t, :presence_value) do
+      value when is_number(value) -> value
+      _ -> 0.0
     end
   end
 

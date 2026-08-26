@@ -142,6 +142,26 @@ defmodule PairingsEngine.PgnExportTest do
     assert text =~ ~s([Result "1-0"])
   end
 
+  test "the legacy forfeit spellings map the same way as their FF twins" do
+    # "+--" and "--+" are the older spelling of the same two single-sided
+    # forfeits. Keizer.classify_result/2 and Standings both accept them, and
+    # they reach this module from historical rows - here they fell to the
+    # catch-all and exported as "*", an unknown result, while "1-0FF"
+    # exported as decisive.
+    for {stored, expected} <- [{"+--", "1-0"}, {"--+", "0-1"}] do
+      tournament = fixture(user_scope_fixture())
+
+      round = Repo.get_by!(Round, tournament_id: tournament.id, number: 2)
+      pairing = Repo.get_by!(Pairing, round_id: round.id, board: 1)
+      Repo.update!(Ecto.Changeset.change(pairing, result: stored))
+
+      text = PgnExport.export(tournament, 2)
+
+      assert text =~ ~s([Result "#{expected}"]),
+             "#{stored} should export as #{expected}, the same as its FF twin"
+    end
+  end
+
   test "double forfeit has no single-sided result, so it maps to \"*\"" do
     tournament = fixture(user_scope_fixture())
 

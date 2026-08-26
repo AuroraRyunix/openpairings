@@ -116,6 +116,17 @@ defmodule PairingsEngine.PgnExport do
   defp result_tag("1/2-1/2U"), do: "1/2-1/2"
   defp result_tag("1-0FF"), do: "1-0"
   defp result_tag("0-1FF"), do: "0-1"
+  # The legacy spellings of those same two single-sided forfeits.
+  # `Keizer.classify_result/2` and `Standings` both accept them, and they
+  # reach this module from historical rows and hand-edited data; here they
+  # fell to the catch-all and exported as "*", an unknown result, where
+  # their `FF` twins export as a decisive one.
+  #
+  # "0-0FF" is deliberately still absent, with "0-0", "1/2-0" and "0-1/2":
+  # a double forfeit and the asymmetric results have no single-sided PGN
+  # equivalent, so "*" is the honest tag for them.
+  defp result_tag("+--"), do: "1-0"
+  defp result_tag("--+"), do: "0-1"
   defp result_tag(_), do: "*"
 
   defp optional_tags(pairing) do
