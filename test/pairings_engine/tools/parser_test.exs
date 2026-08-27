@@ -3,7 +3,8 @@ defmodule PairingsEngine.Tools.ParserTest do
   # builders), no database, no filesystem.
   use ExUnit.Case, async: true
 
-  alias PairingsEngine.{Tools.Parser, Trf}
+  alias PairingsEngine.Tools.Parser
+  alias Ainalrami.Trf
   alias PairingsEngine.Tournaments.{Tournament, Player}
 
   defp trf_text do

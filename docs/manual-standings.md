@@ -190,7 +190,7 @@ weight:
    just noise.
 2. **"Our own parser ignores it" isn't evidence it's safe.** The only
    argument offered for `990` being spec-legal was that
-   `PairingsEngine.Trf.parse/1` drops unknown codes - that says nothing
+   `Ainalrami.Trf.parse/1` drops unknown codes - that says nothing
    about how FIDE's own tooling or JaVaFo would react to an unrecognized
    3-digit code in a submission file. TRF16 is the file an arbiter submits
    to FIDE for rating; "probably harmless because our own code ignores it"

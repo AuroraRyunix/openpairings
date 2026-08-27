@@ -563,7 +563,7 @@ defmodule PairingsEngine.Standings do
   end
 
   @doc "TRF codes whose player was present - see `presence_points_for_code/2`."
-  def presence_earning_codes, do: PairingsEngine.Trf.playing_codes() -- ["-"]
+  def presence_earning_codes, do: Ainalrami.Trf.playing_codes() -- ["-"]
 
   defp presence_points(_tournament, false), do: 0.0
 

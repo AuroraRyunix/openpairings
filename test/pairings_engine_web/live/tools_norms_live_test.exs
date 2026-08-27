@@ -8,7 +8,8 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias PairingsEngine.{Repo, Trf}
+  alias PairingsEngine.Repo
+  alias Ainalrami.Trf
   alias PairingsEngine.Tools.Session
   alias PairingsEngine.Tournaments.{Tournament, Player}
 

@@ -67,24 +67,29 @@ listed on one `XXP` line must never be paired against each other; multiple
 `docs/pairing-systems.md`), and both are handed the same file, so nothing
 below depends on which one is selected.
 
-`PairingsEngine.Pairing.javafo_input/2` builds one `"XXP a b\r\n"` line per
-forbidden pairing, right after the existing `XXR` (total rounds) line. The
-ids on the line are **not** the players' database ids - they're each
-player's TRF starting rank (`pairing_number`) for *this pairing run*, the
-same numbering used for every other player row in the generated TRF. This
-translation is `PairingsEngine.Pairing.forbidden_pairs_lines/2`:
+`PairingsEngine.Pairing.javafo_input/2` puts one group per forbidden
+pairing in the tournament map it hands to `Ainalrami.Trf.serialize/2`,
+which writes them as `XXP` lines after the player rows. The ids in a group
+are **not** the players' database ids - they're each player's TRF starting
+rank (`pairing_number`) for *this pairing run*, the same numbering used for
+every other player row in the generated TRF. This translation is
+`PairingsEngine.Pairing.forbidden_pairs/3`:
 
 ```elixir
-def forbidden_pairs_lines(tournament_id, players) do
-  rank_by_player_id = Map.new(players, &{&1.id, &1.pairing_number})
+def forbidden_pairs(tournament_id, players, rank_by_player_id \\ nil) do
+  rank_by_player_id = rank_by_player_id || Map.new(players, &{&1.id, &1.pairing_number})
 
   tournament_id
   |> Tournaments.list_forbidden_pairings()
   |> Enum.map(fn fp -> {rank_by_player_id[fp.player_a_id], rank_by_player_id[fp.player_b_id]} end)
   |> Enum.reject(fn {a, b} -> is_nil(a) or is_nil(b) end)
-  |> Enum.map_join(fn {a, b} -> "XXP #{a} #{b}\r\n" end)
+  |> Enum.map(fn {a, b} -> [a, b] end)
 end
 ```
+
+It returns ranks rather than the `XXP` text it used to, because that text
+was concatenated onto an already-finished TRF - which put the arbiter's
+rules outside the writer, and outside every check the writer makes.
 
 If either player in a forbidden pair isn't in `players` at all, or hasn't
 been assigned a `pairing_number` yet (not active, permanently
@@ -153,11 +158,11 @@ of excluded pairs - as `{player, player}` tuples of the full
 ordered `a.id <= b.id`, so each call site maps to whatever id space it
 needs:
 
-* `PairingsEngine.Pairing.exclusion_pairs_lines/2` maps each pair to
-  starting ranks and emits `"XXP a b\r\n"` lines, the same way
-  `forbidden_pairs_lines/2` does for explicit forbidden pairings - called
-  right after it in `javafo_input/2`, and deduplicated against it (a pair
-  already covered by an explicit forbidden pairing isn't emitted twice).
+* `PairingsEngine.Pairing.exclusion_pairs/3` maps each pair to starting
+  ranks, the same way `forbidden_pairs/3` does for explicit forbidden
+  pairings - appended to its groups in `javafo_input/2`, and deduplicated
+  against them (a pair already covered by an explicit forbidden pairing
+  isn't sent twice).
 * `PairingsEngine.Keizer`'s `read_forbidden/2` maps each pair to player ids
   and unions it into the same `MapSet` explicit forbidden pairings feed.
 

@@ -4,7 +4,8 @@ defmodule PairingsEngine.TrfExportTest do
   # (same reason fide/sync_test and the import/export tests are serial).
   use PairingsEngine.DataCase, async: false
 
-  alias PairingsEngine.{Repo, SwarImport, Trf, TrfExport, Tournaments}
+  alias PairingsEngine.{Repo, SwarImport, TrfExport, Tournaments}
+  alias Ainalrami.Trf
   alias PairingsEngine.Tournaments.{Tournament, Player, Round, Pairing}
 
   ## ---------- parse_rounds/2 ----------
@@ -511,10 +512,13 @@ defmodule PairingsEngine.TrfExportTest do
   # This test manufactures the corruption directly (two players sharing the
   # same pairing_number, one of whom is wired up to mutually - and
   # illegally - contradict another player's recorded result) to prove the
-  # rescue path actually works end-to-end, rather than only unit-testing
-  # `PairingsEngine.Trf.serialize/1` in isolation (already covered by
-  # trf_test.exs).
-  test "export/2 surfaces an inconsistent roster as {:error, %Trf.ValidationError{}}, not a crash" do
+  # rescue path actually works end-to-end. The writer's own validation is
+  # not re-tested here - it belongs to `Ainalrami.Trf` and is covered by
+  # that repo's `test/ainalrami/trf_test.exs`. What this app still owns is
+  # everything either side of the call: that the adapter can hand the writer
+  # a roster it refuses, and that the refusal arrives as an `{:error, _}`
+  # tuple a controller can flash rather than as a raise that 500s.
+  test "export/2 surfaces an inconsistent roster as {:error, %ValidationError{}}, not a crash" do
     tournament = Repo.insert!(%Tournament{name: "Corrupt", type: "swiss", rounds_count: 1})
 
     a = Repo.insert!(%Player{tournament_id: tournament.id, name: "A", pairing_number: 1})
@@ -548,7 +552,9 @@ defmodule PairingsEngine.TrfExportTest do
       result: "0-1"
     })
 
-    assert {:error, %Trf.ValidationError{message: message}} = TrfExport.export(tournament)
+    assert {:error, %Ainalrami.Trf.ValidationError{message: message}} =
+             TrfExport.export(tournament)
+
     assert message =~ "illegal result combination"
   end
 

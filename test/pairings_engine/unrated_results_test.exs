@@ -21,7 +21,8 @@ defmodule PairingsEngine.UnratedResultsTest do
   """
   use PairingsEngine.DataCase, async: true
 
-  alias PairingsEngine.{Keizer, PgnExport, Repo, Standings, SwarExport, Trf, TrfExport}
+  alias PairingsEngine.{Keizer, PgnExport, Repo, Standings, SwarExport, TrfExport}
+  alias Ainalrami.Trf
   alias PairingsEngine.{TrfImport, Tournaments}
   alias PairingsEngine.Accounts.{Scope, User}
   alias PairingsEngine.Tournaments.{Tournament, Player, Round, Pairing}

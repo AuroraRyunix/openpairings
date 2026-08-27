@@ -483,7 +483,7 @@ defmodule PairingsEngine.SwarImportTest do
   # "Absent" checkbox (excluded from every round upcoming or not yet
   # paired - confirmed by the tournament's arbiter). Pairing round 9 (past
   # the 8 imported rounds) crashed entirely with
-  # `PairingsEngine.Trf.ValidationError`: "Aelvoet, Karel, round 2: opponent
+  # `Ainalrami.Trf.ValidationError`: "Aelvoet, Karel, round 2: opponent
   # 0000 cannot carry played-game result "1" - opponentless games must use
   # a bye code". Root cause: "Aelvoet, Karel" really did play a round-2
   # game against "De Winter, Gerrit", one of the 19 now-absent players -

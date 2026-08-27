@@ -503,7 +503,7 @@ defmodule PairingsEngine.PairingTest do
     |> Enum.each(fn {{result, w_code, b_code}, round_number} ->
       # Round blocks repeat every 10 columns starting at column 92; result
       # is the 8th char of the block (opponent id 4, colour 1, result 1,
-      # with 1-char gaps - see PairingsEngine.Trf's round_cols/1).
+      # with 1-char gaps - see Ainalrami.Trf's round_cols/1).
       result_col = 92 + (round_number - 1) * 10 + 7
 
       assert String.at(white_line, result_col - 1) == w_code,
@@ -760,7 +760,15 @@ defmodule PairingsEngine.PairingTest do
 
   ## ---------- forbidden pairings -> JaVaFo XXP extension ----------
 
-  test "forbidden_pairs_lines/2 emits one XXP line per pair, using this run's pairing_number as the id" do
+  # These used to assert on `"XXP 1 2\r\n"` text, because the builders
+  # returned text that was concatenated onto a finished TRF. They return
+  # starting-rank groups now and `Ainalrami.Trf.serialize/2` writes the
+  # lines, so the unit tests below assert the ranks and the `javafo_input/2`
+  # tests further down assert the lines - which is the right split: the
+  # column layout of an XXP line is the writer's business and is tested
+  # where the writer is.
+
+  test "forbidden_pairs/2 emits one group per pair, using this run's pairing_number as the id" do
     tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
     alice = insert_player(tournament, "Alice", pairing_number: 1)
     bob = insert_player(tournament, "Bob", pairing_number: 2)
@@ -769,15 +777,14 @@ defmodule PairingsEngine.PairingTest do
     {:ok, _} = Tournaments.add_forbidden_pairing(tournament, alice.id, bob.id)
     {:ok, _} = Tournaments.add_forbidden_pairing(tournament, alice.id, carol.id)
 
-    lines = Pairing.forbidden_pairs_lines(tournament.id, [alice, bob, carol])
+    groups = Pairing.forbidden_pairs(tournament.id, [alice, bob, carol])
 
     # list_forbidden_pairings/1 orders most-recently-added first, so assert
-    # on line membership rather than an exact concatenation order.
-    line_set = lines |> String.split("\r\n", trim: true) |> MapSet.new()
-    assert line_set == MapSet.new(["XXP 1 2", "XXP 1 3"])
+    # on group membership rather than an exact list order.
+    assert MapSet.new(groups) == MapSet.new([[1, 2], [1, 3]])
   end
 
-  test "forbidden_pairs_lines/2 silently skips a pair when a player has no starting rank in this run" do
+  test "forbidden_pairs/2 silently skips a pair when a player has no starting rank in this run" do
     tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
     alice = insert_player(tournament, "Alice", pairing_number: 1)
     bob = insert_player(tournament, "Bob", [])
@@ -785,15 +792,16 @@ defmodule PairingsEngine.PairingTest do
     {:ok, _} = Tournaments.add_forbidden_pairing(tournament, alice.id, bob.id)
 
     # Bob isn't in the `players` list passed in (e.g. not eligible this
-    # round) - the pair is dropped rather than emitting a malformed line.
-    assert Pairing.forbidden_pairs_lines(tournament.id, [alice]) == ""
+    # round) - the pair is dropped rather than naming a rank the file has no
+    # row for.
+    assert Pairing.forbidden_pairs(tournament.id, [alice]) == []
   end
 
-  test "forbidden_pairs_lines/2 returns an empty string when there are no forbidden pairings" do
+  test "forbidden_pairs/2 returns an empty list when there are no forbidden pairings" do
     tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
     alice = insert_player(tournament, "Alice", pairing_number: 1)
 
-    assert Pairing.forbidden_pairs_lines(tournament.id, [alice]) == ""
+    assert Pairing.forbidden_pairs(tournament.id, [alice]) == []
   end
 
   test "javafo_input/2 includes the XXP line(s) alongside the XXR line" do
@@ -805,13 +813,19 @@ defmodule PairingsEngine.PairingTest do
 
     trf = Pairing.javafo_input(tournament, [alice, bob])
 
-    assert trf =~ "XXR 5\r\n"
     assert trf =~ "XXP 1 2\r\n"
+
+    # XXR and not TRF16's own `142`, which is the same field: JaVaFo reads
+    # only the former, so the round count has to go out under JaVaFo's
+    # spelling in a file JaVaFo is the consumer of. `serialize/2` writes one
+    # or the other, never both - see its `opts[:xxr]`.
+    assert trf =~ "XXR 5\r\n"
+    refute trf =~ "142 5"
   end
 
   ## ---------- club/federation exclusions -> JaVaFo XXP extension ----------
 
-  test "exclusion_pairs_lines/2 emits one XXP line per pair excluded by an \"all\" club rule" do
+  test "exclusion_pairs/2 emits one group per pair excluded by an \"all\" club rule" do
     tournament =
       Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3, club_exclusion: "all"})
 
@@ -819,12 +833,10 @@ defmodule PairingsEngine.PairingTest do
     bob = insert_player(tournament, "Bob", pairing_number: 2, club: "Chess Club")
     carol = insert_player(tournament, "Carol", pairing_number: 3, club: "Other Club")
 
-    lines = Pairing.exclusion_pairs_lines(tournament, [alice, bob, carol])
-
-    assert lines == "XXP 1 2\r\n"
+    assert Pairing.exclusion_pairs(tournament, [alice, bob, carol]) == [[1, 2]]
   end
 
-  test "exclusion_pairs_lines/2 respects a \"listed\" federation rule" do
+  test "exclusion_pairs/2 respects a \"listed\" federation rule" do
     tournament =
       Repo.insert!(%Tournament{
         name: "T",
@@ -839,12 +851,10 @@ defmodule PairingsEngine.PairingTest do
     carol = insert_player(tournament, "Carol", pairing_number: 3, federation: "NED")
     dave = insert_player(tournament, "Dave", pairing_number: 4, federation: "NED")
 
-    lines = Pairing.exclusion_pairs_lines(tournament, [alice, bob, carol, dave])
-
-    assert lines == "XXP 1 2\r\n"
+    assert Pairing.exclusion_pairs(tournament, [alice, bob, carol, dave]) == [[1, 2]]
   end
 
-  test "exclusion_pairs_lines/2 dedupes a pair already covered by an explicit forbidden pairing" do
+  test "exclusion_pairs/2 dedupes a pair already covered by an explicit forbidden pairing" do
     tournament =
       Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3, club_exclusion: "all"})
 
@@ -853,17 +863,18 @@ defmodule PairingsEngine.PairingTest do
 
     {:ok, _} = Tournaments.add_forbidden_pairing(tournament, alice.id, bob.id)
 
-    # forbidden_pairs_lines/2 already emits "XXP 1 2\r\n" for the explicit
-    # pairing above - exclusion_pairs_lines/2 must not emit it a second time.
-    assert Pairing.exclusion_pairs_lines(tournament, [alice, bob]) == ""
+    # forbidden_pairs/2 already reports [1, 2] for the explicit pairing
+    # above - exclusion_pairs/2 must not report it a second time, or the
+    # file carries the same rule on two XXP lines.
+    assert Pairing.exclusion_pairs(tournament, [alice, bob]) == []
   end
 
-  test "exclusion_pairs_lines/2 returns an empty string when both rules are \"none\"" do
+  test "exclusion_pairs/2 returns an empty list when both rules are \"none\"" do
     tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
     alice = insert_player(tournament, "Alice", pairing_number: 1, club: "Chess Club")
     bob = insert_player(tournament, "Bob", pairing_number: 2, club: "Chess Club")
 
-    assert Pairing.exclusion_pairs_lines(tournament, [alice, bob]) == ""
+    assert Pairing.exclusion_pairs(tournament, [alice, bob]) == []
   end
 
   test "javafo_input/2 includes exclusion XXP lines alongside explicit forbidden-pairing lines" do
@@ -904,9 +915,9 @@ defmodule PairingsEngine.PairingTest do
            end)
   end
 
-  ## ---------- Baku acceleration (XXA) - pure line building ----------
+  ## ---------- Baku acceleration (XXA) - virtual-point histories ----------
 
-  test "acceleration_lines/3 matches FIDE C.04.7's own nine-round worked example" do
+  test "accelerations/3 matches FIDE C.04.7's own nine-round worked example" do
     tournament =
       Repo.insert!(%Tournament{
         name: "T",
@@ -916,46 +927,52 @@ defmodule PairingsEngine.PairingTest do
         acceleration: "baku"
       })
 
-    players = for n <- 1..8, do: %{pairing_number: n}
+    players = for n <- 1..8, do: %{id: n, pairing_number: n}
 
     # "In a nine-round tournament, the accelerated rounds are five. The
     # players in GA are assigned one virtual point in the first three
     # rounds, and half virtual point in the next two rounds." (FIDE
     # C.04.7). Group A = top half rounded up to an even count = 2*ceil(8/4)
     # = 4 players (ranks 1-4); Group B (ranks 5-8) never appears at all.
-    assert Pairing.acceleration_lines(tournament, players, 4) ==
-             "XXA    1  1.0  1.0  1.0  0.5\r\n" <>
-               "XXA    2  1.0  1.0  1.0  0.5\r\n" <>
-               "XXA    3  1.0  1.0  1.0  0.5\r\n" <>
-               "XXA    4  1.0  1.0  1.0  0.5\r\n"
+    assert Pairing.accelerations(tournament, players, 4) == %{
+             1 => [1.0, 1.0, 1.0, 0.5],
+             2 => [1.0, 1.0, 1.0, 0.5],
+             3 => [1.0, 1.0, 1.0, 0.5],
+             4 => [1.0, 1.0, 1.0, 0.5]
+           }
 
     # Round 1 alone: still 1.0 for Group A, one column only.
-    assert Pairing.acceleration_lines(tournament, players, 1) ==
-             "XXA    1  1.0\r\nXXA    2  1.0\r\nXXA    3  1.0\r\nXXA    4  1.0\r\n"
+    assert Pairing.accelerations(tournament, players, 1) == %{
+             1 => [1.0],
+             2 => [1.0],
+             3 => [1.0],
+             4 => [1.0]
+           }
 
-    # Round 6 is past the 5 accelerated rounds: the trailing column is 0.0,
-    # but the historical columns are still reported in full (JaVaFo's own
+    # Round 6 is past the 5 accelerated rounds: the trailing value is 0.0,
+    # but the historical ones are still reported in full (JaVaFo's own
     # words: needed for "floaters history").
-    assert Pairing.acceleration_lines(tournament, players, 6) ==
-             "XXA    1  1.0  1.0  1.0  0.5  0.5  0.0\r\n" <>
-               "XXA    2  1.0  1.0  1.0  0.5  0.5  0.0\r\n" <>
-               "XXA    3  1.0  1.0  1.0  0.5  0.5  0.0\r\n" <>
-               "XXA    4  1.0  1.0  1.0  0.5  0.5  0.0\r\n"
+    assert Pairing.accelerations(tournament, players, 6) == %{
+             1 => [1.0, 1.0, 1.0, 0.5, 0.5, 0.0],
+             2 => [1.0, 1.0, 1.0, 0.5, 0.5, 0.0],
+             3 => [1.0, 1.0, 1.0, 0.5, 0.5, 0.0],
+             4 => [1.0, 1.0, 1.0, 0.5, 0.5, 0.0]
+           }
   end
 
-  test "acceleration_lines/3 is a no-op unless acceleration is baku and pairing_system is swiss" do
-    players = for n <- 1..8, do: %{pairing_number: n}
+  test "accelerations/3 is a no-op unless acceleration is baku and pairing_system is swiss" do
+    players = for n <- 1..8, do: %{id: n, pairing_number: n}
 
     off = %Tournament{pairing_system: "swiss", rounds_count: 9, acceleration: "none"}
-    assert Pairing.acceleration_lines(off, players, 1) == ""
+    assert Pairing.accelerations(off, players, 1) == %{}
 
     round_robin =
       %Tournament{pairing_system: "round_robin", rounds_count: 9, acceleration: "baku"}
 
-    assert Pairing.acceleration_lines(round_robin, players, 1) == ""
+    assert Pairing.accelerations(round_robin, players, 1) == %{}
 
     keizer = %Tournament{pairing_system: "keizer", rounds_count: 9, acceleration: "baku"}
-    assert Pairing.acceleration_lines(keizer, players, 1) == ""
+    assert Pairing.accelerations(keizer, players, 1) == %{}
   end
 
   test "javafo_input/2 includes fixed-column XXA lines alongside XXR when acceleration is baku" do
@@ -970,6 +987,12 @@ defmodule PairingsEngine.PairingTest do
     trf = Pairing.javafo_input(tournament, [alice, bob, carol, dave])
 
     assert trf =~ "XXR 9\r\n"
+
+    # The columns are the JaVaFo AUM's, and are now the writer's rather than
+    # this module's: rank right-aligned in 5-8, each value right-aligned in
+    # four columns on a five-column stride from 10. A free-form
+    # "XXA 1 1.0" crashes real javafo and a rank in column 9 rather than 5-8
+    # is rejected outright by bbpPairings - both verified directly.
     assert trf =~ "XXA    1  1.0\r\n"
     assert trf =~ "XXA    2  1.0\r\n"
   end
@@ -996,7 +1019,7 @@ defmodule PairingsEngine.PairingTest do
   # (1, 3, 6, 8) to (1, 2, 3, 4) - so round 2 must pair 1 against 3 (the only
   # two Group-A players left once the group is a clean foursome), which
   # never happens without acceleration. Verified once by hand directly
-  # against `javafo.jar` (see `PairingsEngine.Pairing.acceleration_lines/3`
+  # against `javafo.jar` (see `PairingsEngine.Pairing.accelerations/3`
   # doc) before being written up as this automated assertion.
   @tag :javafo
   test "pair_next_round/1 pairs round 2 differently when Baku acceleration is on vs off" do
@@ -1069,7 +1092,7 @@ defmodule PairingsEngine.PairingTest do
   # Regression for audit finding #8: Group-A membership must be a
   # tournament-wide concept fixed at freeze time (FIDE C.04.7), not
   # something that shifts round-to-round based on who happens to be
-  # eligible THIS round. `acceleration_lines/4`'s `ranked`/Group-A
+  # eligible THIS round. `accelerations/3`'s `ranked`/Group-A
   # computation now always receives the full frozen roster
   # (`do_pair_single/4` passes `full_roster`, not the round's eligible
   # subset, all the way through `javafo_input/4`) - this was fixed as a
@@ -1119,7 +1142,7 @@ defmodule PairingsEngine.PairingTest do
     # P3 (starting rank 3, inside Group A) is excused for round 2 only -
     # excluded from round 2's pairing pool, but must not shrink Group A
     # membership (still all 4 of pairing_number 1-4, per
-    # `acceleration_lines/4`'s doc: Group-A membership is a fixed,
+    # `accelerations/3`'s doc: Group-A membership is a fixed,
     # tournament-wide concept keyed on `pairing_number`, deliberately
     # unaffected by which round is being paired).
     {:ok, _} = Tournaments.update_player(p3, %{absent_rounds: "2"})
@@ -1141,7 +1164,7 @@ defmodule PairingsEngine.PairingTest do
   # Reads back the `t#{tournament.id}_r#{round_number}.trf` file
   # `do_pair_single/4` writes to disk for JaVaFo, and extracts every `XXA`
   # line's starting-rank column (the fixed-column format documented on
-  # `Pairing.acceleration_lines/4`).
+  # `Pairing.accelerations/3`).
   defp trf_xxa_ranks(tournament, round_number) do
     trf_for(tournament.id, round_number)
     |> then(&Regex.scan(~r/^XXA\s+(\d+)/m, &1))

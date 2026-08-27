@@ -11,7 +11,8 @@ defmodule PairingsEngine.Norms.CombineFormsIntegrationTest do
 
   use ExUnit.Case, async: true
 
-  alias PairingsEngine.{Trf, TrfImport}
+  alias PairingsEngine.TrfImport
+  alias Ainalrami.Trf
   alias PairingsEngine.Norms.{Combine, Forms, XlsxFill}
   alias PairingsEngine.Tournaments.{Tournament, Player}
 

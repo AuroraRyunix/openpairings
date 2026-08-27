@@ -1,7 +1,7 @@
 # TRF16 import (`PairingsEngine.TrfImport`)
 
 Imports a FIDE TRF16 file - the same format `PairingsEngine.TrfExport` and
-`PairingsEngine.Trf` already produce/consume for JaVaFo and the user-facing
+`Ainalrami.Trf` already produce/consume for JaVaFo and the user-facing
 TRF download - as a brand-new tournament: players, rounds, pairings and
 byes, owned by the importing user. Reached from the Tournaments page's
 "Import TRF file" panel, right next to "Import SWAR file". Unlike SWAR
@@ -31,7 +31,7 @@ nothing to disambiguate.
 - **Rounds, pairings, byes**: reconstructed by walking each player's
   per-round columns in starting-rank order and pairing up two players
   whenever they mutually reference each other for that round (opponent id
-  + the opponent's own row pointing back). `PairingsEngine.Trf.parse/1`
+  + the opponent's own row pointing back). `Ainalrami.Trf.parse/1`
   already guarantees any such *mutual* pair is a legal FIDE result
   combination (see `Trf.validate_games!/1`), so this only needs to check
   the reference actually is mutual. TRF16 has no board-number field -
@@ -114,7 +114,7 @@ error (e.g. "no player records") rather than a crash.
 a parse failure (including content that isn't TRF16 at all - no `"001"`
 player lines is treated as a parse failure, since `Trf.parse/1` itself
 silently ignores unrecognized lines rather than raising on them),
-`PairingsEngine.Trf.ValidationError` (an illegal or mutually inconsistent
+`Ainalrami.Trf.ValidationError` (an illegal or mutually inconsistent
 result code), or a database validation failure (e.g. two players sharing a
 FIDE id already used elsewhere in the same tournament). `error_message/1`
 turns any of these into a single flash-ready string; the "Import TRF file"

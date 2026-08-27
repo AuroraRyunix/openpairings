@@ -17,8 +17,15 @@ defmodule PairingsEngine.TrfExport do
   `PairingsEngine.Pairing.trf_player_rows/2`.
   """
 
-  alias PairingsEngine.{Pairing, SwarImport, Tournaments, Trf}
-  alias PairingsEngine.Trf.ValidationError
+  alias PairingsEngine.{Pairing, SwarImport, Tournaments}
+
+  # The app's one TRF16 implementation, and the one TRF error type that goes
+  # with it. There used to be a local `PairingsEngine.Trf` as well - a
+  # photocopy Ainalrami's was taken from, which then kept growing while the
+  # copy stood still. What is left in this app is the adapter above: turning
+  # Ecto structs into the plain maps the writer takes.
+  alias Ainalrami.Trf
+  alias Ainalrami.Trf.ValidationError
 
   @doc """
   Builds the TRF16 text for `tournament`, limited to `rounds_spec` (either a
@@ -26,7 +33,7 @@ defmodule PairingsEngine.TrfExport do
   round numbers). Defaults to every paired round when `rounds_spec` is
   `nil`/blank.
 
-  Returns `{:ok, text}`, or `{:error, %PairingsEngine.Trf.ValidationError{}}`
+  Returns `{:ok, text}`, or `{:error, %Ainalrami.Trf.ValidationError{}}`
   if the filtered result set fails `Trf`'s own legality validation (an
   unrecognized or mutually-inconsistent result code) - never raises.
   """

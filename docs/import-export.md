@@ -69,11 +69,16 @@ computing everything and truncating the display.
 
 ### Validation
 
-`PairingsEngine.Trf.serialize/1` (shared with the JaVaFo pairing input
+`Ainalrami.Trf.serialize/2` (shared with the JaVaFo pairing input
 builder) validates every result code and every mutually-referencing pair of
-opponents before returning text, raising `PairingsEngine.Trf.ValidationError`
-on anything illegal. `TrfExport.export/2` catches that and returns
-`{:error, %Trf.ValidationError{}}` instead of letting it raise;
+opponents before returning text, raising `Ainalrami.Trf.ValidationError`
+on anything illegal. One error type for the condition, and one
+implementation raising it: the app used to carry its own `PairingsEngine.Trf`
+as well, serialising with that and then handing the text to Ainalrami's
+parser on the pairing path, so a file was written by one implementation and
+read by another.
+`TrfExport.export/2` catches that and returns
+`{:error, %Ainalrami.Trf.ValidationError{}}` instead of letting it raise;
 `PairingsEngineWeb.ExportController.trf/2` turns that into a flash message
 and redirects back to the Pairings page - never a raw 500. In practice this
 can only happen with data corruption that bypassed the app entirely (see the
@@ -102,7 +107,7 @@ export matches:
 All three are additive and inert to any TRF16 reader: an unrecognized header
 code (or a line that doesn't start with one of the three-digit codes at all)
 is silently skipped, both by spec convention and by this app's own
-`PairingsEngine.Trf.parse/1`. They're opt-in via `Trf.serialize/2`'s
+`Ainalrami.Trf.parse/1`. They're opt-in via `Trf.serialize/2`'s
 `column_legend: true` (and the `number_of_rounds`/`generator` tournament
 fields) - `TrfExport` turns them on; the JaVaFo-input path
 (`PairingsEngine.Pairing.javafo_input/4`) never does, since JaVaFo is a far

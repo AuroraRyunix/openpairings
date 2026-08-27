@@ -46,7 +46,8 @@ defmodule PairingsEngine.CrossProgramTest do
 
   use PairingsEngine.DataCase, async: true
 
-  alias PairingsEngine.{Pairing, Repo, Trf, Tournaments}
+  alias PairingsEngine.{Pairing, Repo, Tournaments}
+  alias Ainalrami.Trf
   alias PairingsEngine.Tournaments.Tournament
   alias PairingsEngine.Test.BbpPairings
 

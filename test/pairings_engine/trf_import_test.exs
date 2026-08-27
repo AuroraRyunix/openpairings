@@ -4,7 +4,8 @@ defmodule PairingsEngine.TrfImportTest do
   # trf_export_test.exs are serial (SQLite has a single writer).
   use PairingsEngine.DataCase, async: false
 
-  alias PairingsEngine.{Repo, Trf, TrfExport, TrfImport, Tournaments}
+  alias PairingsEngine.{Repo, TrfExport, TrfImport, Tournaments}
+  alias Ainalrami.Trf
   alias PairingsEngine.Pairing, as: PairingCtx
   alias PairingsEngine.Tournaments.{Tournament, Player, Round, Pairing}
   alias PairingsEngine.Accounts.{Scope, User}
@@ -399,7 +400,8 @@ defmodule PairingsEngine.TrfImportTest do
   #
   # Built with exact 1-indexed column placement (not hand-typed spacing,
   # which is exactly how the earlier "opponentless bye" bug surfaced while
-  # verifying this by hand) - mirrors trf_test.exs's own `place_col/3`.
+  # verifying this by hand) - mirrors the `place_col/3` the parser's own
+  # tests use, now in Ainalrami's `test/ainalrami/trf_test.exs`.
   defp place_trf_col(line, position, text) do
     text = to_string(text)
     needed = position - 1 + String.length(text)
@@ -647,7 +649,7 @@ defmodule PairingsEngine.TrfImportTest do
 
   test "an illegal mutual result combination surfaces as a ValidationError, formatted as a friendly message" do
     assert {:error, reason} = TrfImport.import_text(illegal_combo_trf())
-    assert %Trf.ValidationError{} = reason
+    assert %Ainalrami.Trf.ValidationError{} = reason
     assert TrfImport.error_message(reason) =~ "invalid result"
   end
 

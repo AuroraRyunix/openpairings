@@ -1005,8 +1005,9 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   # FIDE's own list writes the raw letter "M"/"F" (see the `Sex` column in
   # `PairingsEngine.Fide.Sync`), but the app's own internal convention -
-  # what the Sex radio buttons compare against, and what `Trf.trf_sex/1`
-  # normalizes on export - is lowercase "m"/"w" ("w" for female, not "f").
+  # what the Sex radio buttons compare against, and what `Ainalrami.Trf`'s
+  # `trf_sex/1` normalizes on export - is lowercase "m"/"w" ("w" for
+  # female, not "f").
   # Left as-is, a raw "F" would match neither radio, and since radio groups
   # send nothing at all when none is checked, the very next live form sync
   # (`edit_form_change`) would silently drop it again.

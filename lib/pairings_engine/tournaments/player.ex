@@ -264,7 +264,7 @@ defmodule PairingsEngine.Tournaments.Player do
   @doc """
   Display label for `sex`: stored internally as "m"/"w" (see
   `PairingsEngineWeb.PlayersLive.normalize_fide_sex/1`, matching
-  `PairingsEngine.Trf.trf_sex/1`'s export convention), shown as FIDE's own
+  `Ainalrami.Trf`'s own `trf_sex/1` export convention), shown as FIDE's own
   capital letters "M"/"F". Blank/unset renders as an empty string, letting
   callers decide their own placeholder ("-", "" etc).
   """

@@ -1,7 +1,8 @@
 defmodule PairingsEngineWeb.ExportControllerTest do
   use PairingsEngineWeb.ConnCase
 
-  alias PairingsEngine.{Repo, Trf}
+  alias PairingsEngine.Repo
+  alias Ainalrami.Trf
   alias PairingsEngine.Tournaments.{Tournament, Player, Round, Pairing}
 
   setup :register_and_log_in_user

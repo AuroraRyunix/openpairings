@@ -5,7 +5,7 @@ defmodule PairingsEngine.Tournaments.ForbiddenPairing do
   household/club and shouldn't meet, or any other pairing the organiser
   wants ruled out). See `docs/forbidden-pairings.md` for the full picture:
   applied to the Swiss engine via a JaVaFo TRF "XXP" extension line (see
-  `PairingsEngine.Pairing.forbidden_pairs_lines/2`), respected by
+  `PairingsEngine.Pairing.forbidden_pairs/3`), respected by
   `PairingsEngine.Keizer`, and ignored by `PairingsEngine.RoundRobin` by
   design (a round robin's schedule is fixed regardless).
 

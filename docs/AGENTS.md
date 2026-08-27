@@ -83,9 +83,14 @@ per-tournament collaborator sharing.
   JaVaFo).
 - `lib/pairings_engine/standings.ex` - FIDE C.07 tiebreaks (Buchholz,
   Sonneborn-Berger, DE, etc.), Article 16 unplayed-round handling.
-- `lib/pairings_engine/trf.ex` / `trf_export.ex` / `trf_import.ex` - TRF16
-  serialize/parse/validate; `trf.ex` is the single shared serializer both
-  JaVaFo input and the user-facing TRF export go through.
+- `lib/pairings_engine/trf_export.ex` / `trf_import.ex` - the app's two TRF16
+  ends. Neither implements the format: `Ainalrami.Trf` is the single shared
+  serializer/parser both the JaVaFo input and the user-facing TRF export go
+  through, and what is left here is the adapter that turns Ecto structs into
+  the plain maps it takes. The app used to carry a second implementation,
+  `lib/pairings_engine/trf.ex`, which Ainalrami's was photocopied from and
+  which then stood still while the copy grew - the app serialized with one
+  and parsed with the other on every pairing.
 - `lib/pairings_engine/swar_import.ex` - binary parser for SWAR's
   proprietary `.swar` format (sequential, no index - every field must be read
   in exact order; see its moduledoc for section layout).
@@ -187,16 +192,17 @@ anything here.
    ineligible marker. It defaults to `nil` (skip the marking step entirely)
    so every other caller - TRF export, tests calling with fewer args - is
    unaffected.
-4. **Baku acceleration** (`acceleration_lines/4`) computes Group A (the
+4. **Baku acceleration** (`accelerations/3`) computes Group A (the
    virtual-points recipients) from the SAME full roster the rest of the
    pipeline now uses - this is deliberate and fixes a related bug where
    Group A membership used to shift round-to-round based on who happened to
    be eligible that specific round, violating the FIDE rule that Group A is
    fixed once at tournament start. JaVaFo does **not** compute acceleration
-   from a flag on its own - see the doc comment above `acceleration_lines/4`
+   from a flag on its own - see the doc comment above `accelerations/3`
    for the verified-against-the-real-jar mechanism (`XXA` fixed-column
    extension lines, one virtual-points-per-round history per Group-A
-   player).
+   player). The history hangs on the player's TRF row and
+   `Ainalrami.Trf.serialize/2` writes the line.
 5. **`swiss_match_format`** (two-leg matches, colours reversed on leg 2) is
    inserted as one unit by `create_round/5` → `create_mirrored_leg/4` - no
    second JaVaFo call. `delete_round/2` deletes **both legs together** under
@@ -211,12 +217,15 @@ anything here.
    for the pairing-allocated bye) or `{:error, message}`. Both Swiss paths
    (`do_pair_single/4` and the per-category one) funnel through it, so
    neither can drift from the other and a third engine would be added in
-   one place. Ainalrami reads `XXR`, `XXP` and `XXA`
-   (`@ainalrami_supported_extensions`, `pairing.ex:1104`); any OTHER
-   extension code makes it refuse the round outright rather than pair it
-   with the rule silently dropped. The check is made against the TRF the
-   pipeline actually generated, not against the tournament's settings, so a
-   new extension is refused by default without anyone updating a list.
+   one place. `@ainalrami_supported_extensions` lists the extension lines
+   this integration actually carries through to the engine - `XXR`, `XXP`,
+   `XXA` and their numeric/`BB*` equivalents; any OTHER extension code
+   makes it refuse the round outright rather than pair it with the rule
+   silently dropped. `152` (the initial colour drawn by lot) is the one
+   `Ainalrami.Trf` can write and the engine will not act on, so it is
+   deliberately absent. The check is made against the TRF the pipeline
+   actually generated, not against the tournament's settings, so a new
+   extension is refused by default without anyone updating a list.
 8. **Round robin and Keizer never send anything to JaVaFo.** Round robin is
    a pure function of frozen pairing numbers (Berger tables, computed once
    at `ensure_frozen/1`); Keizer runs its own backtracking matcher. Neither

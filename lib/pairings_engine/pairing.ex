@@ -27,8 +27,15 @@ defmodule PairingsEngine.Pairing do
 
   import Ecto.Query
   require Logger
-  alias PairingsEngine.{Repo, Standings, Trf, Tournaments, Exclusions}
+  alias PairingsEngine.{Repo, Standings, Tournaments, Exclusions}
   alias PairingsEngine.Tournaments.{Player, Round, Pairing, Tournament}
+
+  # The app has one TRF16 implementation and it lives in the engine. There
+  # used to be a second, `PairingsEngine.Trf`, photocopied into Ainalrami and
+  # then left behind while the copy grew: this file already handed its own
+  # serialized text to `Ainalrami.Trf.parse/1` to read back, so the file was
+  # written by one implementation and read by another on every pairing.
+  alias Ainalrami.Trf
 
   def javafo_jar do
     Path.join(:code.priv_dir(:pairings_engine), "javafo/javafo.jar")
@@ -701,11 +708,11 @@ defmodule PairingsEngine.Pairing do
   # bye-rewritten) while still not pairing them this run. Same reasoning as
   # `do_pair_single/4`'s doc comment.
   #
-  # `forbidden_pairs_lines/3`/`exclusion_pairs_lines/3`/`acceleration_lines/4`
+  # `forbidden_pairs/3`/`exclusion_pairs/3`/`accelerations/4`
   # now also see the full roster rather than just this category - intentional
   # and harmless: a forbidden/exclusion line naming a player who's
   # ineligible-this-round is inert to JaVaFo, and this incidentally widens
-  # `acceleration_lines`' roster scope too (a direction a separate Baku
+  # `accelerations`' roster scope too (a direction a separate Baku
   # acceleration audit finding wants; not verified here). `shared_history`
   # (see `build_shared_history/1`) is computed once by
   # `do_pair_by_category/4` and passed straight through.
@@ -725,32 +732,74 @@ defmodule PairingsEngine.Pairing do
       # re-sort (and its full rationale) in `javafo_input/4`.
       |> Enum.sort_by(& &1.rank)
 
-    trf =
-      Trf.serialize(%{
+    engine_trf(
+      tournament,
+      trf_rows,
+      full_roster,
+      local_rank_by_player_id,
+      paired_rounds_count(tournament.id) + 1
+    )
+  end
+
+  # The one place either pairing path turns rows into TRF text. Both used to
+  # serialize the TRF16 core and then STRING-CONCATENATE the extension lines
+  # onto the finished text - `"XXR " <> ...`, then the `XXA` lines, then the
+  # `XXP` ones - which put the part of the file carrying the arbiter's rules
+  # outside the writer entirely. Nothing checked those lines' columns, and
+  # nothing checked that the ranks they name are ranks the file actually
+  # has; the `XXA` column bug that made every accelerated export unreadable
+  # by anything but JaVaFo (see `accelerations/4`) lived in exactly that gap
+  # for as long as it did because the writer never saw the line.
+  #
+  # They are all fields of the tournament map now, so `Ainalrami.Trf` emits
+  # them itself, from the same data and under the same validation as every
+  # other column.
+  defp engine_trf(tournament, trf_rows, roster, rank_by_player_id, current_round) do
+    accelerations = accelerations(tournament, roster, current_round)
+
+    Trf.serialize(
+      %{
         tournament: %{
           name: tournament.name,
           city: tournament.city,
           federation: tournament.federation,
           type: tournament.type,
-          chief_arbiter: tournament.chief_arbiter
+          chief_arbiter: tournament.chief_arbiter,
+          # Written as `XXR`, not as the `142` header - see the `xxr: true`
+          # below. Required by JaVaFo to plan the pairing, and read back off
+          # the FILE by `run_ainalrami/4` so both engines are told the same
+          # thing.
+          number_of_rounds: tournament.rounds_count,
+          # One group per forbidden pairing, plus the club/federation
+          # exclusion rules, deduplicated against them.
+          forbidden_pairs:
+            forbidden_pairs(tournament.id, roster, rank_by_player_id) ++
+              exclusion_pairs(tournament, roster, rank_by_player_id)
         },
-        players: trf_rows
-      })
+        players: attach_accelerations(trf_rows, accelerations)
+      },
+      # JaVaFo reads `XXR` and not `142`. See `Ainalrami.Trf.serialize/2`.
+      xxr: true
+    )
+  end
 
-    trf = trf <> "XXR #{tournament.rounds_count}\r\n"
+  # Baku virtual points ride on the row they belong to rather than being
+  # emitted against a separately-computed rank. That rank had to be kept in
+  # step with the player rows by hand - `accelerations/4` used to look the
+  # emitted rank up in `rank_by_player_id` itself, so a local-rank pairing
+  # run had two independent answers to "what number is this player" and a
+  # disagreement would have referenced a starting rank the file does not
+  # contain. Attaching by player id leaves exactly one answer: the `:rank`
+  # already on the row.
+  defp attach_accelerations(rows, accelerations) when map_size(accelerations) == 0, do: rows
 
-    trf =
-      trf <>
-        acceleration_lines(
-          tournament,
-          full_roster,
-          paired_rounds_count(tournament.id) + 1,
-          local_rank_by_player_id
-        )
-
-    trf <>
-      forbidden_pairs_lines(tournament.id, full_roster, local_rank_by_player_id) <>
-      exclusion_pairs_lines(tournament, full_roster, local_rank_by_player_id)
+  defp attach_accelerations(rows, accelerations) do
+    Enum.map(rows, fn row ->
+      case Map.fetch(accelerations, row.id) do
+        {:ok, points} -> Map.put(row, :accelerations, points)
+        :error -> row
+      end
+    end)
   end
 
   # JaVaFo/TRF16 convention: a player row that already carries a result for
@@ -1089,39 +1138,74 @@ defmodule PairingsEngine.Pairing do
   defp ainalrami_scoped(message, nil), do: message
   defp ainalrami_scoped(message, category_name), do: "#{message} (category \"#{category_name}\")"
 
-  # Which TRF extension lines Ainalrami actually reads. All three this app
-  # emits, as of ainalrami `451c749`: `XXR` (total rounds), `XXP` (forbidden
-  # pairings and club/federation exclusions) and `XXA` (Baku acceleration).
+  # The line codes TRF16 itself defines: the two record types and every
+  # header `Ainalrami.Trf` writes. Anything else in a generated file is an
+  # EXTENSION - a line carrying a rule on top of the format - and is what
+  # `ainalrami_unsupported_extensions/1` below has to account for.
+  @trf16_line_codes ~w(001 013 012 022 032 042 052 062 072 082 092 102 112 122 132 142 182)
+
+  # Which extension lines this integration actually carries through to the
+  # engine. Not "which ones Ainalrami's PARSER reads" - it reads more than
+  # this - but which ones reach `Ainalrami.Pairing.pair_next_round/2` as
+  # something it will act on:
+  #
+  #   * `XXR` - the round count, read back off the file by `run_ainalrami/4`
+  #     and passed as `expected_rounds`. (`142` is the same field under
+  #     TRF16's own spelling and is on the TRF16 list above; `serialize/2`
+  #     writes one or the other, never both.)
+  #   * `XXP`, `260` - forbidden pairings and club/federation exclusions,
+  #     passed as `forbidden_pairs`.
+  #   * `XXA`, `250` - Baku virtual points, which the engine reads straight
+  #     off each parsed player's `:accelerations`.
+  #   * `BB*`, `162` - what a result is worth. Carried by
+  #     `Tournament.engine_point_system/1`, which is the same tournament
+  #     record the line would have been written from, so the file and the
+  #     option cannot disagree.
+  #
+  # `152` is deliberately NOT here, and it is the reason this guard is still
+  # doing work now that one module writes and reads the file. `serialize/2`
+  # emits it from `tournament[:initial_colour]`, `parse/1` reads it back -
+  # and `pair_next_round/2` takes the initial colour as an OPTION only,
+  # which `run_ainalrami/4` does not pass, so it would infer round one's
+  # colours instead of honouring the drawing of lots the file states. Adding
+  # that key to `engine_trf/5`'s map without also passing the option would
+  # fail here rather than pair every board of round one the wrong way round.
   #
   # `XXP`/`XXA` were added upstream precisely because this integration
   # surfaced their absence. Before that, Ainalrami's parser discarded them as
   # unknown header codes - measured on its own fuzz corpus, a 20% forbidden
   # rate meant 27.72% of rounds seated a pair the arbiter had excluded, and
   # that figure was its ENTIRE disagreement with bbpPairings on that axis.
-  # Kept as a list, and kept checked against the generated TRF below, so the
-  # next extension this pipeline learns to emit is caught automatically
-  # rather than silently ignored by whichever engine is selected.
-  @ainalrami_supported_extensions ~w(XXR XXP XXA)
+  @ainalrami_supported_extensions ~w(XXR XXP XXA 250 260 162 BBW BBD BBL BBZ BBF BBU)
 
-  # The extension codes in `trf` that Ainalrami would ignore. Checked against
-  # the generated TRF itself rather than against the tournament's settings,
-  # so it stays true by construction: any extension line this pipeline
-  # learns to emit in future is caught here without anyone remembering to
-  # update a second list.
+  # The extension codes in `trf` that Ainalrami would parse and then not act
+  # on. Checked against the generated TRF itself rather than against the
+  # tournament's settings, so it stays true by construction: any extension
+  # line this pipeline learns to emit in future is caught here without
+  # anyone remembering to update a second list.
   #
   # This guard is not tidiness, and it stays even though every extension the
-  # app currently emits is now supported. An extension line carries a RULE -
+  # app currently emits is supported. An extension line carries a RULE -
   # `XXP` the arbiter's forbidden pairings, `XXA` the acceleration's virtual
   # points - and an engine that ignores one still returns a complete,
   # entirely legal-looking pairing that just happens to break it. There is
   # nothing downstream that could notice the difference, so refusing to pair
   # is the only safe answer, and it has to be the DEFAULT for anything not
   # explicitly known to work.
+  #
+  # It used to look only at lines beginning `XX`, which was the whole
+  # extension vocabulary while this file hand-built its own extension lines
+  # and could only hand-build those. `Ainalrami.Trf.serialize/2` writes the
+  # numeric and `BB*` extensions too, from keys in the map it is given, so
+  # the scan has to cover everything that is not TRF16 - otherwise the first
+  # non-`XX` extension key anyone adds to `engine_trf/5` passes a guard that
+  # is not looking at it.
   defp ainalrami_unsupported_extensions(trf) do
     trf
     |> String.split(~r/\r?\n/)
-    |> Enum.filter(&String.starts_with?(&1, "XX"))
+    |> Enum.reject(&(String.trim(&1) == ""))
     |> Enum.map(&String.slice(&1, 0, 3))
+    |> Enum.reject(&(&1 in @trf16_line_codes))
     |> Enum.reject(&(&1 in @ainalrami_supported_extensions))
     |> Enum.uniq()
   end
@@ -1421,7 +1505,7 @@ defmodule PairingsEngine.Pairing do
   Builds the TRF text JaVaFo takes as input (TRF16 + XXR/XXA/XXP extensions).
 
   `rank_by_player_id` is an optional override, same idea as
-  `forbidden_pairs_lines/3`/`exclusion_pairs_lines/3`'s own override: when
+  `forbidden_pairs/3`/`exclusion_pairs/3`'s own override: when
   `nil` (every existing caller's behaviour, unaffected), player rows/games
   keep using each player's raw global `pairing_number` exactly as before.
   `do_pair_single/4` passes a local contiguous 1..M rank map instead (built
@@ -1482,51 +1566,27 @@ defmodule PairingsEngine.Pairing do
         trf_players
       end
 
-    trf =
-      Trf.serialize(%{
-        tournament: %{
-          name: tournament.name,
-          city: tournament.city,
-          federation: tournament.federation,
-          type: tournament.type,
-          chief_arbiter: tournament.chief_arbiter
-        },
-        players: trf_players
-      })
-
-    # XXR: total number of rounds - required by JaVaFo to plan the pairing.
-    trf = trf <> "XXR #{tournament.rounds_count}\r\n"
-
-    # XXA: Baku acceleration virtual points (see acceleration_lines/4) - must
-    # come before the pairing-engine invocation cares about standings, same
-    # section as XXR.
-    trf =
-      trf <>
-        acceleration_lines(
-          tournament,
-          players,
-          paired_rounds_count(tournament.id) + 1,
-          rank_by_player_id
-        )
-
-    # XXP: one line per forbidden pairing (see
-    # PairingsEngine.Tournaments.list_forbidden_pairings/1 and
-    # docs/forbidden-pairings.md) - JaVaFo's TRF extension for "these
-    # starting ranks must never be paired against each other". Club/federation
-    # exclusion rules (PairingsEngine.Exclusions) add further XXP lines the
-    # same way, deduplicated against the explicit ones above.
-    trf <>
-      forbidden_pairs_lines(tournament.id, players, rank_by_player_id) <>
-      exclusion_pairs_lines(tournament, players, rank_by_player_id)
+    engine_trf(
+      tournament,
+      trf_players,
+      players,
+      rank_by_player_id,
+      paired_rounds_count(tournament.id) + 1
+    )
   end
 
   @doc """
-  Builds one `"XXP a b\\r\\n"` TRF extension line per forbidden pairing of
-  `tournament_id`, translating each pair's player ids to their starting rank
+  The forbidden pairings of `tournament_id` as starting-rank groups -
+  `[[1, 2], [4, 7]]` - which `Ainalrami.Trf.serialize/2` writes as one `XXP`
+  line each. Each pair's player ids are translated to their starting rank
   (`pairing_number`) among `players` for this pairing run. A pair is
   skipped silently if either player isn't in `players` at all, or hasn't
   been assigned a `pairing_number` yet - JaVaFo only needs to hear about
   players it's actually being asked to pair.
+
+  Returns ranks rather than the `"XXP a b\\r\\n"` text it used to, because
+  the text was concatenated onto a finished TRF and so was never checked by
+  anything - see `engine_trf/5`.
 
   `rank_by_player_id` defaults to `players`' own global `pairing_number`
   (every existing caller's behaviour, unaffected). Per-category Swiss
@@ -1535,7 +1595,7 @@ defmodule PairingsEngine.Pairing do
   resolve to a local rank) is dropped by the same nil-rejection below, with
   zero extra logic: they could never be paired against each other anyway.
   """
-  def forbidden_pairs_lines(tournament_id, players, rank_by_player_id \\ nil) do
+  def forbidden_pairs(tournament_id, players, rank_by_player_id \\ nil) do
     rank_by_player_id = rank_by_player_id || Map.new(players, &{&1.id, &1.pairing_number})
 
     tournament_id
@@ -1544,20 +1604,20 @@ defmodule PairingsEngine.Pairing do
       {rank_by_player_id[fp.player_a_id], rank_by_player_id[fp.player_b_id]}
     end)
     |> Enum.reject(fn {a, b} -> is_nil(a) or is_nil(b) end)
-    |> Enum.map_join(fn {a, b} -> "XXP #{a} #{b}\r\n" end)
+    |> Enum.map(fn {a, b} -> [a, b] end)
   end
 
   @doc """
-  Builds one `"XXP a b\\r\\n"` TRF extension line per pair excluded by
-  `tournament`'s club/federation exclusion rules (see
-  `PairingsEngine.Exclusions.excluded_pairs/2`), translated to starting
-  ranks the same way `forbidden_pairs_lines/3` does (see that function's doc
-  for the optional `rank_by_player_id` override, used by per-category Swiss
-  pairing). A pair already covered by an explicit forbidden pairing is
+  One starting-rank pair per pair excluded by `tournament`'s club/federation
+  exclusion rules (see `PairingsEngine.Exclusions.excluded_pairs/2`),
+  translated to starting ranks the same way `forbidden_pairs/3` does (see
+  that function's doc for the optional `rank_by_player_id` override, used by
+  per-category Swiss pairing, and for why these are ranks rather than `XXP`
+  text). A pair already covered by an explicit forbidden pairing is
   skipped - JaVaFo doesn't need to hear the same rule twice - as is any pair
   where a player isn't in `players` or hasn't been assigned a rank yet.
   """
-  def exclusion_pairs_lines(tournament, players, rank_by_player_id \\ nil) do
+  def exclusion_pairs(tournament, players, rank_by_player_id \\ nil) do
     rank_by_player_id = rank_by_player_id || Map.new(players, &{&1.id, &1.pairing_number})
 
     explicit_rank_pairs =
@@ -1576,19 +1636,32 @@ defmodule PairingsEngine.Pairing do
     |> Enum.map(&normalize_rank_pair/1)
     |> Enum.uniq()
     |> Enum.reject(&MapSet.member?(explicit_rank_pairs, &1))
-    |> Enum.map_join(fn {a, b} -> "XXP #{a} #{b}\r\n" end)
+    |> Enum.map(fn {a, b} -> [a, b] end)
   end
 
   defp normalize_rank_pair({a, b}) when a <= b, do: {a, b}
   defp normalize_rank_pair({a, b}), do: {b, a}
 
   @doc """
-  Builds one fixed-column `"XXA"` TRF extension line per Group-A player, per
-  FIDE C.04.7 Baku Acceleration - JaVaFo's own "acceleration" TRF
-  extension. Returns `""` unless `tournament.acceleration == "baku"` *and*
+  Every Group-A player's virtual-point history, as
+  `%{player_id => [1.0, 1.0, 0.5, ...]}` - one value per round played so
+  far, per FIDE C.04.7 Baku Acceleration. `engine_trf/5` hangs each list on
+  its player's TRF row, and `Ainalrami.Trf.serialize/2` writes it as
+  JaVaFo's fixed-column `XXA` extension line.
+
+  Returns `%{}` unless `tournament.acceleration == "baku"` *and*
   `tournament.pairing_system == "swiss"`: round robin's fixed Berger
   schedule ignores acceleration entirely, and Keizer never goes through
   JaVaFo at all.
+
+  Keyed by player id and not by rank on purpose. This used to emit the line
+  itself, and so had to work out which number to label it with - the local
+  rank when a pairing run was using one, the global `pairing_number`
+  otherwise - independently of the player rows in the same file. Two
+  independent answers to one question is a divergence waiting to happen, and
+  the failure is silent: an `XXA` line naming a rank the file does not
+  contain is a rule the engine cannot apply and cannot report. The row's own
+  `:rank` is now the only answer.
 
   ## Verified mechanism (do not re-guess this - see below)
 
@@ -1606,12 +1679,16 @@ defmodule PairingsEngine.Pairing do
   The manual's format spec: `"XXA NNNN pp.p pp.p ..."`, where `XXA` starts
   at column 1, `NNNN` (the player's starting rank) starts at column 5, and
   each `pp.p` starts at column `10 + 5*(r-1)` (`r` = round). This is a
-  **fixed-column** format, unlike this file's other free-form `XXR`/`XXP`
-  extension lines - confirmed by direct experiment against the real
+  **fixed-column** format, unlike the free-form `XXR`/`XXP` extension lines
+  beside it - confirmed by direct experiment against the real
   `javafo.jar`: a free-form space-separated `"XXA 1 1.0 1.0\\r\\n"` line
   crashes JaVaFo with a bare `NullPointerException`
-  (`B.A.B.D.J`/`B.A.B.I.K`/...), while the fixed-column form below runs
-  clean. The same experiment (8 players, round 2, Group A = ranks 1-4 given
+  (`B.A.B.D.J`/`B.A.B.I.K`/...), while the fixed-column form runs
+  clean. Those columns are `Ainalrami.Trf`'s `@xxa_rank_cols` and
+  `xxa_points_cols/1` now, checked against bbpPairings' own reader rather
+  than against JaVaFo alone - which is what caught the rank field being one
+  column too wide here, an error JaVaFo tolerated for as long as it was the
+  only reader. The same experiment (8 players, round 2, Group A = ranks 1-4 given
   a flat +1.0/+1.0 virtual-point history) also confirmed the values are not
   silently ignored: JaVaFo's round-2 pairing genuinely changed shape between
   the unaccelerated and accelerated runs, matching the FIDE description
@@ -1636,13 +1713,12 @@ defmodule PairingsEngine.Pairing do
   are assigned one virtual point in the first three rounds, and half
   virtual point in the next two rounds."*
   """
-  def acceleration_lines(tournament, players, current_round, rank_by_player_id \\ nil)
+  def accelerations(tournament, players, current_round)
 
-  def acceleration_lines(
+  def accelerations(
         %Tournament{acceleration: "baku", pairing_system: "swiss"} = tournament,
         players,
-        current_round,
-        rank_by_player_id
+        current_round
       )
       when is_integer(current_round) and current_round > 0 do
     ranked =
@@ -1651,44 +1727,25 @@ defmodule PairingsEngine.Pairing do
       |> Enum.sort_by(& &1.pairing_number)
 
     # Group-A membership is a tournament-wide FIDE concept computed from
-    # GLOBAL starting rank (frozen for the tournament) - deliberately
-    # unaffected by `rank_by_player_id`, which only changes how a Group-A
-    # player's rank is *labelled* in the emitted XXA line below (see next
-    # comment), not who's in Group A to begin with.
+    # GLOBAL starting rank, frozen for the tournament - so it is decided
+    # here even for a pairing run that renumbers its rows locally. Which
+    # NUMBER the resulting line carries is a separate question, and no
+    # longer this function's: see the moduledoc.
     group_a_size = 2 * ceil_div(length(ranked), 4)
     group_a_ranks = ranked |> Enum.take(group_a_size) |> MapSet.new(& &1.pairing_number)
 
     accelerated_rounds = ceil_div(tournament.rounds_count, 2)
     first_stage_rounds = ceil_div(accelerated_rounds, 2)
 
+    points =
+      Enum.map(1..current_round, &virtual_points(&1, accelerated_rounds, first_stage_rounds))
+
     ranked
     |> Enum.filter(&MapSet.member?(group_a_ranks, &1.pairing_number))
-    |> Enum.map(fn player ->
-      # `rank_by_player_id` given (do_pair_single/4's local rank map, or a
-      # category's) means the XXP/player rows in this same run are keyed by
-      # local rank, not global pairing_number - the XXA line's rank column
-      # must match that same numbering, or it silently references a rank
-      # that doesn't exist in this run's TRF16 player list. A Group-A player
-      # not in `rank_by_player_id` at all (excluded from THIS run's pool -
-      # e.g. a round-specific absentee) has nothing to place a line at, so
-      # they're dropped rather than emitted with a stale/wrong rank.
-      emitted_rank =
-        if rank_by_player_id,
-          do: Map.get(rank_by_player_id, player.id),
-          else: player.pairing_number
-
-      {emitted_rank, player}
-    end)
-    |> Enum.reject(fn {rank, _player} -> is_nil(rank) end)
-    |> Enum.map_join(fn {rank, _player} ->
-      points =
-        Enum.map(1..current_round, &virtual_points(&1, accelerated_rounds, first_stage_rounds))
-
-      xxa_line(rank, points)
-    end)
+    |> Map.new(&{&1.id, points})
   end
 
-  def acceleration_lines(_tournament, _players, _current_round, _rank_by_player_id), do: ""
+  def accelerations(_tournament, _players, _current_round), do: %{}
 
   defp virtual_points(round, accelerated_rounds, _first_stage_rounds)
        when round > accelerated_rounds,
@@ -1700,38 +1757,10 @@ defmodule PairingsEngine.Pairing do
 
   defp virtual_points(_round, _accelerated_rounds, _first_stage_rounds), do: 0.5
 
-  # Fixed-column TRF extension line: "XXA" (cols 1-3), rank right-aligned in
-  # cols 5-8, then one right-aligned pp.p per round, 4 columns wide on a
-  # 5-column stride from col 10 - the JaVaFo AUM's column spec. Free-form
-  # space-separated XXA crashes JaVaFo (verified), unlike this file's other
-  # XXR/XXP extension lines.
-  #
-  # The rank field used to be padded to FIVE, which put a single-digit rank
-  # in col 9 and left cols 5-8 blank. JaVaFo accepts that, which is why it
-  # went unnoticed for as long as JaVaFo was the only reader - but it is not
-  # what the AUM specifies, and a stricter parser rejects the line outright.
-  # Confirmed against the real bbpPairings binary, which reads the rank from
-  # exactly `line[4]..line[8]` and each value as 4 chars from index 9 on a
-  # stride of 5 (`readPlayerAccelerationsXxa`, trf.cpp:485-515): our old
-  # output produced `Error parsing file: Invalid line "XXA     1  1.0  1.0"`,
-  # i.e. every accelerated tournament this app exported was unreadable by
-  # anything but JaVaFo. Found by pointing a second engine at our own TRF,
-  # which is precisely the class of bug a second engine exists to catch.
-  defp xxa_line(rank, points) do
-    id_field = String.pad_leading(to_string(rank), 4)
-
-    points_fields =
-      Enum.map_join(points, " ", fn p ->
-        String.pad_leading(:erlang.float_to_binary(p / 1, decimals: 1), 4)
-      end)
-
-    "XXA " <> id_field <> " " <> points_fields <> "\r\n"
-  end
-
   defp ceil_div(a, b), do: div(a + b - 1, b)
 
   @doc """
-  Builds the `PairingsEngine.Trf.serialize/1`-shaped player list (rank,
+  Builds the `Ainalrami.Trf.serialize/2`-shaped player list (rank,
   identity fields, points, full-history games) for `players`, covering every
   paired round of `tournament` with no filtering. Shared by `javafo_input/2`
   (active players only, feeding the pairing engine) and
@@ -1746,7 +1775,7 @@ defmodule PairingsEngine.Pairing do
 
   Each row also carries an `:id` (the player's id) and each game an
   `:opponent_id` alongside the usual `:opponent_rank` - extra keys
-  `PairingsEngine.Trf.serialize/1` and `PairingsEngine.TrfExport` both
+  `Ainalrami.Trf.serialize/2` and `PairingsEngine.TrfExport` both
   ignore (they only read the specific keys they need), but that
   per-category Swiss pairing's `remap_trf_rows_to_local_ranks/2` uses to
   translate global `pairing_number`-based ranks to a category's own local
@@ -2211,7 +2240,7 @@ defmodule PairingsEngine.Pairing do
       # The opponent's raw id, carried alongside `opponent_rank`
       # so per-category Swiss pairing's `remap_trf_rows_to_local_ranks/2` can
       # translate it to a category's own local rank numbering (see
-      # `build_category_trf/5`). `PairingsEngine.Trf.serialize/1` and
+      # `build_category_trf/5`). `Ainalrami.Trf.serialize/2` and
       # `PairingsEngine.TrfExport` both ignore this extra key.
       opponent_id: opponent_id,
       colour:

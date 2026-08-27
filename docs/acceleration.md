@@ -14,7 +14,7 @@ and the IT3 form label ("Accelerated") already existed before this feature -
 but nothing ever read the setting when actually building a round's pairing
 input. An arbiter could turn Baku acceleration on, see it reflected on the
 FIDE report, and it would have exactly zero effect on the pairings JaVaFo
-produced. `PairingsEngine.Pairing.acceleration_lines/3` (and its call from
+produced. `PairingsEngine.Pairing.accelerations/3` (and its call from
 `javafo_input/2`) is the fix: it's the only place `tournament.acceleration`
 now actually reaches the pairing engine.
 
@@ -70,6 +70,8 @@ which is the exact bug this feature closes.
   > players in GA are assigned one virtual point in the first three rounds,
   > and half virtual point in the next two rounds.
 
-See `PairingsEngine.Pairing.acceleration_lines/3` for the implementation
-and its full doc comment (same content as above, plus the exact column
-math).
+See `PairingsEngine.Pairing.accelerations/3` for the implementation and its
+full doc comment. It returns each Group-A player's virtual-point history
+and `Ainalrami.Trf.serialize/2` writes the `XXA` lines from it - the column
+math lives with the writer, in that module's `@xxa_rank_cols` and
+`xxa_points_cols/1`.

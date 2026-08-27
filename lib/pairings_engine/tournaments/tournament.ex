@@ -315,7 +315,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # second JaVaFo call. Like `acceleration`, this is only meaningful when
     # `pairing_system == "swiss"` - inert (never read) otherwise, same
     # tolerance as that field (no changeset error for setting it on a
-    # non-swiss tournament; see PairingsEngine.Pairing.acceleration_lines/3
+    # non-swiss tournament; see PairingsEngine.Pairing.accelerations/3
     # for the precedent of gating via pattern match rather than a
     # validation). Locked in the UI once the tournament has paired its
     # first round, same as `pairing_system`/`rr_match_format`.

@@ -1,6 +1,6 @@
 defmodule PairingsEngine.TrfImport do
   @moduledoc """
-  Imports a FIDE TRF16 file (`PairingsEngine.Trf.parse/1`) as a brand-new
+  Imports a FIDE TRF16 file (`Ainalrami.Trf.parse/1`) as a brand-new
   tournament - players, rounds, pairings, byes - owned by the importing
   user. One-step, single-transaction create, same shape as
   `PairingsEngine.SwarImport.import_file/2`: broadcast-suppressed writes
@@ -10,8 +10,8 @@ defmodule PairingsEngine.TrfImport do
   TRF16 has no board-number field and no explicit "which two rows are the
   same game" marker beyond each player's own per-round opponent reference -
   a game is reconstructed by pairing up two players' round columns when
-  they mutually reference each other (mirrors `PairingsEngine.Trf`'s own
-  `validate_games!/1`, which already guarantees any *mutual* pair is
+  they mutually reference each other (mirrors `Ainalrami.Trf`'s own
+  `validate_games!/2`, which already guarantees any *mutual* pair is
   legal). Board numbers are then assigned sequentially in starting-rank
   order, real games before byes. See `docs/trf-import.md`.
 
@@ -26,10 +26,22 @@ defmodule PairingsEngine.TrfImport do
   either way.
   """
 
-  alias PairingsEngine.{Repo, SwarImport, Tournaments, Trf}
+  alias PairingsEngine.{Repo, SwarImport, Tournaments}
   alias PairingsEngine.Tournaments.{Tournament, Player, Round, Pairing}
   alias PairingsEngine.Pairing, as: PairingCtx
-  alias PairingsEngine.Trf.ValidationError
+
+  # The app's one TRF16 implementation. This module already read files with
+  # it in effect - the app serialized with a local `PairingsEngine.Trf` and
+  # handed the text to Ainalrami's parser on the pairing path - so the only
+  # thing that changes here is that the reader and the writer are now
+  # provably the same reader and writer.
+  alias Ainalrami.Trf
+
+  # The one TRF error type the app has, and it matters most here: this is
+  # the rescue that decides whether a bad uploaded file becomes a flash
+  # message or a crash. Naming the wrong module in a `rescue` is not a
+  # compile error and not a failed match, it is a clause that never fires.
+  alias Ainalrami.Trf.ValidationError
 
   @doc """
   Parses `content` (a TRF16 file's raw text) and imports it as a new
@@ -41,7 +53,7 @@ defmodule PairingsEngine.TrfImport do
   per player whose recomputed points disagree with the TRF file's own
   points column (see the moduledoc). Returns `{:error, reason}` on a parse
   failure or an invalid file; never raises. `reason` is either a
-  `PairingsEngine.Trf.ValidationError` struct, a `{:parse_failed, message}`
+  `Ainalrami.Trf.ValidationError` struct, a `{:parse_failed, message}`
   tuple, or a plain string - pass it to `error_message/1` for a single
   user-facing string.
   """
@@ -306,7 +318,7 @@ defmodule PairingsEngine.TrfImport do
   defp blank_to_default(v, _default), do: v
 
   # "Individual: Swiss System" / "Team: Round Robin System" etc (see
-  # PairingsEngine.Trf's @type_labels) - reverse-mapped by substring rather
+  # Ainalrami.Trf's @type_labels) - reverse-mapped by substring rather
   # than an exact table, since a hand-written or third-party TRF's 092 line
   # may phrase it slightly differently.
   defp infer_type(nil), do: "swiss"
@@ -482,9 +494,9 @@ defmodule PairingsEngine.TrfImport do
 
   # Walks each player's round entry (in starting-rank order) and, for a
   # playing code, tries to resolve the opponent's own entry for the same
-  # round and pair the two into one game. `PairingsEngine.Trf.parse/1`
+  # round and pair the two into one game. `Ainalrami.Trf.parse/1`
   # already validated that any *mutually referencing* pair is legal (see
-  # `Trf.validate_games!/1`) - this only needs to check the reference is
+  # `Trf.validate_games!/2`) - this only needs to check the reference is
   # mutual at all before trusting it. A dangling/unresolvable playing code,
   # or a genuine TRF bye code (H/F/U/Z), falls through to `single_sided/2`.
   defp build_round(entries) do

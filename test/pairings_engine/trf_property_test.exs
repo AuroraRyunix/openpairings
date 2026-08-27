@@ -1,6 +1,6 @@
 defmodule PairingsEngine.TrfPropertyTest do
   @moduledoc """
-  Property-based tests on `PairingsEngine.Trf.serialize/1` - the first half
+  Property-based tests on `Ainalrami.Trf.serialize/2` - the first half
   of the fuzz-testing harness `docs/fide-endorsement.md` proposes.
 
   These generate random-but-legal rosters and round histories (contiguous
@@ -14,13 +14,32 @@ defmodule PairingsEngine.TrfPropertyTest do
   (wrong physical row order, a board-numbering sentinel copied into a real
   field): a data-transformation-correctness check, independent of whether
   any external pairing engine's output looks legal.
+
+  ## Why this stays here when the module it tests does not
+
+  The TRF16 implementation moved to `Ainalrami.Trf` and its example-based
+  tests moved with it (`test/ainalrami/trf_test.exs` in that repo). These
+  properties did not, and the reason is `stream_data`: Ainalrami declares
+  `deps do [] end` and its README sells "no external binary, no runtime
+  dependencies". Moving this file would put the first entry in that list and
+  the first `mix.lock` in that repo, and would make the fuzz box's checkout
+  need a `mix deps.get` it does not need today - a real cost, paid so that a
+  test can live one directory over.
+
+  So the split is by what each repo can run, not by what each repo owns, and
+  this file is the one place in the app that still exercises `Trf` directly
+  rather than through the export/import adapters. Anything it finds is a bug
+  in Ainalrami and gets fixed there.
   """
 
   use ExUnit.Case, async: true
   use ExUnitProperties
 
-  alias PairingsEngine.Trf
-  alias PairingsEngine.Trf.ValidationError
+  # The app's one TRF16 implementation. This file used to alias a local
+  # `PairingsEngine.Trf`; that module is gone and these properties follow the
+  # format to where it now lives.
+  alias Ainalrami.Trf
+  alias Ainalrami.Trf.ValidationError
 
   # ---------------------------------------------------------------------
   # generators
@@ -81,10 +100,21 @@ defmodule PairingsEngine.TrfPropertyTest do
 
   # {code, opponent's code} - every legally paired combination `Trf`'s own
   # (private) @legal_result_pairs recognizes. Hand-maintained in step with
-  # that table, not derived from it - `illegal_pair_gen/0` below is exactly
-  # the test that catches the two drifting apart (it did, the first time
-  # @legal_result_pairs grew "=" </> "0" for VCL.13's asymmetric result and
-  # this list wasn't updated yet).
+  # that table, not derived from it - `illegal_pair_gen/0` below is meant to
+  # be the test that catches the two drifting apart, and it did the first
+  # time, when @legal_result_pairs grew "=" </> "0" for VCL.13's asymmetric
+  # result and this list had not been updated yet.
+  #
+  # It did NOT catch the second drift, which is why the bottom three rows
+  # are here now. When `W`/`D`/`L` joined the playing codes, this list stayed
+  # at the five symbols and so did `illegal_pair_gen/0`, which drew its
+  # alphabet from a hand-picked `Map.take` of `result_codes/0` naming those
+  # same five. Two hand-maintained lists cannot cross-check each other: they
+  # were written together and they went stale together, and the letters were
+  # simply never generated in either direction. `illegal_pair_gen/0` now
+  # reads `Trf.playing_codes/0`, so the alphabet comes from the module and
+  # only the legal SUBSET is stated here - the next code to be added shows
+  # up as a failure in the complement instead of silently going untested.
   @legal_pairs [
     {"1", "0"},
     {"0", "1"},
@@ -94,7 +124,14 @@ defmodule PairingsEngine.TrfPropertyTest do
     {"0", "="},
     {"+", "-"},
     {"-", "+"},
-    {"-", "-"}
+    {"-", "-"},
+    # The unrated letter spellings mirror the symbols they stand for and
+    # pair only with each other: rated-ness belongs to the game, not to a
+    # seat in it, so "W" against "0" is two players disagreeing about what
+    # happened rather than one unusual game.
+    {"W", "L"},
+    {"L", "W"},
+    {"D", "D"}
   ]
 
   defp legal_pair_gen, do: member_of(@legal_pairs)
@@ -230,10 +267,16 @@ defmodule PairingsEngine.TrfPropertyTest do
     end
   end
 
+  # 300 runs over the ~50 illegal combinations of the eight playing codes,
+  # not the 30 this had while the alphabet was five codes wide. Drawing from
+  # `member_of/1` is sampling with replacement, so covering N members takes
+  # about N*ln(N) draws - at 30 the widened alphabet would have left roughly
+  # half of it never generated in a given run, which is the same "it is in
+  # the list but nothing exercises it" hole the alphabet change just closed.
   property "an illegal result combination always raises Trf.ValidationError, never silently serializes" do
     check all(
             {code_a, code_b} <- illegal_pair_gen(),
-            max_runs: 30
+            max_runs: 300
           ) do
       players = [
         %{rank: 1, name: "Alpha, One", points: 0.0, games: [%{opponent_rank: 2, result: code_a}]},
@@ -246,17 +289,19 @@ defmodule PairingsEngine.TrfPropertyTest do
     end
   end
 
-  # Every playing-code combination NOT in @legal_pairs (own note: this is
-  # deliberately the complement of the fixture above, built from the same
-  # public `Trf.result_codes/0` rather than a second hand-copied list, so it
-  # can't silently drift out of sync with what the module actually accepts).
+  # Every playing-code combination NOT in @legal_pairs - deliberately the
+  # complement of the fixture above rather than a second hand-copied list.
+  #
+  # The alphabet is `Trf.playing_codes/0`, which is the module's own
+  # @playing_codes and the exact list `validate_game!/5` measures a result
+  # against. It used to be a `Map.take` of `result_codes/0` naming five keys
+  # by hand, and that is the version that let `W`/`D`/`L` slip in untested:
+  # a hand-written alphabet can only generate the codes whoever wrote it
+  # knew about. Taking the published list means a code added to the module
+  # arrives here on its own, lands in the complement unless @legal_pairs
+  # claims it, and fails loudly the first time it is generated.
   defp illegal_pair_gen do
-    playing_codes =
-      Trf.result_codes()
-      |> Map.take([:win, :draw, :loss, :forfeit_win, :forfeit_loss])
-      |> Map.values()
-
-    all_pairs = for a <- playing_codes, b <- playing_codes, do: {a, b}
+    all_pairs = for a <- Trf.playing_codes(), b <- Trf.playing_codes(), do: {a, b}
     illegal_pairs = Enum.reject(all_pairs, &(&1 in @legal_pairs))
 
     member_of(illegal_pairs)

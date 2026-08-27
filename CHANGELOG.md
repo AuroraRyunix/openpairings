@@ -14,6 +14,50 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [Unreleased]
+
+### Changed
+
+- [Change] **One TRF16 implementation, not two.** The app carried its own
+  FIDE TRF16 reader/writer alongside the pairing engine's, which was
+  photocopied from it and then kept growing - so a pairing input was written
+  by one implementation and read by the other, and the app's copy knew
+  nothing of `XXR`, `XXP`, `XXA`, `250`, `260`, `BB*` or `162`. Every caller
+  now uses the engine's, and the app's is gone. Both were measured against
+  each other on 249 serialize cases and 137 parse cases first: every
+  remaining difference was the engine's reading or writing something the
+  app's copy could not.
+
+- [Change] **The extension lines are written, not glued on.** The `XXR`,
+  `XXA` and `XXP` lines a pairing input carries - the round count, the Baku
+  virtual points, and the arbiter's forbidden pairings and club/federation
+  exclusions - used to be built as text and concatenated onto the finished
+  TRF, which put exactly the lines carrying the rules outside the writer and
+  outside every check it makes. They are fields of the tournament now and
+  the writer emits them. This is the class of defect that gap hid: an `XXA`
+  line one column too wide, which JaVaFo tolerated and bbpPairings rejected
+  outright, so every accelerated tournament this app exported was unreadable
+  by anything but JaVaFo.
+
+- [Fix] **A pairing file for a round still being played is readable again.**
+  A player row whose last round has no result yet lost the two columns that
+  round's blank result occupies, because trailing whitespace was trimmed off
+  the row. bbpPairings rejects the whole FILE for that, not just the round -
+  it stops reading round blocks two columns early and then finds characters
+  left over. This was already fixed in the engine's writer and arrives with
+  the consolidation above; the app's own writer, which every export went
+  through, still trimmed. Files where every round has a result are unchanged
+  byte for byte.
+
+- [Change] **The unsupported-extension guard now looks at every extension.**
+  Before pairing with Ainalrami, the app scans the file it generated and
+  refuses to pair - writing nothing - if it finds an extension line the
+  engine will not act on, because an ignored rule yields a complete,
+  legal-looking round that quietly breaks it. That scan only looked at lines
+  beginning `XX`, which was the whole vocabulary while the app hand-built
+  its own extension lines. The writer emits the numeric and `BB*` spellings
+  too, so the scan now covers every code that is not TRF16's own.
+
 ## [0.17.1] - 2026-08-26
 
 There is no 0.17.0 release. The version existed for a day and binaries

@@ -53,6 +53,10 @@ there instead of blocking the choice. See `docs/fide-endorsement.md`.
 **TRF extensions.** Ainalrami reads all three this app emits: `XXR` (round
 count), `XXP` (forbidden pairings and club/federation exclusions -
 `docs/forbidden-pairings.md`) and `XXA` (Baku acceleration virtual points).
+All three are written by `Ainalrami.Trf.serialize/2` itself, from the
+tournament map the app hands it - the app used to concatenate them onto the
+finished text, which put the lines carrying the arbiter's rules outside the
+writer and outside its checks.
 
 It did not always. Until ainalrami `451c749` its parser discarded every
 extension but `XXR`, which is the worst possible failure mode for this
@@ -67,7 +71,13 @@ rounds carrying them.
 
 The guard that caught it stays, in its general form: `Pairing` scans the TRF
 it actually generated and refuses to pair, writing nothing, if it finds any
-`XX` code not on Ainalrami's supported list. That check is against the
+line whose code is neither TRF16's own nor on the list of extensions this
+integration carries through to the engine. It looks at every non-TRF16
+code, not only the `XX` ones, because the writer emits the numeric and
+`BB*` extension spellings too - `152`, the initial colour drawn by lot, is
+the one it can write that the engine will not act on, and is the reason the
+guard is still doing work now that one module both writes and reads the
+file. That check is against the
 generated file rather than against the tournament's settings, so the next
 extension this pipeline learns to emit is refused by default instead of
 being silently ignored by whichever engine happens to be selected. It cannot
