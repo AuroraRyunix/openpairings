@@ -383,6 +383,24 @@ without anything failing. It found five, four of them live.
   Behaviour is unchanged; this entry exists because the documentation said
   the opposite of the code, which is worse than saying nothing.
 
+- [Fix] **A backup restored every hidden board back into public view.** An
+  arbiter can hide an individual pairing from the public page; that flag was
+  not written into the backup file, so restoring an event un-hid all of
+  them. That is a disclosure rather than a lost preference - the board the
+  arbiter deliberately withheld comes back visible, with nothing to say it
+  happened.
+
+  Restoring a backup written before this fix leaves nothing hidden, which is
+  the same state as before and the safe direction.
+
+  The stored pairing rationale (the "why did the engine pair it this way"
+  panel) is still dropped by a backup, and now says so in the code rather
+  than going quietly. It holds internal player references that a restore
+  cannot reconnect, so carrying it across would attribute every bracket to
+  the wrong players while looking entirely convincing. Losing an explanation
+  is better than showing a false one; carrying it properly needs work the
+  file format already has a version field for.
+
 - [Fix] **A 3-2-1 event was scored one way on screen and another in the file
   the engine brackets from.** SWAR's 3-2-1 system pays a point for turning
   up on top of the result, and the standings pay it - but the score column

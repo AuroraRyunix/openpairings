@@ -105,6 +105,59 @@ defmodule PairingsEngine.TournamentExport do
 
   @round_fields ~w(number date status published_at)a
 
+  # Schema fields NOT exported, each with the reason. Paired with a test
+  # (`tournament_export_test.exs`) that asserts every field on the Round and
+  # Pairing schemas is either exported or listed here, so the next field
+  # added to either schema cannot go missing in silence.
+  #
+  # That guard exists because two already had. `pairings.hidden` and
+  # `rounds.explanation` were dropped by nothing more than not being on the
+  # list, and a backup/restore lost both without a word. `hidden` is fixed
+  # below; `explanation` is a deliberate drop, for the reason beside it.
+  @round_excluded [
+    # Carried outside the field list: `round_map/1` merges `"id"` in
+    # explicitly, because the import needs it to attach pairings, and
+    # `tournament_id` is implied by the envelope's nesting - a round inside
+    # a tournament's payload belongs to that tournament by construction, and
+    # carrying the old id across would point at the wrong row.
+    :id,
+    :tournament_id,
+    # Holds DB PLAYER IDS - `mdps`, `residents`, `floats`, `pairs` and
+    # `edges` are all `player_ids/2` output (see `Pairing.bracket_json/2`).
+    # Import re-inserts players with fresh ids, so carrying the blob across
+    # verbatim would attribute every bracket to the wrong people while
+    # looking entirely plausible. Remapping it needs a walker that knows the
+    # blob's shape, which is what its own `"version" => 1` field is for;
+    # until that exists, dropping it is the honest option. It is a
+    # diagnostic panel, not tournament state, so losing it costs an
+    # explanation and not a result.
+    :explanation
+  ]
+
+  @pairing_excluded [
+    # Same as the round's: the id is not needed (nothing references a
+    # pairing) and `round_id` is implied by the nesting.
+    :id,
+    :round_id,
+    # A foreign key into the unexported `matches` table - see
+    # `pairing_map/1`.
+    :match_id,
+    # Recomputed on import by `freeze_round_display_boards!/1` from the
+    # players' own round-tripped `fixed_board` values, which is more correct
+    # than carrying a stale label across. See `PairingsEngine.PairingDisplay`.
+    :display_board,
+    :display_special
+  ]
+
+  @doc false
+  def round_excluded, do: @round_excluded
+
+  @doc false
+  def pairing_excluded, do: @pairing_excluded
+
+  @doc false
+  def round_fields, do: @round_fields
+
   @doc "Envelope wrapping a single tournament (caller is responsible for owner-scoping it)."
   def export_tournament(%Tournament{} = tournament), do: envelope([tournament])
 
@@ -157,6 +210,10 @@ defmodule PairingsEngine.TournamentExport do
     %{
       "board" => p.board,
       "result" => p.result,
+      # The per-pairing hide, which an arbiter sets to keep one board off
+      # the public page. It was not on this list and a restore silently
+      # un-hid every hidden board - a disclosure, not just a lost setting.
+      "hidden" => p.hidden,
       "white_player_id" => p.white_player_id,
       "black_player_id" => p.black_player_id
     }

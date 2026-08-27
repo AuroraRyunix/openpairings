@@ -9,6 +9,67 @@ defmodule PairingsEngine.TournamentExportTest do
   alias PairingsEngine.Tournaments.{Tournament, Team, Player, Round, Pairing}
   alias PairingsEngine.Accounts.{Scope, User}
 
+  # `pairing_map/1` builds its map inline rather than from a module
+  # attribute, so the guard reads the keys off a real exported pairing. That
+  # is stricter than a list would be: it checks what the function ACTUALLY
+  # emits, not what a list next to it claims.
+  defp pairing_exported_fields do
+    scope = user_scope()
+    tournament = tournament_with_one_hidden_pairing(scope)
+
+    TournamentExport.export_tournament(tournament)
+    |> Map.fetch!("tournaments")
+    |> hd()
+    |> Map.fetch!("rounds")
+    |> hd()
+    |> Map.fetch!("pairings")
+    |> hd()
+    |> Map.keys()
+    |> Enum.map(&String.to_atom/1)
+  end
+
+  # One round, two boards, one of them hidden - the smallest shape that can
+  # tell "hidden round-trips" from "everything defaults to false".
+  defp tournament_with_one_hidden_pairing(scope) do
+    tournament =
+      Repo.insert!(%Tournament{
+        name: "Hidden Board",
+        type: "swiss",
+        rounds_count: 1,
+        user_id: scope.user.id
+      })
+
+    players =
+      for n <- 1..4 do
+        Repo.insert!(%Player{
+          tournament_id: tournament.id,
+          name: "P#{n}",
+          pairing_number: n
+        })
+      end
+
+    round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+    [a, b, c, d] = players
+
+    Repo.insert!(%Pairing{
+      round_id: round.id,
+      board: 1,
+      white_player_id: a.id,
+      black_player_id: b.id,
+      hidden: true
+    })
+
+    Repo.insert!(%Pairing{
+      round_id: round.id,
+      board: 2,
+      white_player_id: c.id,
+      black_player_id: d.id,
+      hidden: false
+    })
+
+    tournament
+  end
+
   # See PairingsEngine.TournamentsTest for why this bypasses the full
   # register/confirm fixture under async execution.
   defp user_scope do
@@ -177,6 +238,55 @@ defmodule PairingsEngine.TournamentExportTest do
                "#{label} list names fields that are not on the schema: " <>
                  inspect(MapSet.to_list(stale))
       end
+    end
+
+    # The same guard for Round and Pairing, which did not have one - and two
+    # fields went missing through the gap. `pairings.hidden` was dropped, so
+    # a backup/restore silently UN-HID every hidden board, which is a
+    # disclosure rather than a lost preference. `rounds.explanation` was
+    # dropped too; that one stays dropped, deliberately, because the blob
+    # holds DB player ids and re-importing would attribute every bracket to
+    # the wrong people while looking entirely plausible.
+    #
+    # Neither was caught by anything. The Tournament guard above existed the
+    # whole time and was simply never extended to the other two schemas.
+    test "every round and pairing schema field is either exported or deliberately excluded" do
+      for {schema, exported, excluded, list_name} <- [
+            {Round, TournamentExport.round_fields(), TournamentExport.round_excluded(),
+             "@round_fields / @round_excluded"},
+            {Pairing, pairing_exported_fields(), TournamentExport.pairing_excluded(),
+             "pairing_map/1 / @pairing_excluded"}
+          ] do
+        all = schema.__schema__(:fields) |> MapSet.new()
+        accounted = MapSet.union(MapSet.new(exported), MapSet.new(excluded))
+        unaccounted = MapSet.difference(all, accounted)
+
+        assert MapSet.size(unaccounted) == 0,
+               "#{inspect(schema)} fields neither exported nor deliberately excluded: " <>
+                 "#{inspect(MapSet.to_list(unaccounted))}. Add each to #{list_name} " <>
+                 "(with a reason) in PairingsEngine.TournamentExport."
+      end
+    end
+
+    test "a hidden pairing survives export and re-import" do
+      scope = user_scope()
+      tournament = tournament_with_one_hidden_pairing(scope)
+
+      exported = TournamentExport.export_tournament(tournament)
+
+      pairings =
+        exported["tournaments"]
+        |> hd()
+        |> Map.fetch!("rounds")
+        |> hd()
+        |> Map.fetch!("pairings")
+
+      assert Enum.any?(pairings, &(&1["hidden"] == true)),
+             "a hidden pairing must round-trip as hidden - restoring it visible " <>
+               "publishes a board the arbiter deliberately withheld"
+
+      assert Enum.any?(pairings, &(&1["hidden"] == false)),
+             "and a visible one must stay visible"
     end
 
     test "the pairing-shape fields that made this a real bug are actually exported" do

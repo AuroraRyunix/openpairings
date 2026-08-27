@@ -208,6 +208,11 @@ defmodule PairingsEngine.TournamentImport do
         attrs = %{
           "board" => Map.get(pr, "board"),
           "result" => Map.get(pr, "result"),
+          # Defaults to false for a payload written before `hidden` was
+          # exported, which is the schema default and the safe direction:
+          # an old backup restores with nothing hidden rather than with
+          # boards mysteriously missing from the public page.
+          "hidden" => Map.get(pr, "hidden", false),
           "white_player_id" => Map.get(player_map, Map.get(pr, "white_player_id")),
           "black_player_id" => Map.get(player_map, Map.get(pr, "black_player_id"))
         }
