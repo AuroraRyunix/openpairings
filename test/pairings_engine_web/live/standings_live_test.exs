@@ -33,7 +33,11 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
 
     assert tournament.public_slug
-    assert html =~ ~s(href="/p/#{tournament.public_slug}/standings")
+    # Absolute now, not relative: PublicLink builds a full URL because half of
+    # these end up on a QR code, in a printed footer or pasted into an email.
+    # A PUBLISHED tournament gets the results site's address here instead -
+    # see public_link_test.exs.
+    assert html =~ "/p/#{tournament.public_slug}/standings"
     assert html =~ "Public standings link"
   end
 

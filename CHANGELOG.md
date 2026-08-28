@@ -16,6 +16,33 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+### Fixed
+
+- [Fix] **Every public link pointed back at this machine, even for a
+  tournament being published.** The share links, the projector's QR code, the
+  registration link &mdash; all of them handed out a `/p/:slug` address served
+  by the very computer running the round.
+
+  That is not a broken link, which is what makes it bad: it works perfectly
+  and quietly undoes the split. Moving spectators off the arbiter's machine is
+  the entire reason the results site exists, and the app was sending them
+  straight back.
+
+  There is now one function that answers where the public reads a tournament,
+  and every link goes through it. A tournament that publishes is read on the
+  results site; everything else keeps the local pages, because publishing is
+  opt-in per machine and per tournament and a laptop install has no results
+  site at all.
+
+  Both halves have to be true: a tournament marked to publish on a machine
+  with no address configured still gets the local link, since an address that
+  does not exist is worse than one that does. The share card now names the
+  host a spectator will land on, so nobody has to compare hostnames to work
+  out which site they just copied.
+
+  The links are absolute now rather than relative &mdash; half of them end up
+  on a QR code, in a printed footer or pasted into an email.
+
 ### Changed
 
 - [Change] **Saving the publishing settings now tests them.** "Saved" on its

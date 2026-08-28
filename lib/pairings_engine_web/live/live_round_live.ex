@@ -12,6 +12,8 @@ defmodule PairingsEngineWeb.LiveRoundLive do
 
   use PairingsEngineWeb, :live_view
 
+  alias PairingsEngineWeb.PublicLink
+
   alias PairingsEngine.{Tournaments, Standings, Tiebreaks, Keizer, Mobile, PairingDisplay}
   alias PairingsEngine.Pairing, as: Engine
 
@@ -272,14 +274,14 @@ defmodule PairingsEngineWeb.LiveRoundLive do
           <div class="enroll-panel" style="margin-top: 16px">
             <div class="enroll-qr">
               <div class="enroll-qr-inner">
-                {Phoenix.HTML.raw(Mobile.qr_svg(url(~p"/p/#{@tournament.public_slug}/standings")))}
+                {Phoenix.HTML.raw(Mobile.qr_svg(PublicLink.url(@tournament, :standings)))}
               </div>
             </div>
             <div>
               <p class="enroll-url">
                 <.rich_text text={gettext("Or open %[url]")}>
                   <:part name="url">
-                    <strong>{url(~p"/p/#{@tournament.public_slug}/standings")}</strong>
+                    <strong>{PublicLink.url(@tournament, :standings)}</strong>
                   </:part>
                 </.rich_text>
               </p>

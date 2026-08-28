@@ -114,7 +114,11 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
 
     assert tournament.public_slug
     assert html =~ "Public pairings link"
-    assert html =~ ~s(href="/p/#{tournament.public_slug}/pairings")
+    # Absolute now, not relative: PublicLink builds a full URL because half of
+    # these end up on a QR code, in a printed footer or pasted into an email.
+    # A PUBLISHED tournament gets the results site's address here instead -
+    # see public_link_test.exs.
+    assert html =~ "/p/#{tournament.public_slug}/pairings"
   end
 
   test "hides the public pairings link once public pages are turned off", %{
@@ -127,7 +131,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 
     refute html =~ "Public pairings link"
-    refute html =~ ~s(href="/p/#{tournament.public_slug}/pairings")
+    refute html =~ "/p/#{tournament.public_slug}/pairings"
   end
 
   test "does not show a separate 'Explain this round' link (relocated to the audit page)", %{

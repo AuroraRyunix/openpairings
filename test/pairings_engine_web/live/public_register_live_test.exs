@@ -397,7 +397,11 @@ defmodule PairingsEngineWeb.PublicRegisterLiveTest do
       html = lv |> element("button", "Open up") |> render_click()
 
       assert html =~ "Close the form"
-      assert html =~ ~s(href="/p/#{t.public_slug}/register")
+      # Absolute now, not relative: PublicLink builds a full URL because half
+      # of these end up on a QR code, in a printed footer or pasted into an
+      # email, where a relative link is useless. A published tournament gets
+      # the results site's address here instead - see public_link_test.exs.
+      assert html =~ "/p/#{t.public_slug}/register"
     end
   end
 end

@@ -1,6 +1,8 @@
 defmodule PairingsEngineWeb.StandingsLive do
   use PairingsEngineWeb, :live_view
 
+  alias PairingsEngineWeb.PublicLink
+
   alias PairingsEngine.{Audit, Tournaments, Tiebreaks, Standings, Keizer, PlayerStats}
   alias PairingsEngine.Tournaments.Player
 
@@ -303,7 +305,7 @@ defmodule PairingsEngineWeb.StandingsLive do
           <a
             :if={@tournament.public_pages_enabled}
             class="pe-btn"
-            href={~p"/p/#{@tournament.public_slug}/standings"}
+            href={PublicLink.url(@tournament, :standings)}
             target="_blank"
             title={gettext("No login needed - share this link")}
           >

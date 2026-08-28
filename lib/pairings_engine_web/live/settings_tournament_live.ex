@@ -13,6 +13,8 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
   """
   use PairingsEngineWeb, :live_view
 
+  alias PairingsEngineWeb.PublicLink
+
   import PairingsEngineWeb.SettingsSupport
 
   alias PairingsEngine.{Audit, Publishing, Tournaments, Tiebreaks}
@@ -938,18 +940,32 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
 
         <div :if={@tournament.public_pages_enabled} class="set-field solo" style="margin-top: 10px">
           <span class="set-label">{gettext("Share link")}</span>
+          <p class="hint" style="margin: 4px 0 0">
+            <%= if PublicLink.published?(@tournament) do %>
+              {gettext(
+                "This tournament is published, so its public link is on the results site (%{host}) rather than on this machine - which is the point: spectators do not load the computer running the round.",
+                host: PublicLink.host(@tournament)
+              )}
+            <% else %>
+              {gettext(
+                "Served by this machine (%{host}). Turn on publishing below and the link becomes the results site instead.",
+                host: PublicLink.host(@tournament)
+              )}
+            <% end %>
+          </p>
           <div class="actions" style="margin-top: 6px; gap: 10px; flex-wrap: wrap">
             <a
               class="pe-btn"
-              href={~p"/p/#{@tournament.public_slug}/standings"}
+              href={PublicLink.url(@tournament, :standings)}
               target="_blank"
             >
               {gettext("Open standings")}
             </a>
 
             <a
+              :if={not PublicLink.published?(@tournament)}
               class="pe-btn"
-              href={~p"/p/#{@tournament.public_slug}/pairings"}
+              href={PublicLink.url(@tournament, :pairings)}
               target="_blank"
             >
               {gettext("Open pairings")}

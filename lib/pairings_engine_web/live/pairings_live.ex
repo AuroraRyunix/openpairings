@@ -1,6 +1,8 @@
 defmodule PairingsEngineWeb.PairingsLive do
   use PairingsEngineWeb, :live_view
 
+  alias PairingsEngineWeb.PublicLink
+
   import PairingsEngineWeb.SettingsSupport, only: [setup_field_path: 2, error_text: 1]
 
   alias PairingsEngine.{
@@ -1574,7 +1576,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           <a
             :if={@tournament.public_pages_enabled}
             class="pe-btn"
-            href={~p"/p/#{@tournament.public_slug}/pairings"}
+            href={PublicLink.url(@tournament, :pairings)}
             target="_blank"
             title={gettext("No login needed - share this link")}
           >
