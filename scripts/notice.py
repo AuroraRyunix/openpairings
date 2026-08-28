@@ -37,11 +37,26 @@ import urllib.request
 from pathlib import Path
 
 DEFAULT_URL = "https://pairings.zerotwo.cloud"
-ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
+REPO_ENV = Path(__file__).resolve().parent.parent / ".env"
 
 
-def load_env_file(path=ENV_FILE):
-    """Read KEY=VALUE lines from .env, without overriding the real environment.
+def env_candidates(explicit=None):
+    """Where to look for a .env, in order. The first that exists wins.
+
+    The current directory comes before the repository's own file because the
+    deploy script keeps its .env beside itself - the one holding
+    DEPLOY_NOTICE_TOKEN and DEPLOY_PHX_HOST - and that is the directory
+    somebody running this by hand is standing in. The repo's .env is the
+    fallback for running it out of a checkout.
+    """
+    if explicit:
+        return [Path(explicit)]
+
+    return [Path.cwd() / ".env", REPO_ENV]
+
+
+def load_env_file(explicit=None):
+    """Read KEY=VALUE lines from a .env, without overriding the real environment.
 
     A real environment variable always wins. That ordering matters: it is
     what lets a one-off `DEPLOY_NOTICE_TOKEN=... notice.py ...` still work
@@ -51,11 +66,19 @@ def load_env_file(path=ENV_FILE):
     Missing file is not an error - plenty of machines will pass the token in
     directly and never have one.
     """
-    try:
-        lines = path.read_text(encoding="utf-8").splitlines()
-    except (OSError, UnicodeDecodeError):
-        return
+    for path in env_candidates(explicit):
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except (OSError, UnicodeDecodeError):
+            continue
 
+        load_lines(lines)
+        return path
+
+    return None
+
+
+def load_lines(lines):
     for line in lines:
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:
@@ -73,6 +96,27 @@ def load_env_file(path=ENV_FILE):
             value = value[1:-1]
 
         os.environ.setdefault(key, value)
+
+
+def resolve_url(explicit):
+    """Where to send it.
+
+    `DEPLOY_PHX_HOST` lives in the deploy script's own .env and is the public
+    hostname of the very server this talks to, so reading it means the
+    ordinary case needs no --url at all.
+    """
+    if explicit:
+        return explicit
+
+    if os.environ.get("OPENPAIRINGS_URL"):
+        return os.environ["OPENPAIRINGS_URL"]
+
+    host = os.environ.get("DEPLOY_PHX_HOST")
+    if host:
+        host = host.strip().rstrip("/")
+        return host if host.startswith(("http://", "https://")) else f"https://{host}"
+
+    return DEFAULT_URL
 
 
 def post(base, path, token, payload):
@@ -101,8 +145,6 @@ def post(base, path, token, payload):
 
 
 def main():
-    load_env_file()
-
     parser = argparse.ArgumentParser(
         description="Show or withdraw the site-wide announcement banner.",
         epilog='example: notice.py "Big server maintenance in 12 hours." --hours 12',
@@ -119,19 +161,28 @@ def main():
         "time people have already been told (e.g. 2026-08-29T06:00:00Z)",
     )
     parser.add_argument("--withdraw", action="store_true", help="take the banner down")
-    parser.add_argument("--url", default=None)
+    parser.add_argument("--url", default=None, help="override the server address")
+    parser.add_argument("--env-file", default=None, help="read settings from this file")
     args = parser.parse_args()
+
+    loaded = load_env_file(args.env_file)
 
     token = os.environ.get("DEPLOY_NOTICE_TOKEN")
     if not token:
+        looked = "\n".join(f"  {p}" for p in env_candidates(args.env_file))
         sys.exit(
-            "DEPLOY_NOTICE_TOKEN is not set.\n"
-            f"Add it to {ENV_FILE} (that file is gitignored), or pass it inline.\n"
+            "DEPLOY_NOTICE_TOKEN is not set, and no .env holding it was found.\n"
+            f"Looked in:\n{looked}\n"
+            "Run this from the folder that holds that .env, pass --env-file, or set "
+            "the variable inline.\n"
             "It has to match the DEPLOY_NOTICE_TOKEN in the server's systemd unit; "
             "if that one is unset, the endpoint refuses everything."
         )
 
-    base = args.url or os.environ.get("OPENPAIRINGS_URL", DEFAULT_URL)
+    base = resolve_url(args.url)
+
+    if loaded:
+        print(f"Settings from {loaded}")
 
     if args.withdraw:
         post(base, "/internal/notice/withdraw", token, {})
