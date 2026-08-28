@@ -12,6 +12,29 @@ Rocky Linux VPS running the app directly as a Phoenix release under
 address, SSH access details, and any credentials - those live outside this
 repository (see "Secrets" below), not in version control.
 
+## Two apps, one host
+
+Since the split, the same box runs both halves:
+
+| | OpenPairings (this repo) | OpenResults |
+| --- | --- | --- |
+| public URL | `https://pairings.zerotwo.cloud` | `https://openresults.zerotwo.cloud` |
+| internal port | 4001 | 4004 |
+| app tree | `/apps/web/pairingsengine` | `/apps/web/openresults` |
+| systemd unit | `pairingsengine.service` | `openresults.service` |
+| database | `/var/lib/pairingsengine/pairings_engine.db` | `/var/lib/openresults/openresults.db` |
+
+They share a host, a deploy script, and nothing else - separate trees,
+separate units, separate databases, separate `SECRET_KEY_BASE`. Deploying one
+neither touches nor restarts the other, which is the whole point: the reason
+for the split is that a busy public results page and a live pairing session
+should not be able to take each other down, and that would be a hollow promise
+if every deploy restarted both.
+
+The OpenResults side has its own `docs/deployment.md`, which is the place to
+look for the ingest token, the tunnel hostname mapping, and why it sits on
+port 4004.
+
 ## Deployment model
 
 Not containerized, not orchestrated - a straightforward "upload the source,
@@ -20,27 +43,63 @@ Python script (`deploy_openpairings.py`, kept outside this repo on the
 maintainer's machine, not committed here since it embeds host-specific
 paths and prompts for credentials at deploy time).
 
-What the deploy script actually does, in order:
+The script deploys either app, or both:
 
-1. **Uploads the app tree via SFTP** to a fixed path on the server, skipping
-   `.git`, `_build`, `deps`, `node_modules`, `.env`, and any local SQLite
-   files (dev/test databases never get uploaded - the production database
-   is a separate, stable path outside the uploaded tree, see below).
-2. **Installs prerequisites** on the target if missing (Java, Erlang,
-   Elixir) - idempotent, safe to rerun.
-3. **Builds the release on the target itself**: `deps.get --only prod`,
-   `compile`, `assets.setup`, `assets.deploy`, `ecto.migrate` - all run
-   with `MIX_ENV=prod` and a short-lived, root-only env file supplying
+```bash
+python deploy_openpairings.py                   # OpenPairings only - the default
+python deploy_openpairings.py --openresults     # OpenResults only
+python deploy_openpairings.py --both            # both, in that order
+```
+
+A bare run still means what it always meant, so nothing about existing muscle
+memory changes; OpenResults has to be asked for, so that a routine arbiter-side
+deploy never restarts the public site as a side effect. An **unrecognised
+argument is fatal**, which is a change from when `--fast` was the only option:
+a typo like `--openresult` that merely printed a complaint would go on to
+deploy the default app instead, restarting the wrong service while the
+operator watched a wall of output for the one they asked for.
+
+First, once per run and not once per app, it **installs prerequisites** on the
+target if they are missing (Java, Erlang, Elixir) - idempotent, safe to rerun,
+and shared by both apps since they compile with the same toolchain.
+
+Then, for each selected app in turn:
+
+1. **Checks the port is free**, or already held by that app's own unit,
+   before uploading anything. Writing a unit that points at an occupied port
+   does not fail loudly: systemd starts the service, Bandit cannot bind, the
+   app dies, and systemd restarts it forever. This host has four other
+   services in the 3000-4003 range, so the answer is worth having while it is
+   still cheap.
+2. **Uploads the app tree via SFTP** to a fixed path on the server, skipping
+   `.git`, `_build`, `deps`, `node_modules`, `.env`, `erl_crash.dump`, and any
+   local SQLite files (dev/test databases never get uploaded - the production
+   database is a separate, stable path outside the uploaded tree, see below).
+3. **Ensures the database directory exists**, and on OpenPairings only,
+   carries over a pre-restructure dev database exactly once if there is no
+   production database yet.
+4. **Builds the release on the target itself**: `deps.get --only prod`,
+   `compile`, `assets.setup`, `assets.deploy`, then (after the warning below)
+   `ecto.create` and `ecto.migrate` - all run with `MIX_ENV=prod` and a
+   short-lived, root-only env file supplying
    `DATABASE_PATH`/`SECRET_KEY_BASE`/`PHX_HOST` (deleted immediately after
    the build, even on failure).
-4. **Writes/refreshes a systemd unit** (`pairingsengine.service`) with the
+
+   **A failing build step now stops the deploy.** See "Why the build is
+   allowed to fail loudly" below - this used to print a warning and carry on,
+   and that is how the site went down on 2026-08-28.
+5. **Writes/refreshes a systemd unit** (`pairingsengine.service`) with the
    production environment baked into `Environment=` lines (chmod 600 - the
    unit file contains `SECRET_KEY_BASE` and SMTP credentials). If a unit
    already exists from a prior deploy, its `SECRET_KEY_BASE` is **reused**
    rather than regenerated, so redeploying never invalidates every existing
    user's logged-in session.
-4b. **Warns everyone who has a page open**, if `DEPLOY_NOTICE_TOKEN` is
+5b. **Warns everyone who has a page open**, if `DEPLOY_NOTICE_TOKEN` is
    set - and note WHERE in the sequence this happens.
+
+   This step is **OpenPairings only**. OpenResults has no accounts, no
+   sessions and no half-filled forms held in server memory on its reading
+   path, so there is nobody to warn and nothing for them to save.
 
    The notice goes out after the build and **before** `ecto.migrate`, not
    just before the restart. Everything up to that point is invisible to
@@ -93,7 +152,7 @@ What the deploy script actually does, in order:
 
    Note what the banner does NOT say, because both would be false:
 
-   - **Nobody is logged out.** Step 4 reuses `SECRET_KEY_BASE`, so sessions
+   - **Nobody is logged out.** Step 5 reuses `SECRET_KEY_BASE`, so sessions
      survive a restart.
    - **Results are not lost.** Result entry writes straight through on every
      change, so they are already saved. An early version of this banner told
@@ -103,8 +162,109 @@ What the deploy script actually does, in order:
    open dialog, a half-filled registration form, and the settings pages with
    an explicit Save button. That is what it warns about.
 
-5. **Restarts the service** and prints the last systemd/journalctl output
-   so a failed boot is visible immediately.
+6. **Restarts the service, then proves it came back.** Not the same thing,
+   and the difference is the subject of the next section.
+
+## Why the build is allowed to fail loudly
+
+On **2026-08-28** this script printed "Deployment Completed Successfully!"
+while the same output showed the service dead, and pairings.zerotwo.cloud
+stayed down for six minutes past the window users had been promised.
+
+The chain, because the shape will recur:
+
+1. `mix.lock` moved a git dependency to a new tag.
+2. That dependency's checkout under `deps/` on the box had a stray local
+   edit, so git refused to move a dirty working tree onto a different commit.
+3. `mix deps.get` aborted - and because it aborted, `compile`,
+   `assets.deploy` **and** `ecto.migrate` all aborted with it.
+4. The script restarted the service anyway, because every build step was
+   treated as advisory. The app booted against a stale dependency and a schema
+   that had never been migrated.
+5. Nothing checked whether it had come back. It had not.
+
+Two rules came out of that, and they are the reason the sequence looks the way
+it does.
+
+### A failing build step stops the deploy
+
+`deps.get`, `compile`, `assets.deploy` and `ecto.migrate` each produce part of
+what the restarted app will run, so a failure in any of them means the restart
+must not happen. The script aborts before it touches systemd and says so.
+
+The old release keeps serving, untouched. That is the correct outcome, not a
+consolation prize: a deploy that could not build is a deploy that has not
+happened, and the running app is still the last one that did.
+
+Only genuinely idempotent, best-effort steps - `local.hex`, `local.rebar`,
+`assets.setup`, `ecto.create` - are still allowed to whinge and carry on.
+`assets.setup` merely fetches the esbuild and tailwind binaries, which are
+already there after the first deploy; `assets.deploy`, which produces what the
+browser actually fetches, is critical and will fail loudly if they really are
+missing.
+
+If a migration fails after the countdown has gone out, the notice is withdrawn,
+so nobody is left watching a clock tick down to a restart that is not coming.
+
+### The one `deps.get` failure worth recovering from automatically
+
+A dirty checkout under `deps/` is never worth keeping - it is a cache of
+somebody else's source. So when `deps.get` fails, the script finds the dirty
+git checkouts, throws each away, and retries **once**.
+
+```
+mix deps.clean <dep>           removes deps/<dep> AND its build artifacts,
+                               so the next deps.get re-clones clean. This is
+                               the one that fixes it.
+
+mix deps.clean --build <dep>   removes ONLY the build artifacts and leaves
+                               deps/<dep> exactly as dirty as it was.
+```
+
+`--build` is the trap, and it is worth knowing about before a live tournament
+rather than during one. It reads as the more thorough of the two and it leaves
+the actual problem in place: the retry fails with the identical message, and it
+looks as though the recovery did nothing.
+
+Only checkouts that are genuinely dirty are cleaned. A blanket
+`deps.clean --all` would re-fetch and rebuild every dependency and turn a
+thirty-second recovery into a long outage. And exactly one retry, never a loop:
+if a clean re-fetch still cannot resolve the tree, the problem is the lock file
+or the network, and grinding away at it only delays the moment the deploy
+admits it is stuck.
+
+This repo has three git dependencies - `heroicons`, `daisyui` and `ainalrami` -
+and the engine pin moves often enough that this is not a hypothetical.
+
+### A restart is not a deploy until the app answers
+
+After every restart the script polls, up to `DEPLOY_HEALTH_TIMEOUT` seconds
+(default 90), on two independent signals:
+
+- **systemd.** `failed` or `inactive` means it is not coming back, and
+  `NRestarts` above zero means it booted, died, and is being restarted in a
+  loop - a manual `systemctl restart` zeroes that counter, so anything above
+  zero was earned since the deploy. Either verdict is returned immediately
+  rather than waiting out the timeout for news that has already arrived.
+- **HTTP.** `active` only proves a process exists. So the script also asks the
+  app itself, over loopback.
+
+If neither succeeds inside the timeout, the script dumps `systemctl status` and
+the last 60 journal lines and **exits non-zero**. The closing banner is derived
+from what actually happened, per app, rather than printed unconditionally.
+
+The HTTP check accepts **any status code that is not `000` and not a `5xx`** -
+deliberately not `200`. `curl` reports `000` when it got no response at all,
+and that, plus a server error, is the real negative. Demanding `200` would fail
+every healthy deploy of this app: `GET /` here is a `302` to the login page,
+and a request carrying the public `Host` header answers `301` from `force_ssl`.
+
+That the check works over plain HTTP at all depends on `config/prod.exs`
+excluding `localhost` and `127.0.0.1` from `force_ssl`. Keep that exclusion.
+
+90 seconds is sized to survive a slow first boot, not to paper over a crash
+loop - a warm boot on this box takes about a second and a half, and a crash
+loop is detected directly rather than by waiting for the timeout.
 
 ## Production database
 
@@ -128,7 +288,7 @@ server.
 | `SECRET_KEY_BASE` | yes | cookie/session signing - generate once, keep stable |
 | `PHX_HOST` | yes | public hostname (also the LiveView websocket origin-check value) |
 | `PHX_SERVER` | yes (`true`) | actually serve HTTP - a release doesn't by default |
-| `PORT` | no (default 4000) | internal HTTP port |
+| `PORT` | no (default 4000) | internal HTTP port - **the unit sets 4001**, see "Ports on this host" |
 | `SMTP_USERNAME` / `SMTP_PASSWORD` | yes | magic-link login sends real e-mail in prod - **the app refuses to boot without both**, since there is no local mailbox fallback outside dev |
 | `POOL_SIZE` | no (default 5) | Ecto connection pool size |
 | `DEPLOY_NOTICE_TOKEN` | no | shared secret for the pre-restart warning below. Unset means the endpoint refuses everything, so the only cost of omitting it is no banner |
@@ -202,13 +362,148 @@ this app has no account-recovery path other than magic-link e-mail, so a
 production boot with no way to actually deliver that e-mail would silently
 lock every user out.
 
+## Ports on this host
+
+Nothing is reachable from the internet except SSH - firewalld's public zone
+opens exactly one port, and every public hostname arrives through the
+Cloudflare tunnel, which dials these over loopback. A port number here is not
+a security boundary, only a promise not to collide with a neighbour.
+
+| Port | Service |
+| --- | --- |
+| 3000 | `dataplatform-api.service` |
+| **4001** | **`pairingsengine.service` - OpenPairings** |
+| 4002 | `personalsite.service` (`python3 -m http.server`) |
+| 4003 | `kbsb-database-manager.service` |
+| **4004** | **`openresults.service` - OpenResults** |
+| 5432 | PostgreSQL |
+| 8080 | nginx, in front of Keycloak on 8081 |
+| 8099 | nginx default server |
+
+OpenResults' *dev* config defaults to 4002 so both halves can run side by side
+on a laptop. On this host 4002 and 4003 are taken, so production gives it
+4004 - the first free port in the same block, keeping the two halves adjacent.
+
+4000 is free and was left that way on purpose. It is what `mix phx.server`
+binds when `PORT` is unset, so anything that loses its `PORT=` line - a stray
+dev server, a hand-edited unit, a release someone runs by hand to check
+something - lands there. Leaving it unclaimed means that accident collides
+with nothing instead of quietly stealing traffic from a live service.
+
 ## Reverse proxy / TLS
 
-The app listens on a plain internal HTTP port; TLS termination and the
-public hostname routing happen in front of it (a reverse proxy/tunnel, not
-configured inside this repository). `config/prod.exs` sets `force_ssl` with
-`rewrite_on: [:x_forwarded_proto]`, so it trusts a forwarded-proto header
-from whatever sits in front rather than terminating TLS itself.
+The app listens on a plain internal HTTP port; TLS termination and the public
+hostname routing happen in front of it. On this host that is **cloudflared**,
+running as `cloudflared.service` and dialling 4001 over loopback. nginx is
+installed on the box but is not involved with either app - it fronts Keycloak
+only.
+
+`config/prod.exs` sets `force_ssl` with `rewrite_on: [:x_forwarded_proto]`, so
+the app trusts a forwarded-proto header from whatever sits in front rather than
+terminating TLS itself. `localhost` and `127.0.0.1` are excluded from it, which
+is what lets the deploy's health check speak plain HTTP over loopback.
+
+### The tunnel hostname mapping is a manual step
+
+**It cannot be automated from the box, and that is not an oversight.** The
+tunnel is run token-based:
+
+```
+ExecStart=/usr/bin/cloudflared --no-autoupdate tunnel run --token <token>
+```
+
+There is no `config.yml` and no `/etc/cloudflared` ingress file - nothing on
+the server says which hostname maps to which port. A token-based tunnel fetches
+its entire routing table from Cloudflare at connect time, so the routing lives
+in the dashboard and the dashboard is the only place it can be edited. Writing
+an ingress file on the box would change nothing.
+
+`pairings.zerotwo.cloud` is already mapped. Bringing **OpenResults** up needs
+one hostname added, once, in **Cloudflare Zero Trust → Networks → Tunnels →**
+the tunnel serving `zerotwo.cloud` **→ Public Hostnames → Add a public
+hostname**:
+
+| Field | Value |
+| --- | --- |
+| Subdomain | `openresults` |
+| Domain | `zerotwo.cloud` |
+| Path | *(empty)* |
+| Type | `HTTP` |
+| URL | `localhost:4004` |
+
+`HTTP`, not `HTTPS`: the tunnel terminates TLS at Cloudflare's edge and speaks
+plain HTTP to the app, which is exactly what the `x_forwarded_proto` rewrite
+expects. Pointing it at `HTTPS` aims the tunnel at a TLS listener that does not
+exist.
+
+The DNS record is created for you when the hostname is added to a zone
+Cloudflare already manages, and nothing on the box needs restarting - the
+tunnel picks the new route up on its own. The `PORT` in the unit and the port
+in this mapping have to agree; if one moves, move both.
+
+The tunnel token is not recorded in this repository, in the deploy script, or
+anywhere else in version control, and must not be. It is worth knowing that it
+is consequently visible in `cloudflared.service`'s `ExecStart` and in `ps`
+output to anyone who can read them - a property of token-based tunnels rather
+than a choice made here.
+
+## Publishing to OpenResults
+
+The other manual step, and the one people get wrong, because the configuration
+is not symmetric.
+
+**OpenResults** reads its bearer token from `OPENRESULTS_INGEST_TOKEN` in its
+systemd unit, which the deploy script writes from its own `.env`.
+
+**OpenPairings does not read that variable at all.** An arbiter types the
+endpoint and the token into **Settings → the publishing card**, and they are
+stored in that machine's own database
+(`PairingsEngine.Publishing.put_endpoint/1` and `put_token/1`) - because a
+laptop in a school gym has no systemd unit to put them in, and the same app
+runs in both places.
+
+So after the first OpenResults deploy, set on this side:
+
+- **endpoint**: `https://openresults.zerotwo.cloud`
+- **token**: the same value as `OPENRESULTS_INGEST_TOKEN` on the server
+
+Both halves are required - `Publishing.configured?/0` returns false unless each
+is a non-empty string, because an endpoint with no token would fail every send
+with a 401, which is a worse experience than saying so up front. Publishing is
+then per-tournament and opt-in, via that tournament's **Publish to
+OpenResults** toggle.
+
+With the token unset on the server, OpenResults still boots and still serves
+every tournament already published - only publishing is refused, with a 401.
+That is the right failure: the read side keeps working while the token is
+sorted out.
+
+## The deploy script's own `.env`
+
+Separate from the app's `.env` and from anything on the server: a gitignored
+file sitting next to `deploy_openpairings.py` on the maintainer's machine.
+Anything absent is prompted for, or falls back to the default shown.
+
+| Key | Applies to | Notes |
+| --- | --- | --- |
+| `DEPLOY_HOST` / `DEPLOY_PORT` / `DEPLOY_USER` / `DEPLOY_PASSWORD` | both | SSH connection |
+| `DEPLOY_APP_PORT` | OpenPairings | default 4001 |
+| `DEPLOY_PHX_HOST` | OpenPairings | `pairings.zerotwo.cloud` |
+| `DEPLOY_SMTP_USERNAME` / `DEPLOY_SMTP_PASSWORD` | OpenPairings | only asked for when this app is in the run |
+| `DEPLOY_FIDE_LIST_URL` | OpenPairings | see above |
+| `DEPLOY_KBSB_API_URL` / `DEPLOY_KBSB_API_KEY` | OpenPairings | see above |
+| `DEPLOY_SSO_BLOCKED_REGISTRATION_DOMAIN` | OpenPairings | see above |
+| `DEPLOY_NOTICE_TOKEN` / `DEPLOY_NOTICE_MINUTES` | OpenPairings | the pre-restart countdown |
+| `DEPLOY_OPENRESULTS_PORT` | OpenResults | default 4004 |
+| `DEPLOY_OPENRESULTS_PHX_HOST` | OpenResults | default `openresults.zerotwo.cloud` |
+| `DEPLOY_OPENRESULTS_INGEST_TOKEN` | OpenResults | the publish bearer token; unset means every publish is refused |
+| `DEPLOY_HEALTH_TIMEOUT` | both | seconds to wait for the app to answer after a restart, default 90 |
+
+Everything here that ends up on the server travels in the systemd unit rather
+than in a file on the box, because the deploy **rewrites that unit every run**:
+anything the script generates is reproducible from your machine, while anything
+hand-added to the unit gets wiped. Long-lived hand-managed values belong in a
+drop-in instead (see `KEYCLOAK_*` above).
 
 ## Secrets
 
@@ -218,8 +513,13 @@ Nothing production-sensitive is committed to this repository:
 - The deploy script itself lives outside the repo and prompts for
   credentials interactively (or reads them from its own local, gitignored
   `.env` next to it) rather than storing them anywhere in version control.
-- The systemd unit on the server (containing `SECRET_KEY_BASE` and SMTP
-  credentials) is `chmod 600`, root-only.
+- Both systemd units on the server are `chmod 600`, root-only -
+  `pairingsengine.service` because it holds `SECRET_KEY_BASE` and the SMTP
+  credentials, `openresults.service` because it holds a `SECRET_KEY_BASE` of
+  its own and the ingest token.
+- The two apps get **separate** `SECRET_KEY_BASE` values, each reused across
+  its own redeploys. Neither can sign a cookie the other would trust, which is
+  what it should mean that they share only a host.
 
 If you're setting up a **new** deployment target from scratch rather than
 redeploying the existing one, you need: a target host reachable over SSH,

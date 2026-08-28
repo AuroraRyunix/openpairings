@@ -18,6 +18,27 @@ Each entry is tagged so a version can be skimmed:
 
 ### Added
 
+- [Feature] **Entries from the results site.** The public form on OpenResults
+  collects sign-ups; a published tournament now has an **Entries** page
+  (linked from its Settings) where you fetch them and decide on each one.
+  Accept adds the player, Discard adds nothing.
+
+  The results site cannot put anyone in your tournament. It holds requests
+  and this machine comes and asks &mdash; which is why there is a Fetch button
+  rather than a list that fills itself in. An accepted entrant lands **not
+  yet arrived**, exactly like the form on this machine: filling in a web
+  page announces an intention to play, and pairing someone who never turned
+  up hands their opponent a forfeit win.
+
+  Rounds an entrant asked to sit out become their absent rounds, clamped to
+  the rounds your tournament actually has &mdash; a request for round 9 of a
+  five-round event is shown to you rather than quietly trimmed.
+
+  A turned-down entry is kept rather than deleted, so fetching again cannot
+  bring it back and you can still reach the person. Their email address is
+  the one personal detail an entry carries; it stays on that page and goes
+  into no snapshot, no TRF and no public page.
+
 - [Feature] **Publishing has a UI.** The Rating lists page is now
   **Connections** &mdash; everything this machine talks to, the two rating
   lists it reads and the results site it writes to. The address and token

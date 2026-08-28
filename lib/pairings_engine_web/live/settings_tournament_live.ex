@@ -742,6 +742,16 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
               {if @tournament.publish_to_openresults, do: "Turn off", else: "Turn on"}
             </button>
           </div>
+
+          <%!-- The way in to the other direction. The results site collects
+                entries from its public form and holds them; it cannot add
+                anyone here, so the entry list only moves when the arbiter
+                goes and looks. --%>
+          <div :if={@tournament.publish_to_openresults} class="actions" style="margin-top: 10px">
+            <.link class="pe-btn" navigate={~p"/t/#{@tournament.id}/registrations"}>
+              {gettext("Review entries from the results site")}
+            </.link>
+          </div>
         </div>
 
         <div :if={@tournament.public_pages_enabled} class="set-field solo" style="margin-top: 10px">

@@ -22,7 +22,8 @@ defmodule PairingsEngineWeb.AuditLive do
   @categories [
     {"all", "All", :all},
     {"players", "Players",
-     ~w(player.created player.updated player.deleted player.ratings_refreshed)},
+     ~w(player.created player.updated player.deleted player.ratings_refreshed
+        registration.accepted registration.discarded)},
     {"pairings", "Pairings", ~w(pairing.round_paired pairing.result_entered pairing.result_changed
         pairing.round_deleted pairing.results_imported)},
     {"settings", "Settings", ~w(tournament.settings_updated logo.uploaded logo.cleared
@@ -118,6 +119,12 @@ defmodule PairingsEngineWeb.AuditLive do
     do: "Updated player #{name(d, "player_name")}: #{changed_fields(d)}."
 
   def describe("player.deleted", d), do: "Deleted player #{name(d, "player_name")}."
+
+  def describe("registration.accepted", d),
+    do: "Accepted an entry from the results site: #{name(d, "player_name")}."
+
+  def describe("registration.discarded", d),
+    do: "Turned down an entry from the results site: #{name(d, "player_name")}."
 
   def describe("player.ratings_refreshed", d),
     do: "Refreshed ratings for #{count(d, "players_updated")} player(s)."

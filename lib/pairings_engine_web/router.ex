@@ -51,6 +51,7 @@ defmodule PairingsEngineWeb.Router do
       live "/fide", FideLive
       live "/changelog", ChangelogLive
       live "/t/:id/players", PlayersLive
+      live "/t/:id/registrations", RegistrationsLive
       live "/t/:id/pairings", PairingsLive
       live "/t/:id/pairings/:round/explain", PairingExplainLive
       live "/t/:id/standings", StandingsLive

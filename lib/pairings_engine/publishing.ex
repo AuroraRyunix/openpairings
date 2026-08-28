@@ -39,6 +39,16 @@ defmodule PairingsEngine.Publishing do
   config, because the arbiter types them in once on their own machine. The
   token is a shared secret: anything holding it can publish, and the server
   compares it in constant time and fails closed.
+
+  ## The other direction
+
+  `PairingsEngine.Registrations` pulls entries back from the same server.
+  That is a different feature with a different failure story - a pull is
+  something an arbiter asks for and waits on, so it reports rather than
+  queues - but it is the same server, the same token and the same address.
+  `request/2`, `describe_transport/1` and `describe_body/1` are public for
+  exactly that: one place that knows how to reach OpenResults, so a second
+  configuration cannot drift into existence beside this one.
   """
 
   import Ecto.Query
@@ -276,6 +286,36 @@ defmodule PairingsEngine.Publishing do
     end
   end
 
+  @doc """
+  A `Req` request for `path` on the configured server, carrying the token.
+
+  The one builder for anything that talks to OpenResults. `path` is joined
+  onto the configured address, which is already normalised by
+  `put_endpoint/1`, so a caller passes `"/api/tournaments/x/registrations"`
+  and never has to think about trailing slashes or schemes.
+
+  `opts` are merged last and may override anything here - a POST passes
+  `json:`, a longer read passes its own `receive_timeout`.
+  """
+  @spec request(String.t(), keyword()) :: Req.Request.t()
+  def request(path, opts \\ []) when is_binary(path) do
+    Req.new(
+      url: endpoint() |> String.trim_trailing("/") |> Kernel.<>(path),
+      auth: {:bearer, token()},
+      # Nothing in the hall waits on a call to OpenResults, and an arbiter
+      # who pressed a button would rather be told it did not work than watch
+      # a spinner while the venue's wifi decides.
+      receive_timeout: 15_000,
+      # Req's own retries are off everywhere: publishing has a queue with a
+      # backoff and a visible error, and a pull is a button the arbiter can
+      # press again. Two retry mechanisms stacked would multiply the delay
+      # they see without telling them why.
+      retry: false
+    )
+    |> Req.merge(opts)
+    |> maybe_put_test_plug()
+  end
+
   defp post(payload) do
     url = endpoint() |> String.trim_trailing("/") |> Kernel.<>("/api/snapshots")
 
@@ -322,23 +362,35 @@ defmodule PairingsEngine.Publishing do
     end
   end
 
-  defp describe_body(%{"error" => error}) when is_binary(error), do: error
-  defp describe_body(body) when is_binary(body), do: String.slice(body, 0, 200)
-  defp describe_body(body), do: body |> inspect() |> String.slice(0, 200)
+  @doc """
+  A server's error body, shortened, as something to show an arbiter.
+  """
+  def describe_body(%{"error" => error}) when is_binary(error), do: error
+  def describe_body(body) when is_binary(body), do: String.slice(body, 0, 200)
+  def describe_body(body), do: body |> inspect() |> String.slice(0, 200)
 
-  defp describe_transport(%Req.TransportError{reason: :timeout}), do: "connection timed out"
-  defp describe_transport(%Req.TransportError{reason: :closed}), do: "connection closed"
+  @doc """
+  A transport failure in words.
 
-  defp describe_transport(%Req.TransportError{reason: :nxdomain}),
+  Public so every OpenResults call phrases a dead network the same way. The
+  rule this enforces is that `%Req.TransportError{reason: :econnrefused}`
+  never reaches a page: an arbiter cannot act on a struct, and "the
+  connection was refused - is the server running?" is the same fact in a
+  form they can.
+  """
+  def describe_transport(%Req.TransportError{reason: :timeout}), do: "connection timed out"
+  def describe_transport(%Req.TransportError{reason: :closed}), do: "connection closed"
+
+  def describe_transport(%Req.TransportError{reason: :nxdomain}),
     do: "the address did not resolve"
 
-  defp describe_transport(%Req.TransportError{reason: :econnrefused}),
+  def describe_transport(%Req.TransportError{reason: :econnrefused}),
     do: "the connection was refused - is the server running?"
 
-  defp describe_transport(%Req.TransportError{reason: reason}),
+  def describe_transport(%Req.TransportError{reason: reason}),
     do: "could not connect (#{inspect(reason)})"
 
-  defp describe_transport(reason), do: inspect(reason)
+  def describe_transport(reason), do: inspect(reason)
 
   defp record_failure(entry, reason) do
     attempts = entry.attempts + 1
