@@ -19,9 +19,13 @@ Auth is the same DEPLOY_NOTICE_TOKEN, because it is the same privilege: both
 put a banner on every screen. The endpoint fails closed when the variable is
 unset on the server.
 
-Environment:
+Settings come from the environment, or from the repo's .env when the
+environment does not already have them:
+
     OPENPAIRINGS_URL     default https://pairings.zerotwo.cloud
-    DEPLOY_NOTICE_TOKEN  required
+    DEPLOY_NOTICE_TOKEN  required, and must match the value in the server's
+                         systemd unit - an unset token there means the
+                         endpoint refuses everything
 """
 
 import argparse
@@ -30,8 +34,45 @@ import os
 import sys
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 DEFAULT_URL = "https://pairings.zerotwo.cloud"
+ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
+
+
+def load_env_file(path=ENV_FILE):
+    """Read KEY=VALUE lines from .env, without overriding the real environment.
+
+    A real environment variable always wins. That ordering matters: it is
+    what lets a one-off `DEPLOY_NOTICE_TOKEN=... notice.py ...` still work
+    on a machine whose .env holds a different value, rather than silently
+    ignoring what was typed.
+
+    Missing file is not an error - plenty of machines will pass the token in
+    directly and never have one.
+    """
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeDecodeError):
+        return
+
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip()
+
+        # Tolerate `export KEY=value`, and strip one layer of matching
+        # quotes - both are ordinary in a hand-edited .env.
+        if key.startswith("export "):
+            key = key[len("export "):].strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+
+        os.environ.setdefault(key, value)
 
 
 def post(base, path, token, payload):
@@ -60,6 +101,8 @@ def post(base, path, token, payload):
 
 
 def main():
+    load_env_file()
+
     parser = argparse.ArgumentParser(
         description="Show or withdraw the site-wide announcement banner.",
         epilog='example: notice.py "Big server maintenance in 12 hours." --hours 12',
@@ -76,15 +119,22 @@ def main():
         "time people have already been told (e.g. 2026-08-29T06:00:00Z)",
     )
     parser.add_argument("--withdraw", action="store_true", help="take the banner down")
-    parser.add_argument("--url", default=os.environ.get("OPENPAIRINGS_URL", DEFAULT_URL))
+    parser.add_argument("--url", default=None)
     args = parser.parse_args()
 
     token = os.environ.get("DEPLOY_NOTICE_TOKEN")
     if not token:
-        sys.exit("DEPLOY_NOTICE_TOKEN is not set")
+        sys.exit(
+            "DEPLOY_NOTICE_TOKEN is not set.\n"
+            f"Add it to {ENV_FILE} (that file is gitignored), or pass it inline.\n"
+            "It has to match the DEPLOY_NOTICE_TOKEN in the server's systemd unit; "
+            "if that one is unset, the endpoint refuses everything."
+        )
+
+    base = args.url or os.environ.get("OPENPAIRINGS_URL", DEFAULT_URL)
 
     if args.withdraw:
-        post(args.url, "/internal/notice/withdraw", token, {})
+        post(base, "/internal/notice/withdraw", token, {})
         print("Banner withdrawn.")
         return
 
@@ -100,7 +150,7 @@ def main():
     else:
         payload["hours"] = args.hours
 
-    result = post(args.url, "/internal/notice", token, payload)
+    result = post(base, "/internal/notice", token, payload)
     print(f"Showing until {result['until']}:")
     print(f"  {result['message']}")
     print()
