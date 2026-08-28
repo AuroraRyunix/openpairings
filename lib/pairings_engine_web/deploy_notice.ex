@@ -16,11 +16,12 @@ defmodule PairingsEngineWeb.DeployNotice do
   """
   import Phoenix.LiveView, only: [connected?: 1, attach_hook: 4, push_event: 3]
 
-  alias PairingsEngine.Deploy
+  alias PairingsEngine.{Deploy, Notice}
 
   def on_mount(:default, _params, _session, socket) do
     if connected?(socket) do
       Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Deploy.topic())
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Notice.topic())
     end
 
     socket =
@@ -39,6 +40,7 @@ defmodule PairingsEngineWeb.DeployNotice do
     if connected?(socket) do
       socket
       |> push(Deploy.restart_at())
+      |> push_notice(Notice.current())
       |> push_event("app-version", %{version: PairingsEngineWeb.Layouts.app_version()})
     else
       socket
@@ -51,7 +53,24 @@ defmodule PairingsEngineWeb.DeployNotice do
     {:halt, push(socket, restart_at)}
   end
 
+  defp handle_notice({:site_notice, notice}, socket) do
+    {:halt, push_notice(socket, notice)}
+  end
+
   defp handle_notice(_message, socket), do: {:cont, socket}
+
+  # Carried alongside the restart countdown rather than in its own hook, so
+  # the two cannot drift: every `live_session` already lists this module, and
+  # `deploy_notice_test.exs` fails if one is added later without it. A second
+  # hook would need the same discipline and would not inherit that test.
+  defp push_notice(socket, nil), do: push_event(socket, "site-notice", %{message: nil})
+
+  defp push_notice(socket, %{message: message, until: until}) do
+    push_event(socket, "site-notice", %{
+      message: message,
+      until: DateTime.to_iso8601(until)
+    })
+  end
 
   defp push(socket, nil), do: push_event(socket, "deploy-notice", %{restart_at: nil})
 

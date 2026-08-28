@@ -110,6 +110,15 @@
       <strong class="deploy-banner-lead">Server update</strong>
       <span class="deploy-banner-text"></span>
     </div>
+    <%!-- A plain announcement, set by hand and taken down by hand - see
+          PairingsEngine.Notice. Separate from the banner above because it
+          means something different: nothing is about to restart, nobody
+          needs to save anything, and it does not count down. Sharing that
+          element would have meant sharing its escalation and its wording. --%>
+    <div id="site-notice" class="site-notice" role="status" aria-live="polite" hidden>
+      <strong class="site-notice-lead">Notice</strong>
+      <span class="site-notice-text"></span>
+    </div>
     <%!-- Shown once, after a restart, when the version the browser last saw
           is not the version now running. The comparison is client-side
           because only the browser remembers what it saw BEFORE the restart -

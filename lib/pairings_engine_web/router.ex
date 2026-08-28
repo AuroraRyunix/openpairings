@@ -126,6 +126,12 @@ defmodule PairingsEngineWeb.Router do
 
     post "/deploy-notice", DeployController, :notice
     post "/deploy-notice/cancel", DeployController, :cancel
+
+    # The plain announcement banner - not a restart, no countdown, and it
+    # outlives a restart on purpose. Same token, because it is the same
+    # privilege: it can put a banner on every screen.
+    post "/notice", DeployController, :announce
+    post "/notice/withdraw", DeployController, :withdraw
   end
 
   # Changing language. A controller rather than a LiveView event: the choice

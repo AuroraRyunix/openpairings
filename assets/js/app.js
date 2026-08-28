@@ -548,6 +548,51 @@ const deployBanner = {
 
 window.addEventListener("phx:deploy-notice", (e) => deployBanner.show(e.detail.restart_at))
 
+// The plain announcement bar. Everything the deploy banner does that makes it
+// a countdown - the per-second tick, the three tiers, the escalation to red -
+// is absent here on purpose. This says one sentence until somebody takes it
+// down, which is what an announcement is.
+//
+// It still holds an `until`, and still hides itself when that passes, so a
+// browser left open overnight does not keep showing yesterday's notice about
+// this morning's maintenance. That is the only clock in it, and it is checked
+// once a minute rather than once a second - nothing here changes faster.
+const siteNotice = {
+  timer: null,
+
+  show(message, until) {
+    const el = document.getElementById("site-notice")
+    if (!el) { return }
+
+    clearInterval(this.timer)
+    this.timer = null
+
+    if (!message) {
+      el.hidden = true
+      return
+    }
+
+    const text = el.querySelector(".site-notice-text")
+    if (text) { text.textContent = message }
+    el.hidden = false
+
+    if (until) {
+      const deadline = new Date(until).getTime()
+      const check = () => {
+        if (Date.now() >= deadline) {
+          el.hidden = true
+          clearInterval(this.timer)
+          this.timer = null
+        }
+      }
+      check()
+      this.timer = setInterval(check, 60000)
+    }
+  },
+}
+
+window.addEventListener("phx:site-notice", (e) => siteNotice.show(e.detail.message, e.detail.until))
+
 // "Updated to v0.15.2", shown once after a restart that actually changed the
 // version. The comparison has to be client-side: only the browser remembers
 // what was running BEFORE the restart, because the server that knew has been

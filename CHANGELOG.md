@@ -18,6 +18,29 @@ Each entry is tagged so a version can be skimmed:
 
 ### Added
 
+- [Feature] **A plain announcement banner, for telling people something
+  without restarting anything.** `scripts/notice.py "Big server maintenance
+  in 12 hours." --hours 12` puts one sentence on every open page until it is
+  withdrawn or its time passes.
+
+  Deliberately not the deploy warning, which could not have done this. That
+  one is a restart countdown: capped at two hours, escalating through three
+  tiers to red, saying things about unsaved work, and held in memory so it
+  dies with the release it was warning about. All of which is right for a
+  restart minutes away and wrong for "we are pushing the new system
+  tomorrow".
+
+  So the differences are the feature. It says whatever it is given, for up to
+  two weeks, it never escalates, and it is **persisted** &mdash; a notice
+  about maintenance twelve hours out has to outlive every restart in those
+  twelve hours, and one that vanished at the first hiccup would look exactly
+  like one that was never set.
+
+  It restarts nothing and schedules nothing; the banner is the entire effect.
+  Same `DEPLOY_NOTICE_TOKEN`, because it is the same privilege &mdash; both
+  can put a banner on every screen &mdash; and the endpoint fails closed when
+  that variable is unset.
+
 - [Feature] **Tournaments can be published to OpenResults.** The public half
   of this app is a separate service, and until now nothing sent it anything:
   the snapshot builder existed and had no caller. It does now.

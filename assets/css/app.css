@@ -3808,6 +3808,28 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .deploy-banner-lead { text-transform: uppercase; letter-spacing: 0.05em; font-size: 11px; }
 .deploy-banner-text { color: var(--text); }
 
+/* The plain announcement bar. Same shape as the deploy banner so two of them
+   stack tidily, and deliberately the quietest thing on the page: it is
+   information, not an alarm, and it may be up for a day. No tiers, no
+   animation, no colour escalation - if this ever needs to shout, that is a
+   sign it should have been a deploy notice instead. */
+.site-notice {
+  position: sticky;
+  top: 0;
+  z-index: 199;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 14px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-alt);
+  color: var(--text-soft);
+}
+.site-notice-lead { text-transform: uppercase; letter-spacing: 0.05em; font-size: 11px; }
+.site-notice-text { color: var(--text); }
+
 /* Text colour and weight only, on the calm tier's own background. The
    two-minute step was briefly given a tinted amber bar to make the state
    change harder to miss; it read as louder than it needed to be, so it is
