@@ -91,6 +91,43 @@ illegal combinations cannot be entered.
 
 ## Known gaps / deferred features
 
+- **The deploy script reports success when the service is dead.** Found the
+  hard way on 2026-08-28: it printed "Deployment Completed Successfully!"
+  with `pairingsengine.service: Failed with result 'exit-code'` in the same
+  output, and the site was down for six minutes past the announced window.
+
+  It restarts the service and never asks whether the thing it restarted came
+  back. A poll on `http://localhost:$APP_PORT/` until it answers, with a
+  timeout and a non-zero exit, would have turned a silent break into a
+  visible one. Worth doing when the script is taught to deploy two apps -
+  it will have twice as much to get wrong by then.
+
+  What actually broke, for the record, because the shape will recur every
+  time the engine pin moves: `mix.lock` pointed at Ainalrami v0.14.0 while
+  the dependency's checkout on the box had a stray local edit to
+  `docs/engineering-log.md`. Git refused to switch commits over a dirty
+  file, so `deps.get` aborted - and so did `ecto.migrate`, which is why the
+  migration silently did not run either. Fixed with
+  `mix deps.clean ainalrami` (WITHOUT `--build`, which only clears build
+  artifacts and leaves the dirty source in place), then re-fetch, migrate,
+  restart. A `deps.get` that fails should stop the deploy.
+
+- **`Publishing.enqueue_id/1` can take the whole app down.** It hangs off
+  `broadcast_tournament_change/2`, which every write in the application goes
+  through - the point being that no call site can forget to publish. The
+  same property means one bad query there breaks every write.
+
+  That is not hypothetical: between the restart and the migration on
+  2026-08-28 the app ran new code against the old schema and every write
+  raised `no such column: t0.publish_to_openresults`. The window was small
+  because the migration was one command away, but the window exists on every
+  deploy where code lands before schema.
+
+  A publishing queue is a courtesy. It must never be able to stop an arbiter
+  entering a result. Wrap the enqueue so a database error there is logged
+  and swallowed, and the write proceeds - "publishing is not working yet" is
+  a state the app should survive, not die of.
+
 - **Byes sort above special boards, and should sort below them.** Reported by
   the maintainer 2026-08-28. `PairingDisplay.with_display_boards/1` currently
   orders normal, then byes, then vacant seats, then special boards. The
