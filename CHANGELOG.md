@@ -18,6 +18,31 @@ Each entry is tagged so a version can be skimmed:
 
 ### Security
 
+- [Security] **Only an SSO account can change where this machine publishes.**
+  The OpenResults address and token were editable by any signed-in user,
+  including a self-registered one. Repointing them at another server would
+  quietly send every published tournament's player names, ratings and clubs
+  there.
+
+  It is now behind the same gate as the FIDE rating-list download, and on the
+  event handlers rather than only the markup &mdash; a hidden button still
+  accepts a crafted event.
+
+  Deliberately not extended to a tournament's own publish switch. An operator
+  decides *where* this machine publishes; the arbiter running an event decides
+  *whether* theirs goes. Gating the second would stop an arbiter publishing
+  their own tournament on a machine somebody else set up, which is the
+  ordinary case rather than the dangerous one.
+
+### Fixed
+
+- [Fix] **The navigation still said "Rating lists".** The page became
+  Connections when the OpenResults settings landed on it; the nav label was
+  missed, so the button and the heading it led to disagreed.
+
+
+### Security
+
 - [Security] **A published tournament belongs to the machine that published
   it, and can now be taken down.** Until now there was one ingest token for a
   whole results site, and it answered only "may this machine talk to this

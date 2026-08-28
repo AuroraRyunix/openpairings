@@ -62,37 +62,35 @@ defmodule PairingsEngineWeb.FideLive do
 
   @impl true
   def handle_event("save_publishing", params, socket) do
-    Publishing.put_endpoint(blank_to_nil(params["endpoint"]))
-
-    # An empty token box means "leave it alone", not "clear it". The value is
-    # never rendered back (it is a secret), so a save from a page that showed
-    # a blank box would otherwise wipe a working token every time somebody
-    # edited the address beside it.
-    case blank_to_nil(params["token"]) do
-      nil -> :ok
-      token -> Publishing.put_token(token)
+    if socket.assigns.sso? do
+      save_publishing(params, socket)
+    else
+      {:noreply, put_flash(socket, :error, publishing_restricted())}
     end
-
-    {:noreply,
-     socket
-     |> assign_publishing()
-     |> put_flash(:info, gettext("Publishing settings saved."))}
   end
 
   def handle_event("clear_publishing_token", _params, socket) do
-    Publishing.put_token(nil)
+    if socket.assigns.sso? do
+      Publishing.put_token(nil)
 
-    {:noreply,
-     socket
-     |> assign_publishing()
-     |> put_flash(
-       :info,
-       gettext("Token removed. Nothing will be published until a new one is set.")
-     )}
+      {:noreply,
+       socket
+       |> assign_publishing()
+       |> put_flash(
+         :info,
+         gettext("Token removed. Nothing will be published until a new one is set.")
+       )}
+    else
+      {:noreply, put_flash(socket, :error, publishing_restricted())}
+    end
   end
 
   def handle_event("test_publishing", _params, socket) do
-    {:noreply, assign(socket, publish_test: Publishing.check())}
+    if socket.assigns.sso? do
+      {:noreply, assign(socket, publish_test: Publishing.check())}
+    else
+      {:noreply, put_flash(socket, :error, publishing_restricted())}
+    end
   end
 
   def handle_event("sync", _params, socket) do
@@ -147,6 +145,38 @@ defmodule PairingsEngineWeb.FideLive do
 
   defp format_count(n) do
     n |> Integer.to_string() |> String.replace(~r/\B(?=(\d{3})+(?!\d))/, ",")
+  end
+
+  # Where a copy of every published tournament goes is a machine-wide setting,
+  # and repointing it at another server would quietly ship player names,
+  # ratings and clubs there. That is an operator's decision, not an account
+  # holder's, so it sits behind the same SSO gate as the FIDE download rather
+  # than being merely hidden - a hidden button still accepts a crafted event.
+  #
+  # Deliberately NOT extended to a tournament's own publish switch. The split
+  # is: an operator decides WHERE this machine publishes, and the arbiter
+  # running an event decides WHETHER theirs goes. Gating the second would stop
+  # an arbiter publishing their own tournament on a machine somebody else
+  # configured, which is the ordinary case rather than the dangerous one.
+  defp publishing_restricted,
+    do: gettext("Where this machine publishes is limited to SSO-signed-in accounts.")
+
+  defp save_publishing(params, socket) do
+    Publishing.put_endpoint(blank_to_nil(params["endpoint"]))
+
+    # An empty token box means "leave it alone", not "clear it". The value is
+    # never rendered back (it is a secret), so a save from a page that showed
+    # a blank box would otherwise wipe a working token every time somebody
+    # edited the address beside it.
+    case blank_to_nil(params["token"]) do
+      nil -> :ok
+      token -> Publishing.put_token(token)
+    end
+
+    {:noreply,
+     socket
+     |> assign_publishing()
+     |> put_flash(:info, gettext("Publishing settings saved."))}
   end
 
   defp blank_to_nil(value) when is_binary(value) do

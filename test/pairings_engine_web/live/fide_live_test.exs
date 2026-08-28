@@ -32,6 +32,49 @@ defmodule PairingsEngineWeb.FideLiveTest do
   describe "the OpenResults settings" do
     alias PairingsEngine.Publishing
 
+    defp sso_conn(conn) do
+      {:ok, user} =
+        Accounts.find_or_create_from_keycloak(%{
+          sub: "sso-sub-#{System.unique_integer()}",
+          email: "sso-user-#{System.unique_integer()}@example.com"
+        })
+
+      log_in_user(conn, user)
+    end
+
+    test "an ordinary account cannot change where this machine publishes", %{conn: conn} do
+      Publishing.put_endpoint("https://openresults.example")
+      Publishing.put_token("operators-token")
+
+      {:ok, lv, _html} = live(conn, ~p"/fide")
+
+      # Repointing this at another server would quietly ship player names,
+      # ratings and clubs there, so it is an operator's decision rather than
+      # an account holder's - and the guard is on the HANDLER, not just the
+      # markup, because a hidden button still accepts a crafted event.
+      lv
+      |> form("form[phx-submit=save_publishing]", %{
+        "endpoint" => "https://somewhere-else.example",
+        "token" => "attackers-token"
+      })
+      |> render_submit()
+
+      assert Publishing.endpoint() == "https://openresults.example"
+      assert Publishing.token() == "operators-token"
+    end
+
+    test "an ordinary account cannot remove the token either", %{conn: conn} do
+      Publishing.put_endpoint("https://openresults.example")
+      Publishing.put_token("operators-token")
+
+      {:ok, lv, _html} = live(conn, ~p"/fide")
+
+      html = lv |> element("button[phx-click=clear_publishing_token]") |> render_click()
+
+      assert Publishing.token() == "operators-token"
+      assert html =~ "limited to SSO-signed-in accounts"
+    end
+
     test "says nothing is published until both halves are set", %{conn: conn} do
       {:ok, _lv, html} = live(conn, ~p"/fide")
 
@@ -39,7 +82,7 @@ defmodule PairingsEngineWeb.FideLiveTest do
     end
 
     test "saving an address normalises it and keeps it", %{conn: conn} do
-      {:ok, lv, _html} = live(conn, ~p"/fide")
+      {:ok, lv, _html} = live(sso_conn(conn), ~p"/fide")
 
       lv
       |> form("form[phx-submit=save_publishing]", %{
@@ -56,7 +99,7 @@ defmodule PairingsEngineWeb.FideLiveTest do
       Publishing.put_endpoint("https://openresults.example")
       Publishing.put_token("keep-me")
 
-      {:ok, lv, _html} = live(conn, ~p"/fide")
+      {:ok, lv, _html} = live(sso_conn(conn), ~p"/fide")
 
       # The token is a secret and is never rendered back, so the box is
       # always empty on load. Treating that as "clear it" would delete a
@@ -69,13 +112,14 @@ defmodule PairingsEngineWeb.FideLiveTest do
       |> render_submit()
 
       assert Publishing.token() == "keep-me"
+      _ = lv
     end
 
     test "the token can be removed deliberately", %{conn: conn} do
       Publishing.put_endpoint("https://openresults.example")
       Publishing.put_token("remove-me")
 
-      {:ok, lv, _html} = live(conn, ~p"/fide")
+      {:ok, lv, _html} = live(sso_conn(conn), ~p"/fide")
 
       lv |> element("button[phx-click=clear_publishing_token]") |> render_click()
 

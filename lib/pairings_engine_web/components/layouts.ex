@@ -128,7 +128,7 @@ defmodule PairingsEngineWeb.Layouts do
           navigate={~p"/fide"}
           class={tab_class(@active == "fide")}
         >
-          {gettext("Rating lists")}
+          {gettext("Connections")}
         </.link>
         <.link
           :if={!@tournament}
