@@ -18,6 +18,31 @@ Each entry is tagged so a version can be skimmed:
 
 ### Changed
 
+- [Change] **Colour allocation follows a FIDE ruling that went against the
+  engine.** The pairing engine is pinned forward to Ainalrami v0.14.0, which
+  changes how Article 5.2.5 decides who gets White.
+
+  5.2.5 is the last resort: when neither player of a pair has any colour
+  preference, the higher ranked of them takes the initial colour if their
+  number is odd. The question was which number. Ainalrami used the
+  tournament pairing number as the handbook defines it; both reference
+  engines used a numbering that skips players who have never been paired.
+  On 2026-08-27 the FIDE Systems of Pairings and Programs Commission ruled
+  that the references were right.
+
+  **What an arbiter sees.** On a board where 5.2.5 decides and somebody in
+  the tournament has been registered without ever being paired - a
+  no-show, a late entry who has not arrived, anyone who has only taken
+  byes - White and Black may now be allocated the other way round from
+  before. Nothing else moves: who plays whom is decided before colours are
+  allocated, so pairings, byes, floats and standings are untouched. A
+  tournament already in progress is unaffected for rounds already paired.
+
+  This brings us into agreement with bbpPairings and Gacrux on a class of
+  boards where we previously and deliberately differed. See the engine's
+  `docs/dispute-initial-colour.md` for the full record, including two
+  mistakes of our own that the ruling exposed.
+
 - [Change] **One TRF16 implementation, not two.** The app carried its own
   FIDE TRF16 reader/writer alongside the pairing engine's, which was
   photocopied from it and then kept growing - so a pairing input was written
