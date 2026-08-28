@@ -1991,6 +1991,35 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
+  The highest round `n` such that rounds 1..n are ALL published.
+
+  The bound every public surface computes standings through, and the reason
+  it is the contiguous prefix rather than the highest published number: with
+  round 3 published and round 2 held back, standings through 3 would carry
+  round 2's results anyway, and withholding a round would withhold only its
+  pairings while its results leaked out of the table beside them.
+
+  One definition, used by both public surfaces. `PairingsEngine.Snapshot`
+  had this privately first, which meant OpenResults enforced the gate and
+  the page served from this app did not - the two publics disagreeing about
+  what "not published yet" means.
+  """
+  @spec published_through_round(Tournament.t()) :: non_neg_integer()
+  def published_through_round(%Tournament{} = tournament) do
+    published =
+      tournament.id
+      |> list_rounds()
+      |> Enum.filter(&round_published?(tournament, &1))
+      |> MapSet.new(& &1.number)
+
+    contiguous_from(published, 0)
+  end
+
+  defp contiguous_from(published, n) do
+    if MapSet.member?(published, n + 1), do: contiguous_from(published, n + 1), else: n
+  end
+
+  @doc """
   Makes `round` visible right now, regardless of `publish_mode` - the
   manual override available in every mode, not just "manual" (a
   "scheduled" or "timed" round can always be published early by hand;

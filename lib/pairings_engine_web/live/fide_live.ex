@@ -6,6 +6,7 @@ defmodule PairingsEngineWeb.FideLive do
   alias PairingsEngine.Fide.Sync, as: FideSync
   alias PairingsEngine.Kbsb.Sync, as: KbsbSync
   alias PairingsEngine.Kbsb.Api, as: KbsbApi
+  alias PairingsEngine.Publishing
 
   @impl true
   def mount(_params, _session, socket) do
@@ -17,7 +18,7 @@ defmodule PairingsEngineWeb.FideLive do
     {:ok,
      socket
      |> assign(
-       page_title: "Rating lists",
+       page_title: "Connections",
        status: FideSync.status(),
        kbsb_status: KbsbSync.status(),
        kbsb_query: "",
@@ -32,7 +33,22 @@ defmodule PairingsEngineWeb.FideLive do
        # accounts we actually vouch for (SSO), same reasoning as
        # `PairingsEngine.Accounts.User.sso?/1`'s own moduledoc.
        sso?: User.sso?(socket.assigns.current_scope.user)
-     )}
+     )
+     |> assign_publishing()}
+  end
+
+  # The OpenResults settings are machine-wide, so they are read from storage
+  # rather than held in a form struct: two arbiters on two devices are not
+  # editing the same field, and a reload should show what the machine
+  # actually has rather than what this socket last typed.
+  defp assign_publishing(socket) do
+    assign(socket,
+      publish_endpoint: Publishing.endpoint() || "",
+      publish_token_set?: is_binary(Publishing.token()) and Publishing.token() != "",
+      publish_configured?: Publishing.configured?(),
+      publish_pending: Publishing.pending_count(),
+      publish_test: nil
+    )
   end
 
   @impl true
@@ -45,6 +61,40 @@ defmodule PairingsEngineWeb.FideLive do
   end
 
   @impl true
+  def handle_event("save_publishing", params, socket) do
+    Publishing.put_endpoint(blank_to_nil(params["endpoint"]))
+
+    # An empty token box means "leave it alone", not "clear it". The value is
+    # never rendered back (it is a secret), so a save from a page that showed
+    # a blank box would otherwise wipe a working token every time somebody
+    # edited the address beside it.
+    case blank_to_nil(params["token"]) do
+      nil -> :ok
+      token -> Publishing.put_token(token)
+    end
+
+    {:noreply,
+     socket
+     |> assign_publishing()
+     |> put_flash(:info, gettext("Publishing settings saved."))}
+  end
+
+  def handle_event("clear_publishing_token", _params, socket) do
+    Publishing.put_token(nil)
+
+    {:noreply,
+     socket
+     |> assign_publishing()
+     |> put_flash(
+       :info,
+       gettext("Token removed. Nothing will be published until a new one is set.")
+     )}
+  end
+
+  def handle_event("test_publishing", _params, socket) do
+    {:noreply, assign(socket, publish_test: Publishing.check())}
+  end
+
   def handle_event("sync", _params, socket) do
     if socket.assigns.sso? do
       FideSync.start_sync()
@@ -99,6 +149,15 @@ defmodule PairingsEngineWeb.FideLive do
     n |> Integer.to_string() |> String.replace(~r/\B(?=(\d{3})+(?!\d))/, ",")
   end
 
+  defp blank_to_nil(value) when is_binary(value) do
+    case String.trim(value) do
+      "" -> nil
+      trimmed -> trimmed
+    end
+  end
+
+  defp blank_to_nil(_value), do: nil
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -108,10 +167,10 @@ defmodule PairingsEngineWeb.FideLive do
       current_scope={@current_scope}
       active="fide"
     >
-      <h1>{gettext("Rating lists")}</h1>
+      <h1>{gettext("Connections")}</h1>
       <p class="subtitle">
         {gettext(
-          "Local copies of the FIDE and Belgian national (KBSB/FRBE) rating lists, used to look up players when registering them."
+          "Everything this machine talks to: the FIDE and Belgian national (KBSB/FRBE) rating lists it looks players up in, and the results site it publishes to."
         )}
       </p>
 
@@ -259,6 +318,96 @@ defmodule PairingsEngineWeb.FideLive do
             </div>
           </div>
         </form>
+      </div>
+
+      <div class="card">
+        <h2>{gettext("Public results site (OpenResults)")}</h2>
+        <p>
+          {gettext(
+            "Where published tournaments are sent so spectators can follow them. This machine stays the source of truth: it sends a copy, and nothing is ever sent back."
+          )}
+        </p>
+        <p>
+          {gettext(
+            "Set this once for the machine. Each tournament then has its own switch in its Settings, off until you turn it on."
+          )}
+        </p>
+
+        <form phx-submit="save_publishing">
+          <label class="field">
+            <span>{gettext("Address")}</span>
+            <input
+              type="text"
+              name="endpoint"
+              value={@publish_endpoint}
+              placeholder="https://openresults.zerotwo.cloud"
+              class="pe-input"
+              autocomplete="off"
+            />
+          </label>
+
+          <label class="field">
+            <span>{gettext("Token")}</span>
+            <input
+              type="password"
+              name="token"
+              value=""
+              placeholder={
+                if @publish_token_set?,
+                  do: gettext("a token is set - type a new one to replace it"),
+                  else: gettext("paste the server's token")
+              }
+              class="pe-input"
+              autocomplete="off"
+            />
+            <span class="hint" style="display: block">
+              {gettext("Never shown once saved. Leave this empty to keep the one already stored.")}
+            </span>
+          </label>
+
+          <div class="row" style="gap: 8px; margin-top: 12px">
+            <button type="submit" class="pe-btn pe-btn-primary">{gettext("Save")}</button>
+            <button
+              :if={@publish_configured?}
+              type="button"
+              class="pe-btn"
+              phx-click="test_publishing"
+            >
+              {gettext("Test connection")}
+            </button>
+            <button
+              :if={@publish_token_set?}
+              type="button"
+              class="pe-btn"
+              phx-click="clear_publishing_token"
+            >
+              {gettext("Remove token")}
+            </button>
+          </div>
+        </form>
+
+        <p :if={@publish_test} class="hint" style="margin-top: 12px">
+          <%= case @publish_test do %>
+            <% {:ok, message} -> %>
+              <strong style="color: var(--color-success)">{message}</strong>
+            <% {:error, message} -> %>
+              <strong style="color: var(--danger)">{message}</strong>
+          <% end %>
+        </p>
+
+        <p :if={not @publish_configured?} class="hint" style="margin-top: 12px">
+          {gettext("Nothing is published until both an address and a token are set.")}
+        </p>
+
+        <p :if={@publish_pending > 0} class="hint" style="margin-top: 12px">
+          <.rich_text text={
+            gettext(
+              "%[count] tournament(s) waiting to be sent. They go out on their own; a tournament stays in the queue until the server confirms it."
+            )
+          }>
+            <:part name="count"><strong>{@publish_pending}</strong></:part>
+          </.rich_text>
+        </p>
       </div>
     </Layouts.app>
     """

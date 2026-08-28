@@ -132,6 +132,29 @@ defmodule PairingsEngine.Publishing do
     end
 
     :ok
+  rescue
+    # Publishing is a courtesy. It must never be able to stop an arbiter
+    # entering a result, and because this hangs off the funnel EVERY write
+    # goes through, an exception here would do exactly that.
+    #
+    # Not hypothetical. On 2026-08-28 a deploy landed this code before its
+    # migration and every write in the application raised
+    # `no such column: t0.publish_to_openresults`. The site was up and
+    # nothing could be saved. That window - code ahead of schema - exists on
+    # any deploy that does the two in that order, so the guard belongs here
+    # rather than in a deploy checklist.
+    #
+    # Rescuing everything rather than a specific error is deliberate: the
+    # set of ways a database can be unavailable is not one this function
+    # should claim to know, and the correct response to all of them is the
+    # same - log it, let the write through, publish later.
+    error ->
+      Logger.warning(
+        "could not queue a publish for tournament #{tournament_id}: " <>
+          Exception.message(error)
+      )
+
+      :ok
   end
 
   @doc "Queue rows that are due to be attempted now, oldest first."
@@ -188,6 +211,68 @@ defmodule PairingsEngine.Publishing do
 
       true ->
         tournament |> Snapshot.build() |> post()
+    end
+  end
+
+  @doc """
+  Checks the address and token without publishing anything.
+
+  Deliberately a GET against a token-gated route with a slug that cannot
+  exist, rather than a POST of a real snapshot. A "test" button that
+  published would be a trap: the arbiter presses it to find out whether the
+  settings work and a tournament goes live as a side effect.
+
+  Reading the outcome from the status code is the point of the probe:
+
+    * 401 - the address is right and the token is wrong
+    * 404 - the token was accepted; the route exists and the slug does not
+    * anything else, or a transport error - the address is wrong
+
+  Returns `{:ok, message}` or `{:error, message}`, both already in words an
+  arbiter can act on.
+  """
+  def check do
+    cond do
+      is_nil(endpoint()) or endpoint() == "" -> {:error, "No address is set."}
+      is_nil(token()) or token() == "" -> {:error, "No token is set."}
+      true -> do_check()
+    end
+  end
+
+  defp do_check do
+    url =
+      endpoint()
+      |> String.trim_trailing("/")
+      |> Kernel.<>(
+        "/api/tournaments/connection-test-#{System.unique_integer([:positive])}/history"
+      )
+
+    request =
+      Req.new(
+        url: url,
+        # Required by that route. Without it the server answers 400 before it
+        # ever looks the slug up, and the first version of this check read
+        # that as "not an OpenResults server" - telling an arbiter their
+        # correct settings were wrong. Found by running it against a real
+        # one rather than against a stub.
+        params: [at: DateTime.to_iso8601(DateTime.utc_now())],
+        auth: {:bearer, token()},
+        receive_timeout: 15_000,
+        retry: false
+      )
+
+    case Req.get(maybe_put_test_plug(request)) do
+      {:ok, %Req.Response{status: 404}} ->
+        {:ok, "Connected. The address and token are both accepted."}
+
+      {:ok, %Req.Response{status: 401}} ->
+        {:error, "Reached the server, but it rejected the token."}
+
+      {:ok, %Req.Response{status: status}} ->
+        {:error, "Reached #{url} and it answered #{status}, which is not an OpenResults server."}
+
+      {:error, reason} ->
+        {:error, describe_transport(reason)}
     end
   end
 

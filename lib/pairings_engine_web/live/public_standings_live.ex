@@ -59,11 +59,22 @@ defmodule PairingsEngineWeb.PublicStandingsLive do
     tournament = socket.assigns.tournament
     keizer? = tournament.pairing_system == "keizer"
 
+    # Bounded by the publish gate, same as the OpenResults snapshot. Without
+    # it this page showed results for a round the public PAIRINGS page one
+    # link away deliberately hides - so an arbiter withholding a round
+    # withheld who played whom and published the results anyway.
+    #
+    # `published_through_round/1` is the contiguous prefix, not the highest
+    # published round: see its own doc for why the difference matters.
+    through = Tournaments.published_through_round(tournament)
+
     entries =
       if keizer? do
-        Keizer.standings(tournament)
+        Keizer.standings(tournament, through_round: through)
       else
-        tournament |> Standings.standings() |> Standings.apply_manual_ranking(tournament)
+        tournament
+        |> Standings.standings(through_round: through)
+        |> Standings.apply_manual_ranking(tournament)
       end
 
     assign(socket,

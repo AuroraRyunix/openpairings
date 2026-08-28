@@ -2172,6 +2172,82 @@ defmodule PairingsEngine.TournamentsTest do
     end
   end
 
+  describe "published_through_round/1" do
+    defp gated_tournament(mode) do
+      scope = user_scope()
+
+      {:ok, t} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "Gated",
+          "type" => "swiss",
+          "rounds_count" => 5,
+          "publish_mode" => mode
+        })
+
+      t
+    end
+
+    defp round_with(t, number, published_at) do
+      Repo.insert!(%Round{
+        tournament_id: t.id,
+        number: number,
+        status: "finished",
+        published_at: published_at
+      })
+    end
+
+    test "immediate mode publishes every round that exists" do
+      t = gated_tournament("immediate")
+      for n <- 1..3, do: round_with(t, n, nil)
+
+      assert Tournaments.published_through_round(t) == 3
+    end
+
+    test "manual mode counts only the rounds actually published" do
+      t = gated_tournament("manual")
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      round_with(t, 1, now)
+      round_with(t, 2, now)
+      round_with(t, 3, nil)
+
+      assert Tournaments.published_through_round(t) == 2
+    end
+
+    test "a hole stops the count, even when later rounds are published" do
+      t = gated_tournament("manual")
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      round_with(t, 1, now)
+      # round 2 held back
+      round_with(t, 2, nil)
+      round_with(t, 3, now)
+
+      # The whole reason this is the contiguous prefix rather than the
+      # highest published number: standings through 3 would carry round 2's
+      # results, so withholding round 2 would hide its pairings and publish
+      # its results in the table beside them.
+      assert Tournaments.published_through_round(t) == 1
+    end
+
+    test "nothing published is zero, not one" do
+      t = gated_tournament("manual")
+      round_with(t, 1, nil)
+
+      assert Tournaments.published_through_round(t) == 0
+    end
+
+    test "a round scheduled for the future is not published yet" do
+      t = gated_tournament("timed")
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      round_with(t, 1, now)
+      round_with(t, 2, DateTime.add(now, 3600, :second))
+
+      assert Tournaments.published_through_round(t) == 1
+    end
+  end
+
   describe "publish_mode / publish_delay_minutes - Tournament.changeset/2 validation" do
     test "defaults to immediate mode with a zero delay" do
       tournament = Repo.insert!(%Tournament{name: "Defaults", type: "swiss", rounds_count: 3})

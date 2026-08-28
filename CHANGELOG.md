@@ -18,6 +18,46 @@ Each entry is tagged so a version can be skimmed:
 
 ### Added
 
+- [Feature] **Publishing has a UI.** The Rating lists page is now
+  **Connections** &mdash; everything this machine talks to, the two rating
+  lists it reads and the results site it writes to. The address and token
+  are set once for the machine; each tournament then has its own switch in
+  its Settings, off until you turn it on.
+
+  The token is never rendered back once saved, and an empty token box means
+  "keep the one you have" rather than "clear it" &mdash; otherwise editing the
+  address beside it would wipe a working token every time.
+
+  **Test connection** is a GET against a route that cannot match anything,
+  never a publish. A test button that published would be a trap: you press
+  it to find out whether the settings work and a tournament goes live as a
+  side effect.
+
+### Changed
+
+- [Change] **The public standings page now respects the round publish gate.**
+  It showed results for rounds the public *pairings* page one link away
+  deliberately hides, so withholding a round hid who played whom and
+  published the results anyway.
+
+  Both public surfaces now compute standings through the same bound: the
+  longest run of rounds 1..n that are *all* published. The contiguous prefix
+  rather than the highest published number, because with round 3 published
+  and round 2 held back, standings through 3 carry round 2's results anyway.
+
+  That bound lived privately inside the OpenResults snapshot first, which
+  meant the published site enforced the gate and the page served from this
+  app did not &mdash; two publics disagreeing about what "not published yet"
+  means. One definition now, in `Tournaments.published_through_round/1`.
+
+### Fixed
+
+- [Fix] **Queuing a publish can no longer break a write.** It hangs off the
+  funnel every write in the app goes through, which is what stops any call
+  site forgetting to publish &mdash; and equally meant one bad query there
+  broke all of them. A publishing queue is a courtesy and must never stop an
+  arbiter entering a result.
+
 - [Feature] **A plain announcement banner, for telling people something
   without restarting anything.** `scripts/notice.py "Big server maintenance
   in 12 hours." --hours 12` puts one sentence on every open page until it is

@@ -9,20 +9,89 @@ defmodule PairingsEngineWeb.FideLiveTest do
 
   setup :register_and_log_in_user
 
-  test "renders both the FIDE and KBSB sections under the 'Rating lists' heading", %{conn: conn} do
+  test "renders every outbound connection under the 'Connections' heading", %{conn: conn} do
     {:ok, _lv, html} = live(conn, ~p"/fide")
 
-    assert html =~ "Rating lists</h1>"
+    # Renamed from "Rating lists" when the OpenResults settings landed here.
+    # The page stopped being only about rating lists the moment it also held
+    # where this machine publishes to.
+    assert html =~ "Connections</h1>"
     assert html =~ "FIDE database"
     assert html =~ "Belgian national rating list (KBSB/FRBE)"
     assert html =~ "players in the local database."
+    assert html =~ "Public results site (OpenResults)"
   end
 
-  test "the nav label reads 'Rating lists', not 'FIDE database'", %{conn: conn} do
+  test "the nav still points here", %{conn: conn} do
     {:ok, _lv, html} = live(conn, ~p"/fide")
 
     assert html =~ ~s(href="/fide")
-    assert html =~ "Rating lists"
+    assert html =~ "Connections"
+  end
+
+  describe "the OpenResults settings" do
+    alias PairingsEngine.Publishing
+
+    test "says nothing is published until both halves are set", %{conn: conn} do
+      {:ok, _lv, html} = live(conn, ~p"/fide")
+
+      assert html =~ "Nothing is published until both an address and a token are set."
+    end
+
+    test "saving an address normalises it and keeps it", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/fide")
+
+      lv
+      |> form("form[phx-submit=save_publishing]", %{
+        "endpoint" => "openresults.example/",
+        "token" => "s3cret"
+      })
+      |> render_submit()
+
+      assert Publishing.endpoint() == "https://openresults.example"
+      assert Publishing.token() == "s3cret"
+    end
+
+    test "an empty token box keeps the stored token instead of wiping it", %{conn: conn} do
+      Publishing.put_endpoint("https://openresults.example")
+      Publishing.put_token("keep-me")
+
+      {:ok, lv, _html} = live(conn, ~p"/fide")
+
+      # The token is a secret and is never rendered back, so the box is
+      # always empty on load. Treating that as "clear it" would delete a
+      # working token every time somebody edited the address beside it.
+      lv
+      |> form("form[phx-submit=save_publishing]", %{
+        "endpoint" => "https://openresults.example",
+        "token" => ""
+      })
+      |> render_submit()
+
+      assert Publishing.token() == "keep-me"
+    end
+
+    test "the token can be removed deliberately", %{conn: conn} do
+      Publishing.put_endpoint("https://openresults.example")
+      Publishing.put_token("remove-me")
+
+      {:ok, lv, _html} = live(conn, ~p"/fide")
+
+      lv |> element("button[phx-click=clear_publishing_token]") |> render_click()
+
+      refute Publishing.token()
+      refute Publishing.configured?()
+    end
+
+    test "the stored token is never rendered to the page", %{conn: conn} do
+      Publishing.put_endpoint("https://openresults.example")
+      Publishing.put_token("super-secret-value")
+
+      {:ok, _lv, html} = live(conn, ~p"/fide")
+
+      refute html =~ "super-secret-value"
+      assert html =~ "a token is set"
+    end
   end
 
   test "the KBSB list has no manual file upload any more", %{conn: conn} do

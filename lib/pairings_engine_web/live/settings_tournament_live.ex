@@ -56,6 +56,11 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
      socket
      |> attach_dirty_tracker()
      |> assign(
+       # Machine-wide, so it cannot change while this page is open - read
+       # once. Used only to explain a disabled switch rather than to hide
+       # it: an arbiter looking for publishing should find it and be told
+       # what is missing, not find nothing.
+       openresults_configured?: PairingsEngine.Publishing.configured?(),
        tournament: tournament,
        owner?: owner?,
        page_title: "#{tournament.name} · Settings",
@@ -334,6 +339,31 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
 
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Could not change public-page sharing")}
+    end
+  end
+
+  def handle_event("toggle_publish_to_openresults", _params, socket) do
+    enabled? = !socket.assigns.tournament.publish_to_openresults
+
+    case Tournaments.set_publish_to_openresults(socket.assigns.tournament, enabled?) do
+      {:ok, tournament} ->
+        Audit.log(tournament.id, socket.assigns.current_scope, "openresults.toggled", %{
+          enabled: enabled?
+        })
+
+        note =
+          if enabled?,
+            do: "This tournament will be published. The first copy is on its way.",
+            else:
+              "This tournament will not be published again. Anything already sent stays where it is."
+
+        {:noreply, socket |> assign(tournament: tournament) |> put_flash(:info, note)}
+
+      {:error, :archived} ->
+        {:noreply, put_flash(socket, :error, error_text(:archived))}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Could not change publishing")}
     end
   end
 
@@ -683,6 +713,33 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
             <span>{if @tournament.public_pages_enabled, do: "On", else: "Off"}</span>
             <button type="button" class="pe-btn" phx-click="toggle_public_pages">
               {if @tournament.public_pages_enabled, do: "Turn off", else: "Turn on"}
+            </button>
+          </div>
+        </div>
+
+        <div class="set-field solo" style="margin-top: 18px">
+          <span class="set-label">{gettext("Publish to the results site")}</span>
+          <p class="hint" style="margin: 4px 0 0">
+            {gettext(
+              "Sends a copy of this tournament to the public results site, so spectators can follow it without loading this machine. Separate from the switch above: that decides who may read it here, this decides whether a copy leaves at all."
+            )}
+          </p>
+          <p
+            :if={not @openresults_configured?}
+            class="hint"
+            style="margin: 6px 0 0; color: var(--danger)"
+          >
+            {gettext("No results site is set up on this machine yet - see Connections.")}
+          </p>
+          <div class="actions" style="margin-top: 6px; align-items: center; gap: 10px">
+            <span>{if @tournament.publish_to_openresults, do: "On", else: "Off"}</span>
+            <button
+              type="button"
+              class="pe-btn"
+              phx-click="toggle_publish_to_openresults"
+              disabled={not @openresults_configured? and not @tournament.publish_to_openresults}
+            >
+              {if @tournament.publish_to_openresults, do: "Turn off", else: "Turn on"}
             </button>
           </div>
         </div>

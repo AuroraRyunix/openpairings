@@ -95,7 +95,7 @@ defmodule PairingsEngine.Snapshot do
     nos = Map.new(players, &{&1.id, &1.pairing_number})
 
     rounds = published_rounds(tournament)
-    after_round = published_through(Enum.map(rounds, & &1.number))
+    after_round = Tournaments.published_through_round(tournament)
 
     %{
       "schema" => @schema,
@@ -184,13 +184,10 @@ defmodule PairingsEngine.Snapshot do
     |> Enum.sort_by(& &1.number)
   end
 
-  # The longest contiguous run 1..n of published rounds - see the moduledoc for
-  # why the highest published number is the wrong bound for standings.
-  defp published_through(numbers), do: published_through(MapSet.new(numbers), 0)
-
-  defp published_through(set, n) do
-    if MapSet.member?(set, n + 1), do: published_through(set, n + 1), else: n
-  end
+  # The contiguous bound this used to compute privately now lives in
+  # `Tournaments.published_through_round/1`, because the public standings page
+  # served from this app needs exactly the same number. Two copies meant
+  # OpenResults enforced the gate and the local page did not.
 
   defp round_row(%Round{} = round, %Tournament{} = t, nos) do
     visible = Enum.reject(round.pairings, & &1.hidden)

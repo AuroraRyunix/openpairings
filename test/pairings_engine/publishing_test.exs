@@ -164,6 +164,67 @@ defmodule PairingsEngine.PublishingTest do
     end
   end
 
+  describe "the connection check" do
+    test "sends the `at` the history route requires" do
+      test_pid = self()
+
+      stub(fn conn ->
+        send(test_pid, {:query, conn.query_string, conn.request_path})
+        Plug.Conn.send_resp(conn, 404, ~s({"error":"not_found"}))
+      end)
+
+      assert {:ok, message} = Publishing.check()
+      assert message =~ "Connected"
+
+      # Without `at` the real server answers 400 before it looks the slug up,
+      # and the first version of this check reported a correctly configured
+      # server as "not an OpenResults server". A stub that answered 404 to
+      # anything would have let that ship, so this asserts the request rather
+      # than only the reply.
+      assert_receive {:query, query, path}
+      assert query =~ "at="
+      assert path =~ "/history"
+    end
+
+    test "never publishes anything" do
+      stub(fn conn ->
+        # A "test" button that published would be a trap: the arbiter presses
+        # it to find out whether the settings work and a tournament goes live
+        # as a side effect.
+        assert conn.method == "GET"
+        Plug.Conn.send_resp(conn, 404, ~s({"error":"not_found"}))
+      end)
+
+      assert {:ok, _} = Publishing.check()
+    end
+
+    test "a rejected token is reported as a token problem, not an address one" do
+      stub(fn conn -> Plug.Conn.send_resp(conn, 401, ~s({"error":"unauthorized"})) end)
+
+      assert {:error, message} = Publishing.check()
+      assert message =~ "rejected the token"
+      refute message =~ "not an OpenResults server"
+    end
+
+    test "something that is not an OpenResults server says so" do
+      stub(fn conn -> Plug.Conn.send_resp(conn, 200, "<html>hello</html>") end)
+
+      assert {:error, message} = Publishing.check()
+      assert message =~ "not an OpenResults server"
+    end
+
+    test "missing settings are reported before anything is sent" do
+      Publishing.put_token(nil)
+      stub(fn _conn -> flunk("nothing should have been sent") end)
+
+      assert {:error, "No token is set."} = Publishing.check()
+
+      Publishing.put_token("s3cret")
+      Publishing.put_endpoint(nil)
+      assert {:error, "No address is set."} = Publishing.check()
+    end
+  end
+
   describe "the queue" do
     test "enqueueing twice leaves one row" do
       t = tournament()
@@ -362,6 +423,48 @@ defmodule PairingsEngine.PublishingTest do
       # property that makes hanging off every write affordable.
       assert Publishing.pending_count() == 1
       assert t.id
+    end
+  end
+
+  describe "publishing can never break a write" do
+    test "a missing publish_queue table does not stop a result being entered" do
+      t = tournament()
+      [pairing] = pairings_of(t)
+
+      # Exactly the state production was in on 2026-08-28: the code had
+      # landed, the migration had not. Every write raised, the site was up,
+      # and nothing could be saved.
+      Repo.query!("DROP TABLE publish_queue")
+
+      assert {:ok, _} = Tournaments.update_pairing_result(pairing, "0-1")
+
+      assert [%{result: "0-1"}] = pairings_of(t)
+    end
+
+    test "a missing COLUMN is a different problem, and this module cannot fix it" do
+      t = tournament()
+      [pairing] = pairings_of(t)
+
+      Repo.query!("ALTER TABLE tournaments DROP COLUMN publish_to_openresults")
+
+      # Worth pinning because the first version of the rescue above was
+      # written believing it covered this too. It does not, and cannot.
+      #
+      # Ecto selects EVERY field a schema declares. The moment
+      # `publish_to_openresults` is on the `Tournament` schema, every query
+      # that loads a tournament names that column - `refresh_status!/1`
+      # here, but equally the dozens of others. So a deploy that lands code
+      # before its migration breaks the whole application, not the one
+      # function that reads the new field, and no amount of rescuing inside
+      # `Publishing` changes that.
+      #
+      # The real mitigation is deploy ORDER: migrate, then restart. The
+      # deploy script already does them in that order; what it does not do
+      # is stop when the migration fails, which is exactly how production
+      # spent six minutes in this state on 2026-08-28. See TODO.md.
+      assert_raise Exqlite.Error, fn ->
+        Tournaments.update_pairing_result(pairing, "1-0")
+      end
     end
   end
 
