@@ -67,10 +67,13 @@ Over 100% fails, so these add up rather than standing alone:
   from the crosstable's, and `W`/`D` were not on it - so an unrated win
   was banked as a loss and the player was bracketed a full point low.
 
-  Two private copies of the same played-code vocabulary were found and
-  missed in the 2026-08-26 sweep, though, so this is not finished:
-  `TrfImport`'s and `bye_safe_result/2`'s. See
-  [docs/sweep-2026-08-26.md](docs/sweep-2026-08-26.md).
+  Both remaining copies - `TrfImport`'s and `bye_safe_result/2`'s - were
+  closed on 2026-08-28, so **Q185 is now genuinely finished**. Neither was
+  mis-scoring anything: each was a complete partition as of v0.14.0, and the
+  exposure was drift rather than a live defect, which this note previously
+  implied. Both are now checked at build time against the engine's own
+  vocabulary, so a code the engine accepts and the call site does not fails
+  the build naming itself.
 
 ### Blocked on FIDE
 
@@ -91,7 +94,12 @@ illegal combinations cannot be entered.
 
 ## Known gaps / deferred features
 
-- **The deploy script reports success when the service is dead.** Found the
+- ~~**The deploy script reports success when the service is dead.**~~
+  **Fixed 2026-08-28**, though UNPROVEN: the verification has never run a
+  real deploy. Build failures abort before the restart, a dirty dep
+  checkout is recovered with `deps.clean` without `--build`, ports are
+  preflighted, and health is polled on systemd and HTTP together. Original
+  note, found the
   hard way on 2026-08-28: it printed "Deployment Completed Successfully!"
   with `pairingsengine.service: Failed with result 'exit-code'` in the same
   output, and the site was down for six minutes past the announced window.
@@ -112,7 +120,13 @@ illegal combinations cannot be entered.
   artifacts and leaves the dirty source in place), then re-fetch, migrate,
   restart. A `deps.get` that fails should stop the deploy.
 
-- **`Publishing.enqueue_id/1` can take the whole app down.** It hangs off
+- ~~**`Publishing.enqueue_id/1` can take the whole app down.**~~ **Fixed
+  2026-08-28**, with a caveat that matters: the rescue covers a missing
+  TABLE, not a missing COLUMN. Ecto selects every field a schema declares,
+  so a column added ahead of its migration breaks every query that loads a
+  tournament, not the one function reading the new field. That one is
+  mitigated by deploy ORDER, which the deploy script now enforces by
+  aborting when a migration fails. Original note: it hangs off
   `broadcast_tournament_change/2`, which every write in the application goes
   through - the point being that no call site can forget to publish. The
   same property means one bad query there breaks every write.
@@ -128,7 +142,10 @@ illegal combinations cannot be entered.
   and swallowed, and the write proceeds - "publishing is not working yet" is
   a state the app should survive, not die of.
 
-- **Byes sort above special boards, and should sort below them.** Reported by
+- ~~**Byes sort above special boards, and should sort below them.**~~ **Fixed
+  2026-08-28.** Order is now normal, special, byes, absents. 0.14.7's entry
+  had claimed this change and shipped the concatenation backwards. Original
+  note, reported by
   the maintainer 2026-08-28. `PairingDisplay.with_display_boards/1` currently
   orders normal, then byes, then vacant seats, then special boards. The
   order an arbiter expects is **normal, special, byes, absents** - a special
@@ -261,7 +278,12 @@ that document's "Three leads, adjudicated 2026-08-27"; this is the index.
   `4dd9980` in the Ainalrami repository, but that commit is on
   `feature/team-pairing` and is not an ancestor of `v0.11.1`, which is what
   `mix.exs:159` pins. Closes here when the pin moves.
-- **A vacated seat pays the player left on the board a half-value Keizer
+- ~~**A vacated seat pays the player left on the board a half-value Keizer
+  bye.**~~ **Fixed 2026-08-28.** A vacancy and a bye differed only by their
+  result code, and `score_game/3` collapsed both into one branch; that code
+  is now what tells them apart, and a vacated seat scores 0.0.
+  `award_bye_for_vacancy/2` still pays, because that is the arbiter
+  choosing to. Original note: a vacated seat pays the player left on the board a half-value Keizer
   bye** (`lib/pairings_engine/keizer.ex:561`). `score_game/3` treats any
   pairing with `opponent_id == nil` as `:unpaired_bye` worth half the
   player's own ladder value, and `do_vacate_seat/3` writes exactly that
@@ -269,7 +291,12 @@ that document's "Three leads, adjudicated 2026-08-27"; this is the index.
   runs `award_bye_for_vacancy/2`. Found while adjudicating the three above;
   unlike the `classify_result` one, this is a real points effect. The Swiss
   path gives them nothing.
-- **`Standings.bye_points_for_row/2` fires one COUNT query per rendered bye
+- ~~**`Standings.bye_points_for_row/2` fires one COUNT query per rendered
+  bye row.**~~ **Fixed 2026-08-28.** The query now runs only where its
+  answer can change the result - never, for a tournament that is not a SWAR
+  import configured with a cap. A telemetry test counts queries beside the
+  ones pinning values, so the numbers are provably unmoved. Original note:
+  `Standings.bye_points_for_row/2` fires one COUNT query per rendered bye
   row** (`lib/pairings_engine/standings.ex:347`), an N+1 inside four render
   loops. `add_bye_records/3` already does the same count in one in-memory
   pass; the display path never learned it.

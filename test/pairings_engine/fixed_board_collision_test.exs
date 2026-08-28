@@ -43,12 +43,14 @@ defmodule PairingsEngine.FixedBoardCollisionTest do
        byte-identical with and without the pin, results land on the pairing
        they were written for, and every export carries the real board.
 
-  ## Known defects, deliberately left failing
+  ## Defects the same sweep found next door
 
   The adversarial sweep that preceded this file found real problems adjacent
-  to the collision. Fixing `lib/` was out of scope, so each one is a
-  `@tag :skip`ped test that asserts the CORRECT behaviour and names the defect
-  in a comment. Un-skip it when the defect is fixed; do not delete it.
+  to the collision, and each was written here first as a `@tag :skip`ped
+  test asserting the CORRECT behaviour. All four were fixed on 2026-08-28
+  and the tags are gone; each one's comment now records what was wrong and
+  what the fix chose, because these are the tests that stop it coming back.
+  Nothing in this file is skipped any more.
   """
 
   # async: false - the export/import round-trips below perform full
@@ -409,23 +411,20 @@ defmodule PairingsEngine.FixedBoardCollisionTest do
       assert {:ok, 0} = ResultsImport.apply_import(t, 1, [])
     end
 
-    # KNOWN DEFECT - lib/pairings_engine/results_import.ex:178.
+    # FIXED in ea960ff - was lib/pairings_engine/results_import.ex:178.
     #
-    # `apply_import/3` resolves each CSV line against `pairing.board` (the
+    # `apply_import/3` resolved each CSV line against `pairing.board` (the
     # real column) while every document the arbiter reads - the printed sheet
     # (print_controller.ex:653), the Pairings page (pairings_live.ex:2156),
     # the public page and the projector - prints the frozen LABEL. Whenever
-    # the pinned board is not the last real board, those are two different
-    # numbering spaces, so typing the sheet's own numbers silently writes
-    # results onto the wrong games and reports success.
+    # the pinned board was not the last real board, those were two different
+    # numbering spaces, so typing the sheet's own numbers silently wrote
+    # results onto the wrong games and reported success.
     #
-    # This is PRE-EXISTING and not caused by the accepted collision: the
+    # It was PRE-EXISTING and not caused by the accepted collision: the
     # adversarial pass reproduced identical damage with fixed_board=1001.
-    # Allowing 1 does remove the accidental protection an out-of-range label
+    # Allowing 1 only removed the accidental protection an out-of-range label
     # used to give (an "unknown board" error instead of a wrong write).
-    #
-    # Un-skip when the importer is taught to resolve by display label (or the
-    # sheet is taught to print the real board).
     test "CSV import addresses the boards the arbiter can actually see" do
       # Player 5 => real board 3. Sheet: real1->"1" real2->"2" real4->"3"
       # real5->"4", special real3->"1".
@@ -535,14 +534,16 @@ defmodule PairingsEngine.FixedBoardCollisionTest do
       assert tables == [1, 2, 3, 4, 5]
     end
 
-    test "the handicap flag travels, and results/boards survive the round-trip" do
+    test "the handicap table travels, and results/boards survive the round-trip" do
       {t, _round, _players} = fixture(pin: {9, @colliding}, results: @results)
 
       bin = SwarExport.export(t)
       assert {:ok, parsed} = SwarImport.parse(bin)
 
-      # HandyTable is written as a 1/0 flag, so exactly one player carries it.
+      # HandyTable carries the pinned table number (0 = no fixed table), so
+      # exactly one player is marked.
       assert Enum.count(parsed.players, &(&1.handy_table != 0)) == 1
+      assert Enum.find(parsed.players, &(&1.handy_table != 0)).handy_table == @colliding
 
       path =
         Path.join(
@@ -566,24 +567,24 @@ defmodule PairingsEngine.FixedBoardCollisionTest do
       end
     end
 
-    # KNOWN DEFECT - lib/pairings_engine/swar_import.ex:1554 (with
-    # lib/pairings_engine/swar_export.ex:512).
+    # FIXED 2026-08-28 - was lib/pairings_engine/swar_import.ex:1554 with
+    # lib/pairings_engine/swar_export.ex:512.
     #
-    # `SwarImport` sets `special_table: p.handy_table != 0` and never sets
+    # `SwarImport` set `special_table: p.handy_table != 0` and never set
     # `fixed_board` at all, while `PairingDisplay.special?/1` decides
     # specialness solely on `fixed_board != nil`. So a SWAR-imported handicap
-    # player is not special anywhere: ordinary label, ordinary sort position,
-    # and no "(table N)" note on their card. The export side compounds it -
-    # `w_i16(if p.special_table, do: 1, else: 0)` degrades the table NUMBER to
-    # a boolean, so even a correct importer could not recover it.
+    # player was not special anywhere: ordinary label, ordinary sort
+    # position, and no "(table N)" note on their card. The export side
+    # compounded it - `w_i16(if p.special_table, do: 1, else: 0)` degraded
+    # the table NUMBER to a boolean, so even a correct importer could not
+    # have recovered it. A .swar backup/restore, an ordinary arbiter
+    # workflow, silently stopped honouring the pin.
     #
-    # Consequence for the accepted decision: a .swar backup/restore, an
-    # ordinary arbiter workflow, silently stops honouring the pin.
-    #
-    # Un-skip when the importer sets fixed_board (and the exporter writes the
-    # real table number) - the assertions below are what "fixed" means.
-    @tag :skip
-    test "DEFECT: a SWAR round-trip keeps the accessible table" do
+    # HandyTable is a signed 16-bit table NUMBER - SWAR's own 1001+ handicap
+    # numbering lives in it (`SwarImport`'s `@table_handicap`) - so the fix
+    # was to write and read the number. It is the whole number that travels,
+    # not a re-derived one: pinned to 1, this comes back as 1.
+    test "a SWAR round-trip keeps the accessible table" do
       {t, _round, _players} = fixture(pin: {9, @colliding}, results: @results)
 
       path =
@@ -607,6 +608,81 @@ defmodule PairingsEngine.FixedBoardCollisionTest do
       after
         File.rm(path)
       end
+    end
+
+    # The control that tells a NUMBER from a FLAG. Pinned to SWAR's own
+    # 1001, a boolean HandyTable would come back as fixed_board 1 (or as
+    # nothing at all, which is what it did); only a round-trip that carries
+    # the number can return 1001.
+    test "the table NUMBER survives, not a boolean re-derived from it" do
+      {t, _round, _players} = fixture(pin: {9, @swar_handicap}, results: @results)
+
+      path =
+        Path.join(
+          System.tmp_dir!(),
+          "fixed_board_collision_#{System.unique_integer([:positive])}.swar"
+        )
+
+      File.write!(path, SwarExport.export(t))
+
+      try do
+        assert {:ok, imported, _warnings} = SwarImport.import_file(path, scope())
+
+        assert [player] = Enum.filter(Tournaments.list_players(imported.id), & &1.fixed_board)
+        assert player.fixed_board == @swar_handicap
+        assert player.special_table
+
+        round = Tournaments.get_round(imported.id, 1)
+        assert {"1001", _real, true} = round.id |> sheet() |> List.last()
+      after
+        File.rm(path)
+      end
+    end
+
+    # The two fields are read in different places - `PairingDisplay` looks
+    # only at `fixed_board`, `SwarExport` looks at both - so a row with one
+    # set and not the other is special in exactly one of them. That was the
+    # SWAR importer's own output for as long as it wrote the boolean alone.
+    test "an imported handicap player carries BOTH fields, never just one" do
+      {t, _round, _players} = fixture(pin: {9, @colliding})
+
+      path =
+        Path.join(
+          System.tmp_dir!(),
+          "fixed_board_collision_#{System.unique_integer([:positive])}.swar"
+        )
+
+      File.write!(path, SwarExport.export(t))
+
+      try do
+        assert {:ok, imported, _warnings} = SwarImport.import_file(path, scope())
+
+        for player <- Tournaments.list_players(imported.id) do
+          assert player.special_table == not is_nil(player.fixed_board),
+                 "#{player.name} came back with special_table=#{player.special_table} and " <>
+                   "fixed_board=#{inspect(player.fixed_board)} - a player who is a special " <>
+                   "board in one half of the app and an ordinary one in the other"
+        end
+      after
+        File.rm(path)
+      end
+    end
+
+    # Databases the OLD importer wrote still hold rows marked `special_table`
+    # with no `fixed_board` - the flag is genuinely all those rows ever knew.
+    # The export still carries their marking rather than dropping it on the
+    # floor because the number it would prefer is missing.
+    test "a legacy special_table row with no fixed_board still exports its marking" do
+      {t, _round, players} = fixture()
+
+      players
+      |> Enum.at(8)
+      |> Ecto.Changeset.change(special_table: true, fixed_board: nil)
+      |> Repo.update!()
+
+      assert {:ok, parsed} = t |> SwarExport.export() |> SwarImport.parse()
+
+      assert Enum.count(parsed.players, &(&1.handy_table != 0)) == 1
     end
   end
 
@@ -659,27 +735,27 @@ defmodule PairingsEngine.FixedBoardCollisionTest do
       assert pinned.special_table
     end
 
-    # KNOWN DEFECT - lib/pairings_engine/tournament_import.ex:230 (reached from
-    # lib/pairings_engine/snapshots.ex:374 on a restore).
+    # FIXED 2026-08-28 - was lib/pairings_engine/tournament_import.ex:230
+    # (reached from lib/pairings_engine/snapshots.ex:374 on a restore).
     #
     # `PairingDisplay`'s moduledoc promises labels are "computed exactly ONCE
-    # per round ... never live again". That holds live - the test in
+    # per round ... never live again". That held live - the test in
     # board_stability_test.exs proves pinning a player mid-round changes
-    # nothing - but NOT across an export/import or a snapshot restore, because
-    # `@pairing_excluded` drops the frozen columns and the importer re-freezes
-    # every round from the payload's current `fixed_board`.
+    # nothing - but NOT across an export/import or a snapshot restore:
+    # `@pairing_excluded` dropped the frozen columns and the importer
+    # re-froze every round from the payload's CURRENT `fixed_board`.
     #
-    # So a round that was played, printed and handed out as 1..5 comes back
+    # So a round that was played, printed and handed out as 1..5 came back
     # from a restore relabelled - here acquiring two rows numbered "1" that
-    # the sheets on the tables never showed. Real boards and results are
-    # untouched, so this is a display/print-record defect, not corruption; it
-    # is pre-existing for any fixed_board value and the collision only makes
+    # the sheets on the tables never showed. Real boards and results were
+    # untouched, so it was a display/print-record defect, not corruption; it
+    # was pre-existing for any fixed_board value and the collision only made
     # its symptom louder.
     #
-    # Un-skip when the frozen labels are carried across the boundary instead
-    # of recomputed (or the recompute is restricted to rounds that have none).
-    @tag :skip
-    test "DEFECT: a round already played keeps its labels across an export/import" do
+    # The export now carries `display_board`/`display_special` and the
+    # importer restores them verbatim, recomputing only for a payload old
+    # enough to have neither.
+    test "a round already played keeps its labels across an export/import" do
       {t, round, _players} =
         fixture(pin: {5, @colliding}, results: @results, pin_after_pairing: true)
 
@@ -695,29 +771,53 @@ defmodule PairingsEngine.FixedBoardCollisionTest do
   end
 
   describe "PGN export" do
-    test "the [Board] tag carries the label, so the accepted duplicate reaches the file" do
+    test "the [Board] tag carries the REAL board, so the accepted duplicate stops here" do
       {t, _round, _players} = fixture(pin: {9, @colliding}, results: @results)
 
       pgn = PgnExport.export(t, 1, board: true)
 
-      # Documented and deliberate (docs/pgn-export.md): the tag reports the
-      # table a game was played at, which for a pinned player is their fixed
-      # table. Pinned to 1, that means two games in one round tagged Board 1.
-      # Asserted so that changing it - to the real board, or by rejecting the
-      # collision - is a decision rather than a silent drift.
-      assert length(String.split(pgn, ~s([Board "1"]))) - 1 == 2
-      assert pgn =~ ~s([Board "2"])
-      refute pgn =~ ~s([Board "5"])
+      tags = Regex.scan(~r/\[Board "([^"]+)"\]/, pgn) |> Enum.map(&Enum.at(&1, 1))
+
+      # THE TRIPWIRE FIRED, AND THE DECISION WAS TAKEN - 2026-08-28.
+      #
+      # This used to assert the opposite, and said so: the tag carried the
+      # display label, so a pin colliding with an ordinary board exported two
+      # games in one round both tagged Board 1. It was asserted "so that
+      # changing it is a decision rather than a silent drift". This is that
+      # decision, argued rather than slipped in.
+      #
+      # A PGN tag is never read by somebody standing at a board. It is how a
+      # reader or a database tells one game of a round apart from the others,
+      # keyed on (Event, Round, Board) - a job that REQUIRES uniqueness within
+      # the round, which the label does not have once a fixed table collides.
+      # `pairing.board` is engine-assigned and unique by construction.
+      #
+      # This pulls the OPPOSITE way from the printed documents in this same
+      # file, and that is deliberate: a place card is read by a person who has
+      # to find a physical table, so it must agree with the pairing sheet; a
+      # PGN is read by software that has to tell two games apart, so it must
+      # be unique. Same number, two documents, two different right answers.
+      # Full reasoning in `PgnExport.board_tag/1`.
+      #
+      # The duplicate label is still the accepted output on every human-facing
+      # surface - the sheet assertions above are unchanged. It simply no
+      # longer reaches a machine-readable export.
+      assert Enum.sort(tags) == ["1", "2", "3", "4", "5"]
+      assert tags == Enum.uniq(tags)
     end
 
-    test "control: pinned to 1001 every [Board] tag in the round is unique" do
+    test "control: pinned to 1001 the tags are the same real boards, pin or no pin" do
       {t, _round, _players} = fixture(pin: {9, @swar_handicap}, results: @results)
 
       pgn = PgnExport.export(t, 1, board: true)
 
       tags = Regex.scan(~r/\[Board "([^"]+)"\]/, pgn) |> Enum.map(&Enum.at(&1, 1))
 
-      assert Enum.sort(tags) == Enum.sort(["1", "2", "3", "4", "1001"])
+      # 1001 is a seating instruction, not a board number, and no longer
+      # travels into the export at all. Pinned or not, the tags are the
+      # engine's own numbering - which is the point: an export should not
+      # change shape because an arbiter accommodated a player.
+      assert Enum.sort(tags) == ["1", "2", "3", "4", "5"]
       assert tags == Enum.uniq(tags)
     end
   end
@@ -725,24 +825,25 @@ defmodule PairingsEngine.FixedBoardCollisionTest do
   ## ---------- adjacent defects found by the same sweep ----------
 
   describe "known defects adjacent to the collision" do
-    # KNOWN DEFECT - lib/pairings_engine/tournaments.ex:2528.
+    # FIXED 2026-08-28 - was lib/pairings_engine/tournaments.ex:2528.
     #
-    # `do_pair_from_pool/4` is the ONE pairing-creating path that never calls
-    # `freeze_round_display_boards!/1` (every other one does: pairing.ex:658,
-    # :1426, :1497, round_robin.ex:456, keizer.ex:428, and all three
-    # importers). The new row's `display_board` stays nil and falls through to
+    # `do_pair_from_pool/4` was the ONE pairing-creating path that never
+    # froze what it inserted (every other one does: pairing.ex:658, :1426,
+    # :1497, round_robin.ex:456, keizer.ex:428, and all three importers).
+    # The new row's `display_board` stayed nil and fell through to
     # `PairingDisplay.fallback_label/1`, i.e. its REAL board - a different
-    # numbering space from the round's frozen labels, so the printed sequence
-    # gains a visible gap (1, 2, 3, 4, 6, and the special 1).
+    # numbering space from the round's frozen labels, so the printed
+    # sequence gained a visible gap (1, 2, 3, 4, 6, and the special 1). The
+    # modal accepts any free board the arbiter types, so a hole in the low
+    # real boards would have put that fallback back inside the frozen range
+    # and produced a second kind of duplicate nobody signed off on.
     #
-    # Not corrupting today, but the modal accepts any free board the arbiter
-    # types, so a hole in the low real boards would put the fallback back
-    # inside the frozen range and produce a SECOND kind of duplicate - one
-    # nobody has signed off on.
-    #
-    # Un-skip when pair_from_pool freezes the row it inserts.
-    @tag :skip
-    test "DEFECT: pair_from_pool freezes the row it inserts" do
+    # It freezes ONLY the row it inserts (`freeze_new_pairing_display_board!/1`),
+    # never the whole round: this round is already printed and sat down at,
+    # and a full re-freeze recomputes every label from each player's
+    # fixed_board as it stands now - the retroactive renumbering the freeze
+    # exists to prevent. The next test pins that distinction.
+    test "pair_from_pool freezes the row it inserts" do
       {t, _round, _players} = fixture(pin: {9, @colliding})
 
       a = Repo.insert!(%Player{tournament_id: t.id, name: "Late One", pairing_number: 11})
@@ -757,19 +858,44 @@ defmodule PairingsEngine.FixedBoardCollisionTest do
       assert labels(round.id) == ["1", "2", "3", "4", "5", "1"]
     end
 
-    # KNOWN DEFECT - lib/pairings_engine/tournaments/player.ex:104.
+    # A round already printed keeps its numbering when a late pairing is
+    # added to it - the invariant that makes the fix above narrow rather
+    # than a call to `freeze_round_display_boards!/1`.
+    test "pair_from_pool does not renumber the round it is inserting into" do
+      # Paired and frozen with no pin at all: a plain 1..5.
+      {t, round, players} = fixture()
+      assert labels(round.id) == ["1", "2", "3", "4", "5"]
+
+      # The arbiter pins player 9 - who is sitting on real board 5 right now
+      # - and only then pairs two latecomers in. The pin correctly does
+      # nothing to this round (board_stability_test.exs pins that on its
+      # own); the question here is whether pairing someone in re-opens it.
+      :ok = apply_pin(players, {9, @colliding})
+
+      a = Repo.insert!(%Player{tournament_id: t.id, name: "Late One", pairing_number: 11})
+      b = Repo.insert!(%Player{tournament_id: t.id, name: "Late Two", pairing_number: 12})
+
+      assert {:ok, _} = Tournaments.pair_from_pool(Tournaments.get_round(t.id, 1), a.id, b.id, 6)
+
+      # A whole-round re-freeze would answer ["1", "2", "3", "4", "5", "1"]:
+      # real board 5 moved to the bottom as a special board and everything
+      # after it renumbered, under players already seated. Nothing moves -
+      # the new row just continues the printed sequence.
+      assert labels(round.id) == ["1", "2", "3", "4", "5", "6"]
+    end
+
+    # FIXED 2026-08-28 - was lib/pairings_engine/tournaments/player.ex:104.
     #
-    # `fixed_board` is cast with no `validate_number/3`, so 0 and negative
-    # values are accepted and reach the label, the PGN [Board] tag and every
-    # printed document. The only guard today is the `min="1"` attribute on the
-    # Players page input, which is client-side and is bypassed by a crafted
-    # form post or by a JSON import (fixed_board travels in @player_fields).
+    # `fixed_board` was cast with no `validate_number/3`, so 0 and negative
+    # values were accepted and reached the label, the PGN [Board] tag and
+    # every printed document. The only guard was the `min="1"` attribute on
+    # the Players page input, which is client-side and is bypassed by a
+    # crafted form post or by a JSON import (fixed_board travels in
+    # @player_fields).
     #
-    # This is NOT a request to reject the accepted colliding value 1 - it is
-    # the opposite end: a board number that cannot exist at all. Un-skip when
-    # `validate_number(:fixed_board, greater_than: 0)` is added.
-    @tag :skip
-    test "DEFECT: fixed_board must be a positive board number" do
+    # This is NOT a rejection of the accepted colliding value 1 - it is the
+    # opposite end: a board number that cannot exist at all.
+    test "fixed_board must be a positive board number" do
       {_t, _round, players} = fixture()
       player = hd(players)
 

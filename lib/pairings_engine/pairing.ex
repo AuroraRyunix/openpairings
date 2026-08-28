@@ -2268,6 +2268,46 @@ defmodule PairingsEngine.Pairing do
   # half-point bye (H), a loss or forfeit-loss is a zero-point bye (Z).
   # Already-legal codes (bye codes, or any code when a real opponent exists)
   # and a missing result (nil) pass through unchanged.
+  # The third private copy of the played-code vocabulary, and the last one.
+  # `TrfImport` carried two; both are now policed the same way.
+  #
+  # Pointing this at `Trf.playing_codes/0` directly does not work, because
+  # the question here is not "is this a playing code" but "what point value
+  # does it stand for" - a three-way split that runs ACROSS the engine's two
+  # lists rather than along them. The engine publishes no function for that
+  # partition, and `Trf.points_for/2` keys on a configurable point system, so
+  # borrowing it would silently re-bucket a file carrying its own values.
+  #
+  # What the engine list CAN police is the domain, which is the half that
+  # actually broke: `W`/`D`/`L` were missing here until 2026-08-26, and an
+  # opponentless unrated result then escaped as an exception rather than as
+  # the `{:error, message}` every other refusal returns. The check below
+  # fails the BUILD if the engine ever accepts a code this does not handle,
+  # instead of waiting for it to reach an arbiter's file.
+  #
+  # Only playing codes are partitioned. A bye code arriving here is already
+  # legal with no opponent and falls through the `other` clause unchanged,
+  # which is why `bye_codes/0` is not part of the domain.
+  @bye_safe_full ~w(1 + W)
+  @bye_safe_half ~w(= D)
+  @bye_safe_zero ~w(0 - L)
+
+  @bye_safe_handled Enum.sort(@bye_safe_full ++ @bye_safe_half ++ @bye_safe_zero)
+  @bye_safe_domain Enum.sort(Ainalrami.Trf.playing_codes())
+
+  if @bye_safe_handled != @bye_safe_domain do
+    raise """
+    PairingsEngine.Pairing.bye_safe_result/2 no longer covers Ainalrami.Trf's     playing-code vocabulary.
+
+      handled here: #{inspect(@bye_safe_handled)}
+      the engine's: #{inspect(@bye_safe_domain)}
+      missing:      #{inspect(@bye_safe_domain -- @bye_safe_handled)}
+      unknown:      #{inspect(@bye_safe_handled -- @bye_safe_domain)}
+
+    Every playing code must land in one of the three point-value buckets, or     an opponentless result keeps a playing code and `Trf.validate_games!/2`     raises while BUILDING the file - before `run_engine/5` is called, so the     ValidationError rescue cannot see it either.
+    """
+  end
+
   defp bye_safe_result(result, opponent_id) when not is_nil(opponent_id), do: result
 
   defp bye_safe_result(result, nil) do
@@ -2283,9 +2323,9 @@ defmodule PairingsEngine.Pairing do
       # it either. It escaped `pair_next_round/1` as an exception instead of
       # the `{:error, message}` every other refusal here returns, and took
       # the FIDE download down the same way.
-      code when code in ["1", "+", "W"] -> "F"
-      code when code in ["=", "D"] -> "H"
-      code when code in ["0", "-", "L"] -> "Z"
+      code when code in @bye_safe_full -> "F"
+      code when code in @bye_safe_half -> "H"
+      code when code in @bye_safe_zero -> "Z"
       other -> other
     end
   end

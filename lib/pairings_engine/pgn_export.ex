@@ -7,7 +7,7 @@ defmodule PairingsEngine.PgnExport do
   `docs/pgn-export.md`.
   """
 
-  alias PairingsEngine.{PairingDisplay, Tournaments}
+  alias PairingsEngine.Tournaments
   alias PairingsEngine.Tournaments.Tournament
 
   @doc """
@@ -18,11 +18,9 @@ defmodule PairingsEngine.PgnExport do
   byes).
 
   `opts[:board]` (default `false`) adds a supplemental `[Board "N"]` tag
-  to every game, right after `Round` - the same DISPLAY board number
-  shown everywhere else in the app (`PairingDisplay.with_display_boards/1`:
-  fixed-table boards relabeled/moved, byes/vacant seats excluded from the
-  renumbering), not the raw `pairing.board`, so it matches what an arbiter
-  actually sees on the pairing sheet for that game.
+  to every game, right after `Round`. `N` is the REAL `pairing.board` -
+  see `board_tag/1` for why this is the one board-numbered surface in the
+  app that does NOT print `PairingDisplay`'s label.
   """
   def export(tournament, round_number \\ nil, opts \\ []) do
     board? = Keyword.get(opts, :board, false)
@@ -48,21 +46,12 @@ defmodule PairingsEngine.PgnExport do
   end
 
   defp games_for_round(tournament, round, board?) do
-    display_board_by_pairing_id =
-      if board? do
-        round.pairings
-        |> PairingDisplay.with_display_boards()
-        |> Map.new(fn %{pairing: p, board: b} -> {p.id, b} end)
-      else
-        %{}
-      end
-
     round.pairings
     |> Enum.reject(&(&1.result == "bye" or is_nil(&1.black_player_id)))
-    |> Enum.map(&{tournament, round, &1, Map.get(display_board_by_pairing_id, &1.id)})
+    |> Enum.map(&{tournament, round, &1, if(board?, do: &1.board)})
   end
 
-  defp game_text({tournament, round, pairing, display_board}) do
+  defp game_text({tournament, round, pairing, board}) do
     headers =
       [
         tag("Event", tournament.name),
@@ -70,7 +59,7 @@ defmodule PairingsEngine.PgnExport do
         tag("Date", date_tag(round.date)),
         tag("Round", to_string(round.number))
       ] ++
-        board_tag(display_board) ++
+        board_tag(board) ++
         [
           tag("White", pairing.white_player.name),
           tag("Black", pairing.black_player.name),
@@ -83,8 +72,41 @@ defmodule PairingsEngine.PgnExport do
   # `nil` when `export/3`'s `board:` option wasn't passed - supplemental,
   # right after Round, the conventional spot for a team/multi-board [Board]
   # tag in the wild.
+  #
+  # The REAL `pairing.board`, and this is the one place in the app that
+  # deliberately disagrees with `PairingDisplay`'s label. It used to carry
+  # the label, on the reasoning that the tag should match what the arbiter
+  # reads on the pairing sheet.
+  #
+  # What [Board] is FOR settles it. Nothing renders a PGN tag to a human at
+  # the board; the tag is how a reader or a database tells one game of a
+  # round apart from the others - (Event, Round, Board) is the natural key
+  # for a round's games, and PGN gives a reader nothing else to key on
+  # short of the player names. That job requires a value unique within the
+  # round, and the label is not one: `fixed_board` may legitimately collide
+  # with an ordinary board number (a decision, not a bug - see
+  # `PairingsEngine.FixedBoardCollisionTest`), so a round could export two
+  # games both tagged [Board "1"] and a reader had no way to separate them.
+  # `pairing.board` is engine-assigned and unique within a round by
+  # construction, which is exactly the property the tag needs.
+  #
+  # This pulls the OPPOSITE way from the printed result cards and place
+  # cards, which were just moved onto the label for the mirror-image reason
+  # (see `PairingsEngineWeb.PrintController.round_and_board/2`): a card is
+  # read by a person who has to find a physical table, so it must agree
+  # with the sheet on the wall; a PGN is read by software that has to tell
+  # two games apart, so it must be unique. Same underlying tension, two
+  # different documents, two different correct answers - resolving both the
+  # same way would have broken one of them.
+  #
+  # Nothing is lost by dropping the label here: PGN carries no notion of a
+  # physical/accessible table, the fixed-table fact is not something a game
+  # database has any use for, and inventing a non-standard tag to smuggle
+  # it across would only give readers a second board number to disagree
+  # with the first. An arbiter who wants the sheet's numbering has the
+  # sheet.
   defp board_tag(nil), do: []
-  defp board_tag(display_board), do: [tag("Board", to_string(display_board))]
+  defp board_tag(board), do: [tag("Board", to_string(board))]
 
   defp site_tag(%Tournament{venue: v}) when is_binary(v) and v != "", do: v
   defp site_tag(%Tournament{city: c}) when is_binary(c) and c != "", do: c

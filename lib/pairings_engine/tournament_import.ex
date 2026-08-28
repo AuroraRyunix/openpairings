@@ -199,37 +199,77 @@ defmodule PairingsEngine.TournamentImport do
     Enum.each(rounds, fn r ->
       new_round = %Round{tournament_id: tournament.id} |> Round.changeset(r) |> insert!()
 
-      r
-      |> list("pairings")
-      |> Enum.each(fn pr ->
+      pairings = list(r, "pairings")
+
+      Enum.each(pairings, fn pr ->
         # `match_id` is deliberately not carried across - it's a foreign key
         # into the unexported `matches` table, so a raw value would dangle.
         # See PairingsEngine.TournamentExport.pairing_map/1.
         attrs = %{
           "board" => Map.get(pr, "board"),
           "result" => Map.get(pr, "result"),
-          # Defaults to false for a payload written before `hidden` was
-          # exported, which is the schema default and the safe direction:
-          # an old backup restores with nothing hidden rather than with
-          # boards mysteriously missing from the public page.
-          "hidden" => Map.get(pr, "hidden", false),
           "white_player_id" => Map.get(player_map, Map.get(pr, "white_player_id")),
           "black_player_id" => Map.get(player_map, Map.get(pr, "black_player_id"))
         }
 
-        %Pairing{round_id: new_round.id} |> Pairing.changeset(attrs) |> insert!()
+        %Pairing{round_id: new_round.id}
+        |> Pairing.changeset(attrs)
+        # The three Pairing columns deliberately kept out of
+        # `changeset/2`'s cast list, each because it has exactly one
+        # legitimate writer - so each has to be carried explicitly here, the
+        # same way `manual_rank` and `special_table` are above. `hidden` was
+        # passed in `attrs` instead and therefore silently dropped: cast
+        # ignores a key it was not given, so a restore still un-hid every
+        # hidden board (a disclosure, not just a lost preference) even after
+        # the export half of that was fixed.
+        #
+        # All three default to the safe direction for a payload written
+        # before they were exported: nothing hidden, no frozen label.
+        |> Ecto.Changeset.change(
+          hidden: truthy(Map.get(pr, "hidden")),
+          display_board: display_board(Map.get(pr, "display_board")),
+          display_special: truthy(Map.get(pr, "display_special"))
+        )
+        |> insert!()
       end)
 
-      # Recomputed fresh from the just-imported players' own (faithfully
-      # round-tripped) fixed_board values, rather than carried across in the
-      # export payload - see PairingsEngine.PairingDisplay's moduledoc for
-      # why this must never be read live again after today, once whatever
-      # created this round (a plain "Import backup" or
-      # PairingsEngine.Snapshots.restore/3, both of which call this) is
-      # done.
-      PairingsEngine.Tournaments.freeze_round_display_boards!(new_round.id)
+      # The frozen labels ARE the record of what the printed sheets said,
+      # so a payload that carries them is restored verbatim and this round
+      # is never renumbered. Re-freezing instead would recompute every label
+      # from each player's fixed_board AS IT STANDS NOW, which is precisely
+      # the retroactive renumbering PairingsEngine.PairingDisplay's
+      # moduledoc forbids: restore a backup taken after a mid-tournament pin
+      # and round 1 comes back numbered differently from the sheets people
+      # actually sat down at.
+      #
+      # ANY frozen label in the round is enough to call the payload
+      # label-carrying. A round can legitimately hold a mix - a row inserted
+      # by a path that predates the freeze has a nil label and falls back to
+      # its own real board number in `PairingDisplay` - and reproducing that
+      # mix is what restoring the source database faithfully means.
+      #
+      # A payload with none at all predates the columns; there is nothing to
+      # restore, so the recompute is the best available reconstruction and
+      # stays the fallback.
+      unless Enum.any?(pairings, &frozen_label?/1) do
+        PairingsEngine.Tournaments.freeze_round_display_boards!(new_round.id)
+      end
     end)
   end
+
+  defp frozen_label?(pairing) when is_map(pairing),
+    do: not is_nil(display_board(Map.get(pairing, "display_board")))
+
+  defp frozen_label?(_), do: false
+
+  # A label, not a number: `PairingDisplay` writes strings, and a fixed-table
+  # board can be "1001" or the slash-joined "5/6". An integer is accepted
+  # (a hand-edited backup, or a JSON encoder that decided "3" was numeric)
+  # and anything else becomes nil, which renders as the row's real board
+  # rather than as junk on a printed sheet.
+  defp display_board(label) when is_binary(label), do: label
+  defp display_board(label) when is_integer(label), do: Integer.to_string(label)
+  defp display_board(_), do: nil
 
   # Schemaless tables (no Ecto schema in the app - see PairingsEngine.Pairing
   # and PairingsEngine.Standings for the same pattern on reads). A bye or

@@ -372,10 +372,47 @@ defmodule PairingsEngine.Standings do
   implementation of the caps to keep in sync.
   """
   def bye_points_for_row(%{type: "absent"} = bye, tournament) do
-    bye_points("absent", tournament, bye.round, absent_count_through_round(tournament, bye))
+    bye_points("absent", tournament, bye.round, absent_count(tournament, bye))
   end
 
   def bye_points_for_row(bye, tournament), do: bye_points(bye.type, tournament)
+
+  # The cumulative count is a DB round-trip, and this function is called once
+  # per rendered row inside four render loops (the pool panel, the live round
+  # view, the public pairings page and the print controller), so a round with
+  # a dozen absences fired a dozen COUNT queries to answer a question that is
+  # usually already decided.
+  #
+  # It is decided because only ONE of `absent_points/3`'s branches ever looks
+  # at the count: `count_capped?/2`, and only when `abs_nbfois` is an
+  # integer. `abs_nbfois` is nil for every tournament that is not a SWAR
+  # import with "Pt ABSENT" limited by occurrence - so for essentially every
+  # tournament this asked the database for a number it was about to throw
+  # away. The two branches ahead of it (`abs_value` unset, or the round cap
+  # already exceeded) return `points_loss` without reading it either.
+  #
+  # `nil` is what `count_capped?/2`'s fallback clause already means by "no
+  # count on hand, so the cap cannot be exceeded", and it is the documented
+  # default of `bye_points/4`'s own argument - so skipping the query returns
+  # exactly the number the query would have produced, in every branch that
+  # skips it. The branch order below mirrors `absent_points/3` deliberately:
+  # `abs_nbfois` is only READ where that function reads it, so a caller
+  # passing a map without the field is no worse off than before.
+  #
+  # The remaining case - a tournament that genuinely caps by occurrence -
+  # still costs one query per row. Batching it the way `add_bye_records/3`
+  # does needs every one of a player's rows in hand at once, and this
+  # function is handed exactly one; teaching the four call sites to pass the
+  # whole list is the fix for that case, and it is a change to their files,
+  # not this one.
+  defp absent_count(tournament, bye) do
+    cond do
+      is_nil(tournament.abs_value) -> nil
+      round_capped?(tournament, bye.round) -> nil
+      not is_integer(tournament.abs_nbfois) -> nil
+      true -> absent_count_through_round(tournament, bye)
+    end
+  end
 
   # How many "absent" byes `bye.player_id` has racked up in `tournament`
   # through `bye.round` (inclusive) - the count SWAR's own `GetNbAbsence`

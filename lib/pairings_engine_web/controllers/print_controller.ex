@@ -208,11 +208,30 @@ defmodule PairingsEngineWeb.PrintController do
     end
   end
 
+  # `%{player_id => board LABEL}` - what the pairing sheet prints for that
+  # player's game (`PairingDisplay.board_labels/1`), NOT the real
+  # `pairing.board`.
+  #
+  # A place card is a physical object standing on a table, read by the
+  # player, next to a pairing sheet on the wall, read by the arbiter. This
+  # printed the real board while the sheet printed the frozen label, so the
+  # moment a tournament had one fixed table the two documents named
+  # different numbers for the same seat - and the player has no way to know
+  # which one to believe. The sheet wins: it's the document every other
+  # surface in the app (Pairings page, projector, public page, print) also
+  # agrees with, and the label is the number of the table the player is
+  # actually being sent to.
+  #
+  # `board_labels/1` rather than `with_display_boards/1` on purpose - this
+  # builds a lookup keyed by player, so the row ORDER that function imposes
+  # would be thrown away, and the cards are printed in player order anyway.
   defp board_map(pairings) do
-    Enum.reduce(pairings, %{}, fn p, acc ->
+    pairings
+    |> PairingDisplay.board_labels()
+    |> Enum.reduce(%{}, fn %{pairing: p, board: label}, acc ->
       acc
-      |> put_board(p.white_player_id, p.board)
-      |> put_board(p.black_player_id, p.board)
+      |> put_board(p.white_player_id, label)
+      |> put_board(p.black_player_id, label)
     end)
   end
 
@@ -1380,6 +1399,13 @@ defmodule PairingsEngineWeb.PrintController do
   # board renumbering happens nowhere; this purely flags it for the arbiter
   # printing the sheet. See docs/printing.md.
   #
+  # It now repeats the number `round_and_board/2` just printed, and is kept
+  # anyway: since a `fixed_board` may legitimately COLLIDE with an ordinary
+  # board number (see `PairingsEngine.FixedBoardCollisionTest` - the
+  # maintainer's explicit decision), "Board 1" alone cannot tell a player
+  # whether they're at the first board in the hall or at accessible table
+  # 1. The note is what says which kind of number it is.
+  #
   # Reads the pairing's own FROZEN `display_special`/`display_board`
   # columns (see `PairingsEngine.PairingDisplay`'s moduledoc and
   # `Tournaments.freeze_round_display_boards!/1`) instead of live
@@ -1399,9 +1425,20 @@ defmodule PairingsEngineWeb.PrintController do
   # The "Round 3 · Board 7" line a result card and a score sheet both print.
   # One msgid, because the two documents are read side by side at the board
   # and a translator seeing them twice would have to keep them in step.
+  #
+  # The frozen LABEL, not `pairing.board`. These cards are handed to the
+  # players sitting at a board while the pairing list - which prints the
+  # label - is on the wall behind them, so the two have to name the same
+  # table or the arbiter and the player are reading different documents
+  # about the same game. With any fixed table in the tournament they
+  # didn't: the sheet said "1001" (or, after the ordinary boards close the
+  # gap, "3" where the card said "4"), and the real board the card printed
+  # appears on no document anybody in the hall can read.
   defp round_and_board(round_number, pairing) do
-    gettext("Round %{round} · Board %{board}", round: round_number, board: pairing.board) <>
-      fixed_board_note(pairing)
+    gettext("Round %{round} · Board %{board}",
+      round: round_number,
+      board: PairingDisplay.board_label(pairing)
+    ) <> fixed_board_note(pairing)
   end
 
   # A `?round=` that isn't a positive integer is treated as "no round given"

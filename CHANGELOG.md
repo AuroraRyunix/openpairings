@@ -16,6 +16,98 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+### Fixed
+
+- [Fix] **A backup no longer loses an accessible table, relabels a played
+  round, or un-hides a hidden board.** Three separate ways a restore came
+  back wrong.
+
+  SWAR's `HandyTable` is a table *number*, not a flag &mdash; its own 1001+
+  handicap numbering lives in that field &mdash; and the exporter was writing
+  1 or 0 into it. So a wheelchair-accessible board survived a backup and
+  restore as nothing at all, and nobody was told. It now carries the real
+  number. The two cases that genuinely cannot (a legacy row that only ever
+  held the flag, and a number past 32767 that would silently wrap negative)
+  are explicit, and the second logs a warning naming the player.
+
+  Restoring re-froze every round's board labels from each player's fixed
+  table **as it stands at restore time**, so a backup taken after a
+  mid-tournament pin renumbered rounds people had already sat down at. The
+  labels are now carried in the payload. The excluded-field comment argued
+  that recomputing was "more correct than carrying a stale label across" - a
+  frozen label is not stale, it is the record of what the sheets on the
+  tables said.
+
+  And `hidden` was passed to `Pairing.changeset/2`, which does not cast it,
+  so a restore put every hidden board back into public view. Version 0.14.x
+  fixed the export half of that and not this one.
+
+- [Fix] **Vacating a seat paid the player left on the board.** Keizer scored
+  any pairing with no opponent as a pairing-allocated bye worth half the
+  player's own ladder value, and vacating a seat writes exactly that shape.
+  The remaining player was paid the moment an arbiter marked someone absent.
+  A vacancy and a bye differ only by their result code, which is now what
+  tells them apart. `award_bye_for_vacancy/2` still pays, because that is an
+  arbiter deliberately choosing to.
+
+- [Fix] **Byes and absences now sort below the special boards.** A fixed
+  table is a seat somebody is playing at, so it belongs with the games; the
+  two groups where nobody is playing belong together at the bottom.
+
+  Worth recording: 0.14.7's entry claimed to have made exactly this change.
+  The intent was right and the concatenation was backwards, so two comments
+  elsewhere describing the intended order only become true now.
+
+- [Fix] **A place card and the pairing sheet named different tables.** The
+  sheet prints the displayed label; place cards, result cards and score
+  sheets printed the engine's own board number. With any fixed table in the
+  tournament those differ, so the card in a player's hand contradicted the
+  sheet on the wall - and the number it showed appears on no document
+  anybody in the hall can read. The cards now follow the sheet.
+
+- [Fix] **A round's PGN could contain two games tagged `[Board "1"]`.** The
+  tag now carries the engine's board number, and this is the one
+  board-numbered surface that deliberately disagrees with the pairing sheet.
+  A PGN tag is never read by somebody standing at a board; it is how a
+  database tells one game of a round from another, keyed on (Event, Round,
+  Board), which needs a uniqueness the label loses as soon as a fixed table
+  collides with an ordinary one. Same number, two documents, two different
+  right answers.
+
+- [Fix] **A pairing created from the pool printed outside the round's
+  numbering.** It was the one pairing-creating path that never froze its
+  label, so it fell back to the engine's board number and left a visible gap
+  in the printed sequence. Frozen narrowly rather than by re-freezing the
+  round: a full re-freeze recomputes from current fixed tables and would
+  renumber boards under players already seated.
+
+- [Fix] **`fixed_board` accepted 0 and negative numbers**, which reached the
+  label, the PGN and every printed document. A value that collides with an
+  ordinary board is still allowed - that one is deliberate.
+
+- [Fix] **Every rendered bye row fired its own COUNT query**, an N+1 inside
+  four render loops. The query now runs only where its answer can change the
+  result, which for any tournament that is not a SWAR import configured with
+  a cap is never. No number it returns has moved, and there is a test
+  counting queries alongside the ones pinning values.
+
+### Changed
+
+- [Change] **All three private copies of the played-code vocabulary are now
+  checked at build time.** `Ainalrami.Trf.playing_codes/0` and `bye_codes/0`
+  are public precisely so nobody writes a fourth, but neither expresses the
+  question these call sites ask - *what point value does this code stand
+  for* - which is a three-way split running across both engine lists rather
+  than along them. What the engine can police is the domain, and that is the
+  half that broke: `W`/`D`/`L` went missing from one copy and an opponentless
+  unrated result escaped as an exception. A missing code now fails the build
+  naming itself, instead of surfacing mid-import on an arbiter's file.
+
+  Neither remaining copy was mis-scoring anything today; each was complete as
+  of v0.14.0. The exposure was drift, which is now not possible silently.
+
+## [Unreleased]
+
 ### Added
 
 - [Feature] **Entries from the results site.** The public form on OpenResults

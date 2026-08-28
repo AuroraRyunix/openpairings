@@ -1551,7 +1551,23 @@ defmodule PairingsEngine.SwarImport do
       affiliated: map_affiliated(p.affilie),
       absent: map_absent(p.absent, p.absent_rondes),
       forfeit: map_forfeit(p.absent),
-      special_table: p.handy_table != 0,
+      # SWAR's HandyTable is the accessible TABLE NUMBER this player must
+      # sit at (0 = none), not a yes/no flag - `@table_handicap` above
+      # documents SWAR's own 1001+ numbering for exactly this concept - so
+      # it lands in `fixed_board`, which is the only field
+      # `PairingDisplay.special?/1` ever looks at.
+      #
+      # It used to set `special_table: p.handy_table != 0` and nothing else.
+      # That boolean is read in one place (`SwarExport`'s HandyTable field);
+      # the display, the sort order, the printed sheet and the PGN all read
+      # `fixed_board`. So a SWAR-imported handicap player was special
+      # nowhere an arbiter could see - the accommodation survived the import
+      # only as a flag that could be re-exported.
+      #
+      # `special_table` is deliberately NOT set here: `Player.changeset/2`'s
+      # `sync_special_table/1` derives it from the `fixed_board` key this
+      # map now carries, so the two cannot disagree again.
+      fixed_board: fixed_board(p.handy_table),
       absent_rounds: p.absent_rondes,
       extra_points: p.extra_pts / 4.0,
       category: category_name(p.cat_index, categories),
@@ -1576,6 +1592,16 @@ defmodule PairingsEngine.SwarImport do
     10 => "GM"
   }
   defp map_title(code), do: Map.get(@titles, code, "")
+
+  # 0 is SWAR's "this player has no fixed table". A negative value can only
+  # be a corrupt (or i16-wrapped) record, and is read the same way rather
+  # than becoming a table number no hall has -
+  # `Player.changeset/2` validates `fixed_board` as a positive integer and
+  # would reject it, failing the whole import over one junk field.
+  defp fixed_board(handy_table) when is_integer(handy_table) and handy_table > 0,
+    do: handy_table
+
+  defp fixed_board(_), do: nil
 
   defp zero_to_nil(0), do: nil
   defp zero_to_nil(n), do: n

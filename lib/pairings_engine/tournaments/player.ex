@@ -108,10 +108,29 @@ defmodule PairingsEngine.Tournaments.Player do
     |> validate_inclusion(:status, ~w(active withdrawn))
     |> validate_inclusion(:paid, @paid_statuses)
     |> validate_number(:extra_points, greater_than_or_equal_to: 0.0)
+    |> validate_fixed_board()
     |> normalize_absent_rounds()
     |> sync_special_table()
     |> validate_fide_id_range()
     |> unique_fide_id_in_tournament()
+  end
+
+  # A physical table number, so it has to be one that can exist: 0 and
+  # negatives were accepted and travelled all the way to the printed sheet,
+  # the PGN `[Board]` tag and the SWAR HandyTable field. The only guard was
+  # the `min="1"` attribute on the Players page input - client-side, and
+  # bypassed by a crafted form post or by a JSON import (`fixed_board` is in
+  # `TournamentExport`'s `@player_fields`).
+  #
+  # Deliberately ONLY a lower bound. A `fixed_board` that COLLIDES with an
+  # ordinary board number - a hall whose accessible table really is table 1 -
+  # is allowed on purpose; the resulting duplicate label is the documented,
+  # signed-off output (see `PairingsEngine.PairingDisplay` and
+  # `test/pairings_engine/fixed_board_collision_test.exs`, which asserts that
+  # duplicate row by row). Rejecting a colliding value here, or checking it
+  # against the round's real boards, would reverse that decision.
+  defp validate_fixed_board(changeset) do
+    validate_number(changeset, :fixed_board, greater_than: 0)
   end
 
   # ---------- Absent rounds (SWAR "Absent at the rounds x,y,z") ----------
@@ -206,10 +225,18 @@ defmodule PairingsEngine.Tournaments.Player do
 
   # Keeps `special_table` (SWAR round-trip compat: HandyTable != 0) in sync
   # with `fixed_board` whenever the caller actually touches `fixed_board`
-  # (e.g. the player-edit form always submits it, blank or not). Other
-  # writers - notably the SWAR importer, which sets `special_table` directly
-  # from HandyTable without going through `fixed_board` at all - never
-  # include `fixed_board` in their attrs, so this leaves their value alone.
+  # (e.g. the player-edit form always submits it, blank or not). This is the
+  # one thing that makes the pair agree, and both halves are load-bearing:
+  # `PairingDisplay.special?/1` reads only `fixed_board`, `SwarExport` reads
+  # both - so a row with one set and not the other is special in exactly one
+  # of the two places. The SWAR importer used to produce precisely that row
+  # (boolean from HandyTable, no number); it now sets `fixed_board` from
+  # HandyTable and lets this derive the boolean.
+  #
+  # A writer that sets `special_table` WITHOUT a `fixed_board` key still
+  # keeps its own value - the shape a database written by that older
+  # importer still holds, and the one `TournamentImport` re-asserts
+  # explicitly after the changeset so a backup can restore it verbatim.
   defp sync_special_table(changeset) do
     if Map.has_key?(changeset.params || %{}, "fixed_board") do
       put_change(changeset, :special_table, not is_nil(get_field(changeset, :fixed_board)))

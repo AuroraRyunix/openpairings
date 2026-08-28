@@ -204,15 +204,10 @@ defmodule PairingsEngine.PgnExportTest do
     assert board_index == round_index + 1
   end
 
-  test "board: true uses the DISPLAY board number, not the raw one - a fixed-table game renumbers/moves like everywhere else" do
-    # fixed_board must be set BEFORE the round is paired/frozen - see
-    # PairingsEngine.PairingDisplay's moduledoc: this is no longer read
-    # live, so setting it on an already-paired round (as this test used to)
-    # would no longer have any effect. Built standalone rather than via
-    # `fixture/2` so Bob's fixed_board is in place before
-    # Tournaments.freeze_round_display_boards!/1 runs.
-    scope = user_scope_fixture()
-
+  # A round of `boards` games where the player on `pin_board` is pinned to
+  # `fixed_board`, set BEFORE the freeze so it actually takes effect (see
+  # PairingsEngine.PairingDisplay's moduledoc - it is never read live).
+  defp pinned_fixture(scope, boards, pin_board, fixed_board) do
     {:ok, tournament} =
       Tournaments.create_tournament(scope, %{
         "name" => "PGN Export Fixed Board Test",
@@ -220,26 +215,86 @@ defmodule PairingsEngine.PgnExportTest do
         "rounds_count" => "1"
       })
 
-    alice = Repo.insert!(%Player{tournament_id: tournament.id, name: "Alice, A."})
-    bob = Repo.insert!(%Player{tournament_id: tournament.id, name: "Bob, B.", fixed_board: 1001})
-
     r1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
 
-    Repo.insert!(%Pairing{
-      round_id: r1.id,
-      board: 1,
-      white_player_id: alice.id,
-      black_player_id: bob.id,
-      result: "1-0"
-    })
+    for board <- 1..boards do
+      white =
+        Repo.insert!(%Player{tournament_id: tournament.id, name: "White#{board}, W."})
+
+      black =
+        Repo.insert!(%Player{
+          tournament_id: tournament.id,
+          name: "Black#{board}, B.",
+          fixed_board: if(board == pin_board, do: fixed_board)
+        })
+
+      Repo.insert!(%Pairing{
+        round_id: r1.id,
+        board: board,
+        white_player_id: white.id,
+        black_player_id: black.id,
+        result: "1-0"
+      })
+    end
 
     :ok = Tournaments.freeze_round_display_boards!(r1.id)
 
-    text = PgnExport.export(tournament, 1, board: true)
-    assert text =~ ~s([Board "1001"])
-    refute text =~ ~s([Board "1"])
+    tournament
   end
 
+  defp board_tags(pgn), do: Regex.scan(~r/\[Board "([^"]+)"\]/, pgn) |> Enum.map(&Enum.at(&1, 1))
+
+  test "board: true uses the REAL board number, not the display label - a fixed-table game keeps its engine board" do
+    # The [Board] tag identifies the game within its round for a reader or
+    # a database; it is not the arbiter's pairing sheet. The label moves
+    # (and, on a colliding pin, duplicates), the real board doesn't. See
+    # PgnExport.board_tag/1 for the full reasoning.
+    tournament = pinned_fixture(user_scope_fixture(), 1, 1, 1001)
+
+    text = PgnExport.export(tournament, 1, board: true)
+
+    assert text =~ ~s([Board "1"])
+    refute text =~ ~s([Board "1001"])
+  end
+
+  test "a fixed_board colliding with an ordinary board can't produce two [Board] tags in one round" do
+    # `fixed_board` is allowed to collide with a real board number - the
+    # maintainer's explicit decision (PairingsEngine.FixedBoardCollisionTest),
+    # and harmless on a printed sheet where a human also reads the names.
+    # In a PGN it is not harmless: fed the display label, real boards 1 and
+    # 2 both came out tagged [Board "1"], leaving a reader keyed on
+    # (Event, Round, Board) unable to tell the two games apart.
+    tournament = pinned_fixture(user_scope_fixture(), 2, 2, 1)
+
+    tags = tournament |> PgnExport.export(1, board: true) |> board_tags()
+
+    assert tags == ["1", "2"]
+    assert tags == Enum.uniq(tags), "two games in one round shared a [Board] tag"
+  end
+
+  test "every [Board] tag in a round is unique even with several fixed tables in play" do
+    # Two pins that collide with each other AND with ordinary boards: real
+    # boards 2 and 3 both pinned to 1, on a four-board round. By label that
+    # is three rows numbered "1"; by real board it is 1, 2, 3, 4.
+    scope = user_scope_fixture()
+    tournament = pinned_fixture(scope, 4, 2, 1)
+
+    round = Repo.get_by!(Round, tournament_id: tournament.id, number: 1)
+    pairing = Repo.get_by!(Pairing, round_id: round.id, board: 3)
+
+    Repo.get!(Player, pairing.black_player_id)
+    |> Ecto.Changeset.change(fixed_board: 1)
+    |> Repo.update!()
+
+    :ok = Tournaments.freeze_round_display_boards!(round.id)
+
+    tags = tournament |> PgnExport.export(1, board: true) |> board_tags()
+
+    assert Enum.sort(tags) == ["1", "2", "3", "4"]
+  end
+
+  # Now trivially true (the export never consults PairingDisplay at all),
+  # kept so that reintroducing a live `fixed_board` read here fails loudly.
   test "a fixed_board set AFTER the round is already paired has no effect on the export" do
     scope = user_scope_fixture()
     tournament = fixture(scope)

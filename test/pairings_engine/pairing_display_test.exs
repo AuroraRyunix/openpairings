@@ -225,7 +225,7 @@ defmodule PairingsEngine.PairingDisplayTest do
              ]
     end
 
-    test "normal boards first, then byes, then vacant seats, then special - each keeping its own frozen label" do
+    test "normal boards first, then special, then byes, then vacant seats - each keeping its own frozen label" do
       p_normal = frozen(101, 1, player(id: 1), player(id: 2), "", "1")
       p_bye = frozen(102, 3, player(id: 3), nil, "bye", "3")
       p_vacant = frozen(103, 2, player(id: 4), nil, "", "2")
@@ -238,10 +238,81 @@ defmodule PairingsEngine.PairingDisplayTest do
       # frozen one, untouched.
       assert [
                %{pairing: ^p_normal, board: "1"},
+               %{pairing: ^p_special, board: "1001"},
                %{pairing: ^p_bye, board: "3"},
-               %{pairing: ^p_vacant, board: "2"},
-               %{pairing: ^p_special, board: "1001"}
+               %{pairing: ^p_vacant, board: "2"}
              ] = result
+    end
+
+    # The reported defect: a bye printed ABOVE the accessible table, so a
+    # game somebody was sitting at appeared below a list of people who
+    # weren't in the hall. Deliberately a two-row round, so the only thing
+    # this can be testing is which of the two groups comes first.
+    test "a special board sorts ABOVE a bye - it is a game being played, not an absence" do
+      p_special = frozen(101, 2, player(id: 1), player(id: 2), "", "1001", true)
+      p_bye = frozen(102, 1, player(id: 3), nil, "bye", "1")
+
+      assert [%{pairing: ^p_special}, %{pairing: ^p_bye}] =
+               PairingDisplay.with_display_boards([p_bye, p_special])
+    end
+
+    test "a special board sorts ABOVE a vacated seat too" do
+      p_special = frozen(101, 2, player(id: 1), player(id: 2), "", "1001", true)
+      p_vacant = frozen(102, 1, player(id: 3), nil, "", "1")
+
+      assert [%{pairing: ^p_special}, %{pairing: ^p_vacant}] =
+               PairingDisplay.with_display_boards([p_vacant, p_special])
+    end
+
+    test "byes and vacant seats stay in that order relative to each other, both below every game" do
+      p_normal = frozen(101, 4, player(id: 1), player(id: 2), "", "2")
+      p_special = frozen(102, 3, player(id: 3), player(id: 4), "", "1001", true)
+      p_bye = frozen(103, 2, player(id: 5), nil, "bye", "1")
+      p_vacant = frozen(104, 1, player(id: 6), nil, "", "3")
+
+      # Real boards are deliberately in the reverse of the expected order,
+      # so a function that just sorted by board couldn't pass this.
+      assert [
+               %{pairing: ^p_normal},
+               %{pairing: ^p_special},
+               %{pairing: ^p_bye},
+               %{pairing: ^p_vacant}
+             ] = PairingDisplay.with_display_boards([p_vacant, p_bye, p_special, p_normal])
+    end
+
+    # The moduledoc's "the fixed-table label always wins" claim, which the
+    # new order makes load-bearing: a fixed-table player's own bye is frozen
+    # `display_special`, so it belongs in the special group ABOVE the
+    # ordinary byes, not down among them.
+    test "a bye on a special board sorts with the special boards, not with the byes" do
+      p_special_bye = frozen(101, 2, player(id: 1), nil, "bye", "1001", true)
+      p_bye = frozen(102, 1, player(id: 2), nil, "bye", "1")
+
+      assert [%{pairing: ^p_special_bye, board: "1001"}, %{pairing: ^p_bye, board: "1"}] =
+               PairingDisplay.with_display_boards([p_bye, p_special_bye])
+    end
+
+    # Reordering rows must never touch the frozen numbering - the whole
+    # reason ORDER is allowed to stay live while the LABEL is frozen.
+    test "moving the groups around leaves compute_labels/1's answer untouched" do
+      alice = player(id: 1, name: "Alice", fixed_board: 1001)
+      bob = player(id: 2, name: "Bob")
+      carol = player(id: 3, name: "Carol")
+      dave = player(id: 4, name: "Dave")
+      erin = player(id: 5, name: "Erin")
+
+      p_special = pairing(101, 1, alice, bob)
+      p_normal = pairing(102, 2, carol, dave)
+      p_bye = pairing(103, 3, erin, nil, "bye")
+
+      # Byes are numbered in the same pass as ordinary boards (0.14.8), and
+      # the special row's label comes from fixed_board - none of which the
+      # row order below can reach.
+      assert PairingDisplay.compute_labels([p_special, p_normal, p_bye]) == %{
+               101 => %{display_board: "1001", display_special: true},
+               102 => %{display_board: "1", display_special: false},
+               103 => %{display_board: "2", display_special: false}
+             }
     end
 
     test "multiple special boards sort by real board, keeping their own frozen labels" do
@@ -272,6 +343,29 @@ defmodule PairingsEngine.PairingDisplayTest do
                %{pairing: p_carol, board: "1"},
                %{pairing: p_alice, board: "1001"}
              ]
+    end
+  end
+
+  describe "board_label/1 - the singular of board_labels/1" do
+    test "reports the same label board_labels/1 would, for a document rendering one pairing" do
+      p_special = frozen(101, 1, player(id: 1), player(id: 2), "", "1001", true)
+      p_normal = frozen(102, 2, player(id: 3), player(id: 4), "", "1")
+
+      for pairing <- [p_special, p_normal] do
+        assert PairingDisplay.board_label(pairing) ==
+                 [pairing] |> PairingDisplay.board_labels() |> hd() |> Map.fetch!(:board)
+      end
+
+      assert PairingDisplay.board_label(p_special) == "1001"
+      assert PairingDisplay.board_label(p_normal) == "1"
+    end
+
+    test "falls back to the real board when display_board was never frozen" do
+      # Same defensive fallback board_labels/1 has - never a blank label,
+      # and never a live re-derivation of specialness.
+      unfrozen = %Pairing{id: 101, board: 7, white_player: nil, black_player: nil, result: ""}
+
+      assert PairingDisplay.board_label(unfrozen) == "7"
     end
   end
 

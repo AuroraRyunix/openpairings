@@ -44,10 +44,20 @@ defmodule PairingsEngine.PairingDisplay do
 
   `with_display_boards/1`'s ROW ORDER is a separate, deliberately still
   LIVE concern from that frozen numbering: normal pairings print first,
-  then byes, then vacant seats, then special boards - reflecting whatever
-  currently has a result/vacancy/bye, since reordering rows doesn't
-  renumber anyone. A bye sitting at real board 3 still shows "3" even
-  after it's moved to the bottom of the page.
+  then special boards, then byes, then vacant seats - reflecting whatever
+  currently has a vacancy/bye, since reordering rows doesn't renumber
+  anyone. A bye sitting at real board 3 still shows "3" even after it's
+  moved to the bottom of the page.
+
+  Why special boards sort UP among the games rather than below the byes
+  (from 0.14.7 until this changed, they printed dead last, under
+  everything): a special board is a board somebody is playing on - an
+  accessible table is a seat, not an absence - so it belongs with the
+  other games. Byes and vacated seats are the two categories where nobody
+  is playing, and they belong together at the bottom. The old order put a
+  live game underneath a list of people who aren't in the hall, which is
+  also the opposite of what 0.14.7's own changelog entry claimed it did
+  ("byes and vacant/absent seats below the special boards").
   """
 
   @doc """
@@ -81,22 +91,25 @@ defmodule PairingsEngine.PairingDisplay do
 
   @doc """
   Returns `pairings` as `%{pairing: pairing, board: display_board}` maps,
-  in final display order: normal boards first (ascending by real board),
-  then byes, then vacant seats (each ascending by real board), then
-  special boards (ascending by real board). `display_board` is read from
-  each pairing's frozen `display_board` column (see `compute_labels/1`) -
-  not recomputed here.
+  in final display order: normal boards first, then special (fixed-table)
+  boards, then byes, then vacant seats - each group ascending by real
+  board. `display_board` is read from each pairing's frozen
+  `display_board` column (see `compute_labels/1`) - not recomputed here,
+  so no reordering this function does can renumber anybody.
   """
   def with_display_boards(pairings) do
     {special, non_special} = Enum.split_with(pairings, & &1.display_special)
     {byes, rest} = Enum.split_with(non_special, &bye?/1)
     {vacant, normal} = Enum.split_with(rest, &vacant?/1)
 
+    # Games first (ordinary boards, then the fixed tables), then the two
+    # not-playing groups. See the moduledoc for why special sits with the
+    # games instead of below the byes.
     ordered =
       Enum.sort_by(normal, & &1.board) ++
+        Enum.sort_by(special, & &1.board) ++
         Enum.sort_by(byes, & &1.board) ++
-        Enum.sort_by(vacant, & &1.board) ++
-        Enum.sort_by(special, & &1.board)
+        Enum.sort_by(vacant, & &1.board)
 
     Enum.map(ordered, &row/1)
   end
@@ -111,8 +124,17 @@ defmodule PairingsEngine.PairingDisplay do
   """
   def board_labels(pairings), do: Enum.map(pairings, &row/1)
 
-  defp row(pairing),
-    do: %{pairing: pairing, board: pairing.display_board || fallback_label(pairing)}
+  @doc """
+  The frozen label for ONE pairing - the singular of `board_labels/1`, for
+  a document that renders a pairing at a time (a result card, a score
+  sheet) rather than building a table of rows. Same value `board_labels/1`
+  would report for it, fallback included; kept as the single definition of
+  "what number goes next to this game" so a per-pairing document and a
+  per-round table can never drift apart.
+  """
+  def board_label(pairing), do: pairing.display_board || fallback_label(pairing)
+
+  defp row(pairing), do: %{pairing: pairing, board: board_label(pairing)}
 
   # Defensive only: every pairing-creating and import/restore call site
   # freezes display_board via Tournaments.freeze_round_display_boards!/1,

@@ -29,7 +29,11 @@ defmodule PairingsEngine.Keizer do
      played "0-0" → 0. An excused absence (the `absent` flag, or the round
      listed in `absent_rounds`) → a third of the player's own value. An
      unpaired (odd-count) bye → half the player's own value. Rounds before
-     a player's `start_round` → 0.
+     a player's `start_round` → 0. A board whose other seat was emptied by
+     `PairingsEngine.Tournaments.vacate_seat/3` → 0 for the player still
+     sitting there: no game happened, and until the arbiter resolves the
+     vacancy (`award_bye_for_vacancy/2` turns it into a real bye,
+     `fill_seat/3` into a real game) there is nothing to pay them for.
 
   4. **Retroactive recalculation.** Ranking and scoring are mutually
      dependent, so this is a fixed point: start from the initial rating
@@ -313,6 +317,15 @@ defmodule PairingsEngine.Keizer do
         :not_joined ->
           acc
 
+        # An empty seat is not a played game, not a loss and not a bye - see
+        # `score_game/3`. It increments nothing, exactly as
+        # `Standings.pairing_records/4` produces no record at all for the
+        # same board. Deliberately NOT folded into `:zero`: that bucket
+        # counts a played loss, which is the one thing a board nobody sat at
+        # is not.
+        :vacated_seat ->
+          acc
+
         # Deliberately a raise rather than a silent `acc`. This case and
         # `class_points/4` are two consumers of one vocabulary that
         # `classify_result/2` owns, and they have already drifted once. A
@@ -509,6 +522,8 @@ defmodule PairingsEngine.Keizer do
   (VCL.13's asymmetric "1/2-0"/"0-1/2" - scored like `:draw`/`:loss`
   respectively, since the ½ side earned the same value as an ordinary draw),
   `:zero` (played "0-0" or otherwise unaccounted), `:unpaired_bye`,
+  `:vacated_seat` (the board is still there but the opponent's seat was
+  emptied - worth nothing until the arbiter resolves the vacancy),
   `:excused`, `:not_joined`.
   """
   def score_all(players, games, byes, values, rounds_count) do
@@ -558,17 +573,57 @@ defmodule PairingsEngine.Keizer do
     white? = game.white_id == player.id
     opponent_id = if white?, do: game.black_id, else: game.white_id
 
-    if game.result == "bye" or opponent_id == nil do
-      %{
-        round: game.round,
-        class: :unpaired_bye,
-        points: own(values, player) / 2,
-        opponent_id: nil
-      }
-    else
-      class = classify_result(game.result, white?)
-      points = class_points(class, player, opponent_id, values)
-      %{round: game.round, class: class, points: points, opponent_id: opponent_id}
+    cond do
+      # A pairing-allocated bye. `result == "bye"` is what makes it one - see
+      # `create_round/4` above, and `PairingsEngine.Pairing`'s own bye rows,
+      # which are written the same way.
+      game.result == "bye" ->
+        %{
+          round: game.round,
+          class: :unpaired_bye,
+          points: own(values, player) / 2,
+          opponent_id: nil
+        }
+
+      # An empty seat, not a bye. `Tournaments.vacate_seat/3` leaves exactly
+      # this shape behind - `%{seat => nil, result: ""}` - so for a long time
+      # this branch was the one above, and marking a player absent silently
+      # paid HALF A LADDER RUNG to the opponent still sitting at the board.
+      #
+      # The two shapes are told apart by `result`, which is the only thing
+      # that distinguishes them: a bye carries `"bye"`, a vacancy carries
+      # `""`. A flag on the pairing was considered and rejected in
+      # `Tournaments`' own vacancy note - the whole design there is that a
+      # vacancy is a shape existing readers already cope with.
+      #
+      # Nothing is the right answer, not zero-as-a-loss: no game has
+      # happened and the arbiter has not yet said what should happen
+      # instead. That is what the Swiss path does too -
+      # `Standings.pairing_records/4` returns `[]` for `result: ""` - and
+      # what `Tournaments.award_bye_for_vacancy/2` exists to override, by
+      # rewriting the row into a real `"bye"` that lands in the branch
+      # above. Paying automatically made that deliberate arbiter gesture a
+      # no-op.
+      is_nil(opponent_id) and game.result == "" ->
+        %{round: game.round, class: :vacated_seat, points: 0.0, opponent_id: nil}
+
+      # A played-game code with nobody on the other side - not a shape this
+      # app writes, but SWAR-imported rounds carry it (see
+      # `PairingsEngine.Pairing.bye_safe_result/2`, which normalises it for
+      # TRF export). Left in the bye bucket deliberately: it is a scored
+      # outcome with no opponent to value, which is what an unpaired bye is.
+      is_nil(opponent_id) ->
+        %{
+          round: game.round,
+          class: :unpaired_bye,
+          points: own(values, player) / 2,
+          opponent_id: nil
+        }
+
+      true ->
+        class = classify_result(game.result, white?)
+        points = class_points(class, player, opponent_id, values)
+        %{round: game.round, class: class, points: points, opponent_id: opponent_id}
     end
   end
 

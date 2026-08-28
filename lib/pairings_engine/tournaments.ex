@@ -1244,6 +1244,91 @@ defmodule PairingsEngine.Tournaments do
     :ok
   end
 
+  @doc """
+  Freezes the label for ONE pairing just inserted into an
+  already-frozen round, leaving every other row in that round untouched.
+
+  For `pair_from_pool/4`, the one path that adds a board to a round that
+  was paired earlier. It deliberately does NOT call
+  `freeze_round_display_boards!/1`: that recomputes every label in the
+  round from each player's `fixed_board` as it stands right now, and this
+  round has already been printed and sat down at. Re-freezing it would
+  renumber boards under people mid-round - the exact retroactive
+  renumbering `PairingsEngine.PairingDisplay`'s moduledoc exists to
+  forbid, and a mid-round pin on the Players page is enough to trigger
+  it. Leaving the row unfrozen (what happened before) is not an option
+  either: `PairingDisplay.fallback_label/1` then prints its REAL board
+  number, which is a different numbering space from the round's frozen
+  labels, so the sheet gains a visible gap - or, if the arbiter types a
+  free board number from low in the range, a duplicate nobody signed off
+  on.
+
+  So the new row gets one label, computed to fit what the round already
+  shows: a pinned player's own fixed-table label if either side has one
+  (from `compute_labels/1`, still the only reader of `fixed_board`), and
+  otherwise one past the highest ordinary label already frozen in the
+  round - continuing the printed sequence rather than recomputing it.
+  """
+  @spec freeze_new_pairing_display_board!(Pairing.t()) :: :ok
+  def freeze_new_pairing_display_board!(%Pairing{} = pairing) do
+    # Handed just this one pairing, `compute_labels/1` answers the two
+    # questions that ARE decidable in isolation - is this a special board,
+    # and what does a special board here get called. The ordinary NUMBER it
+    # returns for a non-special row is meaningless from one pairing (it is
+    # always "1", the row being alone in the list), and is replaced below.
+    %{display_board: label, display_special: special?} =
+      [pairing]
+      |> Repo.preload([:white_player, :black_player])
+      |> PairingDisplay.compute_labels()
+      |> Map.fetch!(pairing.id)
+
+    label = if special?, do: label, else: next_ordinary_display_board(pairing)
+
+    Repo.update_all(
+      from(p in Pairing, where: p.id == ^pairing.id),
+      set: [display_board: label, display_special: special?]
+    )
+
+    :ok
+  end
+
+  # One past the highest ordinary label frozen in this pairing's round.
+  # Reads the frozen `display_board` column, never the real `board` numbers:
+  # the two are different numbering spaces the moment the round holds a
+  # fixed-table board, and it is the printed sequence this has to continue.
+  #
+  # Special labels are skipped - "1001", or the slash-joined "5/6" of a board
+  # where two fixed-table players meet, do not order like ordinary numbers -
+  # and so is any label that doesn't parse as a plain integer. A round with
+  # no ordinary frozen label at all (one that predates the freeze entirely,
+  # every `display_board` still nil) falls back to this pairing's own real
+  # board number, which is exactly what `PairingDisplay` prints for every
+  # other row in such a round.
+  defp next_ordinary_display_board(%Pairing{} = pairing) do
+    highest =
+      Repo.all(
+        from p in Pairing,
+          where:
+            p.round_id == ^pairing.round_id and p.id != ^pairing.id and
+              p.display_special == false and not is_nil(p.display_board),
+          select: p.display_board
+      )
+      |> Enum.map(&ordinary_label_number/1)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.max(fn -> nil end)
+
+    if highest, do: Integer.to_string(highest + 1), else: Integer.to_string(pairing.board)
+  end
+
+  defp ordinary_label_number(label) when is_binary(label) do
+    case Integer.parse(label) do
+      {number, ""} -> number
+      _ -> nil
+    end
+  end
+
+  defp ordinary_label_number(_), do: nil
+
   # Runs `fun` (for its broadcast side effect) when the write succeeded,
   # then passes the `{:ok, _} | {:error, _}` result through unchanged. Never
   # broadcasts on a failed changeset.
@@ -2615,6 +2700,14 @@ defmodule PairingsEngine.Tournaments do
             result: ""
           })
           |> Repo.insert()
+
+        # Every other pairing-creating path freezes what it inserts; this
+        # one did not, so its row fell through to
+        # `PairingDisplay.fallback_label/1` and printed its REAL board
+        # number, outside the round's frozen sequence. Narrow on purpose -
+        # see `freeze_new_pairing_display_board!/1` for why re-freezing the
+        # whole round here would be the wrong fix.
+        :ok = freeze_new_pairing_display_board!(created)
 
         delete_bye_row(round, white_id)
         delete_bye_row(round, black_id)

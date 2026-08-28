@@ -146,12 +146,7 @@ defmodule PairingsEngine.TournamentExport do
     :round_id,
     # A foreign key into the unexported `matches` table - see
     # `pairing_map/1`.
-    :match_id,
-    # Recomputed on import by `freeze_round_display_boards!/1` from the
-    # players' own round-tripped `fixed_board` values, which is more correct
-    # than carrying a stale label across. See `PairingsEngine.PairingDisplay`.
-    :display_board,
-    :display_special
+    :match_id
   ]
 
   @doc false
@@ -219,6 +214,19 @@ defmodule PairingsEngine.TournamentExport do
       # the public page. It was not on this list and a restore silently
       # un-hid every hidden board - a disclosure, not just a lost setting.
       "hidden" => p.hidden,
+      # The frozen board label and its special/ordinary classification.
+      # These were excluded on the reasoning that recomputing them on import
+      # from the round-tripped `fixed_board` values is "more correct than
+      # carrying a stale label across". It isn't: a frozen label is not
+      # stale, it is the RECORD of what the sheets on the tables said, and
+      # the recompute reads each player's fixed table as it stands at
+      # RESTORE time. Restoring a backup taken after a mid-tournament pin
+      # therefore renumbered rounds people had already sat down at - the one
+      # thing `PairingsEngine.PairingDisplay`'s moduledoc says must never
+      # happen. `TournamentImport` uses these when they are here and falls
+      # back to the recompute only for a payload written before they were.
+      "display_board" => p.display_board,
+      "display_special" => p.display_special,
       "white_player_id" => p.white_player_id,
       "black_player_id" => p.black_player_id
     }

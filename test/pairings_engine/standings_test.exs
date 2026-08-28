@@ -1409,4 +1409,175 @@ defmodule PairingsEngine.StandingsTest do
       # above is where the isolation actually holds.
     end
   end
+
+  ## ---------- bye_points_for_row/2: the same answer, without the N+1 ----------
+
+  describe "bye_points_for_row/2" do
+    # This is called once per rendered bye row inside four render loops (the
+    # pool panel, the live round view, the public pairings page and the
+    # print controller), and it used to fire a COUNT query every single
+    # time - to answer a question only SWAR's `abs_nbfois` cap ever asks,
+    # and that cap is unset on every tournament that is not a SWAR import
+    # configured that way.
+    #
+    # The values below are pinned FIRST and deliberately cover every branch
+    # of `absent_points/3`, because the whole point of skipping the query is
+    # that it changes no number an arbiter sees. Each expectation is the
+    # answer the version that always queried gave.
+    defp absence_fixture(attrs) do
+      tournament =
+        Repo.insert!(
+          struct(
+            %Tournament{name: "Absence Scoring", type: "swiss", rounds_count: 5},
+            attrs
+          )
+        )
+
+      player =
+        Repo.insert!(%Player{tournament_id: tournament.id, name: "Absentee", fide_rating: 1500})
+
+      {tournament, player}
+    end
+
+    defp file_absences(tournament, player, rounds) do
+      Repo.insert_all(
+        "byes",
+        Enum.map(rounds, fn round ->
+          %{
+            tournament_id: tournament.id,
+            player_id: player.id,
+            round: round,
+            type: "absent"
+          }
+        end)
+      )
+    end
+
+    defp row(player, round, type \\ "absent"),
+      do: %{player_id: player.id, round: round, type: type}
+
+    test "with no abs_value the absence is a plain loss, cap fields or not" do
+      {t, p} = absence_fixture(%{abs_value: nil, abs_jusque: 2, abs_nbfois: 1})
+      file_absences(t, p, [1, 2, 3])
+
+      assert Standings.bye_points_for_row(row(p, 3), t) == t.points_loss
+    end
+
+    test "with abs_value and no caps every absence pays abs_value" do
+      {t, p} = absence_fixture(%{abs_value: 0.5, abs_jusque: nil, abs_nbfois: nil})
+      file_absences(t, p, [1, 2, 3, 4])
+
+      for round <- 1..4 do
+        assert Standings.bye_points_for_row(row(p, round), t) == 0.5
+      end
+    end
+
+    test "the abs_jusque round cap is inclusive, and past it pays points_loss" do
+      {t, p} = absence_fixture(%{abs_value: 0.5, abs_jusque: 3, abs_nbfois: nil})
+      file_absences(t, p, [3, 4])
+
+      assert Standings.bye_points_for_row(row(p, 3), t) == 0.5
+      assert Standings.bye_points_for_row(row(p, 4), t) == t.points_loss
+    end
+
+    test "the abs_nbfois occurrence cap counts absences through the row's own round" do
+      {t, p} = absence_fixture(%{abs_value: 0.5, abs_jusque: nil, abs_nbfois: 2})
+      file_absences(t, p, [1, 2, 3])
+
+      # First and second absence are inside the cap; the third is not. The
+      # count is cumulative and inclusive of the round being scored, which
+      # is the branch that needs the database at all.
+      assert Standings.bye_points_for_row(row(p, 1), t) == 0.5
+      assert Standings.bye_points_for_row(row(p, 2), t) == 0.5
+      assert Standings.bye_points_for_row(row(p, 3), t) == t.points_loss
+    end
+
+    test "the occurrence cap counts only this player's own absences" do
+      {t, p} = absence_fixture(%{abs_value: 0.5, abs_jusque: nil, abs_nbfois: 2})
+
+      other =
+        Repo.insert!(%Player{tournament_id: t.id, name: "Someone Else", fide_rating: 1400})
+
+      file_absences(t, p, [3])
+      file_absences(t, other, [1, 2])
+
+      assert Standings.bye_points_for_row(row(p, 3), t) == 0.5
+    end
+
+    test "a requested-half or requested-zero row never consults the count at all" do
+      {t, p} = absence_fixture(%{abs_value: 0.5, abs_jusque: 1, abs_nbfois: 1})
+      file_absences(t, p, [1, 2, 3])
+
+      assert Standings.bye_points_for_row(row(p, 3, "requested-half"), t) == t.points_draw
+      assert Standings.bye_points_for_row(row(p, 3, "requested-zero"), t) == t.points_loss
+    end
+
+    test "an ordinary tournament renders a whole round of absences without a single count query" do
+      {t, p} = absence_fixture(%{abs_value: nil, abs_jusque: nil, abs_nbfois: nil})
+      rows = for round <- 1..8, do: row(p, round)
+      file_absences(t, p, 1..8)
+
+      {results, queries} =
+        count_repo_queries(fn ->
+          Enum.map(rows, &Standings.bye_points_for_row(&1, t))
+        end)
+
+      assert results == List.duplicate(t.points_loss, 8)
+
+      assert queries == [],
+             "rendering #{length(rows)} bye rows ran #{length(queries)} queries: " <>
+               inspect(queries)
+    end
+
+    test "the count is still fetched where abs_nbfois can actually consult it" do
+      # The control: the query is skipped because the answer cannot matter,
+      # not because it stopped being asked. With the cap live it is asked,
+      # and the numbers above prove it is asked correctly.
+      {t, p} = absence_fixture(%{abs_value: 0.5, abs_jusque: nil, abs_nbfois: 2})
+      file_absences(t, p, [1, 2, 3])
+
+      {_results, queries} =
+        count_repo_queries(fn ->
+          Enum.map(1..3, &Standings.bye_points_for_row(row(p, &1), t))
+        end)
+
+      assert length(queries) == 3
+    end
+
+    # Ecto emits `[:pairings_engine, :repo, :query]` for every query it runs.
+    # The handler runs in whichever process ran the query, so filtering on
+    # the test's own pid keeps this file's `async: true` from picking up
+    # another test's traffic.
+    defp count_repo_queries(fun) do
+      test_pid = self()
+      ref = make_ref()
+      handler_id = {__MODULE__, ref}
+
+      :telemetry.attach(
+        handler_id,
+        [:pairings_engine, :repo, :query],
+        fn _event, _measurements, metadata, _config ->
+          if self() == test_pid, do: send(test_pid, {ref, metadata.query})
+        end,
+        nil
+      )
+
+      result =
+        try do
+          fun.()
+        after
+          :telemetry.detach(handler_id)
+        end
+
+      {result, drain_queries(ref, [])}
+    end
+
+    defp drain_queries(ref, acc) do
+      receive do
+        {^ref, query} -> drain_queries(ref, [query | acc])
+      after
+        0 -> Enum.reverse(acc)
+      end
+    end
+  end
 end

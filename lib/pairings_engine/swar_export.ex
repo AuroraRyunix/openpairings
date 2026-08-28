@@ -79,6 +79,7 @@ defmodule PairingsEngine.SwarExport do
   """
 
   import Ecto.Query
+  require Logger
 
   alias PairingsEngine.{Repo, Standings, Tournaments, SwarImport}
   alias PairingsEngine.Tournaments.Tournament
@@ -509,10 +510,55 @@ defmodule PairingsEngine.SwarExport do
       w_i32(round((p.extra_points || 0.0) * 4)) <>
       w_i32(0) <>
       w_i16(length(rounds)) <>
-      w_i16(if p.special_table, do: 1, else: 0) <>
+      w_i16(reverse_handy_table(p)) <>
       w_str("[RONDE]") <>
       w_n(rounds, &reverse_round/1)
   end
+
+  # The largest table number a signed 16-bit HandyTable field can hold.
+  # `w_i16/1` would WRAP anything past it rather than fail - 40000 comes out
+  # as -25536 - handing SWAR a negative table and re-importing as no table at
+  # all, which is the silent loss this whole field just stopped having.
+  @max_handy_table 32_767
+
+  # HandyTable is a table NUMBER, not a flag: `SwarImport`'s
+  # `@table_handicap` documents SWAR's own 1001+ numbering for this very
+  # field, and the importer reads it straight back into `fixed_board`. This
+  # used to write `if p.special_table, do: 1, else: 0`, which degraded an
+  # accessible table to a boolean - a backup/restore, an ordinary arbiter
+  # workflow, quietly turned "table 7, the accessible one" into "special,
+  # table unknown", and the importer then dropped even that.
+  #
+  # Two rows can still not carry a number, and both are explicit rather than
+  # silent:
+  #
+  #   * A legacy `special_table: true` with no `fixed_board` - exactly what
+  #     the old SWAR importer wrote, and still sitting in databases it
+  #     touched. The flag is genuinely all that row has ever held, so the
+  #     flag is what travels. No warning: nothing is being lost here that
+  #     the row ever knew.
+  #   * A `fixed_board` past `@max_handy_table`. The format cannot hold it,
+  #     so the number IS lost - it degrades to the old flag (the marking
+  #     survives; the table does not) and says so in the log, rather than
+  #     wrapping into a negative table nobody would ever notice. Nothing is
+  #     rejected over it: refusing to export the whole tournament because
+  #     one table is numbered 40000 helps no arbiter.
+  defp reverse_handy_table(%{fixed_board: board} = p) when is_integer(board) and board > 0 do
+    if board <= @max_handy_table do
+      board
+    else
+      Logger.warning(
+        "SWAR export: #{p.name}'s fixed table #{board} is past SWAR's HandyTable range " <>
+          "(max #{@max_handy_table}); exporting the accessible-table marking without the " <>
+          "number, which will re-import as a fixed table of 1."
+      )
+
+      1
+    end
+  end
+
+  defp reverse_handy_table(%{special_table: true}), do: 1
+  defp reverse_handy_table(_p), do: 0
 
   defp reverse_cat_index("", _categories), do: 0
   defp reverse_cat_index(nil, _categories), do: 0

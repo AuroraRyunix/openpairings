@@ -388,6 +388,132 @@ defmodule PairingsEngine.TrfImportTest do
            )
   end
 
+  ## ---------- the engine's whole result vocabulary reaches single_sided/2 ----------
+
+  # `single_sided/2` decides what an unpaired round entry BECOMES, and it
+  # does so from a private three-way list of result codes - the second
+  # private copy of the played-code vocabulary this module has carried.
+  # The first one, `@playing_codes`, drifted: it was written as `~w(1 = 0 + -)`
+  # and never learned TRF16's unrated twins `W`/`D`/`L`, so an unrated game
+  # stopped being a game at all.
+  #
+  # This drives EVERY code `Ainalrami.Trf` accepts through a real import and
+  # asserts what each one becomes. It is deliberately built from
+  # `Trf.playing_codes/0 ++ Trf.bye_codes/0` rather than from a list written
+  # out here: a hand-written list would need updating by hand the day the
+  # engine grows a code, which is the exact failure being guarded against.
+  # A code added upstream and not bucketed here fails this test (and the
+  # module's own compile-time check) instead of raising FunctionClauseError
+  # partway through an arbiter's file.
+  #
+  # The three expected buckets are stated as POINT VALUES because that is
+  # what the buckets mean - a full point, a half, or nothing - and the
+  # declared points column below is checked against the recomputed total by
+  # the importer itself, so `warnings == []` is a second, independent
+  # assertion that each code landed on a row worth what the code says.
+  @full_point_codes ~w(U F 1 + W)
+  @half_point_codes ~w(H = D)
+  @zero_point_codes ~w(Z 0 - L)
+
+  test "every result code the engine accepts is bucketed by the value it stands for" do
+    codes = @full_point_codes ++ @half_point_codes ++ @zero_point_codes
+
+    assert Enum.sort(codes) == Enum.sort(Trf.playing_codes() ++ Trf.bye_codes()),
+           "this test no longer covers Ainalrami.Trf's vocabulary - " <>
+             "engine: #{inspect(Trf.playing_codes() ++ Trf.bye_codes())}, here: #{inspect(codes)}"
+
+    # One player per code, each unpaired in round 1. A bye code is unpaired
+    # by carrying no opponent; a PLAYING code cannot be serialized that way
+    # (`Trf.validate_game!/5` refuses "0000 - 1" as an illegal row), so it
+    # points at rank 99, which no player has - the dangling reference
+    # `single_sided/2`'s doc calls out, and the shape a TRF06-vintage file
+    # uses for a bye.
+    players =
+      codes
+      |> Enum.with_index(1)
+      |> Enum.map(fn {code, rank} ->
+        game =
+          if code in Trf.bye_codes(),
+            do: %{opponent_rank: nil, colour: nil, result: code},
+            else: %{opponent_rank: 99, colour: "w", result: code}
+
+        %{
+          rank: rank,
+          name: "Code #{code}",
+          points: expected_points(code),
+          games: [game]
+        }
+      end)
+
+    trf =
+      Trf.serialize(%{tournament: %{name: "Whole Vocabulary", type: "swiss"}, players: players})
+
+    assert {:ok, tournament, warnings} = TrfImport.import_text(trf, user_scope())
+    assert warnings == []
+
+    imported = Tournaments.list_players(tournament.id)
+
+    [round] =
+      Repo.all(
+        Ecto.Query.from(r in Round,
+          where: r.tournament_id == ^tournament.id,
+          preload: [:pairings]
+        )
+      )
+
+    byes =
+      Repo.all(
+        Ecto.Query.from(b in "byes",
+          where: b.tournament_id == ^tournament.id,
+          select: %{player_id: b.player_id, type: b.type}
+        )
+      )
+
+    for code <- codes do
+      player = Enum.find(imported, &(&1.name == "Code #{code}"))
+      assert player, "#{code} did not import as a player at all"
+
+      pairing = Enum.find(round.pairings, &(&1.white_player_id == player.id))
+      bye = Enum.find(byes, &(&1.player_id == player.id))
+
+      case bucket(code) do
+        :full ->
+          # OpenPairings has one "full points, no game" row: a pairing with
+          # no black player (see docs/trf-import.md).
+          assert pairing, "#{code} should have become a pairing-row bye"
+          assert pairing.black_player_id == nil
+          assert pairing.result == "bye"
+          refute bye, "#{code} should not also produce a byes-table row"
+
+        :half ->
+          assert bye, "#{code} should have become a byes-table row"
+          assert bye.type == "requested-half"
+          refute pairing, "#{code} should not also produce a pairing row"
+
+        :zero ->
+          assert bye, "#{code} should have become a byes-table row"
+          assert bye.type == "requested-zero"
+          refute pairing, "#{code} should not also produce a pairing row"
+      end
+    end
+  end
+
+  defp bucket(code) do
+    cond do
+      code in @full_point_codes -> :full
+      code in @half_point_codes -> :half
+      code in @zero_point_codes -> :zero
+    end
+  end
+
+  defp expected_points(code) do
+    case bucket(code) do
+      :full -> 1.0
+      :half -> 0.5
+      :zero -> 0.0
+    end
+  end
+
   ## ---------- TRF06 (FIDE's Annexure-B, 2006) ----------
 
   # Column-identical to TRF16 (verified against both the 2006 and 2016

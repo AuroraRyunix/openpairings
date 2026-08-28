@@ -316,6 +316,32 @@ defmodule PairingsEngine.KeizerTest do
       assert Keizer.score_round(sometimes, 2, %{}, %{}, values).class == :excused
       assert Keizer.score_round(sometimes, 1, %{}, %{}, values).class == :zero
     end
+
+    # A vacated seat and a pairing-allocated bye are the same shape apart
+    # from `result` - both have no opponent - and this module read only the
+    # missing opponent, so marking one player absent paid the other half a
+    # ladder rung for a game that never happened.
+    test "an emptied opponent seat is worth nothing, not half your own value", %{
+      a: a,
+      values: values
+    } do
+      # Exactly what `Tournaments.vacate_seat/3` leaves behind: the board and
+      # its number stay, the other seat is nil, the result is cleared.
+      games = %{1 => [%{round: 1, white_id: a.id, black_id: nil, result: ""}]}
+      entry = Keizer.score_round(a, 1, games, %{}, values)
+
+      assert entry == %{round: 1, class: :vacated_seat, points: 0.0, opponent_id: nil}
+    end
+
+    test "an emptied WHITE seat is the same - vacate_seat/3 can empty either colour", %{
+      a: a,
+      values: values
+    } do
+      games = %{1 => [%{round: 1, white_id: nil, black_id: a.id, result: ""}]}
+      entry = Keizer.score_round(a, 1, games, %{}, values)
+
+      assert entry == %{round: 1, class: :vacated_seat, points: 0.0, opponent_id: nil}
+    end
   end
 
   ## ---------- hand-computed ladder values + retroactive recalculation ----------
@@ -677,6 +703,48 @@ defmodule PairingsEngine.KeizerTest do
       # Still shows up in the Keizer standings despite not being paired.
       entries = Keizer.standings(tournament)
       assert Enum.any?(entries, &(&1.player.id == d.id))
+    end
+
+    # `Tournaments.vacate_seat/3` leaves a board with one seat empty and no
+    # result, which is the same "no opponent" shape a pairing-allocated bye
+    # has. Keizer read only the missing opponent, so an arbiter marking one
+    # player absent paid the other half a ladder rung on the spot - before
+    # anyone had decided what should happen to that board, and whether or
+    # not the arbiter ever meant to award a bye at all. The Swiss path pays
+    # nothing for the same board (`Standings.pairing_records/4` returns `[]`
+    # for `result: ""`).
+    test "vacating a seat pays the player left on the board nothing until a bye is awarded",
+         %{tournament: tournament} do
+      assert {:ok, round} = Pairing.pair_next_round(tournament)
+      round = Repo.preload(round, :pairings)
+
+      board = Enum.find(round.pairings, &(&1.board == 1))
+      seated = board.white_player_id
+      leaving = board.black_player_id
+
+      assert {:ok, _} = Tournaments.vacate_seat(round, leaving)
+
+      entry_for = fn t, id -> Enum.find(Keizer.standings(t), &(&1.player.id == id)) end
+
+      vacant = entry_for.(tournament, seated)
+      assert vacant.points == 0.0
+
+      # The player who left is unaffected by the fix: their "absent" byes
+      # row is an excused absence, a third of their own value, exactly as
+      # before.
+      # (`standings/2` rounds its points to one decimal, hence the delta.)
+      gone = entry_for.(tournament, leaving)
+      assert_in_delta gone.points, gone.value / 3, 0.05
+
+      # The arbiter now deliberately awards the bye. THAT is what pays - and
+      # it still does, at the same half-value it always did.
+      round = Repo.preload(Tournaments.get_round(tournament.id, 1), :pairings, force: true)
+      vacancy = Enum.find(round.pairings, &(&1.board == 1))
+      assert {:ok, _} = Tournaments.award_bye_for_vacancy(round, vacancy)
+
+      awarded = entry_for.(tournament, seated)
+      assert awarded.points > 0.0
+      assert_in_delta awarded.points, awarded.value / 2, 0.05
     end
 
     test "a late entrant with start_round is excluded from pairing until it's reached, then included",

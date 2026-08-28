@@ -261,6 +261,48 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       assert without_nonce(html_before) == without_nonce(html_after)
     end
 
+    # Reported 2026-08-28: a bye printed ABOVE the accessible table, so the
+    # one row where nobody is in the hall sat between the games. Order is
+    # now games first (ordinary boards, then fixed tables), absences last.
+    test "byes print BELOW the special boards, not above them", %{conn: conn, scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "Bye Order",
+          "type" => "swiss",
+          "rounds_count" => "1"
+        })
+
+      [ann, ben, cid, dot, eve] =
+        for {name, fixed} <- [{"Ann", 5}, {"Ben", nil}, {"Cid", nil}, {"Dot", nil}, {"Eve", nil}] do
+          Repo.insert!(%Player{tournament_id: tournament.id, name: name, fixed_board: fixed})
+        end
+
+      round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+
+      # Real board 1 is the fixed table (label "5"), real board 2 is an
+      # ordinary game (label "1"), real board 3 is a bye (label "2").
+      for {board, white, black, result} <- [
+            {1, ann, ben, ""},
+            {2, cid, dot, ""},
+            {3, eve, nil, "bye"}
+          ] do
+        Repo.insert!(%Pairing{
+          round_id: round.id,
+          board: board,
+          white_player_id: white.id,
+          black_player_id: black && black.id,
+          result: result
+        })
+      end
+
+      :ok = Tournaments.freeze_round_display_boards!(round.id)
+
+      html = get(conn, ~p"/t/#{tournament.id}/print/pairings?round=1") |> html_response(200)
+
+      # Was ["1", "2", "5"] - the bye wedged between the two games.
+      assert sheet_boards(html) == ["1", "5", "2"]
+    end
+
     test "a board with no fixed_board players is numbered normally", %{conn: conn, scope: scope} do
       {tournament, _players} = fixture(scope)
 
@@ -882,6 +924,152 @@ defmodule PairingsEngineWeb.PrintControllerTest do
 
       refute html_after =~ "(table"
       assert without_nonce(html_before) == without_nonce(html_after)
+    end
+  end
+
+  ## ---------- the card on the table and the sheet on the wall have to
+  ## agree (reported 2026-08-28: they didn't) ----------
+
+  # Two boards, and the pair on real board 1 sits at fixed table 5. Frozen
+  # labels: real board 1 -> "5" (special), real board 2 -> "1" (the
+  # ordinary sequence closes the gap board 1 left). So in this round NO
+  # board is printed under its own real number - which is exactly what made
+  # the place card, the result card and the score sheet name a different
+  # table than the pairing list for the same game.
+  defp mismatched_board_fixture(scope) do
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{
+        "name" => "Card And Sheet",
+        "type" => "swiss",
+        "rounds_count" => "1"
+      })
+
+    [ann, ben, cid, dot] =
+      for {name, fixed} <- [{"Ann", 5}, {"Ben", nil}, {"Cid", nil}, {"Dot", nil}] do
+        Repo.insert!(%Player{tournament_id: tournament.id, name: name, fixed_board: fixed})
+      end
+
+    round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+
+    for {board, white, black} <- [{1, ann, ben}, {2, cid, dot}] do
+      Repo.insert!(%Pairing{
+        round_id: round.id,
+        board: board,
+        white_player_id: white.id,
+        black_player_id: black.id,
+        result: ""
+      })
+    end
+
+    :ok = Tournaments.freeze_round_display_boards!(round.id)
+
+    {tournament, round}
+  end
+
+  # The board column of the printed pairing list, top to bottom - the
+  # numbers an arbiter reads off the wall.
+  defp sheet_boards(html) do
+    ~r/<tr><td class="num">([^<]+)<\/td>/
+    |> Regex.scan(html)
+    |> Enum.map(&Enum.at(&1, 1))
+  end
+
+  defp place_card_boards(html) do
+    ~r/<div class="place-card-board">Board ([^<]+)<\/div>/
+    |> Regex.scan(html)
+    |> Enum.map(&Enum.at(&1, 1))
+    |> Enum.uniq()
+  end
+
+  describe "the number a player reads on a card matches the number the arbiter reads on the sheet" do
+    test "the pairing sheet is the reference: labels 5 and 1, never the real board 2", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, _round} = mismatched_board_fixture(scope)
+
+      html = get(conn, ~p"/t/#{tournament.id}/print/pairings?round=1") |> html_response(200)
+
+      # Ordinary board first, then the fixed table (the new group order).
+      assert sheet_boards(html) == ["1", "5"]
+    end
+
+    test "place cards print the sheet's label, not the real board", %{conn: conn, scope: scope} do
+      {tournament, _round} = mismatched_board_fixture(scope)
+
+      html = get(conn, ~p"/t/#{tournament.id}/print/placecards?round=1") |> html_response(200)
+
+      # Ann/Ben are at fixed table 5 (real board 1); Cid/Dot are at label 1
+      # (real board 2). Printing the real board gave them "1" and "2" - the
+      # tent card on Cid's table said 2 while the sheet on the wall said 1.
+      assert Enum.sort(place_card_boards(html)) == ["1", "5"]
+      refute html =~ ~s(<div class="place-card-board">Board 2</div>)
+    end
+
+    test "result cards print the sheet's label", %{conn: conn, scope: scope} do
+      {tournament, round} = mismatched_board_fixture(scope)
+
+      html =
+        get(conn, ~p"/t/#{tournament.id}/print/results?round=#{round.number}")
+        |> html_response(200)
+
+      assert html =~ "Round 1 · Board 5"
+      assert html =~ "Round 1 · Board 1"
+      refute html =~ "Round 1 · Board 2"
+
+      # The "(table 5)" marker stays: with a colliding pin allowed, the
+      # number alone can't say whether it's a board or an accessible table.
+      assert html =~ "(table 5)"
+    end
+
+    test "score sheets print the sheet's label", %{conn: conn, scope: scope} do
+      {tournament, round} = mismatched_board_fixture(scope)
+
+      html =
+        get(conn, ~p"/t/#{tournament.id}/print/scoresheets?round=#{round.number}")
+        |> html_response(200)
+
+      assert html =~ "Round 1 · Board 5"
+      assert html =~ "Round 1 · Board 1"
+      refute html =~ "Round 1 · Board 2"
+    end
+
+    test "no card names a table that doesn't appear on the pairing list", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, round} = mismatched_board_fixture(scope)
+
+      sheet =
+        get(conn, ~p"/t/#{tournament.id}/print/pairings?round=1")
+        |> html_response(200)
+        |> sheet_boards()
+
+      cards =
+        get(conn, ~p"/t/#{tournament.id}/print/placecards?round=1")
+        |> html_response(200)
+        |> place_card_boards()
+
+      assert Enum.sort(cards) == Enum.sort(sheet)
+
+      per_board_documents = [
+        {"result cards",
+         get(conn, ~p"/t/#{tournament.id}/print/results?round=#{round.number}")
+         |> html_response(200)},
+        {"score sheets",
+         get(conn, ~p"/t/#{tournament.id}/print/scoresheets?round=#{round.number}")
+         |> html_response(200)}
+      ]
+
+      for {document, html} <- per_board_documents do
+        printed =
+          ~r/Round 1 · Board ([^\s<]+)/
+          |> Regex.scan(html)
+          |> Enum.map(&Enum.at(&1, 1))
+
+        assert Enum.sort(printed) == Enum.sort(sheet),
+               "#{document} named a table the pairing list never printed"
+      end
     end
   end
 

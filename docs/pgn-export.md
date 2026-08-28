@@ -33,11 +33,22 @@ Byes are always skipped - there's no opponent to record a game against.
 Omit `board` (or pass anything other than `1`) to leave board numbers out
 entirely - the export's long-standing default. Pass `?board=1` to add a
 supplemental `[Board "N"]` tag to every game, right after `Round`. `N` is
-the same DISPLAY board number every other view in the app shows
-(`PairingDisplay.with_display_boards/1`: fixed-table pairings relabeled to
-their fixed board and moved to the end, byes/vacant seats excluded from the
-renumbering) - not the raw stored `pairing.board` - so it matches what an
-arbiter actually sees on the pairing sheet for that game.
+the raw stored `pairing.board`.
+
+**This is the one board-numbered surface that deliberately disagrees with
+the pairing sheet**, and the reason is what a PGN tag is for. Nobody reads
+one standing at a board; it is how a reader or a database tells one game of
+a round apart from the others, keyed on (Event, Round, Board). That job
+needs uniqueness within the round, and the DISPLAY label does not have it: a
+fixed table set to a number an ordinary board already uses is allowed on
+purpose, and exporting the label then produced two games in one round both
+tagged `[Board "1"]` - malformed for anything downstream.
+
+Every HUMAN-facing document goes the other way and prints the label, because
+a player has to find a physical table and the card in their hand must agree
+with the sheet on the wall. Same number, two documents, two different right
+answers. See `PgnExport.board_tag/1` for the full reasoning, and
+`PairingsEngine.PairingDisplay` for what the label is.
 
 ## Header (Seven Tag Roster) mapping
 

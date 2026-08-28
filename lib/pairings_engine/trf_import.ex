@@ -600,15 +600,63 @@ defmodule PairingsEngine.TrfImport do
   # reinterpreted by the point value it represents (mirrors
   # `PairingsEngine.Pairing.bye_safe_result/2`, the same normalization in
   # the opposite direction), become `byes` table rows.
+  #
+  # The three lists below are the SECOND private copy of the played-code
+  # vocabulary in this module - `@playing_codes` above was the first, and it
+  # is the one that drifted. This one has not: it is complete against
+  # v0.14.0's `Trf.playing_codes/0` and `Trf.bye_codes/0` today. That is
+  # luck, not design, and the same luck the first copy had until `W`/`D`/`L`
+  # were added upstream.
+  #
+  # Pointing it at `Trf.playing_codes/0` directly is not possible, and that
+  # is worth writing down so the next reader does not try: this call site is
+  # not asking "is this a playing code" - it is asking WHAT POINT VALUE a
+  # code stands for, a three-way split that runs ACROSS both engine lists
+  # ("1" and "F" are both full-point; "=" and "H" are both half). Neither
+  # `playing_codes/0` nor `bye_codes/0` expresses that partition, and the
+  # engine publishes no function that does. `Trf.points_for/2` comes close
+  # but keys on a configurable point system, so a file with its own
+  # `BBU`/`BBW` values would silently re-bucket - a behaviour change, not a
+  # de-duplication.
+  #
+  # What the engine lists CAN do is police the domain, which is the half
+  # that actually broke last time. Their union is exactly the set of codes
+  # `Trf.validate_game!/5` lets through, so it is exactly the set this
+  # function must handle; the check below fails the BUILD if the two ever
+  # disagree, rather than waiting for a FunctionClauseError mid-import on an
+  # arbiter's file.
+  @single_sided_full ~w(U F 1 + W)
+  @single_sided_half ~w(H = D)
+  @single_sided_zero ~w(Z 0 - L)
+
+  @single_sided_handled Enum.sort(@single_sided_full ++ @single_sided_half ++ @single_sided_zero)
+  @single_sided_domain Enum.sort(Trf.playing_codes() ++ Trf.bye_codes())
+
+  if @single_sided_handled != @single_sided_domain do
+    raise """
+    PairingsEngine.TrfImport.single_sided/2 no longer covers Ainalrami.Trf's \
+    result vocabulary.
+
+      handled here: #{inspect(@single_sided_handled)}
+      engine says:  #{inspect(@single_sided_domain)}
+      missing:      #{inspect(@single_sided_domain -- @single_sided_handled)}
+      unknown:      #{inspect(@single_sided_handled -- @single_sided_domain)}
+
+    Every code the engine accepts must land in exactly one of the three \
+    point-value buckets above (full point, half point, zero). A code missing \
+    from all three raises FunctionClauseError on a real TRF file instead.
+    """
+  end
+
   defp single_sided(p, %{result: result}) do
     case result do
-      code when code in ["U", "F", "1", "+", "W"] ->
+      code when code in @single_sided_full ->
         {:pairing, %{board: nil, white_rank: p.rank, black_rank: nil, result: "bye"}}
 
-      code when code in ["H", "=", "D"] ->
+      code when code in @single_sided_half ->
         {:bye, %{rank: p.rank, type: "requested-half"}}
 
-      code when code in ["Z", "0", "-", "L"] ->
+      code when code in @single_sided_zero ->
         {:bye, %{rank: p.rank, type: "requested-zero"}}
     end
   end
