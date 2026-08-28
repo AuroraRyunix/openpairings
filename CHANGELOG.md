@@ -16,6 +16,45 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+### Fixed
+
+- [Fix] **Importing a round's results from CSV wrote them to the wrong
+  games.** The importer matched each line against the board number the
+  pairing engine assigned. Every document an arbiter can read - the printed
+  pairing sheet, the Pairings page, the public page, the projector - prints
+  the *displayed* board number instead.
+
+  Those two are the same for almost every tournament, and come apart as soon
+  as one player has a fixed table (Players -> Fixed table). That pairing is
+  labelled with its table number and printed last, and the ordinary boards
+  close the gap it leaves - so a fixed table on real board 3 of 5 makes the
+  sheet read 1, 2, 3, 4 against real boards 1, 2, 4, 5.
+
+  An arbiter transcribing that sheet typed four boards, got "4 results
+  imported", and three of them landed on the wrong games. The standings were
+  then wrong, and nothing anywhere said so.
+
+  The importer now matches the number the sheet prints. Nothing changes for
+  a tournament with no fixed table in it.
+
+  Two things worth knowing about the edge:
+
+  - A fixed table outside the ordinary range - SWAR's own starts at 1001 -
+    now imports like any other line. It could not be entered from a CSV at
+    all before, because 1001 is never a real board number and the importer
+    rejected it as unknown.
+  - A fixed table deliberately set to a number an ordinary board already
+    uses prints two rows with the same label. That number is taken to mean
+    the ordinary board, and the fixed table is entered from the Pairings
+    page. The alternative - refusing the whole file as ambiguous - would
+    block the four boards that are not ambiguous at all.
+
+  Found while verifying something else, and it was not caused by it: the
+  damage reproduces identically with a fixed table at 1001, so it has been
+  live for as long as the feature has.
+
+## [Unreleased]
+
 ### Changed
 
 - [Change] **Colour allocation follows a FIDE ruling that went against the

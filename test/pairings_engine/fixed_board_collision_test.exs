@@ -362,16 +362,37 @@ defmodule PairingsEngine.FixedBoardCollisionTest do
              }
     end
 
-    test "CSV results import resolves by the REAL board, and reaches the special board by it" do
+    test "CSV results import resolves by the DISPLAYED label, not the real board" do
       {t, round, _players} = fixture(pin: {9, @colliding})
 
-      # Real board 5 IS the special board. That the importer keys on the real
-      # column - not on `display_board` - is what keeps the duplicate label
-      # from ever making a write ambiguous.
-      assert {:ok, 1} = ResultsImport.apply_import(t, 1, [{5, "0-1"}])
+      # Real board 5 is the pinned one and the sheet labels it "1"; the four
+      # ordinary rows are labelled 1..4 for real boards 1..4. So the real
+      # board number 5 appears on no document the arbiter can read, and
+      # naming it is now an error rather than a silent write.
+      #
+      # This test asserted the opposite until 2026-08-28. It was a
+      # characterisation of the defect, not a specification: keying on the
+      # real column is exactly what made transcribing a sheet land results
+      # on the wrong games.
+      assert {:error, ["board 5: no such board in round 1"]} =
+               ResultsImport.apply_import(t, 1, [{5, "0-1"}])
 
+      assert result_by_real_board(round.id)[5] == ""
+
+      # "4" is the last ordinary row, which is real board 4.
+      assert {:ok, 1} = ResultsImport.apply_import(t, 1, [{4, "0-1"}])
+      assert result_by_real_board(round.id)[4] == "0-1"
+    end
+
+    test "an out-of-range fixed table is addressable by its own number" do
+      {t, round, _players} = fixture(pin: {9, 1001})
+
+      # SWAR's own range does not collide, so the label is unique and names
+      # exactly one game. Before the importer resolved by label this was not
+      # reachable from a CSV at all - 1001 is never a real board number, so
+      # it failed with "no such board".
+      assert {:ok, 1} = ResultsImport.apply_import(t, 1, [{1001, "0-1"}])
       assert result_by_real_board(round.id)[5] == "0-1"
-      assert result_by_real_board(round.id)[1] == ""
     end
 
     test "a CSV naming the same number twice is refused before anything is written" do
@@ -405,8 +426,7 @@ defmodule PairingsEngine.FixedBoardCollisionTest do
     #
     # Un-skip when the importer is taught to resolve by display label (or the
     # sheet is taught to print the real board).
-    @tag :skip
-    test "DEFECT: CSV import addresses the boards the arbiter can actually see" do
+    test "CSV import addresses the boards the arbiter can actually see" do
       # Player 5 => real board 3. Sheet: real1->"1" real2->"2" real4->"3"
       # real5->"4", special real3->"1".
       {t, round, _players} = fixture(pin: {5, @colliding})

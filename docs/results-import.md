@@ -14,6 +14,25 @@ auto-detected per file, not configurable). An optional header row is
 tolerated and skipped automatically (its first field won't parse as a plain
 board number). Blank lines are ignored.
 
+**The board number is the one printed on the pairing sheet.** For almost
+every tournament that is also the board number the engine assigned, and
+there is nothing to think about. They come apart only when a player has a
+fixed table (Players -> Fixed table, for a wheelchair-accessible board or a
+separate room): that pairing is labelled with its table number and printed
+last, and the ordinary boards close the gap it leaves, so a pinned real
+board 3 of 5 makes the sheet read 1, 2, 3, 4 against real boards 1, 2, 4, 5.
+
+Type what the sheet says. Until 2026-08-28 this importer matched the
+engine's number instead, so transcribing such a sheet wrote results onto
+the wrong games and reported success.
+
+A fixed table set to a number no ordinary board uses - SWAR's own range
+starts at 1001 - has a label of its own and can be entered like any other
+line. A fixed table deliberately set to a number an ordinary board already
+uses produces two rows with the same label; there, that number means the
+ordinary board, and the fixed table is entered from the Pairings page
+instead.
+
 ```csv
 board,result
 1,1-0

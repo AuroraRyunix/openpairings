@@ -13,6 +13,7 @@ defmodule PairingsEngine.ResultsImport do
   from a click or a CSV line.
   """
 
+  alias PairingsEngine.PairingDisplay
   alias PairingsEngine.Repo
   alias PairingsEngine.SwarImport
   alias PairingsEngine.Tournaments
@@ -175,19 +176,40 @@ defmodule PairingsEngine.ResultsImport do
         {:error, ["Round #{round_number} has not been paired yet"]}
 
       round ->
-        boards = Map.new(round.pairings, &{&1.board, &1})
+        # Keyed on the DISPLAYED label, not on `pairing.board`. The arbiter
+        # is transcribing a pairing sheet, and every document they can read -
+        # the printed sheet, the Pairings page, the public page, the
+        # projector - prints the frozen `display_board` label. Those two
+        # numbers are identical for every tournament with no fixed-table
+        # player in it, and diverge the moment there is one: a pin on real
+        # board 3 of 5 makes the sheet read 1, 2, 3, 4 for real boards 1, 2,
+        # 4, 5.
+        #
+        # This used to key on `pairing.board`, so transcribing that sheet
+        # wrote four results onto three wrong games and returned {:ok, 4}.
+        # The standings were then wrong and nothing said so. It was not
+        # specific to a low `fixed_board`: the same damage was measured with
+        # SWAR's own 1001.
+        #
+        # `PairingDisplay.board_labels/1` is used rather than reading
+        # `display_board` here, so there is one definition of "the label"
+        # and this cannot drift from what the sheet prints.
+        by_label =
+          round.pairings
+          |> PairingDisplay.board_labels()
+          |> Enum.group_by(& &1.board, & &1.pairing)
 
         {resolved, errors} =
           Enum.reduce(rows, {[], []}, fn {board, result}, {resolved, errors} ->
-            case Map.get(boards, board) do
-              nil ->
-                {resolved, ["board #{board}: no such board in round #{round_number}" | errors]}
-
-              %{result: "bye"} ->
+            case resolve_board(by_label, board, round_number) do
+              {:ok, %{result: "bye"}} ->
                 {resolved, ["board #{board}: is a bye - no result to enter" | errors]}
 
-              pairing ->
+              {:ok, pairing} ->
                 {[{pairing, result} | resolved], errors}
+
+              {:error, message} ->
+                {resolved, [message | errors]}
             end
           end)
 
@@ -195,6 +217,43 @@ defmodule PairingsEngine.ResultsImport do
           write_all(tournament.id, Enum.reverse(resolved))
         else
           {:error, Enum.reverse(errors)}
+        end
+    end
+  end
+
+  # A label names exactly one game, except where the arbiter has pinned a
+  # fixed table to a number an ordinary board already uses - which the app
+  # allows on purpose, and which prints as two rows carrying the same label.
+  #
+  # There, "1" is taken to mean the ORDINARY board 1. That is what an
+  # arbiter reading a sheet means by it: the fixed-table row is sorted last
+  # and carries a "(table 1)" note, so it is the annotated one, not the
+  # plain one. A non-special label is unique by construction
+  # (`compute_labels/1` numbers them 1..N), so this always resolves to a
+  # single game.
+  #
+  # The fixed table is then not addressable from a CSV in that configuration
+  # and has to be entered from the Pairings page. Out of SWAR's own 1001
+  # range there is no clash, the label is unique, and it imports like any
+  # other - which it could not do at all before this function existed, since
+  # 1001 is never a real board number.
+  defp resolve_board(by_label, board, round_number) do
+    case Map.get(by_label, to_string(board), []) do
+      [] ->
+        {:error, "board #{board}: no such board in round #{round_number}"}
+
+      [only] ->
+        {:ok, only}
+
+      several ->
+        case Enum.reject(several, & &1.display_special) do
+          [ordinary] ->
+            {:ok, ordinary}
+
+          [] ->
+            {:error,
+             "board #{board}: names #{length(several)} fixed tables in round " <>
+               "#{round_number}, so it is ambiguous - enter these from the Pairings page"}
         end
     end
   end
