@@ -32,6 +32,18 @@ defmodule PairingsEngineWeb.FideLiveTest do
   describe "the OpenResults settings" do
     alias PairingsEngine.Publishing
 
+    # Saving now tests the connection, so every test in here makes a request
+    # whether it means to or not. A default stub keeps a test about token
+    # handling from failing on the network; the ones that care about the
+    # connection re-stub with what they need.
+    setup do
+      Req.Test.stub(PairingsEngine.PublishingTest, fn conn ->
+        Plug.Conn.send_resp(conn, 404, ~s({"error":"not_found"}))
+      end)
+
+      :ok
+    end
+
     defp sso_conn(conn) do
       {:ok, user} =
         Accounts.find_or_create_from_keycloak(%{
@@ -79,6 +91,63 @@ defmodule PairingsEngineWeb.FideLiveTest do
       {:ok, _lv, html} = live(conn, ~p"/fide")
 
       assert html =~ "Nothing is published until both an address and a token are set."
+    end
+
+    test "saving tests the connection, and says so when it answers", %{conn: conn} do
+      Req.Test.stub(PairingsEngine.PublishingTest, fn conn ->
+        Plug.Conn.send_resp(conn, 404, ~s({"error":"not_found"}))
+      end)
+
+      {:ok, lv, _html} = live(sso_conn(conn), ~p"/fide")
+
+      html =
+        lv
+        |> form("form[phx-submit=save_publishing]", %{
+          "endpoint" => "https://openresults.example",
+          "token" => "s3cret"
+        })
+        |> render_submit()
+
+      # "Saved" on its own answers the wrong question. Nobody types an address
+      # to find out whether it was stored.
+      assert html =~ "the results site answered"
+    end
+
+    test "a saved address that does not answer says so, and still saves", %{conn: conn} do
+      Req.Test.stub(PairingsEngine.PublishingTest, fn conn ->
+        Req.Test.transport_error(conn, :econnrefused)
+      end)
+
+      {:ok, lv, _html} = live(sso_conn(conn), ~p"/fide")
+
+      html =
+        lv
+        |> form("form[phx-submit=save_publishing]", %{
+          "endpoint" => "https://openresults.example",
+          "token" => "s3cret"
+        })
+        |> render_submit()
+
+      assert html =~ "did not answer"
+      assert html =~ "refused"
+
+      # Saved anyway: a typo you cannot correct because the form threw it away
+      # is worse than one that is stored and reported.
+      assert Publishing.endpoint() == "https://openresults.example"
+    end
+
+    test "saving half the settings says nothing is published yet", %{conn: conn} do
+      {:ok, lv, _html} = live(sso_conn(conn), ~p"/fide")
+
+      html =
+        lv
+        |> form("form[phx-submit=save_publishing]", %{
+          "endpoint" => "https://openresults.example",
+          "token" => ""
+        })
+        |> render_submit()
+
+      assert html =~ "Nothing is published until both"
     end
 
     test "saving an address normalises it and keeps it", %{conn: conn} do

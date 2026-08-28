@@ -173,10 +173,39 @@ defmodule PairingsEngineWeb.FideLive do
       token -> Publishing.put_token(token)
     end
 
-    {:noreply,
-     socket
-     |> assign_publishing()
-     |> put_flash(:info, gettext("Publishing settings saved."))}
+    # Saved settings are tested immediately rather than leaving the arbiter to
+    # press Test as a second step. "Saved" on its own answers the wrong
+    # question: nobody types an address to find out whether it was stored,
+    # they type it to find out whether it works, and a typo that saves
+    # perfectly well is the whole failure mode here.
+    #
+    # Synchronous, like the Test button beside it. A publish is queued and
+    # retried precisely so nobody waits on the network - but this is somebody
+    # who just clicked Save and is looking at the form, and an answer they
+    # have to ask for again is worse than a moment's wait.
+    socket = socket |> assign_publishing() |> assign(publish_test: nil)
+
+    case Publishing.configured?() and Publishing.check() do
+      false ->
+        {:noreply,
+         put_flash(
+           socket,
+           :info,
+           gettext("Saved. Nothing is published until both an address and a token are set.")
+         )}
+
+      {:ok, _message} ->
+        {:noreply, put_flash(socket, :info, gettext("Saved, and the results site answered."))}
+
+      {:error, message} ->
+        # An :error flash rather than :info: the settings ARE saved, but a
+        # green tick over an address that does not answer is the reason
+        # somebody discovers this at a tournament instead of now.
+        {:noreply,
+         socket
+         |> assign(publish_test: {:error, message})
+         |> put_flash(:error, gettext("Saved, but the results site did not answer."))}
+    end
   end
 
   defp blank_to_nil(value) when is_binary(value) do

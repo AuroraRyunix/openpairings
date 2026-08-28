@@ -16,6 +16,15 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+### Changed
+
+- [Change] **Saving the publishing settings now tests them.** "Saved" on its
+  own answers the wrong question &mdash; nobody types an address to find out
+  whether it was stored, and a typo saves perfectly well. It now says whether
+  the results site actually answered, and shows the reason when it did not.
+  The settings are kept either way: a typo you cannot correct because the
+  form discarded it is worse than one that is stored and reported.
+
 ### Security
 
 - [Security] **Only an SSO account can change where this machine publishes.**
