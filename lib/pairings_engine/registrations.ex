@@ -91,7 +91,7 @@ defmodule PairingsEngine.Registrations do
           {:ok, %{new: non_neg_integer(), total: non_neg_integer()}} | {:error, String.t()}
   def pull(%Tournament{} = tournament) do
     with :ok <- ensure_available(tournament),
-         {:ok, entries} <- fetch(tournament.public_slug) do
+         {:ok, entries} <- fetch(tournament) do
       {:ok, store(tournament, entries)}
     end
   end
@@ -328,15 +328,36 @@ defmodule PairingsEngine.Registrations do
   # Token-gated for the same reason `/history` is: this listing carries the
   # one personal field in the whole system. A registration list on an open
   # route would publish the email address of everybody who signed up.
-  defp fetch(slug) do
-    path = "/api/tournaments/#{encode_segment(slug)}/registrations"
+  # The queue is the only thing OpenResults holds that carries an email
+  # address, so the server gates it on the tournament key as well as the
+  # ingest token - otherwise any machine configured to publish could read the
+  # entries for every tournament on the server, including ones it has never
+  # published. Sending the key is what makes this our queue rather than a
+  # queue we happen to be able to reach.
+  #
+  # A tournament that has never published has no key, and the header is then
+  # omitted: the server leaves such a slug unclaimed and answers anyway, which
+  # is what keeps a tournament published before keys existed readable by the
+  # arbiter running it.
+  defp key_headers(%Tournament{openresults_key: key}) when is_binary(key) and key != "",
+    do: [{Publishing.key_header(), key}]
 
-    case Req.get(Publishing.request(path)) do
+  defp key_headers(%Tournament{}), do: []
+
+  defp fetch(%Tournament{} = tournament) do
+    path = "/api/tournaments/#{encode_segment(tournament.public_slug)}/registrations"
+
+    case Req.get(Publishing.request(path, headers: key_headers(tournament))) do
       {:ok, %Req.Response{status: status, body: body}} when status in 200..299 ->
         parse(body)
 
       {:ok, %Req.Response{status: 401}} ->
         {:error, "the server rejected the token (401)"}
+
+      {:ok, %Req.Response{status: 403}} ->
+        {:error,
+         "the server refused this tournament's entries (403) - a different " <>
+           "machine published it, so its key is not this one"}
 
       {:ok, %Req.Response{status: 404}} ->
         {:error,

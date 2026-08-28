@@ -140,6 +140,7 @@ socket.
   "tournaments": [
     {
       "tournament": { "name": "...", "type": "swiss", "tiebreaks": ["BH", "SB"], /* every Tournament field except id/user_id/timestamps */ },
+      "openresults": { "key": "...", "slug": "...", "endpoint": "https://..." },  // or null - see below
       "teams":   [{ "id": 7, "name": "Team A", "captain": "..." }],
       "players": [{ "id": 42, "name": "...", "team_id": 7, "norm_data": {...}, /* every Player field except tournament_id/timestamps */ }],
       "rounds":  [{ "id": 3, "number": 1, "date": "...", "status": "finished",
@@ -162,6 +163,50 @@ import it.
 `matches` (team-match boards) isn't included: nothing in the app writes to
 that table yet (team tournaments don't have a matches UI), so there's
 nothing to round-trip there today.
+
+### The `openresults` block is a credential
+
+Present only for a tournament that has actually published to an OpenResults
+server; `null` (in practice, absent) for every other one. It holds that
+tournament's **publishing key** and the address the key is authority over.
+
+**Anyone holding a file with this block can update the published copy of
+that tournament, or delete it - its public page, every earlier snapshot in
+its history, and any entries its form collected.** Treat such a file like a
+password. The app says so wherever it offers an export that would carry one.
+
+It travels on purpose, and it is the one deliberate exception to the rule
+that sharing state stays on the machine that owns it. Rebuilding a laptop
+from a backup has to recover the ability to manage what that laptop
+published; a key left on the dead disk strands a tournament full of player
+names, ratings and clubs in public with nobody able to take it down.
+
+`public_slug` and `publish_to_openresults` keep their exclusions unchanged,
+which is why the address is repeated inside this block rather than the slug
+field being un-excluded. The imported copy still gets its own fresh public
+link and still has to opt in to publishing.
+
+**Importing never adopts the key.** It is stored dormant on the new row
+(`tournaments.openresults_claim`), nothing in the publishing path reads it,
+and the imported copy behaves as a different tournament: turning publishing
+on gives it a new address under a new key of its own. If the key were
+adopted automatically, two people importing the same file would both believe
+they owned that tournament, both publish to the same slug, and either could
+delete the other's work.
+
+Taking the published tournament over is a separate, explicit action on
+Settings → Tournament ("Take over publishing it", beside "Start fresh"),
+which moves both the key and the address onto this row. It lives there
+rather than in the import flow for two reasons: one envelope can hold dozens
+of tournaments, and a machine being rebuilt from backups usually has not
+been told the results site's address yet - so import time is the worst
+possible moment to demand the decision. Doing nothing is the safe branch and
+requires no button.
+
+Duplicating a tournament ("Copy of ...") strips the block, even though it
+runs through the same export → import round trip. The original is still
+right there and still publishing; offering its copy a takeover would put two
+rows one click away from fighting over one address.
 
 ### Export routes
 

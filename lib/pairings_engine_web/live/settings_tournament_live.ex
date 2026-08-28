@@ -15,7 +15,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
 
   import PairingsEngineWeb.SettingsSupport
 
-  alias PairingsEngine.{Audit, Tournaments, Tiebreaks}
+  alias PairingsEngine.{Audit, Publishing, Tournaments, Tiebreaks}
   alias PairingsEngine.Tournaments.Tournament
 
   # 4th tuple element marks a field as mandatory setup data (see
@@ -60,7 +60,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
        # once. Used only to explain a disabled switch rather than to hide
        # it: an arbiter looking for publishing should find it and be told
        # what is missing, not find nothing.
-       openresults_configured?: PairingsEngine.Publishing.configured?(),
+       openresults_configured?: Publishing.configured?(),
        tournament: tournament,
        owner?: owner?,
        page_title: "#{tournament.name} · Settings",
@@ -367,6 +367,84 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
     end
   end
 
+  ## ---------- Removing a published tournament from the results site ----------
+  #
+  # Gated with `data-confirm` rather than the type-DELETE-to-confirm modal
+  # that `TournamentsLive` puts in front of deleting a tournament, matching
+  # `rotate_public_slug` right below it: both are irreversible acts on a
+  # *published copy* that leave the tournament, its players and its results
+  # untouched here. The heavier gate belongs to the heavier act - losing the
+  # tournament itself.
+  #
+  # What it takes with it is spelled out rather than summarised as "remove".
+  # An arbiter can reasonably assume a takedown hides a page; that it also
+  # destroys the snapshot history behind it and the entries its form
+  # collected is exactly the part they would only find out afterwards.
+
+  def handle_event("take_down_published", _params, socket) do
+    tournament = socket.assigns.tournament
+
+    case Publishing.take_down(tournament) do
+      {:ok, message} ->
+        Audit.log(tournament.id, socket.assigns.current_scope, "openresults.taken_down", %{
+          slug: tournament.public_slug
+        })
+
+        {:noreply,
+         socket
+         |> assign(tournament: Tournaments.get_tournament!(tournament.id))
+         |> put_flash(:info, message)}
+
+      {:error, message} ->
+        # The tournament is deliberately not reloaded and nothing is assigned:
+        # a failed takedown changed nothing, and re-rendering as if it might
+        # have is how somebody ends up believing an event was withdrawn while
+        # it is still up.
+        {:noreply,
+         put_flash(socket, :error, "Could not remove it from the results site: #{message}")}
+    end
+  end
+
+  ## ---------- A publishing key an imported backup carried ----------
+
+  def handle_event("adopt_openresults_claim", _params, socket) do
+    tournament = socket.assigns.tournament
+
+    case Publishing.adopt_claim(tournament) do
+      {:ok, updated} ->
+        Audit.log(updated.id, socket.assigns.current_scope, "openresults.claim_adopted", %{
+          slug: updated.public_slug
+        })
+
+        {:noreply,
+         socket
+         |> assign(tournament: updated)
+         |> put_flash(
+           :info,
+           "This tournament now publishes to the address the backup came from. Its own public " <>
+             "link changed to match."
+         )}
+
+      {:error, message} ->
+        {:noreply, put_flash(socket, :error, "Could not take it over: #{message}")}
+    end
+  end
+
+  def handle_event("discard_openresults_claim", _params, socket) do
+    case Publishing.discard_claim(socket.assigns.tournament) do
+      {:ok, updated} ->
+        Audit.log(updated.id, socket.assigns.current_scope, "openresults.claim_discarded", %{})
+
+        {:noreply,
+         socket
+         |> assign(tournament: updated)
+         |> put_flash(:info, "Starting fresh. This copy will publish to an address of its own.")}
+
+      {:error, message} ->
+        {:noreply, put_flash(socket, :error, message)}
+    end
+  end
+
   def handle_event("rotate_public_slug", _params, socket) do
     case Tournaments.rotate_public_slug(socket.assigns.tournament) do
       {:ok, tournament} ->
@@ -408,6 +486,21 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
   defp upload_error_label(:too_many_files), do: "One image at a time"
   defp upload_error_label(:not_accepted), do: "Only PNG, JPEG, GIF and WebP images are accepted"
   defp upload_error_label(other), do: inspect(other)
+
+  defp openresults_claim(tournament), do: Publishing.claim(tournament)
+
+  # The address the imported key is authority over, as one string an arbiter
+  # can compare against what they know. The endpoint is whatever the machine
+  # that exported the file was pointing at, which is not necessarily this
+  # machine's - showing it is the point, since "is that the server I mean?"
+  # is the question a takeover turns on.
+  defp claimed_address(tournament) do
+    case Publishing.claim(tournament) do
+      %{slug: slug, endpoint: ""} -> "/t/#{slug}"
+      %{slug: slug, endpoint: endpoint} -> "#{endpoint}/t/#{slug}"
+      nil -> ""
+    end
+  end
 
   defp general_fields, do: @general_fields
   defp tb_presets, do: @tb_presets
@@ -752,6 +845,95 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
               {gettext("Review entries from the results site")}
             </.link>
           </div>
+
+          <%!-- Offered on the key, not on the switch. The switch says whether
+                more will be sent; the key is what says something IS out there
+                and that this machine is the one that can withdraw it. A
+                tournament that opted in and never actually published has
+                nothing to take down, and one that was switched off still
+                does - which is precisely the state that used to be a dead
+                end. --%>
+          <div :if={Publishing.published?(@tournament)} style="margin-top: 14px">
+            <p class="hint" style="margin: 0">
+              {gettext(
+                "A copy of this tournament is on the results site. Turning the switch off stops sending updates; it does not take that copy down."
+              )}
+            </p>
+            <div class="actions" style="margin-top: 6px">
+              <button
+                type="button"
+                class="pe-btn danger-link"
+                phx-click="take_down_published"
+                data-confirm={
+                  gettext(
+                    "Remove this tournament from the results site? Its public page, every earlier snapshot in its history, and any entries collected for it are deleted there permanently. Nothing on this machine is touched - the tournament, its players and its results stay exactly as they are - but this cannot be undone from here."
+                  )
+                }
+              >
+                {gettext("Remove from the results site")}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <%!-- The choice an import deliberately did not make. Presented here
+              rather than during the import because one backup file can hold
+              dozens of tournaments, and a machine being rebuilt from backups
+              usually has not been told the results site's address yet - so
+              import time is the worst moment to ask. Doing nothing is the
+              safe branch and needs no button: an unadopted copy publishes to
+              a new address under a new key, i.e. it is a different
+              tournament. --%>
+        <div
+          :if={openresults_claim(@tournament)}
+          class="set-field solo"
+          style="margin-top: 18px"
+        >
+          <span class="set-label">{gettext("A publishing key came with this file")}</span>
+
+          <p class="hint" style="margin: 4px 0 0">
+            {gettext(
+              "The backup this tournament was imported from can publish to - and delete - a tournament already on the results site:"
+            )}
+          </p>
+
+          <p style="margin: 6px 0 0">
+            <code>{claimed_address(@tournament)}</code>
+          </p>
+
+          <p class="hint" style="margin: 6px 0 0">
+            {gettext(
+              "Until you take it over, this copy is a separate tournament: turning publishing on gives it a new address of its own. Take it over only if the machine that published it is gone, or you are certain nobody else is still publishing it - two machines holding the same key can overwrite and delete each other's work."
+            )}
+          </p>
+
+          <div class="actions" style="margin-top: 8px; gap: 10px; flex-wrap: wrap">
+            <button
+              type="button"
+              class="pe-btn"
+              phx-click="adopt_openresults_claim"
+              data-confirm={
+                gettext(
+                  "Take over publishing that tournament? This copy starts publishing to that address and can delete it, and this copy's own public link changes to match. Anyone still publishing it from another machine will be overwriting you, and you them."
+                )
+              }
+            >
+              {gettext("Take over publishing it")}
+            </button>
+
+            <button
+              type="button"
+              class="pe-btn danger-link"
+              phx-click="discard_openresults_claim"
+              data-confirm={
+                gettext(
+                  "Start fresh and throw the key away? This copy keeps its own link and publishes to a new address. Nothing already on the results site changes, and this machine will never be able to update or remove it."
+                )
+              }
+            >
+              {gettext("Start fresh")}
+            </button>
+          </div>
         </div>
 
         <div :if={@tournament.public_pages_enabled} class="set-field solo" style="margin-top: 10px">
@@ -870,6 +1052,18 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
               "Note that its rank column is the computed order, not manual ranking's hand-set one."
             )}
           </span>
+        </p>
+
+        <%!-- Shown only when the file would actually carry the key, so that
+              the warning is never noise and is always true when it appears.
+              It says what the key can DO rather than that the file is
+              "sensitive" - a backup of a chess tournament reads as harmless,
+              and the reason to guard this one is not obvious from the
+              outside. --%>
+        <p :if={Publishing.published?(@tournament)} class="hint" style="color: var(--danger)">
+          {gettext(
+            "This backup carries this tournament's publishing key. Anyone who has the file can update its page on the results site, or delete that page along with its whole history and any entries collected for it. That is deliberate - it is how a rebuilt machine recovers control of what it published - but treat the file like a password."
+          )}
         </p>
 
         <div class="actions">

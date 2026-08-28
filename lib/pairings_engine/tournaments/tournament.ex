@@ -263,6 +263,42 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # who opted into the first has not thereby opted into the second.
     field :publish_to_openresults, :boolean, default: false
 
+    # This tournament's key on the OpenResults server: random, minted on this
+    # machine at the FIRST publish, sent with every publish afterwards, and
+    # required by the server both to publish again and to delete. Written only
+    # by `PairingsEngine.Publishing` - `ensure_key/1` mints it, `take_down/1`
+    # clears it, `adopt_claim/1` accepts one carried in from a backup.
+    #
+    # Two separate questions, and the ingest token only answers the first:
+    # the token asks "may this machine talk to this server", this asks "may it
+    # touch THIS tournament". One shared token meant anything holding it could
+    # overwrite any tournament, and nothing could take one down.
+    #
+    # NOT cast by changeset/2, and that is load-bearing rather than tidy: the
+    # export envelope CARRIES this key (rebuilding a laptop from a backup has
+    # to recover the ability to manage what it published), and both
+    # `TournamentImport` and `Snapshots.restore/3` write through
+    # `changeset/2`. Keeping it out of `cast` is therefore what makes an
+    # import structurally unable to adopt somebody else's key and a restore
+    # structurally unable to wipe or rewrite this one, rather than something
+    # each of those paths has to remember not to do.
+    field :openresults_key, :string
+
+    # A key an imported backup carried, held DORMANT:
+    # `%{"key" => ..., "slug" => ..., "endpoint" => ...}`, or nil.
+    #
+    # Nothing in the publishing path ever reads this. If an import adopted a
+    # key automatically, two people importing the same file would both believe
+    # they own the tournament, both publish to the same slug, and either could
+    # delete the other's work. So the file's key lands here, the imported copy
+    # behaves as an entirely separate tournament, and taking the published one
+    # over is a deliberate act on the Settings page
+    # (`PairingsEngine.Publishing.adopt_claim/1`).
+    #
+    # Written only by `TournamentImport` (which stores it) and `Publishing`
+    # (which adopts or discards it). Not cast, for the same reason as the key.
+    field :openresults_claim, :map
+
     # How long a newly-paired round takes to reach the public pairings
     # page - see `@publish_modes`'s own comment above, and
     # `PairingsEngine.Tournaments.compute_published_at/2`/`round_published?/2`

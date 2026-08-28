@@ -40,6 +40,53 @@ defmodule PairingsEngine.Publishing do
   token is a shared secret: anything holding it can publish, and the server
   compares it in constant time and fails closed.
 
+  ## Two questions, two secrets
+
+  The ingest token above is machine-wide and answers one question: *may this
+  machine talk to this server*. It cannot answer the second one - *may it
+  touch THIS tournament* - and for a while nothing did. Anything holding the
+  token could overwrite any tournament on the server, and nothing could take
+  a published tournament down at all: turning the switch off stopped future
+  publishes and left player names, ratings, clubs and federations public
+  forever, remediable only by SSH and SQLite.
+
+  `tournaments.openresults_key` answers the second question. It is random,
+  minted here at the FIRST publish (`ensure_key/1`), sent with every publish
+  afterwards, and required by the server to publish again or to delete
+  (`take_down/1`).
+
+  Minted at first publish rather than at creation because a key is a claim
+  on a slug the server has never heard of until something is actually sent;
+  and never regenerated, because the server binds the slug to the first key
+  it sees and a fresh key would lock this machine out of its own tournament.
+  The one thing that clears it is `take_down/1`, which removed the thing the
+  key was a claim on.
+
+  ### The key travels in a header, not in the payload
+
+  This is not a style choice. `OpenResultsWeb.SnapshotController.create/2`
+  stores `conn.body_params` verbatim, and `GET /api/tournaments/:slug` hands
+  that stored document straight back on an OPEN route. A key inside the
+  snapshot body would therefore be published to the public internet by the
+  very request that established it. It goes in the `x-openresults-key`
+  request header, which the server reads and does not store.
+
+  ## Import carries the key, and import does not adopt it
+
+  `PairingsEngine.TournamentExport` puts the key in the backup envelope on
+  purpose - rebuilding a laptop from a backup has to recover the ability to
+  manage what that laptop published, and a key left behind strands a
+  published tournament forever.
+
+  But an import must not adopt it. Two people importing the same file would
+  both believe they own the tournament, both publish to the same slug, and
+  either could delete the other's work. So the imported key lands dormant in
+  `tournaments.openresults_claim`, which nothing here reads, and becomes real
+  only when an arbiter chooses it (`adopt_claim/1`) or throws it away
+  (`discard_claim/1`). Starting fresh is the default in the sense that
+  matters: an imported copy that is never adopted publishes to a new slug
+  under a new key, i.e. it is a different tournament.
+
   ## The other direction
 
   `PairingsEngine.Registrations` pulls entries back from the same server.
@@ -53,7 +100,7 @@ defmodule PairingsEngine.Publishing do
 
   import Ecto.Query
 
-  alias PairingsEngine.{Repo, Snapshot}
+  alias PairingsEngine.{Repo, Snapshot, Tournaments}
   alias PairingsEngine.Publishing.QueueEntry
   alias PairingsEngine.Tournaments.Tournament
 
@@ -65,6 +112,27 @@ defmodule PairingsEngine.Publishing do
   # in the morning without anyone touching it.
   @backoff [30, 60, 120, 300, 600, 1_800, 3_600]
   @max_backoff 3_600
+
+  # Where the per-tournament key travels. A header rather than a body field,
+  # because the server stores the body verbatim and serves it back openly -
+  # see the moduledoc.
+  @key_header "x-openresults-key"
+
+  @doc """
+  The header a tournament key travels in.
+
+  Public so `PairingsEngine.Registrations` can send it on the pull without
+  writing the name down a second time. A header name that disagrees between
+  two call sites in the same app is the same class of bug as one that
+  disagrees between the two repos - and that one nearly shipped.
+  """
+  def key_header, do: @key_header
+
+  # 256 bits. `public_slug` next door is 72, which is right for a link that
+  # only has to resist enumeration; this one authorises deleting a published
+  # tournament and every snapshot behind it, so it is sized against guessing
+  # rather than against scraping.
+  @key_bytes 32
 
   @doc "The configured OpenResults base URL, or nil."
   def endpoint, do: meta_get("openresults_endpoint")
@@ -220,9 +288,48 @@ defmodule PairingsEngine.Publishing do
         {:error, "this tournament is not set to publish"}
 
       true ->
-        tournament |> Snapshot.build() |> post()
+        # The key is minted here rather than at the call site so that every
+        # path into a publish - the button, the drain, a future one - gets it
+        # without having to know it exists.
+        tournament = ensure_key(tournament)
+        tournament |> Snapshot.build() |> post(tournament.openresults_key)
     end
   end
+
+  @doc """
+  Returns `tournament` with an `openresults_key`, minting one if it has none.
+
+  Idempotent and non-destructive: a tournament that already has a key is
+  handed back untouched, and the write that mints one is guarded by
+  `is_nil(openresults_key)` in the WHERE clause, so two publishes racing
+  cannot end with one of them holding a key the server will never accept
+  again. The value is then read back from the database rather than assumed,
+  which is what makes that guard mean anything.
+
+  Deliberately silent: no broadcast, no `updated_at` bump. A broadcast would
+  re-enter `Tournaments.broadcast_tournament_change/2`, which enqueues a
+  publish, from inside a publish - and a key is not a change to the
+  tournament that anybody watching the page wants to hear about.
+  """
+  @spec ensure_key(Tournament.t()) :: Tournament.t()
+  def ensure_key(%Tournament{openresults_key: key} = tournament)
+      when is_binary(key) and key != "",
+      do: tournament
+
+  def ensure_key(%Tournament{} = tournament) do
+    Repo.update_all(
+      from(t in Tournament, where: t.id == ^tournament.id and is_nil(t.openresults_key)),
+      set: [openresults_key: generate_key()]
+    )
+
+    stored =
+      Repo.one(from t in Tournament, where: t.id == ^tournament.id, select: t.openresults_key)
+
+    %{tournament | openresults_key: stored}
+  end
+
+  @doc "A fresh per-tournament publishing key (256 bits, url-safe)."
+  def generate_key, do: :crypto.strong_rand_bytes(@key_bytes) |> Base.url_encode64(padding: false)
 
   @doc """
   Checks the address and token without publishing anything.
@@ -316,30 +423,31 @@ defmodule PairingsEngine.Publishing do
     |> maybe_put_test_plug()
   end
 
-  defp post(payload) do
-    url = endpoint() |> String.trim_trailing("/") |> Kernel.<>("/api/snapshots")
+  # Built through `request/2` rather than its own `Req.new`, which it used to
+  # be. Two builders had already drifted once (the timeout and retry comments
+  # were duplicated word for word) and adding the key header to only one of
+  # them is exactly the kind of drift that would ship a publish the server
+  # refuses.
+  defp post(payload, key) do
+    request = request("/api/snapshots", json: payload, headers: [{@key_header, key}])
+    url = URI.to_string(request.url)
 
-    request =
-      Req.new(
-        url: url,
-        json: payload,
-        auth: {:bearer, token()},
-        # A publish is a background nicety, not something anyone waits on.
-        # Failing fast and retrying later beats holding a connection open
-        # while an arbiter is trying to pair.
-        receive_timeout: 15_000,
-        # Req's own retries are off: this module already has a queue with a
-        # backoff and a visible error, and two retry mechanisms stacked would
-        # multiply the delay an arbiter sees without telling them why.
-        retry: false
-      )
-
-    case Req.post(maybe_put_test_plug(request)) do
+    case Req.post(request) do
       {:ok, %Req.Response{status: status} = resp} when status in 200..299 ->
         {:ok, resp.body}
 
       {:ok, %Req.Response{status: 401}} ->
         {:error, "the server rejected the token (401)"}
+
+      # The key was refused. Said in terms of what actually happened rather
+      # than as "403", because the situation it describes is a real one an
+      # arbiter can be in - two machines restored from the same backup, or a
+      # tournament somebody else already published to this slug - and "check
+      # your token" would send them to fix the wrong thing.
+      {:ok, %Req.Response{status: 403}} ->
+        {:error,
+         "the results site says a different machine published this tournament (403) - " <>
+           "it will not accept an update from here"}
 
       {:ok, %Req.Response{status: 404}} ->
         {:error, "no snapshot endpoint at #{url} (404) - check the address"}
@@ -351,6 +459,238 @@ defmodule PairingsEngine.Publishing do
         {:error, describe_transport(reason)}
     end
   end
+
+  @doc """
+  Deletes this tournament's published copy from OpenResults.
+
+  The other half of the key. Publishing could always create and overwrite;
+  until this existed, nothing could withdraw - turning the switch off stopped
+  future publishes and left everything already sent public forever, and what
+  was sent carries player names, ratings, clubs and federations.
+
+  Destructive on the server and irreversible from here: the public page, every
+  earlier snapshot in that tournament's history, and any entries its form
+  collected all go. Nothing on this machine's side of the line is touched
+  except the publishing state itself - the tournament, its players and its
+  results stay exactly as they are, and so do any registrations already pulled
+  down and decided, which are this machine's record of who was admitted.
+
+  Returns `{:ok, message}` or `{:error, message}`, both already in words. On
+  failure the tournament is left completely alone: publishing stays on, the
+  key stays put, and a retry is just pressing the button again. Treating a
+  failed delete as a success is the one outcome that would be actively
+  dangerous, because it would tell an arbiter their event was withdrawn while
+  it was still up.
+  """
+  @spec take_down(Tournament.t()) :: {:ok, String.t()} | {:error, String.t()}
+  def take_down(%Tournament{} = tournament) do
+    cond do
+      not configured?() ->
+        {:error, "no OpenResults server is configured"}
+
+      not is_binary(tournament.openresults_key) ->
+        # No key means nothing was ever published FROM HERE. Refusing rather
+        # than sending is the honest answer: without the key the server would
+        # refuse anyway, and a machine that could delete a tournament it never
+        # published is the hole this whole feature closes.
+        {:error, "nothing has been published from this machine for this tournament"}
+
+      true ->
+        do_take_down(tournament)
+    end
+  end
+
+  defp do_take_down(%Tournament{} = tournament) do
+    slug = tournament.public_slug
+
+    request =
+      request("/api/tournaments/#{URI.encode(slug, &URI.char_unreserved?/1)}",
+        headers: [{@key_header, tournament.openresults_key}]
+      )
+
+    url = URI.to_string(request.url)
+
+    case Req.delete(request) do
+      {:ok, %Req.Response{status: status}} when status in 200..299 ->
+        forget_published(tournament)
+        {:ok, "Removed from the results site. Publishing is now off for this tournament."}
+
+      {:ok, %Req.Response{status: 401}} ->
+        {:error, "the server rejected the token (401)"}
+
+      {:ok, %Req.Response{status: 403}} ->
+        {:error,
+         "the results site refused this tournament's key (403) - it was published by a " <>
+           "different machine, which is the one that can remove it"}
+
+      # NOT treated as "already gone, close enough". A 404 here is genuinely
+      # ambiguous - the tournament may not be published, or this server may
+      # simply have no takedown route yet - and the two want opposite
+      # responses. Guessing "already gone" would clear the local publishing
+      # state and tell the arbiter their event was withdrawn while an older
+      # server was still serving it.
+      {:ok, %Req.Response{status: 404}} ->
+        {:error,
+         "nothing is published at #{url}, or this results site is too old to remove one (404)"}
+
+      {:ok, %Req.Response{status: status, body: body}} ->
+        {:error, "the server answered #{status}: #{describe_body(body)}"}
+
+      {:error, reason} ->
+        {:error, describe_transport(reason)}
+    end
+  end
+
+  # Ordering matters. `publish_to_openresults` goes false FIRST, so that the
+  # broadcast at the end - which funnels into `enqueue_id/1` - finds a
+  # tournament that has opted out and queues nothing. Getting this backwards
+  # would re-publish the tournament seconds after deleting it.
+  #
+  # The key is cleared with it. It was a claim on something that no longer
+  # exists, and keeping it would leave the arbiter holding a secret whose only
+  # remaining effect is to be leaked. Publishing again later mints a new one,
+  # which is a fresh claim on a slug the server has forgotten - so "never
+  # regenerated behind the arbiter's back" still holds: the only thing that
+  # ever retires a key is the arbiter deleting the thing it was for.
+  defp forget_published(%Tournament{} = tournament) do
+    {:ok, updated} =
+      tournament
+      |> Ecto.Changeset.change(publish_to_openresults: false, openresults_key: nil)
+      |> Repo.update()
+
+    Repo.delete_all(from q in QueueEntry, where: q.tournament_id == ^tournament.id)
+    Tournaments.broadcast_tournament_change(updated.id, :settings)
+
+    updated
+  end
+
+  ## ---------- a key carried in from a backup ----------
+
+  @doc """
+  The dormant claim an imported backup left on `tournament`, or nil.
+
+  `%{key: ..., slug: ..., endpoint: ...}` with atom keys - the column stores
+  string keys, and every caller here is rendering a sentence or building a
+  changeset, so the shape is normalised in one place rather than at each
+  `Map.get(claim, "slug")`.
+  """
+  @spec claim(Tournament.t()) :: %{key: String.t(), slug: String.t(), endpoint: String.t()} | nil
+  def claim(%Tournament{openresults_claim: %{} = claim}) do
+    with key when is_binary(key) and key != "" <- Map.get(claim, "key"),
+         slug when is_binary(slug) and slug != "" <- Map.get(claim, "slug") do
+      %{key: key, slug: slug, endpoint: Map.get(claim, "endpoint") || ""}
+    else
+      # A hand-edited or truncated backup. Nothing to offer, and nothing that
+      # should look like an offer.
+      _unusable -> nil
+    end
+  end
+
+  def claim(%Tournament{}), do: nil
+
+  @doc """
+  Takes over the published tournament an imported backup carried a key for.
+
+  This is the deliberate act the import deliberately does not perform. It
+  moves the file's key and the address it belongs to onto this row, so this
+  copy publishes to - and can delete - the tournament already sitting at that
+  address, and it takes this copy's own public link with it: the slug IS the
+  address, so a takeover that left the slug alone would publish to a second
+  tournament while claiming to have taken over the first.
+
+  Refused when this tournament already has a key of its own. That would mean
+  abandoning a published copy this machine is responsible for in order to
+  claim a different one - two published tournaments, one of them now
+  unmanageable. `take_down/1` first, then this.
+
+  Refused, too, when the slug is already in use here: `tournaments.public_slug`
+  is uniquely indexed, and two local rows publishing to one address is the
+  same double-ownership this whole mechanism exists to prevent, just inside
+  one database.
+  """
+  @spec adopt_claim(Tournament.t()) :: {:ok, Tournament.t()} | {:error, String.t()}
+  def adopt_claim(%Tournament{} = tournament) do
+    with :ok <- writable(tournament),
+         :ok <- no_key_of_its_own(tournament),
+         %{key: key, slug: slug} <- claim(tournament) do
+      tournament
+      |> Ecto.Changeset.change(
+        openresults_key: key,
+        public_slug: slug,
+        openresults_claim: nil
+      )
+      |> Ecto.Changeset.unique_constraint(:public_slug)
+      |> Repo.update()
+      |> case do
+        {:ok, updated} ->
+          Tournaments.broadcast_tournament_change(updated.id, :settings)
+          {:ok, updated}
+
+        {:error, _changeset} ->
+          {:error,
+           "another tournament on this machine already publishes to that address - " <>
+             "remove that one from the results site first"}
+      end
+    else
+      {:error, message} when is_binary(message) -> {:error, message}
+      nil -> {:error, "this tournament is not carrying a publishing key from a backup"}
+    end
+  end
+
+  @doc """
+  Throws the imported key away, leaving the tournament a fresh one.
+
+  The other branch of the same choice, and the one that is safe to take by
+  mistake: this copy keeps its own new link, and publishing it mints a new
+  key against a new address. It costs the ability to ever manage the copy the
+  backup came from, which is why it is confirmed rather than silent.
+  """
+  @spec discard_claim(Tournament.t()) :: {:ok, Tournament.t()} | {:error, String.t()}
+  def discard_claim(%Tournament{} = tournament) do
+    with :ok <- writable(tournament) do
+      tournament
+      |> Ecto.Changeset.change(openresults_claim: nil)
+      |> Repo.update()
+      |> case do
+        {:ok, updated} ->
+          Tournaments.broadcast_tournament_change(updated.id, :settings)
+          {:ok, updated}
+
+        {:error, _changeset} ->
+          {:error, "could not discard the key"}
+      end
+    end
+  end
+
+  defp no_key_of_its_own(%Tournament{} = tournament) do
+    if published?(tournament) do
+      {:error,
+       "this tournament has already published under a key of its own - remove it from the " <>
+         "results site first, then take the other one over"}
+    else
+      :ok
+    end
+  end
+
+  # `Tournaments.ensure_writable/1` returns `{:error, :archived}`; every
+  # caller of the two above wants words, so the atom is turned into them here
+  # rather than in each LiveView.
+  defp writable(%Tournament{} = tournament) do
+    case Tournaments.ensure_writable(tournament) do
+      :ok -> :ok
+      {:error, :archived} -> {:error, "this tournament is archived and cannot be changed"}
+    end
+  end
+
+  @doc """
+  Whether `tournament` currently has a published copy this machine can manage.
+
+  The gate the Settings page uses to decide whether to offer a takedown at
+  all. A tournament that opted in but has never actually sent anything has no
+  key and therefore nothing to withdraw.
+  """
+  @spec published?(Tournament.t()) :: boolean()
+  def published?(%Tournament{openresults_key: key}), do: is_binary(key) and key != ""
 
   # In prod nothing is configured, so the request goes out over the network.
   # In tests `config/test.exs` points this at a `Req.Test` stub name - the

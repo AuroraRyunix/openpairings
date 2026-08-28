@@ -23,6 +23,16 @@ defmodule PairingsEngine.Snapshots do
       owns it or whether it's archived.
     * The logo is a known gap, same as the export's.
 
+  One exception is worth stating because it looks like a contradiction of the
+  first bullet: the envelope's `"openresults"` block, holding the tournament's
+  publishing key, IS in the payload - it is in every export, and snapshots use
+  the export verbatim. Restoring never applies it. `openresults_key` is not
+  cast by `Tournament.changeset/2`, so `TournamentImport.restore_into!/2`
+  cannot write it, and that is the behaviour we want in both directions:
+  rolling back to a restore point taken before the tournament first published
+  must not revoke the key it holds now, and rolling back to one taken after
+  must not resurrect a key a takedown deliberately retired.
+
   ## Where they're taken
 
   From the LiveView handler, immediately *before* the risky context call -

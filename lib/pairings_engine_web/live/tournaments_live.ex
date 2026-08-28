@@ -3,6 +3,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
   alias PairingsEngine.{
     Audit,
+    Publishing,
     Tournaments,
     SwarImport,
     TournamentExport,
@@ -93,6 +94,25 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
   defp assign_tournaments(socket) do
     assign(socket, :tournaments, Tournaments.list_tournaments(socket.assigns.current_scope))
+  end
+
+  # Whether "Export all" would put a publishing key in the file. Read off the
+  # list that is already loaded rather than asked of the database again - the
+  # same rows `TournamentExport.export_all/1` would walk.
+  defp any_published?(tournaments) do
+    Enum.any?(tournaments, fn {tournament, _count, _owner?} ->
+      Publishing.published?(tournament)
+    end)
+  end
+
+  # `false` for a tournament whose backup carries no key, which HEEx drops
+  # rather than rendering an empty `title`. A caution attached to every export
+  # link on the page would be one nobody reads by the time it is true.
+  defp export_key_warning(tournament) do
+    Publishing.published?(tournament) and
+      gettext(
+        "This backup carries the tournament's publishing key - anyone holding the file can update or delete its page on the results site."
+      )
   end
 
   defp assign_deleted_tournaments(socket) do
@@ -429,6 +449,14 @@ defmodule PairingsEngineWeb.TournamentsLive do
             ["tournaments", Access.at(0), "tournament", "name"],
             "Copy of #{tournament.name}"
           )
+          # The publishing key does not come along. Importing a FILE leaves
+          # the key dormant as an offer, which is right: the machine that
+          # exported it may be gone and somebody has to be able to take the
+          # published copy over. Duplicating is not that case at all - the
+          # original is right there in the same list, still publishing - so
+          # offering "Copy of X" a takeover of X's published page would put
+          # two rows one click away from fighting over one address.
+          |> put_in(["tournaments", Access.at(0), "openresults"], nil)
 
         case TournamentImport.import(envelope, socket.assigns.current_scope) do
           {:ok, [new_tournament]} ->
@@ -826,12 +854,30 @@ defmodule PairingsEngineWeb.TournamentsLive do
           <h1>{gettext("Tournaments")}</h1>
 
           <p class="subtitle">{gettext("Everything you are organising, most recent first.")}</p>
+
+          <%!-- Shown only when a backup would actually carry a publishing key,
+                rather than as a standing warning on every list. A caution that
+                is true of one export in fifty and printed above all of them
+                is one people learn to read past, and this one has to still be
+                read the day it matters. --%>
+          <p :if={any_published?(@tournaments)} class="hint" style="margin: 4px 0 0">
+            {gettext(
+              "A backup of a tournament you publish carries the key that can update and delete its page on the results site. Treat those files like a password."
+            )}
+          </p>
         </div>
 
         <div class="actions" style="margin: 0">
-          <a class="pe-btn" href={~p"/export/tournaments.json"} target="_blank">{gettext(
-            "Export all (JSON)"
-          )}</a>
+          <a
+            class="pe-btn"
+            href={~p"/export/tournaments.json"}
+            target="_blank"
+            title={
+              gettext(
+                "Includes the publishing key of any tournament you publish - anyone holding the file can update or delete its page on the results site."
+              )
+            }
+          >{gettext("Export all (JSON)")}</a>
           <button :if={!@importing_backup} class="pe-btn" phx-click="import_backup">
             {gettext("Import backup (JSON)")}
           </button>
@@ -1337,7 +1383,15 @@ defmodule PairingsEngineWeb.TournamentsLive do
               </td>
 
               <td style="text-align: right">
-                <a class="pe-btn" href={~p"/t/#{t.id}/export/json"} target="_blank">{gettext("Export")}</a>
+                <%!-- The title appears only on a row whose backup would
+                      actually carry a key, so it is never a warning about
+                      nothing. --%>
+                <a
+                  class="pe-btn"
+                  href={~p"/t/#{t.id}/export/json"}
+                  target="_blank"
+                  title={export_key_warning(t)}
+                >{gettext("Export")}</a>
                 <button class="pe-btn" phx-click="duplicate" phx-value-id={t.id}>
                   {gettext("Copy")}
                 </button>
@@ -1408,9 +1462,12 @@ defmodule PairingsEngineWeb.TournamentsLive do
                 <td><span class="badge archived">{gettext("archived")}</span></td>
 
                 <td style="text-align: right">
-                  <a class="pe-btn" href={~p"/t/#{t.id}/export/json"} target="_blank">{gettext(
-                    "Export"
-                  )}</a>
+                  <a
+                    class="pe-btn"
+                    href={~p"/t/#{t.id}/export/json"}
+                    target="_blank"
+                    title={export_key_warning(t)}
+                  >{gettext("Export")}</a>
 
                   <button class="pe-btn" phx-click="unarchive_tournament" phx-value-id={t.id}>
                     {gettext("Unarchive")}

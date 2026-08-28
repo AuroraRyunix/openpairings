@@ -16,6 +16,61 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+### Security
+
+- [Security] **A published tournament belongs to the machine that published
+  it, and can now be taken down.** Until now there was one ingest token for a
+  whole results site, and it answered only "may this machine talk to this
+  server". Anything holding it could overwrite any tournament there, and
+  nothing could withdraw one at all: turning a tournament's publish switch
+  off stopped further updates and left the page &mdash; player names, ratings,
+  clubs and federations &mdash; public forever. The only remedy was SSH and
+  SQLite.
+
+  Each tournament now gets its own key, generated on your machine the first
+  time it publishes and never regenerated. The results site requires it for
+  every later update and for deletion, so a second machine holding the shared
+  token can no longer touch your event.
+
+### Added
+
+- [Feature] **Remove a tournament from the results site.** In Settings, under
+  Publish to the results site, once something has actually been published.
+  It deletes the public page, every earlier snapshot in that tournament's
+  history, and any entries collected for it, and it says so before you
+  confirm. Nothing on your machine is touched &mdash; the tournament, its
+  players and its results stay exactly as they are.
+
+  A takedown that does not reach the server changes nothing and tells you
+  why. In particular a "not found" reply is reported rather than treated as
+  "already gone": it can equally mean the results site is too old to have a
+  takedown at all, and being told your event was withdrawn while it is still
+  up is worse than being told nothing happened.
+
+### Changed
+
+- [Change] **A JSON backup of a published tournament now carries its
+  publishing key, and is therefore as sensitive as a password.** That is
+  deliberate: rebuilding a laptop from a backup has to recover the ability to
+  manage what that laptop published, and a key left on the dead disk would
+  strand a tournament in public with nobody able to take it down. Every place
+  the app offers such an export now says what the file can do.
+
+  **Importing one does not take the tournament over.** The key arrives
+  dormant and the imported copy behaves as a separate tournament: switch
+  publishing on and it gets a new address of its own. Settings then offers
+  the choice in words &mdash; take over publishing the tournament already at
+  that address, or start fresh &mdash; and doing nothing is starting fresh. If
+  an import adopted the key by itself, two people opening the same file would
+  both believe they owned that tournament, both publish to the same address,
+  and either could delete the other's work.
+
+  Duplicating a tournament never carries the key, even though it uses the
+  same export-and-import machinery: the original is still right there, still
+  publishing.
+
+## [Unreleased]
+
 ### Fixed
 
 - [Fix] **A backup no longer loses an accessible table, relabels a played

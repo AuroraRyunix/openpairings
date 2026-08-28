@@ -7,6 +7,13 @@ defmodule PairingsEngine.TournamentExport do
   FIDE-report-shaped TRF16 output. See `docs/import-export.md` for the
   envelope format and `PairingsEngine.TournamentImport` for the inverse.
 
+  One thing in the envelope is not tournament data but a credential: the
+  `"openresults"` block carries the key that lets a machine publish to and
+  delete this tournament's copy on the results site. See
+  `openresults_block/1` for why it travels and what stops an import from
+  quietly adopting it. A file containing one should be handled like a
+  password.
+
   The owning user is deliberately never included - an import always creates
   brand-new tournaments owned by whoever imports the file. Every other id
   (tournament, team, player, round) is carried along verbatim as `"id"`
@@ -53,9 +60,13 @@ defmodule PairingsEngine.TournamentExport do
     manual_ranking manual_ranking_stale
   )a
 
-  # Deliberately NOT exported, with the reason for each - asserted by the
-  # same test, so adding a schema field forces a conscious choice rather
-  # than a silent omission.
+  # Deliberately NOT in the tournament map, with the reason for each -
+  # asserted by the same test, so adding a schema field forces a conscious
+  # choice rather than a silent omission.
+  #
+  # "Not in the map" is not always "not in the file": `openresults_key` at the
+  # bottom does leave, in the entry's own block, and says so. Everything else
+  # here stays on this machine.
   #
   #   id, user_id, inserted_at, updated_at
   #     Identity/ownership. An import always mints a new row owned by
@@ -86,10 +97,24 @@ defmodule PairingsEngine.TournamentExport do
   #     and snapshots aren't part of the envelope. Carrying the id would
   #     dangle against another tournament's snapshot table. An imported copy
   #     legitimately starts with no history behind it.
+  #   openresults_key
+  #     Not in THIS map, but the one field on this list that does leave the
+  #     machine: it travels in the entry's own `"openresults"` block instead
+  #     (see `openresults_block/1` below). It is not tournament content, it is
+  #     authority over a copy of the tournament sitting on a server, and it is
+  #     useless without the address it is authority over - so it is grouped
+  #     with that address rather than filed among the venue and the tiebreaks.
+  #   openresults_claim
+  #     Genuinely never exported. This is a key some OTHER file offered and
+  #     this machine has not accepted. Passing it on would propagate an
+  #     unadopted claim down a chain of backups, so that a file three copies
+  #     removed still carried an offer to take over a tournament nobody in the
+  #     chain ever owned.
   @excluded_tournament_fields ~w(
     id user_id inserted_at updated_at public_slug public_pages_enabled
     registration_open publish_to_openresults deleted_at archived_at swar_guid
     logo_data logo_content_type head_snapshot_id
+    openresults_key openresults_claim
   )a
 
   @doc false
@@ -181,6 +206,7 @@ defmodule PairingsEngine.TournamentExport do
   defp tournament_map(t) do
     %{
       "tournament" => struct_fields(t, @tournament_fields),
+      "openresults" => openresults_block(t),
       "teams" => Enum.map(Tournaments.list_teams(t.id), &team_map/1),
       "players" => Enum.map(Tournaments.list_players(t.id), &player_map/1),
       "rounds" => Enum.map(rounds_with_pairings(t.id), &round_map/1),
@@ -188,6 +214,48 @@ defmodule PairingsEngine.TournamentExport do
       "forbidden_pairings" => forbidden_pairings(t.id)
     }
   end
+
+  @doc """
+  The tournament's publishing identity, or nil for a tournament that has
+  never published.
+
+  **This block is a credential.** The key in it lets whoever holds the file
+  publish to, and delete, the copy of this tournament on the results site -
+  its public page, every earlier snapshot in its history, and any entries its
+  form collected. Every surface offering an export says so; treat the file
+  like a password.
+
+  Carried on purpose, and it is the one deliberate exception to this module's
+  rule that sharing state stays behind. The rule is about an imported copy
+  inheriting the original's reach: a slug the importer did not earn, a
+  publish switch they did not throw. This is the opposite case. Rebuilding a
+  laptop from a backup has to recover the ability to manage what that laptop
+  published, and a key that stayed on the dead disk would strand a tournament
+  full of player names and ratings in public with nobody able to take it down.
+
+  `public_slug` and `publish_to_openresults` keep their exclusions exactly as
+  they were, which is why the address is repeated here rather than the slug
+  field being un-excluded: the imported copy still gets its own fresh public
+  link, and this is inert data describing where somebody ELSE'S copy lives
+  until an arbiter deliberately takes it over. `PairingsEngine.TournamentImport`
+  files it away dormant; `PairingsEngine.Publishing.adopt_claim/1` is the only
+  thing that ever makes it live.
+
+  `endpoint` is the machine-wide server address rather than anything on the
+  tournament row, and it is here so the choice offered on import can name a
+  real address. Without it the prompt would have to say "somewhere", and an
+  arbiter cannot weigh a takeover of a server they cannot see.
+  """
+  def openresults_block(%Tournament{openresults_key: key} = t)
+      when is_binary(key) and key != "" do
+    %{
+      "key" => key,
+      "slug" => t.public_slug,
+      "endpoint" => PairingsEngine.Publishing.endpoint() || ""
+    }
+  end
+
+  def openresults_block(%Tournament{}), do: nil
 
   defp team_map(team), do: Map.put(struct_fields(team, @team_fields), "id", team.id)
 

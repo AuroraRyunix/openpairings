@@ -7,6 +7,11 @@ defmodule PairingsEngine.TournamentImport do
   referenced by pairings, byes, forbidden pairings) remapped inside a single
   transaction via an old-id -> new-id map built as each record is inserted.
 
+  One thing in the envelope is deliberately NOT applied: the `"openresults"`
+  block's publishing key. It is stored dormant on the new row and does
+  nothing until an arbiter explicitly takes the published tournament over -
+  see `dormant_claim/1` for why importing must never be a takeover.
+
   See `docs/import-export.md` for the envelope format and
   `PairingsEngine.TournamentExport` for the inverse.
   """
@@ -95,6 +100,12 @@ defmodule PairingsEngine.TournamentImport do
   Raises (via `Repo.rollback/1`) rather than returning an error tuple, for the
   same reason the private import helpers do: it only runs inside a
   transaction that must abort wholesale on any bad record.
+
+  Unlike `import/2`, this does not even file the entry's `"openresults"` block
+  away as a claim. A restore point is this tournament's own past, so its key
+  is this tournament's own key - already on the row, and never cast, so the
+  restore cannot disturb it. Turning it into a "claim" would offer the arbiter
+  a takeover of themselves.
   """
   def restore_into!(%Tournament{} = tournament, entry) when is_map(entry) do
     t_attrs = fetch_map!(entry, "tournament")
@@ -143,7 +154,13 @@ defmodule PairingsEngine.TournamentImport do
       # has to be carried across explicitly or an imported tournament with a
       # stale hand-set order would come back claiming to be fresh.
       |> Ecto.Changeset.change(
-        manual_ranking_stale: truthy(Map.get(t_attrs, "manual_ranking_stale"))
+        manual_ranking_stale: truthy(Map.get(t_attrs, "manual_ranking_stale")),
+        # The file's publishing key, filed away DORMANT - see
+        # `dormant_claim/1`. Note where it comes from: `t_data`, the envelope
+        # entry, not `t_attrs`. It is not a tournament field and is not cast,
+        # which is what makes "an import never adopts a key" a property of
+        # the schema rather than a rule this function has to remember.
+        openresults_claim: dormant_claim(t_data)
       )
       |> insert!()
 
@@ -255,6 +272,43 @@ defmodule PairingsEngine.TournamentImport do
         PairingsEngine.Tournaments.freeze_round_display_boards!(new_round.id)
       end
     end)
+  end
+
+  # The envelope's `"openresults"` block, kept as an OFFER rather than acted
+  # on. It holds the key that can publish to and delete a tournament already
+  # on the results site, and adopting it here would mean two people importing
+  # the same file both believing they own that tournament - both publishing to
+  # the same slug, either able to delete the other's work.
+  #
+  # So it lands in `tournaments.openresults_claim`, which nothing in the
+  # publishing path reads, and the imported copy behaves as what it is: a
+  # different tournament, which on its first publish gets a new address and a
+  # new key of its own. Starting fresh is not a button somebody has to press -
+  # it is what happens by not pressing one. Taking over is the button, and it
+  # lives on the Settings page (`PairingsEngine.Publishing.adopt_claim/1`),
+  # rather than being forced into this flow: one envelope can hold dozens of
+  # tournaments, and a rebuilt laptop typically imports its backups before it
+  # has been told the results site's address at all, so import time is the
+  # worst possible moment to demand the decision.
+  #
+  # Rebuilt into a fresh map rather than passed through, so a hand-edited file
+  # cannot smuggle extra keys into the column, and dropped entirely unless
+  # both halves are usable strings - a key with no address, or an address with
+  # no key, is not an offer of anything.
+  defp dormant_claim(t_data) when is_map(t_data) do
+    with %{} = block <- Map.get(t_data, "openresults"),
+         key when is_binary(key) and key != "" <- Map.get(block, "key"),
+         slug when is_binary(slug) and slug != "" <- Map.get(block, "slug") do
+      endpoint = Map.get(block, "endpoint")
+
+      %{
+        "key" => key,
+        "slug" => slug,
+        "endpoint" => if(is_binary(endpoint), do: endpoint, else: "")
+      }
+    else
+      _absent_or_unusable -> nil
+    end
   end
 
   defp frozen_label?(pairing) when is_map(pairing),
