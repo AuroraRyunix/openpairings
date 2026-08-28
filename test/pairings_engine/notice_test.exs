@@ -93,6 +93,43 @@ defmodule PairingsEngine.NoticeTest do
     assert Process.whereis(PairingsEngine.Notice) == nil
   end
 
+  test "a notice is quiet unless it is asked to shout" do
+    {:ok, notice} = Notice.put("Maintenance tonight.", in_hours(6))
+    assert notice.level == "info"
+    assert Notice.current().level == "info"
+
+    {:ok, loud} = Notice.put("Downtime at 01:00.", in_hours(6), "urgent")
+    assert loud.level == "urgent"
+    assert Notice.current().level == "urgent"
+  end
+
+  test "an unrecognised level falls back to quiet rather than raising" do
+    # A typo in a script argument should not put a red bar on every screen,
+    # and should not fail the announcement either.
+    {:ok, notice} = Notice.put("Maintenance tonight.", in_hours(6), "CRITICAL!!")
+    assert notice.level == "info"
+  end
+
+  test "a notice written before levels existed still reads" do
+    # Exactly the shape the running server had one deploy ago. `current/0`
+    # has to tolerate it rather than treating a missing key as a broken row
+    # and showing nothing.
+    Repo.query!(
+      "INSERT INTO meta (key, value) VALUES ('site_notice', ?) " <>
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+      [
+        Jason.encode!(%{
+          message: "From an older release.",
+          until: DateTime.to_iso8601(in_hours(3))
+        })
+      ]
+    )
+
+    current = Notice.current()
+    assert current.message == "From an older release."
+    assert current.level == "info"
+  end
+
   test "subscribers are told when it changes" do
     Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Notice.topic())
 

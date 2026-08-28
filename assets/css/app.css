@@ -3830,6 +3830,19 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .site-notice-lead { text-transform: uppercase; letter-spacing: 0.05em; font-size: 11px; }
 .site-notice-text { color: var(--text); }
 
+/* The loud one. Reserved for a notice somebody actually has to act on -
+   scheduled downtime, mainly. Still no animation: a flashing bar over a
+   results table is the wrong kind of urgent when an arbiter is trying to
+   finish typing a scoresheet, and this one may be up for hours rather than
+   the deploy banner's last thirty seconds. */
+.site-notice[data-level="urgent"] {
+  background: var(--danger);
+  color: #fff;
+  border-bottom-color: var(--danger);
+}
+.site-notice[data-level="urgent"] .site-notice-text,
+.site-notice[data-level="urgent"] .site-notice-lead { color: #fff; font-weight: 600; }
+
 /* Text colour and weight only, on the calm tier's own background. The
    two-minute step was briefly given a tinted amber bar to make the state
    change harder to miss; it read as louder than it needed to be, so it is

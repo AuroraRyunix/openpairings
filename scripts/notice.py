@@ -286,6 +286,12 @@ def main():
         help="an explicit ISO 8601 instant, for when the deadline is a wall-clock "
         "time people have already been told (e.g. 2026-08-29T06:00:00Z)",
     )
+    parser.add_argument(
+        "--urgent",
+        action="store_true",
+        help="show it red. For something people have to act on, like scheduled "
+        "downtime - not for news.",
+    )
     parser.add_argument("--withdraw", action="store_true", help="take the banner down")
     parser.add_argument(
         "--host",
@@ -339,13 +345,15 @@ def main():
         parser.error("pass --hours or --until, so the banner has an end")
 
     payload = {"message": args.message}
+    if args.urgent:
+        payload["level"] = "urgent"
     if args.until:
         payload["until"] = args.until
     else:
         payload["hours"] = args.hours
 
     result = send(args, host, app_port, token, "/internal/notice", payload)
-    print(f"Showing until {result['until']}:")
+    print(f"Showing until {result['until']} ({result.get('level', 'info')}):")
     print(f"  {result['message']}")
     print()
     print("Nothing was restarted or scheduled. Take it down with --withdraw.")

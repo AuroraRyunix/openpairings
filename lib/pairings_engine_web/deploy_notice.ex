@@ -65,10 +65,11 @@ defmodule PairingsEngineWeb.DeployNotice do
   # hook would need the same discipline and would not inherit that test.
   defp push_notice(socket, nil), do: push_event(socket, "site-notice", %{message: nil})
 
-  defp push_notice(socket, %{message: message, until: until}) do
+  defp push_notice(socket, %{message: message, until: until} = notice) do
     push_event(socket, "site-notice", %{
       message: message,
-      until: DateTime.to_iso8601(until)
+      until: DateTime.to_iso8601(until),
+      level: Map.get(notice, :level, "info")
     })
   end
 

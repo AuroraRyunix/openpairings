@@ -560,7 +560,7 @@ window.addEventListener("phx:deploy-notice", (e) => deployBanner.show(e.detail.r
 const siteNotice = {
   timer: null,
 
-  show(message, until) {
+  show(message, until, level) {
     const el = document.getElementById("site-notice")
     if (!el) { return }
 
@@ -574,6 +574,7 @@ const siteNotice = {
 
     const text = el.querySelector(".site-notice-text")
     if (text) { text.textContent = message }
+    el.dataset.level = level === "urgent" ? "urgent" : "info"
     el.hidden = false
 
     if (until) {
@@ -591,7 +592,8 @@ const siteNotice = {
   },
 }
 
-window.addEventListener("phx:site-notice", (e) => siteNotice.show(e.detail.message, e.detail.until))
+window.addEventListener("phx:site-notice", (e) =>
+  siteNotice.show(e.detail.message, e.detail.until, e.detail.level))
 
 // "Updated to v0.15.2", shown once after a restart that actually changed the
 // version. The comparison has to be client-side: only the browser remembers

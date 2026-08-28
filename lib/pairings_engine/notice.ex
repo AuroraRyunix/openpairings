@@ -31,6 +31,13 @@ defmodule PairingsEngine.Notice do
 
   So it goes in `meta`, and `until` is what removes it rather than a timer.
 
+  ## Two levels, and only two
+
+  `"info"` is the quiet bar; `"urgent"` is red. There is no middle step and no
+  escalation over time - that is the deploy banner's job, and it earns it by
+  counting down to something actually about to happen. A notice that sits on
+  screen for twelve hours has one volume, chosen when it is written.
+
   ## What it must not do
 
   **It must not imply a restart.** Nothing here mentions saving your work,
@@ -58,10 +65,12 @@ defmodule PairingsEngine.Notice do
   """
   def current(now \\ DateTime.utc_now()) do
     with value when is_binary(value) <- meta_get(@key),
-         {:ok, %{"message" => message, "until" => until}} <- Jason.decode(value),
+         {:ok, %{"message" => message, "until" => until} = stored} <- Jason.decode(value),
          {:ok, until, _} <- DateTime.from_iso8601(until),
          :lt <- DateTime.compare(now, until) do
-      %{message: message, until: until}
+      # `level` defaults rather than being required, so a notice written by an
+      # older release still reads.
+      %{message: message, until: until, level: stored["level"] || "info"}
     else
       _absent_or_expired -> nil
     end
@@ -74,8 +83,11 @@ defmodule PairingsEngine.Notice do
   notice, and a second announcement is a correction of the first rather than
   an addition to it.
   """
-  def put(message, %DateTime{} = until) when is_binary(message) do
+  def put(message, until, level \\ "info")
+
+  def put(message, %DateTime{} = until, level) when is_binary(message) do
     message = String.trim(message)
+    level = if level in ["info", "urgent"], do: level, else: "info"
 
     cond do
       message == "" ->
@@ -85,8 +97,16 @@ defmodule PairingsEngine.Notice do
         {:error, "that time has already passed"}
 
       true ->
-        meta_put(@key, Jason.encode!(%{message: message, until: DateTime.to_iso8601(until)}))
-        notice = %{message: message, until: until}
+        meta_put(
+          @key,
+          Jason.encode!(%{
+            message: message,
+            until: DateTime.to_iso8601(until),
+            level: level
+          })
+        )
+
+        notice = %{message: message, until: until, level: level}
         broadcast(notice)
         {:ok, notice}
     end

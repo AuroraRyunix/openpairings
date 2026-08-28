@@ -96,13 +96,14 @@ defmodule PairingsEngineWeb.DeployController do
     with :ok <- authorize(conn),
          {:ok, message} <- message(params),
          {:ok, until} <- until(params),
-         {:ok, notice} <- Notice.put(message, until) do
+         {:ok, notice} <- Notice.put(message, until, level(params)) do
       Logger.info("Site notice set until #{DateTime.to_iso8601(notice.until)}: #{notice.message}")
 
       json(conn, %{
         ok: true,
         message: notice.message,
-        until: DateTime.to_iso8601(notice.until)
+        until: DateTime.to_iso8601(notice.until),
+        level: notice.level
       })
     else
       :unauthorized ->
@@ -137,6 +138,9 @@ defmodule PairingsEngineWeb.DeployController do
   end
 
   defp message(_params), do: {:error, "message is required"}
+
+  defp level(%{"level" => "urgent"}), do: "urgent"
+  defp level(_params), do: "info"
 
   # `hours` is the unit an announcement is actually made in. `until` takes an
   # explicit ISO 8601 instant for the case where the deadline is a wall-clock
