@@ -18,6 +18,29 @@ Each entry is tagged so a version can be skimmed:
 
 ### Fixed
 
+- [Fix] **A single reported board moved everybody else's tiebreaks.** While a
+  round was being played, the moment the first result was typed in, every
+  player who had not yet reported gained a phantom draw on their opponents'
+  Buchholz, BHC1, BHC2, MBH and Sonneborn-Berger &mdash; and Koya's 50%
+  threshold jumped a full win at the same instant.
+
+  Two quantities were being subtracted from each other that are not the same
+  kind of thing. `rounds_played_count/1` returned the largest number of game
+  *records* any player held, and it was compared against a round *number*. An
+  unreported pairing produces no record at all, so the count rose as soon as
+  one game finished, while every other player's last record still pointed at
+  the previous round. The difference read as "this player missed a round",
+  which Article 16.3 scores as a draw.
+
+  Both readers now ask the rounds how many of them are *complete* &mdash; the
+  highest round in which no pairing is still unreported &mdash; rather than
+  asking the players how many records they hold. A round holding only byes
+  counts as played; a round with no pairings and no byes does not, so
+  creating a round in advance no longer awards anyone anything.
+
+  This was the most ordinary situation there is: a round in progress, results
+  coming in one board at a time, standings on a projector.
+
 - [Fix] **Importing a round's results from CSV wrote them to the wrong
   games.** The importer matched each line against the board number the
   pairing engine assigned. Every document an arbiter can read - the printed

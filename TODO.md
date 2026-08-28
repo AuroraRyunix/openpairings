@@ -91,6 +91,19 @@ illegal combinations cannot be entered.
 
 ## Known gaps / deferred features
 
+- **Byes sort above special boards, and should sort below them.** Reported by
+  the maintainer 2026-08-28. `PairingDisplay.with_display_boards/1` currently
+  orders normal, then byes, then vacant seats, then special boards. The
+  order an arbiter expects is **normal, special, byes, absents** - a special
+  board is a board somebody is playing on, so it belongs with the games, and
+  the two categories where nobody is playing belong at the bottom together.
+
+  One line in `with_display_boards/1`'s `ordered` concatenation. It is
+  display order only - the frozen `display_board` labels are computed by
+  `compute_labels/1` and are not affected, so this cannot renumber anything.
+  Check the printed pairing sheet and the projector view alongside the
+  Pairings page, since all three read this function.
+
 These are real, identified gaps - not yet built, and not accidentally missed:
 
 - **Admin/support role** (`users.role`) - no staff/support role exists yet;

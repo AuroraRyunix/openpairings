@@ -73,7 +73,7 @@ defmodule PairingsEngine.Standings do
 
   defp build_standings(tournament, tiebreak_codes, opts) do
     players = Tournaments.list_players(tournament.id)
-    games_by_player = games_by_player(tournament, players, opts)
+    {games_by_player, completed_rounds} = games_by_player(tournament, players, opts)
 
     entries =
       Enum.map(players, fn player ->
@@ -86,7 +86,11 @@ defmodule PairingsEngine.Standings do
           games: games,
           points: points,
           extra_points: extra_points,
-          total: round_f(points + extra_points, 1)
+          total: round_f(points + extra_points, 1),
+          # Carried on the entry rather than threaded through `tiebreak/4`,
+          # which has some twenty clauses. Both readers already hold an
+          # entry: Article 16.3 reads the OPPONENT's, Article 9.2 its own.
+          completed_rounds: completed_rounds
         }
       end)
 
@@ -228,14 +232,47 @@ defmodule PairingsEngine.Standings do
     byes = byes_by_player_round(tournament.id, through_round)
     player_ids = MapSet.new(players, & &1.id)
 
-    for round <- rounds,
-        pairing <- round.pairings,
-        record <- pairing_records(pairing, round.number, tournament, presence?),
-        MapSet.member?(player_ids, record.player_id),
-        reduce: %{} do
-      acc -> Map.update(acc, record.player_id, [record], &(&1 ++ [record]))
-    end
-    |> add_bye_records(byes, tournament)
+    games =
+      for round <- rounds,
+          pairing <- round.pairings,
+          record <- pairing_records(pairing, round.number, tournament, presence?),
+          MapSet.member?(player_ids, record.player_id),
+          reduce: %{} do
+        acc -> Map.update(acc, record.player_id, [record], &(&1 ++ [record]))
+      end
+
+    {add_bye_records(games, byes, tournament), completed_rounds(rounds, byes)}
+  end
+
+  # The highest round whose results are ALL in. Article 16.3 asks how many
+  # trailing rounds an opponent missed, and Article 9.2 asks what the maximum
+  # score so far is; both are questions about rounds that have finished, and
+  # a round with one board still unreported has not.
+  #
+  # This exists because the two used `rounds_played_count/1` - the largest
+  # number of game RECORDS any player holds - and compared it against a round
+  # NUMBER. Those are different quantities, and an unreported pairing
+  # produces no record at all (`pairing_records/4`'s first clause), so the
+  # count moved the moment ONE board reported: every player without a record
+  # for that round suddenly looked like they had missed a round, and their
+  # opponents' Buchholz gained a phantom draw. Koya's 50% threshold jumped a
+  # full win at the same instant. Both from a single result being typed in.
+  #
+  # A round nothing happened in has not been played and does not count -
+  # otherwise creating round 6 in advance would immediately award everyone a
+  # missing-round draw for it. "Something happened" means a pairing OR a bye:
+  # a round can legitimately hold only byes, and a player sitting one out is
+  # still participating in that round.
+  defp completed_rounds(rounds, byes) do
+    bye_rounds = MapSet.new(byes, & &1.round)
+
+    rounds
+    |> Enum.filter(fn r ->
+      (r.pairings != [] or MapSet.member?(bye_rounds, r.number)) and
+        Enum.all?(r.pairings, &(&1.result != ""))
+    end)
+    |> Enum.map(& &1.number)
+    |> Enum.max(fn -> 0 end)
   end
 
   defp byes_by_player_round(tournament_id, through_round) do
@@ -650,7 +687,7 @@ defmodule PairingsEngine.Standings do
     |> Enum.map(fn g ->
       case opponent(g, by_id) do
         nil -> dummy_score(entry, g, t) * g.points
-        opp -> adjusted_score(opp, by_id, t) * g.points
+        opp -> adjusted_score(opp, t) * g.points
       end
     end)
     |> Enum.sum()
@@ -707,7 +744,7 @@ defmodule PairingsEngine.Standings do
 
   # Article 9.2: points against opponents with >= 50% of the maximum score.
   defp tiebreak("KS", entry, by_id, t) do
-    max_score = rounds_played_count(by_id) * t.points_win
+    max_score = entry.completed_rounds * t.points_win
 
     entry.games
     |> Enum.filter(fn g ->
@@ -754,7 +791,7 @@ defmodule PairingsEngine.Standings do
     Enum.map(entry.games, fn g ->
       case opponent(g, by_id) do
         nil -> {dummy_score(entry, g, t), g.voluntary}
-        opp -> {adjusted_score(opp, by_id, t), false}
+        opp -> {adjusted_score(opp, t), false}
       end
     end)
   end
@@ -765,9 +802,8 @@ defmodule PairingsEngine.Standings do
   # at all, because `active_players/1` stops generating any record for them)
   # are treated the same as a real "not played and voluntary" record - that's
   # the fix; everything else here is unchanged.
-  defp adjusted_score(opp_entry, by_id, t) do
+  defp adjusted_score(opp_entry, t) do
     games = Enum.sort_by(opp_entry.games, & &1.round)
-    total_known_rounds = rounds_played_count(by_id)
 
     trailing_voluntary =
       games
@@ -785,7 +821,7 @@ defmodule PairingsEngine.Standings do
         g -> g.round
       end
 
-    missing_tail = max(total_known_rounds - last_round, 0)
+    missing_tail = max(opp_entry.completed_rounds - last_round, 0)
 
     Enum.sum(Enum.map(head, & &1.points)) + (length(tail) + missing_tail) * t.points_draw
   end
@@ -867,13 +903,6 @@ defmodule PairingsEngine.Standings do
     |> Map.values()
     |> Enum.flat_map(& &1.games)
     |> Enum.map(& &1.round)
-    |> Enum.max(fn -> 0 end)
-  end
-
-  defp rounds_played_count(by_id) do
-    by_id
-    |> Map.values()
-    |> Enum.map(&length(&1.games))
     |> Enum.max(fn -> 0 end)
   end
 

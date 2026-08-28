@@ -1260,4 +1260,153 @@ defmodule PairingsEngine.StandingsTest do
       assert score(t, b) == 0.0
     end
   end
+
+  describe "a round still being played does not move anybody's tiebreaks" do
+    # The defect this pins, in one sentence: an unreported pairing produces no
+    # game record at all, so a round count taken from RECORD counts jumped the
+    # instant the FIRST board of a round reported - and every player who had
+    # not yet reported suddenly looked like they had missed a round.
+    #
+    # It was reachable in the most ordinary situation there is: a round in
+    # progress, results coming in one board at a time, an arbiter watching the
+    # standings on a projector. Every un-reported player's opponents gained a
+    # phantom draw on Buchholz, BHC1, BHC2, MBH and SB, and Koya's 50%
+    # threshold moved a full win, at the moment one result was typed in.
+    #
+    # Fixed by asking the ROUNDS how many of them are complete, rather than
+    # asking the players how many records they hold. Those are different
+    # quantities and the old code subtracted one from the other.
+    #
+    # SIX players, not four, and the assertions are about E and F. With four
+    # players every remaining player's round-1 opponent is on the board being
+    # reported, so their Buchholz moves for a completely legitimate reason -
+    # an opponent scored a point - and the test cannot tell that apart from
+    # the defect. E and F played only each other, and neither is in the game
+    # that reports, so nothing about them may move at all.
+    defp mid_round_fixture do
+      t =
+        Repo.insert!(%Tournament{
+          name: "Mid-round",
+          type: "swiss",
+          rounds_count: 3,
+          tiebreaks: ~w(BH BHC1 SB KS)
+        })
+
+      [a, b, c, d, e, f] =
+        for {name, rating} <-
+              [{"A", 2000}, {"B", 1900}, {"C", 1800}, {"D", 1700}, {"E", 1600}, {"F", 1500}] do
+          Repo.insert!(%Player{
+            tournament_id: t.id,
+            name: name,
+            fide_rating: rating,
+            pairing_number: 2001 - rating
+          })
+        end
+
+      r1 = Repo.insert!(%Round{tournament_id: t.id, number: 1, status: "finished"})
+      r2 = Repo.insert!(%Round{tournament_id: t.id, number: 2, status: "playing"})
+
+      for {w, b_, board, result} <- [
+            {a, b, 1, "1-0"},
+            {c, d, 2, "1-0"},
+            {e, f, 3, "1/2-1/2"}
+          ] do
+        Repo.insert!(%Pairing{
+          round_id: r1.id,
+          board: board,
+          white_player_id: w.id,
+          black_player_id: b_.id,
+          result: result
+        })
+      end
+
+      # Round 2 is paired and nothing is in yet. E and F are split across two
+      # different boards, and neither shares a board with A or C.
+      [p1, p2, p3] =
+        for {w, b_, board} <- [{a, c, 1}, {b, e, 2}, {d, f, 3}] do
+          Repo.insert!(%Pairing{
+            round_id: r2.id,
+            board: board,
+            white_player_id: w.id,
+            black_player_id: b_.id,
+            result: ""
+          })
+        end
+
+      {t, %{a: a, b: b, c: c, d: d, e: e, f: f}, %{board1: p1, board2: p2, board3: p3}}
+    end
+
+    defp tiebreaks_by_name(t) do
+      t
+      |> Standings.standings()
+      |> Map.new(&{&1.player.name, &1.tiebreaks})
+    end
+
+    test "reporting one board leaves players with no stake in it untouched" do
+      {t, _players, %{board1: board1}} = mid_round_fixture()
+
+      before = tiebreaks_by_name(t)
+
+      # A v C reports. E and F are still playing, on other boards, and their
+      # only opponent so far is each other.
+      {:ok, _} = Tournaments.update_pairing_result(board1, "1-0")
+
+      later = tiebreaks_by_name(t)
+
+      # Nothing about E or F has changed in the world, so nothing about them
+      # may change here. Before the fix both gained a phantom draw.
+      assert later["E"] == before["E"]
+      assert later["F"] == before["F"]
+    end
+
+    test "the phantom draw, named exactly" do
+      {t, _players, %{board1: board1}} = mid_round_fixture()
+
+      bh_before = tiebreaks_by_name(t)["E"]["BH"]
+      {:ok, _} = Tournaments.update_pairing_result(board1, "1-0")
+      bh_after = tiebreaks_by_name(t)["E"]["BH"]
+
+      # E's Buchholz is the sum of E's opponents' adjusted scores. E has one
+      # opponent, F, who drew with them and has played nothing since. F's
+      # adjusted score cannot change because two other players finished a
+      # game, and the whole defect was that it did.
+      assert bh_after == bh_before
+      assert bh_after == 0.5
+    end
+
+    test "Koya's 50% threshold does not move when one board reports" do
+      {t, _players, %{board1: board1}} = mid_round_fixture()
+
+      ks_before = tiebreaks_by_name(t)["E"]["KS"]
+      {:ok, _} = Tournaments.update_pairing_result(board1, "1-0")
+      ks_after = tiebreaks_by_name(t)["E"]["KS"]
+
+      # Article 9.2's maximum score is over rounds that have FINISHED. Round 2
+      # has not, so the threshold is still one round's worth of wins and the
+      # set of opponents at or above 50% is unchanged.
+      assert ks_after == ks_before
+    end
+
+    test "once the whole round is in, the horizon moves - and only then" do
+      {t, _players, %{board1: b1, board2: b2, board3: b3}} = mid_round_fixture()
+
+      before = tiebreaks_by_name(t)
+
+      for p <- [b1, b2, b3], do: {:ok, _} = Tournaments.update_pairing_result(p, "1-0")
+
+      later = tiebreaks_by_name(t)
+
+      # The control that keeps the fix from being "ignore round 2 forever":
+      # with every board in, round 2 is complete, it counts, and the numbers
+      # legitimately move.
+      refute later == before
+
+      # No intermediate assertion here on purpose. Once two of the three
+      # boards have reported, every remaining player either played in one of
+      # them or has an opponent who did, so there is nobody left whose
+      # numbers SHOULD be frozen - and a test that asserted otherwise would
+      # be asserting the defect back into existence. The one-board case
+      # above is where the isolation actually holds.
+    end
+  end
 end
