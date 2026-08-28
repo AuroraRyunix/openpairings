@@ -251,6 +251,18 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # than something an existing tournament inherits on upgrade.
     field :registration_open, :boolean, default: false
 
+    # Whether this tournament is published to OpenResults at all. Toggled by
+    # Tournaments.set_publish_to_openresults/2, and NOT cast by changeset/2
+    # for the same reason as the three fields above: an ordinary settings
+    # save must not be able to start sending an event's player names,
+    # ratings and clubs to a remote server by accident.
+    #
+    # Default false, and deliberately separate from `public_pages_enabled`.
+    # They answer different questions - "may anyone with the link read this
+    # here" versus "does a copy of it leave this machine" - and an arbiter
+    # who opted into the first has not thereby opted into the second.
+    field :publish_to_openresults, :boolean, default: false
+
     # How long a newly-paired round takes to reach the public pairings
     # page - see `@publish_modes`'s own comment above, and
     # `PairingsEngine.Tournaments.compute_published_at/2`/`round_published?/2`

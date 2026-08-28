@@ -50,6 +50,18 @@ defmodule PairingsEngine.Tournaments do
         tournament_topic(tournament_id),
         {:tournament_changed, tournament_id, hint}
       )
+
+      # Anything worth telling an open LiveView about is worth telling the
+      # public page about, so publishing hangs off the same funnel rather
+      # than off a list of call sites somebody has to keep in step. It is a
+      # no-op unless this tournament opted in, and the queue dedupes, so a
+      # burst of writes is one publish rather than one per keystroke.
+      #
+      # Deliberately inside the `unless`: a bulk import suppresses these and
+      # broadcasts once after committing, and enqueueing per row inside an
+      # uncommitted transaction would be both wasteful and, if the drain ran
+      # at the wrong moment, a snapshot of a half-imported tournament.
+      PairingsEngine.Publishing.enqueue_id(tournament_id)
     end
 
     :ok
@@ -791,6 +803,38 @@ defmodule PairingsEngine.Tournaments do
       |> Ecto.Changeset.change(public_pages_enabled: enabled?)
       |> Repo.update()
       |> tap_ok(fn updated -> broadcast_tournament_change(updated.id, :settings) end)
+    end
+  end
+
+  @doc """
+  Turns publishing this tournament to OpenResults on or off.
+
+  A controlled setter rather than a `changeset/2` field, for the same reason
+  as `set_public_pages/2` and `set_registration_open/2` - but with a sharper
+  edge than either. Those two decide whether somebody holding a link may read
+  this tournament *here*. This one decides whether a copy of it leaves the
+  machine at all, and an ordinary settings save must not be able to start
+  that.
+
+  Turning it ON enqueues an immediate publish, so the arbiter's next look at
+  the public page shows the tournament rather than a 404 they have to wait
+  out. Turning it OFF does not un-publish anything already sent: this app
+  cannot reach into the server and withdraw a document, and pretending
+  otherwise in a toggle label would be a lie. Removing a published
+  tournament is a separate, deliberate act.
+  """
+  @spec set_publish_to_openresults(Tournament.t(), boolean()) ::
+          {:ok, Tournament.t()} | {:error, Ecto.Changeset.t()} | {:error, atom()}
+  def set_publish_to_openresults(%Tournament{} = tournament, enabled?)
+      when is_boolean(enabled?) do
+    with :ok <- ensure_writable(tournament) do
+      tournament
+      |> Ecto.Changeset.change(publish_to_openresults: enabled?)
+      |> Repo.update()
+      |> tap_ok(fn updated ->
+        if enabled?, do: PairingsEngine.Publishing.enqueue(updated)
+        broadcast_tournament_change(updated.id, :settings)
+      end)
     end
   end
 

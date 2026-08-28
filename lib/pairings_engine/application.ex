@@ -19,6 +19,7 @@ defmodule PairingsEngine.Application do
       PairingsEngine.Tools.Session,
       PairingsEngine.RateLimit,
       PairingsEngine.Deploy,
+      PairingsEngine.Publishing.Drain,
       # Start to serve requests, typically the last entry
       PairingsEngineWeb.Endpoint
     ]

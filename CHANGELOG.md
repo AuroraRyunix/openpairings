@@ -16,6 +16,45 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+### Added
+
+- [Feature] **Tournaments can be published to OpenResults.** The public half
+  of this app is a separate service, and until now nothing sent it anything:
+  the snapshot builder existed and had no caller. It does now.
+
+  Opt-in per tournament, off by default, and toggled by its own action rather
+  than by the ordinary settings form &mdash; the same guarantee
+  `public_pages_enabled` and `registration_open` already have, for a sharper
+  reason. Those two decide whether somebody holding a link may read an event
+  *here*; this one decides whether a copy of it leaves the machine at all,
+  and a stray form field must not be able to start that. It is also excluded
+  from the tournament export, so importing a file cannot make this machine
+  start sending a copy of it to whatever server this machine is pointed at.
+
+  **A publish never blocks and never fails loudly.** That is the entire point
+  of the split: a chess venue's wifi &mdash; school gyms, hotel basements
+  &mdash; is exactly where an arbiter is standing when they pair round 5. A
+  write records an intent and returns; a background drain sends what is due
+  every thirty seconds; a send that does not land keeps its place in the
+  queue with a longer backoff and an error written in words rather than in a
+  struct ("the connection was refused &mdash; is the server running?").
+
+  **The queue holds intents, not payloads.** One row per tournament, enforced
+  by a unique index. A snapshot is a whole document rather than a delta, so
+  five publishes stacked up behind a dead connection are not five things to
+  send &mdash; they are one send of the current state, rebuilt when it
+  actually goes out. Eight results entered in a minute are one publish, and a
+  publish delayed twenty minutes carries what is true when it leaves rather
+  than what was true when it was queued. That is what an arbiter wants: the
+  page catches up to the hall, not to a moment in the past.
+
+  Publishing hangs off `broadcast_tournament_change/2`, the one funnel every
+  write in the app already goes through, so no call site has to remember to
+  publish and none can forget. It costs one primary-key lookup for a
+  tournament that has not opted in.
+
+## [Unreleased]
+
 ### Fixed
 
 - [Fix] **A single reported board moved everybody else's tiebreaks.** While a

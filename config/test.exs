@@ -57,6 +57,14 @@ config :pairings_engine, PairingsEngine.Mailer, adapter: Swoosh.Adapters.Test
 # convention. Individual tests set behaviour with Req.Test.stub/2.
 config :pairings_engine, :keycloak_req_plug, PairingsEngine.KeycloakTest
 
+# Same convention for the OpenResults publisher.
+config :pairings_engine, :publishing_req_plug, PairingsEngine.PublishingTest
+
+# The publish drain is the only worker that schedules work from `init`, and a
+# timer firing mid-test would query the database from a process that does not
+# own the sandbox connection. Tests call `Publishing.drain/0` directly.
+config :pairings_engine, :publishing_drain_interval, :disabled
+
 # Print only warnings and errors during test
 config :logger, level: :warning
 
