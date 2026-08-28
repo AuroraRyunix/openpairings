@@ -61,3 +61,7 @@ graphify-out/
 
 # Burrito standalone-binary build output
 /burrito_out/
+
+# Python bytecode from scripts/
+__pycache__/
+*.pyc
