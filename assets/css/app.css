@@ -962,6 +962,29 @@ label.field > span {
   gap: 0 20px;
 }
 
+/* A `.hint` / `.error-note` / `.ok-note` that's a DIRECT child of
+   `.form-grid` is prose explaining the form, not a control - see e.g. the
+   create-tournament page's engine note and "Reporting only" team note.
+   Without this it's just another auto-fill track: it lands in whichever
+   single column comes next, beside a field it has nothing to do with, and
+   because most of these are conditional (`:if`), the field appearing or
+   disappearing shoves every field after it sideways into a different
+   column instead of just adding/removing a row. Spanning the full row
+   keeps it under the field it explains and turns that show/hide into an
+   ordinary row insert. (A `.hint` that lives inside its own `label.field` -
+   e.g. "Date from" on that same page - is already scoped to one cell and
+   is untouched by this, as intended.) The margin replaces the browser's
+   default `<p>` margin so the vertical rhythm matches `label.field`'s own
+   margin-bottom instead of stacking on top of it - `.form-grid` itself
+   has no row-gap, so `label.field`'s margin-bottom is the only thing
+   spacing rows apart. */
+.form-grid > .hint,
+.form-grid > .error-note,
+.form-grid > .ok-note {
+  grid-column: 1 / -1;
+  margin: 0 0 14px;
+}
+
 /* ---------- settings forms ----------
 
    Scoped to the Settings pages (see SettingsSupport's <.setting_group> /

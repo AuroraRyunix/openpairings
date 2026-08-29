@@ -3,10 +3,12 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
   The "Tournament" settings page (`/t/:id/settings`) - the canonical entry
   point of the split Settings section. Holds the tournament's identity
   (name/venue/city/federation/organizer), its format and round count, the
-  tie-break selection, sharing/collaborators, the print logo, and the JSON
-  backup export. Pairing options, round dates, categories, extra points
-  and FIDE-report identifiers each live on their own sibling page - see the
-  sub-nav (`PairingsEngineWeb.SettingsSupport.settings_subnav/1`). Notably,
+  tie-break selection, sharing/collaborators, and the print logo. Pairing
+  options, round dates, categories, extra points, FIDE-report identifiers,
+  this tournament's public existence (`PairingsEngineWeb.SettingsResultsLive`)
+  and the export/backup (`PairingsEngineWeb.SettingsExportLive`) each live on
+  their own sibling page - see the sub-nav
+  (`PairingsEngineWeb.SettingsSupport.settings_subnav/1`). Notably,
   start/end date are NOT here despite once being "tournament identity" -
   they're derived from round dates now, so they live only on the Dates
   page (`PairingsEngineWeb.SettingsDatesLive`), read-only.
@@ -15,7 +17,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
 
   import PairingsEngineWeb.SettingsSupport
 
-  alias PairingsEngine.{Audit, Publishing, Tournaments, Tiebreaks}
+  alias PairingsEngine.{Audit, Tournaments, Tiebreaks}
   alias PairingsEngine.Tournaments.Tournament
 
   # 4th tuple element marks a field as mandatory setup data (see
@@ -56,11 +58,6 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
      socket
      |> attach_dirty_tracker()
      |> assign(
-       # Machine-wide, so it cannot change while this page is open - read
-       # once. Used only to explain a disabled switch rather than to hide
-       # it: an arbiter looking for publishing should find it and be told
-       # what is missing, not find nothing.
-       openresults_configured?: Publishing.configured?(),
        tournament: tournament,
        owner?: owner?,
        page_title: "#{tournament.name} · Settings",
@@ -634,36 +631,6 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
         </p>
       </div>
 
-      <%!-- Everything about this tournament's public existence moved to
-            Settings -> Results site on 2026-08-29. It was here because the
-            share link was here, and it read as unrelated to publishing while
-            sitting next to a logo uploader. A pointer rather than nothing:
-            an arbiter who knows where it used to be should not have to hunt.
-      --%>
-      <div class="card">
-        <h2>{gettext("Public page")}</h2>
-
-        <p class="hint" style="margin-top: 0">
-          <.rich_text text={
-            gettext(
-              "Publishing, the share link, what the public page shows and the entry form are all on %[results] now."
-            )
-          }>
-            <:part name="results">
-              <.link navigate={~p"/t/#{@tournament.id}/settings/results"}>
-                {gettext("Settings -> Results site")}
-              </.link>
-            </:part>
-          </.rich_text>
-        </p>
-
-        <div class="actions" style="margin-top: 8px">
-          <.link class="pe-btn" navigate={~p"/t/#{@tournament.id}/settings/results"}>
-            {gettext("Go there")}
-          </.link>
-        </div>
-      </div>
-
       <div class="card">
         <h2>{gettext("Logo")}</h2>
 
@@ -724,61 +691,6 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
             </button>
           </div>
         </form>
-      </div>
-
-      <div class="card">
-        <h2>{gettext("Export / backup")}</h2>
-
-        <p class="hint" style="margin-top: 0">
-          <.rich_text text={
-            gettext(
-              "A full JSON backup of this tournament - settings, officials, every player (including norm data), rounds, pairings/results, byes and forbidden pairings. Re-importing it (from the %[tournaments] page) always creates a brand-new tournament, never overwrites this one. For a FIDE-report-shaped TRF16 file instead, see %[pairings]."
-            )
-          }>
-            <:part name="tournaments">
-              <.link navigate={~p"/"}>{gettext("Tournaments")}</.link>
-            </:part>
-            <:part name="pairings">
-              <.link navigate={~p"/t/#{@tournament.id}/pairings"}>{gettext("Pairings")}</.link>
-            </:part>
-          </.rich_text>
-          <span :if={@tournament.manual_ranking}>
-            {gettext(
-              "Note that its rank column is the computed order, not manual ranking's hand-set one."
-            )}
-          </span>
-        </p>
-
-        <%!-- Shown only when the file would actually carry the key, so that
-              the warning is never noise and is always true when it appears.
-              It says what the key can DO rather than that the file is
-              "sensitive" - a backup of a chess tournament reads as harmless,
-              and the reason to guard this one is not obvious from the
-              outside. --%>
-        <p :if={Publishing.published?(@tournament)} class="hint" style="color: var(--danger)">
-          {gettext(
-            "This backup carries this tournament's publishing key. Anyone who has the file can update its page on the results site, or delete that page along with its whole history and any entries collected for it. That is deliberate - it is how a rebuilt machine recovers control of what it published - but treat the file like a password."
-          )}
-        </p>
-
-        <div class="actions">
-          <a class="pe-btn" href={~p"/t/#{@tournament.id}/export/json"} target="_blank">
-            {gettext("Export full backup (JSON)")}
-          </a>
-
-          <a
-            class="pe-btn"
-            href={~p"/t/#{@tournament.id}/export/swar"}
-            target="_blank"
-            title={
-              gettext(
-                "A .swar file SWAR itself can open - never verified against a real SWAR install, see docs/swar-import.md"
-              )
-            }
-          >
-            {gettext("Export .swar (v7, experimental)")}
-          </a>
-        </div>
       </div>
     </Layouts.app>
     """

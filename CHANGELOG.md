@@ -18,6 +18,17 @@ Each entry is tagged so a version can be skimmed:
 
 ### Added
 
+- [Feature] **The standalone build opens your browser.** It used to start a
+  server and sit there, leaving you to know that `http://localhost:4000` was
+  the thing to type. It now opens your default browser at the right address
+  once the server is actually listening, so double-clicking the binary opens
+  OpenPairings.
+
+  Only on a local run &mdash; a hosted server never tries this &mdash; and
+  `OPENPAIRINGS_NO_BROWSER=1` turns it off for anyone running the binary
+  headless or over SSH. It cannot stop the app starting: if the launch fails
+  the failure is logged and the tournament goes on.
+
 - [Feature] **An Admin page, next to Connections and only for
   administrators.** It shows who may administer this installation and lets an
   administrator change a role &mdash; grant `support` to a colleague, or take
@@ -362,6 +373,22 @@ Each entry is tagged so a version can be skimmed:
 
 ### Changed
 
+- [Change] **Settings is arranged around what you are actually doing.**
+  "Publish each round" was under Options and is now on OpenResults, with the
+  rest of what reaches the results site. "Export / backup" has its own tab
+  instead of sitting at the bottom of the Tournament page. The Tournament
+  page no longer carries a signpost card pointing at OpenResults, since the
+  tab beside it does that. And the settings tabs no longer offer Changelog,
+  which is not tournament-specific and is already in the top bar.
+
+- [Change] **The new-tournament form stopped scattering itself.** Its
+  explanations &mdash; the engine note, the "Reporting only" note on team
+  tournaments &mdash; were laid out as if they were form fields, so each one
+  took a column beside an unrelated input, and choosing a pairing system
+  reshuffled the rest. They span the full width now and sit under the field
+  they explain, so picking an option adds a row instead of moving three
+  columns. Three hand-tuned margins went with it.
+
 - [Change] **The downloads are named after the product, and the release page
   now carries both shapes.** The single-file build was published as
   `pairings_engine_<target>` &mdash; the internal application name, which
@@ -581,6 +608,21 @@ Each entry is tagged so a version can be skimmed:
   more, which is one fewer argument to get right every time a route is added.
 
 ### Fixed
+
+- [Fix] **A change took up to half a minute to reach the results site.** The
+  publish queue was swept on a 30-second timer and nothing else, so unlisting
+  a tournament sat there until the next sweep &mdash; invisible until the new
+  top-bar indicator gave it something to sit amber on. An enqueue now nudges
+  the queue, debounced so that pairing a round does not fire one HTTP round
+  trip per tournament, with the timer kept as the backstop that retries
+  anything still in backoff.
+
+- [Fix] **"Publish each round" described a page that no longer exists.** Its
+  help text pointed at `/p/<slug>/pairings` &mdash; a route removed with the
+  local public pages &mdash; and told you the switch was gated on a setting
+  under Settings → Tournament, which had also moved. It now names the real
+  address on the results site and the switch that actually gates it, which
+  is on the same page.
 
 - [Fix] **Twelve Dutch strings were wrong, including two buttons that meant
   the opposite of what they did.** The engine-switch confirmation offered

@@ -184,6 +184,10 @@ Local mode:
   `~/.local/share/OpenPairings` on Linux). Override with
   `OPENPAIRINGS_DATA_DIR`, or point `DATABASE_PATH` somewhere specific.
 - **serves `http://localhost:4000`**, and `PORT` moves it.
+- **opens your browser there** once the server is actually ready to answer,
+  so there is nothing to know or type in - see
+  `PairingsEngine.BrowserLauncher`. Set `OPENPAIRINGS_NO_BROWSER=1` to skip
+  it, for a headless run or one started over SSH.
 
 Before this was the default, running the binary with no environment gave you
 `environment variable DATABASE_PATH is missing` and a multi-megabyte

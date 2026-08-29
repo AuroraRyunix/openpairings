@@ -294,6 +294,22 @@ These are real, identified gaps - not yet built, and not accidentally missed:
   stacked fields with toggle rows; those three are data-entry forms where the
   auto-fill grid is the right layout and a single column would waste most of
   a wide screen. Two layout systems here is two answers to two questions.
+
+  **The grid did have a real bug, found 2026-08-29** by the maintainer
+  ("boxes all over the place" on the New tournament form), and it was not the
+  one this note was about. `.form-grid` had no rule for children that are not
+  fields, so a bare `<p class="hint">` took an auto-fill cell and landed
+  beside an unrelated input - and because it occupied a COLUMN, a conditional
+  hint appearing reshuffled everything after it. Three inline
+  `margin-top` values were papering over it.
+
+  Fixed as one shared rule (`.form-grid > .hint, > .error-note, > .ok-note`
+  span `1 / -1`), so a hint sits under its own field and appearing inserts a
+  row. The child combinator matters: a hint nested inside its own
+  `label.field` is untouched. `players_live.ex` and `norms_live.ex` were
+  checked and do not have the bug - they keep hints outside the grid or
+  inside a field - so the rule is a no-op there today and a guard rail
+  later. The decision above is unchanged: the grid stayed.
 - ~~Round robin's `total_rounds/2` vs. a user-set `rounds_count`~~ -
   **shipped**: this used to disagree in the UI (an arbiter could set
   `rounds_count` to anything, mismatching what the Berger schedule for

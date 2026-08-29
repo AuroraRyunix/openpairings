@@ -101,7 +101,7 @@ defmodule PairingsEngine.Publishing do
   import Ecto.Query
 
   alias PairingsEngine.{Repo, Snapshot, Tournaments}
-  alias PairingsEngine.Publishing.QueueEntry
+  alias PairingsEngine.Publishing.{Drain, QueueEntry}
   alias PairingsEngine.Tournaments.Tournament
 
   require Logger
@@ -169,6 +169,11 @@ defmodule PairingsEngine.Publishing do
   A tournament that has not opted in is ignored, silently and on purpose -
   callers are event handlers all over the app and none of them should have to
   ask first.
+
+  Also nudges `PairingsEngine.Publishing.Drain` to send it soon rather than
+  waiting for its next tick - see that module's moduledoc. The nudge is an
+  async, debounced cast; it does not change what "returns immediately" means
+  here.
   """
   def enqueue(%Tournament{publish_to_openresults: true, id: id}) do
     now = DateTime.utc_now()
@@ -179,6 +184,7 @@ defmodule PairingsEngine.Publishing do
       conflict_target: :tournament_id
     )
 
+    Drain.nudge()
     :ok
   end
 
@@ -207,6 +213,8 @@ defmodule PairingsEngine.Publishing do
         on_conflict: :nothing,
         conflict_target: :tournament_id
       )
+
+      Drain.nudge()
     end
 
     :ok

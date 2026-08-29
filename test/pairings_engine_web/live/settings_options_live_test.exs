@@ -555,105 +555,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
     end
   end
 
-  describe "Public pairings publish mode card" do
-    test "defaults to Immediately and renders every mode option", %{conn: conn, scope: scope} do
-      tournament = create_tournament(scope)
-
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
-
-      assert html =~ "Public pairings"
-      assert html =~ "Publish each round"
-      assert html =~ "Immediately"
-      assert html =~ "Manually"
-      assert html =~ "After a delay"
-      assert html =~ "On the round&#39;s own date"
-    end
-
-    test "switching to manual mode saves it", %{conn: conn, scope: scope} do
-      tournament = create_tournament(scope)
-
-      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
-
-      lv
-      |> form("#publish-settings-form", %{"tournament" => %{"publish_mode" => "manual"}})
-      |> render_submit()
-
-      assert Tournaments.get_authorized_tournament!(scope, tournament.id).publish_mode == "manual"
-    end
-
-    test "switching to timed mode with a delay saves both fields", %{conn: conn, scope: scope} do
-      tournament = create_tournament(scope)
-
-      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
-
-      # The "Delay (minutes)" field only renders once the mode select is
-      # actually switched to "timed" (see the "field is hidden by default"
-      # / "appears live" tests below) - flip it first so the form the
-      # submit below reads from actually has the field in it.
-      lv
-      |> element("select[name='tournament[publish_mode]']")
-      |> render_change(%{"tournament" => %{"publish_mode" => "timed"}})
-
-      lv
-      |> form("#publish-settings-form", %{
-        "tournament" => %{"publish_mode" => "timed", "publish_delay_minutes" => "20"}
-      })
-      |> render_submit()
-
-      updated = Tournaments.get_authorized_tournament!(scope, tournament.id)
-      assert updated.publish_mode == "timed"
-      assert updated.publish_delay_minutes == 20
-    end
-
-    test "the \"Delay (minutes)\" field is hidden by default (mode is Immediately)", %{
-      conn: conn,
-      scope: scope
-    } do
-      tournament = create_tournament(scope)
-
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
-
-      refute html =~ "Delay (minutes)"
-    end
-
-    test "the \"Delay (minutes)\" field appears live when the mode is switched to 'timed', and hides again when switched away",
-         %{conn: conn, scope: scope} do
-      tournament = create_tournament(scope)
-      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
-
-      html =
-        lv
-        |> element("select[name='tournament[publish_mode]']")
-        |> render_change(%{"tournament" => %{"publish_mode" => "timed"}})
-
-      assert html =~ "Delay (minutes)"
-
-      html =
-        lv
-        |> element("select[name='tournament[publish_mode]']")
-        |> render_change(%{"tournament" => %{"publish_mode" => "manual"}})
-
-      refute html =~ "Delay (minutes)"
-    end
-
-    test "a tournament already saved in 'timed' mode shows the Delay field on initial render", %{
-      conn: conn,
-      scope: scope
-    } do
-      tournament = create_tournament(scope)
-
-      {:ok, _updated} =
-        Tournaments.update_tournament(tournament, %{
-          "publish_mode" => "timed",
-          "publish_delay_minutes" => "15"
-        })
-
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
-
-      assert html =~ "Delay (minutes)"
-    end
-  end
-
   # The page used to be one long form with a single "Save settings" button
   # underneath everything, so changing a select near the top meant scrolling
   # past every other setting to commit it, and the resulting "Saved." said
@@ -664,7 +565,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
 
-      for id <- ~w(pairing-settings-form play-settings-form publish-settings-form) do
+      for id <- ~w(pairing-settings-form play-settings-form) do
         assert has_element?(lv, "##{id}"), "expected a form ##{id}"
         assert has_element?(lv, "##{id} button[type=submit]"), "##{id} has no save button"
       end
@@ -677,17 +578,16 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
 
       lv
-      |> form("#publish-settings-form", %{"tournament" => %{"publish_mode" => "manual"}})
+      |> form("#pairing-settings-form", %{"tournament" => %{"acceleration" => "baku"}})
       |> render_submit()
 
-      # The publish form carries no rate-of-play or engine field at all, so
+      # The pairing form carries no rate-of-play or standard field at all, so
       # those columns must come through untouched rather than being cast
       # from a blank the other form would have submitted.
       updated = Tournaments.get_authorized_tournament!(scope, tournament.id)
-      assert updated.publish_mode == "manual"
+      assert updated.acceleration == "baku"
       assert updated.rate_of_play == "45min/end"
       assert updated.standard == "rapid"
-      assert updated.pairing_engine == "ainalrami"
     end
 
     test "the confirmation lands beside the button that was pressed", %{
@@ -699,12 +599,11 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
 
       lv
-      |> form("#publish-settings-form", %{"tournament" => %{"publish_mode" => "manual"}})
+      |> form("#play-settings-form", %{"tournament" => %{"rate_of_play_other" => "40min+10sec"}})
       |> render_submit()
 
-      assert has_element?(lv, "#publish-settings-form .ok-note")
+      assert has_element?(lv, "#play-settings-form .ok-note")
       refute has_element?(lv, "#pairing-settings-form .ok-note")
-      refute has_element?(lv, "#play-settings-form .ok-note")
     end
   end
 end

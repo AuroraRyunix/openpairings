@@ -227,7 +227,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLiveTest do
   end
 
   describe "the publishing controls that moved" do
-    test "the Tournament page points at Results site rather than dropping them", %{
+    test "the Tournament page carries no pointer card for them any more", %{
       conn: conn,
       scope: scope
     } do
@@ -235,9 +235,25 @@ defmodule PairingsEngineWeb.SettingsTournamentLiveTest do
 
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
 
-      # An arbiter who knows where these used to be should not have to hunt.
-      assert html =~ "Results site"
-      assert html =~ ~s|/t/#{tournament.id}/settings/results|
+      # The pointer card was a signpost to Settings -> Results site, added
+      # when everything about this tournament's public existence moved
+      # there on 2026-08-29. Removed as clutter now that the sub-nav itself
+      # has an "OpenResults" tab - the arbiter it was written for is already
+      # looking at it.
+      refute html =~ "the share link, what the public page shows and the entry form"
+      assert html =~ "OpenResults"
+    end
+  end
+
+  describe "Export / backup card removed from the Tournament page" do
+    test "the export card and its links no longer render here", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
+
+      # Moved to its own tab - see SettingsExportLiveTest.
+      refute html =~ "Export full backup (JSON)"
+      refute html =~ ~s(href="/t/#{tournament.id}/export/json")
     end
   end
 end

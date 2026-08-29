@@ -975,25 +975,12 @@ defmodule PairingsEngineWeb.TournamentsLive do
             </select>
           </label>
 
-          <label :if={@new_pairing_system == "round_robin"} class="field">
-            <span>{gettext("Cycles")}</span>
-            <select name="tournament[rr_cycles]">
-              <option
-                :for={{val, label} <- rr_cycles_options()}
-                value={val}
-                selected={to_string(val) == Map.get(@new_params, "rr_cycles", "1")}
-              >
-                {label}
-              </option>
-            </select>
-          </label>
-
           <%!-- Named here rather than only in Settings because this is where
                 the choice is actually made, and because "Swiss" alone stopped
                 identifying anything once the system label and the engine name
                 came apart. Swiss only: round robin and Keizer name their
                 engine inside the system label already. --%>
-          <p :if={@new_pairing_system == "swiss"} class="hint" style="margin-top: 0">
+          <p :if={@new_pairing_system == "swiss"} class="hint">
             <.rich_text text={
               gettext(
                 "Paired by %[engine], our own Dutch engine, following C.04.3 as it stands in the edition effective 1 February 2026. You can change the engine per tournament in Settings."
@@ -1011,7 +998,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
                 one - the round it produces looks like a valid pairing, so
                 there is nothing to notice until someone checks the boards
                 against the teams. --%>
-          <label class="field field-check" style="margin-top: 1.6rem">
+          <label class="field field-check">
             <input
               type="checkbox"
               name="tournament[team]"
@@ -1021,7 +1008,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             /> <span>{gettext("Team tournament")}</span>
           </label>
 
-          <p :if={@new_team?} class="hint" style="margin-top: 0">
+          <p :if={@new_team?} class="hint">
             <strong>{gettext("Reporting only.")}</strong>
             <.rich_text text={
               gettext(
@@ -1041,6 +1028,19 @@ defmodule PairingsEngineWeb.TournamentsLive do
               min="1"
               max="30"
             />
+          </label>
+
+          <label :if={@new_pairing_system == "round_robin"} class="field">
+            <span>{gettext("Cycles")}</span>
+            <select name="tournament[rr_cycles]">
+              <option
+                :for={{val, label} <- rr_cycles_options()}
+                value={val}
+                selected={to_string(val) == Map.get(@new_params, "rr_cycles", "1")}
+              >
+                {label}
+              </option>
+            </select>
           </label>
 
           <label class="field">

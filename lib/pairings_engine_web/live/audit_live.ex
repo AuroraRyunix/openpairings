@@ -224,6 +224,15 @@ defmodule PairingsEngineWeb.AuditLive do
   def describe("pair_by_category.toggled", d),
     do: "Turned per-category pairing #{on_off(d["enabled"])}."
 
+  # Nothing emits this any more - the local public pages were removed on
+  # 2026-08-29 - and it stays anyway. The audit trail is a RECORD, and every
+  # database that ran an earlier version still holds rows with this code.
+  # Deleting the clause would not crash them (there is a fallback below), it
+  # would quietly turn "Turned the public pages off." into a generic line,
+  # which is losing evidence about what somebody actually did.
+  #
+  # Its neighbour below is still emitted, by the address rotation on the
+  # OpenResults settings page.
   def describe("public_pages.toggled", d),
     do: "Turned the public pages #{on_off(d["enabled"])}."
 

@@ -4,8 +4,10 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
   *how* the tournament is paired: the pairing system and its variants (RR
   cycles, RR/Swiss match format - each locked once round 1 has been
   paired), the Swiss engine that does the actual pairing, the rating used
-  for pairing, acceleration, the rate of play, the public-pairings publish
-  delay, and the forbidden-pairing / club-federation exclusion rules.
+  for pairing, acceleration, the rate of play, and the forbidden-pairing /
+  club-federation exclusion rules. The public-pairings publish delay moved
+  to `PairingsEngineWeb.SettingsResultsLive` on 2026-08-29, with the rest of
+  this tournament's public existence.
   Scoring (points per win/draw/loss, byes, SWAR's "Pt ABSENT"
   genuine-absence rule) has its own page - see
   `PairingsEngineWeb.SettingsScoringLive`. Pair-by-category lives on
@@ -40,10 +42,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
        page_title: "#{tournament.name} · Settings",
        standard: tournament.standard,
        rate_of_play: tournament.rate_of_play,
-       # Tracked as its own assign so the "Delay (minutes)" field can be
-       # shown/hidden live as the "Publish each round" select changes -
-       # same reason `standard`/`rate_of_play` are tracked separately above.
-       publish_mode: tournament.publish_mode,
        note: nil,
        error: nil,
        dirty: false,
@@ -124,7 +122,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
            tournament: tournament,
            standard: tournament.standard,
            rate_of_play: tournament.rate_of_play,
-           publish_mode: tournament.publish_mode,
            club_exclusion_mode: tournament.club_exclusion,
            fed_exclusion_mode: tournament.fed_exclusion,
            stale: false
@@ -161,20 +158,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     new_rate = if current in list, do: current, else: ""
 
     {:noreply, assign(socket, standard: new_standard, rate_of_play: new_rate)}
-  end
-
-  # Purely cosmetic: shows/hides the "Delay (minutes)" field below as the
-  # "Publish each round" select changes, so an arbiter isn't shown a field
-  # that's ignored unless the mode is "timed" (see the field's own hint
-  # text, still kept as a fallback). Same "track the select's own value as
-  # an assign, gate a sibling `.setting_field` with `:if`" shape as
-  # `club_exclusion_mode_change`/`fed_exclusion_mode_change` below.
-  def handle_event(
-        "publish_mode_change",
-        %{"tournament" => %{"publish_mode" => mode}},
-        socket
-      ) do
-    {:noreply, assign(socket, publish_mode: mode)}
   end
 
   def handle_event("save", %{"tournament" => params} = payload, socket) do
@@ -363,7 +346,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
            tournament: tournament,
            standard: tournament.standard,
            rate_of_play: tournament.rate_of_play,
-           publish_mode: tournament.publish_mode,
            note: save_note(base, tournament),
            error: nil,
            saved_section: section,
@@ -664,54 +646,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
         </div>
 
         <.section_actions section="play" note={@note} error={@error} saved={@saved_section} />
-      </form>
-
-      <form id="publish-settings-form" phx-submit="save">
-        <input type="hidden" name="section" value="publish" />
-        <div class="card">
-          <h2>{gettext("Public pairings")}</h2>
-
-          <p class="subtitle" style="margin: 0 0 8px">
-            <.rich_text text={
-              gettext(
-                "When a round you pair actually reaches %[link] (the public link - still gated on public pages being on at all, see Settings → Tournament). Whichever round is currently paired can always be published early or hidden again by hand from the Pairings page, regardless of this setting."
-              )
-            }>
-              <:part name="link">
-                <code>/p/{@tournament.public_slug}/pairings</code>
-              </:part>
-            </.rich_text>
-          </p>
-
-          <.setting_group>
-            <.setting_field label={gettext("Publish each round")}>
-              <select name="tournament[publish_mode]" phx-change="publish_mode_change">
-                <option
-                  :for={mode <- Tournament.publish_modes()}
-                  value={mode}
-                  selected={@tournament.publish_mode == mode}
-                >
-                  {Tournament.publish_mode_label(mode)}
-                </option>
-              </select>
-            </.setting_field>
-
-            <.setting_field
-              :if={@publish_mode == "timed"}
-              label={gettext("Delay (minutes)")}
-              hint={gettext("Only used when 'Publish each round' above is set to 'After a delay'")}
-            >
-              <input
-                type="number"
-                name="tournament[publish_delay_minutes]"
-                value={@tournament.publish_delay_minutes}
-                min="0"
-              />
-            </.setting_field>
-          </.setting_group>
-        </div>
-
-        <.section_actions section="publish" note={@note} error={@error} saved={@saved_section} />
       </form>
 
       <div class="card">

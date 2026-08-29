@@ -38,7 +38,17 @@ defmodule PairingsEngine.Application do
     # See https://elixir.hexdocs.pm/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: PairingsEngine.Supervisor]
-    Supervisor.start_link(children, opts)
+
+    with {:ok, _pid} = ok <- Supervisor.start_link(children, opts) do
+      # After, not a child of, the supervisor: by the time `start_link/2`
+      # above returns, Endpoint - last in `children` - has already bound its
+      # listening socket, so a browser opened now finds a server instead of
+      # a connection error. See `PairingsEngine.BrowserLauncher`'s moduledoc
+      # for why this single call site can never fail the boot that already
+      # succeeded.
+      PairingsEngine.BrowserLauncher.maybe_open()
+      ok
+    end
   end
 
   # Tell Phoenix to update the endpoint configuration

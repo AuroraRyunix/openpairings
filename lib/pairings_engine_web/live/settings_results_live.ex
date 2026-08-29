@@ -7,10 +7,11 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
 
   These controls were spread across two others and read as unrelated: the
   publish switch and the share link sat under Tournament next to the logo
-  uploader, while the entry form sat under Options next to pairing
-  preferences. They are not unrelated. Every one of them answers some part
-  of "what does the public see", and an arbiter about to put an event online
-  wants that question answered on one screen rather than assembled from two.
+  uploader, while the entry form and the publish-each-round timing sat under
+  Options next to pairing preferences. They are not unrelated. Every one of
+  them answers some part of "what does the public see", and an arbiter about
+  to put an event online wants that question answered on one screen rather
+  than assembled from two.
 
   It also gives the ticks somewhere to live. "Show clubs" is meaningless
   beside a logo uploader and obvious beside "publish this tournament".
@@ -28,6 +29,7 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
   import PairingsEngineWeb.Components.ConnectionStatus
 
   alias PairingsEngine.{Audit, PublicDisplay, Publishing, Tournaments}
+  alias PairingsEngine.Tournaments.Tournament
   alias PairingsEngineWeb.PublicLink
 
   # Polled rather than pushed. The question is "can this machine publish right
@@ -52,6 +54,10 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
        tournament: tournament,
        page_title: "#{tournament.name} · OpenResults",
        openresults_configured?: Publishing.configured?(),
+       # Tracked as its own assign so the "Delay (minutes)" field can be
+       # shown/hidden live as the "Publish each round" select changes,
+       # without waiting for a round trip through `@tournament`.
+       publish_mode: tournament.publish_mode,
        connection: nil,
        stale: false
      )}
@@ -63,8 +69,11 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
            socket.assigns.current_scope,
            socket.assigns.tournament.id
          ) do
-      nil -> {:noreply, push_navigate(socket, to: ~p"/")}
-      tournament -> {:noreply, assign(socket, tournament: tournament)}
+      nil ->
+        {:noreply, push_navigate(socket, to: ~p"/")}
+
+      tournament ->
+        {:noreply, assign(socket, tournament: tournament, publish_mode: tournament.publish_mode)}
     end
   end
 
@@ -152,6 +161,40 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
 
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Could not change the listing")}
+    end
+  end
+
+  ## ---------- when each paired round reaches the results site ----------
+
+  # Purely cosmetic: shows/hides the "Delay (minutes)" field below as the
+  # "Publish each round" select changes, so an arbiter isn't shown a field
+  # that's ignored unless the mode is "timed" (see the field's own hint
+  # text, still kept as a fallback).
+  def handle_event(
+        "publish_mode_change",
+        %{"tournament" => %{"publish_mode" => mode}},
+        socket
+      ) do
+    {:noreply, assign(socket, publish_mode: mode)}
+  end
+
+  def handle_event("save_publish_settings", %{"tournament" => params}, socket) do
+    base = socket.assigns.tournament
+
+    case Tournaments.update_tournament(base, params) do
+      {:ok, tournament} ->
+        log_settings_change(socket, base, tournament)
+
+        {:noreply,
+         socket
+         |> assign(tournament: tournament, publish_mode: tournament.publish_mode)
+         |> put_flash(:info, "Saved.")}
+
+      {:error, :archived} ->
+        {:noreply, put_flash(socket, :error, error_text(:archived))}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Could not save the publish settings")}
     end
   end
 
@@ -400,6 +443,64 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
           </div>
         </div>
       </div>
+
+      <%!-- Moved from Settings -> Options on 2026-08-29, with the rest of
+            this tournament's public existence - see the moduledoc. Its help
+            text used to point at a local `/p/:slug/pairings` link removed
+            the same day; PublicLink is what replaced it, so this shows
+            whatever that module says the real address is, or isn't yet. --%>
+      <form id="publish-settings-form" phx-submit="save_publish_settings">
+        <div class="card">
+          <h2>{gettext("Public pairings")}</h2>
+
+          <p class="subtitle" style="margin: 0 0 8px">
+            <.rich_text text={
+              gettext(
+                "When a round you pair actually reaches %[link] - gated on \"Publish this tournament\" above, not on this setting. Whichever round is currently paired can always be published early or hidden again by hand from the Pairings page, regardless of this setting."
+              )
+            }>
+              <:part name="link">
+                <%= if PublicLink.public?(@tournament) do %>
+                  <code>{PublicLink.url(@tournament)}</code>
+                <% else %>
+                  {gettext("this tournament's page on the results site")}
+                <% end %>
+              </:part>
+            </.rich_text>
+          </p>
+
+          <.setting_group>
+            <.setting_field label={gettext("Publish each round")}>
+              <select name="tournament[publish_mode]" phx-change="publish_mode_change">
+                <option
+                  :for={mode <- Tournament.publish_modes()}
+                  value={mode}
+                  selected={@tournament.publish_mode == mode}
+                >
+                  {Tournament.publish_mode_label(mode)}
+                </option>
+              </select>
+            </.setting_field>
+
+            <.setting_field
+              :if={@publish_mode == "timed"}
+              label={gettext("Delay (minutes)")}
+              hint={gettext("Only used when 'Publish each round' above is set to 'After a delay'")}
+            >
+              <input
+                type="number"
+                name="tournament[publish_delay_minutes]"
+                value={@tournament.publish_delay_minutes}
+                min="0"
+              />
+            </.setting_field>
+          </.setting_group>
+
+          <div class="actions form-actions" style="margin-top: 14px">
+            <button type="submit" class="pe-btn primary">{gettext("Save")}</button>
+          </div>
+        </div>
+      </form>
 
       <div class="card">
         <h2>{gettext("What the public page shows")}</h2>

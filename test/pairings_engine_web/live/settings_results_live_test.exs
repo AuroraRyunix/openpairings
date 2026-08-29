@@ -4,8 +4,9 @@ defmodule PairingsEngineWeb.SettingsResultsLiveTest do
   existence, gathered on one screen on 2026-08-29.
 
   The takedown and imported-key tests came here from
-  `SettingsTournamentLiveTest` with the cards they exercise. The rest is new,
-  and covers the two controls the page was created for.
+  `SettingsTournamentLiveTest`, and the "Public pairings publish mode card"
+  tests from `SettingsOptionsLiveTest`, with the cards they exercise. The
+  rest is new, and covers the controls the page was created for.
   """
   # async: false: sequential SQLite writes plus self-broadcast/render ordering,
   # same rationale as the other Settings LiveView tests.
@@ -95,6 +96,120 @@ defmodule PairingsEngineWeb.SettingsResultsLiveTest do
       # Putting something on a front page - or taking it off - and being told
       # "it will happen when the next result comes in" is not an answer.
       assert Publishing.queued(tournament.id)
+    end
+  end
+
+  describe "Public pairings publish mode card" do
+    test "defaults to Immediately and renders every mode option", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      assert html =~ "Public pairings"
+      assert html =~ "Publish each round"
+      assert html =~ "Immediately"
+      assert html =~ "Manually"
+      assert html =~ "After a delay"
+      assert html =~ "On the round&#39;s own date"
+    end
+
+    test "switching to manual mode saves it", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      lv
+      |> form("#publish-settings-form", %{"tournament" => %{"publish_mode" => "manual"}})
+      |> render_submit()
+
+      assert Tournaments.get_authorized_tournament!(scope, tournament.id).publish_mode == "manual"
+    end
+
+    test "switching to timed mode with a delay saves both fields", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      # The "Delay (minutes)" field only renders once the mode select is
+      # actually switched to "timed" (see the "field is hidden by default"
+      # / "appears live" tests below) - flip it first so the form the
+      # submit below reads from actually has the field in it.
+      lv
+      |> element("select[name='tournament[publish_mode]']")
+      |> render_change(%{"tournament" => %{"publish_mode" => "timed"}})
+
+      lv
+      |> form("#publish-settings-form", %{
+        "tournament" => %{"publish_mode" => "timed", "publish_delay_minutes" => "20"}
+      })
+      |> render_submit()
+
+      updated = Tournaments.get_authorized_tournament!(scope, tournament.id)
+      assert updated.publish_mode == "timed"
+      assert updated.publish_delay_minutes == 20
+    end
+
+    test "the \"Delay (minutes)\" field is hidden by default (mode is Immediately)", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      refute html =~ "Delay (minutes)"
+    end
+
+    test "the \"Delay (minutes)\" field appears live when the mode is switched to 'timed', and hides again when switched away",
+         %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      html =
+        lv
+        |> element("select[name='tournament[publish_mode]']")
+        |> render_change(%{"tournament" => %{"publish_mode" => "timed"}})
+
+      assert html =~ "Delay (minutes)"
+
+      html =
+        lv
+        |> element("select[name='tournament[publish_mode]']")
+        |> render_change(%{"tournament" => %{"publish_mode" => "manual"}})
+
+      refute html =~ "Delay (minutes)"
+    end
+
+    test "a tournament already saved in 'timed' mode shows the Delay field on initial render", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+
+      {:ok, _updated} =
+        Tournaments.update_tournament(tournament, %{
+          "publish_mode" => "timed",
+          "publish_delay_minutes" => "15"
+        })
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      assert html =~ "Delay (minutes)"
+    end
+
+    test "the real address renders once published, a plain description before that", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+      assert html =~ "this tournament&#39;s page on the results site"
+
+      Publishing.put_endpoint("https://openresults.example/")
+      {:ok, tournament} = Tournaments.set_publish_to_openresults(tournament, true)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+      assert html =~ "https://openresults.example/t/#{tournament.public_slug}"
     end
   end
 
