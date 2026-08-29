@@ -27,6 +27,25 @@ defmodule PairingsEngineWeb.AuditLiveTest do
     assert html =~ scope.user.email
   end
 
+  test "a machine-wide row (no tournament) never appears on a tournament's own trail", %{
+    conn: conn,
+    scope: scope
+  } do
+    t = make_tournament(scope)
+
+    Audit.log(t.id, scope, "player.created", %{player_name: "Alice"})
+    Audit.log_system(scope, "backup.downloaded", %{filename: "whole-db.db"})
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/audit")
+
+    assert html =~ "Registered player Alice"
+    refute html =~ "whole-db.db"
+    refute html =~ "Downloaded a backup"
+    # The page still renders normally - a nil-tournament row elsewhere in the
+    # table does not raise inside `describe/1` or anything else on this page.
+    assert html =~ "1 event total."
+  end
+
   test "the category filter narrows the list", %{conn: conn, scope: scope} do
     t = make_tournament(scope)
 

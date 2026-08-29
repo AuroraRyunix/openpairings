@@ -2048,7 +2048,7 @@ defmodule PairingsEngine.Pairing do
 
   @doc "True if `player`'s `absent_rounds` list includes `round_number`."
   def absent_for_round?(%Player{} = player, round_number) do
-    round_number in parse_absent_rounds(player.absent_rounds)
+    round_number in Player.parse_absent_rounds(player.absent_rounds)
   end
 
   @doc "True if `player.start_round` is set and later than `round_number` - a late entrant not yet eligible to be paired."
@@ -2056,17 +2056,6 @@ defmodule PairingsEngine.Pairing do
 
   def not_yet_started?(%Player{start_round: start}, round_number),
     do: round_number < start
-
-  defp parse_absent_rounds(nil), do: []
-  defp parse_absent_rounds(""), do: []
-
-  defp parse_absent_rounds(rounds) when is_binary(rounds) do
-    rounds
-    |> String.split(",", trim: true)
-    |> Enum.map(&String.trim/1)
-    |> Enum.reject(&(&1 == ""))
-    |> Enum.map(&String.to_integer/1)
-  end
 
   # Games in TRF terms for every paired round: opponent pairing number,
   # colour, TRF result code. Rounds without a record become Z (zero-point bye).

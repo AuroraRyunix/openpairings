@@ -45,6 +45,7 @@ defmodule PairingsEngineWeb.BackupController do
   """
   use PairingsEngineWeb, :controller
 
+  alias PairingsEngine.Audit
   alias PairingsEngine.Authz
   alias PairingsEngine.Backup
 
@@ -60,6 +61,10 @@ defmodule PairingsEngineWeb.BackupController do
 
       backup = find(name) ->
         Logger.info("Backup downloaded: #{Path.basename(backup.path)}")
+
+        Audit.log_system(conn.assigns.current_scope, "backup.downloaded", %{
+          filename: Path.basename(backup.path)
+        })
 
         conn
         |> put_resp_content_type("application/octet-stream")

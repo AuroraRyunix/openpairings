@@ -93,7 +93,10 @@ Then, for each selected app in turn:
    unit file contains `SECRET_KEY_BASE` and SMTP credentials). If a unit
    already exists from a prior deploy, its `SECRET_KEY_BASE` is **reused**
    rather than regenerated, so redeploying never invalidates every existing
-   user's logged-in session.
+   user's logged-in session. Right after, OpenPairings also gets
+   `/usr/local/bin/app-role` (re)installed - a small wrapper around `mix
+   pairings.role` that reads this same unit's values instead of needing them
+   typed by hand; see "Granting the first administrator" below.
 5b. **Warns everyone who has a page open**, if `DEPLOY_NOTICE_TOKEN` is
    set - and note WHERE in the sequence this happens.
 
@@ -399,7 +402,7 @@ there lasts until the next deploy. To revoke for good, take the address out
 of the deploy configuration **and** run:
 
 ```bash
-mix pairings.role you@example.com owner
+app-role you@example.com owner
 ```
 
 Doing only the second is the mistake worth naming: it looks like it worked,
@@ -414,7 +417,7 @@ Granting by hand is still there, and is what you want for `support`, or for
 somebody who should hold a role independently of the deploy configuration:
 
 ```bash
-mix pairings.role you@example.com admin
+app-role you@example.com admin
 ```
 
 Run with no arguments it lists whoever currently holds a role. `support` grants
@@ -422,12 +425,22 @@ sight of the diagnostics without the ability to change them; `owner` revokes.
 
 Two operational notes:
 
-- Like `mix pairings.backup`, this needs `DATABASE_PATH` and `SECRET_KEY_BASE`
-  in the environment, because `config/runtime.exs` loads before the task does.
-  The deploy script's build-env file is **deleted after the build**, so source
-  the systemd unit's values or use the same wrapper pattern the backup task
-  uses. It starts the Repo only, never the endpoint, so it cannot collide with
-  the port the live service is bound to.
+- This needs `DATABASE_PATH` and `SECRET_KEY_BASE` in the environment,
+  because `config/runtime.exs` loads before the task does - and the deploy
+  script's own build-env file is **deleted immediately after the build**, so
+  it is never there to source by the time anyone actually needs this. That is
+  what `app-role` (above) is: a wrapper the deploy script installs at
+  `/usr/local/bin/app-role` on every deploy of OpenPairings, which reads
+  those values straight out of the systemd unit itself (`pairingsengine.service`,
+  root-only, chmod 600) and hands them to `mix pairings.role` - so `app-role
+  you@example.com admin` is the command to actually run over SSH, not `mix
+  pairings.role you@example.com admin` on its own, which will fail with a
+  missing-`DATABASE_PATH` error the moment you try it on the box. It never
+  echoes what it reads, matching `mix pairings.backup`'s own long-standing
+  wrapper (installed by hand, for the identical reason) - and being rewritten
+  on every deploy, it can't go stale the way a hand-installed script can.
+  Local dev needs none of this: `mix pairings.role` alone is fine there,
+  because `.env` already supplies both variables.
 - There is no screen for this and there should not be. Shell access on the box
   can already read the database, the secrets and the backups, so making it the
   way roles are granted keeps the authority to grant admin from being something
@@ -535,10 +548,40 @@ stored in that machine's own database
 laptop in a school gym has no systemd unit to put them in, and the same app
 runs in both places.
 
-So after the first OpenResults deploy, set on this side:
+**On a hosted install the deploy now does this for you.** Between migrating
+and restarting it runs `mix pairings.publishing --ensure`, passing all three
+values from the same `.env` it already reads:
 
-- **endpoint**: `https://openresults.zerotwo.cloud`
+| setting | from | on this host |
+| --- | --- | --- |
+| sends to | `DEPLOY_OPENRESULTS_PORT` (default 4004) | `http://localhost:4004` |
+| spectators go | `DEPLOY_OPENRESULTS_PHX_HOST` | `https://openresults.zerotwo.cloud` |
+| token | `DEPLOY_OPENRESULTS_INGEST_TOKEN` | (never echoed) |
+
+`--ensure` **fills blanks and will not overwrite.** Unlike a role, which the
+deploy configuration is entitled to reassert every time, a publishing address
+may have been repointed deliberately - so a value that is already set and
+differs is reported loudly, left alone, and the `--force` command that would
+change it is printed. The token is compared without ever being printed.
+
+An installation that has never configured publishing is therefore wired
+correctly by its first deploy. Setting it by hand still works and is what a
+laptop does, since it has no systemd unit and no deploy script:
+
+- **Address** (sends to): `http://localhost:4004` on this host, or
+  `https://openresults.zerotwo.cloud` anywhere else
+- **Public address**: `https://openresults.zerotwo.cloud`, and **only**
+  needed when the two differ - leave it blank and share links use the
+  address above
 - **token**: the same value as `OPENRESULTS_INGEST_TOKEN` on the server
+
+The two addresses exist because one field was doing both jobs. On this host
+both applications share a machine, and publishing still went out to
+Cloudflare and back through the tunnel to reach a process one loopback hop
+away - because the single address had to be the public one, since
+`PairingsEngineWeb.PublicLink` builds every share link, QR code and printed
+URL from it. Sending over loopback also means the two apps no longer need DNS
+and a CDN to be up in order to talk to each other.
 
 Both halves are required - `Publishing.configured?/0` returns false unless each
 is a non-empty string, because an endpoint with no token would fail every send
@@ -564,6 +607,7 @@ Anything absent is prompted for, or falls back to the default shown.
 | `DEPLOY_PHX_HOST` | OpenPairings | `pairings.zerotwo.cloud` |
 | `DEPLOY_SMTP_USERNAME` / `DEPLOY_SMTP_PASSWORD` | OpenPairings | only asked for when this app is in the run |
 | `DEPLOY_ADMIN_EMAILS` | OpenPairings | comma-separated; who administers this installation. Unset means it has **no administrators** until `mix pairings.role` is run on the box &mdash; see "Granting the first administrator" |
+| `DEPLOY_OPENRESULTS_PHX_HOST` / `DEPLOY_OPENRESULTS_PORT` / `DEPLOY_OPENRESULTS_INGEST_TOKEN` | both | also used to wire OpenPairings publishing on deploy - see "Publishing to OpenResults" |
 | `DEPLOY_FIDE_LIST_URL` | OpenPairings | see above |
 | `DEPLOY_KBSB_API_URL` / `DEPLOY_KBSB_API_KEY` | OpenPairings | see above |
 | `DEPLOY_SSO_BLOCKED_REGISTRATION_DOMAIN` | OpenPairings | see above |

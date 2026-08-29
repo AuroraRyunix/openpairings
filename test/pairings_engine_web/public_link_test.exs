@@ -18,6 +18,7 @@ defmodule PairingsEngineWeb.PublicLinkTest do
 
   setup do
     Publishing.put_endpoint(nil)
+    Publishing.put_public_base(nil)
     Publishing.put_token(nil)
     :ok
   end
@@ -106,6 +107,60 @@ defmodule PairingsEngineWeb.PublicLinkTest do
       t = tournament(publish_to_openresults: true)
 
       assert PublicLink.url(t) == "https://results.example.org/t/#{t.public_slug}"
+    end
+  end
+
+  describe "the send target and the public address are separate" do
+    @moduletag :public_base
+
+    setup do
+      Publishing.put_token("t")
+      :ok
+    end
+
+    test "a spectator is never handed the send target when a public one is set" do
+      # The case this split exists for. On a box hosting both applications
+      # the send target is loopback - correct, and useless to a spectator.
+      Publishing.put_endpoint("http://localhost:4004")
+      Publishing.put_public_base("https://openresults.example")
+
+      url = PublicLink.url(tournament(%{publish_to_openresults: true}))
+
+      assert url =~ "https://openresults.example"
+      refute url =~ "localhost"
+    end
+
+    test "and the host shown beside a link follows the same address" do
+      # `host/1` names the site next to a link so somebody checking one
+      # before printing it does not have to read a URL. Naming the loopback
+      # target there would be worse than useless.
+      Publishing.put_endpoint("http://localhost:4004")
+      Publishing.put_public_base("https://openresults.example")
+
+      assert PublicLink.host(tournament(%{publish_to_openresults: true})) ==
+               "openresults.example"
+    end
+
+    test "leaving the public address unset keeps the old behaviour exactly" do
+      # Every installation that never configures one must be untouched by
+      # this change - that is the whole reason it falls back rather than
+      # becoming a second required field.
+      Publishing.put_endpoint("https://openresults.example")
+
+      assert PublicLink.url(tournament(%{publish_to_openresults: true})) =~
+               "https://openresults.example"
+    end
+
+    test "a blank public address falls back rather than producing a bare path" do
+      # An empty string is what a cleared form field sends. It used to be
+      # stored as "https://" - not an address, but a non-empty string, so
+      # Publishing.configured?/0 would call the installation set up while
+      # every send failed against a URL with no host. Found by this test.
+      Publishing.put_endpoint("https://openresults.example")
+      Publishing.put_public_base("")
+
+      assert PublicLink.url(tournament(%{publish_to_openresults: true})) =~
+               "https://openresults.example"
     end
   end
 end

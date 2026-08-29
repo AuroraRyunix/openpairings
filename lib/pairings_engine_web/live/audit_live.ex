@@ -7,6 +7,13 @@ defmodule PairingsEngineWeb.AuditLive do
   Access control is the same as every other tournament page -
   `Tournaments.get_authorized_tournament!/2` (owner or accepted
   collaborator); a non-collaborator 404s exactly like anywhere else.
+
+  `describe/1` and its helpers below also render the OTHER kind of audit
+  row - machine-wide acts with no tournament, written by
+  `PairingsEngine.Audit.log_system/3` and shown on
+  `PairingsEngineWeb.AdminLive` rather than here. See the "machine-wide
+  rows" section further down for why this page's own queries never surface
+  them.
   """
   use PairingsEngineWeb, :live_view
 
@@ -246,6 +253,31 @@ defmodule PairingsEngineWeb.AuditLive do
     do:
       "Attempted to clear the result on board #{value(d, "board")} (round #{value(d, "round")}) - refused."
 
+  # ---------- machine-wide rows (PairingsEngine.Audit.log_system/3) ----------
+  #
+  # These never carry a tournament_id, so they never reach this page's own
+  # `load_entries/1` (every query there filters `tournament_id == ^id`, and
+  # SQL's `NULL = x` is never true) - only `PairingsEngineWeb.AdminLive`
+  # queries `Audit.list_machine_wide/1` and renders them, through this same
+  # `describe/1`. They are deliberately absent from `@categories`: a filter
+  # bucket for rows that can never appear on this page would be dead weight
+  # here, not a feature.
+  def describe("admin.role_changed", d),
+    do: "Changed #{value(d, "email")}'s role: #{changed_fields(d)}."
+
+  def describe("backup.downloaded", d), do: "Downloaded a backup (#{value(d, "filename")})."
+
+  def describe("publishing.endpoint_changed", d),
+    do: "Changed the publishing address: #{changed_fields(d)}."
+
+  def describe("publishing.public_base_changed", d),
+    do: "Changed the address given to spectators: #{changed_fields(d)}."
+
+  def describe("publishing.token_replaced", _d), do: "Replaced the publishing token."
+  def describe("publishing.token_cleared", _d), do: "Cleared the publishing token."
+
+  def describe("fide.sync_started", _d), do: "Started a FIDE rating list sync."
+
   # Fallback for any code not explicitly handled - still readable.
   def describe(action, _details), do: "#{action}"
 
@@ -362,12 +394,14 @@ defmodule PairingsEngineWeb.AuditLive do
   defp plural(1, word), do: "1 #{word}"
   defp plural(n, word), do: "#{n} #{word}s"
 
-  defp actor(%{user: %{email: email}}), do: email
-  defp actor(_), do: "System"
+  @doc "The acting user's email for one audit row's `:user` preload, or \"System\" for a nil user."
+  def actor(%{user: %{email: email}}), do: email
+  def actor(_), do: "System"
 
-  defp format_time(%NaiveDateTime{} = ndt), do: Calendar.strftime(ndt, "%Y-%m-%d %H:%M")
-  defp format_time(%DateTime{} = dt), do: Calendar.strftime(dt, "%Y-%m-%d %H:%M")
-  defp format_time(other), do: to_string(other)
+  @doc "Formats an audit row's `inserted_at` for display."
+  def format_time(%NaiveDateTime{} = ndt), do: Calendar.strftime(ndt, "%Y-%m-%d %H:%M")
+  def format_time(%DateTime{} = dt), do: Calendar.strftime(dt, "%Y-%m-%d %H:%M")
+  def format_time(other), do: to_string(other)
 
   @doc """
   Sub-nav across the pages in the top bar's "Advanced" menu, so the strip on

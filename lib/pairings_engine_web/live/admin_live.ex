@@ -34,12 +34,24 @@ defmodule PairingsEngineWeb.AdminLive do
   No user deletion, no password reset, no impersonation. Each is a genuine
   support need and each is a much bigger decision than "who may change the
   publishing address", which is all this page was asked for.
+
+  ## Recent activity
+
+  A role change here, a backup download, and the publishing/sync actions on
+  the Connections page are the acts with the widest reach in the app - each
+  is machine-wide rather than about one tournament - so this page also shows
+  the most recent of them, via `PairingsEngine.Audit.list_machine_wide/1`.
+  It is deliberately a short, unpaginated list: this is "what changed
+  recently", not the full tournament-style audit trail those acts are too
+  broad to belong to (see `PairingsEngineWeb.AuditLive`).
   """
   use PairingsEngineWeb, :live_view
 
   alias PairingsEngine.Accounts
   alias PairingsEngine.Accounts.User
+  alias PairingsEngine.Audit
   alias PairingsEngine.Authz
+  alias PairingsEngineWeb.AuditLive
 
   require Logger
 
@@ -48,11 +60,14 @@ defmodule PairingsEngineWeb.AdminLive do
     {:ok, socket |> assign(page_title: "Admin") |> load()}
   end
 
+  @recent_activity_limit 20
+
   defp load(socket) do
     assign(socket,
       users: Accounts.list_users(),
       declared: Authz.declared_admin_emails(),
-      pending: nil
+      pending: nil,
+      recent_activity: Audit.list_machine_wide(limit: @recent_activity_limit)
     )
   end
 
@@ -78,15 +93,18 @@ defmodule PairingsEngineWeb.AdminLive do
 
   def handle_event("confirm", _params, %{assigns: %{pending: %{user: user, role: role}}} = socket) do
     if editable?(socket.assigns, user) and not last_admin_demotion?(socket.assigns, user, role) do
+      from_role = User.role(user) |> to_string()
       {:ok, updated} = Accounts.set_role(user.email, role)
 
-      # No audit entry: the audit trail is per tournament, and this is not
-      # about one. The log is where an operator looks for machine-wide acts,
-      # beside "Backup downloaded".
       Logger.info(
         "Role changed: #{updated.email} is now #{role} " <>
           "(by #{socket.assigns.current_scope.user.email})"
       )
+
+      Audit.log_system(socket.assigns.current_scope, "admin.role_changed", %{
+        email: updated.email,
+        changed_fields: %{role: [from_role, role]}
+      })
 
       {:noreply,
        socket
@@ -228,6 +246,42 @@ defmodule PairingsEngineWeb.AdminLive do
         <p class="hint">
           {gettext("Backups, publishing and the rating lists are on the Connections page.")}
         </p>
+      </div>
+
+      <div class="set-card">
+        <h2>{gettext("Recent activity")}</h2>
+        <p class="hint">
+          {gettext(
+            "The most recent machine-wide actions: role changes, backup downloads, publishing changes and rating-list syncs."
+          )}
+        </p>
+
+        <div class="card table-card">
+          <table class="pe-table">
+            <thead>
+              <tr>
+                <th style="width: 150px">{gettext("When")}</th>
+                <th style="width: 220px">{gettext("Who")}</th>
+                <th>{gettext("What")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr :if={@recent_activity == []}>
+                <td colspan="3">
+                  <div class="empty">
+                    <p class="hint">{gettext("No installation-wide activity recorded yet.")}</p>
+                  </div>
+                </td>
+              </tr>
+
+              <tr :for={entry <- @recent_activity}>
+                <td style="white-space: nowrap">{AuditLive.format_time(entry.inserted_at)}</td>
+                <td>{AuditLive.actor(entry)}</td>
+                <td>{AuditLive.describe(entry)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </Layouts.app>
     """

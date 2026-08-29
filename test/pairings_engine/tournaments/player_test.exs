@@ -73,6 +73,58 @@ defmodule PairingsEngine.Tournaments.PlayerTest do
     end
   end
 
+  describe "parse_absent_rounds/1" do
+    test "nil and blank both give an empty list" do
+      assert Player.parse_absent_rounds(nil) == []
+      assert Player.parse_absent_rounds("") == []
+    end
+
+    test "a single round number" do
+      assert Player.parse_absent_rounds("3") == [3]
+    end
+
+    test "the canonical comma-separated form" do
+      assert Player.parse_absent_rounds("1,3,5") == [1, 3, 5]
+    end
+
+    test "surrounding and interior whitespace is tolerated" do
+      assert Player.parse_absent_rounds(" 1 , 3 ") == [1, 3]
+    end
+
+    test "extra/doubled/trailing commas are tolerated, same as before" do
+      assert Player.parse_absent_rounds("1,,3,") == [1, 3]
+    end
+
+    # This reader only ever sees the canonical form `parse_absent_rounds_input/1`
+    # produces - it does NOT understand that function's forgiving grammar (a
+    # "-" range, ";"/":"/"." separators). A row holding that forgiving input
+    # verbatim, rather than its normalized output, is exactly the kind of
+    # not-actually-canonical data the tests below are about, so it is
+    # deliberately skipped rather than understood.
+    test "does not understand the input grammar's separators or ranges" do
+      assert Player.parse_absent_rounds("2-4") == []
+      assert Player.parse_absent_rounds("1;3") == []
+    end
+
+    # The real-world case this function exists for: `players.absent_rounds`
+    # is a plain string column, and not every row in it was ever validated by
+    # `parse_absent_rounds_input/1` - a hand-edited database or a row from an
+    # older build can hold anything. Before this skipped the bad token
+    # instead, this line was `String.to_integer/1`, which raises on anything
+    # that is not a bare integer and would have taken pairing down with it.
+    test "a malformed token is skipped rather than raising, and its neighbours still count" do
+      assert Player.parse_absent_rounds("3,garbage,5") == [3, 5]
+      assert Player.parse_absent_rounds("abc") == []
+      assert Player.parse_absent_rounds("1,two,3") == [1, 3]
+      assert Player.parse_absent_rounds("3x,5") == [5]
+    end
+
+    test "non-binary input gives an empty list rather than raising" do
+      assert Player.parse_absent_rounds(42) == []
+      assert Player.parse_absent_rounds(%{}) == []
+    end
+  end
+
   describe "changeset/2 absent_rounds normalization" do
     test "normalizes a forgiving grammar to canonical form before storage" do
       changeset = Player.changeset(%Player{}, %{"name" => "A", "absent_rounds" => "2-4;1"})

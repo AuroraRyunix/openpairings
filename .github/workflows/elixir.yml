@@ -41,4 +41,14 @@ jobs:
       run: mix deps.get
 
     - name: Run tests
+      # javafo.jar (third-party, not committed - see test/test_helper.exs)
+      # and the gitignored SWAR fixtures (real personal data) are the only
+      # two exclusions this runner is allowed: both are permanent, known
+      # gaps, not something a fetch step here can close (see the fetch
+      # investigation in test_helper.exs). Anything ELSE test_helper.exs
+      # would have to silently exclude - bbpPairings' vendored binary, which
+      # is committed and should always be present on this Linux runner -
+      # fails the build instead, because that would be a real regression.
       run: mix test
+      env:
+        SKIP_MISSING_ARTIFACTS: swar_fixture,javafo

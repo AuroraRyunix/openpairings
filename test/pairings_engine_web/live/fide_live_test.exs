@@ -238,6 +238,132 @@ defmodule PairingsEngineWeb.FideLiveTest do
     end
   end
 
+  # These acts have the widest reach of anything the app does, and used to
+  # reach only `Logger` - see `PairingsEngine.Audit.log_system/3`.
+  describe "machine-wide acts get a durable audit row" do
+    alias PairingsEngine.{Audit, Publishing}
+    alias PairingsEngine.Fide.Sync, as: FideSync
+
+    setup do
+      Req.Test.stub(PairingsEngine.PublishingTest, fn conn ->
+        Plug.Conn.send_resp(conn, 404, ~s({"error":"not_found"}))
+      end)
+
+      # "starting a FIDE sync logs it" below triggers the real `FideSync`
+      # singleton (see `PairingsEngine.Fide.SyncTest`'s own moduledoc note: a
+      # named GenServer, shared process-wide state, not reset by the DB
+      # sandbox). Reset around every test in this block so a real sync this
+      # block starts cannot leave the button "busy" for a later test file.
+      :sys.replace_state(FideSync, fn _ -> struct(FideSync) end)
+      on_exit(fn -> :sys.replace_state(FideSync, fn _ -> struct(FideSync) end) end)
+
+      :ok
+    end
+
+    test "saving a new address logs the change and the token separately, never the secret", %{
+      conn: conn
+    } do
+      {:ok, lv, _html} = live(admin_conn(conn), ~p"/fide")
+
+      lv
+      |> form("form[phx-submit=save_publishing]", %{
+        "endpoint" => "https://openresults.example",
+        "token" => "s3cret"
+      })
+      |> render_submit()
+
+      rows = Audit.list_machine_wide()
+
+      assert endpoint_row = Enum.find(rows, &(&1.action == "publishing.endpoint_changed"))
+      assert endpoint_row.tournament_id == nil
+
+      assert endpoint_row.details["changed_fields"]["endpoint"] == [
+               nil,
+               "https://openresults.example"
+             ]
+
+      assert token_row = Enum.find(rows, &(&1.action == "publishing.token_replaced"))
+      refute inspect(token_row.details) =~ "s3cret"
+    end
+
+    test "saving with the address unchanged logs no endpoint row", %{conn: conn} do
+      Publishing.put_endpoint("https://openresults.example")
+
+      {:ok, lv, _html} = live(admin_conn(conn), ~p"/fide")
+
+      lv
+      |> form("form[phx-submit=save_publishing]", %{
+        "endpoint" => "https://openresults.example",
+        "token" => ""
+      })
+      |> render_submit()
+
+      refute Enum.any?(Audit.list_machine_wide(), &(&1.action == "publishing.endpoint_changed"))
+    end
+
+    test "leaving the token box blank (\"keep it\") logs no token row", %{conn: conn} do
+      Publishing.put_endpoint("https://openresults.example")
+      Publishing.put_token("keep-me")
+
+      {:ok, lv, _html} = live(admin_conn(conn), ~p"/fide")
+
+      lv
+      |> form("form[phx-submit=save_publishing]", %{
+        "endpoint" => "https://openresults.example",
+        "token" => ""
+      })
+      |> render_submit()
+
+      refute Enum.any?(Audit.list_machine_wide(), &(&1.action == "publishing.token_replaced"))
+    end
+
+    test "clearing the token logs that it happened, not the value that was cleared", %{
+      conn: conn
+    } do
+      Publishing.put_endpoint("https://openresults.example")
+      Publishing.put_token("remove-me")
+
+      {:ok, lv, _html} = live(admin_conn(conn), ~p"/fide")
+      lv |> element("button[phx-click=clear_publishing_token]") |> render_click()
+
+      assert [row] =
+               Enum.filter(Audit.list_machine_wide(), &(&1.action == "publishing.token_cleared"))
+
+      assert row.tournament_id == nil
+      refute inspect(row.details) =~ "remove-me"
+    end
+
+    test "starting a FIDE sync logs it", %{conn: conn} do
+      # `FideSync.start_sync/0` is a real, network-calling singleton (see
+      # `PairingsEngine.Fide.SyncTest`'s moduledoc) - not something to let
+      # loose in this test. Marking it already busy makes the cast a no-op
+      # (its own `handle_cast(:start_sync, ...)` guard for exactly this),
+      # while the audit row - written unconditionally by the handler here,
+      # same as the click itself - still happens.
+      :sys.replace_state(FideSync, fn s -> %{s | status: :downloading} end)
+
+      {:ok, lv, _html} = live(admin_conn(conn), ~p"/fide")
+      render_click(lv, "sync", %{})
+
+      assert Enum.any?(Audit.list_machine_wide(), &(&1.action == "fide.sync_started"))
+    end
+
+    test "a refusal (wrong role) logs nothing", %{conn: conn} do
+      {:ok, lv, _html} = live(support_conn(conn), ~p"/fide")
+
+      lv
+      |> form("form[phx-submit=save_publishing]", %{
+        "endpoint" => "https://somewhere-else.example",
+        "token" => "attackers-token"
+      })
+      |> render_submit()
+
+      render_click(lv, "sync", %{})
+
+      assert Audit.list_machine_wide() == []
+    end
+  end
+
   test "the KBSB list has no manual file upload any more", %{conn: conn} do
     {:ok, _lv, html} = live(conn, ~p"/fide")
 
@@ -435,6 +561,81 @@ defmodule PairingsEngineWeb.FideLiveTest do
       refute html =~ "Sync from data platform"
       assert html =~ "KBSB_API_URL"
       assert html =~ "no source is configured"
+    end
+  end
+
+  describe "the public address" do
+    alias PairingsEngine.Publishing
+
+    setup do
+      Req.Test.stub(PairingsEngine.PublishingTest, fn conn ->
+        Plug.Conn.send_resp(conn, 404, ~s({"error":"not_found"}))
+      end)
+
+      :ok
+    end
+
+    test "is saved separately from the address this machine sends to", %{conn: conn} do
+      # The whole point: on a box hosting both applications the send target
+      # can be loopback while spectators still get a name that resolves.
+      {:ok, lv, _html} = live(conn, ~p"/fide")
+
+      lv
+      |> form("form[phx-submit=save_publishing]", %{
+        "endpoint" => "http://localhost:4004",
+        "public_base" => "https://openresults.example",
+        "token" => "s3cret"
+      })
+      |> render_submit()
+
+      assert Publishing.endpoint() == "http://localhost:4004"
+      assert Publishing.public_base() == "https://openresults.example"
+    end
+
+    test "emptying it goes back to using the send address", %{conn: conn} do
+      Publishing.put_endpoint("https://openresults.example")
+      Publishing.put_public_base("https://elsewhere.example")
+
+      {:ok, lv, _html} = live(conn, ~p"/fide")
+
+      lv
+      |> form("form[phx-submit=save_publishing]", %{
+        "endpoint" => "https://openresults.example",
+        "public_base" => "",
+        "token" => ""
+      })
+      |> render_submit()
+
+      # Not stored as an empty string, which would be an address that is not
+      # one - it clears, and the fallback takes over.
+      assert Publishing.stored_public_base() == nil
+      assert Publishing.public_base() == "https://openresults.example"
+    end
+
+    test "the box shows blank rather than the send address when none is set", %{conn: conn} do
+      # `public_base/0` falls back, which is right for building a link and
+      # wrong for a form: showing the send target in a box nobody filled in
+      # would make the fallback permanent the first time somebody pressed
+      # Save.
+      Publishing.put_endpoint("https://openresults.example")
+
+      {:ok, _lv, html} = live(conn, ~p"/fide")
+
+      refute html =~ ~s(name="public_base" value="https://openresults.example")
+    end
+  end
+
+  describe "the KBSB import is an act, not a look" do
+    test "support cannot start it, and is not offered the button", %{conn: conn} do
+      # It pulls the whole Belgian roster over somebody else's API and
+      # rewrites the local rating table. Every sibling handler on this page
+      # checked the role; this one did not until 2026-08-29, and the page
+      # became readable by support the same day.
+      {:ok, lv, _html} = live(support_conn(conn), ~p"/fide")
+
+      html = render_click(lv, "sync_kbsb_api", %{})
+
+      assert html =~ "needs an administrator"
     end
   end
 end

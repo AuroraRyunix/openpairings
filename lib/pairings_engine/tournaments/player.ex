@@ -135,12 +135,24 @@ defmodule PairingsEngine.Tournaments.Player do
 
   # ---------- Absent rounds (SWAR "Absent at the rounds x,y,z") ----------
   #
-  # The form accepts a forgiving grammar and this step NORMALIZES it, before
-  # storage, to the strict canonical form every consumer parses:
-  # comma-separated, ascending, unique, plain integers (e.g. "1,2,3,4"). Do
-  # not change `parse_absent_rounds/1` in `PairingsEngine.Pairing` or
-  # `PairingsEngine.Keizer` to understand the forgiving grammar - they only
-  # ever see the canonical form produced here.
+  # Two functions, one concept, kept next to each other on purpose:
+  #
+  #   * `parse_absent_rounds_input/1` (the WRITER, below) accepts a
+  #     forgiving grammar from the settings form and NORMALIZES it, before
+  #     storage, to the strict canonical form every consumer reads: comma-
+  #     separated, ascending, unique, plain integers (e.g. "1,2,3,4").
+  #   * `parse_absent_rounds/1` (the READER, further down) is what
+  #     `PairingsEngine.Pairing` and `PairingsEngine.Keizer` call at pairing
+  #     time to turn that back into a list of integers. It used to be a
+  #     private, byte-for-byte copy in each of those two modules - two
+  #     places that had to be kept in agreement by a comment rather than by
+  #     the compiler, which is exactly the shape of bug that has bitten this
+  #     project more than once. One rule, one home.
+  #
+  # Every value THIS changeset writes already satisfies the canonical
+  # grammar below, but the reader cannot assume every value already sitting
+  # in `players.absent_rounds` was written by it - see `parse_absent_rounds/1`'s
+  # own doc for what it does about that.
   #
   # Accepted grammar (see `parse_absent_rounds_input/1` below):
   #   * separators: comma, semicolon, colon, period, and/or whitespace
@@ -222,6 +234,46 @@ defmodule PairingsEngine.Tournaments.Player do
         :error
     end
   end
+
+  @doc """
+  Parses the canonical "absent at the rounds" storage form (see
+  `parse_absent_rounds_input/1` above) into a list of round numbers, e.g.
+  `"1,3,5"` => `[1, 3, 5]`. `nil` and `""` both give `[]`.
+
+  This is the READER side: `PairingsEngine.Pairing.absent_for_round?/2` and
+  `PairingsEngine.Keizer.excused_absence?/2` both call it at pairing time.
+  It used to be a private, byte-for-byte copy of this logic in each of
+  those two modules - see the comment above `parse_absent_rounds_input/1`.
+
+  Every value this app ever WRITES to `absent_rounds` already passed
+  through `parse_absent_rounds_input/1`, so it cannot reach here malformed.
+  But this reads whatever is actually in the column, and not every row got
+  there that way - a hand-edited database, or one written by an older build
+  with looser (or no) validation, is not bound by today's grammar. So this
+  is deliberately tolerant rather than strict: a comma-separated token that
+  is not, in its entirety, a plain integer is skipped rather than raised on
+  (`String.to_integer/1`'s behaviour, which this used to call directly).
+  One corrupted player's `absent_rounds` should cost that player their
+  recorded absences, not take down pairing for the whole tournament.
+  `parse_absent_rounds_input/1` stays strict - strictness there is what
+  keeps new data clean - this is only the read side, where the honest
+  choice is "skip the junk" or "crash a pairing run over it".
+  """
+  def parse_absent_rounds(nil), do: []
+  def parse_absent_rounds(""), do: []
+
+  def parse_absent_rounds(rounds) when is_binary(rounds) do
+    rounds
+    |> String.split(",", trim: true)
+    |> Enum.flat_map(fn token ->
+      case Integer.parse(String.trim(token)) do
+        {n, ""} -> [n]
+        _ -> []
+      end
+    end)
+  end
+
+  def parse_absent_rounds(_), do: []
 
   # Keeps `special_table` (SWAR round-trip compat: HandyTable != 0) in sync
   # with `fixed_board` whenever the caller actually touches `fixed_board`

@@ -3,6 +3,7 @@ defmodule PairingsEngineWeb.FideLive do
 
   import PairingsEngineWeb.Components.ConnectionStatus
 
+  alias PairingsEngine.Audit
   alias PairingsEngine.Authz
   alias PairingsEngine.Backup
   alias PairingsEngine.Kbsb
@@ -55,6 +56,7 @@ defmodule PairingsEngineWeb.FideLive do
   defp assign_publishing(socket) do
     assign(socket,
       publish_endpoint: Publishing.endpoint() || "",
+      publish_public_base: Publishing.stored_public_base() || "",
       publish_token_set?: is_binary(Publishing.token()) and Publishing.token() != "",
       publish_configured?: Publishing.configured?(),
       publish_pending: Publishing.pending_count(),
@@ -143,6 +145,7 @@ defmodule PairingsEngineWeb.FideLive do
   def handle_event("clear_publishing_token", _params, socket) do
     if socket.assigns.may_admin? do
       Publishing.put_token(nil)
+      Audit.log_system(socket.assigns.current_scope, "publishing.token_cleared", %{})
 
       {:noreply,
        socket
@@ -172,6 +175,7 @@ defmodule PairingsEngineWeb.FideLive do
   def handle_event("sync", _params, socket) do
     if socket.assigns.may_admin? do
       FideSync.start_sync()
+      Audit.log_system(socket.assigns.current_scope, "fide.sync_started", %{})
       {:noreply, assign(socket, status: FideSync.status())}
     else
       {:noreply, put_flash(socket, :error, sync_restricted())}
@@ -187,13 +191,24 @@ defmodule PairingsEngineWeb.FideLive do
     {:noreply, assign(socket, status: FideSync.status())}
   end
 
+  # Guarded like its FIDE twin above, which it was not until 2026-08-29. It
+  # pulls the whole Belgian roster over somebody else's API and rewrites the
+  # local rating table - an act, not a look - and this page became readable
+  # by `support` the same day. Every other handler here already checked.
   def handle_event("sync_kbsb_api", _params, socket) do
-    KbsbSync.start_api_import()
-    {:noreply, assign(socket, kbsb_status: KbsbSync.status())}
+    if socket.assigns.may_admin? do
+      KbsbSync.start_api_import()
+      {:noreply, assign(socket, kbsb_status: KbsbSync.status())}
+    else
+      {:noreply, put_flash(socket, :error, sync_restricted())}
+    end
   end
 
   def handle_event("cancel_kbsb", _params, socket) do
-    KbsbSync.cancel_import()
+    if socket.assigns.may_admin? do
+      KbsbSync.cancel_import()
+    end
+
     {:noreply, assign(socket, kbsb_status: KbsbSync.status())}
   end
 
@@ -236,15 +251,44 @@ defmodule PairingsEngineWeb.FideLive do
     do: gettext("Downloading the full FIDE rating list needs an administrator.")
 
   defp save_publishing(params, socket) do
-    Publishing.put_endpoint(blank_to_nil(params["endpoint"]))
+    old_endpoint = Publishing.endpoint()
+    new_endpoint = blank_to_nil(params["endpoint"])
+    Publishing.put_endpoint(new_endpoint)
+
+    # Only when the address actually changed - opening the page and pressing
+    # Save without touching it is not an act worth a row.
+    if new_endpoint != old_endpoint do
+      Audit.log_system(socket.assigns.current_scope, "publishing.endpoint_changed", %{
+        changed_fields: %{endpoint: [old_endpoint, new_endpoint]}
+      })
+    end
+
+    # Blank clears rather than storing the empty string, so emptying the box
+    # returns to "spectators go wherever we send", which is what a blank
+    # field looks like it should mean.
+    old_public = Publishing.stored_public_base()
+    new_public = blank_to_nil(params["public_base"])
+    Publishing.put_public_base(new_public)
+
+    if new_public != old_public do
+      Audit.log_system(socket.assigns.current_scope, "publishing.public_base_changed", %{
+        changed_fields: %{public_base: [old_public, new_public]}
+      })
+    end
 
     # An empty token box means "leave it alone", not "clear it". The value is
     # never rendered back (it is a secret), so a save from a page that showed
     # a blank box would otherwise wipe a working token every time somebody
     # edited the address beside it.
     case blank_to_nil(params["token"]) do
-      nil -> :ok
-      token -> Publishing.put_token(token)
+      nil ->
+        :ok
+
+      token ->
+        Publishing.put_token(token)
+        # The token itself never goes in `details` - see `PairingsEngine.Audit`'s
+        # moduledoc. "It was replaced" is the whole record.
+        Audit.log_system(socket.assigns.current_scope, "publishing.token_replaced", %{})
     end
 
     # Saved settings are tested immediately rather than leaving the arbiter to
@@ -417,7 +461,7 @@ defmodule PairingsEngineWeb.FideLive do
               type="button"
               class="pe-btn primary"
               phx-click="sync_kbsb_api"
-              disabled={busy?(@kbsb_status)}
+              disabled={busy?(@kbsb_status) or not @may_admin?}
             >
               {if busy?(@kbsb_status),
                 do: gettext("Syncing…"),
@@ -556,6 +600,23 @@ defmodule PairingsEngineWeb.FideLive do
               class="pe-input"
               autocomplete="off"
             />
+          </label>
+
+          <label class="field">
+            <span>{gettext("Public address (optional)")}</span>
+            <input
+              type="text"
+              name="public_base"
+              value={@publish_public_base}
+              placeholder={@publish_endpoint}
+              class="pe-input"
+              autocomplete="off"
+            />
+            <span class="hint">
+              {gettext(
+                "Where spectators go - share links, QR codes and printed addresses. Leave blank to use the address above. Set it only when this machine reaches the results site by a different address than the public one, which is the case when both run on the same server: send to http://localhost:4004 and put the public name here."
+              )}
+            </span>
           </label>
 
           <label class="field">

@@ -88,8 +88,14 @@ defmodule PairingsEngineWeb.PublicLink do
     end
   end
 
+  # `public_base/0`, never `endpoint/0`: this builds what a spectator is
+  # handed - a share link, a QR code, a printed URL - and on a box that hosts
+  # both applications the send target is allowed to be loopback. Handing
+  # somebody `http://localhost:4004` is the failure this distinction exists to
+  # prevent. When no public address is set the two are the same value, so
+  # nothing changes for an installation that never configures one.
   defp base(%Tournament{publish_to_openresults: true}) do
-    case Publishing.endpoint() do
+    case Publishing.public_base() do
       endpoint when is_binary(endpoint) and endpoint != "" ->
         String.trim_trailing(endpoint, "/")
 

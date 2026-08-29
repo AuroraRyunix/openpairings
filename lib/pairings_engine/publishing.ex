@@ -134,14 +134,79 @@ defmodule PairingsEngine.Publishing do
   # rather than against scraping.
   @key_bytes 32
 
-  @doc "The configured OpenResults base URL, or nil."
+  @doc """
+  Where this machine SENDS to, or nil.
+
+  Not necessarily where spectators go - see `public_base/0`.
+  """
   def endpoint, do: meta_get("openresults_endpoint")
+
+  @doc """
+  The address spectators are given, falling back to `endpoint/0`.
+
+  ## Why these are two settings
+
+  They were one field doing two jobs, and it cost something measurable. On
+  the hosted box both applications share a machine, and the publishing check
+  still reported ~40 ms - because the one address was the PUBLIC one, so
+  every publish left the server, went out to Cloudflare, and came back in
+  through the tunnel to reach a process one loopback hop away.
+
+  Pointing that field at `localhost` was the obvious fix and would have
+  broken the site: `PairingsEngineWeb.PublicLink` builds every share link,
+  QR code and printed URL from the same value, and a spectator cannot follow
+  `http://localhost:4004`.
+
+  So: `endpoint/0` is the machine's business - the address it posts to, free
+  to be loopback on a box that hosts both. `public_base/0` is what people are
+  handed. Leaving the second unset keeps the old behaviour exactly, which is
+  what every existing installation wants and gets without touching anything.
+  """
+  def public_base do
+    case stored_public_base() do
+      value when is_binary(value) -> value
+      nil -> endpoint()
+    end
+  end
+
+  @doc """
+  The public address as actually STORED, without the fallback - nil when none
+  is set.
+
+  Two callers need this and both would get the wrong answer from
+  `public_base/0`: a settings form would show the send target in a box
+  nobody filled in (and saving would make that fallback permanent), and
+  `mix pairings.publishing --ensure` would think every installation already
+  has a public address and never fill the blank it exists to fill.
+  """
+  def stored_public_base do
+    case meta_get("openresults_public_base") do
+      value when is_binary(value) and value != "" -> value
+      _unset -> nil
+    end
+  end
 
   @doc "The configured ingest token, or nil."
   def token, do: meta_get("openresults_token")
 
-  def put_endpoint(url) when is_binary(url), do: meta_put("openresults_endpoint", normalize(url))
+  # Blank clears, rather than storing what `normalize/1` makes of nothing.
+  # It turns "" into "https://", which is not an address but IS a non-empty
+  # string - so `configured?/0` would call the installation set up, and every
+  # send would fail against a URL with no host. The settings form already
+  # passes blanks through `blank_to_nil/1`, but that guard lives in the
+  # caller, and these are public functions.
+  def put_endpoint(url) when is_binary(url), do: put_url("openresults_endpoint", url)
   def put_endpoint(nil), do: meta_delete("openresults_endpoint")
+
+  def put_public_base(url) when is_binary(url), do: put_url("openresults_public_base", url)
+  def put_public_base(nil), do: meta_delete("openresults_public_base")
+
+  defp put_url(key, url) do
+    case String.trim(url) do
+      "" -> meta_delete(key)
+      trimmed -> meta_put(key, normalize(trimmed))
+    end
+  end
 
   def put_token(token) when is_binary(token),
     do: meta_put("openresults_token", String.trim(token))

@@ -18,6 +18,30 @@ Each entry is tagged so a version can be skimmed:
 
 ### Added
 
+- [Feature] **Where you publish and where spectators go are two settings.**
+  They were one field doing both jobs, and it cost something: on a server
+  hosting both applications, every publish left the box, went out to the CDN
+  and came back in through the tunnel to reach a process one hop away &mdash;
+  because the single address had to be the public one. Pointing it at
+  `localhost` would have broken every share link, QR code and printed URL.
+
+  Leave the new "Public address" blank and nothing changes. Set it, and the
+  server can send over loopback while spectators still get the public name.
+  The win is not speed &mdash; publishing is queued and nobody waits on it
+  &mdash; it is that two applications on one machine no longer need DNS and a
+  CDN to be up to talk to each other.
+
+  On a hosted install the deploy configures all three (send address, public
+  address, token) from values it already has. It fills blanks and **will not
+  overwrite**: a setting somebody repointed on purpose is reported, left
+  alone, and the command to force it is printed.
+
+- [Feature] **A record of machine-wide actions.** Role changes, backup
+  downloads, publishing changes and rating-list syncs are now audit entries
+  rather than log lines, and an administrator can read them on the Admin
+  page. Log files rotate; a record should not. The audit trail holds them
+  alongside per-tournament rows, and a tournament's own trail is unchanged.
+
 - [Feature] **The standalone build opens your browser.** It used to start a
   server and sit there, leaving you to know that `http://localhost:4000` was
   the thing to type. It now opens your default browser at the right address
@@ -911,6 +935,13 @@ Each entry is tagged so a version can be skimmed:
   has always applied to the same state on the FIDE path.
 
 ### Security
+
+- [Security] **The KBSB rating import was the one control on Connections
+  with no role check.** Every sibling handler on that page checks; this one
+  did not, and the page became readable by `support` the same day. It pulls
+  the whole Belgian roster over somebody else's API and rewrites the local
+  rating table &mdash; an act, not a look &mdash; so it is an administrator's
+  now, on the handler as well as the button.
 
 - [Security] **Connections is no longer readable by an ordinary account.**
   Its buttons were role-gated, and that was half the job: any signed-in user

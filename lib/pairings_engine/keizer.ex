@@ -712,18 +712,7 @@ defmodule PairingsEngine.Keizer do
   defp own_id(values, id), do: Map.get(values, id, 0)
 
   defp excused_absence?(player, round_number) do
-    player.absent || round_number in parse_absent_rounds(player.absent_rounds)
-  end
-
-  defp parse_absent_rounds(nil), do: []
-  defp parse_absent_rounds(""), do: []
-
-  defp parse_absent_rounds(rounds) when is_binary(rounds) do
-    rounds
-    |> String.split(",", trim: true)
-    |> Enum.map(&String.trim/1)
-    |> Enum.reject(&(&1 == ""))
-    |> Enum.map(&String.to_integer/1)
+    player.absent || round_number in Player.parse_absent_rounds(player.absent_rounds)
   end
 
   ## ---------- pure core: pairing ----------
