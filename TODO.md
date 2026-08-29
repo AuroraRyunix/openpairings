@@ -201,6 +201,13 @@ These are real, identified gaps - not yet built, and not accidentally missed:
   directly rather than through HEEx, so the gettext passes never reached
   it. Pairing sheets, standings and place cards print in English whatever
   the interface language is set to.
+- **Dutch is complete as of 2026-08-29** - `mix gettext.extract --merge` had
+  not been run since before the OpenResults split, so 104 new strings (and 17
+  removed with the local public pages) were sitting outside the catalogue
+  entirely. Extracted, and all 103 untranslated entries filled: 918 of 918,
+  with placeholder parity checked mechanically, since a translated `%{name}`
+  is a crash rather than a typo.
+
 - **41 i18n fragments left English on purpose** - sentences wrapping around
   an inline value cannot be one gettext/1 call as written, and splitting
   them renders half in each language. Listed with the placeholder shape
