@@ -169,7 +169,15 @@ nowhere.
 ## Embedding
 
 A club site that wants the pairing list on its own front page embeds it from
-**OpenResults**, which sets no framing restriction.
+**OpenResults**, which permits framing on every page.
+
+That was written as "which sets no framing restriction" and it was wrong:
+Phoenix's `put_secure_browser_headers/2` sets `frame-ancestors 'self'` by
+default, so embedding was blocked from the day the pages moved. The claim came
+from grepping OpenResults' source for a policy, finding none, and never
+looking at a response. `OpenResultsWeb.Framing` rewrites the directive now,
+and `test/openresults_web/framing_test.exs` reads the header off real
+responses rather than checking that a plug is wired.
 
 This app now refuses framing everywhere, with no way to ask for an exception.
 `CSP.allow_framing/2`, the router's `:embeddable` pipeline, the cookie-free
