@@ -21,6 +21,7 @@ defmodule PairingsEngine.Application do
       PairingsEngine.Deploy,
       PairingsEngine.Publishing.Drain,
       PairingsEngine.Registrations.Poll,
+      PairingsEngine.Backup.Scheduler,
       # Start to serve requests, typically the last entry
       PairingsEngineWeb.Endpoint
     ]

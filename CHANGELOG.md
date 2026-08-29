@@ -18,6 +18,30 @@ Each entry is tagged so a version can be skimmed:
 
 ### Added
 
+- [Feature] **There are backups now.** There were none. Every tournament,
+  result, registration and publishing key lived on one database file on one
+  machine &mdash; and the keys are the only thing that can withdraw a published
+  tournament, so losing the file meant losing the ability to take your own
+  event off the public web.
+
+  One is written a day, and `mix pairings.backup` takes one on demand before a
+  risky change. `--list`, `--verify` and `--restore` are the other half: a
+  backup is worth exactly what its restore is worth, so the file is a real
+  database that gets opened and checked before anything is recovered.
+
+  **The rating lists are left out.** They are 207 MB of the 219, they are a
+  downloaded copy of somebody else's data, and a sync rebuilds them &mdash; so a
+  backup is about 17 kB and it is worth keeping a month of them. The tables are
+  emptied rather than dropped, because a database missing them would not match
+  its own migration history and would refuse to start.
+
+  Restoring writes the recovered database *beside* the live one and prints the
+  three commands to swap it in. A SQLite file cannot be replaced underneath an
+  open connection pool without risking the thing being recovered.
+
+  Set `PAIRINGS_BACKUP_PASSPHRASE` to encrypt them &mdash; worth doing, because
+  an unencrypted backup carries the email addresses people gave the entry form.
+
 - [Feature] **Settings &rarr; Results site.** One page for everything about a
   tournament's public existence: publish it, list it or not, choose what the
   public page shows, open the entry form, get the share link, move it to a new

@@ -281,6 +281,32 @@ if config_env() == :prod do
       For example: /etc/pairings_engine/pairings_engine.db
       """
 
+  # Backups - see `PairingsEngine.Backup`.
+  #
+  # The database is 219 MB and 207 MB of that is downloaded rating lists, which
+  # a sync rebuilds; a backup carries only what cannot be rebuilt, so these files
+  # are small and it is worth keeping a month of them.
+  #
+  # BACKUP_DIR defaults to a `backups/` directory beside the database. Put it on
+  # a different disk if there is one: a backup on the same disk survives a bad
+  # migration and an accidental delete, which is most of what goes wrong, but not
+  # the disk itself.
+  #
+  # PAIRINGS_BACKUP_PASSPHRASE encrypts them. Worth setting: an unencrypted
+  # backup carries the email addresses people gave the entry form. Without it the
+  # files are plain, and whoever holds them holds those addresses.
+  if backup_dir = System.get_env("BACKUP_DIR") do
+    config :pairings_engine, :backup_dir, backup_dir
+  end
+
+  if passphrase = System.get_env("PAIRINGS_BACKUP_PASSPHRASE") do
+    config :pairings_engine, :backup_passphrase, passphrase
+  end
+
+  if keep = System.get_env("BACKUP_RETENTION") do
+    config :pairings_engine, :backup_retention, String.to_integer(keep)
+  end
+
   config :pairings_engine, PairingsEngine.Repo,
     database: database_path,
     # Two locally rather than five. One person cannot use five connections,

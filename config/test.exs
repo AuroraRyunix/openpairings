@@ -65,6 +65,7 @@ config :pairings_engine, :publishing_req_plug, PairingsEngine.PublishingTest
 # own the sandbox connection. Tests call `Publishing.drain/0` directly.
 config :pairings_engine, :publishing_drain_interval, :disabled
 config :pairings_engine, :registration_poll_interval, :disabled
+config :pairings_engine, :backup_interval, :disabled
 
 # Print only warnings and errors during test
 config :logger, level: :warning
