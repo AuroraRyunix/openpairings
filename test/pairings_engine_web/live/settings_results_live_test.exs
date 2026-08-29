@@ -38,23 +38,35 @@ defmodule PairingsEngineWeb.SettingsResultsLiveTest do
       :ok
     end
 
-    test "defaults to listed, because that is what publishing has always meant", %{scope: scope} do
+    test "defaults to UNLISTED - publishing is not advertising", %{scope: scope} do
       tournament = create_tournament(scope)
 
-      assert tournament.public_listed
-      assert Snapshot.build(tournament)["tournament"]["listed"] == true
+      # This defaulted to listed for a few hours on 2026-08-29 and produced a
+      # front page nobody chose: sixteen tournaments appeared at once because
+      # a migration had switched publishing on, not because sixteen arbiters
+      # decided to advertise their events.
+      refute tournament.public_listed
+      assert Snapshot.build(tournament)["tournament"]["listed"] == false
     end
 
-    test "unlisting travels in the snapshot", %{conn: conn, scope: scope} do
+    test "listing travels in the snapshot", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
 
+      html = lv |> element("button", "List it") |> render_click()
+      assert html =~ "will appear on the results site"
+
+      updated = Tournaments.get_tournament!(tournament.id)
+      assert updated.public_listed
+      assert Snapshot.build(updated)["tournament"]["listed"] == true
+
+      # And back off again.
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
       html = lv |> element("button", "Unlist it") |> render_click()
       assert html =~ "no longer listed"
 
-      updated = Tournaments.get_tournament!(tournament.id)
-      refute updated.public_listed
-      assert Snapshot.build(updated)["tournament"]["listed"] == false
+      assert Snapshot.build(Tournaments.get_tournament!(tournament.id))["tournament"]["listed"] ==
+               false
     end
 
     test "says in as many words that it is not privacy", %{conn: conn, scope: scope} do
@@ -69,16 +81,19 @@ defmodule PairingsEngineWeb.SettingsResultsLiveTest do
       assert html =~ "still readable by anyone who has its address"
     end
 
-    test "unlisting pushes rather than waiting for the next result", %{conn: conn, scope: scope} do
+    test "changing the listing pushes rather than waiting for the next result", %{
+      conn: conn,
+      scope: scope
+    } do
       tournament = create_tournament(scope)
       {:ok, tournament} = Tournaments.set_publish_to_openresults(tournament, true)
       Repo.delete_all(PairingsEngine.Publishing.QueueEntry)
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
-      lv |> element("button", "Unlist it") |> render_click()
+      lv |> element("button", "List it") |> render_click()
 
-      # Taking something off a front page and being told "it will go when the
-      # next result comes in" is not an answer.
+      # Putting something on a front page - or taking it off - and being told
+      # "it will happen when the next result comes in" is not an answer.
       assert Publishing.queued(tournament.id)
     end
   end

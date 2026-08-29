@@ -262,14 +262,21 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # ratings and clubs to a remote server by accident.
     #
     # Whether the tournament appears in the results site's index, as opposed
-    # to being reachable only by its address. Default true, which is what
-    # publishing has always meant.
+    # to being reachable only by its address.
     #
-    # Not a security control, and the settings page says so in as many words.
-    # The address is an unguessable token, but an unlisted tournament is
-    # still world-readable to anyone holding one. This hides an event from
-    # somebody browsing the site, not from somebody who was sent the link.
-    field :public_listed, :boolean, default: true
+    # Default FALSE, changed on 2026-08-29 within hours of shipping as true.
+    # True was chosen to preserve what publishing had always meant, and that
+    # produced a front page nobody chose: sixteen tournaments listed at once
+    # because a migration had switched publishing on, not because sixteen
+    # arbiters decided to advertise their events. Publishing gives a
+    # tournament an address; putting it on the front page is a second,
+    # deliberate act.
+    #
+    # Not a security control either way, and the settings page says so in as
+    # many words. The address is an unguessable token, but an unlisted
+    # tournament is still world-readable to anyone holding one. This hides an
+    # event from somebody browsing the site, not from somebody sent the link.
+    field :public_listed, :boolean, default: false
 
     # Which columns the public page may show: a map of string key -> boolean,
     # or nil for "everything", which is what every tournament that predates

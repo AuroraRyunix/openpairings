@@ -323,7 +323,11 @@ defmodule PairingsEngine.SnapshotTest do
         # site gates its entry form on this flag. Open here so the fixture
         # exercises the form; OpenResults has its own test for the closed
         # case, which overrides this rather than needing a second fixture.
-        registration_open: true
+        registration_open: true,
+        # Same reasoning: the fixture is what OpenResults' front-page test
+        # reads, and an unlisted tournament is filtered out of that list. The
+        # unlisted case has its own test over there.
+        public_listed: true
       })
 
     roster = [

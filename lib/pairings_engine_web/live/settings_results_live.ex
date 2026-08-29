@@ -327,7 +327,7 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
           <span class="set-label">{gettext("Listed on the front page")}</span>
           <p class="hint" style="margin: 4px 0 0">
             {gettext(
-              "Whether this tournament appears in the results site's list of published tournaments. Turn it off for an event you want to hand the link to rather than advertise."
+              "Whether this tournament appears in the results site's list of published tournaments. Off by default: publishing gives this tournament an address, and putting it on the front page is a separate choice."
             )}
           </p>
           <p class="hint" style="margin: 4px 0 0">
@@ -392,7 +392,7 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
         <p class="hint" style="margin-top: 0">
           <.rich_text text={
             gettext(
-              "A page on the results site where players enter themselves, finding their own name on the FIDE list. Everyone who signs up arrives marked %[flag] - nobody is added here until you review the entries and accept them."
+              "A page on the results site where players enter themselves. Everyone who signs up arrives marked %[flag] - nobody is added here until you review the entries and accept them, so a wrong rating or a missing FIDE ID is something you fix rather than something that breaks anything."
             )
           }>
             <:part name="flag"><strong>{gettext("not yet arrived")}</strong></:part>

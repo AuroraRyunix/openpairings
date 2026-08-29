@@ -66,11 +66,20 @@ Each entry is tagged so a version can be skimmed:
   Hiding the tiebreak columns hides the arithmetic, not the result &mdash; the
   order is still exactly the one the arbiter computed.
 
-- [Feature] **Unlisted tournaments.** A published tournament can be kept off
-  the results site's front page while staying reachable by its address, for an
-  event you hand a link to rather than advertise. The settings page says
-  plainly that this is not privacy: an unlisted tournament is still readable by
-  anyone who has the address, and addresses get forwarded.
+- [Feature] **Publishing a tournament no longer advertises it.** Publishing
+  gives a tournament a public address; putting it on the results site's front
+  page is a separate, deliberate choice, and it is **off by default**.
+
+  It shipped defaulting to on, reasoning that this was what publishing had
+  always meant. The reasoning was about not changing behaviour and it produced
+  behaviour nobody chose: sixteen tournaments appeared on the front page at
+  once because a migration had switched publishing on, not because sixteen
+  arbiters had decided to advertise their events. Every existing tournament is
+  reset to unlisted &mdash; nothing is taken down, and every link still works.
+
+  The settings page says plainly that this is not privacy: an unlisted
+  tournament is still readable by anyone who has the address, and addresses get
+  forwarded.
 
 - [Feature] **Entries arrive on their own.** The Registrations list now fills
   itself once a minute instead of waiting for someone to press Pull. That was
