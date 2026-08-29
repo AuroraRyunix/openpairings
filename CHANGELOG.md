@@ -114,6 +114,29 @@ Each entry is tagged so a version can be skimmed:
   standings". Both are published now, read from the same two functions the
   arbiter's page calls so the two cannot drift apart.
 
+- [Feature] **Players can find themselves on the FIDE list again.** The entry
+  form offers a search that fills in name, FIDE ID, rating, title, federation
+  and birth year. The old local form did this and the results site could not,
+  because the FIDE list lives on the arbiter's machine and did not move with
+  the form &mdash; so players had been typing FIDE IDs from memory, and
+  arbiters correcting them by hand.
+
+  The list still lives here. The results site borrows a search of it over the
+  publishing token, rate-limited, and proxies it server-side so the arbiter's
+  address and the token never reach the page. The rating that comes back is
+  the one for this tournament's tempo: a player entered at their standard
+  rating in a blitz event is seeded wrong.
+
+  Off unless both machines are deployed together. Where they are not, the form
+  asks people to type their own details exactly as it did yesterday &mdash; a
+  search box that cannot search is worse than none.
+
+- [Feature] **Title and birth year on the entry form.** Both were collected by
+  the old local form and neither survived the move, so arbiters were typing
+  them. The title is a list of the eight FIDE awards rather than a text box,
+  because free text collects "gm", "Grandmaster" and "GM (inactive)" and
+  somebody normalises all of it by hand. Neither is required.
+
 ### Removed
 
 - [Removed] **This app no longer serves public pages.** `/p/:slug/pairings`,

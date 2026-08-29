@@ -127,6 +127,7 @@ defmodule PairingsEngine.SnapshotTest do
                "arbiter" => "Jorian Burssens",
                "deputy" => nil,
                "time_control" => nil,
+               "tempo" => "standard",
                "match_format" => false,
                "fide_rated" => true,
                "registration_open" => true,

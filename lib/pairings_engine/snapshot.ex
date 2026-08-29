@@ -134,6 +134,15 @@ defmodule PairingsEngine.Snapshot do
       "deputy" => blank_to_nil(t.deputy_arbiter),
       "time_control" => blank_to_nil(t.rate_of_play),
 
+      # Which rating a player should be entered at - "rapid", "blitz", or
+      # standard. Not the same field as `time_control`, which is prose an
+      # arbiter types for humans; this is the tournament's own `standard`
+      # classification, and it tells the results site which of a FIDE
+      # player's three ratings to offer when somebody finds themselves on the
+      # list. A player entered at their standard rating in a blitz event is
+      # seeded wrong, and the arbiter has to notice and fix it.
+      "tempo" => blank_to_nil(t.standard),
+
       # Whether rounds are halves of matches. A round-robin or swiss played in
       # two-game matches numbers its rounds 1..2n, and nobody in the hall calls
       # round 4 "round 4" - it is game 2 of match 2, which is what the

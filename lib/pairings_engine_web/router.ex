@@ -127,6 +127,17 @@ defmodule PairingsEngineWeb.Router do
     post "/notice/withdraw", DeployController, :withdraw
   end
 
+  # The FIDE list, lent to the results site so its entry form can offer the
+  # search this app's own form used to - see FideLookupController for why the
+  # publishing token is the right secret and what the rate limit is actually
+  # protecting. Under `/internal` because it is one machine asking another,
+  # not a page anybody visits.
+  scope "/internal", PairingsEngineWeb do
+    pipe_through [:api]
+
+    get "/fide/search", FideLookupController, :search
+  end
+
   # Changing language. A controller rather than a LiveView event: the choice
   # lives in the session, and a LiveView holds a socket, not a conn.
   scope "/", PairingsEngineWeb do

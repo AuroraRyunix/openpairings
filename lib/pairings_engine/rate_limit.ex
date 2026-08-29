@@ -45,11 +45,16 @@ defmodule PairingsEngine.RateLimit do
     mobile_enroll: %{max: 8, window_ms: :timer.minutes(10)},
     login_email: %{max: 5, window_ms: :timer.minutes(15)},
     login_client: %{max: 30, window_ms: :timer.minutes(15)},
-    public_register: %{max: 40, window_ms: :timer.minutes(15)}
+    public_register: %{max: 40, window_ms: :timer.minutes(15)},
+    # The results site searching this machine's FIDE list on behalf of
+    # somebody filling in the entry form. A person typing a name fires a
+    # handful; anything past this is not typing. Generous because a whole
+    # club signing up from one venue's wifi shares an address.
+    fide_lookup: %{max: 60, window_ms: :timer.minutes(1)}
   }
 
   @typedoc "Which limit is being counted - see the module doc."
-  @type bucket :: :mobile_enroll | :login_email | :login_client | :public_register
+  @type bucket :: :mobile_enroll | :login_email | :login_client | :public_register | :fide_lookup
 
   def start_link(_opts), do: GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
 
