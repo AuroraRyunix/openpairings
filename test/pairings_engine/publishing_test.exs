@@ -598,6 +598,74 @@ defmodule PairingsEngine.PublishingTest do
     end
   end
 
+  describe "reconciling a switch that never sent anything" do
+    test "queues a tournament that is switched on but has no key" do
+      t = tournament()
+      refute Publishing.published?(t)
+      assert Publishing.pending_count() == 0
+
+      assert Publishing.backfill() == 1
+      assert Publishing.queued(t.id)
+    end
+
+    test "leaves a tournament that has already published alone" do
+      t = tournament()
+      stub(fn conn -> Req.Test.json(conn, %{"ok" => true}) end)
+      assert {:ok, _} = Publishing.publish(t)
+
+      # Draining clears the queue; a key means the promise was kept, so there
+      # is nothing to reconcile and re-queueing would send a document nobody
+      # asked for on every restart.
+      Repo.delete_all(QueueEntry)
+      assert Publishing.backfill() == 0
+    end
+
+    test "leaves a tournament that is switched off alone" do
+      _t = tournament(publish: false)
+
+      assert Publishing.backfill() == 0
+    end
+
+    test "ignores a deleted tournament" do
+      t = tournament()
+      {:ok, _} = Tournaments.delete_tournament(t)
+
+      assert Publishing.backfill() == 0
+    end
+
+    test "does nothing at all when no results site is configured" do
+      _t = tournament()
+      Publishing.put_endpoint(nil)
+
+      # A queue entry that can only fail is not a repair - it is an hourly
+      # retry of something that was never going to work.
+      assert Publishing.backfill() == 0
+      assert Publishing.pending_count() == 0
+    end
+
+    test "is idempotent - running it twice queues one entry, not two" do
+      t = tournament()
+
+      assert Publishing.backfill() == 1
+      assert Publishing.backfill() == 1
+      assert Publishing.pending_count() == 1
+      assert Publishing.queued(t.id)
+    end
+
+    test "a tournament taken down is not resurrected by it", %{} do
+      t = tournament()
+      stub(fn conn -> Req.Test.json(conn, %{"ok" => true}) end)
+      assert {:ok, _} = Publishing.publish(t)
+      assert {:ok, _} = Publishing.take_down(Tournaments.get_tournament!(t.id))
+
+      # `take_down/1` clears the key AND switches publishing off. If it only
+      # cleared the key, this would look exactly like an unkept promise and
+      # the next restart would republish what the arbiter just withdrew.
+      assert Publishing.backfill() == 0
+      assert Publishing.pending_count() == 0
+    end
+  end
+
   describe "moving a published tournament to a new address" do
     setup do
       t = tournament()

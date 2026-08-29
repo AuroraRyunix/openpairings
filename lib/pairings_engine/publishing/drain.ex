@@ -61,6 +61,9 @@ defmodule PairingsEngine.Publishing.Drain do
   def handle_continue(:schedule, %{interval: :disabled} = state), do: {:noreply, state}
 
   def handle_continue(:schedule, state) do
+    # Before the first tick, not on every one: see `Publishing.backfill/0` for
+    # why this is a boot-time reconciliation rather than a poll.
+    Publishing.backfill()
     schedule(state.interval)
     {:noreply, state}
   end

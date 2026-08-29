@@ -564,6 +564,63 @@ defmodule PairingsEngine.Publishing do
     updated
   end
 
+  ## ---------- reconciling intent with reality ----------
+
+  @doc """
+  Enqueues a publish for every tournament that is switched on but has never
+  actually published.
+
+  A tournament with `publish_to_openresults` set and no `openresults_key` is
+  a promise nothing has kept. The arbiter's Settings page says it is
+  published and hands out a share link; the results site has never heard of
+  it, so that link 404s. A link that looks right and does not work is worse
+  than no link, and nothing in the ordinary flow recovers from it - the queue
+  only holds what somebody put there, and the reason it is empty is precisely
+  that the enqueue never happened.
+
+  Three ways to arrive in that state, none of them exotic:
+
+    * the 2026-08-29 migration, which switched publishing on for every
+      tournament that had local public pages. It is raw SQL and cannot
+      enqueue anything;
+    * `enqueue_id/1` failing. It rescues and returns `:ok` deliberately - a
+      publish must never take down the write that triggered it - which means
+      a lost intent is silent by design;
+    * a database restored from a backup taken after the switch but before the
+      send.
+
+  Run on boot rather than on every drain. This is a reconciliation, not a
+  poll: the states it fixes are created by events the app already knows
+  about, and a restart is where a machine that has been carrying one has its
+  next honest look at itself.
+
+  Skipped entirely when no results site is configured, since a queue entry
+  that can only fail is not a repair.
+  """
+  @spec backfill() :: non_neg_integer()
+  def backfill do
+    if configured?() do
+      ids =
+        Repo.all(
+          from t in Tournament,
+            where:
+              t.publish_to_openresults == true and is_nil(t.openresults_key) and
+                is_nil(t.deleted_at),
+            select: t.id
+        )
+
+      Enum.each(ids, &enqueue_id/1)
+
+      if ids != [] do
+        Logger.info("OpenResults: queued #{length(ids)} tournament(s) that had never published")
+      end
+
+      length(ids)
+    else
+      0
+    end
+  end
+
   ## ---------- moving to a new address ----------
 
   @doc """

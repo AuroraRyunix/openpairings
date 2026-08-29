@@ -92,6 +92,17 @@ Each entry is tagged so a version can be skimmed:
   successful one. The button says what it costs &mdash; printed QR codes and
   anything a club has embedded will need the new address.
 
+- [Change] **A tournament switched on but never actually sent now heals
+  itself.** On start-up the app queues a publish for anything marked to
+  publish that has no key &mdash; a promise nothing kept, where Settings says
+  "published" and hands out a share link the results site has never heard of.
+
+  Three ways to land there, and none of the ordinary machinery recovered from
+  any of them: today's migration, which is raw SQL and cannot queue anything;
+  a queue write that failed, which is swallowed on purpose so a publish can
+  never take down the write that triggered it; and a database restored from a
+  backup taken between the switch and the send.
+
 - [Change] **Closing the entry form now pushes immediately.** The form is on
   the results site, so the arbiter's switch only reaches it by riding along
   in the next published snapshot. Closing is the urgent direction &mdash; an
