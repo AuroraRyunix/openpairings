@@ -640,14 +640,28 @@ defmodule PairingsEngine.SnapshotTest do
   # with the contract on paper and with nothing in particular in practice.
   # Written only when that repo is actually checked out beside this one -
   # a clone without its sibling still runs every assertion above.
+  # `published_at` is stamped to a fixed instant before writing.
+  #
+  # `Snapshot.build/1` sets it to now, which is right in production and wrong
+  # in a checked-in fixture: regenerating produced a one-line diff in the
+  # sibling repository every single time, whether or not the document had
+  # actually changed. That makes the diff worthless - the one thing a
+  # committed fixture is for is showing what a contract change did to it.
+  #
+  # The value is arbitrary and the field is still exercised: the envelope test
+  # above asserts the real `build/1` output parses as an ISO-8601 instant.
+  @fixture_published_at "2026-08-29T00:00:00Z"
+
   defp write_fixture!(name, snapshot) do
     case fixture_dir() do
       nil ->
         :ok
 
       dir ->
+        stable = Map.put(snapshot, "published_at", @fixture_published_at)
+
         File.mkdir_p!(dir)
-        File.write!(Path.join(dir, name), Jason.encode!(snapshot, pretty: true) <> "\n")
+        File.write!(Path.join(dir, name), Jason.encode!(stable, pretty: true) <> "\n")
     end
   end
 
