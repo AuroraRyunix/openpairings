@@ -1580,4 +1580,112 @@ defmodule PairingsEngine.StandingsTest do
       end
     end
   end
+
+  describe "C.07 Article 10: rating-based tie-breaks and unrated players" do
+    # Article 10, verbatim:
+    #
+    #   "These tie-breaks must be dropped from the tournament tie-break list
+    #    when unrated players are present, unless detailed rules on the
+    #    handling of unrated players are included in the tournament
+    #    regulations or established and published by the Chief Arbiter before
+    #    the start of the tournament."
+    #
+    # Note what the regulation does NOT provide: any rating to stand in for
+    # an unrated opponent. There is no floor and no "leave them out of the
+    # average" - both would be inventing the rule FIDE declined to write. The
+    # only conforming behaviour is not to use the tie-break.
+    #
+    # What this replaces: `Player.rating/1` answers 0 for an unrated player,
+    # correctly for its other callers, and `aro/3` averaged that in. A player
+    # who faced 2000s and one unrated scored around half what they should
+    # have, and dropped below anybody who happened to draw a full rated field
+    # - in a tie-break that decides prizes.
+    defp unrated_fixture do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "Unrated present",
+          type: "swiss",
+          rounds_count: 1,
+          tiebreaks: ~w(BH ARO)
+        })
+
+      [a, b] =
+        for {name, rating} <- [{"Rated", 2000}, {"Unrated", 0}] do
+          Repo.insert!(%Player{
+            tournament_id: tournament.id,
+            name: name,
+            fide_rating: rating,
+            pairing_number: 1
+          })
+        end
+
+      {tournament, a, b}
+    end
+
+    test "an unrated entrant drops ARO from the list it is ranked on" do
+      {tournament, _a, _b} = unrated_fixture()
+
+      assert Standings.unrated_present?(tournament)
+      assert Standings.dropped_tiebreaks(tournament) == ["ARO"]
+      assert Standings.effective_tiebreaks(tournament) == ["BH"]
+    end
+
+    test "and the value is not computed at all, rather than computed wrongly" do
+      # The old behaviour was a number - the wrong one. Absence is the point:
+      # there is no correct number to show.
+      {tournament, _a, _b} = unrated_fixture()
+
+      [entry | _] = Standings.standings(tournament)
+
+      refute Map.has_key?(entry.tiebreaks, "ARO")
+    end
+
+    test "a fully rated tournament is untouched" do
+      # The guard must not cost anything to the ordinary case, which is every
+      # tournament that has ratings for everybody.
+      {tournament, _players} = fixture()
+
+      refute Standings.unrated_present?(tournament)
+      assert Standings.dropped_tiebreaks(tournament) == []
+      assert "ARO" in Standings.effective_tiebreaks(tournament)
+
+      [ea | _] = Standings.standings(tournament)
+      assert ea.tiebreaks["ARO"] == 1750.0
+    end
+
+    test "adding one unrated player mid-event drops it" do
+      # Article 10 turns on presence, not on who anybody played. One late
+      # entrant with no rating is enough, and the standings must notice
+      # without the tournament being reconfigured.
+      {tournament, _players} = fixture()
+      assert "ARO" in Standings.effective_tiebreaks(tournament)
+
+      Repo.insert!(%Player{
+        tournament_id: tournament.id,
+        name: "Late",
+        fide_rating: 0,
+        pairing_number: 99
+      })
+
+      assert Standings.dropped_tiebreaks(tournament) == ["ARO"]
+    end
+
+    test "a national rating still counts as rated" do
+      # `Player.rating/1` falls back to the national rating, so a player with
+      # no FIDE rating but a national one is NOT unrated and must not drop
+      # the tie-break for everybody.
+      {tournament, _players} = fixture()
+
+      Repo.insert!(%Player{
+        tournament_id: tournament.id,
+        name: "National only",
+        fide_rating: 0,
+        national_rating: 1650,
+        pairing_number: 98
+      })
+
+      refute Standings.unrated_present?(tournament)
+      assert "ARO" in Standings.effective_tiebreaks(tournament)
+    end
+  end
 end

@@ -41,7 +41,84 @@ defmodule PairingsEngine.Standings do
   standings.
   """
   def standings(tournament, opts \\ []),
-    do: build_standings(tournament, tournament.tiebreaks, opts)
+    do: build_standings(tournament, effective_tiebreaks(tournament), opts)
+
+  # Rating-based tiebreaks, in C.07's sense. Only these two are implemented;
+  # anything added later that averages or compares ratings belongs here.
+  @rating_tiebreaks ~w(ARO AROC1)
+
+  @doc """
+  The tiebreaks that may actually be applied, which is not always the ones
+  the arbiter configured.
+
+  ## Why a tiebreak can be refused
+
+  C.07 Article 10, on the rating-based tiebreaks:
+
+  > These tie-breaks must be dropped from the tournament tie-break list when
+  > unrated players are present, unless detailed rules on the handling of
+  > unrated players are included in the tournament regulations or established
+  > and published by the Chief Arbiter before the start of the tournament.
+
+  Note what it does NOT do: it gives no rating to substitute for an unrated
+  opponent. There is no floor, no "exclude them from the average" - the
+  regulation's answer is that the tiebreak may not be used at all unless the
+  arbiter published a rule in advance.
+
+  ## What this replaces
+
+  `Player.rating/1` returns `0` for an unrated player, correctly and
+  deliberately for its other callers - it exists so `-Player.rating(p)` sort
+  keys cannot crash. Averaged, that 0 is not a missing value, it is a
+  2000-point-wide vote: a player who faced 2200s and one unrated scored
+  around 1956 and dropped below anybody who happened to draw a full rated
+  field. One unrated entrant was enough to start moving prizes.
+
+  Dropping the code is what the regulation says and is also the honest
+  implementation. Substituting a number would be inventing the rule FIDE
+  declined to write.
+  """
+  def effective_tiebreaks(tournament),
+    do: effective_tiebreaks(tournament, Tournaments.list_players(tournament.id))
+
+  @doc """
+  As above, for a caller that already holds the player list.
+
+  The arity matters: deciding this needs to know whether an unrated player is
+  present, which is a query. `build_standings/3` has the players in hand and
+  must not re-ask once per sort comparison.
+  """
+  def effective_tiebreaks(tournament, players) do
+    Enum.reject(tournament.tiebreaks || [], &(&1 in dropped_tiebreaks(tournament, players)))
+  end
+
+  @doc """
+  The configured tiebreaks that C.07 Article 10 forbids using here, so a page
+  can say which and why rather than silently showing one fewer column.
+  """
+  def dropped_tiebreaks(tournament),
+    do: dropped_tiebreaks(tournament, Tournaments.list_players(tournament.id))
+
+  def dropped_tiebreaks(tournament, players) do
+    if unrated_present?(players) do
+      Enum.filter(tournament.tiebreaks || [], &(&1 in @rating_tiebreaks))
+    else
+      []
+    end
+  end
+
+  @doc """
+  Whether the tournament has an unrated player in it.
+
+  The tournament, not one player's opponents: Article 10 drops the tiebreak
+  for the whole event, because a column that exists for some players and not
+  others would not be a tiebreak at all.
+  """
+  def unrated_present?(players) when is_list(players),
+    do: Enum.any?(players, &(PairingsEngine.Tournaments.Player.rating(&1) == 0))
+
+  def unrated_present?(tournament),
+    do: unrated_present?(Tournaments.list_players(tournament.id))
 
   @doc """
   Same as `standings/1`, but the `:tiebreaks` map on every entry is guaranteed
@@ -51,7 +128,7 @@ defmodule PairingsEngine.Standings do
   configured tiebreaks, so `:rank` matches `standings/1` exactly.
   """
   def grid_standings(tournament) do
-    codes = Enum.uniq(tournament.tiebreaks ++ ~w(BH BHC1 SB PS DE))
+    codes = Enum.uniq(effective_tiebreaks(tournament) ++ ~w(BH BHC1 SB PS DE))
     build_standings(tournament, codes, [])
   end
 
@@ -96,9 +173,19 @@ defmodule PairingsEngine.Standings do
 
     entries = compute_tiebreaks(entries, tournament, tiebreak_codes)
 
+    # Hoisted, emphatically: `effective_tiebreaks/1` reads the player list to
+    # decide whether an unrated entrant is present, and a sort key runs once
+    # per comparison - inside the sort it would be O(n log n) database
+    # queries to answer the same question every time.
+    #
+    # Not `tiebreak_codes` either: `grid_standings/1` adds display-only
+    # columns to that list, and ranking must follow the tournament's own
+    # configured order or the grid would rank differently from the table.
+    ranking_codes = effective_tiebreaks(tournament, players)
+
     entries
     |> Enum.sort_by(fn e ->
-      tb_values = Enum.map(tournament.tiebreaks, &Map.get(e.tiebreaks, &1, 0.0))
+      tb_values = Enum.map(ranking_codes, &Map.get(e.tiebreaks, &1, 0.0))
       # Ranking sorts by `total` (points + extra_points) only when the
       # tournament opted in to counting extra points; otherwise it's plain
       # game `points` - see the moduledoc/doc above and docs/extra-points.md.

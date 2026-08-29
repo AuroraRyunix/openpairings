@@ -178,6 +178,17 @@ defmodule PairingsEngineWeb.StandingsLive do
     tournament = socket.assigns.tournament
     keizer? = tournament.pairing_system == "keizer"
 
+    # Recomputed on every refresh, not read once at mount: C.07 Article 10
+    # turns on whether an unrated player is PRESENT, and a player can be
+    # added mid-event. Computing it here means the broadcast that already
+    # reloads the table drops the column too, instead of leaving a stale one
+    # until somebody reloads the page.
+    socket =
+      assign(socket,
+        effective_tiebreaks: Standings.effective_tiebreaks(tournament),
+        dropped_tiebreaks: Standings.dropped_tiebreaks(tournament)
+      )
+
     entries =
       if keizer? do
         Keizer.standings(tournament)
@@ -377,6 +388,20 @@ defmodule PairingsEngineWeb.StandingsLive do
         <p><strong>{gettext("No players registered yet.")}</strong></p>
       </div>
 
+      <p :if={@dropped_tiebreaks != []} class="hint" style="margin-bottom: 10px">
+        <strong>
+          {ngettext(
+            "%{codes} is not being used.",
+            "%{codes} are not being used.",
+            length(@dropped_tiebreaks),
+            codes: Enum.join(@dropped_tiebreaks, ", ")
+          )}
+        </strong>
+        {gettext(
+          "This tournament has at least one unrated player, and C.07 Article 10 drops rating-based tie-breaks when that is the case - an unrated opponent has no rating to average, and FIDE gives no number to use instead. It can be used if your tournament regulations, or the Chief Arbiter before the first round, published a rule for handling unrated players; set that out and pick a different tie-break here."
+        )}
+      </p>
+
       <div
         :if={@entries != [] and !@keizer?}
         id="standings-table"
@@ -429,7 +454,7 @@ defmodule PairingsEngineWeb.StandingsLive do
               </th>
 
               <th
-                :for={code <- visible_tiebreak_codes(@tournament.tiebreaks, @visible)}
+                :for={code <- visible_tiebreak_codes(@effective_tiebreaks, @visible)}
                 class="num"
                 title={tb_name(code)}
               >
@@ -472,7 +497,7 @@ defmodule PairingsEngineWeb.StandingsLive do
 
               <td :if={show_col?(@visible, "wmwe")} class="num">{format_wmwe(entry.wmwe)}</td>
 
-              <td :for={code <- visible_tiebreak_codes(@tournament.tiebreaks, @visible)} class="num">
+              <td :for={code <- visible_tiebreak_codes(@effective_tiebreaks, @visible)} class="num">
                 {format_tb(Map.get(entry.tiebreaks, code, 0.0))}
               </td>
 

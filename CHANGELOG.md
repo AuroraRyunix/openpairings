@@ -633,6 +633,31 @@ Each entry is tagged so a version can be skimmed:
 
 ### Fixed
 
+- [Fix] **ARO and AROC1 counted an unrated opponent as rating zero, and it
+  moved prizes.** A player who faced 2200-rated opponents and one unrated
+  scored around 1956 instead of 2200, and dropped below anyone who happened
+  to draw a full rated field &mdash; in a tie-break that decides who takes a
+  trophy. One unrated entrant in the whole event was enough.
+
+  The cause is honest enough on its own: an unrated player's rating is
+  stored as `0`, which is right everywhere else and is a 2000-point vote
+  inside an average.
+
+  **C.07 Article 10 does not offer a number to use instead.** It says these
+  tie-breaks "must be dropped from the tournament tie-break list when unrated
+  players are present, unless detailed rules on the handling of unrated
+  players are included in the tournament regulations or established and
+  published by the Chief Arbiter before the start of the tournament." So
+  excluding unrated opponents from the average, or substituting a floor
+  rating, would both be inventing a rule FIDE declined to write.
+
+  Rating-based tie-breaks are therefore dropped &mdash; not computed, not
+  ranked on, and the column is gone &mdash; in any tournament with an unrated
+  player, and the standings page says which and why, including the escape
+  hatch: publish a rule in your regulations and use a different tie-break
+  here. It re-checks as players are added, so a late unrated entrant drops it
+  without anyone reloading.
+
 - [Fix] **A change took up to half a minute to reach the results site.** The
   publish queue was swept on a 30-second timer and nothing else, so unlisting
   a tournament sat there until the next sweep &mdash; invisible until the new

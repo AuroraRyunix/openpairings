@@ -95,7 +95,7 @@ msgstr "Accentkleur"
 msgid "Active phones"
 msgstr "Actieve telefoons"
 
-#: lib/pairings_engine_web/live/standings_live.ex:426
+#: lib/pairings_engine_web/live/standings_live.ex:451
 #, elixir-autogen, elixir-format
 msgid "Actual score minus expected score"
 msgstr "Werkelijke score min verwachte score"
@@ -132,7 +132,7 @@ msgstr "Bereik toevoegen"
 msgid "Adds a [Board \"N\"] tag to every game, using the same board number shown on the pairing sheet"
 msgstr "Voegt aan elke partij een [Board \"N\"]-tag toe, met hetzelfde bordnummer als op het paringsblad"
 
-#: lib/pairings_engine_web/live/standings_live.ex:402
+#: lib/pairings_engine_web/live/standings_live.ex:427
 #, elixir-autogen, elixir-format
 msgid "Administrative bonus points (SWAR XtPts)"
 msgstr "Administratieve bonuspunten (SWAR XtPts)"
@@ -498,7 +498,7 @@ msgstr "Verwijderen…"
 msgid "Deputy arbiters"
 msgstr "Hulparbiters"
 
-#: lib/pairings_engine_web/live/standings_live.ex:363
+#: lib/pairings_engine_web/live/standings_live.ex:374
 #, elixir-autogen, elixir-format
 msgid "Disable manual ranking"
 msgstr "Handmatige rangschikking uitschakelen"
@@ -572,7 +572,7 @@ msgstr "E-mailadres"
 msgid "Empty seat - right-click to award a bye, or pick a replacement from the not-playing list below"
 msgstr "Lege plaats - rechtsklik om een bye toe te kennen, of kies een vervanger uit de lijst met niet-spelenden hieronder"
 
-#: lib/pairings_engine_web/live/standings_live.ex:359
+#: lib/pairings_engine_web/live/standings_live.ex:370
 #, elixir-autogen, elixir-format
 msgid "Enable manual ranking"
 msgstr "Handmatige rangschikking inschakelen"
@@ -683,7 +683,7 @@ msgstr "FIDE-databank"
 msgid "FIDE event code"
 msgstr "FIDE-evenementcode"
 
-#: lib/pairings_engine_web/live/standings_live.ex:418
+#: lib/pairings_engine_web/live/standings_live.ex:443
 #, elixir-autogen, elixir-format
 msgid "FIDE expected score (Table 8.1.2)"
 msgstr "Door FIDE verwachte score (Tabel 8.1.2)"
@@ -901,7 +901,7 @@ msgid "KBSB lookup"
 msgstr "KBSB-opzoeking"
 
 #: lib/pairings_engine_web/live/live_round_live.ex:414
-#: lib/pairings_engine_web/live/standings_live.ex:531
+#: lib/pairings_engine_web/live/standings_live.ex:556
 #, elixir-autogen, elixir-format
 msgid "Keizer pts"
 msgstr "Keizer-ptn"
@@ -991,7 +991,7 @@ msgstr "Zoek deze speler op in de lokale KBSB-ratingdatabank (Belgisch) op stamn
 msgid "Manage your account email address and password settings"
 msgstr "Beheer het e-mailadres en de wachtwoordinstellingen van je account"
 
-#: lib/pairings_engine_web/live/standings_live.ex:328
+#: lib/pairings_engine_web/live/standings_live.ex:339
 #, elixir-autogen, elixir-format
 msgid "Manual ranking is ON."
 msgstr "Handmatige rangschikking staat AAN."
@@ -1126,7 +1126,7 @@ msgstr "Nog geen enkele speler heeft een geclaimde titel - stel er hieronder een
 
 #: lib/pairings_engine_web/live/live_round_live.ex:368
 #: lib/pairings_engine_web/live/players_live.ex:1538
-#: lib/pairings_engine_web/live/standings_live.ex:377
+#: lib/pairings_engine_web/live/standings_live.ex:388
 #, elixir-autogen, elixir-format
 msgid "No players registered yet."
 msgstr "Nog geen spelers ingeschreven."
@@ -1352,7 +1352,7 @@ msgstr "Spelers - titelnormbeoordeling"
 msgid "Players Card"
 msgstr "Spelerskaart"
 
-#: lib/pairings_engine_web/live/standings_live.ex:410
+#: lib/pairings_engine_web/live/standings_live.ex:435
 #, elixir-autogen, elixir-format
 msgid "Points + extra points - this is what ranking sorts by"
 msgstr "Punten + extra punten - hierop wordt de rangschikking gesorteerd"
@@ -1439,7 +1439,7 @@ msgstr "Zet ze hier"
 msgid "Rate of play"
 msgstr "Speeltempo"
 
-#: lib/pairings_engine_web/live/standings_live.ex:371
+#: lib/pairings_engine_web/live/standings_live.ex:382
 #, elixir-autogen, elixir-format
 msgid "Re-seed from current order"
 msgstr "Opnieuw plaatsen volgens de huidige volgorde"
@@ -1884,7 +1884,7 @@ msgstr "Geüploade bestanden"
 msgid "Use a password instead"
 msgstr "Gebruik in plaats daarvan een wachtwoord"
 
-#: lib/pairings_engine_web/live/standings_live.ex:428
+#: lib/pairings_engine_web/live/standings_live.ex:453
 #, elixir-autogen, elixir-format
 msgid "W-We"
 msgstr "W-Wv"
@@ -2253,7 +2253,7 @@ msgstr "Laat leeg als dit niet van toepassing is - een overgeslagen ronde scoort
 msgid "A FIDE Swiss / round-robin / Keizer tournament manager - pairing, results, standings, tiebreaks and FIDE reporting in one place."
 msgstr "Een toernooibeheerder voor FIDE-Zwitsers, rondetoernooi en Keizer - paringen, resultaten, stand, tiebreaks en FIDE-rapportering op één plek."
 
-#: lib/pairings_engine_web/live/standings_live.ex:333
+#: lib/pairings_engine_web/live/standings_live.ex:344
 #, elixir-autogen, elixir-format
 msgid "A player was added after this was turned on and hasn't been placed yet - new players sort last until you re-seed."
 msgstr "Er is een speler toegevoegd nadat dit werd ingeschakeld, en die heeft nog geen plaats - nieuwe spelers staan achteraan tot je opnieuw plaatst."
@@ -2264,7 +2264,7 @@ msgid "A recorded result will be cleared - it described a game between players w
 msgstr "Een geregistreerd resultaat wordt gewist - het beschreef een partij tussen spelers die niet allebei meer aan dat bord zitten."
 
 #: lib/pairings_engine_web/controllers/print_controller.ex:892
-#: lib/pairings_engine_web/live/standings_live.ex:339
+#: lib/pairings_engine_web/live/standings_live.ex:350
 #, elixir-autogen, elixir-format
 msgid "A result changed since this order was last set - it may no longer match the real standings."
 msgstr "Er is een resultaat gewijzigd sinds deze volgorde werd ingesteld - ze komt mogelijk niet meer overeen met de echte stand."
@@ -2405,7 +2405,7 @@ msgstr "Zet gewoon elke ronde op deze datum - verfijn het per ronde (en de eindd
 msgid "Keep me signed in on this device"
 msgstr "Houd me aangemeld op dit toestel"
 
-#: lib/pairings_engine_web/live/standings_live.ex:568
+#: lib/pairings_engine_web/live/standings_live.ex:593
 #, elixir-autogen, elixir-format
 msgid "Keizer points, not FIDE tiebreaks - the whole ladder is recalculated from results, byes and absences every time (see docs/pairing-systems.md)."
 msgstr "Keizer-punten, geen FIDE-tiebreaks - de hele ladder wordt telkens opnieuw berekend uit resultaten, byes en afwezigheden (zie docs/pairing-systems.md)."
@@ -2545,7 +2545,7 @@ msgstr "Het klassieke paringsbladformaat - startnummer tegen startnummer, bord p
 msgid "The database is empty - download the rating list to get started."
 msgstr "De databank is leeg - download de ratinglijst om te beginnen."
 
-#: lib/pairings_engine_web/live/standings_live.ex:329
+#: lib/pairings_engine_web/live/standings_live.ex:340
 #, elixir-autogen, elixir-format
 msgid "The rank column below reflects the arbiter's hand-set order, not the computed tiebreak order - this also applies on the public standings page, printed standings, and the TRF export."
 msgstr "De rangkolom hieronder volgt de volgorde die de arbiter met de hand heeft gezet, niet de berekende tiebreakvolgorde - dat geldt ook op de publieke standpagina, de afgedrukte stand en de TRF-export."
@@ -2580,7 +2580,7 @@ msgstr "Dit toernooi is elders gewijzigd terwijl jij aan het bewerken was. De of
 msgid "This tournament was updated elsewhere while you were editing. Saving will overwrite that change with what's on this page - reload the page first if you want to see it instead."
 msgstr "Dit toernooi is elders gewijzigd terwijl jij aan het bewerken was. Opslaan overschrijft die wijziging met wat op deze pagina staat - herlaad de pagina eerst als je ze liever wil bekijken."
 
-#: lib/pairings_engine_web/live/standings_live.ex:512
+#: lib/pairings_engine_web/live/standings_live.ex:537
 #, elixir-autogen, elixir-format
 msgid "Tiebreak columns fill in as results are entered, following the FIDE Tie-Break Regulations in the order set under Settings."
 msgstr "De tiebreakkolommen vullen zich terwijl resultaten worden ingevoerd, volgens het FIDE Tie-Break Reglement in de volgorde die je bij Instellingen hebt gezet."
@@ -2970,8 +2970,8 @@ msgstr "Categorieën"
 #: lib/pairings_engine_web/controllers/print_controller.ex:944
 #: lib/pairings_engine_web/live/categories_live.ex:403
 #: lib/pairings_engine_web/live/players_live.ex:2046
-#: lib/pairings_engine_web/live/standings_live.ex:439
-#: lib/pairings_engine_web/live/standings_live.ex:535
+#: lib/pairings_engine_web/live/standings_live.ex:464
+#: lib/pairings_engine_web/live/standings_live.ex:560
 #, elixir-autogen, elixir-format
 msgid "Category"
 msgstr "Categorie"
@@ -3362,8 +3362,8 @@ msgstr "Master"
 #: lib/pairings_engine_web/live/norms_live.ex:1222
 #: lib/pairings_engine_web/live/players_live.ex:1581
 #: lib/pairings_engine_web/live/players_live.ex:1977
-#: lib/pairings_engine_web/live/standings_live.ex:391
-#: lib/pairings_engine_web/live/standings_live.ex:523
+#: lib/pairings_engine_web/live/standings_live.ex:416
+#: lib/pairings_engine_web/live/standings_live.ex:548
 #: lib/pairings_engine_web/live/tournaments_live.ex:956
 #: lib/pairings_engine_web/live/tournaments_live.ex:1347
 #: lib/pairings_engine_web/live/tournaments_live.ex:1443
@@ -3606,7 +3606,7 @@ msgstr "Vorige"
 #: lib/pairings_engine_web/components/layouts.ex:96
 #: lib/pairings_engine_web/live/players_live.ex:2267
 #: lib/pairings_engine_web/live/settings_tournament_live.ex:644
-#: lib/pairings_engine_web/live/standings_live.ex:317
+#: lib/pairings_engine_web/live/standings_live.ex:328
 #, elixir-autogen, elixir-format
 msgid "Print"
 msgstr "Afdrukken"
@@ -3626,8 +3626,8 @@ msgstr "Resultaatkaartjes afdrukken"
 #: lib/pairings_engine_web/controllers/print_controller.ex:1270
 #: lib/pairings_engine_web/live/live_round_live.ex:375
 #: lib/pairings_engine_web/live/live_round_live.ex:410
-#: lib/pairings_engine_web/live/standings_live.ex:389
-#: lib/pairings_engine_web/live/standings_live.ex:521
+#: lib/pairings_engine_web/live/standings_live.ex:414
+#: lib/pairings_engine_web/live/standings_live.ex:546
 #, elixir-autogen, elixir-format
 msgid "Rank"
 msgstr "Plaats"
@@ -3674,7 +3674,7 @@ msgstr "Opmerkingen"
 msgid "Remove"
 msgstr "Verwijderen"
 
-#: lib/pairings_engine_web/live/standings_live.ex:441
+#: lib/pairings_engine_web/live/standings_live.ex:466
 #, elixir-autogen, elixir-format
 msgid "Reorder"
 msgstr "Herschikken"
@@ -3799,7 +3799,7 @@ msgstr "Scan de QR, of open %[url] op de telefoon en voer de code in."
 #: lib/pairings_engine_web/controllers/print_controller.ex:930
 #: lib/pairings_engine_web/controllers/print_controller.ex:992
 #: lib/pairings_engine_web/live/live_round_live.ex:415
-#: lib/pairings_engine_web/live/standings_live.ex:533
+#: lib/pairings_engine_web/live/standings_live.ex:558
 #, elixir-autogen, elixir-format
 msgid "Score"
 msgstr "Score"
@@ -3860,13 +3860,13 @@ msgstr "Standaard %{std} · Rapid %{rapid} · Blitz %{blitz}"
 
 #: lib/pairings_engine_web/components/layouts.ex:93
 #: lib/pairings_engine_web/live/live_round_live.ex:365
-#: lib/pairings_engine_web/live/standings_live.ex:301
+#: lib/pairings_engine_web/live/standings_live.ex:312
 #, elixir-autogen, elixir-format
 msgid "Standings"
 msgstr "Stand"
 
 #: lib/pairings_engine_web/controllers/print_controller.ex:873
-#: lib/pairings_engine_web/live/standings_live.ex:300
+#: lib/pairings_engine_web/live/standings_live.ex:311
 #, elixir-autogen, elixir-format
 msgid "Standings after round %{n}"
 msgstr "Stand na ronde %{n}"
@@ -3883,7 +3883,7 @@ msgstr "Status"
 msgid "Swapping %[name] - now click whoever they should trade places with, on a board or in the not-playing list below."
 msgstr "%[name] wisselen - klik nu op wie er van plaats moet ruilen, aan een bord of in de lijst met niet-spelenden hieronder."
 
-#: lib/pairings_engine_web/live/standings_live.ex:354
+#: lib/pairings_engine_web/live/standings_live.ex:365
 #, elixir-autogen, elixir-format
 msgid "Switch to manual ranking? The current computed order will be used as the starting point."
 msgstr "Overschakelen naar handmatige rangschikking? De huidige berekende volgorde wordt het vertrekpunt."
@@ -4037,7 +4037,7 @@ msgstr "Hulpmiddelen"
 
 #: lib/pairings_engine_web/controllers/print_controller.ex:600
 #: lib/pairings_engine_web/live/players_live.ex:2247
-#: lib/pairings_engine_web/live/standings_live.ex:412
+#: lib/pairings_engine_web/live/standings_live.ex:437
 #, elixir-autogen, elixir-format
 msgid "Total"
 msgstr "Totaal"
@@ -4115,7 +4115,7 @@ msgstr "Het geüploade bestand zegt: %{hint} - geen zekere FIDE-match, zoek of t
 #: lib/pairings_engine_web/controllers/print_controller.ex:929
 #: lib/pairings_engine_web/controllers/print_controller.ex:991
 #: lib/pairings_engine_web/live/live_round_live.ex:413
-#: lib/pairings_engine_web/live/standings_live.ex:529
+#: lib/pairings_engine_web/live/standings_live.ex:554
 #, elixir-autogen, elixir-format
 msgid "Value"
 msgstr "Waarde"
@@ -4700,13 +4700,13 @@ msgid "OpenResults"
 msgstr "OpenResults"
 
 #: lib/pairings_engine_web/live/pairings_live.ex:1582
-#: lib/pairings_engine_web/live/standings_live.ex:311
+#: lib/pairings_engine_web/live/standings_live.ex:322
 #, elixir-autogen, elixir-format
 msgid "Opens the results site - no login needed, share this link"
 msgstr "Opent de uitslagensite - geen login nodig, deel deze link"
 
 #: lib/pairings_engine_web/live/pairings_live.ex:1584
-#: lib/pairings_engine_web/live/standings_live.ex:313
+#: lib/pairings_engine_web/live/standings_live.ex:324
 #, elixir-autogen, elixir-format
 msgid "Public page"
 msgstr "Publieke pagina"
@@ -5209,3 +5209,15 @@ msgstr "De meest recente machinebrede acties: rolwijzigingen, back-updownloads, 
 #, elixir-autogen, elixir-format
 msgid "Where spectators go - share links, QR codes and printed addresses. Leave blank to use the address above. Set it only when this machine reaches the results site by a different address than the public one, which is the case when both run on the same server: send to http://localhost:4004 and put the public name here."
 msgstr "Waar toeschouwers terechtkomen - deellinks, QR-codes en gedrukte adressen. Laat leeg om het adres hierboven te gebruiken. Vul dit alleen in wanneer deze machine de resultatensite via een ander adres bereikt dan het publieke, wat het geval is wanneer beide op dezelfde server draaien: verzend naar http://localhost:4004 en zet hier de publieke naam."
+
+#: lib/pairings_engine_web/live/standings_live.ex:393
+#, elixir-autogen, elixir-format
+msgid "%{codes} is not being used."
+msgid_plural "%{codes} are not being used."
+msgstr[0] "%{codes} wordt niet gebruikt."
+msgstr[1] "%{codes} worden niet gebruikt."
+
+#: lib/pairings_engine_web/live/standings_live.ex:400
+#, elixir-autogen, elixir-format
+msgid "This tournament has at least one unrated player, and C.07 Article 10 drops rating-based tie-breaks when that is the case - an unrated opponent has no rating to average, and FIDE gives no number to use instead. It can be used if your tournament regulations, or the Chief Arbiter before the first round, published a rule for handling unrated players; set that out and pick a different tie-break here."
+msgstr "Dit toernooi heeft minstens een speler zonder rating, en C.07 artikel 10 laat ratinggebaseerde tiebreaks in dat geval vallen - een tegenstander zonder rating heeft geen rating om te middelen, en FIDE geeft geen getal om in de plaats te gebruiken. Het kan wel worden gebruikt als je toernooireglement, of de hoofdarbiter voor de eerste ronde, een regel voor spelers zonder rating heeft gepubliceerd; leg die vast en kies hier een andere tiebreak."

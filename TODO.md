@@ -54,7 +54,13 @@ Over 100% fails, so these add up rather than standing alone:
 
 - Tournaments over 30 days, where a player may hold more than one rating
   (Q210, **40%**; Q212, 35%)
-- Unrated players in rating-based tie-breaks (Q208, **32%**)
+- ~~Unrated players in rating-based tie-breaks (Q208, **32%**)~~ **Fixed
+  2026-08-29**, and it was never only an acceptance item: ARO/AROC1 averaged
+  an unrated opponent in as a literal 0, so one unrated entrant moved prize
+  placings in any tournament using them. C.07 Art. 10 gives no substitute
+  rating - it drops the tie-break outright when unrated players are present -
+  so `Standings.effective_tiebreaks/1` does that, and the standings page
+  names the code and the escape hatch.
 - Consistency checks only on explicit request (Q140, **25%**)
 - Custom Rating Lists (Q117, 18%)
 - Chess960 (Q222, 15%) - **deferred by decision, 2026-08-25.** Cheap for

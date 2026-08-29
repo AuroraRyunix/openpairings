@@ -6,6 +6,7 @@ defmodule PairingsEngineWeb.FideLiveTest do
   alias PairingsEngine.{Accounts, Fide, Kbsb}
   alias PairingsEngine.Repo
   alias PairingsEngine.Kbsb.KbsbPlayer
+  alias PairingsEngine.Kbsb.Sync, as: KbsbSync
 
   setup :register_and_log_in_user
 
@@ -626,6 +627,23 @@ defmodule PairingsEngineWeb.FideLiveTest do
   end
 
   describe "the KBSB import is an act, not a look" do
+    # The button is HIDDEN, not disabled, when no API is configured - the
+    # page refuses to offer an action that could only fail. So a test about
+    # who may press it has to configure one first, or it asserts against a
+    # control that was never rendered for an unrelated reason.
+    setup do
+      original = Application.get_env(:pairings_engine, :kbsb)
+      Application.put_env(:pairings_engine, :kbsb, api_url: "https://kbsb.test", api_key: "k")
+
+      on_exit(fn ->
+        if original,
+          do: Application.put_env(:pairings_engine, :kbsb, original),
+          else: Application.delete_env(:pairings_engine, :kbsb)
+      end)
+
+      :ok
+    end
+
     test "support cannot start it, and is not offered the button", %{conn: conn} do
       # It pulls the whole Belgian roster over somebody else's API and
       # rewrites the local rating table. Every sibling handler on this page
@@ -633,9 +651,40 @@ defmodule PairingsEngineWeb.FideLiveTest do
       # became readable by support the same day.
       {:ok, lv, _html} = live(support_conn(conn), ~p"/fide")
 
-      html = render_click(lv, "sync_kbsb_api", %{})
+      # Both halves, because they fail differently: a disabled button is what
+      # an honest page looks like, and the handler guard is what survives a
+      # crafted event aimed at it anyway.
+      assert lv |> element("button[phx-click='sync_kbsb_api'][disabled]") |> has_element?()
 
+      html = render_click(lv, "sync_kbsb_api", %{})
       assert html =~ "needs an administrator"
+    end
+
+    test "and cannot cancel one an administrator started", %{conn: conn} do
+      # Cancelling is a mutation too: it stops an import somebody else
+      # started, which is not support's call.
+      #
+      # Driven by seeding the real singleton busy - the same pattern
+      # `Fide.SyncTest` uses - because the honest assertion is "the import is
+      # still running", and against an idle server a cancel is a no-op
+      # whether or not the guard exists. A test that passes with the bug
+      # present is worse than none.
+      :sys.replace_state(KbsbSync, fn state -> %{state | status: :importing} end)
+      on_exit(fn -> :sys.replace_state(KbsbSync, fn s -> %{s | status: :idle} end) end)
+
+      {:ok, lv, _html} = live(support_conn(conn), ~p"/fide")
+      render_click(lv, "cancel_kbsb", %{})
+
+      assert KbsbSync.status().status == :importing
+    end
+
+    test "an administrator is offered it", %{conn: conn} do
+      # The control is guarded, not removed - an administrator must still be
+      # able to press it, or the guard has broken the feature instead of
+      # protecting it.
+      {:ok, lv, _html} = live(admin_conn(conn), ~p"/fide")
+
+      refute lv |> element("button[phx-click='sync_kbsb_api'][disabled]") |> has_element?()
     end
   end
 end
