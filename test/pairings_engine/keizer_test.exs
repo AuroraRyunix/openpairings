@@ -137,6 +137,58 @@ defmodule PairingsEngine.KeizerTest do
     end
   end
 
+  describe "standings/2 - a paired but unscored board must not count as a played loss" do
+    # `classify_result/2`'s catch-all used to score a blank result (a board
+    # paired but with nothing entered yet) exactly like a played "0-0": one
+    # more Played, one more Loss, and - the one part of this that is
+    # actually rendered anywhere - one more `points_loss` folded into
+    # `raw_points`. `points_win`/`points_draw`/`points_loss` default to
+    # 1.0/0.5/0.0, so with the app's own defaults `raw_points` is inflated
+    # by zero: the bug was real but arithmetically invisible. Setting
+    # `points_loss` to something other than 0.0 is what makes it show.
+    test "played/wins/draws/losses/raw_points all stay at 0 for an unscored board" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "Keizer mid-round",
+          type: "swiss",
+          pairing_system: "keizer",
+          rounds_count: 1,
+          points_win: 1.0,
+          points_draw: 0.5,
+          points_loss: 1.0
+        })
+
+      white = insert_player(tournament, "White", fide_rating: 2000)
+      black = insert_player(tournament, "Black", fide_rating: 1900)
+
+      round =
+        Repo.insert!(%PairingsEngine.Tournaments.Round{
+          tournament_id: tournament.id,
+          number: 1,
+          status: "playing"
+        })
+
+      Repo.insert!(%PairingsEngine.Tournaments.Pairing{
+        round_id: round.id,
+        board: 1,
+        white_player_id: white.id,
+        black_player_id: black.id,
+        result: ""
+      })
+
+      for entry <- Keizer.standings(tournament) do
+        name = entry.player.name
+        assert entry.played == 0, "#{name} shows a board nobody has scored yet as Played"
+        assert entry.losses == 0, "#{name} shows a board nobody has scored yet as a Loss"
+        assert entry.wins == 0
+        assert entry.draws == 0
+
+        assert entry.raw_points == 0.0,
+               "#{name}'s raw_points absorbed points_loss for a board with no result"
+      end
+    end
+  end
+
   ## ---------- ladder values ----------
 
   describe "effective_top_value/2" do
@@ -263,6 +315,27 @@ defmodule PairingsEngine.KeizerTest do
       games = %{1 => [%{round: 1, white_id: a.id, black_id: b.id, result: "0-0"}]}
       assert Keizer.score_round(a, 1, games, %{}, values).points == 0.0
       assert Keizer.score_round(b, 1, games, %{}, values).points == 0.0
+    end
+
+    # A board with both seats filled and `result: ""` is not a played game
+    # yet - it is what every board looks like between being paired and
+    # someone entering a score. `classify_result/2` used to have no clause
+    # for it, so it fell into the same `:zero` bucket as the "0-0" case
+    # right above: a played loss for both sides. The class must differ even
+    # though the POINTS happen to match (both are 0.0) - that coincidence is
+    # exactly how the bug hid: nothing about the ladder ever looked wrong.
+    test "a paired board with no result yet is worth 0, but is NOT a played 0-0", %{
+      a: a,
+      b: b,
+      values: values
+    } do
+      games = %{1 => [%{round: 1, white_id: a.id, black_id: b.id, result: ""}]}
+
+      white_entry = Keizer.score_round(a, 1, games, %{}, values)
+      black_entry = Keizer.score_round(b, 1, games, %{}, values)
+
+      assert white_entry == %{round: 1, class: :not_played, points: 0.0, opponent_id: b.id}
+      assert black_entry == %{round: 1, class: :not_played, points: 0.0, opponent_id: a.id}
     end
 
     test "a round before start_round is worth 0", %{values: values} do

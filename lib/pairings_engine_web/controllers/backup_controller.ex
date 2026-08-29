@@ -14,17 +14,26 @@ defmodule PairingsEngineWeb.BackupController do
   holding credentials for. What it can do is hand the file over, so an arbiter
   or an operator can put it wherever they keep such things.
 
-  ## Why it is SSO-only
+  ## Why it is administrators only
 
   A backup is the whole database. It carries every tournament, every player,
   and the one piece of personal data in the system - the email addresses
   people gave the entry form - plus every OpenResults publishing key, which is
   what decides who may withdraw a published tournament.
 
-  So this is gated exactly as changing the publishing settings is: an
-  02cloud account, not merely a signed-in one. A self-registered user
-  downloading the entire database is not a smaller problem than a
-  self-registered user repointing where it publishes.
+  So this is gated exactly as changing the publishing settings is, and by the
+  same predicate: `PairingsEngine.Authz.may_administer?/1`. A signed-in user
+  downloading the entire database is not a smaller problem than a signed-in
+  user repointing where it publishes.
+
+  Note this is the one place `support` deliberately stops. Diagnosing why
+  publishing broke needs the backup LIST - is one being written, when was the
+  last - and that is on the Data & sync page. It does not need the contents
+  of the database on somebody's laptop.
+
+  On a local run there is no gate, because there is nobody to gate against
+  and the file is already sitting beside the database the person asking for
+  it can simply open. See `PairingsEngine.Authz`.
 
   ## Why the filename is not taken from the URL
 
@@ -36,7 +45,7 @@ defmodule PairingsEngineWeb.BackupController do
   """
   use PairingsEngineWeb, :controller
 
-  alias PairingsEngine.Accounts.User
+  alias PairingsEngine.Authz
   alias PairingsEngine.Backup
 
   require Logger
@@ -46,8 +55,8 @@ defmodule PairingsEngineWeb.BackupController do
   """
   def download(conn, %{"name" => name}) do
     cond do
-      not User.sso?(conn.assigns.current_scope.user) ->
-        refuse(conn, :forbidden, "Only an 02cloud account can download a backup.")
+      not Authz.may_administer?(conn.assigns.current_scope.user) ->
+        refuse(conn, :forbidden, "Only an administrator can download a backup.")
 
       backup = find(name) ->
         Logger.info("Backup downloaded: #{Path.basename(backup.path)}")

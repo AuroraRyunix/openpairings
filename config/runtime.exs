@@ -112,6 +112,32 @@ end
 # it is decided at boot rather than per request.
 config :pairings_engine, :local_mode, local_mode?
 
+# Accounts that administer this installation by declaration, on top of any
+# holding the `admin` role in the database.
+#
+# This exists to close a bootstrap gap and nothing more. A freshly migrated
+# hosted installation has no administrators at all, by design - so without
+# this, the first thing after every deploy is a mix task run by hand at
+# exactly the moment nobody wants an extra step, and the Connections page
+# refuses everything until somebody remembers.
+#
+# It grants no authority that was not already there: this file is read from
+# the systemd unit, which is written `chmod 600` and editable only by root,
+# and root can run `mix pairings.role` anyway. What it does buy is that the
+# operator is named in the deployment's own configuration rather than in a
+# row somebody has to remember to create.
+#
+# Declared rather than promoted, deliberately: nothing is written to the
+# database, so this cannot silently re-promote an account somebody
+# deliberately demoted on the next restart. Removing an address here is how
+# you revoke it.
+config :pairings_engine,
+       :admin_emails,
+       (System.get_env("ADMIN_EMAILS") || "")
+       |> String.split(",")
+       |> Enum.map(&(&1 |> String.trim() |> String.downcase()))
+       |> Enum.reject(&(&1 == ""))
+
 # Configure outgoing email.
 #
 # SMTP credentials (Gmail) come from the .env loader above or from the real

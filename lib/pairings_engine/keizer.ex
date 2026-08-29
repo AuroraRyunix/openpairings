@@ -33,7 +33,11 @@ defmodule PairingsEngine.Keizer do
      `PairingsEngine.Tournaments.vacate_seat/3` → 0 for the player still
      sitting there: no game happened, and until the arbiter resolves the
      vacancy (`award_bye_for_vacancy/2` turns it into a real bye,
-     `fill_seat/3` into a real game) there is nothing to pay them for.
+     `fill_seat/3` into a real game) there is nothing to pay them for. A
+     board with both seats filled but no result entered yet → 0 for both:
+     paired is not played, same as the vacated seat above, and unlike a
+     genuinely played "0-0" (also 0, but counted as a played loss - see
+     `classify_result/2`'s `:zero` vs. `:not_played`).
 
   4. **Retroactive recalculation.** Ranking and scoring are mutually
      dependent, so this is a fixed point: start from the initial rating
@@ -326,6 +330,18 @@ defmodule PairingsEngine.Keizer do
         :vacated_seat ->
           acc
 
+        # A paired board with no result yet - not a played game, so not a
+        # loss either. Mirrors `Standings.pairing_records/4`, which returns
+        # `[]` for the same `result: ""` state rather than treating it as a
+        # played "0-0". Until this class existed, `classify_result/2` had
+        # no clause for a blank result, so it fell through to `:zero` -
+        # which meant every round between being paired and its first result
+        # counted as a played loss for every player still to report,
+        # inflating `raw_points` by one `points_loss` apiece. `points_loss`
+        # defaults to 0.0, which is the only reason nothing looked wrong.
+        :not_played ->
+          acc
+
         # Deliberately a raise rather than a silent `acc`. This case and
         # `class_points/4` are two consumers of one vocabulary that
         # `classify_result/2` owns, and they have already drifted once. A
@@ -521,10 +537,12 @@ defmodule PairingsEngine.Keizer do
   `:draw`, `:loss`, `:forfeit_win`, `:forfeit_loss`, `:half_win`, `:half_loss`
   (VCL.13's asymmetric "1/2-0"/"0-1/2" - scored like `:draw`/`:loss`
   respectively, since the ½ side earned the same value as an ordinary draw),
-  `:zero` (played "0-0" or otherwise unaccounted), `:unpaired_bye`,
-  `:vacated_seat` (the board is still there but the opponent's seat was
-  emptied - worth nothing until the arbiter resolves the vacancy),
-  `:excused`, `:not_joined`.
+  `:zero` (played "0-0", or a result code outside the known vocabulary),
+  `:not_played` (both seats filled, `result: ""` - paired but not yet
+  scored; worth nothing, unlike `:zero`, which is a played loss),
+  `:unpaired_bye`, `:vacated_seat` (the board is still there but the
+  opponent's seat was emptied - worth nothing until the arbiter resolves
+  the vacancy), `:excused`, `:not_joined`.
   """
   def score_all(players, games, byes, values, rounds_count) do
     games_by_round = Enum.group_by(games, & &1.round)
@@ -657,6 +675,17 @@ defmodule PairingsEngine.Keizer do
       {"+--", false} -> :forfeit_loss
       {"--+", true} -> :forfeit_loss
       {"--+", false} -> :forfeit_win
+      # Both seats filled, nothing entered yet. `score_game/3` only calls
+      # this function once it has already ruled out a bye and a vacated
+      # seat (both handled before `classify_result/2` is ever reached), so
+      # a blank result here means exactly one thing: two real players,
+      # no result. That is not a played "0-0" (the clause above) - it is
+      # the state every board is in between being paired and someone
+      # entering a score, and used to fall through to the catch-all below,
+      # which is what a played "0-0" wants but this doesn't. Mirrors
+      # `Standings.pairing_records/4`'s `result: ""` guard (standings.ex:491),
+      # which returns `[]` - no record at all - for the same state.
+      {"", _} -> :not_played
       _ -> :zero
     end
   end
@@ -669,6 +698,7 @@ defmodule PairingsEngine.Keizer do
   defp class_points(:forfeit_win, p, _o, values), do: own(values, p) / 2
   defp class_points(:forfeit_loss, _p, _o, _v), do: 0.0
   defp class_points(:zero, _p, _o, _v), do: 0.0
+  defp class_points(:not_played, _p, _o, _v), do: 0.0
 
   # "pairing-allocated"/"requested-half" are half-point byes (no game
   # played, unpaired) - same bucket as an odd-count bye.

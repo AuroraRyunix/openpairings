@@ -141,6 +141,37 @@ defmodule PairingsEngine.Accounts do
     end
   end
 
+  ## Roles
+
+  @doc """
+  Sets `user`'s role. See `PairingsEngine.Accounts.User.role_changeset/2`
+  for why this has no screen and only a mix task.
+
+  Returns `{:error, :not_found}` rather than raising when no account has
+  that address, because the only caller is a command line where a typo in
+  an email is the likeliest thing that will ever happen, and a stack trace
+  is a poor way to say "no such user".
+  """
+  def set_role(email, role) when is_binary(email) do
+    case get_user_by_email(email) do
+      nil ->
+        {:error, :not_found}
+
+      user ->
+        user
+        |> User.role_changeset(%{role: to_string(role)})
+        |> Repo.update()
+    end
+  end
+
+  @doc """
+  Every account holding a role above `owner`, for the mix task to list.
+  """
+  def privileged_users do
+    from(u in User, where: u.role != "owner", order_by: [asc: u.email])
+    |> Repo.all()
+  end
+
   ## Local mode
 
   @doc """

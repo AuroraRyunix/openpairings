@@ -18,6 +18,39 @@ Each entry is tagged so a version can be skimmed:
 
 ### Added
 
+- [Feature] **Administrator and support roles.** Who may change how an
+  installation is wired up is now an explicit role rather than a side effect
+  of how somebody signed in.
+
+  `admin` may change the publishing connection, take and download backups,
+  and start a rating-list sync. `support` may *look* &mdash; the connection
+  status, the backup list, the sync state, and the read-only connection check
+  &mdash; because "why did publishing stop" is a question worth answering
+  without handing over the ability to cause it. `owner` is everyone else, and
+  is what every existing account becomes.
+
+  Granted from the command line and nowhere else:
+
+      mix pairings.role                          # who holds one
+      mix pairings.role you@example.com admin
+      mix pairings.role you@example.com owner    # revoke
+
+  There is no screen for it on purpose. Shell access on the server is
+  already the highest authority there is, so making it the way roles are
+  granted keeps the authority to grant admin from being something admin
+  itself confers.
+
+  A deployment can also name its administrators directly, with
+  `ADMIN_EMAILS` in the systemd unit, so a hosted installation has one the
+  moment it boots rather than after somebody remembers a manual step. That
+  grants nothing new &mdash; the unit is root-only, and root could run the
+  mix task anyway &mdash; and it *declares* rather than promotes: nothing is
+  written to the database, so a restart cannot silently re-grant admin to
+  someone deliberately demoted an hour earlier. `mix pairings.role` with no
+  arguments lists both kinds and marks which is which.
+
+  Your own machine needs none of this and is not affected.
+
 - [Feature] **Backups can be downloaded.** A Backups card on Connections
   lists what is on the machine, takes one on demand before a risky change, and
   hands any of them over.
@@ -29,9 +62,10 @@ Each entry is tagged so a version can be skimmed:
   gives you the file and says plainly that a backup kept only on the thing it
   protects is half a backup.
 
-  02cloud accounts only, and the card says why: a backup is every tournament,
+  Administrators only, and the card says why: a backup is every tournament,
   every player, the email addresses people gave the entry form, and every
-  publishing key.
+  publishing key. On your own machine there is no gate &mdash; the file is
+  sitting beside a database you can already open.
 
 - [Feature] **A connection indicator for publishing.** Green when the results
   site answers, amber while something is being sent, amber again if the token
@@ -482,6 +516,45 @@ Each entry is tagged so a version can be skimmed:
 
 ### Fixed
 
+- [Fix] **Twelve Dutch strings were wrong, including two buttons that meant
+  the opposite of what they did.** The engine-switch confirmation offered
+  "JaVaFo behouden" (keep JaVaFo) on the button that switches *to* JaVaFo,
+  and "Ainalrami gebruiken" (use Ainalrami) on the one that keeps it &mdash;
+  so a Dutch arbiter choosing a pairing engine was reading each button
+  backwards. "Backups" read as "Terug" (Back), the publish indicator's
+  "Sending" read as "Stand" (Standings), and a note about a round a
+  tournament does not have read as "this tournament is archived".
+
+  All of them were fuzzy entries: gettext's own guesses, produced by
+  matching a new or reworded string against the most similar existing one.
+  Dutch was reported complete at 918 of 918 and the count was true &mdash;
+  what it did not say was that eleven of those were machine guesses nobody
+  had read, and Elixir's Gettext (unlike GNU `msgfmt`, which drops them)
+  puts fuzzy translations on the screen. A twelfth string, the publish
+  queue's "1 tournament waiting to send", had no Dutch at all.
+
+  The catalogue is now checked by tests rather than by counting: nothing
+  untranslated, nothing fuzzy, and no translation interpolating a
+  placeholder that will not be bound &mdash; that last one raises at runtime,
+  so it would take the page down in Dutch and in no other language.
+
+- [Fix] **On your own machine, the whole Connections page refused to do
+  anything.** Setting where the results site is, taking a backup, and
+  updating the FIDE and KBSB rating lists were all gated on having signed in
+  through 02cloud SSO. A local install has no accounts at all &mdash; it
+  signs itself in as an owner named after the machine &mdash; so it failed
+  that check, and there was no way to pass it.
+
+  Which meant the one build that most needs the rating list could not
+  download it, and an arbiter could not point their own laptop at the results
+  site.
+
+  The gate is a role now, and a local run needs none: the listener is on
+  loopback, sign-in re-checks that the request came from this machine, and
+  whoever is at the keyboard already holds the database and the binary.
+  Being able to run it is the credential &mdash; the same reasoning that
+  already skipped email confirmation there.
+
 - [Fix] **Every public link pointed back at this machine, even for a
   tournament being published.** The share links, the projector's QR code, the
   registration link &mdash; all of them handed out a `/p/:slug` address served
@@ -715,17 +788,37 @@ Each entry is tagged so a version can be skimmed:
   framing page gains nothing it could not get by fetching the URL itself.
   `PUBLIC_FRAME_ANCESTORS` restricts or disables it.
 
+- [Fix] **A Keizer standings row could count a board nobody had scored yet
+  as a played loss.** The instant a round was paired, `classify_result/2`'s
+  catch-all sent the still-blank result into the same bucket as a genuinely
+  played "0-0" - one more game Played, one more Loss - instead of treating
+  it as not yet played. Played/W/D/L are not shown on any Keizer screen
+  today, and the ladder itself was never wrong either way (a blank result
+  scored 0 ladder points regardless of the bucket), so this stayed
+  invisible with the app's own defaults. What it did inflate is
+  `raw_points`, the ordinary-scoring column printed beside the ladder, by
+  one `points_loss` per unscored board - real for any tournament with a
+  non-zero loss value, zero everywhere else since `points_loss` defaults to
+  0.0. A blank result now scores nothing, the rule `Standings.pairing_records/4`
+  has always applied to the same state on the FIDE path.
+
 ### Security
 
-- [Security] **Only an SSO account can change where this machine publishes.**
-  The OpenResults address and token were editable by any signed-in user,
-  including a self-registered one. Repointing them at another server would
-  quietly send every published tournament's player names, ratings and clubs
-  there.
+- [Security] **Only an administrator can change where this machine
+  publishes.** The OpenResults address and token were editable by any
+  signed-in user, including a self-registered one. Repointing them at another
+  server would quietly send every published tournament's player names,
+  ratings and clubs there.
 
-  It is now behind the same gate as the FIDE rating-list download, and on the
-  event handlers rather than only the markup &mdash; a hidden button still
-  accepts a crafted event.
+  It is now behind the same gate as the FIDE rating-list download and the
+  backup download &mdash; an explicit `admin` role &mdash; and on the event
+  handlers rather than only the markup, since a hidden button still accepts a
+  crafted event.
+
+  Signing in through 02cloud is deliberately **not** enough. How somebody
+  authenticated and what they may do are different questions, and answering
+  the second with the first would make every account in a federated
+  directory an administrator of this installation's wiring.
 
   Deliberately not extended to a tournament's own publish switch. An operator
   decides *where* this machine publishes; the arbiter running an event decides

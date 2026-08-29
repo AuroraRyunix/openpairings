@@ -22,9 +22,17 @@ defmodule PairingsEngine.Accounts.User do
     field :confirmed_at, :utc_datetime
     field :authenticated_at, :utc_datetime, virtual: true
     field :keycloak_sub, :string
+    field :role, :string, default: "owner"
 
     timestamps(type: :utc_datetime)
   end
+
+  @roles ~w(owner support admin)
+
+  @doc """
+  The roles this application understands, least privileged first.
+  """
+  def roles, do: @roles
 
   @doc """
   A user changeset for registering or changing the email.
@@ -116,13 +124,66 @@ defmodule PairingsEngine.Accounts.User do
   self-serve local account - i.e. whether `keycloak_sub` is set.
 
   Local registration is open to anyone (any email outside `sso_domain/0`),
-  so it's the only reliable way to tell "an account we actually vouch for"
-  from "whoever signed up five minutes ago" - used to gate actions that are
-  expensive or abusable to let literally anyone trigger, like the full FIDE
-  rating-list download (`PairingsEngineWeb.FideLive`).
+  so this is the only reliable way to tell "an account we actually vouch
+  for" from "whoever signed up five minutes ago".
+
+  It used to gate the privileged actions on the Data & sync page as well.
+  It no longer does, and should not again: how somebody authenticated and
+  what they may do are different questions, and answering the second with
+  the first made every account in a federated directory an administrator.
+  `role` answers the second now - see `PairingsEngine.Authz`.
   """
   def sso?(%__MODULE__{keycloak_sub: sub}), do: is_binary(sub) and sub != ""
   def sso?(_), do: false
+
+  @doc """
+  This user's role, as an atom, defaulting to `:owner`.
+
+  Tolerant of a row carrying something unrecognised - a hand-edited
+  database, or a role this version has dropped - because the alternative is
+  raising inside an authorisation check, and a check that crashes is a check
+  that fails open in whatever `rescue` eventually catches it. Anything this
+  version does not understand is the *least* privileged role, which is the
+  only safe direction to be wrong in.
+  """
+  def role(%__MODULE__{role: role}) when role in @roles, do: String.to_existing_atom(role)
+  def role(_), do: :owner
+
+  @doc """
+  Whether `user` may change how this installation is wired up.
+
+  Do not call this directly to authorise anything - call
+  `PairingsEngine.Authz.may_administer?/1`, which also answers for a local
+  installation, where there is no meaningful account to hold a role.
+  """
+  def admin?(user), do: role(user) == :admin
+
+  @doc """
+  Whether `user` may see the diagnostics: connection status, backup list,
+  sync state, and the read-only connection check.
+
+  True for administrators too - a role that could act but not look would be
+  a strange thing to build.
+  """
+  def support?(user), do: role(user) in [:support, :admin]
+
+  @doc """
+  Sets a user's role.
+
+  Reachable only from `mix pairings.role`, deliberately: there is no
+  in-application screen for this. Promoting an account is rare, it is the
+  single most consequential change anyone can make to a deployment, and
+  requiring shell access on the box means the authority to grant admin can
+  never be obtained by holding admin.
+  """
+  def role_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:role])
+    |> validate_required([:role])
+    |> validate_inclusion(:role, @roles,
+      message: "must be one of: #{Enum.join(@roles, ", ")}"
+    )
+  end
 
   @doc """
   The domain that is reachable **only** through 02cloud SSO.

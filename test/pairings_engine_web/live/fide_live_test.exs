@@ -54,6 +54,27 @@ defmodule PairingsEngineWeb.FideLiveTest do
       log_in_user(conn, user)
     end
 
+    defp role_conn(conn, role) do
+      user = PairingsEngine.AccountsFixtures.user_fixture()
+      {:ok, user} = Accounts.set_role(user.email, role)
+      log_in_user(conn, user)
+    end
+
+    defp admin_conn(conn), do: role_conn(conn, "admin")
+    defp support_conn(conn), do: role_conn(conn, "support")
+
+    defp local_mode(on?) do
+      previous = Application.get_env(:pairings_engine, :local_mode)
+      Application.put_env(:pairings_engine, :local_mode, on?)
+
+      on_exit(fn ->
+        case previous do
+          nil -> Application.delete_env(:pairings_engine, :local_mode)
+          value -> Application.put_env(:pairings_engine, :local_mode, value)
+        end
+      end)
+    end
+
     test "an ordinary account cannot change where this machine publishes", %{conn: conn} do
       Publishing.put_endpoint("https://openresults.example")
       Publishing.put_token("operators-token")
@@ -84,7 +105,7 @@ defmodule PairingsEngineWeb.FideLiveTest do
       html = lv |> element("button[phx-click=clear_publishing_token]") |> render_click()
 
       assert Publishing.token() == "operators-token"
-      assert html =~ "limited to SSO-signed-in accounts"
+      assert html =~ "needs an administrator"
     end
 
     test "says nothing is published until both halves are set", %{conn: conn} do
@@ -98,7 +119,7 @@ defmodule PairingsEngineWeb.FideLiveTest do
         Plug.Conn.send_resp(conn, 404, ~s({"error":"not_found"}))
       end)
 
-      {:ok, lv, _html} = live(sso_conn(conn), ~p"/fide")
+      {:ok, lv, _html} = live(admin_conn(conn), ~p"/fide")
 
       html =
         lv
@@ -118,7 +139,7 @@ defmodule PairingsEngineWeb.FideLiveTest do
         Req.Test.transport_error(conn, :econnrefused)
       end)
 
-      {:ok, lv, _html} = live(sso_conn(conn), ~p"/fide")
+      {:ok, lv, _html} = live(admin_conn(conn), ~p"/fide")
 
       html =
         lv
@@ -137,7 +158,7 @@ defmodule PairingsEngineWeb.FideLiveTest do
     end
 
     test "saving half the settings says nothing is published yet", %{conn: conn} do
-      {:ok, lv, _html} = live(sso_conn(conn), ~p"/fide")
+      {:ok, lv, _html} = live(admin_conn(conn), ~p"/fide")
 
       html =
         lv
@@ -151,7 +172,7 @@ defmodule PairingsEngineWeb.FideLiveTest do
     end
 
     test "saving an address normalises it and keeps it", %{conn: conn} do
-      {:ok, lv, _html} = live(sso_conn(conn), ~p"/fide")
+      {:ok, lv, _html} = live(admin_conn(conn), ~p"/fide")
 
       lv
       |> form("form[phx-submit=save_publishing]", %{
@@ -168,7 +189,7 @@ defmodule PairingsEngineWeb.FideLiveTest do
       Publishing.put_endpoint("https://openresults.example")
       Publishing.put_token("keep-me")
 
-      {:ok, lv, _html} = live(sso_conn(conn), ~p"/fide")
+      {:ok, lv, _html} = live(admin_conn(conn), ~p"/fide")
 
       # The token is a secret and is never rendered back, so the box is
       # always empty on load. Treating that as "clear it" would delete a
@@ -188,7 +209,7 @@ defmodule PairingsEngineWeb.FideLiveTest do
       Publishing.put_endpoint("https://openresults.example")
       Publishing.put_token("remove-me")
 
-      {:ok, lv, _html} = live(sso_conn(conn), ~p"/fide")
+      {:ok, lv, _html} = live(admin_conn(conn), ~p"/fide")
 
       lv |> element("button[phx-click=clear_publishing_token]") |> render_click()
 
@@ -250,29 +271,93 @@ defmodule PairingsEngineWeb.FideLiveTest do
     refute html =~ "kbsb-result-row"
   end
 
-  describe "FIDE download gated to SSO accounts" do
-    test "a plain local account sees the button disabled and can't trigger sync", %{conn: conn} do
+  describe "the FIDE download is gated on the role" do
+    test "a plain account sees the button disabled and can't trigger sync", %{conn: conn} do
       {:ok, lv, html} = live(conn, ~p"/fide")
 
-      assert html =~ "limited to SSO-signed-in accounts"
+      assert html =~ "needs an administrator"
       assert lv |> element("button[phx-click='sync'][disabled]") |> has_element?()
 
+      # The guard is on the HANDLER, not just the markup: a disabled button
+      # still accepts a crafted event.
       html = render_click(lv, "sync", %{})
-      assert html =~ "limited to SSO-signed-in accounts"
+      assert html =~ "needs an administrator"
     end
 
-    test "an SSO account sees the button enabled, no restriction message", %{conn: conn} do
-      {:ok, user} =
-        Accounts.find_or_create_from_keycloak(%{
-          sub: "sso-sub-#{System.unique_integer()}",
-          email: "sso-user-#{System.unique_integer()}@example.com"
-        })
+    test "an SSO account is not an administrator", %{conn: conn} do
+      # This is the change of 2026-08-29 and the reason the role exists.
+      # Signing in through 02cloud says how somebody authenticated; it does
+      # not say they may spend forty megabytes of somebody else's bandwidth
+      # on this installation's behalf. Every account in a federated
+      # directory used to pass this gate.
+      {:ok, lv, html} = live(sso_conn(conn), ~p"/fide")
 
-      conn = log_in_user(conn, user)
+      assert html =~ "needs an administrator"
+      assert lv |> element("button[phx-click='sync'][disabled]") |> has_element?()
+    end
+
+    test "an administrator sees the button enabled, no restriction message", %{conn: conn} do
+      {:ok, lv, html} = live(admin_conn(conn), ~p"/fide")
+
+      refute html =~ "needs an administrator"
+      refute lv |> element("button[phx-click='sync'][disabled]") |> has_element?()
+    end
+
+    test "a local run needs no role", %{conn: conn} do
+      # An arbiter's laptop has no accounts at all. Requiring a role there
+      # would not add a check, it would remove the feature - and there is
+      # nobody to withhold it from, because the listener is on loopback and
+      # the person at the keyboard already owns the machine.
+      local_mode(true)
+
       {:ok, lv, html} = live(conn, ~p"/fide")
 
-      refute html =~ "limited to SSO-signed-in accounts"
+      refute html =~ "needs an administrator"
       refute lv |> element("button[phx-click='sync'][disabled]") |> has_element?()
+    end
+  end
+
+  describe "what support may do" do
+    setup do
+      Req.Test.stub(PairingsEngine.PublishingTest, fn conn ->
+        Plug.Conn.send_resp(conn, 404, ~s({"error":"not_found"}))
+      end)
+
+      :ok
+    end
+
+    test "run the connection check, because that is the whole job", %{conn: conn} do
+      # "Why did publishing stop" is the question support exists to answer,
+      # and needing admin to answer it would mean the person diagnosing the
+      # fault has to be the person able to cause it.
+      PairingsEngine.Publishing.put_endpoint("https://openresults.example")
+      PairingsEngine.Publishing.put_token("operators-token")
+
+      {:ok, lv, _html} = live(support_conn(conn), ~p"/fide")
+      html = lv |> element("button[phx-click=test_publishing]") |> render_click()
+
+      # The check's own answer, not the absence of a refusal: this page still
+      # says "needs an administrator" to a support user about the FIDE
+      # download beside it, so refuting that string would pass for the wrong
+      # reason and would keep passing if the check silently did nothing.
+      assert html =~ "Connected. The address and token are both accepted."
+    end
+
+    test "but not change where this machine publishes", %{conn: conn} do
+      PairingsEngine.Publishing.put_endpoint("https://openresults.example")
+      PairingsEngine.Publishing.put_token("operators-token")
+
+      {:ok, lv, _html} = live(support_conn(conn), ~p"/fide")
+
+      lv
+      |> form("form[phx-submit=save_publishing]", %{
+        "endpoint" => "https://somewhere-else.example",
+        "token" => "attackers-token"
+      })
+      |> render_submit()
+
+      assert PairingsEngine.Publishing.endpoint() == "https://openresults.example"
+      assert PairingsEngine.Publishing.token() == "operators-token"
     end
   end
 

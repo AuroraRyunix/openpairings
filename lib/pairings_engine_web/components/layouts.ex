@@ -298,7 +298,7 @@ defmodule PairingsEngineWeb.Layouts do
   # (UTC, "YYYY-MM-DD HH:MM:SS", no "T") or nil if the list has never synced.
   # Whether this is a single-user local install (`OPENPAIRINGS_LOCAL=1`).
   # False everywhere else, including every server deployment.
-  defp local_mode?, do: Application.get_env(:pairings_engine, :local_mode, false) == true
+  defp local_mode?, do: PairingsEngine.Authz.local_mode?()
 
   def sync_label(nil), do: "never synced"
 

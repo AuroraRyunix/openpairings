@@ -241,7 +241,7 @@ msgstr ""
 msgid "Baku acceleration (FIDE C.04.7)"
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:364
+#: lib/pairings_engine_web/live/fide_live.ex:372
 #, elixir-autogen, elixir-format
 msgid "Belgian national rating list (KBSB/FRBE)"
 msgstr ""
@@ -680,7 +680,7 @@ msgstr ""
 msgid "FIDE Elo"
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:305
+#: lib/pairings_engine_web/live/fide_live.ex:311
 #, elixir-autogen, elixir-format
 msgid "FIDE database"
 msgstr ""
@@ -1616,7 +1616,7 @@ msgstr ""
 msgid "Search the FIDE database (name or FIDE ID)"
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:427
+#: lib/pairings_engine_web/live/fide_live.ex:435
 #, elixir-autogen, elixir-format
 msgid "Search the local KBSB database (national ID or last name)"
 msgstr ""
@@ -1713,7 +1713,7 @@ msgstr ""
 msgid "Stack-cut order"
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:435
+#: lib/pairings_engine_web/live/fide_live.ex:443
 #, elixir-autogen, elixir-format
 msgid "Start typing a last name or matricule…"
 msgstr ""
@@ -2323,11 +2323,6 @@ msgstr ""
 msgid "Double-click a row to edit the player, or right-click for their Players Card. Click a player's Pr. cell to mark them present or absent for the whole event, and right-click the Pr. column header to set it for everyone at once."
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:340
-#, elixir-autogen, elixir-format
-msgid "Downloading the full list is limited to SSO-signed-in accounts, so it can't be triggered by just anyone with a local account."
-msgstr ""
-
 #: lib/pairings_engine_web/live/players_live.ex:2015
 #, elixir-autogen, elixir-format
 msgid "Elo used (pairing/standings):"
@@ -2363,7 +2358,7 @@ msgstr ""
 msgid "FIDE identifies every official by FIDE ID and bounces a report missing one. Type their name or FIDE ID above and pick the matching result - missing for:"
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:335
+#: lib/pairings_engine_web/live/fide_live.ex:341
 #, elixir-autogen, elixir-format
 msgid "FIDE publishes a new list every month (~1.9 million players, download is around 41 MB). Updating takes a minute or two."
 msgstr ""
@@ -2453,7 +2448,7 @@ msgstr ""
 msgid "New here?"
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:381
+#: lib/pairings_engine_web/live/fide_live.ex:389
 #, elixir-autogen, elixir-format
 msgid "No roster source is configured. Set KBSB_API_URL and KBSB_API_KEY on the server to sync the Belgian roster from the KBSB data platform - see docs/kbsb-sync.md."
 msgstr ""
@@ -2503,7 +2498,7 @@ msgstr ""
 msgid "Press \"Pair the whole tournament\" to generate every round of the Berger schedule at once - round-robin doesn't pair one round at a time."
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:388
+#: lib/pairings_engine_web/live/fide_live.ex:396
 #, elixir-autogen, elixir-format
 msgid "Pulls the current roster from the Odoo-synced database, including each player's club name and number. Replaces the local copy entirely, and can be re-run any time."
 msgstr ""
@@ -2548,7 +2543,7 @@ msgstr ""
 msgid "Swiss pairings from our own engine, FIDE tie-break rules, and official report formats - from the first round to the final crosstable, right in your browser."
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:405
+#: lib/pairings_engine_web/live/fide_live.ex:413
 #, elixir-autogen, elixir-format
 msgid "Sync failed:"
 msgstr ""
@@ -2558,7 +2553,7 @@ msgstr ""
 msgid "The classic pairing-sheet format - starting rank vs. starting rank, board by board. The bracket map below shows the same pairings with the reasoning behind them."
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:315
+#: lib/pairings_engine_web/live/fide_live.ex:321
 #, elixir-autogen, elixir-format
 msgid "The database is empty - download the rating list to get started."
 msgstr ""
@@ -2623,7 +2618,7 @@ msgstr ""
 msgid "Two players who must never be paired against each other. Applies to Swiss pairing (a TRF \"XXP\" rule) and to Keizer; a round robin's fixed schedule ignores this by design."
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:331
+#: lib/pairings_engine_web/live/fide_live.ex:337
 #, elixir-autogen, elixir-format
 msgid "Update failed:"
 msgstr ""
@@ -2633,8 +2628,8 @@ msgstr ""
 msgid "You're ready to pair. For a complete FIDE report, you may also want to fill in:"
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:307
-#: lib/pairings_engine_web/live/fide_live.ex:366
+#: lib/pairings_engine_web/live/fide_live.ex:313
+#: lib/pairings_engine_web/live/fide_live.ex:374
 #, elixir-autogen, elixir-format
 msgid "%[count] players in the local database."
 msgstr ""
@@ -2949,8 +2944,8 @@ msgid "Bye"
 msgstr ""
 
 #: lib/pairings_engine_web/live/categories_live.ex:480
-#: lib/pairings_engine_web/live/fide_live.ex:358
-#: lib/pairings_engine_web/live/fide_live.ex:420
+#: lib/pairings_engine_web/live/fide_live.ex:366
+#: lib/pairings_engine_web/live/fide_live.ex:428
 #: lib/pairings_engine_web/live/history_live.ex:849
 #: lib/pairings_engine_web/live/norms_live.ex:1327
 #: lib/pairings_engine_web/live/pairings_live.ex:1953
@@ -3160,13 +3155,13 @@ msgstr ""
 msgid "Done"
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:505
+#: lib/pairings_engine_web/live/fide_live.ex:513
 #: lib/pairings_engine_web/live/tools_norms_live.ex:964
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Download"
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:354
+#: lib/pairings_engine_web/live/fide_live.ex:362
 #, elixir-autogen, elixir-format
 msgid "Download rating list"
 msgstr ""
@@ -3322,8 +3317,8 @@ msgstr ""
 msgid "Keizer ladder value %{v}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:311
-#: lib/pairings_engine_web/live/fide_live.ex:370
+#: lib/pairings_engine_web/live/fide_live.ex:317
+#: lib/pairings_engine_web/live/fide_live.ex:378
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Last updated: %[when] (UTC)."
 msgstr ""
@@ -3788,7 +3783,7 @@ msgstr[1] ""
 msgid "Same grouping the report itself uses (see %{fills} and %{titled} - CM/WCM don't count as titled). The feds count is the number of distinct federations in that group; the host count is how many of them are %{host}. Groups with no players in them aren't shown."
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:574
+#: lib/pairings_engine_web/live/fide_live.ex:582
 #: lib/pairings_engine_web/live/norms_live.ex:1326
 #: lib/pairings_engine_web/live/players_live.ex:2163
 #: lib/pairings_engine_web/live/settings_options_live.ex:393
@@ -3857,11 +3852,6 @@ msgstr ""
 msgid "Sign in"
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:349
-#, elixir-autogen, elixir-format
-msgid "Sign in with SSO to update the FIDE rating list"
-msgstr ""
-
 #: lib/pairings_engine_web/live/user_live/confirmation.ex:15
 #, elixir-autogen, elixir-format
 msgid "Signing in as %[email]."
@@ -3909,12 +3899,12 @@ msgstr ""
 msgid "Switch to manual ranking? The current computed order will be used as the starting point."
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:417
+#: lib/pairings_engine_web/live/fide_live.ex:425
 #, elixir-autogen, elixir-format
 msgid "Sync from data platform"
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:416
+#: lib/pairings_engine_web/live/fide_live.ex:424
 #, elixir-autogen, elixir-format
 msgid "Syncing…"
 msgstr ""
@@ -3940,12 +3930,12 @@ msgstr ""
 msgid "The chief arbiter, the deputy arbiters and the organizer's and chief arbiter's e-mail addresses are edited on the %[norms] page, because that is what they are for - the IT3, FA1 and IA1 forms are built from them. (The organizer's %[name] is above, under General.)"
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:376
+#: lib/pairings_engine_web/live/fide_live.ex:384
 #, elixir-autogen, elixir-format
 msgid "The database is empty - no source is configured."
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:375
+#: lib/pairings_engine_web/live/fide_live.ex:383
 #, elixir-autogen, elixir-format, fuzzy
 msgid "The database is empty - sync it from the data platform to get started."
 msgstr ""
@@ -4118,12 +4108,12 @@ msgstr ""
 msgid "Up to 10 files, 5 MB each - %[swar] or %[trf]. Two or more files combine into one \"Festival\" report (see below)."
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:353
+#: lib/pairings_engine_web/live/fide_live.ex:361
 #, elixir-autogen, elixir-format
 msgid "Update from FIDE"
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:352
+#: lib/pairings_engine_web/live/fide_live.ex:360
 #, elixir-autogen, elixir-format
 msgid "Updating…"
 msgstr ""
@@ -4186,8 +4176,8 @@ msgstr ""
 msgid "Who"
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:327
-#: lib/pairings_engine_web/live/fide_live.ex:401
+#: lib/pairings_engine_web/live/fide_live.ex:333
+#: lib/pairings_engine_web/live/fide_live.ex:409
 #, elixir-autogen, elixir-format
 msgid "Working…"
 msgstr ""
@@ -4314,7 +4304,7 @@ msgstr ""
 msgid "unknown"
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:442
+#: lib/pairings_engine_web/live/fide_live.ex:450
 #: lib/pairings_engine_web/live/players_live.ex:2016
 #, elixir-autogen, elixir-format
 msgid "unrated"
@@ -4457,7 +4447,7 @@ msgstr ""
 msgid "submitted for rating"
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:609
+#: lib/pairings_engine_web/live/fide_live.ex:617
 #, elixir-autogen, elixir-format
 msgid "%[count] tournament(s) waiting to be sent. They go out on their own; a tournament stays in the queue until the server confirms it."
 msgstr ""
@@ -4482,7 +4472,7 @@ msgstr ""
 msgid "%{n} of %{total} hidden."
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:514
+#: lib/pairings_engine_web/live/fide_live.ex:522
 #, elixir-autogen, elixir-format
 msgid "%{n} older ones are on the machine, in %{dir}."
 msgstr ""
@@ -4524,7 +4514,7 @@ msgstr ""
 msgid "Accepting entries"
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:543
+#: lib/pairings_engine_web/live/fide_live.ex:551
 #, elixir-autogen, elixir-format
 msgid "Address"
 msgstr ""
@@ -4544,17 +4534,17 @@ msgstr ""
 msgid "Asked to sit out round"
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:477
+#: lib/pairings_engine_web/live/fide_live.ex:485
 #, elixir-autogen, elixir-format
 msgid "Back up now"
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:121
+#: lib/pairings_engine_web/live/fide_live.ex:124
 #, elixir-autogen, elixir-format
 msgid "Backup written: %{name}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:451
+#: lib/pairings_engine_web/live/fide_live.ex:459
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Backups"
 msgstr ""
@@ -4580,7 +4570,7 @@ msgid "Connected"
 msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:131
-#: lib/pairings_engine_web/live/fide_live.ex:297
+#: lib/pairings_engine_web/live/fide_live.ex:303
 #, elixir-autogen, elixir-format
 msgid "Connections"
 msgstr ""
@@ -4605,7 +4595,7 @@ msgstr ""
 msgid "Everything is shown."
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:299
+#: lib/pairings_engine_web/live/fide_live.ex:305
 #, elixir-autogen, elixir-format
 msgid "Everything this machine talks to: the FIDE and Belgian national (KBSB/FRBE) rating lists it looks players up in, and the results site it publishes to."
 msgstr ""
@@ -4660,7 +4650,7 @@ msgstr ""
 msgid "Names, boards, results and placings are always shown on a page that is shown at all - they are the tournament. To hide those, switch the whole page off above, or do not publish."
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:569
+#: lib/pairings_engine_web/live/fide_live.ex:577
 #, elixir-autogen, elixir-format
 msgid "Never shown once saved. Leave this empty to keep the one already stored."
 msgstr ""
@@ -4670,7 +4660,7 @@ msgstr ""
 msgid "No results site is set up on this machine yet - see Connections."
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:482
+#: lib/pairings_engine_web/live/fide_live.ex:490
 #, elixir-autogen, elixir-format
 msgid "None yet - the first is written a few minutes after start-up."
 msgstr ""
@@ -4680,7 +4670,7 @@ msgstr ""
 msgid "Not set up"
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:604
+#: lib/pairings_engine_web/live/fide_live.ex:612
 #, elixir-autogen, elixir-format
 msgid "Nothing is published until both an address and a token are set."
 msgstr ""
@@ -4700,7 +4690,7 @@ msgstr ""
 msgid "On the results site (%{host}), not on this machine. Share it, print it, put it on a QR code."
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:454
+#: lib/pairings_engine_web/live/fide_live.ex:462
 #, elixir-autogen, elixir-format
 msgid "One is written a day. They hold everything that cannot be rebuilt - tournaments, results, entries and publishing keys - and leave out the rating lists, which a sync restores."
 msgstr ""
@@ -4739,7 +4729,7 @@ msgstr ""
 msgid "Public page"
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:522
+#: lib/pairings_engine_web/live/fide_live.ex:530
 #, elixir-autogen, elixir-format
 msgid "Public results site (OpenResults)"
 msgstr ""
@@ -4779,7 +4769,7 @@ msgstr ""
 msgid "Remove this tournament from the results site? Its public page, every earlier snapshot in its history, and any entries collected for it are deleted there permanently. Nothing on this machine is touched - the tournament, its players and its results stay exactly as they are - but this cannot be undone from here."
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:589
+#: lib/pairings_engine_web/live/fide_live.ex:597
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Remove token"
 msgstr ""
@@ -4789,17 +4779,17 @@ msgstr ""
 msgid "Review entries"
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:266
+#: lib/pairings_engine_web/live/fide_live.ex:272
 #, elixir-autogen, elixir-format
 msgid "Saved, and the results site answered."
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:275
+#: lib/pairings_engine_web/live/fide_live.ex:281
 #, elixir-autogen, elixir-format
 msgid "Saved, but the results site did not answer."
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:262
+#: lib/pairings_engine_web/live/fide_live.ex:268
 #, elixir-autogen, elixir-format
 msgid "Saved. Nothing is published until both an address and a token are set."
 msgstr ""
@@ -4809,7 +4799,7 @@ msgstr ""
 msgid "Sending"
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:536
+#: lib/pairings_engine_web/live/fide_live.ex:544
 #, elixir-autogen, elixir-format
 msgid "Set this once for the machine. Each tournament then has its own switch in its Settings, off until you turn it on."
 msgstr ""
@@ -4819,7 +4809,7 @@ msgstr ""
 msgid "Settings -> Results site"
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:490
+#: lib/pairings_engine_web/live/fide_live.ex:498
 #, elixir-autogen, elixir-format
 msgid "Size"
 msgstr ""
@@ -4849,12 +4839,12 @@ msgstr ""
 msgid "Take over publishing that tournament? This copy starts publishing to that address and can delete it, and this copy's own public link changes to match. Anyone still publishing it from another machine will be overwriting you, and you them."
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:489
+#: lib/pairings_engine_web/live/fide_live.ex:497
 #, elixir-autogen, elixir-format
 msgid "Taken"
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:581
+#: lib/pairings_engine_web/live/fide_live.ex:589
 #, elixir-autogen, elixir-format
 msgid "Test connection"
 msgstr ""
@@ -4879,12 +4869,12 @@ msgstr ""
 msgid "The results site holds what its public form collected. It cannot add anyone to this tournament - it only keeps the requests until you fetch them. Nobody below is a player yet."
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:467
+#: lib/pairings_engine_web/live/fide_live.ex:475
 #, elixir-autogen, elixir-format
 msgid "These are unencrypted and carry the email addresses people gave the entry form."
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:463
+#: lib/pairings_engine_web/live/fide_live.ex:471
 #, elixir-autogen, elixir-format
 msgid "They are written to this machine. Download one and keep it somewhere else - a backup stored only on the thing it protects is half a backup."
 msgstr ""
@@ -4924,7 +4914,7 @@ msgstr ""
 msgid "This tournament is not published, so there is no page for spectators to open. %[settings] to publish it to the results site and get a link and QR code."
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:555
+#: lib/pairings_engine_web/live/fide_live.ex:563
 #, elixir-autogen, elixir-format
 msgid "Token"
 msgstr ""
@@ -4934,7 +4924,7 @@ msgstr ""
 msgid "Token refused"
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:149
+#: lib/pairings_engine_web/live/fide_live.ex:152
 #, elixir-autogen, elixir-format
 msgid "Token removed. Nothing will be published until a new one is set."
 msgstr ""
@@ -4969,14 +4959,9 @@ msgstr ""
 msgid "What the public page shows"
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:531
+#: lib/pairings_engine_web/live/fide_live.ex:539
 #, elixir-autogen, elixir-format
 msgid "Where published tournaments are sent so spectators can follow them. This machine stays the source of truth: it sends a copy, and nothing is ever sent back."
-msgstr ""
-
-#: lib/pairings_engine_web/live/fide_live.ex:230
-#, elixir-autogen, elixir-format
-msgid "Where this machine publishes is limited to SSO-signed-in accounts."
 msgstr ""
 
 #: lib/pairings_engine_web/live/settings_results_live.ex:381
@@ -4984,7 +4969,7 @@ msgstr ""
 msgid "Whether this tournament appears in the results site's list of published tournaments. Off by default: publishing gives this tournament an address, and putting it on the front page is a separate choice."
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:562
+#: lib/pairings_engine_web/live/fide_live.ex:570
 #, elixir-autogen, elixir-format
 msgid "a token is set - type a new one to replace it"
 msgstr ""
@@ -5014,7 +4999,7 @@ msgstr ""
 msgid "nothing sent from this machine yet"
 msgstr ""
 
-#: lib/pairings_engine_web/live/fide_live.ex:563
+#: lib/pairings_engine_web/live/fide_live.ex:571
 #, elixir-autogen, elixir-format
 msgid "paste the server's token"
 msgstr ""
@@ -5022,4 +5007,24 @@ msgstr ""
 #: lib/pairings_engine_web/live/registrations_live.ex:343
 #, elixir-autogen, elixir-format
 msgid "that part of the request will be dropped."
+msgstr ""
+
+#: lib/pairings_engine_web/live/fide_live.ex:356
+#, elixir-autogen, elixir-format
+msgid "An administrator can update the FIDE rating list"
+msgstr ""
+
+#: lib/pairings_engine_web/live/fide_live.ex:233
+#, elixir-autogen, elixir-format
+msgid "Changing how this machine is connected needs an administrator."
+msgstr ""
+
+#: lib/pairings_engine_web/live/fide_live.ex:236
+#, elixir-autogen, elixir-format
+msgid "Downloading the full FIDE rating list needs an administrator."
+msgstr ""
+
+#: lib/pairings_engine_web/live/fide_live.ex:346
+#, elixir-autogen, elixir-format, fuzzy
+msgid "Downloading the full list needs an administrator, so it can't be triggered by just anyone with an account here."
 msgstr ""

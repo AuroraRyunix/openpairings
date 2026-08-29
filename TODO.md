@@ -1,6 +1,6 @@
 # TODO / Roadmap
 
-Version: **0.17.1** (not 1.0 yet - the maintainer will call that explicitly).
+Version: **0.18.0** (not 1.0 yet - the maintainer will call that explicitly).
 See [`docs/features.md`](docs/features.md) for what's already shipped.
 
 > **A whole-codebase sweep ran on 2026-08-26** and its findings are in
@@ -160,8 +160,28 @@ illegal combinations cannot be entered.
 
 These are real, identified gaps - not yet built, and not accidentally missed:
 
-- **Admin/support role** (`users.role`) - no staff/support role exists yet;
-  every user is a plain account owner. Deferred, no target date.
+- ~~**Admin/support role** (`users.role`)~~ **Shipped 2026-08-29**, and it
+  closed a live bug rather than only adding a feature.
+
+  `admin` changes the wiring (publishing connection, backups, rating syncs),
+  `support` may only look at it, `owner` is everyone else. Granted by
+  `mix pairings.role` and nowhere else - a hosted installation has no
+  administrators until someone runs it, deliberately, because shell access
+  is the one credential that cannot be circular.
+
+  What it replaced was `User.sso?/1`, which had been standing in for
+  authority across the whole Data & sync page. Two things were wrong with
+  that, and the second was worse:
+
+    * every account in a federated directory passed it, so "signed in
+      through 02cloud" meant "may repoint where this installation
+      publishes";
+    * **a local build failed it.** `local_owner_changeset/2` sets no
+      `keycloak_sub`, so the auto-signed-in local owner was not an SSO
+      account - and the arbiter's own laptop could not set its publishing
+      address, take a backup, or download the FIDE rating list. Local mode
+      now needs no role at all (`PairingsEngine.Authz`), which is the rule
+      the maintainer asked for and the reason the item was worth doing.
 - ~~**FIDE/KBSB "last synced" banner**~~ - this claim was already stale:
   the topbar's `.sync-freshness` strip ("FIDE: 3 days ago · KBSB: never
   synced") has been showing this for a while (`Layouts.sync_label/1`,
@@ -197,10 +217,18 @@ These are real, identified gaps - not yet built, and not accidentally missed:
   it continues the name list (and assignment breaks past the 16th).
   **Unresolvable from what we have**: all three .swar fixtures in the repo
   carry type = 0. One real club file with categories configured settles it.
-- **Print output is not translated** - print_controller.ex builds HTML
-  directly rather than through HEEx, so the gettext passes never reached
-  it. Pairing sheets, standings and place cards print in English whatever
-  the interface language is set to.
+- ~~**Print output is not translated**~~ - **this claim was already stale
+  when it was last quoted, 2026-08-29.** `print_controller.ex` carries 81
+  `gettext/1` calls, and `locale_test.exs` has a dedicated
+  "a printed document comes out in Dutch too" case that asserts the
+  document's subtitle, its table header, the credit line and `lang="nl"`,
+  *and refutes each English equivalent* - so it cannot pass against an
+  empty catalogue, nor against one covering only the `~H` templates.
+
+  `docs/i18n.md` §"The other trap: HTML built as strings" documents the two
+  rules that apply there and nowhere else (entities are not double-escaped
+  because the output is interpolated raw; values go through `esc/1` while
+  the msgid does not). Nothing left to build.
 - **Dutch is complete as of 2026-08-29** - `mix gettext.extract --merge` had
   not been run since before the OpenResults split, so 104 new strings (and 17
   removed with the local public pages) were sitting outside the catalogue
@@ -208,10 +236,37 @@ These are real, identified gaps - not yet built, and not accidentally missed:
   with placeholder parity checked mechanically, since a translated `%{name}`
   is a crash rather than a typo.
 
-- **41 i18n fragments left English on purpose** - sentences wrapping around
-  an inline value cannot be one gettext/1 call as written, and splitting
-  them renders half in each language. Listed with the placeholder shape
-  each needs in docs/i18n.md. Do not wrap a fragment to raise the count.
+- **i18n fragments left English on purpose** - sentences wrapping around an
+  inline value cannot be one `gettext/1` call as written, and splitting them
+  renders half in each language. Do not wrap a fragment to raise the count.
+
+  **Two of this item's own claims were false and are removed (2026-08-29):**
+  the number was **41**, and it said they were "listed with the placeholder
+  shape each needs in docs/i18n.md". That document contains no such list -
+  it gives the technique (`rich_text/1` with `%[name]` placeholders) and the
+  rule, and nothing else. Neither the count nor the inventory has any
+  provenance anybody can now find.
+
+  What is measurable says most of this work already happened.
+  `CoreComponents.rich_text/1` - the tool that exists for exactly this - is
+  used **55 times across 19 files**, beside 1,236 `gettext/1` calls in the
+  web layer, and the catalogue is at 933 msgids with Dutch complete and
+  now test-enforced. Static scans for prose sitting next to an
+  interpolation surface only column abbreviations, result codes and product
+  names, every one of which `docs/i18n.md` puts off-limits by name.
+
+  **What is actually blocked is the measurement, not the work.** Whether an
+  unwrapped sentence remains cannot be answered by grep: a HEEx text node
+  spans lines, and "an Elixir line with no tags on it" matches multi-line
+  attributes, moduledocs and the arguments of `gettext/1` itself far more
+  often than it matches prose.
+
+  The instrument that would settle it is a **pseudo-locale**: generate a
+  catalogue from `default.pot` whose every msgstr is its own msgid inside
+  markers, render the pages under it, and anything that comes back unmarked
+  was never wrapped. That is the standard technique, it is finite, and it
+  would replace this item's guesswork with a number that stays true. Nobody
+  has asked for it, so it is written down rather than built.
 - **SWAR presence points on pairing-allocated byes (`SW321_PreBye`)** -
   modelled now (`tournaments.presence_on_allocated_bye`,
   `Standings.bye_points/2`); if a real club file ever surfaces where this
@@ -262,7 +317,17 @@ Three of them were adjudicated on 2026-08-27 - two confirmed, one refuted -
 and that pass turned up a fourth. Full evidence and line references are in
 that document's "Three leads, adjudicated 2026-08-27"; this is the index.
 
-- **Keizer's `classify_result` catch-all scores an unscored pairing as a
+- ~~**Keizer's `classify_result` catch-all scores an unscored pairing as a
+  played loss**~~ **Fixed 2026-08-29.** `played`/`wins`/`draws`/`losses`
+  stayed confirmed-dead (nothing renders them), but `raw_points` was not -
+  proved with a non-zero `points_loss` in a test first (played 1, losses 1,
+  `raw_points` inflated by exactly `points_loss` for a board with no result
+  at all), then fixed, then reproved at 0. `classify_result/2` now has its
+  own class for a blank result (`:not_played`), scored as nothing by both
+  `class_points/4` and `round_stats/2` - the same rule
+  `Standings.pairing_records/4` already applied to the equivalent FIDE-path
+  state, now implemented once instead of twice. Original note: Keizer's
+  `classify_result` catch-all scores an unscored pairing as a
   played loss** (`lib/pairings_engine/keizer.ex:605`). A paired-but-unscored
   pairing carries `result: ""`, falls to `_ -> :zero`, and `round_stats/2`'s
   `:zero` bucket increments both `played` and `losses`, where

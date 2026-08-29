@@ -111,7 +111,7 @@ defmodule PairingsEngineWeb.UserAuth do
     end
   end
 
-  defp local_mode?, do: Application.get_env(:pairings_engine, :local_mode, false) == true
+  defp local_mode?, do: PairingsEngine.Authz.local_mode?()
 
   # IPv4 127.0.0.0/8, IPv6 ::1, and IPv4-mapped IPv6 (::ffff:127.0.0.1),
   # which is what a dual-stack listener reports for a v4 loopback client.

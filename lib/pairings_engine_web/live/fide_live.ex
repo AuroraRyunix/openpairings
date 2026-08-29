@@ -3,7 +3,7 @@ defmodule PairingsEngineWeb.FideLive do
 
   import PairingsEngineWeb.Components.ConnectionStatus
 
-  alias PairingsEngine.Accounts.User
+  alias PairingsEngine.Authz
   alias PairingsEngine.Backup
   alias PairingsEngine.Kbsb
   alias PairingsEngine.Fide.Sync, as: FideSync
@@ -35,12 +35,15 @@ defmodule PairingsEngineWeb.FideLive do
        # cannot change while the page is open. False hides the sync button
        # entirely rather than offering an action that can only fail.
        kbsb_api_configured: KbsbApi.configured?(),
-       # Local self-registration is open to anyone - the full FIDE list
-       # download (~41 MB, once a click) is exactly the kind of thing that's
-       # cheap to trigger and expensive to serve, so it's restricted to
-       # accounts we actually vouch for (SSO), same reasoning as
-       # `PairingsEngine.Accounts.User.sso?/1`'s own moduledoc.
-       sso?: User.sso?(socket.assigns.current_scope.user)
+       # Everything on this page is machine-wide rather than about one
+       # tournament: where this installation publishes, what leaves it in a
+       # backup, and a ~41 MB rating-list download that is cheap to click
+       # and expensive to serve. So it is gated on an explicit role rather
+       # than on being signed in - and, on a local run, on nothing at all,
+       # because the person at the keyboard already holds the database and
+       # the binary. See `PairingsEngine.Authz`.
+       may_admin?: Authz.may_administer?(socket.assigns.current_scope.user),
+       may_support?: Authz.may_support?(socket.assigns.current_scope.user)
      )
      |> assign_publishing()}
   end
@@ -106,7 +109,7 @@ defmodule PairingsEngineWeb.FideLive do
   end
 
   def handle_event("run_backup", _params, socket) do
-    if socket.assigns.sso? do
+    if socket.assigns.may_admin? do
       # Synchronous, unlike the connection check beside it. A backup copies the
       # database and an operator has just asked for one before doing something
       # risky - they should see it finish, or see why it did not, rather than
@@ -130,7 +133,7 @@ defmodule PairingsEngineWeb.FideLive do
 
   @impl true
   def handle_event("save_publishing", params, socket) do
-    if socket.assigns.sso? do
+    if socket.assigns.may_admin? do
       save_publishing(params, socket)
     else
       {:noreply, put_flash(socket, :error, publishing_restricted())}
@@ -138,7 +141,7 @@ defmodule PairingsEngineWeb.FideLive do
   end
 
   def handle_event("clear_publishing_token", _params, socket) do
-    if socket.assigns.sso? do
+    if socket.assigns.may_admin? do
       Publishing.put_token(nil)
 
       {:noreply,
@@ -153,8 +156,13 @@ defmodule PairingsEngineWeb.FideLive do
     end
   end
 
+  # Support, not admin: this changes nothing. It asks the results site
+  # whether the token this machine already holds still works, which is the
+  # first thing anybody wants when publishing has stopped - and needing
+  # admin to run it would mean the person diagnosing the problem has to be
+  # the person able to cause it.
   def handle_event("test_publishing", _params, socket) do
-    if socket.assigns.sso? do
+    if socket.assigns.may_support? do
       {:noreply, assign(socket, publish_test: Publishing.check())}
     else
       {:noreply, put_flash(socket, :error, publishing_restricted())}
@@ -162,22 +170,17 @@ defmodule PairingsEngineWeb.FideLive do
   end
 
   def handle_event("sync", _params, socket) do
-    if socket.assigns.sso? do
+    if socket.assigns.may_admin? do
       FideSync.start_sync()
       {:noreply, assign(socket, status: FideSync.status())}
     else
-      {:noreply,
-       put_flash(
-         socket,
-         :error,
-         "Downloading the full FIDE rating list is limited to SSO-signed-in accounts."
-       )}
+      {:noreply, put_flash(socket, :error, sync_restricted())}
     end
   end
 
   @impl true
   def handle_event("cancel", _params, socket) do
-    if socket.assigns.sso? do
+    if socket.assigns.may_admin? do
       FideSync.cancel_sync()
     end
 
@@ -227,7 +230,10 @@ defmodule PairingsEngineWeb.FideLive do
   # an arbiter publishing their own tournament on a machine somebody else
   # configured, which is the ordinary case rather than the dangerous one.
   defp publishing_restricted,
-    do: gettext("Where this machine publishes is limited to SSO-signed-in accounts.")
+    do: gettext("Changing how this machine is connected needs an administrator.")
+
+  defp sync_restricted,
+    do: gettext("Downloading the full FIDE rating list needs an administrator.")
 
   defp save_publishing(params, socket) do
     Publishing.put_endpoint(blank_to_nil(params["endpoint"]))
@@ -336,17 +342,19 @@ defmodule PairingsEngineWeb.FideLive do
             "FIDE publishes a new list every month (~1.9 million players, download is around 41 MB). Updating takes a minute or two."
           )}
         </p>
-        <p :if={!@sso?} class="hint">
+        <p :if={!@may_admin?} class="hint">
           {gettext(
-            "Downloading the full list is limited to SSO-signed-in accounts, so it can't be triggered by just anyone with a local account."
+            "Downloading the full list needs an administrator, so it can't be triggered by just anyone with an account here."
           )}
         </p>
         <div class="actions">
           <button
             class="pe-btn primary"
             phx-click="sync"
-            disabled={busy?(@status) or !@sso?}
-            title={if !@sso?, do: gettext("Sign in with SSO to update the FIDE rating list")}
+            disabled={busy?(@status) or !@may_admin?}
+            title={
+              if !@may_admin?, do: gettext("An administrator can update the FIDE rating list")
+            }
           >
             {cond do
               busy?(@status) -> gettext("Updating…")
@@ -354,7 +362,7 @@ defmodule PairingsEngineWeb.FideLive do
               true -> gettext("Download rating list")
             end}
           </button>
-          <button :if={busy?(@status) and @sso?} class="pe-btn" phx-click="cancel">
+          <button :if={busy?(@status) and @may_admin?} class="pe-btn" phx-click="cancel">
             {gettext("Cancel")}
           </button>
         </div>
@@ -473,7 +481,7 @@ defmodule PairingsEngineWeb.FideLive do
         <p :if={@backup_note} class="hint" style="color: var(--danger)">{@backup_note}</p>
 
         <div class="actions" style="margin: 12px 0">
-          <button type="button" class="pe-btn" phx-click="run_backup" disabled={not @sso?}>
+          <button type="button" class="pe-btn" phx-click="run_backup" disabled={not @may_admin?}>
             {gettext("Back up now")}
           </button>
         </div>
@@ -497,7 +505,7 @@ defmodule PairingsEngineWeb.FideLive do
                 <td class="num">{human_size(backup.size)}</td>
                 <td class="num">
                   <a
-                    :if={@sso?}
+                    :if={@may_admin?}
                     class="pe-btn"
                     href={~p"/backups/#{Path.basename(backup.path)}"}
                     download

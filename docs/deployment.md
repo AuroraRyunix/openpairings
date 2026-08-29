@@ -362,6 +362,55 @@ this app has no account-recovery path other than magic-link e-mail, so a
 production boot with no way to actually deliver that e-mail would silently
 lock every user out.
 
+## Granting the first administrator
+
+**A hosted installation has no administrators until you name one.** Nobody can
+change the publishing connection, download a backup, or start a rating-list
+sync until you do, and the Connections page will say so in as many words.
+
+Signing in through SSO is deliberately not enough: that says how somebody
+authenticated, not what they may do, and treating the two as one made every
+account in the federated directory an administrator of this installation's
+wiring.
+
+The ordinary way is `DEPLOY_ADMIN_EMAILS` in the deploy script's `.env`,
+comma-separated. It reaches the systemd unit as `ADMIN_EMAILS` and takes
+effect the moment the app boots, so there is no window in which the
+installation is up and unmanageable:
+
+```bash
+DEPLOY_ADMIN_EMAILS=you@example.com
+```
+
+That *declares* rather than promotes: no row is written, so a restart cannot
+re-grant admin to somebody you deliberately demoted. Removing the address is
+how you revoke it.
+
+The other way grants a role in the database, and is what you want for
+somebody who should keep it independently of the unit file, or for `support`:
+
+```bash
+mix pairings.role you@example.com admin
+```
+
+Run with no arguments it lists whoever currently holds a role. `support` grants
+sight of the diagnostics without the ability to change them; `owner` revokes.
+
+Two operational notes:
+
+- Like `mix pairings.backup`, this needs `DATABASE_PATH` and `SECRET_KEY_BASE`
+  in the environment, because `config/runtime.exs` loads before the task does.
+  The deploy script's build-env file is **deleted after the build**, so source
+  the systemd unit's values or use the same wrapper pattern the backup task
+  uses. It starts the Repo only, never the endpoint, so it cannot collide with
+  the port the live service is bound to.
+- There is no screen for this and there should not be. Shell access on the box
+  can already read the database, the secrets and the backups, so making it the
+  way roles are granted keeps the authority to grant admin from being something
+  admin itself confers.
+
+Local installations need none of this - see `PairingsEngine.Authz` for why.
+
 ## Ports on this host
 
 Nothing is reachable from the internet except SSH - firewalld's public zone
@@ -490,6 +539,7 @@ Anything absent is prompted for, or falls back to the default shown.
 | `DEPLOY_APP_PORT` | OpenPairings | default 4001 |
 | `DEPLOY_PHX_HOST` | OpenPairings | `pairings.zerotwo.cloud` |
 | `DEPLOY_SMTP_USERNAME` / `DEPLOY_SMTP_PASSWORD` | OpenPairings | only asked for when this app is in the run |
+| `DEPLOY_ADMIN_EMAILS` | OpenPairings | comma-separated; who administers this installation. Unset means it has **no administrators** until `mix pairings.role` is run on the box &mdash; see "Granting the first administrator" |
 | `DEPLOY_FIDE_LIST_URL` | OpenPairings | see above |
 | `DEPLOY_KBSB_API_URL` / `DEPLOY_KBSB_API_KEY` | OpenPairings | see above |
 | `DEPLOY_SSO_BLOCKED_REGISTRATION_DOMAIN` | OpenPairings | see above |
