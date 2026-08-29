@@ -40,14 +40,24 @@ Each entry is tagged so a version can be skimmed:
   granted keeps the authority to grant admin from being something admin
   itself confers.
 
-  A deployment can also name its administrators directly, with
-  `ADMIN_EMAILS` in the systemd unit, so a hosted installation has one the
-  moment it boots rather than after somebody remembers a manual step. That
-  grants nothing new &mdash; the unit is root-only, and root could run the
-  mix task anyway &mdash; and it *declares* rather than promotes: nothing is
-  written to the database, so a restart cannot silently re-grant admin to
-  someone deliberately demoted an hour earlier. `mix pairings.role` with no
-  arguments lists both kinds and marks which is which.
+  A deployment names its administrators once, in `DEPLOY_ADMIN_EMAILS`, and
+  that drives **two independent routes to the same authority**. The address
+  reaches the systemd unit as `ADMIN_EMAILS` and may administer with no
+  database row at all; and the deploy also runs
+  `mix pairings.role --ensure` after migrating, so it holds the role in the
+  database too. Either alone is enough. The redundancy is the point: an
+  installation nobody can administer is recoverable only over SSH.
+
+  This grants nothing new &mdash; the unit is root-only, and root could run
+  the mix task anyway. `mix pairings.role` with no arguments lists both
+  kinds and marks which is which.
+
+  **`--ensure` re-grants on every deploy**, so the deploy configuration is
+  the source of truth: demoting somebody still listed there lasts until the
+  next deploy. Revoking for good means removing the address *and* running
+  `mix pairings.role <email> owner`. An address with no account yet is
+  reported and skipped rather than failing, so a first deploy is never
+  aborted by it.
 
   Your own machine needs none of this and is not affected.
 

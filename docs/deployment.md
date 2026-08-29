@@ -373,21 +373,45 @@ authenticated, not what they may do, and treating the two as one made every
 account in the federated directory an administrator of this installation's
 wiring.
 
-The ordinary way is `DEPLOY_ADMIN_EMAILS` in the deploy script's `.env`,
-comma-separated. It reaches the systemd unit as `ADMIN_EMAILS` and takes
-effect the moment the app boots, so there is no window in which the
-installation is up and unmanageable:
+Set `DEPLOY_ADMIN_EMAILS` in the deploy script's `.env`, comma-separated,
+and the deploy does the rest:
 
 ```bash
 DEPLOY_ADMIN_EMAILS=you@example.com
 ```
 
-That *declares* rather than promotes: no row is written, so a restart cannot
-re-grant admin to somebody you deliberately demoted. Removing the address is
-how you revoke it.
+That one setting drives **two independent routes to the same authority**,
+which is deliberate - either one alone is enough to administer the box:
 
-The other way grants a role in the database, and is what you want for
-somebody who should keep it independently of the unit file, or for `support`:
+1. It reaches the systemd unit as `ADMIN_EMAILS`, and those addresses may
+   administer with no database row at all, from the moment the app boots.
+2. After migrating and before restarting, the deploy runs
+   `mix pairings.role --ensure "$ADMIN_EMAILS" admin`, so they also hold the
+   role in the database - which survives somebody later editing the unit.
+
+The redundancy is the point: an installation nobody can administer is
+recoverable only over SSH, so it is worth two mechanisms that fail
+independently.
+
+**`--ensure` re-grants on every deploy.** So `DEPLOY_ADMIN_EMAILS` is the
+source of truth for who administers, and demoting somebody still listed
+there lasts until the next deploy. To revoke for good, take the address out
+of the deploy configuration **and** run:
+
+```bash
+mix pairings.role you@example.com owner
+```
+
+Doing only the second is the mistake worth naming: it looks like it worked,
+and undoes itself the next time you ship.
+
+An address with no account yet is reported and skipped rather than failing,
+so a first deploy - where nobody has signed in and there is no row to
+promote - is not aborted by it. Those people are covered by route 1 until
+they first sign in, and picked up by route 2 on the next deploy.
+
+Granting by hand is still there, and is what you want for `support`, or for
+somebody who should hold a role independently of the deploy configuration:
 
 ```bash
 mix pairings.role you@example.com admin
