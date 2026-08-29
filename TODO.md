@@ -251,7 +251,17 @@ that document's "Three leads, adjudicated 2026-08-27"; this is the index.
   all four Keizer surfaces render Score only. The one live effect is
   `raw_points` inflated by `points_loss` per unreported game, which is 0.0
   by default. Low priority, but it is two implementations of one rule.
-- **`adjusted_score/3` mixes a record count with a round number**
+- ~~**`adjusted_score/3` mixes a record count with a round number**~~
+  **Fixed 2026-08-28.** `rounds_played_count/1` is gone entirely and
+  `completed_rounds/2` replaced it - the highest round in which every pairing
+  has a result, counting bye-only rounds - carried on each standings entry and
+  threaded into both `adjusted_score/3` and the Koya threshold. That is the
+  third horizon this note prescribed, and it was the one open finding with a
+  wrong number on an arbiter's screen.
+
+  The original note:
+
+- **(historic) `adjusted_score/3` mixes a record count with a round number**
   (`lib/pairings_engine/standings.ex:770`). `missing_tail` subtracts a round
   number from `rounds_played_count/1`, which counts records, so one board
   reporting first can hand every un-reported player's opponents a phantom
@@ -263,7 +273,20 @@ that document's "Three leads, adjudicated 2026-08-27"; this is the index.
   horizon: the highest round in which no pairing still has `result: ""`,
   threaded into both `adjusted_score/3` and `tiebreak("KS", ...)`. This is
   the one open finding with a wrong number on an arbiter's screen.
-- **The public standings page ignores the per-round publish gate**
+- ~~**The public standings page ignores the per-round publish gate**~~
+  **Moot 2026-08-29** - that page was removed with the rest of the local
+  public pages, so the code the finding pointed at is gone.
+
+  The PRODUCT question it left open - should withholding a round withhold its
+  results too? - is now answerable in a way it was not then: standings and
+  round pairings are separate switches on the results site, so an arbiter who
+  wants the rounds without a league table, or the table without the rounds,
+  can have either. What is still not offered is "show the standings but
+  compute them as if round 5 had not happened", and nobody has asked for it.
+
+  The original note:
+
+- **(historic) The public standings page ignores the per-round publish gate**
   (`lib/pairings_engine_web/live/public_standings_live.ex:72`). It calls
   `Standings.standings/2` with no `through_round` and counts every `rounds`
   row, so in manual or timed publish mode it shows a round the public
@@ -272,12 +295,11 @@ that document's "Three leads, adjudicated 2026-08-27"; this is the index.
   literally, and the unpublish confirm, `round_published?/2`'s `@doc` and the
   CHANGELOG entry all scope it the same way. Open only as a PRODUCT
   question: should withholding a round withhold its results too?
-- **`Ainalrami.Pairing.explain_round/3` drops `:point_system`**, so a
-  non-1/½/0 tournament's stored round explanation is computed at the wrong
-  scale and can describe a bracket the engine did not use. Fixed upstream by
-  `4dd9980` in the Ainalrami repository, but that commit is on
-  `feature/team-pairing` and is not an ancestor of `v0.11.1`, which is what
-  `mix.exs:159` pins. Closes here when the pin moves.
+- ~~**`Ainalrami.Pairing.explain_round/3` drops `:point_system`**~~
+  **Closed 2026-08-28.** It was fixed upstream by `4dd9980` and waiting on the
+  pin, which was `v0.11.1`. The pin moved to `v0.14.0` for the Article 5.2.5
+  ruling, and `4dd9980` is an ancestor of it - confirmed by
+  `git tag --contains`, which lists v0.12.0, v0.13.0 and v0.14.0.
 - ~~**A vacated seat pays the player left on the board a half-value Keizer
   bye.**~~ **Fixed 2026-08-28.** A vacancy and a bye differed only by their
   result code, and `score_game/3` collapsed both into one branch; that code
