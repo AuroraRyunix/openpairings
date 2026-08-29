@@ -256,6 +256,37 @@ defmodule PairingsEngine.SwarImportPresenceTest do
     assert entry.points == 3.0
   end
 
+  test "import_file/1 reads SW321_PreBye as a flag, not as a particular number" do
+    # This test exists because of what `abs_value` cost, one field over in the
+    # same importer. That clause checked `== 5` on the strength of a stale
+    # `// 0 ou 5` comment; every synthetic fixture hardcoded 5, so it passed,
+    # and every REAL file with the box actually checked - raw byte 1 - was
+    # mapped to the opposite of what the club had configured.
+    #
+    # `prebye_set?/1` is correctly written as `!= 0`, and the real fixture
+    # carries 1 while the tests above carry 4. Nothing pinned that: tightening
+    # it to `== 1` or `== 4` would leave this whole file green and break the
+    # other encoding silently.
+    #
+    # So: several nonzero values, none of them privileged.
+    for raw <- [1, 2, 4, 5, 8, 255] do
+      opts = %{
+        version: "v6.60",
+        type: 3,
+        sw321: {8, 4, 0, 8, 4},
+        prebye: raw,
+        players: [
+          %{ni: 1, name: "Player, One", rounds: [%{round_nr: 1, result: @win_bye, advers: 0}]}
+        ]
+      }
+
+      assert {:ok, tournament, _warnings} = import_synthetic!(opts)
+
+      assert tournament.presence_on_allocated_bye == true,
+             "SW321_PreBye = #{raw} did not set the flag"
+    end
+  end
+
   test "import_file/1 leaves presence_on_allocated_bye false when SW321_PreBye is zero, scoring a WIN_BYE at bye_value alone" do
     opts = %{
       version: "v6.60",

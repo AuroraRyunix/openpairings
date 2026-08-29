@@ -213,11 +213,25 @@ These are real, identified gaps - not yet built, and not accidentally missed:
 
 ## Tech debt
 
-- **`tournaments_live.ex` / `norms_live.ex`** carry `.form-grid` (not the
-  Settings pages' `.set-*` layout primitives) by design - those two pages
-  are outside the Settings nav, so the inconsistency is intentional, not
-  unfinished. Worth a second look only if Settings' layout system is ever
-  extended app-wide on purpose.
+- ~~**`.form-grid` versus the Settings pages' `.set-*` primitives.**~~
+  **Closed 2026-08-29 as a decision, not debt** - and the note was wrong
+  about which pages, which is why it kept reading like something unfinished.
+
+  It named `tournaments_live.ex` / `norms_live.ex`. It is three:
+  `tournaments_live.ex` (1 use), `norms_live.ex` (7) and `players_live.ex`
+  (2) - which is what `app.css`'s own comment says ("Players, Norms and
+  Tournaments"). None of them uses `.set-*` at all.
+
+  The condition the note set for revisiting is "only if Settings' layout
+  system is ever extended app-wide". It has not been: `.set-*` is used by the
+  Settings pages, Categories and Registrations, all of which are
+  settings-shaped, and nothing else has reached for it.
+
+  Converting the three would be a regression rather than a tidy-up.
+  `.set-*` is one column because settings are read top-to-bottom and mix
+  stacked fields with toggle rows; those three are data-entry forms where the
+  auto-fill grid is the right layout and a single column would waste most of
+  a wide screen. Two layout systems here is two answers to two questions.
 - ~~Round robin's `total_rounds/2` vs. a user-set `rounds_count`~~ -
   **shipped**: this used to disagree in the UI (an arbiter could set
   `rounds_count` to anything, mismatching what the Berger schedule for
