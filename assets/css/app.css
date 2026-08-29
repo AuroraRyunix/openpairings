@@ -4133,3 +4133,77 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 @media (prefers-reduced-motion: reduce) {
   .conn-status.is-unknown .conn-dot { animation: none; }
 }
+
+/* ---------------------------------------------------------------------------
+   The top-bar publishing pill.
+
+   Same states and the same colours as `.conn-status`, because they are the
+   same answer at two sizes - an arbiter who learns amber-means-sending on the
+   settings page should not have to learn it again up here.
+
+   It sits beside the rating-list strip and matches its metrics deliberately:
+   two differently-sized status chips next to each other read as one being
+   more important than the other, which is not the message.
+   --------------------------------------------------------------------------- */
+.pub-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-right: 1px solid var(--border);
+  font-size: 11px;
+  white-space: nowrap;
+  color: var(--text-soft);
+  text-decoration: none;
+}
+
+.pub-pill:hover,
+.pub-pill:focus-visible { color: var(--text); }
+
+.pub-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-soft);
+  flex: none;
+}
+
+.pub-word { font-weight: 600; }
+
+/* Tabular, so a latency that flips between 40 and 100 ms does not shift the
+   pill - and with it the rest of the bar - sideways every thirty seconds. */
+.pub-ms {
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+
+.pub-pill.is-ok      .pub-dot { background: #2f5d43; }
+.pub-pill.is-refused .pub-dot { background: #8a5a0c; }
+.pub-pill.is-down    .pub-dot { background: #b3261e; }
+.pub-pill.is-off     .pub-dot { background: var(--border); }
+
+/* The one state that is temporary, so the one where movement tells the truth
+   rather than just drawing the eye. */
+.pub-pill.is-busy    .pub-dot { background: #8a5a0c; animation: conn-pulse 1.4s ease-in-out infinite; }
+.pub-pill.is-unknown .pub-dot { animation: conn-pulse 1.4s ease-in-out infinite; }
+
+/* Down is the one worth reading across a room. */
+.pub-pill.is-down .pub-word { color: var(--danger); }
+
+@media (prefers-reduced-motion: reduce) {
+  .pub-pill .pub-dot { animation: none; }
+}
+
+/* Narrow: keep the dot and the word, drop the number. Whether it is working
+   survives; how fast it is working is the part nobody needs on a laptop in a
+   playing hall. */
+@media (max-width: 1120px) {
+  .pub-ms { display: none; }
+}
+
+/* Narrower still: the dot alone, which is the whole point of there being a
+   dot. `title` keeps the sentence reachable. */
+@media (max-width: 860px) {
+  .pub-word { display: none; }
+  .pub-pill { border-right: 0; }
+}

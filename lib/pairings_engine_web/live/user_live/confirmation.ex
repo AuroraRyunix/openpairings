@@ -6,7 +6,7 @@ defmodule PairingsEngineWeb.UserLive.Confirmation do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_path={assigns[:current_path]} current_scope={@current_scope}>
+    <Layouts.app publish_status={assigns[:publish_status]} flash={@flash} current_path={assigns[:current_path]} current_scope={@current_scope}>
       <div class="auth-wrap auth-wrap-solo">
         <div class="auth-panel">
           <div class="auth-card">

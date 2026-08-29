@@ -66,6 +66,7 @@ config :pairings_engine, :publishing_req_plug, PairingsEngine.PublishingTest
 config :pairings_engine, :publishing_drain_interval, :disabled
 config :pairings_engine, :registration_poll_interval, :disabled
 config :pairings_engine, :backup_interval, :disabled
+config :pairings_engine, :publishing_monitor_interval, :disabled
 
 # Print only warnings and errors during test
 config :logger, level: :warning

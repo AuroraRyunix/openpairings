@@ -5,7 +5,10 @@ defmodule PairingsEngineWeb.Layouts do
   """
   use PairingsEngineWeb, :html
 
+  import PairingsEngineWeb.Components.ConnectionStatus, only: [publish_pill: 1]
+
   alias PairingsEngine.Fide
+  alias PairingsEngine.Publishing.Monitor
   alias PairingsEngine.Kbsb
 
   # Embed all files in layouts/* within this module.
@@ -23,7 +26,7 @@ defmodule PairingsEngineWeb.Layouts do
 
   ## Examples
 
-      <Layouts.app flash={@flash} current_path={assigns[:current_path]}>
+      <Layouts.app publish_status={assigns[:publish_status]} flash={@flash} current_path={assigns[:current_path]}>
         <h1>Content</h1>
       </Layouts.app>
 
@@ -45,9 +48,25 @@ defmodule PairingsEngineWeb.Layouts do
         "function component only sees what it is passed, which is why it must be " <>
         "threaded rather than read from the socket."
 
+  attr :publish_status, :any,
+    default: nil,
+    doc:
+      "from `PairingsEngineWeb.PublishStatusHook`. Threaded rather than read here " <>
+        "because a function component only sees what it is passed - and LiveView only " <>
+        "re-invokes it when one of those attributes changes, so a global read would " <>
+        "paint once and then never move, showing \"Live\" straight through an outage."
+
   slot :inner_block, required: true
 
   def app(assigns) do
+    # A page that forgets the attribute gets the cached value rather than a
+    # permanent "Checking…". It will not update live there, which is a
+    # missing feature; a pill frozen on the wrong word would be a lie.
+    assigns =
+      case assigns.publish_status do
+        nil -> assign(assigns, :publish_status, Monitor.status())
+        _ -> assigns
+      end
     ~H"""
     <header class="topbar">
       <.link navigate={if(@current_scope, do: ~p"/", else: ~p"/users/log-in")} class="brand">
@@ -150,6 +169,18 @@ defmodule PairingsEngineWeb.Layouts do
         <.language_picker locale={assigns[:locale]} path={assigns[:current_path] || "/"} />
         <.theme_switch />
         <%= if @current_scope do %>
+          <%!-- Read here rather than passed in, exactly as the rating-list
+                strip below reads `Fide.last_sync/0`. `Layouts.app` is a
+                function component, so it sees only the attributes its caller
+                hands it - and there are 29 callers, which makes "pass it
+                everywhere" a thing somebody forgets on the thirtieth page.
+
+                The read is an `:ets` lookup: no process call, so it cannot
+                queue behind the fifteen-second network check it reports on.
+                `PairingsEngineWeb.PublishStatusHook` is what makes it move -
+                it subscribes and re-assigns, and the re-render comes back
+                through here. --%>
+          <.publish_pill status={@publish_status} />
           <span class="sync-freshness" title={gettext("Local FIDE / KBSB rating-list sync status")}>
             FIDE: {sync_label(Fide.last_sync())} · KBSB: {sync_label(Kbsb.last_sync())}
           </span>

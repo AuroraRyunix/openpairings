@@ -36,6 +36,7 @@ defmodule PairingsEngineWeb.Router do
       on_mount: [
         PairingsEngineWeb.LocaleHook,
         PairingsEngineWeb.DeployNotice,
+        PairingsEngineWeb.PublishStatusHook,
         {PairingsEngineWeb.UserAuth, :require_authenticated}
       ] do
       live "/", TournamentsLive
@@ -160,6 +161,7 @@ defmodule PairingsEngineWeb.Router do
       on_mount: [
         PairingsEngineWeb.LocaleHook,
         PairingsEngineWeb.DeployNotice,
+        PairingsEngineWeb.PublishStatusHook,
         {PairingsEngineWeb.UserAuth, :require_authenticated}
       ] do
       live "/users/settings", UserLive.Settings, :edit
@@ -214,6 +216,7 @@ defmodule PairingsEngineWeb.Router do
       on_mount: [
         PairingsEngineWeb.LocaleHook,
         PairingsEngineWeb.DeployNotice,
+        PairingsEngineWeb.PublishStatusHook,
         {PairingsEngineWeb.UserAuth, :mount_current_scope}
       ] do
       live "/tools/norms", ToolsNormsLive

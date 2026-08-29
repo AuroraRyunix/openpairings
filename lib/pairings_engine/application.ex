@@ -27,6 +27,10 @@ defmodule PairingsEngine.Application do
       # and running it inline would freeze the page - every click, every
       # toggle - for as long as an unreachable results site takes to give up.
       {Task.Supervisor, name: PairingsEngine.TaskSupervisor},
+      # AFTER the Task.Supervisor, deliberately: it hands its first
+      # connection check off the moment it starts, and a task supervisor that
+      # does not exist yet is an exit rather than a retry.
+      PairingsEngine.Publishing.Monitor,
       # Start to serve requests, typically the last entry
       PairingsEngineWeb.Endpoint
     ]

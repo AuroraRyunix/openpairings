@@ -16,8 +16,8 @@ msgstr ""
 msgid "Actions"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:366
-#: lib/pairings_engine_web/components/layouts.ex:381
+#: lib/pairings_engine_web/components/layouts.ex:397
+#: lib/pairings_engine_web/components/layouts.ex:412
 #, elixir-autogen, elixir-format
 msgid "Attempting to reconnect"
 msgstr ""
@@ -28,19 +28,19 @@ msgstr ""
 msgid "Birth year"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:476
-#: lib/pairings_engine_web/components/layouts.ex:477
-#: lib/pairings_engine_web/components/layouts.ex:481
+#: lib/pairings_engine_web/components/layouts.ex:507
+#: lib/pairings_engine_web/components/layouts.ex:508
+#: lib/pairings_engine_web/components/layouts.ex:512
 #, elixir-autogen, elixir-format
 msgid "Language"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:373
+#: lib/pairings_engine_web/components/layouts.ex:404
 #, elixir-autogen, elixir-format
 msgid "Something went wrong!"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:358
+#: lib/pairings_engine_web/components/layouts.ex:389
 #, elixir-autogen, elixir-format
 msgid "We can't find the internet"
 msgstr ""
@@ -92,8 +92,8 @@ msgstr ""
 msgid "Absent at the rounds (e.g. 3,5 or 2-4)"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:414
-#: lib/pairings_engine_web/components/layouts.ex:415
+#: lib/pairings_engine_web/components/layouts.ex:445
+#: lib/pairings_engine_web/components/layouts.ex:446
 #, elixir-autogen, elixir-format
 msgid "Accent colour"
 msgstr ""
@@ -197,7 +197,7 @@ msgstr ""
 msgid "Assign categories?"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:87
+#: lib/pairings_engine_web/components/layouts.ex:106
 #: lib/pairings_engine_web/live/audit_live.ex:391
 #: lib/pairings_engine_web/live/history_live.ex:555
 #: lib/pairings_engine_web/live/history_live.ex:667
@@ -383,9 +383,9 @@ msgstr ""
 msgid "Colour balance (real games)"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:511
-#: lib/pairings_engine_web/components/layouts.ex:512
-#: lib/pairings_engine_web/components/layouts.ex:516
+#: lib/pairings_engine_web/components/layouts.ex:542
+#: lib/pairings_engine_web/components/layouts.ex:543
+#: lib/pairings_engine_web/components/layouts.ex:547
 #, elixir-autogen, elixir-format
 msgid "Colour theme"
 msgstr ""
@@ -651,7 +651,7 @@ msgstr ""
 msgid "Export rounds…"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:118
+#: lib/pairings_engine_web/components/layouts.ex:137
 #: lib/pairings_engine_web/live/extra_points_live.ex:139
 #: lib/pairings_engine_web/live/players_live.ex:2104
 #: lib/pairings_engine_web/live/settings_support.ex:92
@@ -957,7 +957,7 @@ msgstr ""
 msgid "Live view & phone QR"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:153
+#: lib/pairings_engine_web/components/layouts.ex:184
 #, elixir-autogen, elixir-format
 msgid "Local FIDE / KBSB rating-list sync status"
 msgstr ""
@@ -968,7 +968,7 @@ msgstr ""
 msgid "Locked - cannot be changed after round 1 has been paired."
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:167
+#: lib/pairings_engine_web/components/layouts.ex:198
 #: lib/pairings_engine_web/live/user_live/registration.ex:98
 #, elixir-autogen, elixir-format
 msgid "Log in"
@@ -979,7 +979,7 @@ msgstr ""
 msgid "Log in only this time"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:164
+#: lib/pairings_engine_web/components/layouts.ex:195
 #, elixir-autogen, elixir-format
 msgid "Log out"
 msgstr ""
@@ -1275,7 +1275,7 @@ msgstr ""
 msgid "Pairing fairness"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:90
+#: lib/pairings_engine_web/components/layouts.ex:109
 #: lib/pairings_engine_web/live/audit_live.ex:397
 #, elixir-autogen, elixir-format
 msgid "Pairing rationale"
@@ -1820,7 +1820,7 @@ msgstr ""
 msgid "This tournament is FIDE-homologated."
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:179
+#: lib/pairings_engine_web/components/layouts.ex:210
 #, elixir-autogen, elixir-format
 msgid "This tournament is archived."
 msgstr ""
@@ -1856,7 +1856,7 @@ msgstr ""
 msgid "Type DELETE to confirm"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:184
+#: lib/pairings_engine_web/components/layouts.ex:215
 #, elixir-autogen, elixir-format
 msgid "Unarchive from Tournaments"
 msgstr ""
@@ -2403,7 +2403,7 @@ msgstr ""
 msgid "It is reversible: the state you're leaving is saved as its own restore point first, so you can come straight back to it. Your audit trail, collaborators and public link are not affected."
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:180
+#: lib/pairings_engine_web/components/layouts.ex:211
 #, elixir-autogen, elixir-format
 msgid "It's read-only - every change is refused until you unarchive it. Everything else (viewing, printing, exporting, its public link) still works normally."
 msgstr ""
@@ -2862,7 +2862,7 @@ msgstr ""
 msgid "Administrative bonus points (SWAR \"XtPts\") - e.g. a handicap head start for lower-rated players. Off by default: pairing and TRF export always use game points only, and standings only add extra points to the ranking once you turn this on. See %[players] to edit a single player's value, or auto-assign everyone from Elo bands below."
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:78
+#: lib/pairings_engine_web/components/layouts.ex:97
 #, elixir-autogen, elixir-format
 msgid "Advanced"
 msgstr ""
@@ -2970,7 +2970,7 @@ msgstr ""
 msgid "Candidate"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:112
+#: lib/pairings_engine_web/components/layouts.ex:131
 #: lib/pairings_engine_web/live/categories_live.ex:295
 #: lib/pairings_engine_web/live/categories_live.ex:302
 #: lib/pairings_engine_web/live/settings_support.ex:86
@@ -2994,7 +2994,7 @@ msgstr ""
 msgid "Category: %{name}"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:145
+#: lib/pairings_engine_web/components/layouts.ex:164
 #: lib/pairings_engine_web/live/changelog_live.ex:30
 #: lib/pairings_engine_web/live/settings_support.ex:111
 #, elixir-autogen, elixir-format
@@ -3091,7 +3091,7 @@ msgstr ""
 msgid "Cycles"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:109
+#: lib/pairings_engine_web/components/layouts.ex:128
 #: lib/pairings_engine_web/live/settings_support.ex:80
 #: lib/pairings_engine_web/live/tournaments_live.ex:1354
 #, elixir-autogen, elixir-format
@@ -3282,7 +3282,7 @@ msgstr ""
 msgid "Hide this round from the public pairings page again?"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:84
+#: lib/pairings_engine_web/components/layouts.ex:103
 #: lib/pairings_engine_web/live/audit_live.ex:385
 #: lib/pairings_engine_web/live/history_live.ex:541
 #, elixir-autogen, elixir-format
@@ -3399,7 +3399,7 @@ msgstr ""
 msgid "Norm"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:81
+#: lib/pairings_engine_web/components/layouts.ex:100
 #: lib/pairings_engine_web/live/audit_live.ex:379
 #: lib/pairings_engine_web/live/settings_fide_live.ex:160
 #: lib/pairings_engine_web/live/settings_tournament_live.ex:441
@@ -3455,7 +3455,7 @@ msgstr ""
 msgid "Opponent"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:103
+#: lib/pairings_engine_web/components/layouts.ex:122
 #: lib/pairings_engine_web/live/settings_support.ex:62
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Options"
@@ -3519,7 +3519,7 @@ msgstr ""
 msgid "Pairing rationale for round %{n} - %{system}"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:66
+#: lib/pairings_engine_web/components/layouts.ex:85
 #: lib/pairings_engine_web/live/settings_tournament_live.ex:741
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Pairings"
@@ -3581,7 +3581,7 @@ msgstr ""
 msgid "Player not found"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:63
+#: lib/pairings_engine_web/components/layouts.ex:82
 #: lib/pairings_engine_web/live/categories_live.ex:374
 #: lib/pairings_engine_web/live/extra_points_live.ex:147
 #: lib/pairings_engine_web/live/tools_norms_live.ex:725
@@ -3615,7 +3615,7 @@ msgstr ""
 msgid "Previous"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:75
+#: lib/pairings_engine_web/components/layouts.ex:94
 #: lib/pairings_engine_web/live/players_live.ex:2266
 #: lib/pairings_engine_web/live/settings_tournament_live.ex:676
 #: lib/pairings_engine_web/live/standings_live.ex:316
@@ -3820,14 +3820,14 @@ msgstr ""
 msgid "Score sheets - round %{n}"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:106
+#: lib/pairings_engine_web/components/layouts.ex:125
 #: lib/pairings_engine_web/live/settings_support.ex:74
 #, elixir-autogen, elixir-format
 msgid "Scoring"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:96
-#: lib/pairings_engine_web/components/layouts.ex:157
+#: lib/pairings_engine_web/components/layouts.ex:115
+#: lib/pairings_engine_web/components/layouts.ex:188
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Settings"
 msgstr ""
@@ -3869,7 +3869,7 @@ msgstr ""
 msgid "Standard %{std} · Rapid %{rapid} · Blitz %{blitz}"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:72
+#: lib/pairings_engine_web/components/layouts.ex:91
 #: lib/pairings_engine_web/live/live_round_live.ex:364
 #: lib/pairings_engine_web/live/standings_live.ex:300
 #, elixir-autogen, elixir-format
@@ -3909,7 +3909,7 @@ msgstr ""
 msgid "Syncing…"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:524
+#: lib/pairings_engine_web/components/layouts.ex:555
 #: lib/pairings_engine_web/live/tournaments_live.ex:1348
 #, elixir-autogen, elixir-format
 msgid "System"
@@ -4041,7 +4041,7 @@ msgstr ""
 msgid "Titled"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:138
+#: lib/pairings_engine_web/components/layouts.ex:157
 #, elixir-autogen, elixir-format
 msgid "Tools"
 msgstr ""
@@ -4058,7 +4058,7 @@ msgstr ""
 msgid "Totals across %{files}: %{players}, %{titled} titled, %{feds}."
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:100
+#: lib/pairings_engine_web/components/layouts.ex:119
 #: lib/pairings_engine_web/live/settings_support.ex:56
 #: lib/pairings_engine_web/live/tools_norms_live.ex:724
 #: lib/pairings_engine_web/live/tournaments_live.ex:905
@@ -4452,17 +4452,17 @@ msgstr ""
 msgid "%[count] tournament(s) waiting to be sent. They go out on their own; a tournament stays in the queue until the server confirms it."
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:133
+#: lib/pairings_engine_web/components/connection_status.ex:227
 #, elixir-autogen, elixir-format
 msgid "%{n} days ago"
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:132
+#: lib/pairings_engine_web/components/connection_status.ex:226
 #, elixir-autogen, elixir-format
 msgid "%{n} h ago"
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:131
+#: lib/pairings_engine_web/components/connection_status.ex:225
 #, elixir-autogen, elixir-format
 msgid "%{n} min ago"
 msgstr ""
@@ -4477,7 +4477,7 @@ msgstr ""
 msgid "%{n} older ones are on the machine, in %{dir}."
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:86
+#: lib/pairings_engine_web/components/connection_status.ex:97
 #, elixir-autogen, elixir-format
 msgid "1 tournament waiting to send"
 msgid_plural "%{count} tournaments waiting to send"
@@ -4549,7 +4549,7 @@ msgstr ""
 msgid "Backups"
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:115
+#: lib/pairings_engine_web/components/connection_status.ex:209
 #, elixir-autogen, elixir-format
 msgid "Cannot reach the results site"
 msgstr ""
@@ -4559,17 +4559,17 @@ msgstr ""
 msgid "Check for new entries"
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:62
+#: lib/pairings_engine_web/components/connection_status.ex:73
 #, elixir-autogen, elixir-format
 msgid "Checking the connection..."
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:113
+#: lib/pairings_engine_web/components/connection_status.ex:207
 #, elixir-autogen, elixir-format
 msgid "Connected"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:131
+#: lib/pairings_engine_web/components/layouts.ex:150
 #: lib/pairings_engine_web/live/fide_live.ex:303
 #, elixir-autogen, elixir-format
 msgid "Connections"
@@ -4665,7 +4665,7 @@ msgstr ""
 msgid "None yet - the first is written a few minutes after start-up."
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:116
+#: lib/pairings_engine_web/components/connection_status.ex:210
 #, elixir-autogen, elixir-format
 msgid "Not set up"
 msgstr ""
@@ -4794,7 +4794,8 @@ msgstr ""
 msgid "Saved. Nothing is published until both an address and a token are set."
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:112
+#: lib/pairings_engine_web/components/connection_status.ex:174
+#: lib/pairings_engine_web/components/connection_status.ex:206
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Sending"
 msgstr ""
@@ -4919,7 +4920,7 @@ msgstr ""
 msgid "Token"
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:114
+#: lib/pairings_engine_web/components/connection_status.ex:208
 #, elixir-autogen, elixir-format
 msgid "Token refused"
 msgstr ""
@@ -4984,17 +4985,17 @@ msgstr ""
 msgid "discarded"
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:130
+#: lib/pairings_engine_web/components/connection_status.ex:224
 #, elixir-autogen, elixir-format
 msgid "just now"
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:93
+#: lib/pairings_engine_web/components/connection_status.ex:104
 #, elixir-autogen, elixir-format
 msgid "last sent %{ago}"
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:96
+#: lib/pairings_engine_web/components/connection_status.ex:107
 #, elixir-autogen, elixir-format
 msgid "nothing sent from this machine yet"
 msgstr ""
@@ -5027,4 +5028,46 @@ msgstr ""
 #: lib/pairings_engine_web/live/fide_live.ex:346
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Downloading the full list needs an administrator, so it can't be triggered by just anyone with an account here."
+msgstr ""
+
+#: lib/pairings_engine_web/components/connection_status.ex:184
+#, elixir-autogen, elixir-format, fuzzy
+msgid "1 tournament waiting to send to %{host}"
+msgid_plural "%{count} tournaments waiting to send to %{host}"
+msgstr[0] ""
+msgstr[1] ""
+
+#: lib/pairings_engine_web/components/connection_status.ex:144
+#, elixir-autogen, elixir-format
+msgid "Checking the results-site connection"
+msgstr ""
+
+#: lib/pairings_engine_web/components/connection_status.ex:146
+#, elixir-autogen, elixir-format
+msgid "Checking..."
+msgstr ""
+
+#: lib/pairings_engine_web/components/connection_status.ex:176
+#, elixir-autogen, elixir-format
+msgid "Live"
+msgstr ""
+
+#: lib/pairings_engine_web/components/connection_status.ex:179
+#, elixir-autogen, elixir-format
+msgid "Not publishing"
+msgstr ""
+
+#: lib/pairings_engine_web/components/connection_status.ex:178
+#, elixir-autogen, elixir-format
+msgid "Offline"
+msgstr ""
+
+#: lib/pairings_engine_web/components/connection_status.ex:193
+#, elixir-autogen, elixir-format
+msgid "Publishing to %{host} is working"
+msgstr ""
+
+#: lib/pairings_engine_web/components/connection_status.ex:177
+#, elixir-autogen, elixir-format
+msgid "Refused"
 msgstr ""

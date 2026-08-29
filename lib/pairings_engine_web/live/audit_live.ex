@@ -403,7 +403,7 @@ defmodule PairingsEngineWeb.AuditLive do
   @impl true
   def render(%{live_action: :explain} = assigns) do
     ~H"""
-    <Layouts.app
+    <Layouts.app publish_status={assigns[:publish_status]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -443,7 +443,7 @@ defmodule PairingsEngineWeb.AuditLive do
     assigns = assign(assigns, per_page: @per_page)
 
     ~H"""
-    <Layouts.app
+    <Layouts.app publish_status={assigns[:publish_status]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}

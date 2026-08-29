@@ -18,6 +18,30 @@ Each entry is tagged so a version can be skimmed:
 
 ### Added
 
+- [Feature] **The publishing state is in the top bar, on every page.** A dot,
+  a word and the round trip: *Live*, *Sending* while the queue is not empty,
+  *Refused* for a rejected token, *Offline* when the results site cannot be
+  reached, *Not publishing* when nothing is set up. It links to Connections,
+  because a pill that says "Offline" and cannot be acted on is a worry rather
+  than information.
+
+  Publishing is deliberately invisible &mdash; queued, retried, never in the
+  way of pairing a round &mdash; and the cost of that is an arbiter having no
+  way to tell "results are going out" from "nothing has left this laptop
+  since Tuesday". Both look like nothing happening. An arbiter does not visit
+  the settings page mid-round; they pair, enter results, and trust it is
+  going out. That trust is the thing worth instrumenting.
+
+  The word carries the state, not just the colour: colour alone is unreadable
+  to a colourblind arbiter and ambiguous to everyone at a glance. Amber
+  pulses only while sending, which is the one state that is temporary, and
+  the animation stops under `prefers-reduced-motion`.
+
+  One poller serves the whole installation and everything else reads a cached
+  value, so this costs no network request per page &mdash; which matters most
+  when the results site is down, since that is exactly when every page would
+  otherwise be waiting fifteen seconds to say so.
+
 - [Feature] **Administrator and support roles.** Who may change how an
   installation is wired up is now an explicit role rather than a side effect
   of how somebody signed in.
