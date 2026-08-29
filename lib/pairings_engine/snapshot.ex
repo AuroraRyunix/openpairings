@@ -55,7 +55,7 @@ defmodule PairingsEngine.Snapshot do
   in the arbiter's database.
   """
 
-  alias PairingsEngine.{Keizer, PublicDisplay, Standings, Tiebreaks, Tournaments}
+  alias PairingsEngine.{Keizer, PairingDisplay, PublicDisplay, Standings, Tiebreaks, Tournaments}
   alias PairingsEngine.Tournaments.{Player, Round, Tournament}
 
   @schema "openresults/snapshot"
@@ -125,6 +125,21 @@ defmodule PairingsEngine.Snapshot do
       "rounds_count" => t.rounds_count,
       "system" => system(t),
       "arbiter" => blank_to_nil(t.chief_arbiter),
+
+      # Added 2026-08-29. Facts a printed pairing sheet carries as a matter of
+      # course, which the public page had no way to show - a spectator or a
+      # player following the link could not see who was deputising or what the
+      # time control was. The local page grew a line for exactly this and it
+      # did not survive the move.
+      "deputy" => blank_to_nil(t.deputy_arbiter),
+      "time_control" => blank_to_nil(t.rate_of_play),
+
+      # Whether rounds are halves of matches. A round-robin or swiss played in
+      # two-game matches numbers its rounds 1..2n, and nobody in the hall calls
+      # round 4 "round 4" - it is game 2 of match 2, which is what the
+      # arbiter's own round picker says. Without this the public page and the
+      # arbiter disagree about what to call every second round.
+      "match_format" => t.rr_match_format == true or t.swiss_match_format == true,
       "fide_rated" => t.fide_homologated,
 
       # Added 2026-08-29, when this app stopped serving its own entry form.
@@ -157,6 +172,12 @@ defmodule PairingsEngine.Snapshot do
       "display" => PublicDisplay.resolve(t.public_display)
     }
   end
+
+  # Manual ranking is never offered for Keizer - see docs/manual-standings.md
+  # for why - so the flag is meaningless there and the warnings below it would
+  # be nonsense. Matches the arbiter's own page, which gates the same way.
+  defp manual?(%Tournament{manual_ranking: true, pairing_system: system}), do: system != "keizer"
+  defp manual?(%Tournament{}), do: false
 
   # The contract's three systems are `pairing_system`'s three, not `type`'s
   # four: `type` is the FIDE report classification and has no Keizer at all.
@@ -237,10 +258,23 @@ defmodule PairingsEngine.Snapshot do
   # pairing-allocated bye (see `byes/4`); neither seat filled is a row an
   # arbiter has vacated entirely and there is nothing to report about it.
   #
-  # `board` is the real integer column, not the frozen `display_board` label -
-  # the contract types this as a number, and a fixed-table label like "1001" or
-  # a slash-joined "5/6" is a rendering decision that belongs to whoever draws
-  # the page.
+  # Two numbers, because they answer different questions.
+  #
+  # `board` is the real integer column the engine assigned - stable, unique,
+  # what a result is keyed on. `label` is the frozen `display_board` string
+  # the arbiter's own screen and printed sheet show, which is not always the
+  # same: a fixed-table player takes board 1001, and the boards after them
+  # renumber to close the gap.
+  #
+  # Only `board` used to travel, on the reasoning that a label is a rendering
+  # decision belonging to whoever draws the page. Right in principle, wrong in
+  # practice - nobody drew it, so the public page showed 1001 for a game
+  # printed as board 12 in the hall, and every board after it was off by one.
+  # The old local public page ran the renumbering itself, and its comment
+  # records this same bug being found and fixed once already.
+  #
+  # So the label travels too, and the rows travel in the order the arbiter
+  # sees them, because the order is half of the disagreement.
   defp boards(pairings, nos) do
     pairings
     |> Enum.filter(&(&1.white_player_id && &1.black_player_id))
@@ -257,10 +291,11 @@ defmodule PairingsEngine.Snapshot do
     |> Enum.filter(
       &(Map.has_key?(nos, &1.white_player_id) and Map.has_key?(nos, &1.black_player_id))
     )
-    |> Enum.sort_by(& &1.board)
-    |> Enum.map(fn p ->
+    |> PairingDisplay.with_display_boards()
+    |> Enum.map(fn %{pairing: p, board: label} ->
       %{
         "board" => p.board,
+        "label" => to_string(label),
         "white" => Map.fetch!(nos, p.white_player_id),
         "black" => Map.fetch!(nos, p.black_player_id),
         "result" => result_token(p.result)
@@ -346,15 +381,18 @@ defmodule PairingsEngine.Snapshot do
   defp standings(%Tournament{} = t, nos, after_round) do
     codes = t.tiebreaks || []
 
-    rows =
+    entries =
       t
       |> Standings.standings(through_round: after_round)
       # The arbiter's hand-set order, when they have taken it over, is the
-      # authority - same call and same restriction (never Keizer) as
-      # `PublicStandingsLive`.
+      # authority - same call and same restriction (never Keizer) as the
+      # arbiter's own standings page.
       |> Standings.apply_manual_ranking(t)
       |> Enum.filter(&Map.has_key?(nos, &1.player.id))
       |> Enum.sort_by(& &1.rank)
+
+    rows =
+      entries
       |> Enum.map(fn e ->
         %{
           "rank" => e.rank,
@@ -380,7 +418,18 @@ defmodule PairingsEngine.Snapshot do
       #
       # See docs/manual-standings.md, which lists every surface that must
       # carry the banner.
-      "manual_order" => t.manual_ranking == true,
+      "manual_order" => manual?(t),
+
+      # Two ways a hand-set order stops describing the tournament. Both are
+      # warned about on the arbiter's own standings page and neither was
+      # travelling, so the public page said "the arbiter chose this order"
+      # while the arbiter's screen said "...and it is now wrong".
+      #
+      # Read from the same two functions that page calls, rather than
+      # recomputed here, because two answers to "is this stale" is exactly
+      # the failure this is fixing.
+      "manual_stale" => manual?(t) and Standings.manual_ranking_stale?(t),
+      "manual_incomplete" => manual?(t) and Standings.manual_ranking_incomplete?(entries),
       "tiebreaks" => Enum.map(codes, &%{"code" => &1, "label" => tiebreak_label(&1)}),
       "rows" => rows
     }

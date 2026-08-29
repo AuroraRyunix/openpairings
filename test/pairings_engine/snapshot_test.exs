@@ -125,6 +125,9 @@ defmodule PairingsEngine.SnapshotTest do
                "rounds_count" => 5,
                "system" => "swiss",
                "arbiter" => "Jorian Burssens",
+               "deputy" => nil,
+               "time_control" => nil,
+               "match_format" => false,
                "fide_rated" => true,
                "registration_open" => true,
                "listed" => true,
@@ -272,6 +275,89 @@ defmodule PairingsEngine.SnapshotTest do
         assert is_number(row["value"])
         assert is_number(row["score"])
       end
+    end
+  end
+
+  describe "board numbers the hall would recognise" do
+    test "publishes the arbiter's label and the arbiter's order, not the raw column" do
+      {tournament, _} = swiss_fixture()
+      round = Repo.one!(from r in Round, where: r.tournament_id == ^tournament.id, limit: 1)
+
+      # A fixed-table player: their board is renumbered to 1001 and moved to
+      # the end, and the boards after them close the gap they left. This is
+      # what the arbiter's screen and the printed sheet show.
+      [first | _] = Repo.all(from p in Pairing, where: p.round_id == ^round.id, order_by: p.board)
+
+      Repo.update_all(
+        from(p in Pairing, where: p.id == ^first.id),
+        set: [display_board: "1001", display_special: true]
+      )
+
+      boards = Snapshot.build(Tournaments.get_tournament!(tournament.id))["rounds"]
+      boards = boards |> Enum.find(&(&1["number"] == round.number)) |> Map.fetch!("boards")
+
+      # The real column still travels - a result is keyed on it.
+      assert Enum.any?(boards, &(&1["board"] == first.board))
+
+      # And so does the label, which is the thing printed in the hall. Before
+      # this, the public page showed the raw column: board 1001 for a game
+      # printed as board 12, and every board after it off by one.
+      special = Enum.find(boards, &(&1["board"] == first.board))
+      assert special["label"] == "1001"
+
+      # Order too, because the order is half of the disagreement: a special
+      # board sorts below the ordinary ones.
+      assert List.last(boards)["label"] == "1001"
+    end
+
+    test "an ordinary board's label is just its number" do
+      {tournament, _} = swiss_fixture()
+
+      board = Snapshot.build(tournament)["rounds"] |> hd() |> Map.fetch!("boards") |> hd()
+
+      assert board["label"] == to_string(board["board"])
+    end
+  end
+
+  describe "a hand-set order that has stopped being true" do
+    test "an ordinary manual order is disclosed, and not flagged as wrong" do
+      {tournament, _} = swiss_fixture()
+      {:ok, manual} = Tournaments.enable_manual_ranking(tournament)
+
+      standings = Snapshot.build(Tournaments.get_tournament!(manual.id))["standings"]
+
+      assert standings["manual_order"] == true
+      assert standings["manual_stale"] == false
+      assert standings["manual_incomplete"] == false
+    end
+
+    test "a result entered after the order was set marks it stale" do
+      {tournament, _} = swiss_fixture()
+      {:ok, _} = Tournaments.enable_manual_ranking(tournament)
+
+      # The arbiter's own standings page warns about this. It was not
+      # travelling, so the public page said "the arbiter chose this order"
+      # while their screen said "...and it may no longer match".
+      Repo.update_all(from(t in Tournament, where: t.id == ^tournament.id),
+        set: [manual_ranking_stale: true]
+      )
+
+      standings = Snapshot.build(Tournaments.get_tournament!(tournament.id))["standings"]
+
+      assert standings["manual_order"] == true
+      assert standings["manual_stale"] == true
+    end
+
+    test "nothing is flagged when the arbiter has not taken the order over" do
+      {tournament, _} = swiss_fixture()
+
+      standings = Snapshot.build(tournament)["standings"]
+
+      # False rather than null in all three, so a reader never handles three
+      # states for one question.
+      assert standings["manual_order"] == false
+      assert standings["manual_stale"] == false
+      assert standings["manual_incomplete"] == false
     end
   end
 

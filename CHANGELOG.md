@@ -94,6 +94,26 @@ Each entry is tagged so a version can be skimmed:
   button stays: somebody standing at the door with a queue in front of them
   should not have to wait out a timer.
 
+- [Fix] **The public page showed the wrong board numbers.** A fixed-table
+  player takes board 1001 and the boards after them renumber to close the gap
+  &mdash; that is what the arbiter's screen and the printed sheet show. The
+  published page showed the raw column instead, so a game printed as board 12
+  in the hall appeared online as board 1001, with every board after it off by
+  one. The order was wrong too.
+
+  The snapshot carried only the real board number, on the reasoning that a
+  label is a rendering decision belonging to whoever draws the page. Right in
+  principle, wrong in practice: nobody drew it. Both now travel, in the order
+  the arbiter sees.
+
+- [Fix] **A hand-set standings order no longer hides that it has gone stale.**
+  The arbiter's own page warns when a result has changed since the order was
+  set, or when a player joined afterwards and has not been placed. Neither
+  warning travelled, so the public page said "the arbiter chose this order"
+  while their screen said "&hellip;and it may no longer match the real
+  standings". Both are published now, read from the same two functions the
+  arbiter's page calls so the two cannot drift apart.
+
 ### Removed
 
 - [Removed] **This app no longer serves public pages.** `/p/:slug/pairings`,
