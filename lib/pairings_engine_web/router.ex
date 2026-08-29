@@ -52,6 +52,7 @@ defmodule PairingsEngineWeb.Router do
       live "/t/:id/print", PrintLive
       live "/t/:id/settings", SettingsTournamentLive
       live "/t/:id/settings/options", SettingsOptionsLive
+      live "/t/:id/settings/results", SettingsResultsLive
       live "/t/:id/settings/scoring", SettingsScoringLive
       live "/t/:id/settings/dates", SettingsDatesLive
       live "/t/:id/settings/extra-points", ExtraPointsLive

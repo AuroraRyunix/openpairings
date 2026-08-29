@@ -155,12 +155,30 @@ defmodule PairingsEngine.RegistrationsTest do
       assert {:ok, %{new: 0, total: 1}} = Registrations.pull(t)
     end
 
-    test "a tournament that has not opted in is refused, and nothing is sent" do
+    test "a tournament with nothing on the results site is refused, and nothing is sent" do
       t = tournament(publish: false)
       stub(fn _conn -> flunk("nothing should have been fetched") end)
 
       assert {:error, message} = Registrations.pull(t)
-      assert message =~ "not set to publish"
+      assert message =~ "nothing to do with the results site"
+    end
+
+    test "but one switched off AFTER publishing is still pulled" do
+      # The switch says whether more will be SENT. The copy on the server is
+      # still there, and its entry form is whatever the last snapshot said -
+      # so entries can still be arriving at a tournament this machine has
+      # stopped publishing to. Refusing here would leave real people in a
+      # queue nobody reads, and a later takedown would delete them unseen.
+      t = tournament(publish: false)
+
+      t =
+        t
+        |> Ecto.Changeset.change(openresults_key: "a-key-from-an-earlier-publish")
+        |> Repo.update!()
+
+      stub(fn conn -> Req.Test.json(conn, [document(ilse())]) end)
+
+      assert {:ok, %{new: 1, total: 1}} = Registrations.pull(t)
     end
 
     test "an archived tournament is refused" do

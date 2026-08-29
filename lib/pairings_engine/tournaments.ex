@@ -831,6 +831,56 @@ defmodule PairingsEngine.Tournaments do
     end
   end
 
+  @doc """
+  Shows or hides `tournament` in the results site's index.
+
+  Enqueues a publish on both edges: this only reaches anybody by riding along
+  in the snapshot, and an arbiter who has just unlisted an event expects it
+  off the front page now rather than whenever the next result comes in.
+
+  Not a security control, and the settings page is explicit about that. An
+  unlisted tournament is still world-readable to anyone holding its address.
+  """
+  @spec set_public_listed(Tournament.t(), boolean()) ::
+          {:ok, Tournament.t()} | {:error, Ecto.Changeset.t()}
+  def set_public_listed(%Tournament{} = tournament, listed?) when is_boolean(listed?) do
+    with :ok <- ensure_writable(tournament) do
+      tournament
+      |> Ecto.Changeset.change(public_listed: listed?)
+      |> Repo.update()
+      |> tap_ok(fn updated ->
+        PairingsEngine.Publishing.enqueue(updated)
+        broadcast_tournament_change(updated.id, :settings)
+      end)
+    end
+  end
+
+  @doc """
+  Sets which columns the public page may show - see
+  `PairingsEngine.PublicDisplay`.
+
+  Takes the raw checkbox params and normalises them there rather than here,
+  so the one place that knows the key list is the one place that validates
+  against it.
+
+  Enqueues a publish for the same reason as `set_public_listed/2`, and with
+  more urgency: an arbiter unticking "Clubs" is taking something off a public
+  page, and "it will go when the next result is entered" is not an answer.
+  """
+  @spec set_public_display(Tournament.t(), map()) ::
+          {:ok, Tournament.t()} | {:error, Ecto.Changeset.t()}
+  def set_public_display(%Tournament{} = tournament, params) when is_map(params) do
+    with :ok <- ensure_writable(tournament) do
+      tournament
+      |> Ecto.Changeset.change(public_display: PairingsEngine.PublicDisplay.cast(params))
+      |> Repo.update()
+      |> tap_ok(fn updated ->
+        PairingsEngine.Publishing.enqueue(updated)
+        broadcast_tournament_change(updated.id, :settings)
+      end)
+    end
+  end
+
   ## ---------- The public address ----------
 
   @doc """

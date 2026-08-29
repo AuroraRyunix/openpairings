@@ -43,6 +43,45 @@ built from a blank endpoint would produce `/t/slug`, a relative path
 resolving against whatever page rendered it, i.e. straight back to this
 machine. That is the old bug wearing a new hat, so it is tested for by name.
 
+## Listed, and what is shown
+
+Two more controls, both on Settings -> Results site, both defaulting to
+today's behaviour and both travelling in the snapshot.
+
+**`public_listed`** decides whether the tournament appears in the results
+site's index. Off leaves it reachable by its address and nowhere else. It is
+**not** a security control and the settings page says so in as many words: an
+unlisted tournament is still world-readable to anyone holding the address,
+and addresses get forwarded. It hides an event from somebody browsing the
+site, not from somebody who was sent the link.
+
+**`public_display`** decides which columns the public page may show -
+ratings, titles, federations, clubs, categories, tiebreak columns and player
+cards. See `PairingsEngine.PublicDisplay` for the keys.
+
+Three rules hold it together:
+
+1. **Absent means shown**, in every direction: a tournament that predates the
+   feature, a key one side knows and the other does not, a key added later
+   that no published snapshot mentions. The failure directions are not
+   symmetric - showing a column an arbiter meant to hide is visible to them
+   and fixed in a click, while hiding one they meant to show is invisible
+   from their side and surfaces as somebody in the hall asking where the
+   ratings went.
+2. **Only the negatives are stored.** The column holds what an arbiter turned
+   OFF, so a key added later is not silently pinned to today's default on
+   every tournament that has ever visited the page.
+3. **The snapshot carries a resolved answer** - every key, every value a real
+   boolean - not the sparse stored map. A reader should not have to know this
+   app's default list to interpret it.
+
+Names, board numbers, results and placings are not togglable. They are the
+tournament; an arbiter who does not want them public does not publish.
+
+Hiding a column is a display rule, not an access rule - except for
+`player_cards`, which OpenResults enforces in its controller as well as its
+markup, because a link is a courtesy and a bookmarked URL is not.
+
 ## The slug is an address, not a secret door
 
 `public_slug` is a random 12-byte token rather than the sequential numeric
@@ -88,8 +127,8 @@ strangers write into an arbiter's tournament.
 all**. It rides along in the published snapshot, and OpenResults reads it.
 That has two consequences worth stating plainly:
 
-- It means nothing for an unpublished tournament. The Options page says so
-  rather than letting an arbiter open a form that does not exist.
+- It means nothing for an unpublished tournament. The Results site page
+  says so rather than letting an arbiter open a form that does not exist.
 - Closing it is not instant. `Tournaments.set_registration_open/2` enqueues a
   publish on *both* edges for exactly this reason - closing is the urgent
   direction, since an arbiter shutting entries at the door needs the site to
@@ -109,8 +148,8 @@ turns a real person away and tells nobody.
 `PairingsEngineWeb.PublicLink` is the only module that answers "where does
 the public read this tournament". Six call sites use it - the projector QR
 code and its printed URL, the pairings and standings page headers, the
-settings share card, and the registration link on Options - and none of them
-build a URL themselves.
+settings share card, and the entry-form link - and none of them build a URL
+themselves.
 
 Links are **absolute**, because they point at another host and half of them
 end up on a QR code, in a printed footer, or pasted into an email.

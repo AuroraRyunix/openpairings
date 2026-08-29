@@ -20,6 +20,7 @@ defmodule PairingsEngine.Application do
       PairingsEngine.RateLimit,
       PairingsEngine.Deploy,
       PairingsEngine.Publishing.Drain,
+      PairingsEngine.Registrations.Poll,
       # Start to serve requests, typically the last entry
       PairingsEngineWeb.Endpoint
     ]

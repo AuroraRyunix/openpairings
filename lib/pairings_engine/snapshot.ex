@@ -55,7 +55,7 @@ defmodule PairingsEngine.Snapshot do
   in the arbiter's database.
   """
 
-  alias PairingsEngine.{Keizer, Standings, Tiebreaks, Tournaments}
+  alias PairingsEngine.{Keizer, PublicDisplay, Standings, Tiebreaks, Tournaments}
   alias PairingsEngine.Tournaments.{Player, Round, Tournament}
 
   @schema "openresults/snapshot"
@@ -140,7 +140,21 @@ defmodule PairingsEngine.Snapshot do
       # queue an arbiter reviews, so an extra one costs a glance; a form
       # that is shut when it should be open loses a real person's entry and
       # tells nobody.
-      "registration_open" => t.registration_open
+      "registration_open" => t.registration_open,
+
+      # Added 2026-08-29. Whether the results site lists this tournament on
+      # its front page, as opposed to serving it only to somebody who has the
+      # address. Absent means listed - which is what publishing meant before
+      # there was a choice.
+      "listed" => t.public_listed != false,
+
+      # Which columns the public page may show. Sent RESOLVED - every key,
+      # every value a real boolean - rather than as the sparse map the
+      # arbiter's edits are stored in. A reader should not have to know this
+      # app's default list to interpret the answer, and sending
+      # `%{"club" => false}` and expecting six `true`s to be inferred would
+      # make the contract depend on a list only this side has.
+      "display" => PublicDisplay.resolve(t.public_display)
     }
   end
 

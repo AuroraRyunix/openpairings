@@ -62,6 +62,12 @@ defmodule PairingsEngineWeb.SettingsSupport do
         {gettext("Options")}
       </.link>
       <.link
+        navigate={~p"/t/#{@tournament.id}/settings/results"}
+        class={["pe-btn", "filter-picker", @active == :results && "active"]}
+      >
+        {gettext("Results site")}
+      </.link>
+      <.link
         navigate={~p"/t/#{@tournament.id}/settings/scoring"}
         class={["pe-btn", "filter-picker", @active == :scoring && "active"]}
       >

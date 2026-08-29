@@ -14,8 +14,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
   """
   use PairingsEngineWeb, :live_view
 
-  alias PairingsEngineWeb.PublicLink
-
   import PairingsEngineWeb.SettingsSupport
 
   alias PairingsEngine.{Audit, Tournaments, Pairing, Exclusions, RateOfPlay}
@@ -148,27 +146,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
   @impl true
   ## ---------- Public self-registration ----------
-
-  def handle_event("toggle_registration", _params, socket) do
-    open? = !socket.assigns.tournament.registration_open
-
-    case Tournaments.set_registration_open(socket.assigns.tournament, open?) do
-      {:ok, tournament} ->
-        Audit.log(tournament.id, socket.assigns.current_scope, "registration.toggled", %{
-          open: open?
-        })
-
-        note =
-          if open?,
-            do: "Registration is open - anyone with the link can enter.",
-            else: "Registration is closed."
-
-        {:noreply, socket |> assign(tournament: tournament) |> put_flash(:info, note)}
-
-      {:error, reason} ->
-        {:noreply, put_flash(socket, :error, error_text(reason))}
-    end
-  end
 
   def handle_event("locked_hint", %{"field" => field}, socket) do
     field = String.to_existing_atom(field)
@@ -488,57 +465,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
       </div>
       <.settings_subnav tournament={@tournament} active={:options} />
       <.stale_banner stale={@stale} />
-      <div class="card">
-        <h2>{gettext("Registration form")}</h2>
-
-        <p class="subtitle" style="margin: 0 0 8px">
-          <.rich_text text={
-            gettext(
-              "A page on the results site where players enter themselves, finding their own name on the FIDE list. Everyone who signs up arrives marked %[flag] - nobody is added here until you review the entries and accept them."
-            )
-          }>
-            <:part name="flag"><strong>{gettext("not yet arrived")}</strong></:part>
-          </.rich_text>
-        </p>
-
-        <p :if={!PublicLink.public?(@tournament)} class="subtitle" style="margin: 0 0 8px">
-          <.rich_text text={
-            gettext(
-              "%[off], and the entry form lives there - so opening it here has no effect until you publish. Turn publishing on under Settings → Tournament first."
-            )
-          }>
-            <:part name="off">
-              <strong>{gettext("This tournament is not published to the results site")}</strong>
-            </:part>
-          </.rich_text>
-        </p>
-
-        <div class="actions" style="margin: 0">
-          <button
-            type="button"
-            class={["pe-btn", @tournament.registration_open && "primary"]}
-            phx-click="toggle_registration"
-            data-confirm={
-              if @tournament.registration_open,
-                do: "Close the form? Nobody will be able to register until you open it again.",
-                else: nil
-            }
-          >
-            {if @tournament.registration_open, do: "Close the form", else: "Open up"}
-          </button>
-
-          <a
-            :if={@tournament.registration_open && PublicLink.public?(@tournament)}
-            class="pe-btn"
-            href={PublicLink.url(@tournament, :register)}
-            target="_blank"
-            title={gettext("Opens the results site - no login needed, share this link")}
-          >
-            {gettext("Entry form")}
-          </a>
-        </div>
-      </div>
-
       <form id="pairing-settings-form" phx-submit="save">
         <input type="hidden" name="section" value="pairing" />
         <div class="card">

@@ -126,7 +126,17 @@ defmodule PairingsEngine.SnapshotTest do
                "system" => "swiss",
                "arbiter" => "Jorian Burssens",
                "fide_rated" => true,
-               "registration_open" => true
+               "registration_open" => true,
+               "listed" => true,
+               "display" => %{
+                 "rating" => true,
+                 "title" => true,
+                 "federation" => true,
+                 "club" => true,
+                 "category" => true,
+                 "tiebreaks" => true,
+                 "player_cards" => true
+               }
              }
     end
 

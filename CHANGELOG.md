@@ -41,6 +41,50 @@ Each entry is tagged so a version can be skimmed:
   The links are absolute now rather than relative &mdash; half of them end up
   on a QR code, in a printed footer or pasted into an email.
 
+### Added
+
+- [Feature] **Settings &rarr; Results site.** One page for everything about a
+  tournament's public existence: publish it, list it or not, choose what the
+  public page shows, open the entry form, get the share link, move it to a new
+  address, take it down.
+
+  These were spread over two pages and read as unrelated &mdash; the publish
+  switch under Tournament next to the logo uploader, the entry form under
+  Options next to pairing preferences. They are not unrelated. Every one of
+  them answers part of "what does the public see", and an arbiter putting an
+  event online should answer that on one screen rather than assemble it from
+  two. Reviewing entries stays with the players it creates; there is a link.
+
+- [Feature] **Choose what the public page shows.** Ratings, titles,
+  federations, clubs, categories, tiebreak columns and player cards can each be
+  turned off per tournament. A club evening and an international open have
+  genuinely different answers about whose Elo belongs on the open web, and the
+  arbiter is the one who knows which this is.
+
+  Names, board numbers, results and placings are not on the list: they are the
+  tournament, and an arbiter who does not want them public should not publish.
+  Hiding the tiebreak columns hides the arithmetic, not the result &mdash; the
+  order is still exactly the one the arbiter computed.
+
+- [Feature] **Unlisted tournaments.** A published tournament can be kept off
+  the results site's front page while staying reachable by its address, for an
+  event you hand a link to rather than advertise. The settings page says
+  plainly that this is not privacy: an unlisted tournament is still readable by
+  anyone who has the address, and addresses get forwarded.
+
+- [Feature] **Entries arrive on their own.** The Registrations list now fills
+  itself once a minute instead of waiting for someone to press Pull. That was
+  fine while this app served the entry form &mdash; the arbiter was in the app
+  and the entries were on the same machine &mdash; and stopped being fine when
+  the form moved to the results site, because the queue then lived somewhere
+  the arbiter had no view of at all. A queue nobody is told about is one
+  discovered on the morning of the tournament.
+
+  Nothing is accepted automatically. Entries land in the review list marked
+  "not yet arrived" and wait for a person, which is the whole model. The Pull
+  button stays: somebody standing at the door with a queue in front of them
+  should not have to wait out a timer.
+
 ### Removed
 
 - [Removed] **This app no longer serves public pages.** `/p/:slug/pairings`,
@@ -102,6 +146,14 @@ Each entry is tagged so a version can be skimmed:
   a queue write that failed, which is swallowed on purpose so a publish can
   never take down the write that triggered it; and a database restored from a
   backup taken between the switch and the send.
+
+- [Change] **A tournament switched off after publishing still collects its
+  entries.** Pulling used to require the publish switch to be on. That switch
+  says whether more will be *sent*; it has nothing to do with whether there is
+  a queue to collect. A tournament switched off still has its copy on the
+  results site, and that copy's form is whatever the last snapshot said &mdash;
+  so entries could arrive at a tournament this machine had stopped publishing
+  to, sit unread, and be deleted unseen by a later takedown.
 
 - [Change] **Closing the entry form now pushes immediately.** The form is on
   the results site, so the arbiter's switch only reaches it by riding along

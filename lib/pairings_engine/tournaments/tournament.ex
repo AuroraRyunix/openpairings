@@ -261,6 +261,30 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # save must not be able to start sending an event's player names,
     # ratings and clubs to a remote server by accident.
     #
+    # Whether the tournament appears in the results site's index, as opposed
+    # to being reachable only by its address. Default true, which is what
+    # publishing has always meant.
+    #
+    # Not a security control, and the settings page says so in as many words.
+    # The address is an unguessable token, but an unlisted tournament is
+    # still world-readable to anyone holding one. This hides an event from
+    # somebody browsing the site, not from somebody who was sent the link.
+    field :public_listed, :boolean, default: true
+
+    # Which columns the public page may show: a map of string key -> boolean,
+    # or nil for "everything", which is what every tournament that predates
+    # this field means.
+    #
+    # A map rather than a column per field, because the set will grow and
+    # because the ABSENCE of a key has to read as "show it" on both sides. A
+    # snapshot written by an older arbiter's app must not blank a column on a
+    # newer results site, and an older results site must ignore a key it does
+    # not know rather than guessing.
+    #
+    # See `PairingsEngine.PublicDisplay` for the keys and the defaults; this
+    # column stores only what an arbiter has actually changed.
+    field :public_display, :map
+
     # Default false. It used to sit beside `public_pages_enabled`, which
     # answered the separate question "may anyone with the link read this
     # HERE" - that field was dropped on 2026-08-29 with the local public

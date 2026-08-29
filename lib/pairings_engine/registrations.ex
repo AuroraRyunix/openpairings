@@ -97,6 +97,59 @@ defmodule PairingsEngine.Registrations do
   end
 
   @doc """
+  Pulls every tournament that might have entries waiting, for the timer.
+
+  Returns `{pulled, new}` - how many tournaments were asked and how many
+  entries had not been seen here before.
+
+  ## Which tournaments
+
+  Any with an `openresults_key` that is neither archived nor deleted. Keyed
+  on the KEY rather than on `publish_to_openresults` or `registration_open`,
+  and both of those are deliberate:
+
+    * the switch says whether more will be SENT. A tournament switched off
+      still has a copy out there, and that copy's form is still whatever the
+      last snapshot said - so entries can still be arriving at a tournament
+      this machine has stopped publishing;
+    * `registration_open` is likewise the state of the LAST snapshot, not of
+      the server. An arbiter closes the form at the door; entries submitted
+      in the seconds before that are on the server and would otherwise sit
+      there until somebody thought to press a button.
+
+  Archiving is the arbiter saying the event is done, and it is what stops
+  this polling every tournament ever run, forever.
+
+  ## Why errors are swallowed
+
+  A pull failing is the ordinary case - `pull/1`'s own doc says so - and this
+  caller is a timer with nobody watching. A tournament that cannot be reached
+  is skipped and tried again next tick; there is nothing here worth crashing
+  a supervision tree over, and nothing an arbiter could do with the news at
+  02:00.
+  """
+  @spec poll() :: {non_neg_integer(), non_neg_integer()}
+  def poll do
+    Repo.all(
+      from t in Tournament,
+        where: not is_nil(t.openresults_key) and is_nil(t.archived_at) and is_nil(t.deleted_at),
+        select: t.id
+    )
+    |> Enum.reduce({0, 0}, fn id, {pulled, new} ->
+      case Repo.get(Tournament, id) do
+        nil ->
+          {pulled, new}
+
+        tournament ->
+          case pull(tournament) do
+            {:ok, %{new: n}} -> {pulled + 1, new + n}
+            {:error, _reason} -> {pulled, new}
+          end
+      end
+    end)
+  end
+
+  @doc """
   Entries waiting for a decision, oldest first.
 
   Oldest first because entry order is what decides a capped field, and an
@@ -302,8 +355,21 @@ defmodule PairingsEngine.Registrations do
       not Publishing.configured?() ->
         {:error, "no OpenResults server is configured"}
 
-      not tournament.publish_to_openresults ->
-        {:error, "this tournament is not set to publish"}
+      # Deliberately NOT `publish_to_openresults`. That switch says whether
+      # more will be SENT; this asks whether there is a queue to collect.
+      #
+      # A tournament switched off after publishing still has its copy on the
+      # server, and that copy's entry form is whatever the last snapshot said
+      # - so entries can still be arriving at a tournament this machine has
+      # stopped publishing to. Refusing to pull them would leave real people
+      # in a queue nobody ever reads, and a later takedown would delete them
+      # unseen.
+      #
+      # The switch still counts on its own, for the tournament that has been
+      # marked to publish but has not sent anything yet: it has no key, and
+      # `key_headers/1` omits the header for exactly that case.
+      not (tournament.publish_to_openresults or is_binary(tournament.openresults_key)) ->
+        {:error, "this tournament has nothing to do with the results site"}
 
       Tournaments.ensure_writable(tournament) != :ok ->
         {:error, "this tournament is archived"}

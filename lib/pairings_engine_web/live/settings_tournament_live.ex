@@ -13,8 +13,6 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
   """
   use PairingsEngineWeb, :live_view
 
-  alias PairingsEngineWeb.PublicLink
-
   import PairingsEngineWeb.SettingsSupport
 
   alias PairingsEngine.{Audit, Publishing, Tournaments, Tiebreaks}
@@ -322,134 +320,6 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
     end
   end
 
-  ## ---------- The public page (publish + share link) ----------
-
-  def handle_event("toggle_publish_to_openresults", _params, socket) do
-    enabled? = !socket.assigns.tournament.publish_to_openresults
-
-    case Tournaments.set_publish_to_openresults(socket.assigns.tournament, enabled?) do
-      {:ok, tournament} ->
-        Audit.log(tournament.id, socket.assigns.current_scope, "openresults.toggled", %{
-          enabled: enabled?
-        })
-
-        note =
-          if enabled?,
-            do: "This tournament will be published. The first copy is on its way.",
-            else:
-              "This tournament will not be published again. Anything already sent stays where it is."
-
-        {:noreply, socket |> assign(tournament: tournament) |> put_flash(:info, note)}
-
-      {:error, :archived} ->
-        {:noreply, put_flash(socket, :error, error_text(:archived))}
-
-      {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, "Could not change publishing")}
-    end
-  end
-
-  ## ---------- Removing a published tournament from the results site ----------
-  #
-  # Gated with `data-confirm` rather than the type-DELETE-to-confirm modal
-  # that `TournamentsLive` puts in front of deleting a tournament, matching
-  # `rotate_public_slug` right below it: both are irreversible acts on a
-  # *published copy* that leave the tournament, its players and its results
-  # untouched here. The heavier gate belongs to the heavier act - losing the
-  # tournament itself.
-  #
-  # What it takes with it is spelled out rather than summarised as "remove".
-  # An arbiter can reasonably assume a takedown hides a page; that it also
-  # destroys the snapshot history behind it and the entries its form
-  # collected is exactly the part they would only find out afterwards.
-
-  def handle_event("take_down_published", _params, socket) do
-    tournament = socket.assigns.tournament
-
-    case Publishing.take_down(tournament) do
-      {:ok, message} ->
-        Audit.log(tournament.id, socket.assigns.current_scope, "openresults.taken_down", %{
-          slug: tournament.public_slug
-        })
-
-        {:noreply,
-         socket
-         |> assign(tournament: Tournaments.get_tournament!(tournament.id))
-         |> put_flash(:info, message)}
-
-      {:error, message} ->
-        # The tournament is deliberately not reloaded and nothing is assigned:
-        # a failed takedown changed nothing, and re-rendering as if it might
-        # have is how somebody ends up believing an event was withdrawn while
-        # it is still up.
-        {:noreply,
-         put_flash(socket, :error, "Could not remove it from the results site: #{message}")}
-    end
-  end
-
-  ## ---------- A publishing key an imported backup carried ----------
-
-  def handle_event("adopt_openresults_claim", _params, socket) do
-    tournament = socket.assigns.tournament
-
-    case Publishing.adopt_claim(tournament) do
-      {:ok, updated} ->
-        Audit.log(updated.id, socket.assigns.current_scope, "openresults.claim_adopted", %{
-          slug: updated.public_slug
-        })
-
-        {:noreply,
-         socket
-         |> assign(tournament: updated)
-         |> put_flash(
-           :info,
-           "This tournament now publishes to the address the backup came from. Its own public " <>
-             "link changed to match."
-         )}
-
-      {:error, message} ->
-        {:noreply, put_flash(socket, :error, "Could not take it over: #{message}")}
-    end
-  end
-
-  def handle_event("discard_openresults_claim", _params, socket) do
-    case Publishing.discard_claim(socket.assigns.tournament) do
-      {:ok, updated} ->
-        Audit.log(updated.id, socket.assigns.current_scope, "openresults.claim_discarded", %{})
-
-        {:noreply,
-         socket
-         |> assign(tournament: updated)
-         |> put_flash(:info, "Starting fresh. This copy will publish to an address of its own.")}
-
-      {:error, message} ->
-        {:noreply, put_flash(socket, :error, message)}
-    end
-  end
-
-  # `Publishing.rotate_address/1` rather than `Tournaments.rotate_public_slug/1`
-  # - see that function for why the bare rotation is not a revocation once the
-  # page being revoked is on another server.
-  def handle_event("rotate_public_slug", _params, socket) do
-    case Publishing.rotate_address(socket.assigns.tournament) do
-      {:ok, tournament, message} ->
-        Audit.log(tournament.id, socket.assigns.current_scope, "public_pages.link_rotated", %{
-          published: Publishing.published?(tournament)
-        })
-
-        {:noreply, socket |> assign(tournament: tournament) |> put_flash(:info, message)}
-
-      {:error, :archived} ->
-        {:noreply, put_flash(socket, :error, error_text(:archived))}
-
-      {:error, message} when is_binary(message) ->
-        {:noreply, put_flash(socket, :error, "Could not move this tournament: " <> message)}
-
-      {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, "Could not move this tournament")}
-    end
-  end
-
   ## ---------- helpers ----------
 
   defp swap(list, index, delta) do
@@ -473,21 +343,6 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
   defp upload_error_label(:too_many_files), do: "One image at a time"
   defp upload_error_label(:not_accepted), do: "Only PNG, JPEG, GIF and WebP images are accepted"
   defp upload_error_label(other), do: inspect(other)
-
-  defp openresults_claim(tournament), do: Publishing.claim(tournament)
-
-  # The address the imported key is authority over, as one string an arbiter
-  # can compare against what they know. The endpoint is whatever the machine
-  # that exported the file was pointing at, which is not necessarily this
-  # machine's - showing it is the point, since "is that the server I mean?"
-  # is the question a takeover turns on.
-  defp claimed_address(tournament) do
-    case Publishing.claim(tournament) do
-      %{slug: slug, endpoint: ""} -> "/t/#{slug}"
-      %{slug: slug, endpoint: endpoint} -> "#{endpoint}/t/#{slug}"
-      nil -> ""
-    end
-  end
 
   defp general_fields, do: @general_fields
   defp tb_presets, do: @tb_presets
@@ -778,184 +633,33 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
         </p>
       </div>
 
+      <%!-- Everything about this tournament's public existence moved to
+            Settings -> Results site on 2026-08-29. It was here because the
+            share link was here, and it read as unrelated to publishing while
+            sitting next to a logo uploader. A pointer rather than nothing:
+            an arbiter who knows where it used to be should not have to hunt.
+      --%>
       <div class="card">
         <h2>{gettext("Public page")}</h2>
 
         <p class="hint" style="margin-top: 0">
-          {gettext(
-            "Publishing sends a copy of this tournament to the results site, where anyone can follow it - standings, pairings and player cards, no login. It is the only way this tournament becomes public: nothing is readable from this machine, which is the point, because spectators should never be loading the computer that runs the round."
-          )}
+          <.rich_text text={
+            gettext(
+              "Publishing, the share link, what the public page shows and the entry form are all on %[results] now."
+            )
+          }>
+            <:part name="results">
+              <.link navigate={~p"/t/#{@tournament.id}/settings/results"}>
+                {gettext("Settings -> Results site")}
+              </.link>
+            </:part>
+          </.rich_text>
         </p>
 
-        <p class="hint">
-          {gettext(
-            "What leaves is what a wall chart would show - names, ratings, clubs, federations and results. Turn it on only for an event whose players expect to be listed publicly."
-          )}
-        </p>
-
-        <div class="set-field solo">
-          <span class="set-label">{gettext("Published")}</span>
-          <p
-            :if={not @openresults_configured?}
-            class="hint"
-            style="margin: 4px 0 0; color: var(--danger)"
-          >
-            {gettext("No results site is set up on this machine yet - see Connections.")}
-          </p>
-          <div class="actions" style="margin-top: 6px; align-items: center; gap: 10px">
-            <span>{if @tournament.publish_to_openresults, do: "On", else: "Off"}</span>
-            <button
-              type="button"
-              class="pe-btn"
-              phx-click="toggle_publish_to_openresults"
-              disabled={not @openresults_configured? and not @tournament.publish_to_openresults}
-            >
-              {if @tournament.publish_to_openresults, do: "Turn off", else: "Turn on"}
-            </button>
-          </div>
-        </div>
-
-        <div class="set-field solo" style="margin-top: 18px">
-          <%!-- The way in to the other direction. The results site collects
-                entries from its public form and holds them; it cannot add
-                anyone here, so the entry list only moves when the arbiter
-                goes and looks. --%>
-          <div :if={@tournament.publish_to_openresults} class="actions" style="margin-top: 10px">
-            <.link class="pe-btn" navigate={~p"/t/#{@tournament.id}/registrations"}>
-              {gettext("Review entries from the results site")}
-            </.link>
-          </div>
-
-          <%!-- Offered on the key, not on the switch. The switch says whether
-                more will be sent; the key is what says something IS out there
-                and that this machine is the one that can withdraw it. A
-                tournament that opted in and never actually published has
-                nothing to take down, and one that was switched off still
-                does - which is precisely the state that used to be a dead
-                end. --%>
-          <div :if={Publishing.published?(@tournament)} style="margin-top: 14px">
-            <p class="hint" style="margin: 0">
-              {gettext(
-                "A copy of this tournament is on the results site. Turning the switch off stops sending updates; it does not take that copy down."
-              )}
-            </p>
-            <div class="actions" style="margin-top: 6px">
-              <button
-                type="button"
-                class="pe-btn danger-link"
-                phx-click="take_down_published"
-                data-confirm={
-                  gettext(
-                    "Remove this tournament from the results site? Its public page, every earlier snapshot in its history, and any entries collected for it are deleted there permanently. Nothing on this machine is touched - the tournament, its players and its results stay exactly as they are - but this cannot be undone from here."
-                  )
-                }
-              >
-                {gettext("Remove from the results site")}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <%!-- The choice an import deliberately did not make. Presented here
-              rather than during the import because one backup file can hold
-              dozens of tournaments, and a machine being rebuilt from backups
-              usually has not been told the results site's address yet - so
-              import time is the worst moment to ask. Doing nothing is the
-              safe branch and needs no button: an unadopted copy publishes to
-              a new address under a new key, i.e. it is a different
-              tournament. --%>
-        <div
-          :if={openresults_claim(@tournament)}
-          class="set-field solo"
-          style="margin-top: 18px"
-        >
-          <span class="set-label">{gettext("A publishing key came with this file")}</span>
-
-          <p class="hint" style="margin: 4px 0 0">
-            {gettext(
-              "The backup this tournament was imported from can publish to - and delete - a tournament already on the results site:"
-            )}
-          </p>
-
-          <p style="margin: 6px 0 0">
-            <code>{claimed_address(@tournament)}</code>
-          </p>
-
-          <p class="hint" style="margin: 6px 0 0">
-            {gettext(
-              "Until you take it over, this copy is a separate tournament: turning publishing on gives it a new address of its own. Take it over only if the machine that published it is gone, or you are certain nobody else is still publishing it - two machines holding the same key can overwrite and delete each other's work."
-            )}
-          </p>
-
-          <div class="actions" style="margin-top: 8px; gap: 10px; flex-wrap: wrap">
-            <button
-              type="button"
-              class="pe-btn"
-              phx-click="adopt_openresults_claim"
-              data-confirm={
-                gettext(
-                  "Take over publishing that tournament? This copy starts publishing to that address and can delete it, and this copy's own public link changes to match. Anyone still publishing it from another machine will be overwriting you, and you them."
-                )
-              }
-            >
-              {gettext("Take over publishing it")}
-            </button>
-
-            <button
-              type="button"
-              class="pe-btn danger-link"
-              phx-click="discard_openresults_claim"
-              data-confirm={
-                gettext(
-                  "Start fresh and throw the key away? This copy keeps its own link and publishes to a new address. Nothing already on the results site changes, and this machine will never be able to update or remove it."
-                )
-              }
-            >
-              {gettext("Start fresh")}
-            </button>
-          </div>
-        </div>
-
-        <div
-          :if={PublicLink.public?(@tournament)}
-          class="set-field solo"
-          style="margin-top: 10px"
-        >
-          <span class="set-label">{gettext("Share link")}</span>
-          <p class="hint" style="margin: 4px 0 0">
-            {gettext(
-              "This tournament's public page is on the results site (%{host}). Share this link, print it, or put it on a QR code - it does not point at this machine.",
-              host: PublicLink.host(@tournament)
-            )}
-          </p>
-          <p style="margin: 6px 0 0">
-            <code>{PublicLink.url(@tournament, :standings)}</code>
-          </p>
-          <div class="actions" style="margin-top: 6px; gap: 10px; flex-wrap: wrap">
-            <a class="pe-btn" href={PublicLink.url(@tournament, :standings)} target="_blank">
-              {gettext("Open it")}
-            </a>
-
-            <%!-- The wording is deliberate about what this now costs. While
-                  this app served the public pages, rotating was free and
-                  instant - the old link 404'd because it was served from the
-                  same database the slug lived in. The link is an address on
-                  another server now, so revoking it means taking that copy
-                  DOWN and publishing again at a new one, and a reader in the
-                  middle of the standings loses their bookmark for real. --%>
-            <button
-              type="button"
-              class="pe-btn danger-link"
-              phx-click="rotate_public_slug"
-              data-confirm={
-                gettext(
-                  "Move this tournament to a new address? The current link stops working immediately - anyone using it, including printed QR codes and anything a club has embedded, will need the new one. The tournament is removed from the results site and published again at a fresh address; its results and players here are untouched."
-                )
-              }
-            >
-              {gettext("Move to a new address")}
-            </button>
-          </div>
+        <div class="actions" style="margin-top: 8px">
+          <.link class="pe-btn" navigate={~p"/t/#{@tournament.id}/settings/results"}>
+            {gettext("Go there")}
+          </.link>
         </div>
       </div>
 

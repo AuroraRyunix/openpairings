@@ -226,175 +226,18 @@ defmodule PairingsEngineWeb.SettingsTournamentLiveTest do
     end
   end
 
-  describe "removing a published tournament from the results site" do
-    setup do
-      Publishing.put_endpoint("https://openresults.example/")
-      Publishing.put_token("s3cret")
-
-      # The request goes out from the LiveView process, not from the test's,
-      # so a stub owned by this process would never be found.
-      Req.Test.set_req_test_to_shared(%{})
-      :ok
-    end
-
-    defp publish_once(tournament) do
-      Req.Test.stub(PairingsEngine.PublishingTest, fn conn ->
-        Req.Test.json(conn, %{"ok" => true})
-      end)
-
-      {:ok, tournament} = Tournaments.set_publish_to_openresults(tournament, true)
-      {:ok, _} = Publishing.publish(tournament)
-      Tournaments.get_tournament!(tournament.id)
-    end
-
-    test "is not offered before anything has actually been sent", %{conn: conn, scope: scope} do
-      tournament = create_tournament(scope)
-      {:ok, tournament} = Tournaments.set_publish_to_openresults(tournament, true)
-
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
-
-      # The switch being on is a promise about the future. There is nothing
-      # out there to take down until a publish has landed.
-      refute html =~ "Remove from the results site"
-    end
-
-    test "says what goes before it goes", %{conn: conn, scope: scope} do
-      tournament = scope |> create_tournament() |> publish_once()
-
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
-
-      assert html =~ "Remove from the results site"
-      # An arbiter can reasonably assume this hides a page. The two things
-      # they would otherwise only discover afterwards are named.
-      assert html =~ "every earlier snapshot in its history"
-      assert html =~ "any entries collected for it"
-    end
-
-    test "a successful takedown turns publishing off and says so", %{conn: conn, scope: scope} do
-      tournament = scope |> create_tournament() |> publish_once()
-      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings")
-
-      Req.Test.stub(PairingsEngine.PublishingTest, fn conn ->
-        assert conn.method == "DELETE"
-        Req.Test.json(conn, %{"status" => "deleted"})
-      end)
-
-      html = lv |> element("button", "Remove from the results site") |> render_click()
-
-      assert html =~ "Removed from the results site"
-
-      after_takedown = Tournaments.get_tournament!(tournament.id)
-      refute after_takedown.publish_to_openresults
-      refute after_takedown.openresults_key
-    end
-
-    test "a failed takedown is reported in words and leaves the tournament alone", %{
+  describe "the publishing controls that moved" do
+    test "the Tournament page points at Results site rather than dropping them", %{
       conn: conn,
       scope: scope
     } do
-      tournament = scope |> create_tournament() |> publish_once()
-      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings")
-
-      Req.Test.stub(PairingsEngine.PublishingTest, fn conn ->
-        Req.Test.transport_error(conn, :econnrefused)
-      end)
-
-      html = lv |> element("button", "Remove from the results site") |> render_click()
-
-      assert html =~ "Could not remove it from the results site"
-      assert html =~ "connection was refused"
-      refute html =~ "TransportError"
-
-      # Telling an arbiter their event was withdrawn when it is still up is
-      # the one outcome worse than the failure itself.
-      unchanged = Tournaments.get_tournament!(tournament.id)
-      assert unchanged.publish_to_openresults
-      assert unchanged.openresults_key == tournament.openresults_key
-    end
-  end
-
-  describe "a publishing key carried in from a backup" do
-    setup do
-      Publishing.put_endpoint("https://openresults.example/")
-      Publishing.put_token("s3cret")
-      Req.Test.set_req_test_to_shared(%{})
-      :ok
-    end
-
-    defp imported_copy_of_published(scope) do
-      Req.Test.stub(PairingsEngine.PublishingTest, fn conn ->
-        Req.Test.json(conn, %{"ok" => true})
-      end)
-
-      source = create_tournament(scope, %{"name" => "Published Original"})
-      {:ok, source} = Tournaments.set_publish_to_openresults(source, true)
-      {:ok, _} = Publishing.publish(source)
-      source = Tournaments.get_tournament!(source.id)
-
-      {:ok, [imported]} =
-        source
-        |> PairingsEngine.TournamentExport.export_tournament()
-        |> PairingsEngine.TournamentImport.import(scope)
-
-      {source, Tournaments.get_tournament!(imported.id)}
-    end
-
-    test "the choice is offered, and nothing has been adopted", %{conn: conn, scope: scope} do
-      {source, imported} = imported_copy_of_published(scope)
-
-      {:ok, _lv, html} = live(conn, ~p"/t/#{imported.id}/settings")
-
-      assert html =~ "A publishing key came with this file"
-      assert html =~ "Take over publishing it"
-      assert html =~ "Start fresh"
-      assert html =~ "https://openresults.example/t/#{source.public_slug}"
-
-      # Offered, not taken. Until somebody chooses, this is a separate
-      # tournament that publishes nowhere.
-      refute imported.openresults_key
-      refute imported.publish_to_openresults
-    end
-
-    test "starting fresh throws the key away and leaves the original alone", %{
-      conn: conn,
-      scope: scope
-    } do
-      {source, imported} = imported_copy_of_published(scope)
-      {:ok, lv, _html} = live(conn, ~p"/t/#{imported.id}/settings")
-
-      html = lv |> element("button", "Start fresh") |> render_click()
-
-      assert html =~ "Starting fresh"
-      refute html =~ "A publishing key came with this file"
-      refute Tournaments.get_tournament!(imported.id).openresults_claim
-
-      assert Tournaments.get_tournament!(source.id).openresults_key == source.openresults_key
-    end
-
-    test "taking over moves the key and the address across", %{conn: conn, scope: scope} do
-      {source, imported} = imported_copy_of_published(scope)
-
-      # The original is gone - the laptop-rebuild case this exists for. With
-      # it still here, `public_slug`'s unique index refuses the takeover, and
-      # that refusal is itself the right answer.
-      Repo.delete!(source)
-
-      {:ok, lv, _html} = live(conn, ~p"/t/#{imported.id}/settings")
-      html = lv |> element("button", "Take over publishing it") |> render_click()
-
-      assert html =~ "now publishes to the address the backup came from"
-
-      adopted = Tournaments.get_tournament!(imported.id)
-      assert adopted.openresults_key == source.openresults_key
-      assert adopted.public_slug == source.public_slug
-      refute adopted.openresults_claim
-    end
-
-    test "a tournament with no claim is offered nothing", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
+
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
 
-      refute html =~ "A publishing key came with this file"
+      # An arbiter who knows where these used to be should not have to hunt.
+      assert html =~ "Results site"
+      assert html =~ ~s|/t/#{tournament.id}/settings/results|
     end
   end
 end
