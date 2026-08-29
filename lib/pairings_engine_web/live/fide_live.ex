@@ -4,6 +4,7 @@ defmodule PairingsEngineWeb.FideLive do
   import PairingsEngineWeb.Components.ConnectionStatus
 
   alias PairingsEngine.Accounts.User
+  alias PairingsEngine.Backup
   alias PairingsEngine.Kbsb
   alias PairingsEngine.Fide.Sync, as: FideSync
   alias PairingsEngine.Kbsb.Sync, as: KbsbSync
@@ -55,7 +56,10 @@ defmodule PairingsEngineWeb.FideLive do
       publish_configured?: Publishing.configured?(),
       publish_pending: Publishing.pending_count(),
       publish_test: nil,
-      connection: nil
+      connection: nil,
+      backups: Backup.list(),
+      backup_encrypted?: Backup.encrypted?(),
+      backup_note: nil
     )
   end
 
@@ -99,6 +103,29 @@ defmodule PairingsEngineWeb.FideLive do
 
   def handle_info({:kbsb_sync, _state}, socket) do
     {:noreply, assign(socket, kbsb_status: KbsbSync.status())}
+  end
+
+  def handle_event("run_backup", _params, socket) do
+    if socket.assigns.sso? do
+      # Synchronous, unlike the connection check beside it. A backup copies the
+      # database and an operator has just asked for one before doing something
+      # risky - they should see it finish, or see why it did not, rather than
+      # navigate away believing they are covered.
+      case Backup.create() do
+        {:ok, path} ->
+          Backup.prune()
+
+          {:noreply,
+           socket
+           |> assign(backups: Backup.list(), backup_note: nil)
+           |> put_flash(:info, gettext("Backup written: %{name}", name: Path.basename(path)))}
+
+        {:error, reason} ->
+          {:noreply, assign(socket, backup_note: reason)}
+      end
+    else
+      {:noreply, put_flash(socket, :error, publishing_restricted())}
+    end
   end
 
   @impl true
@@ -421,6 +448,77 @@ defmodule PairingsEngineWeb.FideLive do
       </div>
 
       <div class="card">
+        <h2>{gettext("Backups")}</h2>
+
+        <p class="hint" style="margin-top: 0">
+          {gettext(
+            "One is written a day. They hold everything that cannot be rebuilt - tournaments, results, entries and publishing keys - and leave out the rating lists, which a sync restores."
+          )}
+        </p>
+
+        <%!-- The point of the download button. A backup kept only on the disk
+              it is insuring survives a bad migration and an accidental delete,
+              which is most of what goes wrong, and does not survive the disk. --%>
+        <p class="hint">
+          {gettext(
+            "They are written to this machine. Download one and keep it somewhere else - a backup stored only on the thing it protects is half a backup."
+          )}
+          <strong :if={not @backup_encrypted?}>
+            {gettext(
+              "These are unencrypted and carry the email addresses people gave the entry form."
+            )}
+          </strong>
+        </p>
+
+        <p :if={@backup_note} class="hint" style="color: var(--danger)">{@backup_note}</p>
+
+        <div class="actions" style="margin: 12px 0">
+          <button type="button" class="pe-btn" phx-click="run_backup" disabled={not @sso?}>
+            {gettext("Back up now")}
+          </button>
+        </div>
+
+        <p :if={@backups == []} class="hint">
+          {gettext("None yet - the first is written a few minutes after start-up.")}
+        </p>
+
+        <div :if={@backups != []} class="table-card" style="margin-top: 8px">
+          <table class="pe-table">
+            <thead>
+              <tr>
+                <th>{gettext("Taken")}</th>
+                <th class="num">{gettext("Size")}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr :for={backup <- Enum.take(@backups, 10)}>
+                <td>{Calendar.strftime(backup.created_at, "%Y-%m-%d %H:%M")} UTC</td>
+                <td class="num">{human_size(backup.size)}</td>
+                <td class="num">
+                  <a
+                    :if={@sso?}
+                    class="pe-btn"
+                    href={~p"/backups/#{Path.basename(backup.path)}"}
+                    download
+                  >
+                    {gettext("Download")}
+                  </a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p :if={length(@backups) > 10} class="hint" style="margin-top: 8px">
+          {gettext("%{n} older ones are on the machine, in %{dir}.",
+            n: length(@backups) - 10,
+            dir: Backup.directory()
+          )}
+        </p>
+      </div>
+
+      <div class="card">
         <h2>{gettext("Public results site (OpenResults)")}</h2>
 
         <%!-- Answered before the settings below it, because "is this working"
@@ -527,4 +625,11 @@ defmodule PairingsEngineWeb.FideLive do
     do:
       Application.get_env(:pairings_engine, :connection_poll_interval, @connection_poll) !=
         :disabled
+
+  # Rounded hard on purpose: nobody reads a backup listing to learn it is
+  # 29.4 MB rather than 29 MB, and the extra digit is one more thing changing
+  # between two rows that are otherwise identical.
+  defp human_size(bytes) when bytes >= 1_000_000, do: "#{div(bytes, 1_000_000)} MB"
+  defp human_size(bytes) when bytes >= 1_000, do: "#{div(bytes, 1_000)} kB"
+  defp human_size(bytes), do: "#{bytes} B"
 end

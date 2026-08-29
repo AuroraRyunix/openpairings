@@ -18,6 +18,21 @@ Each entry is tagged so a version can be skimmed:
 
 ### Added
 
+- [Feature] **Backups can be downloaded.** A Backups card on Connections
+  lists what is on the machine, takes one on demand before a risky change, and
+  hands any of them over.
+
+  They are written beside the database, which survives a bad migration, an
+  accidental delete and a botched restore &mdash; most of what goes wrong
+  &mdash; and does not survive the disk. Copying one off-site needs a
+  destination this app has no business holding credentials for, so instead it
+  gives you the file and says plainly that a backup kept only on the thing it
+  protects is half a backup.
+
+  02cloud accounts only, and the card says why: a backup is every tournament,
+  every player, the email addresses people gave the entry form, and every
+  publishing key.
+
 - [Feature] **A connection indicator for publishing.** Green when the results
   site answers, amber while something is being sent, amber again if the token
   is refused, red when it cannot be reached, grey when nothing is set up

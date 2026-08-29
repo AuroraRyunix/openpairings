@@ -23,6 +23,8 @@ defmodule PairingsEngine.BackupTest do
   """
   use PairingsEngine.DataCase, async: false
 
+  import Bitwise
+
   alias PairingsEngine.Backup
 
   setup do
@@ -307,7 +309,15 @@ defmodule PairingsEngine.BackupTest do
       {:ok, path} = Backup.create(dir: dir, source: src)
 
       raw = File.read!(path)
-      File.write!(path, binary_part(raw, 0, byte_size(raw) - 1) <> <<0>>)
+
+      # XOR rather than "write a zero". Writing <<0>> is a no-op whenever the
+      # last byte already IS zero, which is one run in 256 - and a test that
+      # passes 255 times out of 256 is worse than no test, because the failure
+      # arrives months later looking like a real defect. Caught by exactly that
+      # flake in a full-suite run.
+      altered = binary_part(raw, 0, byte_size(raw) - 1) <> <<Bitwise.bxor(:binary.last(raw), 1)>>
+      File.write!(path, altered)
+      refute altered == raw
 
       # AES-GCM's tag is what makes this a refusal rather than a subtly wrong
       # database that opens perfectly well.

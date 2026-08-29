@@ -86,6 +86,11 @@ defmodule PairingsEngineWeb.Router do
     get "/t/:id/export/pgn", ExportController, :pgn
     get "/t/:id/export/json", ExportController, :json
     get "/export/tournaments.json", ExportController, :all_json
+
+    # A backup is the whole database - every player, the entry form's email
+    # addresses, and every publishing key. SSO-gated inside the controller,
+    # exactly as changing the publishing settings is.
+    get "/backups/:name", BackupController, :download
   end
 
   # Other scopes may use custom stacks.
