@@ -362,6 +362,19 @@ Each entry is tagged so a version can be skimmed:
 
 ### Changed
 
+- [Change] **The downloads are named after the product, and the release page
+  now carries both shapes.** The single-file build was published as
+  `pairings_engine_<target>` &mdash; the internal application name, which
+  predates the app being called OpenPairings and means nothing to anybody
+  downloading it. It is `openpairings_<target>` now.
+
+  More usefully: a tagged release attached *only* that single file, which is
+  the one `docs/binaries.md` tells a Windows arbiter **not** to start with,
+  because antivirus deletes it on sight. The portable release &mdash; the
+  recommended one &mdash; existed only as a CI artifact you had to dig out of
+  a build page. It is attached to releases now, as one zip rather than 1,800
+  loose files.
+
 - [Change] **"Generate a new link" is now a real revocation.** It used to
   change this machine's idea of the address and nothing else. That was
   genuine revocation while the pages were served from here &mdash; they

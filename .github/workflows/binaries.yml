@@ -272,6 +272,28 @@ jobs:
 
           Write-Host "portable release signed in as the local owner"
 
+      - name: Name the downloads after the product
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          cd burrito_out
+          for f in pairings_engine_*; do
+            [ -e "$f" ] || continue
+            mv "$f" "openpairings_${f#pairings_engine_}"
+          done
+          ls -l
+
+      - name: Name the downloads after the product (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Get-ChildItem burrito_out -File |
+            Where-Object { $_.Name -like 'pairings_engine_*' } |
+            ForEach-Object {
+              Rename-Item $_.FullName -NewName ($_.Name -replace '^pairings_engine_', 'openpairings_')
+            }
+          Get-ChildItem burrito_out
+
       - uses: actions/upload-artifact@v4
         with:
           name: openpairings_portable_${{ matrix.target }}
@@ -286,7 +308,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: pairings_engine_${{ matrix.target }}
+          name: openpairings_${{ matrix.target }}
           path: burrito_out/*
           if-no-files-found: error
           # A tag build's artifacts are also attached to the release below, so
@@ -295,8 +317,29 @@ jobs:
           # default 90 days.
           retention-days: ${{ startsWith(github.ref, 'refs/tags/') && 90 || 14 }}
 
+      - name: Zip the portable release for the release page
+        if: startsWith(github.ref, 'refs/tags/') && runner.os != 'Windows'
+        shell: bash
+        run: |
+          cd _build/prod/rel
+          zip -qr "openpairings_portable_${{ matrix.target }}.zip" pairings_engine_portable
+          ls -lh openpairings_portable_${{ matrix.target }}.zip
+
+      - name: Zip the portable release for the release page (Windows)
+        if: startsWith(github.ref, 'refs/tags/') && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $out = "_build/prod/rel/openpairings_portable_${{ matrix.target }}.zip"
+          Compress-Archive -Path "_build/prod/rel/pairings_engine_portable" -DestinationPath $out
+          Get-Item $out | Select-Object Name, Length
+
       - name: Attach to release (tag builds)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: burrito_out/*
+          # Both shapes. The portable zip is the one docs/binaries.md tells a
+          # Windows arbiter to start with, and until now it was not on the
+          # release page at all.
+          files: |
+            burrito_out/*
+            _build/prod/rel/openpairings_portable_${{ matrix.target }}.zip

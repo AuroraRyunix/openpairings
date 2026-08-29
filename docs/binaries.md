@@ -22,8 +22,13 @@ x86_64 emulation.
 `.github/workflows/binaries.yml` builds all five, each on its own native
 runner, so the SQLite NIF is compiled natively rather than cross-guessed.
 
-Two triggers:
+Three triggers:
 
+- **Every push to `main`** - the binaries are a shipped artifact, and one
+  that is only built at release time is only tested at release time. This
+  used to be tags plus manual dispatch, and the result was a month between
+  builds while the app changed underneath them: by the time anybody looked,
+  "do the binaries still build" needed an experiment to answer.
 - **Push a `v*` tag** - builds every target and attaches the binaries to a
   GitHub release for that tag. This is the release path.
 - **Run it by hand** - Actions -> Build binaries -> Run workflow, or:
@@ -71,8 +76,18 @@ The binary lands in `burrito_out/` (e.g. `burrito_out/pairings_engine_macos_aarc
 
 | download | what it is | when |
 |---|---|---|
-| `pairings_engine_<target>` | one self-contained executable | you want a single file |
-| `openpairings_portable_<target>` | a folder you unzip, runtime inside | **antivirus ate the other one** |
+| `openpairings_<target>` | one self-contained executable | you want a single file |
+| `openpairings_portable_<target>.zip` | a folder you unzip, runtime inside | **antivirus ate the other one** |
+
+Both are on the release page for a tagged version, and both are build
+artifacts on every push to `main`. The portable one used to be a CI artifact
+only, which was backwards: the release page offered exactly the download this
+document tells a Windows arbiter not to start with.
+
+A local `mix release` still writes `burrito_out/pairings_engine_<target>` -
+the OTP application name. CI renames it on the way out, because that name
+predates the product being called OpenPairings and means nothing to anybody
+downloading it.
 
 **Start with the portable one if you are on Windows.** The single-file build
 is nicer to hand somebody, but it gets deleted by antivirus - not flagged,
@@ -82,12 +97,30 @@ carrying a compressed payload, which unpacks a runtime into AppData and
 spawns processes, is byte-for-byte what a dropper looks like, and a
 heuristic engine has no way to tell the difference.
 
-The real fix on Windows is an Authenticode signature, which since 2023 needs
-a certificate on a hardware token or a cloud HSM - Azure Trusted Signing is
-the cheap route at roughly $10/month, a normal OV certificate is a few
-hundred a year. Until that is worth paying for, the portable release costs
-nothing and does not look like anything: a directory of DLLs, a bundled
-runtime and a `.bat` is not a shape antivirus hunts for.
+The real fix on Windows is an Authenticode signature. Every single-file
+application that does not have this problem has one; there is no trick that
+substitutes for it, because the thing being detected is precisely "an
+unsigned binary of unknown origin that unpacks and executes code".
+
+Since June 2023 the CA/Browser Forum requires the signing key on FIPS 140-2
+Level 2 hardware, so a `.pfx` you can hand to CI no longer exists:
+
+| route | cost | notes |
+|---|---|---|
+| Azure Trusted Signing | ~$10/month | cloud HSM, no USB token, has a GitHub Action that would drop into `binaries.yml` |
+| OV certificate | ~$200-400/year | ships on a hardware token, awkward in CI |
+| EV certificate | ~$400-600/year | immediate SmartScreen reputation |
+
+Signing solves the deletion; **it does not immediately solve SmartScreen**,
+which warns about any binary whose certificate has no download history yet.
+EV buys past that queue, Trusted Signing earns it over time.
+
+macOS has the same shape of problem and its own answer: notarization, which
+means the Apple Developer Program at $99/year. Linux has neither.
+
+Until that is worth paying for, the portable release costs nothing and does
+not look like anything: a directory of DLLs, a bundled runtime and a `.bat`
+is not a shape antivirus hunts for.
 
 Both are built by the same CI run, both carry the whole Erlang runtime, and
 both are started and checked before the build is called a success.
@@ -119,7 +152,7 @@ FIDE rating tooling.
 Run it. That is the whole setup:
 
 ```bash
-./pairings_engine_macos_aarch64 start
+./openpairings_macos_aarch64 start
 ```
 
 A standalone binary is in **local mode by default** - it is a single file
@@ -190,7 +223,7 @@ DATABASE_PATH=/var/lib/openpairings/app.db \
 SECRET_KEY_BASE=$(head -c 48 /dev/urandom | base64) \
 PHX_SERVER=true \
 PORT=4000 \
-./pairings_engine_macos_aarch64 start
+./openpairings_macos_aarch64 start
 ```
 
 - `DATABASE_PATH` - where the SQLite database file lives. Created and
