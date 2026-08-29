@@ -114,11 +114,18 @@ defmodule PairingsEngineWeb.PublishPillTest do
     assert lv |> element("a.pub-pill[href='/fide']") |> has_element?()
   end
 
-  test "the pill's message survives a page that defines its own handle_info", %{conn: conn} do
+  test "the pill's message survives a page that defines its own handle_info", %{
+    conn: conn,
+    user: user
+  } do
     # The hook halts its own message rather than passing it on. A LiveView
     # with no matching clause would crash; one with a catch-all would swallow
     # it, which has already been a bug in this codebase once.
-    {:ok, lv, _html} = live(conn, ~p"/fide")
+    # Connections is role-gated now, and it is still the right page for this:
+    # it defines several handle_info clauses of its own, which is the thing
+    # being proven safe.
+    {:ok, admin} = PairingsEngine.Accounts.set_role(user.email, "admin")
+    {:ok, lv, _html} = live(log_in_user(conn, admin), ~p"/fide")
 
     broadcast(status(%{state: :connected, pending: 2}))
 

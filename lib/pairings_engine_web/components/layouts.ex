@@ -7,6 +7,7 @@ defmodule PairingsEngineWeb.Layouts do
 
   import PairingsEngineWeb.Components.ConnectionStatus, only: [publish_pill: 1]
 
+  alias PairingsEngine.Authz
   alias PairingsEngine.Fide
   alias PairingsEngine.Publishing.Monitor
   alias PairingsEngine.Kbsb
@@ -67,6 +68,7 @@ defmodule PairingsEngineWeb.Layouts do
         nil -> assign(assigns, :publish_status, Monitor.status())
         _ -> assigns
       end
+
     ~H"""
     <header class="topbar">
       <.link navigate={if(@current_scope, do: ~p"/", else: ~p"/users/log-in")} class="brand">
@@ -142,12 +144,25 @@ defmodule PairingsEngineWeb.Layouts do
             </div>
           </details>
         <% end %>
+        <%!-- Hidden, not merely disabled. Gating the buttons on Connections
+              left the page readable by any account, and what it shows - the
+              publishing address, the backup filenames, the sync state - is
+              the operator's business. The route refuses too
+              (`PairingsEngineWeb.RequireRole`); this stops offering a link
+              that would only bounce. --%>
         <.link
-          :if={!@tournament && @current_scope}
+          :if={!@tournament && @current_scope && Authz.may_support?(@current_scope.user)}
           navigate={~p"/fide"}
           class={tab_class(@active == "fide")}
         >
           {gettext("Connections")}
+        </.link>
+        <.link
+          :if={!@tournament && @current_scope && Authz.may_administer?(@current_scope.user)}
+          navigate={~p"/admin"}
+          class={tab_class(@active == "admin")}
+        >
+          {gettext("Admin")}
         </.link>
         <.link
           :if={!@tournament}

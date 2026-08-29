@@ -18,6 +18,25 @@ Each entry is tagged so a version can be skimmed:
 
 ### Added
 
+- [Feature] **An Admin page, next to Connections and only for
+  administrators.** It shows who may administer this installation and lets an
+  administrator change a role &mdash; grant `support` to a colleague, or take
+  it back &mdash; plus the version, whether this is a local or hosted run,
+  and the database size.
+
+  Three things it refuses, each a way somebody would otherwise be locked out:
+  you cannot change your own role; the last administrator cannot be demoted;
+  and an address declared in the server's configuration is shown but not
+  editable, because a button that appeared to revoke one and was undone by
+  the next restart would be a lie.
+
+  Granting roles from a screen is a change of mind from `mix pairings.role`,
+  which shipped saying there should be no screen. That argument was about the
+  *first* administrator and still holds &mdash; nothing here can bootstrap
+  one. It does not reach the second: an administrator granting `support`
+  gains nothing they did not have, since the same session can already
+  repoint publishing and download the whole database.
+
 - [Feature] **The publishing state is in the top bar, on every page.** A dot,
   a word and the round trip: *Live*, *Sending* while the queue is not empty,
   *Refused* for a rejected token, *Offline* when the results site cannot be
@@ -837,6 +856,22 @@ Each entry is tagged so a version can be skimmed:
   has always applied to the same state on the FIDE path.
 
 ### Security
+
+- [Security] **Connections is no longer readable by an ordinary account.**
+  Its buttons were role-gated, and that was half the job: any signed-in user
+  could still open the page and read the address this installation publishes
+  to, the backup filenames and their sizes, when each rating list last
+  synced, and whether the results site was answering.
+
+  None of that is a password and all of it is the operator's business rather
+  than every arbiter's. The route refuses now, not only the buttons, and the
+  nav link is not offered &mdash; a link is a courtesy, but a bookmark or a
+  typed URL is not, so the markup gate alone would have left the page serving
+  to anyone who guessed it.
+
+  `support` may still open it, which is the point of that role: the person
+  answering "why did publishing stop" can see the diagnostics without the
+  authority to change them.
 
 - [Security] **Only an administrator can change where this machine
   publishes.** The OpenResults address and token were editable by any

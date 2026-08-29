@@ -9,6 +9,16 @@ defmodule PairingsEngineWeb.FideLiveTest do
 
   setup :register_and_log_in_user
 
+  # Connections moved behind `PairingsEngineWeb.RequireRole` on 2026-08-29:
+  # gating its buttons had left the page readable by any account, and what it
+  # shows - the publishing address, the backup filenames, the sync state - is
+  # the operator's business. So the signed-in user here is an administrator,
+  # and the tests below that care about a lesser role build their own.
+  setup %{conn: conn, user: user} do
+    {:ok, admin} = Accounts.set_role(user.email, "admin")
+    {:ok, conn: log_in_user(conn, admin), user: admin}
+  end
+
   test "renders every outbound connection under the 'Connections' heading", %{conn: conn} do
     {:ok, _lv, html} = live(conn, ~p"/fide")
 
@@ -75,11 +85,11 @@ defmodule PairingsEngineWeb.FideLiveTest do
       end)
     end
 
-    test "an ordinary account cannot change where this machine publishes", %{conn: conn} do
+    test "support cannot change where this machine publishes", %{conn: conn} do
       Publishing.put_endpoint("https://openresults.example")
       Publishing.put_token("operators-token")
 
-      {:ok, lv, _html} = live(conn, ~p"/fide")
+      {:ok, lv, _html} = live(support_conn(conn), ~p"/fide")
 
       # Repointing this at another server would quietly ship player names,
       # ratings and clubs there, so it is an operator's decision rather than
@@ -96,11 +106,11 @@ defmodule PairingsEngineWeb.FideLiveTest do
       assert Publishing.token() == "operators-token"
     end
 
-    test "an ordinary account cannot remove the token either", %{conn: conn} do
+    test "support cannot remove the token either", %{conn: conn} do
       Publishing.put_endpoint("https://openresults.example")
       Publishing.put_token("operators-token")
 
-      {:ok, lv, _html} = live(conn, ~p"/fide")
+      {:ok, lv, _html} = live(support_conn(conn), ~p"/fide")
 
       html = lv |> element("button[phx-click=clear_publishing_token]") |> render_click()
 
@@ -272,8 +282,11 @@ defmodule PairingsEngineWeb.FideLiveTest do
   end
 
   describe "the FIDE download is gated on the role" do
-    test "a plain account sees the button disabled and can't trigger sync", %{conn: conn} do
-      {:ok, lv, html} = live(conn, ~p"/fide")
+    test "support sees the button disabled and can't trigger sync", %{conn: conn} do
+      # Support is the role that can OPEN this page without being able to act
+      # on it, so it is what proves the button-level gate. An ordinary
+      # account never gets this far - see `admin_access_test.exs`.
+      {:ok, lv, html} = live(support_conn(conn), ~p"/fide")
 
       assert html =~ "needs an administrator"
       assert lv |> element("button[phx-click='sync'][disabled]") |> has_element?()
@@ -284,16 +297,14 @@ defmodule PairingsEngineWeb.FideLiveTest do
       assert html =~ "needs an administrator"
     end
 
-    test "an SSO account is not an administrator", %{conn: conn} do
+    test "an SSO account is not an administrator, and cannot even open the page",
+         %{conn: conn} do
       # This is the change of 2026-08-29 and the reason the role exists.
       # Signing in through 02cloud says how somebody authenticated; it does
       # not say they may spend forty megabytes of somebody else's bandwidth
       # on this installation's behalf. Every account in a federated
       # directory used to pass this gate.
-      {:ok, lv, html} = live(sso_conn(conn), ~p"/fide")
-
-      assert html =~ "needs an administrator"
-      assert lv |> element("button[phx-click='sync'][disabled]") |> has_element?()
+      assert {:error, {:redirect, %{to: "/"}}} = live(sso_conn(conn), ~p"/fide")
     end
 
     test "an administrator sees the button enabled, no restriction message", %{conn: conn} do

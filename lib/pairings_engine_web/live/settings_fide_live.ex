@@ -127,7 +127,8 @@ defmodule PairingsEngineWeb.SettingsFideLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app publish_status={assigns[:publish_status]}
+    <Layouts.app
+      publish_status={assigns[:publish_status]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}

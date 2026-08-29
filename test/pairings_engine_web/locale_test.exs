@@ -114,14 +114,14 @@ defmodule PairingsEngineWeb.LocaleTest do
       # `assigns[:current_path] || "/"`, and nothing ever assigned
       # `:current_path` - so the fallback was always taken and every language
       # switch dumped the visitor on the tournaments list.
-      {:ok, _lv, html} = live(conn, ~p"/fide")
+      {:ok, _lv, html} = live(conn, ~p"/changelog")
 
-      assert html =~ "redirect_to=%2Ffide" or html =~ "redirect_to=/fide",
-             "the language picker should return to /fide, not to /"
+      assert html =~ "redirect_to=%2Fchangelog" or html =~ "redirect_to=/changelog",
+             "the language picker should return to /changelog, not to /"
     end
 
     test "a query string survives the switch too", %{conn: conn} do
-      {:ok, _lv, html} = live(conn, ~p"/fide?q=carlsen")
+      {:ok, _lv, html} = live(conn, ~p"/changelog?q=carlsen")
 
       assert html =~ "q%3Dcarlsen" or html =~ "q=carlsen",
              "a filtered page should come back filtered"

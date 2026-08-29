@@ -32,6 +32,34 @@ defmodule PairingsEngineWeb.Router do
   scope "/", PairingsEngineWeb do
     pipe_through [:browser, :require_authenticated_user]
 
+    # Support may look at Connections; only an administrator may act on it,
+    # which the page's own handlers enforce. Admin is admin throughout.
+    live_session :machine_settings,
+      on_mount: [
+        PairingsEngineWeb.LocaleHook,
+        PairingsEngineWeb.DeployNotice,
+        PairingsEngineWeb.PublishStatusHook,
+        {PairingsEngineWeb.UserAuth, :require_authenticated},
+        {PairingsEngineWeb.RequireRole, :support}
+      ] do
+      live "/fide", FideLive
+    end
+
+    live_session :administration,
+      on_mount: [
+        PairingsEngineWeb.LocaleHook,
+        PairingsEngineWeb.DeployNotice,
+        PairingsEngineWeb.PublishStatusHook,
+        {PairingsEngineWeb.UserAuth, :require_authenticated},
+        {PairingsEngineWeb.RequireRole, :admin}
+      ] do
+      live "/admin", AdminLive
+    end
+  end
+
+  scope "/", PairingsEngineWeb do
+    pipe_through [:browser, :require_authenticated_user]
+
     live_session :require_authenticated_tournaments,
       on_mount: [
         PairingsEngineWeb.LocaleHook,
@@ -40,7 +68,6 @@ defmodule PairingsEngineWeb.Router do
         {PairingsEngineWeb.UserAuth, :require_authenticated}
       ] do
       live "/", TournamentsLive
-      live "/fide", FideLive
       live "/changelog", ChangelogLive
       live "/t/:id/players", PlayersLive
       live "/t/:id/registrations", RegistrationsLive

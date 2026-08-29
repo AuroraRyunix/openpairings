@@ -327,7 +327,11 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app publish_status={assigns[:publish_status]} flash={@flash} current_scope={@current_scope}>
+    <Layouts.app
+      publish_status={assigns[:publish_status]}
+      flash={@flash}
+      current_scope={@current_scope}
+    >
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>

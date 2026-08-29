@@ -179,7 +179,10 @@ defmodule PairingsEngine.AuthzTest do
 
     test "an empty or unset list declares nobody" do
       for value <- [[], nil] do
-        if value, do: declare(value), else: Application.delete_env(:pairings_engine, :admin_emails)
+        if value,
+          do: declare(value),
+          else: Application.delete_env(:pairings_engine, :admin_emails)
+
         refute Authz.may_administer?(user_fixture())
       end
     end

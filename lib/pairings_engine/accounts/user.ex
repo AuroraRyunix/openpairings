@@ -170,19 +170,27 @@ defmodule PairingsEngine.Accounts.User do
   @doc """
   Sets a user's role.
 
-  Reachable only from `mix pairings.role`, deliberately: there is no
-  in-application screen for this. Promoting an account is rare, it is the
-  single most consequential change anyone can make to a deployment, and
-  requiring shell access on the box means the authority to grant admin can
-  never be obtained by holding admin.
+  Reached from `mix pairings.role` and from `PairingsEngineWeb.AdminLive`.
+
+  This once said the mix task was the only way in, on the argument that
+  requiring shell access keeps the authority to grant admin from being
+  something admin itself confers. **That argument is about the FIRST
+  administrator and still holds** - nothing in the application can bootstrap
+  one, and a hosted box has none until `ADMIN_EMAILS` or the task says so.
+
+  It does not reach the second. An administrator granting `support` to a
+  colleague gains nothing they did not have: the same session can already
+  repoint where the installation publishes and download the whole database.
+  The Admin page carries the guards that matter instead - you cannot change
+  your own role, the last administrator cannot be demoted, and an address
+  declared in the deployment's configuration is not editable from a screen
+  that could not make the change stick.
   """
   def role_changeset(user, attrs) do
     user
     |> cast(attrs, [:role])
     |> validate_required([:role])
-    |> validate_inclusion(:role, @roles,
-      message: "must be one of: #{Enum.join(@roles, ", ")}"
-    )
+    |> validate_inclusion(:role, @roles, message: "must be one of: #{Enum.join(@roles, ", ")}")
   end
 
   @doc """

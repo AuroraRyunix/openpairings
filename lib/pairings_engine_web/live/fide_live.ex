@@ -294,7 +294,8 @@ defmodule PairingsEngineWeb.FideLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app publish_status={assigns[:publish_status]}
+    <Layouts.app
+      publish_status={assigns[:publish_status]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -352,9 +353,7 @@ defmodule PairingsEngineWeb.FideLive do
             class="pe-btn primary"
             phx-click="sync"
             disabled={busy?(@status) or !@may_admin?}
-            title={
-              if !@may_admin?, do: gettext("An administrator can update the FIDE rating list")
-            }
+            title={if !@may_admin?, do: gettext("An administrator can update the FIDE rating list")}
           >
             {cond do
               busy?(@status) -> gettext("Updating…")

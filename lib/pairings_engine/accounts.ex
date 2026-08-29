@@ -165,6 +165,23 @@ defmodule PairingsEngine.Accounts do
   end
 
   @doc """
+  Every account, roles first then alphabetically, for the Admin page.
+
+  Ordered so the people who can change this installation are at the top,
+  which is the question the page is answering - an alphabetical list buries
+  the two administrators among three hundred arbiters.
+  """
+  def list_users do
+    from(u in User,
+      order_by: [
+        asc: fragment("CASE ? WHEN 'admin' THEN 0 WHEN 'support' THEN 1 ELSE 2 END", u.role),
+        asc: u.email
+      ]
+    )
+    |> Repo.all()
+  end
+
+  @doc """
   Every account holding a role above `owner`, for the mix task to list.
   """
   def privileged_users do

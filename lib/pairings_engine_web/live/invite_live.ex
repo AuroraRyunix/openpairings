@@ -104,7 +104,12 @@ defmodule PairingsEngineWeb.InviteLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app publish_status={assigns[:publish_status]} flash={@flash} current_path={assigns[:current_path]} current_scope={@current_scope}>
+    <Layouts.app
+      publish_status={assigns[:publish_status]}
+      flash={@flash}
+      current_path={assigns[:current_path]}
+      current_scope={@current_scope}
+    >
       <div class="mx-auto max-w-sm space-y-4">
         <div class="card">
           <%= cond do %>
