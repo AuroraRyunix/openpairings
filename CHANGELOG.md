@@ -16,31 +16,6 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
-### Fixed
-
-- [Fix] **Every public link pointed back at this machine, even for a
-  tournament being published.** The share links, the projector's QR code, the
-  registration link &mdash; all of them handed out a `/p/:slug` address served
-  by the very computer running the round.
-
-  That is not a broken link, which is what makes it bad: it works perfectly
-  and quietly undoes the split. Moving spectators off the arbiter's machine is
-  the entire reason the results site exists, and the app was sending them
-  straight back.
-
-  There is now one function that answers where the public reads a tournament,
-  and every link goes through it. (The local pages it fell back to were
-  removed later the same day &mdash; see below &mdash; so that function now
-  has one answer rather than two.)
-
-  A tournament marked to publish on a machine that has not been told an
-  address has no public link at all, rather than a link built from a blank
-  address. The share card names the host a spectator will land on, so nobody
-  has to read a URL to work out which site they just copied.
-
-  The links are absolute now rather than relative &mdash; half of them end up
-  on a QR code, in a printed footer or pasted into an email.
-
 ### Added
 
 - [Feature] **Settings &rarr; Results site.** One page for everything about a
@@ -137,35 +112,86 @@ Each entry is tagged so a version can be skimmed:
   because free text collects "gm", "Grandmaster" and "GM (inactive)" and
   somebody normalises all of it by hand. Neither is required.
 
-### Removed
+- [Feature] **Remove a tournament from the results site.** In Settings, under
+  Publish to the results site, once something has actually been published.
+  It deletes the public page, every earlier snapshot in that tournament's
+  history, and any entries collected for it, and it says so before you
+  confirm. Nothing on your machine is touched &mdash; the tournament, its
+  players and its results stay exactly as they are.
 
-- [Removed] **This app no longer serves public pages.** `/p/:slug/pairings`,
-  `/p/:slug/standings` and `/p/:slug/register` are gone. A tournament becomes
-  readable by the public in exactly one way now: it is published to the
-  results site.
+  A takedown that does not reach the server changes nothing and tells you
+  why. In particular a "not found" reply is reported rather than treated as
+  "already gone": it can equally mean the results site is too old to have a
+  takedown at all, and being told your event was withdrawn while it is still
+  up is worse than being told nothing happened.
 
-  There were two public surfaces for one thing, and the default was the wrong
-  one. A link to the machine running the round, printed on a wall chart and
-  handed to a hall full of spectators, is precisely what the results site
-  exists to prevent &mdash; and the fix earlier today only stopped the app
-  *advertising* those links, it did not stop them working. A second
-  correct-looking answer is worse than none, so they were removed rather than
-  de-emphasised.
+- [Feature] **Entries from the results site.** The public form on OpenResults
+  collects sign-ups; a published tournament now has an **Entries** page
+  (linked from its Settings) where you fetch them and decide on each one.
+  Accept adds the player, Discard adds nothing.
 
-  **The two switches are now one.** "Public pages" and "Publish to the results
-  site" asked different questions &mdash; may anyone read this here, versus
-  does a copy leave at all &mdash; and the first has no meaning without a
-  "here". Publishing is the whole of it. Every tournament whose public pages
-  were switched on is now marked to publish, because its arbiter had already
-  said "this is public" and the only thing that changed is where the public
-  reads it.
+  The results site cannot put anyone in your tournament. It holds requests
+  and this machine comes and asks &mdash; which is why there is a Fetch button
+  rather than a list that fills itself in. An accepted entrant lands **not
+  yet arrived**, exactly like the form on this machine: filling in a web
+  page announces an intention to play, and pairing someone who never turned
+  up hands their opponent a forfeit win.
 
-  **Club embeds move too.** A club site that put the pairing list on its own
-  front page embeds it from the results site now. The framing exception this
-  app carried for those three pages is gone, along with the cookie-free
-  websocket and the iframe height-reporting script that served them, and
-  `PUBLIC_FRAME_ANCESTORS` with it. Nothing this app serves can be framed any
-  more, which is one fewer argument to get right every time a route is added.
+  Rounds an entrant asked to sit out become their absent rounds, clamped to
+  the rounds your tournament actually has &mdash; a request for round 9 of a
+  five-round event is shown to you rather than quietly trimmed.
+
+  A turned-down entry is kept rather than deleted, so fetching again cannot
+  bring it back and you can still reach the person. Their email address is
+  the one personal detail an entry carries; it stays on that page and goes
+  into no snapshot, no TRF and no public page.
+
+- [Feature] **Publishing has a UI.** The Rating lists page is now
+  **Connections** &mdash; everything this machine talks to, the two rating
+  lists it reads and the results site it writes to. The address and token
+  are set once for the machine; each tournament then has its own switch in
+  its Settings, off until you turn it on.
+
+  The token is never rendered back once saved, and an empty token box means
+  "keep the one you have" rather than "clear it" &mdash; otherwise editing the
+  address beside it would wipe a working token every time.
+
+  **Test connection** is a GET against a route that cannot match anything,
+  never a publish. A test button that published would be a trap: you press
+  it to find out whether the settings work and a tournament goes live as a
+  side effect.
+
+- [Feature] **The results site has themes.** Six, chosen from the picker
+  beside its name and remembered per browser: the original (Paper), Night,
+  Board (cream and board-green), Slate, and a High contrast black-on-white for
+  a projector at the back of a hall. "Match device" is there too.
+
+  It opens on **light** rather than following the device. A spectator opens
+  this page once, often inside a club's own site, and club sites are
+  overwhelmingly light &mdash; a dark slab dropped into the middle of one reads
+  as broken rather than as a theme.
+
+- [Feature] **Right-click a player on the results site for their card.** The
+  full opponent table &mdash; every round, who they played, their number,
+  federation, title, rating and own total &mdash; shown in place, the way
+  right-clicking a row does on the Players page here. Left-click still opens
+  the page, which is what happens with no JavaScript and on a phone.
+
+- [Feature] **The results site keeps itself current.** Standings and pairings
+  refresh themselves every 20 seconds instead of waiting for somebody to pull
+  down on their phone. The pages this replaced were live, and being static was
+  the most visible thing lost in the move.
+
+  It swaps one region rather than reloading, so scroll position, theme and an
+  open card all survive; it stands down on the entry form, where replacing the
+  page under somebody typing would clear it; and it says so in the footer when
+  the connection has gone, rather than showing a page that has quietly stopped
+  being current.
+
+- [Feature] **Elo and running scores on the published pairings.** Each board
+  shows both players' ratings and the points they carried into the round
+  &mdash; which is what a pairing list means by score, and what explains why
+  those two are on that board.
 
 ### Changed
 
@@ -231,64 +257,6 @@ Each entry is tagged so a version can be skimmed:
   The settings are kept either way: a typo you cannot correct because the
   form discarded it is worse than one that is stored and reported.
 
-### Security
-
-- [Security] **Only an SSO account can change where this machine publishes.**
-  The OpenResults address and token were editable by any signed-in user,
-  including a self-registered one. Repointing them at another server would
-  quietly send every published tournament's player names, ratings and clubs
-  there.
-
-  It is now behind the same gate as the FIDE rating-list download, and on the
-  event handlers rather than only the markup &mdash; a hidden button still
-  accepts a crafted event.
-
-  Deliberately not extended to a tournament's own publish switch. An operator
-  decides *where* this machine publishes; the arbiter running an event decides
-  *whether* theirs goes. Gating the second would stop an arbiter publishing
-  their own tournament on a machine somebody else set up, which is the
-  ordinary case rather than the dangerous one.
-
-### Fixed
-
-- [Fix] **The navigation still said "Rating lists".** The page became
-  Connections when the OpenResults settings landed on it; the nav label was
-  missed, so the button and the heading it led to disagreed.
-
-
-### Security
-
-- [Security] **A published tournament belongs to the machine that published
-  it, and can now be taken down.** Until now there was one ingest token for a
-  whole results site, and it answered only "may this machine talk to this
-  server". Anything holding it could overwrite any tournament there, and
-  nothing could withdraw one at all: turning a tournament's publish switch
-  off stopped further updates and left the page &mdash; player names, ratings,
-  clubs and federations &mdash; public forever. The only remedy was SSH and
-  SQLite.
-
-  Each tournament now gets its own key, generated on your machine the first
-  time it publishes and never regenerated. The results site requires it for
-  every later update and for deletion, so a second machine holding the shared
-  token can no longer touch your event.
-
-### Added
-
-- [Feature] **Remove a tournament from the results site.** In Settings, under
-  Publish to the results site, once something has actually been published.
-  It deletes the public page, every earlier snapshot in that tournament's
-  history, and any entries collected for it, and it says so before you
-  confirm. Nothing on your machine is touched &mdash; the tournament, its
-  players and its results stay exactly as they are.
-
-  A takedown that does not reach the server changes nothing and tells you
-  why. In particular a "not found" reply is reported rather than treated as
-  "already gone": it can equally mean the results site is too old to have a
-  takedown at all, and being told your event was withdrawn while it is still
-  up is worse than being told nothing happened.
-
-### Changed
-
 - [Change] **A JSON backup of a published tournament now carries its
   publishing key, and is therefore as sensitive as a password.** That is
   deliberate: rebuilding a laptop from a backup has to recover the ability to
@@ -309,9 +277,157 @@ Each entry is tagged so a version can be skimmed:
   same export-and-import machinery: the original is still right there, still
   publishing.
 
-## [Unreleased]
+- [Change] **All three private copies of the played-code vocabulary are now
+  checked at build time.** `Ainalrami.Trf.playing_codes/0` and `bye_codes/0`
+  are public precisely so nobody writes a fourth, but neither expresses the
+  question these call sites ask - *what point value does this code stand
+  for* - which is a three-way split running across both engine lists rather
+  than along them. What the engine can police is the domain, and that is the
+  half that broke: `W`/`D`/`L` went missing from one copy and an opponentless
+  unrated result escaped as an exception. A missing code now fails the build
+  naming itself, instead of surfacing mid-import on an arbiter's file.
+
+  Neither remaining copy was mis-scoring anything today; each was complete as
+  of v0.14.0. The exposure was drift, which is now not possible silently.
+
+- [Change] **The public standings page now respects the round publish gate.**
+  It showed results for rounds the public *pairings* page one link away
+  deliberately hides, so withholding a round hid who played whom and
+  published the results anyway.
+
+  Both public surfaces now compute standings through the same bound: the
+  longest run of rounds 1..n that are *all* published. The contiguous prefix
+  rather than the highest published number, because with round 3 published
+  and round 2 held back, standings through 3 carry round 2's results anyway.
+
+  That bound lived privately inside the OpenResults snapshot first, which
+  meant the published site enforced the gate and the page served from this
+  app did not &mdash; two publics disagreeing about what "not published yet"
+  means. One definition now, in `Tournaments.published_through_round/1`.
+
+- [Change] **Colour allocation follows a FIDE ruling that went against the
+  engine.** The pairing engine is pinned forward to Ainalrami v0.14.0, which
+  changes how Article 5.2.5 decides who gets White.
+
+  5.2.5 is the last resort: when neither player of a pair has any colour
+  preference, the higher ranked of them takes the initial colour if their
+  number is odd. The question was which number. Ainalrami used the
+  tournament pairing number as the handbook defines it; both reference
+  engines used a numbering that skips players who have never been paired.
+  On 2026-08-27 the FIDE Systems of Pairings and Programs Commission ruled
+  that the references were right.
+
+  **What an arbiter sees.** On a board where 5.2.5 decides and somebody in
+  the tournament has been registered without ever being paired - a
+  no-show, a late entry who has not arrived, anyone who has only taken
+  byes - White and Black may now be allocated the other way round from
+  before. Nothing else moves: who plays whom is decided before colours are
+  allocated, so pairings, byes, floats and standings are untouched. A
+  tournament already in progress is unaffected for rounds already paired.
+
+  This brings us into agreement with bbpPairings and Gacrux on a class of
+  boards where we previously and deliberately differed. See the engine's
+  `docs/dispute-initial-colour.md` for the full record, including two
+  mistakes of our own that the ruling exposed.
+
+- [Change] **One TRF16 implementation, not two.** The app carried its own
+  FIDE TRF16 reader/writer alongside the pairing engine's, which was
+  photocopied from it and then kept growing - so a pairing input was written
+  by one implementation and read by the other, and the app's copy knew
+  nothing of `XXR`, `XXP`, `XXA`, `250`, `260`, `BB*` or `162`. Every caller
+  now uses the engine's, and the app's is gone. Both were measured against
+  each other on 249 serialize cases and 137 parse cases first: every
+  remaining difference was the engine's reading or writing something the
+  app's copy could not.
+
+- [Change] **The extension lines are written, not glued on.** The `XXR`,
+  `XXA` and `XXP` lines a pairing input carries - the round count, the Baku
+  virtual points, and the arbiter's forbidden pairings and club/federation
+  exclusions - used to be built as text and concatenated onto the finished
+  TRF, which put exactly the lines carrying the rules outside the writer and
+  outside every check it makes. They are fields of the tournament now and
+  the writer emits them. This is the class of defect that gap hid: an `XXA`
+  line one column too wide, which JaVaFo tolerated and bbpPairings rejected
+  outright, so every accelerated tournament this app exported was unreadable
+  by anything but JaVaFo.
+
+- [Fix] **A pairing file for a round still being played is readable again.**
+  A player row whose last round has no result yet lost the two columns that
+  round's blank result occupies, because trailing whitespace was trimmed off
+  the row. bbpPairings rejects the whole FILE for that, not just the round -
+  it stops reading round blocks two columns early and then finds characters
+  left over. This was already fixed in the engine's writer and arrives with
+  the consolidation above; the app's own writer, which every export went
+  through, still trimmed. Files where every round has a result are unchanged
+  byte for byte.
+
+- [Change] **The unsupported-extension guard now looks at every extension.**
+  Before pairing with Ainalrami, the app scans the file it generated and
+  refuses to pair - writing nothing - if it finds an extension line the
+  engine will not act on, because an ignored rule yields a complete,
+  legal-looking round that quietly breaks it. That scan only looked at lines
+  beginning `XX`, which was the whole vocabulary while the app hand-built
+  its own extension lines. The writer emits the numeric and `BB*` spellings
+  too, so the scan now covers every code that is not TRF16's own.
+
+### Removed
+
+- [Removed] **This app no longer serves public pages.** `/p/:slug/pairings`,
+  `/p/:slug/standings` and `/p/:slug/register` are gone. A tournament becomes
+  readable by the public in exactly one way now: it is published to the
+  results site.
+
+  There were two public surfaces for one thing, and the default was the wrong
+  one. A link to the machine running the round, printed on a wall chart and
+  handed to a hall full of spectators, is precisely what the results site
+  exists to prevent &mdash; and the fix earlier today only stopped the app
+  *advertising* those links, it did not stop them working. A second
+  correct-looking answer is worse than none, so they were removed rather than
+  de-emphasised.
+
+  **The two switches are now one.** "Public pages" and "Publish to the results
+  site" asked different questions &mdash; may anyone read this here, versus
+  does a copy leave at all &mdash; and the first has no meaning without a
+  "here". Publishing is the whole of it. Every tournament whose public pages
+  were switched on is now marked to publish, because its arbiter had already
+  said "this is public" and the only thing that changed is where the public
+  reads it.
+
+  **Club embeds move too.** A club site that put the pairing list on its own
+  front page embeds it from the results site now. The framing exception this
+  app carried for those three pages is gone, along with the cookie-free
+  websocket and the iframe height-reporting script that served them, and
+  `PUBLIC_FRAME_ANCESTORS` with it. Nothing this app serves can be framed any
+  more, which is one fewer argument to get right every time a route is added.
 
 ### Fixed
+
+- [Fix] **Every public link pointed back at this machine, even for a
+  tournament being published.** The share links, the projector's QR code, the
+  registration link &mdash; all of them handed out a `/p/:slug` address served
+  by the very computer running the round.
+
+  That is not a broken link, which is what makes it bad: it works perfectly
+  and quietly undoes the split. Moving spectators off the arbiter's machine is
+  the entire reason the results site exists, and the app was sending them
+  straight back.
+
+  There is now one function that answers where the public reads a tournament,
+  and every link goes through it. (The local pages it fell back to were
+  removed later the same day &mdash; see below &mdash; so that function now
+  has one answer rather than two.)
+
+  A tournament marked to publish on a machine that has not been told an
+  address has no public link at all, rather than a link built from a blank
+  address. The share card names the host a spectator will land on, so nobody
+  has to read a URL to work out which site they just copied.
+
+  The links are absolute now rather than relative &mdash; half of them end up
+  on a QR code, in a printed footer or pasted into an email.
+
+- [Fix] **The navigation still said "Rating lists".** The page became
+  Connections when the OpenResults settings landed on it; the nav label was
+  missed, so the button and the heading it led to disagreed.
 
 - [Fix] **A backup no longer loses an accessible table, relabels a played
   round, or un-hides a hidden board.** Three separate ways a restore came
@@ -386,80 +502,6 @@ Each entry is tagged so a version can be skimmed:
   a cap is never. No number it returns has moved, and there is a test
   counting queries alongside the ones pinning values.
 
-### Changed
-
-- [Change] **All three private copies of the played-code vocabulary are now
-  checked at build time.** `Ainalrami.Trf.playing_codes/0` and `bye_codes/0`
-  are public precisely so nobody writes a fourth, but neither expresses the
-  question these call sites ask - *what point value does this code stand
-  for* - which is a three-way split running across both engine lists rather
-  than along them. What the engine can police is the domain, and that is the
-  half that broke: `W`/`D`/`L` went missing from one copy and an opponentless
-  unrated result escaped as an exception. A missing code now fails the build
-  naming itself, instead of surfacing mid-import on an arbiter's file.
-
-  Neither remaining copy was mis-scoring anything today; each was complete as
-  of v0.14.0. The exposure was drift, which is now not possible silently.
-
-## [Unreleased]
-
-### Added
-
-- [Feature] **Entries from the results site.** The public form on OpenResults
-  collects sign-ups; a published tournament now has an **Entries** page
-  (linked from its Settings) where you fetch them and decide on each one.
-  Accept adds the player, Discard adds nothing.
-
-  The results site cannot put anyone in your tournament. It holds requests
-  and this machine comes and asks &mdash; which is why there is a Fetch button
-  rather than a list that fills itself in. An accepted entrant lands **not
-  yet arrived**, exactly like the form on this machine: filling in a web
-  page announces an intention to play, and pairing someone who never turned
-  up hands their opponent a forfeit win.
-
-  Rounds an entrant asked to sit out become their absent rounds, clamped to
-  the rounds your tournament actually has &mdash; a request for round 9 of a
-  five-round event is shown to you rather than quietly trimmed.
-
-  A turned-down entry is kept rather than deleted, so fetching again cannot
-  bring it back and you can still reach the person. Their email address is
-  the one personal detail an entry carries; it stays on that page and goes
-  into no snapshot, no TRF and no public page.
-
-- [Feature] **Publishing has a UI.** The Rating lists page is now
-  **Connections** &mdash; everything this machine talks to, the two rating
-  lists it reads and the results site it writes to. The address and token
-  are set once for the machine; each tournament then has its own switch in
-  its Settings, off until you turn it on.
-
-  The token is never rendered back once saved, and an empty token box means
-  "keep the one you have" rather than "clear it" &mdash; otherwise editing the
-  address beside it would wipe a working token every time.
-
-  **Test connection** is a GET against a route that cannot match anything,
-  never a publish. A test button that published would be a trap: you press
-  it to find out whether the settings work and a tournament goes live as a
-  side effect.
-
-### Changed
-
-- [Change] **The public standings page now respects the round publish gate.**
-  It showed results for rounds the public *pairings* page one link away
-  deliberately hides, so withholding a round hid who played whom and
-  published the results anyway.
-
-  Both public surfaces now compute standings through the same bound: the
-  longest run of rounds 1..n that are *all* published. The contiguous prefix
-  rather than the highest published number, because with round 3 published
-  and round 2 held back, standings through 3 carry round 2's results anyway.
-
-  That bound lived privately inside the OpenResults snapshot first, which
-  meant the published site enforced the gate and the page served from this
-  app did not &mdash; two publics disagreeing about what "not published yet"
-  means. One definition now, in `Tournaments.published_through_round/1`.
-
-### Fixed
-
 - [Fix] **Queuing a publish can no longer break a write.** It hangs off the
   funnel every write in the app goes through, which is what stops any call
   site forgetting to publish &mdash; and equally meant one bad query there
@@ -524,10 +566,6 @@ Each entry is tagged so a version can be skimmed:
   publish and none can forget. It costs one primary-key lookup for a
   tournament that has not opted in.
 
-## [Unreleased]
-
-### Fixed
-
 - [Fix] **A single reported board moved everybody else's tiebreaks.** While a
   round was being played, the moment the first result was typed in, every
   player who had not yet reported gained a phantom draw on their opponents'
@@ -586,74 +624,48 @@ Each entry is tagged so a version can be skimmed:
   damage reproduces identically with a fixed table at 1001, so it has been
   live for as long as the feature has.
 
-## [Unreleased]
+- [Fix] **Club sites could not embed the results pages at all.** They were
+  reported as embeddable when the local public pages were removed; they never
+  were. Phoenix sets `frame-ancestors 'self'` by default, and the claim came
+  from searching the results site's own code for a policy, finding none, and
+  never looking at an actual response.
 
-### Changed
+  Every page there permits framing now, and that is safe for the whole site
+  rather than for a list of routes: there is no session and no login, so a
+  framing page gains nothing it could not get by fetching the URL itself.
+  `PUBLIC_FRAME_ANCESTORS` restricts or disables it.
 
-- [Change] **Colour allocation follows a FIDE ruling that went against the
-  engine.** The pairing engine is pinned forward to Ainalrami v0.14.0, which
-  changes how Article 5.2.5 decides who gets White.
+### Security
 
-  5.2.5 is the last resort: when neither player of a pair has any colour
-  preference, the higher ranked of them takes the initial colour if their
-  number is odd. The question was which number. Ainalrami used the
-  tournament pairing number as the handbook defines it; both reference
-  engines used a numbering that skips players who have never been paired.
-  On 2026-08-27 the FIDE Systems of Pairings and Programs Commission ruled
-  that the references were right.
+- [Security] **Only an SSO account can change where this machine publishes.**
+  The OpenResults address and token were editable by any signed-in user,
+  including a self-registered one. Repointing them at another server would
+  quietly send every published tournament's player names, ratings and clubs
+  there.
 
-  **What an arbiter sees.** On a board where 5.2.5 decides and somebody in
-  the tournament has been registered without ever being paired - a
-  no-show, a late entry who has not arrived, anyone who has only taken
-  byes - White and Black may now be allocated the other way round from
-  before. Nothing else moves: who plays whom is decided before colours are
-  allocated, so pairings, byes, floats and standings are untouched. A
-  tournament already in progress is unaffected for rounds already paired.
+  It is now behind the same gate as the FIDE rating-list download, and on the
+  event handlers rather than only the markup &mdash; a hidden button still
+  accepts a crafted event.
 
-  This brings us into agreement with bbpPairings and Gacrux on a class of
-  boards where we previously and deliberately differed. See the engine's
-  `docs/dispute-initial-colour.md` for the full record, including two
-  mistakes of our own that the ruling exposed.
+  Deliberately not extended to a tournament's own publish switch. An operator
+  decides *where* this machine publishes; the arbiter running an event decides
+  *whether* theirs goes. Gating the second would stop an arbiter publishing
+  their own tournament on a machine somebody else set up, which is the
+  ordinary case rather than the dangerous one.
 
-- [Change] **One TRF16 implementation, not two.** The app carried its own
-  FIDE TRF16 reader/writer alongside the pairing engine's, which was
-  photocopied from it and then kept growing - so a pairing input was written
-  by one implementation and read by the other, and the app's copy knew
-  nothing of `XXR`, `XXP`, `XXA`, `250`, `260`, `BB*` or `162`. Every caller
-  now uses the engine's, and the app's is gone. Both were measured against
-  each other on 249 serialize cases and 137 parse cases first: every
-  remaining difference was the engine's reading or writing something the
-  app's copy could not.
+- [Security] **A published tournament belongs to the machine that published
+  it, and can now be taken down.** Until now there was one ingest token for a
+  whole results site, and it answered only "may this machine talk to this
+  server". Anything holding it could overwrite any tournament there, and
+  nothing could withdraw one at all: turning a tournament's publish switch
+  off stopped further updates and left the page &mdash; player names, ratings,
+  clubs and federations &mdash; public forever. The only remedy was SSH and
+  SQLite.
 
-- [Change] **The extension lines are written, not glued on.** The `XXR`,
-  `XXA` and `XXP` lines a pairing input carries - the round count, the Baku
-  virtual points, and the arbiter's forbidden pairings and club/federation
-  exclusions - used to be built as text and concatenated onto the finished
-  TRF, which put exactly the lines carrying the rules outside the writer and
-  outside every check it makes. They are fields of the tournament now and
-  the writer emits them. This is the class of defect that gap hid: an `XXA`
-  line one column too wide, which JaVaFo tolerated and bbpPairings rejected
-  outright, so every accelerated tournament this app exported was unreadable
-  by anything but JaVaFo.
-
-- [Fix] **A pairing file for a round still being played is readable again.**
-  A player row whose last round has no result yet lost the two columns that
-  round's blank result occupies, because trailing whitespace was trimmed off
-  the row. bbpPairings rejects the whole FILE for that, not just the round -
-  it stops reading round blocks two columns early and then finds characters
-  left over. This was already fixed in the engine's writer and arrives with
-  the consolidation above; the app's own writer, which every export went
-  through, still trimmed. Files where every round has a result are unchanged
-  byte for byte.
-
-- [Change] **The unsupported-extension guard now looks at every extension.**
-  Before pairing with Ainalrami, the app scans the file it generated and
-  refuses to pair - writing nothing - if it finds an extension line the
-  engine will not act on, because an ignored rule yields a complete,
-  legal-looking round that quietly breaks it. That scan only looked at lines
-  beginning `XX`, which was the whole vocabulary while the app hand-built
-  its own extension lines. The writer emits the numeric and `BB*` spellings
-  too, so the scan now covers every code that is not TRF16's own.
+  Each tournament now gets its own key, generated on your machine the first
+  time it publishes and never regenerated. The results site requires it for
+  every later update and for deletion, so a second machine holding the shared
+  token can no longer touch your event.
 
 ## [0.17.1] - 2026-08-26
 
