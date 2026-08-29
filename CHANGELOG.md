@@ -14,9 +14,29 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
-## [Unreleased]
+## [0.18.0] - 2026-08-29
 
 ### Added
+
+- [Feature] **Far more control over what the public page shows, in far less
+  space.** Seventeen switches instead of seven, grouped by what they decide:
+  which pages exist at all (standings, round pairings, player cards, byes),
+  what is shown beside each name, which tournament details ride in the header
+  (city, dates, arbiter, deputy, tempo, FIDE badge), and which extra columns
+  a shown page carries.
+
+  Whole pages can now be withheld &mdash; some arbiters hold the standings back
+  until the last round is in, and now they can. What still cannot be hidden is
+  the truth on a page that IS shown: there is no way to publish a standings
+  table with the names removed or a pairing list without results. A page is
+  published honestly or not published.
+
+  A withheld page says so and links back to the tournament, rather than
+  claiming not to exist &mdash; the event is right there, and a 404 would send
+  somebody hunting for a link that was never broken.
+
+  The old layout took most of a screen for seven boxes and would have taken
+  three for seventeen. It is a grid of compact toggles now, green when on.
 
 - [Feature] **There are backups now.** There were none. Every tournament,
   result, registration and publishing key lived on one database file on one

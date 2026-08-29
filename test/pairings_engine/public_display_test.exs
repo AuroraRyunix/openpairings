@@ -73,15 +73,11 @@ defmodule PairingsEngine.PublicDisplayTest do
       # The whole reason the snapshot carries the resolved map rather than the
       # sparse one: `%{"club" => false}` alone would require the other side to
       # know the six keys it does not mention.
-      assert PublicDisplay.resolve(%{"club" => false}) == %{
-               "rating" => true,
-               "title" => true,
-               "federation" => true,
-               "club" => false,
-               "category" => true,
-               "tiebreaks" => true,
-               "player_cards" => true
-             }
+      resolved = PublicDisplay.resolve(%{"club" => false})
+
+      assert Enum.sort(Map.keys(resolved)) == Enum.sort(PublicDisplay.keys())
+      assert resolved["club"] == false
+      assert Enum.all?(Map.delete(resolved, "club"), fn {_k, v} -> v == true end)
     end
   end
 
@@ -99,13 +95,32 @@ defmodule PairingsEngine.PublicDisplayTest do
       assert length(Enum.uniq(keys)) == length(keys)
     end
 
-    test "nothing structural is offered as hideable" do
-      # Names, boards, results and placings are the tournament. A page
-      # without them is not a page, and an arbiter who does not want them
-      # public should not publish.
-      for forbidden <- ~w(name result board rank points standings pairings) do
+    test "a whole page can be switched off, but not the truth on a shown one" do
+      # The line the feature draws. `standings` and `pairings` ARE keys - an
+      # arbiter can decline to publish a page - but nothing lets them publish
+      # a standings table with the names taken out, or a pairing list without
+      # results. A page is shown honestly or not shown.
+      assert "standings" in PublicDisplay.keys()
+      assert "pairings" in PublicDisplay.keys()
+
+      for forbidden <- ~w(name result board rank points) do
         refute forbidden in PublicDisplay.keys()
       end
+    end
+
+    test "every key belongs to a group the settings page renders" do
+      known = Enum.map(PublicDisplay.groups(), fn {group, _heading, _about} -> group end)
+
+      # A key with no group would be stored, published and honoured, and never
+      # appear on the page that is supposed to control it.
+      for field <- PublicDisplay.fields() do
+        assert field.group in known, "#{field.key} is in no group"
+      end
+
+      assert Enum.sort(
+               Enum.flat_map(known, &Enum.map(PublicDisplay.fields(&1), fn f -> f.key end))
+             ) ==
+               Enum.sort(PublicDisplay.keys())
     end
   end
 end

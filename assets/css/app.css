@@ -3951,3 +3951,84 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   background: color-mix(in srgb, var(--accent) 12%, var(--surface));
   font-weight: 600;
 }
+
+/* ---------------------------------------------------------------------------
+   The OpenResults settings page
+
+   A grid of compact toggles grouped by what they decide. The first version was
+   a stacked list with a paragraph under every box, which took most of a screen
+   for seven of them and would have taken three screens for seventeen.
+   --------------------------------------------------------------------------- */
+
+.display-group + .display-group {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.display-group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.display-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* The whole pill is the control, not a checkbox with a label beside it - a
+   6px tick target is a bad one on a laptop trackpad in a playing hall. */
+.display-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text-soft);
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.display-toggle:hover {
+  border-color: var(--text-soft);
+}
+
+.display-toggle input {
+  margin: 0;
+  cursor: pointer;
+}
+
+.display-toggle.is-on {
+  border-color: var(--ok, #2f5d43);
+  background: var(--ok-soft, rgba(47, 93, 67, 0.1));
+  color: var(--text);
+  font-weight: 500;
+}
+
+/* State, said in a word as well as a colour: a pill that differs only by hue
+   is unreadable to a colourblind arbiter, and ambiguous to everybody else at a
+   glance - is green "on", or is green "good"? */
+.state-pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--danger, #b3261e);
+  background: rgba(179, 38, 30, 0.1);
+  color: var(--danger, #b3261e);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.state-pill.is-on {
+  border-color: var(--ok, #2f5d43);
+  background: rgba(47, 93, 67, 0.12);
+  color: var(--ok, #2f5d43);
+}

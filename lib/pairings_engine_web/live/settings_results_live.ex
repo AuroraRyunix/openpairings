@@ -40,7 +40,7 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
      socket
      |> assign(
        tournament: tournament,
-       page_title: "#{tournament.name} · Results site",
+       page_title: "#{tournament.name} · OpenResults",
        openresults_configured?: Publishing.configured?(),
        stale: false
      )}
@@ -248,13 +248,24 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
 
   ## ---------- helpers ----------
 
+  # Green for on, red for off, with the word as well as the colour - a pill
+  # that only differs by hue is unreadable to a colourblind arbiter and
+  # ambiguous to everyone at a glance ("is green on, or is green good?").
+  attr :on?, :boolean, required: true
+  attr :on, :string, required: true
+  attr :off, :string, required: true
+
+  defp state(assigns) do
+    ~H"""
+    <span class={["state-pill", @on? && "is-on"]}>{if @on?, do: @on, else: @off}</span>
+    """
+  end
+
   defp listed?(tournament), do: tournament.public_listed != false
 
   defp show?(tournament, key), do: PublicDisplay.show?(tournament.public_display, key)
 
-  defp hidden_count(tournament) do
-    Enum.count(PublicDisplay.keys(), &(not show?(tournament, &1)))
-  end
+  defp hidden_count(tournament), do: PublicDisplay.hidden_count(tournament.public_display)
 
   # The address the imported key is authority over, as one string an arbiter
   # can compare against what they know. The endpoint is whatever the machine
@@ -271,14 +282,12 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
 
   @impl true
   def render(assigns) do
-    assigns = assign(assigns, display_fields: PublicDisplay.fields())
-
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
-          <p class="subtitle" style="margin: 0">{gettext("Results site")}</p>
+          <p class="subtitle" style="margin: 0">{gettext("OpenResults")}</p>
         </div>
         <span class={["badge", @tournament.status == "setup" && "muted"]}>{@tournament.status}</span>
       </div>
@@ -311,7 +320,7 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
         <div class="set-field solo">
           <span class="set-label">{gettext("Published")}</span>
           <div class="actions" style="margin-top: 6px; align-items: center; gap: 10px">
-            <span>{if @tournament.publish_to_openresults, do: "On", else: "Off"}</span>
+            <.state on?={@tournament.publish_to_openresults} on="Published" off="Not published" />
             <button
               type="button"
               class="pe-btn"
@@ -337,7 +346,7 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
             )}
           </p>
           <div class="actions" style="margin-top: 6px; align-items: center; gap: 10px">
-            <span>{if listed?(@tournament), do: "Listed", else: "Unlisted"}</span>
+            <.state on?={listed?(@tournament)} on="Listed" off="Unlisted" />
             <button type="button" class="pe-btn" phx-click="toggle_listed">
               {if listed?(@tournament), do: "Unlist it", else: "List it"}
             </button>
@@ -350,39 +359,56 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
 
         <p class="hint" style="margin-top: 0">
           {gettext(
-            "Untick anything this event's players would not expect on the open web. A club evening and an international open have different answers, and you are the one who knows which this is."
+            "Untick anything this event's players would not expect on the open web. A club evening and an international open have different answers, and you are the one who knows which this is. Saved as you tick."
           )}
         </p>
 
         <p class="hint">
           {gettext(
-            "Names, board numbers, results and placings are always shown - they are the tournament. If those should not be public, do not publish."
+            "Names, boards, results and placings are always shown on a page that is shown at all - they are the tournament. To hide those, switch the whole page off above, or do not publish."
           )}
         </p>
 
+        <%!-- A grid of compact toggles grouped by what they decide, rather
+              than a stacked list with a paragraph under each. The old shape
+              took most of a screen for seven boxes; this holds seventeen in
+              less room, and grouping is what makes seventeen legible at all.
+              The hint moves to the title attribute - it is a reminder, not
+              something to read seventeen times. --%>
         <form phx-change="save_display">
-          <div :for={field <- @display_fields} class="set-field solo" style="margin-top: 12px">
-            <label style="display: flex; gap: 10px; align-items: flex-start; cursor: pointer">
-              <input
-                type="checkbox"
-                name={"display[#{field.key}]"}
-                value="true"
-                checked={show?(@tournament, field.key)}
-                style="margin-top: 3px"
-              />
-              <span>
-                <strong>{field.label}</strong>
-                <span class="hint" style="display: block; margin: 2px 0 0">{field.hint}</span>
-              </span>
-            </label>
+          <div :for={{group, heading, about} <- PublicDisplay.groups()} class="display-group">
+            <div class="display-group-head">
+              <strong>{heading}</strong>
+              <span class="hint">{about}</span>
+            </div>
+
+            <div class="display-grid">
+              <label
+                :for={field <- PublicDisplay.fields(group)}
+                class={["display-toggle", show?(@tournament, field.key) && "is-on"]}
+                title={field.hint}
+              >
+                <input
+                  type="checkbox"
+                  name={"display[#{field.key}]"}
+                  value="true"
+                  checked={show?(@tournament, field.key)}
+                />
+                <span>{field.label}</span>
+              </label>
+            </div>
           </div>
         </form>
 
-        <p :if={hidden_count(@tournament) > 0} class="hint" style="margin-top: 14px">
-          {gettext("Hidden: %{n} of %{total}. Saved as you tick.",
-            n: hidden_count(@tournament),
-            total: length(@display_fields)
-          )}
+        <p class="hint" style="margin-top: 14px">
+          <%= if hidden_count(@tournament) == 0 do %>
+            {gettext("Everything is shown.")}
+          <% else %>
+            {gettext("%{n} of %{total} hidden.",
+              n: hidden_count(@tournament),
+              total: length(PublicDisplay.fields())
+            )}
+          <% end %>
         </p>
       </div>
 
@@ -408,7 +434,7 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
         <div class="set-field solo">
           <span class="set-label">{gettext("Accepting entries")}</span>
           <div class="actions" style="margin-top: 6px; align-items: center; gap: 10px">
-            <span>{if @tournament.registration_open, do: "Open", else: "Closed"}</span>
+            <.state on?={@tournament.registration_open} on="Open" off="Closed" />
             <button
               type="button"
               class="pe-btn"

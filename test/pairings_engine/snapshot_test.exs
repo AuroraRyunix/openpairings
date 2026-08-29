@@ -132,15 +132,7 @@ defmodule PairingsEngine.SnapshotTest do
                "fide_rated" => true,
                "registration_open" => true,
                "listed" => true,
-               "display" => %{
-                 "rating" => true,
-                 "title" => true,
-                 "federation" => true,
-                 "club" => true,
-                 "category" => true,
-                 "tiebreaks" => true,
-                 "player_cards" => true
-               }
+               "display" => PairingsEngine.PublicDisplay.resolve(nil)
              }
     end
 
