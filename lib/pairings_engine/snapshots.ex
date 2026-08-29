@@ -14,10 +14,11 @@ defmodule PairingsEngine.Snapshots do
   It follows that snapshots inherit the export's deliberate exclusions, and
   that's the behaviour we want here too:
 
-    * **Sharing state is not captured** (`public_pages_enabled`,
-      `registration_open`, `public_slug`). Rolling back to an earlier state
-      must never silently re-publish a tournament whose public link was taken
-      down, or hand out a slug that was rotated away after a leak.
+    * **Sharing state is not captured** (`registration_open`,
+      `publish_to_openresults`, `public_slug`). Rolling back to an earlier
+      state must never silently re-publish a tournament that was taken down,
+      re-open entries that were closed, or hand out an address that was
+      rotated away after a leak.
     * **Ownership and lifecycle are not captured** (`user_id`, `deleted_at`,
       `archived_at`). A restore changes a tournament's *contents*, never who
       owns it or whether it's archived.

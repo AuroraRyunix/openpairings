@@ -380,7 +380,7 @@ defmodule PairingsEngine.PublishingTest do
           "publish_to_openresults" => true
         })
 
-      # Same guarantee `public_pages_enabled` and `registration_open` have:
+      # Same guarantee `publish_to_openresults` and `registration_open` have:
       # sending a copy of an event off this machine is a deliberate act, not
       # something a stray form field can do.
       assert saved.name == "Renamed"
@@ -595,6 +595,123 @@ defmodule PairingsEngine.PublishingTest do
       # have, which is time between rounds.
       assert message =~ "different machine"
       refute message =~ "rejected the token"
+    end
+  end
+
+  describe "moving a published tournament to a new address" do
+    setup do
+      t = tournament()
+      stub(fn conn -> Req.Test.json(conn, %{"ok" => true}) end)
+      assert {:ok, _} = Publishing.publish(t)
+
+      {:ok, published: Tournaments.get_tournament!(t.id)}
+    end
+
+    test "deletes the old copy before publishing the new one", %{published: t} do
+      test_pid = self()
+      old_slug = t.public_slug
+
+      stub(fn conn ->
+        send(test_pid, {:call, conn.method, conn.request_path})
+        Req.Test.json(conn, %{"ok" => true})
+      end)
+
+      assert {:ok, moved, message} = Publishing.rotate_address(t)
+
+      # Order is the whole point. Publishing first would leave a window in
+      # which the tournament is live at both addresses, and a takedown that
+      # then failed would leave it that way permanently.
+      assert_receive {:call, "DELETE", delete_path}
+      assert_receive {:call, "POST", "/api/snapshots"}
+      assert delete_path == "/api/tournaments/#{old_slug}"
+
+      assert moved.public_slug != old_slug
+      assert message =~ "old link is dead"
+    end
+
+    test "the old address is genuinely revoked, not just forgotten", %{published: t} do
+      old_slug = t.public_slug
+      stub(fn conn -> Req.Test.json(conn, %{"ok" => true}) end)
+
+      assert {:ok, moved, _} = Publishing.rotate_address(t)
+
+      # The bug this function exists to prevent: rotating the slug alone
+      # leaves the leaked link working, because the copy behind it is on
+      # another server and this machine has merely stopped pointing at it.
+      # Worse, the key that could have taken it down now names an address
+      # that no longer holds anything.
+      refute moved.public_slug == old_slug
+      assert moved.publish_to_openresults
+      assert moved.openresults_key
+      refute moved.openresults_key == t.openresults_key
+    end
+
+    test "a failed takedown changes nothing at all", %{published: t} do
+      stub(fn conn -> Plug.Conn.send_resp(conn, 500, "nope") end)
+
+      assert {:error, _reason} = Publishing.rotate_address(t)
+
+      unchanged = Tournaments.get_tournament!(t.id)
+
+      # A revocation that did not happen must not look like one that did.
+      assert unchanged.public_slug == t.public_slug
+      assert unchanged.publish_to_openresults
+      assert unchanged.openresults_key == t.openresults_key
+    end
+
+    test "a failed re-publish still reports the revocation, because it happened", %{published: t} do
+      # The takedown succeeds, the publish that follows does not. This is the
+      # good way to fail: what the arbiter asked for - kill the old link -
+      # is done, and the rest retries by itself.
+      stub(fn conn ->
+        case conn.method do
+          "DELETE" -> Req.Test.json(conn, %{"status" => "deleted"})
+          "POST" -> Plug.Conn.send_resp(conn, 503, "later")
+        end
+      end)
+
+      assert {:ok, moved, message} = Publishing.rotate_address(t)
+
+      assert moved.public_slug != t.public_slug
+      assert message =~ "old link is dead"
+      assert message =~ "did not go through"
+
+      # Still switched on, so the queue picks it up rather than the arbiter
+      # having to notice and re-enable it.
+      assert moved.publish_to_openresults
+    end
+
+    test "an unpublished tournament just moves" do
+      t = tournament(publish: false)
+      old_slug = t.public_slug
+
+      # No HTTP at all: there is no copy anywhere to take down, and nothing
+      # to send. A stub that raised would prove it, but `Req.Test` with no
+      # stub already fails any request that is attempted.
+      assert {:ok, moved, message} = Publishing.rotate_address(t)
+
+      assert moved.public_slug != old_slug
+      refute moved.publish_to_openresults
+      assert message =~ "new address"
+    end
+
+    test "a tournament switched off after publishing still revokes properly", %{published: t} do
+      # `publish_to_openresults` off but a key still held - a copy IS out
+      # there. The old code path keyed off the switch and would have skipped
+      # the takedown here, silently orphaning the published copy.
+      {:ok, t} = Tournaments.set_publish_to_openresults(t, false)
+      t = Tournaments.get_tournament!(t.id)
+      assert Publishing.published?(t)
+
+      test_pid = self()
+
+      stub(fn conn ->
+        send(test_pid, {:call, conn.method})
+        Req.Test.json(conn, %{"ok" => true})
+      end)
+
+      assert {:ok, _moved, _message} = Publishing.rotate_address(t)
+      assert_receive {:call, "DELETE"}
     end
   end
 

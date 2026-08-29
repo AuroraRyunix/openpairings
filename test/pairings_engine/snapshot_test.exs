@@ -1,7 +1,7 @@
 defmodule PairingsEngine.SnapshotTest do
   use PairingsEngine.DataCase, async: true
 
-  alias PairingsEngine.{Repo, Snapshot}
+  alias PairingsEngine.{Repo, Snapshot, Tournaments}
   alias PairingsEngine.Tournaments.{Pairing, Player, Round, Tournament}
 
   # Personal data deliberately loaded onto the fixture's players. Every one of
@@ -125,7 +125,8 @@ defmodule PairingsEngine.SnapshotTest do
                "rounds_count" => 5,
                "system" => "swiss",
                "arbiter" => "Jorian Burssens",
-               "fide_rated" => true
+               "fide_rated" => true,
+               "registration_open" => true
              }
     end
 
@@ -202,6 +203,24 @@ defmodule PairingsEngine.SnapshotTest do
                %{"player" => players[6].pairing_number, "kind" => "half-point", "points" => 0.5},
                %{"player" => players[9].pairing_number, "kind" => "zero-point", "points" => 0.0}
              ]
+    end
+
+    test "a hand-set order is published AS one, not silently as a computed one" do
+      {tournament, _} = swiss_fixture()
+
+      assert Snapshot.build(tournament)["standings"]["manual_order"] == false
+
+      {:ok, manual} = Tournaments.enable_manual_ranking(tournament)
+      built = Snapshot.build(Tournaments.get_tournament!(manual.id))
+
+      # The disclosure used to live only on this app's own public standings
+      # page, which no longer exists. Publishing the arbiter's chosen ORDER
+      # while dropping the fact that a person chose it is the exact failure
+      # docs/manual-standings.md is written to prevent.
+      assert built["standings"]["manual_order"] == true
+
+      # And the rows are still a real ordering, not disturbed by the flag.
+      assert Enum.map(built["standings"]["rows"], & &1["rank"]) == Enum.to_list(1..10)
     end
 
     test "standings arrive computed, ordered, with tiebreaks declared positionally" do
@@ -288,7 +307,13 @@ defmodule PairingsEngine.SnapshotTest do
         # Manual mode is the only one in which a round can be held back, and
         # therefore the only one in which withholding is testable at all.
         publish_mode: "manual",
-        public_slug: "gent-spring-open-2026"
+        public_slug: "gent-spring-open-2026",
+        # The cross-repo fixture built from this tournament is what every
+        # OpenResults registration test reads, and since 2026-08-29 that
+        # site gates its entry form on this flag. Open here so the fixture
+        # exercises the form; OpenResults has its own test for the closed
+        # case, which overrides this rather than needing a second fixture.
+        registration_open: true
       })
 
     roster = [

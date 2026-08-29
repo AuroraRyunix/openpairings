@@ -265,7 +265,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
           {gettext("📣 Let spectators follow the standings")}
         </summary>
 
-        <%= if @tournament.public_pages_enabled do %>
+        <%= if PublicLink.public?(@tournament) do %>
           <p class="hint">
             {gettext(
               "Anyone can scan this to open live standings on their own phone - no login needed."
@@ -291,12 +291,12 @@ defmodule PairingsEngineWeb.LiveRoundLive do
           <p class="hint">
             <.rich_text text={
               gettext(
-                "Public pages are off for this tournament. %[settings] to get a shareable link and QR code."
+                "This tournament is not published, so there is no page for spectators to open. %[settings] to publish it to the results site and get a link and QR code."
               )
             }>
               <:part name="settings">
                 <.link navigate={~p"/t/#{@tournament.id}/settings"}>
-                  {gettext("Turn them on in Settings")}
+                  {gettext("Turn publishing on in Settings")}
                 </.link>
               </:part>
             </.rich_text>

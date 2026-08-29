@@ -34,7 +34,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
   # Tournament fields excluded from the settings audit diff - derived,
   # internal or noisy (binary logo blob, PubSub-recomputed status/flags,
   # timestamps, ownership). Everything else is diffed field-by-field.
-  @settings_diff_ignore ~w(id status public_slug public_pages_enabled deleted_at
+  @settings_diff_ignore ~w(id status public_slug deleted_at
     manual_ranking_stale logo_data logo_content_type inserted_at updated_at user_id)a
 
   @doc """

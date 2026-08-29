@@ -1,185 +1,158 @@
-# Public (no login) tournament pages
+# The public page
 
-Every tournament has two read-only pages that don't require an account:
+A tournament becomes readable by the public in exactly one way: it is
+published to **OpenResults**, the separate read-only site. This app serves no
+public pages at all.
 
-- `/p/:slug/pairings` - the tournament name, the latest paired round number,
-  and that round's pairing list (board, white, black, result).
-- `/p/:slug/standings` - the tournament name and the current standings
-  table, with the same tiebreak columns as the authenticated Standings page.
+That was not always true. Until 2026-08-29 there were two answers - a set of
+local `/p/:slug/...` pages served by whatever machine the arbiter was pairing
+on, and, since the split, the results site. Two surfaces for one thing, and
+the default was the wrong one: a link to the arbiter's laptop, printed on a
+wall chart and handed to a hall full of spectators, is precisely what the
+split exists to prevent. The local pages were removed rather than
+de-emphasised, because a second correct-looking answer is worse than none.
 
-Both are meant to be shared with players, spectators, or a tournament hall
-screen - anyone with the link can open them, no log-in required.
+## One switch
 
-## The link is a token, not the tournament id
+`publish_to_openresults` is the whole of it. On, and the tournament has a
+public page; off, and it has none anywhere.
 
-`:slug` is `tournaments.public_slug`, a random URL-safe token
-(`:crypto.strong_rand_bytes(9) |> Base.url_encode64(padding: false)`, 12
-characters) - **not** the tournament's numeric `id`. Tournament ids are
-small sequential integers, so a public URL built from the id would let
-anyone page through `/t/1`, `/t/2`, `/t/3`... and view every tournament in
-the system. The random token makes that infeasible: only someone who was
-given the link (or found it on the tournament's own pages) can open it.
+It used to sit beside `public_pages_enabled`, which answered the separate
+question "may anyone with the link read this *here*". That field was dropped
+with the pages, and the migration carried each tournament's intent across: a
+tournament whose arbiter had switched local sharing on is now marked to
+publish, because they had already said "this is public" and the only thing
+that changed is where the public reads it.
 
-Every tournament always has a `public_slug` - it's filled in automatically
-by `PairingsEngine.Tournaments.Tournament.changeset/2` the first time a
-tournament is created, whichever path creates it (the "New tournament" UI
-form, the SWAR importer, or the JSON tournament importer all go through
-this same changeset). Existing tournaments were backfilled with a slug by
-the `AddPublicSlugToTournaments` migration. The slug doesn't change on an
-ordinary save (the changeset only fills it when missing), so sharing a link
-doesn't risk it rotating out from under someone - but the owner can rotate
-it deliberately (see below).
+It goes through `Tournaments.set_publish_to_openresults/2`, and is
+deliberately **not** cast by `Tournament.changeset/2` - an ordinary settings
+save must not be able to start sending an event's player names, ratings and
+clubs to a remote server by accident.
 
-`PairingsEngine.Tournaments.get_tournament_by_public_slug/1` is the lookup
-used by both pages. Unlike every other tournament lookup in that module, it
-does **no** scope/ownership check - that's the point, it's the one
-intentionally public entry point. An unknown slug 404s (`Ecto.NoResultsError`).
+### What a machine needs before the switch means anything
 
-## Turning it off, and rotating a leaked link
+Two things, and `PairingsEngineWeb.PublicLink.public?/1` requires both:
 
-The public pages are on by default, but the owner controls them from the
-tournament's **Settings** page (the "Public pages" card):
+1. the tournament's switch is on, and
+2. this machine has been told where the results site is (Settings ->
+   Connections, stored by `PairingsEngine.Publishing.put_endpoint/1`).
 
-- **Turn off** - `PairingsEngine.Tournaments.set_public_pages/2` flips
-  `tournaments.public_pages_enabled`. While off,
-  `get_tournament_by_public_slug/1` returns `nil`, so every `/p/:slug/...`
-  page 404s even with the correct slug. Turning it back on restores the same
-  link.
-- **Generate a new link** - `PairingsEngine.Tournaments.rotate_public_slug/1`
-  replaces `public_slug` with a fresh token, so a link that was shared too
-  widely (or leaked) stops working immediately while the pages stay up on the
-  new URL.
+The switch alone is a promise about the future - a tournament can be marked
+to publish on a laptop that has never been told an address. Offering a link
+built from a blank endpoint would produce `/t/slug`, a relative path
+resolving against whatever page rendered it, i.e. straight back to this
+machine. That is the old bug wearing a new hat, so it is tested for by name.
 
-Both fields are deliberately **not** cast by `Tournament.changeset/2` - like
-`public_slug` and `deleted_at`, they can only change through those two
-functions, so an ordinary settings save can neither disable sharing nor
-rotate the link by accident. Both actions are recorded in the tournament's
-audit log (`public_pages.toggled`, `public_pages.link_rotated`).
+## The slug is an address, not a secret door
 
-## Where to find the links
+`public_slug` is a random 12-byte token rather than the sequential numeric
+`id`, and every tournament has had one since long before anything was
+published anywhere.
 
-On the authenticated **Standings** page, next to **Print**: **"Public
-standings link"**. On the authenticated **Pairings** page, first in the
-header actions: **"Public pairings link"**. Both are shown only while
-public pages are enabled. The tournament's **Settings** page has the full
-"Public pages" card - the on/off switch, both share links, and the
-"Generate new link" button.
+Its job changed on 2026-08-29. It used to be the thing that kept local pages
+from being enumerable. Now it is this tournament's address on the results
+site - the `:slug` in OpenResults' `/t/:slug` - and being unguessable still
+earns its keep, because a published tournament is world-readable and the slug
+is all that stands between a scraper and a list of every event on the site.
 
-The pairings one was briefly absent: it was dropped in the July 2026
-pairings declutter and put back afterwards, because without it Settings
-was the only place to get the pairings URL even though the equivalent
-standings link had stayed one click away.
+### Rotating it is a real operation now
 
-The **Live** page (`/t/:id/live`) also has a **"📣 Let spectators follow the
-standings"** card with a QR code straight to `/p/:slug/standings` - meant for
-projecting or holding up at the venue so spectators can scan it on their own
-phones. It reads `public_pages_enabled` directly, so it shows the QR when
-pages are on and a link to Settings to turn them on when they're off, rather
-than ever rendering a QR to a 404. This sits next to the mobile
-result-entry enrollment QR on the same page - see
-[mobile-results.md](mobile-results.md) - because an arbiter typically has
-this page open the whole event anyway.
+"Generate a new link" used to be free: the pages 404'd the instant the slug
+changed, because they were served from the same database the slug lived in.
 
-## Live updates
+They are not any more, and a bare rotation would do the opposite of what the
+button promises. The leaked link keeps working - the copy behind it is on
+another server and this machine has merely stopped pointing at it - and the
+next publish creates a *second* copy at the new address. The tournament ends
+up public twice, with the key that could have withdrawn the first one now
+naming a slug that holds nothing.
 
-Both pages subscribe to the tournament's PubSub topic
-(`PairingsEngine.Tournaments.tournament_topic/1`) the same way every other
-tournament view does, and reload when a `{:tournament_changed, id, hint}`
-message arrives - entering a result on the authenticated Pairings page (or
-anywhere else) updates an open public page within a heartbeat, no refresh
-needed.
+So `PairingsEngine.Publishing.rotate_address/1` does three things in order:
 
-If the tournament is deleted while someone has a public page open, the page
-switches to a "This tournament is no longer available" message instead of
-crashing or redirecting (there's nowhere authenticated to redirect a
-logged-out visitor to).
+1. **take the old copy down** (the part the arbiter actually asked for),
+2. rotate the slug,
+3. publish again, minting a fresh key.
 
-## What's deliberately not here
+If step 1 fails, nothing else happens - a failed revocation must never look
+like a successful one. If step 3 fails, the arbiter is told: the old link is
+dead, which was the request, and publishing retries by itself.
+`Tournaments.rotate_public_slug/1` still exists and still does only the
+middle step; it is not the operation a user wants.
 
-- No editing of any kind - results, pairing, settings, everything stays
-  behind login.
-- No navigation to other tournaments or to the authenticated app - the
-  public pages render inside `Layouts.app` with no `tournament` assign, so
-  none of the app's tournament tabs (Players, Pairings, Settings, ...)
-  appear.
-- No way to enumerate tournaments from a public link - the slug reveals
-  nothing about the tournament's id or any other tournament's slug.
+## Registration
 
-## Embedding a page in another site
+The entry form is on the results site too, and this is the one flag that lets
+strangers write into an arbiter's tournament.
 
-The two read-only pages set `frame-ancestors *`, so a club website can put
-the pairing list or the standings straight into its own page:
+`registration_open` is unusual in that **this app does not enforce it at
+all**. It rides along in the published snapshot, and OpenResults reads it.
+That has two consequences worth stating plainly:
 
-```html
-<iframe src="https://pairings.example/p/SLUG/pairings"
-        style="width:100%;height:600px;border:0"></iframe>
-```
+- It means nothing for an unpublished tournament. The Options page says so
+  rather than letting an arbiter open a form that does not exist.
+- Closing it is not instant. `Tournaments.set_registration_open/2` enqueues a
+  publish on *both* edges for exactly this reason - closing is the urgent
+  direction, since an arbiter shutting entries at the door needs the site to
+  stop taking them.
 
-### Sizing it to the content
+A reader that predates the field must treat its absence as **open**. Every
+snapshot published before 2026-08-29 is silent on the question and that
+server accepted entries for all of them, so reading silence as "closed" would
+have shut every already-published form the moment the change deployed, with
+nothing in either app to explain why. The failure directions are not
+symmetric: an entry that should not have been taken lands in a queue an
+arbiter reads and rejects, while a form that is shut when it should be open
+turns a real person away and tells nobody.
 
-A fixed `height` is a guess, and it is wrong in both directions: too small
-and the table scrolls inside a little box, too large and there is a slab of
-empty space under it. The embedded page posts its own height to the parent
-whenever it changes, so the host page can size the frame to fit:
+## Where the links come from
 
-```html
-<iframe id="pairings" src="https://pairings.example/p/SLUG/pairings"
-        style="width:100%;height:600px;border:0"></iframe>
-<script>
-  window.addEventListener("message", (event) => {
-    // Only trust messages from the pairings host.
-    if (event.origin !== "https://pairings.example") return;
-    if (!event.data || event.data.type !== "openpairings:height") return;
-    document.getElementById("pairings").style.height = event.data.height + "px";
-  });
-</script>
-```
+`PairingsEngineWeb.PublicLink` is the only module that answers "where does
+the public read this tournament". Six call sites use it - the projector QR
+code and its printed URL, the pairings and standings page headers, the
+settings share card, and the registration link on Options - and none of them
+build a URL themselves.
 
-The message is `{type: "openpairings:height", height: <integer px>}`. It is
-sent on load and again whenever the content resizes - results coming in
-mid-round change the table's height, and a frame sized once would drift out
-of true as soon as that happened.
+Links are **absolute**, because they point at another host and half of them
+end up on a QR code, in a printed footer, or pasted into an email.
 
-The `height` in the HTML is still worth setting to something sensible: it
-is what the visitor sees for the moment before the first message arrives.
+Targets are deliberately **coarse**. A published tournament gets its front
+page (`/t/:slug`) and the reader navigates from there; only registration,
+which is a distinct destination rather than a view of the same thing, is
+addressed directly. Deep-linking into OpenResults' route shape would tie the
+two apps together far more tightly than the snapshot contract does, and a
+route rename over there would break links already printed on paper here.
 
-### Why these pages use a different websocket
+`public?/1` and `url/2` are two halves of one thing: gate the element on the
+first, then use the second. `url/2` returns `nil` when there is no public
+address, and markup that skipped the gate would render an anchor pointing
+nowhere.
 
-The embeddable pages connect their LiveView over `/embed/live` rather than
-`/live` (see the socket declaration in `PairingsEngineWeb.Endpoint`). The
-session cookie is `SameSite=Lax`, which browsers deliberately do not send
-on a cross-site request - and an iframe on someone else's domain is one. On
-the session-bearing socket that means the connection arrives with no
-session, LiveView cannot verify it, and the client retries forever: the
-page appears to reload constantly and the browser console fills with
-"WebSocket is closed before the connection is established".
+## Embedding
 
-`/embed/live` never asks for the session, so there is nothing to be
-missing. That is only safe because of what these two pages are - no login,
-no writes, no per-user state - and it is why the fix was a second socket
-rather than loosening the cookie to `SameSite=None`, which would have sent
-the session cookie to every third-party frame on the internet to serve two
-read-only pages.
+A club site that wants the pairing list on its own front page embeds it from
+**OpenResults**, which sets no framing restriction.
 
-Nothing else in the app allows it. `/p/:slug/register` does not - it is the
-one public page that writes, and a form in a third-party frame is exactly
-the clickjacking shape the policy exists to prevent - and neither do the
-arbiter tools, the mobile result entry or any authenticated page. The
-router marks the two that do with a `:embeddable` pipeline; everything else
-keeps `frame-ancestors 'none'`. See `PairingsEngineWeb.CSP`.
+This app now refuses framing everywhere, with no way to ask for an exception.
+`CSP.allow_framing/2`, the router's `:embeddable` pipeline, the cookie-free
+`/embed/live` socket and the iframe height-reporting JavaScript were all
+removed on 2026-08-29 along with the pages they served, and
+`PUBLIC_FRAME_ANCESTORS` went with them.
 
-Framing these two grants a page no capability it did not already have: they
-hold no session, take no input, and are already readable by anyone with the
-slug. That is the property that makes it safe, and the reason it cannot be
-extended to the rest of the app by loosening one setting.
+The argument for the old exception was careful and correct as far as it went
+- those pages held no session and took no input, so framing them handed the
+embedding site nothing. But it was an argument that had to be re-made every
+time a route was added, and getting it wrong once would have quietly made
+every logged-in arbiter clickjackable. OpenResults needs no such argument: it
+has no login, so there is no authority to steal.
+`test/pairings_engine_web/csp_framing_test.exs` pins framing off as
+unconditional.
 
-**To restrict or disable it**, set `PUBLIC_FRAME_ANCESTORS`:
+## What is deliberately not here
 
-| value | effect |
-|---|---|
-| unset | `*` - any site may embed the two read-only pages (default) |
-| `https://club.example https://federation.example` | only those origins |
-| `'none'` | embedding off, without touching the router |
-
-Turning the public pages off entirely (per tournament, from Settings) also
-removes them from the web, embed or not.
+- **No login, and no per-user anything.** Nothing on the results site knows
+  who is reading.
+- **No writes back into a tournament.** Entries land in a queue the arbiter
+  pulls and reviews; nothing a member of the public does can change a
+  pairing, a result or a player.
+- **No deep links from this app into that one.** See "Where the links come
+  from".

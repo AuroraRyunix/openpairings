@@ -2,83 +2,93 @@ defmodule PairingsEngineWeb.PublicLink do
   @moduledoc """
   Where the public reads a tournament.
 
-  There are two possible answers and the app must never guess wrong, because
-  the wrong one is not a broken link - it is a working link to the machine the
-  arbiter is trying to pair on, which is the exact thing the split exists to
-  avoid.
+  There is exactly one answer - the results site - and for most tournaments
+  the answer is "nowhere". This app stopped serving public pages on
+  2026-08-29; a tournament that does not publish has no public address at
+  all, and this module's job is to say so rather than invent one.
 
-  ## The rule
+  ## Why there is no local answer any more
 
-  A tournament that publishes to OpenResults is read **there**. Everything
-  else is read from this app's own public pages.
+  The app used to serve `/p/:slug/pairings` and friends, so every tournament
+  had a public link whether or not it published. That was two public
+  surfaces for one thing, and the wrong one was the default: a link to the
+  arbiter's laptop, handed to a hall full of spectators, is precisely what
+  the split with OpenResults exists to prevent. Rather than keep choosing
+  correctly between them at six call sites, there is now one.
 
-  That is the whole reason OpenResults exists: an arbiter's tool and a
-  spectator's page want opposite things, and a popular open's standings page
-  should not be served by the laptop running the round. Handing out a
-  `/p/:slug` link for a tournament that is being published would send every
-  spectator back to that laptop and quietly undo the split, while looking
-  entirely fine.
+  ## The two halves
 
-  ## Why the local pages stay
+  `public?/1` asks whether there is a link at all; `url/2` returns it, or
+  `nil`. Callers gate on the first and then use the second - and in markup
+  that means `:if={PublicLink.public?(@t)}` on the element that carries the
+  `href`, not a bare `url/2` that would render an `<a>` pointing nowhere.
 
-  Publishing is opt-in per machine AND per tournament, and this app also runs
-  on a laptop with no OpenResults anywhere near it. A tournament that has not
-  opted in still needs a public link, so `/p/:slug/...` is not going away -
-  it just stops being advertised the moment there is somewhere better.
+  Note `PairingsEngine.Publishing.published?/1` answers a *different*
+  question - "is a copy of this out there right now" - and the two disagree
+  in both directions on purpose. A tournament switched off after publishing
+  is `published?` but not `public?` (a copy is still up, but this machine no
+  longer advertises it, and the arbiter is offered a takedown instead); one
+  switched on that has not yet sent anything is `public?` but not
+  `published?`.
 
   ## Why the targets are coarse
 
   OpenResults has its own navigation and its own URL shape (`/t/:slug`,
   `/t/:slug/round/:n`). Deep-linking from here into that structure would tie
-  the two apps together far more tightly than the snapshot contract does -
-  a route rename over there would break links printed on paper over here. So
-  a published tournament gets its front page and finds its own way from
-  there; only registration, which is a distinct destination rather than a
-  view of the same thing, is addressed directly.
+  the two apps together far more tightly than the snapshot contract does - a
+  route rename over there would break links printed on paper over here. So a
+  tournament gets its front page and the reader finds their own way; only
+  registration, a distinct destination rather than a view of the same thing,
+  is addressed directly.
   """
 
   alias PairingsEngine.Publishing
   alias PairingsEngine.Tournaments.Tournament
-  alias PairingsEngineWeb.Endpoint
 
   @type target :: :standings | :pairings | :register
 
   @doc """
-  The URL to hand a spectator, as a full absolute address.
+  Whether this tournament has a public address at all.
 
-  Absolute rather than a path because half of these end up on a QR code, in a
-  printed footer, or pasted into an email, and a relative link is useless in
-  all three.
+  Both halves have to be true: the arbiter switched publishing on, AND this
+  machine knows where the results site is. The switch alone is a promise
+  about the future - a tournament can be marked to publish on a machine that
+  has not been told an address yet - and offering a link built from a blank
+  address is worse than offering none.
   """
-  @spec url(Tournament.t(), target()) :: String.t()
+  @spec public?(Tournament.t()) :: boolean()
+  def public?(%Tournament{} = tournament), do: not is_nil(base(tournament))
+
+  @doc """
+  The URL to hand a spectator, or `nil` if this tournament has none.
+
+  Absolute rather than a path: it points at another host, and half of these
+  end up on a QR code, in a printed footer, or pasted into an email.
+  """
+  @spec url(Tournament.t(), target()) :: String.t() | nil
   def url(%Tournament{} = tournament, target \\ :standings) do
-    case remote_base(tournament) do
-      nil -> local_url(tournament, target)
-      base -> remote_url(base, tournament, target)
+    case base(tournament) do
+      nil -> nil
+      base -> base <> path(tournament, target)
     end
   end
 
   @doc """
-  Whether this tournament's public links point at OpenResults.
+  The host a spectator will land on, for naming the site beside a link.
 
-  For telling the arbiter which site they are about to share, which matters:
-  the two look nothing alike, and somebody checking a link before printing it
-  should not have to compare hostnames to work out which one they got.
+  `nil` when there is no link. Worth showing: the arbiter's own machine and
+  the results site look nothing alike, and somebody checking a link before
+  printing it should not have to read a URL to work out which one they got.
   """
-  @spec published?(Tournament.t()) :: boolean()
-  def published?(%Tournament{} = tournament), do: not is_nil(remote_base(tournament))
-
-  @doc "The host a spectator will land on, for showing beside a link."
-  @spec host(Tournament.t()) :: String.t()
+  @spec host(Tournament.t()) :: String.t() | nil
   def host(%Tournament{} = tournament) do
-    tournament |> url() |> URI.parse() |> Map.get(:host) || ""
+    case url(tournament) do
+      nil -> nil
+      url -> URI.parse(url).host
+    end
   end
 
-  # Both halves have to be true. The switch alone is a promise about the
-  # future - a tournament can be marked to publish on a machine that has no
-  # address configured yet, and sending a spectator to a blank address would
-  # be worse than sending them to the local page.
-  defp remote_base(%Tournament{publish_to_openresults: true}) do
+  defp base(%Tournament{publish_to_openresults: true}) do
     case Publishing.endpoint() do
       endpoint when is_binary(endpoint) and endpoint != "" ->
         String.trim_trailing(endpoint, "/")
@@ -88,19 +98,11 @@ defmodule PairingsEngineWeb.PublicLink do
     end
   end
 
-  defp remote_base(%Tournament{}), do: nil
+  defp base(%Tournament{}), do: nil
 
-  defp remote_url(base, %Tournament{public_slug: slug}, :register),
-    do: "#{base}/t/#{URI.encode_www_form(slug)}/register"
+  defp path(%Tournament{public_slug: slug}, :register),
+    do: "/t/#{URI.encode_www_form(slug)}/register"
 
-  defp remote_url(base, %Tournament{public_slug: slug}, _target),
-    do: "#{base}/t/#{URI.encode_www_form(slug)}"
-
-  defp local_url(%Tournament{public_slug: slug}, target) do
-    Endpoint.url() <> "/p/" <> URI.encode_www_form(slug) <> "/" <> local_path(target)
-  end
-
-  defp local_path(:pairings), do: "pairings"
-  defp local_path(:register), do: "register"
-  defp local_path(_standings), do: "standings"
+  defp path(%Tournament{public_slug: slug}, _front_page),
+    do: "/t/#{URI.encode_www_form(slug)}"
 end

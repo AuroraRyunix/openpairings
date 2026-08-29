@@ -199,17 +199,6 @@ config :pairings_engine, :kbsb,
   api_url: System.get_env("KBSB_API_URL"),
   api_key: System.get_env("KBSB_API_KEY")
 
-# Who may put the read-only public tournament pages in an iframe -- a CSP
-# `frame-ancestors` source list. Default `*`: those pages are already
-# world-readable to anyone holding the slug, hold no session and take no
-# input, so a club site embedding one gains nothing it could not already
-# fetch. Set to a space-separated origin list to restrict it, or to
-# `'none'` to switch embedding off. Everything else in the app stays at
-# `'none'` regardless -- see `PairingsEngineWeb.CSP`.
-config :pairings_engine,
-       :public_frame_ancestors,
-       System.get_env("PUBLIC_FRAME_ANCESTORS") || "*"
-
 # The email domain self-serve registration/email-change is blocked on -
 # accounts on it must come from 02cloud SSO instead (see
 # `PairingsEngine.Accounts.User.blocked_registration_domain/0`). Defaults to

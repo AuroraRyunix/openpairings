@@ -59,10 +59,7 @@ per-tournament collaborator sharing.
      login.
   2. `:require_authenticated_user` - account settings.
   3. `:current_user` - register/login/confirm (works logged out OR in).
-  4. `:public_tournament_pages` - `/p/:slug/...`, read-only, no login,
-     reachable only via a tournament's unguessable `public_slug` (never its
-     numeric id).
-  5. `:tools` - `/tools/norms`, public, no login, no database at all (see
+  4. `:tools` - `/tools/norms`, public, no login, no database at all (see
      `Tools.Session` below).
   6. `:mobile_results` (scope `/m`) - no-account phone result entry via a
      QR/short-code enrollment token, its own `MobileAuth.require_enrollment`

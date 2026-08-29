@@ -113,9 +113,9 @@ defmodule PairingsEngine.Snapshot do
 
   defp tournament_row(%Tournament{} = t) do
     %{
-      # The tournament's existing public identity (`/p/:slug/...`), not a
-      # second naming scheme invented for this payload - the registration
-      # payload travelling the other way keys off the same string.
+      # The tournament's existing public identity, not a second naming
+      # scheme invented for this payload - the registration payload
+      # travelling the other way keys off the same string.
       "slug" => t.public_slug,
       "name" => t.name,
       "city" => blank_to_nil(t.city),
@@ -125,7 +125,22 @@ defmodule PairingsEngine.Snapshot do
       "rounds_count" => t.rounds_count,
       "system" => system(t),
       "arbiter" => blank_to_nil(t.chief_arbiter),
-      "fide_rated" => t.fide_homologated
+      "fide_rated" => t.fide_homologated,
+
+      # Added 2026-08-29, when this app stopped serving its own entry form.
+      # Until then this flag was enforced here, against the local
+      # `/p/:slug/register`; now the only form is on the results site, and
+      # riding along in the snapshot is the only way the arbiter's decision
+      # reaches it.
+      #
+      # A reader that predates this field must treat its ABSENCE as open,
+      # not closed - that is what it did before the field existed, and a
+      # reader that guessed "closed" would silently take an open form down
+      # on every tournament that had not republished yet. Entries are a
+      # queue an arbiter reviews, so an extra one costs a glance; a form
+      # that is shut when it should be open loses a real person's entry and
+      # tells nobody.
+      "registration_open" => t.registration_open
     }
   end
 
@@ -341,6 +356,17 @@ defmodule PairingsEngine.Snapshot do
 
     %{
       "after_round" => after_round,
+
+      # Added 2026-08-29. The order above is already the arbiter's, but the
+      # DISCLOSURE that it was set by hand rather than computed used to live
+      # only on this app's own public standings page - the one surface a
+      # non-logged-in viewer saw. That page is gone, so without this the
+      # ordering travels and the fact that a person chose it does not, which
+      # is the most misleading shape this feature has.
+      #
+      # See docs/manual-standings.md, which lists every surface that must
+      # carry the banner.
+      "manual_order" => t.manual_ranking == true,
       "tiebreaks" => Enum.map(codes, &%{"code" => &1, "label" => tiebreak_label(&1)}),
       "rows" => rows
     }

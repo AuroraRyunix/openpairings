@@ -494,20 +494,22 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
         <p class="subtitle" style="margin: 0 0 8px">
           <.rich_text text={
             gettext(
-              "A public page where players enter themselves, finding their own name on the FIDE list. Everyone who signs up arrives marked %[flag] - they are not paired until you confirm them on the Players page."
+              "A page on the results site where players enter themselves, finding their own name on the FIDE list. Everyone who signs up arrives marked %[flag] - nobody is added here until you review the entries and accept them."
             )
           }>
             <:part name="flag"><strong>{gettext("not yet arrived")}</strong></:part>
           </.rich_text>
         </p>
 
-        <p :if={!@tournament.public_pages_enabled} class="subtitle" style="margin: 0 0 8px">
+        <p :if={!PublicLink.public?(@tournament)} class="subtitle" style="margin: 0 0 8px">
           <.rich_text text={
             gettext(
-              "%[off], so the form will not open even if you turn it on here. Enable them under Settings → Tournament first."
+              "%[off], and the entry form lives there - so opening it here has no effect until you publish. Turn publishing on under Settings → Tournament first."
             )
           }>
-            <:part name="off"><strong>{gettext("Public pages are switched off")}</strong></:part>
+            <:part name="off">
+              <strong>{gettext("This tournament is not published to the results site")}</strong>
+            </:part>
           </.rich_text>
         </p>
 
@@ -526,13 +528,13 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
           </button>
 
           <a
-            :if={@tournament.registration_open && @tournament.public_pages_enabled}
+            :if={@tournament.registration_open && PublicLink.public?(@tournament)}
             class="pe-btn"
             href={PublicLink.url(@tournament, :register)}
             target="_blank"
-            title={gettext("No login needed - share this link")}
+            title={gettext("Opens the results site - no login needed, share this link")}
           >
-            {gettext("Registration link")}
+            {gettext("Entry form")}
           </a>
         </div>
       </div>

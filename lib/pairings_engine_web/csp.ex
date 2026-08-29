@@ -29,23 +29,19 @@ defmodule PairingsEngineWeb.CSP do
 
   ## Framing
 
-  `frame-ancestors 'none'` is the default on every response, which is what
-  stops the authenticated app being put in someone else's iframe and
-  clicked through by a logged-in victim. Three routes opt out of it, via
-  `allow_framing/2` in the router's `:embeddable` pipeline:
-  `/p/:slug/pairings`, `/p/:slug/standings` and `/p/:slug/register`.
+  `frame-ancestors 'none'` on every response, with no exceptions and no way
+  to ask for one. That is what stops the app being put in someone else's
+  iframe and clicked through by a logged-in arbiter.
 
-  The test is not "does the page write". It is **whether framing hands the
-  embedding page a capability it did not already have**. The two read-only
-  pages hold no session, take no input, and are world-readable to anyone
-  holding the slug. The register form does write, but under an anonymous
-  scope, from values a visitor has to type, to this server rather than the
-  framing one - an attacker gains nothing by framing it that fetching the
-  URL would not already give them.
+  Three read-only pages used to opt out, so a club site could embed the
+  pairing list. They were removed on 2026-08-29 along with the rest of the
+  local public pages: the public reads a tournament on OpenResults now, and
+  a club that wants the pairing list on its front page embeds it from there
+  - a site with no login, no session and nothing to clickjack, where framing
+  is safe by construction rather than by careful argument.
 
-  The arbiter tools, the mobile result entry and the whole authenticated
-  app fail that test, because they act with authority the visitor already
-  holds. They stay at `'none'`.
+  Every page this app still serves acts with authority the visitor already
+  holds, so every page stays at `'none'`.
 
   ## The nonce
 
@@ -77,59 +73,6 @@ defmodule PairingsEngineWeb.CSP do
   """
   @spec nonce() :: String.t()
   def nonce, do: Process.get(@process_key, "")
-
-  @doc """
-  Re-open `frame-ancestors` for a route that is safe to embed.
-
-  A plug, meant to run AFTER the `:browser` pipeline so it rewrites the
-  header `call/2` already set - the default stays `'none'` and a route has
-  to ask, rather than the other way round. Only the directive changes; the
-  nonce and everything else are left exactly as they were, so this cannot
-  loosen script or style handling by accident.
-
-  The value comes from `config :pairings_engine, :public_frame_ancestors`
-  (`PUBLIC_FRAME_ANCESTORS` at runtime), default `*`: a club website that
-  wants the pairing list on its front page should not have to be added to
-  an allowlist first. Set it to a space-separated origin list to restrict
-  embedding to particular sites, or to `'none'` to switch embedding off
-  entirely without touching the router.
-
-  `x-frame-options` is deleted alongside it. Phoenix's
-  `put_secure_browser_headers/2` does not set one, but a reverse proxy or a
-  custom header map might, and the older header has no syntax for "these
-  origins" - a stray `SAMEORIGIN` would silently override the CSP in the
-  browsers that still prefer it.
-  """
-  def allow_framing(conn, _opts) do
-    conn
-    |> delete_resp_header("x-frame-options")
-    |> rewrite_frame_ancestors()
-  end
-
-  defp rewrite_frame_ancestors(conn) do
-    case get_resp_header(conn, "content-security-policy") do
-      [policy | _] ->
-        put_resp_header(
-          conn,
-          "content-security-policy",
-          String.replace(policy, "frame-ancestors 'none'", "frame-ancestors #{ancestors()}")
-        )
-
-      [] ->
-        conn
-    end
-  end
-
-  defp ancestors do
-    :pairings_engine
-    |> Application.get_env(:public_frame_ancestors, "*")
-    |> to_string()
-    |> String.trim()
-    |> case do
-      "" -> "'none'"
-      value -> value
-    end
-  end
 
   defp policy(nonce) do
     [

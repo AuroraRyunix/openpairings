@@ -85,15 +85,18 @@ defmodule PairingsEngine.ArchiveTest do
       assert Tournaments.list_archived_tournaments(scope) == []
     end
 
-    test "archiving does NOT hide the tournament from its own pages or public pages" do
+    test "archiving does NOT hide the tournament" do
       scope = user_scope()
       t = tournament(scope)
-      {:ok, t} = Tournaments.set_public_pages(t, true)
+      {:ok, t} = Tournaments.set_publish_to_openresults(t, true)
       {:ok, _} = Tournaments.archive_tournament(t)
 
       # Still fetchable - archiving freezes writes, it doesn't hide anything.
       assert Tournaments.get_authorized_tournament!(scope, t.id)
-      assert Tournaments.get_tournament_by_public_slug(t.public_slug)
+
+      # And still marked to publish: an archived tournament's public page is
+      # its record of the event, so freezing writes must not withdraw it.
+      assert Repo.reload!(t).publish_to_openresults
     end
   end
 
@@ -279,12 +282,12 @@ defmodule PairingsEngine.ArchiveTest do
       t = archived(scope)
       slug = t.public_slug
 
-      assert Tournaments.set_public_pages(t, true) == {:error, :archived}
+      assert Tournaments.set_publish_to_openresults(t, true) == {:error, :archived}
       assert Tournaments.set_registration_open(t, true) == {:error, :archived}
       assert Tournaments.rotate_public_slug(t) == {:error, :archived}
 
       reloaded = Repo.reload!(t)
-      refute reloaded.public_pages_enabled
+      refute reloaded.publish_to_openresults
       refute reloaded.registration_open
       assert reloaded.public_slug == slug
     end

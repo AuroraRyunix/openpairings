@@ -74,9 +74,9 @@ defmodule PairingsEngine.TournamentExport do
   #   public_slug
   #     The imported copy must get its own unguessable link, not share the
   #     original's - otherwise one leaked link exposes both.
-  #   public_pages_enabled, registration_open, publish_to_openresults
+  #   registration_open, publish_to_openresults
   #     Sharing must be an explicit opt-in per tournament, never inherited
-  #     from a file someone was handed. All three default off on the new row.
+  #     from a file someone was handed. Both default off on the new row.
   #     `publish_to_openresults` is the sharpest of them: importing a file
   #     must not cause this machine to start sending a copy of it to whatever
   #     server this machine happens to be configured for - which is not the
@@ -111,7 +111,7 @@ defmodule PairingsEngine.TournamentExport do
   #     removed still carried an offer to take over a tournament nobody in the
   #     chain ever owned.
   @excluded_tournament_fields ~w(
-    id user_id inserted_at updated_at public_slug public_pages_enabled
+    id user_id inserted_at updated_at public_slug
     registration_open publish_to_openresults deleted_at archived_at swar_guid
     logo_data logo_content_type head_snapshot_id
     openresults_key openresults_claim

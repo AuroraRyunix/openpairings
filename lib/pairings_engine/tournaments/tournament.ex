@@ -222,33 +222,37 @@ defmodule PairingsEngine.Tournaments.Tournament do
     #   pairings_web_link                        - IT4 Y4 "Link to pairings web"
     field :officials, :map, default: %{}
 
-    # Unguessable token for the public (no-login) read-only pages - see
-    # docs/public-pages.md. Deliberately not the numeric `id`, which is
-    # sequential and easy to enumerate. Always set (never nil) - see
-    # `put_public_slug/1` below, applied by every creation path. Rotated by
-    # Tournaments.rotate_public_slug/1 to kill a leaked link.
+    # This tournament's ADDRESS on the results site - the `:slug` in
+    # OpenResults' `/t/:slug`. See docs/public-pages.md.
+    #
+    # Deliberately not the numeric `id`, which is sequential and easy to
+    # enumerate. Always set (never nil) - see `put_public_slug/1` below,
+    # applied by every creation path, including tournaments created long
+    # before anything was published anywhere.
+    #
+    # It was an unguessable token for local read-only pages until those were
+    # removed on 2026-08-29; being unguessable still earns its keep, because
+    # a published tournament is world-readable and the slug is all that
+    # stands between a scraper and enumerating every event on the site.
+    #
+    # Rotated by Tournaments.rotate_public_slug/1 - but see
+    # `PairingsEngine.Publishing.rotate_address/1`, which is the operation
+    # that actually revokes a leaked link.
     field :public_slug, :string
 
-    # Whether the public pages are actually served. Toggled by
-    # Tournaments.set_public_pages/2; when false, /p/:slug/... 404s even with
-    # the right slug. NOT cast by changeset/2 (same as public_slug) so a normal
-    # settings save can't flip it - the two writers above are the only ones.
+    # Whether the results site's entry form accepts entries for this
+    # tournament. Toggled by Tournaments.set_registration_open/2, and NOT
+    # cast by changeset/2 - an ordinary settings save must not be able to
+    # open the doors by accident.
     #
-    # Default false: player names, ratings and clubs shouldn't become
-    # reachable by anyone who finds the link until an arbiter has
-    # deliberately opted in for this tournament - same "opt-in per event"
-    # reasoning as `registration_open` below, not something an existing
-    # tournament should inherit for free.
-    field :public_pages_enabled, :boolean, default: false
-
-    # Whether /p/:slug/register accepts entries. Toggled by
-    # Tournaments.set_registration_open/2, and NOT cast by changeset/2 for
-    # the same reason as the two fields above - an ordinary settings save
-    # must not be able to open the doors by accident.
+    # Unlike every other flag here it is not enforced on this machine at
+    # all: the form is on the results site, so this only takes effect by
+    # riding along in the published snapshot. It means nothing for a
+    # tournament that does not publish.
     #
-    # Default false, unlike public_pages_enabled: this is the only public
-    # page that WRITES to the tournament, so it is opt-in per event rather
-    # than something an existing tournament inherits on upgrade.
+    # Default false: this is the one flag that lets strangers write into an
+    # arbiter's tournament, so it is opt-in per event rather than something
+    # an existing tournament inherits on upgrade.
     field :registration_open, :boolean, default: false
 
     # Whether this tournament is published to OpenResults at all. Toggled by
@@ -257,10 +261,11 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # save must not be able to start sending an event's player names,
     # ratings and clubs to a remote server by accident.
     #
-    # Default false, and deliberately separate from `public_pages_enabled`.
-    # They answer different questions - "may anyone with the link read this
-    # here" versus "does a copy of it leave this machine" - and an arbiter
-    # who opted into the first has not thereby opted into the second.
+    # Default false. It used to sit beside `public_pages_enabled`, which
+    # answered the separate question "may anyone with the link read this
+    # HERE" - that field was dropped on 2026-08-29 with the local public
+    # pages, and its intent migrated into this one. There is now a single
+    # question, "is this tournament public", and this is it.
     field :publish_to_openresults, :boolean, default: false
 
     # This tournament's key on the OpenResults server: random, minted on this
@@ -302,7 +307,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # How long a newly-paired round takes to reach the public pairings
     # page - see `@publish_modes`'s own comment above, and
     # `PairingsEngine.Tournaments.compute_published_at/2`/`round_published?/2`
-    # for what these two actually drive. Unlike `public_pages_enabled`/
+    # for what these two actually drive. Unlike `publish_to_openresults`/
     # `registration_open` above, these ARE cast by the ordinary changeset -
     # this is an ordinary settings choice on the Options page, not a
     # separate toggle-action.
@@ -445,7 +450,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     #
     # NOT a `status` value: `status` is derived (see
     # `Tournaments.derive_status/1`) and would be recomputed away. NOT cast by
-    # changeset/2 either, same as `deleted_at`/`public_pages_enabled` - the
+    # changeset/2 either, same as `deleted_at`/`publish_to_openresults` - the
     # controlled setters `Tournaments.archive_tournament/1` and
     # `unarchive_tournament/1` are the only writers, so no ordinary settings
     # save can archive or (more importantly) silently UNarchive a tournament.

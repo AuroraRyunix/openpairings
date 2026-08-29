@@ -564,6 +564,89 @@ defmodule PairingsEngine.Publishing do
     updated
   end
 
+  ## ---------- moving to a new address ----------
+
+  @doc """
+  Moves `tournament` to a fresh address on the results site, revoking the old
+  one.
+
+  ## Why this is not just a slug rotation
+
+  `Tournaments.rotate_public_slug/1` changes this machine's idea of the
+  address and nothing else. While the local public pages existed that WAS
+  revocation - the pages 404'd the moment the slug changed, because they were
+  served from the same database the slug lived in.
+
+  With those pages gone the slug is an address on somebody else's server, and
+  rotating it alone does the opposite of what the button promises: the leaked
+  link keeps working, because the copy at the old address is still there and
+  this machine has just forgotten how to reach it. The next publish then
+  creates a SECOND copy at the new address, so the tournament is now public
+  twice and the arbiter can no longer take down the one they were trying to
+  revoke. The key that authorised it has been left pointing at the wrong slug.
+
+  So revoking means: delete the old copy, then move, then publish again.
+
+  ## Ordering, and what a partial failure leaves behind
+
+  The takedown goes first because it is the part the arbiter actually asked
+  for. If it fails, nothing else happens and the address is unchanged - a
+  failed revocation must not look like a successful one.
+
+  If it succeeds and the re-publish then fails, the tournament is at its new
+  address with nothing sent yet. That is a good state to fail into: the
+  leaked link is dead, which was the request, and publishing retries by
+  itself. The caller is told, because "revoked, not yet re-published" and
+  "revoked and back up" are different sentences to put in front of an
+  arbiter.
+
+  A tournament that is not published has nothing to revoke and nothing to
+  re-send, so it just moves.
+  """
+  @spec rotate_address(Tournament.t()) :: {:ok, Tournament.t(), String.t()} | {:error, String.t()}
+  def rotate_address(%Tournament{} = tournament) do
+    if published?(tournament) do
+      with {:ok, _msg} <- take_down(tournament) do
+        # `take_down/1` switched publishing off and dropped the key, which is
+        # right for a takedown and wrong for a move - so it is turned back on
+        # here, deliberately, on a tournament that now has a new address and
+        # will therefore mint a new key rather than reuse the revoked one.
+        tournament.id
+        |> Tournaments.get_tournament!()
+        |> rotate_and_republish()
+      end
+    else
+      with {:ok, moved} <- Tournaments.rotate_public_slug(tournament) do
+        {:ok, moved, "This tournament has a new address."}
+      end
+    end
+  end
+
+  defp rotate_and_republish(%Tournament{} = taken_down) do
+    with {:ok, moved} <- Tournaments.rotate_public_slug(taken_down),
+         {:ok, live} <- Tournaments.set_publish_to_openresults(moved, true) do
+      case publish(live) do
+        {:ok, _body} ->
+          {:ok, Tournaments.get_tournament!(live.id),
+           "The old link is dead and this tournament is published at a new address."}
+
+        {:error, reason} ->
+          {:ok, Tournaments.get_tournament!(live.id),
+           "The old link is dead. Publishing to the new address did not go through " <>
+             "(#{reason}) - it will be retried."}
+      end
+    else
+      # The takedown already happened, so the old link is gone either way and
+      # saying otherwise would be a lie. Reported as an error because the
+      # tournament is now in a state the arbiter did not ask for.
+      {:error, %Ecto.Changeset{}} ->
+        {:error, "the old link was revoked, but this tournament could not be moved"}
+
+      {:error, reason} ->
+        {:error, "the old link was revoked, but the move failed: #{inspect(reason)}"}
+    end
+  end
+
   ## ---------- a key carried in from a backup ----------
 
   @doc """

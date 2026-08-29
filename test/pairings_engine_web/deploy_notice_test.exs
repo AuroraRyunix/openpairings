@@ -242,7 +242,9 @@ defmodule PairingsEngineWeb.DeployNoticeTest do
       source = File.read!("lib/pairings_engine_web/router.ex")
       found = Regex.scan(~r/live_session\s+:(\w+)/, source)
 
-      assert length(found) >= 7, "expected to find every live_session, found #{length(found)}"
+      # Was >= 7 until 2026-08-29, when the two local public-page sessions
+      # were removed with the pages themselves.
+      assert length(found) >= 5, "expected to find every live_session, found #{length(found)}"
     end
   end
 

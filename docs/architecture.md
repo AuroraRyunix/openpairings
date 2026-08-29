@@ -185,10 +185,10 @@ Two parts of the app deliberately avoid the main authenticated data model:
   visitor download filled FIDE report forms. Nothing is ever written to the
   database; parsed data lives only in an in-memory `Tools.Session` GenServer
   entry, keyed by a random download token, expiring after a fixed TTL.
-- **`/p/:slug/pairings` and `/p/:slug/standings`** - public read-only views
-  of a real, DB-backed tournament, reachable only via its unguessable
-  `public_slug` (never the numeric `id`, which is sequential and therefore
-  guessable/enumerable).
+There are no public views of a real tournament in this app. A tournament
+becomes readable by the public by being published to OpenResults, which is a
+separate application - see docs/public-pages.md. The local `/p/:slug/...`
+pages were removed on 2026-08-29.
 
 ## Module boundaries - what NOT to couple
 

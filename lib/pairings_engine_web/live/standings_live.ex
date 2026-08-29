@@ -303,13 +303,13 @@ defmodule PairingsEngineWeb.StandingsLive do
 
         <div class="actions" style="margin: 0">
           <a
-            :if={@tournament.public_pages_enabled}
+            :if={PublicLink.public?(@tournament)}
             class="pe-btn"
             href={PublicLink.url(@tournament, :standings)}
             target="_blank"
-            title={gettext("No login needed - share this link")}
+            title={gettext("Opens the results site - no login needed, share this link")}
           >
-            {gettext("Public standings link")}
+            {gettext("Public page")}
           </a>
 
           <a class="pe-btn" href={~p"/t/#{@tournament.id}/print/standings"} target="_blank">

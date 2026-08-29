@@ -1,130 +1,52 @@
 defmodule PairingsEngineWeb.CSPFramingTest do
   @moduledoc """
-  `frame-ancestors` is the one directive this app varies by route, so it is
-  the one worth pinning from both sides: the read-only public pages must be
-  embeddable, and everything else must not be.
+  Nothing this app serves may be framed.
 
-  The second half is the half that matters. A regression that opened
-  framing app-wide would not break a single feature - it would just quietly
-  make every logged-in arbiter clickjackable, and no other test in the
-  suite would notice.
+  It used to vary: three read-only public pages opted out of
+  `frame-ancestors 'none'` so a club site could embed the pairing list. They
+  were removed on 2026-08-29 with the rest of the local public pages, and the
+  opt-out mechanism (`CSP.allow_framing/2` and the router's `:embeddable`
+  pipeline) went with them - a club embeds from OpenResults now, a site with
+  no login and nothing to clickjack.
+
+  So the rule is finally unconditional, and this is the test that keeps it
+  that way. A regression that re-opened framing would not break a single
+  feature; it would quietly make every logged-in arbiter clickjackable, and
+  nothing else in the suite would notice.
   """
-  use PairingsEngineWeb.ConnCase, async: false
-
-  alias PairingsEngine.Tournaments
+  use PairingsEngineWeb.ConnCase, async: true
 
   defp csp(conn), do: conn |> get_resp_header("content-security-policy") |> List.first()
 
-  defp public_tournament do
-    {:ok, t} = Tournaments.create_tournament(%{"name" => "Embed Test", "type" => "swiss"})
-    {:ok, t} = Tournaments.set_public_pages(t, true)
-    t
+  test "the login page refuses framing", %{conn: conn} do
+    conn = get(conn, ~p"/users/log-in")
+
+    assert csp(conn) =~ "frame-ancestors 'none'"
   end
 
-  describe "the read-only public pages" do
-    test "may be framed", %{conn: conn} do
-      t = public_tournament()
+  test "the public arbiter tools refuse framing", %{conn: conn} do
+    conn = get(conn, ~p"/tools")
 
-      for path <- ["/p/#{t.public_slug}/pairings", "/p/#{t.public_slug}/standings"] do
-        policy = conn |> get(path) |> csp()
-
-        assert policy =~ "frame-ancestors *",
-               "#{path} should be embeddable, got: #{policy}"
-
-        refute policy =~ "frame-ancestors 'none'"
-      end
-    end
-
-    test "carry no x-frame-options that would override the CSP", %{conn: conn} do
-      t = public_tournament()
-
-      assert get_resp_header(get(conn, "/p/#{t.public_slug}/pairings"), "x-frame-options") == []
-    end
-
-    test "keep every other directive exactly as the strict policy has it", %{conn: conn} do
-      t = public_tournament()
-      policy = conn |> get("/p/#{t.public_slug}/pairings") |> csp()
-
-      assert policy =~ "default-src 'self'"
-      assert policy =~ "object-src 'none'"
-      assert policy =~ "base-uri 'self'"
-      assert policy =~ "form-action 'self'"
-      assert policy =~ ~r/script-src 'self' 'nonce-[A-Za-z0-9+\/=]+'/
-      refute policy =~ "unsafe-eval"
-      refute policy =~ "script-src 'self' 'unsafe-inline'"
-    end
+    assert csp(conn) =~ "frame-ancestors 'none'"
   end
 
-  describe "everything else stays closed" do
-    # Embeddable since 2026-08-22, deliberately. It writes, but the test is
-    # not "does it write" - it is whether framing grants a capability the
-    # embedding page did not already have. This form runs under an anonymous
-    # scope, needs values typed in, and posts to this server rather than the
-    # framing one, so it does not. See PairingsEngineWeb.CSP's "Framing".
-    test "the public REGISTER form IS embeddable, and keeps its own gates", %{conn: conn} do
-      t = public_tournament()
-      {:ok, t} = Tournaments.update_tournament(t, %{"registration_open" => true})
+  test "a redirect away from an authenticated page still carries the header", %{conn: conn} do
+    # The header is set in the pipeline, so it is on the 302 as well as the
+    # page - which matters, because a framed redirect is still framed.
+    conn = get(conn, ~p"/")
 
-      conn = get(conn, "/p/#{t.public_slug}/register")
-
-      refute csp(conn) =~ "frame-ancestors 'none'"
-      assert get_resp_header(conn, "x-frame-options") == []
-
-      # Framing changes nothing about who may actually enter: closing
-      # registration still closes it, frame or no frame.
-      {:ok, t} = Tournaments.update_tournament(t, %{"registration_open" => false})
-
-      assert build_conn()
-             |> get("/p/#{t.public_slug}/register")
-             |> html_response(200) =~ "Registration is closed"
-    end
-
-    test "the log-in page is not embeddable", %{conn: conn} do
-      assert conn |> get(~p"/users/log-in") |> csp() =~ "frame-ancestors 'none'"
-    end
-
-    test "the arbiter tools are not embeddable - they take uploads", %{conn: conn} do
-      assert conn |> get(~p"/tools") |> csp() =~ "frame-ancestors 'none'"
-    end
-
-    test "mobile result entry is not embeddable - it holds a session", %{conn: conn} do
-      assert conn |> get("/m") |> csp() =~ "frame-ancestors 'none'"
-    end
-
-    test "the authenticated app is not embeddable", %{conn: conn} do
-      %{conn: conn} = register_and_log_in_user(%{conn: conn})
-
-      assert conn |> get(~p"/") |> csp() =~ "frame-ancestors 'none'"
-    end
+    assert csp(conn) =~ "frame-ancestors 'none'"
   end
 
-  describe "configuration" do
-    setup do
-      original = Application.get_env(:pairings_engine, :public_frame_ancestors)
-      on_exit(fn -> Application.put_env(:pairings_engine, :public_frame_ancestors, original) end)
-      :ok
-    end
+  test "no route can re-open framing, because nothing can ask any more" do
+    refute function_exported?(PairingsEngineWeb.CSP, :allow_framing, 2)
+  end
 
-    test "an origin list restricts embedding to those sites", %{conn: conn} do
-      Application.put_env(:pairings_engine, :public_frame_ancestors, "https://club.example")
-      t = public_tournament()
+  test "x-frame-options is never contradicted by a leftover header", %{conn: conn} do
+    conn = get(conn, ~p"/users/log-in")
 
-      assert conn |> get("/p/#{t.public_slug}/pairings") |> csp() =~
-               "frame-ancestors https://club.example"
-    end
-
-    test "'none' switches embedding off without touching the router", %{conn: conn} do
-      Application.put_env(:pairings_engine, :public_frame_ancestors, "'none'")
-      t = public_tournament()
-
-      assert conn |> get("/p/#{t.public_slug}/pairings") |> csp() =~ "frame-ancestors 'none'"
-    end
-
-    test "an empty setting falls back to 'none' rather than an invalid header", %{conn: conn} do
-      Application.put_env(:pairings_engine, :public_frame_ancestors, "   ")
-      t = public_tournament()
-
-      assert conn |> get("/p/#{t.public_slug}/pairings") |> csp() =~ "frame-ancestors 'none'"
-    end
+    # If something ever sets `SAMEORIGIN`, browsers that prefer the older
+    # header would use it instead of the CSP. Nothing should set one at all.
+    assert get_resp_header(conn, "x-frame-options") == []
   end
 end

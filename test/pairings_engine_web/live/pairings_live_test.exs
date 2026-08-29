@@ -3,7 +3,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias PairingsEngine.{Audit, Repo, Tournaments}
+  alias PairingsEngine.{Audit, Publishing, Repo, Tournaments}
   alias PairingsEngine.Tournaments.{Player, Round, Pairing}
 
   setup :register_and_log_in_user
@@ -103,35 +103,34 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
   # request: the public standings page had a one-click share link and the
   # public pairings page did not, so the only way to hand someone the
   # pairings URL was through Settings.
-  test "shows a public pairings link while public pages are enabled", %{
+  test "shows a public link on the results site while the tournament publishes", %{
     conn: conn,
     scope: scope
   } do
+    Publishing.put_endpoint("https://results.example.org")
     tournament = fixture(scope)
-    {:ok, tournament} = Tournaments.set_public_pages(tournament, true)
+    {:ok, tournament} = Tournaments.set_publish_to_openresults(tournament, true)
 
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 
     assert tournament.public_slug
-    assert html =~ "Public pairings link"
-    # Absolute now, not relative: PublicLink builds a full URL because half of
-    # these end up on a QR code, in a printed footer or pasted into an email.
-    # A PUBLISHED tournament gets the results site's address here instead -
-    # see public_link_test.exs.
-    assert html =~ "/p/#{tournament.public_slug}/pairings"
+    assert html =~ "Public page"
+    assert html =~ "https://results.example.org/t/#{tournament.public_slug}"
+    refute html =~ "/p/#{tournament.public_slug}"
   end
 
-  test "hides the public pairings link once public pages are turned off", %{
+  test "hides the public link once publishing is turned off", %{
     conn: conn,
     scope: scope
   } do
+    Publishing.put_endpoint("https://results.example.org")
     tournament = fixture(scope)
-    {:ok, tournament} = Tournaments.set_public_pages(tournament, false)
+    {:ok, tournament} = Tournaments.set_publish_to_openresults(tournament, false)
 
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 
-    refute html =~ "Public pairings link"
-    refute html =~ "/p/#{tournament.public_slug}/pairings"
+    refute html =~ "Public page"
+    refute html =~ "results.example.org"
   end
 
   test "does not show a separate 'Explain this round' link (relocated to the audit page)", %{

@@ -440,17 +440,18 @@ defmodule PairingsEngineWeb.ArchiveLiveTest do
   end
 
   describe "an archived tournament stays readable" do
-    test "its public pages keep serving", %{conn: conn, scope: scope} do
+    test "it stays marked to publish", %{conn: conn, scope: scope} do
+      # This used to open the archived tournament's own public page and read
+      # it back. Those pages were removed on 2026-08-29, so what is left to
+      # check is the decision behind them: archiving freezes writes, and must
+      # not quietly withdraw an event from the results site. An archived
+      # tournament's public page is the record of what happened.
+      _ = conn
       tournament = create_tournament(scope)
-      {:ok, tournament} = Tournaments.set_public_pages(tournament, true)
-      {:ok, tournament} = Tournaments.archive_tournament(tournament)
+      {:ok, tournament} = Tournaments.set_publish_to_openresults(tournament, true)
+      {:ok, _} = Tournaments.archive_tournament(tournament)
 
-      {:ok, _lv, html} = live(conn, ~p"/p/#{tournament.public_slug}/standings")
-
-      assert html =~ tournament.name
-      # The read-only banner is an arbiter-facing thing; the public page has
-      # no concept of editing, so it must not leak it.
-      refute html =~ "archived-banner"
+      assert PairingsEngine.Repo.reload!(tournament).publish_to_openresults
     end
 
     test "its JSON export still downloads", %{conn: conn, scope: scope} do

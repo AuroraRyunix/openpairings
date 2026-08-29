@@ -157,28 +157,6 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
-  Gets a tournament by its `public_slug` - the unguessable token behind the
-  public (no-login) read-only pages (see docs/public-pages.md). Returns
-  `nil` if no tournament has this slug.
-
-  **Deliberately no scope/authorization check** - this is the one lookup in
-  this module that's meant to be public. Anyone holding the link can view
-  the tournament; the slug itself (a random 12-byte token, not the
-  sequential numeric `id`) is what keeps it from being enumerable.
-
-  Honours `public_pages_enabled`: a tournament whose owner has switched its
-  public pages off returns `nil` here (a 404 to the visitor) even with the
-  correct slug, so taking the pages down is immediate and a later rotate or
-  re-enable doesn't resurrect the old link.
-  """
-  def get_tournament_by_public_slug(slug) do
-    Repo.one(
-      from t in Tournament,
-        where: t.public_slug == ^slug and t.public_pages_enabled == true and is_nil(t.deleted_at)
-    )
-  end
-
-  @doc """
   Finds an existing, non-deleted tournament (owned by or shared with
   `scope`'s user) that was already imported from the same `.swar` file -
   matched on `swar_guid`, the persistent per-tournament id SWAR itself
@@ -781,39 +759,18 @@ defmodule PairingsEngine.Tournaments do
     end
   end
 
-  ## ---------- Public pages (enable/disable + slug rotation) ----------
-  #
-  # The public read-only pages (/p/:slug/...) expose player names, ratings,
-  # clubs and federations to anyone with the link. These two functions are the
-  # off switch and the "the link leaked" recovery for that - `public_slug` and
-  # `public_pages_enabled` are both deliberately outside `Tournament.changeset/2`,
-  # so an ordinary settings save can neither disable sharing nor rotate a link
-  # by accident; these are the only writers.
-
-  @doc """
-  Turns `tournament`'s public pages on or off. While off,
-  `get_tournament_by_public_slug/1` returns `nil`, so every `/p/:slug/...`
-  page 404s regardless of the slug. Broadcasts `:settings`.
-  """
-  @spec set_public_pages(Tournament.t(), boolean()) ::
-          {:ok, Tournament.t()} | {:error, Ecto.Changeset.t()}
-  def set_public_pages(%Tournament{} = tournament, enabled?) when is_boolean(enabled?) do
-    with :ok <- ensure_writable(tournament) do
-      tournament
-      |> Ecto.Changeset.change(public_pages_enabled: enabled?)
-      |> Repo.update()
-      |> tap_ok(fn updated -> broadcast_tournament_change(updated.id, :settings) end)
-    end
-  end
-
   @doc """
   Turns publishing this tournament to OpenResults on or off.
 
+  **The public switch.** Since the local `/p/:slug/...` pages were removed on
+  2026-08-29 this is the only thing that makes a tournament readable by
+  anybody without a login: the results site is where the public reads, so
+  "published" and "public" are now one state rather than two.
+
   A controlled setter rather than a `changeset/2` field, for the same reason
-  as `set_public_pages/2` and `set_registration_open/2` - but with a sharper
-  edge than either. Those two decide whether somebody holding a link may read
-  this tournament *here*. This one decides whether a copy of it leaves the
-  machine at all, and an ordinary settings save must not be able to start
+  as `set_registration_open/2` and with a sharper edge - this decides whether
+  a copy of the tournament, with its players' names, ratings and clubs, leaves
+  the machine at all. An ordinary settings save must not be able to start
   that.
 
   Turning it ON enqueues an immediate publish, so the arbiter's next look at
@@ -839,13 +796,20 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
-  Opens or closes public self-registration at `/p/:slug/register`.
+  Opens or closes public self-registration.
+
+  The form itself lives on the results site, not here - so this flag only
+  reaches anyone by riding along in the published snapshot, and it only means
+  anything for a tournament that is actually published. Closing it is
+  therefore not instant the way it was when this app served the form: the
+  next publish carries the closure. `PairingsEngine.Publishing.enqueue/1` is
+  called on the way out for exactly that reason.
 
   Deliberately a controlled setter rather than a `changeset/2` field, like
-  `set_public_pages/2` and `rotate_public_slug/1`: this is the only public
-  page that WRITES to the tournament, so an ordinary settings save must not
-  be able to open it by accident. Broadcasts `:settings`, which closes the
-  form live on every device already holding it open.
+  `set_publish_to_openresults/2` and `rotate_public_slug/1`: it is the one
+  flag that lets strangers write into an arbiter's tournament, so an ordinary
+  settings save must not be able to open it by accident. Broadcasts
+  `:settings`.
   """
   @spec set_registration_open(Tournament.t(), boolean()) ::
           {:ok, Tournament.t()} | {:error, Ecto.Changeset.t()}
@@ -854,109 +818,33 @@ defmodule PairingsEngine.Tournaments do
       tournament
       |> Ecto.Changeset.change(registration_open: open?)
       |> Repo.update()
-      |> tap_ok(fn updated -> broadcast_tournament_change(updated.id, :settings) end)
+      |> tap_ok(fn updated ->
+        # On BOTH edges, unlike `set_publish_to_openresults/2` above, which
+        # only publishes when switching on. Closing a form is the urgent
+        # direction here: an arbiter shuts entries at the door and the site
+        # must stop taking them, whereas nothing bad happens if an opening
+        # takes a moment to arrive. `enqueue/1` is a no-op for a tournament
+        # that does not publish, so this costs unpublished ones nothing.
+        PairingsEngine.Publishing.enqueue(updated)
+        broadcast_tournament_change(updated.id, :settings)
+      end)
     end
   end
 
-  @doc """
-  Looks up a tournament by `public_slug` for the self-registration form,
-  returning `nil` unless registration is actually open right now.
-
-  Separate from `get_tournament_by_public_slug/1` so that closing the form
-  cannot be bypassed: the read-only public pages stay reachable while
-  registration is shut, and every entry point to the writing page has to go
-  through this one function.
-  """
-  @spec get_tournament_for_registration(String.t()) :: Tournament.t() | nil
-  def get_tournament_for_registration(slug) do
-    Repo.one(
-      from t in Tournament,
-        where:
-          t.public_slug == ^slug and t.public_pages_enabled == true and
-            t.registration_open == true and is_nil(t.deleted_at)
-    )
-  end
+  ## ---------- The public address ----------
 
   @doc """
-  Registers a player from the public form.
+  Rotates `tournament`'s `public_slug` to a fresh random token.
 
-  Always lands them **absent**. Someone filling in a web form has announced
-  an intention, not turned up - the arbiter marks them present when they
-  actually do. Getting this backwards would silently pair a no-show and
-  hand their opponent a forfeit win, so `absent: true` is forced here
-  rather than taken from the submitted params.
+  The slug is this tournament's address on the results site, so rotating it
+  moves the tournament to a new one. Deliberately outside `changeset/2`, so
+  an ordinary settings save cannot move a published tournament by accident.
 
-  Re-checks `registration_open` inside the call instead of trusting the
-  caller: the form is a long-lived LiveView and the arbiter may close
-  registration between the page rendering and someone pressing submit.
-
-  Everything else the arbiter can edit afterwards on the Players page, so
-  this takes only what the form collects and lets `create_player/2`'s own
-  duplicate-FIDE-id guard reject a double entry.
-  """
-  @spec register_public_player(String.t(), map()) ::
-          {:ok, Player.t()} | {:error, :closed | :duplicate_fide_id | Ecto.Changeset.t()}
-  def register_public_player(slug, attrs) do
-    case get_tournament_for_registration(slug) do
-      nil ->
-        {:error, :closed}
-
-      tournament ->
-        attrs =
-          attrs
-          |> Map.take([
-            "name",
-            "fide_id",
-            "fide_rating",
-            "title",
-            "federation",
-            "birth_year",
-            "absent_rounds"
-          ])
-          |> Map.put("absent", true)
-          |> Map.update("absent_rounds", "", &clamp_requested_rounds(&1, tournament))
-
-        create_player(tournament.id, attrs)
-    end
-  end
-
-  # Rounds a stranger asked to sit out, reduced to ones this tournament
-  # actually has.
-  #
-  # `Player.changeset/2` already validates the GRAMMAR, which is the wrong
-  # guarantee on its own here: "1-999" is perfectly well-formed and would be
-  # accepted from a public form with no login behind it. Every value is
-  # re-derived from the round count rather than trusted, so the worst a
-  # forged submission can do is request byes for rounds that exist.
-  #
-  # Kept here rather than in the changeset because it is a property of THIS
-  # entry path. An arbiter editing the same field on the Players page may
-  # legitimately type a round beyond the current count - they are about to
-  # add rounds.
-  defp clamp_requested_rounds(value, tournament) do
-    case Player.parse_absent_rounds_input(to_string(value)) do
-      {:ok, canonical} ->
-        canonical
-        |> String.split(",", trim: true)
-        |> Enum.flat_map(fn part ->
-          case Integer.parse(String.trim(part)) do
-            {n, ""} -> [n]
-            _ -> []
-          end
-        end)
-        |> Enum.filter(&(&1 >= 1 and &1 <= tournament.rounds_count))
-        |> Enum.uniq()
-        |> Enum.sort()
-        |> Enum.join(",")
-
-      :error ->
-        ""
-    end
-  end
-
-  @doc """
-  Rotates `tournament`'s `public_slug` to a fresh random token, permanently
-  invalidating any previously shared link while leaving the pages enabled.
+  **This alone does not revoke a leaked link.** A published tournament still
+  has a copy at the OLD address, which this does not touch; rotating without
+  removing that copy leaves the leaked link working and publishes a second
+  copy alongside it. `PairingsEngine.Publishing.rotate_address/1` is the
+  operation an arbiter actually wants, and it calls this in the middle.
   Broadcasts `:settings`.
   """
   @spec rotate_public_slug(Tournament.t()) ::
@@ -1016,7 +904,7 @@ defmodule PairingsEngine.Tournaments do
   # Deleting a tournament from the Tournaments page no longer hard-deletes
   # it outright - it sets `deleted_at`, which every normal listing/fetch
   # path above (`list_tournaments/1`, `get_tournament!/1`,
-  # `get_tournament_by_public_slug/1`, `get_user_tournament!/2`,
+  # `get_user_tournament!/2`,
   # `get_user_tournament/2`, `get_authorized_tournament!/2`,
   # `get_authorized_tournament/2`) now excludes, so a binned tournament's
   # own pages, public pages and exports all 404/disappear exactly as if it
@@ -2001,10 +1889,10 @@ defmodule PairingsEngine.Tournaments do
 
   ## ---------- Public pairings publish delay ----------
   #
-  # Whether a round is visible on /p/:slug/pairings, controlled by the
-  # tournament's `publish_mode`. Doesn't touch `public_pages_enabled` at
-  # all - that's the coarser whole-tournament switch; this is per-round,
-  # on TOP of it.
+  # How long after pairing a round reaches the public, controlled by the
+  # tournament's `publish_mode`. Per-round, and on TOP of
+  # `publish_to_openresults` - that switch decides whether the tournament is
+  # public at all, this decides when each round joins it.
 
   @doc """
   What `round.published_at` should be set to at the moment a round is

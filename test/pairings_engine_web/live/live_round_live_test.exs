@@ -3,7 +3,7 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias PairingsEngine.{Repo, Tournaments}
+  alias PairingsEngine.{Publishing, Repo, Tournaments}
   alias PairingsEngine.Pairing, as: Engine
   alias PairingsEngine.Tournaments.{Player, Round, Pairing}
 
@@ -344,18 +344,23 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
     {:ok, tournament} =
       Tournaments.create_tournament(scope, %{"name" => "Public QR Test", "type" => "swiss"})
 
-    {:ok, tournament} = Tournaments.set_public_pages(tournament, true)
+    Publishing.put_endpoint("https://results.example.org")
+    {:ok, tournament} = Tournaments.set_publish_to_openresults(tournament, true)
 
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/live")
 
     assert html =~ "enroll-qr-inner"
-    assert html =~ "/p/#{tournament.public_slug}/standings"
+    assert html =~ "https://results.example.org/t/#{tournament.public_slug}"
 
-    assert {:ok, tournament} = Tournaments.set_public_pages(tournament, false)
+    # The one a hall full of people actually scans. It must never resolve to
+    # the machine running the round.
+    refute html =~ "/p/#{tournament.public_slug}"
+
+    assert {:ok, tournament} = Tournaments.set_publish_to_openresults(tournament, false)
 
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/live")
 
-    assert html =~ "Public pages are off for this tournament."
+    assert html =~ "This tournament is not published"
     refute html =~ "enroll-qr-inner"
   end
 

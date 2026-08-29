@@ -332,43 +332,15 @@ document.addEventListener("click", (e) => {
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 
 // `reconnectAfterMs` is overridden with a slower schedule than Phoenix's
-// own default ([10, 50, 100, 150, 200, 250, 500, 1000, 2000], i.e. the
-// FIRST retry after a drop is 10ms later). That default is fine for a
-// normal tab, but `phoenix.js`'s base Socket also force-reconnects on
-// every `visibilitychange` where the connection isn't already open
-// (`!isConnected() && !closeWasClean`) - and a cross-origin iframe (the
-// embeddable public pages, see docs/public-pages.md) gets its own
-// visibility/throttling treatment from the browser, distinct from its
-// parent tab's, which can flip more often than a normal backgrounded
-// tab does. Each flip that finds the socket not cleanly connected tears
-// it down and reconnects; at a 10ms first retry, a run of those produces
-// exactly the browser console spam this was written to fix: repeated
-// "WebSocket is closed before the connection is established", visible as
-// the topbar flashing on nothing in particular. A slower floor does not
-// stop a visibility flip from asking for a reconnect, but it stops one
-// flip's own retry attempts from racing each other, and gives
-// `longPollFallbackMs` below an actual unbroken window to fire in rather
-// than being reset by the next 10ms retry before it can.
+// own default, whose first retry after a drop is 10ms later.
 //
-// This has not been measured against a real embed, only reasoned from
-// `deps/phoenix/priv/static/phoenix.js`'s Socket constructor - if the
-// flicker persists after this, the next step is confirming whether
-// visibility events are really what is firing (a temporary debug log
-// on `visibilitychange` inside the embedded frame would settle it) rather
-// than tuning this further blind.
-// The embeddable public pages (`/p/:slug/pairings`, `/p/:slug/standings`,
-// `/p/:slug/register`) use a cookie-free socket - see the "/embed/live"
-// socket in endpoint.ex for why. Chosen by path so a normal, non-embedded
-// visit to those same URLs uses it too: the socket works identically either
-// way (these pages have no session state to lose), and picking by
-// `window.self !== window.top` instead would mean the embedded and
-// non-embedded cases exercised different code paths, so a bug in one would
-// not show up in the other.
-//
-// `register` must stay on this list for as long as it is in the router's
-// `:embeddable` pipeline. Framed on the "/live" socket it would hand
-// LiveView a session token it cannot verify (the Lax cookie is not sent
-// cross-site), and the page would appear to reload forever.
+// It was added for the embeddable public pages, where a cross-origin
+// iframe's own visibility throttling could trigger reconnect storms. Those
+// pages were removed on 2026-08-29, so the case it was written for no
+// longer exists. It is kept because the effect it was reasoned about was
+// never actually measured (see the git history for that admission), and a
+// reconnect schedule that is merely conservative costs a user nothing: the
+// slowest first retry here is 250ms, imperceptible on a real drop.
 
 // Pending-restart countdown, driven by the `deploy-notice` event the
 // DeployNotice on_mount hook pushes. The banner itself is rendered empty in
@@ -606,9 +578,9 @@ window.addEventListener("phx:site-notice", (e) =>
 // people stop reading.
 const VERSION_KEY = "pairingsengine.version"
 
-// localStorage THROWS rather than returning null in a partitioned third-party
-// frame - Safari's default. Unguarded that would break the socket setup on
-// exactly the embedded pages this app supports.
+// localStorage THROWS rather than returning null where a browser blocks site
+// data outright, so both sides are guarded. Unguarded, a throw here would
+// take the socket setup below down with it.
 const versionStore = {
   get: () => { try { return localStorage.getItem(VERSION_KEY) } catch (_) { return null } },
   set: (v) => { try { localStorage.setItem(VERSION_KEY, v) } catch (_) {} },
@@ -635,10 +607,7 @@ window.addEventListener("phx:app-version", (e) => {
   setTimeout(hide, 12000)
 })
 
-const EMBEDDABLE_PATH = /^\/p\/[^/]+\/(pairings|standings|register)$/
-const socketPath = EMBEDDABLE_PATH.test(window.location.pathname) ? "/embed/live" : "/live"
-
-const liveSocket = new LiveSocket(socketPath, Socket, {
+const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   reconnectAfterMs: (tries) => [250, 500, 1000, 2000, 3000][tries - 1] || 5000,
   params: {_csrf_token: csrfToken},
@@ -652,67 +621,6 @@ window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 
 // connect if there are any LiveViews on the page
 liveSocket.connect()
-
-// When this page is embedded, tell the parent how tall its content
-// actually is, so the host page can size the <iframe> to fit instead of
-// guessing a fixed pixel height. A guessed height is wrong in both
-// directions: too small and the standings scroll inside a little box, too
-// large and there is a slab of dead space under the table (which is what
-// prompted this - a `height:3000px` embed of a short tournament).
-//
-// The message is `{type: "openpairings:height", height: <px>}`, posted to
-// `"*"` because the whole point is that we do not know or control which
-// site is embedding us - there is nothing secret in the payload, it is one
-// integer describing our own layout. Receivers should check
-// `event.data.type` before trusting it (the snippet in docs/public-pages.md
-// does).
-//
-// Height is reported on load, on every ResizeObserver tick, and after
-// LiveView patches the DOM - results coming in mid-round genuinely change
-// the table's height, and an embed that only sized itself once would drift
-// out of true as soon as that happened. `Math.ceil` + a last-value guard
-// keeps it from posting a message on every sub-pixel reflow.
-if (window.self !== window.top) {
-  // Opt-in reconnect diagnostics, kept from the flicker investigation. The
-  // reconnect spam ("WebSocket is closed before the connection is
-  // established") appeared to settle after `reconnectAfterMs` was slowed,
-  // but the mechanism was never actually confirmed - see that option's
-  // comment. Rather than delete the instrumentation and have nothing to
-  // reach for if it returns, it now only logs when explicitly asked:
-  // append `?embeddebug=1` to the embedded URL.
-  if (new URLSearchParams(window.location.search).has("embeddebug")) {
-    let lastLog = 0
-    const logThrottled = (label) => {
-      const now = Date.now()
-      console.log(`[embed-debug] ${label} at +${now - lastLog}ms since last, visibilityState=${document.visibilityState}`)
-      lastLog = now
-    }
-    document.addEventListener("visibilitychange", () => logThrottled("visibilitychange"))
-    window.addEventListener("pagehide", () => logThrottled("pagehide"))
-    window.addEventListener("pageshow", () => logThrottled("pageshow"))
-    window.addEventListener("phx:page-loading-start", () => logThrottled("phx:page-loading-start"))
-    console.log("[embed-debug] active - watching for visibility/reconnect churn")
-  }
-
-  let lastHeight = 0
-
-  const reportHeight = () => {
-    // `documentElement.scrollHeight` rather than body's: the public layout's
-    // <main> is the scrolling element and body can report short.
-    const height = Math.ceil(document.documentElement.scrollHeight)
-    if (height === lastHeight || height <= 0) return
-    lastHeight = height
-    window.parent.postMessage({type: "openpairings:height", height}, "*")
-  }
-
-  if (typeof ResizeObserver !== "undefined") {
-    new ResizeObserver(reportHeight).observe(document.documentElement)
-  }
-  window.addEventListener("load", reportHeight)
-  window.addEventListener("phx:page-loading-stop", reportHeight)
-  document.addEventListener("phx:update", reportHeight)
-  reportHeight()
-}
 
 // expose liveSocket on window for web console debug logs and latency simulation:
 // >> liveSocket.enableDebug()

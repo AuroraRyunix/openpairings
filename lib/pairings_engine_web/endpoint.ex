@@ -34,40 +34,6 @@ defmodule PairingsEngineWeb.Endpoint do
     websocket: [connect_info: @connect_info],
     longpoll: [connect_info: @connect_info]
 
-  # A second LiveView socket for the embeddable public pages, WITHOUT the
-  # session in `connect_info`.
-  #
-  # The session cookie is `same_site: "Lax"` (above), which by design is not
-  # sent on a cross-site request - and an <iframe> on someone else's domain
-  # is exactly that. So on the embeddable pages (`/p/:slug/pairings` and
-  # `/p/:slug/standings`, see PairingsEngineWeb.CSP) the "/live" socket
-  # above connects with `session: nil`, LiveView cannot verify the session
-  # token it was handed, rejects the connect, and the client retries
-  # forever: a websocket that closes before it opens, the topbar flashing
-  # on every attempt, and the page appearing to reload constantly.
-  #
-  # Relaxing the cookie to `same_site: "None"` would fix it and is the wrong
-  # trade - that would send the session cookie to every third-party frame in
-  # existence, weakening CSRF protection for the whole app (including every
-  # authenticated page) to serve two read-only ones. Instead these pages get
-  # a socket that never wanted the session in the first place.
-  #
-  # Safe because of what these pages are: no login and no per-user state -
-  # `mount_current_scope` resolves to an anonymous scope whether or not a
-  # session is present, so nothing is lost by not having one.
-  #
-  # `/p/:slug/register` joined them on 2026-08-22, and it DOES write, so the
-  # old shorthand "no writes" no longer describes this list. What actually
-  # matters is unchanged: the write takes no authority from the visitor's
-  # session, because there is none to take. It is gated on
-  # `registration_open` and rate-limited per IP, neither of which has
-  # anything to do with which socket carried it. Any page that genuinely
-  # DEPENDS on the session keeps using "/live"; `assets/js/app.js` picks
-  # between them by path.
-  socket "/embed/live", Phoenix.LiveView.Socket,
-    websocket: [connect_info: [:peer_data, :x_headers]],
-    longpoll: [connect_info: [:peer_data, :x_headers]]
-
   # Serve at "/" the static files from "priv/static" directory.
   #
   # When code reloading is disabled (e.g., in production),

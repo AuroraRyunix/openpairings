@@ -322,27 +322,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
     end
   end
 
-  ## ---------- Public pages (share link) ----------
-
-  def handle_event("toggle_public_pages", _params, socket) do
-    enabled? = !socket.assigns.tournament.public_pages_enabled
-
-    case Tournaments.set_public_pages(socket.assigns.tournament, enabled?) do
-      {:ok, tournament} ->
-        Audit.log(tournament.id, socket.assigns.current_scope, "public_pages.toggled", %{
-          enabled: enabled?
-        })
-
-        note = if enabled?, do: "Public pages are on.", else: "Public pages are off."
-        {:noreply, socket |> assign(tournament: tournament) |> put_flash(:info, note)}
-
-      {:error, :archived} ->
-        {:noreply, put_flash(socket, :error, error_text(:archived))}
-
-      {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, "Could not change public-page sharing")}
-    end
-  end
+  ## ---------- The public page (publish + share link) ----------
 
   def handle_event("toggle_publish_to_openresults", _params, socket) do
     enabled? = !socket.assigns.tournament.publish_to_openresults
@@ -447,21 +427,26 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
     end
   end
 
+  # `Publishing.rotate_address/1` rather than `Tournaments.rotate_public_slug/1`
+  # - see that function for why the bare rotation is not a revocation once the
+  # page being revoked is on another server.
   def handle_event("rotate_public_slug", _params, socket) do
-    case Tournaments.rotate_public_slug(socket.assigns.tournament) do
-      {:ok, tournament} ->
-        Audit.log(tournament.id, socket.assigns.current_scope, "public_pages.link_rotated", %{})
+    case Publishing.rotate_address(socket.assigns.tournament) do
+      {:ok, tournament, message} ->
+        Audit.log(tournament.id, socket.assigns.current_scope, "public_pages.link_rotated", %{
+          published: Publishing.published?(tournament)
+        })
 
-        {:noreply,
-         socket
-         |> assign(tournament: tournament)
-         |> put_flash(:info, "New public link generated - the old one no longer works.")}
+        {:noreply, socket |> assign(tournament: tournament) |> put_flash(:info, message)}
 
       {:error, :archived} ->
         {:noreply, put_flash(socket, :error, error_text(:archived))}
 
+      {:error, message} when is_binary(message) ->
+        {:noreply, put_flash(socket, :error, "Could not move this tournament: " <> message)}
+
       {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, "Could not generate a new link")}
+        {:noreply, put_flash(socket, :error, "Could not move this tournament")}
     end
   end
 
@@ -794,35 +779,26 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
       </div>
 
       <div class="card">
-        <h2>{gettext("Public pages")}</h2>
+        <h2>{gettext("Public page")}</h2>
 
         <p class="hint" style="margin-top: 0">
           {gettext(
-            "Read-only standings and pairings anyone can open with the link below - no login. The link is an unguessable token, but anyone who has it can see player names, ratings and clubs, so treat it like a shared secret. Turn it off to take the public pages down, or generate a new link to revoke one that has leaked."
+            "Publishing sends a copy of this tournament to the results site, where anyone can follow it - standings, pairings and player cards, no login. It is the only way this tournament becomes public: nothing is readable from this machine, which is the point, because spectators should never be loading the computer that runs the round."
+          )}
+        </p>
+
+        <p class="hint">
+          {gettext(
+            "What leaves is what a wall chart would show - names, ratings, clubs, federations and results. Turn it on only for an event whose players expect to be listed publicly."
           )}
         </p>
 
         <div class="set-field solo">
-          <span class="set-label">{gettext("Status")}</span>
-          <div class="actions" style="margin-top: 6px; align-items: center; gap: 10px">
-            <span>{if @tournament.public_pages_enabled, do: "On", else: "Off"}</span>
-            <button type="button" class="pe-btn" phx-click="toggle_public_pages">
-              {if @tournament.public_pages_enabled, do: "Turn off", else: "Turn on"}
-            </button>
-          </div>
-        </div>
-
-        <div class="set-field solo" style="margin-top: 18px">
-          <span class="set-label">{gettext("Publish to the results site")}</span>
-          <p class="hint" style="margin: 4px 0 0">
-            {gettext(
-              "Sends a copy of this tournament to the public results site, so spectators can follow it without loading this machine. Separate from the switch above: that decides who may read it here, this decides whether a copy leaves at all."
-            )}
-          </p>
+          <span class="set-label">{gettext("Published")}</span>
           <p
             :if={not @openresults_configured?}
             class="hint"
-            style="margin: 6px 0 0; color: var(--danger)"
+            style="margin: 4px 0 0; color: var(--danger)"
           >
             {gettext("No results site is set up on this machine yet - see Connections.")}
           </p>
@@ -837,7 +813,9 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
               {if @tournament.publish_to_openresults, do: "Turn off", else: "Turn on"}
             </button>
           </div>
+        </div>
 
+        <div class="set-field solo" style="margin-top: 18px">
           <%!-- The way in to the other direction. The results site collects
                 entries from its public form and holds them; it cannot add
                 anyone here, so the entry list only moves when the arbiter
@@ -938,48 +916,44 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
           </div>
         </div>
 
-        <div :if={@tournament.public_pages_enabled} class="set-field solo" style="margin-top: 10px">
+        <div
+          :if={PublicLink.public?(@tournament)}
+          class="set-field solo"
+          style="margin-top: 10px"
+        >
           <span class="set-label">{gettext("Share link")}</span>
           <p class="hint" style="margin: 4px 0 0">
-            <%= if PublicLink.published?(@tournament) do %>
-              {gettext(
-                "This tournament is published, so its public link is on the results site (%{host}) rather than on this machine - which is the point: spectators do not load the computer running the round.",
-                host: PublicLink.host(@tournament)
-              )}
-            <% else %>
-              {gettext(
-                "Served by this machine (%{host}). Turn on publishing below and the link becomes the results site instead.",
-                host: PublicLink.host(@tournament)
-              )}
-            <% end %>
+            {gettext(
+              "This tournament's public page is on the results site (%{host}). Share this link, print it, or put it on a QR code - it does not point at this machine.",
+              host: PublicLink.host(@tournament)
+            )}
+          </p>
+          <p style="margin: 6px 0 0">
+            <code>{PublicLink.url(@tournament, :standings)}</code>
           </p>
           <div class="actions" style="margin-top: 6px; gap: 10px; flex-wrap: wrap">
-            <a
-              class="pe-btn"
-              href={PublicLink.url(@tournament, :standings)}
-              target="_blank"
-            >
-              {gettext("Open standings")}
+            <a class="pe-btn" href={PublicLink.url(@tournament, :standings)} target="_blank">
+              {gettext("Open it")}
             </a>
 
-            <a
-              :if={not PublicLink.published?(@tournament)}
-              class="pe-btn"
-              href={PublicLink.url(@tournament, :pairings)}
-              target="_blank"
-            >
-              {gettext("Open pairings")}
-            </a>
-
+            <%!-- The wording is deliberate about what this now costs. While
+                  this app served the public pages, rotating was free and
+                  instant - the old link 404'd because it was served from the
+                  same database the slug lived in. The link is an address on
+                  another server now, so revoking it means taking that copy
+                  DOWN and publishing again at a new one, and a reader in the
+                  middle of the standings loses their bookmark for real. --%>
             <button
               type="button"
               class="pe-btn danger-link"
               phx-click="rotate_public_slug"
               data-confirm={
-                gettext("Generate a new link? The current one will stop working immediately.")
+                gettext(
+                  "Move this tournament to a new address? The current link stops working immediately - anyone using it, including printed QR codes and anything a club has embedded, will need the new one. The tournament is removed from the results site and published again at a fresh address; its results and players here are untouched."
+                )
               }
             >
-              {gettext("Generate new link")}
+              {gettext("Move to a new address")}
             </button>
           </div>
         </div>

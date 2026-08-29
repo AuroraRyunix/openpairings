@@ -2,9 +2,13 @@ defmodule PairingsEngineWeb.PublicLinkTest do
   @moduledoc """
   Where the app sends a spectator.
 
-  The wrong answer here is not a broken link. It is a working link to the
-  machine the arbiter is pairing on, which is the exact thing the split
-  exists to avoid - and it looks completely fine while doing it.
+  Until 2026-08-29 the danger here was handing out a link to the arbiter's
+  own machine - a working link, to the computer running the round, which is
+  the exact thing the split exists to avoid. Those pages are gone, so the
+  danger has changed shape rather than disappeared: what must never happen
+  now is a link that goes nowhere. A tournament with no public address has
+  to say so, so the caller can leave the button out, rather than render an
+  `<a href>` built from a blank endpoint.
   """
   use PairingsEngine.DataCase, async: false
 
@@ -18,7 +22,7 @@ defmodule PairingsEngineWeb.PublicLinkTest do
     :ok
   end
 
-  defp tournament(attrs \\ []) do
+  defp tournament(attrs) do
     Repo.insert!(
       struct(
         %Tournament{
@@ -33,82 +37,75 @@ defmodule PairingsEngineWeb.PublicLinkTest do
   end
 
   describe "a tournament that does not publish" do
-    test "is read from this machine" do
+    test "has no public address at all" do
       t = tournament(publish_to_openresults: false)
 
-      assert PublicLink.url(t, :standings) =~ "/p/#{t.public_slug}/standings"
-      assert PublicLink.url(t, :pairings) =~ "/p/#{t.public_slug}/pairings"
-      assert PublicLink.url(t, :register) =~ "/p/#{t.public_slug}/register"
-      refute PublicLink.published?(t)
+      refute PublicLink.public?(t)
+      assert PublicLink.url(t, :standings) == nil
+      assert PublicLink.url(t, :pairings) == nil
+      assert PublicLink.url(t, :register) == nil
+      assert PublicLink.host(t) == nil
     end
 
-    test "is read from this machine even when a results site is configured" do
-      Publishing.put_endpoint("https://openresults.example")
-      Publishing.put_token("s3cret")
-
+    test "still has none when a results site IS configured" do
+      Publishing.put_endpoint("https://results.example.org")
       t = tournament(publish_to_openresults: false)
 
-      # Publishing is opt-in per tournament. A machine having somewhere to
-      # publish says nothing about whether THIS event goes there.
-      assert PublicLink.url(t) =~ "/p/#{t.public_slug}/standings"
-      refute PublicLink.published?(t)
+      refute PublicLink.public?(t)
+      assert PublicLink.url(t) == nil
     end
   end
 
   describe "a published tournament" do
     setup do
-      Publishing.put_endpoint("https://openresults.example")
-      Publishing.put_token("s3cret")
-      :ok
+      Publishing.put_endpoint("https://results.example.org")
+      {:ok, t: tournament(publish_to_openresults: true)}
     end
 
-    test "is read from the results site, not from here" do
-      t = tournament(publish_to_openresults: true)
-
-      assert PublicLink.url(t, :standings) == "https://openresults.example/t/#{t.public_slug}"
-      assert PublicLink.published?(t)
-      assert PublicLink.host(t) == "openresults.example"
+    test "is read on the results site", %{t: t} do
+      assert PublicLink.public?(t)
+      assert PublicLink.url(t, :standings) == "https://results.example.org/t/#{t.public_slug}"
+      assert PublicLink.host(t) == "results.example.org"
     end
 
-    test "never hands out a link back to this machine" do
-      t = tournament(publish_to_openresults: true)
-
-      # The failure this whole module exists to prevent: a spectator sent to
-      # the laptop running the round.
-      for target <- [:standings, :pairings, :register] do
-        refute PublicLink.url(t, target) =~ "/p/"
-      end
-    end
-
-    test "registration is addressed directly, everything else gets the front page" do
-      t = tournament(publish_to_openresults: true)
-
+    test "sends registration to the form rather than the front page", %{t: t} do
       assert PublicLink.url(t, :register) ==
-               "https://openresults.example/t/#{t.public_slug}/register"
+               "https://results.example.org/t/#{t.public_slug}/register"
 
-      # Deep-linking into the other app's URL shape would tie the two together
-      # more tightly than the contract does - a route rename there would break
-      # links printed on paper here.
-      assert PublicLink.url(t, :pairings) == "https://openresults.example/t/#{t.public_slug}"
+      # Everything else is deliberately the front page - see the moduledoc on
+      # why this app does not deep-link into the other one's routes.
+      assert PublicLink.url(t, :pairings) == PublicLink.url(t, :standings)
     end
 
-    test "a trailing slash on the configured address does not double up" do
-      Publishing.put_endpoint("https://openresults.example/")
-      t = tournament(publish_to_openresults: true)
+    test "never hands out a link back to this machine", %{t: t} do
+      own_host = URI.parse(PairingsEngineWeb.Endpoint.url()).host
 
-      refute PublicLink.url(t) =~ "//t/"
+      for target <- [:standings, :pairings, :register] do
+        url = PublicLink.url(t, target)
+
+        refute url =~ "/p/"
+        refute URI.parse(url).host == own_host
+      end
     end
   end
 
-  describe "the switch on, but nowhere to publish to" do
-    test "falls back to this machine rather than to a blank address" do
+  describe "an endpoint that is set but unusable" do
+    test "switched on with no endpoint configured is not public" do
       t = tournament(publish_to_openresults: true)
 
-      # Both halves have to be true. The switch alone is a promise about the
-      # future: a tournament can be marked to publish on a machine that has
-      # no address yet, and a link to nowhere is worse than a local one.
-      assert PublicLink.url(t) =~ "/p/#{t.public_slug}/standings"
-      refute PublicLink.published?(t)
+      # The switch is a promise about the future, not an address. A link
+      # built from a blank endpoint would be `/t/slug` - a relative path that
+      # resolves against whatever page it was rendered on, i.e. straight back
+      # to this machine, which is exactly the old bug wearing a new hat.
+      refute PublicLink.public?(t)
+      assert PublicLink.url(t) == nil
+    end
+
+    test "a trailing slash does not produce a doubled one" do
+      Publishing.put_endpoint("https://results.example.org/")
+      t = tournament(publish_to_openresults: true)
+
+      assert PublicLink.url(t) == "https://results.example.org/t/#{t.public_slug}"
     end
   end
 end

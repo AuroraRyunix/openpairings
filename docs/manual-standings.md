@@ -146,9 +146,17 @@ requirement list:
 
 1. **Standings page** (`standings_live.ex`) - full banner with toggle,
    stale/incomplete messaging, and the re-seed button when needed.
-2. **Public standings page** (`/p/:slug/standings`) - same banner text,
-   read-only (no controls) - this is the one page a non-logged-in viewer
-   sees, so silence here is the most misleading failure mode of all.
+2. **The published standings on OpenResults** - a note above the table
+   saying the order was set by the arbiter rather than computed. This is the
+   one page a non-logged-in viewer sees, so silence here is the most
+   misleading failure mode of all.
+
+   It used to be this app's own `/p/:slug/standings`. That page was removed
+   on 2026-08-29, and the disclosure had to be made to travel with the data:
+   the snapshot carries `standings.manual_order`, and OpenResults renders
+   the note from it. Publishing the hand-set ORDER while dropping the fact
+   that a person chose it is exactly the failure this list exists to
+   prevent.
 3. **Printed standings** (`/t/:id/print/standings`) - a bordered box above
    the table. Only shown for the *current* standings print (no `?round=`
    param); a round-scoped historical print ("standings as they stood right

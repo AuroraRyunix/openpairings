@@ -296,10 +296,15 @@ defmodule PairingsEngineWeb.LocaleTest do
     test "the player-facing sessions are pinned to English, deliberately" do
       # An open draws players from many federations, and the language its
       # arbiter picked for their own admin screens is not one to impose on a
-      # visiting player reading the standings.
+      # visiting player reading a board number off a phone.
+      #
+      # `public_tournament_pages` and `public_registration` were on this list
+      # until 2026-08-29. Both were removed with the local public pages, and
+      # the reasoning moved to OpenResults along with the pages - it is a
+      # separate app now, with its own answer to the same question.
       source = File.read!("lib/pairings_engine_web/router.ex")
 
-      for name <- ~w(public_tournament_pages public_registration mobile_results) do
+      for name <- ~w(mobile_results) do
         [[_all, between]] = Regex.scan(~r/live_session\s+:#{name}(.{0,400}?)\bdo\b/s, source)
 
         assert between =~ "EnglishHook", "#{name} is not pinned to English"

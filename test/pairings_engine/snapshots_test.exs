@@ -79,7 +79,7 @@ defmodule PairingsEngine.SnapshotsTest do
     test "sharing state and lifecycle are deliberately not captured" do
       scope = user_scope()
       t = tournament(scope)
-      {:ok, t} = Tournaments.set_public_pages(t, true)
+      {:ok, t} = Tournaments.set_publish_to_openresults(t, true)
       {:ok, t} = Tournaments.archive_tournament(t)
 
       {:ok, snapshot} = Snapshots.capture(t, "manual", scope)
@@ -87,7 +87,7 @@ defmodule PairingsEngine.SnapshotsTest do
 
       # Restoring must never silently re-publish a tournament, hand back a
       # rotated slug, or change whether it's archived.
-      for field <- ~w(public_pages_enabled registration_open public_slug archived_at deleted_at) do
+      for field <- ~w(publish_to_openresults registration_open public_slug archived_at deleted_at) do
         refute Map.has_key?(t_map, field)
       end
     end

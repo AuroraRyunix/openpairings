@@ -318,7 +318,7 @@ defmodule PairingsEngine.TournamentExportTest do
         |> TournamentExport.export_tournament()
         |> get_in(["tournaments", Access.at(0), "tournament"])
 
-      for field <- ~w(id user_id public_slug public_pages_enabled registration_open
+      for field <- ~w(id user_id public_slug registration_open
                       deleted_at archived_at swar_guid) do
         refute Map.has_key?(t_map, field),
                "#{field} must not be exported - see @excluded_tournament_fields"

@@ -193,12 +193,12 @@ defmodule PairingsEngine.SnapshotRestoreTest do
 
       # Turn sharing ON after the snapshot was taken. A restore must not
       # turn it back off (nor, in the reverse case, silently re-publish).
-      {:ok, t} = Tournaments.set_public_pages(t, true)
+      {:ok, t} = Tournaments.set_publish_to_openresults(t, true)
       slug = t.public_slug
 
       {:ok, restored} = Snapshots.restore(t, snapshot.id, scope)
 
-      assert restored.public_pages_enabled
+      assert restored.publish_to_openresults
       assert restored.public_slug == slug
     end
 

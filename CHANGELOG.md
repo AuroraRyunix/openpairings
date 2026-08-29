@@ -29,21 +29,85 @@ Each entry is tagged so a version can be skimmed:
   straight back.
 
   There is now one function that answers where the public reads a tournament,
-  and every link goes through it. A tournament that publishes is read on the
-  results site; everything else keeps the local pages, because publishing is
-  opt-in per machine and per tournament and a laptop install has no results
-  site at all.
+  and every link goes through it. (The local pages it fell back to were
+  removed later the same day &mdash; see below &mdash; so that function now
+  has one answer rather than two.)
 
-  Both halves have to be true: a tournament marked to publish on a machine
-  with no address configured still gets the local link, since an address that
-  does not exist is worse than one that does. The share card now names the
-  host a spectator will land on, so nobody has to compare hostnames to work
-  out which site they just copied.
+  A tournament marked to publish on a machine that has not been told an
+  address has no public link at all, rather than a link built from a blank
+  address. The share card names the host a spectator will land on, so nobody
+  has to read a URL to work out which site they just copied.
 
   The links are absolute now rather than relative &mdash; half of them end up
   on a QR code, in a printed footer or pasted into an email.
 
+### Removed
+
+- [Removed] **This app no longer serves public pages.** `/p/:slug/pairings`,
+  `/p/:slug/standings` and `/p/:slug/register` are gone. A tournament becomes
+  readable by the public in exactly one way now: it is published to the
+  results site.
+
+  There were two public surfaces for one thing, and the default was the wrong
+  one. A link to the machine running the round, printed on a wall chart and
+  handed to a hall full of spectators, is precisely what the results site
+  exists to prevent &mdash; and the fix earlier today only stopped the app
+  *advertising* those links, it did not stop them working. A second
+  correct-looking answer is worse than none, so they were removed rather than
+  de-emphasised.
+
+  **The two switches are now one.** "Public pages" and "Publish to the results
+  site" asked different questions &mdash; may anyone read this here, versus
+  does a copy leave at all &mdash; and the first has no meaning without a
+  "here". Publishing is the whole of it. Every tournament whose public pages
+  were switched on is now marked to publish, because its arbiter had already
+  said "this is public" and the only thing that changed is where the public
+  reads it.
+
+  **Club embeds move too.** A club site that put the pairing list on its own
+  front page embeds it from the results site now. The framing exception this
+  app carried for those three pages is gone, along with the cookie-free
+  websocket and the iframe height-reporting script that served them, and
+  `PUBLIC_FRAME_ANCESTORS` with it. Nothing this app serves can be framed any
+  more, which is one fewer argument to get right every time a route is added.
+
 ### Changed
+
+- [Change] **"Generate a new link" is now a real revocation.** It used to
+  change this machine's idea of the address and nothing else. That was
+  genuine revocation while the pages were served from here &mdash; they
+  404'd the instant the slug changed &mdash; and it silently stopped being
+  one when the page moved to another server.
+
+  A bare rotation would have done the opposite of what the button promised:
+  the leaked link keeps working, because the copy behind it is still there
+  and this machine has merely stopped pointing at it, and the next publish
+  creates a *second* copy at the new address. The tournament ends up public
+  twice, and the key that could have withdrawn the first now names an address
+  holding nothing.
+
+  It now takes the old copy down, moves, and publishes again. The takedown
+  goes first, because it is the part actually being asked for: if it fails,
+  nothing else happens, since a failed revocation must never look like a
+  successful one. The button says what it costs &mdash; printed QR codes and
+  anything a club has embedded will need the new address.
+
+- [Change] **Closing the entry form now pushes immediately.** The form is on
+  the results site, so the arbiter's switch only reaches it by riding along
+  in the next published snapshot. Closing is the urgent direction &mdash; an
+  arbiter shutting entries at the door needs the site to stop taking them
+  &mdash; so both opening and closing enqueue a publish rather than waiting
+  for the next result to come in.
+
+  Before this the switch had no effect on the results site at all: it
+  accepted entries for every published tournament regardless.
+
+- [Change] **A hand-set standings order now says so on the public page.** The
+  arbiter's chosen order was already published; the disclosure that a person
+  chose it rather than a tiebreak was not, because it only ever lived on this
+  app's own public standings page. Publishing the order while dropping that
+  fact is the exact failure the feature's own documentation is written to
+  prevent, and removing the page would have caused it silently.
 
 - [Change] **Saving the publishing settings now tests them.** "Saved" on its
   own answers the wrong question &mdash; nobody types an address to find out
