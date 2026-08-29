@@ -598,6 +598,69 @@ defmodule PairingsEngine.PublishingTest do
     end
   end
 
+  describe "the connection indicator" do
+    test "says connected, with a latency, when the server answers" do
+      stub(fn conn -> Plug.Conn.send_resp(conn, 404, "{}") end)
+
+      status = Publishing.status()
+
+      assert status.state == :connected
+      assert is_integer(status.latency_ms)
+      assert status.endpoint == "https://openresults.example"
+    end
+
+    test "tells a refused token apart from an unreachable server" do
+      # They want opposite fixes - one is a wrong secret on a working network,
+      # the other is a network problem - so one "error" state would send an
+      # arbiter to check the wrong thing.
+      stub(fn conn -> Plug.Conn.send_resp(conn, 401, "{}") end)
+      assert Publishing.status().state == :refused
+
+      stub(fn conn -> Req.Test.transport_error(conn, :econnrefused) end)
+      assert Publishing.status().state == :unreachable
+    end
+
+    test "and both apart from never having been set up" do
+      Publishing.put_endpoint(nil)
+
+      status = Publishing.status()
+
+      assert status.state == :unconfigured
+      assert status.latency_ms == nil
+    end
+
+    test "counts what is waiting to go out" do
+      t = tournament()
+      stub(fn conn -> Plug.Conn.send_resp(conn, 404, "{}") end)
+
+      assert Publishing.status().pending == 0
+
+      :ok = Publishing.enqueue(t)
+      assert Publishing.status().pending == 1
+    end
+
+    test "and remembers when something last actually went" do
+      # An empty queue means either "everything has been sent" or "nothing was
+      # ever queued". Those look identical from outside, so the timestamp is
+      # what tells them apart.
+      assert Publishing.last_published_at() == nil
+
+      t = tournament()
+      stub(fn conn -> Req.Test.json(conn, %{"ok" => true}) end)
+      assert {:ok, _} = Publishing.publish(t)
+
+      assert %DateTime{} = Publishing.last_published_at()
+    end
+
+    test "a failed publish does not count as having sent something" do
+      t = tournament()
+      stub(fn conn -> Plug.Conn.send_resp(conn, 500, "nope") end)
+
+      assert {:error, _} = Publishing.publish(t)
+      assert Publishing.last_published_at() == nil
+    end
+  end
+
   describe "reconciling a switch that never sent anything" do
     test "queues a tournament that is switched on but has no key" do
       t = tournament()

@@ -25,8 +25,17 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
 
   import PairingsEngineWeb.SettingsSupport
 
+  import PairingsEngineWeb.Components.ConnectionStatus
+
   alias PairingsEngine.{Audit, PublicDisplay, Publishing, Tournaments}
   alias PairingsEngineWeb.PublicLink
+
+  # Polled rather than pushed. The question is "can this machine publish right
+  # now", and only asking produces an answer - there is no event to subscribe
+  # to for "the wifi came back". Slow enough not to hammer the results site
+  # from an idle settings page, fast enough that an arbiter who has just
+  # plugged a cable back in sees it go green without reloading.
+  @connection_poll :timer.seconds(10)
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -34,6 +43,7 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
 
     if connected?(socket) do
       Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
+      if connection_polling?(), do: send(self(), :poll_connection)
     end
 
     {:ok,
@@ -42,6 +52,7 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
        tournament: tournament,
        page_title: "#{tournament.name} · OpenResults",
        openresults_configured?: Publishing.configured?(),
+       connection: nil,
        stale: false
      )}
   end
@@ -57,6 +68,39 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
     end
   end
 
+  # In a task, never in this process. `Publishing.status/0` is a network round
+  # trip with a fifteen-second timeout, and running it here would freeze the
+  # page - every click, every toggle - for as long as an unreachable results
+  # site takes to give up.
+  def handle_info(:poll_connection, socket) do
+    parent = self()
+
+    Task.Supervisor.start_child(PairingsEngine.TaskSupervisor, fn ->
+      # Rescued because this is a network call and the page must survive
+      # anything it does: a check that blows up leaves the last known state on
+      # screen rather than taking the settings page with it.
+      status =
+        try do
+          Publishing.status()
+        rescue
+          _ -> nil
+        catch
+          _, _ -> nil
+        end
+
+      if status, do: send(parent, {:connection, status})
+    end)
+
+    Process.send_after(self(), :poll_connection, @connection_poll)
+    {:noreply, socket}
+  end
+
+  def handle_info({:connection, status}, socket) do
+    {:noreply, assign(socket, connection: status)}
+  end
+
+  # Last, so it cannot swallow the clauses above it - which it did, silently,
+  # the first time the poll was added below it.
   def handle_info(_message, socket), do: {:noreply, socket}
 
   ## ---------- publishing ----------
@@ -309,13 +353,12 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
           )}
         </p>
 
-        <p
-          :if={not @openresults_configured?}
-          class="hint"
-          style="margin: 6px 0 0; color: var(--danger)"
-        >
-          {gettext("No results site is set up on this machine yet - see Connections.")}
-        </p>
+        <%!-- Compact here: this page is about one tournament, and the
+              connection is context rather than its subject. The full box is
+              on Connections, where it is the subject. --%>
+        <div style="margin: 12px 0">
+          <.connection_status status={@connection} compact />
+        </div>
 
         <div class="set-field solo">
           <span class="set-label">{gettext("Published")}</span>
@@ -589,4 +632,12 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
     </Layouts.app>
     """
   end
+
+  # Off in the test environment, like every other timer in this app: a poll
+  # firing mid-test would make a real request from a process that owns no HTTP
+  # stub, and the failure would land in whichever test happened to be running.
+  defp connection_polling?,
+    do:
+      Application.get_env(:pairings_engine, :connection_poll_interval, @connection_poll) !=
+        :disabled
 end

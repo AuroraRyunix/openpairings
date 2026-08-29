@@ -1,6 +1,8 @@
 defmodule PairingsEngineWeb.FideLive do
   use PairingsEngineWeb, :live_view
 
+  import PairingsEngineWeb.Components.ConnectionStatus
+
   alias PairingsEngine.Accounts.User
   alias PairingsEngine.Kbsb
   alias PairingsEngine.Fide.Sync, as: FideSync
@@ -8,11 +10,16 @@ defmodule PairingsEngineWeb.FideLive do
   alias PairingsEngine.Kbsb.Api, as: KbsbApi
   alias PairingsEngine.Publishing
 
+  # See the same constant on the OpenResults settings page for why this is a
+  # poll and not a subscription.
+  @connection_poll :timer.seconds(10)
+
   @impl true
   def mount(_params, _session, socket) do
     if connected?(socket) do
       Phoenix.PubSub.subscribe(PairingsEngine.PubSub, FideSync.topic())
       Phoenix.PubSub.subscribe(PairingsEngine.PubSub, KbsbSync.topic())
+      if connection_polling?(), do: send(self(), :poll_connection)
     end
 
     {:ok,
@@ -47,8 +54,42 @@ defmodule PairingsEngineWeb.FideLive do
       publish_token_set?: is_binary(Publishing.token()) and Publishing.token() != "",
       publish_configured?: Publishing.configured?(),
       publish_pending: Publishing.pending_count(),
-      publish_test: nil
+      publish_test: nil,
+      connection: nil
     )
+  end
+
+  # In a task, never in this process. `Publishing.status/0` is a network round
+  # trip with a fifteen-second timeout, and running it here would freeze the
+  # page - every click, every toggle - for as long as an unreachable results
+  # site takes to give up. Mount used to call it directly, which meant a
+  # settings page took fifteen seconds to appear on exactly the machine whose
+  # connection somebody had come to check.
+  def handle_info(:poll_connection, socket) do
+    parent = self()
+
+    Task.Supervisor.start_child(PairingsEngine.TaskSupervisor, fn ->
+      # Rescued because this is a network call and the page must survive
+      # anything it does. A check that blows up should leave the last known
+      # state on screen, not take the settings page down with it.
+      status =
+        try do
+          Publishing.status()
+        rescue
+          _ -> nil
+        catch
+          _, _ -> nil
+        end
+
+      if status, do: send(parent, {:connection, status})
+    end)
+
+    Process.send_after(self(), :poll_connection, @connection_poll)
+    {:noreply, socket}
+  end
+
+  def handle_info({:connection, status}, socket) do
+    {:noreply, assign(socket, connection: status)}
   end
 
   @impl true
@@ -381,6 +422,13 @@ defmodule PairingsEngineWeb.FideLive do
 
       <div class="card">
         <h2>{gettext("Public results site (OpenResults)")}</h2>
+
+        <%!-- Answered before the settings below it, because "is this working"
+              is the question somebody arrives on this page with, and reading
+              the address back does not answer it. --%>
+        <div style="margin-bottom: 14px">
+          <.connection_status status={@connection} />
+        </div>
         <p>
           {gettext(
             "Where published tournaments are sent so spectators can follow them. This machine stays the source of truth: it sends a copy, and nothing is ever sent back."
@@ -471,4 +519,12 @@ defmodule PairingsEngineWeb.FideLive do
     </Layouts.app>
     """
   end
+
+  # Off in the test environment, like every other timer in this app: a poll
+  # firing mid-test would make a real request from a process that owns no HTTP
+  # stub, and the failure would land in whichever test happened to be running.
+  defp connection_polling?,
+    do:
+      Application.get_env(:pairings_engine, :connection_poll_interval, @connection_poll) !=
+        :disabled
 end

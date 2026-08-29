@@ -18,6 +18,27 @@ Each entry is tagged so a version can be skimmed:
 
 ### Added
 
+- [Feature] **A connection indicator for publishing.** Green when the results
+  site answers, amber while something is being sent, amber again if the token
+  is refused, red when it cannot be reached, grey when nothing is set up
+  &mdash; with the round trip in milliseconds and the reason in words beside
+  it. On Connections in full, and compact on a tournament's OpenResults page.
+
+  Publishing is deliberately invisible: queued, retried, never in the way of
+  pairing a round. That is right and it had a cost &mdash; "my results are
+  going out" and "nothing has left this laptop since Tuesday" looked exactly
+  the same, which is to say like nothing happening.
+
+  A refused token and an unreachable server are shown differently on purpose:
+  one is a working network and a wrong secret, the other is a network problem,
+  and they want opposite fixes. And because an empty queue means either
+  "everything has been sent" or "nothing was ever queued", it also says when
+  something last actually went.
+
+  The check runs off the page's own process. Doing it inline would have frozen
+  the settings page for up to fifteen seconds on exactly the machine whose
+  connection somebody had come to check.
+
 - [Feature] **Far more control over what the public page shows, in far less
   space.** Seventeen switches instead of seven, grouped by what they decide:
   which pages exist at all (standings, round pairings, player cards, byes),

@@ -4032,3 +4032,104 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   background: rgba(47, 93, 67, 0.12);
   color: var(--ok, #2f5d43);
 }
+
+/* ---------------------------------------------------------------------------
+   The publishing connection indicator
+
+   Colour AND a word, always. A dot on its own is unreadable to a colourblind
+   arbiter and ambiguous to everyone else at a glance - is green "connected",
+   or is green "good"?
+   --------------------------------------------------------------------------- */
+
+.conn-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  border-radius: 6px;
+  background: var(--bg);
+}
+
+.conn-status.is-compact {
+  padding: 8px 12px;
+}
+
+.conn-dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: var(--text-soft);
+}
+
+.conn-body {
+  min-width: 0;
+}
+
+.conn-line {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.conn-latency {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-soft);
+}
+
+.conn-detail {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.conn-detail span + span::before {
+  content: "·";
+  margin: 0 6px;
+}
+
+.conn-status.is-ok      { border-left-color: #2f5d43; }
+.conn-status.is-ok      .conn-dot { background: #2f5d43; }
+
+/* Amber, and it pulses - this is the one state that is temporary, and the
+   only one where movement tells the truth about what is happening. */
+.conn-status.is-busy    { border-left-color: #8a5a0c; }
+.conn-status.is-busy    .conn-dot { background: #8a5a0c; animation: conn-pulse 1.4s ease-in-out infinite; }
+
+.conn-status.is-refused { border-left-color: #8a5a0c; }
+.conn-status.is-refused .conn-dot { background: #8a5a0c; }
+
+.conn-status.is-down    { border-left-color: #b3261e; }
+.conn-status.is-down    .conn-dot { background: #b3261e; }
+
+.conn-status.is-off     { border-left-color: var(--border); }
+
+@keyframes conn-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.25; }
+}
+
+/* A dot that blinks forever is an accessibility problem and, on a projector
+   in a hall, a distraction. */
+@media (prefers-reduced-motion: reduce) {
+  .conn-status.is-busy .conn-dot { animation: none; }
+}
+
+/* The first render, before the check has come back. Not green (a guess that
+   would be corrected a second later) and not red (a scare on a page that is
+   probably fine) - just "asking". */
+.conn-status.is-unknown { border-left-color: var(--border); }
+.conn-status.is-unknown .conn-dot {
+  background: var(--text-soft);
+  animation: conn-pulse 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .conn-status.is-unknown .conn-dot { animation: none; }
+}

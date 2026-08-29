@@ -434,6 +434,10 @@ defmodule PairingsEngine.Publishing do
 
     case Req.post(request) do
       {:ok, %Req.Response{status: status} = resp} when status in 200..299 ->
+        # Stamped here rather than derived from an empty queue: an empty queue
+        # means either "everything has been sent" or "nothing was ever
+        # queued", and those look identical from outside.
+        record_publish()
         {:ok, resp.body}
 
       {:ok, %Req.Response{status: 401}} ->
@@ -562,6 +566,102 @@ defmodule PairingsEngine.Publishing do
     Tournaments.broadcast_tournament_change(updated.id, :settings)
 
     updated
+  end
+
+  ## ---------- is this thing on ----------
+
+  @doc """
+  Everything a connection indicator needs, in one call.
+
+  `state` is one of:
+
+    * `:unconfigured` - no address or no token; nothing will ever be sent
+    * `:connected`    - the results site answered and accepted the token
+    * `:refused`      - it answered, and did not accept the token
+    * `:unreachable`  - it did not answer
+
+  `latency_ms` is the round trip for the check, present only when something
+  answered - on a machine sharing a box with the results site it is a
+  single-digit number, and saying "2 ms" is a more convincing "yes, really
+  connected" than a green dot on its own.
+
+  `pending` is how many tournaments are queued. It is the difference between
+  "connected" and "connected and currently sending", which is the thing an
+  arbiter actually wants to see after entering a result.
+
+  ## Why this makes a request every time
+
+  Because the question is "can this machine publish RIGHT NOW", and a cached
+  answer to that is a different and much less useful question. The caller
+  decides how often to ask; `check/0`'s own timeout bounds how long it takes
+  to find out it cannot.
+  """
+  @spec status() :: %{
+          state: :unconfigured | :connected | :refused | :unreachable,
+          message: String.t(),
+          latency_ms: non_neg_integer() | nil,
+          endpoint: String.t() | nil,
+          pending: non_neg_integer(),
+          last_published_at: DateTime.t() | nil
+        }
+  def status do
+    started = System.monotonic_time(:millisecond)
+    result = check()
+    elapsed = System.monotonic_time(:millisecond) - started
+
+    {state, message, latency} =
+      case result do
+        {:ok, message} ->
+          {:connected, message, elapsed}
+
+        {:error, "No address is set." = message} ->
+          {:unconfigured, message, nil}
+
+        {:error, "No token is set." = message} ->
+          {:unconfigured, message, nil}
+
+        {:error, message} ->
+          # "Reached the server, but it rejected the token" is a working
+          # network and a wrong secret, which is a different problem from a
+          # server that is not there - and the two want different fixes, so
+          # they get different words and different colours.
+          if String.starts_with?(message, "Reached"),
+            do: {:refused, message, elapsed},
+            else: {:unreachable, message, nil}
+      end
+
+    %{
+      state: state,
+      message: message,
+      latency_ms: latency,
+      endpoint: endpoint(),
+      pending: pending_count(),
+      last_published_at: last_published_at()
+    }
+  end
+
+  @doc """
+  When this machine last successfully sent anything, or nil.
+
+  Stored rather than derived: a queue that is empty means either "everything
+  has been sent" or "nothing was ever queued", and those look identical from
+  the outside. An arbiter looking at an indicator wants to know which.
+  """
+  @spec last_published_at() :: DateTime.t() | nil
+  def last_published_at do
+    with stamp when is_binary(stamp) <- meta_get("openresults_last_publish_at"),
+         {:ok, at, _} <- DateTime.from_iso8601(stamp) do
+      at
+    else
+      _ -> nil
+    end
+  end
+
+  defp record_publish do
+    meta_put(
+      "openresults_last_publish_at",
+      DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
+    )
   end
 
   ## ---------- reconciling intent with reality ----------
