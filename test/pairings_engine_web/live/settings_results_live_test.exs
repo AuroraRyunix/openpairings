@@ -213,6 +213,36 @@ defmodule PairingsEngineWeb.SettingsResultsLiveTest do
     end
   end
 
+  describe "the page stays inside the tournament" do
+    test "the top bar keeps the tournament's own tabs", %{conn: conn, scope: scope} do
+      # Without `tournament=` on the layout the bar drops Players, Pairings,
+      # Standings and Print, and its Home link becomes "Tournaments" - so
+      # opening this page read as having left the tournament for a global
+      # settings screen. Reported from the live site on 2026-08-30.
+      tournament = create_tournament(scope)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      assert html =~ ~s|href="/t/#{tournament.id}/players"|
+      assert html =~ ~s|href="/t/#{tournament.id}/pairings"|
+      assert html =~ ~s|href="/t/#{tournament.id}/standings"|
+    end
+
+    test "and matches what the other settings pages do", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+
+      {:ok, _lv, results} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+      {:ok, _lv, tournament_page} = live(conn, ~p"/t/#{tournament.id}/settings")
+
+      for path <- ~w(players pairings standings print) do
+        href = ~s|href="/t/#{tournament.id}/#{path}"|
+
+        assert results =~ href == (tournament_page =~ href),
+               "settings/results and settings disagree about #{path}"
+      end
+    end
+  end
+
   describe "what the public page shows" do
     setup do
       Publishing.put_endpoint("https://openresults.example/")

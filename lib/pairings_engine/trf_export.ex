@@ -210,16 +210,15 @@ defmodule PairingsEngine.TrfExport do
     )
   end
 
-  # Mirrors `PairingsEngineWeb.Layouts.app_version/0` - duplicated rather
-  # than reused so this domain module doesn't reach into the web layer for
-  # one string.
-  defp app_version do
-    case Application.spec(:pairings_engine, :vsn) do
-      vsn when is_list(vsn) -> List.to_string(vsn)
-      vsn when is_binary(vsn) -> vsn
-      _ -> "0.0.0"
-    end
-  end
+  # `PairingsEngine.Build` is the one place that knows. This used to mirror
+  # `PairingsEngineWeb.Layouts.app_version/0` under a comment saying the
+  # duplication was deliberate to avoid reaching into the web layer - which
+  # was the right instinct and the wrong fix: the answer belonged in neither.
+  #
+  # The RELEASE here, not the build id: this string goes into the TRF's
+  # generator field, which a FIDE reader parses, and "0.18.0+3f2a1c9" is not
+  # what that field is for.
+  defp app_version, do: PairingsEngine.Build.version()
 
   # 102: chief arbiter, as "<FIDE id> <name>" when the id is known (e.g.
   # "102 208418 Boutchon, Gaston"), else just the name. Skipped entirely

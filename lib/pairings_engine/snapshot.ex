@@ -537,12 +537,11 @@ defmodule PairingsEngine.Snapshot do
 
   defp now_iso8601, do: DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
 
-  defp app_version do
-    case Application.spec(:pairings_engine, :vsn) do
-      nil -> nil
-      vsn -> to_string(vsn)
-    end
-  end
+  # The BUILD, not the release. OpenResults stores this against every
+  # snapshot it receives, so "which build produced this document" is
+  # answerable months later from the receiving side alone - and a document
+  # that arrived from a build nobody can identify says so.
+  defp app_version, do: PairingsEngine.Build.id()
 
   # A missing key and a null mean the same thing to the reader: not known. A
   # blank string does not - it would render as an empty column rather than as

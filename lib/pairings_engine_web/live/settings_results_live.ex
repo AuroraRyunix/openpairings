@@ -396,10 +396,19 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
   @impl true
   def render(assigns) do
     ~H"""
+    <%!-- `tournament` and `active` are not optional decoration here. Without
+          them the top bar drops every tournament tab - Players, Pairings,
+          Standings, Print, Advanced, Settings - and its Home link turns into
+          "Tournaments", so opening this page reads as having left the
+          tournament for a global settings screen. Every other settings page
+          passes them; this one did not. --%>
     <Layouts.app
       publish_status={assigns[:publish_status]}
       flash={@flash}
+      current_path={assigns[:current_path]}
       current_scope={@current_scope}
+      tournament={@tournament}
+      active="settings"
     >
       <div class="page-header">
         <div>

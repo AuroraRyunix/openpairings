@@ -8,6 +8,7 @@ defmodule PairingsEngineWeb.Layouts do
   import PairingsEngineWeb.Components.ConnectionStatus, only: [publish_pill: 1]
 
   alias PairingsEngine.Authz
+  alias PairingsEngine.Build
   alias PairingsEngine.Fide
   alias PairingsEngine.Publishing.Monitor
   alias PairingsEngine.Kbsb
@@ -221,7 +222,12 @@ defmodule PairingsEngineWeb.Layouts do
         <% else %>
           <.link navigate={~p"/users/log-in"} class="topbar-signin">{gettext("Log in")}</.link>
         <% end %>
-        <span class="app-version">v{app_version()}</span>
+        <%!-- The BUILD, not just the release. Two deploys a week apart both
+              said "v0.18.0", so the one question asked after every deploy -
+              is the thing I just pushed the thing that is running - had no
+              answer on the screen. The full identifier, with the commit and
+              the build time, is in the tooltip. --%>
+        <span class="app-version" title={Build.long()}>v{Build.id()}</span>
       </nav>
     </header>
 
@@ -337,16 +343,15 @@ defmodule PairingsEngineWeb.Layouts do
   defp pluralize(n, unit), do: "#{n} #{unit}s"
 
   @doc """
-  Returns the running application's version string (from mix.exs `version:`),
-  e.g. "0.9.0". Works in dev and in `MIX_ENV=prod mix phx.server` alike.
+  The running application's version string, e.g. "0.18.0".
+
+  Delegates to `PairingsEngine.Build`, which is the one place that knows what
+  build this is. This function used to read `Application.spec/2` itself, and
+  so did `PairingsEngine.Snapshot` and `PairingsEngine.TrfExport` - three
+  copies of four lines, one of which carried a comment explaining that it was
+  duplicated on purpose.
   """
-  def app_version do
-    case Application.spec(:pairings_engine, :vsn) do
-      vsn when is_list(vsn) -> List.to_string(vsn)
-      vsn when is_binary(vsn) -> vsn
-      _ -> "0.0.0"
-    end
-  end
+  def app_version, do: Build.version()
 
   @doc """
   Shows the flash group with standard titles and content.

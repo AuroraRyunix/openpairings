@@ -417,6 +417,24 @@ Each entry is tagged so a version can be skimmed:
   ruling settled it rather than presenting a live disagreement. Three other
   places carrying the old claim were corrected with it.
 
+- [Feature] **Every build now says exactly which build it is.** The top bar
+  showed `v0.18.0`, which is a release, not a build &mdash; a week of commits
+  and a dozen deploys all report the same string. It now reads
+  `v0.18.0+3f2a1c9`, with the commit and the build time in the tooltip, and
+  the same identifier travels on every published document so the results site
+  records which build produced it. A build that does not know its own commit
+  says `+unknown` rather than guessing.
+
+  This came from losing half an hour to it: a deploy went out, the public
+  site still looked wrong, and both sides reported the same version. Only one
+  of the two applications had been deployed.
+
+- [Fix] **The OpenResults settings page stopped looking like you had left the
+  tournament.** It was the one settings page that did not tell the layout
+  which tournament it belonged to, so the top bar dropped every tab &mdash;
+  Players, Pairings, Standings, Print &mdash; and its Home link turned into
+  "Tournaments".
+
 - [Fix] **Importing a SWAR file with categories now says what it could not
   read.** SWAR's category block carries two lists of values; a player's
   category is read from the first, while both end up in the tournament's
