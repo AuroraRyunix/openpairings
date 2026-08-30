@@ -105,16 +105,46 @@ Still open, and each needs a decision rather than typing:
 
 - **Norms-vs-Settings** - the pointer card shipped, the page move did not.
   A product call about where norms live.
-- **ITDX `?` unknown-result code** - `docs/tec-feedback-2026-09.md` promises
-  TEC "We will implement `?`", and nothing does. It is not a one-line
-  addition to the result vocabulary: `?` is a result whose VALUE is unknown,
-  so every consumer - standings, pairing, TRF export, the published working
-  - needs an answer for it, and the promise is in an UNSENT draft about a
-  DRAFT regulation. Decide whether the draft still says that before building
-  to it.
+- **ITDX `?` unknown-result code** - PARKED 2026-08-30, deliberately, and
+  owed. `docs/tec-feedback-2026-09.md` section C.2 tells TEC "We will
+  implement `?`", the letter has gone, and nothing implements it.
+
+  **No effect on a real tournament, which is why it can wait.** Nothing can
+  produce a `?` today: TRF-26 is not published (the letter's own C.1 asks
+  whether it exists), so no file in the wild carries one. If one arrives
+  anyway, `Ainalrami.Trf` raises a `ValidationError` on an unknown result
+  symbol - the import is refused, loudly, rather than mangled. That is the
+  safe failure and it is the behaviour the letter argues for; only the
+  symbol itself is missing.
+
+  Split, and worth doing in one sitting in this order - a `?` the engine
+  accepts and this app does not understand is worse than neither:
+
+    1. **Ainalrami** (small): add `?` to `@result_codes` and
+       `@legal_result_pairs`, keep raising on everything else.
+    2. **OpenPairings** (the real work, ~half a day): decide what a stored
+       `?` MEANS. The design to build unless something argues otherwise -
+       scores nothing for both players; not `played`, so it never reaches a
+       tie-break as a real game; **parse-only**, never enterable, because a
+       "don't know" button becomes a placeholder and stops meaning what it
+       says; keeps the round incomplete so it blocks the next pairing and
+       the rating report; labelled on screen as "unknown - from an imported
+       file" so it reads as something to fix. It is a blank that says whose
+       fault it is.
+
+  Checked while scoping it: `TrfImport.result_string/2`'s catch-all turns an
+  unrecognised code into `""`, which is exactly the "silently converts a
+  corrupt file into a plausible one" failure C.2 names - but it is
+  UNREACHABLE, because every one of the twelve pairs Ainalrami permits has
+  an explicit clause above it. Belt to the engine's braces, not a hole.
+
 - **Q140 consistency checks are page-scoped** - they live in
   `pairing_explain_live.ex` and nothing extracts them for a layout-level
-  banner, so a check only fires where somebody went looking.
+  banner, so a check only fires where somebody went looking. **Parked
+  2026-08-30 by the maintainer: fine as is.** Reviving it needs a decision
+  first - recompute the checks per page load, or store them when the round
+  is paired - because the checks come from the full `PairingRationale`
+  build and a layout banner renders on every page.
 
 ### Blocked on something outside the code
 

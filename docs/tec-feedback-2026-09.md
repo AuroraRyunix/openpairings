@@ -214,6 +214,12 @@ unknown-result symbol. The alternative - treating any invalid code as
 unknown - silently converts a corrupt file into a plausible one, which is
 the failure mode hardest to notice. We will implement `?`.
 
+<!-- Sent as written. The commitment in that last sentence is tracked in
+     TODO.md ("ITDX `?` unknown-result code"), parked on 2026-08-30 rather
+     than dropped: nothing can produce a `?` until TRF-26 publishes, and an
+     unknown symbol is refused loudly by the parser meanwhile, so no
+     tournament is affected by the gap. -->
+
 ### C.3 - Warning levels: please state where the boundary sits
 
 The Level 1-5 definitions are clear in themselves. What is not stated is
