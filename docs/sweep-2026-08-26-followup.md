@@ -6,6 +6,13 @@ looked at: the 7 optimizations, the 15 "worth adding" items, and the 27
 This reads all 49 against `HEAD` (not against TODO.md, not against the sweep
 itself) and buckets each one.
 
+> **Status, 2026-08-30: every item this document ranked as still real has
+> been closed.** What remains open is what was already parked before this
+> list existed - the five VCL hard failures (12-16) and the seven
+> roadmap-scoped suggestions (26-32) - plus the documentation-drift section
+> below. Each closed entry carries the commit and, where a finding turned
+> out not to be a defect, the regulation text that settles it.
+
 **39 of the 49 are still real, in whole or in part. 10 are resolved** - 6 by
 an actual code or doc fix, 2 because the feature they described was removed
 entirely (the local public pages), and 2 because the file they point at
@@ -41,7 +48,12 @@ notice.
 
 ## Still real, ranked by cost to a user
 
-### 1. PlayerCard shows an opponent's score inflated by points they don't rank on
+### 1. ~~PlayerCard shows an opponent's score inflated by points they don't rank on~~ FIXED 2026-08-30
+
+> Closed by `9b6c234` ("The do-next four"). `row/4` reads
+> `Standings.rank_score(opponent, tournament)`, and `player_card_test.exs`
+> covers both halves of the rule - extra points left out by default, counted
+> when the tournament opts in.
 
 `lib/pairings_engine/player_card.ex:36` and `:173` — **[Drift #17]**
 
@@ -61,7 +73,12 @@ drops straight in - which is exactly why this is the highest-value item on
 the page next to Q208: real, currently reachable with the default settings,
 and a five-minute fix.
 
-### 2. A collaborator's Tournaments page goes stale on delete/archive/restore
+### 2. ~~A collaborator's Tournaments page goes stale on delete/archive/restore~~ FIXED 2026-08-30
+
+> Closed by `9b6c234`. `broadcast_tournament_list/1` fans out to the owner
+> AND every accepted collaborator, and all four lifecycle writes call it. An
+> invite with no `user_id` yet passes straight through, since
+> `broadcast_user_tournaments/1` answers `:ok` for a nil id.
 
 `lib/pairings_engine/tournaments.ex` — `soft_delete_tournament/1`,
 `restore_tournament/1`, `archive_tournament/1`, `unarchive_tournament/1`
@@ -84,7 +101,11 @@ still looks live and writable in their table. This is the one item on the
 page that is a straightforward correctness bug in a real, shipped,
 multi-user feature (collaboration), not a performance or compliance gap.
 
-### 3. Password log-in has no rate limit; every sibling public endpoint has two
+### 3. ~~Password log-in has no rate limit; every sibling public endpoint has two~~ FIXED 2026-08-30
+
+> Closed by `9b6c234`. `user_session_controller.ex` calls `RateLimit` on the
+> email+password branch, like every other unauthenticated endpoint in the
+> app.
 
 `lib/pairings_engine_web/controllers/user_session_controller.ex:33-64` —
 **[Worth adding #13]**
