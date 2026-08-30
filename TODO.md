@@ -3,16 +3,117 @@
 Version: **0.18.0** (not 1.0 yet - the maintainer will call that explicitly).
 See [`docs/features.md`](docs/features.md) for what's already shipped.
 
-> **A whole-codebase sweep ran on 2026-08-26** and its findings are in
-> [docs/sweep-2026-08-26.md](docs/sweep-2026-08-26.md) - 78 items for this
-> repository, of which 12 were bugs that survived an adversarial refutation
-> pass and 15 more were filed as unverified leads. **All 12 confirmed bugs
-> and 10 of the 15 leads are now fixed**; that document's Status section
-> carries the finding-to-commit table. Five leads are open and are listed
-> under "Still open from the 2026-08-26 sweep" below, three of them under a
-> disagreement about whether they are bugs at all. Nothing below bug
-> severity - 27 drift items, 7 optimizations, 15 additions - has been
-> re-audited. This file is the roadmap; that one is the bug list.
+> **A whole-codebase sweep ran on 2026-08-26** - 78 items, in
+> [docs/sweep-2026-08-26.md](docs/sweep-2026-08-26.md). All 12 confirmed
+> bugs and all 15 leads are now closed; that document's Status section
+> carries the finding-to-commit table, and its own "Still open" list is
+> stale and says so.
+>
+> Its remaining 49 items - 27 drift, 7 optimizations, 15 additions - went
+> unexamined until **2026-08-29**, when all of them were assessed in
+> [docs/sweep-2026-08-26-followup.md](docs/sweep-2026-08-26-followup.md):
+> **37 are still real**, ranked by what they cost a user.
+>
+> Three documents, three jobs: this file is the roadmap, the sweep is the
+> evidence, the followup is the triage.
+
+## Everything that is open, in one place
+
+Last reconciled **2026-08-29**. This section is the index; the detail lives
+where it always did and is linked from each line. Anything not listed here
+is either done or deliberately dropped.
+
+Three repositories feed this list, so it is the only place that sees all of
+them at once: **OpenPairings** (this one), **Ainalrami** (the engine,
+vendored), and **OpenResults** (the public site).
+
+### Do next - live, small, verified against current code
+
+| | what | where |
+|---|---|---|
+| 1 | Password log-in has no rate limit, while every sibling public endpoint has two | [followup #3](docs/sweep-2026-08-26-followup.md) |
+| 2 | `PlayerCard` shows an opponent's score inflated by extra points they do not rank on | `player_card.ex:36` |
+| 3 | A collaborator's Tournaments page goes stale on delete/archive/restore - the broadcast only reaches the owner | `tournaments.ex`, four functions |
+| 4 | `safe_path/1` turns a crafted URL into a 500 rather than a redirect | [followup #5](docs/sweep-2026-08-26-followup.md) |
+
+Together roughly an afternoon. (1) is the only one with a security shape;
+(2) and (3) are the ones an arbiter would actually notice.
+
+### Correctness and quality, assessed and ranked
+
+[docs/sweep-2026-08-26-followup.md](docs/sweep-2026-08-26-followup.md)
+assessed all 49 items the 2026-08-26 sweep left unexamined and found **37
+still real** (39 at the time of writing, less ARO and `parse_absent_rounds`,
+both closed the same day). It is ranked by cost to a user, with the
+dismissals grouped by reason, and it carries its own health warning: it was
+written while the tree was moving, so verify against code before acting.
+
+The recurring shape worth naming, because it has now cost this project four
+times in three days: **one rule spelled in more than one place.** "Which
+result was this?" is re-derived in five modules (#17); `RoundRobin` hand-copies
+two functions rather than calling them (#24); and the same
+"higher ranked" misreading appeared in Gacrux, in this engine, and in this
+engine's own test harness.
+
+### Doc hygiene - small, and this list is the reason to care
+
+- `Layouts.public/1` is dead code, orphaned when the local public pages were
+  removed; `EnglishHook`'s moduledoc still describes three surfaces that no
+  longer exist.
+- `docs/features.md` says 0.17.1 while `mix.exs` says 0.18.0 - the sweep's
+  own version-drift item, recurring three days after it was filed, which is
+  the argument for the pre-commit version check it suggested.
+- `docs/sweep-2026-08-26.md` has two pairs of duplicate entries (Drift
+  #5/#6 and #10/#11) - the same claim worded twice, which inflates any count
+  taken from it.
+
+### Blocked on something outside the code
+
+- **SWAR `value1`/`value2`** and **`SW321_PreBye`** - both need one real club
+  file with categories configured. All three `.swar` fixtures carry
+  `type = 0`.
+- **The i18n fragment count** - unmeasurable by grep, because a HEEx text
+  node spans lines. The instrument that would settle it is a pseudo-locale;
+  not built, and nobody has asked.
+
+### Parked by decision
+
+- **The 2026 Acceptance Cycle** - five hard failures, FIDE Mode being the
+  spine. Detailed in the next section. Q208 came off this list on
+  2026-08-29 when ARO was fixed, because it was never only an acceptance
+  item.
+- **Team tournaments** - deferred. Ainalrami has the C.04.6 reading written
+  up before any code; OpenPairings has partial scaffolding wired to nothing.
+- **American accelerated pairing** - dropped, maintainer's own call.
+- **Auditing OpenPairings against SWAR's C++ source, file by file** - real,
+  never costed.
+
+### Ainalrami (the engine)
+
+- **The Gacrux 5.2.5 candidate.** The corrected consistency checker fired 17
+  times over ~1,065,000 rounds on the 2026-08-29 corpus - **all seventeen on
+  Gacrux, all in round 2**, with bbpPairings and Ainalrami silent. Those are
+  rounds where Gacrux contradicts *itself*: one board implying the initial
+  colour was white, another implying black. Not adjudicated; one position
+  read by hand turns it into a finding or dissolves it, as two earlier
+  candidates dissolved. Logs on Photon at `/root/ain_val_run/`.
+- **Two upstream reports written and unsent** - the bbpPairings C2 report,
+  and `docs/finding-gacrux-5-2-4.md`. The maintainer sends those.
+- **Team tournaments** - the reading is done, the code is not.
+
+### OpenResults
+
+Nothing open. The entry form is unfinished and unlinked, parked by the
+maintainer.
+
+### Operational - the maintainer's, not the code's
+
+- **Deploy.** Nothing since 2026-08-29 morning is on the box. The next
+  deploy wires publishing and grants the admin role by itself, and will
+  decline to move the endpoint to loopback until it is forced.
+- **Rotate the secrets** that reached a session scrollback on 2026-08-29.
+- **FIDE search does not work for a laptop arbiter behind NAT** - it needs
+  both applications on one host. No design yet.
 
 ## The 2026 Acceptance Cycle (dominates everything below)
 

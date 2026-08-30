@@ -33,6 +33,12 @@ notice.
 
 ---
 
+> **Verify before acting.** This assessment was written on 2026-08-29
+> while other work was landing in the same tree, so an entry can be
+> closed by a commit made after it was read - two already are (#4, #23).
+> Check the code, not this document, exactly as this document was
+> written by checking the code rather than the sweep it assesses.
+
 ## Still real, ranked by cost to a user
 
 ### 1. PlayerCard shows an opponent's score inflated by points they don't rank on
@@ -99,7 +105,20 @@ and every other unauthenticated endpoint in this app got a bucket
 deliberately. `RateLimit`'s own moduledoc describes itself as covering
 exactly this class of route.
 
-### 4. ARO/AROC1 score an unrated opponent as a literal zero
+### 4. ~~ARO/AROC1 score an unrated opponent as a literal zero~~ FIXED 2026-08-29
+
+> **Closed the same day this was written, and the fix below is NOT the
+> one that shipped.** This entry proposes excluding `rating == 0`
+> opponents from the average or substituting a floor. C.07 Article 10,
+> read directly, offers neither: it says the tie-break "must be dropped
+> from the tournament tie-break list when unrated players are present"
+> unless the regulations or the Chief Arbiter published a rule
+> beforehand. FIDE gives no substitute rating, so both proposals here
+> would have invented the rule it declined to write.
+>
+> `Standings.effective_tiebreaks/1` drops the code instead. The
+> analysis below is kept because the diagnosis was right even though
+> the prescription was not.
 
 `lib/pairings_engine/standings.ex:797-816` — **[Worth adding #7 / Q208]**
 
@@ -447,7 +466,13 @@ from the one page that would show it. Separately, `insert_absentee_byes/4`
 is still called after `create_round/4`'s own transaction commits
 (`keizer.ex:156-158`), not inside it.
 
-### 23. `parse_absent_rounds/1` is still two byte-identical private copies
+### 23. ~~`parse_absent_rounds/1` is still two byte-identical private copies~~ FIXED 2026-08-29
+
+> Closed hours after this was written. It lives at
+> `Player.parse_absent_rounds/1` now, beside the input grammar it
+> mirrors, and the reader tolerates malformed input rather than
+> raising - a hand-edited row would previously have taken down pairing
+> for a whole tournament.
 
 `lib/pairings_engine/pairing.ex:2060-2069`, `lib/pairings_engine/keizer.ex:718-727`
 — **[Drift #16]**
