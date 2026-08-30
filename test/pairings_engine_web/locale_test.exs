@@ -311,4 +311,39 @@ defmodule PairingsEngineWeb.LocaleTest do
       end
     end
   end
+
+  describe "a crafted redirect_to is refused, not raised on" do
+    # `safe_path/1` guarded against a protocol-relative `//host` and nothing
+    # else. Phoenix rejects any local URL containing a backslash or a tab,
+    # encoded or not (`@invalid_local_url_chars`), by RAISING - so
+    # `?redirect_to=/%5Cevil.com` reached `redirect/2` and turned a crafted
+    # query string into a 500. Never an open redirect, but an
+    # unauthenticated visitor could produce a server error at will.
+    test "a backslash sends you home instead of exploding", %{conn: conn} do
+      conn = get(conn, ~p"/locale/en?redirect_to=/%5Cevil.com")
+
+      assert redirected_to(conn) == "/"
+    end
+
+    test "so does an encoded tab", %{conn: conn} do
+      conn = get(conn, ~p"/locale/en?redirect_to=/%09evil.com")
+
+      assert redirected_to(conn) == "/"
+    end
+
+    test "and a protocol-relative URL still does", %{conn: conn} do
+      # The case the original guard was written for, kept so the new checks
+      # cannot quietly replace it.
+      conn = get(conn, ~p"/locale/en?redirect_to=//evil.com")
+
+      assert redirected_to(conn) == "/"
+    end
+
+    test "while an ordinary path still comes back to itself", %{conn: conn} do
+      # The guard must not have become "refuse everything".
+      conn = get(conn, ~p"/locale/en?redirect_to=/changelog")
+
+      assert redirected_to(conn) == "/changelog"
+    end
+  end
 end

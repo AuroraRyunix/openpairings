@@ -3,7 +3,16 @@ defmodule PairingsEngine.PlayerCardTest do
 
   alias PairingsEngine.PlayerCard
 
-  @tournament %{points_win: 1.0, points_draw: 0.5, points_loss: 0.0}
+  # `count_extra_points` is what decides whether a score counts a player's
+  # administrative bonus. False is the app's default and what SWAR imports
+  # arrive as, so it is the right stub - and `rows/3` now reads it, via
+  # `Standings.rank_score/2`, for the opponent's side of every row.
+  @tournament %{
+    points_win: 1.0,
+    points_draw: 0.5,
+    points_loss: 0.0,
+    count_extra_points: false
+  }
 
   describe "result_label/2" do
     test "actual results over the board" do
@@ -218,6 +227,66 @@ defmodule PairingsEngine.PlayerCardTest do
       }
 
       assert PlayerCard.header(entry) == "Ranking:4 - (N°:9) - Smith, John."
+    end
+  end
+
+  describe "an opponent's score is the one the standings would show" do
+    # `row/4` built `opponent_total: opponent.total`, which is points PLUS
+    # the player's administrative extra points. A tournament only ranks on
+    # those when it opted in, and it does not by default - so right-clicking
+    # a player showed their opponent a total the standings table would deny.
+    #
+    # `Standings.rank_score/2`'s own doc calls reading `.total` directly
+    # "almost always a bug", and the footer of this same function was
+    # already using the right one for the card owner's own side.
+    defp entry(id, name, points, extra) do
+      %{
+        player: %{
+          id: id,
+          name: name,
+          pairing_number: id,
+          federation: "BEL",
+          title: nil,
+          fide_rating: 2000,
+          national_rating: 0,
+          national_id: "",
+          club_number: nil
+        },
+        games: [],
+        points: points,
+        extra_points: extra,
+        total: points + extra,
+        rank: id
+      }
+    end
+
+    defp card_rows(tournament) do
+      opponent = entry(2, "Bob", 1.0, 2.0)
+
+      owner = %{
+        entry(1, "Alice", 1.0, 0.0)
+        | games: [
+            %{round: 1, opponent_id: 2, colour: :w, points: 1.0, played: true, voluntary: false}
+          ]
+      }
+
+      PlayerCard.rows(owner, %{1 => owner, 2 => opponent}, tournament)
+    end
+
+    test "extra points are left out when the tournament does not rank on them" do
+      [row] = card_rows(@tournament)
+
+      # 1.0 game point. The opponent's 2.0 administrative bonus is real and
+      # is not part of what they rank on here.
+      assert row.opponent_total == 1.0
+    end
+
+    test "and counted when it does" do
+      # The other half of the rule: opting in must still work, or the fix
+      # would have replaced one wrong answer with another.
+      [row] = card_rows(%{@tournament | count_extra_points: true})
+
+      assert row.opponent_total == 3.0
     end
   end
 end

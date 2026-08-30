@@ -27,17 +27,24 @@ Three repositories feed this list, so it is the only place that sees all of
 them at once: **OpenPairings** (this one), **Ainalrami** (the engine,
 vendored), and **OpenResults** (the public site).
 
-### Do next - live, small, verified against current code
+### Do next - all four done 2026-08-29
 
-| | what | where |
-|---|---|---|
-| 1 | Password log-in has no rate limit, while every sibling public endpoint has two | [followup #3](docs/sweep-2026-08-26-followup.md) |
-| 2 | `PlayerCard` shows an opponent's score inflated by extra points they do not rank on | `player_card.ex:36` |
-| 3 | A collaborator's Tournaments page goes stale on delete/archive/restore - the broadcast only reaches the owner | `tournaments.ex`, four functions |
-| 4 | `safe_path/1` turns a crafted URL into a 500 rather than a redirect | [followup #5](docs/sweep-2026-08-26-followup.md) |
+- ~~**Password sign-in had no rate limit.**~~ It shares the magic-link
+  form's two buckets now - per address and per client - refused before
+  the password is checked, so a throttled attempt costs no bcrypt round
+  and cannot be timed. Only failures are counted.
+- ~~**`PlayerCard` showed an opponent's score inflated.**~~ Reads
+  `Standings.rank_score/2` instead of `.total`, so it stops counting
+  administrative extra points in a tournament that does not rank on them.
+- ~~**A shared tournament went stale for the collaborator.**~~ The four
+  lifecycle writes use `broadcast_tournament_list/1`, which reaches every
+  accepted collaborator as well as the owner.
+- ~~**`safe_path/1` turned a crafted URL into a 500.**~~ It rejects the
+  characters Phoenix refuses (backslash, tab, encoded forms) rather than
+  handing them to `redirect/2` to raise on.
 
-Together roughly an afternoon. (1) is the only one with a security shape;
-(2) and (3) are the ones an arbiter would actually notice.
+The next tier is whatever ranks highest in the followup below. Nothing
+there is currently known to bite a user the way these four did.
 
 ### Correctness and quality, assessed and ranked
 

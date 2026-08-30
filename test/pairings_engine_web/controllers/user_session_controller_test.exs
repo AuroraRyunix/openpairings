@@ -168,4 +168,69 @@ defmodule PairingsEngineWeb.UserSessionControllerTest do
       assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "Logged out successfully"
     end
   end
+
+  describe "password sign-in is rate limited" do
+    # This route had no ceiling but bcrypt's own cost, while every other
+    # unauthenticated endpoint in the app was given one deliberately. It
+    # shares the magic-link form's two buckets: per address, so a password
+    # list cannot be walked against one account, and per client, so one
+    # client cannot walk a list of addresses.
+    setup do
+      user =
+        PairingsEngine.AccountsFixtures.set_password(
+          PairingsEngine.AccountsFixtures.user_fixture()
+        )
+
+      clear = fn ->
+        PairingsEngine.RateLimit.clear(:login_email, String.downcase(user.email))
+        PairingsEngine.RateLimit.clear(:login_client, "127.0.0.1")
+      end
+
+      clear.()
+      on_exit(clear)
+
+      {:ok, user: user}
+    end
+
+    test "a wrong password eventually stops being answered", %{conn: conn, user: user} do
+      %{max: max} = PairingsEngine.RateLimit.config(:login_email)
+
+      # Exhaust the allowance with wrong passwords.
+      for _ <- 1..max do
+        post(conn, ~p"/users/log-in", %{
+          "user" => %{"email" => user.email, "password" => "wrong-one"}
+        })
+      end
+
+      conn =
+        post(conn, ~p"/users/log-in", %{
+          "user" => %{"email" => user.email, "password" => "wrong-one"}
+        })
+
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) =~ "Too many sign-in attempts"
+    end
+
+    test "a correct password does not spend the allowance", %{conn: conn, user: user} do
+      # An arbiter signing in and out during their own tournament must not
+      # run themselves out of attempts, so only failures are counted.
+      password = PairingsEngine.AccountsFixtures.valid_user_password()
+      %{max: max} = PairingsEngine.RateLimit.config(:login_email)
+
+      for _ <- 1..(max + 2) do
+        conn
+        |> post(~p"/users/log-in", %{"user" => %{"email" => user.email, "password" => password}})
+      end
+
+      conn =
+        post(conn, ~p"/users/log-in", %{
+          "user" => %{"email" => user.email, "password" => password}
+        })
+
+      # The positive assertion, not the absence of a flash: a successful
+      # sign-in has no :error at all, so refuting one would pass even if the
+      # request had failed some other way.
+      assert get_session(conn, :user_token)
+      assert redirected_to(conn) == ~p"/"
+    end
+  end
 end

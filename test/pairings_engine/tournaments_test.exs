@@ -2678,4 +2678,93 @@ defmodule PairingsEngine.TournamentsTest do
       assert Repo.get!(Player, low.id).category == "-1100"
     end
   end
+
+  describe "a shared tournament's lifecycle reaches the collaborator too" do
+    # Seven lifecycle writes broadcast only to the OWNER's tournament-list
+    # topic, so an owner deleting, archiving or restoring a shared
+    # tournament left every collaborator's page showing a row that was gone
+    # - or missing one that was back - until they happened to reload. The
+    # collaborator-specific functions always fanned out correctly; it was
+    # the tournament's own lifecycle that forgot the other party.
+    setup do
+      owner_scope = PairingsEngine.AccountsFixtures.user_scope_fixture()
+      collab_scope = PairingsEngine.AccountsFixtures.user_scope_fixture()
+      collaborator = collab_scope.user
+
+      {:ok, tournament} =
+        Tournaments.create_tournament(owner_scope, %{"name" => "Shared", "type" => "swiss"})
+
+      {:ok, invitation} =
+        Tournaments.add_collaborator(owner_scope, tournament, collaborator.email)
+
+      {:ok, _} = Tournaments.accept_invitation(collab_scope, invitation.id)
+
+      # Subscribe as the COLLABORATOR, then drain anything the setup itself
+      # produced, so each test asserts on its own write and not on the
+      # invitation it needed to get here.
+      Phoenix.PubSub.subscribe(
+        PairingsEngine.PubSub,
+        Tournaments.user_tournaments_topic(collaborator.id)
+      )
+
+      flush()
+
+      {:ok, tournament: Tournaments.get_tournament!(tournament.id), collaborator: collaborator}
+    end
+
+    defp flush do
+      receive do
+        _ -> flush()
+      after
+        0 -> :ok
+      end
+    end
+
+    test "archiving tells them", %{tournament: t, collaborator: c} do
+      {:ok, _} = Tournaments.archive_tournament(t)
+
+      id = c.id
+      assert_receive {:tournaments_changed, ^id}
+    end
+
+    test "unarchiving tells them", %{tournament: t, collaborator: c} do
+      {:ok, archived} = Tournaments.archive_tournament(t)
+      flush()
+
+      {:ok, _} = Tournaments.unarchive_tournament(archived)
+
+      id = c.id
+      assert_receive {:tournaments_changed, ^id}
+    end
+
+    test "moving it to the recycle bin tells them", %{tournament: t, collaborator: c} do
+      {:ok, _} = Tournaments.soft_delete_tournament(t)
+
+      id = c.id
+      assert_receive {:tournaments_changed, ^id}
+    end
+
+    test "restoring it tells them", %{tournament: t, collaborator: c} do
+      {:ok, deleted} = Tournaments.soft_delete_tournament(t)
+      flush()
+
+      {:ok, _} = Tournaments.restore_tournament(deleted)
+
+      id = c.id
+      assert_receive {:tournaments_changed, ^id}
+    end
+
+    test "and the owner is still told", %{tournament: t} do
+      # The fix adds a recipient; it must not have replaced one.
+      Phoenix.PubSub.subscribe(
+        PairingsEngine.PubSub,
+        Tournaments.user_tournaments_topic(t.user_id)
+      )
+
+      {:ok, _} = Tournaments.archive_tournament(t)
+
+      owner_id = t.user_id
+      assert_receive {:tournaments_changed, ^owner_id}
+    end
+  end
 end

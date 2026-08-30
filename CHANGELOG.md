@@ -633,6 +633,25 @@ Each entry is tagged so a version can be skimmed:
 
 ### Fixed
 
+- [Fix] **A shared tournament went stale on the other person's screen.**
+  Deleting, archiving or restoring a tournament told only its owner, so a
+  collaborator kept seeing a row that was gone &mdash; or missed one that was
+  back &mdash; until they happened to reload. Sharing worked in both
+  directions already; it was the tournament's own lifecycle that forgot the
+  other party existed.
+
+- [Fix] **A player's card showed their opponent's score wrong.** It counted
+  the opponent's administrative extra points, which a tournament only ranks
+  on if you asked it to &mdash; and it does not by default. Right-clicking a
+  player showed a total the standings table would deny.
+
+- [Fix] **A crafted language-switch link returned a server error.** A
+  `redirect_to` containing a backslash or a tab reached Phoenix's redirect,
+  which refuses those by raising, so anyone could produce a 500 from the
+  public log-in page. It sends you home instead. Never an open redirect
+  &mdash; Phoenix stopped that part &mdash; but a language switch is not a
+  place to find a stack trace.
+
 - [Fix] **ARO and AROC1 counted an unrated opponent as rating zero, and it
   moved prizes.** A player who faced 2200-rated opponents and one unrated
   scored around 1956 instead of 2200, and dropped below anyone who happened
@@ -960,6 +979,21 @@ Each entry is tagged so a version can be skimmed:
   has always applied to the same state on the FIDE path.
 
 ### Security
+
+- [Security] **Password sign-in had no rate limit.** Every other
+  unauthenticated route in the app was given one deliberately &mdash; mobile
+  enrolment, magic link, registration, the FIDE lookup &mdash; and this one
+  was missed, leaving nothing between an attacker and a password list but
+  bcrypt's own cost.
+
+  It now shares the magic-link form's two buckets: per address, so a list
+  cannot be walked against one account, and per client, so one client cannot
+  walk a list of addresses. Refused before the password is checked, so a
+  throttled attempt costs no bcrypt round and cannot be timed to tell a real
+  account from a missing one. Only failures count &mdash; signing in and out
+  during your own tournament must not lock you out of it.
+
+
 
 - [Security] **The KBSB rating import was the one control on Connections
   with no role check.** Every sibling handler on that page checks; this one

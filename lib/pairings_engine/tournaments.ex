@@ -67,6 +67,41 @@ defmodule PairingsEngine.Tournaments do
     :ok
   end
 
+  @doc """
+  Tells everyone whose tournament LIST just changed - the owner and every
+  accepted collaborator.
+
+  ## Why this exists separately
+
+  `broadcast_user_tournaments/1` reaches one person. Seven lifecycle writes
+  called it with the owner's id and nobody else's, so an owner deleting,
+  archiving or restoring a shared tournament left every collaborator's
+  Tournaments page showing a row that was gone, or missing one that was
+  back, until they happened to reload.
+
+  The collaborator-specific functions - `add_collaborator/3`,
+  `remove_collaborator/3`, `leave_tournament/2`, `accept_invitation/2` -
+  always did fan out to the other party. It was only the tournament's own
+  lifecycle that forgot the other party existed.
+
+  Accepted only: a pending invitation is not on anybody's list yet, so
+  there is nothing to refresh. A collaborator row can also carry an email
+  with no `user_id` (invited before that person had an account), and those
+  have no topic to broadcast on - `broadcast_user_tournaments/1` already
+  answers `:ok` for a nil id, which is why this can pass them straight
+  through.
+  """
+  def broadcast_tournament_list(%Tournament{} = tournament) do
+    broadcast_user_tournaments(tournament.user_id)
+
+    Repo.all(
+      from c in Collaborator,
+        where: c.tournament_id == ^tournament.id and c.status == "accepted",
+        select: c.user_id
+    )
+    |> Enum.each(&broadcast_user_tournaments/1)
+  end
+
   @doc "Broadcasts `{:tournaments_changed, user_id}` on the user's tournament-list topic."
   def broadcast_user_tournaments(nil), do: :ok
 
@@ -588,7 +623,7 @@ defmodule PairingsEngine.Tournaments do
       |> Repo.update()
       |> tap_ok(fn updated ->
         broadcast_tournament_change(updated.id, :settings)
-        broadcast_user_tournaments(updated.user_id)
+        broadcast_tournament_list(updated)
       end)
     end
   end
@@ -694,7 +729,7 @@ defmodule PairingsEngine.Tournaments do
     Repo.delete(tournament)
     |> tap_ok(fn deleted ->
       broadcast_tournament_change(deleted.id, :tournament)
-      broadcast_user_tournaments(deleted.user_id)
+      broadcast_tournament_list(deleted)
     end)
   end
 
@@ -979,7 +1014,7 @@ defmodule PairingsEngine.Tournaments do
     |> Repo.update()
     |> tap_ok(fn updated ->
       broadcast_tournament_change(updated.id, :tournament)
-      broadcast_user_tournaments(updated.user_id)
+      broadcast_tournament_list(updated)
     end)
   end
 
@@ -994,7 +1029,7 @@ defmodule PairingsEngine.Tournaments do
     |> Repo.update()
     |> tap_ok(fn updated ->
       broadcast_tournament_change(updated.id, :tournament)
-      broadcast_user_tournaments(updated.user_id)
+      broadcast_tournament_list(updated)
     end)
   end
 
@@ -1066,7 +1101,7 @@ defmodule PairingsEngine.Tournaments do
     |> Repo.update()
     |> tap_ok(fn updated ->
       broadcast_tournament_change(updated.id, :tournament)
-      broadcast_user_tournaments(updated.user_id)
+      broadcast_tournament_list(updated)
     end)
   end
 
@@ -1082,7 +1117,7 @@ defmodule PairingsEngine.Tournaments do
     |> Repo.update()
     |> tap_ok(fn updated ->
       broadcast_tournament_change(updated.id, :tournament)
-      broadcast_user_tournaments(updated.user_id)
+      broadcast_tournament_list(updated)
     end)
   end
 

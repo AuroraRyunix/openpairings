@@ -2,6 +2,7 @@ defmodule PairingsEngineWeb.UserSessionController do
   use PairingsEngineWeb, :controller
 
   alias PairingsEngine.Accounts
+  alias PairingsEngine.RateLimit
   alias PairingsEngineWeb.UserAuth
 
   def create(conn, %{"_action" => "confirmed"} = params) do
@@ -32,8 +33,29 @@ defmodule PairingsEngineWeb.UserSessionController do
   # email + password login
   defp create(conn, %{"user" => user_params}, info) do
     %{"email" => email, "password" => password} = user_params
+    limits = rate_limits(conn, email)
 
     cond do
+      # Counted before the password is ever checked, and on the same two
+      # buckets the magic-link form uses: per address, so a list cannot be
+      # walked against one account, and per client, so one client cannot
+      # walk a list of addresses.
+      #
+      # This route had no ceiling at all except bcrypt's own cost, while
+      # every other unauthenticated endpoint in the app - mobile enrolment,
+      # magic link, registration, the FIDE lookup - was given one
+      # deliberately. Passwords are the secondary path here, behind SSO and
+      # magic links, but secondary is not unused.
+      #
+      # Refused BEFORE `get_user_by_email_and_password/2` runs, so a
+      # throttled attempt costs no bcrypt round and cannot be timed to
+      # distinguish a real account from a missing one.
+      not Enum.all?(limits, fn {bucket, key} -> RateLimit.allow?(bucket, key) end) ->
+        conn
+        |> put_flash(:error, "Too many sign-in attempts. Try again in a few minutes.")
+        |> put_flash(:email, String.slice(email, 0, 160))
+        |> redirect(to: ~p"/users/log-in")
+
       # The SSO-only domain is exactly that: an account there exists solely
       # because 02cloud SSO created it, so a local password must never be an
       # alternative way in - otherwise setting one in Settings would quietly
@@ -55,11 +77,31 @@ defmodule PairingsEngineWeb.UserSessionController do
         |> UserAuth.log_in_user(user, user_params)
 
       true ->
+        # Recorded here and not on the success branch: a correct password is
+        # not an attempt worth counting, and an arbiter signing in and out
+        # during their own tournament must not run themselves out of
+        # allowance. Counted for every failure whether or not the address
+        # exists, since a limit that applied only to real accounts would
+        # answer "does this address exist?".
+        Enum.each(limits, fn {bucket, key} -> RateLimit.record(bucket, key) end)
+
         # In order to prevent user enumeration attacks, don't disclose whether the email is registered.
         conn
         |> put_flash(:error, "Invalid email or password")
         |> put_flash(:email, String.slice(email, 0, 160))
         |> redirect(to: ~p"/users/log-in")
+    end
+  end
+
+  # Deliberately the same shape as `PairingsEngineWeb.UserLive.Login`'s own
+  # `rate_limits/2` - the same two buckets, keyed the same way. Two sign-in
+  # doors onto the same accounts should not have two different ceilings.
+  defp rate_limits(conn, email) do
+    recipient = email |> to_string() |> String.trim() |> String.downcase()
+
+    case conn.remote_ip do
+      nil -> [{:login_email, recipient}]
+      ip -> [{:login_email, recipient}, {:login_client, :inet.ntoa(ip) |> to_string()}]
     end
   end
 

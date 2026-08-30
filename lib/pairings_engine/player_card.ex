@@ -11,6 +11,8 @@ defmodule PairingsEngine.PlayerCard do
   `%{player:, games:, points:, extra_points:, total:, rank:, tiebreaks:}`.
   """
 
+  alias PairingsEngine.Standings
+
   @doc """
   One row per game in `entry.games` (sorted by round), describing the
   opponent and the outcome for display.
@@ -33,7 +35,15 @@ defmodule PairingsEngine.PlayerCard do
       opponent_title: opponent && opponent.player.title,
       opponent_name: opponent && opponent.player.name,
       opponent_elo: opponent && opponent_rating(opponent.player),
-      opponent_total: opponent && opponent.total,
+      # `rank_score/2`, not `.total`. The two differ by a player's
+      # administrative extra points, and a tournament only ranks on those
+      # when it opted in - which it does not by default. Reading `.total`
+      # here showed an opponent a score the standings table would deny,
+      # for any player carrying extra points in an ordinary tournament.
+      # `Standings.rank_score/2`'s own doc calls reading `.total` directly
+      # "almost always a bug", and the footer of this very function already
+      # uses the right one for the card owner's own side.
+      opponent_total: opponent && Standings.rank_score(opponent, tournament),
       result: result_label(game, tournament),
       colour: colour_label(game),
       float: float_symbol(own_before, opp_before)
