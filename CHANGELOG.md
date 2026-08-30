@@ -405,7 +405,16 @@ Each entry is tagged so a version can be skimmed:
   tab beside it does that. And the settings tabs no longer offer Changelog,
   which is not tournament-specific and is already in the top bar.
 
-- [Change] **The new-tournament form stopped scattering itself.** Its
+- [Change] **The new-tournament form is grouped by what it asks.** It was one
+  grid holding everything, so the explanations took layout cells of their own:
+  name and system on a row, a paragraph across the next, the team checkbox
+  alone beside two empty cells, another paragraph, and only then the fields
+  that decide the tournament&#39;s shape. It is three small groups now - what it
+  is, how big, where and when - with the notes between them rather than inside
+  them, so choosing an option grows its own section instead of reshuffling
+  everything after it.
+
+- [Change] **The original attempt at that, kept for the record:** Its
   explanations &mdash; the engine note, the "Reporting only" note on team
   tournaments &mdash; were laid out as if they were form fields, so each one
   took a column beside an unrelated input, and choosing a pairing system

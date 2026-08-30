@@ -558,11 +558,16 @@ values from the same `.env` it already reads:
 | spectators go | `DEPLOY_OPENRESULTS_PHX_HOST` | `https://openresults.zerotwo.cloud` |
 | token | `DEPLOY_OPENRESULTS_INGEST_TOKEN` | (never echoed) |
 
-`--ensure` **fills blanks and will not overwrite.** Unlike a role, which the
-deploy configuration is entitled to reassert every time, a publishing address
-may have been repointed deliberately - so a value that is already set and
-differs is reported loudly, left alone, and the `--force` command that would
-change it is printed. The token is compared without ever being printed.
+The deploy uses **`--force`**, so the box is reconciled to this `.env` on
+every run. That is the opposite of the task-s own default, deliberately: the
+task refuses to overwrite because a general tool should not stamp over a
+setting somebody chose on purpose, but this script deploys one known host and
+its `.env` IS how that host is wired. A step that declined to apply its own
+configuration every deploy would be a warning nobody reads.
+
+**So change these values here, not on the Connections page** - an edit made
+there is undone by the next deploy. The token is compared without ever being
+printed.
 
 An installation that has never configured publishing is therefore wired
 correctly by its first deploy. Setting it by hand still works and is what a

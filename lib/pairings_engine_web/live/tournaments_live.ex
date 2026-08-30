@@ -951,6 +951,21 @@ defmodule PairingsEngineWeb.TournamentsLive do
       >
         <h2>{gettext("New tournament")}</h2>
 
+        <%!-- Three grids, not one, with prose BETWEEN them rather than
+              inside them.
+
+              One grid put every explanation into an auto-fill cell, so the
+              form read: name and system on a row, a paragraph spanning the
+              next, a checkbox alone beside two empty cells, another spanning
+              paragraph, and only then the fields that decide the tournament's
+              shape. Making the hints span the full width stopped them landing
+              beside an unrelated input and did nothing about the ragged rows
+              or the order.
+
+              Grouped by the question being answered instead - what it is, how
+              big, where and when - each group is a small grid that fills its
+              own row, and a conditional field or note grows its own section
+              rather than reflowing everything after it. --%>
         <div class="form-grid">
           <label class="field">
             <span>{gettext("Name")}</span>
@@ -974,51 +989,24 @@ defmodule PairingsEngineWeb.TournamentsLive do
               </option>
             </select>
           </label>
+        </div>
 
-          <%!-- Named here rather than only in Settings because this is where
-                the choice is actually made, and because "Swiss" alone stopped
-                identifying anything once the system label and the engine name
-                came apart. Swiss only: round robin and Keizer name their
-                engine inside the system label already. --%>
-          <p :if={@new_pairing_system == "swiss"} class="hint">
-            <.rich_text text={
-              gettext(
-                "Paired by %[engine], our own Dutch engine, following C.04.3 as it stands in the edition effective 1 February 2026. You can change the engine per tournament in Settings."
-              )
-            }>
-              <:part name="engine"><strong>Ainalrami</strong></:part>
-            </.rich_text>
-          </p>
+        <%!-- Named here rather than only in Settings because this is where
+              the choice is actually made, and because "Swiss" alone stopped
+              identifying anything once the system label and the engine name
+              came apart. Swiss only: round robin and Keizer name their
+              engine inside the system label already. --%>
+        <p :if={@new_pairing_system == "swiss"} class="hint">
+          <.rich_text text={
+            gettext(
+              "Paired by %[engine], our own Dutch engine, following C.04.3 as it stands in the edition effective 1 February 2026. You can change the engine per tournament in Settings."
+            )
+          }>
+            <:part name="engine"><strong>Ainalrami</strong></:part>
+          </.rich_text>
+        </p>
 
-          <%!-- The checkbox only sets the FIDE classification on the report
-                (092: "Team: Swiss System"). It does NOT change pairing:
-                `Pairing.pair_next_round/1` never branches on team type, so
-                players are paired as individuals either way. That is a real
-                gap (see TODO.md), and an unlabelled checkbox made it a silent
-                one - the round it produces looks like a valid pairing, so
-                there is nothing to notice until someone checks the boards
-                against the teams. --%>
-          <label class="field field-check">
-            <input
-              type="checkbox"
-              name="tournament[team]"
-              value="true"
-              checked={@new_team?}
-              style="width: auto"
-            /> <span>{gettext("Team tournament")}</span>
-          </label>
-
-          <p :if={@new_team?} class="hint">
-            <strong>{gettext("Reporting only.")}</strong>
-            <.rich_text text={
-              gettext(
-                "This marks the tournament as a team event on the FIDE report. Pairing is still done %[how] - team pairing, team standings and team tie-breaks are not built yet, so boards will not respect team membership."
-              )
-            }>
-              <:part name="how"><em>{gettext("player by player")}</em></:part>
-            </.rich_text>
-          </p>
-
+        <div class="form-grid">
           <label class="field">
             <span>{gettext("Rounds")}</span>
             <input
@@ -1043,6 +1031,37 @@ defmodule PairingsEngineWeb.TournamentsLive do
             </select>
           </label>
 
+          <%!-- The checkbox only sets the FIDE classification on the report
+                (092: "Team: Swiss System"). It does NOT change pairing:
+                `Pairing.pair_next_round/1` never branches on team type, so
+                players are paired as individuals either way. That is a real
+                gap (see TODO.md), and an unlabelled checkbox made it a silent
+                one - the round it produces looks like a valid pairing, so
+                there is nothing to notice until someone checks the boards
+                against the teams. --%>
+          <label class="field field-check">
+            <input
+              type="checkbox"
+              name="tournament[team]"
+              value="true"
+              checked={@new_team?}
+              style="width: auto"
+            /> <span>{gettext("Team tournament")}</span>
+          </label>
+        </div>
+
+        <p :if={@new_team?} class="hint">
+          <strong>{gettext("Reporting only.")}</strong>
+          <.rich_text text={
+            gettext(
+              "This marks the tournament as a team event on the FIDE report. Pairing is still done %[how] - team pairing, team standings and team tie-breaks are not built yet, so boards will not respect team membership."
+            )
+          }>
+            <:part name="how"><em>{gettext("player by player")}</em></:part>
+          </.rich_text>
+        </p>
+
+        <div class="form-grid">
           <label class="field">
             <span>{gettext("Place")}</span>
             <input
@@ -1066,20 +1085,6 @@ defmodule PairingsEngineWeb.TournamentsLive do
             </span>
           </label>
 
-          <div class="field">
-            <span>{gettext("Format")}</span>
-            <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center">
-              <label :for={{val, label} <- standard_options()} class="opt-row">
-                <input
-                  type="radio"
-                  name="tournament[standard]"
-                  value={val}
-                  checked={val == @new_standard}
-                /> {label}
-              </label>
-            </div>
-          </div>
-
           <label class="field">
             <span>{gettext("Rate of play")}</span>
             <select name="tournament[rate_of_play]">
@@ -1092,6 +1097,23 @@ defmodule PairingsEngineWeb.TournamentsLive do
               </option>
             </select>
           </label>
+        </div>
+
+        <%!-- Its own row: a radio group is as wide as its options, and in a
+              grid cell it either overflows or wraps into a column of
+              one. --%>
+        <div class="field">
+          <span>{gettext("Format")}</span>
+          <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center">
+            <label :for={{val, label} <- standard_options()} class="opt-row">
+              <input
+                type="radio"
+                name="tournament[standard]"
+                value={val}
+                checked={val == @new_standard}
+              /> {label}
+            </label>
+          </div>
         </div>
 
         <p :if={@error} class="error-note">{@error}</p>
