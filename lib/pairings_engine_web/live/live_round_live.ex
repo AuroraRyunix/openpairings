@@ -208,7 +208,33 @@ defmodule PairingsEngineWeb.LiveRoundLive do
         </div>
       </div>
 
-      <details class="card" style="margin-bottom: 20px">
+      <%!-- Not offered on a local run, because it cannot work there and
+            looks like it can. Two independent reasons, either of which is
+            enough: the QR encodes this endpoint's host, which local mode
+            sets to "localhost", so a phone scanning it resolves its OWN
+            localhost; and the listener is pinned to 127.0.0.1, so even the
+            laptop's real LAN address would be refused.
+
+            That pin is not incidental - `config/runtime.exs` calls it "what
+            makes local mode safe to have at all", since the mode prints
+            login links to a terminal and auto-signs-in whoever reaches it.
+            Binding wider to make this feature work would hand
+            sign-in-as-the-owner to everyone on the venue wifi. So this is a
+            property of the deployment, not a missing feature, and the panel
+            says which rather than disappearing without explanation. --%>
+      <details :if={local_mode?()} class="card" style="margin-bottom: 20px">
+        <summary style="cursor: pointer; font-weight: 650">
+          {gettext("📱 Enrol a phone to enter results")}
+        </summary>
+
+        <p class="hint">
+          {gettext(
+            "Not available when OpenPairings runs on your own computer. This machine only accepts connections from itself - which is what keeps a no-login build safe - so a phone cannot reach it, and the QR code would point the phone at itself. Helpers can enter results from a phone when a tournament runs on a shared server."
+          )}
+        </p>
+      </details>
+
+      <details :if={not local_mode?()} class="card" style="margin-bottom: 20px">
         <summary style="cursor: pointer; font-weight: 650">
           {gettext("📱 Enrol a phone to enter results")}
         </summary>
@@ -438,4 +464,8 @@ defmodule PairingsEngineWeb.LiveRoundLive do
     </Layouts.app>
     """
   end
+
+  # One reader for "is this a local run", like every other consumer of
+  # this flag in the app.
+  defp local_mode?, do: PairingsEngine.Authz.local_mode?()
 end

@@ -94,8 +94,8 @@
     <%!-- Pending-restart warning, announced by the deploy script shortly
           before it restarts the service.
 
-          It lives HERE, in the root layout, rather than in `Layouts.app`
-          and `Layouts.public`, because those are function components: they
+          It lives HERE, in the root layout, rather than in `Layouts.app`,
+          because that is a function component: it
           receive only the attributes each page passes them, not the
           LiveView's assigns. Threading the deadline through would mean
           touching 29 call sites, and a call site missed later shows no

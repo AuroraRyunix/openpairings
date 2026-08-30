@@ -62,17 +62,20 @@ two functions rather than calling them (#24); and the same
 "higher ranked" misreading appeared in Gacrux, in this engine, and in this
 engine's own test harness.
 
-### Doc hygiene - small, and this list is the reason to care
+### Doc hygiene - done 2026-08-29
 
-- `Layouts.public/1` is dead code, orphaned when the local public pages were
-  removed; `EnglishHook`'s moduledoc still describes three surfaces that no
-  longer exist.
-- `docs/features.md` says 0.17.1 while `mix.exs` says 0.18.0 - the sweep's
-  own version-drift item, recurring three days after it was filed, which is
-  the argument for the pre-commit version check it suggested.
-- `docs/sweep-2026-08-26.md` has two pairs of duplicate entries (Drift
-  #5/#6 and #10/#11) - the same claim worded twice, which inflates any count
-  taken from it.
+- ~~`Layouts.public/1` was dead code~~, orphaned when the local public
+  pages went. Deleted, along with the root layout comment that named it, and
+  `EnglishHook`'s moduledoc now names the one player-facing page it
+  actually still covers rather than the four it used to.
+- ~~`docs/features.md` said 0.17.1~~ while `mix.exs` said 0.18.0. The
+  sweep's own version-drift item, which had recurred three days after being
+  filed - the standing argument for the pre-commit version check it
+  suggested, which is still not built.
+- ~~The sweep had two pairs of duplicate entries~~ (Drift #5/#6 and
+  #10/#11). Left in place so the numbering every other document cites still
+  resolves, with a note at the head of that section saying a count taken
+  from it is two too high.
 
 ### Blocked on something outside the code
 

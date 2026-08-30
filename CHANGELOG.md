@@ -633,6 +633,12 @@ Each entry is tagged so a version can be skimmed:
 
 ### Fixed
 
+- [Fix] **The phone-enrolment QR could not work on your own computer, and did not say so.** Running OpenPairings locally, the QR encoded `http://localhost:4000/...` &mdash; which a phone resolves to *itself* &mdash; and the app only accepts connections from the machine it runs on, so even the right address would have been refused.
+
+  That second part is deliberate and is what makes a build with no login safe to ship: it prints sign-in links to a terminal and signs in whoever reaches it. Opening it up so phones could connect would hand that to everyone on the venue wifi, so this is a property of running locally rather than a missing feature.
+
+  The panel now says that, instead of offering a code that leads nowhere. Helpers can still enter results from a phone when a tournament runs on a shared server.
+
 - [Fix] **A shared tournament went stale on the other person's screen.**
   Deleting, archiving or restoring a tournament told only its owner, so a
   collaborator kept seeing a row that was gone &mdash; or missed one that was

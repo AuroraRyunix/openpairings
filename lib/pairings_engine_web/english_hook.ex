@@ -2,8 +2,12 @@ defmodule PairingsEngineWeb.EnglishHook do
   @moduledoc """
   Pins a page to English regardless of the visitor's chosen locale.
 
-  Used on the player-facing pages - the public pairings and standings, the
-  registration form, and mobile result entry.
+  Used on the one player-facing page left in this application: **mobile
+  result entry**.
+
+  It named three more until 2026-08-29 - the public pairings and standings,
+  and the registration form. Those moved to OpenResults with the rest of the
+  public pages, and that application answers the same question for itself.
 
   The reasoning is not that these pages matter less. It is that they have a
   different audience: an open draws players from a dozen federations, and

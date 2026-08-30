@@ -291,49 +291,6 @@ defmodule PairingsEngineWeb.Layouts do
     """
   end
 
-  @doc """
-  Minimal layout for the public (no-login) tournament pages
-  (`PairingsEngineWeb.PublicStandingsLive` / `PublicPairingsLive` - see
-  docs/public-pages.md). Deliberately *not* `app/1`: a spectator who scanned
-  a QR code to check standings has no use for the authenticated topbar's
-  tournament tabs, accent picker, or sign-in/settings links - this is just
-  the brand mark and the theme switch (still useful: a bright phone screen
-  in a dim tournament hall is exactly the scenario `Layouts.theme_switch/1`
-  exists for), then the page content.
-  """
-  attr :flash, :map, required: true, doc: "the map of flash messages"
-
-  attr :current_path, :string,
-    default: nil,
-    doc:
-      "the path the visitor is on, so the language picker can return them to it. " <>
-        "Assigned by PairingsEngineWeb.LocaleHook and forwarded by each caller - a " <>
-        "function component only sees what it is passed, which is why it must be " <>
-        "threaded rather than read from the socket."
-
-  slot :inner_block, required: true
-
-  def public(assigns) do
-    ~H"""
-    <header class="topbar public-topbar">
-      <.link navigate={~p"/"} class="brand">
-        <.brand_mark />
-        <span class="brand-name">Open<strong>Pairings</strong></span>
-      </.link>
-      <div class="topbar-auth">
-        <.language_picker locale={assigns[:locale]} path={assigns[:current_path] || "/"} />
-        <.theme_switch />
-      </div>
-    </header>
-
-    <main class="page">
-      {render_slot(@inner_block)}
-    </main>
-
-    <.flash_group flash={@flash} />
-    """
-  end
-
   defp tab_class(true), do: "active"
   defp tab_class(false), do: nil
 
