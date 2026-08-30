@@ -205,7 +205,14 @@ categories means 5x the redundant CPU walk and 30 queries where 5 would do -
 so this is worth fixing on any install that actually uses pair-by-category
 with more than 2-3 categories, and safe to leave alone otherwise.
 
-### 7. "Pair the whole tournament" rewrites `rounds_count` once per round
+### 7. ~~"Pair the whole tournament" rewrites `rounds_count` once per round~~ FIXED 2026-08-30
+
+> `pair_all_rounds/1` freezes, reads the roster and corrects `rounds_count`
+> ONCE, then loops on `do_pair_next_round/2` with the corrected struct -
+> which is what `pair_next_round/1` was already doing per call, only now the
+> correction survives the recursion. Also removes a `Repo.exists?` and a
+> roster read per round. A test subscribes to the tournament topic and
+> asserts exactly one `:settings` broadcast against five `:rounds` ones.
 
 `lib/pairings_engine/round_robin.ex:97-154`, `:318-354` —
 **[Optimization #4]**
@@ -529,7 +536,16 @@ of this read, which is itself a small demonstration of the sweep's central
 point (line-number citations go stale fast; nobody re-verifies them until
 someone has to).
 
-### 24. `RoundRobin.ensure_frozen/1` still hand-copies two functions instead of calling them
+### 24. ~~`RoundRobin.ensure_frozen/1` still hand-copies two functions instead of calling them~~ FIXED 2026-08-30
+
+> `ensure_frozen/1` calls `Pairing.active_players/1` and
+> `Pairing.ensure_pairing_numbers/2`; `frozen_players/1` calls
+> `Pairing.full_roster_players/1`, which is public now for the same reason
+> the other two were. The `already_frozen?` guard deliberately stays in
+> `RoundRobin` rather than moving into the shared function: numbering a late
+> entrant is correct for Swiss and wrong for a Berger schedule, which is
+> fixed at freeze time. Nothing about the copies had drifted yet, which is
+> the only reason this was risk rather than a defect.
 
 `lib/pairings_engine/round_robin.ex:289-311`, `:365-370` — **[Drift #18]**
 

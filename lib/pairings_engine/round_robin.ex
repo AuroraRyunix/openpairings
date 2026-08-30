@@ -72,6 +72,10 @@ defmodule PairingsEngine.RoundRobin do
 
   import Ecto.Query
   alias PairingsEngine.{Repo, Tournaments}
+  # `Pairing` is already the schema in this module; the round-lifecycle
+  # module borrows the same name, so it comes in as `Engine` - the alias
+  # PairingsLive and the mobile screen already use for it.
+  alias PairingsEngine.Pairing, as: Engine
   alias PairingsEngine.Tournaments.{Player, Round, Pairing, Tournament}
 
   @doc """
@@ -95,7 +99,7 @@ defmodule PairingsEngine.RoundRobin do
   """
   @spec pair_next_round(Tournament.t()) :: {:ok, Round.t()} | {:error, term()}
   def pair_next_round(%Tournament{} = tournament) do
-    ensure_frozen(tournament.id)
+    ensure_frozen(tournament)
     frozen = frozen_players(tournament.id)
 
     case ensure_correct_rounds_count(tournament, length(frozen)) do
@@ -141,12 +145,41 @@ defmodule PairingsEngine.RoundRobin do
   end
 
   def pair_all_rounds(%Tournament{} = tournament) do
-    case pair_next_round(tournament) do
+    # Freeze, read the roster and correct `rounds_count` ONCE, then loop on
+    # the corrected struct.
+    #
+    # This used to recurse into `pair_next_round/1` with the ORIGINAL
+    # tournament every time. `ensure_correct_rounds_count/2` returns a
+    # corrected struct, but that correction was local to each call and never
+    # reached the caller, so every round re-detected the same mismatch and
+    # wrote it again - and `update_tournament/2` fires
+    # `broadcast_tournament_change(:settings)` plus
+    # `broadcast_user_tournaments/1` on every write. A 14-player double round
+    # robin issued 26 redundant writes and 52 redundant broadcasts inside one
+    # click of a shipped button, along with a `Repo.exists?` and a roster read
+    # per round. Nothing broke; the loop terminated on `paired_rounds_count`
+    # either way. It was all work thrown away.
+    #
+    # Holding the struct constant across the loop is safe because nothing in
+    # the loop changes what it carries: the frozen set cannot change (that is
+    # what frozen means), and `do_pair/3` reads `rr_match_format`/`rr_cycles`
+    # and writes rounds, never the tournament.
+    ensure_frozen(tournament)
+    frozen = frozen_players(tournament.id)
+
+    case ensure_correct_rounds_count(tournament, length(frozen)) do
+      {:error, reason} -> {:error, reason}
+      corrected -> pair_remaining(corrected, frozen)
+    end
+  end
+
+  defp pair_remaining(tournament, frozen) do
+    case do_pair_next_round(tournament, frozen) do
       {:ok, _round} ->
-        pair_all_rounds(tournament)
+        pair_remaining(tournament, frozen)
 
       {:error, "All " <> _} ->
-        {:ok, PairingsEngine.Pairing.paired_rounds_count(tournament.id)}
+        {:ok, Engine.paired_rounds_count(tournament.id)}
 
       {:error, reason} ->
         {:error, reason}
@@ -283,31 +316,35 @@ defmodule PairingsEngine.RoundRobin do
   # Frozen once, forever - the very first call for this tournament (no
   # player has a pairing_number yet). Every later call is a no-op, so
   # players added afterward never get one and are excluded from the
-  # schedule (see moduledoc). Same ordering rule as the Swiss path
-  # (PairingsEngine.Pairing.ensure_pairing_numbers/2): highest rating
-  # first, name as the tie-break (FIDE C.04.2.B).
-  defp ensure_frozen(tournament_id) do
-    already_frozen? =
-      Repo.exists?(
-        from p in Player,
-          where: p.tournament_id == ^tournament_id and not is_nil(p.pairing_number)
-      )
-
-    unless already_frozen? do
-      Repo.all(
-        from p in Player,
-          where:
-            p.tournament_id == ^tournament_id and p.status == "active" and
-              p.absent == false and p.forfeit == false
-      )
-      |> Enum.sort_by(&{-Player.rating(&1), &1.name})
-      |> Enum.with_index(1)
-      |> Enum.each(fn {player, number} ->
-        {:ok, _} = Tournaments.update_player(player, %{pairing_number: number})
-      end)
+  # schedule (see moduledoc).
+  #
+  # The freeze itself is the Swiss path's, called rather than copied:
+  # `Pairing.active_players/1` for who is eligible at freeze time and
+  # `Pairing.ensure_pairing_numbers/2` for the numbering, both exposed for
+  # exactly this reuse (Keizer already did it; this module had a
+  # hand-written duplicate of each - the same query, and the same
+  # `{-rating, name}` sort from FIDE C.04.2.B). They agreed, which is the
+  # only reason nothing had gone wrong yet.
+  #
+  # The `already_frozen?` guard stays HERE and does not move into
+  # `ensure_pairing_numbers/2`: that function deliberately numbers any
+  # player still lacking a number, which is right for Swiss, where a late
+  # entrant joins the field. Round robin must refuse exactly that - the
+  # Berger schedule is fixed at freeze time, so a player numbered afterwards
+  # would be scheduled against nobody.
+  defp ensure_frozen(%Tournament{} = tournament) do
+    unless already_frozen?(tournament.id) do
+      Engine.ensure_pairing_numbers(tournament, Engine.active_players(tournament.id))
     end
 
     :ok
+  end
+
+  defp already_frozen?(tournament_id) do
+    Repo.exists?(
+      from p in Player,
+        where: p.tournament_id == ^tournament_id and not is_nil(p.pairing_number)
+    )
   end
 
   # See `pair_next_round/1`'s doc - round-robin's real round count is a
@@ -362,13 +399,7 @@ defmodule PairingsEngine.RoundRobin do
   # a player who becomes absent/withdrawn/forfeited after the freeze
   # still gets paired every round; the arbiter records a forfeit result
   # instead (see moduledoc and docs/pairing-systems.md).
-  defp frozen_players(tournament_id) do
-    Repo.all(
-      from p in Player,
-        where: p.tournament_id == ^tournament_id and not is_nil(p.pairing_number),
-        order_by: p.pairing_number
-    )
-  end
+  defp frozen_players(tournament_id), do: Engine.full_roster_players(tournament_id)
 
   ## ---------- the pairing run ----------
 

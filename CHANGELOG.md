@@ -408,6 +408,15 @@ Each entry is tagged so a version can be skimmed:
   tab beside it does that. And the settings tabs no longer offer Changelog,
   which is not tournament-specific and is already in the top bar.
 
+- [Change] **"Pair the whole tournament" stopped rewriting the same setting
+  once per round.** A round robin works out its own round count from the
+  size of the field, and the button that pairs every round at once was
+  re-deriving and re-saving that number on every single round &mdash; a
+  14-player double round robin did it 26 times, each one telling every open
+  page twice that the settings had changed. It happens once now. Nothing
+  visible changes; there is just far less going on behind a button pressed
+  during a live event.
+
 - [Fix] **The tie-break list stopped offering three that score zero.** Match
   points, Game points and Berlin board points need team standings, which are
   not built. Adding one to a tournament produced a column of noughts that

@@ -1957,7 +1957,24 @@ defmodule PairingsEngine.Pairing do
   # `build_category_trf/5`): every possible historical opponent must resolve
   # to a real rank with a real row in the TRF, or `remap_trf_rows_to_local_ranks/2`
   # silently destroys that game's colour history - see that function's doc.
-  defp full_roster_players(tournament_id) do
+  @doc """
+  Every player who holds a `pairing_number`, in that order - regardless of
+  their CURRENT status/absent/forfeit flags.
+
+  A pairing number is only ever assigned once (see
+  `ensure_pairing_numbers/2`), so this is the roster as frozen, which is a
+  different question from "who may be paired this round"
+  (`active_players/1`). Swiss needs it to build a TRF that still lists a
+  withdrawn player's completed games; round robin needs it because its
+  Berger schedule is fixed at freeze time and pulling somebody out would
+  change every other player's opponent.
+
+  Public because `PairingsEngine.RoundRobin` had a byte-identical private
+  copy under the name `frozen_players/1`. Same precedent as
+  `active_players/1` and `ensure_pairing_numbers/2`, which were exposed for
+  the same reason and which that module was also not calling.
+  """
+  def full_roster_players(tournament_id) do
     Repo.all(
       from p in Player,
         where: p.tournament_id == ^tournament_id and not is_nil(p.pairing_number),

@@ -720,6 +720,79 @@ defmodule PairingsEngine.RoundRobinTest do
 
   ## ---------- helpers ----------
 
+  describe "pair_all_rounds/1 - the whole schedule in one click" do
+    test "corrects rounds_count once, not once per round" do
+      # The form's generic default is 9. Six players in a single cycle need
+      # 5 rounds, so the first call corrects it - and only the first should.
+      #
+      # `pair_all_rounds/1` used to recurse into `pair_next_round/1` with the
+      # ORIGINAL tournament, so the corrected struct never reached the next
+      # iteration and every round re-detected the same mismatch and wrote it
+      # again. Each of those writes fires two broadcasts, on a button an
+      # arbiter presses during a live event.
+      tournament = round_robin_tournament(rr_cycles: 1, rounds_count: 9)
+
+      for {name, rating} <- [
+            {"Alice", 2000},
+            {"Bob", 1900},
+            {"Carol", 1800},
+            {"Dave", 1700},
+            {"Erin", 1600},
+            {"Frank", 1500}
+          ],
+          do: insert_player(tournament, name, fide_rating: rating)
+
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
+
+      assert {:ok, 5} = RoundRobin.pair_all_rounds(tournament)
+      assert Repo.get!(Tournament, tournament.id).rounds_count == 5
+
+      hints = drain_tournament_hints(tournament.id)
+
+      assert Enum.count(hints, &(&1 == :settings)) == 1
+      # One per round paired, which is what an open page actually needs.
+      assert Enum.count(hints, &(&1 == :rounds)) == 5
+    end
+
+    test "is still idempotent once everything is paired" do
+      tournament = round_robin_tournament(rr_cycles: 1, rounds_count: 9)
+
+      for {name, rating} <- [{"Alice", 2000}, {"Bob", 1900}, {"Carol", 1800}, {"Dave", 1700}],
+          do: insert_player(tournament, name, fide_rating: rating)
+
+      assert {:ok, 3} = RoundRobin.pair_all_rounds(tournament)
+
+      # Re-read, so the second call starts from the corrected struct the way
+      # a LiveView would after its own refresh.
+      assert {:ok, 3} = RoundRobin.pair_all_rounds(Repo.get!(Tournament, tournament.id))
+      assert Pairing.paired_rounds_count(tournament.id) == 3
+    end
+
+    test "refuses a schedule longer than the round cap without pairing anything" do
+      # 32 players in two cycles need 62 rounds, above the 30-round maximum.
+      # The refusal has to arrive from the single up-front correction now
+      # that the loop no longer re-runs it.
+      tournament = round_robin_tournament(rr_cycles: 2, rounds_count: 9)
+
+      for n <- 1..32,
+          do: insert_player(tournament, "P#{n}", fide_rating: 2000 - n)
+
+      assert {:error, message} = RoundRobin.pair_all_rounds(tournament)
+      assert message =~ "needs 62 rounds"
+      assert Pairing.paired_rounds_count(tournament.id) == 0
+    end
+  end
+
+  # Every {:tournament_changed, id, hint} already in this process's mailbox.
+  defp drain_tournament_hints(tournament_id, acc \\ []) do
+    receive do
+      {:tournament_changed, ^tournament_id, hint} ->
+        drain_tournament_hints(tournament_id, [hint | acc])
+    after
+      0 -> Enum.reverse(acc)
+    end
+  end
+
   defp round_robin_tournament(attrs) do
     Repo.insert!(%Tournament{
       name: "RR Test",
