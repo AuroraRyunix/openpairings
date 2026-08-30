@@ -4230,3 +4230,19 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   .pub-word { display: none; }
   .pub-pill { border-right: 0; }
 }
+
+/* The publish indicator's popover. Wider than the menus it shares a
+   mechanism with, because it holds sentences rather than links, and
+   right-aligned since the pill sits at the end of the bar - a left-aligned
+   panel would hang off the edge of a narrow window. */
+.pub-menu > summary { list-style: none; cursor: pointer; }
+.pub-menu > summary::-webkit-details-marker { display: none; }
+.pub-menu > summary::after { content: none; }
+
+.topbar-menu[open] > .topbar-menu-panel.pub-panel {
+  left: auto;
+  right: 0;
+  min-width: 20rem;
+  max-width: min(24rem, calc(100vw - 24px));
+  padding: 10px 12px;
+}

@@ -417,6 +417,21 @@ Each entry is tagged so a version can be skimmed:
   ruling settled it rather than presenting a live disagreement. Three other
   places carrying the old claim were corrected with it.
 
+- [Fix] **The publishing indicator opens instead of sending you to the
+  rating lists.** Clicking "Live" in the top bar navigated to the FIDE
+  rating-list page, which has nothing to do with publishing. It now opens the
+  full status in place &mdash; the reason in words, the address, the queue,
+  when something last went out and how big it was &mdash; and closes when you
+  click away or press Escape. The Advanced and Settings menus gained the same
+  click-away behaviour, which they never had either.
+
+- [Feature] **How much a round costs to publish.** A published snapshot is
+  the whole tournament rather than a change to it, so its size is the one
+  figure that says what publishing actually sends &mdash; and it moves: the
+  new tie-break breakdown multiplied it by about 3.4 on a large event. The
+  size of the last document sent is now recorded and shown beside when it
+  went.
+
 - [Feature] **Every build now says exactly which build it is.** The top bar
   showed `v0.18.0`, which is a release, not a build &mdash; a week of commits
   and a dozen deploys all report the same string. It now reads

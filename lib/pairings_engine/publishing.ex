@@ -510,7 +510,13 @@ defmodule PairingsEngine.Publishing do
         # Stamped here rather than derived from an empty queue: an empty queue
         # means either "everything has been sent" or "nothing was ever
         # queued", and those look identical from outside.
-        record_publish()
+        #
+        # The SIZE goes with it. A snapshot is a whole document rather than a
+        # delta, so it is the one number that says how much this machine
+        # actually pushes per round - and it moves: publishing the tie-break
+        # working multiplied it by about 3.4 on a large event, which nobody
+        # would have noticed from a queue depth.
+        record_publish(payload_bytes(payload))
         {:ok, resp.body}
 
       {:ok, %Req.Response{status: 401}} ->
@@ -709,7 +715,8 @@ defmodule PairingsEngine.Publishing do
       latency_ms: latency,
       endpoint: endpoint(),
       pending: pending_count(),
-      last_published_at: last_published_at()
+      last_published_at: last_published_at(),
+      last_publish_bytes: last_publish_bytes()
     }
   end
 
@@ -730,11 +737,46 @@ defmodule PairingsEngine.Publishing do
     end
   end
 
-  defp record_publish do
+  defp record_publish(bytes) do
     meta_put(
       "openresults_last_publish_at",
       DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
     )
+
+    if is_integer(bytes), do: meta_put("openresults_last_publish_bytes", to_string(bytes))
+  end
+
+  # What went over the wire, near enough. Re-encoding to measure costs one
+  # more pass over a document Req is about to encode anyway - worth it for a
+  # number an operator can act on, and cheap next to the HTTP round trip it
+  # sits beside. Rescued because a size is a nicety and a publish is not:
+  # nothing here may turn a successful send into a failed one.
+  defp payload_bytes(payload) do
+    payload |> Jason.encode!() |> byte_size()
+  rescue
+    _ -> nil
+  end
+
+  @doc """
+  How big the last successfully published document was, in bytes, or nil.
+
+  A snapshot is the whole tournament rather than a delta, so this is the one
+  figure that says what a round actually costs to publish - and it is not
+  static: it grew about 3.4x on a large event when the tie-break working
+  started travelling.
+  """
+  @spec last_publish_bytes() :: pos_integer() | nil
+  def last_publish_bytes do
+    case meta_get("openresults_last_publish_bytes") do
+      value when is_binary(value) ->
+        case Integer.parse(value) do
+          {bytes, ""} when bytes >= 0 -> bytes
+          _ -> nil
+        end
+
+      _ ->
+        nil
+    end
   end
 
   ## ---------- reconciling intent with reality ----------

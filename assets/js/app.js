@@ -663,3 +663,37 @@ if (process.env.NODE_ENV === "development") {
   })
 }
 
+
+// ---- top-bar popovers close when you click away from them ----
+//
+// `<details name="topbar-popover">` already makes the menus mutually
+// exclusive - opening one closes the others - but HTML has no notion of
+// "clicked somewhere else", so an opened menu stayed open over the page
+// until it was clicked again. That is tolerable for a menu you opened to
+// pick something from, and wrong for the publish indicator, which is a
+// thing you open to READ and then want out of.
+//
+// Delegated at the document rather than bound per element: these live in a
+// layout that LiveView re-renders, and a per-element listener would have to
+// be re-attached every patch.
+document.addEventListener("click", (e) => {
+  document.querySelectorAll('details[name="topbar-popover"][open]').forEach((menu) => {
+    // Not `menu.contains(e.target)` alone: a click on the summary is what
+    // toggles it, and closing here as well would fight that and leave the
+    // menu unopenable.
+    if (!menu.contains(e.target)) { menu.open = false }
+  })
+})
+
+// Escape closes the open one, which is what every other dismissible thing
+// on the web does and what a keyboard user will try first.
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") { return }
+
+  document.querySelectorAll('details[name="topbar-popover"][open]').forEach((menu) => {
+    menu.open = false
+    // Focus goes back to the control that opened it, or it lands on <body>
+    // and the next Tab starts from the top of the page.
+    menu.querySelector("summary")?.focus()
+  })
+})

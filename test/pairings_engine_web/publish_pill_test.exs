@@ -42,7 +42,8 @@ defmodule PairingsEngineWeb.PublishPillTest do
         latency_ms: 40,
         endpoint: "https://openresults.example",
         pending: 0,
-        last_published_at: nil
+        last_published_at: nil,
+        last_publish_bytes: nil
       },
       attrs
     )
@@ -91,11 +92,17 @@ defmodule PairingsEngineWeb.PublishPillTest do
   test "the latency is shown only when the connection is up", %{conn: conn} do
     # An "Offline" pill with a millisecond count beside it is a contradiction
     # somebody has to stop and resolve.
+    #
+    # Scoped to the pill deliberately. The panel behind it renders the full
+    # indicator, which shows a round trip whenever there is one - and for a
+    # REFUSED server that is the useful reading: reached in 40 ms, and it
+    # said no. `Publishing.status/0` never pairs :unreachable with a latency
+    # anyway; this pairing exists only in this test.
     {:ok, lv, _html} = live(conn, ~p"/")
 
     broadcast(status(%{state: :unreachable, latency_ms: 40}))
 
-    refute render(lv) =~ "40 ms"
+    refute lv |> element("summary.pub-pill .pub-ms") |> has_element?()
   end
 
   test "before the first check it says so, rather than guessing", %{conn: conn} do
@@ -106,12 +113,53 @@ defmodule PairingsEngineWeb.PublishPillTest do
     assert html =~ "Checking"
   end
 
-  test "it links to the page that can fix it", %{conn: conn} do
+  test "it opens the full status in place rather than navigating away", %{conn: conn} do
+    # It used to `navigate` to /fide - the rating-list page, which has
+    # nothing to do with publishing. There is no global publishing page it
+    # could have meant instead; the settings that matter are per-tournament,
+    # and this pill is on every page including ones with no tournament.
+    #
+    # So clicking a status light gives MORE STATUS, in place.
     {:ok, lv, _html} = live(conn, ~p"/")
 
-    broadcast(status(%{state: :unreachable}))
+    broadcast(status(%{state: :unreachable, message: "Could not reach the results site."}))
 
-    assert lv |> element("a.pub-pill[href='/fide']") |> has_element?()
+    refute lv |> element("a.pub-pill") |> has_element?()
+    assert lv |> element("details.pub-menu summary.pub-pill") |> has_element?()
+    assert lv |> element("details.pub-menu .pub-panel .conn-status") |> has_element?()
+
+    # The reason, in words, is inside the panel - which is the thing the pill
+    # has never had room for.
+    assert render(lv) =~ "Could not reach the results site."
+  end
+
+  test "it shares the popover group with the other top-bar menus", %{conn: conn} do
+    # `<details name>` makes them mutually exclusive, so opening the status
+    # closes Advanced and Settings rather than stacking two panels.
+    {:ok, lv, _html} = live(conn, ~p"/")
+
+    broadcast(status(%{}))
+
+    assert lv |> element(~s|details.pub-menu[name="topbar-popover"]|) |> has_element?()
+  end
+
+  test "the panel says how big the last published document was", %{conn: conn} do
+    # A snapshot is the whole tournament rather than a delta, so this is the
+    # one number that says what a round costs to publish - and it moves: the
+    # tie-break working multiplied it by about 3.4 on a large event.
+    {:ok, lv, _html} = live(conn, ~p"/")
+
+    broadcast(status(%{last_publish_bytes: 597_412, last_published_at: DateTime.utc_now()}))
+
+    assert render(lv) =~ "583.4 KB"
+  end
+
+  test "and says nothing about size when nothing has been sent", %{conn: conn} do
+    {:ok, lv, _html} = live(conn, ~p"/")
+
+    broadcast(status(%{last_publish_bytes: nil}))
+
+    refute render(lv) =~ "last sent"
   end
 
   test "the pill's message survives a page that defines its own handle_info", %{

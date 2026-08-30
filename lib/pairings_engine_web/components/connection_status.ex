@@ -106,6 +106,14 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
           <span :if={@status.pending == 0 and is_nil(@status.last_published_at)}>
             {gettext("nothing sent from this machine yet")}
           </span>
+          <%!-- What a round actually costs to publish. A snapshot is the
+                whole tournament rather than a delta, so this is the only
+                figure that says so - and it moves: the tie-break working
+                multiplied it by about 3.4 on a large event, which no queue
+                depth would have shown. --%>
+          <span :if={@status[:last_publish_bytes]}>
+            {gettext("%{size} last sent", size: bytes(@status[:last_publish_bytes]))}
+          </span>
         </p>
       </div>
     </div>
@@ -127,10 +135,22 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
   So the state is where it is seen without going to look: a word, a colour and
   the round trip, on every page.
 
-  ## It is a link
+  ## It opens rather than navigates
 
   A pill that says "Offline" and cannot be acted on is a worry rather than
-  information. This one goes to the page that can do something about it.
+  information, so it has always been clickable. It used to `navigate` to
+  `/fide` - the rating-list page, which has nothing to do with publishing and
+  was plainly a mistake; there is no global publishing page for it to have
+  meant instead, because the settings that matter are per-tournament.
+
+  So it opens the FULL indicator in place: the same component the settings
+  page renders, with the reason in words, the endpoint, the queue depth, when
+  something last went out and how big it was. That is what somebody clicking
+  a status light wants - more status, not a different page - and it works on
+  every page, including the ones with no tournament to navigate to.
+
+  A `<details>` sharing the `topbar-popover` name with the Advanced and
+  Settings menus, so opening one closes the others.
 
   ## The word carries the state, not the colour
 
@@ -152,24 +172,41 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
     assigns = assign(assigns, :tone, tone(assigns.status))
 
     ~H"""
-    <.link
-      navigate="/fide"
-      class={["pub-pill", "is-#{@tone}"]}
-      title={pill_title(@status)}
-      aria-label={pill_title(@status)}
-    >
-      <span class="pub-dot" aria-hidden="true"></span>
-      <span class="pub-word">{pill_word(@status)}</span>
-      <span :if={@status.latency_ms && @status.state == :connected} class="pub-ms">
-        {@status.latency_ms} ms
-      </span>
-    </.link>
+    <details class="topbar-menu pub-menu" name="topbar-popover">
+      <summary
+        class={["pub-pill", "is-#{@tone}"]}
+        title={pill_title(@status)}
+        aria-label={pill_title(@status)}
+      >
+        <span class="pub-dot" aria-hidden="true"></span>
+        <span class="pub-word">{pill_word(@status)}</span>
+        <span :if={@status.latency_ms && @status.state == :connected} class="pub-ms">
+          {@status.latency_ms} ms
+        </span>
+      </summary>
+
+      <div class="topbar-menu-panel pub-panel">
+        <.connection_status status={@status} />
+      </div>
+    </details>
     """
   end
 
   # Deliberately shorter than the full indicator's headline. "Cannot reach
   # the results site" is the right sentence on a settings page and too long
   # for a strip that also holds the language picker and an email address.
+  # KB and MB rather than bytes: the reader is judging "is that a lot", and
+  # 597,412 does not answer that faster than 583 KB. Binary units, because
+  # that is what a disk and a body-size limit are measured in.
+  defp bytes(n) when is_integer(n) and n < 1024, do: "#{n} B"
+
+  defp bytes(n) when is_integer(n) and n < 1024 * 1024,
+    do: "#{Float.round(n / 1024, 1)} KB"
+
+  defp bytes(n) when is_integer(n), do: "#{Float.round(n / (1024 * 1024), 1)} MB"
+
+  defp bytes(_not_a_number), do: nil
+
   defp pill_word(%{state: :connected, pending: pending}) when pending > 0,
     do: gettext("Sending")
 
