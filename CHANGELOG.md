@@ -408,6 +408,25 @@ Each entry is tagged so a version can be skimmed:
   tab beside it does that. And the settings tabs no longer offer Changelog,
   which is not tournament-specific and is already in the top bar.
 
+- [Feature] **Published results now carry the working behind each
+  tie-break.** The public site could show that your Buchholz was 14.5 and
+  nothing about where it came from, which leaves the one question a player
+  actually has &mdash; "why am I fourth?" &mdash; unanswerable. Each
+  published standings row now carries, per tie-break, one contribution per
+  round: which opponent it came from, what it was worth, and whether it was
+  discarded by a cut or is one of Article 16's virtual opponents.
+
+  It is sent rather than worked out at the other end, because it cannot
+  honestly be worked out there: Buchholz sums opponents' **adjusted** scores,
+  not the scores in their standings rows, so a public page adding up the
+  visible numbers would disagree with the arbiter's. Only the tie-breaks that
+  genuinely cannot be re-derived are sent &mdash; the Buchholz family,
+  Sonneborn-Berger, Koya and average rating. Wins, games with Black and the
+  running score are already visible in the results.
+
+  **Turning off the tie-break columns now withholds this too**, rather than
+  sending it and relying on the public site to hide it.
+
 - [Fix] **A Keizer bye marks a hand-set standings order out of date.** Byes
   award points without going through result entry, so every other pairing
   path already flagged a manually-ordered standings table as stale when it

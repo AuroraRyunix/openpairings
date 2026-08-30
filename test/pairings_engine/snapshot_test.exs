@@ -354,6 +354,96 @@ defmodule PairingsEngine.SnapshotTest do
     end
   end
 
+  describe "the tiebreak working" do
+    test "every published part list totals the number in the row beside it" do
+      # The whole premise. A public page showing contributions that do not
+      # reach the total beside them reads as a bug in the arbiter's software,
+      # in front of the players.
+      {tournament, _} = swiss_fixture()
+      %{"standings" => standings} = Snapshot.build(tournament)
+      codes = Enum.map(standings["tiebreaks"], & &1["code"])
+
+      for row <- standings["rows"], {code, working} <- row["working"] do
+        at = Enum.find_index(codes, &(&1 == code))
+
+        assert working["total"] == Enum.at(row["tiebreaks"], at),
+               "#{code} for player #{row["player"]}: working totals " <>
+                 "#{working["total"]}, the row says #{Enum.at(row["tiebreaks"], at)}"
+      end
+    end
+
+    test "only the codes a reader could not work out for themselves are sent" do
+      {tournament, _} = swiss_fixture()
+      %{"standings" => standings} = Snapshot.build(tournament)
+
+      sent = standings["rows"] |> Enum.flat_map(&Map.keys(&1["working"])) |> Enum.uniq()
+
+      # Buchholz and its relatives depend on opponents' Article 16 adjusted
+      # scores, which are not in the document and cannot be. The rest - wins,
+      # games with Black, the running score - are visible in the results the
+      # same document already carries.
+      assert "BH" in sent
+      refute "WIN" in sent
+      refute "PS" in sent
+      # Direct Encounter is not a per-round sum at all.
+      refute "DE" in sent
+    end
+
+    test "an opponent is named by pairing number, never by database id" do
+      {tournament, players} = swiss_fixture()
+      %{"standings" => standings} = Snapshot.build(tournament)
+
+      ids = players |> Map.values() |> MapSet.new(& &1.id)
+
+      nos =
+        for row <- standings["rows"],
+            {_code, working} <- row["working"],
+            part <- working["parts"],
+            no = part["opponent"],
+            do: no
+
+      assert nos != []
+      assert Enum.all?(nos, &(&1 not in ids))
+      assert Enum.all?(nos, &(&1 in Enum.map(standings["rows"], fn r -> r["player"] end)))
+    end
+
+    test "a part omits its kind when it was simply counted" do
+      {tournament, _} = swiss_fixture()
+      %{"standings" => standings} = Snapshot.build(tournament)
+
+      parts =
+        for row <- standings["rows"],
+            {_code, working} <- row["working"],
+            part <- working["parts"],
+            do: part
+
+      # Absent means "played", the way absent means listed elsewhere in this
+      # document. There are as many parts as players x codes x rounds, so the
+      # commonest value is not worth a key.
+      assert Enum.any?(parts, &(not Map.has_key?(&1, "kind")))
+      assert Enum.all?(parts, &(Map.get(&1, "kind", "played") in ~w(played virtual cut excluded)))
+    end
+
+    test "hiding the tiebreak columns withholds the working entirely" do
+      {tournament, _} = swiss_fixture()
+
+      # Through the real writer: `public_display` is not in the changeset's
+      # cast list, so `update_tournament/2` drops it silently and the test
+      # would pass against a tournament that never hid anything.
+      shown = Map.new(PairingsEngine.PublicDisplay.keys(), &{&1, "true"})
+
+      {:ok, hidden} =
+        Tournaments.set_public_display(tournament, %{shown | "tiebreaks" => "false"})
+
+      %{"standings" => standings} = Snapshot.build(hidden)
+
+      # Withheld at build time, not left for the renderer to hide. An
+      # arbiter turning the columns off is hiding the arithmetic, and a
+      # per-opponent decomposition is more of it than the columns showed.
+      assert Enum.all?(standings["rows"], &(&1["working"] == %{}))
+    end
+  end
+
   describe "the cross-repo contract fixtures" do
     @tag :snapshot_fixtures
     test "a real snapshot is written to the OpenResults fixture directory" do

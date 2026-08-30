@@ -56,6 +56,7 @@ defmodule PairingsEngine.Snapshot do
   """
 
   alias PairingsEngine.{Keizer, PairingDisplay, PublicDisplay, Standings, Tiebreaks, Tournaments}
+  alias PairingsEngine.TiebreakWorking
   alias PairingsEngine.Tournaments.{Player, Round, Tournament}
 
   @schema "openresults/snapshot"
@@ -400,6 +401,28 @@ defmodule PairingsEngine.Snapshot do
       |> Enum.filter(&Map.has_key?(nos, &1.player.id))
       |> Enum.sort_by(& &1.rank)
 
+    # How each tiebreak number was reached, per player - see
+    # `PairingsEngine.TiebreakWorking`. Computed here and nowhere else in the
+    # app: it is only ever wanted by a reader asking "why am I fourth", and
+    # that reader is on the public site.
+    #
+    # WITHHELD, not merely hidden, when the arbiter has turned the tiebreak
+    # columns off. They are hiding the arithmetic, and a per-opponent
+    # decomposition is more of it than the columns ever showed - so it must
+    # not travel at all, rather than travel and rely on the renderer to
+    # remember. That is the contract's own rule for a round or a board the
+    # arbiter withheld, and it applies here for the same reason.
+    working =
+      if PublicDisplay.show?(t.public_display, "tiebreaks") do
+        TiebreakWorking.working(
+          entries,
+          t,
+          Enum.filter(codes, &(&1 in TiebreakWorking.publishable_codes()))
+        )
+      else
+        %{}
+      end
+
     rows =
       entries
       |> Enum.map(fn e ->
@@ -411,6 +434,7 @@ defmodule PairingsEngine.Snapshot do
           # for tournaments that do not rank on them.
           "points" => e.points,
           "tiebreaks" => Enum.map(codes, &Map.get(e.tiebreaks, &1, 0.0)),
+          "working" => working_json(Map.get(working, e.player.id, %{}), nos),
           "category" => blank_to_nil(e.player.category)
         }
       end)
@@ -443,6 +467,36 @@ defmodule PairingsEngine.Snapshot do
       "rows" => rows
     }
   end
+
+  # Player ids never cross this boundary, so an opponent becomes their
+  # pairing number. An opponent who is not in the published roster at all
+  # becomes `null` - the same shape a virtual opponent has, which is correct:
+  # in both cases there is nobody on this page to point at.
+  defp working_json(by_code, nos) do
+    Map.new(by_code, fn {code, %{total: total, parts: parts}} ->
+      {code,
+       %{
+         "total" => total,
+         "parts" => Enum.map(parts, &part_json(&1, nos))
+       }}
+    end)
+  end
+
+  # `opponent` and `kind` are omitted at their commonest values rather than
+  # sent as `null` and `"played"` on every part. There are as many parts as
+  # players x codes x rounds, so the two keys cost more than everything else
+  # in the document put together on a large event; absent-means-default is
+  # already how `listed` and `manual_order` read.
+  defp part_json(part, nos) do
+    %{"round" => part.round, "value" => part.value}
+    |> put_unless(:nil_opponent, "opponent", part.opponent_id && Map.get(nos, part.opponent_id))
+    |> put_unless(:played, "kind", part.kind)
+  end
+
+  defp put_unless(map, :nil_opponent, _key, nil), do: map
+  defp put_unless(map, :nil_opponent, key, no), do: Map.put(map, key, no)
+  defp put_unless(map, :played, _key, :played), do: map
+  defp put_unless(map, :played, key, kind), do: Map.put(map, key, to_string(kind))
 
   defp tiebreak_label(code) do
     case Tiebreaks.get(code) do
