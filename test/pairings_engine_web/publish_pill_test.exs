@@ -250,6 +250,22 @@ defmodule PairingsEngineWeb.PublishPillTest do
     end
   end
 
+  describe "the stability line is one fact, not a paragraph" do
+    # It read: "Steady for the last 10 minutes. Slowest check 4 ms. No drops
+    # since this app started 3 days ago." Three sentences to say "fine".
+    test "a steady connection says only the slowest check", %{conn: conn} do
+      # The Monitor is not running in test, so `stability/0` answers nil and
+      # the line is absent entirely - which is itself the behaviour under
+      # four checks. Asserted here so a future default that renders an empty
+      # window does not slip in.
+      {:ok, lv, _html} = live(conn, ~p"/")
+      broadcast(status(%{}))
+
+      refute render(lv) =~ "Steady for the last"
+      refute render(lv) =~ "No drops since this app started"
+    end
+  end
+
   describe "the Monitor" do
     test "is disabled in test, and status/0 answers nil rather than raising" do
       # Every page reads this. If it raised when the poller had not answered

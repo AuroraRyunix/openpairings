@@ -219,34 +219,30 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
     ~H"""
     <p :if={@window} class={["conn-window", @window.failures > 0 && "is-unsteady"]}>
       <%= if @window.failures == 0 do %>
-        {ngettext(
-          "Steady for the last minute.",
-          "Steady for the last %{count} minutes.",
-          @window.minutes
-        )}
+        <%!-- One fact. This was three sentences - steady, slowest, and no
+              drops since the app started - which is a paragraph to say
+              "fine". The window is implied by naming it, and a drop is the
+              only part worth a second clause, so it only appears when there
+              has been one. --%>
         <span :if={@window.worst_ms}>
-          {gettext("Slowest check %{ms} ms.", ms: @window.worst_ms)}
+          {gettext("Slowest in %{minutes} min: %{ms} ms",
+            minutes: @window.minutes,
+            ms: @window.worst_ms
+          )}
         </span>
-        <%!-- "Since this app started", never "uptime". A deploy or a crash
-              resets it, and the wording has to admit that or the number
-              means something it cannot back. See Monitor.stability/0 for
-              why there is no percentage anywhere near this. --%>
-        <span :if={@window.last_failure_at}>
-          {gettext("Last drop %{ago}.", ago: ago(@window.last_failure_at))}
-        </span>
-        <span :if={is_nil(@window.last_failure_at)}>
-          {gettext("No drops since this app started %{ago}.", ago: ago(@window.since))}
+        <span :if={@window.last_failure_at} class="conn-drop">
+          {gettext("last drop %{ago}", ago: ago(@window.last_failure_at))}
         </span>
       <% else %>
         <strong>
           {ngettext(
-            "1 check failed in the last %{minutes} minutes.",
-            "%{count} checks failed in the last %{minutes} minutes.",
+            "1 drop in the last %{minutes} min",
+            "%{count} drops in the last %{minutes} min",
             @window.failures,
             minutes: @window.minutes
           )}
         </strong>
-        {gettext("It is answering now, but it has not been steady - worth a look at the network.")}
+        {gettext("- check the network")}
       <% end %>
     </p>
     """

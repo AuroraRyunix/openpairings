@@ -4259,6 +4259,13 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   color: var(--text);
 }
 
+/* Separated the same way the facts line is, so "slowest" and "last drop"
+   do not run together on the occasions both appear. */
+.conn-window > span + span::before {
+  content: "· ";
+  color: var(--muted);
+}
+
 /* Three facts on one line - host, queue, last send - which ran together as
    "localhost  last sent just now  82.0 KB". Separated in CSS rather than in
    the markup so the number of spans can change without a stray leading dot
