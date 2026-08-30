@@ -185,7 +185,11 @@ Later / larger:
 
 - **Team tournaments** (team Swiss, team round robin, match cards) - the
   biggest remaining item, deliberately deferred until the individual
-  tournament feature set is fully solid.
+  tournament feature set is fully solid. The C.04.6 reading is written up
+  ahead of any code, and its Article 4.3.1 colour rule is the same TPN
+  parity as the individual Article 5.2.5 - which the FIDE Systems of
+  Pairings and Programs Commission settled on 2026-08-28, so that half is no
+  longer an open question.
 
 Explicitly out of scope (decided, not planned):
 

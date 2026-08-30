@@ -93,6 +93,29 @@ happened three times, the last inside the three days the followup covers.
   resolves, with a note at the head of that section saying a count taken
   from it is two too high.
 
+### Roadmap-scoped suggestions - three closed 2026-08-30
+
+The follow-up's items 26-32. Closed: the team-pairing SPP cross-reference
+(and its blocker turned out to be CLEARED, see below), and local-mode polish
+- the Settings link, the Share/Team card and the register/log-in routes now
+know they are on a single-user install, joining the log-out link that has
+known since 0.17.1.
+
+Still open, and each needs a decision rather than typing:
+
+- **Norms-vs-Settings** - the pointer card shipped, the page move did not.
+  A product call about where norms live.
+- **ITDX `?` unknown-result code** - `docs/tec-feedback-2026-09.md` promises
+  TEC "We will implement `?`", and nothing does. It is not a one-line
+  addition to the result vocabulary: `?` is a result whose VALUE is unknown,
+  so every consumer - standings, pairing, TRF export, the published working
+  - needs an answer for it, and the promise is in an UNSENT draft about a
+  DRAFT regulation. Decide whether the draft still says that before building
+  to it.
+- **Q140 consistency checks are page-scoped** - they live in
+  `pairing_explain_live.ex` and nothing extracts them for a layout-level
+  banner, so a check only fires where somebody went looking.
+
 ### Blocked on something outside the code
 
 - **SWAR `value1`/`value2`** and **`SW321_PreBye`** - both need one real club
@@ -109,7 +132,15 @@ happened three times, the last inside the three days the followup covers.
   2026-08-29 when ARO was fixed, because it was never only an acceptance
   item.
 - **Team tournaments** - deferred. Ainalrami has the C.04.6 reading written
-  up before any code; OpenPairings has partial scaffolding wired to nothing.
+  up before any code (`deps/ainalrami/docs/conformance-c0406-teams.md`);
+  OpenPairings has partial scaffolding wired to nothing.
+
+  **No longer blocked on the SPP.** C.04.6 Article 4.3.1 is the same
+  TPN-parity rule as the individual 5.2.5, so team colour allocation was
+  waiting on that question rather than merely being large. The SPP answered
+  on 2026-08-28 (against us) and Ainalrami v0.14.0 conforms, which is what
+  this app pins - so the reading the team work needs is settled. Size is now
+  the only thing in the way.
 - **American accelerated pairing** - dropped, maintainer's own call.
 - **Auditing OpenPairings against SWAR's C++ source, file by file** - real,
   never costed.
@@ -125,7 +156,12 @@ happened three times, the last inside the three days the followup covers.
   candidates dissolved. Logs on Photon at `/root/ain_val_run/`.
 - **Two upstream reports written and unsent** - the bbpPairings C2 report,
   and `docs/finding-gacrux-5-2-4.md`. The maintainer sends those.
-- **Team tournaments** - the reading is done, the code is not.
+- **Team tournaments** - the reading is done, the code is not. C.04.6 is not
+  the Dutch engine applied to teams: it has its own C1-C10 criteria, and
+  Article 3.6 defines the answer as the head of a lexicographic order rather
+  than an optimum, so weighted matching does not choose at all. No reference
+  implementation pairs teams - not bbpPairings, JaVaFo, Gacrux or SWAR - so
+  there is nothing to differential-test against.
 
 ### OpenResults
 

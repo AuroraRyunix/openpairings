@@ -206,13 +206,23 @@ defmodule PairingsEngineWeb.Router do
       on_mount: [
         PairingsEngineWeb.LocaleHook,
         PairingsEngineWeb.DeployNotice,
-        {PairingsEngineWeb.UserAuth, :mount_current_scope}
+        # A local install signs its one owner in on sight, so these three
+        # have nothing to do there and are sent home rather than shown. See
+        # the hook's own comment; the links to them are already hidden.
+        {PairingsEngineWeb.UserAuth, :reject_in_local_mode}
       ] do
       live "/users/register", UserLive.Registration, :new
       live "/users/log-in", UserLive.Login, :new
       live "/users/log-in/:token", UserLive.Confirmation, :new
     end
 
+    # Neither of these needs the local-mode gate above, and both were left
+    # ungated deliberately. The POST is already inert there: the form that
+    # reaches it is behind the gate, the only account that exists is the one
+    # already signed in, and a second cannot be created because
+    # `/users/register` is gated. The DELETE is inert for its own reason -
+    # the next request signs the same owner straight back in - and an escape
+    # hatch that does nothing is better than one that refuses.
     post "/users/log-in", UserSessionController, :create
     delete "/users/log-out", UserSessionController, :delete
   end

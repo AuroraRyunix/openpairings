@@ -309,6 +309,31 @@ defmodule PairingsEngineWeb.UserAuth do
     end
   end
 
+  # Sends a local install's visitor home instead of to a sign-in or sign-up
+  # page that cannot do anything for them.
+  #
+  # A local install has exactly one owner and signs them in on sight
+  # (`local_owner_session/2`), so `/users/log-in` has nobody to log in and
+  # `/users/register` would create a second account that `local_owner!/0`
+  # will never choose - unreachable except by a log out that has no button.
+  # `/users/settings` offers change-email and change-password for an account
+  # nobody signs into, and mails its confirmation to a terminal window.
+  #
+  # The links to all three are already hidden. This is the other half: a
+  # bookmark, a typed URL or a stale link must not land somewhere that looks
+  # functional and is not. Same argument the log-out link was removed under -
+  # a control that visibly does nothing is worse than no control.
+  #
+  # Not a 404. The page exists on a hosted install and the visitor has done
+  # nothing wrong; they are simply on a build where it means nothing.
+  def on_mount(:reject_in_local_mode, _params, session, socket) do
+    if PairingsEngine.Authz.local_mode?() do
+      {:halt, Phoenix.LiveView.redirect(mount_current_scope(socket, session), to: ~p"/")}
+    else
+      {:cont, mount_current_scope(socket, session)}
+    end
+  end
+
   def on_mount(:require_sudo_mode, _params, session, socket) do
     socket = mount_current_scope(socket, session)
 

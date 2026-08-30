@@ -18,6 +18,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
   import PairingsEngineWeb.SettingsSupport
 
   alias PairingsEngine.{Audit, Tournaments, Tiebreaks}
+  alias PairingsEngine.Authz
   alias PairingsEngine.Tournaments.Tournament
 
   # 4th tuple element marks a field as mandatory setup data (see
@@ -563,7 +564,11 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
         </div>
       </form>
 
-      <div :if={@owner?} class="card">
+      <%!-- Not on a local install. The invitation is an email, which goes
+            to the console there, and the listener is pinned to loopback so
+            nobody else could open the link even if they saw it. Same
+            reasoning as the hidden Settings and log-out links. --%>
+      <div :if={@owner? and not Authz.local_mode?()} class="card">
         <h2>{gettext("Share / Team")}</h2>
 
         <p class="hint" style="margin-top: 0">

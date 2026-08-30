@@ -916,8 +916,11 @@ defmodule PairingsEngine.Tournaments do
       # the ordinary toggles, must not silently unhide everything.
       changes =
         case tiebreak_params do
-          nil -> changes
-          ticked -> Keyword.put(changes, :public_hidden_tiebreaks, hidden_codes(tournament, ticked))
+          nil ->
+            changes
+
+          ticked ->
+            Keyword.put(changes, :public_hidden_tiebreaks, hidden_codes(tournament, ticked))
         end
 
       tournament

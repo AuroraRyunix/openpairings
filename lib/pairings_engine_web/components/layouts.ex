@@ -200,7 +200,16 @@ defmodule PairingsEngineWeb.Layouts do
             FIDE: {sync_label(Fide.last_sync())} · KBSB: {sync_label(Kbsb.last_sync())}
           </span>
           <span class="user-email">{@current_scope.user.email}</span>
-          <.link navigate={~p"/users/settings"}>{gettext("Settings")}</.link>
+          <%!-- Hidden on a local install for the same reason the log-out
+                link below is: the page offers change-email and
+                change-password for an account nobody logs into, and its
+                change-email confirmation would be sent to `ConsoleMailer`,
+                i.e. to a terminal the arbiter is probably not watching. A
+                control that visibly does nothing is worse than no
+                control. --%>
+          <.link :if={!Authz.local_mode?()} navigate={~p"/users/settings"}>
+            {gettext("Settings")}
+          </.link>
           <%!-- No log out on a local install. There is no second account to
                 log in as, and the next request would sign the same owner
                 straight back in - a control that visibly does nothing is

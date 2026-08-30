@@ -30,19 +30,40 @@ elimination, so there is no scoring argument available. A third
 implementation (the FIDE Tie-Break Server) pairs all three the way we do.
 See `bbppairings-c2-bug-report.md`.
 
-**A.2 - Interpretation divergence (Q39).** Article 5.2.5 says to give the
-initial colour when "the higher ranked player has an odd TPN". C.04.3 does
-not define TPN; it delegates to C.04.2 art. 2, which defines it as a
-tournament-level number fixed at the initial ranking. Both reference
-implementations we have tested instead take the parity of the player's
-position among the players being paired in that bracket. We follow the
-text as written and therefore differ from both.
+> **This section is out of date and needs a decision before the letter is
+> sent.** It was written on 2026-08-25 as an open discrepancy. The SPP
+> answered the question on **2026-08-28**, against us, and the engine
+> conforms as of Ainalrami v0.14.0 - which is the version this app pins.
+> There is no divergence left to report. Keep it as a closed-item note,
+> or cut it; what it must not do is ask TEC to rule on something already
+> ruled on. Flagged 2026-08-30.
 
-This is not a rare corner. It decides the colour on **every board that
-reaches 5.2.5 in any tournament where a player has sat a round out**. We
-would welcome a ruling either way; what we would like to avoid is three
-programs each confident and two of them agreeing by coincidence of
-implementation rather than by reading. See `dispute-initial-colour.md`.
+**A.2 - Interpretation divergence (Q39) - RESOLVED, reported for
+completeness.** Article 5.2.5 says to give the initial colour when "the
+higher ranked player has an odd TPN". C.04.3 does not define TPN; it
+delegates to C.04.2 art. 2, which defines it as a tournament-level number
+fixed at the initial ranking. Both reference implementations instead take
+the parity of a numbering that skips players who have never been paired.
+We had followed the text as written and differed from both.
+
+We put the question to the SPP on 2026-08-21. The answer, on 2026-08-28,
+was that the reference implementations are right:
+
+> The correct behaviour is (b). Why? Because of C.04.2:2.4 ... LATE
+> ENTRIES ... ARE GIVEN AN APPROPRIATE TPN AND PAIRED ONLY WHEN THEY
+> ACTUALLY ARRIVE. ... players who have yet to arrive don't have a TPN.
+
+Both sides argued from that one sentence. Our case was that the TPN exists
+before the arrival and it is the pairing that waits; the SPP reads the same
+clause as no TPN until arrival. We conform as of Ainalrami v0.14.0.
+
+We record it because the mechanism is worth the Commission's attention even
+though the answer is settled: it decided the colour on **every board that
+reaches 5.2.5 in any tournament where a player has sat a round out**, and
+three programs were each confident while two agreed by coincidence of
+implementation rather than by reading. C.04.3 delegating "TPN" to a
+definition that the ruling then reads differently is a gap in the text, not
+in any of the three programs. See `dispute-initial-colour.md`.
 
 ---
 

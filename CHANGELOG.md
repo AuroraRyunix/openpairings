@@ -408,6 +408,16 @@ Each entry is tagged so a version can be skimmed:
   tab beside it does that. And the settings tabs no longer offer Changelog,
   which is not tournament-specific and is already in the top bar.
 
+- [Change] **A local install stops offering a server's controls.** Running
+  the standalone binary signs its single owner in automatically, so the
+  account Settings link, the "Share / Team" invitation card and the
+  sign-in/sign-up pages had nothing to do there &mdash; the invitation would
+  have been emailed to a terminal window, and a second account created on the
+  sign-up page could never have been signed into. All four are gone on a
+  local install, and a bookmarked sign-in URL goes to the tournament list
+  instead of a page that cannot help. Log out still works, because it is
+  merely inert rather than misleading.
+
 - [Change] **The version header can no longer drift.** It is written in four
   places and only one of them is read by anything, so the other three went
   stale repeatedly &mdash; twice in the three days a code review spent
