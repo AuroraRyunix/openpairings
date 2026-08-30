@@ -357,26 +357,28 @@ defmodule PairingsEngine.PairingRationale do
       current: r == current,
       colour: colour,
       result: PlayerCard.result_label(game, tournament),
-      outcome: trail_outcome(game, tournament),
+      outcome: trail_outcome(game),
       opponent_name: opp && opp.player.name,
       opponent_seed: opp && opp.player.pairing_number,
       score: running_score(scores, player_id)
     }
   end
 
-  # Coarse outcome atom for styling, from the game map's own fields (mirrors
-  # PlayerCard.result_label/2's branching without re-reading its text output).
-  defp trail_outcome(%{opponent_id: nil}, _tournament), do: :bye
+  # Coarse outcome atom for styling, mirroring PlayerCard.result_label/2's
+  # branching without re-reading its text output. The tournament argument is
+  # gone because the classification no longer depends on what a win is worth
+  # - see PairingsEngine.Results.
+  defp trail_outcome(%{opponent_id: nil}), do: :bye
 
-  defp trail_outcome(%{played: false} = game, tournament) do
-    if game.points >= tournament.points_win, do: :forfeit_win, else: :forfeit_loss
+  defp trail_outcome(%{played: false} = game) do
+    if game.outcome == :win, do: :forfeit_win, else: :forfeit_loss
   end
 
-  defp trail_outcome(%{points: points}, tournament) do
-    cond do
-      points >= tournament.points_win -> :win
-      points <= tournament.points_loss -> :loss
-      true -> :draw
+  defp trail_outcome(game) do
+    case game.outcome do
+      :win -> :win
+      :loss -> :loss
+      _draw -> :draw
     end
   end
 

@@ -32,9 +32,12 @@ Each entry is tagged so a version can be skimmed:
   CDN to be up to talk to each other.
 
   On a hosted install the deploy configures all three (send address, public
-  address, token) from values it already has. It fills blanks and **will not
-  overwrite**: a setting somebody repointed on purpose is reported, left
-  alone, and the command to force it is printed.
+  address, token) from values it already has, and **reconciles them on every
+  run** &mdash; so change them in the deploy configuration, not on the
+  Connections page, where the next deploy would undo the edit. The `mix
+  pairings.publishing` task still defaults to filling blanks and refusing to
+  overwrite; it is the deploy, which owns one known host, that asks for the
+  stronger behaviour.
 
 - [Feature] **A record of machine-wide actions.** Role changes, backup
   downloads, publishing changes and rating-list syncs are now audit entries
@@ -404,6 +407,32 @@ Each entry is tagged so a version can be skimmed:
   page no longer carries a signpost card pointing at OpenResults, since the
   tab beside it does that. And the settings tabs no longer offer Changelog,
   which is not tournament-specific and is already in the top bar.
+
+- [Fix] **A draw stopped being called a win.** Under a 3-2-1 club scheme
+  (win 2, draw 1, plus a point for turning up) a draw is worth exactly what
+  a win is worth. Four screens &mdash; the player card, the printed
+  crosstable, the pairing-explanation trail and the players grid &mdash;
+  worked out whether you had won by comparing your points against the value
+  of a win, so all four showed a "1" where the standings beside them showed
+  a draw. The FIDE tie-break "games won over the board" counted it too.
+
+  The result code always knew: `½-½` is a draw whatever a draw pays. Every
+  screen reads that now, from one table. Its neighbour "rounds worth as many
+  points as a win" is deliberately left comparing points, because that is
+  the tie-break's definition in FIDE's own words.
+
+- [Fix] **A phone can record a played-but-unrated result.** The three codes
+  for a game that happened but does not reach the rating report have been
+  enterable from the Pairings page since they shipped; the mobile screen
+  carried its own copy of the list, made before they existed, so a helper at
+  the board could not record one. The two screens read the same list now,
+  and a build where they disagree fails rather than shipping.
+
+- [Fix] **A CSV import can express every result a click can.** Bulk import
+  rejected those same three codes outright, and separately accepted two
+  spellings it documented nowhere. Both halves are gone: the accepted
+  spellings and the codes they store are one table, and the documentation
+  lists it.
 
 - [Change] **The new-tournament form is grouped by what it asks.** It was one
   grid holding everything, so the explanations took layout cells of their own:

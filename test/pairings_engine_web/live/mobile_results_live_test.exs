@@ -101,6 +101,28 @@ defmodule PairingsEngineWeb.MobileResultsLiveTest do
     end
 
     @tag :javafo
+    test "the played-but-unrated codes are offered and writable from a phone", %{conn: conn} do
+      # The write guard was a hand-copied ten-item list whose comment claimed
+      # it mirrored the Pairings page. It had been missing these three since
+      # the day they shipped, so a helper at the board could not record a
+      # game that ended before the minimum number of moves.
+      tournament = paired_tournament()
+      conn = enrolled_conn(conn, tournament)
+
+      {:ok, lv, _html} = live(conn, ~p"/m/results")
+      pairing = tournament.id |> Tournaments.get_round(1) |> Map.fetch!(:pairings) |> hd()
+
+      html = lv |> element("button.mobile-more") |> render_click()
+      assert html =~ "1-0 (played, not rated)"
+
+      render_click(lv, "set_result", %{"id" => to_string(pairing.id), "result" => "1/2-1/2U"})
+
+      assert Tournaments.get_round(tournament.id, 1).pairings
+             |> Enum.find(&(&1.id == pairing.id))
+             |> Map.fetch!(:result) == "1/2-1/2U"
+    end
+
+    @tag :javafo
     test "a board already carrying an extra-code result shows its panel without a tap", %{
       conn: conn
     } do

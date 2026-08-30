@@ -14,6 +14,7 @@ defmodule PairingsEngine.Standings do
 
   import Ecto.Query
   alias PairingsEngine.Repo
+  alias PairingsEngine.Results
   alias PairingsEngine.Tournaments
   alias PairingsEngine.Tournaments.{Pairing, Round}
 
@@ -564,7 +565,10 @@ defmodule PairingsEngine.Standings do
             # KIND instead of guessing it back from the point value, which
             # lies under custom scoring (e.g. a presence-valued zero bye
             # worth exactly points_draw).
-            bye_type: bye.type
+            bye_type: bye.type,
+            # A bye is not a game, so it has no outcome. Every consumer
+            # branches on `opponent_id: nil` before it would ask.
+            outcome: :none
           }
 
           {record, absent_count}
@@ -581,37 +585,26 @@ defmodule PairingsEngine.Standings do
     w = pairing.white_player_id
     b = pairing.black_player_id
 
-    # `played` marks a game contested over the board (FIDE Art. 16 unplayed
+    # One lookup where a sixteen-line table used to be. `PairingsEngine.Results`
+    # holds the vocabulary; the only thing this function adds is what the
+    # codes are WORTH, which needs the tournament and so cannot live there.
+    #
+    # `played` marks a game contested over the board (FIDE Art. 16's unplayed
     # rules apply otherwise). A forfeit - win or loss, single or double - is
-    # always unplayed for BOTH sides, even for the side awarded the point.
-    # Plain "0-0" is a played game where both players lose (e.g. both
-    # defaulted after making moves); "0-0FF" is the double-forfeit, unplayed.
-    # "+--"/"--+" are the legacy forfeit notation kept for
-    # historical/SWAR-imported data.
-    {wp, bp, played, forfeit} =
-      case pairing.result do
-        "1-0" -> {t.points_win, t.points_loss, true, false}
-        "1/2-1/2" -> {t.points_draw, t.points_draw, true, false}
-        "0-1" -> {t.points_loss, t.points_win, true, false}
-        "1/2-0" -> {t.points_draw, t.points_loss, true, false}
-        "0-1/2" -> {t.points_loss, t.points_draw, true, false}
-        "1-0FF" -> {t.points_win, t.points_loss, false, true}
-        "0-1FF" -> {t.points_loss, t.points_win, false, true}
-        "0-0FF" -> {t.points_loss, t.points_loss, false, true}
-        "0-0" -> {t.points_loss, t.points_loss, true, false}
-        # Unrated (TRF W/D/L) scores identically to its rated twin and is
-        # `played` for every FIDE Art. 16 purpose - the game happened. What
-        # makes it unrated is the rating report, not the standings.
-        "1-0U" -> {t.points_win, t.points_loss, true, false}
-        "0-1U" -> {t.points_loss, t.points_win, true, false}
-        "1/2-1/2U" -> {t.points_draw, t.points_draw, true, false}
-        "+--" -> {t.points_win, t.points_loss, false, true}
-        "--+" -> {t.points_loss, t.points_win, false, true}
+    # always unplayed for BOTH sides, even the one awarded the point; plain
+    # "0-0" is a played game both players lose; "+--"/"--+" are the legacy
+    # forfeit notation kept readable for historical and SWAR-imported data.
+    # All of that is now stated once, in the table there.
+    {w_outcome, b_outcome, played, forfeit} = Results.classify(pairing.result)
+
+    {wp, bp} =
+      if pairing.result == "bye" do
         # A pairing-allocated bye scores via bye_points/2 - the single
         # source of truth, including the `presence_on_allocated_bye`
         # (SW321_PreBye) add-on. See that function's doc.
-        "bye" -> {bye_points("pairing-allocated", t), 0.0, false, false}
-        _ -> {0.0, 0.0, false, false}
+        {bye_points("pairing-allocated", t), 0.0}
+      else
+        {outcome_points(t, w_outcome), outcome_points(t, b_outcome)}
       end
 
     {w_earned?, b_earned?} = presence_earned(pairing.result)
@@ -636,7 +629,12 @@ defmodule PairingsEngine.Standings do
       # Same key `add_bye_records/3` carries for `byes`-table rows - lets
       # PlayerCard label the row as a pairing-allocated bye by KIND rather
       # than by point-value heuristics. nil for a real game.
-      bye_type: if(pairing.result == "bye", do: "pairing-allocated", else: nil)
+      bye_type: if(pairing.result == "bye", do: "pairing-allocated", else: nil),
+      # Did this player win, draw or lose - from the CODE, once, here.
+      # Five screens used to answer it apiece by comparing `points` against
+      # `t.points_win`, which reads a 3-2-1 draw (worth exactly points_win)
+      # as a win. See PairingsEngine.Results.
+      outcome: w_outcome
     }
 
     if b == nil or pairing.result == "bye" do
@@ -652,11 +650,20 @@ defmodule PairingsEngine.Standings do
           points: bp + presence_points(t, b_present?),
           played: played,
           voluntary: false,
-          bye_type: nil
+          bye_type: nil,
+          outcome: b_outcome
         }
       ]
     end
   end
+
+  # What an outcome is worth. The one thing about a result that depends on
+  # the tournament rather than on the code, which is exactly why the split
+  # between here and `PairingsEngine.Results` falls where it does.
+  defp outcome_points(t, :win), do: t.points_win
+  defp outcome_points(t, :draw), do: t.points_draw
+  defp outcome_points(t, :loss), do: t.points_loss
+  defp outcome_points(_t, :none), do: 0.0
 
   # SWAR's 3-2-1 "presence point": a separate per-round accumulator
   # (`GetPresentPtsUntilRound`, Classement.cpp:137) that is added to the
@@ -674,18 +681,12 @@ defmodule PairingsEngine.Standings do
   #
   # `presence_value` is nil for every tournament that is not a SWAR 3-2-1
   # import, which is what keeps this inert everywhere else.
-  # Kept next to `pairing_records/4`'s own case so the two are edited
-  # together. Any code here must appear there with `played: true`, and
-  # `standings_test.exs` asserts exactly that.
-  @played_results ~w(1-0 1/2-1/2 0-1 1/2-0 0-1/2 0-0 1-0U 0-1U 1/2-1/2U)
-
   @doc """
   Whether a result string means the game was actually PLAYED.
 
-  The nine codes `pairing_records/4` marks `played: true` - every contested
-  game including the VCL.13 asymmetric ones and the unrated W/D/L twins, and
-  not the forfeits, which occupy a pairing slot but are unplayed under FIDE
-  Art. 16.
+  Every contested game including the VCL.13 asymmetric ones and the unrated
+  W/D/L twins, and not the forfeits, which occupy a pairing slot but are
+  unplayed under FIDE Art. 16.
 
   Public because `SwarExport` had grown a four-code private copy of it
   (`~w(1-0 1/2-1/2 0-1 0-0)`) that never learned the other five, so a player
@@ -693,8 +694,12 @@ defmodule PairingsEngine.Standings do
   alongside nonzero points and populated round records - a file that
   contradicts itself. Same precedent as `Trf.playing_codes/0`: the list kept
   being copied, so it stopped being private.
+
+  It used to be a ninth copy of the code list, kept beside
+  `pairing_records/4` with a comment asking future editors to change both.
+  It reads the one table now, so there is nothing left to keep in step.
   """
-  def played_result?(result), do: result in @played_results
+  def played_result?(result), do: Results.played?(result)
 
   @doc """
   SWAR 3-2-1 presence points for one game, keyed by its **TRF code**.
@@ -818,14 +823,20 @@ defmodule PairingsEngine.Standings do
     |> round_f(2)
   end
 
-  # Article 7.1: rounds worth as many points as a win, with or without playing.
+  # Article 7.1: "the number of rounds where a participant obtains, with or
+  # without playing, as many points as awarded for a win" - a POINT total in
+  # the regulation's own words, so the comparison below is the definition and
+  # not a re-derivation of the outcome. Contrast 7.2 just underneath.
   defp tiebreak("WIN", entry, _by_id, t) do
     Enum.count(entry.games, &(&1.points >= t.points_win)) / 1
   end
 
-  # Article 7.2: games won over the board.
-  defp tiebreak("WON", entry, _by_id, t) do
-    Enum.count(entry.games, &(&1.played and &1.points >= t.points_win)) / 1
+  # Article 7.2: "the number of games won over the board" - an OUTCOME, so it
+  # reads the classification rather than the point total. Its neighbour above
+  # is deliberately different: 7.1 defines a win as "as many points as
+  # awarded for a win", in those words, so there the comparison IS the rule.
+  defp tiebreak("WON", entry, _by_id, _t) do
+    Enum.count(entry.games, &(&1.played and &1.outcome == :win)) / 1
   end
 
   # Games played with the black pieces.

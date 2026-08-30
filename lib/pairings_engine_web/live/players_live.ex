@@ -312,8 +312,11 @@ defmodule PairingsEngineWeb.PlayersLive do
         |> Enum.reject(&is_nil/1)
         |> Enum.map(&Player.rating/1)
 
-      wins = Enum.count(played_games, &(&1.points >= tournament.points_win))
-      losses = Enum.count(played_games, &(&1.points <= tournament.points_loss))
+      # Won and lost over the board, from the result code rather than from
+      # the point total - a 3-2-1 draw is worth exactly `points_win` and used
+      # to be counted here as a win. See PairingsEngine.Results.
+      wins = Enum.count(played_games, &(&1.outcome == :win))
+      losses = Enum.count(played_games, &(&1.outcome == :loss))
 
       # FIDE expected score (We / W−We, Table 8.1.2): only games against a
       # rated opponent count, per Article 8.3 - mirrors `opponent_ratings`

@@ -15,6 +15,7 @@ defmodule PairingsEngine.ResultsImport do
 
   alias PairingsEngine.PairingDisplay
   alias PairingsEngine.Repo
+  alias PairingsEngine.Results
   alias PairingsEngine.SwarImport
   alias PairingsEngine.Tournaments
 
@@ -34,10 +35,21 @@ defmodule PairingsEngine.ResultsImport do
     * `1-0` - white wins
     * `0-1` - black wins
     * `1/2-1/2`, `½-½`, `0.5-0.5`, `=` - draw
+    * `1/2-0`, `½-0`, `0.5-0` - asymmetric ½-0 (VCL.13 disciplinary)
+    * `0-1/2`, `0-½`, `0-0.5` - asymmetric 0-½
     * `0-0`, `X` - both lose, game actually played
     * `1-0FF`, `+/-` - white wins by forfeit
     * `0-1FF`, `-/+` - black wins by forfeit
     * `0-0FF`, `-/-` - double forfeit (neither played)
+    * `1-0U`, `0-1U`, `1/2-1/2U` (also `½-½U`, `0.5-0.5U`) - played but not
+      rated
+
+  That list is `PairingsEngine.Results.token_groups/0` written out, and it
+  had drifted from the parser in both directions: the two asymmetric rows
+  were accepted and documented nowhere, while the three unrated codes -
+  writable from the Pairings page, the phone, TRF and SWAR alike - were
+  rejected here, so a bulk CSV was the one path that could not express a
+  result the same round could express by click.
 
   Returns `{:ok, [{board, result}]}` when every line parses cleanly, or
   `{:error, [reason, ...]}` - one entry per malformed line or duplicate
@@ -113,18 +125,13 @@ defmodule PairingsEngine.ResultsImport do
     end
   end
 
+  # Every spelling a human may type lives with the codes themselves, in
+  # PairingsEngine.Results - see this module's `parse_text/1` doc for what
+  # went wrong while it lived here.
   defp normalize_result(token) do
-    case token |> String.trim() |> String.upcase() do
-      "1-0" -> {:ok, "1-0"}
-      "0-1" -> {:ok, "0-1"}
-      t when t in ["1/2-1/2", "½-½", "0.5-0.5", "="] -> {:ok, "1/2-1/2"}
-      t when t in ["1/2-0", "½-0", "0.5-0"] -> {:ok, "1/2-0"}
-      t when t in ["0-1/2", "0-½", "0-0.5"] -> {:ok, "0-1/2"}
-      t when t in ["0-0", "X"] -> {:ok, "0-0"}
-      t when t in ["1-0FF", "+/-"] -> {:ok, "1-0FF"}
-      t when t in ["0-1FF", "-/+"] -> {:ok, "0-1FF"}
-      t when t in ["0-0FF", "-/-"] -> {:ok, "0-0FF"}
-      _ -> {:error, :unrecognized}
+    case Results.parse_token(token) do
+      {:ok, code} -> {:ok, code}
+      :error -> {:error, :unrecognized}
     end
   end
 

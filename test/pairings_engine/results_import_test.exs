@@ -69,6 +69,33 @@ defmodule PairingsEngine.ResultsImportTest do
              ]
     end
 
+    test "the played-but-unrated codes import, which they could not before" do
+      # Writable from the Pairings page, the phone, TRF and SWAR alike; the
+      # bulk CSV was the one path that rejected them outright.
+      assert ResultsImport.parse_text("1,1-0U
+2,0-1u
+3,1/2-1/2U
+4,½-½U
+") ==
+               {:ok, [{1, "1-0U"}, {2, "0-1U"}, {3, "1/2-1/2U"}, {4, "1/2-1/2U"}]}
+    end
+
+    test "the asymmetric disciplinary codes import, and now say so in the docs" do
+      assert ResultsImport.parse_text("1,1/2-0
+2,½-0
+3,0-0.5
+") ==
+               {:ok, [{1, "1/2-0"}, {2, "1/2-0"}, {3, "0-1/2"}]}
+    end
+
+    test "every token the parser accepts stores a code the schema accepts" do
+      for {_code, tokens} <- PairingsEngine.Results.token_groups(), token <- tokens do
+        assert {:ok, [{1, code}]} = ResultsImport.parse_text("1,#{token}
+")
+        assert code in PairingsEngine.Tournaments.Pairing.results()
+      end
+    end
+
     test "results are case-insensitive" do
       assert ResultsImport.parse_text("1,ff\n") ==
                {:error, ["line 1: unrecognized result \"ff\""]}

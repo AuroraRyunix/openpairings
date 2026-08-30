@@ -35,6 +35,17 @@ defmodule PairingsEngineWeb.PairingsLive do
     {"1/2-1/2U", "½-½ (played, not rated)"}
   ]
 
+  # The labels above belong to this page; the CODES do not. They must be
+  # exactly what an arbiter is allowed to write, and that list lives in
+  # PairingsEngine.Results - so a code added there and forgotten here (or
+  # the reverse) fails the build instead of quietly becoming unenterable.
+  @offered Enum.map(@results, &elem(&1, 0))
+  if Enum.sort(@offered) != Enum.sort(PairingsEngine.Results.entry_codes()) do
+    raise "PairingsLive @results has drifted from PairingsEngine.Results.entry_codes/0: " <>
+            "#{inspect(@offered -- PairingsEngine.Results.entry_codes())} offered here only, " <>
+            "#{inspect(PairingsEngine.Results.entry_codes() -- @offered)} missing here"
+  end
+
   @impl true
   def mount(%{"id" => id}, _session, socket) do
     tournament = Tournaments.get_authorized_tournament!(socket.assigns.current_scope, id)

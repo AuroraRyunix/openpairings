@@ -16,22 +16,39 @@ defmodule PairingsEngine.PlayerCardTest do
 
   describe "result_label/2" do
     test "actual results over the board" do
-      assert PlayerCard.result_label(%{opponent_id: 2, played: true, points: 1.0}, @tournament) ==
-               "1"
+      for {outcome, label} <- [{:win, "1"}, {:draw, "½"}, {:loss, "0"}] do
+        game = %{opponent_id: 2, played: true, outcome: outcome, points: 1.0}
+        assert PlayerCard.result_label(game, @tournament) == label
+      end
+    end
 
-      assert PlayerCard.result_label(%{opponent_id: 2, played: true, points: 0.5}, @tournament) ==
-               "½"
+    test "the label follows the result, not what the result is worth" do
+      # The Belgian 3-2-1 scheme: a win pays 2.0 and so does a draw once the
+      # presence point is in. Every consumer used to answer "did they win?"
+      # with `points >= points_win`, which reads this draw as a win.
+      belgian = %{@tournament | points_win: 2.0, points_draw: 1.0, points_loss: 0.0}
+      draw = %{opponent_id: 2, played: true, outcome: :draw, points: 2.0}
 
-      assert PlayerCard.result_label(%{opponent_id: 2, played: true, points: 0.0}, @tournament) ==
-               "0"
+      assert PlayerCard.result_label(draw, belgian) == "½"
     end
 
     test "forfeits (opponent existed, game unplayed, not voluntary)" do
-      game = %{opponent_id: 2, played: false, voluntary: false, points: 1.0}
+      game = %{opponent_id: 2, played: false, voluntary: false, outcome: :win, points: 1.0}
       assert PlayerCard.result_label(game, @tournament) == "1FF"
 
-      game = %{opponent_id: 2, played: false, voluntary: false, points: 0.0}
+      game = %{opponent_id: 2, played: false, voluntary: false, outcome: :loss, points: 0.0}
       assert PlayerCard.result_label(game, @tournament) == "0FF"
+    end
+
+    test "a game map with no classification raises rather than printing a blank" do
+      # The catch-all clause returns "" for anything it does not recognise,
+      # so a record built without :outcome must fail loudly here instead of
+      # silently rendering an empty cell.
+      # Built by dropping the key rather than by omitting it, so the type
+      # checker does not flag the deliberately-malformed literal.
+      game = Map.drop(%{opponent_id: 2, played: true, points: 1.0, outcome: :win}, [:outcome])
+
+      assert_raise KeyError, fn -> PlayerCard.result_label(game, @tournament) end
     end
 
     test "byes (no opponent) without a :bye_type fall back to the point-value heuristic" do
@@ -127,12 +144,36 @@ defmodule PairingsEngine.PlayerCardTest do
   describe "rows/3 and totals/2" do
     test "builds one row per game, sorted by round, with opponent context resolved" do
       alice_games = [
-        %{round: 1, opponent_id: 2, colour: :w, points: 1.0, played: true, voluntary: false},
-        %{round: 2, opponent_id: nil, colour: nil, points: 0.5, played: false, voluntary: true}
+        %{
+          round: 1,
+          opponent_id: 2,
+          colour: :w,
+          points: 1.0,
+          played: true,
+          voluntary: false,
+          outcome: :win
+        },
+        %{
+          round: 2,
+          opponent_id: nil,
+          colour: nil,
+          points: 0.5,
+          played: false,
+          voluntary: true,
+          outcome: :none
+        }
       ]
 
       bob_games = [
-        %{round: 1, opponent_id: 1, colour: :b, points: 0.0, played: true, voluntary: false}
+        %{
+          round: 1,
+          opponent_id: 1,
+          colour: :b,
+          points: 0.0,
+          played: true,
+          voluntary: false,
+          outcome: :loss
+        }
       ]
 
       alice = %{
@@ -266,7 +307,15 @@ defmodule PairingsEngine.PlayerCardTest do
       owner = %{
         entry(1, "Alice", 1.0, 0.0)
         | games: [
-            %{round: 1, opponent_id: 2, colour: :w, points: 1.0, played: true, voluntary: false}
+            %{
+              round: 1,
+              opponent_id: 2,
+              colour: :w,
+              points: 1.0,
+              played: true,
+              voluntary: false,
+              outcome: :win
+            }
           ]
       }
 

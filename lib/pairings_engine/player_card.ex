@@ -117,15 +117,20 @@ defmodule PairingsEngine.PlayerCard do
     end
   end
 
-  def result_label(%{played: false, voluntary: false, points: points}, tournament) do
-    if points >= tournament.points_win, do: "1FF", else: "0FF"
+  # Read from the record's own classification rather than by comparing its
+  # points against the tournament's - see PairingsEngine.Results. Matching
+  # on `played`/`voluntary` and then reaching for `.outcome` is deliberate:
+  # a game map built without the key raises here instead of falling through
+  # to the "" catch-all below and printing a blank cell.
+  def result_label(%{played: false, voluntary: false} = game, _tournament) do
+    if game.outcome == :win, do: "1FF", else: "0FF"
   end
 
-  def result_label(%{played: true, points: points}, tournament) do
-    cond do
-      points >= tournament.points_win -> "1"
-      points <= tournament.points_loss -> "0"
-      true -> "½"
+  def result_label(%{played: true} = game, _tournament) do
+    case game.outcome do
+      :win -> "1"
+      :loss -> "0"
+      _draw -> "½"
     end
   end
 

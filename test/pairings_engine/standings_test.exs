@@ -353,6 +353,47 @@ defmodule PairingsEngine.StandingsTest do
       # SW321_Bye (2.0) + SW321_Pre (1.0) - presence points on top.
       assert entry.points == 3.0
     end
+
+    test "WON counts games won over the board, not rounds worth as much as a win" do
+      # Belgian 3-2-1: a draw pays points_draw 1.0 plus the presence point,
+      # landing on exactly points_win 2.0. Article 7.2 asks for "the number
+      # of games won over the board", so this player has none - the old
+      # `points >= points_win` reading called the draw a win. Its neighbour
+      # 7.1 (WIN) is defined in points, in those words, and must still count
+      # the round.
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "3-2-1 WON",
+          type: "swiss",
+          rounds_count: 1,
+          points_win: 2.0,
+          points_draw: 1.0,
+          points_loss: 0.0,
+          presence_value: 1.0,
+          tiebreaks: ~w(WIN WON)
+        })
+
+      [white, black] =
+        for {name, nr} <- [{"Drawer", 1}, {"Other", 2}] do
+          Repo.insert!(%Player{tournament_id: tournament.id, name: name, pairing_number: nr})
+        end
+
+      r1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
+
+      Repo.insert!(%Pairing{
+        round_id: r1.id,
+        board: 1,
+        white_player_id: white.id,
+        black_player_id: black.id,
+        result: "1/2-1/2"
+      })
+
+      entry = Standings.standings(tournament) |> Enum.find(&(&1.player.id == white.id))
+
+      assert entry.points == 2.0
+      assert entry.tiebreaks["WIN"] == 1.0
+      assert entry.tiebreaks["WON"] == 0.0
+    end
   end
 
   test "extra_points defaults to 0 and total equals points, leaving ranking unchanged" do

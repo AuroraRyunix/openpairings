@@ -31,8 +31,31 @@ defmodule PairingsEngineWeb.MobileResultsLive do
     {"1-0FF", "1-0 FF"},
     {"0-1FF", "0-1 FF"},
     {"0-0FF", "0-0 FF (double forfeit)"},
-    {"0-0", "0-0 (both lose, played)"}
+    {"0-0", "0-0 (both lose, played)"},
+    {"1-0U", "1-0 (played, not rated)"},
+    {"0-1U", "0-1 (played, not rated)"},
+    {"1/2-1/2U", "½-½ (played, not rated)"}
   ]
+
+  # Every code an arbiter may write, from the one table
+  # (`PairingsEngine.Results`) rather than typed out again here. This screen
+  # used to carry a hand-copied ten-item list under a comment claiming it
+  # mirrored the Pairings page; it had been missing the three unrated codes
+  # since the day they shipped, so a helper's phone could not record a
+  # played-but-unrated game that the same round could record by click.
+  @entry_codes PairingsEngine.Results.entry_codes()
+
+  # The buttons must offer everything the guard accepts, minus the blank
+  # (cleared by tapping the chosen result again, not by its own button).
+  # A build that drifts from that fails here rather than shipping a button
+  # that writes nothing, or a code with no way to enter it.
+  @offered Enum.map(@results ++ @extra_results, &elem(&1, 0))
+  @expected @entry_codes -- [""]
+  if Enum.sort(@offered) != Enum.sort(@expected) do
+    raise "mobile result buttons have drifted from PairingsEngine.Results.entry_codes/0: " <>
+            "#{inspect(@offered -- @expected)} offered here only, " <>
+            "#{inspect(@expected -- @offered)} missing here"
+  end
 
   @impl true
   def mount(_params, _session, socket) do
@@ -107,23 +130,12 @@ defmodule PairingsEngineWeb.MobileResultsLive do
 
   # Only pairings belonging to the loaded round (which is loaded from the
   # enrollment's own tournament) can be set - a crafted pairing id from
-  # another tournament simply isn't in the set and is ignored. The result
-  # codes accepted are PairingsLive's own full `@results` set (see
-  # `@extra_results` above) - mobile only shows three by default, but
-  # anything reachable through "More…" has to actually be writable too.
+  # another tournament simply isn't in the set and is ignored. The codes
+  # accepted are every code an arbiter may write, from `@entry_codes` above:
+  # mobile shows three by default, but anything reachable through "More…"
+  # has to actually be writable too.
   def handle_event("set_result", %{"id" => id, "result" => result}, socket)
-      when result in [
-             "1-0",
-             "1/2-1/2",
-             "0-1",
-             "1/2-0",
-             "0-1/2",
-             "1-0FF",
-             "0-1FF",
-             "0-0FF",
-             "0-0",
-             ""
-           ] do
+      when result in @entry_codes do
     # Re-validate the enrollment on every write so a revoked or expired phone
     # is kicked out immediately, not only on its next page load.
     if Mobile.get_active(socket.assigns.mobile_enrollment.id) do

@@ -47,15 +47,25 @@ board,result
 | `1-0` | White wins |
 | `0-1` | Black wins |
 | `1/2-1/2`, `½-½`, `0.5-0.5`, `=` | Draw |
+| `1/2-0`, `½-0`, `0.5-0` | Asymmetric ½-0 - a disciplinary point adjustment on an otherwise drawn game (VCL.13) |
+| `0-1/2`, `0-½`, `0-0.5` | Asymmetric 0-½ |
 | `0-0`, `X` | Both lose - game actually **played** |
 | `1-0FF`, `+/-` | White wins by forfeit |
 | `0-1FF`, `-/+` | Black wins by forfeit |
 | `0-0FF`, `-/-` | Double forfeit - neither player showed up |
+| `1-0U` | White wins, **played but not rated** |
+| `0-1U` | Black wins, played but not rated |
+| `1/2-1/2U`, `½-½U`, `0.5-0.5U` | Draw, played but not rated |
 
-These map onto exactly the same result strings the inline result
-`<select>` on the Pairings page writes (`PairingsEngine.Tournaments.Pairing`'s
-`@results` list) - a CSV import and a manual click are indistinguishable
-once saved.
+These map onto exactly the same result strings the inline result `<select>`
+on the Pairings page writes - a CSV import and a manual click are
+indistinguishable once saved. Both read one table,
+`PairingsEngine.Results`, which is also where the spellings above come
+from: this list and the parser had drifted apart in both directions at
+once. The two asymmetric rows were accepted here and documented nowhere,
+and the three unrated codes - writable from the Pairings page, the phone,
+TRF and SWAR alike - were rejected outright, so a bulk CSV was the one path
+that could not express a result the same round could express by click.
 
 ### Encoding
 

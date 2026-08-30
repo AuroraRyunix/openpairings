@@ -358,7 +358,18 @@ evidence:
   function - `deps/ainalrami/lib/ainalrami/cli.ex` shows the capability
   exists in the dependency, unreached from this app.
 
-### 17. "Which result was this?" is still re-derived in five modules
+### 17. ~~"Which result was this?" is still re-derived in five modules~~ FIXED 2026-08-30
+
+> Closed by `PairingsEngine.Results`, which now owns the code vocabulary and
+> the win/draw/loss classification. `Standings` stamps an `outcome` on every
+> game record; the four display consumers read it. **One of the five cited
+> sites was not a bug:** C.07 Art. 7.1 defines WIN as "the number of rounds
+> where a participant obtains, with or without playing, as many points as
+> awarded for a win" - a point comparison in the regulation's own words, so
+> `standings.ex`'s WIN clause is the rule, not a re-derivation. Its
+> neighbour 7.2 ("games won over the board") was a real one and now reads
+> the outcome. The 3-2-1 gate the item describes as unreachable was left
+> unreached: nothing about `allow_swiss321` changed.
 
 `lib/pairings_engine/standings.ex:609-616`, `player_card.ex:90-122`,
 `pairing_rationale.ex:372-378`, `players_live.ex:315`,
@@ -405,7 +416,12 @@ where an opponent has trailing voluntary unplayed rounds) the sweep itself
 flagged as needing a direct reading of C.07 Art. 16's actual scope before
 deciding whether this is a bug or working as intended.
 
-### 19. Mobile result entry still can't write three result codes the Pairings page can
+### 19. ~~Mobile result entry still can't write three result codes the Pairings page can~~ FIXED 2026-08-30
+
+> Both screens read `PairingsEngine.Results.entry_codes/0`, and each raises
+> at COMPILE time if its own offered list drifts from it - so this class of
+> defect cannot come back silently. The phone also gained the three unrated
+> codes as buttons behind "More…", not just as writable values.
 
 `lib/pairings_engine_web/live/mobile_results_live.ex:108-126` —
 **[Drift #26]**
@@ -419,7 +435,13 @@ legacy codes. The comment claiming this mirrors "PairingsLive's own full
 record a played-but-unrated result the same round can record from the
 Pairings page.
 
-### 20. `docs/results-import.md` and the CSV parser still disagree on the token set
+### 20. ~~`docs/results-import.md` and the CSV parser still disagree on the token set~~ FIXED 2026-08-30
+
+> The accepted spellings moved into `PairingsEngine.Results` alongside the
+> codes they store; `normalize_result/1` delegates, the three unrated codes
+> parse, and both the moduledoc and `docs/results-import.md` list what the
+> parser actually accepts. A test walks every token in the table and asserts
+> it stores a code the schema will take.
 
 `lib/pairings_engine/results_import.ex:32-40`, `:120-122` —
 **[Worth adding #6]**

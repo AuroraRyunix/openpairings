@@ -1207,7 +1207,7 @@ defmodule PairingsEngineWeb.PrintController do
           Enum.map_join(rounds, "", fn n ->
             case Enum.find(e.games, &(&1.round == n)) do
               nil -> "<td class=\"num\"></td>"
-              game -> "<td class=\"num\">#{esc(crosstable_cell(game, by_id, tournament))}</td>"
+              game -> "<td class=\"num\">#{esc(crosstable_cell(game, by_id))}</td>"
             end
           end)
 
@@ -1291,24 +1291,27 @@ defmodule PairingsEngineWeb.PrintController do
        when row_entry.player.id == col_entry.player.id,
        do: "<td class=\"num rr-diag\"></td>"
 
-  defp rr_crosstable_cell(row_entry, col_entry, tournament) do
+  # The tournament argument survives only to keep this arity-3 family in one
+  # shape with its guard clause above; nothing under here reads it now that
+  # the result symbols classify by code.
+  defp rr_crosstable_cell(row_entry, col_entry, _tournament) do
     symbols =
       row_entry.games
       |> Enum.filter(&(&1.opponent_id == col_entry.player.id))
       |> Enum.sort_by(& &1.round)
-      |> Enum.map_join(" ", &rr_result_symbol(&1, tournament))
+      |> Enum.map_join(" ", &rr_result_symbol/1)
 
     "<td class=\"num\">#{symbols}</td>"
   end
 
   # Played games use the ordinary 1 / ½ / 0 result symbol; a forfeit (no
   # game played) uses the win/loss-shaped +/- symbol instead - reusing
-  # `crosstable_result_symbol/2` and `crosstable_forfeit_symbol/2` below,
+  # `crosstable_result_symbol/1` and `crosstable_forfeit_symbol/1` below,
   # the same distinction the Swiss cross table's cells already draw.
-  defp rr_result_symbol(game, tournament) do
+  defp rr_result_symbol(game) do
     if game.played,
-      do: crosstable_result_symbol(game, tournament),
-      else: crosstable_forfeit_symbol(game, tournament)
+      do: crosstable_result_symbol(game),
+      else: crosstable_forfeit_symbol(game)
   end
 
   defp result_card(pairing, tournament, round_number) do
@@ -1364,33 +1367,37 @@ defmodule PairingsEngineWeb.PrintController do
   # Compact cross-table cell notation, e.g. "12w1" (beat opponent #12 as
   # white), "5b½" (drew opponent #5 as black), "-w+" (forfeit win as white,
   # no real game so no opponent number shown), "bye".
-  defp crosstable_cell(%{opponent_id: nil}, _by_id, _t), do: "bye"
+  defp crosstable_cell(%{opponent_id: nil}, _by_id), do: "bye"
 
-  defp crosstable_cell(%{played: false, voluntary: false} = game, _by_id, t) do
-    "-#{crosstable_colour(game.colour)}#{crosstable_forfeit_symbol(game, t)}"
+  defp crosstable_cell(%{played: false, voluntary: false} = game, _by_id) do
+    "-#{crosstable_colour(game.colour)}#{crosstable_forfeit_symbol(game)}"
   end
 
-  defp crosstable_cell(game, by_id, t) do
+  defp crosstable_cell(game, by_id) do
     opponent_number =
       case Map.get(by_id, game.opponent_id) do
         nil -> "?"
         entry -> entry.player.pairing_number || "?"
       end
 
-    "#{opponent_number}#{crosstable_colour(game.colour)}#{crosstable_result_symbol(game, t)}"
+    "#{opponent_number}#{crosstable_colour(game.colour)}#{crosstable_result_symbol(game)}"
   end
 
   defp crosstable_colour(:w), do: "w"
   defp crosstable_colour(:b), do: "b"
   defp crosstable_colour(_), do: ""
 
-  defp crosstable_forfeit_symbol(%{points: p}, t), do: if(p >= t.points_win, do: "+", else: "-")
+  # Both read the record's classification rather than its point total, so a
+  # 3-2-1 draw stops printing as a win in the crosstable. The tournament
+  # argument both used to take is gone with the comparison that needed it -
+  # see PairingsEngine.Results.
+  defp crosstable_forfeit_symbol(game), do: if(game.outcome == :win, do: "+", else: "-")
 
-  defp crosstable_result_symbol(%{points: p}, t) do
-    cond do
-      p >= t.points_win -> "1"
-      p <= t.points_loss -> "0"
-      true -> "½"
+  defp crosstable_result_symbol(game) do
+    case game.outcome do
+      :win -> "1"
+      :loss -> "0"
+      _draw -> "½"
     end
   end
 
