@@ -292,6 +292,17 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # column stores only what an arbiter has actually changed.
     field :public_display, :map
 
+    # Which of this tournament's own tie-breaks are kept off the public page.
+    # Not a key in `public_display` above: that map is resolved to a boolean
+    # per key when published, and these codes exist only because this arbiter
+    # picked them. Empty means all shown, the same absent-means-shown rule.
+    #
+    # Hiding a column does NOT stop the tie-break deciding the order, so a
+    # snapshot whose ranking used a hidden code carries a flag saying so -
+    # see `PairingsEngine.Snapshot`. A page that showed some of the working
+    # and none of the rest would read as broken rather than as withheld.
+    field :public_hidden_tiebreaks, {:array, :string}, default: []
+
     # Default false. It used to sit beside `public_pages_enabled`, which
     # answered the separate question "may anyone with the link read this
     # HERE" - that field was dropped on 2026-08-29 with the local public

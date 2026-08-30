@@ -444,6 +444,99 @@ defmodule PairingsEngine.SnapshotTest do
     end
   end
 
+  describe "hiding individual tie-breaks" do
+    test "a hidden code leaves the document entirely, values and all", %{} do
+      {tournament, _} = swiss_fixture()
+      {:ok, hidden} = Tournaments.set_public_display(tournament, all_shown(), %{"BH" => "true"})
+
+      %{"standings" => standings} = Snapshot.build(hidden)
+
+      # Declared columns, row values and working are all built from the same
+      # list, so a hidden code leaves no gap and no null - it is simply not
+      # part of the document.
+      assert Enum.map(standings["tiebreaks"], & &1["code"]) == ["BH"]
+      assert Enum.all?(standings["rows"], &(length(&1["tiebreaks"]) == 1))
+      assert Enum.all?(standings["rows"], &(Map.keys(&1["working"]) == ["BH"]))
+    end
+
+    test "the page is told when the order used something it cannot show" do
+      {tournament, _} = swiss_fixture()
+
+      %{"standings" => all} = Snapshot.build(tournament)
+      refute all["tiebreaks_withheld"]
+
+      {:ok, hidden} = Tournaments.set_public_display(tournament, all_shown(), %{"BH" => "true"})
+      %{"standings" => some} = Snapshot.build(hidden)
+
+      # BHC1, SB and PS still decide placings and are no longer on the page.
+      assert some["tiebreaks_withheld"]
+    end
+
+    test "hiding a tie-break that never affected the order withholds nothing" do
+      # ARO is configured but C.07 Article 10 drops it - the fixture has an
+      # unrated player - so it decided nothing and hiding it is not
+      # withholding. The flag must not cry wolf.
+      {tournament, _} = swiss_fixture()
+      {:ok, tournament} = Tournaments.update_tournament(tournament, %{tiebreaks: ~w(BHC1 ARO)})
+
+      ticked = %{"BHC1" => "true"}
+      {:ok, hidden} = Tournaments.set_public_display(tournament, all_shown(), ticked)
+
+      %{"standings" => standings} = Snapshot.build(hidden)
+
+      assert Enum.map(standings["tiebreaks"], & &1["code"]) == ["BHC1"]
+      refute standings["tiebreaks_withheld"]
+    end
+
+    test "turning the working off keeps the columns", %{} do
+      {tournament, _} = swiss_fixture()
+
+      {:ok, no_working} =
+        Tournaments.set_public_display(
+          tournament,
+          Map.put(all_shown(), "tiebreak_working", "false"),
+          nil
+        )
+
+      %{"standings" => standings} = Snapshot.build(no_working)
+
+      assert standings["tiebreaks"] != []
+      assert Enum.all?(standings["rows"], &(&1["tiebreaks"] != []))
+      assert Enum.all?(standings["rows"], &(&1["working"] == %{}))
+    end
+
+    test "not passing a tie-break list leaves the hidden set alone" do
+      {tournament, _} = swiss_fixture()
+      {:ok, hidden} = Tournaments.set_public_display(tournament, all_shown(), %{"BH" => "true"})
+      assert hidden.public_hidden_tiebreaks != []
+
+      # A caller editing only the ordinary toggles must not silently unhide
+      # everything - `nil` means "not editing that", `%{}` means "none ticked".
+      {:ok, still} = Tournaments.set_public_display(hidden, all_shown(), nil)
+      assert still.public_hidden_tiebreaks == hidden.public_hidden_tiebreaks
+
+      {:ok, none} = Tournaments.set_public_display(hidden, all_shown(), %{})
+      assert Enum.sort(none.public_hidden_tiebreaks) == Enum.sort(still.tiebreaks)
+    end
+
+    test "a code the tournament no longer uses is forgotten, not remembered" do
+      {tournament, _} = swiss_fixture()
+      {:ok, hidden} = Tournaments.set_public_display(tournament, all_shown(), %{"BH" => "true"})
+      assert "SB" in hidden.public_hidden_tiebreaks
+
+      {:ok, fewer} = Tournaments.update_tournament(hidden, %{tiebreaks: ~w(BH BHC1)})
+      {:ok, resaved} = Tournaments.set_public_display(fewer, all_shown(), %{"BH" => "true"})
+
+      # SB is not in the tournament any more, so it is not in the hidden set.
+      # Putting it back later starts it shown, like everything else here.
+      assert resaved.public_hidden_tiebreaks == ["BHC1"]
+    end
+  end
+
+  # Every display key ticked, which is what the settings form sends when
+  # nothing is switched off.
+  defp all_shown, do: Map.new(PairingsEngine.PublicDisplay.keys(), &{&1, "true"})
+
   describe "the cross-repo contract fixtures" do
     @tag :snapshot_fixtures
     test "a real snapshot is written to the OpenResults fixture directory" do

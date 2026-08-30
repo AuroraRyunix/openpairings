@@ -252,6 +252,83 @@ defmodule PairingsEngineWeb.SettingsResultsLiveTest do
       assert display["player_cards"]
     end
 
+    test "a checkbox per tie-break the tournament ranks on", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope, %{"tiebreaks" => ~w(BHC1 BH SB)})
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      assert html =~ ~s|name="tiebreak[BHC1]"|
+      assert html =~ ~s|name="tiebreak[BH]"|
+      assert html =~ ~s|name="tiebreak[SB]"|
+      # Not a code this tournament does not use.
+      refute html =~ ~s|name="tiebreak[KS]"|
+    end
+
+    test "unticking one keeps it out of the published document", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope, %{"tiebreaks" => ~w(BHC1 BH SB)})
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      render_change(lv, "save_display", %{
+        "display" => Map.new(PublicDisplay.keys(), &{&1, "true"}),
+        "tiebreak" => %{"BHC1" => "true", "SB" => "true"}
+      })
+
+      reloaded = Tournaments.get_tournament!(tournament.id)
+      assert reloaded.public_hidden_tiebreaks == ["BH"]
+
+      standings = Snapshot.build(reloaded)["standings"]
+      assert Enum.map(standings["tiebreaks"], & &1["code"]) == ~w(BHC1 SB)
+    end
+
+    test "the page warns that a hidden tie-break still decides the order", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope, %{"tiebreaks" => ~w(BHC1 BH)})
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      refute html =~ "keeps deciding placings"
+
+      html =
+        render_change(lv, "save_display", %{
+          "display" => Map.new(PublicDisplay.keys(), &{&1, "true"}),
+          "tiebreak" => %{"BHC1" => "true"}
+        })
+
+      assert html =~ "keeps deciding placings"
+    end
+
+    test "the tie-break block is gone when the columns are off", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope, %{"tiebreaks" => ~w(BHC1 BH)})
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      html =
+        render_change(lv, "save_display", %{
+          "display" =>
+            PublicDisplay.keys() |> Enum.reject(&(&1 == "tiebreaks")) |> Map.new(&{&1, "true"})
+        })
+
+      refute html =~ ~s|name="tiebreak[BHC1]"|
+    end
+
+    test "the working can be turned off without losing the columns", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope, %{"tiebreaks" => ~w(BHC1 BH)})
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      render_change(lv, "save_display", %{
+        "display" =>
+          PublicDisplay.keys()
+          |> Enum.reject(&(&1 == "tiebreak_working"))
+          |> Map.new(&{&1, "true"}),
+        "tiebreak" => %{"BHC1" => "true", "BH" => "true"}
+      })
+
+      standings =
+        Tournaments.get_tournament!(tournament.id) |> Snapshot.build() |> Map.fetch!("standings")
+
+      assert Enum.map(standings["tiebreaks"], & &1["code"]) == ~w(BHC1 BH)
+      assert Enum.all?(standings["rows"], &(&1["working"] == %{}))
+    end
+
     test "the stored map records only what was turned OFF", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")

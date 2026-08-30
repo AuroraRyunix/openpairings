@@ -58,7 +58,7 @@ defmodule PairingsEngine.TournamentExport do
     count_extra_points extra_points_bands
     publish_mode publish_delay_minutes
     manual_ranking manual_ranking_stale
-    public_listed public_display
+    public_listed public_display public_hidden_tiebreaks
   )a
 
   # Deliberately NOT in the tournament map, with the reason for each -
@@ -79,13 +79,14 @@ defmodule PairingsEngine.TournamentExport do
   #     Sharing must be an explicit opt-in per tournament, never inherited
   #     from a file someone was handed. Both default off on the new row.
   #
-  #     `public_listed` and `public_display` are exported rather than
-  #     excluded, and the line between them is what the field can DO on its
-  #     own. These two are inert until somebody publishes - they describe how
-  #     a page should look, not whether there is one - so carrying them
-  #     cannot leak anything, and they are a real judgement about this event
-  #     ("no clubs on the open web") that an importer would otherwise have to
-  #     guess at and re-tick.
+  #     `public_listed`, `public_display` and `public_hidden_tiebreaks` are
+  #     exported rather than excluded, and the line between them is what the
+  #     field can DO on its own. These three are inert until somebody
+  #     publishes - they describe how a page should look, not whether there
+  #     is one - so carrying them cannot leak anything, and they are a real
+  #     judgement about this event ("no clubs on the open web", "Buchholz
+  #     decides it but we do not print the column") that an importer would
+  #     otherwise have to guess at and re-tick.
   #     `publish_to_openresults` is the sharpest of them: importing a file
   #     must not cause this machine to start sending a copy of it to whatever
   #     server this machine happens to be configured for - which is not the

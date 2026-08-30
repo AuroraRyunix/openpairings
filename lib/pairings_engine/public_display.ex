@@ -163,6 +163,14 @@ defmodule PairingsEngine.PublicDisplay do
             "the arithmetic, not the result."
       },
       %{
+        key: "tiebreak_working",
+        group: :columns,
+        label: "How the tie-breaks were reached",
+        hint:
+          "The round-by-round breakdown behind each tie-break on a player's card. Publishing " <>
+            "the numbers and publishing where they came from are separate decisions."
+      },
+      %{
         key: "pairing_scores",
         group: :columns,
         label: "Scores on the pairings",

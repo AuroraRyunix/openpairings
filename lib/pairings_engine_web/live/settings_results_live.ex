@@ -28,7 +28,7 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
 
   import PairingsEngineWeb.Components.ConnectionStatus
 
-  alias PairingsEngine.{Audit, PublicDisplay, Publishing, Tournaments}
+  alias PairingsEngine.{Audit, PublicDisplay, Publishing, Standings, Tiebreaks, Tournaments}
   alias PairingsEngine.Tournaments.Tournament
   alias PairingsEngineWeb.PublicLink
 
@@ -60,7 +60,8 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
        publish_mode: tournament.publish_mode,
        connection: nil,
        stale: false
-     )}
+     )
+     |> assign_ranking_tiebreaks()}
   end
 
   @impl true
@@ -73,7 +74,13 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
         {:noreply, push_navigate(socket, to: ~p"/")}
 
       tournament ->
-        {:noreply, assign(socket, tournament: tournament, publish_mode: tournament.publish_mode)}
+        # Re-derived, not carried: the tie-break selection is edited on
+        # another settings page, and a broadcast from there has to move the
+        # checkboxes here.
+        {:noreply,
+         socket
+         |> assign(tournament: tournament, publish_mode: tournament.publish_mode)
+         |> assign_ranking_tiebreaks()}
     end
   end
 
@@ -204,14 +211,19 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
   # tracking state this page does not need to hold.
   def handle_event("save_display", params, socket) do
     display = Map.get(params, "display", %{})
+    # `%{}` and not `nil`: the form always carries the tie-break block when
+    # the columns are on, so an absent param means every box was unticked,
+    # not that this caller is leaving the list alone.
+    tiebreaks = Map.get(params, "tiebreak", %{})
 
-    case Tournaments.set_public_display(socket.assigns.tournament, display) do
+    case Tournaments.set_public_display(socket.assigns.tournament, display, tiebreaks) do
       {:ok, tournament} ->
         Audit.log(tournament.id, socket.assigns.current_scope, "openresults.display", %{
-          hidden: tournament.public_display |> Map.keys() |> Enum.sort()
+          hidden: tournament.public_display |> Map.keys() |> Enum.sort(),
+          hidden_tiebreaks: Enum.sort(tournament.public_hidden_tiebreaks || [])
         })
 
-        {:noreply, assign(socket, tournament: tournament)}
+        {:noreply, socket |> assign(tournament: tournament) |> assign_ranking_tiebreaks()}
 
       {:error, :archived} ->
         {:noreply, put_flash(socket, :error, error_text(:archived))}
@@ -351,6 +363,20 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
   defp listed?(tournament), do: tournament.public_listed != false
 
   defp show?(tournament, key), do: PublicDisplay.show?(tournament.public_display, key)
+
+  defp hidden_tiebreaks(tournament), do: tournament.public_hidden_tiebreaks || []
+
+  defp tiebreak_name(code), do: (Tiebreaks.get(code) || %{name: code}).name
+  defp tiebreak_hint(code), do: (Tiebreaks.get(code) || %{description: ""}).description
+
+  # What the tournament actually ranks on, which is what has a column to
+  # hide. `Standings.effective_tiebreaks/1` drops the ones C.07 Article 10
+  # forbids here and the ones nothing can calculate, and offering a checkbox
+  # for a column that is not there either way would be a control over
+  # nothing.
+  defp assign_ranking_tiebreaks(socket) do
+    assign(socket, ranking_tiebreaks: Standings.effective_tiebreaks(socket.assigns.tournament))
+  end
 
   defp hidden_count(tournament), do: PublicDisplay.hidden_count(tournament.public_display)
 
@@ -545,6 +571,47 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
                 <span>{field.label}</span>
               </label>
             </div>
+          </div>
+
+          <%!-- Only when the columns are on at all, and only the tie-breaks
+                this tournament actually ranks on - a code Article 10 dropped
+                has no column to hide. --%>
+          <div
+            :if={show?(@tournament, "tiebreaks") and @ranking_tiebreaks != []}
+            class="display-group"
+          >
+            <div class="display-group-head">
+              <strong>{gettext("Which tie-breaks")}</strong>
+              <span class="hint">
+                {gettext("Each column on the public standings. The order is unaffected.")}
+              </span>
+            </div>
+
+            <div class="display-grid">
+              <label
+                :for={code <- @ranking_tiebreaks}
+                class={["display-toggle", code not in hidden_tiebreaks(@tournament) && "is-on"]}
+                title={tiebreak_hint(code)}
+              >
+                <input
+                  type="checkbox"
+                  name={"tiebreak[#{code}]"}
+                  value="true"
+                  checked={code not in hidden_tiebreaks(@tournament)}
+                /> <span>{tiebreak_name(code)}</span>
+              </label>
+            </div>
+
+            <%!-- The thing an arbiter has to know before ticking these off.
+                  Hiding a column does not stop it deciding the order, so two
+                  players can sit one above the other with every published
+                  number identical. The public page says so rather than
+                  leaving it unexplained, but it is better said here first. --%>
+            <p :if={hidden_tiebreaks(@tournament) != []} class="hint">
+              {gettext(
+                "The order still uses every tie-break above. A hidden one keeps deciding placings it no longer explains, so the public page carries a note saying the order used tie-breaks it does not show."
+              )}
+            </p>
           </div>
         </form>
 

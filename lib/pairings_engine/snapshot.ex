@@ -389,7 +389,13 @@ defmodule PairingsEngine.Snapshot do
   end
 
   defp standings(%Tournament{} = t, nos, after_round) do
+    # `codes` is what the tournament RANKS on; `shown` is what the public
+    # page is allowed to see. Both are needed and they are different: a code
+    # the arbiter has hidden still decided the order, and a page that showed
+    # some of the working and none of the rest would read as broken rather
+    # than as withheld.
     codes = t.tiebreaks || []
+    hidden = t.public_hidden_tiebreaks || []
 
     entries =
       t
@@ -412,12 +418,17 @@ defmodule PairingsEngine.Snapshot do
     # not travel at all, rather than travel and rely on the renderer to
     # remember. That is the contract's own rule for a round or a board the
     # arbiter withheld, and it applies here for the same reason.
+    shown =
+      if PublicDisplay.show?(t.public_display, "tiebreaks"),
+        do: Enum.reject(codes, &(&1 in hidden)),
+        else: []
+
     working =
-      if PublicDisplay.show?(t.public_display, "tiebreaks") do
+      if PublicDisplay.show?(t.public_display, "tiebreak_working") and shown != [] do
         TiebreakWorking.working(
           entries,
           t,
-          Enum.filter(codes, &(&1 in TiebreakWorking.publishable_codes()))
+          Enum.filter(shown, &(&1 in TiebreakWorking.publishable_codes()))
         )
       else
         %{}
@@ -433,7 +444,10 @@ defmodule PairingsEngine.Snapshot do
           # page. `total` would silently fold in administrative extra points
           # for tournaments that do not rank on them.
           "points" => e.points,
-          "tiebreaks" => Enum.map(codes, &Map.get(e.tiebreaks, &1, 0.0)),
+          # Positional against `standings.tiebreaks` below, so both are built
+          # from `shown` - a hidden code leaves no gap and no `null`, it is
+          # simply not part of the document.
+          "tiebreaks" => Enum.map(shown, &Map.get(e.tiebreaks, &1, 0.0)),
           "working" => working_json(Map.get(working, e.player.id, %{}), nos),
           "category" => blank_to_nil(e.player.category)
         }
@@ -463,7 +477,21 @@ defmodule PairingsEngine.Snapshot do
       # the failure this is fixing.
       "manual_stale" => manual?(t) and Standings.manual_ranking_stale?(t),
       "manual_incomplete" => manual?(t) and Standings.manual_ranking_incomplete?(entries),
-      "tiebreaks" => Enum.map(codes, &%{"code" => &1, "label" => tiebreak_label(&1)}),
+      "tiebreaks" => Enum.map(shown, &%{"code" => &1, "label" => tiebreak_label(&1)}),
+
+      # Whether the ORDER above used a tie-break that is not in the list.
+      # Added 2026-08-30 with per-tie-break visibility.
+      #
+      # Hiding a column hides the arithmetic, not its effect: two players can
+      # sit one above the other with every published number identical, and
+      # nothing on the page to say why. That is worse than hiding all of them,
+      # because a partial explanation reads as a broken one. So the page is
+      # told, and says so.
+      #
+      # Compared against the RANKING codes, not the configured ones: a
+      # tie-break C.07 Article 10 already dropped never affected the order, so
+      # hiding it is not withholding anything.
+      "tiebreaks_withheld" => Enum.any?(Standings.effective_tiebreaks(t), &(&1 not in shown)),
       "rows" => rows
     }
   end

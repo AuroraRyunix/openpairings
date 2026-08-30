@@ -408,6 +408,21 @@ Each entry is tagged so a version can be skimmed:
   tab beside it does that. And the settings tabs no longer offer Changelog,
   which is not tournament-specific and is already in the top bar.
 
+- [Feature] **Choose which tie-breaks the public page shows.** It was one
+  switch for every column at once. Settings &rarr; Results now has a checkbox
+  per tie-break the tournament ranks on, so you can publish Buchholz Cut-1
+  and keep the rest off the page. A hidden one is not sent at all &mdash; no
+  column, no value, no breakdown &mdash; rather than sent and hidden at the
+  other end.
+
+  **Hiding a column does not stop it deciding the order**, so two players can
+  appear one above the other with every published number identical. Both the
+  settings page and the public standings say so rather than leaving it
+  unexplained.
+
+  Publishing the numbers and publishing where they came from are also
+  separate now: "How the tie-breaks were reached" is its own toggle.
+
 - [Feature] **Published results now carry the working behind each
   tie-break.** The public site could show that your Buchholz was 14.5 and
   nothing about where it came from, which leaves the one question a player

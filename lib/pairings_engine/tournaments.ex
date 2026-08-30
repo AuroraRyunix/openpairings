@@ -902,18 +902,41 @@ defmodule PairingsEngine.Tournaments do
   more urgency: an arbiter unticking "Clubs" is taking something off a public
   page, and "it will go when the next result is entered" is not an answer.
   """
-  @spec set_public_display(Tournament.t(), map()) ::
-          {:ok, Tournament.t()} | {:error, Ecto.Changeset.t()}
-  def set_public_display(%Tournament{} = tournament, params) when is_map(params) do
+  @spec set_public_display(Tournament.t(), map(), map() | nil) ::
+          {:ok, Tournament.t()} | {:error, Ecto.Changeset.t()} | {:error, :archived}
+  def set_public_display(tournament, params, tiebreak_params \\ nil)
+
+  def set_public_display(%Tournament{} = tournament, params, tiebreak_params)
+      when is_map(params) do
     with :ok <- ensure_writable(tournament) do
+      changes = [public_display: PairingsEngine.PublicDisplay.cast(params)]
+
+      # `nil` means "this caller is not editing the tie-break list", which is
+      # not the same as "hide none" - an older form, or a caller changing only
+      # the ordinary toggles, must not silently unhide everything.
+      changes =
+        case tiebreak_params do
+          nil -> changes
+          ticked -> Keyword.put(changes, :public_hidden_tiebreaks, hidden_codes(tournament, ticked))
+        end
+
       tournament
-      |> Ecto.Changeset.change(public_display: PairingsEngine.PublicDisplay.cast(params))
+      |> Ecto.Changeset.change(changes)
       |> Repo.update()
       |> tap_ok(fn updated ->
         PairingsEngine.Publishing.enqueue(updated)
         broadcast_tournament_change(updated.id, :settings)
       end)
     end
+  end
+
+  # The form sends one param per TICKED box and omits the rest, so the hidden
+  # set is the tournament's own codes minus what came back. Codes the
+  # tournament no longer uses are dropped rather than remembered: a tie-break
+  # that is put back later starts shown, which is the same
+  # absent-means-shown rule everything else here follows.
+  defp hidden_codes(%Tournament{} = tournament, ticked) when is_map(ticked) do
+    Enum.reject(tournament.tiebreaks || [], &Map.has_key?(ticked, &1))
   end
 
   ## ---------- The public address ----------

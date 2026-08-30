@@ -464,7 +464,7 @@ msgstr "Huidig logo"
 msgid "Date from"
 msgstr "Datum vanaf"
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:487
+#: lib/pairings_engine_web/live/settings_results_live.ex:513
 #, elixir-autogen, elixir-format
 msgid "Delay (minutes)"
 msgstr "Vertraging (minuten)"
@@ -1222,7 +1222,7 @@ msgstr "Ouder →"
 msgid "One restore point, and you are on it."
 msgstr "Eén herstelpunt, en je staat erop."
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:488
+#: lib/pairings_engine_web/live/settings_results_live.ex:514
 #, elixir-autogen, elixir-format
 msgid "Only used when 'Publish each round' above is set to 'After a delay'"
 msgstr "Enkel gebruikt wanneer 'Elke ronde publiceren' hierboven op 'Na een vertraging' staat"
@@ -1413,12 +1413,12 @@ msgstr "Stand afdrukken"
 msgid "Print…"
 msgstr "Afdrukken…"
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:454
+#: lib/pairings_engine_web/live/settings_results_live.ex:480
 #, elixir-autogen, elixir-format
 msgid "Public pairings"
 msgstr "Publieke paringen"
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:473
+#: lib/pairings_engine_web/live/settings_results_live.ex:499
 #, elixir-autogen, elixir-format
 msgid "Publish each round"
 msgstr "Elke ronde publiceren"
@@ -1664,7 +1664,7 @@ msgstr "Instellingen → Exporteren / back-up"
 msgid "Share / Team"
 msgstr "Delen / Team"
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:621
+#: lib/pairings_engine_web/live/settings_results_live.ex:688
 #, elixir-autogen, elixir-format
 msgid "Share link"
 msgstr "Deellink"
@@ -2065,7 +2065,7 @@ msgstr "nog geen kleurgeschiedenis"
 msgid "no prior meeting ✓"
 msgstr "geen eerdere ontmoeting ✓"
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:572
+#: lib/pairings_engine_web/live/settings_results_live.ex:639
 #, elixir-autogen, elixir-format
 msgid "not yet arrived"
 msgstr "nog niet aangekomen"
@@ -3776,7 +3776,7 @@ msgstr "Dezelfde groepering die het rapport zelf gebruikt (zie %{fills} en %{tit
 #: lib/pairings_engine_web/live/norms_live.ex:1327
 #: lib/pairings_engine_web/live/players_live.ex:2167
 #: lib/pairings_engine_web/live/settings_options_live.ex:375
-#: lib/pairings_engine_web/live/settings_results_live.ex:500
+#: lib/pairings_engine_web/live/settings_results_live.ex:526
 #, elixir-autogen, elixir-format
 msgid "Save"
 msgstr "Opslaan"
@@ -4456,7 +4456,7 @@ msgstr "%{n} u geleden"
 msgid "%{n} min ago"
 msgstr "%{n} min geleden"
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:555
+#: lib/pairings_engine_web/live/settings_results_live.ex:622
 #, elixir-autogen, elixir-format
 msgid "%{n} of %{total} hidden."
 msgstr "%{n} van %{total} verborgen."
@@ -4478,17 +4478,17 @@ msgstr[1] "%{count} toernooien wachten om verzonden te worden"
 msgid "A backup of a tournament you publish carries the key that can update and delete its page on the results site. Treat those files like a password."
 msgstr "Een back-up van een toernooi dat je publiceert bevat de sleutel waarmee de pagina op de uitslagensite bijgewerkt en verwijderd kan worden. Behandel die bestanden als een wachtwoord."
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:664
+#: lib/pairings_engine_web/live/settings_results_live.ex:731
 #, elixir-autogen, elixir-format
 msgid "A copy of this tournament is on the results site. Turning publishing off stops sending updates; it does not take that copy down."
 msgstr "Er staat een kopie van dit toernooi op de uitslagensite. Publiceren uitzetten stopt het versturen van updates; die kopie wordt er niet door verwijderd."
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:568
+#: lib/pairings_engine_web/live/settings_results_live.ex:635
 #, elixir-autogen, elixir-format
 msgid "A page on the results site where players enter themselves. Everyone who signs up arrives marked %[flag] - nobody is added here until you review the entries and accept them, so a wrong rating or a missing FIDE ID is something you fix rather than something that breaks anything."
 msgstr "Een pagina op de uitslagensite waar spelers zichzelf inschrijven. Iedereen die zich aanmeldt komt binnen als %[flag] - er wordt hier niemand toegevoegd tot jij de inschrijvingen nakijkt en aanvaardt, dus een verkeerde rating of een ontbrekend FIDE-ID is iets dat je corrigeert en niet iets dat stukgaat."
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:693
+#: lib/pairings_engine_web/live/settings_results_live.ex:760
 #, elixir-autogen, elixir-format
 msgid "A publishing key came with this file"
 msgstr "Er kwam een publicatiesleutel mee met dit bestand"
@@ -4498,7 +4498,7 @@ msgstr "Er kwam een publicatiesleutel mee met dit bestand"
 msgid "Accepting adds the player marked not yet arrived, exactly as the form on this machine does. Filling in a web form is an intention to play, not an arrival - clear the flag on the Players page when they turn up."
 msgstr "Aanvaarden voegt de speler toe als nog niet aangekomen, net zoals het formulier op deze machine doet. Een webformulier invullen is een intentie om te spelen, geen aankomst - haal de markering weg op de Spelers-pagina wanneer ze opdagen."
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:583
+#: lib/pairings_engine_web/live/settings_results_live.ex:650
 #, elixir-autogen, elixir-format
 msgid "Accepting entries"
 msgstr "Inschrijvingen open"
@@ -4513,7 +4513,7 @@ msgstr "Adres"
 msgid "Already decided"
 msgstr "Al beslist"
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:434
+#: lib/pairings_engine_web/live/settings_results_live.ex:460
 #, elixir-autogen, elixir-format
 msgid "An unlisted tournament is still readable by anyone who has its address, and addresses get forwarded. It hides the event from someone browsing the site, not from someone who was sent the link."
 msgstr "Een niet-vermeld toernooi blijft leesbaar voor iedereen die het adres heeft, en adressen worden doorgestuurd. Het verbergt het toernooi voor wie de site doorbladert, niet voor wie de link kreeg."
@@ -4574,12 +4574,12 @@ msgstr "Verwerpen"
 msgid "Entries from the results site"
 msgstr "Inschrijvingen van de uitslagensite"
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:564
+#: lib/pairings_engine_web/live/settings_results_live.ex:631
 #, elixir-autogen, elixir-format
 msgid "Entry form"
 msgstr "Inschrijvingsformulier"
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:553
+#: lib/pairings_engine_web/live/settings_results_live.ex:620
 #, elixir-autogen, elixir-format
 msgid "Everything is shown."
 msgstr "Alles wordt getoond."
@@ -4609,7 +4609,7 @@ msgstr "Bewaard zodat een ophaalactie een geweigerde inschrijving niet opnieuw b
 msgid "Last checked"
 msgstr "Laatst gecontroleerd"
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:426
+#: lib/pairings_engine_web/live/settings_results_live.ex:452
 #, elixir-autogen, elixir-format
 msgid "Listed on the front page"
 msgstr "Vermeld op de voorpagina"
@@ -4619,17 +4619,17 @@ msgstr "Vermeld op de voorpagina"
 msgid "Locked - categories cannot be turned off while pairing by category, and that cannot change after round 1 has been paired."
 msgstr "Vergrendeld - categorieën kunnen niet uitgezet worden terwijl er per categorie gepaard wordt, en dat kan niet meer wijzigen zodra ronde 1 gepaard is."
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:647
+#: lib/pairings_engine_web/live/settings_results_live.ex:714
 #, elixir-autogen, elixir-format
 msgid "Move this tournament to a new address? The current link stops working immediately - anyone using it, including printed QR codes and anything a club has embedded, will need the new one. The tournament is removed from the results site and published again at a fresh address; its results and players here are untouched."
 msgstr "Dit toernooi naar een nieuw adres verplaatsen? De huidige link werkt onmiddellijk niet meer - iedereen die hem gebruikt, ook gedrukte QR-codes en alles wat een club ingesloten heeft, heeft de nieuwe nodig. Het toernooi wordt van de uitslagensite verwijderd en opnieuw gepubliceerd op een vers adres; de uitslagen en spelers hier blijven ongemoeid."
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:652
+#: lib/pairings_engine_web/live/settings_results_live.ex:719
 #, elixir-autogen, elixir-format
 msgid "Move to a new address"
 msgstr "Naar een nieuw adres verplaatsen"
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:515
+#: lib/pairings_engine_web/live/settings_results_live.ex:541
 #, elixir-autogen, elixir-format
 msgid "Names, boards, results and placings are always shown on a page that is shown at all - they are the tournament. To hide those, switch the whole page off above, or do not publish."
 msgstr "Namen, borden, uitslagen en plaatsen worden altijd getoond op een pagina die überhaupt getoond wordt - dat ís het toernooi. Wil je die verbergen, zet dan hierboven de hele pagina uit, of publiceer niet."
@@ -4669,7 +4669,7 @@ msgstr "Er staat niets te wachten. Haal hierboven op om de uitslagensite opnieuw
 msgid "On the entry list as"
 msgstr "Op de inschrijvingslijst als"
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:623
+#: lib/pairings_engine_web/live/settings_results_live.ex:690
 #, elixir-autogen, elixir-format
 msgid "On the results site (%{host}), not on this machine. Share it, print it, put it on a QR code."
 msgstr "Op de uitslagensite (%{host}), niet op deze machine. Deel hem, druk hem af, zet hem op een QR-code."
@@ -4684,17 +4684,17 @@ msgstr "Er wordt er één per dag geschreven. Ze bevatten alles wat niet opnieuw
 msgid "Open Settings"
 msgstr "Instellingen openen"
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:633
+#: lib/pairings_engine_web/live/settings_results_live.ex:700
 #, elixir-autogen, elixir-format
 msgid "Open it"
 msgstr "Openen"
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:605
+#: lib/pairings_engine_web/live/settings_results_live.ex:672
 #, elixir-autogen, elixir-format
 msgid "Open the form"
 msgstr "Formulier openen"
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:381
+#: lib/pairings_engine_web/live/settings_results_live.ex:407
 #: lib/pairings_engine_web/live/settings_support.ex:69
 #, elixir-autogen, elixir-format
 msgid "OpenResults"
@@ -4717,17 +4717,17 @@ msgstr "Publieke pagina"
 msgid "Public results site (OpenResults)"
 msgstr "Publieke uitslagensite (OpenResults)"
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:389
+#: lib/pairings_engine_web/live/settings_results_live.ex:415
 #, elixir-autogen, elixir-format
 msgid "Publish this tournament"
 msgstr "Dit toernooi publiceren"
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:411
+#: lib/pairings_engine_web/live/settings_results_live.ex:437
 #, elixir-autogen, elixir-format
 msgid "Published"
 msgstr "Gepubliceerd"
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:392
+#: lib/pairings_engine_web/live/settings_results_live.ex:418
 #, elixir-autogen, elixir-format
 msgid "Publishing sends a copy of this tournament to the results site, where anyone can follow it - standings, pairings and player cards, no login. It is the only way this tournament becomes public: nothing is readable from this machine, which is the point, because spectators should never be loading the computer that runs the round."
 msgstr "Publiceren stuurt een kopie van dit toernooi naar de uitslagensite, waar iedereen het kan volgen - stand, paringen en spelerskaarten, zonder login. Het is de enige manier waarop dit toernooi publiek wordt: op deze machine is niets leesbaar, en dat is net de bedoeling, want toeschouwers horen nooit de computer te belasten die de ronde draait."
@@ -4737,12 +4737,12 @@ msgstr "Publiceren stuurt een kopie van dit toernooi naar de uitslagensite, waar
 msgid "Put back"
 msgstr "Terugzetten"
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:679
+#: lib/pairings_engine_web/live/settings_results_live.ex:746
 #, elixir-autogen, elixir-format
 msgid "Remove from the results site"
 msgstr "Van de uitslagensite verwijderen"
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:674
+#: lib/pairings_engine_web/live/settings_results_live.ex:741
 #, elixir-autogen, elixir-format
 msgid "Remove this tournament from the results site? Its public page, every earlier snapshot in its history, and any entries collected for it are deleted there permanently. Nothing on this machine is touched - the tournament, its players and its results stay exactly as they are - but this cannot be undone from here."
 msgstr "Dit toernooi van de uitslagensite verwijderen? De publieke pagina, elke eerdere momentopname in de geschiedenis en alle daar verzamelde inschrijvingen worden er definitief verwijderd. Op deze machine wordt niets aangeraakt - het toernooi, de spelers en de uitslagen blijven precies zoals ze zijn - maar dit kan van hieruit niet ongedaan gemaakt worden."
@@ -4752,7 +4752,7 @@ msgstr "Dit toernooi van de uitslagensite verwijderen? De publieke pagina, elke 
 msgid "Remove token"
 msgstr "Token verwijderen"
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:612
+#: lib/pairings_engine_web/live/settings_results_live.ex:679
 #, elixir-autogen, elixir-format
 msgid "Review entries"
 msgstr "Inschrijvingen nakijken"
@@ -4788,12 +4788,12 @@ msgstr "Stel dit één keer in voor de machine. Elk toernooi heeft daarna zijn e
 msgid "Size"
 msgstr "Grootte"
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:733
+#: lib/pairings_engine_web/live/settings_results_live.ex:800
 #, elixir-autogen, elixir-format
 msgid "Start fresh"
 msgstr "Opnieuw beginnen"
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:728
+#: lib/pairings_engine_web/live/settings_results_live.ex:795
 #, elixir-autogen, elixir-format
 msgid "Start fresh and throw the key away? This copy keeps its own link and publishes to a new address. Nothing already on the results site changes, and this machine will never be able to update or remove it."
 msgstr "Opnieuw beginnen en de sleutel weggooien? Deze kopie behoudt zijn eigen link en publiceert naar een nieuw adres. Aan wat al op de uitslagensite staat verandert niets, en deze machine zal het nooit meer kunnen bijwerken of verwijderen."
@@ -4803,12 +4803,12 @@ msgstr "Opnieuw beginnen en de sleutel weggooien? Deze kopie behoudt zijn eigen 
 msgid "Submitted"
 msgstr "Ingediend"
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:720
+#: lib/pairings_engine_web/live/settings_results_live.ex:787
 #, elixir-autogen, elixir-format
 msgid "Take over publishing it"
 msgstr "De publicatie overnemen"
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:715
+#: lib/pairings_engine_web/live/settings_results_live.ex:782
 #, elixir-autogen, elixir-format
 msgid "Take over publishing that tournament? This copy starts publishing to that address and can delete it, and this copy's own public link changes to match. Anyone still publishing it from another machine will be overwriting you, and you them."
 msgstr "De publicatie van dat toernooi overnemen? Deze kopie begint naar dat adres te publiceren en kan het verwijderen, en de eigen publieke link van deze kopie verandert mee. Wie het nog vanaf een andere machine publiceert, overschrijft jou, en jij hen."
@@ -4823,12 +4823,12 @@ msgstr "Genomen"
 msgid "Test connection"
 msgstr "Verbinding testen"
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:618
+#: lib/pairings_engine_web/live/settings_results_live.ex:685
 #, elixir-autogen, elixir-format
 msgid "The address"
 msgstr "Het adres"
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:696
+#: lib/pairings_engine_web/live/settings_results_live.ex:763
 #, elixir-autogen, elixir-format
 msgid "The backup this tournament was imported from can publish to - and delete - a tournament already on the results site:"
 msgstr "De back-up waaruit dit toernooi geïmporteerd is, kan publiceren naar - en verwijderen - een toernooi dat al op de uitslagensite staat:"
@@ -4863,7 +4863,7 @@ msgstr "Deze back-up bevat de publicatiesleutel van het toernooi - wie het besta
 msgid "This backup carries this tournament's publishing key. Anyone who has the file can update its page on the results site, or delete that page along with its whole history and any entries collected for it. That is deliberate - it is how a rebuilt machine recovers control of what it published - but treat the file like a password."
 msgstr "Deze back-up bevat de publicatiesleutel van dit toernooi. Wie het bestand heeft, kan de pagina op de uitslagensite bijwerken, of die pagina verwijderen samen met de volledige geschiedenis en alle daarvoor verzamelde inschrijvingen. Dat is opzettelijk - zo herneemt een heropgebouwde machine de controle over wat ze gepubliceerd heeft - maar behandel het bestand als een wachtwoord."
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:433
+#: lib/pairings_engine_web/live/settings_results_live.ex:459
 #, elixir-autogen, elixir-format
 msgid "This is not privacy."
 msgstr "Dit is geen privacy."
@@ -4878,7 +4878,7 @@ msgstr "Dit toernooi heeft geen ronde"
 msgid "This tournament is not published to the results site."
 msgstr "Dit toernooi is niet gepubliceerd op de uitslagensite."
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:577
+#: lib/pairings_engine_web/live/settings_results_live.ex:644
 #, elixir-autogen, elixir-format
 msgid "This tournament is not published, and the form lives there - so opening it here has no effect until you publish."
 msgstr "Dit toernooi is niet gepubliceerd, en het formulier staat daar - dus het hier openzetten heeft geen effect tot je publiceert."
@@ -4908,12 +4908,12 @@ msgstr "Token verwijderd. Er wordt niets gepubliceerd tot er een nieuw ingesteld
 msgid "Turn publishing on in Settings"
 msgstr "Publiceren aanzetten in de Instellingen"
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:509
+#: lib/pairings_engine_web/live/settings_results_live.ex:535
 #, elixir-autogen, elixir-format
 msgid "Untick anything this event's players would not expect on the open web. A club evening and an international open have different answers, and you are the one who knows which this is. Saved as you tick."
 msgstr "Vink alles uit wat de spelers van dit toernooi niet op het open web zouden verwachten. Een clubavond en een internationaal open hebben verschillende antwoorden, en jij weet welk van de twee dit is. Wordt opgeslagen terwijl je aanvinkt."
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:704
+#: lib/pairings_engine_web/live/settings_results_live.ex:771
 #, elixir-autogen, elixir-format
 msgid "Until you take it over, this copy is a separate tournament: turning publishing on gives it a new address of its own. Take it over only if the machine that published it is gone, or you are certain nobody else is still publishing it - two machines holding the same key can overwrite and delete each other's work."
 msgstr "Tot je het overneemt, is deze kopie een apart toernooi: publiceren aanzetten geeft het een eigen nieuw adres. Neem het enkel over als de machine die het publiceerde weg is, of als je zeker weet dat niemand anders het nog publiceert - twee machines met dezelfde sleutel kunnen elkaars werk overschrijven en verwijderen."
@@ -4923,12 +4923,12 @@ msgstr "Tot je het overneemt, is deze kopie een apart toernooi: publiceren aanze
 msgid "Waiting for a decision"
 msgstr "Wacht op een beslissing"
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:398
+#: lib/pairings_engine_web/live/settings_results_live.ex:424
 #, elixir-autogen, elixir-format
 msgid "What leaves is what a wall chart would show - names, ratings, clubs, federations and results. You can narrow that below."
 msgstr "Wat vertrekt is wat op een uithangbord zou staan - namen, ratings, clubs, federaties en uitslagen. Hieronder kun je dat beperken."
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:506
+#: lib/pairings_engine_web/live/settings_results_live.ex:532
 #, elixir-autogen, elixir-format
 msgid "What the public page shows"
 msgstr "Wat de publieke pagina toont"
@@ -4938,7 +4938,7 @@ msgstr "Wat de publieke pagina toont"
 msgid "Where published tournaments are sent so spectators can follow them. This machine stays the source of truth: it sends a copy, and nothing is ever sent back."
 msgstr "Waarheen gepubliceerde toernooien gestuurd worden zodat toeschouwers ze kunnen volgen. Deze machine blijft de bron van waarheid: ze stuurt een kopie, en er wordt nooit iets teruggestuurd."
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:428
+#: lib/pairings_engine_web/live/settings_results_live.ex:454
 #, elixir-autogen, elixir-format
 msgid "Whether this tournament appears in the results site's list of published tournaments. Off by default: publishing gives this tournament an address, and putting it on the front page is a separate choice."
 msgstr "Of dit toernooi verschijnt in de lijst met gepubliceerde toernooien op de uitslagensite. Standaard uit: publiceren geeft dit toernooi een adres, en het op de voorpagina zetten is een aparte keuze."
@@ -5176,12 +5176,12 @@ msgstr "een lokale installatie (geen accounts, geen rollen nodig)"
 msgid "Settings - Export"
 msgstr "Instellingen - Export"
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:458
+#: lib/pairings_engine_web/live/settings_results_live.ex:484
 #, elixir-autogen, elixir-format
 msgid "When a round you pair actually reaches %[link] - gated on \"Publish this tournament\" above, not on this setting. Whichever round is currently paired can always be published early or hidden again by hand from the Pairings page, regardless of this setting."
 msgstr "Wanneer een ronde die je paart ook echt op %[link] verschijnt - afhankelijk van \"Dit toernooi publiceren\" hierboven, niet van deze instelling. Welke ronde nu ook gepaard is, je kan ze altijd vroeger publiceren of weer verbergen vanaf de pagina Paringen, wat deze instelling ook zegt."
 
-#: lib/pairings_engine_web/live/settings_results_live.ex:466
+#: lib/pairings_engine_web/live/settings_results_live.ex:492
 #, elixir-autogen, elixir-format
 msgid "this tournament's page on the results site"
 msgstr "de pagina van dit toernooi op de resultatensite"
@@ -5232,3 +5232,18 @@ msgstr "Niet beschikbaar wanneer OpenPairings op je eigen computer draait. Deze 
 #, elixir-autogen, elixir-format
 msgid "OpenPairings cannot calculate this yet: it needs team standings, which are not built. It would score zero for every player and separate nobody, so it is left out of the ranking rather than shown as a column of noughts. Pick a different tie-break here."
 msgstr "OpenPairings kan dit nog niet berekenen: het heeft ploegenstanden nodig, en die zijn er nog niet. Het zou voor elke speler nul opleveren en dus niemand scheiden, daarom blijft het uit de rangschikking in plaats van als een kolom nullen te verschijnen. Kies hier een andere tiebreak."
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:586
+#, elixir-autogen, elixir-format
+msgid "Each column on the public standings. The order is unaffected."
+msgstr "Elke kolom op de publieke stand. De volgorde verandert niet."
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:611
+#, elixir-autogen, elixir-format
+msgid "The order still uses every tie-break above. A hidden one keeps deciding placings it no longer explains, so the public page carries a note saying the order used tie-breaks it does not show."
+msgstr "De volgorde gebruikt nog steeds elke tiebreak hierboven. Een verborgen tiebreak blijft plaatsen bepalen die ze niet meer verklaart, dus vermeldt de publieke pagina dat de volgorde tiebreaks gebruikt die niet getoond worden."
+
+#: lib/pairings_engine_web/live/settings_results_live.ex:584
+#, elixir-autogen, elixir-format
+msgid "Which tie-breaks"
+msgstr "Welke tiebreaks"
