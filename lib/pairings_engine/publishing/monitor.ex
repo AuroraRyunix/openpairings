@@ -34,6 +34,22 @@ defmodule PairingsEngine.Publishing.Monitor do
   when the state, the queue depth, the latency band or the last-sent stamp
   actually differ.
 
+  ## A light that says "now" is not enough
+
+  The indicator answers "can this machine publish, right now". The failure
+  it is worst at describing is the intermittent one: a hall's wifi that
+  drops for fifteen seconds every few minutes shows green almost every time
+  somebody looks, and the arbiter is left with results that arrive late for
+  no visible reason.
+
+  So the last twenty connection checks are kept - at one every thirty
+  seconds, that is the last ten minutes - and the panel can say whether it
+  has been steady, rather than only what it is at this instant.
+
+  Kept in the process rather than the table: it is written once per check
+  and read only when somebody opens the panel, so there is no reason for
+  every page render to carry it.
+
   ## It never lets the caller wait
 
   The network check runs in a task, and its result arrives as a message. A
@@ -126,7 +142,15 @@ defmodule PairingsEngine.Publishing.Monitor do
     # Owned by this process, so it goes when the process does - but public,
     # because every page render reads it and none of them should have to
     # talk to a process to do so.
-    :ets.new(@table, [:named_table, :public, :set, read_concurrency: true])
+    # Tolerates one already being there. The table is owned by this process,
+    # so an orderly stop takes it with them - but a crash-and-restart under
+    # the supervisor can race its own predecessor's cleanup, and a Monitor
+    # that refuses to start because the last one has not finished dying
+    # would take the indicator down for good over a transient.
+    case :ets.whereis(@table) do
+      :undefined -> :ets.new(@table, [:named_table, :public, :set, read_concurrency: true])
+      _existing -> :ok
+    end
 
     intervals =
       Application.get_env(:pairings_engine, :publishing_monitor_interval, {
@@ -134,7 +158,7 @@ defmodule PairingsEngine.Publishing.Monitor do
         @connection_interval
       })
 
-    {:ok, %{intervals: intervals}, {:continue, :schedule}}
+    {:ok, %{intervals: intervals, history: []}, {:continue, :schedule}}
   end
 
   # Disabled in test for the reason `Publishing.Drain` is: a tick firing
@@ -189,10 +213,54 @@ defmodule PairingsEngine.Publishing.Monitor do
 
   def handle_info({:connection, status}, state) do
     put(status)
-    {:noreply, state}
+    {:noreply, %{state | history: record(state.history, status)}}
   end
 
   def handle_info(_message, state), do: {:noreply, state}
+
+  @doc """
+  What the last ten minutes of connection checks looked like, or `nil` when
+  there have not been enough to say anything.
+
+  `%{samples:, minutes:, failures:, worst_ms:}`. Deliberately nil rather
+  than an empty summary for the first few minutes after a restart: "steady
+  for the last 10 minutes" is a claim, and a process that has been up for
+  ninety seconds is not entitled to make it.
+  """
+  def stability do
+    GenServer.call(__MODULE__, :stability)
+  catch
+    # The Monitor is not started in test and can be restarting in prod. A
+    # panel must render without it.
+    :exit, _ -> nil
+  end
+
+  @impl true
+  def handle_call(:stability, _from, state), do: {:reply, summarise(state.history), state}
+
+  # Newest first, capped. Twenty checks at one every thirty seconds is ten
+  # minutes; the cap is in SAMPLES rather than by timestamp so a paused
+  # laptop that wakes up does not report a ten-minute window it slept
+  # through.
+  @history 20
+
+  defp record(history, status) do
+    [{status.state, status.latency_ms} | history] |> Enum.take(@history)
+  end
+
+  # Fewer than four checks is two minutes of evidence, which is not a window.
+  defp summarise(history) when length(history) < 4, do: nil
+
+  defp summarise(history) do
+    latencies = for {_state, ms} <- history, is_integer(ms), do: ms
+
+    %{
+      samples: length(history),
+      minutes: div(length(history) * 30, 60),
+      failures: Enum.count(history, fn {state, _ms} -> state != :connected end),
+      worst_ms: Enum.max(latencies, fn -> nil end)
+    }
+  end
 
   # Written on every tick, broadcast only on a real change: the table read is
   # what pages use, and a message per tick would wake every connected

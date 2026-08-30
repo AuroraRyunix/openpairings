@@ -417,6 +417,19 @@ Each entry is tagged so a version can be skimmed:
   ruling settled it rather than presenting a live disagreement. Three other
   places carrying the old claim were corrected with it.
 
+- [Feature] **The publishing indicator says whether it has been steady, not
+  just whether it works now.** A status light answers "right now", and the
+  failure it hides best is the intermittent one: a hall's wifi that drops for
+  fifteen seconds every few minutes reads green almost every time anyone
+  looks, while results arrive late for no visible reason. The panel now keeps
+  the last ten minutes of connection checks and says either "steady for the
+  last 10 minutes, slowest check 180 ms" or "3 checks failed in the last 10
+  minutes &mdash; it is answering now, but worth a look at the network".
+
+  It says nothing at all until there is enough history to mean it. A claim
+  about ten minutes from an app that started ninety seconds ago would be a
+  lie told confidently.
+
 - [Fix] **The publishing indicator opens instead of sending you to the
   rating lists.** Clicking "Live" in the top bar navigated to the FIDE
   rating-list page, which has nothing to do with publishing. It now opens the

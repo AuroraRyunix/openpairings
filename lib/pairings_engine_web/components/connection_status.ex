@@ -187,6 +187,7 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
 
       <div class="topbar-menu-panel pub-panel">
         <.connection_status status={@status} />
+        <.stability_line />
       </div>
     </details>
     """
@@ -195,6 +196,49 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
   # Deliberately shorter than the full indicator's headline. "Cannot reach
   # the results site" is the right sentence on a settings page and too long
   # for a strip that also holds the language picker and an email address.
+  @doc """
+  How the connection has BEHAVED, as opposed to what it is doing now.
+
+  The light answers "right now", and the failure it describes worst is the
+  intermittent one: a hall's wifi that drops for fifteen seconds every few
+  minutes reads green almost every time somebody looks, while results arrive
+  late for no visible reason. A green light that can also say it has been
+  green for ten minutes is worth more than one that cannot.
+
+  Renders nothing until there is enough history to make the claim. Four
+  checks is two minutes of evidence, and "steady for the last 10 minutes"
+  from a process that started ninety seconds ago would be a lie told
+  confidently.
+  """
+  def stability_line(assigns) do
+    assigns = assign(assigns, :window, PairingsEngine.Publishing.Monitor.stability())
+
+    ~H"""
+    <p :if={@window} class={["conn-window", @window.failures > 0 && "is-unsteady"]}>
+      <%= if @window.failures == 0 do %>
+        {ngettext(
+          "Steady for the last minute.",
+          "Steady for the last %{count} minutes.",
+          @window.minutes
+        )}
+        <span :if={@window.worst_ms}>
+          {gettext("Slowest check %{ms} ms.", ms: @window.worst_ms)}
+        </span>
+      <% else %>
+        <strong>
+          {ngettext(
+            "1 check failed in the last %{minutes} minutes.",
+            "%{count} checks failed in the last %{minutes} minutes.",
+            @window.failures,
+            minutes: @window.minutes
+          )}
+        </strong>
+        {gettext("It is answering now, but it has not been steady - worth a look at the network.")}
+      <% end %>
+    </p>
+    """
+  end
+
   # KB and MB rather than bytes: the reader is judging "is that a lot", and
   # 597,412 does not answer that faster than 583 KB. Binary units, because
   # that is what a disk and a body-size limit are measured in.

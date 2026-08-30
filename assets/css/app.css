@@ -4246,3 +4246,15 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   max-width: min(24rem, calc(100vw - 24px));
   padding: 10px 12px;
 }
+
+/* How the connection has behaved, under what it is doing now. Quiet when
+   steady; it only needs to catch the eye when it does not say so. */
+.conn-window {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.conn-window.is-unsteady {
+  color: var(--text);
+}
