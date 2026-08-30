@@ -4444,17 +4444,17 @@ msgstr ""
 msgid "%[count] tournament(s) waiting to be sent. They go out on their own; a tournament stays in the queue until the server confirms it."
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:308
+#: lib/pairings_engine_web/components/connection_status.ex:334
 #, elixir-autogen, elixir-format
 msgid "%{n} days ago"
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:307
+#: lib/pairings_engine_web/components/connection_status.ex:333
 #, elixir-autogen, elixir-format
 msgid "%{n} h ago"
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:306
+#: lib/pairings_engine_web/components/connection_status.ex:332
 #, elixir-autogen, elixir-format
 msgid "%{n} min ago"
 msgstr ""
@@ -4469,7 +4469,7 @@ msgstr ""
 msgid "%{n} older ones are on the machine, in %{dir}."
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:97
+#: lib/pairings_engine_web/components/connection_status.ex:101
 #, elixir-autogen, elixir-format
 msgid "1 tournament waiting to send"
 msgid_plural "%{count} tournaments waiting to send"
@@ -4541,7 +4541,7 @@ msgstr ""
 msgid "Backups"
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:290
+#: lib/pairings_engine_web/components/connection_status.ex:293
 #, elixir-autogen, elixir-format
 msgid "Cannot reach the results site"
 msgstr ""
@@ -4556,7 +4556,7 @@ msgstr ""
 msgid "Checking the connection..."
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:288
+#: lib/pairings_engine_web/components/connection_status.ex:291
 #, elixir-autogen, elixir-format
 msgid "Connected"
 msgstr ""
@@ -4652,7 +4652,7 @@ msgstr ""
 msgid "None yet - the first is written a few minutes after start-up."
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:291
+#: lib/pairings_engine_web/components/connection_status.ex:294
 #, elixir-autogen, elixir-format
 msgid "Not set up"
 msgstr ""
@@ -4775,8 +4775,8 @@ msgstr ""
 msgid "Saved. Nothing is published until both an address and a token are set."
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:255
-#: lib/pairings_engine_web/components/connection_status.ex:287
+#: lib/pairings_engine_web/components/connection_status.ex:258
+#: lib/pairings_engine_web/components/connection_status.ex:290
 #, elixir-autogen, elixir-format
 msgid "Sending"
 msgstr ""
@@ -4896,7 +4896,7 @@ msgstr ""
 msgid "Token"
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:289
+#: lib/pairings_engine_web/components/connection_status.ex:292
 #, elixir-autogen, elixir-format
 msgid "Token refused"
 msgstr ""
@@ -4961,17 +4961,17 @@ msgstr ""
 msgid "discarded"
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:305
+#: lib/pairings_engine_web/components/connection_status.ex:331
 #, elixir-autogen, elixir-format
 msgid "just now"
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:104
+#: lib/pairings_engine_web/components/connection_status.ex:302
 #, elixir-autogen, elixir-format
 msgid "last sent %{ago}"
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:107
+#: lib/pairings_engine_web/components/connection_status.ex:118
 #, elixir-autogen, elixir-format
 msgid "nothing sent from this machine yet"
 msgstr ""
@@ -5006,44 +5006,44 @@ msgstr ""
 msgid "Downloading the full list needs an administrator, so it can't be triggered by just anyone with an account here."
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:265
+#: lib/pairings_engine_web/components/connection_status.ex:268
 #, elixir-autogen, elixir-format
 msgid "1 tournament waiting to send to %{host}"
 msgid_plural "%{count} tournaments waiting to send to %{host}"
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:164
+#: lib/pairings_engine_web/components/connection_status.ex:167
 #, elixir-autogen, elixir-format
 msgid "Checking the results-site connection"
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:166
+#: lib/pairings_engine_web/components/connection_status.ex:169
 #, elixir-autogen, elixir-format
 msgid "Checking..."
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:257
+#: lib/pairings_engine_web/components/connection_status.ex:260
 #, elixir-autogen, elixir-format
 msgid "Live"
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:260
+#: lib/pairings_engine_web/components/connection_status.ex:263
 #, elixir-autogen, elixir-format
 msgid "Not publishing"
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:259
+#: lib/pairings_engine_web/components/connection_status.ex:262
 #, elixir-autogen, elixir-format
 msgid "Offline"
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:274
+#: lib/pairings_engine_web/components/connection_status.ex:277
 #, elixir-autogen, elixir-format
 msgid "Publishing to %{host} is working"
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:258
+#: lib/pairings_engine_web/components/connection_status.ex:261
 #, elixir-autogen, elixir-format
 msgid "Refused"
 msgstr ""
@@ -5256,31 +5256,31 @@ msgstr ""
 msgid "The parity is taken on a numbering of the players who are in this round's pairing or have played in an earlier one - not on the tournament pairing number, which would also count somebody registered but never paired. FIDE settled that reading on 28 August 2026. A program that predates the ruling may seat this board the other way round; the pairing is the same either way, only who holds White differs."
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:115
-#, elixir-autogen, elixir-format
-msgid "%{size} last sent"
-msgstr ""
-
-#: lib/pairings_engine_web/components/connection_status.ex:229
+#: lib/pairings_engine_web/components/connection_status.ex:232
 #, elixir-autogen, elixir-format
 msgid "1 check failed in the last %{minutes} minutes."
 msgid_plural "%{count} checks failed in the last %{minutes} minutes."
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:236
+#: lib/pairings_engine_web/components/connection_status.ex:239
 #, elixir-autogen, elixir-format
 msgid "It is answering now, but it has not been steady - worth a look at the network."
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:225
+#: lib/pairings_engine_web/components/connection_status.ex:228
 #, elixir-autogen, elixir-format
 msgid "Slowest check %{ms} ms."
 msgstr ""
 
-#: lib/pairings_engine_web/components/connection_status.ex:219
+#: lib/pairings_engine_web/components/connection_status.ex:222
 #, elixir-autogen, elixir-format
 msgid "Steady for the last minute."
 msgid_plural "Steady for the last %{count} minutes."
 msgstr[0] ""
 msgstr[1] ""
+
+#: lib/pairings_engine_web/components/connection_status.ex:303
+#, elixir-autogen, elixir-format
+msgid "%{size} sent %{ago}"
+msgstr ""

@@ -180,6 +180,76 @@ defmodule PairingsEngineWeb.PublishPillTest do
     assert render(lv) =~ "Sending"
   end
 
+  describe "the panel's copy" do
+    # Rendered from the exact state the live box showed on 2026-08-30, which
+    # read:
+    #
+    #   Connected  2 ms
+    #   Connected. The address and token are both accepted.
+    #   localhost  last sent just now  82.0 KB last sent
+    #
+    # Three faults in four lines: the state said twice, the words "last sent"
+    # said twice, and three separate facts run together with no separator.
+    defp panel(conn, attrs) do
+      {:ok, lv, _html} = live(conn, ~p"/")
+      broadcast(status(attrs))
+
+      lv
+      |> render()
+      |> String.replace(~r/<[^>]+>/, " ")
+      |> String.replace(~r/\s+/, " ")
+    end
+
+    test "the size and the time are one phrase, not two", %{conn: conn} do
+      text =
+        panel(conn, %{last_publish_bytes: 83_968, last_published_at: DateTime.utc_now()})
+
+      assert text =~ "82.0 KB sent just now"
+      refute text =~ "last sent just now"
+    end
+
+    test "the message does not repeat the headline above it", %{conn: conn} do
+      text =
+        panel(conn, %{
+          state: :connected,
+          message: "Connected. The address and token are both accepted."
+        })
+
+      assert text =~ "The address and token are both accepted."
+      # "Connected" once, as the headline - not again to open the sentence.
+      refute text =~ "Connected. The address"
+    end
+
+    test "a message that does not echo the headline is shown whole", %{conn: conn} do
+      # Trimming on a guess would eat real text.
+      text = panel(conn, %{state: :refused, message: "Reached the server, but it said no."})
+
+      assert text =~ "Reached the server, but it said no."
+    end
+
+    test "the facts are separated rather than run together", %{conn: conn} do
+      text =
+        panel(conn, %{
+          endpoint: "http://localhost:4004",
+          last_publish_bytes: 83_968,
+          last_published_at: DateTime.utc_now()
+        })
+
+      assert text =~ "localhost"
+      assert text =~ "82.0 KB sent just now"
+      # The separator is CSS, so the markup keeps them as distinct spans
+      # rather than one run of words.
+      assert text =~ ~r/localhost\s*<?/
+    end
+
+    test "no size yet falls back to the time rather than inventing one", %{conn: conn} do
+      text = panel(conn, %{last_publish_bytes: nil, last_published_at: DateTime.utc_now()})
+
+      assert text =~ "last sent just now"
+      refute text =~ "KB sent"
+    end
+  end
+
   describe "the Monitor" do
     test "is disabled in test, and status/0 answers nil rather than raising" do
       # Every page reads this. If it raised when the poller had not answered

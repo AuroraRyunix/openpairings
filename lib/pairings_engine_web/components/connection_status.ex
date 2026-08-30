@@ -89,9 +89,13 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
           <span :if={@status.latency_ms} class="conn-latency">{@status.latency_ms} ms</span>
         </p>
 
-        <p :if={not @compact} class="conn-detail">{@status.message}</p>
+        <%!-- The headline already said the state, and every message begins
+              by repeating it - "Connected" above "Connected. The address and
+              token are both accepted." Stripped, so the sentence adds
+              something instead of echoing. --%>
+        <p :if={not @compact} class="conn-detail">{detail(@status, headline(@status))}</p>
 
-        <p class="conn-detail">
+        <p class="conn-detail conn-facts">
           <span :if={@status.endpoint}>{host(@status.endpoint)}</span>
           <span :if={@status.pending > 0}>
             {ngettext(
@@ -100,19 +104,18 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
               @status.pending
             )}
           </span>
+          <%!-- One phrase, not two. The size used to be bolted on as its own
+                span, which read "last sent just now · 82.0 KB last sent" -
+                the same words twice in one line. A snapshot is the whole
+                tournament rather than a delta, so its size is the only
+                figure that says what a round costs to publish, and it moves:
+                the tie-break working multiplied it by ~3.4 on a large
+                event. --%>
           <span :if={@status.pending == 0 and @status.last_published_at}>
-            {gettext("last sent %{ago}", ago: ago(@status.last_published_at))}
+            {sent_line(@status)}
           </span>
           <span :if={@status.pending == 0 and is_nil(@status.last_published_at)}>
             {gettext("nothing sent from this machine yet")}
-          </span>
-          <%!-- What a round actually costs to publish. A snapshot is the
-                whole tournament rather than a delta, so this is the only
-                figure that says so - and it moves: the tie-break working
-                multiplied it by about 3.4 on a large event, which no queue
-                depth would have shown. --%>
-          <span :if={@status[:last_publish_bytes]}>
-            {gettext("%{size} last sent", size: bytes(@status[:last_publish_bytes]))}
           </span>
         </p>
       </div>
@@ -289,6 +292,29 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
   defp headline(%{state: :refused}), do: gettext("Token refused")
   defp headline(%{state: :unreachable}), do: gettext("Cannot reach the results site")
   defp headline(%{state: :unconfigured}), do: gettext("Not set up")
+
+  # "82 KB sent just now" rather than "last sent just now" beside "82.0 KB
+  # last sent". When the size is not known yet - an installation that has
+  # published from an older build - it falls back to the time alone rather
+  # than inventing a number.
+  defp sent_line(%{last_published_at: at} = status) do
+    case bytes(status[:last_publish_bytes]) do
+      nil -> gettext("last sent %{ago}", ago: ago(at))
+      size -> gettext("%{size} sent %{ago}", size: size, ago: ago(at))
+    end
+  end
+
+  # The message repeated the headline it sits under. Dropped only when it
+  # genuinely leads with the same words - a message this does not recognise
+  # is shown whole rather than trimmed on a guess.
+  defp detail(%{message: message}, headline) when is_binary(message) do
+    case String.split(message, ~r/^#{Regex.escape(headline)}[.:]\s+/, parts: 2) do
+      ["", rest] -> rest
+      _not_a_repeat -> message
+    end
+  end
+
+  defp detail(%{message: message}, _headline), do: message
 
   defp host(endpoint) do
     case URI.parse(endpoint) do

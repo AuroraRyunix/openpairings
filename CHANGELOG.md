@@ -417,6 +417,14 @@ Each entry is tagged so a version can be skimmed:
   ruling settled it rather than presenting a live disagreement. Three other
   places carrying the old claim were corrected with it.
 
+- [Fix] **The publishing panel said things twice.** It read "Connected" and
+  then "Connected. The address and token are both accepted."; and "last sent
+  just now" beside "82.0 KB last sent" &mdash; the same words twice on one
+  line, from bolting the new size on as a separate item rather than folding
+  it into the sentence. It now reads "82.0 KB sent just now", the message
+  stops repeating the heading above it, and the three facts on that line are
+  separated instead of running together.
+
 - [Feature] **The publishing indicator says whether it has been steady, not
   just whether it works now.** A status light answers "right now", and the
   failure it hides best is the intermittent one: a hall's wifi that drops for

@@ -4258,3 +4258,18 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .conn-window.is-unsteady {
   color: var(--text);
 }
+
+/* Three facts on one line - host, queue, last send - which ran together as
+   "localhost  last sent just now  82.0 KB". Separated in CSS rather than in
+   the markup so the number of spans can change without a stray leading dot
+   when the first one is absent. */
+.conn-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.5rem;
+}
+
+.conn-facts > span:not(:last-child)::after {
+  content: " ·";
+  color: var(--muted);
+}
