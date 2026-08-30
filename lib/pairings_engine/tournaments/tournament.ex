@@ -723,11 +723,13 @@ defmodule PairingsEngine.Tournaments.Tournament do
   # declaration untrue.
   #
   # It is now the arbiter's decision, taken deliberately (2026-08-21): the
-  # engine agrees with bbpPairings across ~488 million pairings, and where
-  # it differs from JaVaFo it is on Article 5.2.5's TPN parity, where it
-  # follows the handbook text and JaVaFo carries pre-2026 behaviour (see
-  # the sibling project's dispute-initial-colour.md). Refusing outright
-  # asserted a quality judgement the measurements do not support.
+  # engine agrees with bbpPairings across ~488 million pairings. The one
+  # place it differed - Article 5.2.5's parity - was settled by the FIDE
+  # Systems of Pairings and Programs Commission on 2026-08-28, against this
+  # project, and v0.14.0 conforms (see the sibling project's
+  # dispute-initial-colour.md). So the divergence this paragraph was written
+  # around is gone; refusing outright asserted a quality judgement the
+  # measurements did not support then and do not now.
   #
   # What has NOT changed is the paperwork, and that is the real risk: a
   # rated event paired this way was not paired by the engine OpenPairings'

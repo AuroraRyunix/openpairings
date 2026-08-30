@@ -79,20 +79,27 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
       assert html =~ "tournament pairing number is odd"
     end
 
-    test "the divergence is named only when Ainalrami produced the round",
+    test "how the parity was read is named only when Ainalrami produced the round",
          %{conn: conn, scope: scope} do
-      # On JaVaFo the note would be a lie - JaVaFo reads 5.2.5 the same way
-      # the other references do, so its boards do NOT differ from theirs.
-      # The engine is locked once a round is paired - correctly, since
-      # C.04.2 does not allow changing pairing system mid-tournament - so
-      # each case needs its own tournament rather than a flip.
+      # The note describes what THIS engine does with 5.2.5's parity, so it
+      # belongs only on a round this engine paired. On a JaVaFo round it
+      # would claim a reading JaVaFo does not necessarily hold - it carries
+      # pre-2026 behaviour, from before the SPP settled the question on
+      # 2026-08-28. The engine is locked once a round is paired - correctly,
+      # since C.04.2 does not allow changing pairing system mid-tournament -
+      # so each case needs its own tournament rather than a flip.
       javafo = round_one_only(scope, "javafo")
       {:ok, _lv, html} = live(conn, ~p"/t/#{javafo.id}/pairings/1/explain")
-      refute html =~ "Other programs may seat this board"
+      refute html =~ "The parity is taken on a numbering"
 
       ainalrami = round_one_only(scope, "ainalrami")
       {:ok, _lv, html} = live(conn, ~p"/t/#{ainalrami.id}/pairings/1/explain")
-      assert html =~ "Other programs may seat this board"
+      assert html =~ "The parity is taken on a numbering"
+
+      # And it says the ruling settled it, rather than presenting the
+      # engine's reading as a live disagreement, which it was until
+      # 2026-08-28 and this page went on claiming for two days after.
+      assert html =~ "FIDE settled that reading"
     end
 
     test "a board where somebody has a colour preference does not claim 5.2.5",

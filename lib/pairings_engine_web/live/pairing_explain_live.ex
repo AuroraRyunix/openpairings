@@ -616,12 +616,17 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   # holds a colour preference, which is exactly the state the rationale
   # already records as "no colour history yet" on both sides.
   #
-  # Worth surfacing because it is the one rule where this engine knowingly
-  # differs from both reference implementations - see
-  # docs/dispute-initial-colour.md in the Ainalrami repository. An arbiter
-  # cross-checking a board against SWAR or another program will find the
-  # colours swapped, and should be able to find out why from the app rather
-  # than from us.
+  # Worth surfacing because it used to be the one rule where this engine
+  # knowingly differed from both reference implementations. It no longer
+  # does: the FIDE Systems of Pairings and Programs Commission answered the
+  # question on 2026-08-28, against this project, and Ainalrami v0.14.0 -
+  # the tag this app pins - conforms. See dispute-initial-colour.md in the
+  # engine repository.
+  #
+  # The note stays because the rule is still worth naming when it decides a
+  # board: an arbiter who cross-checks against an older program, or against
+  # a printed sheet from before the ruling, will find the colours swapped and
+  # should learn why from the app rather than from us.
   defp article_525_board?(%{is_bye: true}), do: false
 
   defp article_525_board?(%{white: white, black: black})
@@ -1727,7 +1732,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             )}
             <span :if={Tournament.engine_name(@tournament) == "Ainalrami"}>
               {gettext(
-                "Other programs may seat this board the other way round. They read 5.2.5's parity on the player's position within the bracket; this engine reads it on the tournament pairing number, which is what Article 1.1 points to. The pairing is the same either way - only who holds White differs."
+                "The parity is taken on a numbering of the players who are in this round's pairing or have played in an earlier one - not on the tournament pairing number, which would also count somebody registered but never paired. FIDE settled that reading on 28 August 2026. A program that predates the ruling may seat this board the other way round; the pairing is the same either way, only who holds White differs."
               )}
             </span>
           </p>

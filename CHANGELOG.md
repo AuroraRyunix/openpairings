@@ -408,6 +408,15 @@ Each entry is tagged so a version can be skimmed:
   tab beside it does that. And the settings tabs no longer offer Changelog,
   which is not tournament-specific and is already in the top bar.
 
+- [Fix] **The Explain page described a colour rule the engine no longer
+  follows.** Where Article 5.2.5 decides a board, the page told arbiters this
+  engine reads the parity on the tournament pairing number and other programs
+  read it differently. FIDE settled that question on 28 August 2026 &mdash;
+  against us &mdash; and the engine was updated the same day, but the
+  explanation was not. It now describes what actually happens, and says the
+  ruling settled it rather than presenting a live disagreement. Three other
+  places carrying the old claim were corrected with it.
+
 - [Fix] **Importing a SWAR file with categories now says what it could not
   read.** SWAR's category block carries two lists of values; a player's
   category is read from the first, while both end up in the tournament's
