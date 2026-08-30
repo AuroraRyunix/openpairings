@@ -254,7 +254,15 @@ few thousand rows in well under a millisecond; the fix is one line
 do anyway, but there's no evidence this is currently costing anyone
 anything measurable.
 
-### 9. The pairing-explanation page recomputes standings once per round, twice at the end
+### 9. ~~The pairing-explanation page recomputes standings once per round, twice at the end~~ FIXED 2026-08-30
+
+> `Standings.standings_by_round/2` reads the rounds and byes ONCE and folds
+> every horizon out of them in memory; `player_trails/2` calls it once and
+> reuses the `through_round` entries it already holds instead of asking for
+> them again. Keizer keeps its per-horizon calls on purpose - its ladder is
+> a running recurrence, so there is no single extraction to fold prefixes
+> out of. A test asserts each horizon is byte-identical to a standalone
+> `standings/2` call, and counts queries via Ecto telemetry.
 
 `lib/pairings_engine/pairing_rationale.ex:195-226`, `:623-642` —
 **[Optimization #3]**
@@ -276,7 +284,12 @@ and still correct. Ranked here rather than higher because this page is
 opened on demand (Advanced menu), not on every result entry the way
 `PlayersLive`/`PairingsLive` are.
 
-### 10. `player_scores_before_round/2` still throws away everything but points
+### 10. ~~`player_scores_before_round/2` still throws away everything but points~~ FIXED 2026-08-30
+
+> `Standings.points_by_player/2` - extraction and a sum, no tiebreak pass,
+> no adjusted scores, no ranking sort. The three live call sites
+> (`PrintController`, `LiveRoundLive`, `PairingsLive.refresh/2`) get it
+> through the unchanged `player_scores_before_round/2`.
 
 `lib/pairings_engine/standings.ex:128-137` — **[Optimization #6]**
 
@@ -293,7 +306,14 @@ switch, after every arbiter action, and on every `{:tournament_changed,
 ...}` broadcast. Worth a dedicated points-only path eventually; not urgent
 given #11.
 
-### 11. Standings tiebreaks were O(N²R²) - now mostly fixed, by accident
+### 11. ~~Standings tiebreaks were O(N²R²) - now mostly fixed, by accident~~ FIXED 2026-08-30
+
+> Part two is closed too. `adjusted_score/2` depends on nothing but the
+> entry it is given and `points_draw`, so it is computed once per player in
+> `build_standings/5` and carried on the entry as `:adjusted_score` - the
+> same treatment `completed_rounds` already had, and for the reason stated
+> there (twenty-odd `tiebreak/4` clauses to thread a parameter through).
+> BH/BHC1/BHC2/MBH and SB read the carried value.
 
 `lib/pairings_engine/standings.ex:686-905` — **[Optimization #5]**
 

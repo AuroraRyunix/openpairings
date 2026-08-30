@@ -181,7 +181,13 @@ defmodule PairingsEngine.Standings do
 
   defp build_standings(tournament, tiebreak_codes, opts) do
     players = Tournaments.list_players(tournament.id)
-    {games_by_player, completed_rounds} = games_by_player(tournament, players, opts)
+    through_round = Keyword.get(opts, :through_round)
+    data = round_data(tournament, through_round)
+    build_standings(tournament, tiebreak_codes, opts, players, data)
+  end
+
+  defp build_standings(tournament, tiebreak_codes, opts, players, data) do
+    {games_by_player, completed_rounds} = games_by_player(tournament, players, opts, data)
 
     entries =
       Enum.map(players, fn player ->
@@ -201,6 +207,15 @@ defmodule PairingsEngine.Standings do
           completed_rounds: completed_rounds
         }
       end)
+      # Article 16.3's adjusted score, computed ONCE per player and carried
+      # for the same reason `completed_rounds` is. It depends on nothing but
+      # that player's own games, their completed-round horizon and
+      # `points_draw`, yet it used to be recomputed at every game-encounter:
+      # separately inside BH, BHC1, BHC2 and MBH (which share no cache), and
+      # again inside SB. On a 300-player 11-round field that is ~9,900 calls
+      # doing an `Enum.sort_by` over the opponent's games apiece, for one of
+      # 300 distinct answers.
+      |> Enum.map(&Map.put(&1, :adjusted_score, adjusted_score(&1, tournament)))
 
     entries = compute_tiebreaks(entries, tournament, tiebreak_codes)
 
@@ -228,6 +243,35 @@ defmodule PairingsEngine.Standings do
     |> Enum.map(fn {e, rank} -> Map.put(e, :rank, rank) end)
   end
 
+  @doc """
+  Standings at several horizons at once, as `%{through_round => entries}`.
+
+  Each entry list is exactly what `standings(tournament, through_round: n)`
+  returns for that `n` - same shape, same ranking, same tiebreaks - but the
+  rounds and byes are read from the database ONCE and every horizon is folded
+  out of them in memory.
+
+  This exists because `PairingRationale.player_trails/2` needs the standings
+  as they stood before each round of the tournament, and asked for them one
+  call at a time: a nine-round tournament ran eleven full computations, each
+  re-issuing the same two queries and the same tiebreak pass. Two queries
+  now, whatever the round count.
+
+  The horizons need not be contiguous and need not be sorted; duplicates
+  collapse.
+  """
+  def standings_by_round(tournament, through_rounds) do
+    players = Tournaments.list_players(tournament.id)
+    codes = effective_tiebreaks(tournament, players)
+    data = round_data(tournament, Enum.max(through_rounds, fn -> nil end))
+
+    through_rounds
+    |> Enum.uniq()
+    |> Map.new(fn n ->
+      {n, build_standings(tournament, codes, [through_round: n], players, data)}
+    end)
+  end
+
   @doc "Number of rounds that have at least one pairing."
   def rounds_paired(tournament_id) do
     Repo.aggregate(from(r in Round, where: r.tournament_id == ^tournament_id), :count)
@@ -244,14 +288,33 @@ defmodule PairingsEngine.Standings do
   `:points`/`:player` entry shape), `standings/2` otherwise.
   """
   def player_scores_before_round(tournament, round_number) do
-    entries =
-      if tournament.pairing_system == "keizer" do
-        PairingsEngine.Keizer.standings(tournament, through_round: round_number - 1)
-      else
-        standings(tournament, through_round: round_number - 1)
-      end
+    if tournament.pairing_system == "keizer" do
+      tournament
+      |> PairingsEngine.Keizer.standings(through_round: round_number - 1)
+      |> Map.new(&{&1.player.id, &1.points})
+    else
+      points_by_player(tournament, through_round: round_number - 1)
+    end
+  end
 
-    Map.new(entries, &{&1.player.id, &1.points})
+  @doc """
+  `%{player_id => points}` and nothing else - no tiebreaks, no adjusted
+  scores, no ranking sort.
+
+  `player_scores_before_round/2` used to get this by running the full
+  `standings/2` and then throwing all of it away but the points. That is the
+  hot path on the Pairings page (`refresh/2` runs it on mount, on every round
+  switch, after every arbiter action and on every `:tournament_changed`
+  broadcast), the print controller and the live round view, none of which
+  ever look at a rank or a tiebreak.
+  """
+  def points_by_player(tournament, opts \\ []) do
+    players = Tournaments.list_players(tournament.id)
+    {games_by_player, _completed_rounds} = games_by_player(tournament, players, opts)
+
+    Map.new(players, fn player ->
+      {player.id, games_by_player |> Map.get(player.id, []) |> total_points()}
+    end)
   end
 
   ## ---------- manual standings override (SWAR parity #23) ----------
@@ -327,27 +390,22 @@ defmodule PairingsEngine.Standings do
   # this is how round-scoped ("as of round n") standings are computed.
   defp games_by_player(tournament, players, opts) do
     through_round = Keyword.get(opts, :through_round)
+    games_by_player(tournament, players, opts, round_data(tournament, through_round))
+  end
+
+  # As above, for a caller that has already read the rounds and byes and is
+  # asking about several horizons over the same data - see
+  # `standings_by_round/2`. Everything below this point is in memory.
+  defp games_by_player(tournament, players, opts, {rounds, byes}) do
+    through_round = Keyword.get(opts, :through_round)
     # `presence: false` scores result points ONLY, with no SWAR 3-2-1
     # presence point. Used by the import's reconciliation check, which
     # compares against a field SWAR stores WITHOUT presence in it -- see
     # `SwarImport.points_adjusted_warnings/3`.
     presence? = Keyword.get(opts, :presence, true)
 
-    rounds_query =
-      from r in Round,
-        where: r.tournament_id == ^tournament.id,
-        order_by: r.number,
-        preload: [pairings: []]
-
-    rounds_query =
-      case through_round do
-        nil -> rounds_query
-        n -> from r in rounds_query, where: r.number <= ^n
-      end
-
-    rounds = Repo.all(rounds_query)
-
-    byes = byes_by_player_round(tournament.id, through_round)
+    rounds = through(rounds, & &1.number, through_round)
+    byes = through(byes, & &1.round, through_round)
     player_ids = MapSet.new(players, & &1.id)
 
     games =
@@ -361,6 +419,29 @@ defmodule PairingsEngine.Standings do
 
     {add_bye_records(games, byes, tournament), completed_rounds(rounds, byes)}
   end
+
+  # The two queries every standings computation starts from. Split out so a
+  # caller asking for several horizons pays for them once; `through_round` is
+  # still pushed into the query for the ordinary single-horizon call, where
+  # narrowing in SQL beats reading rounds only to discard them.
+  defp round_data(tournament, through_round) do
+    rounds_query =
+      from r in Round,
+        where: r.tournament_id == ^tournament.id,
+        order_by: r.number,
+        preload: [pairings: []]
+
+    rounds_query =
+      case through_round do
+        nil -> rounds_query
+        n -> from r in rounds_query, where: r.number <= ^n
+      end
+
+    {Repo.all(rounds_query), byes_by_player_round(tournament.id, through_round)}
+  end
+
+  defp through(list, _round_of, nil), do: list
+  defp through(list, round_of, n), do: Enum.filter(list, &(round_of.(&1) <= n))
 
   # The highest round whose results are ALL in. Article 16.3 asks how many
   # trailing rounds an opponent missed, and Article 9.2 asks what the maximum
@@ -846,7 +927,7 @@ defmodule PairingsEngine.Standings do
     |> Enum.map(fn g ->
       case opponent(g, by_id) do
         nil -> dummy_score(entry, g, t) * g.points
-        opp -> adjusted_score(opp, t) * g.points
+        opp -> opp.adjusted_score * g.points
       end
     end)
     |> Enum.sum()
@@ -972,7 +1053,7 @@ defmodule PairingsEngine.Standings do
     Enum.map(entry.games, fn g ->
       case opponent(g, by_id) do
         nil -> {dummy_score(entry, g, t), g.voluntary}
-        opp -> {adjusted_score(opp, t), false}
+        opp -> {opp.adjusted_score, false}
       end
     end)
   end

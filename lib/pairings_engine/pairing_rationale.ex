@@ -195,10 +195,22 @@ defmodule PairingsEngine.PairingRationale do
   def player_trails(_tournament, through_round) when through_round < 2, do: %{}
 
   def player_trails(tournament, through_round) do
-    scores_by_round =
-      Map.new(0..through_round, fn r -> {r, pre_round_scores(tournament, r)} end)
+    # One extraction for every horizon this page needs, and the horizon it
+    # already has is reused rather than asked for twice.
+    #
+    # This used to make `through_round + 1` separate calls to
+    # `Standings.standings/2` for `scores_by_round`, and then ANOTHER call
+    # with the identical arguments for `entries` - eleven full computations
+    # for a nine-round tournament, each re-issuing the same rounds and byes
+    # queries and re-running the whole tiebreak pass.
+    standings_by_round = round_standings(tournament, 0..through_round)
+    entries = Map.fetch!(standings_by_round, through_round)
 
-    entries = Standings.standings(tournament, through_round: through_round)
+    scores_by_round =
+      Map.new(standings_by_round, fn {r, round_entries} ->
+        {r, score_map(tournament, round_entries)}
+      end)
+
     by_id = Map.new(entries, fn e -> {e.player.id, e} end)
     current_sides = current_round_sides(tournament, through_round)
 
@@ -624,11 +636,19 @@ defmodule PairingsEngine.PairingRationale do
 
   ## ---------- pre-round scores ----------
 
-  defp pre_round_scores(%{pairing_system: "keizer"} = tournament, through) do
-    tournament
-    |> Keizer.standings(through_round: through)
-    |> Map.new(fn e -> {e.player.id, %{score: e.points, standings_rank: e.rank}} end)
+  defp pre_round_scores(tournament, through),
+    do: score_map(tournament, round_standings(tournament, [through])[through])
+
+  # Standings at each horizon. Keizer keeps its own per-horizon calls: its
+  # ladder is a running recurrence over the rounds before it, so there is no
+  # single extraction several horizons can be folded out of the way
+  # `Standings.standings_by_round/2` does for the ordinary systems.
+  defp round_standings(%{pairing_system: "keizer"} = tournament, throughs) do
+    Map.new(throughs, fn n -> {n, Keizer.standings(tournament, through_round: n)} end)
   end
+
+  defp round_standings(tournament, throughs),
+    do: Standings.standings_by_round(tournament, Enum.to_list(throughs))
 
   # `Standings.rank_score/2`, not `e.total` - the score brackets explained
   # here have to be the ones the tournament actually ranks (and pairs) on, so
@@ -636,10 +656,18 @@ defmodule PairingsEngine.PairingRationale do
   # `e.total` unconditionally made every bracket disagree with the standings
   # table by a player's extra points whenever that flag was off, which is the
   # default and what every SWAR import starts as.
-  defp pre_round_scores(tournament, through) do
-    tournament
-    |> Standings.standings(through_round: through)
-    |> Map.new(fn e ->
+  #
+  # Keizer keeps `e.points` rather than sharing that call: a Keizer entry has
+  # no `:total` key at all (see `Keizer.standings/2`'s documented shape), so
+  # `rank_score/2` would raise on one the moment `count_extra_points` were
+  # set. It is presumably never set on a Keizer tournament - but "presumably"
+  # is not a reason to route a KeyError through the pairing-explanation page.
+  defp score_map(%{pairing_system: "keizer"}, entries) do
+    Map.new(entries, fn e -> {e.player.id, %{score: e.points, standings_rank: e.rank}} end)
+  end
+
+  defp score_map(tournament, entries) do
+    Map.new(entries, fn e ->
       {e.player.id, %{score: Standings.rank_score(e, tournament), standings_rank: e.rank}}
     end)
   end

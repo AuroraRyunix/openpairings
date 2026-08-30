@@ -408,6 +408,26 @@ Each entry is tagged so a version can be skimmed:
   tab beside it does that. And the settings tabs no longer offer Changelog,
   which is not tournament-specific and is already in the top bar.
 
+- [Change] **The pairing-explanation page stopped recomputing the standings
+  once per round.** It needs each round's incoming scores, and asked for them
+  one round at a time &mdash; a nine-round tournament ran eleven full
+  standings computations, then a twelfth with arguments identical to one it
+  had just made. It reads the rounds once and folds each round's prefix in
+  memory now.
+
+- [Change] **The pairing sheet asks only for what it prints.** Each player's
+  incoming score came from the full standings &mdash; every tie-break, the
+  ranking sort, all of it &mdash; and then everything but the points was
+  thrown away. That runs on mount, on every round switch and after every
+  result entered. There is a points-only path now.
+
+- [Change] **Tie-break scoring stopped redoing one calculation thousands of
+  times.** The adjusted score FIDE Article 16.3 uses is a property of a
+  player, but was recomputed at every game-encounter, separately inside each
+  of Buchholz, its two cut variants, Median Buchholz and Sonneborn-Berger. A
+  300-player 11-round grid did it around 9,900 times for 300 distinct
+  answers. Computed once per player now, and carried.
+
 - [Change] **"Pair the whole tournament" stopped rewriting the same setting
   once per round.** A round robin works out its own round count from the
   size of the field, and the button that pairs every round at once was
