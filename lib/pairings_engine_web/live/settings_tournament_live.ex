@@ -350,8 +350,12 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
     end)
   end
 
+  # `selectable/0`, not `catalogue/0`: the catalogue still carries the three
+  # team-only breaks so a stored tournament's code resolves to a name, but
+  # nothing here can calculate them, so offering them was offering a column
+  # of noughts that decides nothing. See PairingsEngine.Tiebreaks.
   defp available_tiebreaks(selected) do
-    Enum.reject(Tiebreaks.catalogue(), &(&1.code in selected))
+    Enum.reject(Tiebreaks.selectable(), &(&1.code in selected))
   end
 
   defp tb_name(code), do: (Tiebreaks.get(code) || %{name: code}).name

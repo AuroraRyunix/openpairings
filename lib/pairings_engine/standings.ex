@@ -15,6 +15,7 @@ defmodule PairingsEngine.Standings do
   import Ecto.Query
   alias PairingsEngine.Repo
   alias PairingsEngine.Results
+  alias PairingsEngine.Tiebreaks
   alias PairingsEngine.Tournaments
   alias PairingsEngine.Tournaments.{Pairing, Round}
 
@@ -94,18 +95,47 @@ defmodule PairingsEngine.Standings do
   end
 
   @doc """
-  The configured tiebreaks that C.07 Article 10 forbids using here, so a page
-  can say which and why rather than silently showing one fewer column.
+  The configured tiebreaks that are not being used here, so a page can say
+  which and why rather than silently showing one fewer column.
   """
   def dropped_tiebreaks(tournament),
     do: dropped_tiebreaks(tournament, Tournaments.list_players(tournament.id))
 
-  def dropped_tiebreaks(tournament, players) do
-    if unrated_present?(players) do
-      Enum.filter(tournament.tiebreaks || [], &(&1 in @rating_tiebreaks))
-    else
-      []
-    end
+  def dropped_tiebreaks(tournament, players),
+    do: Enum.map(dropped_tiebreaks_with_reasons(tournament, players), &elem(&1, 0))
+
+  @doc """
+  The same list as `dropped_tiebreaks/2`, paired with why each one went:
+
+    * `:not_calculable` - nothing here can compute it. The three team-only
+      breaks (MP, GP, BB) are in the catalogue and in FIDE's own team-event
+      default set, but team standings are not built, so `tiebreak/4`'s
+      catch-all answered 0.0 for every player. A permanent tie at zero is
+      not a tiebreak, and silence about it is worse than the missing column.
+    * `:unrated_present` - C.07 Article 10 forbids a rating-based break when
+      an unrated player is in the field. See `effective_tiebreaks/2`.
+
+  A code can qualify under both; it is reported once, under the reason a
+  reader can act on - `:not_calculable` is about this software, and picking
+  a different break is the only remedy.
+  """
+  def dropped_tiebreaks_with_reasons(tournament),
+    do: dropped_tiebreaks_with_reasons(tournament, Tournaments.list_players(tournament.id))
+
+  def dropped_tiebreaks_with_reasons(tournament, players) do
+    configured = tournament.tiebreaks || []
+
+    not_calculable = Enum.reject(configured, &Tiebreaks.available?/1)
+
+    unrated =
+      if unrated_present?(players) do
+        configured -- (configured -- @rating_tiebreaks)
+      else
+        []
+      end
+
+    Enum.map(not_calculable, &{&1, :not_calculable}) ++
+      Enum.map(unrated -- not_calculable, &{&1, :unrated_present})
   end
 
   @doc """
@@ -877,7 +907,19 @@ defmodule PairingsEngine.Standings do
     end
   end
 
-  # Article 9.2: points against opponents with >= 50% of the maximum score.
+  # Article 9.2: "the number of points achieved against all participants who
+  # have scored at least 50% of the maximum possible tournament score."
+  #
+  # It reads `opp.points` directly where BH/BHC1/BHC2/MBH/SB all route
+  # through `adjusted_score/2` first, and that difference is CORRECT, not an
+  # oversight. Article 16 opens by naming its own scope: "the tie-breaks
+  # Buchholz (see Article 8.1), Sonneborn-Berger (see Articles 9.1 and 13.2)
+  # and their variants (Fore Buchholz, see Article 8.3; and "Cut" Modifiers,
+  # see Articles 14.1 to 14.4), which are directly or indirectly based on
+  # opponents' results, are affected by the presence of unplayed rounds".
+  # Koya is Article 9.2 and appears in no part of that list, so the unplayed-
+  # rounds adjustment does not reach it. Checked against C.07 directly on
+  # 2026-08-30, after a sweep filed the inconsistency as a suspected bug.
   defp tiebreak("KS", entry, by_id, t) do
     max_score = entry.completed_rounds * t.points_win
 
@@ -895,6 +937,10 @@ defmodule PairingsEngine.Standings do
   defp tiebreak("ARO", entry, by_id, _t), do: aro(entry, by_id, 0)
   defp tiebreak("AROC1", entry, by_id, _t), do: aro(entry, by_id, 1)
 
+  # Reached only for a code nothing here implements. Those are dropped before
+  # ranking (see `dropped_tiebreaks_with_reasons/2`) and reported on the page,
+  # so this is the belt to that braces: a stored tournament asking for a code
+  # this version does not know must not crash a standings render.
   defp tiebreak(_unknown, _entry, _by_id, _t), do: 0.0
 
   defp aro(entry, by_id, cut_lowest) do

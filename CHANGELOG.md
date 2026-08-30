@@ -408,6 +408,24 @@ Each entry is tagged so a version can be skimmed:
   tab beside it does that. And the settings tabs no longer offer Changelog,
   which is not tournament-specific and is already in the top bar.
 
+- [Fix] **The tie-break list stopped offering three that score zero.** Match
+  points, Game points and Berlin board points need team standings, which are
+  not built. Adding one to a tournament produced a column of noughts that
+  separated nobody, permanently, with nothing on screen to say why. They are
+  out of the picker now, and a tournament that already stores one &mdash;
+  FIDE's own default set for a team event names all three &mdash; drops it
+  from the ranking and says on the Standings page which and why. The FIDE
+  defaults themselves are left as FIDE wrote them; hiding our own gap by
+  editing their list would misreport the regulation.
+
+- [Verified] **Koya is right as it stands.** A code review flagged that the
+  Koya tie-break reads an opponent's raw score where Buchholz and
+  Sonneborn-Berger first apply the unplayed-rounds adjustment. Checked
+  against C.07: Article 16 names its own scope in its opening sentence
+  &mdash; Buchholz, Sonneborn-Berger and their variants &mdash; and Koya
+  (Article 9.2) is not among them. No change; the citation is now in the
+  code so the next reader does not re-open it.
+
 - [Fix] **A draw stopped being called a win.** Under a 3-2-1 club scheme
   (win 2, draw 1, plus a point for turning up) a draw is worth exactly what
   a win is worth. Four screens &mdash; the player card, the printed

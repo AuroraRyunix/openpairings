@@ -186,7 +186,7 @@ defmodule PairingsEngineWeb.StandingsLive do
     socket =
       assign(socket,
         effective_tiebreaks: Standings.effective_tiebreaks(tournament),
-        dropped_tiebreaks: Standings.dropped_tiebreaks(tournament)
+        dropped_tiebreaks: Standings.dropped_tiebreaks_with_reasons(tournament)
       )
 
     entries =
@@ -291,6 +291,31 @@ defmodule PairingsEngineWeb.StandingsLive do
   defp visible_tiebreak_codes(tiebreaks, visible),
     do: Enum.filter(tiebreaks, &show_tiebreak?(visible, &1))
 
+  # Groups `[{code, reason}]` into `[{reason, [code, ...]}]`, keeping the
+  # reasons in a fixed order so the paragraphs do not reshuffle between
+  # renders.
+  @drop_reason_order [:not_calculable, :unrated_present]
+
+  defp dropped_by_reason(dropped) do
+    grouped = Enum.group_by(dropped, &elem(&1, 1), &elem(&1, 0))
+
+    for reason <- @drop_reason_order, codes = grouped[reason], codes not in [nil, []] do
+      {reason, codes}
+    end
+  end
+
+  defp dropped_reason_text(:not_calculable) do
+    gettext(
+      "OpenPairings cannot calculate this yet: it needs team standings, which are not built. It would score zero for every player and separate nobody, so it is left out of the ranking rather than shown as a column of noughts. Pick a different tie-break here."
+    )
+  end
+
+  defp dropped_reason_text(:unrated_present) do
+    gettext(
+      "This tournament has at least one unrated player, and C.07 Article 10 drops rating-based tie-breaks when that is the case - an unrated opponent has no rating to average, and FIDE gives no number to use instead. It can be used if your tournament regulations, or the Chief Arbiter before the first round, published a rule for handling unrated players; set that out and pick a different tie-break here."
+    )
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -388,18 +413,24 @@ defmodule PairingsEngineWeb.StandingsLive do
         <p><strong>{gettext("No players registered yet.")}</strong></p>
       </div>
 
-      <p :if={@dropped_tiebreaks != []} class="hint" style="margin-bottom: 10px">
+      <%!-- One paragraph per REASON, not per code: two tie-breaks dropped for
+            the same reason read as one sentence, and two dropped for
+            different reasons must not be explained by whichever reason
+            happened to be written into the markup. --%>
+      <p
+        :for={{reason, codes} <- dropped_by_reason(@dropped_tiebreaks)}
+        class="hint"
+        style="margin-bottom: 10px"
+      >
         <strong>
           {ngettext(
             "%{codes} is not being used.",
             "%{codes} are not being used.",
-            length(@dropped_tiebreaks),
-            codes: Enum.join(@dropped_tiebreaks, ", ")
+            length(codes),
+            codes: Enum.join(codes, ", ")
           )}
         </strong>
-        {gettext(
-          "This tournament has at least one unrated player, and C.07 Article 10 drops rating-based tie-breaks when that is the case - an unrated opponent has no rating to average, and FIDE gives no number to use instead. It can be used if your tournament regulations, or the Chief Arbiter before the first round, published a rule for handling unrated players; set that out and pick a different tie-break here."
-        )}
+        {dropped_reason_text(reason)}
       </p>
 
       <div

@@ -399,7 +399,18 @@ a 3-2-1 file unless called with `allow_swiss321: true`
 never pass. Real latent risk if that gate is ever lifted for arbiters, zero
 current cost.
 
-### 18. Koya (KS) still doesn't apply the Article 16 score adjustment
+### 18. ~~Koya (KS) still doesn't apply the Article 16 score adjustment~~ NOT A DEFECT, settled 2026-08-30
+
+> The reading this item asked for was done. **Article 16 names its own
+> scope in its opening sentence:** "the tie-breaks Buchholz (see Article
+> 8.1), Sonneborn-Berger (see Articles 9.1 and 13.2) and their variants
+> (Fore Buchholz, see Article 8.3; and "Cut" Modifiers, see Articles 14.1 to
+> 14.4), which are directly or indirectly based on opponents' results, are
+> affected by the presence of unplayed rounds." Koya is Article 9.2 and is
+> in no part of that list, so the adjustment does not reach it and reading
+> `opp.points` directly is correct. The quotation is now in the code above
+> the `KS` clause. No change made; the secondary claim about the threshold
+> was already fixed in `99e1448`.
 
 `lib/pairings_engine/standings.ex:783-794` — **[Drift #20]**
 
@@ -454,7 +465,19 @@ import/export path accept are still absent from `normalize_result/1`
 entirely - a bulk CSV import still can't express a result the same round
 can express by click.
 
-### 21. Tiebreak picker still offers three codes that silently score zero
+### 21. ~~Tiebreak picker still offers three codes that silently score zero~~ FIXED 2026-08-30
+
+> All three parts. `available_tiebreaks/1` reads `Tiebreaks.selectable/0`,
+> which excludes MP/GP/BB; `Standings.dropped_tiebreaks_with_reasons/2`
+> drops a stored one and the Standings page prints why, through the same
+> path C.07 Art. 10 already used for rating-based breaks; and the unread,
+> internally-inconsistent `teams:` boolean is now `scope:`
+> (`:individual | :team | :both`) plus `available:`, both read. DE and WIN
+> are `:both` rather than the old `teams: true`, BH and SB likewise (Art.
+> 13.2 defines them for teams). A new `tiebreaks_test.exs` walks every
+> selectable code through real standings and fails if one is offered but
+> dropped - and it caught the FIDE team-event defaults naming all three,
+> which are deliberately left alone.
 
 `lib/pairings_engine_web/live/settings_tournament_live.ex:353-355`;
 `lib/pairings_engine/standings.ex:800` — **[Drift #27]**

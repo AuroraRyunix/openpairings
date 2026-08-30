@@ -190,22 +190,51 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
       conn: conn,
       scope: scope
     } do
+      # KS, not MP: the code needs to be one with no grid column AND one this
+      # installation can actually calculate. MP used to serve here, which is
+      # how a column of permanent noughts came to be asserted as correct.
       {:ok, tournament} =
         Tournaments.create_tournament(scope, %{
-          "name" => "Team RR",
-          "type" => "team-roundrobin",
-          "tiebreaks" => ["MP"]
+          "name" => "Koya RR",
+          "type" => "roundrobin",
+          "tiebreaks" => ["KS"]
         })
 
       {:ok, _p} = Tournaments.create_player(tournament.id, %{"name" => "Alice"})
 
       {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
-      assert html =~ ~r/>\s*MP\s*</
+      assert html =~ ~r/>\s*KS\s*</
 
       # Even with an explicit, empty preference list (everything toggleable
-      # hidden), MP has no grid column to defer to, so it stays.
+      # hidden), KS has no grid column to defer to, so it stays.
       html = render_hook(lv, "columns_loaded", %{"columns" => []})
-      assert html =~ ~r/>\s*MP\s*</
+      assert html =~ ~r/>\s*KS\s*</
+    end
+
+    test "a tie-break nothing here can calculate is dropped and explained", %{
+      conn: conn,
+      scope: scope
+    } do
+      # The FIDE team-event default set names MP, GP and BB. Team standings
+      # are not built, so `tiebreak/4`'s catch-all answered 0.0 for every
+      # player and the page showed three columns of noughts that separated
+      # nobody and said nothing about why.
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "Team RR",
+          "type" => "team-roundrobin",
+          "tiebreaks" => ["MP", "BH"]
+        })
+
+      {:ok, _p} = Tournaments.create_player(tournament.id, %{"name" => "Alice"})
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/standings")
+
+      refute html =~ ~r/>\s*MP\s*</
+      assert html =~ "MP is not being used."
+      assert html =~ "needs team standings"
+      # The calculable one beside it is untouched.
+      assert html =~ ~r/>\s*BH\s*</
     end
 
     test "the Sex column follows the same 'sex' preference as the Players page, showing FIDE's M/F letters",
