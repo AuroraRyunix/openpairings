@@ -72,10 +72,11 @@ than filed - this document had the `absent_counts_as_vur` setting inverted,
 not merely defaulted wrong - and two more of the same class turned up while
 fixing them.
 
-That makes the version-consistency check the sweep asked for the one item
-from all of this still worth building: `docs/features.md`'s version header
-drifted, was fixed, and had drifted again inside the three days the followup
-covers.
+The version-consistency check the sweep asked for is **built** (2026-08-30):
+`mix pairings.version_check`, wired into `mix precommit` ahead of the tests.
+It reads `mix.exs` and refuses when this file's header, `docs/features.md`'s
+or the changelog's top section names a different version - the drift that
+happened three times, the last inside the three days the followup covers.
 
 ### Doc hygiene - done 2026-08-29
 

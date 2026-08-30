@@ -179,7 +179,15 @@ defmodule PairingsEngine.MixProject do
         "esbuild pairings_engine --minify",
         "phx.digest"
       ],
-      precommit: ["compile --warnings-as-errors", "deps.unlock --unused", "format", "test"]
+      precommit: [
+        "compile --warnings-as-errors",
+        "deps.unlock --unused",
+        "format",
+        # Before the tests, because it is instant and the failure is a typo
+        # somebody wants to hear about now rather than after a full suite.
+        "pairings.version_check",
+        "test"
+      ]
     ]
   end
 end

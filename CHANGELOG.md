@@ -408,6 +408,13 @@ Each entry is tagged so a version can be skimmed:
   tab beside it does that. And the settings tabs no longer offer Changelog,
   which is not tournament-specific and is already in the top bar.
 
+- [Change] **The version header can no longer drift.** It is written in four
+  places and only one of them is read by anything, so the other three went
+  stale repeatedly &mdash; twice in the three days a code review spent
+  documenting the first occurrence. `mix precommit` now refuses when the
+  roadmap, the feature list or the changelog names a version `mix.exs` does
+  not.
+
 - [Change] **Seven documentation claims that were not true any more.** The
   roadmap said standalone binaries had no CI smoke test (there are four),
   that a "paired by someone else" notice had shipped (it was removed), and
