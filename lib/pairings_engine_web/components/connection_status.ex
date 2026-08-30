@@ -234,15 +234,17 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
           {gettext("last drop %{ago}", ago: ago(@window.last_failure_at))}
         </span>
       <% else %>
+        <%!-- Same shape as the steady line, and no advice: the colour and
+              the number say it, and "check the network" is what somebody
+              does about it rather than something this can tell them.
+              The WINDOW stays in - two drops in ten minutes and two drops
+              in a day are different facts, and a bare counter is neither. --%>
         <strong>
-          {ngettext(
-            "1 drop in the last %{minutes} min",
-            "%{count} drops in the last %{minutes} min",
-            @window.failures,
-            minutes: @window.minutes
+          {gettext("Drops in %{minutes} min: %{count}",
+            minutes: @window.minutes,
+            count: @window.failures
           )}
         </strong>
-        {gettext("- check the network")}
       <% end %>
     </p>
     """

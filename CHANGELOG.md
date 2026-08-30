@@ -421,8 +421,7 @@ Each entry is tagged so a version can be skimmed:
   "Slowest in 10 min: 4 ms" &mdash; and only that, when there is nothing
   else to say. A drop earns a second clause, because a drop is worth
   knowing: "Slowest in 10 min: 4 ms &middot; last drop 2 h ago". If it is
-  dropping now it says so loudly instead: "2 drops in the last 10 min &mdash;
-  check the network".
+  dropping now it says so in the same shape: "Drops in 10 min: 2", in bold.
 
   Deliberately not an uptime percentage. This app cannot see the checks it
   failed to make while it was down, so any figure it computed would describe
