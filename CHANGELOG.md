@@ -408,6 +408,17 @@ Each entry is tagged so a version can be skimmed:
   tab beside it does that. And the settings tabs no longer offer Changelog,
   which is not tournament-specific and is already in the top bar.
 
+- [Change] **Pairing a round stops rebuilding what it already worked out.**
+  The per-category path had always computed the tournament's history once
+  and passed it around; the ordinary single-pool path had not, so it built
+  the same thing twice within one click. Pairing by category also asked for
+  the forbidden-pairing list twice per category, for a list that is the same
+  for all of them, and walked the whole roster's game history once per
+  category on top of that. Measured on a 16-player round: 43 database
+  queries before, 35 after; a four-category round, 96 before and 87, with
+  the per-category cost now flat. The engine call still dominates a pairing
+  click &mdash; this is housekeeping, not a speed-up you will feel.
+
 - [Change] **The pairing-explanation page stopped recomputing the standings
   once per round.** It needs each round's incoming scores, and asked for them
   one round at a time &mdash; a nine-round tournament ran eleven full

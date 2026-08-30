@@ -164,7 +164,29 @@ Low blast radius (one route, one ugly error page, no data exposure), which
 is why it ranks here rather than higher; still a one-line fix:
 `String.contains?(path, ["\\", "/%09", "/\t"])` added to the existing guard.
 
-### 6. Pairing a large or categorized tournament redoes work it already has
+### 6. ~~Pairing a large or categorized tournament redoes work it already has~~ FIXED 2026-08-30
+
+> All four parts. `do_pair_single/4` builds the run's shared history up
+> front and threads it through `order_for_pairing/3` and
+> `javafo_input/5` - `order_for_pairing/3`'s nil default is gone, since
+> that default WAS the bug. `build_shared_history/1` now also carries the
+> forbidden-pairing list (read twice per TRF build before, so ten times in
+> a five-category run) and, via `precompute_games/2`, each player's TRF
+> game list - the O(N x R) walk that ran once per category. `active_players/1`
+> is read once per run and threaded, with `eligible_from/2` split out of
+> `eligible_players/2` for the filtering half.
+>
+> Measured on identical probes against the previous commit: a 16-player
+> single-pool round 2 went 43 -> 35 queries, a 16-player four-category
+> round 1 went 96 -> 87, and the marginal cost per category is now flat at
+> 17 (its own engine call and board inserts). The sweep's own framing holds:
+> the engine call dominates, so this is housekeeping.
+>
+> The unused `preload: [:player_a, :player_b]` on
+> `Tournaments.list_forbidden_pairings/1` is deliberately LEFT: the Settings
+> page (`settings_options_live.ex:96`) reads the preloaded structs to print
+> player names, and it is now read once per pairing run rather than twice
+> per category, so the preload costs that run one extra join instead of ten.
 
 `lib/pairings_engine/pairing.ex` — see line list below — **[Optimizations #1
 and #2]**

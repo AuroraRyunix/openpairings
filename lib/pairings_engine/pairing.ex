@@ -108,8 +108,14 @@ defmodule PairingsEngine.Pairing do
   def pair_next_round(%Tournament{} = tournament) do
     paired = paired_rounds_count(tournament.id)
     next_number = paired + 1
+    # One read of the active roster for the whole run. This used to be
+    # queried three times per pairing click - here, again inside
+    # `eligible_players/2` on the next line, and a third time inside
+    # `do_pair/2` - for the same rows. `eligible_players/2` keeps its own
+    # arity for its other caller (Keizer) and its tests; the filtering half
+    # is `eligible_from/2`, which both share.
     active = active_players(tournament.id)
-    eligible = eligible_players(tournament.id, next_number)
+    eligible = eligible_from(active, next_number)
 
     result =
       cond do
@@ -125,7 +131,7 @@ defmodule PairingsEngine.Pairing do
         true ->
           tournament
           |> ensure_pairing_numbers(active)
-          |> do_pair(next_number)
+          |> do_pair(next_number, active)
       end
 
     case result do
@@ -315,7 +321,7 @@ defmodule PairingsEngine.Pairing do
   # rather than independently re-evaluating `absent_for_round?/2` for
   # `next_number + 1` - a deliberate scope limitation, see
   # `create_mirrored_leg/4`.
-  defp do_pair(tournament, next_number) do
+  defp do_pair(tournament, next_number, active) do
     # A late entrant is dropped here, before the absent/present split, and
     # so lands in NEITHER list: not sent to the engine, and not given an
     # absentee bye row either. They are not absent - they have not joined
@@ -329,10 +335,7 @@ defmodule PairingsEngine.Pairing do
     # filter applied, so a Swiss tournament restored from a backup with a
     # player at `start_round: 3` paired them in rounds 1 and 2. Keizer read
     # `start_round` correctly all along; only this path did not.
-    active =
-      tournament.id
-      |> active_players()
-      |> Enum.reject(&not_yet_started?(&1, next_number))
+    active = Enum.reject(active, &not_yet_started?(&1, next_number))
 
     {players, round_specific} =
       Enum.split_with(active, &(not absent_for_round?(&1, next_number)))
@@ -406,7 +409,19 @@ defmodule PairingsEngine.Pairing do
   # via the inverse map in `create_round/5`. Board numbering (JaVaFo's output
   # *order*, not its rank values) is completely unaffected by this.
   defp do_pair_single(tournament, players, next_number, round_absentees) do
-    full_roster = full_roster_players(tournament.id) |> order_for_pairing(tournament)
+    # The same tournament-wide history the per-category path has always
+    # built, which this path had not. Without it, `order_for_pairing/3` and
+    # then `trf_player_rows/3` each fell through to their own
+    # `build_shared_history/1` - three queries and a full roster walk, twice
+    # over, for one answer. `shared_history.full_roster` is the same set
+    # `full_roster_players/1` was re-querying.
+    shared_history = pairing_history(tournament)
+
+    full_roster =
+      shared_history.full_roster
+      |> Map.values()
+      |> order_for_pairing(tournament, shared_history)
+
     eligible_ids = MapSet.new(players, & &1.id)
 
     local_rank_by_player_id =
@@ -417,7 +432,9 @@ defmodule PairingsEngine.Pairing do
     player_by_local_rank =
       Map.new(local_rank_by_player_id, fn {id, rank} -> {rank, Map.fetch!(by_id, id)} end)
 
-    trf = javafo_input(tournament, full_roster, local_rank_by_player_id, eligible_ids)
+    trf =
+      javafo_input(tournament, full_roster, local_rank_by_player_id, eligible_ids, shared_history)
+
     emit_trf_built(tournament.id, next_number, nil, trf)
 
     case run_engine(tournament, trf, next_number, nil) do
@@ -467,7 +484,7 @@ defmodule PairingsEngine.Pairing do
     # the same three queries (see `games_per_player/2`'s doc). Safe to
     # compute now: no DB round row exists yet at this point (see this
     # function's own moduledoc above for why that ordering matters).
-    shared_history = build_shared_history(tournament.id)
+    shared_history = pairing_history(tournament)
 
     # The local contiguous rank map (and the row set that goes with it) now
     # spans the FULL frozen roster, exactly as in `do_pair_single/4` - every
@@ -737,7 +754,8 @@ defmodule PairingsEngine.Pairing do
       trf_rows,
       full_roster,
       local_rank_by_player_id,
-      paired_rounds_count(tournament.id) + 1
+      paired_rounds_count(tournament.id) + 1,
+      shared_history.forbidden_pairings
     )
   end
 
@@ -754,7 +772,7 @@ defmodule PairingsEngine.Pairing do
   # They are all fields of the tournament map now, so `Ainalrami.Trf` emits
   # them itself, from the same data and under the same validation as every
   # other column.
-  defp engine_trf(tournament, trf_rows, roster, rank_by_player_id, current_round) do
+  defp engine_trf(tournament, trf_rows, roster, rank_by_player_id, current_round, forbidden) do
     accelerations = accelerations(tournament, roster, current_round)
 
     Trf.serialize(
@@ -772,9 +790,13 @@ defmodule PairingsEngine.Pairing do
           number_of_rounds: tournament.rounds_count,
           # One group per forbidden pairing, plus the club/federation
           # exclusion rules, deduplicated against them.
+          # Both halves read the SAME forbidden-pairing list, handed in by
+          # the caller. They each queried it independently before, so one
+          # TRF build cost two identical reads and a five-category run cost
+          # ten.
           forbidden_pairs:
-            forbidden_pairs(tournament.id, roster, rank_by_player_id) ++
-              exclusion_pairs(tournament, roster, rank_by_player_id)
+            forbidden_pairs(tournament.id, roster, rank_by_player_id, forbidden) ++
+              exclusion_pairs(tournament, roster, rank_by_player_id, forbidden)
         },
         players: attach_accelerations(trf_rows, accelerations)
       },
@@ -1527,9 +1549,15 @@ defmodule PairingsEngine.Pairing do
   tests and `PairingsEngine.TrfExport`-adjacent callers) skips this step
   entirely, so behaviour is byte-identical when omitted.
   """
-  def javafo_input(tournament, players \\ nil, rank_by_player_id \\ nil, eligible_ids \\ nil) do
+  def javafo_input(
+        tournament,
+        players \\ nil,
+        rank_by_player_id \\ nil,
+        eligible_ids \\ nil,
+        shared_history \\ nil
+      ) do
     players = players || active_players(tournament.id)
-    trf_players = trf_player_rows(tournament, players)
+    trf_players = trf_player_rows(tournament, players, shared_history)
 
     trf_players =
       if eligible_ids do
@@ -1571,7 +1599,11 @@ defmodule PairingsEngine.Pairing do
       trf_players,
       players,
       rank_by_player_id,
-      paired_rounds_count(tournament.id) + 1
+      paired_rounds_count(tournament.id) + 1,
+      # nil for a caller with no run history in hand (TRF export, tests):
+      # `forbidden_pairs/4` and `exclusion_pairs/4` fall back to reading it
+      # themselves, exactly as they always did.
+      shared_history && shared_history.forbidden_pairings
     )
   end
 
@@ -1595,11 +1627,11 @@ defmodule PairingsEngine.Pairing do
   resolve to a local rank) is dropped by the same nil-rejection below, with
   zero extra logic: they could never be paired against each other anyway.
   """
-  def forbidden_pairs(tournament_id, players, rank_by_player_id \\ nil) do
+  def forbidden_pairs(tournament_id, players, rank_by_player_id \\ nil, forbidden \\ nil) do
     rank_by_player_id = rank_by_player_id || Map.new(players, &{&1.id, &1.pairing_number})
 
-    tournament_id
-    |> Tournaments.list_forbidden_pairings()
+    forbidden
+    |> forbidden_pairings(tournament_id)
     |> Enum.map(fn fp ->
       {rank_by_player_id[fp.player_a_id], rank_by_player_id[fp.player_b_id]}
     end)
@@ -1617,12 +1649,12 @@ defmodule PairingsEngine.Pairing do
   skipped - JaVaFo doesn't need to hear the same rule twice - as is any pair
   where a player isn't in `players` or hasn't been assigned a rank yet.
   """
-  def exclusion_pairs(tournament, players, rank_by_player_id \\ nil) do
+  def exclusion_pairs(tournament, players, rank_by_player_id \\ nil, forbidden \\ nil) do
     rank_by_player_id = rank_by_player_id || Map.new(players, &{&1.id, &1.pairing_number})
 
     explicit_rank_pairs =
-      tournament.id
-      |> Tournaments.list_forbidden_pairings()
+      forbidden
+      |> forbidden_pairings(tournament.id)
       |> Enum.map(fn fp ->
         {rank_by_player_id[fp.player_a_id], rank_by_player_id[fp.player_b_id]}
       end)
@@ -1638,6 +1670,14 @@ defmodule PairingsEngine.Pairing do
     |> Enum.reject(&MapSet.member?(explicit_rank_pairs, &1))
     |> Enum.map(fn {a, b} -> [a, b] end)
   end
+
+  # The run's already-read list, or a read of our own for a caller that has
+  # none - TRF export and the tests, which build one file and not one per
+  # category.
+  defp forbidden_pairings(nil, tournament_id),
+    do: Tournaments.list_forbidden_pairings(tournament_id)
+
+  defp forbidden_pairings(list, _tournament_id) when is_list(list), do: list
 
   defp normalize_rank_pair({a, b}) when a <= b, do: {a, b}
   defp normalize_rank_pair({a, b}), do: {b, a}
@@ -1941,7 +1981,10 @@ defmodule PairingsEngine.Pairing do
   # starting rank number, Art. 1.14) once score and rating are both
   # exhausted, so it's the fix here - not name, to keep this engine's own
   # rule independent of anyone's SWAR-export tie-break choice.
-  defp order_for_pairing(players, tournament, shared_history \\ nil) do
+  # No default: both pairing paths now build the run's shared history up
+  # front and pass it. The nil default was the single-pool path silently
+  # rebuilding it, which is what item 6 of the sweep was about.
+  defp order_for_pairing(players, tournament, shared_history) do
     by_id = Map.new(players, &{&1.id, &1})
     games = games_per_player(tournament, by_id, shared_history)
 
@@ -2056,9 +2099,16 @@ defmodule PairingsEngine.Pairing do
   yet (Keizer). Pure with respect to round-specific filtering - safe to
   unit-test without invoking JaVaFo.
   """
-  def eligible_players(tournament_id, round_number) do
-    tournament_id
-    |> active_players()
+  def eligible_players(tournament_id, round_number),
+    do: tournament_id |> active_players() |> eligible_from(round_number)
+
+  @doc """
+  The round-specific half of `eligible_players/2`, for a caller that already
+  holds the active roster - the pairing run reads it once and applies this
+  rather than re-querying.
+  """
+  def eligible_from(active, round_number) do
+    active
     |> Enum.reject(&absent_for_round?(&1, round_number))
     |> Enum.reject(&not_yet_started?(&1, round_number))
   end
@@ -2098,8 +2148,29 @@ defmodule PairingsEngine.Pairing do
   # `by_id` only scopes which players' rows get BUILT from it, not what the
   # queries themselves return).
   defp games_per_player(tournament, by_id, shared_history) do
-    %{rounds: rounds, bye_map: bye_map, full_roster: full_roster} =
-      shared_history || build_shared_history(tournament.id)
+    history = shared_history || build_shared_history(tournament.id)
+
+    case history do
+      # Already walked for this run (see `precompute_games/2`). Anything
+      # `by_id` asks for that is not in there - a caller passing a player
+      # outside the frozen roster - still gets computed, so this is a cache
+      # and not a narrowing.
+      %{games: games} ->
+        wanted = Map.keys(by_id)
+        cached = Map.take(games, wanted)
+
+        case Map.drop(by_id, Map.keys(cached)) do
+          empty when map_size(empty) == 0 -> cached
+          rest -> Map.merge(cached, walk_games(history, rest))
+        end
+
+      _not_precomputed ->
+        walk_games(history, by_id)
+    end
+  end
+
+  defp walk_games(history, by_id) do
+    %{rounds: rounds, bye_map: bye_map, full_roster: full_roster} = history
 
     for {player_id, _player} <- by_id, into: %{} do
       games =
@@ -2181,8 +2252,30 @@ defmodule PairingsEngine.Pairing do
     %{
       rounds: rounds,
       bye_map: Map.new(byes, &{{&1.player_id, &1.round}, &1.type}),
-      full_roster: full_roster
+      full_roster: full_roster,
+      # Identical for every category, and read TWICE per TRF build -
+      # `forbidden_pairs/3` and `exclusion_pairs/3` each queried it on their
+      # own, so a five-category run issued ten of these for one answer.
+      forbidden_pairings: Tournaments.list_forbidden_pairings(tournament_id)
     }
+  end
+
+  # Adds each full-roster player's TRF game list to a shared history.
+  #
+  # `games_per_player/3` walks every round looking for each player's pairing
+  # - O(players x rounds x boards) - and produces the same map every time it
+  # is asked, because the roster and the rounds are fixed for the whole run.
+  # It was being run once by `order_for_pairing/3` and then again by
+  # `trf_player_rows/3` ONCE PER CATEGORY. Threading the history removed the
+  # queries; this removes the walk.
+  defp precompute_games(tournament, history) do
+    Map.put(history, :games, games_per_player(tournament, history.full_roster, history))
+  end
+
+  # The shared history for one pairing run: three queries, one roster walk,
+  # one forbidden-pairing read, and every consumer downstream reads from it.
+  defp pairing_history(tournament) do
+    tournament.id |> build_shared_history() |> then(&precompute_games(tournament, &1))
   end
 
   defp trf_game(pairing, player_id, full_roster) do
