@@ -408,6 +408,18 @@ Each entry is tagged so a version can be skimmed:
   tab beside it does that. And the settings tabs no longer offer Changelog,
   which is not tournament-specific and is already in the top bar.
 
+- [Fix] **Importing a SWAR file with categories now says what it could not
+  read.** SWAR's category block carries two lists of values; a player's
+  category is read from the first, while both end up in the tournament's
+  category list. A file using the second one therefore imported categories
+  with nobody in them, silently. The import warns instead, naming both sets
+  and pointing at Settings.
+
+  What the second list means is genuinely not documented, and the candidates
+  imply different imports &mdash; so this warns rather than guesses. One real
+  club file with categories configured would settle it; `docs/swar-import.md`
+  now says exactly what to look for.
+
 - [Change] **A local install stops offering a server's controls.** Running
   the standalone binary signs its single owner in automatically, so the
   account Settings link, the "Share / Team" invitation card and the

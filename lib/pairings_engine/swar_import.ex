@@ -718,7 +718,11 @@ defmodule PairingsEngine.SwarImport do
     with {:ok, tournament} <- create_tournament(data, scope) do
       players_by_ni = create_players(tournament, data.players, data.categories)
       create_rounds(tournament, data.players, players_by_ni)
-      warnings = points_adjusted_warnings(tournament, data, players_by_ni)
+
+      warnings =
+        points_adjusted_warnings(tournament, data, players_by_ni) ++
+          category_warnings(data.categories)
+
       {:ok, tournament, warnings}
     end
   end
@@ -1444,6 +1448,52 @@ defmodule PairingsEngine.SwarImport do
   end
 
   def cadence_label(_tournoi_std, _cadence), do: nil
+
+  # SWAR's [CATEGORIES] block carries TWO value lists and this import can
+  # only interpret one of them.
+  #
+  # `map_categories/1` flattens `value1 ++ value2` into the tournament's
+  # category list, but `category_name/2` resolves a player's CatIndex against
+  # `value1` ALONE (manual §10.2: the index is a slot in that list). So when
+  # a file carries a non-empty `value2`, the tournament ends up with
+  # categories no player can be in, at list positions that do not correspond
+  # to any index.
+  #
+  # What `value2` actually means is not settled. The manual (§5.18) does not
+  # say, and all three `.swar` fixtures this repo has carry `type = 0`, which
+  # is the "no categories at all" case - so there is nothing here to read it
+  # off. The candidates are a second dimension (age alongside rating), the
+  # boundaries for the first list, or the same names in the other national
+  # language; each implies a different import, and guessing between them
+  # would silently produce a plausible wrong answer.
+  #
+  # Until one real club file settles it, the arbiter is told rather than left
+  # to find it. See docs/swar-import.md.
+  # Public (`@doc false`) for the same reason `cadence_label/2` above is: the
+  # only file that could exercise this through `import_file/2` is a real club
+  # export nobody has, and the parse is not what is under test - the decision
+  # about what to warn is.
+  @doc false
+  def category_warnings(%{type: 0}), do: []
+
+  def category_warnings(%{value2: v2} = categories) do
+    case Enum.reject(v2, &(&1 == "")) do
+      [] ->
+        []
+
+      extra ->
+        [
+          "This file's category block carries a second set of values " <>
+            "(#{Enum.join(extra, ", ")}) whose meaning SWAR does not document. " <>
+            "They have been added to the tournament's category list, but no player " <>
+            "is assigned to them - player categories are read from the first set " <>
+            "(#{Enum.join(Enum.reject(categories.value1, &(&1 == "")), ", ")}). " <>
+            "Check the categories on the Settings page before pairing by category."
+        ]
+    end
+  end
+
+  def category_warnings(_no_category_block), do: []
 
   # [CATEGORIES]: Categorie type 0 (NO_CATEGO, manual §5.18) means the
   # tournament defines no categories at all - value1/value2 are all blank

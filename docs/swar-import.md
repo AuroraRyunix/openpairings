@@ -403,6 +403,45 @@ and always have been (`swar_import.ex`'s `classify_unpaired/1`):
   the `abs_jusque`/`abs_nbfois` caps just described. Never affected by
   `ByeValue`.
 
+## Categories: two value lists, one of them unread
+
+`[CATEGORIES]` carries `Categorie type` plus **two** parallel lists,
+`value1` and `value2`, each padded to 13 or 17 blank strings depending on
+file version.
+
+Type 0 (`NO_CATEGO`, manual §5.18) means the tournament defines no
+categories and both lists are padding.
+
+For any other type, the import reads them unevenly, and deliberately:
+
+- the tournament's category list is `value1 ++ value2`, de-duplicated;
+- a **player's** category comes from `value1` alone, because §10.2 defines
+  `CatIndex` as a slot in that list (stored pre-multiplied by 100 for
+  indexes under 100).
+
+So a file with a non-empty `value2` imports categories that no player can be
+assigned to, sitting at list positions that correspond to no index.
+
+**What `value2` means is not established.** The manual does not say. The
+three `.swar` fixtures this repository has all carry `type = 0`, so there is
+nothing here to read it off. The candidates each imply a different import:
+
+| If `value2` is | then the right import is |
+| --- | --- |
+| a second dimension (age beside rating) | two category axes per player, which the schema does not have |
+| the boundaries of the first list | rating floors, not names - not categories at all |
+| the same names in the other national language | one list, picked by locale |
+
+Guessing between them produces a plausible wrong answer, which is the worst
+of the three outcomes. So the import does the readable half and **warns**:
+`SwarImport.category_warnings/1` names both sets, says the second one has
+nobody in it, and points at the Settings page.
+
+**What would settle it:** one real club file with categories configured -
+`type` non-zero and `value2` non-blank. Comparing its `value2` entries
+against the club's own printed category list answers the question in a
+minute. Until then this stays a warning rather than an interpretation.
+
 ## 3-2-1 scoring (`[TOURNOI].Type == SWISS_321`)
 
 SWAR's "3-2-1" tournament type (`Type == 3` in the on-disk `[TOURNOI]`

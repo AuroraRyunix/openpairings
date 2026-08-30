@@ -121,6 +121,13 @@ Still open, and each needs a decision rather than typing:
 - **SWAR `value1`/`value2`** and **`SW321_PreBye`** - both need one real club
   file with categories configured. All three `.swar` fixtures carry
   `type = 0`.
+
+  The `value1`/`value2` half is now **warned about rather than silently
+  mis-imported** (2026-08-30): a file carrying a second value list gets a
+  named warning saying those categories have nobody in them.
+  `docs/swar-import.md` tabulates the three candidate meanings and what a
+  real file would have to show to pick between them. The interpretation is
+  still blocked; the silence is not.
 - **The i18n fragment count** - unmeasurable by grep, because a HEEx text
   node spans lines. The instrument that would settle it is a pseudo-locale;
   not built, and nobody has asked.
