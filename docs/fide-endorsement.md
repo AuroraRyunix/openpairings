@@ -191,6 +191,18 @@ worth having on hand for its own sake, not because FE1 requires it.
 
 ### A - FIDE Mode Requirements (VCL.01-06)
 
+> **This section is about the CURRENT endorsement, not the 2026 cycle.**
+> Under VCL4THP v13 (draft, 2026-08-25) FIDE Mode stops being something
+> inherited and becomes a mode this app has to implement itself: Q40-46 want
+> warning Levels 1-5, a Level-4 double warning on leaving it, no re-entry
+> once left, and a `###` TRF comment recording the round it was left. Half
+> the other requirements report THROUGH it. That is a **hard failure** -
+> verification stops - and it is the first of the five listed in
+> [TODO.md](../TODO.md)'s Acceptance Cycle section.
+>
+> So "not applicable to audit" below is true of the endorsement this
+> document was written against, and will not survive the next one.
+
 Inherited from JaVaFo's own endorsement - not applicable to audit on
 OpenPairings' side, with one exception:
 
@@ -299,8 +311,17 @@ only pairings) - the highest-value section to actually verify:
   in the UI at all. **Satisfied.**
 - **VCL.15** (adjourned/postponed games, if supported, managed properly) -
   OpenPairings doesn't support adjournment as a distinct state at all (a
-  result is either entered or blank). **N/A** - nothing to verify since the
-  feature doesn't exist; only relevant if adjournment support is ever added.
+  result is either entered or blank). **N/A** under the current VCL, whose
+  requirement is conditional on supporting the feature - nothing to verify
+  since it does not exist.
+
+  **Not N/A under VCL4THP v13.** Q157-169 require adjournment outright: a
+  result state of its own, "counts as a draw for pairing purposes", a
+  Level-3 warning when a non-draw result is entered afterwards, and a block
+  on final standings while any remain. Absent, that is a **hard failure** -
+  the second of the five in [TODO.md](../TODO.md)'s Acceptance Cycle
+  section. "The feature doesn't exist" stops being the answer and becomes
+  the finding.
 - **VCL.16** (pairing-allocated bye value configurable) - `bye_value` is a
   per-tournament setting (`docs/pairing-systems.md` / extra-points config).
   **Satisfied.**

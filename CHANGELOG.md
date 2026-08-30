@@ -408,6 +408,18 @@ Each entry is tagged so a version can be skimmed:
   tab beside it does that. And the settings tabs no longer offer Changelog,
   which is not tournament-specific and is already in the top bar.
 
+- [Change] **Seven documentation claims that were not true any more.** The
+  roadmap said standalone binaries had no CI smoke test (there are four),
+  that a "paired by someone else" notice had shipped (it was removed), and
+  that the absence-handling setting was off by default while describing its
+  behaviour backwards. The backup document promised "every Tournament field"
+  when fifteen are held back. The endorsement checklist called FIDE Mode and
+  adjourned games "not applicable" without mentioning that both are hard
+  failures under the 2026 draft. A moduledoc argued at length that local mode
+  deliberately does not log you in, next to the code that logs you in. None
+  of it changed what the app does; all of it would have misled the next
+  person to read it.
+
 - [Feature] **Choose which tie-breaks the public page shows.** It was one
   switch for every column at once. Settings &rarr; Results now has a checkbox
   per tie-break the tournament ranks on, so you can publish Buchholz Cut-1

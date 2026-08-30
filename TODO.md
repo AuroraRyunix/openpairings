@@ -11,15 +11,19 @@ See [`docs/features.md`](docs/features.md) for what's already shipped.
 >
 > Its remaining 49 items - 27 drift, 7 optimizations, 15 additions - went
 > unexamined until **2026-08-29**, when all of them were assessed in
-> [docs/sweep-2026-08-26-followup.md](docs/sweep-2026-08-26-followup.md):
-> **37 are still real**, ranked by what they cost a user.
+> [docs/sweep-2026-08-26-followup.md](docs/sweep-2026-08-26-followup.md).
+> **All of them are now closed** (2026-08-30). One turned out not to be a
+> defect: Koya reads an opponent's raw score where Buchholz adjusts, and
+> C.07 Article 16 names its own scope in its opening sentence without Koya
+> in it. What remains from that document is its documentation-drift
+> section and the tiers this file had already parked.
 >
 > Three documents, three jobs: this file is the roadmap, the sweep is the
 > evidence, the followup is the triage.
 
 ## Everything that is open, in one place
 
-Last reconciled **2026-08-29**. This section is the index; the detail lives
+Last reconciled **2026-08-30**. This section is the index; the detail lives
 where it always did and is linked from each line. Anything not listed here
 is either done or deliberately dropped.
 
@@ -46,21 +50,32 @@ vendored), and **OpenResults** (the public site).
 The next tier is whatever ranks highest in the followup below. Nothing
 there is currently known to bite a user the way these four did.
 
-### Correctness and quality, assessed and ranked
+### Correctness and quality - closed 2026-08-30
 
-[docs/sweep-2026-08-26-followup.md](docs/sweep-2026-08-26-followup.md)
-assessed all 49 items the 2026-08-26 sweep left unexamined and found **37
-still real** (39 at the time of writing, less ARO and `parse_absent_rounds`,
-both closed the same day). It is ranked by cost to a user, with the
-dismissals grouped by reason, and it carries its own health warning: it was
-written while the tree was moving, so verify against code before acting.
+Every item [docs/sweep-2026-08-26-followup.md](docs/sweep-2026-08-26-followup.md)
+ranked as still real is done. That document carries each closure with its
+commit, and the regulation text where a finding turned out not to be one.
 
-The recurring shape worth naming, because it has now cost this project four
-times in three days: **one rule spelled in more than one place.** "Which
-result was this?" is re-derived in five modules (#17); `RoundRobin` hand-copies
-two functions rather than calling them (#24); and the same
-"higher ranked" misreading appeared in Gacrux, in this engine, and in this
-engine's own test harness.
+The recurring shape is worth keeping on the page, because naming it is what
+made the fixes cheap: **one rule spelled in more than one place.** "Which
+result was this?" had been re-derived in five modules and now lives in
+`PairingsEngine.Results`; `RoundRobin` hand-copied two functions rather than
+calling the ones exposed for it; the tie-break catalogue carried a `teams:`
+flag nothing read and which had quietly gone wrong. The same "higher ranked"
+misreading appeared in Gacrux, in this engine, and in this engine's own test
+harness.
+
+Its **documentation-drift section** is closed too, checked entry by entry
+against the code on 2026-08-30. Five of the seven were still true, one had
+already been fixed, and one blamed the wrong file. Two of the five were worse
+than filed - this document had the `absent_counts_as_vur` setting inverted,
+not merely defaulted wrong - and two more of the same class turned up while
+fixing them.
+
+That makes the version-consistency check the sweep asked for the one item
+from all of this still worth building: `docs/features.md`'s version header
+drifted, was fixed, and had drifted again inside the three days the followup
+covers.
 
 ### Doc hygiene - done 2026-08-29
 
@@ -303,16 +318,19 @@ These are real, identified gaps - not yet built, and not accidentally missed:
   the topbar's `.sync-freshness` strip ("FIDE: 3 days ago · KBSB: never
   synced") has been showing this for a while (`Layouts.sync_label/1`,
   `Fide.last_sync/0`/`Kbsb.last_sync/0`). Nothing left to build here.
-- ~~**Live "round paired by someone else" notice**~~ - this claim was
-  already half-stale: PairingsLive has had a dismissible "updated by
-  another arbiter" toast (`remote_notice`) for a while, comparing the
-  freshly-reloaded round against what's on screen to tell a real remote
-  change from its own broadcast echo. **Now shipped**: the identical
-  mechanism on PlayersLive too, the other page where two arbiters actively
-  editing at once is a real scenario (registration, ratings) rather than
-  just viewing. Standings/Live-round/public pages weren't extended - they're
-  read-only "projector" views whose whole point is reflecting changes live,
-  where a toast would be noise rather than useful.
+- **Live "round paired by someone else" notice** - **not built.** This entry
+  used to claim the opposite, at length: that PairingsLive had carried a
+  dismissible `remote_notice` toast "for a while" and that PlayersLive had
+  just been given the same. Neither is true. `grep -rn "remote_notice" lib/`
+  returns nothing, and both LiveViews carry an explicit comment saying the
+  notice was REMOVED (`pairings_live.ex:106`, `players_live.ex:134`).
+  [docs/features.md](docs/features.md)'s near-term list has had it right all
+  along - it lists this as unbuilt - so this file was the one out of step.
+  Corrected 2026-08-30.
+
+  What both pages do have is the silent live refresh: a broadcast reloads
+  the round, so nobody is looking at stale boards. The gap is only that
+  nothing SAYS a colleague did it.
 - **Team tournaments** - explicitly deferred by the maintainer as a "future
   thing." More scaffolding already exists than this note used to claim:
   `Tournaments.Team` schema, `Player.team_id`/`board_order`, TRF16 team-block
@@ -616,12 +634,17 @@ gaps identified there, extracted here as actionable items:
   an ordinary game contribution, reusing the existing `voluntary` flag as
   the VUR tag. See `docs/fide-endorsement.md`'s VCL.19 entry.
 - ~~SWAR's "absent" bye type unconditionally treated as voluntary~~ -
-  **shipped**: new `Tournament.absent_counts_as_vur` setting, off by
-  default (an absence always counts at its award value, like a forfeit
-  loss - FIDE has no "absent" concept, so this is the strict/safe
-  reading); an arbiter can opt in from Settings for the more lenient
-  requested-bye-style treatment. See `docs/fide-endorsement.md`'s VCL.19
-  entry.
+  **shipped**: new `Tournament.absent_counts_as_vur` setting, **on by
+  default** since 0.17.1 (`tournament.ex:128`). On means an absence is
+  treated as a voluntary unplayed round, the same as a requested bye, so a
+  trailing one is downgraded for opponents' tie-break purposes; an arbiter
+  can turn it OFF from Settings for the stricter reading, where an absence
+  always counts at its award value like a forfeit loss.
+
+  This entry had the polarity backwards - it said "off by default" and then
+  described the off behaviour as the default one. `docs/fide-endorsement.md`,
+  the document with compliance weight, has always had it right. Corrected
+  2026-08-30.
 
 ## Backlog (no particular order, nothing blocking)
 
@@ -784,8 +807,11 @@ gaps identified there, extracted here as actionable items:
     clause, not 1.4.3d.) The companion "DRR needs 6+ players" rule is
     likewise redundant: a 5-player DRR is 8 games, which the 9-game minimum
     already refuses.
-- Standalone binaries (`docs/binaries.md`) have no automated smoke test in
-  CI beyond "it builds" - nothing currently boots each target and hits `/`.
+- ~~Standalone binaries (`docs/binaries.md`) have no automated smoke test in
+  CI beyond "it builds"~~ - **they have had four since before this was
+  written.** `.github/workflows/binaries.yml` boots a real target and curls
+  `/` for each of the binary and the portable release, on Unix and Windows
+  (`:125`, `:167`, `:209`, `:241`). Corrected 2026-08-30.
 - ~~Re-uploading a `.swar` file for a tournament already in OpenPairings
   creates a second, duplicate tournament instead of updating the existing
   one~~ - **first step shipped**: `tournaments.swar_guid` is now stored on

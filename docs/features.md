@@ -52,6 +52,18 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
 - **Manual standings order** - an explicit arbiter override with a visible
   banner everywhere and a staleness flag raised the moment any result changes.
   Display-only; never touches points, tiebreaks, or the TRF.
+- **Published tiebreak working** - each published standings row carries, per
+  tiebreak, one contribution per round: which opponent it came from, what it
+  was worth, and whether a cut modifier discarded it or Article 16 supplied a
+  virtual opponent. OpenResults renders it as the answer to "why am I
+  fourth", and never recomputes it - a Buchholz sums opponents' ADJUSTED
+  scores, so a public page adding up the visible numbers would disagree with
+  the arbiter's. Only the tiebreaks that cannot be re-derived from the
+  published results are sent.
+- **Per-tiebreak publishing** - which tiebreak columns the public page shows,
+  one checkbox each, separately from whether the working is published.
+  Hiding a column does not stop it deciding the order, so the published page
+  says the order used tiebreaks it does not show.
 - **Expected score** - FIDE Table 8.1.2 `We` and `W−We` columns.
 - **Live standings** - every page auto-refreshes on any change, including a
   dedicated full-screen live view for a projector.
@@ -105,9 +117,17 @@ carry a logo (stored in the database, shown on printed documents).
   every tournament is private to its owner.
 - **Collaborators** - invite by e-mail with explicit accept/decline; owners
   keep delete and sharing rights.
-- **Public read-only pages** - unguessable per-tournament links for pairings
-  and standings, live-updating, no login. A QR on the Live page links
-  straight to public standings for spectators.
+- **Publishing to OpenResults** - a tournament is pushed to the public
+  results site under an unguessable per-tournament link: pairings, standings
+  and a card per player, no login. A QR on the Live page points spectators
+  straight at it. Seventeen per-tournament switches decide what a published
+  page may show, from whole pages down to individual columns, and a hidden
+  one is withheld when the document is built rather than sent and hidden at
+  the other end.
+
+  The read-only pages used to be served by this app itself; they moved to
+  OpenResults on 2026-08-29 so a busy public page and a live pairing session
+  cannot take each other down.
 - **Mobile no-account result entry** - an arbiter QR/code-enrols a helper's
   phone for results-only access to one tournament (no account, revocable,
   24h expiry); the results screen shows each player's rating and score

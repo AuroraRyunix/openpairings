@@ -702,11 +702,31 @@ thousands of rows, not seconds.
   still unconditional - `grep -rln "local_mode?" lib/pairings_engine_web/live/
   lib/pairings_engine_web/controllers/` returns only `admin_live.ex`.
 
-## Purely documentation drift - real, but costs a future reader, not a user
+## Purely documentation drift - ALL CLOSED 2026-08-30
 
-Each of these is confirmed still wrong in the doc named; none affects
+> Each entry below was re-checked against the code on 2026-08-30 and then
+> fixed. Two of the seven needed correcting first:
+>
+> * **Drift #4** (`docs/features.md`'s version header) was **already fixed**
+>   before the check.
+> * **Drift #2** blamed the wrong document. `docs/features.md` lists the
+>   concurrent-arbiter notice as unbuilt near-term work, which is CORRECT -
+>   `grep -rn "remote_notice" lib/` returns nothing and both LiveViews carry
+>   an explicit "removed" comment. It was `TODO.md` claiming it had shipped.
+>
+> Two were worse than filed. **Drift #3** did not merely have the
+> `absent_counts_as_vur` default wrong, it described the setting's behaviour
+> inverted. **Drift #8**'s "every Tournament field" is 15 fields short, not
+> the eleven cited; its logo half no longer applies, since that document
+> mentions no logo at all any more.
+>
+> Two more of the same class turned up while fixing these: a router comment
+> introducing public tournament routes that were removed on 2026-08-29, and
+> `docs/features.md` still describing those pages as served by this app.
+
+Each of these was confirmed still wrong in the doc named; none affected
 anything the app does. Grouped and kept short because the fix in every case
-is "edit the paragraph."
+was "edit the paragraph."
 
 - **`TODO.md`'s binaries-smoke-test claim** (`TODO.md`, Backlog section)
   still says CI has no smoke test beyond "it builds." `.github/workflows/binaries.yml`

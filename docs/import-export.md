@@ -8,7 +8,7 @@ OpenPairings has two, deliberately different, download/upload formats:
 | Purpose | Feed the result to FIDE, another pairing program, or a rating submission | Faithful backup/restore of a tournament inside OpenPairings itself |
 | Direction | Export only | Export **and** import |
 | Scope | One tournament, one chosen set of rounds | One tournament, or every tournament you own |
-| Contains | Roster + round-by-round results, FIDE-report-shaped | Everything the app models: settings, officials, every player field (incl. norm data), teams, rounds, pairings/results, byes, forbidden pairings |
+| Contains | Roster + round-by-round results, FIDE-report-shaped | Settings, officials, every player field (incl. norm data), teams, rounds, pairings/results, byes, forbidden pairings - see "What does not travel" below |
 
 They solve different problems: TRF16 is what a rating office or another
 program expects, and intentionally *doesn't* carry OpenPairings-specific
@@ -132,6 +132,30 @@ socket.
 
 ### Envelope format
 
+### What does not travel
+
+The backup carries the tournament as an arbiter configured it, not the row
+as the database holds it. Of the tournament's 68 fields, **15 are held back**
+(`TournamentExport.@excluded_tournament_fields`), in three groups:
+
+- **Identity and ownership** - `id`, `user_id`, `inserted_at`, `updated_at`.
+  An import always mints a new row owned by whoever imports it.
+- **Things that would act on their own** - `public_slug`,
+  `registration_open`, `publish_to_openresults`. Sharing has to be an
+  explicit opt-in per tournament, never inherited from a file somebody was
+  handed; an imported copy must get its own unguessable link rather than
+  share the original's.
+- **State that belongs to this machine** - `deleted_at`, `archived_at`,
+  `swar_guid`, `logo_data`, `logo_content_type`, `head_snapshot_id`,
+  `openresults_key`, `openresults_claim`.
+
+`openresults_key` is the one exception worth naming: it is not in the
+tournament map but it does leave, in the entry's own `"openresults"` block
+above, so a takeover can be offered deliberately rather than by accident.
+
+Every **player** field does travel, which is why the shape below says so
+without a caveat.
+
 ```jsonc
 {
   "format": "openpairings-export",
@@ -139,7 +163,7 @@ socket.
   "exported_at": "2026-07-11T12:00:00Z",
   "tournaments": [
     {
-      "tournament": { "name": "...", "type": "swiss", "tiebreaks": ["BH", "SB"], /* every Tournament field except id/user_id/timestamps */ },
+      "tournament": { "name": "...", "type": "swiss", "tiebreaks": ["BH", "SB"], /* most Tournament fields - 15 are held back, see below */ },
       "openresults": { "key": "...", "slug": "...", "endpoint": "https://..." },  // or null - see below
       "teams":   [{ "id": 7, "name": "Team A", "captain": "..." }],
       "players": [{ "id": 42, "name": "...", "team_id": 7, "norm_data": {...}, /* every Player field except tournament_id/timestamps */ }],

@@ -227,9 +227,10 @@ defmodule PairingsEngineWeb.Router do
     get "/callback", KeycloakAuthController, :callback
   end
 
-  ## Public (no login required) read-only tournament pages - see docs/public-pages.md.
-  # Reachable via a tournament's unguessable `public_slug`, not its numeric
-  # id. No `:require_authenticated_user` - deliberately public.
+  # The public read-only tournament pages this comment used to introduce were
+  # removed on 2026-08-29 when publishing moved to OpenResults; the heading
+  # outlived its routes. `public_slug` is still the address a tournament is
+  # published under, it is just served by the other application now.
   ## Public (no login required) arbiter tools - see docs/tools.md. Upload a
   # SWAR/TRF file, no account needed, and download the IT3/FA1/IA1 FIDE
   # report forms straight from it. Nothing here ever touches the database -

@@ -6,21 +6,32 @@ defmodule PairingsEngine.ConsoleMailer do
   single-user program on somebody's own machine and there is no mail server
   to talk to - see `config/runtime.exs`.
 
-  ## Why login is not simply skipped
+  ## What this is for, now that local mode does log you in
 
-  The obvious shortcut for a local build is to log the first visitor in
-  automatically. This deliberately does not: a bypass that authenticates
-  whoever asks is one environment variable away from being on in a place it
-  should not be, and the failure is total rather than partial.
+  This moduledoc used to argue at length that a local build deliberately does
+  NOT log the first visitor in automatically, because a bypass that
+  authenticates whoever asks is one environment variable away from being on
+  somewhere it should not be. The app went the other way:
+  `PairingsEngineWeb.UserAuth.local_owner_session/2` signs the local owner in
+  on sight, and has for some time. The argument stayed here describing a
+  design that had been replaced - corrected 2026-08-30.
 
-  So the login flow is untouched - same magic-link token, same expiry, same
-  verification. The only thing that changes is DELIVERY: the link is printed
-  in the terminal the person running the binary is already looking at, which
-  in a single-user local run is a strictly better mailbox than email.
+  What the app actually does, and why it is not the blanket bypass the old
+  text feared, is three conditions ANDed together (`user_auth.ex:106`):
+  local mode is on, the connection physically came from loopback
+  (`conn.remote_ip`, never `X-Forwarded-For`, which is attacker-controlled),
+  and no session exists yet - so an explicit log out stays logged out.
+  `config/runtime.exs` pins local mode to the loopback interface as well, so
+  a machine that sets the variable by mistake is not serving this to anyone.
 
-  `config/runtime.exs` additionally pins local mode to the loopback
-  interface, so even a machine that sets the variable by mistake is not
-  serving this to anyone else.
+  That leaves this adapter with a narrower job than it once had, and a real
+  one. The login flow still exists in full - same magic-link token, same
+  expiry, same verification - for every path `local_owner_session/2` does not
+  cover: a second account on the same machine, an invited collaborator, a
+  password reset. When one of those needs to send mail there is no mail
+  server on a single-user local run, so the link is printed in the terminal
+  the person is already looking at, which is a strictly better mailbox than
+  email they cannot receive.
   """
 
   use Swoosh.Adapter
