@@ -4436,17 +4436,17 @@ msgstr "ingediend voor rating"
 msgid "%[count] tournament(s) waiting to be sent. They go out on their own; a tournament stays in the queue until the server confirms it."
 msgstr "%[count] toernooi(en) wachten om verzonden te worden. Ze vertrekken vanzelf; een toernooi blijft in de wachtrij tot de server het bevestigt."
 
-#: lib/pairings_engine_web/components/connection_status.ex:334
+#: lib/pairings_engine_web/components/connection_status.ex:344
 #, elixir-autogen, elixir-format
 msgid "%{n} days ago"
 msgstr "%{n} dagen geleden"
 
-#: lib/pairings_engine_web/components/connection_status.ex:333
+#: lib/pairings_engine_web/components/connection_status.ex:343
 #, elixir-autogen, elixir-format
 msgid "%{n} h ago"
 msgstr "%{n} u geleden"
 
-#: lib/pairings_engine_web/components/connection_status.ex:332
+#: lib/pairings_engine_web/components/connection_status.ex:342
 #, elixir-autogen, elixir-format
 msgid "%{n} min ago"
 msgstr "%{n} min geleden"
@@ -4533,7 +4533,7 @@ msgstr "Back-up geschreven: %{name}"
 msgid "Backups"
 msgstr "Back-ups"
 
-#: lib/pairings_engine_web/components/connection_status.ex:293
+#: lib/pairings_engine_web/components/connection_status.ex:303
 #, elixir-autogen, elixir-format
 msgid "Cannot reach the results site"
 msgstr "Kan de uitslagensite niet bereiken"
@@ -4548,7 +4548,7 @@ msgstr "Controleer op nieuwe inschrijvingen"
 msgid "Checking the connection..."
 msgstr "Verbinding controleren..."
 
-#: lib/pairings_engine_web/components/connection_status.ex:291
+#: lib/pairings_engine_web/components/connection_status.ex:301
 #, elixir-autogen, elixir-format
 msgid "Connected"
 msgstr "Verbonden"
@@ -4644,7 +4644,7 @@ msgstr "Op deze machine is nog geen uitslagensite ingesteld - zie Verbindingen."
 msgid "None yet - the first is written a few minutes after start-up."
 msgstr "Nog geen - de eerste wordt enkele minuten na het opstarten geschreven."
 
-#: lib/pairings_engine_web/components/connection_status.ex:294
+#: lib/pairings_engine_web/components/connection_status.ex:304
 #, elixir-autogen, elixir-format
 msgid "Not set up"
 msgstr "Niet ingesteld"
@@ -4767,8 +4767,8 @@ msgstr "Opgeslagen, maar de uitslagensite antwoordde niet."
 msgid "Saved. Nothing is published until both an address and a token are set."
 msgstr "Opgeslagen. Er wordt niets gepubliceerd tot zowel een adres als een token ingesteld zijn."
 
-#: lib/pairings_engine_web/components/connection_status.ex:258
-#: lib/pairings_engine_web/components/connection_status.ex:290
+#: lib/pairings_engine_web/components/connection_status.ex:268
+#: lib/pairings_engine_web/components/connection_status.ex:300
 #, elixir-autogen, elixir-format
 msgid "Sending"
 msgstr "Bezig met verzenden"
@@ -4888,7 +4888,7 @@ msgstr "Dit toernooi is niet gepubliceerd, dus er is geen pagina die toeschouwer
 msgid "Token"
 msgstr "Token"
 
-#: lib/pairings_engine_web/components/connection_status.ex:292
+#: lib/pairings_engine_web/components/connection_status.ex:302
 #, elixir-autogen, elixir-format
 msgid "Token refused"
 msgstr "Token geweigerd"
@@ -4953,12 +4953,12 @@ msgstr "aanvaard"
 msgid "discarded"
 msgstr "verworpen"
 
-#: lib/pairings_engine_web/components/connection_status.ex:331
+#: lib/pairings_engine_web/components/connection_status.ex:341
 #, elixir-autogen, elixir-format
 msgid "just now"
 msgstr "zonet"
 
-#: lib/pairings_engine_web/components/connection_status.ex:302
+#: lib/pairings_engine_web/components/connection_status.ex:312
 #, elixir-autogen, elixir-format
 msgid "last sent %{ago}"
 msgstr "laatst verzonden %{ago}"
@@ -4998,7 +4998,7 @@ msgstr "De volledige FIDE-ratinglijst downloaden kan alleen een beheerder."
 msgid "Downloading the full list needs an administrator, so it can't be triggered by just anyone with an account here."
 msgstr "De volledige lijst downloaden kan alleen een beheerder, zodat niet zomaar iedereen met een account hier dit kan starten."
 
-#: lib/pairings_engine_web/components/connection_status.ex:268
+#: lib/pairings_engine_web/components/connection_status.ex:278
 #, elixir-autogen, elixir-format
 msgid "1 tournament waiting to send to %{host}"
 msgid_plural "%{count} tournaments waiting to send to %{host}"
@@ -5015,27 +5015,27 @@ msgstr "De verbinding met de resultatensite controleren"
 msgid "Checking..."
 msgstr "Controleren..."
 
-#: lib/pairings_engine_web/components/connection_status.ex:260
+#: lib/pairings_engine_web/components/connection_status.ex:270
 #, elixir-autogen, elixir-format
 msgid "Live"
 msgstr "Live"
 
-#: lib/pairings_engine_web/components/connection_status.ex:263
+#: lib/pairings_engine_web/components/connection_status.ex:273
 #, elixir-autogen, elixir-format
 msgid "Not publishing"
 msgstr "Publiceert niet"
 
-#: lib/pairings_engine_web/components/connection_status.ex:262
+#: lib/pairings_engine_web/components/connection_status.ex:272
 #, elixir-autogen, elixir-format
 msgid "Offline"
 msgstr "Offline"
 
-#: lib/pairings_engine_web/components/connection_status.ex:277
+#: lib/pairings_engine_web/components/connection_status.ex:287
 #, elixir-autogen, elixir-format
 msgid "Publishing to %{host} is working"
 msgstr "Publiceren naar %{host} werkt"
 
-#: lib/pairings_engine_web/components/connection_status.ex:261
+#: lib/pairings_engine_web/components/connection_status.ex:271
 #, elixir-autogen, elixir-format
 msgid "Refused"
 msgstr "Geweigerd"
@@ -5248,14 +5248,14 @@ msgstr "Welke tiebreaks"
 msgid "The parity is taken on a numbering of the players who are in this round's pairing or have played in an earlier one - not on the tournament pairing number, which would also count somebody registered but never paired. FIDE settled that reading on 28 August 2026. A program that predates the ruling may seat this board the other way round; the pairing is the same either way, only who holds White differs."
 msgstr "De pariteit wordt genomen op een nummering van de spelers die in de paring van deze ronde zitten of in een eerdere ronde gespeeld hebben - niet op het toernooiparingsnummer, dat ook iemand zou meetellen die wel ingeschreven is maar nooit gepaard werd. De FIDE heeft die lezing op 28 augustus 2026 vastgelegd. Een programma van voor die uitspraak kan dit bord omgekeerd zetten; de paring is hoe dan ook dezelfde, alleen wie wit heeft verschilt."
 
-#: lib/pairings_engine_web/components/connection_status.ex:232
+#: lib/pairings_engine_web/components/connection_status.ex:242
 #, elixir-autogen, elixir-format
 msgid "1 check failed in the last %{minutes} minutes."
 msgid_plural "%{count} checks failed in the last %{minutes} minutes."
 msgstr[0] "1 controle is mislukt in de laatste %{minutes} minuten."
 msgstr[1] "%{count} controles zijn mislukt in de laatste %{minutes} minuten."
 
-#: lib/pairings_engine_web/components/connection_status.ex:239
+#: lib/pairings_engine_web/components/connection_status.ex:249
 #, elixir-autogen, elixir-format
 msgid "It is answering now, but it has not been steady - worth a look at the network."
 msgstr "Er komt nu antwoord, maar het is niet stabiel geweest - het netwerk is een blik waard."
@@ -5272,7 +5272,17 @@ msgid_plural "Steady for the last %{count} minutes."
 msgstr[0] "Al een minuut stabiel."
 msgstr[1] "Al %{count} minuten stabiel."
 
-#: lib/pairings_engine_web/components/connection_status.ex:303
+#: lib/pairings_engine_web/components/connection_status.ex:313
 #, elixir-autogen, elixir-format
 msgid "%{size} sent %{ago}"
 msgstr "%{size} verzonden %{ago}"
+
+#: lib/pairings_engine_web/components/connection_status.ex:235
+#, elixir-autogen, elixir-format
+msgid "Last drop %{ago}."
+msgstr "Laatste onderbreking %{ago}."
+
+#: lib/pairings_engine_web/components/connection_status.ex:238
+#, elixir-autogen, elixir-format
+msgid "No drops since this app started %{ago}."
+msgstr "Geen onderbrekingen sinds deze app startte, %{ago}."

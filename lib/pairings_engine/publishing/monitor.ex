@@ -158,7 +158,15 @@ defmodule PairingsEngine.Publishing.Monitor do
         @connection_interval
       })
 
-    {:ok, %{intervals: intervals, history: []}, {:continue, :schedule}}
+    {:ok,
+     %{
+       intervals: intervals,
+       history: [],
+       # Since this PROCESS started, which is not the same as uptime and is
+       # never presented as though it were. See `stability/0`.
+       started_at: DateTime.utc_now(),
+       last_failure_at: nil
+     }, {:continue, :schedule}}
   end
 
   # Disabled in test for the reason `Publishing.Drain` is: a tick firing
@@ -213,7 +221,15 @@ defmodule PairingsEngine.Publishing.Monitor do
 
   def handle_info({:connection, status}, state) do
     put(status)
-    {:noreply, %{state | history: record(state.history, status)}}
+
+    state = %{
+      state
+      | history: record(state.history, status),
+        last_failure_at:
+          if(status.state == :connected, do: state.last_failure_at, else: DateTime.utc_now())
+    }
+
+    {:noreply, state}
   end
 
   def handle_info(_message, state), do: {:noreply, state}
@@ -222,10 +238,29 @@ defmodule PairingsEngine.Publishing.Monitor do
   What the last ten minutes of connection checks looked like, or `nil` when
   there have not been enough to say anything.
 
-  `%{samples:, minutes:, failures:, worst_ms:}`. Deliberately nil rather
-  than an empty summary for the first few minutes after a restart: "steady
-  for the last 10 minutes" is a claim, and a process that has been up for
-  ninety seconds is not entitled to make it.
+  `%{samples:, minutes:, failures:, worst_ms:, since:, last_failure_at:}`.
+  Deliberately nil rather than an empty summary for the first few minutes
+  after a restart: "steady for the last 10 minutes" is a claim, and a
+  process that has been up for ninety seconds is not entitled to make it.
+
+  ## Why there is no uptime percentage here
+
+  A "99.9%" would be dishonest twice over.
+
+  It could not measure what the number implies: when this app is down
+  nothing polls, so the checks that would have failed are the ones that
+  never happen. Anything computed from them describes how reachable the
+  RESULTS SITE was during the moments this app was alive - not uptime of
+  anything, and flattering by construction.
+
+  And a percentage hides the shape that matters. 99.9% over a week is one
+  ten-minute outage, which is fine on a Tuesday and ruinous during round
+  four. "3 checks failed in the last 10 minutes" and "last drop 2 hours
+  ago" say the thing a percentage averages away.
+
+  Real uptime needs something outside this machine watching it. That is a
+  monitor's job, not this app's, and claiming otherwise here would put a
+  reassuring number where a true one belongs.
   """
   def stability do
     GenServer.call(__MODULE__, :stability)
@@ -236,7 +271,8 @@ defmodule PairingsEngine.Publishing.Monitor do
   end
 
   @impl true
-  def handle_call(:stability, _from, state), do: {:reply, summarise(state.history), state}
+  def handle_call(:stability, _from, state),
+    do: {:reply, summarise(state.history, state), state}
 
   # Newest first, capped. Twenty checks at one every thirty seconds is ten
   # minutes; the cap is in SAMPLES rather than by timestamp so a paused
@@ -249,16 +285,21 @@ defmodule PairingsEngine.Publishing.Monitor do
   end
 
   # Fewer than four checks is two minutes of evidence, which is not a window.
-  defp summarise(history) when length(history) < 4, do: nil
+  defp summarise(history, _state) when length(history) < 4, do: nil
 
-  defp summarise(history) do
-    latencies = for {_state, ms} <- history, is_integer(ms), do: ms
+  defp summarise(history, state) do
+    latencies = for {_st, ms} <- history, is_integer(ms), do: ms
 
     %{
       samples: length(history),
       minutes: div(length(history) * 30, 60),
-      failures: Enum.count(history, fn {state, _ms} -> state != :connected end),
-      worst_ms: Enum.max(latencies, fn -> nil end)
+      failures: Enum.count(history, fn {st, _ms} -> st != :connected end),
+      worst_ms: Enum.max(latencies, fn -> nil end),
+      # Named `since` rather than `uptime`: it is when this process started,
+      # so a deploy or a crash resets it. The wording that reaches the screen
+      # says so.
+      since: state.started_at,
+      last_failure_at: state.last_failure_at
     }
   end
 

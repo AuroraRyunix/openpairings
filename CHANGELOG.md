@@ -417,6 +417,18 @@ Each entry is tagged so a version can be skimmed:
   ruling settled it rather than presenting a live disagreement. Three other
   places carrying the old claim were corrected with it.
 
+- [Feature] **The panel says when the connection last dropped.** Alongside
+  the ten-minute window: "No drops since this app started 3 days ago", or
+  "Last drop 2 h ago" once there has been one.
+
+  Deliberately not an uptime percentage. This app cannot see the checks it
+  failed to make while it was down, so any figure it computed would describe
+  how reachable the results site was during the moments the app was alive
+  &mdash; flattering by construction. And a percentage averages away the
+  shape that matters: 99.9% over a week is one ten-minute outage, which is
+  nothing on a Tuesday and ruinous in round four. Real uptime needs something
+  outside the machine watching it.
+
 - [Fix] **The publishing panel said things twice.** It read "Connected" and
   then "Connected. The address and token are both accepted."; and "last sent
   just now" beside "82.0 KB last sent" &mdash; the same words twice on one

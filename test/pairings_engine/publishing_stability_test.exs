@@ -93,6 +93,38 @@ defmodule PairingsEngine.PublishingStabilityTest do
     assert window.worst_ms == nil
   end
 
+  describe "what it reports instead of an uptime percentage" do
+    test "names when the last drop was, not a fraction", %{monitor: pid} do
+      # A percentage would be dishonest twice: this app cannot see the checks
+      # it failed to make while it was down, and 99.9% over a week is one
+      # ten-minute outage - fine on a Tuesday, ruinous in round four.
+      window = feed(pid, for(_ <- 1..8, do: {:connected, 20}))
+      assert window.last_failure_at == nil
+      assert window.since
+
+      window = feed(pid, [{:unreachable, nil}])
+      assert window.last_failure_at
+    end
+
+    test "a recovered connection still remembers the drop", %{monitor: pid} do
+      # The whole point. It is green NOW; the question the panel answers is
+      # whether it has been.
+      window =
+        feed(pid, [{:connected, 20}, {:unreachable, nil}] ++ for(_ <- 1..6, do: {:connected, 20}))
+
+      assert window.failures == 1
+      assert window.last_failure_at
+    end
+
+    test "`since` is when this process started, which a deploy resets", %{monitor: pid} do
+      # Named and worded as such on screen. Calling it uptime would claim
+      # something a process that restarts on every deploy cannot back.
+      window = feed(pid, for(_ <- 1..5, do: {:connected, 20}))
+
+      assert DateTime.diff(DateTime.utc_now(), window.since) < 5
+    end
+  end
+
   test "stability/0 answers nil when no Monitor is running" do
     # Every page renders this. It must never be the reason one fails.
     assert Monitor.stability() == nil

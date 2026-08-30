@@ -227,6 +227,16 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
         <span :if={@window.worst_ms}>
           {gettext("Slowest check %{ms} ms.", ms: @window.worst_ms)}
         </span>
+        <%!-- "Since this app started", never "uptime". A deploy or a crash
+              resets it, and the wording has to admit that or the number
+              means something it cannot back. See Monitor.stability/0 for
+              why there is no percentage anywhere near this. --%>
+        <span :if={@window.last_failure_at}>
+          {gettext("Last drop %{ago}.", ago: ago(@window.last_failure_at))}
+        </span>
+        <span :if={is_nil(@window.last_failure_at)}>
+          {gettext("No drops since this app started %{ago}.", ago: ago(@window.since))}
+        </span>
       <% else %>
         <strong>
           {ngettext(
