@@ -6,9 +6,20 @@ defmodule PairingsEngine.Kbsb do
   alias PairingsEngine.Kbsb.KbsbPlayer
 
   @doc """
-  Looks a player up by national ID (exact match) or by last-name prefix,
-  mirroring `PairingsEngine.Fide.search/1`'s query shape so the two feel
-  the same in the UI.
+  Looks a player up by national ID (exact match) or by name.
+
+  Every whitespace/comma-separated token is matched against the last OR
+  first name, in any order - so "burssens jorian", "jorian burssens",
+  "burssens, jorian" and just "jorian" all find the same player. Diacritics
+  are folded, so "muller" finds "Müller".
+
+  Served by the FTS5 index (see the `kbsb_players_fts` migration), falling
+  back to a plain LIKE scan if that table is not there yet - the same shape
+  and the same fallback as `PairingsEngine.Fide.search/1`, which is the
+  point: the two sit side by side in the same UI.
+
+  The docstring used to say "last-name prefix". It had not been a prefix
+  match, nor last-name-only, for a long time.
   """
   def search(query) when is_binary(query) do
     query = String.trim(query)
@@ -24,32 +35,49 @@ defmodule PairingsEngine.Kbsb do
         []
 
       true ->
-        # Match every token (whitespace/comma separated) against either the
-        # last OR first name, in any order - so "burssens jorian", "jorian
-        # burssens", "burssens, jorian" and just "jorian" all find the player.
         case search_tokens(query) do
-          [] ->
-            []
-
-          tokens ->
-            where =
-              Enum.reduce(tokens, dynamic(true), fn tok, acc ->
-                pattern = "%" <> tok <> "%"
-
-                dynamic(
-                  [k],
-                  ^acc and (like(k.last_name, ^pattern) or like(k.first_name, ^pattern))
-                )
-              end)
-
-            Repo.all(
-              from k in KbsbPlayer,
-                where: ^where,
-                order_by: [asc: is_nil(k.national_rating), desc: k.national_rating],
-                limit: 20
-            )
+          [] -> []
+          tokens -> fts_search(tokens) || like_search(tokens)
         end
     end
+  end
+
+  defp fts_search(tokens) do
+    match = Enum.map_join(tokens, " ", &(~s("#{&1}") <> "*"))
+
+    case Repo.query(
+           "SELECT national_id FROM kbsb_players_fts WHERE kbsb_players_fts MATCH ? LIMIT 40",
+           [match]
+         ) do
+      {:ok, %{rows: rows}} ->
+        ids = Enum.map(rows, fn [id] -> id end)
+
+        Repo.all(
+          from k in KbsbPlayer,
+            where: k.national_id in ^ids,
+            order_by: [asc: is_nil(k.national_rating), desc: k.national_rating],
+            limit: 20
+        )
+
+      {:error, _no_fts_table} ->
+        nil
+    end
+  end
+
+  defp like_search(tokens) do
+    where =
+      Enum.reduce(tokens, dynamic(true), fn tok, acc ->
+        pattern = "%" <> tok <> "%"
+
+        dynamic([k], ^acc and (like(k.last_name, ^pattern) or like(k.first_name, ^pattern)))
+      end)
+
+    Repo.all(
+      from k in KbsbPlayer,
+        where: ^where,
+        order_by: [asc: is_nil(k.national_rating), desc: k.national_rating],
+        limit: 20
+    )
   end
 
   defp search_tokens(query) do

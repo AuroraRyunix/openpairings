@@ -253,7 +253,13 @@ issues on the order of 26 redundant writes and 52 redundant broadcasts
 inside one click. Nothing breaks - the loop still terminates correctly -
 it's wasted writes and PubSub churn on a real, present-tense button.
 
-### 8. No index on `tournament_collaborators.email`
+### 8. ~~No index on `tournament_collaborators.email`~~ FIXED 2026-08-30
+
+> `20260830100000_index_collaborator_email`. The item's own caveat stands -
+> this table is small and nothing measurable was being lost - but the plan
+> did change: `EXPLAIN QUERY PLAN` on the `user_id OR email` match went from
+> a full `SCAN tournament_collaborators` to a `MULTI-INDEX OR` over both
+> indexes, and a test asserts the scan does not come back.
 
 `priv/repo/migrations/20260711100000_create_tournament_collaborators.exs:25-26`
 — **[Optimization #7]**
@@ -601,7 +607,17 @@ duplicating this logic") for exactly this reuse - which `Keizer` does
 duplicates `full_roster_players/1`'s query shape too. The two copies still
 agree today; this is drift risk, not present drift.
 
-### 25. KBSB search: stale docstring, dead index, infix LIKE with no index path
+### 25. ~~KBSB search: stale docstring, dead index, infix LIKE with no index path~~ FIXED 2026-08-30
+
+> All three. `20260830110000_create_kbsb_players_fts` gives the national
+> list the same FTS5 table, triggers and backfill `fide_players` got in
+> `20260726090000`, and drops the `[:last_name]` index in the same
+> migration - a prefix index against an infix pattern, never used by
+> anything. `Kbsb.search/1` mirrors `Fide.search/1` exactly, FTS with a LIKE
+> fallback. The docstring no longer claims a last-name prefix match, which
+> it had not been for a long time. A test deletes one row from the FTS table
+> only and asserts the search stops finding it, which is what proves the
+> index is the thing answering.
 
 `lib/pairings_engine/kbsb.ex:8-42` — **[Drift #14]**
 

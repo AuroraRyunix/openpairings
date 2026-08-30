@@ -408,6 +408,21 @@ Each entry is tagged so a version can be skimmed:
   tab beside it does that. And the settings tabs no longer offer Changelog,
   which is not tournament-specific and is already in the top bar.
 
+- [Change] **Searching the Belgian rating list works the way the FIDE one
+  does.** Both sit side by side in the same dialog, but only the FIDE list
+  had been given a full-text index; the national list was scanning every row
+  on every keystroke, behind an index on last name that could never serve
+  the query it was created for. It is indexed now, matches first names and
+  name tokens in any order, and folds accents, so "muller" finds
+  "M&uuml;ller". The dead index is dropped.
+
+- [Change] **A collaborator lookup runs on an index.** Sharing a tournament
+  creates an invite against an email address, which only gains an account id
+  once that person signs in, so the lookup matches either &mdash; and the
+  email half had no index, making a query that runs on every page load a
+  full table scan of the invite table. Nobody would have noticed at present
+  sizes; it is one line.
+
 - [Change] **Pairing a round stops rebuilding what it already worked out.**
   The per-category path had always computed the tournament's history once
   and passed it around; the ordinary single-pool path had not, so it built

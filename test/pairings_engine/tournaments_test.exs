@@ -2767,4 +2767,38 @@ defmodule PairingsEngine.TournamentsTest do
       assert_receive {:tournaments_changed, ^owner_id}
     end
   end
+
+  describe "collaborator lookup has an index path for both halves" do
+    test "the user_id OR email match never falls back to a table scan" do
+      # `collaborator_tournament_ids/1` matches `user_id OR email` - an invite
+      # exists against an email address before that person has an account.
+      # The table had an index on `user_id` and a composite unique index on
+      # `[tournament_id, email]`, which SQLite cannot use for a query that
+      # does not constrain its leading column, so the email half made the
+      # whole thing a scan. That subquery runs inside `list_tournaments/1`,
+      # on every authorized page mount.
+      #
+      # Asserted as "no scan" rather than by pinning the exact plan, which
+      # would be brittle across SQLite versions.
+      {:ok, %{rows: rows}} =
+        Repo.query("""
+        EXPLAIN QUERY PLAN
+        SELECT tournament_id FROM tournament_collaborators
+        WHERE user_id = 1 OR email = 'someone@example.com'
+        """)
+
+      plan =
+        rows
+        |> Enum.map_join(
+          "
+",
+          fn row -> Enum.map_join(row, " ", &to_string/1) end
+        )
+
+      refute plan =~ "SCAN tournament_collaborators", "query plan:
+#{plan}"
+      assert plan =~ "tournament_collaborators_email_index", "query plan:
+#{plan}"
+    end
+  end
 end

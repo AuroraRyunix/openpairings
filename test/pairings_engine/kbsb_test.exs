@@ -1,6 +1,8 @@
 defmodule PairingsEngine.KbsbTest do
   use PairingsEngine.DataCase, async: true
 
+  import Ecto.Query
+
   alias PairingsEngine.Kbsb
   alias PairingsEngine.Kbsb.KbsbPlayer
 
@@ -49,11 +51,48 @@ defmodule PairingsEngine.KbsbTest do
       assert [%KbsbPlayer{national_id: "12345"}] = Kbsb.search("12345")
     end
 
-    test "falls back to a last-name prefix search, best rating first" do
+    test "matches a name token, best rating first" do
       seed!()
 
       results = Kbsb.search("Peet")
       assert Enum.map(results, & &1.national_id) == ["12345", "00042"]
+    end
+
+    test "matches tokens in any order, and on the first name alone" do
+      seed!()
+
+      assert [%KbsbPlayer{national_id: "12345"}] = Kbsb.search("peeters jan")
+      assert [%KbsbPlayer{national_id: "12345"}] = Kbsb.search("jan peeters")
+      assert [%KbsbPlayer{national_id: "12345"}] = Kbsb.search("peeters, jan")
+      assert [%KbsbPlayer{national_id: "12345"}] = Kbsb.search("jan")
+    end
+
+    test "folds diacritics, so an unaccented query finds an accented name" do
+      Repo.insert_all(KbsbPlayer, [
+        %{national_id: "55555", last_name: "Müller", first_name: "Jörg", national_rating: 1700}
+      ])
+
+      assert [%KbsbPlayer{national_id: "55555"}] = Kbsb.search("muller")
+      assert [%KbsbPlayer{national_id: "55555"}] = Kbsb.search("jorg")
+    end
+
+    test "the full-text index is what answers, and the triggers keep it current" do
+      seed!()
+
+      # Proof the FTS path is live rather than the LIKE fallback: remove one
+      # row from the index only, leaving `kbsb_players` untouched. If the
+      # search were still scanning the table it would find it anyway.
+      Repo.query!("DELETE FROM kbsb_players_fts WHERE national_id = ?", ["12345"])
+      assert Enum.map(Kbsb.search("Peet"), & &1.national_id) == ["00042"]
+
+      # And the UPDATE trigger puts a renamed player back under the new name.
+      Repo.update_all(
+        from(k in KbsbPlayer, where: k.national_id == "00042"),
+        set: [last_name: "Janssens"]
+      )
+
+      assert Kbsb.search("Peet") == []
+      assert [%KbsbPlayer{national_id: "00042"}] = Kbsb.search("Janssens")
     end
 
     test "queries under 2 characters return nothing" do
