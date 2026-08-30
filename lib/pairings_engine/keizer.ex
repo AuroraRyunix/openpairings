@@ -153,9 +153,15 @@ defmodule PairingsEngine.Keizer do
         white_counts = build_white_counts(games)
         coloured = assign_colours(pairs, order, white_counts)
 
-        case create_round(tournament, coloured, bye_player, next_number) do
+        case create_round(
+               tournament,
+               coloured,
+               bye_player,
+               next_number,
+               ladder_pool,
+               eligible_ids
+             ) do
           {:ok, _round} = result ->
-            insert_absentee_byes(tournament, next_number, ladder_pool, eligible_ids)
             Tournaments.broadcast_tournament_change(tournament.id, :rounds)
             result
 
@@ -193,8 +199,12 @@ defmodule PairingsEngine.Keizer do
         %{tournament_id: tournament.id, player_id: p.id, round: round_number, type: "absent"}
       end)
 
-    if rows != [], do: Repo.insert_all("byes", rows, on_conflict: :nothing)
-    :ok
+    if rows == [] do
+      0
+    else
+      {count, _} = Repo.insert_all("byes", rows, on_conflict: :nothing)
+      count
+    end
   end
 
   ## ---------- DB edge: standings ----------
@@ -422,7 +432,14 @@ defmodule PairingsEngine.Keizer do
     MapSet.union(explicit, exclusions)
   end
 
-  defp create_round(tournament, coloured_pairs, bye_player, next_number) do
+  defp create_round(
+         tournament,
+         coloured_pairs,
+         bye_player,
+         next_number,
+         ladder_pool,
+         eligible_ids
+       ) do
     Repo.transaction(fn ->
       round =
         Repo.insert!(%Round{
@@ -452,6 +469,28 @@ defmodule PairingsEngine.Keizer do
           black_player_id: nil,
           result: "bye"
         })
+      end
+
+      # Inside the transaction, not after it. This used to run once
+      # `create_round/4` had already committed, so a round briefly existed
+      # without the bye rows that belong to it, and a failure here left one
+      # that permanently did not have them. The Swiss path has always done
+      # this inside `create_round/5`'s own transaction; this is that.
+      absentees = insert_absentee_byes(tournament, next_number, ladder_pool, eligible_ids)
+
+      # Both writes above award points without ever going through
+      # `Tournaments.update_pairing_result/2`, so a hand-set manual standings
+      # order is stale the moment either lands and has to be marked as such.
+      # Every other pairing path already did this - `RoundRobin.create_round/4`,
+      # `Pairing.create_round/6`, `Pairing.insert_category_round/4` and
+      # `Pairing.insert_round_absentee_byes/3`; Keizer was the one that did
+      # not. See docs/manual-standings.md (Fix 3).
+      #
+      # Before the caller's `broadcast_tournament_change/2`, necessarily: a
+      # PubSub subscriber reloading in between would otherwise read an order
+      # that is stale and not marked stale.
+      if bye_player || absentees > 0 do
+        Tournaments.invalidate_manual_ranking(tournament.id)
       end
 
       Tournaments.freeze_round_display_boards!(round.id)

@@ -146,7 +146,13 @@ does - see it here for the fix: read C.07 Art. 10, then either exclude
 substitute the regulation's floor. One function, and it's the one place on
 this whole page where getting it wrong changes who wins a prize.
 
-### 5. `safe_path/1` turns a crafted URL into a 500 instead of a redirect
+### 5. ~~`safe_path/1` turns a crafted URL into a 500 instead of a redirect~~ FIXED 2026-08-30
+
+> Already closed by `9b6c234` ("The do-next four") earlier the same day this
+> section was being worked through - `@invalid_redirect_chars` covers the
+> backslash, tab and their encoded forms, and `locale_test.exs` asserts the
+> crafted URL redirects to `/` instead of raising. Recorded here because
+> this list still had it open.
 
 `lib/pairings_engine_web/controllers/locale_controller.ex:34-38` —
 **[Drift #24]**
@@ -546,7 +552,16 @@ inconsistent (DE/WIN are `teams: true` but implemented for individuals;
 BH/SB are `teams: false`). An arbiter who adds "Match points" to an
 individual Swiss still gets a silent, permanent tie at zero with no error.
 
-### 22. Keizer still never invalidates a stale manual ranking on its own bye writes
+### 22. ~~Keizer still never invalidates a stale manual ranking on its own bye writes~~ FIXED 2026-08-30
+
+> `create_round/6` calls `Tournaments.invalidate_manual_ranking/1` when it
+> writes either kind of point-awarding bye, inside the transaction and
+> before the caller's broadcast - the same placement and the same reasoning
+> as `RoundRobin.create_round/4`. `insert_absentee_byes/4` moved inside that
+> transaction too, which was the finding's second half. Two tests, both
+> verified to fail without the fix by reverting it; a third covers the move
+> and says plainly that it does not prove atomicity, which would need an
+> injected mid-transaction failure.
 
 `lib/pairings_engine/keizer.ex` (no `invalidate_manual_ranking` call
 anywhere in the module) vs. `round_robin.ex:453` (which has one) —

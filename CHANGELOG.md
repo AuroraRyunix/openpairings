@@ -408,6 +408,15 @@ Each entry is tagged so a version can be skimmed:
   tab beside it does that. And the settings tabs no longer offer Changelog,
   which is not tournament-specific and is already in the top bar.
 
+- [Fix] **A Keizer bye marks a hand-set standings order out of date.** Byes
+  award points without going through result entry, so every other pairing
+  path already flagged a manually-ordered standings table as stale when it
+  wrote one. Keizer did not. Nobody could hit it &mdash; the manual-ordering
+  card is hidden for Keizer tournaments &mdash; but that is a reason it could
+  not be reached, not a reason it was right. Keizer's absentee byes are also
+  written inside the round's own transaction now, as the Swiss ones always
+  were, instead of just after it committed.
+
 - [Change] **Searching the Belgian rating list works the way the FIDE one
   does.** Both sit side by side in the same dialog, but only the FIDE list
   had been given a full-text index; the national list was scanning every row

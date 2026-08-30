@@ -30,6 +30,105 @@ defmodule PairingsEngine.KeizerTest do
     player
   end
 
+  ## ---------- byes must invalidate a hand-set manual standings order ----------
+  #
+  # Every other pairing path already did this. Keizer wrote a point-awarding
+  # `result: "bye"` pairing and point-awarding `byes` rows without marking a
+  # hand-set order stale - inert today only because StandingsLive hides the
+  # manual-ranking card for a Keizer tournament, which is a reason it cannot
+  # be REACHED, not a reason it is right.
+
+  describe "point-awarding bye writes mark a manual order stale" do
+    test "a pairing-allocated bye (odd field) does" do
+      tournament = keizer_with_manual_order()
+
+      for {name, rating} <- [{"A", 2000}, {"B", 1900}, {"C", 1800}] do
+        insert_player(tournament, name, fide_rating: rating)
+      end
+
+      {:ok, tournament} = Tournaments.reseed_manual_ranking(tournament)
+      refute Repo.reload!(tournament).manual_ranking_stale
+
+      assert {:ok, round} = Pairing.pair_next_round(tournament)
+      round = Repo.preload(round, :pairings)
+      assert Enum.any?(round.pairings, &(&1.result == "bye"))
+
+      assert Repo.reload!(tournament).manual_ranking_stale
+    end
+
+    test "a round-specific absentee's bye row does" do
+      tournament = keizer_with_manual_order()
+
+      for {name, rating} <- [{"A", 2000}, {"B", 1900}] do
+        insert_player(tournament, name, fide_rating: rating)
+      end
+
+      insert_player(tournament, "D", fide_rating: 1700, absent_rounds: "1")
+      insert_player(tournament, "E", fide_rating: 1600, absent_rounds: "1")
+
+      {:ok, tournament} = Tournaments.reseed_manual_ranking(tournament)
+      refute Repo.reload!(tournament).manual_ranking_stale
+
+      assert {:ok, round} = Pairing.pair_next_round(tournament)
+      round = Repo.preload(round, :pairings)
+
+      # An even eligible field, so there is no pairing-allocated bye - the
+      # `byes` rows are the only point-awarding write in this round.
+      refute Enum.any?(round.pairings, &(&1.result == "bye"))
+      assert Repo.aggregate(from(b in "byes", where: b.round == 1), :count) == 2
+
+      assert Repo.reload!(tournament).manual_ranking_stale
+    end
+
+    test "a round with neither kind of bye leaves the order alone" do
+      tournament = keizer_with_manual_order()
+
+      for {name, rating} <- [{"A", 2000}, {"B", 1900}, {"C", 1800}, {"D", 1700}] do
+        insert_player(tournament, name, fide_rating: rating)
+      end
+
+      {:ok, tournament} = Tournaments.reseed_manual_ranking(tournament)
+
+      assert {:ok, _round} = Pairing.pair_next_round(tournament)
+
+      refute Repo.reload!(tournament).manual_ranking_stale
+    end
+
+    test "an excused absentee still gets a bye row for the round" do
+      # The absentee byes moved INSIDE `create_round/4`'s transaction, where
+      # the Swiss path has always written them - they used to be inserted
+      # after it had already committed, so a round briefly existed without
+      # the rows belonging to it. This does not test that atomicity: proving
+      # it needs an injected failure mid-transaction, and both orderings
+      # produce the same rows on the happy path. It is here so the move
+      # cannot silently drop the write.
+      tournament = keizer_with_manual_order()
+
+      for {name, rating} <- [{"A", 2000}, {"B", 1900}] do
+        insert_player(tournament, name, fide_rating: rating)
+      end
+
+      insert_player(tournament, "D", fide_rating: 1700, absent_rounds: "1")
+
+      assert {:ok, round} = Pairing.pair_next_round(tournament)
+
+      assert Repo.aggregate(from(b in "byes", where: b.round == ^round.number), :count) == 1
+    end
+  end
+
+  # `manual_ranking` can only be switched on for a Swiss tournament at zero
+  # rounds paired, so it is set directly here - the point is what the pairing
+  # code does with the flag, not how it gets set.
+  defp keizer_with_manual_order do
+    Repo.insert!(%Tournament{
+      name: "Keizer manual",
+      type: "swiss",
+      pairing_system: "keizer",
+      rounds_count: 3,
+      manual_ranking: true
+    })
+  end
+
   ## ---------- the result vocabulary reaches every consumer ----------
 
   describe "every result an arbiter can enter reaches the standings" do
