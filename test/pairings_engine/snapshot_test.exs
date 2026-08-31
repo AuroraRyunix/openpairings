@@ -23,6 +23,11 @@ defmodule PairingsEngine.SnapshotTest do
   # the same reason.
   @hidden_board_result "0-0FF"
 
+  # Well clear of any id the database would hand out on its own, so the
+  # fixture's players are the only rows in this range - see the comment at
+  # the insert.
+  @first_player_id 9000
+
   describe "build/1 - the security boundary" do
     test "an unpublished round is absent from the payload, not flagged in it" do
       {tournament, _} = swiss_fixture()
@@ -393,18 +398,44 @@ defmodule PairingsEngine.SnapshotTest do
       {tournament, players} = swiss_fixture()
       %{"standings" => standings} = Snapshot.build(tournament)
 
-      ids = players |> Map.values() |> MapSet.new(& &1.id)
+      no_of_id = Map.new(players, fn {no, player} -> {player.id, no} end)
 
-      nos =
+      # The fixture's precondition, asserted rather than assumed: if any
+      # player's id equalled their pairing number, a leak of that id would be
+      # invisible here. This is what the first version of this test got
+      # wrong - it compared the published numbers against the set of ids,
+      # which on a fresh database is the same set of small integers.
+      assert Enum.all?(players, fn {no, player} -> player.id != no end)
+      assert map_size(players) == 10
+
+      # Who actually sat opposite whom, read from the pairings rather than
+      # from the document under test.
+      opponents =
+        for round <- Repo.all(from r in Round, where: r.tournament_id == ^tournament.id),
+            pairing <- Repo.all(from p in Pairing, where: p.round_id == ^round.id),
+            {seat, other} <- [
+              {pairing.white_player_id, pairing.black_player_id},
+              {pairing.black_player_id, pairing.white_player_id}
+            ],
+            seat && other,
+            into: %{},
+            do: {{no_of_id[seat], round.number}, no_of_id[other]}
+
+      named =
         for row <- standings["rows"],
             {_code, working} <- row["working"],
             part <- working["parts"],
             no = part["opponent"],
-            do: no
+            is_integer(no),
+            do: {row["player"], part["round"], no}
 
-      assert nos != []
-      assert Enum.all?(nos, &(&1 not in ids))
-      assert Enum.all?(nos, &(&1 in Enum.map(standings["rows"], fn r -> r["player"] end)))
+      assert named != []
+
+      for {player, round, no} <- named do
+        assert no == opponents[{player, round}],
+               "round #{round}: the working for player #{player} names #{no}, " <>
+                 "but they played #{inspect(opponents[{player, round}])}"
+      end
     end
 
     test "a part omits its kind when it was simply counted" do
@@ -605,10 +636,18 @@ defmodule PairingsEngine.SnapshotTest do
       {10, "Nguyễn, Thị Hà", "", 0, "VIE", nil, "", "B"}
     ]
 
+    # Ids are ASSIGNED here rather than left to the database, so that no
+    # player's id is ever their pairing number. Left to autoincrement on a
+    # fresh database, player 1 gets id 1 and player 2 gets id 2 - at which
+    # point publishing a raw id looks exactly like publishing a pairing
+    # number, and the test that exists to catch that leak cannot see it. That
+    # is precisely how it passed on a developer's well-used database and
+    # failed on CI's empty one.
     players =
       for {no, name, title, rating, fed, fide_id, club, category} <- roster, into: %{} do
         player =
           Repo.insert!(%Player{
+            id: @first_player_id + no,
             tournament_id: tournament.id,
             pairing_number: no,
             name: name,
