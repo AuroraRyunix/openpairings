@@ -429,8 +429,14 @@ Each entry is tagged so a version can be skimmed:
   already publishing is left exactly as it is, because silently ceasing to
   publish mid-event is its own disaster.
 
-- [Change] **The version number opens the changelog.** It sits in the top
-  right of every page and was not clickable.
+- [Change] **The version number opens the changelog, and the changelog no
+  longer asks you to log in.** The version sits in the top right of every
+  page, including the sign-in page, and was not clickable. Making it a link
+  exposed the second half: `/changelog` had been behind the login only
+  because it was added beside the tournament pages and inherited their
+  pipeline &mdash; so a signed-out visitor clicking it was sent to a log-in
+  screen for a document that describes the application and reads nothing but
+  `CHANGELOG.md`.
 
 - [Feature] **The panel says how slow the connection has been, in one line.**
   "Slowest in 10 min: 4 ms" &mdash; and only that, when there is nothing

@@ -68,7 +68,6 @@ defmodule PairingsEngineWeb.Router do
         {PairingsEngineWeb.UserAuth, :require_authenticated}
       ] do
       live "/", TournamentsLive
-      live "/changelog", ChangelogLive
       live "/t/:id/players", PlayersLive
       live "/t/:id/registrations", RegistrationsLive
       live "/t/:id/pairings", PairingsLive
@@ -241,6 +240,32 @@ defmodule PairingsEngineWeb.Router do
   # removed on 2026-08-29 when publishing moved to OpenResults; the heading
   # outlived its routes. `public_slug` is still the address a tournament is
   # published under, it is just served by the other application now.
+  ## The changelog needs no account. It describes the application, not
+  # anybody's tournament, and it reads nothing but CHANGELOG.md from the repo
+  # - there is no data behind it to protect. It was behind
+  # `:require_authenticated_user` only because it was added next to the
+  # tournament routes and inherited their pipeline.
+  #
+  # That became visible when the version number in the top bar was made to
+  # link here: that link renders for signed-out visitors too, so it sent them
+  # to a log-in screen for a public document.
+  #
+  # `mount_current_scope` rather than `require_authenticated`: a signed-in
+  # arbiter still gets their top bar, an anonymous reader gets the page.
+  scope "/", PairingsEngineWeb do
+    pipe_through [:browser]
+
+    live_session :public_pages,
+      on_mount: [
+        PairingsEngineWeb.LocaleHook,
+        PairingsEngineWeb.DeployNotice,
+        PairingsEngineWeb.PublishStatusHook,
+        {PairingsEngineWeb.UserAuth, :mount_current_scope}
+      ] do
+      live "/changelog", ChangelogLive
+    end
+  end
+
   ## Public (no login required) arbiter tools - see docs/tools.md. Upload a
   # SWAR/TRF file, no account needed, and download the IT3/FA1/IA1 FIDE
   # report forms straight from it. Nothing here ever touches the database -

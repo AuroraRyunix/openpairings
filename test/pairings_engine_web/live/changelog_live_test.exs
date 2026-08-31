@@ -16,6 +16,26 @@ defmodule PairingsEngineWeb.ChangelogLiveTest do
     assert html =~ "0.12."
   end
 
+  test "it needs no account", %{} do
+    # It describes the application, not anybody's tournament, and reads
+    # nothing but CHANGELOG.md - there is no data behind it to protect. It
+    # sat behind `:require_authenticated_user` only because it was added
+    # beside the tournament routes and inherited their pipeline, which
+    # surfaced the moment the version number in the top bar was made to link
+    # here: that link renders for signed-out visitors too, so it sent them to
+    # a log-in screen for a public document.
+    {:ok, _lv, html} = live(build_conn(), ~p"/changelog")
+
+    assert html =~ "changelog-body"
+    assert html =~ "0.12."
+  end
+
+  test "a signed-out reader still gets the version link that brought them", %{} do
+    {:ok, lv, _html} = live(build_conn(), ~p"/changelog")
+
+    assert lv |> element("a.app-version[href='/changelog']") |> has_element?()
+  end
+
   test "the nav link is visible outside a tournament and points at /changelog", %{conn: conn} do
     {:ok, _lv, html} = live(conn, ~p"/")
 
