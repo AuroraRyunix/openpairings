@@ -517,6 +517,24 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
               </select>
             </.setting_field>
 
+            <%!-- Said at the moment it is chosen, not in a hint nobody
+                  reads. Immediate is the one setting here that cannot be
+                  undone by noticing: the round is on the public page before
+                  the arbiter has seen it, and taking it down afterwards is
+                  a correction rather than a re-pair. --%>
+            <p :if={@publish_mode == "immediate"} class="error-note" style="margin: 6px 0 0">
+              <strong>{gettext("Rounds go public the instant you pair them.")}</strong>
+              {gettext(
+                "You will not get to check a pairing first - the field sees it at the same moment you do. If you spot a mistake, you are correcting a published round rather than re-pairing an unpublished one."
+              )}
+            </p>
+
+            <p :if={@publish_mode == "manual"} class="hint" style="margin: 6px 0 0">
+              {gettext(
+                "Nothing reaches the public page until you press Publish on the Pairings page, so you can check a round first. This is the default."
+              )}
+            </p>
+
             <.setting_field
               :if={@publish_mode == "timed"}
               label={gettext("Delay (minutes)")}

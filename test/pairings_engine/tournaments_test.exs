@@ -2249,9 +2249,15 @@ defmodule PairingsEngine.TournamentsTest do
   end
 
   describe "publish_mode / publish_delay_minutes - Tournament.changeset/2 validation" do
-    test "defaults to immediate mode with a zero delay" do
+    test "defaults to MANUAL, with a zero delay" do
+      # It defaulted to "immediate" - a round on the public page the instant
+      # the engine handed it back, before the arbiter had looked at it. The
+      # first person to see a pairing should be the person responsible for
+      # it; a mistake caught in ten seconds is a re-pair, and the same
+      # mistake seen by four hundred players is a correction.
       tournament = Repo.insert!(%Tournament{name: "Defaults", type: "swiss", rounds_count: 3})
-      assert tournament.publish_mode == "immediate"
+
+      assert tournament.publish_mode == "manual"
       assert tournament.publish_delay_minutes == 0
     end
 
@@ -2297,7 +2303,7 @@ defmodule PairingsEngine.TournamentsTest do
 
   describe "compute_published_at/2" do
     test "immediate mode returns roughly now" do
-      tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
+      tournament = immediate_tournament("T")
 
       at = Tournaments.compute_published_at(tournament, 1)
 
@@ -2383,7 +2389,7 @@ defmodule PairingsEngine.TournamentsTest do
 
   describe "round_published?/2" do
     test "immediate mode is always public, regardless of published_at - including nil" do
-      tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
+      tournament = immediate_tournament("T")
       round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, published_at: nil})
 
       assert Tournaments.round_published?(tournament, round)
@@ -2480,7 +2486,7 @@ defmodule PairingsEngine.TournamentsTest do
 
   describe "latest_published_round_number/1" do
     test "immediate mode delegates straight to the paired-rounds count" do
-      tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
+      tournament = immediate_tournament("T")
       Repo.insert!(%Round{tournament_id: tournament.id, number: 1, published_at: nil})
       Repo.insert!(%Round{tournament_id: tournament.id, number: 2, published_at: nil})
 
@@ -2800,5 +2806,17 @@ defmodule PairingsEngine.TournamentsTest do
       assert plan =~ "tournament_collaborators_email_index", "query plan:
 #{plan}"
     end
+  end
+
+  # Immediate is no longer the default, so a test about immediate's behaviour
+  # has to ask for it. Named rather than inlined three times, and the name
+  # says which half of the test is the subject.
+  defp immediate_tournament(name) do
+    Repo.insert!(%Tournament{
+      name: name,
+      type: "swiss",
+      rounds_count: 3,
+      publish_mode: "immediate"
+    })
   end
 end

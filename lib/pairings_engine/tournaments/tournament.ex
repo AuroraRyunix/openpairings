@@ -28,8 +28,19 @@ defmodule PairingsEngine.Tournaments.Tournament do
   # (`PairingsEngineWeb.PublicPairingsLive`) - see
   # `PairingsEngine.Tournaments.compute_published_at/2` for what each one
   # actually computes, and `round_published?/2` for the visibility check
-  # itself. "immediate" (the default) is today's only behaviour, unchanged:
-  # a round is public the instant it's paired.
+  # itself.
+  #
+  # **"manual" is the default, and "immediate" used to be.** Immediate means
+  # a round reaches the public page in the same instant the engine hands it
+  # back - before the arbiter has looked at it. That is the wrong default for
+  # the same reason no printer defaults to printing without a preview: the
+  # first person to see a pairing should be the person responsible for it.
+  # A mistake caught in ten seconds is a re-pair; the same mistake seen by
+  # four hundred players is a correction, an announcement, and an argument.
+  #
+  # Nobody chose immediate - it was simply what the field defaulted to before
+  # anything else existed, and it stayed the default while the reasons
+  # against it accumulated.
   @publish_modes ~w(immediate manual timed scheduled)
   # Club/federation pairing-exclusion rules (SWAR parity #7-10) - see
   # PairingsEngine.Exclusions and docs/forbidden-pairings.md.
@@ -353,7 +364,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # `registration_open` above, these ARE cast by the ordinary changeset -
     # this is an ordinary settings choice on the Options page, not a
     # separate toggle-action.
-    field :publish_mode, :string, default: "immediate"
+    field :publish_mode, :string, default: "manual"
     field :publish_delay_minutes, :integer, default: 0
 
     # Pairing engine dispatch (see PairingsEngine.Pairing.pair_next_round/1):

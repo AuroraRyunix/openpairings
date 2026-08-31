@@ -227,7 +227,9 @@ defmodule PairingsEngineWeb.Layouts do
               is the thing I just pushed the thing that is running - had no
               answer on the screen. The full identifier, with the commit and
               the build time, is in the tooltip. --%>
-        <span class="app-version" title={Build.long()}>v{Build.id()}</span>
+        <.link navigate={~p"/changelog"} class="app-version" title={Build.long()}>
+          v{Build.id()}
+        </.link>
       </nav>
     </header>
 

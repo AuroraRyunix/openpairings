@@ -24,12 +24,19 @@ defmodule PairingsEngineWeb.ChangelogLiveTest do
   end
 
   test "the nav link disappears once inside a tournament", %{conn: conn, scope: scope} do
+    # The TAB goes, so the tournament's own tabs are not competing with a
+    # global one. The version number in the corner still links there, which
+    # is a different thing: it was already on every page and adds no item to
+    # the bar. So this asserts the tab is gone rather than that the path is
+    # absent - the broader claim was true only until the version became
+    # clickable, and it was never what the rule meant.
     {:ok, tournament} =
       Tournaments.create_tournament(scope, %{"name" => "Nav Test", "type" => "swiss"})
 
-    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/players")
+    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
 
-    refute html =~ ~s(href="/changelog")
+    refute lv |> element("nav a[href='/changelog']:not(.app-version)") |> has_element?()
+    assert lv |> element("a.app-version[href='/changelog']") |> has_element?()
   end
 
   test "the old tournament-scoped changelog route redirects to the global page", %{

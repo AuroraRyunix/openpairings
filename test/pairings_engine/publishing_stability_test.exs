@@ -21,7 +21,14 @@ defmodule PairingsEngine.PublishingStabilityTest do
     {:ok, pid} =
       GenServer.start_link(Monitor, [], name: :"stability_#{System.unique_integer([:positive])}")
 
-    on_exit(fn -> if Process.alive?(pid), do: GenServer.stop(pid) end)
+    on_exit(fn ->
+      if Process.alive?(pid), do: GenServer.stop(pid)
+      # Feeding a check writes through `put/1` to the SHARED status table
+      # every page reads, so leaving one behind makes another file's "before
+      # the first check it says Checking" fail depending on the seed. It did.
+      Monitor.clear()
+    end)
+
     {:ok, monitor: pid}
   end
 

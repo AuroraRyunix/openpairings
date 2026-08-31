@@ -1612,7 +1612,11 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       conn: conn,
       scope: scope
     } do
+      # Immediate is no longer the default, so a test about immediate has to
+      # ask for it. The default is manual, which shows exactly the publish
+      # controls this asserts are absent.
       tournament = fixture(scope)
+      {:ok, tournament} = Tournaments.update_tournament(tournament, %{publish_mode: "immediate"})
 
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 

@@ -417,6 +417,21 @@ Each entry is tagged so a version can be skimmed:
   ruling settled it rather than presenting a live disagreement. Three other
   places carrying the old claim were corrected with it.
 
+- [Change] **New tournaments publish rounds MANUALLY by default.** They
+  defaulted to publishing the instant a round was paired &mdash; on the
+  public page before the arbiter had looked at it. The first person to see a
+  pairing should be the person responsible for it: a mistake caught in ten
+  seconds is a re-pair, and the same mistake seen by four hundred players is
+  a correction, an announcement and an argument.
+
+  Choosing "Immediately" now says so plainly, where you choose it. Existing
+  tournaments that have never published are moved to manual too; one that is
+  already publishing is left exactly as it is, because silently ceasing to
+  publish mid-event is its own disaster.
+
+- [Change] **The version number opens the changelog.** It sits in the top
+  right of every page and was not clickable.
+
 - [Feature] **The panel says how slow the connection has been, in one line.**
   "Slowest in 10 min: 4 ms" &mdash; and only that, when there is nothing
   else to say. A drop earns a second clause, because a drop is worth
