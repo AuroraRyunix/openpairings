@@ -926,6 +926,14 @@ Each entry is tagged so a version can be skimmed:
 
 ### Fixed
 
+- [Fix] **Amber warning boxes ignored the theme.** Archived banners, the "careful, this is hard to undo" notes on the settings pages, the pairing-confirmation warnings, the history rail's tags and both status pills in the top bar were painted with a fixed amber, so on Nord, Dracula, Tokyo, Nocturne and Catppuccin they sat in the middle of the palette looking like something had failed to load.
+
+  Every theme has always defined its own `--warn` &mdash; Nord's is its aurora yellow, Dracula's its pale citrus &mdash; these components just never used it. They do now, along with the reds and greens beside them, so a warning looks like a warning in the theme you actually chose.
+
+  Two of them were worse than off-key: the OpenResults visibility toggles and the on/off state pills referenced a colour that does not exist, so *every* theme, including the two the app ships with, fell through to one hardcoded green.
+
+  A test now reads the stylesheet and fails on a colour written into a component instead of taken from the palette, on a theme that forgets to redefine one, and on a fallback to a colour no theme defines. That last check is what would have caught the missing green.
+
 - [Fix] **The phone-enrolment QR could not work on your own computer, and did not say so.** Running OpenPairings locally, the QR encoded `http://localhost:4000/...` &mdash; which a phone resolves to *itself* &mdash; and the app only accepts connections from the machine it runs on, so even the right address would have been refused.
 
   That second part is deliberate and is what makes a build with no login safe to ship: it prints sign-in links to a terminal and signs in whoever reaches it. Opening it up so phones could connect would hand that to everyone on the venue wifi, so this is a property of running locally rather than a missing feature.

@@ -1088,7 +1088,13 @@ button.pe-btn, .pe-btn {
 .pe-btn.danger-link:hover { text-decoration: underline; background: none; }
 
 .pe-btn.danger { background: var(--danger); border-color: var(--danger); color: white; }
-.pe-btn.danger:hover { background: #8a3126; border-color: #8a3126; }
+/* Darkened from the token rather than a fixed shade, so a theme whose danger
+   is already light (Dracula, Nord) still gets a hover that moves the right
+   way instead of jumping to someone else's maroon. */
+.pe-btn.danger:hover {
+  background: color-mix(in srgb, var(--danger) 82%, black);
+  border-color: color-mix(in srgb, var(--danger) 82%, black);
+}
 
 .pe-btn:disabled, .pe-btn.disabled { opacity: 0.5; cursor: default; pointer-events: none; }
 
@@ -1110,20 +1116,19 @@ button.pe-btn, .pe-btn {
 .badge.muted { background: var(--surface-hover); color: var(--text-soft); }
 .badge.done { background: var(--success-soft); color: var(--success); }
 
-/* Archived (frozen read-only). Deliberately amber rather than one of the
-   accent-derived tones: the accent colour is user-configurable (11 choices),
-   so an accent-based badge could land anywhere including green, and "frozen,
-   you cannot edit this" must never read as a success state. Same amber as
+/* Archived (frozen read-only). Deliberately the WARN tone rather than one of
+   the accent-derived ones: the accent colour is user-configurable (11
+   choices), so an accent-based badge could land anywhere including green, and
+   "frozen, you cannot edit this" must never read as a success state.
+   `--warn` satisfies that too - it is per-theme, not per-accent - and unlike
+   the amber literal this used to carry, it is the tone the CURRENT theme
+   calls amber. Nord's is #ebcb8b, Dracula's #f1fa8c; a fixed #d97706 sat in
+   the middle of both of them looking like a bug, which it was. Same token as
    .pe-modal-warn / .setting-warning, so every "careful" surface matches. */
 .badge.archived {
-  background: color-mix(in srgb, #d97706 18%, transparent);
-  color: #b45309;
+  background: color-mix(in srgb, var(--warn) 18%, transparent);
+  color: var(--warn);
 }
-:root:not([data-theme="light"]) .badge.archived { color: #fbbf24; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .badge.archived { color: #fbbf24; }
-}
-:root[data-theme="dark"] .badge.archived { color: #fbbf24; }
 
 /* The persistent "this tournament is archived" banner shown at the top of
    every page of an archived tournament. Louder than .hint, quieter than
@@ -1138,8 +1143,8 @@ button.pe-btn, .pe-btn {
   border-radius: 8px;
   font-size: 13.5px;
   line-height: 1.55;
-  background: color-mix(in srgb, #d97706 14%, transparent);
-  border: 1.5px solid color-mix(in srgb, #d97706 40%, transparent);
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--warn) 40%, transparent);
 }
 .archived-banner > span:first-child { flex: 1; min-width: 220px; }
 
@@ -1169,10 +1174,10 @@ button.pe-btn, .pe-btn {
   border-radius: 8px;
   font-size: 13.5px;
   line-height: 1.6;
-  background: color-mix(in srgb, #d97706 16%, transparent);
-  border: 1.5px solid color-mix(in srgb, #d97706 45%, transparent);
+  background: color-mix(in srgb, var(--warn) 16%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--warn) 45%, transparent);
 }
-.setting-warning strong { color: #d97706; }
+.setting-warning strong { color: var(--warn); }
 
 /* Locked pairing-shape controls (Settings > Format) - the overlay sits on
    top of a disabled <select>/checkbox so a click attempt is still caught
@@ -1419,8 +1424,8 @@ button.pe-btn, .pe-btn {
   border-radius: 7px;
   font-size: 13px;
   line-height: 1.5;
-  background: color-mix(in srgb, #d97706 14%, transparent);
-  border: 1px solid color-mix(in srgb, #d97706 35%, transparent);
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
 }
 .pe-modal-foot {
   display: flex;
@@ -3170,9 +3175,9 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
    FIDE ID, so the bar has to carry the reason - a greyed button alone reads
    as a broken page. */
 .report-blocked {
-  border: 1px solid #b3261e;
+  border: 1px solid var(--danger);
   border-left-width: 4px;
-  background: color-mix(in srgb, #b3261e 8%, transparent);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
   color: var(--text);
   padding: 10px 12px;
   border-radius: 6px;
@@ -3180,7 +3185,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   font-size: 14px;
   line-height: 1.4;
 }
-.report-blocked strong { color: #b3261e; display: block; margin-bottom: 2px; }
+.report-blocked strong { color: var(--danger); display: block; margin-bottom: 2px; }
 .report-blocked ul { margin: 6px 0 0; padding-left: 20px; }
 .report-blocked li { margin: 2px 0; }
 
@@ -3351,7 +3356,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
    heavier halo - stated before .is-head below so "the tournament is here"
    still wins the dot when both apply. */
 .tl-item.manual .tl-dot {
-  box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px hsl(32 95% 44% / 0.55);
+  box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px color-mix(in srgb, var(--warn) 55%, transparent);
 }
 
 .tl-meta {
@@ -3397,12 +3402,12 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   word-break: break-word;
 }
 .tl-val.before {
-  background: color-mix(in srgb, #a33c2e 13%, transparent);
+  background: color-mix(in srgb, var(--danger) 13%, transparent);
   text-decoration: line-through;
-  text-decoration-color: color-mix(in srgb, #a33c2e 55%, transparent);
+  text-decoration-color: color-mix(in srgb, var(--danger) 55%, transparent);
   color: var(--text-soft);
 }
-.tl-val.after { background: color-mix(in srgb, #1f7a3d 15%, transparent); }
+.tl-val.after { background: color-mix(in srgb, var(--success) 15%, transparent); }
 .tl-val.empty { font-style: italic; color: var(--text-soft); }
 .tl-arrow { color: var(--text-soft); flex: none; }
 
@@ -3480,20 +3485,12 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   border-radius: 99px;
   font-size: 11px;
   font-weight: 650;
-  background: color-mix(in srgb, hsl(32 95% 44%) 16%, transparent);
-  color: #b45309;
-}
-:root[data-theme="dark"] .tl-manual { color: #fbbf24; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .tl-manual { color: #fbbf24; }
+  background: color-mix(in srgb, var(--warn) 16%, transparent);
+  color: var(--warn);
 }
 .tl-forked {
-  background: color-mix(in srgb, #d97706 16%, transparent);
-  color: #b45309;
-}
-:root[data-theme="dark"] .tl-forked { color: #fbbf24; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .tl-forked { color: #fbbf24; }
+  background: color-mix(in srgb, var(--warn) 16%, transparent);
+  color: var(--warn);
 }
 
 /* The little diamond used inline in prose to point at what a restore point
@@ -3505,7 +3502,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   margin: 0 2px;
   border-radius: 2px;
   transform: rotate(45deg);
-  background: hsl(32 95% 44%);
+  background: var(--warn);
   vertical-align: baseline;
 }
 
@@ -4029,8 +4026,8 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 }
 
 .display-toggle.is-on {
-  border-color: var(--ok, #2f5d43);
-  background: var(--ok-soft, rgba(47, 93, 67, 0.1));
+  border-color: var(--success);
+  background: var(--success-soft);
   color: var(--text);
   font-weight: 500;
 }
@@ -4042,18 +4039,18 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   display: inline-block;
   padding: 3px 10px;
   border-radius: 999px;
-  border: 1px solid var(--danger, #b3261e);
-  background: rgba(179, 38, 30, 0.1);
-  color: var(--danger, #b3261e);
+  border: 1px solid var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  color: var(--danger);
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.01em;
 }
 
 .state-pill.is-on {
-  border-color: var(--ok, #2f5d43);
-  background: rgba(47, 93, 67, 0.12);
-  color: var(--ok, #2f5d43);
+  border-color: var(--success);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+  color: var(--success);
 }
 
 /* ---------------------------------------------------------------------------
@@ -4117,19 +4114,19 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   margin: 0 6px;
 }
 
-.conn-status.is-ok      { border-left-color: #2f5d43; }
-.conn-status.is-ok      .conn-dot { background: #2f5d43; }
+.conn-status.is-ok      { border-left-color: var(--success); }
+.conn-status.is-ok      .conn-dot { background: var(--success); }
 
 /* Amber, and it pulses - this is the one state that is temporary, and the
    only one where movement tells the truth about what is happening. */
-.conn-status.is-busy    { border-left-color: #8a5a0c; }
-.conn-status.is-busy    .conn-dot { background: #8a5a0c; animation: conn-pulse 1.4s ease-in-out infinite; }
+.conn-status.is-busy    { border-left-color: var(--warn); }
+.conn-status.is-busy    .conn-dot { background: var(--warn); animation: conn-pulse 1.4s ease-in-out infinite; }
 
-.conn-status.is-refused { border-left-color: #8a5a0c; }
-.conn-status.is-refused .conn-dot { background: #8a5a0c; }
+.conn-status.is-refused { border-left-color: var(--warn); }
+.conn-status.is-refused .conn-dot { background: var(--warn); }
 
-.conn-status.is-down    { border-left-color: #b3261e; }
-.conn-status.is-down    .conn-dot { background: #b3261e; }
+.conn-status.is-down    { border-left-color: var(--danger); }
+.conn-status.is-down    .conn-dot { background: var(--danger); }
 
 .conn-status.is-off     { border-left-color: var(--border); }
 
@@ -4200,14 +4197,14 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   font-variant-numeric: tabular-nums;
 }
 
-.pub-pill.is-ok      .pub-dot { background: #2f5d43; }
-.pub-pill.is-refused .pub-dot { background: #8a5a0c; }
-.pub-pill.is-down    .pub-dot { background: #b3261e; }
+.pub-pill.is-ok      .pub-dot { background: var(--success); }
+.pub-pill.is-refused .pub-dot { background: var(--warn); }
+.pub-pill.is-down    .pub-dot { background: var(--danger); }
 .pub-pill.is-off     .pub-dot { background: var(--border); }
 
 /* The one state that is temporary, so the one where movement tells the truth
    rather than just drawing the eye. */
-.pub-pill.is-busy    .pub-dot { background: #8a5a0c; animation: conn-pulse 1.4s ease-in-out infinite; }
+.pub-pill.is-busy    .pub-dot { background: var(--warn); animation: conn-pulse 1.4s ease-in-out infinite; }
 .pub-pill.is-unknown .pub-dot { animation: conn-pulse 1.4s ease-in-out infinite; }
 
 /* Down is the one worth reading across a room. */
