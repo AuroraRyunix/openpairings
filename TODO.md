@@ -3,6 +3,16 @@
 Version: **0.18.0** (not 1.0 yet - the maintainer will call that explicitly).
 See [`docs/features.md`](docs/features.md) for what's already shipped.
 
+> **A second whole-codebase sweep ran on 2026-09-01** - 33 items, in
+> [docs/sweep-2026-09-01.md](docs/sweep-2026-09-01.md): 3 High, 13 Medium,
+> 9 Low, 4 leads, 4 optimisations, none fixed yet. The three to read first:
+> a stale substitution dialog can seat one player on two boards; one form
+> field on the public tools page builds gigabytes of XML; and the deploy
+> script prints the box's secrets on every redeploy. Every claim was
+> checked against the source, and the six dynamic ones reproduced with a
+> test before filing. The runtime layer (OTP, Phoenix, LiveView, SQLite)
+> was checked against 2026 advisories and is clean.
+>
 > **A whole-codebase sweep ran on 2026-08-26** - 78 items, in
 > [docs/sweep-2026-08-26.md](docs/sweep-2026-08-26.md). All 12 confirmed
 > bugs and all 15 leads are now closed; that document's Status section
