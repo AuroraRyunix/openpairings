@@ -325,6 +325,76 @@ jobs:
           zip -qr "openpairings_portable_${{ matrix.target }}.zip" pairings_engine_portable
           ls -lh openpairings_portable_${{ matrix.target }}.zip
 
+      - name: Build macOS .dmg (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          cd _build/prod/rel
+          app_name="OpenPairings.app"
+          rm -rf "$app_name" dmg_staging
+          mkdir -p "$app_name/Contents/MacOS"
+          mkdir -p "$app_name/Contents/Resources/app"
+
+          # Copy the portable release into Resources/app
+          cp -R pairings_engine_portable/* "$app_name/Contents/Resources/app/"
+
+          # Create Info.plist
+          cat << 'EOF' > "$app_name/Contents/Info.plist"
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key>
+    <string>OpenPairings</string>
+    <key>CFBundleIdentifier</key>
+    <string>cloud.zerotwo.openpairings</string>
+    <key>CFBundleName</key>
+    <string>OpenPairings</string>
+    <key>CFBundleDisplayName</key>
+    <string>OpenPairings</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.18.0</string>
+    <key>CFBundleVersion</key>
+    <string>0.18.0</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>11.0</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+</dict>
+</plist>
+EOF
+
+          # Create launcher script in Contents/MacOS/OpenPairings
+          cat << 'EOF' > "$app_name/Contents/MacOS/OpenPairings"
+#!/bin/bash
+DIR="$(cd "$(dirname "$0")/../Resources/app" && pwd)"
+export OPENPAIRINGS_LOCAL=1
+export PORT=${PORT:-4000}
+exec "$DIR/bin/pairings_engine_portable" start
+EOF
+          chmod +x "$app_name/Contents/MacOS/OpenPairings"
+
+          # Ad-hoc code sign the entire bundle for Apple Silicon / macOS integrity
+          codesign --force --deep --sign - "$app_name"
+
+          # Stage DMG with /Applications symlink
+          mkdir -p dmg_staging
+          cp -R "$app_name" dmg_staging/
+          ln -s /Applications dmg_staging/Applications
+
+          dmg_name="openpairings_${{ matrix.target }}.dmg"
+          hdiutil create -volname "OpenPairings" -srcfolder dmg_staging -ov -format UDZO "$dmg_name"
+          ls -lh "$dmg_name"
+
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'macOS'
+        with:
+          name: openpairings_dmg_${{ matrix.target }}
+          path: _build/prod/rel/*.dmg
+          retention-days: ${{ startsWith(github.ref, 'refs/tags/') && 90 || 14 }}
+
       - name: Zip the portable release for the release page (Windows)
         if: startsWith(github.ref, 'refs/tags/') && runner.os == 'Windows'
         shell: pwsh
@@ -337,9 +407,8 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          # Both shapes. The portable zip is the one docs/binaries.md tells a
-          # Windows arbiter to start with, and until now it was not on the
-          # release page at all.
+          # Both shapes and native macOS DMG disk images.
           files: |
             burrito_out/*
             _build/prod/rel/openpairings_portable_${{ matrix.target }}.zip
+            _build/prod/rel/*.dmg
