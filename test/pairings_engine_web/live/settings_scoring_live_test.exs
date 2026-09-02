@@ -205,4 +205,30 @@ defmodule PairingsEngineWeb.SettingsScoringLiveTest do
       assert Tournaments.get_authorized_tournament!(scope, tournament.id).absent_counts_as_vur
     end
   end
+
+  describe "the \"locked_hint\" event" do
+    # As on the options page: the raw param went into
+    # `String.to_existing_atom/1` and a crafted event killed the socket.
+    test "an unknown field is ignored rather than crashing the socket", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/scoring")
+
+      render_hook(lv, "locked_hint", %{"field" => "not_a_settings_field_at_all"})
+
+      assert Process.alive?(lv.pid)
+      assert is_nil(:sys.get_state(lv.pid).socket.assigns.locked_hint)
+    end
+
+    test "a field the markup does send still sets the hint", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/scoring")
+
+      render_hook(lv, "locked_hint", %{"field" => "abs_scoring"})
+
+      assert :sys.get_state(lv.pid).socket.assigns.locked_hint == :abs_scoring
+    end
+  end
 end

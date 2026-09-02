@@ -144,11 +144,20 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
   @impl true
   ## ---------- Public self-registration ----------
 
-  def handle_event("locked_hint", %{"field" => field}, socket) do
+  # Guarded on the fields this page's own `locked_overlay/1` calls actually
+  # send. `String.to_existing_atom/1` on an unguarded param is a crafted
+  # event away from an `ArgumentError` that takes the sender's socket down
+  # with it, and the atom table is not the caller's to grow either.
+  @locked_fields ~w(pairing_system pairing_engine rr_cycles rr_match_format swiss_match_format)
+
+  def handle_event("locked_hint", %{"field" => field}, socket)
+      when field in @locked_fields do
     field = String.to_existing_atom(field)
     Process.send_after(self(), {:clear_locked_hint, field}, 3000)
     {:noreply, assign(socket, locked_hint: field)}
   end
+
+  def handle_event("locked_hint", _params, socket), do: {:noreply, socket}
 
   # `standard` and `rate_of_play` are tracked as their own assigns because the
   # "Rate of play" select's option list depends on which "Type" is picked.
