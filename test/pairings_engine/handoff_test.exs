@@ -262,9 +262,17 @@ defmodule PairingsEngine.HandoffTest do
     end
 
     test "reports archiving first when a tournament is somehow both" do
+      # "Somehow" is now literal: `archive_tournament/1` refuses a handed-off
+      # tournament (see `PairingsEngine.HandoffLifecycleTest`), so the state
+      # is not reachable through the public API and has to be built here.
+      # Rows predating that refusal are, which is why the clause stays.
       scope = user_scope()
       t = handed_off(scope)
-      {:ok, both} = Tournaments.archive_tournament(t)
+
+      {:ok, both} =
+        t
+        |> Ecto.Changeset.change(archived_at: DateTime.utc_now() |> DateTime.truncate(:second))
+        |> Repo.update()
 
       assert Tournaments.ensure_writable(both) == {:error, :archived}
       assert Tournaments.ensure_writable(both.id) == {:error, :archived}
@@ -425,13 +433,17 @@ defmodule PairingsEngine.HandoffTest do
       refute back.handed_off_at
     end
 
-    test "binning and restoring are a separate lifecycle" do
+    test "restoring out of the bin is not blocked, and does not clear the lock" do
+      # Binning itself IS blocked now - it destroys the way home; see
+      # `PairingsEngine.HandoffLifecycleTest`. Coming back out is a way in,
+      # not a way out, so it stays open - and it stays a separate axis: the
+      # tournament is still handed off afterwards.
       scope = user_scope()
-      t = handed_off(scope)
+      binned = tournament(scope)
+      {:ok, binned} = Tournaments.soft_delete_tournament(binned)
+      {:ok, binned} = Tournaments.hand_off(binned, "this laptop")
 
-      assert {:ok, binned} = Tournaments.soft_delete_tournament(t)
       assert {:ok, restored} = Tournaments.restore_tournament(binned)
-      # Still handed off after coming back out of the bin.
       assert restored.handed_off_at
     end
   end

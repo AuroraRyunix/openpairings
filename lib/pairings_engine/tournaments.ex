@@ -726,12 +726,32 @@ defmodule PairingsEngine.Tournaments do
     end
   end
 
+  @doc """
+  The hard delete, cascading to everything linked to the tournament. The
+  owner reaches it through `purge_tournament/1`; nothing else should call it
+  directly.
+
+  Refuses `{:error, :handed_off}` for a tournament that is checked out to
+  another copy of the app. Deleting is not a write to the tournament and is
+  deliberately not behind `ensure_writable/1` - archiving one has never been
+  a reason you cannot throw it away. Hand-off is different, and it is
+  different for one concrete reason: the row carries `handoff_token`, which
+  is the only thing `take_back/2` compares the returning payload against.
+  Delete the row and the copy actually running the event has nowhere to come
+  home to - not a lost tournament here, a stranded one there.
+  """
+  @spec delete_tournament(Tournament.t()) ::
+          {:ok, Tournament.t()} | {:error, :handed_off | Ecto.Changeset.t()}
   def delete_tournament(%Tournament{} = tournament) do
-    Repo.delete(tournament)
-    |> tap_ok(fn deleted ->
-      broadcast_tournament_change(deleted.id, :tournament)
-      broadcast_tournament_list(deleted)
-    end)
+    if handed_off?(tournament) do
+      {:error, :handed_off}
+    else
+      Repo.delete(tournament)
+      |> tap_ok(fn deleted ->
+        broadcast_tournament_change(deleted.id, :tournament)
+        broadcast_tournament_list(deleted)
+      end)
+    end
   end
 
   ## ---------- Logo (SWAR parity #14-16 - place cards) ----------
@@ -1034,15 +1054,29 @@ defmodule PairingsEngine.Tournaments do
   this, `purge_tournament/1` finishes the job for real. Broadcasts on the
   owner's tournament-list topic, same as `delete_tournament/1` did, so the
   Tournaments page refreshes live.
+
+  Refuses `{:error, :handed_off}` for a tournament that is checked out to
+  another copy of the app, for the same reason `delete_tournament/1` does.
+  The bin looks reversible and mostly is, but it is a purge on a 90-day
+  timer, and in the meantime every fetch and listing path treats the
+  tournament as gone - so the copy running the event would find the way home
+  closed long before the row actually went. Take it back first; then bin it
+  if that is still what you want.
   """
+  @spec soft_delete_tournament(Tournament.t()) ::
+          {:ok, Tournament.t()} | {:error, :handed_off | Ecto.Changeset.t()}
   def soft_delete_tournament(%Tournament{} = tournament) do
-    tournament
-    |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.truncate(:second))
-    |> Repo.update()
-    |> tap_ok(fn updated ->
-      broadcast_tournament_change(updated.id, :tournament)
-      broadcast_tournament_list(updated)
-    end)
+    if handed_off?(tournament) do
+      {:error, :handed_off}
+    else
+      tournament
+      |> Ecto.Changeset.change(deleted_at: DateTime.utc_now() |> DateTime.truncate(:second))
+      |> Repo.update()
+      |> tap_ok(fn updated ->
+        broadcast_tournament_change(updated.id, :tournament)
+        broadcast_tournament_list(updated)
+      end)
+    end
   end
 
   @doc """
@@ -1065,7 +1099,13 @@ defmodule PairingsEngine.Tournaments do
   `delete_tournament/1` (which this now backs), used both for the owner's
   "Delete permanently" action from the recycle bin and by
   `purge_expired_tournaments/0`'s automatic sweep.
+
+  Inherits that function's `{:error, :handed_off}` refusal, which is the one
+  that matters most here: this is the call that would actually destroy the
+  `handoff_token` row the returning copy needs.
   """
+  @spec purge_tournament(Tournament.t()) ::
+          {:ok, Tournament.t()} | {:error, :handed_off | Ecto.Changeset.t()}
   def purge_tournament(%Tournament{} = tournament), do: delete_tournament(tournament)
 
   @doc """
@@ -1088,16 +1128,18 @@ defmodule PairingsEngine.Tournaments do
   `TournamentsLive`'s mount/handle_params) rather than on a schedule - cheap
   enough to run on every page load, and self-correcting if a deploy misses a
   few days. Returns the number of tournaments purged.
+
+  Counts what was actually purged rather than what was found. A handed-off
+  tournament refuses (`purge_tournament/1`), and it must: this sweep runs
+  unattended on a page load, and eating that row would strand the copy
+  running the event with nobody watching. It stays in the bin until it is
+  taken back, and a stale count would have hidden that it had.
   """
   def purge_expired_tournaments do
     cutoff = DateTime.utc_now() |> DateTime.add(-@recycle_bin_retention_days, :day)
 
-    expired =
-      Repo.all(from t in Tournament, where: not is_nil(t.deleted_at) and t.deleted_at < ^cutoff)
-
-    Enum.each(expired, &purge_tournament/1)
-
-    length(expired)
+    Repo.all(from t in Tournament, where: not is_nil(t.deleted_at) and t.deleted_at < ^cutoff)
+    |> Enum.count(&match?({:ok, _}, purge_tournament(&1)))
   end
 
   ## ---------- Archive (frozen read-only, kept forever) ----------
@@ -1120,16 +1162,44 @@ defmodule PairingsEngine.Tournaments do
   until `unarchive_tournament/1` clears it; reads are entirely unaffected.
   Broadcasts on both the tournament topic and the owner's list topic so open
   pages flip to read-only live.
+
+  Refuses `{:error, :handed_off}` for a tournament that is checked out to
+  another copy of the app. Unlike binning and purging, this destroys nothing
+  the returning payload needs - the refusal is about what the app would then
+  be able to say. Three reasons, in order:
+
+    * `hand_off/2` already refuses an archived tournament. Gating only that
+      direction would make "archived and handed off" reachable by pressing
+      two buttons in one order and unreachable in the other, which is a
+      state nobody designed and everybody would have to reason about.
+    * `ensure_writable/1` deliberately reports `:archived` first when a
+      tournament is both. So every refusal in the app would tell the
+      arbiter to unarchive - and once they had, every write would still be
+      refused, this time for the reason they were never shown. One state,
+      two truths, only one of them on screen.
+    * Archiving means "this one is finished, nobody changes it again". A
+      tournament that is handed off is being PLAYED somewhere else right
+      now. Saying it is finished is a claim about a room this machine is
+      not in.
+
+  `unarchive_tournament/1` is deliberately not gated in return: rows
+  predating this refusal can be both, and a state with no way out is worse
+  than the state itself.
   """
-  @spec archive_tournament(Tournament.t()) :: {:ok, Tournament.t()} | {:error, Ecto.Changeset.t()}
+  @spec archive_tournament(Tournament.t()) ::
+          {:ok, Tournament.t()} | {:error, :handed_off | Ecto.Changeset.t()}
   def archive_tournament(%Tournament{} = tournament) do
-    tournament
-    |> Ecto.Changeset.change(archived_at: DateTime.utc_now() |> DateTime.truncate(:second))
-    |> Repo.update()
-    |> tap_ok(fn updated ->
-      broadcast_tournament_change(updated.id, :tournament)
-      broadcast_tournament_list(updated)
-    end)
+    if handed_off?(tournament) do
+      {:error, :handed_off}
+    else
+      tournament
+      |> Ecto.Changeset.change(archived_at: DateTime.utc_now() |> DateTime.truncate(:second))
+      |> Repo.update()
+      |> tap_ok(fn updated ->
+        broadcast_tournament_change(updated.id, :tournament)
+        broadcast_tournament_list(updated)
+      end)
+    end
   end
 
   @doc """
