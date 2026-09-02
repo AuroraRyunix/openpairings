@@ -13,6 +13,7 @@ defmodule PairingsEngine.Mobile do
   import Ecto.Query
 
   alias PairingsEngine.Repo
+  alias PairingsEngine.Tournaments
   alias PairingsEngine.Mobile.Enrollment
 
   @default_ttl_hours 24
@@ -24,21 +25,31 @@ defmodule PairingsEngine.Mobile do
   @doc """
   Creates an active enrollment for `tournament_id`. Returns `{:ok, enrollment}`.
   `opts`: `:label` (free text), `:ttl_hours` (default #{@default_ttl_hours}).
+
+  Refuses `{:error, :archived}` / `{:error, :handed_off}` for a tournament
+  that has gone read-only. Minting was ungated for a long time, and the
+  failure that followed was quiet and badly timed: the QR scanned, the phone
+  loaded the round, the helper tapped a result, and only THEN did the write
+  meet `Tournaments.ensure_writable/1` and bounce. The arbiter found out at
+  the board, mid-round, from somebody else's phone. Refusing here is the
+  same fact delivered while it can still be acted on.
   """
   def create_enrollment(tournament_id, opts \\ []) do
-    ttl = Keyword.get(opts, :ttl_hours, @default_ttl_hours)
+    with :ok <- Tournaments.ensure_writable(tournament_id) do
+      ttl = Keyword.get(opts, :ttl_hours, @default_ttl_hours)
 
-    expires_at =
-      DateTime.utc_now() |> DateTime.add(ttl * 3600, :second) |> DateTime.truncate(:second)
+      expires_at =
+        DateTime.utc_now() |> DateTime.add(ttl * 3600, :second) |> DateTime.truncate(:second)
 
-    insert_enrollment(
-      %{
-        tournament_id: tournament_id,
-        label: Keyword.get(opts, :label, "") || "",
-        expires_at: expires_at
-      },
-      @code_attempts
-    )
+      insert_enrollment(
+        %{
+          tournament_id: tournament_id,
+          label: Keyword.get(opts, :label, "") || "",
+          expires_at: expires_at
+        },
+        @code_attempts
+      )
+    end
   end
 
   # Uniqueness is the DATABASE's answer, not a read-then-insert's. The old
@@ -138,15 +149,24 @@ defmodule PairingsEngine.Mobile do
   round - `MobileResultsLive` reloads on every tournament change but only
   re-checked the enrollment when it tried to WRITE - so "revoke" looked like
   it had done nothing until the helper next tapped a result.
+
+  Refused, like minting one, on a tournament that has gone read-only. This
+  is the direction that looks safe to allow, and it is worth saying why it
+  is not allowed anyway: a handed-off tournament's list of admitted phones
+  belongs to the copy that is actually running the event, and editing it
+  here produces a second, divergent answer to "who may enter results" for no
+  gain - the credential is already inert, because every result write goes
+  through the same gate the revocation would.
   """
   def revoke(%Enrollment{} = enrollment) do
-    with {:ok, revoked} <-
+    with :ok <- Tournaments.ensure_writable(enrollment.tournament_id),
+         {:ok, revoked} <-
            enrollment
            |> Ecto.Changeset.change(revoked_at: DateTime.utc_now() |> DateTime.truncate(:second))
            |> Repo.update() do
       Phoenix.PubSub.broadcast(
         PairingsEngine.PubSub,
-        PairingsEngine.Tournaments.tournament_topic(revoked.tournament_id),
+        Tournaments.tournament_topic(revoked.tournament_id),
         {:mobile_enrollment_revoked, revoked.id}
       )
 
@@ -154,7 +174,11 @@ defmodule PairingsEngine.Mobile do
     end
   end
 
-  @doc "Revokes an enrollment by id within `tournament_id` (owner action). nil if not found."
+  @doc """
+  Revokes an enrollment by id within `tournament_id` (owner action).
+  `{:error, :not_found}` if there is no such row, and the same read-only
+  refusals as `revoke/1`.
+  """
   def revoke(tournament_id, id) do
     case Repo.get_by(Enrollment, id: id, tournament_id: tournament_id) do
       nil -> {:error, :not_found}
