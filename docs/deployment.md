@@ -294,6 +294,8 @@ server.
 | `PORT` | no (default 4000) | internal HTTP port - **the unit sets 4001**, see "Ports on this host" |
 | `SMTP_USERNAME` / `SMTP_PASSWORD` | yes | magic-link login sends real e-mail in prod - **the app refuses to boot without both**, since there is no local mailbox fallback outside dev |
 | `POOL_SIZE` | no (default 5) | Ecto connection pool size |
+| `OPENPAIRINGS_LISTEN_IP` | no (default `127.0.0.1`) | which address to bind. The default is loopback, because the only client here is the cloudflared process on the same host; set `0.0.0.0` (every IPv4 address) or `::` (every address) only for a deployment that is genuinely reached directly. An unparseable value refuses to boot rather than falling back to a wide bind |
+| `TRUSTED_PROXY_HOPS` | no (default 0) | how many proxies sit in front of the app, i.e. how many entries to trust from the right of `x-forwarded-for` &mdash; **the unit sets 1**, for the single cloudflared hop. Left at 0 the app trusts no forwarded address at all and every visitor shares one rate-limit bucket, which makes the login throttle effectively global |
 | `DEPLOY_NOTICE_TOKEN` | no | shared secret for the pre-restart warning below. Unset means the endpoint refuses everything, so the only cost of omitting it is no banner |
 | `DNS_CLUSTER_QUERY` | no | multi-node clustering, unused in this single-node deployment |
 | `KEYCLOAK_CLIENT_ID` | no | 02cloud SSO client id (`openpairings`). Omit to disable SSO entirely |
@@ -607,7 +609,10 @@ Anything absent is prompted for, or falls back to the default shown.
 
 | Key | Applies to | Notes |
 | --- | --- | --- |
-| `DEPLOY_HOST` / `DEPLOY_PORT` / `DEPLOY_USER` / `DEPLOY_PASSWORD` | both | SSH connection |
+| `DEPLOY_HOST` / `DEPLOY_PORT` / `DEPLOY_USER` | both | SSH connection |
+| `DEPLOY_SSH_KEY` | both | path to the private key to authenticate with. The intended way in; with it set, nothing else is tried |
+| `DEPLOY_ALLOW_PASSWORD` | both | set to `1` to permit password authentication, taken from `DEPLOY_PASSWORD` or prompted for. **Off by default**: the credential is the box's root password and it is replayable. `DEPLOY_PASSWORD` on its own does nothing but print a line saying so |
+| `DEPLOY_PASSWORD` | both | only used when `DEPLOY_ALLOW_PASSWORD=1` |
 | `DEPLOY_APP_PORT` | OpenPairings | default 4001 |
 | `DEPLOY_PHX_HOST` | OpenPairings | `pairings.zerotwo.cloud` |
 | `DEPLOY_SMTP_USERNAME` / `DEPLOY_SMTP_PASSWORD` | OpenPairings | only asked for when this app is in the run |
@@ -621,6 +626,13 @@ Anything absent is prompted for, or falls back to the default shown.
 | `DEPLOY_OPENRESULTS_PHX_HOST` | OpenResults | default `openresults.zerotwo.cloud` |
 | `DEPLOY_OPENRESULTS_INGEST_TOKEN` | OpenResults | the publish bearer token; unset means every publish is refused |
 | `DEPLOY_HEALTH_TIMEOUT` | both | seconds to wait for the app to answer after a restart, default 90 |
+
+The script also **refuses an unknown SSH host key** rather than adding it: it
+loads the system `known_hosts` and rejects anything not in it. A new target
+therefore has to be connected to once by hand, which is the only moment at
+which anyone actually looks at a fingerprint. (Before 2026-09-01 it accepted
+any key and authenticated as root with a typed password, so a
+network-position attacker was handed that password once per deploy.)
 
 Everything here that ends up on the server travels in the systemd unit rather
 than in a file on the box, because the deploy **rewrites that unit every run**:

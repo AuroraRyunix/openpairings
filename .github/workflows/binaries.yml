@@ -26,13 +26,20 @@ concurrency:
   group: binaries-${{ github.ref }}
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
+# Read-only by default, and the build job below keeps it. Only the release
+# job - which runs on tags and nowhere else - is granted `contents: write`.
+# It used to be granted here, which handed write access to all five matrix
+# jobs on every push to main: five runners, each running third-party actions,
+# each able to write to this repository, for a build that publishes nothing.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
     name: ${{ matrix.target }}
     runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -53,14 +60,18 @@ jobs:
       BURRITO_TARGET: ${{ matrix.target }}
 
     steps:
-      - uses: actions/checkout@v4
+      # Actions are pinned to a commit, not to a tag. A tag is mutable, and
+      # whoever can move it runs their code on five runners here. The
+      # trailing comment is the human-readable version; .github/dependabot.yml
+      # is what keeps the pair current.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: erlef/setup-beam@v1
+      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
         with:
           otp-version: "29.0.5"
           elixir-version: "1.20"
 
-      - uses: mlugg/setup-zig@v2
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
         with:
           # Burrito 1.5 requires exactly this Zig version.
           version: 0.15.2
@@ -84,7 +95,11 @@ jobs:
           # Fail here, not deep inside `mix release`, if a DLL is missing.
           & (Join-Path $dst "xz.exe") --version
 
-      - run: mix deps.get
+      # --only prod, because MIX_ENV is prod here and nothing else is needed.
+      # --check-locked: a mix.exs constraint edited without a matching
+      # mix.lock update re-resolves silently, and the binary shipped from
+      # this job would then contain a dependency tree nobody committed.
+      - run: mix deps.get --only prod --check-locked
 
       # Colocated CSS/JS is generated during compile, before assets.deploy.
       - run: mix compile
@@ -294,7 +309,7 @@ jobs:
             }
           Get-ChildItem burrito_out
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: openpairings_portable_${{ matrix.target }}
           # Straight from where mix assembled it. There used to be a copy
@@ -306,7 +321,7 @@ jobs:
           if-no-files-found: error
           retention-days: ${{ startsWith(github.ref, 'refs/tags/') && 90 || 14 }}
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: openpairings_${{ matrix.target }}
           path: burrito_out/*
@@ -388,7 +403,7 @@ jobs:
           hdiutil create -volname "OpenPairings" -srcfolder dmg_staging -ov -format UDZO "$dmg_name"
           ls -lh "$dmg_name"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: runner.os == 'macOS'
         with:
           name: openpairings_dmg_${{ matrix.target }}
@@ -403,12 +418,58 @@ jobs:
           Compress-Archive -Path "_build/prod/rel/pairings_engine_portable" -DestinationPath $out
           Get-Item $out | Select-Object Name, Length
 
-      - name: Attach to release (tag builds)
+      # Everything this target contributes to a release, in one artifact for
+      # the release job to collect. The build job cannot attach it itself any
+      # more: attaching needs `contents: write`, and a matrix job that runs on
+      # every push to main is the last place to hold that.
+      #
+      # Only the three release SHAPES are here - the single-file binary, the
+      # portable zip, the macOS disk image. The per-target artifacts above are
+      # a separate thing: they exist for branch builds, which produce no
+      # release at all.
+      - name: Collect the release assets (tag builds)
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          # Both shapes and native macOS DMG disk images.
-          files: |
+          name: release_assets_${{ matrix.target }}
+          # `*.dmg` matches on macOS only, and the zip is only built on tags -
+          # so this deliberately does NOT use if-no-files-found: error. Every
+          # runner is missing something here, and the release job below is
+          # what checks that the set as a whole arrived.
+          path: |
             burrito_out/*
             _build/prod/rel/openpairings_portable_${{ matrix.target }}.zip
             _build/prod/rel/*.dmg
+
+  # The only job in this workflow that can write to the repository, and it
+  # only exists on a tag. `needs: build` means no release is created unless
+  # every target built and smoke-tested first.
+  release:
+    name: Attach binaries to the release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Collect every target's release assets
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: release_assets_*
+          merge-multiple: true
+          path: release_assets
+
+      - run: ls -lhR release_assets
+
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+        with:
+          # upload-artifact keeps each file's path relative to the common
+          # ancestor of the patterns it was given - which was the workspace
+          # root - so the two source directories survive the round trip and
+          # are named here rather than globbed blindly. merge-multiple put
+          # all five targets into the same two.
+          files: |
+            release_assets/burrito_out/*
+            release_assets/_build/prod/rel/*.zip
+            release_assets/_build/prod/rel/*.dmg
