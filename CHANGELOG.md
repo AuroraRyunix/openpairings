@@ -926,6 +926,8 @@ Each entry is tagged so a version can be skimmed:
 
 ### Fixed
 
+- [Fix] **Ten forms can now recover what you typed after a dropped connection.** They had no `id`, so LiveView could not restore them after a reconnect - on venue wifi that meant retyping. The test suite now refuses a form without one, so it cannot come back.
+
 - [Security] **Two phone-entry codes can no longer be active at once.** A unique index now enforces it; generation draws again on a collision instead of giving up after twenty tries and inserting the duplicate; and the public code page answers "wrong code" rather than a 500 if the database ever drifts.
 - [Security] **Password-login lockout counts the real client address**, not the tunnel's, once `TRUSTED_PROXY_HOPS` is set - so thirty wrong passwords from one place lock out that place, not everybody.
 - [Security] **The rate limiter counts atomically.** Under a burst of two hundred simultaneous hits it counted 109 to 127; it now counts two hundred.
