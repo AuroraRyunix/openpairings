@@ -135,3 +135,23 @@ docs/                      per-feature guides + this project's deep docs
 The repository originally contained a Node/React prototype (`server/` +
 `client/`); it was superseded by the Elixir/Phoenix rewrite and removed - it
 remains available in the git history.
+
+## Licence
+
+**Elastic License 2.0** (see [LICENSE](LICENSE)), (c) 2026 Jorian Burssens.
+Source-available, not open source - the difference is real and worth stating
+plainly rather than letting anyone find out the hard way.
+
+**You may** read it, run it, modify it, self-host it for your own club,
+federation or tournament - including one you charge entry for - and use it
+for teaching or research.
+
+**You may not** offer it to others as a hosted or managed service, work
+around its licensing, or strip the notices.
+
+If you want to do something the licence does not cover, ask - the answer is
+often yes.
+
+The pairing engine, [Ainalrami](https://github.com/AuroraRyunix/Ainalrami),
+is Apache-2.0 and deliberately stays that way: a conformance engine is worth
+more checked than owned. Third-party components are listed in [NOTICE](NOTICE).

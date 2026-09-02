@@ -1,0 +1,19 @@
+OpenPairings
+Copyright 2026 Jorian Burssens
+
+Licensed under the Elastic License 2.0; see LICENSE.
+
+This product bundles third-party components under their own terms:
+
+  * bbpPairings (priv/bbppairings/) - Apache License 2.0.
+    See priv/bbppairings/LICENSE.txt and priv/bbppairings/Apache-2.0.txt.
+
+  * Ainalrami (pairing engine, fetched as a dependency) - Apache License 2.0.
+    https://github.com/AuroraRyunix/Ainalrami
+
+  * JaVaFo is (c) Roberto Ricca. It is not open source and is not bundled
+    with this repository; the app calls it only if an operator installs it
+    themselves.
+
+Elixir, Phoenix and the other Hex dependencies are covered by their own
+licences, recorded in mix.lock and in each package.
