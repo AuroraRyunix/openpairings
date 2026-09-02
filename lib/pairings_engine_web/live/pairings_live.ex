@@ -277,8 +277,8 @@ defmodule PairingsEngineWeb.PairingsLive do
     %{"x" => x, "y" => y} = params
 
     menu = %{
-      x: x,
-      y: y,
+      x: coord(x),
+      y: coord(y),
       player_id: int_or_nil(params["player-id"]),
       pairing_id: int_or_nil(params["pairing-id"]),
       seat: params["seat"],
@@ -589,6 +589,24 @@ defmodule PairingsEngineWeb.PairingsLive do
         {:noreply, assign(socket, import_errors: ["Choose a CSV file first"])}
     end
   end
+
+  # The menu's position, straight from the click event, and interpolated into
+  # a `style` attribute by `context_menu/1`. HEEx escapes the attribute, so
+  # this was never markup injection - but it was a raw client string in a
+  # CSS declaration list, which the ids beside it never were
+  # (`int_or_nil/1`). A number is what the renderer wants and the only thing
+  # the browser sends, so parse one and put the menu at the origin when the
+  # value is anything else.
+  defp coord(value) when is_integer(value), do: value
+
+  defp coord(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {n, _rest} -> n
+      :error -> 0
+    end
+  end
+
+  defp coord(_value), do: 0
 
   defp int_or_nil(nil), do: nil
   defp int_or_nil(""), do: nil

@@ -999,6 +999,32 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       assert html =~ "Mark absent for this round"
     end
 
+    test "the menu position is parsed as a number, not interpolated raw", %{
+      conn: conn,
+      scope: scope
+    } do
+      # `x`/`y` went straight into `style="left: #{x}px; …"` while the ids
+      # beside them were parsed. HEEx escapes the attribute, so the worst it
+      # allowed was extra `;`-separated CSS declarations on the sender's own
+      # socket - but a coordinate is a number and nothing else.
+      %{tournament: t, a: a} = two_board_fixture(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+
+      html =
+        render_click(lv, "open_menu", %{
+          "x" => "100px; position: fixed; width: 100vw",
+          "y" => "not a number at all",
+          "scope" => "seated",
+          "player-id" => to_string(a.id)
+        })
+
+      assert html =~ "ctx-menu"
+      assert html =~ "left: 100px; top: 0px"
+      refute html =~ "position: fixed"
+      refute html =~ "not a number"
+    end
+
     test "a second right-click never completes a swap, only the menu plus confirm can",
          %{conn: conn, scope: scope} do
       %{tournament: t, a: a, d: d} = two_board_fixture(scope)
