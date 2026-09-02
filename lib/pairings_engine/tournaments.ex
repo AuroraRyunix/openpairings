@@ -1389,10 +1389,12 @@ defmodule PairingsEngine.Tournaments do
   button that does nothing.
 
   Used as `cond do refusal = write_refused(id) -> refusal; ...` - the
-  binding is visible in the clause body, and keeps the gate the first branch.
+  binding is visible in the clause body, and keeps the gate the first branch,
+  which is the shape the 2026-08-26 sweep asked every write path to have.
 
-  Public because `PairingsEngine.Pairing` and `PairingsEngine.RoundRobin`
-  need the same answer (see `refusal_message/2`).
+  The call sites that answer with a plain string rather than an atom (the
+  pairing entry points) use `ensure_writable/1` with `refusal_message/2`
+  instead.
   """
   @spec write_refused(Tournament.t() | integer() | nil) ::
           false | {:error, :archived | :handed_off}
