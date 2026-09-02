@@ -926,6 +926,9 @@ Each entry is tagged so a version can be skimmed:
 
 ### Fixed
 
+- [Fix] **The last yellow boxes, on Nord and every other theme.** The earlier fix moved the app's own components onto the theme's colours, but six places were reading daisyUI's `--color-warning`/`--color-success` instead - tokens no theme overrides, so they stayed a fixed amber and green while everything around them changed. The changelog's own [Fix] tags were one of them. Two more surfaced while widening the net: a warning panel tinted with a hardcoded red, and three connection-status rules reading a colour token that does not exist, so their grey never applied in any theme.
+- [Fix] The theme test now reads the templates as well as the stylesheet, understands `oklch()`/`hsl()`/`rgb()`, and fails on any colour token the themes do not actually override - the three gaps that let the above through.
+
 - [Fix] **Standings ties are ordered by an explicit rule** - rating, then name, then pairing id - instead of whatever order the rows happened to arrive in. On a fresh tournament with no games the previous order could differ between runs; no computed placing changes.
 
 - [Security] **In production the server now listens on loopback only.** The only thing that ever connects to it directly is the tunnel on the same machine; binding every interface left the whole app one firewall rule away from the internet. `OPENPAIRINGS_LISTEN_IP` widens it deliberately for any deployment that needs that. Local mode was already loopback-only.
