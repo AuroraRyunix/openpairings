@@ -339,11 +339,49 @@ defmodule PairingsEngineWeb.LocaleTest do
       assert redirected_to(conn) == "/"
     end
 
+    test "an encoded newline sends you home instead of raising", %{conn: conn} do
+      # The denylist this guard used to be named the characters PHOENIX
+      # refuses and missed the ones a response HEADER refuses: a decoded LF
+      # reached `put_resp_header/3` and raised
+      # `Plug.Conn.InvalidHeaderError`. A public 500 on demand.
+      conn = get(conn, ~p"/locale/en?redirect_to=/foo%0Abar")
+
+      assert redirected_to(conn) == "/"
+    end
+
+    test "so does an encoded carriage return", %{conn: conn} do
+      conn = get(conn, ~p"/locale/en?redirect_to=/foo%0Dbar")
+
+      assert redirected_to(conn) == "/"
+    end
+
+    test "so does a bare newline, with nothing after it", %{conn: conn} do
+      # `$` in a regex matches before a TRAILING newline too, so this is the
+      # value an `^...$` allowlist would still have let through.
+      conn = get(conn, ~p"/locale/en?redirect_to=/%0A")
+
+      assert redirected_to(conn) == "/"
+    end
+
+    test "and a backslash the denylist never encoded", %{conn: conn} do
+      conn = get(conn, ~p"/locale/en?redirect_to=/%5C%5Cevil.com")
+
+      assert redirected_to(conn) == "/"
+    end
+
     test "while an ordinary path still comes back to itself", %{conn: conn} do
       # The guard must not have become "refuse everything".
       conn = get(conn, ~p"/locale/en?redirect_to=/changelog")
 
       assert redirected_to(conn) == "/changelog"
+    end
+
+    test "and so does a path with a query string on it", %{conn: conn} do
+      # The allowlist must not have narrowed to "letters and slashes" - the
+      # links that carry this parameter are real pages with real params.
+      conn = get(conn, ~p"/locale/en?redirect_to=/tournaments/12/pairings%3Fround%3D3")
+
+      assert redirected_to(conn) == "/tournaments/12/pairings?round=3"
     end
   end
 end

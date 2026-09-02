@@ -48,13 +48,24 @@ defmodule PairingsEngineWeb.LocaleController do
   # Checked here rather than trusted to the framework because this value
   # comes from a query string on a public route, and the right answer to
   # "somebody sent nonsense" is the home page, not a stack trace.
-  @invalid_redirect_chars ["\\", "\t", "%5C", "%5c", "%09"]
+  #
+  # An ALLOWLIST, not the denylist this used to be. The denylist named the
+  # characters Phoenix refuses and missed the ones `put_resp_header/3`
+  # refuses: a decoded CR or LF walked straight through it into
+  # `Plug.Conn.InvalidHeaderError`, so `?redirect_to=%0A` was a 500 anyone
+  # could ask for. Naming what a URL path may contain instead means the
+  # next character somebody finds objectionable is excluded already.
+  #
+  # `\A`/`\z`, not `^`/`$`: `$` also matches immediately BEFORE a trailing
+  # newline, which would have let the exact value that motivated this
+  # through the new guard as well.
+  @safe_redirect ~r{\A/[A-Za-z0-9._~/%?=&+,:@-]*\z}
 
-  defp safe_path("/" <> rest = path) when not is_nil(path) do
+  defp safe_path(path) when is_binary(path) do
     cond do
-      String.starts_with?(rest, "/") -> "/"
-      String.contains?(path, @invalid_redirect_chars) -> "/"
-      true -> path
+      String.starts_with?(path, "//") -> "/"
+      Regex.match?(@safe_redirect, path) -> path
+      true -> "/"
     end
   end
 
