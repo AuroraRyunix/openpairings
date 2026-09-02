@@ -13,6 +13,8 @@ defmodule PairingsEngine.Standings do
   """
 
   import Ecto.Query
+  require Logger
+
   alias PairingsEngine.Repo
   alias PairingsEngine.Results
   alias PairingsEngine.Tiebreaks
@@ -642,6 +644,13 @@ defmodule PairingsEngine.Standings do
 
   defp add_bye_records(games_by_player, byes, tournament) do
     byes
+    # A player cannot both play a game and sit out in the same round. An
+    # orphan bye row - left behind by a partially-applied un-pairing, since
+    # `byes` has no `round_id` FK and every insert is `on_conflict:
+    # :nothing` - would otherwise stack its points on top of the real
+    # game's. Dropped here rather than trusted, and logged, because the row
+    # should not exist.
+    |> Enum.reject(&bye_contradicted_by_game?(&1, games_by_player))
     # Grouped and round-sorted per player so the running "absent" count
     # `bye_points/4`'s `abs_nbfois` cap needs can be tracked in memory in
     # one pass, instead of the DB round-trip per row `bye_points_for_row/2`
@@ -687,6 +696,25 @@ defmodule PairingsEngine.Standings do
 
       Map.update(acc, player_id, records, &(&1 ++ records))
     end)
+  end
+
+  # True when this bye row claims a round in which the player already has a
+  # real game record - an opponent, i.e. a board they actually sat at.
+  defp bye_contradicted_by_game?(bye, games_by_player) do
+    contradicted? =
+      games_by_player
+      |> Map.get(bye.player_id, [])
+      |> Enum.any?(&(&1.round == bye.round and not is_nil(&1.opponent_id)))
+
+    if contradicted? do
+      Logger.warning(
+        "Ignoring orphan bye row: player #{bye.player_id} has a game in round " <>
+          "#{bye.round} but also a #{inspect(bye.type)} bye row for it. " <>
+          "This should not exist - see delete_round/2."
+      )
+    end
+
+    contradicted?
   end
 
   # Expands one stored pairing into records for both players.

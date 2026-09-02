@@ -224,14 +224,25 @@ defmodule PairingsEngine.Pairing do
 
       numbers = if match_format? and number > 1, do: [number - 1, number], else: [number]
 
-      Repo.delete_all(
-        from r in Round, where: r.tournament_id == ^tournament_id and r.number in ^numbers
-      )
+      # One transaction, because the two deletes are one act. A crash
+      # between them used to leave orphan `byes` rows behind, and every bye
+      # insert in the module uses `on_conflict: :nothing` - so on
+      # re-pairing the orphan wins and the player is scored for a bye they
+      # are not taking. Every round-CREATING path here wraps Round +
+      # Pairings + byes the same way; see `keizer.ex:474-478`.
+      {:ok, :ok} =
+        Repo.transaction(fn ->
+          Repo.delete_all(
+            from r in Round, where: r.tournament_id == ^tournament_id and r.number in ^numbers
+          )
 
-      Repo.delete_all(
-        from b in "byes",
-          where: b.tournament_id == ^tournament_id and b.round in ^numbers
-      )
+          Repo.delete_all(
+            from b in "byes",
+              where: b.tournament_id == ^tournament_id and b.round in ^numbers
+          )
+
+          :ok
+        end)
 
       Tournaments.broadcast_tournament_change(tournament_id, :rounds)
       Tournaments.refresh_status!(tournament_id)

@@ -99,6 +99,31 @@ defmodule PairingsEngine.StandingsTest do
     assert a.id == ea.player.id and b.id == eb.player.id
   end
 
+  test "an orphan bye row does not stack points on a round the player actually played" do
+    # The scenario the M3 refuter reproduced: un-pairing a round used to be
+    # two separate autocommits, so a crash between them could leave the
+    # round's `byes` rows behind. Every bye insert is `on_conflict:
+    # :nothing`, so on re-pairing the orphan survives, and `add_bye_records/3`
+    # appended it with no check that the player already had a real game -
+    # scoring a 1.0 win as 2.0.
+    {tournament, %{a: a}} = fixture()
+
+    Repo.insert_all("byes", [
+      %{tournament_id: tournament.id, player_id: a.id, round: 2, type: "requested-half"}
+    ])
+
+    log =
+      ExUnit.CaptureLog.capture_log(fn ->
+        entries = Standings.standings(tournament)
+        ea = Enum.find(entries, &(&1.player.id == a.id))
+
+        # Two wins, and only two wins - not 2.5.
+        assert ea.points == 2.0
+      end)
+
+    assert log =~ "orphan bye row"
+  end
+
   describe "player_scores_before_round/2" do
     test "round 1 is everyone at 0 (nothing played yet, through_round: 0)" do
       {tournament, %{a: a, b: b, c: c, d: d}} = fixture()
