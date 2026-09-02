@@ -644,7 +644,7 @@ defmodule PairingsEngineWeb.FideLive do
           </label>
 
           <div class="row" style="gap: 8px; margin-top: 12px">
-            <button type="submit" class="pe-btn pe-btn-primary">{gettext("Save")}</button>
+            <button type="submit" class="pe-btn primary">{gettext("Save")}</button>
             <button
               :if={@publish_configured?}
               type="button"

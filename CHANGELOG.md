@@ -14,6 +14,61 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.19.0] - 2026-09-02
+
+### Fixed
+
+- [Fix] **The last yellow boxes, on Nord and every other theme.** The earlier fix moved the app's own components onto the theme's colours, but six places were reading daisyUI's `--color-warning`/`--color-success` instead - tokens no theme overrides, so they stayed a fixed amber and green while everything around them changed. The changelog's own [Fix] tags were one of them. Two more surfaced while widening the net: a warning panel tinted with a hardcoded red, and three connection-status rules reading a colour token that does not exist, so their grey never applied in any theme.
+- [Fix] The theme test now reads the templates as well as the stylesheet, understands `oklch()`/`hsl()`/`rgb()`, and fails on any colour token the themes do not actually override - the three gaps that let the above through.
+
+- [Fix] **Standings ties are ordered by an explicit rule** - rating, then name, then pairing id - instead of whatever order the rows happened to arrive in. On a fresh tournament with no games the previous order could differ between runs; no computed placing changes.
+
+- [Security] **In production the server now listens on loopback only.** The only thing that ever connects to it directly is the tunnel on the same machine; binding every interface left the whole app one firewall rule away from the internet. `OPENPAIRINGS_LISTEN_IP` widens it deliberately for any deployment that needs that. Local mode was already loopback-only.
+- [Security] **The build pipeline pins every GitHub Action to a commit** instead of a movable tag, grants write access only to the tag-gated release step rather than every build, checks the lock file on every run, and lets Dependabot propose action updates.
+- [Security] **The deploy script no longer prints the server's secrets.** It read the systemd unit - `SECRET_KEY_BASE`, the mail password, the tokens - through the helper that echoes output, on every redeploy after the first; that read is silent now, the deploy-notice token travels to `curl` over a pipe instead of a command line, and anything that still gets printed passes through a redactor. The same script now refuses an unknown SSH host key, prefers key authentication (`DEPLOY_SSH_KEY`, password only with `DEPLOY_ALLOW_PASSWORD=1`), runs the service as its own system account with systemd's sandboxing, makes the database directory private, and sets `TRUSTED_PROXY_HOPS=1` so rate limits count real visitors. All of it takes effect on the next deploy. The secrets already printed to terminals should still be rotated.
+- [Fix] The local-mode documentation now says, in one sentence, why the binary must never sit behind a tunnel or reverse proxy.
+
+- [Change] **Pairing engine Ainalrami v0.15.0.** The TRF reader and writer now count columns in bytes like every other implementation, so a file from Swiss-Manager or bbpPairings with an accented name imports with that player's games intact; a byte-order mark no longer swallows the first line; a truncated line no longer yields a wrong opponent number; and the matcher breaks ties on a fixed rule rather than map order (checked byte-identical over 72,140 pairings). Nothing in the pairings this app produces changes.
+
+- [Fix] **Ten forms can now recover what you typed after a dropped connection.** They had no `id`, so LiveView could not restore them after a reconnect - on venue wifi that meant retyping. The test suite now refuses a form without one, so it cannot come back.
+
+- [Security] **Two phone-entry codes can no longer be active at once.** A unique index now enforces it; generation draws again on a collision instead of giving up after twenty tries and inserting the duplicate; and the public code page answers "wrong code" rather than a 500 if the database ever drifts.
+- [Security] **Password-login lockout counts the real client address**, not the tunnel's, once `TRUSTED_PROXY_HOPS` is set - so thirty wrong passwords from one place lock out that place, not everybody.
+- [Security] **The rate limiter counts atomically.** Under a burst of two hundred simultaneous hits it counted 109 to 127; it now counts two hundred.
+- [Security] **A newline in the language switcher's return address no longer causes a 500.** The filter is an allowlist now, and anchored so a trailing newline cannot slip past it.
+- [Fix] **Revoking a helper's phone access reaches their open page immediately** - it is sent back to the code screen - instead of only when they next try to enter a result.
+- [Fix] A crafted settings event with an unknown field, or a context-menu position that is not a number, no longer crashes the arbiter's own page.
+- [Change] The four pages that show bye chips now fetch the absence-cap counts once per render instead of once per chip; the unused second rate-limiter module is removed.
+
+- [Security] **The public norms tool caps the number of extra arbiters at twenty.** The count reached the server unchecked through a hidden form field and drove the spreadsheet expansion; a single request asking for a hundred million meant ten gigabytes of XML. It is clamped at every parse, and the expansion itself refuses anything above the cap as a last line of defence.
+- [Fix] **An out-of-range "master file" choice on the public tools page no longer crashes the session**; the index is parsed and clamped, and the combiner reports an invalid choice instead of raising.
+- [Fix] **A search for a number longer than any FIDE id no longer crashes** - on the players page, the arbiter picker, or the results site's lookup. Anything outside the real id range is simply "no such player".
+- [Change] The public tools page computes its player-count explainer once per file change instead of on every render, and the norms page debounces its officials form.
+
+- [Fix] **A SWAR file with one unusable player no longer crashes the import.** A blank name or an out-of-range FIDE id made the whole import screen fall over instead of saying which player was wrong; it now reports the player and the field and writes nothing, as the TRF importer already did.
+- [Fix] **A corrupt SWAR file can no longer pair a player against themselves, or against someone whose own record disagrees.** Each side's opponent is now checked to name the other back, the same two guards the TRF importer has had since July.
+- [Fix] **Two SWAR players sharing an internal number are refused up front** instead of one of them silently losing every game to the other.
+- [Fix] **Absence caps above 255 no longer wrap when exported to SWAR** (300 used to become 44); the export clamps and logs, and the settings form refuses the value in the first place.
+- [Security] **A backup file cannot ask for an absurd key-stretching count.** The restore command used whatever iteration count the file's own header claimed; it is now bounded to a sane range.
+- [Security] **The FIDE rating-list download checks the archive's declared size before inflating it**, with a generous ceiling, so a hostile zip cannot exhaust memory on its way in.
+- [Fix] A tournament whose name has no Latin letters exports as `tournament-<id>.trf` instead of `.trf`.
+
+- [Fix] **A substitution dialog left open could seat one player on two boards.** "Swap with…" checked the bench player once, when the dialog opened, and the dialog deliberately stays open while another arbiter edits the round. If that player was paired onto another board in the meantime, confirming still went through. The write now re-checks, inside its own transaction, that the player belongs to this tournament and is not already seated in the round, and refuses otherwise. This was the third of three seating writes the August sweep named; the other two were fixed then.
+- [Fix] **Un-pairing a round is one transaction again.** It deleted the round, then the byes, as two separate steps; a crash between them left bye rows that a later re-pairing silently kept, and a player seated for real that round was scored for a game *and* a bye. Both deletes now commit together, and the standings ignore - with a warning in the log - any bye row for a round in which the player has a game.
+- [Fix] **A restore that fails no longer moves the history pointer.** The "before restoring to…" snapshot and the pointer move were committed before the restore itself ran; when the restore was rejected, the tree pointed at a state the data was never in. All three now succeed or fail together.
+- [Fix] **Accepting the same registration twice at once created two players.** The pending-to-accepted transition is now the guard: whoever claims it first creates the player, the other gets "already decided".
+- [Fix] **A player's team must belong to the same tournament.** The edit form could carry a team id from anywhere; nothing displays teams yet, so this closes a door rather than a hole.
+- [Fix] **The external pairing engine now has a deadline.** JaVaFo ran with no timeout; a pathological position could hang the arbiter's pairing indefinitely. It is now given sixty seconds and reports an error afterwards.
+- [Change] **Absence-cap counts are fetched in one query per tournament** rather than one per rendered row, on the pages that adopt the new call; the four current callers still use the old one and will follow.
+
+- [Fix] **Amber warning boxes ignored the theme.** Archived banners, the "careful, this is hard to undo" notes on the settings pages, the pairing-confirmation warnings, the history rail's tags and both status pills in the top bar were painted with a fixed amber, so on Nord, Dracula, Tokyo, Nocturne and Catppuccin they sat in the middle of the palette looking like something had failed to load.
+
+  Every theme has always defined its own `--warn` &mdash; Nord's is its aurora yellow, Dracula's its pale citrus &mdash; these components just never used it. They do now, along with the reds and greens beside them, so a warning looks like a warning in the theme you actually chose.
+
+  Two of them were worse than off-key: the OpenResults visibility toggles and the on/off state pills referenced a colour that does not exist, so *every* theme, including the two the app ships with, fell through to one hardcoded green.
+
+  A test now reads the stylesheet and fails on a colour written into a component instead of taken from the palette, on a theme that forgets to redefine one, and on a fallback to a colour no theme defines. That last check is what would have caught the missing green.
+
 ## [0.18.0] - 2026-08-29
 
 ### Added
@@ -925,57 +980,6 @@ Each entry is tagged so a version can be skimmed:
   more, which is one fewer argument to get right every time a route is added.
 
 ### Fixed
-
-- [Fix] **The last yellow boxes, on Nord and every other theme.** The earlier fix moved the app's own components onto the theme's colours, but six places were reading daisyUI's `--color-warning`/`--color-success` instead - tokens no theme overrides, so they stayed a fixed amber and green while everything around them changed. The changelog's own [Fix] tags were one of them. Two more surfaced while widening the net: a warning panel tinted with a hardcoded red, and three connection-status rules reading a colour token that does not exist, so their grey never applied in any theme.
-- [Fix] The theme test now reads the templates as well as the stylesheet, understands `oklch()`/`hsl()`/`rgb()`, and fails on any colour token the themes do not actually override - the three gaps that let the above through.
-
-- [Fix] **Standings ties are ordered by an explicit rule** - rating, then name, then pairing id - instead of whatever order the rows happened to arrive in. On a fresh tournament with no games the previous order could differ between runs; no computed placing changes.
-
-- [Security] **In production the server now listens on loopback only.** The only thing that ever connects to it directly is the tunnel on the same machine; binding every interface left the whole app one firewall rule away from the internet. `OPENPAIRINGS_LISTEN_IP` widens it deliberately for any deployment that needs that. Local mode was already loopback-only.
-- [Security] **The build pipeline pins every GitHub Action to a commit** instead of a movable tag, grants write access only to the tag-gated release step rather than every build, checks the lock file on every run, and lets Dependabot propose action updates.
-- [Security] **The deploy script no longer prints the server's secrets.** It read the systemd unit - `SECRET_KEY_BASE`, the mail password, the tokens - through the helper that echoes output, on every redeploy after the first; that read is silent now, the deploy-notice token travels to `curl` over a pipe instead of a command line, and anything that still gets printed passes through a redactor. The same script now refuses an unknown SSH host key, prefers key authentication (`DEPLOY_SSH_KEY`, password only with `DEPLOY_ALLOW_PASSWORD=1`), runs the service as its own system account with systemd's sandboxing, makes the database directory private, and sets `TRUSTED_PROXY_HOPS=1` so rate limits count real visitors. All of it takes effect on the next deploy. The secrets already printed to terminals should still be rotated.
-- [Fix] The local-mode documentation now says, in one sentence, why the binary must never sit behind a tunnel or reverse proxy.
-
-- [Change] **Pairing engine Ainalrami v0.15.0.** The TRF reader and writer now count columns in bytes like every other implementation, so a file from Swiss-Manager or bbpPairings with an accented name imports with that player's games intact; a byte-order mark no longer swallows the first line; a truncated line no longer yields a wrong opponent number; and the matcher breaks ties on a fixed rule rather than map order (checked byte-identical over 72,140 pairings). Nothing in the pairings this app produces changes.
-
-- [Fix] **Ten forms can now recover what you typed after a dropped connection.** They had no `id`, so LiveView could not restore them after a reconnect - on venue wifi that meant retyping. The test suite now refuses a form without one, so it cannot come back.
-
-- [Security] **Two phone-entry codes can no longer be active at once.** A unique index now enforces it; generation draws again on a collision instead of giving up after twenty tries and inserting the duplicate; and the public code page answers "wrong code" rather than a 500 if the database ever drifts.
-- [Security] **Password-login lockout counts the real client address**, not the tunnel's, once `TRUSTED_PROXY_HOPS` is set - so thirty wrong passwords from one place lock out that place, not everybody.
-- [Security] **The rate limiter counts atomically.** Under a burst of two hundred simultaneous hits it counted 109 to 127; it now counts two hundred.
-- [Security] **A newline in the language switcher's return address no longer causes a 500.** The filter is an allowlist now, and anchored so a trailing newline cannot slip past it.
-- [Fix] **Revoking a helper's phone access reaches their open page immediately** - it is sent back to the code screen - instead of only when they next try to enter a result.
-- [Fix] A crafted settings event with an unknown field, or a context-menu position that is not a number, no longer crashes the arbiter's own page.
-- [Change] The four pages that show bye chips now fetch the absence-cap counts once per render instead of once per chip; the unused second rate-limiter module is removed.
-
-- [Security] **The public norms tool caps the number of extra arbiters at twenty.** The count reached the server unchecked through a hidden form field and drove the spreadsheet expansion; a single request asking for a hundred million meant ten gigabytes of XML. It is clamped at every parse, and the expansion itself refuses anything above the cap as a last line of defence.
-- [Fix] **An out-of-range "master file" choice on the public tools page no longer crashes the session**; the index is parsed and clamped, and the combiner reports an invalid choice instead of raising.
-- [Fix] **A search for a number longer than any FIDE id no longer crashes** - on the players page, the arbiter picker, or the results site's lookup. Anything outside the real id range is simply "no such player".
-- [Change] The public tools page computes its player-count explainer once per file change instead of on every render, and the norms page debounces its officials form.
-
-- [Fix] **A SWAR file with one unusable player no longer crashes the import.** A blank name or an out-of-range FIDE id made the whole import screen fall over instead of saying which player was wrong; it now reports the player and the field and writes nothing, as the TRF importer already did.
-- [Fix] **A corrupt SWAR file can no longer pair a player against themselves, or against someone whose own record disagrees.** Each side's opponent is now checked to name the other back, the same two guards the TRF importer has had since July.
-- [Fix] **Two SWAR players sharing an internal number are refused up front** instead of one of them silently losing every game to the other.
-- [Fix] **Absence caps above 255 no longer wrap when exported to SWAR** (300 used to become 44); the export clamps and logs, and the settings form refuses the value in the first place.
-- [Security] **A backup file cannot ask for an absurd key-stretching count.** The restore command used whatever iteration count the file's own header claimed; it is now bounded to a sane range.
-- [Security] **The FIDE rating-list download checks the archive's declared size before inflating it**, with a generous ceiling, so a hostile zip cannot exhaust memory on its way in.
-- [Fix] A tournament whose name has no Latin letters exports as `tournament-<id>.trf` instead of `.trf`.
-
-- [Fix] **A substitution dialog left open could seat one player on two boards.** "Swap with…" checked the bench player once, when the dialog opened, and the dialog deliberately stays open while another arbiter edits the round. If that player was paired onto another board in the meantime, confirming still went through. The write now re-checks, inside its own transaction, that the player belongs to this tournament and is not already seated in the round, and refuses otherwise. This was the third of three seating writes the August sweep named; the other two were fixed then.
-- [Fix] **Un-pairing a round is one transaction again.** It deleted the round, then the byes, as two separate steps; a crash between them left bye rows that a later re-pairing silently kept, and a player seated for real that round was scored for a game *and* a bye. Both deletes now commit together, and the standings ignore - with a warning in the log - any bye row for a round in which the player has a game.
-- [Fix] **A restore that fails no longer moves the history pointer.** The "before restoring to…" snapshot and the pointer move were committed before the restore itself ran; when the restore was rejected, the tree pointed at a state the data was never in. All three now succeed or fail together.
-- [Fix] **Accepting the same registration twice at once created two players.** The pending-to-accepted transition is now the guard: whoever claims it first creates the player, the other gets "already decided".
-- [Fix] **A player's team must belong to the same tournament.** The edit form could carry a team id from anywhere; nothing displays teams yet, so this closes a door rather than a hole.
-- [Fix] **The external pairing engine now has a deadline.** JaVaFo ran with no timeout; a pathological position could hang the arbiter's pairing indefinitely. It is now given sixty seconds and reports an error afterwards.
-- [Change] **Absence-cap counts are fetched in one query per tournament** rather than one per rendered row, on the pages that adopt the new call; the four current callers still use the old one and will follow.
-
-- [Fix] **Amber warning boxes ignored the theme.** Archived banners, the "careful, this is hard to undo" notes on the settings pages, the pairing-confirmation warnings, the history rail's tags and both status pills in the top bar were painted with a fixed amber, so on Nord, Dracula, Tokyo, Nocturne and Catppuccin they sat in the middle of the palette looking like something had failed to load.
-
-  Every theme has always defined its own `--warn` &mdash; Nord's is its aurora yellow, Dracula's its pale citrus &mdash; these components just never used it. They do now, along with the reds and greens beside them, so a warning looks like a warning in the theme you actually chose.
-
-  Two of them were worse than off-key: the OpenResults visibility toggles and the on/off state pills referenced a colour that does not exist, so *every* theme, including the two the app ships with, fell through to one hardcoded green.
-
-  A test now reads the stylesheet and fails on a colour written into a component instead of taken from the palette, on a theme that forgets to redefine one, and on a fallback to a colour no theme defines. That last check is what would have caught the missing green.
 
 - [Fix] **The phone-enrolment QR could not work on your own computer, and did not say so.** Running OpenPairings locally, the QR encoded `http://localhost:4000/...` &mdash; which a phone resolves to *itself* &mdash; and the app only accepts connections from the machine it runs on, so even the right address would have been refused.
 

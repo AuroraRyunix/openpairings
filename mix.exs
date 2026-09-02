@@ -4,7 +4,7 @@ defmodule PairingsEngine.MixProject do
   def project do
     [
       app: :pairings_engine,
-      version: "0.18.0",
+      version: "0.19.0",
       elixir: "~> 1.17",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
