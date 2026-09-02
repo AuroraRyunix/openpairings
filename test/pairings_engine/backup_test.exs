@@ -333,6 +333,51 @@ defmodule PairingsEngine.BackupTest do
       assert {:error, message} = Backup.verify(path)
       assert message =~ "PAIRINGS_BACKUP_PASSPHRASE"
     end
+
+    # The header is read BEFORE the AEAD tag can be checked - it is what
+    # derives the key the tag is checked with - so its iteration count is
+    # attacker-controlled input on a `mix pairings.backup verify|restore`.
+    # Absurdly low weakens the KDF; absurdly high wedges the command in a
+    # PBKDF2 loop with no early exit and no cancel.
+    for {label, iterations} <- [{"far too low", 1}, {"absurdly high", 5_000_000_000}] do
+      test "a header asking for #{label} PBKDF2 iterations is refused", %{dir: dir} do
+        src = source(dir)
+        {:ok, path} = Backup.create(dir: dir, source: src)
+
+        retamper_iterations(path, unquote(iterations))
+
+        assert {:error, message} = Backup.verify(path)
+        assert message =~ "PBKDF2 iterations"
+      end
+    end
+
+    test "a header's own (legitimate) iteration count is still honoured", %{dir: dir} do
+      src = with_tournament(dir, "Iterations Open")
+      {:ok, path} = Backup.create(dir: dir, source: src)
+
+      # Rewriting it to the same value proves the crafted-header helper
+      # itself does not break an otherwise-good file.
+      [_magic, header, _payload] = String.split(File.read!(path), "\n", parts: 3)
+      current = Jason.decode!(header)["crypto"]["iterations"]
+      retamper_iterations(path, current)
+
+      assert {:ok, info} = Backup.verify(path)
+      assert info.tournaments == 1
+    end
+  end
+
+  # Rewrites only the `crypto.iterations` field of a backup's header, leaving
+  # the ciphertext (and so its AEAD tag) untouched.
+  defp retamper_iterations(path, iterations) do
+    [magic, header, payload] = String.split(File.read!(path), "\n", parts: 3)
+
+    header =
+      header
+      |> Jason.decode!()
+      |> update_in(["crypto", "iterations"], fn _ -> iterations end)
+      |> Jason.encode!()
+
+    File.write!(path, magic <> "\n" <> header <> "\n" <> payload)
   end
 
   describe "retention" do
