@@ -329,6 +329,39 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     assert xml =~ "CORNET, Luc"
   end
 
+  # Verified by tracing `Combine.combine/2` in the LiveView process itself
+  # (rather than a wall-clock measurement, which would be flaky): the counts
+  # explainer used to be recomputed from the template, so every keystroke in
+  # an officials box recombined every uploaded file and re-walked the pooled
+  # roster.
+  test "typing in an officials box does not recombine the uploaded files", %{conn: conn} do
+    {:ok, lv, _html} = live(conn, ~p"/tools/norms")
+
+    upload_files(lv, [
+      {"alpha.trf", trf_text("Alpha Open", [{"Alice", 111}, {"Bob", 222}])},
+      {"beta.trf", trf_text("Beta Open", [{"Carol", 333}, {"Dave", 444}])}
+    ])
+
+    :erlang.trace(lv.pid, true, [:call])
+    :erlang.trace_pattern({PairingsEngine.Norms.Combine, :combine, 2}, true, [:global])
+
+    on_exit(fn ->
+      :erlang.trace_pattern({PairingsEngine.Norms.Combine, :combine, 2}, false, [])
+    end)
+
+    # A keystroke: the explainer's inputs (files, master index) are untouched.
+    lv
+    |> form("#tools-fields-form", %{"overlay" => %{"chief_arbiter_email" => "a@example.com"}})
+    |> render_change()
+
+    refute_received {:trace, _, :call, {PairingsEngine.Norms.Combine, :combine, _}}
+
+    # Positive control: changing the master file does recompute it.
+    render_click(lv, "set_master", %{"index" => "1"})
+
+    assert_received {:trace, _, :call, {PairingsEngine.Norms.Combine, :combine, _}}
+  end
+
   test "a non-numeric or out-of-range master index leaves the socket alive", %{conn: conn} do
     {:ok, lv, _html} = live(conn, ~p"/tools/norms")
 

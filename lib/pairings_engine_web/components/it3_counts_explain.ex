@@ -18,12 +18,17 @@ defmodule PairingsEngineWeb.Components.It3CountsExplain do
 
   alias PairingsEngine.Norms.CountsBreakdown
 
-  attr :players, :list, required: true
-  attr :host_federation, :string, default: nil
+  @doc """
+  The whole breakdown this component renders, computed once.
 
-  def it3_counts_explain(assigns) do
-    breakdown = CountsBreakdown.breakdown(assigns.players, assigns.host_federation)
-    federations = CountsBreakdown.federations(assigns.players, assigns.host_federation)
+  Deliberately not done inside the component: it walks the entire player list
+  eight times over, and a component body runs on *every* render of the page
+  that hosts it - including a keystroke in an unrelated officials box. The
+  calling LiveView computes this only when the player list (or the host
+  federation) actually changes, and hands the result in as `counts`.
+  """
+  def precompute(players, host_federation) do
+    breakdown = CountsBreakdown.breakdown(players, host_federation)
 
     # Empty groups (no GMs at a club event, say) are real information but not
     # worth a card each - a wall of "0" boxes just buries the ones that
@@ -34,7 +39,22 @@ defmodule PairingsEngineWeb.Components.It3CountsExplain do
           category.total > 0,
           do: {label, explanation, category}
 
-    assigns = assign(assigns, categories: populated_categories, federations: federations)
+    %{
+      categories: populated_categories,
+      federations: CountsBreakdown.federations(players, host_federation),
+      host_federation: host_federation
+    }
+  end
+
+  attr :counts, :map, required: true, doc: "a `precompute/2` result"
+
+  def it3_counts_explain(assigns) do
+    assigns =
+      assign(assigns,
+        categories: assigns.counts.categories,
+        federations: assigns.counts.federations,
+        host_federation: assigns.counts.host_federation
+      )
 
     ~H"""
     <details class="it3-explain" open>
