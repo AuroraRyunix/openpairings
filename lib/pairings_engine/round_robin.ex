@@ -140,11 +140,21 @@ defmodule PairingsEngine.RoundRobin do
   `create_round/4`).
   """
   @spec pair_all_rounds(Tournament.t()) :: {:ok, pos_integer()} | {:error, term()}
-  def pair_all_rounds(%Tournament{archived_at: archived_at}) when not is_nil(archived_at) do
-    {:error, "This tournament is archived - unarchive it before pairing."}
+  # Gated here as well as in `Pairing.pair_next_round/1`, because this is a
+  # second entry point: `PairingsEngineWeb.PairingsLive` calls it directly,
+  # so a tournament frozen read-only would otherwise reach the schedule
+  # writes below without passing the gate at all. Like its sibling there,
+  # this used to pattern-match `archived_at` rather than asking
+  # `Tournaments.ensure_writable/1`, and so did not know a handed-off
+  # tournament from a live one.
+  def pair_all_rounds(%Tournament{} = tournament) do
+    case Tournaments.ensure_writable(tournament) do
+      :ok -> do_pair_all_rounds(tournament)
+      {:error, reason} -> {:error, Tournaments.refusal_message(reason, "pairing")}
+    end
   end
 
-  def pair_all_rounds(%Tournament{} = tournament) do
+  defp do_pair_all_rounds(%Tournament{} = tournament) do
     # Freeze, read the roster and correct `rounds_count` ONCE, then loop on
     # the corrected struct.
     #

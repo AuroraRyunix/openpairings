@@ -88,24 +88,34 @@ defmodule PairingsEngine.Pairing do
   event) - it never crashes on an unimplemented pairing system, it just
   returns a plain-string error the caller already renders as-is.
   """
-  # Archived tournaments are frozen read-only (see
-  # `Tournaments.ensure_writable/1`). Matched before the pairing-system
-  # dispatch below so it covers Swiss, round robin and Keizer in one place.
-  # Returns a plain-string error like every other refusal here, since the
-  # caller renders these as-is.
-  def pair_next_round(%Tournament{archived_at: archived_at}) when not is_nil(archived_at) do
-    {:error, "This tournament is archived - unarchive it before pairing."}
+  # A frozen tournament is refused before the pairing-system dispatch below,
+  # so this covers Swiss, round robin and Keizer in one place. Returns a
+  # plain-string error like every other refusal here, since the caller
+  # renders these as-is.
+  #
+  # This used to pattern-match `archived_at` directly rather than calling
+  # `Tournaments.ensure_writable/1`. That was equivalent while archiving was
+  # the only reason a tournament could be read-only, and stopped being
+  # equivalent the moment hand-off was a second one: a handed-off tournament
+  # went straight past this clause and got paired, which is precisely the
+  # divergence ("both copies paired round 6, differently") the hand-off lock
+  # exists to make impossible. Duplicating a gate is how a gate gets missed.
+  def pair_next_round(%Tournament{} = tournament) do
+    case Tournaments.ensure_writable(tournament) do
+      :ok -> dispatch_pair_next_round(tournament)
+      {:error, reason} -> {:error, Tournaments.refusal_message(reason, "pairing")}
+    end
   end
 
-  def pair_next_round(%Tournament{pairing_system: "round_robin"} = tournament) do
+  defp dispatch_pair_next_round(%Tournament{pairing_system: "round_robin"} = tournament) do
     dispatch_stub(tournament, PairingsEngine.RoundRobin)
   end
 
-  def pair_next_round(%Tournament{pairing_system: "keizer"} = tournament) do
+  defp dispatch_pair_next_round(%Tournament{pairing_system: "keizer"} = tournament) do
     dispatch_stub(tournament, PairingsEngine.Keizer)
   end
 
-  def pair_next_round(%Tournament{} = tournament) do
+  defp dispatch_pair_next_round(%Tournament{} = tournament) do
     paired = paired_rounds_count(tournament.id)
     next_number = paired + 1
     # One read of the active roster for the whole run. This used to be
@@ -208,10 +218,9 @@ defmodule PairingsEngine.Pairing do
   the next time this round number is paired.
   """
   def delete_round(tournament_id, number) do
-    if Tournaments.ensure_writable(tournament_id) != :ok do
-      {:error, "This tournament is archived - unarchive it before unpairing."}
-    else
-      do_delete_round(tournament_id, number)
+    case Tournaments.ensure_writable(tournament_id) do
+      :ok -> do_delete_round(tournament_id, number)
+      {:error, reason} -> {:error, Tournaments.refusal_message(reason, "unpairing")}
     end
   end
 
