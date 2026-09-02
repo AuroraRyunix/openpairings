@@ -1115,6 +1115,16 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
     # Extracts the trimmed text content of every `<td class="num">...</td>`
     # cell in `row_html`, in document order - used to check individual
     # numeric-column values without depending on exact whitespace.
+    # The player ids of the grid's `<tr>` rows, in the order they are
+    # rendered. Unlike `position/2` on a player's name this cannot be fooled
+    # by the same string occurring in the page's chrome - see the "High
+    # Contrast" note in the rating-fallback test below.
+    defp row_order(html) do
+      ~r/<tr[^>]*data-player-id="(\d+)"/
+      |> Regex.scan(html)
+      |> Enum.map(fn [_, id] -> String.to_integer(id) end)
+    end
+
     defp num_cells(row_html) do
       ~r/<td class="num"[^>]*>(.*?)<\/td>/s
       |> Regex.scan(row_html)
@@ -1258,19 +1268,26 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
 
       # No games played -> everyone tied on points (0) and every tiebreak
       # (0) -> default order should fall back to rating descending.
-      {:ok, _low} =
+      #
+      # Created out of rating order on purpose, so insertion order can't be
+      # mistaken for the thing under test.
+      {:ok, low} =
         Tournaments.create_player(tournament.id, %{"name" => "Low", "fide_rating" => "1200"})
 
-      {:ok, _high} =
+      {:ok, high} =
         Tournaments.create_player(tournament.id, %{"name" => "High", "fide_rating" => "2000"})
 
-      {:ok, _mid} =
+      {:ok, mid} =
         Tournaments.create_player(tournament.id, %{"name" => "Mid", "fide_rating" => "1600"})
 
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/players")
 
-      assert position(html, "High") < position(html, "Mid")
-      assert position(html, "Mid") < position(html, "Low")
+      # Row order, not `position/2` on the names: "High" also occurs in the
+      # layout's own chrome (the theme picker's "High Contrast" entry, which
+      # is rendered in the top bar, i.e. ahead of the table), so a name-
+      # substring assertion about "High" reads that instead of the player and
+      # holds no matter where the player row actually lands.
+      assert row_order(html) == [high.id, mid.id, low.id]
     end
   end
 
