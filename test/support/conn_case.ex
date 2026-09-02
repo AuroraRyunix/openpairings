@@ -33,6 +33,14 @@ defmodule PairingsEngineWeb.ConnCase do
 
   setup tags do
     PairingsEngine.DataCase.setup_sandbox(tags)
+
+    # The rate-limit counters live in a named ETS table that outlives any one
+    # test, so a test that spends a bucket's allowance leaves it spent for
+    # everything after it - and a later test asserting "this log-in is still
+    # allowed" fails on whichever seed puts it last. Clearing here rather
+    # than in each rate-limit test means a new one cannot forget.
+    PairingsEngine.RateLimit.clear_all()
+
     {:ok, conn: Phoenix.ConnTest.build_conn()}
   end
 

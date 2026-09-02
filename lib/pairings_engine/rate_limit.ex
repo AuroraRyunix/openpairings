@@ -131,6 +131,25 @@ defmodule PairingsEngine.RateLimit do
     :ok
   end
 
+  @doc """
+  Forgets every count in every bucket.
+
+  For tests. The table is `:named_table` and lives for the whole VM, so a
+  test that spent a bucket's allowance leaves it spent for every test that
+  runs after it - and one that expects "this request is still allowed" then
+  fails on a seed that happened to put it last. Called from
+  `PairingsEngineWeb.ConnCase`'s setup so no test has to remember.
+
+  Safe before the owning `GenServer` has created the table.
+  """
+  @spec clear_all() :: :ok
+  def clear_all do
+    :ets.delete_all_objects(@table)
+    :ok
+  rescue
+    ArgumentError -> :ok
+  end
+
   @doc "The configured allowance for `bucket`, for tests and for error copy."
   @spec config(bucket()) :: %{max: pos_integer(), window_ms: pos_integer()}
   def config(bucket), do: Map.fetch!(@buckets, bucket)

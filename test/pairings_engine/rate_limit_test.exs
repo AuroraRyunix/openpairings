@@ -1,5 +1,10 @@
 defmodule PairingsEngine.RateLimitTest do
-  use ExUnit.Case, async: true
+  # Deliberately synchronous. `PairingsEngineWeb.ConnCase` now wipes the
+  # shared counter table in its setup, and these tests read a count back
+  # across several statements - run concurrently with a web test, the wipe
+  # would land in the middle of one of them. Sync modules run after the
+  # async ones, so nothing can clear the table underneath these.
+  use ExUnit.Case, async: false
 
   alias PairingsEngine.RateLimit
 
