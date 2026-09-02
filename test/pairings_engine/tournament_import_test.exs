@@ -7,8 +7,9 @@ defmodule PairingsEngine.TournamentImportTest do
   # `busy_timeout` comment in config/test.exs for the general tradeoff).
   use PairingsEngine.DataCase, async: false
 
-  alias PairingsEngine.{Repo, Standings, TournamentExport, TournamentImport, Tournaments}
-  alias PairingsEngine.Tournaments.{Tournament, Team, Player, Round, Pairing}
+  alias PairingsEngine.{Audit, Repo, Standings, TournamentExport, TournamentImport, Tournaments}
+  alias PairingsEngine.Audit.AuditLog
+  alias PairingsEngine.Tournaments.{Collaborator, Tournament, Team, Player, Round, Pairing}
   alias PairingsEngine.Accounts.{Scope, User}
 
   # See PairingsEngine.TournamentsTest for why this bypasses the full
@@ -591,5 +592,400 @@ defmodule PairingsEngine.TournamentImportTest do
              |> Tournaments.list_players()
              |> Enum.all?(&is_nil(&1.manual_rank))
     end
+  end
+
+  ## ---------- the hand-off blocks: audit trail and collaborators ----------
+
+  describe "the audit trail travels with the tournament" do
+    test "every row comes across, in order, with fresh ids and the original times" do
+      owner = user_scope()
+      importer = user_scope()
+      original = fixture(owner)
+
+      Audit.log(original.id, owner, "player.created", %{player_name: "Alice"})
+      Audit.log(original.id, owner, "pairing.round_paired", %{round: 1, board_count: 2})
+      before = audit_rows(original.id)
+
+      assert {:ok, [imported]} = handoff(original, importer)
+      after_rows = audit_rows(imported.id)
+
+      assert Enum.map(after_rows, & &1.action) == Enum.map(before, & &1.action)
+      assert Enum.map(after_rows, & &1.inserted_at) == Enum.map(before, & &1.inserted_at)
+
+      # Fresh rows on a fresh tournament - nothing shared with the source.
+      assert Enum.all?(after_rows, &(&1.tournament_id == imported.id))
+      assert MapSet.disjoint?(MapSet.new(before, & &1.id), MapSet.new(after_rows, & &1.id))
+
+      # And the source's own trail is exactly as long as it was: an export
+      # reads, it does not move.
+      assert length(audit_rows(original.id)) == 2
+    end
+
+    test "the actor arrives as a name, and never as a link to a local stranger" do
+      owner = user_scope()
+      importer = user_scope()
+      original = fixture(owner)
+
+      Audit.log(original.id, owner, "player.deleted", %{player_name: "Alice"})
+      Audit.log(original.id, nil, "fide.sync_started", %{})
+
+      assert {:ok, [imported]} = handoff(original, importer)
+      [by_user, by_system] = audit_rows(imported.id)
+
+      # `user_id` stays nil on purpose. Linking the row to whoever holds
+      # that email here would attribute the deletion to somebody who never
+      # touched this tournament - the same misattribution a raw id causes,
+      # just arrived at more politely.
+      assert by_user.user_id == nil
+      assert by_user.details["imported_actor"] == owner.user.email
+      refute Map.has_key?(by_system.details, "imported_actor")
+    end
+
+    test "a second hand-off does not degrade the actor to nothing" do
+      owner = user_scope()
+      middle = user_scope()
+      last = user_scope()
+      original = fixture(owner)
+
+      Audit.log(original.id, owner, "player.deleted", %{player_name: "Alice"})
+
+      assert {:ok, [once]} = handoff(original, middle)
+      assert {:ok, [twice]} = handoff(once, last)
+
+      [row] = audit_rows(twice.id)
+      assert row.details["imported_actor"] == owner.user.email
+    end
+
+    test "player ids in details are remapped, and land on the same person" do
+      owner = user_scope()
+      importer = user_scope()
+      original = fixture(owner)
+
+      [alice, bob] =
+        original.id
+        |> Tournaments.list_players()
+        |> Enum.filter(&(&1.name in ["Alice", "Bob"]))
+        |> Enum.sort_by(& &1.name)
+
+      Audit.log(original.id, owner, "player.updated", %{
+        player_id: alice.id,
+        player_name: "Alice",
+        changed_fields: %{"fide_rating" => [2000, 2010]}
+      })
+
+      Audit.log(original.id, owner, "forbidden_pairing.added", %{
+        player_a_id: alice.id,
+        player_b_id: bob.id
+      })
+
+      assert {:ok, [imported]} = handoff(original, importer)
+      [updated, forbidden] = audit_rows(imported.id)
+
+      # The whole point of the remap: the id in the row must resolve to the
+      # SAME PERSON on this machine, not to whoever inherited that number.
+      assert player_name(updated.details["player_id"]) == "Alice"
+      assert player_name(forbidden.details["player_a_id"]) == "Alice"
+      assert player_name(forbidden.details["player_b_id"]) == "Bob"
+
+      # And it is genuinely a different number - proof this is a remap and
+      # not the source's id sitting there looking plausible.
+      assert updated.details["player_id"] != alice.id
+      assert forbidden.details["player_b_id"] != bob.id
+    end
+
+    test "an id pointing at something that did not travel is dropped, not carried stale" do
+      owner = user_scope()
+      importer = user_scope()
+      original = fixture(owner)
+
+      Audit.log(original.id, owner, "pairing.result_entered", %{
+        pairing_id: 4213,
+        round: 1,
+        board: 1,
+        white: "Alice",
+        black: "Bob",
+        to: "1-0"
+      })
+
+      Audit.log(original.id, owner, "snapshot.restored", %{snapshot_id: 77, restored_to: "R1"})
+
+      Audit.log(original.id, owner, "pairing.result_changed", %{
+        enrollment_id: 9,
+        enrollment_label: "Board 1 phone",
+        via: "mobile",
+        board: 1
+      })
+
+      assert {:ok, [imported]} = handoff(original, importer)
+      [entered, restored, changed] = audit_rows(imported.id)
+
+      # Pairings are re-inserted with fresh ids, snapshots and enrolments do
+      # not travel at all. A raw number here would point at a real row in
+      # somebody else's tournament on this machine.
+      refute Map.has_key?(entered.details, "pairing_id")
+      refute Map.has_key?(restored.details, "snapshot_id")
+      refute Map.has_key?(changed.details, "enrollment_id")
+
+      # Everything readable is untouched - the sentence still reads.
+      assert entered.details["white"] == "Alice"
+      assert entered.details["to"] == "1-0"
+      assert restored.details["restored_to"] == "R1"
+      assert changed.details["enrollment_label"] == "Board 1 phone"
+    end
+
+    test "an identifier that belongs to a person rather than to a row survives" do
+      owner = user_scope()
+      importer = user_scope()
+      original = fixture(owner)
+
+      Audit.log(original.id, owner, "player.updated", %{
+        player_name: "Alice",
+        changed_fields: %{"fide_id" => [nil, 12_345_678], "national_id" => ["", "B1234"]}
+      })
+
+      assert {:ok, [imported]} = handoff(original, importer)
+      [row] = audit_rows(imported.id)
+
+      # A FIDE ID is FIDE's number for a human being; it means the same
+      # thing on every machine in the world. Dropping it because the key
+      # ends in "_id" would delete the very fact under dispute.
+      assert row.details["changed_fields"]["fide_id"] == [nil, 12_345_678]
+      assert row.details["changed_fields"]["national_id"] == ["", "B1234"]
+    end
+
+    test "an unrecognised id key is dropped rather than guessed at" do
+      owner = user_scope()
+      importer = user_scope()
+      original = fixture(owner)
+
+      Audit.log(original.id, owner, "player.created", %{player_name: "Alice"})
+
+      envelope =
+        original
+        |> TournamentExport.export_tournament(include_handoff: true)
+        |> update_in(["tournaments", Access.at(0), "audit_log", Access.at(0), "details"], fn d ->
+          Map.merge(d, %{"invoice_id" => 12, "nested" => %{"widget_id" => 7, "keep" => "yes"}})
+        end)
+
+      assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
+      [row] = audit_rows(imported.id)
+
+      # The default has to be "drop". A key nobody has classified is far
+      # more likely to be a row reference than an external identifier, and
+      # a gap in the record beats a false statement in it.
+      refute Map.has_key?(row.details, "invoice_id")
+      refute Map.has_key?(row.details["nested"], "widget_id")
+      assert row.details["nested"]["keep"] == "yes"
+      assert row.details["player_name"] == "Alice"
+    end
+
+    test "a player id that maps to nobody is dropped, not left dangling" do
+      owner = user_scope()
+      importer = user_scope()
+      original = fixture(owner)
+
+      # A row about a player who was deleted after it was written - the
+      # trail keeps the name, but there is no longer an id to remap.
+      Audit.log(original.id, owner, "player.deleted", %{
+        player_id: 999_999,
+        player_name: "Gone"
+      })
+
+      assert {:ok, [imported]} = handoff(original, importer)
+      [row] = audit_rows(imported.id)
+
+      refute Map.has_key?(row.details, "player_id")
+      assert row.details["player_name"] == "Gone"
+    end
+
+    test "an ordinary envelope brings no audit rows with it" do
+      owner = user_scope()
+      importer = user_scope()
+      original = fixture(owner)
+      Audit.log(original.id, owner, "player.created", %{player_name: "Alice"})
+
+      envelope = TournamentExport.export_tournament(original)
+      assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
+
+      assert audit_rows(imported.id) == []
+    end
+
+    test "restoring a snapshot never re-plays the trail into the tournament" do
+      owner = user_scope()
+      original = fixture(owner)
+      Audit.log(original.id, owner, "player.created", %{player_name: "Alice"})
+
+      restore(original)
+
+      # A restore is this tournament's own past. Its trail never left, so
+      # re-inserting the copy in the payload would double every row - and
+      # the restore itself is an audited action, which is how the trail
+      # records that it happened.
+      assert length(audit_rows(original.id)) == 1
+    end
+  end
+
+  describe "collaborators arrive as invitations, not as access" do
+    test "email and role come across; the link, the token and the acceptance do not" do
+      owner = user_scope()
+      importer = user_scope()
+      original = fixture(owner)
+
+      accepted = invite(original, "helper@example.com")
+      Repo.update!(Ecto.Changeset.change(accepted, status: "accepted", invite_token: nil))
+
+      assert {:ok, [imported]} = handoff(original, importer)
+      [row] = Tournaments.list_collaborators(imported)
+
+      assert row.email == "helper@example.com"
+      assert row.role == "editor"
+
+      # Pending even though the source row was accepted. "Accepted" was a
+      # grant made on another machine to an account this one cannot see.
+      assert row.status == "pending"
+      assert row.user_id == nil
+
+      # A fresh token: the source's is a live bearer link and is unique
+      # across the table, so re-using it would put the same one on two
+      # machines.
+      assert is_binary(row.invite_token)
+      assert row.invite_token != accepted.invite_token
+      assert row.tournament_id == imported.id
+
+      # The source's own row is untouched - still accepted, still theirs.
+      assert Repo.reload!(accepted).status == "accepted"
+    end
+
+    test "holding the invited email grants nothing until the invitation is accepted" do
+      owner = user_scope()
+      importer = user_scope()
+      helper = user_scope()
+      original = fixture(owner)
+
+      invite(original, helper.user.email)
+      assert {:ok, [imported]} = handoff(original, importer)
+
+      # The whole decision in one assertion: importing a file must not hand
+      # the tournament to whoever happens to hold that address here.
+      refute imported.id in tournament_ids(helper)
+
+      [row] = Tournaments.list_collaborators(imported)
+      assert {:ok, _} = Tournaments.accept_invitation(helper, row.id)
+
+      # And it is a real invitation in the ordinary flow, not a lookalike -
+      # the same accept/decline path unlocks it.
+      assert imported.id in tournament_ids(helper)
+    end
+
+    test "an invitation from a file can still be accepted through its own link" do
+      owner = user_scope()
+      importer = user_scope()
+      helper = user_scope()
+      original = fixture(owner)
+
+      invite(original, helper.user.email)
+      assert {:ok, [imported]} = handoff(original, importer)
+      [row] = Tournaments.list_collaborators(imported)
+
+      assert %{id: found_id} = Tournaments.find_invitation_by_token(row.invite_token)
+      assert found_id == row.id
+      assert {:ok, _} = Tournaments.accept_invitation(helper, row.invite_token)
+    end
+
+    test "an ordinary envelope brings no collaborators with it" do
+      owner = user_scope()
+      importer = user_scope()
+      original = fixture(owner)
+      invite(original, "helper@example.com")
+
+      envelope = TournamentExport.export_tournament(original)
+      assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
+
+      assert Tournaments.list_collaborators(imported) == []
+    end
+
+    test "a row with no email to invite is skipped, not fatal to the import" do
+      owner = user_scope()
+      importer = user_scope()
+      original = fixture(owner)
+      invite(original, "helper@example.com")
+
+      envelope =
+        original
+        |> TournamentExport.export_tournament(include_handoff: true)
+        |> update_in(["tournaments", Access.at(0), "collaborators"], fn rows ->
+          [%{"role" => "editor"} | rows]
+        end)
+
+      assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
+      assert [%{email: "helper@example.com"}] = Tournaments.list_collaborators(imported)
+    end
+
+    test "restoring a snapshot does not re-invite the team" do
+      owner = user_scope()
+      original = fixture(owner)
+      invite(original, "helper@example.com")
+
+      restore(original)
+
+      # The team never left, so restoring must not duplicate it - and a
+      # second row for the same address would violate the table's own
+      # unique index anyway.
+      assert [%{email: "helper@example.com"}] = Tournaments.list_collaborators(original)
+    end
+  end
+
+  # `restore_into!/2`'s contract: the caller has already deleted the old
+  # contents and wraps the call in a transaction (see `Snapshots.restore/3`,
+  # whose `wipe_contents/1` this mirrors). The payload here deliberately
+  # carries the hand-off blocks, which a real snapshot's never does - the
+  # point is that a restore ignores them even when they are in front of it.
+  defp restore(tournament) do
+    [entry] =
+      tournament
+      |> TournamentExport.export_tournament(include_handoff: true)
+      |> Map.fetch!("tournaments")
+
+    Repo.transaction(fn ->
+      Repo.delete_all(from b in "byes", where: b.tournament_id == ^tournament.id)
+      Repo.delete_all(from f in "forbidden_pairings", where: f.tournament_id == ^tournament.id)
+      Repo.delete_all(from r in Round, where: r.tournament_id == ^tournament.id)
+      Repo.delete_all(from p in Player, where: p.tournament_id == ^tournament.id)
+      Repo.delete_all(from t in Team, where: t.tournament_id == ^tournament.id)
+
+      TournamentImport.restore_into!(tournament, entry)
+    end)
+  end
+
+  defp handoff(tournament, importer) do
+    tournament
+    |> TournamentExport.export_tournament(include_handoff: true)
+    |> TournamentImport.import(importer)
+  end
+
+  defp audit_rows(tournament_id) do
+    Repo.all(
+      from a in AuditLog,
+        where: a.tournament_id == ^tournament_id,
+        order_by: [asc: a.inserted_at, asc: a.id]
+    )
+  end
+
+  defp player_name(player_id), do: Repo.get!(Player, player_id).name
+
+  defp tournament_ids(scope) do
+    scope |> Tournaments.list_tournaments() |> Enum.map(fn {t, _count, _owner?} -> t.id end)
+  end
+
+  # Skips `Tournaments.add_collaborator/3` on purpose: that path sends an
+  # invitation email, which these tests have no reason to exercise.
+  defp invite(tournament, email) do
+    %Collaborator{tournament_id: tournament.id}
+    |> Collaborator.changeset(%{
+      email: email,
+      status: "pending",
+      invite_token: "tok-#{System.unique_integer([:positive])}"
+    })
+    |> Repo.insert!()
   end
 end

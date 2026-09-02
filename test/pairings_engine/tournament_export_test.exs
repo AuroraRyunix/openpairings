@@ -5,8 +5,9 @@ defmodule PairingsEngine.TournamentExportTest do
   # there and the `busy_timeout` note in config/test.exs.
   use PairingsEngine.DataCase, async: false
 
-  alias PairingsEngine.{Repo, TournamentExport}
-  alias PairingsEngine.Tournaments.{Tournament, Team, Player, Round, Pairing}
+  alias PairingsEngine.{Audit, Mobile, Repo, TournamentExport}
+  alias PairingsEngine.Audit.AuditLog
+  alias PairingsEngine.Tournaments.{Collaborator, Tournament, Team, Player, Round, Pairing}
   alias PairingsEngine.Accounts.{Scope, User}
 
   # `pairing_map/1` builds its map inline rather than from a module
@@ -26,6 +27,40 @@ defmodule PairingsEngine.TournamentExportTest do
     |> hd()
     |> Map.keys()
     |> Enum.map(&String.to_atom/1)
+  end
+
+  # Every schema the envelope carries, paired with the two lists that decide
+  # each of its fields: what is exported, and what is deliberately left out.
+  # One list, walked by both guards below, so adding a schema to the envelope
+  # is one entry here rather than a test somebody forgets to extend.
+  #
+  # Tournament had this guard from the start. Round and Pairing did not, and
+  # two fields went missing through the gap: `pairings.hidden` was dropped,
+  # so a backup/restore silently UN-HID every hidden board (a disclosure, not
+  # a lost preference), and `rounds.explanation` too - that one stays
+  # dropped, deliberately, because the blob holds DB player ids and
+  # re-importing would attribute every bracket to the wrong people while
+  # looking entirely plausible.
+  #
+  # AuditLog and Collaborator joined when the hand-off blocks arrived. A new
+  # column on either (`audit_logs.severity`, say) must hit the same wall
+  # rather than being dropped in silence: the audit trail is the arbiter's
+  # evidence and the collaborator list is who may touch the event, and both
+  # are worse things to lose quietly than a tiebreak setting.
+  defp guarded_schemas do
+    [
+      {Tournament, TournamentExport.tournament_fields(),
+       TournamentExport.excluded_tournament_fields(),
+       "@tournament_fields / @excluded_tournament_fields"},
+      {Round, TournamentExport.round_fields(), TournamentExport.round_excluded(),
+       "@round_fields / @round_excluded"},
+      {Pairing, pairing_exported_fields(), TournamentExport.pairing_excluded(),
+       "pairing_map/1 / @pairing_excluded"},
+      {AuditLog, TournamentExport.audit_fields(), TournamentExport.audit_excluded(),
+       "@audit_fields / @audit_excluded"},
+      {Collaborator, TournamentExport.collaborator_fields(),
+       TournamentExport.collaborator_excluded(), "@collaborator_fields / @collaborator_excluded"}
+    ]
   end
 
   # One round, two boards, one of them hidden - the smallest shape that can
@@ -210,53 +245,8 @@ defmodule PairingsEngine.TournamentExportTest do
     # round-robin tournament silently restored as a Swiss one. Adding a
     # schema field now forces a deliberate choice: export it, or list it in
     # @excluded_tournament_fields with a reason.
-    test "every tournament schema field is either exported or deliberately excluded" do
-      all = Tournament.__schema__(:fields) |> MapSet.new()
-      exported = TournamentExport.tournament_fields() |> MapSet.new()
-      excluded = TournamentExport.excluded_tournament_fields() |> MapSet.new()
-
-      unaccounted = all |> MapSet.difference(exported) |> MapSet.difference(excluded)
-
-      assert MapSet.size(unaccounted) == 0,
-             "these tournament schema fields are neither exported nor listed as deliberately " <>
-               "excluded: #{inspect(MapSet.to_list(unaccounted))}. Add each to " <>
-               "@tournament_fields or @excluded_tournament_fields (with a reason) in " <>
-               "PairingsEngine.TournamentExport."
-    end
-
-    test "the two lists never overlap, and neither names a field that doesn't exist" do
-      all = Tournament.__schema__(:fields) |> MapSet.new()
-      exported = TournamentExport.tournament_fields() |> MapSet.new()
-      excluded = TournamentExport.excluded_tournament_fields() |> MapSet.new()
-
-      assert MapSet.intersection(exported, excluded) |> MapSet.size() == 0
-
-      for {label, set} <- [{"exported", exported}, {"excluded", excluded}] do
-        stale = MapSet.difference(set, all)
-
-        assert MapSet.size(stale) == 0,
-               "#{label} list names fields that are not on the schema: " <>
-                 inspect(MapSet.to_list(stale))
-      end
-    end
-
-    # The same guard for Round and Pairing, which did not have one - and two
-    # fields went missing through the gap. `pairings.hidden` was dropped, so
-    # a backup/restore silently UN-HID every hidden board, which is a
-    # disclosure rather than a lost preference. `rounds.explanation` was
-    # dropped too; that one stays dropped, deliberately, because the blob
-    # holds DB player ids and re-importing would attribute every bracket to
-    # the wrong people while looking entirely plausible.
-    #
-    # Neither was caught by anything. The Tournament guard above existed the
-    # whole time and was simply never extended to the other two schemas.
-    test "every round and pairing schema field is either exported or deliberately excluded" do
-      for {schema, exported, excluded, list_name} <- [
-            {Round, TournamentExport.round_fields(), TournamentExport.round_excluded(),
-             "@round_fields / @round_excluded"},
-            {Pairing, pairing_exported_fields(), TournamentExport.pairing_excluded(),
-             "pairing_map/1 / @pairing_excluded"}
-          ] do
+    test "every exported schema's fields are either exported or deliberately excluded" do
+      for {schema, exported, excluded, list_name} <- guarded_schemas() do
         all = schema.__schema__(:fields) |> MapSet.new()
         accounted = MapSet.union(MapSet.new(exported), MapSet.new(excluded))
         unaccounted = MapSet.difference(all, accounted)
@@ -265,6 +255,26 @@ defmodule PairingsEngine.TournamentExportTest do
                "#{inspect(schema)} fields neither exported nor deliberately excluded: " <>
                  "#{inspect(MapSet.to_list(unaccounted))}. Add each to #{list_name} " <>
                  "(with a reason) in PairingsEngine.TournamentExport."
+      end
+    end
+
+    test "no schema's two lists overlap, and neither names a field that doesn't exist" do
+      for {schema, exported, excluded, list_name} <- guarded_schemas() do
+        all = schema.__schema__(:fields) |> MapSet.new()
+        exported = MapSet.new(exported)
+        excluded = MapSet.new(excluded)
+
+        assert MapSet.intersection(exported, excluded) |> MapSet.size() == 0,
+               "#{inspect(schema)}: #{list_name} claim the same field both ways: " <>
+                 inspect(MapSet.to_list(MapSet.intersection(exported, excluded)))
+
+        for {label, set} <- [{"exported", exported}, {"excluded", excluded}] do
+          stale = MapSet.difference(set, all)
+
+          assert MapSet.size(stale) == 0,
+                 "#{inspect(schema)}'s #{label} list names fields that are not on the " <>
+                   "schema: " <> inspect(MapSet.to_list(stale))
+        end
       end
     end
 
@@ -324,5 +334,148 @@ defmodule PairingsEngine.TournamentExportTest do
                "#{field} must not be exported - see @excluded_tournament_fields"
       end
     end
+  end
+
+  describe "the hand-off blocks" do
+    test "an ordinary export carries neither block at all" do
+      scope = user_scope()
+      {tournament, %{a: a}} = fixture(scope)
+      Audit.log(tournament.id, scope, "player.created", %{player_id: a.id, player_name: "Alice"})
+      invite(tournament, "helper@example.com")
+
+      [t_data] = TournamentExport.export_tournament(tournament)["tournaments"]
+
+      # Absent, not empty: a snapshot payload and a "Duplicate tournament"
+      # copy both go through this same call, and neither is a hand-off. An
+      # empty list would read as "this event had no audit trail and no
+      # collaborators", which is a different (and false) claim.
+      refute Map.has_key?(t_data, "audit_log")
+      refute Map.has_key?(t_data, "collaborators")
+    end
+
+    test "a hand-off export carries this tournament's audit rows, oldest first" do
+      scope = user_scope()
+      {tournament, %{a: a}} = fixture(scope)
+
+      Audit.log(tournament.id, scope, "player.created", %{player_id: a.id, player_name: "Alice"})
+      Audit.log(tournament.id, scope, "pairing.round_paired", %{round: 1, board_count: 2})
+
+      rows = handoff_entry(tournament)["audit_log"]
+
+      assert Enum.map(rows, & &1["action"]) == ["player.created", "pairing.round_paired"]
+      assert Enum.all?(rows, &is_binary(&1["inserted_at"]))
+    end
+
+    test "the acting user travels as a display string, never as a user id" do
+      scope = user_scope()
+      {tournament, _} = fixture(scope)
+      Audit.log(tournament.id, scope, "tournament.settings_updated", %{changed_fields: %{}})
+      Audit.log(tournament.id, nil, "fide.sync_started", %{})
+
+      [by_user, by_system] = handoff_entry(tournament)["audit_log"]
+
+      # The email is the whole point: a `user_id` from another instance
+      # either dangles or, worse, lands on a stranger who happens to hold
+      # that id here.
+      assert by_user["actor"] == scope.user.email
+      refute Map.has_key?(by_user, "user_id")
+
+      # A system row has no actor to name, and inventing one would be a
+      # false statement about who acted.
+      assert by_system["actor"] == nil
+    end
+
+    test "only this tournament's own rows travel - not another event's, not the machine's" do
+      scope = user_scope()
+      {tournament, _} = fixture(scope)
+      {other, _} = fixture(scope)
+
+      Audit.log(tournament.id, scope, "player.deleted", %{player_name: "Mine"})
+      Audit.log(other.id, scope, "player.deleted", %{player_name: "Not mine"})
+      Audit.log_system(scope, "backup.downloaded", %{filename: "all.json"})
+
+      rows = handoff_entry(tournament)["audit_log"]
+
+      assert Enum.map(rows, & &1["details"]["player_name"]) == ["Mine"]
+
+      # A machine-wide row (`tournament_id IS NULL`) is a fact about the
+      # installation - a role granted, a backup taken. It is not this
+      # tournament's record and must not leave with it.
+      refute Enum.any?(rows, &(&1["action"] == "backup.downloaded"))
+    end
+
+    test "collaborators travel as an invitation's ingredients and nothing more" do
+      scope = user_scope()
+      {tournament, _} = fixture(scope)
+      accepted = invite(tournament, "Accepted@Example.com")
+
+      Repo.update!(Ecto.Changeset.change(accepted, status: "accepted", invite_token: nil))
+      invite(tournament, "pending@example.com")
+
+      rows = handoff_entry(tournament)["collaborators"]
+      emails = rows |> Enum.map(& &1["email"]) |> Enum.sort()
+
+      # Both kinds travel. On the far side they become the same thing - a
+      # pending invitation - so the distinction the source drew disappears
+      # by construction, and dropping the pending ones would lose people the
+      # owner had already decided to invite.
+      assert emails == ["accepted@example.com", "pending@example.com"]
+      assert Enum.all?(rows, &(&1["role"] == "editor"))
+
+      for row <- rows, field <- ~w(id user_id invite_token status inserted_at updated_at) do
+        refute Map.has_key?(row, field),
+               "#{field} must not travel with a collaborator - see @collaborator_excluded"
+      end
+    end
+
+    test "a hand-off envelope is still plain JSON, with no structs left in it" do
+      scope = user_scope()
+      {tournament, %{a: a}} = fixture(scope)
+      Audit.log(tournament.id, scope, "player.created", %{player_id: a.id, player_name: "Alice"})
+      invite(tournament, "helper@example.com")
+
+      envelope = TournamentExport.export_tournament(tournament, include_handoff: true)
+
+      assert envelope |> Jason.encode!() |> Jason.decode!() == envelope
+    end
+
+    test "a mobile enrolment never travels - not its token, not its code" do
+      scope = user_scope()
+      {tournament, _} = fixture(scope)
+      {:ok, enrollment} = Mobile.create_enrollment(tournament.id, label: "Arbiter's phone")
+
+      json =
+        tournament
+        |> TournamentExport.export_tournament(include_handoff: true)
+        |> Jason.encode!()
+
+      # These two ARE the access. A code minted on the hosted copy must not
+      # start working on a laptop because a file moved, so nothing about the
+      # enrolment may appear anywhere in the envelope - not under its own
+      # key, not smuggled inside an audit row's details.
+      refute json =~ enrollment.token
+      refute json =~ enrollment.code
+      refute json =~ "Arbiter's phone"
+      assert :mobile_enrollments in TournamentExport.excluded_tables()
+    end
+  end
+
+  # Skips `Tournaments.add_collaborator/3` on purpose: that path sends an
+  # invitation email, which these tests have no reason to exercise.
+  defp invite(tournament, email) do
+    %Collaborator{tournament_id: tournament.id}
+    |> Collaborator.changeset(%{
+      email: email,
+      status: "pending",
+      invite_token: "tok-#{System.unique_integer([:positive])}"
+    })
+    |> Repo.insert!()
+  end
+
+  defp handoff_entry(tournament) do
+    tournament
+    |> TournamentExport.export_tournament(include_handoff: true)
+    |> Map.fetch!("tournaments")
+    |> hd()
   end
 end
