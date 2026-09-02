@@ -2090,7 +2090,7 @@ defmodule PairingsEngineWeb.PairingsLive do
 
             <label :if={@confirm.kind == :pool_pair} class="board-number-field">
               <span>{gettext("Table number")}</span>
-              <form phx-change="set_confirm_board">
+              <form id="confirm-board-form" phx-change="set_confirm_board">
                 <input type="number" name="board" value={@confirm.board} min="1" />
               </form>
             </label>

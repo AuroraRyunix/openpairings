@@ -167,7 +167,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
 
       <.stale_banner stale={@stale} />
 
-      <form phx-submit="save">
+      <form id="scoring-settings-form" phx-submit="save">
         <div class="card">
           <h2>{gettext("Points")}</h2>
 

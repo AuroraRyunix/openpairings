@@ -473,7 +473,12 @@ defmodule PairingsEngineWeb.FideLive do
           </div>
         </div>
 
-        <form class="field search-wrap" style="margin-top: 16px" phx-change="kbsb_search">
+        <form
+          id="kbsb-search-form"
+          class="field search-wrap"
+          style="margin-top: 16px"
+          phx-change="kbsb_search"
+        >
           <span style="display:block;font-size:13px;font-weight:600;color:var(--text-soft);margin-bottom:4px">
             {gettext("Search the local KBSB database (national ID or last name)")}
           </span>
@@ -589,7 +594,7 @@ defmodule PairingsEngineWeb.FideLive do
           )}
         </p>
 
-        <form phx-submit="save_publishing">
+        <form id="fide-publishing-form" phx-submit="save_publishing">
           <label class="field">
             <span>{gettext("Address")}</span>
             <input

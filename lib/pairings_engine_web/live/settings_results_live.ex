@@ -576,7 +576,7 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
               less room, and grouping is what makes seventeen legible at all.
               The hint moves to the title attribute - it is a reminder, not
               something to read seventeen times. --%>
-        <form phx-change="save_display">
+        <form id="display-settings-form" phx-change="save_display">
           <div :for={{group, heading, about} <- PublicDisplay.groups()} class="display-group">
             <div class="display-group-head">
               <strong>{heading}</strong>

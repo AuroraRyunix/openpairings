@@ -78,6 +78,11 @@ config :phoenix, :plug_init_mode, :runtime
 config :phoenix_live_view,
   enable_expensive_runtime_checks: true
 
+# A form with phx-change/phx-submit but no id cannot have its contents recovered
+# after a reconnect - an arbiter on venue wifi loses whatever they had typed.
+# Raise rather than warn so the class cannot creep back in.
+config :phoenix_live_view, :test_warnings, missing_form_id: :raise
+
 # Sort query params output of verified routes for robust url comparisons
 config :phoenix,
   sort_verified_routes_query_params: true

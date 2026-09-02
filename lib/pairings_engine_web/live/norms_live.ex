@@ -1334,7 +1334,12 @@ defmodule PairingsEngineWeb.NormsLive do
   defp norm_edit_modal(assigns) do
     ~H"""
     <div class="modal-overlay" phx-window-keydown="close_norm" phx-key="escape">
-      <form class="modal-card" phx-submit="save_norm" phx-click-away="close_norm">
+      <form
+        id="norm-edit-form"
+        class="modal-card"
+        phx-submit="save_norm"
+        phx-click-away="close_norm"
+      >
         <h2>{gettext("Title-norm judgment - %{name}", name: @player.name)}</h2>
 
         <div class="form-grid">

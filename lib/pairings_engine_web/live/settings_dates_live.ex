@@ -215,7 +215,7 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
 
       <.stale_banner stale={@stale} />
 
-      <form phx-submit="save" phx-change="rd_update">
+      <form id="round-dates-form" phx-submit="save" phx-change="rd_update">
         <div class="card">
           <h2>{gettext("Round dates")}</h2>
 

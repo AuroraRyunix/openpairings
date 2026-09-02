@@ -383,7 +383,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
       </div>
       <.settings_subnav tournament={@tournament} active={:tournament} />
       <.stale_banner stale={@stale} />
-      <form phx-submit="save">
+      <form id="tournament-settings-form" phx-submit="save">
         <div class="card">
           <h2>{gettext("General")}</h2>
 

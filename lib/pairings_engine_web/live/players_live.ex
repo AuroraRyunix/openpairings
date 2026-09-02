@@ -1406,7 +1406,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         </ul>
       </div>
 
-      <form :if={@adding} class="card" phx-submit="save">
+      <form :if={@adding} id="add-player-form" class="card" phx-submit="save">
         <h2>{gettext("Add player")}</h2>
 
         <div class="field search-wrap">

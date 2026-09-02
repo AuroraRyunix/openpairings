@@ -835,7 +835,11 @@ defmodule PairingsEngineWeb.HistoryLive do
           </.rich_text>
         </p>
 
-        <form phx-change="restore_confirm_input" phx-submit="restore_confirmed">
+        <form
+          id="restore-confirm-form"
+          phx-change="restore_confirm_input"
+          phx-submit="restore_confirmed"
+        >
           <input
             type="text"
             name="confirm"
