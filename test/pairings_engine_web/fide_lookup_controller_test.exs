@@ -118,6 +118,22 @@ defmodule PairingsEngineWeb.FideLookupControllerTest do
 
       assert [%{"fide_id" => 2_503_014}] = json_response(conn, 200)["players"]
     end
+
+    # An all-digit query used to go straight into `Repo.get/2` as an
+    # arbitrary-precision integer, and Exqlite raises on anything wider than
+    # 64 bits - taking this endpoint (and every other caller of
+    # `Fide.search/1`) down with an "argument error".
+    test "an absurdly long number is simply no match", %{conn: conn} do
+      huge = String.duplicate("9", 25)
+
+      assert Fide.search(huge) == []
+      assert Fide.search(to_string(PairingsEngine.Tournaments.Player.max_fide_id() + 1)) == []
+      assert Fide.search("00") == []
+      assert Fide.get_player(huge) == nil
+
+      conn = conn |> authed() |> get(~p"/internal/fide/search", q: huge)
+      assert json_response(conn, 200)["players"] == []
+    end
   end
 
   describe "the rate limit" do

@@ -32,6 +32,22 @@ defmodule PairingsEngine.Norms.Forms do
     it4: "IT4.xlsx"
   }
 
+  # Arbiters beyond chief + the 2 ranked deputies (`officials
+  # ["extra_arbiters_count"]`). Every extra arbiter grows the IT3 template by
+  # two rows in each of two sheets (see `PairingsEngine.Norms.ItThreeExpand`),
+  # so an unbounded count is a way to ask the server to build gigabytes of
+  # XML from one form field on the *public* tools page. A FIDE norm report
+  # needs a handful; 20 is generous and still cheap.
+  @max_extra_arbiters 20
+
+  @doc """
+  The largest `extra_arbiters_count` any entry point accepts - every parse
+  of that field (here, `PairingsEngine.Tools.Overlay`, the Norms and public
+  tools LiveViews) clamps to this, and `ItThreeExpand.expand/2` refuses
+  above it.
+  """
+  def max_extra_arbiters, do: @max_extra_arbiters
+
   @doc "Absolute path to `kind`'s (`:it3` | `:fa1` | `:ia1` | `:it4`) template file."
   def template_path(kind) when is_map_key(@templates, kind) do
     Path.join(templates_dir(), Map.fetch!(@templates, kind))
@@ -196,14 +212,16 @@ defmodule PairingsEngine.Norms.Forms do
 
   defp extra_arbiters_count(o) do
     case Map.get(o, "extra_arbiters_count") do
-      n when is_integer(n) -> n
+      n when is_integer(n) -> clamp_extra_count(n)
       s when is_binary(s) -> s |> Integer.parse() |> extra_count_from_parse()
       _ -> 0
     end
   end
 
-  defp extra_count_from_parse({n, _}), do: n
+  defp extra_count_from_parse({n, _}), do: clamp_extra_count(n)
   defp extra_count_from_parse(:error), do: 0
+
+  defp clamp_extra_count(n) when is_integer(n), do: n |> max(0) |> min(@max_extra_arbiters)
 
   # Fills the {total, feds, host} triple starting at `base_ref` (e.g. "B27"
   # -> B27 total, B28 feds, B29 host); the 4th cell of each block is always

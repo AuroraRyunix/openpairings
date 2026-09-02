@@ -52,31 +52,47 @@ defmodule PairingsEngine.Norms.Combine do
   tournament's header/schedule fields the combined result inherits - see
   the moduledoc.
 
-  Returns `{:ok, {tournament, players}}`, or `{:error, {:duplicate_players,
+  Returns `{:ok, {tournament, players}}`, `{:error, {:duplicate_players,
   names}}` if the same player (by the identity rule in the moduledoc)
-  appears in more than one of the selected tournaments.
+  appears in more than one of the selected tournaments, or
+  `{:error, :invalid_master_index}` if `master_index` doesn't name one of
+  `pairs` (it reaches here from a form field, so it is checked rather than
+  assumed).
   """
   def combine([{tournament, players}], _master_index), do: {:ok, {tournament, players}}
 
   def combine(pairs, master_index) when length(pairs) >= 2 do
     case duplicate_names(pairs) do
       [] ->
-        {master_tournament, _master_players} = Enum.fetch!(pairs, master_index)
-        virtual_players = Enum.flat_map(pairs, fn {_tournament, players} -> players end)
+        case fetch_master(pairs, master_index) do
+          {:ok, {master_tournament, _master_players}} ->
+            virtual_players = Enum.flat_map(pairs, fn {_tournament, players} -> players end)
 
-        virtual_tournament = %{
-          master_tournament
-          | id: nil,
-            name: festival_name(master_tournament.name),
-            fide_tournament_id: combined_fide_tournament_id(pairs)
-        }
+            virtual_tournament = %{
+              master_tournament
+              | id: nil,
+                name: festival_name(master_tournament.name),
+                fide_tournament_id: combined_fide_tournament_id(pairs)
+            }
 
-        {:ok, {virtual_tournament, virtual_players}}
+            {:ok, {virtual_tournament, virtual_players}}
+
+          :error ->
+            {:error, :invalid_master_index}
+        end
 
       names ->
         {:error, {:duplicate_players, names}}
     end
   end
+
+  # `Enum.fetch/2` counts a negative index from the end of the list; a master
+  # index is 0-based from the front only, so anything negative is invalid
+  # rather than a wrap-around to the last tournament.
+  defp fetch_master(pairs, master_index) when is_integer(master_index) and master_index >= 0,
+    do: Enum.fetch(pairs, master_index)
+
+  defp fetch_master(_pairs, _master_index), do: :error
 
   @doc """
   A playful, user-facing message for a `{:duplicate_players, names}` error
@@ -89,6 +105,10 @@ defmodule PairingsEngine.Norms.Combine do
 
   def error_message({:duplicate_players, names}) do
     "#{Enum.join(names, ", ")} play in two of these tournaments - the categories of one festival can't share players!"
+  end
+
+  def error_message(:invalid_master_index) do
+    "That tournament isn't one of the ones being combined - pick which one supplies the header details and try again."
   end
 
   defp festival_name(name), do: "#{name} Festival"

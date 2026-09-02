@@ -29,6 +29,8 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   import PairingsEngineWeb.Components.ArbiterCombo
   import PairingsEngineWeb.Components.It3CountsExplain
 
+  alias PairingsEngineWeb.Components.It3CountsExplain
+
   alias PairingsEngine.Fide
   alias PairingsEngine.Norms.{Combine, Forms}
   alias PairingsEngine.Tools.{Parser, Session}
@@ -76,7 +78,9 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
        candidate: candidate,
        # Results of the current arbiter-combobox search, keyed by which
        # official/box asked for it (see `PairingsEngineWeb.Live.ArbiterCombo`).
-       arbiter_search: nil
+       arbiter_search: nil,
+       # Memoised IT3 counts breakdown - see assign_it3_counts/1.
+       it3_counts: nil
      )
      |> allow_upload(:files,
        accept: :any,
@@ -105,6 +109,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
      socket
      |> assign(files: files)
      |> prefill_from_master()
+     |> assign_it3_counts()
      |> sync_session()}
   end
 
@@ -116,19 +121,37 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
      socket
      |> assign(files: files, master_index: master_index)
      |> prefill_from_master()
+     |> assign_it3_counts()
      |> sync_session()}
   end
 
+  # `index` comes off the wire, so it is parsed rather than
+  # `String.to_integer/1`-ed and clamped to the files actually parsed - an
+  # out-of-range master index would otherwise reach `Combine.combine/2` and
+  # take this public page's socket down.
   def handle_event("set_master", %{"index" => index}, socket) do
-    {:noreply,
-     socket
-     |> assign(master_index: String.to_integer(index))
-     |> prefill_from_master()
-     |> sync_session()}
+    case parse_master_index(index) do
+      nil ->
+        {:noreply, socket}
+
+      n ->
+        {:noreply,
+         socket
+         |> assign(master_index: clamp_master_index(n, successful(socket.assigns.files)))
+         |> prefill_from_master()
+         |> assign_it3_counts()
+         |> sync_session()}
+    end
   end
+
+  def handle_event("set_master", _params, socket), do: {:noreply, socket}
 
   def handle_event("update_fields", params, socket) do
-    overlay = Map.merge(socket.assigns.overlay, Map.get(params, "overlay", %{}))
+    overlay =
+      socket.assigns.overlay
+      |> Map.merge(Map.get(params, "overlay", %{}))
+      |> clamp_overlay_extra_arbiters()
+
     candidate = Map.merge(socket.assigns.candidate, Map.get(params, "candidate", %{}))
 
     {:noreply, socket |> assign(overlay: overlay, candidate: candidate) |> sync_session()}
@@ -215,6 +238,17 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
   defp clamp_master_index(_index, []), do: 0
   defp clamp_master_index(index, files), do: index |> max(0) |> min(length(files) - 1)
+
+  defp parse_master_index(index) when is_integer(index), do: index
+
+  defp parse_master_index(index) when is_binary(index) do
+    case Integer.parse(index) do
+      {n, _} -> n
+      :error -> nil
+    end
+  end
+
+  defp parse_master_index(_index), do: nil
 
   ## ---------- officials prefill (from the master file) ----------
 
@@ -414,6 +448,25 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
     files |> successful() |> Enum.flat_map(&federations(&1.players)) |> Enum.uniq() |> length()
   end
 
+  # The IT3 counts explainer, memoised into `:it3_counts`.
+  #
+  # Combining every uploaded file and then walking the pooled roster eight
+  # times is far too much work to do from the template, which re-runs on
+  # every render - including a keystroke in an officials box that cannot
+  # possibly change the answer. Its only inputs are `files` and
+  # `master_index`, so it is recomputed exactly where those change:
+  # `parse_files`, `remove_file` and `set_master`. `update_fields`
+  # deliberately does not - no overlay field feeds it.
+  defp assign_it3_counts(socket) do
+    counts =
+      case combined_for_explain(socket.assigns.files, socket.assigns.master_index) do
+        nil -> nil
+        {players, host_federation} -> It3CountsExplain.precompute(players, host_federation)
+      end
+
+    assign(socket, it3_counts: counts)
+  end
+
   # The same pooled player list Combine.combine/2 would hand
   # PairingsEngineWeb.ToolsController for an actual IT3 download - reused
   # here (not a naive flat-map across files) so the counts explainer never
@@ -547,19 +600,36 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
     end
   end
 
+  # Clamped at every parse: this page is public and unauthenticated, and the
+  # count drives IT3 template growth at download time (see
+  # `PairingsEngine.Norms.Forms.max_extra_arbiters/0`).
   defp parse_extra_count(nil), do: 0
-  defp parse_extra_count(n) when is_integer(n), do: n
+  defp parse_extra_count(n) when is_integer(n), do: clamp_extra_count(n)
 
   defp parse_extra_count(s) when is_binary(s) do
     case Integer.parse(s) do
-      {n, _} -> n
+      {n, _} -> clamp_extra_count(n)
       :error -> 0
+    end
+  end
+
+  defp parse_extra_count(_), do: 0
+
+  defp clamp_extra_count(n), do: n |> max(0) |> min(Forms.max_extra_arbiters())
+
+  # `update_fields` merges the client's whole `overlay` map, so a crafted
+  # change event can set the count directly without ever clicking
+  # "+ Add arbiter". Normalise it to the clamped integer on the way in.
+  defp clamp_overlay_extra_arbiters(overlay) do
+    case Map.fetch(overlay, "extra_arbiters_count") do
+      {:ok, value} -> Map.put(overlay, "extra_arbiters_count", parse_extra_count(value))
+      :error -> overlay
     end
   end
 
   defp bump_extra_arbiters(overlay, delta) do
     current = parse_extra_count(Map.get(overlay, "extra_arbiters_count"))
-    new_count = max(current + delta, 0)
+    new_count = clamp_extra_count(current + delta)
 
     overlay = Map.put(overlay, "extra_arbiters_count", new_count)
 
@@ -646,6 +716,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
       <div class="page-header">
         <div>
           <h1>{gettext("Arbiter tools")}</h1>
+
           <p class="subtitle" style="margin: 0">
             {gettext(
               "Upload a SWAR or TRF file, no account needed - download the IT3/FA1/IA1 FIDE report forms."
@@ -671,6 +742,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
         phx-change="validate_files"
       >
         <h2>{gettext("Upload files")}</h2>
+
         <p class="hint" style="margin-top: 0">
           <.rich_text text={
             gettext(
@@ -678,6 +750,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
             )
           }>
             <:part name="swar"><code>.swar</code></:part>
+
             <:part name="trf"><code>.trf</code></:part>
           </.rich_text>
         </p>
@@ -702,6 +775,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
         <p :for={err <- upload_errors(@uploads.files)} class="error-note">
           {upload_error_label(err)}
         </p>
+
         <div :for={entry <- @uploads.files.entries}>
           <p :for={err <- upload_errors(@uploads.files, entry)} class="error-note">
             {entry.client_name}: {upload_error_label(err)}
@@ -717,19 +791,28 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
       <div :if={@files != []} class="card table-card">
         <h2 style="padding: 16px 16px 0">{gettext("Uploaded files")}</h2>
+
         <table class="pe-table">
           <thead>
             <tr>
               <th :if={successful(@files) |> length() >= 2}>{gettext("Master")}</th>
+
               <th>{gettext("File")}</th>
+
               <th>{gettext("Tournament")}</th>
+
               <th class="num" style="text-align: right">{gettext("Players")}</th>
+
               <th class="num" style="text-align: right">{gettext("Rounds")}</th>
+
               <th class="num" style="text-align: right">{gettext("Titled")}</th>
+
               <th class="num" style="text-align: right">Feds</th>
+
               <th></th>
             </tr>
           </thead>
+
           <tbody>
             <tr :for={{row, idx} <- Enum.with_index(successful(@files))}>
               <td :if={successful(@files) |> length() >= 2}>
@@ -741,22 +824,33 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
                   phx-value-index={idx}
                 />
               </td>
+
               <td>{row.filename}</td>
+
               <td>{row.tournament.name}</td>
+
               <td class="num">{length(row.players)}</td>
+
               <td class="num">{rounds_label(row.tournament)}</td>
+
               <td class="num">{titled_players(row.players)}</td>
+
               <td class="num">{length(federations(row.players))}</td>
+
               <td style="text-align: right">
                 <button class="pe-btn danger-link" phx-click="remove_file" phx-value-id={row.id}>
                   {gettext("Remove")}
                 </button>
               </td>
             </tr>
+
             <tr :for={row <- failed(@files)}>
               <td :if={successful(@files) |> length() >= 2}></td>
+
               <td>{row.filename}</td>
+
               <td colspan="5" class="error-note">{row.error}</td>
+
               <td style="text-align: right">
                 <button class="pe-btn danger-link" phx-click="remove_file" phx-value-id={row.id}>
                   {gettext("Remove")}
@@ -784,6 +878,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
               )
           )}
         </p>
+
         <p
           :if={shared_federations(@files) != []}
           class="hint"
@@ -791,6 +886,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
         >
           {gettext("Federations shared across files:")} {Enum.join(shared_federations(@files), ", ")}.
         </p>
+
         <p
           :if={shared_federations(@files) == []}
           class="hint"
@@ -809,6 +905,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
       <div :if={successful(@files) != []} class="card">
         <h2>{gettext("Officials & arbiter candidate")}</h2>
+
         <p class="hint" style="margin-top: 0">
           {gettext(
             "Fill in anything the uploaded file(s) don't already carry - nothing here is saved either."
@@ -880,6 +977,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
           </div>
 
           <h3 style="margin-bottom: 4px">{gettext("Deputy arbiters")}</h3>
+
           <div :for={n <- deputy_range()} class="form-grid">
             <.arbiter_combo
               role={"deputy#{n}"}
@@ -901,6 +999,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
               )}
             </span>
           </h3>
+
           <div
             :for={n <- extra_arbiter_range(Map.get(@overlay, "extra_arbiters_count"))}
             class="form-grid"
@@ -915,6 +1014,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
               search={@arbiter_search}
             />
           </div>
+
           <div class="actions" style="margin: 4px 0 12px">
             <button type="button" class="pe-btn" phx-click="add_arbiter">{gettext("+ Add arbiter")}</button>
             <button
@@ -928,15 +1028,18 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
           </div>
 
           <h3 style="margin-bottom: 4px">{gettext("FA1 / IA1 arbiter norm candidate")}</h3>
+
           <label :if={candidate_options(@overlay) != []} class="field">
             <span>{gettext("Pick an arbiter")}</span>
             <select name="pick" phx-change="pick_candidate">
               <option value="">{gettext("- type the details by hand -")}</option>
+
               <option :for={{label, role} <- candidate_options(@overlay)} value={role}>
                 {label}
               </option>
             </select>
           </label>
+
           <div class="form-grid">
             <.overlay_input
               prefix="candidate"
@@ -963,15 +1066,16 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
       <div :if={successful(@files) != []} class="card">
         <h2>{gettext("Download")}</h2>
+
         <div :if={report_blockers(@overlay) != []} class="report-blocked">
-          <strong>{gettext("Not ready to submit to FIDE.")}</strong>
-          {gettext(
+          <strong>{gettext("Not ready to submit to FIDE.")}</strong> {gettext(
             "FIDE identifies every official by FIDE ID and bounces a report missing one. Type their name or FIDE ID above and pick the matching result - missing for:"
           )} {Enum.join(
             report_blockers(@overlay),
             ", "
           )}.
         </div>
+
         <div class="actions">
           <a
             :if={report_blockers(@overlay) == []}
@@ -980,6 +1084,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
           >
             {gettext("Download IT3")}
           </a>
+
           <a
             :if={report_blockers(@overlay) == []}
             class="pe-btn primary"
@@ -987,6 +1092,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
           >
             {gettext("Download FA1 (FIDE Arbiter)")}
           </a>
+
           <a
             :if={report_blockers(@overlay) == []}
             class="pe-btn primary"
@@ -994,16 +1100,12 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
           >
             {gettext("Download IA1 (International Arbiter)")}
           </a>
+
           <button :if={report_blockers(@overlay) != []} class="pe-btn" disabled>
             {gettext("Download IT3 / FA1 / IA1")}
           </button>
         </div>
-        <% combined = combined_for_explain(@files, @master_index) %>
-        <.it3_counts_explain
-          :if={combined}
-          players={elem(combined, 0)}
-          host_federation={elem(combined, 1)}
-        />
+        <.it3_counts_explain :if={@it3_counts} counts={@it3_counts} />
       </div>
     </Layouts.app>
     """

@@ -4,6 +4,7 @@ defmodule PairingsEngine.Fide do
   import Ecto.Query
   alias PairingsEngine.Repo
   alias PairingsEngine.Fide.FidePlayer
+  alias PairingsEngine.Tournaments.Player
 
   def search(query) when is_binary(query) do
     query = String.trim(query)
@@ -13,7 +14,13 @@ defmodule PairingsEngine.Fide do
         []
 
       Regex.match?(~r/^\d+$/, query) ->
-        case Repo.get(FidePlayer, String.to_integer(query)) do
+        # Bounded before it reaches the database: Elixir integers are
+        # arbitrary-precision, and Exqlite raises on anything that doesn't fit
+        # in 64 bits, which took down every caller (the players page, the
+        # public tools page's arbiter combobox, and OpenResults'
+        # `/internal/fide/search`). No real FIDE id is above
+        # `Player.max_fide_id/0`, so out of range is simply "no such player".
+        case fetch_by_fide_id(String.to_integer(query)) do
           nil -> []
           player -> [player]
         end
@@ -89,14 +96,21 @@ defmodule PairingsEngine.Fide do
   an id at all, so callers prefilling a form from stored data don't have to
   pre-validate it.
   """
-  def get_player(fide_id) when is_integer(fide_id), do: Repo.get(FidePlayer, fide_id)
+  def get_player(fide_id) when is_integer(fide_id), do: fetch_by_fide_id(fide_id)
 
   def get_player(fide_id) do
     case Integer.parse(to_string(fide_id)) do
-      {id, ""} -> Repo.get(FidePlayer, id)
+      {id, ""} -> fetch_by_fide_id(id)
       _ -> nil
     end
   end
+
+  # See the all-digits branch of `search/1` for why the range check is here
+  # and not left to the database.
+  defp fetch_by_fide_id(id) when is_integer(id) and id >= 1,
+    do: if(id <= Player.max_fide_id(), do: Repo.get(FidePlayer, id))
+
+  defp fetch_by_fide_id(_id), do: nil
 
   @doc """
   The FIDE rating to actually use for a tournament of the given cadence
