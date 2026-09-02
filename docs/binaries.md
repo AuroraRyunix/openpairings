@@ -209,6 +209,12 @@ while doing it - so a reverse proxy in front of the app, or a later change to
 how the endpoint is configured, cannot turn local mode into an open door. Both
 conditions have to hold.
 
+**Never put the binary behind a tunnel or a reverse proxy** - cloudflared,
+ngrok, nginx, an SSH forward, anything that makes a local port reachable from
+elsewhere. Local mode signs in whoever asks from loopback, and to a tunnel
+running on the same machine every visitor is loopback. If other people need
+to reach it, run a normal server (below), which has accounts.
+
 If you want other people on the network to reach this - a second arbiter at
 the same event, results entry from a phone - you want a normal server run,
 where everyone has their own account. Local mode is for one person on one
