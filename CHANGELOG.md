@@ -926,6 +926,14 @@ Each entry is tagged so a version can be skimmed:
 
 ### Fixed
 
+- [Fix] **A SWAR file with one unusable player no longer crashes the import.** A blank name or an out-of-range FIDE id made the whole import screen fall over instead of saying which player was wrong; it now reports the player and the field and writes nothing, as the TRF importer already did.
+- [Fix] **A corrupt SWAR file can no longer pair a player against themselves, or against someone whose own record disagrees.** Each side's opponent is now checked to name the other back, the same two guards the TRF importer has had since July.
+- [Fix] **Two SWAR players sharing an internal number are refused up front** instead of one of them silently losing every game to the other.
+- [Fix] **Absence caps above 255 no longer wrap when exported to SWAR** (300 used to become 44); the export clamps and logs, and the settings form refuses the value in the first place.
+- [Security] **A backup file cannot ask for an absurd key-stretching count.** The restore command used whatever iteration count the file's own header claimed; it is now bounded to a sane range.
+- [Security] **The FIDE rating-list download checks the archive's declared size before inflating it**, with a generous ceiling, so a hostile zip cannot exhaust memory on its way in.
+- [Fix] A tournament whose name has no Latin letters exports as `tournament-<id>.trf` instead of `.trf`.
+
 - [Fix] **A substitution dialog left open could seat one player on two boards.** "Swap with…" checked the bench player once, when the dialog opened, and the dialog deliberately stays open while another arbiter edits the round. If that player was paired onto another board in the meantime, confirming still went through. The write now re-checks, inside its own transaction, that the player belongs to this tournament and is not already seated in the round, and refuses otherwise. This was the third of three seating writes the August sweep named; the other two were fixed then.
 - [Fix] **Un-pairing a round is one transaction again.** It deleted the round, then the byes, as two separate steps; a crash between them left bye rows that a later re-pairing silently kept, and a player seated for real that round was scored for a game *and* a bye. Both deletes now commit together, and the standings ignore - with a warning in the log - any bye row for a round in which the player has a game.
 - [Fix] **A restore that fails no longer moves the history pointer.** The "before restoring to…" snapshot and the pointer move were committed before the restore itself ran; when the restore was rejected, the tree pointed at a state the data was never in. All three now succeed or fail together.
