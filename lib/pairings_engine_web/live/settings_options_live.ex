@@ -686,7 +686,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
           <div class="actions">
             <button
               type="submit"
-              class="pe-btn primary"
+              class="pe-btn tonal"
               disabled={length(@forbidden_pairing_players) < 2}
             >
               Add

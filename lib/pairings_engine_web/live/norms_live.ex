@@ -1011,7 +1011,7 @@ defmodule PairingsEngineWeb.NormsLive do
         <div class="actions">
           <a
             :if={report_blockers(@tournament) == []}
-            class="pe-btn primary"
+            class="pe-btn tonal"
             href={~p"/t/#{@tournament.id}/norms/it3"}
           >
             {gettext("Download IT3")}
@@ -1084,7 +1084,7 @@ defmodule PairingsEngineWeb.NormsLive do
             <button
               type="submit"
               formaction={~p"/t/#{@tournament.id}/norms/fa1"}
-              class="pe-btn primary"
+              class="pe-btn tonal"
               disabled={report_blockers(@tournament) != []}
             >
               {gettext("Download FA1 (FIDE Arbiter)")}
@@ -1093,7 +1093,7 @@ defmodule PairingsEngineWeb.NormsLive do
             <button
               type="submit"
               formaction={~p"/t/#{@tournament.id}/norms/ia1"}
-              class="pe-btn primary"
+              class="pe-btn tonal"
               disabled={report_blockers(@tournament) != []}
             >
               {gettext("Download IA1 (International Arbiter)")}
@@ -1209,7 +1209,7 @@ defmodule PairingsEngineWeb.NormsLive do
                 <button
                   type="submit"
                   formaction={~p"/t/#{@tournament.id}/norms/fa1"}
-                  class="pe-btn primary"
+                  class="pe-btn tonal"
                 >
                   {gettext("Download combined FA1 (FIDE Arbiter)")}
                 </button>
@@ -1217,7 +1217,7 @@ defmodule PairingsEngineWeb.NormsLive do
                 <button
                   type="submit"
                   formaction={~p"/t/#{@tournament.id}/norms/ia1"}
-                  class="pe-btn primary"
+                  class="pe-btn tonal"
                 >
                   {gettext("Download combined IA1 (International Arbiter)")}
                 </button>
@@ -1265,7 +1265,7 @@ defmodule PairingsEngineWeb.NormsLive do
         </div>
 
         <div class="actions">
-          <a class="pe-btn primary" href={~p"/t/#{@tournament.id}/norms/it4"}>{gettext("Download IT4")}</a>
+          <a class="pe-btn tonal" href={~p"/t/#{@tournament.id}/norms/it4"}>{gettext("Download IT4")}</a>
         </div>
       </div>
 

@@ -1079,7 +1079,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
         <div class="actions">
           <a
             :if={report_blockers(@overlay) == []}
-            class="pe-btn primary"
+            class="pe-btn tonal"
             href={~p"/tools/download/#{@token}/it3"}
           >
             {gettext("Download IT3")}
@@ -1087,7 +1087,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
           <a
             :if={report_blockers(@overlay) == []}
-            class="pe-btn primary"
+            class="pe-btn tonal"
             href={~p"/tools/download/#{@token}/fa1"}
           >
             {gettext("Download FA1 (FIDE Arbiter)")}
@@ -1095,7 +1095,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
           <a
             :if={report_blockers(@overlay) == []}
-            class="pe-btn primary"
+            class="pe-btn tonal"
             href={~p"/tools/download/#{@token}/ia1"}
           >
             {gettext("Download IA1 (International Arbiter)")}
