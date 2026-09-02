@@ -926,6 +926,8 @@ Each entry is tagged so a version can be skimmed:
 
 ### Fixed
 
+- [Change] **Pairing engine Ainalrami v0.15.0.** The TRF reader and writer now count columns in bytes like every other implementation, so a file from Swiss-Manager or bbpPairings with an accented name imports with that player's games intact; a byte-order mark no longer swallows the first line; a truncated line no longer yields a wrong opponent number; and the matcher breaks ties on a fixed rule rather than map order (checked byte-identical over 72,140 pairings). Nothing in the pairings this app produces changes.
+
 - [Fix] **Ten forms can now recover what you typed after a dropped connection.** They had no `id`, so LiveView could not restore them after a reconnect - on venue wifi that meant retyping. The test suite now refuses a form without one, so it cannot come back.
 
 - [Security] **Two phone-entry codes can no longer be active at once.** A unique index now enforces it; generation draws again on a collision instead of giving up after twenty tries and inserting the duplicate; and the public code page answers "wrong code" rather than a 500 if the database ever drifts.
