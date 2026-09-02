@@ -394,8 +394,22 @@ defmodule PairingsEngineWeb.AuditLive do
   defp plural(1, word), do: "1 #{word}"
   defp plural(n, word), do: "#{n} #{word}s"
 
-  @doc "The acting user's email for one audit row's `:user` preload, or \"System\" for a nil user."
+  @doc """
+  The acting user's email for one audit row's `:user` preload.
+
+  A row that arrived on a hand-off has no `user_id` - the account it named
+  lives on the machine it came from, and inventing a local link there would
+  attribute somebody else's action to whoever happens to hold that address
+  here. `TournamentExport` keeps the original address in
+  `details["imported_actor"]` instead, and this reads it back: without that
+  fallback every imported row renders as "System", which says an automated
+  process did something an arbiter did.
+  """
   def actor(%{user: %{email: email}}), do: email
+
+  def actor(%{details: %{"imported_actor" => actor}}) when is_binary(actor) and actor != "",
+    do: actor
+
   def actor(_), do: "System"
 
   @doc "Formats an audit row's `inserted_at` for display."

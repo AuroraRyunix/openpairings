@@ -121,6 +121,14 @@ defmodule PairingsEngine.TournamentExport do
   #   deleted_at, archived_at
   #     Lifecycle state of *that* row. An import is always a live,
   #     editable tournament.
+  #   handed_off_at, handed_off_to, handoff_token
+  #     The hand-off lock, and for the same reason as the two above: an
+  #     imported tournament is live here. Carrying the timestamp would
+  #     restore a copy that is read-only with nothing on screen explaining
+  #     why, and carrying the token would put the key that unlocks the
+  #     original into every copy of the file - which is exactly the one
+  #     thing the token exists to stop. The hand-off flow moves the token
+  #     itself, deliberately and once, outside this field list.
   #   swar_guid
   #     SWAR's own per-tournament GUID, used for re-upload duplicate
   #     detection. Carrying it would make the imported copy look like a
@@ -151,6 +159,7 @@ defmodule PairingsEngine.TournamentExport do
     registration_open publish_to_openresults deleted_at archived_at swar_guid
     logo_data logo_content_type head_snapshot_id
     openresults_key openresults_claim
+    handed_off_at handed_off_to handoff_token
   )a
 
   @doc false
