@@ -20,3 +20,14 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    # Majors are a decision, not hygiene. Within hours of the SHA pins
+    # landing, Dependabot proposed checkout v4 to v7, download-artifact v4
+    # to v8 and three more - none of them security fixes, all of them
+    # capable of changing how a build behaves, and three of them for
+    # actions the test workflow never runs, so a green check said nothing
+    # about them. Patch and minor bumps keep the pins honest without
+    # anyone reading release notes; a major gets raised by hand, when
+    # somebody has read them.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
