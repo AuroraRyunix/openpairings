@@ -175,12 +175,10 @@ defmodule PairingsEngineWeb.PlayersLive do
   # order: the real tournament ranking. `entry.rank` (set by
   # `Standings.grid_standings/1`, via `build_standings/3`) already sorts by
   # points/total descending, then the tournament's own configured
-  # `tiebreaks` in order, and - because `Tournaments.list_players/1` (the
-  # source list `build_standings/3` folds over) itself orders by rating
-  # descending then name ascending, and `Enum.sort_by/2` is stable - any
-  # remaining tie naturally falls back to rating descending, then name
-  # ascending. That's exactly "points, then configured tiebreaks, then
-  # rating" with no need to re-derive it here.
+  # `tiebreaks` in order, and then - spelled out in that sort's own key, not
+  # inherited from the order `Tournaments.list_players/1` happened to hand it
+  # - rating descending, name ascending, `id`. That's exactly "points, then
+  # configured tiebreaks, then rating" with no need to re-derive it here.
   defp sort_entries(entries, nil, _dir) do
     Enum.sort_by(entries, & &1.rank)
   end

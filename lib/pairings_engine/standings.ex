@@ -19,7 +19,7 @@ defmodule PairingsEngine.Standings do
   alias PairingsEngine.Results
   alias PairingsEngine.Tiebreaks
   alias PairingsEngine.Tournaments
-  alias PairingsEngine.Tournaments.{Pairing, Round}
+  alias PairingsEngine.Tournaments.{Pairing, Player, Round}
 
   @doc """
   Returns standings entries with the tournament's configured tiebreaks:
@@ -239,7 +239,22 @@ defmodule PairingsEngine.Standings do
       # game `points` - see the moduledoc/doc above and docs/extra-points.md.
       # ARO-style tiebreaks sort descending like the rest (higher = better).
       rank_score = rank_score(e, tournament)
-      [-rank_score | Enum.map(tb_values, &(-&1))]
+
+      # The last three components make the key TOTAL, and they are not
+      # decoration. Everything above them can tie - a field where nobody has
+      # played yet ties on every one of them - and what used to break that
+      # tie was nothing but `Enum.sort_by/2`'s stability over whatever order
+      # the list happened to arrive in. That order was `Tournaments.list_players/1`'s
+      # (rating descending, then name), but only by luck: the list travels
+      # through `compute_tiebreaks/3` - and, whenever "DE" is among the codes,
+      # through `add_direct_encounter/2`, which rebuilds it out of an
+      # `Enum.group_by/2` map - before it reaches this sort, so nothing in the
+      # type system or the tests held that invariant in place. Say the
+      # fallback out loud instead: rating descending, then name, then `id` so
+      # that even two players with the same rating AND the same name have one
+      # fixed order rather than SQLite's.
+      {[-rank_score | Enum.map(tb_values, &(-&1))], -Player.rating(e.player), e.player.name,
+       e.player.id}
     end)
     |> Enum.with_index(1)
     |> Enum.map(fn {e, rank} -> Map.put(e, :rank, rank) end)
