@@ -280,7 +280,9 @@ defmodule PairingsEngine.ResultsImport do
           Enum.each(pairs, fn {pairing, result} ->
             case Tournaments.update_pairing_result(pairing, result) do
               {:ok, _} -> :ok
-              {:error, changeset} -> Repo.rollback(changeset)
+              # A changeset, or a bare reason atom from the write gate - both
+              # roll the whole import back, and both are worded below.
+              {:error, reason} -> Repo.rollback(reason)
             end
           end)
         end)
@@ -292,8 +294,14 @@ defmodule PairingsEngine.ResultsImport do
         Tournaments.refresh_status!(tournament_id)
         {:ok, length(pairs)}
 
-      {:error, :archived} ->
-        {:error, ["This tournament is archived - unarchive it to make changes."]}
+      # Both of `ensure_writable/1`'s reasons, in the app's own words. While
+      # only `:archived` had a clause, a handed-off tournament fell through
+      # to the changeset branch below, where `changeset.errors` on the atom
+      # parses as a remote call to `:handed_off.errors/0` - so importing a
+      # round's results into a checked-out tournament raised
+      # `UndefinedFunctionError` instead of refusing.
+      {:error, reason} when reason in [:archived, :handed_off] ->
+        {:error, [Tournaments.refusal_message(reason, "importing results")]}
 
       {:error, changeset} ->
         {:error, ["Could not save results: #{changeset_error_text(changeset)}"]}

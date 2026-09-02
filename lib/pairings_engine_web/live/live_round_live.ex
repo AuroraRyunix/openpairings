@@ -55,13 +55,29 @@ defmodule PairingsEngineWeb.LiveRoundLive do
   defp enroll_expiry(%DateTime{} = dt), do: Calendar.strftime(dt, "%d %b %H:%M")
 
   @impl true
+  # `create_enrollment/2` refuses on an archived or handed-off tournament, so
+  # the old `{:ok, enrollment} =` would have taken the page down with a
+  # MatchError instead of saying why - on the one page an arbiter leaves open
+  # on a projector all day.
   def handle_event("generate_enrollment", _params, socket) do
-    {:ok, enrollment} = Mobile.create_enrollment(socket.assigns.tournament.id)
+    case Mobile.create_enrollment(socket.assigns.tournament.id) do
+      {:ok, enrollment} ->
+        {:noreply,
+         socket
+         |> assign(new_enrollment: enrollment)
+         |> assign_enrollments()}
 
-    {:noreply,
-     socket
-     |> assign(new_enrollment: enrollment)
-     |> assign_enrollments()}
+      {:error, reason} when is_atom(reason) ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           Tournaments.refusal_message(reason, gettext("enrolling a phone"))
+         )}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, gettext("Could not enrol a phone - please retry."))}
+    end
   end
 
   def handle_event("revoke_enrollment", %{"id" => id}, socket) do

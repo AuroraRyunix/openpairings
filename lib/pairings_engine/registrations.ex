@@ -248,8 +248,13 @@ defmodule PairingsEngine.Registrations do
       {:error, :duplicate_fide_id} ->
         {:error, "somebody with that FIDE ID is already in this tournament"}
 
-      {:error, :archived} ->
-        {:error, "this tournament is archived"}
+      # `create_player/2` refuses through the same gate `ensure_available/1`
+      # checked a moment ago, so this is only reached by losing a race with a
+      # hand-off or an archive - but it must answer in the same words, and
+      # before this clause named both reasons an unmatched `:handed_off` blew
+      # the `with` up with a `WithClauseError` instead.
+      {:error, reason} when reason in [:archived, :handed_off] ->
+        {:error, unwritable_message(reason)}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:error, changeset_message(changeset)}
@@ -410,8 +415,8 @@ defmodule PairingsEngine.Registrations do
       not (tournament.publish_to_openresults or is_binary(tournament.openresults_key)) ->
         {:error, "this tournament has nothing to do with the results site"}
 
-      Tournaments.ensure_writable(tournament) != :ok ->
-        {:error, "this tournament is archived"}
+      refusal = write_refusal(tournament) ->
+        refusal
 
       true ->
         :ok
@@ -421,6 +426,33 @@ defmodule PairingsEngine.Registrations do
   # A tournament deleted between the page rendering and the click. Nothing
   # to add a player to, so this is an error rather than a crash.
   defp ensure_available(nil), do: {:error, "this tournament no longer exists"}
+
+  # `ensure_writable/1`'s answer as something a `cond` can bind, or `nil`
+  # when the write may go ahead - the shape `Tournaments.write_refused/1`
+  # exists for.
+  defp write_refusal(%Tournament{} = tournament) do
+    case Tournaments.ensure_writable(tournament) do
+      :ok -> nil
+      {:error, reason} -> {:error, unwritable_message(reason)}
+    end
+  end
+
+  # This asked the gate whether the tournament was writable and then said
+  # "this tournament is archived" no matter what it answered. True while
+  # archiving was the only way to lose write access; a plain untruth from
+  # the moment hand-off was a second one, and a costly one - an arbiter told
+  # a tournament is archived goes looking for an Unarchive button, finds
+  # nothing to press, and never learns that the tournament is checked out to
+  # a laptop at the venue.
+  #
+  # Both sentences name the state AND the way out of it, and the hand-off
+  # one is word-for-word `Publishing`'s, on the same principle the gates
+  # above already follow: an arbiter who has just read a refusal on the
+  # settings page should not meet a second wording for the same fact here.
+  defp unwritable_message(:archived), do: "this tournament is archived - unarchive it first"
+
+  defp unwritable_message(:handed_off),
+    do: "this tournament has been handed off to another copy of the app - take it back first"
 
   ## ---------- the pull ----------
 

@@ -215,6 +215,15 @@ defmodule PairingsEngineWeb.AuditLive do
   def describe("tournament.unarchived", d),
     do: "Unarchived tournament #{name(d, "name")} - it is editable again."
 
+  # Spelled out rather than summarised. When two copies of one tournament
+  # turn up months later disagreeing about board 4, this row is the only
+  # record of which of them was abandoned, and the sentence has to say so
+  # without the reader already knowing what a hand-off token is.
+  def describe("tournament.handoff_forced", d),
+    do:
+      "Forced the hand-off lock on #{name(d, "name")} open without the token. " <>
+        "The copy handed to #{name(d, "was_handed_off_to")} still exists and must not be used again."
+
   def describe("tournament.duplicated", d),
     do: "Duplicated tournament #{name(d, "from_name")} into a new copy."
 

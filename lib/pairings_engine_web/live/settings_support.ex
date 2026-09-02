@@ -216,6 +216,109 @@ defmodule PairingsEngineWeb.SettingsSupport do
     """
   end
 
+  # The word an arbiter has to type to force the hand-off lock open. Not
+  # "DELETE" (which the recycle bin uses for a different, reversible act) and
+  # not "YES": it names the thing being done, so a half-read confirmation
+  # dialog still spells out what the typing is for.
+  @force_unlock_word "UNLOCK"
+
+  @doc "The word `force_unlock_panel/1` requires typed before it will submit."
+  def force_unlock_word, do: @force_unlock_word
+
+  @doc """
+  Break glass: the affordance that forces a hand-off lock open without the
+  token, for the copy that was stolen, wiped or dropped in a canal.
+
+  Deliberately awkward, and deliberately quiet. It is folded away in a
+  `<details>` rather than sitting next to "Take back", it is only rendered
+  for the owner of a tournament that is actually handed off, and the button
+  stays disabled until the word is typed - because the cost is not
+  recoverable and a single mis-click must not be able to pay it.
+
+  The copy is the point. "Are you sure?" is not what an arbiter needs to
+  read here; what they need to read is the fact they are about to make true:
+  **the other copy still exists, and from this moment nobody may open it
+  again.** Unlocking here does not reach across and close it, and it does
+  not merge anything back - see `PairingsEngine.Tournaments.force_take_back/2`.
+
+  Wire the events up in the page that renders this:
+
+    * `"force_unlock_input"` - `%{"confirm" => text}`, assigns
+      `force_unlock_text`
+    * `"force_unlock_confirmed"` - calls
+      `Tournaments.force_take_back(tournament, current_scope)` and puts any
+      `{:error, reason}` into `force_unlock_error` via `error_text/1`
+
+  It lives in this module because it is the one place the web layer shares
+  between the tournament-scoped pages; it is not a settings control, and it
+  belongs wherever the rest of the hand-off UI ends up.
+  """
+  attr :tournament, :map, required: true
+  attr :scope, :map, required: true
+  attr :confirm_text, :string, default: ""
+  attr :error, :string, default: nil
+
+  def force_unlock_panel(assigns) do
+    ~H"""
+    <details
+      :if={Tournaments.handed_off?(@tournament) and Tournaments.owner?(@tournament, @scope)}
+      class="force-unlock"
+    >
+      <summary>{gettext("The copy this was handed to is gone")}</summary>
+
+      <p class="hint">
+        {gettext(
+          "Taking this tournament back needs the token the other copy is holding. If that copy is lost for good - stolen, wiped, reinstalled - this opens the lock here instead."
+        )}
+      </p>
+
+      <p class="error-note">
+        {gettext(
+          "The copy handed to %{place} still exists. This does not close it and does not merge anything back: whoever has it must never open it again, and anything entered there is lost.",
+          place: handoff_destination(@tournament.handed_off_to)
+        )}
+      </p>
+
+      <p class="hint">
+        {gettext("Forcing the lock is recorded in this tournament's audit trail.")}
+      </p>
+
+      <form id="force-unlock-form" phx-change="force_unlock_input">
+        <label class="field">
+          <span>{gettext("Type %{word} to confirm", word: force_unlock_word())}</span>
+          <input name="confirm" value={@confirm_text} autocomplete="off" />
+        </label>
+      </form>
+
+      <p :if={@error} class="error-note">{@error}</p>
+
+      <div class="actions">
+        <button
+          type="button"
+          class="pe-btn danger"
+          phx-click="force_unlock_confirmed"
+          disabled={@confirm_text != force_unlock_word()}
+        >
+          {gettext("Unlock without the token")}
+        </button>
+      </div>
+    </details>
+    """
+  end
+
+  # `hand_off/2` trims the label it is given, so a caller who typed nothing
+  # (or only spaces) leaves `""`, not nil - and `""` is perfectly truthy, so
+  # `label || default` would render "The copy handed to  still exists." The
+  # sentence has to name somewhere, even when the somewhere is unknown.
+  defp handoff_destination(label) when is_binary(label) do
+    case String.trim(label) do
+      "" -> gettext("another copy")
+      trimmed -> trimmed
+    end
+  end
+
+  defp handoff_destination(_label), do: gettext("another copy")
+
   @doc """
   The "this tournament was updated elsewhere while you were editing" banner,
   shown when `@stale` is set on the pages carrying an always-open
@@ -308,17 +411,50 @@ defmodule PairingsEngineWeb.SettingsSupport do
   Human-readable error string for whatever a context write returned.
 
   Usually an `Ecto.Changeset`, but the context also returns bare reason atoms
-  - notably `:archived` from `Tournaments.ensure_writable/1`, which every
-  write path can now return. Before this had an atom clause, an archived
-  tournament's settings save crashed the LiveView outright: `changeset.errors`
-  on the atom `:archived` parses as a remote call to `:archived.errors/0`.
+  - notably `:archived` and `:handed_off` from
+  `Tournaments.ensure_writable/1`, which every write path can now return.
+  Before this had an atom clause, an archived tournament's settings save
+  crashed the LiveView outright: `changeset.errors` on the atom `:archived`
+  parses as a remote call to `:archived.errors/0`.
+
+  Every reason a user can actually meet gets a clause of its own. The
+  fallback below - the atom with its underscores rubbed out - is a last
+  resort, and it is a bad one: `:handed_off` reached it and rendered as the
+  bare words "handed off", which names the state without naming the remedy
+  and reads like a fragment of a sentence somebody forgot to finish. An
+  arbiter meeting a refusal needs to know what is true and what to do about
+  it, and both fit in one line.
   """
   def error_text(%Ecto.Changeset{} = changeset) do
     Enum.map_join(changeset.errors, ", ", fn {field, {msg, _}} -> "#{field} #{msg}" end)
   end
 
   def error_text(:archived),
-    do: "This tournament is archived - unarchive it to make changes."
+    do: gettext("This tournament is archived - unarchive it to make changes.")
+
+  def error_text(:handed_off),
+    do:
+      gettext(
+        "This tournament has been handed off to another copy of the app and is read-only here - take it back to make changes."
+      )
+
+  def error_text(:not_owner),
+    do: gettext("Only the owner of this tournament can do that.")
+
+  def error_text(:not_handed_off),
+    do: gettext("This tournament is not handed off, so there is no lock to force open.")
+
+  def error_text(:bad_token),
+    do:
+      gettext(
+        "That is not the token this tournament was handed off with - it is the one the other copy carries back."
+      )
+
+  def error_text(:already_handed_off),
+    do:
+      gettext(
+        "This tournament is already handed off to another copy - take it back before handing it anywhere else."
+      )
 
   def error_text(reason) when is_atom(reason),
     do: reason |> to_string() |> String.replace("_", " ")
