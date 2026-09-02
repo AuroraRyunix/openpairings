@@ -157,19 +157,21 @@ defmodule PairingsEngine.SwarImport do
       throw(:swiss321_unsupported)
     end
 
-    {:ok,
-     %{
-       version: version,
-       guid: guid,
-       mac: mac,
-       tournament: tournoi,
-       dates: dates,
-       tiebreaks: tiebreaks,
-       exclusion: exclusion,
-       categories: categories,
-       xtra_points: xtra_points,
-       players: players
-     }}
+    with :ok <- validate_unique_nis(players) do
+      {:ok,
+       %{
+         version: version,
+         guid: guid,
+         mac: mac,
+         tournament: tournoi,
+         dates: dates,
+         tiebreaks: tiebreaks,
+         exclusion: exclusion,
+         categories: categories,
+         xtra_points: xtra_points,
+         players: players
+       }}
+    end
   rescue
     e in MatchError -> {:error, {:parse_failed, Exception.message(e)}}
     e in ArgumentError -> {:error, {:parse_failed, Exception.message(e)}}
@@ -183,6 +185,34 @@ defmodule PairingsEngine.SwarImport do
          "not settled yet, so importing one would produce a standings table that looks " <>
          "right and is wrong. Support is planned; every other SWAR tournament type " <>
          "imports normally."}
+  end
+
+  # Every downstream step keys players by their SWAR `NI` (the internal
+  # number): `create_players/3` builds `players_by_ni` and `build_round/1`
+  # builds `by_ni`, both with `Map.new/2`, which silently keeps only the
+  # *last* entry for a repeated key. A corrupt file with two `[JOUEURS]`
+  # records sharing an `NI` would otherwise import both as DB rows but hand
+  # the first one's games over to the second, orphaning a player nobody's
+  # pairings reference. Caught here, before any row is written - the same
+  # pre-flight `PairingsEngine.TrfImport.validate_unique_ranks/1` runs for
+  # the TRF importer's starting ranks, and for the same reason.
+  defp validate_unique_nis(players) do
+    dupes =
+      players
+      |> Enum.map(& &1.ni)
+      |> Enum.frequencies()
+      |> Enum.filter(fn {_ni, count} -> count > 1 end)
+      |> Enum.map(fn {ni, _count} -> ni end)
+      |> Enum.sort()
+
+    case dupes do
+      [] ->
+        :ok
+
+      _ ->
+        {:error,
+         {:parse_failed, "duplicate player number(s) in [JOUEURS]: #{Enum.join(dupes, ", ")}"}}
+    end
   end
 
   ## ---------- [TOURNOI] ----------
@@ -1569,11 +1599,33 @@ defmodule PairingsEngine.SwarImport do
 
   ## ---------- Players ----------
 
+  # Matched in full, not `{:ok, player} =`. `create_player/2` returns an
+  # ordinary error tuple for a blank name, a FIDE id out of range, a name
+  # over 100 characters - all of which a real `.swar` can carry - and the
+  # bare match turned that into a `MatchError` that killed the importing
+  # LiveView instead of showing the message the UI already has a place for.
+  # The transaction rolled back either way; only the report was lost. The
+  # pure path thirty lines up (`build_player_structs/2`) and
+  # `TrfImport.create_players/2` both already do it this way.
   defp create_players(tournament, swar_players, categories) do
-    for p <- swar_players, into: %{} do
-      {:ok, player} = Tournaments.create_player(tournament.id, player_attrs(p, categories))
-      {p.ni, player}
-    end
+    Map.new(swar_players, fn p ->
+      case Tournaments.create_player(tournament.id, player_attrs(p, categories)) do
+        {:ok, player} ->
+          {p.ni, player}
+
+        {:error, :duplicate_fide_id} ->
+          Repo.rollback("Duplicate FIDE id #{p.mat_fide} (player #{String.trim(p.name || "")})")
+
+        {:error, :archived} ->
+          Repo.rollback("Could not import player #{String.trim(p.name || "")}: archived")
+
+        {:error, changeset} ->
+          Repo.rollback(
+            "Could not import player #{String.trim(p.name || "")}: " <>
+              changeset_error_text(changeset)
+          )
+      end
+    end)
   end
 
   # Shared by `create_players/3` (persisting) and `build_player_structs/2`
@@ -1781,9 +1833,7 @@ defmodule PairingsEngine.SwarImport do
         if MapSet.member?(visited, player.ni) do
           {visited, pairings, byes}
         else
-          opponent = if real_opponent(r), do: Map.get(by_ni, r.advers), else: nil
-
-          case opponent do
+          case mutual_opponent(player, r, by_ni) do
             {opp_player, opp_r} ->
               pairing = pair_game(player, r, opp_player, opp_r)
               visited = visited |> MapSet.put(player.ni) |> MapSet.put(opp_player.ni)
@@ -1804,6 +1854,25 @@ defmodule PairingsEngine.SwarImport do
   end
 
   defp real_opponent(%{advers: advers}), do: advers not in [0, -1]
+
+  # One side's `Advers` is not enough to build a game from. `pair_game/4`
+  # feeds `Repo.insert!(%Pairing{})` directly, bypassing `Pairing.changeset/2`
+  # and its self-pairing check, so a file whose `[RONDE]` entry points at the
+  # player themselves - or at an opponent whose own entry names somebody else
+  # - would write a board with the same player on both sides, or a game only
+  # one player believes in. Both checks fall through to `single_sided/2`,
+  # which is what an entry with no usable opponent already means.
+  # `TrfImport.mutual_opponent/3` guards its rank lookup exactly this way.
+  defp mutual_opponent(player, r, by_ni) do
+    with true <- real_opponent(r),
+         true <- r.advers != player.ni,
+         {opp_player, opp_r} <- Map.get(by_ni, r.advers),
+         true <- opp_r.advers == player.ni do
+      {opp_player, opp_r}
+    else
+      _ -> nil
+    end
+  end
 
   # Determines white/black from the `Color` field (falling back to the
   # opponent's color, then to whichever player has the lower start number)
