@@ -926,6 +926,14 @@ Each entry is tagged so a version can be skimmed:
 
 ### Fixed
 
+- [Fix] **A substitution dialog left open could seat one player on two boards.** "Swap with…" checked the bench player once, when the dialog opened, and the dialog deliberately stays open while another arbiter edits the round. If that player was paired onto another board in the meantime, confirming still went through. The write now re-checks, inside its own transaction, that the player belongs to this tournament and is not already seated in the round, and refuses otherwise. This was the third of three seating writes the August sweep named; the other two were fixed then.
+- [Fix] **Un-pairing a round is one transaction again.** It deleted the round, then the byes, as two separate steps; a crash between them left bye rows that a later re-pairing silently kept, and a player seated for real that round was scored for a game *and* a bye. Both deletes now commit together, and the standings ignore - with a warning in the log - any bye row for a round in which the player has a game.
+- [Fix] **A restore that fails no longer moves the history pointer.** The "before restoring to…" snapshot and the pointer move were committed before the restore itself ran; when the restore was rejected, the tree pointed at a state the data was never in. All three now succeed or fail together.
+- [Fix] **Accepting the same registration twice at once created two players.** The pending-to-accepted transition is now the guard: whoever claims it first creates the player, the other gets "already decided".
+- [Fix] **A player's team must belong to the same tournament.** The edit form could carry a team id from anywhere; nothing displays teams yet, so this closes a door rather than a hole.
+- [Fix] **The external pairing engine now has a deadline.** JaVaFo ran with no timeout; a pathological position could hang the arbiter's pairing indefinitely. It is now given sixty seconds and reports an error afterwards.
+- [Change] **Absence-cap counts are fetched in one query per tournament** rather than one per rendered row, on the pages that adopt the new call; the four current callers still use the old one and will follow.
+
 - [Fix] **Amber warning boxes ignored the theme.** Archived banners, the "careful, this is hard to undo" notes on the settings pages, the pairing-confirmation warnings, the history rail's tags and both status pills in the top bar were painted with a fixed amber, so on Nord, Dracula, Tokyo, Nocturne and Catppuccin they sat in the middle of the palette looking like something had failed to load.
 
   Every theme has always defined its own `--warn` &mdash; Nord's is its aurora yellow, Dracula's its pale citrus &mdash; these components just never used it. They do now, along with the reds and greens beside them, so a warning looks like a warning in the theme you actually chose.
