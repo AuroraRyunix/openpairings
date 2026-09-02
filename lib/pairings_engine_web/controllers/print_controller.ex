@@ -802,9 +802,14 @@ defmodule PairingsEngineWeb.PrintController do
         ""
 
       byes ->
+        # One query for the whole table's cumulative absence counts instead
+        # of one per row - see `Standings.absent_counts/1`. Empty, and free,
+        # for every tournament that does not cap "Pt ABSENT" by occurrence.
+        counts = PairingsEngine.Standings.absent_counts(tournament)
+
         rows =
           Enum.map_join(byes, "", fn bye ->
-            points = PairingsEngine.Standings.bye_points_for_row(bye, tournament)
+            points = PairingsEngine.Standings.bye_points_for_row(bye, tournament, counts)
 
             "<tr><td>#{esc(bye.player.name)}</td>" <>
               "<td style=\"text-align:center\">#{esc(bye_type_label(bye.type))} #{gettext("(%{points} pt)", points: points)}</td></tr>"

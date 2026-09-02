@@ -113,6 +113,10 @@ defmodule PairingsEngineWeb.LiveRoundLive do
         if(paired > 0, do: Standings.player_scores_before_round(tournament, paired), else: %{}),
       round_byes:
         if(paired > 0, do: Tournaments.list_byes_for_round(tournament.id, paired), else: []),
+      # The byes table's absence counts, once per reload rather than once
+      # per rendered row (`Standings.absent_counts/1`). An empty map, and no
+      # query at all, unless the tournament caps "Pt ABSENT" by occurrence.
+      absent_counts: Standings.absent_counts(tournament),
       keizer?: keizer?,
       entries:
         if(keizer?, do: Keizer.standings(tournament), else: Standings.standings(tournament))
@@ -380,7 +384,11 @@ defmodule PairingsEngineWeb.LiveRoundLive do
 
               <td style="text-align: center">
                 <span class="badge">
-                  {bye_type_label(bye.type)} ({Standings.bye_points_for_row(bye, @tournament)} pt)
+                  {bye_type_label(bye.type)} ({Standings.bye_points_for_row(
+                    bye,
+                    @tournament,
+                    @absent_counts
+                  )} pt)
                 </span>
               </td>
             </tr>

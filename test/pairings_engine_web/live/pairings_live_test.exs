@@ -372,6 +372,88 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     assert html =~ "requested zero-point bye"
   end
 
+  test "the pool panel costs one absence query for the page, not one per chip", %{
+    conn: conn,
+    scope: scope
+  } do
+    # `bye_points_for_row/2` asked the database for a player's cumulative
+    # absence count once per rendered chip. It only READS that count when
+    # `abs_nbfois` is set - a SWAR import capping "Pt ABSENT" by occurrence -
+    # which is why the N+1 sat here unnoticed. `absent_counts/1` fetches the
+    # lot once per refresh and `bye_points_for_row/3` reads the map.
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{
+        "name" => "Absence N+1",
+        "type" => "swiss",
+        "rounds_count" => "3"
+      })
+
+    {:ok, tournament} =
+      tournament
+      |> Ecto.Changeset.change(abs_value: 0.5, abs_nbfois: 2, abs_jusque: nil)
+      |> Repo.update()
+
+    absentees =
+      for name <- ["Abs A", "Abs B", "Abs C", "Abs D", "Abs E"] do
+        Repo.insert!(%Player{tournament_id: tournament.id, name: name})
+      end
+
+    round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+    :ok = Tournaments.freeze_round_display_boards!(round.id)
+
+    Repo.insert_all(
+      "byes",
+      for p <- absentees do
+        %{tournament_id: tournament.id, player_id: p.id, round: 1, type: "absent"}
+      end
+    )
+
+    per_row =
+      count_matching_queries(~r/count\(.*"byes"|FROM "byes".*count\(/i, fn ->
+        {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+        assert html =~ "Abs A"
+        assert html =~ "Abs E"
+      end)
+
+    assert per_row == [],
+           "the per-row absence COUNT is still being issued: #{inspect(per_row)}"
+  end
+
+  # Ecto emits `[:pairings_engine, :repo, :query]` for every query. The
+  # LiveView runs in its own process, so this counts across processes and
+  # narrows by the query text instead - safe because the suite runs one
+  # case at a time (`max_cases: 1` in `test_helper.exs`).
+  defp count_matching_queries(pattern, fun) do
+    test_pid = self()
+    ref = make_ref()
+    handler_id = {__MODULE__, ref}
+
+    :telemetry.attach(
+      handler_id,
+      [:pairings_engine, :repo, :query],
+      fn _event, _measurements, metadata, _config ->
+        if Regex.match?(pattern, metadata.query), do: send(test_pid, {ref, metadata.query})
+      end,
+      nil
+    )
+
+    try do
+      fun.()
+    after
+      :telemetry.detach(handler_id)
+    end
+
+    drain(ref, [])
+  end
+
+  defp drain(ref, acc) do
+    receive do
+      {^ref, query} -> drain(ref, [query | acc])
+    after
+      50 -> Enum.reverse(acc)
+    end
+  end
+
   test "a fixed-board pairing's own board number is the fixed_board value, not the real one", %{
     conn: conn,
     scope: scope

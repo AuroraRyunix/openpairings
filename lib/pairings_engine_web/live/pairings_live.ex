@@ -158,6 +158,11 @@ defmodule PairingsEngineWeb.PairingsLive do
         # simply unpaired - so the byes-only query this page used to run is
         # no longer needed here. Other views still use it.
         round_pool: Tournaments.list_round_pool(t.id, n),
+        # The pool chips' absence counts, built once per refresh rather
+        # than queried once per chip (`Standings.absent_counts/1`). Empty,
+        # and no query at all, unless the tournament caps "Pt ABSENT" by
+        # occurrence - which is why this was easy to miss.
+        absent_counts: Standings.absent_counts(t),
         paired_rounds: paired,
         next_pairable: paired + 1,
         setup_complete: setup_complete,
@@ -1432,12 +1437,12 @@ defmodule PairingsEngineWeb.PairingsLive do
   # per-round byes row because it is the reason they are not in the
   # pairing at all - and, being the flag an arbiter most often reverses
   # on the day, the one they need to recognise at a glance.
-  defp pool_tag(%{absent?: true}, _tournament), do: "absent (whole event)"
+  defp pool_tag(%{absent?: true}, _tournament, _counts), do: "absent (whole event)"
 
-  defp pool_tag(%{type: nil}, _tournament), do: "unpaired"
+  defp pool_tag(%{type: nil}, _tournament, _counts), do: "unpaired"
 
-  defp pool_tag(%{type: type} = entry, tournament) do
-    points = PairingsEngine.Standings.bye_points_for_row(entry, tournament)
+  defp pool_tag(%{type: type} = entry, tournament, counts) do
+    points = PairingsEngine.Standings.bye_points_for_row(entry, tournament, counts)
     "#{bye_type_label(type)} · #{points} pt"
   end
 
@@ -2340,7 +2345,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             title={gettext("Right-click for options")}
           >
             <span class="pool-chip-name">{player_label(entry.player)}</span>
-            <span class="pool-chip-tag">{pool_tag(entry, @tournament)}</span>
+            <span class="pool-chip-tag">{pool_tag(entry, @tournament, @absent_counts)}</span>
           </li>
         </ul>
       </div>
