@@ -926,6 +926,14 @@ Each entry is tagged so a version can be skimmed:
 
 ### Fixed
 
+- [Security] **Two phone-entry codes can no longer be active at once.** A unique index now enforces it; generation draws again on a collision instead of giving up after twenty tries and inserting the duplicate; and the public code page answers "wrong code" rather than a 500 if the database ever drifts.
+- [Security] **Password-login lockout counts the real client address**, not the tunnel's, once `TRUSTED_PROXY_HOPS` is set - so thirty wrong passwords from one place lock out that place, not everybody.
+- [Security] **The rate limiter counts atomically.** Under a burst of two hundred simultaneous hits it counted 109 to 127; it now counts two hundred.
+- [Security] **A newline in the language switcher's return address no longer causes a 500.** The filter is an allowlist now, and anchored so a trailing newline cannot slip past it.
+- [Fix] **Revoking a helper's phone access reaches their open page immediately** - it is sent back to the code screen - instead of only when they next try to enter a result.
+- [Fix] A crafted settings event with an unknown field, or a context-menu position that is not a number, no longer crashes the arbiter's own page.
+- [Change] The four pages that show bye chips now fetch the absence-cap counts once per render instead of once per chip; the unused second rate-limiter module is removed.
+
 - [Security] **The public norms tool caps the number of extra arbiters at twenty.** The count reached the server unchecked through a hidden form field and drove the spreadsheet expansion; a single request asking for a hundred million meant ten gigabytes of XML. It is clamped at every parse, and the expansion itself refuses anything above the cap as a last line of defence.
 - [Fix] **An out-of-range "master file" choice on the public tools page no longer crashes the session**; the index is parsed and clamped, and the combiner reports an invalid choice instead of raising.
 - [Fix] **A search for a number longer than any FIDE id no longer crashes** - on the players page, the arbiter picker, or the results site's lookup. Anything outside the real id range is simply "no such player".
