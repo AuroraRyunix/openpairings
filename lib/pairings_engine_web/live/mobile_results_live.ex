@@ -85,7 +85,23 @@ defmodule PairingsEngineWeb.MobileResultsLive do
      |> load_round(max(paired, 1))}
   end
 
+  # The arbiter has revoked THIS phone. Every phone on the tournament hears
+  # the broadcast, so the id is checked before acting on it. Until this
+  # existed the page kept reloading the round quite happily and only found
+  # out it had been revoked when the helper next tried to write a result -
+  # so "revoke" appeared to do nothing at all from the phone's side.
   @impl true
+  def handle_info({:mobile_enrollment_revoked, id}, socket) do
+    if id == socket.assigns.mobile_enrollment.id do
+      {:noreply,
+       socket
+       |> put_flash(:error, "This phone's access has been ended by the arbiter.")
+       |> redirect(to: ~p"/m")}
+    else
+      {:noreply, socket}
+    end
+  end
+
   def handle_info({:tournament_changed, _id, _hint}, socket) do
     # `on_mount(:require_enrollment, ...)` only loads `tournament` once, at
     # connect - reload it here too, or an archive/unarchive elsewhere would

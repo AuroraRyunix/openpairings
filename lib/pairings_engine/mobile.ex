@@ -74,11 +74,28 @@ defmodule PairingsEngine.Mobile do
     Repo.one(from e in active_query(), where: e.id == ^id)
   end
 
-  @doc "Revokes an enrollment (idempotent). Returns `{:ok, enrollment}`."
+  @doc """
+  Revokes an enrollment (idempotent). Returns `{:ok, enrollment}`.
+
+  Broadcasts `{:mobile_enrollment_revoked, id}` on the tournament's topic so
+  the phone finds out at once. Without it a revoked phone kept watching the
+  round - `MobileResultsLive` reloads on every tournament change but only
+  re-checked the enrollment when it tried to WRITE - so "revoke" looked like
+  it had done nothing until the helper next tapped a result.
+  """
   def revoke(%Enrollment{} = enrollment) do
-    enrollment
-    |> Ecto.Changeset.change(revoked_at: DateTime.utc_now() |> DateTime.truncate(:second))
-    |> Repo.update()
+    with {:ok, revoked} <-
+           enrollment
+           |> Ecto.Changeset.change(revoked_at: DateTime.utc_now() |> DateTime.truncate(:second))
+           |> Repo.update() do
+      Phoenix.PubSub.broadcast(
+        PairingsEngine.PubSub,
+        PairingsEngine.Tournaments.tournament_topic(revoked.tournament_id),
+        {:mobile_enrollment_revoked, revoked.id}
+      )
+
+      {:ok, revoked}
+    end
   end
 
   @doc "Revokes an enrollment by id within `tournament_id` (owner action). nil if not found."
