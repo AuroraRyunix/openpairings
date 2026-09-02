@@ -572,11 +572,63 @@ defmodule PairingsEngine.Standings do
   `add_bye_records/3` computes for real standings, without a second
   implementation of the caps to keep in sync.
   """
-  def bye_points_for_row(%{type: "absent"} = bye, tournament) do
-    bye_points("absent", tournament, bye.round, absent_count(tournament, bye))
+  def bye_points_for_row(bye, tournament), do: bye_points_for_row(bye, tournament, nil)
+
+  @doc """
+  As `bye_points_for_row/2`, with the cumulative "absent" counts already in
+  hand - what `absent_counts/1` returns.
+
+  This is the arity a render loop wants. The two-argument version is
+  unchanged and still correct; it just pays one query per row in the one
+  case that needs a count (see `absent_count/2` below for why that case is
+  rare). A caller rendering a list builds the map once with
+  `absent_counts/1` and passes it here, and the whole loop costs the one
+  query the map cost.
+
+  Passing `nil` - or a map that happens not to hold this row - falls back to
+  the per-row query, so the answer is the same either way and a partial map
+  can never quietly change a score.
+  """
+  def bye_points_for_row(%{type: "absent"} = bye, tournament, counts) do
+    bye_points("absent", tournament, bye.round, absent_count(tournament, bye, counts))
   end
 
-  def bye_points_for_row(bye, tournament), do: bye_points(bye.type, tournament)
+  def bye_points_for_row(bye, tournament, _counts), do: bye_points(bye.type, tournament)
+
+  @doc """
+  Every cumulative "absent" count in `tournament`, in one query, keyed
+  `{player_id, round}` - the map `bye_points_for_row/3` takes.
+
+  The value is what `GetNbAbsence` counts: how many "absent" byes that
+  player has through that round, inclusive. Only rounds the player actually
+  has an absent bye for are keys, which is exactly the set of rows anything
+  would look up.
+
+  Returns an empty map when the tournament does not cap by occurrence
+  (`abs_nbfois` not an integer, or no `abs_value` at all) - nothing reads
+  the count in that case, so there is nothing to fetch. That is the same
+  short-circuit `absent_count/2` makes per row, hoisted to the whole
+  tournament.
+  """
+  def absent_counts(tournament) do
+    if is_nil(tournament.abs_value) or not is_integer(tournament.abs_nbfois) do
+      %{}
+    else
+      Repo.all(
+        from b in "byes",
+          where: b.tournament_id == ^tournament.id and b.type == "absent",
+          select: {b.player_id, b.round}
+      )
+      |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
+      |> Enum.flat_map(fn {player_id, rounds} ->
+        rounds
+        |> Enum.sort()
+        |> Enum.with_index(1)
+        |> Enum.map(fn {round, running} -> {{player_id, round}, running} end)
+      end)
+      |> Map.new()
+    end
+  end
 
   # The cumulative count is a DB round-trip, and this function is called once
   # per rendered row inside four render loops (the pool panel, the live round
@@ -601,17 +653,27 @@ defmodule PairingsEngine.Standings do
   # passing a map without the field is no worse off than before.
   #
   # The remaining case - a tournament that genuinely caps by occurrence -
-  # still costs one query per row. Batching it the way `add_bye_records/3`
-  # does needs every one of a player's rows in hand at once, and this
-  # function is handed exactly one; teaching the four call sites to pass the
-  # whole list is the fix for that case, and it is a change to their files,
-  # not this one.
-  defp absent_count(tournament, bye) do
+  # is what `absent_counts/1` and `bye_points_for_row/3` are for: a caller
+  # rendering a list builds the map once and this reads it. Without a map
+  # (`nil`, or a map that does not hold this row) it falls back to the
+  # single-row query, which is the only behaviour the two-argument version
+  # ever had.
+  defp absent_count(tournament, bye, counts) do
     cond do
-      is_nil(tournament.abs_value) -> nil
-      round_capped?(tournament, bye.round) -> nil
-      not is_integer(tournament.abs_nbfois) -> nil
-      true -> absent_count_through_round(tournament, bye)
+      is_nil(tournament.abs_value) ->
+        nil
+
+      round_capped?(tournament, bye.round) ->
+        nil
+
+      not is_integer(tournament.abs_nbfois) ->
+        nil
+
+      true ->
+        case counts && Map.fetch(counts, {bye.player_id, bye.round}) do
+          {:ok, count} -> count
+          _ -> absent_count_through_round(tournament, bye)
+        end
     end
   end
 

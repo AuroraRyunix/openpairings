@@ -1592,7 +1592,7 @@ defmodule PairingsEngine.StandingsTest do
 
       assert queries == [],
              "rendering #{length(rows)} bye rows ran #{length(queries)} queries: " <>
-               inspect(queries)
+               "rendering #{length(rows)} rows with the map ran #{length(queries)} queries"
     end
 
     test "the count is still fetched where abs_nbfois can actually consult it" do
@@ -1608,6 +1608,50 @@ defmodule PairingsEngine.StandingsTest do
         end)
 
       assert length(queries) == 3
+    end
+
+    test "absent_counts/1 answers the same numbers for a whole round in one query" do
+      # The remaining N+1: with the occurrence cap live, every rendered row
+      # cost a COUNT. `absent_counts/1` fetches the lot once and
+      # `bye_points_for_row/3` reads the map.
+      {t, p} = absence_fixture(%{abs_value: 0.5, abs_jusque: nil, abs_nbfois: 2})
+
+      other = Repo.insert!(%Player{tournament_id: t.id, name: "Other", fide_rating: 1400})
+
+      file_absences(t, p, [1, 2, 3])
+      file_absences(t, other, [2, 3])
+
+      counts = Standings.absent_counts(t)
+
+      assert counts[{p.id, 1}] == 1
+      assert counts[{p.id, 3}] == 3
+      # The other player's own running count, not the tournament's.
+      assert counts[{other.id, 2}] == 1
+      assert counts[{other.id, 3}] == 2
+
+      # Exactly the rows that exist: a lookup for a bye that was never
+      # filed is not in the map and correctly falls back (see below).
+      rows =
+        for(round <- 1..3, do: row(p, round)) ++ for round <- 2..3, do: row(other, round)
+
+      {batched, queries} =
+        count_repo_queries(fn ->
+          Enum.map(rows, &Standings.bye_points_for_row(&1, t, counts))
+        end)
+
+      assert queries == [],
+             inspect(queries)
+
+      # Identical to what the per-row path answers.
+      assert batched == Enum.map(rows, &Standings.bye_points_for_row(&1, t))
+    end
+
+    test "a map that does not hold the row falls back to the per-row query" do
+      {t, p} = absence_fixture(%{abs_value: 0.5, abs_jusque: nil, abs_nbfois: 2})
+      file_absences(t, p, [1, 2, 3])
+
+      assert Standings.bye_points_for_row(row(p, 3), t, %{}) == t.points_loss
+      assert Standings.bye_points_for_row(row(p, 1), t, %{}) == 0.5
     end
 
     # Ecto emits `[:pairings_engine, :repo, :query]` for every query it runs.
