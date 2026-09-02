@@ -543,6 +543,28 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # prevent.
     field :handoff_token, :string
 
+    # The mirror of the three above, and deliberately NOT stored in them:
+    # where this copy CAME FROM, plus the token that unlocks the copy left
+    # behind there. `%{"instance" => ..., "address" => ..., "label" => ...,
+    # "release_token" => ..., "handed_off_at" => ..., "received_at" => ...}`,
+    # or nil for a tournament that was created here.
+    #
+    # "Handed away" and "arrived from" are opposite states, and a copy can be
+    # in both at once - received from A and handed on to C. The three columns
+    # above cannot express that: `hand_off/2` overwrites `handoff_token` with
+    # a freshly minted one, so handing a received copy onward would destroy
+    # the borrowed key, and `handoff_token_matches?/2` refuses to compare a
+    # token at all while `handed_off_at` is nil - which it must be on a
+    # received copy, since a received copy is live and writable here. See
+    # `20260902180000_add_tournament_handoff_origin.exs` for the full
+    # argument.
+    #
+    # Written only by `PairingsEngine.Handoff`, and not cast, for the same
+    # reason as `openresults_claim`: it holds a credential that arrived in a
+    # file, and an ordinary settings save or a backup import must not be able
+    # to invent one.
+    field :handoff_origin, :map
+
     # None of the three is cast by `changeset/2`, and that is the whole
     # safety property rather than tidiness. `Tournaments.hand_off/2` and
     # `take_back/2` are meant to be the ONLY writers: every other write in

@@ -129,6 +129,15 @@ defmodule PairingsEngine.TournamentExport do
   #     original into every copy of the file - which is exactly the one
   #     thing the token exists to stop. The hand-off flow moves the token
   #     itself, deliberately and once, outside this field list.
+  #   handoff_origin
+  #     The mirror of those three, and excluded for a sharper version of the
+  #     same reason. It holds the key that unlocks the copy this one was
+  #     handed off FROM - so exporting it would put that key into every
+  #     ordinary backup, every snapshot and every duplicate, and any one of
+  #     those files could then be used to unlock a machine it has no business
+  #     unlocking. The hand-off flow moves a release token exactly once, in
+  #     its own envelope block, and `PairingsEngine.Handoff` is the only thing
+  #     that writes this column.
   #   swar_guid
   #     SWAR's own per-tournament GUID, used for re-upload duplicate
   #     detection. Carrying it would make the imported copy look like a
@@ -159,7 +168,7 @@ defmodule PairingsEngine.TournamentExport do
     registration_open publish_to_openresults deleted_at archived_at swar_guid
     logo_data logo_content_type head_snapshot_id
     openresults_key openresults_claim
-    handed_off_at handed_off_to handoff_token
+    handed_off_at handed_off_to handoff_token handoff_origin
   )a
 
   @doc false
