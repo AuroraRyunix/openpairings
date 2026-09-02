@@ -3,6 +3,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
   alias PairingsEngine.{
     Audit,
+    Handoff,
     Publishing,
     Tournaments,
     SwarImport,
@@ -60,7 +61,16 @@ defmodule PairingsEngineWeb.TournamentsLive do
        new_standard: "standard",
        new_params: @new_tournament_defaults,
        swar_pending: nil,
-       swar_duplicate: nil
+       swar_duplicate: nil,
+       # ---- hand-off ----
+       # Three separate assigns for three separate states, deliberately not
+       # one `handoff_mode`. A tournament being handed OUT and a tournament
+       # being brought BACK are opposite directions, and a single field would
+       # let a stale value render the wrong one - which is the one thing this
+       # feature's UI must never do.
+       handoff_target: nil,
+       receiving_handoff: false,
+       return_target: nil
      )
      # ".swar"/".trf" have no registered MIME type, so the browser-side accept
      # filter can't be used; each parser rejects anything that isn't its own
@@ -68,11 +78,51 @@ defmodule PairingsEngineWeb.TournamentsLive do
      |> allow_upload(:swar, accept: :any, max_entries: 1, max_file_size: 5_000_000)
      |> allow_upload(:trf, accept: :any, max_entries: 1, max_file_size: 5_000_000)
      |> allow_upload(:backup, accept: ~w(.json), max_entries: 1, max_file_size: 25_000_000)
+     # Two uploads rather than one shared "hand-off file" box, for the same
+     # reason as the assigns above: the arriving file and the returning file
+     # are opposites, and each box can then say which one it wants.
+     |> allow_upload(:handoff, accept: ~w(.json), max_entries: 1, max_file_size: 25_000_000)
+     |> allow_upload(:handoff_return,
+       accept: ~w(.json),
+       max_entries: 1,
+       max_file_size: 25_000_000
+     )
      |> assign_tournaments()
      |> assign_deleted_tournaments()
      |> assign_archived_tournaments()
      |> assign_pending_invitations()}
   end
+
+  # `?return=<id>` is how the handed-off banner (rendered by
+  # `PairingsEngineWeb.Layouts` on every page of a locked tournament) gets an
+  # arbiter to the one place in the app that can take a file: this page, which
+  # already has the upload plumbing every other import uses. The banner is
+  # where they LEARN they need the file; this is where it lands.
+  #
+  # An id that is not theirs, or not actually handed off, simply opens
+  # nothing - a link in a banner is not a place to raise.
+  @impl true
+  def handle_params(%{"return" => id}, _uri, socket) do
+    {:noreply, assign(socket, return_target: returnable_tournament(socket, id))}
+  end
+
+  def handle_params(_params, _uri, socket), do: {:noreply, socket}
+
+  defp returnable_tournament(socket, id) when is_binary(id) do
+    case Integer.parse(id) do
+      {numeric, ""} -> returnable_tournament(socket, numeric)
+      _ -> nil
+    end
+  end
+
+  defp returnable_tournament(socket, id) when is_integer(id) do
+    tournament = Tournaments.get_authorized_tournament!(socket.assigns.current_scope, id)
+    if Handoff.handed_away?(tournament), do: tournament, else: nil
+  rescue
+    Ecto.NoResultsError -> nil
+  end
+
+  defp returnable_tournament(_socket, _id), do: nil
 
   # Refresh the list only - the delete-confirmation modal (if open) keeps
   # its own `delete_target`/`delete_confirm_text` assigns untouched, since
@@ -243,6 +293,17 @@ defmodule PairingsEngineWeb.TournamentsLive do
      )}
   end
 
+  def handle_event("receive_handoff", _params, socket) do
+    {:noreply,
+     assign(socket,
+       receiving_handoff: true,
+       creating: false,
+       importing: false,
+       importing_trf: false,
+       importing_backup: false
+     )}
+  end
+
   def handle_event("cancel", _params, socket) do
     {:noreply,
      assign(socket,
@@ -250,6 +311,9 @@ defmodule PairingsEngineWeb.TournamentsLive do
        importing: false,
        importing_trf: false,
        importing_backup: false,
+       receiving_handoff: false,
+       handoff_target: nil,
+       return_target: nil,
        error: nil,
        new_pairing_system: "swiss",
        new_team?: false,
@@ -386,6 +450,99 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
       [] ->
         {:noreply, assign(socket, error: "Choose a .json export file first")}
+    end
+  end
+
+  ## ---------- Hand-off (live in exactly one place at a time) ----------
+  #
+  # Three controls, on this page rather than on the tournament's own Settings,
+  # and the reason is the same for all three: handing a tournament over is a
+  # statement about the whole event and about this machine, not a setting on
+  # it. Every other whole-tournament act - duplicate, archive, delete, leave,
+  # export, import - is already here, and the moment after a hand-off there is
+  # nothing left to do on that tournament's pages anyway, because it is
+  # read-only. Settings is where you change a tournament; this is where you
+  # decide what happens TO one.
+  #
+  # The commit action in each case is a plain form POST to
+  # `PairingsEngineWeb.ExportController`, not a `phx-click`: both directions
+  # answer with a file, and a LiveView cannot hand the browser one.
+
+  # The file input's phx-change target; nothing to do until submit.
+  def handle_event("validate_handoff", _params, socket), do: {:noreply, socket}
+
+  def handle_event("handoff_start", %{"id" => id}, socket) do
+    tournament = Tournaments.get_authorized_tournament!(socket.assigns.current_scope, id)
+
+    {:noreply, assign(socket, handoff_target: tournament, return_target: nil, error: nil)}
+  end
+
+  def handle_event("handoff_cancel", _params, socket) do
+    {:noreply, assign(socket, handoff_target: nil, error: nil)}
+  end
+
+  def handle_event("return_start", %{"id" => id}, socket) do
+    tournament = Tournaments.get_authorized_tournament!(socket.assigns.current_scope, id)
+
+    {:noreply, assign(socket, return_target: tournament, handoff_target: nil, error: nil)}
+  end
+
+  def handle_event("return_cancel", _params, socket) do
+    {:noreply, assign(socket, return_target: nil, error: nil)}
+  end
+
+  # Receiving: a hand-off file arriving from another machine becomes a live
+  # tournament here. Refuses an ordinary backup outright rather than importing
+  # it and calling it a hand-off - see `PairingsEngine.Handoff.receive/2`.
+  def handle_event("receive_handoff_file", _params, socket) do
+    scope = socket.assigns.current_scope
+
+    results =
+      consume_uploaded_entries(socket, :handoff, fn %{path: path}, _entry ->
+        {:ok, decode_and_receive(path, scope)}
+      end)
+
+    case results do
+      [{:ok, tournament}] ->
+        {:noreply,
+         socket
+         |> put_flash(:info, received_flash(tournament))
+         |> assign(receiving_handoff: false, error: nil)
+         |> assign_tournaments()}
+
+      [{:error, reason}] ->
+        {:noreply, assign(socket, error: handoff_error(reason))}
+
+      [] ->
+        {:noreply, assign(socket, error: gettext("Choose the hand-off file first."))}
+    end
+  end
+
+  # Bringing it back: the returning file's token unlocks this copy. Nothing
+  # about the tournament's CONTENT is applied - see `release_flash/0` for the
+  # rough edge that leaves, which the flash states rather than hides.
+  def handle_event("release_handoff_file", _params, socket) do
+    tournament = socket.assigns.return_target
+    scope = socket.assigns.current_scope
+
+    results =
+      consume_uploaded_entries(socket, :handoff_return, fn %{path: path}, _entry ->
+        {:ok, decode_and_release(path, tournament, scope)}
+      end)
+
+    case results do
+      [{:ok, _unlocked}] ->
+        {:noreply,
+         socket
+         |> put_flash(:info, release_flash())
+         |> assign(return_target: nil, error: nil)
+         |> assign_tournaments()}
+
+      [{:error, reason}] ->
+        {:noreply, assign(socket, error: handoff_error(reason))}
+
+      [] ->
+        {:noreply, assign(socket, error: gettext("Choose the returning file first."))}
     end
   end
 
@@ -609,6 +766,96 @@ defmodule PairingsEngineWeb.TournamentsLive do
         {:noreply, socket}
     end
   end
+
+  ## ---------- Hand-off helpers ----------
+
+  defp decode_and_receive(path, scope) do
+    with {:ok, body} <- File.read(path),
+         {:ok, data} <- Jason.decode(body) do
+      Handoff.receive(data, scope)
+    else
+      _unreadable -> {:error, :unreadable}
+    end
+  end
+
+  defp decode_and_release(path, tournament, scope) do
+    with {:ok, body} <- File.read(path),
+         {:ok, data} <- Jason.decode(body),
+         {:ok, token} <- Handoff.returning_token(data) do
+      Handoff.release(tournament, token, scope)
+    else
+      {:error, _} = refusal -> refusal
+      _unreadable -> {:error, :unreadable}
+    end
+  end
+
+  defp received_flash(tournament) do
+    gettext(
+      "%{name} is now live on this machine. Its helpers need to re-enrol their phones, and anyone who was sharing it has to accept a fresh invitation.",
+      name: tournament.name
+    )
+  end
+
+  # The sharpest thing this feature has to say, and it is said on success
+  # rather than buried in a help page. Releasing unlocks; it does not merge.
+  defp release_flash do
+    gettext(
+      "This copy is writable again. It still shows the tournament as it was when you handed it off - anything played on the other machine is in the file you just used, and importing that file as a backup is the only way to see it here."
+    )
+  end
+
+  # `PairingsEngine.Handoff` answers in atoms; the wording lives here, where
+  # the screen is. `ExportController` carries the same mapping for the two
+  # refusals a POST can hit.
+  defp handoff_error(:not_a_handoff),
+    do:
+      gettext(
+        "That is not a hand-off file. An ordinary backup carries no key, so it cannot make this copy live or unlock anything - import it under \"Import backup\" instead."
+      )
+
+  defp handoff_error(:not_a_return),
+    do:
+      gettext(
+        "That is the file you sent OUT, not the one coming back. Using it would unlock this copy while the other machine is still running the tournament."
+      )
+
+  defp handoff_error({:unsupported_version, _version}),
+    do:
+      gettext(
+        "This hand-off file was written by a newer version of OpenPairings than this one. Update this copy before taking it in."
+      )
+
+  defp handoff_error(:not_one_tournament),
+    do:
+      gettext(
+        "A hand-off moves one tournament. This file holds several, so there is no way to tell which one the key belongs to."
+      )
+
+  defp handoff_error(:already_received),
+    do:
+      gettext(
+        "This machine already has this tournament - it was received once already. Importing it again would leave two live copies of the same event."
+      )
+
+  defp handoff_error(:bad_token),
+    do:
+      gettext(
+        "That file does not unlock this tournament. Check it is the return for this event, and that nothing has already brought it back."
+      )
+
+  defp handoff_error(:origin_not_recorded),
+    do:
+      gettext(
+        "The tournament could not be recorded as a hand-off, so it was not kept - a copy that cannot be given back would strand the machine it came from."
+      )
+
+  defp handoff_error(:unreadable),
+    do: gettext("That file could not be read as JSON.")
+
+  defp handoff_error(message) when is_binary(message), do: message
+
+  defp handoff_error(other),
+    do: gettext("Could not take that file in: %{reason}", reason: inspect(other))
 
   # Shared by both import panels. Neither `.swar` nor `.trf` has a registered
   # browser MIME type, so both dropzones have to accept `:any` and a file can
@@ -881,6 +1128,15 @@ defmodule PairingsEngineWeb.TournamentsLive do
           >{gettext("Export all (JSON)")}</a>
           <button :if={!@importing_backup} class="pe-btn" phx-click="import_backup">
             {gettext("Import backup (JSON)")}
+          </button>
+          <%!-- Beside the other imports rather than hidden behind them: a
+                hand-off file looks exactly like a backup in a downloads
+                folder, and the two do completely different things. Naming
+                both on the same row is what stops somebody reaching for
+                "Import backup" with a hand-off file and quietly ending up
+                with a second live copy. --%>
+          <button :if={!@receiving_handoff} class="pe-btn" phx-click="receive_handoff">
+            {gettext("Receive a hand-off")}
           </button>
           <button :if={!@importing} class="pe-btn" phx-click="import">{gettext("Import SWAR file")}</button>
           <button :if={!@importing_trf} class="pe-btn" phx-click="import_trf">{gettext(
@@ -1350,10 +1606,126 @@ defmodule PairingsEngineWeb.TournamentsLive do
         </div>
       </form>
 
+      <form
+        :if={@receiving_handoff}
+        id="handoff-receive-form"
+        class="card"
+        phx-submit="receive_handoff_file"
+        phx-change="validate_handoff"
+      >
+        <h2>{gettext("Receive a hand-off")}</h2>
+
+        <p class="hint" style="margin-top: 0">
+          {gettext(
+            "A hand-off file makes a tournament LIVE on this machine, and the copy it came from stays locked until you give it back. This is not the same as importing a backup: a backup is a separate copy of an event that is still running somewhere else, and this is the event itself moving here."
+          )}
+        </p>
+
+        <ul class="hint" style="margin-top: 0">
+          <li>
+            {gettext(
+              "Helpers entering results on their phones have to enrol again here - access codes never travel."
+            )}
+          </li>
+
+          <li>
+            {gettext(
+              "Anyone the tournament was shared with arrives as a pending invitation and has to accept it again."
+            )}
+          </li>
+        </ul>
+
+        <div
+          class={["dropzone", @uploads.handoff.entries != [] && "has-file"]}
+          phx-drop-target={@uploads.handoff.ref}
+        >
+          <.live_file_input upload={@uploads.handoff} class="dropzone-input" />
+          <div class="dropzone-label">
+            <%= if @uploads.handoff.entries == [] do %>
+              <strong>{gettext("Choose the hand-off file")}</strong>
+              <span class="hint">{gettext("or drag and drop it here")}</span>
+            <% else %>
+              <span :for={entry <- @uploads.handoff.entries} class="dropzone-file">
+                {entry.client_name}
+              </span>
+            <% end %>
+          </div>
+        </div>
+
+        <p :for={err <- upload_errors(@uploads.handoff)} class="error-note">{inspect(err)}</p>
+
+        <p :if={@error} class="error-note">{@error}</p>
+
+        <div class="actions">
+          <button type="submit" class="pe-btn primary">{gettext("Take it in")}</button>
+          <button type="button" class="pe-btn tonal" phx-click="cancel">{gettext("Cancel")}</button>
+        </div>
+      </form>
+
+      <form
+        :if={@return_target}
+        id="handoff-return-form"
+        class="card"
+        phx-submit="release_handoff_file"
+        phx-change="validate_handoff"
+      >
+        <h2>{gettext("Bring back \"%{name}\"", name: @return_target.name)}</h2>
+
+        <p class="hint" style="margin-top: 0">
+          {gettext(
+            "This tournament is checked out to %{place}. Whoever has been running it there produces a returning file with \"Give back\"; that file carries the key that unlocks this copy.",
+            place: @return_target.handed_off_to || gettext("another copy")
+          )}
+        </p>
+
+        <%!-- Said before the fact rather than after it. Unlocking and merging
+              are different things, and an arbiter who expects the second and
+              gets the first will start typing round 6 into a copy that has
+              never seen round 5. --%>
+        <p class="hint">
+          <strong>
+            {gettext("This unlocks the tournament. It does not bring the results back:")}
+          </strong>
+          {gettext(
+            "this copy will still show the event as it was when you handed it off. Anything played on the other machine is in the same file, and importing it under \"Import backup (JSON)\" is the only way to see it here."
+          )}
+        </p>
+
+        <div
+          class={["dropzone", @uploads.handoff_return.entries != [] && "has-file"]}
+          phx-drop-target={@uploads.handoff_return.ref}
+        >
+          <.live_file_input upload={@uploads.handoff_return} class="dropzone-input" />
+          <div class="dropzone-label">
+            <%= if @uploads.handoff_return.entries == [] do %>
+              <strong>{gettext("Choose the returning file")}</strong>
+              <span class="hint">{gettext("or drag and drop it here")}</span>
+            <% else %>
+              <span :for={entry <- @uploads.handoff_return.entries} class="dropzone-file">
+                {entry.client_name}
+              </span>
+            <% end %>
+          </div>
+        </div>
+
+        <p :for={err <- upload_errors(@uploads.handoff_return)} class="error-note">
+          {inspect(err)}
+        </p>
+
+        <p :if={@error} class="error-note">{@error}</p>
+
+        <div class="actions">
+          <button type="submit" class="pe-btn primary">{gettext("Unlock this copy")}</button>
+          <button type="button" class="pe-btn tonal" phx-click="return_cancel">
+            {gettext("Cancel")}
+          </button>
+        </div>
+      </form>
+
       <div
         :if={
           @tournaments == [] && !@creating && !@importing && !@importing_trf && !@importing_backup &&
-            !@swar_pending && !@swar_duplicate
+            !@receiving_handoff && !@return_target && !@swar_pending && !@swar_duplicate
         }
         class="card empty"
       >
@@ -1403,6 +1775,25 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
               <td>
                 <span class={["badge", status_class(t.status)]}>{t.status}</span>
+                <%!-- Two badges, never one that has to mean either. A copy can
+                      be both at once: received from A, and since handed on to
+                      C. See `PairingsEngine.Handoff`. --%>
+                <span
+                  :if={Handoff.handed_away?(t)}
+                  class="badge muted"
+                  title={
+                    gettext("Checked out to %{place} - read-only here",
+                      place: t.handed_off_to || gettext("another copy")
+                    )
+                  }
+                >{gettext("handed off")}</span>
+                <span
+                  :if={Handoff.received?(t)}
+                  class="badge muted"
+                  title={
+                    gettext("Handed to this machine by %{place}", place: Handoff.origin_label(t))
+                  }
+                >{gettext("on loan")}</span>
               </td>
 
               <td style="text-align: right">
@@ -1418,7 +1809,28 @@ defmodule PairingsEngineWeb.TournamentsLive do
                 <button class="pe-btn" phx-click="duplicate" phx-value-id={t.id}>
                   {gettext("Copy")}
                 </button>
+                <%!-- Exactly one of these renders, because they are the two
+                      directions of the same lock. A row that offered both
+                      would be offering to hand off a tournament that is
+                      already somewhere else. --%>
                 <button
+                  :if={!Handoff.handed_away?(t)}
+                  class="pe-btn"
+                  phx-click="handoff_start"
+                  phx-value-id={t.id}
+                >
+                  {if Handoff.received?(t), do: gettext("Give back"), else: gettext("Hand off")}
+                </button>
+                <button
+                  :if={Handoff.handed_away?(t)}
+                  class="pe-btn tonal"
+                  phx-click="return_start"
+                  phx-value-id={t.id}
+                >
+                  {gettext("Bring it back")}
+                </button>
+                <button
+                  :if={!Handoff.handed_away?(t)}
                   class="pe-btn"
                   phx-click="archive_tournament"
                   phx-value-id={t.id}
@@ -1562,6 +1974,8 @@ defmodule PairingsEngineWeb.TournamentsLive do
         </div>
       </div>
 
+      <.handoff_modal :if={@handoff_target} tournament={@handoff_target} />
+
       <.delete_tournament_modal
         :if={@delete_target}
         tournament={@delete_target}
@@ -1574,6 +1988,136 @@ defmodule PairingsEngineWeb.TournamentsLive do
         confirm_text={@purge_confirm_text}
       />
     </Layouts.app>
+    """
+  end
+
+  attr :tournament, Tournament, required: true
+
+  # The one screen in the app where a tournament stops being editable here and
+  # starts being editable somewhere else. Everything it says is something an
+  # arbiter otherwise discovers at the venue, an hour before round 1:
+  #
+  #   * this copy goes read-only, and the only way back is a file from there;
+  #   * the helpers' phones stop working, because access codes never travel;
+  #   * co-arbiters have to accept a fresh invitation;
+  #   * and the file is a credential, when the tournament publishes.
+  #
+  # Both commit buttons are plain form POSTs to
+  # `PairingsEngineWeb.ExportController` rather than `phx-click` handlers,
+  # because both answer with a download and a LiveView cannot send one.
+  # `Phoenix.Component.form/1` with an `:action` supplies the CSRF token.
+  defp handoff_modal(assigns) do
+    ~H"""
+    <div class="modal-overlay" phx-window-keydown="handoff_cancel" phx-key="escape">
+      <div class="modal-card" phx-click-away="handoff_cancel" style="max-width: 560px">
+        <h2>
+          {if Handoff.received?(@tournament),
+            do: gettext("Give this tournament back"),
+            else: gettext("Hand this tournament over")}
+        </h2>
+
+        <p>
+          <.rich_text text={
+            gettext(
+              "%[name] will become read-only on this machine and live on the one you send it to. A tournament runs in exactly one place at a time - there is no merging two copies afterwards, because no rule can decide which machine's result for a game is the real one."
+            )
+          }>
+            <:part name="name"><strong>{@tournament.name}</strong></:part>
+          </.rich_text>
+        </p>
+
+        <p class="hint"><strong>{gettext("What does not travel with it:")}</strong></p>
+
+        <ul class="hint">
+          <li>
+            {gettext(
+              "Helper phones. Every enrolment code stays on this machine, so whoever runs the event next has to hand out new ones."
+            )}
+          </li>
+
+          <li>
+            {gettext(
+              "Collaborator access. Everyone the tournament is shared with arrives there as an invitation they have to accept again."
+            )}
+          </li>
+
+          <li>
+            {gettext("Restore points. The other machine starts with no history behind it.")}
+          </li>
+        </ul>
+
+        <p :if={export_key_warning(@tournament)} class="hint">
+          {export_key_warning(@tournament)}
+        </p>
+
+        <%!-- The return path first when there is one, and without a
+              destination field: giving it back goes where it came from, and
+              asking would invite somebody to type somewhere else. --%>
+        <.form
+          :if={Handoff.received?(@tournament)}
+          for={%{}}
+          action={~p"/t/#{@tournament.id}/export/handoff/return"}
+          method="post"
+        >
+          <div class="actions">
+            <button type="submit" class="pe-btn primary">
+              {gettext("Give it back to %{place}", place: Handoff.origin_label(@tournament))}
+            </button>
+            <button type="button" class="pe-btn tonal" phx-click="handoff_cancel">
+              {gettext("Cancel")}
+            </button>
+          </div>
+        </.form>
+
+        <p :if={Handoff.received?(@tournament)} class="hint">
+          {gettext(
+            "Or send it on to a third machine instead - the key for %{place} travels with it and stays usable.",
+            place: Handoff.origin_label(@tournament)
+          )}
+        </p>
+
+        <.form for={%{}} action={~p"/t/#{@tournament.id}/export/handoff"} method="post">
+          <label class="field">
+            <span>{gettext("Where is it going?")}</span>
+            <input
+              name="handoff[to]"
+              autocomplete="off"
+              phx-mounted={JS.focus()}
+              placeholder={gettext("e.g. the club laptop")}
+            />
+          </label>
+
+          <p class="hint">
+            {gettext(
+              "Free text - this is what the banner on this copy will say, so write whatever you will recognise later."
+            )}
+          </p>
+
+          <div class="actions">
+            <button
+              type="submit"
+              class={["pe-btn", !Handoff.received?(@tournament) && "primary"]}
+            >
+              {gettext("Hand off and download the file")}
+            </button>
+            <button
+              :if={!Handoff.received?(@tournament)}
+              type="button"
+              class="pe-btn tonal"
+              phx-click="handoff_cancel"
+            >
+              {gettext("Cancel")}
+            </button>
+          </div>
+        </.form>
+
+        <p class="hint">
+          {gettext(
+            "Keep the file safe. Whoever holds it can make this tournament live on their own machine."
+          )}
+        </p>
+      </div>
+    </div>
     """
   end
 

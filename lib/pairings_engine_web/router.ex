@@ -115,6 +115,14 @@ defmodule PairingsEngineWeb.Router do
     get "/t/:id/export/json", ExportController, :json
     get "/export/tournaments.json", ExportController, :all_json
 
+    # POST, not GET, and the only two download routes here that are. Both
+    # LOCK the tournament on their way to producing the file - a hand-off is
+    # a state change that happens to answer with an attachment - and a GET
+    # that locks a tournament would be fired by a link prefetch, a crawler,
+    # or a browser restoring tabs. See `PairingsEngine.Handoff`.
+    post "/t/:id/export/handoff", ExportController, :hand_off
+    post "/t/:id/export/handoff/return", ExportController, :hand_off_return
+
     # A backup is the whole database - every player, the entry form's email
     # addresses, and every publishing key. SSO-gated inside the controller,
     # exactly as changing the publishing settings is.

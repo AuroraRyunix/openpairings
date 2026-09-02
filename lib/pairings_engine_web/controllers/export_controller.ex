@@ -11,11 +11,31 @@ defmodule PairingsEngineWeb.ExportController do
   `Tournaments.get_authorized_tournament!/2`, so a tournament id the
   current user doesn't own and isn't a collaborator on 404s the same way
   the rest of the app does.
+
+  ## The two POSTs
+
+  `hand_off/2` and `hand_off_return/2` are the only actions here that change
+  anything, and they are POSTs because of it: both LOCK the tournament on
+  their way to producing the file (see `PairingsEngine.Handoff`), and a GET
+  that locks a tournament would be fired by a link prefetch or a browser
+  restoring tabs.
+
+  They live in a controller rather than in `PairingsEngineWeb.TournamentsLive`
+  for the same reason the import does not live here: a LiveView cannot hand
+  the browser a file. The forms that drive them are on that LiveView and post
+  across.
   """
 
   use PairingsEngineWeb, :controller
 
-  alias PairingsEngine.{PgnExport, SwarExport, TournamentExport, Tournaments, TrfExport}
+  alias PairingsEngine.{
+    Handoff,
+    PgnExport,
+    SwarExport,
+    TournamentExport,
+    Tournaments,
+    TrfExport
+  }
 
   @doc """
   GET /t/:id/export/trf?rounds=1-5 - TRF16 text download, all or selected
@@ -117,6 +137,107 @@ defmodule PairingsEngineWeb.ExportController do
       "openpairings-export-#{Date.to_iso8601(Date.utc_today())}.json"
     )
   end
+
+  @doc """
+  POST /t/:id/export/handoff - hands the tournament over to another copy of
+  the app and downloads the file that makes it live there.
+
+  A download that changes state, which is why it is a POST and why it is here
+  rather than in `PairingsEngineWeb.TournamentsLive`: a LiveView cannot hand
+  the browser a file, and the two halves of a hand-off (lock, then file) must
+  not be separable by a failed request. `PairingsEngine.Handoff.hand_off/3`
+  does both in one transaction; this either sends the result or redirects with
+  the reason, having locked nothing.
+
+  The submitted `to` is the free-text destination an arbiter typed. It is not
+  validated against anything - see the migration's note on `handed_off_to` -
+  beyond being non-blank, which the context enforces.
+  """
+  def hand_off(conn, %{"id" => id} = params) do
+    scope = conn.assigns.current_scope
+    tournament = Tournaments.get_authorized_tournament!(scope, id)
+
+    case Handoff.hand_off(tournament, to_label(params), scope) do
+      {:ok, payload} ->
+        send_json_download(conn, payload, handoff_filename(tournament, "handoff"))
+
+      {:error, reason} ->
+        refuse(conn, handoff_error(reason))
+    end
+  end
+
+  @doc """
+  POST /t/:id/export/handoff/return - gives a received tournament back, and
+  downloads the file that unlocks the copy it came from.
+
+  The mirror of `hand_off/2` and a POST for the same reason: it locks this
+  copy. No destination is asked for - a return goes back where it came from,
+  which `PairingsEngine.Handoff.return/2` reads off the row.
+  """
+  def hand_off_return(conn, %{"id" => id}) do
+    scope = conn.assigns.current_scope
+    tournament = Tournaments.get_authorized_tournament!(scope, id)
+
+    case Handoff.return(tournament, scope) do
+      {:ok, payload} ->
+        send_json_download(conn, payload, handoff_filename(tournament, "return"))
+
+      {:error, reason} ->
+        refuse(conn, handoff_error(reason))
+    end
+  end
+
+  defp to_label(params) do
+    case params do
+      %{"handoff" => %{"to" => to}} when is_binary(to) -> to
+      %{"to" => to} when is_binary(to) -> to
+      _ -> ""
+    end
+  end
+
+  # Back to the list rather than to the tournament: a refused hand-off leaves
+  # the arbiter deciding what to do about the tournament as a whole, and the
+  # list is where every other whole-tournament action lives.
+  defp refuse(conn, message) do
+    conn
+    |> put_flash(:error, message)
+    |> redirect(to: ~p"/")
+  end
+
+  # `PairingsEngine.Handoff` answers in atoms so the wording lives with the
+  # screen rather than with the context - the same split every other refusal
+  # in this app uses.
+  defp handoff_error(:no_destination),
+    do:
+      gettext(
+        "Say where the tournament is going first - the copy left behind can only tell people what you type here."
+      )
+
+  defp handoff_error(:already_handed_off),
+    do:
+      gettext(
+        "This tournament has already been handed off. Take it back before handing it somewhere else."
+      )
+
+  defp handoff_error(:archived),
+    do: gettext("This tournament is archived - unarchive it before handing it off.")
+
+  defp handoff_error(:not_received),
+    do:
+      gettext(
+        "This tournament wasn't handed to this machine, so there is nothing to give back. Hand it off instead."
+      )
+
+  defp handoff_error(message) when is_binary(message), do: message
+
+  defp handoff_error(other),
+    do: gettext("Could not hand this tournament over: %{reason}", reason: inspect(other))
+
+  # `<slug>-handoff.json` / `<slug>-return.json`. The kind is in the name
+  # because both files look identical in a downloads folder and only one of
+  # them unlocks anything - and an arbiter with two of these open is exactly
+  # the situation where picking the wrong one costs an evening.
+  defp handoff_filename(tournament, kind), do: "#{tournament_slug(tournament)}-#{kind}.json"
 
   defp send_json_download(conn, envelope, filename) do
     conn

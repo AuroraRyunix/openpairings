@@ -249,10 +249,14 @@ defmodule PairingsEngineWeb.Layouts do
             second visual language for the same message would only make the
             two harder to tell apart at a glance.
 
-            No action button, unlike archiving: unarchiving is something this
-            copy can just do, whereas taking a tournament back requires the
-            token the OTHER copy is holding, so there is nothing honest for a
-            button here to do yet. --%>
+            The button is not the counterpart of "Unarchive", and must not
+            read like one. Unarchiving is something this copy can simply do;
+            taking a tournament back requires a file from the machine that
+            has it, so this leads to the one place in the app that can take a
+            file - the Tournaments page, which already holds every other
+            import - rather than promising to unlock anything on its own. The
+            banner is where an arbiter finds out they need the file; `?return`
+            is what opens the box that wants it. --%>
       <div :if={@tournament && @tournament.handed_off_at} class="archived-banner">
         <span>
           <strong>
@@ -265,6 +269,9 @@ defmodule PairingsEngineWeb.Layouts do
             at: handoff_time(@tournament.handed_off_at)
           )}
         </span>
+        <.link navigate={~p"/?return=#{@tournament.id}"} class="pe-btn primary">
+          {gettext("Bring it back")}
+        </.link>
       </div>
 
       {render_slot(@inner_block)}
