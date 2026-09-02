@@ -349,6 +349,21 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       refute html =~ "Peeters"
     end
 
+    test "a 25-digit FIDE search finds nothing instead of crashing the page", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      render_click(lv, "add", %{})
+      # An integer this wide is fine in Elixir and fatal in Exqlite; the
+      # search has to reject it before the query.
+      html = render_change(lv, "search", %{"q" => String.duplicate("9", 25)})
+
+      assert html =~ "Add player"
+      assert render(lv) =~ "Add player"
+    end
+
     test "picking a FIDE search result also fills in the matching KBSB row by FIDE id", %{
       conn: conn,
       tournament: tournament
