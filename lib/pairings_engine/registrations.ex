@@ -242,16 +242,7 @@ defmodule PairingsEngine.Registrations do
     tournament = Repo.get(Tournament, registration.tournament_id)
 
     with :ok <- ensure_available(tournament),
-         {:ok, player} <-
-           Tournaments.create_player(tournament.id, player_attrs(registration, tournament)) do
-      registration
-      |> Ecto.Changeset.change(%{
-        status: "accepted",
-        player_id: player.id,
-        decided_at: DateTime.utc_now()
-      })
-      |> Repo.update!()
-
+         {:ok, player} <- accept_pending(registration, tournament) do
       {:ok, player}
     else
       {:error, :duplicate_fide_id} ->
@@ -316,6 +307,54 @@ defmodule PairingsEngine.Registrations do
   # ID was ever protected from that, by `create_player/2`'s duplicate guard -
   # and a club player with no FIDE ID is exactly the entry that does not
   # have one.
+  # The pending -> accepted transition IS the lock.
+  #
+  # `accept/1` reloads and checks `"pending"`, then this used to create the
+  # player and update the row unconditionally - a read-then-write window that
+  # SQLite serialises the writes of but not the decision. Two arbiters
+  # clicking Accept on the same entry (or one double-click that reaches the
+  # server twice) both saw "pending" and both created a player.
+  #
+  # So the guarded `update_all` goes FIRST and its row count decides: exactly
+  # one caller can move the row off `"pending"`, and only that caller goes on
+  # to create the player. Everything is in one transaction, so a player who
+  # cannot be created (duplicate FIDE ID, blank name) takes the claim back
+  # with them and the entry stays pending for the arbiter to fix.
+  defp accept_pending(%Registration{id: id} = registration, tournament) do
+    Repo.transaction(fn ->
+      {claimed, _} =
+        Repo.update_all(
+          from(r in Registration, where: r.id == ^id and r.status == "pending"),
+          set: [status: "accepted", decided_at: DateTime.utc_now()]
+        )
+
+      if claimed == 0 do
+        Repo.rollback(lost_the_race(id))
+      end
+
+      case Tournaments.create_player(tournament.id, player_attrs(registration, tournament)) do
+        {:ok, player} ->
+          Repo.update_all(from(r in Registration, where: r.id == ^id),
+            set: [player_id: player.id]
+          )
+
+          player
+
+        {:error, reason} ->
+          Repo.rollback(reason)
+      end
+    end)
+  end
+
+  # Only reached when the guarded update found nothing to claim, so the row
+  # was decided by somebody else in the meantime - or has gone entirely.
+  defp lost_the_race(id) do
+    case Repo.get(Registration, id) do
+      %Registration{status: status} -> already_decided(status)
+      nil -> "that entry is no longer here"
+    end
+  end
+
   defp reload(%Registration{id: id}), do: Repo.get(Registration, id)
 
   defp decide(registration, status) do

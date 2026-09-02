@@ -420,6 +420,34 @@ defmodule PairingsEngine.RegistrationsTest do
       assert Repo.aggregate(from(p in Player, where: p.tournament_id == ^t.id), :count, :id) == 1
     end
 
+    test "two concurrent accepts on one entry create exactly one player" do
+      t = tournament()
+      # No FIDE ID again, so nothing downstream can catch a second player;
+      # the status transition is the only guard there is.
+      serve([entry(1, ilse(%{"fide_id" => nil}))])
+      {:ok, _} = Registrations.pull(t)
+
+      [registration] = Registrations.pending(t.id)
+
+      parent = self()
+
+      results =
+        for _ <- 1..2 do
+          Task.async(fn ->
+            Ecto.Adapters.SQL.Sandbox.allow(Repo, parent, self())
+            Registrations.accept(registration)
+          end)
+        end
+        |> Task.await_many(10_000)
+
+      # Both callers reload and both saw "pending"; only the guarded
+      # transition decides which of them may create the player.
+      assert Enum.count(results, &match?({:ok, _}, &1)) == 1
+      assert Enum.count(results, &match?({:error, _}, &1)) == 1
+
+      assert Repo.aggregate(from(p in Player, where: p.tournament_id == ^t.id), :count, :id) == 1
+    end
+
     test "discarding an entry that has just been accepted is refused" do
       t = tournament()
       serve([entry(1, ilse())])
