@@ -31,12 +31,6 @@ defmodule PairingsEngineWeb.UserLive.LoginTest do
 
       assert html =~ "v#{PairingsEngineWeb.Layouts.app_version()}"
     end
-
-    test "does not show the rating-list sync freshness strip when logged out", %{conn: conn} do
-      {:ok, _lv, html} = live(conn, ~p"/users/log-in")
-
-      refute html =~ "sync-freshness"
-    end
   end
 
   describe "user login - magic link" do

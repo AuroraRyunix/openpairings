@@ -9,9 +9,7 @@ defmodule PairingsEngineWeb.Layouts do
 
   alias PairingsEngine.Authz
   alias PairingsEngine.Build
-  alias PairingsEngine.Fide
   alias PairingsEngine.Publishing.Monitor
-  alias PairingsEngine.Kbsb
 
   # Embed all files in layouts/* within this module.
   # The default root.html.heex file contains the HTML
@@ -185,11 +183,10 @@ defmodule PairingsEngineWeb.Layouts do
         <.language_picker locale={assigns[:locale]} path={assigns[:current_path] || "/"} />
         <.theme_switch />
         <%= if @current_scope do %>
-          <%!-- Read here rather than passed in, exactly as the rating-list
-                strip below reads `Fide.last_sync/0`. `Layouts.app` is a
-                function component, so it sees only the attributes its caller
-                hands it - and there are 29 callers, which makes "pass it
-                everywhere" a thing somebody forgets on the thirtieth page.
+          <%!-- Read here rather than passed in. `Layouts.app` is a function
+                component, so it sees only the attributes its caller hands it -
+                and there are 29 callers, which makes "pass it everywhere" a
+                thing somebody forgets on the thirtieth page.
 
                 The read is an `:ets` lookup: no process call, so it cannot
                 queue behind the fifteen-second network check it reports on.
@@ -197,9 +194,6 @@ defmodule PairingsEngineWeb.Layouts do
                 it subscribes and re-assigns, and the re-render comes back
                 through here. --%>
           <.publish_pill status={@publish_status} />
-          <span class="sync-freshness" title={gettext("Local FIDE / KBSB rating-list sync status")}>
-            FIDE: {sync_label(Fide.last_sync())} · KBSB: {sync_label(Kbsb.last_sync())}
-          </span>
           <span class="user-email">{@current_scope.user.email}</span>
           <%!-- Hidden on a local install for the same reason the log-out
                 link below is: the page offers change-email and
@@ -355,38 +349,9 @@ defmodule PairingsEngineWeb.Layouts do
   # holding the tournament is quite possibly in another timezone.
   defp handoff_time(%DateTime{} = at), do: Calendar.strftime(at, "%Y-%m-%d %H:%M UTC")
 
-  @doc false
-  # Compact "how stale is this rating list" label for the top-bar freshness
-  # strip, e.g. "3 days ago" / "just now" / "never synced". `last_sync/0`
-  # returns the raw `datetime('now')` string stored in the `meta` table
-  # (UTC, "YYYY-MM-DD HH:MM:SS", no "T") or nil if the list has never synced.
   # Whether this is a single-user local install (`OPENPAIRINGS_LOCAL=1`).
   # False everywhere else, including every server deployment.
   defp local_mode?, do: PairingsEngine.Authz.local_mode?()
-
-  def sync_label(nil), do: "never synced"
-
-  def sync_label(timestamp) when is_binary(timestamp) do
-    case NaiveDateTime.from_iso8601(String.replace(timestamp, " ", "T", global: false)) do
-      {:ok, synced_at} -> relative_time(synced_at)
-      {:error, _} -> timestamp
-    end
-  end
-
-  defp relative_time(%NaiveDateTime{} = synced_at) do
-    diff = NaiveDateTime.diff(NaiveDateTime.utc_now(), synced_at, :second)
-
-    cond do
-      diff < 60 -> "just now"
-      diff < 3600 -> pluralize(div(diff, 60), "minute") <> " ago"
-      diff < 86_400 -> pluralize(div(diff, 3600), "hour") <> " ago"
-      diff < 2_592_000 -> pluralize(div(diff, 86_400), "day") <> " ago"
-      true -> "over a month ago"
-    end
-  end
-
-  defp pluralize(1, unit), do: "1 #{unit}"
-  defp pluralize(n, unit), do: "#{n} #{unit}s"
 
   @doc """
   The running application's version string, e.g. "0.18.0".

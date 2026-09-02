@@ -3,7 +3,7 @@ defmodule PairingsEngineWeb.FideLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias PairingsEngine.{Accounts, Fide, Kbsb}
+  alias PairingsEngine.Accounts
   alias PairingsEngine.Repo
   alias PairingsEngine.Kbsb.KbsbPlayer
   alias PairingsEngine.Kbsb.Sync, as: KbsbSync
@@ -496,34 +496,6 @@ defmodule PairingsEngineWeb.FideLiveTest do
 
       assert PairingsEngine.Publishing.endpoint() == "https://openresults.example"
       assert PairingsEngine.Publishing.token() == "operators-token"
-    end
-  end
-
-  describe "top-bar sync freshness strip" do
-    test "shows 'never synced' for both lists when neither has synced", %{conn: conn} do
-      {:ok, _lv, html} = live(conn, ~p"/fide")
-
-      assert html =~ "FIDE: never synced"
-      assert html =~ "KBSB: never synced"
-    end
-
-    test "shows a relative time once a list has synced", %{conn: conn} do
-      Fide.put_last_sync()
-
-      {:ok, _lv, html} = live(conn, ~p"/fide")
-
-      assert html =~ "FIDE: just now"
-      assert html =~ "KBSB: never synced"
-    end
-
-    test "reflects both lists once both have synced", %{conn: conn} do
-      Fide.put_last_sync()
-      Kbsb.put_last_sync()
-
-      {:ok, _lv, html} = live(conn, ~p"/fide")
-
-      assert html =~ "FIDE: just now"
-      assert html =~ "KBSB: just now"
     end
   end
 

@@ -864,15 +864,6 @@ html[data-theme-source="user"][data-theme="nocturne"] .theme-picker-item[data-th
   white-space: nowrap;
 }
 
-.sync-freshness {
-  color: var(--text-soft);
-  font-size: 11px;
-  padding: 6px 8px;
-  border-right: 1px solid var(--border);
-  opacity: 0.8;
-  white-space: nowrap;
-}
-
 .page { width: 100%; margin: 0 auto; padding: 28px 32px 64px; }
 
 .page h1 { font-size: 24px; font-weight: 650; margin: 0 0 4px; }
@@ -2012,12 +2003,6 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
    768px block below). Everything removed here is either duplicated elsewhere
    or purely informational. */
 
-@media (max-width: 1280px) {
-  /* The FIDE/KBSB sync strip is the single widest decorative element and is
-     repeated on the rating-list page. */
-  .sync-freshness { display: none; }
-}
-
 @media (max-width: 1120px) {
   /* The signed-in address is also shown on the account settings page, and
      the version in Settings → About. */
@@ -2043,9 +2028,6 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 
   .topbar .brand { order: 1; }
   .topbar-auth { order: 2; margin-left: auto; }
-
-  /* no room for the sync-freshness strip once the tab row wraps below */
-  .sync-freshness { display: none; }
 
   .topbar nav a {
     min-height: 44px;
