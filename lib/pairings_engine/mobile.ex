@@ -17,6 +17,10 @@ defmodule PairingsEngine.Mobile do
 
   @default_ttl_hours 24
 
+  # How many code/token draws one creation may take before it gives up - see
+  # `insert_enrollment/2`.
+  @code_attempts 5
+
   @doc """
   Creates an active enrollment for `tournament_id`. Returns `{:ok, enrollment}`.
   `opts`: `:label` (free text), `:ttl_hours` (default #{@default_ttl_hours}).
@@ -27,14 +31,50 @@ defmodule PairingsEngine.Mobile do
     expires_at =
       DateTime.utc_now() |> DateTime.add(ttl * 3600, :second) |> DateTime.truncate(:second)
 
-    %Enrollment{
-      tournament_id: tournament_id,
-      token: gen_token(),
-      code: gen_unique_code(),
-      label: Keyword.get(opts, :label, "") || "",
-      expires_at: expires_at
-    }
-    |> Repo.insert()
+    insert_enrollment(
+      %{
+        tournament_id: tournament_id,
+        label: Keyword.get(opts, :label, "") || "",
+        expires_at: expires_at
+      },
+      @code_attempts
+    )
+  end
+
+  # Uniqueness is the DATABASE's answer, not a read-then-insert's. The old
+  # `gen_unique_code/1` queried for the code it had just drawn and inserted
+  # it if nothing came back - which two callers could do at once, and which
+  # gave up after twenty attempts and inserted a duplicate anyway. Now the
+  # partial unique index (`20260902120000_unique_active_enrollment_code`)
+  # decides, and a rejected draw is simply drawn again: no read per
+  # creation, and no window in which two creations can agree.
+  #
+  # Attempts are bounded so a genuinely full code space fails loudly rather
+  # than spinning. Eight digits is 90 million, so reaching the bound means
+  # something is wrong that a retry will not fix.
+  defp insert_enrollment(attrs, attempts_left) do
+    changeset =
+      %Enrollment{}
+      |> Ecto.Changeset.change(Map.put(attrs, :token, gen_token()))
+      |> Ecto.Changeset.put_change(:code, random_code() |> Integer.to_string())
+      # NOT the index's own name. SQLite reports a unique violation as
+      # "UNIQUE constraint failed: mobile_enrollments.code" with no index
+      # named in it, and the adapter synthesises `<table>_<column>_index`
+      # from that - so the constraint to declare here is the synthesised
+      # name, whatever the index is actually called.
+      |> Ecto.Changeset.unique_constraint(:code, name: :mobile_enrollments_code_index)
+      |> Ecto.Changeset.unique_constraint(:token)
+
+    with {:error, %Ecto.Changeset{errors: errors} = failed} <- Repo.insert(changeset) do
+      # Only a clash on the two generated secrets is worth another draw;
+      # anything else (a missing tournament, say) would fail identically
+      # every time and is returned as it stands.
+      if attempts_left > 1 and (errors[:code] || errors[:token]) do
+        insert_enrollment(attrs, attempts_left - 1)
+      else
+        {:error, failed}
+      end
+    end
   end
 
   @doc "Active (non-revoked, non-expired) enrollments for a tournament, newest first."
@@ -56,6 +96,16 @@ defmodule PairingsEngine.Mobile do
   @doc """
   Fetches an active enrollment by its short numeric `code` (manual entry), or
   nil. Digits only; anything else is treated as no match.
+
+  Deliberately `Repo.all |> List.first`, newest first, rather than
+  `Repo.one`. The partial unique index added in
+  `20260902120000_unique_active_enrollment_code` means two active rows
+  cannot share a code any more - but this is the read reached by the PUBLIC
+  `POST /m` with nothing on the path to rescue it, and `Repo.one` answers a
+  second row by RAISING. A lookup on an unauthenticated route should not be
+  the thing that turns a database that has drifted into a 500; the newest
+  matching grant is the right answer and is what the index guarantees is
+  the only one.
   """
   def get_active_by_code(code) when is_binary(code) do
     normalized = String.replace(code, ~r/\D/, "")
@@ -63,7 +113,13 @@ defmodule PairingsEngine.Mobile do
     if normalized == "" do
       nil
     else
-      Repo.one(from e in active_query(), where: e.code == ^normalized)
+      Repo.all(
+        from e in active_query(),
+          where: e.code == ^normalized,
+          order_by: [desc: e.inserted_at, desc: e.id],
+          limit: 1
+      )
+      |> List.first()
     end
   end
 
@@ -122,28 +178,21 @@ defmodule PairingsEngine.Mobile do
 
   defp gen_token, do: :crypto.strong_rand_bytes(18) |> Base.url_encode64(padding: false)
 
-  # 8-digit code, unique among currently-active enrollments.
+  # Uniform over 10_000_000..99_999_999 - an 8-digit code, unique among
+  # un-revoked enrollments by the index, not by this function.
   #
-  # Two properties matter here, and the obvious `Enum.random(100_000..999_999)`
+  # Two properties matter, and the obvious `Enum.random(100_000..999_999)`
   # had neither. First, this is a bearer credential, so it comes from the
-  # CSPRNG rather than `:rand`'s observable, seedable state. Second, `code` is
-  # matched by `get_active_by_code/1` across EVERY tournament, so a guess wins
-  # if it hits any live enrollment anywhere: with N active phones the odds per
-  # attempt are N/space, not 1/space. Six digits left that far too small once
-  # a few tournaments run at once; eight costs the arbiter's helper two extra
-  # taps (and nothing at all on the QR path, which is the normal route).
-  defp gen_unique_code(attempts \\ 0) do
-    code = random_code() |> Integer.to_string()
-
-    cond do
-      attempts > 20 -> code
-      get_active_by_code(code) == nil -> code
-      true -> gen_unique_code(attempts + 1)
-    end
-  end
-
-  # Uniform over 10_000_000..99_999_999. Rejection sampling rather than a bare
-  # `rem/2`, which would make the low end of the range fractionally likelier.
+  # CSPRNG rather than `:rand`'s observable, seedable state. Second, `code`
+  # is matched by `get_active_by_code/1` across EVERY tournament, so a guess
+  # wins if it hits any live enrollment anywhere: with N active phones the
+  # odds per attempt are N/space, not 1/space. Six digits left that far too
+  # small once a few tournaments run at once; eight costs the arbiter's
+  # helper two extra taps (and nothing at all on the QR path, which is the
+  # normal route).
+  #
+  # Rejection sampling rather than a bare `rem/2`, which would make the low
+  # end of the range fractionally likelier.
   @code_span 90_000_000
   @largest_unbiased div(4_294_967_296, @code_span) * @code_span
 

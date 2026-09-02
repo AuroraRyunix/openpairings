@@ -35,6 +35,65 @@ defmodule PairingsEngine.MobileTest do
       assert length(Enum.uniq(codes)) == 40
       assert Enum.max(codes) - Enum.min(codes) > 10_000_000
     end
+
+    test "the database refuses a second un-revoked row with the same code" do
+      # Uniqueness used to be a read-then-insert that gave up after twenty
+      # attempts and inserted the duplicate anyway. It is a partial unique
+      # index now, so nothing - not this module, not a stray script - can
+      # produce the pair that made `get_active_by_code/1` raise.
+      t = tournament()
+      {:ok, first} = Mobile.create_enrollment(t.id)
+
+      assert_raise Ecto.ConstraintError, ~r/unique_constraint/, fn ->
+        Repo.insert!(%Enrollment{
+          tournament_id: t.id,
+          token: "a-different-token-entirely",
+          code: first.code,
+          label: "",
+          expires_at: first.expires_at
+        })
+      end
+    end
+
+    test "a code is free again once the row holding it is revoked" do
+      t = tournament()
+      {:ok, first} = Mobile.create_enrollment(t.id)
+      {:ok, _} = Mobile.revoke(first)
+
+      assert {:ok, %Enrollment{}} =
+               %Enrollment{}
+               |> Ecto.Changeset.change(
+                 tournament_id: t.id,
+                 token: "another-token-entirely",
+                 code: first.code,
+                 label: "",
+                 expires_at: first.expires_at
+               )
+               |> Repo.insert()
+    end
+
+    test "concurrent creations never produce two active rows with one code" do
+      t = tournament()
+
+      owner = self()
+
+      results =
+        1..25
+        |> Task.async_stream(
+          fn _ ->
+            Ecto.Adapters.SQL.Sandbox.allow(Repo, owner, self())
+            Mobile.create_enrollment(t.id)
+          end,
+          max_concurrency: 25,
+          ordered: false
+        )
+        |> Enum.map(fn {:ok, result} -> result end)
+
+      assert Enum.all?(results, &match?({:ok, %Enrollment{}}, &1))
+
+      codes = Enum.map(results, fn {:ok, e} -> e.code end)
+      assert length(Enum.uniq(codes)) == 25
+    end
   end
 
   describe "lookup" do
@@ -44,6 +103,34 @@ defmodule PairingsEngine.MobileTest do
       assert %Enrollment{id: id} = Mobile.get_active_by_code(e.code)
       assert Mobile.get_active_by_token(e.token).id == id
       assert Mobile.get_active(id).id == id
+    end
+
+    test "two active rows with one code answer the newest instead of raising" do
+      # The second line of defence, and the reason it exists: this read is
+      # reached by the PUBLIC `POST /m` with nothing on the path to rescue
+      # it, and `Repo.one` answers a second row by raising
+      # `Ecto.MultipleResultsError` - a 500 anyone could ask for.
+      #
+      # The partial unique index makes that pair impossible, so the index is
+      # dropped here to reproduce a database that has drifted anyway (a
+      # restored backup, a hand-edited row). The sandbox transaction rolls
+      # the DDL back with everything else.
+      t = tournament()
+      {:ok, first} = Mobile.create_enrollment(t.id)
+
+      Repo.query!("DROP INDEX mobile_enrollments_active_code_index")
+
+      second =
+        Repo.insert!(%Enrollment{
+          tournament_id: t.id,
+          token: "a-second-token",
+          code: first.code,
+          label: "",
+          expires_at: first.expires_at
+        })
+
+      assert %Enrollment{id: id} = Mobile.get_active_by_code(first.code)
+      assert id == second.id
     end
 
     test "ignores non-numeric / unknown codes and tokens" do
