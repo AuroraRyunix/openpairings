@@ -129,11 +129,19 @@ defmodule PairingsEngineWeb.ExportController do
     "#{tournament_slug(tournament)}.#{ext}"
   end
 
+  # The character class is ASCII-only, so a name written entirely in a
+  # non-Latin script ("大会", "Турнир") reduced to "" and the download came
+  # out named ".trf" / ".json" - a dotfile with no stem, which some browsers
+  # and file managers hide outright. Fall back to the tournament's id, which
+  # always yields a usable, unique-per-tournament filename.
   defp tournament_slug(tournament) do
-    tournament.name
-    |> String.downcase()
-    |> String.replace(~r/[^a-z0-9]+/, "-")
-    |> String.trim("-")
+    slug =
+      (tournament.name || "")
+      |> String.downcase()
+      |> String.replace(~r/[^a-z0-9]+/, "-")
+      |> String.trim("-")
+
+    if slug == "", do: "tournament-#{tournament.id}", else: slug
   end
 
   # `<X>_<fideid>_<slug>_<rounds>.trf` - see the `trf/2` moduledoc above.

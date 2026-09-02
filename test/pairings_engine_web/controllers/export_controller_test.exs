@@ -312,6 +312,25 @@ defmodule PairingsEngineWeb.ExportControllerTest do
 
       assert_error_sent 404, fn -> get(conn, ~p"/t/#{tournament.id}/export/json") end
     end
+
+    # The slug's character class is ASCII-only, so a name written entirely in
+    # a non-Latin script reduced to "" and the download came out named
+    # ".json" - a stem-less dotfile some browsers and file managers hide.
+    test "a name with no Latin characters falls back to the tournament id", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, _} = fixture(scope)
+
+      {:ok, tournament} =
+        PairingsEngine.Tournaments.update_tournament(tournament, %{"name" => "大会"})
+
+      conn = get(conn, ~p"/t/#{tournament.id}/export/json")
+
+      [disposition] = get_resp_header(conn, "content-disposition")
+      assert disposition =~ "tournament-#{tournament.id}.json"
+      refute disposition =~ ~s(filename=".json")
+    end
   end
 
   describe "all_json/2" do
