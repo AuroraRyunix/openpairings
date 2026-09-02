@@ -2735,6 +2735,10 @@ defmodule PairingsEngine.Tournaments do
 
   A pool player with no `"byes"` row at all (simply unpaired) hands over
   `"absent"`, that being what the displaced player now is.
+
+  Returns `{:error, :invalid_player}` if `pool_id` isn't a player of this
+  tournament, and `{:error, :already_seated}` if they have been given a
+  board in this round since the gesture was staged.
   """
   def swap_seated_with_pool_player(%Round{} = round, seated_id, pool_id) do
     with :ok <- ensure_writable(round.tournament_id),
@@ -2742,6 +2746,25 @@ defmodule PairingsEngine.Tournaments do
       handover_type = pool_player_type(round, pool_id) || "absent"
 
       Repo.transaction(fn ->
+        # The confirmation gesture this arrives from can sit open for
+        # minutes across a remote change by another arbiter (see
+        # `keep_gesture` in PairingsLive's `refresh/2`), so `pool_id` is
+        # re-checked here, inside the transaction, against the database
+        # rather than against the possibly-stale `round.pairings` the
+        # caller handed us. Same two guards the siblings already have:
+        # `fill_seat/3` checks tournament membership and
+        # `do_pair_from_pool/4` re-checks the board.
+        cond do
+          not player_belongs_to_tournament?(round.tournament_id, pool_id) ->
+            Repo.rollback(:invalid_player)
+
+          player_seated_in_round?(round.id, pool_id) ->
+            Repo.rollback(:already_seated)
+
+          true ->
+            :ok
+        end
+
         {:ok, updated} =
           pairing
           |> Pairing.changeset(clear_stale_result(%{field => pool_id}, pairing))
@@ -2766,6 +2789,18 @@ defmodule PairingsEngine.Tournaments do
       end)
       |> finish_round_write(round.tournament_id)
     end
+  end
+
+  # A fresh read of "is this player already on a board in this round?" -
+  # deliberately a query and not `Enum.any?(round.pairings, …)`, because the
+  # caller's `round` struct is exactly what may be out of date.
+  defp player_seated_in_round?(round_id, player_id) do
+    Repo.exists?(
+      from p in Pairing,
+        where:
+          p.round_id == ^round_id and
+            (p.white_player_id == ^player_id or p.black_player_id == ^player_id)
+    )
   end
 
   defp pool_player_type(%Round{} = round, player_id) do

@@ -1528,6 +1528,80 @@ defmodule PairingsEngine.TournamentsTest do
              )
     end
 
+    test "swap_seated_with_pool_player/3 rejects a player from another tournament", %{
+      tournament: t,
+      a: a
+    } do
+      # The third of the three seating functions. It re-located the SEATED
+      # player but never checked the incoming pool player at all - not for
+      # tournament membership, not for "still unseated".
+      other = Repo.insert!(%Tournament{name: "Other", type: "swiss", rounds_count: 3})
+      stranger = Repo.insert!(%Player{tournament_id: other.id, name: "Stranger"})
+
+      round = Repo.insert!(%Round{tournament_id: t.id, number: 1, status: "playing"})
+
+      pairing =
+        Repo.insert!(%PairingsEngine.Tournaments.Pairing{
+          round_id: round.id,
+          board: 1,
+          white_player_id: a.id,
+          black_player_id: nil,
+          result: ""
+        })
+
+      round = %{round | pairings: [pairing]}
+
+      assert {:error, :invalid_player} =
+               Tournaments.swap_seated_with_pool_player(round, a.id, stranger.id)
+
+      assert Repo.reload!(pairing).white_player_id == a.id
+    end
+
+    test "swap_seated_with_pool_player/3 refuses a pool player seated elsewhere since staging", %{
+      tournament: t,
+      a: a,
+      b: b
+    } do
+      # The gesture stays open across a remote change by design, so the
+      # staged pool player can have been given a board of their own in the
+      # meantime. Seating them again would put one player on two boards of
+      # one round; `pairings` has no unique constraint to stop it.
+      round = Repo.insert!(%Round{tournament_id: t.id, number: 1, status: "playing"})
+
+      pairing =
+        Repo.insert!(%PairingsEngine.Tournaments.Pairing{
+          round_id: round.id,
+          board: 1,
+          white_player_id: a.id,
+          black_player_id: nil,
+          result: ""
+        })
+
+      # What the arbiter's browser still holds: b in the pool, board 1 only.
+      stale_round = %{round | pairings: [pairing]}
+
+      # What actually happened in the database in the meantime.
+      elsewhere =
+        Repo.insert!(%PairingsEngine.Tournaments.Pairing{
+          round_id: round.id,
+          board: 2,
+          white_player_id: b.id,
+          black_player_id: nil,
+          result: ""
+        })
+
+      assert {:error, :already_seated} =
+               Tournaments.swap_seated_with_pool_player(stale_round, a.id, b.id)
+
+      assert Repo.reload!(pairing).white_player_id == a.id
+      assert Repo.reload!(elsewhere).white_player_id == b.id
+
+      refute Repo.exists?(
+               from bye in "byes",
+                 where: bye.tournament_id == ^t.id and bye.round == 1 and bye.player_id == ^a.id
+             )
+    end
+
     test "add_forbidden_pairing/3 rejects a duplicate pair regardless of order", %{
       tournament: t,
       a: a,
