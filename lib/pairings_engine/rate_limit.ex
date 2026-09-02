@@ -73,22 +73,55 @@ defmodule PairingsEngine.RateLimit do
     end
   end
 
-  @doc "Counts one hit for `key` in `bucket`, starting a fresh window if the last one rolled over."
+  @doc """
+  Counts one hit for `key` in `bucket`, starting a fresh window if the last
+  one rolled over.
+
+  The increment is `:ets.update_counter/4` with a default object, not a
+  lookup followed by an insert: several requests from one abuser arrive on
+  several scheduler threads at once, and read-then-write let each of them
+  read the same count and write back the same number, so a burst counted as
+  one hit. That is exactly the shape of traffic these buckets exist to
+  stop. The default object `{id, 0, now}` makes the first hit atomic too -
+  there is no create-if-absent window either.
+
+  The one thing that stays a small race is the window ROLLING OVER: the
+  reset below is a compare-and-swap (`select_replace/2` guarded on the
+  stale `started_at`), so only one of several concurrent callers performs
+  it, and the hits its rivals counted onto the expired row are dropped with
+  it. Losing a hit or two at the instant a window expires hands back a
+  fraction of one window's allowance and cannot be aimed - the alternative,
+  serialising every hit through the owning GenServer, would put a message
+  round-trip in front of every unauthenticated request to buy nothing.
+  """
   @spec record(bucket(), String.t()) :: :ok
   def record(bucket, key) do
     %{window_ms: window_ms} = config(bucket)
     now = System.monotonic_time(:millisecond)
     id = {bucket, key}
 
-    case :ets.lookup(@table, id) do
-      [{^id, count, started_at}] when now - started_at < window_ms ->
-        :ets.insert(@table, {id, count + 1, started_at})
+    # `{3, 0}` reads `started_at` without changing it, in the same atomic op.
+    [_count, started_at] = :ets.update_counter(@table, id, [{2, 1}, {3, 0}], {id, 0, now})
 
-      _ ->
-        :ets.insert(@table, {id, 1, now})
+    if now - started_at >= window_ms do
+      :ets.select_replace(@table, [
+        {{id, :_, :"$1"}, [{:"=<", :"$1", now - window_ms}], [{:const, {id, 1, now}}]}
+      ])
     end
 
     :ok
+  end
+
+  @doc "How many hits `key` has counted in `bucket`'s current window - for tests."
+  @spec count(bucket(), String.t()) :: non_neg_integer()
+  def count(bucket, key) do
+    %{window_ms: window_ms} = config(bucket)
+    now = System.monotonic_time(:millisecond)
+
+    case :ets.lookup(@table, {bucket, key}) do
+      [{_id, count, started_at}] when now - started_at < window_ms -> count
+      _ -> 0
+    end
   end
 
   @doc "Forgets `key`'s count in `bucket` - used where a success proves the caller isn't guessing."
