@@ -926,6 +926,11 @@ Each entry is tagged so a version can be skimmed:
 
 ### Fixed
 
+- [Security] **The public norms tool caps the number of extra arbiters at twenty.** The count reached the server unchecked through a hidden form field and drove the spreadsheet expansion; a single request asking for a hundred million meant ten gigabytes of XML. It is clamped at every parse, and the expansion itself refuses anything above the cap as a last line of defence.
+- [Fix] **An out-of-range "master file" choice on the public tools page no longer crashes the session**; the index is parsed and clamped, and the combiner reports an invalid choice instead of raising.
+- [Fix] **A search for a number longer than any FIDE id no longer crashes** - on the players page, the arbiter picker, or the results site's lookup. Anything outside the real id range is simply "no such player".
+- [Change] The public tools page computes its player-count explainer once per file change instead of on every render, and the norms page debounces its officials form.
+
 - [Fix] **A SWAR file with one unusable player no longer crashes the import.** A blank name or an out-of-range FIDE id made the whole import screen fall over instead of saying which player was wrong; it now reports the player and the field and writes nothing, as the TRF importer already did.
 - [Fix] **A corrupt SWAR file can no longer pair a player against themselves, or against someone whose own record disagrees.** Each side's opponent is now checked to name the other back, the same two guards the TRF importer has had since July.
 - [Fix] **Two SWAR players sharing an internal number are refused up front** instead of one of them silently losing every game to the other.
