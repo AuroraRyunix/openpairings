@@ -514,6 +514,48 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # (pairing, round deletion, byes).
     field :archived_at, :utc_datetime
 
+    # ---- Hand-off lock (moving a tournament between this copy and another) ----
+    #
+    # A tournament is live in EXACTLY ONE place at a time. There is no merge
+    # for two copies that both took writes - one machine recorded 1-0 on
+    # board 4 and the other a draw, or both paired round 6 differently, and
+    # no rule picks a winner because the disagreement is about what happened
+    # in a room. So handing a tournament over locks the copy left behind.
+    #
+    # nil = live here and writable. Set = checked out; this copy is a
+    # read-only record of the event until `Tournaments.take_back/2` clears
+    # it. A timestamp rather than a boolean because the banner has to say
+    # WHEN it left; not a `status` value because `status` is derived (see
+    # `Tournaments.derive_status/1`) and would be recomputed away - the same
+    # reasoning as `archived_at` above.
+    field :handed_off_at, :utc_datetime
+
+    # Where it went, as a human label: "this laptop", a hostname, a server
+    # address. Free text on purpose - the two ends of a hand-off do not
+    # necessarily know each other's identifiers, and the only consumer is a
+    # person reading a banner that has to answer "so where IS it?".
+    field :handed_off_to, :string
+
+    # The secret minted at hand-off, which the returning payload must present
+    # to unlock (constant-time compared - see `Tournaments.take_back/2`).
+    # Without it, anything that could reach this row could clear the lock and
+    # produce a second live copy, which is the exact state the lock exists to
+    # prevent.
+    field :handoff_token, :string
+
+    # None of the three is cast by `changeset/2`, and that is the whole
+    # safety property rather than tidiness. `Tournaments.hand_off/2` and
+    # `take_back/2` are meant to be the ONLY writers: every other write in
+    # the app is refused while `handed_off_at` is set
+    # (`Tournaments.ensure_writable/1`), so a form or an import that could
+    # set - or worse, CLEAR - these fields would be a way to mint a second
+    # live copy with an ordinary settings save. `TournamentImport` and
+    # `Snapshots.restore/3` both write through `changeset/2`, so keeping
+    # these out of `cast` is what makes an imported file structurally unable
+    # to arrive holding somebody else's lock (or, having been exported from
+    # a locked copy, to unlock itself on the way in). Same reasoning, and
+    # the same mechanism, as `archived_at` / `openresults_key` above.
+
     # Manual standings override (SWAR parity #23) - when true, the arbiter's
     # hand-set `players.manual_rank` order replaces the computed tiebreak
     # order. Every surface showing a rank must display an override banner:
