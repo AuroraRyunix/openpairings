@@ -1001,6 +1001,40 @@ defmodule PairingsEngine.Pairing do
     end
   end
 
+  # How long the external pairing engine gets before it is killed.
+  #
+  # `System.cmd/3` has no timeout of its own: a JVM that hangs - on a
+  # pathological entry list, on a full disk, on a machine that has swapped
+  # itself to death - blocks the calling process forever, and that process is
+  # a LiveView handling an arbiter's click. Sixty seconds is far beyond any
+  # real run (a large Swiss is well under a second) and short enough that the
+  # arbiter gets a sentence instead of a frozen page.
+  @engine_timeout_ms 60_000
+
+  @doc """
+  Runs `fun` in a task and gives it `timeout` milliseconds.
+
+  Returns `{:ok, result}` with whatever `fun` returned, or `:timeout` after
+  killing the task - which closes the port and so takes the external process
+  down with it.
+
+  Public only so it can be tested without a JVM on the machine.
+  """
+  @spec run_with_timeout((-> result), non_neg_integer()) :: {:ok, result} | :timeout
+        when result: term()
+  def run_with_timeout(fun, timeout \\ @engine_timeout_ms) when is_function(fun, 0) do
+    task = Task.async(fun)
+
+    case Task.yield(task, timeout) || Task.shutdown(task, :brutal_kill) do
+      {:ok, result} -> {:ok, result}
+      nil -> :timeout
+      # `Task.async/1` links, so the caller is normally already gone by the
+      # time this could be seen; kept so an abnormal exit still crashes the
+      # way it did before rather than turning into a CaseClauseError.
+      {:exit, reason} -> exit(reason)
+    end
+  end
+
   # Unchanged from the two copies this replaced, down to the scratch-file
   # names and the exact error strings - see `workdir!/0` for why the
   # directory is randomized, 0700 and deleted in an `after`.
@@ -1013,8 +1047,21 @@ defmodule PairingsEngine.Pairing do
     try do
       File.write!(input, trf)
 
-      case System.cmd("java", ["-jar", javafo_jar(), input, "-p", output], stderr_to_stdout: true) do
-        {_out, 0} ->
+      run =
+        run_with_timeout(fn ->
+          System.cmd("java", ["-jar", javafo_jar(), input, "-p", output], stderr_to_stdout: true)
+        end)
+
+      case run do
+        :timeout ->
+          Logger.error(
+            "JaVaFo timed out after #{@engine_timeout_ms}ms for " <>
+              "#{engine_log_scope(tournament, round_number, category_name)}"
+          )
+
+          {:error, javafo_timeout_message(category_name)}
+
+        {:ok, {_out, 0}} ->
           case output |> File.read!() |> parse_pairs() do
             {:ok, pairs} ->
               {:ok, pairs}
@@ -1027,7 +1074,7 @@ defmodule PairingsEngine.Pairing do
               {:error, javafo_empty_output_message(message, category_name)}
           end
 
-        {out, code} ->
+        {:ok, {out, code}} ->
           Logger.error(
             "JaVaFo failed for #{engine_log_scope(tournament, round_number, category_name)} (exit #{code}):\n#{out}"
           )
@@ -1055,6 +1102,18 @@ defmodule PairingsEngine.Pairing do
 
   defp javafo_empty_output_message(message, category_name),
     do: "#{message} (category \"#{category_name}\")"
+
+  defp javafo_timeout_message(nil),
+    do:
+      "JaVaFo did not finish within #{div(@engine_timeout_ms, 1000)} seconds and was stopped. " <>
+        "Try again; if it keeps happening the entry list or the pairing " <>
+        "restrictions may be more than the engine can resolve."
+
+  defp javafo_timeout_message(category_name),
+    do:
+      "JaVaFo did not finish within #{div(@engine_timeout_ms, 1000)} seconds for category " <>
+        "\"#{category_name}\" and was stopped. Try again; if it keeps happening the entry " <>
+        "list or the pairing restrictions may be more than the engine can resolve."
 
   defp javafo_failure_message(code, out, nil), do: "JaVaFo failed (exit #{code}):\n#{out}"
 

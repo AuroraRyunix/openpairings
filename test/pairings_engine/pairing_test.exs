@@ -2196,4 +2196,34 @@ defmodule PairingsEngine.PairingTest do
     {:ok, player} = Tournaments.create_player(tournament.id, Map.merge(defaults, Map.new(attrs)))
     player
   end
+
+  ## ---------- the external engine gets a deadline ----------
+  #
+  # `System.cmd/3` has no timeout, so a hung JVM used to block the calling
+  # process - a LiveView handling an arbiter's click - forever. Exercised
+  # here with a plain sleeping function rather than Java, so the test runs on
+  # a machine with no JVM and takes milliseconds.
+
+  describe "run_with_timeout/2" do
+    test "returns what the function returned when it finishes in time" do
+      assert Pairing.run_with_timeout(fn -> {"pairs", 0} end, 5_000) == {:ok, {"pairs", 0}}
+    end
+
+    test "returns :timeout and kills the task when it does not" do
+      parent = self()
+
+      assert Pairing.run_with_timeout(
+               fn ->
+                 send(parent, {:started, self()})
+                 Process.sleep(:infinity)
+               end,
+               20
+             ) == :timeout
+
+      assert_receive {:started, task_pid}
+      # Brutally killed, not left running behind the caller's back - which is
+      # what closes the port and takes the external process with it.
+      refute Process.alive?(task_pid)
+    end
+  end
 end
