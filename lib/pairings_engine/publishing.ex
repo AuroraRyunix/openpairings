@@ -564,12 +564,28 @@ defmodule PairingsEngine.Publishing do
   failed delete as a success is the one outcome that would be actively
   dangerous, because it would tell an arbiter their event was withdrawn while
   it was still up.
+
+  Refused on a read-only tournament - archived, or handed off to another
+  copy of the app - by the same `writable/1` its neighbours `adopt_claim/1`
+  and `discard_claim/1` use. It was not, for a long time, on the reading
+  that this deletes something on somebody else's server rather than writing
+  here. But it also clears `openresults_key` and `publish_to_openresults`
+  and empties the queue (`forget_published/1`), which are writes to a
+  tournament the arbiter has frozen; and it is the destructive first step of
+  `rotate_address/1`, which used to run it and then discover that the move
+  it existed to enable was refused. A handed-off tournament makes that
+  sharper still: the copy actually running the event may be publishing, and
+  this copy pulling the event off the results site is exactly the kind of
+  thing the lock is for.
   """
   @spec take_down(Tournament.t()) :: {:ok, String.t()} | {:error, String.t()}
   def take_down(%Tournament{} = tournament) do
     cond do
       not configured?() ->
         {:error, "no OpenResults server is configured"}
+
+      refusal = writable_refusal(tournament) ->
+        refusal
 
       not is_binary(tournament.openresults_key) ->
         # No key means nothing was ever published FROM HERE. Refusing rather
@@ -874,9 +890,33 @@ defmodule PairingsEngine.Publishing do
 
   A tournament that is not published has nothing to revoke and nothing to
   re-send, so it just moves.
+
+  ## The refusal comes first, before anything is destroyed
+
+  The ordering above is only safe while the steps after the takedown cannot
+  fail for a reason the takedown could have known about. One could, and did.
+  `Tournaments.rotate_public_slug/1` is gated on
+  `Tournaments.ensure_writable/1` and `take_down/1` was not - so on a frozen
+  tournament (archived, and later handed off as well) this deleted the
+  published copy from the server, cleared the key that was the only way to
+  manage it, emptied the queue, and THEN refused to move. The destructive
+  half of an operation the caller was told had failed, with nothing to roll
+  back to: no retry can put the tournament back at the old address, because
+  the key that authorised it is gone.
+
+  So writability is checked here, once, before either branch begins. It is
+  checked again inside `take_down/1` and again inside
+  `rotate_public_slug/1` - the gate belongs on each of those in its own
+  right, and a caller that reaches one of them directly has to meet it too.
   """
   @spec rotate_address(Tournament.t()) :: {:ok, Tournament.t(), String.t()} | {:error, String.t()}
   def rotate_address(%Tournament{} = tournament) do
+    with :ok <- writable(tournament) do
+      do_rotate_address(tournament)
+    end
+  end
+
+  defp do_rotate_address(%Tournament{} = tournament) do
     if published?(tournament) do
       with {:ok, _msg} <- take_down(tournament) do
         # `take_down/1` switched publishing off and dropped the key, which is
@@ -888,8 +928,19 @@ defmodule PairingsEngine.Publishing do
         |> rotate_and_republish()
       end
     else
-      with {:ok, moved} <- Tournaments.rotate_public_slug(tournament) do
-        {:ok, moved, "This tournament has a new address."}
+      case Tournaments.rotate_public_slug(tournament) do
+        {:ok, moved} ->
+          {:ok, moved, "This tournament has a new address."}
+
+        # Reached only by losing a race with a hand-off or an archive between
+        # the check above and here. Worded rather than passed through: this
+        # function's contract is a sentence the caller renders, and the bare
+        # `:archived` that used to come out of here was neither.
+        {:error, reason} when is_atom(reason) ->
+          {:error, refusal_words(reason)}
+
+        {:error, %Ecto.Changeset{}} ->
+          {:error, "this tournament could not be moved to a new address"}
       end
     end
   end
@@ -1027,15 +1078,43 @@ defmodule PairingsEngine.Publishing do
     end
   end
 
-  # `Tournaments.ensure_writable/1` returns `{:error, :archived}`; every
-  # caller of the two above wants words, so the atom is turned into them here
-  # rather than in each LiveView.
+  # `Tournaments.ensure_writable/1` returns a reason atom; every caller here
+  # wants words, so they are turned into them once rather than in each
+  # LiveView.
+  #
+  # Both reasons get a clause. With only `:archived` here, a handed-off
+  # tournament did not refuse - it raised `CaseClauseError` out of whichever
+  # caller had reached this, which is a 500 where a sentence was meant to be.
+  # An exhaustive `case` over a gate that grows is a trap; it is left
+  # exhaustive on purpose, so a third reason breaks a test rather than a
+  # page.
+  # The same refusal as a value a `cond` can bind - `nil` when the write may
+  # go ahead. Mirrors `Tournaments.write_refused/1`, for the guards here that
+  # are `cond`s rather than `with`s.
+  defp writable_refusal(%Tournament{} = tournament) do
+    case writable(tournament) do
+      :ok -> nil
+      {:error, _message} = refusal -> refusal
+    end
+  end
+
   defp writable(%Tournament{} = tournament) do
     case Tournaments.ensure_writable(tournament) do
       :ok -> :ok
-      {:error, :archived} -> {:error, "this tournament is archived and cannot be changed"}
+      {:error, reason} -> {:error, refusal_words(reason)}
     end
   end
+
+  # Both reasons get a clause. While only `:archived` had one, a handed-off
+  # tournament did not refuse here - it raised `CaseClauseError` out of
+  # whichever caller had reached the gate, which is a 500 where a sentence
+  # was meant to be. Deliberately not a catch-all: a third reason to refuse
+  # a write should break loudly in this one place rather than be worded
+  # wrongly in several.
+  defp refusal_words(:archived), do: "this tournament is archived and cannot be changed"
+
+  defp refusal_words(:handed_off),
+    do: "this tournament has been handed off to another copy of the app - take it back first"
 
   @doc """
   Whether `tournament` currently has a published copy this machine can manage.
