@@ -129,6 +129,20 @@ defmodule PairingsEngine.Norms.CombineTest do
       assert virtual.name == "C Festival"
       assert players == pa ++ pb ++ pc
     end
+
+    test "a master index outside the list is an error, not a crash" do
+      a = tournament(%{id: 1, name: "A"})
+      b = tournament(%{id: 2, name: "B"})
+      pairs = [{a, [player(%{fide_id: 1})]}, {b, [player(%{fide_id: 2})]}]
+
+      assert {:error, :invalid_master_index} = Combine.combine(pairs, 2)
+      assert {:error, :invalid_master_index} = Combine.combine(pairs, 99)
+      # Negative indices must not wrap around to the last tournament.
+      assert {:error, :invalid_master_index} = Combine.combine(pairs, -1)
+      assert {:error, :invalid_master_index} = Combine.combine(pairs, "1")
+
+      assert is_binary(Combine.error_message(:invalid_master_index))
+    end
   end
 
   # ---------------------------------------------------------------------

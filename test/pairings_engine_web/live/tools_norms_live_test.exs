@@ -329,6 +329,26 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     assert xml =~ "CORNET, Luc"
   end
 
+  test "a non-numeric or out-of-range master index leaves the socket alive", %{conn: conn} do
+    {:ok, lv, _html} = live(conn, ~p"/tools/norms")
+
+    upload_files(lv, [
+      {"alpha.trf", trf_text("Alpha Open", [{"Alice", 111}, {"Bob", 222}])},
+      {"beta.trf", trf_text("Beta Open", [{"Carol", 333}, {"Dave", 444}])}
+    ])
+
+    assert render_click(lv, "set_master", %{"index" => "not-a-number"}) =~ "Alpha Open"
+    assert render_click(lv, "set_master", %{"index" => "99"}) =~ "Alpha Open"
+    assert render_click(lv, "set_master", %{"index" => "-3"}) =~ "Alpha Open"
+    assert render_click(lv, "set_master", %{}) =~ "Alpha Open"
+
+    # And the download - which is where the unclamped index used to land -
+    # still works.
+    fill_required_emails(lv)
+    conn = get(conn, ~p"/tools/download/#{download_token(lv)}/it3")
+    assert conn.status == 200
+  end
+
   test "a crafted extra_arbiters_count is clamped to the maximum", %{conn: conn} do
     max = PairingsEngine.Norms.Forms.max_extra_arbiters()
 

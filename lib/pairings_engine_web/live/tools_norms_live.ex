@@ -119,13 +119,25 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
      |> sync_session()}
   end
 
+  # `index` comes off the wire, so it is parsed rather than
+  # `String.to_integer/1`-ed and clamped to the files actually parsed - an
+  # out-of-range master index would otherwise reach `Combine.combine/2` and
+  # take this public page's socket down.
   def handle_event("set_master", %{"index" => index}, socket) do
-    {:noreply,
-     socket
-     |> assign(master_index: String.to_integer(index))
-     |> prefill_from_master()
-     |> sync_session()}
+    case parse_master_index(index) do
+      nil ->
+        {:noreply, socket}
+
+      n ->
+        {:noreply,
+         socket
+         |> assign(master_index: clamp_master_index(n, successful(socket.assigns.files)))
+         |> prefill_from_master()
+         |> sync_session()}
+    end
   end
+
+  def handle_event("set_master", _params, socket), do: {:noreply, socket}
 
   def handle_event("update_fields", params, socket) do
     overlay =
@@ -219,6 +231,17 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
   defp clamp_master_index(_index, []), do: 0
   defp clamp_master_index(index, files), do: index |> max(0) |> min(length(files) - 1)
+
+  defp parse_master_index(index) when is_integer(index), do: index
+
+  defp parse_master_index(index) when is_binary(index) do
+    case Integer.parse(index) do
+      {n, _} -> n
+      :error -> nil
+    end
+  end
+
+  defp parse_master_index(_index), do: nil
 
   ## ---------- officials prefill (from the master file) ----------
 

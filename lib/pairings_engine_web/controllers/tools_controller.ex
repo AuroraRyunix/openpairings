@@ -114,6 +114,10 @@ defmodule PairingsEngineWeb.ToolsController do
 
   defp friendly_error({:duplicate_players, _} = reason), do: Combine.error_message(reason)
 
+  defp friendly_error(:invalid_master_index),
+    do:
+      "The file supplying the header details is no longer one of the uploaded ones - go back and pick it again."
+
   defp error_page(conn, message) do
     conn
     |> put_resp_content_type("text/html")
