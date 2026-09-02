@@ -20,12 +20,38 @@ defmodule PairingsEngine.TournamentExport do
   purely so sibling records within the *same* envelope (pairings under a
   round, byes, forbidden pairings) can reference the right team/player; the
   importer discards these ids and remaps everything to fresh ones.
+
+  ## Hand-off blocks (opt in)
+
+  Two more blocks - `"audit_log"` and `"collaborators"` - travel only when
+  the caller passes `include_handoff: true`. They exist for the hand-off
+  case: an arbiter moving a tournament between the hosted copy and a local
+  one, where the event itself changes machines and everything about it
+  should follow, including who did what and who was on the team.
+
+  They are opt-in because this same `export_tournament/1` builds two things
+  that are NOT hand-offs, and both would be harmed by carrying them:
+
+    * a restore point (`PairingsEngine.Snapshots.capture/4`) - taken before
+      every destructive action, so embedding the whole audit trail in each
+      one would grow every snapshot by the log that produced it; and a
+      restore is this tournament's own past, where the trail and the team
+      never left in the first place.
+    * "Duplicate tournament" (`PairingsEngineWeb.TournamentsLive`) - a copy
+      is a NEW event. The original's audit trail describes actions nobody
+      took in the copy, and the original's collaborator list would turn into
+      a fresh round of invitations for people who were never asked about it.
+
+  So the default stays exactly what those two already get, and a hand-off
+  asks for more. See `@excluded_tables` for what does not travel under any
+  option.
   """
 
   import Ecto.Query
 
   alias PairingsEngine.{Repo, Tournaments}
   alias PairingsEngine.Accounts.Scope
+  alias PairingsEngine.Audit.AuditLog
   alias PairingsEngine.Tournaments.{Round, Tournament}
 
   @format "openpairings-export"
@@ -184,6 +210,145 @@ defmodule PairingsEngine.TournamentExport do
     :match_id
   ]
 
+  # ---------- the audit trail (hand-off only) ----------
+
+  # One audit row's content. `inserted_at` is on the list because WHEN a
+  # thing happened is half of the record - a trail with no times settles no
+  # dispute - and `audit_map/1` writes it as an ISO8601 string rather than
+  # letting a `NaiveDateTime` struct leak into what has to be plain JSON.
+  @audit_fields ~w(action details inserted_at)a
+
+  # And the reason for each column that stays behind. Guarded by the same
+  # coverage test as the lists above, so a new `audit_logs` column has to be
+  # given a decision rather than being dropped in silence.
+  #
+  #   id
+  #     Fresh on the far side, like every other id in the envelope. Nothing
+  #     references an audit row, so there is not even an internal reference
+  #     to keep.
+  #   tournament_id
+  #     Implied by the envelope's nesting, exactly as a round's is. Carrying
+  #     the old value would point the row at whatever tournament happens to
+  #     hold that id on the importing machine.
+  #   user_id
+  #     The one that matters. A user id is meaningless off its own
+  #     installation: at best it dangles, at worst it lands on a real
+  #     stranger and the trail then says THEY deleted the player. So the
+  #     acting user travels as a display string instead - the `"actor"` key
+  #     `audit_map/1` merges in, which is their email or nil for a system
+  #     row - and `PairingsEngine.TournamentImport` files it in `details`
+  #     and leaves `user_id` nil. A name that cannot be clicked is worth
+  #     more than a link to the wrong person.
+  @audit_excluded [:id, :tournament_id, :user_id]
+
+  @doc false
+  def audit_fields, do: @audit_fields
+
+  @doc false
+  def audit_excluded, do: @audit_excluded
+
+  # ---------- collaborators (hand-off only) ----------
+
+  # A collaborator row is a link to a `users` row, and that row does not
+  # exist on the other instance. What travels is the two things an
+  # invitation is made of - who was invited, and to do what - so the team
+  # can be re-established there. `PairingsEngine.TournamentImport` files
+  # them as PENDING invitations that still have to be accepted; see
+  # `import_collaborators!/2` for why an import must never be a grant.
+  @collaborator_fields ~w(email role)a
+
+  # Everything else, and why:
+  #
+  #   id, tournament_id
+  #     Fresh row, and the tournament is implied by the nesting - same as
+  #     everywhere else in the envelope.
+  #   user_id
+  #     The link that cannot survive the trip. An id from the source
+  #     instance either dangles or names a completely different person here,
+  #     and that person would then appear on the tournament's collaborator
+  #     list. The email is the only identity the two machines share, which
+  #     is exactly what the invite flow itself matches on
+  #     (`PairingsEngine.Tournaments.link_pending_collaborators/1`), so the
+  #     link is re-made there - by that person logging in, or accepting -
+  #     rather than guessed at here.
+  #   invite_token
+  #     A bearer link: whoever holds it can open `/invites/<token>`. It is
+  #     also single-use and unique across the table, so re-using the
+  #     source's would put the same live token on two machines. The import
+  #     mints its own.
+  #   status
+  #     Deliberately not carried, and this is the crux of the decision.
+  #     "Accepted" is a statement about a grant made on ANOTHER machine, to
+  #     an account this machine cannot see. Carrying it would put a value in
+  #     the file that the import must refuse to honour - and the next person
+  #     to find `"status": "accepted"` sitting unused in the JSON would
+  #     reasonably wire it up, which is the bug. Every imported row starts
+  #     pending; acceptance is the invitee's act, not the file's.
+  #   inserted_at, updated_at
+  #     An invitation is not a record of a past event the way an audit row
+  #     is - it is a live offer, and the one created on import genuinely was
+  #     created then. Carrying the source's timestamps would age an
+  #     invitation nobody has seen yet.
+  @collaborator_excluded [
+    :id,
+    :tournament_id,
+    :user_id,
+    :invite_token,
+    :status,
+    :inserted_at,
+    :updated_at
+  ]
+
+  @doc false
+  def collaborator_fields, do: @collaborator_fields
+
+  @doc false
+  def collaborator_excluded, do: @collaborator_excluded
+
+  # ---------- whole tables that never travel, under any option ----------
+  #
+  # The lists above decide columns. This one decides tables: per-tournament
+  # data that exists in the database and is deliberately absent from the
+  # envelope, so that noticing a gap leads to the reason instead of to a
+  # "fix".
+  #
+  #   mobile_enrollments
+  #     LIVE ACCESS TOKENS, and the sharpest thing on this list. Each row is
+  #     an 8-digit code plus a session token that let a phone with no
+  #     account enter results for this tournament
+  #     (`PairingsEngine.Mobile`). A code minted on the hosted copy must not
+  #     begin working on somebody's laptop because a JSON file moved between
+  #     them - the helper holding that phone was given access to an event on
+  #     one machine, not to every copy of it that will ever exist. Handing
+  #     the tournament over means the new machine mints new codes and hands
+  #     out new phones; the old ones stop mattering when the old copy does.
+  #     Nothing is lost that an arbiter cannot recreate in one click, and
+  #     what is avoided is a credential that outlives the machine it was
+  #     issued on.
+  #   tournament_snapshots
+  #     Restore points, whose payloads are themselves export envelopes -
+  #     carrying them would nest the format inside itself and multiply the
+  #     file size by the length of the history. `head_snapshot_id` is
+  #     excluded on the tournament for the same reason.
+  #   openresults_registrations, publish_queue
+  #     Both belong to a publishing connection this machine may not have.
+  #     Entries are collected by a form on a server the importer does not
+  #     necessarily reach, and queued publishes are in-flight work for that
+  #     same server - neither is content of the event.
+  #   matches
+  #     Team-tournament scaffolding that nothing currently writes; see
+  #     `pairing_map/1`'s note on `match_id` and TODO.md.
+  @excluded_tables [
+    :mobile_enrollments,
+    :tournament_snapshots,
+    :openresults_registrations,
+    :publish_queue,
+    :matches
+  ]
+
+  @doc false
+  def excluded_tables, do: @excluded_tables
+
   @doc false
   def round_excluded, do: @round_excluded
 
@@ -193,27 +358,38 @@ defmodule PairingsEngine.TournamentExport do
   @doc false
   def round_fields, do: @round_fields
 
-  @doc "Envelope wrapping a single tournament (caller is responsible for owner-scoping it)."
-  def export_tournament(%Tournament{} = tournament), do: envelope([tournament])
+  @doc """
+  Envelope wrapping a single tournament (caller is responsible for
+  owner-scoping it).
 
-  @doc "Envelope wrapping every tournament `scope`'s user owns or collaborates on."
-  def export_all(%Scope{} = scope) do
+  `include_handoff: true` adds the `"audit_log"` and `"collaborators"`
+  blocks - see the moduledoc for why they are opt-in and which two callers
+  must not get them.
+  """
+  def export_tournament(%Tournament{} = tournament, opts \\ []),
+    do: envelope([tournament], opts)
+
+  @doc """
+  Envelope wrapping every tournament `scope`'s user owns or collaborates on.
+  Takes the same `:include_handoff` option as `export_tournament/2`.
+  """
+  def export_all(%Scope{} = scope, opts \\ []) do
     tournaments =
       scope |> Tournaments.list_tournaments() |> Enum.map(fn {t, _count, _owner?} -> t end)
 
-    envelope(tournaments)
+    envelope(tournaments, opts)
   end
 
-  defp envelope(tournaments) do
+  defp envelope(tournaments, opts) do
     %{
       "format" => @format,
       "version" => @version,
       "exported_at" => DateTime.to_iso8601(DateTime.utc_now()),
-      "tournaments" => Enum.map(tournaments, &tournament_map/1)
+      "tournaments" => Enum.map(tournaments, &tournament_map(&1, opts))
     }
   end
 
-  defp tournament_map(t) do
+  defp tournament_map(t, opts) do
     %{
       "tournament" => struct_fields(t, @tournament_fields),
       "openresults" => openresults_block(t),
@@ -223,6 +399,20 @@ defmodule PairingsEngine.TournamentExport do
       "byes" => byes(t.id),
       "forbidden_pairings" => forbidden_pairings(t.id)
     }
+    |> put_handoff_blocks(t, Keyword.get(opts, :include_handoff, false))
+  end
+
+  # Absent rather than empty when this is not a hand-off. An `[]` would read
+  # as "this event had no audit trail and no collaborators", which is a
+  # claim, and a false one - a snapshot payload is not evidence that the log
+  # was empty when it was taken.
+  defp put_handoff_blocks(map, _t, false), do: map
+
+  defp put_handoff_blocks(map, t, true) do
+    Map.merge(map, %{
+      "audit_log" => Enum.map(audit_rows(t.id), &audit_map/1),
+      "collaborators" => Enum.map(Tournaments.list_collaborators(t), &collaborator_map/1)
+    })
   end
 
   @doc """
@@ -309,6 +499,55 @@ defmodule PairingsEngine.TournamentExport do
       "black_player_id" => p.black_player_id
     }
   end
+
+  # Read forward. `PairingsEngine.Audit.list_for_tournament/2` orders newest
+  # first because that is what a screen wants; a file is read from the top,
+  # and a record of an event reads in the order the event happened. `id`
+  # breaks the tie, because `inserted_at` has second precision and a burst
+  # of rows (pairing a round, importing results) lands inside one second.
+  #
+  # Scoped to this tournament, which leaves out the machine-wide rows
+  # (`tournament_id IS NULL`) on purpose: a role granted or a backup taken
+  # is a fact about the installation, not about this event, and it stays
+  # with the installation. Unbounded, unlike the paginated screen query - a
+  # partial trail would be worse than none, because it looks complete.
+  defp audit_rows(tournament_id) do
+    Repo.all(
+      from a in AuditLog,
+        where: a.tournament_id == ^tournament_id,
+        order_by: [asc: a.inserted_at, asc: a.id],
+        preload: [:user]
+    )
+  end
+
+  defp audit_map(row) do
+    row
+    |> struct_fields(@audit_fields)
+    |> Map.merge(%{
+      # A JSON file is the transport, so the timestamp leaves as a string
+      # rather than as a `NaiveDateTime` struct that only survives because
+      # something downstream happens to encode it.
+      "inserted_at" => NaiveDateTime.to_iso8601(row.inserted_at),
+      "actor" => actor_label(row)
+    })
+  end
+
+  # The acting user as a NAME, never as an id - see `@audit_excluded`.
+  #
+  # The second clause is what keeps a name across more than one trip. A row
+  # that arrived by an earlier hand-off has no local user either, and
+  # `PairingsEngine.TournamentImport` parked its actor in `details`; reading
+  # it back means handing the tournament on again does not quietly degrade
+  # every one of those rows to "System" the second time.
+  defp actor_label(%AuditLog{user: %{email: email}}) when is_binary(email), do: email
+
+  defp actor_label(%AuditLog{details: %{"imported_actor" => label}})
+       when is_binary(label) and label != "",
+       do: label
+
+  defp actor_label(%AuditLog{}), do: nil
+
+  defp collaborator_map(collaborator), do: struct_fields(collaborator, @collaborator_fields)
 
   defp rounds_with_pairings(tournament_id) do
     Repo.all(
