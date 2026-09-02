@@ -12,13 +12,29 @@ defmodule PairingsEngine.TournamentImport do
   nothing until an arbiter explicitly takes the published tournament over -
   see `dormant_claim/1` for why importing must never be a takeover.
 
+  ## The hand-off blocks
+
+  A file written with `PairingsEngine.TournamentExport`'s
+  `include_handoff: true` carries two more blocks, and both are applied
+  under the same rule as everything else - nothing from the other instance
+  is trusted to mean the same thing here:
+
+    * `"audit_log"` - the tournament's own trail, re-inserted with fresh
+      ids, the original timestamps, and every DB id inside `details`
+      remapped or dropped (`sanitize_details/2`). The acting user lands as a
+      name, never as a link; see `import_audit_row!/3`.
+    * `"collaborators"` - filed as PENDING invitations that still have to be
+      accepted. An import must never be a grant; see
+      `import_collaborators!/2`.
+
   See `docs/import-export.md` for the envelope format and
   `PairingsEngine.TournamentExport` for the inverse.
   """
 
   alias PairingsEngine.{Repo, Tournaments}
   alias PairingsEngine.Accounts.Scope
-  alias PairingsEngine.Tournaments.{Tournament, Team, Player, Round, Pairing}
+  alias PairingsEngine.Audit.AuditLog
+  alias PairingsEngine.Tournaments.{Collaborator, Tournament, Team, Player, Round, Pairing}
 
   # Kept as literals (rather than referencing PairingsEngine.TournamentExport
   # here) so the two modules have no compile-time dependency on each other;
@@ -106,6 +122,16 @@ defmodule PairingsEngine.TournamentImport do
   is this tournament's own key - already on the row, and never cast, so the
   restore cannot disturb it. Turning it into a "claim" would offer the arbiter
   a takeover of themselves.
+
+  The hand-off blocks are skipped for the same reason, and a snapshot payload
+  does not carry them in the first place (`export_tournament/1` only adds
+  them on request). The audit trail and the collaborator list never left this
+  tournament: `PairingsEngine.Snapshots.restore/3` does not wipe them, so
+  re-inserting a copy would double the trail and try to invite the team a
+  second time - which the collaborator table's unique index would refuse
+  anyway. A restore is also itself an audited action, which is how the trail
+  records that it happened, and rewinding the record of what was done is not
+  something a restore should be able to do.
   """
   def restore_into!(%Tournament{} = tournament, entry) when is_map(entry) do
     t_attrs = fetch_map!(entry, "tournament")
@@ -169,6 +195,13 @@ defmodule PairingsEngine.TournamentImport do
     import_rounds!(tournament, list(t_data, "rounds"), player_map)
     import_byes!(tournament, list(t_data, "byes"), player_map)
     import_forbidden_pairings!(tournament, list(t_data, "forbidden_pairings"), player_map)
+
+    # Last, and after the players, because an audit row's `details` can
+    # name a player and the remap needs the finished map. Both blocks are
+    # absent from an ordinary envelope, in which case `list/2` hands back
+    # `[]` and neither loop does anything.
+    import_audit_log!(tournament, list(t_data, "audit_log"), player_map)
+    import_collaborators!(tournament, list(t_data, "collaborators"))
 
     tournament
   end
@@ -406,6 +439,197 @@ defmodule PairingsEngine.TournamentImport do
       |> Enum.reject(&is_nil/1)
 
     if rows != [], do: Repo.insert_all("forbidden_pairings", rows)
+  end
+
+  ## ---------- the audit trail (hand-off envelopes only) ----------
+
+  # Detail keys holding a DB PLAYER id. These get the same treatment as
+  # every other player reference in the envelope: remapped through the
+  # old -> new map, so the row still names the same human being here.
+  #
+  # An id that maps to nobody - a row about a player who was later deleted -
+  # loses the key rather than keeping the number. The number would be a
+  # different person's on this machine.
+  @player_id_details ~w(player_id player_a_id player_b_id)
+
+  # Detail keys naming a row that does NOT travel in the envelope. Pairings
+  # are re-inserted with fresh ids and their old ones are not even exported;
+  # snapshots, mobile enrolments and other tournaments are not in the file at
+  # all. Dropped, because SQLite hands out ids per table across the whole
+  # database, so a stale number here is not a dangling pointer - it is a live
+  # pointer at somebody else's row.
+  @foreign_row_id_details ~w(
+    pairing_id snapshot_id enrollment_id from_tournament_id head_snapshot_id
+  )
+
+  # And the keys that end in `_id` but are not references to a row in this
+  # database at all. A FIDE ID is FIDE's number for a person and means the
+  # same thing on every machine in the world; the same goes for a national
+  # federation's. These survive verbatim, and they matter: they turn up
+  # inside `changed_fields`, where "the FIDE ID was changed from X to Y" is
+  # exactly the kind of fact somebody later disputes.
+  @external_id_details ~w(fide_id national_id fide_tournament_id)
+
+  # Anything else ending in `_id`/`_ids` is dropped. The default has to be
+  # "drop": a key nobody has classified is far more likely to be a row
+  # reference than an external identifier, and a gap in the record beats a
+  # false statement in it. When a new `Audit.log/4` call site starts writing
+  # one, put it on whichever of the three lists above is true of it.
+  defp import_audit_log!(tournament, rows, player_map),
+    do: Enum.each(rows, &import_audit_row!(tournament, &1, player_map))
+
+  # `user_id` is never set. The file carries the actor as a display string
+  # instead (`PairingsEngine.TournamentExport`'s `"actor"` key), and it is
+  # parked in `details` under `"imported_actor"` rather than resolved
+  # against the local `users` table: matching by email would attribute the
+  # action to whoever holds that address HERE, who is not the person who
+  # took it. A row with no local user renders as "System" until
+  # `PairingsEngineWeb.AuditLive.actor/1` learns to read the stored name -
+  # a one-line change in a file this one has no business editing. The
+  # evidence is kept either way, which is the part that cannot be added
+  # back later.
+  #
+  # A row with no usable action or no readable timestamp is dropped. Both
+  # only happen in a hand-edited file, and an audit row without a time
+  # settles nothing - stamping it with "now" would be inventing evidence,
+  # which is worse than admitting the row is unreadable.
+  defp import_audit_row!(tournament, row, player_map) when is_map(row) do
+    with action when is_binary(action) and action != "" <- Map.get(row, "action"),
+         %NaiveDateTime{} = at <- parse_naive(Map.get(row, "inserted_at")) do
+      %AuditLog{tournament_id: tournament.id}
+      |> AuditLog.changeset(%{"action" => action, "details" => audit_details(row, player_map)})
+      |> Ecto.Changeset.change(inserted_at: at)
+      |> insert!()
+    else
+      _unreadable -> :dropped
+    end
+  end
+
+  defp import_audit_row!(_tournament, _row, _player_map), do: :dropped
+
+  defp audit_details(row, player_map) do
+    row
+    |> Map.get("details")
+    |> case do
+      details when is_map(details) -> details
+      _ -> %{}
+    end
+    |> sanitize_details(player_map)
+    |> put_actor(Map.get(row, "actor"))
+  end
+
+  # Walks the whole `details` payload, at every depth - `changed_fields` and
+  # the bye/board sub-maps are maps too, and an id buried in one is no less
+  # stale than an id at the top.
+  defp sanitize_details(details, player_map) when is_map(details) and not is_struct(details) do
+    details
+    |> Enum.flat_map(fn {key, value} -> sanitized_detail(key, value, player_map) end)
+    |> Map.new()
+  end
+
+  defp sanitize_details(values, player_map) when is_list(values),
+    do: Enum.map(values, &sanitize_details(&1, player_map))
+
+  defp sanitize_details(value, _player_map), do: value
+
+  defp sanitized_detail(key, value, player_map) when key in @player_id_details do
+    case Map.get(player_map, value) do
+      nil -> []
+      new_id -> [{key, new_id}]
+    end
+  end
+
+  defp sanitized_detail(key, _value, _player_map) when key in @foreign_row_id_details, do: []
+
+  defp sanitized_detail(key, value, player_map) do
+    if row_reference_key?(key),
+      do: [],
+      else: [{key, sanitize_details(value, player_map)}]
+  end
+
+  defp row_reference_key?(key) when is_binary(key) do
+    key not in @external_id_details and
+      (String.ends_with?(key, "_id") or String.ends_with?(key, "_ids"))
+  end
+
+  defp row_reference_key?(_key), do: false
+
+  defp put_actor(details, actor) when is_binary(actor) and actor != "",
+    do: Map.put(details, "imported_actor", actor)
+
+  defp put_actor(details, _actor), do: details
+
+  # Second precision, matching the column. `Ecto.Changeset.change/2` bypasses
+  # cast, so anything with microseconds left on it would be rejected at dump
+  # time rather than quietly rounded.
+  defp parse_naive(value) when is_binary(value) do
+    case NaiveDateTime.from_iso8601(value) do
+      {:ok, at} -> NaiveDateTime.truncate(at, :second)
+      _ -> nil
+    end
+  end
+
+  defp parse_naive(_value), do: nil
+
+  ## ---------- collaborators (hand-off envelopes only) ----------
+
+  # Filed as PENDING invitations, always, whatever the source row said - the
+  # export does not even carry `status` (see its `@collaborator_excluded`).
+  # An import is a file arriving on a machine, and a file must not hand
+  # anybody the tournament: the invited address may belong to somebody else
+  # entirely here, and "this person had accepted" was a statement about an
+  # account on an instance this one cannot see. So the row lands exactly
+  # where `Tournaments.add_collaborator/3` puts a new one, and the same
+  # `accept_invitation/2` unlocks it.
+  #
+  # No email goes out. Importing a backup must not send mail to third
+  # parties, and the invitee finds the invitation on their own Tournaments
+  # page anyway (`Tournaments.list_pending_invitations/1` matches by email);
+  # the owner can also hand over `/invites/<token>` from Settings.
+  #
+  # `user_id` is left nil even when this machine already has an account for
+  # that address. Nil never grants anything - only `status == "accepted"`
+  # does - and the link gets made properly on that person's next login by
+  # `Tournaments.link_pending_collaborators/1`, which is the documented path
+  # for exactly this case.
+  defp import_collaborators!(tournament, collaborators),
+    do: Enum.each(collaborators, &import_collaborator!(tournament, &1))
+
+  defp import_collaborator!(tournament, collaborator) when is_map(collaborator) do
+    case Map.get(collaborator, "email") do
+      email when is_binary(email) and email != "" ->
+        %Collaborator{tournament_id: tournament.id}
+        |> Collaborator.changeset(collaborator_attrs(email, Map.get(collaborator, "role")))
+        |> insert!()
+
+      # Nobody to invite. Skipped rather than failing the whole tournament
+      # import, because there is nothing here to lose - unlike the role
+      # below, which we would have to guess at.
+      _no_email ->
+        :dropped
+    end
+  end
+
+  defp import_collaborator!(_tournament, _collaborator), do: :dropped
+
+  # A fresh token, never the file's: the source's is a live bearer link to
+  # `/invites/:token` and is unique across the table, so carrying it would
+  # put the same working link on two machines. Same recipe as
+  # `Tournaments.add_collaborator/3`, whose generator is private to it.
+  #
+  # A role is an access level, so an unrecognised one is left for
+  # `Collaborator.changeset/2` to reject, which rolls the import back with a
+  # readable error. Guessing at it would either over- or under-grant, and
+  # both are worse than refusing a file that says something this build does
+  # not understand. A missing role simply takes the schema's default.
+  defp collaborator_attrs(email, role) do
+    attrs = %{
+      "email" => email,
+      "status" => "pending",
+      "invite_token" => :crypto.strong_rand_bytes(16) |> Base.url_encode64(padding: false)
+    }
+
+    if is_binary(role) and role != "", do: Map.put(attrs, "role", role), else: attrs
   end
 
   ## ---------- helpers ----------
