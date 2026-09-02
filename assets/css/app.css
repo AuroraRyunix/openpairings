@@ -120,6 +120,23 @@
    <.input>/<.select>/<.textarea> on the auth and settings pages) are themed
    here too, so those inputs follow the same palette as the rest of the app
    in both themes - no dark-on-dark. */
+
+/* Three tokens exist purely so a filled surface can be read:
+   --accent-ink   the text colour for anything sitting ON --accent. It used to
+                  be a hardcoded `white`, which is only legible over a DARK
+                  accent - and seven of the ten themes ship a light one, so
+                  Nord's primary button measured 2.00:1 against WCAG's 4.5:1.
+                  Each block picks whichever pole (near-black or white) scores
+                  higher against its OWN accent, so the accent pickers can
+                  flip the answer per accent and the button still reads.
+   --danger-ink   the same thing for --danger, which had the same bug.
+   --accent-lift  the pole to push accent-COLOURED TEXT toward when it sits on
+                  a tint of itself (.pe-btn.tonal). It follows the SURFACE, not
+                  the accent: white on the dark themes, near-black on the light
+                  ones. Distinct from --accent-ink, which follows the accent -
+                  Solarized Light needs a near-black ink on its mid-blue accent
+                  but a near-black lift for its cream surface, and those are
+                  the same value for different reasons. */
 :root {
   --bg: #f7f6f3;
   --surface: #ffffff;
@@ -129,7 +146,11 @@
   --accent: #2e5e44;
   --accent-hover: #24503a;
   --accent-soft: #e8f0eb;
+  --accent-ink: #ffffff;
+  --accent-lift: #10151b;
   --danger: #a33c2e;
+  --danger-hover: #863126;
+  --danger-ink: #ffffff;
   --success: #1f7a3d;
   --success-soft: #e4f2e8;
   --warn: #a76a25;
@@ -163,7 +184,11 @@
   --accent: #60bd8c;
   --accent-hover: #76cb9e;
   --accent-soft: rgba(96, 189, 140, 0.16);
+  --accent-ink: #0e1210;
+  --accent-lift: #ffffff;
   --danger: #e07a63;
+  --danger-hover: #e6927f;
+  --danger-ink: #0e1210;
   --success: #4ade80;
   --success-soft: rgba(74, 222, 128, 0.16);
   --warn: #e8a54a;
@@ -196,7 +221,13 @@
   --accent: #268bd2;
   --accent-hover: #4f9fda;
   --accent-soft: rgba(38, 139, 210, 0.18);
+  /* Solarized blue is a mid-tone: white scores 3.68 on it, so the ink is the
+     near-black even though every other dark theme's accent is light. */
+  --accent-ink: #10151b;
+  --accent-lift: #ffffff;
   --danger: #dc322f;
+  --danger-hover: #b42927;
+  --danger-ink: #ffffff;
   --success: #859900;
   --success-soft: rgba(133, 153, 0, 0.18);
   --warn: #b58900;
@@ -227,9 +258,17 @@
   --text: #073642;
   --text-soft: #657b83;
   --accent: #268bd2;
-  --accent-hover: #1f6f9f;
+  /* Brightens rather than darkens on hover, unusually for a light theme: the
+     accent needs a near-black ink (white is 3.68 on it), and a DARKER hover
+     would drag that ink down to 3.35. Lifting it instead keeps the pressed
+     state above 4.5 and matches what Solarized Dark does with the same blue. */
+  --accent-hover: #4f9fda;
   --accent-soft: #dcecf7;
+  --accent-ink: #10151b;
+  --accent-lift: #10151b;
   --danger: #dc322f;
+  --danger-hover: #b42927;
+  --danger-ink: #ffffff;
   --success: #859900;
   --success-soft: #eef0d9;
   --warn: #b58900;
@@ -264,7 +303,11 @@
   --accent: #0b4fa8;
   --accent-hover: #073a7d;
   --accent-soft: #dbe6f6;
+  --accent-ink: #ffffff;
+  --accent-lift: #10151b;
   --danger: #b3000f;
+  --danger-hover: #93000c;
+  --danger-ink: #ffffff;
   --success: #0a6b21;
   --success-soft: #d8ecdb;
   --warn: #7a4c00;
@@ -297,7 +340,11 @@
   --accent: #7aa2f7;
   --accent-hover: #9ab4f9;
   --accent-soft: rgba(122, 162, 247, 0.18);
+  --accent-ink: #1a1b26;
+  --accent-lift: #ffffff;
   --danger: #f7768e;
+  --danger-hover: #f88fa2;
+  --danger-ink: #1a1b26;
   --success: #9ece6a;
   --success-soft: rgba(158, 206, 106, 0.18);
   --warn: #e0af68;
@@ -330,7 +377,11 @@
   --accent: #c4a7e7;
   --accent-hover: #d3bcf0;
   --accent-soft: rgba(196, 167, 231, 0.18);
+  --accent-ink: #191724;
+  --accent-lift: #ffffff;
   --danger: #eb6f92;
+  --danger-hover: #ef89a6;
+  --danger-ink: #191724;
   --success: #9ccfd8;
   --success-soft: rgba(156, 207, 216, 0.18);
   --warn: #f6c177;
@@ -363,7 +414,13 @@
   --accent: #88c0d0;
   --accent-hover: #a3d4dc;
   --accent-soft: rgba(136, 192, 208, 0.18);
+  --accent-ink: #2e3440;
+  --accent-lift: #ffffff;
   --danger: #bf616a;
+  --danger-hover: #cb7d85;
+  /* nord11 is muted enough that nord0 (#2e3440) only reaches 3.05 on it, so
+     this ink goes below the palette's own floor to clear 4.5. */
+  --danger-ink: #0b0e13;
   --success: #a3be8c;
   --success-soft: rgba(163, 190, 140, 0.18);
   --warn: #ebcb8b;
@@ -394,7 +451,11 @@
   --accent: #bd93f9;
   --accent-hover: #caa9fa;
   --accent-soft: rgba(189, 147, 249, 0.18);
+  --accent-ink: #282a36;
+  --accent-lift: #ffffff;
   --danger: #ff5555;
+  --danger-hover: #ff7474;
+  --danger-ink: #14151c;
   --success: #50fa7b;
   --success-soft: rgba(80, 250, 123, 0.16);
   --warn: #f1fa8c;
@@ -425,7 +486,11 @@
   --accent: #cba6f7;
   --accent-hover: #b4befe;
   --accent-soft: rgba(203, 166, 247, 0.18);
+  --accent-ink: #1e1e2e;
+  --accent-lift: #ffffff;
   --danger: #f38ba8;
+  --danger-hover: #f5a0b8;
+  --danger-ink: #1e1e2e;
   --success: #a6e3a1;
   --success-soft: rgba(166, 227, 161, 0.18);
   --warn: #fab387;
@@ -450,24 +515,29 @@
    The default (green) lives in the token blocks above. Each alternative sets
    its own --accent / --accent-hover / --accent-soft, with a brighter variant
    for dark mode so it stays legible on the dark surface. Selected via
-   `data-accent` on <html> (see the inline script in root.html.heex). */
-[data-accent="blue"] { --accent: #2563eb; --accent-hover: #1d4ed8; --accent-soft: #e7effe; }
-[data-accent="teal"] { --accent: #0d7d74; --accent-hover: #0b665f; --accent-soft: #e2f4f2; }
-[data-accent="violet"] { --accent: #7c3aed; --accent-hover: #6d28d9; --accent-soft: #f0e9fe; }
-[data-accent="rose"] { --accent: #be123c; --accent-hover: #9f1239; --accent-soft: #fce4ea; }
-[data-accent="slate"] { --accent: #475569; --accent-hover: #334155; --accent-soft: #eaeef3; }
-[data-accent="indigo"] { --accent: #4338ca; --accent-hover: #3730a3; --accent-soft: #e9e8fc; }
-[data-accent="cyan"] { --accent: #0e7490; --accent-hover: #0c5c74; --accent-soft: #e0f6fa; }
-[data-accent="fuchsia"] { --accent: #a21caf; --accent-hover: #86198f; --accent-soft: #fbe6f8; }
+   `data-accent` on <html> (see the inline script in root.html.heex).
 
-[data-accent="blue"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #5b9bff; --accent-hover: #74acff; --accent-soft: rgba(91, 155, 255, 0.16); }
-[data-accent="teal"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #2dd4bf; --accent-hover: #4de0cd; --accent-soft: rgba(45, 212, 191, 0.16); }
-[data-accent="violet"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #a78bfa; --accent-hover: #b9a4fb; --accent-soft: rgba(167, 139, 250, 0.18); }
-[data-accent="rose"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #fb7185; --accent-hover: #fc8b9b; --accent-soft: rgba(251, 113, 133, 0.16); }
-[data-accent="slate"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #94a3b8; --accent-hover: #aab6c7; --accent-soft: rgba(148, 163, 184, 0.18); }
-[data-accent="indigo"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #818cf8; --accent-hover: #93a2fb; --accent-soft: rgba(129, 140, 248, 0.18); }
-[data-accent="cyan"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #22d3ee; --accent-hover: #4dd8ef; --accent-soft: rgba(34, 211, 238, 0.16); }
-[data-accent="fuchsia"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #e879f9; --accent-hover: #ee94fa; --accent-soft: rgba(232, 121, 249, 0.18); }
+   --accent-ink comes along for the ride, because an override REPLACES the
+   accent and so invalidates the theme's answer to "what is readable on it".
+   The light-mode set is dark enough for white (worst: teal, 5.00); the
+   dark-mode set is bright enough for near-black (worst: indigo, 6.15). */
+[data-accent="blue"] { --accent: #2563eb; --accent-hover: #1d4ed8; --accent-soft: #e7effe; --accent-ink: #ffffff; }
+[data-accent="teal"] { --accent: #0d7d74; --accent-hover: #0b665f; --accent-soft: #e2f4f2; --accent-ink: #ffffff; }
+[data-accent="violet"] { --accent: #7c3aed; --accent-hover: #6d28d9; --accent-soft: #f0e9fe; --accent-ink: #ffffff; }
+[data-accent="rose"] { --accent: #be123c; --accent-hover: #9f1239; --accent-soft: #fce4ea; --accent-ink: #ffffff; }
+[data-accent="slate"] { --accent: #475569; --accent-hover: #334155; --accent-soft: #eaeef3; --accent-ink: #ffffff; }
+[data-accent="indigo"] { --accent: #4338ca; --accent-hover: #3730a3; --accent-soft: #e9e8fc; --accent-ink: #ffffff; }
+[data-accent="cyan"] { --accent: #0e7490; --accent-hover: #0c5c74; --accent-soft: #e0f6fa; --accent-ink: #ffffff; }
+[data-accent="fuchsia"] { --accent: #a21caf; --accent-hover: #86198f; --accent-soft: #fbe6f8; --accent-ink: #ffffff; }
+
+[data-accent="blue"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #5b9bff; --accent-hover: #74acff; --accent-soft: rgba(91, 155, 255, 0.16); --accent-ink: #10151b; }
+[data-accent="teal"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #2dd4bf; --accent-hover: #4de0cd; --accent-soft: rgba(45, 212, 191, 0.16); --accent-ink: #10151b; }
+[data-accent="violet"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #a78bfa; --accent-hover: #b9a4fb; --accent-soft: rgba(167, 139, 250, 0.18); --accent-ink: #10151b; }
+[data-accent="rose"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #fb7185; --accent-hover: #fc8b9b; --accent-soft: rgba(251, 113, 133, 0.16); --accent-ink: #10151b; }
+[data-accent="slate"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #94a3b8; --accent-hover: #aab6c7; --accent-soft: rgba(148, 163, 184, 0.18); --accent-ink: #10151b; }
+[data-accent="indigo"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #818cf8; --accent-hover: #93a2fb; --accent-soft: rgba(129, 140, 248, 0.18); --accent-ink: #10151b; }
+[data-accent="cyan"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #22d3ee; --accent-hover: #4dd8ef; --accent-soft: rgba(34, 211, 238, 0.16); --accent-ink: #10151b; }
+[data-accent="fuchsia"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #e879f9; --accent-hover: #ee94fa; --accent-soft: rgba(232, 121, 249, 0.18); --accent-ink: #10151b; }
 
 html { background: var(--bg); }
 
@@ -779,7 +849,7 @@ html[data-theme-source="user"][data-theme="nocturne"] .theme-picker-item[data-th
   padding: 6px 14px;
   border-radius: 6px;
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-ink);
   font-weight: 600;
   font-size: 14px;
   text-decoration: none;
@@ -1075,8 +1145,26 @@ button.pe-btn, .pe-btn {
 }
 .pe-btn:hover { background: var(--bg); }
 
-.pe-btn.primary { background: var(--accent); border-color: var(--accent); color: white; }
+.pe-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .pe-btn.primary:hover { background: var(--accent-hover); }
+
+/* A middle tier between .primary and the plain button: the accent as a tint
+   rather than a fill, for actions that are the obvious next step but not the
+   one thing on the screen. Readable by construction - the text is the accent
+   itself over a 12% wash of the accent - but "by construction" was not enough
+   on its own: at full strength the accent scored 2.89:1 on its own tint in
+   Nord, so the text is pulled 40% toward --accent-lift, which is whichever
+   pole the surface is NOT. Worst case after that is 4.65:1 (Nord + indigo). */
+.pe-btn.tonal {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  color: color-mix(in srgb, var(--accent) 60%, var(--accent-lift));
+}
+.pe-btn.tonal:hover {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  color: color-mix(in srgb, var(--accent) 50%, var(--accent-lift));
+}
 
 .pe-btn.danger-link {
   border: none;
@@ -1087,13 +1175,17 @@ button.pe-btn, .pe-btn {
 }
 .pe-btn.danger-link:hover { text-decoration: underline; background: none; }
 
-.pe-btn.danger { background: var(--danger); border-color: var(--danger); color: white; }
-/* Darkened from the token rather than a fixed shade, so a theme whose danger
-   is already light (Dracula, Nord) still gets a hover that moves the right
-   way instead of jumping to someone else's maroon. */
+.pe-btn.danger { background: var(--danger); border-color: var(--danger); color: var(--danger-ink); }
+/* The hover used to be `color-mix(--danger 82%, black)`. That was the right
+   idea against a fixed white text, but --danger-ink is near-black in six of
+   the ten themes, and darkening the fill under a near-black ink walks the
+   contrast DOWN - Dracula's hover measured 3.17:1 while its resting state
+   measured 5.79. So each theme names its own --danger-hover, moving away
+   from its own ink rather than always toward black; every hover now scores
+   higher than the state it came from. */
 .pe-btn.danger:hover {
-  background: color-mix(in srgb, var(--danger) 82%, black);
-  border-color: color-mix(in srgb, var(--danger) 82%, black);
+  background: var(--danger-hover);
+  border-color: var(--danger-hover);
 }
 
 .pe-btn:disabled, .pe-btn.disabled { opacity: 0.5; cursor: default; pointer-events: none; }
@@ -1307,7 +1399,7 @@ button.pe-btn, .pe-btn {
 .swap-eligible:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); }
 .swap-selected {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-ink);
   box-shadow: none;
 }
 .seat-none { color: var(--text-soft); }
@@ -1324,7 +1416,7 @@ button.pe-btn, .pe-btn {
   cursor: pointer;
   font-style: normal;
   font-weight: 600;
-  color: #fff;
+  color: var(--accent-ink);
   background: var(--accent);
   border: 1px solid var(--accent);
 }
@@ -1735,7 +1827,7 @@ button.pe-btn, .pe-btn {
 /* round picker (Pairings) */
 .round-picker { display: flex; gap: 6px; flex-wrap: wrap; }
 .round-picker .pe-btn { min-width: 40px; padding: 7px 0; text-align: center; font-variant-numeric: tabular-nums; }
-.round-picker .pe-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+.round-picker .pe-btn.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 
 /* word-label buttons (category filters, sub-nav tabs) reuse the
    .round-picker row layout but must not be squeezed to the 40px
@@ -2319,9 +2411,9 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .pe-tag-ok { background: var(--accent-soft); color: var(--accent); }
 .pe-tag-muted { background: var(--surface-hover); color: var(--text-soft); }
 .pe-tag-warn { background: var(--warn-soft); color: var(--warn); }
-.pe-tag-danger { background: var(--danger); color: #fff; }
+.pe-tag-danger { background: var(--danger); color: var(--danger-ink); }
 .pe-tag-float { background: var(--warn-soft); color: var(--warn); }
-.pe-tag-bye { background: var(--accent); color: #fff; }
+.pe-tag-bye { background: var(--accent); color: var(--accent-ink); }
 .pe-tag-down { background: var(--warn-soft); color: var(--warn); }
 .pe-tag-up { background: var(--info-soft); color: var(--info); }
 
@@ -2622,7 +2714,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   font-size: 9.5px; font-weight: 700;
 }
 .pe-trail-col.is-w { background: var(--surface); border: 1.5px solid var(--accent); color: var(--accent); }
-.pe-trail-col.is-b { background: var(--accent); color: #fff; }
+.pe-trail-col.is-b { background: var(--accent); color: var(--accent-ink); }
 .pe-trail-col.is-bye { background: var(--surface); border: 1.5px dashed var(--accent); color: var(--accent); }
 .pe-trail-col.is-absent { background: var(--surface-hover); color: var(--text-soft); }
 /* Result cell colour mirrors the app's existing W/D/L tag language.
@@ -3051,7 +3143,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   padding: 15px;
   font-size: 17px;
   font-weight: 700;
-  color: #fff;
+  color: var(--accent-ink);
   background: var(--accent);
   border: none;
   border-radius: 10px;
@@ -3141,7 +3233,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   color: var(--text);
   cursor: pointer;
 }
-.mobile-result-btn.chosen { background: var(--accent); color: #fff; border-color: var(--accent); }
+.mobile-result-btn.chosen { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .mobile-result-btn.mobile-clear { flex: 0 0 52px; font-size: 20px; color: var(--text-soft); }
 .mobile-result-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 /* "More…" (forfeits/asymmetric codes) is secondary to the three main
@@ -3657,7 +3749,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .hist-badge.is-here {
   border-color: transparent;
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-ink);
 }
 
 .hist-meta {
@@ -3857,11 +3949,11 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
    the deploy banner's last thirty seconds. */
 .site-notice[data-level="urgent"] {
   background: var(--danger);
-  color: #fff;
+  color: var(--danger-ink);
   border-bottom-color: var(--danger);
 }
 .site-notice[data-level="urgent"] .site-notice-text,
-.site-notice[data-level="urgent"] .site-notice-lead { color: #fff; font-weight: 600; }
+.site-notice[data-level="urgent"] .site-notice-lead { color: var(--danger-ink); font-weight: 600; }
 
 /* Text colour and weight only, on the calm tier's own background. The
    two-minute step was briefly given a tinted amber bar to make the state
@@ -3878,10 +3970,10 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
    urgent when somebody is trying to finish typing a scoresheet. */
 .deploy-banner[data-tier="now"] {
   background: var(--danger);
-  color: #fff;
+  color: var(--danger-ink);
   border-bottom-color: var(--danger);
 }
-.deploy-banner[data-tier="now"] .deploy-banner-text { color: #fff; font-weight: 700; }
+.deploy-banner[data-tier="now"] .deploy-banner-text { color: var(--danger-ink); font-weight: 700; }
 
 /* "Updated to vX.Y.Z", after a restart that changed the version. Bottom
    corner rather than a top bar: the update has already happened, so this is
