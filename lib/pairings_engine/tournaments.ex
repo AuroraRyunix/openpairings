@@ -7,6 +7,7 @@ defmodule PairingsEngine.Tournaments do
   """
 
   import Ecto.Query
+  alias PairingsEngine.Audit
   alias PairingsEngine.Repo
   alias PairingsEngine.Tiebreaks
   alias PairingsEngine.Standings
@@ -1301,6 +1302,94 @@ defmodule PairingsEngine.Tournaments do
     else
       {:error, :bad_token}
     end
+  end
+
+  @doc """
+  Break glass: clears the hand-off lock WITHOUT the token, on the owner's
+  say-so.
+
+  ## Why this has to exist
+
+  `take_back/2` needs the token, and the token lives in exactly one place -
+  the copy the tournament was handed to. That is the whole point of it, and
+  it is fine until that copy is stolen, wiped, or dropped in a canal. With
+  no way in, this copy is read-only forever: the round it is holding can
+  never be paired and the event is finished as a working document. A lock
+  whose failure mode is "the tournament cannot continue" has traded a
+  recoverable problem for an unrecoverable one, which is the opposite of a
+  safety feature.
+
+  ## What it does not do
+
+  It does not make divergence safe. The other copy still exists, still holds
+  what it holds, and must never be opened again - once this returns, any
+  work done over there is lost, and any work done over here after it is
+  work the other copy does not have. Nothing can undo that; the honest goal
+  is to make the choice DELIBERATE and to write down who made it. So the
+  caller is expected to confirm in words first (see
+  `PairingsEngineWeb.SettingsSupport.force_unlock_panel/1`, which is
+  deliberately awkward to use), and this writes its own audit row either
+  way.
+
+  ## The rules
+
+    * **Owner only.** A collaborator can archive, pair and enter results;
+      abandoning a copy of a live event is not on that list. Refused with
+      `{:error, :not_owner}`.
+    * **Only on a tournament that is actually handed off.** Refused with
+      `{:error, :not_handed_off}` otherwise - a button that silently
+      succeeds on a live tournament invites being pressed to find out what
+      it does, and this is the one button nobody should learn by pressing.
+    * **The audit row and the unlock are one transaction.** Unusually for
+      this codebase, the row is written HERE rather than at the LiveView
+      call site (see `PairingsEngine.Audit`'s note on where writes come
+      from). Two reasons, both specific to this function: the acting user
+      is already an argument, because ownership has to be checked; and when
+      two divergent copies surface months later, "which one was forced?" is
+      answerable only from this row. A call site that forgot to log would
+      leave a forced unlock indistinguishable from a clean take-back, so it
+      is not left to a call site.
+
+  The action code is `"tournament.handoff_forced"`, deliberately distinct
+  from whatever an ordinary take-back records. The token is NOT put in the
+  details: it is dead by then, but a dead credential in a log an
+  administrator reads on screen is still a credential in a log.
+  """
+  @spec force_take_back(Tournament.t(), Scope.t()) ::
+          {:ok, Tournament.t()} | {:error, :not_owner | :not_handed_off | Ecto.Changeset.t()}
+  def force_take_back(%Tournament{} = tournament, %Scope{} = actor) do
+    cond do
+      not owner?(tournament, actor) -> {:error, :not_owner}
+      not handed_off?(tournament) -> {:error, :not_handed_off}
+      true -> do_force_take_back(tournament, actor)
+    end
+  end
+
+  defp do_force_take_back(%Tournament{} = tournament, %Scope{} = actor) do
+    Repo.transaction(fn ->
+      with {:ok, unlocked} <-
+             tournament
+             |> Ecto.Changeset.change(
+               handed_off_at: nil,
+               handed_off_to: nil,
+               handoff_token: nil
+             )
+             |> Repo.update(),
+           {:ok, _row} <-
+             Audit.log(tournament.id, actor, "tournament.handoff_forced", %{
+               name: tournament.name,
+               was_handed_off_to: tournament.handed_off_to,
+               was_handed_off_at: tournament.handed_off_at
+             }) do
+        unlocked
+      else
+        {:error, reason} -> Repo.rollback(reason)
+      end
+    end)
+    |> tap_ok(fn unlocked ->
+      broadcast_tournament_change(unlocked.id, :tournament)
+      broadcast_tournament_list(unlocked)
+    end)
   end
 
   @doc "Whether `tournament` is currently handed off (and therefore read-only here)."
