@@ -339,41 +339,41 @@ jobs:
           cp -R pairings_engine_portable/* "$app_name/Contents/Resources/app/"
 
           # Create Info.plist
-          cat << 'EOF' > "$app_name/Contents/Info.plist"
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>CFBundleExecutable</key>
-    <string>OpenPairings</string>
-    <key>CFBundleIdentifier</key>
-    <string>cloud.zerotwo.openpairings</string>
-    <key>CFBundleName</key>
-    <string>OpenPairings</string>
-    <key>CFBundleDisplayName</key>
-    <string>OpenPairings</string>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-    <key>CFBundleShortVersionString</key>
-    <string>0.18.0</string>
-    <key>CFBundleVersion</key>
-    <string>0.18.0</string>
-    <key>LSMinimumSystemVersion</key>
-    <string>11.0</string>
-    <key>NSHighResolutionCapable</key>
-    <true/>
-</dict>
-</plist>
-EOF
+          cat << 'EOF' | sed 's/^[ ]*//' > "$app_name/Contents/Info.plist"
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>OpenPairings</string>
+              <key>CFBundleIdentifier</key>
+              <string>cloud.zerotwo.openpairings</string>
+              <key>CFBundleName</key>
+              <string>OpenPairings</string>
+              <key>CFBundleDisplayName</key>
+              <string>OpenPairings</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleShortVersionString</key>
+              <string>0.18.0</string>
+              <key>CFBundleVersion</key>
+              <string>0.18.0</string>
+              <key>LSMinimumSystemVersion</key>
+              <string>11.0</string>
+              <key>NSHighResolutionCapable</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
 
           # Create launcher script in Contents/MacOS/OpenPairings
-          cat << 'EOF' > "$app_name/Contents/MacOS/OpenPairings"
-#!/bin/bash
-DIR="$(cd "$(dirname "$0")/../Resources/app" && pwd)"
-export OPENPAIRINGS_LOCAL=1
-export PORT=${PORT:-4000}
-exec "$DIR/bin/pairings_engine_portable" start
-EOF
+          cat << 'EOF' | sed 's/^[ ]*//' > "$app_name/Contents/MacOS/OpenPairings"
+          #!/bin/bash
+          DIR="$(cd "$(dirname "$0")/../Resources/app" && pwd)"
+          export OPENPAIRINGS_LOCAL=1
+          export PORT=${PORT:-4000}
+          exec "$DIR/bin/pairings_engine_portable" start
+          EOF
           chmod +x "$app_name/Contents/MacOS/OpenPairings"
 
           # Ad-hoc code sign the entire bundle for Apple Silicon / macOS integrity
