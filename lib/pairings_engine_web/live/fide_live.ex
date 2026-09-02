@@ -667,7 +667,7 @@ defmodule PairingsEngineWeb.FideLive do
         <p :if={@publish_test} class="hint" style="margin-top: 12px">
           <%= case @publish_test do %>
             <% {:ok, message} -> %>
-              <strong style="color: var(--color-success)">{message}</strong>
+              <strong style="color: var(--success)">{message}</strong>
             <% {:error, message} -> %>
               <strong style="color: var(--danger)">{message}</strong>
           <% end %>
