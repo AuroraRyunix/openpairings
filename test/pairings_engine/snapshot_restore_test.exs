@@ -356,5 +356,41 @@ defmodule PairingsEngine.SnapshotRestoreTest do
       assert Enum.map(players, & &1.name) |> Enum.sort() == ["Alice", "Bob"]
       assert %Round{pairings: [_]} = Tournaments.get_round(t.id, 1)
     end
+
+    test "a rejected restore leaves HEAD where it was and pins no snapshot" do
+      scope = user_scope()
+      {t, _a, _b} = played(scope)
+
+      {:ok, snapshot} = Snapshots.capture(t, "manual", scope)
+
+      t = Repo.reload!(t)
+      head_before = t.head_snapshot_id
+      count_before = Repo.aggregate(from(s in Snapshot, where: s.tournament_id == ^t.id), :count)
+
+      broken =
+        update_in(
+          Repo.get(Snapshot, snapshot.id).payload,
+          ["tournaments", Access.at(0), "players"],
+          fn players -> Enum.map(players, &Map.put(&1, "name", "")) end
+        )
+
+      Repo.update_all(from(s in Snapshot, where: s.id == ^snapshot.id), set: [payload: broken])
+
+      assert {:error, _reason} = Snapshots.restore(t, snapshot.id, scope)
+
+      # The "Before restoring to …" capture and the HEAD move are part of the
+      # restore, so a refused restore must leave neither behind - otherwise
+      # the next capture hangs its parent_id off a node the data never
+      # reached.
+      assert Repo.reload!(t).head_snapshot_id == head_before
+
+      assert Repo.aggregate(from(s in Snapshot, where: s.tournament_id == ^t.id), :count) ==
+               count_before
+
+      refute Repo.exists?(
+               from s in Snapshot,
+                 where: s.tournament_id == ^t.id and s.trigger == "snapshot.restored"
+             )
+    end
   end
 end

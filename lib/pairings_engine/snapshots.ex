@@ -346,20 +346,7 @@ defmodule PairingsEngine.Snapshots do
     with :ok <- Tournaments.ensure_writable(tournament),
          %Snapshot{} = snapshot <- get(tournament.id, snapshot_id),
          {:ok, entry} <- payload_entry(snapshot) do
-      # Capture what we're about to overwrite, pinned, so this is reversible.
-      # This extends the line being left (its parent is the current HEAD), so
-      # that line stays intact and reachable rather than being orphaned.
-      capture(tournament, "snapshot.restored", actor,
-        summary: "Before restoring to #{restore_label(snapshot)}",
-        pinned: true
-      )
-
-      # Move HEAD to the point being restored. The next capture hangs off
-      # here, which is what makes the tree fork at this node instead of
-      # continuing the abandoned line.
-      set_head(tournament, snapshot.id)
-
-      do_restore(tournament, entry)
+      do_restore(tournament, snapshot, entry, actor)
     else
       nil -> {:error, :not_found}
       {:error, _} = error -> error
@@ -377,10 +364,35 @@ defmodule PairingsEngine.Snapshots do
 
   defp payload_entry(%Snapshot{}), do: {:error, :malformed_snapshot}
 
-  defp do_restore(tournament, entry) do
+  # The two HEAD writes belong to the restore, so they live inside its
+  # transaction. They used to be plain committed writes ahead of it: a
+  # snapshot whose payload no longer validates against the current changesets
+  # left the tournament's data untouched (that part always rolled back
+  # cleanly) but `head_snapshot_id` pointing at the target and a pinned
+  # "Before restoring to …" snapshot on the tree, so the next `capture/4`
+  # hung its `parent_id` off the wrong node. Now a rejected restore leaves
+  # nothing behind at all.
+  #
+  # Order inside the transaction still matters: the "before" capture exports
+  # the live data, so it has to run ahead of `wipe_contents/1`.
+  defp do_restore(tournament, snapshot, entry, actor) do
     result =
       Tournaments.with_broadcast_suppressed(fn ->
         Repo.transaction(fn ->
+          # Capture what we're about to overwrite, pinned, so this is
+          # reversible. This extends the line being left (its parent is the
+          # current HEAD), so that line stays intact and reachable rather
+          # than being orphaned.
+          capture(tournament, "snapshot.restored", actor,
+            summary: "Before restoring to #{restore_label(snapshot)}",
+            pinned: true
+          )
+
+          # Move HEAD to the point being restored. The next capture hangs
+          # off here, which is what makes the tree fork at this node instead
+          # of continuing the abandoned line.
+          set_head(tournament, snapshot.id)
+
           wipe_contents(tournament.id)
           TournamentImport.restore_into!(tournament, entry)
         end)
