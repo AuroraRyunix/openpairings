@@ -359,7 +359,7 @@ defmodule PairingsEngineWeb.StandingsLive do
         <div
           :if={@tournament.manual_ranking}
           class="manual-ranking-banner"
-          style="margin-bottom: 8px; padding: 8px 12px; border: 2px solid var(--color-warning, #b45309); border-radius: 6px;"
+          style="margin-bottom: 8px; padding: 8px 12px; border: 2px solid var(--warn); border-radius: 6px;"
         >
           <strong>{gettext("Manual ranking is ON.")}</strong>
           {gettext(
