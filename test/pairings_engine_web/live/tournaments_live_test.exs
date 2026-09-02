@@ -694,4 +694,35 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
       refute html =~ "Reporting only"
     end
   end
+
+  describe "lifecycle actions on a handed-off tournament" do
+    # The lock and the lifecycle gating were built by two agents that could
+    # not see each other's files: one added {:error, :handed_off} to delete,
+    # archive and purge, the other owned the page whose `{:ok, _} =` match
+    # would meet it. Until they were merged, nothing exercised the pair, and
+    # the refusal would have arrived as a crashed page.
+    setup %{scope: scope} do
+      {:ok, t} =
+        Tournaments.create_tournament(scope, %{"name" => "Loaned Open", "type" => "swiss"})
+
+      {:ok, t} = Tournaments.hand_off(t, "this laptop")
+      %{tournament: t}
+    end
+
+    test "delete is refused with a message, not a crash", %{conn: conn, tournament: t} do
+      {:ok, lv, _} = live(conn, ~p"/")
+      lv |> render_hook("delete_start", %{"id" => to_string(t.id)})
+      lv |> render_hook("delete_confirm_input", %{"confirm" => "DELETE"})
+      html = lv |> render_hook("delete_confirmed", %{})
+      assert Process.alive?(lv.pid)
+      assert html =~ "handed off" or html =~ "Take it back" or html =~ "checked out"
+    end
+
+    test "archive is refused with a message, not a crash", %{conn: conn, tournament: t} do
+      {:ok, lv, _} = live(conn, ~p"/")
+      html = lv |> render_hook("archive_tournament", %{"id" => to_string(t.id)})
+      assert Process.alive?(lv.pid)
+      assert html =~ "handed off" or html =~ "Take it back" or html =~ "checked out"
+    end
+  end
 end

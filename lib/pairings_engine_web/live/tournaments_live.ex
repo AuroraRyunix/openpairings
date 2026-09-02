@@ -15,6 +15,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
   alias PairingsEngine.Tools.Parser
   alias PairingsEngine.Tournaments.Tournament
+  alias PairingsEngineWeb.SettingsSupport
 
   # Initial values for the "New tournament" form - kept in `new_params` and
   # bound to each input so a phx-change re-render never wipes them.
@@ -70,7 +71,9 @@ defmodule PairingsEngineWeb.TournamentsLive do
        # feature's UI must never do.
        handoff_target: nil,
        receiving_handoff: false,
-       return_target: nil
+       return_target: nil,
+       force_unlock_text: "",
+       force_unlock_error: nil
      )
      # ".swar"/".trf" have no registered MIME type, so the browser-side accept
      # filter can't be used; each parser rejects anything that isn't its own
@@ -291,6 +294,35 @@ defmodule PairingsEngineWeb.TournamentsLive do
        importing: false,
        importing_trf: false
      )}
+  end
+
+  def handle_event("force_unlock_input", %{"confirm" => value}, socket) do
+    {:noreply, assign(socket, force_unlock_text: value, force_unlock_error: nil)}
+  end
+
+  # The break-glass unlock itself. `force_take_back/2` is owner-only and audits
+  # the forcing distinctly from an ordinary take-back, because when two
+  # divergent copies later surface that row is the only record of which one was
+  # forced open.
+  def handle_event("force_unlock_confirmed", _params, socket) do
+    case Tournaments.force_take_back(socket.assigns.return_target, socket.assigns.current_scope) do
+      {:ok, tournament} ->
+        {:noreply,
+         socket
+         |> assign(return_target: nil, force_unlock_text: "", force_unlock_error: nil)
+         |> put_flash(
+           :info,
+           gettext(
+             "\"%{name}\" is unlocked here. The copy handed to %{place} must not be opened again.",
+             name: tournament.name,
+             place: tournament.handed_off_to || gettext("the other machine")
+           )
+         )
+         |> assign_tournaments()}
+
+      {:error, reason} ->
+        {:noreply, assign(socket, force_unlock_error: SettingsSupport.error_text(reason))}
+    end
   end
 
   def handle_event("receive_handoff", _params, socket) do
@@ -564,17 +596,24 @@ defmodule PairingsEngineWeb.TournamentsLive do
   def handle_event("delete_confirmed", _params, socket) do
     case socket.assigns do
       %{delete_target: %Tournament{} = tournament, delete_confirm_text: "DELETE"} ->
-        {:ok, _} = Tournaments.soft_delete_tournament(tournament)
+        case Tournaments.soft_delete_tournament(tournament) do
+          {:ok, _} ->
+            Audit.log(tournament.id, socket.assigns.current_scope, "tournament.deleted", %{
+              name: tournament.name
+            })
 
-        Audit.log(tournament.id, socket.assigns.current_scope, "tournament.deleted", %{
-          name: tournament.name
-        })
+            {:noreply,
+             socket
+             |> assign(delete_target: nil, delete_confirm_text: "")
+             |> assign_tournaments()
+             |> assign_deleted_tournaments()}
 
-        {:noreply,
-         socket
-         |> assign(delete_target: nil, delete_confirm_text: "")
-         |> assign_tournaments()
-         |> assign_deleted_tournaments()}
+          {:error, reason} ->
+            {:noreply,
+             socket
+             |> assign(delete_target: nil, delete_confirm_text: "")
+             |> put_flash(:error, SettingsSupport.error_text(reason))}
+        end
 
       _ ->
         {:noreply, socket}
@@ -685,17 +724,21 @@ defmodule PairingsEngineWeb.TournamentsLive do
         {:noreply, put_flash(socket, :error, "Tournament not found.")}
 
       tournament ->
-        {:ok, _} = Tournaments.archive_tournament(tournament)
+        case Tournaments.archive_tournament(tournament) do
+          {:ok, _} ->
+            Audit.log(tournament.id, socket.assigns.current_scope, "tournament.archived", %{
+              name: tournament.name
+            })
 
-        Audit.log(tournament.id, socket.assigns.current_scope, "tournament.archived", %{
-          name: tournament.name
-        })
+            {:noreply,
+             socket
+             |> put_flash(:info, "\"#{tournament.name}\" is archived - it's now read-only.")
+             |> assign_tournaments()
+             |> assign_archived_tournaments()}
 
-        {:noreply,
-         socket
-         |> put_flash(:info, "\"#{tournament.name}\" is archived - it's now read-only.")
-         |> assign_tournaments()
-         |> assign_archived_tournaments()}
+          {:error, reason} ->
+            {:noreply, put_flash(socket, :error, SettingsSupport.error_text(reason))}
+        end
     end
   end
 
@@ -755,12 +798,19 @@ defmodule PairingsEngineWeb.TournamentsLive do
   def handle_event("purge_confirmed", _params, socket) do
     case socket.assigns do
       %{purge_target: %Tournament{} = tournament, purge_confirm_text: "DELETE"} ->
-        {:ok, _} = Tournaments.purge_tournament(tournament)
+        case Tournaments.purge_tournament(tournament) do
+          {:error, reason} ->
+            {:noreply,
+             socket
+             |> assign(purge_target: nil, purge_confirm_text: "")
+             |> put_flash(:error, SettingsSupport.error_text(reason))}
 
-        {:noreply,
-         socket
-         |> assign(purge_target: nil, purge_confirm_text: "")
-         |> assign_deleted_tournaments()}
+          _ ->
+            {:noreply,
+             socket
+             |> assign(purge_target: nil, purge_confirm_text: "")
+             |> assign_deleted_tournaments()}
+        end
 
       _ ->
         {:noreply, socket}
@@ -1721,6 +1771,21 @@ defmodule PairingsEngineWeb.TournamentsLive do
           </button>
         </div>
       </form>
+
+      <%!-- The way back when the returning file cannot be produced at all -
+            the laptop was stolen, wiped, or is at the bottom of a canal.
+            Without it the lock is permanent and this copy stays read-only
+            forever, which turns a safety feature into a disaster. Folded
+            shut, owner-only, and deliberately harder to reach than the
+            ordinary route directly above it: it is the right answer only
+            once the file is genuinely unobtainable. --%>
+      <SettingsSupport.force_unlock_panel
+        :if={@return_target}
+        tournament={@return_target}
+        scope={@current_scope}
+        confirm_text={@force_unlock_text}
+        error={@force_unlock_error}
+      />
 
       <div
         :if={

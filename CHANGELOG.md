@@ -16,7 +16,22 @@ Each entry is tagged so a version can be skimmed:
 
 ## [0.19.0] - 2026-09-02
 
+### Added
+
+- [Feature] **Move a tournament between this server and a copy on your own machine.** Hand it off and it locks here - read-only, with a banner on every page saying where it went - and downloads a file. Import that file elsewhere and the tournament is live there. Bring it back with the returning file and this copy unlocks. It is a checked-out library book, not a sync: exactly one copy is live at a time, and nothing is ever merged.
+
+  Handing off carries the audit trail with the tournament, and the collaborator list as invitations to re-accept. It deliberately does not carry helper phones - a code that lets a phone enter results here must not start working somewhere else because a file moved - so those need re-enrolling on the other side. The panel says all of this before you commit to it.
+
+  If the other machine is lost, stolen or wiped, an owner can force the lock open. It is folded away, asks you to type UNLOCK, records itself separately in the audit log, and says the true thing rather than a vague warning: the other copy still exists, this does not close it, and whoever has it must never open it again.
+
 ### Fixed
+
+- [Fix] **A checked-out tournament can no longer be binned, purged or archived here.** Purging one destroyed the row the returning file needs, stranding the other copy permanently.
+- [Fix] **Taking a tournament off the results site checked whether it was allowed to - after doing it.** On a frozen tournament the published copy, its history and its collected entries were destroyed and the key cleared, and only then was the change refused. Rotating a public address hit the same path, so a refusal left the tournament unpublished with its key gone.
+- [Fix] Two pairing entry points read the archived flag directly instead of asking whether the tournament was writable at all, so they would have paired a checked-out tournament and then failed mid-write. A results import into one crashed outright, and generating a phone QR for one produced a code whose results the server then refused.
+- [Fix] Nine refusals said "this tournament is archived" whatever the real reason was - sending an arbiter to unarchive a tournament that was not archived.
+- [Change] **The FIDE/KBSB sync line is gone from the top bar.** The Connections page still shows both in full; the top bar had too much in it.
+
 
 - [Fix] **Buttons you can actually read, on every theme.** The main action button filled itself with your accent colour and wrote white on top - hardcoded. Across the ten themes and nine accent choices, **64 of 90 combinations failed** the accessibility threshold for readable text, the worst at 1.81:1 against a required 4.5. On Nord the button you are most meant to find scored 2.00. Each theme and accent now names the ink that belongs on it - Nord's is 6.24 - and the delete button, which had the same fault in six themes, is fixed the same way. Eight other places writing white on a coloured fill went with them; no hardcoded white is left in the stylesheet.
 - [Change] **One action per screen actually looks like one.** The report downloads on the norms pages and the arbiter tools - IT3, IT4, FA1, IA1 and the combined forms - were each styled as the page's main action, so a page offering six of them shouted six times. They are the quieter tonal style now; saving still stands out, because saving is the thing you cannot get back by clicking again. Same for the "Add" button that builds a forbidden-pairing list, which is a step rather than the commit.
