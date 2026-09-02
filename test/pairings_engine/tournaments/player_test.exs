@@ -167,4 +167,48 @@ defmodule PairingsEngine.Tournaments.PlayerTest do
       assert Ecto.Changeset.get_field(changeset, :fixed_board) == nil
     end
   end
+
+  describe "team_id ownership" do
+    alias PairingsEngine.Repo
+    alias PairingsEngine.Tournaments.{Team, Tournament}
+
+    defp two_tournaments do
+      mine = Repo.insert!(%Tournament{name: "Mine", type: "swiss", rounds_count: 3})
+      theirs = Repo.insert!(%Tournament{name: "Theirs", type: "swiss", rounds_count: 3})
+      {mine, theirs}
+    end
+
+    test "a team from another tournament is refused" do
+      {mine, theirs} = two_tournaments()
+      stranger = Repo.insert!(%Team{tournament_id: theirs.id, name: "Elsewhere"})
+
+      changeset =
+        Player.changeset(%Player{tournament_id: mine.id}, %{
+          "name" => "A",
+          "team_id" => stranger.id
+        })
+
+      refute changeset.valid?
+      assert %{team_id: ["must be a team in this tournament"]} = errors_on(changeset)
+    end
+
+    test "a team from this tournament is accepted" do
+      {mine, _theirs} = two_tournaments()
+      team = Repo.insert!(%Team{tournament_id: mine.id, name: "Ours"})
+
+      changeset =
+        Player.changeset(%Player{tournament_id: mine.id}, %{"name" => "A", "team_id" => team.id})
+
+      assert changeset.valid?
+    end
+
+    test "clearing the team, and an edit that never touches it, cost nothing" do
+      {mine, _theirs} = two_tournaments()
+      team = Repo.insert!(%Team{tournament_id: mine.id, name: "Ours"})
+      player = %Player{tournament_id: mine.id, name: "A", team_id: team.id}
+
+      assert Player.changeset(player, %{"team_id" => nil}).valid?
+      assert Player.changeset(player, %{"name" => "B"}).valid?
+    end
+  end
 end

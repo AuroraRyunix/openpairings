@@ -1,6 +1,7 @@
 defmodule PairingsEngine.Tournaments.Player do
   use Ecto.Schema
   import Ecto.Changeset
+  import Ecto.Query, only: [from: 2]
 
   @paid_statuses ~w(nopaid paid gratis)
 
@@ -109,6 +110,7 @@ defmodule PairingsEngine.Tournaments.Player do
     |> validate_inclusion(:paid, @paid_statuses)
     |> validate_number(:extra_points, greater_than_or_equal_to: 0.0)
     |> validate_fixed_board()
+    |> validate_team_in_tournament()
     |> normalize_absent_rounds()
     |> sync_special_table()
     |> validate_fide_id_range()
@@ -131,6 +133,37 @@ defmodule PairingsEngine.Tournaments.Player do
   # against the round's real boards, would reverse that decision.
   defp validate_fixed_board(changeset) do
     validate_number(changeset, :fixed_board, greater_than: 0)
+  end
+
+  # `:team_id` is cast (the JSON import needs it - `TournamentImport`
+  # remaps every id through its `team_map` and hands the new one here), and
+  # `teams` has no tournament column on the `players` foreign key to check
+  # it against, so the ownership check has to live here. `update_player/2` is
+  # reached from a LiveView form whose params are whatever the browser sent:
+  # without this, any team row in the database could be attached to any
+  # player. Nothing renders `player.team` today, so this is a fence built
+  # before the field is read rather than a fix for a visible bug.
+  #
+  # Only queried when the value actually changes to something non-nil -
+  # clearing a team is always fine, and the ordinary player edit that does
+  # not touch the field must not cost a query.
+  defp validate_team_in_tournament(changeset) do
+    case get_change(changeset, :team_id) do
+      nil ->
+        changeset
+
+      team_id ->
+        tournament_id = get_field(changeset, :tournament_id)
+
+        if PairingsEngine.Repo.exists?(
+             from t in PairingsEngine.Tournaments.Team,
+               where: t.id == ^team_id and t.tournament_id == ^tournament_id
+           ) do
+          changeset
+        else
+          add_error(changeset, :team_id, "must be a team in this tournament")
+        end
+    end
   end
 
   # ---------- Absent rounds (SWAR "Absent at the rounds x,y,z") ----------
