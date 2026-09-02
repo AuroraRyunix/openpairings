@@ -45,6 +45,17 @@ defmodule PairingsEngine.Tools.OverlayTest do
     assert merged.officials["chief_arbiter_email"] == "already@example.com"
   end
 
+  test "extra_arbiters_count is clamped to Forms.max_extra_arbiters/0" do
+    max = PairingsEngine.Norms.Forms.max_extra_arbiters()
+
+    merged = Overlay.apply(tournament(), %{"extra_arbiters_count" => "100000000"})
+    assert merged.officials["extra_arbiters_count"] == to_string(max)
+    refute Map.has_key?(merged.officials, "arbiter#{max + 1}_name")
+
+    merged = Overlay.apply(tournament(), %{"extra_arbiters_count" => -5})
+    refute Map.has_key?(merged.officials, "extra_arbiters_count")
+  end
+
   test "unrecognised keys are ignored" do
     merged = Overlay.apply(tournament(), %{"nonsense_key" => "whatever"})
 

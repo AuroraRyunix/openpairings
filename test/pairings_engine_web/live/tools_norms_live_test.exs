@@ -329,6 +329,65 @@ defmodule PairingsEngineWeb.ToolsNormsLiveTest do
     assert xml =~ "CORNET, Luc"
   end
 
+  test "a crafted extra_arbiters_count is clamped to the maximum", %{conn: conn} do
+    max = PairingsEngine.Norms.Forms.max_extra_arbiters()
+
+    {:ok, lv, _html} = live(conn, ~p"/tools/norms")
+    upload_files(lv, [{"alpha.trf", trf_text("Alpha Open", [{"Alice", 111}, {"Bob", 222}])}])
+
+    # Straight at the event: the count is never rendered as an input on this
+    # page (it's driven by "+ Add arbiter"), so the only way to set it is a
+    # crafted `update_fields` payload - which is exactly the finding.
+    html =
+      render_change(lv, "update_fields", %{"overlay" => %{"extra_arbiters_count" => "100000000"}})
+
+    # The rendered boxes stop at the cap ...
+    assert html =~ "Arbiter #{max}"
+    refute html =~ "Arbiter #{max + 1}"
+
+    # ... and so does what the download route reads back out of the session.
+    fill_required_emails(lv)
+    {:ok, session} = Session.get(download_token(lv))
+    assert session.overlay["extra_arbiters_count"] == max
+  end
+
+  test "five extra arbiters still work end to end", %{conn: conn} do
+    Repo.insert!(%PairingsEngine.Fide.FidePlayer{
+      fide_id: 205_494,
+      name: "Cornet, Luc",
+      federation: "BEL"
+    })
+
+    {:ok, lv, _html} = live(conn, ~p"/tools/norms")
+    upload_files(lv, [{"alpha.trf", trf_text("Alpha Open", [{"Alice", 111}, {"Bob", 222}])}])
+
+    html =
+      Enum.reduce(1..5, "", fn _, _ ->
+        lv |> element(~s(button[phx-click="add_arbiter"])) |> render_click()
+      end)
+
+    assert html =~ "Arbiter 5"
+
+    lv
+    |> element("input[name='overlay[arbiter5_name]']")
+    |> render_change(%{
+      "overlay" => %{"arbiter5_name" => "Cornet"},
+      "_target" => ["overlay", "arbiter5_name"]
+    })
+
+    lv
+    |> element(~s(button[phx-click="arbiter_pick"][phx-value-fide-id="205494"]))
+    |> render_click()
+
+    fill_required_emails(lv)
+    conn = get(conn, ~p"/tools/download/#{download_token(lv)}/it3")
+
+    assert conn.status == 200
+    xml = xlsx_xml(conn.resp_body)
+    assert xml =~ "205494"
+    assert xml =~ "CORNET, Luc"
+  end
+
   test "removing a parsed file takes it out of the report", %{conn: conn} do
     {:ok, lv, _html} = live(conn, ~p"/tools/norms")
 

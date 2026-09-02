@@ -89,6 +89,11 @@ defmodule PairingsEngine.Norms.ItThreeExpand do
   `extra_count` arbiters beyond chief + the 2 ranked deputies. A no-op
   (returns `template_binary` untouched) whenever `extra_count <= #{@fixed_slots}`
   - those fit in the template's own spare rows, nothing to grow.
+
+  Raises `ArgumentError` above `PairingsEngine.Norms.Forms.max_extra_arbiters/0`.
+  Every caller clamps to that already; this is the last line of defence,
+  because the work here is linear in `extra_count` and the field feeding it
+  is reachable from the public tools page.
   """
   def expand(template_binary, extra_count)
       when is_binary(template_binary) and is_integer(extra_count) and extra_count <= @fixed_slots,
@@ -96,6 +101,13 @@ defmodule PairingsEngine.Norms.ItThreeExpand do
 
   def expand(template_binary, extra_count)
       when is_binary(template_binary) and is_integer(extra_count) and extra_count > @fixed_slots do
+    max = PairingsEngine.Norms.Forms.max_extra_arbiters()
+
+    if extra_count > max do
+      raise ArgumentError,
+            "extra_count #{extra_count} is above the #{max} extra arbiters IT3 supports"
+    end
+
     insert_count = extra_count - @fixed_slots
 
     {:ok, entries} = :zip.unzip(template_binary, [:memory])

@@ -116,5 +116,17 @@ defmodule PairingsEngine.Norms.ItThreeExpandTest do
       assert invul =~ "205494"
       assert invul =~ "Cornet, Luc"
     end
+
+    test "the cap itself still expands" do
+      max = Forms.max_extra_arbiters()
+      refute ItThreeExpand.expand(@template, max) == @template
+    end
+
+    test "above the cap it refuses rather than building the rows" do
+      max = Forms.max_extra_arbiters()
+
+      assert_raise ArgumentError, fn -> ItThreeExpand.expand(@template, max + 1) end
+      assert_raise ArgumentError, fn -> ItThreeExpand.expand(@template, 100_000_000) end
+    end
   end
 end

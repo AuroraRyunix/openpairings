@@ -128,7 +128,11 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   end
 
   def handle_event("update_fields", params, socket) do
-    overlay = Map.merge(socket.assigns.overlay, Map.get(params, "overlay", %{}))
+    overlay =
+      socket.assigns.overlay
+      |> Map.merge(Map.get(params, "overlay", %{}))
+      |> clamp_overlay_extra_arbiters()
+
     candidate = Map.merge(socket.assigns.candidate, Map.get(params, "candidate", %{}))
 
     {:noreply, socket |> assign(overlay: overlay, candidate: candidate) |> sync_session()}
@@ -547,19 +551,36 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
     end
   end
 
+  # Clamped at every parse: this page is public and unauthenticated, and the
+  # count drives IT3 template growth at download time (see
+  # `PairingsEngine.Norms.Forms.max_extra_arbiters/0`).
   defp parse_extra_count(nil), do: 0
-  defp parse_extra_count(n) when is_integer(n), do: n
+  defp parse_extra_count(n) when is_integer(n), do: clamp_extra_count(n)
 
   defp parse_extra_count(s) when is_binary(s) do
     case Integer.parse(s) do
-      {n, _} -> n
+      {n, _} -> clamp_extra_count(n)
       :error -> 0
+    end
+  end
+
+  defp parse_extra_count(_), do: 0
+
+  defp clamp_extra_count(n), do: n |> max(0) |> min(Forms.max_extra_arbiters())
+
+  # `update_fields` merges the client's whole `overlay` map, so a crafted
+  # change event can set the count directly without ever clicking
+  # "+ Add arbiter". Normalise it to the clamped integer on the way in.
+  defp clamp_overlay_extra_arbiters(overlay) do
+    case Map.fetch(overlay, "extra_arbiters_count") do
+      {:ok, value} -> Map.put(overlay, "extra_arbiters_count", parse_extra_count(value))
+      :error -> overlay
     end
   end
 
   defp bump_extra_arbiters(overlay, delta) do
     current = parse_extra_count(Map.get(overlay, "extra_arbiters_count"))
-    new_count = max(current + delta, 0)
+    new_count = clamp_extra_count(current + delta)
 
     overlay = Map.put(overlay, "extra_arbiters_count", new_count)
 

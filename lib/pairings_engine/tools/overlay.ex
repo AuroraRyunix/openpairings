@@ -92,15 +92,23 @@ defmodule PairingsEngine.Tools.Overlay do
   defp count_string(0), do: nil
   defp count_string(n), do: to_string(n)
 
+  # Clamped: the overlay arrives straight from a public form field, and the
+  # count drives IT3 template growth (see
+  # `PairingsEngine.Norms.Forms.max_extra_arbiters/0`).
   defp parse_extra_count(nil), do: 0
-  defp parse_extra_count(n) when is_integer(n), do: n
+  defp parse_extra_count(n) when is_integer(n), do: clamp_extra_count(n)
 
   defp parse_extra_count(s) when is_binary(s) do
     case Integer.parse(s) do
-      {n, _} -> n
+      {n, _} -> clamp_extra_count(n)
       :error -> 0
     end
   end
+
+  defp parse_extra_count(_), do: 0
+
+  defp clamp_extra_count(n),
+    do: n |> max(0) |> min(PairingsEngine.Norms.Forms.max_extra_arbiters())
 
   defp maybe_put_officials(officials, _key, nil), do: officials
   defp maybe_put_officials(officials, _key, ""), do: officials

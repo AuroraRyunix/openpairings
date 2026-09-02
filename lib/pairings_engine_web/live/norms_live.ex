@@ -33,6 +33,7 @@ defmodule PairingsEngineWeb.NormsLive do
   import PairingsEngineWeb.Components.It3CountsExplain
 
   alias PairingsEngine.{Fide, Tournaments}
+  alias PairingsEngine.Norms.Forms
   alias PairingsEngine.Tournaments.Player
   alias PairingsEngineWeb.Live.ArbiterCombo
 
@@ -248,7 +249,11 @@ defmodule PairingsEngineWeb.NormsLive do
   end
 
   def handle_event("save_officials", %{"tournament" => params}, socket) do
-    params = Map.take(params, ["chief_arbiter", "organizer", "officials"])
+    params =
+      params
+      |> Map.take(["chief_arbiter", "organizer", "officials"])
+      |> clamp_officials_extra_arbiters()
+
     base = Tournaments.get_tournament!(socket.assigns.tournament.id)
 
     case missing_official_ids(params) do
@@ -613,19 +618,42 @@ defmodule PairingsEngineWeb.NormsLive do
   defp extra_arbiters_count(tournament),
     do: tournament |> o_get("extra_arbiters_count") |> parse_extra_count()
 
+  # Clamped, same as the public tools page - the count drives IT3 template
+  # growth at download time (see
+  # `PairingsEngine.Norms.Forms.max_extra_arbiters/0`).
   defp parse_extra_count(nil), do: 0
-  defp parse_extra_count(n) when is_integer(n), do: n
+  defp parse_extra_count(n) when is_integer(n), do: clamp_extra_count(n)
 
   defp parse_extra_count(s) when is_binary(s) do
     case Integer.parse(s) do
-      {n, _} -> n
+      {n, _} -> clamp_extra_count(n)
       :error -> 0
+    end
+  end
+
+  defp parse_extra_count(_), do: 0
+
+  defp clamp_extra_count(n), do: n |> max(0) |> min(Forms.max_extra_arbiters())
+
+  # The count travels through "Save officials" as a hidden input, so the
+  # submitted params can carry anything; clamp before it reaches the changeset.
+  defp clamp_officials_extra_arbiters(params) do
+    case params do
+      %{"officials" => %{"extra_arbiters_count" => value} = officials} ->
+        Map.put(
+          params,
+          "officials",
+          Map.put(officials, "extra_arbiters_count", parse_extra_count(value))
+        )
+
+      _ ->
+        params
     end
   end
 
   defp bump_extra_arbiters(tournament, delta) do
     current = extra_arbiters_count(tournament)
-    new_count = max(current + delta, 0)
+    new_count = clamp_extra_count(current + delta)
 
     officials =
       tournament
