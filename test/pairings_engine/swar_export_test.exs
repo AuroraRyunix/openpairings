@@ -245,6 +245,29 @@ defmodule PairingsEngine.SwarExportTest do
     assert parsed.tournament.abs_nbfois == 2
   end
 
+  test "a cap past SWAR's one-byte range is clamped, not wrapped", %{tournament: t} do
+    # `w_u8/1` is `<<v::8>>`, which MASKS: 256 came back out as 0, which SWAR
+    # reads as "no round qualifies"/"no absence qualifies" - the exact
+    # opposite of a very high cap. Written straight through the Repo because
+    # `Tournament.changeset/2` now refuses these values outright (see
+    # tournament_test.exs); this is the backstop for rows already on disk.
+    {:ok, t} =
+      t
+      |> Ecto.Changeset.change(abs_value: 0.5, abs_jusque: 300, abs_nbfois: 1000)
+      |> Repo.update()
+
+    log =
+      ExUnit.CaptureLog.capture_log(fn ->
+        binary = SwarExport.export(t.id)
+        assert {:ok, parsed} = SwarImport.parse(binary)
+
+        assert parsed.tournament.abs_jusque == 255
+        assert parsed.tournament.abs_nbfois == 255
+      end)
+
+    assert log =~ "past SWAR's one-byte range"
+  end
+
   test "unrated and asymmetric games count towards NbParties", %{
     tournament: t,
     players: %{a: a, b: b},

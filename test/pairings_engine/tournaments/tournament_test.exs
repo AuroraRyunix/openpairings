@@ -164,6 +164,42 @@ defmodule PairingsEngine.Tournaments.TournamentTest do
     end
   end
 
+  describe "abs_jusque/abs_nbfois bounds" do
+    # Both are one-byte fields in the `.swar` format, so `SwarExport`'s
+    # `w_u8/1` masked anything past 255 - 256 wrote as 0, which SWAR reads
+    # as "no round qualifies", the opposite of what was meant. The export
+    # clamps and logs as a backstop; the changeset refuses at the door.
+    for field <- [:abs_jusque, :abs_nbfois] do
+      test "#{field} accepts 0 and 255" do
+        for value <- [0, 255] do
+          changeset =
+            Tournament.changeset(%Tournament{}, %{unquote(field) => value, name: "T"})
+
+          refute Keyword.has_key?(changeset.errors, unquote(field))
+        end
+      end
+
+      test "#{field} rejects a value past 255" do
+        changeset = Tournament.changeset(%Tournament{}, %{unquote(field) => 256, name: "T"})
+
+        assert {_msg, opts} = changeset.errors[unquote(field)]
+        assert opts[:validation] == :number
+      end
+
+      test "#{field} still rejects a negative value" do
+        changeset = Tournament.changeset(%Tournament{}, %{unquote(field) => -1, name: "T"})
+
+        assert changeset.errors[unquote(field)]
+      end
+
+      test "#{field} still accepts nil, which means 'no cap'" do
+        changeset = Tournament.changeset(%Tournament{}, %{unquote(field) => nil, name: "T"})
+
+        refute Keyword.has_key?(changeset.errors, unquote(field))
+      end
+    end
+  end
+
   defp find_missing(tournament, field) do
     Enum.find(Tournament.missing_setup_fields(tournament), fn {f, _msg} -> f == field end)
   end

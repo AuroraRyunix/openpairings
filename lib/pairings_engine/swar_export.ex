@@ -286,12 +286,34 @@ defmodule PairingsEngine.SwarExport do
   #     "every round" and "every absence" in a tournament that long. It is
   #     the largest honest number rather than a sentinel, and it survives
   #     the u8 because `rounds_count` is capped at 30.
+  #
+  # Whatever the branch, the result goes through `w_u8/1` (`<<v::8>>`), which
+  # MASKS rather than fails: 256 came out as 0, i.e. "no round qualifies",
+  # the exact opposite of a very high cap. So the integer branch is clamped
+  # to `@max_abs_cap` and says so in the log, the same way
+  # `reverse_handy_table/1` handles its own field's range. `Tournament`'s
+  # changeset now bounds both columns at 255 as well, so this is a backstop
+  # for rows written before that bound existed.
   defp abs_cap(t, cap) do
     cond do
       (t.abs_value || 0.0) <= 0 -> 0
-      is_integer(cap) -> cap
+      is_integer(cap) -> clamp_abs_cap(t, cap)
       true -> t.rounds_count || 0
     end
+  end
+
+  # The largest value SWAR's one-byte absence-cap fields can hold.
+  @max_abs_cap 255
+
+  defp clamp_abs_cap(_t, cap) when cap <= @max_abs_cap, do: cap
+
+  defp clamp_abs_cap(t, cap) do
+    Logger.warning(
+      "SWAR export: #{t.name}'s absence cap #{cap} is past SWAR's one-byte range " <>
+        "(max #{@max_abs_cap}); exporting #{@max_abs_cap} instead."
+    )
+
+    @max_abs_cap
   end
 
   defp reverse_bye_value(1.0), do: 0
