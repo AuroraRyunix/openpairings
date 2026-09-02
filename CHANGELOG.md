@@ -18,6 +18,11 @@ Each entry is tagged so a version can be skimmed:
 
 ### Fixed
 
+- [Fix] **Buttons you can actually read, on every theme.** The main action button filled itself with your accent colour and wrote white on top - hardcoded. Across the ten themes and nine accent choices, **64 of 90 combinations failed** the accessibility threshold for readable text, the worst at 1.81:1 against a required 4.5. On Nord the button you are most meant to find scored 2.00. Each theme and accent now names the ink that belongs on it - Nord's is 6.24 - and the delete button, which had the same fault in six themes, is fixed the same way. Eight other places writing white on a coloured fill went with them; no hardcoded white is left in the stylesheet.
+- [Feature] **A quieter middle button** (`tonal`) for the second action on a busy page: tinted with the accent and lettered in it, rather than shouting or disappearing. Readable by construction on every theme - the worst combination measures 4.65.
+- [Fix] Two hover states were darker than the thing they hovered over, and one theme's accent hover walked its own contrast down; both now move away from their ink rather than into it.
+- [Fix] The Save button on the publishing card carried a class that does not exist (`pe-btn-primary`), so it has been rendering as an ordinary button since it was written.
+
 - [Fix] **The last yellow boxes, on Nord and every other theme.** The earlier fix moved the app's own components onto the theme's colours, but six places were reading daisyUI's `--color-warning`/`--color-success` instead - tokens no theme overrides, so they stayed a fixed amber and green while everything around them changed. The changelog's own [Fix] tags were one of them. Two more surfaced while widening the net: a warning panel tinted with a hardcoded red, and three connection-status rules reading a colour token that does not exist, so their grey never applied in any theme.
 - [Fix] The theme test now reads the templates as well as the stylesheet, understands `oklch()`/`hsl()`/`rgb()`, and fails on any colour token the themes do not actually override - the three gaps that let the above through.
 
