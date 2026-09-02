@@ -50,6 +50,41 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
              ~s(type="hidden" id="arbiter-combo-deputy1-id-hidden" name="tournament[officials][deputy1_fide_id]")
   end
 
+  test "the officials form is debounced and typing in it does not re-sort the roster",
+       %{conn: conn, scope: scope} do
+    tournament = create_tournament(scope)
+    {:ok, _} = Tournaments.create_player(tournament.id, %{"name" => "Alice"})
+    {:ok, _} = Tournaments.create_player(tournament.id, %{"name" => "Bob"})
+
+    {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/norms")
+
+    # `phx-debounce` on the form covers every input inside it.
+    assert html =~ ~r/<form[^>]*id="officials-form"[^>]*phx-debounce="300"/s
+
+    # The IT4 table's sort used to run from the template; it is now computed
+    # once per roster load and kept in an assign. Traced in the LiveView's own
+    # process - `:local` because `players_by_norm_relevance/2` is private.
+    :erlang.trace(lv.pid, true, [:call])
+    mfa = {PairingsEngineWeb.NormsLive, :players_by_norm_relevance, 2}
+    assert :erlang.trace_pattern(mfa, true, [:local]) == 1
+    on_exit(fn -> :erlang.trace_pattern(mfa, false, [:local]) end)
+
+    # Positive control first (a roster reload really does sort), so the refute
+    # below is known not to be vacuous. It has to come first: an
+    # `officials_change` marks the page dirty, and a dirty page answers a
+    # tournament broadcast with a staleness check instead of a reload.
+    send(lv.pid, {:tournament_changed, tournament.id, nil})
+    render(lv)
+    assert_receive {:trace, _, :call, {PairingsEngineWeb.NormsLive, _, _}}
+    refute_receive {:trace, _, :call, {PairingsEngineWeb.NormsLive, _, _}}, 50
+
+    render_change(lv, "officials_change", %{
+      "tournament" => %{"officials" => %{"chief_arbiter_email" => "a@example.com"}}
+    })
+
+    refute_receive {:trace, _, :call, {PairingsEngineWeb.NormsLive, _, _}}, 50
+  end
+
   test "arbiters 1 and 2 (beyond the 2 ranked deputies) save and reach the officials map",
        %{conn: conn, scope: scope} do
     tournament = create_tournament(scope)
