@@ -90,11 +90,19 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
   end
 
   @impl true
-  def handle_event("locked_hint", %{"field" => field}, socket) do
+  # Guarded on the one field this page's `locked_overlay/1` sends - see the
+  # same guard in `SettingsOptionsLive` for why an unguarded
+  # `String.to_existing_atom/1` on a param is a self-inflicted crash.
+  @locked_fields ~w(abs_scoring)
+
+  def handle_event("locked_hint", %{"field" => field}, socket)
+      when field in @locked_fields do
     field = String.to_existing_atom(field)
     Process.send_after(self(), {:clear_locked_hint, field}, 3000)
     {:noreply, assign(socket, locked_hint: field)}
   end
+
+  def handle_event("locked_hint", _params, socket), do: {:noreply, socket}
 
   # Toggling the checkbox flips a live preview of its state (see the
   # `vur_checked` assign) so the warning box below it shows/hides

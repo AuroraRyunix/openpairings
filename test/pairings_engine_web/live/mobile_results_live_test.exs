@@ -183,4 +183,40 @@ defmodule PairingsEngineWeb.MobileResultsLiveTest do
                "via phone, enrollment ##{enrollment.id}"
     end
   end
+
+  describe "revoking an enrollment reaches the phone that is holding it" do
+    @tag :javafo
+    test "the revoked phone is sent back to the code-entry page", %{conn: conn} do
+      # `revoke/1` only wrote `revoked_at` and told nobody. The page kept
+      # reloading the round on every tournament change and re-checked the
+      # enrollment only when it tried to WRITE, so from the helper's side
+      # revoking did nothing at all until they next tapped a result.
+      tournament = paired_tournament()
+      {:ok, enrollment} = Mobile.create_enrollment(tournament.id)
+      conn = init_test_session(conn, %{mobile_enrollment_id: enrollment.id})
+
+      {:ok, lv, _html} = live(conn, ~p"/m/results")
+
+      {:ok, _revoked} = Mobile.revoke(enrollment)
+
+      assert_redirect(lv, ~p"/m")
+    end
+
+    @tag :javafo
+    test "a different phone on the same tournament stays put", %{conn: conn} do
+      # The broadcast goes to the whole tournament topic, so the id has to
+      # be checked - otherwise revoking one phone would evict all of them.
+      tournament = paired_tournament()
+      {:ok, mine} = Mobile.create_enrollment(tournament.id)
+      {:ok, theirs} = Mobile.create_enrollment(tournament.id)
+
+      conn = init_test_session(conn, %{mobile_enrollment_id: mine.id})
+      {:ok, lv, _html} = live(conn, ~p"/m/results")
+
+      {:ok, _revoked} = Mobile.revoke(theirs)
+
+      refute_redirected(lv, ~p"/m")
+      assert render(lv) =~ "White Player"
+    end
+  end
 end

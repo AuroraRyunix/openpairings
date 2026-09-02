@@ -47,6 +47,41 @@ defmodule PairingsEngine.RateLimitTest do
     assert RateLimit.config(:login_email).max < RateLimit.config(:mobile_enroll).max
   end
 
+  test "concurrent hits are all counted - the increment is atomic, not read-then-write" do
+    # Read-then-write lost hits under exactly the traffic these buckets are
+    # for: several requests from one abuser land on several schedulers, each
+    # reads the same count and writes back the same number, and a burst is
+    # counted as one.
+    key = key()
+    parent = self()
+
+    # Every process is parked on the same barrier and released at once, so
+    # the 200 increments genuinely overlap rather than queueing up behind
+    # each other the way a plain `Enum.map` over tasks would.
+    workers =
+      for _ <- 1..200 do
+        Task.async(fn ->
+          send(parent, {:ready, self()})
+
+          receive do
+            :go -> RateLimit.record(:public_register, key)
+          end
+        end)
+      end
+
+    for _ <- workers, do: assert_receive({:ready, _})
+    for w <- workers, do: send(w.pid, :go)
+    for w <- workers, do: Task.await(w)
+
+    assert RateLimit.count(:public_register, key) == 200
+  end
+
+  test "a hit on an untouched key starts the window at one" do
+    key = key()
+    RateLimit.record(:mobile_enroll, key)
+    assert RateLimit.count(:mobile_enroll, key) == 1
+  end
+
   test "an unknown bucket raises rather than silently allowing everything" do
     assert_raise KeyError, fn -> RateLimit.allow?(:not_a_bucket, "k") end
   end

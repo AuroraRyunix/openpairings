@@ -158,6 +158,11 @@ defmodule PairingsEngineWeb.PairingsLive do
         # simply unpaired - so the byes-only query this page used to run is
         # no longer needed here. Other views still use it.
         round_pool: Tournaments.list_round_pool(t.id, n),
+        # The pool chips' absence counts, built once per refresh rather
+        # than queried once per chip (`Standings.absent_counts/1`). Empty,
+        # and no query at all, unless the tournament caps "Pt ABSENT" by
+        # occurrence - which is why this was easy to miss.
+        absent_counts: Standings.absent_counts(t),
         paired_rounds: paired,
         next_pairable: paired + 1,
         setup_complete: setup_complete,
@@ -277,8 +282,8 @@ defmodule PairingsEngineWeb.PairingsLive do
     %{"x" => x, "y" => y} = params
 
     menu = %{
-      x: x,
-      y: y,
+      x: coord(x),
+      y: coord(y),
       player_id: int_or_nil(params["player-id"]),
       pairing_id: int_or_nil(params["pairing-id"]),
       seat: params["seat"],
@@ -589,6 +594,24 @@ defmodule PairingsEngineWeb.PairingsLive do
         {:noreply, assign(socket, import_errors: ["Choose a CSV file first"])}
     end
   end
+
+  # The menu's position, straight from the click event, and interpolated into
+  # a `style` attribute by `context_menu/1`. HEEx escapes the attribute, so
+  # this was never markup injection - but it was a raw client string in a
+  # CSS declaration list, which the ids beside it never were
+  # (`int_or_nil/1`). A number is what the renderer wants and the only thing
+  # the browser sends, so parse one and put the menu at the origin when the
+  # value is anything else.
+  defp coord(value) when is_integer(value), do: value
+
+  defp coord(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {n, _rest} -> n
+      :error -> 0
+    end
+  end
+
+  defp coord(_value), do: 0
 
   defp int_or_nil(nil), do: nil
   defp int_or_nil(""), do: nil
@@ -1414,12 +1437,12 @@ defmodule PairingsEngineWeb.PairingsLive do
   # per-round byes row because it is the reason they are not in the
   # pairing at all - and, being the flag an arbiter most often reverses
   # on the day, the one they need to recognise at a glance.
-  defp pool_tag(%{absent?: true}, _tournament), do: "absent (whole event)"
+  defp pool_tag(%{absent?: true}, _tournament, _counts), do: "absent (whole event)"
 
-  defp pool_tag(%{type: nil}, _tournament), do: "unpaired"
+  defp pool_tag(%{type: nil}, _tournament, _counts), do: "unpaired"
 
-  defp pool_tag(%{type: type} = entry, tournament) do
-    points = PairingsEngine.Standings.bye_points_for_row(entry, tournament)
+  defp pool_tag(%{type: type} = entry, tournament, counts) do
+    points = PairingsEngine.Standings.bye_points_for_row(entry, tournament, counts)
     "#{bye_type_label(type)} · #{points} pt"
   end
 
@@ -2322,7 +2345,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             title={gettext("Right-click for options")}
           >
             <span class="pool-chip-name">{player_label(entry.player)}</span>
-            <span class="pool-chip-tag">{pool_tag(entry, @tournament)}</span>
+            <span class="pool-chip-tag">{pool_tag(entry, @tournament, @absent_counts)}</span>
           </li>
         </ul>
       </div>

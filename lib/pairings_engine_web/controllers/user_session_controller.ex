@@ -3,7 +3,7 @@ defmodule PairingsEngineWeb.UserSessionController do
 
   alias PairingsEngine.Accounts
   alias PairingsEngine.RateLimit
-  alias PairingsEngineWeb.UserAuth
+  alias PairingsEngineWeb.{ClientIp, UserAuth}
 
   def create(conn, %{"_action" => "confirmed"} = params) do
     create(conn, params, "User confirmed successfully.")
@@ -96,12 +96,18 @@ defmodule PairingsEngineWeb.UserSessionController do
   # Deliberately the same shape as `PairingsEngineWeb.UserLive.Login`'s own
   # `rate_limits/2` - the same two buckets, keyed the same way. Two sign-in
   # doors onto the same accounts should not have two different ceilings.
+  #
+  # The client key comes from `ClientIp`, not `conn.remote_ip`: behind a
+  # reverse proxy the peer address is the proxy's, identical for every
+  # visitor, so thirty wrong passwords from anywhere would lock password
+  # login for the whole site. `RateLimit`'s moduledoc says as much, and
+  # every other caller already obeys it.
   defp rate_limits(conn, email) do
     recipient = email |> to_string() |> String.trim() |> String.downcase()
 
-    case conn.remote_ip do
+    case ClientIp.get(conn) do
       nil -> [{:login_email, recipient}]
-      ip -> [{:login_email, recipient}, {:login_client, :inet.ntoa(ip) |> to_string()}]
+      ip -> [{:login_email, recipient}, {:login_client, ip}]
     end
   end
 

@@ -232,5 +232,48 @@ defmodule PairingsEngineWeb.UserSessionControllerTest do
       assert get_session(conn, :user_token)
       assert redirected_to(conn) == ~p"/"
     end
+
+    test "the client bucket is keyed on ClientIp, so one proxied visitor cannot lock out the rest",
+         %{conn: conn, user: user} do
+      # Behind a reverse proxy `conn.remote_ip` is the proxy's address and is
+      # the same for everybody: keyed on it, thirty wrong passwords from one
+      # visitor would shut password login for the whole venue.
+      original = Application.get_env(:pairings_engine, :trusted_proxy_hops, 0)
+      Application.put_env(:pairings_engine, :trusted_proxy_hops, 1)
+
+      noisy = "203.0.113.7"
+      quiet = "198.51.100.9"
+
+      on_exit(fn ->
+        Application.put_env(:pairings_engine, :trusted_proxy_hops, original)
+        PairingsEngine.RateLimit.clear(:login_client, noisy)
+        PairingsEngine.RateLimit.clear(:login_client, quiet)
+      end)
+
+      %{max: max} = PairingsEngine.RateLimit.config(:login_client)
+      for _ <- 1..max, do: PairingsEngine.RateLimit.record(:login_client, noisy)
+
+      blocked =
+        conn
+        |> put_req_header("x-forwarded-for", noisy)
+        |> post(~p"/users/log-in", %{
+          "user" => %{"email" => user.email, "password" => "wrong-one"}
+        })
+
+      assert Phoenix.Flash.get(blocked.assigns.flash, :error) =~ "Too many sign-in attempts"
+
+      # A different client, arriving through the same proxy, still gets in.
+      ok =
+        conn
+        |> put_req_header("x-forwarded-for", quiet)
+        |> post(~p"/users/log-in", %{
+          "user" => %{
+            "email" => user.email,
+            "password" => PairingsEngine.AccountsFixtures.valid_user_password()
+          }
+        })
+
+      assert get_session(ok, :user_token)
+    end
   end
 end

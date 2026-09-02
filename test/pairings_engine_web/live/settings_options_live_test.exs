@@ -606,4 +606,45 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
       refute has_element?(lv, "#pairing-settings-form .ok-note")
     end
   end
+
+  describe "the \"locked_hint\" event" do
+    # This handler ran `String.to_existing_atom/1` straight on the param, so
+    # a crafted event naming a field the page never sends took the sender's
+    # own socket down with an ArgumentError.
+    test "an unknown field is ignored rather than crashing the socket", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+
+      render_hook(lv, "locked_hint", %{"field" => "not_a_settings_field_at_all"})
+
+      assert Process.alive?(lv.pid)
+      assert is_nil(:sys.get_state(lv.pid).socket.assigns.locked_hint)
+    end
+
+    test "an atom that exists but this page never offers is ignored too", %{
+      conn: conn,
+      scope: scope
+    } do
+      # `to_existing_atom` would have accepted this one happily - the guard
+      # is an allowlist of what the markup sends, not of what compiles.
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+
+      render_hook(lv, "locked_hint", %{"field" => "name"})
+
+      assert is_nil(:sys.get_state(lv.pid).socket.assigns.locked_hint)
+    end
+
+    test "a field the markup does send still sets the hint", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+
+      render_hook(lv, "locked_hint", %{"field" => "pairing_system"})
+
+      assert :sys.get_state(lv.pid).socket.assigns.locked_hint == :pairing_system
+    end
+  end
 end

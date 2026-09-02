@@ -337,17 +337,21 @@ defmodule PairingsEngine.Snapshot do
         }
       end
 
+    # Every cumulative absence count in one query, built before the loop -
+    # `bye_points_for_row/2` would ask the database once per emitted row.
+    absent_counts = Standings.absent_counts(t)
+
     recorded =
       for row <- Tournaments.list_byes_for_round(t.id, round.number),
           Map.has_key?(nos, row.player_id) do
         %{
           "player" => Map.get(nos, row.player_id),
           "kind" => Map.get(@bye_kinds, row.type, row.type),
-          # `bye_points_for_row/2` rather than `bye_points/4`: it works out the
+          # `bye_points_for_row/3` rather than `bye_points/4`: it works out the
           # round and the cumulative-absence count SWAR's two "Pt ABSENT" caps
           # need, so a capped absence is published at the value the crosstable
           # actually used.
-          "points" => Standings.bye_points_for_row(row, t)
+          "points" => Standings.bye_points_for_row(row, t, absent_counts)
         }
       end
 
