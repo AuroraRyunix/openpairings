@@ -247,6 +247,32 @@ defmodule PairingsEngineWeb.Layouts do
         <.link navigate={~p"/"} class="pe-btn">{gettext("Unarchive from Tournaments")}</.link>
       </div>
 
+      <%!-- The sibling of the archive banner, for the other reason a
+            tournament is read-only: it has been handed off, and is live on
+            some other machine right now. Same markup and the same
+            `.archived-banner` class deliberately - both say "this is a
+            state, not a failure, and every change here is refused", and a
+            second visual language for the same message would only make the
+            two harder to tell apart at a glance.
+
+            No action button, unlike archiving: unarchiving is something this
+            copy can just do, whereas taking a tournament back requires the
+            token the OTHER copy is holding, so there is nothing honest for a
+            button here to do yet. --%>
+      <div :if={@tournament && @tournament.handed_off_at} class="archived-banner">
+        <span>
+          <strong>
+            {gettext("This tournament has been handed off to %{place}.",
+              place: handoff_destination(@tournament.handed_off_to)
+            )}
+          </strong>
+          {gettext(
+            "It left this copy on %{at}, and is live there now. It's read-only here - every change is refused until it's handed back. Everything else (viewing, printing, exporting) still works normally.",
+            at: handoff_time(@tournament.handed_off_at)
+          )}
+        </span>
+      </div>
+
       {render_slot(@inner_block)}
     </main>
 
@@ -310,6 +336,24 @@ defmodule PairingsEngineWeb.Layouts do
 
   defp tab_class(true), do: "active"
   defp tab_class(false), do: nil
+
+  # Where a handed-off tournament went. The label is free text an arbiter
+  # typed, so it can be blank or missing (a hand-off recorded by an older
+  # build, a payload that carried no name) - and a sentence that trails off
+  # into nothing reads as a bug, where a vague one at least still parses.
+  defp handoff_destination(label) when is_binary(label) do
+    case String.trim(label) do
+      "" -> gettext("another copy")
+      trimmed -> trimmed
+    end
+  end
+
+  defp handoff_destination(_), do: gettext("another copy")
+
+  # Same format as every other timestamp shown to an arbiter (snapshots,
+  # registrations, round publication) - explicitly UTC, because the machine
+  # holding the tournament is quite possibly in another timezone.
+  defp handoff_time(%DateTime{} = at), do: Calendar.strftime(at, "%Y-%m-%d %H:%M UTC")
 
   @doc false
   # Compact "how stale is this rating list" label for the top-bar freshness
