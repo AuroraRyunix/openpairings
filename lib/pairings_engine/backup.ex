@@ -423,26 +423,51 @@ defmodule PairingsEngine.Backup do
            "PAIRINGS_BACKUP_PASSPHRASE to the one it was written with"}
 
       secret ->
-        salt = Base.decode64!(crypto["salt"])
-        iv = Base.decode64!(crypto["iv"])
-        tag = Base.decode64!(crypto["tag"])
-        iterations = crypto["iterations"] || @pbkdf2_iterations
-        key = :crypto.pbkdf2_hmac(:sha256, secret, salt, iterations, @key_bytes)
+        with {:ok, iterations} <- checked_iterations(crypto["iterations"]) do
+          salt = Base.decode64!(crypto["salt"])
+          iv = Base.decode64!(crypto["iv"])
+          tag = Base.decode64!(crypto["tag"])
+          key = :crypto.pbkdf2_hmac(:sha256, secret, salt, iterations, @key_bytes)
 
-        # `:error` here means the tag did not check out: a wrong passphrase, a
-        # truncated download, or a tampered file. All three deserve the same
-        # refusal, and none of them should produce a partly-decrypted database.
-        case :crypto.crypto_one_time_aead(@cipher, key, iv, payload, @magic, tag, false) do
-          :error ->
-            {:error, "wrong passphrase, or the backup has been altered since it was written"}
+          # `:error` here means the tag did not check out: a wrong passphrase, a
+          # truncated download, or a tampered file. All three deserve the same
+          # refusal, and none of them should produce a partly-decrypted database.
+          case :crypto.crypto_one_time_aead(@cipher, key, iv, payload, @magic, tag, false) do
+            :error ->
+              {:error, "wrong passphrase, or the backup has been altered since it was written"}
 
-          plain ->
-            {:ok, plain}
+            plain ->
+              {:ok, plain}
+          end
         end
     end
   end
 
   defp decrypt(_header, payload), do: {:ok, payload}
+
+  # The iteration count comes out of the backup file's own header, which is
+  # not authenticated - it is read *before* the AEAD tag is checked, because
+  # it is what derives the key the tag is checked with. An absurdly low count
+  # would weaken a passphrase this file was never actually written with; an
+  # absurdly high one turns `restore`/`verify` into a wedge (PBKDF2 has no
+  # early exit, and there is no cancel). So bound it either way. The range is
+  # deliberately wide - it has to keep accepting every count this app has
+  # ever written (@pbkdf2_iterations, 210_000) and leave room for it to rise.
+  @min_pbkdf2_iterations 10_000
+  @max_pbkdf2_iterations 2_000_000
+
+  defp checked_iterations(nil), do: {:ok, @pbkdf2_iterations}
+
+  defp checked_iterations(n)
+       when is_integer(n) and n >= @min_pbkdf2_iterations and n <= @max_pbkdf2_iterations,
+       do: {:ok, n}
+
+  defp checked_iterations(n) do
+    {:error,
+     "this backup's header asks for #{inspect(n)} PBKDF2 iterations, which is outside " <>
+       "the accepted range (#{@min_pbkdf2_iterations}-#{@max_pbkdf2_iterations}) - " <>
+       "the file is corrupt or has been tampered with"}
+  end
 
   defp summarise(path) do
     with {:ok, raw} <- File.read(path),

@@ -715,10 +715,22 @@ defmodule PairingsEngine.Tournaments.Tournament do
   # organiser (or SwarImport) actually set. Both are round/count numbers, so
   # negative doesn't mean anything - 0 is meaningful (see `swar_import.ex`'s
   # `tournament_attrs/1` doc on why 0 isn't the same as "uncapped").
+  #
+  # The upper bound is SWAR's: both are one-byte fields in the `.swar`
+  # format, so `SwarExport`'s `w_u8/1` masked anything past 255 (256 wrote
+  # as 0 - "no round qualifies", the opposite of what was meant). The export
+  # clamps and logs as a backstop; refusing the value at the door is the
+  # honest answer for a number no round count or absence count could reach.
   defp validate_abs_scoring(changeset) do
     changeset
-    |> validate_number_if_present(:abs_jusque, greater_than_or_equal_to: 0)
-    |> validate_number_if_present(:abs_nbfois, greater_than_or_equal_to: 0)
+    |> validate_number_if_present(:abs_jusque,
+      greater_than_or_equal_to: 0,
+      less_than_or_equal_to: 255
+    )
+    |> validate_number_if_present(:abs_nbfois,
+      greater_than_or_equal_to: 0,
+      less_than_or_equal_to: 255
+    )
   end
 
   defp validate_number_if_present(changeset, field, opts) do
