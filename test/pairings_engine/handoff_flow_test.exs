@@ -407,6 +407,30 @@ defmodule PairingsEngine.HandoffFlowTest do
       assert Handoff.release(Repo.reload!(ctx.source), token) == {:error, :bad_token}
     end
 
+    test "the outbound file is refused as a returning one, though it holds the same token", ctx do
+      # The realistic disaster: two similarly-named files in a downloads
+      # folder, and the wrong one unlocks the source while the other machine
+      # is still running the event on its live copy.
+      {:ok, outbound} = Handoff.hand_off(populated(ctx.sender), "elsewhere", ctx.sender)
+
+      assert Handoff.returning_token(over_the_wire(outbound)) == {:error, :not_a_return}
+    end
+
+    test "returning_token/1 reads the token back out of a returning file", ctx do
+      {:ok, payload} = Handoff.return(ctx.copy, ctx.receiver)
+
+      assert {:ok, token} = Handoff.returning_token(over_the_wire(payload))
+      assert token == ctx.source.handoff_token
+      assert {:ok, _} = Handoff.release(ctx.source, token)
+    end
+
+    test "an ordinary backup is not a returning file either", ctx do
+      backup = over_the_wire(TournamentExport.export_tournament(ctx.source))
+
+      assert Handoff.returning_token(backup) == {:error, :not_a_handoff}
+      assert Handoff.returning_token("junk") == {:error, :not_a_handoff}
+    end
+
     test "both are audited on their own copy", ctx do
       {:ok, payload} = Handoff.return(ctx.copy, ctx.receiver)
       {:ok, _} = Handoff.release(ctx.source, payload["handoff"]["token"])

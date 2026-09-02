@@ -466,6 +466,33 @@ defmodule PairingsEngine.Handoff do
     end
   end
 
+  @doc """
+  The token inside a RETURNING envelope, ready to hand to `release/3`.
+
+  Refuses `{:error, :not_a_return}` for a file that is a hand-off but points
+  the wrong way - which is the mistake worth catching. The outbound envelope
+  carries the same token as the returning one, so feeding the original file
+  back into "bring it back" would unlock the source while the other machine is
+  still running the event on its live copy. That is the two-live-copies state,
+  reached by picking the wrong file out of a downloads folder in which both
+  are called something similar.
+
+  The check is a field in a JSON file and anybody can edit it, so it stops an
+  honest mistake and not an attacker. An attacker holding the file already
+  holds the token.
+  """
+  @spec returning_token(term()) :: {:ok, String.t()} | {:error, reason() | :not_a_return}
+  def returning_token(data) when is_map(data) do
+    with {:ok, token} <- handoff_block(data) do
+      case get_in(data, ["handoff", "direction"]) do
+        "back" -> {:ok, token}
+        _other -> {:error, :not_a_return}
+      end
+    end
+  end
+
+  def returning_token(_data), do: {:error, :not_a_handoff}
+
   ## ---------- questions the UI asks ----------
 
   @doc """
