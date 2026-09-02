@@ -24,7 +24,7 @@ jobs:
     # whoever can move it runs their code in this workflow with this
     # repository checked out. The trailing comment is the human-readable
     # version; .github/dependabot.yml is what keeps the pair current.
-    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
     - name: Set up Elixir
       uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
