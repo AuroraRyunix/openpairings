@@ -339,4 +339,45 @@ defmodule PairingsEngine.Fide.SyncTest do
       assert Repo.get(FidePlayer, 1_000_001).name == "Player, 1"
     end
   end
+
+  # `@max_download_bytes` bounds the COMPRESSED stream; nothing bounded what
+  # it inflates to, and `:zip.extract(…, [:memory])` materialises the lot at
+  # once. The ceiling is read from the central directory before inflating, so
+  # a small zip with a lowered limit is a faithful test of the real path.
+  describe "unpacked-size ceiling" do
+    setup do
+      on_exit(fn -> Application.delete_env(:pairings_engine, :fide_max_unpacked_bytes) end)
+      :ok
+    end
+
+    defp zip_of(entries) do
+      {:ok, {_name, bytes}} = :zip.create(~c"list.zip", entries, [:memory])
+      bytes
+    end
+
+    test "a zip whose declared contents exceed the ceiling is refused" do
+      # Highly compressible, so the compressed cap would never have caught it.
+      zip = zip_of([{~c"players.txt", :binary.copy("A", 200_000)}])
+
+      Application.put_env(:pairings_engine, :fide_max_unpacked_bytes, 100_000)
+
+      assert {:error, message} = Sync.check_unpacked_size(zip)
+      assert message =~ "unpacked content"
+      assert message =~ "100000"
+    end
+
+    test "a zip inside the ceiling passes" do
+      zip = zip_of([{~c"players.txt", :binary.copy("A", 200_000)}])
+
+      Application.put_env(:pairings_engine, :fide_max_unpacked_bytes, 1_000_000)
+
+      assert :ok = Sync.check_unpacked_size(zip)
+    end
+
+    test "the default ceiling lets an ordinary list through" do
+      zip = zip_of([{~c"players.txt", :binary.copy("A", 200_000)}])
+
+      assert :ok = Sync.check_unpacked_size(zip)
+    end
+  end
 end

@@ -394,9 +394,64 @@ defmodule PairingsEngine.Fide.Sync do
     end
   end
 
+  # `@max_download_bytes` bounds the COMPRESSED stream; nothing bounded what
+  # it inflates to, and `:zip.extract(…, [:memory])` materialises the whole
+  # thing at once. The real list unpacks to ~250 MB of Latin-1 text, so 2 GB
+  # is a generous backstop rather than a filter - it exists so a pathological
+  # archive (a zip bomb from a mirror or a redirected endpoint) fails the
+  # sync instead of taking the node's memory with it. The check reads the
+  # central directory's declared sizes via `:zip.list_dir/1` first, so it
+  # refuses BEFORE inflating; the declared size is not trustworthy on its own,
+  # but a bomb that lies about it still has to get past the compressed cap.
+  # Overridable so tests can lower it without building a multi-gigabyte file.
+  @default_max_unpacked_bytes 2_000_000_000
+
+  defp max_unpacked_bytes do
+    Application.get_env(:pairings_engine, :fide_max_unpacked_bytes, @default_max_unpacked_bytes)
+  end
+
   defp unpack(server, zip, state) do
     state = update(server, %{state | status: :importing, progress: "Unpacking…"})
 
+    with :ok <- check_unpacked_size(zip) do
+      do_unpack(zip, state)
+    end
+  end
+
+  # `@doc false` and `def` (not `defp`) purely so tests can drive the ceiling
+  # with a small crafted zip and a lowered `:fide_max_unpacked_bytes`, without
+  # a real download - same reasoning as `import_list/3` below. Not part of the
+  # module's intended public API.
+  @doc false
+  def check_unpacked_size(zip) do
+    case :zip.list_dir(zip) do
+      {:ok, entries} ->
+        # `list_dir/1` returns a `:zip_comment` record first, then one
+        # `:zip_file` per entry whose third element is an Erlang
+        # `:file_info` record - `elem(info, 1)` is its declared `size`.
+        total =
+          Enum.reduce(entries, 0, fn
+            {:zip_file, _name, info, _comment, _offset, _comp_size}, acc ->
+              acc + elem(info, 1)
+
+            _other, acc ->
+              acc
+          end)
+
+        if total > max_unpacked_bytes() do
+          {:error,
+           "The FIDE zip declares #{total} bytes of unpacked content, past the " <>
+             "#{max_unpacked_bytes()}-byte limit"}
+        else
+          :ok
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp do_unpack(zip, state) do
     case :zip.extract(zip, [:memory]) do
       {:ok, files} ->
         case Enum.find(files, fn {name, _} -> String.ends_with?(to_string(name), ".txt") end) do
