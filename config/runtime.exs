@@ -372,19 +372,55 @@ if config_env() == :prod do
   # another machine, and that is enforced here rather than left to whoever
   # sets the variable. A server that switches it on by mistake stops
   # answering the internet - loud, and the safe direction to fail in.
+  # And the same pin for a server, which is a smaller claim than it sounds.
+  # The only client this app has in production is a cloudflared process on
+  # the same host, dialling it over loopback; binding every interface as well
+  # put the whole application on the box's public addresses, with the host
+  # firewall as the single control between it and the internet.
+  #
+  # OPENPAIRINGS_LISTEN_IP is the way out for a deployment that really does
+  # need to be reached directly - "0.0.0.0" for every IPv4 address, "::" for
+  # every address of either family, or one specific address. Anything
+  # unparseable is refused rather than guessed at: a typo that silently fell
+  # back to a wide bind would be the failure this exists to prevent.
+  #
+  # Local mode ignores it. That pin is a safety property of the mode itself
+  # (see above), not a default to be overridden.
+  parse_listen_ip = fn value ->
+    case value |> String.trim() |> String.to_charlist() |> :inet.parse_address() do
+      {:ok, address} ->
+        address
+
+      {:error, _} ->
+        raise """
+        OPENPAIRINGS_LISTEN_IP is not an IP address: #{inspect(value)}
+
+        Use "127.0.0.1" (the default), "0.0.0.0" for every IPv4 address,
+        "::" for every address, or a specific address to bind.
+        """
+    end
+  end
+
   {listen_ip, url_config} =
     if local_mode? do
       {{127, 0, 0, 1}, [host: host, port: port, scheme: "http"]}
     else
-      {{0, 0, 0, 0, 0, 0, 0, 0}, [host: host, port: 443, scheme: "https"]}
+      listen_ip =
+        case System.get_env("OPENPAIRINGS_LISTEN_IP") do
+          nil -> {127, 0, 0, 1}
+          "" -> {127, 0, 0, 1}
+          value -> parse_listen_ip.(value)
+        end
+
+      {listen_ip, [host: host, port: 443, scheme: "https"]}
     end
 
   config :pairings_engine, PairingsEngineWeb.Endpoint,
     url: url_config,
     http: [
-      # Enable IPv6 and bind on all interfaces - except in local mode, see
-      # above. See https://bandit.hexdocs.pm/Bandit.html#t:options/0 for
-      # IPv6 vs IPv4 and loopback vs public addresses.
+      # Loopback unless OPENPAIRINGS_LISTEN_IP says otherwise - see above.
+      # https://bandit.hexdocs.pm/Bandit.html#t:options/0 covers IPv6 vs IPv4
+      # and loopback vs public addresses.
       ip: listen_ip
     ],
     secret_key_base: secret_key_base

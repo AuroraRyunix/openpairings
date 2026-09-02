@@ -170,8 +170,89 @@ defmodule PairingsEngine.LocalModeTest do
 
       endpoint = config[:pairings_engine][PairingsEngineWeb.Endpoint]
 
-      assert endpoint[:http][:ip] == {0, 0, 0, 0, 0, 0, 0, 0}
+      # Loopback, but for a different reason than local mode's: a server binds
+      # loopback by default too (see "the listen address" below), and this
+      # only asserts that the local-mode SWITCH is off.
+      assert endpoint[:http][:ip] == {127, 0, 0, 1}
       assert config[:pairings_engine][:local_mode] == false
+    end
+  end
+
+  describe "the listen address" do
+    test "a server binds loopback by default" do
+      # Not the local-mode pin - this is a server run, and it still binds
+      # loopback, because the only client in this deployment is a cloudflared
+      # process on the same host. Binding every interface put the whole app on
+      # the box's public addresses with the host firewall as the only control.
+      config =
+        with_env(
+          %{
+            "DATABASE_PATH" => "/srv/op.db",
+            "SECRET_KEY_BASE" => String.duplicate("k", 64),
+            "SMTP_USERNAME" => "someone@example.com",
+            "SMTP_PASSWORD" => "hunter2"
+          },
+          fn -> read_prod(:prod) end
+        )
+
+      assert config[:pairings_engine][PairingsEngineWeb.Endpoint][:http][:ip] ==
+               {127, 0, 0, 1}
+    end
+
+    test "OPENPAIRINGS_LISTEN_IP widens it, for a deployment that needs it" do
+      for {value, expected} <- [
+            {"0.0.0.0", {0, 0, 0, 0}},
+            {"::", {0, 0, 0, 0, 0, 0, 0, 0}},
+            {"10.0.0.7", {10, 0, 0, 7}}
+          ] do
+        config =
+          with_env(
+            %{
+              "OPENPAIRINGS_LISTEN_IP" => value,
+              "DATABASE_PATH" => "/srv/op.db",
+              "SECRET_KEY_BASE" => String.duplicate("k", 64),
+              "SMTP_USERNAME" => "someone@example.com",
+              "SMTP_PASSWORD" => "hunter2"
+            },
+            fn -> read_prod(:prod) end
+          )
+
+        assert config[:pairings_engine][PairingsEngineWeb.Endpoint][:http][:ip] == expected
+      end
+    end
+
+    test "an unparseable OPENPAIRINGS_LISTEN_IP refuses to boot" do
+      # Rather than falling back to a default. A typo that silently widened
+      # or narrowed the bind is the failure this variable exists to avoid.
+      assert_raise RuntimeError, ~r/OPENPAIRINGS_LISTEN_IP/, fn ->
+        with_env(
+          %{
+            "OPENPAIRINGS_LISTEN_IP" => "everywhere",
+            "DATABASE_PATH" => "/srv/op.db",
+            "SECRET_KEY_BASE" => String.duplicate("k", 64),
+            "SMTP_USERNAME" => "someone@example.com",
+            "SMTP_PASSWORD" => "hunter2"
+          },
+          fn -> read_prod(:prod) end
+        )
+      end
+    end
+
+    test "local mode ignores it" do
+      # The local-mode pin is a property of the mode, not a default to be
+      # overridden: the mode prints login links to a terminal and signs in
+      # whoever reaches it from loopback.
+      config =
+        with_env(
+          %{
+            "OPENPAIRINGS_LOCAL" => "1",
+            "OPENPAIRINGS_LISTEN_IP" => "0.0.0.0"
+          },
+          fn -> read_prod(:prod) end
+        )
+
+      assert config[:pairings_engine][PairingsEngineWeb.Endpoint][:http][:ip] ==
+               {127, 0, 0, 1}
     end
   end
 
@@ -231,11 +312,15 @@ defmodule PairingsEngine.LocalModeTest do
 
       assert config[:pairings_engine][:local_mode] == false
 
+      # Loopback here is the server default (see "the listen address"), not
+      # the local-mode pin: the flag below is what says which one this is.
       assert config[:pairings_engine][PairingsEngineWeb.Endpoint][:http][:ip] ==
-               {0, 0, 0, 0, 0, 0, 0, 0}
+               {127, 0, 0, 1}
+
+      assert config[:pairings_engine][PairingsEngineWeb.Endpoint][:url][:scheme] == "https"
     end
 
-    test "a server run still binds every interface and still demands SMTP" do
+    test "a server run still talks https and still demands SMTP" do
       config =
         with_env(
           %{
@@ -250,7 +335,7 @@ defmodule PairingsEngine.LocalModeTest do
 
       endpoint = config[:pairings_engine][PairingsEngineWeb.Endpoint]
 
-      assert endpoint[:http][:ip] == {0, 0, 0, 0, 0, 0, 0, 0}
+      assert endpoint[:http][:ip] == {127, 0, 0, 1}
       assert endpoint[:url][:scheme] == "https"
       assert config[:pairings_engine][PairingsEngine.Mailer][:adapter] == Swoosh.Adapters.SMTP
     end
