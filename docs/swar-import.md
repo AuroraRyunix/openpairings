@@ -11,6 +11,24 @@ Both modules live in `lib/pairings_engine/federations/bel/`, with the rest
 of the Belgium-specific code. The rest of this document says `SwarImport`
 and `SwarExport` unqualified.
 
+## Switched on per account
+
+Both directions are optional and off by default, under separate switches on
+`/users/features` - `bel_swar_import` and `bel_swar_export` (see
+`PairingsEngine.Features`). With a switch off the control is not on the
+page at all, and the handler or route refuses the event or URL anyway.
+
+**A tournament already imported from a `.swar` file is untouched by either
+switch.** It keeps its `swar_guid`, its 3-2-1 scoring settings
+(`abs_value`, `abs_jusque`, `abs_nbfois`, `presence_value`,
+`presence_on_allocated_bye`), its players' clubs and national IDs, and it
+produces exactly the same standings. Those fields live in the core
+`Tournament`/`Player` schemas and are deliberately outside the pack.
+
+The one place a `.swar` is still read with no switch involved is the public
+`/tools/norms` page, which has no account and no user to ask - see
+`PairingsEngine.Tools.Parser`'s moduledoc.
+
 ## Export (`PairingsEngine.Federations.BEL.SwarExport`)
 
 The inverse - `GET /t/:id/export/swar`, "Export .swar (v7, experimental)"

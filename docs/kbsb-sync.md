@@ -12,6 +12,21 @@ The code lives in `lib/pairings_engine/federations/bel/` -
 the rest of the Belgium-specific code. The table it fills is still called
 `kbsb_players`, and stays called that; see `Member`'s moduledoc for why.
 
+## Switched on per account
+
+All of this is optional and off by default. Three of the five switches on
+`/users/features` cover it (see `PairingsEngine.Features` and
+docs/architecture.md): `bel_ratings_sync` puts the panel on the Connections
+page and lets the sync be started; `bel_player_lookup` and `bel_club_sync`
+turn on the two things that READ the table it fills. They are independent -
+with the sync off, the lookup and the club update search whatever was last
+downloaded, which is a legitimate way to work.
+
+Nothing here is ever gated on the DOMAIN side. Switching the pack off hides
+buttons; it does not touch a row already in `kbsb_players`, nor any
+`national_id`, `national_rating`, `club` or `club_number` already on a
+player.
+
 ## Data source: the data-platform API, with the file upload as fallback
 
 **Preferred: `PairingsEngine.Federations.BEL.Api`.** The KBSB data platform

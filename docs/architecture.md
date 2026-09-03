@@ -102,24 +102,55 @@ be `Federations.NED`.
 The point of gathering them is that the directory can be deleted and the
 app still compiles. Measured, with `lib/pairings_engine/federations/bel/`
 removed: `mix compile` exits 0, with 22 "module is not available" warnings
-across 6 files, plus one reference the compiler cannot see. Nothing is
-behind a registry or a behaviour yet, on purpose - the separation came
-first, the machinery for making it optional can follow.
+across 6 files, plus one reference the compiler cannot see.
 
 Outside the web layer, the domain names the pack in exactly two places:
 
 - `application.ex:18` supervises `Federations.BEL.Sync`, the rating-list
   sync GenServer. This is the reference that raises no compile warning (a
   child spec is just an atom in a list) and the one that would actually stop
-  the app booting - the toggle will have to start here.
+  the app booting. It stays supervised unconditionally - the switch below is
+  per user and this list is decided once at boot; the process is
+  manual-trigger only, so with every entrance shut it simply never receives
+  a cast. See the comment at that line.
 - `Tools.Parser` calls `Federations.BEL.SwarImport.build_structs/1` twice,
-  so the public `/tools/norms` page accepts a `.swar` upload.
+  so the public `/tools/norms` page accepts a `.swar` upload. Deliberately
+  never gated: that page has no account and no user to ask, and what it is
+  is a file converter on a public URL.
 
-The rest is the web layer, which keeps its references on purpose:
-`fide_live.ex` (9), `players_live.ex` (6), `tournaments_live.ex` (3),
-`export_controller.ex` (1), `tools_norms_live.ex` (1). Those are pages and
-panels that only exist to drive Belgian features; hiding them is the same
-job as switching the pack off, and both wait for the toggle.
+The rest is the web layer: `fide_live.ex` (9), `players_live.ex` (6),
+`tournaments_live.ex` (3), `export_controller.ex` (1), `tools_norms_live.ex`
+(1). Those are pages and panels that only exist to drive Belgian features.
+
+### Switching the pack off - `PairingsEngine.Features`
+
+Five independent per-user switches, stored as a `{:array, :string}` on
+`users.features` and rendered on `/users/features`:
+`bel_ratings_sync`, `bel_player_lookup`, `bel_club_sync`,
+`bel_swar_import`, `bel_swar_export`. The catalogue is data
+(`Features.catalogue/0`), so a `NED` pack is entries in that list rather
+than new code.
+
+**The rule: the pack owns entrances, never stored values.** Turning a
+feature off hides controls. It never changes how an existing tournament
+scores, pairs, prints or exports - the SWAR 3-2-1 scoring settings
+(`abs_value`, `abs_jusque`, `abs_nbfois`, `presence_value`,
+`presence_on_allocated_bye`, `extra_points`, `special_table`) live in the
+core `Tournament` schema and are not gated, and neither are
+`national_id`/`national_rating`/`club`/`club_number`, which are
+federation-neutral columns any arbiter fills in. What is gated beside those
+fields is the KBSB *lookup button*.
+
+Every gate is applied twice: the control is not rendered at all (not
+rendered-and-disabled), **and** the handler re-checks in its own body,
+because a `phx-click` payload is written by whoever holds the socket and a
+download URL is typed, bookmarked and shared. Same pattern as
+`PairingsEngineWeb.AdminLive`'s role checks.
+
+`bel_player_lookup` and `bel_club_sync` read the table `bel_ratings_sync`
+fills, so with the sync off they search whatever was last downloaded. That
+is a legitimate state, so the settings page explains the dependency and
+nothing enforces it.
 
 Two things deliberately did NOT move into the pack:
 

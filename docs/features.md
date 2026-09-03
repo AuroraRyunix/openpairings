@@ -144,6 +144,13 @@ carry a logo (stored in the database, shown on printed documents).
   float was repeated). Swiss on JaVaFo stays an honest input/output analysis:
   its internal reasoning is not pretended to be known.
 - **Recycle bin** - deleted tournaments are soft-deleted and restorable.
+- **Federation features** (`/users/features`) - the Belgium-specific parts of
+  the app are five independent per-account switches, all off by default: the
+  KBSB rating-list sync, the KBSB player lookup, the bulk club update, SWAR
+  import and SWAR export. An arbiter outside Belgium never sees any of them;
+  one inside it ticks what they use. Switching a feature off hides buttons
+  and nothing else - every tournament already imported keeps its players,
+  clubs, scoring settings and standings exactly as they are.
 
 ## Platform
 
