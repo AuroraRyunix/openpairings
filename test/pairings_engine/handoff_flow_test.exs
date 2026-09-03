@@ -328,7 +328,7 @@ defmodule PairingsEngine.HandoffFlowTest do
     end
   end
 
-  describe "return/2 and release/2" do
+  describe "return/2 and release/3" do
     setup do
       sender = user_scope("sender")
       receiver = user_scope("receiver")
@@ -365,11 +365,10 @@ defmodule PairingsEngine.HandoffFlowTest do
                {:error, :already_handed_off}
     end
 
-    test "the right token unlocks the original and it is writable again", ctx do
+    test "the returning file unlocks the original and it is writable again", ctx do
       {:ok, payload} = Handoff.return(ctx.copy, ctx.receiver)
-      token = over_the_wire(payload)["handoff"]["token"]
 
-      assert {:ok, unlocked} = Handoff.release(ctx.source, token)
+      assert {:ok, unlocked} = Handoff.release(ctx.source, over_the_wire(payload))
       refute Tournaments.handed_off?(unlocked)
       assert unlocked.handed_off_to == nil
       assert unlocked.handoff_token == nil
@@ -377,11 +376,19 @@ defmodule PairingsEngine.HandoffFlowTest do
     end
 
     test "a wrong token is refused and the original stays locked", ctx do
-      {:ok, _} = Handoff.return(ctx.copy, ctx.receiver)
+      {:ok, payload} = Handoff.return(ctx.copy, ctx.receiver)
+      wire = over_the_wire(payload)
 
-      assert Handoff.release(ctx.source, "not-the-token") == {:error, :bad_token}
-      assert Handoff.release(ctx.source, nil) == {:error, :bad_token}
-      assert Handoff.release(ctx.source, "") == {:error, :bad_token}
+      assert Handoff.release(ctx.source, put_in(wire, ["handoff", "token"], "not-the-token")) ==
+               {:error, :bad_token}
+
+      # No token at all is not a bad key, it is not a hand-off: an ordinary
+      # backup lands here, and must.
+      assert Handoff.release(ctx.source, put_in(wire, ["handoff", "token"], "")) ==
+               {:error, :not_a_handoff}
+
+      assert Handoff.release(ctx.source, put_in(wire, ["handoff", "token"], nil)) ==
+               {:error, :not_a_handoff}
 
       still = Repo.reload!(ctx.source)
       assert Tournaments.handed_off?(still)
@@ -391,20 +398,21 @@ defmodule PairingsEngine.HandoffFlowTest do
     test "a token that is a prefix of the real one is refused", ctx do
       {:ok, payload} = Handoff.return(ctx.copy, ctx.receiver)
       token = payload["handoff"]["token"]
+      wire = put_in(over_the_wire(payload), ["handoff", "token"], String.slice(token, 0..10))
 
-      assert Handoff.release(ctx.source, String.slice(token, 0..10)) == {:error, :bad_token}
+      assert Handoff.release(ctx.source, wire) == {:error, :bad_token}
       assert Repo.reload!(ctx.source).handed_off_at
     end
 
     test "a returning payload applied twice is refused the second time", ctx do
       {:ok, payload} = Handoff.return(ctx.copy, ctx.receiver)
-      token = payload["handoff"]["token"]
+      wire = over_the_wire(payload)
 
-      assert {:ok, _} = Handoff.release(ctx.source, token)
+      assert {:ok, _} = Handoff.release(ctx.source, wire)
 
       # By now the tournament may have been handed off somewhere else
       # entirely; a second release must not silently succeed.
-      assert Handoff.release(Repo.reload!(ctx.source), token) == {:error, :bad_token}
+      assert Handoff.release(Repo.reload!(ctx.source), wire) == {:error, :bad_token}
     end
 
     test "the outbound file is refused as a returning one, though it holds the same token", ctx do
@@ -421,7 +429,7 @@ defmodule PairingsEngine.HandoffFlowTest do
 
       assert {:ok, token} = Handoff.returning_token(over_the_wire(payload))
       assert token == ctx.source.handoff_token
-      assert {:ok, _} = Handoff.release(ctx.source, token)
+      assert {:ok, _} = Handoff.release(ctx.source, over_the_wire(payload))
     end
 
     test "an ordinary backup is not a returning file either", ctx do
@@ -433,7 +441,7 @@ defmodule PairingsEngine.HandoffFlowTest do
 
     test "both are audited on their own copy", ctx do
       {:ok, payload} = Handoff.return(ctx.copy, ctx.receiver)
-      {:ok, _} = Handoff.release(ctx.source, payload["handoff"]["token"])
+      {:ok, _} = Handoff.release(ctx.source, over_the_wire(payload))
 
       assert "handoff.returned" in actions_for(ctx.copy.id)
       assert "handoff.released" in actions_for(ctx.source.id)
@@ -442,7 +450,7 @@ defmodule PairingsEngine.HandoffFlowTest do
     test "the release audit row names the destination but never the token", ctx do
       {:ok, payload} = Handoff.return(ctx.copy, ctx.receiver)
       token = payload["handoff"]["token"]
-      {:ok, _} = Handoff.release(ctx.source, token)
+      {:ok, _} = Handoff.release(ctx.source, over_the_wire(payload))
 
       row =
         ctx.source.id
@@ -483,10 +491,12 @@ defmodule PairingsEngine.HandoffFlowTest do
       assert Tournaments.ensure_writable(Repo.reload!(copy)) == {:error, :handed_off}
       assert Tournaments.ensure_writable(Repo.reload!(source)) == {:error, :handed_off}
 
-      # 5. Released: the original is live again, and the copy stays locked.
-      {:ok, unlocked} = Handoff.release(Repo.reload!(source), back["handoff"]["token"])
+      # 5. Released: the original is live again, holding what was played over
+      #    there, and the copy stays locked.
+      {:ok, unlocked} = Handoff.release(Repo.reload!(source), over_the_wire(back))
       assert Tournaments.ensure_writable(unlocked) == :ok
       assert Tournaments.ensure_writable(Repo.reload!(copy)) == {:error, :handed_off}
+      assert Enum.any?(Tournaments.list_players(source.id), &(&1.name == "Carol"))
 
       assert {:ok, _} = Tournaments.update_tournament(unlocked, %{"venue" => "Back home"})
     end
@@ -499,7 +509,7 @@ defmodule PairingsEngine.HandoffFlowTest do
       {:ok, out} = Handoff.hand_off(source, "the club laptop", sender)
       {:ok, copy} = Handoff.receive(over_the_wire(out), receiver)
       {:ok, back} = Handoff.return(copy, receiver)
-      {:ok, _} = Handoff.release(Repo.reload!(source), back["handoff"]["token"])
+      {:ok, _} = Handoff.release(Repo.reload!(source), over_the_wire(back))
 
       source_actions = actions_for(source.id)
       assert "handoff.handed_off" in source_actions
@@ -540,13 +550,13 @@ defmodule PairingsEngine.HandoffFlowTest do
       assert on_b.handed_off_to == "machine C"
       assert on_b.handoff_origin["label"] == "machine B"
 
-      # And A's key is still exactly where B put it.
+      # And A's key is still exactly where B put it, which is what keeps A
+      # unlockable at all - C's return unlocks B, and B's return then unlocks
+      # A. `PairingsEngine.HandoffReturnTest` walks that chain all the way
+      # back, contents and all.
       assert on_b.handoff_origin["release_token"] == a_key
       refute on_b.handoff_token == a_key
-
-      # Which means A can still be unlocked with it.
-      assert {:ok, unlocked} = Handoff.release(Repo.reload!(on_a), a_key)
-      refute Tournaments.handed_off?(unlocked)
+      assert Tournaments.handed_off?(Repo.reload!(on_a))
     end
   end
 
