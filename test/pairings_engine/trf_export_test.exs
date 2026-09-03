@@ -4,7 +4,8 @@ defmodule PairingsEngine.TrfExportTest do
   # (same reason fide/sync_test and the import/export tests are serial).
   use PairingsEngine.DataCase, async: false
 
-  alias PairingsEngine.{Repo, SwarImport, TrfExport, Tournaments}
+  alias PairingsEngine.{Repo, TrfExport, Tournaments}
+  alias PairingsEngine.Federations.BEL.SwarImport
   alias Ainalrami.Trf
   alias PairingsEngine.Tournaments.{Tournament, Player, Round, Pairing}
 

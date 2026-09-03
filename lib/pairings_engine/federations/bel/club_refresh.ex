@@ -1,7 +1,7 @@
-defmodule PairingsEngine.ClubRefresh do
+defmodule PairingsEngine.Federations.BEL.ClubRefresh do
   @moduledoc """
   Bulk club refresh: re-looks-up every registered player against the
-  locally-synced KBSB list (`PairingsEngine.Kbsb`, see `docs/kbsb-sync.md`)
+  locally-synced KBSB list (`PairingsEngine.Federations.BEL.Members`, see `docs/kbsb-sync.md`)
   and proposes club changes, without writing anything until `apply/2` is
   called.
 
@@ -57,8 +57,8 @@ defmodule PairingsEngine.ClubRefresh do
   source asserts, never propose deleting what it merely fails to mention.
   """
 
-  alias PairingsEngine.Kbsb
-  alias PairingsEngine.Kbsb.KbsbPlayer
+  alias PairingsEngine.Federations.BEL.Members
+  alias PairingsEngine.Federations.BEL.Member
   alias PairingsEngine.Tournaments
   alias PairingsEngine.Tournaments.Player
 
@@ -91,7 +91,7 @@ defmodule PairingsEngine.ClubRefresh do
   """
   @spec dry_run(Tournaments.Tournament.t()) :: summary()
   def dry_run(tournament) do
-    index = Kbsb.name_index()
+    index = Members.name_index()
 
     results =
       tournament.id
@@ -126,8 +126,8 @@ defmodule PairingsEngine.ClubRefresh do
   # silent background write, which is why this stays behind a button.
   defp kbsb_match(%Player{} = player, index) do
     cond do
-      row = Kbsb.find_by_national_id(player.national_id) -> {row, :national_id}
-      row = Kbsb.find_by_fide_id(player.fide_id) -> {row, :fide_id}
+      row = Members.find_by_national_id(player.national_id) -> {row, :national_id}
+      row = Members.find_by_fide_id(player.fide_id) -> {row, :fide_id}
       row = match_by_name(player, index) -> {row, :name}
       true -> nil
     end
@@ -148,7 +148,7 @@ defmodule PairingsEngine.ClubRefresh do
   # onto a player is worse than no club, and an arbiter reviewing a long
   # preview will not catch a plausible-looking wrong one.
   defp match_by_name(%Player{name: name, birth_year: year}, index) do
-    case Map.get(index, Kbsb.normalize_name(name), []) do
+    case Map.get(index, Members.normalize_name(name), []) do
       [] -> nil
       [only] -> if year_agrees?(only, year), do: only, else: nil
       many -> only_one_born_in(many, year)
@@ -165,15 +165,15 @@ defmodule PairingsEngine.ClubRefresh do
   end
 
   defp year_agrees?(_row, nil), do: true
-  defp year_agrees?(%KbsbPlayer{birth_year: nil}, _year), do: true
-  defp year_agrees?(%KbsbPlayer{birth_year: listed}, year), do: listed == year
+  defp year_agrees?(%Member{birth_year: nil}, _year), do: true
+  defp year_agrees?(%Member{birth_year: listed}, year), do: listed == year
 
   defp club_name(nil), do: nil
-  defp club_name(%KbsbPlayer{club_name: name}) when name in [nil, ""], do: nil
-  defp club_name(%KbsbPlayer{club_name: name}), do: name
+  defp club_name(%Member{club_name: name}) when name in [nil, ""], do: nil
+  defp club_name(%Member{club_name: name}), do: name
 
   defp club_number(nil), do: nil
-  defp club_number(%KbsbPlayer{club_number: number}), do: number
+  defp club_number(%Member{club_number: number}), do: number
 
   defp maybe_add(list, _player, _field, _old, nil, _via), do: list
   defp maybe_add(list, _player, _field, old, new, _via) when old == new, do: list

@@ -14,7 +14,8 @@ design" below.
 1. Upload up to 10 files (5 MB each) - `.swar` or `.trf`. Neither format has
    a reliable browser MIME type, so the upload accepts anything and
    `PairingsEngine.Tools.Parser` dispatches on the filename's extension
-   instead (`.swar` → `PairingsEngine.SwarImport.build_structs/1`, `.trf` →
+   instead (`.swar` →
+   `PairingsEngine.Federations.BEL.SwarImport.build_structs/1`, `.trf` →
    `PairingsEngine.TrfImport.build_structs/1`, anything else tries SWAR then
    TRF). Both builders are pure - no database access, same as the
    authenticated app's own SWAR/TRF import flows can already use for
@@ -98,7 +99,7 @@ don't even agree on word order (SWAR: "Sylvin De Vet", FIDE: "De Vet,
 Sylvin") - the arbiter filling in the source file could have typed either.
 On upload, each name is run through the exact same order-independent
 matcher the persisting SWAR import path already uses
-(`PairingsEngine.SwarImport.match_official_fide_player/1`):
+(`PairingsEngine.Federations.BEL.SwarImport.match_official_fide_player/1`):
 
 - Exactly one FIDE entry matches → both the name (rewritten to FIDE's own
   "Last, First" form) and the FIDE ID are filled in, same as picking that

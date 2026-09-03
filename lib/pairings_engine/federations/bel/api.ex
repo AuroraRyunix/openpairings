@@ -1,8 +1,8 @@
-defmodule PairingsEngine.Kbsb.Api do
+defmodule PairingsEngine.Federations.BEL.Api do
   @moduledoc """
   Reads the Belgian roster from the KBSB data platform's REST API
   (`kbsb-dataplatform`, the Odoo-synced live database), as an alternative
-  source to the uploaded file `PairingsEngine.Kbsb.Parser` handles.
+  source to the uploaded file `PairingsEngine.Federations.BEL.Parser` handles.
 
   This exists because the file path has one fatal operational property: a
   human has to remember to do it. A club-refresh button that silently finds
@@ -41,12 +41,12 @@ defmodule PairingsEngine.Kbsb.Api do
   A full walk is ~36 pages of 1000 at the current roster size. The API also
   supports `?since=` for incremental refreshes; this deliberately does not
   use it. The import it feeds is a full replace (see
-  `PairingsEngine.Kbsb.Sync`), so a whole walk every time cannot drift out
+  `PairingsEngine.Federations.BEL.Sync`), so a whole walk every time cannot drift out
   of step with the source, and at 36 requests there is nothing to optimise.
   """
 
   require Logger
-  alias PairingsEngine.Kbsb.KbsbPlayer
+  alias PairingsEngine.Federations.BEL.Member
 
   @page_size 1000
 
@@ -65,6 +65,12 @@ defmodule PairingsEngine.Kbsb.Api do
   def base_url, do: blank_to_nil(config()[:api_url])
   def api_key, do: blank_to_nil(config()[:api_key])
 
+  # The config key stays `:kbsb`, not `:bel`, even though the module moved
+  # into the BEL namespace: it is read from `config/runtime.exs` and set by
+  # `KBSB_API_URL`/`KBSB_API_KEY` in every deployed environment, so renaming
+  # it would silently disable the button on every box until someone edited
+  # the env. The key names the data platform it points at, which really is
+  # the KBSB's.
   defp config, do: Application.get_env(:pairings_engine, :kbsb, [])
 
   # Extra options merged into every request. Exists so tests can pass a
@@ -78,7 +84,7 @@ defmodule PairingsEngine.Kbsb.Api do
 
   @doc """
   Walks the whole roster export and returns `{:ok, rows}` - rows shaped for
-  `PairingsEngine.Kbsb.KbsbPlayer`, ready for `Sync.import_rows/3`.
+  `PairingsEngine.Federations.BEL.Member`, ready for `Sync.import_rows/3`.
 
   `on_progress` is called with the running row count after each page, for
   the sync's progress line.
@@ -209,5 +215,5 @@ defmodule PairingsEngine.Kbsb.Api do
   def page_size, do: @page_size
 
   @doc false
-  def schema, do: KbsbPlayer
+  def schema, do: Member
 end

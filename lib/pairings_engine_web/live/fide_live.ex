@@ -6,10 +6,10 @@ defmodule PairingsEngineWeb.FideLive do
   alias PairingsEngine.Audit
   alias PairingsEngine.Authz
   alias PairingsEngine.Backup
-  alias PairingsEngine.Kbsb
+  alias PairingsEngine.Federations.BEL.Members
   alias PairingsEngine.Fide.Sync, as: FideSync
-  alias PairingsEngine.Kbsb.Sync, as: KbsbSync
-  alias PairingsEngine.Kbsb.Api, as: KbsbApi
+  alias PairingsEngine.Federations.BEL.Sync, as: KbsbSync
+  alias PairingsEngine.Federations.BEL.Api, as: KbsbApi
   alias PairingsEngine.Publishing
 
   # See the same constant on the OpenResults settings page for why this is a
@@ -213,7 +213,7 @@ defmodule PairingsEngineWeb.FideLive do
   end
 
   def handle_event("kbsb_search", %{"q" => q}, socket) do
-    {:noreply, assign(socket, kbsb_query: q, kbsb_results: Kbsb.search(q))}
+    {:noreply, assign(socket, kbsb_query: q, kbsb_results: Members.search(q))}
   end
 
   defp busy?(%{status: s}), do: s in [:downloading, :importing]

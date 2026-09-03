@@ -77,7 +77,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # an ordinary configured `points_loss`. nil (the default for every
     # tournament not imported from a SWAR 3-2-1 file) means "unused": such
     # rounds keep scoring at `points_loss` exactly as before this field
-    # existed. Only PairingsEngine.SwarImport writes a non-nil value.
+    # existed. Only PairingsEngine.Federations.BEL.SwarImport writes a non-nil value.
     field :presence_value, :float
     # SWAR `AbsValue` - the points paid for a player simply marked ABSENT
     # for a round (our `byes`-table `type: "absent"` row, from SWAR's
@@ -85,7 +85,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # value). It's a plain UI checkbox ("½ point" for absence) in SWAR's
     # own source, raw 0 (unchecked) or 1 (checked) - NOT the "0 or 5" an
     # earlier version of this comment (and the mapping in
-    # `PairingsEngine.SwarImport`) assumed; see that module's
+    # `PairingsEngine.Federations.BEL.SwarImport`) assumed; see that module's
     # `tournament_attrs/1` for the full story of that bug and how it was
     # confirmed. Three genuinely different SWAR concepts, easy to conflate:
     # `bye_value` is what a *pairing-allocated* bye (a real opponent-less
@@ -97,7 +97,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # regardless of tournament type. nil (the default for every tournament
     # that isn't a SWAR import) means "not set": such rounds keep scoring
     # at `points_loss` exactly as before this field existed. Only
-    # PairingsEngine.SwarImport writes a non-nil value. See `abs_jusque`/
+    # PairingsEngine.Federations.BEL.SwarImport writes a non-nil value. See `abs_jusque`/
     # `abs_nbfois` below for the two caps SWAR applies on top of this.
     field :abs_value, :float
     # SWAR `AbsJusque` ("Jusque ronde") / `AbsNbFois` ("Nombre de fois") -
@@ -117,7 +117,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # and for older SWAR imports predating this field) means "no cap" -
     # `PairingsEngine.Standings.bye_points/4` treats a nil cap as never
     # exceeded, so scoring is unaffected until a real value is set. Only
-    # PairingsEngine.SwarImport writes non-nil values.
+    # PairingsEngine.Federations.BEL.SwarImport writes non-nil values.
     field :abs_jusque, :integer
     field :abs_nbfois, :integer
     # Whether an "absent" byes-table row (a plain no-show - distinct from a
@@ -146,7 +146,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # `PairingsEngine.Standings.bye_points/2`'s "pairing-allocated" branch;
     # false (the default for every tournament that isn't a SWAR 3-2-1
     # import) leaves scoring byte-identical to before this field existed.
-    # Only PairingsEngine.SwarImport sets it true (type == 3 files only).
+    # Only PairingsEngine.Federations.BEL.SwarImport sets it true (type == 3 files only).
     field :presence_on_allocated_bye, :boolean, default: false
     field :tiebreaks, {:array, :string}, default: []
     field :acceleration, :string, default: "none"

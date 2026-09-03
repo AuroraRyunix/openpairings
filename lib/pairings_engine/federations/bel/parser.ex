@@ -1,4 +1,4 @@
-defmodule PairingsEngine.Kbsb.Parser do
+defmodule PairingsEngine.Federations.BEL.Parser do
   @moduledoc """
   Parses a Belgian national (KBSB/FRBE) rating-list export into plain row
   maps ready for `Repo.insert_all/3`.

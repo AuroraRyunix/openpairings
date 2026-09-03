@@ -1,13 +1,17 @@
-# SWAR import (`PairingsEngine.SwarImport`)
+# SWAR import (`PairingsEngine.Federations.BEL.SwarImport`)
 
 `.swar` is the native binary save format of SWAR (by Georges Marchal /
 FRBE-KBSB), the tournament software most Belgian clubs already use.
-`PairingsEngine.SwarImport` parses that binary format directly (no
-intermediate export step) and creates a full tournament - players, rounds,
-pairings, results - from it. Reached from the Tournaments page's "Import
-SWAR file" panel.
+`PairingsEngine.Federations.BEL.SwarImport` parses that binary format
+directly (no intermediate export step) and creates a full tournament -
+players, rounds, pairings, results - from it. Reached from the Tournaments
+page's "Import SWAR file" panel.
 
-## Export (`PairingsEngine.SwarExport`)
+Both modules live in `lib/pairings_engine/federations/bel/`, with the rest
+of the Belgium-specific code. The rest of this document says `SwarImport`
+and `SwarExport` unqualified.
+
+## Export (`PairingsEngine.Federations.BEL.SwarExport`)
 
 The inverse - `GET /t/:id/export/swar`, "Export .swar (v7, experimental)"
 on the Settings page - writes a v7 `.swar` binary field-for-field against
@@ -37,10 +41,10 @@ prompt - never from a plain file load. `SwarExport`'s first version
 wrote `rank` as `Ni` (registration order), which is exactly what a
 freshly-opened export then paired round 1 by.
 
-Fixed in `PairingsEngine.SwarExport.assign_ranks/1`: computes the same
+Fixed in `SwarExport.assign_ranks/1`: computes the same
 rating-descending / title-descending / name-ascending sort SWAR's own
-`Joueur.cpp:CmpRnkNormal` does. `test/pairings_engine/swar_export_test.exs`
-pins it down with deliberately scrambled rating vs. registration order,
+`Joueur.cpp:CmpRnkNormal` does.
+`test/pairings_engine/federations/bel/swar_export_test.exs` pins it down with deliberately scrambled rating vs. registration order,
 so a regression back to `rank = ni` fails loudly. `Class` staying a
 constant 0 remains correct - see `reverse_player/5`'s own comment for
 the full citations on both.
@@ -50,8 +54,8 @@ the full citations on both.
 The format is a sequential binary serialization with no index: every field
 is read in exact order, and a single field of drift turns the rest of the
 file into garbage. Each release that adds or removes a field therefore needs
-a version gate in `swar_import.ex` (`version_gte?/2`, against the version
-string in the file header - `"v6.78"`, `"v7.04"`, …).
+a version gate in `federations/bel/swar_import.ex` (`version_gte?/2`,
+against the version string in the file header - `"v6.78"`, `"v7.04"`, …).
 
 **v7 removes three things** relative to v6, which is why v6-era code fails
 on a v7 file with a `{:parse_failed, ...}` on a nonsense string length:
@@ -237,7 +241,8 @@ If a future SWAR export still shows the wrong id in the wrong field,
 suspect a *different* SWAR file version with a shifted binary layout
 before suspecting this mapping - the field read order is not
 version-branched today (unlike several other `[TOURNOI]`/`[JOUEURS]`
-fields, which are, see the version-gate comments in `swar_import.ex`).
+fields, which are, see the version-gate comments in
+`federations/bel/swar_import.ex`).
 
 ## Players with no FIDE id: matching against the local FIDE database
 
@@ -394,7 +399,8 @@ with the arbiter ahead of the round, SWAR's `WIN_BYE`/`DRAW_BYE`/
 `LOST_BYE` result codes) and a **genuine absence** (`TABLE_ABSENT`, no
 result code at all - the player just didn't show and nobody arranged
 anything) are different `byes`-table rows with different scoring rules,
-and always have been (`swar_import.ex`'s `classify_unpaired/1`):
+and always have been (`federations/bel/swar_import.ex`'s
+`classify_unpaired/1`):
 
 - Requested: `type: "requested-half"` / `"requested-zero"` - scored at
   `points_draw` / `presence_value || points_loss`, from SWAR's `ByeValue`

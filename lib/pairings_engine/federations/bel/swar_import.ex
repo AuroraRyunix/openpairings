@@ -1,4 +1,4 @@
-defmodule PairingsEngine.SwarImport do
+defmodule PairingsEngine.Federations.BEL.SwarImport do
   @moduledoc """
   Importer for `.swar` files - the native save format of the SWAR chess
   tournament pairing program (by Georges Marchal / FRBE).

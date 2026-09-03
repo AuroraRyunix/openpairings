@@ -6,7 +6,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   straight from them, without ever creating a tournament here.
 
   Parsing goes through `PairingsEngine.Tools.Parser` (dispatches on filename
-  extension to `PairingsEngine.SwarImport.build_structs/1` /
+  extension to `PairingsEngine.Federations.BEL.SwarImport.build_structs/1` /
   `PairingsEngine.TrfImport.build_structs/1` - both pure, no `Repo` calls).
   Two or more successfully parsed files can be combined into one "Festival"
   report via `PairingsEngine.Norms.Combine`, same as the authenticated Norms
@@ -34,7 +34,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   alias PairingsEngine.Fide
   alias PairingsEngine.Norms.{Combine, Forms}
   alias PairingsEngine.Tools.{Parser, Session}
-  alias PairingsEngine.SwarImport
+  alias PairingsEngine.Federations.BEL.SwarImport
   alias PairingsEngineWeb.Live.ArbiterCombo
 
   @max_entries 10

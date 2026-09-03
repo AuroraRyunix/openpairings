@@ -1,9 +1,9 @@
-defmodule PairingsEngine.Kbsb.ParserTest do
+defmodule PairingsEngine.Federations.BEL.ParserTest do
   use ExUnit.Case, async: true
 
-  alias PairingsEngine.Kbsb.Parser
+  alias PairingsEngine.Federations.BEL.Parser
 
-  @fixture_path Path.join([__DIR__, "..", "..", "fixtures", "kbsb_sample.csv"])
+  @fixture_path Path.join([__DIR__, "..", "..", "..", "fixtures", "kbsb_sample.csv"])
 
   test "parses a semicolon-delimited file with header-driven columns" do
     binary = File.read!(@fixture_path)

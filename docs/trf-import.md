@@ -102,7 +102,7 @@ detects this before parsing: a leading UTF-8 BOM (`EF BB BF`) is stripped
 first, then the content is used as-is if it's already valid UTF-8, otherwise
 it's decoded as Windows-1252 via `PairingsEngine.Encoding.cp1252_decode/1`
 (the same helper the `.swar` importer uses). This mirrors the identical
-strip-BOM-then-detect pattern `PairingsEngine.Kbsb.Parser.parse/1` uses for
+strip-BOM-then-detect pattern `PairingsEngine.Federations.BEL.Parser.parse/1` uses for
 the KBSB rating-list import. Since every byte 0x00-0xFF has *some*
 Windows-1252 mapping, the fallback itself never fails - content that's
 neither valid UTF-8 nor a real TRF file still surfaces as an ordinary parse

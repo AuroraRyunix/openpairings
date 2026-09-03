@@ -1,4 +1,4 @@
-defmodule PairingsEngine.SwarImportOfficialsTest do
+defmodule PairingsEngine.Federations.BEL.SwarImportOfficialsTest do
   # Officials autofill: SWAR stores every arbiter for an event in two free-text
   # fields ("IA Sylvin De Vet, NA Marc Van Dyck"), while the IT3/FA1 forms want
   # them split into numbered slots with a FIDE id each. Covers the parsing
@@ -9,7 +9,8 @@ defmodule PairingsEngine.SwarImportOfficialsTest do
   # gitignored personal data - same approach as swar_import_presence_test.exs.
   use PairingsEngine.DataCase, async: false
 
-  alias PairingsEngine.{Repo, SwarImport}
+  alias PairingsEngine.Repo
+  alias PairingsEngine.Federations.BEL.SwarImport
   alias PairingsEngine.Fide.FidePlayer
 
   ## ---------- synthetic .swar builder (v6.78) ----------

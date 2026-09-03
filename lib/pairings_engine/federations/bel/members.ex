@@ -1,9 +1,9 @@
-defmodule PairingsEngine.Kbsb do
+defmodule PairingsEngine.Federations.BEL.Members do
   @moduledoc "Local copy of the Belgian national (KBSB/FRBE) rating list: search + import."
 
   import Ecto.Query
   alias PairingsEngine.Repo
-  alias PairingsEngine.Kbsb.KbsbPlayer
+  alias PairingsEngine.Federations.BEL.Member
 
   @doc """
   Looks a player up by national ID (exact match) or by name.
@@ -28,7 +28,7 @@ defmodule PairingsEngine.Kbsb do
       query == "" ->
         []
 
-      match = Repo.get(KbsbPlayer, query) ->
+      match = Repo.get(Member, query) ->
         [match]
 
       String.length(query) < 2 ->
@@ -53,7 +53,7 @@ defmodule PairingsEngine.Kbsb do
         ids = Enum.map(rows, fn [id] -> id end)
 
         Repo.all(
-          from k in KbsbPlayer,
+          from k in Member,
             where: k.national_id in ^ids,
             order_by: [asc: is_nil(k.national_rating), desc: k.national_rating],
             limit: 20
@@ -73,7 +73,7 @@ defmodule PairingsEngine.Kbsb do
       end)
 
     Repo.all(
-      from k in KbsbPlayer,
+      from k in Member,
         where: ^where,
         order_by: [asc: is_nil(k.national_rating), desc: k.national_rating],
         limit: 20
@@ -92,7 +92,7 @@ defmodule PairingsEngine.Kbsb do
   def find_by_national_id(""), do: nil
 
   def find_by_national_id(national_id) when is_binary(national_id),
-    do: Repo.get(KbsbPlayer, national_id)
+    do: Repo.get(Member, national_id)
 
   @doc """
   Looks up a KBSB row by FIDE ID, used to enrich a FIDE-database pick with
@@ -101,7 +101,7 @@ defmodule PairingsEngine.Kbsb do
   def find_by_fide_id(nil), do: nil
 
   def find_by_fide_id(fide_id) when is_integer(fide_id) do
-    Repo.one(from k in KbsbPlayer, where: k.fide_id == ^fide_id, limit: 1)
+    Repo.one(from k in Member, where: k.fide_id == ^fide_id, limit: 1)
   end
 
   @doc """
@@ -127,9 +127,9 @@ defmodule PairingsEngine.Kbsb do
   end
 
   @doc """
-  Builds `%{normalize_name(full_name) => [KbsbPlayer]}` across the whole
+  Builds `%{normalize_name(full_name) => [Member]}` across the whole
   list, for callers matching many players in one go (see
-  `PairingsEngine.ClubRefresh`).
+  `PairingsEngine.Federations.BEL.ClubRefresh`).
 
   Deliberately one query and one pass rather than a lookup per player: the
   list is tens of thousands of rows but a tournament is a few hundred
@@ -149,12 +149,12 @@ defmodule PairingsEngine.Kbsb do
   file-upload path have `died: nil` and are kept.
   """
   def name_index do
-    from(k in KbsbPlayer, where: is_nil(k.died) or k.died == false)
+    from(k in Member, where: is_nil(k.died) or k.died == false)
     |> Repo.all()
-    |> Enum.group_by(&normalize_name(KbsbPlayer.full_name(&1)))
+    |> Enum.group_by(&normalize_name(Member.full_name(&1)))
   end
 
-  def player_count, do: Repo.aggregate(KbsbPlayer, :count)
+  def player_count, do: Repo.aggregate(Member, :count)
 
   def last_sync do
     case Repo.query!("SELECT value FROM meta WHERE key = 'kbsb_last_sync'").rows do

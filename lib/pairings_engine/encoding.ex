@@ -3,8 +3,8 @@ defmodule PairingsEngine.Encoding do
   Legacy text-encoding conversions, for the file formats that predate UTF-8.
 
   Windows-1252 is the only one so far, and it turns up in three unrelated
-  places: `.swar` files, TRF files and the KBSB rating-list CSV. It lived in
-  `PairingsEngine.SwarImport` for as long as SWAR was the only caller; it is
+  places: `.swar` files, TRF files and the KBSB rating-list CSV. It lived
+  inside the SWAR importer for as long as SWAR was the only caller; it is
   here now because a byte-to-codepoint table is not specific to any one
   format, let alone to any one federation.
   """

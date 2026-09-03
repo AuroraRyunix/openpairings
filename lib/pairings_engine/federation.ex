@@ -12,8 +12,8 @@ defmodule PairingsEngine.Federation do
 
   The marker table below is Belgian because SWAR is the only format so far
   that needs one; the *function* is not, which is why it lives here and not
-  in `PairingsEngine.Federations.BEL`. A second pack adding its own markers
-  would add them here, next to these.
+  in the Belgian federation pack. A second pack adding its own markers would
+  add them here, next to these.
   """
 
   # Regional/organizational markers that all mean "Belgium" for FIDE-reporting
@@ -34,10 +34,10 @@ defmodule PairingsEngine.Federation do
   "BEL"; any other value (a real FIDE federation code, or "" for "none
   selected") passes through unchanged, upcased and trimmed.
 
-  Applied on the way in by `PairingsEngine.Federations.BEL.SwarImport`, and
-  again defensively at export time by `PairingsEngine.TrfExport`, for a
-  tournament whose `federation` field was stored raw in the database (e.g.
-  imported before this normalization existed) - see `docs/swar-import.md`.
+  Applied on the way in by the SWAR importer, and again defensively at
+  export time by `PairingsEngine.TrfExport`, for a tournament whose
+  `federation` field was stored raw in the database (e.g. imported before
+  this normalization existed) - see `docs/swar-import.md`.
   """
   def normalize(code) when is_binary(code) do
     upcased = code |> String.trim() |> String.upcase()

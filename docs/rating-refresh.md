@@ -94,7 +94,7 @@ all changed fires **one** broadcast, not 50, keeping other open tabs
   "re-sync everything"). **`club` is handled separately** - see "Bulk club
   refresh" below.
 
-## Bulk club refresh (`PairingsEngine.ClubRefresh`)
+## Bulk club refresh (`PairingsEngine.Federations.BEL.ClubRefresh`)
 
 "Update clubs", the button beside "Refresh ratings" on the Players page.
 The same gesture - dry run, preview table, Apply - proposing `club` (name)

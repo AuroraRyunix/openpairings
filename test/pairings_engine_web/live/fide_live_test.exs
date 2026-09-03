@@ -5,8 +5,8 @@ defmodule PairingsEngineWeb.FideLiveTest do
 
   alias PairingsEngine.Accounts
   alias PairingsEngine.Repo
-  alias PairingsEngine.Kbsb.KbsbPlayer
-  alias PairingsEngine.Kbsb.Sync, as: KbsbSync
+  alias PairingsEngine.Federations.BEL.Member
+  alias PairingsEngine.Federations.BEL.Sync, as: KbsbSync
 
   setup :register_and_log_in_user
 
@@ -374,7 +374,7 @@ defmodule PairingsEngineWeb.FideLiveTest do
   end
 
   test "searching the local KBSB database returns matches", %{conn: conn} do
-    Repo.insert!(%KbsbPlayer{
+    Repo.insert!(%Member{
       national_id: "12345",
       last_name: "Peeters",
       first_name: "Jan",

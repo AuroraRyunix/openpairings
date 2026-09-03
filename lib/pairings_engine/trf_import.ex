@@ -3,7 +3,7 @@ defmodule PairingsEngine.TrfImport do
   Imports a FIDE TRF16 file (`Ainalrami.Trf.parse/1`) as a brand-new
   tournament - players, rounds, pairings, byes - owned by the importing
   user. One-step, single-transaction create, same shape as
-  `PairingsEngine.SwarImport.import_file/2`: broadcast-suppressed writes
+  `PairingsEngine.Federations.BEL.SwarImport.import_file/2`: broadcast-suppressed writes
   inside the transaction, `Tournaments.refresh_status!/1` and the real
   broadcasts after commit.
 

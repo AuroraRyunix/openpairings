@@ -34,7 +34,7 @@ SQLite connection pool, and a handful of long-lived GenServers.
                         ┌────────────▼────────────────────────────▼───────────┐
                         │              Domain layer (lib/pairings_engine/)    │
                         │  Tournaments / Pairing / Standings / Trf / Norms /  │
-                        │  SwarImport / Fide / Kbsb / Mobile / Tools / ...    │
+                        │  Fide / Federations / Mobile / Tools / ...          │
                         └────────────┬─────────────────────────────────────────┘
                                      │
                     ┌─────────────────▼───────────────────┐
@@ -44,7 +44,7 @@ SQLite connection pool, and a handful of long-lived GenServers.
 
      Long-lived processes (started under the OTP supervision tree):
        PairingsEngine.Fide.Sync    - FIDE rating-list download/import state
-       PairingsEngine.Kbsb.Sync    - Belgian rating-list upload/import state
+       PairingsEngine.Federations.BEL.Sync    - Belgian rating-list upload/import state
        PairingsEngine.Tools.Session - public /tools/norms sessions (RAM only)
        PairingsEngine.RateLimit    - request/send throttling
 
@@ -79,12 +79,60 @@ funnel through the same `Tournaments`/`Standings` layer afterward. See
 `docs/AGENTS.md` for the Swiss/JaVaFo pipeline's internal shape - it's the
 most intricate part of this layer.
 
-Import/export modules (`SwarImport`, `TrfImport`, `TrfExport`,
-`TournamentExport`/`TournamentImport`, `PgnExport`) all convert between the
-app's own `Tournament`/`Player`/`Round`/`Pairing` schema and an external
-file format, in both directions where applicable. None of them talk to each
-other directly - they all go through the same context functions
+Import/export modules (`TrfImport`, `TrfExport`,
+`TournamentExport`/`TournamentImport`, `PgnExport`, and
+`Federations.BEL.SwarImport`/`SwarExport`) all convert between the app's own
+`Tournament`/`Player`/`Round`/`Pairing` schema and an external file format,
+in both directions where applicable. None of them talk to each other
+directly - they all go through the same context functions
 (`Tournaments.create_player/2`, etc.) that live UI-driven creation does.
+
+### `Federations/` - the national packs
+
+`Federations.BEL` holds everything that is specific to one country's chess
+federation rather than to chess: the KBSB/FRBE member list and its two
+ingest paths (`Members`, `Member`, `Api`, `Parser`, `Sync`), the bulk club
+refresh that reads it (`ClubRefresh`), and the importer/exporter for SWAR,
+the Belgian federation's own tournament program (`SwarImport`,
+`SwarExport`). The namespace segment is the FIDE three-letter federation
+code, which is already the domain's own key - `players.federation` and
+`tournaments.federation` hold `BEL`, `GER`, `NED` - so a Dutch pack would
+be `Federations.NED`.
+
+The point of gathering them is that the directory can be deleted and the
+app still compiles. Measured, with `lib/pairings_engine/federations/bel/`
+removed: `mix compile` exits 0, with 22 "module is not available" warnings
+across 6 files, plus one reference the compiler cannot see. Nothing is
+behind a registry or a behaviour yet, on purpose - the separation came
+first, the machinery for making it optional can follow.
+
+Outside the web layer, the domain names the pack in exactly two places:
+
+- `application.ex:18` supervises `Federations.BEL.Sync`, the rating-list
+  sync GenServer. This is the reference that raises no compile warning (a
+  child spec is just an atom in a list) and the one that would actually stop
+  the app booting - the toggle will have to start here.
+- `Tools.Parser` calls `Federations.BEL.SwarImport.build_structs/1` twice,
+  so the public `/tools/norms` page accepts a `.swar` upload.
+
+The rest is the web layer, which keeps its references on purpose:
+`fide_live.ex` (9), `players_live.ex` (6), `tournaments_live.ex` (3),
+`export_controller.ex` (1), `tools_norms_live.ex` (1). Those are pages and
+panels that only exist to drive Belgian features; hiding them is the same
+job as switching the pack off, and both wait for the toggle.
+
+Two things deliberately did NOT move into the pack:
+
+- `PairingsEngine.Encoding` - the Windows-1252 codec. TRF files and the
+  results-import CSV need it as much as `.swar` does.
+- `PairingsEngine.Federation` - `normalize/1`, which collapses an
+  organizational federation marker to a FIDE country code. Its marker table
+  is Belgian today; the operation is not, and `TrfExport` applies it to
+  every tournament.
+
+Neither is `kbsb_players`, the table. Renaming a table is a data migration
+with no user-visible benefit; `Federations.BEL.Member` names it explicitly
+and says so in its own moduledoc.
 
 `Norms/` is a self-contained sub-domain: `Forms` (pure data → cell-map
 mappers), `XlsxFill` (generic in-place `.xlsx` editing, knows nothing about
@@ -203,7 +251,8 @@ pages were removed on 2026-08-29.
 - `Standings` is the only module allowed to compute tiebreak values. Display
   code (`player_card.ex`, print controllers, LiveViews) reads `Standings`'
   output; none of it re-derives points or tiebreaks independently.
-- Import/export modules (`SwarImport`, `TrfImport`, `TrfExport`,
-  `TournamentExport`/`Import`, `PgnExport`) write through the same
+- Import/export modules (`TrfImport`, `TrfExport`,
+  `TournamentExport`/`Import`, `PgnExport`,
+  `Federations.BEL.SwarImport`/`SwarExport`) write through the same
   `Tournaments` context functions a live UI action would use - none of them
   bypass validation by writing Ecto structs directly into `Repo`.

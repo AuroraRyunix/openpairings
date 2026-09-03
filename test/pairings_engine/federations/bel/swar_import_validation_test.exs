@@ -1,4 +1,4 @@
-defmodule PairingsEngine.SwarImportValidationTest do
+defmodule PairingsEngine.Federations.BEL.SwarImportValidationTest do
   # Deliberately a SEPARATE module from swar_import_test.exs, which carries
   # `@moduletag :swar_fixture` (excluded when the gitignored real .swar
   # fixtures aren't present) - same rationale as swar_import_presence_test.exs
@@ -9,12 +9,13 @@ defmodule PairingsEngine.SwarImportValidationTest do
 
   import Ecto.Query
 
-  alias PairingsEngine.{Repo, SwarImport}
+  alias PairingsEngine.Repo
+  alias PairingsEngine.Federations.BEL.SwarImport
   alias PairingsEngine.Tournaments.{Pairing, Player, Tournament}
 
   ## ---------- synthetic .swar binary builder ----------
   #
-  # Mirrors PairingsEngine.SwarImport.parse/1's field-by-field layout closely
+  # Mirrors PairingsEngine.Federations.BEL.SwarImport.parse/1's field-by-field layout closely
   # enough to produce a binary `parse/1` accepts - every field not under test
   # is written as a zero/blank placeholder.
 

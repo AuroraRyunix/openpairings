@@ -7,18 +7,18 @@ defmodule PairingsEngineWeb.PlayersLive do
     Audit,
     Tournaments,
     Fide,
-    Kbsb,
     Standings,
     PlayerStats,
     PlayerCard,
     RatingRefresh,
-    ClubRefresh,
     Tiebreaks
   }
 
+  alias PairingsEngine.Federations.BEL.{ClubRefresh, Members}
+
   alias PairingsEngine.Tournaments.Player
   alias PairingsEngine.Tournaments.Tournament
-  alias PairingsEngine.Kbsb.KbsbPlayer
+  alias PairingsEngine.Federations.BEL.Member
   alias PairingsEngine.Fide.FidePlayer
 
   @titles ~w(GM IM FM CM WGM WIM WFM WCM)
@@ -449,7 +449,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   # KBSB has no fuzzy name search wired into the add form, only exact
   # national-id lookups.
   def handle_event("lookup_kbsb_add", %{"player" => %{"national_id" => national_id}}, socket) do
-    case Kbsb.find_by_national_id(national_id) do
+    case Members.find_by_national_id(national_id) do
       nil ->
         {:noreply, socket}
 
@@ -464,7 +464,7 @@ defmodule PairingsEngineWeb.PlayersLive do
             "club_number" => kp.club_number,
             "birth_year" => kp.birth_year
           })
-          |> put_if_blank("name", KbsbPlayer.full_name(kp))
+          |> put_if_blank("name", Member.full_name(kp))
           |> put_if_blank("fide_id", kp.fide_id)
 
         {:noreply, assign(socket, form_values: merged)}
@@ -674,7 +674,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   ## ---------- Bulk club refresh (KBSB) ----------
   #
   # The same dry-run/preview/apply gesture as the rating refresh above, on
-  # the club columns instead - see `PairingsEngine.ClubRefresh` for why it
+  # the club columns instead - see `PairingsEngine.Federations.BEL.ClubRefresh` for why it
   # is a separate action rather than more proposals inside that one.
 
   def handle_event("open_club_refresh", _params, socket) do
@@ -823,7 +823,7 @@ defmodule PairingsEngineWeb.PlayersLive do
       national_id == "" ->
         {:noreply, assign(socket, edit_error: "Enter a National ID first")}
 
-      kp = Kbsb.find_by_national_id(national_id) ->
+      kp = Members.find_by_national_id(national_id) ->
         merged =
           form
           |> Map.merge(%{
@@ -1097,7 +1097,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   # (if any), the same way a national-id-driven autofill would - the two
   # lists are cross-referenced by FIDE id.
   defp merge_kbsb_by_fide_id(form_values, fide_id) do
-    case Kbsb.find_by_fide_id(fide_id) do
+    case Members.find_by_fide_id(fide_id) do
       nil ->
         form_values
 

@@ -105,8 +105,8 @@ the file and re-upload.
 `apply_import/3` calls `PairingsEngine.Tournaments.update_pairing_result/2`
 - the exact same context function the inline result `<select>` calls - once
 per board, inside a single transaction with per-write broadcasting
-suppressed (mirroring `PairingsEngine.SwarImport`'s bulk-write pattern).
-After the transaction commits, one `:results` broadcast fires and
+suppressed (mirroring `PairingsEngine.Federations.BEL.SwarImport`'s
+bulk-write pattern). After the transaction commits, one `:results` broadcast fires and
 `Tournaments.refresh_status!/1` recomputes round/tournament status, so any
 other open tab (the public pairings page, the live round view, ...) updates
 instantly, exactly as if the results had been entered by hand.

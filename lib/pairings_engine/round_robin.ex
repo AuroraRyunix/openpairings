@@ -503,7 +503,7 @@ defmodule PairingsEngine.RoundRobin do
   # A player who is currently `absent` or `forfeit` (both fields bypass
   # `ensure_frozen/1`'s filter identically for tournaments continued from a
   # SWAR import, where `pairing_number` is set directly at player creation -
-  # see `PairingsEngine.SwarImport`) still gets paired every round by design
+  # see `PairingsEngine.Federations.BEL.SwarImport`) still gets paired every round by design
   # (see moduledoc: the Berger schedule can't be recomputed mid-tournament),
   # but should never be left with a blank result for the arbiter to notice
   # manually. Automate exactly what the moduledoc already documents: record

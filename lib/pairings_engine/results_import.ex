@@ -265,7 +265,7 @@ defmodule PairingsEngine.ResultsImport do
     end
   end
 
-  # Mirrors PairingsEngine.SwarImport's bulk-write shape: individual writes
+  # Mirrors PairingsEngine.Federations.BEL.SwarImport's bulk-write shape: individual writes
   # inside the transaction don't broadcast (a subscriber could otherwise
   # query the database before the writes are actually committed) -
   # broadcast once, for real, after commit, then let `refresh_status!/1`
