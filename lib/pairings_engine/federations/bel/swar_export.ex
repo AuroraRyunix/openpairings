@@ -1,7 +1,7 @@
-defmodule PairingsEngine.SwarExport do
+defmodule PairingsEngine.Federations.BEL.SwarExport do
   @moduledoc """
   Writes a `.swar` file from an OpenPairings tournament - the inverse of
-  `PairingsEngine.SwarImport`, built field-for-field against its read
+  `PairingsEngine.Federations.BEL.SwarImport`, built field-for-field against its read
   order and its reverse-mapping tables. See that module's moduledoc for
   the format background, and `docs/swar-import.md` for the underlying
   reverse-engineering notes.
@@ -81,7 +81,8 @@ defmodule PairingsEngine.SwarExport do
   import Ecto.Query
   require Logger
 
-  alias PairingsEngine.{Repo, Standings, Tournaments, SwarImport}
+  alias PairingsEngine.{Encoding, Repo, Standings, Tournaments}
+  alias PairingsEngine.Federations.BEL.SwarImport
   alias PairingsEngine.Tournaments.Tournament
 
   # Table number sentinel for a pairing-allocated bye (Swar.h TABLE_BYE) -
@@ -143,7 +144,7 @@ defmodule PairingsEngine.SwarExport do
   defp w_u8(v), do: <<v::8>>
 
   defp w_str(s) do
-    bytes = SwarImport.cp1252_encode(s || "")
+    bytes = Encoding.cp1252_encode(s || "")
     w_i32(byte_size(bytes)) <> bytes
   end
 

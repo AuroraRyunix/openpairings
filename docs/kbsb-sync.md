@@ -7,9 +7,14 @@ them for a tournament. Mirrors the existing FIDE rating sync
 (`lib/pairings_engine/fide/`) in almost everything except *how* the data
 arrives.
 
+The code lives in `lib/pairings_engine/federations/bel/` -
+`PairingsEngine.Federations.BEL.{Members, Member, Api, Parser, Sync}` - with
+the rest of the Belgium-specific code. The table it fills is still called
+`kbsb_players`, and stays called that; see `Member`'s moduledoc for why.
+
 ## Data source: the data-platform API, with the file upload as fallback
 
-**Preferred: `PairingsEngine.Kbsb.Api`.** The KBSB data platform
+**Preferred: `PairingsEngine.Federations.BEL.Api`.** The KBSB data platform
 (`kbsb-dataplatform`) exposes the Odoo-synced live roster at
 `GET /api/v1/players_national/export`, and since August 2026 that export
 carries each member's **club name** as well as their club number - which is
@@ -28,13 +33,13 @@ The export is unfiltered - archived, deceased and non-affiliated members
 included - because filtering it would make `?since=` unsound on the
 platform's side. That decision therefore lands here: `kbsb_players` stores
 `died` and `affiliated`, exact id lookups still resolve a deceased member
-(an arbiter typing a matricule wants an answer), and `Kbsb.name_index/0`
+(an arbiter typing a matricule wants an answer), and `Members.name_index/0`
 excludes them so a living player cannot inherit a dead namesake's club.
 
 This does **not** change where clubs are read from at use time. The local
-mirror stays, and `ClubRefresh` still reads it locally: rounds get paired in
-playing halls where the internet cannot be assumed. The API replaces how the
-mirror gets filled, not how it gets used.
+mirror stays, and `Federations.BEL.ClubRefresh` still reads it locally:
+rounds get paired in playing halls where the internet cannot be assumed. The
+API replaces how the mirror gets filled, not how it gets used.
 
 **Fallback: the uploaded file.** Everything below still applies, and the
 upload is still the only option when the API isn't configured.
@@ -82,21 +87,22 @@ instead of an HTTP sync: the tournament director downloads the official
 KBSB rating-list export themselves (from the Player Manager, or whatever
 the federation supplies) and uploads it on the Rating lists page. If the
 federation later opens a stable bulk endpoint, only
-`lib/pairings_engine/kbsb/sync.ex`'s trigger needs to change - the parser
-and storage are already format-driven, not transport-driven.
+`lib/pairings_engine/federations/bel/sync.ex`'s trigger needs to change -
+the parser and storage are already format-driven, not transport-driven.
 
 ## File format
 
 There's no verified real sample of this export in this codebase. The
-parser (`lib/pairings_engine/kbsb/parser.ex`) resolves columns **by header
-name** rather than by fixed byte offsets (unlike the FIDE parser), against
-a small set of recognised French/Dutch/English aliases (e.g. `MATRICULE`/
+parser (`lib/pairings_engine/federations/bel/parser.ex`) resolves columns
+**by header name** rather than by fixed byte offsets (unlike the FIDE
+parser), against a small set of recognised French/Dutch/English aliases
+(e.g. `MATRICULE`/
 `STAMNUMMER`/`ID` for the national ID column). This is deliberately more
 forgiving than FIDE's fixed-width format: it tolerates column reordering
 and doesn't need to know the delimiter or locale up front (`;` or `,` is
 auto-detected from the header line; UTF-8 or Windows-1252 encoding is
-auto-detected the same way `PairingsEngine.SwarImport` does for `.swar`
-files).
+auto-detected the same way `PairingsEngine.Federations.BEL.SwarImport` does
+for `.swar` files).
 
 Only `national_id` (matricule) and `last_name` are required columns -
 everything else (`first_name`, `national_rating`, `fide_id`, `club_number`,
@@ -107,11 +113,11 @@ alias list** - no other code needs to change.
 
 ## Architecture
 
-- `PairingsEngine.Kbsb.KbsbPlayer` - Ecto schema for `kbsb_players`,
+- `PairingsEngine.Federations.BEL.Member` - Ecto schema for `kbsb_players`,
   keyed by `national_id` (string, to preserve any leading zeros).
-- `PairingsEngine.Kbsb.Parser` - pure parser, `binary -> {:ok, rows} |
-  {:error, reason}`.
-- `PairingsEngine.Kbsb.Sync` - GenServer, mirrors
+- `PairingsEngine.Federations.BEL.Parser` - pure parser,
+  `binary -> {:ok, rows} | {:error, reason}`.
+- `PairingsEngine.Federations.BEL.Sync` - GenServer, mirrors
   `PairingsEngine.Fide.Sync`'s hardening: watchdog (3 min of no progress
   fails the job), `cancel_import/0`, PubSub progress on the `"kbsb_sync"`
   topic, full-table `insert_all` with `on_conflict: :replace_all`, and a
@@ -120,9 +126,12 @@ alias list** - no other code needs to change.
   connect/receive-timeout or retry/backoff logic, because there's no
   network download step to protect against - the bytes are already in
   memory by the time `start_import/1` is called.
-- `PairingsEngine.Kbsb` - context module: `search/1` (national ID exact
-  match, or last-name prefix), `find_by_national_id/1`,
-  `find_by_fide_id/1`, `player_count/0`, `last_sync/0`.
+- `PairingsEngine.Federations.BEL.Members` - context module: `search/1`
+  (national ID exact match, or every typed token against either name in any
+  order, accents folded - see its own docstring; this line used to say
+  "last-name prefix", which it has not been for a long time),
+  `find_by_national_id/1`, `find_by_fide_id/1`, `player_count/0`,
+  `last_sync/0`.
 
 ## UI
 

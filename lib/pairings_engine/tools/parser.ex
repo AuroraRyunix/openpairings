@@ -1,7 +1,7 @@
 defmodule PairingsEngine.Tools.Parser do
   @moduledoc """
   Dispatches an uploaded file (from the public arbiter tools page, see
-  docs/tools.md) to `PairingsEngine.SwarImport.build_structs/1` or
+  docs/tools.md) to `PairingsEngine.Federations.BEL.SwarImport.build_structs/1` or
   `PairingsEngine.TrfImport.build_structs/1` - the pure, no-`Repo` builders
   each importer already exposes - based on its filename's extension.
 
@@ -17,7 +17,8 @@ defmodule PairingsEngine.Tools.Parser do
   input - see their own moduledocs).
   """
 
-  alias PairingsEngine.{SwarImport, TrfImport}
+  alias PairingsEngine.TrfImport
+  alias PairingsEngine.Federations.BEL.SwarImport
 
   @doc """
   Parses `content` (a file's raw bytes) using `filename`'s extension to pick

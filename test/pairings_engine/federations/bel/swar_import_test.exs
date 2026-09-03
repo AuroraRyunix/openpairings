@@ -1,4 +1,4 @@
-defmodule PairingsEngine.SwarImportTest do
+defmodule PairingsEngine.Federations.BEL.SwarImportTest do
   # `async: false` - each test writes a whole tournament (players, rounds,
   # pairings) via a real transaction; with the FIDE-matching tests added on
   # top, that's enough concurrent SQLite writers to occasionally hit
@@ -12,7 +12,8 @@ defmodule PairingsEngine.SwarImportTest do
   # CI) - see the comment there.
   @moduletag :swar_fixture
 
-  alias PairingsEngine.{SwarImport, Tournaments, Repo, Standings}
+  alias PairingsEngine.{Tournaments, Repo, Standings}
+  alias PairingsEngine.Federations.BEL.SwarImport
   alias PairingsEngine.Tournaments.Round
   alias PairingsEngine.Accounts.{Scope, User}
   alias PairingsEngine.Fide.FidePlayer
@@ -551,7 +552,7 @@ defmodule PairingsEngine.SwarImportTest do
     # ordinary decisive result, so the fixture is honestly fully scored -
     # then confirm the derived status (Tournaments.refresh_status!/1,
     # called after commit and outside with_broadcast_suppressed - see
-    # PairingsEngine.SwarImport.run_import/2) lands on "finished" rather
+    # PairingsEngine.Federations.BEL.SwarImport.run_import/2) lands on "finished" rather
     # than the old hardcoded "running".
     patches = [
       {6, 10, 0x4000},
@@ -611,24 +612,6 @@ defmodule PairingsEngine.SwarImportTest do
     waegeman = Enum.find(players, &(&1.name == "Waegeman, Willem"))
     assert waegeman.birth_date == ~D[1982-04-02]
     assert waegeman.birth_date.year == waegeman.birth_year
-  end
-
-  # Direct unit coverage of the normalization helper itself (no fixture
-  # needed) - every marker `SwarImport.import_file/2`'s `map_federation/1`
-  # can hand it, plus the pass-through cases. `PairingsEngine.TrfExport`
-  # reuses this same function defensively at export time (see
-  # trf_export_test.exs) for a tournament whose `federation` was stored raw
-  # before this normalization existed.
-  test "normalize_federation/1 collapses every Belgian regional/organizational marker to BEL" do
-    for marker <- ~w(FRBE KBSB FEFB VSF SVDB FIDE frbe vsf) do
-      assert SwarImport.normalize_federation(marker) == "BEL"
-    end
-  end
-
-  test "normalize_federation/1 leaves a real FIDE federation code, blank, or nil untouched" do
-    assert SwarImport.normalize_federation("FRA") == "FRA"
-    assert SwarImport.normalize_federation("") == ""
-    assert SwarImport.normalize_federation(nil) == nil
   end
 
   ## ---------- FIDE id matching for players SWAR has no mat_fide for ----------

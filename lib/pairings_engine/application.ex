@@ -15,7 +15,7 @@ defmodule PairingsEngine.Application do
       {DNSCluster, query: Application.get_env(:pairings_engine, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: PairingsEngine.PubSub},
       PairingsEngine.Fide.Sync,
-      PairingsEngine.Kbsb.Sync,
+      PairingsEngine.Federations.BEL.Sync,
       PairingsEngine.Tools.Session,
       PairingsEngine.RateLimit,
       PairingsEngine.Deploy,

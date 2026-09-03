@@ -1,4 +1,4 @@
-defmodule PairingsEngine.SwarImportPresenceTest do
+defmodule PairingsEngine.Federations.BEL.SwarImportPresenceTest do
   # Deliberately a SEPARATE module from swar_import_test.exs, which carries
   # `@moduletag :swar_fixture` (excluded when the gitignored real .swar
   # fixtures aren't present - a fresh checkout, CI). ExUnit's bare-atom
@@ -12,11 +12,12 @@ defmodule PairingsEngine.SwarImportPresenceTest do
   # test/fixtures/test3-321.swar.
   use PairingsEngine.DataCase, async: false
 
-  alias PairingsEngine.{SwarImport, Standings}
+  alias PairingsEngine.Standings
+  alias PairingsEngine.Federations.BEL.SwarImport
 
   ## ---------- synthetic .swar binary builder ----------
   #
-  # Mirrors PairingsEngine.SwarImport.parse/1's field-by-field layout (header,
+  # Mirrors PairingsEngine.Federations.BEL.SwarImport.parse/1's field-by-field layout (header,
   # [TOURNOI], [DATES], [TIE_BREAK], [EXCLUSION], [CATEGORIES],
   # [XTRA_POINTS], [JOUEURS] with per-player [RONDE] rounds) closely enough
   # to produce a binary `parse/1` accepts - every field not under test is

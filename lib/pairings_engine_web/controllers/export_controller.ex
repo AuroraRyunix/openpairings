@@ -31,11 +31,12 @@ defmodule PairingsEngineWeb.ExportController do
   alias PairingsEngine.{
     Handoff,
     PgnExport,
-    SwarExport,
     TournamentExport,
     Tournaments,
     TrfExport
   }
+
+  alias PairingsEngine.Federations.BEL.SwarExport
 
   @doc """
   GET /t/:id/export/trf?rounds=1-5 - TRF16 text download, all or selected
@@ -102,7 +103,7 @@ defmodule PairingsEngineWeb.ExportController do
 
   @doc """
   GET /t/:id/export/swar - a `.swar` v7 binary SWAR itself can open. See
-  `PairingsEngine.SwarExport`'s moduledoc for exactly what this can and
+  `PairingsEngine.Federations.BEL.SwarExport`'s moduledoc for exactly what this can and
   cannot round-trip, and why it has never been verified against a real
   SWAR install.
   """

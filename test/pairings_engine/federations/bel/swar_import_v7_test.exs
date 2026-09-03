@@ -1,4 +1,4 @@
-defmodule PairingsEngine.SwarImportV7Test do
+defmodule PairingsEngine.Federations.BEL.SwarImportV7Test do
   # SWAR v7 changed the on-disk layout in three places (see the version-gate
   # comments in `SwarImport`): [TOURNOI]'s tail lost 12 bytes between the
   # FIDE-id block and `Type`, [JOUEURS] lost `EloFide`, and [JOUEURS] lost one
@@ -10,7 +10,7 @@ defmodule PairingsEngine.SwarImportV7Test do
   # fixtures.
   use ExUnit.Case, async: true
 
-  alias PairingsEngine.SwarImport
+  alias PairingsEngine.Federations.BEL.SwarImport
 
   ## ---------- synthetic .swar binary builder ----------
 

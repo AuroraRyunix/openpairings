@@ -1,4 +1,4 @@
-defmodule PairingsEngine.SwarExportTest do
+defmodule PairingsEngine.Federations.BEL.SwarExportTest do
   @moduledoc """
   The internal-consistency check `SwarExport`'s own moduledoc promises:
   export a tournament, re-parse the bytes with `SwarImport.parse/1` - the
@@ -20,7 +20,8 @@ defmodule PairingsEngine.SwarExportTest do
 
   use PairingsEngine.DataCase, async: false
 
-  alias PairingsEngine.{SwarExport, SwarImport, Tournaments, Repo}
+  alias PairingsEngine.{Tournaments, Repo}
+  alias PairingsEngine.Federations.BEL.{SwarExport, SwarImport}
   alias PairingsEngine.Tournaments.{Tournament, Player, Round, Pairing}
 
   defp build_tournament do

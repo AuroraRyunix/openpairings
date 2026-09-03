@@ -119,8 +119,8 @@ receives the broadcast, and confirms the flag is already set by then.
   an existing player/pairing. Nothing to invalidate there.
 - Writers outside this task's file ownership - `PairingsEngine.Keizer`,
   `PairingsEngine.RoundRobin`, `PairingsEngine.TrfImport`,
-  `PairingsEngine.TournamentImport`, `PairingsEngine.SwarImport` - also
-  insert `byes` rows (or otherwise set points) without invalidating. Keizer
+  `PairingsEngine.TournamentImport`,
+  `PairingsEngine.Federations.BEL.SwarImport` - also insert `byes` rows (or otherwise set points) without invalidating. Keizer
   is exempt by design (see below, it never persists a manual order to begin
   with). The others are real, but out of scope for this task's ownership
   boundary; if any of them can run against a tournament that already has

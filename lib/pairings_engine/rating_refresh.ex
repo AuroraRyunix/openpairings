@@ -21,11 +21,11 @@ defmodule PairingsEngine.RatingRefresh do
 
   `national_rating` is deliberately NOT refreshed from the KBSB list. It is
   an import/manual-entry artifact: SWAR's own ELO lands there on import (see
-  `PairingsEngine.SwarImport`), the KBSB search pre-fills it when a player is
+  `PairingsEngine.Federations.BEL.SwarImport`), the KBSB search pre-fills it when a player is
   registered off the list, and an arbiter can type it. A bulk button that
   silently rewrote it afterwards made it look like OpenPairings maintains a
   live national-rating system, which it does not. Clubs are a separate
-  gesture with its own button - see `PairingsEngine.ClubRefresh`.
+  gesture with its own button - see `PairingsEngine.Federations.BEL.ClubRefresh`.
 
   A player with no `fide_id` set (or whose id has no match in the list)
   contributes no proposals and counts as "unmatched" in the summary.

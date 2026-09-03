@@ -73,14 +73,14 @@ defmodule PairingsEngine.FixedBoardCollisionTest do
     Repo,
     ResultsImport,
     Snapshot,
-    SwarExport,
-    SwarImport,
     TournamentExport,
     TournamentImport,
     Tournaments,
     TrfExport,
     TrfImport
   }
+
+  alias PairingsEngine.Federations.BEL.{SwarExport, SwarImport}
 
   alias PairingsEngine.Tournaments.{Pairing, Player, Round, Tournament}
 

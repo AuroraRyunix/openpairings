@@ -1,4 +1,4 @@
-defmodule PairingsEngine.SwarImportAbsValueTest do
+defmodule PairingsEngine.Federations.BEL.SwarImportAbsValueTest do
   # Deliberately a SEPARATE module from swar_import_test.exs, which carries
   # `@moduletag :swar_fixture` (excluded when the gitignored real .swar
   # fixtures aren't present - a fresh checkout, CI). A synthetic-binary test
@@ -8,11 +8,12 @@ defmodule PairingsEngine.SwarImportAbsValueTest do
   # made variable instead of hardcoded).
   use PairingsEngine.DataCase, async: false
 
-  alias PairingsEngine.{SwarImport, Standings}
+  alias PairingsEngine.Standings
+  alias PairingsEngine.Federations.BEL.SwarImport
 
   ## ---------- synthetic .swar binary builder ----------
   #
-  # Mirrors PairingsEngine.SwarImport.parse/1's field-by-field layout closely
+  # Mirrors PairingsEngine.Federations.BEL.SwarImport.parse/1's field-by-field layout closely
   # enough to produce a binary `parse/1` accepts - every field not under
   # test is written as a zero/blank placeholder.
 

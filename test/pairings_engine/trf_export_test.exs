@@ -4,7 +4,8 @@ defmodule PairingsEngine.TrfExportTest do
   # (same reason fide/sync_test and the import/export tests are serial).
   use PairingsEngine.DataCase, async: false
 
-  alias PairingsEngine.{Repo, SwarImport, TrfExport, Tournaments}
+  alias PairingsEngine.{Repo, TrfExport, Tournaments}
+  alias PairingsEngine.Federations.BEL.SwarImport
   alias Ainalrami.Trf
   alias PairingsEngine.Tournaments.{Tournament, Player, Round, Pairing}
 
@@ -342,7 +343,7 @@ defmodule PairingsEngine.TrfExportTest do
   # tournament imported before that normalization existed may still have
   # the raw marker sitting in `tournament.federation` in the database.
   # `TrfExport` applies the same normalization defensively at export time
-  # (reusing `SwarImport.normalize_federation/1`) so that tournament
+  # (reusing `PairingsEngine.Federation.normalize/1`) so that tournament
   # exports "032 BEL" without needing a re-import.
   test "032 (federation) normalizes a raw Belgian league marker stored on the tournament, without re-importing" do
     {tournament, _} = fixture()

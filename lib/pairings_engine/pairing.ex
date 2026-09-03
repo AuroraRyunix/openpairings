@@ -1332,7 +1332,7 @@ defmodule PairingsEngine.Pairing do
   #
   # `@doc false` and `def` (not `defp`) purely so tests can drive this
   # parsing edge case directly - same precedent as
-  # `PairingsEngine.Fide.Sync`/`PairingsEngine.Kbsb.Sync`.
+  # `PairingsEngine.Fide.Sync`/`PairingsEngine.Federations.BEL.Sync`.
   @doc false
   def parse_pairs(text) do
     case text |> String.split(~r/\r?\n/) |> Enum.reject(&(String.trim(&1) == "")) do
@@ -2046,7 +2046,7 @@ defmodule PairingsEngine.Pairing do
   #
   # Found by pairing the same real, in-progress tournament twice: once
   # live in OpenPairings, once by exporting to `.swar` (see
-  # `PairingsEngine.SwarExport`) and continuing it in a real SWAR
+  # `PairingsEngine.Federations.BEL.SwarExport`) and continuing it in a real SWAR
   # install. 57 of 61 round-7 boards matched exactly; the 4 that didn't
   # were two clusters of players tied on BOTH score and rating (one pair
   # unrated 0 vs 0, one pair rated 1775 vs 1775) - precisely the case

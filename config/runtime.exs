@@ -213,7 +213,7 @@ end
 config :pairings_engine, :fide, list_url: System.get_env("FIDE_LIST_URL")
 
 # The KBSB data platform's roster API (the Odoo-synced live database), used
-# by `PairingsEngine.Kbsb.Api` to refresh the local `kbsb_players` mirror
+# by `PairingsEngine.Federations.BEL.Api` to refresh the local `kbsb_players` mirror
 # without anyone having to upload a file. Both unset is a supported state:
 # `Kbsb.Api.configured?/0` is then false and the UI offers only the file
 # upload, exactly as before this existed.

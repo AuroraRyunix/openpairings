@@ -3,7 +3,7 @@ defmodule PairingsEngine.RatingRefreshTest do
 
   alias PairingsEngine.{RatingRefresh, Tournaments}
   alias PairingsEngine.Fide.FidePlayer
-  alias PairingsEngine.Kbsb.KbsbPlayer
+  alias PairingsEngine.Federations.BEL.Member
   alias PairingsEngine.Accounts.Scope
   alias PairingsEngine.AccountsFixtures
 
@@ -141,7 +141,7 @@ defmodule PairingsEngine.RatingRefreshTest do
           "national_rating" => "1600"
         })
 
-      Repo.insert!(%KbsbPlayer{national_id: "12345", last_name: "Carla", national_rating: 1750})
+      Repo.insert!(%Member{national_id: "12345", last_name: "Carla", national_rating: 1750})
 
       assert %{proposals: [], changed: 0} = RatingRefresh.dry_run(tournament)
     end
@@ -152,7 +152,7 @@ defmodule PairingsEngine.RatingRefreshTest do
       {:ok, _player} =
         Tournaments.create_player(tournament.id, %{"name" => "Carla", "national_id" => "12345"})
 
-      Repo.insert!(%KbsbPlayer{national_id: "12345", last_name: "Carla", national_rating: 1750})
+      Repo.insert!(%Member{national_id: "12345", last_name: "Carla", national_rating: 1750})
 
       assert %{unmatched: 1, checked: 1} = RatingRefresh.dry_run(tournament)
     end
@@ -203,7 +203,7 @@ defmodule PairingsEngine.RatingRefreshTest do
         })
 
       Repo.insert!(%FidePlayer{fide_id: 9, name: "Eve", standard_rating: 1900, title: "WIM"})
-      Repo.insert!(%KbsbPlayer{national_id: "99999", last_name: "Eve", national_rating: 1720})
+      Repo.insert!(%Member{national_id: "99999", last_name: "Eve", national_rating: 1720})
 
       %{proposals: proposals} = RatingRefresh.dry_run(tournament)
       assert length(proposals) == 2

@@ -1,8 +1,8 @@
-defmodule PairingsEngine.Kbsb.ApiTest do
+defmodule PairingsEngine.Federations.BEL.ApiTest do
   # async: false - these swap the :kbsb application env, which is global.
   use ExUnit.Case, async: false
 
-  alias PairingsEngine.Kbsb.Api
+  alias PairingsEngine.Federations.BEL.Api
 
   setup do
     original = Application.get_env(:pairings_engine, :kbsb)

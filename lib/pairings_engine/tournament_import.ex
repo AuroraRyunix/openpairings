@@ -77,7 +77,7 @@ defmodule PairingsEngine.TournamentImport do
     end
   end
 
-  # Same after-commit, outside-suppression pattern as `PairingsEngine.SwarImport`:
+  # Same after-commit, outside-suppression pattern as `PairingsEngine.Federations.BEL.SwarImport`:
   # imported rounds/results already carry whatever status the export
   # snapshotted, but the round-trip should stand on its own - re-derive
   # each tournament's status from what actually landed in the database

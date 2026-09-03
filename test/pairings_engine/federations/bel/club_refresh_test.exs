@@ -1,8 +1,9 @@
-defmodule PairingsEngine.ClubRefreshTest do
+defmodule PairingsEngine.Federations.BEL.ClubRefreshTest do
   use PairingsEngine.DataCase, async: true
 
-  alias PairingsEngine.{ClubRefresh, Tournaments}
-  alias PairingsEngine.Kbsb.KbsbPlayer
+  alias PairingsEngine.Tournaments
+  alias PairingsEngine.Federations.BEL.ClubRefresh
+  alias PairingsEngine.Federations.BEL.Member
   alias PairingsEngine.Accounts.Scope
   alias PairingsEngine.AccountsFixtures
 
@@ -35,7 +36,7 @@ defmodule PairingsEngine.ClubRefreshTest do
           "club_number" => 111
         })
 
-      Repo.insert!(%KbsbPlayer{
+      Repo.insert!(%Member{
         national_id: "12345",
         last_name: "Mover",
         club_name: "New Club",
@@ -61,7 +62,7 @@ defmodule PairingsEngine.ClubRefreshTest do
           "club_number" => 401
         })
 
-      Repo.insert!(%KbsbPlayer{
+      Repo.insert!(%Member{
         national_id: "22222",
         last_name: "Settled",
         club_name: "Same Club",
@@ -85,7 +86,7 @@ defmodule PairingsEngine.ClubRefreshTest do
           "club" => "Typed By Hand"
         })
 
-      Repo.insert!(%KbsbPlayer{national_id: "33333", last_name: "Guest", club_name: ""})
+      Repo.insert!(%Member{national_id: "33333", last_name: "Guest", club_name: ""})
 
       assert %{proposals: [], changed: 0, unmatched: 0} = ClubRefresh.dry_run(tournament)
     end
@@ -96,7 +97,7 @@ defmodule PairingsEngine.ClubRefreshTest do
       {:ok, _p} =
         Tournaments.create_player(tournament.id, %{"name" => "FideOnly", "fide_id" => 255_424})
 
-      Repo.insert!(%KbsbPlayer{
+      Repo.insert!(%Member{
         national_id: "44444",
         last_name: "FideOnly",
         fide_id: 255_424,
@@ -120,14 +121,14 @@ defmodule PairingsEngine.ClubRefreshTest do
           "fide_id" => 999_111
         })
 
-      Repo.insert!(%KbsbPlayer{
+      Repo.insert!(%Member{
         national_id: "55555",
         last_name: "Both",
         club_name: "By National",
         club_number: 1
       })
 
-      Repo.insert!(%KbsbPlayer{
+      Repo.insert!(%Member{
         national_id: "66666",
         last_name: "Other",
         fide_id: 999_111,
@@ -164,7 +165,7 @@ defmodule PairingsEngine.ClubRefreshTest do
           "fide_rating" => 2000
         })
 
-      Repo.insert!(%KbsbPlayer{
+      Repo.insert!(%Member{
         national_id: "12345",
         last_name: "Mover",
         club_name: "New Club",
@@ -196,9 +197,7 @@ defmodule PairingsEngine.ClubRefreshTest do
     end
 
     defp listed(attrs) do
-      Repo.insert!(
-        struct(%KbsbPlayer{national_id: "n#{System.unique_integer([:positive])}"}, attrs)
-      )
+      Repo.insert!(struct(%Member{national_id: "n#{System.unique_integer([:positive])}"}, attrs))
     end
 
     test "matches a player carrying no ids at all", %{tournament: tournament} do
@@ -272,7 +271,7 @@ defmodule PairingsEngine.ClubRefreshTest do
     test "but an exact id still resolves a deceased member", %{tournament: tournament} do
       typed_in(tournament, "Janssens, Karel", %{"national_id" => "77777"})
 
-      Repo.insert!(%KbsbPlayer{
+      Repo.insert!(%Member{
         national_id: "77777",
         last_name: "Janssens",
         club_name: "Ghost FC",
@@ -287,7 +286,7 @@ defmodule PairingsEngine.ClubRefreshTest do
     test "an id still wins over the name, and is reported as such", %{tournament: tournament} do
       typed_in(tournament, "Janssens, Karel", %{"national_id" => "55555"})
 
-      Repo.insert!(%KbsbPlayer{
+      Repo.insert!(%Member{
         national_id: "55555",
         last_name: "Janssens",
         first_name: "Karel",

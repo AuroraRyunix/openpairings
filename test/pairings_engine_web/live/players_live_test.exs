@@ -6,7 +6,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
 
   alias PairingsEngine.{Repo, Tournaments}
   alias PairingsEngine.Fide.FidePlayer
-  alias PairingsEngine.Kbsb.KbsbPlayer
+  alias PairingsEngine.Federations.BEL.Member
 
   setup :register_and_log_in_user
 
@@ -302,7 +302,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
           "rate_of_play" => "90 min + 30 sec/move"
         })
 
-      Repo.insert!(%KbsbPlayer{
+      Repo.insert!(%Member{
         national_id: "12345",
         last_name: "Peeters",
         first_name: "Jan",
@@ -378,7 +378,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       })
 
       Repo.update_all(
-        from(k in KbsbPlayer, where: k.national_id == "12345"),
+        from(k in Member, where: k.national_id == "12345"),
         set: [fide_id: 555_555]
       )
 
@@ -406,7 +406,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       {:ok, player} =
         Tournaments.create_player(tournament.id, %{"name" => "Alice", "national_id" => "12345"})
 
-      Repo.insert!(%KbsbPlayer{
+      Repo.insert!(%Member{
         national_id: "12345",
         last_name: "Peeters",
         first_name: "Jan",
@@ -1772,7 +1772,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
           "club" => "Old Club"
         })
 
-      Repo.insert!(%KbsbPlayer{
+      Repo.insert!(%Member{
         national_id: "55555",
         last_name: "Clubless",
         club_name: "New Club",

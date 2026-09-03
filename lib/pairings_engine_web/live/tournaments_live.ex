@@ -6,13 +6,13 @@ defmodule PairingsEngineWeb.TournamentsLive do
     Handoff,
     Publishing,
     Tournaments,
-    SwarImport,
     TournamentExport,
     TournamentImport,
     TrfImport,
     RateOfPlay
   }
 
+  alias PairingsEngine.Federations.BEL.SwarImport
   alias PairingsEngine.Tools.Parser
   alias PairingsEngine.Tournaments.Tournament
   alias PairingsEngineWeb.SettingsSupport

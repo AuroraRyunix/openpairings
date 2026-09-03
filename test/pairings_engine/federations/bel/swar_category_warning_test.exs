@@ -1,4 +1,4 @@
-defmodule PairingsEngine.SwarCategoryWarningTest do
+defmodule PairingsEngine.Federations.BEL.SwarCategoryWarningTest do
   @moduledoc """
   SWAR's `[CATEGORIES]` block carries two value lists and this import can
   read one of them.
@@ -27,7 +27,8 @@ defmodule PairingsEngine.SwarCategoryWarningTest do
     %{type: type, value1: pad.(value1), value2: pad.(value2)}
   end
 
-  defp warnings(categories), do: PairingsEngine.SwarImport.category_warnings(categories)
+  defp warnings(categories),
+    do: PairingsEngine.Federations.BEL.SwarImport.category_warnings(categories)
 
   describe "a file that defines no categories" do
     test "says nothing, whatever padding it carries" do

@@ -274,7 +274,7 @@ defmodule PairingsEngineWeb.ExportControllerTest do
       assert disposition =~ "export-ctrl-test.swar"
 
       body = response(conn, 200)
-      assert {:ok, parsed} = PairingsEngine.SwarImport.parse(body)
+      assert {:ok, parsed} = PairingsEngine.Federations.BEL.SwarImport.parse(body)
       assert parsed.version == "v7.00"
       assert parsed.tournament.name == "Export Ctrl Test"
       assert length(parsed.players) == 2

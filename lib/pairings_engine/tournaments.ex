@@ -30,7 +30,7 @@ defmodule PairingsEngine.Tournaments do
   #
   # Every write in this module (and in the other modules that mutate
   # tournament-scoped data directly, namely PairingsEngine.Pairing and
-  # PairingsEngine.SwarImport) broadcasts on the tournament's topic so any
+  # PairingsEngine.Federations.BEL.SwarImport) broadcasts on the tournament's topic so any
   # open LiveView showing that tournament can reload instantly instead of
   # polling. `hint` is a lightweight atom describing what changed
   # (:players, :pairings, :results, :settings, :rounds, :tournament) - most
@@ -123,7 +123,7 @@ defmodule PairingsEngine.Tournaments do
   @doc """
   Runs `fun` with per-write broadcasting suppressed for the current
   process. Used by bulk operations that wrap many individual writes in a
-  single `Repo.transaction` (e.g. `PairingsEngine.SwarImport`) - broadcasting
+  single `Repo.transaction` (e.g. `PairingsEngine.Federations.BEL.SwarImport`) - broadcasting
   from inside an uncommitted transaction would let a subscriber query the
   database before the writes are actually visible. The caller is
   responsible for broadcasting once, after the transaction has committed.
@@ -197,7 +197,7 @@ defmodule PairingsEngine.Tournaments do
   `scope`'s user) that was already imported from the same `.swar` file -
   matched on `swar_guid`, the persistent per-tournament id SWAR itself
   stamps into every export of the same tournament (see
-  `PairingsEngine.SwarImport.parse/1`'s `:guid`). Used to warn before a
+  `PairingsEngine.Federations.BEL.SwarImport.parse/1`'s `:guid`). Used to warn before a
   re-upload of the same tournament silently creates a duplicate - see
   docs/import-export.md. `nil` for a blank guid or no match; only ever
   matches within the uploading user's own accessible tournaments, never

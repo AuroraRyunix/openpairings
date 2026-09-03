@@ -1,13 +1,13 @@
-defmodule PairingsEngine.KbsbTest do
+defmodule PairingsEngine.Federations.BEL.MembersTest do
   use PairingsEngine.DataCase, async: true
 
   import Ecto.Query
 
-  alias PairingsEngine.Kbsb
-  alias PairingsEngine.Kbsb.KbsbPlayer
+  alias PairingsEngine.Federations.BEL.Members
+  alias PairingsEngine.Federations.BEL.Member
 
   defp seed! do
-    Repo.insert_all(KbsbPlayer, [
+    Repo.insert_all(Member, [
       %{
         national_id: "12345",
         last_name: "Peeters",
@@ -48,32 +48,32 @@ defmodule PairingsEngine.KbsbTest do
     test "exact national-id match takes priority" do
       seed!()
 
-      assert [%KbsbPlayer{national_id: "12345"}] = Kbsb.search("12345")
+      assert [%Member{national_id: "12345"}] = Members.search("12345")
     end
 
     test "matches a name token, best rating first" do
       seed!()
 
-      results = Kbsb.search("Peet")
+      results = Members.search("Peet")
       assert Enum.map(results, & &1.national_id) == ["12345", "00042"]
     end
 
     test "matches tokens in any order, and on the first name alone" do
       seed!()
 
-      assert [%KbsbPlayer{national_id: "12345"}] = Kbsb.search("peeters jan")
-      assert [%KbsbPlayer{national_id: "12345"}] = Kbsb.search("jan peeters")
-      assert [%KbsbPlayer{national_id: "12345"}] = Kbsb.search("peeters, jan")
-      assert [%KbsbPlayer{national_id: "12345"}] = Kbsb.search("jan")
+      assert [%Member{national_id: "12345"}] = Members.search("peeters jan")
+      assert [%Member{national_id: "12345"}] = Members.search("jan peeters")
+      assert [%Member{national_id: "12345"}] = Members.search("peeters, jan")
+      assert [%Member{national_id: "12345"}] = Members.search("jan")
     end
 
     test "folds diacritics, so an unaccented query finds an accented name" do
-      Repo.insert_all(KbsbPlayer, [
+      Repo.insert_all(Member, [
         %{national_id: "55555", last_name: "Müller", first_name: "Jörg", national_rating: 1700}
       ])
 
-      assert [%KbsbPlayer{national_id: "55555"}] = Kbsb.search("muller")
-      assert [%KbsbPlayer{national_id: "55555"}] = Kbsb.search("jorg")
+      assert [%Member{national_id: "55555"}] = Members.search("muller")
+      assert [%Member{national_id: "55555"}] = Members.search("jorg")
     end
 
     test "the full-text index is what answers, and the triggers keep it current" do
@@ -83,34 +83,34 @@ defmodule PairingsEngine.KbsbTest do
       # row from the index only, leaving `kbsb_players` untouched. If the
       # search were still scanning the table it would find it anyway.
       Repo.query!("DELETE FROM kbsb_players_fts WHERE national_id = ?", ["12345"])
-      assert Enum.map(Kbsb.search("Peet"), & &1.national_id) == ["00042"]
+      assert Enum.map(Members.search("Peet"), & &1.national_id) == ["00042"]
 
       # And the UPDATE trigger puts a renamed player back under the new name.
       Repo.update_all(
-        from(k in KbsbPlayer, where: k.national_id == "00042"),
+        from(k in Member, where: k.national_id == "00042"),
         set: [last_name: "Janssens"]
       )
 
-      assert Kbsb.search("Peet") == []
-      assert [%KbsbPlayer{national_id: "00042"}] = Kbsb.search("Janssens")
+      assert Members.search("Peet") == []
+      assert [%Member{national_id: "00042"}] = Members.search("Janssens")
     end
 
     test "queries under 2 characters return nothing" do
       seed!()
 
-      assert Kbsb.search("P") == []
+      assert Members.search("P") == []
     end
 
     test "blank query returns nothing" do
-      assert Kbsb.search("") == []
-      assert Kbsb.search("   ") == []
+      assert Members.search("") == []
+      assert Members.search("   ") == []
     end
 
     test "unknown national id and unknown name both return an empty list" do
       seed!()
 
-      assert Kbsb.search("99999") == []
-      assert Kbsb.search("Nobody") == []
+      assert Members.search("99999") == []
+      assert Members.search("Nobody") == []
     end
   end
 
@@ -118,15 +118,15 @@ defmodule PairingsEngine.KbsbTest do
     test "finds an exact match" do
       seed!()
 
-      assert %KbsbPlayer{last_name: "Dubois"} = Kbsb.find_by_national_id("67890")
+      assert %Member{last_name: "Dubois"} = Members.find_by_national_id("67890")
     end
 
     test "returns nil for nil, blank, or unknown ids" do
       seed!()
 
-      assert Kbsb.find_by_national_id(nil) == nil
-      assert Kbsb.find_by_national_id("") == nil
-      assert Kbsb.find_by_national_id("no-such-id") == nil
+      assert Members.find_by_national_id(nil) == nil
+      assert Members.find_by_national_id("") == nil
+      assert Members.find_by_national_id("no-such-id") == nil
     end
   end
 
@@ -134,27 +134,27 @@ defmodule PairingsEngine.KbsbTest do
     test "finds the KBSB row cross-referenced by FIDE id" do
       seed!()
 
-      assert %KbsbPlayer{national_id: "67890"} = Kbsb.find_by_fide_id(10_012_345)
+      assert %Member{national_id: "67890"} = Members.find_by_fide_id(10_012_345)
     end
 
     test "returns nil when nothing matches or fide_id is nil" do
       seed!()
 
-      assert Kbsb.find_by_fide_id(nil) == nil
-      assert Kbsb.find_by_fide_id(999) == nil
+      assert Members.find_by_fide_id(nil) == nil
+      assert Members.find_by_fide_id(999) == nil
     end
   end
 
   describe "player_count/0 and last_sync/0" do
     test "player_count reflects the table, last_sync starts nil and updates on put_last_sync" do
-      assert Kbsb.player_count() == 0
-      assert Kbsb.last_sync() == nil
+      assert Members.player_count() == 0
+      assert Members.last_sync() == nil
 
       seed!()
-      assert Kbsb.player_count() == 3
+      assert Members.player_count() == 3
 
-      Kbsb.put_last_sync()
-      assert Kbsb.last_sync() != nil
+      Members.put_last_sync()
+      assert Members.last_sync() != nil
     end
   end
 
@@ -163,7 +163,7 @@ defmodule PairingsEngine.KbsbTest do
       seed!()
 
       Repo.insert_all(
-        KbsbPlayer,
+        Member,
         [
           %{
             national_id: "12345",
@@ -181,10 +181,10 @@ defmodule PairingsEngine.KbsbTest do
         conflict_target: :national_id
       )
 
-      assert Kbsb.player_count() == 3
+      assert Members.player_count() == 3
 
-      assert %KbsbPlayer{national_rating: 1900, fide_id: 4_000_000} =
-               Kbsb.find_by_national_id("12345")
+      assert %Member{national_rating: 1900, fide_id: 4_000_000} =
+               Members.find_by_national_id("12345")
     end
   end
 end

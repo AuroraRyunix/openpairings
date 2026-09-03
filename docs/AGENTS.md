@@ -47,8 +47,10 @@ per-tournament collaborator sharing.
 ## Entry points
 
 - `lib/pairings_engine/application.ex` - the supervision tree. Notable
-  children beyond the standard Phoenix set: `Fide.Sync` and `Kbsb.Sync`
-  (singleton GenServers holding rating-list sync state), `Tools.Session`
+  children beyond the standard Phoenix set: `Fide.Sync` and
+  `Federations.BEL.Sync` (singleton GenServers holding rating-list sync
+  state - the second is one of only two core files that name the Belgian
+  pack; see `docs/architecture.md`), `Tools.Session`
   (in-memory, no-DB store backing the public `/tools/norms` page),
   `RateLimit`.
 - `lib/pairings_engine_web/router.ex` - six route groups, each its own
@@ -88,9 +90,9 @@ per-tournament collaborator sharing.
   `lib/pairings_engine/trf.ex`, which Ainalrami's was photocopied from and
   which then stood still while the copy grew - the app serialized with one
   and parsed with the other on every pairing.
-- `lib/pairings_engine/swar_import.ex` - binary parser for SWAR's
-  proprietary `.swar` format (sequential, no index - every field must be read
-  in exact order; see its moduledoc for section layout).
+- `lib/pairings_engine/federations/bel/swar_import.ex` - binary parser for
+  SWAR's proprietary `.swar` format (sequential, no index - every field must
+  be read in exact order; see its moduledoc for section layout).
 - `lib/pairings_engine/norms/` - `xlsx_fill.ex` (generic in-place `.xlsx`
   cell surgery via `:zip` + regex, no dependency on any specific form),
   `forms.ex` (the actual IT3/FA1/IA1/IT4 field mappers), `title_norms.ex`
@@ -100,9 +102,14 @@ per-tournament collaborator sharing.
   page's own session store and file parsing.
 - `lib/pairings_engine/mobile.ex` + `mobile/` - no-account phone enrollment
   for result entry (QR/code, TTL, revocation).
-- `lib/pairings_engine/fide.ex` / `fide/sync.ex`, `kbsb.ex` / `kbsb/` - rating
-  list ingestion (FIDE: HTTP download + unzip; KBSB: file upload - no stable
-  public bulk download exists for Belgian ratings).
+- `lib/pairings_engine/fide.ex` / `fide/sync.ex` - FIDE rating-list
+  ingestion (HTTP download + unzip).
+- `lib/pairings_engine/federations/bel/` - everything Belgium-specific,
+  namespaced by FIDE federation code: the KBSB member list (`members.ex`,
+  `member.ex`, `api.ex`, `parser.ex`, `sync.ex` - file upload or the data
+  platform's API; no stable public bulk download exists), `club_refresh.ex`,
+  and the SWAR importer/exporter. See `docs/architecture.md` for what still
+  reaches into it from the core.
 - `lib/pairings_engine_web/live/` - one LiveView module per top-bar tab.
   Every tournament-scoped LiveView subscribes to `"tournament:#{id}"` on
   mount and reloads on any write elsewhere (see "Live-refresh model" below).

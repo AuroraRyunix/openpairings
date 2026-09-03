@@ -119,8 +119,9 @@ everything the app does and what is planned next.
 - `lib/pairings_engine/` - domain: `pairing.ex` (JaVaFo), `standings.ex` (C.07
   tiebreaks, supports `through_round:`), `trf.ex` (TRF16 + result validation),
   `trf_export.ex` / `tournament_export.ex` / `tournament_import.ex` (exports),
-  `fide/sync.ex` (rating-list sync), `kbsb/` (Belgian rating-list import),
-  `swar_import.ex` (.swar importer), `trf_import.ex` (TRF importer),
+  `fide/sync.ex` (rating-list sync), `federations/bel/` (everything
+  Belgium-specific: KBSB rating-list import, club refresh, the `.swar`
+  importer/exporter), `trf_import.ex` (TRF importer),
   `norms/` (Excel form fill engine + form mappers), `player_card.ex`,
   `tournaments/collaborator.ex` (sharing).
 - `lib/pairings_engine_web/live/` - LiveView pages (one per top-bar tab), all

@@ -1,4 +1,4 @@
-defmodule PairingsEngine.Kbsb.Sync do
+defmodule PairingsEngine.Federations.BEL.Sync do
   @moduledoc """
   Imports an uploaded Belgian national (KBSB/FRBE) rating-list file into the
   local `kbsb_players` table.
@@ -18,8 +18,8 @@ defmodule PairingsEngine.Kbsb.Sync do
 
   use GenServer
   require Logger
-  alias PairingsEngine.{Repo, Kbsb}
-  alias PairingsEngine.Kbsb.{Api, KbsbPlayer, Parser}
+  alias PairingsEngine.Repo
+  alias PairingsEngine.Federations.BEL.{Api, Member, Members, Parser}
 
   @topic "kbsb_sync"
 
@@ -49,7 +49,7 @@ defmodule PairingsEngine.Kbsb.Sync do
 
   @doc """
   Kicks off an import from the KBSB data platform's roster API instead of an
-  uploaded file (see `PairingsEngine.Kbsb.Api`). Same GenServer, same
+  uploaded file (see `PairingsEngine.Federations.BEL.Api`). Same GenServer, same
   status, same progress topic, same count guards and same full-replace
   transaction - only the source of the rows differs, so the two can never
   disagree about what a valid import is.
@@ -62,8 +62,8 @@ defmodule PairingsEngine.Kbsb.Sync do
     GenServer.call(__MODULE__, :status)
     |> Map.from_struct()
     |> Map.drop([:task_pid, :task_ref, :watchdog_timer])
-    |> Map.put(:player_count, Kbsb.player_count())
-    |> Map.put(:last_sync, Kbsb.last_sync())
+    |> Map.put(:player_count, Members.player_count())
+    |> Map.put(:last_sync, Members.last_sync())
   end
 
   def topic, do: @topic
@@ -201,7 +201,7 @@ defmodule PairingsEngine.Kbsb.Sync do
 
     with {:ok, rows} <- Parser.parse(binary),
          {:ok, state} <- import_rows(server, rows, state) do
-      Kbsb.put_last_sync()
+      Members.put_last_sync()
       update(server, %{state | status: :done, progress: ""})
     else
       {:error, reason} ->
@@ -231,7 +231,7 @@ defmodule PairingsEngine.Kbsb.Sync do
 
     with {:ok, rows} <- Api.fetch_all(on_progress),
          {:ok, state} <- import_rows(server, rows, state) do
-      Kbsb.put_last_sync()
+      Members.put_last_sync()
       update(server, %{state | status: :done, progress: ""})
     else
       {:error, reason} ->
@@ -250,12 +250,12 @@ defmodule PairingsEngine.Kbsb.Sync do
   # `@doc false` and `def` (not `defp`) purely so tests can drive this
   # count-guard/transaction logic directly with synthetic already-parsed
   # rows, without going through `Parser.parse/1` - see
-  # PairingsEngine.Kbsb.SyncTest. Not part of the module's intended public
+  # PairingsEngine.Federations.BEL.SyncTest. Not part of the module's intended public
   # API.
   @doc false
   def import_rows(server, rows, state) do
     total = length(rows)
-    current_count = Repo.aggregate(KbsbPlayer, :count)
+    current_count = Repo.aggregate(Member, :count)
 
     cond do
       total == 0 ->
@@ -288,7 +288,7 @@ defmodule PairingsEngine.Kbsb.Sync do
         |> Stream.chunk_every(@insert_chunk_size)
         |> Stream.with_index(1)
         |> Enum.each(fn {chunk, i} ->
-          Repo.insert_all(KbsbPlayer, chunk,
+          Repo.insert_all(Member, chunk,
             on_conflict: :replace_all,
             conflict_target: :national_id
           )
