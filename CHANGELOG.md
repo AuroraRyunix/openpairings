@@ -14,7 +14,7 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
-## [0.19.0] - 2026-09-02
+## [0.20.0] - 2026-09-02
 
 ### Added
 
@@ -32,6 +32,9 @@ Each entry is tagged so a version can be skimmed:
 - [Fix] Nine refusals said "this tournament is archived" whatever the real reason was - sending an arbiter to unarchive a tournament that was not archived.
 - [Change] **The FIDE/KBSB sync line is gone from the top bar.** The Connections page still shows both in full; the top bar had too much in it.
 
+## [0.19.0] - 2026-09-02
+
+### Fixed
 
 - [Fix] **Buttons you can actually read, on every theme.** The main action button filled itself with your accent colour and wrote white on top - hardcoded. Across the ten themes and nine accent choices, **64 of 90 combinations failed** the accessibility threshold for readable text, the worst at 1.81:1 against a required 4.5. On Nord the button you are most meant to find scored 2.00. Each theme and accent now names the ink that belongs on it - Nord's is 6.24 - and the delete button, which had the same fault in six themes, is fixed the same way. Eight other places writing white on a coloured fill went with them; no hardcoded white is left in the stylesheet.
 - [Change] **One action per screen actually looks like one.** The report downloads on the norms pages and the arbiter tools - IT3, IT4, FA1, IA1 and the combined forms - were each styled as the page's main action, so a page offering six of them shouted six times. They are the quieter tonal style now; saving still stands out, because saving is the thing you cannot get back by clicking again. Same for the "Add" button that builds a forbidden-pairing list, which is a step rather than the commit.
