@@ -16,6 +16,10 @@ Each entry is tagged so a version can be skimmed:
 
 ## [0.21.0] - 2026-09-02
 
+### Fixed
+
+- [Fix] **Buttons could disappear off the edge of the page.** The top bar and the tournaments header packed their controls into a row that could not wrap, and the page clips what overflows rather than scrolling it - so a control that did not fit was not merely off-screen, it was gone and unclickable. In Dutch it bit hardest, because the words are longer: "Log out" is "Afmelden", "Tools" is "Hulpmiddelen", and at a 1000-pixel window the log-out link was rendering 25 pixels past the edge. It was already happening in English too, on a part-width laptop window with a tournament open. The rows wrap now, and a test keeps them wrapping.
+
 ### Changed
 
 - [Change] **Seven themes, not eleven.** Solarized, Solarized Light, Nord and Nocturne are retired; Catppuccin is now called **Mocha**. If Catppuccin was your choice you keep it under its new name - the browser rewrites the stored value rather than resetting you, which is the difference between a rename and a removal. A retired theme falls back to the system default instead of leaving you on a palette that no longer exists.
