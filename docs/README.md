@@ -69,6 +69,10 @@ everything the app does and what is planned next.
 - [Import / export](import-export.md) - user-facing TRF export with round
   selection (`?rounds=1-5,7`), and full-fidelity JSON backup/restore of a single
   tournament or all of them (imports become new tournaments owned by you).
+- [Hand-off](handoff.md) - move a whole tournament between a hosted server
+  and a locally-run copy as a checkout, not a sync: the tournament is live
+  in exactly one place at a time, nothing ever merges, and an owner can
+  force the lock open (audited separately) if the other copy is lost.
 - [Results import (CSV)](results-import.md) - bulk-enter a round's results from
   a "board;result" CSV on the Pairings page; all-or-nothing with per-line
   errors, boards not mentioned keep their result.

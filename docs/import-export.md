@@ -132,6 +132,40 @@ socket.
 
 ### Envelope format
 
+```jsonc
+{
+  "format": "openpairings-export",
+  "version": 1,
+  "exported_at": "2026-07-11T12:00:00Z",
+  "tournaments": [
+    {
+      "tournament": { "name": "...", "type": "swiss", "tiebreaks": ["BH", "SB"], /* most Tournament fields - 15 are held back, see below */ },
+      "openresults": { "key": "...", "slug": "...", "endpoint": "https://..." },  // or null - see below
+      "teams":   [{ "id": 7, "name": "Team A", "captain": "..." }],
+      "players": [{ "id": 42, "name": "...", "team_id": 7, "norm_data": {...}, /* every Player field except tournament_id/timestamps */ }],
+      "rounds":  [{ "id": 3, "number": 1, "date": "...", "status": "finished",
+                    "pairings": [{ "board": 1, "result": "1-0", "white_player_id": 42, "black_player_id": 43 }] }],
+      "byes":               [{ "player_id": 42, "round": 2, "type": "pairing-allocated" }],
+      "forbidden_pairings":  [{ "player_a_id": 42, "player_b_id": 43 }],
+      "audit_log":           [{ "action": "tournament.settings_updated", "details": {"changed_fields": {}}, "inserted_at": "...", "actor": "arbiter@example.com" }],  // only with include_handoff: true - see below
+      "collaborators":       [{ "email": "co-arbiter@example.com", "role": "editor" }]  // only with include_handoff: true - see below
+    }
+  ]
+}
+```
+
+`format`/`version` identify the envelope so a garbage or foreign file is
+rejected up front rather than partially imported. `"id"` on teams/players/
+rounds is **not** a promise about anything outside this one JSON file - it
+only lets sibling records within the same envelope point at the right team/
+player (a pairing's `white_player_id`, a bye's `player_id`, ...). The owning
+user is never included: who exported a tournament has no bearing on who can
+import it.
+
+`matches` (team-match boards) isn't included: nothing in the app writes to
+that table yet (team tournaments don't have a matches UI), so there's
+nothing to round-trip there today.
+
 ### What does not travel
 
 The backup carries the tournament as an arbiter configured it, not the row
@@ -153,40 +187,61 @@ as the database holds it. Of the tournament's 68 fields, **15 are held back**
 tournament map but it does leave, in the entry's own `"openresults"` block
 above, so a takeover can be offered deliberately rather than by accident.
 
-Every **player** field does travel, which is why the shape below says so
+Every **player** field does travel, which is why the shape above says so
 without a caveat.
 
-```jsonc
-{
-  "format": "openpairings-export",
-  "version": 1,
-  "exported_at": "2026-07-11T12:00:00Z",
-  "tournaments": [
-    {
-      "tournament": { "name": "...", "type": "swiss", "tiebreaks": ["BH", "SB"], /* most Tournament fields - 15 are held back, see below */ },
-      "openresults": { "key": "...", "slug": "...", "endpoint": "https://..." },  // or null - see below
-      "teams":   [{ "id": 7, "name": "Team A", "captain": "..." }],
-      "players": [{ "id": 42, "name": "...", "team_id": 7, "norm_data": {...}, /* every Player field except tournament_id/timestamps */ }],
-      "rounds":  [{ "id": 3, "number": 1, "date": "...", "status": "finished",
-                    "pairings": [{ "board": 1, "result": "1-0", "white_player_id": 42, "black_player_id": 43 }] }],
-      "byes":               [{ "player_id": 42, "round": 2, "type": "pairing-allocated" }],
-      "forbidden_pairings":  [{ "player_a_id": 42, "player_b_id": 43 }]
-    }
-  ]
-}
-```
+The hand-off lock itself never travels either, whatever option is passed:
+`handed_off_at`, `handed_off_to`, `handoff_token` and `handoff_origin` are
+excluded unconditionally, for the same reason as the rest of this list - see
+[`handoff.md`](handoff.md) for why an imported or restored copy is always
+live rather than arriving pre-locked.
 
-`format`/`version` identify the envelope so a garbage or foreign file is
-rejected up front rather than partially imported. `"id"` on teams/players/
-rounds is **not** a promise about anything outside this one JSON file - it
-only lets sibling records within the same envelope point at the right team/
-player (a pairing's `white_player_id`, a bye's `player_id`, ...). The owning
-user is never included: who exported a tournament has no bearing on who can
-import it.
+### Hand-off blocks (opt-in): `audit_log` and `collaborators`
 
-`matches` (team-match boards) isn't included: nothing in the app writes to
-that table yet (team tournaments don't have a matches UI), so there's
-nothing to round-trip there today.
+Two more blocks travel in the envelope, but only when the caller asks for
+them: `TournamentExport.export_tournament/2` and `export_all/2` both take
+`include_handoff: true`, which adds `"audit_log"` and `"collaborators"` to
+each tournament entry above. An ordinary backup (the Settings page's
+"Export / backup" card, "Export all (JSON)" on the Tournaments page) never
+passes it, and the two keys are then simply **absent** - not an empty array,
+since an empty array would claim the trail was empty when it was never taken
+at all.
+
+- **`audit_log`** - every audit row for the tournament, oldest first:
+  `action`, `details` (with any database id inside it remapped to the
+  matching record elsewhere in this same file, or dropped if it names
+  something the file doesn't carry - a pairing, a snapshot, another
+  tournament), `inserted_at`, and `actor` - the acting user as an email
+  string, never as an id. A user id from another installation is meaningless
+  here, and could even collide with an unrelated real account on the machine
+  that imports it.
+- **`collaborators`** - who the tournament was shared with: `email` and
+  `role` only, nothing that identifies a local account. On import each one
+  is filed as a fresh, PENDING invitation - nobody gains access because the
+  file arrived, no email is sent, and every person has to accept again on
+  whichever machine now holds the tournament.
+
+**Why opt-in.** `export_tournament/1` with no options is not only the plain
+backup route - it is also the function behind every restore point
+(`PairingsEngine.Snapshots.capture/4` calls it, unqualified, before every
+destructive action) and behind "Duplicate tournament"
+(`PairingsEngineWeb.TournamentsLive`), which round-trips a copy through
+export and import to produce "Copy of ...". Neither of those is a hand-off:
+
+- A restore point is this tournament's own past - the audit trail and the
+  collaborator list never left in the first place, so embedding the whole
+  log in every single snapshot would multiply each one by the length of the
+  history it is attached to, for data that already lives in its own table.
+- A duplicate is a new event. The original's audit trail describes actions
+  nobody took in the copy, and carrying its collaborator list across would
+  turn duplicating a tournament into a fresh round of invitations for people
+  who were never asked about the copy at all.
+
+So both blocks default to off, and the one caller that actually moves a
+tournament between machines - `PairingsEngine.Handoff` - is the one that
+passes `include_handoff: true`. See [`handoff.md`](handoff.md) for that flow,
+including the third, hand-off-only block (`"handoff"`, carrying the unlock
+token) that wraps this envelope and is not part of the export format itself.
 
 ### The `openresults` block is a credential
 
@@ -265,6 +320,14 @@ import panel. Importing:
    ids) is rewritten through an old-id → new-id map built as each record is
    inserted, so the imported tournament shares **no** ids with the source -
    not the tournament, not a single player, round or pairing.
+5. Last, and only if the envelope actually carries them: `audit_log` rows
+   (with any player id inside `details` remapped the same way) and
+   `collaborators` (filed as pending invitations). This importer doesn't
+   care *how* the file got here - a hand-off file opened through this same
+   "Import backup" panel, instead of the dedicated "Receive a hand-off"
+   screen, still brings its audit trail and its team across; it just
+   doesn't unlock anything, because that needs the separate `"handoff"`
+   block this route never looks at. See [`handoff.md`](handoff.md).
 
 The whole thing runs inside one `Repo.transaction` (broadcasts suppressed
 until it commits, then `Tournaments.broadcast_user_tournaments/1` fires
