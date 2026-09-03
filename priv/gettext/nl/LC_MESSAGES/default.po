@@ -8,31 +8,31 @@ msgstr ""
 msgid "Actions"
 msgstr "Acties"
 
-#: lib/pairings_engine_web/components/layouts.ex:401
-#: lib/pairings_engine_web/components/layouts.ex:416
+#: lib/pairings_engine_web/components/layouts.ex:410
+#: lib/pairings_engine_web/components/layouts.ex:425
 #, elixir-autogen, elixir-format
 msgid "Attempting to reconnect"
 msgstr "Bezig met opnieuw verbinden"
 
-#: lib/pairings_engine_web/live/players_live.ex:1502
-#: lib/pairings_engine_web/live/players_live.ex:2032
+#: lib/pairings_engine_web/live/players_live.ex:1568
+#: lib/pairings_engine_web/live/players_live.ex:2103
 #, elixir-autogen, elixir-format
 msgid "Birth year"
 msgstr "Geboortejaar"
 
-#: lib/pairings_engine_web/components/layouts.ex:512
-#: lib/pairings_engine_web/components/layouts.ex:513
 #: lib/pairings_engine_web/components/layouts.ex:517
+#: lib/pairings_engine_web/components/layouts.ex:518
+#: lib/pairings_engine_web/components/layouts.ex:522
 #, elixir-autogen, elixir-format
 msgid "Language"
 msgstr "Taal"
 
-#: lib/pairings_engine_web/components/layouts.ex:408
+#: lib/pairings_engine_web/components/layouts.ex:417
 #, elixir-autogen, elixir-format
 msgid "Something went wrong!"
 msgstr "Er is iets misgegaan!"
 
-#: lib/pairings_engine_web/components/layouts.ex:393
+#: lib/pairings_engine_web/components/layouts.ex:402
 #, elixir-autogen, elixir-format
 msgid "We can't find the internet"
 msgstr "We vinden het internet niet"
@@ -43,7 +43,7 @@ msgid "close"
 msgstr "sluiten"
 
 #: lib/pairings_engine_web/live/norms_live.ex:971
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1019
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1038
 #, elixir-autogen, elixir-format
 msgid "+ Add arbiter"
 msgstr "+ Arbiter toevoegen"
@@ -64,7 +64,7 @@ msgid "- this tournament, always included"
 msgstr "- dit toernooi, altijd inbegrepen"
 
 #: lib/pairings_engine_web/live/norms_live.ex:1039
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1035
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1054
 #, elixir-autogen, elixir-format
 msgid "- type the details by hand -"
 msgstr "- gegevens met de hand invullen -"
@@ -74,18 +74,18 @@ msgstr "- gegevens met de hand invullen -"
 msgid "6-digit code"
 msgstr "6-cijferige code"
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:116
+#: lib/pairings_engine_web/live/settings_export_live.ex:123
 #, elixir-autogen, elixir-format
 msgid "A .swar file SWAR itself can open - never verified against a real SWAR install, see docs/swar-import.md"
 msgstr "Een .swar-bestand dat SWAR zelf kan openen - nooit gecontroleerd tegen een echte SWAR-installatie, zie docs/swar-import.md"
 
-#: lib/pairings_engine_web/live/players_live.ex:2111
+#: lib/pairings_engine_web/live/players_live.ex:2182
 #, elixir-autogen, elixir-format
 msgid "Absent at the rounds (e.g. 3,5 or 2-4)"
 msgstr "Afwezig in de rondes (bv. 3,5 of 2-4)"
 
-#: lib/pairings_engine_web/components/layouts.ex:449
-#: lib/pairings_engine_web/components/layouts.ex:450
+#: lib/pairings_engine_web/components/layouts.ex:458
+#: lib/pairings_engine_web/components/layouts.ex:459
 #, elixir-autogen, elixir-format
 msgid "Accent colour"
 msgstr "Accentkleur"
@@ -110,14 +110,14 @@ msgstr "Tiebreak toevoegen…"
 msgid "Add collaborator"
 msgstr "Medewerker toevoegen"
 
-#: lib/pairings_engine_web/live/players_live.ex:1392
-#: lib/pairings_engine_web/live/players_live.ex:1408
-#: lib/pairings_engine_web/live/players_live.ex:1532
+#: lib/pairings_engine_web/live/players_live.ex:1452
+#: lib/pairings_engine_web/live/players_live.ex:1468
+#: lib/pairings_engine_web/live/players_live.ex:1598
 #, elixir-autogen, elixir-format
 msgid "Add player"
 msgstr "Speler toevoegen"
 
-#: lib/pairings_engine_web/live/players_live.ex:1541
+#: lib/pairings_engine_web/live/players_live.ex:1607
 #, elixir-autogen, elixir-format
 msgid "Add players by searching the FIDE database, or enter them by hand."
 msgstr "Voeg spelers toe via de FIDE-databank, of vul ze met de hand in."
@@ -173,7 +173,7 @@ msgstr "Toegepast in volgorde, volgens het FIDE Tie-Break Reglement. Hoger in de
 msgid "Apply bands to players"
 msgstr "Schijven toepassen op spelers"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:718
+#: lib/pairings_engine_web/live/tools_norms_live.ex:737
 #, elixir-autogen, elixir-format
 msgid "Arbiter tools"
 msgstr "Arbitergereedschap"
@@ -202,7 +202,7 @@ msgstr "Auditlogboek"
 msgid "Audit trail - every change, who made it, and when"
 msgstr "Auditlogboek - elke wijziging, wie ze maakte en wanneer"
 
-#: lib/pairings_engine_web/live/players_live.ex:1928
+#: lib/pairings_engine_web/live/players_live.ex:1998
 #, elixir-autogen, elixir-format
 msgid "Auto-fill from the local rating databases:"
 msgstr "Automatisch invullen uit de lokale ratingdatabanken:"
@@ -233,7 +233,7 @@ msgstr "Terug naar het auditlogboek"
 msgid "Baku acceleration (FIDE C.04.7)"
 msgstr "Baku-versnelling (FIDE C.04.7)"
 
-#: lib/pairings_engine_web/live/fide_live.ex:415
+#: lib/pairings_engine_web/live/fide_live.ex:453
 #, elixir-autogen, elixir-format
 msgid "Belgian national rating list (KBSB/FRBE)"
 msgstr "Belgische nationale ratinglijst (KBSB/FRBE)"
@@ -277,17 +277,17 @@ msgstr "E-mailadres wijzigen"
 
 #: lib/pairings_engine_web/live/norms_live.ex:873
 #: lib/pairings_engine_web/live/settings_tournament_live.ex:454
-#: lib/pairings_engine_web/live/tools_norms_live.ex:919
+#: lib/pairings_engine_web/live/tools_norms_live.ex:938
 #, elixir-autogen, elixir-format
 msgid "Chief arbiter"
 msgstr "Hoofdarbiter"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:931
+#: lib/pairings_engine_web/live/tools_norms_live.ex:950
 #, elixir-autogen, elixir-format
 msgid "Chief arbiter e-mail"
 msgstr "E-mail hoofdarbiter"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:765
+#: lib/pairings_engine_web/live/tools_norms_live.ex:784
 #, elixir-autogen, elixir-format
 msgid "Choose SWAR/TRF files"
 msgstr "Kies SWAR/TRF-bestanden"
@@ -297,17 +297,17 @@ msgstr "Kies SWAR/TRF-bestanden"
 msgid "Choose a .csv file"
 msgstr "Kies een .csv-bestand"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1664
+#: lib/pairings_engine_web/live/tournaments_live.ex:1727
 #, elixir-autogen, elixir-format
 msgid "Choose a .json backup file"
 msgstr "Kies een .json-back-upbestand"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1484
+#: lib/pairings_engine_web/live/tournaments_live.ex:1547
 #, elixir-autogen, elixir-format
 msgid "Choose a .swar file"
 msgstr "Kies een .swar-bestand"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1614
+#: lib/pairings_engine_web/live/tournaments_live.ex:1677
 #, elixir-autogen, elixir-format
 msgid "Choose a .trf file"
 msgstr "Kies een .trf-bestand"
@@ -355,7 +355,7 @@ msgstr "Onderling resultaat sluiten"
 msgid "Club / federation exclusions"
 msgstr "Club-/federatie-uitsluitingen"
 
-#: lib/pairings_engine_web/live/players_live.ex:2079
+#: lib/pairings_engine_web/live/players_live.ex:2150
 #, elixir-autogen, elixir-format
 msgid "Club nr"
 msgstr "Clubnr"
@@ -375,9 +375,9 @@ msgstr "Tak inklappen"
 msgid "Colour balance (real games)"
 msgstr "Kleurbalans (echte partijen)"
 
-#: lib/pairings_engine_web/components/layouts.ex:547
-#: lib/pairings_engine_web/components/layouts.ex:548
+#: lib/pairings_engine_web/components/layouts.ex:551
 #: lib/pairings_engine_web/components/layouts.ex:552
+#: lib/pairings_engine_web/components/layouts.ex:556
 #, elixir-autogen, elixir-format
 msgid "Colour theme"
 msgstr "Kleurthema"
@@ -393,12 +393,12 @@ msgstr "Gecombineerd rapport (festival)"
 msgid "Coming soon"
 msgstr "Binnenkort"
 
-#: lib/pairings_engine_web/live/players_live.ex:1358
+#: lib/pairings_engine_web/live/players_live.ex:1417
 #, elixir-autogen, elixir-format
 msgid "Compare every registered player against the locally-synced FIDE database and preview rating/title updates before applying them"
 msgstr "Vergelijk elke ingeschreven speler met de lokaal gesynchroniseerde FIDE-databank en bekijk de rating-/titelwijzigingen voordat je ze toepast"
 
-#: lib/pairings_engine_web/live/players_live.ex:1371
+#: lib/pairings_engine_web/live/players_live.ex:1431
 #, elixir-autogen, elixir-format
 msgid "Compare every registered player against the locally-synced KBSB database and preview club updates before applying them"
 msgstr "Vergelijk elke ingeschreven speler met de lokaal gesynchroniseerde KBSB-databank en bekijk de clubwijzigingen voordat je ze toepast"
@@ -408,7 +408,7 @@ msgstr "Vergelijk elke ingeschreven speler met de lokaal gesynchroniseerde KBSB-
 msgid "Computed (B.01)"
 msgstr "Berekend (B.01)"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1583
+#: lib/pairings_engine_web/live/tournaments_live.ex:1646
 #, elixir-autogen, elixir-format
 msgid "Confirm and import"
 msgstr "Bevestigen en importeren"
@@ -434,12 +434,12 @@ msgstr "Extra punten meetellen in de stand"
 msgid "Create an account"
 msgstr "Een account aanmaken"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1453
+#: lib/pairings_engine_web/live/tournaments_live.ex:1516
 #, elixir-autogen, elixir-format
 msgid "Create tournament"
 msgstr "Toernooi aanmaken"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1824
+#: lib/pairings_engine_web/live/tournaments_live.ex:1890
 #, elixir-autogen, elixir-format
 msgid "Create your first tournament, or import one from SWAR, TRF16, or a backup."
 msgstr "Maak je eerste toernooi aan, of importeer er een uit SWAR, TRF16 of een back-up."
@@ -449,7 +449,7 @@ msgstr "Maak je eerste toernooi aan, of importeer er een uit SWAR, TRF16 of een 
 msgid "Create your free account."
 msgstr "Maak je gratis account aan."
 
-#: lib/pairings_engine_web/live/players_live.ex:1393
+#: lib/pairings_engine_web/live/players_live.ex:1453
 #, elixir-autogen, elixir-format
 msgid "Ctrl+I"
 msgstr "Ctrl+I"
@@ -459,7 +459,7 @@ msgstr "Ctrl+I"
 msgid "Current logo"
 msgstr "Huidig logo"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1406
+#: lib/pairings_engine_web/live/tournaments_live.ex:1469
 #, elixir-autogen, elixir-format
 msgid "Date from"
 msgstr "Datum vanaf"
@@ -469,9 +469,9 @@ msgstr "Datum vanaf"
 msgid "Delay (minutes)"
 msgstr "Vertraging (minuten)"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:2058
-#: lib/pairings_engine_web/live/tournaments_live.ex:2263
-#: lib/pairings_engine_web/live/tournaments_live.ex:2289
+#: lib/pairings_engine_web/live/tournaments_live.ex:2128
+#: lib/pairings_engine_web/live/tournaments_live.ex:2333
+#: lib/pairings_engine_web/live/tournaments_live.ex:2359
 #, elixir-autogen, elixir-format
 msgid "Delete permanently"
 msgstr "Definitief verwijderen"
@@ -481,8 +481,8 @@ msgstr "Definitief verwijderen"
 msgid "Delete this board…"
 msgstr "Dit bord verwijderen…"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:2221
-#: lib/pairings_engine_web/live/tournaments_live.ex:2247
+#: lib/pairings_engine_web/live/tournaments_live.ex:2291
+#: lib/pairings_engine_web/live/tournaments_live.ex:2317
 #, elixir-autogen, elixir-format
 msgid "Delete tournament"
 msgstr "Toernooi verwijderen"
@@ -493,7 +493,7 @@ msgid "Delete…"
 msgstr "Verwijderen…"
 
 #: lib/pairings_engine_web/live/norms_live.ex:916
-#: lib/pairings_engine_web/live/tools_norms_live.ex:979
+#: lib/pairings_engine_web/live/tools_norms_live.ex:998
 #, elixir-autogen, elixir-format
 msgid "Deputy arbiters"
 msgstr "Hulparbiters"
@@ -503,31 +503,31 @@ msgstr "Hulparbiters"
 msgid "Disable manual ranking"
 msgstr "Handmatige rangschikking uitschakelen"
 
-#: lib/pairings_engine_web/live/players_live.ex:2092
+#: lib/pairings_engine_web/live/players_live.ex:2163
 #, elixir-autogen, elixir-format
 msgid "Displays/prints this player's games at this table number, regardless of normal board order"
 msgstr "Toont/drukt de partijen van deze speler af op dit tafelnummer, ongeacht de normale bordvolgorde"
 
 #: lib/pairings_engine_web/live/norms_live.ex:1090
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1093
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1112
 #, elixir-autogen, elixir-format
 msgid "Download FA1 (FIDE Arbiter)"
 msgstr "FA1 downloaden (FIDE Arbiter)"
 
 #: lib/pairings_engine_web/live/norms_live.ex:1099
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1101
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1120
 #, elixir-autogen, elixir-format
 msgid "Download IA1 (International Arbiter)"
 msgstr "IA1 downloaden (International Arbiter)"
 
 #: lib/pairings_engine_web/live/norms_live.ex:1017
 #: lib/pairings_engine_web/live/norms_live.ex:1021
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1085
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1104
 #, elixir-autogen, elixir-format
 msgid "Download IT3"
 msgstr "IT3 downloaden"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1105
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1124
 #, elixir-autogen, elixir-format
 msgid "Download IT3 / FA1 / IA1"
 msgstr "IT3 / FA1 / IA1 downloaden"
@@ -587,7 +587,7 @@ msgstr "Einde van dag 1"
 msgid "Enter your email and we'll send a magic link to confirm it."
 msgstr "Vul je e-mailadres in en we sturen een magic link om het te bevestigen."
 
-#: lib/pairings_engine_web/live/players_live.ex:1760
+#: lib/pairings_engine_web/live/players_live.ex:1827
 #, elixir-autogen, elixir-format
 msgid "Every club up to date."
 msgstr "Elke club is up-to-date."
@@ -597,22 +597,22 @@ msgstr "Elke club is up-to-date."
 msgid "Every result, pairing and player change made after that point goes away."
 msgstr "Elk resultaat, elke paring en elke spelerswijziging van na dat punt verdwijnt."
 
-#: lib/pairings_engine_web/live/players_live.ex:1689
+#: lib/pairings_engine_web/live/players_live.ex:1756
 #, elixir-autogen, elixir-format
 msgid "Everything up to date."
 msgstr "Alles is up-to-date."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1179
+#: lib/pairings_engine_web/live/tournaments_live.ex:1237
 #, elixir-autogen, elixir-format
 msgid "Everything you are organising, most recent first."
 msgstr "Alles wat je organiseert, meest recente eerst."
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:121
+#: lib/pairings_engine_web/live/settings_export_live.ex:128
 #, elixir-autogen, elixir-format
 msgid "Export .swar (v7, experimental)"
 msgstr ".swar exporteren (v7, experimenteel)"
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:72
+#: lib/pairings_engine_web/live/settings_export_live.ex:73
 #, elixir-autogen, elixir-format
 msgid "Export / backup"
 msgstr "Exporteren / back-up"
@@ -622,13 +622,13 @@ msgstr "Exporteren / back-up"
 msgid "Export TRF (all rounds)"
 msgstr "TRF exporteren (alle rondes)"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1203
-#: lib/pairings_engine_web/live/tournaments_live.ex:1653
+#: lib/pairings_engine_web/live/tournaments_live.ex:1261
+#: lib/pairings_engine_web/live/tournaments_live.ex:1716
 #, elixir-autogen, elixir-format
 msgid "Export all (JSON)"
 msgstr "Alles exporteren (JSON)"
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:108
+#: lib/pairings_engine_web/live/settings_export_live.ex:109
 #, elixir-autogen, elixir-format
 msgid "Export full backup (JSON)"
 msgstr "Volledige back-up exporteren (JSON)"
@@ -645,7 +645,7 @@ msgstr "Rondes exporteren…"
 
 #: lib/pairings_engine_web/components/layouts.ex:138
 #: lib/pairings_engine_web/live/extra_points_live.ex:140
-#: lib/pairings_engine_web/live/players_live.ex:2106
+#: lib/pairings_engine_web/live/players_live.ex:2177
 #: lib/pairings_engine_web/live/settings_support.ex:93
 #, elixir-autogen, elixir-format
 msgid "Extra points"
@@ -656,7 +656,7 @@ msgstr "Extra punten"
 msgid "FA1 / IA1 - Arbiter norm report"
 msgstr "FA1 / IA1 - Arbiternormrapport"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1030
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1049
 #, elixir-autogen, elixir-format
 msgid "FA1 / IA1 arbiter norm candidate"
 msgstr "FA1 / IA1 arbiternormkandidaat"
@@ -667,18 +667,18 @@ msgstr "FA1 / IA1 arbiternormkandidaat"
 msgid "FIDE C.07 tie-breaks & automatic title-norm judgment"
 msgstr "FIDE C.07-tiebreaks & automatische titelnormbeoordeling"
 
-#: lib/pairings_engine_web/live/players_live.ex:2001
+#: lib/pairings_engine_web/live/players_live.ex:2072
 #, elixir-autogen, elixir-format
 msgid "FIDE Elo"
 msgstr "FIDE-Elo"
 
-#: lib/pairings_engine_web/live/fide_live.ex:356
+#: lib/pairings_engine_web/live/fide_live.ex:390
 #, elixir-autogen, elixir-format
 msgid "FIDE database"
 msgstr "FIDE-databank"
 
 #: lib/pairings_engine_web/live/settings_fide_live.ex:177
-#: lib/pairings_engine_web/live/tools_norms_live.ex:953
+#: lib/pairings_engine_web/live/tools_norms_live.ex:972
 #, elixir-autogen, elixir-format
 msgid "FIDE event code"
 msgstr "FIDE-evenementcode"
@@ -688,12 +688,12 @@ msgstr "FIDE-evenementcode"
 msgid "FIDE expected score (Table 8.1.2)"
 msgstr "Door FIDE verwachte score (Tabel 8.1.2)"
 
-#: lib/pairings_engine_web/live/players_live.ex:1939
+#: lib/pairings_engine_web/live/players_live.ex:2009
 #, elixir-autogen, elixir-format
 msgid "FIDE lookup"
 msgstr "FIDE-opzoeking"
 
-#: lib/pairings_engine_web/live/players_live.ex:1472
+#: lib/pairings_engine_web/live/players_live.ex:1532
 #, elixir-autogen, elixir-format
 msgid "FIDE rating"
 msgstr "FIDE-rating"
@@ -710,7 +710,7 @@ msgid "FIDE settings"
 msgstr "FIDE-instellingen"
 
 #: lib/pairings_engine_web/live/settings_fide_live.ex:201
-#: lib/pairings_engine_web/live/tools_norms_live.ex:960
+#: lib/pairings_engine_web/live/tools_norms_live.ex:979
 #, elixir-autogen, elixir-format
 msgid "FIDE tournament ID"
 msgstr "FIDE-toernooi-ID"
@@ -740,7 +740,7 @@ msgstr "Federaties die in aanmerking komen (leden)"
 msgid "Federations participating"
 msgstr "Deelnemende federaties"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:910
+#: lib/pairings_engine_web/live/tools_norms_live.ex:929
 #, elixir-autogen, elixir-format
 msgid "Fill in anything the uploaded file(s) don't already carry - nothing here is saved either."
 msgstr "Vul aan wat de geüploade bestanden nog niet bevatten - ook hier wordt niets bewaard."
@@ -752,12 +752,12 @@ msgstr "Opeenvolgend invullen vanaf ronde 1"
 
 #: lib/pairings_engine_web/live/norms_live.ex:1064
 #: lib/pairings_engine_web/live/norms_live.ex:1195
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1053
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1072
 #, elixir-autogen, elixir-format
 msgid "First name"
 msgstr "Voornaam"
 
-#: lib/pairings_engine_web/live/players_live.ex:2084
+#: lib/pairings_engine_web/live/players_live.ex:2155
 #, elixir-autogen, elixir-format
 msgid "Fixed table"
 msgstr "Vaste tafel"
@@ -782,7 +782,7 @@ msgstr "Vanaf ronde"
 msgid "Full criteria ladder for this bracket"
 msgstr "Volledige criterialadder voor deze scoregroep"
 
-#: lib/pairings_engine_web/live/players_live.ex:1444
+#: lib/pairings_engine_web/live/players_live.ex:1504
 #, elixir-autogen, elixir-format
 msgid "Full name *"
 msgstr "Volledige naam *"
@@ -834,37 +834,37 @@ msgstr "IT4-evenementtype"
 msgid "Ignored when Rule is None"
 msgstr "Genegeerd wanneer Regel op Geen staat"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1216
+#: lib/pairings_engine_web/live/tournaments_live.ex:1277
 #, elixir-autogen, elixir-format
 msgid "Import SWAR file"
 msgstr "SWAR-bestand importeren"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1217
+#: lib/pairings_engine_web/live/tournaments_live.ex:1280
 #, elixir-autogen, elixir-format
 msgid "Import TRF file"
 msgstr "TRF-bestand importeren"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1465
+#: lib/pairings_engine_web/live/tournaments_live.ex:1528
 #, elixir-autogen, elixir-format
 msgid "Import a SWAR tournament"
 msgstr "Een SWAR-toernooi importeren"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1595
+#: lib/pairings_engine_web/live/tournaments_live.ex:1658
 #, elixir-autogen, elixir-format
 msgid "Import a TRF16 tournament"
 msgstr "Een TRF16-toernooi importeren"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1641
+#: lib/pairings_engine_web/live/tournaments_live.ex:1704
 #, elixir-autogen, elixir-format
 msgid "Import an OpenPairings backup"
 msgstr "Een OpenPairings-back-up importeren"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1526
+#: lib/pairings_engine_web/live/tournaments_live.ex:1589
 #, elixir-autogen, elixir-format
 msgid "Import as a new tournament anyway"
 msgstr "Toch als nieuw toernooi importeren"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1205
+#: lib/pairings_engine_web/live/tournaments_live.ex:1263
 #, elixir-autogen, elixir-format
 msgid "Import backup (JSON)"
 msgstr "Back-up importeren (JSON)"
@@ -874,7 +874,7 @@ msgstr "Back-up importeren (JSON)"
 msgid "Import results (CSV)"
 msgstr "Resultaten importeren (CSV)"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1575
+#: lib/pairings_engine_web/live/tournaments_live.ex:1638
 #, elixir-autogen, elixir-format
 msgid "Import without a FIDE id"
 msgstr "Importeren zonder FIDE-ID"
@@ -890,12 +890,12 @@ msgstr "Uitnodiging niet gevonden"
 msgid "Invite co-arbiters · run one tournament together, live"
 msgstr "Nodig mede-arbiters uit · beheer samen één toernooi, live"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1239
+#: lib/pairings_engine_web/live/tournaments_live.ex:1302
 #, elixir-autogen, elixir-format
 msgid "Invited by"
 msgstr "Uitgenodigd door"
 
-#: lib/pairings_engine_web/live/players_live.ex:1952
+#: lib/pairings_engine_web/live/players_live.ex:2023
 #, elixir-autogen, elixir-format
 msgid "KBSB lookup"
 msgstr "KBSB-opzoeking"
@@ -913,7 +913,7 @@ msgstr "Keizer-topwaarde (leeg = automatisch)"
 
 #: lib/pairings_engine_web/live/norms_live.ex:1059
 #: lib/pairings_engine_web/live/norms_live.ex:1191
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1047
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1066
 #, elixir-autogen, elixir-format
 msgid "Last name"
 msgstr "Achternaam"
@@ -923,7 +923,7 @@ msgstr "Achternaam"
 msgid "Last round this still applies to"
 msgstr "Laatste ronde waarvoor dit nog geldt"
 
-#: lib/pairings_engine_web/live/players_live.ex:1448
+#: lib/pairings_engine_web/live/players_live.ex:1508
 #, elixir-autogen, elixir-format
 msgid "Lastname, Firstname"
 msgstr "Achternaam, Voornaam"
@@ -939,7 +939,7 @@ msgstr "Link naar paringen op het web (IT4)"
 msgid "Live standings, printing & public share links"
 msgstr "Live stand, afdrukken & publieke deellinks"
 
-#: lib/pairings_engine_web/live/players_live.ex:1568
+#: lib/pairings_engine_web/live/players_live.ex:1634
 #, elixir-autogen, elixir-format
 msgid "Live tournament rank - click to sort by current standings rank (same as Cl)"
 msgstr "Live toernooiplaats - klik om te sorteren op de huidige plaats in de stand (zelfde als Pl)"
@@ -955,7 +955,7 @@ msgstr "Live weergave & telefoon-QR"
 msgid "Locked - cannot be changed after round 1 has been paired."
 msgstr "Vergrendeld - kan niet meer gewijzigd worden nadat ronde 1 gepaard is."
 
-#: lib/pairings_engine_web/components/layouts.ex:217
+#: lib/pairings_engine_web/components/layouts.ex:226
 #: lib/pairings_engine_web/live/user_live/registration.ex:103
 #, elixir-autogen, elixir-format
 msgid "Log in"
@@ -966,17 +966,17 @@ msgstr "Aanmelden"
 msgid "Log in only this time"
 msgstr "Enkel deze keer aanmelden"
 
-#: lib/pairings_engine_web/components/layouts.ex:214
+#: lib/pairings_engine_web/components/layouts.ex:223
 #, elixir-autogen, elixir-format
 msgid "Log out"
 msgstr "Afmelden"
 
-#: lib/pairings_engine_web/live/players_live.ex:1934
+#: lib/pairings_engine_web/live/players_live.ex:2004
 #, elixir-autogen, elixir-format
 msgid "Look up this player in the local FIDE rating database (by FIDE ID if set, otherwise by name) and fill in their title, FIDE rating, federation and birth year"
 msgstr "Zoek deze speler op in de lokale FIDE-ratingdatabank (op FIDE-ID indien ingevuld, anders op naam) en vul titel, FIDE-rating, federatie en geboortejaar in"
 
-#: lib/pairings_engine_web/live/players_live.ex:1947
+#: lib/pairings_engine_web/live/players_live.ex:2018
 #, elixir-autogen, elixir-format
 msgid "Look up this player in the local KBSB (Belgian) rating database by National ID and fill in their national rating, club, federation, birth year and FIDE ID"
 msgstr "Zoek deze speler op in de lokale KBSB-ratingdatabank (Belgisch) op stamnummer en vul nationale rating, club, federatie, geboortejaar en FIDE-ID in"
@@ -1007,7 +1007,7 @@ msgstr "Hoofdtoernooi (hoofding/schema/naam)"
 msgid "Match format (immediate 2-game rematch, reversed colours)"
 msgstr "Matchformaat (onmiddellijke revanche over 2 partijen, omgekeerde kleuren)"
 
-#: lib/pairings_engine_web/live/players_live.ex:1775
+#: lib/pairings_engine_web/live/players_live.ex:1842
 #, elixir-autogen, elixir-format
 msgid "Matched by"
 msgstr "Gematcht op"
@@ -1037,7 +1037,7 @@ msgstr "Omhoog verplaatsen"
 msgid "Moved down into this bracket:"
 msgstr "Omlaag geschoven naar deze scoregroep:"
 
-#: lib/pairings_engine_web/live/players_live.ex:2212
+#: lib/pairings_engine_web/live/players_live.ex:2283
 #, elixir-autogen, elixir-format
 msgid "N-Elo"
 msgstr "N-Elo"
@@ -1047,18 +1047,18 @@ msgstr "N-Elo"
 msgid "Name this point"
 msgstr "Geef dit punt een naam"
 
-#: lib/pairings_engine_web/live/players_live.ex:1996
+#: lib/pairings_engine_web/live/players_live.ex:2067
 #, elixir-autogen, elixir-format
 msgid "National Elo"
 msgstr "Nationale Elo"
 
-#: lib/pairings_engine_web/live/players_live.ex:1477
-#: lib/pairings_engine_web/live/players_live.ex:1982
+#: lib/pairings_engine_web/live/players_live.ex:1543
+#: lib/pairings_engine_web/live/players_live.ex:2053
 #, elixir-autogen, elixir-format
 msgid "National ID"
 msgstr "Stamnummer"
 
-#: lib/pairings_engine_web/live/players_live.ex:1488
+#: lib/pairings_engine_web/live/players_live.ex:1554
 #, elixir-autogen, elixir-format
 msgid "National rating"
 msgstr "Nationale rating"
@@ -1078,13 +1078,13 @@ msgstr "Nieuw wachtwoord"
 msgid "New to OpenPairings?"
 msgstr "Nieuw bij OpenPairings?"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1220
 #: lib/pairings_engine_web/live/tournaments_live.ex:1283
+#: lib/pairings_engine_web/live/tournaments_live.ex:1346
 #, elixir-autogen, elixir-format
 msgid "New tournament"
 msgstr "Nieuw toernooi"
 
-#: lib/pairings_engine_web/live/players_live.ex:2123
+#: lib/pairings_engine_web/live/players_live.ex:2194
 #, elixir-autogen, elixir-format
 msgid "No Paid"
 msgstr "Niet betaald"
@@ -1099,7 +1099,7 @@ msgstr "Nog geen auditgebeurtenissen geregistreerd."
 msgid "No categories yet."
 msgstr "Nog geen categorieën."
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:895
+#: lib/pairings_engine_web/live/tools_norms_live.ex:914
 #, elixir-autogen, elixir-format
 msgid "No federation appears in more than one uploaded file."
 msgstr "Geen enkele federatie komt in meer dan één geüpload bestand voor."
@@ -1120,7 +1120,7 @@ msgid "No players have a claimed title yet - set one below to include a player."
 msgstr "Nog geen enkele speler heeft een geclaimde titel - stel er hieronder een in om een speler op te nemen."
 
 #: lib/pairings_engine_web/live/live_round_live.ex:418
-#: lib/pairings_engine_web/live/players_live.ex:1539
+#: lib/pairings_engine_web/live/players_live.ex:1605
 #: lib/pairings_engine_web/live/standings_live.ex:413
 #, elixir-autogen, elixir-format
 msgid "No players registered yet."
@@ -1146,7 +1146,7 @@ msgstr "Er zijn nog geen rondes gepaard, dus er valt niets uit te leggen."
 msgid "No tiebreaks selected - tied players will share a rank."
 msgstr "Geen tiebreaks gekozen - spelers met dezelfde score delen een plaats."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1822
+#: lib/pairings_engine_web/live/tournaments_live.ex:1885
 #, elixir-autogen, elixir-format
 msgid "No tournaments yet."
 msgstr "Nog geen toernooien."
@@ -1167,7 +1167,7 @@ msgid "Not playing list"
 msgstr "Lijst met niet-spelenden"
 
 #: lib/pairings_engine_web/live/norms_live.ex:516
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1071
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1090
 #, elixir-autogen, elixir-format
 msgid "Not ready to submit to FIDE."
 msgstr "Nog niet klaar om bij FIDE in te dienen."
@@ -1202,7 +1202,7 @@ msgstr "Aantal rondes"
 msgid "Officials & FIDE report data"
 msgstr "Officials & FIDE-rapportgegevens"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:907
+#: lib/pairings_engine_web/live/tools_norms_live.ex:926
 #, elixir-autogen, elixir-format
 msgid "Officials & arbiter candidate"
 msgstr "Officials & arbiterkandidaat"
@@ -1222,7 +1222,7 @@ msgstr "Eén herstelpunt, en je staat erop."
 msgid "Only used when 'Publish each round' above is set to 'After a delay'"
 msgstr "Enkel gebruikt wanneer 'Elke ronde publiceren' hierboven op 'Na een vertraging' staat"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:947
+#: lib/pairings_engine_web/live/tools_norms_live.ex:966
 #, elixir-autogen, elixir-format
 msgid "Organizer e-mail"
 msgstr "E-mail organisator"
@@ -1264,7 +1264,7 @@ msgid "Pairing rationale"
 msgstr "Paringsverantwoording"
 
 #: lib/pairings_engine_web/live/settings_options_live.ex:466
-#: lib/pairings_engine_web/live/tournaments_live.ex:1312
+#: lib/pairings_engine_web/live/tournaments_live.ex:1375
 #, elixir-autogen, elixir-format
 msgid "Pairing system"
 msgstr "Paringssysteem"
@@ -1279,12 +1279,12 @@ msgstr "Waarde van een door de paring toegekende bye"
 msgid "Pairings & results"
 msgstr "Paringen & resultaten"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:787
+#: lib/pairings_engine_web/live/tools_norms_live.ex:806
 #, elixir-autogen, elixir-format
 msgid "Parse files"
 msgstr "Bestanden inlezen"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1225
+#: lib/pairings_engine_web/live/tournaments_live.ex:1288
 #, elixir-autogen, elixir-format
 msgid "Pending invitations"
 msgstr "Openstaande uitnodigingen"
@@ -1295,7 +1295,7 @@ msgid "Per-round FIDE-ID ranges"
 msgstr "FIDE-ID-bereiken per ronde"
 
 #: lib/pairings_engine_web/live/norms_live.ex:892
-#: lib/pairings_engine_web/live/tools_norms_live.ex:970
+#: lib/pairings_engine_web/live/tools_norms_live.ex:989
 #, elixir-autogen, elixir-format
 msgid "Person responsible for pairings"
 msgstr "Verantwoordelijke voor de paringen"
@@ -1306,7 +1306,7 @@ msgid "Pick a paired round to see its pairing rationale"
 msgstr "Kies een gepaarde ronde om de paringsverantwoording te zien"
 
 #: lib/pairings_engine_web/live/norms_live.ex:1037
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1033
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1052
 #, elixir-autogen, elixir-format
 msgid "Pick an arbiter"
 msgstr "Kies een arbiter"
@@ -1321,12 +1321,12 @@ msgstr "Speler A"
 msgid "Player B"
 msgstr "Speler B"
 
-#: lib/pairings_engine_web/live/players_live.ex:1925
+#: lib/pairings_engine_web/live/players_live.ex:1995
 #, elixir-autogen, elixir-format
 msgid "Player registration"
 msgstr "Spelersinschrijving"
 
-#: lib/pairings_engine_web/live/players_live.ex:1580
+#: lib/pairings_engine_web/live/players_live.ex:1646
 #, elixir-autogen, elixir-format
 msgid "Player's full name"
 msgstr "Volledige naam van de speler"
@@ -1342,7 +1342,7 @@ msgid "Players - title-norm judgment"
 msgstr "Spelers - titelnormbeoordeling"
 
 #: lib/pairings_engine_web/controllers/print_controller.ex:556
-#: lib/pairings_engine_web/live/players_live.ex:2188
+#: lib/pairings_engine_web/live/players_live.ex:2259
 #, elixir-autogen, elixir-format
 msgid "Players Card"
 msgstr "Spelerskaart"
@@ -1387,12 +1387,12 @@ msgstr "Documenten afdrukken"
 msgid "Print just the first 3 result cards, to check printer alignment before printing the full stack"
 msgstr "Druk enkel de eerste 3 resultaatkaartjes af om de uitlijning van de printer te controleren voor je de hele stapel afdrukt"
 
-#: lib/pairings_engine_web/live/players_live.ex:1350
+#: lib/pairings_engine_web/live/players_live.ex:1409
 #, elixir-autogen, elixir-format
 msgid "Print place cards"
 msgstr "Plaatskaartjes afdrukken"
 
-#: lib/pairings_engine_web/live/players_live.ex:1346
+#: lib/pairings_engine_web/live/players_live.ex:1405
 #, elixir-autogen, elixir-format
 msgid "Print player list"
 msgstr "Spelerslijst afdrukken"
@@ -1429,7 +1429,7 @@ msgid "Put them here"
 msgstr "Zet ze hier"
 
 #: lib/pairings_engine_web/live/settings_options_live.ex:634
-#: lib/pairings_engine_web/live/tournaments_live.ex:1420
+#: lib/pairings_engine_web/live/tournaments_live.ex:1483
 #, elixir-autogen, elixir-format
 msgid "Rate of play"
 msgstr "Speeltempo"
@@ -1439,19 +1439,19 @@ msgstr "Speeltempo"
 msgid "Re-seed from current order"
 msgstr "Opnieuw plaatsen volgens de huidige volgorde"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:2026
+#: lib/pairings_engine_web/live/tournaments_live.ex:2096
 #, elixir-autogen, elixir-format
 msgid "Recycle bin"
 msgstr "Prullenbak"
 
-#: lib/pairings_engine_web/live/players_live.ex:1363
-#: lib/pairings_engine_web/live/players_live.ex:1680
+#: lib/pairings_engine_web/live/players_live.ex:1422
+#: lib/pairings_engine_web/live/players_live.ex:1747
 #, elixir-autogen, elixir-format
 msgid "Refresh ratings"
 msgstr "Ratings vernieuwen"
 
 #: lib/pairings_engine_web/live/norms_live.ex:978
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1026
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1045
 #, elixir-autogen, elixir-format
 msgid "Remove last arbiter"
 msgstr "Laatste arbiter verwijderen"
@@ -1466,7 +1466,7 @@ msgstr "Logo verwijderen"
 msgid "Reorders cards so guillotine-cutting the printed stack into 8 piles and collating them recovers board order"
 msgstr "Herschikt de kaartjes zodat je de afgedrukte stapel met een snijmachine in 8 stapeltjes kan snijden en na het samenvoegen de bordvolgorde terugkrijgt"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1385
+#: lib/pairings_engine_web/live/tournaments_live.ex:1448
 #, elixir-autogen, elixir-format
 msgid "Reporting only."
 msgstr "Enkel voor rapportering."
@@ -1481,7 +1481,7 @@ msgstr "Aangevraagde byes / afwezigheden deze ronde"
 msgid "Reset to FIDE default"
 msgstr "Terugzetten naar de FIDE-standaard"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1533
+#: lib/pairings_engine_web/live/tournaments_live.ex:1596
 #, elixir-autogen, elixir-format
 msgid "Resolve FIDE ids"
 msgstr "FIDE-ID's oplossen"
@@ -1593,12 +1593,12 @@ msgstr "Score bij aanvang van deze ronde - waarop deze paring gebaseerd was"
 msgid "Score-bracket map of this round's pairings"
 msgstr "Scoregroepenkaart van de paringen van deze ronde"
 
-#: lib/pairings_engine_web/live/players_live.ex:1412
+#: lib/pairings_engine_web/live/players_live.ex:1472
 #, elixir-autogen, elixir-format
 msgid "Search the FIDE database (name or FIDE ID)"
 msgstr "Doorzoek de FIDE-databank (naam of FIDE-ID)"
 
-#: lib/pairings_engine_web/live/fide_live.ex:483
+#: lib/pairings_engine_web/live/fide_live.ex:521
 #, elixir-autogen, elixir-format
 msgid "Search the local KBSB database (national ID or last name)"
 msgstr "Doorzoek de lokale KBSB-databank (stamnummer of achternaam)"
@@ -1649,7 +1649,7 @@ msgstr "Instellingen - Puntentelling"
 msgid "Settings - Tournament"
 msgstr "Instellingen - Toernooi"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1651
+#: lib/pairings_engine_web/live/tournaments_live.ex:1714
 #, elixir-autogen, elixir-format
 msgid "Settings → Export / backup"
 msgstr "Instellingen → Exporteren / back-up"
@@ -1664,8 +1664,8 @@ msgstr "Delen / Team"
 msgid "Share link"
 msgstr "Deellink"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1854
-#: lib/pairings_engine_web/live/tournaments_live.ex:1981
+#: lib/pairings_engine_web/live/tournaments_live.ex:1924
+#: lib/pairings_engine_web/live/tournaments_live.ex:2051
 #, elixir-autogen, elixir-format
 msgid "Shared with you by its owner"
 msgstr "Met jou gedeeld door de eigenaar"
@@ -1695,12 +1695,12 @@ msgstr "Bijzondere opmerkingen (IT3)"
 msgid "Stack-cut order"
 msgstr "Stapelsnijvolgorde"
 
-#: lib/pairings_engine_web/live/fide_live.ex:491
+#: lib/pairings_engine_web/live/fide_live.ex:529
 #, elixir-autogen, elixir-format
 msgid "Start typing a last name or matricule…"
 msgstr "Begin een achternaam of stamnummer te typen…"
 
-#: lib/pairings_engine_web/live/players_live.ex:1422
+#: lib/pairings_engine_web/live/players_live.ex:1482
 #, elixir-autogen, elixir-format
 msgid "Start typing a last name… e.g. Carlsen"
 msgstr "Begin een achternaam te typen… bv. Carlsen"
@@ -1752,7 +1752,7 @@ msgstr "TRF16-, SWAR- & PGN-import/-export"
 msgid "Table number"
 msgstr "Tafelnummer"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1380
+#: lib/pairings_engine_web/live/tournaments_live.ex:1443
 #, elixir-autogen, elixir-format
 msgid "Team tournament"
 msgstr "Ploegentoernooi"
@@ -1772,12 +1772,12 @@ msgstr "De borden zijn gewijzigd sinds dit werd vastgelegd."
 msgid "This invitation link is invalid, has already been used, or was declined."
 msgstr "Deze uitnodigingslink is ongeldig, is al gebruikt of werd geweigerd."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1505
+#: lib/pairings_engine_web/live/tournaments_live.ex:1568
 #, elixir-autogen, elixir-format
 msgid "This looks like a tournament you already have"
 msgstr "Dit lijkt op een toernooi dat je al hebt"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:962
+#: lib/pairings_engine_web/live/tools_norms_live.ex:981
 #, elixir-autogen, elixir-format
 msgid "This report's own numeric ID at FIDE - a different thing from the event code above."
 msgstr "Het eigen numerieke ID van dit rapport bij FIDE - iets anders dan de evenementcode hierboven."
@@ -1802,7 +1802,7 @@ msgstr "Dit toernooi is FIDE-gehomologeerd (gerateerd/rapporteerbaar)"
 msgid "This tournament is FIDE-homologated."
 msgstr "Dit toernooi is FIDE-gehomologeerd."
 
-#: lib/pairings_engine_web/components/layouts.ex:236
+#: lib/pairings_engine_web/components/layouts.ex:245
 #, elixir-autogen, elixir-format
 msgid "This tournament is archived."
 msgstr "Dit toernooi is gearchiveerd."
@@ -1832,13 +1832,13 @@ msgstr "Toernooi-instellingen"
 msgid "Tournament type & rate of play"
 msgstr "Toernooitype & speeltempo"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:2235
-#: lib/pairings_engine_web/live/tournaments_live.ex:2277
+#: lib/pairings_engine_web/live/tournaments_live.ex:2305
+#: lib/pairings_engine_web/live/tournaments_live.ex:2347
 #, elixir-autogen, elixir-format
 msgid "Type DELETE to confirm"
 msgstr "Typ DELETE om te bevestigen"
 
-#: lib/pairings_engine_web/components/layouts.ex:241
+#: lib/pairings_engine_web/components/layouts.ex:250
 #, elixir-autogen, elixir-format
 msgid "Unarchive from Tournaments"
 msgstr "Dearchiveren via Toernooien"
@@ -1848,18 +1848,18 @@ msgstr "Dearchiveren via Toernooien"
 msgid "Unpair round"
 msgstr "Ronde ontparen"
 
-#: lib/pairings_engine_web/live/players_live.ex:1376
-#: lib/pairings_engine_web/live/players_live.ex:1751
+#: lib/pairings_engine_web/live/players_live.ex:1436
+#: lib/pairings_engine_web/live/players_live.ex:1818
 #, elixir-autogen, elixir-format
 msgid "Update clubs"
 msgstr "Clubs bijwerken"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:721
+#: lib/pairings_engine_web/live/tools_norms_live.ex:740
 #, elixir-autogen, elixir-format
 msgid "Upload a SWAR or TRF file, no account needed - download the IT3/FA1/IA1 FIDE report forms."
 msgstr "Upload een SWAR- of TRF-bestand, geen account nodig - download de FIDE-rapportformulieren IT3/FA1/IA1."
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:744
+#: lib/pairings_engine_web/live/tools_norms_live.ex:763
 #, elixir-autogen, elixir-format
 msgid "Upload files"
 msgstr "Bestanden uploaden"
@@ -1869,7 +1869,7 @@ msgstr "Bestanden uploaden"
 msgid "Upload logo"
 msgstr "Logo uploaden"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:793
+#: lib/pairings_engine_web/live/tools_norms_live.ex:812
 #, elixir-autogen, elixir-format
 msgid "Uploaded files"
 msgstr "Geüploade bestanden"
@@ -1947,7 +1947,7 @@ msgstr "Je hebt geen andere toernooien om dit mee te combineren."
 msgid "You've been invited"
 msgstr "Je bent uitgenodigd"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:954
+#: lib/pairings_engine_web/live/tools_norms_live.ex:973
 #, elixir-autogen, elixir-format
 msgid "Your federation's rating-homologation code, e.g. BEL2026001."
 msgstr "De homologatiecode van je federatie, bv. BEL2026001."
@@ -2013,12 +2013,12 @@ msgstr "bv. BEL, NED"
 msgid "e.g. Chess Club A, Chess Club B"
 msgstr "bv. Schaakclub A, Schaakclub B"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1401
+#: lib/pairings_engine_web/live/tournaments_live.ex:1464
 #, elixir-autogen, elixir-format
 msgid "e.g. Gent"
 msgstr "bv. Gent"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1307
+#: lib/pairings_engine_web/live/tournaments_live.ex:1370
 #, elixir-autogen, elixir-format
 msgid "e.g. Summer Open 2026"
 msgstr "bv. Zomertoernooi 2026"
@@ -2072,16 +2072,16 @@ msgstr "niets opgegeven"
 
 #: lib/pairings_engine_web/live/pairings_live.ex:1967
 #: lib/pairings_engine_web/live/settings_tournament_live.ex:678
-#: lib/pairings_engine_web/live/tournaments_live.ex:1485
-#: lib/pairings_engine_web/live/tournaments_live.ex:1615
-#: lib/pairings_engine_web/live/tournaments_live.ex:1665
-#: lib/pairings_engine_web/live/tournaments_live.ex:1721
-#: lib/pairings_engine_web/live/tournaments_live.ex:1777
+#: lib/pairings_engine_web/live/tournaments_live.ex:1548
+#: lib/pairings_engine_web/live/tournaments_live.ex:1678
+#: lib/pairings_engine_web/live/tournaments_live.ex:1728
+#: lib/pairings_engine_web/live/tournaments_live.ex:1784
+#: lib/pairings_engine_web/live/tournaments_live.ex:1840
 #, elixir-autogen, elixir-format
 msgid "or drag and drop it here"
 msgstr "of sleep het hierheen"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:766
+#: lib/pairings_engine_web/live/tools_norms_live.ex:785
 #, elixir-autogen, elixir-format
 msgid "or drag and drop them here"
 msgstr "of sleep ze hierheen"
@@ -2096,7 +2096,7 @@ msgstr "omlaag gepaard"
 msgid "paired up"
 msgstr "omhoog gepaard"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1391
+#: lib/pairings_engine_web/live/tournaments_live.ex:1454
 #, elixir-autogen, elixir-format
 msgid "player by player"
 msgstr "speler per speler"
@@ -2171,7 +2171,7 @@ msgstr "binnen de scoregroep"
 msgid "· odd"
 msgstr "· oneven"
 
-#: lib/pairings_engine_web/live/players_live.ex:1440
+#: lib/pairings_engine_web/live/players_live.ex:1500
 #, elixir-autogen, elixir-format
 msgid "…or fill the details in by hand below."
 msgstr "…of vul de gegevens hieronder met de hand in."
@@ -2267,7 +2267,7 @@ msgstr "Een geregistreerd resultaat wordt gewist - het beschreef een partij tuss
 msgid "A result changed since this order was last set - it may no longer match the real standings."
 msgstr "Er is een resultaat gewijzigd sinds deze volgorde werd ingesteld - ze komt mogelijk niet meer overeen met de echte stand."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1958
+#: lib/pairings_engine_web/live/tournaments_live.ex:2028
 #, elixir-autogen, elixir-format
 msgid "Archived tournaments are kept indefinitely and stay fully readable - their pages, public link, prints and exports all keep working. They just refuse every change until you unarchive them. This is not the Recycle bin: nothing here is ever purged automatically."
 msgstr "Gearchiveerde toernooien blijven onbeperkt bewaard en volledig leesbaar - hun pagina's, publieke link, afdrukken en exports blijven allemaal werken. Ze weigeren enkel elke wijziging tot je ze dearchiveert. Dit is niet de prullenbak: hier wordt nooit iets automatisch gewist."
@@ -2277,12 +2277,12 @@ msgstr "Gearchiveerde toernooien blijven onbeperkt bewaard en volledig leesbaar 
 msgid "Automatically forbid pairing any two players who share a club or federation, instead of listing every pair by hand. Applies to Swiss (TRF \"XXP\" rules, same as above) and to Keizer; a round robin's fixed schedule ignores this by design."
 msgstr "Verbied automatisch elke paring tussen twee spelers van dezelfde club of federatie, in plaats van elk paar met de hand op te lijsten. Geldt voor Zwitsers (TRF-\"XXP\"-regels, zoals hierboven) en voor Keizer; het vaste schema van een rondetoernooi negeert dit met opzet."
 
-#: lib/pairings_engine_web/live/players_live.ex:1683
+#: lib/pairings_engine_web/live/players_live.ex:1750
 #, elixir-autogen, elixir-format
 msgid "Compares every registered player against the locally-synced FIDE rating list (by FIDE id) and proposes a new rating and title. National ratings are not touched - they come from import or manual entry. Nothing is written until you Apply."
 msgstr "Vergelijkt elke ingeschreven speler met de lokaal gesynchroniseerde FIDE-ratinglijst (op FIDE-ID) en stelt een nieuwe rating en titel voor. Nationale ratings blijven ongemoeid - die komen uit een import of handmatige invoer. Er wordt niets weggeschreven tot je op Toepassen klikt."
 
-#: lib/pairings_engine_web/live/players_live.ex:1754
+#: lib/pairings_engine_web/live/players_live.ex:1821
 #, elixir-autogen, elixir-format
 msgid "Compares every registered player against the locally-synced KBSB list (by National id, or FIDE id when no matricule is on file) and proposes their current club. Never clears a club the list has no entry for. Nothing is written until you Apply."
 msgstr "Vergelijkt elke ingeschreven speler met de lokaal gesynchroniseerde KBSB-lijst (op stamnummer, of op FIDE-ID als er geen stamnummer bekend is) en stelt hun huidige club voor. Wist nooit een club waarvoor de lijst geen gegevens heeft. Er wordt niets weggeschreven tot je op Toepassen klikt."
@@ -2298,17 +2298,17 @@ msgstr "Bevestigen en aangemeld blijven"
 msgid "Create a free account"
 msgstr "Maak een gratis account aan"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:2029
+#: lib/pairings_engine_web/live/tournaments_live.ex:2099
 #, elixir-autogen, elixir-format
 msgid "Deleted tournaments stay here for 3 months, after which they are purged automatically. Restore one to bring it back, or delete it permanently right away."
 msgstr "Verwijderde toernooien blijven hier 3 maanden staan en worden daarna automatisch gewist. Zet er een terug om het te herstellen, of verwijder het meteen definitief."
 
-#: lib/pairings_engine_web/live/players_live.ex:1555
+#: lib/pairings_engine_web/live/players_live.ex:1621
 #, elixir-autogen, elixir-format
 msgid "Double-click a row to edit the player, or right-click for their Players Card. Click a player's Pr. cell to mark them present or absent for the whole event, and right-click the Pr. column header to set it for everyone at once."
 msgstr "Dubbelklik op een rij om de speler te bewerken, of rechtsklik voor hun spelerskaart. Klik op de cel Pr. van een speler om die aanwezig of afwezig te zetten voor het hele toernooi, en rechtsklik op de kolomtitel Pr. om het voor iedereen tegelijk in te stellen."
 
-#: lib/pairings_engine_web/live/players_live.ex:2017
+#: lib/pairings_engine_web/live/players_live.ex:2088
 #, elixir-autogen, elixir-format
 msgid "Elo used (pairing/standings):"
 msgstr "Gebruikte Elo (paring/stand):"
@@ -2333,17 +2333,17 @@ msgstr "Elk criterium dat punten opleverde, in ladderorde, opgeteld over de bord
 msgid "Every distinct federation represented, biggest contingent first - FIDE norm regulations often set a minimum federation count, so this is worth checking before submitting."
 msgstr "Elke vertegenwoordigde federatie, grootste delegatie eerst - FIDE-normreglementen leggen vaak een minimumaantal federaties op, dus dit is de moeite om na te kijken voor je indient."
 
-#: lib/pairings_engine_web/live/players_live.ex:1962
+#: lib/pairings_engine_web/live/players_live.ex:2033
 #, elixir-autogen, elixir-format
 msgid "FIDE disagrees with what's already on file:"
 msgstr "FIDE is het oneens met wat er al geregistreerd staat:"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1071
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1090
 #, elixir-autogen, elixir-format
 msgid "FIDE identifies every official by FIDE ID and bounces a report missing one. Type their name or FIDE ID above and pick the matching result - missing for:"
 msgstr "FIDE identificeert elke official via het FIDE-ID en weigert een rapport waarin er een ontbreekt. Typ hierboven hun naam of FIDE-ID en kies het juiste resultaat - ontbreekt voor:"
 
-#: lib/pairings_engine_web/live/fide_live.ex:386
+#: lib/pairings_engine_web/live/fide_live.ex:420
 #, elixir-autogen, elixir-format
 msgid "FIDE publishes a new list every month (~1.9 million players, download is around 41 MB). Updating takes a minute or two."
 msgstr "FIDE publiceert elke maand een nieuwe lijst (~1,9 miljoen spelers, de download is ongeveer 41 MB). Bijwerken duurt een minuut of twee."
@@ -2353,12 +2353,12 @@ msgstr "FIDE publiceert elke maand een nieuwe lijst (~1,9 miljoen spelers, de do
 msgid "FIDE's default is zero. Most opens pay half a point for the first one or two, which is what the two limits below are for. SWAR calls this option \"Pt ABSENT\"."
 msgstr "De FIDE-standaard is nul. De meeste opens geven een half punt voor de eerste een of twee, en daar dienen de twee grenzen hieronder voor. SWAR noemt deze optie \"Pt ABSENT\"."
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:887
+#: lib/pairings_engine_web/live/tools_norms_live.ex:906
 #, elixir-autogen, elixir-format
 msgid "Federations shared across files:"
 msgstr "Federaties die in meerdere bestanden voorkomen:"
 
-#: lib/pairings_engine_web/live/players_live.ex:1399
+#: lib/pairings_engine_web/live/players_live.ex:1459
 #, elixir-autogen, elixir-format
 msgid "Finish the tournament setup before adding players - still missing:"
 msgstr "Werk de toernooi-instellingen af voor je spelers toevoegt - ontbreekt nog:"
@@ -2388,12 +2388,12 @@ msgstr "Volledig leeggemaakte borden die verborgen zijn in de tabel van deze ron
 msgid "It is reversible: the state you're leaving is saved as its own restore point first, so you can come straight back to it. Your audit trail, collaborators and public link are not affected."
 msgstr "Het is omkeerbaar: de toestand die je verlaat wordt eerst als eigen herstelpunt bewaard, zodat je er meteen naar terug kan. Je auditlogboek, medewerkers en publieke link blijven ongewijzigd."
 
-#: lib/pairings_engine_web/components/layouts.ex:237
+#: lib/pairings_engine_web/components/layouts.ex:246
 #, elixir-autogen, elixir-format
 msgid "It's read-only - every change is refused until you unarchive it. Everything else (viewing, printing, exporting, its public link) still works normally."
 msgstr "Het is alleen-lezen - elke wijziging wordt geweigerd tot je het dearchiveert. Al de rest (bekijken, afdrukken, exporteren, de publieke link) werkt gewoon."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1413
+#: lib/pairings_engine_web/live/tournaments_live.ex:1476
 #, elixir-autogen, elixir-format
 msgid "Just seeds every round to this date - refine per-round (and the tournament's end date, derived from those) on the Dates page after creating it."
 msgstr "Zet gewoon elke ronde op deze datum - verfijn het per ronde (en de einddatum van het toernooi, die daaruit volgt) op de pagina Data nadat je het hebt aangemaakt."
@@ -2433,7 +2433,7 @@ msgstr "Handmatige rangschikking staat aan voor dit toernooi, maar de rangkolom 
 msgid "New here?"
 msgstr "Nieuw hier?"
 
-#: lib/pairings_engine_web/live/fide_live.ex:432
+#: lib/pairings_engine_web/live/fide_live.ex:470
 #, elixir-autogen, elixir-format
 msgid "No roster source is configured. Set KBSB_API_URL and KBSB_API_KEY on the server to sync the Belgian roster from the KBSB data platform - see docs/kbsb-sync.md."
 msgstr "Er is geen ledenbron ingesteld. Stel KBSB_API_URL en KBSB_API_KEY in op de server om het Belgische ledenbestand te synchroniseren vanaf het KBSB-dataplatform - zie docs/kbsb-sync.md."
@@ -2483,7 +2483,7 @@ msgstr "Spelers gegroepeerd volgens hun stand bij aanvang van deze ronde (hoogst
 msgid "Press \"Pair the whole tournament\" to generate every round of the Berger schedule at once - round-robin doesn't pair one round at a time."
 msgstr "Klik op \"Het hele toernooi paren\" om in één keer elke ronde van het Berger-schema te genereren - een rondetoernooi paart niet ronde per ronde."
 
-#: lib/pairings_engine_web/live/fide_live.ex:439
+#: lib/pairings_engine_web/live/fide_live.ex:477
 #, elixir-autogen, elixir-format
 msgid "Pulls the current roster from the Odoo-synced database, including each player's club name and number. Replaces the local copy entirely, and can be re-run any time."
 msgstr "Haalt het huidige ledenbestand op uit de met Odoo gesynchroniseerde databank, inclusief clubnaam en clubnummer van elke speler. Vervangt de lokale kopie volledig en kan op elk moment opnieuw uitgevoerd worden."
@@ -2513,7 +2513,7 @@ msgstr "Rechtsklik op iemand hier om die op een lege plaats te zetten, op een bo
 msgid "Running several category groups as separate tournaments? Pick the others below to generate one combined IT3/FA1/IA1 for the whole festival - the master tournament supplies the shared header/schedule fields, and gives the combined report its name."
 msgstr "Draai je meerdere categoriegroepen als aparte toernooien? Kies hieronder de andere om één gecombineerde IT3/FA1/IA1 voor het hele festival te genereren - het hoofdtoernooi levert de gedeelde hoofding- en schemavelden en geeft het gecombineerde rapport zijn naam."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1228
+#: lib/pairings_engine_web/live/tournaments_live.ex:1291
 #, elixir-autogen, elixir-format
 msgid "Someone has invited you to collaborate on these tournaments. Accepting gives you full editing access; declining removes the invitation."
 msgstr "Iemand heeft je uitgenodigd om mee te werken aan deze toernooien. Aanvaarden geeft je volledige bewerkingsrechten; weigeren verwijdert de uitnodiging."
@@ -2528,7 +2528,7 @@ msgstr "Enkel Zwitsers - elke categorie krijgt haar eigen onafhankelijke paringe
 msgid "Swiss pairings from our own engine, FIDE tie-break rules, and official report formats - from the first round to the final crosstable, right in your browser."
 msgstr "Zwitserse paringen uit onze eigen engine, FIDE-tiebreakregels en officiële rapportformaten - van de eerste ronde tot de eindkruistabel, gewoon in je browser."
 
-#: lib/pairings_engine_web/live/fide_live.ex:456
+#: lib/pairings_engine_web/live/fide_live.ex:494
 #, elixir-autogen, elixir-format
 msgid "Sync failed:"
 msgstr "Synchronisatie mislukt:"
@@ -2538,7 +2538,7 @@ msgstr "Synchronisatie mislukt:"
 msgid "The classic pairing-sheet format - starting rank vs. starting rank, board by board. The bracket map below shows the same pairings with the reasoning behind them."
 msgstr "Het klassieke paringsbladformaat - startnummer tegen startnummer, bord per bord. De scoregroepenkaart hieronder toont dezelfde paringen met de redenering erachter."
 
-#: lib/pairings_engine_web/live/fide_live.ex:366
+#: lib/pairings_engine_web/live/fide_live.ex:400
 #, elixir-autogen, elixir-format
 msgid "The database is empty - download the rating list to get started."
 msgstr "De databank is leeg - download de ratinglijst om te beginnen."
@@ -2603,7 +2603,7 @@ msgstr "Behandel een overgeslagen ronde als een vrijwillig niet-gespeelde ronde 
 msgid "Two players who must never be paired against each other. Applies to Swiss pairing (a TRF \"XXP\" rule) and to Keizer; a round robin's fixed schedule ignores this by design."
 msgstr "Twee spelers die nooit tegen elkaar gepaard mogen worden. Geldt voor Zwitserse paring (een TRF-\"XXP\"-regel) en voor Keizer; het vaste schema van een rondetoernooi negeert dit met opzet."
 
-#: lib/pairings_engine_web/live/fide_live.ex:382
+#: lib/pairings_engine_web/live/fide_live.ex:416
 #, elixir-autogen, elixir-format
 msgid "Update failed:"
 msgstr "Bijwerken mislukt:"
@@ -2613,8 +2613,8 @@ msgstr "Bijwerken mislukt:"
 msgid "You're ready to pair. For a complete FIDE report, you may also want to fill in:"
 msgstr "Je bent klaar om te paren. Voor een volledig FIDE-rapport vul je best ook nog in:"
 
-#: lib/pairings_engine_web/live/fide_live.ex:358
-#: lib/pairings_engine_web/live/fide_live.ex:417
+#: lib/pairings_engine_web/live/fide_live.ex:392
+#: lib/pairings_engine_web/live/fide_live.ex:455
 #, elixir-autogen, elixir-format
 msgid "%[count] players in the local database."
 msgstr "%[count] spelers in de lokale databank."
@@ -2624,14 +2624,14 @@ msgstr "%[count] spelers in de lokale databank."
 msgid "%[owner] invited you to collaborate on %[tournament]. Accepting gives you full editing access to this tournament - everything the owner can do, except managing collaborators or deleting it."
 msgstr "%[owner] heeft je uitgenodigd om samen te werken aan %[tournament]. Aanvaarden geeft je volledige bewerkingstoegang tot dit toernooi - alles wat de eigenaar kan doen, behalve medewerkers beheren of het verwijderen."
 
-#: lib/pairings_engine_web/live/players_live.ex:1721
-#: lib/pairings_engine_web/live/players_live.ex:1796
+#: lib/pairings_engine_web/live/players_live.ex:1788
+#: lib/pairings_engine_web/live/players_live.ex:1863
 #, elixir-autogen, elixir-format
 msgid "%{checked} checked, %{changed}, %{unmatched} without id match."
 msgstr "%{checked} gecontroleerd, %{changed}, %{unmatched} zonder id-match."
 
-#: lib/pairings_engine_web/live/players_live.ex:1723
-#: lib/pairings_engine_web/live/players_live.ex:1798
+#: lib/pairings_engine_web/live/players_live.ex:1790
+#: lib/pairings_engine_web/live/players_live.ex:1865
 #, elixir-autogen, elixir-format
 msgid "%{count} change"
 msgid_plural "%{count} changes"
@@ -2652,7 +2652,7 @@ msgid_plural "%{count} changes predate the oldest restore point - they are in th
 msgstr[0] "%{count} wijziging dateert van voor het oudste herstelpunt - ze staat in het %[audit]."
 msgstr[1] "%{count} wijzigingen dateren van voor het oudste herstelpunt - ze staan in het %[audit]."
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:874
+#: lib/pairings_engine_web/live/tools_norms_live.ex:893
 #, elixir-autogen, elixir-format
 msgid "%{count} distinct federation"
 msgid_plural "%{count} distinct federations"
@@ -2701,23 +2701,23 @@ msgid_plural "%{count} pairs currently excluded by these rules."
 msgstr[0] "%{count} paar wordt op dit moment door deze regels uitgesloten."
 msgstr[1] "%{count} paren worden op dit moment door deze regels uitgesloten."
 
-#: lib/pairings_engine_web/live/players_live.ex:1722
-#: lib/pairings_engine_web/live/players_live.ex:1797
-#: lib/pairings_engine_web/live/tools_norms_live.ex:871
+#: lib/pairings_engine_web/live/players_live.ex:1789
+#: lib/pairings_engine_web/live/players_live.ex:1864
+#: lib/pairings_engine_web/live/tools_norms_live.ex:890
 #, elixir-autogen, elixir-format
 msgid "%{count} player"
 msgid_plural "%{count} players"
 msgstr[0] "%{count} speler"
 msgstr[1] "%{count} spelers"
 
-#: lib/pairings_engine_web/live/players_live.ex:1334
+#: lib/pairings_engine_web/live/players_live.ex:1393
 #, elixir-autogen, elixir-format
 msgid "%{count} player registered"
 msgid_plural "%{count} players registered"
 msgstr[0] "%{count} speler ingeschreven"
 msgstr[1] "%{count} spelers ingeschreven"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:866
+#: lib/pairings_engine_web/live/tools_norms_live.ex:885
 #, elixir-autogen, elixir-format
 msgid "%{count} uploaded file"
 msgid_plural "%{count} uploaded files"
@@ -2729,7 +2729,7 @@ msgstr[1] "%{count} geüploade bestanden"
 msgid "%{host} host · %{other} other feds"
 msgstr "%{host} host · %{other} andere feds"
 
-#: lib/pairings_engine_web/live/players_live.ex:2063
+#: lib/pairings_engine_web/live/players_live.ex:2134
 #, elixir-autogen, elixir-format
 msgid "%{name} (not in list)"
 msgstr "%{name} (niet in de lijst)"
@@ -2755,7 +2755,7 @@ msgid "(%{points} pt)"
 msgstr "(%{points} pt)"
 
 #: lib/pairings_engine_web/live/norms_live.ex:942
-#: lib/pairings_engine_web/live/tools_norms_live.ex:997
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1016
 #, elixir-autogen, elixir-format
 msgid "(beyond chief + 2 deputies - FIDE doesn't rank these, so IT3 prints each as a plain \"Arbiter\" row)"
 msgstr "(bovenop de hoofdarbiter + 2 hulparbiters - FIDE rangschikt deze niet, dus IT3 drukt elk af als een gewone \"Arbiter\"-regel)"
@@ -2765,29 +2765,29 @@ msgstr "(bovenop de hoofdarbiter + 2 hulparbiters - FIDE rangschikt deze niet, d
 msgid "(table %{n})"
 msgstr "(tafel %{n})"
 
-#: lib/pairings_engine_web/live/players_live.ex:2010
+#: lib/pairings_engine_web/live/players_live.ex:2081
 #, elixir-autogen, elixir-format
 msgid "(this is a %{kind} tournament - refreshing fills in the %{kind} rating, or Standard if this player has none yet)"
 msgstr "(dit is een %{kind}-toernooi - bij vernieuwen wordt de %{kind}-rating ingevuld, of Standaard als deze speler er nog geen heeft)"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1551
+#: lib/pairings_engine_web/live/tournaments_live.ex:1614
 #, elixir-autogen, elixir-format
 msgid "- %{federation}, born %{year}"
 msgstr "- %{federation}, geboren %{year}"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1564
+#: lib/pairings_engine_web/live/tournaments_live.ex:1627
 #, elixir-autogen, elixir-format
 msgid "- FIDE %{id} - %{federation}, born %{year}"
 msgstr "- FIDE %{id} - %{federation}, geboren %{year}"
 
-#: lib/pairings_engine_web/live/players_live.ex:1966
+#: lib/pairings_engine_web/live/players_live.ex:2037
 #, elixir-autogen, elixir-format
 msgid "- apply this?"
 msgid_plural "- apply these?"
 msgstr[0] "- dit toepassen?"
 msgstr[1] "- deze toepassen?"
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:76
+#: lib/pairings_engine_web/live/settings_export_live.ex:77
 #, elixir-autogen, elixir-format
 msgid "A full JSON backup of this tournament - settings, officials, every player (including norm data), rounds, pairings/results, byes and forbidden pairings. Re-importing it (from the %[tournaments] page) always creates a brand-new tournament, never overwrites this one. For a FIDE-report-shaped TRF16 file instead, see %[pairings]."
 msgstr "Een volledige JSON-back-up van dit toernooi - instellingen, functionarissen, elke speler (inclusief normgegevens), rondes, paringen/resultaten, byes en verboden paringen. Ze opnieuw importeren (vanaf de pagina %[tournaments]) maakt altijd een gloednieuw toernooi aan en overschrijft dit nooit. Voor een TRF16-bestand in FIDE-rapportvorm, zie %[pairings]."
@@ -2809,7 +2809,7 @@ msgstr[1] "Verlaten vertakking - %{count} herstelpunten"
 msgid "About"
 msgstr "Over"
 
-#: lib/pairings_engine_web/live/players_live.ex:2147
+#: lib/pairings_engine_web/live/players_live.ex:2218
 #, elixir-autogen, elixir-format
 msgid "Absent"
 msgstr "Afwezig"
@@ -2826,7 +2826,7 @@ msgstr "Acceleratie"
 
 #: lib/pairings_engine_web/live/invite_live.ex:152
 #: lib/pairings_engine_web/live/registrations_live.ex:358
-#: lib/pairings_engine_web/live/tournaments_live.ex:1259
+#: lib/pairings_engine_web/live/tournaments_live.ex:1322
 #, elixir-autogen, elixir-format
 msgid "Accept"
 msgstr "Aanvaarden"
@@ -2837,7 +2837,7 @@ msgid "Account Settings"
 msgstr "Accountinstellingen"
 
 #: lib/pairings_engine_web/live/norms_live.ex:940
-#: lib/pairings_engine_web/live/tools_norms_live.ex:995
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1014
 #, elixir-autogen, elixir-format
 msgid "Additional arbiters"
 msgstr "Bijkomende arbiters"
@@ -2857,13 +2857,13 @@ msgstr "Geavanceerd"
 msgid "Alphabetical pairing list - round %{n}"
 msgstr "Alfabetische paringslijst - ronde %{n}"
 
-#: lib/pairings_engine_web/live/players_live.ex:2098
+#: lib/pairings_engine_web/live/players_live.ex:2169
 #, elixir-autogen, elixir-format
 msgid "Also used by: %{who} - fine if they'll be paired together there, otherwise double-check."
 msgstr "Ook gebruikt door: %{who} - geen probleem als ze daar samen gepaard worden, kijk het anders even na."
 
-#: lib/pairings_engine_web/live/players_live.ex:1735
-#: lib/pairings_engine_web/live/players_live.ex:1810
+#: lib/pairings_engine_web/live/players_live.ex:1802
+#: lib/pairings_engine_web/live/players_live.ex:1877
 #, elixir-autogen, elixir-format
 msgid "Apply"
 msgstr "Toepassen"
@@ -2873,18 +2873,18 @@ msgstr "Toepassen"
 msgid "Applying the threshold rules would move %{changed} of %{total} players to a different category. Players with no change are omitted below."
 msgstr "De drempelregels toepassen zou %{changed} van de %{total} spelers naar een andere categorie verplaatsen. Spelers zonder wijziging staan hieronder niet vermeld."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1929
+#: lib/pairings_engine_web/live/tournaments_live.ex:1999
 #, elixir-autogen, elixir-format
 msgid "Archive"
 msgstr "Archiveren"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1955
-#: lib/pairings_engine_web/live/tournaments_live.ex:1968
+#: lib/pairings_engine_web/live/tournaments_live.ex:2025
+#: lib/pairings_engine_web/live/tournaments_live.ex:2038
 #, elixir-autogen, elixir-format
 msgid "Archived"
 msgstr "Gearchiveerd"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1584
+#: lib/pairings_engine_web/live/tournaments_live.ex:1647
 #, elixir-autogen, elixir-format
 msgid "Back"
 msgstr "Terug"
@@ -2930,27 +2930,27 @@ msgstr "Bye"
 
 #: lib/pairings_engine_web/live/admin_live.ex:228
 #: lib/pairings_engine_web/live/categories_live.ex:481
-#: lib/pairings_engine_web/live/fide_live.ex:409
-#: lib/pairings_engine_web/live/fide_live.ex:471
+#: lib/pairings_engine_web/live/fide_live.ex:443
+#: lib/pairings_engine_web/live/fide_live.ex:509
 #: lib/pairings_engine_web/live/history_live.ex:854
 #: lib/pairings_engine_web/live/norms_live.ex:1412
 #: lib/pairings_engine_web/live/pairings_live.ex:1988
 #: lib/pairings_engine_web/live/pairings_live.ex:2126
 #: lib/pairings_engine_web/live/pairings_live.ex:2228
-#: lib/pairings_engine_web/live/players_live.ex:1737
-#: lib/pairings_engine_web/live/players_live.ex:1812
-#: lib/pairings_engine_web/live/players_live.ex:2166
-#: lib/pairings_engine_web/live/tournaments_live.ex:1454
-#: lib/pairings_engine_web/live/tournaments_live.ex:1500
-#: lib/pairings_engine_web/live/tournaments_live.ex:1528
-#: lib/pairings_engine_web/live/tournaments_live.ex:1630
-#: lib/pairings_engine_web/live/tournaments_live.ex:1680
-#: lib/pairings_engine_web/live/tournaments_live.ex:1736
-#: lib/pairings_engine_web/live/tournaments_live.ex:1795
-#: lib/pairings_engine_web/live/tournaments_live.ex:2157
-#: lib/pairings_engine_web/live/tournaments_live.ex:2199
-#: lib/pairings_engine_web/live/tournaments_live.ex:2249
-#: lib/pairings_engine_web/live/tournaments_live.ex:2291
+#: lib/pairings_engine_web/live/players_live.ex:1804
+#: lib/pairings_engine_web/live/players_live.ex:1879
+#: lib/pairings_engine_web/live/players_live.ex:2237
+#: lib/pairings_engine_web/live/tournaments_live.ex:1517
+#: lib/pairings_engine_web/live/tournaments_live.ex:1563
+#: lib/pairings_engine_web/live/tournaments_live.ex:1591
+#: lib/pairings_engine_web/live/tournaments_live.ex:1693
+#: lib/pairings_engine_web/live/tournaments_live.ex:1743
+#: lib/pairings_engine_web/live/tournaments_live.ex:1799
+#: lib/pairings_engine_web/live/tournaments_live.ex:1858
+#: lib/pairings_engine_web/live/tournaments_live.ex:2227
+#: lib/pairings_engine_web/live/tournaments_live.ex:2269
+#: lib/pairings_engine_web/live/tournaments_live.ex:2319
+#: lib/pairings_engine_web/live/tournaments_live.ex:2361
 #, elixir-autogen, elixir-format
 msgid "Cancel"
 msgstr "Annuleren"
@@ -2971,7 +2971,7 @@ msgstr "Categorieën"
 #: lib/pairings_engine_web/controllers/print_controller.ex:928
 #: lib/pairings_engine_web/controllers/print_controller.ex:949
 #: lib/pairings_engine_web/live/categories_live.ex:403
-#: lib/pairings_engine_web/live/players_live.ex:2047
+#: lib/pairings_engine_web/live/players_live.ex:2118
 #: lib/pairings_engine_web/live/standings_live.ex:495
 #: lib/pairings_engine_web/live/standings_live.ex:591
 #, elixir-autogen, elixir-format
@@ -3010,8 +3010,8 @@ msgstr "Claimt"
 msgid "Clear the recorded result (%{result}) for this board?"
 msgstr "Het geregistreerde resultaat (%{result}) voor dit bord wissen?"
 
-#: lib/pairings_engine_web/live/players_live.ex:1507
-#: lib/pairings_engine_web/live/players_live.ex:2075
+#: lib/pairings_engine_web/live/players_live.ex:1573
+#: lib/pairings_engine_web/live/players_live.ex:2146
 #, elixir-autogen, elixir-format
 msgid "Club"
 msgstr "Club"
@@ -3038,12 +3038,12 @@ msgstr "Kleur"
 msgid "Confirming..."
 msgstr "Bezig met bevestigen..."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1900
+#: lib/pairings_engine_web/live/tournaments_live.ex:1970
 #, elixir-autogen, elixir-format
 msgid "Copy"
 msgstr "Kopiëren"
 
-#: lib/pairings_engine_web/live/players_live.ex:1991
+#: lib/pairings_engine_web/live/players_live.ex:2062
 #, elixir-autogen, elixir-format
 msgid "Country"
 msgstr "Land"
@@ -3075,14 +3075,14 @@ msgid "Cycle %{cycle} of %{total}, schedule round %{round}. The Berger table fix
 msgstr "Cyclus %{cycle} van %{total}, schemaronde %{round}. De Berger-tabel legt elke paring vooraf vast - de borden van deze ronde zijn de vaste plaats in het schema, geen berekende keuze."
 
 #: lib/pairings_engine_web/live/settings_options_live.ex:549
-#: lib/pairings_engine_web/live/tournaments_live.ex:1353
+#: lib/pairings_engine_web/live/tournaments_live.ex:1416
 #, elixir-autogen, elixir-format
 msgid "Cycles"
 msgstr "Cycli"
 
 #: lib/pairings_engine_web/components/layouts.ex:129
 #: lib/pairings_engine_web/live/settings_support.ex:81
-#: lib/pairings_engine_web/live/tournaments_live.ex:1839
+#: lib/pairings_engine_web/live/tournaments_live.ex:1909
 #, elixir-autogen, elixir-format
 msgid "Dates"
 msgstr "Data"
@@ -3098,18 +3098,18 @@ msgid "Dates: %{value}"
 msgstr "Data: %{value}"
 
 #: lib/pairings_engine_web/live/invite_live.ex:153
-#: lib/pairings_engine_web/live/tournaments_live.ex:1267
+#: lib/pairings_engine_web/live/tournaments_live.ex:1330
 #, elixir-autogen, elixir-format
 msgid "Decline"
 msgstr "Weigeren"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1937
 #: lib/pairings_engine_web/live/tournaments_live.ex:2007
+#: lib/pairings_engine_web/live/tournaments_live.ex:2077
 #, elixir-autogen, elixir-format
 msgid "Delete"
 msgstr "Verwijderen"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:2040
+#: lib/pairings_engine_web/live/tournaments_live.ex:2110
 #, elixir-autogen, elixir-format
 msgid "Deleted"
 msgstr "Verwijderd"
@@ -3124,12 +3124,12 @@ msgstr "Hulparbiter: %{value}"
 msgid "Description"
 msgstr "Omschrijving"
 
-#: lib/pairings_engine_web/components/layouts/root.html.heex:150
+#: lib/pairings_engine_web/components/layouts/root.html.heex:160
 #, elixir-autogen, elixir-format
 msgid "Dismiss"
 msgstr "Sluiten"
 
-#: lib/pairings_engine_web/live/players_live.ex:1638
+#: lib/pairings_engine_web/live/players_live.ex:1704
 #, elixir-autogen, elixir-format
 msgid "Display"
 msgstr "Weergave"
@@ -3139,18 +3139,18 @@ msgstr "Weergave"
 msgid "Document"
 msgstr "Document"
 
-#: lib/pairings_engine_web/live/players_live.ex:1534
+#: lib/pairings_engine_web/live/players_live.ex:1600
 #, elixir-autogen, elixir-format
 msgid "Done"
 msgstr "Klaar"
 
-#: lib/pairings_engine_web/live/fide_live.ex:561
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1068
+#: lib/pairings_engine_web/live/fide_live.ex:599
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1087
 #, elixir-autogen, elixir-format
 msgid "Download"
 msgstr "Downloaden"
 
-#: lib/pairings_engine_web/live/fide_live.ex:405
+#: lib/pairings_engine_web/live/fide_live.ex:439
 #, elixir-autogen, elixir-format
 msgid "Download rating list"
 msgstr "Ratinglijst downloaden"
@@ -3169,7 +3169,7 @@ msgstr "E-mail"
 msgid "Every report below is generated from the officials/arbiter details in the card just below, the FIDE identifiers on the %[fide] page, and the player list."
 msgstr "Elk rapport hieronder wordt opgebouwd uit de gegevens van de functionarissen/arbiters in de kaart hieronder, de FIDE-identificatiegegevens op de pagina %[fide], en de spelerslijst."
 
-#: lib/pairings_engine_web/live/players_live.ex:2270
+#: lib/pairings_engine_web/live/players_live.ex:2341
 #, elixir-autogen, elixir-format
 msgid "Exit"
 msgstr "Sluiten"
@@ -3180,8 +3180,8 @@ msgid "Expires %{when}."
 msgstr "Vervalt %{when}."
 
 #: lib/pairings_engine_web/live/settings_support.ex:111
-#: lib/pairings_engine_web/live/tournaments_live.ex:1898
-#: lib/pairings_engine_web/live/tournaments_live.ex:1995
+#: lib/pairings_engine_web/live/tournaments_live.ex:1968
+#: lib/pairings_engine_web/live/tournaments_live.ex:2065
 #, elixir-autogen, elixir-format
 msgid "Export"
 msgstr "Exporteren"
@@ -3204,8 +3204,8 @@ msgstr "FIDE identificeert elke functionaris via het FIDE-ID, dus een rapport wa
 #: lib/pairings_engine_web/live/norms_live.ex:1074
 #: lib/pairings_engine_web/live/norms_live.ex:1203
 #: lib/pairings_engine_web/live/norms_live.ex:1286
-#: lib/pairings_engine_web/live/players_live.ex:1497
-#: lib/pairings_engine_web/live/tools_norms_live.ex:1060
+#: lib/pairings_engine_web/live/players_live.ex:1563
+#: lib/pairings_engine_web/live/tools_norms_live.ex:1079
 #, elixir-autogen, elixir-format
 msgid "Federation"
 msgstr "Federatie"
@@ -3226,28 +3226,28 @@ msgstr "Federaties"
 msgid "Feeds the IT3 / FA1 / IA1 / IT4 FIDE report forms below. Organizer name is set on the %[tournament] page; the tournament's FIDE ID / event code on the %[fide] page. Pairing mode is always computerized, and the pairing program names whichever engine paired this tournament."
 msgstr "Voedt de FIDE-rapportformulieren IT3 / FA1 / IA1 / IT4 hieronder. De naam van de organisator stel je in op de pagina %[tournament]; het FIDE-ID / de evenementcode van het toernooi op de pagina %[fide]. De paringswijze is altijd computergestuurd, en het paringsprogramma noemt de engine die dit toernooi gepaard heeft."
 
-#: lib/pairings_engine_web/live/players_live.ex:1698
-#: lib/pairings_engine_web/live/players_live.ex:1769
+#: lib/pairings_engine_web/live/players_live.ex:1765
+#: lib/pairings_engine_web/live/players_live.ex:1836
 #, elixir-autogen, elixir-format
 msgid "Field"
 msgstr "Veld"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:800
+#: lib/pairings_engine_web/live/tools_norms_live.ex:819
 #, elixir-autogen, elixir-format
 msgid "File"
 msgstr "Bestand"
 
-#: lib/pairings_engine_web/live/players_live.ex:2262
+#: lib/pairings_engine_web/live/players_live.ex:2333
 #, elixir-autogen, elixir-format
 msgid "Following"
 msgstr "Volgende"
 
-#: lib/pairings_engine_web/live/players_live.ex:2157
+#: lib/pairings_engine_web/live/players_live.ex:2228
 #, elixir-autogen, elixir-format
 msgid "Forfeit"
 msgstr "Forfait"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1437
+#: lib/pairings_engine_web/live/tournaments_live.ex:1500
 #, elixir-autogen, elixir-format
 msgid "Format"
 msgstr "Formaat"
@@ -3262,7 +3262,7 @@ msgstr "Van"
 msgid "General"
 msgstr "Algemeen"
 
-#: lib/pairings_engine_web/live/players_live.ex:2135
+#: lib/pairings_engine_web/live/players_live.ex:2206
 #, elixir-autogen, elixir-format
 msgid "Gratis"
 msgstr "Gratis"
@@ -3285,9 +3285,9 @@ msgid "I understand - apply this to round %{n} anyway"
 msgstr "Ik begrijp het - pas dit toch toe op ronde %{n}"
 
 #: lib/pairings_engine_web/live/pairings_live.ex:1986
-#: lib/pairings_engine_web/live/tournaments_live.ex:1499
-#: lib/pairings_engine_web/live/tournaments_live.ex:1629
-#: lib/pairings_engine_web/live/tournaments_live.ex:1679
+#: lib/pairings_engine_web/live/tournaments_live.ex:1562
+#: lib/pairings_engine_web/live/tournaments_live.ex:1692
+#: lib/pairings_engine_web/live/tournaments_live.ex:1742
 #, elixir-autogen, elixir-format
 msgid "Import"
 msgstr "Importeren"
@@ -3307,14 +3307,14 @@ msgstr "Nodig anderen per e-mail uit voor dit toernooi - zij kunnen het openen, 
 msgid "Keizer ladder value %{v}"
 msgstr "Keizer-ladderwaarde %{v}"
 
-#: lib/pairings_engine_web/live/fide_live.ex:362
-#: lib/pairings_engine_web/live/fide_live.ex:421
+#: lib/pairings_engine_web/live/fide_live.ex:396
+#: lib/pairings_engine_web/live/fide_live.ex:459
 #, elixir-autogen, elixir-format
 msgid "Last updated: %[when] (UTC)."
 msgstr "Laatst bijgewerkt: %[when] (UTC)."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1946
 #: lib/pairings_engine_web/live/tournaments_live.ex:2016
+#: lib/pairings_engine_web/live/tournaments_live.ex:2086
 #, elixir-autogen, elixir-format
 msgid "Leave"
 msgstr "Verlaten"
@@ -3349,7 +3349,7 @@ msgstr "HANDMATIGE RANGSCHIKKING STAAT AAN."
 msgid "Many thanks to %[who] for his valuable feedback in the making of OpenPairings."
 msgstr "Met dank aan %[who] voor zijn waardevolle feedback bij het maken van OpenPairings."
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:798
+#: lib/pairings_engine_web/live/tools_norms_live.ex:817
 #, elixir-autogen, elixir-format
 msgid "Master"
 msgstr "Master"
@@ -3362,19 +3362,19 @@ msgstr "Master"
 #: lib/pairings_engine_web/live/live_round_live.ex:426
 #: lib/pairings_engine_web/live/live_round_live.ex:461
 #: lib/pairings_engine_web/live/norms_live.ex:1284
-#: lib/pairings_engine_web/live/players_live.ex:1582
-#: lib/pairings_engine_web/live/players_live.ex:1978
+#: lib/pairings_engine_web/live/players_live.ex:1648
+#: lib/pairings_engine_web/live/players_live.ex:2049
 #: lib/pairings_engine_web/live/standings_live.ex:447
 #: lib/pairings_engine_web/live/standings_live.ex:579
-#: lib/pairings_engine_web/live/tournaments_live.ex:1302
-#: lib/pairings_engine_web/live/tournaments_live.ex:1831
-#: lib/pairings_engine_web/live/tournaments_live.ex:1967
-#: lib/pairings_engine_web/live/tournaments_live.ex:2038
+#: lib/pairings_engine_web/live/tournaments_live.ex:1365
+#: lib/pairings_engine_web/live/tournaments_live.ex:1901
+#: lib/pairings_engine_web/live/tournaments_live.ex:2037
+#: lib/pairings_engine_web/live/tournaments_live.ex:2108
 #, elixir-autogen, elixir-format
 msgid "Name"
 msgstr "Naam"
 
-#: lib/pairings_engine_web/live/players_live.ex:1972
+#: lib/pairings_engine_web/live/players_live.ex:2043
 #, elixir-autogen, elixir-format
 msgid "No"
 msgstr "Nee"
@@ -3402,12 +3402,12 @@ msgstr "Normen"
 msgid "Not playing round %{n}"
 msgstr "Speelt ronde %{n} niet"
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:88
+#: lib/pairings_engine_web/live/settings_export_live.ex:89
 #, elixir-autogen, elixir-format
 msgid "Note that its rank column is the computed order, not manual ranking's hand-set one."
 msgstr "Merk op dat de plaatskolom daarin de berekende volgorde is, niet de handmatig ingestelde van de handmatige rangschikking."
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:730
+#: lib/pairings_engine_web/live/tools_norms_live.ex:749
 #, elixir-autogen, elixir-format
 msgid "Nothing here is saved: uploaded files are parsed in memory only, never written to a database, and this whole session (files, officials, arbiter candidate) is discarded after 60 minutes of inactivity or as soon as you close the tab and come back later. See %[app] if you'd rather manage a tournament with an account."
 msgstr "Hier wordt niets bewaard: geüploade bestanden worden enkel in het geheugen ingelezen, nooit naar een databank geschreven, en deze hele sessie (bestanden, functionarissen, arbiterkandidaat) wordt weggegooid na 60 minuten inactiviteit of zodra je het tabblad sluit en later terugkomt. Zie %[app] als je een toernooi liever met een account beheert."
@@ -3432,7 +3432,7 @@ msgstr "Er wordt er automatisch een bewaard voor elke onomkeerbare stap - een ro
 msgid "One line per board: %[format] (or %[semicolon]-separated). Results: %[win], %[loss], %[draw] (or %[equals]), %[both_lose] (both lose, played), %[ff_win] (forfeit win), %[double_ff] (double forfeit). Boards left out keep their current result."
 msgstr "Eén regel per bord: %[format] (of gescheiden door %[semicolon]). Resultaten: %[win], %[loss], %[draw] (of %[equals]), %[both_lose] (beiden verloren, gespeeld), %[ff_win] (winst bij forfait), %[double_ff] (dubbel forfait). Borden die je weglaat behouden hun huidige resultaat."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1523
+#: lib/pairings_engine_web/live/tournaments_live.ex:1586
 #, elixir-autogen, elixir-format
 msgid "Open %{name}"
 msgstr "%{name} openen"
@@ -3440,7 +3440,7 @@ msgstr "%{name} openen"
 #: lib/pairings_engine_web/controllers/print_controller.ex:523
 #: lib/pairings_engine_web/controllers/print_controller.ex:597
 #: lib/pairings_engine_web/controllers/print_controller.ex:770
-#: lib/pairings_engine_web/live/players_live.ex:2210
+#: lib/pairings_engine_web/live/players_live.ex:2281
 #, elixir-autogen, elixir-format
 msgid "Opponent"
 msgstr "Tegenstander"
@@ -3457,7 +3457,7 @@ msgid "Or open %[url]"
 msgstr "Of open %[url]"
 
 #: lib/pairings_engine_web/live/norms_live.ex:883
-#: lib/pairings_engine_web/live/tools_norms_live.ex:936
+#: lib/pairings_engine_web/live/tools_norms_live.ex:955
 #, elixir-autogen, elixir-format
 msgid "Organizer"
 msgstr "Organisator"
@@ -3467,7 +3467,7 @@ msgstr "Organisator"
 msgid "Page %{n}"
 msgstr "Pagina %{n}"
 
-#: lib/pairings_engine_web/live/players_live.ex:2129
+#: lib/pairings_engine_web/live/players_live.ex:2200
 #, elixir-autogen, elixir-format
 msgid "Paid"
 msgstr "Betaald"
@@ -3510,7 +3510,7 @@ msgid "Pairing rationale for round %{n} - %{system}"
 msgstr "Paringsverantwoording voor ronde %{n} - %{system}"
 
 #: lib/pairings_engine_web/components/layouts.ex:86
-#: lib/pairings_engine_web/live/settings_export_live.ex:84
+#: lib/pairings_engine_web/live/settings_export_live.ex:85
 #, elixir-autogen, elixir-format
 msgid "Pairings"
 msgstr "Paringen"
@@ -3525,22 +3525,22 @@ msgstr "Paringen - ronde %{n}"
 msgid "Password"
 msgstr "Wachtwoord"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1469
+#: lib/pairings_engine_web/live/tournaments_live.ex:1532
 #, elixir-autogen, elixir-format
 msgid "Pick a %[ext] file - the tournament, its players, rounds and results are imported and become yours to continue here."
 msgstr "Kies een %[ext]-bestand - het toernooi, zijn spelers, rondes en resultaten worden geïmporteerd en zijn hier van jou om verder te zetten."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1599
+#: lib/pairings_engine_web/live/tournaments_live.ex:1662
 #, elixir-autogen, elixir-format
 msgid "Pick a %[ext] file - the tournament, its players, rounds and results are imported and become yours to continue here. If the file's own points column doesn't match what we recompute from the imported results, you'll see a notice after import."
 msgstr "Kies een %[ext]-bestand - het toernooi, zijn spelers, rondes en resultaten worden geïmporteerd en zijn hier van jou om verder te zetten. Als de eigen puntenkolom van het bestand niet overeenkomt met wat wij uit de geïmporteerde resultaten herberekenen, krijg je na de import een melding."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1645
+#: lib/pairings_engine_web/live/tournaments_live.ex:1708
 #, elixir-autogen, elixir-format
 msgid "Pick a %[ext] file exported from %[settings_export] or %[export_all] - every tournament it contains is imported as a brand-new tournament owned by you, with all players, rounds and results intact. This never overwrites an existing tournament."
 msgstr "Kies een %[ext]-bestand dat geëxporteerd werd via %[settings_export] of %[export_all] - elk toernooi erin wordt geïmporteerd als een gloednieuw toernooi van jou, met alle spelers, rondes en resultaten intact. Dit overschrijft nooit een bestaand toernooi."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1397
+#: lib/pairings_engine_web/live/tournaments_live.ex:1460
 #, elixir-autogen, elixir-format
 msgid "Place"
 msgstr "Plaats"
@@ -3555,8 +3555,8 @@ msgstr "Plaatskaartjes"
 #: lib/pairings_engine_web/live/categories_live.ex:464
 #: lib/pairings_engine_web/live/live_round_live.ex:392
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:1779
-#: lib/pairings_engine_web/live/players_live.ex:1696
-#: lib/pairings_engine_web/live/players_live.ex:1767
+#: lib/pairings_engine_web/live/players_live.ex:1763
+#: lib/pairings_engine_web/live/players_live.ex:1834
 #, elixir-autogen, elixir-format
 msgid "Player"
 msgstr "Speler"
@@ -3574,8 +3574,8 @@ msgstr "Speler niet gevonden"
 #: lib/pairings_engine_web/components/layouts.ex:83
 #: lib/pairings_engine_web/live/categories_live.ex:375
 #: lib/pairings_engine_web/live/extra_points_live.ex:148
-#: lib/pairings_engine_web/live/tools_norms_live.ex:804
-#: lib/pairings_engine_web/live/tournaments_live.ex:1837
+#: lib/pairings_engine_web/live/tools_norms_live.ex:823
+#: lib/pairings_engine_web/live/tournaments_live.ex:1907
 #, elixir-autogen, elixir-format
 msgid "Players"
 msgstr "Spelers"
@@ -3600,13 +3600,13 @@ msgstr "Voorinstelling"
 msgid "Press \"Pair round %{n}\" to generate the %{engine}."
 msgstr "Druk op \"Ronde %{n} paren\" om de %{engine} te genereren."
 
-#: lib/pairings_engine_web/live/players_live.ex:2261
+#: lib/pairings_engine_web/live/players_live.ex:2332
 #, elixir-autogen, elixir-format
 msgid "Previous"
 msgstr "Vorige"
 
 #: lib/pairings_engine_web/components/layouts.ex:95
-#: lib/pairings_engine_web/live/players_live.ex:2268
+#: lib/pairings_engine_web/live/players_live.ex:2339
 #: lib/pairings_engine_web/live/settings_tournament_live.ex:653
 #: lib/pairings_engine_web/live/standings_live.ex:353
 #, elixir-autogen, elixir-format
@@ -3649,7 +3649,7 @@ msgstr "Kreeg %{got}; de kleurgeschiedenis zegt dat %{due} aan de beurt was."
 msgid "Registered players (%{count})"
 msgstr "Ingeschreven spelers (%{count})"
 
-#: lib/pairings_engine_web/live/players_live.ex:2116
+#: lib/pairings_engine_web/live/players_live.ex:2187
 #, elixir-autogen, elixir-format
 msgid "Registration"
 msgstr "Inschrijving"
@@ -3665,13 +3665,13 @@ msgid "Remarks"
 msgstr "Opmerkingen"
 
 #: lib/pairings_engine_web/live/categories_live.ex:414
-#: lib/pairings_engine_web/live/players_live.ex:1629
+#: lib/pairings_engine_web/live/players_live.ex:1695
 #: lib/pairings_engine_web/live/settings_fide_live.ex:243
 #: lib/pairings_engine_web/live/settings_options_live.ex:717
 #: lib/pairings_engine_web/live/settings_tournament_live.ex:534
 #: lib/pairings_engine_web/live/settings_tournament_live.ex:630
-#: lib/pairings_engine_web/live/tools_norms_live.ex:842
-#: lib/pairings_engine_web/live/tools_norms_live.ex:856
+#: lib/pairings_engine_web/live/tools_norms_live.ex:861
+#: lib/pairings_engine_web/live/tools_norms_live.ex:875
 #, elixir-autogen, elixir-format
 msgid "Remove"
 msgstr "Verwijderen"
@@ -3681,7 +3681,7 @@ msgstr "Verwijderen"
 msgid "Reorder"
 msgstr "Herschikken"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:2054
+#: lib/pairings_engine_web/live/tournaments_live.ex:2124
 #, elixir-autogen, elixir-format
 msgid "Restore"
 msgstr "Herstellen"
@@ -3743,9 +3743,9 @@ msgstr "Rondedatum: %{value}"
 msgid "Round dates: %{from} - %{to}"
 msgstr "Rondedata: %{from} - %{to}"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:806
-#: lib/pairings_engine_web/live/tournaments_live.ex:1342
-#: lib/pairings_engine_web/live/tournaments_live.ex:1835
+#: lib/pairings_engine_web/live/tools_norms_live.ex:825
+#: lib/pairings_engine_web/live/tournaments_live.ex:1405
+#: lib/pairings_engine_web/live/tournaments_live.ex:1905
 #, elixir-autogen, elixir-format
 msgid "Rounds"
 msgstr "Rondes"
@@ -3761,7 +3761,7 @@ msgstr "Rondes worden op volgorde gepaard - ronde %{n} is aan de beurt."
 msgid "Rule"
 msgstr "Regel"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1536
+#: lib/pairings_engine_web/live/tournaments_live.ex:1599
 #, elixir-autogen, elixir-format
 msgid "SWAR has no FIDE id on file for %{count} player. Pick a match below if one of these is the right person, or import them without a FIDE id - nothing is saved until you confirm."
 msgid_plural "SWAR has no FIDE id on file for %{count} players. Pick a match below if one of these is the right person, or import them without a FIDE id - nothing is saved until you confirm."
@@ -3773,9 +3773,9 @@ msgstr[1] "SWAR heeft voor %{count} spelers geen FIDE-id. Kies hieronder een mat
 msgid "Same grouping the report itself uses (see %{fills} and %{titled} - CM/WCM don't count as titled). The feds count is the number of distinct federations in that group; the host count is how many of them are %{host}. Groups with no players in them aren't shown."
 msgstr "Dezelfde groepering die het rapport zelf gebruikt (zie %{fills} en %{titled} - CM/WCM tellen niet als getiteld). De feds-teller is het aantal verschillende federaties in die groep; de host-teller is hoeveel daarvan %{host} zijn. Groepen zonder spelers worden niet getoond."
 
-#: lib/pairings_engine_web/live/fide_live.ex:647
+#: lib/pairings_engine_web/live/fide_live.ex:685
 #: lib/pairings_engine_web/live/norms_live.ex:1411
-#: lib/pairings_engine_web/live/players_live.ex:2165
+#: lib/pairings_engine_web/live/players_live.ex:2236
 #: lib/pairings_engine_web/live/settings_options_live.ex:384
 #: lib/pairings_engine_web/live/settings_results_live.ex:553
 #, elixir-autogen, elixir-format
@@ -3855,7 +3855,7 @@ msgstr "Je meldt je aan als %[email]."
 msgid "Signing in..."
 msgstr "Bezig met aanmelden..."
 
-#: lib/pairings_engine_web/live/players_live.ex:2004
+#: lib/pairings_engine_web/live/players_live.ex:2075
 #, elixir-autogen, elixir-format
 msgid "Standard %{std} · Rapid %{rapid} · Blitz %{blitz}"
 msgstr "Standaard %{std} · Rapid %{rapid} · Blitz %{blitz}"
@@ -3875,7 +3875,7 @@ msgstr "Stand na ronde %{n}"
 
 #: lib/pairings_engine_web/live/categories_live.ex:312
 #: lib/pairings_engine_web/live/settings_tournament_live.ex:608
-#: lib/pairings_engine_web/live/tournaments_live.ex:1841
+#: lib/pairings_engine_web/live/tournaments_live.ex:1911
 #, elixir-autogen, elixir-format
 msgid "Status"
 msgstr "Status"
@@ -3890,18 +3890,18 @@ msgstr "%[name] wisselen - klik nu op wie er van plaats moet ruilen, aan een bor
 msgid "Switch to manual ranking? The current computed order will be used as the starting point."
 msgstr "Overschakelen naar handmatige rangschikking? De huidige berekende volgorde wordt het vertrekpunt."
 
-#: lib/pairings_engine_web/live/fide_live.ex:468
+#: lib/pairings_engine_web/live/fide_live.ex:506
 #, elixir-autogen, elixir-format
 msgid "Sync from data platform"
 msgstr "Synchroniseren met het dataplatform"
 
-#: lib/pairings_engine_web/live/fide_live.ex:467
+#: lib/pairings_engine_web/live/fide_live.ex:505
 #, elixir-autogen, elixir-format
 msgid "Syncing…"
 msgstr "Bezig met synchroniseren…"
 
-#: lib/pairings_engine_web/components/layouts.ex:560
-#: lib/pairings_engine_web/live/tournaments_live.ex:1833
+#: lib/pairings_engine_web/components/layouts.ex:564
+#: lib/pairings_engine_web/live/tournaments_live.ex:1903
 #, elixir-autogen, elixir-format
 msgid "System"
 msgstr "Systeem"
@@ -3921,12 +3921,12 @@ msgstr "Het FIDE-toernooi-ID hierboven wordt gebruikt telkens wanneer geen enkel
 msgid "The chief arbiter, the deputy arbiters and the organizer's and chief arbiter's e-mail addresses are edited on the %[norms] page, because that is what they are for - the IT3, FA1 and IA1 forms are built from them. (The organizer's %[name] is above, under General.)"
 msgstr "De hoofdarbiter, de hulparbiters en de e-mailadressen van de organisator en de hoofdarbiter bewerk je op de pagina %[norms], want daar dienen ze voor - de formulieren IT3, FA1 en IA1 worden eruit opgebouwd. (De %[name] van de organisator staat hierboven, onder Algemeen.)"
 
-#: lib/pairings_engine_web/live/fide_live.ex:427
+#: lib/pairings_engine_web/live/fide_live.ex:465
 #, elixir-autogen, elixir-format
 msgid "The database is empty - no source is configured."
 msgstr "De databank is leeg - er is geen bron ingesteld."
 
-#: lib/pairings_engine_web/live/fide_live.ex:426
+#: lib/pairings_engine_web/live/fide_live.ex:464
 #, elixir-autogen, elixir-format
 msgid "The database is empty - sync it from the data platform to get started."
 msgstr "De databank is leeg - synchroniseer ze met het dataplatform om te beginnen."
@@ -3946,12 +3946,12 @@ msgstr "De toestanden waarin je dit toernooi kan terugzetten, nieuwste eerst. Er
 msgid "The tournament's own FIDE identifiers, used to fill the IT3 / FA1 / IA1 / IT4 report forms on the %[norms] tab. The officials, arbiters and pairing-system details for those reports live on the Norms tab too."
 msgstr "De eigen FIDE-identificatiegegevens van het toernooi, gebruikt om de rapportformulieren IT3 / FA1 / IA1 / IT4 op het tabblad %[norms] in te vullen. De functionarissen, arbiters en paringssysteemgegevens voor die rapporten staan ook op het tabblad Normen."
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:899
+#: lib/pairings_engine_web/live/tools_norms_live.ex:918
 #, elixir-autogen, elixir-format
 msgid "These %{count} files combine into one \"Festival\" report - the master file supplies the name/dates/venue/officials, players from every file are pooled, and the same player can't appear in more than one of them."
 msgstr "Deze %{count} bestanden worden samengevoegd tot één \"Festival\"-rapport - het masterbestand levert de naam/data/locatie/functionarissen, spelers uit elk bestand worden samengebracht, en dezelfde speler mag in niet meer dan één ervan voorkomen."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1509
+#: lib/pairings_engine_web/live/tournaments_live.ex:1572
 #, elixir-autogen, elixir-format
 msgid "This file's SWAR tournament id matches %[name], already imported here. Re-uploading a sync of the same tournament as a new import would create a second, separate copy rather than updating the one you already have."
 msgstr "Het SWAR-toernooi-id van dit bestand komt overeen met %[name], dat hier al geïmporteerd is. Een synchronisatie van hetzelfde toernooi opnieuw uploaden als nieuwe import maakt een tweede, aparte kopie in plaats van het exemplaar dat je al hebt bij te werken."
@@ -3981,17 +3981,17 @@ msgstr "Dit is een live analyse van de huidige gegevens (stand voor de ronde, kl
 msgid "This is match %{match}, leg %{leg}. The whole schedule is fully determined by the number of players - there is no choice to explain."
 msgstr "Dit is match %{match}, ontmoeting %{leg}. Het volledige schema ligt vast door het aantal spelers - er valt geen keuze te verklaren."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1387
+#: lib/pairings_engine_web/live/tournaments_live.ex:1450
 #, elixir-autogen, elixir-format
 msgid "This marks the tournament as a team event on the FIDE report. Pairing is still done %[how] - team pairing, team standings and team tie-breaks are not built yet, so boards will not respect team membership."
 msgstr "Dit markeert het toernooi als een ploegentoernooi op het FIDE-rapport. De paring gebeurt nog altijd %[how] - ploegenparing, ploegenstand en ploegentiebreaks bestaan nog niet, dus borden houden geen rekening met ploeglidmaatschap."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:2225
+#: lib/pairings_engine_web/live/tournaments_live.ex:2295
 #, elixir-autogen, elixir-format
 msgid "This moves %[name] to the Recycle bin - it disappears from your tournament list and its pages, but you can restore it (or delete it permanently) for the next 3 months, after which it is purged automatically."
 msgstr "Dit verplaatst %[name] naar de prullenbak - het verdwijnt uit je toernooilijst en van zijn pagina's, maar je kan het de komende 3 maanden herstellen (of definitief verwijderen); daarna wordt het automatisch gewist."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:2267
+#: lib/pairings_engine_web/live/tournaments_live.ex:2337
 #, elixir-autogen, elixir-format
 msgid "This permanently deletes %[name] and all of its players, rounds and results. This cannot be undone."
 msgstr "Dit verwijdert %[name] definitief, samen met al zijn spelers, rondes en resultaten. Dit kan niet ongedaan gemaakt worden."
@@ -4016,8 +4016,8 @@ msgstr "Drempel"
 msgid "Tiebreaks"
 msgstr "Tiebreaks"
 
-#: lib/pairings_engine_web/live/players_live.ex:1453
-#: lib/pairings_engine_web/live/players_live.ex:2023
+#: lib/pairings_engine_web/live/players_live.ex:1513
+#: lib/pairings_engine_web/live/players_live.ex:2094
 #, elixir-autogen, elixir-format
 msgid "Title"
 msgstr "Titel"
@@ -4027,7 +4027,7 @@ msgstr "Titel"
 msgid "Title-norm judgment - %{name}"
 msgstr "Titelnormbeoordeling - %{name}"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:808
+#: lib/pairings_engine_web/live/tools_norms_live.ex:827
 #, elixir-autogen, elixir-format
 msgid "Titled"
 msgstr "Getiteld"
@@ -4038,21 +4038,21 @@ msgid "Tools"
 msgstr "Hulpmiddelen"
 
 #: lib/pairings_engine_web/controllers/print_controller.ex:600
-#: lib/pairings_engine_web/live/players_live.ex:2248
+#: lib/pairings_engine_web/live/players_live.ex:2319
 #: lib/pairings_engine_web/live/standings_live.ex:468
 #, elixir-autogen, elixir-format
 msgid "Total"
 msgstr "Totaal"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:864
+#: lib/pairings_engine_web/live/tools_norms_live.ex:883
 #, elixir-autogen, elixir-format
 msgid "Totals across %{files}: %{players}, %{titled} titled, %{feds}."
 msgstr "Totalen over %{files}: %{players}, %{titled} getiteld, %{feds}."
 
 #: lib/pairings_engine_web/components/layouts.ex:120
 #: lib/pairings_engine_web/live/settings_support.ex:57
-#: lib/pairings_engine_web/live/tools_norms_live.ex:802
-#: lib/pairings_engine_web/live/tournaments_live.ex:1237
+#: lib/pairings_engine_web/live/tools_norms_live.ex:821
+#: lib/pairings_engine_web/live/tournaments_live.ex:1300
 #, elixir-autogen, elixir-format
 msgid "Tournament"
 msgstr "Toernooi"
@@ -4062,8 +4062,8 @@ msgstr "Toernooi"
 msgid "Tournament logo"
 msgstr "Toernooilogo"
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:81
-#: lib/pairings_engine_web/live/tournaments_live.ex:1177
+#: lib/pairings_engine_web/live/settings_export_live.ex:82
+#: lib/pairings_engine_web/live/tournaments_live.ex:1235
 #, elixir-autogen, elixir-format
 msgid "Tournaments"
 msgstr "Toernooien"
@@ -4079,7 +4079,7 @@ msgstr "Type"
 msgid "Type %[word] to confirm."
 msgstr "Typ %[word] om te bevestigen."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1998
+#: lib/pairings_engine_web/live/tournaments_live.ex:2068
 #, elixir-autogen, elixir-format
 msgid "Unarchive"
 msgstr "Dearchiveren"
@@ -4094,17 +4094,17 @@ msgstr "Weer tonen"
 msgid "Unpublish"
 msgstr "Publicatie ongedaan maken"
 
-#: lib/pairings_engine_web/live/tools_norms_live.ex:748
+#: lib/pairings_engine_web/live/tools_norms_live.ex:767
 #, elixir-autogen, elixir-format
 msgid "Up to 10 files, 5 MB each - %[swar] or %[trf]. Two or more files combine into one \"Festival\" report (see below)."
 msgstr "Tot 10 bestanden van elk 5 MB - %[swar] of %[trf]. Twee of meer bestanden worden samengevoegd tot één \"Festival\"-rapport (zie hieronder)."
 
-#: lib/pairings_engine_web/live/fide_live.ex:404
+#: lib/pairings_engine_web/live/fide_live.ex:438
 #, elixir-autogen, elixir-format
 msgid "Update from FIDE"
 msgstr "Bijwerken vanaf FIDE"
 
-#: lib/pairings_engine_web/live/fide_live.ex:403
+#: lib/pairings_engine_web/live/fide_live.ex:437
 #, elixir-autogen, elixir-format
 msgid "Updating…"
 msgstr "Bezig met bijwerken…"
@@ -4165,13 +4165,13 @@ msgstr "Wit"
 msgid "Who"
 msgstr "Wie"
 
-#: lib/pairings_engine_web/live/fide_live.ex:378
-#: lib/pairings_engine_web/live/fide_live.ex:452
+#: lib/pairings_engine_web/live/fide_live.ex:412
+#: lib/pairings_engine_web/live/fide_live.ex:490
 #, elixir-autogen, elixir-format
 msgid "Working…"
 msgstr "Bezig…"
 
-#: lib/pairings_engine_web/live/players_live.ex:1969
+#: lib/pairings_engine_web/live/players_live.ex:2040
 #, elixir-autogen, elixir-format
 msgid "Yes"
 msgstr "Ja"
@@ -4186,7 +4186,7 @@ msgstr "Je wijzigt ronde %{n}, niet de huidige ronde (ronde %{current})."
 msgid "absent"
 msgstr "afwezig"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1987
+#: lib/pairings_engine_web/live/tournaments_live.ex:2057
 #, elixir-autogen, elixir-format
 msgid "archived"
 msgstr "gearchiveerd"
@@ -4230,12 +4230,12 @@ msgstr "ladder %{v}"
 msgid "name"
 msgstr "naam"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1553
+#: lib/pairings_engine_web/live/tournaments_live.ex:1616
 #, elixir-autogen, elixir-format
 msgid "no federation"
 msgstr "geen federatie"
 
-#: lib/pairings_engine_web/live/players_live.ex:2090
+#: lib/pairings_engine_web/live/players_live.ex:2161
 #, elixir-autogen, elixir-format
 msgid "none"
 msgstr "geen"
@@ -4271,8 +4271,8 @@ msgstr "scoreverschil %{gap}"
 msgid "seed #%{n}"
 msgstr "plaatsingsnr. #%{n}"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1855
-#: lib/pairings_engine_web/live/tournaments_live.ex:1982
+#: lib/pairings_engine_web/live/tournaments_live.ex:1925
+#: lib/pairings_engine_web/live/tournaments_live.ex:2052
 #, elixir-autogen, elixir-format
 msgid "shared"
 msgstr "gedeeld"
@@ -4288,14 +4288,14 @@ msgid "this player has now received more than one pairing-allocated (engine-assi
 msgstr "deze speler heeft nu meer dan één door de paring toegekende (door de engine gegeven) bye gekregen - de FIDE Dutch-paring vermijdt dat normaal voor dezelfde speler telkens er een alternatief bestaat."
 
 #: lib/pairings_engine_web/live/admin_live.ex:301
-#: lib/pairings_engine_web/live/tournaments_live.ex:1554
-#: lib/pairings_engine_web/live/tournaments_live.ex:1567
+#: lib/pairings_engine_web/live/tournaments_live.ex:1617
+#: lib/pairings_engine_web/live/tournaments_live.ex:1630
 #, elixir-autogen, elixir-format
 msgid "unknown"
 msgstr "onbekend"
 
-#: lib/pairings_engine_web/live/fide_live.ex:498
-#: lib/pairings_engine_web/live/players_live.ex:2018
+#: lib/pairings_engine_web/live/fide_live.ex:536
+#: lib/pairings_engine_web/live/players_live.ex:2089
 #, elixir-autogen, elixir-format
 msgid "unrated"
 msgstr "ongerateerd"
@@ -4382,7 +4382,7 @@ msgstr "JaVaFo volgt C.04.3 zoals die in %[edition] luidde en is niet bijgewerkt
 msgid "Keep Ainalrami"
 msgstr "Ainalrami behouden"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1332
+#: lib/pairings_engine_web/live/tournaments_live.ex:1395
 #, elixir-autogen, elixir-format
 msgid "Paired by %[engine], our own Dutch engine, following C.04.3 as it stands in the edition effective 1 February 2026. You can change the engine per tournament in Settings."
 msgstr "Gepaard door %[engine], onze eigen Dutch-engine, volgens C.04.3 zoals die luidt in de editie die geldt vanaf 1 februari 2026. U kunt de engine per toernooi wijzigen bij Instellingen."
@@ -4432,7 +4432,7 @@ msgstr "overeenkomende"
 msgid "submitted for rating"
 msgstr "ingediend voor rating"
 
-#: lib/pairings_engine_web/live/fide_live.ex:682
+#: lib/pairings_engine_web/live/fide_live.ex:720
 #, elixir-autogen, elixir-format
 msgid "%[count] tournament(s) waiting to be sent. They go out on their own; a tournament stays in the queue until the server confirms it."
 msgstr "%[count] toernooi(en) wachten om verzonden te worden. Ze vertrekken vanzelf; een toernooi blijft in de wachtrij tot de server het bevestigt."
@@ -4457,7 +4457,7 @@ msgstr "%{n} min geleden"
 msgid "%{n} of %{total} hidden."
 msgstr "%{n} van %{total} verborgen."
 
-#: lib/pairings_engine_web/live/fide_live.ex:570
+#: lib/pairings_engine_web/live/fide_live.ex:608
 #, elixir-autogen, elixir-format
 msgid "%{n} older ones are on the machine, in %{dir}."
 msgstr "%{n} oudere staan op deze machine, in %{dir}."
@@ -4469,7 +4469,7 @@ msgid_plural "%{count} tournaments waiting to send"
 msgstr[0] "1 toernooi wacht om verzonden te worden"
 msgstr[1] "%{count} toernooien wachten om verzonden te worden"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1187
+#: lib/pairings_engine_web/live/tournaments_live.ex:1245
 #, elixir-autogen, elixir-format
 msgid "A backup of a tournament you publish carries the key that can update and delete its page on the results site. Treat those files like a password."
 msgstr "Een back-up van een toernooi dat je publiceert bevat de sleutel waarmee de pagina op de uitslagensite bijgewerkt en verwijderd kan worden. Behandel die bestanden als een wachtwoord."
@@ -4499,7 +4499,7 @@ msgstr "Aanvaarden voegt de speler toe als nog niet aangekomen, net zoals het fo
 msgid "Accepting entries"
 msgstr "Inschrijvingen open"
 
-#: lib/pairings_engine_web/live/fide_live.ex:599
+#: lib/pairings_engine_web/live/fide_live.ex:637
 #, elixir-autogen, elixir-format
 msgid "Address"
 msgstr "Adres"
@@ -4519,17 +4519,17 @@ msgstr "Een niet-vermeld toernooi blijft leesbaar voor iedereen die het adres he
 msgid "Asked to sit out round"
 msgstr "Vroeg om ronde over te slaan"
 
-#: lib/pairings_engine_web/live/fide_live.ex:533
+#: lib/pairings_engine_web/live/fide_live.ex:571
 #, elixir-autogen, elixir-format
 msgid "Back up now"
 msgstr "Nu back-up maken"
 
-#: lib/pairings_engine_web/live/fide_live.ex:126
+#: lib/pairings_engine_web/live/fide_live.ex:139
 #, elixir-autogen, elixir-format
 msgid "Backup written: %{name}"
 msgstr "Back-up geschreven: %{name}"
 
-#: lib/pairings_engine_web/live/fide_live.ex:507
+#: lib/pairings_engine_web/live/fide_live.ex:545
 #, elixir-autogen, elixir-format
 msgid "Backups"
 msgstr "Back-ups"
@@ -4555,7 +4555,7 @@ msgid "Connected"
 msgstr "Verbonden"
 
 #: lib/pairings_engine_web/components/layouts.ex:157
-#: lib/pairings_engine_web/live/fide_live.ex:348
+#: lib/pairings_engine_web/live/fide_live.ex:382
 #, elixir-autogen, elixir-format
 msgid "Connections"
 msgstr "Verbindingen"
@@ -4580,7 +4580,7 @@ msgstr "Inschrijvingsformulier"
 msgid "Everything is shown."
 msgstr "Alles wordt getoond."
 
-#: lib/pairings_engine_web/live/fide_live.ex:350
+#: lib/pairings_engine_web/live/fide_live.ex:384
 #, elixir-autogen, elixir-format
 msgid "Everything this machine talks to: the FIDE and Belgian national (KBSB/FRBE) rating lists it looks players up in, and the results site it publishes to."
 msgstr "Alles waarmee deze machine praat: de FIDE- en Belgische nationale (KBSB/FRBE) ratinglijsten waarin spelers opgezocht worden, en de uitslagensite waarnaar gepubliceerd wordt."
@@ -4590,7 +4590,7 @@ msgstr "Alles waarmee deze machine praat: de FIDE- en Belgische nationale (KBSB/
 msgid "Fetch entries"
 msgstr "Inschrijvingen ophalen"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1199
+#: lib/pairings_engine_web/live/tournaments_live.ex:1257
 #, elixir-autogen, elixir-format
 msgid "Includes the publishing key of any tournament you publish - anyone holding the file can update or delete its page on the results site."
 msgstr "Bevat de publicatiesleutel van elk toernooi dat je publiceert - wie het bestand heeft, kan die pagina op de uitslagensite bijwerken of verwijderen."
@@ -4630,7 +4630,7 @@ msgstr "Naar een nieuw adres verplaatsen"
 msgid "Names, boards, results and placings are always shown on a page that is shown at all - they are the tournament. To hide those, switch the whole page off above, or do not publish."
 msgstr "Namen, borden, uitslagen en plaatsen worden altijd getoond op een pagina die überhaupt getoond wordt - dat ís het toernooi. Wil je die verbergen, zet dan hierboven de hele pagina uit, of publiceer niet."
 
-#: lib/pairings_engine_web/live/fide_live.ex:642
+#: lib/pairings_engine_web/live/fide_live.ex:680
 #, elixir-autogen, elixir-format
 msgid "Never shown once saved. Leave this empty to keep the one already stored."
 msgstr "Wordt na het opslaan nooit meer getoond. Laat dit leeg om de reeds bewaarde te behouden."
@@ -4640,7 +4640,7 @@ msgstr "Wordt na het opslaan nooit meer getoond. Laat dit leeg om de reeds bewaa
 msgid "No results site is set up on this machine yet - see Connections."
 msgstr "Op deze machine is nog geen uitslagensite ingesteld - zie Verbindingen."
 
-#: lib/pairings_engine_web/live/fide_live.ex:538
+#: lib/pairings_engine_web/live/fide_live.ex:576
 #, elixir-autogen, elixir-format
 msgid "None yet - the first is written a few minutes after start-up."
 msgstr "Nog geen - de eerste wordt enkele minuten na het opstarten geschreven."
@@ -4650,7 +4650,7 @@ msgstr "Nog geen - de eerste wordt enkele minuten na het opstarten geschreven."
 msgid "Not set up"
 msgstr "Niet ingesteld"
 
-#: lib/pairings_engine_web/live/fide_live.ex:677
+#: lib/pairings_engine_web/live/fide_live.ex:715
 #, elixir-autogen, elixir-format
 msgid "Nothing is published until both an address and a token are set."
 msgstr "Er wordt niets gepubliceerd tot zowel een adres als een token ingesteld zijn."
@@ -4670,7 +4670,7 @@ msgstr "Op de inschrijvingslijst als"
 msgid "On the results site (%{host}), not on this machine. Share it, print it, put it on a QR code."
 msgstr "Op de uitslagensite (%{host}), niet op deze machine. Deel hem, druk hem af, zet hem op een QR-code."
 
-#: lib/pairings_engine_web/live/fide_live.ex:510
+#: lib/pairings_engine_web/live/fide_live.ex:548
 #, elixir-autogen, elixir-format
 msgid "One is written a day. They hold everything that cannot be rebuilt - tournaments, results, entries and publishing keys - and leave out the rating lists, which a sync restores."
 msgstr "Er wordt er één per dag geschreven. Ze bevatten alles wat niet opnieuw op te bouwen is - toernooien, uitslagen, inschrijvingen en publicatiesleutels - en laten de ratinglijsten weg, die een synchronisatie herstelt."
@@ -4708,7 +4708,7 @@ msgstr "Opent de uitslagensite - geen login nodig, deel deze link"
 msgid "Public page"
 msgstr "Publieke pagina"
 
-#: lib/pairings_engine_web/live/fide_live.ex:578
+#: lib/pairings_engine_web/live/fide_live.ex:616
 #, elixir-autogen, elixir-format
 msgid "Public results site (OpenResults)"
 msgstr "Publieke uitslagensite (OpenResults)"
@@ -4743,7 +4743,7 @@ msgstr "Van de uitslagensite verwijderen"
 msgid "Remove this tournament from the results site? Its public page, every earlier snapshot in its history, and any entries collected for it are deleted there permanently. Nothing on this machine is touched - the tournament, its players and its results stay exactly as they are - but this cannot be undone from here."
 msgstr "Dit toernooi van de uitslagensite verwijderen? De publieke pagina, elke eerdere momentopname in de geschiedenis en alle daar verzamelde inschrijvingen worden er definitief verwijderd. Op deze machine wordt niets aangeraakt - het toernooi, de spelers en de uitslagen blijven precies zoals ze zijn - maar dit kan van hieruit niet ongedaan gemaakt worden."
 
-#: lib/pairings_engine_web/live/fide_live.ex:662
+#: lib/pairings_engine_web/live/fide_live.ex:700
 #, elixir-autogen, elixir-format
 msgid "Remove token"
 msgstr "Token verwijderen"
@@ -4753,17 +4753,17 @@ msgstr "Token verwijderen"
 msgid "Review entries"
 msgstr "Inschrijvingen nakijken"
 
-#: lib/pairings_engine_web/live/fide_live.ex:316
+#: lib/pairings_engine_web/live/fide_live.ex:350
 #, elixir-autogen, elixir-format
 msgid "Saved, and the results site answered."
 msgstr "Opgeslagen, en de uitslagensite antwoordde."
 
-#: lib/pairings_engine_web/live/fide_live.ex:325
+#: lib/pairings_engine_web/live/fide_live.ex:359
 #, elixir-autogen, elixir-format
 msgid "Saved, but the results site did not answer."
 msgstr "Opgeslagen, maar de uitslagensite antwoordde niet."
 
-#: lib/pairings_engine_web/live/fide_live.ex:312
+#: lib/pairings_engine_web/live/fide_live.ex:346
 #, elixir-autogen, elixir-format
 msgid "Saved. Nothing is published until both an address and a token are set."
 msgstr "Opgeslagen. Er wordt niets gepubliceerd tot zowel een adres als een token ingesteld zijn."
@@ -4774,12 +4774,12 @@ msgstr "Opgeslagen. Er wordt niets gepubliceerd tot zowel een adres als een toke
 msgid "Sending"
 msgstr "Bezig met verzenden"
 
-#: lib/pairings_engine_web/live/fide_live.ex:592
+#: lib/pairings_engine_web/live/fide_live.ex:630
 #, elixir-autogen, elixir-format
 msgid "Set this once for the machine. Each tournament then has its own switch in its Settings, off until you turn it on."
 msgstr "Stel dit één keer in voor de machine. Elk toernooi heeft daarna zijn eigen schakelaar in de Instellingen, uit tot jij hem aanzet."
 
-#: lib/pairings_engine_web/live/fide_live.ex:546
+#: lib/pairings_engine_web/live/fide_live.ex:584
 #, elixir-autogen, elixir-format
 msgid "Size"
 msgstr "Grootte"
@@ -4809,12 +4809,12 @@ msgstr "De publicatie overnemen"
 msgid "Take over publishing that tournament? This copy starts publishing to that address and can delete it, and this copy's own public link changes to match. Anyone still publishing it from another machine will be overwriting you, and you them."
 msgstr "De publicatie van dat toernooi overnemen? Deze kopie begint naar dat adres te publiceren en kan het verwijderen, en de eigen publieke link van deze kopie verandert mee. Wie het nog vanaf een andere machine publiceert, overschrijft jou, en jij hen."
 
-#: lib/pairings_engine_web/live/fide_live.ex:545
+#: lib/pairings_engine_web/live/fide_live.ex:583
 #, elixir-autogen, elixir-format
 msgid "Taken"
 msgstr "Genomen"
 
-#: lib/pairings_engine_web/live/fide_live.ex:654
+#: lib/pairings_engine_web/live/fide_live.ex:692
 #, elixir-autogen, elixir-format
 msgid "Test connection"
 msgstr "Verbinding testen"
@@ -4839,22 +4839,22 @@ msgstr "Het publieke inschrijvingsformulier staat op die site, dus er valt niets
 msgid "The results site holds what its public form collected. It cannot add anyone to this tournament - it only keeps the requests until you fetch them. Nobody below is a player yet."
 msgstr "De uitslagensite bewaart wat het publieke formulier verzameld heeft. Ze kan niemand aan dit toernooi toevoegen - ze houdt de aanvragen enkel bij tot jij ze ophaalt. Niemand hieronder is al speler."
 
-#: lib/pairings_engine_web/live/fide_live.ex:523
+#: lib/pairings_engine_web/live/fide_live.ex:561
 #, elixir-autogen, elixir-format
 msgid "These are unencrypted and carry the email addresses people gave the entry form."
 msgstr "Deze zijn niet versleuteld en bevatten de e-mailadressen die mensen op het inschrijvingsformulier opgaven."
 
-#: lib/pairings_engine_web/live/fide_live.ex:519
+#: lib/pairings_engine_web/live/fide_live.ex:557
 #, elixir-autogen, elixir-format
 msgid "They are written to this machine. Download one and keep it somewhere else - a backup stored only on the thing it protects is half a backup."
 msgstr "Ze worden op deze machine geschreven. Download er een en bewaar hem elders - een back-up die enkel staat op wat hij beschermt, is een halve back-up."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:166
+#: lib/pairings_engine_web/live/tournaments_live.ex:175
 #, elixir-autogen, elixir-format
 msgid "This backup carries the tournament's publishing key - anyone holding the file can update or delete its page on the results site."
 msgstr "Deze back-up bevat de publicatiesleutel van het toernooi - wie het bestand heeft, kan de pagina op de uitslagensite bijwerken of verwijderen."
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:101
+#: lib/pairings_engine_web/live/settings_export_live.ex:102
 #, elixir-autogen, elixir-format
 msgid "This backup carries this tournament's publishing key. Anyone who has the file can update its page on the results site, or delete that page along with its whole history and any entries collected for it. That is deliberate - it is how a rebuilt machine recovers control of what it published - but treat the file like a password."
 msgstr "Deze back-up bevat de publicatiesleutel van dit toernooi. Wie het bestand heeft, kan de pagina op de uitslagensite bijwerken, of die pagina verwijderen samen met de volledige geschiedenis en alle daarvoor verzamelde inschrijvingen. Dat is opzettelijk - zo herneemt een heropgebouwde machine de controle over wat ze gepubliceerd heeft - maar behandel het bestand als een wachtwoord."
@@ -4884,7 +4884,7 @@ msgstr "Dit toernooi is niet gepubliceerd, en het formulier staat daar - dus het
 msgid "This tournament is not published, so there is no page for spectators to open. %[settings] to publish it to the results site and get a link and QR code."
 msgstr "Dit toernooi is niet gepubliceerd, dus er is geen pagina die toeschouwers kunnen openen. %[settings] om het naar de uitslagensite te publiceren en een link en QR-code te krijgen."
 
-#: lib/pairings_engine_web/live/fide_live.ex:628
+#: lib/pairings_engine_web/live/fide_live.ex:666
 #, elixir-autogen, elixir-format
 msgid "Token"
 msgstr "Token"
@@ -4894,7 +4894,7 @@ msgstr "Token"
 msgid "Token refused"
 msgstr "Token geweigerd"
 
-#: lib/pairings_engine_web/live/fide_live.ex:155
+#: lib/pairings_engine_web/live/fide_live.ex:168
 #, elixir-autogen, elixir-format
 msgid "Token removed. Nothing will be published until a new one is set."
 msgstr "Token verwijderd. Er wordt niets gepubliceerd tot er een nieuw ingesteld is."
@@ -4929,7 +4929,7 @@ msgstr "Wat vertrekt is wat op een uithangbord zou staan - namen, ratings, clubs
 msgid "What the public page shows"
 msgstr "Wat de publieke pagina toont"
 
-#: lib/pairings_engine_web/live/fide_live.ex:587
+#: lib/pairings_engine_web/live/fide_live.ex:625
 #, elixir-autogen, elixir-format
 msgid "Where published tournaments are sent so spectators can follow them. This machine stays the source of truth: it sends a copy, and nothing is ever sent back."
 msgstr "Waarheen gepubliceerde toernooien gestuurd worden zodat toeschouwers ze kunnen volgen. Deze machine blijft de bron van waarheid: ze stuurt een kopie, en er wordt nooit iets teruggestuurd."
@@ -4939,7 +4939,7 @@ msgstr "Waarheen gepubliceerde toernooien gestuurd worden zodat toeschouwers ze 
 msgid "Whether this tournament appears in the results site's list of published tournaments. Off by default: publishing gives this tournament an address, and putting it on the front page is a separate choice."
 msgstr "Of dit toernooi verschijnt in de lijst met gepubliceerde toernooien op de uitslagensite. Standaard uit: publiceren geeft dit toernooi een adres, en het op de voorpagina zetten is een aparte keuze."
 
-#: lib/pairings_engine_web/live/fide_live.ex:635
+#: lib/pairings_engine_web/live/fide_live.ex:673
 #, elixir-autogen, elixir-format
 msgid "a token is set - type a new one to replace it"
 msgstr "er is een token ingesteld - typ een nieuwe om hem te vervangen"
@@ -4969,7 +4969,7 @@ msgstr "laatst verzonden %{ago}"
 msgid "nothing sent from this machine yet"
 msgstr "nog niets verzonden vanaf deze machine"
 
-#: lib/pairings_engine_web/live/fide_live.ex:636
+#: lib/pairings_engine_web/live/fide_live.ex:674
 #, elixir-autogen, elixir-format
 msgid "paste the server's token"
 msgstr "plak de token van de server"
@@ -4979,22 +4979,22 @@ msgstr "plak de token van de server"
 msgid "that part of the request will be dropped."
 msgstr "dat deel van de aanvraag wordt genegeerd."
 
-#: lib/pairings_engine_web/live/fide_live.ex:400
+#: lib/pairings_engine_web/live/fide_live.ex:434
 #, elixir-autogen, elixir-format
 msgid "An administrator can update the FIDE rating list"
 msgstr "Een beheerder kan de FIDE-ratinglijst bijwerken"
 
-#: lib/pairings_engine_web/live/fide_live.ex:248
+#: lib/pairings_engine_web/live/fide_live.ex:282
 #, elixir-autogen, elixir-format
 msgid "Changing how this machine is connected needs an administrator."
 msgstr "Wijzigen hoe deze machine verbonden is, kan alleen een beheerder."
 
-#: lib/pairings_engine_web/live/fide_live.ex:251
+#: lib/pairings_engine_web/live/fide_live.ex:285
 #, elixir-autogen, elixir-format
 msgid "Downloading the full FIDE rating list needs an administrator."
 msgstr "De volledige FIDE-ratinglijst downloaden kan alleen een beheerder."
 
-#: lib/pairings_engine_web/live/fide_live.ex:391
+#: lib/pairings_engine_web/live/fide_live.ex:425
 #, elixir-autogen, elixir-format
 msgid "Downloading the full list needs an administrator, so it can't be triggered by just anyone with an account here."
 msgstr "De volledige lijst downloaden kan alleen een beheerder, zodat niet zomaar iedereen met een account hier dit kan starten."
@@ -5167,7 +5167,7 @@ msgstr "een gehoste server"
 msgid "a local install (no accounts, no roles needed)"
 msgstr "een lokale installatie (geen accounts, geen rollen nodig)"
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:64
+#: lib/pairings_engine_web/live/settings_export_live.ex:65
 #, elixir-autogen, elixir-format
 msgid "Settings - Export"
 msgstr "Instellingen - Export"
@@ -5187,7 +5187,7 @@ msgstr "de pagina van dit toernooi op de resultatensite"
 msgid "No installation-wide activity recorded yet."
 msgstr "Nog geen installatiebrede activiteit geregistreerd."
 
-#: lib/pairings_engine_web/live/fide_live.ex:611
+#: lib/pairings_engine_web/live/fide_live.ex:649
 #, elixir-autogen, elixir-format
 msgid "Public address (optional)"
 msgstr "Publiek adres (optioneel)"
@@ -5202,7 +5202,7 @@ msgstr "Recente activiteit"
 msgid "The most recent machine-wide actions: role changes, backup downloads, publishing changes and rating-list syncs."
 msgstr "De meest recente machinebrede acties: rolwijzigingen, back-updownloads, publicatiewijzigingen en synchronisaties van ratinglijsten."
 
-#: lib/pairings_engine_web/live/fide_live.ex:621
+#: lib/pairings_engine_web/live/fide_live.ex:659
 #, elixir-autogen, elixir-format
 msgid "Where spectators go - share links, QR codes and printed addresses. Leave blank to use the address above. Set it only when this machine reaches the results site by a different address than the public one, which is the case when both run on the same server: send to http://localhost:4004 and put the public name here."
 msgstr "Waar toeschouwers terechtkomen - deellinks, QR-codes en gedrukte adressen. Laat leeg om het adres hierboven te gebruiken. Vul dit alleen in wanneer deze machine de resultatensite via een ander adres bereikt dan het publieke, wat het geval is wanneer beide op dezelfde server draaien: verzend naar http://localhost:4004 en zet hier de publieke naam."
@@ -5284,73 +5284,73 @@ msgstr "Rondes worden publiek op het moment dat je ze paart."
 msgid "You will not get to check a pairing first - the field sees it at the same moment you do. If you spot a mistake, you are correcting a published round rather than re-pairing an unpublished one."
 msgstr "Je krijgt geen kans om een paring eerst na te kijken - het deelnemersveld ziet ze op hetzelfde moment als jij. Zie je een fout, dan corrigeer je een gepubliceerde ronde in plaats van een ongepubliceerde opnieuw te paren."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:315
+#: lib/pairings_engine_web/live/tournaments_live.ex:332
 #, elixir-autogen, elixir-format
 msgid "\"%{name}\" is unlocked here. The copy handed to %{place} must not be opened again."
 msgstr "\"%{name}\" is hier ontgrendeld. De kopie die naar %{place} is overgedragen mag nooit meer geopend worden."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:2111
+#: lib/pairings_engine_web/live/tournaments_live.ex:2181
 #, elixir-autogen, elixir-format
 msgid "%[name] will become read-only on this machine and live on the one you send it to. A tournament runs in exactly one place at a time - there is no merging two copies afterwards, because no rule can decide which machine's result for a game is the real one."
 msgstr "%[name] wordt alleen-lezen op deze machine en live op de machine waar je het naartoe stuurt. Een toernooi draait op exact één plaats tegelijk - twee kopieën kunnen achteraf niet samengevoegd worden, want geen enkele regel kan bepalen welke machine het echte resultaat van een partij heeft."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:846
+#: lib/pairings_engine_web/live/tournaments_live.ex:877
 #, elixir-autogen, elixir-format
 msgid "%{name} is now live on this machine. Its helpers need to re-enrol their phones, and anyone who was sharing it has to accept a fresh invitation."
 msgstr "%{name} is nu live op deze machine. De helpers moeten hun telefoon opnieuw inschrijven, en iedereen die het toernooi deelde moet een nieuwe uitnodiging aanvaarden."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1694
+#: lib/pairings_engine_web/live/tournaments_live.ex:1757
 #, elixir-autogen, elixir-format
 msgid "A hand-off file makes a tournament LIVE on this machine, and the copy it came from stays locked until you give it back. This is not the same as importing a backup: a backup is a separate copy of an event that is still running somewhere else, and this is the event itself moving here."
 msgstr "Een overdrachtsbestand maakt een toernooi LIVE op deze machine, en de kopie waar het vandaan komt blijft vergrendeld tot je het teruggeeft. Dit is niet hetzelfde als een back-up importeren: een back-up is een aparte kopie van een evenement dat elders nog steeds loopt, terwijl dit het evenement zelf is dat hierheen verhuist."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:884
+#: lib/pairings_engine_web/live/tournaments_live.ex:915
 #, elixir-autogen, elixir-format
 msgid "A hand-off moves one tournament. This file holds several, so there is no way to tell which one the key belongs to."
 msgstr "Een overdracht verplaatst één toernooi. Dit bestand bevat er meerdere, dus is niet te bepalen bij welk toernooi de sleutel hoort."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1707
+#: lib/pairings_engine_web/live/tournaments_live.ex:1770
 #, elixir-autogen, elixir-format
 msgid "Anyone the tournament was shared with arrives as a pending invitation and has to accept it again."
 msgstr "Iedereen met wie het toernooi gedeeld was, komt hier terug als een openstaande uitnodiging en moet ze opnieuw aanvaarden."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1747
+#: lib/pairings_engine_web/live/tournaments_live.ex:1810
 #, elixir-autogen, elixir-format
 msgid "Bring back \"%{name}\""
 msgstr "\"%{name}\" terughalen"
 
-#: lib/pairings_engine_web/components/layouts.ex:273
-#: lib/pairings_engine_web/live/tournaments_live.ex:1920
+#: lib/pairings_engine_web/components/layouts.ex:282
+#: lib/pairings_engine_web/live/tournaments_live.ex:1990
 #, elixir-autogen, elixir-format
 msgid "Bring it back"
 msgstr "Terughalen"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1875
+#: lib/pairings_engine_web/live/tournaments_live.ex:1945
 #, elixir-autogen, elixir-format
 msgid "Checked out to %{place} - read-only here"
 msgstr "Uitgeleend aan %{place} - hier alleen-lezen"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1720
+#: lib/pairings_engine_web/live/tournaments_live.ex:1783
 #, elixir-autogen, elixir-format
 msgid "Choose the hand-off file"
 msgstr "Kies het overdrachtsbestand"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:549
+#: lib/pairings_engine_web/live/tournaments_live.ex:580
 #, elixir-autogen, elixir-format
 msgid "Choose the hand-off file first."
 msgstr "Kies eerst het overdrachtsbestand."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1776
+#: lib/pairings_engine_web/live/tournaments_live.ex:1839
 #, elixir-autogen, elixir-format
 msgid "Choose the returning file"
 msgstr "Kies het retourbestand"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:579
+#: lib/pairings_engine_web/live/tournaments_live.ex:610
 #, elixir-autogen, elixir-format
 msgid "Choose the returning file first."
 msgstr "Kies eerst het retourbestand."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:2129
+#: lib/pairings_engine_web/live/tournaments_live.ex:2199
 #, elixir-autogen, elixir-format
 msgid "Collaborator access. Everyone the tournament is shared with arrives there as an invitation they have to accept again."
 msgstr "Toegang van medewerkers. Iedereen met wie het toernooi gedeeld is, komt daar terug als een uitnodiging die opnieuw aanvaard moet worden."
@@ -5360,12 +5360,12 @@ msgstr "Toegang van medewerkers. Iedereen met wie het toernooi gedeeld is, komt 
 msgid "Could not enrol a phone - please retry."
 msgstr "Kon geen telefoon inschrijven - probeer opnieuw."
 
-#: lib/pairings_engine_web/controllers/export_controller.ex:234
+#: lib/pairings_engine_web/controllers/export_controller.ex:251
 #, elixir-autogen, elixir-format
 msgid "Could not hand this tournament over: %{reason}"
 msgstr "Kon dit toernooi niet overdragen: %{reason}"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:933
+#: lib/pairings_engine_web/live/tournaments_live.ex:964
 #, elixir-autogen, elixir-format
 msgid "Could not take that file in: %{reason}"
 msgstr "Kon dat bestand niet innemen: %{reason}"
@@ -5375,57 +5375,57 @@ msgstr "Kon dat bestand niet innemen: %{reason}"
 msgid "Forcing the lock is recorded in this tournament's audit trail."
 msgstr "Het forceren van de vergrendeling wordt genoteerd in het auditlogboek van dit toernooi."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:2181
+#: lib/pairings_engine_web/live/tournaments_live.ex:2251
 #, elixir-autogen, elixir-format
 msgid "Free text - this is what the banner on this copy will say, so write whatever you will recognise later."
 msgstr "Vrije tekst - dit is wat de banner op deze kopie zal tonen, dus schrijf iets dat je later nog herkent."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1912
+#: lib/pairings_engine_web/live/tournaments_live.ex:1982
 #, elixir-autogen, elixir-format
 msgid "Give back"
 msgstr "Teruggeven"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:2154
+#: lib/pairings_engine_web/live/tournaments_live.ex:2224
 #, elixir-autogen, elixir-format
 msgid "Give it back to %{place}"
 msgstr "Teruggeven aan %{place}"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:2105
+#: lib/pairings_engine_web/live/tournaments_live.ex:2175
 #, elixir-autogen, elixir-format
 msgid "Give this tournament back"
 msgstr "Dit toernooi teruggeven"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1912
+#: lib/pairings_engine_web/live/tournaments_live.ex:1982
 #, elixir-autogen, elixir-format
 msgid "Hand off"
 msgstr "Overdragen"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:2191
+#: lib/pairings_engine_web/live/tournaments_live.ex:2261
 #, elixir-autogen, elixir-format
 msgid "Hand off and download the file"
 msgstr "Overdragen en het bestand downloaden"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:2106
+#: lib/pairings_engine_web/live/tournaments_live.ex:2176
 #, elixir-autogen, elixir-format
 msgid "Hand this tournament over"
 msgstr "Dit toernooi overdragen"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1884
+#: lib/pairings_engine_web/live/tournaments_live.ex:1954
 #, elixir-autogen, elixir-format
 msgid "Handed to this machine by %{place}"
 msgstr "Overgedragen aan deze machine door %{place}"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:2123
+#: lib/pairings_engine_web/live/tournaments_live.ex:2193
 #, elixir-autogen, elixir-format
 msgid "Helper phones. Every enrolment code stays on this machine, so whoever runs the event next has to hand out new ones."
 msgstr "Telefoons van helpers. Elke inschrijvingscode blijft op deze machine, dus wie het evenement daarna leidt moet nieuwe uitdelen."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1701
+#: lib/pairings_engine_web/live/tournaments_live.ex:1764
 #, elixir-autogen, elixir-format
 msgid "Helpers entering results on their phones have to enrol again here - access codes never travel."
 msgstr "Helpers die resultaten invoeren via hun telefoon moeten zich hier opnieuw inschrijven - toegangscodes reizen nooit mee."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:2205
+#: lib/pairings_engine_web/live/tournaments_live.ex:2275
 #, elixir-autogen, elixir-format
 msgid "Keep the file safe. Whoever holds it can make this tournament live on their own machine."
 msgstr "Bewaar het bestand veilig. Wie het bezit, kan dit toernooi live maken op zijn eigen machine."
@@ -5435,28 +5435,28 @@ msgstr "Bewaar het bestand veilig. Wie het bezit, kan dit toernooi live maken op
 msgid "Only the owner of this tournament can do that."
 msgstr "Enkel de eigenaar van dit toernooi kan dat doen."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:2163
+#: lib/pairings_engine_web/live/tournaments_live.ex:2233
 #, elixir-autogen, elixir-format
 msgid "Or send it on to a third machine instead - the key for %{place} travels with it and stays usable."
 msgstr "Of stuur het in plaats daarvan door naar een derde machine - de sleutel voor %{place} reist mee en blijft bruikbaar."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1214
-#: lib/pairings_engine_web/live/tournaments_live.ex:1691
+#: lib/pairings_engine_web/live/tournaments_live.ex:1272
+#: lib/pairings_engine_web/live/tournaments_live.ex:1754
 #, elixir-autogen, elixir-format
 msgid "Receive a hand-off"
 msgstr "Een overdracht ontvangen"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:2135
+#: lib/pairings_engine_web/live/tournaments_live.ex:2205
 #, elixir-autogen, elixir-format
 msgid "Restore points. The other machine starts with no history behind it."
 msgstr "Herstelpunten. De andere machine begint zonder geschiedenis."
 
-#: lib/pairings_engine_web/controllers/export_controller.ex:212
+#: lib/pairings_engine_web/controllers/export_controller.ex:229
 #, elixir-autogen, elixir-format
 msgid "Say where the tournament is going first - the copy left behind can only tell people what you type here."
 msgstr "Zeg eerst waar het toernooi naartoe gaat - de achtergebleven kopie kan mensen enkel vertellen wat je hier typt."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1735
+#: lib/pairings_engine_web/live/tournaments_live.ex:1798
 #, elixir-autogen, elixir-format
 msgid "Take it in"
 msgstr "Innemen"
@@ -5466,12 +5466,12 @@ msgstr "Innemen"
 msgid "Taking this tournament back needs the token the other copy is holding. If that copy is lost for good - stolen, wiped, reinstalled - this opens the lock here instead."
 msgstr "Dit toernooi terugnemen vereist de token die de andere kopie heeft. Is die kopie definitief verloren - gestolen, gewist, opnieuw geïnstalleerd - dan opent dit de vergrendeling hier in de plaats."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:928
+#: lib/pairings_engine_web/live/tournaments_live.ex:959
 #, elixir-autogen, elixir-format
 msgid "That file could not be read as JSON."
 msgstr "Dat bestand kon niet als JSON gelezen worden."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:896
+#: lib/pairings_engine_web/live/tournaments_live.ex:927
 #, elixir-autogen, elixir-format
 msgid "That file does not unlock this tournament. Check it is the return for this event, and that nothing has already brought it back."
 msgstr "Dat bestand ontgrendelt dit toernooi niet. Controleer of het de retour voor dit evenement is, en of het nog niet eerder is teruggehaald."
@@ -5481,7 +5481,7 @@ msgstr "Dat bestand ontgrendelt dit toernooi niet. Controleer of het de retour v
 msgid "That is not the token this tournament was handed off with - it is the one the other copy carries back."
 msgstr "Dat is niet de token waarmee dit toernooi is overgedragen - het is de token die de andere kopie terugbrengt."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:872
+#: lib/pairings_engine_web/live/tournaments_live.ex:903
 #, elixir-autogen, elixir-format
 msgid "That is the file you sent OUT, not the one coming back. Using it would unlock this copy while the other machine is still running the tournament."
 msgstr "Dat is het bestand dat je hebt VERSTUURD, niet het bestand dat terugkomt. Het gebruiken zou deze kopie ontgrendelen terwijl de andere machine het toernooi nog draait."
@@ -5496,27 +5496,27 @@ msgstr "De kopie die naar %{place} is overgedragen bestaat nog. Dit sluit ze nie
 msgid "The copy this was handed to is gone"
 msgstr "De kopie waarnaar dit werd overgedragen is verdwenen"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:923
+#: lib/pairings_engine_web/live/tournaments_live.ex:954
 #, elixir-autogen, elixir-format
 msgid "The tournament could not be recorded as a hand-off, so it was not kept - a copy that cannot be given back would strand the machine it came from."
 msgstr "Het toernooi kon niet als overdracht geregistreerd worden, dus werd het niet bewaard - een kopie die niet teruggegeven kan worden, zou de machine waar ze vandaan komt in de steek laten."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:878
+#: lib/pairings_engine_web/live/tournaments_live.ex:909
 #, elixir-autogen, elixir-format
 msgid "This hand-off file was written by a newer version of OpenPairings than this one. Update this copy before taking it in."
 msgstr "Dit overdrachtsbestand is geschreven door een nieuwere versie van OpenPairings dan deze. Werk deze kopie bij voor je het inneemt."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:890
+#: lib/pairings_engine_web/live/tournaments_live.ex:921
 #, elixir-autogen, elixir-format
 msgid "This machine already has this tournament - it was received once already. Importing it again would leave two live copies of the same event."
 msgstr "Deze machine heeft dit toernooi al - het werd al eerder ontvangen. Het opnieuw importeren zou twee live kopieën van hetzelfde evenement opleveren."
 
-#: lib/pairings_engine_web/controllers/export_controller.ex:218
+#: lib/pairings_engine_web/controllers/export_controller.ex:235
 #, elixir-autogen, elixir-format
 msgid "This tournament has already been handed off. Take it back before handing it somewhere else."
 msgstr "Dit toernooi is al overgedragen. Haal het terug voor je het ergens anders naartoe overdraagt."
 
-#: lib/pairings_engine_web/components/layouts.ex:263
+#: lib/pairings_engine_web/components/layouts.ex:272
 #, elixir-autogen, elixir-format
 msgid "This tournament has been handed off to %{place}."
 msgstr "Dit toernooi is overgedragen aan %{place}."
@@ -5531,7 +5531,7 @@ msgstr "Dit toernooi is overgedragen aan een andere kopie van de app en is hier 
 msgid "This tournament is already handed off to another copy - take it back before handing it anywhere else."
 msgstr "Dit toernooi is al overgedragen aan een andere kopie - haal het terug voor je het ergens anders naartoe overdraagt."
 
-#: lib/pairings_engine_web/controllers/export_controller.ex:223
+#: lib/pairings_engine_web/controllers/export_controller.ex:240
 #, elixir-autogen, elixir-format
 msgid "This tournament is archived - unarchive it before handing it off."
 msgstr "Dit toernooi is gearchiveerd - dearchiveer het voor je het overdraagt."
@@ -5541,7 +5541,7 @@ msgstr "Dit toernooi is gearchiveerd - dearchiveer het voor je het overdraagt."
 msgid "This tournament is archived - unarchive it to make changes."
 msgstr "Dit toernooi is gearchiveerd - dearchiveer het om wijzigingen aan te brengen."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1750
+#: lib/pairings_engine_web/live/tournaments_live.ex:1813
 #, elixir-autogen, elixir-format
 msgid "This tournament is checked out to %{place}. Whoever has been running it there produces a returning file with \"Give back\"; that file carries the key that unlocks this copy."
 msgstr "Dit toernooi is uitgeleend aan %{place}. Wie het daar draait, maakt met \"Teruggeven\" een retourbestand aan; dat bestand bevat de sleutel die deze kopie ontgrendelt."
@@ -5551,7 +5551,7 @@ msgstr "Dit toernooi is uitgeleend aan %{place}. Wie het daar draait, maakt met 
 msgid "This tournament is not handed off, so there is no lock to force open."
 msgstr "Dit toernooi is niet overgedragen, dus is er geen vergrendeling om te forceren."
 
-#: lib/pairings_engine_web/controllers/export_controller.ex:227
+#: lib/pairings_engine_web/controllers/export_controller.ex:244
 #, elixir-autogen, elixir-format
 msgid "This tournament wasn't handed to this machine, so there is nothing to give back. Hand it off instead."
 msgstr "Dit toernooi is niet aan deze machine overgedragen, dus is er niets om terug te geven. Draag het in de plaats over."
@@ -5561,7 +5561,7 @@ msgstr "Dit toernooi is niet aan deze machine overgedragen, dus is er niets om t
 msgid "Type %{word} to confirm"
 msgstr "Typ %{word} om te bevestigen"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1793
+#: lib/pairings_engine_web/live/tournaments_live.ex:1856
 #, elixir-autogen, elixir-format
 msgid "Unlock this copy"
 msgstr "Deze kopie ontgrendelen"
@@ -5571,27 +5571,27 @@ msgstr "Deze kopie ontgrendelen"
 msgid "Unlock without the token"
 msgstr "Ontgrendelen zonder de token"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:2119
+#: lib/pairings_engine_web/live/tournaments_live.ex:2189
 #, elixir-autogen, elixir-format
 msgid "What does not travel with it:"
 msgstr "Wat niet meereist:"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:2171
+#: lib/pairings_engine_web/live/tournaments_live.ex:2241
 #, elixir-autogen, elixir-format
 msgid "Where is it going?"
 msgstr "Waar gaat het naartoe?"
 
-#: lib/pairings_engine_web/components/layouts.ex:347
-#: lib/pairings_engine_web/components/layouts.ex:352
+#: lib/pairings_engine_web/components/layouts.ex:356
+#: lib/pairings_engine_web/components/layouts.ex:361
 #: lib/pairings_engine_web/live/settings_support.ex:315
 #: lib/pairings_engine_web/live/settings_support.ex:320
-#: lib/pairings_engine_web/live/tournaments_live.ex:1752
-#: lib/pairings_engine_web/live/tournaments_live.ex:1876
+#: lib/pairings_engine_web/live/tournaments_live.ex:1815
+#: lib/pairings_engine_web/live/tournaments_live.ex:1946
 #, elixir-autogen, elixir-format
 msgid "another copy"
 msgstr "een andere kopie"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:2176
+#: lib/pairings_engine_web/live/tournaments_live.ex:2246
 #, elixir-autogen, elixir-format
 msgid "e.g. the club laptop"
 msgstr "bv. de laptop van de club"
@@ -5601,57 +5601,188 @@ msgstr "bv. de laptop van de club"
 msgid "enrolling a phone"
 msgstr "een telefoon inschrijven"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1879
+#: lib/pairings_engine_web/live/tournaments_live.ex:1949
 #, elixir-autogen, elixir-format
 msgid "handed off"
 msgstr "overgedragen"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1886
+#: lib/pairings_engine_web/live/tournaments_live.ex:1956
 #, elixir-autogen, elixir-format
 msgid "on loan"
 msgstr "in bruikleen"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:318
+#: lib/pairings_engine_web/live/tournaments_live.ex:335
 #, elixir-autogen, elixir-format
 msgid "the other machine"
 msgstr "de andere machine"
 
-#: lib/pairings_engine_web/components/layouts.ex:267
+#: lib/pairings_engine_web/components/layouts.ex:276
 #, elixir-autogen, elixir-format
 msgid "It left this copy on %{at}, and is live there now. It's read-only here - every change is refused until it's handed back, and the returning file brings everything played over there with it. Everything else (viewing, printing, exporting) still works normally."
 msgstr "Het verliet deze kopie op %{at} en is daar nu live. Het is hier alleen-lezen - elke wijziging wordt geweigerd tot het teruggegeven wordt, en het retourbestand brengt alles mee wat daar gespeeld is. Al de rest (bekijken, afdrukken, exporteren) werkt gewoon."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:902
+#: lib/pairings_engine_web/live/tournaments_live.ex:933
 #, elixir-autogen, elixir-format
 msgid "That file is a returning hand-off, but not this tournament's - it does not carry this event's departure. Applying it would replace what is here with another event."
 msgstr "Dat bestand is een retourbestand, maar niet van dit toernooi - het bevat niet het vertrek van dit evenement. Het toepassen ervan zou vervangen wat hier staat door een ander evenement."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:866
+#: lib/pairings_engine_web/live/tournaments_live.ex:897
 #, elixir-autogen, elixir-format
 msgid "That is not a hand-off file. An ordinary backup carries no key, so it cannot make this copy live or unlock anything - import it under \"Import backup (JSON)\" instead."
 msgstr "Dat is geen overdrachtsbestand. Een gewone back-up bevat geen sleutel, dus kan die deze kopie niet live maken of iets ontgrendelen - importeer ze in de plaats onder \"Back-up importeren (JSON)\"."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:917
+#: lib/pairings_engine_web/live/tournaments_live.ex:948
 #, elixir-autogen, elixir-format
 msgid "The restore point of what is here now could not be saved, so nothing was replaced - bringing the tournament back would have left no way to undo it. Try again, and check the disk has room."
 msgstr "Het herstelpunt van wat hier nu staat, kon niet bewaard worden, dus is er niets vervangen - het toernooi teruggeven zou geen manier meer hebben overgelaten om het ongedaan te maken. Probeer het opnieuw, en controleer of er nog schijfruimte is."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:856
+#: lib/pairings_engine_web/live/tournaments_live.ex:887
 #, elixir-autogen, elixir-format
 msgid "This copy is live again, and now holds what was played on the other machine. What was here before the return is kept as a restore point under History, if you need to look at it or go back."
 msgstr "Deze kopie is opnieuw live en bevat nu wat op de andere machine gespeeld is. Wat hier stond vóór de retour, wordt bewaard als herstelpunt onder Geschiedenis, als je het wilt bekijken of ernaar terug wilt."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:911
+#: lib/pairings_engine_web/live/tournaments_live.ex:942
 #, elixir-autogen, elixir-format
 msgid "This copy was unlocked with \"Unlock without the token\" while it was away, so it has been taking changes too - and the file you just chose holds the changes made on the other machine. Both are real work and nothing here can merge them. Import the file under \"Import backup (JSON)\" as a separate tournament, compare the two, and carry the missing results across by hand."
 msgstr "Deze kopie werd ontgrendeld met \"Ontgrendelen zonder de token\" terwijl ze weg was, en heeft sindsdien ook wijzigingen gekregen - en het bestand dat je net gekozen hebt, bevat de wijzigingen die op de andere machine gemaakt zijn. Beide zijn echt werk en niets hier kan ze samenvoegen. Importeer het bestand onder \"Back-up importeren (JSON)\" als een apart toernooi, vergelijk de twee, en breng de ontbrekende resultaten met de hand over."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1762
+#: lib/pairings_engine_web/live/tournaments_live.ex:1825
 #, elixir-autogen, elixir-format
 msgid "This replaces what is here with what comes back:"
 msgstr "Dit vervangt wat hier staat door wat terugkomt:"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1764
+#: lib/pairings_engine_web/live/tournaments_live.ex:1827
 #, elixir-autogen, elixir-format
 msgid "the rounds played on the other machine become this copy's, because this one has been read-only since it left and cannot have changed. What is here now is kept as a restore point under History, so you can look at it or go back."
 msgstr "de rondes die op de andere machine gespeeld zijn, worden die van deze kopie, want ze is alleen-lezen geweest sinds ze wegging en kan dus niet veranderd zijn. Wat hier nu staat, wordt bewaard als herstelpunt onder Geschiedenis, zodat je het kan bekijken of ernaar terug kan."
+
+#: lib/pairings_engine/features.ex:132
+#, elixir-autogen, elixir-format
+msgid "Adds \"Import SWAR file\": takes a .swar tournament in, with its players, rounds and results, and continues it here."
+msgstr "Voegt \"SWAR-bestand importeren\" toe: neemt een .swar-toernooi over, met zijn spelers, rondes en uitslagen, en zet het hier verder."
+
+#: lib/pairings_engine/features.ex:114
+#, elixir-autogen, elixir-format
+msgid "Adds the \"KBSB lookup\" button beside a player's details, and fills the form in as you type a National ID. Reads the local copy of the member list."
+msgstr "Voegt de knop \"KBSB-opzoeking\" toe naast de gegevens van een speler, en vult het formulier in terwijl je een stamnummer typt. Leest de lokale kopie van de ledenlijst."
+
+#: lib/pairings_engine/features.ex:123
+#, elixir-autogen, elixir-format
+msgid "Adds the \"Update clubs\" action on the players page: compares everyone against the local member list and proposes their current club before writing anything. Reads the local copy of the member list."
+msgstr "Voegt de actie \"Clubs bijwerken\" toe op de pagina Spelers: vergelijkt iedereen met de lokale ledenlijst en stelt hun huidige club voor, voordat er iets weggeschreven wordt. Leest de lokale kopie van de ledenlijst."
+
+#: lib/pairings_engine/features.ex:141
+#, elixir-autogen, elixir-format
+msgid "Adds the .swar download to a tournament's Export page, for handing a tournament back to SWAR."
+msgstr "Voegt de .swar-download toe aan de pagina Exporteren van een toernooi, om een toernooi terug te geven aan SWAR."
+
+#: lib/pairings_engine/features.ex:82
+#, elixir-autogen, elixir-format
+msgid "Belgium - KBSB / FRBE"
+msgstr "België - KBSB / FRBE"
+
+#: lib/pairings_engine/features.ex:121
+#, elixir-autogen, elixir-format
+msgid "Bulk club update"
+msgstr "Clubs in bulk bijwerken"
+
+#: lib/pairings_engine_web/live/user_live/features.ex:84
+#, elixir-autogen, elixir-format
+msgid "Could not save that. Please try again."
+msgstr "Kon dat niet bewaren. Probeer het opnieuw."
+
+#: lib/pairings_engine_web/live/tournaments_live.ex:1893
+#, elixir-autogen, elixir-format
+msgid "Create your first tournament, or import one from TRF16 or a backup."
+msgstr "Maak je eerste toernooi aan, of importeer er een uit TRF16 of een back-up."
+
+#: lib/pairings_engine/features.ex:105
+#, elixir-autogen, elixir-format
+msgid "Downloads the Belgian member list (players, ratings, clubs) from the KBSB data platform and keeps a local copy. Adds its panel to the Connections page."
+msgstr "Downloadt de Belgische ledenlijst (spelers, ratings, clubs) van het KBSB-dataplatform en houdt er een lokale kopie van bij. Voegt het bijbehorende paneel toe aan de pagina Verbindingen."
+
+#: lib/pairings_engine_web/components/layouts.ex:215
+#, elixir-autogen, elixir-format
+msgid "Features"
+msgstr "Functies"
+
+#: lib/pairings_engine_web/live/user_live/features.ex:52
+#: lib/pairings_engine_web/live/user_live/features.ex:98
+#, elixir-autogen, elixir-format
+msgid "Federation features"
+msgstr "Federatiefuncties"
+
+#: lib/pairings_engine_web/live/user_live/features.ex:109
+#, elixir-autogen, elixir-format
+msgid "It hides buttons. Everything already imported - players, clubs, scores, categories - stays exactly as it is, and scores exactly as it did."
+msgstr "Het verbergt knoppen. Alles wat al geïmporteerd is - spelers, clubs, scores, categorieën - blijft precies zoals het is, en scoort precies zoals voorheen."
+
+#: lib/pairings_engine/features.ex:112
+#, elixir-autogen, elixir-format
+msgid "KBSB player lookup"
+msgstr "KBSB-opzoeking van spelers"
+
+#: lib/pairings_engine/features.ex:103
+#, elixir-autogen, elixir-format
+msgid "National rating list sync"
+msgstr "Synchronisatie nationale ratinglijst"
+
+#: lib/pairings_engine_web/live/user_live/features.ex:139
+#, elixir-autogen, elixir-format
+msgid "No other federations are packaged yet. Everything else in the application - FIDE ratings, TRF16 files, the FIDE report forms - is available to everyone and needs no switch."
+msgstr "Er zijn nog geen andere federaties meegeleverd. Al de rest van de applicatie - FIDE-ratings, TRF16-bestanden, de FIDE-rapportformulieren - is voor iedereen beschikbaar en heeft geen schakelaar nodig."
+
+#: lib/pairings_engine/features.ex:139
+#, elixir-autogen, elixir-format
+msgid "SWAR export"
+msgstr "SWAR-export"
+
+#: lib/pairings_engine_web/controllers/export_controller.ex:135
+#, elixir-autogen, elixir-format
+msgid "SWAR export is switched off for your account. Turn it on under Features."
+msgstr "SWAR-export staat uit voor je account. Zet het aan onder Functies."
+
+#: lib/pairings_engine/features.ex:130
+#, elixir-autogen, elixir-format
+msgid "SWAR import"
+msgstr "SWAR-import"
+
+#: lib/pairings_engine_web/live/tournaments_live.ex:1118
+#, elixir-autogen, elixir-format
+msgid "SWAR import is switched off for your account. Turn it on under Features to import a .swar file."
+msgstr "SWAR-import staat uit voor je account. Zet het aan onder Functies om een .swar-bestand te importeren."
+
+#: lib/pairings_engine_web/live/user_live/features.ex:101
+#, elixir-autogen, elixir-format
+msgid "Some national federations have their own member list, their own file format, and their own habits. Switch on the ones you work with; leave the rest off and they stay out of your way."
+msgstr "Sommige nationale federaties hebben hun eigen ledenlijst, hun eigen bestandsformaat en hun eigen gewoontes. Schakel in wat je gebruikt; laat de rest uit, en die blijft uit de weg."
+
+#: lib/pairings_engine/features.ex:84
+#, elixir-autogen, elixir-format
+msgid "The Belgian federation's member list, the lookups that read it, and SWAR, the tournament program Belgian arbiters exchange files with."
+msgstr "De ledenlijst van de Belgische federatie, de opzoekingen die deze lezen, en SWAR, het toernooiprogramma waarmee Belgische arbiters bestanden uitwisselen."
+
+#: lib/pairings_engine_web/live/fide_live.ex:249
+#, elixir-autogen, elixir-format
+msgid "The Belgian rating list sync is switched off for your account. Turn it on under Features."
+msgstr "De synchronisatie van de Belgische ratinglijst staat uit voor je account. Zet het aan onder Functies."
+
+#: lib/pairings_engine_web/live/players_live.ex:1171
+#, elixir-autogen, elixir-format
+msgid "The KBSB club update is switched off for your account. Turn it on under Features."
+msgstr "De KBSB-clubupdate staat uit voor je account. Zet het aan onder Functies."
+
+#: lib/pairings_engine_web/live/players_live.ex:1165
+#, elixir-autogen, elixir-format
+msgid "The KBSB player lookup is switched off for your account. Turn it on under Features."
+msgstr "De KBSB-opzoeking van spelers staat uit voor je account. Zet het aan onder Functies."
+
+#: lib/pairings_engine_web/live/user_live/features.ex:131
+#, elixir-autogen, elixir-format
+msgid "The player lookup and the bulk club update read the member list the rating list sync downloads. They work with the sync switched off - they just search whatever was last downloaded, which may be an old list, or nothing at all if this machine has never synced."
+msgstr "De opzoeking van spelers en het bijwerken van clubs in bulk lezen de ledenlijst die de ratinglijstsynchronisatie downloadt. Ze werken ook met de synchronisatie uitgeschakeld - ze doorzoeken dan gewoon wat het laatst gedownload is, wat een oude lijst kan zijn, of helemaal niets als deze machine nog nooit gesynchroniseerd heeft."
+
+#: lib/pairings_engine_web/live/user_live/features.ex:107
+#, elixir-autogen, elixir-format
+msgid "Turning a feature off never changes your tournaments"
+msgstr "Een functie uitschakelen verandert nooit je toernooien"
