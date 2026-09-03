@@ -105,7 +105,7 @@ Each entry is tagged so a version can be skimmed:
 
 - [Fix] **Amber warning boxes ignored the theme.** Archived banners, the "careful, this is hard to undo" notes on the settings pages, the pairing-confirmation warnings, the history rail's tags and both status pills in the top bar were painted with a fixed amber, so on Nord, Dracula, Tokyo, Nocturne and Catppuccin they sat in the middle of the palette looking like something had failed to load.
 
-  Every theme has always defined its own `--warn` &mdash; Nord's is its aurora yellow, Dracula's its pale citrus &mdash; these components just never used it. They do now, along with the reds and greens beside them, so a warning looks like a warning in the theme you actually chose.
+  Every theme has always defined its own `--warn` — Nord's is its aurora yellow, Dracula's its pale citrus — these components just never used it. They do now, along with the reds and greens beside them, so a warning looks like a warning in the theme you actually chose.
 
   Two of them were worse than off-key: the OpenResults visibility toggles and the on/off state pills referenced a colour that does not exist, so *every* theme, including the two the app ships with, fell through to one hardcoded green.
 
@@ -118,19 +118,19 @@ Each entry is tagged so a version can be skimmed:
 - [Feature] **Where you publish and where spectators go are two settings.**
   They were one field doing both jobs, and it cost something: on a server
   hosting both applications, every publish left the box, went out to the CDN
-  and came back in through the tunnel to reach a process one hop away &mdash;
+  and came back in through the tunnel to reach a process one hop away —
   because the single address had to be the public one. Pointing it at
   `localhost` would have broken every share link, QR code and printed URL.
 
   Leave the new "Public address" blank and nothing changes. Set it, and the
   server can send over loopback while spectators still get the public name.
-  The win is not speed &mdash; publishing is queued and nobody waits on it
-  &mdash; it is that two applications on one machine no longer need DNS and a
+  The win is not speed — publishing is queued and nobody waits on it
+  — it is that two applications on one machine no longer need DNS and a
   CDN to be up to talk to each other.
 
   On a hosted install the deploy configures all three (send address, public
   address, token) from values it already has, and **reconciles them on every
-  run** &mdash; so change them in the deploy configuration, not on the
+  run** — so change them in the deploy configuration, not on the
   Connections page, where the next deploy would undo the edit. The `mix
   pairings.publishing` task still defaults to filling blanks and refusing to
   overwrite; it is the deploy, which owns one known host, that asks for the
@@ -148,15 +148,15 @@ Each entry is tagged so a version can be skimmed:
   once the server is actually listening, so double-clicking the binary opens
   OpenPairings.
 
-  Only on a local run &mdash; a hosted server never tries this &mdash; and
+  Only on a local run — a hosted server never tries this — and
   `OPENPAIRINGS_NO_BROWSER=1` turns it off for anyone running the binary
   headless or over SSH. It cannot stop the app starting: if the launch fails
   the failure is logged and the tournament goes on.
 
 - [Feature] **An Admin page, next to Connections and only for
   administrators.** It shows who may administer this installation and lets an
-  administrator change a role &mdash; grant `support` to a colleague, or take
-  it back &mdash; plus the version, whether this is a local or hosted run,
+  administrator change a role — grant `support` to a colleague, or take
+  it back — plus the version, whether this is a local or hosted run,
   and the database size.
 
   Three things it refuses, each a way somebody would otherwise be locked out:
@@ -167,7 +167,7 @@ Each entry is tagged so a version can be skimmed:
 
   Granting roles from a screen is a change of mind from `mix pairings.role`,
   which shipped saying there should be no screen. That argument was about the
-  *first* administrator and still holds &mdash; nothing here can bootstrap
+  *first* administrator and still holds — nothing here can bootstrap
   one. It does not reach the second: an administrator granting `support`
   gains nothing they did not have, since the same session can already
   repoint publishing and download the whole database.
@@ -179,8 +179,8 @@ Each entry is tagged so a version can be skimmed:
   because a pill that says "Offline" and cannot be acted on is a worry rather
   than information.
 
-  Publishing is deliberately invisible &mdash; queued, retried, never in the
-  way of pairing a round &mdash; and the cost of that is an arbiter having no
+  Publishing is deliberately invisible — queued, retried, never in the
+  way of pairing a round — and the cost of that is an arbiter having no
   way to tell "results are going out" from "nothing has left this laptop
   since Tuesday". Both look like nothing happening. An arbiter does not visit
   the settings page mid-round; they pair, enter results, and trust it is
@@ -192,7 +192,7 @@ Each entry is tagged so a version can be skimmed:
   the animation stops under `prefers-reduced-motion`.
 
   One poller serves the whole installation and everything else reads a cached
-  value, so this costs no network request per page &mdash; which matters most
+  value, so this costs no network request per page — which matters most
   when the results site is down, since that is exactly when every page would
   otherwise be waiting fifteen seconds to say so.
 
@@ -201,9 +201,9 @@ Each entry is tagged so a version can be skimmed:
   of how somebody signed in.
 
   `admin` may change the publishing connection, take and download backups,
-  and start a rating-list sync. `support` may *look* &mdash; the connection
+  and start a rating-list sync. `support` may *look* — the connection
   status, the backup list, the sync state, and the read-only connection check
-  &mdash; because "why did publishing stop" is a question worth answering
+  — because "why did publishing stop" is a question worth answering
   without handing over the ability to cause it. `owner` is everyone else, and
   is what every existing account becomes.
 
@@ -226,7 +226,7 @@ Each entry is tagged so a version can be skimmed:
   database too. Either alone is enough. The redundancy is the point: an
   installation nobody can administer is recoverable only over SSH.
 
-  This grants nothing new &mdash; the unit is root-only, and root could run
+  This grants nothing new — the unit is root-only, and root could run
   the mix task anyway. `mix pairings.role` with no arguments lists both
   kinds and marks which is which.
 
@@ -244,25 +244,25 @@ Each entry is tagged so a version can be skimmed:
   hands any of them over.
 
   They are written beside the database, which survives a bad migration, an
-  accidental delete and a botched restore &mdash; most of what goes wrong
-  &mdash; and does not survive the disk. Copying one off-site needs a
+  accidental delete and a botched restore — most of what goes wrong
+  — and does not survive the disk. Copying one off-site needs a
   destination this app has no business holding credentials for, so instead it
   gives you the file and says plainly that a backup kept only on the thing it
   protects is half a backup.
 
   Administrators only, and the card says why: a backup is every tournament,
   every player, the email addresses people gave the entry form, and every
-  publishing key. On your own machine there is no gate &mdash; the file is
+  publishing key. On your own machine there is no gate — the file is
   sitting beside a database you can already open.
 
 - [Feature] **A connection indicator for publishing.** Green when the results
   site answers, amber while something is being sent, amber again if the token
   is refused, red when it cannot be reached, grey when nothing is set up
-  &mdash; with the round trip in milliseconds and the reason in words beside
+  — with the round trip in milliseconds and the reason in words beside
   it. On Connections in full, and compact on a tournament's OpenResults page.
 
   Publishing is deliberately invisible: queued, retried, never in the way of
-  pairing a round. That is right and it had a cost &mdash; "my results are
+  pairing a round. That is right and it had a cost — "my results are
   going out" and "nothing has left this laptop since Tuesday" looked exactly
   the same, which is to say like nothing happening.
 
@@ -283,14 +283,14 @@ Each entry is tagged so a version can be skimmed:
   (city, dates, arbiter, deputy, tempo, FIDE badge), and which extra columns
   a shown page carries.
 
-  Whole pages can now be withheld &mdash; some arbiters hold the standings back
+  Whole pages can now be withheld — some arbiters hold the standings back
   until the last round is in, and now they can. What still cannot be hidden is
   the truth on a page that IS shown: there is no way to publish a standings
   table with the names removed or a pairing list without results. A page is
   published honestly or not published.
 
   A withheld page says so and links back to the tournament, rather than
-  claiming not to exist &mdash; the event is right there, and a 404 would send
+  claiming not to exist — the event is right there, and a 404 would send
   somebody hunting for a link that was never broken.
 
   The old layout took most of a screen for seven boxes and would have taken
@@ -298,7 +298,7 @@ Each entry is tagged so a version can be skimmed:
 
 - [Feature] **There are backups now.** There were none. Every tournament,
   result, registration and publishing key lived on one database file on one
-  machine &mdash; and the keys are the only thing that can withdraw a published
+  machine — and the keys are the only thing that can withdraw a published
   tournament, so losing the file meant losing the ability to take your own
   event off the public web.
 
@@ -308,7 +308,7 @@ Each entry is tagged so a version can be skimmed:
   database that gets opened and checked before anything is recovered.
 
   **The rating lists are left out.** They are 207 MB of the 219, they are a
-  downloaded copy of somebody else's data, and a sync rebuilds them &mdash; so a
+  downloaded copy of somebody else's data, and a sync rebuilds them — so a
   backup is about 17 kB and it is worth keeping a month of them. The tables are
   emptied rather than dropped, because a database missing them would not match
   its own migration history and would refuse to start.
@@ -317,15 +317,15 @@ Each entry is tagged so a version can be skimmed:
   three commands to swap it in. A SQLite file cannot be replaced underneath an
   open connection pool without risking the thing being recovered.
 
-  Set `PAIRINGS_BACKUP_PASSPHRASE` to encrypt them &mdash; worth doing, because
+  Set `PAIRINGS_BACKUP_PASSPHRASE` to encrypt them — worth doing, because
   an unencrypted backup carries the email addresses people gave the entry form.
 
-- [Feature] **Settings &rarr; Results site.** One page for everything about a
+- [Feature] **Settings → Results site.** One page for everything about a
   tournament's public existence: publish it, list it or not, choose what the
   public page shows, open the entry form, get the share link, move it to a new
   address, take it down.
 
-  These were spread over two pages and read as unrelated &mdash; the publish
+  These were spread over two pages and read as unrelated — the publish
   switch under Tournament next to the logo uploader, the entry form under
   Options next to pairing preferences. They are not unrelated. Every one of
   them answers part of "what does the public see", and an arbiter putting an
@@ -340,7 +340,7 @@ Each entry is tagged so a version can be skimmed:
 
   Names, board numbers, results and placings are not on the list: they are the
   tournament, and an arbiter who does not want them public should not publish.
-  Hiding the tiebreak columns hides the arithmetic, not the result &mdash; the
+  Hiding the tiebreak columns hides the arithmetic, not the result — the
   order is still exactly the one the arbiter computed.
 
 - [Feature] **Publishing a tournament no longer advertises it.** Publishing
@@ -352,7 +352,7 @@ Each entry is tagged so a version can be skimmed:
   behaviour nobody chose: sixteen tournaments appeared on the front page at
   once because a migration had switched publishing on, not because sixteen
   arbiters had decided to advertise their events. Every existing tournament is
-  reset to unlisted &mdash; nothing is taken down, and every link still works.
+  reset to unlisted — nothing is taken down, and every link still works.
 
   The settings page says plainly that this is not privacy: an unlisted
   tournament is still readable by anyone who has the address, and addresses get
@@ -360,8 +360,8 @@ Each entry is tagged so a version can be skimmed:
 
 - [Feature] **Entries arrive on their own.** The Registrations list now fills
   itself once a minute instead of waiting for someone to press Pull. That was
-  fine while this app served the entry form &mdash; the arbiter was in the app
-  and the entries were on the same machine &mdash; and stopped being fine when
+  fine while this app served the entry form — the arbiter was in the app
+  and the entries were on the same machine — and stopped being fine when
   the form moved to the results site, because the queue then lived somewhere
   the arbiter had no view of at all. A queue nobody is told about is one
   discovered on the morning of the tournament.
@@ -373,7 +373,7 @@ Each entry is tagged so a version can be skimmed:
 
 - [Fix] **The public page showed the wrong board numbers.** A fixed-table
   player takes board 1001 and the boards after them renumber to close the gap
-  &mdash; that is what the arbiter's screen and the printed sheet show. The
+  — that is what the arbiter's screen and the printed sheet show. The
   published page showed the raw column instead, so a game printed as board 12
   in the hall appeared online as board 1001, with every board after it off by
   one. The order was wrong too.
@@ -387,7 +387,7 @@ Each entry is tagged so a version can be skimmed:
   The arbiter's own page warns when a result has changed since the order was
   set, or when a player joined afterwards and has not been placed. Neither
   warning travelled, so the public page said "the arbiter chose this order"
-  while their screen said "&hellip;and it may no longer match the real
+  while their screen said "…and it may no longer match the real
   standings". Both are published now, read from the same two functions the
   arbiter's page calls so the two cannot drift apart.
 
@@ -395,7 +395,7 @@ Each entry is tagged so a version can be skimmed:
   form offers a search that fills in name, FIDE ID, rating, title, federation
   and birth year. The old local form did this and the results site could not,
   because the FIDE list lives on the arbiter's machine and did not move with
-  the form &mdash; so players had been typing FIDE IDs from memory, and
+  the form — so players had been typing FIDE IDs from memory, and
   arbiters correcting them by hand.
 
   The list still lives here. The results site borrows a search of it over the
@@ -405,7 +405,7 @@ Each entry is tagged so a version can be skimmed:
   rating in a blitz event is seeded wrong.
 
   Off unless both machines are deployed together. Where they are not, the form
-  asks people to type their own details exactly as it did yesterday &mdash; a
+  asks people to type their own details exactly as it did yesterday — a
   search box that cannot search is worse than none.
 
 - [Feature] **Title and birth year on the entry form.** Both were collected by
@@ -418,7 +418,7 @@ Each entry is tagged so a version can be skimmed:
   Publish to the results site, once something has actually been published.
   It deletes the public page, every earlier snapshot in that tournament's
   history, and any entries collected for it, and it says so before you
-  confirm. Nothing on your machine is touched &mdash; the tournament, its
+  confirm. Nothing on your machine is touched — the tournament, its
   players and its results stay exactly as they are.
 
   A takedown that does not reach the server changes nothing and tells you
@@ -433,14 +433,14 @@ Each entry is tagged so a version can be skimmed:
   Accept adds the player, Discard adds nothing.
 
   The results site cannot put anyone in your tournament. It holds requests
-  and this machine comes and asks &mdash; which is why there is a Fetch button
+  and this machine comes and asks — which is why there is a Fetch button
   rather than a list that fills itself in. An accepted entrant lands **not
   yet arrived**, exactly like the form on this machine: filling in a web
   page announces an intention to play, and pairing someone who never turned
   up hands their opponent a forfeit win.
 
   Rounds an entrant asked to sit out become their absent rounds, clamped to
-  the rounds your tournament actually has &mdash; a request for round 9 of a
+  the rounds your tournament actually has — a request for round 9 of a
   five-round event is shown to you rather than quietly trimmed.
 
   A turned-down entry is kept rather than deleted, so fetching again cannot
@@ -449,13 +449,13 @@ Each entry is tagged so a version can be skimmed:
   into no snapshot, no TRF and no public page.
 
 - [Feature] **Publishing has a UI.** The Rating lists page is now
-  **Connections** &mdash; everything this machine talks to, the two rating
+  **Connections** — everything this machine talks to, the two rating
   lists it reads and the results site it writes to. The address and token
   are set once for the machine; each tournament then has its own switch in
   its Settings, off until you turn it on.
 
   The token is never rendered back once saved, and an empty token box means
-  "keep the one you have" rather than "clear it" &mdash; otherwise editing the
+  "keep the one you have" rather than "clear it" — otherwise editing the
   address beside it would wipe a working token every time.
 
   **Test connection** is a GET against a route that cannot match anything,
@@ -470,12 +470,12 @@ Each entry is tagged so a version can be skimmed:
 
   It opens on **light** rather than following the device. A spectator opens
   this page once, often inside a club's own site, and club sites are
-  overwhelmingly light &mdash; a dark slab dropped into the middle of one reads
+  overwhelmingly light — a dark slab dropped into the middle of one reads
   as broken rather than as a theme.
 
 - [Feature] **Right-click a player on the results site for their card.** The
-  full opponent table &mdash; every round, who they played, their number,
-  federation, title, rating and own total &mdash; shown in place, the way
+  full opponent table — every round, who they played, their number,
+  federation, title, rating and own total — shown in place, the way
   right-clicking a row does on the Players page here. Left-click still opens
   the page, which is what happens with no JavaScript and on a phone.
 
@@ -492,7 +492,7 @@ Each entry is tagged so a version can be skimmed:
 
 - [Feature] **Elo and running scores on the published pairings.** Each board
   shows both players' ratings and the points they carried into the round
-  &mdash; which is what a pairing list means by score, and what explains why
+  — which is what a pairing list means by score, and what explains why
   those two are on that board.
 
 ### Changed
@@ -508,14 +508,14 @@ Each entry is tagged so a version can be skimmed:
 - [Fix] **The Explain page described a colour rule the engine no longer
   follows.** Where Article 5.2.5 decides a board, the page told arbiters this
   engine reads the parity on the tournament pairing number and other programs
-  read it differently. FIDE settled that question on 28 August 2026 &mdash;
-  against us &mdash; and the engine was updated the same day, but the
+  read it differently. FIDE settled that question on 28 August 2026 —
+  against us — and the engine was updated the same day, but the
   explanation was not. It now describes what actually happens, and says the
   ruling settled it rather than presenting a live disagreement. Three other
   places carrying the old claim were corrected with it.
 
 - [Change] **New tournaments publish rounds MANUALLY by default.** They
-  defaulted to publishing the instant a round was paired &mdash; on the
+  defaulted to publishing the instant a round was paired — on the
   public page before the arbiter had looked at it. The first person to see a
   pairing should be the person responsible for it: a mistake caught in ten
   seconds is a re-pair, and the same mistake seen by four hundred players is
@@ -531,27 +531,27 @@ Each entry is tagged so a version can be skimmed:
   page, including the sign-in page, and was not clickable. Making it a link
   exposed the second half: `/changelog` had been behind the login only
   because it was added beside the tournament pages and inherited their
-  pipeline &mdash; so a signed-out visitor clicking it was sent to a log-in
+  pipeline — so a signed-out visitor clicking it was sent to a log-in
   screen for a document that describes the application and reads nothing but
   `CHANGELOG.md`.
 
 - [Feature] **The panel says how slow the connection has been, in one line.**
-  "Slowest in 10 min: 4 ms" &mdash; and only that, when there is nothing
+  "Slowest in 10 min: 4 ms" — and only that, when there is nothing
   else to say. A drop earns a second clause, because a drop is worth
-  knowing: "Slowest in 10 min: 4 ms &middot; last drop 2 h ago". If it is
+  knowing: "Slowest in 10 min: 4 ms · last drop 2 h ago". If it is
   dropping now it says so in the same shape: "Drops in 10 min: 2", in bold.
 
   Deliberately not an uptime percentage. This app cannot see the checks it
   failed to make while it was down, so any figure it computed would describe
   how reachable the results site was during the moments the app was alive
-  &mdash; flattering by construction. And a percentage averages away the
+  — flattering by construction. And a percentage averages away the
   shape that matters: 99.9% over a week is one ten-minute outage, which is
   nothing on a Tuesday and ruinous in round four. Real uptime needs something
   outside the machine watching it.
 
 - [Fix] **The publishing panel said things twice.** It read "Connected" and
   then "Connected. The address and token are both accepted."; and "last sent
-  just now" beside "82.0 KB last sent" &mdash; the same words twice on one
+  just now" beside "82.0 KB last sent" — the same words twice on one
   line, from bolting the new size on as a separate item rather than folding
   it into the sentence. It now reads "82.0 KB sent just now", the message
   stops repeating the heading above it, and the three facts on that line are
@@ -564,7 +564,7 @@ Each entry is tagged so a version can be skimmed:
   looks, while results arrive late for no visible reason. The panel now keeps
   the last ten minutes of connection checks and says either "steady for the
   last 10 minutes, slowest check 180 ms" or "3 checks failed in the last 10
-  minutes &mdash; it is answering now, but worth a look at the network".
+  minutes — it is answering now, but worth a look at the network".
 
   It says nothing at all until there is enough history to mean it. A claim
   about ten minutes from an app that started ninety seconds ago would be a
@@ -573,20 +573,20 @@ Each entry is tagged so a version can be skimmed:
 - [Fix] **The publishing indicator opens instead of sending you to the
   rating lists.** Clicking "Live" in the top bar navigated to the FIDE
   rating-list page, which has nothing to do with publishing. It now opens the
-  full status in place &mdash; the reason in words, the address, the queue,
-  when something last went out and how big it was &mdash; and closes when you
+  full status in place — the reason in words, the address, the queue,
+  when something last went out and how big it was — and closes when you
   click away or press Escape. The Advanced and Settings menus gained the same
   click-away behaviour, which they never had either.
 
 - [Feature] **How much a round costs to publish.** A published snapshot is
   the whole tournament rather than a change to it, so its size is the one
-  figure that says what publishing actually sends &mdash; and it moves: the
+  figure that says what publishing actually sends — and it moves: the
   new tie-break breakdown multiplied it by about 3.4 on a large event. The
   size of the last document sent is now recorded and shown beside when it
   went.
 
 - [Feature] **Every build now says exactly which build it is.** The top bar
-  showed `v0.18.0`, which is a release, not a build &mdash; a week of commits
+  showed `v0.18.0`, which is a release, not a build — a week of commits
   and a dozen deploys all report the same string. It now reads
   `v0.18.0+3f2a1c9`, with the commit and the build time in the tooltip, and
   the same identifier travels on every published document so the results site
@@ -599,8 +599,8 @@ Each entry is tagged so a version can be skimmed:
 
 - [Fix] **The OpenResults settings page stopped looking like you had left the
   tournament.** It was the one settings page that did not tell the layout
-  which tournament it belonged to, so the top bar dropped every tab &mdash;
-  Players, Pairings, Standings, Print &mdash; and its Home link turned into
+  which tournament it belonged to, so the top bar dropped every tab —
+  Players, Pairings, Standings, Print — and its Home link turned into
   "Tournaments".
 
 - [Fix] **Importing a SWAR file with categories now says what it could not
@@ -611,14 +611,14 @@ Each entry is tagged so a version can be skimmed:
   and pointing at Settings.
 
   What the second list means is genuinely not documented, and the candidates
-  imply different imports &mdash; so this warns rather than guesses. One real
+  imply different imports — so this warns rather than guesses. One real
   club file with categories configured would settle it; `docs/swar-import.md`
   now says exactly what to look for.
 
 - [Change] **A local install stops offering a server's controls.** Running
   the standalone binary signs its single owner in automatically, so the
   account Settings link, the "Share / Team" invitation card and the
-  sign-in/sign-up pages had nothing to do there &mdash; the invitation would
+  sign-in/sign-up pages had nothing to do there — the invitation would
   have been emailed to a terminal window, and a second account created on the
   sign-up page could never have been signed into. All four are gone on a
   local install, and a bookmarked sign-in URL goes to the tournament list
@@ -627,7 +627,7 @@ Each entry is tagged so a version can be skimmed:
 
 - [Change] **The version header can no longer drift.** It is written in four
   places and only one of them is read by anything, so the other three went
-  stale repeatedly &mdash; twice in the three days a code review spent
+  stale repeatedly — twice in the three days a code review spent
   documenting the first occurrence. `mix precommit` now refuses when the
   roadmap, the feature list or the changelog names a version `mix.exs` does
   not.
@@ -645,10 +645,10 @@ Each entry is tagged so a version can be skimmed:
   person to read it.
 
 - [Feature] **Choose which tie-breaks the public page shows.** It was one
-  switch for every column at once. Settings &rarr; Results now has a checkbox
+  switch for every column at once. Settings → Results now has a checkbox
   per tie-break the tournament ranks on, so you can publish Buchholz Cut-1
-  and keep the rest off the page. A hidden one is not sent at all &mdash; no
-  column, no value, no breakdown &mdash; rather than sent and hidden at the
+  and keep the rest off the page. A hidden one is not sent at all — no
+  column, no value, no breakdown — rather than sent and hidden at the
   other end.
 
   **Hiding a column does not stop it deciding the order**, so two players can
@@ -662,7 +662,7 @@ Each entry is tagged so a version can be skimmed:
 - [Feature] **Published results now carry the working behind each
   tie-break.** The public site could show that your Buchholz was 14.5 and
   nothing about where it came from, which leaves the one question a player
-  actually has &mdash; "why am I fourth?" &mdash; unanswerable. Each
+  actually has — "why am I fourth?" — unanswerable. Each
   published standings row now carries, per tie-break, one contribution per
   round: which opponent it came from, what it was worth, and whether it was
   discarded by a cut or is one of Article 16's virtual opponents.
@@ -671,7 +671,7 @@ Each entry is tagged so a version can be skimmed:
   honestly be worked out there: Buchholz sums opponents' **adjusted** scores,
   not the scores in their standings rows, so a public page adding up the
   visible numbers would disagree with the arbiter's. Only the tie-breaks that
-  genuinely cannot be re-derived are sent &mdash; the Buchholz family,
+  genuinely cannot be re-derived are sent — the Buchholz family,
   Sonneborn-Berger, Koya and average rating. Wins, games with Black and the
   running score are already visible in the results.
 
@@ -681,8 +681,8 @@ Each entry is tagged so a version can be skimmed:
 - [Fix] **A Keizer bye marks a hand-set standings order out of date.** Byes
   award points without going through result entry, so every other pairing
   path already flagged a manually-ordered standings table as stale when it
-  wrote one. Keizer did not. Nobody could hit it &mdash; the manual-ordering
-  card is hidden for Keizer tournaments &mdash; but that is a reason it could
+  wrote one. Keizer did not. Nobody could hit it — the manual-ordering
+  card is hidden for Keizer tournaments — but that is a reason it could
   not be reached, not a reason it was right. Keizer's absentee byes are also
   written inside the round's own transaction now, as the Swiss ones always
   were, instead of just after it committed.
@@ -693,11 +693,11 @@ Each entry is tagged so a version can be skimmed:
   on every keystroke, behind an index on last name that could never serve
   the query it was created for. It is indexed now, matches first names and
   name tokens in any order, and folds accents, so "muller" finds
-  "M&uuml;ller". The dead index is dropped.
+  "Müller". The dead index is dropped.
 
 - [Change] **A collaborator lookup runs on an index.** Sharing a tournament
   creates an invite against an email address, which only gains an account id
-  once that person signs in, so the lookup matches either &mdash; and the
+  once that person signs in, so the lookup matches either — and the
   email half had no index, making a query that runs on every page load a
   full table scan of the invite table. Nobody would have noticed at present
   sizes; it is one line.
@@ -711,18 +711,18 @@ Each entry is tagged so a version can be skimmed:
   category on top of that. Measured on a 16-player round: 43 database
   queries before, 35 after; a four-category round, 96 before and 87, with
   the per-category cost now flat. The engine call still dominates a pairing
-  click &mdash; this is housekeeping, not a speed-up you will feel.
+  click — this is housekeeping, not a speed-up you will feel.
 
 - [Change] **The pairing-explanation page stopped recomputing the standings
   once per round.** It needs each round's incoming scores, and asked for them
-  one round at a time &mdash; a nine-round tournament ran eleven full
+  one round at a time — a nine-round tournament ran eleven full
   standings computations, then a twelfth with arguments identical to one it
   had just made. It reads the rounds once and folds each round's prefix in
   memory now.
 
 - [Change] **The pairing sheet asks only for what it prints.** Each player's
-  incoming score came from the full standings &mdash; every tie-break, the
-  ranking sort, all of it &mdash; and then everything but the points was
+  incoming score came from the full standings — every tie-break, the
+  ranking sort, all of it — and then everything but the points was
   thrown away. That runs on mount, on every round switch and after every
   result entered. There is a points-only path now.
 
@@ -736,7 +736,7 @@ Each entry is tagged so a version can be skimmed:
 - [Change] **"Pair the whole tournament" stopped rewriting the same setting
   once per round.** A round robin works out its own round count from the
   size of the field, and the button that pairs every round at once was
-  re-deriving and re-saving that number on every single round &mdash; a
+  re-deriving and re-saving that number on every single round — a
   14-player double round robin did it 26 times, each one telling every open
   page twice that the settings had changed. It happens once now. Nothing
   visible changes; there is just far less going on behind a button pressed
@@ -746,8 +746,8 @@ Each entry is tagged so a version can be skimmed:
   points, Game points and Berlin board points need team standings, which are
   not built. Adding one to a tournament produced a column of noughts that
   separated nobody, permanently, with nothing on screen to say why. They are
-  out of the picker now, and a tournament that already stores one &mdash;
-  FIDE's own default set for a team event names all three &mdash; drops it
+  out of the picker now, and a tournament that already stores one —
+  FIDE's own default set for a team event names all three — drops it
   from the ranking and says on the Standings page which and why. The FIDE
   defaults themselves are left as FIDE wrote them; hiding our own gap by
   editing their list would misreport the regulation.
@@ -756,14 +756,14 @@ Each entry is tagged so a version can be skimmed:
   Koya tie-break reads an opponent's raw score where Buchholz and
   Sonneborn-Berger first apply the unplayed-rounds adjustment. Checked
   against C.07: Article 16 names its own scope in its opening sentence
-  &mdash; Buchholz, Sonneborn-Berger and their variants &mdash; and Koya
+  — Buchholz, Sonneborn-Berger and their variants — and Koya
   (Article 9.2) is not among them. No change; the citation is now in the
   code so the next reader does not re-open it.
 
 - [Fix] **A draw stopped being called a win.** Under a 3-2-1 club scheme
   (win 2, draw 1, plus a point for turning up) a draw is worth exactly what
-  a win is worth. Four screens &mdash; the player card, the printed
-  crosstable, the pairing-explanation trail and the players grid &mdash;
+  a win is worth. Four screens — the player card, the printed
+  crosstable, the pairing-explanation trail and the players grid —
   worked out whether you had won by comparing your points against the value
   of a win, so all four showed a "1" where the standings beside them showed
   a draw. The FIDE tie-break "games won over the board" counted it too.
@@ -796,8 +796,8 @@ Each entry is tagged so a version can be skimmed:
   everything after it.
 
 - [Change] **The original attempt at that, kept for the record:** Its
-  explanations &mdash; the engine note, the "Reporting only" note on team
-  tournaments &mdash; were laid out as if they were form fields, so each one
+  explanations — the engine note, the "Reporting only" note on team
+  tournaments — were laid out as if they were form fields, so each one
   took a column beside an unrelated input, and choosing a pairing system
   reshuffled the rest. They span the full width now and sit under the field
   they explain, so picking an option adds a row instead of moving three
@@ -805,21 +805,21 @@ Each entry is tagged so a version can be skimmed:
 
 - [Change] **The downloads are named after the product, and the release page
   now carries both shapes.** The single-file build was published as
-  `pairings_engine_<target>` &mdash; the internal application name, which
+  `pairings_engine_<target>` — the internal application name, which
   predates the app being called OpenPairings and means nothing to anybody
   downloading it. It is `openpairings_<target>` now.
 
   More usefully: a tagged release attached *only* that single file, which is
   the one `docs/binaries.md` tells a Windows arbiter **not** to start with,
-  because antivirus deletes it on sight. The portable release &mdash; the
-  recommended one &mdash; existed only as a CI artifact you had to dig out of
+  because antivirus deletes it on sight. The portable release — the
+  recommended one — existed only as a CI artifact you had to dig out of
   a build page. It is attached to releases now, as one zip rather than 1,800
   loose files.
 
 - [Change] **"Generate a new link" is now a real revocation.** It used to
   change this machine's idea of the address and nothing else. That was
-  genuine revocation while the pages were served from here &mdash; they
-  404'd the instant the slug changed &mdash; and it silently stopped being
+  genuine revocation while the pages were served from here — they
+  404'd the instant the slug changed — and it silently stopped being
   one when the page moved to another server.
 
   A bare rotation would have done the opposite of what the button promised:
@@ -832,12 +832,12 @@ Each entry is tagged so a version can be skimmed:
   It now takes the old copy down, moves, and publishes again. The takedown
   goes first, because it is the part actually being asked for: if it fails,
   nothing else happens, since a failed revocation must never look like a
-  successful one. The button says what it costs &mdash; printed QR codes and
+  successful one. The button says what it costs — printed QR codes and
   anything a club has embedded will need the new address.
 
 - [Change] **A tournament switched on but never actually sent now heals
   itself.** On start-up the app queues a publish for anything marked to
-  publish that has no key &mdash; a promise nothing kept, where Settings says
+  publish that has no key — a promise nothing kept, where Settings says
   "published" and hands out a share link the results site has never heard of.
 
   Three ways to land there, and none of the ordinary machinery recovered from
@@ -850,15 +850,15 @@ Each entry is tagged so a version can be skimmed:
   entries.** Pulling used to require the publish switch to be on. That switch
   says whether more will be *sent*; it has nothing to do with whether there is
   a queue to collect. A tournament switched off still has its copy on the
-  results site, and that copy's form is whatever the last snapshot said &mdash;
+  results site, and that copy's form is whatever the last snapshot said —
   so entries could arrive at a tournament this machine had stopped publishing
   to, sit unread, and be deleted unseen by a later takedown.
 
 - [Change] **Closing the entry form now pushes immediately.** The form is on
   the results site, so the arbiter's switch only reaches it by riding along
-  in the next published snapshot. Closing is the urgent direction &mdash; an
+  in the next published snapshot. Closing is the urgent direction — an
   arbiter shutting entries at the door needs the site to stop taking them
-  &mdash; so both opening and closing enqueue a publish rather than waiting
+  — so both opening and closing enqueue a publish rather than waiting
   for the next result to come in.
 
   Before this the switch had no effect on the results site at all: it
@@ -872,7 +872,7 @@ Each entry is tagged so a version can be skimmed:
   prevent, and removing the page would have caused it silently.
 
 - [Change] **Saving the publishing settings now tests them.** "Saved" on its
-  own answers the wrong question &mdash; nobody types an address to find out
+  own answers the wrong question — nobody types an address to find out
   whether it was stored, and a typo saves perfectly well. It now says whether
   the results site actually answered, and shows the reason when it did not.
   The settings are kept either way: a typo you cannot correct because the
@@ -888,8 +888,8 @@ Each entry is tagged so a version can be skimmed:
   **Importing one does not take the tournament over.** The key arrives
   dormant and the imported copy behaves as a separate tournament: switch
   publishing on and it gets a new address of its own. Settings then offers
-  the choice in words &mdash; take over publishing the tournament already at
-  that address, or start fresh &mdash; and doing nothing is starting fresh. If
+  the choice in words — take over publishing the tournament already at
+  that address, or start fresh — and doing nothing is starting fresh. If
   an import adopted the key by itself, two people opening the same file would
   both believe they owned that tournament, both publish to the same address,
   and either could delete the other's work.
@@ -923,7 +923,7 @@ Each entry is tagged so a version can be skimmed:
 
   That bound lived privately inside the OpenResults snapshot first, which
   meant the published site enforced the gate and the page served from this
-  app did not &mdash; two publics disagreeing about what "not published yet"
+  app did not — two publics disagreeing about what "not published yet"
   means. One definition now, in `Tournaments.published_through_round/1`.
 
 - [Change] **Colour allocation follows a FIDE ruling that went against the
@@ -1001,14 +1001,14 @@ Each entry is tagged so a version can be skimmed:
   There were two public surfaces for one thing, and the default was the wrong
   one. A link to the machine running the round, printed on a wall chart and
   handed to a hall full of spectators, is precisely what the results site
-  exists to prevent &mdash; and the fix earlier today only stopped the app
+  exists to prevent — and the fix earlier today only stopped the app
   *advertising* those links, it did not stop them working. A second
   correct-looking answer is worse than none, so they were removed rather than
   de-emphasised.
 
   **The two switches are now one.** "Public pages" and "Publish to the results
-  site" asked different questions &mdash; may anyone read this here, versus
-  does a copy leave at all &mdash; and the first has no meaning without a
+  site" asked different questions — may anyone read this here, versus
+  does a copy leave at all — and the first has no meaning without a
   "here". Publishing is the whole of it. Every tournament whose public pages
   were switched on is now marked to publish, because its arbiter had already
   said "this is public" and the only thing that changed is where the public
@@ -1023,7 +1023,7 @@ Each entry is tagged so a version can be skimmed:
 
 ### Fixed
 
-- [Fix] **The phone-enrolment QR could not work on your own computer, and did not say so.** Running OpenPairings locally, the QR encoded `http://localhost:4000/...` &mdash; which a phone resolves to *itself* &mdash; and the app only accepts connections from the machine it runs on, so even the right address would have been refused.
+- [Fix] **The phone-enrolment QR could not work on your own computer, and did not say so.** Running OpenPairings locally, the QR encoded `http://localhost:4000/...` — which a phone resolves to *itself* — and the app only accepts connections from the machine it runs on, so even the right address would have been refused.
 
   That second part is deliberate and is what makes a build with no login safe to ship: it prints sign-in links to a terminal and signs in whoever reaches it. Opening it up so phones could connect would hand that to everyone on the venue wifi, so this is a property of running locally rather than a missing feature.
 
@@ -1031,27 +1031,27 @@ Each entry is tagged so a version can be skimmed:
 
 - [Fix] **A shared tournament went stale on the other person's screen.**
   Deleting, archiving or restoring a tournament told only its owner, so a
-  collaborator kept seeing a row that was gone &mdash; or missed one that was
-  back &mdash; until they happened to reload. Sharing worked in both
+  collaborator kept seeing a row that was gone — or missed one that was
+  back — until they happened to reload. Sharing worked in both
   directions already; it was the tournament's own lifecycle that forgot the
   other party existed.
 
 - [Fix] **A player's card showed their opponent's score wrong.** It counted
   the opponent's administrative extra points, which a tournament only ranks
-  on if you asked it to &mdash; and it does not by default. Right-clicking a
+  on if you asked it to — and it does not by default. Right-clicking a
   player showed a total the standings table would deny.
 
 - [Fix] **A crafted language-switch link returned a server error.** A
   `redirect_to` containing a backslash or a tab reached Phoenix's redirect,
   which refuses those by raising, so anyone could produce a 500 from the
   public log-in page. It sends you home instead. Never an open redirect
-  &mdash; Phoenix stopped that part &mdash; but a language switch is not a
+  — Phoenix stopped that part — but a language switch is not a
   place to find a stack trace.
 
 - [Fix] **ARO and AROC1 counted an unrated opponent as rating zero, and it
   moved prizes.** A player who faced 2200-rated opponents and one unrated
   scored around 1956 instead of 2200, and dropped below anyone who happened
-  to draw a full rated field &mdash; in a tie-break that decides who takes a
+  to draw a full rated field — in a tie-break that decides who takes a
   trophy. One unrated entrant in the whole event was enough.
 
   The cause is honest enough on its own: an unrated player's rating is
@@ -1066,8 +1066,8 @@ Each entry is tagged so a version can be skimmed:
   excluding unrated opponents from the average, or substituting a floor
   rating, would both be inventing a rule FIDE declined to write.
 
-  Rating-based tie-breaks are therefore dropped &mdash; not computed, not
-  ranked on, and the column is gone &mdash; in any tournament with an unrated
+  Rating-based tie-breaks are therefore dropped — not computed, not
+  ranked on, and the column is gone — in any tournament with an unrated
   player, and the standings page says which and why, including the escape
   hatch: publish a rule in your regulations and use a different tie-break
   here. It re-checks as players are added, so a late unrated entrant drops it
@@ -1075,15 +1075,15 @@ Each entry is tagged so a version can be skimmed:
 
 - [Fix] **A change took up to half a minute to reach the results site.** The
   publish queue was swept on a 30-second timer and nothing else, so unlisting
-  a tournament sat there until the next sweep &mdash; invisible until the new
+  a tournament sat there until the next sweep — invisible until the new
   top-bar indicator gave it something to sit amber on. An enqueue now nudges
   the queue, debounced so that pairing a round does not fire one HTTP round
   trip per tournament, with the timer kept as the backstop that retries
   anything still in backoff.
 
 - [Fix] **"Publish each round" described a page that no longer exists.** Its
-  help text pointed at `/p/<slug>/pairings` &mdash; a route removed with the
-  local public pages &mdash; and told you the switch was gated on a setting
+  help text pointed at `/p/<slug>/pairings` — a route removed with the
+  local public pages — and told you the switch was gated on a setting
   under Settings → Tournament, which had also moved. It now names the real
   address on the results site and the switch that actually gates it, which
   is on the same page.
@@ -1091,7 +1091,7 @@ Each entry is tagged so a version can be skimmed:
 - [Fix] **Twelve Dutch strings were wrong, including two buttons that meant
   the opposite of what they did.** The engine-switch confirmation offered
   "JaVaFo behouden" (keep JaVaFo) on the button that switches *to* JaVaFo,
-  and "Ainalrami gebruiken" (use Ainalrami) on the one that keeps it &mdash;
+  and "Ainalrami gebruiken" (use Ainalrami) on the one that keeps it —
   so a Dutch arbiter choosing a pairing engine was reading each button
   backwards. "Backups" read as "Terug" (Back), the publish indicator's
   "Sending" read as "Stand" (Standings), and a note about a round a
@@ -1099,7 +1099,7 @@ Each entry is tagged so a version can be skimmed:
 
   All of them were fuzzy entries: gettext's own guesses, produced by
   matching a new or reworded string against the most similar existing one.
-  Dutch was reported complete at 918 of 918 and the count was true &mdash;
+  Dutch was reported complete at 918 of 918 and the count was true —
   what it did not say was that eleven of those were machine guesses nobody
   had read, and Elixir's Gettext (unlike GNU `msgfmt`, which drops them)
   puts fuzzy translations on the screen. A twelfth string, the publish
@@ -1107,14 +1107,14 @@ Each entry is tagged so a version can be skimmed:
 
   The catalogue is now checked by tests rather than by counting: nothing
   untranslated, nothing fuzzy, and no translation interpolating a
-  placeholder that will not be bound &mdash; that last one raises at runtime,
+  placeholder that will not be bound — that last one raises at runtime,
   so it would take the page down in Dutch and in no other language.
 
 - [Fix] **On your own machine, the whole Connections page refused to do
   anything.** Setting where the results site is, taking a backup, and
   updating the FIDE and KBSB rating lists were all gated on having signed in
-  through 02cloud SSO. A local install has no accounts at all &mdash; it
-  signs itself in as an owner named after the machine &mdash; so it failed
+  through 02cloud SSO. A local install has no accounts at all — it
+  signs itself in as an owner named after the machine — so it failed
   that check, and there was no way to pass it.
 
   Which meant the one build that most needs the rating list could not
@@ -1124,12 +1124,12 @@ Each entry is tagged so a version can be skimmed:
   The gate is a role now, and a local run needs none: the listener is on
   loopback, sign-in re-checks that the request came from this machine, and
   whoever is at the keyboard already holds the database and the binary.
-  Being able to run it is the credential &mdash; the same reasoning that
+  Being able to run it is the credential — the same reasoning that
   already skipped email confirmation there.
 
 - [Fix] **Every public link pointed back at this machine, even for a
   tournament being published.** The share links, the projector's QR code, the
-  registration link &mdash; all of them handed out a `/p/:slug` address served
+  registration link — all of them handed out a `/p/:slug` address served
   by the very computer running the round.
 
   That is not a broken link, which is what makes it bad: it works perfectly
@@ -1139,7 +1139,7 @@ Each entry is tagged so a version can be skimmed:
 
   There is now one function that answers where the public reads a tournament,
   and every link goes through it. (The local pages it fell back to were
-  removed later the same day &mdash; see below &mdash; so that function now
+  removed later the same day — see below — so that function now
   has one answer rather than two.)
 
   A tournament marked to publish on a machine that has not been told an
@@ -1147,7 +1147,7 @@ Each entry is tagged so a version can be skimmed:
   address. The share card names the host a spectator will land on, so nobody
   has to read a URL to work out which site they just copied.
 
-  The links are absolute now rather than relative &mdash; half of them end up
+  The links are absolute now rather than relative — half of them end up
   on a QR code, in a printed footer or pasted into an email.
 
 - [Fix] **The navigation still said "Rating lists".** The page became
@@ -1158,8 +1158,8 @@ Each entry is tagged so a version can be skimmed:
   round, or un-hides a hidden board.** Three separate ways a restore came
   back wrong.
 
-  SWAR's `HandyTable` is a table *number*, not a flag &mdash; its own 1001+
-  handicap numbering lives in that field &mdash; and the exporter was writing
+  SWAR's `HandyTable` is a table *number*, not a flag — its own 1001+
+  handicap numbering lives in that field — and the exporter was writing
   1 or 0 into it. So a wheelchair-accessible board survived a backup and
   restore as nothing at all, and nobody was told. It now carries the real
   number. The two cases that genuinely cannot (a legacy row that only ever
@@ -1229,7 +1229,7 @@ Each entry is tagged so a version can be skimmed:
 
 - [Fix] **Queuing a publish can no longer break a write.** It hangs off the
   funnel every write in the app goes through, which is what stops any call
-  site forgetting to publish &mdash; and equally meant one bad query there
+  site forgetting to publish — and equally meant one bad query there
   broke all of them. A publishing queue is a courtesy and must never stop an
   arbiter entering a result.
 
@@ -1246,14 +1246,14 @@ Each entry is tagged so a version can be skimmed:
   tomorrow".
 
   So the differences are the feature. It says whatever it is given, for up to
-  two weeks, it never escalates, and it is **persisted** &mdash; a notice
+  two weeks, it never escalates, and it is **persisted** — a notice
   about maintenance twelve hours out has to outlive every restart in those
   twelve hours, and one that vanished at the first hiccup would look exactly
   like one that was never set.
 
   It restarts nothing and schedules nothing; the banner is the entire effect.
-  Same `DEPLOY_NOTICE_TOKEN`, because it is the same privilege &mdash; both
-  can put a banner on every screen &mdash; and the endpoint fails closed when
+  Same `DEPLOY_NOTICE_TOKEN`, because it is the same privilege — both
+  can put a banner on every screen — and the endpoint fails closed when
   that variable is unset.
 
 - [Feature] **Tournaments can be published to OpenResults.** The public half
@@ -1261,7 +1261,7 @@ Each entry is tagged so a version can be skimmed:
   the snapshot builder existed and had no caller. It does now.
 
   Opt-in per tournament, off by default, and toggled by its own action rather
-  than by the ordinary settings form &mdash; the same guarantee
+  than by the ordinary settings form — the same guarantee
   `public_pages_enabled` and `registration_open` already have, for a sharper
   reason. Those two decide whether somebody holding a link may read an event
   *here*; this one decides whether a copy of it leaves the machine at all,
@@ -1270,17 +1270,17 @@ Each entry is tagged so a version can be skimmed:
   start sending a copy of it to whatever server this machine is pointed at.
 
   **A publish never blocks and never fails loudly.** That is the entire point
-  of the split: a chess venue's wifi &mdash; school gyms, hotel basements
-  &mdash; is exactly where an arbiter is standing when they pair round 5. A
+  of the split: a chess venue's wifi — school gyms, hotel basements
+  — is exactly where an arbiter is standing when they pair round 5. A
   write records an intent and returns; a background drain sends what is due
   every thirty seconds; a send that does not land keeps its place in the
   queue with a longer backoff and an error written in words rather than in a
-  struct ("the connection was refused &mdash; is the server running?").
+  struct ("the connection was refused — is the server running?").
 
   **The queue holds intents, not payloads.** One row per tournament, enforced
   by a unique index. A snapshot is a whole document rather than a delta, so
   five publishes stacked up behind a dead connection are not five things to
-  send &mdash; they are one send of the current state, rebuilt when it
+  send — they are one send of the current state, rebuilt when it
   actually goes out. Eight results entered in a minute are one publish, and a
   publish delayed twenty minutes carries what is true when it leaves rather
   than what was true when it was queued. That is what an arbiter wants: the
@@ -1294,7 +1294,7 @@ Each entry is tagged so a version can be skimmed:
 - [Fix] **A single reported board moved everybody else's tiebreaks.** While a
   round was being played, the moment the first result was typed in, every
   player who had not yet reported gained a phantom draw on their opponents'
-  Buchholz, BHC1, BHC2, MBH and Sonneborn-Berger &mdash; and Koya's 50%
+  Buchholz, BHC1, BHC2, MBH and Sonneborn-Berger — and Koya's 50%
   threshold jumped a full win at the same instant.
 
   Two quantities were being subtracted from each other that are not the same
@@ -1305,8 +1305,8 @@ Each entry is tagged so a version can be skimmed:
   the previous round. The difference read as "this player missed a round",
   which Article 16.3 scores as a draw.
 
-  Both readers now ask the rounds how many of them are *complete* &mdash; the
-  highest round in which no pairing is still unreported &mdash; rather than
+  Both readers now ask the rounds how many of them are *complete* — the
+  highest round in which no pairing is still unreported — rather than
   asking the players how many records they hold. A round holding only byes
   counts as played; a round with no pairings and no byes does not, so
   creating a round in advance no longer awards anyone anything.
@@ -1377,8 +1377,8 @@ Each entry is tagged so a version can be skimmed:
 ### Security
 
 - [Security] **Password sign-in had no rate limit.** Every other
-  unauthenticated route in the app was given one deliberately &mdash; mobile
-  enrolment, magic link, registration, the FIDE lookup &mdash; and this one
+  unauthenticated route in the app was given one deliberately — mobile
+  enrolment, magic link, registration, the FIDE lookup — and this one
   was missed, leaving nothing between an attacker and a password list but
   bcrypt's own cost.
 
@@ -1386,7 +1386,7 @@ Each entry is tagged so a version can be skimmed:
   cannot be walked against one account, and per client, so one client cannot
   walk a list of addresses. Refused before the password is checked, so a
   throttled attempt costs no bcrypt round and cannot be timed to tell a real
-  account from a missing one. Only failures count &mdash; signing in and out
+  account from a missing one. Only failures count — signing in and out
   during your own tournament must not lock you out of it.
 
 
@@ -1395,7 +1395,7 @@ Each entry is tagged so a version can be skimmed:
   with no role check.** Every sibling handler on that page checks; this one
   did not, and the page became readable by `support` the same day. It pulls
   the whole Belgian roster over somebody else's API and rewrites the local
-  rating table &mdash; an act, not a look &mdash; so it is an administrator's
+  rating table — an act, not a look — so it is an administrator's
   now, on the handler as well as the button.
 
 - [Security] **Connections is no longer readable by an ordinary account.**
@@ -1406,7 +1406,7 @@ Each entry is tagged so a version can be skimmed:
 
   None of that is a password and all of it is the operator's business rather
   than every arbiter's. The route refuses now, not only the buttons, and the
-  nav link is not offered &mdash; a link is a courtesy, but a bookmark or a
+  nav link is not offered — a link is a courtesy, but a bookmark or a
   typed URL is not, so the markup gate alone would have left the page serving
   to anyone who guessed it.
 
@@ -1421,7 +1421,7 @@ Each entry is tagged so a version can be skimmed:
   ratings and clubs there.
 
   It is now behind the same gate as the FIDE rating-list download and the
-  backup download &mdash; an explicit `admin` role &mdash; and on the event
+  backup download — an explicit `admin` role — and on the event
   handlers rather than only the markup, since a hidden button still accepts a
   crafted event.
 
@@ -1441,8 +1441,8 @@ Each entry is tagged so a version can be skimmed:
   whole results site, and it answered only "may this machine talk to this
   server". Anything holding it could overwrite any tournament there, and
   nothing could withdraw one at all: turning a tournament's publish switch
-  off stopped further updates and left the page &mdash; player names, ratings,
-  clubs and federations &mdash; public forever. The only remedy was SSH and
+  off stopped further updates and left the page — player names, ratings,
+  clubs and federations — public forever. The only remedy was SSH and
   SQLite.
 
   Each tournament now gets its own key, generated on your machine the first
@@ -2554,7 +2554,7 @@ without anything failing. It found five, four of them live.
   stays legible in both themes. The markdown source writes them as plain
   `[Fix]` so the file still reads on GitHub.
 
-- [Change] **Settings &rarr; Options saves per subject instead of all at once.**
+- [Change] **Settings → Options saves per subject instead of all at once.**
   The page was one long form with a single "Save settings" button beneath
   everything, so changing the pairing system at the top meant scrolling
   past the engine notes, the rate of play and the public-pairings card to
@@ -3877,7 +3877,7 @@ A batch of smaller fixes and features from one round of feedback.
   themselves from a tournament someone else shared with them - only the
   owner could remove a collaborator. Leaving is now self-service, right
   next to the (still owner-only) Delete button on the tournament list.
-- [Feature] **"Copy" (duplicate) a tournament**, named "Copy of &lt;original&gt;" -
+- [Feature] **"Copy" (duplicate) a tournament**, named "Copy of <original>" -
   available to the owner and any collaborator, reusing the same export/
   import round trip Settings > Export/backup already relies on. The copy
   is owned by whoever clicked it; no collaborators carry over.

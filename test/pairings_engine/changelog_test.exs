@@ -76,4 +76,20 @@ defmodule PairingsEngine.ChangelogTest do
       end
     end
   end
+
+  test "no HTML entity survives as its own literal text" do
+    # The renderer escapes `&` on purpose - that is what keeps `&lt;script&gt;`
+    # inert. The cost is that an entity written in the SOURCE renders as its
+    # own name: `&mdash;` reached the page as the six characters "&mdash;",
+    # 146 times, on a page anyone can read without an account. Markdown source
+    # carries the character itself.
+    html = PairingsEngine.Changelog.html()
+
+    refute html =~ ~r/&amp;[a-z]+;/,
+           """
+           The changelog renders a literal HTML entity. Write the character
+           itself in CHANGELOG.md (— → … · ü < >), not its entity name: the
+           renderer escapes the ampersand and the reader sees the name.
+           """
+  end
 end
