@@ -25,6 +25,20 @@ Each entry is tagged so a version can be skimmed:
   stalled import - so a sync that had been quietly slowing for weeks began
   failing outright. The index is now emptied in a single statement first:
   the same clear-out takes **145 ms**. A test guards the cost.
+- **[Fix]** Settings cards had no styling at all. `.set-card` was used in six
+  places across the optional-features and admin pages but never had a CSS
+  rule, so each one rendered as bare text on the page background - no surface,
+  no border, no padding.
+- **[Change]** The optional-features page now shows each federation as a pack:
+  its country code, its name, and how many of its features are switched on, so
+  the page answers "what is my state here" before you read five labels. Each
+  switch is a full-width row you can click anywhere on, and an enabled one is
+  tinted. The reassurance about tournaments is styled as an aside rather than
+  competing with the cards that carry the switches.
+- **[Change]** Deploys no longer slow the running site to a standstill. The
+  build ran unconstrained on a two-core server while the previous version was
+  still serving, taking both cores; it now runs on one, at low priority.
+
 ## [0.21.0] - 2026-09-02
 
 ### Added

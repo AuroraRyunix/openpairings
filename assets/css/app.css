@@ -1002,6 +1002,101 @@ label.field > span {
    (checkbox beside label) coexist without deforming one to match the other -
    which is what the per-call-site inline flex patches used to paper over.
    Controls cap at a readable width instead of stretching the whole card. */
+/* ---- Settings cards -------------------------------------------------------
+   `.set-card` carried NO rule at all until now: six of these divs, across the
+   optional-features page and the admin page, rendered as bare text on the page
+   background - no surface, no border, no padding. One of them even set
+   `border-color` inline, which tells you a border was always intended. It is
+   the surface a group of switches sits on, so it is a card first. */
+.set-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px 20px;
+  margin-bottom: 16px;
+}
+
+.set-card > h2 { font-size: 15px; font-weight: 650; margin: 0 0 6px; }
+.set-card > .hint { margin: 0 0 14px; }
+.set-card > :last-child { margin-bottom: 0; }
+
+/* A reassurance is not a control surface. Tinted and ruled rather than
+   raised, so it reads as an aside and does not compete with the cards that
+   actually carry switches. */
+.set-card.note {
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  border-left: 3px solid var(--accent);
+  box-shadow: none;
+}
+
+/* ---- A federation pack ----------------------------------------------------
+   Identity (which federation), then state (how much of it is on), then the
+   switches. The header wraps rather than clips - a translated federation name
+   is routinely half again as long as the English. */
+.fed-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.fed-code {
+  flex: none;
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+/* 16rem basis: wide enough that the name and summary keep the row on one
+   line on a laptop, narrow enough to drop below the badge on a phone. */
+.fed-title { flex: 1 1 16rem; min-width: 0; }
+.fed-title h2 { font-size: 15px; font-weight: 650; margin: 0 0 4px; }
+.fed-title .hint { margin: 0; }
+
+.fed-count {
+  flex: none;
+  padding-top: 5px;
+  font-size: 12px;
+  color: var(--text-soft);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Each switch becomes a row with a divider and its own hit area, so the
+   click target is the label rather than the 13px box. */
+.fed-switches { border-top: 1px solid var(--border); }
+
+.fed-switches .set-toggle {
+  margin: 0 -8px;
+  padding: 11px 8px;
+  border-bottom: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.fed-switches .set-toggle:last-of-type { border-bottom: 0; }
+
+/* An enabled feature should read as enabled without hunting for the tick. */
+.fed-switches .set-toggle:has(input[type="checkbox"]:checked) {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+/* After the checked tint, so hover wins at equal specificity. */
+.fed-switches .set-toggle:hover { background: var(--surface-hover); }
+
+.fed-foot { margin: 14px 0 0; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .fed-switches .set-toggle { transition: background 0.12s ease; }
+}
+
 .set-group { display: flex; flex-direction: column; gap: 16px; }
 
 .set-field { display: block; }

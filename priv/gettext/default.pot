@@ -5735,7 +5735,7 @@ msgstr ""
 msgid "National rating list sync"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/features.ex:139
+#: lib/pairings_engine_web/live/user_live/features.ex:145
 #, elixir-autogen, elixir-format
 msgid "No other federations are packaged yet. Everything else in the application - FIDE ratings, TRF16 files, the FIDE report forms - is available to everyone and needs no switch."
 msgstr ""
@@ -5785,7 +5785,7 @@ msgstr ""
 msgid "The KBSB player lookup is switched off for your account. Turn it on under Features."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/features.ex:131
+#: lib/pairings_engine_web/live/user_live/features.ex:137
 #, elixir-autogen, elixir-format
 msgid "The player lookup and the bulk club update read the member list the rating list sync downloads. They work with the sync switched off - they just search whatever was last downloaded, which may be an old list, or nothing at all if this machine has never synced."
 msgstr ""
@@ -5793,4 +5793,9 @@ msgstr ""
 #: lib/pairings_engine_web/live/user_live/features.ex:107
 #, elixir-autogen, elixir-format
 msgid "Turning a feature off never changes your tournaments"
+msgstr ""
+
+#: lib/pairings_engine_web/live/user_live/features.ex:159
+#, elixir-autogen, elixir-format
+msgid "%{on} of %{total} on"
 msgstr ""

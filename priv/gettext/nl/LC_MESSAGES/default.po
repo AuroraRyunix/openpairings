@@ -5727,7 +5727,7 @@ msgstr "KBSB-opzoeking van spelers"
 msgid "National rating list sync"
 msgstr "Synchronisatie nationale ratinglijst"
 
-#: lib/pairings_engine_web/live/user_live/features.ex:139
+#: lib/pairings_engine_web/live/user_live/features.ex:145
 #, elixir-autogen, elixir-format
 msgid "No other federations are packaged yet. Everything else in the application - FIDE ratings, TRF16 files, the FIDE report forms - is available to everyone and needs no switch."
 msgstr "Er zijn nog geen andere federaties meegeleverd. Al de rest van de applicatie - FIDE-ratings, TRF16-bestanden, de FIDE-rapportformulieren - is voor iedereen beschikbaar en heeft geen schakelaar nodig."
@@ -5777,7 +5777,7 @@ msgstr "De KBSB-clubupdate staat uit voor je account. Zet het aan onder Functies
 msgid "The KBSB player lookup is switched off for your account. Turn it on under Features."
 msgstr "De KBSB-opzoeking van spelers staat uit voor je account. Zet het aan onder Functies."
 
-#: lib/pairings_engine_web/live/user_live/features.ex:131
+#: lib/pairings_engine_web/live/user_live/features.ex:137
 #, elixir-autogen, elixir-format
 msgid "The player lookup and the bulk club update read the member list the rating list sync downloads. They work with the sync switched off - they just search whatever was last downloaded, which may be an old list, or nothing at all if this machine has never synced."
 msgstr "De opzoeking van spelers en het bijwerken van clubs in bulk lezen de ledenlijst die de ratinglijstsynchronisatie downloadt. Ze werken ook met de synchronisatie uitgeschakeld - ze doorzoeken dan gewoon wat het laatst gedownload is, wat een oude lijst kan zijn, of helemaal niets als deze machine nog nooit gesynchroniseerd heeft."
@@ -5786,3 +5786,8 @@ msgstr "De opzoeking van spelers en het bijwerken van clubs in bulk lezen de led
 #, elixir-autogen, elixir-format
 msgid "Turning a feature off never changes your tournaments"
 msgstr "Een functie uitschakelen verandert nooit je toernooien"
+
+#: lib/pairings_engine_web/live/user_live/features.ex:159
+#, elixir-autogen, elixir-format
+msgid "%{on} of %{total} on"
+msgstr "%{on} van %{total} aan"

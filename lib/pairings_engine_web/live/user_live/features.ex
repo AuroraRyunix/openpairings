@@ -41,7 +41,7 @@ defmodule PairingsEngineWeb.UserLive.Features do
   """
   use PairingsEngineWeb, :live_view
 
-  import PairingsEngineWeb.SettingsSupport, only: [setting_group: 1, setting_toggle: 1]
+  import PairingsEngineWeb.SettingsSupport, only: [setting_toggle: 1]
 
   alias PairingsEngine.Features
 
@@ -103,7 +103,7 @@ defmodule PairingsEngineWeb.UserLive.Features do
         )}
       </p>
 
-      <div class="set-card">
+      <div class="set-card note">
         <h2>{gettext("Turning a feature off never changes your tournaments")}</h2>
         <p>
           {gettext(
@@ -114,10 +114,16 @@ defmodule PairingsEngineWeb.UserLive.Features do
 
       <form id="features-form" phx-change="save">
         <div :for={federation <- Features.federations()} class="set-card">
-          <h2>{federation.name}</h2>
-          <p class="hint">{federation.summary}</p>
+          <div class="fed-head">
+            <span class="fed-code">{federation.code}</span>
+            <div class="fed-title">
+              <h2>{federation.name}</h2>
+              <p class="hint">{federation.summary}</p>
+            </div>
+            <span class="fed-count">{on_count(federation.code, @enabled)}</span>
+          </div>
 
-          <.setting_group>
+          <div class="fed-switches">
             <.setting_toggle
               :for={feature <- Features.catalogue_for(federation.code)}
               name={"feature[#{feature.key}]"}
@@ -125,9 +131,9 @@ defmodule PairingsEngineWeb.UserLive.Features do
               hint={feature.description}
               checked={feature.key in @enabled}
             />
-          </.setting_group>
+          </div>
 
-          <p :if={federation.code == "BEL"} class="hint">
+          <p :if={federation.code == "BEL"} class="hint fed-foot">
             {gettext(
               "The player lookup and the bulk club update read the member list the rating list sync downloads. They work with the sync switched off - they just search whatever was last downloaded, which may be an old list, or nothing at all if this machine has never synced."
             )}
@@ -143,4 +149,17 @@ defmodule PairingsEngineWeb.UserLive.Features do
     </Layouts.app>
     """
   end
+
+  # How much of a pack is switched on, so the card answers "what is my state
+  # here" before anyone reads five labels. Reads fine at zero ("0 of 5 on"),
+  # which is why this is one string rather than three special cases.
+  defp on_count(code, enabled) do
+    keys = Enum.map(Features.catalogue_for(code), & &1.key)
+
+    gettext("%{on} of %{total} on",
+      on: Enum.count(keys, &(&1 in enabled)),
+      total: length(keys)
+    )
+  end
+
 end
