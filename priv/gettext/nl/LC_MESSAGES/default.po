@@ -5427,8 +5427,8 @@ msgstr "Helpers die resultaten invoeren via hun telefoon moeten zich hier opnieu
 
 #: lib/pairings_engine_web/components/layouts.ex:267
 #, elixir-autogen, elixir-format
-msgid "It left this copy on %{at}, and is live there now. It's read-only here - every change is refused until it's handed back. Everything else (viewing, printing, exporting) still works normally."
-msgstr "Het verliet deze kopie op %{at} en is daar nu live. Het is hier alleen-lezen - elke wijziging wordt geweigerd tot het teruggegeven wordt. Al de rest (bekijken, afdrukken, exporteren) werkt gewoon."
+msgid "It left this copy on %{at}, and is live there now. It's read-only here - every change is refused until it's handed back, and the returning file brings everything played over there with it. Everything else (viewing, printing, exporting) still works normally."
+msgstr "Het verliet deze kopie op %{at} en is daar nu live. Het is hier alleen-lezen - elke wijziging wordt geweigerd tot het teruggegeven wordt, en het retourbestand brengt alles mee wat daar gespeeld is. Al de rest (bekijken, afdrukken, exporteren) werkt gewoon."
 
 #: lib/pairings_engine_web/live/tournaments_live.ex:2180
 #, elixir-autogen, elixir-format
@@ -5481,6 +5481,11 @@ msgstr "Dat bestand kon niet als JSON gelezen worden."
 msgid "That file does not unlock this tournament. Check it is the return for this event, and that nothing has already brought it back."
 msgstr "Dat bestand ontgrendelt dit toernooi niet. Controleer of het de retour voor dit evenement is, en of het nog niet eerder is teruggehaald."
 
+#: lib/pairings_engine_web/live/tournaments_live.ex:902
+#, elixir-autogen, elixir-format
+msgid "That file is a returning hand-off, but not this tournament's - it does not carry this event's departure. Applying it would replace what is here with another event."
+msgstr "Dat bestand is een retourbestand, maar niet van dit toernooi - het bevat niet het vertrek van dit evenement. Het toepassen ervan zou vervangen wat hier staat door een ander evenement."
+
 #: lib/pairings_engine_web/live/tournaments_live.ex:862
 #, elixir-autogen, elixir-format
 msgid "That is not a hand-off file. An ordinary backup carries no key, so it cannot make this copy live or unlock anything - import it under \"Import backup\" instead."
@@ -5506,15 +5511,25 @@ msgstr "De kopie die naar %{place} is overgedragen bestaat nog. Dit sluit ze nie
 msgid "The copy this was handed to is gone"
 msgstr "De kopie waarnaar dit werd overgedragen is verdwenen"
 
+#: lib/pairings_engine_web/live/tournaments_live.ex:917
+#, elixir-autogen, elixir-format
+msgid "The restore point of what is here now could not be saved, so nothing was replaced - bringing the tournament back would have left no way to undo it. Try again, and check the disk has room."
+msgstr "Het herstelpunt van wat hier nu staat, kon niet bewaard worden, dus is er niets vervangen - het toernooi teruggeven zou geen manier meer hebben overgelaten om het ongedaan te maken. Probeer het opnieuw, en controleer of er nog schijfruimte is."
+
 #: lib/pairings_engine_web/live/tournaments_live.ex:898
 #, elixir-autogen, elixir-format
 msgid "The tournament could not be recorded as a hand-off, so it was not kept - a copy that cannot be given back would strand the machine it came from."
 msgstr "Het toernooi kon niet als overdracht geregistreerd worden, dus werd het niet bewaard - een kopie die niet teruggegeven kan worden, zou de machine waar ze vandaan komt in de steek laten."
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:852
+#: lib/pairings_engine_web/live/tournaments_live.ex:856
 #, elixir-autogen, elixir-format
-msgid "This copy is writable again. It still shows the tournament as it was when you handed it off - anything played on the other machine is in the file you just used, and importing that file as a backup is the only way to see it here."
-msgstr "Deze kopie is opnieuw beschrijfbaar. Ze toont het toernooi nog zoals het was toen je het overdroeg - alles wat op de andere machine gespeeld is, staat in het bestand dat je net gebruikt hebt, en dat bestand als back-up importeren is de enige manier om het hier te zien."
+msgid "This copy is live again, and now holds what was played on the other machine. What was here before the return is kept as a restore point under History, if you need to look at it or go back."
+msgstr "Deze kopie is opnieuw live en bevat nu wat op de andere machine gespeeld is. Wat hier stond vóór de retour, wordt bewaard als herstelpunt onder Geschiedenis, als je het wilt bekijken of ernaar terug wilt."
+
+#: lib/pairings_engine_web/live/tournaments_live.ex:911
+#, elixir-autogen, elixir-format
+msgid "This copy was unlocked with \"Unlock without the token\" while it was away, so it has been taking changes too - and the file you just chose holds the changes made on the other machine. Both are real work and nothing here can merge them. Import the file under \"Import backup (JSON)\" as a separate tournament, compare the two, and carry the missing results across by hand."
+msgstr "Deze kopie werd ontgrendeld met \"Ontgrendelen zonder de token\" terwijl ze weg was, en heeft sindsdien ook wijzigingen gekregen - en het bestand dat je net gekozen hebt, bevat de wijzigingen die op de andere machine gemaakt zijn. Beide zijn echt werk en niets hier kan ze samenvoegen. Importeer het bestand onder \"Back-up importeren (JSON)\" als een apart toernooi, vergelijk de twee, en breng de ontbrekende resultaten met de hand over."
 
 #: lib/pairings_engine_web/live/tournaments_live.ex:874
 #, elixir-autogen, elixir-format
@@ -5525,6 +5540,11 @@ msgstr "Dit overdrachtsbestand is geschreven door een nieuwere versie van OpenPa
 #, elixir-autogen, elixir-format
 msgid "This machine already has this tournament - it was received once already. Importing it again would leave two live copies of the same event."
 msgstr "Deze machine heeft dit toernooi al - het werd al eerder ontvangen. Het opnieuw importeren zou twee live kopieën van hetzelfde evenement opleveren."
+
+#: lib/pairings_engine_web/live/tournaments_live.ex:1762
+#, elixir-autogen, elixir-format
+msgid "This replaces what is here with what comes back:"
+msgstr "Dit vervangt wat hier staat door wat terugkomt:"
 
 #: lib/pairings_engine_web/controllers/export_controller.ex:218
 #, elixir-autogen, elixir-format
@@ -5570,11 +5590,6 @@ msgstr "Dit toernooi is niet overgedragen, dus is er geen vergrendeling om te fo
 #, elixir-autogen, elixir-format
 msgid "This tournament wasn't handed to this machine, so there is nothing to give back. Hand it off instead."
 msgstr "Dit toernooi is niet aan deze machine overgedragen, dus is er niets om terug te geven. Draag het in de plaats over."
-
-#: lib/pairings_engine_web/live/tournaments_live.ex:1737
-#, elixir-autogen, elixir-format
-msgid "This unlocks the tournament. It does not bring the results back:"
-msgstr "Dit ontgrendelt het toernooi. Het brengt de resultaten niet terug:"
 
 #: lib/pairings_engine_web/live/settings_support.ex:288
 #, elixir-autogen, elixir-format
@@ -5636,7 +5651,7 @@ msgstr "in bruikleen"
 msgid "the other machine"
 msgstr "de andere machine"
 
-#: lib/pairings_engine_web/live/tournaments_live.ex:1739
+#: lib/pairings_engine_web/live/tournaments_live.ex:1764
 #, elixir-autogen, elixir-format
-msgid "this copy will still show the event as it was when you handed it off. Anything played on the other machine is in the same file, and importing it under \"Import backup (JSON)\" is the only way to see it here."
-msgstr "deze kopie toont het evenement nog zoals het was toen je het overdroeg. Alles wat op de andere machine gespeeld is, staat in hetzelfde bestand, en het importeren onder \"Back-up importeren (JSON)\" is de enige manier om het hier te zien."
+msgid "the rounds played on the other machine become this copy's, because this one has been read-only since it left and cannot have changed. What is here now is kept as a restore point under History, so you can look at it or go back."
+msgstr "de rondes die op de andere machine gespeeld zijn, worden die van deze kopie, want ze is alleen-lezen geweest sinds ze wegging en kan dus niet veranderd zijn. Wat hier nu staat, wordt bewaard als herstelpunt onder Geschiedenis, zodat je het kan bekijken of ernaar terug kan."
