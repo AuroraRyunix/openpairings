@@ -328,45 +328,9 @@
   --color-base-content: #000000;
 }
 
-/* Tokyo Night (enkia/tokyo-night-vscode-theme): the deep indigo base with
-   its blue/purple foreground. Distinct from the themes above, which skew
-   grey (Nord) or purple-on-charcoal (Dracula, Catppuccin). */
-[data-theme="tokyo"] {
-  --bg: #1a1b26;
-  --surface: #24283b;
-  --border: #2f3549;
-  --text: #c0caf5;
-  --text-soft: #8189af;
-  --accent: #7aa2f7;
-  --accent-hover: #9ab4f9;
-  --accent-soft: rgba(122, 162, 247, 0.18);
-  --accent-ink: #1a1b26;
-  --accent-lift: #ffffff;
-  --danger: #f7768e;
-  --danger-hover: #f88fa2;
-  --danger-ink: #1a1b26;
-  --success: #9ece6a;
-  --success-soft: rgba(158, 206, 106, 0.18);
-  --warn: #e0af68;
-  --warn-soft: rgba(224, 175, 104, 0.18);
-  --info: #7dcfff;
-  --info-soft: rgba(125, 207, 255, 0.18);
-  --shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
-
-  --surface-alt: #1f2335;
-  --surface-hover: #2a2f45;
-  --scrim: rgba(0, 0, 0, 0.62);
-
-  color-scheme: dark;
-  --color-base-100: #24283b;
-  --color-base-200: #1f2335;
-  --color-base-300: #2a2f45;
-  --color-base-content: #c0caf5;
-}
-
 /* NOCTURNE. The only theme here that is not somebody else's palette - a
    muted rose and gold over a deep plum-grey, warm where Nord is cold and
-   restrained where Dracula is loud. Named rather than borrowed because it
+   soft where Catppuccin is bright. Named rather than borrowed because it
    is ours. */
 [data-theme="nocturne"] {
   --bg: #191724;
@@ -440,41 +404,6 @@
   --color-base-content: #d8dee9;
 }
 
-/* Dracula (draculatheme.com) - its own canonical hex values, purple as
-   the signature accent. */
-[data-theme="dracula"] {
-  --bg: #282a36;
-  --surface: #2f313f;
-  --border: #44475a;
-  --text: #f8f8f2;
-  --text-soft: #6272a4;
-  --accent: #bd93f9;
-  --accent-hover: #caa9fa;
-  --accent-soft: rgba(189, 147, 249, 0.18);
-  --accent-ink: #282a36;
-  --accent-lift: #ffffff;
-  --danger: #ff5555;
-  --danger-hover: #ff7474;
-  --danger-ink: #14151c;
-  --success: #50fa7b;
-  --success-soft: rgba(80, 250, 123, 0.16);
-  --warn: #f1fa8c;
-  --warn-soft: rgba(241, 250, 140, 0.16);
-  --info: #8be9fd;
-  --info-soft: rgba(139, 233, 253, 0.16);
-  --shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-
-  --surface-alt: #343747;
-  --surface-hover: #3a3d4f;
-  --scrim: rgba(0, 0, 0, 0.6);
-
-  color-scheme: dark;
-  --color-base-100: #2f313f;
-  --color-base-200: #343747;
-  --color-base-300: #3a3d4f;
-  --color-base-content: #f8f8f2;
-}
-
 /* Catppuccin Mocha (catppuccin.com) - base/surface0/surface1 for
    backgrounds, mauve as the signature accent. */
 [data-theme="catppuccin"] {
@@ -530,14 +459,14 @@
 [data-accent="cyan"] { --accent: #0e7490; --accent-hover: #0c5c74; --accent-soft: #e0f6fa; --accent-ink: #ffffff; }
 [data-accent="fuchsia"] { --accent: #a21caf; --accent-hover: #86198f; --accent-soft: #fbe6f8; --accent-ink: #ffffff; }
 
-[data-accent="blue"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #5b9bff; --accent-hover: #74acff; --accent-soft: rgba(91, 155, 255, 0.16); --accent-ink: #10151b; }
-[data-accent="teal"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #2dd4bf; --accent-hover: #4de0cd; --accent-soft: rgba(45, 212, 191, 0.16); --accent-ink: #10151b; }
-[data-accent="violet"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #a78bfa; --accent-hover: #b9a4fb; --accent-soft: rgba(167, 139, 250, 0.18); --accent-ink: #10151b; }
-[data-accent="rose"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #fb7185; --accent-hover: #fc8b9b; --accent-soft: rgba(251, 113, 133, 0.16); --accent-ink: #10151b; }
-[data-accent="slate"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #94a3b8; --accent-hover: #aab6c7; --accent-soft: rgba(148, 163, 184, 0.18); --accent-ink: #10151b; }
-[data-accent="indigo"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #818cf8; --accent-hover: #93a2fb; --accent-soft: rgba(129, 140, 248, 0.18); --accent-ink: #10151b; }
-[data-accent="cyan"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #22d3ee; --accent-hover: #4dd8ef; --accent-soft: rgba(34, 211, 238, 0.16); --accent-ink: #10151b; }
-[data-accent="fuchsia"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="dracula"], [data-theme="catppuccin"], [data-theme="tokyo"], [data-theme="nocturne"]) { --accent: #e879f9; --accent-hover: #ee94fa; --accent-soft: rgba(232, 121, 249, 0.18); --accent-ink: #10151b; }
+[data-accent="blue"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="catppuccin"], [data-theme="nocturne"]) { --accent: #5b9bff; --accent-hover: #74acff; --accent-soft: rgba(91, 155, 255, 0.16); --accent-ink: #10151b; }
+[data-accent="teal"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="catppuccin"], [data-theme="nocturne"]) { --accent: #2dd4bf; --accent-hover: #4de0cd; --accent-soft: rgba(45, 212, 191, 0.16); --accent-ink: #10151b; }
+[data-accent="violet"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="catppuccin"], [data-theme="nocturne"]) { --accent: #a78bfa; --accent-hover: #b9a4fb; --accent-soft: rgba(167, 139, 250, 0.18); --accent-ink: #10151b; }
+[data-accent="rose"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="catppuccin"], [data-theme="nocturne"]) { --accent: #fb7185; --accent-hover: #fc8b9b; --accent-soft: rgba(251, 113, 133, 0.16); --accent-ink: #10151b; }
+[data-accent="slate"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="catppuccin"], [data-theme="nocturne"]) { --accent: #94a3b8; --accent-hover: #aab6c7; --accent-soft: rgba(148, 163, 184, 0.18); --accent-ink: #10151b; }
+[data-accent="indigo"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="catppuccin"], [data-theme="nocturne"]) { --accent: #818cf8; --accent-hover: #93a2fb; --accent-soft: rgba(129, 140, 248, 0.18); --accent-ink: #10151b; }
+[data-accent="cyan"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="catppuccin"], [data-theme="nocturne"]) { --accent: #22d3ee; --accent-hover: #4dd8ef; --accent-soft: rgba(34, 211, 238, 0.16); --accent-ink: #10151b; }
+[data-accent="fuchsia"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="catppuccin"], [data-theme="nocturne"]) { --accent: #e879f9; --accent-hover: #ee94fa; --accent-soft: rgba(232, 121, 249, 0.18); --accent-ink: #10151b; }
 
 html { background: var(--bg); }
 
@@ -756,7 +685,7 @@ html[data-accent="fuchsia"] .accent-swatch[data-accent-opt="fuchsia"] {
 }
 
 /* ---------- theme picker (System / Light / Dark / Solarized / Nord /
-   Dracula / Catppuccin / Gruvbox) ----------
+   Catppuccin / ...) ----------
    A popover, not an inline button row, once there are more than a
    handful of themes - matches the accent-picker's own <details>/<summary>
    pattern, and the .topbar-menu-panel/.topbar-menu-item vertical-list
@@ -819,11 +748,9 @@ html[data-theme-source="user"][data-theme="light"] .theme-picker-item[data-theme
 html[data-theme-source="user"][data-theme="dark"] .theme-picker-item[data-theme-opt="dark"],
 html[data-theme-source="user"][data-theme="solarized"] .theme-picker-item[data-theme-opt="solarized"],
 html[data-theme-source="user"][data-theme="nord"] .theme-picker-item[data-theme-opt="nord"],
-html[data-theme-source="user"][data-theme="dracula"] .theme-picker-item[data-theme-opt="dracula"],
 html[data-theme-source="user"][data-theme="catppuccin"] .theme-picker-item[data-theme-opt="catppuccin"],
 html[data-theme-source="user"][data-theme="solarized-light"] .theme-picker-item[data-theme-opt="solarized-light"],
 html[data-theme-source="user"][data-theme="contrast"] .theme-picker-item[data-theme-opt="contrast"],
-html[data-theme-source="user"][data-theme="tokyo"] .theme-picker-item[data-theme-opt="tokyo"],
 html[data-theme-source="user"][data-theme="nocturne"] .theme-picker-item[data-theme-opt="nocturne"] {
   background: var(--accent-soft);
   color: var(--accent);
@@ -1170,7 +1097,7 @@ button.pe-btn, .pe-btn {
 /* The hover used to be `color-mix(--danger 82%, black)`. That was the right
    idea against a fixed white text, but --danger-ink is near-black in six of
    the ten themes, and darkening the fill under a near-black ink walks the
-   contrast DOWN - Dracula's hover measured 3.17:1 while its resting state
+   contrast DOWN - one theme's hover measured 3.17:1 while its resting state
    measured 5.79. So each theme names its own --danger-hover, moving away
    from its own ink rather than always toward black; every hover now scores
    higher than the state it came from. */
@@ -1205,7 +1132,7 @@ button.pe-btn, .pe-btn {
    "frozen, you cannot edit this" must never read as a success state.
    `--warn` satisfies that too - it is per-theme, not per-accent - and unlike
    the amber literal this used to carry, it is the tone the CURRENT theme
-   calls amber. Nord's is #ebcb8b, Dracula's #f1fa8c; a fixed #d97706 sat in
+   calls amber. Nord's is #ebcb8b, Catppuccin's #fab387; a fixed #d97706 sat in
    the middle of both of them looking like a bug, which it was. Same token as
    .pe-modal-warn / .setting-warning, so every "careful" surface matches. */
 .badge.archived {
