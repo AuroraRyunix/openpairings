@@ -51,6 +51,20 @@ defmodule PairingsEngineWeb.TranslationsTest do
     Path.wildcard("priv/gettext/#{@locale}/LC_MESSAGES/*.po")
   end
 
+  # Every locale, including the source one. Only the fuzzy check uses this:
+  # emptiness is expected in `en` (Gettext falls back to the msgid, so the
+  # convention is to leave it empty and let the source text speak), but a
+  # fuzzy FLAG is meaningless there and dangerous anywhere it is acted on.
+  # Left ungoverned, `en` had quietly accumulated 75 of them by 2026-09-02 -
+  # inert only because nothing had filled a msgstr beside one yet.
+  defp all_catalogues do
+    Path.wildcard("priv/gettext/*/LC_MESSAGES/*.po")
+  end
+
+  defp locale_of(path) do
+    path |> Path.split() |> Enum.at(-3)
+  end
+
   defp messages(path) do
     Expo.PO.parse_file!(path).messages
   end
@@ -89,11 +103,21 @@ defmodule PairingsEngineWeb.TranslationsTest do
     end
   end
 
-  test "no message is left as a machine's guess" do
-    for path <- catalogues(), message <- messages(path) do
+  # After `mix gettext.merge`, expect this to fail for `en`: the merge marks
+  # fuzzy in every locale, and `en` is merged along with the rest even though
+  # its msgstrs are deliberately empty. The remedy there is to REMOVE THE FLAG
+  # and leave the msgstr empty - never to fill it in. English renders from the
+  # msgid; a filled `en` msgstr is a second copy of the source string that the
+  # next reword will silently desynchronise.
+  #
+  # For `nl` the remedy is the opposite: read the guess, correct it, then
+  # remove the flag. Never strip a Dutch flag without reading what it left
+  # behind - that is how "Use JaVaFo" came to say "keep JaVaFo".
+  test "no message in any locale is left as a machine's guess" do
+    for path <- all_catalogues(), message <- messages(path) do
       refute "fuzzy" in List.flatten(message.flags),
              """
-             #{Path.basename(path)}: #{inspect(id(message))} is marked fuzzy.
+             #{locale_of(path)}/#{Path.basename(path)}: #{inspect(id(message))} is marked fuzzy.
 
              Elixir's Gettext USES fuzzy entries, so this renders on screen. It is
              gettext's guess from a similar string, not a translation. Read it,
