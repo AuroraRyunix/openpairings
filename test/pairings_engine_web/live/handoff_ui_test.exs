@@ -307,16 +307,18 @@ defmodule PairingsEngineWeb.HandoffUiTest do
       assert html =~ "Bring back &quot;Handoff UI&quot;"
       assert html =~ "the club laptop"
 
-      # The rough edge, said before the button is pressed rather than after.
-      assert html =~ "It does not bring the results back"
+      # What the button actually does, said before it is pressed: this is a
+      # wholesale replacement with a restore point behind it.
+      assert html =~ "This replaces what is here with what comes back"
+      assert html =~ "kept as a restore point"
     end
 
-    test "the returning file unlocks it, and the flash says what that did not do", %{
+    test "the returning file unlocks it, brings the event home, and says so", %{
       conn: conn,
       scope: scope
     } do
       # Both ends in one database: hand off to a second account, which
-      # receives it and gives it straight back.
+      # receives it, plays some of the event, and gives it back.
       tournament = create_tournament(scope)
       {:ok, out} = Handoff.hand_off(tournament, "the club laptop", scope)
 
@@ -324,16 +326,53 @@ defmodule PairingsEngineWeb.HandoffUiTest do
         PairingsEngine.Accounts.Scope.for_user(PairingsEngine.AccountsFixtures.user_fixture())
 
       {:ok, copy} = Handoff.receive(out, elsewhere)
-      {:ok, returning} = Handoff.return(copy, elsewhere)
+      {:ok, _} = Tournaments.create_player(copy.id, %{"name" => "Signed Up There"})
+      {:ok, returning} = Handoff.return(Repo.reload!(copy), elsewhere)
 
       {:ok, lv, _html} = live(conn, ~p"/?return=#{tournament.id}")
       upload_json(lv, :handoff_return, returning)
       html = lv |> form("#handoff-return-form") |> render_submit()
 
-      assert html =~ "writable again"
-      assert html =~ "importing that file as a backup"
+      assert html =~ "live again"
+      assert html =~ "restore point"
 
       refute Tournaments.handed_off?(Repo.reload!(tournament))
+      assert "Signed Up There" in Enum.map(Tournaments.list_players(tournament.id), & &1.name)
+    end
+
+    test "a source that was force-unlocked refuses the file and names the way out", %{
+      conn: conn,
+      scope: scope
+    } do
+      # The break-glass case: the laptop went missing, the arbiter unlocked
+      # this copy without the token and carried on, and then the laptop turned
+      # up. Both copies now hold real work and nothing here may choose.
+      tournament = create_tournament(scope)
+      {:ok, out} = Handoff.hand_off(tournament, "the club laptop", scope)
+
+      elsewhere =
+        PairingsEngine.Accounts.Scope.for_user(PairingsEngine.AccountsFixtures.user_fixture())
+
+      {:ok, copy} = Handoff.receive(out, elsewhere)
+      {:ok, _} = Tournaments.force_take_back(Repo.reload!(tournament), scope)
+      {:ok, _} = Tournaments.create_player(tournament.id, %{"name" => "Played Here"})
+      {:ok, returning} = Handoff.return(Repo.reload!(copy), elsewhere)
+
+      # The panel only opens for a tournament that is checked out, so the
+      # sequence that reaches it is the realistic one: having broken the lock
+      # and carried on, the arbiter handed the event to a second laptop - and
+      # then the first one turned up.
+      {:ok, _} = Handoff.hand_off(Repo.reload!(tournament), "a second laptop", scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/?return=#{tournament.id}")
+      upload_json(lv, :handoff_return, returning)
+      html = lv |> form("#handoff-return-form") |> render_submit()
+
+      assert html =~ "Both are real work and nothing here can merge them"
+      assert html =~ "as a separate tournament"
+
+      assert Tournaments.handed_off?(Repo.reload!(tournament))
+      assert "Played Here" in Enum.map(Tournaments.list_players(tournament.id), & &1.name)
     end
 
     test "the OUTBOUND file is refused, though it carries the same token", %{
@@ -371,8 +410,11 @@ defmodule PairingsEngineWeb.HandoffUiTest do
       upload_json(lv, :handoff_return, wrong_return)
       html = lv |> form("#handoff-return-form") |> render_submit()
 
-      assert html =~ "does not unlock this tournament"
+      # Refused on identity, before the contents are touched: a valid return
+      # for another event would otherwise replace this one with it.
+      assert html =~ "Applying it would replace what is here with another event"
       assert Tournaments.handed_off?(Repo.reload!(mine))
+      assert Enum.map(Tournaments.list_players(mine.id), & &1.name) == ["Alice"]
     end
 
     test "a ?return for a tournament that is not handed off opens nothing", %{
