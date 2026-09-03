@@ -343,6 +343,15 @@ a new tournament owned by whoever ran the import - including re-importing
 your own export back into your own account. If you want a real backup/
 restore workflow, that's the point: nothing is destructive.
 
+This is specifically about the "Import backup (JSON)" panel and
+`TournamentImport.import/2`. A sibling function,
+`TournamentImport.restore_into!/2`, *does* overwrite - it wipes an existing
+tournament's contents and re-imports the envelope into that same row rather
+than minting a new one. Nothing in this UI calls it directly; it is what a
+restore point uses to bring an earlier state of a tournament back, and what
+`PairingsEngine.Handoff.release/3` uses to apply a returning hand-off file
+before unlocking - see [`handoff.md`](handoff.md) for that flow.
+
 ### Round-trip integrity
 
 The property that actually matters - export a tournament, import it back,
