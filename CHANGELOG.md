@@ -14,9 +14,27 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.21.0] - 2026-09-02
+
+### Added
+
+- [Feature] **Three new looks, and two retired.** **Slate** (cool grey-blue, for a screen rather than a page), **Paper** (warm off-white with a brick accent) and **Board** (cream and board-green, the colours of the equipment) - the same three rooms the results site and the KBSB database manager already offer, so the suite looks like one thing. Dracula and Tokyo Night are gone.
+
+  If either of those was your choice, your browser will quietly move you to the system theme rather than leaving you on a palette that no longer exists. Board's warning and error colours had never been chosen anywhere, so they are new: a leaf green kept deliberately lighter than the board-green accent so success does not read as "accent", boxwood ochre, and the brick red of a fallen flag.
+
+### Changed
+
+- [Change] Every theme and accent combination is still checked for readable text on every build - 616 measurements across eleven themes, none below the threshold.
+
 ## [0.20.0] - 2026-09-02
 
 ### Added
+
+- [Feature] **Bringing a tournament back now brings the results with it.** Returning the file replaces this copy with what came back and then unlocks, in one go - if any part of it fails, nothing changes and the tournament stays locked. A restore point of the frozen state is kept first, so a wrong file can be undone; if that restore point cannot be written, the return is refused rather than risked.
+
+  Three things must agree before anything is replaced, and one of them binds the contents rather than just the wrapper: the returning file's own history has to contain the moment this copy was handed over. A file that never left here cannot carry it.
+
+  A tournament whose lock was forced open refuses a returning file, because after a forced unlock both copies can have real work in them - it says so, and names the safe route instead of guessing which one wins. What still does not come home is the record of who typed the results over there; the results themselves do.
 
 - [Feature] **Move a tournament between this server and a copy on your own machine.** Hand it off and it locks here - read-only, with a banner on every page saying where it went - and downloads a file. Import that file elsewhere and the tournament is live there. Bring it back with the returning file and this copy unlocks. It is a checked-out library book, not a sync: exactly one copy is live at a time, and nothing is ever merged.
 
