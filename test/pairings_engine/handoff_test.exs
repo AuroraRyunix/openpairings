@@ -355,6 +355,19 @@ defmodule PairingsEngine.HandoffTest do
       assert Tournaments.rotate_public_slug(t) == {:error, :handed_off}
     end
 
+    test "add_collaborator/3 and remove_collaborator/3 - the invitation list is part of the tournament, and the tournament is not here" do
+      owner = user_scope()
+      t = tournament(owner)
+      {:ok, collaborator} = Tournaments.add_collaborator(owner, t, "friend@example.com")
+      {:ok, t} = Tournaments.hand_off(Repo.reload!(t), "this laptop")
+
+      assert Tournaments.add_collaborator(owner, t, "someone-else@example.com") ==
+               {:error, :handed_off}
+
+      assert Tournaments.remove_collaborator(owner, t, collaborator.id) == {:error, :handed_off}
+      assert Enum.map(Tournaments.list_collaborators(t), & &1.id) == [collaborator.id]
+    end
+
     test "writes work again the moment it comes back" do
       scope = user_scope()
       t = handed_off(scope)
@@ -445,6 +458,34 @@ defmodule PairingsEngine.HandoffTest do
 
       assert {:ok, restored} = Tournaments.restore_tournament(binned)
       assert restored.handed_off_at
+    end
+
+    test "leave_tournament/2, accept_invitation/2 and decline_invitation/2 - a person's own relationship to the tournament, not the roster" do
+      # Deliberately the opposite of the previous describe block's
+      # add_collaborator/3 and remove_collaborator/3: those change the
+      # shared invitation list, these change only the caller's own row, and
+      # a row that already exists here does not need the tournament to be
+      # live here to be left, accepted or declined.
+      owner = user_scope()
+      leaver = user_scope()
+      accepter = user_scope()
+      decliner = user_scope()
+
+      t = tournament(owner)
+      {:ok, leave_invite} = Tournaments.add_collaborator(owner, t, leaver.user.email)
+      {:ok, _} = Tournaments.accept_invitation(leaver, leave_invite.invite_token)
+
+      {:ok, accept_invite} =
+        Tournaments.add_collaborator(owner, Repo.reload!(t), accepter.user.email)
+
+      {:ok, decline_invite} =
+        Tournaments.add_collaborator(owner, Repo.reload!(t), decliner.user.email)
+
+      {:ok, t} = Tournaments.hand_off(Repo.reload!(t), "this laptop")
+
+      assert {:ok, _} = Tournaments.leave_tournament(leaver, t)
+      assert {:ok, _} = Tournaments.accept_invitation(accepter, accept_invite.invite_token)
+      assert {:ok, _} = Tournaments.decline_invitation(decliner, decline_invite.invite_token)
     end
   end
 end

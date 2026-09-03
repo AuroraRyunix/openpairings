@@ -341,6 +341,21 @@ defmodule PairingsEngine.Tournaments do
       tournament.user_id != scope.user.id ->
         {:error, :not_owner}
 
+      # Gated, unlike `leave_tournament/2`, `accept_invitation/2` and
+      # `decline_invitation/2` further down this module - see the comment
+      # above `leave_tournament/2` for the full argument. The short version:
+      # this changes the invitation LIST, and the tournament that list
+      # belongs to is not here (see `PairingsEngine.Handoff`). An invite
+      # minted on the copy left behind grants access to a frozen read-only
+      # snapshot, not to the live event running on the other machine, so the
+      # person invited never gets the access the owner meant to give them -
+      # and once the tournament comes back, the live copy has no idea the
+      # invite exists. `remove_collaborator/3` below is gated the same way,
+      # for the mirror reason: revoking someone here would not actually
+      # revoke anything on the machine that matters.
+      (writable = ensure_writable(tournament)) != :ok ->
+        writable
+
       email == "" ->
         {:error, :blank_email}
 
@@ -408,20 +423,28 @@ defmodule PairingsEngine.Tournaments do
   pending row, this revokes the invitation outright.
   """
   def remove_collaborator(%Scope{} = scope, %Tournament{} = tournament, collaborator_id) do
-    if tournament.user_id != scope.user.id do
-      {:error, :not_owner}
-    else
-      case Repo.get_by(Collaborator, id: collaborator_id, tournament_id: tournament.id) do
-        nil ->
-          {:error, :not_found}
+    cond do
+      tournament.user_id != scope.user.id ->
+        {:error, :not_owner}
 
-        collaborator ->
-          Repo.delete(collaborator)
-          |> tap_ok(fn deleted ->
-            broadcast_tournament_change(tournament.id, :collaborators)
-            if deleted.user_id, do: broadcast_user_tournaments(deleted.user_id)
-          end)
-      end
+      # See the comment on the matching clause in `add_collaborator/3`: this
+      # changes the invitation list, and the tournament it belongs to is not
+      # here.
+      (writable = ensure_writable(tournament)) != :ok ->
+        writable
+
+      true ->
+        case Repo.get_by(Collaborator, id: collaborator_id, tournament_id: tournament.id) do
+          nil ->
+            {:error, :not_found}
+
+          collaborator ->
+            Repo.delete(collaborator)
+            |> tap_ok(fn deleted ->
+              broadcast_tournament_change(tournament.id, :collaborators)
+              if deleted.user_id, do: broadcast_user_tournaments(deleted.user_id)
+            end)
+        end
     end
   end
 
@@ -433,6 +456,24 @@ defmodule PairingsEngine.Tournaments do
   Returns `{:error, :owner}` if `scope.user` owns `tournament`, or
   `{:error, :not_found}` if they have no (accepted or pending) collaborator
   row on it at all.
+
+  Deliberately NOT behind `ensure_writable/1`, unlike `add_collaborator/3`
+  and `remove_collaborator/3` above - and the same is true of
+  `accept_invitation/2` and `decline_invitation/2` below. Those two change
+  the invitation LIST: the roster the owner controls, which the live copy
+  elsewhere never sees a checked-out edit to. This changes only the
+  caller's OWN relationship to a collaborator row that already exists in
+  THIS database, which needs nothing from the other machine to be correct -
+  there is no roster for it to disagree with, only one person's yes or no.
+  It is also no more consequential than the read access a handed-off
+  tournament already grants everywhere else (`hand_off/2`'s doc: "the
+  tournament stays fully readable"). Refusing it would trade a real
+  improvement for a cosmetic one: someone declining, or leaving, or finally
+  accepting an invitation to a tournament they may not open again for weeks
+  is not a conflict with the copy that is actually live, it is a decision
+  about their own inbox - and forcing them to carry a stale invite until an
+  arbiter happens to take the tournament back is worse than just letting
+  them act on it.
   """
   def leave_tournament(%Scope{} = scope, %Tournament{} = tournament) do
     cond do
@@ -488,6 +529,10 @@ defmodule PairingsEngine.Tournaments do
   user, and clears `invite_token` (it's single-use). Broadcasts on both the
   tournament's topic and the user's tournament-list topic so any open
   LiveView refreshes live.
+
+  Deliberately NOT behind `ensure_writable/1` even when the tournament is
+  handed off - see the comment on `leave_tournament/2` above for the full
+  reasoning.
   """
   def accept_invitation(%Scope{} = scope, token_or_id) do
     with %Collaborator{status: "pending"} = collaborator <- find_invitation(token_or_id),
@@ -511,6 +556,10 @@ defmodule PairingsEngine.Tournaments do
   match the invitation's email (case-insensitively), same as
   `accept_invitation/2`. Returns `{:error, :not_found}` or
   `{:error, :email_mismatch}`.
+
+  Deliberately NOT behind `ensure_writable/1` even when the tournament is
+  handed off - see the comment on `leave_tournament/2` above for the full
+  reasoning.
   """
   def decline_invitation(%Scope{} = scope, token_or_id) do
     with %Collaborator{status: "pending"} = collaborator <- find_invitation(token_or_id),
