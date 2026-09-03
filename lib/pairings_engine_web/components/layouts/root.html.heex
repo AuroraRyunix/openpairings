@@ -49,25 +49,35 @@
           document.documentElement.setAttribute("data-theme-source", source);
         };
 
+        // A theme that changed its NAME rather than disappearing. Catppuccin
+        // became Mocha - same palette, so whoever had it picked did not ask
+        // to lose it and should land on the new name, not be bounced to
+        // System like a theme that is actually gone. Applied before the
+        // `known` check below, so the old key still resolves to a real
+        // theme instead of failing it.
+        const aliases = { catppuccin: "mocha" };
+
         // Every palette app.css actually defines, and the only strings that
-        // may reach `data-theme`. A stored choice is a string in somebody
-        // else's browser: it outlives the theme it names. Dracula and Tokyo
-        // Night were removed while people were using them, and without this
-        // list their next visit would have stamped `data-theme="dracula"` on
-        // a document where no such block exists - :root's LIGHT palette,
-        // rendered under every assumption a dark theme makes, which looks
-        // like the app is broken rather than like a theme was retired.
+        // may reach `data-theme` once the alias above has run. A stored
+        // choice is a string in somebody else's browser: it outlives the
+        // theme it names. Solarized Dark, Solarized Light, Nord and
+        // Nocturne were removed while people were using them, and without
+        // this list their next visit would have stamped e.g.
+        // `data-theme="nord"` on a document where no such block exists -
+        // :root's LIGHT palette, rendered under every assumption a dark
+        // theme makes, which looks like the app is broken rather than like
+        // a theme was retired.
         //
         // An unknown value therefore falls back to the default (System),
         // and the stale key is dropped so the fallback is not re-decided on
         // every page. Losing a theme should cost the person who liked it a
         // trip back to the picker, nothing more.
         const known = new Set([
-          "light", "dark", "slate", "solarized", "solarized-light",
-          "paper", "board", "contrast", "nord", "catppuccin", "nocturne"
+          "light", "dark", "slate", "mocha", "paper", "board", "contrast"
         ]);
 
         const setTheme = (theme) => {
+          theme = aliases[theme] || theme;
           if (theme !== "system" && theme !== "embed" && !known.has(theme)) {
             store.remove("phx:theme");
             theme = defaultTheme();

@@ -5,17 +5,23 @@ defmodule PairingsEngineWeb.ThemeChoiceTest do
   The set of themes, checked in the three places it is written down.
 
   A theme choice is not state this app owns: it is a string in somebody
-  else's browser, and it outlives the theme it names. Dracula and Tokyo
-  Night were removed while people were using them, and a stored
-  `"dracula"` stamped onto `<html>` matches no `[data-theme]` block at all -
-  the page falls back to `:root`, which is the LIGHT palette, under every
-  assumption a dark theme makes. That reads as a broken app rather than as
-  a retired theme, so the bootstrap keeps a list of what it will accept and
-  sends anything else to the default.
+  else's browser, and it outlives the theme it names. Dracula, Tokyo Night,
+  Solarized Dark, Solarized Light, Nord and Nocturne were all removed while
+  people were using them, and a stored `"dracula"` stamped onto `<html>`
+  matches no `[data-theme]` block at all - the page falls back to `:root`,
+  which is the LIGHT palette, under every assumption a dark theme makes.
+  That reads as a broken app rather than as a retired theme, so the
+  bootstrap keeps a list of what it will accept and sends anything else to
+  the default.
+
+  A theme that only changed its NAME is different: Catppuccin became Mocha,
+  same palette, so a stored `"catppuccin"` is rewritten to `"mocha"` by a
+  small alias map BEFORE the list above is even consulted, rather than
+  being treated as gone.
 
   A list is only a safety net while it is true, which is what these check:
-  the bootstrap, the stylesheet and the picker have to name the same
-  eleven themes, and nothing may refer to one that is gone.
+  the bootstrap, the stylesheet and the picker have to name the same seven
+  themes, and nothing may refer to one that is gone.
   """
 
   @root File.read!("lib/pairings_engine_web/components/layouts/root.html.heex")
@@ -53,8 +59,8 @@ defmodule PairingsEngineWeb.ThemeChoiceTest do
   end
 
   test "the bootstrap accepts exactly the themes the stylesheet defines" do
-    assert MapSet.size(accepted()) == 11,
-           "expected eleven themes, the bootstrap accepts " <>
+    assert MapSet.size(accepted()) == 7,
+           "expected seven themes, the bootstrap accepts " <>
              "#{inspect(Enum.sort(accepted()))}"
 
     assert MapSet.equal?(accepted(), styled_or_root()),
@@ -143,11 +149,11 @@ defmodule PairingsEngineWeb.ThemeChoiceTest do
   end
 
   test "a retired theme survives only as prose" do
-    # Named rather than derived, because the point of the check is the two
-    # names that were removed. Comments may still explain them - that is
-    # what the comments are for - but nothing that DECIDES anything may
-    # still name them.
-    for retired <- ~w(dracula tokyo),
+    # Named rather than derived, because the point of the check is the
+    # names that were removed (or, for catppuccin, superseded by a rename).
+    # Comments may still explain them - that is what the comments are for -
+    # but nothing that DECIDES anything may still name them.
+    for retired <- ~w(dracula tokyo solarized solarized-light nord nocturne catppuccin),
         {place, names} <- [
           {"the bootstrap's known set", accepted()},
           {"the stylesheet's palette blocks", styled()},
@@ -158,5 +164,46 @@ defmodule PairingsEngineWeb.ThemeChoiceTest do
       refute retired in names,
              "#{retired} is gone from the palette but #{place} still names it"
     end
+  end
+
+  # The `aliases` map in the inline bootstrap - old keys rewritten to their
+  # new name before `known` is ever consulted.
+  defp aliased do
+    case Regex.run(~r/const aliases = \{(.*?)\};/s, @root) do
+      [_, body] ->
+        ~r/([a-z-]+):\s*"([a-z-]+)"/
+        |> Regex.scan(body)
+        |> Map.new(fn [_, from, to] -> {from, to} end)
+
+      nil ->
+        %{}
+    end
+  end
+
+  test "a renamed theme is aliased to its new name, not sent to the default" do
+    assert aliased() == %{"catppuccin" => "mocha"},
+           "expected the bootstrap's alias map to rewrite catppuccin to mocha, " <>
+             "found #{inspect(aliased())}"
+
+    assert "mocha" in accepted(),
+           "mocha is not in the known set, so the alias would just be overruled " <>
+             "by the fallback guard right after it runs"
+
+    refute "catppuccin" in accepted(),
+           "catppuccin is still in the known set directly - that would mask " <>
+             "whether the alias itself is doing any work"
+
+    # The alias has to run BEFORE the known-set guard, or a stored
+    # "catppuccin" is rejected as unknown before it gets the chance to become
+    # "mocha".
+    [_, body] =
+      Regex.run(
+        ~r/const setTheme = \(theme\) => \{(.*?)\n          if \(theme === "system"/s,
+        @root
+      )
+
+    assert body =~ ~r/aliases\[theme\][\s\S]*!known\.has\(theme\)/,
+           "the alias is not applied before the known-set guard in setTheme, so " <>
+             "a stored catppuccin would be forgotten instead of renamed"
   end
 end
