@@ -16,6 +16,14 @@ Each entry is tagged so a version can be skimmed:
 
 ## [0.22.0] - 2026-09-03
 
+- **[Change]** Every version bump now publishes a GitHub release with binaries
+  for all five targets. Releases used to be gated on a tag alone, and tags
+  were easy to forget: the version moved from 0.18.0 to 0.22.0 with none
+  behind it, so the newest build anyone could download was four releases old.
+  A push to main whose `mix.exs` version has no release yet now cuts one,
+  which means bumping the version and cutting a release are the same act. The
+  commits after a bump publish nothing until the version moves again.
+
 - **[Fix]** The Belgian rating list sync stopped part-way, showing
   "Importing players... 0 of 35849" and never moving. Clearing the old roster
   fired one full-text-index scan per deleted player, so the cost grew with the

@@ -447,23 +447,74 @@ jobs:
   release:
     name: Attach binaries to the release
     needs: build
-    if: startsWith(github.ref, 'refs/tags/')
+    # A tag always publishes. A push to main publishes too, but only when
+    # mix.exs names a version that has no release yet - so cutting a release
+    # is the same act as bumping the version, and the commits that follow a
+    # bump do not each cut another. Before this, releases were gated on tags
+    # alone: the version moved 0.18 -> 0.22 with no tag behind it, so the
+    # newest downloadable build on GitHub was four releases out of date.
+    if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
+      # Only mix.exs is needed, and only on the main-push path - but the
+      # checkout is unconditional so the version step never reads a stale or
+      # missing file.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Work out which version this is, and whether it is already out
+        id: ver
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          # On a tag, that tag is the release. On main, mix.exs is the single
+          # source of truth for the version (mix pairings.version_check keeps
+          # CHANGELOG.md, TODO.md and docs/features.md agreeing with it).
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            tag="${GITHUB_REF_NAME}"
+          else
+            version=$(grep -m1 "version:" mix.exs | cut -d'"' -f2)
+            if [ -z "$version" ]; then
+              echo "Could not read a version out of mix.exs" >&2
+              exit 1
+            fi
+            tag="v${version}"
+          fi
+
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+          if gh release view "${tag}" >/dev/null 2>&1; then
+            echo "Release ${tag} already exists - nothing to publish."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Release ${tag} does not exist yet - publishing."
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Collect every target's release assets
+        if: steps.ver.outputs.publish == 'true'
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: release_assets_*
           merge-multiple: true
           path: release_assets
 
-      - run: ls -lhR release_assets
+      - if: steps.ver.outputs.publish == 'true'
+        run: ls -lhR release_assets
 
       - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+        if: steps.ver.outputs.publish == 'true'
         with:
+          # Named rather than inferred from the ref, because on a push to main
+          # there is no tag to infer from - the action creates this one at the
+          # commit being built. On a tag push it is that same tag, so both
+          # paths land on one release rather than two.
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: ${{ steps.ver.outputs.tag }}
           # upload-artifact keeps each file's path relative to the common
           # ancestor of the patterns it was given - which was the workspace
           # root - so the two source directories survive the round trip and
