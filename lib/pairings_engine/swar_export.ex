@@ -81,7 +81,7 @@ defmodule PairingsEngine.SwarExport do
   import Ecto.Query
   require Logger
 
-  alias PairingsEngine.{Repo, Standings, Tournaments, SwarImport}
+  alias PairingsEngine.{Encoding, Repo, Standings, SwarImport, Tournaments}
   alias PairingsEngine.Tournaments.Tournament
 
   # Table number sentinel for a pairing-allocated bye (Swar.h TABLE_BYE) -
@@ -143,7 +143,7 @@ defmodule PairingsEngine.SwarExport do
   defp w_u8(v), do: <<v::8>>
 
   defp w_str(s) do
-    bytes = SwarImport.cp1252_encode(s || "")
+    bytes = Encoding.cp1252_encode(s || "")
     w_i32(byte_size(bytes)) <> bytes
   end
 

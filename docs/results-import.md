@@ -71,7 +71,7 @@ that could not express a result the same round could express by click.
 
 The file is read as raw bytes: valid UTF-8 (with or without a leading BOM)
 is used as-is; anything that isn't valid UTF-8 is decoded as Windows-1252
-(reusing `PairingsEngine.SwarImport.cp1252_decode/1`, the same fallback the
+(reusing `PairingsEngine.Encoding.cp1252_decode/1`, the same fallback the
 SWAR importer uses) so a file saved by an older Windows spreadsheet tool
 still imports cleanly.
 

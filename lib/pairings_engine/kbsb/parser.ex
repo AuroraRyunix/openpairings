@@ -23,7 +23,7 @@ defmodule PairingsEngine.Kbsb.Parser do
   field unescapes to one literal `"`. See `split_row/2`.
   """
 
-  alias PairingsEngine.SwarImport
+  alias PairingsEngine.Encoding
 
   @field_headers %{
     national_id: ["MATRICULE", "STAMNUMMER", "ID"],
@@ -86,9 +86,9 @@ defmodule PairingsEngine.Kbsb.Parser do
 
   # The file may arrive as UTF-8 (most likely for a modern export) or as
   # Windows-1252/Latin-1 (common for older Belgian federation tooling, same
-  # as the .swar format - see PairingsEngine.SwarImport.cp1252_decode/1).
+  # as the .swar format - see PairingsEngine.Encoding.cp1252_decode/1).
   defp decode(binary) do
-    if String.valid?(binary), do: binary, else: SwarImport.cp1252_decode(binary)
+    if String.valid?(binary), do: binary, else: Encoding.cp1252_decode(binary)
   end
 
   # Belt-and-braces: covers a UTF-8-decoded BOM codepoint that arrives some

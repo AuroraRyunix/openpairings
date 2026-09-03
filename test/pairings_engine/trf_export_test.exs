@@ -342,7 +342,7 @@ defmodule PairingsEngine.TrfExportTest do
   # tournament imported before that normalization existed may still have
   # the raw marker sitting in `tournament.federation` in the database.
   # `TrfExport` applies the same normalization defensively at export time
-  # (reusing `SwarImport.normalize_federation/1`) so that tournament
+  # (reusing `PairingsEngine.Federation.normalize/1`) so that tournament
   # exports "032 BEL" without needing a re-import.
   test "032 (federation) normalizes a raw Belgian league marker stored on the tournament, without re-importing" do
     {tournament, _} = fixture()

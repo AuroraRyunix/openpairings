@@ -18,83 +18,9 @@ defmodule PairingsEngine.SwarImport do
   import Ecto.Query
 
   alias PairingsEngine.Repo
-  alias PairingsEngine.{Tournaments, Standings}
+  alias PairingsEngine.{Encoding, Federation, Tournaments, Standings}
   alias PairingsEngine.Tournaments.{Tournament, Player, Round, Pairing}
   alias PairingsEngine.Fide.FidePlayer
-
-  ## ---------- Windows-1252 decoding ----------
-
-  # Bytes 0x80-0x9F differ between Windows-1252 and ISO-8859-1/Latin-1.
-  # Unmapped bytes in that range (81, 8D, 8F, 90, 9D) have no Windows-1252
-  # assignment; we fall back to the raw codepoint so decoding never crashes.
-  @cp1252_high %{
-    0x80 => 0x20AC,
-    0x82 => 0x201A,
-    0x83 => 0x0192,
-    0x84 => 0x201E,
-    0x85 => 0x2026,
-    0x86 => 0x2020,
-    0x87 => 0x2021,
-    0x88 => 0x02C6,
-    0x89 => 0x2030,
-    0x8A => 0x0160,
-    0x8B => 0x2039,
-    0x8C => 0x0152,
-    0x8E => 0x017D,
-    0x91 => 0x2018,
-    0x92 => 0x2019,
-    0x93 => 0x201C,
-    0x94 => 0x201D,
-    0x95 => 0x2022,
-    0x96 => 0x2013,
-    0x97 => 0x2014,
-    0x98 => 0x02DC,
-    0x99 => 0x2122,
-    0x9A => 0x0161,
-    0x9B => 0x203A,
-    0x9C => 0x0153,
-    0x9E => 0x017E,
-    0x9F => 0x0178
-  }
-
-  @doc "Decodes a Windows-1252 (CP-1252) byte string to a UTF-8 Elixir string."
-  def cp1252_decode(bytes) when is_binary(bytes) do
-    bytes
-    |> :binary.bin_to_list()
-    |> Enum.map(fn
-      byte when byte >= 0x80 and byte <= 0x9F -> Map.get(@cp1252_high, byte, byte)
-      byte -> byte
-    end)
-    |> List.to_string()
-  end
-
-  # codepoint -> byte, for the 27 characters that are genuinely remapped in
-  # 0x80-0x9F. None of their codepoints falls in 0-0xFF (they're all in the
-  # 0x2000s or Latin Extended-A), so it never collides with the plain
-  # identity range `cp1252_encode/1` handles directly below.
-  @cp1252_encode_table for {byte, cp} <- @cp1252_high, into: %{}, do: {cp, byte}
-
-  @doc """
-  Encodes a UTF-8 Elixir string to Windows-1252 (CP-1252) bytes - the
-  inverse of `cp1252_decode/1`, used by `PairingsEngine.SwarExport`.
-
-  Every codepoint 0-0xFF is its own byte: that covers plain ASCII, ordinary
-  Latin-1 (À-ÿ), AND the five CP-1252 bytes with no assignment of their own
-  (0x81/0x8D/0x8F/0x90/0x9D) - `cp1252_decode/1` already treats those as
-  identity, so encoding keeps them that way rather than round-tripping
-  through the lookup table meant for the other 27. Any codepoint outside
-  what CP-1252 can represent at all becomes `?`, the same lossy-but-safe
-  fallback this codebase takes for legacy encodings it can't avoid.
-  """
-  def cp1252_encode(str) when is_binary(str) do
-    str
-    |> String.to_charlist()
-    |> Enum.map(fn
-      cp when cp <= 0xFF -> cp
-      cp -> Map.get(@cp1252_encode_table, cp, ?\?)
-    end)
-    |> :binary.list_to_bin()
-  end
 
   ## ---------- Primitives ----------
 
@@ -104,7 +30,7 @@ defmodule PairingsEngine.SwarImport do
 
   defp read_str(<<len::little-signed-32, rest::binary>>) when len >= 0 do
     <<bytes::binary-size(^len), rest2::binary>> = rest
-    {cp1252_decode(bytes), rest2}
+    {Encoding.cp1252_decode(bytes), rest2}
   end
 
   defp read_n(bin, 0, _fun), do: {[], bin}
@@ -825,7 +751,7 @@ defmodule PairingsEngine.SwarImport do
     federations =
       players
       |> Enum.filter(&(&1.mat_fide == 0))
-      |> Enum.map(&normalize_federation(&1.country))
+      |> Enum.map(&Federation.normalize(&1.country))
       |> Enum.uniq()
 
     Map.new(federations, fn federation ->
@@ -866,7 +792,7 @@ defmodule PairingsEngine.SwarImport do
   # as a one-click choice instead of falling through to "no match").
   defp fide_candidates(p, cache) do
     name = normalize_name_for_match(p.name)
-    federation = normalize_federation(p.country)
+    federation = Federation.normalize(p.country)
 
     cache
     |> Map.get(federation, [])
@@ -921,7 +847,7 @@ defmodule PairingsEngine.SwarImport do
     %{
       ni: p.ni,
       name: p.name,
-      federation: normalize_federation(p.country),
+      federation: Federation.normalize(p.country),
       birth_year: birth_year(p.birth),
       candidates:
         Enum.map(candidates, fn c ->
@@ -1326,9 +1252,10 @@ defmodule PairingsEngine.SwarImport do
   # (French/Dutch-named) national federation itself, FEFB/VSF/SVDB are its
   # Walloon/Flemish regional leagues, and code 6 is "direct FIDE" homologation
   # with no specific sub-federation. All of these are Belgium as far as FIDE
-  # reporting is concerned - `normalize_federation/1` collapses them to the
-  # single FIDE country code "BEL" that TRF export and the tournament's own
-  # `federation` field are supposed to carry (see docs/swar-import.md).
+  # reporting is concerned - `PairingsEngine.Federation.normalize/1` collapses
+  # them to the single FIDE country code "BEL" that TRF export and the
+  # tournament's own `federation` field are supposed to carry (see
+  # docs/swar-import.md).
   @federations %{
     0 => "",
     1 => "FRBE",
@@ -1338,36 +1265,7 @@ defmodule PairingsEngine.SwarImport do
     5 => "SVDB",
     6 => "FIDE"
   }
-  defp map_federation(code), do: Map.get(@federations, code, "") |> normalize_federation()
-
-  # Regional/organizational markers that all mean "Belgium" for FIDE-reporting
-  # purposes - never a genuine ISO/FIDE country code in their own right, so
-  # they must never end up in `tournament.federation` / `player.federation`
-  # (TRF export reads those fields directly - see docs/import-export.md).
-  # "FIDE" (SWAR federation code 6, "direct FIDE homologation, no specific
-  # sub-federation") is included too - this importer only ever sees
-  # KBSB/FRBE-organized tournaments, so it's still Belgium, just not
-  # attributed to one of the named regional leagues. Any other value (a
-  # real FIDE federation code, or "" for "none selected") passes through
-  # unchanged.
-  @belgian_federation_markers ~w(FRBE KBSB FEFB VSF SVDB FIDE)
-
-  @doc """
-  Collapses a Belgian regional/organizational federation marker (any of
-  `#{inspect(@belgian_federation_markers)}`) to the single FIDE country
-  code "BEL"; any other value (a real FIDE federation code, or "" for
-  "none selected") passes through unchanged. Public so
-  `PairingsEngine.TrfExport` can apply the same normalization defensively
-  at export time, for a tournament whose `federation` field was already
-  stored raw in the database (e.g. imported before this normalization
-  existed on the SWAR-import side) - see `docs/swar-import.md`.
-  """
-  def normalize_federation(code) when is_binary(code) do
-    upcased = code |> String.trim() |> String.upcase()
-    if upcased in @belgian_federation_markers, do: "BEL", else: upcased
-  end
-
-  def normalize_federation(other), do: other
+  defp map_federation(code), do: Map.get(@federations, code, "") |> Federation.normalize()
 
   # ByeValue: 0 = full point, 1 = half point, 2 = zero points (manual §5.16).
   defp map_bye_value(0), do: 1.0
@@ -1644,7 +1542,7 @@ defmodule PairingsEngine.SwarImport do
       fide_rating: fide_rating_or(p),
       national_id: zero_to_blank(p.mat_nat),
       national_rating: p.elo,
-      federation: normalize_federation(p.country),
+      federation: Federation.normalize(p.country),
       birth_year: birth_year(p.birth),
       birth_date: birth_date(p.birth),
       club: p.club,

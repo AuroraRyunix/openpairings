@@ -26,7 +26,7 @@ defmodule PairingsEngine.TrfImport do
   either way.
   """
 
-  alias PairingsEngine.{Repo, SwarImport, Tournaments}
+  alias PairingsEngine.{Encoding, Repo, Tournaments}
   alias PairingsEngine.Tournaments.{Tournament, Player, Round, Pairing}
   alias PairingsEngine.Pairing, as: PairingCtx
 
@@ -149,10 +149,10 @@ defmodule PairingsEngine.TrfImport do
   # sequence gets stored as invalid UTF-8 straight through the database:
   # mojibake in the UI and in every re-export (TRF, norms xlsx, ...).
   #
-  # Mirrors the same strip-BOM-before-detect + CP1252-fallback pattern
-  # `PairingsEngine.Kbsb.Parser.parse/1` uses for the rating-list import
-  # (see there), reusing the same `SwarImport.cp1252_decode/1` helper
-  # either fallback needs. Order matters: stripping the BOM first, on the
+  # Mirrors the same strip-BOM-before-detect + CP1252-fallback pattern the
+  # KBSB rating-list parser uses, reusing the same
+  # `PairingsEngine.Encoding.cp1252_decode/1` helper either fallback needs.
+  # Order matters: stripping the BOM first, on the
   # raw bytes, means a CP1252-encoded file that happens to start with a
   # UTF-8 BOM never has those 3 bytes mis-decoded into three valid-but-wrong
   # characters by the CP1252 fallback.
@@ -166,7 +166,7 @@ defmodule PairingsEngine.TrfImport do
   defp strip_bom_bytes(binary), do: binary
 
   defp decode(binary) do
-    if String.valid?(binary), do: binary, else: SwarImport.cp1252_decode(binary)
+    if String.valid?(binary), do: binary, else: Encoding.cp1252_decode(binary)
   end
 
   ## ---------- parsing ----------

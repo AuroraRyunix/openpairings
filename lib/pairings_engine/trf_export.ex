@@ -17,7 +17,7 @@ defmodule PairingsEngine.TrfExport do
   `PairingsEngine.Pairing.trf_player_rows/2`.
   """
 
-  alias PairingsEngine.{Pairing, SwarImport, Tournaments}
+  alias PairingsEngine.{Federation, Pairing, Tournaments}
 
   # The app's one TRF16 implementation, and the one TRF error type that goes
   # with it. There used to be a local `PairingsEngine.Trf` as well - a
@@ -177,14 +177,14 @@ defmodule PairingsEngine.TrfExport do
         tournament: %{
           name: tournament.name,
           city: tournament.city,
-          # Defensive normalization: `SwarImport.create_tournament/2` already
-          # normalizes a Belgian regional marker (VSF/FEFB/FRBE/"FIDE"/...) to
-          # "BEL" on import, but a tournament imported before that
-          # normalization existed may still carry the raw marker in the
-          # database - reusing the same helper here means it exports "032
-          # BEL" either way, with no re-import required. A no-op for every
-          # other federation value (see `SwarImport.normalize_federation/1`).
-          federation: SwarImport.normalize_federation(tournament.federation),
+          # Defensive normalization: the SWAR importer already normalizes a
+          # Belgian regional marker (VSF/FEFB/FRBE/"FIDE"/...) to "BEL" on
+          # import, but a tournament imported before that normalization
+          # existed may still carry the raw marker in the database - reusing
+          # the same helper here means it exports "032 BEL" either way, with
+          # no re-import required. A no-op for every other federation value
+          # (see `PairingsEngine.Federation.normalize/1`).
+          federation: Federation.normalize(tournament.federation),
           start_date: tournament.start_date,
           end_date: tournament.end_date,
           number_of_rated_players: Enum.count(trf_players, &((&1.fide_rating || 0) > 0)),

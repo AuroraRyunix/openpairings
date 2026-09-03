@@ -782,10 +782,10 @@ defmodule PairingsEngine.TrfImportTest do
   # <<0, 255, 1, 2, 3>> is not itself valid UTF-8 (0xFF alone is not a legal
   # UTF-8 lead byte), so this exercises the CP1252 fallback (see
   # `TrfImport`'s `decode_content/1`) rather than the plain-UTF-8 path.
-  # `SwarImport.cp1252_decode/1` never itself fails - every byte 0x00-0xFF
-  # has *some* Windows-1252 mapping - so this always reaches TRF parsing,
-  # which then rejects it for having no "001" player lines, same as any
-  # other non-TRF text; it never raises.
+  # `PairingsEngine.Encoding.cp1252_decode/1` never itself fails - every byte
+  # 0x00-0xFF has *some* Windows-1252 mapping - so this always reaches TRF
+  # parsing, which then rejects it for having no "001" player lines, same as
+  # any other non-TRF text; it never raises.
   test "binary garbage that isn't valid UTF-8 falls back to CP1252 decoding and still doesn't crash" do
     assert {:error, reason} = TrfImport.import_text(<<0, 255, 1, 2, 3>>)
     assert TrfImport.error_message(reason) =~ "Could not read this TRF file"

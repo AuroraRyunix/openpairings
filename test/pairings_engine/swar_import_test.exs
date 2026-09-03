@@ -613,24 +613,6 @@ defmodule PairingsEngine.SwarImportTest do
     assert waegeman.birth_date.year == waegeman.birth_year
   end
 
-  # Direct unit coverage of the normalization helper itself (no fixture
-  # needed) - every marker `SwarImport.import_file/2`'s `map_federation/1`
-  # can hand it, plus the pass-through cases. `PairingsEngine.TrfExport`
-  # reuses this same function defensively at export time (see
-  # trf_export_test.exs) for a tournament whose `federation` was stored raw
-  # before this normalization existed.
-  test "normalize_federation/1 collapses every Belgian regional/organizational marker to BEL" do
-    for marker <- ~w(FRBE KBSB FEFB VSF SVDB FIDE frbe vsf) do
-      assert SwarImport.normalize_federation(marker) == "BEL"
-    end
-  end
-
-  test "normalize_federation/1 leaves a real FIDE federation code, blank, or nil untouched" do
-    assert SwarImport.normalize_federation("FRA") == "FRA"
-    assert SwarImport.normalize_federation("") == ""
-    assert SwarImport.normalize_federation(nil) == nil
-  end
-
   ## ---------- FIDE id matching for players SWAR has no mat_fide for ----------
 
   describe "FIDE id matching (prepare_import/1, commit_import/3)" do

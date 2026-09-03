@@ -13,10 +13,10 @@ defmodule PairingsEngine.ResultsImport do
   from a click or a CSV line.
   """
 
+  alias PairingsEngine.Encoding
   alias PairingsEngine.PairingDisplay
   alias PairingsEngine.Repo
   alias PairingsEngine.Results
-  alias PairingsEngine.SwarImport
   alias PairingsEngine.Tournaments
 
   ## ---------- Parsing ----------
@@ -83,7 +83,7 @@ defmodule PairingsEngine.ResultsImport do
   defp strip_bom(bin), do: bin
 
   defp decode_text(bin) do
-    if String.valid?(bin), do: bin, else: SwarImport.cp1252_decode(bin)
+    if String.valid?(bin), do: bin, else: Encoding.cp1252_decode(bin)
   end
 
   defp detect_separator(lines) do
