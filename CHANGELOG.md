@@ -16,6 +16,10 @@ Each entry is tagged so a version can be skimmed:
 
 ## [0.21.0] - 2026-09-02
 
+### Changed
+
+- [Change] **Seven themes, not eleven.** Solarized, Solarized Light, Nord and Nocturne are retired; Catppuccin is now called **Mocha**. If Catppuccin was your choice you keep it under its new name - the browser rewrites the stored value rather than resetting you, which is the difference between a rename and a removal. A retired theme falls back to the system default instead of leaving you on a palette that no longer exists.
+
 ### Added
 
 - [Feature] **Three new looks, and two retired.** **Slate** (cool grey-blue, for a screen rather than a page), **Paper** (warm off-white with a brick accent) and **Board** (cream and board-green, the colours of the equipment) - the same three rooms the results site and the KBSB database manager already offer, so the suite looks like one thing. Dracula and Tokyo Night are gone.
