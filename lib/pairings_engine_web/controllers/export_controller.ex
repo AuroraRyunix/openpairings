@@ -132,7 +132,7 @@ defmodule PairingsEngineWeb.ExportController do
       conn
       |> put_status(:forbidden)
       |> put_view(html: PairingsEngineWeb.ErrorHTML)
-      |> text("SWAR export is switched off for your account. Turn it on under Features.")
+      |> text(gettext("SWAR export is switched off for your account. Turn it on under Features."))
     end
   end
 

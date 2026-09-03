@@ -208,7 +208,8 @@ defmodule PairingsEngineWeb.FideLive do
   # pulls the whole Belgian roster over somebody else's API and rewrites the
   # local rating table - an act, not a look - and this page became readable
   # by `support` the same day. Every other handler here already checked.
-  # Each of the three below re-checks `kbsb?` in its own body, not only in
+  #
+  # Each of the three below ALSO re-checks `kbsb?` in its own body, not only in
   # the markup that renders its control. The markup decides what a browser is
   # SHOWN; a `phx-click`/`phx-change` payload is written by whoever is on the
   # other end of the socket, so a control that is not on the page is still an
