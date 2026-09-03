@@ -467,14 +467,40 @@ body {
 
 /* ---------- layout ---------- */
 
+/* The bar grows a row rather than clipping one.
+
+   `height: 56px` plus `flex-wrap: nowrap` made this a box that could not
+   give: when brand + tab strip + auth cluster came to more than the window,
+   flex shrank the two navs (both carry `min-width: 0`, below) but their
+   CHILDREN kept `min-width: auto` and simply spilled out of the shrunken
+   box - and `body { overflow-x: hidden }` then clipped whatever crossed the
+   viewport edge. The casualty was the last item in the auth cluster, which
+   is "Log out": at a 1000px window in Dutch it rendered 5px past the edge
+   and could not be clicked at all. In English the same bar overlapped its
+   own tabs from 1150px down with a tournament open ("Settings" ran 55px
+   into the auth cluster) - so this was never only a Dutch bug, Dutch just
+   reached it two breakpoints earlier.
+
+   Wrapping is content-driven rather than width-driven, which is the point:
+   it does nothing at all while the bar fits (measured identical at 1440px
+   and 1600px in both languages, and unchanged for English down to 1000px)
+   and only spends a second row once the content genuinely will not fit -
+   in any language, including ones not shipped yet. `min-height` rather
+   than `height` for the same reason: the single-row bar is still exactly
+   56px, it just stops being a lid.
+
+   The `@media (max-width: 768px)` block below already did this; nothing
+   about the reasoning was ever specific to 768px. */
 .topbar {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  padding: 0 24px;
+  padding: 8px 24px;
   display: flex;
   align-items: center;
-  gap: 28px;
-  height: 56px;
+  flex-wrap: wrap;
+  /* row gap first: a wrapped bar should not put 28px between its rows. */
+  gap: 6px 28px;
+  min-height: 56px;
 }
 
 .topbar .brand {
@@ -778,8 +804,16 @@ html[data-theme-source="user"][data-theme="contrast"] .theme-picker-item[data-th
 .page h2 { font-size: 18px; font-weight: 650; }
 .page .subtitle { color: var(--text-soft); margin: 0 0 24px; }
 
+/* Title block on the left, action row on the right - and when the two do not
+   fit side by side, the action row drops below the title instead of being
+   squeezed into it. Both children hold text, so both carry the flex item's
+   default `min-width: auto` and neither will shrink below its own content;
+   without `flex-wrap` the only remaining outcome is overflow. Was already
+   set inside `@media (max-width: 768px)`, which is a statement about screens
+   and not about how long a heading is. */
 .page-header {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
@@ -1090,7 +1124,27 @@ button.pe-btn, .pe-btn {
 
 .pe-btn:disabled, .pe-btn.disabled { opacity: 0.5; cursor: default; pointer-events: none; }
 
-.actions { display: flex; gap: 10px; margin-top: 8px; }
+/* A button row wraps to a second row; it does not squeeze its buttons.
+
+   This is the tournaments page's reported bug. Its header carries six of
+   these ("Export all (JSON)" … "New tournament"), and a `.pe-btn` is a flex
+   item with the default `min-width: auto`, so the row could neither wrap nor
+   let a button shrink below its longest word. What it did instead was
+   squeeze every button until its LABEL wrapped: measured against the shipped
+   Dutch catalogue the row wants 1237px of one-line buttons where English
+   wants 983px, so in Dutch no window was ever wide enough - at 1600px every
+   button was already two lines tall, at 1200px three. Below ~800px of
+   available width even that ran out and the row overflowed its container by
+   66px at 800 and 98px at 768, taking "TRF-bestand importeren" and "Nieuw
+   toernooi" off the edge - where `body { overflow-x: hidden }` clips rather
+   than scrolls, so they were not merely ugly but unreachable.
+
+   `flex-wrap: wrap` alone fixes all of it (verified 640-1600px, both
+   languages: zero overflow, every button back to a single 41px line).
+   Deliberately NOT paired with `min-width: 0` on the buttons - that would
+   let a button shrink below its label and truncate the text instead of
+   moving the button, which is the wrong trade for a control. */
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
 
 /* ---------- misc ---------- */
 
@@ -1419,8 +1473,15 @@ button.pe-btn, .pe-btn {
   background: color-mix(in srgb, var(--warn) 14%, transparent);
   border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
 }
+/* Same shape as `.actions`, and the same fix. This row is narrower than that
+   one (`.pe-modal-card` caps at 560px, less 40px of padding) and its confirm
+   button carries the longest label on the screen, so it has less room to
+   lose - and its container sets `overflow: hidden`, which means anything
+   that does not fit is clipped inside the card with no scrollbar to reveal
+   it. Wrapping keeps Cancel and the confirm button on screen instead. */
 .pe-modal-foot {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
   padding: 14px 20px;
@@ -1928,11 +1989,10 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   /* ---- top bar: brand + auth stay on one row, the tab strip
      drops to its own row and scrolls horizontally instead of
      clipping or wrapping into a wall of tabs ---- */
+  /* `flex-wrap`, the row gap and the auto height are on the base rule now;
+     only the tighter horizontal padding is a phone-specific decision. */
   .topbar {
-    flex-wrap: wrap;
-    height: auto;
     padding: 8px 14px;
-    row-gap: 6px;
   }
 
   .topbar .brand { order: 1; }
@@ -1979,9 +2039,9 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   /* ---- page shell ---- */
   .page { padding: 18px 14px 48px; }
 
-  /* ---- page headers / action rows wrap instead of overflowing ---- */
-  .page-header { flex-wrap: wrap; }
-  .actions { flex-wrap: wrap; }
+  /* Page headers and action rows used to be given `flex-wrap: wrap` here.
+     They now carry it unconditionally - the reason they need it is the
+     length of their labels, which a viewport width says nothing about. */
 
   /* ---- wide tables (players grid, pairings, standings, player
      cards, print index, tournaments list, norms lists...): the
