@@ -16,6 +16,16 @@ Each entry is tagged so a version can be skimmed:
 
 ## [0.21.0] - 2026-09-02
 
+### Added
+
+- [Feature] **The Belgian features are now yours to switch on or off, one at a time.** A new page under your account lists them: the national rating-list sync, the player lookup that reads it, the bulk club update, and SWAR import and export. Off, the buttons are simply not there rather than there and refusing.
+
+  **Turning one off never changes your tournaments.** It hides an entrance. Everything already imported - players, clubs, scores, categories - stays exactly as it is and scores exactly as it did; there is a test that imports a Belgian club tournament, turns all five off, and checks the standings and every scoring setting are identical afterwards.
+
+  The lookup and the club update read the list the sync fetches, so with the sync off they search whatever was last downloaded. That is a real choice ("last month's list is fine"), so the page explains it rather than the switches enforcing it.
+
+  Nobody loses anything on upgrade: if this machine is set up for the KBSB, or you have ever imported a SWAR tournament, or a member list is already downloaded, all five arrive switched on.
+
 ### Fixed
 
 - [Fix] **Buttons could disappear off the edge of the page.** The top bar and the tournaments header packed their controls into a row that could not wrap, and the page clips what overflows rather than scrolling it - so a control that did not fit was not merely off-screen, it was gone and unclickable. In Dutch it bit hardest, because the words are longer: "Log out" is "Afmelden", "Tools" is "Hulpmiddelen", and at a 1000-pixel window the log-out link was rendering 25 pixels past the edge. It was already happening in English too, on a part-width laptop window with a tournament open. The rows wrap now, and a test keeps them wrapping.
