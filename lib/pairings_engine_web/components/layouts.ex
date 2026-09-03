@@ -265,7 +265,7 @@ defmodule PairingsEngineWeb.Layouts do
             )}
           </strong>
           {gettext(
-            "It left this copy on %{at}, and is live there now. It's read-only here - every change is refused until it's handed back. Everything else (viewing, printing, exporting) still works normally.",
+            "It left this copy on %{at}, and is live there now. It's read-only here - every change is refused until it's handed back, and the returning file brings everything played over there with it. Everything else (viewing, printing, exporting) still works normally.",
             at: handoff_time(@tournament.handed_off_at)
           )}
         </span>

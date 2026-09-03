@@ -408,16 +408,31 @@ defmodule PairingsEngine.Snapshots do
     end
   end
 
-  # Teams, players, rounds, byes and forbidden pairings are the whole of what
-  # a snapshot carries, so they're replaced wholesale rather than diffed.
-  # Deleting rounds cascades to their pairings; deleting players would too,
-  # but byes/forbidden pairings are schemaless so they're cleared explicitly
-  # and in the right order.
-  defp wipe_contents(tournament_id) do
+  @doc """
+  Deletes everything an export envelope carries for `tournament_id` - teams,
+  players, rounds (and their pairings, via cascade), byes and forbidden
+  pairings - leaving the tournament row, its audit trail, its collaborators
+  and its snapshots alone.
+
+  Half of a wholesale replacement, and public because there are two of those:
+  this module's `restore/3` and `PairingsEngine.Handoff.release/3`, which
+  applies a returning hand-off file. Both pair it with
+  `PairingsEngine.TournamentImport.restore_into!/2` inside one transaction,
+  and calling it outside one is how a tournament is emptied for good.
+
+  Teams, players, rounds, byes and forbidden pairings are the whole of what an
+  envelope carries, so they are replaced wholesale rather than diffed.
+  Deleting rounds cascades to their pairings; deleting players would too, but
+  byes/forbidden pairings are schemaless so they're cleared explicitly and in
+  the right order.
+  """
+  @spec wipe_contents(integer()) :: :ok
+  def wipe_contents(tournament_id) do
     Repo.delete_all(from b in "byes", where: b.tournament_id == ^tournament_id)
     Repo.delete_all(from f in "forbidden_pairings", where: f.tournament_id == ^tournament_id)
     Repo.delete_all(from r in Round, where: r.tournament_id == ^tournament_id)
     Repo.delete_all(from p in Player, where: p.tournament_id == ^tournament_id)
     Repo.delete_all(from t in Team, where: t.tournament_id == ^tournament_id)
+    :ok
   end
 end

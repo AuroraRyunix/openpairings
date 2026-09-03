@@ -27,21 +27,24 @@ defmodule PairingsEngine.Handoff do
       A                                                   B
       hand_off/3   -- lock A, emit envelope ---------->    receive/2   (B live)
                                                            ...event runs...
-      release/2    <-------- envelope with token -----    return/2     (lock B)
-      (A live)
+      release/3    <-- envelope: the event, and the key --  return/2   (lock B)
+      (A live, and holding what was played on B)
 
   ## What this is NOT, honestly
 
   Four things a reader should know before trusting it:
 
-    * **Releasing does not bring the results back.** `release/2` unlocks the
-      original and nothing more. The copy that was left behind is frozen at
-      the moment it was handed off, so after a release it is writable AND
-      stale - it does not know about the three rounds played on the other
-      machine. The returning file contains those rounds; getting them onto
-      this machine means importing it as a separate tournament and deciding
-      which row is the real one by hand. That is the sharpest rough edge in
-      the design and the UI says so in as many words.
+    * **Releasing REPLACES what is here, and the trail is the exception.**
+      `release/3` applies the returning payload and then unlocks, in one
+      transaction, so the copy left behind ends up holding the three rounds
+      played on the other machine rather than the state it was frozen in.
+      That is safe only because the source was read-only for the whole trip
+      and so cannot have diverged - which stops being true after a
+      break-glass unlock, and `release/3` refuses in exactly that case. What
+      it does not bring back is the far side's audit trail: the results come
+      home, the record of who typed them over there stays in the file. See
+      `release/3` for the full argument, including what it matches on before
+      it replaces anything.
     * **Nothing verifies the two ends are the machines they claim to be.**
       The origin block is descriptive text, and the token proves only that
       whoever holds it once held the file. Anyone who can read the returning
@@ -97,8 +100,17 @@ defmodule PairingsEngine.Handoff do
 
   import Ecto.Query
 
-  alias PairingsEngine.{Audit, Repo, TournamentExport, TournamentImport, Tournaments}
+  alias PairingsEngine.{
+    Audit,
+    Repo,
+    Snapshots,
+    TournamentExport,
+    TournamentImport,
+    Tournaments
+  }
+
   alias PairingsEngine.Accounts.Scope
+  alias PairingsEngine.Audit.AuditLog
   alias PairingsEngine.Tournaments.Tournament
 
   # Its own format tag, separate from the export envelope's. The envelope says
@@ -121,12 +133,17 @@ defmodule PairingsEngine.Handoff do
           | :already_received
           | :archived
           | :bad_token
+          | :force_unlocked
           | :no_destination
+          | :no_restore_point
           | :not_a_handoff
+          | :not_a_return
           | :not_one_tournament
           | :not_received
+          | :not_this_tournament
           | :origin_not_recorded
           | {:unsupported_version, term()}
+          | Ecto.Changeset.t()
           | String.t()
 
   @doc "The `\"handoff\"` block's format tag."
@@ -258,10 +275,7 @@ defmodule PairingsEngine.Handoff do
   end
 
   defp exactly_one_tournament(data) do
-    case Map.get(data, "tournaments") do
-      [_only_one] -> :ok
-      _ -> {:error, :not_one_tournament}
-    end
+    with {:ok, _entry} <- only_entry(data), do: :ok
   end
 
   # Walked in Elixir rather than queried through SQLite's JSON functions: the
@@ -420,54 +434,322 @@ defmodule PairingsEngine.Handoff do
   end
 
   @doc """
-  Unlocks `tournament` with the token a returning envelope carried, and
-  records it in the audit trail.
+  Brings `tournament` home: replaces its contents with the returning
+  envelope's and unlocks it, in one transaction.
 
-  Thin on purpose - `PairingsEngine.Tournaments.take_back/2` does the
-  constant-time compare and the clearing, and this adds the trail entry,
-  because "the tournament came back" is exactly the kind of fact a dispute
-  turns on later.
+  `data` is the JSON-decoded returning file - the whole envelope, not just its
+  token, because the tournament in it is the point. The copy left behind has
+  been read-only for the entire trip (`ensure_writable/1` refuses every write
+  path while `handed_off_at` is set), so it CANNOT have diverged from what
+  went out; the returning file is that same event with more of it played.
+  Replacing the frozen state with it therefore loses nothing, and it is the
+  only thing that makes the round trip a hand-off rather than a lock with
+  extra steps.
 
-  `{:error, :bad_token}` covers every failure, including a tournament that is
-  not handed off at all: it holds no token, so no value unlocks it. The
-  practical consequence is that releasing is NOT idempotent - a payload
-  applied twice fails the second time, because the first attempt erased the
-  thing the token is compared against. That is deliberate. By the time
-  somebody applies a returning file twice, the tournament may have been handed
-  off somewhere else entirely, and silently succeeding would unlock a copy
-  that is legitimately checked out.
+  ## The order, and why
 
-  **This does not bring the results back.** See the moduledoc: the tournament
-  is writable again but still says what it said when it left. The returning
-  file holds the newer version of the event, and merging the two is a decision
-  no code here makes.
+  Inside one transaction, all of it or none of it:
 
-  `actor` is optional so `release/2` reads the way the flow describes it; pass
-  the acting scope from a UI so the trail names a person rather than "System".
+    1. a **pinned restore point** of the current (frozen) state, before
+       anything is touched - so an arbiter who applies the wrong file, or who
+       simply wants to see what was here, can get it back. It is captured
+       inside the transaction for the reason `PairingsEngine.Snapshots`
+       learned the hard way: committed ahead of it, a restore that then fails
+       leaves a snapshot and a moved HEAD hanging off a state that never
+       happened. Unlike every other capture in the app this one is NOT
+       fire-and-forget - if it cannot be written the release is refused with
+       `{:error, :no_restore_point}`, because here the snapshot is the only
+       copy of what is about to be destroyed, and refusing costs the arbiter
+       nothing: the file is still in their hands and this copy is still
+       locked.
+    2. `PairingsEngine.Snapshots.wipe_contents/1` then
+       `PairingsEngine.TournamentImport.restore_into!/2` - the same pair
+       `Snapshots.restore/3` uses, which is why a returning file cannot land
+       in a shape a restore point could not.
+    3. `PairingsEngine.Tournaments.take_back/2` last, so the copy is up to
+       date at the instant it becomes writable and never before. A bad token
+       discovered here rolls the whole thing back, contents included.
+
+  ## What it refuses, and why each one
+
+    * `{:error, :not_a_return}` / `{:error, :not_a_handoff}` /
+      `{:error, {:unsupported_version, v}}` - `returning_token/1`'s
+      refusals, unchanged: an outbound file, an ordinary backup, a file from
+      a build that means something else by "token".
+    * `{:error, :not_one_tournament}` - one token cannot say which of several
+      tournaments it unlocks, and now also which of them to apply.
+    * `{:error, :force_unlocked}` - the break-glass was used on this
+      tournament for the very trip this file is returning from, so BOTH
+      copies have live work and neither can be discarded. See below.
+    * `{:error, :not_this_tournament}` - the file is a return, but not this
+      one's. See below.
+    * `{:error, :bad_token}` - every other way the key fails, including a
+      tournament that is not handed off at all: it holds no token, so no
+      value unlocks it. Releasing is therefore NOT idempotent - applying the
+      same file twice fails the second time, which is deliberate: by then the
+      tournament may be legitimately checked out somewhere else.
+    * `{:error, message}` when it is a string - straight from
+      `restore_into!/2` via `Repo.rollback/1`, already safe to show. The
+      source is untouched and still locked.
+
+  ## Identity: what it matches on
+
+  The token authenticates the ENVELOPE. It says nothing about the body, which
+  is a separate block of the same file - so before anything is replaced, the
+  payload has to name this tournament. Three things have to agree:
+
+    * `handoff.returning_to.handed_off_at` - the far side's record of which
+      departure this copy came out on, stored at `receive/2` from the origin
+      block we ourselves wrote - must be the instant on this row's
+      `handed_off_at`;
+    * the payload's own audit trail must contain the `handoff.handed_off` row
+      for that same instant and destination. This is the part that binds the
+      BODY rather than the envelope: the trail travels inside the tournament
+      entry, so a body that never left this machine on that date, for that
+      destination, cannot carry it;
+    * and the token itself, compared constant-time against this row's, by
+      `take_back/2`.
+
+  That is sufficient because a wrong file fails at least one of them and the
+  contents are only replaced when all three hold. The residual is worth
+  stating: nothing binds the block to the body cryptographically, so a
+  hand-edited file that splices one file's token onto another's tournament is
+  caught by the trail check and not by mathematics - and a file whose holder
+  is willing to edit it already holds the token, which is the thing the lock
+  never claimed to resist. Two tournaments locked in the same second to the
+  same label would also pass the first two checks; the token then refuses
+  them, so the outcome is a `:bad_token` message rather than a wrong replace.
+
+  ## The forced unlock, which is the sharp one
+
+  `PairingsEngine.Tournaments.force_take_back/2` unlocks WITHOUT a token,
+  because a laptop at the bottom of a canal would otherwise leave this copy
+  read-only forever. After it, this copy is live and CAN diverge - and if the
+  lost copy then turns up, applying it would silently destroy everything done
+  here since.
+
+  So a returning file for a trip that was force-unlocked here is refused
+  outright, and the arbiter is told to import it as a separate tournament and
+  reconcile the two by hand. Nothing here guesses which copy wins: that is the
+  merge this whole design exists to refuse.
+
+  Detection is the `"tournament.handoff_forced"` audit row
+  (`Tournaments.forced_unlock_action/0`), matched to THIS trip by the token
+  fingerprint it records (`Tournaments.handoff_token_digest/1`) - the audit
+  log is a strong enough signal precisely because the break-glass writes its
+  row inside its own transaction rather than leaving it to a call site, so a
+  forced unlock cannot happen without one. Rows written before the fingerprint
+  existed fall back to the lock's timestamp and destination label, which can
+  in principle repeat; the failure direction there is an extra refusal, never
+  a silent replace.
+
+  A forced unlock is not a permanent mark. A tournament that was broken open
+  and then handed off again cleanly has been read-only for that whole second
+  trip, so that trip's file applies normally - only the abandoned trip's file
+  is refused.
+
+  ## What still does not come back
+
+  The far side's AUDIT TRAIL. `restore_into!/2` writes contents, not history,
+  and re-inserting the file's trail would duplicate the part of it that never
+  left this machine. So the results come home and the record of who typed them
+  over there does not; the departure and the release are both on this copy's
+  trail, and the file itself remains the evidence.
+
+  `actor` is optional; pass the acting scope from a UI so the trail names a
+  person rather than "System".
   """
-  @spec release(Tournament.t(), String.t() | nil, Scope.t() | integer() | nil) ::
-          {:ok, Tournament.t()} | {:error, :bad_token | Ecto.Changeset.t()}
-  def release(%Tournament{} = tournament, token, actor \\ nil) do
+  @spec release(Tournament.t(), term(), Scope.t() | integer() | nil) ::
+          {:ok, Tournament.t()} | {:error, reason()}
+  def release(%Tournament{} = tournament, data, actor \\ nil) do
+    # Re-read the row first: the caller's struct is typically one a LiveView
+    # loaded when the panel was opened, and every check below - which lock is
+    # current, which token unlocks it - is a question about the row NOW. A
+    # stale struct could pass them all and then unlock a lock that has since
+    # been taken back and handed somewhere else, which is precisely the
+    # two-live-copies state. It narrows the window rather than closing it;
+    # `take_back/2` clears by id, so a hand-off in the microseconds between
+    # this read and the transaction would still be missed.
+    case Repo.reload(tournament) do
+      %Tournament{} = current -> do_release(current, data, actor)
+      nil -> {:error, :not_this_tournament}
+    end
+  end
+
+  defp do_release(tournament, data, actor) do
+    with {:ok, token} <- returning_token(data),
+         {:ok, entry} <- only_entry(data),
+         {:ok, trip} <- returning_trip(data),
+         :ok <- not_force_unlocked(tournament, token, trip),
+         :ok <- this_tournament(tournament, entry, trip) do
+      apply_and_unlock(tournament, entry, token, actor)
+    end
+  end
+
+  # Everything the returning file says about which departure it is coming back
+  # from. Written by `hand_off/3` into the origin block, stored verbatim by
+  # `receive/2`, and echoed back by `return/2` - so it is this machine's own
+  # words returning, which is what makes it worth matching on.
+  defp returning_trip(data) do
+    with %{} = returning_to <- get_in(data, ["handoff", "returning_to"]),
+         {:ok, left_at} <- instant(Map.get(returning_to, "handed_off_at")) do
+      {:ok, %{left_at: left_at, label: Map.get(returning_to, "label")}}
+    else
+      _no_trip -> {:error, :not_this_tournament}
+    end
+  end
+
+  defp only_entry(data) do
+    case Map.get(data, "tournaments") do
+      [entry] when is_map(entry) -> {:ok, entry}
+      _ -> {:error, :not_one_tournament}
+    end
+  end
+
+  # Queried straight rather than through `PairingsEngine.Audit.list_for_tournament/2`,
+  # which pages: a forced unlock from the start of a long event would sit well
+  # past any limit, and missing it is the one failure this check cannot have.
+  defp not_force_unlocked(tournament, token, trip) do
+    action = Tournaments.forced_unlock_action()
+    digest = Tournaments.handoff_token_digest(token)
+
+    forced =
+      Repo.all(
+        from a in AuditLog,
+          where: a.tournament_id == ^tournament.id and a.action == ^action,
+          select: a.details
+      )
+
+    if Enum.any?(forced, &forced_this_trip?(&1, digest, trip)),
+      do: {:error, :force_unlocked},
+      else: :ok
+  end
+
+  defp forced_this_trip?(%{"was_handoff_token" => recorded}, digest, _trip)
+       when is_binary(recorded) and is_binary(digest),
+       do: recorded == digest
+
+  # No fingerprint on the row: it was written by a build that did not record
+  # one. The lock's instant and its destination label are what is left, and
+  # both can legitimately repeat - so this can refuse a file it did not have
+  # to. That is the safe direction: the remedy is importing the file as a
+  # separate tournament, and the alternative is overwriting live work.
+  defp forced_this_trip?(%{} = details, _digest, trip) do
+    same_instant?(Map.get(details, "was_handed_off_at"), trip.left_at) and
+      Map.get(details, "was_handed_off_to") == trip.label
+  end
+
+  defp forced_this_trip?(_details, _digest, _trip), do: false
+
+  # A tournament that is not handed off holds no token, so nothing unlocks it -
+  # `:bad_token` rather than a second refusal an arbiter would have to be
+  # taught to tell apart (see `take_back/2`).
+  defp this_tournament(%Tournament{handed_off_at: nil}, _entry, _trip), do: {:error, :bad_token}
+
+  defp this_tournament(%Tournament{} = tournament, entry, trip) do
+    if DateTime.compare(tournament.handed_off_at, trip.left_at) == :eq and
+         departure_in_trail?(entry, tournament) do
+      :ok
+    else
+      {:error, :not_this_tournament}
+    end
+  end
+
+  # The body's own record of leaving here, written by `lock_and_build/3`
+  # BEFORE the payload was built precisely so it would travel with it.
+  defp departure_in_trail?(entry, tournament) do
+    entry
+    |> Map.get("audit_log")
+    |> List.wrap()
+    |> Enum.any?(fn
+      %{"action" => "handoff.handed_off", "details" => %{"at" => at, "to" => to}} ->
+        to == tournament.handed_off_to and same_instant?(at, tournament.handed_off_at)
+
+      _other_row ->
+        false
+    end)
+  end
+
+  defp apply_and_unlock(tournament, entry, token, actor) do
     # Read before the compare, because `take_back/2` clears it on success and
     # "released from where" is the only interesting thing about the row.
     from_label = tournament.handed_off_to
 
-    case Tournaments.take_back(tournament, token) do
-      {:ok, unlocked} ->
-        Audit.log(unlocked.id, actor, "handoff.released", %{
-          "from" => from_label,
-          "name" => unlocked.name
-        })
+    result =
+      Tournaments.with_broadcast_suppressed(fn ->
+        Repo.transaction(fn ->
+          restore_point!(tournament, from_label, actor)
 
-        {:ok, unlocked}
+          # Written while the tournament is still locked, which is safe only
+          # because these two go through `Repo` directly rather than through
+          # the `Tournaments` write paths `ensure_writable/1` guards. The lock
+          # is lifted below, after the contents are already correct.
+          Snapshots.wipe_contents(tournament.id)
+          restored = TournamentImport.restore_into!(tournament, entry)
+
+          case Tournaments.take_back(restored, token) do
+            {:ok, unlocked} ->
+              Audit.log(unlocked.id, actor, "handoff.released", %{
+                "from" => from_label,
+                "name" => unlocked.name
+              })
+
+              unlocked
+
+            {:error, reason} ->
+              Repo.rollback(reason)
+          end
+        end)
+      end)
+
+    case result do
+      {:ok, unlocked} ->
+        Tournaments.broadcast_tournament_change(unlocked.id, :tournament)
+        Tournaments.broadcast_tournament_list(unlocked)
+        {:ok, Tournaments.refresh_status!(unlocked.id)}
 
       {:error, reason} ->
         {:error, reason}
     end
   end
 
+  defp restore_point!(tournament, from_label, actor) do
+    summary = "Before the return from #{from_label || "the other copy"}"
+
+    case Snapshots.capture(tournament, "handoff.released", actor,
+           summary: summary,
+           pinned: true
+         ) do
+      {:ok, snapshot} -> snapshot
+      {:error, _reason} -> Repo.rollback(:no_restore_point)
+    end
+  end
+
+  defp instant(value) when is_binary(value) do
+    case DateTime.from_iso8601(value) do
+      {:ok, at, _offset} -> {:ok, DateTime.truncate(at, :second)}
+      _unparseable -> :error
+    end
+  end
+
+  defp instant(_value), do: :error
+
+  defp same_instant?(value, %DateTime{} = at) do
+    case instant(value) do
+      {:ok, parsed} -> DateTime.compare(parsed, at) == :eq
+      :error -> false
+    end
+  end
+
+  defp same_instant?(_value, _at), do: false
+
   @doc """
-  The token inside a RETURNING envelope, ready to hand to `release/3`.
+  The token inside a RETURNING envelope.
+
+  `release/3` calls this itself - it takes the whole envelope, because the
+  tournament in it is applied as well as the key. This stays public because
+  "is this file a return, and for what" is a question worth being able to ask
+  without changing anything.
 
   Refuses `{:error, :not_a_return}` for a file that is a hand-off but points
   the wrong way - which is the mistake worth catching. The outbound envelope

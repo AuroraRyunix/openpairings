@@ -550,9 +550,11 @@ defmodule PairingsEngineWeb.TournamentsLive do
     end
   end
 
-  # Bringing it back: the returning file's token unlocks this copy. Nothing
-  # about the tournament's CONTENT is applied - see `release_flash/0` for the
-  # rough edge that leaves, which the flash states rather than hides.
+  # Bringing it back: the returning file's contents replace this copy's and
+  # its token unlocks it, or neither happens - see
+  # `PairingsEngine.Handoff.release/3`, which refuses outright in the one case
+  # where both copies hold work (the break-glass was used here while the
+  # tournament was away).
   def handle_event("release_handoff_file", _params, socket) do
     tournament = socket.assigns.return_target
     scope = socket.assigns.current_scope
@@ -829,12 +831,13 @@ defmodule PairingsEngineWeb.TournamentsLive do
   end
 
   defp decode_and_release(path, tournament, scope) do
+    # Only the two decoding steps can land in the `else`, and both mean the
+    # same thing to an arbiter: the file is not readable JSON. Every refusal
+    # that is ABOUT the hand-off comes back from `release/3` itself.
     with {:ok, body} <- File.read(path),
-         {:ok, data} <- Jason.decode(body),
-         {:ok, token} <- Handoff.returning_token(data) do
-      Handoff.release(tournament, token, scope)
+         {:ok, data} <- Jason.decode(body) do
+      Handoff.release(tournament, data, scope)
     else
-      {:error, _} = refusal -> refusal
       _unreadable -> {:error, :unreadable}
     end
   end
@@ -846,11 +849,12 @@ defmodule PairingsEngineWeb.TournamentsLive do
     )
   end
 
-  # The sharpest thing this feature has to say, and it is said on success
-  # rather than buried in a help page. Releasing unlocks; it does not merge.
+  # Said on success rather than buried in a help page, because what just
+  # happened is a wholesale replacement and an arbiter should be told so while
+  # the file that caused it is still on screen.
   defp release_flash do
     gettext(
-      "This copy is writable again. It still shows the tournament as it was when you handed it off - anything played on the other machine is in the file you just used, and importing that file as a backup is the only way to see it here."
+      "This copy is live again, and now holds what was played on the other machine. What was here before the return is kept as a restore point under History, if you need to look at it or go back."
     )
   end
 
@@ -891,6 +895,27 @@ defmodule PairingsEngineWeb.TournamentsLive do
     do:
       gettext(
         "That file does not unlock this tournament. Check it is the return for this event, and that nothing has already brought it back."
+      )
+
+  defp handoff_error(:not_this_tournament),
+    do:
+      gettext(
+        "That file is a returning hand-off, but not this tournament's - it does not carry this event's departure. Applying it would replace what is here with another event."
+      )
+
+  # The one refusal that has to name a way forward, because there is no button
+  # that fixes it: both copies hold real work, and choosing between them is a
+  # judgement about what happened in a room.
+  defp handoff_error(:force_unlocked),
+    do:
+      gettext(
+        "This copy was unlocked with \"Unlock without the token\" while it was away, so it has been taking changes too - and the file you just chose holds the changes made on the other machine. Both are real work and nothing here can merge them. Import the file under \"Import backup (JSON)\" as a separate tournament, compare the two, and carry the missing results across by hand."
+      )
+
+  defp handoff_error(:no_restore_point),
+    do:
+      gettext(
+        "The restore point of what is here now could not be saved, so nothing was replaced - bringing the tournament back would have left no way to undo it. Try again, and check the disk has room."
       )
 
   defp handoff_error(:origin_not_recorded),
@@ -1728,16 +1753,16 @@ defmodule PairingsEngineWeb.TournamentsLive do
           )}
         </p>
 
-        <%!-- Said before the fact rather than after it. Unlocking and merging
-              are different things, and an arbiter who expects the second and
-              gets the first will start typing round 6 into a copy that has
-              never seen round 5. --%>
+        <%!-- Said before the button rather than after it. This is a wholesale
+              replacement, and an arbiter who expects a merge - or expects the
+              file to be ignored - should find out here rather than by
+              noticing that something they typed is gone. --%>
         <p class="hint">
           <strong>
-            {gettext("This unlocks the tournament. It does not bring the results back:")}
+            {gettext("This replaces what is here with what comes back:")}
           </strong>
           {gettext(
-            "this copy will still show the event as it was when you handed it off. Anything played on the other machine is in the same file, and importing it under \"Import backup (JSON)\" is the only way to see it here."
+            "the rounds played on the other machine become this copy's, because this one has been read-only since it left and cannot have changed. What is here now is kept as a restore point under History, so you can look at it or go back."
           )}
         </p>
 

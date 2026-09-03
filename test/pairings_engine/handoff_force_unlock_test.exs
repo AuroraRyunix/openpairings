@@ -162,7 +162,7 @@ defmodule PairingsEngine.HandoffForceUnlockTest do
       assert is_binary(row.details["was_handed_off_at"])
     end
 
-    test "never carries the token it destroyed" do
+    test "never carries the token it destroyed, only a fingerprint of it" do
       # `Audit`'s "never a secret" rule. The token is dead by the time the
       # row is written, but a dead credential in a log an administrator reads
       # on screen is still a credential in a log.
@@ -173,6 +173,14 @@ defmodule PairingsEngine.HandoffForceUnlockTest do
 
       assert [row] = forced_rows(t.id)
       refute row.details |> Map.values() |> Enum.member?(t.handoff_token)
+
+      # What it carries instead: a one-way digest, which unlocks nothing and
+      # is the only thing that can tell `PairingsEngine.Handoff.release/3`
+      # that a returning file belongs to the trip that was broken open.
+      assert row.details["was_handoff_token"] ==
+               Tournaments.handoff_token_digest(t.handoff_token)
+
+      refute String.contains?(t.handoff_token, row.details["was_handoff_token"])
     end
 
     test "is distinguishable from an ordinary take-back, which writes nothing here" do

@@ -1316,6 +1316,11 @@ defmodule PairingsEngine.Tournaments do
   # archiving uses, and the reason adding a second reason-to-refuse is a
   # one-line change rather than an audit of thirty call sites.
   #
+  # The break-glass writes its own action code, and `PairingsEngine.Handoff`
+  # reads it back: a returning file for a trip that was force-unlocked here
+  # must be refused, because after a forced unlock this copy could diverge.
+  @forced_unlock_action "tournament.handoff_forced"
+
   # `hand_off/2` and `take_back/2` are the only writers of the three columns;
   # none of them is in `Tournament.changeset/2`'s cast list, so no form,
   # import or snapshot restore can mint or clear a lock (see the fields'
@@ -1469,10 +1474,17 @@ defmodule PairingsEngine.Tournaments do
       leave a forced unlock indistinguishable from a clean take-back, so it
       is not left to a call site.
 
-  The action code is `"tournament.handoff_forced"`, deliberately distinct
-  from whatever an ordinary take-back records. The token is NOT put in the
-  details: it is dead by then, but a dead credential in a log an
-  administrator reads on screen is still a credential in a log.
+  The action code is `"tournament.handoff_forced"` (`forced_unlock_action/0`),
+  deliberately distinct from whatever an ordinary take-back records. The token
+  is NOT put in the details: it is dead by then, but a dead credential in a
+  log an administrator reads on screen is still a credential in a log. What
+  the row does carry is `handoff_token_digest/1` of it, under
+  `"was_handoff_token"` - a one-way fingerprint, useless as a key, and the
+  only thing that lets `PairingsEngine.Handoff.release/3` tell "this is the
+  return for the very trip we broke open" from "this is some other trip".
+  Without it that question can only be answered from the timestamp and the
+  destination label, which are both second-resolution free text and can
+  legitimately repeat.
   """
   @spec force_take_back(Tournament.t(), Scope.t()) ::
           {:ok, Tournament.t()} | {:error, :not_owner | :not_handed_off | Ecto.Changeset.t()}
@@ -1495,10 +1507,11 @@ defmodule PairingsEngine.Tournaments do
              )
              |> Repo.update(),
            {:ok, _row} <-
-             Audit.log(tournament.id, actor, "tournament.handoff_forced", %{
+             Audit.log(tournament.id, actor, @forced_unlock_action, %{
                name: tournament.name,
                was_handed_off_to: tournament.handed_off_to,
-               was_handed_off_at: tournament.handed_off_at
+               was_handed_off_at: tournament.handed_off_at,
+               was_handoff_token: handoff_token_digest(tournament.handoff_token)
              }) do
         unlocked
       else
@@ -1510,6 +1523,36 @@ defmodule PairingsEngine.Tournaments do
       broadcast_tournament_list(unlocked)
     end)
   end
+
+  @doc """
+  The audit action `force_take_back/2` writes, so the one module that has to
+  recognise a forced unlock (`PairingsEngine.Handoff`) does not carry its own
+  copy of the string.
+  """
+  @spec forced_unlock_action() :: String.t()
+  def forced_unlock_action, do: @forced_unlock_action
+
+  @doc """
+  A one-way fingerprint of a hand-off token, short enough to sit in an audit
+  row a person reads.
+
+  Not a credential and not reversible: it identifies WHICH hand-off a row or a
+  file belongs to, and unlocks nothing. Truncated because 64 bits is already
+  far more than "these two are the same trip" needs, and a full digest in a
+  log is noise somebody has to scroll past.
+
+  Returns nil for a tournament that holds no token, so a caller can compare
+  nils away rather than crashing on one.
+  """
+  @spec handoff_token_digest(String.t() | nil) :: String.t() | nil
+  def handoff_token_digest(token) when is_binary(token) and token != "" do
+    :sha256
+    |> :crypto.hash(token)
+    |> Base.encode16(case: :lower)
+    |> binary_part(0, 16)
+  end
+
+  def handoff_token_digest(_token), do: nil
 
   @doc "Whether `tournament` is currently handed off (and therefore read-only here)."
   @spec handed_off?(Tournament.t()) :: boolean()
