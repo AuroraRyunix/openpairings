@@ -12,10 +12,18 @@ defmodule PairingsEngineWeb.TournamentsLive do
     RateOfPlay
   }
 
+  alias PairingsEngine.Features
   alias PairingsEngine.Federations.BEL.SwarImport
   alias PairingsEngine.Tools.Parser
   alias PairingsEngine.Tournaments.Tournament
   alias PairingsEngineWeb.SettingsSupport
+
+  # SWAR is the Belgian federation's own tournament program, so taking its
+  # files in is part of the pack. The switch hides "Import SWAR file" and its
+  # panel; it does NOT touch a tournament that was already imported from one.
+  # Those keep their `swar_guid`, their 3-2-1 scoring settings and their
+  # standings exactly as they are - see `PairingsEngine.Features`.
+  @swar_import_feature "bel_swar_import"
 
   # Initial values for the "New tournament" form - kept in `new_params` and
   # bound to each input so a phx-change re-render never wipes them.
@@ -63,6 +71,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
        new_params: @new_tournament_defaults,
        swar_pending: nil,
        swar_duplicate: nil,
+       bel_swar_import?: Features.enabled?(socket.assigns.current_scope, @swar_import_feature),
        # ---- hand-off ----
        # Three separate assigns for three separate states, deliberately not
        # one `handoff_mode`. A tournament being handed OUT and a tournament
@@ -266,6 +275,14 @@ defmodule PairingsEngineWeb.TournamentsLive do
      )}
   end
 
+  # Every SWAR event below re-checks the switch in its own body as well as in
+  # the markup that renders its control, because a `phx-click` payload is
+  # written by whoever holds the socket - a button that is not on the page is
+  # still an event anybody can send. Same shape as
+  # `PairingsEngineWeb.AdminLive`'s guarded handlers.
+  def handle_event("import", _params, %{assigns: %{bel_swar_import?: false}} = socket),
+    do: {:noreply, put_flash(socket, :error, swar_import_off())}
+
   def handle_event("import", _params, socket) do
     {:noreply,
      assign(socket,
@@ -385,6 +402,9 @@ defmodule PairingsEngineWeb.TournamentsLive do
   # The file input's phx-change target; nothing to do until submit.
   def handle_event("validate_swar", _params, socket), do: {:noreply, socket}
 
+  def handle_event("import_swar", _params, %{assigns: %{bel_swar_import?: false}} = socket),
+    do: {:noreply, put_flash(socket, :error, swar_import_off())}
+
   def handle_event("import_swar", _params, socket), do: import_tournament_file(socket, :swar)
 
   ## ---------- SWAR FIDE-match confirm step (players with no FIDE id) ----------
@@ -399,6 +419,9 @@ defmodule PairingsEngineWeb.TournamentsLive do
   # `resolution[<ni>]` - either a candidate's FIDE id, or "skip" (the
   # default) to import them with no `fide_id` at all, same as if no local
   # FIDE database match had ever been attempted.
+  def handle_event("resolve_swar", _params, %{assigns: %{bel_swar_import?: false}} = socket),
+    do: {:noreply, socket |> assign(swar_pending: nil) |> put_flash(:error, swar_import_off())}
+
   def handle_event("resolve_swar", %{"resolution" => resolution_params}, socket) do
     resolutions =
       Map.new(resolution_params, fn {ni_str, value} ->
@@ -434,6 +457,14 @@ defmodule PairingsEngineWeb.TournamentsLive do
      |> assign(swar_duplicate: nil)
      |> push_navigate(to: ~p"/t/#{existing.id}/players")}
   end
+
+  def handle_event(
+        "swar_duplicate_import_anyway",
+        _params,
+        %{assigns: %{bel_swar_import?: false}} = socket
+      ),
+      do:
+        {:noreply, socket |> assign(swar_duplicate: nil) |> put_flash(:error, swar_import_off())}
 
   def handle_event("swar_duplicate_import_anyway", _params, socket) do
     prepared = socket.assigns.swar_duplicate.prepared
@@ -945,20 +976,30 @@ defmodule PairingsEngineWeb.TournamentsLive do
   # independently of both modals, so closing them both is all this has to do.
   defp import_tournament_file(socket, panel) do
     scope = socket.assigns.current_scope
+    # The TRF panel accepts a `.swar` file too (see above), so the SWAR
+    # switch has to be consulted HERE and not only at the SWAR panel's own
+    # button - otherwise dropping a `.swar` into the TRF box would walk
+    # straight past a switched-off pack.
+    swar? = socket.assigns.bel_swar_import?
 
     results =
       consume_uploaded_entries(socket, panel, fn %{path: path}, entry ->
         content = File.read!(path)
 
         case Parser.detect_format(entry.client_name, content) do
+          :swar when not swar? -> {:ok, {:swar, {:error, :feature_off}}}
           :swar -> {:ok, {:swar, SwarImport.prepare_import(path)}}
           :trf -> {:ok, {:trf, TrfImport.import_text(content, scope)}}
+          :unknown when panel == :swar and not swar? -> {:ok, {:swar, {:error, :feature_off}}}
           :unknown when panel == :swar -> {:ok, {:swar, SwarImport.prepare_import(path)}}
           :unknown -> {:ok, {:trf, TrfImport.import_text(content, scope)}}
         end
       end)
 
     case results do
+      [{:swar, {:error, :feature_off}}] ->
+        {:noreply, put_flash(socket, :error, swar_import_off())}
+
       [{:swar, {:ok, prepared}}] ->
         continue_or_warn_swar(socket, scope, prepared)
 
@@ -1022,6 +1063,13 @@ defmodule PairingsEngineWeb.TournamentsLive do
      )}
   end
 
+  # The one place a SWAR file becomes rows in the database, so the last word
+  # on the switch is here: every path into it is already guarded, and a
+  # backstop at the write costs one comparison and closes whatever path gets
+  # added next.
+  defp commit_swar(%{assigns: %{bel_swar_import?: false}} = socket, _prepared, _resolutions),
+    do: {:noreply, socket |> assign(swar_pending: nil) |> put_flash(:error, swar_import_off())}
+
   defp commit_swar(socket, prepared, resolutions) do
     scope = socket.assigns.current_scope
 
@@ -1060,6 +1108,16 @@ defmodule PairingsEngineWeb.TournamentsLive do
         end)
     )
   end
+
+  # Reached by a crafted event, or by a second tab left open across a change
+  # on the Features page. Says what happened and where to change it rather
+  # than failing silently, because the second case is somebody who genuinely
+  # meant to import.
+  defp swar_import_off,
+    do:
+      gettext(
+        "SWAR import is switched off for your account. Turn it on under Features to import a .swar file."
+      )
 
   defp maybe_flash_swar_warnings(socket, []), do: socket
 
@@ -1213,7 +1271,12 @@ defmodule PairingsEngineWeb.TournamentsLive do
           <button :if={!@receiving_handoff} class="pe-btn" phx-click="receive_handoff">
             {gettext("Receive a hand-off")}
           </button>
-          <button :if={!@importing} class="pe-btn" phx-click="import">{gettext("Import SWAR file")}</button>
+          <%!-- Absent, not disabled, when the pack's SWAR import is off. A
+                greyed-out button that explains itself is worse than a button
+                that was never in the row. --%>
+          <button :if={@bel_swar_import? && !@importing} class="pe-btn" phx-click="import">{gettext(
+            "Import SWAR file"
+          )}</button>
           <button :if={!@importing_trf} class="pe-btn" phx-click="import_trf">{gettext(
             "Import TRF file"
           )}</button>
@@ -1456,7 +1519,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
       </form>
 
       <form
-        :if={@importing}
+        :if={@bel_swar_import? && @importing}
         id="swar-import-form"
         class="card"
         phx-submit="import_swar"
@@ -1821,7 +1884,14 @@ defmodule PairingsEngineWeb.TournamentsLive do
       >
         <p><strong>{gettext("No tournaments yet.")}</strong></p>
 
-        <p>{gettext("Create your first tournament, or import one from SWAR, TRF16, or a backup.")}</p>
+        <%!-- The empty state lists the ways in, so it must not name a way in
+              that is not on this page. --%>
+        <p :if={@bel_swar_import?}>
+          {gettext("Create your first tournament, or import one from SWAR, TRF16, or a backup.")}
+        </p>
+        <p :if={!@bel_swar_import?}>
+          {gettext("Create your first tournament, or import one from TRF16 or a backup.")}
+        </p>
       </div>
 
       <div :if={@tournaments != []} class="card table-card">

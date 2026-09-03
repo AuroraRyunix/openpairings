@@ -288,6 +288,10 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
   end
 
   describe "KBSB autofill (add-player form)" do
+    # These controls belong to the Belgian pack and are absent for an account
+    # that has not switched it on - see `PairingsEngine.Features`.
+    setup :enable_federation_features
+
     setup %{scope: scope} do
       {:ok, tournament} =
         Tournaments.create_tournament(scope, %{
@@ -399,6 +403,10 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
   end
 
   describe "KBSB autofill (edit modal)" do
+    # These controls belong to the Belgian pack and are absent for an account
+    # that has not switched it on - see `PairingsEngine.Features`.
+    setup :enable_federation_features
+
     setup %{scope: scope} do
       {:ok, tournament} =
         Tournaments.create_tournament(scope, %{"name" => "KBSB Edit Test", "type" => "swiss"})
@@ -1742,6 +1750,10 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
   end
 
   describe "bulk club refresh (Update clubs button)" do
+    # These controls belong to the Belgian pack and are absent for an account
+    # that has not switched it on - see `PairingsEngine.Features`.
+    setup :enable_federation_features
+
     setup %{scope: scope} do
       {:ok, tournament} =
         Tournaments.create_tournament(scope, %{"name" => "Club Test", "type" => "swiss"})

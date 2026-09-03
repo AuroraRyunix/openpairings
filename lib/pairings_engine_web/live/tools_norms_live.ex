@@ -22,6 +22,25 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
   `consume_uploaded_entries/3` straight into memory and never touch this
   LiveView's assigns or the session store - only the parsed
   `%Tournament{}`/`%Player{}` structs do.
+
+  ## `.swar` uploads are NOT gated by `PairingsEngine.Features`
+
+  Deliberately, and this note is here so nobody "fixes" it. The Belgian
+  pack's switches are per user; this page has no user - no login, no account,
+  and `mount_current_scope` may well hand it `nil`. There is nothing to ask.
+
+  Gating it would mean refusing every anonymous visitor a `.swar` upload to
+  honour a preference belonging to somebody who is not here. What this page
+  is, is a file converter on a public URL: nothing is written, nothing is
+  kept past the in-memory session, and the output is a FIDE form. So it keeps
+  taking `.swar` files from anyone.
+
+  The one other reference to the pack in this module -
+  `SwarImport.match_official_fide_player/1`, used to prefill the officials
+  boxes - is a FIDE name matcher that happens to live in that module. It
+  matches against the FIDE list and knows nothing about Belgium; it is not
+  gated for the same reason `PairingsEngine.Encoding` and
+  `PairingsEngine.Federation` never moved into the pack in the first place.
   """
 
   use PairingsEngineWeb, :live_view

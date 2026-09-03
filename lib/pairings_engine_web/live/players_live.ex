@@ -14,12 +14,27 @@ defmodule PairingsEngineWeb.PlayersLive do
     Tiebreaks
   }
 
+  alias PairingsEngine.Features
   alias PairingsEngine.Federations.BEL.{ClubRefresh, Members}
 
   alias PairingsEngine.Tournaments.Player
   alias PairingsEngine.Tournaments.Tournament
   alias PairingsEngine.Federations.BEL.Member
   alias PairingsEngine.Fide.FidePlayer
+
+  # Two of the pack's five switches reach this page, and they are separate
+  # switches because they are separate gestures: one fills in the player in
+  # front of you, the other rewrites a club column across the whole entry
+  # list. Both READ the member list `bel_ratings_sync` downloads and neither
+  # requires it - see `PairingsEngine.Features` for why that dependency is
+  # explained on the settings page rather than enforced here.
+  #
+  # What they gate is the two buttons and the National ID field's autofill.
+  # They do NOT gate `national_id`, `national_rating`, `club` or
+  # `club_number`: those are federation-neutral columns any arbiter fills in,
+  # and a switched-off pack must never make a stored value unreachable.
+  @lookup_feature "bel_player_lookup"
+  @club_feature "bel_club_sync"
 
   @titles ~w(GM IM FM CM WGM WIM WFM WCM)
 
@@ -117,6 +132,8 @@ defmodule PairingsEngineWeb.PlayersLive do
        titles: @titles,
        rating_refresh: nil,
        club_refresh: nil,
+       bel_lookup?: Features.enabled?(socket.assigns.current_scope, @lookup_feature),
+       bel_club_sync?: Features.enabled?(socket.assigns.current_scope, @club_feature),
        sort_col: nil,
        sort_dir: nil,
        setup_complete: Tournament.setup_complete?(tournament),
@@ -439,7 +456,7 @@ defmodule PairingsEngineWeb.PlayersLive do
          assign(socket,
            query: "",
            results: [],
-           form_values: merge_kbsb_by_fide_id(base, fp.fide_id)
+           form_values: merge_kbsb_by_fide_id(socket, base, fp.fide_id)
          )}
     end
   end
@@ -448,6 +465,14 @@ defmodule PairingsEngineWeb.PlayersLive do
   # leaving the National ID field instead of picking from a search list -
   # KBSB has no fuzzy name search wired into the add form, only exact
   # national-id lookups.
+  #
+  # Re-checked here as well as in the markup that attaches the `phx-change`,
+  # because a `phx-change` payload is written by whoever holds the socket -
+  # an input with no binding on it is still an event anybody can send. Same
+  # reasoning as `PairingsEngineWeb.AdminLive`'s guarded handlers.
+  def handle_event("lookup_kbsb_add", _params, %{assigns: %{bel_lookup?: false}} = socket),
+    do: {:noreply, socket}
+
   def handle_event("lookup_kbsb_add", %{"player" => %{"national_id" => national_id}}, socket) do
     case Members.find_by_national_id(national_id) do
       nil ->
@@ -677,6 +702,12 @@ defmodule PairingsEngineWeb.PlayersLive do
   # the club columns instead - see `PairingsEngine.Federations.BEL.ClubRefresh` for why it
   # is a separate action rather than more proposals inside that one.
 
+  # Both the preview and the apply re-check the switch in their own bodies,
+  # not only in the markup that renders the button - a hidden button still
+  # accepts a crafted event.
+  def handle_event("open_club_refresh", _params, %{assigns: %{bel_club_sync?: false}} = socket),
+    do: {:noreply, put_flash(socket, :error, club_sync_off())}
+
   def handle_event("open_club_refresh", _params, socket) do
     summary = ClubRefresh.dry_run(socket.assigns.tournament)
     {:noreply, assign(socket, club_refresh: summary)}
@@ -685,6 +716,9 @@ defmodule PairingsEngineWeb.PlayersLive do
   def handle_event("close_club_refresh", _params, socket) do
     {:noreply, assign(socket, club_refresh: nil)}
   end
+
+  def handle_event("apply_club_refresh", _params, %{assigns: %{bel_club_sync?: false}} = socket),
+    do: {:noreply, put_flash(socket, :error, club_sync_off())}
 
   def handle_event("apply_club_refresh", _params, socket) do
     proposals = (socket.assigns.club_refresh || %{proposals: []}).proposals
@@ -814,6 +848,9 @@ defmodule PairingsEngineWeb.PlayersLive do
   # "FIDE lookup" a second time by hand just to use the ID this button
   # already found, which is exactly the "have to push the other button to
   # make it work" complaint this exists to close.
+  def handle_event("refresh_edit_kbsb", _params, %{assigns: %{bel_lookup?: false}} = socket),
+    do: {:noreply, assign(socket, edit_error: lookup_off())}
+
   def handle_event("refresh_edit_kbsb", _params, socket) do
     form = socket.assigns.edit_form
     national_id = form |> Map.get("national_id", "") |> to_string() |> String.trim()
@@ -1096,7 +1133,15 @@ defmodule PairingsEngineWeb.PlayersLive do
   # Picking a FIDE result also enriches the form with the matching KBSB row
   # (if any), the same way a national-id-driven autofill would - the two
   # lists are cross-referenced by FIDE id.
-  defp merge_kbsb_by_fide_id(form_values, fide_id) do
+  #
+  # This is the KBSB lookup wearing a different coat, so the same switch
+  # governs it: with the pack's lookup off, picking a FIDE result fills in
+  # the FIDE fields and stops there, which is exactly what an arbiter with no
+  # Belgian member list should get.
+  defp merge_kbsb_by_fide_id(%{assigns: %{bel_lookup?: false}}, form_values, _fide_id),
+    do: form_values
+
+  defp merge_kbsb_by_fide_id(_socket, form_values, fide_id) do
     case Members.find_by_fide_id(fide_id) do
       nil ->
         form_values
@@ -1110,6 +1155,20 @@ defmodule PairingsEngineWeb.PlayersLive do
         })
     end
   end
+
+  # Shown only to somebody who reached a handler whose control is not on
+  # their page - so, in practice, to a crafted event. It still says what
+  # happened and where to change it, because the other way this is reached is
+  # a second tab left open across a change on the Features page.
+  defp lookup_off,
+    do:
+      gettext(
+        "The KBSB player lookup is switched off for your account. Turn it on under Features."
+      )
+
+  defp club_sync_off,
+    do:
+      gettext("The KBSB club update is switched off for your account. Turn it on under Features.")
 
   defp put_if_blank(map, _key, nil), do: map
 
@@ -1364,6 +1423,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           </button>
 
           <button
+            :if={@bel_club_sync?}
             type="button"
             class="pe-btn"
             phx-click="open_club_refresh"
@@ -1473,13 +1533,19 @@ defmodule PairingsEngineWeb.PlayersLive do
             <input type="number" name="player[fide_rating]" value={@form_values["fide_rating"]} />
           </label>
 
+          <%!-- The FIELD is never gated - `national_id` is a
+                federation-neutral column any arbiter fills in, and a
+                switched-off pack must not put a stored value out of reach.
+                What the switch takes away is the auto-lookup binding: with
+                `bel_player_lookup` off, this is an ordinary text box and
+                typing in it asks the KBSB list nothing. --%>
           <label class="field">
             <span>{gettext("National ID")}</span>
             <input
               name="player[national_id]"
               value={@form_values["national_id"]}
-              phx-change="lookup_kbsb_add"
-              phx-debounce="250"
+              phx-change={if @bel_lookup?, do: "lookup_kbsb_add"}
+              phx-debounce={if @bel_lookup?, do: "250"}
               autocomplete="off"
             />
           </label>
@@ -1657,6 +1723,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         fide_conflicts={@edit_fide_conflicts}
         editing_player_id={@editing_player.id}
         players={@players}
+        bel_lookup?={@bel_lookup?}
       />
       <.player_card_modal
         :if={@card_player_id}
@@ -1898,6 +1965,9 @@ defmodule PairingsEngineWeb.PlayersLive do
   attr :fide_conflicts, :map, default: nil
   attr :editing_player_id, :integer, default: nil
   attr :players, :list, default: []
+  # Passed in rather than read from the socket: this is a function component,
+  # so it sees only what its caller hands it.
+  attr :bel_lookup?, :boolean, default: false
 
   defp player_edit_modal(assigns) do
     assigns =
@@ -1940,6 +2010,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           </button>
 
           <button
+            :if={@bel_lookup?}
             type="button"
             class="pe-btn"
             phx-click="refresh_edit_kbsb"

@@ -6,11 +6,20 @@ defmodule PairingsEngineWeb.FideLive do
   alias PairingsEngine.Audit
   alias PairingsEngine.Authz
   alias PairingsEngine.Backup
+  alias PairingsEngine.Features
   alias PairingsEngine.Federations.BEL.Members
   alias PairingsEngine.Fide.Sync, as: FideSync
   alias PairingsEngine.Federations.BEL.Sync, as: KbsbSync
   alias PairingsEngine.Federations.BEL.Api, as: KbsbApi
   alias PairingsEngine.Publishing
+
+  # The Belgian rating-list panel on this page - the roster count, the sync
+  # button, and the search box over the local copy - belongs to the pack, so
+  # it renders only for an account that switched the pack's sync on. See
+  # `PairingsEngine.Features`: what this hides is entrances. It cannot and
+  # must not change anything already synced, and the FIDE half of this page
+  # is untouched by it.
+  @kbsb_feature "bel_ratings_sync"
 
   # See the same constant on the OpenResults settings page for why this is a
   # poll and not a subscription.
@@ -18,9 +27,12 @@ defmodule PairingsEngineWeb.FideLive do
 
   @impl true
   def mount(_params, _session, socket) do
+    kbsb? = Features.enabled?(socket.assigns.current_scope, @kbsb_feature)
+
     if connected?(socket) do
       Phoenix.PubSub.subscribe(PairingsEngine.PubSub, FideSync.topic())
-      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, KbsbSync.topic())
+      # No panel, no reason to be woken by its progress.
+      if kbsb?, do: Phoenix.PubSub.subscribe(PairingsEngine.PubSub, KbsbSync.topic())
       if connection_polling?(), do: send(self(), :poll_connection)
     end
 
@@ -29,13 +41,14 @@ defmodule PairingsEngineWeb.FideLive do
      |> assign(
        page_title: "Connections",
        status: FideSync.status(),
-       kbsb_status: KbsbSync.status(),
+       kbsb?: kbsb?,
+       kbsb_status: kbsb? && KbsbSync.status(),
        kbsb_query: "",
        kbsb_results: [],
        # Read once at mount: this comes from the server's environment, so it
        # cannot change while the page is open. False hides the sync button
        # entirely rather than offering an action that can only fail.
-       kbsb_api_configured: KbsbApi.configured?(),
+       kbsb_api_configured: kbsb? && KbsbApi.configured?(),
        # Everything on this page is machine-wide rather than about one
        # tournament: where this installation publishes, what leaves it in a
        # backup, and a ~41 MB rating-list download that is cheap to click
@@ -107,7 +120,7 @@ defmodule PairingsEngineWeb.FideLive do
   end
 
   def handle_info({:kbsb_sync, _state}, socket) do
-    {:noreply, assign(socket, kbsb_status: KbsbSync.status())}
+    {:noreply, assign(socket, kbsb_status: socket.assigns.kbsb? && KbsbSync.status())}
   end
 
   def handle_event("run_backup", _params, socket) do
@@ -195,26 +208,46 @@ defmodule PairingsEngineWeb.FideLive do
   # pulls the whole Belgian roster over somebody else's API and rewrites the
   # local rating table - an act, not a look - and this page became readable
   # by `support` the same day. Every other handler here already checked.
+  # Each of the three below re-checks `kbsb?` in its own body, not only in
+  # the markup that renders its control. The markup decides what a browser is
+  # SHOWN; a `phx-click`/`phx-change` payload is written by whoever is on the
+  # other end of the socket, so a control that is not on the page is still an
+  # event anybody can send. Same shape as the `may_admin?` checks around them.
   def handle_event("sync_kbsb_api", _params, socket) do
-    if socket.assigns.may_admin? do
-      KbsbSync.start_api_import()
-      {:noreply, assign(socket, kbsb_status: KbsbSync.status())}
-    else
-      {:noreply, put_flash(socket, :error, sync_restricted())}
+    cond do
+      not socket.assigns.kbsb? -> {:noreply, put_flash(socket, :error, kbsb_off())}
+      not socket.assigns.may_admin? -> {:noreply, put_flash(socket, :error, sync_restricted())}
+      true -> {:noreply, start_kbsb_api_import(socket)}
     end
   end
 
   def handle_event("cancel_kbsb", _params, socket) do
-    if socket.assigns.may_admin? do
-      KbsbSync.cancel_import()
+    if socket.assigns.kbsb? do
+      if socket.assigns.may_admin?, do: KbsbSync.cancel_import()
+      {:noreply, assign(socket, kbsb_status: KbsbSync.status())}
+    else
+      {:noreply, put_flash(socket, :error, kbsb_off())}
     end
-
-    {:noreply, assign(socket, kbsb_status: KbsbSync.status())}
   end
 
   def handle_event("kbsb_search", %{"q" => q}, socket) do
-    {:noreply, assign(socket, kbsb_query: q, kbsb_results: Members.search(q))}
+    if socket.assigns.kbsb? do
+      {:noreply, assign(socket, kbsb_query: q, kbsb_results: Members.search(q))}
+    else
+      {:noreply, put_flash(socket, :error, kbsb_off())}
+    end
   end
+
+  defp start_kbsb_api_import(socket) do
+    KbsbSync.start_api_import()
+    assign(socket, kbsb_status: KbsbSync.status())
+  end
+
+  defp kbsb_off,
+    do:
+      gettext(
+        "The Belgian rating list sync is switched off for your account. Turn it on under Features."
+      )
 
   defp busy?(%{status: s}), do: s in [:downloading, :importing]
 
@@ -411,7 +444,11 @@ defmodule PairingsEngineWeb.FideLive do
         </div>
       </div>
 
-      <div class="card">
+      <%!-- Not rendered at all when the pack's sync is switched off, rather
+            than rendered disabled. A greyed-out card that explains why it is
+            greyed out is a worse answer than a page that simply does not
+            mention Belgium to somebody who does not work there. --%>
+      <div :if={@kbsb?} class="card">
         <h2>{gettext("Belgian national rating list (KBSB/FRBE)")}</h2>
         <p>
           <.rich_text text={gettext("%[count] players in the local database.")}>

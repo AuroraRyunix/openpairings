@@ -65,6 +65,29 @@ defmodule PairingsEngineWeb.ConnCase do
   end
 
   @doc """
+  Setup helper that switches every optional federation feature on for the
+  user `register_and_log_in_user` just created.
+
+      setup [:register_and_log_in_user, :enable_federation_features]
+
+  Add it to a test (or a `describe` block) that exercises something behind
+  `PairingsEngine.Features` - the Belgian rating-list panel, the KBSB
+  lookups, the club update, SWAR import/export. The default for a new
+  account is nothing enabled, which is the point of the whole design, so
+  those controls really are absent without this and a test that forgets it
+  fails honestly rather than passing by accident.
+
+  It writes to the database and hands the reloaded user back in the context.
+  The page under test builds its own scope from the session token, so it
+  sees the update; `scope` in the context is left as it was, since it is used
+  to CREATE fixtures rather than to render.
+  """
+  def enable_federation_features(%{user: user} = context) do
+    {:ok, user} = PairingsEngine.Features.set_enabled(user, PairingsEngine.Features.keys())
+    Map.put(context, :user, user)
+  end
+
+  @doc """
   Logs the given `user` into the `conn`.
 
   It returns an updated `conn`.

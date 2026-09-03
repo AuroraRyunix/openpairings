@@ -15,6 +15,24 @@ defmodule PairingsEngine.Tools.Parser do
   Pure and side-effect-free: never touches the database or the filesystem,
   never raises (both builders already guarantee that for arbitrary/hostile
   input - see their own moduledocs).
+
+  ## Not gated by `PairingsEngine.Features`, deliberately
+
+  The Belgian pack's five switches are per USER (see
+  `PairingsEngine.Features`), and this module's only caller is
+  `PairingsEngineWeb.ToolsNormsLive` - the public arbiter tools page, which
+  has no account, no login and no user to ask. Gating it would mean either
+  refusing every anonymous visitor a `.swar` upload, or inventing a
+  machine-wide setting that contradicts the per-user one.
+
+  Neither is worth doing for what this actually is: a file parser on an
+  anonymous page. It writes nothing, keeps nothing (the result lives in
+  `PairingsEngine.Tools.Session`'s in-memory store until it expires), and
+  hands back a FIDE report form. Somebody who has a `.swar` file and wants an
+  IT3 out of it is not exercising a Belgian feature of THEIR installation;
+  they are using a converter.
+
+  So: leave it accepting `.swar`. This note exists so nobody "fixes" it.
   """
 
   alias PairingsEngine.TrfImport

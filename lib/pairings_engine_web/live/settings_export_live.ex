@@ -13,7 +13,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
 
   import PairingsEngineWeb.SettingsSupport
 
-  alias PairingsEngine.{Publishing, Tournaments}
+  alias PairingsEngine.{Features, Publishing, Tournaments}
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -26,7 +26,8 @@ defmodule PairingsEngineWeb.SettingsExportLive do
     {:ok,
      assign(socket,
        tournament: tournament,
-       page_title: "#{tournament.name} · Settings · Export"
+       page_title: "#{tournament.name} · Settings · Export",
+       bel_swar_export?: Features.enabled?(socket.assigns.current_scope, "bel_swar_export")
      )}
   end
 
@@ -108,7 +109,13 @@ defmodule PairingsEngineWeb.SettingsExportLive do
             {gettext("Export full backup (JSON)")}
           </a>
 
+          <%!-- Only for an account that switched the Belgian pack's SWAR
+                export on. The route refuses too - a link is not a gate - but
+                this is what stops the page offering a download that would
+                only bounce. See `PairingsEngine.Features`; the tournament
+                itself is untouched either way. --%>
           <a
+            :if={@bel_swar_export?}
             class="pe-btn"
             href={~p"/t/#{@tournament.id}/export/swar"}
             target="_blank"

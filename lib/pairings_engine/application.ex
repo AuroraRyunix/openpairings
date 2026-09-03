@@ -15,6 +15,30 @@ defmodule PairingsEngine.Application do
       {DNSCluster, query: Application.get_env(:pairings_engine, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: PairingsEngine.PubSub},
       PairingsEngine.Fide.Sync,
+      # Always supervised, even on a machine where nobody has the Belgian
+      # pack's rating-list sync switched on. Three reasons, in order of
+      # weight:
+      #
+      #   1. The switch is PER USER (`PairingsEngine.Features`) and this list
+      #      is machine-wide, decided once at boot. Two arbiters can share an
+      #      installation and disagree; a supervision tree cannot follow a
+      #      preference that changes while it is running, and restarting the
+      #      application to honour a checkbox is not a design.
+      #   2. It costs nothing idle. This GenServer is manual-trigger only -
+      #      no boot work, no timers, no polling (see its moduledoc). Until
+      #      something casts to it, it is one process holding a small struct.
+      #   3. `Sync.status/0` is a `GenServer.call` by name, so a conditional
+      #      child would turn every read of it into an exit, and every caller
+      #      would need a "not running" branch. More code, more ways to be
+      #      wrong, to save a few hundred bytes.
+      #
+      # Idle is therefore achieved at the ENTRANCES rather than here: the
+      # Connections page renders the Belgian panel, subscribes to this
+      # process's topic and accepts its two events only for an account with
+      # `bel_ratings_sync` on (see `PairingsEngineWeb.FideLive`, which also
+      # re-checks in each handler body because a `phx-click` payload is
+      # attacker-controlled). With every entrance shut, nothing ever casts to
+      # this, and it sits at `:idle` for the life of the node.
       PairingsEngine.Federations.BEL.Sync,
       PairingsEngine.Tools.Session,
       PairingsEngine.RateLimit,

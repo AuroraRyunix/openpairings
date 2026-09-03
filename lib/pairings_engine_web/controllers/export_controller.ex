@@ -36,6 +36,7 @@ defmodule PairingsEngineWeb.ExportController do
     TrfExport
   }
 
+  alias PairingsEngine.Features
   alias PairingsEngine.Federations.BEL.SwarExport
 
   @doc """
@@ -108,16 +109,31 @@ defmodule PairingsEngineWeb.ExportController do
   SWAR install.
   """
   def swar(conn, %{"id" => id}) do
-    tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
-    binary = SwarExport.export(tournament.id)
+    # Checked here as well as on the Export settings page that links to it.
+    # The page decides what is offered; a URL is typed, bookmarked and
+    # shared, so the route has to hold its own. `:forbidden` rather than
+    # `:not_found`: the tournament exists and is theirs, and the honest
+    # answer is that this download is switched off, not that it is missing.
+    #
+    # Nothing about the tournament changes either way - `SwarExport` reads,
+    # and never writes. See `PairingsEngine.Features`.
+    if Features.enabled?(conn.assigns.current_scope, "bel_swar_export") do
+      tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
+      binary = SwarExport.export(tournament.id)
 
-    conn
-    |> put_resp_content_type("application/octet-stream")
-    |> put_resp_header(
-      "content-disposition",
-      "attachment; filename=\"#{filename(tournament, "swar")}\""
-    )
-    |> send_resp(200, binary)
+      conn
+      |> put_resp_content_type("application/octet-stream")
+      |> put_resp_header(
+        "content-disposition",
+        "attachment; filename=\"#{filename(tournament, "swar")}\""
+      )
+      |> send_resp(200, binary)
+    else
+      conn
+      |> put_status(:forbidden)
+      |> put_view(html: PairingsEngineWeb.ErrorHTML)
+      |> text("SWAR export is switched off for your account. Turn it on under Features.")
+    end
   end
 
   @doc "GET /t/:id/export/json - full-fidelity JSON backup of one tournament."

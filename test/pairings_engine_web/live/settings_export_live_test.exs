@@ -16,6 +16,14 @@ defmodule PairingsEngineWeb.SettingsExportLiveTest do
 
   setup :register_and_log_in_user
 
+  # The `.swar` link belongs to the Belgian pack and is absent for an account
+  # that has not switched it on, so the one test that expects it says so with
+  # `@tag :enable_features`. Everything else here runs on a plain account,
+  # which is what the default is.
+  setup context do
+    if context[:enable_features], do: enable_federation_features(context), else: :ok
+  end
+
   defp create_tournament(scope, attrs \\ %{}) do
     {:ok, tournament} =
       Tournaments.create_tournament(
@@ -34,6 +42,7 @@ defmodule PairingsEngineWeb.SettingsExportLiveTest do
     assert html =~ ~s(href="/t/#{tournament.id}/settings/export")
   end
 
+  @tag :enable_features
   test "shows the JSON and .swar export links, and both still actually export", %{
     conn: conn,
     scope: scope

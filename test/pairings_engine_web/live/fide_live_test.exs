@@ -20,6 +20,12 @@ defmodule PairingsEngineWeb.FideLiveTest do
     {:ok, conn: log_in_user(conn, admin), user: admin}
   end
 
+  # The Belgian half of this page belongs to the pack and is absent for an
+  # account that has not switched it on. Most of the file is about that half,
+  # so it is enabled module-wide here; the "switched off" state has its own
+  # describe at the bottom, which overrides this by clearing it again.
+  setup :enable_federation_features
+
   test "renders every outbound connection under the 'Connections' heading", %{conn: conn} do
     {:ok, _lv, html} = live(conn, ~p"/fide")
 
@@ -65,9 +71,14 @@ defmodule PairingsEngineWeb.FideLiveTest do
       log_in_user(conn, user)
     end
 
+    # The extra account these build is a fresh one, so it starts with no
+    # federation features - and the tests that use it are about the ROLE
+    # gate, not the feature gate. Switch the pack on so the Belgian controls
+    # are on their page at all and the role check is what is being measured.
     defp role_conn(conn, role) do
       user = PairingsEngine.AccountsFixtures.user_fixture()
       {:ok, user} = Accounts.set_role(user.email, role)
+      {:ok, user} = PairingsEngine.Features.set_enabled(user, PairingsEngine.Features.keys())
       log_in_user(conn, user)
     end
 

@@ -362,6 +362,10 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
   ## ---------- import panels route on content, not on which box was used ----------
 
   describe "dropping a file into the 'wrong' import panel" do
+    # SWAR import belongs to the Belgian pack and is absent for an account
+    # that has not switched it on - see `PairingsEngine.Features`.
+    setup :enable_federation_features
+
     @describetag :swar_fixture
 
     # Both dropzones accept `:any` (neither format has a browser MIME type),
@@ -411,6 +415,10 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
   ## ---------- SWAR import: FIDE-match confirm step (task 2) ----------
 
   describe "SWAR import: confirm step for players SWAR has no FIDE id for" do
+    # SWAR import belongs to the Belgian pack and is absent for an account
+    # that has not switched it on - see `PairingsEngine.Features`.
+    setup :enable_federation_features
+
     # Every test here uploads test/fixtures/problemski.swar - a gitignored
     # personal-data fixture (see .gitignore); excluded automatically by
     # test_helper.exs when it isn't present.
@@ -558,6 +566,10 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
   end
 
   describe "SWAR import: re-uploading the same tournament warns instead of duplicating" do
+    # SWAR import belongs to the Belgian pack and is absent for an account
+    # that has not switched it on - see `PairingsEngine.Features`.
+    setup :enable_federation_features
+
     @describetag :swar_fixture
 
     defp upload_problemski(lv) do

@@ -259,6 +259,10 @@ defmodule PairingsEngineWeb.ExportControllerTest do
   ## ---------- GET /t/:id/export/swar ----------
 
   describe "swar/2" do
+    # The .swar download belongs to the Belgian pack and the route refuses it
+    # for an account that has not switched it on - see `PairingsEngine.Features`.
+    setup :enable_federation_features
+
     test "downloads a .swar binary that SwarImport.parse/1 can read back", %{
       conn: conn,
       scope: scope
