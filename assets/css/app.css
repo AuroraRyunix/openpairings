@@ -124,7 +124,7 @@
 /* Three tokens exist purely so a filled surface can be read:
    --accent-ink   the text colour for anything sitting ON --accent. It used to
                   be a hardcoded `white`, which is only legible over a DARK
-                  accent - and seven of the ten themes ship a light one, so
+                  accent - and seven of the eleven themes ship a light one, so
                   Nord's primary button measured 2.00:1 against WCAG's 4.5:1.
                   Each block picks whichever pole (near-black or white) scores
                   higher against its OWN accent, so the accent pickers can
@@ -206,6 +206,46 @@
   --color-base-200: #212823;
   --color-base-300: #2c342e;
   --color-base-content: #e9ebe6;
+}
+
+/* SLATE. Cool grey-blue, for a screen rather than a page: no warmth in the
+   surfaces at all, where the app's own dark theme is a green-tinted
+   charcoal. Carried over from OpenResults so the two apps that sit side by
+   side on a tournament desk are the same room. */
+[data-theme="slate"] {
+  --bg: #12161c;
+  --surface: #1a2029;
+  --border: #2b3542;
+  --text: #dde5ef;
+  --text-soft: #5a6675;
+  --accent: #7fb2e5;
+  --accent-hover: #9ac4ec;
+  --accent-soft: rgba(127, 178, 229, 0.18);
+  --accent-ink: #0d141b;
+  --accent-lift: #ffffff;
+  --danger: #e58b8b;
+  --danger-hover: #eba3a3;
+  --danger-ink: #0d141b;
+  --success: #7fd6a8;
+  --success-soft: rgba(127, 214, 168, 0.18);
+  --warn: #e5c07f;
+  --warn-soft: rgba(229, 192, 127, 0.18);
+  /* The palette answers "information" with the same blue it answers
+     "accent" with; kept rather than invented, since an info pill and an
+     accent pill never sit in the same row. */
+  --info: #7fb2e5;
+  --info-soft: rgba(127, 178, 229, 0.18);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+
+  --surface-alt: #1f2732;
+  --surface-hover: #242d39;
+  --scrim: rgba(0, 0, 0, 0.62);
+
+  color-scheme: dark;
+  --color-base-100: #1a2029;
+  --color-base-200: #1f2732;
+  --color-base-300: #242d39;
+  --color-base-content: #dde5ef;
 }
 
 /* Solarized Dark (Ethan Schoonover's palette: base03/02/01/0/1, blue/red
@@ -326,6 +366,102 @@
   --color-base-200: #f2f2f2;
   --color-base-300: #e8e8e8;
   --color-base-content: #000000;
+}
+
+/* PAPER. A warm off-white with a brick accent - the theme for a room with
+   the lights on and a printer in the corner, where the screen is trying to
+   look like the pairing sheet that comes off it. Shared with OpenResults.
+
+   Its inks are tinted whites rather than one #ffffff: a near-white carrying
+   a trace of the fill it sits on reads as part of the button instead of a
+   hole punched in it, and each still clears AA on its own colour. */
+[data-theme="paper"] {
+  --bg: #fbfbfa;
+  --surface: #ffffff;
+  --border: #dcdcd8;
+  --text: #1b1b1a;
+  --text-soft: #6a6a68;
+  --accent: #7a2e1e;
+  --accent-hover: #5f2317;
+  --accent-soft: #f4eae7;
+  --accent-ink: #fdf5f2;
+  --accent-lift: #10151b;
+  --danger: #9b2c2c;
+  --danger-hover: #7f2323;
+  --danger-ink: #fdf2f2;
+  --success: #2f5d43;
+  --success-soft: #e8efea;
+  --warn: #8a5a1e;
+  --warn-soft: #f4ece0;
+  --info: #2f5d7a;
+  --info-soft: #e7eef3;
+  --shadow: 0 1px 3px rgba(27, 27, 26, 0.09);
+
+  --surface-alt: #f6f6f4;
+  --surface-hover: #f1f1ef;
+  --scrim: rgba(27, 27, 26, 0.45);
+  --pe-bg-alt: var(--surface-alt);
+
+  color-scheme: light;
+  --color-base-100: #ffffff;
+  --color-base-200: #fbfbfa;
+  --color-base-300: #f0f0ed;
+  --color-base-content: #1b1b1a;
+}
+
+/* BOARD. Cream and board-green: the colours of the equipment, taken from
+   the daisyUI restatement in the KBSB database manager.
+
+   The six surface tokens come with the palette; the semantic four did not
+   exist anywhere and are chosen here, staying inside the same box of
+   pigments rather than importing a web-bright red or amber onto cream:
+
+     --success  a leaf green, lighter and warmer than the board green, so
+                "done" is legible as its own state next to an accent that is
+                already green. Reading it as the accent would be the failure
+                mode, and 20 points of lightness is what separates them.
+     --warn     boxwood ochre - the colour of the light pieces and of a
+                varnished clock, which is what "look at this" looks like in
+                a room full of wooden equipment.
+     --danger   the brick red of a fallen flag. Warm rather than scarlet, so
+                it belongs to the cream instead of shouting over it.
+     --info     the blue-grey of scoresheet ink: the only cool tone here, and
+                deliberately so - information is the one thing on the board
+                that did not come out of the box.
+
+   The inks are near-whites tinted toward their own fill, as in Paper. */
+[data-theme="board"] {
+  --bg: #f2ece0;
+  --surface: #fbf7ee;
+  --border: #d3c9b4;
+  --text: #1f2a22;
+  --text-soft: #5f6d61;
+  --accent: #2f5d43;
+  --accent-hover: #24503a;
+  --accent-soft: #e3ece5;
+  --accent-ink: #f4f9f5;
+  --accent-lift: #10151b;
+  --danger: #96342a;
+  --danger-hover: #7b2a22;
+  --danger-ink: #fdf4f2;
+  --success: #2f7d4f;
+  --success-soft: #e3eee4;
+  --warn: #8a5f14;
+  --warn-soft: #f2e9d5;
+  --info: #33607d;
+  --info-soft: #e3e9ef;
+  --shadow: 0 1px 3px rgba(63, 54, 36, 0.14);
+
+  --surface-alt: #f6f1e4;
+  --surface-hover: #eee7d7;
+  --scrim: rgba(31, 42, 34, 0.45);
+  --pe-bg-alt: var(--surface-alt);
+
+  color-scheme: light;
+  --color-base-100: #fbf7ee;
+  --color-base-200: #f2ece0;
+  --color-base-300: #e6dcc9;
+  --color-base-content: #1f2a22;
 }
 
 /* NOCTURNE. The only theme here that is not somebody else's palette - a
@@ -459,14 +595,14 @@
 [data-accent="cyan"] { --accent: #0e7490; --accent-hover: #0c5c74; --accent-soft: #e0f6fa; --accent-ink: #ffffff; }
 [data-accent="fuchsia"] { --accent: #a21caf; --accent-hover: #86198f; --accent-soft: #fbe6f8; --accent-ink: #ffffff; }
 
-[data-accent="blue"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="catppuccin"], [data-theme="nocturne"]) { --accent: #5b9bff; --accent-hover: #74acff; --accent-soft: rgba(91, 155, 255, 0.16); --accent-ink: #10151b; }
-[data-accent="teal"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="catppuccin"], [data-theme="nocturne"]) { --accent: #2dd4bf; --accent-hover: #4de0cd; --accent-soft: rgba(45, 212, 191, 0.16); --accent-ink: #10151b; }
-[data-accent="violet"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="catppuccin"], [data-theme="nocturne"]) { --accent: #a78bfa; --accent-hover: #b9a4fb; --accent-soft: rgba(167, 139, 250, 0.18); --accent-ink: #10151b; }
-[data-accent="rose"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="catppuccin"], [data-theme="nocturne"]) { --accent: #fb7185; --accent-hover: #fc8b9b; --accent-soft: rgba(251, 113, 133, 0.16); --accent-ink: #10151b; }
-[data-accent="slate"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="catppuccin"], [data-theme="nocturne"]) { --accent: #94a3b8; --accent-hover: #aab6c7; --accent-soft: rgba(148, 163, 184, 0.18); --accent-ink: #10151b; }
-[data-accent="indigo"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="catppuccin"], [data-theme="nocturne"]) { --accent: #818cf8; --accent-hover: #93a2fb; --accent-soft: rgba(129, 140, 248, 0.18); --accent-ink: #10151b; }
-[data-accent="cyan"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="catppuccin"], [data-theme="nocturne"]) { --accent: #22d3ee; --accent-hover: #4dd8ef; --accent-soft: rgba(34, 211, 238, 0.16); --accent-ink: #10151b; }
-[data-accent="fuchsia"]:where([data-theme="dark"], [data-theme="solarized"], [data-theme="nord"], [data-theme="catppuccin"], [data-theme="nocturne"]) { --accent: #e879f9; --accent-hover: #ee94fa; --accent-soft: rgba(232, 121, 249, 0.18); --accent-ink: #10151b; }
+[data-accent="blue"]:where([data-theme="dark"], [data-theme="slate"], [data-theme="solarized"], [data-theme="nord"], [data-theme="catppuccin"], [data-theme="nocturne"]) { --accent: #5b9bff; --accent-hover: #74acff; --accent-soft: rgba(91, 155, 255, 0.16); --accent-ink: #10151b; }
+[data-accent="teal"]:where([data-theme="dark"], [data-theme="slate"], [data-theme="solarized"], [data-theme="nord"], [data-theme="catppuccin"], [data-theme="nocturne"]) { --accent: #2dd4bf; --accent-hover: #4de0cd; --accent-soft: rgba(45, 212, 191, 0.16); --accent-ink: #10151b; }
+[data-accent="violet"]:where([data-theme="dark"], [data-theme="slate"], [data-theme="solarized"], [data-theme="nord"], [data-theme="catppuccin"], [data-theme="nocturne"]) { --accent: #a78bfa; --accent-hover: #b9a4fb; --accent-soft: rgba(167, 139, 250, 0.18); --accent-ink: #10151b; }
+[data-accent="rose"]:where([data-theme="dark"], [data-theme="slate"], [data-theme="solarized"], [data-theme="nord"], [data-theme="catppuccin"], [data-theme="nocturne"]) { --accent: #fb7185; --accent-hover: #fc8b9b; --accent-soft: rgba(251, 113, 133, 0.16); --accent-ink: #10151b; }
+[data-accent="slate"]:where([data-theme="dark"], [data-theme="slate"], [data-theme="solarized"], [data-theme="nord"], [data-theme="catppuccin"], [data-theme="nocturne"]) { --accent: #94a3b8; --accent-hover: #aab6c7; --accent-soft: rgba(148, 163, 184, 0.18); --accent-ink: #10151b; }
+[data-accent="indigo"]:where([data-theme="dark"], [data-theme="slate"], [data-theme="solarized"], [data-theme="nord"], [data-theme="catppuccin"], [data-theme="nocturne"]) { --accent: #818cf8; --accent-hover: #93a2fb; --accent-soft: rgba(129, 140, 248, 0.18); --accent-ink: #10151b; }
+[data-accent="cyan"]:where([data-theme="dark"], [data-theme="slate"], [data-theme="solarized"], [data-theme="nord"], [data-theme="catppuccin"], [data-theme="nocturne"]) { --accent: #22d3ee; --accent-hover: #4dd8ef; --accent-soft: rgba(34, 211, 238, 0.16); --accent-ink: #10151b; }
+[data-accent="fuchsia"]:where([data-theme="dark"], [data-theme="slate"], [data-theme="solarized"], [data-theme="nord"], [data-theme="catppuccin"], [data-theme="nocturne"]) { --accent: #e879f9; --accent-hover: #ee94fa; --accent-soft: rgba(232, 121, 249, 0.18); --accent-ink: #10151b; }
 
 html { background: var(--bg); }
 
@@ -746,10 +882,13 @@ html[data-accent="fuchsia"] .accent-swatch[data-accent-opt="fuchsia"] {
 html[data-theme-source="system"] .theme-picker-item[data-theme-opt="system"],
 html[data-theme-source="user"][data-theme="light"] .theme-picker-item[data-theme-opt="light"],
 html[data-theme-source="user"][data-theme="dark"] .theme-picker-item[data-theme-opt="dark"],
+html[data-theme-source="user"][data-theme="slate"] .theme-picker-item[data-theme-opt="slate"],
 html[data-theme-source="user"][data-theme="solarized"] .theme-picker-item[data-theme-opt="solarized"],
 html[data-theme-source="user"][data-theme="nord"] .theme-picker-item[data-theme-opt="nord"],
 html[data-theme-source="user"][data-theme="catppuccin"] .theme-picker-item[data-theme-opt="catppuccin"],
 html[data-theme-source="user"][data-theme="solarized-light"] .theme-picker-item[data-theme-opt="solarized-light"],
+html[data-theme-source="user"][data-theme="paper"] .theme-picker-item[data-theme-opt="paper"],
+html[data-theme-source="user"][data-theme="board"] .theme-picker-item[data-theme-opt="board"],
 html[data-theme-source="user"][data-theme="contrast"] .theme-picker-item[data-theme-opt="contrast"],
 html[data-theme-source="user"][data-theme="nocturne"] .theme-picker-item[data-theme-opt="nocturne"] {
   background: var(--accent-soft);
@@ -1095,8 +1234,8 @@ button.pe-btn, .pe-btn {
 
 .pe-btn.danger { background: var(--danger); border-color: var(--danger); color: var(--danger-ink); }
 /* The hover used to be `color-mix(--danger 82%, black)`. That was the right
-   idea against a fixed white text, but --danger-ink is near-black in six of
-   the ten themes, and darkening the fill under a near-black ink walks the
+   idea against a fixed white text, but --danger-ink is near-black in five of
+   the eleven themes, and darkening the fill under a near-black ink walks the
    contrast DOWN - one theme's hover measured 3.17:1 while its resting state
    measured 5.79. So each theme names its own --danger-hover, moving away
    from its own ink rather than always toward black; every hover now scores
