@@ -4,11 +4,11 @@ defmodule PairingsEngineWeb.ThemeTokensTest do
   @moduledoc """
   The stylesheet, checked as data.
 
-  Ten themes are offered, and components kept being written against a colour
-  literal instead of a token - so they looked right in the two themes their
-  author had open and wrong in the other eight. Nord renders `#d97706` as a
-  mustard box in the middle of an arctic palette; nobody saw it, because
-  nobody was running Nord.
+  Seven themes are offered, and components kept being written against a
+  colour literal instead of a token - so they looked right in the two themes
+  their author had open and wrong in the rest. One theme rendered `#d97706`
+  as a mustard box in the middle of a palette that never used it; nobody saw
+  it, because nobody was running that theme.
 
   These read the stylesheet rather than the rendered page, so they cost
   nothing, cannot flake, and fail on the line that introduced the problem.
@@ -47,7 +47,7 @@ html { background:") do
 
   test "every theme redefines the tokens the other themes all redefine" do
     themes = theme_blocks()
-    assert length(themes) >= 9, "expected the full set of themes, found #{length(themes)}"
+    assert length(themes) >= 6, "expected the full set of themes, found #{length(themes)}"
 
     # The themes are their own specification. A `[data-theme]` block sits on
     # the same element as `:root`, so anything it omits simply inherits -
@@ -56,8 +56,8 @@ html { background:") do
     # redefines the surface but forgets `--warn` puts the default palette's
     # amber on its own background, which is this bug exactly.
     #
-    # So the bar is what the other themes agree on - a token eight of ten of
-    # them override is one the ninth cannot afford to skip.
+    # So the bar is what the other themes agree on - a token four-fifths of
+    # them override is one the rest cannot afford to skip.
     threshold = div(length(themes) * 4, 5)
 
     required =
@@ -119,7 +119,7 @@ html { background:") do
   end
 
   # Literal by design: the two chess seat colours (a white piece is white in
-  # Nord too) and the signed-out marketing panel, which is one deliberate
+  # every theme) and the signed-out marketing panel, which is one deliberate
   # brand look rather than a themed surface.
   @literal_by_design ~w(#f7f3e8 #1c1a15 #3f8060 #2e5e44 #1d4030 #8fe0b4)
 
@@ -210,8 +210,8 @@ html { background:") do
 
     # A `@plugin` block is daisyUI's own configuration, not a theme block. A
     # token defined ONLY there - `--color-warning`, `--color-success` - is a
-    # fixed oklch in all ten themes, which is the whole bug: Nord's arctic
-    # surface with daisyUI's amber sitting on it.
+    # fixed oklch in every theme, which is the whole bug: a cold, muted
+    # surface with daisyUI's fixed amber sitting on it regardless.
     values = definitions()
     inline = inline_styles()
 
@@ -344,9 +344,10 @@ html { background:") do
   # ask whether it can be READ, and `.pe-btn.primary` was `color: white` over
   # `var(--accent)` - a token background under a literal foreground, which each
   # test found unremarkable on its own. Against the ten themes' default accents
-  # that measured 2.00:1 (Nord) to 7.78:1 (high contrast), and against the nine
-  # accents the picker offers it never got past 2.98:1. WCAG AA wants 4.5:1 for
-  # body text, so eight of ten themes and every accent override failed.
+  # that measured 2.00:1 (one theme) to 7.78:1 (high contrast), and against the
+  # nine accents the picker offers it never got past 2.98:1. WCAG AA wants
+  # 4.5:1 for body text, so eight of ten themes and every accent override
+  # failed.
   #
   # The fix is a per-block `--accent-ink` (and `--danger-ink`), and the point of
   # these tests is that the next theme cannot be added without one.
@@ -454,7 +455,7 @@ html { background:") do
 
   test "a filled accent button's ink clears WCAG AA on every theme's own accent" do
     themes = themes()
-    assert length(themes) >= 10, "expected :root plus nine themes, found #{length(themes)}"
+    assert length(themes) >= 7, "expected :root plus six themes, found #{length(themes)}"
 
     for {theme, values} <- themes do
       accent = Map.fetch!(values, "--accent")
@@ -462,8 +463,8 @@ html { background:") do
       hover = Map.fetch!(values, "--accent-hover")
 
       # Resting and hover states both, because the hover is a different fill
-      # under the SAME ink: Solarized Light's accent needs a near-black ink,
-      # and a hover that darkened the fill dropped it to 3.35:1.
+      # under the SAME ink: one retired theme's accent needed a near-black
+      # ink, and a hover that darkened the fill dropped it to 3.35:1.
       for {state, background} <- [{"rest", accent}, {"hover", hover}] do
         measured = contrast(background, ink)
 
@@ -516,9 +517,10 @@ html { background:") do
 
   # `.pe-btn.tonal` is accent-derived text over a wash of the accent itself, so
   # its readability is structural rather than a value somebody picked - which
-  # is exactly why it needs measuring. At full accent strength the Nord surface
-  # under an indigo accent came to 2.89:1. The percentages are read out of the
-  # rule rather than repeated here, so tuning the tint re-runs this check.
+  # is exactly why it needs measuring. At full accent strength one theme's
+  # surface under its own accent came to 2.89:1. The percentages are read out
+  # of the rule rather than repeated here, so tuning the tint re-runs this
+  # check.
   defp tonal_rule(selector) do
     case Regex.run(~r/#{Regex.escape(selector)} \{(.*?)\n\}/s, components()) do
       [_, body] -> body
@@ -579,8 +581,8 @@ html { background:") do
         Map.has_key?(values, "--accent")
       end)
 
-    assert length(blocks) >= 26,
-           "found only #{length(blocks)} blocks defining --accent - :root, nine themes " <>
+    assert length(blocks) >= 23,
+           "found only #{length(blocks)} blocks defining --accent - :root, six themes " <>
              "and sixteen accent overrides were expected"
 
     missing =
