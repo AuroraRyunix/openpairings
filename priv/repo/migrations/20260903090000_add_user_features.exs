@@ -50,6 +50,13 @@ defmodule PairingsEngine.Repo.Migrations.AddUserFeatures do
       application code is a migration that changes meaning the next time
       that code is edited, and this one has to keep meaning what it meant on
       the day it ran.
+    * **Everyone, if `kbsb_players` has a single row in it.** The member list
+      does not arrive by accident - somebody ran the sync or imported a list
+      file - and it is the evidence that covers the case the first two rules
+      miss: an arbiter's laptop, where the pack was used for the lookup and
+      the club update but no tournament ever came from a `.swar` file and no
+      API key was ever set. Without this they would open the binary after an
+      upgrade and find the buttons gone.
 
   `down` drops the column, which is the only reversal available and loses
   nothing that cannot be re-ticked on the settings page.
@@ -81,11 +88,22 @@ defmodule PairingsEngine.Repo.Migrations.AddUserFeatures do
   end
 
   defp grandfathered_user_ids do
-    if kbsb_api_configured?() do
+    if machine_uses_the_pack?() do
       from(u in "users", select: u.id) |> repo().all()
     else
       swar_owner_ids() ++ swar_collaborator_ids()
     end
+  end
+
+  # Two machine-wide signals, either of which means this installation is
+  # already a Belgian one and every account on it should keep what it had.
+  defp machine_uses_the_pack?, do: kbsb_api_configured?() or member_list_present?()
+
+  # `kbsb_players`' primary key is `national_id`, not an `id` - see
+  # `CreateKbsbPlayers`. `limit: 1` because the question is "any at all", and
+  # a full count of ~40,000 rows to answer it would be silly.
+  defp member_list_present? do
+    from(m in "kbsb_players", select: m.national_id, limit: 1) |> repo().all() != []
   end
 
   defp swar_owner_ids do
