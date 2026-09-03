@@ -5,13 +5,21 @@ See [`docs/features.md`](docs/features.md) for what's already shipped.
 
 > **A second whole-codebase sweep ran on 2026-09-01** - 33 items, in
 > [docs/sweep-2026-09-01.md](docs/sweep-2026-09-01.md): 3 High, 14 Medium,
-> 9 Low, 3 leads, 4 optimisations, none fixed yet. The three to read first:
-> a stale substitution dialog can seat one player on two boards; one form
-> field on the public tools page builds gigabytes of XML; and the deploy
-> script prints the box's secrets on every redeploy. Every claim was
-> checked against the source, and the six dynamic ones reproduced with a
-> test before filing. The runtime layer (OTP, Phoenix, LiveView, SQLite)
-> was checked against 2026 advisories and is clean.
+> 9 Low, 3 leads, 4 optimisations. **All fixed on 2026-09-02** except two
+> leads left deliberately - a dead `matches` table, and whether a CI runner
+> image ships a populated keyring. Every claim was checked against the
+> source before it was filed, and the six whose mechanism was dynamic were
+> reproduced with a test first. The runtime layer (OTP, Phoenix, LiveView,
+> SQLite) was checked against 2026 advisories and is clean; the box runs
+> OTP 27.3.4.16, past every advisory on that line.
+>
+> The deploy-script half of it - secrets printed on every redeploy, the
+> service running as root, an SSH client that trusted any host key - is
+> fixed in the script but **only takes effect on the next deploy**, and the
+> secrets already printed still have to be rotated by hand.
+>
+> Ainalrami's half is in that repository, shipped as **v0.15.0**; this app
+> pins it.
 >
 > **A whole-codebase sweep ran on 2026-08-26** - 78 items, in
 > [docs/sweep-2026-08-26.md](docs/sweep-2026-08-26.md). All 12 confirmed
