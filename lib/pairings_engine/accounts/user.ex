@@ -24,6 +24,13 @@ defmodule PairingsEngine.Accounts.User do
     field :keycloak_sub, :string
     field :role, :string, default: "owner"
 
+    # Which optional national-federation features this account has switched
+    # on - see `PairingsEngine.Features`, which owns the catalogue, the
+    # changeset and the rule that these hide entrances and never change a
+    # stored value. Empty is the default and means "no federation pack",
+    # which is what an arbiter outside Belgium should see.
+    field :features, {:array, :string}, default: []
+
     timestamps(type: :utc_datetime)
   end
 

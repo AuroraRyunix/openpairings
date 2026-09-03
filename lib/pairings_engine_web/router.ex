@@ -201,6 +201,14 @@ defmodule PairingsEngineWeb.Router do
       ] do
       live "/users/settings", UserLive.Settings, :edit
       live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
+
+      # NOT under `/users/settings`, and deliberately not inside
+      # `UserLive.Settings`: that LiveView is `require_sudo_mode`, and
+      # re-typing a password to tick a checkbox that hides five buttons is a
+      # cost with nothing on the other side of it. Ordinary authentication,
+      # in the same `live_session` as the rest of the account pages. See
+      # `PairingsEngineWeb.UserLive.Features`.
+      live "/users/features", UserLive.Features
     end
 
     post "/users/update-password", UserSessionController, :update_password

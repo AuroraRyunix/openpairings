@@ -205,6 +205,15 @@ defmodule PairingsEngineWeb.Layouts do
           <.link :if={!Authz.local_mode?()} navigate={~p"/users/settings"}>
             {gettext("Settings")}
           </.link>
+          <%!-- Shown on a local install too, unlike the account settings link
+                above. The national-federation switches are the one account
+                preference an arbiter running the binary on their own laptop
+                genuinely needs - "I am not in Belgium, take those buttons
+                away" - and there is nothing on that page to confirm by
+                email or to sign in for. --%>
+          <.link navigate={~p"/users/features"} class={tab_class(@active == "features")}>
+            {gettext("Features")}
+          </.link>
           <%!-- No log out on a local install. There is no second account to
                 log in as, and the next request would sign the same owner
                 straight back in - a control that visibly does nothing is
