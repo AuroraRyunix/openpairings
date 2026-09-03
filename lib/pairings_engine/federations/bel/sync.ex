@@ -282,6 +282,25 @@ defmodule PairingsEngine.Federations.BEL.Sync do
     Repo.transaction(
       fn ->
         # Full replace: the imported list is authoritative for the rows it contains.
+        #
+        # Clear the FTS index FIRST, in one statement. The delete trigger on
+        # `kbsb_players` runs
+        #
+        #     DELETE FROM kbsb_players_fts WHERE national_id = old.national_id
+        #
+        # and `kbsb_players_fts` is an FTS5 virtual table, which cannot carry
+        # an index - so that WHERE is a full scan of the index, once per
+        # deleted row. Deleting the whole roster was therefore quadratic.
+        # Emptying the index up front leaves each trigger scanning an empty
+        # table instead of a full one.
+        #
+        # Measured (2026-09-03): 1k/2k/4k rows took 141/538/2136 ms before -
+        # four times the cost for twice the rows - and 3.8/8.4/14.7 ms after.
+        # Extrapolated to the current ~36k roster the old path needed about
+        # 171 s, against a 180 s watchdog: that is why this started FAILING
+        # at "Importing players... 0 of N" rather than merely being slow. It
+        # had been getting slower with every new member for weeks.
+        Repo.query!("DELETE FROM kbsb_players_fts")
         Repo.query!("DELETE FROM kbsb_players")
 
         rows

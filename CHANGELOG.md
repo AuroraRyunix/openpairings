@@ -14,6 +14,17 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.22.0] - 2026-09-03
+
+- **[Fix]** The Belgian rating list sync stopped part-way, showing
+  "Importing players... 0 of 35849" and never moving. Clearing the old roster
+  fired one full-text-index scan per deleted player, so the cost grew with the
+  square of the roster: measured at 141 ms for 1,000 players, 538 ms for
+  2,000, and 2,136 ms for 4,000. At the current ~36,000 members that came to
+  roughly 171 seconds, just past the 180-second watchdog that gives up on a
+  stalled import - so a sync that had been quietly slowing for weeks began
+  failing outright. The index is now emptied in a single statement first:
+  the same clear-out takes **145 ms**. A test guards the cost.
 ## [0.21.0] - 2026-09-02
 
 ### Added
