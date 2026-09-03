@@ -14,7 +14,9 @@ A tournament is **live in exactly one place at a time**, like a book checked
 out of a library. Handing it off locks the copy left behind - read-only,
 with a banner on every page saying where it went - and downloads a file.
 Importing that file elsewhere makes the tournament live there. Giving it
-back produces a second file that unlocks the original.
+back produces a second file that **replaces the original's contents with
+whatever was played on the way, then unlocks it** - one transaction, so it
+is never partly done.
 
 **Nothing is ever merged, and that is not a limitation to be fixed later.**
 Two copies that had both gone on accepting writes could not be reconciled
@@ -29,8 +31,8 @@ time, rather than trying to sort out the mess afterwards.
       A                                                   B
       hand off   -- lock A, produce a file -------->      receive        (B live)
                                                           ...event runs...
-      take back  <------- returning file, a 2nd file --   give back      (lock B)
-      (A live)
+      take back  <-- returning file: the event, and the key --  give back      (lock B)
+      (A live, and holding what was played on B)
 ```
 
 ## What travels, and what does not
@@ -192,25 +194,84 @@ hand-off is not symmetric - only one side is currently locked:
   destination is asked for - a return goes back where the tournament came
   from, read off the row itself.
 - **Bring it back**, on the machine that originally handed the tournament
-  away, is where the returning file is uploaded to unlock it again.
-  `PairingsEngine.Handoff.release/2` compares the file's token against the
-  one minted at hand-off time (constant-time), and clears the lock on a
-  match.
+  away, is where the returning file is uploaded - and it does more than
+  unlock. `PairingsEngine.Handoff.release/3` **replaces this copy's
+  contents with what came back, then unlocks it, in one transaction**: all
+  of it or none of it. That is safe *because* the source was read-only for
+  the whole trip - `ensure_writable/1` refused every write here while
+  `handed_off_at` was set - so it cannot have diverged from what went out,
+  and replacing it wholesale loses nothing.
 
-**This does not bring the results back.** Releasing the lock is *all* it
-does: the copy that was left behind is frozen at the moment it was handed
-off, and unlocking it does not know about anything played on the other
-machine since. Reconciling the two - getting the newer rounds onto the copy
-that is now writable again - means importing the returning file a *second*
-time, as an ordinary backup, and deciding by hand which rows are the real
-ones. The UI says as much before the upload, deliberately, because "unlocked"
-and "caught up" read as the same word to someone in a hurry and are not the
-same thing.
+  The order inside that transaction matters:
+
+  1. A **pinned restore point** of the current, frozen state is captured
+     first, before anything else is touched - the one way an arbiter who
+     applies the wrong file, or who simply wants to see what was here
+     before, gets it back. Unlike every other snapshot in the app, this one
+     is *not* fire-and-forget: if it cannot be written, the whole release is
+     refused outright with `{:error, :no_restore_point}` rather than
+     proceeding without it. It is the only copy of what is about to be
+     destroyed, and refusing costs the arbiter nothing - the file is still
+     in their hands and this copy is still locked.
+  2. The frozen contents are wiped and the returning envelope's tournament
+     is imported into the row that is already there
+     (`PairingsEngine.Snapshots.wipe_contents/1` then
+     `PairingsEngine.TournamentImport.restore_into!/2` - the same pair a
+     restore point uses to bring an *earlier* state of this same tournament
+     back, just fed a different source here).
+  3. `PairingsEngine.Tournaments.take_back/2` unlocks last, so the copy only
+     becomes writable once its contents are already correct, never before.
+     A bad token discovered here rolls back everything, contents included -
+     the source stays locked and untouched.
+
+  **Three things have to agree before any of that happens**, because the
+  token only authenticates the *envelope* - it says nothing about the
+  tournament sitting inside it, which is a separate block of the same file:
+
+  - the envelope's echoed `handoff.returning_to.handed_off_at` must match
+    this row's own `handed_off_at` - which departure this file claims to be
+    returning from;
+  - the payload's own audit trail must contain the `handoff.handed_off` row
+    for that exact instant and destination - written by *this* machine
+    before the outbound file was ever built, so it travels inside the
+    tournament entry itself rather than the envelope wrapper. This is what
+    binds the *body* to the claim: a returning file spliced together from
+    two different exports cannot carry a departure row it was never present
+    for;
+  - and the token itself, compared constant-time, same as before.
+
+  A file that fails one of the first two is refused as
+  `{:error, :not_this_tournament}`; a bad token is `{:error, :bad_token}` -
+  either way nothing is replaced.
+
+**What still does not come home: the far side's audit trail.** The results
+return; the record of who typed them over there stays in the file.
+`TournamentImport.restore_into!/2` writes contents, not history, and
+re-inserting the returning file's trail here would duplicate the prefix
+that never left this machine in the first place. The departure and the
+release are both on *this* copy's own trail already; the file itself
+remains the only record of what happened on the other machine, for as long
+as it's kept. That is a real limit, not a footnote.
+
+**Releasing is not idempotent.** Applying the same returning file twice
+fails the second time (`{:error, :bad_token}`), because the first attempt
+already erased the thing the token is compared against - deliberately: by
+the time somebody applies a file twice, the tournament may be legitimately
+checked out somewhere else entirely, and silently succeeding would unlock a
+copy that is in active use elsewhere.
+
+**A force-unlocked tournament refuses a returning file outright**
+(`{:error, :force_unlocked}`). See "The break-glass unlock" below for why:
+after a break-glass, this copy is live and can have diverged, so both
+copies may hold real work and replacing this one wholesale would destroy
+some of it rather than recover it. The refusal names the safe route
+instead: import the file as a separate tournament under "Import backup
+(JSON)" and carry the missing results across by hand.
 
 **Using the wrong file for a return is a mistake worth catching.** The
 outbound (`-handoff.json`) and returning (`-return.json`) files can look
-identical in a downloads folder, and only one of them unlocks anything.
-Feeding the *outbound* file back into "Bring it back" is refused
+identical in a downloads folder, and only one of them unlocks or replaces
+anything. Feeding the *outbound* file back into "Bring it back" is refused
 (`{:error, :not_a_return}`) rather than accepted, because it carries the
 same token and would otherwise unlock the source while the other machine is
 still running the event on its own live copy - exactly the two-live-copies
@@ -251,12 +312,27 @@ Rules, enforced in `PairingsEngine.Tournaments.force_take_back/2`:
   `{:error, :not_handed_off}` otherwise, so the button cannot be pressed on
   a live tournament to "see what it does".
 - **Logged distinctly from an ordinary take-back**, as
-  `"tournament.handoff_forced"` rather than `"handoff.released"`, in the
-  same transaction as the unlock itself. When two divergent copies of a
-  tournament surface months later, this row is the only record of which one
-  was forced open - and it names who made that call, deliberately, since the
-  decision to declare a copy lost has to be a person's and has to be
-  answerable for later.
+  `"tournament.handoff_forced"` (`Tournaments.forced_unlock_action/0`)
+  rather than `"handoff.released"`, in the same transaction as the unlock
+  itself. When two divergent copies of a tournament surface months later,
+  this row is the only record of which one was forced open - and it names
+  who made that call, deliberately, since the decision to declare a copy
+  lost has to be a person's and has to be answerable for later. The token
+  itself is dead by then and is deliberately not written to the row, but a
+  one-way digest of it is (`Tournaments.handoff_token_digest/1`, under
+  `"was_handoff_token"`) - useless as a key, but the exact fingerprint of
+  *which* trip was broken open.
+
+**A forced unlock is not a permanent mark on the tournament - it marks one
+trip.** Try to bring the tournament back from the copy this machine broke
+the lock on, and the file is refused (`{:error, :force_unlocked}`, see
+"Giving it back, and bringing it back" above) - both copies may hold real
+work by then, and nothing here may choose between them. But if this copy is
+handed off again afterwards, that second trip has been read-only for its
+own entire length, so *that* trip's returning file applies normally when it
+comes back; the digest is how `release/3` tells the abandoned trip from the
+clean one that came after it, rather than refusing every return this
+tournament ever produces again.
 
 **When it is the right answer:** the other machine is genuinely gone -
 stolen, wiped, factory-reset, the laptop is at the bottom of a canal - and
@@ -276,15 +352,21 @@ prevent, except now by the owner's own hand rather than by a bug.
 | Receive / take in | *(upload, no route of its own - `receive_handoff_file` on the Tournaments LiveView)* | - |
 
 The kind is in the filename on purpose: the two files look identical in a
-downloads folder otherwise, and only one of them unlocks anything.
+downloads folder otherwise, and only one of them unlocks or replaces
+anything.
 
 ## What this is not, honestly
 
 Four things worth knowing before trusting this feature with a real event:
 
-- **Releasing does not bring the results back** (see above) - the sharpest
-  rough edge in the design, and the UI says so before the upload rather than
-  after.
+- **Releasing replaces what is here, and the audit trail is the exception**
+  (see above). Bringing a tournament back applies the returning file's
+  contents and then unlocks, in one transaction - safe only because the
+  source was read-only for the whole trip and so cannot have diverged. What
+  does not come back is the far side's own audit trail: the results return,
+  the record of who typed them over there stays in the file. A
+  force-unlocked trip is the one case that refuses outright instead, because
+  after a break-glass both copies can hold real work.
 - **Nothing verifies the two ends are the machines they claim to be.** The
   "where is it going" / origin text is free-form and descriptive only; the
   token proves only that whoever holds it once held the file.
