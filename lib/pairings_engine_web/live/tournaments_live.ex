@@ -864,7 +864,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
   defp handoff_error(:not_a_handoff),
     do:
       gettext(
-        "That is not a hand-off file. An ordinary backup carries no key, so it cannot make this copy live or unlock anything - import it under \"Import backup\" instead."
+        "That is not a hand-off file. An ordinary backup carries no key, so it cannot make this copy live or unlock anything - import it under \"Import backup (JSON)\" instead."
       )
 
   defp handoff_error(:not_a_return),
