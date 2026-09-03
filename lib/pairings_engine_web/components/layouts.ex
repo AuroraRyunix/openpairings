@@ -477,11 +477,7 @@ defmodule PairingsEngineWeb.Layouts do
     {"light", "hero-sun-micro", "Light"},
     {"dark", "hero-moon-micro", "Dark"},
     {"slate", "hero-window-micro", "Slate"},
-    {"solarized", "hero-sparkles-micro", "Solarized Dark"},
-    {"nord", "hero-cloud-micro", "Nord"},
-    {"catppuccin", "hero-heart-micro", "Catppuccin Mocha"},
-    {"nocturne", "hero-moon-micro", "Nocturne"},
-    {"solarized-light", "hero-sun-micro", "Solarized Light"},
+    {"mocha", "hero-heart-micro", "Mocha"},
     {"paper", "hero-document-micro", "Paper"},
     {"board", "hero-squares-2x2-micro", "Board"},
     {"contrast", "hero-eye-micro", "High Contrast"}
@@ -528,9 +524,8 @@ defmodule PairingsEngineWeb.Layouts do
   end
 
   @doc """
-  A compact theme switch (System / Light / Dark / Slate / Solarized Dark /
-  Nord / Catppuccin Mocha / Nocturne / Solarized Light / Paper / Board /
-  High Contrast) for the top bar,
+  A compact theme switch (System / Light / Dark / Slate / Mocha / Paper /
+  Board / High Contrast) for the top bar,
   styled with the app's own design tokens so it matches the rest of the UI in
   both themes. The active option is highlighted purely from CSS, keyed off the
   `data-theme` / `data-theme-source` attributes the inline script in
