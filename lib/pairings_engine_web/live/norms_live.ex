@@ -1165,7 +1165,7 @@ defmodule PairingsEngineWeb.NormsLive do
 
             <div class="actions">
               <a
-                class="pe-btn primary"
+                class="pe-btn tonal"
                 href={
                   combine_href(
                     ~p"/t/#{@tournament.id}/norms/it3",
