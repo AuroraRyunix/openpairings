@@ -41,7 +41,7 @@ See [`docs/features.md`](docs/features.md) for what's already shipped.
 
 ## Everything that is open, in one place
 
-### publish_mode has two different defaults - open 2026-09-04
+### publish_mode has two different defaults - decided 2026-09-04
 
 `priv/repo/migrations/20260813150000_add_pairing_publish_delay.exs` sets the
 column default to `"immediate"`, and its own comment says that is to
@@ -56,9 +56,14 @@ That means the per-round publish controls are visible by default (they are
 hidden only in `"immediate"`), and, since 2026-09-04, that the live/projector
 view starts out saying a round is paired but not published.
 
-Neither default is obviously wrong - manual is the safer one - but the two
-disagreeing is. Decide which was intended and make them match, rather than
-leaving a migration whose stated purpose the schema quietly overrides.
+**Decided: manual is correct and stays.** Publishing a round should be an
+act, not something that happens because a round got paired - and the
+projector view now depends on that being true.
+
+No migration. Changing a column default in SQLite means rebuilding the
+table, and this one is unreachable: tournaments are created and restored
+through changesets, and nothing writes that row in raw SQL. The schema
+field carries the explanation so nobody closes the gap from the wrong end.
 
 
 Last reconciled **2026-08-30**. This section is the index; the detail lives

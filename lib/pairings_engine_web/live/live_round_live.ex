@@ -341,8 +341,8 @@ defmodule PairingsEngineWeb.LiveRoundLive do
     # exists and this is a no-op. Do NOT assume that is the common case: the
     # migration sets the column default to "immediate", but the schema's own
     # default is "manual" and Ecto sends struct defaults on insert, so every
-    # tournament created through the app is actually "manual". The two
-    # disagree, which is worth fixing on its own - see the note in TODO.md.
+    # tournament created through the app is actually "manual", which is the
+    # intended default - see the note on the field itself.
     paired = Engine.paired_rounds_count(tournament.id)
     shown = Tournaments.latest_published_round_number(tournament)
 

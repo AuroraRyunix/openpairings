@@ -364,6 +364,21 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # `registration_open` above, these ARE cast by the ordinary changeset -
     # this is an ordinary settings choice on the Options page, not a
     # separate toggle-action.
+    # "manual" is the intended default and the one that actually applies.
+    #
+    # `20260813150000_add_pairing_publish_delay.exs` sets the COLUMN default to
+    # "immediate" and says in its own comment that this preserves existing
+    # behaviour. It does not: Ecto sends struct defaults on insert, so this
+    # line wins for every tournament created through the app, and for restored
+    # ones too (`TournamentImport` inserts through a changeset). Nothing writes
+    # a tournament row in raw SQL, so the column default is unreachable.
+    #
+    # Do NOT "fix" the disagreement by changing this to "immediate". Manual is
+    # deliberate: publishing a round should be an act, not something that
+    # happens because a round got paired. The stale column default is the half
+    # that is wrong, and it costs nothing because nothing can reach it -
+    # changing a column default in SQLite means rebuilding the table, which is
+    # not worth doing for a value that never applies.
     field :publish_mode, :string, default: "manual"
     field :publish_delay_minutes, :integer, default: 0
 
