@@ -3299,6 +3299,91 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 
 .mobile-filter-btn:hover { background: var(--surface-hover); }
 
+/* ---- Projector view -------------------------------------------------------
+   A pairing list read from the back of a room, not from a desk. Type scales
+   with the viewport so the same page suits a laptop being checked and the
+   screen it is plugged into, and every colour still comes from the palette -
+   the container carries `data-theme="contrast"`, so this borrows the theme
+   built for exactly this rather than inventing one. */
+.hall-screen {
+  cursor: pointer;
+  background: var(--bg);
+  border-color: var(--border);
+}
+
+.hall-screen .pe-table { font-size: clamp(18px, 2.4vw, 34px); }
+
+.hall-screen .pe-table th {
+  font-size: clamp(12px, 1.1vw, 16px);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hall-screen .pe-table td {
+  padding-top: 0.55em;
+  padding-bottom: 0.55em;
+}
+
+/* Digits in a column of boards should line up; names should not wrap a
+   surname onto its own line halfway down a hall. */
+.hall-screen .pe-table td.num { font-variant-numeric: tabular-nums; }
+.hall-screen .pe-table td { white-space: nowrap; }
+
+.hall-foot {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.hall-page {
+  font-size: clamp(13px, 1.2vw, 18px);
+  font-weight: 650;
+  color: var(--text-soft);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.hall-paused {
+  font-size: clamp(13px, 1.2vw, 18px);
+  font-weight: 650;
+  color: var(--accent);
+}
+
+/* How long is left on this page. Someone looking for their board needs to
+   know it is coming and roughly when - without that, a rotating screen is
+   worse than a still one. */
+.hall-bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-soft) 25%, transparent);
+  overflow: hidden;
+}
+
+.hall-bar-fill {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--accent);
+  transform-origin: left center;
+  animation-name: hall-sweep;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+@keyframes hall-sweep {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+/* The bar is a clock, and a clock that does not move is a lie. Hidden rather
+   than frozen for anyone who asked for less motion; the page counter beside
+   it still says where the cycle is. */
+@media (prefers-reduced-motion: reduce) {
+  .hall-bar { display: none; }
+}
+
 .mobile-board-head { display: flex; justify-content: space-between; }
 .mobile-board-no { font-size: 12px; font-weight: 700; color: var(--text-soft); text-transform: uppercase; letter-spacing: 0.05em; }
 .mobile-players {

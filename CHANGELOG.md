@@ -14,6 +14,27 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.28.0] - 2026-09-04
+
+- **[Feature]** The live round page has a projector view: the boards, full
+  screen, at a size meant to be read from the back of a room. When there are
+  more boards than the screen can hold it pages through them, about twelve
+  seconds each, and comes back round. A page counter and a progress bar say
+  which page is up and how long is left - somebody looking for board 47 needs
+  to know it is coming and roughly when, or a rotating screen is worse than a
+  still one. Tap to pause and read; tap again to carry on. If every board fits
+  on one screen, none of that appears.
+- **[Change]** The projector view fits itself to the screen it is plugged
+  into. The browser measures how many rows the glass can hold and tells the
+  server, and re-measures when the window is resized or the screen rotated,
+  so nothing has to be configured for a particular television.
+- **[Change]** The projector view uses the high-contrast theme by default,
+  whatever the arbiter has their own browser set to, because it is aimed at a
+  bright room. "Use my theme" switches back for a dark hall or a good screen.
+- **[Change]** `?display=1` on the live round address opens straight into the
+  projector view, so a machine that only drives a hall screen can be pointed
+  at a URL and left alone.
+
 ## [0.27.0] - 2026-09-04
 
 - **[Change]** An enrolment code now works for **one phone**. The first

@@ -543,4 +543,120 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
       assert Mobile.list_enrollments(tournament.id) == []
     end
   end
+
+  describe "the projector cycle" do
+    # A screen in a hall with more boards than fit on it. The point of the
+    # cycle is that a player standing in front of it eventually sees their own
+    # board, and can tell that it is coming.
+    defp big_tournament(scope) do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "Hall",
+          "type" => "swiss",
+          "rounds_count" => "3"
+        })
+
+      for n <- 1..12 do
+        Repo.insert!(%Player{
+          tournament_id: tournament.id,
+          name: "Player #{n}",
+          pairing_number: n
+        })
+      end
+
+      {:ok, _} = Engine.pair_next_round(tournament)
+      tournament
+    end
+
+    test "the ordinary view shows every board and no cycle furniture", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = big_tournament(scope)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/live")
+
+      assert html =~ "Projector view"
+      refute html =~ "Page 1 of"
+    end
+
+    test "projector view pages the boards once they stop fitting", %{conn: conn, scope: scope} do
+      tournament = big_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/live")
+
+      render_click(lv, "toggle_display", %{})
+      html = render_click(lv, "rows_fit", %{"rows" => 2})
+
+      # Six boards, two to a page.
+      assert html =~ "Page 1 of 3"
+    end
+
+    test "a tick moves to the next page and wraps at the end", %{conn: conn, scope: scope} do
+      tournament = big_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/live")
+
+      render_click(lv, "toggle_display", %{})
+      render_click(lv, "rows_fit", %{"rows" => 2})
+
+      # Driving the timer's own message rather than waiting 12 seconds: the
+      # test is about what a tick does, not how long the gap is.
+      send(lv.pid, :cycle_page)
+      assert render(lv) =~ "Page 2 of 3"
+
+      send(lv.pid, :cycle_page)
+      assert render(lv) =~ "Page 3 of 3"
+
+      send(lv.pid, :cycle_page)
+      assert render(lv) =~ "Page 1 of 3", "the cycle has to come back round"
+    end
+
+    test "pausing holds the page it is on", %{conn: conn, scope: scope} do
+      tournament = big_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/live")
+
+      render_click(lv, "toggle_display", %{})
+      render_click(lv, "rows_fit", %{"rows" => 2})
+      send(lv.pid, :cycle_page)
+
+      html = render_click(lv, "toggle_pause", %{})
+      assert html =~ "Paused"
+
+      # Paused means paused: a tick that arrives anyway must not move it, and
+      # it must stay where the reader stopped it rather than jumping home.
+      send(lv.pid, :cycle_page)
+      assert render(lv) =~ "Page 2 of 3"
+    end
+
+    test "no page counter when everything fits on one screen", %{conn: conn, scope: scope} do
+      tournament = big_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/live")
+
+      render_click(lv, "toggle_display", %{})
+      html = render_click(lv, "rows_fit", %{"rows" => 50})
+
+      refute html =~ "Page 1 of"
+    end
+
+    test "high contrast is on by default and can be turned off", %{conn: conn, scope: scope} do
+      tournament = big_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/live")
+
+      html = render_click(lv, "toggle_display", %{})
+      assert html =~ ~s(data-theme="contrast"), "a projector should not inherit a desk theme"
+
+      html = render_click(lv, "toggle_contrast", %{})
+      refute html =~ ~s(data-theme="contrast")
+    end
+
+    test "?display=1 opens straight into it, for a screen nobody will touch", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = big_tournament(scope)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/live?display=1")
+
+      assert html =~ "Leave projector view"
+    end
+  end
 end

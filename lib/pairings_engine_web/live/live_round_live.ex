@@ -17,6 +17,19 @@ defmodule PairingsEngineWeb.LiveRoundLive do
   alias PairingsEngine.{Tournaments, Standings, Tiebreaks, Keizer, Mobile, PairingDisplay}
   alias PairingsEngine.Pairing, as: Engine
 
+  # How long each page of boards stays up.
+  #
+  # Sized for the person standing in front of it, not the arbiter: long
+  # enough to find your name in a column of twenty, short enough that a
+  # four-page cycle comes back round inside a minute. Someone who arrives
+  # just as their page leaves should not feel they have missed it.
+  @cycle_ms 12_000
+
+  # A last-resort page size for the moment before the browser has measured
+  # itself, and for anything that never reports (a screenshot, a test). Small
+  # enough to be legible on a modest screen rather than optimistic.
+  @default_rows_per_page 12
+
   @result_labels %{
     "1-0" => "1-0",
     "1/2-1/2" => "½-½",
@@ -30,8 +43,9 @@ defmodule PairingsEngineWeb.LiveRoundLive do
   }
 
   @impl true
-  def mount(%{"id" => id}, _session, socket) do
+  def mount(%{"id" => id} = params, _session, socket) do
     tournament = Tournaments.get_authorized_tournament!(socket.assigns.current_scope, id)
+    display? = params["display"] in ["1", "true"]
 
     if connected?(socket) do
       Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
@@ -42,10 +56,70 @@ defmodule PairingsEngineWeb.LiveRoundLive do
      |> assign(
        tournament: tournament,
        page_title: "#{tournament.name} · Live",
-       new_enrollment: nil
+       new_enrollment: nil,
+       # Projector mode: the boards, full screen, nothing else. Reached by the
+       # button on this page, or by `?display=1` so a machine that drives a
+       # hall screen can be pointed at a URL and left alone.
+       display?: display?,
+       # On by default, and deliberately: this is aimed at a projector in a
+       # bright room, where whatever theme the arbiter happens to like on
+       # their laptop is the wrong answer. Overridable all the same - some
+       # rooms are dark, and some screens are better than others.
+       high_contrast?: true,
+       # How many board rows the screen can hold. The browser measures itself
+       # and says; until it does, `@default_rows_per_page` keeps the page
+       # sensible rather than empty.
+       rows_per_page: @default_rows_per_page,
+       page: 0,
+       paused?: false,
+       cycle_timer: nil
      )
      |> assign_enrollments()
      |> reload()}
+  end
+
+  defp reschedule_cycle(socket) do
+    if timer = socket.assigns.cycle_timer, do: Process.cancel_timer(timer)
+
+    if socket.assigns.display? and not socket.assigns.paused? do
+      assign(socket, cycle_timer: Process.send_after(self(), :cycle_page, @cycle_ms))
+    else
+      assign(socket, cycle_timer: nil)
+    end
+  end
+
+  # `@cycle_ms` inside a template would mean `assigns.cycle_ms`, so the bar
+  # reads the module attribute through here. One number drives both the timer
+  # and the animation; two would drift and the bar would lie.
+  defp cycle_ms, do: @cycle_ms
+
+  defp page_count(socket), do: page_count_for(socket.assigns)
+
+  # The template has assigns, the handlers have a socket. Counting lives here
+  # once so the footer and the cycle can never disagree about how many pages
+  # there are - which would show "Page 3 of 2" for one frame after a resize.
+  defp page_count_for(%{round: nil}), do: 1
+
+  defp page_count_for(%{round: round} = assigns) do
+    rows = length(display_rows(round.pairings))
+    per = max(assigns.rows_per_page, 1)
+    max(ceil(rows / per), 1)
+  end
+
+  defp last_page(socket), do: page_count(socket) - 1
+
+  # The slice actually on screen. Outside display mode the whole list is the
+  # page, so the ordinary view is untouched by any of this.
+  defp page_rows(socket_assigns, rows) do
+    if socket_assigns.display? do
+      Enum.slice(
+        rows,
+        socket_assigns.page * socket_assigns.rows_per_page,
+        socket_assigns.rows_per_page
+      )
+    else
+      rows
+    end
   end
 
   defp assign_enrollments(socket) do
@@ -137,6 +211,42 @@ defmodule PairingsEngineWeb.LiveRoundLive do
   # the old `{:ok, enrollment} =` would have taken the page down with a
   # MatchError instead of saying why - on the one page an arbiter leaves open
   # on a projector all day.
+  # ---- the pairing cycle ---------------------------------------------------
+  #
+  # Only ever pairings. Standings are the arbiter's business and belong on the
+  # page below, not in a rotation somebody is watching for their own board.
+
+  @doc false
+  def handle_event("toggle_display", _params, socket) do
+    socket = assign(socket, display?: not socket.assigns.display?, page: 0)
+    {:noreply, reschedule_cycle(socket)}
+  end
+
+  def handle_event("toggle_contrast", _params, socket) do
+    {:noreply, assign(socket, high_contrast?: not socket.assigns.high_contrast?)}
+  end
+
+  # Someone in the hall wants to read a board without chasing it. Pausing
+  # leaves the page where it is rather than jumping to the start, so what they
+  # were reading is what stays up.
+  def handle_event("toggle_pause", _params, socket) do
+    socket = assign(socket, paused?: not socket.assigns.paused?)
+    {:noreply, reschedule_cycle(socket)}
+  end
+
+  # The browser measuring itself. Sent on mount and on resize, so a screen
+  # that is rotated or a window that is dragged to another monitor re-fits
+  # rather than keeping a page size for a shape it no longer has.
+  def handle_event("rows_fit", %{"rows" => rows}, socket) when is_integer(rows) and rows > 0 do
+    socket = assign(socket, rows_per_page: rows)
+
+    # Clamp rather than reset: a screen that just got shorter should not throw
+    # the viewer back to page one mid-read.
+    {:noreply, assign(socket, page: min(socket.assigns.page, last_page(socket)))}
+  end
+
+  def handle_event("rows_fit", _params, socket), do: {:noreply, socket}
+
   def handle_event("generate_enrollment", params, socket) do
     case Mobile.create_enrollment(socket.assigns.tournament.id, enrollment_opts(params)) do
       {:ok, enrollment} ->
@@ -176,6 +286,24 @@ defmodule PairingsEngineWeb.LiveRoundLive do
   # Purely a display page - nothing here is user-editable, so every
   # broadcast just reloads everything.
   @impl true
+  @doc false
+  def handle_info(:cycle_page, socket) do
+    pages = page_count(socket)
+
+    socket =
+      if socket.assigns.paused? or pages <= 1 do
+        socket
+      else
+        assign(socket, page: rem(socket.assigns.page + 1, pages))
+      end
+
+    {:noreply, reschedule_cycle(socket)}
+  end
+
+  # One timer at a time. Every path that could change whether cycling makes
+  # sense - entering display mode, pausing, a tick - comes through here, so
+  # there is never a second timer left running behind the first.
+
   def handle_info({:tournament_changed, _tournament_id, _hint}, socket) do
     case Tournaments.get_authorized_tournament(
            socket.assigns.current_scope,
@@ -303,6 +431,22 @@ defmodule PairingsEngineWeb.LiveRoundLive do
               {gettext("Live · no rounds paired yet")}
             <% end %>
           </p>
+        </div>
+
+        <div class="actions" style="margin: 0">
+          <%!-- Only worth offering once there is something to project. --%>
+          <button :if={@round} type="button" class="pe-btn" phx-click="toggle_display">
+            {if @display?, do: gettext("Leave projector view"), else: gettext("Projector view")}
+          </button>
+
+          <%!-- The override. On by default because this is aimed at a bright
+                room; off for the arbiter who is only checking the page on
+                their own screen, or a hall dark enough not to need it. --%>
+          <button :if={@display?} type="button" class="pe-btn" phx-click="toggle_contrast">
+            {if @high_contrast?,
+              do: gettext("Use my theme"),
+              else: gettext("High contrast")}
+          </button>
         </div>
       </div>
 
@@ -507,7 +651,18 @@ defmodule PairingsEngineWeb.LiveRoundLive do
         <p><strong>{gettext("No round has been paired yet.")}</strong></p>
       </div>
 
-      <div :if={@round} class="card table-card">
+      <%!-- `data-theme` is a bare attribute selector in app.css, so putting it
+            here hands this subtree the contrast palette without a single new
+            colour: the projector gets the theme built for exactly this, and
+            the arbiter's own theme is left alone everywhere else. --%>
+      <div
+        :if={@round}
+        class={["card table-card", @display? && "hall-screen"]}
+        data-theme={@display? and @high_contrast? and "contrast"}
+        id="hall-boards"
+        phx-hook=".BoardFit"
+        phx-click={@display? && "toggle_pause"}
+      >
         <table class="pe-table">
           <thead>
             <tr>
@@ -518,7 +673,10 @@ defmodule PairingsEngineWeb.LiveRoundLive do
             </tr>
           </thead>
           <tbody>
-            <tr :for={%{pairing: pairing, board: display_board} <- display_rows(@round.pairings)}>
+            <tr :for={
+              %{pairing: pairing, board: display_board} <-
+                page_rows(assigns, display_rows(@round.pairings))
+            }>
               <td class="num">{display_board}</td>
               <td><strong>{seat_label(pairing.white_player, @scores)}</strong></td>
               <td style="text-align: center">
@@ -535,7 +693,77 @@ defmodule PairingsEngineWeb.LiveRoundLive do
             </tr>
           </tbody>
         </table>
+
+        <%!-- Only when it actually cycles. A page counter over a single page
+              of boards is machinery with nothing to do, and a viewer reading
+              "1 of 1" learns only that somebody could not be bothered to
+              check. --%>
+        <div :if={@display? and page_count_for(assigns) > 1} class="hall-foot">
+          <span class="hall-page">
+            {gettext("Page %{n} of %{total}", n: @page + 1, total: page_count_for(assigns))}
+          </span>
+
+          <span :if={@paused?} class="hall-paused">{gettext("Paused - tap to resume")}</span>
+
+          <%!-- The bar is not decoration: somebody looking for board 47 needs
+                to know their page is coming and roughly when, or a rotating
+                screen is worse than a still one. --%>
+          <span :if={not @paused?} class="hall-bar" aria-hidden="true">
+            <span class="hall-bar-fill" style={"animation-duration: #{cycle_ms()}ms"}></span>
+          </span>
+        </div>
       </div>
+
+      <script :type={Phoenix.LiveView.ColocatedHook} name=".BoardFit">
+        // Measures how many board rows this screen can actually hold and tells
+        // the server, so a hall screen fits itself to whatever it is plugged
+        // into rather than to a number somebody guessed. The server owns which
+        // page is showing; this only reports the shape of the glass.
+        export default {
+          mounted() {
+            this.report = () => {
+              if (!this.el.classList.contains("hall-screen")) return;
+
+              const row = this.el.querySelector("tbody tr");
+              const head = this.el.querySelector("thead");
+              if (!row) return;
+
+              const rowHeight = row.getBoundingClientRect().height;
+              if (rowHeight <= 0) return;
+
+              // Measure from the table's own top to the bottom of the window,
+              // so page furniture above it is accounted for without having to
+              // know what any of it is.
+              const top = this.el.getBoundingClientRect().top;
+              const headHeight = head ? head.getBoundingClientRect().height : 0;
+              // Room for the footer and a little breathing space, so the last
+              // row is never half-clipped at the bottom edge.
+              const chrome = headHeight + 96;
+              const usable = window.innerHeight - top - chrome;
+
+              const rows = Math.max(Math.floor(usable / rowHeight), 1);
+              if (rows !== this.lastRows) {
+                this.lastRows = rows;
+                this.pushEvent("rows_fit", { rows: rows });
+              }
+            };
+
+            // Re-measure when the window changes: a screen gets rotated, a
+            // window is dragged to another monitor, the browser chrome appears.
+            this.onResize = () => window.requestAnimationFrame(this.report);
+            window.addEventListener("resize", this.onResize);
+            this.report();
+          },
+
+          updated() {
+            this.report();
+          },
+
+          destroyed() {
+            window.removeEventListener("resize", this.onResize);
+          }
+        }
+      </script>
 
       <div :if={@round_byes != []} class="card table-card" style="margin-top: 16px">
         <table class="pe-table">
