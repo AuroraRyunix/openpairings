@@ -14,6 +14,15 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.36.1] - 2026-09-04
+
+- [Fix] **A board with an empty seat took the SWAR page down.** Asking for a
+  tournament's federation results page returned a server error whenever any
+  round held a pairing with no white player - a seat an arbiter had vacated
+  rather than a board they had deleted. Every shape now renders: a bye, a
+  board seated on one side only, and a fully vacated board, which renders
+  nothing at all rather than an empty row.
+
 ## [0.36.0] - 2026-09-04
 
 - [Feature] **A tournament can be published to the Belgian federation's

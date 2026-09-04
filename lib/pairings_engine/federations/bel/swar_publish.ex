@@ -613,6 +613,34 @@ defmodule PairingsEngine.Federations.BEL.SwarPublish do
     """
   end
 
+  # A board with nobody on it at all.
+  #
+  # An arbiter can vacate a seat rather than delete the pairing - PairingsLive
+  # hides a fully-vacated row for the same reason - so a round legitimately
+  # carries pairings with one seat empty, or none. Reading `player.id` off the
+  # nil that is there took the whole page down with a 500.
+  defp board_row(%{white_player_id: nil, black_player_id: nil}, _scores_before, _index), do: nil
+
+  # Only black is seated: the mirror of the bye below, with the player shown on
+  # the side they actually sat.
+  defp board_row(%{white_player_id: nil} = pairing, scores_before, index) do
+    player = pairing.black_player
+    points = Map.get(scores_before, player.id, 0.0)
+
+    """
+      <tr class='#{row_class(index)}'>
+        <td class='tdr'>&nbsp;</td>
+        <td class='tdl'>&nbsp;</td>
+        <td class='tdr'>&nbsp;</td>
+        <td class='tdcb'><i>#{esc(gettext("Vrij"))}</i></td>
+        <td class='tdl'>#{player_name(player)}</td>
+        <td class='tdc'>#{fmt_points(points)}</td>
+        <td class='tdr'>(#{Player.rating(player)})</td>
+        <td class='tdr'>&nbsp;</td>
+      </tr>\
+    """
+  end
+
   defp board_row(%{black_player_id: nil} = pairing, scores_before, index) do
     player = pairing.white_player
     points = Map.get(scores_before, player.id, 0.0)
