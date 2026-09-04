@@ -922,6 +922,32 @@ defmodule PairingsEngine.RoundRobinTest do
       assert round10.number == 10
       assert :rr_cycles in Tournaments.locked_fields(Repo.reload!(tournament))
     end
+
+    test "a latecomer who joins after the freeze (and is excluded from the schedule) does not un-derive an already-correct lock" do
+      # `locked_fields/1`'s implied-schedule-length calculation used to read
+      # `Tournaments.count_players/1` - every row in the tournament's
+      # `players` table, including someone who registers after round 1 was
+      # paired. Round robin never reschedules around a latecomer (see
+      # `RoundRobin`'s moduledoc: they never get a `pairing_number` and
+      # never appear in any round), so counting them here inflated the
+      # implied schedule length and read a finished, fully-paired 4-player
+      # cycle as still 1 round short of complete the moment a 5th player -
+      # never scheduled at all - registered.
+      tournament = round_robin_tournament(rr_cycles: 1)
+      for i <- 1..4, do: insert_player(tournament, "P#{i}", fide_rating: 2000 - i)
+
+      for _ <- 1..3, do: {:ok, _} = Pairing.pair_next_round(tournament)
+      tournament = Repo.reload!(tournament)
+
+      assert :rr_cycles in Tournaments.locked_fields(tournament),
+             "sanity: 4 players, single cycle, all 3 rounds paired - already locked"
+
+      insert_player(tournament, "Latecomer", fide_rating: 2500)
+      tournament = Repo.reload!(tournament)
+
+      assert :rr_cycles in Tournaments.locked_fields(tournament),
+             "a latecomer who was never scheduled at all un-locked rr_cycles"
+    end
   end
 
   # Every {:tournament_changed, id, hint} already in this process's mailbox.

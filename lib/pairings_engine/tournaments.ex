@@ -738,8 +738,21 @@ defmodule PairingsEngine.Tournaments do
       # its true 10-round schedule, 2 rounds early. `max(..., 2)` keeps the
       # old floor-of-one-round behaviour for a 0/1-player edge case
       # (`total_rounds/2` needs at least 2 to mean anything).
-      rr_implied_limit =
-        RoundRobin.total_rounds(max(count_players(tournament.id), 2), 1) * tournament.rr_cycles
+      #
+      # `count` itself has to be the FROZEN schedule size
+      # (`PairingsEngine.Pairing.full_roster_players/1` - the same query
+      # `RoundRobin.frozen_players/1` uses to build the Berger table), not
+      # `count_players/1`'s live total. A round robin never reschedules
+      # around a player who joins after the freeze (see
+      # `RoundRobin`'s moduledoc, "Freezing pairing numbers") - they never
+      # get a `pairing_number` and never appear in any round - so counting
+      # them here inflates the implied schedule length and can un-derive an
+      # already-correct lock: a 4-player single cycle (3 rounds, fully
+      # paired) reads as needing 5 rounds the moment a 5th, never-scheduled
+      # player registers, reporting `rr_cycles` open again although nothing
+      # about the 4-player schedule on the board changed.
+      frozen_count = tournament.id |> PairingsEngine.Pairing.full_roster_players() |> length()
+      rr_implied_limit = RoundRobin.total_rounds(max(frozen_count, 2), 1) * tournament.rr_cycles
 
       # `pairing_engine` belongs here for the same reason `pairing_system`
       # does, one level down: JaVaFo and Ainalrami are two independent Dutch
