@@ -1509,6 +1509,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   # where the pointer is instead of at the top of the page.
   attr :menu, :map, required: true
   attr :round, :any, required: true
+  attr :tournament, :map, required: true
 
   defp pairing_menu(assigns) do
     pairing = assigns.menu.pairing_id && find_pairing(assigns.round, assigns.menu.pairing_id)
@@ -1582,6 +1583,44 @@ defmodule PairingsEngineWeb.PairingsLive do
               phx-value-pairing-id={@menu.pairing_id}
             >
               {gettext("Delete this board…")}
+            </button>
+          <% "round" -> %>
+            <%!-- "immediate" makes unpublish meaningless (see
+                  `Tournaments.unpublish_round/1`'s own doc) and every round
+                  is already public, so there is nothing here to toggle -
+                  say so instead of showing a button that would do nothing,
+                  or silently showing neither with no explanation. --%>
+            <p
+              :if={@tournament.publish_mode == "immediate"}
+              class="hint"
+              style="margin: 0; padding: 8px 10px"
+            >
+              {gettext(
+                "Every round is public here the instant it's paired, so there's nothing to publish or unpublish. Change that in Settings → OpenResults."
+              )}
+            </p>
+
+            <button
+              :if={
+                @tournament.publish_mode != "immediate" and
+                  not Tournaments.round_published?(@tournament, @round)
+              }
+              type="button"
+              phx-click="publish_round_now"
+            >
+              {gettext("Publish round %{n} now", n: @round.number)}
+            </button>
+
+            <button
+              :if={
+                @tournament.publish_mode != "immediate" and
+                  Tournaments.round_published?(@tournament, @round)
+              }
+              type="button"
+              phx-click="unpublish_round"
+              data-confirm={gettext("Hide this round from the public pairings page again?")}
+            >
+              {gettext("Unpublish round %{n}", n: @round.number)}
             </button>
         <% end %>
       </div>
@@ -2037,7 +2076,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         <span>{gettext("Which empty seat should they take? Click one below.")}</span>
         <button type="button" class="pe-btn" phx-click="cancel_seat_pick">{gettext("Cancel (Esc)")}</button>
       </div>
-      <.pairing_menu :if={@menu} menu={@menu} round={@round} />
+      <.pairing_menu :if={@menu} menu={@menu} round={@round} tournament={@tournament} />
       <div :if={@confirm} class="pe-modal" phx-window-keydown="cancel_confirm" phx-key="escape">
         <div class="pe-modal-card pe-modal-wide" phx-click-away="cancel_confirm">
           <header class="pe-modal-head">
@@ -2138,7 +2177,20 @@ defmodule PairingsEngineWeb.PairingsLive do
       </div>
 
       <div class="card table-card">
-        <table class="pe-table" id={"pairings-table-#{@round_number}"} phx-hook=".PairingMenu">
+        <%!-- `data-scope="round"` sits on the table itself, not one more
+             row or cell, so a right-click anywhere on the board that
+             ISN'T already a more specific target (a seat, an empty seat)
+             falls through to it - discoverable "board by board", per the
+             maintainer's own framing of this gap, without adding a new
+             element just to hold the attribute. Only present once there
+             IS a round: with none paired, the table has nothing but the
+             "not paired yet" placeholder row and no round to publish. --%>
+        <table
+          class="pe-table"
+          id={"pairings-table-#{@round_number}"}
+          phx-hook=".PairingMenu"
+          data-scope={@round && "round"}
+        >
           <thead>
             <tr>
               <th class="num">{gettext("Board")}</th>

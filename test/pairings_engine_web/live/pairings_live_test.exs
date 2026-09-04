@@ -1807,6 +1807,97 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     end
   end
 
+  describe "the round-level Publish/Unpublish entry in the right-click menu" do
+    # The menu opens with `scope: "round"` rather than a player/pairing id -
+    # right-clicking anywhere on the board that isn't already a more
+    # specific target (a seat, an empty seat) falls through to it.
+
+    test "manual mode, unpublished round: the menu offers Publish now, not Unpublish", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = fixture(scope)
+      {:ok, _} = Tournaments.update_tournament(tournament, %{"publish_mode" => "manual"})
+      Repo.update_all(Round, set: [published_at: nil])
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      html = render_click(lv, "open_menu", %{"x" => 10, "y" => 10, "scope" => "round"})
+
+      assert html =~ "Publish round 2 now"
+      refute html =~ "Unpublish round 2"
+    end
+
+    test "manual mode, published round: the menu offers Unpublish, not Publish now", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = fixture(scope)
+      {:ok, _} = Tournaments.update_tournament(tournament, %{"publish_mode" => "manual"})
+
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+      Repo.update_all(Round, set: [published_at: now])
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      html = render_click(lv, "open_menu", %{"x" => 10, "y" => 10, "scope" => "round"})
+
+      assert html =~ "Unpublish round 2"
+      refute html =~ "Publish round 2 now"
+    end
+
+    test "immediate mode: the menu offers neither button, only the explanation", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = fixture(scope)
+      {:ok, tournament} = Tournaments.update_tournament(tournament, %{publish_mode: "immediate"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      html = render_click(lv, "open_menu", %{"x" => 10, "y" => 10, "scope" => "round"})
+
+      refute html =~ "Publish round 2 now"
+      refute html =~ "Unpublish round 2"
+      assert html =~ "nothing to publish or unpublish"
+    end
+
+    test "clicking Publish now / Unpublish in the menu actually flips round_published?/2", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = fixture(scope)
+      {:ok, _} = Tournaments.update_tournament(tournament, %{"publish_mode" => "manual"})
+      Repo.update_all(Round, set: [published_at: nil])
+
+      round = Tournaments.get_round(tournament.id, 2)
+      refute Tournaments.round_published?(tournament, round)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      # publish_round_now's own handle_event calls `refresh/1`, which closes
+      # the menu as a side effect (a just-consumed gesture shouldn't linger)
+      # - so the flip is checked against the database, and the menu is
+      # reopened to see the button on the other side of it.
+      render_click(lv, "open_menu", %{"x" => 10, "y" => 10, "scope" => "round"})
+      lv |> element("button", "Publish round 2 now") |> render_click()
+
+      round = Tournaments.get_round(tournament.id, 2)
+      assert Tournaments.round_published?(tournament, round)
+
+      html = render_click(lv, "open_menu", %{"x" => 10, "y" => 10, "scope" => "round"})
+      assert html =~ "Unpublish round 2"
+
+      lv |> element("button", "Unpublish round 2") |> render_click()
+
+      round = Tournaments.get_round(tournament.id, 2)
+      refute Tournaments.round_published?(tournament, round)
+
+      html = render_click(lv, "open_menu", %{"x" => 10, "y" => 10, "scope" => "round"})
+      assert html =~ "Publish round 2 now"
+    end
+  end
+
   describe "snapshots are captured before the irreversible actions" do
     test "unpairing a round snapshots the state it is about to destroy", %{
       conn: conn,
