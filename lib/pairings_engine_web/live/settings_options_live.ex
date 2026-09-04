@@ -50,6 +50,15 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
        # interact with - one of `:pairing_system`, `:pairing_engine`,
        # `:rr_cycles`, `:rr_match_format`, `:swiss_match_format`, or nil.
        locked_hint: nil,
+       # Fields the arbiter has deliberately unlocked for THIS save, via the
+       # "Unlock" button on the locked-field warning - see
+       # `assign_pairing_locks/1` and the "unlock_field" event below. Never
+       # written to the database and never carried past one save: it resets
+       # to empty here on every mount (so leaving the page re-locks
+       # everything) and again after `save_settings/4` succeeds (so a field
+       # just saved goes right back to frozen, same as any other locked
+       # field once round 1 is paired).
+       unlocked_fields: MapSet.new(),
        forbidden_pairing_error: nil,
        # Holds the pending settings params while the "switching engine"
        # dialog is up; nil when no dialog is showing.
@@ -74,9 +83,19 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
   # what this page disables and what the context accepts cannot drift apart.
   # (They previously could: the lock was enforced *only* here, and any other
   # caller went straight through.)
+  #
+  # A field the arbiter has deliberately unlocked (`unlocked_fields`) is
+  # subtracted here, so it renders enabled - `Tournaments.locked_fields/1`
+  # itself doesn't know about the unlock and keeps naming the field frozen
+  # (correctly: it goes right back to frozen the moment this save lands).
   defp assign_pairing_locks(socket) do
     tournament = socket.assigns.tournament
-    locked = Tournaments.locked_fields(tournament)
+
+    locked =
+      tournament
+      |> Tournaments.locked_fields()
+      |> MapSet.new()
+      |> MapSet.difference(socket.assigns.unlocked_fields)
 
     assign(socket,
       paired_rounds: Pairing.paired_rounds_count(tournament.id),
@@ -131,16 +150,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     end
   end
 
-  # Self-clearing timer for the "locked" hint set by the "locked_hint" event -
-  # only clears if it's still showing the same field's message.
-  def handle_info({:clear_locked_hint, field}, socket) do
-    if socket.assigns.locked_hint == field do
-      {:noreply, assign(socket, locked_hint: nil)}
-    else
-      {:noreply, socket}
-    end
-  end
-
   @impl true
   ## ---------- Public self-registration ----------
 
@@ -152,12 +161,27 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
   def handle_event("locked_hint", %{"field" => field}, socket)
       when field in @locked_fields do
-    field = String.to_existing_atom(field)
-    Process.send_after(self(), {:clear_locked_hint, field}, 3000)
-    {:noreply, assign(socket, locked_hint: field)}
+    {:noreply, assign(socket, locked_hint: String.to_existing_atom(field))}
   end
 
   def handle_event("locked_hint", _params, socket), do: {:noreply, socket}
+
+  # Same allowlist, same reason: `unlock_field` is the "Unlock" button inside
+  # `locked_hint_message/1`, which only ever names a field this page already
+  # offered a locked_hint for. This is a UI convenience, not the security
+  # boundary - `Tournaments.ensure_unlocked/3` is the one that actually
+  # matters, and refuses regardless of what reaches it here (see its doc).
+  def handle_event("unlock_field", %{"field" => field}, socket)
+      when field in @locked_fields do
+    field = String.to_existing_atom(field)
+
+    {:noreply,
+     socket
+     |> update(:unlocked_fields, &MapSet.put(&1, field))
+     |> assign_pairing_locks()}
+  end
+
+  def handle_event("unlock_field", _params, socket), do: {:noreply, socket}
 
   # `standard` and `rate_of_play` are tracked as their own assigns because the
   # "Rate of play" select's option list depends on which "Type" is picked.
@@ -345,9 +369,18 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
   end
 
   defp save_settings(socket, base, params, section) do
-    case Tournaments.update_tournament(base, params) do
+    # The fields deliberately unlocked FOR THIS SAVE - read from the
+    # LiveView's own socket, never from `params`, so a crafted "save" event
+    # can carry any locked field it likes and still be refused by
+    # `Tournaments.ensure_unlocked/3`: only a field this process itself put
+    # in `unlocked_fields` (via a real "unlock_field" event) ever reaches
+    # the `unlock:` option below.
+    unlock_fields = MapSet.to_list(socket.assigns.unlocked_fields)
+
+    case Tournaments.update_tournament(base, params, unlock: unlock_fields) do
       {:ok, tournament} ->
         log_settings_change(socket, base, tournament)
+        log_unlocked_field_changes(socket, base, tournament, unlock_fields)
 
         {:noreply,
          socket
@@ -359,7 +392,11 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
            error: nil,
            saved_section: section,
            dirty: false,
-           stale: false
+           stale: false,
+           # Landed - the field is exactly as frozen as any other locked
+           # field once round 1 is paired, so the unlock doesn't outlive
+           # the save that used it.
+           unlocked_fields: MapSet.new()
          )
          |> assign_pairing_locks()}
 
@@ -392,6 +429,11 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     """
   end
 
+  # `assigns.*_locked?` already factor in a deliberate "Unlock" click (see
+  # `assign_pairing_locks/1`), so a field the arbiter unlocked this session
+  # passes straight through here - it's `save_settings/4`'s `unlock:` option
+  # to `Tournaments.update_tournament/3`, not this strip, that has to name it
+  # again for the write to actually go through.
   defp strip_locked_pairing_fields(params, assigns) do
     params
     |> maybe_drop_locked("pairing_system", assigns.pairing_system_locked?)
@@ -435,6 +477,40 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
   # locked_overlay/1 + locked_hint_message/1 now live in SettingsSupport -
   # <.setting_toggle> needs them too.
+  #
+  # Each of these is its own function (rather than one shared sentence)
+  # because `locked_hint_message/1` requires a specific `warning` and each
+  # field breaks a different thing - see `Tournaments.locked_fields/1`'s
+  # moduledoc for the reasoning each one is paraphrasing.
+  defp pairing_system_warning,
+    do:
+      gettext(
+        "Swiss, round robin and Keizer decide colours, floats, repeats and what round comes next in completely different ways. Rounds already paired were paired under the current system; switching now doesn't repair them to match - it leaves what's already on the board decided by one system while everything from here on is judged by another."
+      )
+
+  defp pairing_engine_warning,
+    do:
+      gettext(
+        "JaVaFo and Ainalrami are two independent implementations of the pairing rules. A round already on the board was decided by whichever engine was configured at the time; switching now hands the new engine a history it did not produce, so every colour, float and rematch judgement from here on is made against a bracket shape the other engine chose."
+      )
+
+  defp rr_cycles_warning,
+    do:
+      gettext(
+        "This decides how long the round-robin schedule is supposed to run for. Rounds already paired came from the schedule the current setting implies; changing it now doesn't rewrite what already happened, so the cycle count and the rounds actually on the board can end up disagreeing about how long this tournament is."
+      )
+
+  defp rr_match_format_warning,
+    do:
+      gettext(
+        "Match format pairs round N and N+1 as one immediate two-game rematch - round N+1 is a fixed, colour-reversed mirror of round N, not an independent pairing. Turning this on or off after rounds already exist changes what future rounds mean without changing what already happened, so a round already on the board can stop matching what the schedule now says it should have been."
+      )
+
+  defp swiss_match_format_warning,
+    do:
+      gettext(
+        "Match format pairs round N and N+1 as one immediate two-game rematch - the second leg is inserted as an exact colour-reversed mirror of the first, with no independent pairing decision behind it. Turning this on or off after rounds already exist changes what future rounds mean without changing what already happened, so a round already on the board can stop matching what the schedule now says it should have been."
+      )
 
   @impl true
   def render(assigns) do
@@ -476,7 +552,11 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 </select>
                 <.locked_overlay field={:pairing_system} locked?={@pairing_system_locked?} />
               </div>
-              <.locked_hint_message field={:pairing_system} locked_hint={@locked_hint} />
+              <.locked_hint_message
+                field={:pairing_system}
+                locked_hint={@locked_hint}
+                warning={pairing_system_warning()}
+              />
             </.setting_field>
 
             <.setting_field
@@ -499,7 +579,11 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 </select>
                 <.locked_overlay field={:pairing_engine} locked?={@pairing_engine_locked?} />
               </div>
-              <.locked_hint_message field={:pairing_engine} locked_hint={@locked_hint} />
+              <.locked_hint_message
+                field={:pairing_engine}
+                locked_hint={@locked_hint}
+                warning={pairing_engine_warning()}
+              />
 
               <span class="hint">
                 <.rich_text text={
@@ -559,7 +643,11 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
                 </select>
                 <.locked_overlay field={:rr_cycles} locked?={@rr_cycles_locked?} />
               </div>
-              <.locked_hint_message field={:rr_cycles} locked_hint={@locked_hint} />
+              <.locked_hint_message
+                field={:rr_cycles}
+                locked_hint={@locked_hint}
+                warning={rr_cycles_warning()}
+              />
             </.setting_field>
 
             <.setting_toggle
@@ -570,6 +658,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               field={:rr_match_format}
               locked?={@rr_match_format_locked?}
               locked_hint={@locked_hint}
+              warning={rr_match_format_warning()}
             />
             <.setting_field label={gettext("Keizer top value (blank = automatic)")}>
               <input
@@ -606,6 +695,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               field={:swiss_match_format}
               locked?={@swiss_match_format_locked?}
               locked_hint={@locked_hint}
+              warning={swiss_match_format_warning()}
             />
           </.setting_group>
         </div>

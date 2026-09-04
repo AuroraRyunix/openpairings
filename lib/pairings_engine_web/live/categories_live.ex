@@ -30,7 +30,16 @@ defmodule PairingsEngineWeb.CategoriesLive do
        rule_kinds: @rule_kinds,
        assign_note: nil,
        toggle_error: nil,
-       category_confirm: nil
+       category_confirm: nil,
+       # Which locked control (if any) the arbiter just clicked, for the
+       # click-through "why is this locked" panel - same mechanism as
+       # `SettingsOptionsLive`/`SettingsScoringLive`, see `locked_hint`
+       # below.
+       locked_hint: nil,
+       # `:pair_by_category` once the "Unlock" button on that panel has been
+       # used - deliberately per editing session, never persisted, and reset
+       # the moment a toggle using it lands (see `toggle_pair_by_category/2`).
+       unlocked_fields: MapSet.new()
      )
      |> assign_pair_by_category_lock()}
   end
@@ -42,7 +51,10 @@ defmodule PairingsEngineWeb.CategoriesLive do
   # the board - locked, not just discouraged.
   defp assign_pair_by_category_lock(socket) do
     tournament = socket.assigns.tournament
-    locked? = :pair_by_category in Tournaments.locked_fields(tournament)
+
+    locked? =
+      :pair_by_category in Tournaments.locked_fields(tournament) and
+        :pair_by_category not in socket.assigns.unlocked_fields
 
     socket
     |> assign(pair_by_category_locked?: locked?)
@@ -51,8 +63,9 @@ defmodule PairingsEngineWeb.CategoriesLive do
     # pair-by-category is already off - the refusal needs all three of:
     # categories on, pair-by-category on, and a round paired. In that state
     # the combined write carries `"pair_by_category" => "false"`, which
-    # `ensure_unlocked/2` rejects, so the switch could never be turned off
-    # again for the rest of the event.
+    # `ensure_unlocked/3` rejects unless `:pair_by_category` is unlocked, so
+    # the switch could never be turned off again for the rest of the event
+    # without going through the same "Unlock" as the toggle itself.
     #
     # It was not even silent about it: `error_text/1` has no
     # `:locked_after_pairing` clause, so the generic atom formatter rendered
@@ -60,6 +73,12 @@ defmodule PairingsEngineWeb.CategoriesLive do
     # had not touched.
     |> assign(categories_off_locked?: locked? and tournament.pair_by_category)
   end
+
+  defp pair_by_category_warning,
+    do:
+      gettext(
+        "The per-category split is baked into every board number and bye the round already produced. Changing this now doesn't renumber what's already on the board - it changes how the NEXT round is built, so boards from before and after the change follow different numbering rules within the same tournament."
+      )
 
   @impl true
   def handle_info({:tournament_changed, _tournament_id, _hint}, socket) do
@@ -83,6 +102,35 @@ defmodule PairingsEngineWeb.CategoriesLive do
 
   ## ---------- On/off switches - instant, no separate "Save" step ----------
 
+  # Guarded on the one field this page's `locked_overlay/1` sends - see the
+  # same guard in `SettingsOptionsLive` for why an unguarded
+  # `String.to_existing_atom/1` on a param is a self-inflicted crash.
+  @locked_fields ~w(pair_by_category)
+
+  def handle_event("locked_hint", %{"field" => field}, socket)
+      when field in @locked_fields do
+    {:noreply, assign(socket, locked_hint: String.to_existing_atom(field))}
+  end
+
+  def handle_event("locked_hint", _params, socket), do: {:noreply, socket}
+
+  # Same allowlist, same reasoning as `SettingsOptionsLive`'s "unlock_field"
+  # clause: this is a UI convenience, not the security boundary -
+  # `Tournaments.ensure_unlocked/3` refuses the actual write regardless of
+  # what reaches it here.
+  def handle_event("unlock_field", %{"field" => field}, socket)
+      when field in @locked_fields do
+    field = String.to_existing_atom(field)
+
+    {:noreply,
+     socket
+     |> assign(locked_hint: nil)
+     |> update(:unlocked_fields, &MapSet.put(&1, field))
+     |> assign_pair_by_category_lock()}
+  end
+
+  def handle_event("unlock_field", _params, socket), do: {:noreply, socket}
+
   # Turning categories off also forces `pair_by_category` off in the same
   # write: `Tournament.changeset/2`'s own
   # `validate_pair_by_category_requires_categories/1` would otherwise
@@ -101,7 +149,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
 
         # Only send the locked field when there is something to change. With
         # pair-by-category already off, the key added nothing and turned an
-        # ordinary toggle into a write that `ensure_unlocked/2` refuses.
+        # ordinary toggle into a write that `ensure_unlocked/3` refuses.
         tournament.pair_by_category ->
           %{"categories_enabled" => "false", "pair_by_category" => "false"}
 
@@ -109,13 +157,25 @@ defmodule PairingsEngineWeb.CategoriesLive do
           %{"categories_enabled" => "false"}
       end
 
-    case Tournaments.update_tournament(tournament, params) do
+    # This toggle carries `pair_by_category => false` exactly when
+    # `categories_off_locked?` would otherwise refuse it - unlocking
+    # `pair_by_category` (the same "Unlock" the toggle button below offers)
+    # covers this write too, since it's the same underlying change.
+    unlock_fields =
+      if :pair_by_category in socket.assigns.unlocked_fields, do: [:pair_by_category], else: []
+
+    case Tournaments.update_tournament(tournament, params, unlock: unlock_fields) do
       {:ok, updated} ->
         Audit.log(updated.id, socket.assigns.current_scope, "categories.toggled", %{
           enabled: enabled?
         })
 
-        {:noreply, assign(socket, tournament: updated, toggle_error: nil)}
+        log_unlocked_field_changes(socket, tournament, updated, unlock_fields)
+
+        {:noreply,
+         socket
+         |> assign(tournament: updated, toggle_error: nil, unlocked_fields: MapSet.new())
+         |> assign_pair_by_category_lock()}
 
       {:error, reason} ->
         {:noreply, assign(socket, toggle_error: error_text(reason))}
@@ -129,13 +189,25 @@ defmodule PairingsEngineWeb.CategoriesLive do
       tournament = socket.assigns.tournament
       enabled? = !tournament.pair_by_category
 
-      case Tournaments.update_tournament(tournament, %{"pair_by_category" => to_string(enabled?)}) do
+      unlock_fields =
+        if :pair_by_category in socket.assigns.unlocked_fields, do: [:pair_by_category], else: []
+
+      case Tournaments.update_tournament(
+             tournament,
+             %{"pair_by_category" => to_string(enabled?)},
+             unlock: unlock_fields
+           ) do
         {:ok, updated} ->
           Audit.log(updated.id, socket.assigns.current_scope, "pair_by_category.toggled", %{
             enabled: enabled?
           })
 
-          {:noreply, assign(socket, tournament: updated, toggle_error: nil)}
+          log_unlocked_field_changes(socket, tournament, updated, unlock_fields)
+
+          {:noreply,
+           socket
+           |> assign(tournament: updated, toggle_error: nil, unlocked_fields: MapSet.new())
+           |> assign_pair_by_category_lock()}
 
         {:error, changeset} ->
           {:noreply, assign(socket, toggle_error: error_text(changeset))}
@@ -345,18 +417,23 @@ defmodule PairingsEngineWeb.CategoriesLive do
           </p>
           <div class="actions" style="align-items: center; gap: 10px">
             <span>{if @tournament.pair_by_category, do: "On", else: "Off"}</span>
-            <button
-              type="button"
-              class="pe-btn"
-              phx-click="toggle_pair_by_category"
-              disabled={@pair_by_category_locked?}
-            >
-              {if @tournament.pair_by_category, do: "Turn off", else: "Turn on"}
-            </button>
+            <div class="locked-wrap locked-wrap-inline">
+              <button
+                type="button"
+                class="pe-btn"
+                phx-click="toggle_pair_by_category"
+                disabled={@pair_by_category_locked?}
+              >
+                {if @tournament.pair_by_category, do: "Turn off", else: "Turn on"}
+              </button>
+              <.locked_overlay field={:pair_by_category} locked?={@pair_by_category_locked?} />
+            </div>
           </div>
-          <p :if={@pair_by_category_locked?} class="hint" style="margin: 6px 0 0">
-            {gettext("Locked - cannot be changed after round 1 has been paired.")}
-          </p>
+          <.locked_hint_message
+            field={:pair_by_category}
+            locked_hint={@locked_hint}
+            warning={pair_by_category_warning()}
+          />
         </div>
 
         <p :if={@toggle_error} class="error-note" style="margin-top: 10px">{@toggle_error}</p>

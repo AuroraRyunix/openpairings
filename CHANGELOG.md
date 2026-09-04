@@ -14,6 +14,28 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.34.0] - 2026-09-04
+
+- [Feature] **A locked setting is a guard rail now, not a wall.** Settings
+  that freeze once a round is paired - the pairing system, the engine, the
+  match formats, category pairing, the absence-point rules - can be unlocked
+  one at a time and changed. The lock still stops the accident; it no longer
+  stops the decision.
+- [Change] **The warning says what it costs, per setting.** Clicking a locked
+  control already explained why it was locked; it now offers to unlock, above
+  a sentence naming what that particular change would do to rounds already
+  played. Swapping the pairing engine hands the new one a history it did not
+  produce; changing the absence rules rescores every paired round on the
+  spot. "Are you sure?" would have told an arbiter nothing.
+- [Change] **An unlock lasts one save.** It lives in the page, never in the
+  database, and closes again when the save succeeds - so it cannot quietly
+  stay open for the rest of the tournament. A failed save keeps it, rather
+  than making the arbiter click twice for one change.
+- [Change] **Changing an unlocked setting is written to the audit trail** as
+  its own entry, with the field and both values, rather than disappearing
+  into the diff of an ordinary settings save. It is the record that makes the
+  decision defensible weeks later.
+
 ## [0.33.0] - 2026-09-04
 
 - [Change] **"Live view" is now "Local view".** "Live" reads as live to the

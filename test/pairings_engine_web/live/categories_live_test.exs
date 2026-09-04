@@ -136,7 +136,10 @@ defmodule PairingsEngineWeb.CategoriesLiveTest do
     end
 
     @tag :javafo
-    test "button is disabled once round 1 has been paired", %{conn: conn, scope: scope} do
+    test "button is disabled once round 1 has been paired, and explains why on click", %{
+      conn: conn,
+      scope: scope
+    } do
       tournament =
         create_tournament(scope, %{
           "pairing_system" => "swiss",
@@ -150,9 +153,13 @@ defmodule PairingsEngineWeb.CategoriesLiveTest do
 
       pair_swiss_round_1(tournament)
 
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/categories")
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/categories")
       assert html =~ ~r/phx-click="toggle_pair_by_category"[^>]*disabled/
-      assert html =~ "Locked"
+      refute html =~ "baked into every board number"
+
+      html = render_click(lv, "locked_hint", %{"field" => "pair_by_category"})
+      assert html =~ "baked into every board number"
+      assert html =~ "Unlock"
     end
 
     @tag :javafo
@@ -172,6 +179,79 @@ defmodule PairingsEngineWeb.CategoriesLiveTest do
       render_click(lv, "toggle_pair_by_category", %{})
 
       assert Tournaments.get_authorized_tournament!(scope, tournament.id).pair_by_category
+    end
+
+    # `pair_by_category` is locked by `Tournaments.locked_fields/1` the
+    # moment ANY round exists, regardless of pairing system - so, unlike the
+    # two tests above (kept on Swiss/`:javafo` for continuity), these use a
+    # round robin round 1 to exercise the lock without needing the JaVaFo
+    # jar the sandbox running this suite doesn't have.
+    defp pair_round_robin_round_1(tournament) do
+      Tournaments.create_player(tournament.id, %{name: "Alice", fide_rating: 2000})
+      Tournaments.create_player(tournament.id, %{name: "Bob", fide_rating: 1900})
+      Tournaments.create_player(tournament.id, %{name: "Carol", fide_rating: 1800})
+      Tournaments.create_player(tournament.id, %{name: "Dave", fide_rating: 1700})
+
+      {:ok, _round} =
+        PairingsEngine.Pairing.pair_next_round(Tournaments.get_tournament!(tournament.id))
+    end
+
+    test "Unlock enables the button, and using it toggles the value and audit-logs the override",
+         %{conn: conn, scope: scope} do
+      tournament =
+        create_tournament(scope, %{
+          "pairing_system" => "round_robin",
+          "categories_enabled" => true,
+          "categories" => ["A", "B"],
+          "pair_by_category" => true
+        })
+
+      pair_round_robin_round_1(tournament)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/categories")
+
+      html = render_click(lv, "unlock_field", %{"field" => "pair_by_category"})
+      refute html =~ ~r/phx-click="toggle_pair_by_category"[^>]*disabled/
+
+      html = render_click(lv, "toggle_pair_by_category", %{})
+      refute Tournaments.get_authorized_tournament!(scope, tournament.id).pair_by_category
+
+      # Landed - frozen again, same as any other locked field once round 1
+      # is paired.
+      assert html =~ ~r/phx-click="toggle_pair_by_category"[^>]*disabled/
+
+      [entry] =
+        Audit.list_for_tournament(tournament.id, action: "tournament.locked_field_changed")
+
+      assert entry.details["field"] == "pair_by_category"
+      assert entry.details["from"] == true
+      assert entry.details["to"] == false
+    end
+
+    test "the unlock does not survive a second toggle - it must be granted again", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament =
+        create_tournament(scope, %{
+          "pairing_system" => "round_robin",
+          "categories_enabled" => true,
+          "categories" => ["A", "B"],
+          "pair_by_category" => true
+        })
+
+      pair_round_robin_round_1(tournament)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/categories")
+
+      render_click(lv, "unlock_field", %{"field" => "pair_by_category"})
+      render_click(lv, "toggle_pair_by_category", %{})
+      refute Tournaments.get_authorized_tournament!(scope, tournament.id).pair_by_category
+
+      # No fresh "unlock_field" click - back to locked, same as before it
+      # was ever unlocked.
+      render_click(lv, "toggle_pair_by_category", %{})
+      refute Tournaments.get_authorized_tournament!(scope, tournament.id).pair_by_category
     end
   end
 

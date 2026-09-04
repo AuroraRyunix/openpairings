@@ -4,7 +4,7 @@ defmodule PairingsEngineWeb.SettingsScoringLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias PairingsEngine.{Repo, Tournaments}
+  alias PairingsEngine.{Audit, Repo, Tournaments}
 
   setup :register_and_log_in_user
 
@@ -121,10 +121,11 @@ defmodule PairingsEngineWeb.SettingsScoringLiveTest do
       assert html =~ ~r/name="tournament\[abs_value\][^>]*disabled/
       assert html =~ ~r/name="tournament\[abs_jusque\][^>]*disabled/
       assert html =~ ~r/name="tournament\[abs_nbfois\][^>]*disabled/
-      refute html =~ "Locked - cannot be changed"
+      refute html =~ "computed live from these values"
 
       html = render_click(lv, "locked_hint", %{"field" => "abs_scoring"})
-      assert html =~ "Locked - cannot be changed after round 1 has been paired."
+      assert html =~ "computed live from these values"
+      assert html =~ "Unlock"
     end
 
     test "a submitted change is dropped server-side once locked, even with the disabled attribute bypassed",
@@ -146,6 +147,72 @@ defmodule PairingsEngineWeb.SettingsScoringLiveTest do
       assert updated.abs_value == nil
       assert updated.abs_jusque == nil
       assert updated.abs_nbfois == nil
+    end
+  end
+
+  describe "unlocking abs_scoring - deliberate override" do
+    test "Unlock enables all three fields, and saving through it changes them and audit-logs the override",
+         %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope, %{"pairing_system" => "round_robin"})
+      pair_round_robin_round_1(tournament)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/scoring")
+
+      html = render_click(lv, "unlock_field", %{"field" => "abs_scoring"})
+      refute html =~ ~r/name="tournament\[abs_value\][^>]*disabled/
+      refute html =~ ~r/name="tournament\[abs_jusque\][^>]*disabled/
+      refute html =~ ~r/name="tournament\[abs_nbfois\][^>]*disabled/
+
+      html =
+        render_submit(lv, "save", %{
+          "tournament" => %{
+            "abs_value" => "0.5",
+            "abs_jusque" => "7",
+            "abs_nbfois" => "2"
+          }
+        })
+
+      updated = Repo.reload!(tournament)
+      assert updated.abs_value == 0.5
+      assert updated.abs_jusque == 7
+      assert updated.abs_nbfois == 2
+
+      # Landed - frozen again, same as any other locked field once round 1
+      # is paired.
+      assert html =~ ~r/name="tournament\[abs_value\][^>]*disabled/
+
+      entries =
+        Audit.list_for_tournament(tournament.id, action: "tournament.locked_field_changed")
+
+      assert length(entries) == 3
+      fields = Enum.map(entries, & &1.details["field"]) |> Enum.sort()
+      assert fields == ["abs_jusque", "abs_nbfois", "abs_value"]
+
+      abs_value_entry = Enum.find(entries, &(&1.details["field"] == "abs_value"))
+      assert abs_value_entry.details["from"] == nil
+      assert abs_value_entry.details["to"] == 0.5
+    end
+
+    test "the unlock does not survive a second save", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope, %{"pairing_system" => "round_robin"})
+      pair_round_robin_round_1(tournament)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/scoring")
+
+      render_click(lv, "unlock_field", %{"field" => "abs_scoring"})
+
+      render_submit(lv, "save", %{
+        "tournament" => %{"abs_value" => "0.5", "abs_jusque" => "7", "abs_nbfois" => "2"}
+      })
+
+      render_submit(lv, "save", %{
+        "tournament" => %{"abs_value" => "1.0", "abs_jusque" => "3", "abs_nbfois" => "1"}
+      })
+
+      updated = Repo.reload!(tournament)
+      assert updated.abs_value == 0.5
+      assert updated.abs_jusque == 7
+      assert updated.abs_nbfois == 2
     end
   end
 

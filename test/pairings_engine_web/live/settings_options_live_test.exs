@@ -4,7 +4,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias PairingsEngine.{Repo, Tournaments}
+  alias PairingsEngine.{Audit, Repo, Tournaments}
 
   setup :register_and_log_in_user
 
@@ -421,7 +421,8 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
       assert html =~ ~r/name="tournament\[pairing_engine\][^>]*disabled/
 
       html = render_click(lv, "locked_hint", %{"field" => "pairing_engine"})
-      assert html =~ "Locked - cannot be changed after round 1 has been paired."
+      assert html =~ "hands the new engine a history it did not produce"
+      assert html =~ "Unlock"
     end
 
     test "a submitted change to pairing_engine is dropped server-side once locked", %{
@@ -465,14 +466,15 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
 
       {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
       assert html =~ ~r/name="tournament\[rr_match_format\][^>]*disabled/
-      refute html =~ "Locked - cannot be changed"
+      refute html =~ "immediate two-game rematch"
 
       html = render_click(lv, "locked_hint", %{"field" => "rr_match_format"})
-      assert html =~ "Locked - cannot be changed after round 1 has been paired."
+      assert html =~ "immediate two-game rematch"
+      assert html =~ "Unlock"
 
       # Clears on the next unrelated interaction (dirty tracker hook).
       html = render_change(lv, "standard_change", %{"tournament" => %{"standard" => "standard"}})
-      refute html =~ "Locked - cannot be changed"
+      refute html =~ "immediate two-game rematch"
     end
 
     test "a submitted change to rr_match_format is dropped server-side once locked", %{
@@ -522,13 +524,14 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
 
       {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
       assert html =~ ~r/name="tournament\[swiss_match_format\][^>]*disabled/
-      refute html =~ "Locked - cannot be changed"
+      refute html =~ "immediate two-game rematch"
 
       html = render_click(lv, "locked_hint", %{"field" => "swiss_match_format"})
-      assert html =~ "Locked - cannot be changed after round 1 has been paired."
+      assert html =~ "immediate two-game rematch"
+      assert html =~ "Unlock"
 
       html = render_change(lv, "standard_change", %{"tournament" => %{"standard" => "standard"}})
-      refute html =~ "Locked - cannot be changed"
+      refute html =~ "immediate two-game rematch"
     end
 
     @tag :javafo
@@ -552,6 +555,97 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
       })
 
       assert Repo.reload!(tournament).swiss_match_format
+    end
+  end
+
+  describe "unlocking a locked field - deliberate override" do
+    test "Unlock enables the select, and saving through it changes the value and audit-logs the override",
+         %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope, %{"pairing_system" => "round_robin"})
+      pair_round_robin_round_1(tournament)
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+      assert html =~ ~r/name="tournament\[pairing_system\][^>]*disabled/
+
+      html = render_click(lv, "locked_hint", %{"field" => "pairing_system"})
+      assert html =~ "Unlock"
+
+      html = render_click(lv, "unlock_field", %{"field" => "pairing_system"})
+      refute html =~ ~r/name="tournament\[pairing_system\][^>]*disabled/
+
+      html =
+        render_submit(lv, "save", %{
+          "tournament" => %{"name" => tournament.name, "pairing_system" => "keizer"}
+        })
+
+      assert Repo.reload!(tournament).pairing_system == "keizer"
+
+      # Landed - the field goes right back to frozen, same as any other
+      # locked field once round 1 is paired.
+      assert html =~ ~r/name="tournament\[pairing_system\][^>]*disabled/
+
+      [entry] =
+        Audit.list_for_tournament(tournament.id, action: "tournament.locked_field_changed")
+
+      assert entry.details["field"] == "pairing_system"
+      assert entry.details["from"] == "round_robin"
+      assert entry.details["to"] == "keizer"
+    end
+
+    test "the unlock does not survive a second save - it must be granted again", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope, %{"pairing_system" => "round_robin"})
+      pair_round_robin_round_1(tournament)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+
+      render_click(lv, "unlock_field", %{"field" => "pairing_system"})
+
+      render_submit(lv, "save", %{
+        "tournament" => %{"name" => tournament.name, "pairing_system" => "keizer"}
+      })
+
+      assert Repo.reload!(tournament).pairing_system == "keizer"
+
+      # A second attempt, with no fresh "unlock_field" click, is refused
+      # server-side exactly like before it was ever unlocked - the select
+      # renders disabled again, and `strip_locked_pairing_fields/2` drops
+      # the submitted value.
+      render_submit(lv, "save", %{
+        "tournament" => %{"name" => tournament.name, "pairing_system" => "swiss"}
+      })
+
+      assert Repo.reload!(tournament).pairing_system == "keizer"
+    end
+
+    test "unlocking one field doesn't unlock a different one alongside it", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope, %{"pairing_system" => "round_robin"})
+      pair_round_robin_round_1(tournament)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+
+      render_click(lv, "unlock_field", %{"field" => "pairing_system"})
+
+      html =
+        render_submit(lv, "save", %{
+          "tournament" => %{
+            "name" => tournament.name,
+            "pairing_system" => "keizer",
+            "pairing_engine" => "javafo"
+          }
+        })
+
+      # pairing_engine wasn't unlocked, so it must not slip through even
+      # though pairing_system, submitted in the same form, was allowed.
+      refute html =~ "Switch to JaVaFo?"
+      reloaded = Repo.reload!(tournament)
+      assert reloaded.pairing_system == "keizer"
+      assert reloaded.pairing_engine != "javafo"
     end
   end
 
