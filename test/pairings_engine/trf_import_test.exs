@@ -162,6 +162,123 @@ defmodule PairingsEngine.TrfImportTest do
     assert to_comparable.(original) == to_comparable.(reexported)
   end
 
+  ## ---------- round-trip: an actual round-robin schedule ----------
+  ##
+  ## No test anywhere exercised `TrfExport`/`TrfImport` against a real
+  ## `PairingsEngine.RoundRobin`-paired tournament before - the Berger
+  ## schedule (an odd player count's structural "requested-zero" bye
+  ## included), varied results, and points must all still agree once the
+  ## file has gone out and come back.
+
+  test "round-trip: a real 5-player round-robin schedule (with its structural bye) preserves pairings and points" do
+    tournament =
+      Repo.insert!(%Tournament{
+        name: "RR Round-trip",
+        type: "roundrobin",
+        pairing_system: "round_robin",
+        rr_cycles: 1,
+        rounds_count: 9,
+        round_dates: for(n <- 1..5, do: "2026-0#{n}-0#{n}")
+      })
+
+    for {name, rating} <- [
+          {"Alice", 2000},
+          {"Bob", 1900},
+          {"Carol", 1800},
+          {"Dave", 1700},
+          {"Eve", 1600}
+        ] do
+      {:ok, _} =
+        Tournaments.create_player(tournament.id, %{
+          tournament_id: tournament.id,
+          name: name,
+          fide_rating: rating
+        })
+    end
+
+    assert {:ok, 5} = PairingsEngine.RoundRobin.pair_all_rounds(tournament)
+    tournament = Repo.reload!(tournament)
+
+    # Vary the results (win, draw, mixed) round by round rather than
+    # rubber-stamping every board "1-0" - a stronger check on whether
+    # points genuinely survive the round-trip rather than every game
+    # happening to be worth the same amount.
+    all_pairings =
+      Round
+      |> where(tournament_id: ^tournament.id)
+      |> order_by(:number)
+      |> Repo.all()
+      |> Repo.preload(:pairings)
+      |> Enum.flat_map(& &1.pairings)
+      |> Enum.sort_by(& &1.id)
+
+    all_pairings
+    |> Enum.with_index()
+    |> Enum.each(fn {pairing, i} ->
+      result = Enum.at(["1-0", "1/2-1/2", "0-1"], rem(i, 3))
+      {:ok, _} = Tournaments.update_pairing_result(pairing, result)
+    end)
+
+    original_points =
+      tournament
+      |> PairingCtx.trf_player_rows(Tournaments.list_players(tournament.id))
+      |> Map.new(&{&1.name, &1.points})
+
+    assert {:ok, text} = TrfExport.export(tournament)
+    assert {:ok, imported, warnings} = TrfImport.import_text(text, user_scope())
+    assert warnings == []
+
+    # `type` (FIDE-report classification) round-trips via the 092 label;
+    # `pairing_system` deliberately does not - see docs/trf-import.md's
+    # "Known limitations" (TRF16 cannot encode which engine continues a
+    # tournament, so import always hands back a fresh Swiss-continuable
+    # one). Asserting both here pins that documented split rather than
+    # silently relying on it.
+    assert imported.type == "roundrobin"
+    assert imported.pairing_system == "swiss"
+
+    assert PairingCtx.paired_rounds_count(imported.id) == 5
+
+    imported_players = Tournaments.list_players(imported.id)
+    assert length(imported_players) == 5
+
+    imported_points =
+      imported
+      |> PairingCtx.trf_player_rows(imported_players)
+      |> Map.new(&{&1.name, &1.points})
+
+    assert imported_points == original_points
+
+    # The structural bye: exactly one player per round, none twice, no
+    # `pairings` row for it - same shape check `round_robin_test.exs`
+    # exercises pre-export, now checked survives the TRF round-trip too.
+    imported_byes =
+      Repo.all(
+        from b in "byes",
+          where: b.tournament_id == ^imported.id,
+          select: %{player_id: b.player_id, round: b.round, type: b.type}
+      )
+
+    assert length(imported_byes) == 5
+    assert Enum.all?(imported_byes, &(&1.type == "requested-zero"))
+    assert imported_byes |> Enum.map(& &1.round) |> Enum.sort() == [1, 2, 3, 4, 5]
+
+    bye_player_ids = Enum.map(imported_byes, & &1.player_id) |> Enum.sort()
+    assert Enum.uniq(bye_player_ids) == bye_player_ids
+
+    # Re-exporting the import must match the original TRF text exactly
+    # (same idempotency check the Swiss fixture above already makes).
+    assert {:ok, reexported_text} = TrfExport.export(imported)
+
+    to_comparable = fn parsed ->
+      parsed.players
+      |> Enum.map(&{&1.rank, String.trim(&1.name), &1.points, &1.games})
+      |> Enum.sort()
+    end
+
+    assert to_comparable.(Trf.parse(text)) == to_comparable.(Trf.parse(reexported_text))
+  end
+
   ## ---------- forfeits & every bye code ----------
 
   # Hand-built TRF (via Trf.serialize/1, so exact column math is never our

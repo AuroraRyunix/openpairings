@@ -14,6 +14,7 @@ defmodule PairingsEngine.Tournaments do
   alias PairingsEngine.Standings
   alias PairingsEngine.PlayerStats
   alias PairingsEngine.PairingDisplay
+  alias PairingsEngine.RoundRobin
   alias PairingsEngine.Accounts
   alias PairingsEngine.Accounts.{Scope, User}
 
@@ -723,7 +724,22 @@ defmodule PairingsEngine.Tournaments do
       # that, switching single/double is still harmless (see
       # `RoundRobin.schedule/3`: round N is identical either way while N is
       # inside cycle 1).
-      rr_implied_limit = max(count_players(tournament.id) - 1, 1) * tournament.rr_cycles
+      #
+      # A single cycle's length is `RoundRobin.total_rounds(count, 1)`, NOT
+      # `count - 1` - that only holds for an even player count. For an odd
+      # count the phantom-bye player makes `effective_n = count + 1`, so a
+      # cycle is `count` rounds long (see `RoundRobin.schedule/3`'s
+      # moduledoc). The even-only `count - 1` undercounted every odd-count
+      # cycle by exactly one round, so the old `(count - 1) * rr_cycles`
+      # limit was `rr_cycles` rounds short of the real one - locking the
+      # field that many rounds too early: a single-cycle odd-count event
+      # (5 players, say) locked at round 4 of its own 5-round schedule,
+      # still inside cycle 1, and a double-cycle one locked at round 8 of
+      # its true 10-round schedule, 2 rounds early. `max(..., 2)` keeps the
+      # old floor-of-one-round behaviour for a 0/1-player edge case
+      # (`total_rounds/2` needs at least 2 to mean anything).
+      rr_implied_limit =
+        RoundRobin.total_rounds(max(count_players(tournament.id), 2), 1) * tournament.rr_cycles
 
       # `pairing_engine` belongs here for the same reason `pairing_system`
       # does, one level down: JaVaFo and Ainalrami are two independent Dutch
