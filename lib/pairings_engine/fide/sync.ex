@@ -557,7 +557,13 @@ defmodule PairingsEngine.Fide.Sync do
     # (non-crashed) run they go back exactly as the migration defined them,
     # even if that changes.
     triggers = fts_triggers()
-    Enum.each(triggers, fn %{name: name} -> Repo.query!("DROP TRIGGER #{name}") end)
+    # `name: nil` marks a fallback definition - a trigger that is not in the
+    # database to be dropped, because a killed run already removed it. Only
+    # what actually exists gets dropped; all three get recreated either way.
+    Enum.each(triggers, fn
+      %{name: nil} -> :ok
+      %{name: name} -> Repo.query!("DROP TRIGGER #{name}")
+    end)
 
     # Full replace: the monthly list is authoritative (players do get
     # removed). Deleting first and inserting after means a lookup landing
@@ -616,6 +622,45 @@ defmodule PairingsEngine.Fide.Sync do
   # from the schema so `import_list/3` can drop and restore them verbatim
   # without duplicating the migration's definitions here. Empty list (a no-op
   # on both sides) if the FTS migration hasn't run.
+  # The last-resort copies of the three `fide_players_fts` triggers, kept
+  # byte-for-byte as `20260726090000_create_fide_players_fts.exs` wrote them.
+  #
+  # Reading them back from `sqlite_master` is still the preferred source, so
+  # an ordinary run restores exactly what the database had even if the
+  # migration's definition later changes. But capture cannot be the ONLY
+  # source. `do_import_list/4` drops these before its bulk load and recreates
+  # them after, and there is no surrounding transaction any more: a hard kill
+  # in between - `cancel_import/0` uses `Process.exit(pid, :kill)`, which no
+  # `after` block survives - leaves them gone from `sqlite_master`. The next
+  # run would then capture an empty list, drop nothing, and recreate nothing,
+  # cementing the loss rather than repairing it. From that point every
+  # single-row write to `fide_players` would leave the search index stale,
+  # silently and permanently.
+  @fts_trigger_fallback [
+    """
+    CREATE TRIGGER fide_players_fts_ai AFTER INSERT ON fide_players BEGIN
+      INSERT INTO fide_players_fts(fide_id, name) VALUES (new.fide_id, new.name);
+    END
+    """,
+    """
+    CREATE TRIGGER fide_players_fts_ad AFTER DELETE ON fide_players BEGIN
+      DELETE FROM fide_players_fts WHERE fide_id = old.fide_id;
+    END
+    """,
+    """
+    CREATE TRIGGER fide_players_fts_au AFTER UPDATE ON fide_players BEGIN
+      DELETE FROM fide_players_fts WHERE fide_id = old.fide_id;
+      INSERT INTO fide_players_fts(fide_id, name) VALUES (new.fide_id, new.name);
+    END
+    """
+  ]
+
+  @doc false
+  # Exposed for `PairingsEngine.Fide.FtsTriggerRecoveryTest`, which checks
+  # that a run killed between the drop and the recreate can still be
+  # recovered from. Not part of the module's API.
+  def fts_triggers_for_test, do: fts_triggers()
+
   defp fts_triggers do
     %{rows: rows} =
       Repo.query!("""
@@ -624,7 +669,21 @@ defmodule PairingsEngine.Fide.Sync do
       ORDER BY name
       """)
 
-    Enum.map(rows, fn [name, sql] -> %{name: name, sql: sql} end)
+    case rows do
+      [] ->
+        # Nothing to capture means a previous run was killed between the drop
+        # and the recreate. Say so - this is the one moment the loss can be
+        # noticed and undone.
+        Logger.warning(
+          "fide_players has no FTS triggers; a previous import was probably " <>
+            "interrupted. Restoring them from the built-in definitions."
+        )
+
+        Enum.map(@fts_trigger_fallback, &%{name: nil, sql: &1})
+
+      rows ->
+        Enum.map(rows, fn [name, sql] -> %{name: name, sql: sql} end)
+    end
   end
 
   # Column offsets are derived from the header line so a layout change

@@ -14,6 +14,36 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.24.0] - 2026-09-04
+
+- **[Change]** The publishing controls no longer appear when no results site
+  is configured. There was a "Published / Not published" state and a dead
+  "Turn on" button on a page that could not publish anything. A tournament
+  that is already publishing keeps its controls even if the connection later
+  goes away - otherwise there would be no way to turn it off.
+- **[Feature]** Publish and unpublish a round from the pairings right-click
+  menu. Both already existed as buttons in the round header, which is easy to
+  miss; they now sit where the boards are. In "publish immediately" mode
+  neither appears, because that mode means every round is public the moment
+  it is paired - a line says so and points at the setting.
+- **[Change]** Rating list syncs no longer hold the database for the length of
+  the import. They used to run the whole replace inside one transaction, and
+  SQLite allows a single writer for the whole database, so every other write
+  queued behind them - which is how entering a result could fail. Each chunk
+  now commits on its own and the lock is free in between. The checks that
+  refuse a corrupt or truncated download moved to before anything is deleted,
+  since there is no longer a transaction to roll back: an import that parses
+  no rows, or fewer than half the current list, still leaves the existing
+  list untouched.
+- **[Fix]** A FIDE sync interrupted mid-import could permanently break player
+  search. The import drops the search index's triggers and recreates them
+  afterwards; with no transaction to undo that, a cancelled run left them
+  gone, and the next run - which recreated only what it had found at its own
+  start - found none and so restored none. From then on every change to a
+  player would have left the index stale, silently. The triggers now have
+  built-in definitions to fall back on, and a sync that finds them missing
+  says so and puts them back.
+
 ## [0.23.0] - 2026-09-04
 
 - **[Fix]** Entering a result could fail while a rating list was syncing. A
