@@ -111,6 +111,7 @@ defmodule PairingsEngineWeb.Router do
 
     get "/t/:id/export/trf", ExportController, :trf
     get "/t/:id/export/swar", ExportController, :swar
+    get "/t/:id/export/swar_html", ExportController, :swar_html
     get "/t/:id/export/pgn", ExportController, :pgn
     get "/t/:id/export/json", ExportController, :json
     get "/export/tournaments.json", ExportController, :all_json

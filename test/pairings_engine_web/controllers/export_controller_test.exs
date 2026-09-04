@@ -293,6 +293,53 @@ defmodule PairingsEngineWeb.ExportControllerTest do
     end
   end
 
+  ## ---------- GET /t/:id/export/swar_html ----------
+
+  describe "swar_html/2" do
+    # Belongs to the Belgian pack, same as swar/2 above - the route refuses
+    # it for an account that has not switched it on.
+    setup :enable_federation_features
+
+    test "downloads a SWAR-compatible HTML results page, named after its guid", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, _} = fixture(scope)
+
+      conn = get(conn, ~p"/t/#{tournament.id}/export/swar_html")
+
+      [content_type] = get_resp_header(conn, "content-type")
+      assert content_type =~ "text/html"
+      [disposition] = get_resp_header(conn, "content-disposition")
+      assert disposition =~ "attachment"
+
+      body = response(conn, 200)
+      reloaded = PairingsEngine.Tournaments.get_tournament!(tournament.id)
+      assert is_binary(reloaded.swar_guid) and reloaded.swar_guid != ""
+      assert disposition =~ "#{reloaded.swar_guid}.html"
+      assert body =~ "<meta name='Guid' content='#{reloaded.swar_guid}'>"
+      assert body =~ "Export Ctrl Test"
+    end
+
+    test "a tournament belonging to another user 404s", %{conn: conn} do
+      other_scope = PairingsEngine.AccountsFixtures.user_scope_fixture()
+      {tournament, _} = fixture(other_scope)
+
+      assert_error_sent 404, fn -> get(conn, ~p"/t/#{tournament.id}/export/swar_html") end
+    end
+  end
+
+  describe "swar_html/2 - feature switched off" do
+    test "refused (403), same as the .swar download, for an account that has not enabled it",
+         %{conn: conn, scope: scope} do
+      {tournament, _} = fixture(scope)
+
+      conn = get(conn, ~p"/t/#{tournament.id}/export/swar_html")
+
+      assert response(conn, 403)
+    end
+  end
+
   ## ---------- GET /t/:id/export/json and /export/tournaments.json ----------
 
   describe "json/2" do

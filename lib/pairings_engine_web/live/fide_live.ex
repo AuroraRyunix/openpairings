@@ -11,6 +11,7 @@ defmodule PairingsEngineWeb.FideLive do
   alias PairingsEngine.Fide.Sync, as: FideSync
   alias PairingsEngine.Federations.BEL.Sync, as: KbsbSync
   alias PairingsEngine.Federations.BEL.Api, as: KbsbApi
+  alias PairingsEngine.Federations.BEL.SwarPublish
   alias PairingsEngine.Tournaments
   alias PairingsEngine.Publishing
 
@@ -55,6 +56,8 @@ defmodule PairingsEngineWeb.FideLive do
        # cannot change while the page is open. False hides the sync button
        # entirely rather than offering an action that can only fail.
        kbsb_api_configured: kbsb? && KbsbApi.configured?(),
+       bel_swar_publish?: Features.enabled?(socket.assigns.current_scope, "bel_swar_publish"),
+       swar_version: SwarPublish.version(),
        # Everything on this page is machine-wide rather than about one
        # tournament: where this installation publishes, what leaves it in a
        # backup, and a ~41 MB rating-list download that is cheap to click
@@ -156,6 +159,22 @@ defmodule PairingsEngineWeb.FideLive do
   def handle_event("save_publishing", params, socket) do
     if socket.assigns.may_admin? do
       save_publishing(params, socket)
+    else
+      {:noreply, put_flash(socket, :error, publishing_restricted())}
+    end
+  end
+
+  # Machine-wide, same as the OpenResults address/token above - so the same
+  # `may_admin?` gate, and the same reasoning: this changes what every
+  # arbiter's SWAR results page download carries, not just this one's.
+  def handle_event("save_swar_version", %{"swar_version" => version}, socket) do
+    if socket.assigns.may_admin? do
+      SwarPublish.put_version(version)
+
+      {:noreply,
+       socket
+       |> assign(swar_version: SwarPublish.version())
+       |> put_flash(:info, gettext("Saved."))}
     else
       {:noreply, put_flash(socket, :error, publishing_restricted())}
     end
@@ -638,6 +657,37 @@ defmodule PairingsEngineWeb.FideLive do
                   do: " · FIDE #{kp.fide_id}"}
               </span>
             </div>
+          </div>
+        </form>
+      </div>
+
+      <%!-- Belongs to the pack for the same reason the KBSB roster card
+            above does - gated on its own feature key rather than
+            `bel_ratings_sync`, since an arbiter can want the SWAR results
+            page without wanting the roster sync (or the other way
+            around). See PairingsEngine.Federations.BEL.SwarPublish and
+            PairingsEngine.Features. --%>
+      <div :if={@bel_swar_publish?} class="card">
+        <h2>{gettext("SWAR results page")}</h2>
+        <p class="hint" style="margin-top: 0">
+          {gettext(
+            "The \"Version\" tag every SWAR-compatible results page carries. The federation's public tournament list shows a \"Vers\" column built by extracting the vX.YY out of this exact string."
+          )}
+        </p>
+        <form phx-submit="save_swar_version" class="field">
+          <label for="swar_version">{gettext("Version")}</label>
+          <input
+            type="text"
+            id="swar_version"
+            name="swar_version"
+            value={@swar_version}
+            class="pe-input"
+            style="max-width: 220px"
+          />
+          <div class="actions">
+            <button type="submit" class="pe-btn primary" disabled={!@may_admin?}>
+              {gettext("Save")}
+            </button>
           </div>
         </form>
       </div>

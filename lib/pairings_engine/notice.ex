@@ -47,7 +47,7 @@ defmodule PairingsEngine.Notice do
   people to ignore both.
   """
 
-  alias PairingsEngine.Repo
+  alias PairingsEngine.Meta
 
   @topic "system:notice"
   @key "site_notice"
@@ -123,25 +123,9 @@ defmodule PairingsEngine.Notice do
     Phoenix.PubSub.broadcast(PairingsEngine.PubSub, @topic, {:site_notice, notice})
   end
 
-  defp meta_get(key) do
-    case Repo.query!("SELECT value FROM meta WHERE key = ?", [key]).rows do
-      [[value]] -> value
-      _ -> nil
-    end
-  end
-
-  defp meta_put(key, value) do
-    Repo.query!(
-      "INSERT INTO meta (key, value) VALUES (?, ?) " <>
-        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-      [key, value]
-    )
-
-    :ok
-  end
-
-  defp meta_delete(key) do
-    Repo.query!("DELETE FROM meta WHERE key = ?", [key])
-    :ok
-  end
+  # Thin delegation to `PairingsEngine.Meta` - see that module's moduledoc
+  # for why the read/write/delete mechanics live there now instead of here.
+  defp meta_get(key), do: Meta.get(key)
+  defp meta_put(key, value), do: Meta.put(key, value)
+  defp meta_delete(key), do: Meta.delete(key)
 end

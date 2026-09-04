@@ -27,7 +27,8 @@ defmodule PairingsEngineWeb.SettingsExportLive do
      assign(socket,
        tournament: tournament,
        page_title: "#{tournament.name} · Settings · Export",
-       bel_swar_export?: Features.enabled?(socket.assigns.current_scope, "bel_swar_export")
+       bel_swar_export?: Features.enabled?(socket.assigns.current_scope, "bel_swar_export"),
+       bel_swar_publish?: Features.enabled?(socket.assigns.current_scope, "bel_swar_publish")
      )}
   end
 
@@ -126,6 +127,24 @@ defmodule PairingsEngineWeb.SettingsExportLive do
             }
           >
             {gettext("Export .swar (v7, experimental)")}
+          </a>
+
+          <%!-- Same gate, same reasoning, for the SWAR-compatible HTML
+                results page instead of the binary file - see
+                PairingsEngine.Federations.BEL.SwarPublish. Download only;
+                nothing here uploads anywhere. --%>
+          <a
+            :if={@bel_swar_publish?}
+            class="pe-btn"
+            href={~p"/t/#{@tournament.id}/export/swar_html"}
+            target="_blank"
+            title={
+              gettext(
+                "The standings and round results, laid out the way the federation's results site expects. Download only."
+              )
+            }
+          >
+            {gettext("Export SWAR results page (.html)")}
           </a>
         </div>
       </div>

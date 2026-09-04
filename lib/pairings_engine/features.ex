@@ -27,7 +27,7 @@ defmodule PairingsEngine.Features do
   printing or export computation, and never on a changeset that decides what
   gets written.
 
-  ## Five independent switches, on purpose
+  ## Six independent switches, on purpose
 
   `bel_player_lookup` and `bel_club_sync` READ the table `bel_ratings_sync`
   fills. With the sync off they search whatever was last downloaded -
@@ -140,6 +140,15 @@ defmodule PairingsEngine.Features do
         description:
           gettext(
             "Adds the .swar download to a tournament's Export page, for handing a tournament back to SWAR."
+          )
+      },
+      %{
+        key: "bel_swar_publish",
+        federation: "BEL",
+        label: gettext("SWAR results page"),
+        description:
+          gettext(
+            "Adds a SWAR-compatible HTML results page to a tournament's Export page - the standings and round results, laid out the way the federation's results site expects. Download only; nothing is uploaded anywhere."
           )
       }
     ]

@@ -37,7 +37,7 @@ defmodule PairingsEngineWeb.ExportController do
   }
 
   alias PairingsEngine.Features
-  alias PairingsEngine.Federations.BEL.SwarExport
+  alias PairingsEngine.Federations.BEL.{SwarExport, SwarPublish}
 
   @doc """
   GET /t/:id/export/trf?rounds=1-5 - TRF16 text download, all or selected
@@ -133,6 +133,44 @@ defmodule PairingsEngineWeb.ExportController do
       |> put_status(:forbidden)
       |> put_view(html: PairingsEngineWeb.ErrorHTML)
       |> text(gettext("SWAR export is switched off for your account. Turn it on under Features."))
+    end
+  end
+
+  @doc """
+  GET /t/:id/export/swar_html - a SWAR-compatible HTML results page: the
+  head, banner, standings and per-round results the federation's results
+  site expects. See `PairingsEngine.Federations.BEL.SwarPublish`'s
+  moduledoc for exactly what it covers and what it deliberately leaves
+  out. Download only - this route never uploads anything anywhere.
+  """
+  def swar_html(conn, %{"id" => id}) do
+    # Same shape as `swar/2` above: checked here as well as on the Export
+    # settings page that links to it, since a URL is typed, bookmarked and
+    # shared and the route has to hold its own either way.
+    if Features.enabled?(conn.assigns.current_scope, "bel_swar_publish") do
+      tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
+      # `ensure_guid!/1` first, not just inside `export/1`: the filename and
+      # the document's own `Guid` meta tag both have to agree on the same
+      # (possibly freshly-generated, possibly freshly-persisted) guid.
+      tournament = SwarPublish.ensure_guid!(tournament)
+      html = SwarPublish.export(tournament)
+
+      conn
+      |> put_resp_content_type("text/html")
+      |> put_resp_header(
+        "content-disposition",
+        "attachment; filename=\"#{SwarPublish.filename(tournament)}\""
+      )
+      |> send_resp(200, html)
+    else
+      conn
+      |> put_status(:forbidden)
+      |> put_view(html: PairingsEngineWeb.ErrorHTML)
+      |> text(
+        gettext(
+          "The SWAR results page is switched off for your account. Turn it on under Features."
+        )
+      )
     end
   end
 
