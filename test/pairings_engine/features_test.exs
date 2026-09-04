@@ -23,13 +23,14 @@ defmodule PairingsEngine.FeaturesTest do
       assert keys == Enum.uniq(keys)
     end
 
-    test "the five Belgian switches are all there" do
+    test "the six Belgian switches are all there" do
       assert Features.catalogue_for("BEL") |> Enum.map(& &1.key) == [
                "bel_ratings_sync",
                "bel_player_lookup",
                "bel_club_sync",
                "bel_swar_import",
-               "bel_swar_export"
+               "bel_swar_export",
+               "bel_swar_publish"
              ]
     end
 
