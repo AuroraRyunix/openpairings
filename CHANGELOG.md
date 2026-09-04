@@ -14,6 +14,31 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.35.0] - 2026-09-04
+
+- [Fix] **An odd-sized round robin locked its cycle count a round too early.**
+  The rule that keeps single/double switchable while the rounds paired so far
+  stay inside cycle 1 measured a cycle as "players minus one" - true only for
+  an even count. An odd count plays a full round per player, because the bye
+  is a phantom opponent, so a five-player event locked at round 4 of its own
+  five-round schedule, and a five-player double locked at round 8 of ten. The
+  length now comes from the schedule builder itself rather than a second copy
+  of the arithmetic.
+- [Fix] **A late registration could unlock a cycle count that was correctly
+  locked.** The same rule counted every player row, including someone who
+  registered after round 1. A round robin never reschedules around a
+  latecomer - they never receive a pairing number - so counting them implied
+  a longer schedule than exists, and a fully-paired four-player event read as
+  editable again the moment an unrelated fifth player signed up. It now
+  counts the frozen roster the schedule was actually built from.
+- [Verified] **The rest of the round-robin flow was audited and is correct.**
+  Schedules, colours across both cycles, the odd-count bye, standings and
+  tie-breaks with unplayed games, withdrawals, the crosstable, and a TRF
+  round trip were all swept for three to ten players and both cycle counts:
+  every pair meets exactly once, the second cycle reverses the first's
+  colours exactly, and nobody receives two byes. The round trip and the
+  property sweep are now permanent tests.
+
 ## [0.34.0] - 2026-09-04
 
 - [Feature] **A locked setting is a guard rail now, not a wall.** Settings

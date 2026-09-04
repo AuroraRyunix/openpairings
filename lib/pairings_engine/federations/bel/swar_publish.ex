@@ -212,10 +212,36 @@ defmodule PairingsEngine.Federations.BEL.SwarPublish do
 
   defp generate_guid(tournament) do
     prefix = tournament.organizer_club_number || ""
-    date = Calendar.strftime(Date.utc_today(), "%y%m%d")
     hex = 4 |> :crypto.strong_rand_bytes() |> Base.encode16(case: :lower)
-    "#{prefix}-#{date}-#{hex}-{#{Ecto.UUID.generate()}}"
+    "#{prefix}-#{guid_date(tournament)}-#{hex}-{#{Ecto.UUID.generate()}}"
   end
+
+  # The tournament's START date, not today's.
+  #
+  # `GenerateGUID()` in SWAR's `TournoiReadWrite.cpp` reads it out of
+  # `DateDebut` - `Mid(8, 2)` for the two-digit year, `Mid(3, 2)` for the
+  # month, `Mid(0, 2)` for the day of a `DD/MM/YYYY` string - so a tournament
+  # starting on 01/08/2026 is stamped `260801`, whenever the id happened to be
+  # minted.
+  #
+  # It is frozen from then on, because the whole block is guarded by "only if
+  # the guid is empty". The reference file proves it: its id says `250905`
+  # while its `DateStart` meta says `01/08/2026` - that event was created with
+  # a September 2025 start, the date moved later, and the id did not follow.
+  # That is the behaviour to copy, not a discrepancy to fix: the id is what
+  # the results site overwrites in place, so it must survive an edit to the
+  # dates or a second upload would publish a second tournament.
+  #
+  # Falls back to today only when the tournament has no start date at all,
+  # which the six digits still have to be filled with somehow.
+  defp guid_date(%{start_date: date}) when is_binary(date) and date != "" do
+    case Date.from_iso8601(date) do
+      {:ok, d} -> Calendar.strftime(d, "%y%m%d")
+      _ -> Calendar.strftime(Date.utc_today(), "%y%m%d")
+    end
+  end
+
+  defp guid_date(_), do: Calendar.strftime(Date.utc_today(), "%y%m%d")
 
   ## ================================================================
   ## Public export
@@ -277,7 +303,7 @@ defmodule PairingsEngine.Federations.BEL.SwarPublish do
     <meta name='Version' content='#{esc(version())}'>
     <meta name='Cache-Control' content='no-cache, no-store , must-revalidate'>
     <meta name='Description' content='Classement des tournois échecs'>
-    <meta name='Author' content='Georges Marchal'>
+    <meta name='Author' content='OpenPairings'>
     <meta name='Keywords' content='échecs,echecs,chess,jeux,game,belgique,belgium,forum'>
     <meta name='Keywords' content='liège,liege,666,elo,classement,tournoi,interclub'>
     <meta name='Keywords' content='Swar, kbsb,frbe,fefb,vsf,svdb,666'>
@@ -291,12 +317,22 @@ defmodule PairingsEngine.Federations.BEL.SwarPublish do
 
   defp locale, do: Gettext.get_locale(PairingsEngineWeb.Gettext)
 
-  # `Description`, `Author`, `Keywords` and `Robots` are the results site's
-  # OWN fixed identification of what kind of file this is - not tournament
-  # data, and not translated content OpenPairings authored. They are
-  # reproduced verbatim, in French, exactly as every SWAR install (Dutch,
-  # French or German) writes them, because the results site's own intake
-  # matches on them.
+  # `Description`, `Keywords` and `Robots` are the results site's own fixed
+  # identification of what kind of file this is - not tournament data, and not
+  # content OpenPairings authored. They are reproduced verbatim, in French,
+  # exactly as every SWAR install writes them, whatever its own language.
+  #
+  # `Author` is NOT reproduced. SWAR writes "Georges Marchal" there, and this
+  # file was not written by him: copying it would put another person's name on
+  # output he had no hand in. The documented intake reads `Guid`, `MacGuid`,
+  # `MacSend`, `Annee`, `Fede`, `Organisateur`, `Type`, `Round`, `DateStart`,
+  # `DateEnd`, `Tournoi`, `DateSend` and `Version` - `Author` is not among
+  # them, so nothing should depend on it. If a first upload ever proves
+  # otherwise, that is worth knowing on its own before deciding what to do.
+  #
+  # `Version` is settable for the same reason in reverse: the federation's
+  # public list shows the version it extracts from that string, so what
+  # appears there is the operator's call, not ours.
 
   defp federation_label(%Tournament{fide_homologated: true}), do: "FIDE"
   defp federation_label(%Tournament{}), do: "KBSB"

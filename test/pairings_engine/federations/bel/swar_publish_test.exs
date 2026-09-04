@@ -242,4 +242,51 @@ defmodule PairingsEngine.Federations.BEL.SwarPublishTest do
       assert Standings.effective_tiebreaks(tournament) == ["SB", "WIN"]
     end
   end
+
+  describe "the guid's date" do
+    test "comes from the tournament's start date, not from today" do
+      # SWAR reads it out of `DateDebut`, so a tournament starting 01/08/2026
+      # is stamped 260801 whenever the id is minted.
+      t =
+        fixture(user_scope_fixture(), %{
+          "start_date" => "2026-08-01",
+          "organizer_club_number" => "351"
+        })
+
+      t = SwarPublish.ensure_guid!(t)
+
+      assert t.swar_guid =~ ~r/^351-260801-[0-9a-f]{8}-\{/
+    end
+
+    test "survives the start date being changed afterwards" do
+      # The reference file proves SWAR does this: its id says 250905 while its
+      # DateStart says 01/08/2026. The id is what the results site overwrites
+      # in place, so it must not follow an edit - or a second upload would
+      # publish a second tournament instead of replacing the first.
+      t =
+        fixture(user_scope_fixture(), %{
+          "start_date" => "2026-08-01",
+          "organizer_club_number" => "351"
+        })
+
+      t = SwarPublish.ensure_guid!(t)
+      minted = t.swar_guid
+
+      {:ok, moved} = Tournaments.update_tournament(t, %{"start_date" => "2027-01-15"})
+
+      assert SwarPublish.ensure_guid!(moved).swar_guid == minted
+    end
+  end
+
+  describe "attribution" do
+    test "the file does not claim SWAR's author wrote it" do
+      t = fixture(user_scope_fixture(), %{"organizer_club_number" => "351"})
+      html = SwarPublish.export(t)
+
+      refute html =~ "Georges Marchal",
+             "copying the Author meta would put another person's name on output he had no hand in"
+
+      assert html =~ "<meta name='Author' content='OpenPairings'>"
+    end
+  end
 end
