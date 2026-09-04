@@ -14,6 +14,29 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.33.0] - 2026-09-04
+
+- [Change] **"Live view" is now "Local view".** "Live" reads as live to the
+  public, and that page is the opposite of public: it is the screen in your
+  venue and your own tab, and since it began showing only published rounds
+  the old name invited exactly the confusion that gating exists to remove.
+  What is public is OpenResults. The address and the module keep their names;
+  only the label changed.
+- [Fix] **The pairing list reads as a pairing sheet again.** White was
+  left-aligned, the result centred in a fixed column, and black
+  left-aligned after it - so a short name drifted away from the result and a
+  long one crowded it, and the result never looked centred between the two
+  players. White is now right-aligned, black left-aligned, and the two names
+  share the width equally, the way a printed pairing sheet reads. The
+  projector view follows, with a narrower result column since it is read from
+  across a room.
+- [Change] **Standings printing lives with the standings.** The pairings page
+  no longer carries a Print standings button. Printing standings as they
+  stood after an earlier round is no longer offered in the interface, only by
+  its address - the standings page has no round to pin it to, and pinning one
+  to that page's own Print would have silently dropped the manual-ranking
+  banner, which only appears when no round is requested.
+
 ## [0.32.0] - 2026-09-04
 
 - [Change] **A TRF will not leave without its round dates.** FIDE requires
