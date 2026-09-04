@@ -66,9 +66,18 @@ defmodule PairingsEngine.SettingsLockTest do
 
     test "rr_cycles stays open while the paired rounds are still inside cycle 1" do
       # 4 players -> a single cycle is 3 rounds, so one paired round is well
-      # inside it and switching single/double is still harmless.
+      # inside it and switching single/double is still harmless. Pairing
+      # numbers are set here, same as the real freeze
+      # (`RoundRobin.ensure_frozen/1`) always does before any round exists -
+      # `locked_fields/1`'s round-robin limit is computed over the FROZEN
+      # roster (`PairingsEngine.Pairing.full_roster_players/1`), not every
+      # `players` row, so a fixture that skips this doesn't exercise the
+      # same count the real code path does.
       t = tournament(%{pairing_system: "round_robin", rr_cycles: 1})
-      for n <- 1..4, do: Repo.insert!(%Player{tournament_id: t.id, name: "P#{n}"})
+
+      for n <- 1..4,
+          do: Repo.insert!(%Player{tournament_id: t.id, name: "P#{n}", pairing_number: n})
+
       t = pair_a_round(t)
 
       refute :rr_cycles in Tournaments.locked_fields(t)
@@ -76,8 +85,8 @@ defmodule PairingsEngine.SettingsLockTest do
 
     test "rr_cycles locks once the paired rounds reach what the setting implies" do
       t = tournament(%{pairing_system: "round_robin", rr_cycles: 1})
-      a = Repo.insert!(%Player{tournament_id: t.id, name: "A"})
-      b = Repo.insert!(%Player{tournament_id: t.id, name: "B"})
+      a = Repo.insert!(%Player{tournament_id: t.id, name: "A", pairing_number: 1})
+      b = Repo.insert!(%Player{tournament_id: t.id, name: "B", pairing_number: 2})
 
       # 2 players, single cycle => 1 round is the whole schedule.
       r = Repo.insert!(%Round{tournament_id: t.id, number: 1})

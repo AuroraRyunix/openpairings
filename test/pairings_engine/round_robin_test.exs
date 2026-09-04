@@ -115,6 +115,91 @@ defmodule PairingsEngine.RoundRobinTest do
     end
   end
 
+  ## ---------- schedule/3: property sweep across player counts ----------
+  ##
+  ## The published-table and N=4/5/6 tests above pin exact compositions;
+  ## this sweeps the general properties (meet-once, one bye per odd-N
+  ## round, determinism, colour reversal) over N=3..10 and both cycle
+  ## counts, rather than trusting a handful of worked examples to
+  ## generalize.
+
+  describe "schedule/3 - property sweep, N=3..10" do
+    test "every pair meets exactly once per cycle, odd N gives exactly one bye per round with full coverage, double cycle reverses colours" do
+      for n <- 3..10, cycles <- [1, 2] do
+        cycle_length = RoundRobin.total_rounds(n, 1)
+        assert RoundRobin.total_rounds(n, cycles) == cycle_length * cycles
+
+        all_pairs =
+          for round <- 1..cycle_length,
+              {:ok, matches} = RoundRobin.schedule(n, cycles, round),
+              {:pairing, w, b} <- matches do
+            Enum.sort([w, b]) |> List.to_tuple()
+          end
+
+        expected = for a <- 1..n, b <- 1..n, a < b, do: {a, b}
+        assert Enum.sort(all_pairs) == Enum.sort(expected), "N=#{n} cycles=#{cycles}"
+
+        for round <- 1..cycle_length do
+          assert {:ok, matches} = RoundRobin.schedule(n, cycles, round)
+          bye_count = Enum.count(matches, &match?({:bye, _}, &1))
+          expected_byes = if rem(n, 2) == 1, do: 1, else: 0
+          assert bye_count == expected_byes, "N=#{n} round=#{round} cycles=#{cycles}"
+        end
+
+        if rem(n, 2) == 1 do
+          byes =
+            for round <- 1..cycle_length,
+                {:ok, matches} = RoundRobin.schedule(n, cycles, round),
+                {:bye, p} <- matches,
+                do: p
+
+          assert Enum.sort(byes) == Enum.to_list(1..n), "N=#{n} cycles=#{cycles} bye coverage"
+        end
+
+        assert RoundRobin.schedule(n, cycles, cycle_length * cycles) ==
+                 RoundRobin.schedule(n, cycles, cycle_length * cycles)
+
+        if cycles == 2 do
+          for round <- 1..cycle_length do
+            assert {:ok, c1} = RoundRobin.schedule(n, 2, round)
+            assert {:ok, c2} = RoundRobin.schedule(n, 2, round + cycle_length)
+
+            expected_c2 =
+              Enum.map(c1, fn
+                {:pairing, w, b} -> {:pairing, b, w}
+                {:bye, p} -> {:bye, p}
+              end)
+
+            assert MapSet.new(c2) == MapSet.new(expected_c2), "N=#{n} round=#{round}"
+          end
+        end
+
+        assert RoundRobin.schedule(n, cycles, cycle_length * cycles + 1) ==
+                 {:error, "All rounds have been paired (round-robin schedule complete)"}
+      end
+    end
+
+    test "double round-robin gives every pair exactly one White and one Black exposure each" do
+      for n <- [4, 5, 6, 7, 8, 9] do
+        cycle_length = RoundRobin.total_rounds(n, 1)
+
+        games =
+          for round <- 1..(2 * cycle_length),
+              {:ok, matches} = RoundRobin.schedule(n, 2, round),
+              {:pairing, w, b} <- matches,
+              do: {w, b}
+
+        by_pair = Enum.group_by(games, fn {w, b} -> Enum.sort([w, b]) |> List.to_tuple() end)
+
+        for {_pair, pair_games} <- by_pair do
+          assert length(pair_games) == 2
+          whites = Enum.map(pair_games, fn {w, _b} -> w end)
+          assert Enum.frequencies(whites) |> Map.values() |> Enum.sort() == [1, 1]
+        end
+      end
+    end
+  end
+
   ## ---------- match_schedule/2 & match_total_rounds/1: "match format" ----------
   ##
   ## rr_match_format's immediate two-game rematch - physical round 2k-1/2k
@@ -780,6 +865,88 @@ defmodule PairingsEngine.RoundRobinTest do
       assert {:error, message} = RoundRobin.pair_all_rounds(tournament)
       assert message =~ "needs 62 rounds"
       assert Pairing.paired_rounds_count(tournament.id) == 0
+    end
+  end
+
+  ## ---------- rr_cycles locking boundary, odd player counts ----------
+  ##
+  ## `Tournaments.locked_fields/1` unlocks `rr_cycles` only while the
+  ## rounds already paired stay inside what the *current* rr_cycles
+  ## setting's schedule needs (`RoundRobin.total_rounds(count, rr_cycles)`
+  ## - see `test/pairings_engine/settings_lock_test.exs` for the even-N
+  ## case). It used to compute that limit as `(count_players - 1) *
+  ## rr_cycles`, which only equals a single cycle's length for an EVEN
+  ## player count; for odd N a cycle is `count_players` rounds (the
+  ## phantom-bye player makes `effective_n = count + 1`), so the old
+  ## formula undercounted by one cycle-length's worth of rounds per cycle.
+  ## Symptom: the shortfall is `rr_cycles` rounds every time, so it always
+  ## locked early rather than late - a single-cycle odd-N event locked
+  ## `rr_cycles` one round before its own schedule was even finished (round
+  ## N-1 of N, still inside cycle 1), and a double-cycle odd-N event locked
+  ## two rounds before ITS schedule finished (round 2(N-1) of the true
+  ## 2N-round schedule) - the arbiter-facing failure being an arbiter
+  ## opening Settings mid-event and finding "double round robin" refused
+  ## while switching it was still perfectly safe.
+
+  describe "rr_cycles locking boundary - odd player count (N=5)" do
+    test "single cycle: stays unlocked through round 4 of 5, locks once round 5 (all of cycle 1) is paired" do
+      tournament = round_robin_tournament(rr_cycles: 1)
+      for i <- 1..5, do: insert_player(tournament, "P#{i}", fide_rating: 2000 - i)
+
+      for expected_round <- 1..4 do
+        assert {:ok, round} = Pairing.pair_next_round(tournament)
+        assert round.number == expected_round
+
+        refute :rr_cycles in Tournaments.locked_fields(Repo.reload!(tournament)),
+               "round #{expected_round}/5 paired but rr_cycles already locked"
+      end
+
+      assert {:ok, round5} = Pairing.pair_next_round(tournament)
+      assert round5.number == 5
+      assert :rr_cycles in Tournaments.locked_fields(Repo.reload!(tournament))
+    end
+
+    test "double cycle: stays unlocked through round 9 of 10, locks once round 10 (the whole implied schedule) is paired" do
+      tournament = round_robin_tournament(rr_cycles: 2)
+      for i <- 1..5, do: insert_player(tournament, "P#{i}", fide_rating: 2000 - i)
+
+      for expected_round <- 1..9 do
+        assert {:ok, round} = Pairing.pair_next_round(tournament)
+        assert round.number == expected_round
+
+        refute :rr_cycles in Tournaments.locked_fields(Repo.reload!(tournament)),
+               "round #{expected_round}/10 paired but rr_cycles already locked"
+      end
+
+      assert {:ok, round10} = Pairing.pair_next_round(tournament)
+      assert round10.number == 10
+      assert :rr_cycles in Tournaments.locked_fields(Repo.reload!(tournament))
+    end
+
+    test "a latecomer who joins after the freeze (and is excluded from the schedule) does not un-derive an already-correct lock" do
+      # `locked_fields/1`'s implied-schedule-length calculation used to read
+      # `Tournaments.count_players/1` - every row in the tournament's
+      # `players` table, including someone who registers after round 1 was
+      # paired. Round robin never reschedules around a latecomer (see
+      # `RoundRobin`'s moduledoc: they never get a `pairing_number` and
+      # never appear in any round), so counting them here inflated the
+      # implied schedule length and read a finished, fully-paired 4-player
+      # cycle as still 1 round short of complete the moment a 5th player -
+      # never scheduled at all - registered.
+      tournament = round_robin_tournament(rr_cycles: 1)
+      for i <- 1..4, do: insert_player(tournament, "P#{i}", fide_rating: 2000 - i)
+
+      for _ <- 1..3, do: {:ok, _} = Pairing.pair_next_round(tournament)
+      tournament = Repo.reload!(tournament)
+
+      assert :rr_cycles in Tournaments.locked_fields(tournament),
+             "sanity: 4 players, single cycle, all 3 rounds paired - already locked"
+
+      insert_player(tournament, "Latecomer", fide_rating: 2500)
+      tournament = Repo.reload!(tournament)
+
+      assert :rr_cycles in Tournaments.locked_fields(tournament),
+             "a latecomer who was never scheduled at all un-locked rr_cycles"
     end
   end
 

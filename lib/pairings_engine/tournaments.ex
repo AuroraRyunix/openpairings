@@ -14,6 +14,7 @@ defmodule PairingsEngine.Tournaments do
   alias PairingsEngine.Standings
   alias PairingsEngine.PlayerStats
   alias PairingsEngine.PairingDisplay
+  alias PairingsEngine.RoundRobin
   alias PairingsEngine.Accounts
   alias PairingsEngine.Accounts.{Scope, User}
 
@@ -723,7 +724,35 @@ defmodule PairingsEngine.Tournaments do
       # that, switching single/double is still harmless (see
       # `RoundRobin.schedule/3`: round N is identical either way while N is
       # inside cycle 1).
-      rr_implied_limit = max(count_players(tournament.id) - 1, 1) * tournament.rr_cycles
+      #
+      # A single cycle's length is `RoundRobin.total_rounds(count, 1)`, NOT
+      # `count - 1` - that only holds for an even player count. For an odd
+      # count the phantom-bye player makes `effective_n = count + 1`, so a
+      # cycle is `count` rounds long (see `RoundRobin.schedule/3`'s
+      # moduledoc). The even-only `count - 1` undercounted every odd-count
+      # cycle by exactly one round, so the old `(count - 1) * rr_cycles`
+      # limit was `rr_cycles` rounds short of the real one - locking the
+      # field that many rounds too early: a single-cycle odd-count event
+      # (5 players, say) locked at round 4 of its own 5-round schedule,
+      # still inside cycle 1, and a double-cycle one locked at round 8 of
+      # its true 10-round schedule, 2 rounds early. `max(..., 2)` keeps the
+      # old floor-of-one-round behaviour for a 0/1-player edge case
+      # (`total_rounds/2` needs at least 2 to mean anything).
+      #
+      # `count` itself has to be the FROZEN schedule size
+      # (`PairingsEngine.Pairing.full_roster_players/1` - the same query
+      # `RoundRobin.frozen_players/1` uses to build the Berger table), not
+      # `count_players/1`'s live total. A round robin never reschedules
+      # around a player who joins after the freeze (see
+      # `RoundRobin`'s moduledoc, "Freezing pairing numbers") - they never
+      # get a `pairing_number` and never appear in any round - so counting
+      # them here inflates the implied schedule length and can un-derive an
+      # already-correct lock: a 4-player single cycle (3 rounds, fully
+      # paired) reads as needing 5 rounds the moment a 5th, never-scheduled
+      # player registers, reporting `rr_cycles` open again although nothing
+      # about the 4-player schedule on the board changed.
+      frozen_count = tournament.id |> PairingsEngine.Pairing.full_roster_players() |> length()
+      rr_implied_limit = RoundRobin.total_rounds(max(frozen_count, 2), 1) * tournament.rr_cycles
 
       # `pairing_engine` belongs here for the same reason `pairing_system`
       # does, one level down: JaVaFo and Ainalrami are two independent Dutch
