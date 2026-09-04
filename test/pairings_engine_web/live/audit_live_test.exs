@@ -27,6 +27,23 @@ defmodule PairingsEngineWeb.AuditLiveTest do
     assert html =~ scope.user.email
   end
 
+  test "a locked-field override renders as its own sentence, distinct from an ordinary settings save",
+       %{conn: conn, scope: scope} do
+    t = make_tournament(scope)
+
+    Audit.log(t.id, scope, "tournament.locked_field_changed", %{
+      field: "pairing_engine",
+      from: "javafo",
+      to: "ainalrami"
+    })
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/audit")
+
+    assert html =~ "Overrode the round-1 freeze on pairing_engine"
+    assert html =~ "javafo"
+    assert html =~ "ainalrami"
+  end
+
   test "a machine-wide row (no tournament) never appears on a tournament's own trail", %{
     conn: conn,
     scope: scope

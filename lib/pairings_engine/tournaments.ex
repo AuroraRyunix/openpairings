@@ -666,9 +666,15 @@ defmodule PairingsEngine.Tournaments do
     |> tap_ok(fn tournament -> broadcast_user_tournaments(tournament.user_id) end)
   end
 
-  def update_tournament(%Tournament{} = tournament, attrs) do
+  @doc """
+  Updates `tournament` with `attrs`, refusing an archived/handed-off
+  tournament (`ensure_writable/1`) and any change to a `locked_fields/1`
+  member (`ensure_unlocked/3`) - unless that field is named in the
+  `:unlock` option, see `ensure_unlocked/3`.
+  """
+  def update_tournament(%Tournament{} = tournament, attrs, opts \\ []) do
     with :ok <- ensure_writable(tournament),
-         :ok <- ensure_unlocked(tournament, attrs) do
+         :ok <- ensure_unlocked(tournament, attrs, opts) do
       tournament
       |> Tournament.changeset(attrs)
       |> Repo.update()
@@ -702,7 +708,7 @@ defmodule PairingsEngine.Tournaments do
   atoms. Empty before the first round is paired.
 
   The single source of truth for both the context guard in
-  `update_tournament/2` and the Settings pages' disabled/locked rendering,
+  `update_tournament/3` and the Settings pages' disabled/locked rendering,
   so the two can't drift apart.
   """
   @spec locked_fields(Tournament.t()) :: [atom()]
@@ -735,15 +741,31 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
-  `:ok` unless `attrs` would actually *change* one of `locked_fields/1`.
+  `:ok` unless `attrs` would actually *change* one of `locked_fields/1` that
+  isn't named in `opts`'s `:unlock` list.
 
   Compares against the current value rather than merely spotting the key, so
   a form that round-trips an unchanged locked field (the ordinary case - the
   input is disabled but still submitted) is not refused.
+
+  `:unlock` is how an arbiter's deliberate "Unlock" click (see the Settings
+  pages' `locked_overlay`/`locked_hint_message` pair in
+  `PairingsEngineWeb.SettingsSupport`) reaches this far: the LiveView holds
+  which fields were unlocked in *its own socket assign*, never in the
+  submitted params, and passes them here on that one save. Nothing here
+  persists the unlock - call again without it (the ordinary case, and what
+  a fresh `update_tournament/2` call always does) and the field is frozen
+  again, exactly as if it had never been opened. A caller that doesn't know
+  about unlocking - another LiveView, a script, a future code path - passes
+  no `:unlock` and gets the same refusal `locked_fields/1` has always given,
+  same as the rule this whole module documents above: the check has to live
+  where the write does, not in whichever template happened to render an
+  "Unlock" button.
   """
-  @spec ensure_unlocked(Tournament.t(), map()) :: :ok | {:error, :locked_after_pairing}
-  def ensure_unlocked(%Tournament{} = tournament, attrs) when is_map(attrs) do
-    locked = locked_fields(tournament)
+  @spec ensure_unlocked(Tournament.t(), map(), keyword()) :: :ok | {:error, :locked_after_pairing}
+  def ensure_unlocked(%Tournament{} = tournament, attrs, opts \\ []) when is_map(attrs) do
+    unlocked = opts |> Keyword.get(:unlock, []) |> MapSet.new()
+    locked = tournament |> locked_fields() |> Enum.reject(&(&1 in unlocked))
 
     changed? =
       Enum.any?(locked, fn field ->

@@ -132,6 +132,83 @@ defmodule PairingsEngine.SettingsLockTest do
     end
   end
 
+  describe "update_tournament/3 with the :unlock option - deliberate override" do
+    test "a locked field named in :unlock is no longer refused" do
+      t = tournament() |> pair_a_round()
+
+      assert {:ok, updated} =
+               Tournaments.update_tournament(t, %{"pairing_system" => "keizer"},
+                 unlock: [:pairing_system]
+               )
+
+      assert updated.pairing_system == "keizer"
+    end
+
+    test "only the named field is unlocked - an untouched locked field alongside it is still refused" do
+      t = tournament() |> pair_a_round()
+
+      assert Tournaments.update_tournament(
+               t,
+               %{"pairing_system" => "keizer", "abs_value" => "0.5"},
+               unlock: [:pairing_system]
+             ) == {:error, :locked_after_pairing}
+
+      # All-or-nothing, same as the plain refusal above - naming ONE field
+      # in :unlock must not let a second, un-named locked field ride along.
+      reloaded = Repo.reload!(t)
+      assert reloaded.pairing_system == "swiss"
+      refute reloaded.abs_value
+    end
+
+    test "the unlock does not persist - a second call without it is refused again" do
+      t = tournament() |> pair_a_round()
+
+      assert {:ok, updated} =
+               Tournaments.update_tournament(t, %{"pairing_system" => "keizer"},
+                 unlock: [:pairing_system]
+               )
+
+      # Same tournament, same field, no :unlock this time.
+      assert Tournaments.update_tournament(updated, %{"pairing_system" => "swiss"}) ==
+               {:error, :locked_after_pairing}
+
+      assert Repo.reload!(updated).pairing_system == "keizer"
+    end
+
+    test "the whole absence-scoring trio can be unlocked together" do
+      t = tournament() |> pair_a_round()
+
+      assert {:ok, updated} =
+               Tournaments.update_tournament(
+                 t,
+                 %{"abs_value" => "0.5", "abs_jusque" => "7", "abs_nbfois" => "2"},
+                 unlock: [:abs_value, :abs_jusque, :abs_nbfois]
+               )
+
+      assert updated.abs_value == 0.5
+      assert updated.abs_jusque == 7
+      assert updated.abs_nbfois == 2
+    end
+
+    test "an empty :unlock refuses exactly like update_tournament/2" do
+      t = tournament() |> pair_a_round()
+
+      assert Tournaments.update_tournament(t, %{"pairing_system" => "keizer"}, unlock: []) ==
+               {:error, :locked_after_pairing}
+    end
+
+    test "ensure_unlocked/3 is what update_tournament/3 relies on, and can be called the same way" do
+      t = tournament() |> pair_a_round()
+
+      assert Tournaments.ensure_unlocked(t, %{"pairing_system" => "keizer"}) ==
+               {:error, :locked_after_pairing}
+
+      assert Tournaments.ensure_unlocked(t, %{"pairing_system" => "keizer"},
+               unlock: [:pairing_system]
+             ) == :ok
+    end
+  end
+
   describe "what stays allowed" do
     test "ordinary settings still save after round 1" do
       t = tournament() |> pair_a_round()

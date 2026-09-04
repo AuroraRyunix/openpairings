@@ -170,6 +170,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
   attr :field, :atom, default: nil
   attr :locked?, :boolean, default: false
   attr :locked_hint, :atom, default: nil
+  attr :warning, :string, default: nil
   slot :inner_block
 
   def setting_toggle(assigns) do
@@ -183,7 +184,12 @@ defmodule PairingsEngineWeb.SettingsSupport do
       <span class="set-toggle-text">
         {@label}
         <span :if={@hint} class="hint">{@hint}</span>
-        <.locked_hint_message :if={@field} field={@field} locked_hint={@locked_hint} />
+        <.locked_hint_message
+          :if={@field}
+          field={@field}
+          locked_hint={@locked_hint}
+          warning={@warning}
+        />
         {render_slot(@inner_block)}
       </span>
     </label>
@@ -204,15 +210,38 @@ defmodule PairingsEngineWeb.SettingsSupport do
     """
   end
 
-  @doc "The transient 'why is this locked' message, shown for the clicked field only."
+  @doc """
+  The "why is this locked" panel, shown for the clicked field only: what
+  changing it now actually costs (`warning`), and the way past the lock.
+
+  `warning` is required and has no generic fallback, on purpose - "Are you
+  sure?" tells an arbiter nothing they didn't already know from the field
+  being disabled. What they need before they click past a round-1 freeze is
+  the specific thing about to happen to rounds that already exist; every
+  call site supplies its own (see `PairingsEngine.Tournaments.locked_fields/1`'s
+  moduledoc for the reasoning behind each field this is called for).
+
+  The "Unlock" button fires `"unlock_field"` with `phx-value-field={@field}`.
+  Wire that event in the LiveView to add `@field` to whichever socket assign
+  tracks fields unlocked for *this* editing session - never to the database,
+  see `PairingsEngine.Tournaments.ensure_unlocked/3` for why a save still has
+  to name it again. There is deliberately no page-wide "unlock everything"
+  button here: unlocking is a decision about ONE field, made after reading
+  what that one field costs, and a page-wide switch would let a single click
+  wave every warning below through unread.
+  """
   attr :field, :atom, required: true
   attr :locked_hint, :atom, default: nil
+  attr :warning, :string, required: true
 
   def locked_hint_message(assigns) do
     ~H"""
-    <span :if={@locked_hint == @field} class="hint locked-hint-msg">
-      {gettext("Locked - cannot be changed after round 1 has been paired.")}
-    </span>
+    <div :if={@locked_hint == @field} class="hint locked-hint-msg">
+      <p style="margin: 0 0 8px">{@warning}</p>
+      <button type="button" class="pe-btn tonal" phx-click="unlock_field" phx-value-field={@field}>
+        {gettext("Unlock")}
+      </button>
+    </div>
     """
   end
 
@@ -394,6 +423,46 @@ defmodule PairingsEngineWeb.SettingsSupport do
         %{changed_fields: changed}
       )
     end
+  end
+
+  @doc """
+  Records one "tournament.locked_field_changed" audit row per field in
+  `fields` that actually changed value - `fields` being the real
+  `Tournaments.locked_fields/1` atoms an arbiter deliberately unlocked for
+  this one save (see `locked_hint_message/1`'s "Unlock" button), never the
+  whole diff.
+
+  Deliberately its own audit action rather than folded into
+  `log_settings_change/3`'s bulk diff: overriding a round-1 freeze is a
+  significant act mid-event on its own, one an arbiter may need to point to
+  later, and it must not go unnoticed inside whatever else that same "Save"
+  also happened to touch. Call this alongside `log_settings_change/3`, not
+  instead of it - the bulk diff still belongs in the trail too.
+  """
+  def log_unlocked_field_changes(socket, before, after_tournament, fields) do
+    # NOT a `for` with `old_value = ...`/`new_value = ...` bindings as filter
+    # clauses: `for`'s non-generator clauses are filters on the TRUTHINESS of
+    # what they evaluate to, not merely "does this match" - so the moment a
+    # previously-unset field (e.g. `abs_value` before its first-ever save,
+    # `nil`) hit `old_value = Map.get(before, field)`, that clause's value
+    # (`nil`) read as a failing filter and silently dropped the iteration
+    # before the real `!=` check ever ran. `Enum.each/2` with an explicit
+    # `if` has no such trap.
+    Enum.each(fields, fn field ->
+      old_value = Map.get(before, field)
+      new_value = Map.get(after_tournament, field)
+
+      if old_value != new_value do
+        Audit.log(
+          after_tournament.id,
+          socket.assigns.current_scope,
+          "tournament.locked_field_changed",
+          %{field: to_string(field), from: old_value, to: new_value}
+        )
+      end
+    end)
+
+    :ok
   end
 
   @doc "Field-by-field diff of two tournament structs, skipping derived/internal fields."

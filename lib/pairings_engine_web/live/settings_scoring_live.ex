@@ -33,6 +33,11 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
        dirty: false,
        stale: false,
        locked_hint: nil,
+       # Deliberately unlocked for THIS save only - see `assign_abs_scoring_lock/1`
+       # and the "unlock_field" event below. Never persisted, and reset back
+       # to empty the moment a save using it lands (same rule as the
+       # pairing-shape locks on `SettingsOptionsLive`).
+       unlocked_fields: MapSet.new(),
        # Live preview of the "voluntary unplayed round" checkbox, tracked
        # independently of the saved value so the warning below it appears
        # (or disappears) the instant it's toggled - before "Save settings"
@@ -48,9 +53,19 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
   # (unlike those controls) it wouldn't corrupt any stored data - scores
   # are computed live from these fields on every standings read, never
   # baked into a `byes` row.
+  # `abs_scoring` is a single UI concept standing in for three real fields
+  # (`abs_value`/`abs_jusque`/`abs_nbfois` - see `@abs_scoring_fields`
+  # below), so an "Unlock" here has to unlock all three at once, not just
+  # whichever one happens to be first: the trio was never meant to be set
+  # independently (a value with no cutoff round is nonsensical on its own).
+  @abs_scoring_fields ~w(abs_value abs_jusque abs_nbfois)a
+
   defp assign_abs_scoring_lock(socket) do
-    locked = Tournaments.locked_fields(socket.assigns.tournament)
-    assign(socket, abs_scoring_locked?: :abs_value in locked)
+    locked? =
+      :abs_value in Tournaments.locked_fields(socket.assigns.tournament) and
+        :abs_scoring not in socket.assigns.unlocked_fields
+
+    assign(socket, abs_scoring_locked?: locked?)
   end
 
   @impl true
@@ -81,14 +96,6 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
     end
   end
 
-  def handle_info({:clear_locked_hint, field}, socket) do
-    if socket.assigns.locked_hint == field do
-      {:noreply, assign(socket, locked_hint: nil)}
-    else
-      {:noreply, socket}
-    end
-  end
-
   @impl true
   # Guarded on the one field this page's `locked_overlay/1` sends - see the
   # same guard in `SettingsOptionsLive` for why an unguarded
@@ -97,12 +104,26 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
 
   def handle_event("locked_hint", %{"field" => field}, socket)
       when field in @locked_fields do
-    field = String.to_existing_atom(field)
-    Process.send_after(self(), {:clear_locked_hint, field}, 3000)
-    {:noreply, assign(socket, locked_hint: field)}
+    {:noreply, assign(socket, locked_hint: String.to_existing_atom(field))}
   end
 
   def handle_event("locked_hint", _params, socket), do: {:noreply, socket}
+
+  # Same allowlist, same reasoning as `SettingsOptionsLive`'s "unlock_field"
+  # clause: this is a UI convenience, not the security boundary -
+  # `Tournaments.ensure_unlocked/3` refuses the actual write regardless of
+  # what reaches it here.
+  def handle_event("unlock_field", %{"field" => field}, socket)
+      when field in @locked_fields do
+    field = String.to_existing_atom(field)
+
+    {:noreply,
+     socket
+     |> update(:unlocked_fields, &MapSet.put(&1, field))
+     |> assign_abs_scoring_lock()}
+  end
+
+  def handle_event("unlock_field", _params, socket), do: {:noreply, socket}
 
   # Toggling the checkbox flips a live preview of its state (see the
   # `vur_checked` assign) so the warning box below it shows/hides
@@ -123,9 +144,17 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
 
     base = Tournaments.get_tournament!(socket.assigns.tournament.id)
 
-    case Tournaments.update_tournament(base, params) do
+    # `unlocked_fields` holds the UI-level `:abs_scoring` key, not the three
+    # real schema fields it stands for - see `@abs_scoring_fields`. Read
+    # from the socket, never from `params`: same "a crafted save must not
+    # slip a locked field through" reasoning as `SettingsOptionsLive`.
+    unlock_fields =
+      if :abs_scoring in socket.assigns.unlocked_fields, do: @abs_scoring_fields, else: []
+
+    case Tournaments.update_tournament(base, params, unlock: unlock_fields) do
       {:ok, tournament} ->
         log_settings_change(socket, base, tournament)
+        log_unlocked_field_changes(socket, base, tournament, unlock_fields)
 
         {:noreply,
          assign(socket,
@@ -134,8 +163,10 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
            note: "Saved.",
            error: nil,
            dirty: false,
-           stale: false
-         )}
+           stale: false,
+           unlocked_fields: MapSet.new()
+         )
+         |> assign_abs_scoring_lock()}
 
       {:error, changeset} ->
         {:noreply, assign(socket, error: error_text(changeset), note: nil)}
@@ -144,6 +175,12 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
 
   defp maybe_drop_locked(params, _key, false), do: params
   defp maybe_drop_locked(params, key, true), do: Map.delete(params, key)
+
+  defp abs_scoring_warning,
+    do:
+      gettext(
+        "Standings and tiebreaks are computed live from these values on every read, not baked into a stored row. Changing them doesn't just apply going forward - every already-recorded absence, in every already-paired round, is instantly rescored under the new values, and published standings can move."
+      )
 
   @impl true
   def render(assigns) do
@@ -244,7 +281,11 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
                   disabled={@abs_scoring_locked?}
                 /> <.locked_overlay field={:abs_scoring} locked?={@abs_scoring_locked?} />
               </div>
-              <.locked_hint_message field={:abs_scoring} locked_hint={@locked_hint} />
+              <.locked_hint_message
+                field={:abs_scoring}
+                locked_hint={@locked_hint}
+                warning={abs_scoring_warning()}
+              />
             </.setting_field>
 
             <.setting_field
@@ -265,7 +306,11 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
                   disabled={@abs_scoring_locked?}
                 /> <.locked_overlay field={:abs_scoring} locked?={@abs_scoring_locked?} />
               </div>
-              <.locked_hint_message field={:abs_scoring} locked_hint={@locked_hint} />
+              <.locked_hint_message
+                field={:abs_scoring}
+                locked_hint={@locked_hint}
+                warning={abs_scoring_warning()}
+              />
             </.setting_field>
 
             <.setting_field
@@ -286,7 +331,11 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
                   disabled={@abs_scoring_locked?}
                 /> <.locked_overlay field={:abs_scoring} locked?={@abs_scoring_locked?} />
               </div>
-              <.locked_hint_message field={:abs_scoring} locked_hint={@locked_hint} />
+              <.locked_hint_message
+                field={:abs_scoring}
+                locked_hint={@locked_hint}
+                warning={abs_scoring_warning()}
+              />
             </.setting_field>
 
             <label class="set-toggle">

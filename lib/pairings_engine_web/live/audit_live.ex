@@ -33,7 +33,8 @@ defmodule PairingsEngineWeb.AuditLive do
         registration.accepted registration.discarded)},
     {"pairings", "Pairings", ~w(pairing.round_paired pairing.result_entered pairing.result_changed
         pairing.round_deleted pairing.results_imported)},
-    {"settings", "Settings", ~w(tournament.settings_updated logo.uploaded logo.cleared
+    {"settings", "Settings", ~w(tournament.settings_updated tournament.locked_field_changed
+        logo.uploaded logo.cleared
         forbidden_pairing.added forbidden_pairing.removed
         category.created category.removed)},
     {"standings", "Standings", ~w(standings.manual_reorder standings.manual_ranking_enabled
@@ -157,6 +158,16 @@ defmodule PairingsEngineWeb.AuditLive do
 
   def describe("tournament.settings_updated", d),
     do: "Updated tournament settings: #{changed_fields(d)}."
+
+  # A locked-field change is spelled out on its own line, not left to be
+  # found inside `changed_fields` above - see
+  # `PairingsEngineWeb.SettingsSupport.log_unlocked_field_changes/4` for why
+  # this is a separate audit action rather than folded into the bulk
+  # settings diff.
+  def describe("tournament.locked_field_changed", d),
+    do:
+      "Overrode the round-1 freeze on #{bold_text(value(d, "field"))}: " <>
+        "#{format_pair([d["from"], d["to"]])}."
 
   def describe("tournament.created", d),
     do: "Created tournament #{name(d, "name")} (#{value(d, "pairing_system")})."
