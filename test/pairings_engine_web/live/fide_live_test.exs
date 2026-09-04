@@ -670,4 +670,44 @@ defmodule PairingsEngineWeb.FideLiveTest do
       refute lv |> element("button[phx-click='sync_kbsb_api'][disabled]") |> has_element?()
     end
   end
+
+  describe "a sync while a round is being played" do
+    # SQLite has one write lock for the whole database. A sync holds it for
+    # long enough that an arbiter entering a result waits out busy_timeout and
+    # is refused - which is how "the 2 box for round 2 does nothing" happens.
+    # The rating list is what can wait, so the rating list is what yields.
+    setup do
+      Repo.insert!(%PairingsEngine.Tournaments.Tournament{
+        name: "Bruges Open",
+        type: "swiss",
+        rounds_count: 5,
+        status: "running"
+      })
+
+      :ok
+    end
+
+    test "the FIDE sync refuses, and names the tournament", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/fide")
+
+      # The event, not the button: the control is disabled here for want of a
+      # list URL, but this file already establishes that a control absent from
+      # the page is still an event anyone can send. The guard has to hold on
+      # the handler, which is the thing an attacker or a stale tab reaches.
+      html = render_click(lv, "sync", %{})
+
+      assert html =~ "Bruges Open"
+      assert html =~ "round in progress"
+      assert PairingsEngine.Fide.Sync.status().status == :idle, "the sync must not have started"
+    end
+
+    test "the Belgian sync refuses too", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/fide")
+
+      html = render_click(lv, "sync_kbsb_api", %{})
+
+      assert html =~ "Bruges Open"
+      assert KbsbSync.status().status == :idle, "the sync must not have started"
+    end
+  end
 end

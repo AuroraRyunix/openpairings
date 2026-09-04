@@ -438,6 +438,18 @@ defmodule PairingsEngineWeb.SettingsSupport do
         "This tournament has been handed off to another copy of the app and is read-only here - take it back to make changes."
       )
 
+  # Deliberately blunt. This is the one refusal an arbiter may be reading
+  # mid-round with players waiting, so it says what did NOT happen first,
+  # and what to do about it second. The screen behind it has already been
+  # re-read from the database, so what is shown is what is stored.
+  def error_text(:database_busy),
+    do:
+      gettext(
+        "NOT SAVED - the database was busy and would not accept the change. " <>
+          "Nothing was written. Try again; if it keeps happening, a rating " <>
+          "list sync is probably running - wait for it to finish."
+      )
+
   def error_text(:not_owner),
     do: gettext("Only the owner of this tournament can do that.")
 

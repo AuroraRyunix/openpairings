@@ -14,6 +14,24 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.23.0] - 2026-09-04
+
+- **[Fix]** Entering a result could fail while a rating list was syncing. A
+  sync holds SQLite's single database-wide write lock for its whole run, so a
+  result entered at that moment waited 15 seconds and was then refused - and
+  because a lock arrives as a raised error rather than a returned one, it
+  bypassed the handling every write has and took the page down with a generic
+  "something went wrong". Nothing was ever silently lost: a refused write is
+  never written, and the page re-reads the database on the way back. But the
+  arbiter had no way to know that. It now says, in as many words, that the
+  change was **NOT SAVED** and nothing was written.
+- **[Change]** A rating list sync will no longer start while any tournament
+  has a round in progress, and says which tournament is holding it. A rating
+  list can be refreshed at any time; a result cannot wait for one, so the sync
+  is what yields. Both the FIDE and the Belgian sync are covered, and the
+  guard is on the handler rather than the button - a control missing from the
+  page is still an event anyone can send.
+
 ## [0.22.0] - 2026-09-03
 
 - **[Change]** Every version bump now publishes a GitHub release with binaries

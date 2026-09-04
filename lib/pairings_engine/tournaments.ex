@@ -8,6 +8,7 @@ defmodule PairingsEngine.Tournaments do
 
   import Ecto.Query
   alias PairingsEngine.Audit
+  alias PairingsEngine.BusyWrite
   alias PairingsEngine.Repo
   alias PairingsEngine.Tiebreaks
   alias PairingsEngine.Standings
@@ -2669,9 +2670,16 @@ defmodule PairingsEngine.Tournaments do
   end
 
   defp do_update_pairing_result(%Pairing{} = pairing, result) do
-    pairing
-    |> Pairing.changeset(%{result: result})
-    |> Repo.update()
+    # Wrapped because this is the write an arbiter makes most often, under the
+    # most time pressure, and it is the one that must never fail quietly. A
+    # locked database raises rather than returning {:error, _}, which would
+    # crash the LiveView and show a generic "something went wrong" - see
+    # PairingsEngine.BusyWrite.
+    BusyWrite.run(fn ->
+      pairing
+      |> Pairing.changeset(%{result: result})
+      |> Repo.update()
+    end)
     |> tap_ok(fn updated ->
       tournament_id = round_tournament_id(updated.round_id)
       # Invalidate *before* broadcasting: a subscriber (StandingsLive,
@@ -3340,6 +3348,25 @@ defmodule PairingsEngine.Tournaments do
       nil -> nil
       tournament -> refresh_status!(tournament)
     end
+  end
+
+  @doc """
+  Names the tournaments that are mid-event: paired, and not yet fully scored.
+
+  Used to keep a rating-list sync from starting on top of a live round.
+  SQLite takes ONE write lock for the whole database, and the two sync
+  transactions are the only things in the application that hold it for more
+  than milliseconds - long enough that an arbiter entering a result waits out
+  `busy_timeout` and is refused. A rating list can be refreshed at any time;
+  a result cannot wait for one. So the sync yields, not the arbiter.
+  """
+  def running_tournament_names do
+    Repo.all(
+      from t in Tournament,
+        where: t.status == "running",
+        order_by: t.name,
+        select: t.name
+    )
   end
 
   defp derive_status(%Tournament{} = tournament) do

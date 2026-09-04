@@ -11,6 +11,7 @@ defmodule PairingsEngineWeb.FideLive do
   alias PairingsEngine.Fide.Sync, as: FideSync
   alias PairingsEngine.Federations.BEL.Sync, as: KbsbSync
   alias PairingsEngine.Federations.BEL.Api, as: KbsbApi
+  alias PairingsEngine.Tournaments
   alias PairingsEngine.Publishing
 
   # The Belgian rating-list panel on this page - the roster count, the sync
@@ -186,12 +187,17 @@ defmodule PairingsEngineWeb.FideLive do
   end
 
   def handle_event("sync", _params, socket) do
-    if socket.assigns.may_admin? do
-      FideSync.start_sync()
-      Audit.log_system(socket.assigns.current_scope, "fide.sync_started", %{})
-      {:noreply, assign(socket, status: FideSync.status())}
-    else
-      {:noreply, put_flash(socket, :error, sync_restricted())}
+    cond do
+      not socket.assigns.may_admin? ->
+        {:noreply, put_flash(socket, :error, sync_restricted())}
+
+      (running = Tournaments.running_tournament_names()) != [] ->
+        {:noreply, put_flash(socket, :error, sync_blocked_by_round(running))}
+
+      true ->
+        FideSync.start_sync()
+        Audit.log_system(socket.assigns.current_scope, "fide.sync_started", %{})
+        {:noreply, assign(socket, status: FideSync.status())}
     end
   end
 
@@ -217,8 +223,14 @@ defmodule PairingsEngineWeb.FideLive do
   def handle_event("sync_kbsb_api", _params, socket) do
     cond do
       not socket.assigns.kbsb? -> {:noreply, put_flash(socket, :error, kbsb_off())}
-      not socket.assigns.may_admin? -> {:noreply, put_flash(socket, :error, sync_restricted())}
-      true -> {:noreply, start_kbsb_api_import(socket)}
+      not socket.assigns.may_admin? ->
+        {:noreply, put_flash(socket, :error, sync_restricted())}
+
+      (running = Tournaments.running_tournament_names()) != [] ->
+        {:noreply, put_flash(socket, :error, sync_blocked_by_round(running))}
+
+      true ->
+        {:noreply, start_kbsb_api_import(socket)}
     end
   end
 
@@ -237,6 +249,24 @@ defmodule PairingsEngineWeb.FideLive do
     else
       {:noreply, put_flash(socket, :error, kbsb_off())}
     end
+  end
+
+  # SQLite has one write lock for the whole database, and a sync holds it long
+  # enough that a result entered mid-round is refused. The rating list is the
+  # thing that can wait, so it is the thing that gets told no. Naming the
+  # tournaments matters: "a tournament is running" leaves the person hunting
+  # for which one, on a machine that may host several.
+  defp sync_blocked_by_round(names) do
+    ngettext(
+      "Not started: %{names} has a round in progress. A sync locks the database " <>
+        "for long enough that entering a result would fail. Finish or score the " <>
+        "round first.",
+      "Not started: %{names} have rounds in progress. A sync locks the database " <>
+        "for long enough that entering a result would fail. Finish or score the " <>
+        "rounds first.",
+      length(names),
+      names: Enum.join(names, ", ")
+    )
   end
 
   defp start_kbsb_api_import(socket) do
