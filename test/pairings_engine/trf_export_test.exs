@@ -58,6 +58,7 @@ defmodule PairingsEngine.TrfExportTest do
       Repo.insert!(%Tournament{
         name: "TRF Export Test",
         type: "swiss",
+        round_dates: ["2026-08-15", "2026-08-16", "2026-08-17", "2026-08-18", "2026-08-19"],
         rounds_count: 3,
         round_dates: ["2026-01-01", "2026-01-02", "2026-01-03"]
       })
@@ -520,7 +521,15 @@ defmodule PairingsEngine.TrfExportTest do
   # a roster it refuses, and that the refusal arrives as an `{:error, _}`
   # tuple a controller can flash rather than as a raise that 500s.
   test "export/2 surfaces an inconsistent roster as {:error, %ValidationError{}}, not a crash" do
-    tournament = Repo.insert!(%Tournament{name: "Corrupt", type: "swiss", rounds_count: 1})
+    # A date, so the export reaches the roster check this test is about
+    # rather than stopping at the missing-dates guard in front of it.
+    tournament =
+      Repo.insert!(%Tournament{
+        name: "Corrupt",
+        type: "swiss",
+        rounds_count: 1,
+        round_dates: ["2026-08-15"]
+      })
 
     a = Repo.insert!(%Player{tournament_id: tournament.id, name: "A", pairing_number: 1})
     x = Repo.insert!(%Player{tournament_id: tournament.id, name: "X", pairing_number: 2})

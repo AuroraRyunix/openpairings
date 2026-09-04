@@ -13,6 +13,7 @@ defmodule PairingsEngineWeb.ExportControllerTest do
       PairingsEngine.Tournaments.create_tournament(scope, %{
         "name" => "Export Ctrl Test",
         "type" => "swiss",
+        "round_dates" => ["2026-08-15", "2026-08-16", "2026-08-17", "2026-08-18", "2026-08-19"],
         "rounds_count" => "3"
       })
 

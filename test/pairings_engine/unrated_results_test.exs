@@ -33,6 +33,7 @@ defmodule PairingsEngine.UnratedResultsTest do
   defp fixture(result, opts \\ []) do
     tournament =
       Repo.insert!(%Tournament{
+        round_dates: ["2026-08-15", "2026-08-16", "2026-08-17", "2026-08-18", "2026-08-19"],
         name: "Unrated",
         type: Keyword.get(opts, :type, "swiss"),
         pairing_system: Keyword.get(opts, :pairing_system, "swiss"),

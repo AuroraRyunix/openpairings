@@ -14,6 +14,19 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.32.0] - 2026-09-04
+
+- **[Change]** A TRF export is refused when a round it contains has no date.
+  FIDE requires one per round, and a file that reaches them without it comes
+  back after the event, when fixing it means re-exporting and re-submitting
+  rather than filling in a field. The refusal names which rounds are missing
+  and points at Settings, Dates.
+- **[Change]** A roster exported before the first pairing is unaffected. It
+  has no rounds to date, and it is the file an arbiter checks a registration
+  list against - refusing it would have made the commonest pre-tournament
+  export impossible. A partial export (`?rounds=1-3` of a nine-round event)
+  likewise needs dates only for the rounds it actually contains.
+
 ## [0.31.0] - 2026-09-04
 
 - **[Fix]** A TRF exported before the first round was paired came out with no

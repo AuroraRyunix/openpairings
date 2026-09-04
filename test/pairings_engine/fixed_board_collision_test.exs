@@ -112,6 +112,7 @@ defmodule PairingsEngine.FixedBoardCollisionTest do
       Repo.insert!(%Tournament{
         name: "Fixed Board Collision",
         type: "swiss",
+        round_dates: ["2026-08-15", "2026-08-16", "2026-08-17", "2026-08-18", "2026-08-19"],
         pairing_system: "swiss",
         rounds_count: 3,
         public_slug: "collision-#{System.unique_integer([:positive])}"

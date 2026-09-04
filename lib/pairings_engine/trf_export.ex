@@ -38,7 +38,9 @@ defmodule PairingsEngine.TrfExport do
   unrecognized or mutually-inconsistent result code) - never raises.
   """
   def export(tournament, rounds_spec \\ nil) do
-    {:ok, build(tournament, rounds_spec)}
+    with :ok <- ensure_round_dates(tournament, rounds_spec) do
+      {:ok, build(tournament, rounds_spec)}
+    end
   rescue
     e in ValidationError -> {:error, e}
   end
@@ -294,4 +296,37 @@ defmodule PairingsEngine.TrfExport do
   defp filter_round_dates(nil, _rounds), do: []
   defp filter_round_dates([], _rounds), do: []
   defp filter_round_dates(dates, rounds), do: Enum.map(rounds, &Enum.at(dates, &1 - 1))
+
+  # FIDE wants a date for every round in the file, and one that arrives
+  # without them comes back - after the event, when fixing it means
+  # re-exporting and re-submitting rather than filling in a field. Refused
+  # here instead, while it is still five minutes of work.
+  #
+  # Only for an export that CLAIMS rounds. A roster taken before the first
+  # pairing has no rounds to date and is a perfectly good file - it is what an
+  # arbiter checks a registration list against, and refusing it would make the
+  # commonest pre-tournament export impossible. Same for `?rounds=1-3` of a
+  # nine-round event: only those three rounds need dates, because only those
+  # three are in the file.
+  defp ensure_round_dates(tournament, rounds_spec) do
+    paired = Pairing.paired_rounds_count(tournament.id)
+    rounds = if is_list(rounds_spec), do: rounds_spec, else: parse_rounds(rounds_spec, paired)
+    dates = tournament.round_dates || []
+
+    case Enum.filter(rounds, &(Enum.at(dates, &1 - 1) in [nil, ""])) do
+      [] ->
+        :ok
+
+      missing ->
+        {:error,
+         %ValidationError{
+           message:
+             "no date is set for #{describe_rounds(missing)}. FIDE requires a date for " <>
+               "every round in the file. Set them under Settings, Dates."
+         }}
+    end
+  end
+
+  defp describe_rounds([n]), do: "round #{n}"
+  defp describe_rounds(ns), do: "rounds " <> Enum.map_join(ns, ", ", &Integer.to_string/1)
 end
