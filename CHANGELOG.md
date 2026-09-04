@@ -14,6 +14,20 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.26.0] - 2026-09-04
+
+- **[Change]** The phone's result list now shows what is left to do. A board
+  drops out once its result is in, the header counts boards remaining rather
+  than boards paired, and **Show all** brings the finished ones back for
+  checking or correcting. At helper level a finished board could not be
+  changed anyway, so leaving it in the list only asked someone to scroll past
+  work they were not allowed to touch.
+- **[Change]** A board just entered stays on screen for about a second and a
+  half, marked as done, before it drops out - long enough to read back which
+  result landed on which board. Clearing a result returns the board to the
+  list immediately, with no confirmation of its own, because that is already
+  what clearing looks like.
+
 ## [0.25.0] - 2026-09-04
 
 - **[Feature]** An enrolled phone can now be given only the access it needs.

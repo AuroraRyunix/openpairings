@@ -3251,6 +3251,54 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   margin-bottom: 12px;
   box-shadow: var(--shadow);
 }
+/* The board that was just entered, held on screen for a moment so the helper
+   can see what landed where before the list closes over it. Green rather than
+   accent: this is "done", the same thing a success pill means elsewhere, and
+   it must not read as "selected". */
+.mobile-board.just-saved {
+  border-color: var(--success);
+  background: color-mix(in srgb, var(--success) 10%, var(--surface));
+}
+
+/* The confirmation is the point, so it appears at once; only the leaving is
+   eased, and only where motion is welcome. */
+@media (prefers-reduced-motion: no-preference) {
+  .mobile-board { transition: background 0.25s ease, border-color 0.25s ease; }
+}
+
+/* Count on the left, the toggle on the right - the count is what a helper
+   reads constantly, the toggle is what they press rarely. */
+.mobile-filter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+}
+
+.mobile-filter-count {
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--text-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.mobile-filter-btn {
+  flex: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 999px;
+  /* Comfortably tappable: this sits next to result buttons on a phone held
+     one-handed, and a mis-tap here costs a scroll, not a result. */
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mobile-filter-btn:hover { background: var(--surface-hover); }
+
 .mobile-board-head { display: flex; justify-content: space-between; }
 .mobile-board-no { font-size: 12px; font-weight: 700; color: var(--text-soft); text-transform: uppercase; letter-spacing: 0.05em; }
 .mobile-players {

@@ -182,7 +182,12 @@ defmodule PairingsEngineWeb.MobileResultsLiveTest do
       Tournaments.update_pairing_result(pairing, "0-0FF")
 
       conn = enrolled_conn(conn, tournament)
-      {:ok, _lv, html} = live(conn, ~p"/m/results")
+      {:ok, lv, _html} = live(conn, ~p"/m/results")
+
+      # Finished boards are hidden by default now, and this board has a
+      # result - which is the whole premise of the test. "Show all" is how an
+      # arbiter looks one over, so that is how the test looks at it too.
+      html = render_click(lv, "toggle_show_all", %{})
 
       assert html =~ "0-0 FF (double forfeit)"
     end
@@ -458,6 +463,93 @@ defmodule PairingsEngineWeb.MobileResultsLiveTest do
 
       html = render_click(lv, "set_result", %{"id" => to_string(board2.id), "result" => "1-0"})
       assert html =~ "outside the boards this phone is allowed to enter"
+    end
+  end
+
+  describe "keeping the list down to what is left to do" do
+    # A helper works down a list on a phone in a noisy hall. Boards that are
+    # done are not just uninteresting - at helper level they cannot be
+    # changed at all, so leaving them in the list is asking someone to scroll
+    # past work they are not allowed to touch.
+    setup do
+      tournament = new_tournament("Collapse test")
+      {white, black} = two_players(tournament)
+
+      round =
+        insert_round(tournament, 1, "published", [
+          {white, black, ""},
+          {black, white, "1-0"}
+        ])
+
+      {:ok, tournament: tournament, round: round}
+    end
+
+    test "finished boards are out of the way by default", %{conn: conn, tournament: t} do
+      {:ok, _lv, html} = live(enrolled_conn(conn, t), ~p"/m/results")
+
+      assert html =~ "Board 1"
+      refute html =~ "Board 2"
+    end
+
+    test "the count is what is left, not what exists", %{conn: conn, tournament: t} do
+      {:ok, _lv, html} = live(enrolled_conn(conn, t), ~p"/m/results")
+
+      assert html =~ "1 board left"
+    end
+
+    test "show all brings the finished ones back", %{conn: conn, tournament: t} do
+      {:ok, lv, _html} = live(enrolled_conn(conn, t), ~p"/m/results")
+
+      html = render_click(lv, "toggle_show_all", %{})
+      assert html =~ "Board 2"
+
+      html = render_click(lv, "toggle_show_all", %{})
+      refute html =~ "Board 2"
+    end
+
+    test "a board just entered stays on screen to be read back", %{conn: conn, tournament: t} do
+      {:ok, lv, _html} = live(enrolled_conn(conn, t, level: "deputy"), ~p"/m/results")
+
+      board_one = Enum.find(Repo.all(Pairing), &(&1.board == 1))
+
+      html = render_click(lv, "set_result", %{"id" => to_string(board_one.id), "result" => "1-0"})
+
+      # Still listed, and marked as just-entered rather than merely present -
+      # the confirmation is the whole point of the delay.
+      assert html =~ "Board 1"
+      assert html =~ "just-saved"
+    end
+
+    test "and drops out once the moment has passed", %{conn: conn, tournament: t} do
+      {:ok, lv, _html} = live(enrolled_conn(conn, t, level: "deputy"), ~p"/m/results")
+
+      board_one = Enum.find(Repo.all(Pairing), &(&1.board == 1))
+      render_click(lv, "set_result", %{"id" => to_string(board_one.id), "result" => "1-0"})
+
+      # Driving the timer's message directly rather than sleeping for it: the
+      # test is about what the settle window does, not how long it is.
+      send(lv.pid, {:settle_board, board_one.id})
+      html = render(lv)
+
+      refute html =~ "Board 1"
+      assert html =~ "All results in"
+    end
+
+    test "clearing a result puts the board back on the list", %{conn: conn, tournament: t} do
+      {:ok, lv, _html} = live(enrolled_conn(conn, t, level: "deputy"), ~p"/m/results")
+
+      board_two = Enum.find(Repo.all(Pairing), &(&1.board == 2))
+
+      html = render_click(lv, "toggle_show_all", %{})
+      assert html =~ "Board 2"
+
+      render_click(lv, "set_result", %{"id" => to_string(board_two.id), "result" => ""})
+      html = render_click(lv, "toggle_show_all", %{})
+
+      # Unfinished is read from the result, not remembered, so a cleared board
+      # is back among the outstanding ones with nothing to reset.
+      assert html =~ "Board 2"
+      assert html =~ "2 boards left"
     end
   end
 end

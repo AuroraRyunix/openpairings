@@ -43,6 +43,15 @@ defmodule PairingsEngineWeb.MobileResultsLive do
   # mirrored the Pairings page; it had been missing the three unrated codes
   # since the day they shipped, so a helper's phone could not record a
   # played-but-unrated game that the same round could record by click.
+  # How long a board stays on screen after its result goes in.
+  #
+  # The point is not decoration: a helper taps a small button on a phone in a
+  # noisy hall and needs to see WHICH result landed on WHICH board before it
+  # goes. Too short and it is a flicker that proves nothing; too long and the
+  # list stops shrinking, which is the whole reason for hiding finished
+  # boards. About a second and a half reads as a confirmation.
+  @settle_ms 1_600
+
   @entry_codes PairingsEngine.Results.entry_codes()
 
   # The buttons must offer everything the guard accepts, minus the blank
@@ -76,6 +85,14 @@ defmodule PairingsEngineWeb.MobileResultsLive do
        paired: paired,
        archived?: not is_nil(tournament.archived_at),
        locked: false,
+       # Finished boards are hidden by default: a helper cannot change one
+       # anyway, so on a phone they are a list to scroll past on the way to
+       # the work. `show_all` brings them back for a deputy correcting one,
+       # or for anyone wanting to check what they already entered.
+       show_all: false,
+       # Boards entered within the last `@settle_ms`, kept visible so the
+       # helper can confirm what landed before the list closes over it.
+       just_saved: MapSet.new(),
        # Which board's "More…" panel is open, if any - one at a time, so
        # the page doesn't grow tall with several boards expanded at once.
        # Cleared on round switch (below) since the boards it referred to no
@@ -91,6 +108,13 @@ defmodule PairingsEngineWeb.MobileResultsLive do
   # out it had been revoked when the helper next tried to write a result -
   # so "revoke" appeared to do nothing at all from the phone's side.
   @impl true
+  # The other half of the settle window. Deleting by id rather than clearing
+  # the set: a helper working quickly has several confirmations in flight,
+  # and each timer must retire only its own.
+  def handle_info({:settle_board, pairing_id}, socket) do
+    {:noreply, update(socket, :just_saved, &MapSet.delete(&1, pairing_id))}
+  end
+
   def handle_info({:mobile_enrollment_revoked, id}, socket) do
     if id == socket.assigns.mobile_enrollment.id do
       {:noreply,
@@ -211,7 +235,17 @@ defmodule PairingsEngineWeb.MobileResultsLive do
                 case Tournaments.update_pairing_result(pairing, result) do
                   {:ok, _} ->
                     log_mobile_result(socket, pairing, previous, result)
-                    socket
+
+                    # Hold the board on screen a moment so the helper can see
+                    # what landed on which board before the list closes over
+                    # it. Only entering settles; clearing puts the board back
+                    # among the unfinished, which is its own confirmation.
+                    if result == "" do
+                      socket
+                    else
+                      Process.send_after(self(), {:settle_board, pairing.id}, @settle_ms)
+                      update(socket, :just_saved, &MapSet.put(&1, pairing.id))
+                    end
 
                   {:error, :archived} ->
                     put_flash(
@@ -242,6 +276,12 @@ defmodule PairingsEngineWeb.MobileResultsLive do
        |> put_flash(:error, "This phone's access was ended by the arbiter.")
        |> redirect(to: ~p"/m")}
     end
+  end
+
+  # Deputies correct filled boards, so they need the whole list back; helpers
+  # cannot, so for them this is really "let me check what I already did".
+  def handle_event("toggle_show_all", _params, socket) do
+    {:noreply, assign(socket, show_all: not socket.assigns.show_all)}
   end
 
   def handle_event("set_result", _params, socket), do: {:noreply, socket}
@@ -311,6 +351,21 @@ defmodule PairingsEngineWeb.MobileResultsLive do
 
   defp player_name(nil), do: nil
   defp player_name(%Player{name: name}), do: name
+
+  # Boards still worth showing: everything unfinished, plus whatever was just
+  # entered and is still being confirmed. `show_all?` overrides both.
+  #
+  # Clearing a result puts a board back among the unfinished ones on its own,
+  # because "unfinished" is read from the result rather than remembered.
+  defp visible_boards(boards, _just_saved, true), do: boards
+
+  defp visible_boards(boards, just_saved, false) do
+    Enum.filter(boards, fn p ->
+      p.result in [nil, ""] or MapSet.member?(just_saved, p.id)
+    end)
+  end
+
+  defp remaining_count(boards), do: Enum.count(boards, &(&1.result in [nil, ""]))
 
   defp load_round(socket, number) do
     tournament = socket.assigns.tournament
@@ -424,7 +479,38 @@ defmodule PairingsEngineWeb.MobileResultsLive do
 
       <div :if={@boards == []} class="mobile-empty">No boards paired for this round yet.</div>
 
-      <div :for={p <- @boards} class="mobile-board">
+      <%!-- Finished boards drop out of the list as they are entered, so what
+            is left on screen is what is left to do. The count is the honest
+            version of that: a helper wants to know how many are outstanding,
+            not how many exist. --%>
+      <div :if={@boards != []} class="mobile-filter">
+        <span class="mobile-filter-count">
+          <%= case remaining_count(@boards) do %>
+            <% 0 -> %>
+              All results in
+            <% 1 -> %>
+              1 board left
+            <% n -> %>
+              {n} boards left
+          <% end %>
+        </span>
+
+        <button type="button" class="mobile-filter-btn" phx-click="toggle_show_all">
+          {if @show_all, do: "Hide finished", else: "Show all"}
+        </button>
+      </div>
+
+      <div
+        :if={@boards != [] and visible_boards(@boards, @just_saved, @show_all) == []}
+        class="mobile-empty"
+      >
+        Every board in this round has a result. Tap "Show all" to look them over.
+      </div>
+
+      <div
+        :for={p <- visible_boards(@boards, @just_saved, @show_all)}
+        class={["mobile-board", MapSet.member?(@just_saved, p.id) && "just-saved"]}
+      >
         <div class="mobile-board-head">
           <span class="mobile-board-no">Board {p.board}</span>
         </div>
