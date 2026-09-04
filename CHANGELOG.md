@@ -14,6 +14,21 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.37.0] - 2026-09-04
+
+- [Fix] **A player who was away now appears on the published page.** Declared
+  absences are not pairings - they live in their own table - so nothing about
+  them reached the results, and those players were simply missing from the
+  round they had told the arbiter about. They now appear the way the
+  federation's own software writes them: the same row as a bye, carrying the
+  absence's point value and the word "Afwezig". The value is read from the
+  standings code rather than decided again, so the page cannot disagree with
+  the table printed above it.
+- [Feature] **A strip of round links above the results**, so a long page can be
+  jumped rather than scrolled. Only the rounds: the federation's own strip also
+  links to sections this file does not contain, and a link to an anchor that is
+  not there is worse than no link.
+
 ## [0.36.3] - 2026-09-04
 
 - [Fix] **A bye now sits after the boards, not among them.** It was sorted on

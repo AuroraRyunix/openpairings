@@ -276,6 +276,8 @@ defmodule PairingsEngine.Federations.BEL.SwarPublish do
       "\n" <>
       classement(entries, tiebreak_codes) <>
       "\n" <>
+      round_links(tournament) <>
+      "\n" <>
       results(tournament) <>
       "\n" <>
       colophon() <>
@@ -305,6 +307,28 @@ defmodule PairingsEngine.Federations.BEL.SwarPublish do
   # is not copied. The middle cell is the real OpenPairings release, which is
   # the useful thing to know when a page looks wrong - not the SWAR-shaped
   # compatibility string in the first cell.
+  # The strip of round links SWAR puts above the results, so a reader can jump
+  # straight to a round instead of scrolling a long page.
+  #
+  # Only the rounds. A real file also carries "Kaarten" (#Fiches) and
+  # "Amerikaans Rooster" (#Americaine), and those are deliberately not written
+  # here - a link to an anchor this document does not contain is worse than no
+  # link, because it looks like the section exists and does nothing.
+  defp round_links(tournament) do
+    case Tournaments.list_rounds(tournament.id) do
+      [] ->
+        ""
+
+      rounds ->
+        cells =
+          Enum.map_join(rounds, "\n", fn r ->
+            "    <td class='tdLiens'><a href='#Round#{r.number}'>R#{r.number}</a></td>"
+          end)
+
+        "<table class='tableLiens'>\n<tr>\n" <> cells <> "\n</tr>\n</table>"
+    end
+  end
+
   defp colophon do
     """
     <table class='tableCopyright'>
@@ -651,9 +675,16 @@ defmodule PairingsEngine.Federations.BEL.SwarPublish do
         {if(seated_both?, do: 0, else: 1), p.board}
       end)
       |> Enum.with_index()
-      |> Enum.map_join("\n", fn {pairing, index} ->
+      |> Enum.map(fn {pairing, index} ->
         board_row(pairing, scores_before, index, tournament.bye_value)
       end)
+      # A fully vacated board contributes nothing rather than a blank row.
+      |> Enum.reject(&is_nil/1)
+      # Declared absences are not pairings at all, so they are appended
+      # here rather than sorted in - and they come after the byes, which
+      # is where a published file puts them.
+      |> Kernel.++(absence_rows(tournament, round, scores_before))
+      |> Enum.join("\n")
 
     """
       <tr><td>
@@ -726,6 +757,45 @@ defmodule PairingsEngine.Federations.BEL.SwarPublish do
   # An earlier guess put the word in the result cell and left the opponent
   # blank, which read as a label floating in the wrong column. An absence is
   # the identical row with 0 and "Afwezig", so the same function writes both.
+  # Declared absences, which are NOT pairings.
+  #
+  # A player who told the arbiter they would be away is never paired: the row
+  # lives in the `byes` table, so nothing in `round.pairings` reaches this
+  # table and those people were simply missing from the page.
+  #
+  # SWAR writes them with a second function - `EcrireHtmlResulABSouFF` beside
+  # `EcrireHtmlResulBye` - the same shape but carrying the absence's own point
+  # value and the word "Afwezig" rather than "Bye". All three byes-table types
+  # here are absences in that sense; a pairing-allocated bye is the other
+  # function, and is already handled above as a pairing with an empty seat.
+  #
+  # The points come from `Standings.bye_points_for_row/2`, the single source of
+  # truth for what each type scores - a requested half is worth a draw, and an
+  # absence can taper by occurrence. Reading it rather than re-deciding here is
+  # what stops this page disagreeing with the standings printed above it.
+  defp absence_rows(tournament, round, scores_before) do
+    tournament.id
+    |> Tournaments.list_byes_for_round(round.number)
+    |> Enum.sort_by(& &1.player.pairing_number)
+    |> Enum.with_index()
+    |> Enum.map(fn {bye, index} ->
+      awarded = Standings.bye_points_for_row(bye, tournament)
+      before = Map.get(scores_before, bye.player_id, 0.0)
+
+      """
+        <tr class='#{row_class(index)}'>
+          <td class='tdr'>&nbsp;</td>
+          <td class='tdl'>#{player_name(bye.player)}</td>
+          <td class='tdc'>#{fmt_points(before)}</td>
+          <td class='tdr'>(#{Player.rating(bye.player)})</td>
+          <td class='tdcb'>#{esc(fmt_award(awarded))}</td>
+          <td class='tdlb'><i>#{esc(gettext("Afwezig"))}</i></td>
+          <td class='tdl'>&nbsp;</td>
+        </tr>\
+      """
+    end)
+  end
+
   defp seated_row(player, scores_before, index, bye) do
     points = Map.get(scores_before, player.id, 0.0)
 

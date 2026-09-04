@@ -235,7 +235,13 @@ defmodule PairingsEngine.Federations.BEL.SwarPublishTest do
       refute html =~ "tableRondesFermees"
       refute html =~ "id='Americaine'"
       refute html =~ "tableGrille"
-      refute html =~ "tableLiens"
+      # `tableLiens` IS written now - the round links are wanted, and the two
+      # links it also carries in a SWAR file (Kaarten, Amerikaans Rooster)
+      # point at sections this document does not emit, so only the rounds are
+      # written. Those two anchors staying absent is the thing worth pinning.
+      assert html =~ "tableLiens"
+      refute html =~ "#Fiches"
+      refute html =~ "#Americaine"
     end
   end
 
