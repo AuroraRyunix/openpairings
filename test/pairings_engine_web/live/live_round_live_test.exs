@@ -3,7 +3,7 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias PairingsEngine.{Publishing, Repo, Tournaments}
+  alias PairingsEngine.{Mobile, Publishing, Repo, Tournaments}
   alias PairingsEngine.Pairing, as: Engine
   alias PairingsEngine.Tournaments.{Player, Round, Pairing}
 
@@ -437,6 +437,56 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
       # ...and a reason, so an arbiter who has heard of the feature is not
       # left hunting for a panel that silently vanished.
       assert html =~ "Not available when OpenPairings runs on your own computer"
+    end
+
+    test "the mint form creates an enrolment with the chosen level and board range", %{
+      conn: conn,
+      scope: scope
+    } do
+      local_mode(false)
+      tournament = paired_tournament(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/live")
+
+      html =
+        lv
+        |> form("form[phx-submit=generate_enrollment]", %{
+          "level" => "helper",
+          "board_from" => "1",
+          "board_to" => "5"
+        })
+        |> render_submit()
+
+      # The just-minted panel, and the device list below it, both say what
+      # the code may do - not just that a code exists.
+      assert html =~ "Boards 1-5"
+      assert html =~ "Helper"
+
+      assert [enrollment] = Mobile.list_enrollments(tournament.id)
+      assert enrollment.level == "helper"
+      assert enrollment.board_from == 1
+      assert enrollment.board_to == 5
+    end
+
+    test "an invalid board range is refused with its own message, not the generic retry one", %{
+      conn: conn,
+      scope: scope
+    } do
+      local_mode(false)
+      tournament = paired_tournament(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/live")
+
+      html =
+        lv
+        |> form("form[phx-submit=generate_enrollment]", %{
+          "board_from" => "10",
+          "board_to" => "1"
+        })
+        |> render_submit()
+
+      assert html =~ "Board range is invalid"
+      assert Mobile.list_enrollments(tournament.id) == []
     end
   end
 end
