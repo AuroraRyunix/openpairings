@@ -14,6 +14,16 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.31.0] - 2026-09-04
+
+- **[Fix]** A TRF exported before the first round was paired came out with no
+  column ruler. The ruler and the field legend were written only when the
+  tournament had at least one round - but a registration list is exactly the
+  file somebody holds against the column positions, checking whether a name
+  has overrun its 33 characters. The legend now appears either way, stopping
+  at the rank column rather than inventing game blocks for rounds that do not
+  exist. Engine pin moved to Ainalrami v0.16.0, which carries the fix.
+
 ## [0.30.0] - 2026-09-04
 
 - **[Fix]** A rating list sync is no longer refused outright when a
