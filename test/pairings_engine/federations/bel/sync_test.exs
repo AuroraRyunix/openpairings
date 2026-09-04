@@ -159,6 +159,25 @@ defmodule PairingsEngine.Federations.BEL.SyncTest do
       }
     end
 
+    # `kbsb_players_fts` is maintained by the AFTER INSERT/UPDATE/DELETE
+    # triggers on `kbsb_players` (see the CreateKbsbPlayersFts migration),
+    # so its row count should always equal the table's - more rows would be
+    # orphans left behind by a delete, fewer would mean a player search
+    # can't find someone who exists.
+    defp fts_row_count do
+      %{rows: [[count]]} = Repo.query!("SELECT count(*) FROM kbsb_players_fts")
+      count
+    end
+
+    defp fts_search(term) do
+      %{rows: rows} =
+        Repo.query!("SELECT national_id FROM kbsb_players_fts WHERE kbsb_players_fts MATCH ?", [
+          term
+        ])
+
+      rows |> List.flatten() |> Enum.sort()
+    end
+
     test "zero rows fails outright, before ever touching the database" do
       Repo.insert_all(Member, [
         kbsb_row("1", "Existing One"),
@@ -168,10 +187,12 @@ defmodule PairingsEngine.Federations.BEL.SyncTest do
       assert {:error, reason} = Sync.import_rows(self(), [], %Sync{})
       assert reason =~ "zero usable"
 
-      # Untouched - the guard fires before the delete+insert transaction
-      # even starts, so there's nothing to roll back.
+      # Untouched - the guard fires before anything is deleted, so there's
+      # nothing to undo. That includes the FTS index: no orphans, no gaps.
       assert Repo.aggregate(Member, :count) == 2
       assert Repo.get(Member, "1").last_name == "Existing One"
+      assert fts_row_count() == 2
+      assert fts_search("Existing") == ["1", "2"]
     end
 
     test "a big drop from the existing cache (fewer than half survive) also fails without touching the database" do
@@ -181,6 +202,7 @@ defmodule PairingsEngine.Federations.BEL.SyncTest do
       assert reason =~ "far fewer"
 
       assert Repo.aggregate(Member, :count) == 10
+      assert fts_row_count() == 10
     end
 
     test "a normal, healthy import still succeeds and replaces the cache" do
@@ -189,6 +211,36 @@ defmodule PairingsEngine.Federations.BEL.SyncTest do
       assert {:ok, %Sync{imported_rows: 5}} = Sync.import_rows(self(), rows, %Sync{})
       assert Repo.aggregate(Member, :count) == 5
       assert Repo.get(Member, "1").last_name == "Player 1"
+    end
+
+    test "a re-import fully replaces the roster and leaves the FTS index matching it exactly" do
+      Repo.insert_all(Member, [
+        kbsb_row("1", "Old Alpha"),
+        kbsb_row("2", "Old Beta")
+      ])
+
+      assert fts_search("Old") == ["1", "2"]
+
+      # "2" is dropped (not present in the new import - a member who left
+      # the federation), "1" is renamed, "3" is new.
+      second = [
+        kbsb_row("1", "New Alpha"),
+        kbsb_row("3", "New Gamma")
+      ]
+
+      assert {:ok, %Sync{imported_rows: 2}} = Sync.import_rows(self(), second, %Sync{})
+
+      assert Repo.aggregate(Member, :count) == 2
+      assert Repo.get(Member, "1").last_name == "New Alpha"
+      assert Repo.get(Member, "2") == nil
+
+      # No stale entry for the dropped member, the renamed one is found
+      # under its new name only, and the index has exactly one row per
+      # player - no orphans, no duplicates.
+      assert fts_search("Old") == []
+      assert fts_search("New") == ["1", "3"]
+      assert fts_search("Gamma") == ["3"]
+      assert fts_row_count() == Repo.aggregate(Member, :count)
     end
   end
 end
