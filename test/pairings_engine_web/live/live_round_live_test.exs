@@ -94,6 +94,54 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
     assert html =~ "B (1800, 0)"
   end
 
+  # Same White-right/Result-centre/Black-left convention as the arbiter's
+  # Pairings page (see `assets/css/app.css`), so the projected sheet reads
+  # the same way as the one at the desk.
+  test "board table columns carry the White/Result/Black alignment classes on header and cells",
+       %{
+         conn: conn,
+         scope: scope
+       } do
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{
+        "name" => "Live Alignment Test",
+        "type" => "swiss",
+        "rounds_count" => "1"
+      })
+
+    [a, b] =
+      for {name, rating} <- [{"A", 2000}, {"B", 1800}] do
+        Repo.insert!(%Player{tournament_id: tournament.id, name: name, fide_rating: rating})
+      end
+
+    round =
+      Repo.insert!(%Round{
+        tournament_id: tournament.id,
+        number: 1,
+        status: "playing",
+        published_at: published_now()
+      })
+
+    Repo.insert!(%Pairing{
+      round_id: round.id,
+      board: 1,
+      white_player_id: a.id,
+      black_player_id: b.id,
+      result: ""
+    })
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/live")
+
+    assert html =~ ~s(<th class="pairing-white">)
+    assert html =~ ~s(<th class="pairing-result">)
+    assert html =~ ~s(<th class="pairing-black">)
+    assert html =~ ~s(<td class="pairing-white">)
+    assert html =~ ~s(<td class="pairing-result">)
+    assert html =~ ~s(<td class="pairing-black">)
+
+    refute html =~ ~s(style="text-align: center; width: 160px")
+  end
+
   test "a fixed-table board shows the SAME label and position as the authenticated Pairings page",
        %{conn: conn, scope: scope} do
     # Regression: this page used to sort by raw `pairing.board` and never

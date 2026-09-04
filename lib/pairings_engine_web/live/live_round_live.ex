@@ -4,7 +4,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
   pairing list with live results, and current standings below it. Also the
   arbiter's mobile-enrollment QR generator (see PairingsEngine.Mobile) - both
   live here since an arbiter typically opens this page once and leaves it up.
-  Meant to be popped into its own tab/window (see the "Live view & phone QR"
+  Meant to be popped into its own tab/window (see the "Local view & phone QR"
   link on PairingsLive) and left open - it subscribes to the same tournament
   topic as every other tournament-scoped view and updates the instant a
   result is entered elsewhere, no polling.
@@ -712,13 +712,18 @@ defmodule PairingsEngineWeb.LiveRoundLive do
         phx-hook=".BoardFit"
         phx-click={@display? && "toggle_pause"}
       >
+        <%!-- Same White-right/Result-centre/Black-left convention as the
+             pairings page's own table (see `assets/css/app.css`), scoped
+             to this table's own narrower fixed Result width via
+             `#hall-boards` - this screen is read from across a room, not a
+             desk, so it doesn't need the arbiter page's 220px. --%>
         <table class="pe-table">
           <thead>
             <tr>
               <th class="num">{gettext("Board")}</th>
-              <th>{gettext("White")}</th>
-              <th style="text-align: center; width: 160px">{gettext("Result")}</th>
-              <th>{gettext("Black")}</th>
+              <th class="pairing-white">{gettext("White")}</th>
+              <th class="pairing-result">{gettext("Result")}</th>
+              <th class="pairing-black">{gettext("Black")}</th>
             </tr>
           </thead>
           <tbody>
@@ -727,8 +732,10 @@ defmodule PairingsEngineWeb.LiveRoundLive do
                 page_rows(assigns, display_rows(@round.pairings))
             }>
               <td class="num">{display_board}</td>
-              <td><strong>{seat_label(pairing.white_player, @scores)}</strong></td>
-              <td style="text-align: center">
+              <td class="pairing-white">
+                <strong>{seat_label(pairing.white_player, @scores)}</strong>
+              </td>
+              <td class="pairing-result">
                 <%= cond do %>
                   <% pairing.result == "bye" -> %>
                     <span class="badge">{gettext("bye (%{pts} pt)", pts: @tournament.bye_value)}</span>
@@ -738,7 +745,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
                     <span class="badge">{result_label(pairing.result)}</span>
                 <% end %>
               </td>
-              <td>{seat_label(pairing.black_player, @scores)}</td>
+              <td class="pairing-black">{seat_label(pairing.black_player, @scores)}</td>
             </tr>
           </tbody>
         </table>

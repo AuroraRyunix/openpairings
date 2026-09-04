@@ -917,6 +917,23 @@ html[data-theme-source="user"][data-theme="contrast"] .theme-picker-item[data-th
 
 .num { text-align: right; font-variant-numeric: tabular-nums; }
 
+/* Pairing list (and the projector's copy of it): White right-aligned,
+   Result centred, Black left-aligned, the way a printed pairing sheet
+   reads - not two left-aligned name columns with the result floating
+   between whatever width they happened to leave over. White and Black
+   share the width Board and Result don't use, so the result lands in
+   the middle of the row rather than merely centred inside its own box.
+   Used on both `<th>` and `<td>` so header and cells line up. */
+.pairing-white { text-align: right; width: 40%; }
+.pairing-result { text-align: center; width: 220px; }
+.pairing-black { text-align: left; width: 40%; }
+
+/* The projector view is read from across a room, not a desk, and its
+   type scales with the viewport (see "Projector view" below) - 220px of
+   fixed Result column is disproportionate there, so it keeps its own
+   narrower width. */
+#hall-boards .pairing-result { width: 160px; }
+
 /* ---------- forms & buttons ---------- */
 
 label.field { display: block; margin-bottom: 14px; }

@@ -1657,8 +1657,14 @@ defmodule PairingsEngineWeb.PairingsLive do
             {gettext("Public page")}
           </a>
 
+          <%!-- "Live" reads as "live to the public", and this page is the
+                opposite: it is the LOCAL view, the screen in the venue and
+                the arbiter's own tab. What's public is OpenResults - and
+                now that page also carries the projector cycle and only
+                ever shows PUBLISHED rounds, calling this one "live" invited
+                exactly the confusion the publish gating exists to remove. --%>
           <a class="pe-btn" href={~p"/t/#{@tournament.id}/live"} target="_blank">
-            {gettext("Live view & phone QR")}
+            {gettext("Local view & phone QR")}
           </a>
 
           <a class="pe-btn" href={~p"/t/#{@tournament.id}/export/trf"} target="_blank">
@@ -1846,14 +1852,18 @@ defmodule PairingsEngineWeb.PairingsLive do
             </div>
           </div>
 
-          <a
-            :if={@round != nil}
-            class="pe-btn"
-            href={~p"/t/#{@tournament.id}/print/standings?round=#{@round_number}"}
-            target="_blank"
-          >
-            {gettext("Print standings")}
-          </a>
+          <%!-- Standings printing lives on the Standings page (and the print
+                hub) now, not here - this button used to print standings AS
+                OF THIS ROUND (`?round=N`), which neither of those offers:
+                the Standings page has no round selector, it only ever shows
+                the latest paired round, so there is no home there for an
+                arbiter who is looking at an earlier round and wants that
+                round's snapshot. That capability is accepted as lost rather
+                than kept as a special case here - the print hub already has
+                the identical gap (current standings only, no round param),
+                so this does not introduce a new asymmetry, and the URL
+                (`/t/:id/print/standings?round=n`) still works for anyone who
+                needs it, unchanged. --%>
 
           <div
             :if={@round != nil}
@@ -2191,15 +2201,22 @@ defmodule PairingsEngineWeb.PairingsLive do
           phx-hook=".PairingMenu"
           data-scope={@round && "round"}
         >
+          <%!-- White right-aligned, Result centred, Black left-aligned - a
+               printed pairing sheet's convention, not two left-aligned name
+               columns with the result floating between whatever they leave
+               over. `.pairing-white`/`.pairing-black` also split the width
+               the Board and Result columns don't use, so the result sits in
+               the middle of the row rather than just centred in its own
+               fixed box. See `assets/css/app.css`. --%>
           <thead>
             <tr>
               <th class="num">{gettext("Board")}</th>
 
-              <th>{gettext("White")}</th>
+              <th class="pairing-white">{gettext("White")}</th>
 
-              <th style="text-align: center; width: 220px">{gettext("Result")}</th>
+              <th class="pairing-result">{gettext("Result")}</th>
 
-              <th>{gettext("Black")}</th>
+              <th class="pairing-black">{gettext("Black")}</th>
             </tr>
           </thead>
 
@@ -2244,7 +2261,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             >
               <td class="num">{display_board}</td>
 
-              <td>
+              <td class="pairing-white">
                 <.seat_cell
                   player={pairing.white_player}
                   pairing={pairing}
@@ -2255,7 +2272,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                 />
               </td>
 
-              <td style="text-align: center">
+              <td class="pairing-result">
                 <%= cond do %>
                   <% pairing.result == "bye" -> %>
                     <span class="badge">{gettext("bye (%{pts} pt)", pts: @tournament.bye_value)}</span>
@@ -2305,7 +2322,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                 <% end %>
               </td>
 
-              <td>
+              <td class="pairing-black">
                 <.seat_cell
                   player={pairing.black_player}
                   pairing={pairing}
