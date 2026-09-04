@@ -83,6 +83,7 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
 
   alias PairingsEngine.{Encoding, Repo, Standings, Tournaments}
   alias PairingsEngine.Federations.BEL.SwarImport
+  alias PairingsEngine.Federations.BEL.SwarPublish
   alias PairingsEngine.Tournaments.Tournament
 
   # Table number sentinel for a pairing-allocated bye (Swar.h TABLE_BYE) -
@@ -110,7 +111,21 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
   def export(%Tournament{} = tournament), do: export(tournament.id)
 
   def export(tournament_id) when is_integer(tournament_id) do
-    tournament = Tournaments.get_tournament!(tournament_id)
+    # Mint the SWAR identifier here if the tournament has none, and persist it.
+    #
+    # This file is how a tournament LEAVES for SWAR, and SWAR generates a guid
+    # only when the field it reads is empty (`GenerateGUID()` in
+    # `TournoiReadWrite.cpp` is guarded on exactly that). So whatever we write
+    # here is the identity the tournament keeps for the rest of its life,
+    # including when SWAR later uploads it to the federation.
+    #
+    # It used to fall back to a bare `Ecto.UUID.generate()`, which is wrong
+    # twice over. It is not the shape the results site accepts - no club
+    # prefix, no date, no braces - so an upload from SWAR would come back
+    # "bad Guid date". And it was never stored, so exporting the same
+    # tournament twice produced two different identities, which on a site that
+    # overwrites by guid means two tournaments where there should be one.
+    tournament = SwarPublish.ensure_guid!(Tournaments.get_tournament!(tournament_id))
     players = Tournaments.list_players(tournament_id)
     ni_by_player_id = assign_ni(players)
 
@@ -126,7 +141,7 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
     categories = tournament.categories |> Enum.take(16)
 
     w_str("v7.00") <>
-      w_str(tournament.swar_guid || Ecto.UUID.generate()) <>
+      w_str(tournament.swar_guid) <>
       w_str("") <>
       reverse_tournoi(tournament) <>
       reverse_dates(tournament) <>

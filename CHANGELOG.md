@@ -14,6 +14,32 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.36.0] - 2026-09-04
+
+- [Feature] **A tournament can be published to the Belgian federation's
+  results site.** The sixth Belgian feature: generate the SWAR results page
+  and send it, in the two steps the federation's server expects - upload, then
+  index. Admin only, gated on the pack, and never automatic: no queue, no
+  retry, no publish-on-save. It happens when somebody presses the button, on a
+  confirmation that names the tournament and says where it is going. When the
+  server refuses, its own message is shown - "bad Guid date" tells an arbiter
+  which part is wrong, where "upload failed" would not.
+- [Change] **An upload that stages but does not index can be finished.** The
+  two steps are recorded separately, so a tournament whose file reached the
+  server but never got indexed offers to run the second step again instead of
+  making somebody upload the whole thing blindly.
+- [Fix] **A tournament exported to SWAR now keeps its identity.** The `.swar`
+  file fell back to a bare UUID when the tournament had no SWAR id yet - not
+  the shape the results site accepts, so an upload from SWAR would have come
+  back "bad Guid date", and never stored, so exporting twice produced two
+  identities for one event. Exporting now mints the id in the documented shape
+  and keeps it, which is what lets an arbiter carry on in SWAR and upload from
+  there without publishing the same tournament twice.
+- [Fix] **A flaky account test no longer depends on the whole database.** It
+  set a password on every user row and asserted exactly one existed, which
+  held only while no other test had left one behind - so it failed on some
+  orderings and passed on others.
+
 ## [0.35.0] - 2026-09-04
 
 - [Fix] **An odd-sized round robin locked its cycle count a round too early.**

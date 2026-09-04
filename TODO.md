@@ -1,6 +1,6 @@
 # TODO / Roadmap
 
-Version: **0.35.0** (not 1.0 yet - the maintainer will call that explicitly).
+Version: **0.36.0** (not 1.0 yet - the maintainer will call that explicitly).
 See [`docs/features.md`](docs/features.md) for what's already shipped.
 
 > **A second whole-codebase sweep ran on 2026-09-01** - 33 items, in

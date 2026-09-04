@@ -1,6 +1,8 @@
 defmodule PairingsEngine.AccountsTest do
   use PairingsEngine.DataCase
 
+  import Ecto.Query
+
   alias PairingsEngine.Accounts
 
   import PairingsEngine.AccountsFixtures
@@ -485,7 +487,19 @@ defmodule PairingsEngine.AccountsTest do
 
     test "raises when unconfirmed user has password set" do
       user = unconfirmed_user_fixture()
-      {1, nil} = Repo.update_all(User, set: [hashed_password: "hashed"])
+
+      # Scoped to this test's own user rather than the whole table. It used to
+      # be `update_all(User, ...)` matched against `{1, nil}`, which quietly
+      # asserted that exactly one user exists anywhere - true only while no
+      # other test in the run had left one behind, so it failed on some seeds
+      # and passed on others with a MatchError of `{3, nil}` that says nothing
+      # about what this test is for.
+      {1, nil} =
+        Repo.update_all(
+          from(u in User, where: u.id == ^user.id),
+          set: [hashed_password: "hashed"]
+        )
+
       {encoded_token, _hashed_token} = generate_user_magic_link_token(user)
 
       assert_raise RuntimeError, ~r/magic link log in is not allowed/, fn ->
