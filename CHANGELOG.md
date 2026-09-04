@@ -14,6 +14,25 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.36.3] - 2026-09-04
+
+- [Fix] **A bye now sits after the boards, not among them.** It was sorted on
+  its board number like any other pairing, so it landed between board three
+  and board four while its own board cell was blank - reading as a gap in the
+  numbering. A published round puts its bye after the last numbered board,
+  and so does this now.
+- [Fix] **The points a bye awards print the way the federation prints them** -
+  `1` rather than `1.0`, beside the `0.0` in the points column, and a
+  half-point bye shows the same half symbol the results use.
+- [Change] **The version reads as a version in the federation's list.** Its
+  "Vers." column ate the leading character of a plain `v7.00` and showed
+  `7.00`, while SWAR's longer string appears as `v7.05`. The default is now
+  shaped the same way, and still settable.
+- [Feature] **The page carries a footer saying what made it** - the same
+  three-cell strip a SWAR file ends with, in the same place, but naming
+  OpenPairings and its own build rather than copying the federation's name
+  and its author's initials onto a page they had no hand in.
+
 ## [0.36.2] - 2026-09-04
 
 - [Fix] **Publishing to the federation failed at the indexing step.** The

@@ -89,8 +89,12 @@ defmodule PairingsEngine.Federations.BEL.SwarPublishTest do
   end
 
   describe "version/0 and put_version/1" do
-    test "defaults to v7.00 when nothing has been set" do
-      assert SwarPublish.version() == "v7.00"
+    # Shaped like SWAR's own, not a bare number: the federation's public list
+    # shows a "Vers." column that ate the leading character of a plain
+    # "v7.00" and rendered it as "7.00", while SWAR's longer string comes out
+    # as "v7.05" beside it.
+    test "defaults to a SWAR-shaped version when nothing has been set" do
+      assert SwarPublish.version() == "(©)FRBE-KBSB-v7.00"
     end
 
     test "put_version/1 is honoured by version/0 and by export/1's head" do
@@ -107,7 +111,7 @@ defmodule PairingsEngine.Federations.BEL.SwarPublishTest do
       SwarPublish.put_version("v7.12")
       SwarPublish.put_version("")
 
-      assert SwarPublish.version() == "v7.00"
+      assert SwarPublish.version() == "(©)FRBE-KBSB-v7.00"
     end
   end
 
