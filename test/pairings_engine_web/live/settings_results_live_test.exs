@@ -31,6 +31,58 @@ defmodule PairingsEngineWeb.SettingsResultsLiveTest do
     tournament
   end
 
+  describe "the publish controls when there is no results site" do
+    test "unconfigured and not publishing - no toggle, an explanation instead", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      refute Publishing.configured?()
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      refute html =~ ~s|phx-click="toggle_publish_to_openresults"|
+      refute html =~ ~s|phx-click="toggle_listed"|
+      refute html =~ "Not published"
+      refute html =~ "Listed on the front page"
+      assert html =~ "No results site is set up yet"
+      assert html =~ ~s|href="/fide"|
+    end
+
+    test "unconfigured but already publishing - the toggle stays, so it can be turned off", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, tournament} = Tournaments.set_publish_to_openresults(tournament, true)
+      refute Publishing.configured?()
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      assert html =~ ~s|phx-click="toggle_publish_to_openresults"|
+      assert html =~ "Turn off"
+      refute html =~ "No results site is set up yet"
+
+      html = lv |> element("button", "Turn off") |> render_click()
+      refute Tournaments.get_tournament!(tournament.id).publish_to_openresults
+      assert html =~ "will not be published again"
+    end
+
+    test "configured - the controls render exactly as before", %{conn: conn, scope: scope} do
+      Publishing.put_endpoint("https://openresults.example/")
+      Publishing.put_token("s3cret")
+
+      tournament = create_tournament(scope)
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      assert html =~ ~s|phx-click="toggle_publish_to_openresults"|
+      assert html =~ ~s|phx-click="toggle_listed"|
+      assert html =~ "Not published"
+      assert html =~ "Listed on the front page"
+      refute html =~ "No results site is set up yet"
+    end
+  end
+
   describe "listing a tournament on the front page" do
     setup do
       Publishing.put_endpoint("https://openresults.example/")

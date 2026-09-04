@@ -362,6 +362,14 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
 
   defp listed?(tournament), do: tournament.public_listed != false
 
+  # The same pair of conditions the "Turn on/off" button's `disabled`
+  # attribute used to encode on its own: nothing to do while there is no
+  # server and nothing already publishing, but never hidden while the
+  # tournament believes it is already publishing - losing "Turn off" on one
+  # of those would be a trap, not a tidy-up.
+  defp openresults_reachable?(tournament, configured?),
+    do: configured? or tournament.publish_to_openresults
+
   defp show?(tournament, key), do: PublicDisplay.show?(tournament.public_display, key)
 
   defp hidden_tiebreaks(tournament), do: tournament.public_hidden_tiebreaks || []
@@ -442,41 +450,56 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
           <.connection_status status={@connection} compact />
         </div>
 
-        <div class="set-field solo">
-          <span class="set-label">{gettext("Published")}</span>
-          <div class="actions" style="margin-top: 6px; align-items: center; gap: 10px">
-            <.state on?={@tournament.publish_to_openresults} on="Published" off="Not published" />
-            <button
-              type="button"
-              class="pe-btn"
-              phx-click="toggle_publish_to_openresults"
-              disabled={not @openresults_configured? and not @tournament.publish_to_openresults}
-            >
-              {if @tournament.publish_to_openresults, do: "Turn off", else: "Turn on"}
-            </button>
+        <%!-- A switched-off feature owns its entrances - see
+              `PairingsEngine.Features`'s moduledoc for the rule this
+              follows. Both fields below exist to act on a results site;
+              with none configured and nothing already publishing, there is
+              nothing for either to do, so neither renders. The one
+              exception is a tournament that already believes it is
+              publishing: that pair MUST keep its "Turn off" button even
+              with the connection gone, or there would be no way back. --%>
+        <%= if openresults_reachable?(@tournament, @openresults_configured?) do %>
+          <div class="set-field solo">
+            <span class="set-label">{gettext("Published")}</span>
+            <div class="actions" style="margin-top: 6px; align-items: center; gap: 10px">
+              <.state on?={@tournament.publish_to_openresults} on="Published" off="Not published" />
+              <button type="button" class="pe-btn" phx-click="toggle_publish_to_openresults">
+                {if @tournament.publish_to_openresults, do: "Turn off", else: "Turn on"}
+              </button>
+            </div>
           </div>
-        </div>
 
-        <div class="set-field solo" style="margin-top: 18px">
-          <span class="set-label">{gettext("Listed on the front page")}</span>
-          <p class="hint" style="margin: 4px 0 0">
-            {gettext(
-              "Whether this tournament appears in the results site's list of published tournaments. Off by default: publishing gives this tournament an address, and putting it on the front page is a separate choice."
-            )}
-          </p>
-          <p class="hint" style="margin: 4px 0 0">
-            <strong>{gettext("This is not privacy.")}</strong>
-            {gettext(
-              "An unlisted tournament is still readable by anyone who has its address, and addresses get forwarded. It hides the event from someone browsing the site, not from someone who was sent the link."
-            )}
-          </p>
-          <div class="actions" style="margin-top: 6px; align-items: center; gap: 10px">
-            <.state on?={listed?(@tournament)} on="Listed" off="Unlisted" />
-            <button type="button" class="pe-btn" phx-click="toggle_listed">
-              {if listed?(@tournament), do: "Unlist it", else: "List it"}
-            </button>
+          <div class="set-field solo" style="margin-top: 18px">
+            <span class="set-label">{gettext("Listed on the front page")}</span>
+            <p class="hint" style="margin: 4px 0 0">
+              {gettext(
+                "Whether this tournament appears in the results site's list of published tournaments. Off by default: publishing gives this tournament an address, and putting it on the front page is a separate choice."
+              )}
+            </p>
+            <p class="hint" style="margin: 4px 0 0">
+              <strong>{gettext("This is not privacy.")}</strong>
+              {gettext(
+                "An unlisted tournament is still readable by anyone who has its address, and addresses get forwarded. It hides the event from someone browsing the site, not from someone who was sent the link."
+              )}
+            </p>
+            <div class="actions" style="margin-top: 6px; align-items: center; gap: 10px">
+              <.state on?={listed?(@tournament)} on="Listed" off="Unlisted" />
+              <button type="button" class="pe-btn" phx-click="toggle_listed">
+                {if listed?(@tournament), do: "Unlist it", else: "List it"}
+              </button>
+            </div>
           </div>
-        </div>
+        <% else %>
+          <p class="hint" style="margin-top: 18px">
+            <.rich_text text={
+              gettext("No results site is set up yet - connect one on the %[link] page.")
+            }>
+              <:part name="link">
+                <.link navigate={~p"/fide"}>{gettext("Connections")}</.link>
+              </:part>
+            </.rich_text>
+          </p>
+        <% end %>
       </div>
 
       <%!-- Moved from Settings -> Options on 2026-08-29, with the rest of
