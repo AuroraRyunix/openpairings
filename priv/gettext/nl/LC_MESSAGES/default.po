@@ -74,7 +74,7 @@ msgstr "- gegevens met de hand invullen -"
 msgid "6-digit code"
 msgstr "6-cijferige code"
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:124
+#: lib/pairings_engine_web/live/settings_export_live.ex:242
 #, elixir-autogen, elixir-format
 msgid "A .swar file SWAR itself can open - never verified against a real SWAR install, see docs/swar-import.md"
 msgstr "Een .swar-bestand dat SWAR zelf kan openen - nooit gecontroleerd tegen een echte SWAR-installatie, zie docs/swar-import.md"
@@ -190,14 +190,14 @@ msgid "Assign categories?"
 msgstr "Categorieën toekennen?"
 
 #: lib/pairings_engine_web/components/layouts.ex:107
-#: lib/pairings_engine_web/live/audit_live.ex:475
+#: lib/pairings_engine_web/live/audit_live.ex:482
 #: lib/pairings_engine_web/live/history_live.ex:556
 #: lib/pairings_engine_web/live/history_live.ex:668
 #, elixir-autogen, elixir-format
 msgid "Audit trail"
 msgstr "Auditlogboek"
 
-#: lib/pairings_engine_web/live/audit_live.ex:543
+#: lib/pairings_engine_web/live/audit_live.ex:550
 #, elixir-autogen, elixir-format
 msgid "Audit trail - every change, who made it, and when"
 msgstr "Auditlogboek - elke wijziging, wie ze maakte en wanneer"
@@ -607,12 +607,12 @@ msgstr "Alles is up-to-date."
 msgid "Everything you are organising, most recent first."
 msgstr "Alles wat je organiseert, meest recente eerst."
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:129
+#: lib/pairings_engine_web/live/settings_export_live.ex:247
 #, elixir-autogen, elixir-format
 msgid "Export .swar (v7, experimental)"
 msgstr ".swar exporteren (v7, experimenteel)"
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:74
+#: lib/pairings_engine_web/live/settings_export_live.ex:192
 #, elixir-autogen, elixir-format
 msgid "Export / backup"
 msgstr "Exporteren / back-up"
@@ -628,7 +628,7 @@ msgstr "TRF exporteren (alle rondes)"
 msgid "Export all (JSON)"
 msgstr "Alles exporteren (JSON)"
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:110
+#: lib/pairings_engine_web/live/settings_export_live.ex:228
 #, elixir-autogen, elixir-format
 msgid "Export full backup (JSON)"
 msgstr "Volledige back-up exporteren (JSON)"
@@ -1078,7 +1078,7 @@ msgstr "Nieuw toernooi"
 msgid "No Paid"
 msgstr "Niet betaald"
 
-#: lib/pairings_engine_web/live/audit_live.ex:585
+#: lib/pairings_engine_web/live/audit_live.ex:592
 #, elixir-autogen, elixir-format
 msgid "No audit events recorded yet."
 msgstr "Nog geen auditgebeurtenissen geregistreerd."
@@ -1125,7 +1125,7 @@ msgstr "Nog geen herstelpunten."
 msgid "No round has been paired yet."
 msgstr "Er is nog geen ronde gepaard."
 
-#: lib/pairings_engine_web/live/audit_live.ex:510
+#: lib/pairings_engine_web/live/audit_live.ex:517
 #, elixir-autogen, elixir-format
 msgid "No rounds have been paired yet, so there is nothing to explain."
 msgstr "Er zijn nog geen rondes gepaard, dus er valt niets uit te leggen."
@@ -1196,7 +1196,7 @@ msgstr "Officials & FIDE-rapportgegevens"
 msgid "Officials & arbiter candidate"
 msgstr "Officials & arbiterkandidaat"
 
-#: lib/pairings_engine_web/live/audit_live.ex:617
+#: lib/pairings_engine_web/live/audit_live.ex:624
 #, elixir-autogen, elixir-format
 msgid "Older →"
 msgstr "Ouder →"
@@ -1247,7 +1247,7 @@ msgid "Pairing fairness"
 msgstr "Eerlijkheid van de paring"
 
 #: lib/pairings_engine_web/components/layouts.ex:110
-#: lib/pairings_engine_web/live/audit_live.ex:481
+#: lib/pairings_engine_web/live/audit_live.ex:488
 #, elixir-autogen, elixir-format
 msgid "Pairing rationale"
 msgstr "Paringsverantwoording"
@@ -1289,7 +1289,7 @@ msgstr "FIDE-ID-bereiken per ronde"
 msgid "Person responsible for pairings"
 msgstr "Verantwoordelijke voor de paringen"
 
-#: lib/pairings_engine_web/live/audit_live.ex:502
+#: lib/pairings_engine_web/live/audit_live.ex:509
 #, elixir-autogen, elixir-format
 msgid "Pick a paired round to see its pairing rationale"
 msgstr "Kies een gepaarde ronde om de paringsverantwoording te zien"
@@ -2160,7 +2160,7 @@ msgstr "· oneven"
 msgid "…or fill the details in by hand below."
 msgstr "…of vul de gegevens hieronder met de hand in."
 
-#: lib/pairings_engine_web/live/audit_live.ex:606
+#: lib/pairings_engine_web/live/audit_live.ex:613
 #, elixir-autogen, elixir-format
 msgid "← Newer"
 msgstr "← Nieuwer"
@@ -2650,14 +2650,14 @@ msgid_plural "%{count} edges"
 msgstr[0] "%{count} verbinding"
 msgstr[1] "%{count} verbindingen"
 
-#: lib/pairings_engine_web/live/audit_live.ex:565
+#: lib/pairings_engine_web/live/audit_live.ex:572
 #, elixir-autogen, elixir-format
 msgid "%{count} event total in this category."
 msgid_plural "%{count} events total in this category."
 msgstr[0] "%{count} gebeurtenis in totaal in deze categorie."
 msgstr[1] "%{count} gebeurtenissen in totaal in deze categorie."
 
-#: lib/pairings_engine_web/live/audit_live.ex:563
+#: lib/pairings_engine_web/live/audit_live.ex:570
 #, elixir-autogen, elixir-format
 msgid "%{count} event total."
 msgid_plural "%{count} events total."
@@ -2771,7 +2771,7 @@ msgid_plural "- apply these?"
 msgstr[0] "- dit toepassen?"
 msgstr[1] "- deze toepassen?"
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:78
+#: lib/pairings_engine_web/live/settings_export_live.ex:196
 #, elixir-autogen, elixir-format
 msgid "A full JSON backup of this tournament - settings, officials, every player (including norm data), rounds, pairings/results, byes and forbidden pairings. Re-importing it (from the %[tournaments] page) always creates a brand-new tournament, never overwrites this one. For a FIDE-report-shaped TRF16 file instead, see %[pairings]."
 msgstr "Een volledige JSON-back-up van dit toernooi - instellingen, functionarissen, elke speler (inclusief normgegevens), rondes, paringen/resultaten, byes en verboden paringen. Ze opnieuw importeren (vanaf de pagina %[tournaments]) maakt altijd een gloednieuw toernooi aan en overschrijft dit nooit. Voor een TRF16-bestand in FIDE-rapportvorm, zie %[pairings]."
@@ -3258,7 +3258,7 @@ msgid "Hide this round from the public pairings page again?"
 msgstr "Deze ronde weer verbergen op de publieke paringenpagina?"
 
 #: lib/pairings_engine_web/components/layouts.ex:104
-#: lib/pairings_engine_web/live/audit_live.ex:469
+#: lib/pairings_engine_web/live/audit_live.ex:476
 #: lib/pairings_engine_web/live/history_live.ex:542
 #, elixir-autogen, elixir-format
 msgid "History"
@@ -3375,7 +3375,7 @@ msgid "Norm"
 msgstr "Norm"
 
 #: lib/pairings_engine_web/components/layouts.ex:101
-#: lib/pairings_engine_web/live/audit_live.ex:463
+#: lib/pairings_engine_web/live/audit_live.ex:470
 #: lib/pairings_engine_web/live/settings_fide_live.ex:161
 #: lib/pairings_engine_web/live/settings_tournament_live.ex:444
 #, elixir-autogen, elixir-format
@@ -3387,7 +3387,7 @@ msgstr "Normen"
 msgid "Not playing round %{n}"
 msgstr "Speelt ronde %{n} niet"
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:90
+#: lib/pairings_engine_web/live/settings_export_live.ex:208
 #, elixir-autogen, elixir-format
 msgid "Note that its rank column is the computed order, not manual ranking's hand-set one."
 msgstr "Merk op dat de plaatskolom daarin de berekende volgorde is, niet de handmatig ingestelde van de handmatige rangschikking."
@@ -3447,7 +3447,7 @@ msgstr "Of open %[url]"
 msgid "Organizer"
 msgstr "Organisator"
 
-#: lib/pairings_engine_web/live/audit_live.ex:609
+#: lib/pairings_engine_web/live/audit_live.ex:616
 #, elixir-autogen, elixir-format
 msgid "Page %{n}"
 msgstr "Pagina %{n}"
@@ -3495,7 +3495,7 @@ msgid "Pairing rationale for round %{n} - %{system}"
 msgstr "Paringsverantwoording voor ronde %{n} - %{system}"
 
 #: lib/pairings_engine_web/components/layouts.ex:86
-#: lib/pairings_engine_web/live/settings_export_live.ex:86
+#: lib/pairings_engine_web/live/settings_export_live.ex:204
 #, elixir-autogen, elixir-format
 msgid "Pairings"
 msgstr "Paringen"
@@ -4048,7 +4048,7 @@ msgstr "Toernooi"
 msgid "Tournament logo"
 msgstr "Toernooilogo"
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:83
+#: lib/pairings_engine_web/live/settings_export_live.ex:201
 #: lib/pairings_engine_web/live/tournaments_live.ex:1235
 #, elixir-autogen, elixir-format
 msgid "Tournaments"
@@ -4114,7 +4114,7 @@ msgid "Version %{version} - %[whats_new]"
 msgstr "Versie %{version} - %[whats_new]"
 
 #: lib/pairings_engine_web/live/admin_live.ex:265
-#: lib/pairings_engine_web/live/audit_live.ex:578
+#: lib/pairings_engine_web/live/audit_live.ex:585
 #, elixir-autogen, elixir-format
 msgid "What"
 msgstr "Wat"
@@ -4125,7 +4125,7 @@ msgid "What a round a player sits out is worth, and how many of them are paid. T
 msgstr "Wat een ronde waard is die een speler niet meespeelt, en hoeveel van die rondes uitbetaald worden. Dit dekt elke afwezigheid die de paring kent, of de speler nu een bepaalde ronde vrij vroeg of gewoon afwezig gezet is - dat is hetzelfde geval, want de enige manier waarop je het voor de paring weet, is dat ze het je verteld hebben. Wie wel gepaard was en dan niet kwam opdagen, is een forfait aan zijn bord, niet dit. Een door de paring toegekende bye - de overtallige speler bij een oneven veld - heeft hierboven zijn eigen waarde."
 
 #: lib/pairings_engine_web/live/admin_live.ex:263
-#: lib/pairings_engine_web/live/audit_live.ex:576
+#: lib/pairings_engine_web/live/audit_live.ex:583
 #, elixir-autogen, elixir-format
 msgid "When"
 msgstr "Wanneer"
@@ -4146,7 +4146,7 @@ msgid "White"
 msgstr "Wit"
 
 #: lib/pairings_engine_web/live/admin_live.ex:264
-#: lib/pairings_engine_web/live/audit_live.ex:577
+#: lib/pairings_engine_web/live/audit_live.ex:584
 #, elixir-autogen, elixir-format
 msgid "Who"
 msgstr "Wie"
@@ -4841,7 +4841,7 @@ msgstr "Ze worden op deze machine geschreven. Download er een en bewaar hem elde
 msgid "This backup carries the tournament's publishing key - anyone holding the file can update or delete its page on the results site."
 msgstr "Deze back-up bevat de publicatiesleutel van het toernooi - wie het bestand heeft, kan de pagina op de uitslagensite bijwerken of verwijderen."
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:103
+#: lib/pairings_engine_web/live/settings_export_live.ex:221
 #, elixir-autogen, elixir-format
 msgid "This backup carries this tournament's publishing key. Anyone who has the file can update its page on the results site, or delete that page along with its whole history and any entries collected for it. That is deliberate - it is how a rebuilt machine recovers control of what it published - but treat the file like a password."
 msgstr "Deze back-up bevat de publicatiesleutel van dit toernooi. Wie het bestand heeft, kan de pagina op de uitslagensite bijwerken, of die pagina verwijderen samen met de volledige geschiedenis en alle daarvoor verzamelde inschrijvingen. Dat is opzettelijk - zo herneemt een heropgebouwde machine de controle over wat ze gepubliceerd heeft - maar behandel het bestand als een wachtwoord."
@@ -5155,7 +5155,7 @@ msgstr "een gehoste server"
 msgid "a local install (no accounts, no roles needed)"
 msgstr "een lokale installatie (geen accounts, geen rollen nodig)"
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:66
+#: lib/pairings_engine_web/live/settings_export_live.ex:184
 #, elixir-autogen, elixir-format
 msgid "Settings - Export"
 msgstr "Instellingen - Export"
@@ -6057,11 +6057,6 @@ msgstr "#Ptn"
 msgid "Aanw"
 msgstr "Aanw"
 
-#: lib/pairings_engine/features.ex:150
-#, elixir-autogen, elixir-format
-msgid "Adds a SWAR-compatible HTML results page to a tournament's Export page - the standings and round results, laid out the way the federation's results site expects. Download only; nothing is uploaded anywhere."
-msgstr "Voegt een SWAR-compatibele HTML-resultatenpagina toe aan de pagina Exporteren van een toernooi - de eindstand en de ronderesultaten, opgemaakt zoals de uitslagensite van de federatie ze verwacht. Enkel downloaden; er wordt niets ergens naartoe geüpload."
-
 #: lib/pairings_engine/federations/bel/swar_publish.ex:399
 #, elixir-autogen, elixir-format
 msgid "Arbiter"
@@ -6099,7 +6094,7 @@ msgstr "Eindstand"
 msgid "Elo"
 msgstr "Elo"
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:147
+#: lib/pairings_engine_web/live/settings_export_live.ex:266
 #, elixir-autogen, elixir-format
 msgid "Export SWAR results page (.html)"
 msgstr "SWAR-resultatenpagina exporteren (.html)"
@@ -6186,11 +6181,6 @@ msgstr "De \"Version\"-tag die elke SWAR-compatibele resultatenpagina draagt. De
 msgid "The SWAR results page is switched off for your account. Turn it on under Features."
 msgstr "De SWAR-resultatenpagina staat uit voor je account. Zet het aan onder Functies."
 
-#: lib/pairings_engine_web/live/settings_export_live.ex:142
-#, elixir-autogen, elixir-format
-msgid "The standings and round results, laid out the way the federation's results site expects. Download only."
-msgstr "De eindstand en de ronderesultaten, opgemaakt zoals de uitslagensite van de federatie ze verwacht. Enkel downloaden."
-
 #: lib/pairings_engine/federations/bel/swar_publish.ex:375
 #, elixir-autogen, elixir-format
 msgid "Toernooi"
@@ -6210,3 +6200,74 @@ msgstr "Vrij"
 #, elixir-autogen, elixir-format
 msgid "van %{start} tot %{end}"
 msgstr "van %{start} tot %{end}"
+
+#: lib/pairings_engine/features.ex:150
+#, elixir-autogen, elixir-format
+msgid "Adds a SWAR-compatible HTML results page to a tournament's Export page - the standings and round results, laid out the way the federation's results site expects. Also adds the button to send it there directly, restricted to an administrator."
+msgstr "Voegt een SWAR-compatibele HTML-resultatenpagina toe aan de pagina Exporteren van een toernooi - de eindstand en de ronderesultaten, opgemaakt zoals de uitslagensite van de federatie ze verwacht. Voegt ook de knop toe om ze rechtstreeks daarheen te sturen, voorbehouden aan een beheerder."
+
+#: lib/pairings_engine_web/live/settings_export_live.ex:104
+#, elixir-autogen, elixir-format
+msgid "Could not publish: %{message}"
+msgstr "Kon niet publiceren: %{message}"
+
+#: lib/pairings_engine_web/live/settings_export_live.ex:337
+#, elixir-autogen, elixir-format
+msgid "Finish indexing"
+msgstr "Indexeren afronden"
+
+#: lib/pairings_engine_web/live/settings_export_live.ex:290
+#, elixir-autogen, elixir-format
+msgid "Last published: %{when} UTC."
+msgstr "Laatst gepubliceerd: %{when} UTC."
+
+#: lib/pairings_engine_web/live/settings_export_live.ex:321
+#, elixir-autogen, elixir-format
+msgid "Publish \"%{name}\" to the federation's public results site (frbe-kbsb.be)? Its standings and results become visible to anyone there, immediately, and this cannot be undone from here."
+msgstr "\"%{name}\" publiceren op de publieke uitslagensite van de federatie (frbe-kbsb.be)? De eindstand en resultaten worden daar meteen voor iedereen zichtbaar, en dit kan van hieruit niet worden teruggedraaid."
+
+#: lib/pairings_engine_web/live/settings_export_live.ex:327
+#, elixir-autogen, elixir-format
+msgid "Publish to frbe-kbsb.be"
+msgstr "Publiceren naar frbe-kbsb.be"
+
+#: lib/pairings_engine_web/live/settings_export_live.ex:277
+#, elixir-autogen, elixir-format
+msgid "Publish to the federation's results site"
+msgstr "Publiceren naar de uitslagensite van de federatie"
+
+#: lib/pairings_engine_web/live/settings_export_live.ex:91
+#: lib/pairings_engine_web/live/settings_export_live.ex:145
+#, elixir-autogen, elixir-format
+msgid "Published to the federation's results site (frbe-kbsb.be)."
+msgstr "Gepubliceerd naar de uitslagensite van de federatie (frbe-kbsb.be)."
+
+#: lib/pairings_engine_web/live/settings_export_live.ex:286
+#, elixir-autogen, elixir-format
+msgid "Publishing to the federation needs an administrator."
+msgstr "Publiceren naar de federatie kan alleen een beheerder."
+
+#: lib/pairings_engine_web/live/settings_export_live.ex:166
+#, elixir-autogen, elixir-format
+msgid "Publishing to the federation's results site needs an administrator."
+msgstr "Publiceren naar de uitslagensite van de federatie kan alleen een beheerder."
+
+#: lib/pairings_engine_web/live/settings_export_live.ex:280
+#, elixir-autogen, elixir-format
+msgid "Sends the results page above to frbe-kbsb.be and asks the federation to index it - the same two steps SWAR itself performs. This is the federation's own public site, not OpenResults: the standings and results become visible there to anyone, immediately, and this machine cannot take that back down."
+msgstr "Stuurt de resultatenpagina hierboven naar frbe-kbsb.be en vraagt de federatie om ze te indexeren - dezelfde twee stappen die SWAR zelf uitvoert. Dit is de eigen publieke site van de federatie, niet OpenResults: de eindstand en resultaten worden daar meteen voor iedereen zichtbaar, en deze machine kan dat niet meer ongedaan maken."
+
+#: lib/pairings_engine_web/live/settings_export_live.ex:305
+#, elixir-autogen, elixir-format
+msgid "The file was uploaded but the federation has not confirmed it is indexed yet. Press \"Finish indexing\" to retry just that step - no need to upload again."
+msgstr "Het bestand is geüpload, maar de federatie heeft nog niet bevestigd dat het geïndexeerd is. Klik op \"Indexeren afronden\" om enkel die stap opnieuw te proberen - opnieuw uploaden is niet nodig."
+
+#: lib/pairings_engine_web/live/settings_export_live.ex:261
+#, elixir-autogen, elixir-format
+msgid "The standings and round results, laid out the way the federation's results site expects."
+msgstr "De eindstand en de ronderesultaten, opgemaakt zoals de uitslagensite van de federatie ze verwacht."
+
+#: lib/pairings_engine_web/live/settings_export_live.ex:118
+#, elixir-autogen, elixir-format
+msgid "Uploaded, but the federation did not confirm it was indexed (%{message}). The file is staged - press \"Finish indexing\" to retry."
+msgstr "Geüpload, maar de federatie bevestigde niet dat het geïndexeerd was (%{message}). Het bestand staat klaar - klik op \"Indexeren afronden\" om het opnieuw te proberen."

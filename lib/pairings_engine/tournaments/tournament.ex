@@ -159,6 +159,17 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # SWAR's own per-tournament GUID - see docs/import-export.md's re-upload
     # section. nil for tournaments never imported from SWAR.
     field :swar_guid, :string
+    # When PairingsEngine.Federations.BEL.SwarUpload last successfully PUT
+    # this tournament's generated results page to the federation's intake
+    # (step 1), and when the federation's own index step (step 2) last
+    # actually confirmed it - two timestamps rather than one, so a PUT that
+    # lands followed by a GET that fails is visible as "staged, not yet
+    # indexed" rather than looking untouched. See that module's moduledoc
+    # and the migration that added these. Neither is cast by changeset/2:
+    # both are written only by SwarUpload itself, same as openresults_key
+    # below.
+    field :swar_uploaded_at, :utc_datetime
+    field :swar_published_at, :utc_datetime
     # ISO dates, index = round-1
     field :round_dates, {:array, :string}, default: []
     # tournament-defined category names (SWAR CATEGORIES)

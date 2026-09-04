@@ -60,6 +60,12 @@ config :pairings_engine, :keycloak_req_plug, PairingsEngine.KeycloakTest
 # Same convention for the OpenResults publisher.
 config :pairings_engine, :publishing_req_plug, PairingsEngine.PublishingTest
 
+# Same convention again, for the Belgian federation's SWAR results-page
+# upload (PairingsEngine.Federations.BEL.SwarUpload). This is the one HTTP
+# client in the app that MUST NEVER reach the real host in a test run - see
+# that module's moduledoc - so every test exercising it stubs this name.
+config :pairings_engine, :bel_swar_upload_req_plug, PairingsEngine.Federations.BEL.SwarUploadTest
+
 # The publish drain is the only worker that schedules work from `init`, and a
 # timer firing mid-test would query the database from a process that does not
 # own the sandbox connection. Tests call `Publishing.drain/0` directly.

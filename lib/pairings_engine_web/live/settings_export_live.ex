@@ -13,7 +13,8 @@ defmodule PairingsEngineWeb.SettingsExportLive do
 
   import PairingsEngineWeb.SettingsSupport
 
-  alias PairingsEngine.{Features, Publishing, Tournaments}
+  alias PairingsEngine.{Audit, Authz, Features, Publishing, Tournaments}
+  alias PairingsEngine.Federations.BEL.SwarUpload
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -28,7 +29,16 @@ defmodule PairingsEngineWeb.SettingsExportLive do
        tournament: tournament,
        page_title: "#{tournament.name} · Settings · Export",
        bel_swar_export?: Features.enabled?(socket.assigns.current_scope, "bel_swar_export"),
-       bel_swar_publish?: Features.enabled?(socket.assigns.current_scope, "bel_swar_publish")
+       bel_swar_publish?: Features.enabled?(socket.assigns.current_scope, "bel_swar_publish"),
+       # Publishing to the federation's own public results site is gated on
+       # an administrator, same as every other "this affects more than one
+       # arbiter's own tournament" control - see `PairingsEngine.Authz` and
+       # `PairingsEngineWeb.FideLive`. Unlike that page's controls this one
+       # IS specific to one tournament, but the site it reaches is shared
+       # infrastructure this app has no authentication with, so the same
+       # bar applies.
+       may_admin?: Authz.may_administer?(socket.assigns.current_scope.user),
+       swar_publish_result: nil
      )}
   end
 
@@ -48,6 +58,114 @@ defmodule PairingsEngineWeb.SettingsExportLive do
         {:noreply, assign(socket, tournament: tournament)}
     end
   end
+
+  ## ---------- publishing to the federation's own results site ----------
+  ##
+  ## See `PairingsEngine.Federations.BEL.SwarUpload`'s moduledoc. Both
+  ## handlers below re-check `bel_swar_publish?` and `may_admin?` even
+  ## though the buttons that fire them only render when both are true - a
+  ## control absent from the page is still an event anybody can send, the
+  ## same reasoning `PairingsEngineWeb.FideLive` gives for its own re-checks.
+
+  @impl true
+  def handle_event("swar_publish", _params, socket) do
+    if socket.assigns.bel_swar_publish? and socket.assigns.may_admin? do
+      tournament = socket.assigns.tournament
+      # A fresh attempt starts clean - otherwise a stale :error banner from
+      # an earlier failed attempt sits on screen next to a brand-new success
+      # message (they are different flash keys, so one never overwrites the
+      # other on its own).
+      socket = clear_flash(socket)
+
+      case SwarUpload.publish(tournament) do
+        {:ok, published} ->
+          Audit.log(published.id, socket.assigns.current_scope, "swar.published", %{
+            guid: published.swar_guid
+          })
+
+          {:noreply,
+           socket
+           |> assign(tournament: published, swar_publish_result: nil)
+           |> put_flash(
+             :info,
+             gettext("Published to the federation's results site (frbe-kbsb.be).")
+           )}
+
+        {:error, :upload, message} ->
+          Audit.log(tournament.id, socket.assigns.current_scope, "swar.publish_failed", %{
+            guid: tournament.swar_guid,
+            step: "upload",
+            error: message
+          })
+
+          {:noreply,
+           socket
+           |> assign(swar_publish_result: {:error, message})
+           |> put_flash(:error, gettext("Could not publish: %{message}", message: message))}
+
+        {:error, :index, message, uploaded} ->
+          Audit.log(uploaded.id, socket.assigns.current_scope, "swar.publish_failed", %{
+            guid: uploaded.swar_guid,
+            step: "index",
+            error: message
+          })
+
+          {:noreply,
+           socket
+           |> assign(tournament: uploaded, swar_publish_result: {:error, message})
+           |> put_flash(
+             :error,
+             gettext(
+               "Uploaded, but the federation did not confirm it was indexed (%{message}). The file is staged - press \"Finish indexing\" to retry.",
+               message: message
+             )
+           )}
+      end
+    else
+      {:noreply, put_flash(socket, :error, swar_publish_restricted())}
+    end
+  end
+
+  def handle_event("swar_retry_index", _params, socket) do
+    if socket.assigns.bel_swar_publish? and socket.assigns.may_admin? do
+      tournament = socket.assigns.tournament
+      socket = clear_flash(socket)
+
+      case SwarUpload.index(tournament) do
+        {:ok, indexed} ->
+          Audit.log(indexed.id, socket.assigns.current_scope, "swar.published", %{
+            guid: indexed.swar_guid
+          })
+
+          {:noreply,
+           socket
+           |> assign(tournament: indexed, swar_publish_result: nil)
+           |> put_flash(
+             :info,
+             gettext("Published to the federation's results site (frbe-kbsb.be).")
+           )}
+
+        {:error, message} ->
+          Audit.log(tournament.id, socket.assigns.current_scope, "swar.publish_failed", %{
+            guid: tournament.swar_guid,
+            step: "index",
+            error: message
+          })
+
+          {:noreply,
+           socket
+           |> assign(swar_publish_result: {:error, message})
+           |> put_flash(:error, message)}
+      end
+    else
+      {:noreply, put_flash(socket, :error, swar_publish_restricted())}
+    end
+  end
+
+  defp swar_publish_restricted,
+    do: gettext("Publishing to the federation's results site needs an administrator.")
+
+  defp swar_error_message({:error, message}), do: message
 
   @impl true
   def render(assigns) do
@@ -131,8 +249,9 @@ defmodule PairingsEngineWeb.SettingsExportLive do
 
           <%!-- Same gate, same reasoning, for the SWAR-compatible HTML
                 results page instead of the binary file - see
-                PairingsEngine.Federations.BEL.SwarPublish. Download only;
-                nothing here uploads anywhere. --%>
+                PairingsEngine.Federations.BEL.SwarPublish. This is only
+                the download; sending it to the federation itself is the
+                card below, gated the same way plus an administrator. --%>
           <a
             :if={@bel_swar_publish?}
             class="pe-btn"
@@ -140,12 +259,83 @@ defmodule PairingsEngineWeb.SettingsExportLive do
             target="_blank"
             title={
               gettext(
-                "The standings and round results, laid out the way the federation's results site expects. Download only."
+                "The standings and round results, laid out the way the federation's results site expects."
               )
             }
           >
             {gettext("Export SWAR results page (.html)")}
           </a>
+        </div>
+      </div>
+
+      <%!-- Publishes PUBLICLY, to the federation's own results site, not to
+            OpenResults - and cannot be taken back from here (see
+            PairingsEngine.Federations.BEL.SwarUpload's moduledoc). Gated
+            on the same feature as the download above, plus an
+            administrator - see `may_admin?` in mount/3. --%>
+      <div :if={@bel_swar_publish?} class="card">
+        <h2>{gettext("Publish to the federation's results site")}</h2>
+
+        <p class="hint" style="margin-top: 0">
+          {gettext(
+            "Sends the results page above to frbe-kbsb.be and asks the federation to index it - the same two steps SWAR itself performs. This is the federation's own public site, not OpenResults: the standings and results become visible there to anyone, immediately, and this machine cannot take that back down."
+          )}
+        </p>
+
+        <p :if={!@may_admin?} class="hint">
+          {gettext("Publishing to the federation needs an administrator.")}
+        </p>
+
+        <p :if={@tournament.swar_published_at} class="hint">
+          {gettext("Last published: %{when} UTC.",
+            when: Calendar.strftime(@tournament.swar_published_at, "%Y-%m-%d %H:%M")
+          )}
+        </p>
+
+        <%!-- A PUT that lands followed by a GET that fails is a normal,
+              recoverable outcome, not a dead end - see SwarUpload's
+              moduledoc. This is derived from the two persisted
+              timestamps, so it survives a page reload rather than only
+              living in this socket's memory. --%>
+        <p
+          :if={SwarUpload.staged_but_not_indexed?(@tournament)}
+          class="hint"
+          style="color: var(--danger)"
+        >
+          {gettext(
+            "The file was uploaded but the federation has not confirmed it is indexed yet. Press \"Finish indexing\" to retry just that step - no need to upload again."
+          )}
+        </p>
+
+        <p :if={@swar_publish_result} class="hint">
+          <strong style="color: var(--danger)">{swar_error_message(@swar_publish_result)}</strong>
+        </p>
+
+        <div class="actions">
+          <button
+            type="button"
+            class="pe-btn primary"
+            phx-click="swar_publish"
+            disabled={!@may_admin?}
+            data-confirm={
+              gettext(
+                "Publish \"%{name}\" to the federation's public results site (frbe-kbsb.be)? Its standings and results become visible to anyone there, immediately, and this cannot be undone from here.",
+                name: @tournament.name
+              )
+            }
+          >
+            {gettext("Publish to frbe-kbsb.be")}
+          </button>
+
+          <button
+            :if={SwarUpload.staged_but_not_indexed?(@tournament)}
+            type="button"
+            class="pe-btn"
+            phx-click="swar_retry_index"
+            disabled={!@may_admin?}
+          >
+            {gettext("Finish indexing")}
+          </button>
         </div>
       </div>
     </Layouts.app>

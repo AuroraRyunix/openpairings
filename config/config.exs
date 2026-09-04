@@ -70,6 +70,17 @@ config :logger, :default_formatter,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
+# Where PairingsEngine.Federations.BEL.SwarUpload PUTs a generated SWAR
+# results page (step 1) and where it asks the federation to index what it
+# just staged (step 2). Fixed for every installation - the Belgian
+# federation runs exactly one results site - so this lives in plain config
+# rather than in the `meta` table PairingsEngine.Publishing.endpoint/0
+# reads, which exists specifically because THAT address varies per
+# installation.
+config :pairings_engine, :bel_swar_upload,
+  upload_url: "https://frbe-kbsb.be/sites/manager/Swar/apiTournamentUpload.php",
+  index_url: "https://frbe-kbsb.be/sites/manager/Swar/SwarTournamentUpload.php"
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"

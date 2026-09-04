@@ -273,6 +273,13 @@ defmodule PairingsEngineWeb.AuditLive do
     do:
       "Attempted to clear the result on board #{value(d, "board")} (round #{value(d, "round")}) - refused."
 
+  def describe("swar.published", d),
+    do:
+      "Published the SWAR results page to the federation's results site (guid #{value(d, "guid")})."
+
+  def describe("swar.publish_failed", d),
+    do: "Could not publish the SWAR results page (#{value(d, "step")} step): #{value(d, "error")}"
+
   # ---------- machine-wide rows (PairingsEngine.Audit.log_system/3) ----------
   #
   # These never carry a tournament_id, so they never reach this page's own

@@ -142,6 +142,13 @@ defmodule PairingsEngine.TournamentExport do
   #     SWAR's own per-tournament GUID, used for re-upload duplicate
   #     detection. Carrying it would make the imported copy look like a
   #     duplicate of the original it was exported from.
+  #   swar_uploaded_at, swar_published_at
+  #     This machine's own record of when it last sent this tournament's
+  #     results page to the federation and when that was last confirmed
+  #     indexed (see `PairingsEngine.Federations.BEL.SwarUpload`) - not
+  #     tournament content, and carrying it would make an imported copy
+  #     look like it had already published something it never has. The
+  #     `swar_guid` it depends on is excluded for the same reason above.
   #   logo_data, logo_content_type
   #     Known gap: binary, would need base64 in the envelope. Documented in
   #     docs/import-export.md rather than silently dropped.
@@ -166,6 +173,7 @@ defmodule PairingsEngine.TournamentExport do
   @excluded_tournament_fields ~w(
     id user_id inserted_at updated_at public_slug
     registration_open publish_to_openresults deleted_at archived_at swar_guid
+    swar_uploaded_at swar_published_at
     logo_data logo_content_type head_snapshot_id
     openresults_key openresults_claim
     handed_off_at handed_off_to handoff_token handoff_origin

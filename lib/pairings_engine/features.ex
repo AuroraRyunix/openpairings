@@ -148,7 +148,7 @@ defmodule PairingsEngine.Features do
         label: gettext("SWAR results page"),
         description:
           gettext(
-            "Adds a SWAR-compatible HTML results page to a tournament's Export page - the standings and round results, laid out the way the federation's results site expects. Download only; nothing is uploaded anywhere."
+            "Adds a SWAR-compatible HTML results page to a tournament's Export page - the standings and round results, laid out the way the federation's results site expects. Also adds the button to send it there directly, restricted to an administrator."
           )
       }
     ]
