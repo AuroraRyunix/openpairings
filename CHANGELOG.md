@@ -16,213 +16,201 @@ Each entry is tagged so a version can be skimmed:
 
 ## [0.32.0] - 2026-09-04
 
-- **[Change]** A TRF export is refused when a round it contains has no date.
-  FIDE requires one per round, and a file that reaches them without it comes
-  back after the event, when fixing it means re-exporting and re-submitting
-  rather than filling in a field. The refusal names which rounds are missing
-  and points at Settings, Dates.
-- **[Change]** A roster exported before the first pairing is unaffected. It
-  has no rounds to date, and it is the file an arbiter checks a registration
-  list against - refusing it would have made the commonest pre-tournament
-  export impossible. A partial export (`?rounds=1-3` of a nine-round event)
+- [Change] **A TRF will not leave without its round dates.** FIDE requires
+  one per round, and a file that reaches them without it comes back after
+  the event, when fixing it means re-exporting and re-submitting rather than
+  filling in a field. The refusal names which rounds are missing and points
+  at Settings, Dates.
+- [Change] **A registration list still exports, dates or not.** It has no
+  rounds to date, and it is the file an arbiter checks a registration list
+  against - refusing it would have made the commonest pre-tournament export
+  impossible. A partial export (`?rounds=1-3` of a nine-round event)
   likewise needs dates only for the rounds it actually contains.
 
 ## [0.31.0] - 2026-09-04
 
-- **[Fix]** A TRF exported before the first round was paired came out with no
-  column ruler. The ruler and the field legend were written only when the
-  tournament had at least one round - but a registration list is exactly the
-  file somebody holds against the column positions, checking whether a name
-  has overrun its 33 characters. The legend now appears either way, stopping
-  at the rank column rather than inventing game blocks for rounds that do not
-  exist. Engine pin moved to Ainalrami v0.16.0, which carries the fix.
+- [Fix] **The column ruler now appears on a roster too.** The ruler and the
+  field legend were written only when the tournament had at least one round
+  - but a registration list is exactly the file somebody holds against the
+  column positions, checking whether a name has overrun its 33 characters.
+  The legend now appears either way, stopping at the rank column rather than
+  inventing game blocks for rounds that do not exist. Engine pin moved to
+  Ainalrami v0.16.0, which carries the fix.
 
 ## [0.30.0] - 2026-09-04
 
-- **[Fix]** A rating list sync is no longer refused outright when a
-  tournament has a round in progress - it warns, names the tournaments, and a
-  second press goes ahead. The refusal was wrong the moment it met a real
-  installation: "in progress" means paired and not yet fully scored, which for
-  a club championship is true from September to June, so the rating lists
-  could never have been synced at all. The warning also names three and counts
-  the rest, rather than listing a season's worth in one sentence.
-- **[Change]** The risk that guard was written for is much smaller now that
-  both imports commit in chunks: the write lock is free between chunks, and
-  what remains long is two single statements - the bulk delete and the
-  full-text index rebuild - measured in seconds. A result entered during one
-  of those waits rather than fails, and if it ever does fail it says so.
+- [Fix] **A sync during a live round is a warning, not a wall.** The refusal
+  was wrong the moment it met a real installation: "in progress" means
+  paired and not yet fully scored, which for a club championship is true
+  from September to June, so the rating lists could never have been synced
+  at all. The warning also names three and counts the rest, rather than
+  listing a season's worth in one sentence.
+- [Change] **And the risk it guarded is far smaller than it was.** the write
+  lock is free between chunks, and what remains long is two single
+  statements - the bulk delete and the full-text index rebuild - measured in
+  seconds. A result entered during one of those waits rather than fails, and
+  if it ever does fail it says so.
 
 ## [0.29.0] - 2026-09-04
 
-- **[Change]** The live/projector view now shows the rounds that are
-  **published**, not the latest round that happens to be paired. Putting a
-  round on a screen in the hall is publishing it - the people it would be
-  withheld from are the ones standing in front of it - so there is no longer a
-  state where a round is on the wall while it is held back from the results
-  site. A round is live, or it is not. When a paired round has not been
-  published, the page says so and links to where you publish it, rather than
-  quietly looking a round behind.
-- **[Change]** The standings below it follow the same round, for the same
-  reason: showing round 4's boards above a table that already counts round 5's
-  results would give the withheld round away just as surely.
+- [Change] **A round is live, or it is not.** Putting a round on a screen in
+  the hall is publishing it - the people it would be withheld from are the
+  ones standing in front of it - so there is no longer a state where a round
+  is on the wall while it is held back from the results site. A round is
+  live, or it is not. When a paired round has not been published, the page
+  says so and links to where you publish it, rather than quietly looking a
+  round behind.
+- [Change] **The standings follow the same round.** showing round 4's boards
+  above a table that already counts round 5's results would give the
+  withheld round away just as surely.
 
 ## [0.28.0] - 2026-09-04
 
-- **[Feature]** The live round page has a projector view: the boards, full
-  screen, at a size meant to be read from the back of a room. When there are
-  more boards than the screen can hold it pages through them, about twelve
-  seconds each, and comes back round. A page counter and a progress bar say
-  which page is up and how long is left - somebody looking for board 47 needs
-  to know it is coming and roughly when, or a rotating screen is worse than a
-  still one. Tap to pause and read; tap again to carry on. If every board fits
-  on one screen, none of that appears.
-- **[Change]** The projector view fits itself to the screen it is plugged
-  into. The browser measures how many rows the glass can hold and tells the
-  server, and re-measures when the window is resized or the screen rotated,
-  so nothing has to be configured for a particular television.
-- **[Change]** The projector view uses the high-contrast theme by default,
-  whatever the arbiter has their own browser set to, because it is aimed at a
-  bright room. "Use my theme" switches back for a dark hall or a good screen.
-- **[Change]** `?display=1` on the live round address opens straight into the
-  projector view, so a machine that only drives a hall screen can be pointed
-  at a URL and left alone.
+- [Feature] **A projector view that cycles when the boards do not fit.**
+  When there are more boards than the screen can hold it pages through them,
+  about twelve seconds each, and comes back round. A page counter and a
+  progress bar say which page is up and how long is left - somebody looking
+  for board 47 needs to know it is coming and roughly when, or a rotating
+  screen is worse than a still one. Tap to pause and read; tap again to
+  carry on. If every board fits on one screen, none of that appears.
+- [Change] **It fits itself to whatever screen it is plugged into.** The
+  browser measures how many rows the glass can hold and tells the server,
+  and re-measures when the window is resized or the screen rotated, so
+  nothing has to be configured for a particular television.
+- [Change] **High contrast by default, because it is aimed at a hall.** "Use
+  my theme" switches back for a dark hall or a good screen.
+- [Change] **A URL that opens straight into it, for an unattended screen.**
 
 ## [0.27.0] - 2026-09-04
 
-- **[Change]** An enrolment code now works for **one phone**. The first
-  device to scan the QR or type the 6-digit code claims it; a second is told
-  the code has already been used and to ask for a new one. Before this, one
-  code enrolled any number of phones until it expired, which meant a printed
-  sheet left on a table was a working credential for a day, and the audit
-  trail - which records the code, not the device - could not tell three
-  helpers sharing one code apart.
-- **[Change]** A code can be given a name when it is minted, shown beside the
-  QR and first in the list of phones, so the right code reaches the right
-  person. The list also says whether a code has been scanned yet, which is how
-  you tell that the one you just handed over actually arrived.
-- **[Change]** Codes already in circulation become single-device too. Unlike
-  the access levels, which were backfilled to keep existing phones exactly as
-  they were, this refusal is visible and recoverable: the second phone is told
-  why, and the arbiter mints another.
+- [Change] **One code, one phone.** The first device to scan the QR or type
+  the 6-digit code claims it; a second is told the code has already been
+  used and to ask for a new one. Before this, one code enrolled any number
+  of phones until it expired, which meant a printed sheet left on a table
+  was a working credential for a day, and the audit trail - which records
+  the code, not the device - could not tell three helpers sharing one code
+  apart.
+- [Change] **A code can carry a name, so the right one reaches the right
+  person.** The list also says whether a code has been scanned yet, which is
+  how you tell that the one you just handed over actually arrived.
+- [Change] **Codes already handed out become single-device too.** Unlike the
+  access levels, which were backfilled to keep existing phones exactly as
+  they were, this refusal is visible and recoverable: the second phone is
+  told why, and the arbiter mints another.
 
 ## [0.26.0] - 2026-09-04
 
-- **[Change]** The phone's result list now shows what is left to do. A board
+- [Change] **The phone shows what is left to do, not what is done.** A board
   drops out once its result is in, the header counts boards remaining rather
   than boards paired, and **Show all** brings the finished ones back for
   checking or correcting. At helper level a finished board could not be
-  changed anyway, so leaving it in the list only asked someone to scroll past
-  work they were not allowed to touch.
-- **[Change]** A board just entered stays on screen for about a second and a
-  half, marked as done, before it drops out - long enough to read back which
-  result landed on which board. Clearing a result returns the board to the
-  list immediately, with no confirmation of its own, because that is already
-  what clearing looks like.
+  changed anyway, so leaving it in the list only asked someone to scroll
+  past work they were not allowed to touch.
+- [Change] **A board you just entered waits a moment before it goes.**
+  Clearing a result returns the board to the list immediately, with no
+  confirmation of its own, because that is already what clearing looks like.
 
 ## [0.25.0] - 2026-09-04
 
-- **[Feature]** An enrolled phone can now be given only the access it needs.
-  A code is minted as a **helper** by default: it may fill in a result on a
-  board that is still blank, may not change one already entered, and sees
-  only the latest paired round. A **deputy** keeps the old run of the place -
-  any paired round, corrections included. Either can be limited to a range of
-  boards. The level and range show in the device list and in the audit trail,
-  which matters because one code can be used by any number of phones: the
-  trail records the code, so "Boards 1-10, helper" says far more than a token
-  id when two people disagree about a board.
-- **[Change]** Codes already in circulation keep exactly the access they had.
-  The migration backfills every existing enrolment to **deputy**; only newly
+- [Feature] **An enrolled phone gets only the access it needs.** A code is
+  minted as a **helper** by default: it may fill in a result on a board that
+  is still blank, may not change one already entered, and sees only the
+  latest paired round. A **deputy** keeps the old run of the place - any
+  paired round, corrections included. Either can be limited to a range of
+  boards. The level and range show in the device list and in the audit
+  trail, which matters because one code can be used by any number of phones:
+  the trail records the code, so "Boards 1-10, helper" says far more than a
+  token id when two people disagree about a board.
+- [Change] **Codes already in circulation keep the access they had.** The
+  migration backfills every existing enrolment to **deputy**; only newly
   minted ones default to helper. A migration should not quietly narrow a
   credential somebody is already carrying.
-- **[Change]** Enrolling a phone is refused outright when OpenPairings runs
-  on your own computer, rather than only having its panel hidden. A local run
-  has no accounts at all, so an enrolment token would be the one credential
-  that worked from another machine the day such a run could answer one.
-- **[Fix]** Messages on the phone's result page were never visible. That page
+- [Change] **Phone enrolment is refused outright on a local run.** A local
+  run has no accounts at all, so an enrolment token would be the one
+  credential that worked from another machine the day such a run could
+  answer one.
+- [Fix] **Messages on the phone's result page were invisible.** That page
   had no flash outlet, so every `put_flash` on it went nowhere - including
   the existing "this tournament is archived" refusal, which meant a helper
   tapping a result on an archived tournament saw nothing happen at all.
 
 ## [0.24.0] - 2026-09-04
 
-- **[Change]** The publishing controls no longer appear when no results site
-  is configured. There was a "Published / Not published" state and a dead
-  "Turn on" button on a page that could not publish anything. A tournament
-  that is already publishing keeps its controls even if the connection later
-  goes away - otherwise there would be no way to turn it off.
-- **[Feature]** Publish and unpublish a round from the pairings right-click
-  menu. Both already existed as buttons in the round header, which is easy to
-  miss; they now sit where the boards are. In "publish immediately" mode
-  neither appears, because that mode means every round is public the moment
-  it is paired - a line says so and points at the setting.
-- **[Change]** Rating list syncs no longer hold the database for the length of
-  the import. They used to run the whole replace inside one transaction, and
+- [Change] **No results site, no publishing controls.** There was a
+  "Published / Not published" state and a dead "Turn on" button on a page
+  that could not publish anything. A tournament that is already publishing
+  keeps its controls even if the connection later goes away - otherwise
+  there would be no way to turn it off.
+- [Feature] **Publish and unpublish a round where the boards are.** Both
+  already existed as buttons in the round header, which is easy to miss;
+  they now sit where the boards are. In "publish immediately" mode neither
+  appears, because that mode means every round is public the moment it is
+  paired - a line says so and points at the setting.
+- [Change] **A rating list sync no longer holds the database for the whole
+  import.** They used to run the whole replace inside one transaction, and
   SQLite allows a single writer for the whole database, so every other write
   queued behind them - which is how entering a result could fail. Each chunk
   now commits on its own and the lock is free in between. The checks that
-  refuse a corrupt or truncated download moved to before anything is deleted,
-  since there is no longer a transaction to roll back: an import that parses
-  no rows, or fewer than half the current list, still leaves the existing
-  list untouched.
-- **[Fix]** A FIDE sync interrupted mid-import could permanently break player
-  search. The import drops the search index's triggers and recreates them
-  afterwards; with no transaction to undo that, a cancelled run left them
-  gone, and the next run - which recreated only what it had found at its own
-  start - found none and so restored none. From then on every change to a
-  player would have left the index stale, silently. The triggers now have
-  built-in definitions to fall back on, and a sync that finds them missing
-  says so and puts them back.
+  refuse a corrupt or truncated download moved to before anything is
+  deleted, since there is no longer a transaction to roll back: an import
+  that parses no rows, or fewer than half the current list, still leaves the
+  existing list untouched.
+- [Fix] **An interrupted FIDE sync could break player search for good.** The
+  import drops the search index's triggers and recreates them afterwards;
+  with no transaction to undo that, a cancelled run left them gone, and the
+  next run - which recreated only what it had found at its own start - found
+  none and so restored none. From then on every change to a player would
+  have left the index stale, silently. The triggers now have built-in
+  definitions to fall back on, and a sync that finds them missing says so
+  and puts them back.
 
 ## [0.23.0] - 2026-09-04
 
-- **[Fix]** Entering a result could fail while a rating list was syncing. A
-  sync holds SQLite's single database-wide write lock for its whole run, so a
-  result entered at that moment waited 15 seconds and was then refused - and
-  because a lock arrives as a raised error rather than a returned one, it
-  bypassed the handling every write has and took the page down with a generic
-  "something went wrong". Nothing was ever silently lost: a refused write is
-  never written, and the page re-reads the database on the way back. But the
-  arbiter had no way to know that. It now says, in as many words, that the
-  change was **NOT SAVED** and nothing was written.
-- **[Change]** A rating list sync will no longer start while any tournament
-  has a round in progress, and says which tournament is holding it. A rating
-  list can be refreshed at any time; a result cannot wait for one, so the sync
-  is what yields. Both the FIDE and the Belgian sync are covered, and the
-  guard is on the handler rather than the button - a control missing from the
-  page is still an event anyone can send.
+- [Fix] **Entering a result could fail while a rating list was syncing.** A
+  sync holds SQLite's single database-wide write lock for its whole run, so
+  a result entered at that moment waited 15 seconds and was then refused -
+  and because a lock arrives as a raised error rather than a returned one,
+  it bypassed the handling every write has and took the page down with a
+  generic "something went wrong". Nothing was ever silently lost: a refused
+  write is never written, and the page re-reads the database on the way
+  back. But the arbiter had no way to know that. It now says, in as many
+  words, that the change was **NOT SAVED** and nothing was written.
+- [Change] **A sync yields to a round in progress.** A rating list can be
+  refreshed at any time; a result cannot wait for one, so the sync is what
+  yields. Both the FIDE and the Belgian sync are covered, and the guard is
+  on the handler rather than the button - a control missing from the page is
+  still an event anyone can send.
 
 ## [0.22.0] - 2026-09-03
 
-- **[Change]** Every version bump now publishes a GitHub release with binaries
-  for all five targets. Releases used to be gated on a tag alone, and tags
-  were easy to forget: the version moved from 0.18.0 to 0.22.0 with none
-  behind it, so the newest build anyone could download was four releases old.
-  A push to main whose `mix.exs` version has no release yet now cuts one,
-  which means bumping the version and cutting a release are the same act. The
-  commits after a bump publish nothing until the version moves again.
-
-- **[Fix]** The Belgian rating list sync stopped part-way, showing
-  "Importing players... 0 of 35849" and never moving. Clearing the old roster
-  fired one full-text-index scan per deleted player, so the cost grew with the
-  square of the roster: measured at 141 ms for 1,000 players, 538 ms for
-  2,000, and 2,136 ms for 4,000. At the current ~36,000 members that came to
-  roughly 171 seconds, just past the 180-second watchdog that gives up on a
-  stalled import - so a sync that had been quietly slowing for weeks began
-  failing outright. The index is now emptied in a single statement first:
-  the same clear-out takes **145 ms**. A test guards the cost.
-- **[Fix]** Settings cards had no styling at all. `.set-card` was used in six
-  places across the optional-features and admin pages but never had a CSS
-  rule, so each one rendered as bare text on the page background - no surface,
-  no border, no padding.
-- **[Change]** The optional-features page now shows each federation as a pack:
-  its country code, its name, and how many of its features are switched on, so
-  the page answers "what is my state here" before you read five labels. Each
-  switch is a full-width row you can click anywhere on, and an enabled one is
-  tinted. The reassurance about tournaments is styled as an aside rather than
-  competing with the cards that carry the switches.
-- **[Change]** Deploys no longer slow the running site to a standstill. The
-  build ran unconstrained on a two-core server while the previous version was
-  still serving, taking both cores; it now runs on one, at low priority.
+- [Change] **Every version bump now publishes a release with binaries.**
+  Releases used to be gated on a tag alone, and tags were easy to forget:
+  the version moved from 0.18.0 to 0.22.0 with none behind it, so the newest
+  build anyone could download was four releases old. A push to main whose
+  `mix.exs` version has no release yet now cuts one, which means bumping the
+  version and cutting a release are the same act. The commits after a bump
+  publish nothing until the version moves again.
+- [Fix] **The Belgian rating list sync stopped at “0 of 35849”.** Clearing
+  the old roster fired one full-text-index scan per deleted player, so the
+  cost grew with the square of the roster: measured at 141 ms for 1,000
+  players, 538 ms for 2,000, and 2,136 ms for 4,000. At the current ~36,000
+  members that came to roughly 171 seconds, just past the 180-second
+  watchdog that gives up on a stalled import - so a sync that had been
+  quietly slowing for weeks began failing outright. The index is now emptied
+  in a single statement first: the same clear-out takes **145 ms**. A test
+  guards the cost.
+- [Fix] **Settings cards had no styling at all.** `.set-card` was used in
+  six places across the optional-features and admin pages but never had a
+  CSS rule, so each one rendered as bare text on the page background - no
+  surface, no border, no padding.
+- [Change] **Each federation now reads as a pack you can switch on.** Each
+  switch is a full-width row you can click anywhere on, and an enabled one
+  is tinted. The reassurance about tournaments is styled as an aside rather
+  than competing with the cards that carry the switches.
+- [Change] **A deploy no longer slows the running site to a standstill.**
+  The build ran unconstrained on a two-core server while the previous
+  version was still serving, taking both cores; it now runs on one, at low
+  priority.
 
 ## [0.21.0] - 2026-09-02
 
