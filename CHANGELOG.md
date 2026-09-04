@@ -24,14 +24,17 @@ Each entry is tagged so a version can be skimmed:
 - [Fix] **The points a bye awards print the way the federation prints them** -
   `1` rather than `1.0`, beside the `0.0` in the points column, and a
   half-point bye shows the same half symbol the results use.
-- [Change] **The version reads as a version in the federation's list.** Its
-  "Vers." column ate the leading character of a plain `v7.00` and showed
-  `7.00`, while SWAR's longer string appears as `v7.05`. The default is now
-  shaped the same way, and still settable.
+- [Change] **The version reads as a version in the federation's list, and as
+  itself in the file.** That list's "Vers." column takes whatever follows the
+  last hyphen, so a plain `v7.00` arrived as `7.00`. The default is now
+  `OpenPairings <release> -v7.00`: the column shows `v7.00`, and anyone
+  opening the file sees which program wrote it and which release. Still
+  settable.
 - [Feature] **The page carries a footer saying what made it** - the same
-  three-cell strip a SWAR file ends with, in the same place, but naming
-  OpenPairings and its own build rather than copying the federation's name
-  and its author's initials onto a page they had no hand in.
+  three-cell strip a SWAR file ends with, in the same place, reading
+  `OpenPairings <release>` and a build stamp. The federation's software signs
+  that strip with its own name and its author's initials; neither is copied
+  onto a page they had no hand in.
 
 ## [0.36.2] - 2026-09-04
 

@@ -89,12 +89,15 @@ defmodule PairingsEngine.Federations.BEL.SwarPublishTest do
   end
 
   describe "version/0 and put_version/1" do
-    # Shaped like SWAR's own, not a bare number: the federation's public list
-    # shows a "Vers." column that ate the leading character of a plain
-    # "v7.00" and rendered it as "7.00", while SWAR's longer string comes out
-    # as "v7.05" beside it.
+    # Prefixed, not bare, and with this program's own name.
+    #
+    # The federation's "Vers." column takes everything after the LAST hyphen,
+    # which is why a bare "v7.00" arrived as "7.00" - no hyphen, and PHP's
+    # strrpos returns false, so substr($s, false + 1) chops one character. Any
+    # prefix ending in a hyphen fixes it, so there is no reason to borrow
+    # theirs.
     test "defaults to a SWAR-shaped version when nothing has been set" do
-      assert SwarPublish.version() == "(©)FRBE-KBSB-v7.00"
+      assert SwarPublish.version() =~ ~r/^OpenPairings [0-9.]+ -v7\.00$/
     end
 
     test "put_version/1 is honoured by version/0 and by export/1's head" do
@@ -111,7 +114,7 @@ defmodule PairingsEngine.Federations.BEL.SwarPublishTest do
       SwarPublish.put_version("v7.12")
       SwarPublish.put_version("")
 
-      assert SwarPublish.version() == "(©)FRBE-KBSB-v7.00"
+      assert SwarPublish.version() =~ ~r/^OpenPairings [0-9.]+ -v7\.00$/
     end
   end
 

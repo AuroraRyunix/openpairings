@@ -2915,7 +2915,7 @@ msgstr ""
 msgid "Board %{n}"
 msgstr ""
 
-#: lib/pairings_engine/federations/bel/swar_publish.ex:716
+#: lib/pairings_engine/federations/bel/swar_publish.ex:725
 #: lib/pairings_engine_web/controllers/print_controller.ex:820
 #, elixir-autogen, elixir-format
 msgid "Bye"
@@ -6051,54 +6051,54 @@ msgstr ""
 msgid "Local view & phone QR"
 msgstr ""
 
-#: lib/pairings_engine/federations/bel/swar_publish.ex:535
+#: lib/pairings_engine/federations/bel/swar_publish.ex:544
 #, elixir-autogen, elixir-format
 msgid "#Part."
 msgstr ""
 
-#: lib/pairings_engine/federations/bel/swar_publish.ex:536
+#: lib/pairings_engine/federations/bel/swar_publish.ex:545
 #, elixir-autogen, elixir-format
 msgid "#Ptn"
 msgstr ""
 
-#: lib/pairings_engine/federations/bel/swar_publish.ex:531
+#: lib/pairings_engine/federations/bel/swar_publish.ex:540
 #, elixir-autogen, elixir-format
 msgid "Aanw"
 msgstr ""
 
-#: lib/pairings_engine/federations/bel/swar_publish.ex:466
+#: lib/pairings_engine/federations/bel/swar_publish.ex:475
 #, elixir-autogen, elixir-format
 msgid "Arbiter"
 msgstr ""
 
-#: lib/pairings_engine/federations/bel/swar_publish.ex:541
-#: lib/pairings_engine/federations/bel/swar_publish.ex:650
+#: lib/pairings_engine/federations/bel/swar_publish.ex:550
+#: lib/pairings_engine/federations/bel/swar_publish.ex:659
 #, elixir-autogen, elixir-format
 msgid "Begin van de pagina"
 msgstr ""
 
-#: lib/pairings_engine/federations/bel/swar_publish.ex:640
+#: lib/pairings_engine/federations/bel/swar_publish.ex:649
 #, elixir-autogen, elixir-format
 msgid "Bordnr."
 msgstr ""
 
-#: lib/pairings_engine/federations/bel/swar_publish.ex:530
+#: lib/pairings_engine/federations/bel/swar_publish.ex:539
 #, elixir-autogen, elixir-format
 msgid "Cl."
 msgstr ""
 
-#: lib/pairings_engine/federations/bel/swar_publish.ex:444
+#: lib/pairings_engine/federations/bel/swar_publish.ex:453
 #, elixir-autogen, elixir-format
 msgid "Datums"
 msgstr ""
 
-#: lib/pairings_engine/federations/bel/swar_publish.ex:528
+#: lib/pairings_engine/federations/bel/swar_publish.ex:537
 #, elixir-autogen, elixir-format
 msgid "Eindstand"
 msgstr ""
 
-#: lib/pairings_engine/federations/bel/swar_publish.ex:643
-#: lib/pairings_engine/federations/bel/swar_publish.ex:647
+#: lib/pairings_engine/federations/bel/swar_publish.ex:652
+#: lib/pairings_engine/federations/bel/swar_publish.ex:656
 #, elixir-autogen, elixir-format
 msgid "Elo"
 msgstr ""
@@ -6108,51 +6108,51 @@ msgstr ""
 msgid "Export SWAR results page (.html)"
 msgstr ""
 
-#: lib/pairings_engine/federations/bel/swar_publish.ex:534
+#: lib/pairings_engine/federations/bel/swar_publish.ex:543
 #, elixir-autogen, elixir-format
 msgid "F-Elo"
 msgstr ""
 
-#: lib/pairings_engine/federations/bel/swar_publish.ex:533
+#: lib/pairings_engine/federations/bel/swar_publish.ex:542
 #, elixir-autogen, elixir-format
 msgid "Geslacht"
 msgstr ""
 
-#: lib/pairings_engine/federations/bel/swar_publish.ex:532
-#: lib/pairings_engine/federations/bel/swar_publish.ex:641
-#: lib/pairings_engine/federations/bel/swar_publish.ex:645
+#: lib/pairings_engine/federations/bel/swar_publish.ex:541
+#: lib/pairings_engine/federations/bel/swar_publish.ex:650
+#: lib/pairings_engine/federations/bel/swar_publish.ex:654
 #, elixir-autogen, elixir-format
 msgid "Naam Voornaam"
 msgstr ""
 
-#: lib/pairings_engine/federations/bel/swar_publish.ex:440
+#: lib/pairings_engine/federations/bel/swar_publish.ex:449
 #, elixir-autogen, elixir-format
 msgid "Organisator"
 msgstr ""
 
-#: lib/pairings_engine/federations/bel/swar_publish.ex:616
+#: lib/pairings_engine/federations/bel/swar_publish.ex:625
 #, elixir-autogen, elixir-format
 msgid "Paringen"
 msgstr ""
 
-#: lib/pairings_engine/federations/bel/swar_publish.ex:537
+#: lib/pairings_engine/federations/bel/swar_publish.ex:546
 #, elixir-autogen, elixir-format
 msgid "Perf"
 msgstr ""
 
-#: lib/pairings_engine/federations/bel/swar_publish.ex:642
-#: lib/pairings_engine/federations/bel/swar_publish.ex:646
+#: lib/pairings_engine/federations/bel/swar_publish.ex:651
+#: lib/pairings_engine/federations/bel/swar_publish.ex:655
 #, elixir-autogen, elixir-format
 msgid "Punten"
 msgstr ""
 
-#: lib/pairings_engine/federations/bel/swar_publish.ex:644
+#: lib/pairings_engine/federations/bel/swar_publish.ex:653
 #, elixir-autogen, elixir-format
 msgid "Res."
 msgstr ""
 
-#: lib/pairings_engine/federations/bel/swar_publish.ex:474
-#: lib/pairings_engine/federations/bel/swar_publish.ex:638
+#: lib/pairings_engine/federations/bel/swar_publish.ex:483
+#: lib/pairings_engine/federations/bel/swar_publish.ex:647
 #, elixir-autogen, elixir-format
 msgid "Ronde"
 msgid_plural "Rondes"
@@ -6170,12 +6170,12 @@ msgstr ""
 msgid "Saved."
 msgstr ""
 
-#: lib/pairings_engine/federations/bel/swar_publish.ex:511
+#: lib/pairings_engine/federations/bel/swar_publish.ex:520
 #, elixir-autogen, elixir-format
 msgid "Scheidingssystemen"
 msgstr ""
 
-#: lib/pairings_engine/federations/bel/swar_publish.ex:443
+#: lib/pairings_engine/federations/bel/swar_publish.ex:452
 #, elixir-autogen, elixir-format
 msgid "Speeltempo"
 msgstr ""
@@ -6190,17 +6190,17 @@ msgstr ""
 msgid "The SWAR results page is switched off for your account. Turn it on under Features."
 msgstr ""
 
-#: lib/pairings_engine/federations/bel/swar_publish.ex:442
+#: lib/pairings_engine/federations/bel/swar_publish.ex:451
 #, elixir-autogen, elixir-format
 msgid "Toernooi"
 msgstr ""
 
-#: lib/pairings_engine/federations/bel/swar_publish.ex:616
+#: lib/pairings_engine/federations/bel/swar_publish.ex:625
 #, elixir-autogen, elixir-format
 msgid "Uitslagen"
 msgstr ""
 
-#: lib/pairings_engine/federations/bel/swar_publish.ex:497
+#: lib/pairings_engine/federations/bel/swar_publish.ex:506
 #, elixir-autogen, elixir-format
 msgid "van %{start} tot %{end}"
 msgstr ""
@@ -6276,12 +6276,7 @@ msgstr ""
 msgid "Uploaded, but the federation did not confirm it was indexed (%{message}). The file is staged - press \"Finish indexing\" to retry."
 msgstr ""
 
-#: lib/pairings_engine/federations/bel/swar_publish.ex:304
+#: lib/pairings_engine/federations/bel/swar_publish.ex:312
 #, elixir-autogen, elixir-format
 msgid "Build"
-msgstr ""
-
-#: lib/pairings_engine/federations/bel/swar_publish.ex:303
-#, elixir-autogen, elixir-format
-msgid "Generated by OpenPairings"
 msgstr ""
