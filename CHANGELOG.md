@@ -14,6 +14,30 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.25.0] - 2026-09-04
+
+- **[Feature]** An enrolled phone can now be given only the access it needs.
+  A code is minted as a **helper** by default: it may fill in a result on a
+  board that is still blank, may not change one already entered, and sees
+  only the latest paired round. A **deputy** keeps the old run of the place -
+  any paired round, corrections included. Either can be limited to a range of
+  boards. The level and range show in the device list and in the audit trail,
+  which matters because one code can be used by any number of phones: the
+  trail records the code, so "Boards 1-10, helper" says far more than a token
+  id when two people disagree about a board.
+- **[Change]** Codes already in circulation keep exactly the access they had.
+  The migration backfills every existing enrolment to **deputy**; only newly
+  minted ones default to helper. A migration should not quietly narrow a
+  credential somebody is already carrying.
+- **[Change]** Enrolling a phone is refused outright when OpenPairings runs
+  on your own computer, rather than only having its panel hidden. A local run
+  has no accounts at all, so an enrolment token would be the one credential
+  that worked from another machine the day such a run could answer one.
+- **[Fix]** Messages on the phone's result page were never visible. That page
+  had no flash outlet, so every `put_flash` on it went nowhere - including
+  the existing "this tournament is archived" refusal, which meant a helper
+  tapping a result on an archived tournament saw nothing happen at all.
+
 ## [0.24.0] - 2026-09-04
 
 - **[Change]** The publishing controls no longer appear when no results site

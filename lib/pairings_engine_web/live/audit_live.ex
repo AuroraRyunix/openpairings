@@ -387,7 +387,14 @@ defmodule PairingsEngineWeb.AuditLive do
     device =
       if label not in [nil, ""], do: "\"#{label}\"", else: "enrollment ##{d["enrollment_id"]}"
 
-    " (via phone, #{device})"
+    # A row logged before `level` existed has nothing true to say here - the
+    # enrollment it came from has SINCE been backfilled to "deputy" (see the
+    # migration), but that is a fact about the row today, not about what the
+    # phone was actually allowed to do at the moment this line was written,
+    # which is what this suffix claims. Left off rather than guessed at.
+    level = if d["enrollment_level"], do: ", #{d["enrollment_level"]}", else: ""
+
+    " (via phone, #{device}#{level})"
   end
 
   defp mobile_suffix(_d), do: ""

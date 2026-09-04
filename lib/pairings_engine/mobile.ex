@@ -9,12 +9,26 @@ defmodule PairingsEngine.Mobile do
   `PairingsEngineWeb.MobileEnroll` / `PairingsEngineWeb.MobileResultsLive`)
   until the enrollment expires or the arbiter revokes it. No account, no access
   to anything but entering results for that one tournament.
+
+  Every enrolment also carries a `level` - what the code may do, not just
+  where it may do it:
+
+    * `"helper"` - may fill a board that is currently blank, on the latest
+      paired round only, and may never correct a result that is already
+      there. The default for anything minted from now on.
+    * `"deputy"` - the original, unrestricted behaviour: any paired round,
+      correction included.
+
+  plus an optional `board_from`/`board_to` range (both `nil` means every
+  board) that applies regardless of level. `permit_result/4` and
+  `permit_round/3` are where those rules actually live - see their docs.
   """
   import Ecto.Query
 
   alias PairingsEngine.Authz
   alias PairingsEngine.Repo
   alias PairingsEngine.Tournaments
+  alias PairingsEngine.Tournaments.Pairing
   alias PairingsEngine.Mobile.Enrollment
 
   @default_ttl_hours 24
@@ -23,9 +37,17 @@ defmodule PairingsEngine.Mobile do
   # `insert_enrollment/2`.
   @code_attempts 5
 
+  @levels ~w(helper deputy)
+
   @doc """
-  Creates an active enrollment for `tournament_id`. Returns `{:ok, enrollment}`.
-  `opts`: `:label` (free text), `:ttl_hours` (default #{@default_ttl_hours}).
+  Creates an active enrollment for `tournament_id`. Returns `{:ok, enrollment}`
+  or `{:error, changeset}` (an invalid `:level` or board range) /
+  `{:error, :archived | :handed_off}`.
+
+  `opts`: `:label` (free text), `:ttl_hours` (default #{@default_ttl_hours}),
+  `:level` (`"helper"` or `"deputy"`, default `"helper"`), `:board_from` /
+  `:board_to` (optional positive integers, `board_from <= board_to` when
+  both are given - `nil`/`nil` means every board).
 
   Refuses `{:error, :archived}` / `{:error, :handed_off}` for a tournament
   that has gone read-only. Minting was ungated for a long time, and the
@@ -47,6 +69,9 @@ defmodule PairingsEngine.Mobile do
         %{
           tournament_id: tournament_id,
           label: Keyword.get(opts, :label, "") || "",
+          level: Keyword.get(opts, :level, "helper") || "helper",
+          board_from: Keyword.get(opts, :board_from),
+          board_to: Keyword.get(opts, :board_to),
           expires_at: expires_at
         },
         @code_attempts
@@ -70,6 +95,8 @@ defmodule PairingsEngine.Mobile do
       %Enrollment{}
       |> Ecto.Changeset.change(Map.put(attrs, :token, gen_token()))
       |> Ecto.Changeset.put_change(:code, random_code() |> Integer.to_string())
+      |> Ecto.Changeset.validate_inclusion(:level, @levels)
+      |> validate_board_range()
       # NOT the index's own name. SQLite reports a unique violation as
       # "UNIQUE constraint failed: mobile_enrollments.code" with no index
       # named in it, and the adapter synthesises `<table>_<column>_index`
@@ -213,7 +240,111 @@ defmodule PairingsEngine.Mobile do
     if Authz.local_mode?(), do: {:error, :local_mode}, else: :ok
   end
 
+  @doc """
+  Whether `enrollment` may even LOAD round `round_number`, independent of any
+  particular board - checked before the round is displayed
+  (`MobileResultsLive`'s `select_round` event), not only when a result is
+  written to it.
+
+  A `"helper"` may only be on the latest paired round (`latest_round`, i.e.
+  `PairingsEngine.Pairing.paired_rounds_count/1`) - earlier rounds are the
+  arbiter's history to review, not a helper's to touch. A `"deputy"` may load
+  any round, same as the original unrestricted behaviour.
+  """
+  @spec permit_round(Enrollment.t(), pos_integer(), non_neg_integer()) ::
+          :ok | {:error, :earlier_round}
+  def permit_round(%Enrollment{level: "helper"}, round_number, latest_round)
+      when round_number != latest_round,
+      do: {:error, :earlier_round}
+
+  def permit_round(%Enrollment{}, _round_number, _latest_round), do: :ok
+
+  @doc """
+  Whether `enrollment` may write a result to `pairing`, which is sitting in
+  round `round_number` of a tournament whose most recently paired round is
+  `latest_round`.
+
+  Three checks, each one of the maintainer's three rules and not a
+  generalised permission matrix a form could misconfigure:
+
+    1. **Round** - delegates to `permit_round/3`. A stale round counts too:
+       if a helper is looking at what USED to be the latest round and a new
+       one has since been paired, this refuses exactly as it would have
+       refused a deliberate switch to an earlier round - the round they are
+       looking at is no longer the latest, regardless of how they got there.
+    2. **Board range** - `board_in_range?/2`, both levels.
+    3. **Fill-once** - a `"helper"` may set a result on `pairing` only while
+       `pairing.result` is blank (`""`); a `"deputy"` may always correct one,
+       which is today's original behaviour.
+
+  Returns `:ok` or `{:error, reason}`; the caller (`MobileResultsLive`) maps
+  `reason` to the flash message a helper actually sees.
+  """
+  @spec permit_result(Enrollment.t(), Pairing.t(), pos_integer(), non_neg_integer()) ::
+          :ok | {:error, :earlier_round | :board_out_of_range | :already_set}
+  def permit_result(%Enrollment{} = enrollment, %Pairing{} = pairing, round_number, latest_round) do
+    with :ok <- permit_round(enrollment, round_number, latest_round),
+         :ok <- check_board_range(enrollment, pairing.board) do
+      check_blank(enrollment, pairing)
+    end
+  end
+
+  @doc """
+  Whether `board` falls inside `enrollment`'s board range. `board_from` and
+  `board_to` are independently optional (an open-ended "10 and up" or "up to
+  10" range is valid, not just a closed one) and `nil`/`nil` means every
+  board - the common case, and why this is a fast path rather than a
+  0..infinity range construction.
+  """
+  @spec board_in_range?(Enrollment.t(), integer()) :: boolean()
+  def board_in_range?(%Enrollment{board_from: nil, board_to: nil}, _board), do: true
+
+  def board_in_range?(%Enrollment{board_from: from, board_to: to}, board) do
+    (is_nil(from) or board >= from) and (is_nil(to) or board <= to)
+  end
+
   # ---- internals ----
+
+  defp check_board_range(enrollment, board) do
+    if board_in_range?(enrollment, board), do: :ok, else: {:error, :board_out_of_range}
+  end
+
+  # Only a helper is fill-once; a deputy corrects, which is the point of the
+  # level. `pairing.result` is `""` (never `nil` - see `Pairing`'s schema
+  # default) for a blank board, so this is the one place that has to know
+  # that convention rather than every caller re-deriving it.
+  defp check_blank(%Enrollment{level: "helper"}, %Pairing{result: result})
+       when result not in [nil, ""],
+       do: {:error, :already_set}
+
+  defp check_blank(%Enrollment{}, %Pairing{}), do: :ok
+
+  # `validate_number/3` and `validate_change/3` both no-op on a `nil` value
+  # (absent from `changeset.changes`, or explicitly set to `nil`) rather than
+  # treating it as an error - exactly what "board_from/board_to are each
+  # independently optional" needs, so an unset bound reaches neither check
+  # below.
+  defp validate_board_range(changeset) do
+    changeset
+    |> Ecto.Changeset.validate_number(:board_from, greater_than: 0)
+    |> Ecto.Changeset.validate_number(:board_to, greater_than: 0)
+    |> validate_board_order()
+  end
+
+  defp validate_board_order(changeset) do
+    from = Ecto.Changeset.get_field(changeset, :board_from)
+    to = Ecto.Changeset.get_field(changeset, :board_to)
+
+    if from && to && from > to do
+      Ecto.Changeset.add_error(
+        changeset,
+        :board_to,
+        "must be greater than or equal to board_from"
+      )
+    else
+      changeset
+    end
+  end
 
   defp active_query do
     now = DateTime.utc_now()

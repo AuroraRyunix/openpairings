@@ -161,5 +161,4 @@ defmodule PairingsEngineWeb.UserLive.Features do
       total: length(keys)
     )
   end
-
 end

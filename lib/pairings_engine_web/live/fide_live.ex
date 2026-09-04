@@ -222,7 +222,9 @@ defmodule PairingsEngineWeb.FideLive do
   # event anybody can send. Same shape as the `may_admin?` checks around them.
   def handle_event("sync_kbsb_api", _params, socket) do
     cond do
-      not socket.assigns.kbsb? -> {:noreply, put_flash(socket, :error, kbsb_off())}
+      not socket.assigns.kbsb? ->
+        {:noreply, put_flash(socket, :error, kbsb_off())}
+
       not socket.assigns.may_admin? ->
         {:noreply, put_flash(socket, :error, sync_restricted())}
 

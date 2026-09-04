@@ -3,42 +3,79 @@
 Lets an arbiter hand out results-only access to one tournament without
 creating accounts for helpers: generate a QR code / 6-digit-ish code from the
 **Live** page, a helper scans or types it on their own phone, and that phone
-can enter results for the current round until the arbiter revokes it or it
-expires. Nothing else on the phone is reachable - no players, settings,
-pairing, or other tournaments.
+can enter results until the arbiter revokes it or it expires. Nothing else on
+the phone is reachable - no players, settings, pairing, or other tournaments.
+Exactly what a code may do beyond that is its **level** (below) - a
+newly-minted code defaults to the more restricted one.
 
 Everything below lives in `PairingsEngine.Mobile` (the domain module) and the
 `/m` route scope (`PairingsEngineWeb.MobileEnrollController` /
 `MobileEnrollHTML` for enrollment, `PairingsEngineWeb.MobileResultsLive` for
 the results screen, `PairingsEngineWeb.MobileAuth` for the session).
 
+## Two levels, plus an optional board range
+
+An enrollment is not just "on" or "off" - it has a `level`:
+
+- **`"helper"`** (the default for a code minted from now on) - may fill in a
+  board that is currently **blank**, on the **latest paired round only**.
+  Never touches a result the arbiter (or another phone) already entered; a
+  tap on a filled board is refused with a message telling the helper to find
+  the arbiter, not a generic error. Has no round switcher at all - there is
+  only ever one round it may be on, and if a new one gets paired while it is
+  connected, it is moved there automatically.
+- **`"deputy"`** - today's original, unrestricted behaviour: any paired
+  round, and may correct a result that is already there. Every enrollment
+  minted before `level` existed was moved to `"deputy"` when the column was
+  added, so a code already in someone's pocket keeps doing exactly what it
+  did before.
+
+Independent of level, an enrollment may also carry a **board range**
+(`board_from`/`board_to`, both optional - `nil`/`nil` means every board) that
+narrows which boards it may touch at all. A helper restricted to boards 1-10
+cannot see or write board 11 even on the round it is otherwise allowed to
+touch; the same range applies to a deputy.
+
+All three rules - round, board range, fill-once - are decided in one place,
+`PairingsEngine.Mobile.permit_round/3` and `permit_result/4`, and enforced at
+both of `MobileResultsLive`'s write-adjacent events (`select_round` and
+`set_result`), not only by hiding the corresponding buttons: a control
+missing from the rendered page is still an event a client can send.
+
 ## Enrolling a phone
 
 From a tournament's **Live** page (`/t/:id/live`, the same page an arbiter
 projects - see the [architecture doc](architecture.md) for `LiveRoundLive`'s
-dual role), the **"📱 Enrol a phone to enter results"** card has a **Generate
-a code** button. Each click creates one `PairingsEngine.Mobile.Enrollment`:
+dual role), the **"📱 Enrol a phone to enter results"** card has a level
+picker, an optional board-range pair of fields, and a **Generate a code**
+button. Each click creates one `PairingsEngine.Mobile.Enrollment`:
 
 - `token` - an 18-byte CSPRNG value, URL-safe base64, embedded in a QR code
   pointing at `/m/e/:token`. Scanning it enrolls immediately, no typing.
-- `code` - an 8-digit CSPRNG number (`PairingsEngine.Mobile.gen_unique_code/1`),
-  for a helper who can't scan (or is handed the code verbally/on paper).
-  Eight digits, not six: `code` is looked up across **every** tournament's
-  active enrollments at once (`get_active_by_code/1` has no tournament
-  scope), so with several tournaments running concurrently a shorter code
-  would make guessing another tournament's session too easy. Rejection
-  sampling keeps the space uniform (no `rem/2` bias).
+- `code` - an 8-digit CSPRNG number, for a helper who can't scan (or is
+  handed the code verbally/on paper). Eight digits, not six: `code` is
+  looked up across **every** tournament's active enrollments at once
+  (`get_active_by_code/1` has no tournament scope), so with several
+  tournaments running concurrently a shorter code would make guessing
+  another tournament's session too easy. Rejection sampling keeps the space
+  uniform (no `rem/2` bias).
+- `level` - `"helper"` or `"deputy"`, from the mint form's picker.
+- `board_from` / `board_to` - optional, from the mint form's range fields;
+  validated (`board_from <= board_to`, both positive) before the code is
+  created.
 - `expires_at` - 24 hours from creation (`@default_ttl_hours` in
   `PairingsEngine.Mobile`). A phone that stays enrolled across a whole
   tournament day re-enrolls automatically the next morning; there's no
   "remember me forever" option by design - a stale, forgotten enrollment
   from a past tournament should not still work months later.
 
-The card lists every currently active enrollment (code + expiry) with a
-**Revoke** button - instant: `Mobile.get_active/1` re-checks
-`revoked_at`/`expires_at` on *every* mobile request, not just at enroll time,
-so a revoked phone is locked out on its very next tap, not merely unable to
-start a new session.
+The card lists every currently active enrollment (code, level, board range,
+and expiry) with a **Revoke** button - instant: `Mobile.get_active/1`
+re-checks `revoked_at`/`expires_at` on *every* mobile request, not just at
+enroll time, so a revoked phone is locked out on its very next tap, not
+merely unable to start a new session. The level/range are shown because one
+enrollment can be used by any number of phones - the audit trail, and this
+list, are both about what the CODE may do, not a particular device.
 
 ## The phone-side flow
 
@@ -50,13 +87,16 @@ start a new session.
    (`PairingsEngine.RateLimit`, key `:mobile_enroll`) against brute-forcing
    the 8-digit code.
 3. `/m/results` (`PairingsEngineWeb.MobileResultsLive`) - every board of the
-   current round as a card: white vs. black, each player's rating and their
-   score *entering* the round (same figure a printed pairing sheet would
-   show - computed via `Standings.standings(tournament, through_round: n - 1)`,
-   not a live mid-round number), and three big result buttons (`1-0` /
-   `½-½` / `0-1`) plus a clear (⟲) button once a result is set. If more than
-   one round has been paired, a round switcher lets the helper flip back to
-   check/fix an earlier round.
+   current round as a card (boards outside the enrollment's range, if it has
+   one, are simply not shown): white vs. black, each player's rating and
+   their score *entering* the round (same figure a printed pairing sheet
+   would show - computed via
+   `Standings.standings(tournament, through_round: n - 1)`, not a live
+   mid-round number), and three big result buttons (`1-0` / `½-½` / `0-1`)
+   plus a clear (⟲) button once a result is set. If more than one round has
+   been paired, a `"deputy"` gets a round switcher to flip back and
+   check/correct an earlier one; a `"helper"` does not - it has only the one
+   round it is ever allowed to touch.
 4. `GET /m/leave` clears the session cookie's enrollment id - "log out" for
    a shared/kiosk phone.
 
@@ -130,3 +170,6 @@ not this account-free flow).
   expiry are effective immediately, not just on the next page load.
 - The 8-digit code is CSPRNG-generated and rate-limited against guessing;
   the QR token is a why-bother-guessing 18-byte random value.
+- Level and board range (above) are enforced the same way scope is: server
+  side, on every `select_round`/`set_result` event, not only by which
+  buttons the page happens to render for that enrollment.

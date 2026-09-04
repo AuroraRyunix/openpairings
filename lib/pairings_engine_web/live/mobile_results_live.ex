@@ -115,12 +115,43 @@ defmodule PairingsEngineWeb.MobileResultsLive do
         do: assign(socket, tournament: tournament, archived?: not is_nil(tournament.archived_at)),
         else: socket
 
-    {:noreply, load_round(socket, socket.assigns.round_number)}
+    paired = Engine.paired_rounds_count(socket.assigns.tournament.id)
+
+    # A helper has no round switcher (see the render) and is pinned to the
+    # latest paired round by `Mobile.permit_round/3` - without tracking that
+    # here too, a helper connected before round N+1 was paired would be left
+    # stuck looking at round N: `permit_result/4` would (correctly) start
+    # refusing every tap, with no button left on the page to reach the round
+    # that now works. A deputy keeps whatever round they had open, same as
+    # before - they have a switcher and may be deliberately reviewing an
+    # earlier one.
+    target_round =
+      if helper?(socket.assigns.mobile_enrollment),
+        do: max(paired, 1),
+        else: socket.assigns.round_number
+
+    {:noreply, socket |> assign(paired: paired) |> load_round(target_round)}
   end
 
   @impl true
   def handle_event("select_round", %{"number" => number}, socket) do
-    {:noreply, socket |> assign(expanded_id: nil) |> load_round(String.to_integer(number))}
+    requested = String.to_integer(number)
+    latest = Engine.paired_rounds_count(socket.assigns.tournament.id)
+
+    case Mobile.permit_round(socket.assigns.mobile_enrollment, requested, latest) do
+      :ok ->
+        {:noreply, socket |> assign(expanded_id: nil) |> load_round(requested)}
+
+      {:error, :earlier_round} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           gettext(
+             "Helpers can only view the current round - ask the arbiter to check an earlier one."
+           )
+         )}
+    end
   end
 
   # A "hand the phone to someone else / put it down for a second" guard, not
@@ -159,26 +190,48 @@ defmodule PairingsEngineWeb.MobileResultsLive do
 
       case round && Enum.find(round.pairings, &(to_string(&1.id) == id)) do
         %Pairing{} = pairing ->
-          previous = pairing.result
+          # The domain decides, not this LiveView - see `Mobile.permit_result/4`
+          # for the three rules (round, board range, fill-once) and why each
+          # one is checked here again even though the render already hides
+          # what it can: hiding is the courtesy, this is the enforcement, and
+          # a hidden control is still a control absent-from-the-page HTML,
+          # not absent from what a client can send.
+          latest = Engine.paired_rounds_count(socket.assigns.tournament.id)
 
-          socket =
-            case Tournaments.update_pairing_result(pairing, result) do
-              {:ok, _} ->
-                log_mobile_result(socket, pairing, previous, result)
-                socket
+          case Mobile.permit_result(
+                 socket.assigns.mobile_enrollment,
+                 pairing,
+                 socket.assigns.round_number,
+                 latest
+               ) do
+            :ok ->
+              previous = pairing.result
 
-              {:error, :archived} ->
-                put_flash(
-                  socket,
-                  :error,
-                  "This tournament is archived - the arbiter needs to unarchive it before results can be entered."
-                )
+              socket =
+                case Tournaments.update_pairing_result(pairing, result) do
+                  {:ok, _} ->
+                    log_mobile_result(socket, pairing, previous, result)
+                    socket
 
-              {:error, _reason} ->
-                put_flash(socket, :error, "Could not save that result.")
-            end
+                  {:error, :archived} ->
+                    put_flash(
+                      socket,
+                      :error,
+                      "This tournament is archived - the arbiter needs to unarchive it before results can be entered."
+                    )
 
-          {:noreply, load_round(socket, socket.assigns.round_number)}
+                  {:error, _reason} ->
+                    put_flash(socket, :error, "Could not save that result.")
+                end
+
+              {:noreply, load_round(socket, socket.assigns.round_number)}
+
+            {:error, reason} ->
+              {:noreply,
+               socket
+               |> put_flash(:error, permit_error_message(reason, pairing))
+               |> load_round(socket.assigns.round_number)}
+          end
 
         _ ->
           {:noreply, socket}
@@ -192,6 +245,29 @@ defmodule PairingsEngineWeb.MobileResultsLive do
   end
 
   def handle_event("set_result", _params, socket), do: {:noreply, socket}
+
+  # A board a helper tapped that already carries a result is the refusal a
+  # helper is actually likely to hit, mid-round, with players waiting - it
+  # gets its own plain sentence rather than a generic "could not save" so
+  # the next step ("find the arbiter") is obvious from the flash alone.
+  defp permit_error_message(:already_set, pairing) do
+    gettext("Board %{board} already has a result - only the arbiter can change it.",
+      board: pairing.board
+    )
+  end
+
+  defp permit_error_message(:board_out_of_range, pairing) do
+    gettext("Board %{board} is outside the boards this phone is allowed to enter.",
+      board: pairing.board
+    )
+  end
+
+  defp permit_error_message(:earlier_round, _pairing) do
+    gettext("Helpers can only enter results for the current round.")
+  end
+
+  defp helper?(%Mobile.Enrollment{level: "helper"}), do: true
+  defp helper?(%Mobile.Enrollment{}), do: false
 
   # No-account phones weren't writing to the audit trail at all before this -
   # a real gap, since a mobile-entered result is exactly as write-worthy as
@@ -224,7 +300,12 @@ defmodule PairingsEngineWeb.MobileResultsLive do
       via: "mobile",
       enrollment_id: enrollment.id,
       enrollment_code: enrollment.code,
-      enrollment_label: enrollment.label
+      enrollment_label: enrollment.label,
+      # What the phone was ALLOWED to do at the time, not just which phone -
+      # a level minted before this feature existed is not recorded (there
+      # was none), and `AuditLive.mobile_suffix/1` treats that absence as
+      # "nothing to add" rather than guessing.
+      enrollment_level: enrollment.level
     })
   end
 
@@ -233,12 +314,25 @@ defmodule PairingsEngineWeb.MobileResultsLive do
 
   defp load_round(socket, number) do
     tournament = socket.assigns.tournament
+    enrollment = socket.assigns.mobile_enrollment
     round = Tournaments.get_round(tournament.id, number)
 
     boards =
       case round do
-        nil -> []
-        r -> r.pairings |> Enum.reject(&(&1.black_player_id == nil)) |> Enum.sort_by(& &1.board)
+        nil ->
+          []
+
+        r ->
+          r.pairings
+          |> Enum.reject(&(&1.black_player_id == nil))
+          # A board outside the enrollment's range is simply not here to
+          # tap - the courtesy half of "hide what cannot be used"; the
+          # enforcement half is `Mobile.permit_result/4`, reached via
+          # `round.pairings` (unfiltered) rather than `@boards`, so a
+          # crafted event naming an out-of-range pairing id is still
+          # refused, not merely hidden.
+          |> Enum.filter(&Mobile.board_in_range?(enrollment, &1.board))
+          |> Enum.sort_by(& &1.board)
       end
 
     # Score shown alongside each name is the player's total entering this
@@ -293,7 +387,21 @@ defmodule PairingsEngineWeb.MobileResultsLive do
         </div>
       </header>
 
-      <div :if={@paired > 1} class="mobile-rounds">
+      <%!-- This screen has no `<Layouts.app>` (it is a deliberately bare
+            kiosk shell, not the full desktop chrome), so it never got a
+            flash outlet of its own - `put_flash/3` below was writing to
+            `@flash` with nowhere on THIS page to show it. That was already
+            true for "this tournament is archived" before the guards on this
+            page existed; it would have been true for every refusal added
+            here too. --%>
+      <Layouts.flash_group flash={@flash} />
+
+      <%!-- A helper is pinned to the latest paired round (`Mobile.permit_round/3`)
+            and has no other round to switch to - showing a switcher with
+            every earlier round disabled/hidden but one lone "current round"
+            button in it would just be a button that does nothing, so the
+            whole strip is left off rather than hidden-but-half-there. --%>
+      <div :if={@paired > 1 and not helper?(@mobile_enrollment)} class="mobile-rounds">
         <button
           :for={n <- 1..@paired}
           type="button"

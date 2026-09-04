@@ -54,13 +54,72 @@ defmodule PairingsEngineWeb.LiveRoundLive do
 
   defp enroll_expiry(%DateTime{} = dt), do: Calendar.strftime(dt, "%d %b %H:%M")
 
+  defp enrollment_level_label("deputy"), do: gettext("Deputy")
+  defp enrollment_level_label(_helper), do: gettext("Helper")
+
+  defp board_range_label(nil, nil), do: nil
+  defp board_range_label(from, nil), do: gettext("Boards %{from}+", from: from)
+  defp board_range_label(nil, to), do: gettext("Boards up to %{to}", to: to)
+  defp board_range_label(from, to), do: gettext("Boards %{from}-%{to}", from: from, to: to)
+
+  # "Boards 1-10 · Helper" rather than a bare token id - one enrolment can
+  # be used by unlimited phones, so this line IS the audit trail for what
+  # the CODE may do, not a particular device. An arbiter checking "did I
+  # hand out the right thing" needs the range and the level together, not
+  # a code number to cross-reference against memory.
+  defp enrollment_scope_label(e) do
+    level = enrollment_level_label(e.level)
+
+    case board_range_label(e.board_from, e.board_to) do
+      nil -> level
+      range -> gettext("%{range} · %{level}", range: range, level: level)
+    end
+  end
+
+  # Blank stays "no restriction" rather than an error - the field is
+  # optional. Anything that doesn't parse as a positive integer (a stray
+  # non-numeric value from outside the `type="number"` input) is treated
+  # the same way rather than surfacing a confusing error on a field the
+  # arbiter may not have touched at all; `Mobile.create_enrollment/2`'s own
+  # validation is what actually guards the range that DOES get set.
+  defp parse_board(nil), do: nil
+  defp parse_board(""), do: nil
+
+  defp parse_board(str) do
+    case Integer.parse(str) do
+      {n, _} -> n
+      :error -> nil
+    end
+  end
+
+  defp enrollment_opts(params) do
+    [
+      level: Map.get(params, "level", "helper"),
+      board_from: parse_board(params["board_from"]),
+      board_to: parse_board(params["board_to"])
+    ]
+  end
+
+  # A board-range validation failure gets its own message (what to fix);
+  # anything else - a `:level` that didn't come from the `<select>`, say -
+  # falls back to the same generic retry message this already had.
+  defp enrollment_changeset_error(%Ecto.Changeset{} = changeset) do
+    if changeset.errors[:board_from] || changeset.errors[:board_to] do
+      gettext(
+        "Board range is invalid - \"to\" must be at least \"from\", and both must be 1 or higher."
+      )
+    else
+      gettext("Could not enrol a phone - please retry.")
+    end
+  end
+
   @impl true
   # `create_enrollment/2` refuses on an archived or handed-off tournament, so
   # the old `{:ok, enrollment} =` would have taken the page down with a
   # MatchError instead of saying why - on the one page an arbiter leaves open
   # on a projector all day.
-  def handle_event("generate_enrollment", _params, socket) do
-    case Mobile.create_enrollment(socket.assigns.tournament.id) do
+  def handle_event("generate_enrollment", params, socket) do
+    case Mobile.create_enrollment(socket.assigns.tournament.id, enrollment_opts(params)) do
       {:ok, enrollment} ->
         {:noreply,
          socket
@@ -75,8 +134,8 @@ defmodule PairingsEngineWeb.LiveRoundLive do
            Tournaments.refusal_message(reason, gettext("enrolling a phone"))
          )}
 
-      {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, gettext("Could not enrol a phone - please retry."))}
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:noreply, put_flash(socket, :error, enrollment_changeset_error(changeset))}
     end
   end
 
@@ -265,7 +324,50 @@ defmodule PairingsEngineWeb.LiveRoundLive do
           )}
         </p>
 
-        <button class="pe-btn primary" phx-click="generate_enrollment">{gettext("Generate a code")}</button>
+        <%!-- Level + board range travel WITH the code from the moment it is
+              minted - there is no "edit an enrolment" screen, so whatever is
+              picked here is what that code does for its whole life. Kept to
+              two compact fields (a level picker, an optional board range) on
+              purpose: a permission matrix of checkboxes is easier to
+              misconfigure in a hall with players waiting than one dropdown
+              that names the two levels plainly. --%>
+        <form
+          phx-submit="generate_enrollment"
+          style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin: 0"
+        >
+          <label style="display: flex; flex-direction: column; gap: 2px; font-size: 13px">
+            {gettext("Access level")}
+            <select name="level" class="pe-select">
+              <option value="helper">{gettext("Helper - fill blanks, latest round only")}</option>
+              <option value="deputy">{gettext("Deputy - enter and correct, any round")}</option>
+            </select>
+          </label>
+
+          <label style="display: flex; flex-direction: column; gap: 2px; font-size: 13px">
+            {gettext("Boards (optional)")}
+            <span style="display: flex; gap: 4px; align-items: center">
+              <input
+                type="number"
+                min="1"
+                name="board_from"
+                class="pe-input"
+                style="width: 64px"
+                placeholder={gettext("from")}
+              />
+              <span aria-hidden="true">–</span>
+              <input
+                type="number"
+                min="1"
+                name="board_to"
+                class="pe-input"
+                style="width: 64px"
+                placeholder={gettext("to")}
+              />
+            </span>
+          </label>
+
+          <button class="pe-btn primary" type="submit">{gettext("Generate a code")}</button>
+        </form>
 
         <div :if={@new_enrollment} class="enroll-panel" style="margin-top: 16px">
           <div class="enroll-qr">
@@ -283,6 +385,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
                 <:part name="url"><strong>{url(~p"/m")}</strong></:part>
               </.rich_text>
             </p>
+            <p class="hint">{enrollment_scope_label(@new_enrollment)}</p>
             <p class="hint">
               {gettext("Expires %{when}.", when: enroll_expiry(@new_enrollment.expires_at))}
             </p>
@@ -295,6 +398,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
             <tbody>
               <tr :for={e <- @enrollments}>
                 <td><strong>{gettext("Code %{code}", code: e.code)}</strong></td>
+                <td class="hint">{enrollment_scope_label(e)}</td>
                 <td class="hint">{gettext("expires %{when}", when: enroll_expiry(e.expires_at))}</td>
                 <td style="text-align: right">
                   <button class="pe-btn danger-link" phx-click="revoke_enrollment" phx-value-id={e.id}>
