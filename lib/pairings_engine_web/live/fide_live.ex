@@ -45,6 +45,11 @@ defmodule PairingsEngineWeb.FideLive do
        kbsb?: kbsb?,
        kbsb_status: kbsb? && KbsbSync.status(),
        kbsb_query: "",
+       # Which sync, if either, has been warned about and is waiting for a
+       # second press. Cleared once it starts, or when the page reloads - a
+       # confirmation should not outlive the moment it was asked in.
+       confirm_sync: nil,
+       confirm_sync_names: [],
        kbsb_results: [],
        # Read once at mount: this comes from the server's environment, so it
        # cannot change while the page is open. False hides the sync button
@@ -191,14 +196,38 @@ defmodule PairingsEngineWeb.FideLive do
       not socket.assigns.may_admin? ->
         {:noreply, put_flash(socket, :error, sync_restricted())}
 
-      (running = Tournaments.running_tournament_names()) != [] ->
-        {:noreply, put_flash(socket, :error, sync_blocked_by_round(running))}
+      # Warned about, not refused - see `sync_warning/1`. A second press goes
+      # ahead; `confirm_sync` is that second press.
+      (running = Tournaments.running_tournament_names()) != [] and
+          socket.assigns.confirm_sync != :fide ->
+        {:noreply,
+         socket
+         |> assign(confirm_sync: :fide, confirm_sync_names: running)
+         |> put_flash(:error, sync_warning(running))}
 
       true ->
-        FideSync.start_sync()
-        Audit.log_system(socket.assigns.current_scope, "fide.sync_started", %{})
-        {:noreply, assign(socket, status: FideSync.status())}
+        {:noreply, start_fide_sync(socket)}
     end
+  end
+
+  def handle_event("confirm_sync", %{"which" => "fide"}, socket) do
+    if socket.assigns.may_admin? do
+      {:noreply, start_fide_sync(socket)}
+    else
+      {:noreply, put_flash(socket, :error, sync_restricted())}
+    end
+  end
+
+  def handle_event("confirm_sync", %{"which" => "kbsb"}, socket) do
+    cond do
+      not socket.assigns.kbsb? -> {:noreply, put_flash(socket, :error, kbsb_off())}
+      not socket.assigns.may_admin? -> {:noreply, put_flash(socket, :error, sync_restricted())}
+      true -> {:noreply, start_kbsb_api_import(clear_confirm(socket))}
+    end
+  end
+
+  def handle_event("cancel_sync_confirm", _params, socket) do
+    {:noreply, clear_confirm(socket)}
   end
 
   @impl true
@@ -228,11 +257,15 @@ defmodule PairingsEngineWeb.FideLive do
       not socket.assigns.may_admin? ->
         {:noreply, put_flash(socket, :error, sync_restricted())}
 
-      (running = Tournaments.running_tournament_names()) != [] ->
-        {:noreply, put_flash(socket, :error, sync_blocked_by_round(running))}
+      (running = Tournaments.running_tournament_names()) != [] and
+          socket.assigns.confirm_sync != :kbsb ->
+        {:noreply,
+         socket
+         |> assign(confirm_sync: :kbsb, confirm_sync_names: running)
+         |> put_flash(:error, sync_warning(running))}
 
       true ->
-        {:noreply, start_kbsb_api_import(socket)}
+        {:noreply, start_kbsb_api_import(clear_confirm(socket))}
     end
   end
 
@@ -253,21 +286,57 @@ defmodule PairingsEngineWeb.FideLive do
     end
   end
 
-  # SQLite has one write lock for the whole database, and a sync holds it long
-  # enough that a result entered mid-round is refused. The rating list is the
-  # thing that can wait, so it is the thing that gets told no. Naming the
-  # tournaments matters: "a tournament is running" leaves the person hunting
-  # for which one, on a machine that may host several.
-  defp sync_blocked_by_round(names) do
-    ngettext(
-      "Not started: %{names} has a round in progress. A sync locks the database " <>
-        "for long enough that entering a result would fail. Finish or score the " <>
-        "round first.",
-      "Not started: %{names} have rounds in progress. A sync locks the database " <>
-        "for long enough that entering a result would fail. Finish or score the " <>
-        "rounds first.",
-      length(names),
-      names: Enum.join(names, ", ")
+  # A warning, not a refusal - and it was a refusal for about an hour, which
+  # was wrong.
+  #
+  # "Running" means paired and not yet fully scored. For a club championship
+  # that runs from September to June that is true the whole season, so
+  # refusing made the rating lists permanently un-syncable on exactly the
+  # installations that have most tournaments. The maintainer hit it with ten
+  # at once, most of a season's worth.
+  #
+  # The risk it was guarding is also much smaller than when it was written.
+  # Both imports now commit in chunks, so the write lock is free between
+  # them; what remains long is two single statements - the bulk delete and
+  # the FTS rebuild - which are seconds, not minutes. A result entered during
+  # one of those waits, rather than failing, and `PairingsEngine.BusyWrite`
+  # catches it plainly if it ever does not.
+  #
+  # So the person is told which tournaments are live and asked to decide.
+  # They know whether a round is actually being played right now; a status
+  # column does not.
+  defp start_fide_sync(socket) do
+    FideSync.start_sync()
+    Audit.log_system(socket.assigns.current_scope, "fide.sync_started", %{})
+
+    socket
+    |> clear_confirm()
+    |> assign(status: FideSync.status())
+  end
+
+  defp clear_confirm(socket),
+    do: assign(socket, confirm_sync: nil, confirm_sync_names: [])
+
+  defp sync_warning(names) do
+    shown = Enum.take(names, 3)
+    extra = length(names) - length(shown)
+
+    listed =
+      if extra > 0 do
+        ngettext(
+          "%{names} and %{count} other",
+          "%{names} and %{count} others",
+          extra,
+          names: Enum.join(shown, ", "),
+          count: extra
+        )
+      else
+        Enum.join(shown, ", ")
+      end
+
+    gettext(
+      "%{names} have rounds in progress. A sync briefly locks the database, so a result entered at that moment could be delayed. Press again to sync anyway.",
+      names: listed
     )
   end
 

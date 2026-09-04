@@ -14,6 +14,21 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.30.0] - 2026-09-04
+
+- **[Fix]** A rating list sync is no longer refused outright when a
+  tournament has a round in progress - it warns, names the tournaments, and a
+  second press goes ahead. The refusal was wrong the moment it met a real
+  installation: "in progress" means paired and not yet fully scored, which for
+  a club championship is true from September to June, so the rating lists
+  could never have been synced at all. The warning also names three and counts
+  the rest, rather than listing a season's worth in one sentence.
+- **[Change]** The risk that guard was written for is much smaller now that
+  both imports commit in chunks: the write lock is free between chunks, and
+  what remains long is two single statements - the bulk delete and the
+  full-text index rebuild - measured in seconds. A result entered during one
+  of those waits rather than fails, and if it ever does fail it says so.
+
 ## [0.29.0] - 2026-09-04
 
 - **[Change]** The live/projector view now shows the rounds that are

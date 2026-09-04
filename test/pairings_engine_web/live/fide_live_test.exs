@@ -687,27 +687,66 @@ defmodule PairingsEngineWeb.FideLiveTest do
       :ok
     end
 
-    test "the FIDE sync refuses, and names the tournament", %{conn: conn} do
+    test "the FIDE sync warns first, and names the tournament", %{conn: conn} do
       {:ok, lv, _html} = live(conn, ~p"/fide")
 
       # The event, not the button: the control is disabled here for want of a
       # list URL, but this file already establishes that a control absent from
-      # the page is still an event anyone can send. The guard has to hold on
-      # the handler, which is the thing an attacker or a stale tab reaches.
+      # the page is still an event anyone can send.
       html = render_click(lv, "sync", %{})
 
       assert html =~ "Bruges Open"
-      assert html =~ "round in progress"
-      assert PairingsEngine.Fide.Sync.status().status == :idle, "the sync must not have started"
+      assert html =~ "rounds in progress"
+
+      assert PairingsEngine.Fide.Sync.status().status == :idle,
+             "the first press warns, it does not start"
     end
 
-    test "the Belgian sync refuses too", %{conn: conn} do
+    test "and a second press goes ahead anyway", %{conn: conn} do
+      # The whole point of warning rather than refusing: a club championship
+      # is "running" from September to June, so a refusal would mean the
+      # rating lists could never be synced at all.
+      {:ok, lv, _html} = live(conn, ~p"/fide")
+
+      render_click(lv, "sync", %{})
+      render_click(lv, "sync", %{})
+
+      refute PairingsEngine.Fide.Sync.status().status == :idle,
+             "a second press has to actually start the sync"
+
+      # Stop it again. This really does start a download task, and a sync left
+      # running past the end of its test fights the next one for the sandbox
+      # connection - which showed up as a single failure that moved with the
+      # seed, the most expensive kind of flake to chase.
+      PairingsEngine.Fide.Sync.cancel_sync()
+    end
+
+    test "the Belgian sync warns too", %{conn: conn} do
       {:ok, lv, _html} = live(conn, ~p"/fide")
 
       html = render_click(lv, "sync_kbsb_api", %{})
 
       assert html =~ "Bruges Open"
-      assert KbsbSync.status().status == :idle, "the sync must not have started"
+      assert KbsbSync.status().status == :idle, "the first press warns, it does not start"
+    end
+
+    test "the warning names a few and counts the rest, not all ten", %{conn: conn} do
+      # The maintainer's own screen listed ten tournaments in one sentence,
+      # most of a season, and the message became unreadable.
+      for name <- ~w(Antwerp Ghent Leuven Mechelen Namur) do
+        Repo.insert!(%PairingsEngine.Tournaments.Tournament{
+          name: name,
+          type: "swiss",
+          rounds_count: 5,
+          status: "running"
+        })
+      end
+
+      {:ok, lv, _html} = live(conn, ~p"/fide")
+      html = render_click(lv, "sync", %{})
+
+      assert html =~ "others"
+      refute html =~ "Namur", "the message should stop naming them, not list every one"
     end
   end
 end
