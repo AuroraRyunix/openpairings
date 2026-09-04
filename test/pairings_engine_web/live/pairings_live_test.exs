@@ -69,7 +69,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     assert html =~ "A (2000, 1)"
   end
 
-  test "print pairings/standings links open the currently selected round in a new tab", %{
+  test "print pairings link opens the currently selected round in a new tab", %{
     conn: conn,
     scope: scope
   } do
@@ -79,16 +79,14 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
 
     # Two rounds are paired, so the view defaults to the latest one (round 2).
     assert html =~ ~s(href="/t/#{tournament.id}/print/pairings?round=2")
-    assert html =~ ~s(href="/t/#{tournament.id}/print/standings?round=2")
     assert html =~ ~s(target="_blank")
 
     html = lv |> element("button[phx-value-number='1']") |> render_click()
 
     assert html =~ ~s(href="/t/#{tournament.id}/print/pairings?round=1")
-    assert html =~ ~s(href="/t/#{tournament.id}/print/standings?round=1")
   end
 
-  test "no print links are shown for an unpaired round", %{conn: conn, scope: scope} do
+  test "no print pairings link is shown for an unpaired round", %{conn: conn, scope: scope} do
     tournament = fixture(scope)
 
     {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
@@ -96,7 +94,64 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     html = lv |> element("button[phx-value-number='3']") |> render_click()
 
     refute html =~ ~s(print/pairings?round=3)
-    refute html =~ ~s(print/standings?round=3)
+  end
+
+  # "Print standings" was removed from this page in the September 2026
+  # declutter - standings printing now lives only on the Standings page (and
+  # the print hub), not here. See the comment above the removed button's old
+  # spot in `pairings_live.ex` for why the per-round snapshot capability
+  # (`?round=N`) that only existed here is accepted as lost rather than
+  # rehomed.
+  test "does not offer Print standings, unlike the Standings page", %{conn: conn, scope: scope} do
+    tournament = fixture(scope)
+
+    {:ok, _lv, pairings_html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+    refute pairings_html =~ "Print standings"
+    refute pairings_html =~ ~s(print/standings)
+
+    {:ok, _lv, standings_html} = live(conn, ~p"/t/#{tournament.id}/standings")
+
+    assert standings_html =~ ~s(href="/t/#{tournament.id}/print/standings")
+  end
+
+  # "Live" read as "live to the public", and this page is the opposite: the
+  # LOCAL view, for the venue screen and the arbiter's own tab. Renamed
+  # September 2026 once OpenResults (the actually-public page) picked up
+  # the projector cycle and publish gating, which made "live" here actively
+  # misleading rather than merely imprecise.
+  test "links to the local view/phone-QR page by its current name, not the old 'Live' one", %{
+    conn: conn,
+    scope: scope
+  } do
+    tournament = fixture(scope)
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+    assert html =~ "Local view &amp; phone QR"
+    refute html =~ "Live view &amp; phone QR"
+    assert html =~ ~s(href="/t/#{tournament.id}/live")
+  end
+
+  # White right-aligned, Result centred, Black left-aligned - a printed
+  # pairing sheet's convention (see `assets/css/app.css`), applied via
+  # classes rather than growing inline `style=` on every cell.
+  test "pairing table columns carry the White/Result/Black alignment classes on header and cells",
+       %{conn: conn, scope: scope} do
+    tournament = fixture(scope)
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+    assert html =~ ~s(<th class="pairing-white">)
+    assert html =~ ~s(<th class="pairing-result">)
+    assert html =~ ~s(<th class="pairing-black">)
+    assert html =~ ~s(<td class="pairing-white">)
+    assert html =~ ~s(<td class="pairing-result">)
+    assert html =~ ~s(<td class="pairing-black">)
+
+    # The inline styles these classes replace are gone from the pairing rows.
+    refute html =~ ~s(style="text-align: center; width: 220px")
+    refute html =~ ~s(<td style="text-align: center">)
   end
 
   # Was removed in the July 2026 "pairings declutter" and is back by
