@@ -39,6 +39,74 @@ defmodule PairingsEngineWeb.MobileEnrollControllerTest do
     assert html_response(conn, 200) =~ "wrong or has expired"
   end
 
+  describe "one device per code" do
+    test "a first scan via the QR token claims the phone", %{conn: conn} do
+      {:ok, e} = Mobile.create_enrollment(tournament().id)
+
+      conn = get(conn, ~p"/m/e/#{e.token}")
+
+      assert redirected_to(conn) == ~p"/m/results"
+      assert get_session(conn, :mobile_enrollment_id) == e.id
+      assert %DateTime{} = Repo.get!(Enrollment, e.id).claimed_at
+    end
+
+    test "a second scan of the same token is refused and does not get a session", %{conn: conn} do
+      {:ok, e} = Mobile.create_enrollment(tournament().id)
+
+      _first = get(conn, ~p"/m/e/#{e.token}")
+      second = get(build_conn(), ~p"/m/e/#{e.token}")
+
+      assert html_response(second, 200) =~ "already been used by another phone"
+      assert get_session(second, :mobile_enrollment_id) == nil
+    end
+
+    test "a first scan of the 6-digit code claims the phone", %{conn: conn} do
+      {:ok, e} = Mobile.create_enrollment(tournament().id)
+
+      conn = post(conn, ~p"/m", %{"code" => e.code})
+
+      assert redirected_to(conn) == ~p"/m/results"
+      assert %DateTime{} = Repo.get!(Enrollment, e.id).claimed_at
+    end
+
+    test "a second submit of the same code is refused and does not get a session", %{conn: conn} do
+      {:ok, e} = Mobile.create_enrollment(tournament().id)
+
+      _first = post(conn, ~p"/m", %{"code" => e.code})
+      second = post(build_conn(), ~p"/m", %{"code" => e.code})
+
+      assert html_response(second, 200) =~ "already been used by another phone"
+      assert get_session(second, :mobile_enrollment_id) == nil
+    end
+
+    test "a revoked code still says so, not that it was already used", %{conn: conn} do
+      {:ok, e} = Mobile.create_enrollment(tournament().id)
+      {:ok, _} = Mobile.revoke(e)
+
+      by_code = post(conn, ~p"/m", %{"code" => e.code})
+      refute html_response(by_code, 200) =~ "already been used by another phone"
+      assert html_response(by_code, 200) =~ "wrong or has expired"
+
+      by_token = get(build_conn(), ~p"/m/e/#{e.token}")
+      refute html_response(by_token, 200) =~ "already been used by another phone"
+      assert html_response(by_token, 200) =~ "invalid or has expired"
+    end
+
+    test "an expired code still says so, not that it was already used", %{conn: conn} do
+      {:ok, e} = Mobile.create_enrollment(tournament().id, ttl_hours: 1)
+      past = DateTime.utc_now() |> DateTime.add(-2, :hour) |> DateTime.truncate(:second)
+      e |> Ecto.Changeset.change(expires_at: past) |> Repo.update!()
+
+      by_code = post(conn, ~p"/m", %{"code" => e.code})
+      refute html_response(by_code, 200) =~ "already been used by another phone"
+      assert html_response(by_code, 200) =~ "wrong or has expired"
+
+      by_token = get(build_conn(), ~p"/m/e/#{e.token}")
+      refute html_response(by_token, 200) =~ "already been used by another phone"
+      assert html_response(by_token, 200) =~ "invalid or has expired"
+    end
+  end
+
   test "two active enrollments sharing a code do not turn the submit into a 500", %{conn: conn} do
     # The reproduction: `get_active_by_code/1` was `Repo.one`, which answers
     # a second match by raising `Ecto.MultipleResultsError`, and nothing on

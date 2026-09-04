@@ -10,6 +10,13 @@ defmodule PairingsEngine.Mobile do
   until the enrollment expires or the arbiter revokes it. No account, no access
   to anything but entering results for that one tournament.
 
+  One code, one device: the first phone to reach either entry path CLAIMS
+  the enrollment (`claim/1`); every later phone presenting the same token or
+  code is refused, not handed a session of its own. Without that, a printed
+  QR left on a table is a working credential for anyone who walks past, and
+  `label` below is the only way an audit entry distinguishes phones sharing
+  one code - which stops being true the moment there is only ever one.
+
   Every enrolment also carries a `level` - what the code may do, not just
   where it may do it:
 
@@ -168,6 +175,51 @@ defmodule PairingsEngine.Mobile do
   @doc "Fetches an active enrollment by id, or nil - used to re-validate the session on each request."
   def get_active(id) do
     Repo.one(from e in active_query(), where: e.id == ^id)
+  end
+
+  @doc """
+  Claims `enrollment` for the phone calling right now. Returns
+  `{:ok, claimed}` for the first caller, `{:error, :already_claimed}` for
+  every caller after that - including a retry by the very phone that just
+  won, which is indistinguishable from a second phone at this layer and
+  does not need to be told apart from one.
+
+  The WHERE clause is the one thing deciding who wins, not this function's
+  Elixir - the same shape of problem `PairingsEngine.Publishing.ensure_key/1`
+  solves, and this follows its pattern for the same reason. A
+  read-then-write (load the row, check `claimed_at` in an `if`, then write)
+  lets two phones that scan the same QR within the same instant both read
+  "unclaimed" before either has written, and both go on to win - the check
+  and the write are two separate statements with a gap between them big
+  enough for a second process to land in. An `update_all` guarded by
+  `is_nil(claimed_at)` has no such gap: it is one statement, so the database
+  serialises the two attempts, and only the one that actually flips
+  `claimed_at` from null reports a row changed.
+
+  Unlike `ensure_key/1`, the winner does not need to read the row back
+  afterward. `ensure_key/1` re-reads because the value racing callers each
+  generate (a random key) differs between them, so the loser needs to learn
+  what the WINNER actually wrote. Here the value is `DateTime.utc_now/0` at
+  the moment of the call - not drawn independently per racer in any way
+  that matters to the caller - so the count from `update_all/2` already says
+  everything the caller needs: 1 means the timestamp just written is this
+  struct's, 0 means some other write got there first and this one changed
+  nothing.
+  """
+  @spec claim(Enrollment.t()) :: {:ok, Enrollment.t()} | {:error, :already_claimed}
+  def claim(%Enrollment{id: id} = enrollment) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    {count, _} =
+      Repo.update_all(
+        from(e in Enrollment, where: e.id == ^id and is_nil(e.claimed_at)),
+        set: [claimed_at: now]
+      )
+
+    case count do
+      1 -> {:ok, %{enrollment | claimed_at: now}}
+      0 -> {:error, :already_claimed}
+    end
   end
 
   @doc """

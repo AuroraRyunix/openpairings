@@ -3353,6 +3353,10 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .enroll-qr { display: inline-block; background: var(--surface); padding: 10px; border-radius: 12px; border: 2px solid var(--accent); }
 .enroll-qr-inner { background: #fff; padding: 10px; border-radius: 8px; line-height: 0; }
 .enroll-qr svg { display: block; width: 180px; height: 180px; }
+/* Above the code, not below it - the panel exists so an arbiter can match a
+   phone to a person before handing it over, and the name is what does that,
+   not the digits. */
+.enroll-name { font-size: 16px; font-weight: 700; margin: 0 0 4px; }
 .enroll-code { font-size: 34px; font-weight: 800; letter-spacing: 0.12em; color: var(--accent); }
 .enroll-code-label { font-size: 12px; color: var(--text-soft); text-transform: uppercase; letter-spacing: 0.05em; }
 .enroll-url { font-size: 12px; color: var(--text-soft); word-break: break-all; }
