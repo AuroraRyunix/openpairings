@@ -309,14 +309,27 @@ defmodule PairingsEngine.Federations.BEL.SwarPublish do
     """
     <table class='tableCopyright'>
     <tr><td style='text-align: center;'>#{esc(version())}</td>
-        <td style='text-align: center;'>OpenPairings #{esc(app_version())}</td>
+        <td style='text-align: center;'>#{esc(engine_version())}</td>
         <td style='text-align: center;'>#{esc(gettext("Build"))} : #{esc(build_stamp())}</td>
     </tr>
     </table>\
     """
   end
 
-  defp app_version, do: PairingsEngine.Build.version()
+  # The pairing engine, not this app again - the first cell already carries
+  # the OpenPairings release, and printing it twice tells a reader nothing the
+  # second time. Which engine version produced a round is the thing somebody
+  # actually asks when a pairing looks wrong, and it is the one fact about
+  # this file that is otherwise nowhere in it.
+  #
+  # Read from the loaded application rather than hardcoded, so it cannot drift
+  # from the dependency that is actually running.
+  defp engine_version do
+    case Application.spec(:ainalrami, :vsn) do
+      nil -> "Ainalrami"
+      vsn -> "Ainalrami #{List.to_string(vsn)}"
+    end
+  end
 
   defp build_stamp, do: Calendar.strftime(DateTime.utc_now(), "%Y/%m/%d %H:%M")
 

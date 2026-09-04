@@ -32,9 +32,12 @@ Each entry is tagged so a version can be skimmed:
   settable.
 - [Feature] **The page carries a footer saying what made it** - the same
   three-cell strip a SWAR file ends with, in the same place, reading
-  `OpenPairings <release>` and a build stamp. The federation's software signs
-  that strip with its own name and its author's initials; neither is copied
-  onto a page they had no hand in.
+  the OpenPairings release, the pairing engine's version, and a build stamp.
+  The engine is there because it is the one fact about a published round that
+  is otherwise nowhere in the file, and it is what somebody asks about when a
+  pairing looks wrong. The federation's software signs that strip with its own
+  name and its author's initials; neither is copied onto a page they had no
+  hand in.
 
 ## [0.36.2] - 2026-09-04
 
