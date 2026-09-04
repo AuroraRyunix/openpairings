@@ -14,6 +14,24 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.27.0] - 2026-09-04
+
+- **[Change]** An enrolment code now works for **one phone**. The first
+  device to scan the QR or type the 6-digit code claims it; a second is told
+  the code has already been used and to ask for a new one. Before this, one
+  code enrolled any number of phones until it expired, which meant a printed
+  sheet left on a table was a working credential for a day, and the audit
+  trail - which records the code, not the device - could not tell three
+  helpers sharing one code apart.
+- **[Change]** A code can be given a name when it is minted, shown beside the
+  QR and first in the list of phones, so the right code reaches the right
+  person. The list also says whether a code has been scanned yet, which is how
+  you tell that the one you just handed over actually arrived.
+- **[Change]** Codes already in circulation become single-device too. Unlike
+  the access levels, which were backfilled to keep existing phones exactly as
+  they were, this refusal is visible and recoverable: the second phone is told
+  why, and the arbiter mints another.
+
 ## [0.26.0] - 2026-09-04
 
 - **[Change]** The phone's result list now shows what is left to do. A board
