@@ -9,6 +9,24 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
 
   setup :register_and_log_in_user
 
+  # This page shows what is PUBLISHED, not what is paired - projecting a round
+  # in the hall is publishing it, so the two cannot differ. New tournaments are
+  # created "manual" (the schema's default, which quietly overrides the
+  # migration's "immediate"), so a test that pairs a round and then expects to
+  # see it has to publish it, exactly as an arbiter would.
+  # A round inserted straight into the table has no `published_at`, and this
+  # page shows only what is published. These tests are about how boards
+  # render, so they publish as they insert.
+  defp published_now, do: DateTime.utc_now() |> DateTime.truncate(:second)
+
+  defp publish_paired_rounds(tournament) do
+    for n <- 1..PairingsEngine.Pairing.paired_rounds_count(tournament.id)//1 do
+      {:ok, _} = Tournaments.publish_round_now(Tournaments.get_round(tournament.id, n))
+    end
+
+    tournament
+  end
+
   test "renders a 'no rounds paired yet' placeholder before any round is paired", %{
     conn: conn,
     scope: scope
@@ -38,7 +56,13 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
         Repo.insert!(%Player{tournament_id: tournament.id, name: name, fide_rating: rating})
       end
 
-    round1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
+    round1 =
+      Repo.insert!(%Round{
+        tournament_id: tournament.id,
+        number: 1,
+        status: "finished",
+        published_at: published_now()
+      })
 
     Repo.insert!(%Pairing{
       round_id: round1.id,
@@ -48,7 +72,13 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
       result: "1-0"
     })
 
-    round2 = Repo.insert!(%Round{tournament_id: tournament.id, number: 2, status: "playing"})
+    round2 =
+      Repo.insert!(%Round{
+        tournament_id: tournament.id,
+        number: 2,
+        status: "playing",
+        published_at: published_now()
+      })
 
     Repo.insert!(%Pairing{
       round_id: round2.id,
@@ -84,7 +114,13 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
 
     Repo.update!(Ecto.Changeset.change(wheelchair, fixed_board: 1001))
 
-    round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+    round =
+      Repo.insert!(%Round{
+        tournament_id: tournament.id,
+        number: 1,
+        status: "playing",
+        published_at: published_now()
+      })
 
     Repo.insert!(%Pairing{
       round_id: round.id,
@@ -137,6 +173,7 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
       })
 
     assert {:ok, _round} = Engine.pair_next_round(tournament)
+    publish_paired_rounds(tournament)
 
     {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/live")
 
@@ -179,7 +216,13 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
         Repo.insert!(%Player{tournament_id: tournament.id, name: name})
       end
 
-    round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+    round =
+      Repo.insert!(%Round{
+        tournament_id: tournament.id,
+        number: 1,
+        status: "playing",
+        published_at: published_now()
+      })
 
     Repo.insert!(%Pairing{
       round_id: round.id,
@@ -225,7 +268,13 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
         "rounds_count" => "1"
       })
 
-    round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+    round =
+      Repo.insert!(%Round{
+        tournament_id: tournament.id,
+        number: 1,
+        status: "playing",
+        published_at: published_now()
+      })
 
     Repo.insert!(%Pairing{
       round_id: round.id,
@@ -285,7 +334,13 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
         Repo.insert!(%Player{tournament_id: tournament.id, name: name})
       end
 
-    round = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "playing"})
+    round =
+      Repo.insert!(%Round{
+        tournament_id: tournament.id,
+        number: 1,
+        status: "playing",
+        published_at: published_now()
+      })
 
     Repo.insert!(%Pairing{
       round_id: round.id,
@@ -325,6 +380,7 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
       Tournaments.create_player(tournament.id, %{"name" => "Bob", "fide_rating" => "1900"})
 
     assert {:ok, _round} = Engine.pair_next_round(tournament)
+    publish_paired_rounds(tournament)
 
     {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/live")
 
@@ -414,6 +470,7 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
       end
 
       {:ok, _} = Engine.pair_next_round(tournament)
+      publish_paired_rounds(tournament)
       tournament
     end
 
@@ -565,6 +622,7 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
       end
 
       {:ok, _} = Engine.pair_next_round(tournament)
+      publish_paired_rounds(tournament)
       tournament
     end
 
@@ -657,6 +715,65 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/live?display=1")
 
       assert html =~ "Leave projector view"
+    end
+  end
+
+  describe "a round is live, or it is not" do
+    # Projecting a round in the hall IS publishing it - the people it would be
+    # withheld from are the ones standing in front of the screen. So this page
+    # tracks the same flag the public site does, rather than the latest paired
+    # round.
+    defp two_round_tournament(scope, publish_mode) do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "Publishing",
+          "type" => "swiss",
+          "rounds_count" => "3"
+        })
+
+      for n <- 1..4 do
+        Repo.insert!(%Player{
+          tournament_id: tournament.id,
+          name: "Player #{n}",
+          pairing_number: n
+        })
+      end
+
+      {:ok, _} = Engine.pair_next_round(tournament)
+
+      tournament = Repo.get!(Tournaments.Tournament, tournament.id)
+      {:ok, tournament} = Tournaments.update_tournament(tournament, %{publish_mode: publish_mode})
+      tournament
+    end
+
+    test "immediate mode shows the paired round, as it always did", %{conn: conn, scope: scope} do
+      tournament = two_round_tournament(scope, "immediate")
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/live")
+
+      assert html =~ "Round 1"
+      refute html =~ "paired but not published"
+    end
+
+    test "manual mode holds the round back until it is published", %{conn: conn, scope: scope} do
+      tournament = two_round_tournament(scope, "manual")
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/live")
+
+      # Not a blank screen and not a silent round-behind: it says why.
+      assert html =~ "Round 1 is paired but not published"
+      assert html =~ "Go to pairings"
+    end
+
+    test "and shows it once it is published", %{conn: conn, scope: scope} do
+      tournament = two_round_tournament(scope, "manual")
+      round = Tournaments.get_round(tournament.id, 1)
+      {:ok, _} = Tournaments.publish_round_now(round)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/live")
+
+      refute html =~ "paired but not published"
+      assert html =~ "Round 1"
     end
   end
 end

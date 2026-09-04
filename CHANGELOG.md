@@ -14,6 +14,20 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.29.0] - 2026-09-04
+
+- **[Change]** The live/projector view now shows the rounds that are
+  **published**, not the latest round that happens to be paired. Putting a
+  round on a screen in the hall is publishing it - the people it would be
+  withheld from are the ones standing in front of it - so there is no longer a
+  state where a round is on the wall while it is held back from the results
+  site. A round is live, or it is not. When a paired round has not been
+  published, the page says so and links to where you publish it, rather than
+  quietly looking a round behind.
+- **[Change]** The standings below it follow the same round, for the same
+  reason: showing round 4's boards above a table that already counts round 5's
+  results would give the withheld round away just as surely.
+
 ## [0.28.0] - 2026-09-04
 
 - **[Feature]** The live round page has a projector view: the boards, full

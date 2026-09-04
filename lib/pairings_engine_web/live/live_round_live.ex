@@ -325,23 +325,50 @@ defmodule PairingsEngineWeb.LiveRoundLive do
   # and docs/pairing-systems.md, same as StandingsLive/PublicStandingsLive.
   defp reload(socket) do
     tournament = socket.assigns.tournament
-    paired = Engine.paired_rounds_count(tournament.id)
     keizer? = tournament.pairing_system == "keizer"
 
+    # What this page shows is what is PUBLISHED, not what is paired.
+    #
+    # It used to show the latest paired round, which meant an arbiter with
+    # manual publishing could put a round on a wall in front of two hundred
+    # players while it was still deliberately withheld from the results site.
+    # There is no such thing as "shown in the hall but not published": the
+    # people it is being withheld from are the ones standing in front of it.
+    # So a round is live or it is not, and this page tracks the same flag the
+    # public page does.
+    #
+    # In "immediate" mode every paired round is published the moment it
+    # exists and this is a no-op. Do NOT assume that is the common case: the
+    # migration sets the column default to "immediate", but the schema's own
+    # default is "manual" and Ecto sends struct defaults on insert, so every
+    # tournament created through the app is actually "manual". The two
+    # disagree, which is worth fixing on its own - see the note in TODO.md.
+    paired = Engine.paired_rounds_count(tournament.id)
+    shown = Tournaments.latest_published_round_number(tournament)
+
     assign(socket,
-      round_number: paired,
-      round: paired > 0 && Tournaments.get_round(tournament.id, paired),
+      round_number: shown,
+      # Kept so the page can say a round is waiting rather than just appearing
+      # to be a round behind.
+      paired_rounds: paired,
+      round: shown > 0 && Tournaments.get_round(tournament.id, shown),
       scores:
-        if(paired > 0, do: Standings.player_scores_before_round(tournament, paired), else: %{}),
+        if(shown > 0, do: Standings.player_scores_before_round(tournament, shown), else: %{}),
       round_byes:
-        if(paired > 0, do: Tournaments.list_byes_for_round(tournament.id, paired), else: []),
+        if(shown > 0, do: Tournaments.list_byes_for_round(tournament.id, shown), else: []),
       # The byes table's absence counts, once per reload rather than once
       # per rendered row (`Standings.absent_counts/1`). An empty map, and no
       # query at all, unless the tournament caps "Pt ABSENT" by occurrence.
       absent_counts: Standings.absent_counts(tournament),
       keizer?: keizer?,
       entries:
-        if(keizer?, do: Keizer.standings(tournament), else: Standings.standings(tournament))
+        if(keizer?,
+          do: Keizer.standings(tournament),
+          # Through the published round only. Showing the boards of round 4
+          # above a table that already counts round 5's results would give
+          # away the round being withheld just as surely as showing it.
+          else: Standings.standings(tournament, through_round: shown)
+        )
     )
   end
 
@@ -647,8 +674,30 @@ defmodule PairingsEngineWeb.LiveRoundLive do
         <% end %>
       </details>
 
-      <div :if={@round == nil} class="card empty">
+      <div :if={@round == nil and @paired_rounds == 0} class="card empty">
         <p><strong>{gettext("No round has been paired yet.")}</strong></p>
+      </div>
+
+      <%!-- A round exists but is not public. Said plainly, because the
+            alternative is a screen that looks a round behind with no reason
+            given - and an arbiter who assumes the page is broken rather than
+            that they have not published yet. --%>
+      <div :if={@paired_rounds > @round_number} class="card note">
+        <p style="margin: 0 0 6px">
+          <strong>
+            {gettext("Round %{n} is paired but not published.", n: @paired_rounds)}
+          </strong>
+        </p>
+        <p class="hint" style="margin: 0">
+          {gettext(
+            "This view shows what is public, so a round is never on a screen in the hall while it is being held back from the results site. Publish it on the pairings page to show it here."
+          )}
+        </p>
+        <div class="actions" style="margin-top: 10px">
+          <.link navigate={~p"/t/#{@tournament.id}/pairings"} class="pe-btn">
+            {gettext("Go to pairings")}
+          </.link>
+        </div>
       </div>
 
       <%!-- `data-theme` is a bare attribute selector in app.css, so putting it
