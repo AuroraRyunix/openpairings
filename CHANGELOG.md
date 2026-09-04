@@ -14,6 +14,23 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.36.2] - 2026-09-04
+
+- [Fix] **Publishing to the federation failed at the indexing step.** The
+  guid's curly braces were sent raw, and `{` and `}` are not legal in an HTTP
+  request target - the client refused before anything left the machine.
+  SWAR's own notes say to keep the braces and its tool needs a flag to manage
+  it, which reads as though the server demands them; really that flag just
+  makes a tool willing to send an illegal request. The federation's own
+  published addresses percent-encode them, and the server decodes them back
+  before its script runs. Upload was never affected; a tournament already
+  staged can be finished with "Finish indexing".
+- [Fix] **A bye now reads like a bye.** It put the word in the result column
+  and left the opponent blank, so the label floated in the wrong place. A
+  published file with byes in it settled the shape: the points awarded go in
+  the result column and the word goes where the opponent's name would be. The
+  tournament's own bye value is shown, rather than assuming one point.
+
 ## [0.36.1] - 2026-09-04
 
 - [Fix] **A board with an empty seat took the SWAR page down.** Asking for a

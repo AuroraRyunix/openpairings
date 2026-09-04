@@ -175,7 +175,7 @@ defmodule PairingsEngine.Federations.BEL.SwarUploadTest do
       assert message =~ "nothing has been uploaded"
     end
 
-    test "the guid's own curly braces reach the outgoing request intact" do
+    test "the guid's braces are percent-encoded, because raw ones cannot be sent" do
       tournament =
         fixture(user_scope_fixture(), %{
           "swar_guid" => "351-260904-a1b2c3d4-{550e8400-e29b-41d4-a716-446655440000}"
@@ -185,19 +185,26 @@ defmodule PairingsEngine.Federations.BEL.SwarUploadTest do
         assert conn.method == "GET"
         assert conn.request_path == "/sites/manager/Swar/SwarTournamentUpload.php"
 
-        # Confirmed against Req's OWN `params:` option (which runs the value
-        # through `URI.encode_query/1` and percent-encodes these into
-        # %7B/%7D) that the federation's script wants the literal
-        # characters, the same as a real SWAR install sends - see the
-        # module's moduledoc. This is the actual outgoing wire form, read
-        # back the same way `Req.Test` hands every other stub its request.
+        # This test used to assert the opposite - literal braces, and no
+        # %7B - and it passed, because `Req.Test` hands the stub a conn
+        # without ever running Mint's request-target validation. The stub was
+        # more permissive than the wire, so the test proved something that
+        # could not happen. The first real publish said so:
+        #
+        #   {:invalid_request_target, ".../SwarTournamentUpload.php?Guid=
+        #    303-260812-379cf909-{03276dc2-...}"}
+        #
+        # `{` and `}` are not legal in an HTTP/1.1 request target. SWAR's docs
+        # say to "retain" them and curl needs --globoff, which reads as though
+        # the server demands literal ones; really curl is just willing to send
+        # an illegal target. The federation's own published URLs percent-encode
+        # them, and PHP decodes %7B before the script sees it.
         assert conn.query_string ==
-                 "Guid=351-260904-a1b2c3d4-{550e8400-e29b-41d4-a716-446655440000}"
+                 "Guid=351-260904-a1b2c3d4-%7B550e8400-e29b-41d4-a716-446655440000%7D"
 
-        assert conn.query_string =~ "{"
-        assert conn.query_string =~ "}"
-        refute conn.query_string =~ "%7B"
-        refute conn.query_string =~ "%7D"
+        # And the guid still arrives with its braces, once PHP has decoded it.
+        assert URI.decode(conn.query_string) =~ "{"
+        assert URI.decode(conn.query_string) =~ "}"
 
         Plug.Conn.send_resp(conn, 200, "<html>Indexed</html>")
       end)

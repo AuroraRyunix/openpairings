@@ -589,7 +589,7 @@ defmodule PairingsEngine.Federations.BEL.SwarPublish do
       |> Enum.sort_by(& &1.board)
       |> Enum.with_index()
       |> Enum.map_join("\n", fn {pairing, index} ->
-        board_row(pairing, scores_before, index)
+        board_row(pairing, scores_before, index, tournament.bye_value)
       end)
 
     """
@@ -619,47 +619,20 @@ defmodule PairingsEngine.Federations.BEL.SwarPublish do
   # hides a fully-vacated row for the same reason - so a round legitimately
   # carries pairings with one seat empty, or none. Reading `player.id` off the
   # nil that is there took the whole page down with a 500.
-  defp board_row(%{white_player_id: nil, black_player_id: nil}, _scores_before, _index), do: nil
+  defp board_row(%{white_player_id: nil, black_player_id: nil}, _scores_before, _index, _bye),
+    do: nil
 
   # Only black is seated: the mirror of the bye below, with the player shown on
   # the side they actually sat.
-  defp board_row(%{white_player_id: nil} = pairing, scores_before, index) do
-    player = pairing.black_player
-    points = Map.get(scores_before, player.id, 0.0)
-
-    """
-      <tr class='#{row_class(index)}'>
-        <td class='tdr'>&nbsp;</td>
-        <td class='tdl'>&nbsp;</td>
-        <td class='tdr'>&nbsp;</td>
-        <td class='tdcb'><i>#{esc(gettext("Vrij"))}</i></td>
-        <td class='tdl'>#{player_name(player)}</td>
-        <td class='tdc'>#{fmt_points(points)}</td>
-        <td class='tdr'>(#{Player.rating(player)})</td>
-        <td class='tdr'>&nbsp;</td>
-      </tr>\
-    """
+  defp board_row(%{white_player_id: nil} = pairing, scores_before, index, bye) do
+    seated_row(pairing.black_player, scores_before, index, bye)
   end
 
-  defp board_row(%{black_player_id: nil} = pairing, scores_before, index) do
-    player = pairing.white_player
-    points = Map.get(scores_before, player.id, 0.0)
-
-    """
-      <tr class='#{row_class(index)}'>
-        <td class='tdr'>&nbsp;</td>
-        <td class='tdl'>#{player_name(player)}</td>
-        <td class='tdc'>#{fmt_points(points)}</td>
-        <td class='tdr'>(#{Player.rating(player)})</td>
-        <td class='tdcb'><i>#{esc(gettext("Vrij"))}</i></td>
-        <td class='tdl'>&nbsp;</td>
-        <td class='tdr'>&nbsp;</td>
-        <td class='tdr'>&nbsp;</td>
-      </tr>\
-    """
+  defp board_row(%{black_player_id: nil} = pairing, scores_before, index, bye) do
+    seated_row(pairing.white_player, scores_before, index, bye)
   end
 
-  defp board_row(pairing, scores_before, index) do
+  defp board_row(pairing, scores_before, index, _bye) do
     white = pairing.white_player
     black = pairing.black_player
     white_points = Map.get(scores_before, white.id, 0.0)
@@ -675,6 +648,33 @@ defmodule PairingsEngine.Federations.BEL.SwarPublish do
         <td class='tdl'>#{player_name(black)}</td>
         <td class='tdr'>#{fmt_points(black_points)}</td>
         <td class='tdr'>(#{Player.rating(black)})</td>
+      </tr>\
+    """
+  end
+
+  # A board with one player on it, whichever side they sat.
+  #
+  # Shaped from a real published file rather than guessed: SWAR puts the
+  # POINTS AWARDED in the result cell and the word in the opponent's name
+  # cell, and the row is seven cells rather than the usual eight -
+  #
+  #   <td class='tdcb'>1</td><td class='tdlb'><i>Bye</i></td><td class='tdl'>&nbsp;</td>
+  #
+  # An earlier guess put the word in the result cell and left the opponent
+  # blank, which read as a label floating in the wrong column. An absence is
+  # the identical row with 0 and "Afwezig", so the same function writes both.
+  defp seated_row(player, scores_before, index, bye) do
+    points = Map.get(scores_before, player.id, 0.0)
+
+    """
+      <tr class='#{row_class(index)}'>
+        <td class='tdr'>&nbsp;</td>
+        <td class='tdl'>#{player_name(player)}</td>
+        <td class='tdc'>#{fmt_points(points)}</td>
+        <td class='tdr'>(#{Player.rating(player)})</td>
+        <td class='tdcb'>#{esc(fmt_points(bye))}</td>
+        <td class='tdlb'><i>#{esc(gettext("Bye"))}</i></td>
+        <td class='tdl'>&nbsp;</td>
       </tr>\
     """
   end

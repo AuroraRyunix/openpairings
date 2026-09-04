@@ -211,7 +211,11 @@ defmodule PairingsEngine.Federations.BEL.SwarPublishTest do
       html = SwarPublish.export(tournament)
 
       assert html =~ "<tr id='Round2'>"
-      assert html =~ "Vrij"
+      # "Bye", not "Vrij" - taken from a real published file with byes in it
+      # (SwarResults/417/260902-...), which puts the awarded points in the
+      # result cell and the word where the opponent's name would be. The
+      # earlier "Vrij" was a guess made with no bye anywhere to copy.
+      assert html =~ "Bye"
     end
   end
 
