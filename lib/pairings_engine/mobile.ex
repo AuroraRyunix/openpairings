@@ -12,6 +12,7 @@ defmodule PairingsEngine.Mobile do
   """
   import Ecto.Query
 
+  alias PairingsEngine.Authz
   alias PairingsEngine.Repo
   alias PairingsEngine.Tournaments
   alias PairingsEngine.Mobile.Enrollment
@@ -35,7 +36,8 @@ defmodule PairingsEngine.Mobile do
   same fact delivered while it can still be acted on.
   """
   def create_enrollment(tournament_id, opts \\ []) do
-    with :ok <- Tournaments.ensure_writable(tournament_id) do
+    with :ok <- ensure_hosted(),
+         :ok <- Tournaments.ensure_writable(tournament_id) do
       ttl = Keyword.get(opts, :ttl_hours, @default_ttl_hours)
 
       expires_at =
@@ -191,6 +193,24 @@ defmodule PairingsEngine.Mobile do
     data
     |> EQRCode.encode()
     |> EQRCode.svg(width: 240, background_color: "#ffffff", color: "#111111")
+  end
+
+  # Phone enrolment is a hosted-only feature, and this is where that is
+  # decided - not the hidden panel on the Live Round page.
+  #
+  # A local run binds to loopback, so no phone could reach it anyway and the
+  # panel is replaced by a line saying so. But hiding a control is not the
+  # same as refusing the action behind it: this codebase's own rule, written
+  # into `PairingsEngineWeb.FideLive`, is that a control absent from the page
+  # is still an event anybody can send. Minting was reachable that way.
+  #
+  # It matters more than the loopback bind makes it look. The day a local run
+  # gains any way to answer another machine - an explicit listen address, a
+  # tunnel, someone's reverse proxy - it has no accounts at all, and an
+  # enrolment token would be the one credential that works from off the box.
+  # Refusing here means that day cannot arrive by accident.
+  defp ensure_hosted do
+    if Authz.local_mode?(), do: {:error, :local_mode}, else: :ok
   end
 
   # ---- internals ----

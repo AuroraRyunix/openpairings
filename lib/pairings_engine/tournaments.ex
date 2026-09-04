@@ -1670,6 +1670,14 @@ defmodule PairingsEngine.Tournaments do
   def refusal_message(:handed_off, action),
     do: "This tournament has been handed off - take it back before #{action}."
 
+  # Not a failure to work around - phone enrolment is a hosted-only feature,
+  # and a local run has no accounts, so an enrolment token would be the one
+  # credential that worked from another machine. See `Mobile.ensure_hosted/0`.
+  def refusal_message(:local_mode, action),
+    do:
+      "Not available when OpenPairings runs on your own computer - " <>
+        "#{action} needs the hosted version."
+
   def change_tournament(%Tournament{} = tournament, attrs \\ %{}) do
     Tournament.changeset(tournament, attrs)
   end
