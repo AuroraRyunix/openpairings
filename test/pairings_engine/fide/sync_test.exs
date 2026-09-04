@@ -287,6 +287,11 @@ defmodule PairingsEngine.Fide.SyncTest do
       # maintaining the index.
       assert fts_trigger_names() == before_triggers
 
+      # And the index has exactly one row per player - no orphans left over
+      # from the old list, no duplicates from the rebuild.
+      %{rows: [[fts_count]]} = Repo.query!("SELECT count(*) FROM fide_players_fts")
+      assert fts_count == Repo.aggregate(FidePlayer, :count)
+
       Repo.insert_all(FidePlayer, [
         %{fide_id: 3_000_003, name: "Trig, Delta", federation: "BEL"}
       ])
@@ -297,7 +302,7 @@ defmodule PairingsEngine.Fide.SyncTest do
       assert fts_search("Delta") == []
     end
 
-    test "a rolled-back import leaves the triggers and the index intact" do
+    test "an aborted import (big-drop guard) leaves the triggers and the index intact" do
       before_triggers = fts_trigger_names()
 
       seed =
@@ -310,9 +315,9 @@ defmodule PairingsEngine.Fide.SyncTest do
       assert {:ok, _} = Sync.import_list(self(), seed, %Sync{})
       assert length(fts_search("Keep")) == 10
 
-      # Trips the big-drop guard, so the whole transaction rolls back --
-      # including the DROP TRIGGER statements, since SQLite DDL is
-      # transactional. If it didn't, the index would silently stop updating.
+      # Trips the big-drop guard, which now runs (and returns) before
+      # anything is touched - no DROP TRIGGER, no DELETE, so there is
+      # nothing to undo and nothing for a missing transaction to lose.
       row = fide_row(%{"ID Number" => "999999", "Name" => "OnlyOne, Player", "Fed" => "BEL"})
       assert {:error, reason} = Sync.import_list(self(), fide_text([row]), %Sync{})
       assert reason =~ "far fewer"

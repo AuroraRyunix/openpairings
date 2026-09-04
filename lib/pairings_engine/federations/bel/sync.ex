@@ -14,6 +14,14 @@ defmodule PairingsEngine.Federations.BEL.Sync do
 
   Progress is broadcast on the "kbsb_sync" PubSub topic and queryable via
   `status/0`.
+
+  Like the FIDE sync, the actual replace in `do_import_rows/4` does not run
+  inside one database transaction. SQLite allows exactly one writer for the
+  whole database, and holding that lock for as long as the roster takes to
+  reload used to queue every other write in the app behind it - see
+  `PairingsEngine.Fide.Sync`'s moduledoc for the full story, which applies
+  here unchanged. Each statement in `do_import_rows/4` commits on its own
+  instead.
   """
 
   use GenServer
@@ -51,7 +59,7 @@ defmodule PairingsEngine.Federations.BEL.Sync do
   Kicks off an import from the KBSB data platform's roster API instead of an
   uploaded file (see `PairingsEngine.Federations.BEL.Api`). Same GenServer, same
   status, same progress topic, same count guards and same full-replace
-  transaction - only the source of the rows differs, so the two can never
+  import - only the source of the rows differs, so the two can never
   disagree about what a valid import is.
   """
   def start_api_import, do: GenServer.cast(__MODULE__, :start_api_import)
@@ -279,53 +287,61 @@ defmodule PairingsEngine.Federations.BEL.Sync do
     state =
       update(server, %{state | total_rows: total, progress: "Importing players… 0 of #{total}"})
 
-    Repo.transaction(
-      fn ->
-        # Full replace: the imported list is authoritative for the rows it contains.
-        #
-        # Clear the FTS index FIRST, in one statement. The delete trigger on
-        # `kbsb_players` runs
-        #
-        #     DELETE FROM kbsb_players_fts WHERE national_id = old.national_id
-        #
-        # and `kbsb_players_fts` is an FTS5 virtual table, which cannot carry
-        # an index - so that WHERE is a full scan of the index, once per
-        # deleted row. Deleting the whole roster was therefore quadratic.
-        # Emptying the index up front leaves each trigger scanning an empty
-        # table instead of a full one.
-        #
-        # Measured (2026-09-03): 1k/2k/4k rows took 141/538/2136 ms before -
-        # four times the cost for twice the rows - and 3.8/8.4/14.7 ms after.
-        # Extrapolated to the current ~36k roster the old path needed about
-        # 171 s, against a 180 s watchdog: that is why this started FAILING
-        # at "Importing players... 0 of N" rather than merely being slow. It
-        # had been getting slower with every new member for weeks.
-        Repo.query!("DELETE FROM kbsb_players_fts")
-        Repo.query!("DELETE FROM kbsb_players")
+    # Full replace: the imported list is authoritative for the rows it contains.
+    #
+    # Clear the FTS index FIRST, in one statement. The delete trigger on
+    # `kbsb_players` runs
+    #
+    #     DELETE FROM kbsb_players_fts WHERE national_id = old.national_id
+    #
+    # and `kbsb_players_fts` is an FTS5 virtual table, which cannot carry
+    # an index - so that WHERE is a full scan of the index, once per
+    # deleted row. Deleting the whole roster was therefore quadratic.
+    # Emptying the index up front leaves each trigger scanning an empty
+    # table instead of a full one.
+    #
+    # Measured (2026-09-03): 1k/2k/4k rows took 141/538/2136 ms before -
+    # four times the cost for twice the rows - and 3.8/8.4/14.7 ms after.
+    # Extrapolated to the current ~36k roster the old path needed about
+    # 171 s, against a 180 s watchdog: that is why this started FAILING
+    # at "Importing players... 0 of N" rather than merely being slow. It
+    # had been getting slower with every new member for weeks.
+    #
+    # None of this runs inside a transaction any more (see the moduledoc):
+    # each statement commits and frees SQLite's write lock the moment it
+    # runs, instead of holding it for the whole roster. The trade-off is
+    # that a lookup landing between the two DELETEs below and the last
+    # insert chunk sees a roster that is empty or only partly reloaded, and
+    # a hard kill (cancel_import, or the watchdog) partway through leaves it
+    # that way until the next import finishes. Accepted: `import_rows/3`'s
+    # guards have already run and passed by the time any of this executes,
+    # so what follows is known-good data, and a stale/incomplete READ is a
+    # far smaller failure than every write in the app - an arbiter entering
+    # a result included - queuing behind a multi-minute transaction the way
+    # it used to. SQLite still guarantees each statement below is atomic to
+    # any other connection, so a concurrent lookup only ever sees a real,
+    # fully-committed count, never a torn row.
+    Repo.query!("DELETE FROM kbsb_players_fts")
+    Repo.query!("DELETE FROM kbsb_players")
 
-        rows
-        |> Stream.chunk_every(@insert_chunk_size)
-        |> Stream.with_index(1)
-        |> Enum.each(fn {chunk, i} ->
-          Repo.insert_all(Member, chunk,
-            on_conflict: :replace_all,
-            conflict_target: :national_id
-          )
+    rows
+    |> Stream.chunk_every(@insert_chunk_size)
+    |> Stream.with_index(1)
+    |> Enum.each(fn {chunk, i} ->
+      Repo.insert_all(Member, chunk,
+        on_conflict: :replace_all,
+        conflict_target: :national_id
+      )
 
-          imported = min(i * @insert_chunk_size, total)
+      imported = min(i * @insert_chunk_size, total)
 
-          update(server, %{
-            state
-            | imported_rows: imported,
-              progress: "Importing players… #{imported} of #{total}"
-          })
-        end)
-      end,
-      timeout: :infinity
-    )
-    |> case do
-      {:ok, _} -> {:ok, %{state | imported_rows: total}}
-      {:error, reason} -> {:error, reason}
-    end
+      update(server, %{
+        state
+        | imported_rows: imported,
+          progress: "Importing players… #{imported} of #{total}"
+      })
+    end)
+
+    {:ok, %{state | imported_rows: total}}
   end
 end

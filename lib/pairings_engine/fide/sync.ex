@@ -5,6 +5,17 @@ defmodule PairingsEngine.Fide.Sync do
 
   Progress is broadcast on the "fide_sync" PubSub topic and queryable via
   `status/0`.
+
+  The import that follows a successful download does not run inside one
+  database transaction. SQLite allows exactly one writer for the whole
+  database (not per table), and a transaction spanning the entire replace -
+  delete the ~1.9M existing rows, insert the ~1.9M new ones - held that
+  single write lock for minutes. Every other write in the app queued behind
+  it and, once `busy_timeout` ran out, was refused (see
+  `PairingsEngine.BusyWrite`) - an arbiter's round result included. Each
+  statement in `do_import_list/4` now commits on its own instead, so the
+  lock is free again between one insert chunk and the next. See that
+  function for what that trade costs and why it is accepted.
   """
 
   use GenServer
@@ -471,9 +482,9 @@ defmodule PairingsEngine.Fide.Sync do
   end
 
   # `@doc false` and `def` (not `defp`) purely so tests can drive this
-  # transaction/count-guard logic directly with synthetic FIDE-list text,
-  # without going through the real HTTP download+unpack - see
-  # PairingsEngine.Fide.SyncTest. Not part of the module's intended public API.
+  # count-guard logic directly with synthetic FIDE-list text, without going
+  # through the real HTTP download+unpack - see PairingsEngine.Fide.SyncTest.
+  # Not part of the module's intended public API.
   @doc false
   def import_list(server, text, state) do
     # :binary.split, not String.split: the text is Latin-1, not valid UTF-8.
@@ -488,99 +499,117 @@ defmodule PairingsEngine.Fide.Sync do
       |> Stream.map(&parse_line(&1, offsets))
       |> Stream.reject(&(is_nil(&1.fide_id) or &1.name in [nil, ""]))
 
-    # Snapshot the cache size *before* the transaction touches anything, so
-    # a corrupt/truncated download that still parses a valid header but
-    # yields few/no usable data rows can be detected and rolled back rather
-    # than silently wiping the whole local cache - see the guard below.
+    # Snapshot the cache size, and count how many usable rows this download
+    # actually parsed, BEFORE writing anything. `do_import_list/4` no longer
+    # runs inside one transaction (see the moduledoc), so there is nothing
+    # left to roll back if the download turns out corrupt or truncated -
+    # these two counts are everything the guard below needs, and both are
+    # cheap to know up front. `rows` is a lazy Stream over `lines`, so
+    # counting it here doesn't require materialising all ~1.9M parsed rows
+    # at once; `do_import_list/4` re-runs the same pipeline a second time to
+    # actually insert them.
     current_count = Repo.aggregate(FidePlayer, :count)
+    valid_count = Enum.count(rows)
 
-    Repo.transaction(
-      fn ->
-        # The `fide_players_fts` triggers are per-row, and the delete/update
-        # ones look the doomed row up with `WHERE fide_id = ?` on a column the
-        # FTS5 table declares UNINDEXED - so each firing scans the whole index.
-        # Fine for the ad-hoc single-row writes they exist for; quadratic for
-        # this full replace, which fires them ~1.9M times and never finishes.
-        # Suspend them, do the bulk work set-based, then put them back.
-        #
-        # Safe because it all rides the surrounding transaction: SQLite makes
-        # DDL transactional, so a rollback (including the guards below)
-        # restores the triggers along with the rows. They're captured from
-        # `sqlite_master` rather than written out here, so they always go back
-        # exactly as the migration defined them, even if that changes.
-        triggers = fts_triggers()
-        Enum.each(triggers, fn %{name: name} -> Repo.query!("DROP TRIGGER #{name}") end)
+    cond do
+      valid_count == 0 ->
+        {:error,
+         "FIDE import produced zero usable player rows - the downloaded file may be " <>
+           "corrupt or truncated. The existing #{format_int(current_count)}-player " <>
+           "cache was left untouched."}
 
-        # Full replace: the monthly list is authoritative (players do get removed).
-        Repo.query!("DELETE FROM fide_players")
-        Repo.query!("DELETE FROM fide_players_fts")
+      current_count > 0 and valid_count < div(current_count, 2) ->
+        {:error,
+         "FIDE import only produced #{format_int(valid_count)} usable player rows, far " <>
+           "fewer than the existing #{format_int(current_count)}-player cache - the " <>
+           "downloaded file may be corrupt or truncated. The existing cache was left " <>
+           "untouched."}
 
-        imported =
-          rows
-          |> Stream.chunk_every(2000)
-          |> Stream.with_index(1)
-          |> Enum.reduce(0, fn {chunk, i}, acc ->
-            Repo.insert_all(FidePlayer, chunk,
-              on_conflict: :replace_all,
-              conflict_target: :fide_id
-            )
-
-            # Real running total (not an i * 2000 approximation, which
-            # overcounts on a partial final chunk) - also what the
-            # zero-row/big-drop guard below checks.
-            imported = acc + length(chunk)
-
-            if rem(i, 25) == 0 do
-              update(server, %{
-                state
-                | imported_rows: imported,
-                  progress: "Importing players… #{format_int(imported)} of ~#{format_int(total)}"
-              })
-            end
-
-            imported
-          end)
-
-        cond do
-          imported == 0 ->
-            Repo.rollback(
-              "FIDE import produced zero usable player rows - the downloaded file may be " <>
-                "corrupt or truncated. The existing #{format_int(current_count)}-player " <>
-                "cache was left untouched."
-            )
-
-          current_count > 0 and imported < div(current_count, 2) ->
-            Repo.rollback(
-              "FIDE import only produced #{format_int(imported)} usable player rows, far " <>
-                "fewer than the existing #{format_int(current_count)}-player cache - the " <>
-                "downloaded file may be corrupt or truncated. The existing cache was left " <>
-                "untouched."
-            )
-
-          true ->
-            # Only worth rebuilding the index once the import is known good -
-            # the guards above roll back, which would throw this away anyway.
-            update(server, %{
-              state
-              | imported_rows: imported,
-                progress: "Rebuilding the name index…"
-            })
-
-            Repo.query!(
-              "INSERT INTO fide_players_fts(fide_id, name) SELECT fide_id, name FROM fide_players"
-            )
-
-            Enum.each(triggers, fn %{sql: sql} -> Repo.query!(sql) end)
-
-            imported
-        end
-      end,
-      timeout: :infinity
-    )
-    |> case do
-      {:ok, imported} -> {:ok, %{state | imported_rows: imported}}
-      {:error, reason} -> {:error, reason}
+      true ->
+        do_import_list(server, rows, state, total)
     end
+  end
+
+  # The actual full replace, run only once the guard in `import_list/3` has
+  # already decided the download is trustworthy. Each statement here commits
+  # on its own (auto-committed, same as any SQLite statement outside an
+  # explicit BEGIN) rather than the whole thing riding one transaction, so
+  # the write lock is free again between an insert chunk and the next - see
+  # the moduledoc for why that matters.
+  defp do_import_list(server, rows, state, total) do
+    # The `fide_players_fts` triggers are per-row, and the delete/update
+    # ones look the doomed row up with `WHERE fide_id = ?` on a column the
+    # FTS5 table declares UNINDEXED - so each firing scans the whole index.
+    # Fine for the ad-hoc single-row writes they exist for; quadratic for
+    # this full replace, which fires them ~1.9M times and never finishes.
+    # Suspend them, do the bulk work set-based, then put them back.
+    #
+    # There is no surrounding transaction to undo this with any more. A hard
+    # kill here (cancel_sync, or the watchdog) between this drop and the
+    # recreate at the bottom of this function leaves the triggers absent and
+    # `fide_players` holding a partial replacement until the next sync runs
+    # to completion - accepted, because the alternative is the multi-minute
+    # lock this change exists to remove, and both a partial table and
+    # missing triggers are repaired by that next sync: it drops whatever
+    # triggers it finds (possibly none) and rebuilds the index from
+    # whatever's in the table either way. The triggers are still captured
+    # from `sqlite_master` rather than written out here, so on an ordinary
+    # (non-crashed) run they go back exactly as the migration defined them,
+    # even if that changes.
+    triggers = fts_triggers()
+    Enum.each(triggers, fn %{name: name} -> Repo.query!("DROP TRIGGER #{name}") end)
+
+    # Full replace: the monthly list is authoritative (players do get
+    # removed). Deleting first and inserting after means a lookup landing
+    # between the DELETE below and the last insert chunk sees a table that
+    # is empty or only partly reloaded - the mirror image of the trigger
+    # trade-off above, and accepted for the same reason: the guard already
+    # ran, so what follows is known-good data going in, and a shrunken read
+    # is a far smaller failure than every write in the app queuing behind a
+    # multi-minute transaction. SQLite still guarantees each statement below
+    # is atomic to any other connection, so what a reader sees mid-import is
+    # always a real, fully-committed count - never a torn row.
+    Repo.query!("DELETE FROM fide_players")
+    Repo.query!("DELETE FROM fide_players_fts")
+
+    imported =
+      rows
+      |> Stream.chunk_every(2000)
+      |> Stream.with_index(1)
+      |> Enum.reduce(0, fn {chunk, i}, acc ->
+        Repo.insert_all(FidePlayer, chunk,
+          on_conflict: :replace_all,
+          conflict_target: :fide_id
+        )
+
+        # Real running total (not an i * 2000 approximation, which
+        # overcounts on a partial final chunk).
+        imported = acc + length(chunk)
+
+        if rem(i, 25) == 0 do
+          update(server, %{
+            state
+            | imported_rows: imported,
+              progress: "Importing players… #{format_int(imported)} of ~#{format_int(total)}"
+          })
+        end
+
+        imported
+      end)
+
+    update(server, %{
+      state
+      | imported_rows: imported,
+        progress: "Rebuilding the name index…"
+    })
+
+    Repo.query!(
+      "INSERT INTO fide_players_fts(fide_id, name) SELECT fide_id, name FROM fide_players"
+    )
+
+    Enum.each(triggers, fn %{sql: sql} -> Repo.query!(sql) end)
+
+    {:ok, %{state | imported_rows: imported}}
   end
 
   # The `fide_players` triggers that maintain `fide_players_fts`, read back

@@ -28,8 +28,10 @@ defmodule PairingsEngine.BusyWrite do
   SQLite spent 15 seconds retrying internally before raising, so a loop of
   six attempts is a 90-second freeze rather than six quick tries. Waiting
   longer is not the fix - not holding the lock that long is (see
-  `PairingsEngine.Fide.Sync`, which is the only thing in the application
-  that ever holds it for more than milliseconds).
+  `PairingsEngine.Fide.Sync` and `PairingsEngine.Federations.BEL.Sync`,
+  which used to be the only things in the application that held it for more
+  than milliseconds, until their imports started committing in chunks
+  instead of running the whole replace inside one transaction).
   """
 
   require Logger
