@@ -468,6 +468,60 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
       assert enrollment.board_to == 5
     end
 
+    test "a name typed into the mint form shows on the just-minted panel and the device list", %{
+      conn: conn,
+      scope: scope
+    } do
+      local_mode(false)
+      tournament = paired_tournament(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/live")
+
+      html =
+        lv
+        |> form("form[phx-submit=generate_enrollment]", %{"label" => "Anke"})
+        |> render_submit()
+
+      assert html =~ "Anke"
+      assert [enrollment] = Mobile.list_enrollments(tournament.id)
+      assert enrollment.label == "Anke"
+    end
+
+    test "minting with no name is still allowed, and reads as no name given rather than blank", %{
+      conn: conn,
+      scope: scope
+    } do
+      local_mode(false)
+      tournament = paired_tournament(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/live")
+
+      html =
+        lv
+        |> form("form[phx-submit=generate_enrollment]", %{})
+        |> render_submit()
+
+      assert html =~ "No name given"
+      assert [enrollment] = Mobile.list_enrollments(tournament.id)
+      assert enrollment.label == ""
+    end
+
+    test "the device list says a fresh code has not been used yet, then says when it was claimed",
+         %{conn: conn, scope: scope} do
+      local_mode(false)
+      tournament = paired_tournament(scope)
+      {:ok, enrollment} = Mobile.create_enrollment(tournament.id)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/live")
+      assert html =~ "Not used yet"
+
+      assert {:ok, _claimed} = Mobile.claim(enrollment)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/live")
+      refute html =~ "Not used yet"
+      assert html =~ "Claimed"
+    end
+
     test "an invalid board range is refused with its own message, not the generic retry one", %{
       conn: conn,
       scope: scope

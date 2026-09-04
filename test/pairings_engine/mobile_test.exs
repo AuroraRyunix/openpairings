@@ -143,6 +143,50 @@ defmodule PairingsEngine.MobileTest do
     end
   end
 
+  describe "claim/1" do
+    test "the first claim wins and stamps claimed_at" do
+      {:ok, e} = Mobile.create_enrollment(tournament().id)
+      refute e.claimed_at
+
+      assert {:ok, claimed} = Mobile.claim(e)
+      assert %DateTime{} = claimed.claimed_at
+      # Not just the struct handed back - the row itself, since that is
+      # what the SECOND phone's claim actually reads.
+      assert Repo.get!(Enrollment, e.id).claimed_at == claimed.claimed_at
+    end
+
+    test "a second claim on the same row is refused" do
+      {:ok, e} = Mobile.create_enrollment(tournament().id)
+      assert {:ok, _claimed} = Mobile.claim(e)
+
+      assert Mobile.claim(e) == {:error, :already_claimed}
+    end
+
+    test "two concurrent claims of one code produce exactly one winner" do
+      # The point of this test: the guard has to live in the WHERE clause,
+      # not in Elixir. A read-then-write ("load the row, check claimed_at,
+      # then write") would let both of these processes read "unclaimed"
+      # before either had written, and both would win.
+      {:ok, e} = Mobile.create_enrollment(tournament().id)
+      owner = self()
+
+      results =
+        1..10
+        |> Task.async_stream(
+          fn _ ->
+            Ecto.Adapters.SQL.Sandbox.allow(Repo, owner, self())
+            Mobile.claim(e)
+          end,
+          max_concurrency: 10,
+          ordered: false
+        )
+        |> Enum.map(fn {:ok, result} -> result end)
+
+      assert Enum.count(results, &match?({:ok, %Enrollment{}}, &1)) == 1
+      assert Enum.count(results, &(&1 == {:error, :already_claimed})) == 9
+    end
+  end
+
   describe "revoke and expiry exclude an enrollment" do
     test "a revoked enrollment is no longer active" do
       {:ok, e} = Mobile.create_enrollment(tournament().id)

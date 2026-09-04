@@ -14,6 +14,12 @@ defmodule PairingsEngine.Mobile.Enrollment do
 
   `board_from`/`board_to` are an orthogonal, optional restriction on top of
   either level - both `nil` means every board.
+
+  `claimed_at` is who got here first, not who is allowed: `nil` means no
+  phone has used this code yet; once set (by `PairingsEngine.Mobile.claim/1`),
+  every later phone presenting the same token or code is refused rather than
+  handed a session too - see that function's docs for why the write that
+  sets it has to be the thing that decides, not a read beforehand.
   """
   use Ecto.Schema
 
@@ -26,6 +32,7 @@ defmodule PairingsEngine.Mobile.Enrollment do
     field :board_to, :integer
     field :expires_at, :utc_datetime
     field :revoked_at, :utc_datetime
+    field :claimed_at, :utc_datetime
 
     belongs_to :tournament, PairingsEngine.Tournaments.Tournament
 

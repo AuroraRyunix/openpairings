@@ -94,11 +94,30 @@ defmodule PairingsEngineWeb.LiveRoundLive do
 
   defp enrollment_opts(params) do
     [
+      label: params |> Map.get("label", "") |> to_string() |> String.trim(),
       level: Map.get(params, "level", "helper"),
       board_from: parse_board(params["board_from"]),
       board_to: parse_board(params["board_to"])
     ]
   end
+
+  # Shown wherever a code needs a face - the just-minted panel and the
+  # device list - so an arbiter matching phone to person doesn't fall back
+  # to reading out an 8-digit code. Naming is optional (an arbiter in a
+  # hurry must still be able to mint one with zero fields filled), so this
+  # is the one place that decides what an empty name reads as instead of a
+  # blank cell that looks like the row failed to load.
+  defp enrollment_name_label(%Mobile.Enrollment{label: ""}), do: gettext("No name given")
+  defp enrollment_name_label(%Mobile.Enrollment{label: label}), do: label
+
+  # What tells an arbiter whether the code they just handed over actually
+  # got scanned - "Not used yet" versus claimed-and-when, not just present
+  # in the list. `claimed_at` only ever moves nil -> a timestamp
+  # (`Mobile.claim/1`), never back, so there is no third state to render.
+  defp claim_status_label(%Mobile.Enrollment{claimed_at: nil}), do: gettext("Not used yet")
+
+  defp claim_status_label(%Mobile.Enrollment{claimed_at: %DateTime{} = claimed_at}),
+    do: gettext("Claimed %{when}", when: enroll_expiry(claimed_at))
 
   # A board-range validation failure gets its own message (what to fix);
   # anything else - a `:level` that didn't come from the `<select>`, say -
@@ -330,11 +349,30 @@ defmodule PairingsEngineWeb.LiveRoundLive do
               two compact fields (a level picker, an optional board range) on
               purpose: a permission matrix of checkboxes is easier to
               misconfigure in a hall with players waiting than one dropdown
-              that names the two levels plainly. --%>
+              that names the two levels plainly.
+
+              The name field goes FIRST, ahead of the level picker it used
+              to open on - now that a code is good for one phone only, "who
+              is this for" is the first thing worth asking, not an
+              afterthought filled in (or not) after the access decision. Not
+              `required`, though: an arbiter mid-round handing out codes as
+              fast as they can type still needs to mint one with nothing but
+              a tap on the button. --%>
         <form
           phx-submit="generate_enrollment"
           style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin: 0"
         >
+          <label style="display: flex; flex-direction: column; gap: 2px; font-size: 13px">
+            {gettext("Name (optional)")}
+            <input
+              type="text"
+              name="label"
+              class="pe-input"
+              maxlength="60"
+              placeholder={gettext("Anke, Board 1-10 helper")}
+            />
+          </label>
+
           <label style="display: flex; flex-direction: column; gap: 2px; font-size: 13px">
             {gettext("Access level")}
             <select name="level" class="pe-select">
@@ -376,6 +414,14 @@ defmodule PairingsEngineWeb.LiveRoundLive do
             </div>
           </div>
           <div>
+            <%!-- Named FIRST here too, above the code itself - this panel is
+                  what the arbiter is looking at while handing the phone
+                  over, and "which phone is this" is what settles that,
+                  not the digits. Absent when nothing was typed, same as
+                  the device list below leaving no gap where it would sit. --%>
+            <div :if={@new_enrollment.label != ""} class="enroll-name">
+              {@new_enrollment.label}
+            </div>
             <div class="enroll-code-label">{gettext("6-digit code")}</div>
             <div class="enroll-code">{@new_enrollment.code}</div>
             <p class="enroll-url">
@@ -397,8 +443,10 @@ defmodule PairingsEngineWeb.LiveRoundLive do
           <table class="pe-table">
             <tbody>
               <tr :for={e <- @enrollments}>
-                <td><strong>{gettext("Code %{code}", code: e.code)}</strong></td>
+                <td><strong>{enrollment_name_label(e)}</strong></td>
+                <td class="hint">{gettext("Code %{code}", code: e.code)}</td>
                 <td class="hint">{enrollment_scope_label(e)}</td>
+                <td class="hint">{claim_status_label(e)}</td>
                 <td class="hint">{gettext("expires %{when}", when: enroll_expiry(e.expires_at))}</td>
                 <td style="text-align: right">
                   <button class="pe-btn danger-link" phx-click="revoke_enrollment" phx-value-id={e.id}>
