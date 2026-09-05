@@ -13,7 +13,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
 
   import PairingsEngineWeb.SettingsSupport
 
-  alias PairingsEngine.{Audit, Authz, Features, Publishing, Tournaments}
+  alias PairingsEngine.{Audit, Authz, Features, Publishing, PlayerExport, Tournaments}
   alias PairingsEngine.Federations.BEL.SwarUpload
 
   @impl true
@@ -38,7 +38,17 @@ defmodule PairingsEngineWeb.SettingsExportLive do
        # infrastructure this app has no authentication with, so the same
        # bar applies.
        may_admin?: Authz.may_administer?(socket.assigns.current_scope.user),
-       swar_publish_result: nil
+       swar_publish_result: nil,
+       # The CSV picker's state lives only in this socket: it is a choice
+       # about one download, not a tournament setting, and persisting it
+       # would put a row in the database for every arbiter who ever opened
+       # this page. It survives where it matters - in the download URL,
+       # which is shareable and bookmarkable.
+       csv_cols: PlayerExport.default_columns(),
+       csv_delimiter: "comma",
+       csv_sort: "seed",
+       csv_skip_absent: false,
+       csv_bom: true
      )}
   end
 
@@ -160,6 +170,90 @@ defmodule PairingsEngineWeb.SettingsExportLive do
     else
       {:noreply, put_flash(socket, :error, swar_publish_restricted())}
     end
+  end
+
+  def handle_event("csv_add", %{"key" => key}, socket) do
+    case known_column(key) do
+      nil -> {:noreply, socket}
+      k -> {:noreply, update(socket, :csv_cols, &if(k in &1, do: &1, else: &1 ++ [k]))}
+    end
+  end
+
+  def handle_event("csv_remove", %{"key" => key}, socket) do
+    case known_column(key) do
+      nil -> {:noreply, socket}
+      k -> {:noreply, update(socket, :csv_cols, &List.delete(&1, k))}
+    end
+  end
+
+  def handle_event("csv_up", %{"key" => key}, socket) do
+    {:noreply, update(socket, :csv_cols, &move(&1, known_column(key), -1))}
+  end
+
+  def handle_event("csv_down", %{"key" => key}, socket) do
+    {:noreply, update(socket, :csv_cols, &move(&1, known_column(key), 1))}
+  end
+
+  def handle_event("csv_opts", params, socket) do
+    {:noreply,
+     assign(socket,
+       csv_delimiter:
+         pick(params["delimiter"], PlayerExport.delimiter_names(), socket.assigns.csv_delimiter),
+       csv_sort: pick(params["sort"], PlayerExport.sort_orders(), socket.assigns.csv_sort),
+       csv_skip_absent: params["skip_absent"] == "true",
+       csv_bom: params["bom"] == "true"
+     )}
+  end
+
+  defp pick(value, allowed, fallback), do: if(value in allowed, do: value, else: fallback)
+
+  # A phx-value can say anything, so the key is resolved against the
+  # export's own vocabulary rather than through String.to_atom - which on a
+  # crafted event would grow the atom table for as long as somebody kept
+  # sending them.
+  defp known_column(key) when is_binary(key) do
+    case PlayerExport.parse_columns(key) do
+      [k] -> if Atom.to_string(k) == key, do: k
+      _ -> nil
+    end
+  end
+
+  defp known_column(_), do: nil
+
+  defp move(list, nil, _offset), do: list
+
+  defp move(list, key, offset) do
+    case Enum.find_index(list, &(&1 == key)) do
+      nil ->
+        list
+
+      index ->
+        target = index + offset
+
+        if target < 0 or target >= length(list) do
+          list
+        else
+          moved = Enum.at(list, index)
+          displaced = Enum.at(list, target)
+          list |> List.replace_at(index, displaced) |> List.replace_at(target, moved)
+        end
+    end
+  end
+
+  defp available_columns(chosen) do
+    Enum.reject(PlayerExport.columns(), fn {key, _label, _kind} -> key in chosen end)
+  end
+
+  defp delimiter_label("comma"), do: gettext("Comma  ,")
+
+  defp delimiter_label("semicolon"),
+    do: gettext("Semicolon  ;   (Excel on a Belgian/Dutch machine)")
+
+  defp delimiter_label("tab"), do: gettext("Tab")
+  defp delimiter_label("pipe"), do: gettext("Pipe  |")
+
+  defp csv_href(assigns) do
+    ~p"/t/#{assigns.tournament.id}/export/players?#{[cols: Enum.join(assigns.csv_cols, ","), delimiter: assigns.csv_delimiter, sort: assigns.csv_sort, skip_absent: if(assigns.csv_skip_absent, do: "1", else: "0"), bom: if(assigns.csv_bom, do: "1", else: "0")]}"
   end
 
   defp swar_publish_restricted,
@@ -336,6 +430,129 @@ defmodule PairingsEngineWeb.SettingsExportLive do
           >
             {gettext("Finish indexing")}
           </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>{gettext("Export players (CSV)")}</h2>
+
+        <p class="hint" style="margin-top: 0">
+          {gettext(
+            "Choose the fields, put them in the order you want them, and pick what separates the columns. Excel splits on the list separator of the machine's locale - on a Belgian or Dutch Windows that is a semicolon, not a comma, and a comma-separated file opens as one column of text."
+          )}
+        </p>
+
+        <div class="set-group">
+          <span class="set-label">{gettext("Columns, in this order")}</span>
+
+          <p :if={@csv_cols == []} class="hint">
+            {gettext("Nothing chosen - the download falls back to the standard set.")}
+          </p>
+
+          <div
+            :for={{key, index} <- Enum.with_index(@csv_cols)}
+            class="actions"
+            style="justify-content: space-between; align-items: center; padding: 2px 0"
+          >
+            <span>{index + 1}. {PlayerExport.label(key)}</span>
+            <span class="actions">
+              <button
+                type="button"
+                class="pe-btn"
+                phx-click="csv_up"
+                phx-value-key={key}
+                disabled={index == 0}
+                title={gettext("Move up")}
+              >
+                &uarr;
+              </button>
+              <button
+                type="button"
+                class="pe-btn"
+                phx-click="csv_down"
+                phx-value-key={key}
+                disabled={index == length(@csv_cols) - 1}
+                title={gettext("Move down")}
+              >
+                &darr;
+              </button>
+              <button type="button" class="pe-btn" phx-click="csv_remove" phx-value-key={key}>
+                {gettext("Remove")}
+              </button>
+            </span>
+          </div>
+        </div>
+
+        <div class="set-group">
+          <span class="set-label">{gettext("Add a field")}</span>
+          <div class="round-picker" style="flex-wrap: wrap">
+            <button
+              :for={{key, label, _kind} <- available_columns(@csv_cols)}
+              type="button"
+              class="pe-btn filter-picker"
+              phx-click="csv_add"
+              phx-value-key={key}
+            >
+              + {label}
+            </button>
+          </div>
+        </div>
+
+        <%!-- The id is not decoration: without one LiveView cannot recover
+              the form after a reconnect, and says so loudly. --%>
+        <form id="csv-options" phx-change="csv_opts">
+          <.setting_group>
+            <.setting_field label={gettext("Column separator")}>
+              <select name="delimiter">
+                <option
+                  :for={name <- PlayerExport.delimiter_names()}
+                  value={name}
+                  selected={name == @csv_delimiter}
+                >
+                  {delimiter_label(name)}
+                </option>
+              </select>
+            </.setting_field>
+
+            <.setting_field label={gettext("Row order")}>
+              <select name="sort">
+                <option value="seed" selected={@csv_sort == "seed"}>
+                  {gettext("Seed - starting rank, then rating")}
+                </option>
+                <option value="name" selected={@csv_sort == "name"}>
+                  {gettext("Name - A to Z")}
+                </option>
+              </select>
+            </.setting_field>
+
+            <.setting_toggle
+              name="skip_absent"
+              label={gettext("Leave out players marked absent")}
+              checked={@csv_skip_absent}
+              hint={
+                gettext(
+                  "The permanent Absent checkbox only. Somebody who is just missing one round still appears."
+                )
+              }
+            />
+
+            <.setting_toggle
+              name="bom"
+              label={gettext("Excel-friendly (UTF-8 marker)")}
+              checked={@csv_bom}
+              hint={
+                gettext(
+                  "Without it Excel reads an accented name as mojibake. Switch it off if a script refuses the leading bytes."
+                )
+              }
+            />
+          </.setting_group>
+        </form>
+
+        <div class="actions">
+          <a class="pe-btn primary" href={csv_href(assigns)}>
+            {gettext("Download players (CSV)")}
+          </a>
         </div>
       </div>
     </Layouts.app>

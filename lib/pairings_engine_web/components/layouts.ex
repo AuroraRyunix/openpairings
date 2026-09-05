@@ -122,6 +122,9 @@ defmodule PairingsEngineWeb.Layouts do
               <.link navigate={~p"/t/#{@tournament.id}/settings/options"} class="topbar-menu-item">
                 {gettext("Options")}
               </.link>
+              <.link navigate={~p"/t/#{@tournament.id}/settings/results"} class="topbar-menu-item">
+                {gettext("OpenResults")}
+              </.link>
               <.link navigate={~p"/t/#{@tournament.id}/settings/scoring"} class="topbar-menu-item">
                 {gettext("Scoring")}
               </.link>
@@ -139,6 +142,19 @@ defmodule PairingsEngineWeb.Layouts do
               </.link>
               <.link navigate={~p"/t/#{@tournament.id}/settings/fide"} class="topbar-menu-item">
                 FIDE
+              </.link>
+              <%!-- These three were in the Settings sub-nav but not in this
+                    menu, so the only way to reach Export was to open some
+                    OTHER settings page first and then find it in the row of
+                    tabs there - i.e. the entry was unreachable to anyone who
+                    did not already know it existed. The two navs list the
+                    same pages, in the same order; a page added to one
+                    belongs in the other. --%>
+              <.link navigate={~p"/t/#{@tournament.id}/settings/about"} class="topbar-menu-item">
+                {gettext("About")}
+              </.link>
+              <.link navigate={~p"/t/#{@tournament.id}/settings/export"} class="topbar-menu-item">
+                {gettext("Export")}
               </.link>
             </div>
           </details>

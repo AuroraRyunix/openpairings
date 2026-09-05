@@ -31,6 +31,7 @@ defmodule PairingsEngineWeb.ExportController do
   alias PairingsEngine.{
     Handoff,
     PgnExport,
+    PlayerExport,
     TournamentExport,
     Tournaments,
     TrfExport
@@ -90,6 +91,43 @@ defmodule PairingsEngineWeb.ExportController do
       "attachment; filename=\"#{filename(tournament, "pgn")}\""
     )
     |> send_resp(200, text)
+  end
+
+  @doc """
+  GET /t/:id/export/players - the player list as CSV.
+
+  Every knob is a query parameter rather than stored state, so the link is
+  bookmarkable and survives being shared: `cols` is the ordered,
+  comma-separated column keys, `delimiter` one of comma / semicolon / tab /
+  pipe, `sort` seed or name, `skip_absent=1` drops players flagged
+  permanently absent, and `bom=0` omits the UTF-8 marker Excel wants in
+  order to read accented names correctly.
+
+  Unknown values do not fail the download - `PairingsEngine.PlayerExport`
+  falls back to its defaults. An error page instead of a file would be a
+  poor trade for a typo in a query string.
+  """
+  def players(conn, %{"id" => id} = params) do
+    tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
+
+    csv =
+      tournament.id
+      |> Tournaments.list_players()
+      |> PlayerExport.export(
+        columns: PlayerExport.parse_columns(params["cols"]),
+        delimiter: params["delimiter"],
+        sort: params["sort"],
+        skip_absent: params["skip_absent"] == "1",
+        bom: params["bom"] != "0"
+      )
+
+    conn
+    |> put_resp_content_type("text/csv")
+    |> put_resp_header(
+      "content-disposition",
+      "attachment; filename=\"#{tournament_slug(tournament)}-players.csv\""
+    )
+    |> send_resp(200, csv)
   end
 
   defp parse_round_param(nil), do: nil

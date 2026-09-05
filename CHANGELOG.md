@@ -14,6 +14,28 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.39.0] - 2026-09-05
+
+- [Feature] **The player list exports as CSV, shaped the way you need it.**
+  Settings - Export now has a picker: choose which fields go in the file, put
+  them in the order you want them (they come out in that order, not in some
+  fixed internal one), sort the rows by seed or by name, and leave out anyone
+  flagged permanently absent - a player who is just missing one round still
+  appears. You can also choose what separates the columns, which matters more
+  than it sounds: Excel splits on the list separator of the machine's locale,
+  so on a Belgian or Dutch Windows a comma-separated file opens as a single
+  column of text and a semicolon-separated one just opens. The whole choice
+  lives in the download link, so it can be bookmarked or passed to somebody
+  else. Names that begin with `=`, `+`, `-` or `@` are neutralised on the way
+  out - a spreadsheet would otherwise run them as formulas.
+
+- [Fix] **Export was unreachable from the Settings menu.** The top-bar
+  "Settings" menu listed seven of the ten settings pages: OpenResults, About
+  and Export were missing, so the only way to reach Export was to open some
+  other settings page first and find it in the row of tabs there. Anyone who
+  did not already know it existed could not get to it. Both menus now list the
+  same pages in the same order.
+
 ## [0.38.0] - 2026-09-05
 
 - [Fix] **Deleting a player turned their opponents' losses into points.** The

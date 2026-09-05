@@ -42,6 +42,75 @@ defmodule PairingsEngineWeb.ExportControllerTest do
     {tournament, %{alice: alice, bob: bob}}
   end
 
+  ## ---------- GET /t/:id/export/players ----------
+
+  describe "players/2" do
+    test "downloads a CSV named after the tournament", %{conn: conn, scope: scope} do
+      {tournament, _} = fixture(scope)
+
+      conn = get(conn, ~p"/t/#{tournament.id}/export/players")
+
+      assert response_content_type(conn, :csv) =~ "text/csv"
+
+      assert ["attachment; filename=\"export-ctrl-test-players.csv\""] =
+               get_resp_header(conn, "content-disposition")
+    end
+
+    test "honours the chosen columns, their order, and the separator", %{conn: conn, scope: scope} do
+      {tournament, _} = fixture(scope)
+
+      conn =
+        get(
+          conn,
+          ~p"/t/#{tournament.id}/export/players?#{[cols: "name,pairing_number", delimiter: "semicolon", bom: "0"]}"
+        )
+
+      body = response(conn, 200)
+      assert String.starts_with?(body, "Name;Nr\r\n")
+      assert body =~ "Alice;1"
+    end
+
+    test "skip_absent leaves out the permanently absent", %{conn: conn, scope: scope} do
+      {tournament, players} = fixture(scope)
+      Repo.update!(Ecto.Changeset.change(players.bob, absent: true))
+
+      body =
+        conn
+        |> get(
+          ~p"/t/#{tournament.id}/export/players?#{[cols: "name", skip_absent: "1", bom: "0"]}"
+        )
+        |> response(200)
+
+      assert body =~ "Alice"
+      refute body =~ "Bob"
+    end
+
+    test "a nonsense parameter still yields a file rather than an error page", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, _} = fixture(scope)
+
+      body =
+        conn
+        |> get(
+          ~p"/t/#{tournament.id}/export/players?#{[cols: "nope", delimiter: "nope", sort: "nope"]}"
+        )
+        |> response(200)
+
+      assert body =~ "Name"
+    end
+
+    test "another user's tournament 404s like every other export", %{scope: scope} do
+      {tournament, _} = fixture(scope)
+      other = PairingsEngineWeb.ConnCase.register_and_log_in_user(%{conn: build_conn()})
+
+      assert_error_sent 404, fn ->
+        get(other.conn, ~p"/t/#{tournament.id}/export/players")
+      end
+    end
+  end
+
   ## ---------- GET /t/:id/export/trf ----------
 
   describe "trf/2" do

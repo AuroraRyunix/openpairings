@@ -269,4 +269,127 @@ defmodule PairingsEngineWeb.SettingsExportLiveTest do
       assert html =~ "data-confirm="
     end
   end
+
+  describe "the players CSV card" do
+    # The download link IS the state: everything the picker does has to end
+    # up in this href, because that is all the controller ever sees.
+    defp csv_link(lv) do
+      [_, href] = Regex.run(~r/href="([^"]*export\/players[^"]*)"/, render(lv))
+      href |> String.replace("&amp;", "&") |> URI.decode()
+    end
+
+    defp click(lv, event, key) do
+      lv
+      |> element(~s(button[phx-click="#{event}"][phx-value-key="#{key}"]))
+      |> render_click()
+    end
+
+    test "offers the standard columns and a link that carries them", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/export")
+
+      assert html =~ "Export players (CSV)"
+      assert csv_link(lv) =~ "cols=pairing_number,name,title,fide_rating,national_rating"
+      assert csv_link(lv) =~ "delimiter=comma"
+      assert csv_link(lv) =~ "sort=seed"
+    end
+
+    test "a field can be added and removed", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/export")
+
+      click(lv, "csv_add", "category")
+      assert csv_link(lv) =~ "category"
+
+      click(lv, "csv_remove", "category")
+      refute csv_link(lv) =~ "category"
+    end
+
+    test "a field can be moved, and the link says so", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/export")
+
+      # Default order starts pairing_number,name - move name in front of it.
+      click(lv, "csv_up", "name")
+      assert csv_link(lv) =~ "cols=name,pairing_number,"
+
+      click(lv, "csv_down", "name")
+      assert csv_link(lv) =~ "cols=pairing_number,name,"
+    end
+
+    test "the ends of the list cannot be moved off it", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/export")
+
+      # The first row's "up" and the last row's "down" are disabled, so the
+      # list cannot be walked off either end.
+      assert html =~ "disabled"
+      before = csv_link(lv)
+      render_click(lv, "csv_up", %{"key" => "pairing_number"})
+      assert csv_link(lv) == before
+    end
+
+    test "separator, row order and both toggles reach the link", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/export")
+
+      render_change(lv, "csv_opts", %{
+        "delimiter" => "semicolon",
+        "sort" => "name",
+        "skip_absent" => "true",
+        "bom" => "false"
+      })
+
+      link = csv_link(lv)
+      assert link =~ "delimiter=semicolon"
+      assert link =~ "sort=name"
+      assert link =~ "skip_absent=1"
+      assert link =~ "bom=0"
+    end
+
+    test "a crafted key changes nothing", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/export")
+
+      before = csv_link(lv)
+      render_click(lv, "csv_add", %{"key" => "not_a_column"})
+      render_click(lv, "csv_remove", %{"key" => "Elixir.PairingsEngine"})
+      assert csv_link(lv) == before
+    end
+
+    test "the link actually downloads a CSV shaped the way the picker says", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+
+      PairingsEngine.Repo.insert!(%PairingsEngine.Tournaments.Player{
+        tournament_id: tournament.id,
+        name: "Zoe",
+        pairing_number: 2
+      })
+
+      PairingsEngine.Repo.insert!(%PairingsEngine.Tournaments.Player{
+        tournament_id: tournament.id,
+        name: "Abe",
+        pairing_number: 1
+      })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/export")
+
+      render_change(lv, "csv_opts", %{
+        "delimiter" => "semicolon",
+        "sort" => "name",
+        "bom" => "false"
+      })
+
+      body = conn |> get(csv_link(lv)) |> response(200)
+
+      assert body =~ "Name;"
+      assert body =~ "Abe"
+      # Sorted by name, so Abe precedes Zoe even though Zoe has no lower seed.
+      assert :binary.match(body, "Abe") < :binary.match(body, "Zoe")
+    end
+  end
 end
