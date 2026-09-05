@@ -16,8 +16,7 @@ defmodule PairingsEngine.PlayerExportTest do
     # NOT trim: true - a player whose only column is empty is a
     # legitimately empty row, and trimming hid it. The file ends with
     # CRLF, so the last element is the empty string after it.
-    |> String.split("
-")
+    |> String.split("\r\n")
     |> Enum.drop(-1)
   end
 
