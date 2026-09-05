@@ -719,11 +719,11 @@ defmodule PairingsEngine.Federations.BEL.SwarPublish do
   # Only black is seated: the mirror of the bye below, with the player shown on
   # the side they actually sat.
   defp board_row(%{white_player_id: nil} = pairing, scores_before, index, bye) do
-    seated_row(pairing.black_player, scores_before, index, bye)
+    seated_row(pairing.black_player, pairing.result, scores_before, index, bye)
   end
 
   defp board_row(%{black_player_id: nil} = pairing, scores_before, index, bye) do
-    seated_row(pairing.white_player, scores_before, index, bye)
+    seated_row(pairing.white_player, pairing.result, scores_before, index, bye)
   end
 
   defp board_row(pairing, scores_before, index, _bye) do
@@ -773,6 +773,22 @@ defmodule PairingsEngine.Federations.BEL.SwarPublish do
   # truth for what each type scores - a requested half is worth a draw, and an
   # absence can taper by occurrence. Reading it rather than re-deciding here is
   # what stops this page disagreeing with the standings printed above it.
+  # What a one-seated board actually scored, not what a bye is worth.
+  #
+  # This cell used to print `tournament.bye_value` unconditionally, so a board
+  # where the arbiter had vacated one seat AND recorded a real result - a
+  # forfeit, say - was published to the federation's public site as a
+  # full-point bye. The page said something the tournament did not.
+  #
+  # A blank result, or the literal "bye", is a genuine bye and takes the
+  # tournament's bye value. Anything else is a recorded result and is shown as
+  # itself.
+  defp single_seat_award(result, bye) when result in [nil, "", "bye"], do: fmt_award(bye)
+
+  # `result_token/1` returns nil only for the blank/"bye" cases the clause
+  # above already took, so anything reaching here has a token.
+  defp single_seat_award(result, _bye), do: result_token(result)
+
   defp absence_rows(tournament, round, scores_before) do
     tournament.id
     |> Tournaments.list_byes_for_round(round.number)
@@ -796,7 +812,7 @@ defmodule PairingsEngine.Federations.BEL.SwarPublish do
     end)
   end
 
-  defp seated_row(player, scores_before, index, bye) do
+  defp seated_row(player, result, scores_before, index, bye) do
     points = Map.get(scores_before, player.id, 0.0)
 
     """
@@ -805,7 +821,7 @@ defmodule PairingsEngine.Federations.BEL.SwarPublish do
         <td class='tdl'>#{player_name(player)}</td>
         <td class='tdc'>#{fmt_points(points)}</td>
         <td class='tdr'>(#{Player.rating(player)})</td>
-        <td class='tdcb'>#{esc(fmt_award(bye))}</td>
+        <td class='tdcb'>#{esc(single_seat_award(result, bye))}</td>
         <td class='tdlb'><i>#{esc(gettext("Bye"))}</i></td>
         <td class='tdl'>&nbsp;</td>
       </tr>\

@@ -14,6 +14,19 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.37.1] - 2026-09-05
+
+- [Fix] **A hall screen opened by URL never cycled.** `?display=1` exists so a
+  machine can be pointed at an address and left alone, and that was the one
+  path that never started the timer - it was reached only from the button, the
+  pause toggle and its own tick. The screen showed the first page of boards
+  for the rest of the tournament.
+- [Fix] **A vacated seat was published as a full-point bye whatever the result
+  said.** A board with one seat emptied printed the tournament's bye value
+  unconditionally, so one carrying a recorded forfeit went to the federation's
+  public site as a bye. It now shows what the arbiter entered, and falls back
+  to the bye value only when there is genuinely no result.
+
 ## [0.37.0] - 2026-09-04
 
 - [Fix] **A player who was away now appears on the published page.** Declared

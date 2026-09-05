@@ -80,4 +80,26 @@ defmodule PairingsEngine.Federations.BEL.SwarPublishSeatsTest do
 
     for n <- 1..4, do: assert(html =~ "Player #{n}")
   end
+
+  test "a one-seated board with a recorded result publishes that result, not a bye" do
+    # It used to print the tournament's bye value whatever the arbiter had
+    # entered, so a vacated seat carrying a forfeit went to the federation's
+    # public site as a full-point bye. The page said something the tournament
+    # did not.
+    t = tournament_with_pairings([{1, nil}])
+    [p] = Repo.all(Pairing)
+    Repo.update!(Ecto.Changeset.change(p, result: "1-0FF"))
+
+    html = SwarPublish.export(Repo.reload!(t))
+
+    assert html =~ "Player 1"
+    refute html =~ "<td class='tdcb'>1</td>", "a recorded forfeit must not print as a bye's point"
+  end
+
+  test "a genuine bye still shows the tournament's bye value" do
+    t = tournament_with_pairings([{1, nil}])
+    html = SwarPublish.export(t)
+
+    assert html =~ "Bye"
+  end
 end

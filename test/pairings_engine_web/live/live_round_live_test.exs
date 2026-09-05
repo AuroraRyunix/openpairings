@@ -764,6 +764,24 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
 
       assert html =~ "Leave projector view"
     end
+
+    test "and the cycle is already running, without anybody pressing anything", %{
+      conn: conn,
+      scope: scope
+    } do
+      # The whole point of the URL: a machine drives a hall screen and nobody
+      # touches it. The timer used to be started only by the button, the pause
+      # toggle and its own tick, so this path showed page one for the rest of
+      # the tournament.
+      tournament = big_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/live?display=1")
+
+      render_click(lv, "rows_fit", %{"rows" => 2})
+      assert render(lv) =~ "Page 1 of 3"
+
+      send(lv.pid, :cycle_page)
+      assert render(lv) =~ "Page 2 of 3"
+    end
   end
 
   describe "a round is live, or it is not" do

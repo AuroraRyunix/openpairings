@@ -75,7 +75,15 @@ defmodule PairingsEngineWeb.LiveRoundLive do
        cycle_timer: nil
      )
      |> assign_enrollments()
-     |> reload()}
+     |> reload()
+     # Start the cycle here, not only when the button is pressed.
+     #
+     # `?display=1` exists so a machine that drives a hall screen can be
+     # pointed at a URL and left alone - and that was the one path that never
+     # started the timer, because `reschedule_cycle/1` was reached only from
+     # `toggle_display`, `toggle_pause` and the tick itself. The kiosk showed
+     # page one of the boards for the rest of the tournament.
+     |> reschedule_cycle()}
   end
 
   defp reschedule_cycle(socket) do
