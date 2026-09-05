@@ -664,18 +664,27 @@ defmodule PairingsEngine.Keizer do
       is_nil(opponent_id) and game.result == "" ->
         %{round: game.round, class: :vacated_seat, points: 0.0, opponent_id: nil}
 
-      # A played-game code with nobody on the other side - not a shape this
-      # app writes, but SWAR-imported rounds carry it (see
-      # `PairingsEngine.Pairing.bye_safe_result/2`, which normalises it for
-      # TRF export). Left in the bye bucket deliberately: it is a scored
-      # outcome with no opponent to value, which is what an unpaired bye is.
-      is_nil(opponent_id) ->
-        %{
-          round: game.round,
-          class: :unpaired_bye,
-          points: own(values, player) / 2,
-          opponent_id: nil
-        }
+      # A played-game code with nobody on the other side USED TO BE scored
+      # here as an unpaired bye, on the stated grounds that this app never
+      # writes that shape and only SWAR imports carry it. Both halves of
+      # that were wrong. `swar_import.ex` never writes a nil seat at all,
+      # and the arbiter's own "Remove" button on the Players grid does:
+      # `pairings.black_player_id` is `on_delete: :nilify_all`, so deleting
+      # a player leaves every game they played as `{opponent: nil, result:
+      # unchanged}`.
+      #
+      # Scoring that as a bye paid `own/2` for it - so deleting the winner
+      # of a board handed the player who LOST that game half a ladder rung,
+      # and `round_stats/2` dropped the loss from the W/D/L line as well.
+      #
+      # It falls through to the general clause instead: the result stands,
+      # and the vanished opponent is simply worth nothing, because
+      # `own_id/2` returns 0 for an id that is not in `values`. A win over
+      # a deleted player is therefore worth 0 rather than half your own
+      # rung - which is what Keizer means, since what a win pays IS the
+      # opponent's value and there is no longer an opponent to value.
+      # `PairingsEngine.Standings` already honours the result on this same
+      # row (`pairing_records/4`); this stops Keizer diverging from it.
 
       true ->
         class = classify_result(game.result, white?)

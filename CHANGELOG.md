@@ -14,6 +14,37 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.38.0] - 2026-09-05
+
+- [Fix] **Deleting a player turned their opponents' losses into points.** The
+  Remove button on the Players grid nils the seat and leaves the result
+  standing, so every game the deleted player had survived as an opponentless
+  row. Keizer scored that as an unpaired bye worth half a ladder rung - paid to
+  whoever had LOST the game, with the loss dropped from the W/D/L line as well.
+  The result now stands, and the vanished opponent is worth nothing, which is
+  what a Keizer win means: what a win pays IS the opponent's value, and there
+  is no longer an opponent to value. Standings already read the row this way;
+  Keizer no longer diverges from it.
+
+- [Fix] **An odd round robin lent half a point to everyone else's tiebreaks.**
+  The structural bye - the player the Berger schedule sits out against the
+  phantom - was recorded as a "requested-zero" row, a type chosen purely for
+  its point value. That type also carries "the player asked for this", so
+  C.07 Art. 16.3 re-counted the trailing bye as a draw: the byed player's
+  adjusted score rose half a point in every opponent's Buchholz and
+  Sonneborn-Berger. Because SB weights that score by the points scored against
+  them, the error was not even uniform - whoever beat them gained 0.5 and
+  whoever drew gained 0.25 - so it reordered players tied on score. A bye
+  nobody requested is now involuntary, matching the rule already applied to a
+  Swiss pairing-allocated bye. A genuine requested bye in the same tournament
+  is unaffected.
+
+- [Change] **Engine updated to Ainalrami 0.17.0.** Two TRF defects that could
+  change a published round: a round already paired but not yet played was
+  dropped when the file was read back, so the round was paired a second time;
+  and an XXP "these two must never meet" line written with a comma instead of
+  a space was discarded in silence rather than refused.
+
 ## [0.37.1] - 2026-09-05
 
 - [Fix] **A hall screen opened by URL never cycled.** `?display=1` exists so a

@@ -721,6 +721,108 @@ defmodule PairingsEngine.StandingsTest do
       assert ea.tiebreaks["BH"] == 1.5
     end
 
+    # The round-robin twin of the test below. An odd-sized round robin sits
+    # exactly one player out per round against the phantom, recorded by
+    # `RoundRobin.create_round/4` as a "requested-zero" byes row - a type
+    # picked purely for its point value (0), which also happened to carry
+    # `voluntary: true`. The player requested nothing; the Berger schedule
+    # sat them out, which is an INVOLUNTARY unplayed round under Art. 16.2.
+    # Marked voluntary, C's trailing bye was re-counted as a draw and every
+    # opponent's Buchholz rose by half a point.
+    test "BH does not treat an odd round robin's structural bye as voluntary (Article 16.2)" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "Round Robin Structural Bye",
+          type: "swiss",
+          pairing_system: "round_robin",
+          rounds_count: 3,
+          tiebreaks: ~w(BH),
+          points_win: 1.0,
+          points_draw: 0.5,
+          points_loss: 0.0
+        })
+
+      [a, b, c] =
+        for name <- ["A", "B", "C"] do
+          Repo.insert!(%Player{tournament_id: tournament.id, name: name})
+        end
+
+      rounds =
+        for n <- 1..3 do
+          Repo.insert!(%Round{tournament_id: tournament.id, number: n, status: "finished"})
+        end
+
+      [r1, r2, r3] = rounds
+
+      # A beats C, B beats C, A beats B. C sits out the final round.
+      for {round, w, b_player} <- [{r1, a, c}, {r2, b, c}, {r3, a, b}] do
+        Repo.insert!(%Pairing{
+          round_id: round.id,
+          board: 1,
+          white_player_id: w.id,
+          black_player_id: b_player.id,
+          result: "1-0"
+        })
+      end
+
+      Repo.insert_all("byes", [
+        %{tournament_id: tournament.id, player_id: c.id, round: 3, type: "requested-zero"}
+      ])
+
+      entries = Standings.standings(tournament)
+      by_name = Map.new(entries, &{&1.player.name, &1})
+
+      # C scored nothing, and a bye they did not ask for cannot lend them
+      # half a point for everyone else's benefit.
+      assert by_name["C"].points == 0.0
+
+      # A met C (0.0) and B (1.0); B met C (0.0) and A (2.0).
+      assert by_name["A"].tiebreaks["BH"] == 1.0
+      assert by_name["B"].tiebreaks["BH"] == 2.0
+    end
+
+    # A genuine requested bye in the same tournament is still voluntary -
+    # the rule keys on the structural type, not on the pairing system alone.
+    test "a requested HALF-point bye in a round robin is still voluntary" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "Round Robin Requested Bye",
+          type: "swiss",
+          pairing_system: "round_robin",
+          rounds_count: 2,
+          tiebreaks: ~w(BH),
+          points_win: 1.0,
+          points_draw: 0.5,
+          points_loss: 0.0
+        })
+
+      [me, opp] =
+        for name <- ["Me", "Opp"] do
+          Repo.insert!(%Player{tournament_id: tournament.id, name: name})
+        end
+
+      r1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
+
+      Repo.insert!(%Pairing{
+        round_id: r1.id,
+        board: 1,
+        white_player_id: me.id,
+        black_player_id: opp.id,
+        result: "1-0"
+      })
+
+      Repo.insert_all("byes", [
+        %{tournament_id: tournament.id, player_id: opp.id, round: 2, type: "requested-half"}
+      ])
+
+      entries = Standings.standings(tournament)
+      me_entry = Enum.find(entries, &(&1.player.id == me.id))
+
+      # Opp: round-1 loss (0.0) + a trailing VOLUNTARY bye re-counted as a
+      # draw (0.5) = 0.5.
+      assert me_entry.tiebreaks["BH"] == 0.5
+    end
+
     # Opp gets a real pairing-allocated bye (odd player count - a `Pairing`
     # row with result "bye", not a `byes`-table row) in the LAST round, so it
     # falls in `adjusted_score/3`'s trailing window. Art. 16.2.1/16.3: a

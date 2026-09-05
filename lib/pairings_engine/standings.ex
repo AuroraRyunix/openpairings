@@ -754,7 +754,8 @@ defmodule PairingsEngine.Standings do
             # absence and a requested bye are one event under two names, so
             # they get one answer here. See that field's doc.
             voluntary:
-              bye.type in ["requested-half", "requested-zero"] or
+              (bye.type in ["requested-half", "requested-zero"] and
+                 not structural_bye?(tournament, bye)) or
                 (bye.type == "absent" and tournament.absent_counts_as_vur),
             # The `byes`-table row's own type ("requested-half" /
             # "requested-zero" / "absent") - carried through so display code
@@ -773,6 +774,36 @@ defmodule PairingsEngine.Standings do
 
       Map.update(acc, player_id, records, &(&1 ++ records))
     end)
+  end
+
+  # An odd-sized round robin pairs exactly one player per round against the
+  # phantom. `PairingsEngine.RoundRobin.create_round/4` records that as a
+  # `"requested-zero"` row, chosen purely for its POINT VALUE - its own doc
+  # says so, and says why "pairing-allocated" (a full point) was rejected.
+  #
+  # What that choice did not consider is the `voluntary` flag riding along
+  # with the type. The player did not request anything: the Berger schedule
+  # sat them out. Under C.07 Art. 16.2 that is an INVOLUNTARY unplayed
+  # round, so Art. 16.3 must not re-count it as a draw when it trails, and
+  # Art. 16.5.1's Cut-1 Exception must not prefer to cut it. Marked
+  # voluntary, the byed player's adjusted score rose by half a point in
+  # every opponent's Buchholz and Sonneborn-Berger - and because SB weights
+  # that inflated score by the points scored against them, the error is not
+  # even uniform: whoever beat them gained 0.5 and whoever drew gained 0.25,
+  # which reorders players tied on score.
+  #
+  # This mirrors the rule `pairing_records/4` already applies to the Swiss
+  # `result: "bye"` shape ("a pairing-allocated bye is never voluntary").
+  #
+  # Keyed on the pairing system rather than on a new bye type because in a
+  # round robin nothing else writes a zero bye: every `byes` writer is an
+  # engine or an import (`RoundRobin`, `Pairing`, `Keizer`, the SWAR/TRF/
+  # backup importers), there is no arbiter control that mints one, and a
+  # round robin's own absences are recorded as `"absent"`. A `Z` code
+  # re-imported from a round robin's own TRF lands here too, which is
+  # correct - it is the same structural bye coming home.
+  defp structural_bye?(tournament, bye) do
+    tournament.pairing_system == "round_robin" and bye.type == "requested-zero"
   end
 
   # True when this bye row claims a round in which the player already has a

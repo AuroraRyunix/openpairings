@@ -514,6 +514,46 @@ defmodule PairingsEngine.KeizerTest do
 
       assert entry == %{round: 1, class: :vacated_seat, points: 0.0, opponent_id: nil}
     end
+
+    # A vacated seat clears the result; DELETING a player does not. The
+    # "Remove" button on the Players grid goes to `Tournaments.delete_player/2`,
+    # and `pairings.black_player_id` is `on_delete: :nilify_all`, so every
+    # game the deleted player had survives as an opponentless row with its
+    # result intact. That used to land in the unpaired-bye bucket and pay
+    # half a ladder rung - to the player who LOST it, in the mirror case.
+    test "a LOST game whose opponent was deleted stays a loss worth nothing", %{
+      a: a,
+      values: values
+    } do
+      games = %{1 => [%{round: 1, white_id: a.id, black_id: nil, result: "0-1"}]}
+      entry = Keizer.score_round(a, 1, games, %{}, values)
+
+      assert entry.class == :loss
+      assert entry.points == 0.0
+    end
+
+    test "the same when it is the WHITE player who was deleted", %{a: a, values: values} do
+      # A was Black and lost; deleting White must not pay A anything.
+      games = %{1 => [%{round: 1, white_id: nil, black_id: a.id, result: "1-0"}]}
+      entry = Keizer.score_round(a, 1, games, %{}, values)
+
+      assert entry.class == :loss
+      assert entry.points == 0.0
+    end
+
+    # What a Keizer win pays IS the opponent's value, so a win over someone
+    # who no longer exists is worth nothing - but it is still a WIN, and
+    # `round_stats/2` must count it as one.
+    test "a WIN over a deleted player is worth the vanished opponent: nothing", %{
+      a: a,
+      values: values
+    } do
+      games = %{1 => [%{round: 1, white_id: a.id, black_id: nil, result: "1-0"}]}
+      entry = Keizer.score_round(a, 1, games, %{}, values)
+
+      assert entry.class == :win
+      assert entry.points == 0.0
+    end
   end
 
   ## ---------- hand-computed ladder values + retroactive recalculation ----------
