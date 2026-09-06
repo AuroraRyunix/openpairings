@@ -53,9 +53,75 @@ defmodule PairingsEngine.RoundExplanation do
         Enum.map(bracket["pairs"] || [], fn [a, b] -> {player(a, by_id), player(b, by_id)} end),
       edge_count: bracket["edge_count"],
       edges: Enum.map(bracket["edges"] || [], &edge(&1, by_id)),
-      rungs: Enum.map(bracket["rungs"] || [], &{&1["label"], &1["value"]})
+      rungs: Enum.map(bracket["rungs"] || [], &{&1["label"], &1["value"]}),
+      # Version 2 of the record. A version-1 round has none of these keys and
+      # reads as empty, which the panel renders as "not recorded" rather than
+      # inventing a state it does not have.
+      heterogeneous?: bracket["heterogeneous"] || false,
+      s1: names(bracket["s1"], by_id),
+      s2: names(bracket["s2"], by_id),
+      states: states(bracket["states"], by_id),
+      exclusions: exclusions(bracket["exclusions"], by_id)
     }
   end
+
+  # A player's colour and float state at the moment of pairing, with the
+  # player resolved. `class` comes back as the atom the engine used, so the
+  # panel can pattern-match on it; the strings are what JSON could carry.
+  defp states(nil, _by_id), do: []
+
+  defp states(states, by_id) do
+    states
+    |> Enum.map(fn s ->
+      %{
+        player: player(s["player"], by_id),
+        colours: s["colours"] || [],
+        whites: s["whites"],
+        blacks: s["blacks"],
+        difference: s["difference"],
+        preference: s["preference"],
+        class: colour_class(s["class"]),
+        repeated: s["repeated"],
+        floated_last_round: float_dir(s["floated_last_round"]),
+        floated_round_before: float_dir(s["floated_round_before"])
+      }
+    end)
+    |> Enum.reject(&is_nil(&1.player))
+  end
+
+  defp colour_class("absolute"), do: :absolute
+  defp colour_class("strong"), do: :strong
+  defp colour_class("mild"), do: :mild
+  defp colour_class(_), do: :none
+
+  defp float_dir("up"), do: :up
+  defp float_dir("down"), do: :down
+  defp float_dir(_), do: nil
+
+  # A pair the absolute criteria forbade inside this bracket. `a` is the
+  # better-ranked of the two, as the engine orders them.
+  defp exclusions(nil, _by_id), do: []
+
+  defp exclusions(exclusions, by_id) do
+    exclusions
+    |> Enum.map(fn x ->
+      [a, b] = x["players"] || [nil, nil]
+
+      %{
+        a: player(a, by_id),
+        b: player(b, by_id),
+        reason: exclusion_reason(x["reason"]),
+        round: x["round"],
+        colour: x["colour"]
+      }
+    end)
+    |> Enum.reject(&(is_nil(&1.a) or is_nil(&1.b)))
+  end
+
+  defp exclusion_reason("rematch"), do: :rematch
+  defp exclusion_reason("colour"), do: :colour
+  defp exclusion_reason("forbidden"), do: :forbidden
+  defp exclusion_reason(_), do: :unknown
 
   # A round paired before per-board attribution existed simply has no
   # "edges" key, and the panel falls back to bracket totals alone.

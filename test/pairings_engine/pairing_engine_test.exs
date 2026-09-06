@@ -655,7 +655,7 @@ defmodule PairingsEngine.PairingEngineTest do
 
       assert {:ok, round} = Pairing.pair_next_round(t)
 
-      assert %{"engine" => "ainalrami", "version" => 1, "sections" => [section]} =
+      assert %{"engine" => "ainalrami", "version" => 2, "sections" => [section]} =
                round.explanation
 
       # One pool, so no category name.
@@ -740,6 +740,48 @@ defmodule PairingsEngine.PairingEngineTest do
           total:  #{inspect(Enum.sort(Map.to_list(totals)))}
         """
       end
+    end
+
+    # Version 2 of the record. Everything the tests above check is the
+    # OUTCOME of a bracket; these are its inputs - the half that answers "why
+    # am I not playing him", which the engine computed on every round and
+    # discarded until Ainalrami 0.18.
+    test "the record carries what each bracket was paired FROM" do
+      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
+      players = roster(t, 8)
+      ids = MapSet.new(players, & &1.id)
+
+      assert {:ok, round} = Pairing.pair_next_round(t)
+      [%{"brackets" => [bracket]}] = round.explanation["sections"]
+
+      # Round 1 is one homogeneous bracket: S1 the top four seeds, S2 the
+      # rest - stored as player ids, not the engine's local ranks.
+      refute bracket["heterogeneous"]
+      assert length(bracket["s1"]) == 4 and length(bracket["s2"]) == 4
+      assert MapSet.subset?(MapSet.new(bracket["s1"] ++ bracket["s2"]), ids)
+      assert MapSet.disjoint?(MapSet.new(bracket["s1"]), MapSet.new(bracket["s2"]))
+
+      # Nobody has played, so every colour state is "none" with no run.
+      assert length(bracket["states"]) == 8
+      assert Enum.all?(bracket["states"], &(&1["class"] == "none" and &1["colours"] == []))
+      assert Enum.all?(bracket["states"], &MapSet.member?(ids, &1["player"]))
+
+      # ...and nothing was ruled out.
+      assert bracket["exclusions"] == []
+    end
+
+    test "a pair the arbiter forbade is recorded as excluded, with the reason" do
+      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
+      [p1, p2 | _] = roster(t, 8)
+      {:ok, _} = Tournaments.add_forbidden_pairing(t, p1.id, p2.id)
+
+      assert {:ok, round} = Pairing.pair_next_round(t)
+      [%{"brackets" => [bracket]}] = round.explanation["sections"]
+
+      assert [%{"players" => pair, "reason" => "forbidden", "round" => nil}] =
+               bracket["exclusions"]
+
+      assert Enum.sort(pair) == Enum.sort([p1.id, p2.id])
     end
 
     @tag :javafo

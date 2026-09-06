@@ -1179,6 +1179,52 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
       {t, round}
     end
 
+    # Version 2 of the record (Ainalrami 0.18): what each bracket was paired
+    # FROM sits above what came out of it - the S1/S2 the engine paired off,
+    # every player's colour state as FIDE classifies it, and the pairs the
+    # absolute criteria removed. Round one has nothing to remove, and the
+    # panel says so rather than leaving a gap the reader has to interpret.
+    test "the account shows what the bracket was paired FROM", %{conn: conn, scope: scope} do
+      {t, _round} = ainalrami_round(scope)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
+
+      assert html =~ "pe-account-subgroups"
+      assert html =~ ">S2<"
+      assert html =~ "Colours so far"
+      assert html =~ "is-none"
+      assert html =~ "Nothing was ruled out here"
+      refute html =~ "Could not be paired inside this bracket"
+    end
+
+    test "a version-1 record renders without the blocks it never carried", %{
+      conn: conn,
+      scope: scope
+    } do
+      {t, round} = ainalrami_round(scope)
+
+      # Exactly what every round paired before 2026-09-06 has stored.
+      v1 =
+        round.explanation
+        |> Map.put("version", 1)
+        |> update_in(["sections"], fn sections ->
+          Enum.map(sections, fn section ->
+            update_in(section, ["brackets"], fn brackets ->
+              Enum.map(brackets, &Map.drop(&1, ~w(heterogeneous s1 s2 states exclusions)))
+            end)
+          end)
+        end)
+
+      round |> Ecto.Changeset.change(explanation: v1) |> Repo.update!()
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
+
+      assert html =~ "What the engine reported"
+      refute html =~ "pe-account-subgroups"
+      refute html =~ "Colours so far"
+      refute html =~ "Nothing was ruled out here"
+    end
+
     test "an Ainalrami round quotes the engine, with the criteria that scored", %{
       conn: conn,
       scope: scope

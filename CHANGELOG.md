@@ -14,6 +14,28 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.40.0] - 2026-09-06
+
+- [Feature] **The pairing rationale now shows what each bracket was paired
+  FROM, not only what came out of it.** For a round Ainalrami paired, every
+  bracket in "What the engine reported" opens with the S1/S2 the engine
+  actually paired off (seeds and names, S1 marked when it is the players
+  moved down), a colour table for every player in it - the run they have had
+  so far, Whites minus Blacks with its sign, what they are due, and FIDE's own
+  classification of that preference: absolute, strong, mild or none - and
+  the pairs inside the bracket that the absolute criteria ruled out, each
+  with its reason: met in round N, both absolutely due the same colour, or
+  forbidden by the arbiter. That list is the answer to "why am I not playing
+  him"; until now the record described only the optimisation and could not
+  say. A bracket where nothing was ruled out says so, because "the criteria
+  chose freely" and "the rules left no choice" are different defences.
+  Rounds paired before this release have a version-1 record and render as
+  before, without these blocks.
+
+- [Change] **Engine updated to Ainalrami 0.18.0**, which is what reports the
+  above. Pairing behaviour is unchanged: the engine's comparison against
+  bbpPairings stayed at 100%.
+
 ## [0.39.0] - 2026-09-05
 
 - [Feature] **The player list exports as CSV, shaped the way you need it.**

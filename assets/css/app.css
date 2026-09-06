@@ -2217,6 +2217,29 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .pe-account-pairs li { line-height: 1.5; }
 .pe-account-rungs { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 12px; }
 .pe-account-rungs td { padding: 2px 0; color: var(--text-soft); border-top: 1px solid var(--border); }
+/* What the bracket was paired FROM, shown above what came out of it: the
+   S1/S2 the engine paired off, each player's colour state, and the pairs
+   the absolute criteria removed. This is the half of the record that
+   answers "why am I not playing him", so it comes first. */
+.pe-account-subgroups { display: flex; flex-wrap: wrap; gap: 4px 24px; margin: 6px 0; font-size: 13px; }
+.pe-account-subgroups .pe-subgroup-label { font-weight: 600; color: var(--text-soft); margin-right: 6px; }
+.pe-account-seed { font-variant-numeric: tabular-nums; color: var(--text-soft); margin-right: 2px; }
+.pe-account-states { width: 100%; border-collapse: collapse; margin: 6px 0; font-size: 12px; }
+.pe-account-states th { text-align: left; font-weight: 600; color: var(--text-soft); padding: 2px 6px 2px 0; border-bottom: 1px solid var(--border); }
+.pe-account-states td { padding: 3px 6px 3px 0; border-top: 1px solid var(--border); vertical-align: baseline; }
+.pe-account-states .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 0.08em; }
+.pe-account-states .num { text-align: right; font-variant-numeric: tabular-nums; }
+/* Same treatment as .pe-verdict-flag: the class is carried by the text
+   colour alone, from the palette, so it follows the theme. "absolute" is
+   the one that is a rule rather than a preference, hence danger. */
+.pe-pref { font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--border); }
+.pe-pref.is-absolute { color: var(--danger); border-color: var(--danger); }
+.pe-pref.is-strong { color: var(--warn); border-color: var(--warn); }
+.pe-pref.is-mild { color: var(--text-soft); }
+.pe-pref.is-none { color: var(--text-soft); opacity: 0.7; }
+.pe-account-excluded { margin: 4px 0 8px; padding-left: 18px; font-size: 13px; }
+.pe-account-excluded li { line-height: 1.5; }
+.pe-account-excluded .pe-excluded-why { color: var(--text-soft); }
 /* One row per board: who is on it, the colour history that explains the
    verdict, and what the pairing gave up to exist. A board that gave up
    nothing is dimmed rather than hidden - "we checked, it is fine" is

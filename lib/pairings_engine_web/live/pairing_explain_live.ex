@@ -191,6 +191,70 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   defp colour_word(:b), do: "Black"
   defp colour_word(_), do: "-"
 
+  ## ---------- the engine's record of what a bracket was paired FROM ----------
+  ##
+  ## Rendering helpers for the version-2 account (`PairingsEngine.RoundExplanation`
+  ## `s1`/`s2`/`states`/`exclusions`). The engine speaks in "w"/"b" strings
+  ## and atoms for the classes; everything here turns that into the words an
+  ## arbiter would say out loud to the player asking.
+
+  defp seeded_names([]), do: "-"
+  defp seeded_names(players), do: Enum.map_join(players, ", ", &"#{seed_of(&1)} #{&1.name}")
+
+  defp seed_of(%{pairing_number: n}) when is_integer(n), do: n
+  defp seed_of(_player), do: "-"
+
+  # "WBWB" - the run a player has actually had, oldest first. Upper case
+  # because that is how colour histories are written on a pairing card.
+  defp colour_run([]), do: "-"
+  defp colour_run(colours), do: colours |> Enum.join() |> String.upcase()
+
+  # Whites minus Blacks, with the sign shown: "+2" and "-2" are opposite
+  # complaints, and a bare "2" would be the wrong answer to both.
+  defp signed(nil), do: "-"
+  defp signed(0), do: "0"
+  defp signed(n) when n > 0, do: "+#{n}"
+  defp signed(n), do: to_string(n)
+
+  defp due_word("w"), do: gettext("White")
+  defp due_word("b"), do: gettext("Black")
+  defp due_word(_), do: "-"
+
+  # FIDE's own classes, as words. These are not degrees of the same thing:
+  # "absolute" is a rule the pairing may not break, the other two are
+  # preferences it weighs.
+  defp pref_label(:absolute), do: gettext("absolute")
+  defp pref_label(:strong), do: gettext("strong")
+  defp pref_label(:mild), do: gettext("mild")
+  defp pref_label(_), do: gettext("none")
+
+  defp float_history_label(%{floated_last_round: nil, floated_round_before: nil}), do: "-"
+
+  defp float_history_label(state) do
+    [
+      state.floated_last_round &&
+        gettext("%{direction} last round", direction: float_word(state.floated_last_round)),
+      state.floated_round_before &&
+        gettext("%{direction} two rounds ago", direction: float_word(state.floated_round_before))
+    ]
+    |> Enum.reject(&(&1 in [nil, false]))
+    |> Enum.join(", ")
+  end
+
+  defp float_word(:down), do: gettext("down")
+  defp float_word(:up), do: gettext("up")
+
+  # One sentence, sayable to the player: the reason this pair was off the
+  # table before the engine chose anything.
+  defp exclusion_text(%{reason: :rematch, round: round}),
+    do: gettext("met in round %{n}", n: round)
+
+  defp exclusion_text(%{reason: :colour, colour: colour}),
+    do: gettext("both absolutely due %{colour}", colour: due_word(colour))
+
+  defp exclusion_text(%{reason: :forbidden}), do: gettext("the arbiter forbade this pairing")
+  defp exclusion_text(_other), do: gettext("not allowed")
+
   defp float_note(%{floater: false}), do: nil
 
   defp float_note(%{white: w, black: b}) when not is_nil(b) do
@@ -1819,6 +1883,65 @@ defmodule PairingsEngineWeb.PairingExplainLive do
                 )}
               </span>
             </div>
+
+            <%!-- What this bracket was paired FROM, before what came out of
+                  it. "Why am I not playing him" is answered here and nowhere
+                  below: the S1/S2 the engine paired off, each player's colour
+                  state as FIDE classifies it, and the pairs the absolute
+                  criteria removed before the search began. A version-1 record
+                  carries none of this and these blocks simply do not render. --%>
+            <div :if={bracket.s1 != [] or bracket.s2 != []} class="pe-account-subgroups">
+              <span>
+                <span class="pe-subgroup-label">
+                  {if bracket.heterogeneous?, do: gettext("S1 (moved down)"), else: "S1"}
+                </span>
+                {seeded_names(bracket.s1)}
+              </span>
+              <span>
+                <span class="pe-subgroup-label">S2</span>
+                {seeded_names(bracket.s2)}
+              </span>
+            </div>
+
+            <table :if={bracket.states != []} class="pe-account-states">
+              <thead>
+                <tr>
+                  <th class="num">{gettext("Seed")}</th>
+                  <th>{gettext("Player")}</th>
+                  <th>{gettext("Colours so far")}</th>
+                  <th class="num" title={gettext("Whites minus Blacks")}>±</th>
+                  <th>{gettext("Due")}</th>
+                  <th>{gettext("Preference")}</th>
+                  <th>{gettext("Floated")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr :for={s <- bracket.states}>
+                  <td class="num">{seed_of(s.player)}</td>
+                  <td>{s.player.name}</td>
+                  <td class="mono">{colour_run(s.colours)}</td>
+                  <td class="num">{signed(s.difference)}</td>
+                  <td>{due_word(s.preference)}</td>
+                  <td><span class={["pe-pref", "is-#{s.class}"]}>{pref_label(s.class)}</span></td>
+                  <td>{float_history_label(s)}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <p :if={bracket.exclusions != []} class="hint">
+              <strong>{gettext("Could not be paired inside this bracket:")}</strong>
+            </p>
+            <ul :if={bracket.exclusions != []} class="pe-account-excluded">
+              <li :for={x <- bracket.exclusions}>
+                {x.a.name} × {x.b.name}
+                <span class="pe-excluded-why">— {exclusion_text(x)}</span>
+              </li>
+            </ul>
+            <p :if={bracket.exclusions == [] and length(bracket.states) > 1} class="hint">
+              {gettext(
+                "Nothing was ruled out here - every pair in this bracket was allowed, so what follows was the criteria's choice alone."
+              )}
+            </p>
 
             <p :if={bracket.mdps != []} class="hint">
               <strong>{gettext("Moved down into this bracket:")}</strong>

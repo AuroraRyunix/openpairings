@@ -1391,7 +1391,11 @@ defmodule PairingsEngine.Pairing do
 
     case built do
       [] -> nil
-      sections -> %{"engine" => "ainalrami", "version" => 1, "sections" => sections}
+      # Version 2 (2026-09-06) adds, per bracket, the state the pairing was
+      # made FROM - subgroups, colour states, excluded pairs. A version-1
+      # record simply lacks those keys, and `PairingsEngine.RoundExplanation`
+      # reads them as empty rather than refusing the round.
+      sections -> %{"engine" => "ainalrami", "version" => 2, "sections" => sections}
     end
   end
 
@@ -1421,8 +1425,61 @@ defmodule PairingsEngine.Pairing do
       "rungs" =>
         bracket.rungs
         |> Enum.reject(fn {_label, value} -> value == 0 end)
-        |> Enum.map(fn {label, value} -> %{"label" => label, "value" => value} end)
+        |> Enum.map(fn {label, value} -> %{"label" => label, "value" => value} end),
+      # ---- what the bracket was paired FROM (Ainalrami >= 0.18) ----
+      #
+      # Everything above is the outcome. These are the inputs to it: the
+      # S1/S2 the engine paired off, each player's colour and float state,
+      # and the pairs the absolute criteria removed before the search began.
+      # The removed pairs are the ones that answer "why am I not playing
+      # him", which is the only question this record is ever opened for.
+      #
+      # `Map.get` with defaults rather than `bracket.s1`: an older engine
+      # simply does not report these, and a missing key must degrade to
+      # "not recorded", never to a crash inside a pairing transaction.
+      "heterogeneous" => Map.get(bracket, :heterogeneous?, false),
+      "s1" => player_ids(Map.get(bracket, :s1, []), by_rank),
+      "s2" => player_ids(Map.get(bracket, :s2, []), by_rank),
+      "states" => states_json(Map.get(bracket, :states, []), by_rank),
+      "exclusions" => exclusions_json(Map.get(bracket, :exclusions, []), by_rank)
     }
+  end
+
+  # One row per bracket member. Atoms become strings here because this is
+  # stored as JSON and read back by a module that never sees the engine.
+  defp states_json(states, by_rank) do
+    states
+    |> Enum.map(fn state ->
+      %{
+        "player" => player_id(state.rank, by_rank),
+        "colours" => state.colours,
+        "whites" => state.whites,
+        "blacks" => state.blacks,
+        "difference" => state.difference,
+        "preference" => state.preference,
+        "class" => Atom.to_string(state.class),
+        "repeated" => state.repeated,
+        "floated_last_round" => float_json(state.floated_last_round),
+        "floated_round_before" => float_json(state.floated_round_before)
+      }
+    end)
+    |> Enum.reject(&is_nil(&1["player"]))
+  end
+
+  defp float_json(dir) when dir in [:up, :down], do: Atom.to_string(dir)
+  defp float_json(_), do: nil
+
+  defp exclusions_json(exclusions, by_rank) do
+    exclusions
+    |> Enum.map(fn %{players: [a, b]} = x ->
+      %{
+        "players" => [player_id(a, by_rank), player_id(b, by_rank)],
+        "reason" => Atom.to_string(x.reason),
+        "round" => Map.get(x, :round),
+        "colour" => Map.get(x, :colour)
+      }
+    end)
+    |> Enum.reject(fn x -> Enum.any?(x["players"], &is_nil/1) end)
   end
 
   # The six criteria whose value can be read as a verdict about ONE board,
