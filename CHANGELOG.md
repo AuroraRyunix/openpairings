@@ -14,6 +14,14 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.43.1] - 2026-09-06
+
+- [Fix] **The recompute offer was at the foot of the page.** It is the one
+  thing on the page that changes what everything else can show, and it sat
+  below the bracket map, the board cards and the criteria - where it was
+  found by exactly one person, laughing. It is now the first thing after the
+  introduction.
+
 ## [0.43.0] - 2026-09-06
 
 - [Feature] **JaVaFo-paired rounds get the detailed account too.** The

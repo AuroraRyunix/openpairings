@@ -1630,6 +1630,39 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         </.rich_text>
       </p>
 
+      <%!-- A round from before the detailed account can be brought up to
+            date from the boards as played. It sits up HERE, first thing, in
+            the warning colour: everything below it is missing the half that
+            answers questions, and an offer at the foot of a long page was
+            found by nobody. It writes the account only. --%>
+      <div :if={@recompute == :stale} id="recompute" class="card pe-recompute" style="margin: 8px 0">
+        <p style="margin: 0 0 8px">
+          <strong :if={@paired_by == "javafo"}>
+            {gettext("This round was paired by JaVaFo, which records no reasoning.")}
+          </strong>
+          <strong :if={@paired_by != "javafo"}>
+            {gettext("This round's engine account is from before the detailed analysis.")}
+          </strong>
+          {gettext(
+            "The subgroups, every player's colour state, the pairs the rules ruled out, and why each float and the bye went where they did can be worked out now - from the boards as played, on the standings as they stood before this round. It writes the account only: no pairing is ever changed by this."
+          )}
+          <span :if={@paired_by == "javafo"}>
+            {gettext(
+              "The analysis is Ainalrami's, after the fact: it judges the boards JaVaFo produced by its own criteria, which agree with JaVaFo's on all but a fraction of a percent of pairings. Where it says it would have preferred something else, that is the two engines disagreeing - not an error in the round."
+            )}
+          </span>
+        </p>
+        <button type="button" class="pe-btn primary" phx-click="reexplain">
+          {gettext("Recompute, for every round of this tournament that needs it")}
+        </button>
+      </div>
+
+      <p :if={@recompute == :hand_edited} class="hint" style="margin: 8px 0">
+        {gettext(
+          "This round was changed by hand after the engine paired it, so its stored account - the engine's original decision - is kept as it is rather than recomputed. \"What if?\" below still judges the boards as they now stand."
+        )}
+      </p>
+
       <div :if={@anomalies != []} class="card" style="margin: 8px 0">
         <h3 style="margin-top: 0">{gettext("Worth a look")}</h3>
         <p :for={item <- @anomalies} class="pe-warning" style="margin-top: 6px">
@@ -2235,43 +2268,6 @@ defmodule PairingsEngineWeb.PairingExplainLive do
           </tbody>
         </table>
       </div>
-
-      <%!-- A round from before the detailed account can be brought up to
-            date from the boards as played. It is an offer, in the warning
-            colour, because the page below it is missing the half that
-            answers questions - and it writes the account only. --%>
-      <div
-        :if={@recompute == :stale}
-        id="recompute"
-        class="card pe-recompute"
-        style="margin-top: 16px"
-      >
-        <p style="margin: 0 0 8px">
-          <strong :if={@paired_by == "javafo"}>
-            {gettext("This round was paired by JaVaFo, which records no reasoning.")}
-          </strong>
-          <strong :if={@paired_by != "javafo"}>
-            {gettext("This round's engine account is from before the detailed analysis.")}
-          </strong>
-          {gettext(
-            "The subgroups, every player's colour state, the pairs the rules ruled out, and why each float and the bye went where they did can be worked out now - from the boards as played, on the standings as they stood before this round. It writes the account only: no pairing is ever changed by this."
-          )}
-          <span :if={@paired_by == "javafo"}>
-            {gettext(
-              "The analysis is Ainalrami's, after the fact: it judges the boards JaVaFo produced by its own criteria, which agree with JaVaFo's on all but a fraction of a percent of pairings. Where it says it would have preferred something else, that is the two engines disagreeing - not an error in the round."
-            )}
-          </span>
-        </p>
-        <button type="button" class="pe-btn primary" phx-click="reexplain">
-          {gettext("Recompute, for every round of this tournament that needs it")}
-        </button>
-      </div>
-
-      <p :if={@recompute == :hand_edited} class="hint" style="margin-top: 16px">
-        {gettext(
-          "This round was changed by hand after the engine paired it, so its stored account - the engine's original decision - is kept as it is rather than recomputed. \"What if?\" below still judges the boards as they now stand."
-        )}
-      </p>
 
       <div
         :if={@recompute != :ineligible and @seated != []}
