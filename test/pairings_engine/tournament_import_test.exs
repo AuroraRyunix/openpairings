@@ -215,6 +215,49 @@ defmodule PairingsEngine.TournamentImportTest do
     assert imported_team.tournament_id == imported.id
   end
 
+  test "a forbidden pairing that is a wish stays a wish through the round trip" do
+    owner = user_scope()
+    importer = user_scope()
+    original = fixture(owner)
+
+    # The fixture already forbids the second and third players as a rule.
+    [a, b, c] = original.id |> Tournaments.list_players() |> Enum.sort_by(& &1.id)
+    {:ok, _} = Tournaments.add_forbidden_pairing(original, a.id, b.id, soft: true)
+
+    envelope = TournamentExport.export_tournament(original)
+    assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
+
+    by_names =
+      imported.id
+      |> Tournaments.list_forbidden_pairings()
+      |> Map.new(&{Enum.sort([&1.player_a.name, &1.player_b.name]), &1.soft})
+
+    assert by_names == %{
+             Enum.sort([a.name, b.name]) => true,
+             Enum.sort([b.name, c.name]) => false
+           }
+  end
+
+  test "an envelope from before wishes existed imports every row as a rule" do
+    owner = user_scope()
+    importer = user_scope()
+    original = fixture(owner)
+
+    envelope = TournamentExport.export_tournament(original)
+
+    stripped =
+      update_in(envelope, ["tournaments"], fn tournaments ->
+        Enum.map(tournaments, fn t ->
+          Map.update!(t, "forbidden_pairings", fn rows ->
+            Enum.map(rows, &Map.delete(&1, "soft"))
+          end)
+        end)
+      end)
+
+    assert {:ok, [imported]} = TournamentImport.import(stripped, importer)
+    assert [%{soft: false}] = Tournaments.list_forbidden_pairings(imported.id)
+  end
+
   test "round-trip re-derives status instead of trusting whatever the export snapshotted" do
     owner = user_scope()
     importer = user_scope()

@@ -1243,6 +1243,31 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
       t
     end
 
+    # The arbiter's own rung. A soft forbidden pairing is a wish, not a
+    # rule, so it is scored like a criterion rather than listed as an
+    # exclusion - and asking for the pair anyway is judged on that rung.
+    test "a soft wish is a rung of its own, in the arbiter's words", %{conn: conn, scope: scope} do
+      t = ainalrami_tournament(scope, 4)
+      {:ok, round} = Pairing.pair_next_round(t)
+      :ok = Pairing.delete_round(t.id, round.number)
+
+      [p1, _p2, p3, _p4] = t.id |> Tournaments.list_players() |> Enum.sort_by(& &1.pairing_number)
+      {:ok, _} = Tournaments.add_forbidden_pairing(t, p1.id, p3.id, soft: true)
+      {:ok, _round} = Pairing.pair_next_round(Repo.reload!(t))
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
+      assert html =~ "S soft avoid"
+
+      html =
+        render_submit(lv, "what_if", %{
+          "a" => to_string(p1.id),
+          "b" => to_string(p3.id),
+          "mode" => "pair"
+        })
+
+      assert html =~ "asked to keep apart if possible"
+    end
+
     # Version 3: "why did HE get the bye and not me" - every other candidate
     # in the bye holder's bracket, each with a verdict.
     test "an odd field says why the bye went where it went", %{conn: conn, scope: scope} do

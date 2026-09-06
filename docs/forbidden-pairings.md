@@ -16,6 +16,7 @@ forbidden_pairings
   tournament_id  → tournaments.id, on_delete: :delete_all
   player_a_id    → players.id, on_delete: :delete_all
   player_b_id    → players.id, on_delete: :delete_all
+  soft           boolean, default false - a wish rather than a rule (see "Soft rules")
 ```
 
 No timestamps, no unique index at the database level. The table (and the
@@ -185,10 +186,60 @@ uses - there's no separate "save path" to keep in sync with the big form's
 ## Interaction with the JSON backup
 
 `PairingsEngine.TournamentExport` includes every forbidden pairing under
-`"forbidden_pairings": [{"player_a_id": ..., "player_b_id": ...}]` in the
-per-tournament envelope, and `PairingsEngine.TournamentImport` re-creates
+`"forbidden_pairings": [{"player_a_id": ..., "player_b_id": ..., "soft": false}]`
+in the per-tournament envelope (a file written before soft rules existed has
+no `"soft"` key, and every row in it imports as a rule), and
+`PairingsEngine.TournamentImport` re-creates
 them against the newly-imported players' ids (remapped through the same
 old-id → new-id table used for every other player reference). A row whose
 player id doesn't resolve during import (only possible from a hand-edited
 file) is skipped individually rather than failing the whole import - see
 `docs/import-export.md`.
+
+## Soft rules - "rather not, if possible"
+
+Everything above is a **rule**: a pair the engine may not seat, whatever it
+costs, and a round with no legal way round the rules is a round that
+cannot be paired. Arbiters often mean something weaker - "keep these two
+apart if you can", "no club games in the first two rounds" - and until
+0.45.0 the only way to say it was to say the strong thing and hope.
+
+A soft rule is a **wish**. The Ainalrami engine weighs it against the
+pairing criteria as one more rung on its ladder, `S soft avoid`, and gives
+way when the rules leave no other legal round: three players who all wish
+to avoid each other still produce a game and a bye, where the same three
+pairs as rules leave no legal round at all. The rationale page names the
+rung in the arbiter's words ("pairs the arbiter asked to keep apart if
+possible"), and a what-if that seats a soft pair anyway is judged on it.
+
+Three settings, all defaulting to "no wishes", under which the engine's
+behaviour is byte for byte what it was:
+
+```
+forbidden_pairings.soft        a single pair as a wish instead of a rule
+tournaments.soft_club_rounds   clubmates apart for rounds 1..N (0 = never)
+tournaments.soft_position      "strong" | "weak" - how hard to try
+```
+
+*Strong* puts the wish above the quality criteria (C6 onwards): the engine
+would rather float a player than seat the pair, which is what "club
+protection" means in practice. *Weak* puts it below C21: a tie-break and
+nothing more. The absolute criteria (C1-C3, the bye rule) sit above either -
+a wish never produces a rematch, a third colour in a row, or an illegal bye.
+
+`PairingsEngine.Pairing.soft_pairs/5` turns the settings into starting-rank
+groups in the same shape `forbidden_pairs/4` returns, resolved against the
+same rank map - a soft row as a pair, each club with two or more players as
+one group while the round is within `soft_club_rounds` (skipped when
+`club_exclusion` is already `"all"`, where it could add nothing). Unlike the
+rules, the wishes cannot travel in the TRF, which has no way to say "if you
+can": they are handed to `Ainalrami.Pairing.pair_next_round/2` as its
+`soft_pairs` / `soft_position` options, alongside the file. A soft row is
+therefore **never** an `XXP` line - `forbidden_pairs/4` and
+`exclusion_pairs/4` read hard rows only.
+
+Only Ainalrami reads the wishes. JaVaFo has no such option and Keizer's
+matcher no such rung (`read_forbidden/2` skips soft rows), so for them a
+soft pair is simply not a rule. The Options page says which is the case for
+the tournament in front of the arbiter rather than letting a wish be set
+that nothing reads.

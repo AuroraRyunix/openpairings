@@ -45,6 +45,9 @@ defmodule PairingsEngine.Tournaments.Tournament do
   # Club/federation pairing-exclusion rules (SWAR parity #7-10) - see
   # PairingsEngine.Exclusions and docs/forbidden-pairings.md.
   @exclusion_modes ~w(none all listed)
+  # Where a soft pairing wish sits on Ainalrami's criteria ladder - see
+  # PairingsEngine.Pairing.soft_pairs/5 and docs/forbidden-pairings.md.
+  @soft_positions ~w(strong weak)
 
   schema "tournaments" do
     field :name, :string
@@ -480,6 +483,18 @@ defmodule PairingsEngine.Tournaments.Tournament do
     field :fed_exclusion, :string, default: "none"
     field :fed_exclusion_list, :string, default: ""
 
+    # Soft pairing rules - wishes the Ainalrami engine weighs against the
+    # pairing criteria, not rules it must satisfy (docs/forbidden-pairings.md,
+    # "Soft rules"). Clubmates are asked to be kept apart for rounds
+    # 1..`soft_club_rounds` (0 = never; the usual request is "not in the
+    # first two rounds"), and `soft_position` says how hard every soft wish
+    # is tried: "strong" puts it above the quality criteria (the engine would
+    # rather float a player than seat the pair), "weak" makes it a tie-break
+    # and nothing more. Explicit soft pairs live on `forbidden_pairings.soft`.
+    # JaVaFo and Keizer have no such option and ignore all three.
+    field :soft_club_rounds, :integer, default: 0
+    field :soft_position, :string, default: "strong"
+
     # Extra points (SWAR parity #12, "XtPts") - see docs/extra-points.md.
     # `players.extra_points` (administrative bonus points) already exists,
     # but an explicit earlier product decision keeps standings from counting
@@ -678,6 +693,8 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :club_exclusion_list,
       :fed_exclusion,
       :fed_exclusion_list,
+      :soft_club_rounds,
+      :soft_position,
       :count_extra_points,
       :extra_points_bands,
       :categories_enabled,
@@ -698,6 +715,8 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_number(:publish_delay_minutes, greater_than_or_equal_to: 0)
     |> validate_inclusion(:club_exclusion, @exclusion_modes)
     |> validate_inclusion(:fed_exclusion, @exclusion_modes)
+    |> validate_inclusion(:soft_position, @soft_positions)
+    |> validate_number(:soft_club_rounds, greater_than_or_equal_to: 0)
     |> validate_number(:rounds_count, greater_than: 0, less_than_or_equal_to: max_rounds())
     |> validate_keizer_top_value()
     |> validate_pairing_engine()
@@ -1372,6 +1391,12 @@ defmodule PairingsEngine.Tournaments.Tournament do
   def exclusion_mode_label("all"), do: "All shared clubs/federations"
   def exclusion_mode_label("listed"), do: "Only listed"
   def exclusion_mode_label(other), do: other
+
+  def soft_positions, do: @soft_positions
+
+  def soft_position_label("strong"), do: "Strong - before the colour and float rules"
+  def soft_position_label("weak"), do: "Weak - only as a tie-break"
+  def soft_position_label(other), do: other
 
   def pairing_engine_label("javafo"), do: "JaVaFo (2022 rules)"
   def pairing_engine_label("ainalrami"), do: "Ainalrami"

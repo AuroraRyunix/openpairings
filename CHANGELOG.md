@@ -14,6 +14,32 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.45.0] - 2026-09-07
+
+- [Feature] **"Rather not, if possible."** A forbidden pairing can now be a
+  wish instead of a rule. Tick "Only if possible" when adding one and the
+  Ainalrami engine weighs the pair against the pairing criteria rather than
+  ruling it out: the two are kept apart where the rules allow it and seated
+  when nothing else is legal - where the same pair as a rule would have left
+  the round unpairable. The wish is never written to the TRF; JaVaFo and
+  Keizer have no such option and ignore it, and the Settings page says so
+  beside the control instead of letting a wish be set that nothing reads.
+- [Feature] **Clubmates apart for the first N rounds.** The classic request
+  - "no club games in rounds one and two" - as one number under the
+  exclusion rules, with the same "if possible" meaning. 0, the default,
+  changes nothing.
+- [Feature] **How hard to try.** A wish sits either above the colour and
+  float rules (strong: the engine would rather float a player than seat the
+  pair) or below all of them (weak: a tie-break and nothing more). The
+  absolute rules sit above either - a wish never produces a rematch or an
+  illegal colour. The rationale page shows the wish as a rung of its own,
+  "pairs the arbiter asked to keep apart if possible", and a what-if that
+  seats a soft pair anyway is judged on it.
+- [Change] **Backups carry the distinction.** A tournament export, snapshot
+  and hand-off file records whether each forbidden pairing is a rule or a
+  wish, and the two new tournament settings with it. Files written before
+  this release import every pairing as a rule, which is what they were.
+
 ## [0.44.0] - 2026-09-07
 
 - [Feature] **"What is the best round in which they play each other?"** A

@@ -58,6 +58,24 @@ defmodule PairingsEngine.Exclusions do
     MapSet.union(club_pairs, fed_pairs)
   end
 
+  @doc """
+  `players` grouped by club - one list per non-blank club with at least two
+  members, in no particular order - for the SOFT club rule
+  (`tournaments.soft_club_rounds`): "keep clubmates apart in the first N
+  rounds if you can". Where `excluded_pairs/2` expands a club into pairs
+  because the engines take `XXP` lines pairwise, the soft rule hands the
+  engine each club whole, which is the group form its option already takes.
+  Same trimming and case-folding as the hard rule, so "Chess Club" and
+  "chess club" are one club for both.
+  """
+  @spec club_groups([Player.t()]) :: [[Player.t()]]
+  def club_groups(players) do
+    players
+    |> group_by_value(& &1.club)
+    |> Enum.map(fn {_value, group} -> group end)
+    |> Enum.filter(&(length(&1) >= 2))
+  end
+
   defp pairs_for(_players, "none", _list, _field_fn), do: MapSet.new()
 
   defp pairs_for(players, "all", _list, field_fn) do

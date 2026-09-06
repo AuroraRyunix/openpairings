@@ -154,6 +154,83 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
     end
   end
 
+  describe "Soft rules" do
+    test "a forbidden pairing added with \"only if possible\" is listed as a wish", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, a} = Tournaments.create_player(tournament.id, %{"name" => "Alice"})
+      {:ok, b} = Tournaments.create_player(tournament.id, %{"name" => "Bob"})
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+      assert html =~ "Only if possible"
+
+      html =
+        lv
+        |> form("#add-forbidden-pairing-form", %{
+          "player_a_id" => to_string(a.id),
+          "player_b_id" => to_string(b.id),
+          "soft" => "true"
+        })
+        |> render_submit()
+
+      assert html =~ "if possible</span>"
+      assert [fp] = Tournaments.list_forbidden_pairings(tournament.id)
+      assert fp.soft
+    end
+
+    test "a plain add is still a rule", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      {:ok, a} = Tournaments.create_player(tournament.id, %{"name" => "Alice"})
+      {:ok, b} = Tournaments.create_player(tournament.id, %{"name" => "Bob"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+
+      html =
+        lv
+        |> form("#add-forbidden-pairing-form", %{
+          "player_a_id" => to_string(a.id),
+          "player_b_id" => to_string(b.id)
+        })
+        |> render_submit()
+
+      refute html =~ "if possible</span>"
+      assert [%{soft: false}] = Tournaments.list_forbidden_pairings(tournament.id)
+    end
+
+    test "the exclusion form saves the club wish and how hard to try", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+
+      # Ainalrami is the default engine, so the wishes apply: no caveat.
+      refute html =~ "kept but not applied"
+
+      lv
+      |> form("#exclusion-rules-form", %{
+        "tournament" => %{"soft_club_rounds" => "2", "soft_position" => "weak"}
+      })
+      |> render_submit()
+
+      saved = Tournaments.get_authorized_tournament!(scope, tournament.id)
+      assert saved.soft_club_rounds == 2
+      assert saved.soft_position == "weak"
+    end
+
+    test "a JaVaFo tournament is told its wishes are kept but not applied", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope, %{"pairing_engine" => "javafo"})
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
+
+      assert html =~ "kept but not applied"
+    end
+  end
+
   describe "Club/federation exclusions" do
     test "saving an \"all\" club rule persists it and updates the excluded-pair hint", %{
       conn: conn,

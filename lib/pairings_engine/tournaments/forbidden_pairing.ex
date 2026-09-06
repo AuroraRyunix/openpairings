@@ -3,7 +3,11 @@ defmodule PairingsEngine.Tournaments.ForbiddenPairing do
   A pair of players in a tournament who must never be paired against each
   other - an arbiter-configured exception (e.g. two players who share a
   household/club and shouldn't meet, or any other pairing the organiser
-  wants ruled out). See `docs/forbidden-pairings.md` for the full picture:
+  wants ruled out) - or, when `soft` is set, a pair the arbiter would
+  RATHER not see paired: a wish the Ainalrami engine weighs against the
+  pairing criteria instead of a rule it must satisfy (see
+  `PairingsEngine.Pairing.soft_pairs/5`). See `docs/forbidden-pairings.md`
+  for the full picture:
   applied to the Swiss engine via a JaVaFo TRF "XXP" extension line (see
   `PairingsEngine.Pairing.forbidden_pairs/3`), respected by
   `PairingsEngine.Keizer`, and ignored by `PairingsEngine.RoundRobin` by
@@ -27,11 +31,19 @@ defmodule PairingsEngine.Tournaments.ForbiddenPairing do
     belongs_to :tournament, PairingsEngine.Tournaments.Tournament
     belongs_to :player_a, PairingsEngine.Tournaments.Player
     belongs_to :player_b, PairingsEngine.Tournaments.Player
+    # "Avoid if you can" rather than "never". A soft pair is not a rule the
+    # engine must satisfy - it is a wish it weighs against the pairing
+    # criteria, where the tournament's `soft_position` says. Only Ainalrami
+    # understands the distinction; JaVaFo and Keizer have no such rung, so
+    # a soft pair never reaches them at all - it is neither an `XXP` line
+    # nor a Keizer exclusion. Hard rows (`false`, the default) behave as
+    # they always did.
+    field :soft, :boolean, default: false
   end
 
   def changeset(forbidden_pairing, attrs) do
     forbidden_pairing
-    |> cast(attrs, [:tournament_id, :player_a_id, :player_b_id])
+    |> cast(attrs, [:tournament_id, :player_a_id, :player_b_id, :soft])
     |> validate_required([:tournament_id, :player_a_id, :player_b_id])
     |> normalize_pair_order()
     |> validate_players_distinct()

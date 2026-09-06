@@ -2421,8 +2421,10 @@ defmodule PairingsEngine.Tournaments do
 
   @doc """
   Forbids `player_a_id` and `player_b_id` from ever being paired against
-  each other in `tournament`. Returns `{:error, reason}` without writing
-  anything for any of these:
+  each other in `tournament` - or, with `soft: true`, asks the Swiss engine
+  to keep them apart where the pairing criteria allow it (see
+  `ForbiddenPairing`). Returns `{:error, reason}` without writing anything
+  for any of these:
 
     * `:same_player` - `player_a_id == player_b_id`
     * `:invalid_player` - either id doesn't belong to `tournament`
@@ -2433,7 +2435,9 @@ defmodule PairingsEngine.Tournaments do
   topic (same hint `update_tournament/2` uses - both are tournament
   configuration, so the Settings page reload path is identical).
   """
-  def add_forbidden_pairing(%Tournament{} = tournament, player_a_id, player_b_id) do
+  def add_forbidden_pairing(%Tournament{} = tournament, player_a_id, player_b_id, opts \\ []) do
+    soft? = Keyword.get(opts, :soft, false) == true
+
     cond do
       refusal = write_refused(tournament) ->
         refusal
@@ -2452,7 +2456,8 @@ defmodule PairingsEngine.Tournaments do
         |> ForbiddenPairing.changeset(%{
           tournament_id: tournament.id,
           player_a_id: player_a_id,
-          player_b_id: player_b_id
+          player_b_id: player_b_id,
+          soft: soft?
         })
         |> Repo.insert()
         |> tap_ok(fn inserted ->

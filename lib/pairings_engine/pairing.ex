@@ -455,9 +455,18 @@ defmodule PairingsEngine.Pairing do
     trf =
       javafo_input(tournament, full_roster, local_rank_by_player_id, eligible_ids, shared_history)
 
+    soft =
+      soft_pairs(
+        tournament,
+        full_roster,
+        local_rank_by_player_id,
+        shared_history.forbidden_pairings,
+        next_number
+      )
+
     emit_trf_built(tournament.id, next_number, nil, trf)
 
-    case run_engine(tournament, trf, next_number, nil) do
+    case run_engine(tournament, trf, next_number, nil, 0, soft) do
       {:ok, pairs, explanation} ->
         create_round(
           pairs,
@@ -618,9 +627,18 @@ defmodule PairingsEngine.Pairing do
         shared_history
       )
 
+    soft =
+      soft_pairs(
+        tournament,
+        full_roster,
+        local_rank_by_player_id,
+        shared_history.forbidden_pairings,
+        next_number
+      )
+
     emit_trf_built(tournament.id, next_number, category_name, trf)
 
-    case run_engine(tournament, trf, next_number, category_name, index) do
+    case run_engine(tournament, trf, next_number, category_name, index, soft) do
       {:ok, pairs, explanation} ->
         {:ok, {category_name, :paired, pairs, player_by_local_rank, explanation}}
 
@@ -984,6 +1002,10 @@ defmodule PairingsEngine.Pairing do
   #     data (feed one round to both, diff the answers) and it is why
   #     `emit_trf_built/4` still fires exactly once per engine run, engine
   #     choice notwithstanding.
+  #   * IN - `soft`, the arbiter's wishes from `soft_pairs/5`, in the same
+  #     local ranks as the TRF. The one input the two engines do NOT share:
+  #     the TRF has no way to say "if you can", so it rides alongside the
+  #     file, and only Ainalrami takes it.
   #   * OUT - `{:ok, [{white_rank, black_rank}]}` in the LOCAL contiguous
   #     rank numbering the TRF was built in, `0` for the pairing-allocated
   #     bye (`parse_pairs/1`'s long-standing shape), or `{:error, message}`
@@ -991,19 +1013,22 @@ defmodule PairingsEngine.Pairing do
   #     `insert_category_pairings/4` are untouched and cannot tell which
   #     engine answered.
 
-  defp run_engine(tournament, trf, round_number, category_name, category_index \\ 0)
+  defp run_engine(tournament, trf, round_number, category_name, category_index, soft)
 
   defp run_engine(
          %Tournament{pairing_engine: "ainalrami"} = tournament,
          trf,
          round_number,
          category_name,
-         _category_index
+         _category_index,
+         soft
        ) do
-    run_ainalrami(tournament, trf, round_number, category_name)
+    run_ainalrami(tournament, trf, round_number, category_name, soft)
   end
 
-  defp run_engine(tournament, trf, round_number, category_name, category_index) do
+  # JaVaFo has no "rather not": `soft` is dropped here, on purpose and in the
+  # open. The Settings page says as much beside the control.
+  defp run_engine(tournament, trf, round_number, category_name, category_index, _soft) do
     case run_javafo(tournament, trf, round_number, category_name, category_index) do
       {:ok, pairs} -> {:ok, pairs, nil}
       {:error, _message} = error -> error
@@ -1143,12 +1168,12 @@ defmodule PairingsEngine.Pairing do
   # final-round colour exception keys off it. Taking it from the struct
   # would silently diverge the two engines on the last round if the two ever
   # disagreed.
-  # The three options every Ainalrami call takes, built once so that the
+  # The options every Ainalrami call takes, built once so that the
   # pairing, its explanation, and a page judging an alternative afterwards
   # all read the same values. They were written out twice and happened to
   # agree; the next option added to one would not have, and the failure is
   # quiet - a report describing a pairing that was made under other rules.
-  defp ainalrami_opts(tournament, parsed) do
+  defp ainalrami_opts(tournament, parsed, soft) do
     [
       expected_rounds: parsed.tournament[:number_of_rounds],
       # `Ainalrami.Trf.parse/1` lifts every `XXP` line into
@@ -1165,9 +1190,17 @@ defmodule PairingsEngine.Pairing do
       # configured, so a 3-1-0 event was scored one way and bracketed
       # another. The TRF carries each player's TOTAL, which the engine
       # reconciles, but not the values behind it.
-      point_system: Tournament.engine_point_system(tournament)
+      point_system: Tournament.engine_point_system(tournament),
+      # The arbiter's wishes, as opposed to the rules above: pairs to keep
+      # apart where the criteria allow it (`soft_pairs/5`), and how hard to
+      # try. An empty list leaves the engine's ladder untouched.
+      soft_pairs: soft,
+      soft_position: soft_position(tournament)
     ]
   end
+
+  defp soft_position(%Tournament{soft_position: "weak"}), do: :weak
+  defp soft_position(_tournament), do: :strong
 
   defp alternatives(players, pairs, opts, tournament, round_number, category_name) do
     %{
@@ -1226,11 +1259,22 @@ defmodule PairingsEngine.Pairing do
         trf = javafo_input(tournament, full_roster, local_rank_by_player_id, seated, history)
         parsed = Ainalrami.Trf.parse(trf)
 
+        # The wishes as they stand NOW, like the forbidden pairings in the
+        # TRF above - the record does not keep either as of the round.
+        soft =
+          soft_pairs(
+            tournament,
+            full_roster,
+            local_rank_by_player_id,
+            history.forbidden_pairings,
+            round_number
+          )
+
         {:ok,
          %{
            round: round,
            players: parsed.players,
-           opts: ainalrami_opts(tournament, parsed),
+           opts: ainalrami_opts(tournament, parsed, soft),
            player_by_local_rank: player_by_local_rank,
            local_rank_by_player_id: local_rank_by_player_id
          }}
@@ -1390,12 +1434,12 @@ defmodule PairingsEngine.Pairing do
     |> then(&precompute_games(tournament, &1))
   end
 
-  defp run_ainalrami(tournament, trf, round_number, category_name) do
+  defp run_ainalrami(tournament, trf, round_number, category_name, soft) do
     case ainalrami_unsupported_extensions(trf) do
       [] ->
         parsed = Ainalrami.Trf.parse(trf)
 
-        engine_opts = ainalrami_opts(tournament, parsed)
+        engine_opts = ainalrami_opts(tournament, parsed, soft)
 
         # `engine_opts` verbatim, NOT a second list spelling out the same
         # three keys. They were written out twice and happened to agree; the
@@ -2091,7 +2135,7 @@ defmodule PairingsEngine.Pairing do
     rank_by_player_id = rank_by_player_id || Map.new(players, &{&1.id, &1.pairing_number})
 
     forbidden
-    |> forbidden_pairings(tournament_id)
+    |> hard_forbidden_pairings(tournament_id)
     |> Enum.map(fn fp ->
       {rank_by_player_id[fp.player_a_id], rank_by_player_id[fp.player_b_id]}
     end)
@@ -2114,7 +2158,7 @@ defmodule PairingsEngine.Pairing do
 
     explicit_rank_pairs =
       forbidden
-      |> forbidden_pairings(tournament.id)
+      |> hard_forbidden_pairings(tournament.id)
       |> Enum.map(fn fp ->
         {rank_by_player_id[fp.player_a_id], rank_by_player_id[fp.player_b_id]}
       end)
@@ -2138,6 +2182,65 @@ defmodule PairingsEngine.Pairing do
     do: Tournaments.list_forbidden_pairings(tournament_id)
 
   defp forbidden_pairings(list, _tournament_id) when is_list(list), do: list
+
+  # The rows that are RULES. A soft row (`ForbiddenPairing.soft`) is a wish
+  # for the engine's ladder, handed over by `soft_pairs/5`; as an `XXP` line
+  # it would be a rule, which is the one thing the arbiter said it is not.
+  defp hard_forbidden_pairings(forbidden, tournament_id) do
+    forbidden
+    |> forbidden_pairings(tournament_id)
+    |> Enum.reject(& &1.soft)
+  end
+
+  @doc """
+  The pairs `tournament` would RATHER not see in `round_number`, as
+  starting-rank groups in the shape `forbidden_pairs/4` returns - handed to
+  Ainalrami as its `:soft_pairs` option rather than written into the TRF,
+  because the TRF has no way to say "if you can". Two sources:
+
+    * every forbidden pairing the arbiter marked soft
+      (`ForbiddenPairing.soft`), as a pair;
+    * when `round_number` is within `tournament.soft_club_rounds`, every
+      club with two or more players in `players`, as one group - "keep
+      clubmates apart in the first N rounds". Skipped when the club rule is
+      already hard for everyone (`club_exclusion: "all"`), where it could
+      add nothing.
+
+  Ranks resolve exactly as in `forbidden_pairs/4`; a player with no rank in
+  this run drops out of a group the same way, and a group left with fewer
+  than two members is dropped with them. Empty when the tournament has no
+  soft rules - and an empty list leaves the engine's ladder untouched, so
+  its FIDE behaviour is byte for byte what it was.
+
+  Only Ainalrami reads this. JaVaFo has no such option and Keizer no such
+  rung; for them a soft pair is simply not a rule, and the Settings page
+  says so beside the control.
+  """
+  def soft_pairs(tournament, players, rank_by_player_id, forbidden, round_number) do
+    rank_by_player_id = rank_by_player_id || Map.new(players, &{&1.id, &1.pairing_number})
+
+    explicit =
+      forbidden
+      |> forbidden_pairings(tournament.id)
+      |> Enum.filter(& &1.soft)
+      |> Enum.map(fn fp -> [fp.player_a_id, fp.player_b_id] end)
+
+    clubs =
+      if soft_club_round?(tournament, round_number) do
+        players |> Exclusions.club_groups() |> Enum.map(fn group -> Enum.map(group, & &1.id) end)
+      else
+        []
+      end
+
+    (explicit ++ clubs)
+    |> Enum.map(fn ids -> ids |> Enum.map(&rank_by_player_id[&1]) |> Enum.reject(&is_nil/1) end)
+    |> Enum.filter(&(length(&1) >= 2))
+  end
+
+  defp soft_club_round?(tournament, round_number) do
+    rounds = tournament.soft_club_rounds || 0
+    rounds > 0 and round_number <= rounds and tournament.club_exclusion != "all"
+  end
 
   defp normalize_rank_pair({a, b}) when a <= b, do: {a, b}
   defp normalize_rank_pair({a, b}), do: {b, a}

@@ -247,10 +247,16 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
   ## ---------- Forbidden pairings ----------
 
-  def handle_event("add_forbidden_pairing", %{"player_a_id" => a, "player_b_id" => b}, socket) do
+  def handle_event(
+        "add_forbidden_pairing",
+        %{"player_a_id" => a, "player_b_id" => b} = params,
+        socket
+      ) do
     with {a_id, ""} <- Integer.parse(a),
          {b_id, ""} <- Integer.parse(b) do
-      case Tournaments.add_forbidden_pairing(socket.assigns.tournament, a_id, b_id) do
+      soft? = params["soft"] == "true"
+
+      case Tournaments.add_forbidden_pairing(socket.assigns.tournament, a_id, b_id, soft: soft?) do
         {:ok, forbidden_pairing} ->
           Audit.log(
             socket.assigns.tournament.id,
@@ -258,7 +264,8 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             "forbidden_pairing.added",
             %{
               player_a_id: forbidden_pairing.player_a_id,
-              player_b_id: forbidden_pairing.player_b_id
+              player_b_id: forbidden_pairing.player_b_id,
+              soft: forbidden_pairing.soft
             }
           )
 
@@ -333,7 +340,9 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
         "club_exclusion",
         "club_exclusion_list",
         "fed_exclusion",
-        "fed_exclusion_list"
+        "fed_exclusion_list",
+        "soft_club_rounds",
+        "soft_position"
       ])
 
     base = socket.assigns.tournament
@@ -358,6 +367,20 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
   end
 
   ## ---------- helpers ----------
+
+  # Soft rules are kept for any tournament but only Ainalrami applies them;
+  # the page says which is the case here rather than letting a Keizer or
+  # JaVaFo arbiter set a wish that nothing reads.
+  defp soft_rules_note(%{pairing_system: "swiss", pairing_engine: "ainalrami"}), do: nil
+
+  defp soft_rules_note(%{pairing_system: "swiss"}),
+    do:
+      gettext(
+        "This tournament pairs with JaVaFo, which has no \"if possible\": these wishes are kept but not applied until the engine is Ainalrami."
+      )
+
+  defp soft_rules_note(_tournament),
+    do: gettext("Only the Ainalrami Swiss engine applies these; this tournament does not use it.")
 
   # Server-side enforcement of the locks: drop any submitted value for a
   # locked field regardless of the HTML `disabled` attribute.
@@ -771,6 +794,16 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             </.setting_field>
           </.setting_group>
 
+          <.setting_toggle
+            name="soft"
+            label={gettext("Only if possible")}
+            hint={
+              gettext(
+                "A wish rather than a rule: the pair is weighed against the pairing criteria instead of ruled out, and gives way when the rules leave no other legal round. Ainalrami only - JaVaFo and Keizer have no such option and ignore it."
+              )
+            }
+          />
+
           <p :if={@forbidden_pairing_error} class="error-note">{@forbidden_pairing_error}</p>
 
           <div class="actions">
@@ -796,7 +829,10 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
             <tbody>
               <tr :for={fp <- @forbidden_pairings}>
-                <td>{fp.player_a.name} - {fp.player_b.name}</td>
+                <td>
+                  {fp.player_a.name} - {fp.player_b.name}
+                  <span :if={fp.soft} class="pe-tag pe-tag-muted">{gettext("if possible")}</span>
+                </td>
 
                 <td style="text-align: right">
                   <button
@@ -883,12 +919,51 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             </.setting_field>
           </.setting_group>
 
-          <p class="hint" style="margin-bottom: 0">
+          <p class="hint">
             {ngettext(
               "%{count} pair currently excluded by these rules.",
               "%{count} pairs currently excluded by these rules.",
               @excluded_pair_count
             )}
+          </p>
+
+          <h3 style="margin-top: 24px">{gettext("Rather not, if possible")}</h3>
+
+          <p class="hint" style="margin-top: 0">
+            {gettext(
+              "Wishes rather than rules. Ainalrami weighs them against the pairing criteria and gives way when the rules leave no other legal round; the rationale page shows the rung. Forbidden pairings marked \"only if possible\" above are weighed the same way. JaVaFo and Keizer have no such option and ignore all of this."
+            )}
+          </p>
+
+          <.setting_group>
+            <.setting_field
+              label={gettext("Keep clubmates apart for the first N rounds")}
+              hint={gettext("0 leaves clubmates to the ordinary pairing rules.")}
+            >
+              <input
+                type="number"
+                name="tournament[soft_club_rounds]"
+                min="0"
+                step="1"
+                value={@tournament.soft_club_rounds}
+              />
+            </.setting_field>
+
+            <.setting_field label={gettext("How hard to try")}>
+              <select name="tournament[soft_position]" class="pe-select">
+                <option
+                  :for={p <- Tournament.soft_positions()}
+                  value={p}
+                  selected={p == @tournament.soft_position}
+                >
+                  {Tournament.soft_position_label(p)}
+                </option>
+              </select>
+            </.setting_field>
+          </.setting_group>
+
+          <p :if={soft_rules_note(@tournament)} class="hint" style="margin-bottom: 0">
+            {soft_rules_note(@tournament)}
           </p>
 
           <p :if={@exclusion_error} class="error-note">{@exclusion_error}</p>

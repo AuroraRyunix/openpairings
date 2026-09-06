@@ -164,6 +164,31 @@ defmodule PairingsEngine.Tournaments.TournamentTest do
     end
   end
 
+  describe "soft pairing rules" do
+    test "default to no wishes, tried hard when there are any" do
+      assert %Tournament{}.soft_club_rounds == 0
+      assert %Tournament{}.soft_position == "strong"
+    end
+
+    test "the club wish cannot cover a negative number of rounds" do
+      changeset = Tournament.changeset(%Tournament{}, %{soft_club_rounds: -1, name: "T"})
+      assert changeset.errors[:soft_club_rounds]
+
+      changeset = Tournament.changeset(%Tournament{}, %{soft_club_rounds: 0, name: "T"})
+      refute Keyword.has_key?(changeset.errors, :soft_club_rounds)
+    end
+
+    test "how hard to try is strong or weak, nothing else" do
+      changeset = Tournament.changeset(%Tournament{}, %{soft_position: "medium", name: "T"})
+      assert changeset.errors[:soft_position]
+
+      for position <- Tournament.soft_positions() do
+        changeset = Tournament.changeset(%Tournament{}, %{soft_position: position, name: "T"})
+        refute Keyword.has_key?(changeset.errors, :soft_position)
+      end
+    end
+  end
+
   describe "abs_jusque/abs_nbfois bounds" do
     # Both are one-byte fields in the `.swar` format, so `SwarExport`'s
     # `w_u8/1` masked anything past 255 - 256 wrote as 0, which SWAR reads

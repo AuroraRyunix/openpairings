@@ -306,6 +306,134 @@ defmodule PairingsEngine.PairingEngineTest do
     :ok = Pairing.delete_round(tournament.id, round.number)
   end
 
+  ## ---------- soft rules ----------
+
+  describe "soft rules" do
+    # Same four-player field as the `XXP` tests above, and for the same
+    # reason: round 1 pairs 1v3 and 2v4, so a wish to keep 1 and 3 apart can
+    # only be honoured by changing the round.
+    test "a soft forbidden pairing steers Ainalrami without becoming a rule" do
+      t = tournament(%{pairing_engine: "ainalrami"})
+      [p1, p2, p3, p4] = roster(t, 4)
+
+      {:ok, round} = Pairing.pair_next_round(t)
+      :ok = delete_round(t, round)
+
+      {:ok, fp} = Tournaments.add_forbidden_pairing(t, p1.id, p3.id, soft: true)
+      assert fp.soft
+
+      t = Repo.reload!(t)
+
+      # Not a rule: the TRF both engines read carries no XXP line for it.
+      refute Pairing.javafo_input(t) =~ "XXP"
+
+      assert {:ok, round} = Pairing.pair_next_round(t)
+
+      refute met?(round, p1, p3), "the arbiter's wish was ignored"
+      assert length(paired_player_ids(round)) == 4
+      assert met?(round, p1, p4)
+      assert met?(round, p2, p3)
+
+      # And the account says so, on a rung of its own.
+      labels =
+        round.explanation["sections"]
+        |> Enum.flat_map(& &1["brackets"])
+        |> Enum.flat_map(& &1["rungs"])
+        |> Enum.map(& &1["label"])
+
+      assert "S soft avoid" in labels
+    end
+
+    test "a soft pair gives way when the rules leave no other legal round" do
+      # Three players, every pair soft: one takes the bye and the other two
+      # MUST meet. The same three pairs as rules leave no legal round at all
+      # (next test) - that contrast is the whole difference between the two.
+      t = tournament(%{pairing_engine: "ainalrami"})
+      [p1, p2, p3] = roster(t, 3)
+
+      {:ok, round} = Pairing.pair_next_round(t)
+      :ok = delete_round(t, round)
+
+      for {a, b} <- [{p1, p2}, {p1, p3}, {p2, p3}] do
+        {:ok, _} = Tournaments.add_forbidden_pairing(t, a.id, b.id, soft: true)
+      end
+
+      assert {:ok, round} = Pairing.pair_next_round(Repo.reload!(t))
+
+      pairings = Repo.preload(round, :pairings).pairings
+      assert length(pairings) == 2
+      assert Enum.count(pairings, &is_nil(&1.black_player_id)) == 1
+    end
+
+    test "as rules, the same three pairs leave no legal round" do
+      t = tournament(%{pairing_engine: "ainalrami"})
+      [p1, p2, p3] = roster(t, 3)
+
+      {:ok, round} = Pairing.pair_next_round(t)
+      :ok = delete_round(t, round)
+
+      for {a, b} <- [{p1, p2}, {p1, p3}, {p2, p3}] do
+        {:ok, _} = Tournaments.add_forbidden_pairing(t, a.id, b.id)
+      end
+
+      assert {:error, _reason} = Pairing.pair_next_round(Repo.reload!(t))
+    end
+
+    test "clubmates are kept apart for the first N rounds, and only those" do
+      t = tournament(%{pairing_engine: "ainalrami", soft_club_rounds: 1})
+      p1 = insert_player(t, "P1", fide_rating: 1950, club: "Chess Club")
+      p2 = insert_player(t, "P2", fide_rating: 1900)
+      p3 = insert_player(t, "P3", fide_rating: 1850, club: "chess club ")
+      p4 = insert_player(t, "P4", fide_rating: 1800)
+
+      assert {:ok, round} = Pairing.pair_next_round(t)
+
+      # 1v3 is the natural pairing (see the control at the top of this
+      # file); the club wish - case and spacing notwithstanding - moves it.
+      refute met?(round, p1, p3)
+      assert met?(round, p1, p4)
+      assert met?(round, p2, p3)
+
+      players = Tournaments.list_players(t.id)
+      [p1, p3] = Enum.map([p1, p3], &Repo.reload!/1)
+
+      assert [group] = Pairing.soft_pairs(t, players, nil, nil, 1)
+      assert Enum.sort(group) == Enum.sort([p1.pairing_number, p3.pairing_number])
+
+      # Round 2 is past the wish.
+      assert Pairing.soft_pairs(t, players, nil, nil, 2) == []
+    end
+
+    test "a hard club rule makes the club wish redundant, so it is not sent" do
+      t = tournament(%{pairing_engine: "ainalrami", club_exclusion: "all", soft_club_rounds: 3})
+      insert_player(t, "P1", fide_rating: 1950, club: "Chess Club")
+      insert_player(t, "P2", fide_rating: 1900, club: "Chess Club")
+
+      players = Tournaments.list_players(t.id)
+      rank_by_id = players |> Enum.with_index(1) |> Map.new(fn {p, i} -> {p.id, i} end)
+
+      assert Pairing.soft_pairs(t, players, rank_by_id, nil, 1) == []
+    end
+
+    test "with no soft rules the engine is handed nothing, so its ladder is untouched" do
+      t = tournament(%{pairing_engine: "ainalrami"})
+      players = roster(t, 4)
+      rank_by_id = players |> Enum.with_index(1) |> Map.new(fn {p, i} -> {p.id, i} end)
+
+      assert Pairing.soft_pairs(t, players, rank_by_id, nil, 1) == []
+
+      assert {:ok, round} = Pairing.pair_next_round(t)
+
+      labels =
+        round.explanation["sections"]
+        |> Enum.flat_map(& &1["brackets"])
+        |> Enum.flat_map(& &1["rungs"])
+        |> Enum.map(& &1["label"])
+
+      refute "S soft avoid" in labels
+    end
+  end
+
   ## ---------- changeset guards ----------
 
   describe "changeset: Ainalrami on a FIDE-homologated tournament is allowed, with warnings in the UI" do

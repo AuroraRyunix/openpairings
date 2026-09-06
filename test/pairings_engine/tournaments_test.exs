@@ -1471,6 +1471,22 @@ defmodule PairingsEngine.TournamentsTest do
       assert listed.player_b.name == "Bob"
     end
 
+    test "add_forbidden_pairing/4 records a wish, and a plain add stays a rule",
+         %{tournament: t, a: a, b: b} do
+      assert {:ok, soft} = Tournaments.add_forbidden_pairing(t, a.id, b.id, soft: true)
+      assert soft.soft
+      assert [%{soft: true}] = Tournaments.list_forbidden_pairings(t.id)
+
+      # Wish or rule, it is the same pair - a second row would be two
+      # opinions about one pair.
+      assert {:error, :already_forbidden} = Tournaments.add_forbidden_pairing(t, b.id, a.id)
+
+      {:ok, _} = Tournaments.remove_forbidden_pairing(t, soft.id)
+
+      assert {:ok, hard} = Tournaments.add_forbidden_pairing(t, a.id, b.id)
+      refute hard.soft
+    end
+
     test "add_forbidden_pairing/3 rejects the same player twice", %{tournament: t, a: a} do
       assert {:error, :same_player} = Tournaments.add_forbidden_pairing(t, a.id, a.id)
       assert Tournaments.list_forbidden_pairings(t.id) == []

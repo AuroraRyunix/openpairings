@@ -161,4 +161,22 @@ defmodule PairingsEngine.ExclusionsTest do
       assert Exclusions.excluded_pairs(t, [a, b]) == MapSet.new([{b, a}])
     end
   end
+
+  describe "club_groups/1 - the soft club rule's groups" do
+    test "one group per club with two or more members, blanks never grouped" do
+      a = player(1, club: "Chess Club")
+      b = player(2, club: " chess club")
+      c = player(3, club: "Other Club")
+      d = player(4, club: "")
+      e = player(5, club: nil)
+
+      assert [group] = Exclusions.club_groups([a, b, c, d, e])
+      assert Enum.sort_by(group, & &1.id) == [a, b]
+    end
+
+    test "nothing to group is an empty list, not an error" do
+      assert Exclusions.club_groups([]) == []
+      assert Exclusions.club_groups([player(1, club: "Solo")]) == []
+    end
+  end
 end

@@ -419,9 +419,13 @@ defmodule PairingsEngine.Keizer do
   # ladder pool - Exclusions.excluded_pairs/2 only ever produces pairs drawn
   # from whatever list it's given.
   defp read_forbidden(tournament, players) do
+    # Hard rows only. A soft pair is a wish for the Swiss engine's ladder
+    # (see `ForbiddenPairing`); Keizer's matcher has no "rather not", and
+    # honouring it here would silently turn a wish into a rule.
     explicit =
       tournament.id
       |> Tournaments.list_forbidden_pairings()
+      |> Enum.reject(& &1.soft)
       |> MapSet.new(&pair_key(&1.player_a_id, &1.player_b_id))
 
     exclusions =

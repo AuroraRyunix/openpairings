@@ -623,6 +623,10 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   defp rung_words("C21 upfloat scores r-2"),
     do: gettext("the score of the player floated up, two rounds back")
 
+  # The arbiter's own rung, present only when the tournament has soft rules.
+  defp rung_words("S soft avoid"),
+    do: gettext("pairs the arbiter asked to keep apart if possible")
+
   defp rung_words(label) when is_binary(label), do: label
   defp rung_words(_), do: "-"
 

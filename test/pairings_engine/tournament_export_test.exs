@@ -210,7 +210,10 @@ defmodule PairingsEngine.TournamentExportTest do
     assert pairing_json["result"] == "1-0"
 
     assert t_data["byes"] == [%{"player_id" => a.id, "round" => 2, "type" => "requested-half"}]
-    assert t_data["forbidden_pairings"] == [%{"player_a_id" => a.id, "player_b_id" => b.id}]
+
+    assert t_data["forbidden_pairings"] == [
+             %{"player_a_id" => a.id, "player_b_id" => b.id, "soft" => false}
+           ]
   end
 
   test "the whole envelope survives a real JSON encode/decode round-trip" do

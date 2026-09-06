@@ -81,6 +81,7 @@ defmodule PairingsEngine.TournamentExport do
     pairing_system pairing_engine rr_cycles rr_match_format swiss_match_format
     keizer_top_value pair_by_category
     club_exclusion club_exclusion_list fed_exclusion fed_exclusion_list
+    soft_club_rounds soft_position
     count_extra_points extra_points_bands
     publish_mode publish_delay_minutes
     manual_ranking manual_ranking_stale
@@ -597,7 +598,13 @@ defmodule PairingsEngine.TournamentExport do
     Repo.all(
       from f in "forbidden_pairings",
         where: f.tournament_id == ^tournament_id,
-        select: %{player_a_id: f.player_a_id, player_b_id: f.player_b_id}
+        # Cast, because this is a schemaless query and SQLite stores a
+        # boolean as 0/1 - and `TournamentImport` reads the key as a boolean.
+        select: %{
+          player_a_id: f.player_a_id,
+          player_b_id: f.player_b_id,
+          soft: type(f.soft, :boolean)
+        }
     )
     |> Enum.map(&stringify_keys/1)
   end

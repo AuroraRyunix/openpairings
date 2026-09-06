@@ -1,6 +1,6 @@
 # OpenPairings - features & roadmap
 
-Current version: **0.44.0**. One page: everything the app does today, and where
+Current version: **0.45.0**. One page: everything the app does today, and where
 it is going. Per-feature detail lives in the other [docs pages](README.md).
 
 ## Pairing
@@ -36,6 +36,11 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
 - **Forbidden pairings** - arbiter-managed never-pair list, plus rule-based
   club/federation exclusions (all or listed clubs/federations), enforced in
   Swiss (`XXP`) and Keizer.
+- **Soft rules** - a forbidden pairing can be a wish ("only if possible")
+  instead of a rule, and clubmates can be asked apart for the first N
+  rounds; the Ainalrami engine weighs the wish against the pairing criteria,
+  strong (before colour and float rules) or weak (a tie-break), gives way
+  when nothing else is legal, and the rationale page shows the rung.
 - **Blind result entry** - SWAR-style keyboard flow: focus a board's result,
   type `1`/`2`/`3`, focus advances one board with smooth scrolling.
 

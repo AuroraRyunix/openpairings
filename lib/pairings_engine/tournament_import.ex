@@ -431,14 +431,19 @@ defmodule PairingsEngine.TournamentImport do
       |> Enum.map(fn f ->
         with a when not is_nil(a) <- Map.get(player_map, Map.get(f, "player_a_id")),
              b when not is_nil(b) <- Map.get(player_map, Map.get(f, "player_b_id")) do
-          %{tournament_id: tournament.id, player_a_id: a, player_b_id: b}
+          # Envelopes written before soft rules existed carry no "soft" key;
+          # every row in them was a rule, which is what `false` means.
+          %{tournament_id: tournament.id, player_a_id: a, player_b_id: b, soft: f["soft"] == true}
         else
           _ -> nil
         end
       end)
       |> Enum.reject(&is_nil/1)
 
-    if rows != [], do: Repo.insert_all("forbidden_pairings", rows)
+    # Through the schema, not the bare table name the other blocks use: a
+    # schemaless insert has no type for `soft`, and SQLite would store the
+    # boolean as the text "true", which the schema then cannot load.
+    if rows != [], do: Repo.insert_all(PairingsEngine.Tournaments.ForbiddenPairing, rows)
   end
 
   ## ---------- the audit trail (hand-off envelopes only) ----------
