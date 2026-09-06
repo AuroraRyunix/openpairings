@@ -1143,29 +1143,123 @@ defmodule PairingsEngine.Pairing do
   # final-round colour exception keys off it. Taking it from the struct
   # would silently diverge the two engines on the last round if the two ever
   # disagreed.
+  # The three options every Ainalrami call takes, built once so that the
+  # pairing, its explanation, and a page judging an alternative afterwards
+  # all read the same values. They were written out twice and happened to
+  # agree; the next option added to one would not have, and the failure is
+  # quiet - a report describing a pairing that was made under other rules.
+  defp ainalrami_opts(tournament, parsed) do
+    [
+      expected_rounds: parsed.tournament[:number_of_rounds],
+      # `Ainalrami.Trf.parse/1` lifts every `XXP` line into
+      # `tournament[:forbidden_pairs]`, but the engine takes them as an
+      # OPTION rather than reading them off the parsed struct - so omitting
+      # this parsed them and threw them away. Every explicit forbidden
+      # pairing and every club/federation exclusion was silently ignored,
+      # which is the exact failure the extension guard exists to prevent: a
+      # complete, legal-looking round that seats two players the arbiter
+      # separated.
+      forbidden_pairs: parsed.tournament[:forbidden_pairs],
+      # What a result is WORTH. Omitting this paired every tournament on the
+      # standard 1/half/0 system regardless of what the arbiter had
+      # configured, so a 3-1-0 event was scored one way and bracketed
+      # another. The TRF carries each player's TOTAL, which the engine
+      # reconciles, but not the values behind it.
+      point_system: Tournament.engine_point_system(tournament)
+    ]
+  end
+
+  defp alternatives(players, pairs, opts, tournament, round_number, category_name) do
+    %{
+      floats: Ainalrami.Alternatives.float_alternatives(players, pairs, opts),
+      bye: Ainalrami.Alternatives.bye_alternatives(players, pairs, opts)
+    }
+  rescue
+    e ->
+      Logger.warning(
+        "Ainalrami could not judge the alternatives for #{engine_log_scope(tournament, round_number, category_name)}: #{Exception.message(e)}"
+      )
+
+      %{floats: [], bye: nil}
+  end
+
+  @doc """
+  The field exactly as the engine saw it when `round_number` was paired -
+  the parsed TRF players, the engine options, and the rank <-> player maps -
+  rebuilt from history strictly BEFORE that round.
+
+  This is what lets a page judge an alternative to a round that has already
+  been played: the scores, colours and float history are those of the
+  moment the decision was made, not today's. Only the players actually
+  seated in that round (and its bye) are eligible in the rebuilt field, so
+  a late entrant who joined afterwards is not conjured into a bracket they
+  were never in.
+
+  Single-pool tournaments only: a category-paired round has one field per
+  category, which this does not reconstruct.
+  """
+  def engine_field(%Tournament{} = tournament, round_number) do
+    case tournament.id |> Tournaments.get_round(round_number) |> Repo.preload(:pairings) do
+      nil ->
+        {:error, :no_such_round}
+
+      round ->
+        history = history_before(tournament, round_number)
+
+        full_roster =
+          history.full_roster |> Map.values() |> order_for_pairing(tournament, history)
+
+        seated =
+          round.pairings
+          |> Enum.flat_map(&[&1.white_player_id, &1.black_player_id])
+          |> Enum.reject(&is_nil/1)
+          |> MapSet.new()
+
+        local_rank_by_player_id =
+          full_roster |> Enum.with_index(1) |> Map.new(fn {p, i} -> {p.id, i} end)
+
+        by_id = Map.new(full_roster, &{&1.id, &1})
+
+        player_by_local_rank =
+          Map.new(local_rank_by_player_id, fn {id, rank} -> {rank, Map.fetch!(by_id, id)} end)
+
+        trf = javafo_input(tournament, full_roster, local_rank_by_player_id, seated, history)
+        parsed = Ainalrami.Trf.parse(trf)
+
+        {:ok,
+         %{
+           round: round,
+           players: parsed.players,
+           opts: ainalrami_opts(tournament, parsed),
+           player_by_local_rank: player_by_local_rank,
+           local_rank_by_player_id: local_rank_by_player_id
+         }}
+    end
+  end
+
+  # The shared history with everything from `round_number` onwards removed -
+  # what `pairing_history/1` would have returned the moment that round was
+  # about to be paired.
+  defp history_before(tournament, round_number) do
+    history = build_shared_history(tournament.id)
+
+    %{
+      history
+      | rounds: Enum.filter(history.rounds, &(&1.number < round_number)),
+        bye_map:
+          history.bye_map
+          |> Enum.filter(fn {{_player_id, round}, _type} -> round < round_number end)
+          |> Map.new()
+    }
+    |> then(&precompute_games(tournament, &1))
+  end
+
   defp run_ainalrami(tournament, trf, round_number, category_name) do
     case ainalrami_unsupported_extensions(trf) do
       [] ->
         parsed = Ainalrami.Trf.parse(trf)
 
-        engine_opts = [
-          expected_rounds: parsed.tournament[:number_of_rounds],
-          # `Ainalrami.Trf.parse/1` lifts every `XXP` line into
-          # `tournament[:forbidden_pairs]`, but the engine takes them as an
-          # OPTION rather than reading them off the parsed struct - so
-          # omitting this parsed them and threw them away. Every explicit
-          # forbidden pairing and every club/federation exclusion was
-          # silently ignored, which is the exact failure the extension guard
-          # below exists to prevent: a complete, legal-looking round that
-          # happens to seat two players the arbiter separated.
-          forbidden_pairs: parsed.tournament[:forbidden_pairs],
-          # What a result is WORTH. Omitting this paired every tournament on
-          # the standard 1/half/0 system regardless of what the arbiter had
-          # configured, so a 3-1-0 event was scored one way and bracketed
-          # another. The TRF carries each player's TOTAL, which the engine
-          # reconciles, but not the values behind it.
-          point_system: Tournament.engine_point_system(tournament)
-        ]
+        engine_opts = ainalrami_opts(tournament, parsed)
 
         # `engine_opts` verbatim, NOT a second list spelling out the same
         # three keys. They were written out twice and happened to agree; the
@@ -1184,7 +1278,23 @@ defmodule PairingsEngine.Pairing do
         # that the engine has already computed correctly.
         explanation =
           try do
-            Ainalrami.Pairing.explain_round(parsed.players, raw_pairs, engine_opts)
+            brackets = Ainalrami.Pairing.explain_round(parsed.players, raw_pairs, engine_opts)
+
+            # The alternatives - "why did HE float / get the bye and not
+            # me" - are one forced search per candidate, so they are the
+            # expensive part and are guarded on their own: losing them must
+            # not lose the brackets, and neither may cost the round.
+            Map.merge(
+              %{brackets: brackets},
+              alternatives(
+                parsed.players,
+                raw_pairs,
+                engine_opts,
+                tournament,
+                round_number,
+                category_name
+              )
+            )
           rescue
             e ->
               Logger.warning(
@@ -1380,27 +1490,40 @@ defmodule PairingsEngine.Pairing do
         {_category_name, nil, _by_rank} ->
           []
 
-        {category_name, brackets, by_rank} ->
+        {category_name, account, by_rank} ->
+          account = if is_list(account), do: %{brackets: account}, else: account
+          floats_by_group = account |> Map.get(:floats, []) |> Enum.group_by(& &1.group)
+
           [
             %{
               "category" => category_name,
-              "brackets" => Enum.map(brackets, &bracket_json(&1, by_rank))
+              "brackets" =>
+                Enum.map(
+                  account.brackets,
+                  &bracket_json(&1, by_rank, Map.get(floats_by_group, &1.group, []))
+                ),
+              "bye" => bye_json(Map.get(account, :bye), by_rank)
             }
           ]
       end)
 
     case built do
       [] -> nil
-      # Version 2 (2026-09-06) adds, per bracket, the state the pairing was
-      # made FROM - subgroups, colour states, excluded pairs. A version-1
-      # record simply lacks those keys, and `PairingsEngine.RoundExplanation`
-      # reads them as empty rather than refusing the round.
-      sections -> %{"engine" => "ainalrami", "version" => 2, "sections" => sections}
+      # Version 2 (2026-09-06) added, per bracket, the state the pairing was
+      # made FROM - subgroups, colour states, excluded pairs. Version 3 (the
+      # same day) adds the alternatives: for every float and for the bye,
+      # what each other candidate would have cost. An older record simply
+      # lacks the keys, and `PairingsEngine.RoundExplanation` reads them as
+      # empty rather than refusing the round.
+      sections -> %{"engine" => "ainalrami", "version" => 3, "sections" => sections}
     end
   end
 
-  defp bracket_json(bracket, by_rank) do
+  defp bracket_json(bracket, by_rank, float_alternatives) do
     %{
+      # "Why did HE float and not me": one entry per player who floated out
+      # of this bracket, each with a verdict for every other member.
+      "float_alternatives" => Enum.map(float_alternatives, &alternative_json(&1, by_rank)),
       "group" => bracket.group,
       "mdps" => player_ids(bracket.mdps, by_rank),
       "residents" => player_ids(bracket.residents, by_rank),
@@ -1469,6 +1592,70 @@ defmodule PairingsEngine.Pairing do
   defp float_json(dir) when dir in [:up, :down], do: Atom.to_string(dir)
   defp float_json(_), do: nil
 
+  defp bye_json(nil, _by_rank), do: nil
+
+  defp bye_json(bye, by_rank) do
+    bye
+    |> alternative_json(by_rank)
+    |> Map.put("holder", player_id(bye.holder, by_rank))
+    |> Map.put("group", bye.group)
+    |> Map.delete("floater")
+  end
+
+  defp alternative_json(%{skipped: why} = entry, by_rank) do
+    %{
+      "floater" => player_id(Map.get(entry, :floater), by_rank),
+      "skipped" => Atom.to_string(why),
+      "count" => entry.count
+    }
+  end
+
+  defp alternative_json(entry, by_rank) do
+    %{
+      "floater" => player_id(Map.get(entry, :floater), by_rank),
+      "candidates" =>
+        entry.candidates
+        |> Enum.map(&candidate_json(&1, by_rank))
+        |> Enum.reject(&is_nil(&1["player"]))
+    }
+  end
+
+  defp candidate_json(candidate, by_rank) do
+    %{
+      "player" => player_id(candidate.rank, by_rank),
+      "outcome" => Atom.to_string(candidate.outcome),
+      "reason" => candidate |> Map.get(:reason) |> reason_json(),
+      "at" => candidate |> Map.get(:differs_at) |> differs_json(),
+      "fate" => candidate |> Map.get(:fate) |> fate_json(by_rank),
+      "stayed" => Map.get(candidate, :floater_stayed?)
+    }
+  end
+
+  defp reason_json(nil), do: nil
+  defp reason_json(reason) when is_atom(reason), do: Atom.to_string(reason)
+  defp reason_json(reason) when is_binary(reason), do: reason
+
+  defp differs_json(nil), do: nil
+
+  defp differs_json(at) do
+    %{
+      "group" => at.group,
+      "label" => Map.get(at, :label),
+      "actual" => Map.get(at, :actual),
+      "alternative" => Map.get(at, :alternative),
+      "lex" => at |> Map.get(:lex) |> then(&if(&1, do: Atom.to_string(&1)))
+    }
+  end
+
+  defp fate_json(nil, _by_rank), do: nil
+
+  defp fate_json(fate, by_rank) do
+    %{
+      "opponent" => fate.opponent && player_id(fate.opponent, by_rank),
+      "score" => fate.score
+    }
+  end
+
   defp exclusions_json(exclusions, by_rank) do
     exclusions
     |> Enum.map(fn %{players: [a, b]} = x ->
@@ -1528,6 +1715,7 @@ defmodule PairingsEngine.Pairing do
   # page rendering an explanation, so an unknown rank is simply dropped from
   # the account rather than taking the page down with it.
   defp player_id(0, _by_rank), do: nil
+  defp player_id(nil, _by_rank), do: nil
 
   defp player_id(rank, by_rank) do
     case Map.get(by_rank, rank) do

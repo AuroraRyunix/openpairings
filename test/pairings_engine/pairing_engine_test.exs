@@ -655,7 +655,7 @@ defmodule PairingsEngine.PairingEngineTest do
 
       assert {:ok, round} = Pairing.pair_next_round(t)
 
-      assert %{"engine" => "ainalrami", "version" => 2, "sections" => [section]} =
+      assert %{"engine" => "ainalrami", "version" => 3, "sections" => [section]} =
                round.explanation
 
       # One pool, so no category name.
@@ -782,6 +782,38 @@ defmodule PairingsEngine.PairingEngineTest do
                bracket["exclusions"]
 
       assert Enum.sort(pair) == Enum.sort([p1.id, p2.id])
+    end
+
+    # Version 3: the alternatives. "Why did HE get the bye and not me" is
+    # judged for every other member of the bye holder's bracket at pairing
+    # time and stored - one forced search each, which is why it is stored
+    # rather than recomputed on every page view.
+    test "an odd field records why the bye went where it went" do
+      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
+      players = roster(t, 7)
+      ids = MapSet.new(players, & &1.id)
+
+      assert {:ok, round} = Pairing.pair_next_round(t)
+      [%{"bye" => bye}] = round.explanation["sections"]
+
+      assert MapSet.member?(ids, bye["holder"])
+      assert length(bye["candidates"]) == 6
+
+      for c <- bye["candidates"] do
+        assert MapSet.member?(ids, c["player"])
+        assert c["outcome"] in ~w(worse tie impossible same incomparable ineligible)
+        # Nobody may score better than the engine's own answer.
+        refute c["outcome"] == "better"
+      end
+    end
+
+    test "an even field has no bye to explain, and round one has no floats" do
+      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
+      roster(t, 8)
+
+      assert {:ok, round} = Pairing.pair_next_round(t)
+      [%{"bye" => nil, "brackets" => [bracket]}] = round.explanation["sections"]
+      assert bracket["float_alternatives"] == []
     end
 
     @tag :javafo

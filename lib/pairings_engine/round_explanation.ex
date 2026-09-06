@@ -31,7 +31,11 @@ defmodule PairingsEngine.RoundExplanation do
     |> Enum.map(fn section ->
       %{
         category: section["category"],
-        brackets: Enum.map(section["brackets"], &bracket(&1, by_id))
+        brackets: Enum.map(section["brackets"], &bracket(&1, by_id)),
+        # Version 3: who got the pairing-allocated bye, and what every other
+        # candidate would have cost. nil for an even field, and for every
+        # round recorded before the key existed.
+        bye: alternative(section["bye"], by_id, :holder)
       }
     end)
     |> Enum.reject(&(&1.brackets == []))
@@ -61,9 +65,80 @@ defmodule PairingsEngine.RoundExplanation do
       s1: names(bracket["s1"], by_id),
       s2: names(bracket["s2"], by_id),
       states: states(bracket["states"], by_id),
-      exclusions: exclusions(bracket["exclusions"], by_id)
+      exclusions: exclusions(bracket["exclusions"], by_id),
+      # Version 3: for each player who floated out, a verdict on every other
+      # member floating instead.
+      float_alternatives:
+        (bracket["float_alternatives"] || [])
+        |> Enum.map(&alternative(&1, by_id, :floater))
+        |> Enum.reject(&is_nil/1)
     }
   end
+
+  @outcomes ~w(same worse better tie incomparable impossible ineligible)
+  @bye_reasons ~w(pairing_bye forfeit_win full_point_bye)
+
+  # One "why him and not me" record - a float's or the bye's - with the
+  # subject resolved under `subject_key` (`:floater` or `:holder`).
+  defp alternative(nil, _by_id, _subject_key), do: nil
+
+  defp alternative(entry, by_id, subject_key) do
+    subject = player(entry[Atom.to_string(subject_key)], by_id)
+
+    cond do
+      is_nil(subject) ->
+        nil
+
+      entry["skipped"] ->
+        %{
+          subject_key => subject,
+          skipped: entry["skipped"],
+          count: entry["count"],
+          candidates: []
+        }
+
+      true ->
+        %{
+          subject_key => subject,
+          skipped: nil,
+          group: entry["group"],
+          candidates:
+            (entry["candidates"] || [])
+            |> Enum.map(&candidate(&1, by_id))
+            |> Enum.reject(&is_nil(&1.player))
+        }
+    end
+  end
+
+  defp candidate(c, by_id) do
+    %{
+      player: player(c["player"], by_id),
+      outcome: if(c["outcome"] in @outcomes, do: String.to_atom(c["outcome"]), else: :unknown),
+      reason: reason(c["reason"]),
+      at: differs(c["at"]),
+      fate: fate(c["fate"], by_id),
+      stayed: c["stayed"]
+    }
+  end
+
+  defp reason(nil), do: nil
+  defp reason(r) when r in @bye_reasons, do: String.to_atom(r)
+  defp reason(r), do: r
+
+  defp differs(nil), do: nil
+
+  defp differs(at) do
+    %{
+      group: at["group"],
+      label: at["label"],
+      actual: at["actual"],
+      alternative: at["alternative"],
+      lex: at["lex"] && String.to_atom(at["lex"])
+    }
+  end
+
+  defp fate(nil, _by_id), do: nil
+  defp fate(f, by_id), do: %{opponent: player(f["opponent"], by_id), score: f["score"]}
 
   # A player's colour and float state at the moment of pairing, with the
   # player resolved. `class` comes back as the atom the engine used, so the

@@ -14,6 +14,36 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.41.0] - 2026-09-06
+
+- [Feature] **The pairing rationale now answers "why him and not me".** For
+  a round Ainalrami paired, every player who floated out of a bracket gets a
+  line per other member of that bracket saying what floating THEM instead
+  would have cost: impossible (no legal pairing has them leave), worse on a
+  named criterion - "floating down again after floating down last round", with
+  the two scores - or equal, in which case the transposition order decided
+  and the line says which way. The same for the pairing-allocated bye, after
+  first saying who was not allowed one at all and why (already had a bye, won
+  by forfeit). These are worked out once, when the round is paired, by
+  actually pairing the alternative and scoring it; they are stored with the
+  round, so what the page shows is what was true at the moment of the
+  decision. Capped at twelve candidates per question - round one's single
+  bracket of everyone is not where this gets asked.
+
+- [Feature] **"What if?" - name a swap or a pair and get the ruling.** On the
+  rationale page, pick two players from the round and ask what would have
+  happened had they swapped seats, or played each other. The engine scores
+  the proposal against what was played, on the field exactly as it stood
+  when the round was paired: it breaks an absolute rule (met in round 3,
+  both absolutely due White, forbidden by the arbiter - named pair by pair),
+  or it scores lower on a named criterion, or it is equal. Nothing changes;
+  the swap itself is still on the pairings page. This is the closest thing
+  to what an arbiter does in their head when a player complains, done by the
+  rules rather than by feel.
+
+- [Change] **Engine updated to Ainalrami 0.19.0**, which judges the
+  alternatives. Pairing behaviour is unchanged.
+
 ## [0.40.1] - 2026-09-06
 
 - [Security] **Two denial-of-service advisories in the HTTP client closed.**

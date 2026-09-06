@@ -2240,6 +2240,26 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .pe-account-excluded { margin: 4px 0 8px; padding-left: 18px; font-size: 13px; }
 .pe-account-excluded li { line-height: 1.5; }
 .pe-account-excluded .pe-excluded-why { color: var(--text-soft); }
+/* "Why him and not me" - one line per other candidate, with the verdict.
+   A candidate the rules forbade reads as a wall (danger); one the criteria
+   merely preferred against reads as a judgement (soft). A candidate that
+   would have scored BETTER is the engine's own bug report and is not
+   allowed to look like anything else. */
+.pe-why-me { margin: 4px 0 8px 0; padding: 6px 10px; border-left: 3px solid var(--border); font-size: 13px; }
+.pe-why-me-head { margin: 0 0 4px; }
+.pe-why-me ul { margin: 0; padding-left: 18px; }
+.pe-why-me li { line-height: 1.5; }
+.pe-why-me .pe-verdict-why { color: var(--text-soft); }
+.pe-why-me .is-impossible, .pe-why-me .is-ineligible { color: var(--danger); }
+.pe-why-me .is-better { color: var(--danger); font-weight: 600; }
+.pe-why-me .is-tie { color: var(--warn); }
+/* "What if" - the arbiter names a swap or a pair and gets a ruling. */
+.pe-whatif-form { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: end; margin: 8px 0; }
+.pe-whatif-form label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--text-soft); }
+.pe-whatif-result { margin-top: 8px; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-alt); }
+.pe-whatif-result .is-illegal { color: var(--danger); font-weight: 600; }
+.pe-whatif-result .is-better { color: var(--danger); font-weight: 600; }
+.pe-whatif-result ul { margin: 4px 0 0; padding-left: 18px; }
 /* One row per board: who is on it, the colour history that explains the
    verdict, and what the pairing gave up to exist. A board that gave up
    nothing is dimmed rather than hidden - "we checked, it is fine" is

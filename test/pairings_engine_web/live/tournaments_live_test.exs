@@ -389,7 +389,10 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
       render_upload(trf, "problemski.swar")
       html = lv |> form("#trf-import-form", %{}) |> render_submit()
 
-      refute html =~ "001"
+      # The TRF parser's own complaint, not the bare substring "001": every
+      # tournament and player id on the page is a number, and once the suite
+      # grew past a thousand rows one of them read "…001" and failed this.
+      refute html =~ "no player records"
       refute html =~ "Could not read"
       # problemski.swar has an unresolved player, so the SWAR journey's
       # confirm step is what proves it went down the SWAR path, not the TRF one.

@@ -1225,6 +1225,115 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
       refute html =~ "Nothing was ruled out here"
     end
 
+    defp ainalrami_tournament(scope, count) do
+      {:ok, t} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "Alternatives",
+          "type" => "swiss",
+          "rounds_count" => "5"
+        })
+
+      {:ok, t} = Tournaments.update_tournament(t, %{"pairing_engine" => "ainalrami"})
+
+      for n <- 1..count do
+        {:ok, _} =
+          Tournaments.create_player(t.id, %{"name" => "P#{n}", "fide_rating" => 2000 - n * 50})
+      end
+
+      t
+    end
+
+    # Version 3: "why did HE get the bye and not me" - every other candidate
+    # in the bye holder's bracket, each with a verdict.
+    test "an odd field says why the bye went where it went", %{conn: conn, scope: scope} do
+      t = ainalrami_tournament(scope, 7)
+      {:ok, _round} = Pairing.pair_next_round(t)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
+
+      assert html =~ "Why the bye went to"
+      # Six other candidates, each a line with a verdict.
+      assert length(Regex.scan(~r/pe-verdict-why/, html)) >= 6
+    end
+
+    # "Why did HE float and not me": six players, round one all won by
+    # White, so round two's top bracket holds three and one must float.
+    test "a bracket that floats says why that player and not another", %{
+      conn: conn,
+      scope: scope
+    } do
+      t = ainalrami_tournament(scope, 6)
+      {:ok, r1} = Pairing.pair_next_round(t)
+
+      for p <- Repo.preload(r1, :pairings).pairings do
+        if p.black_player_id, do: {:ok, _} = Tournaments.update_pairing_result(p, "1-0")
+      end
+
+      {:ok, _r2} = Pairing.pair_next_round(t)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/2/explain")
+
+      assert html =~ "floated and not somebody else"
+      refute html =~ "treat it as a bug report"
+    end
+
+    # "What if": the arbiter names two players and gets a ruling, live,
+    # against the field as the engine saw it when the round was paired.
+    test "a swap can be judged, and the ruling is one of the four kinds", %{
+      conn: conn,
+      scope: scope
+    } do
+      t = ainalrami_tournament(scope, 8)
+      {:ok, round} = Pairing.pair_next_round(t)
+      [board1, board2 | _] = Repo.preload(round, :pairings).pairings |> Enum.sort_by(& &1.board)
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
+      assert html =~ "What if?"
+
+      html =
+        render_submit(lv, "what_if", %{
+          "a" => to_string(board1.black_player_id),
+          "b" => to_string(board2.black_player_id),
+          "mode" => "swap"
+        })
+
+      assert html =~ "swapping seats"
+
+      assert html =~ "Legal, but worse" or html =~ "Equal on every criterion" or
+               html =~ "Not allowed" or html =~ "That is the pairing that was played"
+    end
+
+    test "pairing two players who did not meet is judged too", %{conn: conn, scope: scope} do
+      t = ainalrami_tournament(scope, 8)
+      {:ok, round} = Pairing.pair_next_round(t)
+      [board1, board2 | _] = Repo.preload(round, :pairings).pairings |> Enum.sort_by(& &1.board)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
+
+      html =
+        render_submit(lv, "what_if", %{
+          "a" => to_string(board1.white_player_id),
+          "b" => to_string(board2.white_player_id),
+          "mode" => "pair"
+        })
+
+      assert html =~ "playing"
+      assert html =~ ~s(id="what-if-result")
+    end
+
+    test "naming the same player twice is refused, not judged", %{conn: conn, scope: scope} do
+      t = ainalrami_tournament(scope, 8)
+      {:ok, round} = Pairing.pair_next_round(t)
+      [board1 | _] = Repo.preload(round, :pairings).pairings
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
+      id = to_string(board1.white_player_id)
+      html = render_submit(lv, "what_if", %{"a" => id, "b" => id, "mode" => "swap"})
+
+      assert html =~ "Pick two different players"
+      refute html =~ ~s(id="what-if-result")
+    end
+
     test "an Ainalrami round quotes the engine, with the criteria that scored", %{
       conn: conn,
       scope: scope

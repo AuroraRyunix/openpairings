@@ -56,6 +56,10 @@ defmodule PairingsEngineWeb.PairingExplainLive do
        paired_rounds: paired_rounds,
        anomalies: anomaly_index(rationale),
        engine_account: engine_account,
+       # "What if": the arbiter names a swap or a pair and gets a ruling.
+       # Only the players seated in this round can be named.
+       seated: seated_players(round, players),
+       what_if: nil,
        account_divergence: account_divergence,
        page_title: "#{tournament.name} · Pairing rationale - Round #{round_number}"
      )}
@@ -174,6 +178,298 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         []
     end
   end
+
+  ## ---------- "what if" - a swap or a pair, judged live ----------
+  ##
+  ## The arbiter names two players. "Swap" exchanges their seats; "Pair"
+  ## seats them together, their opponents then meeting each other. Either
+  ## way the result is a complete pairing, so the engine scores it directly
+  ## against the one that was played: it breaks an absolute rule (named), or
+  ## it scores lower on a named criterion, or it ties. Nothing is changed -
+  ## the swap itself lives on the pairings page.
+
+  @impl true
+  def handle_event("what_if", %{"a" => a, "b" => b, "mode" => mode}, socket) do
+    with {:ok, a} <- parse_id(a),
+         {:ok, b} <- parse_id(b),
+         true <- a != b,
+         {:ok, field} <-
+           Engine.engine_field(socket.assigns.tournament, socket.assigns.round_number),
+         {:ok, actual} <- actual_pairs(field),
+         {:ok, ra} <- rank_of(field, a),
+         {:ok, rb} <- rank_of(field, b) do
+      alternative = alternative_pairs(actual, ra, rb, mode)
+      judged = Ainalrami.Alternatives.judge(field.players, actual, alternative, field.opts)
+
+      {:noreply,
+       assign(socket,
+         what_if: %{
+           a: field.player_by_local_rank[ra],
+           b: field.player_by_local_rank[rb],
+           mode: mode,
+           verdict: judged.verdict,
+           violations: Enum.map(judged.violations, &resolve_violation(&1, field)),
+           identical?: alternative == actual
+         }
+       )}
+    else
+      _ ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           gettext("Pick two different players who were seated in this round.")
+         )}
+    end
+  end
+
+  defp parse_id(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {n, ""} -> {:ok, n}
+      _ -> :error
+    end
+  end
+
+  defp parse_id(_), do: :error
+
+  defp rank_of(field, player_id) do
+    case Map.get(field.local_rank_by_player_id, player_id) do
+      nil -> :error
+      rank -> {:ok, rank}
+    end
+  end
+
+  # The round's boards in the engine's rank space: `{white, black}`, the
+  # bye as `{player, nil}`. A board with an empty white seat has nothing to
+  # judge and is dropped.
+  defp actual_pairs(field) do
+    pairs =
+      field.round.pairings
+      |> Enum.sort_by(& &1.board)
+      |> Enum.flat_map(fn p ->
+        white = Map.get(field.local_rank_by_player_id, p.white_player_id)
+        black = p.black_player_id && Map.get(field.local_rank_by_player_id, p.black_player_id)
+
+        if white, do: [{white, black}], else: []
+      end)
+
+    if pairs == [], do: :error, else: {:ok, pairs}
+  end
+
+  defp alternative_pairs(actual, a, b, "pair") do
+    case opponent_of(actual, a) do
+      ^b ->
+        actual
+
+      # `a` holds the bye: `b` joins them and `b`'s opponent takes the bye.
+      nil ->
+        Enum.map(actual, fn
+          {^a, nil} -> {a, b}
+          {^b, c} -> {c, nil}
+          {c, ^b} -> {c, nil}
+          pair -> pair
+        end)
+
+      opponent ->
+        alternative_pairs(actual, b, opponent, "swap")
+    end
+  end
+
+  defp alternative_pairs(actual, a, b, _swap) do
+    Enum.map(actual, fn {w, k} -> {swap_seat(w, a, b), swap_seat(k, a, b)} end)
+  end
+
+  defp swap_seat(rank, a, b) when rank == a, do: b
+  defp swap_seat(rank, a, b) when rank == b, do: a
+  defp swap_seat(rank, _a, _b), do: rank
+
+  defp opponent_of(pairs, rank) do
+    pairs
+    |> Enum.find_value(fn
+      {^rank, other} -> {:found, other}
+      {other, ^rank} -> {:found, other}
+      _ -> nil
+    end)
+    |> case do
+      {:found, other} -> other
+      nil -> nil
+    end
+  end
+
+  defp resolve_violation(violation, field) do
+    [x, y] = violation.players
+
+    violation
+    |> Map.put(:a, field.player_by_local_rank[x])
+    |> Map.put(:b, field.player_by_local_rank[y])
+  end
+
+  defp seated_players(nil, _players), do: []
+
+  defp seated_players(round, players) do
+    ids =
+      round.pairings
+      |> Enum.flat_map(&[&1.white_player_id, &1.black_player_id])
+      |> Enum.reject(&is_nil/1)
+      |> MapSet.new()
+
+    players |> Enum.filter(&MapSet.member?(ids, &1.id)) |> Enum.sort_by(& &1.name)
+  end
+
+  ## ---------- words for the verdicts ----------
+
+  # One sentence per candidate, sayable to the player asking.
+  defp candidate_text(%{outcome: :ineligible, reason: reason}) do
+    case reason do
+      :pairing_bye -> gettext("not allowed a bye - already had one")
+      :forfeit_win -> gettext("not allowed a bye - won a game by forfeit")
+      :full_point_bye -> gettext("not allowed a bye - already had a full-point bye")
+      _ -> gettext("not allowed a bye")
+    end
+  end
+
+  defp candidate_text(%{outcome: :impossible}),
+    do: gettext("impossible - no legal pairing exists with them out of this bracket")
+
+  defp candidate_text(%{outcome: :same}), do: gettext("the pairing would be the same")
+
+  defp candidate_text(%{outcome: :worse, at: at} = c) do
+    gettext("legal, but worse: %{rung} (%{played} played, %{proposed} proposed) - %{fate}",
+      rung: rung_words(at.label),
+      played: at.actual,
+      proposed: at.alternative,
+      fate: fate_text(c)
+    )
+  end
+
+  defp candidate_text(%{outcome: :tie, at: at} = c) do
+    which =
+      case at.lex do
+        :actual -> gettext("the transposition order picked what was played")
+        :alternative -> gettext("the transposition order would have picked THIS - worth a look")
+        _ -> gettext("even the transposition order does not separate them")
+      end
+
+    gettext("equal on every criterion; %{which} - %{fate}", which: which, fate: fate_text(c))
+  end
+
+  defp candidate_text(%{outcome: :better, at: at} = c) do
+    gettext(
+      "scores HIGHER than what was played on %{rung} (%{played} played, %{proposed} proposed). The engine should have found this - treat it as a bug report. %{fate}",
+      rung: rung_words(at.label),
+      played: at.actual,
+      proposed: at.alternative,
+      fate: fate_text(c)
+    )
+  end
+
+  defp candidate_text(%{outcome: :incomparable}),
+    do:
+      gettext(
+        "not comparable rung by rung - a different number of boards would land in this bracket"
+      )
+
+  defp candidate_text(_), do: gettext("no verdict")
+
+  defp fate_text(%{fate: %{opponent: %{name: name}, score: score}}),
+    do: gettext("they would have played %{name} (%{score})", name: name, score: score_str(score))
+
+  defp fate_text(%{fate: %{opponent: nil}}), do: gettext("they would have taken the bye")
+  defp fate_text(_), do: ""
+
+  # The rung labels are the engine's; these are what they mean to a person.
+  defp rung_words("C6 pairs in bracket"), do: gettext("pairs made inside the bracket")
+  defp rung_words("C7 scores paired"), do: gettext("the score difference of the pairs")
+  defp rung_words("C8 pairs next bracket"), do: gettext("what the next bracket can still pair")
+  defp rung_words("C8 scores next bracket"), do: gettext("what the next bracket can still pair")
+
+  defp rung_words("C9 bye unplayed games"),
+    do: gettext("the bye going to whoever has played least")
+
+  defp rung_words("C10 topscorer colour diff"), do: gettext("a topscorer's colour balance")
+
+  defp rung_words("C11 topscorer same colour x3"),
+    do: gettext("a topscorer taking one colour three times")
+
+  defp rung_words("C12 colour preference"), do: gettext("colour preferences granted")
+
+  defp rung_words("C13 strong colour preference"),
+    do: gettext("strong colour preferences granted")
+
+  defp rung_words("C14 downfloat repeat r-1"),
+    do: gettext("floating down again after floating down last round")
+
+  defp rung_words("C15 upfloat repeat r-1"),
+    do: gettext("floating up again after floating up last round")
+
+  defp rung_words("C16 downfloat repeat r-2"), do: gettext("floating down again, two rounds back")
+  defp rung_words("C17 upfloat repeat r-2"), do: gettext("floating up again, two rounds back")
+  defp rung_words("C18 downfloat scores r-1"), do: gettext("the score of the player floated down")
+  defp rung_words("C19 upfloat scores r-1"), do: gettext("the score of the player floated up")
+
+  defp rung_words("C20 downfloat scores r-2"),
+    do: gettext("the score of the player floated down, two rounds back")
+
+  defp rung_words("C21 upfloat scores r-2"),
+    do: gettext("the score of the player floated up, two rounds back")
+
+  defp rung_words(label) when is_binary(label), do: label
+  defp rung_words(_), do: "-"
+
+  defp verdict_text(%{identical?: true}), do: gettext("That is the pairing that was played.")
+
+  defp verdict_text(%{verdict: {:worse, group, label, ov, tv}}) do
+    gettext(
+      "Legal, but worse. At score group %{group} the first criterion that separates them is %{rung}: %{played} as played, %{proposed} as proposed - higher is better.",
+      group: score_str(group),
+      rung: rung_words(label),
+      played: ov,
+      proposed: tv
+    )
+  end
+
+  defp verdict_text(%{verdict: {:better, group, label, ov, tv}}) do
+    gettext(
+      "Scores HIGHER than what was played: at score group %{group}, %{rung} - %{played} as played, %{proposed} as proposed. The engine should have found this. Treat it as a bug report.",
+      group: score_str(group),
+      rung: rung_words(label),
+      played: ov,
+      proposed: tv
+    )
+  end
+
+  defp verdict_text(%{verdict: {:tie, group, pick}}) do
+    which =
+      case pick do
+        :actual -> gettext("picks what was played")
+        :alternative -> gettext("would have picked the proposal - worth a look")
+        _ -> gettext("does not separate them either")
+      end
+
+    gettext(
+      "Equal on every criterion at score group %{group}; the transposition order (section 3) %{which}.",
+      group: score_str(group),
+      which: which
+    )
+  end
+
+  defp verdict_text(%{verdict: {:incomparable, group}}) do
+    gettext(
+      "Not comparable rung by rung: at score group %{group} the proposal puts a different number of boards in the bracket, so every criterion differs by that alone.",
+      group: score_str(group)
+    )
+  end
+
+  defp verdict_text(_), do: gettext("Identical to what was played.")
+
+  defp violation_text(%{reason: :rematch, round: round}),
+    do: gettext("met in round %{n}", n: round)
+
+  defp violation_text(%{reason: :colour, colour: colour}),
+    do: gettext("both absolutely due %{colour}", colour: due_word(colour))
+
+  defp violation_text(%{reason: :forbidden}), do: gettext("the arbiter forbade this pairing")
+  defp violation_text(_), do: gettext("not allowed")
 
   defp score_str(nil), do: "0"
   defp score_str(n) when is_float(n), do: :erlang.float_to_binary(n, decimals: 1)
@@ -1852,6 +2148,70 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         </table>
       </div>
 
+      <div
+        :if={not is_nil(@engine_account) and @seated != []}
+        id="what-if"
+        class="card"
+        style="margin-top: 16px"
+      >
+        <h2>{gettext("What if?")}</h2>
+        <p class="subtitle" style="margin: 0 0 8px">
+          {gettext(
+            "Name a swap, or a pair you had in mind, and get the ruling: it breaks an absolute rule, or it scores lower on a named criterion, or it is equal. Nothing here changes the round - the swap itself is on the pairings page."
+          )}
+        </p>
+
+        <form id="what-if-form" class="pe-whatif-form" phx-submit="what_if">
+          <label>
+            {gettext("Player")}
+            <select name="a">
+              <option :for={p <- @seated} value={p.id}>{p.name}</option>
+            </select>
+          </label>
+          <label>
+            {gettext("and")}
+            <select name="b">
+              <option :for={p <- Enum.reverse(@seated)} value={p.id}>{p.name}</option>
+            </select>
+          </label>
+          <label>
+            {gettext("Question")}
+            <select name="mode">
+              <option value="swap">{gettext("What if they swapped seats?")}</option>
+              <option value="pair">{gettext("What if they played each other?")}</option>
+            </select>
+          </label>
+          <button type="submit" class="pe-btn primary">{gettext("Judge it")}</button>
+        </form>
+
+        <div :if={@what_if} id="what-if-result" class="pe-whatif-result">
+          <p style="margin: 0 0 4px">
+            <strong>
+              {if @what_if.mode == "pair",
+                do: gettext("%{a} playing %{b}", a: @what_if.a.name, b: @what_if.b.name),
+                else: gettext("%{a} and %{b} swapping seats", a: @what_if.a.name, b: @what_if.b.name)}
+            </strong>
+          </p>
+
+          <p :if={@what_if.violations != []} class="is-illegal" style="margin: 0">
+            {gettext("Not allowed - it breaks an absolute rule:")}
+          </p>
+          <ul :if={@what_if.violations != []}>
+            <li :for={v <- @what_if.violations}>
+              {v.a.name} × {v.b.name} — {violation_text(v)}
+            </li>
+          </ul>
+
+          <p
+            :if={@what_if.violations == []}
+            class={match?({:better, _, _, _, _}, @what_if.verdict) && "is-better"}
+            style="margin: 0"
+          >
+            {verdict_text(@what_if)}
+          </p>
+        </div>
+      </div>
+
       <div :if={@engine_account} id="engine-account" class="card" style="margin-top: 16px">
         <h2>{gettext("What the engine reported")}</h2>
 
@@ -1953,6 +2313,30 @@ defmodule PairingsEngineWeb.PairingExplainLive do
               {Enum.map_join(bracket.floats, ", ", & &1.name)}
             </p>
 
+            <%!-- "Why HIM and not me" - the link that completes the chain.
+                  For each floater, every other member of the bracket with
+                  what floating THEM instead would have cost: forbidden by
+                  the rules, worse on a named criterion, or equal. --%>
+            <div :for={alt <- bracket.float_alternatives} class="pe-why-me">
+              <p class="pe-why-me-head">
+                <strong>
+                  {gettext("Why %{name} floated and not somebody else", name: alt.floater.name)}
+                </strong>
+              </p>
+              <p :if={alt.skipped} class="hint">
+                {gettext(
+                  "Not worked out for this bracket - %{count} candidates is more than the engine judges at pairing time.",
+                  count: alt.count
+                )}
+              </p>
+              <ul :if={!alt.skipped}>
+                <li :for={c <- alt.candidates} class={"is-#{c.outcome}"}>
+                  {c.player.name}
+                  <span class="pe-verdict-why">— {candidate_text(c)}</span>
+                </li>
+              </ul>
+            </div>
+
             <ul :if={bracket.edges == []} class="pe-account-pairs">
               <li :for={{white, black} <- bracket.pairs}>
                 {white && white.name} vs {(black && black.name) || "bye"}
@@ -2007,6 +2391,24 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             </details>
 
             <p :if={bracket.rungs == []} class="hint">{gettext("Nothing separated this bracket.")}</p>
+          </div>
+
+          <div :if={section.bye} class="pe-why-me">
+            <p class="pe-why-me-head">
+              <strong>{gettext("Why the bye went to %{name}", name: section.bye.holder.name)}</strong>
+            </p>
+            <p :if={section.bye.skipped} class="hint">
+              {gettext(
+                "Not worked out - %{count} candidates is more than the engine judges at pairing time.",
+                count: section.bye.count
+              )}
+            </p>
+            <ul :if={!section.bye.skipped}>
+              <li :for={c <- section.bye.candidates} class={"is-#{c.outcome}"}>
+                {c.player.name}
+                <span class="pe-verdict-why">— {candidate_text(c)}</span>
+              </li>
+            </ul>
           </div>
         </div>
 
