@@ -14,6 +14,19 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.40.1] - 2026-09-06
+
+- [Security] **Two denial-of-service advisories in the HTTP client closed.**
+  `mint` - the low-level HTTP library behind every outbound request this app
+  makes (OpenResults publishing, the FIDE sync, the federation upload) -
+  carried CVE-2026-82728 (high: unbounded buffering of a malicious response
+  exhausts memory) and CVE-2026-82729 (medium: quadratic chunk parsing pins
+  the CPU). Both are on the client side, so the attacker has to be a server
+  this app connects to; a compromised or spoofed endpoint could take the app
+  down. Bumped to 1.10.0, which closes both. No code changed. The 219-agent
+  audit of 2026-09-05 never looked at dependencies at all - this came out of
+  the first dependency audit these repositories have had.
+
 ## [0.40.0] - 2026-09-06
 
 - [Feature] **The pairing rationale now shows what each bracket was paired
