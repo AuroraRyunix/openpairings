@@ -66,6 +66,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
        seated: seated_players(round, players),
        what_if: nil,
        recompute: recompute,
+       no_show: nil,
        # Who produced the boards. An account can be Ainalrami's analysis of
        # a JaVaFo round, and every sentence about "the engine" has to know.
        paired_by: tournament.pairing_engine,
@@ -208,21 +209,31 @@ defmodule PairingsEngineWeb.PairingExplainLive do
          {:ok, actual} <- actual_pairs(field),
          {:ok, ra} <- rank_of(field, a),
          {:ok, rb} <- rank_of(field, b) do
-      alternative = alternative_pairs(actual, ra, rb, mode)
-      judged = Ainalrami.Alternatives.judge(field.players, actual, alternative, field.opts)
+      base = %{
+        a: field.player_by_local_rank[ra],
+        b: field.player_by_local_rank[rb],
+        mode: mode,
+        paired_by: socket.assigns.paired_by
+      }
 
-      {:noreply,
-       assign(socket,
-         what_if: %{
-           a: field.player_by_local_rank[ra],
-           b: field.player_by_local_rank[rb],
-           mode: mode,
-           verdict: judged.verdict,
-           violations: Enum.map(judged.violations, &resolve_violation(&1, field)),
-           identical?: alternative == actual,
-           paired_by: socket.assigns.paired_by
-         }
-       )}
+      what_if =
+        if mode == "force" do
+          # Not the direct double swap: the BEST round in which they meet,
+          # found by the engine, with everything it moves to get there.
+          result = Ainalrami.Alternatives.force_pair(field.players, actual, ra, rb, field.opts)
+          Map.put(base, :force, resolve_force(result, actual, field))
+        else
+          alternative = alternative_pairs(actual, ra, rb, mode)
+          judged = Ainalrami.Alternatives.judge(field.players, actual, alternative, field.opts)
+
+          Map.merge(base, %{
+            verdict: judged.verdict,
+            violations: Enum.map(judged.violations, &resolve_violation(&1, field)),
+            identical?: alternative == actual
+          })
+        end
+
+      {:noreply, assign(socket, what_if: what_if)}
     else
       _ ->
         {:noreply,
@@ -231,6 +242,41 @@ defmodule PairingsEngineWeb.PairingExplainLive do
            :error,
            gettext("Pick two different players who were seated in this round.")
          )}
+    end
+  end
+
+  # A player did not turn up. The least disruptive legal fixes, ranked by
+  # who else has to move, each costed against pairing the whole round
+  # again. Advice only: the arbiter applies the one they choose by hand.
+  def handle_event("no_show", %{"player" => id}, socket) do
+    with {:ok, id} <- parse_id(id),
+         {:ok, field} <-
+           Engine.engine_field(socket.assigns.tournament, socket.assigns.round_number),
+         {:ok, actual} <- actual_pairs(field),
+         {:ok, rank} <- rank_of(field, id) do
+      result =
+        try do
+          Ainalrami.Alternatives.no_show(field.players, actual, rank, field.opts)
+        rescue
+          _ -> :no_legal_round
+        end
+
+      case result do
+        :no_legal_round ->
+          {:noreply,
+           put_flash(
+             socket,
+             :error,
+             gettext("No legal round exists for the remaining players.")
+           )}
+
+        result ->
+          {:noreply, assign(socket, no_show: resolve_no_show(result, actual, field, rank))}
+      end
+    else
+      _ ->
+        {:noreply,
+         put_flash(socket, :error, gettext("Pick a player who was seated in this round."))}
     end
   end
 
@@ -322,6 +368,118 @@ defmodule PairingsEngineWeb.PairingExplainLive do
       nil -> nil
     end
   end
+
+  # The engine speaks in ranks; the page speaks in players. Every result
+  # that names a board or a person is resolved once, here, before it is
+  # assigned.
+  defp resolve_force(%{outcome: :illegal, reason: reason} = result, _actual, field) do
+    %{result | reason: reason && resolve_violation(reason, field)}
+  end
+
+  defp resolve_force(%{pairs: nil} = result, _actual, _field), do: result
+
+  defp resolve_force(%{pairs: alternative} = result, actual, field) do
+    Map.put(result, :boards, new_boards(alternative, actual, field))
+  end
+
+  defp resolve_no_show(%{needed: false} = result, _actual, field, rank) do
+    Map.put(result, :player, field.player_by_local_rank[rank])
+  end
+
+  defp resolve_no_show(result, actual, field, rank) do
+    %{
+      needed: true,
+      player: field.player_by_local_rank[rank],
+      opponent: field.player_by_local_rank[result.opponent],
+      full: %{affected: Enum.map(result.full_repair.affected, &field.player_by_local_rank[&1])},
+      options:
+        Enum.map(result.options, fn option ->
+          %{
+            affected: Enum.map(option.affected, &field.player_by_local_rank[&1]),
+            outcome: option.outcome,
+            differs_at: option.differs_at,
+            boards: new_boards(option.pairs, actual, field)
+          }
+        end)
+    }
+  end
+
+  # The boards an alternative has that the played round does not.
+  defp new_boards(alternative, actual, field) do
+    before = MapSet.new(actual, fn {x, y} -> Enum.sort([x, y]) end)
+
+    alternative
+    |> Enum.reject(fn {x, y} -> MapSet.member?(before, Enum.sort([x, y])) end)
+    |> Enum.map(fn {w, b} ->
+      %{white: field.player_by_local_rank[w], black: b && field.player_by_local_rank[b]}
+    end)
+  end
+
+  # `verdict_text/1`'s shape, built from a forced pair's or a fix's outcome.
+  defp as_verdict(%{outcome: :same}, paired_by), do: %{identical?: true, paired_by: paired_by}
+
+  defp as_verdict(%{outcome: outcome, differs_at: at}, paired_by) do
+    verdict =
+      case outcome do
+        :worse -> {:worse, at.group, at.label, at.actual, at.alternative}
+        :better -> {:better, at.group, at.label, at.actual, at.alternative}
+        :tie -> {:tie, at.group, Map.get(at, :lex)}
+        _ -> {:incomparable, at.group}
+      end
+
+    %{verdict: verdict, paired_by: paired_by}
+  end
+
+  defp affected_text(%{affected: []}), do: gettext("Nobody else moves")
+
+  defp affected_text(%{affected: players}),
+    do: gettext("Also moves %{names}", names: Enum.map_join(players, ", ", & &1.name))
+
+  defp fix_cost_text(%{outcome: :same}), do: gettext("this is the best round")
+
+  defp fix_cost_text(%{outcome: :worse, differs_at: at}),
+    do:
+      gettext("costs %{rung} (%{played} → %{proposed})",
+        rung: rung_words(at.label),
+        played: at.actual,
+        proposed: at.alternative
+      )
+
+  defp fix_cost_text(%{outcome: :tie}), do: gettext("equal to the best round on every criterion")
+
+  defp fix_cost_text(%{outcome: :better}),
+    do: gettext("scores higher than pairing the whole round again")
+
+  defp fix_cost_text(_), do: gettext("not comparable rung by rung")
+
+  defp no_show_nothing_text(%{why: :had_bye, player: p}),
+    do: gettext("Nothing to fix - %{name} held the bye.", name: p.name)
+
+  defp no_show_nothing_text(%{player: p}),
+    do: gettext("%{name} was not seated in this round.", name: p.name)
+
+  defp board_text(%{white: white, black: nil}), do: gettext("%{name} - bye", name: white.name)
+  defp board_text(%{white: white, black: black}), do: "#{white.name} - #{black.name}"
+
+  # One line of the float cascade: what the bracket paired, and who fell.
+  defp cascade_outcome(bracket) do
+    paired =
+      Enum.map_join(bracket.pairs, ", ", fn
+        {w, nil} -> gettext("%{name} (bye)", name: (w && w.name) || "?")
+        {w, b} -> "#{(w && w.name) || "?"}-#{(b && b.name) || "?"}"
+      end)
+
+    floats = Enum.map_join(bracket.floats, ", ", & &1.name)
+
+    case {bracket.pairs, bracket.floats} do
+      {[], []} -> "-"
+      {[], _} -> gettext("nobody pairs; %{names} float down", names: floats)
+      {_, []} -> paired
+      _ -> gettext("%{paired}; %{names} float down", paired: paired, names: floats)
+    end
+  end
+
+  defp names(players), do: Enum.map_join(players, ", ", & &1.name)
 
   defp resolve_violation(violation, field) do
     [x, y] = violation.players
@@ -2302,7 +2460,12 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             {gettext("Question")}
             <select name="mode">
               <option value="swap">{gettext("What if they swapped seats?")}</option>
-              <option value="pair">{gettext("What if they played each other?")}</option>
+              <option value="pair">
+                {gettext("What if they played each other - their opponents meeting?")}
+              </option>
+              <option value="force">
+                {gettext("What is the BEST round in which they play each other?")}
+              </option>
             </select>
           </label>
           <button type="submit" class="pe-btn primary">{gettext("Judge it")}</button>
@@ -2317,18 +2480,116 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             </strong>
           </p>
 
-          <p :if={@what_if.violations != []} class="is-illegal" style="margin: 0">
-            {gettext("Not allowed - it breaks an absolute rule:")}
-          </p>
-          <ul :if={@what_if.violations != []}>
-            <li :for={v <- @what_if.violations}>
-              {v.a.name} × {v.b.name} — {violation_text(v)}
-            </li>
-          </ul>
+          <%!-- A swap or a direct pairing: scored as given. --%>
+          <div :if={@what_if.mode != "force"}>
+            <p :if={@what_if.violations != []} class="is-illegal" style="margin: 0">
+              {gettext("Not allowed - it breaks an absolute rule:")}
+            </p>
+            <ul :if={@what_if.violations != []}>
+              <li :for={v <- @what_if.violations}>
+                {v.a.name} × {v.b.name} — {violation_text(v)}
+              </li>
+            </ul>
 
-          <p :if={@what_if.violations == []} class={better_class(@what_if)} style="margin: 0">
-            {verdict_text(@what_if)}
-          </p>
+            <p :if={@what_if.violations == []} class={better_class(@what_if)} style="margin: 0">
+              {verdict_text(@what_if)}
+            </p>
+          </div>
+
+          <%!-- The best round in which they meet: the engine found it, so
+                what it costs is the true price of the request, and every
+                board it moves is listed. --%>
+          <div :if={@what_if.mode == "force"}>
+            <p :if={@what_if.force.outcome == :illegal} class="is-illegal" style="margin: 0">
+              {gettext("They cannot meet:")}
+              {(@what_if.force.reason && violation_text(@what_if.force.reason)) ||
+                gettext("no legal round seats them together")}
+            </p>
+            <p :if={@what_if.force.outcome == :impossible} class="is-illegal" style="margin: 0">
+              {gettext(
+                "They could meet, but no legal round contains that pair - one of them has to float or take the bye for the rest to work out."
+              )}
+            </p>
+            <div :if={@what_if.force.outcome not in [:illegal, :impossible]}>
+              <p
+                class={better_class(as_verdict(@what_if.force, @paired_by))}
+                style="margin: 0"
+              >
+                {verdict_text(as_verdict(@what_if.force, @paired_by))}
+              </p>
+              <p :if={@what_if.force.outcome != :same} class="hint" style="margin: 4px 0 0">
+                {ngettext(
+                  "%{count} board would change:",
+                  "%{count} boards would change:",
+                  @what_if.force.changed
+                )}
+              </p>
+              <ul :if={@what_if.force.outcome != :same}>
+                <li :for={board <- @what_if.force.boards}>{board_text(board)}</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Somebody did not turn up. The least disruptive legal fixes, each
+            with who else has to move and what it costs against pairing the
+            whole round again. Advice only - the pairings page is where a
+            board actually changes. --%>
+      <div
+        :if={@recompute != :ineligible and @seated != []}
+        id="no-show"
+        class="card"
+        style="margin-top: 16px"
+      >
+        <h2>{gettext("Didn't turn up?")}</h2>
+        <p class="subtitle" style="margin: 0 0 8px">
+          {gettext(
+            "Name the missing player and get the least disruptive legal fixes: who else would have to move, and what each costs against pairing the whole round again. Advice only - apply the one you choose by hand on the pairings page. Nothing here changes the round."
+          )}
+        </p>
+
+        <form id="no-show-form" class="pe-whatif-form" phx-submit="no_show">
+          <label>
+            {gettext("Missing")}
+            <select name="player">
+              <option :for={p <- @seated} value={p.id}>{p.name}</option>
+            </select>
+          </label>
+          <button type="submit" class="pe-btn primary">{gettext("Find the fixes")}</button>
+        </form>
+
+        <div :if={@no_show} id="no-show-result" class="pe-whatif-result">
+          <p :if={!@no_show.needed} style="margin: 0">{no_show_nothing_text(@no_show)}</p>
+
+          <div :if={@no_show.needed}>
+            <p style="margin: 0 0 6px">
+              <strong>
+                {gettext("%{name} is missing; %{opponent} is left without a game.",
+                  name: @no_show.player.name,
+                  opponent: @no_show.opponent.name
+                )}
+              </strong>
+            </p>
+
+            <ol class="pe-fixes">
+              <li :for={option <- @no_show.options}>
+                <strong>{affected_text(option)}</strong>
+                <span class="pe-verdict-why">— {fix_cost_text(option)}</span>
+                <ul>
+                  <li :for={board <- option.boards}>{board_text(board)}</li>
+                </ul>
+              </li>
+            </ol>
+
+            <p class="hint" style="margin: 6px 0 0">
+              {ngettext(
+                "Pairing the whole round again would move %{count} other player.",
+                "Pairing the whole round again would move %{count} other players.",
+                length(@no_show.full.affected)
+              )}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -2364,6 +2625,30 @@ defmodule PairingsEngineWeb.PairingExplainLive do
 
         <div :for={section <- @engine_account} class="pe-account-section">
           <h3 :if={section.category}>{section.category}</h3>
+
+          <%!-- The float cascade: one line per bracket, top to bottom - who
+                was there, who arrived from above, what paired, who fell. The
+                detail below says the same at length; this is the shape of
+                the round at a glance. --%>
+          <table class="pe-cascade">
+            <caption>{gettext("Float cascade - how the brackets fed each other")}</caption>
+            <tbody>
+              <tr :for={bracket <- section.brackets}>
+                <td class="num">{score_str(bracket.group)}</td>
+                <td>
+                  {names(bracket.residents)}
+                  <span
+                    :if={bracket.mdps != []}
+                    class="pe-cascade-in"
+                  >
+                    + {names(bracket.mdps)}
+                  </span>
+                </td>
+                <td class="pe-cascade-arrow" aria-hidden="true">→</td>
+                <td>{cascade_outcome(bracket)}</td>
+              </tr>
+            </tbody>
+          </table>
 
           <div :for={bracket <- section.brackets} class="pe-account-bracket">
             <div class="pe-account-head">

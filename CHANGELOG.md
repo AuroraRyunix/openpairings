@@ -14,6 +14,40 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.44.0] - 2026-09-07
+
+- [Feature] **"What is the best round in which they play each other?"** A
+  third question on the rationale page's "What if?". The first two seat the
+  pair as given and score it; this one has the engine FIND the best legal
+  round containing the pair, then reports what it costs against the round
+  that was played and lists every board it would move to get there. A pair
+  the rules forbid is refused with the rule - met in round 3, both
+  absolutely due White, forbidden by the arbiter - which is checked first:
+  forcing an illegal pair leaves no legal round, and "no legal round" is the
+  wrong answer to "why can't they play" when the true one is "they met in
+  round 3".
+
+- [Feature] **"Didn't turn up?"** Name the missing player and get the least
+  disruptive legal fixes, ranked by who ELSE would have to move: the
+  stranded opponent takes the bye, or plays the bye holder, or takes over one
+  board whose displaced player then takes the bye or the bye holder. Each
+  says who moves and what it costs against pairing the whole round again -
+  and "nobody else moves, costs C7" is an honest answer, because the cheapest
+  fix is rarely the best round. Illegal fixes are dropped; new boards are
+  tried both ways round so the engine's own colour criteria pick the colours.
+  Advice only: the pairings page is where a board actually changes, by hand.
+
+- [Feature] **The float cascade.** The engine's account now opens with one
+  line per bracket, top to bottom: who was there, who arrived from above,
+  what paired, who fell. The per-bracket detail says the same at length; this
+  is the shape of the round at a glance. The CLI's explain mode prints the
+  same cascade.
+
+- [Change] **Engine updated to Ainalrami 0.20.0**, which answers the two
+  questions above and adds soft constraints - club protection and the like -
+  which the app will expose in the next release. Pairing behaviour with none
+  set is unchanged, byte for byte.
+
 ## [0.43.1] - 2026-09-06
 
 - [Fix] **The recompute offer was at the foot of the page.** It is the one

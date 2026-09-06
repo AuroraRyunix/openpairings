@@ -1416,6 +1416,58 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
       assert html =~ ~s(id="what-if-result")
     end
 
+    # The third question: not "what if I seat them" but "what is the best
+    # round in which they meet" - the engine finds it, and every board it
+    # moves to get there is listed.
+    test "the best round in which two players meet is found and costed", %{
+      conn: conn,
+      scope: scope
+    } do
+      t = ainalrami_tournament(scope, 8)
+      {:ok, round} = Pairing.pair_next_round(t)
+      [board1, board2 | _] = Repo.preload(round, :pairings).pairings |> Enum.sort_by(& &1.board)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
+
+      html =
+        render_submit(lv, "what_if", %{
+          "a" => to_string(board1.white_player_id),
+          "b" => to_string(board2.white_player_id),
+          "mode" => "force"
+        })
+
+      assert html =~ "would change" or html =~ "cannot meet" or html =~ "could meet"
+    end
+
+    # Somebody did not turn up: the fixes, cheapest first, and the honest
+    # cost of each.
+    test "a no-show gets ranked fixes with who else moves", %{conn: conn, scope: scope} do
+      t = ainalrami_tournament(scope, 8)
+      {:ok, round} = Pairing.pair_next_round(t)
+      [board1 | _] = Repo.preload(round, :pairings).pairings |> Enum.sort_by(& &1.board)
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
+      # "Didn't" reaches the page as "Didn&#39;t"; the tail is enough.
+      assert html =~ "turn up?"
+
+      html = render_submit(lv, "no_show", %{"player" => to_string(board1.white_player_id)})
+
+      assert html =~ "is left without a game"
+      # An even field minus one is odd, so the cheapest fix is the stranded
+      # opponent taking the bye and nobody else moving.
+      assert html =~ "Nobody else moves"
+      assert html =~ "Pairing the whole round again would move"
+    end
+
+    test "the account opens with the float cascade", %{conn: conn, scope: scope} do
+      t = ainalrami_tournament(scope, 8)
+      {:ok, _round} = Pairing.pair_next_round(t)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
+      assert html =~ "pe-cascade"
+      assert html =~ "Float cascade"
+    end
+
     test "naming the same player twice is refused, not judged", %{conn: conn, scope: scope} do
       t = ainalrami_tournament(scope, 8)
       {:ok, round} = Pairing.pair_next_round(t)

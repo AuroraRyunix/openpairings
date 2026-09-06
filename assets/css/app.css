@@ -2258,6 +2258,17 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 /* The offer to bring an older account up to date: the warning colour,
    because the page beneath it is missing the half that answers questions. */
 .pe-recompute { border-left: 3px solid var(--warn); }
+/* The float cascade: one row per bracket, read top to bottom. */
+.pe-cascade { width: 100%; border-collapse: collapse; margin: 6px 0 12px; font-size: 13px; }
+.pe-cascade caption { text-align: left; font-size: 12px; color: var(--text-soft); padding: 0 0 4px; }
+.pe-cascade td { padding: 3px 6px 3px 0; border-top: 1px solid var(--border); vertical-align: top; }
+.pe-cascade td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pe-cascade-in { color: var(--text-soft); }
+.pe-cascade-arrow { color: var(--text-soft); white-space: nowrap; }
+/* The no-show fixes, cheapest first. */
+.pe-fixes { margin: 0; padding-left: 20px; }
+.pe-fixes > li { margin: 4px 0; }
+.pe-fixes ul { margin: 2px 0 0; padding-left: 18px; font-size: 13px; }
 /* "What if" - the arbiter names a swap or a pair and gets a ruling. */
 .pe-whatif-form { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: end; margin: 8px 0; }
 .pe-whatif-form label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--text-soft); }
