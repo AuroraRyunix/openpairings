@@ -917,17 +917,61 @@ defmodule PairingsEngine.PairingEngineTest do
       assert Tournaments.get_round(t.id, 1).explanation["version"] == 3
     end
 
-    test "only an Ainalrami-paired single-pool Swiss is eligible" do
+    test "any single-pool Swiss round is eligible, whoever paired it" do
       javafo = tournament(%{pairing_engine: "javafo"})
       categories = tournament(%{pairing_engine: "ainalrami", pair_by_category: true})
-      swiss = tournament(%{pairing_engine: "ainalrami"})
+      round_robin = tournament(%{pairing_engine: "ainalrami", pairing_system: "round_robin"})
+      blank = %PairingsEngine.Tournaments.Round{}
+      current = %PairingsEngine.Tournaments.Round{explanation: %{"version" => 3}}
 
-      assert Pairing.reexplain_status(javafo, %PairingsEngine.Tournaments.Round{}) == :ineligible
+      assert Pairing.reexplain_status(categories, blank) == :ineligible
+      assert Pairing.reexplain_status(round_robin, blank) == :ineligible
+      assert Pairing.reexplain_status(javafo, nil) == :ineligible
+      # A JaVaFo round is not ineligible - only current or stale, like any other.
+      assert Pairing.reexplain_status(javafo, current) == :current
+    end
 
-      assert Pairing.reexplain_status(categories, %PairingsEngine.Tournaments.Round{}) ==
-               :ineligible
+    # JaVaFo records nothing, so the recompute is the only account such a
+    # round can ever have - Ainalrami's reading of JaVaFo's boards, and the
+    # record says so.
+    test "a JaVaFo-paired round gets an Ainalrami analysis, marked as such" do
+      t = tournament(%{pairing_engine: "javafo", rounds_count: 5})
+      players = roster(t, 6)
+      Pairing.ensure_pairing_numbers(t, players)
 
-      assert Pairing.reexplain_status(swiss, nil) == :ineligible
+      [p1, p2, p3, p4, p5, p6] =
+        t.id |> Tournaments.list_players() |> Enum.sort_by(& &1.pairing_number)
+
+      round =
+        Repo.insert!(%PairingsEngine.Tournaments.Round{
+          tournament_id: t.id,
+          number: 1,
+          status: "playing"
+        })
+
+      # What JaVaFo would have written for round one: S1 against S2.
+      for {board, white, black} <- [{1, p1, p4}, {2, p5, p2}, {3, p3, p6}] do
+        Repo.insert!(%PairingsEngine.Tournaments.Pairing{
+          round_id: round.id,
+          board: board,
+          white_player_id: white.id,
+          black_player_id: black.id,
+          result: ""
+        })
+      end
+
+      before = boards(t.id, 1)
+
+      assert %{recomputed: 1} = Pairing.reexplain_tournament(t)
+
+      explanation = Tournaments.get_round(t.id, 1).explanation
+      assert explanation["version"] == 3
+      assert explanation["engine"] == "ainalrami"
+      assert explanation["paired_by"] == "javafo"
+      assert explanation["origin"] == "recomputed"
+      [%{"brackets" => [bracket]}] = explanation["sections"]
+      assert length(bracket["states"]) == 6
+      assert boards(t.id, 1) == before
     end
   end
 

@@ -14,6 +14,21 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.43.0] - 2026-09-06
+
+- [Feature] **JaVaFo-paired rounds get the detailed account too.** The
+  recompute no longer asks who paired the round - only that it is a
+  single-pool Swiss. JaVaFo records nothing about its reasoning, so this is
+  the only account such a round can ever have: Ainalrami's reading of the
+  boards JaVaFo produced, on the standings as they stood before the round.
+  The page is explicit about it, in the offer and on the result - "paired by
+  JaVaFo, analysed after the fact by Ainalrami" - and where a line says
+  Ainalrami would have preferred something else, it says so in the warning
+  colour as a disagreement between two engines, never in red as an error in
+  the round. The two agree on all but a fraction of a percent of pairings,
+  so expect that rarely; where it appears, it is worth a look. Nothing
+  about the "never changes a pairing" guarantee changes.
+
 ## [0.42.0] - 2026-09-06
 
 - [Feature] **Older rounds can be brought up to the detailed account.** A

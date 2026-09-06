@@ -2252,6 +2252,8 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .pe-why-me .pe-verdict-why { color: var(--text-soft); }
 .pe-why-me .is-impossible, .pe-why-me .is-ineligible { color: var(--danger); }
 .pe-why-me .is-better { color: var(--danger); font-weight: 600; }
+/* Two engines disagreeing on a JaVaFo round: worth a look, not an error. */
+.pe-why-me .is-disagreement, .pe-whatif-result .is-disagreement { color: var(--warn); font-weight: 600; }
 .pe-why-me .is-tie { color: var(--warn); }
 /* The offer to bring an older account up to date: the warning colour,
    because the page beneath it is missing the half that answers questions. */

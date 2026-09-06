@@ -1317,6 +1317,52 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
       refute html =~ "from before the detailed analysis"
     end
 
+    # JaVaFo records no reasoning, so a round it paired can only ever get
+    # Ainalrami's after-the-fact analysis - and the page must say exactly
+    # that, in the offer and on the account it produces.
+    test "a JaVaFo round offers an analysis, and says who paired it", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, t} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "Old school",
+          "type" => "swiss",
+          "pairing_engine" => "javafo",
+          "rounds_count" => "5"
+        })
+
+      players =
+        for n <- 1..6 do
+          {:ok, p} =
+            Tournaments.create_player(t.id, %{"name" => "P#{n}", "fide_rating" => 2000 - n * 50})
+
+          p
+        end
+
+      Pairing.ensure_pairing_numbers(t, players)
+
+      [p1, p2, p3, p4, p5, p6] =
+        t.id |> Tournaments.list_players() |> Enum.sort_by(& &1.pairing_number)
+
+      r1 = Repo.insert!(%RoundSchema{tournament_id: t.id, number: 1, status: "playing"})
+      board(r1, 1, p1, p4, "")
+      board(r1, 2, p5, p2, "")
+      board(r1, 3, p3, p6, "")
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
+      assert html =~ "paired by JaVaFo, which records no reasoning"
+      refute html =~ "pe-account-subgroups"
+
+      assert {:error, {:live_redirect, %{to: to}}} =
+               lv |> element("#recompute button") |> render_click()
+
+      {:ok, _lv, html} = live(conn, to)
+      assert html =~ "Analysed after the fact by Ainalrami"
+      assert html =~ "pe-account-subgroups"
+      refute html =~ "which records no reasoning"
+    end
+
     test "a current account makes no such offer", %{conn: conn, scope: scope} do
       t = ainalrami_tournament(scope, 8)
       {:ok, _round} = Pairing.pair_next_round(t)

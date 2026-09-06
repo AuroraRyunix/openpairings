@@ -66,6 +66,9 @@ defmodule PairingsEngineWeb.PairingExplainLive do
        seated: seated_players(round, players),
        what_if: nil,
        recompute: recompute,
+       # Who produced the boards. An account can be Ainalrami's analysis of
+       # a JaVaFo round, and every sentence about "the engine" has to know.
+       paired_by: tournament.pairing_engine,
        account_origin: round && round.explanation && round.explanation["origin"],
        account_divergence: account_divergence,
        page_title: "#{tournament.name} · Pairing rationale - Round #{round_number}"
@@ -216,7 +219,8 @@ defmodule PairingsEngineWeb.PairingExplainLive do
            mode: mode,
            verdict: judged.verdict,
            violations: Enum.map(judged.violations, &resolve_violation(&1, field)),
-           identical?: alternative == actual
+           identical?: alternative == actual,
+           paired_by: socket.assigns.paired_by
          }
        )}
     else
@@ -341,6 +345,31 @@ defmodule PairingsEngineWeb.PairingExplainLive do
 
   ## ---------- words for the verdicts ----------
 
+  # On a JaVaFo-paired round, "better" is not a bug report: it is Ainalrami's
+  # ladder disagreeing with what JaVaFo chose - the kind of difference the
+  # engineering log is made of, and it must not be dressed as an error.
+  defp candidate_text(%{outcome: :better, at: at} = c, "javafo") do
+    gettext(
+      "Ainalrami's criteria would have preferred this over what JaVaFo chose: %{rung} (%{played} played, %{proposed} proposed). The two engines disagree here. %{fate}",
+      rung: rung_words(at.label),
+      played: at.actual,
+      proposed: at.alternative,
+      fate: fate_text(c)
+    )
+  end
+
+  defp candidate_text(candidate, _paired_by), do: candidate_text(candidate)
+
+  # The verdict's colour. A disagreement between two engines is worth a
+  # look (warn); an alternative that beats the engine that paired the round
+  # is its own bug report (danger).
+  defp outcome_class(%{outcome: :better}, "javafo"), do: "is-disagreement"
+  defp outcome_class(%{outcome: outcome}, _paired_by), do: "is-#{outcome}"
+
+  defp better_class(%{verdict: {:better, _, _, _, _}, paired_by: "javafo"}), do: "is-disagreement"
+  defp better_class(%{verdict: {:better, _, _, _, _}}), do: "is-better"
+  defp better_class(_what_if), do: nil
+
   # One sentence per candidate, sayable to the player asking.
   defp candidate_text(%{outcome: :ineligible, reason: reason}) do
     case reason do
@@ -444,6 +473,16 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   defp verdict_text(%{verdict: {:worse, group, label, ov, tv}}) do
     gettext(
       "Legal, but worse. At score group %{group} the first criterion that separates them is %{rung}: %{played} as played, %{proposed} as proposed - higher is better.",
+      group: score_str(group),
+      rung: rung_words(label),
+      played: ov,
+      proposed: tv
+    )
+  end
+
+  defp verdict_text(%{paired_by: "javafo", verdict: {:better, group, label, ov, tv}}) do
+    gettext(
+      "Ainalrami's criteria would have preferred the proposal over what JaVaFo chose: at score group %{group}, %{rung} - %{played} as played, %{proposed} as proposed. The two engines disagree here; it is not an error in the round.",
       group: score_str(group),
       rung: rung_words(label),
       played: ov,
@@ -1541,7 +1580,33 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         round_number={@round_number}
       />
 
-      <p :if={@engine_account} class="hint" style="margin: 4px 0 12px">
+      <%!-- A JaVaFo round with an account has Ainalrami's analysis of the
+            boards, not JaVaFo's own record - which does not exist. The
+            sentence has to say that, or it claims a record JaVaFo never
+            kept. --%>
+      <p
+        :if={not is_nil(@engine_account) and @paired_by == "javafo"}
+        class="hint"
+        style="margin: 4px 0 12px"
+      >
+        <.rich_text text={
+          gettext(
+            "This is a live analysis of the current data (pre-round standings, colour history and pairing output). This round was paired by %[engine], which records nothing about its reasoning - so %[account] at the foot of this page is Ainalrami's analysis of the boards after the fact: the brackets the Dutch system builds from them and the criteria that separate them, not an account of JaVaFo's own. Items marked %[flag] below are automated data-consistency checks, not proof of an actual arbiting error."
+          )
+        }>
+          <:part name="engine"><strong>JaVaFo</strong></:part>
+          <:part name="account">
+            <a href="#engine-account">{gettext("what the engine reported")}</a>
+          </:part>
+          <:part name="flag"><strong>{gettext("Worth a look")}</strong></:part>
+        </.rich_text>
+      </p>
+
+      <p
+        :if={not is_nil(@engine_account) and @paired_by != "javafo"}
+        class="hint"
+        style="margin: 4px 0 12px"
+      >
         <.rich_text text={
           gettext(
             "This is a live analysis of the current data (pre-round standings, colour history and pairing output). This round was paired by %[engine], which records what it decided as it decides it, so %[account] is kept at the foot of this page - the brackets it actually built and the criteria that separated them, rather than an inference drawn from the result. Items marked %[flag] below are automated data-consistency checks, not proof of an actual arbiting error."
@@ -2182,10 +2247,20 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         style="margin-top: 16px"
       >
         <p style="margin: 0 0 8px">
-          <strong>{gettext("This round's engine account is from before the detailed analysis.")}</strong>
+          <strong :if={@paired_by == "javafo"}>
+            {gettext("This round was paired by JaVaFo, which records no reasoning.")}
+          </strong>
+          <strong :if={@paired_by != "javafo"}>
+            {gettext("This round's engine account is from before the detailed analysis.")}
+          </strong>
           {gettext(
             "The subgroups, every player's colour state, the pairs the rules ruled out, and why each float and the bye went where they did can be worked out now - from the boards as played, on the standings as they stood before this round. It writes the account only: no pairing is ever changed by this."
           )}
+          <span :if={@paired_by == "javafo"}>
+            {gettext(
+              "The analysis is Ainalrami's, after the fact: it judges the boards JaVaFo produced by its own criteria, which agree with JaVaFo's on all but a fraction of a percent of pairings. Where it says it would have preferred something else, that is the two engines disagreeing - not an error in the round."
+            )}
+          </span>
         </p>
         <button type="button" class="pe-btn primary" phx-click="reexplain">
           {gettext("Recompute, for every round of this tournament that needs it")}
@@ -2209,6 +2284,9 @@ defmodule PairingsEngineWeb.PairingExplainLive do
           {gettext(
             "Name a swap, or a pair you had in mind, and get the ruling: it breaks an absolute rule, or it scores lower on a named criterion, or it is equal. Nothing here changes the round - the swap itself is on the pairings page."
           )}
+          <span :if={@paired_by == "javafo"}>
+            {gettext("Judged by Ainalrami's criteria; this round was paired by JaVaFo.")}
+          </span>
         </p>
 
         <form id="what-if-form" class="pe-whatif-form" phx-submit="what_if">
@@ -2252,11 +2330,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             </li>
           </ul>
 
-          <p
-            :if={@what_if.violations == []}
-            class={match?({:better, _, _, _, _}, @what_if.verdict) && "is-better"}
-            style="margin: 0"
-          >
+          <p :if={@what_if.violations == []} class={better_class(@what_if)} style="margin: 0">
             {verdict_text(@what_if)}
           </p>
         </div>
@@ -2280,7 +2354,13 @@ defmodule PairingsEngineWeb.PairingExplainLive do
           )}
         </p>
 
-        <p :if={@account_origin == "recomputed"} class="hint">
+        <p :if={@account_origin == "recomputed" and @paired_by == "javafo"} class="hint">
+          <strong>{gettext("Paired by JaVaFo. Analysed after the fact by Ainalrami")}</strong>
+          {gettext(
+            "- from the boards as played, on the standings as they stood before this round. JaVaFo's own reasoning is not on record. Where a line below says Ainalrami would have preferred something else, that is a disagreement between the two engines, not an error in the round."
+          )}
+        </p>
+        <p :if={@account_origin == "recomputed" and @paired_by != "javafo"} class="hint">
           {gettext(
             "Recomputed after the fact, from the boards as played, on the standings as they stood before this round."
           )}
@@ -2386,9 +2466,9 @@ defmodule PairingsEngineWeb.PairingExplainLive do
                 )}
               </p>
               <ul :if={!alt.skipped}>
-                <li :for={c <- alt.candidates} class={"is-#{c.outcome}"}>
+                <li :for={c <- alt.candidates} class={outcome_class(c, @paired_by)}>
                   {c.player.name}
-                  <span class="pe-verdict-why">— {candidate_text(c)}</span>
+                  <span class="pe-verdict-why">— {candidate_text(c, @paired_by)}</span>
                 </li>
               </ul>
             </div>
@@ -2460,9 +2540,9 @@ defmodule PairingsEngineWeb.PairingExplainLive do
               )}
             </p>
             <ul :if={!section.bye.skipped}>
-              <li :for={c <- section.bye.candidates} class={"is-#{c.outcome}"}>
+              <li :for={c <- section.bye.candidates} class={outcome_class(c, @paired_by)}>
                 {c.player.name}
-                <span class="pe-verdict-why">— {candidate_text(c)}</span>
+                <span class="pe-verdict-why">— {candidate_text(c, @paired_by)}</span>
               </li>
             </ul>
           </div>

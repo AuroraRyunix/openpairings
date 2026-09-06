@@ -1265,7 +1265,8 @@ defmodule PairingsEngine.Pairing do
       and the boards still match what the engine paired: recomputable.
     * `:hand_edited` - the boards were changed after pairing. The stored
       record is the engine's original decision and is kept as it is.
-    * `:ineligible` - not an Ainalrami-paired, single-pool Swiss round.
+    * `:ineligible` - not a single-pool Swiss round. Which engine paired it
+      does not matter; see `reexplain_round/2`.
   """
   def reexplain_status(%Tournament{} = tournament, round) do
     cond do
@@ -1277,9 +1278,12 @@ defmodule PairingsEngine.Pairing do
     end
   end
 
-  defp reexplainable?(t) do
-    t.pairing_engine == "ainalrami" and t.pairing_system == "swiss" and not t.pair_by_category
-  end
+  # Any single-pool Swiss round - whoever paired it. The account explains the
+  # boards AS PLAYED, so it does not need the engine that produced them; a
+  # JaVaFo round, which records no reasoning of its own, is exactly where an
+  # after-the-fact analysis is worth the most. The record carries
+  # `"paired_by"` so the page says "analysed by", never "paired by".
+  defp reexplainable?(t), do: t.pairing_system == "swiss" and not t.pair_by_category
 
   defp current_account?(%{explanation: %{"version" => v}}) when is_integer(v) and v >= 3,
     do: true
@@ -1310,6 +1314,12 @@ defmodule PairingsEngine.Pairing do
   decision, the page already says the boards diverged from it, and
   overwriting it would erase exactly that. "What if?" still judges such a
   round live.
+
+  A JaVaFo-paired round is analysed the same way. JaVaFo records nothing
+  about its reasoning, so this is the only account such a round can ever
+  have - and it is Ainalrami's reading of JaVaFo's boards, which the record
+  says (`"paired_by"`) and the page repeats. A `:better` verdict there is
+  not a bug report but a disagreement between two engines.
   """
   def reexplain_round(%Tournament{} = tournament, round_number) do
     with false <- Tournaments.write_refused(tournament),
@@ -1327,6 +1337,9 @@ defmodule PairingsEngine.Pairing do
         [{nil, account, field.player_by_local_rank}]
         |> explanation_payload()
         |> Map.put("origin", "recomputed")
+        # Who produced the boards. "engine" above is who ANALYSED them, and
+        # for a JaVaFo round the two differ - which the page must say.
+        |> Map.put("paired_by", tournament.pairing_engine)
 
       round |> Ecto.Changeset.change(explanation: payload) |> Repo.update()
     else
