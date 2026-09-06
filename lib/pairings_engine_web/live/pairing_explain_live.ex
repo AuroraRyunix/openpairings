@@ -45,6 +45,11 @@ defmodule PairingsEngineWeb.PairingExplainLive do
     engine_account = round && RoundExplanation.for_round(round, players)
     account_divergence = if round, do: RoundExplanation.divergence(round), else: :no_record
 
+    # Can this round's account be brought up to date from the boards as
+    # played? `:stale` puts the offer on the page; `:hand_edited` explains
+    # why there is none.
+    recompute = Engine.reexplain_status(tournament, round)
+
     {:ok,
      assign(socket,
        tournament: tournament,
@@ -60,6 +65,8 @@ defmodule PairingsEngineWeb.PairingExplainLive do
        # Only the players seated in this round can be named.
        seated: seated_players(round, players),
        what_if: nil,
+       recompute: recompute,
+       account_origin: round && round.explanation && round.explanation["origin"],
        account_divergence: account_divergence,
        page_title: "#{tournament.name} · Pairing rationale - Round #{round_number}"
      )}
@@ -223,6 +230,37 @@ defmodule PairingsEngineWeb.PairingExplainLive do
     end
   end
 
+  # Brings every stale round of the tournament up to date from the boards
+  # as played. Writes the accounts and nothing else - see
+  # `PairingsEngine.Pairing.reexplain_round/2`, which is where the "never
+  # changes a pairing" guarantee lives and is tested.
+  def handle_event("reexplain", _params, socket) do
+    tournament = socket.assigns.tournament
+    summary = Engine.reexplain_tournament(tournament)
+
+    PairingsEngine.Audit.log(
+      tournament.id,
+      socket.assigns.current_scope,
+      "pairing.account_recomputed",
+      %{
+        recomputed: summary.recomputed,
+        skipped: Map.new(summary.skipped, fn {reason, count} -> {inspect(reason), count} end)
+      }
+    )
+
+    {:noreply,
+     socket
+     |> put_flash(
+       :info,
+       ngettext(
+         "Recomputed the engine's account for %{count} round. No pairing was changed.",
+         "Recomputed the engine's account for %{count} rounds. No pairing was changed.",
+         summary.recomputed
+       )
+     )
+     |> push_navigate(to: ~p"/t/#{tournament.id}/pairings/#{socket.assigns.round_number}/explain")}
+  end
+
   defp parse_id(value) when is_binary(value) do
     case Integer.parse(value) do
       {n, ""} -> {:ok, n}
@@ -239,22 +277,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
     end
   end
 
-  # The round's boards in the engine's rank space: `{white, black}`, the
-  # bye as `{player, nil}`. A board with an empty white seat has nothing to
-  # judge and is dropped.
-  defp actual_pairs(field) do
-    pairs =
-      field.round.pairings
-      |> Enum.sort_by(& &1.board)
-      |> Enum.flat_map(fn p ->
-        white = Map.get(field.local_rank_by_player_id, p.white_player_id)
-        black = p.black_player_id && Map.get(field.local_rank_by_player_id, p.black_player_id)
-
-        if white, do: [{white, black}], else: []
-      end)
-
-    if pairs == [], do: :error, else: {:ok, pairs}
-  end
+  defp actual_pairs(field), do: Engine.field_pairs(field)
 
   defp alternative_pairs(actual, a, b, "pair") do
     case opponent_of(actual, a) do
@@ -2148,8 +2171,35 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         </table>
       </div>
 
+      <%!-- A round from before the detailed account can be brought up to
+            date from the boards as played. It is an offer, in the warning
+            colour, because the page below it is missing the half that
+            answers questions - and it writes the account only. --%>
       <div
-        :if={not is_nil(@engine_account) and @seated != []}
+        :if={@recompute == :stale}
+        id="recompute"
+        class="card pe-recompute"
+        style="margin-top: 16px"
+      >
+        <p style="margin: 0 0 8px">
+          <strong>{gettext("This round's engine account is from before the detailed analysis.")}</strong>
+          {gettext(
+            "The subgroups, every player's colour state, the pairs the rules ruled out, and why each float and the bye went where they did can be worked out now - from the boards as played, on the standings as they stood before this round. It writes the account only: no pairing is ever changed by this."
+          )}
+        </p>
+        <button type="button" class="pe-btn primary" phx-click="reexplain">
+          {gettext("Recompute, for every round of this tournament that needs it")}
+        </button>
+      </div>
+
+      <p :if={@recompute == :hand_edited} class="hint" style="margin-top: 16px">
+        {gettext(
+          "This round was changed by hand after the engine paired it, so its stored account - the engine's original decision - is kept as it is rather than recomputed. \"What if?\" below still judges the boards as they now stand."
+        )}
+      </p>
+
+      <div
+        :if={@recompute != :ineligible and @seated != []}
         id="what-if"
         class="card"
         style="margin-top: 16px"
@@ -2227,6 +2277,12 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             "%{count} of the pairs below is no longer on a board - somebody was swapped, substituted or reseated by hand afterwards. What follows is still an accurate record of what the engine decided; it is no longer a description of the round as it now stands.",
             "%{count} of the pairs below are no longer on a board - somebody was swapped, substituted or reseated by hand afterwards. What follows is still an accurate record of what the engine decided; it is no longer a description of the round as it now stands.",
             elem(@account_divergence, 1)
+          )}
+        </p>
+
+        <p :if={@account_origin == "recomputed"} class="hint">
+          {gettext(
+            "Recomputed after the fact, from the boards as played, on the standings as they stood before this round."
           )}
         </p>
 

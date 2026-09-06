@@ -14,6 +14,27 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.42.0] - 2026-09-06
+
+- [Feature] **Older rounds can be brought up to the detailed account.** A
+  round paired before today has an engine account without the subgroups,
+  colour states, ruled-out pairs and "why him and not me" lines - or no
+  account at all, if it predates the record. The rationale page now says so,
+  in the warning colour, and offers one button: recompute, for every round of
+  the tournament that needs it. It works from the boards as played, on the
+  standings as they stood before each round, and stores the result marked as
+  recomputed. It is not a re-pair - a re-pair could give a different answer,
+  and the question is about the round that was played - and **it never
+  changes a pairing**: it writes the account and nothing else, and a test
+  holds it to that. A round an arbiter changed by hand after pairing is left
+  exactly as it is, because its stored account is the engine's original
+  decision and the page already says the boards diverged from it; "What if?"
+  still judges such a round live. Pressing the button again does nothing.
+
+- [Change] **"What if?" no longer needs a stored account.** It rebuilds the
+  field itself, so it now appears on every Ainalrami-paired Swiss round,
+  including the ones from before the record existed.
+
 ## [0.41.0] - 2026-09-06
 
 - [Feature] **The pairing rationale now answers "why him and not me".** For

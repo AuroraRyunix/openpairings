@@ -2253,6 +2253,9 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .pe-why-me .is-impossible, .pe-why-me .is-ineligible { color: var(--danger); }
 .pe-why-me .is-better { color: var(--danger); font-weight: 600; }
 .pe-why-me .is-tie { color: var(--warn); }
+/* The offer to bring an older account up to date: the warning colour,
+   because the page beneath it is missing the half that answers questions. */
+.pe-recompute { border-left: 3px solid var(--warn); }
 /* "What if" - the arbiter names a swap or a pair and gets a ruling. */
 .pe-whatif-form { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: end; margin: 8px 0; }
 .pe-whatif-form label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--text-soft); }

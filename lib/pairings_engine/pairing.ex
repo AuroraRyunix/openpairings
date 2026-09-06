@@ -1237,6 +1237,129 @@ defmodule PairingsEngine.Pairing do
     end
   end
 
+  @doc """
+  The boards of `field.round` as played, in the engine's rank space:
+  `{white, black}`, the pairing-allocated bye as `{player, nil}`. A board
+  with an empty white seat has nothing to explain and is dropped.
+  """
+  def field_pairs(field) do
+    pairs =
+      field.round.pairings
+      |> Enum.sort_by(& &1.board)
+      |> Enum.flat_map(fn p ->
+        white = Map.get(field.local_rank_by_player_id, p.white_player_id)
+        black = p.black_player_id && Map.get(field.local_rank_by_player_id, p.black_player_id)
+
+        if white, do: [{white, black}], else: []
+      end)
+
+    if pairs == [], do: :error, else: {:ok, pairs}
+  end
+
+  @doc """
+  Whether a round's stored engine account is current, or could be brought
+  up to date by `reexplain_round/2`:
+
+    * `:current` - a version-3 record; nothing to do.
+    * `:stale` - no record, or one from before the alternatives existed,
+      and the boards still match what the engine paired: recomputable.
+    * `:hand_edited` - the boards were changed after pairing. The stored
+      record is the engine's original decision and is kept as it is.
+    * `:ineligible` - not an Ainalrami-paired, single-pool Swiss round.
+  """
+  def reexplain_status(%Tournament{} = tournament, round) do
+    cond do
+      not reexplainable?(tournament) -> :ineligible
+      is_nil(round) -> :ineligible
+      current_account?(round) -> :current
+      hand_edited?(round) -> :hand_edited
+      true -> :stale
+    end
+  end
+
+  defp reexplainable?(t) do
+    t.pairing_engine == "ainalrami" and t.pairing_system == "swiss" and not t.pair_by_category
+  end
+
+  defp current_account?(%{explanation: %{"version" => v}}) when is_integer(v) and v >= 3,
+    do: true
+
+  defp current_account?(_round), do: false
+
+  # A record whose pairs no longer match the boards was edited by hand after
+  # the engine paired it. No record at all is not "edited".
+  defp hand_edited?(round) do
+    round = Repo.preload(round, :pairings)
+    match?({:changed, _}, PairingsEngine.RoundExplanation.divergence(round))
+  end
+
+  @doc """
+  Recomputes one round's engine account from the boards AS PLAYED - the
+  field rebuilt as it stood before the round, the actual pairs explained
+  under the engine's ladder, the float and bye alternatives judged - and
+  stores it as a version-3 record, marked `"origin" => "recomputed"`.
+
+  **This never changes a pairing.** It reads the boards and writes
+  `rounds.explanation`, nothing else; the searches it runs to judge the
+  alternatives happen in memory and are thrown away. It is not a re-pair -
+  a re-pair could give a different answer, and the question is about the
+  round that was played.
+
+  A round whose boards were changed by hand after pairing is left alone
+  (`{:skip, :hand_edited}`): the stored record is the engine's original
+  decision, the page already says the boards diverged from it, and
+  overwriting it would erase exactly that. "What if?" still judges such a
+  round live.
+  """
+  def reexplain_round(%Tournament{} = tournament, round_number) do
+    with false <- Tournaments.write_refused(tournament),
+         round when not is_nil(round) <- Tournaments.get_round(tournament.id, round_number),
+         :stale <- reexplain_status(tournament, round),
+         {:ok, field} <- engine_field(tournament, round_number),
+         {:ok, pairs} <- field_pairs(field) do
+      account =
+        Map.merge(
+          %{brackets: Ainalrami.Pairing.explain_round(field.players, pairs, field.opts)},
+          alternatives(field.players, pairs, field.opts, tournament, round_number, nil)
+        )
+
+      payload =
+        [{nil, account, field.player_by_local_rank}]
+        |> explanation_payload()
+        |> Map.put("origin", "recomputed")
+
+      round |> Ecto.Changeset.change(explanation: payload) |> Repo.update()
+    else
+      {:error, :no_such_round} -> {:skip, :no_such_round}
+      {:error, reason} -> {:skip, {:refused, reason}}
+      nil -> {:skip, :no_such_round}
+      :error -> {:skip, :no_boards}
+      status when status in [:current, :hand_edited, :ineligible] -> {:skip, status}
+    end
+  end
+
+  @doc """
+  `reexplain_round/2` over every round of the tournament, in order. Returns
+  `%{recomputed: n, skipped: %{reason => count}}`. Idempotent: a second run
+  skips everything as `:current`.
+  """
+  def reexplain_tournament(%Tournament{} = tournament) do
+    numbers =
+      Repo.all(
+        from r in Round,
+          where: r.tournament_id == ^tournament.id,
+          order_by: r.number,
+          select: r.number
+      )
+
+    Enum.reduce(numbers, %{recomputed: 0, skipped: %{}}, fn number, acc ->
+      case reexplain_round(tournament, number) do
+        {:ok, _round} -> %{acc | recomputed: acc.recomputed + 1}
+        {:skip, reason} -> %{acc | skipped: Map.update(acc.skipped, reason, 1, &(&1 + 1))}
+      end
+    end)
+  end
+
   # The shared history with everything from `round_number` onwards removed -
   # what `pairing_history/1` would have returned the moment that round was
   # about to be paired.

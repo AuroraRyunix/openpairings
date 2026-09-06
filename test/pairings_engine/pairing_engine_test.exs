@@ -815,9 +815,125 @@ defmodule PairingsEngine.PairingEngineTest do
       [%{"bye" => nil, "brackets" => [bracket]}] = round.explanation["sections"]
       assert bracket["float_alternatives"] == []
     end
+  end
 
+  ## ---------- bringing an older account up to date ----------
+
+  describe "reexplain_tournament/1" do
+    # What every round paired before 2026-09-06 has stored: the outcome
+    # without the state it was made from, and without the alternatives.
+    defp downgrade(round, version) do
+      stripped =
+        round.explanation
+        |> Map.put("version", version)
+        |> Map.delete("origin")
+        |> update_in(["sections"], fn sections ->
+          Enum.map(sections, fn section ->
+            section
+            |> Map.delete("bye")
+            |> update_in(["brackets"], fn brackets ->
+              Enum.map(
+                brackets,
+                &Map.drop(&1, ~w(heterogeneous s1 s2 states exclusions float_alternatives))
+              )
+            end)
+          end)
+        end)
+
+      round |> Ecto.Changeset.change(explanation: stripped) |> Repo.update!()
+    end
+
+    defp boards(tournament_id, number) do
+      tournament_id
+      |> Tournaments.get_round(number)
+      |> Repo.preload(:pairings)
+      |> Map.fetch!(:pairings)
+      |> Enum.map(&{&1.board, &1.white_player_id, &1.black_player_id, &1.result})
+      |> Enum.sort()
+    end
+
+    test "a stale record is recomputed from the boards as played - and no pairing changes" do
+      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
+      roster(t, 7)
+      assert {:ok, round} = Pairing.pair_next_round(t)
+      before = boards(t.id, 1)
+      downgrade(round, 1)
+      t = Repo.get!(Tournament, t.id)
+
+      assert %{recomputed: 1} = Pairing.reexplain_tournament(t)
+
+      after_round = Tournaments.get_round(t.id, 1)
+      assert after_round.explanation["version"] == 3
+      assert after_round.explanation["origin"] == "recomputed"
+      [%{"bye" => bye, "brackets" => [bracket]}] = after_round.explanation["sections"]
+      assert bye["holder"]
+      assert length(bye["candidates"]) == 6
+      assert bracket["s1"] != [] and bracket["states"] != []
+
+      # The guarantee this whole feature rests on.
+      assert boards(t.id, 1) == before
+    end
+
+    test "a round changed by hand after pairing is left exactly as it is" do
+      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
+      roster(t, 8)
+      assert {:ok, round} = Pairing.pair_next_round(t)
+
+      [p1, p2 | _] =
+        round |> Repo.preload(:pairings) |> Map.fetch!(:pairings) |> Enum.sort_by(& &1.board)
+
+      # The arbiter swaps the two Black players, straight on the boards.
+      # Three steps so no two boards ever hold the same player at once.
+      b1 = p1.black_player_id
+      b2 = p2.black_player_id
+      Repo.update!(Ecto.Changeset.change(p1, black_player_id: nil))
+      Repo.update!(Ecto.Changeset.change(p2, black_player_id: b1))
+      Repo.update!(Ecto.Changeset.change(p1, black_player_id: b2))
+
+      downgrade(round, 1)
+      t = Repo.get!(Tournament, t.id)
+
+      assert %{recomputed: 0, skipped: %{hand_edited: 1}} = Pairing.reexplain_tournament(t)
+      assert Tournaments.get_round(t.id, 1).explanation["version"] == 1
+    end
+
+    test "a current record is not touched, so the button is idempotent" do
+      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
+      roster(t, 8)
+      assert {:ok, _round} = Pairing.pair_next_round(t)
+      t = Repo.get!(Tournament, t.id)
+
+      assert %{recomputed: 0, skipped: %{current: 1}} = Pairing.reexplain_tournament(t)
+    end
+
+    test "a round with no record at all gets one" do
+      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
+      roster(t, 8)
+      assert {:ok, round} = Pairing.pair_next_round(t)
+      round |> Ecto.Changeset.change(explanation: nil) |> Repo.update!()
+      t = Repo.get!(Tournament, t.id)
+
+      assert %{recomputed: 1} = Pairing.reexplain_tournament(t)
+      assert Tournaments.get_round(t.id, 1).explanation["version"] == 3
+    end
+
+    test "only an Ainalrami-paired single-pool Swiss is eligible" do
+      javafo = tournament(%{pairing_engine: "javafo"})
+      categories = tournament(%{pairing_engine: "ainalrami", pair_by_category: true})
+      swiss = tournament(%{pairing_engine: "ainalrami"})
+
+      assert Pairing.reexplain_status(javafo, %PairingsEngine.Tournaments.Round{}) == :ineligible
+
+      assert Pairing.reexplain_status(categories, %PairingsEngine.Tournaments.Round{}) ==
+               :ineligible
+
+      assert Pairing.reexplain_status(swiss, nil) == :ineligible
+    end
+  end
+
+  describe "the JaVaFo engine" do
     @tag :javafo
-    test "a JaVaFo round stores nothing rather than an empty explanation" do
+    test "stores nothing rather than an empty explanation" do
       # Explicit since 2026-08-25: Ainalrami is the default, so a test about
       # the OTHER engine has to say so rather than lean on a default that no
       # longer points at it.

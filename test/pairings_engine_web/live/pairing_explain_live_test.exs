@@ -1277,6 +1277,55 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
       refute html =~ "treat it as a bug report"
     end
 
+    # A round from before the detailed account offers to be recomputed from
+    # the boards as played; the offer goes away once it has been.
+    test "an older account offers a recompute, and the recompute fills it in", %{
+      conn: conn,
+      scope: scope
+    } do
+      t = ainalrami_tournament(scope, 7)
+      {:ok, round} = Pairing.pair_next_round(t)
+
+      v1 =
+        round.explanation
+        |> Map.put("version", 1)
+        |> update_in(["sections"], fn sections ->
+          Enum.map(sections, fn section ->
+            section
+            |> Map.delete("bye")
+            |> update_in(["brackets"], fn brackets ->
+              Enum.map(
+                brackets,
+                &Map.drop(&1, ~w(heterogeneous s1 s2 states exclusions float_alternatives))
+              )
+            end)
+          end)
+        end)
+
+      round |> Ecto.Changeset.change(explanation: v1) |> Repo.update!()
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
+      assert html =~ "from before the detailed analysis"
+      refute html =~ "Why the bye went to"
+
+      assert {:error, {:live_redirect, %{to: to}}} =
+               lv |> element("#recompute button") |> render_click()
+
+      {:ok, _lv, html} = live(conn, to)
+      assert html =~ "Why the bye went to"
+      assert html =~ "Recomputed after the fact"
+      refute html =~ "from before the detailed analysis"
+    end
+
+    test "a current account makes no such offer", %{conn: conn, scope: scope} do
+      t = ainalrami_tournament(scope, 8)
+      {:ok, _round} = Pairing.pair_next_round(t)
+
+      {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
+      refute html =~ "from before the detailed analysis"
+      refute html =~ ~s(id="recompute")
+    end
+
     # "What if": the arbiter names two players and gets a ruling, live,
     # against the field as the engine saw it when the round was paired.
     test "a swap can be judged, and the ruling is one of the four kinds", %{
