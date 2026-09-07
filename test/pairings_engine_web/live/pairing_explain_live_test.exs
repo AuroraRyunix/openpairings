@@ -1225,6 +1225,14 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
       refute html =~ "Nothing was ruled out here"
     end
 
+    defp board_signature(round) do
+      round
+      |> Repo.preload(:pairings, force: true)
+      |> Map.fetch!(:pairings)
+      |> Enum.map(&{&1.board, &1.white_player_id, &1.black_player_id})
+      |> Enum.sort()
+    end
+
     defp ainalrami_tournament(scope, count) do
       {:ok, t} =
         Tournaments.create_tournament(scope, %{
@@ -1333,13 +1341,47 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
       assert html =~ "from before the detailed analysis"
       refute html =~ "Why the bye went to"
 
-      assert {:error, {:live_redirect, %{to: to}}} =
-               lv |> element("#recompute button") |> render_click()
+      # The recompute runs off the LiveView process: the button greys out
+      # and says so, and the page reloads itself when it is done.
+      html = lv |> element("#recompute button") |> render_click()
+      assert html =~ "Working - this can take a while"
+      assert html =~ ~s(disabled)
+
+      {to, _flash} = assert_redirect(lv, 10_000)
 
       {:ok, _lv, html} = live(conn, to)
       assert html =~ "Why the bye went to"
       assert html =~ "Recomputed after the fact"
       refute html =~ "from before the detailed analysis"
+    end
+
+    # A question the pairing-time cap skipped can be worked out on request.
+    # Fifteen players in round one: the bye holder's bracket is everybody,
+    # fourteen candidates, past the cap of twelve.
+    test "a skipped question offers to be worked out, and then is", %{conn: conn, scope: scope} do
+      t = ainalrami_tournament(scope, 15)
+      {:ok, round} = Pairing.pair_next_round(t)
+      boards_before = board_signature(round)
+
+      {:ok, lv, html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
+      assert html =~ "Not worked out at pairing time"
+      assert html =~ "Work it out now"
+
+      html = lv |> element("button", "Work it out now") |> render_click()
+      assert html =~ "Working - a minute or so"
+
+      {to, _flash} = assert_redirect(lv, 30_000)
+
+      {:ok, _lv, html} = live(conn, to)
+      refute html =~ "Not worked out at pairing time"
+      assert html =~ "Why the bye went to"
+
+      # Fourteen verdicts, one per other player - and not a board touched.
+      round = Tournaments.get_round(t.id, 1)
+      assert round.explanation["depth"] == "full"
+      [section] = round.explanation["sections"]
+      assert length(section["bye"]["candidates"]) == 14
+      assert board_signature(round) == boards_before
     end
 
     # JaVaFo records no reasoning, so a round it paired can only ever get
@@ -1379,8 +1421,8 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
       assert html =~ "paired by JaVaFo, which records no reasoning"
       refute html =~ "pe-account-subgroups"
 
-      assert {:error, {:live_redirect, %{to: to}}} =
-               lv |> element("#recompute button") |> render_click()
+      lv |> element("#recompute button") |> render_click()
+      {to, _flash} = assert_redirect(lv, 10_000)
 
       {:ok, _lv, html} = live(conn, to)
       assert html =~ "Analysed after the fact by Ainalrami"

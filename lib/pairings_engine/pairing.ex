@@ -1417,6 +1417,61 @@ defmodule PairingsEngine.Pairing do
     end)
   end
 
+  @doc """
+  Works out the alternatives the pairing-time cap left out - "why did HE
+  float, or get the bye, and not me" for a bracket with more candidates
+  than `Ainalrami.Alternatives.max_candidates/0` - and stores them in the
+  round's account. One full pairing per candidate, so it runs on request
+  from the rationale page rather than for every round paired: a top bracket
+  of a hundred players costs about a hundred pairings of the round.
+
+  Like `reexplain_round/2` it writes `rounds.explanation` and nothing else;
+  the boards are read, never touched. A round with no account yet gets one
+  as `reexplain_round/2` would have given it, at full depth. Refused for a
+  hand-edited or per-category round, for the reasons given there. The
+  account keeps its `"origin"` and `"paired_by"` and gains
+  `"depth" => "full"`.
+  """
+  def deepen_round(%Tournament{} = tournament, round_number) do
+    with false <- Tournaments.write_refused(tournament),
+         round when not is_nil(round) <- Tournaments.get_round(tournament.id, round_number),
+         status when status in [:current, :stale] <- reexplain_status(tournament, round),
+         # A current record is the engine's decision as stored; if the
+         # boards were changed by hand since, `reexplain_status/2` still
+         # says `:current` (it only asks whether the record is up to date),
+         # so the hand-edit check is asked here on its own.
+         false <- hand_edited?(round),
+         {:ok, field} <- engine_field(tournament, round_number),
+         {:ok, pairs} <- field_pairs(field),
+         opts = Keyword.put(field.opts, :max_candidates, :all),
+         account =
+           Map.merge(
+             %{brackets: Ainalrami.Pairing.explain_round(field.players, pairs, opts)},
+             alternatives(field.players, pairs, opts, tournament, round_number, nil)
+           ),
+         payload when not is_nil(payload) <-
+           explanation_payload([{nil, account, field.player_by_local_rank}]) do
+      provenance =
+        case status do
+          # No usable record before this: the provenance a recompute would
+          # have written, since that is what this is, at full depth.
+          :stale -> %{"origin" => "recomputed", "paired_by" => tournament.pairing_engine}
+          :current -> Map.take(round.explanation || %{}, ["origin", "paired_by"])
+        end
+
+      payload = payload |> Map.merge(provenance) |> Map.put("depth", "full")
+
+      round |> Ecto.Changeset.change(explanation: payload) |> Repo.update()
+    else
+      {:error, :no_such_round} -> {:skip, :no_such_round}
+      {:error, reason} -> {:skip, {:refused, reason}}
+      nil -> {:skip, :no_such_round}
+      :error -> {:skip, :no_boards}
+      true -> {:skip, :hand_edited}
+      status when status in [:hand_edited, :ineligible] -> {:skip, status}
+    end
+  end
+
   # The shared history with everything from `round_number` onwards removed -
   # what `pairing_history/1` would have returned the moment that round was
   # about to be paired.

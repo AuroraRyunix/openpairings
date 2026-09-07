@@ -14,6 +14,37 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.46.0] - 2026-09-07
+
+Feedback from the first day of the rationale page on a real eleven-round
+tournament, in the order it came.
+
+- [Fix] **The six empty boxes after a name are colours again.** The colour
+  history beside each seat - White, Black, White, Black - drew every round
+  as an empty box: the record spells colours in capitals and the chip
+  matched lowercase, so nothing ever matched. Each chip now says which round
+  and which colour on hover, a round without a game is the dashed one, and
+  the chips are pure white and pure black so they read the same on a light
+  card and a dark one.
+- [Change] **Board by board is closed by default.** The cards are read one
+  at a time when a player asks; an arbiter who opened the page for the
+  bracket map scrolled past a hundred of them. The section is a disclosure
+  now, with the board count on it, and a "worth a look" link opens it on
+  its way to the board.
+- [Change] **Article 5.2.5 explained once, not on every card.** The note on
+  a board decided by 5.2.5 is a line; the rule, and how this engine reads
+  its parity, is spelled out once under the grid, where it stretches no
+  card into a column of text.
+- [Feature] **"Work it out now."** A question the pairing-time cap skipped -
+  why this player floated, or got the bye, and not one of the eighty-eight
+  others - can be worked out on request, every candidate a full pairing of
+  the round. It writes the account only: no board is touched. The cap stays
+  at pairing time, where nobody is waiting on that question yet.
+- [Change] **Recompute runs in the background and says so.** Recomputing a
+  tournament's accounts, or working the alternatives out, greys the button
+  out with a note that a long tournament takes a minute or two, keeps the
+  page answering meanwhile, and reloads it when the result lands.
+
 ## [0.45.0] - 2026-09-07
 
 - [Feature] **"Rather not, if possible."** A forbidden pairing can now be a

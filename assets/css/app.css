@@ -2326,10 +2326,21 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 /* The colour record, oldest first. Small on purpose: it is a pattern to be
    scanned, not a table to be read. */
 .pe-seat-history { display: inline-flex; gap: 2px; flex: none; }
-.pe-seat-chip { width: 7px; height: 12px; border-radius: 2px; border: 1px solid var(--border); }
-.pe-seat-chip.is-w { background: #f7f3e8; }
-.pe-seat-chip.is-b { background: #1c1a15; }
-.pe-seat-chip.is-none { background: transparent; }
+/* A colour chip has to read as its colour on BOTH grounds. An off-white
+   chip on a light card and a near-black one on a dark card each looked
+   like an empty box with a border - "six empty boxes after the name".
+   Pure white and pure black with a mid-tone border read the same on
+   either; a round without a game is the dashed one. */
+.pe-seat-chip { width: 8px; height: 12px; border-radius: 2px; border: 1px solid var(--text-soft); }
+.pe-seat-chip.is-w { background: #ffffff; }
+.pe-seat-chip.is-b { background: #000000; }
+.pe-seat-chip.is-none { background: transparent; border-style: dashed; opacity: 0.6; }
+
+/* Board by board is closed by default - the cards are read one at a time
+   when a player asks, and the bracket map above is what the page is for. */
+.pe-boards > summary { cursor: pointer; margin: 18px 0 8px; }
+.pe-boards > summary h3 { display: inline; margin: 0; }
+.pe-boards > summary .hint { margin: 0 0 0 8px; }
 
 .pe-account-ladder { margin-top: 6px; }
 .pe-account-ladder summary {

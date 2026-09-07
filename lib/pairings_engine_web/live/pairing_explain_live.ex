@@ -23,6 +23,9 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   alias PairingsEngine.Tournaments.Player
   alias PairingsEngine.Tournaments.Tournament
   alias PairingsEngineWeb.AuditLive
+  alias Phoenix.LiveView.JS
+
+  require Logger
 
   @impl true
   def mount(%{"id" => id, "round" => round}, _session, socket) do
@@ -66,6 +69,9 @@ defmodule PairingsEngineWeb.PairingExplainLive do
        seated: seated_players(round, players),
        what_if: nil,
        recompute: recompute,
+       # `:recompute` or `:deepen` while one of those runs off the LiveView
+       # process (`start_async`); the buttons grey out and say so meanwhile.
+       busy: nil,
        no_show: nil,
        # Who produced the boards. An account can be Ainalrami's analysis of
        # a JaVaFo round, and every sentence about "the engine" has to know.
@@ -149,11 +155,11 @@ defmodule PairingsEngineWeb.PairingExplainLive do
     <div :if={@player} class="pe-seat">
       <span class={["pe-seat-badge", "is-#{@colour}"]}>{String.upcase(@colour)}</span>
       <span class="pe-seat-name">{@player.name}</span>
-      <span class="pe-seat-history">
+      <span class="pe-seat-history" title={gettext("Colours in the last rounds, oldest first")}>
         <span
-          :for={round <- seat_history(@trails, @player.id)}
-          class={["pe-seat-chip", "is-#{round}"]}
-          aria-hidden="true"
+          :for={{number, mark} <- seat_history(@trails, @player.id)}
+          class={["pe-seat-chip", "is-#{mark}"]}
+          title={chip_title(number, mark)}
         ></span>
       </span>
     </div>
@@ -163,6 +169,10 @@ defmodule PairingsEngineWeb.PairingExplainLive do
     </div>
     """
   end
+
+  defp chip_title(number, "w"), do: gettext("Round %{n}: White", n: number)
+  defp chip_title(number, "b"), do: gettext("Round %{n}: Black", n: number)
+  defp chip_title(number, _mark), do: gettext("Round %{n}: no game", n: number)
 
   # The last few rounds' colours, oldest first. Anything that is not a played
   # colour (a bye, an absence) is its own neutral marker rather than being
@@ -178,11 +188,17 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         |> Enum.reject(& &1[:current])
         |> Enum.take(-6)
         |> Enum.map(fn round ->
-          case round[:colour] do
-            "w" -> "w"
-            "b" -> "b"
-            _ -> "none"
-          end
+          # The trails spell colours "W"/"B" (and "bye"/"absent"). This
+          # matched lowercase, so every chip drew as the empty box - six of
+          # them after every name, saying nothing.
+          mark =
+            case round[:colour] do
+              c when c in ["w", "W"] -> "w"
+              c when c in ["b", "B"] -> "b"
+              _ -> "none"
+            end
+
+          {round[:round], mark}
         end)
 
       _ ->
@@ -284,9 +300,42 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   # as played. Writes the accounts and nothing else - see
   # `PairingsEngine.Pairing.reexplain_round/2`, which is where the "never
   # changes a pairing" guarantee lives and is tested.
+  def handle_event("reexplain", _params, %{assigns: %{busy: busy}} = socket)
+      when not is_nil(busy),
+      do: {:noreply, socket}
+
   def handle_event("reexplain", _params, socket) do
     tournament = socket.assigns.tournament
-    summary = Engine.reexplain_tournament(tournament)
+
+    # Off the LiveView process: an eleven-round tournament is a minute or
+    # two of pairing, and the page has to be able to say "working" - and
+    # keep answering - meanwhile. The result lands in `handle_async/3`.
+    {:noreply,
+     socket
+     |> assign(busy: :recompute)
+     |> start_async(:reexplain, fn -> Engine.reexplain_tournament(tournament) end)}
+  end
+
+  # "Work it out now" on a question the pairing-time cap skipped. Same
+  # guarantee as the recompute: `PairingsEngine.Pairing.deepen_round/2`
+  # writes the account and nothing else.
+  def handle_event("deepen", _params, %{assigns: %{busy: busy}} = socket)
+      when not is_nil(busy),
+      do: {:noreply, socket}
+
+  def handle_event("deepen", _params, socket) do
+    tournament = socket.assigns.tournament
+    number = socket.assigns.round_number
+
+    {:noreply,
+     socket
+     |> assign(busy: :deepen)
+     |> start_async(:deepen, fn -> Engine.deepen_round(tournament, number) end)}
+  end
+
+  @impl true
+  def handle_async(:reexplain, {:ok, summary}, socket) do
+    tournament = socket.assigns.tournament
 
     PairingsEngine.Audit.log(
       tournament.id,
@@ -300,6 +349,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
 
     {:noreply,
      socket
+     |> assign(busy: nil)
      |> put_flash(
        :info,
        ngettext(
@@ -309,6 +359,57 @@ defmodule PairingsEngineWeb.PairingExplainLive do
        )
      )
      |> push_navigate(to: ~p"/t/#{tournament.id}/pairings/#{socket.assigns.round_number}/explain")}
+  end
+
+  def handle_async(:deepen, {:ok, {:ok, _round}}, socket) do
+    tournament = socket.assigns.tournament
+
+    PairingsEngine.Audit.log(
+      tournament.id,
+      socket.assigns.current_scope,
+      "pairing.account_deepened",
+      %{round: socket.assigns.round_number}
+    )
+
+    {:noreply,
+     socket
+     |> assign(busy: nil)
+     |> put_flash(
+       :info,
+       gettext("Every alternative for this round is now worked out. No pairing was changed.")
+     )
+     |> push_navigate(to: ~p"/t/#{tournament.id}/pairings/#{socket.assigns.round_number}/explain")}
+  end
+
+  def handle_async(:deepen, {:ok, {:skip, reason}}, socket) do
+    {:noreply,
+     socket
+     |> assign(busy: nil)
+     |> put_flash(
+       :error,
+       gettext("The alternatives could not be worked out (%{reason}). Nothing was changed.",
+         reason: inspect(reason)
+       )
+     )}
+  end
+
+  def handle_async(:deepen, {:ok, {:error, _changeset}}, socket) do
+    {:noreply,
+     socket
+     |> assign(busy: nil)
+     |> put_flash(:error, gettext("The account could not be saved. Nothing was changed."))}
+  end
+
+  def handle_async(task, {:exit, reason}, socket) when task in [:reexplain, :deepen] do
+    Logger.warning("#{task} of the pairing account failed: #{inspect(reason)}")
+
+    {:noreply,
+     socket
+     |> assign(busy: nil)
+     |> put_flash(
+       :error,
+       gettext("That did not finish - nothing was changed. The server log has the reason.")
+     )}
   end
 
   defp parse_id(value) when is_binary(value) do
@@ -580,6 +681,27 @@ defmodule PairingsEngineWeb.PairingExplainLive do
       )
 
   defp candidate_text(_), do: gettext("no verdict")
+
+  attr :busy, :atom, required: true
+
+  # The offer that goes with "not worked out": the same job, on request,
+  # with the arbiter waiting on it knowingly.
+  defp deepen_button(assigns) do
+    ~H"""
+    <button
+      type="button"
+      class="pe-btn tonal"
+      phx-click="deepen"
+      disabled={@busy != nil}
+      phx-disable-with={gettext("Working...")}
+      style="margin-left: 6px"
+    >
+      {if @busy == :deepen,
+        do: gettext("Working - a minute or so"),
+        else: gettext("Work it out now")}
+    </button>
+    """
+  end
 
   defp fate_text(%{fate: %{opponent: %{name: name}, score: score}}),
     do: gettext("they would have played %{name} (%{score})", name: name, score: score_str(score))
@@ -1814,9 +1936,22 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             )}
           </span>
         </p>
-        <button type="button" class="pe-btn primary" phx-click="reexplain">
-          {gettext("Recompute, for every round of this tournament that needs it")}
+        <button
+          type="button"
+          class="pe-btn primary"
+          phx-click="reexplain"
+          disabled={@busy != nil}
+          phx-disable-with={gettext("Working...")}
+        >
+          {if @busy == :recompute,
+            do: gettext("Working - this can take a while"),
+            else: gettext("Recompute, for every round of this tournament that needs it")}
         </button>
+        <p :if={@busy == :recompute} class="hint" style="margin: 8px 0 0">
+          {gettext(
+            "Every round that needs it is being paired again from its own history, and every alternative judged - one full pairing per candidate. An eleven-round tournament can take a minute or two. The page reloads by itself when it is done."
+          )}
+        </p>
       </div>
 
       <p :if={@recompute == :hand_edited} class="hint" style="margin: 8px 0">
@@ -1828,7 +1963,12 @@ defmodule PairingsEngineWeb.PairingExplainLive do
       <div :if={@anomalies != []} class="card" style="margin: 8px 0">
         <h3 style="margin-top: 0">{gettext("Worth a look")}</h3>
         <p :for={item <- @anomalies} class="pe-warning" style="margin-top: 6px">
-          <.link href={"#pe-board-#{item.board}"}>{item.text}</.link>
+          <.link
+            href={"#pe-board-#{item.board}"}
+            phx-click={JS.set_attribute({"open", "open"}, to: "#boards")}
+          >
+            {item.text}
+          </.link>
         </p>
       </div>
 
@@ -2320,92 +2460,116 @@ defmodule PairingsEngineWeb.PairingExplainLive do
         </div>
       </div>
 
-      <h3 style="margin: 18px 0 8px">{gettext("Board by board")}</h3>
-      <div class="pe-pair-grid">
-        <div
-          :for={b <- @rationale.boards}
-          id={"pe-board-#{b.board}"}
-          class={[
-            "pe-pair-card",
-            b.is_bye && "pe-bye-card",
-            not b.is_bye && b.rematch && "is-rematch",
-            not b.is_bye && not b.rematch && b.floater && "is-float"
-          ]}
-        >
-          <div class="pe-pair-head">
-            <span class="pe-board-no">{gettext("Board %{n}", n: b.board)}</span>
-            <span :if={@rationale.pair_by_category && b.category} class="pe-tag pe-tag-muted">
-              {b.category}
-            </span>
-            <span class="pe-head-flags">
-              <span :if={b.is_bye} class="pe-tag pe-tag-bye">{gettext("bye")}</span>
-              <span :if={not b.is_bye and b.floater} class="pe-tag pe-tag-float">
-                {gettext("floater")}
+      <%!-- Closed by default. The cards are the reference, read one at a
+            time when a player asks; an arbiter who opened the page for the
+            bracket map was scrolling past a hundred of them. --%>
+      <details id="boards" class="pe-boards">
+        <summary>
+          <h3>{gettext("Board by board")}</h3>
+          <span class="hint">
+            {ngettext("%{count} board", "%{count} boards", length(@rationale.boards))}
+          </span>
+        </summary>
+        <div class="pe-pair-grid">
+          <div
+            :for={b <- @rationale.boards}
+            id={"pe-board-#{b.board}"}
+            class={[
+              "pe-pair-card",
+              b.is_bye && "pe-bye-card",
+              not b.is_bye && b.rematch && "is-rematch",
+              not b.is_bye && not b.rematch && b.floater && "is-float"
+            ]}
+          >
+            <div class="pe-pair-head">
+              <span class="pe-board-no">{gettext("Board %{n}", n: b.board)}</span>
+              <span :if={@rationale.pair_by_category && b.category} class="pe-tag pe-tag-muted">
+                {b.category}
               </span>
-              <span :if={not b.is_bye and not b.floater} class="pe-tag pe-tag-muted">{gettext(
-                "same bracket"
-              )}</span>
-              <span :if={not b.is_bye and b.rematch} class="pe-tag pe-tag-danger">REMATCH</span>
-              <span :if={not b.is_bye and not b.rematch} class="pe-tag pe-tag-ok">
-                {gettext("no prior meeting ✓")}
+              <span class="pe-head-flags">
+                <span :if={b.is_bye} class="pe-tag pe-tag-bye">{gettext("bye")}</span>
+                <span :if={not b.is_bye and b.floater} class="pe-tag pe-tag-float">
+                  {gettext("floater")}
+                </span>
+                <span :if={not b.is_bye and not b.floater} class="pe-tag pe-tag-muted">{gettext(
+                  "same bracket"
+                )}</span>
+                <span :if={not b.is_bye and b.rematch} class="pe-tag pe-tag-danger">REMATCH</span>
+                <span :if={not b.is_bye and not b.rematch} class="pe-tag pe-tag-ok">
+                  {gettext("no prior meeting ✓")}
+                </span>
               </span>
-            </span>
-          </div>
+            </div>
 
-          <.pairing_side :if={b.white} side={b.white} colour={:w} board={b} ladder_max={@ladder_max} />
-          <p :if={!b.white} class="pe-pair-foot">
-            {gettext("Seat vacant - this board isn't finished yet.")}
-          </p>
+            <.pairing_side
+              :if={b.white}
+              side={b.white}
+              colour={:w}
+              board={b}
+              ladder_max={@ladder_max}
+            />
+            <p :if={!b.white} class="pe-pair-foot">
+              {gettext("Seat vacant - this board isn't finished yet.")}
+            </p>
 
-          <div :if={not b.is_bye} class="pe-vs">vs</div>
-          <.pairing_side
-            :if={not b.is_bye and b.black}
-            side={b.black}
-            colour={:b}
-            board={b}
-            ladder_max={@ladder_max}
-          />
-          <p :if={not b.is_bye and !b.black} class="pe-pair-foot">
-            {gettext("Seat vacant - this board isn't finished yet.")}
-          </p>
-          <p :if={not b.is_bye and float_note(b)} class="pe-pair-foot">{float_note(b)}</p>
-          <p :if={article_525_board?(b)} class="pe-pair-foot pe-525">
-            {gettext(
-              "Neither player had a colour preference, so Article 5.2.5 decided this board: the higher ranked player takes the initial colour when their tournament pairing number is odd."
-            )}
-            <span :if={Tournament.engine_name(@tournament) == "Ainalrami"}>
+            <div :if={not b.is_bye} class="pe-vs">vs</div>
+            <.pairing_side
+              :if={not b.is_bye and b.black}
+              side={b.black}
+              colour={:b}
+              board={b}
+              ladder_max={@ladder_max}
+            />
+            <p :if={not b.is_bye and !b.black} class="pe-pair-foot">
+              {gettext("Seat vacant - this board isn't finished yet.")}
+            </p>
+            <p :if={not b.is_bye and float_note(b)} class="pe-pair-foot">{float_note(b)}</p>
+            <%!-- One line per board; the rule itself is spelled out once,
+                below the grid, where it does not stretch every card. --%>
+            <p :if={article_525_board?(b)} class="pe-pair-foot pe-525">
+              {gettext("No colour preference on either side, so Article 5.2.5 decided this board.")}
+              <a href="#art-525">{gettext("How")}</a>
+            </p>
+            <p :if={not b.is_bye and b.rematch_anomaly} class="pe-warning">
+              <strong>{gettext("Worth a look:")}</strong>
               {gettext(
-                "The parity is taken on a numbering of the players who are in this round's pairing or have played in an earlier one - not on the tournament pairing number, which would also count somebody registered but never paired. FIDE settled that reading on 28 August 2026. A program that predates the ruling may seat this board the other way round; the pairing is the same either way, only who holds White differs."
+                "these two players already met in an earlier round of this tournament, and neither round-robin nor Swiss \"match format\" is enabled here to explain a deliberate back-to-back rematch - worth double-checking the game history for a data issue."
               )}
-            </span>
-          </p>
-          <p :if={not b.is_bye and b.rematch_anomaly} class="pe-warning">
-            <strong>{gettext("Worth a look:")}</strong>
-            {gettext(
-              "these two players already met in an earlier round of this tournament, and neither round-robin nor Swiss \"match format\" is enabled here to explain a deliberate back-to-back rematch - worth double-checking the game history for a data issue."
-            )}
-          </p>
+            </p>
 
-          <p :if={b.is_bye and b[:bye_detail]} class="pe-pair-foot">
-            {b.bye_detail.convention}
-          </p>
-          <p
-            :if={b.is_bye and b[:bye_detail] != nil and b.bye_detail.had_prior_bye}
-            class="pe-warning"
-          >
-            <strong>{gettext("Note:")}</strong> {gettext("this player already had a bye earlier.")}
-          </p>
-          <p
-            :if={b.is_bye and b[:bye_detail] != nil and b.bye_detail.had_prior_pairing_bye}
-            class="pe-warning"
-          >
-            <strong>{gettext("Worth a look:")}</strong>
-            {gettext(
-              "this player has now received more than one pairing-allocated (engine-assigned) bye - FIDE Dutch pairing normally avoids repeating that for the same player whenever an alternative exists."
-            )}
-          </p>
+            <p :if={b.is_bye and b[:bye_detail]} class="pe-pair-foot">
+              {b.bye_detail.convention}
+            </p>
+            <p
+              :if={b.is_bye and b[:bye_detail] != nil and b.bye_detail.had_prior_bye}
+              class="pe-warning"
+            >
+              <strong>{gettext("Note:")}</strong> {gettext("this player already had a bye earlier.")}
+            </p>
+            <p
+              :if={b.is_bye and b[:bye_detail] != nil and b.bye_detail.had_prior_pairing_bye}
+              class="pe-warning"
+            >
+              <strong>{gettext("Worth a look:")}</strong>
+              {gettext(
+                "this player has now received more than one pairing-allocated (engine-assigned) bye - FIDE Dutch pairing normally avoids repeating that for the same player whenever an alternative exists."
+              )}
+            </p>
+          </div>
         </div>
-      </div>
+
+        <p :if={Enum.any?(@rationale.boards, &article_525_board?/1)} id="art-525" class="hint">
+          <strong>{gettext("Article 5.2.5.")}</strong>
+          {gettext(
+            "Where neither player has a colour preference, the higher ranked player takes the initial colour when their tournament pairing number is odd, and the other colour when it is even."
+          )}
+          <span :if={Tournament.engine_name(@tournament) == "Ainalrami"}>
+            {gettext(
+              "The parity is taken on a numbering of the players who are in this round's pairing or have played in an earlier one - not on the tournament pairing number, which would also count somebody registered but never paired. FIDE settled that reading on 28 August 2026. A program that predates the ruling may seat this board the other way round; the pairing is the same either way, only who holds White differs."
+            )}
+          </span>
+        </p>
+      </details>
 
       <div :if={@rationale.byes.requested != []} class="card table-card" style="margin-top: 16px">
         <%!-- .table-card zeroes the card's own padding (tables run
@@ -2746,9 +2910,10 @@ defmodule PairingsEngineWeb.PairingExplainLive do
               </p>
               <p :if={alt.skipped} class="hint">
                 {gettext(
-                  "Not worked out for this bracket - %{count} candidates is more than the engine judges at pairing time.",
+                  "Not worked out at pairing time: %{count} candidates, and each one is a full pairing of the round.",
                   count: alt.count
                 )}
+                <.deepen_button busy={@busy} />
               </p>
               <ul :if={!alt.skipped}>
                 <li :for={c <- alt.candidates} class={outcome_class(c, @paired_by)}>
@@ -2820,9 +2985,10 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             </p>
             <p :if={section.bye.skipped} class="hint">
               {gettext(
-                "Not worked out - %{count} candidates is more than the engine judges at pairing time.",
+                "Not worked out at pairing time: %{count} candidates, and each one is a full pairing of the round.",
                 count: section.bye.count
               )}
+              <.deepen_button busy={@busy} />
             </p>
             <ul :if={!section.bye.skipped}>
               <li :for={c <- section.bye.candidates} class={outcome_class(c, @paired_by)}>

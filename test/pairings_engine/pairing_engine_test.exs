@@ -306,6 +306,74 @@ defmodule PairingsEngine.PairingEngineTest do
     :ok = Pairing.delete_round(tournament.id, round.number)
   end
 
+  ## ---------- deepen_round/2 ----------
+
+  describe "deepen_round/2" do
+    # Fifteen players in round one: the bye holder's bracket is everybody,
+    # fourteen candidates, past the pairing-time cap of twelve - so the
+    # stored account says "skipped", and this is what fills it in.
+    test "works out the alternatives the cap skipped, and touches no board" do
+      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
+      roster(t, 15)
+
+      assert {:ok, round} = Pairing.pair_next_round(t)
+      [section] = round.explanation["sections"]
+      assert section["bye"]["skipped"] == "too_many"
+      assert section["bye"]["count"] == 14
+
+      boards_before = board_ids(round)
+
+      assert {:ok, deepened} = Pairing.deepen_round(t, 1)
+      [section] = deepened.explanation["sections"]
+      assert length(section["bye"]["candidates"]) == 14
+      assert deepened.explanation["depth"] == "full"
+      # The engine's own account keeps its provenance: not "recomputed".
+      refute Map.has_key?(deepened.explanation, "origin")
+
+      assert board_ids(Tournaments.get_round(t.id, 1)) == boards_before
+    end
+
+    test "a round with no account yet gets one, at full depth, marked as recomputed" do
+      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
+      roster(t, 15)
+
+      assert {:ok, round} = Pairing.pair_next_round(t)
+      round |> Ecto.Changeset.change(explanation: nil) |> Repo.update!()
+
+      assert {:ok, deepened} = Pairing.deepen_round(t, 1)
+      assert deepened.explanation["origin"] == "recomputed"
+      assert deepened.explanation["paired_by"] == "ainalrami"
+      assert deepened.explanation["depth"] == "full"
+
+      [section] = deepened.explanation["sections"]
+      assert length(section["bye"]["candidates"]) == 14
+    end
+
+    test "a hand-edited round is refused, like a recompute" do
+      t = tournament(%{pairing_engine: "ainalrami", rounds_count: 5})
+      roster(t, 15)
+
+      assert {:ok, round} = Pairing.pair_next_round(t)
+      [a, b | _] = Repo.preload(round, :pairings).pairings
+
+      # Swap two boards' white seats by hand.
+      a |> Ecto.Changeset.change(white_player_id: b.white_player_id) |> Repo.update!()
+      b |> Ecto.Changeset.change(white_player_id: a.white_player_id) |> Repo.update!()
+
+      assert {:skip, :hand_edited} = Pairing.deepen_round(t, 1)
+    end
+
+    # Raw ids: the differential tests below have their own `boards/1`, in
+    # pairing numbers, for comparing two tournaments.
+    defp board_ids(round) do
+      round
+      |> Repo.preload(:pairings, force: true)
+      |> Map.fetch!(:pairings)
+      |> Enum.map(&{&1.board, &1.white_player_id, &1.black_player_id})
+      |> Enum.sort()
+    end
+  end
+
   ## ---------- soft rules ----------
 
   describe "soft rules" do
