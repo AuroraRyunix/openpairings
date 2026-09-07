@@ -288,7 +288,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
         <p class="hint" style="margin-top: 0">
           <.rich_text text={
             gettext(
-              "A full JSON backup of this tournament - settings, officials, every player (including norm data), rounds, pairings/results, byes and forbidden pairings. Re-importing it (from the %[tournaments] page) always creates a brand-new tournament, never overwrites this one. For a FIDE-report-shaped TRF16 file instead, see %[pairings]."
+              "A full JSON backup of this tournament - settings, officials, every player (including norm data), rounds, pairings/results, byes and forbidden pairings. Re-importing it (from the %[tournaments] page) always creates a brand-new tournament, never overwrites this one. For a FIDE-report-shaped TRF26 file instead, see %[pairings]."
             )
           }>
             <:part name="tournaments">

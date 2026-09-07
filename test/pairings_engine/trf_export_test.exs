@@ -605,4 +605,121 @@ defmodule PairingsEngine.TrfExportTest do
       refute text =~ "STALE"
     end
   end
+
+  ## ---------- TRF26 ----------
+
+  describe "TRF26 - the file FIDE reads" do
+    test "carries 192, 202 and 222 in FIDE's spelling, and none of the engines'" do
+      {tournament, _} = fixture()
+
+      {:ok, tournament} =
+        Tournaments.update_tournament(tournament, %{
+          "tiebreaks" => ["BH", "SB"],
+          "rate_of_play" => "90min/end+30sec/move from move 1"
+        })
+
+      assert {:ok, text} = TrfExport.export(tournament)
+      assert text =~ "\r\n192 FIDE_DUTCH_2026\r\n"
+      assert text =~ "\r\n202 BH,SB\r\n"
+      assert text =~ "\r\n222 5400+30\r\n"
+      assert text =~ "\r\n142 2\r\n"
+
+      for spelling <- ~w(XXR XXP XXA BBW BBU) do
+        refute text =~ "\r\n#{spelling}", spelling
+      end
+
+      # A standard point system says nothing, as before.
+      refute text =~ "\r\n162"
+    end
+
+    test "192 names the system that paired the boards" do
+      {tournament, _} = fixture()
+
+      code = fn changes ->
+        t = tournament |> Ecto.Changeset.change(changes) |> Repo.update!()
+        {:ok, text} = TrfExport.export(t)
+        [_, code] = Regex.run(~r/^192 (\S+)/m, text)
+        code
+      end
+
+      assert code.(pairing_engine: "javafo") == "FIDE_DUTCH_2017"
+      assert code.(pairing_engine: "javafo", acceleration: "baku") == "FIDE_DUTCH_2017_BAKU"
+      assert code.(acceleration: "baku") == "FIDE_DUTCH_2026_BAKU"
+      assert code.(pairing_system: "keizer") == "CUSTOM_SWISS"
+      assert code.(swiss_match_format: true) == "CUSTOM_SWISS"
+      assert code.(pairing_system: "round_robin", rr_cycles: 2) == "BERGER_ROUNDROBIN_G2"
+      assert code.(pairing_system: "round_robin", rr_match_format: true) == "CUSTOM_ROUNDROBIN"
+      assert code.(type: "team-swiss") == "FIDE_TEAM"
+    end
+
+    test "a 3-1-0 tournament states its points as a 162 line" do
+      {tournament, _} = fixture()
+      t = tournament |> Ecto.Changeset.change(points_win: 3.0, points_draw: 1.0) |> Repo.update!()
+
+      assert {:ok, text} = TrfExport.export(t)
+      assert text =~ "\r\n162  W 3.0    D 1.0    L 0.0    A 0.0    P 1.0\r\n"
+    end
+
+    test "prohibited pairings are 260 records - and XXP lines in the engine dialect" do
+      {tournament, %{alice: alice, bob: bob}} = fixture()
+      {:ok, _} = Tournaments.add_forbidden_pairing(tournament, alice.id, bob.id)
+
+      assert {:ok, text} = TrfExport.export(tournament)
+      assert text =~ "\r\n260   1   3    1    2\r\n"
+      refute text =~ "XXP"
+
+      assert {:ok, text} = TrfExport.export(tournament, nil, dialect: :engine)
+      assert text =~ "\r\nXXP 1 2\r\n"
+      refute text =~ "\r\n260"
+    end
+
+    test "Baku acceleration is in the file, as 250 records compressed to ranges" do
+      {tournament, _} = fixture()
+      t = tournament |> Ecto.Changeset.change(acceleration: "baku") |> Repo.update!()
+
+      # Three players: Group A is the top two, accelerated for two rounds -
+      # a full point in round one and a half point in round two.
+      assert {:ok, text} = TrfExport.export(t)
+      assert text =~ "\r\n250       1.0   1   1    1    2\r\n"
+      assert text =~ "\r\n250       0.5   2   2    1    2\r\n"
+      refute text =~ "XXA"
+
+      assert {:ok, text} = TrfExport.export(t, nil, dialect: :engine)
+      assert text =~ "\r\nXXA"
+      refute text =~ "\r\n250"
+    end
+
+    test "a rate of play the grammar cannot encode leaves 222 out, and 122 stays" do
+      {tournament, _} = fixture()
+      {:ok, t} = Tournaments.update_tournament(tournament, %{"rate_of_play" => "90+30"})
+
+      assert {:ok, text} = TrfExport.export(t)
+      assert text =~ "\r\n122 90+30\r\n"
+      refute text =~ "\r\n222"
+    end
+
+    test "what it writes, the engine reads back as the same tournament" do
+      {tournament, %{alice: alice, bob: bob}} = fixture()
+      {:ok, _} = Tournaments.add_forbidden_pairing(tournament, alice.id, bob.id)
+
+      t =
+        tournament
+        |> Ecto.Changeset.change(acceleration: "baku", points_win: 3.0, points_draw: 1.0)
+        |> Repo.update!()
+
+      {:ok, trf26} = TrfExport.export(t)
+      {:ok, engine} = TrfExport.export(t, nil, dialect: :engine)
+
+      shape = fn text ->
+        parsed = Trf.parse(text)
+
+        {Enum.map(parsed.players, &{&1.rank, &1.points, &1.games, &1[:accelerations]}),
+         parsed.tournament[:point_system]}
+      end
+
+      assert shape.(trf26) == shape.(engine)
+      assert Trf.parse(trf26).tournament[:forbidden_pairs] == [{[1, 2], 1, 3}]
+      assert Trf.parse(trf26).tournament[:type_code] == "FIDE_DUTCH_2026_BAKU"
+    end
+  end
 end

@@ -1,6 +1,6 @@
-# TRF16 import (`PairingsEngine.TrfImport`)
+# TRF import - TRF26 and TRF16 (`PairingsEngine.TrfImport`)
 
-Imports a FIDE TRF16 file - the same format `PairingsEngine.TrfExport` and
+Imports a FIDE TRF file, TRF26 or TRF16 - the same format `PairingsEngine.TrfExport` and
 `Ainalrami.Trf` already produce/consume for JaVaFo and the user-facing
 TRF download - as a brand-new tournament: players, rounds, pairings and
 byes, owned by the importing user. Reached from the Tournaments page's
@@ -119,3 +119,14 @@ result code), or a database validation failure (e.g. two players sharing a
 FIDE id already used elsewhere in the same tournament). `error_message/1`
 turns any of these into a single flash-ready string; the "Import TRF file"
 panel shows it as an inline error block rather than crashing.
+
+## TRF26
+
+Since 0.47.0 (Ainalrami 0.22.0) the parser reads FIDE's Tournament Report File
+Format Version 2026 as well: a `162` point system, `250` acceleration, `260`
+prohibited pairings, `240` byes for a round not yet paired, `299` abnormal
+point assignments (the global forms; one limited to a round or to named
+players is refused rather than dropped), and the `192`/`202`/`212`/`222`
+headers. The player rows are byte-identical between the two versions, so
+there is one importer. Team records (`300` onwards, `310`, `801`, `802`) and
+national-rating records are not read - see `Ainalrami.Trf`.

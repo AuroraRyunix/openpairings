@@ -2,7 +2,7 @@
 
 Web-based chess tournament manager: FIDE Swiss pairings, round robin
 (Berger), the Keizer system, FIDE tiebreaks (C.07), result entry,
-live standings, printing, TRF16 export/import, SWAR import, FIDE/KBSB rating
+live standings, printing, TRF26/TRF16 export/import, SWAR import, FIDE/KBSB rating
 sync, automatic FIDE title-norm judgment (B.01), and no-account mobile result
 entry. Runs locally and deploys unchanged to a server or as a standalone
 binary, with user accounts and per-user tournaments.

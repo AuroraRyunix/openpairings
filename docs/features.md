@@ -1,12 +1,12 @@
 # OpenPairings - features & roadmap
 
-Current version: **0.46.0**. One page: everything the app does today, and where
+Current version: **0.47.0**. One page: everything the app does today, and where
 it is going. Per-feature detail lives in the other [docs pages](README.md).
 
 ## Pairing
 
 - **Swiss (FIDE Dutch)** on either of two engines, chosen per tournament and
-  driven through TRF16 files built and validated by the app:
+  driven through TRF files built and validated by the app:
   - **[Ainalrami](https://github.com/AuroraRyunix/Ainalrami)** (default) -
     written for this project in Elixir, implementing C.04.3 as it stands
     from **1 February 2026**, in-process with no JVM. Cross-checked against
@@ -91,7 +91,7 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
 
 - **SWAR import** - full `.swar` files (players, rounds, results, byes,
   scoring configuration, absences), with FIDE-id resolution during import.
-- **TRF16** - import (a complete tournament from a `.trf` file, points
+- **TRF26 and TRF16** - import (a complete tournament from a `.trf` file, points
   cross-checked) and export (full or selected rounds, FIDE-submission grade).
 - **JSON backup** - full single-tournament or all-tournaments export and
   re-import.

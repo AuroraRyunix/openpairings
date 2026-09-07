@@ -89,7 +89,7 @@ defmodule PairingsEngineWeb.UserLive.Registration do
               </li>
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" />
-                {gettext("TRF16, SWAR & PGN import / export")}
+                {gettext("TRF, SWAR & PGN import / export")}
               </li>
               <li class="auth-feature-soon">
                 <.icon name="hero-clock-mini" class="size-5" />

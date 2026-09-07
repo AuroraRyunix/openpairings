@@ -114,7 +114,7 @@ defmodule PairingsEngineWeb.ExportControllerTest do
   ## ---------- GET /t/:id/export/trf ----------
 
   describe "trf/2" do
-    test "downloads a TRF16 text file with all paired rounds by default", %{
+    test "downloads a TRF26 text file with all paired rounds by default", %{
       conn: conn,
       scope: scope
     } do
@@ -470,6 +470,23 @@ defmodule PairingsEngineWeb.ExportControllerTest do
       body = conn |> response(200) |> Jason.decode!()
       names = Enum.map(body["tournaments"], & &1["tournament"]["name"])
       assert names == [t1.name]
+    end
+  end
+
+  describe "trf/2 dialects" do
+    test "?dialect=javafo serves the older extension-line spelling", %{conn: conn, scope: scope} do
+      {tournament, _} = fixture(scope)
+      [a, b | _] = PairingsEngine.Tournaments.list_players(tournament.id)
+      {:ok, _} = PairingsEngine.Tournaments.add_forbidden_pairing(tournament, a.id, b.id)
+
+      fide = conn |> get(~p"/t/#{tournament.id}/export/trf") |> response(200)
+      assert fide =~ "\r\n192 "
+      assert fide =~ "\r\n260 "
+      refute fide =~ "XXP"
+
+      javafo = conn |> get(~p"/t/#{tournament.id}/export/trf?dialect=javafo") |> response(200)
+      assert javafo =~ "\r\nXXP "
+      refute javafo =~ "\r\n260 "
     end
   end
 end

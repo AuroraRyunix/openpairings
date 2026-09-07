@@ -256,6 +256,13 @@ OpenPairings' side, with one exception:
 
 ### C - Import/Export Requirements (VCL.11-12)
 
+> **TRF26 (2026-09-07).** Both items below were written against TRF16.
+> FIDE's Tournament Report File Format Version 2026 replaced it on 1
+> September 2025; since 0.47.0 the export writes TRF26 (`192` type code,
+> `202` tie-breaks, `222` time control, `162`, `250`, `260`) and the import
+> reads it, with the older `XX*`/`BB*` spelling still available for the
+> pairing programs - see `docs/import-export.md`.
+
 - ~~**VCL.11**~~ (TRF16 import mandatory, TRF06 recommended) - **both
   shipped**. TRF16: `PairingsEngine.TrfImport`, `docs/trf-import.md`. TRF06:
   read FIDE's actual archived specs directly - [Annexure-B (2006)](https://tec.fide.com/wp-content/uploads/2025/10/Annexure-B-TRF06-%E2%80%93-Version-2006.pdf)

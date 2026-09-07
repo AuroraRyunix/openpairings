@@ -28,18 +28,20 @@ defmodule PairingsEngine.TrfExport do
   alias Ainalrami.Trf.ValidationError
 
   @doc """
-  Builds the TRF16 text for `tournament`, limited to `rounds_spec` (either a
+  Builds the TRF26 text for `tournament`, limited to `rounds_spec` (either a
   raw query-param string per `parse_rounds/2`, or an already-parsed list of
   round numbers). Defaults to every paired round when `rounds_spec` is
-  `nil`/blank.
+  `nil`/blank. `dialect: :engine` asks for the older `XX*`/`BB*` spelling the
+  pairing programs read; the default is FIDE's TRF26 (see `Ainalrami.Trf`,
+  "Two dialects").
 
   Returns `{:ok, text}`, or `{:error, %Ainalrami.Trf.ValidationError{}}`
   if the filtered result set fails `Trf`'s own legality validation (an
   unrecognized or mutually-inconsistent result code) - never raises.
   """
-  def export(tournament, rounds_spec \\ nil) do
+  def export(tournament, rounds_spec \\ nil, opts \\ []) do
     with :ok <- ensure_round_dates(tournament, rounds_spec) do
-      {:ok, build(tournament, rounds_spec)}
+      {:ok, build(tournament, rounds_spec, opts)}
     end
   rescue
     e in ValidationError -> {:error, e}
@@ -163,9 +165,10 @@ defmodule PairingsEngine.TrfExport do
     end
   end
 
-  defp build(tournament, rounds_spec) do
+  defp build(tournament, rounds_spec, opts) do
     paired = Pairing.paired_rounds_count(tournament.id)
     rounds = if is_list(rounds_spec), do: rounds_spec, else: parse_rounds(rounds_spec, paired)
+    dialect = Keyword.get(opts, :dialect, :trf26)
 
     players = Tournaments.list_players(tournament.id)
 
@@ -173,6 +176,9 @@ defmodule PairingsEngine.TrfExport do
       tournament
       |> Pairing.trf_player_rows(players)
       |> Enum.map(&filter_player_games(&1, rounds, tournament))
+      # Baku virtual points for the rounds in the file. The report had
+      # left them out altogether; TRF26 wants them (`250`) for pairing.
+      |> then(&Pairing.accelerated_rows(tournament, &1, players, length(rounds)))
 
     Trf.serialize(
       %{
@@ -200,10 +206,26 @@ defmodule PairingsEngine.TrfExport do
           # 5-round event describes itself as 3 rounds, honestly).
           number_of_rounds: length(rounds),
           round_dates: filter_round_dates(tournament.round_dates, rounds),
-          generator: "OpenPairings v#{app_version()}"
+          generator: "OpenPairings v#{app_version()}",
+          # TRF26's headers and records - what FIDE reads, in FIDE's
+          # spelling. `192` names the system that paired the boards, `202`
+          # the tie-breaks as configured (already FIDE's own codes), `222`
+          # the rate of play where its wording encodes (`RateOfPlay`),
+          # `162` a point system other than 1/half/0, `260` the prohibited
+          # pairings - explicit ones and those by club or federation.
+          type_code: tournament_type_code(tournament),
+          tie_breaks: tie_break_codes(tournament),
+          time_control_code: PairingsEngine.RateOfPlay.trf26_code(tournament.rate_of_play),
+          point_system: PairingsEngine.Tournaments.Tournament.engine_point_system(tournament),
+          forbidden_pairs:
+            Pairing.forbidden_pairs(tournament.id, players) ++
+              Pairing.exclusion_pairs(tournament, players)
         },
         players: trf_players
       },
+      # `:trf26` for the file an arbiter uploads; `:engine` on request, for
+      # a pairing program that reads the older `XX*`/`BB*` spelling.
+      dialect: dialect,
       column_legend: true,
       # This file leaves the building - it is what an arbiter submits to
       # FIDE - so it must survive a byte-oriented reader. See
@@ -221,6 +243,36 @@ defmodule PairingsEngine.TrfExport do
   # generator field, which a FIDE reader parses, and "0.18.0+3f2a1c9" is not
   # what that field is for.
   defp app_version, do: PairingsEngine.Build.version()
+
+  # TRF26's `192`: which system paired the boards, in ETT26's vocabulary.
+  # JaVaFo implements the Dutch system as it stood before 1 February 2026
+  # and Ainalrami the edition in force since; Keizer and the two match
+  # formats have no FIDE code and are what the table calls CUSTOM. A team
+  # event gets the family's default.
+  defp tournament_type_code(t) do
+    baku = if t.acceleration == "baku", do: "_BAKU", else: ""
+    team? = t.type in ["team-swiss", "team-roundrobin"]
+
+    cond do
+      team? and t.pairing_system == "round_robin" -> "FIDE_TEAM_ROUNDROBIN"
+      team? -> "FIDE_TEAM" <> baku
+      t.pairing_system == "keizer" -> "CUSTOM_SWISS"
+      t.pairing_system == "round_robin" and t.rr_match_format -> "CUSTOM_ROUNDROBIN"
+      t.pairing_system == "round_robin" -> "BERGER_ROUNDROBIN_G#{t.rr_cycles || 1}"
+      t.swiss_match_format -> "CUSTOM_SWISS"
+      t.pairing_engine == "javafo" -> "FIDE_DUTCH_2017" <> baku
+      true -> "FIDE_DUTCH_2026" <> baku
+    end
+  end
+
+  # The configured tie-breaks are FIDE's own C.07 codes (`Tiebreaks`), so
+  # they go out as they are; anything that is not a code shape is dropped
+  # rather than let the writer refuse the file over it.
+  defp tie_break_codes(t) do
+    (t.tiebreaks || [])
+    |> Enum.map(&String.upcase(to_string(&1)))
+    |> Enum.filter(&Regex.match?(~r/^[A-Z][A-Z0-9]*$/, &1))
+  end
 
   # 102: chief arbiter, as "<FIDE id> <name>" when the id is known (e.g.
   # "102 208418 Boutchon, Gaston"), else just the name. Skipped entirely

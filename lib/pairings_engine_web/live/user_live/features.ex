@@ -143,7 +143,7 @@ defmodule PairingsEngineWeb.UserLive.Features do
 
       <p class="hint">
         {gettext(
-          "No other federations are packaged yet. Everything else in the application - FIDE ratings, TRF16 files, the FIDE report forms - is available to everyone and needs no switch."
+          "No other federations are packaged yet. Everything else in the application - FIDE ratings, TRF files, the FIDE report forms - is available to everyone and needs no switch."
         )}
       </p>
     </Layouts.app>

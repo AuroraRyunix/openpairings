@@ -2,7 +2,7 @@
 
 OpenPairings has two, deliberately different, download/upload formats:
 
-| | FIDE TRF16 export | Full JSON backup |
+| | FIDE TRF26 export | Full JSON backup |
 |---|---|---|
 | Module | `PairingsEngine.TrfExport` | `PairingsEngine.TournamentExport` / `PairingsEngine.TournamentImport` |
 | Purpose | Feed the result to FIDE, another pairing program, or a rating submission | Faithful backup/restore of a tournament inside OpenPairings itself |
@@ -10,13 +10,13 @@ OpenPairings has two, deliberately different, download/upload formats:
 | Scope | One tournament, one chosen set of rounds | One tournament, or every tournament you own |
 | Contains | Roster + round-by-round results, FIDE-report-shaped | Settings, officials, every player field (incl. norm data), teams, rounds, pairings/results, byes, forbidden pairings - see "What does not travel" below |
 
-They solve different problems: TRF16 is what a rating office or another
+They solve different problems: TRF26 is what a rating office or another
 program expects, and intentionally *doesn't* carry OpenPairings-specific
 bookkeeping (extra points, norm judgment data, forbidden pairings, ...). The
 JSON backup carries all of that, but nothing outside OpenPairings can read
 it.
 
-## FIDE TRF16 export
+## FIDE TRF26 export
 
 `GET /t/:id/export/trf` downloads a `.trf` text file (`text/plain`,
 `Content-Disposition: attachment`, filename
@@ -86,32 +86,43 @@ test suite for how it's provoked), since every route that actually **writes**
 results keeps opponents' recorded results consistent with each other by
 construction.
 
-### Beyond the official TRF16 fields: `142`, `182`, and the column legend
+### TRF26, and the older spelling the pairing programs read
 
-Real-world TRF exports (SWAR, Swiss-Manager) all extend TRF16 with a handful
-of extra, unofficial-but-harmless header lines and a readability aid, so this
-export matches:
+Since 0.47.0 the download is a **TRF26** file - FIDE's Tournament Report
+File Format Version 2026, approved by Council on 12 May 2025 and applied
+from 1 September 2025. The player rows are byte-identical to TRF16's; what
+changed is the tournament section and the extension records, and this
+export writes them in FIDE's own spelling:
 
-  * **`142`** - number of rounds represented in *this file* (following the
-    same round-selection filtering as everything else - a `?rounds=1-3`
-    export of a 5-round tournament reports `142 3`, honestly). Not part of
-    official TRF16, but Swiss-Manager already emits it, and it's one of the
-    handful of fields FIDE's TRF25/26 draft extension formalizes.
-  * **`182`** - `OpenPairings v<version>`, naming the program that produced
-    the file (Swiss-Manager does the same with its own name/version).
-  * **A column ruler + field-code legend** (`DDD SSSS sTTT NNN...`, plus two
-    position-marker lines) inserted right before the player rows - purely a
-    human-readability courtesy for whoever opens the raw file in a text
-    editor, copied from Swiss-Manager's own convention.
+  * **`142`** - the number of rounds represented in *this file* (a
+    `?rounds=1-3` export of a 5-round tournament reports `142 3`, honestly).
+  * **`152`** - the initial colour, when the tournament records one.
+  * **`162`** - the point system, only when it is not 1 / half / 0 (a 3-1-0
+    event, a half-point pairing-allocated bye).
+  * **`182`** - `OpenPairings v<version>`, the program that produced the file.
+  * **`192`** - the encoded type of tournament, from FIDE's code table
+    (ETT26): `FIDE_DUTCH_2026` for a round paired by Ainalrami,
+    `FIDE_DUTCH_2017` for one paired by JaVaFo, `_BAKU` appended under Baku
+    acceleration, `BERGER_ROUNDROBIN_Gn` for a round robin, and
+    `CUSTOM_SWISS` for Keizer, which has no FIDE code.
+  * **`202`** - the configured tie-breaks, which are already C.07's codes.
+  * **`222`** - the rate of play, encoded (`90min/end+30sec/move from move
+    1` is `5400+30`) where the wording allows it; a Bronstein delay or a
+    free-text rate has no encoding and the line is left out.
+  * **`250`** - Baku virtual points, one record per rank range per round
+    range; **`260`** - prohibited pairings, explicit and by club or
+    federation, for every round of the tournament.
+  * **A column ruler + field-code legend** before the player rows, a
+    human-readability courtesy copied from Swiss-Manager.
 
-All three are additive and inert to any TRF16 reader: an unrecognized header
-code (or a line that doesn't start with one of the three-digit codes at all)
-is silently skipped, both by spec convention and by this app's own
-`Ainalrami.Trf.parse/1`. They're opt-in via `Trf.serialize/2`'s
-`column_legend: true` (and the `number_of_rounds`/`generator` tournament
-fields) - `TrfExport` turns them on; the JaVaFo-input path
-(`PairingsEngine.Pairing.javafo_input/4`) never does, since JaVaFo is a far
-more fragile consumer and has no use for any of this.
+`?dialect=javafo` on the download URL asks for the older spelling instead -
+`XXR`, `XXP`, `XXA` and the `BB*` point lines - which is what JaVaFo,
+bbpPairings and older checkers read. The file the app builds for its own
+pairing engines is always that spelling (see `Ainalrami.Trf`'s "Two
+dialects"), and the two spellings parse to the same tournament.
+
+Team records (`300` onwards, `310`, `801`, `802`) and national-rating
+records are not written; team pairing is not part of the app.
 
 One thing this export deliberately does **not** do: reorder rows by final
 standing. Both SWAR (inconsistently - its own row order doesn't even match

@@ -14,6 +14,29 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.47.0] - 2026-09-07
+
+- [Feature] **The TRF download is a TRF26 file.** FIDE's Tournament Report
+  File Format Version 2026 replaced TRF16 on 1 September 2025, and the file
+  an arbiter uploads now speaks it: `192` names the system that paired the
+  boards (Ainalrami is `FIDE_DUTCH_2026`, JaVaFo `FIDE_DUTCH_2017`, Baku
+  appends `_BAKU`, a round robin is `BERGER_ROUNDROBIN_Gn`, Keizer the
+  `CUSTOM_SWISS` FIDE has no better code for), `202` lists the tie-breaks,
+  `222` the rate of play encoded where its wording allows (`5400+30`), and
+  `162` the point system when it is not 1 / half / 0. Prohibited pairings
+  and Baku acceleration are in the file at last, as `260` and `250`
+  records; before this they were only ever in the file the engines read.
+  `?dialect=javafo` on the download asks for the older `XXR`/`XXP`/`XXA`/`BB*`
+  spelling that JaVaFo and older checkers read. Either spelling parses to
+  the same tournament.
+- [Feature] **TRF26 files import.** A `240` bye record, a `299` abnormal
+  point assignment, a `260` prohibited pairing and a `162` point system are
+  read alongside the TRF16 spellings, into the same tournament. Team
+  records are not.
+- [Change] **The engines' input is unchanged.** JaVaFo reads only the
+  older spelling, and both engines still get identical bytes, so a real
+  tournament can still be diffed between them.
+
 ## [0.46.0] - 2026-09-07
 
 Feedback from the first day of the rationale page on a real eleven-round

@@ -851,6 +851,17 @@ defmodule PairingsEngine.Pairing do
   # disagreement would have referenced a starting rank the file does not
   # contain. Attaching by player id leaves exactly one answer: the `:rank`
   # already on the row.
+  @doc """
+  `rows` (from `trf_player_rows/3`) with each Group-A player's Baku virtual
+  points attached, as `Ainalrami.Trf.serialize/2` writes them - `XXA` lines
+  for the engines, `250` records in the TRF26 dialect. For the FIDE-facing
+  export, which had left acceleration out of the file entirely; a
+  tournament without acceleration gets its rows back as they were.
+  """
+  def accelerated_rows(tournament, rows, players, current_round) do
+    attach_accelerations(rows, accelerations(tournament, players, current_round))
+  end
+
   defp attach_accelerations(rows, accelerations) when map_size(accelerations) == 0, do: rows
 
   defp attach_accelerations(rows, accelerations) do

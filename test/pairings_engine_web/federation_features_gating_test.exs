@@ -244,7 +244,7 @@ defmodule PairingsEngineWeb.FederationFeaturesGatingTest do
       # The other two import routes are not Belgian and stay.
       assert html =~ "Import TRF file"
       assert html =~ "Import backup (JSON)"
-      assert html =~ "import one from TRF16 or a backup"
+      assert html =~ "import one from TRF or a backup"
     end
 
     test "the panel event and the submit event both refuse", %{conn: conn} do

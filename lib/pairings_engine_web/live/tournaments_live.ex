@@ -472,7 +472,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
     {:noreply, assign(socket, swar_duplicate: nil)}
   end
 
-  ## ---------- TRF16 import (one step - no resolve modal) ----------
+  ## ---------- TRF import, TRF26 or TRF16 (one step - no resolve modal) ----------
 
   # The file input's phx-change target; nothing to do until submit.
   def handle_event("validate_trf", _params, socket), do: {:noreply, socket}
@@ -1655,7 +1655,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         phx-submit="import_trf_file"
         phx-change="validate_trf"
       >
-        <h2>{gettext("Import a TRF16 tournament")}</h2>
+        <h2>{gettext("Import a TRF tournament")}</h2>
 
         <p class="hint" style="margin-top: 0">
           <.rich_text text={
@@ -1887,10 +1887,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <%!-- The empty state lists the ways in, so it must not name a way in
               that is not on this page. --%>
         <p :if={@bel_swar_import?}>
-          {gettext("Create your first tournament, or import one from SWAR, TRF16, or a backup.")}
+          {gettext("Create your first tournament, or import one from SWAR, TRF, or a backup.")}
         </p>
         <p :if={!@bel_swar_import?}>
-          {gettext("Create your first tournament, or import one from TRF16 or a backup.")}
+          {gettext("Create your first tournament, or import one from TRF or a backup.")}
         </p>
       </div>
 

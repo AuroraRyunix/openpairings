@@ -1,6 +1,6 @@
 defmodule PairingsEngineWeb.ExportController do
   @moduledoc """
-  Downloads for tournament data: FIDE TRF16 (`PairingsEngine.TrfExport`) and
+  Downloads for tournament data: FIDE TRF26 (`PairingsEngine.TrfExport`) and
   full-fidelity JSON backups (`PairingsEngine.TournamentExport`). See
   `docs/import-export.md`. JSON *import* isn't here - a file upload can't be
   a plain GET download route - see the "Import backup" control on
@@ -41,8 +41,9 @@ defmodule PairingsEngineWeb.ExportController do
   alias PairingsEngine.Federations.BEL.{SwarExport, SwarPublish}
 
   @doc """
-  GET /t/:id/export/trf?rounds=1-5 - TRF16 text download, all or selected
-  rounds. Filename convention: `<X>_<fideid>_<slug>_<rounds>.trf`, where
+  GET /t/:id/export/trf?rounds=1-5 - TRF26 text download, all or selected
+  rounds; `?dialect=javafo` asks for the older `XX*`/`BB*` spelling the
+  pairing programs read. Filename convention: `<X>_<fideid>_<slug>_<rounds>.trf`, where
   `<X>` is B/R/S for `tournament.standard` (blitz/rapid/standard), `<fideid>`
   is whichever FIDE tournament ID `TrfExport.applicable_fide_id/2` resolves
   for the exported round range (segment omitted when none applies), `<slug>`
@@ -54,7 +55,7 @@ defmodule PairingsEngineWeb.ExportController do
   def trf(conn, %{"id" => id} = params) do
     tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
 
-    case TrfExport.export(tournament, params["rounds"]) do
+    case TrfExport.export(tournament, params["rounds"], dialect: trf_dialect(params["dialect"])) do
       {:ok, text} ->
         meta = TrfExport.export_meta(tournament, params["rounds"])
 
@@ -364,6 +365,11 @@ defmodule PairingsEngineWeb.ExportController do
   # (this controller's previous filename, `docs/import-export.md`) already
   # uses `.trf`, so this keeps that consistent rather than introducing a
   # second convention.
+  # The file an arbiter uploads is TRF26; a pairing program that reads the
+  # older extension-line spelling asks for it by name.
+  defp trf_dialect(dialect) when dialect in ["javafo", "engine"], do: :engine
+  defp trf_dialect(_dialect), do: :trf26
+
   defp trf_filename(tournament, %{rounds: rounds, fide_id: fide_id}) do
     segments =
       [
