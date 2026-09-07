@@ -14,6 +14,52 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.48.0] - 2026-09-07
+
+The other half of TRF26: 0.47.0 taught the app to write the file, and this
+teaches it to read one back. Every setting below was already parsed and
+then dropped on the floor, which is the quiet kind of wrong - the imported
+tournament looked complete and was configured differently from the one that
+left.
+
+- [Fix] **An imported tournament keeps its scoring.** A 3-1-0 file came
+  back scored 1 / half / 0, so every total disagreed with its own games and
+  the next round would have been paired from the wrong brackets. The point
+  system (`162`, or the engines' `BB*` lines) now lands on the tournament's
+  win, draw, loss and bye values.
+- [Fix] **An imported tournament keeps the pairs its arbiter separated.**
+  Prohibited pairings (`260`, or `XXP`) were read and discarded, so a
+  re-imported event would happily seat two players it had been told never
+  to pair. A rule the file limits to some rounds is widened to the whole
+  event, which is the safe direction, and the import says so rather than
+  absorbing the change silently.
+- [Fix] **An imported tournament keeps its length.** A nine-round event
+  imported after round three became a three-round event, which moves the
+  engine's final-round colour rule four rounds early. The file's own `142`
+  is read now.
+- [Feature] **What else comes back:** which edition of the rules paired the
+  boards (`192`, so a JaVaFo tournament stays a JaVaFo tournament and a
+  round robin stays a round robin), the tie-breaks (`202`, filtered to the
+  ones this installation can compute), byes granted for a round nobody has
+  paired yet (`240`), administrative extra points with the flag that makes
+  them count (`299`), and Baku acceleration (`250` / `XXA`) - the last
+  applied only when FIDE's method actually reproduces the file's own
+  numbers for that field, so a different method is reported rather than
+  mislabelled.
+- [Feature] **A bye granted for the next round is in the export.** The
+  report was a record of rounds played and this is the one forward-looking
+  thing in it: whoever pairs the next round from this file needs to know
+  who is not playing. Carried as a `240` record, or as the column an engine
+  reads in the older spelling. Only on a full export - a round slice is a
+  historical excerpt.
+- [Feature] **Extra points are in the export.** An administrative bonus or
+  penalty had no home in the file at all, since TRF's points column is game
+  points by definition, so a FIDE report and a re-import both lost it.
+- [Change] **`142` is the tournament's length**, not the number of rounds
+  the file happens to carry. A pairing engine applies the final-round
+  colour exception by that number, so a three-round slice of a five-round
+  event that claimed three rounds made round three the last one.
+
 ## [0.47.0] - 2026-09-07
 
 - [Feature] **The TRF download is a TRF26 file.** FIDE's Tournament Report

@@ -228,14 +228,15 @@ defmodule PairingsEngine.TrfImportTest do
     assert {:ok, imported, warnings} = TrfImport.import_text(text, user_scope())
     assert warnings == []
 
-    # `type` (FIDE-report classification) round-trips via the 092 label;
-    # `pairing_system` deliberately does not - see docs/trf-import.md's
-    # "Known limitations" (TRF16 cannot encode which engine continues a
-    # tournament, so import always hands back a fresh Swiss-continuable
-    # one). Asserting both here pins that documented split rather than
-    # silently relying on it.
+    # `type` (FIDE-report classification) round-trips via the 092 label,
+    # and `pairing_system` now round-trips too: TRF26's `192` encodes which
+    # system paired the boards, which TRF16 had no field for at all - so
+    # until 0.48.0 every import came back a fresh Swiss-continuable
+    # tournament whatever it had been. Both are asserted here because the
+    # pair of them is the thing that changed.
     assert imported.type == "roundrobin"
-    assert imported.pairing_system == "swiss"
+    assert imported.pairing_system == "round_robin"
+    assert imported.rr_cycles == 1
 
     assert PairingCtx.paired_rounds_count(imported.id) == 5
 

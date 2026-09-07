@@ -50,7 +50,11 @@ defmodule PairingsEngine.TrfExportRoundDatesTest do
     t = tournament_with(4, 0)
 
     assert {:ok, trf} = TrfExport.export(t)
-    assert trf =~ "142 0"
+    # 142 is the tournament's length, not the number of rounds this file
+    # carries - so a roster taken before round one still says how long the
+    # event is. It read 0 until 0.48.0, which told a pairing engine the
+    # tournament was over before it began.
+    assert trf =~ "142 #{t.rounds_count}"
   end
 
   test "a paired round with no date is refused, and says which round" do

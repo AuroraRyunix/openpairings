@@ -58,7 +58,6 @@ defmodule PairingsEngine.TrfExportTest do
       Repo.insert!(%Tournament{
         name: "TRF Export Test",
         type: "swiss",
-        round_dates: ["2026-08-15", "2026-08-16", "2026-08-17", "2026-08-18", "2026-08-19"],
         rounds_count: 3,
         round_dates: ["2026-01-01", "2026-01-02", "2026-01-03"]
       })
@@ -203,14 +202,21 @@ defmodule PairingsEngine.TrfExportTest do
 
   ## ---------- 142/182/column-legend (Swiss-Manager parity) ----------
 
-  test "142 (rounds in this file) reflects the selected rounds, not the tournament's configured total" do
+  # 142 is the tournament's LENGTH, and a slice of it is still that
+  # tournament. This asserted the opposite until 0.48.0 - the count of
+  # rounds in the file - which is what TRF16's unofficial Swiss-Manager
+  # convention meant by it; TRF26 defines the field, and a pairing engine
+  # applies the final-round colour exception by this number, so a 3-round
+  # slice of a 5-round event that claims 3 rounds makes round 3 the last
+  # one.
+  test "142 is the tournament's configured length, whichever rounds the file carries" do
     {tournament, _} = fixture()
 
     assert {:ok, all} = TrfExport.export(tournament)
-    assert Trf.parse(all).tournament.number_of_rounds == 2
+    assert Trf.parse(all).tournament.number_of_rounds == tournament.rounds_count
 
     assert {:ok, one} = TrfExport.export(tournament, "1")
-    assert Trf.parse(one).tournament.number_of_rounds == 1
+    assert Trf.parse(one).tournament.number_of_rounds == tournament.rounds_count
   end
 
   test "182 names OpenPairings and its version" do
@@ -622,7 +628,7 @@ defmodule PairingsEngine.TrfExportTest do
       assert text =~ "\r\n192 FIDE_DUTCH_2026\r\n"
       assert text =~ "\r\n202 BH,SB\r\n"
       assert text =~ "\r\n222 5400+30\r\n"
-      assert text =~ "\r\n142 2\r\n"
+      assert text =~ "\r\n142 3\r\n"
 
       for spelling <- ~w(XXR XXP XXA BBW BBU) do
         refute text =~ "\r\n#{spelling}", spelling

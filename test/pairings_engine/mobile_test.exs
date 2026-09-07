@@ -27,9 +27,16 @@ defmodule PairingsEngine.MobileTest do
       # A cheap smoke test that the generator is not stuck in a corner of the
       # range (a bad rejection-sampling bound, an off-by-a-decade start), and
       # that repeated calls do not collide.
+      # One tournament, forty enrollments. It used to build a fresh
+      # tournament - and so a fresh registered user - per iteration, forty
+      # user registrations for a test about code generation, which is where
+      # this suite's one intermittent "email has already been taken"
+      # failure came from. The enrollments are what the test is about.
+      t = tournament()
+
       codes =
         for _ <- 1..40 do
-          {:ok, e} = Mobile.create_enrollment(tournament().id)
+          {:ok, e} = Mobile.create_enrollment(t.id)
           String.to_integer(e.code)
         end
 

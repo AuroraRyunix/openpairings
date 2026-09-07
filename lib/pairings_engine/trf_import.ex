@@ -26,8 +26,8 @@ defmodule PairingsEngine.TrfImport do
   either way.
   """
 
-  alias PairingsEngine.{Encoding, Repo, Tournaments}
-  alias PairingsEngine.Tournaments.{Tournament, Player, Round, Pairing}
+  alias PairingsEngine.{Encoding, Repo, Tiebreaks, Tournaments}
+  alias PairingsEngine.Tournaments.{ForbiddenPairing, Tournament, Player, Round, Pairing}
   alias PairingsEngine.Pairing, as: PairingCtx
 
   # The app's one TRF16 implementation. This module already read files with
@@ -49,9 +49,11 @@ defmodule PairingsEngine.TrfImport do
   `SwarImport.import_file/2`).
 
   Returns `{:ok, %Tournament{}, warnings}` where `warnings` is a (possibly
-  empty) list of `%{player_name:, trf_points:, computed_points:}` maps - one
-  per player whose recomputed points disagree with the TRF file's own
-  points column (see the moduledoc). Returns `{:error, reason}` on a parse
+  empty) list of either `%{kind: :points, player_name:, trf_points:,
+  computed_points:}` - one per player whose recomputed points disagree with
+  the TRF file's own points column (see the moduledoc) - or `%{kind: :note,
+  text:}`, one per thing the file said that this app could not apply
+  exactly. Returns `{:error, reason}` on a parse
   failure or an invalid file; never raises. `reason` is either a
   `Ainalrami.Trf.ValidationError` struct, a `{:parse_failed, message}`
   tuple, or a plain string - pass it to `error_message/1` for a single
@@ -236,11 +238,30 @@ defmodule PairingsEngine.TrfImport do
   defp do_import(data, scope) do
     with {:ok, tournament} <- create_tournament(data, scope) do
       players_by_rank = create_players(tournament, data.players)
-      create_rounds(tournament, data.players, players_by_rank)
-      warnings = points_warnings(tournament, data.players, players_by_rank)
+      paired = paired_rounds_from_data(data.players)
+      create_rounds(tournament, data.players, players_by_rank, paired)
+
+      # Everything the file says ABOUT the tournament rather than about a
+      # game. Each of these was parsed and then dropped on the floor until
+      # 0.48.0, which is the quiet kind of wrong: a re-imported tournament
+      # looked complete and was configured differently from the one that
+      # left.
+      notes =
+        import_forbidden_pairings(tournament, data, players_by_rank) ++
+          import_future_byes(tournament, data, players_by_rank, paired) ++
+          import_extra_points(tournament, data, players_by_rank)
+
+      {tournament, acceleration_notes} = import_acceleration(tournament, data, players_by_rank)
+
+      warnings =
+        points_warnings(tournament, data.players, players_by_rank) ++
+          notes ++ acceleration_notes
+
       {:ok, tournament, warnings}
     end
   end
+
+  defp note(text), do: %{kind: :note, text: text}
 
   ## ---------- tournament ----------
 
@@ -272,15 +293,132 @@ defmodule PairingsEngine.TrfImport do
       end_date: t[:end_date] || "",
       chief_arbiter: chief_arbiter || "",
       time_control: t[:time_control] || "",
-      rounds_count: max(rounds_from_data(data.players), 1),
+      # The file's own `142`/`XXR` when it has one - the tournament's
+      # length, which is not the same as how much of it has been played and
+      # is what the final-round colour rule turns on. Only the games could
+      # say before, so a 9-round event imported three rounds in became a
+      # 3-round event.
+      rounds_count: max(t[:number_of_rounds] || 0, max(rounds_from_data(data.players), 1)),
       round_dates: t[:round_dates] || [],
       officials: deputy_officials(t[:deputy_arbiters] || [], chief_fide_id)
     }
+    |> Map.merge(scoring_attrs(t[:point_system]))
+    |> Map.merge(system_attrs(t[:type_code]))
+    |> Map.merge(tiebreak_attrs(t[:tie_breaks]))
   end
 
   defp rounds_from_data(players) do
     from_games = players |> Enum.map(&length(&1.games)) |> Enum.max(fn -> 0 end)
     from_games
+  end
+
+  # The last round the file actually PAIRED, which is not the length of the
+  # longest game list. A trailing column holding nothing but an
+  # arbiter-granted bye - a TRF26 `240` for the round about to be paired,
+  # which `Ainalrami.Trf.parse/1` folds into the games so that an engine
+  # leaves that player out - describes a round nobody has paired yet.
+  # Creating a Round row for it would make the app count an unpaired round
+  # as played; those byes go to the `byes` table instead
+  # (`import_future_byes/4`).
+  defp paired_rounds_from_data(players) do
+    players
+    |> Enum.map(fn p ->
+      p.games
+      |> Enum.with_index(1)
+      |> Enum.filter(fn {g, _round} -> Trf.participated_in_pairing?(g) end)
+      |> Enum.map(fn {_g, round} -> round end)
+      |> Enum.max(fn -> 0 end)
+    end)
+    |> Enum.max(fn -> 0 end)
+  end
+
+  # TRF26's `162` (and the engines' `BB*` lines) say what a result is worth,
+  # and a score decides which bracket a player is paired in - so a 3-1-0
+  # file imported at 1 / half / 0 does not merely report different totals,
+  # it would pair a different tournament from the next round on. The inverse
+  # of `Tournament.engine_point_system/1`, field for field.
+  #
+  # `zero_point_bye` lands on `abs_value` only when it differs from the
+  # loss: nil there means "score an absence at `points_loss`", which is
+  # exactly what the file is saying when the two agree, and writing the
+  # value anyway would turn a default into a setting.
+  defp scoring_attrs(nil), do: %{}
+
+  defp scoring_attrs(system) do
+    attrs =
+      %{
+        points_win: system[:win],
+        points_draw: system[:draw],
+        points_loss: system[:loss],
+        bye_value: system[:pairing_allocated_bye]
+      }
+      |> Enum.reject(fn {_field, value} -> is_nil(value) end)
+      |> Map.new()
+
+    zero = system[:zero_point_bye]
+    loss = system[:loss] || Trf.default_point_system().loss
+
+    if is_nil(zero) or zero == loss, do: attrs, else: Map.put(attrs, :abs_value, zero)
+  end
+
+  # TRF26's `192`, the encoded type of tournament (FIDE's ETT26 table) -
+  # the inverse of `PairingsEngine.TrfExport`'s own mapping. It is the one
+  # field that says which EDITION of the Dutch rules paired the boards, and
+  # the app models that as the choice of engine: JaVaFo implements the
+  # system as it stood before 1 February 2026, Ainalrami the one in force
+  # since. A code this app has no system for (Dubov, Burstein, a CUSTOM_*,
+  # a team system) leaves the defaults alone rather than guessing; the
+  # settings the file could not fill are the arbiter's to set, and
+  # `infer_type/1` has already read the plain-language `092` line.
+  defp system_attrs(nil), do: %{}
+
+  defp system_attrs(code) do
+    baku? = String.ends_with?(code, "_BAKU")
+    base = String.replace_suffix(code, "_BAKU", "")
+
+    system =
+      cond do
+        base == "FIDE_DUTCH_2017" ->
+          %{pairing_system: "swiss", pairing_engine: "javafo"}
+
+        base in ~w(FIDE_DUTCH FIDE_DUTCH_2026) ->
+          %{pairing_system: "swiss", pairing_engine: "ainalrami"}
+
+        base in ~w(FIDE_DOUBLEROUNDROBIN BERGER_DOUBLEROUNDROBIN) ->
+          %{pairing_system: "round_robin", rr_cycles: 2}
+
+        String.contains?(base, "ROUNDROBIN") ->
+          %{pairing_system: "round_robin", rr_cycles: berger_cycles(base)}
+
+        true ->
+          %{}
+      end
+
+    if baku?, do: Map.put(system, :acceleration, "baku"), else: system
+  end
+
+  # `BERGER_ROUNDROBIN_Gn` - all games repeated n times. This app offers one
+  # or two cycles, so anything past two is clamped and the arbiter is not
+  # told a number the app cannot honour.
+  defp berger_cycles(base) do
+    case Regex.run(~r/_G(\d+)$/, base) do
+      [_, n] -> min(String.to_integer(n), 2)
+      nil -> 1
+    end
+  end
+
+  # TRF26's `202`/`212`. The codes are FIDE's own C.07 vocabulary, which is
+  # also this app's (`PairingsEngine.Tiebreaks`), so the ones it can compute
+  # are taken as they are and the rest are dropped - a tie-break this
+  # installation does not implement, listed as though it were configured,
+  # would be a standings column that silently never fills.
+  defp tiebreak_attrs(nil), do: %{}
+
+  defp tiebreak_attrs(codes) do
+    known = MapSet.new(Tiebreaks.catalogue(), & &1.code)
+    kept = Enum.filter(codes, &MapSet.member?(known, &1))
+
+    if kept == [], do: %{}, else: %{tiebreaks: kept}
   end
 
   # TRF16's 092/112 arbiter lines are "<FIDE id> <name>" when the id is
@@ -410,9 +548,8 @@ defmodule PairingsEngine.TrfImport do
 
   ## ---------- rounds, pairings & byes ----------
 
-  defp create_rounds(tournament, trf_players, players_by_rank) do
+  defp create_rounds(tournament, trf_players, players_by_rank, max_round) do
     sorted = Enum.sort_by(trf_players, & &1.rank)
-    max_round = rounds_from_data(trf_players)
 
     all_entries =
       for round_number <- 1..max_round//1, into: %{} do
@@ -673,6 +810,215 @@ defmodule PairingsEngine.TrfImport do
     |> Enum.map(fn {p, i} -> %{p | board: i} end)
   end
 
+  ## ---------- what the file says about the tournament ----------
+
+  # `260` (and `XXP`) - the pairs the arbiter ruled out. Parsed since the
+  # engine learned to read them and dropped here until 0.48.0, so a
+  # re-imported tournament forgot who must never meet and would happily
+  # pair them in its next round.
+  #
+  # A group forbids every pair WITHIN it, which is the reference's own
+  # reading. Order is normalised to (smaller id, larger id) because that is
+  # what `ForbiddenPairing.changeset/2` would have done and what the unique
+  # index requires; these go in through `insert_all` rather than the context
+  # function, which would broadcast per row inside the import transaction.
+  defp import_forbidden_pairings(tournament, data, players_by_rank) do
+    groups = data.tournament[:forbidden_pairs] || []
+    rounds = tournament.rounds_count
+
+    rows =
+      for group <- groups,
+          {ranks, _first, _last} = normalise_group(group),
+          [a, b] <- pairs_within(ranks),
+          player_a = players_by_rank[a],
+          player_b = players_by_rank[b],
+          not is_nil(player_a) and not is_nil(player_b) do
+        {low, high} = Enum.min_max([player_a.id, player_b.id])
+
+        %{tournament_id: tournament.id, player_a_id: low, player_b_id: high, soft: false}
+      end
+      |> Enum.uniq_by(&{&1.player_a_id, &1.player_b_id})
+
+    if rows != [], do: Repo.insert_all(ForbiddenPairing, rows)
+
+    # A `260` may name a range of rounds ("no clubmates in the first two"),
+    # and this app's forbidden pairings hold for the whole event. Widening
+    # is the safe direction - the engine will never seat a pair the arbiter
+    # separated - but it is a change to what the file said, so it is said
+    # out loud rather than absorbed.
+    limited =
+      Enum.count(groups, fn group ->
+        {_ranks, first, last} = normalise_group(group)
+        first > 1 or last < rounds
+      end)
+
+    if limited == 0 do
+      []
+    else
+      [
+        note(
+          "#{limited} prohibited-pairing rule#{if limited == 1, do: "", else: "s"} in the file " <>
+            "applied only to some rounds; imported as applying to every round."
+        )
+      ]
+    end
+  end
+
+  defp normalise_group({ranks, first, last}), do: {ranks, first, last}
+  defp normalise_group(ranks) when is_list(ranks), do: {ranks, 1, :infinity}
+
+  defp pairs_within(ranks) do
+    indexed = Enum.with_index(ranks)
+    for {a, i} <- indexed, {b, j} <- indexed, i < j, do: Enum.sort([a, b])
+  end
+
+  # `240` records naming a round nobody has paired yet - the arbiter's
+  # "this player is not playing that round", which is a `byes` row and not
+  # a Round. A round already in the player rows came in through
+  # `create_rounds/4` and is skipped here.
+  defp import_future_byes(tournament, data, players_by_rank, paired) do
+    records = for r <- data.tournament[:byes] || [], r.round > paired, do: r
+
+    {rows, unsupported} =
+      Enum.reduce(records, {[], 0}, fn record, {rows, unsupported} ->
+        case future_bye_type(record.type) do
+          nil ->
+            {rows, unsupported + length(record.ranks)}
+
+          type ->
+            new =
+              for rank <- record.ranks, player = players_by_rank[rank], not is_nil(player) do
+                %{
+                  tournament_id: tournament.id,
+                  player_id: player.id,
+                  round: record.round,
+                  type: type
+                }
+              end
+
+            {rows ++ new, unsupported}
+        end
+      end)
+
+    rows = Enum.uniq_by(rows, &{&1.player_id, &1.round})
+    if rows != [], do: Repo.insert_all("byes", rows)
+
+    # A full-point bye granted in advance has no row this app can write:
+    # its `byes` table records the half-point and zero-point kinds an
+    # arbiter grants, and a full point is a pairing's own allocation.
+    if unsupported == 0 do
+      []
+    else
+      [
+        note(
+          "#{unsupported} full-point bye#{if unsupported == 1, do: "", else: "s"} granted for a " <>
+            "round that is not yet paired could not be imported - grant them once the round exists."
+        )
+      ]
+    end
+  end
+
+  defp future_bye_type("H"), do: "requested-half"
+  defp future_bye_type("Z"), do: "requested-zero"
+  defp future_bye_type(_full_point), do: nil
+
+  # An untyped `299` - points an arbiter assigned outside the scoring
+  # system, which the `001` column does not carry. This app calls them a
+  # player's extra points, and counting them in the standings is a per
+  # tournament opt-in: a file that bothered to record them meant them to
+  # count, so the flag goes on with them.
+  defp import_extra_points(tournament, data, players_by_rank) do
+    records = data.tournament[:free_points] || []
+
+    by_rank =
+      Enum.reduce(records, %{}, fn record, acc ->
+        Enum.reduce(record.ranks, acc, fn rank, acc ->
+          Map.update(acc, rank, record.points, &(&1 + record.points))
+        end)
+      end)
+
+    for {rank, points} <- by_rank, player = players_by_rank[rank], not is_nil(player) do
+      player |> Ecto.Changeset.change(extra_points: points) |> Repo.update!()
+    end
+
+    everybody = Enum.filter(records, &(&1.ranks == []))
+
+    if by_rank != %{} do
+      Tournaments.update_tournament(tournament, %{"count_extra_points" => true})
+    end
+
+    if everybody == [] do
+      []
+    else
+      [
+        note(
+          "The file assigns points to every player at once, which this app cannot express " <>
+            "per player; those were not imported."
+        )
+      ]
+    end
+  end
+
+  # `250`/`XXA` virtual points are DATA - the numbers each player was
+  # actually given - where `192`'s `_BAKU` suffix is only a declaration.
+  # This app implements exactly one acceleration method (FIDE C.04.7 Baku),
+  # so the honest test is whether that method reproduces the file's own
+  # numbers for this roster and round count. If it does, the tournament is
+  # accelerated; if it does not, the file used something else and the
+  # import says so rather than mislabelling it Baku and pairing the rest of
+  # the event differently from the way it started.
+  defp import_acceleration(tournament, data, players_by_rank) do
+    given =
+      data.players
+      |> Enum.reject(&(&1[:accelerations] in [nil, []]))
+      |> Map.new(&{&1.rank, trim_trailing_zeros(&1[:accelerations])})
+      |> Enum.reject(fn {_rank, points} -> points == [] end)
+      |> Map.new()
+
+    cond do
+      given == %{} ->
+        {tournament, []}
+
+      baku_reproduces?(tournament, players_by_rank, given) ->
+        case Tournaments.update_tournament(tournament, %{"acceleration" => "baku"}) do
+          {:ok, updated} -> {updated, []}
+          {:error, _changeset} -> {tournament, []}
+        end
+
+      true ->
+        {tournament,
+         [
+           note(
+             "The file gives some players virtual points that FIDE's Baku method does not " <>
+               "produce for this field, so the tournament was imported without acceleration."
+           )
+         ]}
+    end
+  end
+
+  defp baku_reproduces?(tournament, players_by_rank, given) do
+    players = Map.values(players_by_rank)
+    rounds = given |> Map.values() |> Enum.map(&length/1) |> Enum.max(fn -> 0 end)
+    id_to_rank = Map.new(players_by_rank, fn {rank, player} -> {player.id, rank} end)
+
+    %{tournament | acceleration: "baku"}
+    |> PairingCtx.accelerations(players, rounds)
+    |> Enum.reduce(%{}, fn {id, points}, acc ->
+      Map.put(acc, Map.fetch!(id_to_rank, id), trim_trailing_zeros(points))
+    end)
+    |> Enum.reject(fn {_rank, points} -> points == [] end)
+    |> Map.new()
+    |> Kernel.==(given)
+  end
+
+  # A player's virtual points are one value per round from round 1, and a
+  # trailing run of zeroes says nothing - the accelerated span simply ended.
+  # Comparing with them in place would call two identical accelerations
+  # different because one file wrote the zeroes and the other stopped.
+  defp trim_trailing_zeros(points) do
+    points |> Enum.reverse() |> Enum.drop_while(&(&1 == 0 or &1 == 0.0)) |> Enum.reverse()
+  end
+
   ## ---------- points cross-check ----------
 
   # Recomputes points from what actually landed in the database (via the
@@ -691,7 +1037,12 @@ defmodule PairingsEngine.TrfImport do
       declared = p.points || 0.0
 
       if abs(computed - declared) > 0.01 do
-        %{player_name: String.trim(p.name || ""), trf_points: declared, computed_points: computed}
+        %{
+          kind: :points,
+          player_name: String.trim(p.name || ""),
+          trf_points: declared,
+          computed_points: computed
+        }
       end
     end)
     |> Enum.reject(&is_nil/1)

@@ -1096,17 +1096,32 @@ defmodule PairingsEngineWeb.TournamentsLive do
   defp maybe_flash_trf_warnings(socket, []), do: socket
 
   defp maybe_flash_trf_warnings(socket, warnings) do
-    # Layouts.flash_group/1 only renders :info and :error kinds - this is
-    # a notice, not a failure, so :info (not :error) even though it reads
-    # as a warning.
-    put_flash(
-      socket,
-      :info,
+    # Two kinds, and they read differently: a points mismatch names the
+    # players it is about, while a note is a sentence about the tournament
+    # (a rule the file stated that this app applies more broadly, a bye it
+    # could not place). Both are notices rather than failures - the import
+    # went through either way - so :info, which is what
+    # Layouts.flash_group/1 renders.
+    {points, notes} = Enum.split_with(warnings, &(Map.get(&1, :kind, :points) == :points))
+
+    messages =
+      trf_points_message(points) ++ Enum.map(notes, & &1.text)
+
+    case messages do
+      [] -> socket
+      _ -> put_flash(socket, :info, Enum.join(messages, " "))
+    end
+  end
+
+  defp trf_points_message([]), do: []
+
+  defp trf_points_message(warnings) do
+    [
       "Imported, but the TRF file's own points column didn't match the recomputed total for " <>
         Enum.map_join(warnings, ", ", fn w ->
           "#{w.player_name} (file: #{format_points(w.trf_points)}, recomputed: #{format_points(w.computed_points)})"
         end)
-    )
+    ]
   end
 
   # Reached by a crafted event, or by a second tab left open across a change

@@ -112,6 +112,15 @@ export writes them in FIDE's own spelling:
   * **`250`** - Baku virtual points, one record per rank range per round
     range; **`260`** - prohibited pairings, explicit and by club or
     federation, for every round of the tournament.
+  * **`240`** - a bye the arbiter has already granted for a round nobody
+    has paired yet. Everything else in the report is a record of rounds
+    played; this is the one forward-looking thing in it, because whoever
+    pairs the next round from this file needs to know who is not playing.
+    Only on a full export - a round slice is a historical excerpt.
+  * **`299`** - a player's administrative extra points, the bonus or
+    penalty the standings add on top of the game points. TRF's own points
+    column is game points by definition, so before this the bonus left the
+    building nowhere at all. Written only when the tournament counts them.
   * **A column ruler + field-code legend** before the player rows, a
     human-readability courtesy copied from Swiss-Manager.
 

@@ -179,6 +179,9 @@ defmodule PairingsEngine.TrfExport do
       # Baku virtual points for the rounds in the file. The report had
       # left them out altogether; TRF26 wants them (`250`) for pairing.
       |> then(&Pairing.accelerated_rows(tournament, &1, players, length(rounds)))
+      |> append_future_byes(tournament, rounds, paired)
+
+    last_round = Enum.reduce(trf_players, length(rounds), &max(length(&1.games), &2))
 
     Trf.serialize(
       %{
@@ -200,11 +203,19 @@ defmodule PairingsEngine.TrfExport do
           chief_arbiter: chief_arbiter_line(tournament),
           deputy_arbiters: deputy_arbiter_lines(tournament),
           time_control: blank_to_nil(tournament.rate_of_play),
-          # The count of rounds actually represented in *this* file, not the
-          # tournament's configured total - matches `round_dates` below, which
-          # is filtered to `rounds` the same way (a `?rounds=1-3` export of a
-          # 5-round event describes itself as 3 rounds, honestly).
-          number_of_rounds: length(rounds),
+          # The tournament's LENGTH, not how much of it this file carries.
+          #
+          # It used to be the latter, on the reasoning that a `?rounds=1-3`
+          # export of a 5-round event should describe itself honestly as 3
+          # rounds. That conflated two questions: how many rounds are in
+          # this file (which the columns already answer) and how many
+          # rounds the event has, which is what TRF26 defines `142` as and
+          # what every reader does with it. A pairing engine handed the
+          # file applies the final-round colour exception by this number,
+          # so understating it makes the engine treat an ordinary round as
+          # the last one. `round_dates` below stays filtered to `rounds` -
+          # a date the file does not cover is a date it should not claim.
+          number_of_rounds: max(tournament.rounds_count || 0, last_round),
           round_dates: filter_round_dates(tournament.round_dates, rounds),
           generator: "OpenPairings v#{app_version()}",
           # TRF26's headers and records - what FIDE reads, in FIDE's
@@ -217,6 +228,7 @@ defmodule PairingsEngine.TrfExport do
           tie_breaks: tie_break_codes(tournament),
           time_control_code: PairingsEngine.RateOfPlay.trf26_code(tournament.rate_of_play),
           point_system: PairingsEngine.Tournaments.Tournament.engine_point_system(tournament),
+          free_points: free_point_records(players, tournament),
           forbidden_pairs:
             Pairing.forbidden_pairs(tournament.id, players) ++
               Pairing.exclusion_pairs(tournament, players)
@@ -343,6 +355,75 @@ defmodule PairingsEngine.TrfExport do
     games = Enum.map(rounds, &Enum.at(player.games, &1 - 1, empty))
 
     %{player | games: games, points: Pairing.player_points(games, tournament)}
+  end
+
+  # A bye the arbiter has already granted for a round nobody has paired
+  # yet. Everything else in the report is a record of rounds played; this
+  # is the one forward-looking thing in it, and the reason it belongs here
+  # is that the next round is the one somebody else may be pairing - from
+  # this file. TRF26 carries it as a `240` record, the older spelling as
+  # the `0000 - H` column an engine reads as "leave this player out"; both
+  # come from the same game entry, which `Ainalrami.Trf.serialize/2` lifts
+  # out again in the TRF26 dialect.
+  #
+  # Only on a full export. A `?rounds=1-3` slice is a historical excerpt
+  # and says nothing about what comes next, and appending a future round to
+  # one would put a column where the reader expects the file to end.
+  defp append_future_byes(rows, tournament, rounds, paired) do
+    if rounds == Enum.to_list(1..paired//1) do
+      byes =
+        tournament.id
+        |> Tournaments.list_byes_from_round(paired + 1)
+        |> Enum.group_by(& &1.player_id)
+
+      Enum.map(rows, fn row -> Map.update!(row, :games, &(&1 ++ future_bye_games(byes, row))) end)
+    else
+      rows
+    end
+  end
+
+  defp future_bye_games(byes, row) do
+    case Map.get(byes, row.id, []) do
+      [] ->
+        []
+
+      granted ->
+        by_round = Map.new(granted, &{&1.round, &1.type})
+        last = granted |> Enum.map(& &1.round) |> Enum.max()
+        blank = %{opponent_rank: nil, colour: nil, result: nil}
+
+        for round <- (length(row.games) + 1)..last//1 do
+          case Map.get(by_round, round) do
+            nil -> blank
+            type -> %{opponent_rank: nil, colour: nil, result: future_bye_code(type)}
+          end
+        end
+    end
+  end
+
+  # `absent` is a zero-point bye by any reader's reading: the player is not
+  # playing and scores nothing for it.
+  defp future_bye_code("requested-half"), do: "H"
+  defp future_bye_code(_zero), do: "Z"
+
+  # `players.extra_points` - the administrative bonus or penalty the
+  # standings add on top of the game points (SWAR's "XtPts"). TRF's own
+  # points column is game points by definition, so before this the bonus
+  # left the building nowhere at all: a FIDE report and a re-import both
+  # lost it silently. TRF26's untyped `299` record is exactly this, one per
+  # distinct value with the players it applies to.
+  defp free_point_records(players, tournament) do
+    if tournament.count_extra_points do
+      players
+      |> Enum.filter(&(&1.pairing_number && (&1.extra_points || 0.0) != 0.0))
+      |> Enum.group_by(& &1.extra_points, & &1.pairing_number)
+      |> Enum.sort()
+      |> Enum.map(fn {points, ranks} ->
+        %{type: "", match_points: nil, points: points, round: nil, ranks: Enum.sort(ranks)}
+      end)
+    else
+      []
+    end
   end
 
   defp filter_round_dates(nil, _rounds), do: []

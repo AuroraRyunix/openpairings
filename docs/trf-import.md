@@ -84,14 +84,45 @@ nothing to disambiguate.
 - **062/072/082 (player/rated-player/team counts) are not read** - they're
   derivable from the roster that's actually imported, so the app never
   needs to trust a header count that could disagree with the data.
-- **`rating_type`, `points_win/draw/loss`, `bye_value`, `tiebreaks`,
-  `acceleration` and every other non-TRF setting** are left at the
-  `Tournament` schema's defaults - TRF16 has no header for any of them.
-- A tournament imported from TRF always starts as a fresh **Swiss**
-  (`pairing_system: "swiss"`) tournament regardless of what the file's 092
-  line claims about round-robin - `type` (the FIDE-report classification)
-  is still inferred from 092 for reporting purposes, but which pairing
-  engine continues the tournament is always JaVaFo/Swiss.
+- **National Rating Support records and `172`** are not read, and neither
+  are the team records (`013`, `300`, `310`, `320`, `330`, `352`, `362`,
+  `801`, `802`).
+- **A `260` limited to a range of rounds is widened to the whole event.**
+  This app's forbidden pairings hold for every round, so "no clubmates in
+  the first two" imports as "never". Widening is the safe direction - the
+  engine will not seat a pair the arbiter separated - and the import says
+  so rather than absorbing the change silently.
+- **A full-point bye granted for a round not yet paired is not imported.**
+  The `byes` table records the half-point and zero-point kinds an arbiter
+  grants; a full point is a pairing's own allocation and needs the round
+  to exist. Reported as a note.
+- **Virtual points that Baku does not reproduce are not imported.** FIDE
+  C.04.7 Baku is the one acceleration method this app implements, so a
+  `250`/`XXA` line is applied only when that method produces the file's own
+  numbers for this roster (see `import_acceleration/3`); anything else
+  would be mislabelled and would pair the rest of the event differently
+  from the way it started.
+
+## What the tournament settings come from
+
+Until 0.48.0 every setting below was parsed and then dropped, so a
+re-imported tournament looked complete and was configured differently from
+the one that left. What a file says now lands where it belongs:
+
+| Record | Setting |
+|---|---|
+| `162` / `BB*` | `points_win`, `points_draw`, `points_loss`, `bye_value`, and `abs_value` when the zero-point bye differs from a loss |
+| `192` | `pairing_system`, `pairing_engine` (`FIDE_DUTCH_2017` is JaVaFo, `FIDE_DUTCH_2026` Ainalrami), `rr_cycles`, and `acceleration` from a `_BAKU` suffix |
+| `202` / `212` | `tiebreaks`, filtered to the codes this installation can compute |
+| `142` / `XXR` | `rounds_count` - the tournament's length, which is not how much of it has been played |
+| `250` / `XXA` | `acceleration`, when Baku reproduces the file's numbers |
+| `260` / `XXP` | `forbidden_pairings` rows, every pair within each group |
+| `240` | `byes` rows, for a round the file has not paired |
+| `299` (untyped) | `players.extra_points`, and `count_extra_points` with them |
+
+A code this app has no system for - Dubov, Burstein, a `CUSTOM_*`, a team
+system - leaves the defaults alone rather than guessing, and the
+plain-language `092` line still decides `type`.
 
 ## Encoding
 

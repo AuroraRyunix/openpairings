@@ -2723,6 +2723,22 @@ defmodule PairingsEngine.Tournaments do
     |> Repo.all()
   end
 
+  @doc """
+  Every byes-table row for `tournament_id` from `round` onwards, as
+  `%{player_id:, round:, type:}`. `list_byes_for_round/2`'s counterpart for
+  the case with no Round row to hang them on: a bye the arbiter granted for
+  a round nobody has paired yet, which `PairingsEngine.TrfExport` carries
+  into the report (TRF26's `240`).
+  """
+  def list_byes_from_round(tournament_id, round) do
+    from(b in "byes",
+      where: b.tournament_id == ^tournament_id and b.round >= ^round,
+      select: %{player_id: b.player_id, round: b.round, type: b.type},
+      order_by: [b.round, b.player_id]
+    )
+    |> Repo.all()
+  end
+
   def list_rounds(tournament_id) do
     Repo.all(from r in Round, where: r.tournament_id == ^tournament_id, order_by: r.number)
   end
