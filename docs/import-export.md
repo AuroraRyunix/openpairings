@@ -327,7 +327,19 @@ the Tournaments page (`PairingsEngineWeb.TournamentsLive`) as an "Import
 backup (JSON)" panel using `live_file_input`, parallel to the existing SWAR
 import panel. Importing:
 
-1. Reads and `Jason.decode!`s the uploaded file.
+1. Measures the file on disk and refuses anything past
+   `TournamentImport.max_bytes/0` (10 MB) **before reading it**, then reads
+   and decodes it. The order matters: decoding a megabyte of JSON costs
+   between 5 and 11 megabytes of memory depending on shape, so a size check
+   that happened after the decode would be checking a bill already paid.
+   The 10 MB itself is measured rather than picked - a 400-player,
+   13-round tournament with a 2,000-row audit trail exports at 220 KB, and
+   the largest Swiss ever played scales to about 5 MB. A file holding a
+   dozen such events at once is refused with a note to export in batches;
+   the machine backup (`PairingsEngine.Backup`, compressed and never on
+   this path) is the tool for a whole archive. The same limit feeds the
+   upload box's `:max_file_size`,
+   so the browser refuses early and the server refuses regardless.
 2. Validates the envelope's `format`/`version`/`tournaments` shape. Anything
    that doesn't match is rejected with a flash - no crash, no partial write.
 3. For **every** tournament in the envelope (one for a single-tournament

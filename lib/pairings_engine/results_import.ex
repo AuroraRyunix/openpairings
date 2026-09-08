@@ -19,6 +19,47 @@ defmodule PairingsEngine.ResultsImport do
   alias PairingsEngine.Results
   alias PairingsEngine.Tournaments
 
+  ## ---------- Bounds ----------
+
+  ## Why both of these exist, and are not just tidiness
+  #
+  # A results CSV is uploaded through a `live_file_input` that stops at 2 MB
+  # and both ends of this module used to answer a bad one line for line: one
+  # error string per malformed line out of `parse_text/1`, one per
+  # unresolvable board out of `apply_import/3`, and `PairingsLive` renders
+  # every entry into a `<li>`. Measured: 200 KB of junk produced 99,999
+  # errors and 4.5 MB of message text - 22 times the input - so the 2 MB the
+  # upload allows becomes a ~45 MB HTML page pushed down a websocket. The
+  # uploader is authenticated, but they are also the person whose own
+  # browser receives it.
+  #
+  # A round holds at most one board per two players, and the largest field
+  # FIDE's own report format can describe is 9,999 (TRF16 gives the starting
+  # rank four columns), so 5,000 boards is the ceiling of anything this app
+  # could be asked to report on. Twice that is the point past which a file
+  # is not one round's results, whatever else it may be.
+  @max_lines 10_000
+
+  # And of the lines that ARE plausible, how many problems are worth
+  # printing. An arbiter fixing a CSV needs to see the SHAPE of what is
+  # wrong - one mistyped board, or the wrong file entirely - and fifty lines
+  # of it settles that. Past fifty the count is the information, so the
+  # remainder is summarised instead of listed.
+  @max_errors 50
+
+  # Keeps a returned error list at `@max_errors` entries plus one line
+  # saying what was left out. Both `parse_text/1` and `apply_import/3` end
+  # here so the two cannot cap differently.
+  defp cap_errors(errors) do
+    case length(errors) - @max_errors do
+      extra when extra > 0 ->
+        Enum.take(errors, @max_errors) ++ ["...and #{extra} more problem(s) in this file"]
+
+      _ ->
+        errors
+    end
+  end
+
   ## ---------- Parsing ----------
 
   @doc """
@@ -53,7 +94,9 @@ defmodule PairingsEngine.ResultsImport do
 
   Returns `{:ok, [{board, result}]}` when every line parses cleanly, or
   `{:error, [reason, ...]}` - one entry per malformed line or duplicate
-  board - otherwise. Never raises.
+  board - otherwise. Never raises. A file with more lines than a round can
+  have boards is refused outright, and a long list of problems is truncated
+  with a count; see the bounds at the top of the module for both numbers.
   """
   def parse_text(raw) when is_binary(raw) do
     lines =
@@ -64,11 +107,15 @@ defmodule PairingsEngine.ResultsImport do
       |> Enum.map(&String.trim/1)
       |> Enum.reject(&(&1 == ""))
 
-    case lines do
-      [] ->
+    cond do
+      lines == [] ->
         {:error, ["The file is empty"]}
 
-      lines ->
+      length(lines) > @max_lines ->
+        {:error,
+         ["This file has #{length(lines)} lines; one round has at most #{@max_lines} boards"]}
+
+      true ->
         separator = detect_separator(lines)
 
         lines
@@ -148,7 +195,7 @@ defmodule PairingsEngine.ResultsImport do
     if errors == [] do
       {:ok, Enum.map(oks, fn {_line_no, board, result} -> {board, result} end)}
     else
-      {:error, errors}
+      {:error, cap_errors(errors)}
     end
   end
 
@@ -175,7 +222,8 @@ defmodule PairingsEngine.ResultsImport do
   update, not a wholesale replace.
 
   Returns `{:ok, count}` (number of results written) or
-  `{:error, [reason, ...]}`.
+  `{:error, [reason, ...]}`, truncated with a count past the same limit
+  `parse_text/1` applies.
   """
   def apply_import(tournament, round_number, rows) when is_list(rows) do
     case Tournaments.get_round(tournament.id, round_number) do
@@ -223,7 +271,7 @@ defmodule PairingsEngine.ResultsImport do
         if errors == [] do
           write_all(tournament.id, Enum.reverse(resolved))
         else
-          {:error, Enum.reverse(errors)}
+          {:error, errors |> Enum.reverse() |> cap_errors()}
         end
     end
   end

@@ -522,6 +522,18 @@ defmodule PairingsEngineWeb.SettingsSupport do
   def error_text(:not_owner),
     do: gettext("Only the owner of this tournament can do that.")
 
+  # A permanent delete that was refused because the tournament is still up on
+  # the results site and could not be taken down. The server's own words are
+  # carried through rather than summarised - "connection timed out" and "the
+  # results site refused this tournament's key" send an arbiter to completely
+  # different places, and the refusal is only useful if it says which.
+  def error_text({:still_published, message}) when is_binary(message),
+    do:
+      gettext(
+        "Nothing was deleted. This tournament is still published on the results site and could not be taken down: %{message}",
+        message: message
+      )
+
   def error_text(:not_handed_off),
     do: gettext("This tournament is not handed off, so there is no lock to force open.")
 

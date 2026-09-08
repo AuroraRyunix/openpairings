@@ -330,11 +330,7 @@ defmodule PairingsEngine.Snapshot do
           # Same rule as `boards/2`: an unnumbered player cannot be referenced,
           # so their bye is withheld rather than emitted against a null.
           Map.has_key?(nos, seated) do
-        %{
-          "player" => Map.fetch!(nos, seated),
-          "kind" => "pairing-allocated",
-          "points" => Standings.bye_points("pairing-allocated", t)
-        }
+        one_seat_row(p, seated, round.number, t, nos)
       end
 
     # Every cumulative absence count in one query, built before the loop -
@@ -356,6 +352,54 @@ defmodule PairingsEngine.Snapshot do
       end
 
     Enum.sort_by(allocated ++ recorded, & &1["player"])
+  end
+
+  # One seat empty, and nothing recorded on the board: a genuine
+  # pairing-allocated bye, worth the tournament's bye value.
+  defp one_seat_row(%{result: r}, seated, _round_number, %Tournament{} = t, nos)
+       when r in [nil, "", "bye"] do
+    %{
+      "player" => Map.fetch!(nos, seated),
+      "kind" => "pairing-allocated",
+      "points" => Standings.bye_points("pairing-allocated", t)
+    }
+  end
+
+  # One seat empty, and a result recorded against it anyway - the shape a SWAR
+  # or TRF import can carry, and the one an arbiter reaches when someone
+  # forfeits a board whose opponent has already been vacated.
+  #
+  # Every such row used to be published as a pairing-allocated bye at
+  # `bye_value`, so a player who forfeited a round appeared on the public site
+  # with a full point for it. Worse than merely wrong on this row: OpenResults
+  # reconstructs each player's running total by adding these per-round figures
+  # up (`OpenResultsWeb.Tournament.round_contributions/1`), so one invented
+  # point moved every later total on that player's card, while the `standings`
+  # block in the same document - computed from `Standings`, which scores the
+  # result - said something else. The identical bug was fixed in the SWAR
+  # publish path first; see `Bel.SwarPublish.single_seat_award/2`.
+  #
+  # The points therefore come from `Standings.pairing_award/3`, not from a
+  # second opinion formed here, so this row and the crosstable travelling with
+  # it are the same arithmetic.
+  #
+  # `kind` says "vacated-seat" rather than reusing one of the bye kinds. The
+  # contract's kinds each name a bye an arbiter granted; this is a board that
+  # lost its opponent, which is not one of them, and a renderer that has not
+  # heard of the word prints it verbatim rather than mislabelling it (see the
+  # `@bye_kinds` note above for the same reasoning applied to bye types). The
+  # result token travels alongside so the page can say WHY the score is what
+  # it is; an unknown key is ignored by an older server, which is why this is
+  # additive rather than a change to `boards/2`'s shape - `boards[].white` and
+  # `boards[].black` are contractually non-null, and a snapshot is sent to
+  # whatever version of OpenResults is deployed, not to this checkout's.
+  defp one_seat_row(p, seated, round_number, %Tournament{} = t, nos) do
+    %{
+      "player" => Map.fetch!(nos, seated),
+      "kind" => "vacated-seat",
+      "result" => result_token(p.result),
+      "points" => p |> Standings.pairing_award(round_number, t) |> Map.get(seated, 0.0)
+    }
   end
 
   ## ---------- standings ----------

@@ -70,6 +70,71 @@ defmodule PairingsEngine.TournamentImport do
 
   def import(_invalid, %Scope{}), do: {:error, "This file is not a valid OpenPairings export."}
 
+  ## ---------- reading the file ----------
+
+  ## Why the size is checked before the JSON is decoded
+  #
+  # `import/2` takes an already-decoded map, and everything it validates -
+  # the format tag, the version, whether there are tournaments at all -
+  # happens after `Jason.decode/1` has built the whole term. That ordering
+  # is the defect: a JSON document costs several times its own length once
+  # it is a term, so the decode is where the memory goes and the checks
+  # afterwards are too late to matter.
+  #
+  # Measured on this machine, decoding one megabyte of JSON produces
+  # between 5.3 and 11.4 megabytes of term depending on shape - lists of
+  # empty containers at the low end, small objects at the high end. The
+  # 25 MB the upload inputs used to allow was therefore up to ~285 MB of
+  # heap, on a two-core production box, before a single field had been
+  # looked at.
+  #
+  # So the file is measured on disk and refused there, before it is even
+  # read, and the number below is derived rather than picked.
+
+  # 10 MB, from what an export actually weighs. A 400-player, 13-round
+  # tournament with a 2,000-row audit trail measures 220 KB as a plain
+  # export and 512 KB with the hand-off blocks attached; scaled to the
+  # largest Swiss ever played - about 2,500 players, every round played -
+  # that is roughly 5 MB. Ten is twice the largest single tournament that
+  # can exist, and caps the worst-case decode at ~115 MB instead of ~285.
+  #
+  # What it refuses is a single file holding a dozen such events at once.
+  # That is what the machine backup is for (`PairingsEngine.Backup`, which
+  # is compressed and never crosses this path); an arbiter moving
+  # tournaments between machines exports them in batches.
+  @max_bytes 10_000_000
+
+  @doc """
+  The largest export file this app will read, in bytes.
+
+  Public because the upload inputs in `PairingsEngineWeb.TournamentsLive`
+  set their `:max_file_size` from it - a browser that refuses the file
+  early gives a better message than a server that refuses it late, and two
+  numbers that had to be kept in step by hand would not stay in step.
+  """
+  def max_bytes, do: @max_bytes
+
+  @doc """
+  Reads and decodes an export envelope from `path`, refusing anything past
+  `max_bytes/0` without reading it.
+
+  Returns `{:ok, decoded}` for `import/2` or `PairingsEngine.Handoff`, or
+  `{:error, :too_large}` / `{:error, :unreadable}` - the caller words both,
+  since the same file is "a backup" on one screen and "a hand-off" on
+  another.
+  """
+  def decode_file(path) do
+    with {:ok, %File.Stat{size: size}} <- File.stat(path),
+         true <- size <= @max_bytes,
+         {:ok, body} <- File.read(path),
+         {:ok, decoded} <- Jason.decode(body) do
+      {:ok, decoded}
+    else
+      false -> {:error, :too_large}
+      _unreadable -> {:error, :unreadable}
+    end
+  end
+
   defp valid_tournaments_list?(data) do
     case Map.get(data, "tournaments") do
       [_ | _] -> true

@@ -67,6 +67,24 @@ so a regression back to `rank = ni` fails loudly. `Class` staying a
 constant 0 remains correct - see `reverse_player/5`'s own comment for
 the full citations on both.
 
+## What the parser refuses before anything is written
+
+Two pre-flight checks in `parse/1`, both because the alternative is damage
+rather than a bad import:
+
+* **Two `[JOUEURS]` records sharing an `NI`.** Every later step keys players
+  by it through `Map.new/2`, which keeps only the last entry - so both would
+  be imported as rows and the first one's games handed to the second.
+* **A `[RONDE]` round number outside 1 to `Tournament.max_rounds/0` (30).**
+  The number is a raw signed 32-bit integer straight off the disk, and
+  `create_rounds/3` turns the highest one it finds into the range
+  `1..max_round`, inside the import transaction and therefore holding
+  SQLite's single write lock. One record saying 2,000,000,000 used to stop
+  the whole application, not just the import. 30 is the ceiling because it
+  is what a tournament may be here - a longer file describes an event this
+  app could not hold even if the loop were free. Round 0 goes with them: it
+  produced a Round row numbered 0, a round before the first.
+
 ## File versions, and what SWAR v7 changed
 
 The format is a sequential binary serialization with no index: every field

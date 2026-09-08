@@ -25,7 +25,8 @@ defmodule PairingsEngine.TiebreakWorkingTest do
           {"an odd field, so somebody gets a pairing-allocated bye", :odd},
           {"forfeits and a played 0-0", :forfeits},
           {"a requested bye and an absence", :byes},
-          {"a player who withdrew mid-event", :withdrawal}
+          {"a player who withdrew mid-event", :withdrawal},
+          {"a Belgian 3-2-1 club event, where a round pays 3/2/1", :swiss321}
         ] do
       test "#{name}" do
         tournament = apply(__MODULE__, unquote(builder), [])
@@ -94,6 +95,45 @@ defmodule PairingsEngine.TiebreakWorkingTest do
 
       assert Enum.any?(all, &(&1.kind == :excluded))
       assert Enum.all?(all, &(&1.kind != :excluded or &1.value == 0.0))
+    end
+
+    test "under 3-2-1 the 50% line is measured on what a round really pays" do
+      # The working panel is where an arbiter goes to check a figure they do
+      # not believe, so it has to reach the number the same way the column
+      # does - through `Standings.win_points/1` - rather than by a hand copy
+      # of the arithmetic that can be corrected in one place and not the
+      # other. See the `swiss321/0` fixture for the field.
+      tournament = swiss321()
+      entries = Standings.standings(tournament)
+      working = TiebreakWorking.working(entries, tournament, ["KS"])
+
+      a = Enum.find(entries, &(&1.player.name == "A"))
+      d = Enum.find(entries, &(&1.player.name == "D"))
+
+      # Three rounds at 3.0 a round: the maximum is 9.0 and the line is 4.5.
+      # D is on 4.0 and does not clear it. Against the old 3 x points_win
+      # ceiling the line was 3.0 and D did.
+      assert d.points == 4.0
+
+      part = Enum.find(working[a.player.id]["KS"].parts, &(&1.opponent_id == d.player.id))
+
+      assert part.kind == :excluded
+      assert part.value == 0.0
+    end
+
+    test "under 3-2-1 Article 7.1 does not count the drawn round" do
+      tournament = swiss321()
+      entries = Standings.standings(tournament)
+      working = TiebreakWorking.working(entries, tournament, ["WIN"])
+
+      a = Enum.find(entries, &(&1.player.name == "A"))
+
+      # A won rounds 1 and 2 and drew round 3. The draw obtained 2.0, which
+      # is `points_win` in this scheme and used to be counted as a third win.
+      assert working[a.player.id]["WIN"].total == 2.0
+
+      round3 = Enum.find(working[a.player.id]["WIN"].parts, &(&1.round == 3))
+      assert round3.kind == :excluded
     end
 
     test "every part names the round it came from, so a card can join on it" do
@@ -212,6 +252,41 @@ defmodule PairingsEngine.TiebreakWorkingTest do
     reload(t)
   end
 
+  # A Belgian 3-2-1 club event: win 2 / draw 1 / loss 0 with a 1.0 presence
+  # point, so a round pays 3 / 2 / 1. Two tiebreaks read "what a win is
+  # worth" - Article 7.1 (WIN) and Article 9.2 (Koya's maximum possible
+  # score) - and this module answers both a second time, for the working
+  # panel. Shaped so both answers actually turn on the presence point:
+  #
+  #   R1  A 1-0 B     C 1-0 D
+  #   R2  A 1-0 C     B 1-0 D
+  #   R3  A 1/2 D     B 1-0 C
+  #
+  # leaving A 8.0, B 7.0, C 5.0, D 4.0 over three rounds. The maximum is
+  # 9.0, so Koya's line is 4.5 and D is the only player under it; and A's
+  # round-3 draw is worth 2.0, which is what `points_win` reads, so it is
+  # the round Article 7.1 used to miscount.
+  def swiss321 do
+    t =
+      tournament("321", 3,
+        points_win: 2.0,
+        points_draw: 1.0,
+        points_loss: 0.0,
+        bye_value: 1.0,
+        presence_value: 1.0
+      )
+
+    [a, b, c, d] = players(t, [{"A", 2000}, {"B", 1900}, {"C", 1800}, {"D", 1700}])
+
+    rounds(t, [
+      {1, [{a, b, "1-0"}, {c, d, "1-0"}]},
+      {2, [{a, c, "1-0"}, {b, d, "1-0"}]},
+      {3, [{a, d, "1/2-1/2"}, {b, c, "1-0"}]}
+    ])
+
+    reload(t)
+  end
+
   def withdrawal do
     t = tournament("Withdrawal", 3)
     [a, b, c, d] = players(t, [{"A", 2000}, {"B", 1900}, {"C", 1800}, {"D", 1700}])
@@ -226,16 +301,21 @@ defmodule PairingsEngine.TiebreakWorkingTest do
     reload(t)
   end
 
-  defp tournament(name, rounds_count) do
-    Repo.insert!(%Tournament{
-      name: name,
-      type: "swiss",
-      rounds_count: rounds_count,
-      points_win: 1.0,
-      points_draw: 0.5,
-      points_loss: 0.0,
-      tiebreaks: @codes
-    })
+  defp tournament(name, rounds_count, overrides \\ []) do
+    Repo.insert!(
+      struct!(
+        %Tournament{
+          name: name,
+          type: "swiss",
+          rounds_count: rounds_count,
+          points_win: 1.0,
+          points_draw: 0.5,
+          points_loss: 0.0,
+          tiebreaks: @codes
+        },
+        overrides
+      )
+    )
   end
 
   defp players(t, specs) do

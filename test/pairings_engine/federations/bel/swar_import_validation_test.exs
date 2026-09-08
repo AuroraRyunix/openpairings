@@ -332,4 +332,69 @@ defmodule PairingsEngine.Federations.BEL.SwarImportValidationTest do
       assert {:ok, %{players: [_, _]}} = SwarImport.parse(binary)
     end
   end
+
+  ## ---------- a [RONDE] round number outside the tournament ----------
+  #
+  # `create_rounds/3` builds the range `1..max_round` from the highest round
+  # number any player carries, inside the import transaction and therefore
+  # holding SQLite's single write lock. A round number is a raw signed
+  # 32-bit integer off the disk, so one bad record used to stop the whole
+  # application rather than the import - see `validate_round_numbers/1`.
+
+  describe "a [RONDE] round number outside 1..max_rounds" do
+    test "is refused before anything is written, naming the range" do
+      before = counts()
+
+      opts = %{
+        players: [
+          %{ni: 1, name: "Normal, One", rounds: [%{round_nr: 1, advers: 0, result: 0}]},
+          %{
+            ni: 2,
+            name: "Absurd, Two",
+            rounds: [%{round_nr: 2_000_000_000, advers: 0, result: 0}]
+          }
+        ]
+      }
+
+      assert {:error, {:parse_failed, message}} = import_synthetic!(opts)
+      assert message =~ "round number(s) outside 1-30"
+      assert message =~ "2000000000"
+
+      assert counts() == before
+    end
+
+    test "and round zero is refused too, so no Round row can be numbered 0" do
+      opts = %{players: [%{ni: 1, name: "Zero, One", rounds: [%{round_nr: 0, result: 0}]}]}
+
+      assert {:error, {:parse_failed, message}} = import_synthetic!(opts)
+      assert message =~ "outside 1-30"
+    end
+
+    test "is refused by parse/1 itself, so the pure struct path refuses too" do
+      binary =
+        build_swar_binary(%{
+          players: [%{ni: 1, name: "A", rounds: [%{round_nr: 999_999, result: 0}]}]
+        })
+
+      assert {:error, {:parse_failed, _}} = SwarImport.parse(binary)
+      assert {:error, {:parse_failed, _}} = SwarImport.build_structs(binary)
+    end
+
+    test "but a tournament as long as this app allows still imports" do
+      # 30 is `Tournament.max_rounds/0`, so this is the longest event that
+      # can exist here - the case the refusal above must not catch.
+      rounds = Enum.map(1..30, fn r -> %{round_nr: r, advers: 0, result: 0} end)
+
+      opts = %{
+        nb_rounds: 30,
+        players: [
+          %{ni: 1, name: "Long, One", rounds: rounds},
+          %{ni: 2, name: "Long, Two", rounds: rounds}
+        ]
+      }
+
+      assert {:ok, tournament, _warnings} = import_synthetic!(opts)
+      assert tournament.rounds_count == 30
+    end
+  end
 end

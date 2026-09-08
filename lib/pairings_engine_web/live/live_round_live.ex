@@ -518,7 +518,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
 
         <p class="hint">
           {gettext(
-            "Let helpers enter results from their phone, no account needed. Show them the QR code or the 6-digit code. Access is result-entry only, scoped to this tournament, and you can revoke it any time."
+            "Let helpers enter results from their phone, no account needed. Show them the QR code or the 8-digit code. Access is result-entry only, scoped to this tournament, and you can revoke it any time."
           )}
         </p>
 
@@ -601,7 +601,11 @@ defmodule PairingsEngineWeb.LiveRoundLive do
             <div :if={@new_enrollment.label != ""} class="enroll-name">
               {@new_enrollment.label}
             </div>
-            <div class="enroll-code-label">{gettext("6-digit code")}</div>
+            <%!-- Eight, not six. `Mobile.random_code/0` draws uniformly from
+                  10_000_000..99_999_999 and always has; the label said six
+                  from the day it shipped, which is the number a helper on a
+                  phone counts to before deciding they have mistyped. --%>
+            <div class="enroll-code-label">{gettext("8-digit code")}</div>
             <div class="enroll-code">{@new_enrollment.code}</div>
             <p class="enroll-url">
               <.rich_text text={

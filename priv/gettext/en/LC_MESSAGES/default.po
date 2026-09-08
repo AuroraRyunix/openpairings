@@ -79,7 +79,7 @@ msgstr ""
 
 #: lib/pairings_engine_web/live/live_round_live.ex:596
 #, elixir-autogen, elixir-format
-msgid "6-digit code"
+msgid "8-digit code"
 msgstr ""
 
 #: lib/pairings_engine_web/live/settings_export_live.ex:242
@@ -2402,7 +2402,7 @@ msgstr ""
 
 #: lib/pairings_engine_web/live/live_round_live.ex:512
 #, elixir-autogen, elixir-format
-msgid "Let helpers enter results from their phone, no account needed. Show them the QR code or the 6-digit code. Access is result-entry only, scoped to this tournament, and you can revoke it any time."
+msgid "Let helpers enter results from their phone, no account needed. Show them the QR code or the 8-digit code. Access is result-entry only, scoped to this tournament, and you can revoke it any time."
 msgstr ""
 
 #: lib/pairings_engine_web/live/norms_live.ex:1234

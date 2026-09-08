@@ -57,6 +57,17 @@ defmodule PairingsEngine.PublishingTest do
 
   defp stub(fun), do: Req.Test.stub(PairingsEngine.PublishingTest, fun)
 
+  # The boards of the first round in a decoded snapshot body - what the
+  # server actually received, as opposed to what the database holds now.
+  defp boards_of(payload), do: payload["rounds"] |> hd() |> Map.fetch!("boards")
+
+  defp publish_rounds!(t) do
+    Repo.update_all(
+      from(r in Round, where: r.tournament_id == ^t.id),
+      set: [published_at: DateTime.utc_now() |> DateTime.truncate(:second)]
+    )
+  end
+
   defp pairings_of(t) do
     Repo.all(
       from p in Pairing,
@@ -1128,6 +1139,297 @@ defmodule PairingsEngine.PublishingTest do
       refute after_restore.openresults_key
       refute after_restore.publish_to_openresults
       refute Publishing.claim(after_restore)
+    end
+  end
+
+  describe "a write that lands while a publish is in flight" do
+    test "is not lost when that publish succeeds" do
+      t = tournament()
+      [pairing] = pairings_of(t)
+
+      # A result only reaches the payload through a PUBLISHED round - an
+      # unpublished one is absent from the document entirely - and this test
+      # is about which version of a result travelled, so the round has to be
+      # visible for the question to be askable at all.
+      publish_rounds!(t)
+
+      :ok = Publishing.enqueue(t)
+      assert Publishing.pending_count() == 1
+
+      test_pid = self()
+
+      # The interleaving, constructed rather than waited for. `Req.Test`'s
+      # plug runs inline, so the body of this stub IS the moment the payload
+      # is with the server: a write made here is exactly a write made after
+      # `Snapshot.build/1` read the database and before the drain clears the
+      # queue row. No sleep, no second process, no timing.
+      stub(fn conn ->
+        {:ok, body, conn} = Plug.Conn.read_body(conn)
+        send(test_pid, {:sent, Jason.decode!(body)})
+
+        {:ok, _} = Tournaments.update_pairing_result(pairing, "0-1")
+
+        Req.Test.json(conn, %{"ok" => true})
+      end)
+
+      assert {1, 0} = Publishing.drain()
+
+      # What went out predates the result, which is fine and unavoidable...
+      assert_received {:sent, in_flight}
+      assert [%{"result" => "1-0"}] = boards_of(in_flight)
+
+      # ...but the row must survive, because it is the only record that
+      # anything is outstanding. Deleting it unconditionally is what lost the
+      # result: `enqueue/1` had already found the row present and written
+      # nothing (that is the debounce), so the delete threw away the only
+      # trace. The result then sat unpublished, not late but never, until
+      # some unrelated later write happened to queue the tournament again.
+      assert Publishing.pending_count() == 1
+
+      entry = Publishing.queued(t.id)
+
+      # And it is not carrying a failure. The send worked; the endpoint is
+      # healthy; inheriting a backoff here would delay the very result that
+      # caused the row to survive.
+      assert entry.attempts == 0
+      refute entry.last_error
+
+      stub(fn conn ->
+        {:ok, body, conn} = Plug.Conn.read_body(conn)
+        send(test_pid, {:sent, Jason.decode!(body)})
+        Req.Test.json(conn, %{"ok" => true})
+      end)
+
+      assert {1, 0} = Publishing.drain()
+      assert_received {:sent, second}
+      assert [%{"result" => "0-1"}] = boards_of(second)
+      assert Publishing.pending_count() == 0
+    end
+
+    test "a publish with nothing arriving behind it still clears the queue" do
+      # The control. The row survives only when something was queued DURING
+      # the send; an ordinary successful publish must leave nothing behind,
+      # or the queue would never empty and the drain would republish every
+      # tournament on every tick forever.
+      t = tournament()
+      stub(fn conn -> Req.Test.json(conn, %{"ok" => true}) end)
+
+      :ok = Publishing.enqueue(t)
+      assert {1, 0} = Publishing.drain()
+      assert Publishing.pending_count() == 0
+
+      assert {0, 0} = Publishing.drain()
+      assert Publishing.pending_count() == 0
+    end
+  end
+
+  describe "a tournament handed off to another copy of the app" do
+    test "is not published, even from a queue row that predates the hand-off" do
+      t = tournament()
+      :ok = Publishing.enqueue(t)
+      assert Publishing.pending_count() == 1
+
+      {:ok, handed} = Tournaments.hand_off(t, "the club PC")
+
+      stub(fn _conn ->
+        flunk("a handed-off tournament must not be published from this copy")
+      end)
+
+      # The harm this prevents is not a stale page. Custody has moved: the
+      # arbiter now running the event is publishing to this same slug, with
+      # this same key if they adopted it out of the hand-off file. A send
+      # from here overwrites their live results with a frozen copy from
+      # before the trip.
+      assert {0, 0} = Publishing.drain()
+      assert {:error, message} = Publishing.publish(handed)
+      assert message =~ "handed off"
+
+      # The row stays. It is the record that something is unsent, the
+      # tournament comes back (`take_back/2`), and deleting it would lose
+      # that - refusing to send is not the same as having nothing to send.
+      assert Publishing.pending_count() == 1
+    end
+
+    test "queues nothing while it is away, including from the write funnel" do
+      t = tournament()
+
+      # `hand_off/2` broadcasts, and `broadcast_tournament_change/2` is where
+      # `enqueue_id/1` hangs - so handing a tournament off used to queue a
+      # publish of it on the way out.
+      {:ok, handed} = Tournaments.hand_off(t, "the club PC")
+      assert Publishing.pending_count() == 0
+
+      :ok = Publishing.enqueue(handed)
+      :ok = Publishing.enqueue_id(handed.id)
+      assert Publishing.pending_count() == 0
+    end
+
+    test "publishes again the moment it is taken back" do
+      # The control on the whole gate: the refusal is about custody, and
+      # custody comes back.
+      t = tournament()
+      {:ok, handed} = Tournaments.hand_off(t, "the club PC")
+      {:ok, back} = Tournaments.take_back(handed, handed.handoff_token)
+
+      stub(fn conn -> Req.Test.json(conn, %{"ok" => true}) end)
+
+      assert {:ok, _} = Publishing.publish(back)
+
+      :ok = Publishing.enqueue(back)
+      assert {1, 0} = Publishing.drain()
+    end
+
+    test "an ARCHIVED tournament still publishes, deliberately" do
+      # The other control, and the reason `publish/1` does not simply reuse
+      # `writable_refusal/1` like its neighbours. Archiving freezes a
+      # finished event on THIS machine, which still owns it: there is no
+      # second copy to overwrite, and refusing would leave the public page
+      # one publish short of the final standings with nobody able to fix it.
+      t = tournament()
+      {:ok, archived} = Tournaments.archive_tournament(t)
+
+      stub(fn conn -> Req.Test.json(conn, %{"ok" => true}) end)
+
+      assert {:ok, _} = Publishing.publish(archived)
+    end
+  end
+
+  describe "a tournament moved to the recycle bin" do
+    test "is not re-published by the act of binning it" do
+      t = tournament()
+
+      stub(fn _conn -> flunk("binning a tournament must not publish it") end)
+
+      # The funnel again: binning broadcasts, so it used to send a fresh
+      # snapshot of the event the arbiter had just withdrawn about two
+      # seconds later.
+      {:ok, binned} = Tournaments.soft_delete_tournament(t)
+      assert Publishing.pending_count() == 0
+      assert {0, 0} = Publishing.drain()
+
+      assert {:error, message} = Publishing.publish(binned)
+      assert message =~ "recycle bin"
+    end
+
+    test "publishes again when it is restored" do
+      # The control. The bin is reversible for 90 days, and coming out of it
+      # has to put the tournament back exactly where it was.
+      t = tournament()
+      {:ok, binned} = Tournaments.soft_delete_tournament(t)
+      {:ok, restored} = Tournaments.restore_tournament(binned)
+
+      stub(fn conn -> Req.Test.json(conn, %{"ok" => true}) end)
+      assert {:ok, _} = Publishing.publish(restored)
+    end
+  end
+
+  describe "purging a tournament that is still on the results site" do
+    test "takes it down first, and deletes nothing if that fails" do
+      t = published_tournament()
+      key = Tournaments.get_tournament!(t.id).openresults_key
+      {:ok, binned} = Tournaments.soft_delete_tournament(Tournaments.get_tournament!(t.id))
+
+      stub(fn conn -> Req.Test.transport_error(conn, :econnrefused) end)
+
+      assert {:error, {:still_published, message}} = Tournaments.purge_tournament(binned)
+      assert message =~ "connection"
+
+      # `openresults_key` is the only credential that can ever remove that
+      # public page, and it exists on this machine only. Purging used to
+      # delete the row and the key together, which did not leave a stale
+      # page - it left a permanent one, carrying every published player's
+      # name, rating, club and federation, unremovable from this app at all.
+      stored = Repo.get!(Tournament, t.id)
+      assert stored.openresults_key == key
+      assert stored.deleted_at
+    end
+
+    test "deletes once the takedown lands" do
+      t = published_tournament()
+      {:ok, binned} = Tournaments.soft_delete_tournament(Tournaments.get_tournament!(t.id))
+
+      test_pid = self()
+
+      stub(fn conn ->
+        send(test_pid, {:method, conn.method})
+        Req.Test.json(conn, %{"status" => "deleted"})
+      end)
+
+      assert {:ok, _} = Tournaments.purge_tournament(binned)
+      assert_received {:method, "DELETE"}
+      refute Repo.get(Tournament, t.id)
+    end
+
+    test "an ARCHIVED one is withdrawn and deleted, not blocked by its own freeze" do
+      # `delete_tournament/1` says it in as many words: archiving a
+      # tournament has never been a reason you cannot throw it away. Reusing
+      # `take_down/1` wholesale here would have inherited its archived
+      # refusal and made an archived published tournament impossible to
+      # delete - a new way to be stuck, introduced by the fix for the old one.
+      t = published_tournament()
+      {:ok, archived} = Tournaments.archive_tournament(Tournaments.get_tournament!(t.id))
+      {:ok, binned} = Tournaments.soft_delete_tournament(archived)
+
+      stub(fn conn -> Req.Test.json(conn, %{"status" => "deleted"}) end)
+
+      assert {:ok, _} = Tournaments.purge_tournament(binned)
+      refute Repo.get(Tournament, t.id)
+    end
+
+    test "a HANDED-OFF one is refused before anything is taken down" do
+      t = published_tournament()
+      {:ok, handed} = Tournaments.hand_off(Tournaments.get_tournament!(t.id), "the club PC")
+
+      stub(fn _conn ->
+        flunk("the other copy's public page must not be removed from here")
+      end)
+
+      # `delete_tournament/1` refuses this too, but only after the withdrawal
+      # would already have happened. The refusal has to come first, and it
+      # has to keep its own name so the page can say which problem it is.
+      assert {:error, :handed_off} = Tournaments.purge_tournament(handed)
+      assert Repo.get(Tournament, t.id)
+    end
+
+    test "one that was never published purges without touching the network" do
+      # The control. `retract/1` answers `:ok` on a tournament with no key
+      # without building a request, so the ordinary case - which is almost
+      # every case - costs nothing and cannot be blocked by a dead endpoint.
+      t = tournament(publish: false)
+      {:ok, binned} = Tournaments.soft_delete_tournament(t)
+
+      stub(fn _conn -> flunk("nothing was ever published, so nothing to take down") end)
+
+      assert {:ok, _} = Tournaments.purge_tournament(binned)
+      refute Repo.get(Tournament, t.id)
+    end
+
+    test "the 90-day sweep leaves a still-published one in the bin" do
+      published = published_tournament()
+      plain = tournament(publish: false)
+
+      for target <- [published, plain] do
+        {:ok, binned} = Tournaments.soft_delete_tournament(Tournaments.get_tournament!(target.id))
+
+        long_ago =
+          DateTime.utc_now() |> DateTime.add(-200, :day) |> DateTime.truncate(:second)
+
+        binned
+        |> Ecto.Changeset.change(deleted_at: long_ago)
+        |> Repo.update!()
+      end
+
+      # The sweep runs unattended on every load of the Tournaments page, so
+      # it must not make network calls - which is why the published one is
+      # skipped in the query rather than left to `purge_tournament/1`'s
+      # refusal. It stays in the bin until somebody presses "Delete
+      # permanently", which withdraws it properly.
+      stub(fn _conn -> flunk("the retention sweep must not call the results site") end)
+
+      assert Tournaments.purge_expired_tournaments() == 1
+
+      assert Repo.get(Tournament, published.id)
+      refute Repo.get(Tournament, plain.id)
     end
   end
 end

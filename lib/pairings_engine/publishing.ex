@@ -233,19 +233,36 @@ defmodule PairingsEngine.Publishing do
 
   A tournament that has not opted in is ignored, silently and on purpose -
   callers are event handlers all over the app and none of them should have to
-  ask first.
+  ask first. So is one that has been handed off to another copy of the app:
+  custody has moved, and this copy publishing would overwrite results the
+  arbiter now running the event has already sent. So is one in the recycle
+  bin, which an arbiter has said should stop being a tournament, not be
+  refreshed on a public server. Both are `publish/1`'s refusals, restated as
+  function heads so nothing is queued that would only be refused later.
 
   Also nudges `PairingsEngine.Publishing.Drain` to send it soon rather than
   waiting for its next tick - see that module's moduledoc. The nudge is an
   async, debounced cast; it does not change what "returns immediately" means
   here.
   """
-  def enqueue(%Tournament{publish_to_openresults: true, id: id}) do
+  def enqueue(%Tournament{
+        publish_to_openresults: true,
+        handed_off_at: nil,
+        deleted_at: nil,
+        id: id
+      }) do
     now = DateTime.utc_now()
 
     Repo.insert!(
       %QueueEntry{tournament_id: id, next_attempt_at: now},
-      on_conflict: :nothing,
+      # `revision` is what makes an already-queued row's second enqueue
+      # visible. The backoff fields are deliberately NOT reset - that is the
+      # idempotence promised above, and resetting them would turn a burst of
+      # results against a dead endpoint back into the hot loop this
+      # `on_conflict` was written to prevent. Only the counter moves, and
+      # `drain/0` reads it to find out whether the row it just sent is still
+      # the row it picked up.
+      on_conflict: [inc: [revision: 1]],
       conflict_target: :tournament_id
     )
 
@@ -265,17 +282,22 @@ defmodule PairingsEngine.Publishing do
   writes nothing.
   """
   def enqueue_id(tournament_id) do
-    opted_in? =
+    # Three columns rather than one, in the same single-row lookup: `enqueue/1`
+    # refuses a tournament that has been handed off or binned, and this arity
+    # has to refuse the same set or the funnel every write in the app runs
+    # through would be the way around it. It is the same query cost.
+    row =
       Repo.one(
         from t in Tournament,
           where: t.id == ^tournament_id,
-          select: t.publish_to_openresults
+          select: {t.publish_to_openresults, t.handed_off_at, t.deleted_at}
       )
 
-    if opted_in? == true do
+    if row == {true, nil, nil} do
       Repo.insert!(
         %QueueEntry{tournament_id: tournament_id, next_attempt_at: DateTime.utc_now()},
-        on_conflict: :nothing,
+        # See `enqueue/1` for why the counter moves and nothing else does.
+        on_conflict: [inc: [revision: 1]],
         conflict_target: :tournament_id
       )
 
@@ -308,11 +330,25 @@ defmodule PairingsEngine.Publishing do
       :ok
   end
 
-  @doc "Queue rows that are due to be attempted now, oldest first."
+  @doc """
+  Queue rows that are due to be attempted now, oldest first.
+
+  A row whose tournament has since been handed off or binned is not due and
+  never will be while that lasts. It is skipped rather than attempted-and-
+  refused, and above all rather than deleted: the row is the only record that
+  something is unsent, and a tournament comes back from both states
+  (`Tournaments.take_back/2`, `Tournaments.restore_tournament/1`). Attempting
+  it would log a warning every thirty seconds and drive the backoff that real
+  failures need, for a refusal that is not a failure. `publish/1` refuses the
+  same two states independently, so nothing here is load-bearing for safety;
+  this is about not making noise.
+  """
   def due(now \\ DateTime.utc_now()) do
     Repo.all(
       from q in QueueEntry,
+        join: t in assoc(q, :tournament),
         where: is_nil(q.next_attempt_at) or q.next_attempt_at <= ^now,
+        where: is_nil(t.handed_off_at) and is_nil(t.deleted_at),
         order_by: [asc: q.next_attempt_at, asc: q.id],
         preload: [:tournament]
     )
@@ -336,7 +372,7 @@ defmodule PairingsEngine.Publishing do
     Enum.reduce(due(), {0, 0}, fn entry, {sent, failed} ->
       case publish(entry.tournament) do
         {:ok, _} ->
-          Repo.delete!(entry)
+          settle(entry)
           {sent + 1, failed}
 
         {:error, reason} ->
@@ -346,11 +382,81 @@ defmodule PairingsEngine.Publishing do
     end)
   end
 
+  # Clears a queue row that has been sent - but only if it is still the row
+  # that was sent.
+  #
+  # This used to be `Repo.delete!(entry)`, and that unconditional delete lost
+  # results. The window is the whole HTTP round trip: `publish/1` reads the
+  # database to build the payload, then waits (up to fifteen seconds) for the
+  # server. A result typed in that window enqueues, finds the row already
+  # there, and - by design, so a burst does not restart the backoff - writes
+  # no new row. Deleting unconditionally then discarded the only record that
+  # anything was outstanding, and the payload already in flight predated the
+  # result. It was not published late; it was never published, until some
+  # unrelated later write happened to queue the tournament again.
+  #
+  # `revision` is bumped by `enqueue/1` and by nothing else, so a delete
+  # guarded on the value read before the send answers exactly the right
+  # question. If it matches, this row is finished. If it does not, something
+  # arrived while we were sending, and keeping the row is the whole point:
+  # the intent survives, and the next drain rebuilds the payload from
+  # what is true then - which is this module's contract anyway (see the
+  # moduledoc: the queue holds intents, not payloads).
+  #
+  # The row is left due immediately with its failure bookkeeping cleared,
+  # because the send that just happened proves the endpoint is healthy - a
+  # superseded publish is not a failed one, and inheriting a backoff from it
+  # would delay the result that superseded it. `Drain.nudge/0` is called
+  # again because the nudge this enqueue fired may already have been consumed
+  # by the drain now finishing.
+  defp settle(%QueueEntry{} = entry) do
+    {deleted, _} =
+      Repo.delete_all(
+        from q in QueueEntry, where: q.id == ^entry.id and q.revision == ^entry.revision
+      )
+
+    if deleted == 0 do
+      Repo.update_all(
+        from(q in QueueEntry, where: q.id == ^entry.id),
+        set: [attempts: 0, last_error: nil, next_attempt_at: DateTime.utc_now()]
+      )
+
+      Drain.nudge()
+    end
+
+    :ok
+  end
+
   @doc """
   Builds and sends `tournament`'s snapshot right now, bypassing the queue.
 
   This is what the "Publish now" button calls. It returns the real result so
   the arbiter sees what happened rather than watching a queue depth.
+
+  ## The two refusals, and why they are not `writable_refusal/1`
+
+  Its neighbours here - `take_down/1`, `rotate_address/1`, `adopt_claim/1` -
+  all refuse anything `Tournaments.ensure_writable/1` refuses, which is
+  archived OR handed off. This one deliberately splits that pair, because the
+  two states are not the same question for a SEND.
+
+  **Handed off is refused.** Hand-off is custody, not a lock: the tournament
+  is being run on somebody else's machine right now, and if they adopted the
+  publishing key out of the file they are publishing to this same slug. A
+  send from here overwrites their live results with a frozen copy from before
+  the trip - the one failure in this whole module that destroys work rather
+  than delaying it. `enqueue/1` refuses too, so ordinarily nothing gets this
+  far; this clause is what makes it true for a direct call, a queue row that
+  predates the hand-off, and anything added later.
+
+  **Archived is allowed.** An archived tournament is finished and frozen on
+  THIS machine, which still owns it. There is no second copy to overwrite,
+  and refusing would freeze the public page one publish short of the final
+  standings - stale data on a page nobody can correct, to protect nothing.
+
+  **Binned is refused**, for the reason `soft_delete_tournament/1` states: an
+  arbiter putting a tournament in the recycle bin is withdrawing it, and a
+  publish is the opposite of that.
   """
   def publish(%Tournament{} = tournament) do
     cond do
@@ -359,6 +465,12 @@ defmodule PairingsEngine.Publishing do
 
       not tournament.publish_to_openresults ->
         {:error, "this tournament is not set to publish"}
+
+      not is_nil(tournament.handed_off_at) ->
+        {:error, refusal_words(:handed_off)}
+
+      not is_nil(tournament.deleted_at) ->
+        {:error, "this tournament is in the recycle bin"}
 
       true ->
         # The key is minted here rather than at the call site so that every
@@ -599,6 +711,69 @@ defmodule PairingsEngine.Publishing do
     end
   end
 
+  @doc """
+  Takes `tournament` off the results site if this machine put it there, for a
+  caller that is about to destroy the tournament row itself.
+
+  `:ok` means nothing of this tournament is left on the results site that
+  this machine could remove - either because nothing was ever published from
+  here (no `openresults_key`), or because the takedown just succeeded.
+  `{:error, message}` means something IS still published and could not be
+  removed, and the caller must not proceed.
+
+  ## Why `purge_tournament/1` has to ask
+
+  `openresults_key` is the only credential that can withdraw a published
+  tournament, it exists on exactly one machine, and a hard delete takes it
+  with the row. Purging a still-published tournament therefore did not leave
+  a stale page - it left a PERMANENT one, carrying every published player's
+  name, rating, club and federation, with no way to remove it from this
+  application at all. The recycle bin's 90-day sweep did it unattended, on a
+  page load, to tournaments nobody had looked at in three months.
+
+  So the order is: withdraw, then destroy. If the withdrawal fails - the
+  venue is offline, the address has been unconfigured, the server says the
+  key belongs to a different machine - the tournament stays in the bin with
+  its key intact and the purge is refused. Keeping a row somebody asked to
+  delete is a small, visible, reversible wrong; destroying the only key to a
+  public page full of personal data is not.
+
+  ## Why this is not just `take_down/1`
+
+  The two refusals differ, in both directions, and the reason is that this
+  runs as the first half of destroying the row rather than as a button.
+
+  **Archived is allowed here**, where `take_down/1` refuses it.
+  `Tournaments.delete_tournament/1` says it plainly: archiving a tournament
+  has never been a reason you cannot throw it away. Its objection - that
+  `take_down/1` writes to a tournament the arbiter has frozen - does not
+  survive the row being deleted a line later.
+
+  **Handed off is refused here** even though `take_down/1`'s own refusal
+  would catch it anyway, because the ordering matters more than the check:
+  `Tournaments.purge_tournament/1` screens for it before calling this, so
+  that a tournament checked out to another arbiter cannot have its public
+  page removed and only then be told the row may not be deleted.
+  """
+  @spec retract(Tournament.t()) :: :ok | {:error, String.t()}
+  def retract(%Tournament{openresults_key: key}) when not is_binary(key), do: :ok
+
+  def retract(%Tournament{} = tournament) do
+    cond do
+      not configured?() ->
+        {:error, "no OpenResults server is configured"}
+
+      not is_nil(tournament.handed_off_at) ->
+        {:error, refusal_words(:handed_off)}
+
+      true ->
+        case do_take_down(tournament) do
+          {:ok, _message} -> :ok
+          {:error, _message} = refusal -> refusal
+        end
+    end
+  end
+
   defp do_take_down(%Tournament{} = tournament) do
     slug = tournament.public_slug
 
@@ -836,7 +1011,7 @@ defmodule PairingsEngine.Publishing do
           from t in Tournament,
             where:
               t.publish_to_openresults == true and is_nil(t.openresults_key) and
-                is_nil(t.deleted_at),
+                is_nil(t.deleted_at) and is_nil(t.handed_off_at),
             select: t.id
         )
 

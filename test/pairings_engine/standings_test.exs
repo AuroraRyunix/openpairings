@@ -383,9 +383,14 @@ defmodule PairingsEngine.StandingsTest do
       # Belgian 3-2-1: a draw pays points_draw 1.0 plus the presence point,
       # landing on exactly points_win 2.0. Article 7.2 asks for "the number
       # of games won over the board", so this player has none - the old
-      # `points >= points_win` reading called the draw a win. Its neighbour
-      # 7.1 (WIN) is defined in points, in those words, and must still count
-      # the round.
+      # `points >= points_win` reading called the draw a win.
+      #
+      # Its neighbour 7.1 (WIN) is defined in points, in those words, and
+      # this test used to assert that it therefore counted the round. That
+      # was wrong, and it is the assertion the fix changes: 7.1 asks for
+      # "as many points as awarded for a win", and in this scheme a win
+      # awards 3.0, not 2.0. See `Standings.win_points/1` and the C.07 Art.
+      # 7.1 / 9.2 describe block at the foot of this file.
       tournament =
         Repo.insert!(%Tournament{
           name: "3-2-1 WON",
@@ -416,7 +421,7 @@ defmodule PairingsEngine.StandingsTest do
       entry = Standings.standings(tournament) |> Enum.find(&(&1.player.id == white.id))
 
       assert entry.points == 2.0
-      assert entry.tiebreaks["WIN"] == 1.0
+      assert entry.tiebreaks["WIN"] == 0.0
       assert entry.tiebreaks["WON"] == 0.0
     end
   end
@@ -1898,6 +1903,268 @@ defmodule PairingsEngine.StandingsTest do
 
       refute Standings.unrated_present?(tournament)
       assert "ARO" in Standings.effective_tiebreaks(tournament)
+    end
+  end
+
+  ## ---------- C.07 Art. 7.1 (WIN) and Art. 9.2 (Koya) under 3-2-1 ----------
+  ##
+  ## Both articles ask their question in POINTS - "as many points as awarded
+  ## for a win" (7.1), "at least 50% of the maximum possible tournament
+  ## score" (9.2) - and both used to answer it with `tournament.points_win`,
+  ## which is only the RESULT half of what a round pays under SWAR's 3-2-1
+  ## club scheme. That scheme is win 2 / draw 1 / loss 0 with a presence
+  ## point on top for turning up, so a round is worth 3 / 2 / 1 while
+  ## `points_win` reads 2.0. Two consequences, one per article:
+  ##
+  ##   * every DRAW obtained exactly 2.0, so `points >= points_win` counted
+  ##     it as a win - and WIN is in FIDE's default Swiss tiebreak set, so it
+  ##     was ranking by default;
+  ##   * Koya's ceiling read 2.0 a round instead of 3.0, putting the 50% line
+  ##     at 1.0 a round, which is exactly what a player who loses every game
+  ##     and attends every round scores. The whole field cleared it and Koya
+  ##     separated nobody.
+  ##
+  ## Every assertion below has a 1/half/0 twin, because the correction has to
+  ## be invisible to every tournament that is not a 3-2-1 import.
+
+  # The numbers off a real Belgian club file: win/draw/loss/bye
+  # 2.0/1.0/0.0/1.0, with a 1.0 presence point on top.
+  defp club321(overrides \\ []) do
+    Repo.insert!(
+      struct!(
+        %Tournament{
+          name: "3-2-1",
+          type: "swiss",
+          rounds_count: 2,
+          tiebreaks: ~w(WIN WON KS),
+          points_win: 2.0,
+          points_draw: 1.0,
+          points_loss: 0.0,
+          bye_value: 1.0,
+          presence_value: 1.0
+        },
+        overrides
+      )
+    )
+  end
+
+  # The same tournament under ordinary FIDE scoring - the control for every
+  # assertion below. `presence_value` stays nil, which is what collapses
+  # `Standings.win_points/1` back to plain `points_win`.
+  defp plain_scoring(overrides \\ []) do
+    Repo.insert!(
+      struct!(
+        %Tournament{
+          name: "1-half-0",
+          type: "swiss",
+          rounds_count: 2,
+          tiebreaks: ~w(WIN WON KS),
+          points_win: 1.0,
+          points_draw: 0.5,
+          points_loss: 0.0,
+          bye_value: 1.0
+        },
+        overrides
+      )
+    )
+  end
+
+  defp seated(t, names) do
+    for {name, nr} <- Enum.with_index(names, 1) do
+      Repo.insert!(%Player{tournament_id: t.id, name: name, pairing_number: nr})
+    end
+  end
+
+  # One round holding one board. `black` may be nil, which with result "bye"
+  # is how a pairing-allocated bye is stored.
+  defp one_board(t, round_number, white, black, result) do
+    r = Repo.insert!(%Round{tournament_id: t.id, number: round_number, status: "finished"})
+
+    Repo.insert!(%Pairing{
+      round_id: r.id,
+      board: 1,
+      white_player_id: white.id,
+      black_player_id: black && black.id,
+      result: result
+    })
+  end
+
+  # Four players, two rounds, every game decisive:
+  #
+  #   R1   A 1-0 B     C 1-0 D
+  #   R2   A 1-0 C     B 1-0 D
+  #
+  # D loses both and turns up for both, which is the player Article 9.2's
+  # 50% line has to place correctly. Nothing is drawn, deliberately: the
+  # same field is then a control for Article 7.1, whose answer must not move.
+  defp koya_field(t) do
+    [a, b, c, d] = seated(t, ["A", "B", "C", "D"])
+
+    r1 = Repo.insert!(%Round{tournament_id: t.id, number: 1, status: "finished"})
+    r2 = Repo.insert!(%Round{tournament_id: t.id, number: 2, status: "finished"})
+
+    for {round, board, white, black} <- [
+          {r1, 1, a, b},
+          {r1, 2, c, d},
+          {r2, 1, a, c},
+          {r2, 2, b, d}
+        ] do
+      Repo.insert!(%Pairing{
+        round_id: round.id,
+        board: board,
+        white_player_id: white.id,
+        black_player_id: black.id,
+        result: "1-0"
+      })
+    end
+
+    %{a: a, b: b, c: c, d: d}
+  end
+
+  defp entry_for(t, player) do
+    t |> Standings.standings() |> Enum.find(&(&1.player.id == player.id))
+  end
+
+  describe "C.07 Article 7.1 (Number of wins) under presence scoring" do
+    test "a draw is not a win, though it obtains exactly points_win" do
+      t = club321(rounds_count: 1)
+      [a, b] = seated(t, ["Drawer", "Other"])
+      one_board(t, 1, a, b, "1/2-1/2")
+
+      # 1.0 for the draw plus 1.0 for turning up. `points_win` is 2.0, which
+      # is what the old `points >= t.points_win` compared against.
+      assert entry_for(t, a).points == 2.0
+      assert entry_for(t, a).tiebreaks["WIN"] == 0.0
+      assert entry_for(t, b).tiebreaks["WIN"] == 0.0
+    end
+
+    test "a win still counts and a loss still does not" do
+      t = club321(rounds_count: 1)
+      [a, b] = seated(t, ["Winner", "Loser"])
+      one_board(t, 1, a, b, "1-0")
+
+      assert entry_for(t, a).points == 3.0
+      assert entry_for(t, a).tiebreaks["WIN"] == 1.0
+      assert entry_for(t, b).points == 1.0
+      assert entry_for(t, b).tiebreaks["WIN"] == 0.0
+    end
+
+    test "a forfeit win counts, because 7.1 says with or without playing" do
+      t = club321(rounds_count: 1)
+      [a, b] = seated(t, ["Present", "No-show"])
+      one_board(t, 1, a, b, "1-0FF")
+
+      # SWAR pays the presence point to RESULTATS_WIN, which includes a
+      # forfeit win, so it is worth the same 3.0 a played win is. 7.2 (WON)
+      # is the one that must not count it.
+      assert entry_for(t, a).points == 3.0
+      assert entry_for(t, a).tiebreaks["WIN"] == 1.0
+      assert entry_for(t, a).tiebreaks["WON"] == 0.0
+      assert entry_for(t, b).tiebreaks["WIN"] == 0.0
+    end
+
+    test "a bye counts only when it pays what a win pays" do
+      # SW321_Bye 1.0 with SW321_PreBye on pays 1.0 + 1.0 = 2.0 - a draw's
+      # worth in this scheme, and the second thing the old comparison read
+      # as a win.
+      half = club321(rounds_count: 1, bye_value: 1.0, presence_on_allocated_bye: true)
+      [p] = seated(half, ["Byed"])
+      one_board(half, 1, p, nil, "bye")
+
+      assert entry_for(half, p).points == 2.0
+      assert entry_for(half, p).tiebreaks["WIN"] == 0.0
+
+      # A full-point bye (SW321_Bye 2.0) does pay a win's worth, and 7.1
+      # counts it - that is what "with or without playing" is for.
+      full = club321(rounds_count: 1, bye_value: 2.0, presence_on_allocated_bye: true)
+      [q] = seated(full, ["Byed"])
+      one_board(full, 1, q, nil, "bye")
+
+      assert entry_for(full, q).points == 3.0
+      assert entry_for(full, q).tiebreaks["WIN"] == 1.0
+    end
+
+    test "ordinary 1/half/0 scoring counts exactly what it always did" do
+      t = plain_scoring()
+      %{a: a, b: b, d: d} = koya_field(t)
+
+      assert entry_for(t, a).tiebreaks["WIN"] == 2.0
+      assert entry_for(t, b).tiebreaks["WIN"] == 1.0
+      assert entry_for(t, d).tiebreaks["WIN"] == 0.0
+    end
+
+    test "ordinary scoring: a draw is still not a win, a full-point bye still is" do
+      drawn = plain_scoring(rounds_count: 1)
+      [a, b] = seated(drawn, ["A", "B"])
+      one_board(drawn, 1, a, b, "1/2-1/2")
+
+      assert entry_for(drawn, a).points == 0.5
+      assert entry_for(drawn, a).tiebreaks["WIN"] == 0.0
+
+      byed = plain_scoring(rounds_count: 1)
+      [p] = seated(byed, ["Byed"])
+      one_board(byed, 1, p, nil, "bye")
+
+      assert entry_for(byed, p).points == 1.0
+      assert entry_for(byed, p).tiebreaks["WIN"] == 1.0
+    end
+
+    test "win_points/1 is points_win wherever there is no presence point" do
+      assert Standings.win_points(%Tournament{}) == 1.0
+      assert Standings.win_points(%Tournament{points_win: 2.0}) == 2.0
+      assert Standings.win_points(%Tournament{points_win: 2.0, presence_value: nil}) == 2.0
+      assert Standings.win_points(%Tournament{points_win: 2.0, presence_value: 1.0}) == 3.0
+    end
+  end
+
+  describe "C.07 Article 9.2 (Koya) under presence scoring" do
+    test "turning up is not 50% of the maximum possible score" do
+      t = club321()
+      %{a: a, b: b, c: c, d: d} = koya_field(t)
+
+      # Two completed rounds at 3.0 a round: the maximum is 6.0 and the 50%
+      # line is 3.0. D lost both games and attended both, for 1.0 + 1.0.
+      # The old ceiling was 2 x points_win = 4.0, so the line sat at 2.0 -
+      # D's exact score - and D counted as a 50% opponent for everybody.
+      assert entry_for(t, a).points == 6.0
+      assert entry_for(t, b).points == 4.0
+      assert entry_for(t, c).points == 4.0
+      assert entry_for(t, d).points == 2.0
+
+      # B beat D (scoring 3.0) and lost to A (scoring 1.0). D is under the
+      # line, so only the point scored against A counts. Under the old line
+      # this read 4.0.
+      assert entry_for(t, b).tiebreaks["KS"] == 1.0
+      # C is the mirror image - beat D, lost to A.
+      assert entry_for(t, c).tiebreaks["KS"] == 1.0
+      # A and D each played nobody under the line, so Koya is their whole
+      # score and neither number moves.
+      assert entry_for(t, a).tiebreaks["KS"] == 6.0
+      assert entry_for(t, d).tiebreaks["KS"] == 2.0
+    end
+
+    test "the same field's WIN column does not move, since nothing was drawn" do
+      # Guards the other half: a "fix" that changed what a win is worth in a
+      # way that also moved Article 7.1's answer on a field of decisive games
+      # would be a different bug wearing this one's clothes.
+      t = club321()
+      %{a: a, b: b, c: c, d: d} = koya_field(t)
+
+      assert entry_for(t, a).tiebreaks["WIN"] == 2.0
+      assert entry_for(t, b).tiebreaks["WIN"] == 1.0
+      assert entry_for(t, c).tiebreaks["WIN"] == 1.0
+      assert entry_for(t, d).tiebreaks["WIN"] == 0.0
+    end
+
+    test "ordinary 1/half/0 scoring puts the line exactly where it always did" do
+      t = plain_scoring()
+      %{a: a, b: b, c: c, d: d} = koya_field(t)
+
+      # Maximum 2 x 1.0 = 2.0, so the line is 1.0: A 2.0, B 1.0, C 1.0, D 0.0.
+      assert entry_for(t, a).tiebreaks["KS"] == 2.0
+      assert entry_for(t, b).tiebreaks["KS"] == 0.0
+      assert entry_for(t, c).tiebreaks["KS"] == 0.0
+      assert entry_for(t, d).tiebreaks["KS"] == 0.0
     end
   end
 end

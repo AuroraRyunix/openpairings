@@ -825,6 +825,36 @@ defmodule PairingsEngine.Standings do
     contradicted?
   end
 
+  @doc """
+  What one stored `pairing` in round `round_number` pays each player seated
+  at it, as `%{player_id => points}`.
+
+  The same numbers `standings/2` adds up, produced by the same function - so
+  a caller holding one board in isolation cannot disagree with the crosstable
+  computed beside it. That is the whole reason this is public: the
+  OpenResults snapshot publishes a PER-ROUND figure for a board with one
+  empty seat, and the public page turns those figures back into a running
+  total. A second opinion about what the board paid would show up there as a
+  score that does not add up, with nothing on the page to explain it.
+
+  An empty seat contributes no entry (the record `pairing_records/4` builds
+  for it carries a `nil` player id, which `games_by_player/4` drops the same
+  way), so a board with one player returns exactly one pair. An unreported
+  board returns an empty map: nothing has happened yet, which is not the
+  same claim as nothing being scored.
+
+  Presence points are included, matching `standings/2`'s default. The
+  `presence: false` mode exists for one reconciliation check inside the SWAR
+  import (see `games_by_player/4`) and is not something a display caller
+  wants.
+  """
+  def pairing_award(%Pairing{} = pairing, round_number, tournament) do
+    pairing
+    |> pairing_records(round_number, tournament, true)
+    |> Enum.reject(&is_nil(&1.player_id))
+    |> Map.new(&{&1.player_id, &1.points})
+  end
+
   # Expands one stored pairing into records for both players.
   defp pairing_records(%Pairing{result: ""}, _round, _t, _presence?), do: []
 
@@ -978,9 +1008,40 @@ defmodule PairingsEngine.Standings do
   @doc "TRF codes whose player was present - see `presence_points_for_code/2`."
   def presence_earning_codes, do: Ainalrami.Trf.playing_codes() -- ["-"]
 
-  defp presence_points(_tournament, false), do: 0.0
+  @doc """
+  What a participant obtains for a round they WIN: `points_win` plus the
+  SWAR 3-2-1 presence point, when the tournament pays one.
 
-  defp presence_points(tournament, true) do
+  Deliberately not `tournament.points_win`, which is the RESULT component
+  on its own. A game record's `points` are result points PLUS the presence
+  point (`pairing_records/4` above), so anything comparing a record's points
+  against "what a win is worth" has to compare against this or it is
+  measuring the two sides in different currencies. C.07 Article 7.1 (Number
+  of wins) and Article 9.2 (Koya's "maximum possible tournament score") are
+  both exactly that comparison, and both used to read `points_win` - see
+  those two clauses for what it cost.
+
+  `presence_value` is nil for every tournament that is not a SWAR 3-2-1
+  import, so this is `points_win` unchanged for everyone else.
+
+  Public because `PairingsEngine.TiebreakWorking` has to arrive at the
+  identical number: it re-derives Article 7.1 and Article 9.2 to show an
+  arbiter where the figure came from, and a working panel that agreed with
+  a wrong column instead of exposing it is the one failure that module
+  exists to prevent.
+  """
+  def win_points(tournament), do: tournament.points_win + presence_value(tournament)
+
+  defp presence_points(_tournament, false), do: 0.0
+  defp presence_points(tournament, true), do: presence_value(tournament)
+
+  # The presence point itself, extracted so `presence_points/2` and
+  # `win_points/1` cannot disagree about what nil means. `Map.get/2` rather
+  # than a field read is the guard this had before and keeps: the field is
+  # nil for every tournament that is not a 3-2-1 import, and a map that
+  # predates the field altogether (`allocated_bye_presence_bonus/1` above
+  # contemplates one) must read as "no presence point" rather than raise.
+  defp presence_value(tournament) do
     case Map.get(tournament, :presence_value) do
       value when is_number(value) -> value
       _ -> 0.0
@@ -1074,8 +1135,28 @@ defmodule PairingsEngine.Standings do
   # without playing, as many points as awarded for a win" - a POINT total in
   # the regulation's own words, so the comparison below is the definition and
   # not a re-derivation of the outcome. Contrast 7.2 just underneath.
+  #
+  # What it compares against is `win_points/1`, not `t.points_win`, and that
+  # is the whole of the correction. Article 7.1 puts the same quantity on
+  # both sides: what the participant OBTAINED for the round, and what a win
+  # AWARDS. A game record's `points` carry the SWAR 3-2-1 presence point
+  # (`pairing_records/4`); `points_win` does not, because the import stores
+  # the two separately (`points_win: sw321_win / 4`, `presence_value:
+  # sw321_pre / 4`). So the comparison was counting one side in a currency
+  # the other side did not use. Under the Belgian club scheme - win 2 /
+  # draw 1 / loss 0, plus 1 for turning up, which is what "3-2-1" names -
+  # a DRAW obtains 1.0 + 1.0 = 2.0, `points_win` is 2.0, and every draw in
+  # the event was counted as a win. So was a pairing-allocated bye worth a
+  # draw with the SW321_PreBye option on. WIN sits in FIDE's own default
+  # Swiss set (`Tiebreaks.fide_defaults/1`), so this ranked by default.
+  #
+  # The 2026-08-30 sweep read this line and cleared it, on the ground that
+  # 7.1 is defined in points rather than in outcomes. That reading is right
+  # and is kept - `tiebreak("WON", ...)` below is the one that reads the
+  # outcome. What it did not notice is which points.
   defp tiebreak("WIN", entry, _by_id, t) do
-    Enum.count(entry.games, &(&1.points >= t.points_win)) / 1
+    win = win_points(t)
+    Enum.count(entry.games, &(&1.points >= win)) / 1
   end
 
   # Article 7.2: "the number of games won over the board" - an OUTCOME, so it
@@ -1127,6 +1208,18 @@ defmodule PairingsEngine.Standings do
   # Article 9.2: "the number of points achieved against all participants who
   # have scored at least 50% of the maximum possible tournament score."
   #
+  # The maximum is `win_points/1` a round, not `t.points_win` a round - the
+  # same currency mismatch Article 7.1 had above, and the same correction.
+  # `opp.points` on the left of the comparison carries the SWAR 3-2-1
+  # presence point, so a ceiling computed without it is not the maximum
+  # anybody could have scored. Under the Belgian 3-2-1 scheme the real
+  # maximum is 3.0 a round and this said 2.0, putting the 50% line at 1.0 a
+  # round - which is precisely what a player who loses every single game and
+  # turns up to every round scores. The whole field cleared the bar, so Koya
+  # stopped separating anyone: it returned each player's own score against
+  # everyone they had actually sat opposite, which is their score minus
+  # their byes.
+  #
   # It reads `opp.points` directly where BH/BHC1/BHC2/MBH/SB all route
   # through `adjusted_score/2` first, and that difference is CORRECT, not an
   # oversight. Article 16 opens by naming its own scope: "the tie-breaks
@@ -1138,7 +1231,7 @@ defmodule PairingsEngine.Standings do
   # rounds adjustment does not reach it. Checked against C.07 directly on
   # 2026-08-30, after a sweep filed the inconsistency as a suspected bug.
   defp tiebreak("KS", entry, by_id, t) do
-    max_score = entry.completed_rounds * t.points_win
+    max_score = entry.completed_rounds * win_points(t)
 
     entry.games
     |> Enum.filter(fn g ->

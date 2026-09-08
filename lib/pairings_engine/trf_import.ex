@@ -99,20 +99,20 @@ defmodule PairingsEngine.TrfImport do
     end
   end
 
-  # Shared by `import_text/2` and `build_structs/1`: decode + parse + build
-  # the same unpersisted structs either caller needs, while also handing
-  # back the raw parsed `data` (with each player's per-round games) that
-  # only `import_text/2`'s round-building step still needs.
+  # Shared by `import_text/2` and `build_structs/1`: measure + decode +
+  # parse + build the same unpersisted structs either caller needs, while
+  # also handing back the raw parsed `data` (with each player's per-round
+  # games) that only `import_text/2`'s round-building step still needs.
+  #
+  # `check_bounds/1` runs first, on the RAW bytes, before anything is
+  # decoded or allocated - see the section below for why a TRF has to be
+  # measured before it is read.
   defp build_structs_with_data(content) do
-    case content |> decode_content() |> parse_trf() do
-      {:ok, data} ->
-        with {:ok, tournament} <- build_tournament_struct(data),
-             {:ok, players} <- build_player_structs(data.players) do
-          {:ok, {tournament, players, data}}
-        end
-
-      {:error, reason} ->
-        {:error, reason}
+    with :ok <- check_bounds(content),
+         {:ok, data} <- content |> decode_content() |> parse_trf(),
+         {:ok, tournament} <- build_tournament_struct(data),
+         {:ok, players} <- build_player_structs(data.players) do
+      {:ok, {tournament, players, data}}
     end
   end
 
@@ -152,6 +152,134 @@ defmodule PairingsEngine.TrfImport do
   def error_message({:parse_failed, message}), do: "Could not read this TRF file: #{message}"
   def error_message(reason) when is_binary(reason), do: reason
   def error_message(reason), do: "Could not import this TRF file: #{inspect(reason)}"
+
+  ## ---------- input bounds ----------
+
+  ## Why a TRF is measured before it is read
+  #
+  # A TRF reaches this module from two places, and only one of them has an
+  # account behind it: the arbiter's own upload, and - through
+  # `PairingsEngine.Tools.Parser` - the public tools page, which anybody on
+  # the internet can post ten files to at once.
+  #
+  # `Ainalrami.Trf.parse/1` has two loops whose cost is quadratic in the
+  # file, and nothing in TRF16 bounds either of them:
+  #
+  #   * each `001` and `013` record is appended with `list ++ [record]`,
+  #     which copies the whole accumulated list every time. Measured on this
+  #     machine: 8,000 player lines take 280 ms, and the cost is n^2 - a 5 MB
+  #     file of bare `001` lines is 1,000,000 of them and takes over an
+  #     hour.
+  #   * `parse_round_dates/3` and `parse_team_line/3` walk a `132` or `013`
+  #     line one column-block at a time and re-measure the whole line with
+  #     `String.length/1` at every step. Measured: a single 100 KB `013`
+  #     line takes 1.06 s, and again the cost is n^2 - one 5 MB line is
+  #     roughly three quarters of an hour of pinned CPU from a two-line
+  #     file.
+  #
+  # Both are the engine's to fix and are reported there. These three bounds
+  # are the door rather than the repair, and they are the half that can be
+  # closed here: they refuse, in one linear pass and before a byte is
+  # decoded, input that no TRF16 file can legitimately be. Inside them the
+  # worst file that gets through costs a few seconds, not an afternoon.
+  #
+  # All three are measured on the raw bytes, deliberately. That is the
+  # cheapest possible point - nothing has been copied or decoded yet - and
+  # the line separators (`\r\n`, `\n`, `\r`) are the same bytes in CP1252
+  # as in UTF-8, so the line structure a CP1252 file will have after
+  # `decode_content/1` is already visible here. A raw byte count is also
+  # never LESS than the grapheme count the engine's two quadratic walks
+  # will pay - CP1252 decoding turns one byte into one character, and UTF-8
+  # into fewer - so bounding the bytes bounds the walk. Bounding it too
+  # tightly is not a risk either: a TRF16 column is a byte (see
+  # `Ainalrami.Trf`'s `place/4`), so a legitimate line's byte length IS its
+  # column count, give or take an accent.
+
+  # TRF16 gives the starting rank four columns (5-8), so no file can name
+  # more than 9,999 players, and the longest player record this app writes
+  # for one of them is 91 + 10 x rounds bytes - 391 at
+  # `Tournament.max_rounds/0`. The largest TRF16 that can exist is
+  # therefore under 4 MB. The two upload inputs that accept a TRF already
+  # stop at this number; stating it here binds every caller instead, which
+  # matters because `Tools.Parser` reaches `build_structs/1` with whatever
+  # bytes the public page was handed.
+  @max_bytes 5_000_000
+
+  # Records, counted as lines - blank ones included, because a real TRF has
+  # no reason to carry thousands of them and not extracting each line to
+  # test it is what keeps this pass free.
+  #
+  # The per-player record families are `001`, `XXA` and `240`, one each at
+  # most, so a file's record count is about three times its field plus a
+  # fixed handful of headers. 20,000 therefore admits a field of ~6,600
+  # with every optional record attached - several times the largest Swiss
+  # ever played, and two thirds of what the four-column starting rank could
+  # even express. The bound is what makes the `++` append affordable: at
+  # 20,000 records it is 2 x 10^8 list cells, under two seconds, against
+  # the hour a million records would cost.
+  @max_records 20_000
+
+  # The longest line. TRF16 is a fixed-column format and its longest record
+  # is a player's `001` line at 91 + 10 x rounds bytes, so 2,048 admits a
+  # 195-round event - six times `Tournament.max_rounds/0`, and longer than
+  # any tournament that has been played. It also clears the two records
+  # whose length is not fixed by the round count: a `013` team line (36 + 5
+  # per member, so 402 members) and an `XXP` forbidden group (5 per player,
+  # so 400 of them in one group).
+  #
+  # This is the bound on the two `String.length/1` walks. Their total cost
+  # across a file is bytes x longest-line, not bytes^2, so it is this number
+  # and not `@max_bytes` that decides it: at 5 MB and 2,048 the worst case
+  # is a little over a second.
+  @max_line_bytes 2_048
+
+  defp check_bounds(content) when byte_size(content) > @max_bytes do
+    {:error,
+     {:parse_failed,
+      "this file is #{byte_size(content)} bytes; a TRF16 file cannot legitimately " <>
+        "exceed #{div(@max_bytes, 1_000_000)} MB (the format allows at most 9,999 " <>
+        "players, and the longest record is under 400 bytes)"}}
+  end
+
+  defp check_bounds(content) do
+    {records, longest} = measure_lines(content, 0, 0, 0)
+
+    cond do
+      records > @max_records ->
+        {:error,
+         {:parse_failed,
+          "this file has #{records} lines; a TRF16 file holds at most one record per " <>
+            "player per record type, so anything past #{@max_records} is not a " <>
+            "tournament report"}}
+
+      longest > @max_line_bytes ->
+        {:error,
+         {:parse_failed,
+          "this file has a #{longest}-byte line; TRF16 is a fixed-column format whose " <>
+            "longest record is #{@max_line_bytes} bytes even for a tournament far " <>
+            "longer than any that has been played"}}
+
+      true ->
+        :ok
+    end
+  end
+
+  # One linear pass that allocates nothing: `:binary.match/3`'s `scope` is a
+  # pair of offsets into the same binary, so no line is ever copied out.
+  # Splitting into a list first would be shorter to write and would build a
+  # million sub-binary references for exactly the file this is here to
+  # refuse.
+  defp measure_lines(content, pos, records, longest) do
+    size = byte_size(content)
+
+    case :binary.match(content, ["\r\n", "\n", "\r"], scope: {pos, size - pos}) do
+      :nomatch ->
+        {records + 1, max(longest, size - pos)}
+
+      {at, len} ->
+        measure_lines(content, at + len, records + 1, max(longest, at - pos))
+    end
+  end
 
   ## ---------- encoding ----------
 

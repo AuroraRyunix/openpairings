@@ -90,15 +90,33 @@ valid. Two passes:
 1. **Parsing** (`ResultsImport.parse_text/1`, no database access): malformed
    lines (wrong shape, unparsable board number, unrecognized result token)
    and duplicate board numbers *within the file itself* are collected -
-   every bad line is reported, not just the first one.
+   every bad line is reported, not just the first one, up to the fifty the
+   list is capped at (see below).
 2. **Applying** (`ResultsImport.apply_import/3`, needs the round's actual
    pairings): a board number that doesn't exist in the selected round, or
    that belongs to a bye (byes have no result to enter), is also collected
    as an error.
 
 If either pass finds any problem, the whole import is rejected and the
-Pairings page shows every collected error in a list - nothing is saved. Fix
-the file and re-upload.
+Pairings page lists the collected errors - nothing is saved. Fix the file
+and re-upload.
+
+## Two limits on the file
+
+Both exist because the answer used to be one error line per bad row, and the
+page renders every one of them: 200 KB of junk produced 99,999 errors and
+4.5 MB of message text, so the 2 MB the upload box allows became a ~45 MB
+page pushed down the arbiter's own websocket.
+
+* **10,000 lines.** A round has at most one board per two players, and the
+  largest field FIDE's report format can describe is 9,999 (TRF16 gives the
+  starting rank four columns), so 5,000 boards is the ceiling of anything
+  this app can be asked to report on. A longer file is refused with one
+  sentence rather than parsed.
+* **50 problems listed.** Past fifty, the remaining count is the
+  information: an arbiter needs to see whether it is one mistyped board or
+  the wrong file entirely, and fifty settles that. The list ends with
+  "...and N more problem(s) in this file".
 
 ## Where it writes
 

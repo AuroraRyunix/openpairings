@@ -83,7 +83,8 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
       throw(:swiss321_unsupported)
     end
 
-    with :ok <- validate_unique_nis(players) do
+    with :ok <- validate_unique_nis(players),
+         :ok <- validate_round_numbers(players) do
       {:ok,
        %{
          version: version,
@@ -138,6 +139,55 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
       _ ->
         {:error,
          {:parse_failed, "duplicate player number(s) in [JOUEURS]: #{Enum.join(dupes, ", ")}"}}
+    end
+  end
+
+  # A [RONDE] record's round number is a raw signed 32-bit integer straight
+  # off the disk, and `create_rounds/3` turns the highest one it finds into
+  # the range `1..max_round` - inside the import transaction, holding
+  # SQLite's write lock. One player record carrying 2,000,000,000 therefore
+  # stops the whole application, not just the import: two billion iterations
+  # of a comprehension over every player's rounds, with every other writer
+  # queued behind it. The tournament's own round count is checked (it lands
+  # in `rounds_count`, which `Tournament.changeset/2` caps), but that is a
+  # different field and a file can hold nine in one and two billion in the
+  # other.
+  #
+  # `Tournament.max_rounds/0` is the right ceiling rather than an invented
+  # one: it is this application's single statement of how long a tournament
+  # may be, it is already enforced on this very import path, and a file
+  # whose rounds run past it describes a tournament that could not be
+  # created here even if the loop were free. Coupling to it means the two
+  # cannot drift.
+  #
+  # Zero and negative are refused by the same check, and not only for
+  # speed. `1..max(max_round, 0)` on an all-zero file is the descending
+  # range `1..0`, which fed round 0 to `insert_round/4` and wrote a Round
+  # row numbered 0 - a tournament with a round before its first.
+  defp validate_round_numbers(players) do
+    max_rounds = Tournament.max_rounds()
+
+    players
+    |> Enum.flat_map(& &1.rounds)
+    |> Enum.map(& &1.round_nr)
+    |> Enum.reject(&(&1 in 1..max_rounds))
+    |> Enum.uniq()
+    |> Enum.sort()
+    |> case do
+      [] ->
+        :ok
+
+      bad ->
+        # Named, but only the first few: a corrupt file can hold a distinct
+        # bad number per round record, and a refusal that lists eighty
+        # thousand of them is its own denial of service.
+        shown = Enum.take(bad, 5)
+        more = if length(bad) > 5, do: " and #{length(bad) - 5} more", else: ""
+
+        {:error,
+         {:parse_failed,
+          "round number(s) outside 1-#{max_rounds} in [JOUEURS]: " <>
+            Enum.join(shown, ", ") <> more}}
     end
   end
 

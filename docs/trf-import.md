@@ -211,6 +211,26 @@ FIDE id already used elsewhere in the same tournament). `error_message/1`
 turns any of these into a single flash-ready string; the "Import TRF file"
 panel shows it as an inline error block rather than crashing.
 
+## Three bounds, checked before the file is parsed
+
+A TRF also reaches this importer from the public [tools page](tools.md),
+which has no account behind it, and two of `Ainalrami.Trf.parse/1`'s loops
+cost the square of what they are given - the accumulating `++` for `001` and
+`013` records, and the `String.length/1` re-measure inside
+`parse_round_dates/3` and `parse_team_line/3`. Measured: 8,000 player
+records take 280 ms and a million take over an hour, while one 5 MB `132` or
+`013` line - a two-line file - costs about three quarters of an hour on its
+own.
+
+So the raw bytes are measured in one linear pass before anything is decoded,
+and a file is refused outright if it is over **5 MB**, holds more than
+**20,000 records**, or carries a line longer than **2,048 bytes**. Each is
+derived from what TRF16 can express rather than picked: the starting rank
+has four columns, so no file names more than 9,999 players; the longest
+record is 91 + 10 per round, which at 2,048 bytes covers a 195-round event,
+six times this app's own `Tournament.max_rounds/0`. The fixes for the loops
+themselves belong in the engine.
+
 ## TRF26
 
 Since 0.47.0 (Ainalrami 0.22.0) the parser reads FIDE's Tournament Report File

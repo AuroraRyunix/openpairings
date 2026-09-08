@@ -453,6 +453,17 @@ evidence:
 > the outcome. The 3-2-1 gate the item describes as unreachable was left
 > unreached: nothing about `allow_swiss321` changed.
 
+> **Half of that "not a bug" was wrong, and the 2026-09-05 audit caught it.**
+> Reading Art. 7.1 as a point comparison is right and stands. What this note
+> missed is *which* points: a game record's `points` include the 3-2-1
+> presence point and `points_win` does not, so the two sides of the
+> comparison were counted in different currencies and a draw - obtaining
+> `points_draw` + presence, which under the Belgian scheme is exactly
+> `points_win` - was counted as a win after all. Art. 9.2's "maximum
+> possible tournament score" had the same defect. Both now compare against
+> `Standings.win_points/1`; see that function and the two `tiebreak/4`
+> clauses.
+
 `lib/pairings_engine/standings.ex:609-616`, `player_card.ex:90-122`,
 `pairing_rationale.ex:372-378`, `players_live.ex:315`,
 `print_controller.ex:1387-1391` — **[Drift #19]**

@@ -14,6 +14,140 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.50.0] - 2026-09-08
+
+The 2026-09-05 audit's three worst groups, closed together: what a stranger
+can do to the server, what reaches the public site, and what decides who
+wins.
+
+- [Fix] **A seat the arbiter vacated is published as what was recorded on
+  it, not as a full-point bye.** A board with one empty seat and a real
+  result - a forfeit, or anything a SWAR or TRF import carries - travelled
+  to the results site as a pairing-allocated bye worth the tournament's bye
+  value, whatever was actually on it. The same defect was fixed in the
+  federation's page first; this is the second copy, in the snapshot. It was
+  not confined to one row: the public site rebuilds each player's running
+  total by adding these per-round figures up, so an invented point moved
+  every later total on that player's card, while the standings in the same
+  document said something else. The figure now comes from the same function
+  the crosstable is computed with, and the row is labelled "vacated seat"
+  and carries the result, because it is not a bye.
+- [Fix] **A tournament handed to another arbiter can no longer be
+  republished from the copy that released it.** Hand-off froze every local
+  write and nothing at all on the way out to the results site - and worse,
+  handing a tournament off queued a publish of it, because that is what
+  every write in the app does. If the receiving arbiter adopted the
+  publishing key out of the hand-off file, a send from here overwrote their
+  live results with a frozen copy from before the trip. Refused now at the
+  queue, at the send, and in what the drain considers due; a queued publish
+  that predates the hand-off is kept rather than dropped, and goes out when
+  the tournament comes back. An archived tournament still publishes,
+  deliberately: it is finished on this machine, there is nobody to
+  overwrite, and refusing would leave the public page one publish short of
+  the final standings.
+- [Fix] **A result entered while a publish is in flight is no longer lost.**
+  The queue row is the only record that a tournament has unsent changes, and
+  the drain deleted it after a successful send. Between the moment the
+  payload was built and that delete sat a whole HTTP round trip - up to
+  fifteen seconds on venue wifi - and a result typed inside it found the row
+  already there and wrote nothing, by design, so a burst would not restart
+  the backoff. Deleting then threw away the only trace. The result was not
+  published late; it was never published, until some unrelated later write
+  happened to queue the tournament again. A counter that only queueing moves
+  now guards the delete: if anything arrived while the payload was away, the
+  row stays and the next drain sends what is true then.
+- [Fix] **Binning a published tournament takes it out of publishing instead
+  of publishing it.** Moving a tournament to the recycle bin broadcasts, and
+  broadcasting is what queues a publish - so a fresh snapshot of the event
+  the arbiter had just withdrawn went out about two seconds later. Binning
+  does not withdraw the published copy, deliberately: the bin is reversible
+  for 90 days and a takedown is not, so that stays a deliberate action.
+- [Fix] **Deleting a published tournament for good takes it off the results
+  site first, and refuses to delete anything if it cannot.** The key that
+  can withdraw a published tournament exists on one machine, in the
+  tournament's own row, and a permanent delete took it with the row - so
+  purging while the page was up did not leave a stale page, it left a
+  permanent one, carrying every published player's name, rating, club and
+  federation, with no way to remove it from this app at all. The recycle
+  bin's 90-day sweep did exactly that, unattended, on a page load. The sweep
+  now leaves a still-published tournament in the bin instead, and "Delete
+  permanently" withdraws it properly or tells you why it could not.
+- [Fix] **Under Belgian 3-2-1 scoring, a draw is no longer counted as a
+  win.** The "Number of wins" tie-break (FIDE C.07 Art. 7.1) asks how many
+  rounds a player took as many points from as a win awards - and compared
+  what the round actually paid, presence point included, against a figure
+  that left the presence point out. In the Belgian club scheme (win 2 /
+  draw 1 / loss 0 with a point for turning up) a draw pays exactly what a
+  win pays before that point, so every draw in the event counted as a win,
+  and so did a bye worth a draw. It is in FIDE's default Swiss set, so it
+  was deciding places by default. Both sides of the comparison now measure
+  the same thing.
+- [Fix] **Koya's 50% line is measured against what a round can really pay.**
+  C.07 Art. 9.2 counts the points scored against opponents on at least half
+  the maximum possible tournament score, and the maximum was worked out
+  without the 3-2-1 presence point: 2 a round where a round pays 3. The line
+  landed at 1 point a round, which is exactly what a player who loses every
+  game and turns up to every round scores - so the whole field cleared it
+  and Koya separated nobody, returning each player their own score back. An
+  ordinary 1/half/0 tournament is unaffected by either fix; the numbers only
+  move where a tournament pays a presence point.
+- [Fix] **The working shown behind a tie-break agrees with the column
+  again.** The panel that explains how "Number of wins" and Koya were
+  arrived at carried its own copy of both calculations, so it confirmed the
+  wrong figure instead of exposing it. Both now read the one function the
+  standings read.
+- [Fix] **The enrolment screen says eight digits, because the code is eight
+  digits.** It had said six since the day it shipped, in English and in
+  Dutch - the number a helper counts to before deciding they have mistyped.
+- [Change] **Pinned to Ainalrami 0.24.0**, which reads a TRF in linear time
+  and measures a line in bytes rather than characters. That is the engine
+  half of the upload findings below: a 5 MB file of player records took over
+  an hour to parse and a single very long line about forty-five minutes, and
+  separately a team name carrying accents lost one player from its roster
+  per accent. The bounds this release adds are now policy rather than a
+  guard against the parser.
+
+- [Fix] **A TRF file is now measured before it is read.** Two of the TRF
+  parser's loops cost the square of what they are given, and nothing in
+  the format bounded either: 8,000 player records took 280 ms and a
+  million took over an hour, while a single 5 MB `132` or `013` line -
+  a two-line file - cost about three quarters of an hour on its own. Both
+  belong in the pairing engine and are reported there; what the app can do
+  is refuse the input, which it now does in one pass over the raw bytes
+  before anything is decoded. The limits are 5 MB, 20,000 records and a
+  2,048-byte line, each derived from what TRF16 can actually express - the
+  starting rank has four columns, so no file names more than 9,999
+  players, and the longest record is 91 + 10 per round, which at 2,048
+  covers a 195-round event.
+- [Fix] **A `.swar` file can no longer stop the whole application with one
+  round number.** A `[RONDE]` record's round number is a raw 32-bit
+  integer straight off the disk, and the importer turned the highest one
+  it found into a loop from 1 - inside the import transaction, holding the
+  database's single write lock. One record saying 2,000,000,000 froze
+  every other writer behind it. Round numbers outside 1 to 30
+  (`Tournament.max_rounds/0`, the longest event this app will hold) are
+  refused by the parser now, before a row is written. Round 0 goes with
+  them: it used to produce a Round row numbered 0, a round before the
+  first.
+- [Fix] **A bad results CSV no longer answers with a page bigger than the
+  file.** The importer returned one error line per bad row and the
+  Pairings page rendered every one of them: 200 KB of junk produced 99,999
+  errors and 4.5 MB of message text, so the 2 MB the upload allows became
+  a ~45 MB page pushed down the arbiter's own websocket. A file with more
+  lines than a round can have boards is now refused with one sentence, and
+  a long list of problems is cut to fifty with a count of the rest -
+  enough to show whether it is one mistyped board or the wrong file
+  entirely.
+- [Change] **A tournament export is read at 10 MB rather than 25.** The
+  size was checked by the upload box and nowhere else, so 25 MB of JSON
+  became up to ~285 MB of memory before the format tag had been looked at.
+  The limit now lives in the importer, is re-checked on disk before the
+  file is read at all, and is set from what an export weighs: a
+  400-player, 13-round tournament with a 2,000-row audit trail measures
+  220 KB, and the largest Swiss ever played scales to about 5 MB. A file
+  holding a dozen such events at once is refused with a note to export in
+  batches; the machine backup remains the tool for a whole archive.
+
 ## [0.49.0] - 2026-09-08
 
 - [Feature] **An imported TRF file is now checked against the pairing

@@ -61,7 +61,7 @@ defmodule PairingsEngineWeb.MobileEnrollController do
     |> redirect(to: ~p"/m")
   end
 
-  # Shared by both entry paths - the QR token and the 6-digit code are the
+  # Shared by both entry paths - the QR token and the 8-digit code are the
   # same credential by two routes, so both go through the identical atomic
   # claim (`Mobile.claim/1`) rather than each reimplementing "first phone
   # wins" on its own.

@@ -57,6 +57,7 @@ defmodule PairingsEngine.TiebreakWorking do
   decomposition.
   """
 
+  alias PairingsEngine.Standings
   alias PairingsEngine.Tournaments.Player
 
   @doc """
@@ -147,8 +148,16 @@ defmodule PairingsEngine.TiebreakWorking do
   # Article 9.2: only opponents on at least half the maximum score count.
   # The rest are shown at zero rather than left out - "I beat them and it did
   # not help" is precisely the question this tiebreak raises.
+  #
+  # `Standings.win_points/1`, not `t.points_win`, for the reason spelled out
+  # over that function and over `Standings.tiebreak("KS", ...)`: the maximum
+  # a participant could score in a round includes the SWAR 3-2-1 presence
+  # point, and so do the `opp.points` this is compared against. Reached
+  # through the public function rather than restated, because this panel
+  # exists to expose a wrong column and cannot do that while it shares the
+  # column's arithmetic by hand-copy.
   defp parts("KS", entry, by_id, t) do
-    threshold = entry.completed_rounds * t.points_win / 2
+    threshold = entry.completed_rounds * Standings.win_points(t) / 2
 
     Enum.map(entry.games, fn g ->
       opp = opponent(g, by_id)
@@ -205,7 +214,14 @@ defmodule PairingsEngine.TiebreakWorking do
   # Article 7.1: rounds worth as many points as a win, played or not - so a
   # forfeit win and a full-point bye both count, which is the part people
   # query. 7.2 is the same list restricted to games won over the board.
-  defp parts("WIN", entry, _by_id, t), do: count_parts(entry, &(&1.points >= t.points_win))
+  #
+  # `Standings.win_points/1` again, same reason as Koya above: "as many
+  # points as awarded for a win" has to be measured in the currency the
+  # round's points are recorded in, presence point included.
+  defp parts("WIN", entry, _by_id, t) do
+    win = Standings.win_points(t)
+    count_parts(entry, &(&1.points >= win))
+  end
 
   defp parts("WON", entry, _by_id, _t),
     do: count_parts(entry, &(&1.played and &1.outcome == :win))

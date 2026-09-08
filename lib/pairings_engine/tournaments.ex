@@ -1163,6 +1163,27 @@ defmodule PairingsEngine.Tournaments do
   tournament as gone - so the copy running the event would find the way home
   closed long before the row actually went. Take it back first; then bin it
   if that is still what you want.
+
+  ## What this does to a published tournament
+
+  It stops publishing it, and it does not withdraw it.
+
+  The broadcast at the end funnels into `PairingsEngine.Publishing.enqueue_id/1`
+  like every other write in this module, and until this was fixed that meant
+  binning a published tournament PUBLISHED IT - a fresh snapshot of the event
+  the arbiter had just withdrawn went out about two seconds later. That is
+  now refused there, and in `Publishing.publish/1` and `Publishing.due/1`
+  besides.
+
+  Withdrawing it as well was considered and deliberately not done. Binning is
+  reversible for 90 days; `Publishing.take_down/1` is irreversible on the
+  server, takes every earlier snapshot and any collected entries with it, and
+  clears `publish_to_openresults` - so a mis-click here would silently cost an
+  arbiter their public page and their form entries, with a restore that
+  brings the tournament back not-publishing. It is also a network call on a
+  path that must not be able to fail. The withdrawal instead happens at the
+  point of no return, in `purge_tournament/1`, which is where destroying the
+  key would otherwise leave the page up forever.
   """
   @spec soft_delete_tournament(Tournament.t()) ::
           {:ok, Tournament.t()} | {:error, :handed_off | Ecto.Changeset.t()}
@@ -1201,13 +1222,39 @@ defmodule PairingsEngine.Tournaments do
   "Delete permanently" action from the recycle bin and by
   `purge_expired_tournaments/0`'s automatic sweep.
 
-  Inherits that function's `{:error, :handed_off}` refusal, which is the one
-  that matters most here: this is the call that would actually destroy the
-  `handoff_token` row the returning copy needs.
+  Refuses `{:error, :handed_off}`, which is the refusal that matters most
+  here: this is the call that would actually destroy the `handoff_token` row
+  the returning copy needs. `delete_tournament/1` refuses it as well, but
+  this one has to be first - see the comment on the check.
+
+  Withdraws the tournament from the results site FIRST, and refuses to delete
+  anything if that does not work (`{:error, {:still_published, message}}`,
+  the message already in words). `tournaments.openresults_key` is the only
+  credential that can take a published tournament down and it lives on this
+  one machine; deleting the row deletes the key, so purging while the page
+  was up left it up permanently, personal data and all. See
+  `PairingsEngine.Publishing.retract/1`. A tournament that was never
+  published from here costs nothing extra - `retract/1` answers `:ok`
+  without touching the network.
   """
   @spec purge_tournament(Tournament.t()) ::
-          {:ok, Tournament.t()} | {:error, :handed_off | Ecto.Changeset.t()}
-  def purge_tournament(%Tournament{} = tournament), do: delete_tournament(tournament)
+          {:ok, Tournament.t()}
+          | {:error, :handed_off | {:still_published, String.t()} | Ecto.Changeset.t()}
+  def purge_tournament(%Tournament{} = tournament) do
+    # Hand-off is screened before the withdrawal rather than left to
+    # `delete_tournament/1` below, because the order is the point: reaching
+    # the results site first would take down the public page of a tournament
+    # somebody else is running, and only then discover that the row may not
+    # be deleted here anyway.
+    if handed_off?(tournament) do
+      {:error, :handed_off}
+    else
+      case PairingsEngine.Publishing.retract(tournament) do
+        :ok -> delete_tournament(tournament)
+        {:error, message} -> {:error, {:still_published, message}}
+      end
+    end
+  end
 
   @doc """
   Lists the scope's user's own recycle-binned tournaments (`deleted_at` set),
@@ -1235,11 +1282,29 @@ defmodule PairingsEngine.Tournaments do
   unattended on a page load, and eating that row would strand the copy
   running the event with nobody watching. It stays in the bin until it is
   taken back, and a stale count would have hidden that it had.
+
+  A tournament still published to the results site is skipped in the QUERY,
+  not left to `purge_tournament/1`'s refusal, and the difference is the
+  point: that refusal works by calling the results site, and this runs on
+  every load of the Tournaments page. Three expired rows would be three HTTP
+  requests, each with a fifteen-second timeout, in the middle of a mount.
+  Selecting only rows with no `openresults_key` keeps the sweep exactly as
+  cheap as it was.
+
+  What that costs is that a published tournament is never swept: it sits in
+  the bin past 90 days until somebody presses "Delete permanently", which
+  goes through `purge_tournament/1` and withdraws it properly. That is the
+  right trade. The alternative is the state this replaced, where the sweep
+  destroyed the only key that could remove a live public page and nobody was
+  watching when it happened.
   """
   def purge_expired_tournaments do
     cutoff = DateTime.utc_now() |> DateTime.add(-@recycle_bin_retention_days, :day)
 
-    Repo.all(from t in Tournament, where: not is_nil(t.deleted_at) and t.deleted_at < ^cutoff)
+    Repo.all(
+      from t in Tournament,
+        where: not is_nil(t.deleted_at) and t.deleted_at < ^cutoff and is_nil(t.openresults_key)
+    )
     |> Enum.count(&match?({:ok, _}, purge_tournament(&1)))
   end
 

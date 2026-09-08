@@ -89,15 +89,29 @@ defmodule PairingsEngineWeb.TournamentsLive do
      # format anyway.
      |> allow_upload(:swar, accept: :any, max_entries: 1, max_file_size: 5_000_000)
      |> allow_upload(:trf, accept: :any, max_entries: 1, max_file_size: 5_000_000)
-     |> allow_upload(:backup, accept: ~w(.json), max_entries: 1, max_file_size: 25_000_000)
+     # The three JSON boxes take their size from the importer rather than
+     # naming one of their own. The browser refusing a file early is a
+     # better message than the server refusing it late, but the importer is
+     # what the promise has to be made by - `TournamentImport.decode_file/1`
+     # re-checks on disk, because a `live_file_input` limit is a convenience
+     # and not a guarantee about who can reach the function.
+     |> allow_upload(:backup,
+       accept: ~w(.json),
+       max_entries: 1,
+       max_file_size: TournamentImport.max_bytes()
+     )
      # Two uploads rather than one shared "hand-off file" box, for the same
      # reason as the assigns above: the arriving file and the returning file
      # are opposites, and each box can then say which one it wants.
-     |> allow_upload(:handoff, accept: ~w(.json), max_entries: 1, max_file_size: 25_000_000)
+     |> allow_upload(:handoff,
+       accept: ~w(.json),
+       max_entries: 1,
+       max_file_size: TournamentImport.max_bytes()
+     )
      |> allow_upload(:handoff_return,
        accept: ~w(.json),
        max_entries: 1,
-       max_file_size: 25_000_000
+       max_file_size: TournamentImport.max_bytes()
      )
      |> assign_tournaments()
      |> assign_deleted_tournaments()
@@ -853,23 +867,20 @@ defmodule PairingsEngineWeb.TournamentsLive do
   ## ---------- Hand-off helpers ----------
 
   defp decode_and_receive(path, scope) do
-    with {:ok, body} <- File.read(path),
-         {:ok, data} <- Jason.decode(body) do
-      Handoff.receive(data, scope)
-    else
-      _unreadable -> {:error, :unreadable}
+    case TournamentImport.decode_file(path) do
+      {:ok, data} -> Handoff.receive(data, scope)
+      {:error, reason} -> {:error, reason}
     end
   end
 
   defp decode_and_release(path, tournament, scope) do
-    # Only the two decoding steps can land in the `else`, and both mean the
-    # same thing to an arbiter: the file is not readable JSON. Every refusal
-    # that is ABOUT the hand-off comes back from `release/3` itself.
-    with {:ok, body} <- File.read(path),
-         {:ok, data} <- Jason.decode(body) do
-      Handoff.release(tournament, data, scope)
-    else
-      _unreadable -> {:error, :unreadable}
+    # `decode_file/1` answers with `:unreadable` or `:too_large`, and both
+    # are about the file rather than about the hand-off - `handoff_error/1`
+    # words them. Every refusal that is ABOUT the hand-off comes back from
+    # `release/3` itself.
+    case TournamentImport.decode_file(path) do
+      {:ok, data} -> Handoff.release(tournament, data, scope)
+      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -957,6 +968,15 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
   defp handoff_error(:unreadable),
     do: gettext("That file could not be read as JSON.")
+
+  # A hand-off carries exactly one tournament, so this is well past
+  # anything a real one can weigh - see `TournamentImport.max_bytes/0`.
+  defp handoff_error(:too_large),
+    do:
+      gettext(
+        "That file is larger than %{mb} MB, which is more than a hand-off of one tournament can be. Check it is the right file.",
+        mb: div(TournamentImport.max_bytes(), 1_000_000)
+      )
 
   defp handoff_error(message) when is_binary(message), do: message
 
@@ -1218,12 +1238,18 @@ defmodule PairingsEngineWeb.TournamentsLive do
   defp format_points(p), do: :erlang.float_to_binary(p / 1, decimals: 1)
 
   defp decode_and_import(path, scope) do
-    with {:ok, content} <- File.read(path),
-         {:ok, data} <- Jason.decode(content) do
-      TournamentImport.import(data, scope)
-    else
-      {:error, %Jason.DecodeError{}} -> {:error, "This file is not valid JSON"}
-      {:error, reason} -> {:error, "Could not read this file: #{inspect(reason)}"}
+    case TournamentImport.decode_file(path) do
+      {:ok, data} ->
+        TournamentImport.import(data, scope)
+
+      {:error, :too_large} ->
+        {:error,
+         "This file is larger than #{div(TournamentImport.max_bytes(), 1_000_000)} MB, " <>
+           "which is more than any tournament export can be. Export in smaller " <>
+           "batches, or use a machine backup if you want the whole archive."}
+
+      {:error, :unreadable} ->
+        {:error, "This file is not valid JSON"}
     end
   end
 

@@ -224,6 +224,40 @@ defmodule PairingsEngine.Federations.BEL.SwarPublishTest do
       # earlier "Vrij" was a guess made with no bye anywhere to copy.
       assert html =~ "Bye"
     end
+
+    # The vacated-seat class of bug, on the page that goes to the federation.
+    # `single_seat_award/2` was written for exactly this and never had a test;
+    # the same defect turned out to be live in `PairingsEngine.Snapshot`,
+    # which has its own pair of these now.
+    test "a vacated seat with a result recorded shows the result, not the bye value" do
+      tournament = fixture(user_scope_fixture())
+
+      # Round 2 board 2 already has one empty seat, carrying `"bye"`. Putting
+      # a forfeit on it is the state an arbiter reaches when the opponent has
+      # gone and the player left behind is scored rather than given a bye -
+      # and the state a SWAR or TRF import hands over ready-made.
+      Repo.get_by!(Pairing, board: 2, result: "bye")
+      |> Ecto.Changeset.change(result: "0-1FF")
+      |> Repo.update!()
+
+      html = SwarPublish.export(Tournaments.get_tournament!(tournament.id))
+
+      # It used to print `<td class='tdcb'>1</td>` here whatever the result
+      # was: the tournament's `bye_value`, published to the federation's
+      # public site, for a player who had just forfeited.
+      assert html =~ "<td class='tdcb'>0-1ff</td>"
+      refute html =~ "<td class='tdcb'>1</td>"
+    end
+
+    test "a vacated seat with nothing recorded still shows the bye value" do
+      # The control: same shape, blank result, and the award must stay
+      # `bye_value`. A fix that read every one-seated board as a result would
+      # have broken the ordinary odd-player-count bye.
+      tournament = fixture(user_scope_fixture())
+      html = SwarPublish.export(tournament)
+
+      assert html =~ "<td class='tdcb'>1</td>"
+    end
   end
 
   describe "export/1 - excluded sections" do

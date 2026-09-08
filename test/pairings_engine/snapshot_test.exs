@@ -568,6 +568,78 @@ defmodule PairingsEngine.SnapshotTest do
   # nothing is switched off.
   defp all_shown, do: Map.new(PairingsEngine.PublicDisplay.keys(), &{&1, "true"})
 
+  # A board the arbiter emptied one seat of, and then recorded a result on -
+  # the shape a SWAR or TRF import carries, and the one an arbiter reaches by
+  # forfeiting a board whose opponent has already gone.
+  #
+  # The fixture's round is deliberately two boards that look identical from
+  # the outside: both have one empty seat, and only the result differs. The
+  # SWAR publish path grew the same fix first
+  # (`Bel.SwarPublish.single_seat_award/2`) and now has its own copy of these
+  # two tests.
+  describe "a vacated seat that carries a result" do
+    test "is published as what was recorded, not as a full-point bye" do
+      {tournament, forfeited, _byed} = vacancy_fixture("0-1FF")
+
+      round = Enum.find(Snapshot.build(tournament)["rounds"], &(&1["number"] == 1))
+
+      # The bug, in one row: this used to read
+      #   %{"kind" => "pairing-allocated", "points" => 1.0}
+      # for a player who FORFEITED the round. `bye_value` was published for
+      # every one-seated board, whatever was actually on it.
+      assert %{
+               "player" => forfeited.pairing_number,
+               "kind" => "vacated-seat",
+               "result" => "0-1FF",
+               "points" => 0.0
+             } in round["byes"]
+    end
+
+    test "leaves a genuine pairing-allocated bye exactly as it was" do
+      {tournament, _forfeited, byed} = vacancy_fixture("0-1FF")
+
+      round = Enum.find(Snapshot.build(tournament)["rounds"], &(&1["number"] == 1))
+
+      # The control. This board also has one empty seat; what makes it a bye
+      # is that nothing was recorded on it. Had the fix been "stop calling
+      # one-seated boards byes", this row would have moved too - and it must
+      # not, because it is the ordinary odd-player-count bye worth `bye_value`.
+      assert %{
+               "player" => byed.pairing_number,
+               "kind" => "pairing-allocated",
+               "points" => 1.0
+             } in round["byes"]
+    end
+
+    test "pays what the crosstable in the same document pays" do
+      # The property that matters, and the one a wrong constant cannot
+      # satisfy by luck: OpenResults rebuilds a player's running total by
+      # adding these per-round figures up, while the same payload carries
+      # standings computed by `Standings`. Two answers to one question show
+      # up on the public page as a total that does not add up, with nothing
+      # on it able to explain why.
+      #
+      # Every result that can sit on a vacated seat, so the agreement is a
+      # rule rather than one lucky code.
+      for {result, expected} <- [{"1-0FF", 1.0}, {"0-1FF", 0.0}, {"0-0FF", 0.0}, {"1/2-1/2", 0.5}] do
+        {tournament, seated, _byed} = vacancy_fixture(result)
+
+        snapshot = Snapshot.build(tournament)
+        round = Enum.find(snapshot["rounds"], &(&1["number"] == 1))
+        published = Enum.find(round["byes"], &(&1["player"] == seated.pairing_number))
+
+        ranked =
+          Enum.find(snapshot["standings"]["rows"], &(&1["player"] == seated.pairing_number))
+
+        assert published["points"] == expected,
+               "#{result}: published #{inspect(published["points"])}, expected #{expected}"
+
+        assert ranked["points"] == expected,
+               "#{result}: the standings in the same document say #{inspect(ranked["points"])}"
+      end
+    end
+  end
+
   describe "the cross-repo contract fixtures" do
     @tag :snapshot_fixtures
     test "a real snapshot is written to the OpenResults fixture directory" do
@@ -845,6 +917,55 @@ defmodule PairingsEngine.SnapshotTest do
         result: result
       })
     end
+  end
+
+  # One published round, four players, two boards with an empty black seat.
+  #
+  # Board 1 carries `result` and is the case under test; board 2 carries the
+  # blank an untouched pairing-allocated bye has, and is the control. Nothing
+  # else happens in the tournament, so each seated player's whole score is
+  # what their own board paid - which is what lets the third test compare the
+  # published bye row against the standings without arithmetic in the test.
+  defp vacancy_fixture(result) do
+    tournament =
+      Repo.insert!(%Tournament{
+        name: "Vacancy",
+        type: "swiss",
+        pairing_system: "swiss",
+        rounds_count: 1,
+        publish_mode: "manual",
+        public_slug: "vacancy-#{System.unique_integer([:positive])}"
+      })
+
+    [seated, byed] =
+      for no <- 1..2 do
+        Repo.insert!(%Player{
+          tournament_id: tournament.id,
+          pairing_number: no,
+          name: "Player #{no}",
+          fide_rating: 2000 - no
+        })
+      end
+
+    round = insert_round(tournament, 1, ~U[2026-03-01 14:00:00Z])
+
+    Repo.insert!(%Pairing{
+      round_id: round.id,
+      board: 1,
+      white_player_id: seated.id,
+      black_player_id: nil,
+      result: result
+    })
+
+    Repo.insert!(%Pairing{
+      round_id: round.id,
+      board: 2,
+      white_player_id: byed.id,
+      black_player_id: nil,
+      result: "bye"
+    })
+
+    {Tournaments.get_tournament!(tournament.id), seated, byed}
   end
 
   defp result_at(snapshot, round_number, board_number) do
