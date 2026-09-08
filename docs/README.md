@@ -1,9 +1,10 @@
 # OpenPairings documentation
 
 OpenPairings is a chess tournament manager (Elixir/Phoenix + LiveView + SQLite):
-Swiss pairing via JaVaFo, round robin (Berger), the Keizer system,
-FIDE tiebreaks (C.07), TRF16 export/import, FIDE + KBSB rating lists,
-SWAR import, per-tournament sharing, and FIDE norm/report forms.
+Swiss pairing on Ainalrami or JaVaFo, round robin (Berger), the Keizer
+system, FIDE tiebreaks (C.07), TRF26 and TRF16 export/import, FIDE + KBSB
+rating lists, SWAR import, per-tournament sharing, and FIDE norm/report
+forms.
 
 **Start here: [Features & roadmap](features.md)** - a one-page overview of
 everything the app does and what is planned next.
@@ -20,17 +21,21 @@ everything the app does and what is planned next.
   change to the pairing engine, norms/`.xlsx` filling, or standings.
 - [Standalone binaries](binaries.md) - Burrito single-file executables.
 - [FIDE endorsement readiness](fide-endorsement.md) - the Verification Check
-  List mapped against OpenPairings' JaVaFo-wrapper architecture, current gaps,
-  and the RTG/FPC fuzz-testing harness plan.
+  List mapped against OpenPairings, current gaps, and the RTG/FPC
+  fuzz-testing harness plan. Read its own opening note first: the document
+  is built on a "JaVaFo wrapper" framing that it now says out loud has
+  expired, because the shipped default is our own engine.
 
 ## Feature guides
 
-- [Pairing systems](pairing-systems.md) - Swiss (FIDE Dutch via JaVaFo),
-  round robin (Berger tables, single/double), and the Keizer system (ladder
+- [Pairing systems](pairing-systems.md) - Swiss (FIDE Dutch, on Ainalrami
+  by default or JaVaFo by choice), round robin (Berger tables,
+  single/double), and the Keizer system (ladder
   values, retroactive recalculation, Keizer-point standings); the per-tournament
   selector locks after the first pairing.
 - [Forbidden pairings](forbidden-pairings.md) - pairs of players that must
-  never meet: managed in Settings, enforced in Swiss (JaVaFo `XXP`) and Keizer;
+  never meet: managed in Settings, enforced in Swiss by either engine (the
+  `XXP` line) and in Keizer;
   round robin ignores them by design. Includes club/federation exclusion rules
   (never pair clubmates / same-federation players, for all or only listed
   clubs/federations).
@@ -41,8 +46,8 @@ everything the app does and what is planned next.
   its own win/draw/loss/bye point values, stored ×8).
 - [Acceleration](acceleration.md) - Baku accelerated Swiss (FIDE C.04.7): we
   compute each Group-A player's virtual points per round ourselves and hand
-  JaVaFo the full history via fixed-column `XXA` lines, because JaVaFo does
-  not derive acceleration from a flag on its own.
+  the engine the full history via fixed-column `XXA` lines, because neither
+  engine derives acceleration from a flag on its own.
 - [Manual standings](manual-standings.md) - the arbiter's hand-set standings
   order: an explicit, per-tournament override mode with a banner on every
   surface that shows a rank, and a staleness flag raised the moment a result
@@ -116,8 +121,9 @@ everything the app does and what is planned next.
 
 ## Where things live
 
-- `lib/pairings_engine/` - domain: `pairing.ex` (JaVaFo), `standings.ex` (C.07
-  tiebreaks, supports `through_round:`), `trf.ex` (TRF16 + result validation),
+- `lib/pairings_engine/` - domain: `pairing.ex` (drives whichever Swiss
+  engine the tournament selects), `standings.ex` (C.07
+  tiebreaks, supports `through_round:`), `trf.ex` (TRF + result validation),
   `trf_export.ex` / `tournament_export.ex` / `tournament_import.ex` (exports),
   `fide/sync.ex` (rating-list sync), `federations/bel/` (everything
   Belgium-specific: KBSB rating-list import, club refresh, the `.swar`

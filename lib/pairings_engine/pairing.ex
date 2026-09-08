@@ -79,7 +79,9 @@ defmodule PairingsEngine.Pairing do
   @doc """
   Pairs the next round. Dispatches on `tournament.pairing_system`:
 
-    * `"swiss"` (default) - the JaVaFo/Dutch path below, unchanged.
+    * `"swiss"` (default) - the Dutch path below, run on whichever engine
+      `tournament.pairing_engine` names: Ainalrami in-process by default,
+      or JaVaFo as a subprocess.
     * `"round_robin"` - delegates to `PairingsEngine.RoundRobin.pair_next_round/1`.
     * `"keizer"` - delegates to `PairingsEngine.Keizer.pair_next_round/1`.
 

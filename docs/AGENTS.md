@@ -16,7 +16,7 @@ code** and treat this file as stale on that specific point (see `TODO.md`).
 A web-based chess tournament manager: FIDE Swiss pairing (via the built-in
 Ainalrami engine, or the external JaVaFo), round robin (Berger), the Keizer
 system, FIDE tiebreaks (C.07), result entry, live standings, printing,
-TRF16/SWAR import-export, FIDE/KBSB rating-list sync, automatic FIDE
+TRF26/TRF16/SWAR import-export, FIDE/KBSB rating-list sync, automatic FIDE
 title-norm judgment (B.01), and no-account mobile result entry. Single-user-owned tournaments with optional
 per-tournament collaborator sharing.
 
@@ -33,8 +33,10 @@ per-tournament collaborator sharing.
   concurrency" below) that don't exist in a Postgres-backed Phoenix app.
 - **Two Swiss engines**, chosen per tournament by
   `tournaments.pairing_engine`, which defaults to `"ainalrami"`. Either way
-  this app's job for Swiss is the same: build a correct TRF16 input file,
-  hand it over, parse the result back. **Ainalrami** is the sibling
+  this app's job for Swiss is the same: build a correct TRF input file in
+  the `:engine` dialect - TRF16 plus the JaVaFo `XX` extension lines, which
+  is what both engines read - hand it over, and parse the result back. The
+  user-facing export is a different question and defaults to TRF26. **Ainalrami** is the sibling
   pure-Elixir Dutch engine and runs in-process, no JVM. **JaVaFo** (a real,
   external, FIDE-endorsed Java program) is the alternative, invoked as
   `java -jar javafo.jar`, and is handed the byte-identical TRF. Both are
@@ -82,9 +84,10 @@ per-tournament collaborator sharing.
   JaVaFo).
 - `lib/pairings_engine/standings.ex` - FIDE C.07 tiebreaks (Buchholz,
   Sonneborn-Berger, DE, etc.), Article 16 unplayed-round handling.
-- `lib/pairings_engine/trf_export.ex` / `trf_import.ex` - the app's two TRF16
-  ends. Neither implements the format: `Ainalrami.Trf` is the single shared
-  serializer/parser both the JaVaFo input and the user-facing TRF export go
+- `lib/pairings_engine/trf_export.ex` / `trf_import.ex` - the app's two TRF
+  ends, TRF26 by default and TRF16 on request (`dialect:`). Neither
+  implements the format: `Ainalrami.Trf` is the single shared
+  serializer/parser both the engine input and the user-facing TRF export go
   through, and what is left here is the adapter that turns Ecto structs into
   the plain maps it takes. The app used to carry a second implementation,
   `lib/pairings_engine/trf.ex`, which Ainalrami's was photocopied from and

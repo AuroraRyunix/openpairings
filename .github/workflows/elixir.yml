@@ -47,6 +47,12 @@ jobs:
       # dependency tree that exists nowhere else. This fails instead.
       run: mix deps.get --check-locked
 
+    - name: Compile
+      run: mix compile --warnings-as-errors
+
+    - name: Check formatting
+      run: mix format --check-formatted
+
     - name: Run tests
       # javafo.jar (third-party, not committed - see test/test_helper.exs)
       # and the gitignored SWAR fixtures (real personal data) are the only

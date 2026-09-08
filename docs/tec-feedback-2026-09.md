@@ -3,6 +3,16 @@
 **From:** OpenPairings (THP) / Ainalrami (pairing and tie-break engine)
 **Date:** 2026-08-25
 **Consultation deadline:** 2026-09-07
+**Sent:** 2026-09-08
+
+> Kept as sent. Two things in it were overtaken between drafting and
+> dispatch and are deliberately *not* corrected here, because this is the
+> record of what FIDE received: C.1 says we implement TRF16, where TRF26
+> shipped on 09-07; and Part A treats the Gacrux Article 5.2.5 divergence
+> as unadjudicated, where it was confirmed on 09-08 with a reproducible
+> position (`deps/ainalrami/docs/finding-gacrux-5-2-5.md`). Both understate
+> our position rather than overstating it. The one commitment this letter
+> makes - `?` as the ITDX unknown-result code, C.2 - is tracked in TODO.md.
 
 Thank you for circulating the drafts. We are a new entrant with no
 existing endorsement, so we have no position to defend in the coming

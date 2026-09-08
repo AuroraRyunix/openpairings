@@ -176,8 +176,11 @@ draft VCL and TEC Manual on 2026-08-25; when the final versions publish,
 existing endorsements are revoked and every vendor re-qualifies. The gap
 list, with our own read of which items are hard failures and which are
 accumulating penalties, is at the top of [`../TODO.md`](../TODO.md). The
-short version: FIDE Mode and adjourned games are the two real build items,
-and TRF-26 is blocked on FIDE publishing the specification.
+short version: FIDE Mode and adjourned games are the two real build items.
+TRF-26 was on that list and came off it on 2026-09-07: we read and write it
+now. What is still open there is FIDE's side - whether a specification is
+published as a specification, rather than as clarifications of one - and
+that is a question about their document, not about our support for it.
 
 Everything below predates that and is still wanted, just not first:
 

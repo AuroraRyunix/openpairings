@@ -48,8 +48,12 @@ SQLite connection pool, and a handful of long-lived GenServers.
        PairingsEngine.Tools.Session - public /tools/norms sessions (RAM only)
        PairingsEngine.RateLimit    - request/send throttling
 
-     External process, invoked per pairing round:
-       java -jar priv/javafo/javafo.jar  (Swiss pairing only)
+     Swiss pairing, one of two engines per tournament:
+       Ainalrami                   - default; an Elixir library, called in
+                                     this process, no subprocess at all
+       java -jar priv/javafo/javafo.jar
+                                   - by choice; the only external process
+                                     this application ever starts
 ```
 
 ## Layers
@@ -73,11 +77,12 @@ downloads), `NormsController` (IT3/FA1/IA1/IT4 `.xlsx` downloads),
 ### 2. Domain (`lib/pairings_engine/`)
 
 Plain Elixir modules, mostly pure functions plus a handful of Ecto-backed
-context modules (`Tournaments`, `Accounts`). The three pairing engines
-(`Pairing` for Swiss/JaVaFo, `RoundRobin`, `Keizer`) share no code but all
-funnel through the same `Tournaments`/`Standings` layer afterward. See
-`docs/AGENTS.md` for the Swiss/JaVaFo pipeline's internal shape - it's the
-most intricate part of this layer.
+context modules (`Tournaments`, `Accounts`). The three pairing systems
+(`Pairing` for Swiss, `RoundRobin`, `Keizer`) share no code but all funnel
+through the same `Tournaments`/`Standings` layer afterward. `Pairing` is
+itself a fork: a Swiss tournament's `pairing_engine` field selects
+Ainalrami, the default, or JaVaFo. See `docs/AGENTS.md` for the Swiss
+pipeline's internal shape - it's the most intricate part of this layer.
 
 Import/export modules (`TrfImport`, `TrfExport`,
 `TournamentExport`/`TournamentImport`, `PgnExport`, and
@@ -201,13 +206,16 @@ Pairing.pair_next_round/1  (dispatches on tournament.pairing_system)
    ┌────┼────────────────────┬─────────────────────┐
    │ swiss              round_robin              keizer
    ▼                          ▼                      ▼
-build TRF16 text        pure Berger           backtracking ladder
+ build TRF text         pure Berger           backtracking ladder
   (full roster,          schedule fn            matcher (own algo,
    local rank map)        (frozen pairing         no external process)
    │                       numbers)                │
-   ▼                          │                     │
-java -jar javafo.jar          │                     │
-   │                          │                     │
+   ├── ainalrami ──┐          │                     │
+   │  (default,    │          │                     │
+   │   in-process) │          │                     │
+   └── javafo ─────┤          │                     │
+      (subprocess) │          │                     │
+   ┌───────────────┘          │                     │
    ▼                          ▼                     ▼
 parse pairs               map ranks to        assign colours,
    │                        real players        build pairing rows
@@ -223,8 +231,13 @@ parse pairs               map ranks to        assign colours,
    every open LiveView on "tournament:#{id}" reloads live
 ```
 
-Round robin and Keizer never invoke JaVaFo or write a TRF file at all - only
-the `swiss` branch does. See `docs/AGENTS.md` for the Swiss branch's actual
+Round robin and Keizer never build TRF text at all - only the `swiss`
+branch does, and it builds the same text whichever engine is selected,
+because the TRF is how both are fed. What differs is where that text goes:
+Ainalrami is handed it in memory and answers in this process, while JaVaFo
+gets it as a scratch file and answers as a subprocess under a deadline. The
+app has exactly one TRF implementation, and it lives in the engine - see
+`Pairing`'s own note on why there used to be two. See `docs/AGENTS.md` for the Swiss branch's actual
 internal steps (full-roster scoping, scratch-file lifecycle, acceleration,
 match-format legs) - this diagram is intentionally the high-level version.
 

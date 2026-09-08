@@ -227,15 +227,27 @@ Still open, and each needs a decision rather than typing:
 
 ### Ainalrami (the engine)
 
-- **The Gacrux 5.2.5 candidate.** The corrected consistency checker fired 17
-  times over ~1,065,000 rounds on the 2026-08-29 corpus - **all seventeen on
-  Gacrux, all in round 2**, with bbpPairings and Ainalrami silent. Those are
-  rounds where Gacrux contradicts *itself*: one board implying the initial
-  colour was white, another implying black. Not adjudicated; one position
-  read by hand turns it into a finding or dissolves it, as two earlier
-  candidates dissolved. Logs on Photon at `/root/ain_val_run/`.
-- **Two upstream reports written and unsent** - the bbpPairings C2 report,
-  and `docs/finding-gacrux-5-2-4.md`. The maintainer sends those.
+- **Gacrux breaks Article 5.2.5 - confirmed 2026-09-08.** It was a
+  candidate for ten days: the corrected consistency checker fired 17 times
+  over ~1,065,000 rounds on the 2026-08-29 corpus, **all seventeen on
+  Gacrux, all in round 2**, with bbpPairings and Ainalrami silent - rounds
+  where Gacrux contradicts *itself*, one board implying the initial colour
+  was white and another implying black. Two earlier candidates had
+  dissolved on inspection, so this one was held open until a position was
+  read by hand. Seed 32007296 round 2 does not dissolve. Written up in
+  `deps/ainalrami/docs/finding-gacrux-5-2-5.md` with the board table and a
+  reproducible fixture; the corpus was rescued off Photon to
+  `VPS projects/ain_val_run_2026-08-29` and no longer depends on that box
+  being up.
+
+  Read the finding's last section even if you skip the rest. A reading of
+  Gacrux's source had concluded the check *could not* detect this, and that
+  reading was wrong - a reading predicts what an implementation does, it
+  does not observe it. The measurement was temporarily out of reach and the
+  argument was allowed to stand in its place.
+- **Three upstream reports written and unsent** - the bbpPairings C2
+  report, `docs/finding-gacrux-5-2-4.md`, and now
+  `docs/finding-gacrux-5-2-5.md`. The maintainer sends those.
 - **Team tournaments** - the reading is done, the code is not. C.04.6 is not
   the Dutch engine applied to teams: it has its own C1-C10 criteria, and
   Article 3.6 defines the answer as the head of a lexicographic order rather
@@ -262,8 +274,23 @@ maintainer.
 FIDE TEC circulated draft **VCL4THP v13** and a revised **TEC Manual** on
 2026-08-25, for consultation until **2026-09-07**. When the final versions
 publish, TEC announces a new Acceptance Cycle and **existing endorsements
-are revoked** - every vendor re-qualifies. Our feedback draft is
-[tec-feedback-2026-09.md](docs/tec-feedback-2026-09.md); it is not sent.
+are revoked** - every vendor re-qualifies. Our feedback is
+[tec-feedback-2026-09.md](docs/tec-feedback-2026-09.md), **sent 2026-09-08**.
+
+That letter makes exactly one commitment, and it is now owed rather than
+merely intended: **C.2 says "We will implement `?`"** as the ITDX
+unknown-result code. Nothing in either repository implements it. It is
+small - one more code in the two lists, plus a decision about whether an
+arbiter can type it or it is parse-only (parse-only is the safer reading; a
+THP that lets you type "unknown" invites it as a placeholder) - but it is a
+promise in writing to the body that will assess us, so it should land
+before the Acceptance Cycle opens rather than after.
+
+The letter also says, at C.1, "We currently implement TRF16 and are ready
+to move." That was true when it was drafted on 08-25 and was overtaken on
+09-07, when TRF26 shipped in both repositories. Understating our own
+position does us no harm; noted here only so nobody reads the sent copy as
+current.
 
 The VCL is 226 questions with **accumulating penalty percentages, where
 over 100% is a failure**, plus hard stops that end verification on the
@@ -339,8 +366,12 @@ Over 100% fails, so these add up rather than standing alone:
 
 - **TRF-26.** Required throughout (Q21 PTC input, Q217 report completeness
   at 30%), but the Manual documents Records 162/172/299 as clarifications
-  OF a specification rather than as one. Whether it is published is the
-  main question in our feedback. We implement TRF16 today.
+  OF a specification rather than as one. Whether it is published *as* a
+  specification is the main question in our feedback, and it is the only
+  part of this still blocked: **we implement TRF26 and TRF16 today**, both
+  directions, since 2026-09-07. Building against clarifications was the
+  cheaper risk than waiting - if the published text differs we adjust a
+  writer we already have, rather than starting one.
 
 ### Where we are already strong
 

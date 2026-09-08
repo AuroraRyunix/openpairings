@@ -90,7 +90,18 @@ Then, for each selected app in turn:
    and that is how the site went down on 2026-08-28.
 5. **Writes/refreshes a systemd unit** (`pairingsengine.service`) with the
    production environment baked into `Environment=` lines (chmod 600 - the
-   unit file contains `SECRET_KEY_BASE` and SMTP credentials). If a unit
+   unit file contains `SECRET_KEY_BASE` and SMTP credentials).
+
+   **The unit runs as a service account, not as root.** Until 2026-09-01
+   both units had `User=root` on a box that also serves the public results
+   site. Each app now has its own unprivileged account, with
+   `NoNewPrivileges=true` so nothing it execs can climb back,
+   `ProtectSystem=strict` making the whole filesystem read-only except the
+   `ReadWritePaths` it genuinely needs, `ProtectHome` hiding /home and
+   /root, and `PrivateTmp` giving it a /tmp of its own - which is where the
+   JaVaFo scratch files go. The uploaded tree is chowned to that account
+   before the service starts, because `ProtectSystem=strict` otherwise
+   leaves it unable to write its own `_build`. If a unit
    already exists from a prior deploy, its `SECRET_KEY_BASE` is **reused**
    rather than regenerated, so redeploying never invalidates every existing
    user's logged-in session. Right after, OpenPairings also gets
