@@ -1539,10 +1539,21 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
         {:ok, _} = Tournaments.create_player(tournament.id, %{"name" => name})
       end
 
+      # Whatever they were before the bad call is what they must be after it.
+      # This read "== \"paid\"" until the default became "nopaid", which made
+      # a test about REFUSING a bad value depend on which good value happens
+      # to be the default - two unrelated things, and only one of them is
+      # what this test is for.
+      before = Tournaments.list_players(tournament.id) |> Enum.map(&{&1.id, &1.paid}) |> Map.new()
+      refute Enum.empty?(before)
+
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
       render_click(lv, "set_all_paid", %{"value" => "sponsored"})
 
-      assert Enum.all?(Tournaments.list_players(tournament.id), &(&1.paid == "paid"))
+      after_call =
+        Tournaments.list_players(tournament.id) |> Enum.map(&{&1.id, &1.paid}) |> Map.new()
+
+      assert after_call == before
     end
   end
 
@@ -1805,6 +1816,133 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       updated = Tournaments.get_player!(tournament.id, player.id)
       assert updated.club == "New Club"
       assert updated.club_number == 812
+    end
+  end
+
+  ## ---------- presence sort, and what a new player owes ----------
+
+  describe "sorting on Presence" do
+    # The column pinned absentees to the top whichever way it was sorted,
+    # because a present player was reported as BLANK and `sort_lte?/3` keeps
+    # blanks last in both directions - a rule that is right for a missing
+    # rating and wrong here, since "present" is the commonest answer to the
+    # question this column asks, not a missing one.
+    setup %{scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Presence Sort", "type" => "swiss"})
+
+      {:ok, present} = Tournaments.create_player(tournament.id, %{"name" => "Present Percy"})
+      {:ok, absent} = Tournaments.create_player(tournament.id, %{"name" => "Absent Anna"})
+      {:ok, forfeit} = Tournaments.create_player(tournament.id, %{"name" => "Forfeit Fred"})
+
+      {:ok, _} = Tournaments.update_player(absent, %{"absent" => true})
+      {:ok, _} = Tournaments.update_player(forfeit, %{"forfeit" => true})
+
+      %{tournament: tournament, present: present}
+    end
+
+    # Only the roster rows: the page chrome has its own <strong>, and a nav
+    # label sorting itself to the top of the list would be a confusing way to
+    # fail.
+    defp names_in_order(html) do
+      ~r/<tr[^>]*data-player-id[^>]*>.*?<strong>([^<]+)<\/strong>/s
+      |> Regex.scan(html)
+      |> Enum.map(fn [_, name] -> name end)
+    end
+
+    test "clicking once puts the players who can play first", %{conn: conn, tournament: t} do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/players")
+      html = lv |> element(~s(th[phx-value-key="pr"])) |> render_click()
+
+      assert names_in_order(html) == ["Present Percy", "Absent Anna", "Forfeit Fred"]
+    end
+
+    test "clicking again reverses it, which is the whole complaint", %{conn: conn, tournament: t} do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/players")
+
+      first = lv |> element(~s(th[phx-value-key="pr"])) |> render_click()
+      second = lv |> element(~s(th[phx-value-key="pr"])) |> render_click()
+
+      assert names_in_order(first) == ["Present Percy", "Absent Anna", "Forfeit Fred"]
+      assert names_in_order(second) == ["Forfeit Fred", "Absent Anna", "Present Percy"]
+    end
+
+    test "a player sitting out some rounds sorts between present and absent",
+         %{conn: conn, tournament: t} do
+      {:ok, partial} = Tournaments.create_player(t.id, %{"name" => "Partial Pia"})
+      {:ok, _} = Tournaments.update_player(partial, %{"absent_rounds" => "2,3"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/players")
+      html = lv |> element(~s(th[phx-value-key="pr"])) |> render_click()
+
+      order = names_in_order(html)
+
+      assert Enum.find_index(order, &(&1 == "Present Percy")) <
+               Enum.find_index(order, &(&1 == "Partial Pia"))
+
+      assert Enum.find_index(order, &(&1 == "Partial Pia")) <
+               Enum.find_index(order, &(&1 == "Absent Anna"))
+    end
+
+    test "a forfeited player who is also absent sorts with the forfeits it displays as",
+         %{conn: conn, tournament: t} do
+      # It showed F and sorted under A, which split the F group in a sorted
+      # column - the one place the display and the order disagreed.
+      {:ok, both} = Tournaments.create_player(t.id, %{"name" => "Both Bea"})
+      {:ok, _} = Tournaments.update_player(both, %{"forfeit" => true, "absent" => true})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/players")
+      html = lv |> element(~s(th[phx-value-key="pr"])) |> render_click()
+
+      order = names_in_order(html)
+
+      assert Enum.find_index(order, &(&1 == "Absent Anna")) <
+               Enum.find_index(order, &(&1 == "Both Bea"))
+    end
+  end
+
+  describe "what a new player owes" do
+    test "a player added by hand starts NOT paid", %{scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Fee Default", "type" => "swiss"})
+
+      {:ok, player} = Tournaments.create_player(tournament.id, %{"name" => "Newcomer"})
+
+      # The money has not arrived; the arbiter ticks it off when it does.
+      assert player.paid == "nopaid"
+    end
+
+    test "opening a hand-added player shows Not paid ticked", %{conn: conn, scope: scope} do
+      # The quick-add form asks for none of this, so the default is the whole
+      # answer - and the edit panel is where the arbiter first sees it.
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Fee Form", "type" => "swiss"})
+
+      {:ok, player} = Tournaments.create_player(tournament.id, %{"name" => "Newcomer"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+      html = render_click(lv, "edit_player", %{"id" => to_string(player.id)})
+
+      radios = Regex.scan(~r/<input[^>]*name="player\[paid\]"[^>]*>/, html)
+      assert length(radios) == 3, "the edit panel is missing the fee radios"
+
+      checked = for [tag] <- radios, tag =~ "checked", do: tag
+      assert [one] = checked
+      assert one =~ ~s(value="nopaid")
+    end
+
+    test "an explicit fee status still wins over the default", %{scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Fee Explicit", "type" => "swiss"})
+
+      {:ok, paid} =
+        Tournaments.create_player(tournament.id, %{"name" => "Payer", "paid" => "paid"})
+
+      {:ok, free} =
+        Tournaments.create_player(tournament.id, %{"name" => "Guest", "paid" => "gratis"})
+
+      assert paid.paid == "paid"
+      assert free.paid == "gratis"
     end
   end
 end

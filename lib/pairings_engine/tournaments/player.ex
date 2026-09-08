@@ -22,7 +22,21 @@ defmodule PairingsEngine.Tournaments.Player do
     field :pairing_number, :integer
 
     # nopaid | paid | gratis (SWAR §5.20)
-    field :paid, :string, default: "paid"
+    # Defaults to NOT paid, because that is what is true when a player is
+    # added: they are on the list and the money has not arrived yet.
+    # Defaulting to "paid" made the arbiter's job the wrong way round - every
+    # new entry arrived already ticked, so the only way to keep the column
+    # honest was to un-tick people, and a column nobody trusts is a column
+    # nobody reads. Now it fills in as the fee comes in.
+    #
+    # The COLUMN default in `20260710120000_add_swar_admin_fields.exs` is
+    # still "paid" and is deliberately left alone: every write goes through
+    # this schema, which sends the struct default, so the column default is
+    # reachable only from hand-written SQL - and changing it would cost a
+    # SQLite table rebuild for no behaviour. The SWAR importer sets `paid`
+    # from the file it is reading and is unaffected either way.
+    # Same reasoning as `publish_mode`'s two defaults - see TODO.md.
+    field :paid, :string, default: "nopaid"
     # SWAR Aff. (§5.21)
     field :affiliated, :boolean, default: true
     # SWAR Absent checkbox - player not paired at all while set

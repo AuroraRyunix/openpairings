@@ -271,11 +271,37 @@ defmodule PairingsEngineWeb.PlayersLive do
     end
   end
 
+  # Presence sorts by HOW ABSENT a player is, and every player has an answer -
+  # including "present", which is why nothing here is blank.
+  #
+  # It used to return `{1, nil}` for a present player, and `sort_lte?/3` pins
+  # blanks last in BOTH directions, by design, so that a missing rating never
+  # jumps to the top of a descending sort. The effect on this column was that
+  # the absent players led every time and clicking the header again changed
+  # nothing an arbiter could see - the only thing that moved was the order
+  # among the absentees. "Present" is not missing data, though: it is the
+  # commonest answer to the question the column asks.
+  #
+  # The order is the one the column is read in - who can play, through to who
+  # certainly cannot - rather than alphabetical on the marker, which would
+  # put `a(1,2)` after `F` on ASCII case alone. `cell/2` renders the same
+  # five states from the same fields; the marker travels in the tuple so the
+  # two cannot disagree about which state a row is in, and so ties inside a
+  # state fall back to the rounds listed.
+  #
+  # Forfeit outranks absent deliberately, and fixes a second thing: a player
+  # who was both displayed `F` and sorted under `A`, which split the F group
+  # in a sorted column.
   defp sort_value(entry, "pr") do
+    player = entry.player
+    rounds = to_string(player.absent_rounds)
+
     cond do
-      entry.player.absent -> {0, "A"}
-      entry.player.forfeit -> {0, "F"}
-      true -> {1, nil}
+      player.forfeit -> {0, {4, "F"}}
+      player.absent -> {0, {3, "A"}}
+      rounds == "" -> {0, {0, ""}}
+      absent_this_round?(entry, rounds) -> {0, {2, rounds}}
+      true -> {0, {1, rounds}}
     end
   end
 
@@ -288,6 +314,13 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   defp sort_value(entry, "xtpts"), do: numeric_sort_value(entry.extra_points)
   defp sort_value(entry, "ptot"), do: numeric_sort_value(entry.total)
+
+  # Shared with `cell/2`'s own "pr" clause: `absent_rounds` is canonical
+  # ascending-unique out of `Player.normalize_absent_rounds/1`, so membership
+  # is a split and a compare rather than any re-parsing.
+  defp absent_this_round?(entry, rounds) do
+    to_string(entry.grid["current_round"]) in String.split(rounds, ",")
+  end
 
   defp text_sort_value(value) when value in [nil, ""], do: {1, nil}
   defp text_sort_value(value), do: {0, value |> to_string() |> String.downcase()}
@@ -1304,11 +1337,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         ""
 
       true ->
-        # Already canonical ascending-unique from
-        # `Player.normalize_absent_rounds/1`, so this is a plain membership
-        # test rather than any re-parsing.
-        absent_now? = to_string(entry.grid["current_round"]) in String.split(rounds, ",")
-        if(absent_now?, do: "A", else: "a") <> "(" <> rounds <> ")"
+        if(absent_this_round?(entry, rounds), do: "A", else: "a") <> "(" <> rounds <> ")"
     end
   end
 
@@ -2190,7 +2219,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                 type="radio"
                 name="player[paid]"
                 value="nopaid"
-                checked={@form["paid"] == "nopaid"}
+                checked={@form["paid"] in [nil, "", "nopaid"]}
               /> {gettext("No Paid")}</label>
               <label><input
                 type="radio"

@@ -14,6 +14,25 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.51.0] - 2026-09-08
+
+Three things the players grid got wrong, all reported from real use.
+
+- [Fix] **Sorting on Presence now reverses when you click it again.** The
+  column pinned the absentees to the top whichever way it was sorted. A
+  present player was reported to the sorter as *blank*, and blanks are held
+  last in both directions - a rule that is right for a missing rating and
+  wrong here, because "present" is the commonest answer to the question this
+  column asks, not a missing one. Presence now sorts as a real order:
+  present, sat out earlier rounds, sitting out this one, absent, forfeit -
+  and clicking twice reads it back to front.
+- [Change] **A player you add by hand starts as *not* paid.** The fee
+  status defaulted to paid, so every new entry arrived already ticked and
+  the only way to keep the column honest was to un-tick people. It fills in
+  as the money comes in, which is the direction the work actually runs.
+  Nothing already recorded changes, and an import still says what its file
+  says.
+
 ## [0.50.0] - 2026-09-08
 
 The 2026-09-05 audit's three worst groups, closed together: what a stranger
