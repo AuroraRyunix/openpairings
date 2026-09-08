@@ -41,6 +41,49 @@ See [`docs/features.md`](docs/features.md) for what's already shipped.
 
 ## Everything that is open, in one place
 
+### Several categories per player, and sorting on them - wanted 2026-09-08
+
+Today a player has exactly one: `field :category, :string, default: ""`,
+chosen from the tournament's own `categories` list. Real events do not work
+that way - the same player is a junior AND a woman AND a club member, and
+each of those is a prize list somebody has to produce.
+
+**What makes this bigger than a column change: categories are not only a
+label, they can decide pairing.** `pair_by_category` (SWAR parity #24)
+pairs each category as a completely separate tournament - its own engine
+run, its own byes, merged into one Round with continuous board numbers. A
+player who belongs to three categories cannot be paired in three pools.
+
+So the feature has to split the concept in two, and the split is the design:
+
+- **One pairing category, unchanged.** Whatever pools players for
+  `pair_by_category` stays single-valued, or that feature loses its
+  meaning. If it is derived rather than stored, the rule must be
+  deterministic and visible - "first match in the tournament's `categories`
+  order" is defensible; "whichever the arbiter typed first" is not.
+- **Many tags, for everything else.** Prizes, filtering, sorting, the
+  category columns on Players and Standings, norm forms, exports.
+
+Sorting on a multi-valued column is ambiguous and the UI has to answer it
+out loud rather than pick quietly. Sorting by "the tags this player has" is
+not an order; grouping by a chosen tag, or sorting on whether a player
+carries one, is. The Players grid already has a right-click bulk menu on
+`pr` and `paid` - a tag column is the natural third, and probably wants
+"show only this tag" as well as "set this tag for everyone".
+
+Touches more than the schema, so cost it whole before starting: **39
+references to a player's category across `lib/`**, plus the SWAR importer
+and exporter (SWAR has its own category model and its own value lists), the
+TRF export, the norms forms, `player_export`, and the OpenResults snapshot -
+whose schema carries `"category"` per player *and* per standings row. The
+snapshot is additive-only by contract, so a second field can be added
+safely, but the existing one cannot change meaning without breaking every
+published tournament.
+
+Open question worth settling first: is a tag a per-tournament thing (like
+`categories` today) or a property of the player that outlives one event?
+The answer decides whether this is one table or two.
+
 ### publish_mode has two different defaults - decided 2026-09-04
 
 `priv/repo/migrations/20260813150000_add_pairing_publish_delay.exs` sets the
@@ -262,9 +305,11 @@ maintainer.
 
 ### Operational - the maintainer's, not the code's
 
-- **Deploy.** Nothing since 2026-08-29 morning is on the box. The next
-  deploy wires publishing and grants the admin role by itself, and will
-  decline to move the endpoint to loopback until it is forced.
+- **Deploy.** ~~Nothing since 2026-08-29 morning is on the box.~~
+  **0.51.0 deployed 2026-09-08**, carrying everything from 0.44.0 up:
+  the soft pairing rules, TRF26 both directions, the rationale page, the
+  audit's three worst groups, the anonymous-tools rate limit and the
+  players-grid fixes. OpenResults went with it.
 - **Rotate the secrets** that reached a session scrollback on 2026-08-29.
 - **FIDE search does not work for a laptop arbiter behind NAT** - it needs
   both applications on one host. No design yet.
