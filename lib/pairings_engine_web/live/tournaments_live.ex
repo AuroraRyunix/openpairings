@@ -1096,16 +1096,23 @@ defmodule PairingsEngineWeb.TournamentsLive do
   defp maybe_flash_trf_warnings(socket, []), do: socket
 
   defp maybe_flash_trf_warnings(socket, warnings) do
-    # Two kinds, and they read differently: a points mismatch names the
-    # players it is about, while a note is a sentence about the tournament
-    # (a rule the file stated that this app applies more broadly, a bye it
-    # could not place). Both are notices rather than failures - the import
-    # went through either way - so :info, which is what
-    # Layouts.flash_group/1 renders.
-    {points, notes} = Enum.split_with(warnings, &(Map.get(&1, :kind, :points) == :points))
+    # Three kinds, and they read differently: a points mismatch names the
+    # players it is about, a note is a sentence about the tournament (a
+    # rule the file stated that this app applies more broadly, a bye it
+    # could not place), and an illegal round is a pairing in the file that
+    # breaks a rule of the Dutch system. All three are notices rather than
+    # failures - the import went through either way - so :info, which is
+    # what Layouts.flash_group/1 renders.
+    #
+    # The illegal rounds go first. The other two are this app rounding
+    # something off; that one is about the tournament itself being wrong,
+    # and it is the only one an arbiter may have to act on.
+    grouped = Enum.group_by(warnings, &Map.get(&1, :kind, :points))
 
     messages =
-      trf_points_message(points) ++ Enum.map(notes, & &1.text)
+      trf_illegal_round_message(Map.get(grouped, :illegal_round, [])) ++
+        trf_points_message(Map.get(grouped, :points, [])) ++
+        Enum.map(Map.get(grouped, :note, []), & &1.text)
 
     case messages do
       [] -> socket
@@ -1123,6 +1130,65 @@ defmodule PairingsEngineWeb.TournamentsLive do
         end)
     ]
   end
+
+  # How many findings are spelled out before the message just gives a
+  # count. A flash is one line of prose and the list comes off an uploaded
+  # file, so a thoroughly broken one could otherwise put hundreds of
+  # clauses in a sentence nobody can read - and the first few already tell
+  # the arbiter what kind of file they have.
+  @illegal_rounds_listed 8
+
+  defp trf_illegal_round_message([]), do: []
+
+  defp trf_illegal_round_message(warnings) do
+    {listed, rest} = Enum.split(warnings, @illegal_rounds_listed)
+
+    more =
+      case length(rest) do
+        0 -> ""
+        n -> ", and #{n} more"
+      end
+
+    [
+      "Imported, but #{count_phrase(length(warnings))} in the file " <>
+        "#{if length(warnings) == 1, do: "breaks", else: "break"} a FIDE pairing rule: " <>
+        Enum.map_join(listed, "; ", &illegal_round_detail/1) <>
+        more <>
+        ". The rounds were imported exactly as the file records them."
+    ]
+  end
+
+  defp count_phrase(1), do: "one pairing"
+  defp count_phrase(n), do: "#{n} pairings"
+
+  defp illegal_round_detail(%{reason: :rematch, players: [a, b]} = w),
+    do: "round #{w.round}, #{a} v #{b} had already met in round #{w.met_in_round}"
+
+  defp illegal_round_detail(%{reason: :colour, players: [a, b]} = w),
+    do: "round #{w.round}, #{a} v #{b} were both due #{colour_word(w[:colour])}"
+
+  defp illegal_round_detail(%{reason: :forbidden, players: [a, b]} = w),
+    do: "round #{w.round}, #{a} v #{b} is a prohibited pairing"
+
+  defp illegal_round_detail(%{reason: :bye, players: [a]} = w),
+    do: "round #{w.round}, #{a} was given the bye after #{bye_reason_word(w[:bye_reason])}"
+
+  # A reason this page has not been taught to phrase - a criterion the
+  # engine gains after this was written. Without a fallback that would be
+  # a FunctionClauseError on somebody's import, and this one still gives
+  # the arbiter the round and the players; only the wording of the rule is
+  # missing, and they can read it off the boards.
+  defp illegal_round_detail(w),
+    do: "round #{w.round}, #{Enum.join(w.players, " v ")} breaks an absolute pairing rule"
+
+  defp colour_word("w"), do: "White"
+  defp colour_word("b"), do: "Black"
+  defp colour_word(_unknown), do: "the same colour"
+
+  defp bye_reason_word(:pairing_bye), do: "already having had one"
+  defp bye_reason_word(:forfeit_win), do: "already winning a game without playing it"
+  defp bye_reason_word(:full_point_bye), do: "already having had a full-point bye"
+  defp bye_reason_word(_unknown), do: "already being ineligible for one"
 
   # Reached by a crafted event, or by a second tab left open across a change
   # on the Features page. Says what happened and where to change it rather

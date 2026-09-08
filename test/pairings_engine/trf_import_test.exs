@@ -976,4 +976,327 @@ defmodule PairingsEngine.TrfImportTest do
     assert {:ok, {_tournament, players}} = TrfImport.build_structs(trf)
     assert [%{name: "Gaëtan"}] = players
   end
+
+  ## ---------- round verification (FIDE VCL4THP Q54) ----------
+
+  # One builder for every verification test below, so that an illegal file
+  # and its control differ in the thing under test and in NOTHING else. A
+  # fixture written out twice by hand can pass for a reason nobody looked
+  # at - the two files differing somewhere other than the round the test
+  # names - and a check that cannot be shown to stay quiet is not evidence
+  # that it fires.
+  #
+  # `number_of_rounds: 5` on every fixture is deliberate. None of these
+  # rounds is then the tournament's LAST, so FIDE's final-round exception
+  # (two players above half the score so far may meet despite an absolute
+  # colour clash) can never fire and quietly change an answer underneath a
+  # test that is about something else.
+  defp verification_trf(games_by_rank, tournament \\ %{}, opts \\ []) do
+    names = ~w(Alpha Bravo Charlie Delta Echo Foxtrot)
+
+    players =
+      for {rank, games} <- Enum.sort(games_by_rank) do
+        %{
+          rank: rank,
+          name: "#{Enum.at(names, rank - 1)}, Player",
+          # Computed rather than written by hand, so no fixture also trips
+          # the points cross-check and puts a second kind of warning in
+          # what these tests are counting.
+          points: Enum.reduce(games, 0.0, &(&2 + Trf.points_for_game(&1))),
+          games: games
+        }
+      end
+
+    Trf.serialize(
+      %{
+        tournament:
+          Map.merge(
+            %{name: "Verification", type: "swiss", number_of_rounds: 5},
+            tournament
+          ),
+        players: players
+      },
+      opts
+    )
+  end
+
+  defp game(opponent, colour, result),
+    do: %{opponent_rank: opponent, colour: colour, result: result}
+
+  defp pairing_bye, do: %{opponent_rank: nil, colour: nil, result: "U"}
+
+  defp illegal_rounds(warnings), do: Enum.filter(warnings, &(&1.kind == :illegal_round))
+
+  # 4 players, 2 rounds, every game a draw - so all four are on the same
+  # score for round 2 and sit in one bracket, where every pair's legality
+  # is actually examined. Round 1 is 1 v 2 and 3 v 4 in both versions; only
+  # round 2 differs.
+  defp rematch_fixture(:illegal),
+    do: %{
+      1 => [game(2, "w", "="), game(2, "b", "=")],
+      2 => [game(1, "b", "="), game(1, "w", "=")],
+      3 => [game(4, "w", "="), game(4, "b", "=")],
+      4 => [game(3, "b", "="), game(3, "w", "=")]
+    }
+
+  defp rematch_fixture(:legal),
+    do: %{
+      1 => [game(2, "w", "="), game(3, "b", "=")],
+      2 => [game(1, "b", "="), game(4, "w", "=")],
+      3 => [game(4, "w", "="), game(1, "w", "=")],
+      4 => [game(3, "b", "="), game(2, "b", "=")]
+    }
+
+  test "a round that pairs two players who have already met is reported" do
+    assert {:ok, _tournament, warnings} =
+             TrfImport.import_text(verification_trf(rematch_fixture(:illegal)), user_scope())
+
+    findings = illegal_rounds(warnings)
+
+    assert length(findings) == 2, "expected both rematched boards: #{inspect(findings)}"
+    assert Enum.all?(findings, &(&1.reason == :rematch))
+    assert Enum.all?(findings, &(&1.round == 2))
+    assert Enum.all?(findings, &(&1.met_in_round == 1))
+
+    assert Enum.sort(Enum.map(findings, & &1.players)) == [
+             ["Alpha, Player", "Bravo, Player"],
+             ["Charlie, Player", "Delta, Player"]
+           ]
+  end
+
+  # The control the test above needs to mean anything: the same four
+  # players, the same round 1, a round 2 that is merely a different legal
+  # pairing rather than the one this engine would have chosen. Anything
+  # reported here would mean the check fires on the fixture's shape, or on
+  # disagreement with our own pairing, rather than on the rematch.
+  test "the same file paired legally reports nothing" do
+    assert {:ok, _tournament, warnings} =
+             TrfImport.import_text(verification_trf(rematch_fixture(:legal)), user_scope())
+
+    assert illegal_rounds(warnings) == []
+  end
+
+  # 6 players, 3 rounds, every game a draw. Rounds 1 and 2 give players
+  # 1-3 White twice and players 4-6 Black twice, which is FIDE's own
+  # definition of an ABSOLUTE colour preference (C.04.3: the same colour in
+  # the two latest rounds, and a colour difference past +/-1). Round 3 is
+  # the only thing that differs between the two versions.
+  defp colour_fixture(round3) do
+    %{
+      1 => [game(4, "w", "="), game(6, "w", "=")],
+      2 => [game(5, "w", "="), game(4, "w", "=")],
+      3 => [game(6, "w", "="), game(5, "w", "=")],
+      4 => [game(1, "b", "="), game(2, "b", "=")],
+      5 => [game(2, "b", "="), game(3, "b", "=")],
+      6 => [game(3, "b", "="), game(1, "b", "=")]
+    }
+    |> Map.new(fn {rank, games} -> {rank, games ++ [Map.fetch!(colour_round3(round3), rank)]} end)
+  end
+
+  # 1 v 2 (both due Black) and 5 v 6 (both due White) are the two illegal
+  # boards; 3 v 4 pairs a Black-due player with a White-due one and is
+  # there to prove the check is not simply flagging every board in a round
+  # it dislikes. None of the three is a rematch.
+  defp colour_round3(:illegal),
+    do: %{
+      1 => game(2, "w", "="),
+      2 => game(1, "b", "="),
+      3 => game(4, "w", "="),
+      4 => game(3, "b", "="),
+      5 => game(6, "w", "="),
+      6 => game(5, "b", "=")
+    }
+
+  defp colour_round3(:legal),
+    do: %{
+      1 => game(5, "b", "="),
+      2 => game(6, "b", "="),
+      3 => game(4, "b", "="),
+      4 => game(3, "w", "="),
+      5 => game(1, "w", "="),
+      6 => game(2, "w", "=")
+    }
+
+  test "a round that pairs two players who are both due the same colour is reported" do
+    assert {:ok, _tournament, warnings} =
+             TrfImport.import_text(verification_trf(colour_fixture(:illegal)), user_scope())
+
+    findings = illegal_rounds(warnings)
+
+    assert length(findings) == 2, "expected exactly the two clashing boards: #{inspect(findings)}"
+    assert Enum.all?(findings, &(&1.reason == :colour))
+    assert Enum.all?(findings, &(&1.round == 3))
+
+    by_players = Map.new(findings, &{&1.players, &1.colour})
+
+    # The colour each pair was due, which is what makes the message
+    # readable - and what proves the finding is about the right two boards
+    # rather than about any two boards.
+    assert by_players == %{
+             ["Alpha, Player", "Bravo, Player"] => "b",
+             ["Echo, Player", "Foxtrot, Player"] => "w"
+           }
+  end
+
+  test "the same six players paired so that no colour clashes reports nothing" do
+    assert {:ok, _tournament, warnings} =
+             TrfImport.import_text(verification_trf(colour_fixture(:legal)), user_scope())
+
+    assert illegal_rounds(warnings) == []
+  end
+
+  # `dialect: :trf26` because a round-limited prohibition is a `260` record
+  # and TRF16's `XXP` has nowhere to put the range - which is the whole
+  # point of the control below.
+  defp forbidden_trf(first, last) do
+    verification_trf(
+      rematch_fixture(:legal),
+      %{forbidden_pairs: [{[1, 3], first, last}]},
+      dialect: :trf26
+    )
+  end
+
+  test "a round that pairs two players the arbiter prohibited is reported" do
+    assert {:ok, _tournament, warnings} =
+             TrfImport.import_text(forbidden_trf(1, 5), user_scope())
+
+    assert [finding] = illegal_rounds(warnings)
+    assert finding.reason == :forbidden
+    assert finding.round == 2
+    assert finding.players == ["Alpha, Player", "Charlie, Player"]
+  end
+
+  # The control, and it is a sharper one than "a different pair": the same
+  # two players, the same board, the same file but for the two digits that
+  # limit the prohibition to round 1. They meet in round 2, where the rule
+  # no longer applies, so there is nothing to report. This is what proves
+  # the check reads the file's own `260` ranges rather than the widened
+  # whole-event rows `import_forbidden_pairings/3` writes to the database.
+  test "a prohibition that has expired by the round they meet in reports nothing" do
+    assert {:ok, _tournament, warnings} =
+             TrfImport.import_text(forbidden_trf(1, 1), user_scope())
+
+    assert illegal_rounds(warnings) == []
+  end
+
+  # 5 players, so every round has a pairing-allocated bye. Round 1 is the
+  # same in both: 1 beats 2, 3 beats 4, and Echo takes the bye. In round 2
+  # Echo takes it again, which C.2 forbids outright.
+  defp bye_fixture(:illegal),
+    do: %{
+      1 => [game(2, "w", "1"), game(3, "b", "=")],
+      2 => [game(1, "b", "0"), game(4, "w", "=")],
+      3 => [game(4, "w", "1"), game(1, "w", "=")],
+      4 => [game(3, "b", "0"), game(2, "b", "=")],
+      5 => [pairing_bye(), pairing_bye()]
+    }
+
+  defp bye_fixture(:legal),
+    do: %{
+      1 => [game(2, "w", "1"), game(3, "b", "=")],
+      2 => [game(1, "b", "0"), game(5, "w", "=")],
+      3 => [game(4, "w", "1"), game(1, "w", "=")],
+      4 => [game(3, "b", "0"), pairing_bye()],
+      5 => [pairing_bye(), game(2, "b", "=")]
+    }
+
+  test "a player given the pairing-allocated bye twice is reported" do
+    assert {:ok, _tournament, warnings} =
+             TrfImport.import_text(verification_trf(bye_fixture(:illegal)), user_scope())
+
+    assert [finding] = illegal_rounds(warnings)
+    assert finding.reason == :bye
+    assert finding.round == 2
+    assert finding.players == ["Echo, Player"]
+    assert finding.bye_reason == :pairing_bye
+  end
+
+  test "the same round with the bye moved to a player who has not had one reports nothing" do
+    assert {:ok, _tournament, warnings} =
+             TrfImport.import_text(verification_trf(bye_fixture(:legal)), user_scope())
+
+    assert illegal_rounds(warnings) == []
+  end
+
+  # Requirement one of Q54, and the one worth stating as its own test: an
+  # arbiter recovering a historical event needs the tournament far more
+  # than they need our opinion of it. The illegal round is recreated
+  # exactly as the file records it.
+  test "a file with an illegal round still imports in full" do
+    assert {:ok, tournament, warnings} =
+             TrfImport.import_text(verification_trf(rematch_fixture(:illegal)), user_scope())
+
+    assert illegal_rounds(warnings) != []
+
+    rounds =
+      Round
+      |> where(tournament_id: ^tournament.id)
+      |> order_by(:number)
+      |> Repo.all()
+      |> Repo.preload(:pairings)
+
+    assert Enum.map(rounds, & &1.number) == [1, 2]
+    assert Enum.map(rounds, &length(&1.pairings)) == [2, 2]
+
+    by_number = Map.new(rounds, &{&1.number, &1})
+    names = Map.new(Repo.all(where(Player, tournament_id: ^tournament.id)), &{&1.id, &1.name})
+
+    round_two_boards =
+      by_number[2].pairings
+      |> Enum.map(&Enum.sort([names[&1.white_player_id], names[&1.black_player_id]]))
+      |> Enum.sort()
+
+    assert round_two_boards == [
+             ["Alpha, Player", "Bravo, Player"],
+             ["Charlie, Player", "Delta, Player"]
+           ]
+  end
+
+  # Requirement three: verify only what can be judged. A round robin's
+  # schedule is fixed before a move is played and a double one rematches
+  # every pair by design, so judging it against the Dutch criteria would
+  # report a correct file as broken - which is how an arbiter learns to
+  # ignore the notice that matters.
+  test "a file that says it is not a Dutch Swiss is not judged by Dutch-system rules" do
+    illegal = rematch_fixture(:illegal)
+
+    # The same illegal round 2 throughout. The baseline says it is found at
+    # all, so a silent variant below is the gate working rather than the
+    # fixture having gone stale.
+    assert {:ok, _tournament, swiss} =
+             TrfImport.import_text(verification_trf(illegal), user_scope())
+
+    assert illegal_rounds(swiss) != []
+
+    # `092` in words, the only signal a TRF16 file carries.
+    assert {:ok, _tournament, by_label} =
+             TrfImport.import_text(
+               verification_trf(illegal, %{type: "roundrobin"}),
+               user_scope()
+             )
+
+    assert illegal_rounds(by_label) == []
+
+    # `192` in FIDE's own code, which decides wherever it is present -
+    # including for the systems this app has none of. `CUSTOM_SWISS` is
+    # what this app's own export writes for a Keizer tournament.
+    assert {:ok, _tournament, by_code} =
+             TrfImport.import_text(
+               verification_trf(illegal, %{type_code: "CUSTOM_SWISS"}),
+               user_scope()
+             )
+
+    assert illegal_rounds(by_code) == []
+
+    # `_BAKU` is a note about acceleration, not a different system, so it
+    # must not switch the check off - which is the failure a naive
+    # membership test on the raw code would have.
+    assert {:ok, _tournament, baku} =
+             TrfImport.import_text(
+               verification_trf(illegal, %{type_code: "FIDE_DUTCH_2026_BAKU"}),
+               user_scope()
+             )
+
+    assert illegal_rounds(baku) != []
+  end
 end

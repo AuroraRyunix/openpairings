@@ -1,6 +1,6 @@
 # OpenPairings - features & roadmap
 
-Current version: **0.48.0**. One page: everything the app does today, and where
+Current version: **0.49.0**. One page: everything the app does today, and where
 it is going. Per-feature detail lives in the other [docs pages](README.md).
 
 ## Pairing
@@ -92,7 +92,8 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
 - **SWAR import** - full `.swar` files (players, rounds, results, byes,
   scoring configuration, absences), with FIDE-id resolution during import.
 - **TRF26 and TRF16** - import (a complete tournament from a `.trf` file, points
-  cross-checked) and export (full or selected rounds, FIDE-submission grade).
+  cross-checked and every round of a Swiss checked against the absolute
+  pairing rules) and export (full or selected rounds, FIDE-submission grade).
 - **JSON backup** - full single-tournament or all-tournaments export and
   re-import.
 - **CSV results import** - bulk result entry per round, all-or-nothing.

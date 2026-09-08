@@ -14,6 +14,33 @@ Each entry is tagged so a version can be skimmed:
 | [Security] | a vulnerability closed, or judged not to apply |
 | [Verified] | checked against a reference, no code change |
 
+## [0.49.0] - 2026-09-08
+
+- [Feature] **An imported TRF file is now checked against the pairing
+  rules, round by round.** The importer recreated whatever the file said,
+  board for board, and never asked whether the file said anything legal -
+  so an event carrying a rematch in round 5 imported clean and the app
+  went on pairing round 6 from a position the rules do not allow. Every
+  round the file records is now scored against the absolute criteria of
+  the Dutch system, and the arbiter is told about a rematch, a board where
+  both players were due the same colour, a pair the file's own `260`
+  prohibited, or a second pairing-allocated bye for a player C.2 had
+  already ruled out - naming the round, the players and the rule.
+- [Change] **A file with an illegal round still imports, in full.** The
+  check reports; it never refuses. An arbiter recovering a historical
+  event needs the tournament far more than they need our opinion of it,
+  which is how the points cross-check has always behaved. The verification
+  is also rescued as a whole: an engine that trips over some field shape
+  nobody has met yet cannot take a tournament down with it.
+- [Change] **Only the absolute criteria, and only where they apply.** "We
+  would have paired this differently" is not a finding - two conforming
+  programs pick different rounds from the same position all the time, and
+  a notice an arbiter learns to dismiss costs them the one that matters.
+  A round robin's schedule is fixed before a move is played and Keizer is
+  not the Dutch system, so a file that says (`192`, or the `092` label) it
+  is not a Dutch Swiss is passed over in silence rather than reported as
+  broken.
+
 ## [0.48.0] - 2026-09-07
 
 The other half of TRF26: 0.47.0 taught the app to write the file, and this

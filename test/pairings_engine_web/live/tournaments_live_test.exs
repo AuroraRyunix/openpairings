@@ -740,4 +740,85 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
       assert html =~ "handed off" or html =~ "Take it back" or html =~ "checked out"
     end
   end
+
+  ## ---------- TRF import: a round the file records that the rules forbid ----------
+
+  # 4 players, two rounds, every game a draw. `:illegal` repeats round 1 as
+  # round 2, which no Swiss may do; `:legal` pairs the same four players a
+  # different but perfectly legal way. Nothing else differs between the two
+  # files, so what the flash says below can only be about the rematch.
+  defp two_round_trf(:illegal), do: two_round_trf([{1, 2}, {3, 4}])
+  defp two_round_trf(:legal), do: two_round_trf([{3, 1}, {2, 4}])
+
+  defp two_round_trf(round2_boards) do
+    games =
+      Enum.reduce([[{1, 2}, {3, 4}], round2_boards], %{1 => [], 2 => [], 3 => [], 4 => []}, fn
+        boards, acc ->
+          Enum.reduce(boards, acc, fn {white, black}, acc ->
+            acc
+            |> Map.update!(white, &(&1 ++ [%{opponent_rank: black, colour: "w", result: "="}]))
+            |> Map.update!(black, &(&1 ++ [%{opponent_rank: white, colour: "b", result: "="}]))
+          end)
+      end)
+
+    names = ~w(Alpha Bravo Charlie Delta)
+
+    Ainalrami.Trf.serialize(%{
+      # Five rounds declared, so round 2 is nowhere near the last one and
+      # the final-round colour exception cannot come into it.
+      tournament: %{name: "Rematch Open", type: "swiss", number_of_rounds: 5},
+      players:
+        for {rank, rounds} <- Enum.sort(games) do
+          %{
+            rank: rank,
+            name: "#{Enum.at(names, rank - 1)}, Player",
+            points: 1.0,
+            games: rounds
+          }
+        end
+    })
+  end
+
+  defp import_trf(conn, content) do
+    {:ok, lv, _html} = live(conn, ~p"/")
+    lv |> element("button", "Import TRF file") |> render_click()
+
+    trf =
+      file_input(lv, "form", :trf, [
+        %{name: "verified.trf", content: content, type: "text/plain"}
+      ])
+
+    render_upload(trf, "verified.trf")
+    lv |> form("#trf-import-form", %{}) |> render_submit()
+
+    {_to, flash} = assert_redirect(lv)
+    flash
+  end
+
+  describe "TRF import: rounds that break a pairing rule" do
+    test "an illegal round is named in the flash, and the file still imports", %{conn: conn} do
+      info = import_trf(conn, two_round_trf(:illegal))["info"] || ""
+
+      # An arbiter has to be able to act on this, which means the round,
+      # both players and the rule - not "this file has a problem".
+      assert info =~ "round 2"
+      assert info =~ "Alpha, Player"
+      assert info =~ "Bravo, Player"
+      assert info =~ "had already met in round 1"
+
+      # Reported, not refused: the tournament is there with both rounds.
+      tournament = last_tournament_named("Rematch Open")
+      assert Repo.aggregate(where(Tournaments.Round, tournament_id: ^tournament.id), :count) == 2
+    end
+
+    # The control. Same panel, same upload, same roster, a legal round 2 -
+    # so a flash that still complained would be complaining about the
+    # fixture rather than about the pairing.
+    test "a legally paired file produces no such notice", %{conn: conn} do
+      flash = import_trf(conn, two_round_trf(:legal))
+
+      refute (flash["info"] || "") =~ "pairing rule"
+      assert last_tournament_named("Rematch Open")
+    end
+  end
 end

@@ -1,6 +1,6 @@
 # TODO / Roadmap
 
-Version: **0.48.0** (not 1.0 yet - the maintainer will call that explicitly).
+Version: **0.49.0** (not 1.0 yet - the maintainer will call that explicitly).
 See [`docs/features.md`](docs/features.md) for what's already shipped.
 
 > **A second whole-codebase sweep ran on 2026-09-01** - 33 items, in
@@ -288,8 +288,19 @@ verdict - TEC verifies, we do not.
   C.05:5.2 binds the ORGANISER to communicate, not the software to refuse.
 - **Past results are editable in any round** (Q189-191). C.04.2:4.3 allows
   only the round immediately preceding the last one played.
-- **TRF import does not verify the imported rounds** against the pairing
-  rules (Q54). Mostly plumbing, now that a checker exists.
+- ~~**TRF import does not verify the imported rounds** against the pairing
+  rules (Q54).~~ **Done 2026-09-08.** Every round an individual-Swiss file
+  records is scored against the absolute criteria before the import
+  returns (`PairingsEngine.TrfImport`'s `verification_warnings/2`, on
+  `Ainalrami.Alternatives.violations/1` and `Pairing.bye_eligibility/2`),
+  and a rematch, an absolute colour clash, a `260` violation or a second
+  pairing-allocated bye is reported as an `:illegal_round` warning naming
+  the round, the players and the rule. Three deliberate limits, all in
+  `docs/trf-import.md`: it reports only the ABSOLUTE criteria, never "we
+  would have paired this differently"; it judges only what the file says
+  is a Dutch Swiss, since a round robin's fixed schedule and Keizer are
+  not Dutch-legal by design; and it never blocks the import, which is what
+  an arbiter recovering a historical event needs.
 
 ### Accumulating penalties
 

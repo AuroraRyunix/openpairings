@@ -24,7 +24,15 @@ defmodule PairingsEngine.TrfImport do
   disagrees with the TRF file's declared total is returned in `warnings`
   for the caller to show as a notice - the import itself always proceeds
   either way.
+
+  Neither is the pairing itself. Since 0.49.0 every round the file records
+  is scored against the absolute criteria of the Dutch system before the
+  import returns, and a round that breaks one is reported the same way -
+  as a warning, never as a refusal. See `verification_warnings/2` for what
+  is checked, what is deliberately not, and which files are judged at all.
   """
+
+  require Logger
 
   alias PairingsEngine.{Encoding, Repo, Tiebreaks, Tournaments}
   alias PairingsEngine.Tournaments.{ForbiddenPairing, Tournament, Player, Round, Pairing}
@@ -49,11 +57,14 @@ defmodule PairingsEngine.TrfImport do
   `SwarImport.import_file/2`).
 
   Returns `{:ok, %Tournament{}, warnings}` where `warnings` is a (possibly
-  empty) list of either `%{kind: :points, player_name:, trf_points:,
+  empty) list of `%{kind: :points, player_name:, trf_points:,
   computed_points:}` - one per player whose recomputed points disagree with
-  the TRF file's own points column (see the moduledoc) - or `%{kind: :note,
+  the TRF file's own points column (see the moduledoc) - `%{kind: :note,
   text:}`, one per thing the file said that this app could not apply
-  exactly. Returns `{:error, reason}` on a parse
+  exactly, or `%{kind: :illegal_round, round:, reason:, players:}` - one
+  per pairing in the file that breaks an absolute rule of the Dutch system
+  (`verification_warnings/2`). None of the three stops the import.
+  Returns `{:error, reason}` on a parse
   failure or an invalid file; never raises. `reason` is either a
   `Ainalrami.Trf.ValidationError` struct, a `{:parse_failed, message}`
   tuple, or a plain string - pass it to `error_message/1` for a single
@@ -255,7 +266,7 @@ defmodule PairingsEngine.TrfImport do
 
       warnings =
         points_warnings(tournament, data.players, players_by_rank) ++
-          notes ++ acceleration_notes
+          notes ++ acceleration_notes ++ verification_warnings(data, paired)
 
       {:ok, tournament, warnings}
     end
@@ -293,18 +304,32 @@ defmodule PairingsEngine.TrfImport do
       end_date: t[:end_date] || "",
       chief_arbiter: chief_arbiter || "",
       time_control: t[:time_control] || "",
-      # The file's own `142`/`XXR` when it has one - the tournament's
-      # length, which is not the same as how much of it has been played and
-      # is what the final-round colour rule turns on. Only the games could
-      # say before, so a 9-round event imported three rounds in became a
-      # 3-round event.
-      rounds_count: max(t[:number_of_rounds] || 0, max(rounds_from_data(data.players), 1)),
+      rounds_count: declared_rounds(data),
       round_dates: t[:round_dates] || [],
       officials: deputy_officials(t[:deputy_arbiters] || [], chief_fide_id)
     }
     |> Map.merge(scoring_attrs(t[:point_system]))
     |> Map.merge(system_attrs(t[:type_code]))
     |> Map.merge(tiebreak_attrs(t[:tie_breaks]))
+  end
+
+  # The file's own `142`/`XXR` when it has one - the tournament's length,
+  # which is not the same as how much of it has been played and is what the
+  # final-round colour rule turns on. Only the games could say before, so a
+  # 9-round event imported three rounds in became a 3-round event.
+  #
+  # The games are still the floor, because understating the length is the
+  # dangerous direction for that rule: a file whose header says 3 while its
+  # players carry 9 rounds is a file whose header is wrong, and believing
+  # it would apply the last-round colour exception six rounds early.
+  #
+  # `verification_warnings/2` hands this same number to the engine as
+  # `:expected_rounds`. That is why it is a function rather than an
+  # expression inside `tournament_attrs/1`: the round check and the
+  # tournament it checks have to agree on when the last round is, or the
+  # check reports a legal final round as a colour violation.
+  defp declared_rounds(data) do
+    max(data.tournament[:number_of_rounds] || 0, max(rounds_from_data(data.players), 1))
   end
 
   defp rounds_from_data(players) do
@@ -1046,6 +1071,276 @@ defmodule PairingsEngine.TrfImport do
       end
     end)
     |> Enum.reject(&is_nil/1)
+  end
+
+  ## ---------- round verification ----------
+
+  # FIDE's VCL4THP asks (Q54) that a program importing a TRF file check the
+  # rounds it is importing against the pairing rules instead of taking them
+  # on trust. Until 0.49.0 this importer recreated whatever the file said,
+  # board for board, and never asked whether the file said anything legal -
+  # so an event carrying a rematch in round 5 imported clean, and the app
+  # then went on pairing round 6 from a position the rules do not allow.
+  #
+  # Three decisions shape everything below, and all three are about not
+  # crying wolf. A notice an arbiter learns to dismiss is worse than no
+  # notice at all, because it costs them the one that matters.
+  #
+  # ABSOLUTE CRITERIA ONLY. `Ainalrami.Alternatives.violations/1` reports
+  # the pairs a bracket's own absolute criteria FORBADE and the pairing
+  # kept anyway: a rematch, a colour clash where both players are
+  # absolutely committed to the same colour, a pair the arbiter prohibited.
+  # It deliberately does not ask "is this the round we would have paired".
+  # That question is `Ainalrami.CLI`'s `-c`, whose own comment is emphatic
+  # about the difference: a checker calls the same engine and so reports
+  # DIFFERENCE, not illegality. Two conforming programs pick different
+  # rounds from the same position all the time - the quality criteria admit
+  # ties that transposition order breaks - and reporting that as a finding
+  # would make this notice noise on the first file it ever fired on.
+  #
+  # FROM THE FILE, NOT FROM THE DATABASE. `PairingsEngine.Pairing.engine_field/2`
+  # also rebuilds a round's pre-round field, and it is the wrong tool here
+  # for three separate reasons: it serialises the just-persisted tournament
+  # back out to a TRF and re-parses it, so the file would be judged through
+  # a round-trip of our own writing rather than as it arrived; it reads
+  # today's forbidden pairings and soft rules from the database instead of
+  # the file's own `260`, which may name round ranges this app widened; and
+  # it takes acceleration from the tournament, which `import_acceleration/3`
+  # may have refused to set even though the file's own virtual points are
+  # exactly what the original pairing used, and virtual points move players
+  # between brackets. The parsed players already in hand are the input the
+  # check wants, and they are available before anything is written.
+  #
+  # NEVER FATAL, IN EITHER DIRECTION. A finding is a warning, so a file
+  # with an illegal round still imports - an arbiter recovering a
+  # historical event needs the tournament far more than they need our
+  # opinion of it - and the whole pass is rescued, so an engine that raises
+  # on some field shape nobody has met yet cannot take the import down with
+  # it. Same reasoning, and the same shape, as `PairingsEngine.Pairing`'s
+  # own `alternatives/6`.
+  defp verification_warnings(_data, paired) when paired < 1, do: []
+
+  defp verification_warnings(data, paired) do
+    if dutch_swiss?(data), do: illegal_round_warnings(data, paired), else: []
+  rescue
+    e ->
+      Logger.warning(
+        "TRF import could not verify the rounds it imported: #{Exception.message(e)}"
+      )
+
+      []
+  end
+
+  # The Dutch-system codes of TRF26's `192` (ETT26), and only those. The
+  # `_BAKU` suffix is a note about acceleration, not a different system, so
+  # it is stripped rather than listed twice.
+  @dutch_type_codes ~w(FIDE_DUTCH FIDE_DUTCH_2017 FIDE_DUTCH_2026)
+
+  # Which files may be judged at all - the gate that decides whether this
+  # check earns its keep or invents findings.
+  #
+  # Only a Dutch-system Swiss can be judged by Dutch-system rules. A round
+  # robin's schedule is fixed before a move is played: a double one
+  # rematches every pair by design, and even a single Berger table seats
+  # colour sequences the Dutch criteria would forbid. Keizer is not the
+  # Dutch system, and neither are Dubov, Burstein, a match-format event or
+  # anything the table calls CUSTOM. Every one of those would report a
+  # correct file as broken.
+  #
+  # `192` is the file SAYING which system paired it, so where it is present
+  # it decides - including for the codes this app has no system for, which
+  # `system_attrs/1` deliberately passes over rather than guessing at.
+  # Where it is absent, which is every TRF16 file ever written, the
+  # plain-language `092` label is all there is, and a file that names no
+  # system at all is taken for the individual Swiss the rest of this
+  # importer already assumes it is (`infer_type/1`, and `tournament_attrs/1`'s
+  # unconditional `pairing_system: "swiss"`). That default is deliberate:
+  # such a file becomes a Swiss tournament this app will pair the next
+  # round of by Dutch rules, so judging its existing rounds by the same
+  # rules is the consistent thing to do - and it is exactly the file where
+  # a hidden illegality is about to become ours.
+  #
+  # The gap that leaves is a Keizer event with no `192`. Keizer has no FIDE
+  # code to declare, and this app's own export always writes `192`
+  # (`CUSTOM_SWISS`, which is not in the list above), so the shape is a
+  # third-party Keizer TRF - which does not exist in practice, Keizer not
+  # being a system anyone files a FIDE report for.
+  defp dutch_swiss?(data) do
+    case data.tournament[:type_code] do
+      nil -> infer_type(data.tournament[:type]) == "swiss"
+      code -> String.replace_suffix(code, "_BAKU", "") in @dutch_type_codes
+    end
+  end
+
+  defp illegal_round_warnings(data, paired) do
+    point_system = data.tournament[:point_system]
+
+    opts = [
+      # The final-round colour exception (two players above half the score
+      # so far may meet despite an absolute clash) turns on the
+      # tournament's LENGTH. Judging a nine-round event as though round 9
+      # were its last would report a legal decisive game as a violation;
+      # judging it as though round 9 came early would miss nothing, since
+      # the exception only ever relaxes. `declared_rounds/1` is the same
+      # number the tournament itself is created with.
+      expected_rounds: declared_rounds(data),
+      # The arbiter's prohibitions as the FILE states them, round ranges
+      # and all - not the widened, whole-event rows `import_forbidden_pairings/3`
+      # writes into the database. A pair separated only for rounds 1-2 is
+      # not a violation when they meet in round 5, and the engine's own
+      # `forbidden_map/2` takes the round for exactly that reason.
+      forbidden_pairs: data.tournament[:forbidden_pairs],
+      # What a result is worth decides a player's score, a score decides
+      # their bracket, and a bracket decides which pairs the absolute
+      # criteria are even asked about. A 3-1-0 file judged at 1/half/0
+      # would be judged on brackets it never had.
+      point_system: point_system
+    ]
+
+    names = Map.new(data.players, &{&1.rank, String.trim(&1.name || "")})
+
+    Enum.flat_map(1..paired//1, fn round ->
+      case recorded_pairs(data.players, round) do
+        # A round nobody was paired in has nothing to judge. This is not a
+        # hypothetical: `paired_rounds_from_data/1` counts the last round
+        # ANY player took part in, and an interior round can still be
+        # blank for a late entrant's field (see `create_rounds/4`).
+        [] ->
+          []
+
+        pairs ->
+          data.players
+          |> state_before_round(round, point_system)
+          |> round_violations(pairs, opts)
+          |> Enum.map(&warning(&1, round, names))
+      end
+    end)
+  end
+
+  # Every absolute-criteria breach in one round: the pairs
+  # `Alternatives.violations/1` finds, plus the one absolute rule that is
+  # not about a pair at all.
+  #
+  # That one is C.2's bar on giving the pairing-allocated bye to a player
+  # who has already had one (or a forfeit win, or an arbiter's full-point
+  # bye - anything unplayed and worth a win). `explain_round/3` places the
+  # bye in a bracket but has no pair to exclude, so a second bye would
+  # otherwise pass in silence - and "he has already had one" is the bye
+  # mistake arbiters actually make. `Ainalrami.Pairing.bye_eligibility/2`
+  # is the engine's own answer, derived from the same predicate its pairing
+  # uses, so this cannot disagree with what the engine would have decided.
+  defp round_violations(pre_round, pairs, opts) do
+    report = Ainalrami.Pairing.explain_round(pre_round, pairs, opts)
+
+    bye_violations(pre_round, pairs, opts) ++ Ainalrami.Alternatives.violations(report)
+  end
+
+  defp bye_violations(pre_round, pairs, opts) do
+    eligibility = Ainalrami.Pairing.bye_eligibility(pre_round, opts)
+
+    for {holder, nil} <- pairs, reason = eligibility[holder] do
+      %{players: [holder], reason: :bye, bye_reason: reason}
+    end
+  end
+
+  # One violation, addressed to an arbiter rather than to a debugger:
+  # names rather than starting ranks, and the round it is about.
+  #
+  # The engine's rematch exclusion already carries a `:round` - the round
+  # the two players first met - and this warning needs a `:round` of its
+  # own, the one being verified. Merging the two maps would silently
+  # overwrite one with the other and the result would still look right, so
+  # each reason's own detail is lifted out under a key that cannot collide.
+  defp warning(violation, round, names) do
+    base = %{
+      kind: :illegal_round,
+      round: round,
+      reason: violation.reason,
+      players: Enum.map(violation.players, &player_name(names, &1))
+    }
+
+    case violation do
+      %{reason: :rematch, round: met} -> Map.put(base, :met_in_round, met)
+      %{reason: :colour, colour: colour} -> Map.put(base, :colour, colour)
+      %{reason: :bye, bye_reason: why} -> Map.put(base, :bye_reason, why)
+      _ -> base
+    end
+  end
+
+  # A TRF's name column is free text and may be blank; the starting rank
+  # always identifies somebody, so it is the fallback rather than an empty
+  # gap in the sentence.
+  defp player_name(names, rank) do
+    case Map.get(names, rank) do
+      name when is_binary(name) and name != "" -> name
+      _ -> "player ##{rank}"
+    end
+  end
+
+  # The pairing the file records for `round`, in the engine's own shape:
+  # `{white, black}` per board, `{player, nil}` for the pairing-allocated
+  # bye. Each game is claimed by its White so a pair is emitted exactly
+  # once, and a player who sat the round out contributes nothing - which is
+  # what keeps an arbiter's pre-recorded half-point bye out of the check
+  # rather than turning it into a phantom board.
+  #
+  # This and `state_before_round/3` below are ports of `Ainalrami.CLI`'s
+  # private helpers of the same names, which its own Pairings Checker uses
+  # to replay a file. They are private there and the CLI is a separate
+  # program, so there is no function to call - but there are now two
+  # spellings of "what did this file pair", and this note is here so the
+  # next person to change one knows to look at the other.
+  defp recorded_pairs(players, round) do
+    Enum.flat_map(players, fn player ->
+      case Enum.at(player.games, round - 1) do
+        nil ->
+          []
+
+        game ->
+          cond do
+            not Trf.participated_in_pairing?(game) -> []
+            is_nil(game.opponent_rank) -> [{player.rank, nil}]
+            game.colour == "w" -> [{player.rank, game.opponent_rank}]
+            game.colour == "b" -> []
+            # No colour recorded at all - legal in TRF for an unplayed
+            # game. Claim it from the lower rank so the pair is still
+            # emitted once rather than twice or not at all.
+            player.rank < game.opponent_rank -> [{player.rank, game.opponent_rank}]
+            true -> []
+          end
+      end
+    end)
+  end
+
+  # The tournament as it stood immediately BEFORE `round` was paired: every
+  # earlier game, plus this round's own entry for anyone who did not take
+  # part in its pairing. That second half is not an optimisation - an
+  # arbiter-assigned bye is recorded in advance precisely so that the
+  # engine leaves that player out, so dropping it would ask the engine to
+  # judge a round in which somebody already excused was expected to play.
+  #
+  # Points are recomputed rather than taken from the file's own column for
+  # the same reason `points_warnings/3` recomputes them: that column is
+  # self-reported, sometimes stale, and here it would put a player in the
+  # wrong bracket and so change which pairs the criteria are asked about.
+  defp state_before_round(players, round, point_system) do
+    points = point_system || Trf.default_point_system()
+
+    Enum.map(players, fn player ->
+      earlier = Enum.take(player.games, round - 1)
+
+      games =
+        case Enum.at(player.games, round - 1) do
+          nil -> earlier
+          game -> if Trf.participated_in_pairing?(game), do: earlier, else: earlier ++ [game]
+        end
+
+      %{
+        player
+        | games: games,
+          points: Enum.sum(Enum.map(games, &Trf.points_for_game(&1, points)))
+      }
+    end)
   end
 
   defp changeset_error_text(changeset) do

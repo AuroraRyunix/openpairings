@@ -46,6 +46,66 @@ nothing to disambiguate.
   result's `warnings` list. The import still proceeds either way; the UI
   shows a notice listing every mismatched player rather than blocking the
   import or silently overwriting the file's own figure.
+- **Round verification**: since 0.49.0 every round the file records is
+  checked against the pairing rules before the import returns, and a round
+  that breaks one is reported as an `%{kind: :illegal_round, ...}` warning
+  alongside the points mismatches. See "What the rounds are checked
+  against" below for exactly what that covers.
+
+## What the rounds are checked against
+
+FIDE's VCL4THP asks (Q54) that an importing program verify the rounds it
+imports rather than take them on trust. Before 0.49.0 this importer
+recreated whatever the file said, board for board, and never asked whether
+the file said anything legal - so an event carrying a rematch in round 5
+imported clean and the app went on pairing round 6 from a position the
+rules do not allow.
+
+Each round is now replayed from the state that preceded it (the same
+reconstruction `Ainalrami.CLI`'s Pairings Checker performs, on the parsed
+players rather than on anything persisted) and scored with
+`Ainalrami.Pairing.explain_round/3`. What is reported:
+
+| Finding | Rule | Warning |
+|---|---|---|
+| A pair who had already met | C.04.1.b, no rematch | `reason: :rematch`, with `met_in_round` |
+| Both players absolutely due the same colour | C.04.1.d | `reason: :colour`, with the `colour` both were due |
+| A pair the file's own `260`/`XXP` prohibits for that round | C.05 5.2 | `reason: :forbidden` |
+| A second pairing-allocated bye | C.04.1 C.2 | `reason: :bye`, with `bye_reason` |
+
+Every warning carries `round:` and `players:` (names, not starting ranks),
+and the Tournaments page turns them into a single arbiter-facing notice.
+
+### What is deliberately NOT reported
+
+- **"We would have paired this differently."** Only the ABSOLUTE criteria
+  make a round wrong. Two conforming programs pick different rounds from
+  the same position all the time - the quality criteria admit ties that
+  transposition order breaks - so a difference from this engine's own
+  choice is not a finding. That comparison exists, and it is a separate
+  tool: `openpair -c`, whose own documentation is emphatic that a checker
+  calls the same engine and therefore reports difference, not illegality.
+- **Anything that is not a Dutch Swiss.** A round robin's schedule is
+  fixed before a move is played: a double one rematches every pair by
+  design, and even a single Berger table seats colour sequences the Dutch
+  criteria forbid. Keizer is not the Dutch system, and neither are Dubov,
+  Burstein, a match-format event or anything ETT26 calls CUSTOM. Judging
+  any of those would report a correct file as broken, which teaches an
+  arbiter to ignore the notice that matters. `192` decides where it is
+  present; where it is absent the `092` label does, and a file that names
+  no system at all is taken for the individual Swiss the rest of this
+  importer already assumes it is. The one gap that leaves is a Keizer
+  event with no `192` - Keizer has no FIDE code to declare and this app's
+  own export always writes one (`CUSTOM_SWISS`), so that shape is a
+  third-party Keizer TRF, which is not a thing anyone files.
+- **Anything, if the check itself fails.** The whole pass is rescued and
+  logged. Losing the verification must never lose the tournament.
+
+The check never blocks an import. A file with an illegal round is
+recreated exactly as it records it and the arbiter is told - the same
+choice the points cross-check makes, and for the same reason: somebody
+recovering a historical event needs the data more than they need our
+opinion of it.
 
 ## Result-code mapping
 
